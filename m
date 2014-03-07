@@ -1,46 +1,35 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 2/2] vlan: use use ether_addr_equal_64bits to instead of ether_addr_equal
-Date: Fri, 7 Mar 2014 18:45:31 +0800
-Message-ID: <1394189131-3916-3-git-send-email-dingtianhong@huawei.com>
-References: <1394189131-3916-1-git-send-email-dingtianhong@huawei.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL nf-next 0/2] IPVS Updates for v3.15
+Date: Fri, 7 Mar 2014 11:46:12 +0100
+Message-ID: <20140307104612.GA11150@localhost>
+References: <1394163974-25877-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <julia.lawall@lip6.fr>, <netdev@vger.kernel.org>
-To: <kaber@trash.net>, <davem@davemloft.net>, <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:59873 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751013AbaCGKp7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 05:45:59 -0500
-In-Reply-To: <1394189131-3916-1-git-send-email-dingtianhong@huawei.com>
+Received: from mail.us.es ([193.147.175.20]:46522 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751684AbaCGKqS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Mar 2014 05:46:18 -0500
+Content-Disposition: inline
+In-Reply-To: <1394163974-25877-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ether_addr_equal_64bits is more efficient than ether_addr_equal, and
-can be used when each argument is an array within a structure that
-contains at least two bytes of data beyond the array, so it is safe
-to use it for vlan, and make sense for fast path.
+On Fri, Mar 07, 2014 at 12:46:12PM +0900, Simon Horman wrote:
+> Hi Pablo,
+> 
+> please consider the following updates for IPVS for v3.15.
+> 
+> It consists of two cleanups.
+> * Whitespace cleanup from Tingwei Liu
+> * Section conflict cleanup from Andi Kleen
+> 
+> Please feel free to put Andi's patch into nf instead of nf-next if
+> you think that is appropriate.
 
-Cc: Joe Perches <joe@perches.com>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- net/8021q/vlan_core.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index 97815ec..35b3c19 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -26,7 +26,7 @@ bool vlan_do_receive(struct sk_buff **skbp)
- 		/* Our lower layer thinks this is not local, let's make sure.
- 		 * This allows the VLAN to have a different MAC than the
- 		 * underlying device, and still route correctly. */
--		if (ether_addr_equal(eth_hdr(skb)->h_dest, vlan_dev->dev_addr))
-+		if (ether_addr_equal_64bits(eth_hdr(skb)->h_dest, vlan_dev->dev_addr))
- 			skb->pkt_type = PACKET_HOST;
- 	}
- 
--- 
-1.8.0
+Pulled into nf-next, thanks Simon.
