@@ -1,110 +1,92 @@
-From: Marcelo Tosatti <mtosatti@redhat.com>
-Subject: [PATCH] e1000: do not allow watchdog to reenable
- transmits on shutdown
-Date: Thu, 6 Mar 2014 23:04:20 -0300
-Message-ID: <20140307020420.GA10797@amt.cnet>
+From: =?UTF-8?Q?Bernhard_Rosenkr=C3=A4nzer?= <bero@lindev.ch>
+Subject: [PATCH] iproute2: Fix warnings with gcc 4.9 and clang 3.4
+Date: Fri, 07 Mar 2014 03:00:53 +0100
+Message-ID: <284875ac93e0904c42a436cbf05cc57d@mail.lindev.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/mixed;
+ boundary="=_50fe5a6dc7a56794fb59396f4854bac4"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bero.eu ([88.198.22.18]:41198 "EHLO mail.bero.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752337AbaCGCKm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Mar 2014 21:10:42 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by mail.bero.eu (Postfix) with ESMTP id A6143EE14D9
+	for <netdev@vger.kernel.org>; Fri,  7 Mar 2014 02:01:09 +0000 (UTC)
+Received: from mail.bero.eu ([127.0.0.1])
+	by localhost (ch.bero.eu [127.0.0.1]) (amavisd-new, port 10025)
+	with LMTP id 9w96zzbbfu8i for <netdev@vger.kernel.org>;
+	Fri,  7 Mar 2014 02:00:54 +0000 (UTC)
+Received: from mail.lindev.ch (localhost [127.0.0.1])
+	by mail.bero.eu (Postfix) with ESMTPA id 0D846EE14D5
+	for <netdev@vger.kernel.org>; Fri,  7 Mar 2014 02:00:54 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--=_50fe5a6dc7a56794fb59396f4854bac4
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Vladimir Davydov <VDavydov@parallels.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
 
+Hi,
+the latest compilers (gcc 4.9 and clang 3.4) issue warnings when doing 
+an incomplete struct initialization (e.g. "struct tc_sizespec s = 
+{0};").
 
-There is a race on the shutdown path of the e1000 driver
-that allows the card to DMA into free'd memory.
+Since many people like to compile lower level bits and pieces with 
+-Werror, this should probably be fixed. Patch attached.
 
-The symptoms are similar to those described at 
-commit d5bc77a223b0e9b9dfb002048d2b34a79e7d0b48,
-"e1000: don't enable dma receives until after dma address has been
-setup", where memory corruption is visible due to E1000_RXD_STAT_DD
-being written to the DMA transfer descriptor.
+ttyl
+bero
+--=_50fe5a6dc7a56794fb59396f4854bac4
+Content-Transfer-Encoding: base64
+Content-Type: text/x-diff;
+ name=iproute2-compilerwarnings.patch
+Content-Disposition: attachment;
+ filename=iproute2-compilerwarnings.patch;
+ size=2357
 
-Fix by not allowing the watchdog and tx fifo stall detector
-to re-enable E1000_TCTL_EN.
-
-Signed-off-by: Marcelo Tosatti <mtosatti@redhat.com>
-
-diff --git a/drivers/net/ethernet/intel/e1000/e1000.h b/drivers/net/ethernet/intel/e1000/e1000.h
-index 10a0f22..bb5dc1a 100644
---- a/drivers/net/ethernet/intel/e1000/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000/e1000.h
-@@ -321,7 +321,8 @@ struct e1000_adapter {
- enum e1000_state_t {
- 	__E1000_TESTING,
- 	__E1000_RESETTING,
--	__E1000_DOWN
-+	__E1000_DOWN,
-+	__E1000_NOTX = 4,
- };
- 
- #undef pr_fmt
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 46e6544..b20ce98 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -414,6 +414,7 @@ int e1000_up(struct e1000_adapter *adapter)
- 	e1000_configure(adapter);
- 
- 	clear_bit(__E1000_DOWN, &adapter->flags);
-+	clear_bit(__E1000_NOTX, &adapter->flags);
- 
- 	napi_enable(&adapter->napi);
- 
-@@ -524,6 +525,10 @@ void e1000_down(struct e1000_adapter *adapter)
- 
- 	netif_tx_disable(netdev);
- 
-+	/* do not allow watchdog to reenable transmits between 
-+           clearing E1000_TCTL_EN below and setting E1000_DOWN */
-+	set_bit(__E1000_NOTX, &adapter->flags);
-+
- 	/* disable transmits in the hardware */
- 	tctl = er32(TCTL);
- 	tctl &= ~E1000_TCTL_EN;
-@@ -2339,6 +2344,9 @@ static void e1000_82547_tx_fifo_stall_task(struct work_struct *work)
- 	struct net_device *netdev = adapter->netdev;
- 	u32 tctl;
- 
-+	if (test_bit(__E1000_NOTX, &adapter->flags))
-+		return;
-+
- 	if (atomic_read(&adapter->tx_fifo_stall)) {
- 		if ((er32(TDT) == er32(TDH)) &&
- 		   (er32(TDFT) == er32(TDFH)) &&
-@@ -2412,6 +2420,9 @@ static void e1000_watchdog(struct work_struct *work)
- 	struct e1000_tx_ring *txdr = adapter->tx_ring;
- 	u32 link, tctl;
- 
-+	if (test_bit(__E1000_NOTX, &adapter->flags))
-+		return;
-+
- 	link = e1000_has_link(adapter);
- 	if ((netif_carrier_ok(netdev)) && link)
- 		goto link_up;
-
-
-
-
-------------------------------------------------------------------------------
-Subversion Kills Productivity. Get off Subversion & Make the Move to Perforce.
-With Perforce, you get hassle-free workflows. Merge that actually works. 
-Faster operations. Version large binaries.  Built-in WAN optimization and the
-freedom to use Git, Perforce or both. Make the move to Perforce.
-http://pubads.g.doubleclick.net/gampad/clk?id=122218951&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+RnJvbTogQmVybmhhcmQgUm9zZW5rcsOkbnplciA8QmVybmhhcmQuUm9zZW5rcmFuemVyQGxpbmFy
+by5vcmc+ClN1YmplY3Q6IFtQQVRDSF0gRml4IGNvbXBpbGVyIHdhcm5pbmdzIHdpdGggZ2NjIDQu
+OSBhbmQgY2xhbmcgMy40CgpDdXJyZW50IGNvbXBpbGVycyAoZ2NjIDQuOSBhbmQgY2xhbmcgMy40
+KSBpc3N1ZSB3YXJuaW5ncyB3aGVuIGRvaW5nCmFuIGluY29tcGxldGUgc3RydWN0IGluaXRpYWxp
+emF0aW9uIChlLmcuICJzdHJ1Y3QgdGNfc2l6ZXNwZWMgcyA9IHswfTsiKS4KCkluaXRpYWxpemUg
+dGhlIHN0cnVjdHMgY29tcGxldGVseSBzbyB3ZSBjYW4gYnVpbGQgd2l0aCAtV2Vycm9yLgoKU2ln
+bmVkLW9mZi1ieTogQmVybmhhcmQgUm9zZW5rcsOkbnplciA8QmVybmhhcmQuUm9zZW5rcmFuemVy
+QGxpbmFyby5vcmc+Ci0tLQoKZGlmZiAtLWdpdCBhL3RjL3RjX3N0YWIuYyBiL3RjL3RjX3N0YWIu
+YwppbmRleCA0N2I0ZTVlLi43NDA3Y2U1IDEwMDY0NAotLS0gYS90Yy90Y19zdGFiLmMKKysrIGIv
+dGMvdGNfc3RhYi5jCkBAIC0xMjQsNyArMTI0LDcgQEAKIAlwYXJzZV9ydGF0dHJfbmVzdGVkKHRi
+LCBUQ0FfU1RBQl9NQVgsIHJ0YSk7CiAKIAlpZiAodGJbVENBX1NUQUJfQkFTRV0pIHsKLQkJc3Ry
+dWN0IHRjX3NpemVzcGVjIHMgPSB7MH07CisJCXN0cnVjdCB0Y19zaXplc3BlYyBzID0gezAsIDAs
+IDAsIDAsIDAsIDAsIDAsIDB9OwogCQltZW1jcHkoJnMsIFJUQV9EQVRBKHRiW1RDQV9TVEFCX0JB
+U0VdKSwKIAkJCQlNSU4oUlRBX1BBWUxPQUQodGJbVENBX1NUQUJfQkFTRV0pLCBzaXplb2Yocykp
+KTsKIApkaWZmIC0tZ2l0IGEvdGMvdGNfdXRpbC5jIGIvdGMvdGNfdXRpbC5jCmluZGV4IDkyNmVk
+MDguLjU0OGI3MjggMTAwNjQ0Ci0tLSBhL3RjL3RjX3V0aWwuYworKysgYi90Yy90Y191dGlsLmMK
+QEAgLTEzOSw3ICsxMzksNyBAQAogCXsgIkdCcHMiLAk4MDAwMDAwMDAwLiB9LAogCXsgIlRpQnBz
+IiwJOC4qMTAyNC4qMTAyNC4qMTAyNC4qMTAyNC4gfSwKIAl7ICJUQnBzIiwJODAwMDAwMDAwMDAw
+MC4gfSwKLQl7IE5VTEwgfQorCXsgTlVMTCwgLjAgfQogfTsKIAogCkBAIC00NzIsMjggKzQ3Miwy
+OCBAQAogCXBhcnNlX3J0YXR0cl9uZXN0ZWQodGJzLCBUQ0FfU1RBVFNfTUFYLCBydGEpOwogCiAJ
+aWYgKHRic1tUQ0FfU1RBVFNfQkFTSUNdKSB7Ci0JCXN0cnVjdCBnbmV0X3N0YXRzX2Jhc2ljIGJz
+ID0gezB9OworCQlzdHJ1Y3QgZ25ldF9zdGF0c19iYXNpYyBicyA9IHswLCAwfTsKIAkJbWVtY3B5
+KCZicywgUlRBX0RBVEEodGJzW1RDQV9TVEFUU19CQVNJQ10pLCBNSU4oUlRBX1BBWUxPQUQodGJz
+W1RDQV9TVEFUU19CQVNJQ10pLCBzaXplb2YoYnMpKSk7CiAJCWZwcmludGYoZnAsICIlc1NlbnQg
+JWxsdSBieXRlcyAldSBwa3QiLAogCQkJcHJlZml4LCAodW5zaWduZWQgbG9uZyBsb25nKSBicy5i
+eXRlcywgYnMucGFja2V0cyk7CiAJfQogCiAJaWYgKHRic1tUQ0FfU1RBVFNfUVVFVUVdKSB7Ci0J
+CXN0cnVjdCBnbmV0X3N0YXRzX3F1ZXVlIHEgPSB7MH07CisJCXN0cnVjdCBnbmV0X3N0YXRzX3F1
+ZXVlIHEgPSB7MCwgMCwgMCwgMCwgMH07CiAJCW1lbWNweSgmcSwgUlRBX0RBVEEodGJzW1RDQV9T
+VEFUU19RVUVVRV0pLCBNSU4oUlRBX1BBWUxPQUQodGJzW1RDQV9TVEFUU19RVUVVRV0pLCBzaXpl
+b2YocSkpKTsKIAkJZnByaW50ZihmcCwgIiAoZHJvcHBlZCAldSwgb3ZlcmxpbWl0cyAldSByZXF1
+ZXVlcyAldSkgIiwKIAkJCXEuZHJvcHMsIHEub3ZlcmxpbWl0cywgcS5yZXF1ZXVlcyk7CiAJfQog
+CiAJaWYgKHRic1tUQ0FfU1RBVFNfUkFURV9FU1RdKSB7Ci0JCXN0cnVjdCBnbmV0X3N0YXRzX3Jh
+dGVfZXN0IHJlID0gezB9OworCQlzdHJ1Y3QgZ25ldF9zdGF0c19yYXRlX2VzdCByZSA9IHswLCAw
+fTsKIAkJbWVtY3B5KCZyZSwgUlRBX0RBVEEodGJzW1RDQV9TVEFUU19SQVRFX0VTVF0pLCBNSU4o
+UlRBX1BBWUxPQUQodGJzW1RDQV9TVEFUU19SQVRFX0VTVF0pLCBzaXplb2YocmUpKSk7CiAJCWZw
+cmludGYoZnAsICJcbiVzcmF0ZSAlcyAldXBwcyAiLAogCQkJcHJlZml4LCBzcHJpbnRfcmF0ZShy
+ZS5icHMsIGIxKSwgcmUucHBzKTsKIAl9CiAKIAlpZiAodGJzW1RDQV9TVEFUU19RVUVVRV0pIHsK
+LQkJc3RydWN0IGduZXRfc3RhdHNfcXVldWUgcSA9IHswfTsKKwkJc3RydWN0IGduZXRfc3RhdHNf
+cXVldWUgcSA9IHswLCAwLCAwLCAwLCAwfTsKIAkJbWVtY3B5KCZxLCBSVEFfREFUQSh0YnNbVENB
+X1NUQVRTX1FVRVVFXSksIE1JTihSVEFfUEFZTE9BRCh0YnNbVENBX1NUQVRTX1FVRVVFXSksIHNp
+emVvZihxKSkpOwogCQlpZiAoIXRic1tUQ0FfU1RBVFNfUkFURV9FU1RdKQogCQkJZnByaW50Zihm
+cCwgIlxuJXMiLCBwcmVmaXgpOwo=
+--=_50fe5a6dc7a56794fb59396f4854bac4--
