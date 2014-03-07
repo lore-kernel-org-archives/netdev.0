@@ -1,254 +1,480 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v6 net-next 1/3] filter: add Extended BPF interpreter and converter
-Date: Fri, 7 Mar 2014 14:19:39 -0800
-Message-ID: <CAMEtUuzgM5xKAXZaC+Up9bKy6MaS8V6jFGq49QY7VxQOSFgcBw@mail.gmail.com>
-References: <1394076617-8108-1-git-send-email-ast@plumgrid.com>
-	<1394076617-8108-2-git-send-email-ast@plumgrid.com>
-	<20140307.153808.649644634357014854.davem@davemloft.net>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: [PATCHv2 2/2] selinux: add gfp argument to security_xfrm_policy_alloc and fix callers
+Date: Fri, 07 Mar 2014 17:27:17 -0500
+Message-ID: <2297449.8Lk5u4VomY@sifl>
+References: <20140227151954.GA30946@redhat.com> <1394192659-10764-1-git-send-email-nikolay@redhat.com> <1394192659-10764-3-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Jesse Gross <jesse@nicira.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Tom Zanussi <tom.zanussi@linux.intel.com>,
-	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	=?ISO-8859-1?Q?Fr=E9d=E9ric_Weisbecker?= <fweisbec@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Pekka Enberg <penberg@iki.fi>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:36481 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752248AbaCGWTk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 17:19:40 -0500
-Received: by mail-wg0-f45.google.com with SMTP id l18so5393423wgh.28
-        for <netdev@vger.kernel.org>; Fri, 07 Mar 2014 14:19:39 -0800 (PST)
-In-Reply-To: <20140307.153808.649644634357014854.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, Dave Jones <davej@redhat.com>,
+	Fan Du <fan.du@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	LSM list <linux-security-module@vger.kernel.org>,
+	SELinux list <selinux@tycho.nsa.gov>
+To: Nikolay Aleksandrov <nikolay@redhat.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1394192659-10764-3-git-send-email-nikolay@redhat.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 7, 2014 at 12:38 PM, David Miller <davem@davemloft.net> wrote:
-> From: Alexei Starovoitov <ast@plumgrid.com>
-> Date: Wed,  5 Mar 2014 19:30:15 -0800
->
->> Extended BPF extends old BPF in the following ways:
->> - from 2 to 10 registers
->>   Original BPF has two registers (A and X) and hidden frame pointer.
->>   Extended BPF has ten registers and read-only frame pointer.
->> - from 32-bit registers to 64-bit registers
->>   semantics of old 32-bit ALU operations are preserved via 32-bit
->>   subregisters
->> - if (cond) jump_true; else jump_false;
->>   old BPF insns are replaced with:
->>   if (cond) jump_true; /* else fallthrough */
->> - adds signed > and >= insns
->> - 16 4-byte stack slots for register spill-fill replaced with
->>   up to 512 bytes of multi-use stack space
->> - introduces bpf_call insn and register passing convention for zero
->>   overhead calls from/to other kernel functions (not part of this patch)
->> - adds arithmetic right shift insn
->> - adds swab32/swab64 insns
->> - adds atomic_add insn
->> - old tax/txa insns are replaced with 'mov dst,src' insn
->>
->> Extended BPF is designed to be JITed with one to one mapping, which
->> allows GCC/LLVM backends to generate optimized BPF code that performs
->> almost as fast as natively compiled code
->
-> I have no fundamental objections to this work, but these patches still
-> need some adjustments.
+On Friday, March 07, 2014 12:44:19 PM Nikolay Aleksandrov wrote:
+> security_xfrm_policy_alloc can be called in atomic context so the
+> allocation should be done with GFP_ATOMIC. Add an argument to let the
+> callers choose the appropriate way. In order to do so a gfp argument
+> needs to be added to the method xfrm_policy_alloc_security in struct
+> security_operations and to the internal function
+> selinux_xfrm_alloc_user. After that switch to GFP_ATOMIC in the atomic
+> callers and leave GFP_KERNEL as before for the rest.
+> The path that needed the gfp argument addition is:
+> security_xfrm_policy_alloc -> security_ops.xfrm_policy_alloc_security ->
+> all users of xfrm_policy_alloc_security (e.g. selinux_xfrm_policy_alloc) ->
+> selinux_xfrm_alloc_user (here the allocation used to be GFP_KERNEL only)
+> 
+> Now adding a gfp argument to selinux_xfrm_alloc_user requires us to also
+> add it to security_context_to_sid which is used inside and prior to this
+> patch did only GFP_KERNEL allocation. So add gfp argument to
+> security_context_to_sid and adjust all of its callers as well.
+> 
+> CC: Paul Moore <paul@paul-moore.com>
+> CC: Dave Jones <davej@redhat.com>
+> CC: Steffen Klassert <steffen.klassert@secunet.com>
+> CC: Fan Du <fan.du@windriver.com>
+> CC: David S. Miller <davem@davemloft.net>
+> CC: LSM list <linux-security-module@vger.kernel.org>
+> CC: SELinux list <selinux@tycho.nsa.gov>
+> 
+> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 
-Great!
-Let me explain the reasons for the ugly pieces you pointed out:
+This looks good to me, thanks for finding this and following through with a 
+patch.
 
->> @@ -637,6 +641,10 @@ void sk_filter_release_rcu(struct rcu_head *rcu)
->>  {
->>       struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
->>
->> +     if ((void *)fp->bpf_func == (void *)sk_run_filter_ext)
->> +             /* arch specific jit_free are expecting this value */
->> +             fp->bpf_func = sk_run_filter;
->> +
->
-> You should never need to cast ->bpf_func for any reason, the types have
-> to be correct on both sides of assignments and tests.
->
-> Furthermore, for this case, I think we should not continue to use
-> ad-hoc mechanisms for the JIT implementations to test this condition.
->
-> Rather, make some explicit piece of state for this, and have the JITs
-> test that instead.
+Acked-by: Paul Moore <paul@paul-moore.com>
 
-Agreed. In the first patch I didn't want to touch 5 arch/*/net/*jit
-files to test for
-the flag whether 'bpf_func' comes from JIT or not.
-and was thinking to clean it up as follow on.
-but if that's must have, I will roll it into this patch.
+> ---
+> v2: Add SELinux list to CCs, add gfp argument to security_context_to_sid
+> and adjust callers
+> 
+>  include/linux/security.h            | 10 +++++++---
+>  net/key/af_key.c                    |  6 +++---
+>  net/xfrm/xfrm_user.c                |  6 +++---
+>  security/capability.c               |  3 ++-
+>  security/security.c                 |  6 ++++--
+>  security/selinux/hooks.c            | 13 +++++++------
+>  security/selinux/include/security.h |  2 +-
+>  security/selinux/include/xfrm.h     |  3 ++-
+>  security/selinux/selinuxfs.c        | 28 ++++++++++++++++++----------
+>  security/selinux/ss/services.c      |  6 ++++--
+>  security/selinux/xfrm.c             | 14 ++++++++------
+>  11 files changed, 59 insertions(+), 38 deletions(-)
+> 
+> diff --git a/include/linux/security.h b/include/linux/security.h
+> index 5623a7f965b7..2fc42d191f79 100644
+> --- a/include/linux/security.h
+> +++ b/include/linux/security.h
+> @@ -1040,6 +1040,7 @@ static inline void security_free_mnt_opts(struct
+> security_mnt_opts *opts) *	Allocate a security structure to the
+> xp->security field; the security *	field is initialized to NULL when the
+> xfrm_policy is allocated. *	Return 0 if operation was successful (memory 
+to
+> allocate, legal context) + *	@gfp is to specify the context for the
+> allocation
+>   * @xfrm_policy_clone_security:
+>   *	@old_ctx contains an existing xfrm_sec_ctx.
+>   *	@new_ctxp contains a new xfrm_sec_ctx being cloned from old.
+> @@ -1683,7 +1684,7 @@ struct security_operations {
+> 
+>  #ifdef CONFIG_SECURITY_NETWORK_XFRM
+>  	int (*xfrm_policy_alloc_security) (struct xfrm_sec_ctx **ctxp,
+> -			struct xfrm_user_sec_ctx *sec_ctx);
+> +			struct xfrm_user_sec_ctx *sec_ctx, gfp_t gfp);
+>  	int (*xfrm_policy_clone_security) (struct xfrm_sec_ctx *old_ctx, struct
+> xfrm_sec_ctx **new_ctx); void (*xfrm_policy_free_security) (struct
+> xfrm_sec_ctx *ctx);
+>  	int (*xfrm_policy_delete_security) (struct xfrm_sec_ctx *ctx);
+> @@ -2859,7 +2860,8 @@ static inline void security_skb_owned_by(struct
+> sk_buff *skb, struct sock *sk)
+> 
+>  #ifdef CONFIG_SECURITY_NETWORK_XFRM
+> 
+> -int security_xfrm_policy_alloc(struct xfrm_sec_ctx **ctxp, struct
+> xfrm_user_sec_ctx *sec_ctx); +int security_xfrm_policy_alloc(struct
+> xfrm_sec_ctx **ctxp,
+> +			       struct xfrm_user_sec_ctx *sec_ctx, gfp_t gfp);
+>  int security_xfrm_policy_clone(struct xfrm_sec_ctx *old_ctx, struct
+> xfrm_sec_ctx **new_ctxp); void security_xfrm_policy_free(struct
+> xfrm_sec_ctx *ctx);
+>  int security_xfrm_policy_delete(struct xfrm_sec_ctx *ctx);
+> @@ -2877,7 +2879,9 @@ void security_skb_classify_flow(struct sk_buff *skb,
+> struct flowi *fl);
+> 
+>  #else	/* CONFIG_SECURITY_NETWORK_XFRM */
+> 
+> -static inline int security_xfrm_policy_alloc(struct xfrm_sec_ctx **ctxp,
+> struct xfrm_user_sec_ctx *sec_ctx) +static inline int
+> security_xfrm_policy_alloc(struct xfrm_sec_ctx **ctxp, +					
+     struct
+> xfrm_user_sec_ctx *sec_ctx,
+> +					     gfp_t gfp)
+>  {
+>  	return 0;
+>  }
+> diff --git a/net/key/af_key.c b/net/key/af_key.c
+> index 1526023f99ed..79326978517a 100644
+> --- a/net/key/af_key.c
+> +++ b/net/key/af_key.c
+> @@ -2239,7 +2239,7 @@ static int pfkey_spdadd(struct sock *sk, struct
+> sk_buff *skb, const struct sadb_ goto out;
+>  		}
+> 
+> -		err = security_xfrm_policy_alloc(&xp->security, uctx);
+> +		err = security_xfrm_policy_alloc(&xp->security, uctx, GFP_KERNEL);
+>  		kfree(uctx);
+> 
+>  		if (err)
+> @@ -2341,7 +2341,7 @@ static int pfkey_spddelete(struct sock *sk, struct
+> sk_buff *skb, const struct sa if (!uctx)
+>  			return -ENOMEM;
+> 
+> -		err = security_xfrm_policy_alloc(&pol_ctx, uctx);
+> +		err = security_xfrm_policy_alloc(&pol_ctx, uctx, GFP_KERNEL);
+>  		kfree(uctx);
+>  		if (err)
+>  			return err;
+> @@ -3241,7 +3241,7 @@ static struct xfrm_policy *pfkey_compile_policy(struct
+> sock *sk, int opt, if ((*dir = verify_sec_ctx_len(p)))
+>  			goto out;
+>  		uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_ATOMIC);
+> -		*dir = security_xfrm_policy_alloc(&xp->security, uctx);
+> +		*dir = security_xfrm_policy_alloc(&xp->security, uctx, GFP_ATOMIC);
+>  		kfree(uctx);
+> 
+>  		if (*dir)
+> diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+> index c274179d60a2..2f7ddc3a59b4 100644
+> --- a/net/xfrm/xfrm_user.c
+> +++ b/net/xfrm/xfrm_user.c
+> @@ -1221,7 +1221,7 @@ static int copy_from_user_sec_ctx(struct xfrm_policy
+> *pol, struct nlattr **attrs return 0;
+> 
+>  	uctx = nla_data(rt);
+> -	return security_xfrm_policy_alloc(&pol->security, uctx);
+> +	return security_xfrm_policy_alloc(&pol->security, uctx, GFP_KERNEL);
+>  }
+> 
+>  static void copy_templates(struct xfrm_policy *xp, struct xfrm_user_tmpl
+> *ut, @@ -1626,7 +1626,7 @@ static int xfrm_get_policy(struct sk_buff *skb,
+> struct nlmsghdr *nlh, if (rt) {
+>  			struct xfrm_user_sec_ctx *uctx = nla_data(rt);
+> 
+> -			err = security_xfrm_policy_alloc(&ctx, uctx);
+> +			err = security_xfrm_policy_alloc(&ctx, uctx, GFP_KERNEL);
+>  			if (err)
+>  				return err;
+>  		}
+> @@ -1928,7 +1928,7 @@ static int xfrm_add_pol_expire(struct sk_buff *skb,
+> struct nlmsghdr *nlh, if (rt) {
+>  			struct xfrm_user_sec_ctx *uctx = nla_data(rt);
+> 
+> -			err = security_xfrm_policy_alloc(&ctx, uctx);
+> +			err = security_xfrm_policy_alloc(&ctx, uctx, GFP_KERNEL);
+>  			if (err)
+>  				return err;
+>  		}
+> diff --git a/security/capability.c b/security/capability.c
+> index 8b4f24ae4338..21e2b9cae685 100644
+> --- a/security/capability.c
+> +++ b/security/capability.c
+> @@ -757,7 +757,8 @@ static void cap_skb_owned_by(struct sk_buff *skb, struct
+> sock *sk)
+> 
+>  #ifdef CONFIG_SECURITY_NETWORK_XFRM
+>  static int cap_xfrm_policy_alloc_security(struct xfrm_sec_ctx **ctxp,
+> -					  struct xfrm_user_sec_ctx *sec_ctx)
+> +					  struct xfrm_user_sec_ctx *sec_ctx,
+> +					  gfp_t gfp)
+>  {
+>  	return 0;
+>  }
+> diff --git a/security/security.c b/security/security.c
+> index 15b6928592ef..919cad93ac82 100644
+> --- a/security/security.c
+> +++ b/security/security.c
+> @@ -1317,9 +1317,11 @@ void security_skb_owned_by(struct sk_buff *skb,
+> struct sock *sk)
+> 
+>  #ifdef CONFIG_SECURITY_NETWORK_XFRM
+> 
+> -int security_xfrm_policy_alloc(struct xfrm_sec_ctx **ctxp, struct
+> xfrm_user_sec_ctx *sec_ctx) +int security_xfrm_policy_alloc(struct
+> xfrm_sec_ctx **ctxp,
+> +			       struct xfrm_user_sec_ctx *sec_ctx,
+> +			       gfp_t gfp)
+>  {
+> -	return security_ops->xfrm_policy_alloc_security(ctxp, sec_ctx);
+> +	return security_ops->xfrm_policy_alloc_security(ctxp, sec_ctx, gfp);
+>  }
+>  EXPORT_SYMBOL(security_xfrm_policy_alloc);
+> 
+> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+> index 4b34847208cc..b332e2cc0954 100644
+> --- a/security/selinux/hooks.c
+> +++ b/security/selinux/hooks.c
+> @@ -668,7 +668,7 @@ static int selinux_set_mnt_opts(struct super_block *sb,
+>  		if (flags[i] == SBLABEL_MNT)
+>  			continue;
+>  		rc = security_context_to_sid(mount_options[i],
+> -					     strlen(mount_options[i]), &sid);
+> +					     strlen(mount_options[i]), &sid, GFP_KERNEL);
+>  		if (rc) {
+>  			printk(KERN_WARNING "SELinux: security_context_to_sid"
+>  			       "(%s) failed for (dev %s, type %s) errno=%d\n",
+> @@ -2489,7 +2489,8 @@ static int selinux_sb_remount(struct super_block *sb,
+> void *data) if (flags[i] == SBLABEL_MNT)
+>  			continue;
+>  		len = strlen(mount_options[i]);
+> -		rc = security_context_to_sid(mount_options[i], len, &sid);
+> +		rc = security_context_to_sid(mount_options[i], len, &sid,
+> +					     GFP_KERNEL);
+>  		if (rc) {
+>  			printk(KERN_WARNING "SELinux: security_context_to_sid"
+>  			       "(%s) failed for (dev %s, type %s) errno=%d\n",
+> @@ -2893,7 +2894,7 @@ static int selinux_inode_setxattr(struct dentry
+> *dentry, const char *name, if (rc)
+>  		return rc;
+> 
+> -	rc = security_context_to_sid(value, size, &newsid);
+> +	rc = security_context_to_sid(value, size, &newsid, GFP_KERNEL);
+>  	if (rc == -EINVAL) {
+>  		if (!capable(CAP_MAC_ADMIN)) {
+>  			struct audit_buffer *ab;
+> @@ -3050,7 +3051,7 @@ static int selinux_inode_setsecurity(struct inode
+> *inode, const char *name, if (!value || !size)
+>  		return -EACCES;
+> 
+> -	rc = security_context_to_sid((void *)value, size, &newsid);
+> +	rc = security_context_to_sid((void *)value, size, &newsid, GFP_KERNEL);
+>  	if (rc)
+>  		return rc;
+> 
+> @@ -5529,7 +5530,7 @@ static int selinux_setprocattr(struct task_struct *p,
+>  			str[size-1] = 0;
+>  			size--;
+>  		}
+> -		error = security_context_to_sid(value, size, &sid);
+> +		error = security_context_to_sid(value, size, &sid, GFP_KERNEL);
+>  		if (error == -EINVAL && !strcmp(name, "fscreate")) {
+>  			if (!capable(CAP_MAC_ADMIN)) {
+>  				struct audit_buffer *ab;
+> @@ -5638,7 +5639,7 @@ static int selinux_secid_to_secctx(u32 secid, char
+> **secdata, u32 *seclen)
+> 
+>  static int selinux_secctx_to_secid(const char *secdata, u32 seclen, u32
+> *secid) {
+> -	return security_context_to_sid(secdata, seclen, secid);
+> +	return security_context_to_sid(secdata, seclen, secid, GFP_KERNEL);
+>  }
+> 
+>  static void selinux_release_secctx(char *secdata, u32 seclen)
+> diff --git a/security/selinux/include/security.h
+> b/security/selinux/include/security.h index 8ed8daf7f1ee..ce7852cf526b
+> 100644
+> --- a/security/selinux/include/security.h
+> +++ b/security/selinux/include/security.h
+> @@ -134,7 +134,7 @@ int security_sid_to_context(u32 sid, char **scontext,
+>  int security_sid_to_context_force(u32 sid, char **scontext, u32
+> *scontext_len);
+> 
+>  int security_context_to_sid(const char *scontext, u32 scontext_len,
+> -	u32 *out_sid);
+> +			    u32 *out_sid, gfp_t gfp);
+> 
+>  int security_context_to_sid_default(const char *scontext, u32 scontext_len,
+> u32 *out_sid, u32 def_sid, gfp_t gfp_flags);
+> diff --git a/security/selinux/include/xfrm.h
+> b/security/selinux/include/xfrm.h index 48c3cc94c168..9f0584710c85 100644
+> --- a/security/selinux/include/xfrm.h
+> +++ b/security/selinux/include/xfrm.h
+> @@ -10,7 +10,8 @@
+>  #include <net/flow.h>
+> 
+>  int selinux_xfrm_policy_alloc(struct xfrm_sec_ctx **ctxp,
+> -			      struct xfrm_user_sec_ctx *uctx);
+> +			      struct xfrm_user_sec_ctx *uctx,
+> +			      gfp_t gfp);
+>  int selinux_xfrm_policy_clone(struct xfrm_sec_ctx *old_ctx,
+>  			      struct xfrm_sec_ctx **new_ctxp);
+>  void selinux_xfrm_policy_free(struct xfrm_sec_ctx *ctx);
+> diff --git a/security/selinux/selinuxfs.c b/security/selinux/selinuxfs.c
+> index 5122affe06a8..d60c0ee66387 100644
+> --- a/security/selinux/selinuxfs.c
+> +++ b/security/selinux/selinuxfs.c
+> @@ -576,7 +576,7 @@ static ssize_t sel_write_context(struct file *file, char
+> *buf, size_t size) if (length)
+>  		goto out;
+> 
+> -	length = security_context_to_sid(buf, size, &sid);
+> +	length = security_context_to_sid(buf, size, &sid, GFP_KERNEL);
+>  	if (length)
+>  		goto out;
+> 
+> @@ -731,11 +731,13 @@ static ssize_t sel_write_access(struct file *file,
+> char *buf, size_t size) if (sscanf(buf, "%s %s %hu", scon, tcon, &tclass)
+> != 3)
+>  		goto out;
+> 
+> -	length = security_context_to_sid(scon, strlen(scon) + 1, &ssid);
+> +	length = security_context_to_sid(scon, strlen(scon) + 1, &ssid,
+> +					 GFP_KERNEL);
+>  	if (length)
+>  		goto out;
+> 
+> -	length = security_context_to_sid(tcon, strlen(tcon) + 1, &tsid);
+> +	length = security_context_to_sid(tcon, strlen(tcon) + 1, &tsid,
+> +					 GFP_KERNEL);
+>  	if (length)
+>  		goto out;
+> 
+> @@ -817,11 +819,13 @@ static ssize_t sel_write_create(struct file *file,
+> char *buf, size_t size) objname = namebuf;
+>  	}
+> 
+> -	length = security_context_to_sid(scon, strlen(scon) + 1, &ssid);
+> +	length = security_context_to_sid(scon, strlen(scon) + 1, &ssid,
+> +					 GFP_KERNEL);
+>  	if (length)
+>  		goto out;
+> 
+> -	length = security_context_to_sid(tcon, strlen(tcon) + 1, &tsid);
+> +	length = security_context_to_sid(tcon, strlen(tcon) + 1, &tsid,
+> +					 GFP_KERNEL);
+>  	if (length)
+>  		goto out;
+> 
+> @@ -878,11 +882,13 @@ static ssize_t sel_write_relabel(struct file *file,
+> char *buf, size_t size) if (sscanf(buf, "%s %s %hu", scon, tcon, &tclass)
+> != 3)
+>  		goto out;
+> 
+> -	length = security_context_to_sid(scon, strlen(scon) + 1, &ssid);
+> +	length = security_context_to_sid(scon, strlen(scon) + 1, &ssid,
+> +					 GFP_KERNEL);
+>  	if (length)
+>  		goto out;
+> 
+> -	length = security_context_to_sid(tcon, strlen(tcon) + 1, &tsid);
+> +	length = security_context_to_sid(tcon, strlen(tcon) + 1, &tsid,
+> +					 GFP_KERNEL);
+>  	if (length)
+>  		goto out;
+> 
+> @@ -934,7 +940,7 @@ static ssize_t sel_write_user(struct file *file, char
+> *buf, size_t size) if (sscanf(buf, "%s %s", con, user) != 2)
+>  		goto out;
+> 
+> -	length = security_context_to_sid(con, strlen(con) + 1, &sid);
+> +	length = security_context_to_sid(con, strlen(con) + 1, &sid, GFP_KERNEL);
+>  	if (length)
+>  		goto out;
+> 
+> @@ -994,11 +1000,13 @@ static ssize_t sel_write_member(struct file *file,
+> char *buf, size_t size) if (sscanf(buf, "%s %s %hu", scon, tcon, &tclass)
+> != 3)
+>  		goto out;
+> 
+> -	length = security_context_to_sid(scon, strlen(scon) + 1, &ssid);
+> +	length = security_context_to_sid(scon, strlen(scon) + 1, &ssid,
+> +					 GFP_KERNEL);
+>  	if (length)
+>  		goto out;
+> 
+> -	length = security_context_to_sid(tcon, strlen(tcon) + 1, &tsid);
+> +	length = security_context_to_sid(tcon, strlen(tcon) + 1, &tsid,
+> +					 GFP_KERNEL);
+>  	if (length)
+>  		goto out;
+> 
+> diff --git a/security/selinux/ss/services.c b/security/selinux/ss/services.c
+> index 5d0144ee8ed6..4bca49414a40 100644
+> --- a/security/selinux/ss/services.c
+> +++ b/security/selinux/ss/services.c
+> @@ -1289,16 +1289,18 @@ out:
+>   * @scontext: security context
+>   * @scontext_len: length in bytes
+>   * @sid: security identifier, SID
+> + * @gfp: context for the allocation
+>   *
+>   * Obtains a SID associated with the security context that
+>   * has the string representation specified by @scontext.
+>   * Returns -%EINVAL if the context is invalid, -%ENOMEM if insufficient
+>   * memory is available, or 0 on success.
+>   */
+> -int security_context_to_sid(const char *scontext, u32 scontext_len, u32
+> *sid) +int security_context_to_sid(const char *scontext, u32 scontext_len,
+> u32 *sid, +			    gfp_t gfp)
+>  {
+>  	return security_context_to_sid_core(scontext, scontext_len,
+> -					    sid, SECSID_NULL, GFP_KERNEL, 0);
+> +					    sid, SECSID_NULL, gfp, 0);
+>  }
+> 
+>  /**
+> diff --git a/security/selinux/xfrm.c b/security/selinux/xfrm.c
+> index 0462cb3ff0a7..98b042630a9e 100644
+> --- a/security/selinux/xfrm.c
+> +++ b/security/selinux/xfrm.c
+> @@ -78,7 +78,8 @@ static inline int selinux_authorizable_xfrm(struct
+> xfrm_state *x) * xfrm_user_sec_ctx context.
+>   */
+>  static int selinux_xfrm_alloc_user(struct xfrm_sec_ctx **ctxp,
+> -				   struct xfrm_user_sec_ctx *uctx)
+> +				   struct xfrm_user_sec_ctx *uctx,
+> +				   gfp_t gfp)
+>  {
+>  	int rc;
+>  	const struct task_security_struct *tsec = current_security();
+> @@ -94,7 +95,7 @@ static int selinux_xfrm_alloc_user(struct xfrm_sec_ctx
+> **ctxp, if (str_len >= PAGE_SIZE)
+>  		return -ENOMEM;
+> 
+> -	ctx = kmalloc(sizeof(*ctx) + str_len + 1, GFP_KERNEL);
+> +	ctx = kmalloc(sizeof(*ctx) + str_len + 1, gfp);
+>  	if (!ctx)
+>  		return -ENOMEM;
+> 
+> @@ -103,7 +104,7 @@ static int selinux_xfrm_alloc_user(struct xfrm_sec_ctx
+> **ctxp, ctx->ctx_len = str_len;
+>  	memcpy(ctx->ctx_str, &uctx[1], str_len);
+>  	ctx->ctx_str[str_len] = '\0';
+> -	rc = security_context_to_sid(ctx->ctx_str, str_len, &ctx->ctx_sid);
+> +	rc = security_context_to_sid(ctx->ctx_str, str_len, &ctx->ctx_sid, gfp);
+>  	if (rc)
+>  		goto err;
+> 
+> @@ -282,9 +283,10 @@ int selinux_xfrm_skb_sid(struct sk_buff *skb, u32 *sid)
+> * LSM hook implementation that allocs and transfers uctx spec to
+> xfrm_policy. */
+>  int selinux_xfrm_policy_alloc(struct xfrm_sec_ctx **ctxp,
+> -			      struct xfrm_user_sec_ctx *uctx)
+> +			      struct xfrm_user_sec_ctx *uctx,
+> +			      gfp_t gfp)
+>  {
+> -	return selinux_xfrm_alloc_user(ctxp, uctx);
+> +	return selinux_xfrm_alloc_user(ctxp, uctx, gfp);
+>  }
+> 
+>  /*
+> @@ -332,7 +334,7 @@ int selinux_xfrm_policy_delete(struct xfrm_sec_ctx *ctx)
+> int selinux_xfrm_state_alloc(struct xfrm_state *x,
+>  			     struct xfrm_user_sec_ctx *uctx)
+>  {
+> -	return selinux_xfrm_alloc_user(&x->security, uctx);
+> +	return selinux_xfrm_alloc_user(&x->security, uctx, GFP_KERNEL);
+>  }
+> 
+>  /*
 
->
->> +     /* sock_filter_ext insns must be executed by sk_run_filter_ext */
->> +     fp->bpf_func = (typeof(fp->bpf_func))sk_run_filter_ext;
->
-> Likewise.
+-- 
+paul moore
+www.paul-moore.com
 
-btw, JITs are doing similar typecast:
-from bpf_jit_comp.c:
-fp->bpf_func = (void *)image;
-
-I can see two ways of avoiding this typecast:
-
-1. removing typecast with extra 'if' in the hot path:
-SK_RUN_FILTER wants to dereference 'bpf_func' and execute it.
-It's easy to add boolean flag 'is_sock_filter_ext' into sk_filter and
-make a union
-out of 'bpf_func' and 'bpf_func_ext', but the macro would need to check
-the flag just to avoid typecast :(
-
-2.
-Another alternative is to do
-struct sk_filter {
-  ..
-union {
-    unsigned int (*bpf_func)(const struct sk_buff *skb,const struct
-sock_filter *filter);
-    unsigned int (*bpf_func_ext)(void*, const struct sock_filter_ext *filter);
-    unsigned int (*bpf_func_generic)(void *, void*);
-};
-
-assignments into sk_filter will use correct field like:
-fp->bpf_func_ext = sk_run_filter_ext;
-and the hot call macro will look like:
-#define SK_RUN_FILTER(F, CTX) (*F->bpf_func_generic)(CTX, F->insns)
-
-I think current typecasts are equally ugly, but 'union' style
-will be cleaner from gcc point of view.
-
-If there are no better suggestions, I'll go with #2. ok?
-
-> 'ctx' is an sk_buff pointer, you keep casting back and forth between void and
-> sk_buff * in sk_run_filter_ext, please do not do this.
->
-> You cannot make this thing opaque, the interpreter must operate in an environment
-> where the type of the memory behind 'ctx' is not ambiguous.  Therefore using a
-> void pointer and all these casts is not appropriate at all.
-
-interpreter doesn't need to know what is hiding behind 'ctx' that's
-why it is 'void*'.
-It's a job of sk_chk_filter() and sk_chk_filter_ext() to verify that ctx and
-set of instructions given to interpreter are valid for each other.
-If we force interpreter to know the exact type of data, we won't be able to
-make a generic, across the kernel, interpreter.
-That is the main problem of existing sk_run_filter() that can only
-take 'sk_buff' as input
-and seccomp has to pass NULL and mess with pseudo instruction
-BPF_S_ANC_SECCOMP that calls multiple functions.
-Here I'm converting the seccomp calls into single 'load' insn from 'void * ctx'
-that is directly JITed into single CPU load.
-IMO the more we move the smart-bits into 'bpf/ebpf checker' the
-simpler and faster
-the execution will be.
-
-BPF_LD+BPF_ABS and BPF_LD+BPF_IND are legacy insns.
-I kept them to keep compatibility with current filters.
-They will be present in the filter code only when filter input is skb.
-sk_convert_filter() and sk_chk_filter_ext() will guarantee that that's the case.
-So imo typecast from void *ctx into sk_buff is appropriate.
-
-btw, sk_chk_filter_ext() was posted as part of V1 series (under
-bpf_check() name),
-but I'm deferring it as suggested by Daniel until ebpf jit an other
-pieces are in.
-
->> @@ -676,6 +759,9 @@ int sk_unattached_filter_create(struct sk_filter **pfp,
->>       if (fprog->filter == NULL)
->>               return -EINVAL;
->>
->> +     if (bpf_ext_enable)
->> +             return sk_prepare_filter_ext(pfp, fprog, NULL);
->> +
->>       fp = kmalloc(sk_filter_size(fprog->len), GFP_KERNEL);
->>       if (!fp)
->>               return -ENOMEM;
->
-> To me this is the wrong priority, if the user has JIT enabled it should
-> take priority over translation into extended BPF.
-
-btw, ebpf jit coming in the next diff (it was also previewed in V1 series).
-
-In the 1/3 commit log of this patch I explain the current relation
-between bpf_ext_enable and bpf_jit_enable flags.
-
-In the next patch with ebpf jit, single bpf_jit_enable flag will act for both:
-  if (bpf_ext_enable) {
-        convert to new
-        sk_chk_filter() - check old bpf
-        if (bpf_jit_enable)
-             use new jit
-        else
-             use new interpreter
-     } else {
-        sk_chk_filter() - check old bpf
-        if (bpf_jit_enable)
-            use old jit
-        else
-            use old interpreter
-     }
-
-I believe Daniel oked this approach, but if you object, I can do it differently.
-Are you saying 'bpf_jit_enable' flag should mean: do old jit no matter what?
-Then we would need another flag 'bpf_ext_jit_enable' as well?
-Seems overkill to me.
-
->
->> @@ -726,21 +812,27 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
->>       if (fprog->filter == NULL)
->>               return -EINVAL;
->>
->> -     fp = sock_kmalloc(sk, sk_fsize, GFP_KERNEL);
->> -     if (!fp)
->> -             return -ENOMEM;
->> -     if (copy_from_user(fp->insns, fprog->filter, fsize)) {
->> -             sock_kfree_s(sk, fp, sk_fsize);
->> -             return -EFAULT;
->> -     }
->> +     if (bpf_ext_enable) {
->> +             err = sk_prepare_filter_ext(&fp, fprog, sk);
->> +             if (err)
->> +                     return err;
->
-> Likewise.
->
->> +#ifdef __x86_64
->> +#define LOAD_IMM /**/
->> +#define K insn->imm
->> +#else
->> +#define LOAD_IMM (K = insn->imm)
->> +     s32 K = insn->imm;
->> +#endif
->
-> There is no way we should have a cpu type ifdef in this code.  Please pick one
-> way or the other and get rid of the CPP test entirely.
-
-Sure. I can do that,
-but similar check exists already in sk_run_filter():
-#if defined(CONFIG_X86_32)
-#define K (fentry->k)
-#else
-                const u32 K = fentry->k;
-#endif
-do you want me to kill both of them then?
-
-Thanks
-Alexei
