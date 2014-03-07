@@ -1,44 +1,48 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [nf-next PATCH V3 0/5] netfilter: conntrack: optimization,
- remove central spinlock
-Date: Fri, 7 Mar 2014 11:45:36 +0100
-Message-ID: <20140307104536.GA11140@localhost>
-References: <20140303134319.2615.9293.stgit@dragon>
- <20140303.160046.1024219314107578405.davem@davemloft.net>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next 1/2] vlan: slight optimization for vlan_do_receive()
+Date: Fri, 7 Mar 2014 18:45:30 +0800
+Message-ID: <1394189131-3916-2-git-send-email-dingtianhong@huawei.com>
+References: <1394189131-3916-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: brouer@redhat.com, netfilter-devel@vger.kernel.org,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org, fw@strlen.de,
-	kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <julia.lawall@lip6.fr>, <netdev@vger.kernel.org>
+To: <kaber@trash.net>, <davem@davemloft.net>, <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:46278 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751206AbaCGKpm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Mar 2014 05:45:42 -0500
-Content-Disposition: inline
-In-Reply-To: <20140303.160046.1024219314107578405.davem@davemloft.net>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:59878 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751033AbaCGKp7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 05:45:59 -0500
+In-Reply-To: <1394189131-3916-1-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 03, 2014 at 04:00:46PM -0500, David Miller wrote:
-> From: Jesper Dangaard Brouer <brouer@redhat.com>
-> Date: Mon, 03 Mar 2014 14:44:16 +0100
-> 
-> > This patchset change the conntrack locking and provides a huge
-> > performance improvements.
-> > 
-> > This patchset is based upon Eric Dumazet's proposed patch:
-> >   http://thread.gmane.org/gmane.linux.network/268758/focus=47306
-> > I have in agreement with Eric Dumazet, taken over this patch (and
-> > turned it into a entire patchset).
-> > 
-> > Primary focus is to remove the central spinlock nf_conntrack_lock.
-> > This requires several steps to be acheived.
->  ...
-> 
-> For series:
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+According Joe's suggestion, maybe it'd be faster to add an unlikely to
+the test for PCKET_OTHERHOST, so I add it and see whether the performance
+could be better, although the differences is so small and negligible, but
+it is hard to catch that any lower device would set the skb type to
+PACKET_OTHERHOST, so most of time, I think it make sense to add unlikely
+for the test.
 
-Applied, thanks everyone.
+Cc: Joe Perches <joe@perches.com>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ net/8021q/vlan_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 6ee48aa..97815ec 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -22,7 +22,7 @@ bool vlan_do_receive(struct sk_buff **skbp)
+ 		return false;
+ 
+ 	skb->dev = vlan_dev;
+-	if (skb->pkt_type == PACKET_OTHERHOST) {
++	if (unlikely(skb->pkt_type == PACKET_OTHERHOST)) {
+ 		/* Our lower layer thinks this is not local, let's make sure.
+ 		 * This allows the VLAN to have a different MAC than the
+ 		 * underlying device, and still route correctly. */
+-- 
+1.8.0
