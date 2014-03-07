@@ -1,50 +1,35 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] mac80211: LLVMLinux: Remove VLAIS usage from mac80211
-Date: Fri, 07 Mar 2014 08:24:51 +0100
-Message-ID: <1394177091.4653.1.camel@jlt4.sipsolutions.net>
-References: <1394135570-26730-1-git-send-email-behanw@converseincode.com>
-	 (sfid-20140306_205408_313446_76872588)
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH] checkpatch: net and drivers/net: Warn on missing blank
+ line after variable declaration
+Date: Fri, 7 Mar 2014 10:54:30 +0300
+Message-ID: <20140307075247.GA29018@mwanda>
+References: <1394104358-23438-1-git-send-email-kys@microsoft.com>
+ <1394104390-23477-1-git-send-email-kys@microsoft.com>
+ <20140306.142919.763823800315842610.davem@davemloft.net>
+ <1394148520.16156.8.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linville@tuxdriver.com, davem@davemloft.net,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
-	dwmw2@infradead.org, pageexec@freemail.hu,
-	Jan-Simon =?ISO-8859-1?Q?M=F6ller?= <dl9pf@gmx.de>,
-	=?ISO-8859-1?Q?Vin=EDcius?= Tinti <viniciustinti@gmail.com>,
-	Mark Charlebois <charlebm@gmail.com>
-To: behanw@converseincode.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394135570-26730-1-git-send-email-behanw@converseincode.com> (sfid-20140306_205408_313446_76872588)
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, apw@canonical.com,
+ devel@linuxdriverproject.org, Andrew Morton <akpm@linux-foundation.org>,
+ David Miller <davem@davemloft.net>
+To: Joe Perches <joe@perches.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <1394148520.16156.8.camel@joe-AO722>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-03-06 at 11:52 -0800, behanw@converseincode.com wrote:
-> From: Jan-Simon M=C3=B6ller <dl9pf@gmx.de>
->=20
-> Replaced the use of a Variable Length Array In Struct (VLAIS) with a =
-C99
-> compliant equivalent.
+How many warnings does this generate does this generate when you run it
+across the whole tree?
 
-=46ine, but
-
-> +	char aead_req_data[sizeof(struct aead_request)
-> +				+ crypto_aead_reqsize(tfm)
-> +				+ CRYPTO_MINALIGN] CRYPTO_MINALIGN_ATTR;
-
-You really should be using kernel coding style, which changes
-indentation and has the + on the previous line.
-
-> +	struct aead_request *aead_req
-> +		=3D (struct aead_request *) aead_req_data;
-
-(void *) is perfectly find and it'll probably fit on one line then.
-
-> +	memset(&aead_req_data, 0, (sizeof(struct aead_request)+
-> +		crypto_aead_reqsize(tfm) + CRYPTO_MINALIGN));
-
-You don't need the size calculation again, you can use
-sizeof(aead_req_data)
-
-johannes
+regards,
+dan carpenter
