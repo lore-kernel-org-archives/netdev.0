@@ -1,33 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] r8152: tx/rx improvement
-Date: Fri, 07 Mar 2014 16:27:32 -0500 (EST)
-Message-ID: <20140307.162732.1801095905509663010.davem@davemloft.net>
-References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
-	<1394161480-2918-1-git-send-email-hayeswang@realtek.com>
+From: Christian Lamparter <chunkeey@googlemail.com>
+Subject: Re: [PATCH] p54usb: fix leaks at failure path in p54u_probe()
+Date: Fri, 07 Mar 2014 22:27:34 +0100
+Message-ID: <2146611.esrnhmtufH@debian64>
+References: <1394226709-10763-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394161480-2918-1-git-send-email-hayeswang@realtek.com>
+In-Reply-To: <1394226709-10763-1-git-send-email-khoroshilov@ispras.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Fri, 7 Mar 2014 11:04:33 +0800
-
->  - Select the suitable spin lock for each function.
->  - Add additional check to reduce the spin lock.
->  - Up the priority of the tx to avoid interrupted by rx.
->  - Support rx checksum, large send, and IPv6 hw checksum.
-
-Series applied, thanks.
-
-Note that if you ever add ->ndo_poll_controller support to this driver,
-you will have to revert your spin_lock_irq{save,restore}() changes to
-your ->ndo_start_xmit.
-
-Because the transmit function can indeed be invoked from hard IRQ
-context once you support netpoll.
+On Saturday, March 08, 2014 01:11:49 AM Alexey Khoroshilov wrote:
+> If p54u_load_firmware() fails, p54u_probe() does not deallocate
+> already allocated resources. The patch adds proper failure handling.
+> 
+> Found by Linux Driver Verification project (linuxtesting.org).
+> 
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Acked-by: Christian Lamparter <chunkeey@googlemail.com>
