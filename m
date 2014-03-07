@@ -1,47 +1,54 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 4/7] r8152: calculate the dropped packets for rx
-Date: Fri, 7 Mar 2014 11:04:37 +0800
-Message-ID: <1394161480-2918-5-git-send-email-hayeswang@realtek.com>
-References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
- <1394161480-2918-1-git-send-email-hayeswang@realtek.com>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: Possible fix
+Date: Thu, 06 Mar 2014 22:04:54 -0500
+Message-ID: <7881571.eH1vgtYEXX@sifl>
+References: <20140227151954.GA30946@redhat.com> <8608950.OLpq4oFFJB@sifl> <20140305122009.GR32371@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394161480-2918-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>, netdev@vger.kernel.org,
+	Dave Jones <davej@redhat.com>, Fan Du <fan.du@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-security-module@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f180.google.com ([209.85.216.180]:54032 "EHLO
+	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752669AbaCGDE6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 22:04:58 -0500
+Received: by mail-qc0-f180.google.com with SMTP id x3so4010654qcv.25
+        for <netdev@vger.kernel.org>; Thu, 06 Mar 2014 19:04:57 -0800 (PST)
+In-Reply-To: <20140305122009.GR32371@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Continue dealing with the remain rx packets, even though the allocation
-of the skb fail. This could calculate the correct dropped packets.
+On Wednesday, March 05, 2014 01:20:09 PM Steffen Klassert wrote:
+> On Fri, Feb 28, 2014 at 05:10:47PM -0500, Paul Moore wrote:
+> > On Friday, February 28, 2014 11:10:07 AM Nikolay Aleksandrov wrote:
+> > > On 02/28/2014 08:23 AM, Steffen Klassert wrote:
+> > > > Looking at the git history, it seems that this bug is about nine
+> > > > years old. I guess noone is actually using this.
+> > 
+> > Most (all?) of the labeled IPsec users use the netlink interface and not
+> > pfkey so it isn't surprising that this has gone unnoticed for some time.
+>
+> Right, that's not really surprising. But it is a bit surprising that
+> we care for the security context only if we add a socket policy via
+> the pfkey key manager. The security context is not handled if we do
+> that with the netlink key manager, see xfrm_compile_policy().
+> 
+> I'm not that familiar with selinux and labeled IPsec, but maybe this
+> needs to be implemented in xfrm_compile_policy() too.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Okay, I see your point.  We probably should add support for per-socket policy 
+labels just to keep parity with the pfkey code (and this is far removed from 
+any critical path), but to be honest it isn't something that I think would get 
+much use in practice.  Labeled networking users tend to fall under the very 
+strict, one-system-wide-security-policy and per-socket policies tend to go 
+against that logic.
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index f1eaa18..08f4e870 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -1456,7 +1456,7 @@ static void rx_bottom(struct r8152 *tp)
- 			skb = netdev_alloc_skb_ip_align(netdev, pkt_len);
- 			if (!skb) {
- 				stats->rx_dropped++;
--				break;
-+				goto find_next_rx;
- 			}
- 			memcpy(skb->data, rx_data, pkt_len);
- 			skb_put(skb, pkt_len);
-@@ -1465,6 +1465,7 @@ static void rx_bottom(struct r8152 *tp)
- 			stats->rx_packets++;
- 			stats->rx_bytes += pkt_len;
- 
-+find_next_rx:
- 			rx_data = rx_agg_align(rx_data + pkt_len + CRC_SIZE);
- 			rx_desc = (struct rx_desc *)rx_data;
- 			len_used = (int)(rx_data - (u8 *)agg->head);
+I'll have to think about it some more.
+
 -- 
-1.8.4.2
+paul moore
+www.paul-moore.com
