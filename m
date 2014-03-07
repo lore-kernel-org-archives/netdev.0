@@ -1,74 +1,77 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 2/2] vlan: add proto and regulate the /proc/net/vlan/config
-Date: Fri, 7 Mar 2014 20:10:51 +0800
-Message-ID: <1394194251-11656-3-git-send-email-dingtianhong@huawei.com>
+Subject: [PATCH net-next 1/2] vlan: add proto for proc interface
+Date: Fri, 7 Mar 2014 20:10:50 +0800
+Message-ID: <1394194251-11656-2-git-send-email-dingtianhong@huawei.com>
 References: <1394194251-11656-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>
 To: <kaber@trash.net>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:32482 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751457AbaCGMLT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 07:11:19 -0500
+Received: from szxga03-in.huawei.com ([119.145.14.66]:19470 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751878AbaCGMLZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 07:11:25 -0500
 In-Reply-To: <1394194251-11656-1-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The vlan support 2 proto: 802.1q and 802.1ad, so add it
-to /proc/net/vlan/config, and the old format seems inappropriate,
-regulate it.
+The vlan could support 2 proto: 802.1q and 802.1ad, so add it to
+proc interface, the user could easily distinguish the proto for
+each vlan dev.
+
+And the dev->priv_flags seems inappropriate, modify to Priv_Flags,
+looks more comfortable.
 
 ---------------------- the old format: --------------------------
 
-VLAN Dev name    | VLAN ID
-Name-Type: VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD
-eth2.5         | 5  | eth2
-eth2.5.100     | 100  | eth2.5
-eth2.5.20      | 20  | eth2.5
+eth2.10  VID: 10         REORDER_HDR: 1  dev->priv_flags: 1
+         total frames received            5
+          total bytes received          336
+      Broadcast/Multicast Rcvd            0
+
+      total frames transmitted           13
+       total bytes transmitted         1026
+Device: eth2
+INGRESS priority mappings: 0:0  1:0  2:0  3:0  4:0  5:0  6:0 7:0
+ EGRESS priority mappings:
 
 ----------------------- the new format: -------------------------
 
-VLAN Dev Name  | Proto   | VID  | Real Dev
-Name-Type: VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD
-eth2.1000      | 802.1ad | 1000 | eth2
-eth2.5         | 802.1ad | 5    | eth2
-eth2.5.20      | 802.1ad | 20   | eth2.5
+eth2.20  Proto: 802.1q  VID: 20  REORDER_HDR: 1  Priv_Flags: 1
+         total frames received            0
+          total bytes received            0
+      Broadcast/Multicast Rcvd            0
 
------------------------------------------------------------------
+      total frames transmitted            0
+       total bytes transmitted            0
+Device: eth2
+INGRESS priority mappings: 0:0  1:0  2:0  3:0  4:0  5:0  6:0 7:0
+ EGRESS priority mappings:
+
+----------------------------------------------------------------
 
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- net/8021q/vlanproc.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+ net/8021q/vlanproc.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
-index a40abbc..e571347 100644
+index 1d0e8921..a40abbc 100644
 --- a/net/8021q/vlanproc.c
 +++ b/net/8021q/vlanproc.c
-@@ -254,7 +254,7 @@ static int vlan_seq_show(struct seq_file *seq, void *v)
- 	if (v == SEQ_START_TOKEN) {
- 		const char *nmtype = NULL;
+@@ -285,8 +285,10 @@ static int vlandev_seq_show(struct seq_file *seq, void *offset)
  
--		seq_puts(seq, "VLAN Dev name	 | VLAN ID\n");
-+		seq_puts(seq, "VLAN Dev Name  | Proto   | VID  | Real Dev\n");
+ 	stats = dev_get_stats(vlandev, &temp);
+ 	seq_printf(seq,
+-		   "%s  VID: %d	 REORDER_HDR: %i  dev->priv_flags: %hx\n",
+-		   vlandev->name, vlan->vlan_id,
++		   "%s  Proto: %s  VID: %d  REORDER_HDR: %i  Priv_Flags: %hx\n",
++		   vlandev->name,
++		   vlan->vlan_proto == htons(ETH_P_8021Q) ? "802.1q" : "802.1ad",
++		   vlan->vlan_id,
+ 		   (int)(vlan->flags & 1), vlandev->priv_flags);
  
- 		if (vn->name_type < ARRAY_SIZE(vlan_name_type_str))
- 		    nmtype =  vlan_name_type_str[vn->name_type];
-@@ -265,8 +265,11 @@ static int vlan_seq_show(struct seq_file *seq, void *v)
- 		const struct net_device *vlandev = v;
- 		const struct vlan_dev_priv *vlan = vlan_dev_priv(vlandev);
- 
--		seq_printf(seq, "%-15s| %d  | %s\n",  vlandev->name,
--			   vlan->vlan_id,    vlan->real_dev->name);
-+		seq_printf(seq, "%-15s| %s | %-4d | %s\n",
-+			   vlandev->name,
-+			   vlan->vlan_proto == htons(ETH_P_8021Q) ?
-+			   "802.1q" : "802.1ad",
-+			   vlan->vlan_id, vlan->real_dev->name);
- 	}
- 	return 0;
- }
+ 	seq_printf(seq, fmt64, "total frames received", stats->rx_packets);
 -- 
 1.8.0
