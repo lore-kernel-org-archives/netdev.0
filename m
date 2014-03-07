@@ -1,61 +1,87 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] e1000: do not allow watchdog to reenable transmits on
- shutdown
-Date: Fri, 07 Mar 2014 13:32:46 -0800
-Message-ID: <1394227966.2101.4.camel@jtkirshe-mobl.jf.intel.com>
-References: <20140307020420.GA10797@amt.cnet>
-	 <1394162671.2214.36.camel@jtkirshe-mobl> <20140307210009.GB5041@amt.cnet>
+Subject: Re: [net-next v2 00/12][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 07 Mar 2014 13:37:28 -0800
+Message-ID: <1394228248.2101.6.camel@jtkirshe-mobl.jf.intel.com>
+References: <1394161164-26645-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20140307.161933.284876266168174096.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Ldmtzelr4f6jLpQa6NAH"
-Cc: Vladimir Davydov <VDavydov@parallels.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Marcelo Tosatti <mtosatti@redhat.com>
+	protocol="application/pgp-signature"; boundary="=-PQafUIC6PHE0xWG5L9sG"
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:3123 "EHLO mga11.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:62803 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752299AbaCGVcs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Mar 2014 16:32:48 -0500
-In-Reply-To: <20140307210009.GB5041@amt.cnet>
+	id S1751033AbaCGViO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Mar 2014 16:38:14 -0500
+In-Reply-To: <20140307.161933.284876266168174096.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-Ldmtzelr4f6jLpQa6NAH
+--=-PQafUIC6PHE0xWG5L9sG
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2014-03-07 at 18:00 -0300, Marcelo Tosatti wrote:
-> On Thu, Mar 06, 2014 at 07:24:31PM -0800, Jeff Kirsher wrote:
-> > On Thu, 2014-03-06 at 23:04 -0300, Marcelo Tosatti wrote:
-> > >=20
-> > > There is a race on the shutdown path of the e1000 driver
-> > > that allows the card to DMA into free'd memory.
-> > >=20
-> > > The symptoms are similar to those described at=20
-> > > commit d5bc77a223b0e9b9dfb002048d2b34a79e7d0b48,
-> > > "e1000: don't enable dma receives until after dma address has been
-> > > setup", where memory corruption is visible due to E1000_RXD_STAT_DD
-> > > being written to the DMA transfer descriptor.
-> > >=20
-> > > Fix by not allowing the watchdog and tx fifo stall detector
-> > > to re-enable E1000_TCTL_EN.
-> > >=20
-> > > Signed-off-by: Marcelo Tosatti <mtosatti@redhat.com>
-> >=20
-> > Thanks I will add this to the queue.
-> >=20
-> > Note- there are trailing whitespace issues and 2 comments are not
-> > formatted correctly.  I can fix these up if there are no other issues
-> > with the patch, if you want.
+On Fri, 2014-03-07 at 16:19 -0500, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Thu,  6 Mar 2014 18:59:12 -0800
 >=20
-> Ok, resent v2 with those fixed, must have inlined an older patch
-> in the message, sorry.
+> > This series contains updates to i40e and i40evf.
+> >=20
+> > Most notable are:
+> > Joseph completes the implementation of the ethtool ntuple rule
+> > management interface by adding the get, update and delete interface
+> > reset.
+> >=20
+> > Akeem provides a fix to prevent a possible overflow due to multiplicati=
+on
+> > of number and size by using kzalloc, so use kcalloc.
+> >=20
+> > Jesse provides an implementation for skb_set_hash() and adds the L4 typ=
+e
+> > return when we know it is an L4 hash.  He also adds a counter to
+> > statistics for Tx timeouts to help users.  Lastly he provides a change
+> > to stay away from the cache line where the done bit may be getting
+> > written back for the transmit ring since the hardware may be writing th=
+e
+> > whole cache line for a partial update.
+> >=20
+> > Shannon cleans up code comments.
+> >=20
+> > Anjali removes a firmware workaround for newer firmware since the numbe=
+r
+> > of MSIx vectors are being reported correctly.
+> >=20
+> > v2:
+> >  -  dropped patch 01 of the series based on feedback from the author
+> >     Joe Perches and Shannon Nelson.
 >=20
+> Pulled, thanks Jeff.
+>=20
+> And I'd like to make a broad long-term comment, actually about vf
+> drivers in general....
+>=20
+> There is so much common code between pf and vf drivers, as a quick
+> example even in this patch set the skb_set_hash() stuff is pretty
+> much the same for i40e and i40evf.
+>=20
+> I realize there are subtle differences between vf and pf, however
+> you can't say that there isn't a metric ton of common code.
+>=20
+> Please consider seriously making a common layer for these kinds of
+> driver pairs.  I absolutely do not care, as an initial step, if the
+> common code just gets linked directly into the final module object
+> for the two drivers.  Although eventually it would be nice if the
+> common layer driver was a shared module object on it's own that is
+> simply depended upon by the pf and vf drivers.
+>=20
+> Thanks.
 
-Thanks Marcelo, I will update the patch in my queue when I receive it.
+Thanks Dave!  I will work with i40e developers to get a solution put
+together for the shared code.
 
---=-Ldmtzelr4f6jLpQa6NAH
+--=-PQafUIC6PHE0xWG5L9sG
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -63,19 +89,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIcBAABCgAGBQJTGjr+AAoJEOVv75VaS+3O+wwP/As16WNCY99JZjJ5iZE6XGN4
-EgP8KfbkffcvoIMFNvqTss8Je6LIXTAn1Kf3sTyEf1vra7dcVTJZwpx8b3K0s5+l
-x8rEMjvoWeaGPsbsY9TH4/zr14lzURu94ucXcQ02eI3alaEaRr5kVdvvEI2M+uER
-aJ+8v8coTEAtPrzKVNXA5s0AqoD0Mz4xt9BbWs72NYDTDRbFFkpKcnzUbeMdV04b
-L/Zk36d89uPrJ2bYxbMpYgP0wYluiJ0aLAmc4385p7LsAZpvfNCgHiYM3UJUOYjj
-iWaLKoCJ7JThKw2IhL6GRGzgkeuJySvxzNenktGjcknu4XOp7LKTb5UwpBG04MyM
-nyLEK5IgwGVUWbD1t7C+HTlIkPBhWsAkUbkRbrRDMWzRyGp9uHLezKUP9BybB2s6
-tdNZoCOo1gx9LwMymlfVE3rrjWU7BkaADXrjLEO6O4pM/zmEndfvkr8suMVRXlDb
-biQ4XWBQvz7iiE+SdVRtCMpuyjgVC2858fPxDBt+3UMkUZisLClWdnYyTkl4wRUB
-WiJFujkrbPcn+UtkQtB4I2eDsiVXvYwYV5B7ZiiiVk+XxgTG66NxbDBS7h3T+iHU
-Kj5dWo7/82a55bY53+T3NPj2PaZDRSQJvh1DXTpDp30PXDjdhP7wQ/HgApsMURdW
-o/COu5yLHk+lTFHPCtXL
-=auGa
+iQIcBAABCgAGBQJTGjwYAAoJEOVv75VaS+3ORBYP/2+eRJWIRLq3H7srlVBh1RLa
+chORGGV7nG5LliqKlZjsVgVbSXBGtn5SLYilYxpzpztGsky3foxgrVqECfQYv8aa
+k09DgwOyQqIG6DY4mEEL52DBdbAeWoUXJ7DY49uFKMCfotQoDIW3g1hX+WTgbK+E
+5t50/+ohkDpAlMZUKyivnLGYLvHgdVKY1cfSXDZsu9+3edvLJBddZ4X/VaDErkOQ
+pAKftdcCJwqxI4KvlncwxbafhrTVe9xE35ui5Si++29yFyIgJUOSpQZuuKDsTb/3
+XJuT1HbXMQc9sYlsUO7P5DywNOxMKiqNEmRn/NjZ5fCHbS0wwhtYTto38qRCmcyb
+94QfbnIzQPmBZnsR7U3RXkHzU51VCUEcO0rE0hTgDZDbX5B4/qE31yEkP5C0f+BI
+gcrhqnenOaJl0ka7TOnB1IMQI0RPJXbpjqLpT6Nhr/bPWoW91smuUphDW0jSyDy4
+XWSFxEjbj53obpQ4Fp3GstarMaYZaIDUU1u3iksA8DIkUroZlRiIZtXVSVj6cRiL
+MoNtKf+EaVUMsg7eEw3dcwbqlCKqwqQMPK4q6XgjDbWvy+MLYn2B2PYfXSGm5KuJ
+LZUuhrPqBCmCmGUC7J78/6ZRXqH/TPr1kSHfg53/Yao0A+uldGJc7gCPbckyz1kL
+SZdVeDf9jaESZg71RS8z
+=c5O+
 -----END PGP SIGNATURE-----
 
---=-Ldmtzelr4f6jLpQa6NAH--
+--=-PQafUIC6PHE0xWG5L9sG--
