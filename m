@@ -1,67 +1,43 @@
-From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] openvswitch: Orphan frags before sending to
- userspace via Netlink to avoid guest stall
-Date: Fri, 7 Mar 2014 09:19:41 -0800
-Message-ID: <CALnjE+oDM=ga_C6T_-9i2UNwv=K4g-+y-LJA04nh+=WmoeuNXw@mail.gmail.com>
-References: <1393615016-9187-1-git-send-email-zoltan.kiss@citrix.com>
- <5318ABC0.4040307@citrix.com>
- <CALnjE+rWc=n_F+1jSLQtPrgKSvvxONEkkYxWEHon2_KVNG9z3Q@mail.gmail.com>
- <5319EC8E.2010606@redhat.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] net: inetfilter: LLVMLinux: vlais-netfilter
+Date: Fri, 7 Mar 2014 18:26:27 +0100
+Message-ID: <20140307172627.GA4856@localhost>
+References: <1394135768-27621-1-git-send-email-behanw@converseincode.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org
-To: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <5319EC8E.2010606-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
+	dwmw2@infradead.org, pageexec@freemail.hu,
+	Mark Charlebois <charlebm@gmail.com>,
+	=?iso-8859-1?Q?Vin=EDcius?= Tinti <viniciustinti@gmail.com>
+To: behanw@converseincode.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1394135768-27621-1-git-send-email-behanw@converseincode.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 7, 2014 at 7:58 AM, Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> On 03/07/2014 05:46 AM, Pravin Shelar wrote:
->>
->> But I found bug in datapath user-space queue code. I am not sure how
->> this can work with skb fragments and MMAP-netlink socket.
->> Here is what happens, OVS allocates netlink skb and adds fragments to
->> skb using skb_zero_copy(), then calls genlmsg_unicast().
->> But if netlink sock is mmped then netlink-send queues netlink
->> allocated skb->head (linear data of skb) and ignore skb frags.
->>
->> Currently this is not problem with OVS vswitchd since it does not use
->> netlink MMAP sockets. But if vswitchd stats using MMAP-netlink socket,
->> it can break it.
->
->
-> The secret is out ;-)
->
-> I was very surprised too when I noticed that it worked. It's not just
-> OVS, it's nfqueue as well. The reason is that an netlink mmaped skb is
-> setup with a giant tailroom in netlink_ring_setup_skb():
->
->         skb->end        = skb->tail + size;
->
-For OVS use-case, the size is linear part of skb. so I think for
-mmap-netlink socket it will fail.
+On Thu, Mar 06, 2014 at 11:56:08AM -0800, behanw@converseincode.com wrote:
+> From: Mark Charlebois <charlebm@gmail.com>
+> 
+> Replaced non-standard C use of Variable Length Arrays In Structs (VLAIS) in
+> xt_repldata.h with a C99 compliant flexible array member and then calculated
+> offsets to the other struct members. These other members aren't referenced by
+> name in this code, however this patch maintains the same memory layout and
+> padding as was previously accomplished using VLAIS.
+> 
+> Had the original structure been ordered differently, with the entries VLA at
+> the end, then it could have been a flexible member, and this patch would have
+> been a lot simpler. However since the data stored in this structure is
+> ultimately exported to userspace, the order of this structure can't be changed.
+> 
+> This patch makes no attempt to change the existing behavior, merely the way in
+> which the current layout is accomplished using standard C99 constructs. As such
+> the code can now be compiled with either gcc or clang.
 
-> and skb_zerocopy() will consume whatever tailroom is available first:
->
->         /* dont bother with small payloads */
->         if (len <= skb_tailroom(to)) {
->                 skb_copy_bits(from, 0, skb_put(to, len), len);
->                 return;
->         }
->
-> I was planning to fix this while adding GSO support to the upcall as
-> that is the moment when this bug would really surface.
+I think we already agreed on not accepting macro tricks to get this
+compiling with clang:
 
-ok.
+http://comments.gmane.org/gmane.comp.security.firewalls.netfilter.devel/45138
