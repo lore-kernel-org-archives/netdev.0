@@ -1,65 +1,63 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] checkpatch: Always warn on missing blank line after
- variable declaration block
-Date: Thu, 06 Mar 2014 16:11:01 -0800
-Message-ID: <1394151061.16156.16.camel@joe-AO722>
-References: <1394104358-23438-1-git-send-email-kys@microsoft.com>
- <1394104390-23477-1-git-send-email-kys@microsoft.com>
- <20140306.142919.763823800315842610.davem@davemloft.net>
- <1394148520.16156.8.camel@joe-AO722>
- <20140306153530.bd61c160ba6f7872d6967b2e@linux-foundation.org>
- <1394149350.16156.13.camel@joe-AO722>
- <20140306155517.0b3976316b0335d16ab25e38@linux-foundation.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the wireless-next tree with the
+ net-next tree
+Date: Fri, 7 Mar 2014 12:07:27 +1100
+Message-ID: <20140307120727.a4436ad2afc4b834db6b0641@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, apw@canonical.com,
- devel@linuxdriverproject.org, David Miller <davem@davemloft.net>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140306155517.0b3976316b0335d16ab25e38@linux-foundation.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Fri__7_Mar_2014_12_07_27_+1100_cL0D6DlT5Ejy393+"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:49017 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751359AbaCGBHd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Mar 2014 20:07:33 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make the test system wide, modify the message too.
+--Signature=_Fri__7_Mar_2014_12_07_27_+1100_cL0D6DlT5Ejy393+
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
-> OK, let's do this for now.  Could you please cook up a followon patch
-> which makes this kernel-wide?  I'll play with that for a while then I'll
-> decide how much I feel like irritating people.
+Hi John,
 
- scripts/checkpatch.pl | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+Today's linux-next merge of the wireless-next tree got a conflict in
+drivers/net/wireless/ath/ath9k/recv.c between commit 67ddc87f162e ("Merge
+git://git.kernel.org/pub/scm/linux/kernel/git/davem/net") from the
+net-next tree and commit f3b6a488a670 ("Merge branch 'master' of
+git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless") from
+the wireless-next tree.
 
-diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-index a6e3048..37a94f1 100755
---- a/scripts/checkpatch.pl
-+++ b/scripts/checkpatch.pl
-@@ -2249,8 +2249,7 @@ sub process {
- 		}
- 
- # check for missing blank lines after declarations
--		if ($realfile =~ m@^(drivers/net/|net/)@ &&
--		    $prevline =~ /^\+\s+$Declare\s+$Ident/ &&
-+		if ($prevline =~ /^\+\s+$Declare\s+$Ident/ &&
- 		    !($prevline =~ /(?:$Compare|$Assignment|$Operators)\s*$/ ||
- 		      $prevline =~ /(?:\{\s*|\\)$/) &&		#extended lines
- 		    $sline =~ /^\+\s+/ &&			#Not at char 1
-@@ -2260,7 +2259,7 @@ sub process {
- 		      $sline =~ /^\+\s+(?:$|[\{\}\.\#\"\?\:\(])/ ||
- 		      $sline =~ /^\+\s+\(?\s*(?:$Compare|$Assignment|$Operators)/)) {
- 			WARN("SPACING",
--			     "networking uses a blank line after declarations\n" . $hereprev);
-+			     "Missing a blank line after declarations\n" . $hereprev);
- 		}
- 
- # check for spaces at the beginning of a line.
+I fixed it up (I used the version from the wireless-next tree) and can
+carry the fix as necessary (no action is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Fri__7_Mar_2014_12_07_27_+1100_cL0D6DlT5Ejy393+
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTGRvTAAoJEMDTa8Ir7ZwVzR0QAIwZyZ65Jtk+rdkYEqU7XURH
+VA8SDW9SE5GfZKFFaZQ1mcU6ii2R1GsbNLbeBp9FYwcKdy9zOLsCR1n7rhLNKPqV
+e5ZfU7WyyRJrYaSRJ0dQBba3GQnWe7pLcUTFkQ3KEj9zMOPUGQLijkWoZxDRHEir
+Xxuzr3ZJF78McmxD76+IpdOwq9nf8+cm01Jh2BxXL0YGBzRaeWNeZXSRWHtnnlgi
+DwLFNr7W/h0zX2MMP4riymK2Kx0VniV9CUPZQsC9wIV2InhAlqRImdK9eSQHsqGD
+bwL6Sqz3lveCq9EaoWl97ks25E9N3bZ21LSqs0hGC3uIFdrZdW4EgHhSib3Gr7B+
+344aGjqWSaXC3u/QxGuTwv3nsw05P75M1UJvVu2l06W3cHEhWdB2g1387NVBZ45v
+gvztO/gfVAuxiOL82OnRg0hB3xDrZ6e9WzACFX6KjNPkinZvxwYVboBGkOnvim58
+zNdClG0MZKyibP4dCGTbYvMTWbGYqTX+8Su9hElbzRpQwBq1J1d+o5Zu7d+nKtav
+dEpRCP3nmx31icR0Vkto72kUMm1pW6lUqye//Ue0cTlcGW9hGRMPrWcW7HZjGE3e
+auPTeTF/Jt4D++i7CfYWi19deoJXOAswnpL/bNWk8zwkjps0/Rtv+Jp5c2eEtbe2
+S1saqFOPinxLabxeM4Cs
+=QyYm
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__7_Mar_2014_12_07_27_+1100_cL0D6DlT5Ejy393+--
