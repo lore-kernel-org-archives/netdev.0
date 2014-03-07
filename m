@@ -1,99 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] netlink: autosize skb lengthes
-Date: Fri, 07 Mar 2014 12:02:33 -0800
-Message-ID: <1394222553.20149.40.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Tim Harvey <tharvey@gateworks.com>
+Subject: Re: [PATCH v2] sky2: allow mac to come from dt
+Date: Fri, 7 Mar 2014 12:08:29 -0800
+Message-ID: <CAJ+vNU0uM_-EMe9nqbyEqMkNQ1j0uRf5giO=n0NvA5Ao5Twjxw@mail.gmail.com>
+References: <1394059512-1691-1-git-send-email-tharvey@gateworks.com>
+	<20140307.143622.1002770704528601574.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:60508 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751197AbaCGUCf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 15:02:35 -0500
-Received: by mail-pb0-f41.google.com with SMTP id jt11so4609507pbb.14
-        for <netdev@vger.kernel.org>; Fri, 07 Mar 2014 12:02:35 -0800 (PST)
+Received: from mail-we0-f172.google.com ([74.125.82.172]:52719 "EHLO
+	mail-we0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752246AbaCGUIb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 15:08:31 -0500
+Received: by mail-we0-f172.google.com with SMTP id t61so5737289wes.17
+        for <netdev@vger.kernel.org>; Fri, 07 Mar 2014 12:08:30 -0800 (PST)
+In-Reply-To: <20140307.143622.1002770704528601574.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, Mar 7, 2014 at 11:36 AM, David Miller <davem@davemloft.net> wrote:
+> From: Tim Harvey <tharvey@gateworks.com>
+> Date: Wed,  5 Mar 2014 14:45:12 -0800
+>
+>> @@ -4748,6 +4750,7 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
+>>  {
+>>       struct sky2_port *sky2;
+>>       struct net_device *dev = alloc_etherdev(sizeof(*sky2));
+>> +     unsigned char *iap, tmpaddr[ETH_ALEN];
+>>
+>>       if (!dev)
+>>               return NULL;
+>> @@ -4805,8 +4808,17 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
+>>
+>>       dev->features |= dev->hw_features;
+>>
+>> -     /* read the mac address */
+>> -     memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port * 8, ETH_ALEN);
+>> +     /* try to get mac address in the following order:
+>> +      * 1) from device tree data
+>> +      * 2) from internal registers set by bootloader
+>> +      */
+>> +     iap = of_get_mac_address(hw->pdev->dev.of_node);
+>> +     if (!iap) {
+>> +             memcpy_fromio(&tmpaddr, hw->regs + B2_MAC_1 + port * 8,
+>> +                           ETH_ALEN);
+>> +             iap = tmpaddr;
+>> +     }
+>> +     ether_addr_copy(dev->dev_addr, iap);
+>
+> As Stephen Hemminger suggested do this like:
+>
+>         iap = of_get_mac_address(hw->pdev->dev.of_node);
+>         if (iap)
+>                 memcpy(dev->dev_addr, iap, ETH_ALEN);
+>         else
+>                 memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port * 8,
+>                               ETH_ALEN);
+>
+> That way you don't need the on-stack buffer.
 
-One known problem with netlink is the fact that NLMSG_GOODSIZE is
-really small on PAGE_SIZE==4096 architectures, and it is difficult
-to know in advance what buffer size is used by the application.
+Thanks for the suggestion - I will re-send a v3 shortly.
 
-This patch adds an automatic learning of the size.
-
-First netlink message will still be limited to ~4K, but if user used
-bigger buffers, then following messages will be able to use up to 16KB.
-
-This speedups dump() operations by a large factor and should be safe
-for legacy applications.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Thomas Graf <tgraf@suug.ch>
----
-Google-Bug-Id: 13305844
-
- net/netlink/af_netlink.c |   27 ++++++++++++++++++++++++++-
- net/netlink/af_netlink.h |    1 +
- 2 files changed, 27 insertions(+), 1 deletion(-)
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 9db8bab27fa2..c2d585c4f7c5 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2343,6 +2343,11 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
- 	}
- #endif
- 
-+	/* Record the max length of recvmsg() calls for future allocations */
-+	nlk->max_recvmsg_len = max(nlk->max_recvmsg_len, len);
-+	nlk->max_recvmsg_len = min_t(size_t, nlk->max_recvmsg_len,
-+				     16384);
-+
- 	copied = data_skb->len;
- 	if (len < copied) {
- 		msg->msg_flags |= MSG_TRUNC;
-@@ -2587,7 +2592,27 @@ static int netlink_dump(struct sock *sk)
- 	if (!netlink_rx_is_mmaped(sk) &&
- 	    atomic_read(&sk->sk_rmem_alloc) >= sk->sk_rcvbuf)
- 		goto errout_skb;
--	skb = netlink_alloc_skb(sk, alloc_size, nlk->portid, GFP_KERNEL);
-+
-+	/* NLMSG_GOODSIZE is small to avoid high order allocations being
-+	 * required, but it makes sense to _attempt_ a 16K bytes allocation
-+	 * to reduce number of system calls on dump operations, if user
-+	 * ever provided a big enough buffer.
-+	 */
-+	if (alloc_size < nlk->max_recvmsg_len) {
-+		skb = netlink_alloc_skb(sk,
-+					nlk->max_recvmsg_len,
-+					nlk->portid,
-+					GFP_KERNEL |
-+					__GFP_NOWARN |
-+					__GFP_NORETRY);
-+		/* available room should be exact amount to avoid MSG_TRUNC */
-+		if (skb)
-+			skb_reserve(skb, skb_tailroom(skb) -
-+					 nlk->max_recvmsg_len);
-+	}
-+	if (!skb)
-+		skb = netlink_alloc_skb(sk, alloc_size, nlk->portid,
-+					GFP_KERNEL);
- 	if (!skb)
- 		goto errout_skb;
- 	netlink_skb_set_owner_r(skb, sk);
-diff --git a/net/netlink/af_netlink.h b/net/netlink/af_netlink.h
-index acbd774eeb7c..ed13a790b00e 100644
---- a/net/netlink/af_netlink.h
-+++ b/net/netlink/af_netlink.h
-@@ -31,6 +31,7 @@ struct netlink_sock {
- 	u32			ngroups;
- 	unsigned long		*groups;
- 	unsigned long		state;
-+	size_t			max_recvmsg_len;
- 	wait_queue_head_t	wait;
- 	bool			cb_running;
- 	struct netlink_callback	cb;
+Tim
