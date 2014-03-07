@@ -1,72 +1,40 @@
-From: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
-Subject: Re: [PATCHv2 3/5] net: rfkill: gpio: remove gpio names
-Date: Thu, 06 Mar 2014 21:22:23 -0700
-Message-ID: <5319497F.9080003@wwwdotorg.org>
-References: <1393330950-7283-1-git-send-email-heikki.krogerus@linux.intel.com> <1393330950-7283-4-git-send-email-heikki.krogerus@linux.intel.com> <530D218E.9010007@wwwdotorg.org> <CACRpkdZF4-rWs1WkOp3t0x77fgSCE71E=wdrxiDuGZ8eBu_p_Q@mail.gmail.com> <53168976.7000008@wwwdotorg.org> <CACRpkdYfQoDmPX0He4J2Sn2wgQn2hHoHyPqnStLRVqrvi=M+-w@mail.gmail.com> <53169304.9080002@wwwdotorg.org> <CACRpkdaYuZ5bXo7djOv04oyHPAFbO=pKfR7L7UBY+kZqZUHfmQ@mail.gmail.com> <CAGb2v65UQZoDJhjpX+kfa6HppXdhrCHG=A5m_WaQ_DimW-Lsbg@mail.gmail.com>
+From: Mike Galbraith <umgwanakikbuti@gmail.com>
+Subject: Re: [PATCH] net: sched: dev_deactivate_many(): use msleep(1)
+ instead of yield() to wait for outstanding qdisc_run calls
+Date: Fri, 07 Mar 2014 05:26:37 +0100
+Message-ID: <1394166397.5056.40.camel@marge.simpson.net>
+References: <1393976987-23555-1-git-send-email-mkl@pengutronix.de>
+	 <20140306.160622.59358366688518505.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
-	Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
-	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAGb2v65UQZoDJhjpX+kfa6HppXdhrCHG=A5m_WaQ_DimW-Lsbg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: mkl@pengutronix.de, linux-rt-users@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	kernel@pengutronix.de
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140306.160622.59358366688518505.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/06/2014 08:43 PM, Chen-Yu Tsai wrote:
-> On Fri, Mar 7, 2014 at 11:41 AM, Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> wrote:
->> On Wed, Mar 5, 2014 at 10:59 AM, Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org> wrote:
->>> On 03/04/2014 07:37 PM, Linus Walleij wrote:
->>>> On Wed, Mar 5, 2014 at 10:18 AM, Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org> wrote:
->>>>> On 03/04/2014 06:43 PM, Linus Walleij wrote:
->>>>
->>>>>> If I understand the situation correctly it's like ACPI does not have named
->>>>>> GPIOs so keeping specifying this in DT GPIO bindings is counter-productive
->>>>>> to the work of abstracting the access to GPIO handlers so that drivers
->>>>>> need not know whether ACPI or DT is used for describing the hardware.
->>>>>
->>>>> For devices that already have both ACPI and DT bindings, we can't
->>>>> pretend they can be the same; they are already potentially different. We
->>>>> simply need to parse DT and ACPI differently, since that's the sway
->>>>> their bindings are defined.
->>>>>
->>>>> For any devices that don't have both ACPI and DT bindings, I agree we
->>>>> should certainly strive to make any new bindings aligned so we don't
->>>>> have to deal with this for them.
->>>>>
->>>>> However, we can't change the past.
->>>>
->>>> Yeah, right, so for this very driver there are no bindings defined (yet)
->>>> and the only device tree I can find referencing it is the Tegra20-paz00
->>>> and it just use gpios = <>;
->>>>
->>>> So in this case I think this patch is the right way forward, but I admit
->>>> I'm really uncertain in the general case.
->>>
->>> If there are no bindings defined at all yet, then we can define both DT
->>> and ACPI bindings to use name-based GPIOs. Index-based lookups aren't a
->>> good way forward.
->>
->> After Mark clarifying that ACPI is going to have named GPIOs I'm
->> totally aligned on this, so OK!
+On Thu, 2014-03-06 at 16:06 -0500, David Miller wrote: 
+> From: Marc Kleine-Budde <mkl@pengutronix.de>
+> Date: Wed,  5 Mar 2014 00:49:47 +0100
 > 
-> Glad to hear this, but is it possible to get rid of the index in current
-> drivers? Or change the behavior to name-based OR index-based lookups.
-> This might break any DTs that have multiple GPIOs defined under one
-> property though.
+> > @@ -839,7 +839,7 @@ void dev_deactivate_many(struct list_head *head)
+> >  	/* Wait for outstanding qdisc_run calls. */
+> >  	list_for_each_entry(dev, head, unreg_list)
+> >  		while (some_qdisc_is_busy(dev))
+> > -			yield();
+> > +			msleep(1)
+> >  }
+> 
+> I don't understand this.
+> 
+> yield() should really _mean_ yield.
 
-For any bindings that are already defined to use index-based lookups, I
-think we have to continue using them, for backwards-compatibility with
-old DTs (and I assume old ACPI databases need the same thing).
+It does, but yield() semantics make it useless for what you want to do..
+and pretty much undefined for anything other than SCHED_FIFO.  If you
+really want to give up the CPU to any old body, you have to sleep.
+
+-Mike
