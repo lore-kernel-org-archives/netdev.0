@@ -1,92 +1,82 @@
-From: =?UTF-8?Q?Bernhard_Rosenkr=C3=A4nzer?= <bero@lindev.ch>
-Subject: [PATCH] iproute2: Fix warnings with gcc 4.9 and clang 3.4
-Date: Fri, 07 Mar 2014 03:00:53 +0100
-Message-ID: <284875ac93e0904c42a436cbf05cc57d@mail.lindev.ch>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: Re: [PATCH net-next 2/5] net_sched: add replace func in struct Qdisc_ops
+Date: Fri, 7 Mar 2014 10:13:31 +0800
+Message-ID: <53192B4B.3020303@huawei.com>
+References: <1394111321-11192-1-git-send-email-yangyingliang@huawei.com>	 <1394111321-11192-3-git-send-email-yangyingliang@huawei.com> <1394117746.27473.33.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="=_50fe5a6dc7a56794fb59396f4854bac4"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<stephen@networkplumber.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bero.eu ([88.198.22.18]:41198 "EHLO mail.bero.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752337AbaCGCKm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Mar 2014 21:10:42 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by mail.bero.eu (Postfix) with ESMTP id A6143EE14D9
-	for <netdev@vger.kernel.org>; Fri,  7 Mar 2014 02:01:09 +0000 (UTC)
-Received: from mail.bero.eu ([127.0.0.1])
-	by localhost (ch.bero.eu [127.0.0.1]) (amavisd-new, port 10025)
-	with LMTP id 9w96zzbbfu8i for <netdev@vger.kernel.org>;
-	Fri,  7 Mar 2014 02:00:54 +0000 (UTC)
-Received: from mail.lindev.ch (localhost [127.0.0.1])
-	by mail.bero.eu (Postfix) with ESMTPA id 0D846EE14D5
-	for <netdev@vger.kernel.org>; Fri,  7 Mar 2014 02:00:54 +0000 (UTC)
+Received: from szxga02-in.huawei.com ([119.145.14.65]:1661 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751716AbaCGCNy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Mar 2014 21:13:54 -0500
+In-Reply-To: <1394117746.27473.33.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=_50fe5a6dc7a56794fb59396f4854bac4
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
+On 2014/3/6 22:55, Eric Dumazet wrote:
+> On Thu, 2014-03-06 at 21:08 +0800, Yang Yingliang wrote:
+>> Add replace func, if NLM_F_REPLACE is set, use replace func.
+>> Otherwise, use change func.
+>>
+>> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+>> ---
+>>  include/net/sch_generic.h |  1 +
+>>  net/sched/sch_api.c       | 12 +++++++++---
+>>  2 files changed, 10 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+>> index d062f81c692f..ef8a41bcb9a7 100644
+>> --- a/include/net/sch_generic.h
+>> +++ b/include/net/sch_generic.h
+>> @@ -170,6 +170,7 @@ struct Qdisc_ops {
+>>  	void			(*reset)(struct Qdisc *);
+>>  	void			(*destroy)(struct Qdisc *);
+>>  	int			(*change)(struct Qdisc *, struct nlattr *arg);
+>> +	int			(*replace)(struct Qdisc *, struct nlattr *arg);
+>>  	void			(*attach)(struct Qdisc *);
+>>  
+>>  	int			(*dump)(struct Qdisc *, struct sk_buff *);
+>> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+>> index 961cb0f1bd0c..8f0f8e9d5475 100644
+>> --- a/net/sched/sch_api.c
+>> +++ b/net/sched/sch_api.c
+>> @@ -999,9 +999,15 @@ static int qdisc_change(struct Qdisc *sch, struct nlattr **tca, u16 flags)
+>>  	int err = 0;
+>>  
+>>  	if (tca[TCA_OPTIONS]) {
+>> -		if (sch->ops->change == NULL)
+>> -			return -EINVAL;
+>> -		err = sch->ops->change(sch, tca[TCA_OPTIONS]);
+>> +		if (flags & NLM_F_REPLACE) {
+>> +			if (sch->ops->replace == NULL)
+>> +				return -EINVAL;
+>> +			err = sch->ops->replace(sch, tca[TCA_OPTIONS]);
+>> +		} else {
+>> +			if (sch->ops->change == NULL)
+>> +				return -EINVAL;
+>> +			err = sch->ops->change(sch, tca[TCA_OPTIONS]);
+>> +		}
+>>  		if (err)
+>>  			return err;
+>>  	}
+> 
+> NACK
+> 
+> This breaks existing userland scripts.
 
-Hi,
-the latest compilers (gcc 4.9 and clang 3.4) issue warnings when doing 
-an incomplete struct initialization (e.g. "struct tc_sizespec s = 
-{0};").
+Yes, it is.
 
-Since many people like to compile lower level bits and pieces with 
--Werror, this should probably be fixed. Patch attached.
+Maybe I need do some change for this code.
 
-ttyl
-bero
---=_50fe5a6dc7a56794fb59396f4854bac4
-Content-Transfer-Encoding: base64
-Content-Type: text/x-diff;
- name=iproute2-compilerwarnings.patch
-Content-Disposition: attachment;
- filename=iproute2-compilerwarnings.patch;
- size=2357
+Thanks!
 
-RnJvbTogQmVybmhhcmQgUm9zZW5rcsOkbnplciA8QmVybmhhcmQuUm9zZW5rcmFuemVyQGxpbmFy
-by5vcmc+ClN1YmplY3Q6IFtQQVRDSF0gRml4IGNvbXBpbGVyIHdhcm5pbmdzIHdpdGggZ2NjIDQu
-OSBhbmQgY2xhbmcgMy40CgpDdXJyZW50IGNvbXBpbGVycyAoZ2NjIDQuOSBhbmQgY2xhbmcgMy40
-KSBpc3N1ZSB3YXJuaW5ncyB3aGVuIGRvaW5nCmFuIGluY29tcGxldGUgc3RydWN0IGluaXRpYWxp
-emF0aW9uIChlLmcuICJzdHJ1Y3QgdGNfc2l6ZXNwZWMgcyA9IHswfTsiKS4KCkluaXRpYWxpemUg
-dGhlIHN0cnVjdHMgY29tcGxldGVseSBzbyB3ZSBjYW4gYnVpbGQgd2l0aCAtV2Vycm9yLgoKU2ln
-bmVkLW9mZi1ieTogQmVybmhhcmQgUm9zZW5rcsOkbnplciA8QmVybmhhcmQuUm9zZW5rcmFuemVy
-QGxpbmFyby5vcmc+Ci0tLQoKZGlmZiAtLWdpdCBhL3RjL3RjX3N0YWIuYyBiL3RjL3RjX3N0YWIu
-YwppbmRleCA0N2I0ZTVlLi43NDA3Y2U1IDEwMDY0NAotLS0gYS90Yy90Y19zdGFiLmMKKysrIGIv
-dGMvdGNfc3RhYi5jCkBAIC0xMjQsNyArMTI0LDcgQEAKIAlwYXJzZV9ydGF0dHJfbmVzdGVkKHRi
-LCBUQ0FfU1RBQl9NQVgsIHJ0YSk7CiAKIAlpZiAodGJbVENBX1NUQUJfQkFTRV0pIHsKLQkJc3Ry
-dWN0IHRjX3NpemVzcGVjIHMgPSB7MH07CisJCXN0cnVjdCB0Y19zaXplc3BlYyBzID0gezAsIDAs
-IDAsIDAsIDAsIDAsIDAsIDB9OwogCQltZW1jcHkoJnMsIFJUQV9EQVRBKHRiW1RDQV9TVEFCX0JB
-U0VdKSwKIAkJCQlNSU4oUlRBX1BBWUxPQUQodGJbVENBX1NUQUJfQkFTRV0pLCBzaXplb2Yocykp
-KTsKIApkaWZmIC0tZ2l0IGEvdGMvdGNfdXRpbC5jIGIvdGMvdGNfdXRpbC5jCmluZGV4IDkyNmVk
-MDguLjU0OGI3MjggMTAwNjQ0Ci0tLSBhL3RjL3RjX3V0aWwuYworKysgYi90Yy90Y191dGlsLmMK
-QEAgLTEzOSw3ICsxMzksNyBAQAogCXsgIkdCcHMiLAk4MDAwMDAwMDAwLiB9LAogCXsgIlRpQnBz
-IiwJOC4qMTAyNC4qMTAyNC4qMTAyNC4qMTAyNC4gfSwKIAl7ICJUQnBzIiwJODAwMDAwMDAwMDAw
-MC4gfSwKLQl7IE5VTEwgfQorCXsgTlVMTCwgLjAgfQogfTsKIAogCkBAIC00NzIsMjggKzQ3Miwy
-OCBAQAogCXBhcnNlX3J0YXR0cl9uZXN0ZWQodGJzLCBUQ0FfU1RBVFNfTUFYLCBydGEpOwogCiAJ
-aWYgKHRic1tUQ0FfU1RBVFNfQkFTSUNdKSB7Ci0JCXN0cnVjdCBnbmV0X3N0YXRzX2Jhc2ljIGJz
-ID0gezB9OworCQlzdHJ1Y3QgZ25ldF9zdGF0c19iYXNpYyBicyA9IHswLCAwfTsKIAkJbWVtY3B5
-KCZicywgUlRBX0RBVEEodGJzW1RDQV9TVEFUU19CQVNJQ10pLCBNSU4oUlRBX1BBWUxPQUQodGJz
-W1RDQV9TVEFUU19CQVNJQ10pLCBzaXplb2YoYnMpKSk7CiAJCWZwcmludGYoZnAsICIlc1NlbnQg
-JWxsdSBieXRlcyAldSBwa3QiLAogCQkJcHJlZml4LCAodW5zaWduZWQgbG9uZyBsb25nKSBicy5i
-eXRlcywgYnMucGFja2V0cyk7CiAJfQogCiAJaWYgKHRic1tUQ0FfU1RBVFNfUVVFVUVdKSB7Ci0J
-CXN0cnVjdCBnbmV0X3N0YXRzX3F1ZXVlIHEgPSB7MH07CisJCXN0cnVjdCBnbmV0X3N0YXRzX3F1
-ZXVlIHEgPSB7MCwgMCwgMCwgMCwgMH07CiAJCW1lbWNweSgmcSwgUlRBX0RBVEEodGJzW1RDQV9T
-VEFUU19RVUVVRV0pLCBNSU4oUlRBX1BBWUxPQUQodGJzW1RDQV9TVEFUU19RVUVVRV0pLCBzaXpl
-b2YocSkpKTsKIAkJZnByaW50ZihmcCwgIiAoZHJvcHBlZCAldSwgb3ZlcmxpbWl0cyAldSByZXF1
-ZXVlcyAldSkgIiwKIAkJCXEuZHJvcHMsIHEub3ZlcmxpbWl0cywgcS5yZXF1ZXVlcyk7CiAJfQog
-CiAJaWYgKHRic1tUQ0FfU1RBVFNfUkFURV9FU1RdKSB7Ci0JCXN0cnVjdCBnbmV0X3N0YXRzX3Jh
-dGVfZXN0IHJlID0gezB9OworCQlzdHJ1Y3QgZ25ldF9zdGF0c19yYXRlX2VzdCByZSA9IHswLCAw
-fTsKIAkJbWVtY3B5KCZyZSwgUlRBX0RBVEEodGJzW1RDQV9TVEFUU19SQVRFX0VTVF0pLCBNSU4o
-UlRBX1BBWUxPQUQodGJzW1RDQV9TVEFUU19SQVRFX0VTVF0pLCBzaXplb2YocmUpKSk7CiAJCWZw
-cmludGYoZnAsICJcbiVzcmF0ZSAlcyAldXBwcyAiLAogCQkJcHJlZml4LCBzcHJpbnRfcmF0ZShy
-ZS5icHMsIGIxKSwgcmUucHBzKTsKIAl9CiAKIAlpZiAodGJzW1RDQV9TVEFUU19RVUVVRV0pIHsK
-LQkJc3RydWN0IGduZXRfc3RhdHNfcXVldWUgcSA9IHswfTsKKwkJc3RydWN0IGduZXRfc3RhdHNf
-cXVldWUgcSA9IHswLCAwLCAwLCAwLCAwfTsKIAkJbWVtY3B5KCZxLCBSVEFfREFUQSh0YnNbVENB
-X1NUQVRTX1FVRVVFXSksIE1JTihSVEFfUEFZTE9BRCh0YnNbVENBX1NUQVRTX1FVRVVFXSksIHNp
-emVvZihxKSkpOwogCQlpZiAoIXRic1tUQ0FfU1RBVFNfUkFURV9FU1RdKQogCQkJZnByaW50Zihm
-cCwgIlxuJXMiLCBwcmVmaXgpOwo=
---=_50fe5a6dc7a56794fb59396f4854bac4--
+> 
+> Have you tried :
+> 
+> tc qdisc replace dev eth0 root fq
+> 
