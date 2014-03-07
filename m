@@ -1,103 +1,58 @@
-From: Christian Riesch <christian.riesch@omicron.at>
-Subject: Re: [PATCH] net: davinci_emac: Replace devm_request_irq with
- request_irq
-Date: Fri, 07 Mar 2014 12:42:28 +0100
-Message-ID: <35CC5396F7326DBE44C9C624@[172.22.2.41]>
-References: <2ec3bb89-89db-48e8-b360-369545a2546f@mary.at.omicron.at>
- <20140306.165736.154818699714315258.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davinci-linux-open-source@linux.davincidsp.com,
-	f.fainelli@gmail.com, netdev@vger.kernel.org, jon@ringle.org
-To: David Miller <davem@davemloft.net>,
-	Prabhakar Lad <prabhakar.csengg@gmail.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCHv2 0/2] af_key: fixes for sleeping while atomic
+Date: Fri,  7 Mar 2014 12:44:17 +0100
+Message-ID: <1394192659-10764-1-git-send-email-nikolay@redhat.com>
+References: <20140227151954.GA30946@redhat.com>
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>,
+	Paul Moore <paul@paul-moore.com>,
+	Dave Jones <davej@redhat.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Fan Du <fan.du@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f179.google.com ([209.85.215.179]:65522 "EHLO
-	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752211AbaCGLmb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 06:42:31 -0500
-Received: by mail-ea0-f179.google.com with SMTP id q10so2278799ead.38
-        for <netdev@vger.kernel.org>; Fri, 07 Mar 2014 03:42:30 -0800 (PST)
-In-Reply-To: <20140306.165736.154818699714315258.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mx1.redhat.com ([209.132.183.28]:4223 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751528AbaCGLtB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Mar 2014 06:49:01 -0500
+In-Reply-To: <20140227151954.GA30946@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi,
+The first patch takes care of the issue on the af_key side, and the second
+one fixes it on the selinux side (security_xfrm_policy_alloc).
+There're a few lines >80 but they were already long, I'm not sure if breaking
+them above the limit would make them more readable than they already are.
+The v2 is because Paul caught a place which could do GFP_KERNEL allocation
+from xfrm_policy_alloc_user, so I've adjusted that too.
 
---On March 06, 2014 16:57 -0500 David Miller <davem@davemloft.net> wrote:
+Best regards,
+ Nikolay Aleksandrov
 
-> From: Christian Riesch <christian.riesch@omicron.at>
-> Date: Wed, 5 Mar 2014 11:25:28 +0100
->
->> @@ -1641,7 +1640,15 @@ static int emac_dev_open(struct net_device *ndev)
->>
->>  rollback:
->>
->> -	dev_err(emac_dev, "DaVinci EMAC: devm_request_irq() failed");
->> +	dev_err(emac_dev, "DaVinci EMAC: request_irq() failed");
->> +
->> +	for (q = k; k >= 0; k--) {
->> +		for (m = i; m >= res->start; m--)
->> +			free_irq(m, ndev);
->> +		res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k-1);
->> +		m = res->end;
-            ^^^^
-So this should definitely read "i = res->end;".
+CC: Paul Moore <paul@paul-moore.com>
+CC: Dave Jones <davej@redhat.com>
+CC: Steffen Klassert <steffen.klassert@secunet.com>
+CC: Fan Du <fan.du@windriver.com>
+CC: David S. Miller <davem@davemloft.net>
 
->> +	}
->
-> This final assignment in the loop of 'm' is unused?
->
-> The inner for() loop always started with "m = i;"
+Nikolay Aleksandrov (2):
+  net: af_key: fix sleeping under rcu
+  selinux: add gfp argument to security_xfrm_policy_alloc and fix
+    callers
 
-But it is more than just that. The entire rollback mechanism of 
-emac_dev_open is a mess. It just won't work.
+ include/linux/security.h            | 10 +++++++---
+ net/key/af_key.c                    | 19 ++++++++++---------
+ net/xfrm/xfrm_user.c                |  6 +++---
+ security/capability.c               |  3 ++-
+ security/security.c                 |  6 ++++--
+ security/selinux/hooks.c            | 13 +++++++------
+ security/selinux/include/security.h |  2 +-
+ security/selinux/include/xfrm.h     |  3 ++-
+ security/selinux/selinuxfs.c        | 28 ++++++++++++++++++----------
+ security/selinux/ss/services.c      |  6 ++++--
+ security/selinux/xfrm.c             | 14 ++++++++------
+ 11 files changed, 66 insertions(+), 44 deletions(-)
 
-1) Freeing the interrupts. Currently, the code tries to do a 
-platform_get_resource(priv->pdev, IORESOURCE_IRQ, -1) in its last 
-iteration. To make this work, the code should be something like
-
-for (q = k; q >= 0; q--) {
-	res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k-1);
-	if (q != k)
-		i = res->end;
-
-	for (m = i; m >= res->start; m--)
-		free_irq(m, ndev);
-}		
-
-2) Wrong order of err: and rollback: labels. Currently the function does 
-something like this:
-
-	pm_runtime_get
-	request irq
-		if requesting irqs fails, goto rollback
-	setup phy
-		if phy setup fails, goto err
-	return 0
-
-rollback:
-	free irqs
-err:
-	pm_runtime_put
-
-So if PHY initialization fails, the IRQs are never freed. So rollback and 
-err must be exchanged, and some additonal code must be added to keep the 
-correct values of k and i for rollback.
-
-3) RX DMA descriptors are not freed in case of an error: Right before 
-requesting the irqs, the function creates DMA descriptors for the RX 
-channel. These RX descriptors are never freed when we jump to either 
-rollback or err. And I think there is also no way to free them as long as 
-cpdma_ctlr_start() has not been called (which is done between requesting 
-irqs and phy setup in the code).
-
-Problems 1+2 are easy to solve. Prabhakar, Mugunthan, any ideas for 3? I 
-think cpsw_ndo_start() in cpsw.c has the same problem. It will also try to 
-call cpdma_ctlr_stop in error handling before cpdma_ctlr_start was called 
-in some cases.
-
-Regards, Christian
+-- 
+1.8.5.3
