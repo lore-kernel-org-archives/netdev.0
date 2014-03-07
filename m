@@ -1,44 +1,30 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Possible fix
-Date: Fri, 7 Mar 2014 12:23:34 +0100
-Message-ID: <20140307112334.GT32371@secunet.com>
-References: <20140227151954.GA30946@redhat.com>
- <8608950.OLpq4oFFJB@sifl>
- <20140305122009.GR32371@secunet.com>
- <7881571.eH1vgtYEXX@sifl>
+Subject: Re: [PATCH net-next] xfrm: rename struct xfrm_filter
+Date: Fri, 7 Mar 2014 12:27:27 +0100
+Message-ID: <20140307112727.GU32371@secunet.com>
+References: <20140304170329.51de98ab@nehalam.linuxnetplumber.net>
+ <1394126669-4438-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>, <netdev@vger.kernel.org>,
-	Dave Jones <davej@redhat.com>, Fan Du <fan.du@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	<linux-security-module@vger.kernel.org>
-To: Paul Moore <paul@paul-moore.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
+Cc: <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:58187 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752037AbaCGL1b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Mar 2014 06:27:31 -0500
 Content-Disposition: inline
-In-Reply-To: <7881571.eH1vgtYEXX@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1394126669-4438-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 06, 2014 at 10:04:54PM -0500, Paul Moore wrote:
-> On Wednesday, March 05, 2014 01:20:09 PM Steffen Klassert wrote:
-> >
-> > Right, that's not really surprising. But it is a bit surprising that
-> > we care for the security context only if we add a socket policy via
-> > the pfkey key manager. The security context is not handled if we do
-> > that with the netlink key manager, see xfrm_compile_policy().
-> > 
-> > I'm not that familiar with selinux and labeled IPsec, but maybe this
-> > needs to be implemented in xfrm_compile_policy() too.
+On Thu, Mar 06, 2014 at 06:24:29PM +0100, Nicolas Dichtel wrote:
+> iproute2 already defines a structure with that name, let's use another one to
+> avoid any conflict.
 > 
-> Okay, I see your point.  We probably should add support for per-socket policy 
-> labels just to keep parity with the pfkey code (and this is far removed from 
-> any critical path), but to be honest it isn't something that I think would get 
-> much use in practice.  Labeled networking users tend to fall under the very 
-> strict, one-system-wide-security-policy and per-socket policies tend to go 
-> against that logic.
-> 
+> CC: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-If you think socket policy labels are no usecase for labeled IPsec, we could
-fix this bug simply by removing the code from pfkey ;)
-
-Otherwise I think we should implement it for xfrm_compile_policy() too.
+Applied to ipsec-next, thanks!
