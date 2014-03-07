@@ -1,51 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH] tcp: tcp_release_cb() should release socket ownership
-Date: Fri, 07 Mar 2014 08:01:05 -0800
-Message-ID: <1394208065.20149.31.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1393972752.26794.145.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140305.205938.287751582220842351.davem@davemloft.net>
-	 <1394071601.27473.17.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140305.211530.2206817902037251680.davem@davemloft.net>
-	 <1394072451.27473.24.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <771471B8871B5044A6CA7CCD9C26EEE10117E265CE84@xmail2.se.axis.com>
+From: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] openvswitch: Orphan frags before sending to
+ userspace via Netlink to avoid guest stall
+Date: Fri, 07 Mar 2014 17:23:14 +0100
+Message-ID: <5319F272.1070101@redhat.com>
+References: <1393615016-9187-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Lars Persson <lars.persson@axis.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:37066 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751578AbaCGQBI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 11:01:08 -0500
-Received: by mail-pd0-f170.google.com with SMTP id v10so4223736pde.1
-        for <netdev@vger.kernel.org>; Fri, 07 Mar 2014 08:01:07 -0800 (PST)
-In-Reply-To: <771471B8871B5044A6CA7CCD9C26EEE10117E265CE84@xmail2.se.axis.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
+ pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1393615016-9187-1-git-send-email-zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-03-07 at 16:45 +0100, Lars Persson wrote:
-> So far no deadlock on the socket lock is seen with this patch. I have seen two out-of-memory crashes which leaves the system deadlocked trying to allocate memory.
-> 
-> Stack traces and kernel log from one of the oom crashes is attached. I was thinking this may be caused by having the dirty_ratio set too high given our product's heavy use of memory. Currently re-testing with dirty_ratio reduced to 5%.
-> 
-> 
-> [11515.530000] Recording maint invoked oom-killer: gfp_mask=0x201da, order=0, oom_score_adj=0
-> [11515.540000] CPU: 0 PID: 1304 Comm: Recording maint Tainted: G           O 3.10.32 #10
-> [11515.550000] Stack : 80666e52 00000049 80660000 00000000 805563dc 8b1876f8 8054af80 805d2227
-> 	  00000518 00000000 80656d40 8b1876f8 000007ce 00000002 00000000 8047d858
-> 	  00000000 8003bb64 00000006 00000000 8054d024
->  [11515.580000]  8b189a84 8b189a84 8054af80
-> 	  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-> 	  00000000 00000000 00000000 00000000 00000000 00000000 00000000 8b189a18
-> 	  ...
+On 02/28/2014 08:16 PM, Zoltan Kiss wrote:
+> The kernel datapath now switched to zerocopy Netlink messages, but that also
+> means that the pages on frags array are sent straight to userspace. If those
+> pages came outside the kernel, we have to swap them out with local copies.
+>
+> Signed-off-by: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+> ---
+>   net/openvswitch/datapath.c |    6 ++++++
+>   1 file changed, 6 insertions(+)
+>
+> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+> index 36f8872..ffb563c 100644
+> --- a/net/openvswitch/datapath.c
+> +++ b/net/openvswitch/datapath.c
+> @@ -464,6 +464,12 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+>   	}
+>   	nla->nla_len = nla_attr_size(skb->len);
+>
+> +	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC))) {
+> +		err = -ENOMEM;
+> +		skb_tx_error(skb);
+> +		goto out;
+> +	}
+> +
+>   	skb_zerocopy(user_skb, skb, skb->len, hlen);
+>
+>   	/* Pad OVS_PACKET_ATTR_PACKET if linear copy was performed */
 
+How about we move the call to skb_orphan_frags() into skb_zerocopy()
+itself and call it before we actually reference the frags?
 
-Well, this is 3.10.32, with local changes to dirty_ratio....
-
-so I will simply ignore mm issues for the moment.
-
-Thanks a lot Lars
-
-Tested-by: Lars Persson <lars.persson@axis.com>
+It's not just OVS affected but nfqueue as well.
