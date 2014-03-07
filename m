@@ -1,45 +1,34 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net-next 2/7] r8152: check tx agg list before spin lock
-Date: Fri, 7 Mar 2014 11:04:35 +0800
-Message-ID: <1394161480-2918-3-git-send-email-hayeswang@realtek.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next 0/7] r8152: tx/rx improvement
+Date: Fri, 7 Mar 2014 11:04:33 +0800
+Message-ID: <1394161480-2918-1-git-send-email-hayeswang@realtek.com>
 References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
- <1394161480-2918-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394161480-2918-1-git-send-email-hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Check tx agg list before spin lock to avoid doing spin lock every
-times.
+ - Select the suitable spin lock for each function.
+ - Add additional check to reduce the spin lock.
+ - Up the priority of the tx to avoid interrupted by rx.
+ - Support rx checksum, large send, and IPv6 hw checksum.
 
-Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
----
- drivers/net/usb/r8152.c | 3 +++
- 1 file changed, 3 insertions(+)
+Hayes Wang (7):
+  r8152: replace spin_lock_irqsave and spin_unlock_irqrestore
+  r8152: check tx agg list before spin lock
+  r8152: up the priority of the transmission
+  r8152: calculate the dropped packets for rx
+  r8152: support rx checksum
+  r8152: support TSO
+  r8152: support IPv6
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 8ecb41b..00b3192 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -1266,6 +1266,9 @@ static struct tx_agg *r8152_get_tx_agg(struct r8152 *tp)
- 	struct tx_agg *agg = NULL;
- 	unsigned long flags;
- 
-+	if (list_empty(&tp->tx_free))
-+		return NULL;
-+
- 	spin_lock_irqsave(&tp->tx_lock, flags);
- 	if (!list_empty(&tp->tx_free)) {
- 		struct list_head *cursor;
+ drivers/net/usb/r8152.c | 323 +++++++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 263 insertions(+), 60 deletions(-)
+
 -- 
 1.8.4.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
