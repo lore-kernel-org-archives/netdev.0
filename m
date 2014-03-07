@@ -1,21 +1,19 @@
-From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+From: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Subject: Re: [PATCH] openvswitch: Orphan frags before sending to
  userspace via Netlink to avoid guest stall
-Date: Fri, 7 Mar 2014 09:38:31 -0800
-Message-ID: <CALnjE+pkTyHycgH+xZ+Uv=SXmoWmeUJBYa6uqWjy0L_3xG3FZg@mail.gmail.com>
-References: <1393615016-9187-1-git-send-email-zoltan.kiss@citrix.com>
- <5318ABC0.4040307@citrix.com>
- <CALnjE+rWc=n_F+1jSLQtPrgKSvvxONEkkYxWEHon2_KVNG9z3Q@mail.gmail.com>
- <5319BBAE.7030109@citrix.com>
+Date: Fri, 07 Mar 2014 18:59:45 +0100
+Message-ID: <531A0911.4040304@redhat.com>
+References: <1393615016-9187-1-git-send-email-zoltan.kiss@citrix.com>	<5319F272.1070101@redhat.com>
+ <CALnjE+q=fejHPsjVj9+jnypJCUHfCDFc553U48WR48Tjcf3FZw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
  netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
  xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org
-To: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+To: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <5319BBAE.7030109-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <CALnjE+q=fejHPsjVj9+jnypJCUHfCDFc553U48WR48Tjcf3FZw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
  <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -27,44 +25,21 @@ Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 7, 2014 at 4:29 AM, Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org> wrote:
-> On 07/03/14 04:46, Pravin Shelar wrote:
->>
->> On Thu, Mar 6, 2014 at 9:09 AM, Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
->> wrote:
->>>
->>> Do you have any feedback on this? I'm also adding KVM list as they might
->>> be
->>> interested in this.
->>>
->>> Zoli
->>>
->>>
->>> On 28/02/14 19:16, Zoltan Kiss wrote:
->>>>
->>>>
->>>> The kernel datapath now switched to zerocopy Netlink messages, but that
->>>> also
->>>> means that the pages on frags array are sent straight to userspace. If
->>>> those
->>>> pages came outside the kernel, we have to swap them out with local
->>>> copies.
->>>>
->>>> Signed-off-by: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
->>
->>
->> I do not think this is required, netlink zero copy only maps
->> pre-allocated buffers to user-space.
+On 03/07/2014 06:28 PM, Pravin Shelar wrote:
+> Problem is mapping SKBTX_DEV_ZEROCOPY pages to userspace. skb_zerocopy
+> is not doing that.
 >
-> How do you mean "pre-allocated"? By who?
->
-by netlink, ref. netlink_alloc_skb().
+> Unless I missing something, Current netlink code can not handle
+> skb-frags with zero copy. So we have to copy skb anyways and no need
+> to orphan-frags here.
+> If you are planning on handling skb-frags without copying then
+> skb_orphan_frags should be done in netlink.
 
-> As far as I've seen the skb in this function came straight from the device
-> (vif in our case), and skb_zerocopy just copy the frags to user_skb, which
-> is sent to the userspace. Those frags contain pages from guest, and it's a
-> bad idea to pass them to userspace: e.g if userspace dies in the meantime,
-> what happens with them? Also, in Xen's case they are actually not mapped to
-> userspace, so accessing them can lead to garbage.
->
-AFAIK Netlink does not handle skb-frags for zero-copy case.
+If you look at the second part of skb_zerocopy() this is exactly what
+it is doing unless the target skb has sufficient linear space
+preallocated. At least unless mmap is enabled in which case we would
+have to copy again until we have implemented a way to pass page refs
+via the nl ring buffer.
+
+So I think Zoltan is correct in orphaning frags that come from f.e.
+a tun device via zerocopy_sg_from_iovec().
