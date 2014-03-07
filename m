@@ -1,38 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vlan: Fix lockdep warning when vlan dev
- handle notification
-Date: Fri, 07 Mar 2014 01:49:32 -0500 (EST)
-Message-ID: <20140307.014932.157368387111603644.davem@davemloft.net>
-References: <5318828D.3090308@huawei.com>
-	<20140306.145126.497070034648321818.davem@davemloft.net>
-	<5319270D.4030602@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] pkt_sched: fq: do not hold qdisc lock while allocating
+ memory
+Date: Thu, 06 Mar 2014 22:57:52 -0800
+Message-ID: <1394175472.20149.6.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, john.r.fastabend@intel.com, kaber@trash.net,
-	netdev@vger.kernel.org, f.fainelli@gmail.com
-To: dingtianhong@huawei.com
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36558 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751057AbaCGGti (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 01:49:38 -0500
-In-Reply-To: <5319270D.4030602@huawei.com>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:52561 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750830AbaCGG5x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 01:57:53 -0500
+Received: by mail-pd0-f171.google.com with SMTP id r10so3622450pdi.16
+        for <netdev@vger.kernel.org>; Thu, 06 Mar 2014 22:57:53 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Fri, 7 Mar 2014 09:55:25 +0800
+From: Eric Dumazet <edumazet@google.com>
 
-> But I think if I vconfig add eth2.20.30 50, the warning would happen
-> again, but till now I could not find any scene that use 3 vlan id on
-> a virtual device, so I think it is not a problem.
+Resizing fq hash table allocates memory while holding qdisc spinlock,
+with BH disabled.
 
-My example was to show that you aren't really fixing the bug, but
-rather are papering over it.
+This is definitely not good, as allocation might sleep.
 
-In that sense, it is a problem.
+We can drop the lock and get it when needed, we hold RTNL so no other
+changes can happen at the same time.
 
-I also happen to disagree with your assertion that a 3 layered
-VLAN is invalid, it is valid.  And if we allow the configuration
-it shouldn't throw locking assertions.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Fixes: afe4fd062416 ("pkt_sched: fq: Fair Queue packet scheduler")
+---
+ net/sched/sch_fq.c |   21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
+
+diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
+index 08ef7a42c0e4..21e251766eb1 100644
+--- a/net/sched/sch_fq.c
++++ b/net/sched/sch_fq.c
+@@ -601,6 +601,7 @@ static int fq_resize(struct Qdisc *sch, u32 log)
+ {
+ 	struct fq_sched_data *q = qdisc_priv(sch);
+ 	struct rb_root *array;
++	void *old_fq_root;
+ 	u32 idx;
+ 
+ 	if (q->fq_root && log == q->fq_trees_log)
+@@ -615,13 +616,19 @@ static int fq_resize(struct Qdisc *sch, u32 log)
+ 	for (idx = 0; idx < (1U << log); idx++)
+ 		array[idx] = RB_ROOT;
+ 
+-	if (q->fq_root) {
+-		fq_rehash(q, q->fq_root, q->fq_trees_log, array, log);
+-		fq_free(q->fq_root);
+-	}
++	sch_tree_lock(sch);
++
++	old_fq_root = q->fq_root;
++	if (old_fq_root)
++		fq_rehash(q, old_fq_root, q->fq_trees_log, array, log);
++
+ 	q->fq_root = array;
+ 	q->fq_trees_log = log;
+ 
++	sch_tree_unlock(sch);
++
++	fq_free(old_fq_root);
++
+ 	return 0;
+ }
+ 
+@@ -697,9 +704,11 @@ static int fq_change(struct Qdisc *sch, struct nlattr *opt)
+ 		q->flow_refill_delay = usecs_to_jiffies(usecs_delay);
+ 	}
+ 
+-	if (!err)
++	if (!err) {
++		sch_tree_unlock(sch);
+ 		err = fq_resize(sch, fq_log);
+-
++		sch_tree_lock(sch);
++	}
+ 	while (sch->q.qlen > sch->limit) {
+ 		struct sk_buff *skb = fq_dequeue(sch);
+ 
