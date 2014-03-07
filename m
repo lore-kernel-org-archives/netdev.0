@@ -1,109 +1,96 @@
 From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next v2 0/2] gianfar: Tx timeout issue
-Date: Fri, 7 Mar 2014 14:42:44 +0200
-Message-ID: <1394196166-24932-1-git-send-email-claudiu.manoil@freescale.com>
+Subject: Re: [PATCH net-next 2/2] gianfar: Make multi-queue polling optional
+Date: Fri, 7 Mar 2014 14:52:32 +0200
+Message-ID: <5319C110.2060901@freescale.com>
+References: <1394008119-27899-1-git-send-email-claudiu.manoil@freescale.com>	<1394008119-27899-3-git-send-email-claudiu.manoil@freescale.com> <20140306.165236.1656673150420499957.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:1973 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751669AbaCGMo1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 07:44:27 -0500
+Received: from va3ehsobe001.messaging.microsoft.com ([216.32.180.11]:53958
+	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752532AbaCGMwo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 07:52:44 -0500
+In-Reply-To: <20140306.165236.1656673150420499957.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 3/6/2014 11:52 PM, David Miller wrote:
+> From: Claudiu Manoil <claudiu.manoil@freescale.com>
+> Date: Wed, 5 Mar 2014 10:28:39 +0200
+>
+>> For the newer controllers (etsec2 models) the driver currently
+>> supports 8 Tx and Rx DMA rings (aka HW queues).  However, there
+>> are only 2 pairs of Rx/Tx interrupt lines, as these controllers
+>> are integrated in low power SoCs with 2 CPUs at most.  As a result,
+>> there are at most 2 NAPI instances that have to service multiple
+>> Tx and Rx queues for these devices.  This complicates the NAPI
+>> polling routine having to iterate over the mutiple Rx/Tx queues
+>> hooked to the same interrupt lines.  And there's also an overhead
+>> at HW level, as the controller needs to service all the 8 Tx rings
+>> in a round robin manner.  The cumulated overhead shows up for mutiple
+>> parrallel Tx flows transmitted by the kernel stack, when the driver
+>> usually starts returning NETDEV_TX_BUSY and leading to NETDEV WATCHDOG
+>> Tx timeout triggering if the Tx path is congested for too long.
+>>
+>> As an alternative, this patch makes the driver support only one
+>> Tx/Rx DMA ring per NAPI instace (per interrupt group or pair
+>> of Tx/Rx interrupt lines) by default.  The simplified single queue
+>> polling routine (gfar_poll_sq) will be the default napi poll routine
+>> for the etsec2 devices too.  Only small adjustments needed to be made
+>> to link the Tx/Rx HW queues with each NAPI instance (2 in this case).
+>> The gfar_poll_sq() is already succefully used by older SQ_SG (single
+>> interrupt group) controllers.  And there's also a significat memory
+>> footprint reduction by supporting 2 Rx/Tx DMA rings (at most), instead
+>> of 8.
+>>
+>> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+>
+> This patch is not OK.
+>
+> First of all, you are disabling multi-queue for other devices.
+>
+> You're adding a CPP check for a macro that is set by nothing.
+>
+> Determine the condition to limit the number of queues at run-time.
+>
+>
+
 Hi David,
 
-There's an older Tx timeout issue showing up on etsec2 devices
-with 2 CPUs.  I pinned this issue down to processing overhead
-incurred by supporting multiple Tx/Rx rings, as explained in
-the 2nd patch below.  But before this, there's also a concurency
-issue leading to Rx/Tx spurrious interrupts, addressed by the
-'Tx NAPI' patch below.
-The Tx timeout can be triggered with multiple Tx flows,
-'iperf -c -N 8' commands, on a 2 CPUs etsec2 based (P1020) board.
+Thanks for reviewing this and for the concerns.
+I agree that using CPP defines is ugly.  I reworked
+the 2nd patch to do these checks at run-time.
 
-Before the patches:
-"""
-root@p1020rdb-pc:~# iperf -c 172.16.1.3 -n 1000M -P 8 &
-[...]
-root@p1020rdb-pc:~# NETDEV WATCHDOG: eth1 (fsl-gianfar): transmit queue 1 timed out
-WARNING: at net/sched/sch_generic.c:279
-Modules linked in:
-CPU: 1 PID: 0 Comm: swapper/1 Not tainted 3.13.0-rc3-03386-g89ea59c #23
-task: ed84ef40 ti: ed868000 task.ti: ed868000
-NIP: c04627a8 LR: c04627a8 CTR: c02fb270
-REGS: ed869d00 TRAP: 0700   Not tainted  (3.13.0-rc3-03386-g89ea59c)
-MSR: 00029000 <CE,EE,ME>  CR: 44000022  XER: 20000000
-[...]
+For your first concern, the "fsl,etsec2" models are the
+only devices for which multi-queue NAPI polling is used.
+The other devices work in SQ_SG mode, they support a single
+pair of Rx/Tx queues and already use single queue NAPI polling.
 
-root@p1020rdb-pc:~# [ ID] Interval       Transfer     Bandwidth
-[  5]  0.0-19.3 sec  1000 MBytes    434 Mbits/sec
-[  8]  0.0-39.7 sec  1000 MBytes    211 Mbits/sec
-[  9]  0.0-40.1 sec  1000 MBytes    209 Mbits/sec
-[  3]  0.0-40.2 sec  1000 MBytes    209 Mbits/sec
-[ 10]  0.0-59.0 sec  1000 MBytes    142 Mbits/sec
-[  7]  0.0-74.6 sec  1000 MBytes    112 Mbits/sec
-[  6]  0.0-74.7 sec  1000 MBytes    112 Mbits/sec
-[  4]  0.0-74.7 sec  1000 MBytes    112 Mbits/sec
-[SUM]  0.0-74.7 sec  7.81 GBytes    898 Mbits/sec
+The "fsl,etsec2" models work in MQ_MG_MODE (Multi-Group) because
+they have 2 separate pairs of Rx/Tx interrupt lines
+(aka interrupt groups), so they can work with 2 (Rx/Tx) NAPI
+instances serving one (Rx/Tx) queue each.
+So because these devices can support 2 Rx and 2 TX queues,
+they are still multi-queue, but they can be serviced with the
+simplified SQ NAPI poll routine, per interrupt group
+(NAPI instance).
 
-root@p1020rdb-pc:~# ifconfig eth1
-eth1      Link encap:Ethernet  HWaddr 00:04:9f:00:13:01  
-          inet addr:172.16.1.1  Bcast:172.16.255.255  Mask:255.255.0.0
-          inet6 addr: fe80::204:9fff:fe00:1301/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:708722 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:8717849 errors:6 dropped:0 overruns:1470 carrier:0
-          collisions:0 txqueuelen:1000 
-          RX bytes:58118018 (55.4 MiB)  TX bytes:274069482 (261.3 MiB)
-          Base address:0xa000 
+However, enabling support for all the 8 RX and 8 TX hw queues
+turns out to be a problem as the combined processing overhead is
+too much: multi-queue polling per NAPI instance + eTSEC
+controller having to service the 8 Tx queues round-robin.
+And this results in serious Tx congestion (and Tx timeout).
 
-"""
+As I see it, multi-queue NAPI polling not only creates issues
+but is not justified for this linux driver.  However, instead
+of removing this code altogether I thought it would be safer
+to still keep it in the driver for a while, and do some
+checks to limit the number of queues at runtime.
 
-After applying the patches:
-"""
-root@p1020rdb-pc:~# iperf -c 172.16.1.3 -n 1000M -P 8 &
-[...]
-root@p1020rdb-pc:~# [ ID] Interval       Transfer     Bandwidth
-[  9]  0.0-70.5 sec  1000 MBytes    119 Mbits/sec
-[  5]  0.0-70.5 sec  1000 MBytes    119 Mbits/sec
-[  6]  0.0-70.7 sec  1000 MBytes    119 Mbits/sec
-[  4]  0.0-71.0 sec  1000 MBytes    118 Mbits/sec
-[  8]  0.0-71.1 sec  1000 MBytes    118 Mbits/sec
-[  3]  0.0-71.2 sec  1000 MBytes    118 Mbits/sec
-[ 10]  0.0-71.3 sec  1000 MBytes    118 Mbits/sec
-[  7]  0.0-71.3 sec  1000 MBytes    118 Mbits/sec
-[SUM]  0.0-71.3 sec  7.81 GBytes    942 Mbits/sec
-
-root@p1020rdb-pc:~# ifconfig eth1
-eth1      Link encap:Ethernet  HWaddr 00:04:9f:00:13:01  
-          inet addr:172.16.1.1  Bcast:172.16.255.255  Mask:255.255.0.0
-          inet6 addr: fe80::204:9fff:fe00:1301/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:728446 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:8690057 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000 
-          RX bytes:59732650 (56.9 MiB)  TX bytes:271554306 (258.9 MiB)
-          Base address:0xa000 
-"""
-
+Hopefully this explains the problem a bit clearer.
 
 Thanks.
---
-v2: PATCH 2:
-    Replaced CPP check with run-time condition to
-    limit the number of queues. Updated comments.
-
-Claudiu Manoil (2):
-  gianfar: Separate out the Tx interrupt handling (Tx NAPI)
-  gianfar: Use Single-Queue polling for "fsl,etsec2"
-
- drivers/net/ethernet/freescale/gianfar.c | 274 ++++++++++++++++++++++---------
- drivers/net/ethernet/freescale/gianfar.h |  52 ++++--
- 2 files changed, 232 insertions(+), 94 deletions(-)
-
--- 
-1.7.11.7
+Claudiu
