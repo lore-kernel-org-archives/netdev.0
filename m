@@ -1,44 +1,181 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] checkpatch: net and drivers/net: Warn on missing blank
- line after variable declaration
-Date: Fri, 07 Mar 2014 01:30:37 -0800
-Message-ID: <1394184637.16156.58.camel@joe-AO722>
-References: <1394104358-23438-1-git-send-email-kys@microsoft.com>
- <1394104390-23477-1-git-send-email-kys@microsoft.com>
- <20140306.142919.763823800315842610.davem@davemloft.net>
- <1394148520.16156.8.camel@joe-AO722> <20140307075247.GA29018@mwanda>
+From: Steffen Trumtrar <s.trumtrar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH] ath6kl: sdio: fix system panic when doing wifi stress
+ test
+Date: Fri, 7 Mar 2014 10:38:13 +0100
+Message-ID: <20140307093813.GA28728@pengutronix.de>
+References: <1384221185-8645-1-git-send-email-r64343@freescale.com>
+ <87k3fvjvjg.fsf@kamboji.qca.qualcomm.com>
+ <AD13664F485EE54694E29A7F9D5BE1AFC0AD96@039-SN2MPN1-022.039d.mgd.msft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, apw@canonical.com,
- devel@linuxdriverproject.org, Andrew Morton <akpm@linux-foundation.org>,
- David Miller <davem@davemloft.net>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140307075247.GA29018@mwanda>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"ath6kl-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org" <ath6kl-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+To: Hui Liu <Hui.Liu-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <AD13664F485EE54694E29A7F9D5BE1AFC0AD96-RL0Hj/+nBVC81RJBUSuqCa4g8xLGJsHaLnY5E4hWTkheoWH0uzbU5w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-03-07 at 10:54 +0300, Dan Carpenter wrote:
-> How many warnings does this generate does this generate when you run it
-> across the whole tree?
+Hi!
 
-A lot.
+On Fri, Nov 29, 2013 at 06:02:11AM +0000, Hui Liu wrote:
+> > -----Original Message-----
+> > From: Kalle Valo [mailto:kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org]
+> > Sent: Tuesday, November 26, 2013 6:40 PM
+> > To: Liu Hui-R64343
+> > Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org; linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org; linux-
+> > wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
+> > kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; ath6kl-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org
+> > Subject: Re: [PATCH] ath6kl: sdio: fix system panic when doing wifi
+> > stress test
+> > 
+> > Hi Jason,
+> > 
+> > Jason Liu <r64343-KZfg59tc24xl57MIdRCFDg@public.gmane.org> writes:
+> > 
+> > > When did the wifi iperf test, meet one following kernel panic:
+> > > command: iperf -c $TARGET_IP -i 5 -t 50 -w 1M
+> > >
+> > > Unable to handle kernel paging request at virtual address 1a480000 pgd
+> > > = 80004000 [1a480000] *pgd=00000000 Internal error: Oops: 805 [#1] SMP
+> > > ARM
+> > 
+> > [...]
+> > 
+> > > The kernel panic is caused by the sg_buf is not set correctly with the
+> > > following code when compiled with Yocto GCC 4.8.1:
+> > >
+> > > drivers/net/wireless/ath/ath6kl/hif.h:
+> > > struct hif_scatter_req {
+> > >         struct list_head list;
+> > >         /* address for the read/write operation */
+> > >         u32 addr;
+> > > 	...
+> > >
+> > >         /* bounce buffer for upper layers to copy to/from */
+> > >         u8 *virt_dma_buf;
+> > >
+> > >         struct hif_scatter_item scat_list[1];
+> > >
+> > >         u32 scat_q_depth;
+> > > };
+> > >
+> > > (Note: the scat_req.scat_list[] will dynamiclly grow with run-time)
+> > 
+> > There's actually a major bug right there, scat_list can corrupt
+> > scat_q_depth.
+> > 
+> > > The GCC 4.8.1 compiler will not do the for-loop till scat_entries,
+> > > instead, it only run one round loop. This may be caused by that the
+> > > GCC 4.8.1 thought that the scat_list only have one item and then no
+> > > need to do full iteration, but this is simply wrong by looking at the
+> > > assebly code. This will cause the sg buffer not get set when
+> > scat_entries > 1 and thus lead to kernel panic.
+> > >
+> > > This patch is a workaround to the GCC 4.8.1 complier issue by passing
+> > > the entry address of the scat_req->scat_list to the for-loop and
+> > > interate it, then, GCC 4.8.1 will do the full for-loop correctly.
+> > > (Note: This issue not observed with GCC 4.7.2, only found on the GCC
+> > > 4.8.1)
+> > >
+> > > This patch does not change any function logic and no any performance
+> > downgrade.
+> > 
+> > [...]
+> > 
+> > > +	scat_list = &scat_req->scat_list[0];
+> > > +
+> > >  	/* assemble SG list */
+> > > -	for (i = 0; i < scat_req->scat_entries; i++, sg++) {
+> > > +	for (i = 0; i < scat_req->scat_entries; i++, sg++, scat_list++) {
+> > >  		ath6kl_dbg(ATH6KL_DBG_SCATTER, "%d: addr:0x%p, len:%d\n",
+> > > -			   i, scat_req->scat_list[i].buf,
+> > > -			   scat_req->scat_list[i].len);
+> > > +			   i, scat_list->buf, scat_list->len);
+> > >
+> > > -		sg_set_buf(sg, scat_req->scat_list[i].buf,
+> > > -			   scat_req->scat_list[i].len);
+> > > +		sg_set_buf(sg, scat_list->buf, scat_list->len);
+> > >  	}
+> > 
+> > Working around the problem by adding a temporary variable makes me a bit
+> > worried, I would rather fix the root cause. Is the root cause by that we
+> > define the field with scat_list[1]?
+> 
+> Yes, this is what I assumed. 
+> 
+> > 
+> > Does the patch below help? It would also fix the corruption with
+> > scat_q_depth. Please note that I have only compile tested it. And I might
+> > have also missed something important, so please review it carefully.
+> 
+> Yes, Firstly, I have looked at the asm code and the compiler(gcc 4.8.1) works correctly after applying
+> the following patch. Secondly, I have tested the patch with compiler(gcc 4.8.1) on the real HW, and it
+> works fine too. Without the patch, the kernel crash will happen 100%.
+> 
+> Thus, for the patch:
+> 
+> Acked-by: Jason Liu <r64343-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+> Tested-by: Jason Liu <r64343-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+> 
+> Jason Liu
+> 
+> > 
+> > --- a/drivers/net/wireless/ath/ath6kl/hif.h
+> > +++ b/drivers/net/wireless/ath/ath6kl/hif.h
+> > @@ -197,9 +197,9 @@ struct hif_scatter_req {
+> >  	/* bounce buffer for upper layers to copy to/from */
+> >  	u8 *virt_dma_buf;
+> > 
+> > -	struct hif_scatter_item scat_list[1];
+> > -
+> >  	u32 scat_q_depth;
+> > +
+> > +	struct hif_scatter_item scat_list[0];
+> >  };
+> > 
+> >  struct ath6kl_irq_proc_registers {
+> > diff --git a/drivers/net/wireless/ath/ath6kl/sdio.c
+> > b/drivers/net/wireless/ath/ath6kl/sdio.c
+> > index 7126bdd..6bf15a3 100644
+> > --- a/drivers/net/wireless/ath/ath6kl/sdio.c
+> > +++ b/drivers/net/wireless/ath/ath6kl/sdio.c
+> > @@ -348,7 +348,7 @@ static int ath6kl_sdio_alloc_prep_scat_req(struct
+> > ath6kl_sdio *ar_sdio,
+> >  	int i, scat_req_sz, scat_list_sz, size;
+> >  	u8 *virt_buf;
+> > 
+> > -	scat_list_sz = (n_scat_entry - 1) * sizeof(struct hif_scatter_item);
+> > +	scat_list_sz = n_scat_entry * sizeof(struct hif_scatter_item);
+> >  	scat_req_sz = sizeof(*s_req) + scat_list_sz;
+> > 
+> >  	if (!virt_scat)
+> > 
+> > 
+> > --
+> > Kalle Valo
+> 
 
-Check back with me after the week or so
-it'll take to run on this little netboook.
+What happend with this?
+If I look in mainline, I don't find it. At least the reording of the struct
+fields looks as if one definitely wants to have that.
 
-Try this with both patches applied if you want
-to know yourself...
+Regards,
+Steffen
 
-$ git ls-files | grep "\.[ch]$"| \
-  xargs ./scripts/checkpatch.pl -f --strict --types=spacing --emacs --terse | \
-  grep "Missing a blank"
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
