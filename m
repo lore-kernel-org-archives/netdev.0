@@ -1,71 +1,84 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv4 net-next 14/32] iw_cxgb4: Mind the sq_sig_all/sq_sig_type QP attributes
-Date: Fri,  7 Mar 2014 16:03:11 +0530
-Message-ID: <1394188409-9739-15-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv4 net-next 04/32] cxgb4: Updates for T5 SGE's Egress Congestion Threshold
+Date: Fri,  7 Mar 2014 16:03:01 +0530
+Message-ID: <1394188409-9739-5-git-send-email-hariprasad@chelsio.com>
 References: <1394188409-9739-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, santosh@chelsio.com,
 	dm@chelsio.com, kumaras@chelsio.com, swise@opengridcomputing.com,
 	leedom@chelsio.com, nirranjan@chelsio.com, hariprasad@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:18260 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:29580 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751011AbaCGKm0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 05:42:26 -0500
+	by vger.kernel.org with ESMTP id S1752524AbaCGKlt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 05:41:49 -0500
 In-Reply-To: <1394188409-9739-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Wise <swise@opengridcomputing.com>
+From: Kumar Sanghvi <kumaras@chelsio.com>
 
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+Based on original work by Casey Leedom <leedom@chelsio.com>
+
+Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 ---
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h | 1 +
- drivers/infiniband/hw/cxgb4/qp.c       | 6 ++++--
- 2 files changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/sge.c     | 18 +++++++++++++-----
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |  6 ++++++
+ 2 files changed, 19 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-index c05c875..8c32088 100644
---- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-+++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-@@ -448,6 +448,7 @@ struct c4iw_qp {
- 	atomic_t refcnt;
- 	wait_queue_head_t wait;
- 	struct timer_list timer;
-+	int sq_sig_all;
- };
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index 054bb03..a7c56b3 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -2776,8 +2776,8 @@ static int t4_sge_init_hard(struct adapter *adap)
+ int t4_sge_init(struct adapter *adap)
+ {
+ 	struct sge *s = &adap->sge;
+-	u32 sge_control;
+-	int ret;
++	u32 sge_control, sge_conm_ctrl;
++	int ret, egress_threshold;
  
- static inline struct c4iw_qp *to_c4iw_qp(struct ib_qp *ibqp)
-diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
-index 7aee163..4c70df9 100644
---- a/drivers/infiniband/hw/cxgb4/qp.c
-+++ b/drivers/infiniband/hw/cxgb4/qp.c
-@@ -720,7 +720,7 @@ int c4iw_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
- 		fw_flags = 0;
- 		if (wr->send_flags & IB_SEND_SOLICITED)
- 			fw_flags |= FW_RI_SOLICITED_EVENT_FLAG;
--		if (wr->send_flags & IB_SEND_SIGNALED)
-+		if (wr->send_flags & IB_SEND_SIGNALED || qhp->sq_sig_all)
- 			fw_flags |= FW_RI_COMPLETION_FLAG;
- 		swsqe = &qhp->wq.sq.sw_sq[qhp->wq.sq.pidx];
- 		switch (wr->opcode) {
-@@ -781,7 +781,8 @@ int c4iw_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
- 		}
- 		swsqe->idx = qhp->wq.sq.pidx;
- 		swsqe->complete = 0;
--		swsqe->signaled = (wr->send_flags & IB_SEND_SIGNALED);
-+		swsqe->signaled = (wr->send_flags & IB_SEND_SIGNALED) ||
-+				  qhp->sq_sig_all;
- 		swsqe->flushed = 0;
- 		swsqe->wr_id = wr->wr_id;
+ 	/*
+ 	 * Ingress Padding Boundary and Egress Status Page Size are set up by
+@@ -2802,10 +2802,18 @@ int t4_sge_init(struct adapter *adap)
+ 	 * SGE's Egress Congestion Threshold.  If it isn't, then we can get
+ 	 * stuck waiting for new packets while the SGE is waiting for us to
+ 	 * give it more Free List entries.  (Note that the SGE's Egress
+-	 * Congestion Threshold is in units of 2 Free List pointers.)
++	 * Congestion Threshold is in units of 2 Free List pointers.) For T4,
++	 * there was only a single field to control this.  For T5 there's the
++	 * original field which now only applies to Unpacked Mode Free List
++	 * buffers and a new field which only applies to Packed Mode Free List
++	 * buffers.
+ 	 */
+-	s->fl_starve_thres
+-		= EGRTHRESHOLD_GET(t4_read_reg(adap, SGE_CONM_CTRL))*2 + 1;
++	sge_conm_ctrl = t4_read_reg(adap, SGE_CONM_CTRL);
++	if (is_t4(adap->params.chip))
++		egress_threshold = EGRTHRESHOLD_GET(sge_conm_ctrl);
++	else
++		egress_threshold = EGRTHRESHOLDPACKING_GET(sge_conm_ctrl);
++	s->fl_starve_thres = 2*egress_threshold + 1;
  
-@@ -1608,6 +1609,7 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
- 	qhp->attr.enable_bind = 1;
- 	qhp->attr.max_ord = 1;
- 	qhp->attr.max_ird = 1;
-+	qhp->sq_sig_all = attrs->sq_sig_type == IB_SIGNAL_ALL_WR;
- 	spin_lock_init(&qhp->lock);
- 	mutex_init(&qhp->mutex);
- 	init_waitqueue_head(&qhp->wait);
+ 	setup_timer(&s->rx_timer, sge_rx_timer_cb, (unsigned long)adap);
+ 	setup_timer(&s->tx_timer, sge_tx_timer_cb, (unsigned long)adap);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index 33cf9ef..225ad8a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -230,6 +230,12 @@
+ #define  EGRTHRESHOLD(x)     ((x) << EGRTHRESHOLDshift)
+ #define  EGRTHRESHOLD_GET(x) (((x) & EGRTHRESHOLD_MASK) >> EGRTHRESHOLDshift)
+ 
++#define EGRTHRESHOLDPACKING_MASK	0x3fU
++#define EGRTHRESHOLDPACKING_SHIFT	14
++#define EGRTHRESHOLDPACKING(x)		((x) << EGRTHRESHOLDPACKING_SHIFT)
++#define EGRTHRESHOLDPACKING_GET(x)	(((x) >> EGRTHRESHOLDPACKING_SHIFT) & \
++					  EGRTHRESHOLDPACKING_MASK)
++
+ #define SGE_DBFIFO_STATUS 0x10a4
+ #define  HP_INT_THRESH_SHIFT 28
+ #define  HP_INT_THRESH_MASK  0xfU
 -- 
 1.8.4
