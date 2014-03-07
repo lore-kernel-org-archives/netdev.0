@@ -1,52 +1,41 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] l2tp: fix unused variable warning
-Date: Fri, 07 Mar 2014 14:57:43 -0800
-Message-ID: <1394233063.20149.44.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH] pkt_sched: fq: do not hold qdisc lock while allocating
+ memory
+Date: Fri, 07 Mar 2014 15:02:42 -0800
+Message-ID: <1394233362.20149.47.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1394175472.20149.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140307.170450.1316250102185751283.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:44293 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751951AbaCGW5p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 17:57:45 -0500
-Received: by mail-pb0-f51.google.com with SMTP id uo5so4750778pbc.24
-        for <netdev@vger.kernel.org>; Fri, 07 Mar 2014 14:57:45 -0800 (PST)
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:45806 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752060AbaCGXCo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 18:02:44 -0500
+Received: by mail-pb0-f48.google.com with SMTP id md12so4767221pbc.7
+        for <netdev@vger.kernel.org>; Fri, 07 Mar 2014 15:02:44 -0800 (PST)
+In-Reply-To: <20140307.170450.1316250102185751283.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, 2014-03-07 at 17:04 -0500, David Miller wrote:
 
-net/l2tp/l2tp_core.c:1111:15: warning: unused variable
-'sk' [-Wunused-variable]
+> Eric I think you can simplify things a little further, and in fact I
+> think it makes these functions easier to understand.
+> 
+> The fq_resize() part should just grab the lock around the rehash and
+> the update of q->fq_root and q->fq_trees_log.
+> 
+> fq_change() should only grab the lock around the fq_dequeue() loop
+> and the call to qdisc_tree_descrease_qlen().  The rest of this
+> function is just validating netlink attributes and looking at state
+> that cannot change while we hold RTNL.
 
-Fixes: 31c70d5956fc ("l2tp: keep original skb ownership")
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/l2tp/l2tp_core.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Hmm, but all these parameters we change in fq_change() are read by other
+cpus doing enqueue()/dequeue().
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 9958c31c2c54..dcab9ddc4388 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1108,7 +1108,6 @@ static int l2tp_xmit_core(struct l2tp_session *session, struct sk_buff *skb,
- 			  struct flowi *fl, size_t data_len)
- {
- 	struct l2tp_tunnel *tunnel = session->tunnel;
--	struct sock *sk = tunnel->sock;
- 	unsigned int len = skb->len;
- 	int error;
- 
-@@ -1132,7 +1131,7 @@ static int l2tp_xmit_core(struct l2tp_session *session, struct sk_buff *skb,
- 	/* Queue the packet to IP for output */
- 	skb->local_df = 1;
- #if IS_ENABLED(CONFIG_IPV6)
--	if (sk->sk_family == PF_INET6 && !tunnel->v4mapped)
-+	if (tunnel->sock->sk_family == PF_INET6 && !tunnel->v4mapped)
- 		error = inet6_csk_xmit(skb, NULL);
- 	else
- #endif
+They are integers, so a race would be not a big deal I guess, but better
+add a fat comment then ;)
