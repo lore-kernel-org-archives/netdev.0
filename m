@@ -1,82 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 11/12] i40e/i40evf: carefully fill tx ring
-Date: Thu,  6 Mar 2014 18:59:23 -0800
-Message-ID: <1394161164-26645-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 12/12] i40e/i40evf: Bump pf&vf build versions
+Date: Thu,  6 Mar 2014 18:59:24 -0800
+Message-ID: <1394161164-26645-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1394161164-26645-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:62505 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:37801 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752378AbaCGC7f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752421AbaCGC7f (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 6 Mar 2014 21:59:35 -0500
 In-Reply-To: <1394161164-26645-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-We need to make sure that we stay away from the cache line
-where the DD bit (done) may be getting written back for
-the transmit ring since the hardware may be writing the
-whole cache line for a partial update.
+Bump i40e to 0.3.34 and i40evf to 0.9.14.
 
-Change-ID: Id0b6dfc01f654def6a2a021af185803be1915d7e
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: I6b3fb8ccf55b128d2baa4bdc20d3911ec81d4a5b
 Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 4 ++--
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index e4497f8..2081bdb 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -2102,7 +2102,7 @@ static int i40e_xmit_descriptor_count(struct sk_buff *skb,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 0fc6f9d..43d391b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -38,7 +38,7 @@ static const char i40e_driver_string[] =
  
- 	/* need: 1 descriptor per page * PAGE_SIZE/I40E_MAX_DATA_PER_TXD,
- 	 *       + 1 desc for skb_head_len/I40E_MAX_DATA_PER_TXD,
--	 *       + 2 desc gap to keep tail from touching head,
-+	 *       + 4 desc gap to avoid the cache line where head is,
- 	 *       + 1 desc for context descriptor,
- 	 * otherwise try next time
- 	 */
-@@ -2113,7 +2113,7 @@ static int i40e_xmit_descriptor_count(struct sk_buff *skb,
- 	count += skb_shinfo(skb)->nr_frags;
- #endif
- 	count += TXD_USE_COUNT(skb_headlen(skb));
--	if (i40e_maybe_stop_tx(tx_ring, count + 3)) {
-+	if (i40e_maybe_stop_tx(tx_ring, count + 4 + 1)) {
- 		tx_ring->tx_stats.tx_busy++;
- 		return 0;
- 	}
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 01bfab7..b1d87c6 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1482,7 +1482,7 @@ static int i40e_xmit_descriptor_count(struct sk_buff *skb,
+ #define DRV_VERSION_MAJOR 0
+ #define DRV_VERSION_MINOR 3
+-#define DRV_VERSION_BUILD 32
++#define DRV_VERSION_BUILD 34
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 3d3ab14..11d0b61 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -31,7 +31,7 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710 X710 Virtual Function Network Driver";
  
- 	/* need: 1 descriptor per page * PAGE_SIZE/I40E_MAX_DATA_PER_TXD,
- 	 *       + 1 desc for skb_head_len/I40E_MAX_DATA_PER_TXD,
--	 *       + 2 desc gap to keep tail from touching head,
-+	 *       + 4 desc gap to avoid the cache line where head is,
- 	 *       + 1 desc for context descriptor,
- 	 * otherwise try next time
- 	 */
-@@ -1493,7 +1493,7 @@ static int i40e_xmit_descriptor_count(struct sk_buff *skb,
- 	count += skb_shinfo(skb)->nr_frags;
- #endif
- 	count += TXD_USE_COUNT(skb_headlen(skb));
--	if (i40e_maybe_stop_tx(tx_ring, count + 3)) {
-+	if (i40e_maybe_stop_tx(tx_ring, count + 4 + 1)) {
- 		tx_ring->tx_stats.tx_busy++;
- 		return 0;
- 	}
+-#define DRV_VERSION "0.9.13"
++#define DRV_VERSION "0.9.14"
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+ 	"Copyright (c) 2013 - 2014 Intel Corporation.";
 -- 
 1.8.3.1
