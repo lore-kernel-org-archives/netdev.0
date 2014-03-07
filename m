@@ -1,42 +1,78 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: rfc: checkpatch logical line continuations
-Date: Fri, 07 Mar 2014 16:23:41 -0500 (EST)
-Message-ID: <20140307.162341.1600860024275495539.davem@davemloft.net>
-References: <1394077948-8395-3-git-send-email-alistair@popple.id.au>
-	<20140307.154142.488351276799532264.davem@davemloft.net>
-	<1394226164.16156.96.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alistair-Y4h6yKqj69EXC2x5gXVKYQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-To: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394226164.16156.96.camel@joe-AO722>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] vmxnet3: fix netpoll race condition
+Date: Fri,  7 Mar 2014 16:25:27 -0500
+Message-ID: <1394227527-31082-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>,
+	"VMware, Inc." <pv-drivers@vmware.com>,
+	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Date: Fri, 07 Mar 2014 13:02:44 -0800
+vmxnet3's netpoll driver is incorrectly coded.  It directly calls
+vmxnet3_do_poll, which is the driver internal napi poll routine.  As the netpoll
+controller method doesn't block real napi polls in any way, there is a potential
+for race conditions in which the netpoll controller method and the napi poll
+method run concurrently.  The result is data corruption causing panics such as this
+one recently observed:
+PID: 1371   TASK: ffff88023762caa0  CPU: 1   COMMAND: "rs:main Q:Reg"
+ #0 [ffff88023abd5780] machine_kexec at ffffffff81038f3b
+ #1 [ffff88023abd57e0] crash_kexec at ffffffff810c5d92
+ #2 [ffff88023abd58b0] oops_end at ffffffff8152b570
+ #3 [ffff88023abd58e0] die at ffffffff81010e0b
+ #4 [ffff88023abd5910] do_trap at ffffffff8152add4
+ #5 [ffff88023abd5970] do_invalid_op at ffffffff8100cf95
+ #6 [ffff88023abd5a10] invalid_op at ffffffff8100bf9b
+    [exception RIP: vmxnet3_rq_rx_complete+1968]
+    RIP: ffffffffa00f1e80  RSP: ffff88023abd5ac8  RFLAGS: 00010086
+    RAX: 0000000000000000  RBX: ffff88023b5dcee0  RCX: 00000000000000c0
+    RDX: 0000000000000000  RSI: 00000000000005f2  RDI: ffff88023b5dcee0
+    RBP: ffff88023abd5b48   R8: 0000000000000000   R9: ffff88023a3b6048
+    R10: 0000000000000000  R11: 0000000000000002  R12: ffff8802398d4cd8
+    R13: ffff88023af35140  R14: ffff88023b60c890  R15: 0000000000000000
+    ORIG_RAX: ffffffffffffffff  CS: 0010  SS: 0018
+ #7 [ffff88023abd5b50] vmxnet3_do_poll at ffffffffa00f204a [vmxnet3]
+ #8 [ffff88023abd5b80] vmxnet3_netpoll at ffffffffa00f209c [vmxnet3]
+ #9 [ffff88023abd5ba0] netpoll_poll_dev at ffffffff81472bb7
 
-> Right now, checkpatch emits a --strict only warning on "&&" or "||"
-> at the beginning of line but that could be changed to any "$Operators"
-> 
-> our $Arithmetic = qr{\+|-|\*|\/|%};
-> our $Operators	= qr{
-> 			<=|>=|==|!=|
-> 			=>|->|<<|>>|<|>|!|~|
-> 			&&|\|\||,|\^|\+\+|--|&|\||$Arithmetic
-> 		  }x;
-> 
-> The ones that likely have a too high false positive rates
-> are the negation "!" and bitwise "~".
+The fix is to do as other drivers do, and have the poll controller call the top
+half interrupt handler, which schedules a napi poll properly to recieve frames
 
-Unary operators at the beginning of a line are perfectly fine,
-it's the other ones that are the problem.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Tested by myself, successfully.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Shreyas Bhatewara <sbhatewara@vmware.com>
+CC: "VMware, Inc." <pv-drivers@vmware.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: stable@vger.kernel.org
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 3be786f..473687f 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -1762,11 +1762,13 @@ vmxnet3_netpoll(struct net_device *netdev)
+ {
+ 	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
+ 
+-	if (adapter->intr.mask_mode == VMXNET3_IMM_ACTIVE)
+-		vmxnet3_disable_all_intrs(adapter);
+-
+-	vmxnet3_do_poll(adapter, adapter->rx_queue[0].rx_ring[0].size);
+-	vmxnet3_enable_all_intrs(adapter);
++	switch (adapter->intr.type) {
++	case VMXNET3_IT_MSIX:
++		vmxnet3_msix_rx(0, &adapter->rx_queue[0]);
++	case VMXNET3_IT_MSI:
++	default:
++		vmxnet3_intr(0, adapter->netdev);
++	}
+ 
+ }
+ #endif	/* CONFIG_NET_POLL_CONTROLLER */
+-- 
+1.8.3.1
