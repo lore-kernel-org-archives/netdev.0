@@ -1,167 +1,139 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net v2] ipv6: do not overwrite inetpeer metrics prematurely
-Date: Fri,  7 Mar 2014 13:36:28 +0100 (CET)
-Message-ID: <20140307123628.276E7E6E04@unicorn.suse.cz>
-References: <20140306200658.GA32699@unicorn.suse.cz>
-Cc: netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "David S. Miller" <davem@davemloft.net>
+From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Subject: Simplifying the 802.15.4 stack
+Date: Fri, 7 Mar 2014 13:39:24 +0100
+Message-ID: <20140307133924.21165955@zoidberg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: linux-zigbee-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:47313 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751082AbaCGMgd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Mar 2014 07:36:33 -0500
-In-Reply-To: <20140306200658.GA32699@unicorn.suse.cz>
+Received: from mailgw1.uni-kl.de ([131.246.120.220]:60739 "EHLO
+	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752545AbaCGMjk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 07:39:40 -0500
+Received: from itwm2.itwm.fhg.de (itwm2.itwm.fhg.de [131.246.191.3])
+	by mailgw1.uni-kl.de (8.14.3/8.14.3/Debian-9.4) with ESMTP id s27Cdcmx014401
+	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 7 Mar 2014 13:39:38 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If an IPv6 host route with metrics exists, an attempt to add a
-new route for the same target with different metrics fails but
-rewrites the metrics anyway:
+(resent because I forgot CCs at first)
 
-12sp0:~ # ip route add fec0::1 dev eth0 rto_min 1000
-12sp0:~ # ip -6 route show
-fe80::/64 dev eth0  proto kernel  metric 256
-fec0::1 dev eth0  metric 1024  rto_min lock 1s
-12sp0:~ # ip route add fec0::1 dev eth0 rto_min 1500
-RTNETLINK answers: File exists
-12sp0:~ # ip -6 route show
-fe80::/64 dev eth0  proto kernel  metric 256
-fec0::1 dev eth0  metric 1024  rto_min lock 1.5s
+Hi,
 
-This is caused by all IPv6 host routes using the metrics in
-their inetpeer (or the shared default). This also holds for the
-new route created in ip6_route_add() which shares the metrics
-with the already existing route and thus ip6_route_add()
-rewrites the metrics even if the new route ends up not being
-used at all.
+the 802.15.4/6LoWPAN stack on Linux is pretty usable as it is now, much
+due to the recent 6lowpan fixes by Alex. We can drive different radio
+chips on different frequencies, IPv6 works well and we interoperate
+just fine with RFC compliant stacks like the one implemented in Contiki.
 
-Allocate separate metrics in ip6_route_add() and copy them into
-inetpeer (and update dst->_metrics) just before the new route is
-actually inserted in fib6_add_rt2node() (so that we don't have
-to care about simultaneous access).
+There are, however, also a number of sore points, which I want to
+outline in this message and for which I want to propose possible
+solutions. These sore points range anywhere from minor annoyances to
+what I view as major integrity problems. I'll list what comes to my
+mind here, in no particular order. If you have any idea how to fix
+something, if you have something to add to the list or merely want to
+tell me where and why I am mistaken, please do so.
 
-v2: rather than trying to (ab)use ipv6_cow_metrics(), add a new
-function doing only what is actually needed. Keep some checks in
-an inline wrapper to avoid a function call in most cases.
+1) header handling in the stack
 
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- include/net/ip6_route.h |  1 +
- net/ipv6/ip6_fib.c      | 10 ++++++++++
- net/ipv6/route.c        | 28 +++++++++++++++++++++++-----
- 3 files changed, 34 insertions(+), 5 deletions(-)
+We currently have three points in the stack that parse or create
+802.15.4 headers, where two of those are already duplicated code - in
+the same source file no less. Header handling for mac802154 is
+cumbersome, and for upper layers entirely impossible without
+duplicating more code at the moment. I have a patch that attempts to
+rectify this by adding structs for the 802.15.4 header and its
+components, but that was shot down by davem due to some endianness
+issues. I am reworking the patch to fix all of this and will resend it
+soon, but it doesn't end with that.
 
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index 017badb..abb3bfa 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -117,6 +117,7 @@ int rt6_dump_route(struct rt6_info *rt, void *p_arg);
- void rt6_ifdown(struct net *net, struct net_device *dev);
- void rt6_mtu_change(struct net_device *dev, unsigned int mtu);
- void rt6_remove_prefsrc(struct inet6_ifaddr *ifp);
-+void rt6_move_metrics_to_peer(struct rt6_info *rt);
- 
- 
- /*
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 075602f..454eff7 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -638,6 +638,14 @@ static inline bool rt6_qualify_for_ecmp(struct rt6_info *rt)
- 	       RTF_GATEWAY;
- }
- 
-+static inline void rt6_metrics_to_peer(struct rt6_info *rt)
-+{
-+	struct dst_entry *dst = &rt->dst;
-+
-+	if ((dst->flags & DST_HOST) && !dst_metrics_read_only(dst))
-+		rt6_move_metrics_to_peer(rt);
-+}
-+
- /*
-  *	Insert routing information in a node.
-  */
-@@ -752,6 +760,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 
- add:
- 		rt->dst.rt6_next = iter;
-+		rt6_metrics_to_peer(rt);
- 		*ins = rt;
- 		rt->rt6i_node = fn;
- 		atomic_inc(&rt->rt6i_ref);
-@@ -770,6 +779,7 @@ add:
- 			pr_warn("NLM_F_REPLACE set, but no existing node found!\n");
- 			return -ENOENT;
- 		}
-+		rt6_metrics_to_peer(rt);
- 		*ins = rt;
- 		rt->rt6i_node = fn;
- 		rt->dst.rt6_next = iter->dst.rt6_next;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index fba54a4..6edc32e 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -164,6 +164,24 @@ static u32 *ipv6_cow_metrics(struct dst_entry *dst, unsigned long old)
- 	return p;
- }
- 
-+/*	Copy standalone metrics to inetpeer and free the block.
-+ *	Assumes that route is not inserted yet and that caller checked
-+ *	the metrics are not read-only.
-+ */
-+
-+void rt6_move_metrics_to_peer(struct rt6_info *rt)
-+{
-+	struct dst_entry *dst = &rt->dst;
-+	struct inet_peer *peer = rt6_get_peer_create(rt);
-+	u32 *old = dst_metrics_ptr(dst);
-+
-+	if (!peer || old == peer->metrics)
-+		return;
-+	memcpy(peer->metrics, old, RTAX_MAX * sizeof(u32));
-+	dst_init_metrics(dst, peer->metrics, false);
-+	kfree(old);
-+}
-+
- static inline const void *choose_neigh_daddr(struct rt6_info *rt,
- 					     struct sk_buff *skb,
- 					     const void *daddr)
-@@ -324,8 +342,10 @@ static void ip6_dst_destroy(struct dst_entry *dst)
- 	struct rt6_info *rt = (struct rt6_info *)dst;
- 	struct inet6_dev *idev = rt->rt6i_idev;
- 	struct dst_entry *from = dst->from;
-+	struct inet_peer *peer = rt6_has_peer(rt) ? rt6_peer_ptr(rt) : NULL;
- 
--	if (!(rt->dst.flags & DST_HOST))
-+	if (!(dst->flags & DST_HOST) || !peer ||
-+	    DST_METRICS_PTR(dst) != peer->metrics)
- 		dst_destroy_metrics_generic(dst);
- 
- 	if (idev) {
-@@ -336,10 +356,8 @@ static void ip6_dst_destroy(struct dst_entry *dst)
- 	dst->from = NULL;
- 	dst_release(from);
- 
--	if (rt6_has_peer(rt)) {
--		struct inet_peer *peer = rt6_peer_ptr(rt);
-+	if (peer)
- 		inet_putpeer(peer);
--	}
- }
- 
- static void ip6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
-@@ -1546,7 +1564,7 @@ int ip6_route_add(struct fib6_config *cfg)
- 	if (rt->rt6i_dst.plen == 128)
- 	       rt->dst.flags |= DST_HOST;
- 
--	if (!(rt->dst.flags & DST_HOST) && cfg->fc_mx) {
-+	if (cfg->fc_mx) {
- 		u32 *metrics = kzalloc(sizeof(u32) * RTAX_MAX, GFP_KERNEL);
- 		if (!metrics) {
- 			err = -ENOMEM;
--- 
-1.8.1.4
+2) endianness in the stack
+
+In fact, that patch was consistent with how the mac802154 stack
+currently handles endianness - which is, pretty much, not at all. For
+example we have __le16 fields that the PAN ID of a given netdevice,
+which is filled with data in host byte order and only happens to work
+out because it's written to the header with explicit mask-shift
+operations. Short addresses for nodes are given in host byte order,
+extended addresses are however always held in big endian 8-byte arrays.
+We really never use network byte order on purpose, and inside of the
+stack we should really change that. Ideally we'd also change it in the
+userspace API if we ever got the chance to do that, because
+AF_IEEE802154 is the *only* protocol i know that uses all byte orders
+in it's sockaddr struct *except* network byte order.
+
+3) the mac802154_priv slave list
+
+This is one of the biggest problems I think the current stack has. For
+HardMAC, every netdevice corresponds to one specific WPAN (made up of
+PAN ID, channel, and page) and it is pretty much guaranteed that
+multiple HardMAC netdevs will always function as intended, even if they
+are backed by the same piece of hardware.
+
+SoftMAC, on the other hand, takes a single PHY chip and adds an
+*arbitrary* number of specific WPANs on top of that PHY. No real
+hardware can support an arbitrary number of specific WPANs, and no chip
+I have yet come across can even support more than one. As far as I've
+been told and was able to reconstruct from documentation and standards
+documents, this was implemented to allow for ZigBee frequency agility,
+but that was never implemented. What we have, though, is a means for
+unprivileged users that can run socket(), write() and ip(8) to
+effectively DoS a node that uses this feature.
+
+Here's why: if somebody configures the stack with one PHY and two
+specific WPANs on that PHY, an packet sent through one of those
+specific WPAN netdevs will activate that specific WPAN and deactivate
+all others on that PHY. This only holds when the specific WPANs differ
+in channel or page, since we do not reconfigure the PHY addresses or
+address filters on on the switch, which will most certainly yield
+wildly incorrect behaviour if anybody were to ever use multiple
+specific WPANs per PHY.
+
+I thus propose to remove this feature entirely and instead have a 1:1
+correspondence between PHYs and netdevs. If a driver can support
+multiple specific WPANs per chip, it can register multiple PHYs. If
+anybody actually needs to reconfigure the device to a different
+specific WPAN, we already have an interface for that: the netlink API.
+The netlink API also has the benefit that it does not impose arbitrary
+delays before the switch, as switching by sending a packet does when
+reordering/shaping Qdiscs are configured on the WPAN.
+
+If we were to remove the slave list, the entire netlink API specific to
+PHYs and adding/removing slaves would have to go. Listing PHYs would no
+longer be necessary, instead we'd need an API to query PHY/MAC
+parameters by netdev name. What is currently SET_PHYPARAMS (and my
+fault) would also have to be split into commands that set PHY and MAC
+params for consistency.
+
+I propose a flag day to remove this feature entirely, as it will break
+userspace, but it will do so to provide much better service,
+semantically correct netdevs and it will remove the DoS path for
+unprivileged users. And if we do that, we might as well think about
+whether or not we should also change endianness of network-facing
+fields exposed to userspace for consistency with all other protocols
+implemented in Linux.
+
+4) our *drivers* are expected to *sleep*
+
+This is just wrong. Our RX/TX path invokes the scheduler at least once
+for every packet on the assumption that drivers might sleep, which may
+entail arbitrary delays even after the Qdiscs of the system have run.
+Especially when somebody wanted to use latency sensitive Qdiscs, this
+is a disaster, but also for general system throughput once you have a
+certain number of packets going through your node.
+
+I think this should also be reworked completely. Network packet
+reception/transmission is inherently asynchronous, and the current
+stack goes out of its way to make it a synchronous matter.
+Interestingly, once a driver has received a packet, most if not all of
+the RX path might actually be softirq-safe as it is now, without the
+workqueue deferral. We don't fundamentally need the RX workqueue, and
+the TX workqueue could also be dropped if we gave a PHY driver a
+function pointer to call once transmission is complete. That would also
+simplify the stack quite a bit, not introduce unnecessary latencies,
+and generally be an improvement on drivers that invoke the scheduler.
+
+
+Any thoughts/ideas?
