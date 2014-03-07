@@ -1,37 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] l2tp: keep original skb ownership
-Date: Fri, 07 Mar 2014 14:38:10 -0500 (EST)
-Message-ID: <20140307.143810.1279346177085156779.davem@davemloft.net>
-References: <1394072374.27473.23.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] e1000: do not allow watchdog to reenable transmits on
+ shutdown
+Date: Fri, 07 Mar 2014 11:41:03 -0800
+Message-ID: <1394221263.16156.77.camel@joe-AO722>
+References: <20140307020420.GA10797@amt.cnet>
+	 <1394162671.2214.36.camel@jtkirshe-mobl> <20140307151435.GB26026@amt.cnet>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jchapman@katalix.com, tparkin@katalix.com
-To: eric.dumazet@gmail.com
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Vladimir Davydov <VDavydov@parallels.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Marcelo Tosatti <mtosatti@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42869 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751197AbaCGTiM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 14:38:12 -0500
-In-Reply-To: <1394072374.27473.23.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from smtprelay0007.hostedemail.com ([216.40.44.7]:33195 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752461AbaCGTlH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 14:41:07 -0500
+In-Reply-To: <20140307151435.GB26026@amt.cnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 05 Mar 2014 18:19:34 -0800
+On Fri, 2014-03-07 at 12:14 -0300, Marcelo Tosatti wrote:
+> On Thu, Mar 06, 2014 at 07:24:31PM -0800, Jeff Kirsher wrote:
+> > On Thu, 2014-03-06 at 23:04 -0300, Marcelo Tosatti wrote:
+> > > There is a race on the shutdown path of the e1000 driver
+> > > that allows the card to DMA into free'd memory.
+[]
+> > Note- there are trailing whitespace issues and 2 comments are not
+> > formatted correctly.  I can fix these up if there are no other issues
+> > with the patch, if you want.
+> 
+> checkpatch.pl did not complain about those - feel free to fix them,
+> thanks.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> There is no reason to orphan skb in l2tp.
-> 
-> This breaks things like per socket memory limits, TCP Small queues...
-> 
-> Fix this before more people copy/paste it.
-> 
-> This is very similar to commit 8f646c922d550
-> ("vxlan: keep original skb ownership")
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: James Chapman <jchapman@katalix.com>
+Maybe you need a newer version of checkpatch?
 
-Ok applied, thanks Eric.
+$ ./scripts/checkpatch.pl e1000-do-not-allow-watchdog-to-reenable-transmits-on-shutdown.patch 
+ERROR: trailing whitespace
+#63: FILE: drivers/net/ethernet/intel/e1000/e1000_main.c:528:
++^I/* do not allow watchdog to reenable transmits between $
+
+ERROR: code indent should use tabs where possible
+#64: FILE: drivers/net/ethernet/intel/e1000/e1000_main.c:529:
++           clearing E1000_TCTL_EN below and setting E1000_DOWN */$
+
+WARNING: networking block comments start with * on subsequent lines
+#64: FILE: drivers/net/ethernet/intel/e1000/e1000_main.c:529:
++	/* do not allow watchdog to reenable transmits between 
++           clearing E1000_TCTL_EN below and setting E1000_DOWN */
+
+WARNING: networking block comments put the trailing */ on a separate line
+#64: FILE: drivers/net/ethernet/intel/e1000/e1000_main.c:529:
++           clearing E1000_TCTL_EN below and setting E1000_DOWN */
+
+total: 2 errors, 2 warnings, 44 lines checked
+
+NOTE: whitespace errors detected, you may wish to use scripts/cleanpatch or
+      scripts/cleanfile
+
+e1000-do-not-allow-watchdog-to-reenable-transmits-on-shutdown.patch has style problems, please review.
+
+If any of these errors are false positives, please report
+them to the maintainer, see CHECKPATCH in MAINTAINERS.
