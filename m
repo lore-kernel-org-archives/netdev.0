@@ -1,46 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pkt_sched: fq: do not hold qdisc lock while allocating
- memory
-Date: Fri, 07 Mar 2014 17:04:50 -0500 (EST)
-Message-ID: <20140307.170450.1316250102185751283.davem@davemloft.net>
-References: <1394175472.20149.6.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: pull-request: can-next 2014-02-12
+Date: Fri, 07 Mar 2014 17:10:50 -0500 (EST)
+Message-ID: <20140307.171050.780817492945952823.davem@davemloft.net>
+References: <5319954F.3080208@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43867 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751365AbaCGWEw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 17:04:52 -0500
-In-Reply-To: <1394175472.20149.6.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <5319954F.3080208@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 06 Mar 2014 22:57:52 -0800
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Fri, 07 Mar 2014 10:45:51 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> this is a pull request of twelve patches for net-next/master.
 > 
-> Resizing fq hash table allocates memory while holding qdisc spinlock,
-> with BH disabled.
-> 
-> This is definitely not good, as allocation might sleep.
-> 
-> We can drop the lock and get it when needed, we hold RTNL so no other
-> changes can happen at the same time.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Fixes: afe4fd062416 ("pkt_sched: fq: Fair Queue packet scheduler")
+> Alexander Shiyan contributes two patches for the mcp251x, one making
+> the driver more quiet and the other one improves the compile time
+> coverage by removing the #ifdef CONFIG_PM_SLEEP. Then two patches for
+> the flexcan driver by me, one removing the #ifdef CONFIG_PM_SLEEP, too,
+> the other one making use of platform_get_device_id(). Another patch by
+> me which converts the janz-ican3 driver to use netdev_<level>(). The
+> remaining 7 patches are by Oliver Hartkopp, they add CAN FD support to
+> the netlink configuration interface.
+ ...
+>   git://gitorious.org/linux-can/linux-can-next.git tags/linux-can-next-for-3.15-20140307
 
-Eric I think you can simplify things a little further, and in fact I
-think it makes these functions easier to understand.
-
-The fq_resize() part should just grab the lock around the rehash and
-the update of q->fq_root and q->fq_trees_log.
-
-fq_change() should only grab the lock around the fq_dequeue() loop
-and the call to qdisc_tree_descrease_qlen().  The rest of this
-function is just validating netlink attributes and looking at state
-that cannot change while we hold RTNL.
+Pulled, thank you Marc.
