@@ -1,59 +1,53 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: Re: [PATCH] net: sched: dev_deactivate_many(): use msleep(1) instead
- of yield() to wait for outstanding qdisc_run calls
-Date: Fri, 7 Mar 2014 16:47:39 +0100
-Message-ID: <20140307154739.GA18441@linutronix.de>
-References: <1393976987-23555-1-git-send-email-mkl@pengutronix.de>
- <20140306.160622.59358366688518505.davem@davemloft.net>
- <5318EB2E.8040707@pengutronix.de>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: Possible fix
+Date: Fri, 07 Mar 2014 10:50:17 -0500
+Message-ID: <1771362.YLy4DXk94D@sifl>
+References: <20140227151954.GA30946@redhat.com> <7881571.eH1vgtYEXX@sifl> <20140307112334.GT32371@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, linux-rt-users@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kernel@pengutronix.de
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5318EB2E.8040707@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>, netdev@vger.kernel.org,
+	Dave Jones <davej@redhat.com>, Fan Du <fan.du@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-security-module@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f43.google.com ([209.85.216.43]:61016 "EHLO
+	mail-qa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753694AbaCGPuV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 10:50:21 -0500
+Received: by mail-qa0-f43.google.com with SMTP id j15so4163959qaq.16
+        for <netdev@vger.kernel.org>; Fri, 07 Mar 2014 07:50:20 -0800 (PST)
+In-Reply-To: <20140307112334.GT32371@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Marc Kleine-Budde | 2014-03-06 22:39:58 [+0100]:
+On Friday, March 07, 2014 12:23:34 PM Steffen Klassert wrote:
+> On Thu, Mar 06, 2014 at 10:04:54PM -0500, Paul Moore wrote:
+> > On Wednesday, March 05, 2014 01:20:09 PM Steffen Klassert wrote:
+> > > Right, that's not really surprising. But it is a bit surprising that
+> > > we care for the security context only if we add a socket policy via
+> > > the pfkey key manager. The security context is not handled if we do
+> > > that with the netlink key manager, see xfrm_compile_policy().
+> > > 
+> > > I'm not that familiar with selinux and labeled IPsec, but maybe this
+> > > needs to be implemented in xfrm_compile_policy() too.
+> > 
+> > Okay, I see your point.  We probably should add support for per-socket
+> > policy labels just to keep parity with the pfkey code (and this is far
+> > removed from any critical path), but to be honest it isn't something that
+> > I think would get much use in practice.  Labeled networking users tend to
+> > fall under the very strict, one-system-wide-security-policy and
+> > per-socket policies tend to go against that logic.
+> 
+> If you think socket policy labels are no usecase for labeled IPsec, we could
+> fix this bug simply by removing the code from pfkey ;)
+> 
+> Otherwise I think we should implement it for xfrm_compile_policy() too.
 
->> Therefore it should allow lower priority threads to run, not just
->> equal or higher priority ones.
->
->Yes, we need a call that does what you described, however I'm not sure
->if yield() really does that. According to:
->
->http://lxr.free-electrons.com/source/kernel/sched/core.c#L3599
->
->> * Typical broken usage is:
->> *
->> * while (!event)
->> *      yield();
->> *
->> * where one assumes that yield() will let 'the other' process run that will
->> * make event true. If the current task is a SCHED_FIFO task that will never
->> * happen. Never use yield() as a progress guarantee!!
->
->My Process runs with SCHED_FIFO and prio > 50, with IRQ at default prio,
->which is 50.
->
->Maybe the RT guys can comment on this. I found another interesting
->function in the RT patch set: cpu_chill().
+In general I dislike removing functionality/capability so I'm inclined to add 
+support to xfrm_compile_policy and call it good.
 
-If you boot mainline without -RT, use threadirqs, start your application
-do the same prio thing then you should end up with exactly the same
-outcome. Please say so :)
-
-msleep() is safe as long as it is used outside of the softirq. Nice that
-you found cpu_chill() but on non-RT it turns to cpu_relax() and you do
-not want this here.
-
-wait_event() would be nice in the end to have. For now I take that patch
-for -RT.
-
->Marc
-
-Sebastian
+-- 
+paul moore
+www.paul-moore.com
