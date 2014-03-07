@@ -1,181 +1,116 @@
-From: Steffen Trumtrar <s.trumtrar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH] ath6kl: sdio: fix system panic when doing wifi stress
- test
-Date: Fri, 7 Mar 2014 10:38:13 +0100
-Message-ID: <20140307093813.GA28728@pengutronix.de>
-References: <1384221185-8645-1-git-send-email-r64343@freescale.com>
- <87k3fvjvjg.fsf@kamboji.qca.qualcomm.com>
- <AD13664F485EE54694E29A7F9D5BE1AFC0AD96@039-SN2MPN1-022.039d.mgd.msft.net>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2014-02-12
+Date: Fri, 07 Mar 2014 10:45:51 +0100
+Message-ID: <5319954F.3080208@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ath6kl-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org" <ath6kl-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-To: Hui Liu <Hui.Liu-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <AD13664F485EE54694E29A7F9D5BE1AFC0AD96-RL0Hj/+nBVC81RJBUSuqCa4g8xLGJsHaLnY5E4hWTkheoWH0uzbU5w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="IQpMglkDPSwSIKppr0p2vmnmEjFUeHI6T"
+Cc: David Miller <davem@davemloft.net>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:37064 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751724AbaCGJqJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 04:46:09 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--IQpMglkDPSwSIKppr0p2vmnmEjFUeHI6T
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-On Fri, Nov 29, 2013 at 06:02:11AM +0000, Hui Liu wrote:
-> > -----Original Message-----
-> > From: Kalle Valo [mailto:kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org]
-> > Sent: Tuesday, November 26, 2013 6:40 PM
-> > To: Liu Hui-R64343
-> > Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org; linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org; linux-
-> > wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
-> > kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; ath6kl-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org
-> > Subject: Re: [PATCH] ath6kl: sdio: fix system panic when doing wifi
-> > stress test
-> > 
-> > Hi Jason,
-> > 
-> > Jason Liu <r64343-KZfg59tc24xl57MIdRCFDg@public.gmane.org> writes:
-> > 
-> > > When did the wifi iperf test, meet one following kernel panic:
-> > > command: iperf -c $TARGET_IP -i 5 -t 50 -w 1M
-> > >
-> > > Unable to handle kernel paging request at virtual address 1a480000 pgd
-> > > = 80004000 [1a480000] *pgd=00000000 Internal error: Oops: 805 [#1] SMP
-> > > ARM
-> > 
-> > [...]
-> > 
-> > > The kernel panic is caused by the sg_buf is not set correctly with the
-> > > following code when compiled with Yocto GCC 4.8.1:
-> > >
-> > > drivers/net/wireless/ath/ath6kl/hif.h:
-> > > struct hif_scatter_req {
-> > >         struct list_head list;
-> > >         /* address for the read/write operation */
-> > >         u32 addr;
-> > > 	...
-> > >
-> > >         /* bounce buffer for upper layers to copy to/from */
-> > >         u8 *virt_dma_buf;
-> > >
-> > >         struct hif_scatter_item scat_list[1];
-> > >
-> > >         u32 scat_q_depth;
-> > > };
-> > >
-> > > (Note: the scat_req.scat_list[] will dynamiclly grow with run-time)
-> > 
-> > There's actually a major bug right there, scat_list can corrupt
-> > scat_q_depth.
-> > 
-> > > The GCC 4.8.1 compiler will not do the for-loop till scat_entries,
-> > > instead, it only run one round loop. This may be caused by that the
-> > > GCC 4.8.1 thought that the scat_list only have one item and then no
-> > > need to do full iteration, but this is simply wrong by looking at the
-> > > assebly code. This will cause the sg buffer not get set when
-> > scat_entries > 1 and thus lead to kernel panic.
-> > >
-> > > This patch is a workaround to the GCC 4.8.1 complier issue by passing
-> > > the entry address of the scat_req->scat_list to the for-loop and
-> > > interate it, then, GCC 4.8.1 will do the full for-loop correctly.
-> > > (Note: This issue not observed with GCC 4.7.2, only found on the GCC
-> > > 4.8.1)
-> > >
-> > > This patch does not change any function logic and no any performance
-> > downgrade.
-> > 
-> > [...]
-> > 
-> > > +	scat_list = &scat_req->scat_list[0];
-> > > +
-> > >  	/* assemble SG list */
-> > > -	for (i = 0; i < scat_req->scat_entries; i++, sg++) {
-> > > +	for (i = 0; i < scat_req->scat_entries; i++, sg++, scat_list++) {
-> > >  		ath6kl_dbg(ATH6KL_DBG_SCATTER, "%d: addr:0x%p, len:%d\n",
-> > > -			   i, scat_req->scat_list[i].buf,
-> > > -			   scat_req->scat_list[i].len);
-> > > +			   i, scat_list->buf, scat_list->len);
-> > >
-> > > -		sg_set_buf(sg, scat_req->scat_list[i].buf,
-> > > -			   scat_req->scat_list[i].len);
-> > > +		sg_set_buf(sg, scat_list->buf, scat_list->len);
-> > >  	}
-> > 
-> > Working around the problem by adding a temporary variable makes me a bit
-> > worried, I would rather fix the root cause. Is the root cause by that we
-> > define the field with scat_list[1]?
-> 
-> Yes, this is what I assumed. 
-> 
-> > 
-> > Does the patch below help? It would also fix the corruption with
-> > scat_q_depth. Please note that I have only compile tested it. And I might
-> > have also missed something important, so please review it carefully.
-> 
-> Yes, Firstly, I have looked at the asm code and the compiler(gcc 4.8.1) works correctly after applying
-> the following patch. Secondly, I have tested the patch with compiler(gcc 4.8.1) on the real HW, and it
-> works fine too. Without the patch, the kernel crash will happen 100%.
-> 
-> Thus, for the patch:
-> 
-> Acked-by: Jason Liu <r64343-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-> Tested-by: Jason Liu <r64343-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-> 
-> Jason Liu
-> 
-> > 
-> > --- a/drivers/net/wireless/ath/ath6kl/hif.h
-> > +++ b/drivers/net/wireless/ath/ath6kl/hif.h
-> > @@ -197,9 +197,9 @@ struct hif_scatter_req {
-> >  	/* bounce buffer for upper layers to copy to/from */
-> >  	u8 *virt_dma_buf;
-> > 
-> > -	struct hif_scatter_item scat_list[1];
-> > -
-> >  	u32 scat_q_depth;
-> > +
-> > +	struct hif_scatter_item scat_list[0];
-> >  };
-> > 
-> >  struct ath6kl_irq_proc_registers {
-> > diff --git a/drivers/net/wireless/ath/ath6kl/sdio.c
-> > b/drivers/net/wireless/ath/ath6kl/sdio.c
-> > index 7126bdd..6bf15a3 100644
-> > --- a/drivers/net/wireless/ath/ath6kl/sdio.c
-> > +++ b/drivers/net/wireless/ath/ath6kl/sdio.c
-> > @@ -348,7 +348,7 @@ static int ath6kl_sdio_alloc_prep_scat_req(struct
-> > ath6kl_sdio *ar_sdio,
-> >  	int i, scat_req_sz, scat_list_sz, size;
-> >  	u8 *virt_buf;
-> > 
-> > -	scat_list_sz = (n_scat_entry - 1) * sizeof(struct hif_scatter_item);
-> > +	scat_list_sz = n_scat_entry * sizeof(struct hif_scatter_item);
-> >  	scat_req_sz = sizeof(*s_req) + scat_list_sz;
-> > 
-> >  	if (!virt_scat)
-> > 
-> > 
-> > --
-> > Kalle Valo
-> 
+Hello David,
 
-What happend with this?
-If I look in mainline, I don't find it. At least the reording of the struct
-fields looks as if one definitely wants to have that.
+this is a pull request of twelve patches for net-next/master.
 
-Regards,
-Steffen
+Alexander Shiyan contributes two patches for the mcp251x, one making
+the driver more quiet and the other one improves the compile time
+coverage by removing the #ifdef CONFIG_PM_SLEEP. Then two patches for
+the flexcan driver by me, one removing the #ifdef CONFIG_PM_SLEEP, too,
+the other one making use of platform_get_device_id(). Another patch by
+me which converts the janz-ican3 driver to use netdev_<level>(). The
+remaining 7 patches are by Oliver Hartkopp, they add CAN FD support to
+the netlink configuration interface.
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+regards,
+Marc
+
+---
+
+The following changes since commit f3253339a47ff3690ce52e2acd95ec295f8521=
+b3:
+
+  bonding: options handling cleanup (2014-03-06 16:08:52 -0500)
+
+are available in the git repository at:
+
+  git://gitorious.org/linux-can/linux-can-next.git tags/linux-can-next-fo=
+r-3.15-20140307
+
+for you to fetch changes up to dd22586dec4c1444608affd83b1fedd520280ab4:
+
+  can: add bittiming check at interface open for CAN FD (2014-03-07 09:18=
+:23 +0100)
+
+----------------------------------------------------------------
+linux-can-next-for-3.15-20140307
+
+----------------------------------------------------------------
+Alexander Shiyan (2):
+      can: mcp251x: Make driver more quiet
+      can: mcp251x: Remove #ifdef CONFIG_PM_SLEEP
+
+Marc Kleine-Budde (3):
+      can: flexcan: Remove #ifdef CONFIG_PM_SLEEP
+      can: flexcan: make use of platform_get_device_id()
+      can: janz-ican3: convert dev_<level> printing to netdev_<level>
+
+Oliver Hartkopp (7):
+      can: preserve skbuff protocol in can_put_echo_skb
+      can: only send bitrate data via netlink when available
+      can: move sanity check for bitrate and tq into can_get_bittiming
+      can: provide a separate bittiming_const parameter to bittiming func=
+tions
+      can: introduce the data bitrate configuration for CAN FD
+      can: allow to change the device mtu for CAN FD capable devices
+      can: add bittiming check at interface open for CAN FD
+
+ drivers/net/can/dev.c            | 159 ++++++++++++++++++++++++++++++---=
+------
+ drivers/net/can/flexcan.c        |  10 +--
+ drivers/net/can/janz-ican3.c     |  64 ++++++++--------
+ drivers/net/can/mcp251x.c        |  17 ++---
+ include/linux/can/dev.h          |   7 +-
+ include/uapi/linux/can/netlink.h |   3 +
+ 6 files changed, 172 insertions(+), 88 deletions(-)
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+
+
+
+
+--IQpMglkDPSwSIKppr0p2vmnmEjFUeHI6T
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlMZlU8ACgkQjTAFq1RaXHMl4gCfScY812/lPQRLSuneZbI0KPz1
+rjgAoJKtasU/uUm8Xh37OK+aBg2JrDop
+=JKYJ
+-----END PGP SIGNATURE-----
+
+--IQpMglkDPSwSIKppr0p2vmnmEjFUeHI6T--
