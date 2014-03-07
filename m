@@ -1,63 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
 Subject: RE: Can I limit the number of active tx per TCP socket?
-Date: Fri, 07 Mar 2014 06:22:07 -0800
-Message-ID: <1394202127.20149.14.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Fri, 7 Mar 2014 14:35:35 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6D7699@AcuExch.aculab.com>
 References: <063D6719AE5E284EB5DD2968C1650D6D0F6D3B91@AcuExch.aculab.com>
 	 <5318ADB1.5050107@hp.com>
 	 <CADVnQyn1+WRqS9HQmMn9JgpBz0Wajg=40yVhdyqv_AAo4tpWUA@mail.gmail.com>
 	 <063D6719AE5E284EB5DD2968C1650D6D0F6D727E@AcuExch.aculab.com>
 	 <063D6719AE5E284EB5DD2968C1650D6D0F6D755C@AcuExch.aculab.com>
+ <1394202127.20149.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: 'Neal Cardwell' <ncardwell@google.com>,
 	Rick Jones <rick.jones2@hp.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:58360 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750930AbaCGOWJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 09:22:09 -0500
-Received: by mail-pa0-f45.google.com with SMTP id kl14so4217939pab.32
-        for <netdev@vger.kernel.org>; Fri, 07 Mar 2014 06:22:09 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6D755C@AcuExch.aculab.com>
+Received: from mx0.aculab.com ([213.249.233.131]:60611 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752191AbaCGOgN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Mar 2014 09:36:13 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 29791-10 for <netdev@vger.kernel.org>;
+ Fri,  7 Mar 2014 14:36:11 +0000 (GMT)
+In-Reply-To: <1394202127.20149.14.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-03-07 at 12:29 +0000, David Laight wrote:
-
-> I'll probably look at delaying the sends within our own code.
-
-That would be bad.
-
-Just use fq/pacing, this is way better. Its designed for this usage.
-
-trick is to reduce 'quantum' as you mtu is 273+14 bytes.
-
-QUANTUM=$((273+14))
-tc qdisc replace dev eth0 root fq quantum $QUANTUM initial_quantum $QUANTUM
-
-This will _perfectly_ pace packets every 34 ms.
-
-If you share your ethernet device with this 64k destination, and other
-uses, then you need a more complex setup with HTB plus two classes, and
-fq running at the htb leaf
-
-DEV=eth0
-
-MTU=273
-QUANTUM=$(($MTU+14))
-DESTINATION=10.246.11.52/32   # change this to meet the network/host
-
-tc qdisc del dev $DEV root &> /dev/null
-
-tc qdisc add dev $DEV handle 1: root htb default 1
-
-tc class add dev $DEV parent 1: classid 1:1 htb rate 1Gbit
-tc class add dev $DEV parent 1: classid 1:2 htb rate 64kbit
-
-tc filter add dev $DEV protocol ip parent 1:0 prio 1 u32 match ip dst $DESTINATION flowid 1:2
-
-tc qdisc add dev $DEV parent 1:1 est 1sec 4sec fq
-tc qdisc add dev $DEV parent 1:2 est 1sec 4sec fq quantum $QUANTUM initial_quantum $QUANTUM
+RnJvbTogRXJpYyBEdW1hemV0IA0KPiBPbiBGcmksIDIwMTQtMDMtMDcgYXQgMTI6MjkgKzAwMDAs
+IERhdmlkIExhaWdodCB3cm90ZToNCj4gDQo+ID4gSSdsbCBwcm9iYWJseSBsb29rIGF0IGRlbGF5
+aW5nIHRoZSBzZW5kcyB3aXRoaW4gb3VyIG93biBjb2RlLg0KPiANCj4gVGhhdCB3b3VsZCBiZSBi
+YWQuDQoNClRoZSBzZW5kaW5nIGNvZGUgY2FuIGJlIHRvbGQgd2hldGhlciB0aGUgcGFja2V0cyBh
+cmUgY29udHJvbA0KKHdoaWNoIHdhbnQgc2VuZGluZyBpbW1lZGlhdGVseSkgb3IgZGF0YSAod2hp
+Y2ggY2FuIGJlIGRlbGF5ZWQNCmJhc2VkIG9uIGtub3dsZWRnZSBvZiBob3cgbXVjaCBkYXRhIGhh
+cyBiZWVuIHNlbnQgcmVjZW50bHkpLg0KDQpJIGFsc28gcHJvYmFibHkgb3VnaHQgdG8gbWFrZSB0
+aGlzIHdvcmsgb24gdGhlIHdpbmRvdydzIHZlcnNpb24NCm9mIG91ciBjb2RlIC0gYnV0IG1vc3Qg
+b2YgdGhlIGhpZ2ggdGhyb3VnaHB1dCBzeXN0ZW1zIGFyZSBsaW51eC4NClRoZSBvdmVyaGVhZHMg
+dGhyb3VnaCB0aGUgTSQgSVAgc3RhY2sgYXJlIGhvcnJpZC4NCg0KPiBKdXN0IHVzZSBmcS9wYWNp
+bmcsIHRoaXMgaXMgd2F5IGJldHRlci4gSXRzIGRlc2lnbmVkIGZvciB0aGlzIHVzYWdlLg0KPiB0
+cmljayBpcyB0byByZWR1Y2UgJ3F1YW50dW0nIGFzIHlvdSBtdHUgaXMgMjczKzE0IGJ5dGVzLg0K
+PiANCj4gUVVBTlRVTT0kKCgyNzMrMTQpKQ0KPiB0YyBxZGlzYyByZXBsYWNlIGRldiBldGgwIHJv
+b3QgZnEgcXVhbnR1bSAkUVVBTlRVTSBpbml0aWFsX3F1YW50dW0gJFFVQU5UVU0NCj4gDQo+IFRo
+aXMgd2lsbCBfcGVyZmVjdGx5XyBwYWNlIHBhY2tldHMgZXZlcnkgMzQgbXMuDQoNClVuZm9ydHVu
+YXRlbHkgdGhhdCBpc24ndCB3aGF0IEkgbmVlZCB0byBkby4NClRoZSA2NGsgbGlua3MgcnVuIGEg
+cmVsaWFibGUgcHJvdG9jb2wgYW5kIHdlIHVzZSBhcHBsaWNhdGlvbiBsZXZlbA0KZmxvdyBjb250
+cm9sIHRvIGxpbWl0IHRoZSBudW1iZXIgb2YgcGFja2V0cyBiZWluZyBzZW50Lg0KDQpTbyBub3Qg
+YWxsIHRoZSBkYXRhIG9uIHRoZSB0Y3AgY29ubmVjdGlvbiBpcyBkZXN0aW5lZCB0byBiZSBzZW50
+DQpvdmVyIHRoZSBzbG93IGxpbmsocykuDQoNCkV2ZXJ5dGhpbmcgd29ya3MgZmluZSAtIGV4Y2Vw
+dCB0aGF0IEknZCBsaWtlIHRoZSB0cmFmZmljIHRvIGZpbGwNCmV0aGVybmV0IHBhY2tldHMgdW5k
+ZXIgaGVhdnkgbG9hZC4NCklmIEkgY291bGQgc2V0IHRoZSBOYWdsZSB0aW1lb3V0IHRvIDEtMm1z
+IChvbiBhIHBlci1zb2NrZXQgYmFzaXMpDQpJIGNvdWxkIGVuYWJsZSBOYWdsZSBhbmQgdGhhdCB3
+b3VsZCBwcm9iYWJseSBzdWZmaWNlLg0KDQo+IElmIHlvdSBzaGFyZSB5b3VyIGV0aGVybmV0IGRl
+dmljZSB3aXRoIHRoaXMgNjRrIGRlc3RpbmF0aW9uLCBhbmQgb3RoZXINCj4gdXNlcywgdGhlbiB5
+b3UgbmVlZCBhIG1vcmUgY29tcGxleCBzZXR1cCB3aXRoIEhUQiBwbHVzIHR3byBjbGFzc2VzLCBh
+bmQNCj4gZnEgcnVubmluZyBhdCB0aGUgaHRiIGxlYWYNCg0KT25seSB0aGUgb25lIGNvbm5lY3Rp
+b24gYmV0d2VlbiB0aGUgdHdvIElQIGFkZHJlc3NlcyBpcyBjYXJyeWluZyB0aGlzIGRhdGEuDQpP
+dGhlciBjb25uZWN0aW9ucyBjYXJyeSBvdGhlciB0cmFmZmljIHRoYXQgaGFzIGVudGlyZWx5IGRp
+ZmZlcmVudA0KY2hhcmFjdGVyaXN0aWNzLg0K
