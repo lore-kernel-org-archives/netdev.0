@@ -1,9 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 06/12] i40e: Remove a FW workaround for Number of MSIX vectors
-Date: Thu,  6 Mar 2014 18:59:18 -0800
-Message-ID: <1394161164-26645-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 07/12] i40e: count timeout events
+Date: Thu,  6 Mar 2014 18:59:19 -0800
+Message-ID: <1394161164-26645-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1394161164-26645-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
@@ -11,42 +11,37 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:48731 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752378AbaCGC7b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Mar 2014 21:59:31 -0500
+	id S1752393AbaCGC7c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Mar 2014 21:59:32 -0500
 In-Reply-To: <1394161164-26645-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-The Number of MSIX vectors being reported is correct and hence
-we need a check to do the right thing for FWs before and after.
+The ethtool -S statistics should have a counter for
+tx timeouts in order to better help inform the masses.
 
-Change-ID: I50902d1c848adcb960ea49ac73f7865ca871a1c3
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-ID: Ice4b20ed4a151509f366719ab105be49c9e7b2b4
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index fa296b8..46b3507 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5093,6 +5093,12 @@ static int i40e_get_capabilities(struct i40e_pf *pf)
- 	/* increment MSI-X count because current FW skips one */
- 	pf->hw.func_caps.num_msix_vectors++;
- 
-+	if (((pf->hw.aq.fw_maj_ver == 2) && (pf->hw.aq.fw_min_ver < 22)) ||
-+	    (pf->hw.aq.fw_maj_ver < 2)) {
-+		pf->hw.func_caps.num_msix_vectors++;
-+		pf->hw.func_caps.num_msix_vectors_vf++;
-+	}
-+
- 	if (pf->hw.debug_mask & I40E_DEBUG_USER)
- 		dev_info(&pf->pdev->dev,
- 			 "pf=%d, num_vfs=%d, msix_pf=%d, msix_vf=%d, fd_g=%d, fd_b=%d, pf_max_q=%d num_vsi=%d\n",
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 8d46c6e..d34ff31 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -87,6 +87,7 @@ static struct i40e_stats i40e_gstrings_stats[] = {
+ 	I40E_PF_STAT("illegal_bytes", stats.illegal_bytes),
+ 	I40E_PF_STAT("mac_local_faults", stats.mac_local_faults),
+ 	I40E_PF_STAT("mac_remote_faults", stats.mac_remote_faults),
++	I40E_PF_STAT("tx_timeout", tx_timeout_count),
+ 	I40E_PF_STAT("rx_length_errors", stats.rx_length_errors),
+ 	I40E_PF_STAT("link_xon_rx", stats.link_xon_rx),
+ 	I40E_PF_STAT("link_xoff_rx", stats.link_xoff_rx),
 -- 
 1.8.3.1
