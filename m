@@ -1,154 +1,103 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH] net: phy: Add sysfs attribute to prevent PHY suspend
-Date: Fri,  7 Mar 2014 12:34:52 +0100
-Message-ID: <1394192092-27461-1-git-send-email-sebastian.hesselbarth@gmail.com>
-References: <1393174719-20806-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Cc: David Miller <davem@davemloft.net>, Rob Landley <rob@landley.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev@vger.kernel.org, linux-doc@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1393174719-20806-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Christian Riesch <christian.riesch@omicron.at>
+Subject: Re: [PATCH] net: davinci_emac: Replace devm_request_irq with
+ request_irq
+Date: Fri, 07 Mar 2014 12:42:28 +0100
+Message-ID: <35CC5396F7326DBE44C9C624@[172.22.2.41]>
+References: <2ec3bb89-89db-48e8-b360-369545a2546f@mary.at.omicron.at>
+ <20140306.165736.154818699714315258.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davinci-linux-open-source@linux.davincidsp.com,
+	f.fainelli@gmail.com, netdev@vger.kernel.org, jon@ringle.org
+To: David Miller <davem@davemloft.net>,
+	Prabhakar Lad <prabhakar.csengg@gmail.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f179.google.com ([209.85.215.179]:65522 "EHLO
+	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752211AbaCGLmb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 06:42:31 -0500
+Received: by mail-ea0-f179.google.com with SMTP id q10so2278799ead.38
+        for <netdev@vger.kernel.org>; Fri, 07 Mar 2014 03:42:30 -0800 (PST)
+In-Reply-To: <20140306.165736.154818699714315258.davem@davemloft.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 1211ce53077164e0d34641d0ca5fb4d4a7574498
-  ("net: phy: resume/suspend PHYs on attach/detach")
-introduced a feature to suspend PHYs when entering halted state.
+Hi,
 
-Unfortunately, not all bootloaders properly power-up PHYs on reset
-and fail to access ethernet because the PHY is still powered down.
+--On March 06, 2014 16:57 -0500 David Miller <davem@davemloft.net> wrote:
 
-Therefore, this adds code and documentation for a sysfs attribute to
-allow/deny PHYs to be suspended on a per-PHY basis. Disabling that
-attribute prevents PHYs from being suspended when entering halted state.
+> From: Christian Riesch <christian.riesch@omicron.at>
+> Date: Wed, 5 Mar 2014 11:25:28 +0100
+>
+>> @@ -1641,7 +1640,15 @@ static int emac_dev_open(struct net_device *ndev)
+>>
+>>  rollback:
+>>
+>> -	dev_err(emac_dev, "DaVinci EMAC: devm_request_irq() failed");
+>> +	dev_err(emac_dev, "DaVinci EMAC: request_irq() failed");
+>> +
+>> +	for (q = k; k >= 0; k--) {
+>> +		for (m = i; m >= res->start; m--)
+>> +			free_irq(m, ndev);
+>> +		res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k-1);
+>> +		m = res->end;
+            ^^^^
+So this should definitely read "i = res->end;".
 
-Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Reported-by: Andrew Lunn <andrew@lunn.ch>
----
-David,
+>> +	}
+>
+> This final assignment in the loop of 'm' is unused?
+>
+> The inner for() loop always started with "m = i;"
 
-I know I am late, but I still consider this as a fix for v3.14, therefore
-this is based on v3.14-rc1. If you are already done with taking fixes for
-v3.14, I can, of course, rebase this upon net-next.
+But it is more than just that. The entire rollback mechanism of 
+emac_dev_open is a mess. It just won't work.
 
-Cc: David Miller <davem@davemloft.net>
-Cc: Rob Landley <rob@landley.net>
-Cc: Andrew Lunn <andrew@lunn.ch>
-Cc: Florian Fainelli <f.fainelli@gmail.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-doc@vger.kernel.org
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org
----
- Documentation/ABI/testing/sysfs-bus-mdio | 10 ++++++++++
- drivers/net/phy/mdio_bus.c               | 26 ++++++++++++++++++++++++++
- drivers/net/phy/phy_device.c             |  5 +++++
- include/linux/phy.h                      |  2 ++
- 4 files changed, 43 insertions(+)
+1) Freeing the interrupts. Currently, the code tries to do a 
+platform_get_resource(priv->pdev, IORESOURCE_IRQ, -1) in its last 
+iteration. To make this work, the code should be something like
 
-diff --git a/Documentation/ABI/testing/sysfs-bus-mdio b/Documentation/ABI/testing/sysfs-bus-mdio
-index 6349749ebc29..e85a3d350cb1 100644
---- a/Documentation/ABI/testing/sysfs-bus-mdio
-+++ b/Documentation/ABI/testing/sysfs-bus-mdio
-@@ -7,3 +7,13 @@ Description:
- 		by the device during bus enumeration, encoded in hexadecimal.
- 		This ID is used to match the device with the appropriate
- 		driver.
-+
-+What:		/sys/bus/mdio_bus/devices/.../phy_allow_suspend
-+Date:		March 2014
-+KernelVersion:	3.14
-+Contact:	netdev@vger.kernel.org
-+Description:
-+		This attribute contains a boolean parameter to allow (1) or
-+		deny (0) MDIO bus attached PHYs to be suspended. Some
-+		bootloaders fail to properly resume a suspended PHY, so this
-+		can be used to prevent the PHY from being suspended.
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 71e49000fbf3..811d35185596 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -432,8 +432,34 @@ phy_id_show(struct device *dev, struct device_attribute *attr, char *buf)
- }
- static DEVICE_ATTR_RO(phy_id);
- 
-+static ssize_t phy_allow_suspend_show(struct device *dev,
-+		struct device_attribute *attr, char *buf)
-+{
-+	struct phy_device *phydev = to_phy_device(dev);
-+
-+	return sprintf(buf, "%d\n", phydev->allow_suspend);
-+}
-+
-+static ssize_t phy_allow_suspend_store(struct device *dev,
-+		struct device_attribute *attr, const char *buf, size_t count)
-+{
-+	struct phy_device *phydev = to_phy_device(dev);
-+	bool val;
-+	int ret;
-+
-+	ret = strtobool(buf, &val);
-+	if (ret < 0)
-+		return ret;
-+
-+	phydev->allow_suspend = val;
-+
-+	return count;
-+}
-+static DEVICE_ATTR_RW(phy_allow_suspend);
-+
- static struct attribute *mdio_dev_attrs[] = {
- 	&dev_attr_phy_id.attr,
-+	&dev_attr_phy_allow_suspend.attr,
- 	NULL,
- };
- ATTRIBUTE_GROUPS(mdio_dev);
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 4b03e63639b7..1c83d34d848b 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -173,6 +173,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
- 	dev->phy_id = phy_id;
- 	if (c45_ids)
- 		dev->c45_ids = *c45_ids;
-+	dev->allow_suspend = true;
- 	dev->bus = bus;
- 	dev->dev.parent = bus->parent;
- 	dev->dev.bus = &mdio_bus_type;
-@@ -685,6 +686,10 @@ int phy_suspend(struct phy_device *phydev)
- 	struct phy_driver *phydrv = to_phy_driver(phydev->dev.driver);
- 	struct ethtool_wolinfo wol;
- 
-+	/* Do not suspend PHYs, if user disabled it */
-+	if (!phydev->allow_suspend)
-+		return -ENOSYS;
-+
- 	/* If the device has WOL enabled, we cannot suspend the PHY */
- 	wol.cmd = ETHTOOL_GWOL;
- 	phy_ethtool_get_wol(phydev, &wol);
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 565188ca328f..c472e750c023 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -272,6 +272,7 @@ struct phy_c45_device_ids {
-  * c45_ids: 802.3-c45 Device Identifers if is_c45.
-  * is_c45:  Set to true if this phy uses clause 45 addressing.
-  * is_internal: Set to true if this phy is internal to a MAC.
-+ * allow_suspend: Set to false to prevent PHY suspend.
-  * state: state of the PHY for management purposes
-  * dev_flags: Device-specific flags used by the PHY driver.
-  * addr: Bus address of PHY
-@@ -308,6 +309,7 @@ struct phy_device {
- 	struct phy_c45_device_ids c45_ids;
- 	bool is_c45;
- 	bool is_internal;
-+	bool allow_suspend;
- 
- 	enum phy_state state;
- 
--- 
-1.8.5.3
+for (q = k; q >= 0; q--) {
+	res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k-1);
+	if (q != k)
+		i = res->end;
 
+	for (m = i; m >= res->start; m--)
+		free_irq(m, ndev);
+}		
+
+2) Wrong order of err: and rollback: labels. Currently the function does 
+something like this:
+
+	pm_runtime_get
+	request irq
+		if requesting irqs fails, goto rollback
+	setup phy
+		if phy setup fails, goto err
+	return 0
+
+rollback:
+	free irqs
+err:
+	pm_runtime_put
+
+So if PHY initialization fails, the IRQs are never freed. So rollback and 
+err must be exchanged, and some additonal code must be added to keep the 
+correct values of k and i for rollback.
+
+3) RX DMA descriptors are not freed in case of an error: Right before 
+requesting the irqs, the function creates DMA descriptors for the RX 
+channel. These RX descriptors are never freed when we jump to either 
+rollback or err. And I think there is also no way to free them as long as 
+cpdma_ctlr_start() has not been called (which is done between requesting 
+irqs and phy setup in the code).
+
+Problems 1+2 are easy to solve. Prabhakar, Mugunthan, any ideas for 3? I 
+think cpsw_ndo_start() in cpsw.c has the same problem. It will also try to 
+call cpdma_ctlr_stop in error handling before cpdma_ctlr_start was called 
+in some cases.
+
+Regards, Christian
