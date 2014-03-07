@@ -1,84 +1,44 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv4 net-next 04/32] cxgb4: Updates for T5 SGE's Egress Congestion Threshold
-Date: Fri,  7 Mar 2014 16:03:01 +0530
-Message-ID: <1394188409-9739-5-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv4 net-next 08/32] iw_cxgb4: Allow loopback connections
+Date: Fri,  7 Mar 2014 16:03:05 +0530
+Message-ID: <1394188409-9739-9-git-send-email-hariprasad@chelsio.com>
 References: <1394188409-9739-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, santosh@chelsio.com,
 	dm@chelsio.com, kumaras@chelsio.com, swise@opengridcomputing.com,
 	leedom@chelsio.com, nirranjan@chelsio.com, hariprasad@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:29580 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:18567 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752524AbaCGKlt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 05:41:49 -0500
+	by vger.kernel.org with ESMTP id S1751440AbaCGKmE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 05:42:04 -0500
 In-Reply-To: <1394188409-9739-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kumar Sanghvi <kumaras@chelsio.com>
+From: Steve Wise <swise@opengridcomputing.com>
 
-Based on original work by Casey Leedom <leedom@chelsio.com>
+find_route() must treat loopback as a valid
+egress interface.
 
-Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/sge.c     | 18 +++++++++++++-----
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |  6 ++++++
- 2 files changed, 19 insertions(+), 5 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 054bb03..a7c56b3 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2776,8 +2776,8 @@ static int t4_sge_init_hard(struct adapter *adap)
- int t4_sge_init(struct adapter *adap)
- {
- 	struct sge *s = &adap->sge;
--	u32 sge_control;
--	int ret;
-+	u32 sge_control, sge_conm_ctrl;
-+	int ret, egress_threshold;
- 
- 	/*
- 	 * Ingress Padding Boundary and Egress Status Page Size are set up by
-@@ -2802,10 +2802,18 @@ int t4_sge_init(struct adapter *adap)
- 	 * SGE's Egress Congestion Threshold.  If it isn't, then we can get
- 	 * stuck waiting for new packets while the SGE is waiting for us to
- 	 * give it more Free List entries.  (Note that the SGE's Egress
--	 * Congestion Threshold is in units of 2 Free List pointers.)
-+	 * Congestion Threshold is in units of 2 Free List pointers.) For T4,
-+	 * there was only a single field to control this.  For T5 there's the
-+	 * original field which now only applies to Unpacked Mode Free List
-+	 * buffers and a new field which only applies to Packed Mode Free List
-+	 * buffers.
- 	 */
--	s->fl_starve_thres
--		= EGRTHRESHOLD_GET(t4_read_reg(adap, SGE_CONM_CTRL))*2 + 1;
-+	sge_conm_ctrl = t4_read_reg(adap, SGE_CONM_CTRL);
-+	if (is_t4(adap->params.chip))
-+		egress_threshold = EGRTHRESHOLD_GET(sge_conm_ctrl);
-+	else
-+		egress_threshold = EGRTHRESHOLDPACKING_GET(sge_conm_ctrl);
-+	s->fl_starve_thres = 2*egress_threshold + 1;
- 
- 	setup_timer(&s->rx_timer, sge_rx_timer_cb, (unsigned long)adap);
- 	setup_timer(&s->tx_timer, sge_tx_timer_cb, (unsigned long)adap);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 33cf9ef..225ad8a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -230,6 +230,12 @@
- #define  EGRTHRESHOLD(x)     ((x) << EGRTHRESHOLDshift)
- #define  EGRTHRESHOLD_GET(x) (((x) & EGRTHRESHOLD_MASK) >> EGRTHRESHOLDshift)
- 
-+#define EGRTHRESHOLDPACKING_MASK	0x3fU
-+#define EGRTHRESHOLDPACKING_SHIFT	14
-+#define EGRTHRESHOLDPACKING(x)		((x) << EGRTHRESHOLDPACKING_SHIFT)
-+#define EGRTHRESHOLDPACKING_GET(x)	(((x) >> EGRTHRESHOLDPACKING_SHIFT) & \
-+					  EGRTHRESHOLDPACKING_MASK)
-+
- #define SGE_DBFIFO_STATUS 0x10a4
- #define  HP_INT_THRESH_SHIFT 28
- #define  HP_INT_THRESH_MASK  0xfU
+diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
+index d286bde..360807e 100644
+--- a/drivers/infiniband/hw/cxgb4/cm.c
++++ b/drivers/infiniband/hw/cxgb4/cm.c
+@@ -400,7 +400,8 @@ static struct dst_entry *find_route(struct c4iw_dev *dev, __be32 local_ip,
+ 	n = dst_neigh_lookup(&rt->dst, &peer_ip);
+ 	if (!n)
+ 		return NULL;
+-	if (!our_interface(dev, n->dev)) {
++	if (!our_interface(dev, n->dev) &&
++	    !(n->dev->flags & IFF_LOOPBACK)) {
+ 		dst_release(&rt->dst);
+ 		return NULL;
+ 	}
 -- 
 1.8.4
