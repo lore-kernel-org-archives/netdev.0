@@ -1,68 +1,78 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v2] 6lowpan: reassembly: fix
-	return of init function
-Date: Fri,  7 Mar 2014 11:06:54 +0100
-Message-ID: <1394186814-18745-1-git-send-email-alex.aring@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: Can I limit the number of active tx per TCP socket?
+Date: Fri, 7 Mar 2014 10:17:54 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6D7226@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D0F6D3B91@AcuExch.aculab.com>
+ <5318ADB1.5050107@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: 'Rick Jones' <rick.jones2@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:54648 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752290AbaCGKSb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 05:18:31 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 28177-08 for <netdev@vger.kernel.org>;
+ Fri,  7 Mar 2014 10:18:29 +0000 (GMT)
+In-Reply-To: <5318ADB1.5050107@hp.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds a missing return after fragmentation init. Otherwise we
-register a sysctl interface and deregister it afterwards which makes no
-sense.
+From: Rick Jones
+> On 03/06/2014 04:28 AM, David Laight wrote:
+> > Is it possible to stop a TCP connection having more than one
+> > tx skb (in the ethernet tx ring) at any one time?
+> > The idea is to allow time for short sends from the application
+> > to accumulate so that the transmitted frames are longer.
+> 
+> That is precisely what Nagle is supposed to be doing - at least where
+> the definition of "time" is the round-trip-time rather than "time it
+> takes to get transmitted out the NIC."
 
-Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
-Changes since v2:
- - remove goto out label and use return ret instead.
+No, enabling Nagle leads to unacceptable delays in sending packets.
+Try sending one short message every 5ms (without any return data),
+the 2nd message gets delayed until the remote ack timer, or Nagle
+timer expire. Both these timers are far too long, and the Nagle
+timeout isn't specifiable on a per socket basis.
 
- net/ieee802154/reassembly.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+> > Basically I have a TCP connection which carries a lot of separate
+> > short 'user buffers'. These are not command-response so
+> > TCP_NODELAY has to be set to avoid long delays.
+> 
+> When you are saturating the receiver and/or the 64K line, are you
+> certain that not setting TCP_NODELAY means long delays?
 
-diff --git a/net/ieee802154/reassembly.c b/net/ieee802154/reassembly.c
-index 1cc2336..bf06492 100644
---- a/net/ieee802154/reassembly.c
-+++ b/net/ieee802154/reassembly.c
-@@ -535,7 +535,7 @@ int __init lowpan_net_frag_init(void)
- 
- 	ret = lowpan_frags_sysctl_register();
- 	if (ret)
--		goto out;
-+		return ret;
- 
- 	ret = register_pernet_subsys(&lowpan_frags_ops);
- 	if (ret)
-@@ -550,9 +550,10 @@ int __init lowpan_net_frag_init(void)
- 	lowpan_frags.frag_expire = lowpan_frag_expire;
- 	lowpan_frags.secret_interval = 10 * 60 * HZ;
- 	inet_frags_init(&lowpan_frags);
-+
-+	return ret;
- err_pernet:
- 	lowpan_frags_sysctl_unregister();
--out:
- 	return ret;
- }
- 
--- 
-1.9.0
+Yes, because it delays data for at least 10s of milliseconds (100ms?)
+(I can't remember the Nagle delay - I know it is visible if you
+'page forward' when running 'vi' in a large xterm.)
 
+We've had issues with 'slow start' being affected by 'delayed acks'.
+IIRC 'slow start' will only send 4 frames without receiving an ack.
+The 'delayed ack' code waits 50ms? before sending one out.
+By that time we are discarding data received on the slow link!
+I avoided that one by requesting an application level data ack
+every 4 packets rather than every 8.
 
-------------------------------------------------------------------------------
-Subversion Kills Productivity. Get off Subversion & Make the Move to Perforce.
-With Perforce, you get hassle-free workflows. Merge that actually works. 
-Faster operations. Version large binaries.  Built-in WAN optimization and the
-freedom to use Git, Perforce or both. Make the move to Perforce.
-http://pubads.g.doubleclick.net/gampad/clk?id=122218951&iu=/4140/ostg.clktrk
+>  From a later message:
+> 
+> > The data is sent out on a 64k line so 1ms is only 8 byte times.
+> 
+> Are you still using a 1460 byte MSS on such a connection?
+
+The 64k line isn't carrying TCP, the TCP connection is carrying
+the data that will be sent over the 64k line.
+(It is actually SS7 - telephony signalling data.)
+The reason there are a lot of small packets on the TCP connection
+is that the 'mtu' for those links it 273, and typical packets are
+much shorter.
+
+Also the traffic for multiple (max 64) 64k links is sent over the
+same TCP connection, so the aggregate packet rate is considerable.
+(Especially when I'm running performance tests!)
+
+	David
