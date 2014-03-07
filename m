@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2014-02-12
-Date: Fri, 07 Mar 2014 17:10:50 -0500 (EST)
-Message-ID: <20140307.171050.780817492945952823.davem@davemloft.net>
-References: <5319954F.3080208@pengutronix.de>
+Subject: Re: [PATCH net-next v2] 6lowpan: reassembly: fix return of init
+ function
+Date: Fri, 07 Mar 2014 17:11:46 -0500 (EST)
+Message-ID: <20140307.171146.1685614463447589267.davem@davemloft.net>
+References: <1394186814-18745-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <5319954F.3080208@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: alex.aring@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43897 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751365AbaCGWLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 17:11:48 -0500
+In-Reply-To: <1394186814-18745-1-git-send-email-alex.aring@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Fri, 07 Mar 2014 10:45:51 +0100
+From: Alexander Aring <alex.aring@gmail.com>
+Date: Fri,  7 Mar 2014 11:06:54 +0100
 
-> this is a pull request of twelve patches for net-next/master.
+> This patch adds a missing return after fragmentation init. Otherwise we
+> register a sysctl interface and deregister it afterwards which makes no
+> sense.
 > 
-> Alexander Shiyan contributes two patches for the mcp251x, one making
-> the driver more quiet and the other one improves the compile time
-> coverage by removing the #ifdef CONFIG_PM_SLEEP. Then two patches for
-> the flexcan driver by me, one removing the #ifdef CONFIG_PM_SLEEP, too,
-> the other one making use of platform_get_device_id(). Another patch by
-> me which converts the janz-ican3 driver to use netdev_<level>(). The
-> remaining 7 patches are by Oliver Hartkopp, they add CAN FD support to
-> the netlink configuration interface.
- ...
->   git://gitorious.org/linux-can/linux-can-next.git tags/linux-can-next-for-3.15-20140307
+> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+> ---
+> Changes since v2:
+>  - remove goto out label and use return ret instead.
 
-Pulled, thank you Marc.
+Applied, thanks.
