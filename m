@@ -1,312 +1,109 @@
 From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next v2 2/2] gianfar: Use Single-Queue polling for "fsl,etsec2"
-Date: Fri, 7 Mar 2014 14:42:46 +0200
-Message-ID: <1394196166-24932-3-git-send-email-claudiu.manoil@freescale.com>
-References: <1394196166-24932-1-git-send-email-claudiu.manoil@freescale.com>
+Subject: [PATCH net-next v2 0/2] gianfar: Tx timeout issue
+Date: Fri, 7 Mar 2014 14:42:44 +0200
+Message-ID: <1394196166-24932-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: "David S. Miller" <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe004.messaging.microsoft.com ([216.32.181.184]:22517
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751624AbaCGMoc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 07:44:32 -0500
-In-Reply-To: <1394196166-24932-1-git-send-email-claudiu.manoil@freescale.com>
+Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:1973 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751669AbaCGMo1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 07:44:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For the "fsl,etsec2" compatible models the driver currently
-supports 8 Tx and Rx DMA rings (aka HW queues).  However, there
-are only 2 pairs of Rx/Tx interrupt lines, as these controllers
-are integrated in low power SoCs with 2 CPUs at most.  As a result,
-there are at most 2 NAPI instances that have to service multiple
-Tx and Rx queues for these devices.  This complicates the NAPI
-polling routine having to iterate over the mutiple Rx/Tx queues
-hooked to the same interrupt lines.  And there's also an overhead
-at HW level, as the controller needs to service all the 8 Tx rings
-in a round robin manner.  The combined overhead shows up for multi
-parallel Tx flows transmitted by the kernel stack, when the driver
-usually starts returning NETDEV_TX_BUSY leading to NETDEV WATCHDOG
-Tx timeout triggering if the Tx path is congested for too long.
+Hi David,
 
-As an alternative, this patch makes the driver support only one
-Tx/Rx DMA ring per NAPI instance (per interrupt group or pair
-of Tx/Rx interrupt lines) by default.  The simplified single queue
-polling routine (gfar_poll_sq) will be the default napi poll routine
-for the etsec2 devices too.  Some adjustments needed to be made to
-link the Tx/Rx HW queues with each NAPI instance (2 in this case).
-The gfar_poll_sq() is already successfully used by older SQ_SG_MODE
-(single interrupt group) controllers.
-This patch fixes Tx timeout triggering under heavy Tx traffic load
-(i.e. iperf -c -P 8) for the "fsl,etsec2" (currently the only
-MQ_MG_MODE devices).  There's also a significant memory footprint
-reduction by supporting 2 Rx/Tx DMA rings (at most), instead of 8,
-for these devices.
+There's an older Tx timeout issue showing up on etsec2 devices
+with 2 CPUs.  I pinned this issue down to processing overhead
+incurred by supporting multiple Tx/Rx rings, as explained in
+the 2nd patch below.  But before this, there's also a concurency
+issue leading to Rx/Tx spurrious interrupts, addressed by the
+'Tx NAPI' patch below.
+The Tx timeout can be triggered with multiple Tx flows,
+'iperf -c -N 8' commands, on a 2 CPUs etsec2 based (P1020) board.
 
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
----
-v2: Replaced CPP checks with run-time condition to
-    limit the number of queues. Updated patch subject
-    and comments to be more clear (plus spelling fixes).
+Before the patches:
+"""
+root@p1020rdb-pc:~# iperf -c 172.16.1.3 -n 1000M -P 8 &
+[...]
+root@p1020rdb-pc:~# NETDEV WATCHDOG: eth1 (fsl-gianfar): transmit queue 1 timed out
+WARNING: at net/sched/sch_generic.c:279
+Modules linked in:
+CPU: 1 PID: 0 Comm: swapper/1 Not tainted 3.13.0-rc3-03386-g89ea59c #23
+task: ed84ef40 ti: ed868000 task.ti: ed868000
+NIP: c04627a8 LR: c04627a8 CTR: c02fb270
+REGS: ed869d00 TRAP: 0700   Not tainted  (3.13.0-rc3-03386-g89ea59c)
+MSR: 00029000 <CE,EE,ME>  CR: 44000022  XER: 20000000
+[...]
 
- drivers/net/ethernet/freescale/gianfar.c | 70 ++++++++++++++++++++++----------
- drivers/net/ethernet/freescale/gianfar.h | 41 ++++++++++++++-----
- 2 files changed, 79 insertions(+), 32 deletions(-)
+root@p1020rdb-pc:~# [ ID] Interval       Transfer     Bandwidth
+[  5]  0.0-19.3 sec  1000 MBytes    434 Mbits/sec
+[  8]  0.0-39.7 sec  1000 MBytes    211 Mbits/sec
+[  9]  0.0-40.1 sec  1000 MBytes    209 Mbits/sec
+[  3]  0.0-40.2 sec  1000 MBytes    209 Mbits/sec
+[ 10]  0.0-59.0 sec  1000 MBytes    142 Mbits/sec
+[  7]  0.0-74.6 sec  1000 MBytes    112 Mbits/sec
+[  6]  0.0-74.7 sec  1000 MBytes    112 Mbits/sec
+[  4]  0.0-74.7 sec  1000 MBytes    112 Mbits/sec
+[SUM]  0.0-74.7 sec  7.81 GBytes    898 Mbits/sec
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 1aa2d55..28effbe 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -363,7 +363,10 @@ static void gfar_mac_rx_config(struct gfar_private *priv)
- 	if (priv->rx_filer_enable) {
- 		rctrl |= RCTRL_FILREN;
- 		/* Program the RIR0 reg with the required distribution */
--		gfar_write(&regs->rir0, DEFAULT_RIR0);
-+		if (priv->poll_mode == GFAR_SQ_POLLING)
-+			gfar_write(&regs->rir0, DEFAULT_2RXQ_RIR0);
-+		else /* GFAR_MQ_POLLING */
-+			gfar_write(&regs->rir0, DEFAULT_8RXQ_RIR0);
- 	}
- 
- 	/* Restore PROMISC mode */
-@@ -636,7 +639,6 @@ static int gfar_parse_group(struct device_node *np,
- 			    struct gfar_private *priv, const char *model)
- {
- 	struct gfar_priv_grp *grp = &priv->gfargrp[priv->num_grps];
--	u32 *queue_mask;
- 	int i;
- 
- 	for (i = 0; i < GFAR_NUM_IRQS; i++) {
-@@ -665,12 +667,20 @@ static int gfar_parse_group(struct device_node *np,
- 	grp->priv = priv;
- 	spin_lock_init(&grp->grplock);
- 	if (priv->mode == MQ_MG_MODE) {
--		queue_mask = (u32 *)of_get_property(np, "fsl,rx-bit-map", NULL);
--		grp->rx_bit_map = queue_mask ?
--			*queue_mask : (DEFAULT_MAPPING >> priv->num_grps);
--		queue_mask = (u32 *)of_get_property(np, "fsl,tx-bit-map", NULL);
--		grp->tx_bit_map = queue_mask ?
--			*queue_mask : (DEFAULT_MAPPING >> priv->num_grps);
-+		u32 *rxq_mask, *txq_mask;
-+		rxq_mask = (u32 *)of_get_property(np, "fsl,rx-bit-map", NULL);
-+		txq_mask = (u32 *)of_get_property(np, "fsl,tx-bit-map", NULL);
-+
-+		if (priv->poll_mode == GFAR_SQ_POLLING) {
-+			/* One Q per interrupt group: Q0 to G0, Q1 to G1 */
-+			grp->rx_bit_map = (DEFAULT_MAPPING >> priv->num_grps);
-+			grp->tx_bit_map = (DEFAULT_MAPPING >> priv->num_grps);
-+		} else { /* GFAR_MQ_POLLING */
-+			grp->rx_bit_map = rxq_mask ?
-+			*rxq_mask : (DEFAULT_MAPPING >> priv->num_grps);
-+			grp->tx_bit_map = txq_mask ?
-+			*txq_mask : (DEFAULT_MAPPING >> priv->num_grps);
-+		}
- 	} else {
- 		grp->rx_bit_map = 0xFF;
- 		grp->tx_bit_map = 0xFF;
-@@ -686,6 +696,8 @@ static int gfar_parse_group(struct device_node *np,
- 	 * also assign queues to groups
- 	 */
- 	for_each_set_bit(i, &grp->rx_bit_map, priv->num_rx_queues) {
-+		if (!grp->rx_queue)
-+			grp->rx_queue = priv->rx_queue[i];
- 		grp->num_rx_queues++;
- 		grp->rstat |= (RSTAT_CLEAR_RHALT >> i);
- 		priv->rqueue |= ((RQUEUE_EN0 | RQUEUE_EX0) >> i);
-@@ -693,6 +705,8 @@ static int gfar_parse_group(struct device_node *np,
- 	}
- 
- 	for_each_set_bit(i, &grp->tx_bit_map, priv->num_tx_queues) {
-+		if (!grp->tx_queue)
-+			grp->tx_queue = priv->tx_queue[i];
- 		grp->num_tx_queues++;
- 		grp->tstat |= (TSTAT_CLEAR_THALT >> i);
- 		priv->tqueue |= (TQUEUE_EN0 >> i);
-@@ -723,9 +737,22 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 	if (!np || !of_device_is_available(np))
- 		return -ENODEV;
- 
--	/* parse the num of tx and rx queues */
-+	/* parse the num of HW tx and rx queues */
- 	tx_queues = (u32 *)of_get_property(np, "fsl,num_tx_queues", NULL);
--	num_tx_qs = tx_queues ? *tx_queues : 1;
-+	rx_queues = (u32 *)of_get_property(np, "fsl,num_rx_queues", NULL);
-+
-+	if (priv->mode == SQ_SG_MODE) {
-+		num_tx_qs = 1;
-+		num_rx_qs = 1;
-+	} else { /* MQ_MG_MODE */
-+		if (priv->poll_mode == GFAR_SQ_POLLING) {
-+			num_tx_qs = 2; /* one q per int group */
-+			num_rx_qs = 2; /* one q per int group */
-+		} else { /* GFAR_MQ_POLLING */
-+			num_tx_qs = tx_queues ? *tx_queues : 1;
-+			num_rx_qs = rx_queues ? *rx_queues : 1;
-+		}
-+	}
- 
- 	if (num_tx_qs > MAX_TX_QS) {
- 		pr_err("num_tx_qs(=%d) greater than MAX_TX_QS(=%d)\n",
-@@ -734,9 +761,6 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 		return -EINVAL;
- 	}
- 
--	rx_queues = (u32 *)of_get_property(np, "fsl,num_rx_queues", NULL);
--	num_rx_qs = rx_queues ? *rx_queues : 1;
--
- 	if (num_rx_qs > MAX_RX_QS) {
- 		pr_err("num_rx_qs(=%d) greater than MAX_RX_QS(=%d)\n",
- 		       num_rx_qs, MAX_RX_QS);
-@@ -777,6 +801,7 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 	/* Parse and initialize group specific information */
- 	if (of_device_is_compatible(np, "fsl,etsec2")) {
- 		priv->mode = MQ_MG_MODE;
-+		priv->poll_mode = GFAR_SQ_POLLING;
- 		for_each_child_of_node(np, child) {
- 			err = gfar_parse_group(child, priv, model);
- 			if (err)
-@@ -784,6 +809,7 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 		}
- 	} else {
- 		priv->mode = SQ_SG_MODE;
-+		priv->poll_mode = GFAR_SQ_POLLING;
- 		err = gfar_parse_group(np, priv, model);
- 		if (err)
- 			goto err_grp_init;
-@@ -1263,13 +1289,13 @@ static int gfar_probe(struct platform_device *ofdev)
- 	dev->ethtool_ops = &gfar_ethtool_ops;
- 
- 	/* Register for napi ...We are registering NAPI for each grp */
--	if (priv->mode == SQ_SG_MODE) {
--		netif_napi_add(dev, &priv->gfargrp[0].napi_rx, gfar_poll_rx_sq,
--			       GFAR_DEV_WEIGHT);
--		netif_napi_add(dev, &priv->gfargrp[0].napi_tx, gfar_poll_tx_sq,
--			       2);
--	} else {
--		for (i = 0; i < priv->num_grps; i++) {
-+	for (i = 0; i < priv->num_grps; i++) {
-+		if (priv->poll_mode == GFAR_SQ_POLLING) {
-+			netif_napi_add(dev, &priv->gfargrp[i].napi_rx,
-+				       gfar_poll_rx_sq, GFAR_DEV_WEIGHT);
-+			netif_napi_add(dev, &priv->gfargrp[i].napi_tx,
-+				       gfar_poll_tx_sq, 2);
-+		} else {
- 			netif_napi_add(dev, &priv->gfargrp[i].napi_rx,
- 				       gfar_poll_rx, GFAR_DEV_WEIGHT);
- 			netif_napi_add(dev, &priv->gfargrp[i].napi_tx,
-@@ -2819,7 +2845,7 @@ static int gfar_poll_rx_sq(struct napi_struct *napi, int budget)
- 	struct gfar_priv_grp *gfargrp =
- 		container_of(napi, struct gfar_priv_grp, napi_rx);
- 	struct gfar __iomem *regs = gfargrp->regs;
--	struct gfar_priv_rx_q *rx_queue = gfargrp->priv->rx_queue[0];
-+	struct gfar_priv_rx_q *rx_queue = gfargrp->rx_queue;
- 	int work_done = 0;
- 
- 	/* Clear IEVENT, so interrupts aren't called again
-@@ -2850,7 +2876,7 @@ static int gfar_poll_tx_sq(struct napi_struct *napi, int budget)
- 	struct gfar_priv_grp *gfargrp =
- 		container_of(napi, struct gfar_priv_grp, napi_tx);
- 	struct gfar __iomem *regs = gfargrp->regs;
--	struct gfar_priv_tx_q *tx_queue = gfargrp->priv->tx_queue[0];
-+	struct gfar_priv_tx_q *tx_queue = gfargrp->tx_queue;
- 	u32 imask;
- 
- 	/* Clear IEVENT, so interrupts aren't called again
-diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-index 1aeb34e..84632c5 100644
---- a/drivers/net/ethernet/freescale/gianfar.h
-+++ b/drivers/net/ethernet/freescale/gianfar.h
-@@ -412,7 +412,9 @@ extern const char gfar_driver_version[];
- 
- /* This default RIR value directly corresponds
-  * to the 3-bit hash value generated */
--#define DEFAULT_RIR0	0x05397700
-+#define DEFAULT_8RXQ_RIR0	0x05397700
-+/* Map even hash values to Q0, and odd ones to Q1 */
-+#define DEFAULT_2RXQ_RIR0	0x04104100
- 
- /* RQFCR register bits */
- #define RQFCR_GPI		0x80000000
-@@ -907,6 +909,22 @@ enum {
- 	MQ_MG_MODE
- };
- 
-+/* GFAR_SQ_POLLING: Single Queue NAPI polling mode
-+ *	The driver supports a single pair of RX/Tx queues
-+ *	per interrupt group (Rx/Tx int line). MQ_MG mode
-+ *	devices have 2 interrupt groups, so the device will
-+ *	have a total of 2 Tx and 2 Rx queues in this case.
-+ * GFAR_MQ_POLLING: Multi Queue NAPI polling mode
-+ *	The driver supports all the 8 Rx and Tx HW queues
-+ *	each queue mapped by the Device Tree to one of
-+ *	the 2 interrupt groups. This mode implies significant
-+ *	processing overhead (CPU and controller level).
-+ */
-+enum gfar_poll_mode {
-+	GFAR_SQ_POLLING = 0,
-+	GFAR_MQ_POLLING
-+};
-+
- /*
-  * Per TX queue stats
-  */
-@@ -1016,17 +1034,20 @@ struct gfar_irqinfo {
-  */
- 
- struct gfar_priv_grp {
--	spinlock_t grplock __attribute__ ((aligned (SMP_CACHE_BYTES)));
-+	spinlock_t grplock __aligned(SMP_CACHE_BYTES);
- 	struct	napi_struct napi_rx;
- 	struct	napi_struct napi_tx;
--	struct gfar_private *priv;
- 	struct gfar __iomem *regs;
--	unsigned int rstat;
--	unsigned long num_rx_queues;
--	unsigned long rx_bit_map;
-+	struct gfar_priv_tx_q *tx_queue;
-+	struct gfar_priv_rx_q *rx_queue;
- 	unsigned int tstat;
-+	unsigned int rstat;
-+
-+	struct gfar_private *priv;
- 	unsigned long num_tx_queues;
- 	unsigned long tx_bit_map;
-+	unsigned long num_rx_queues;
-+	unsigned long rx_bit_map;
- 
- 	struct gfar_irqinfo *irqinfo[GFAR_NUM_IRQS];
- };
-@@ -1056,8 +1077,6 @@ enum gfar_dev_state {
-  * the buffer descriptor determines the actual condition.
-  */
- struct gfar_private {
--	unsigned int num_rx_queues;
--
- 	struct device *dev;
- 	struct net_device *ndev;
- 	enum gfar_errata errata;
-@@ -1065,6 +1084,7 @@ struct gfar_private {
- 
- 	u16 uses_rxfcb;
- 	u16 padding;
-+	u32 device_flags;
- 
- 	/* HW time stamping enabled flag */
- 	int hwts_rx_en;
-@@ -1075,10 +1095,11 @@ struct gfar_private {
- 	struct gfar_priv_grp gfargrp[MAXGROUPS];
- 
- 	unsigned long state;
--	u32 device_flags;
- 
--	unsigned int mode;
-+	unsigned short mode;
-+	unsigned short poll_mode;
- 	unsigned int num_tx_queues;
-+	unsigned int num_rx_queues;
- 	unsigned int num_grps;
- 
- 	/* Network Statistics */
+root@p1020rdb-pc:~# ifconfig eth1
+eth1      Link encap:Ethernet  HWaddr 00:04:9f:00:13:01  
+          inet addr:172.16.1.1  Bcast:172.16.255.255  Mask:255.255.0.0
+          inet6 addr: fe80::204:9fff:fe00:1301/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:708722 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:8717849 errors:6 dropped:0 overruns:1470 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:58118018 (55.4 MiB)  TX bytes:274069482 (261.3 MiB)
+          Base address:0xa000 
+
+"""
+
+After applying the patches:
+"""
+root@p1020rdb-pc:~# iperf -c 172.16.1.3 -n 1000M -P 8 &
+[...]
+root@p1020rdb-pc:~# [ ID] Interval       Transfer     Bandwidth
+[  9]  0.0-70.5 sec  1000 MBytes    119 Mbits/sec
+[  5]  0.0-70.5 sec  1000 MBytes    119 Mbits/sec
+[  6]  0.0-70.7 sec  1000 MBytes    119 Mbits/sec
+[  4]  0.0-71.0 sec  1000 MBytes    118 Mbits/sec
+[  8]  0.0-71.1 sec  1000 MBytes    118 Mbits/sec
+[  3]  0.0-71.2 sec  1000 MBytes    118 Mbits/sec
+[ 10]  0.0-71.3 sec  1000 MBytes    118 Mbits/sec
+[  7]  0.0-71.3 sec  1000 MBytes    118 Mbits/sec
+[SUM]  0.0-71.3 sec  7.81 GBytes    942 Mbits/sec
+
+root@p1020rdb-pc:~# ifconfig eth1
+eth1      Link encap:Ethernet  HWaddr 00:04:9f:00:13:01  
+          inet addr:172.16.1.1  Bcast:172.16.255.255  Mask:255.255.0.0
+          inet6 addr: fe80::204:9fff:fe00:1301/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:728446 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:8690057 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:59732650 (56.9 MiB)  TX bytes:271554306 (258.9 MiB)
+          Base address:0xa000 
+"""
+
+
+Thanks.
+--
+v2: PATCH 2:
+    Replaced CPP check with run-time condition to
+    limit the number of queues. Updated comments.
+
+Claudiu Manoil (2):
+  gianfar: Separate out the Tx interrupt handling (Tx NAPI)
+  gianfar: Use Single-Queue polling for "fsl,etsec2"
+
+ drivers/net/ethernet/freescale/gianfar.c | 274 ++++++++++++++++++++++---------
+ drivers/net/ethernet/freescale/gianfar.h |  52 ++++--
+ 2 files changed, 232 insertions(+), 94 deletions(-)
+
 -- 
 1.7.11.7
