@@ -1,113 +1,80 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH V2 1/6] Drivers: net: hyperv: Enable scatter gather I/O
-Date: Sat, 8 Mar 2014 04:12:01 +0000
-Message-ID: <fd6bb08bd9a447aa9c0da3b584ea9bb8@BY2PR03MB299.namprd03.prod.outlook.com>
-References: <1394170320-1002-1-git-send-email-kys@microsoft.com>
- <1394170361-1043-1-git-send-email-kys@microsoft.com>
- <20140307.164756.1488071770631289333.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140307.164756.1488071770631289333.davem@davemloft.net>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+From: Tim Harvey <tharvey@gateworks.com>
+Subject: [PATCH v3] sky2: allow mac to come from dt
+Date: Fri,  7 Mar 2014 20:59:53 -0800
+Message-ID: <1394254793-19228-1-git-send-email-tharvey@gateworks.com>
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:59936 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750730AbaCHFAD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 00:00:03 -0500
+Received: by mail-pd0-f179.google.com with SMTP id w10so4873323pde.24
+        for <netdev@vger.kernel.org>; Fri, 07 Mar 2014 21:00:03 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+The driver reads the mac address from the device registers which would
+need to have been programmed by the bootloader.  This patch adds
+the ability to pull the mac from devicetree via the pci device dt node.
 
+Signed-off-by: Tim Harvey <tharvey@gateworks.com>
+Cc: netdev@vger.kernel.org
+Cc: devicetree@vger.kernel.org
+Cc: Grant Likely <grant.likely@linaro.org>
+Cc: Rob Herring <robh+dt@kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Saturday, March 8, 2014 3:18 AM
-> To: KY Srinivasan
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
-> jasowang@redhat.com
-> Subject: Re: [PATCH V2 1/6] Drivers: net: hyperv: Enable scatter gather I/O
-> 
-> From: "K. Y. Srinivasan" <kys@microsoft.com>
-> Date: Thu,  6 Mar 2014 21:32:36 -0800
-> 
-> > +static u32 fill_pg_buf(struct page *page, u32 offset, u32 len,
-> > +			struct hv_page_buffer *pb)
-> > +{
-> > +	int j = 0;
-> > +
-> > +	/* Deal with compund pages by ignoring unused part
-> > +	 * of the page.
-> > +	 */
-> > +	page += offset  >> PAGE_SHIFT;
-> 
-> Please only one space between "offset" and ">>"
-> 
-> > +	offset &= ~PAGE_MASK;
-> > +
-> > +	while (len > 0) {
-> > +		unsigned long bytes;
-> > +
-> > +		bytes = PAGE_SIZE - offset;
-> > +		if (bytes > len)
-> > +			bytes = len;
-> > +		pb[j].pfn = page_to_pfn(page);
-> > +		pb[j].offset = offset;
-> > +		pb[j].len = bytes;
-> > +
-> > +		offset += bytes;
-> > +		len -= bytes;
-> > +
-> > +		if (offset == PAGE_SIZE && len) {
-> > +			page++;
-> > +			offset = 0;
-> > +			j++;
-> > +		}
-> > +	}
-> > +
-> > +	return j + 1;
-> > +}
-> 
-> I think this function has some edge case errors.
-> 
-> As I understand it, this function returns how many page buffer entries were
-> filled in.
-> 
-> But if we fill exactly the end of a page, we will report one too many in the
-> return value.
+Changes since v2:
+ - eliminated use of stack tmpaddr per feedback
 
-I may be missing something here; but in the case you are describing we would return a value
-of one as we should. When offset + len is exactly equal to the page size, we would not increment
-the value of j, since at that point len == 0. Since the initial value of j was 0 and we return (j + 1),
-we will return 1.
+Changes since v1:
+ - simplified based on feedback
+ - fixed formatting
+---
+ drivers/net/ethernet/marvell/sky2.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
 
-Regards,
-
-K. Y
-> 
-> Consider an "offset" of X, where X is smaller than PAGE_SIZE.  And a "len"
-> which is exactly "PAGE_SIZE - offset".
-> 
-> We will fill in exactly one page buffer entry, however we will erroneously
-> return 2 from this function.
-> 
-> I believe the fix is to first replace the test at the end of the loop
-> with:
-> 
-> 	page++;
-> 	offset = 0;
-> 	j++;
-> 
-> And subsequently change the function to just return plain "j".
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index 55a37ae..2434611 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -44,6 +44,8 @@
+ #include <linux/prefetch.h>
+ #include <linux/debugfs.h>
+ #include <linux/mii.h>
++#include <linux/of_device.h>
++#include <linux/of_net.h>
+ 
+ #include <asm/irq.h>
+ 
+@@ -4748,6 +4750,7 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
+ {
+ 	struct sky2_port *sky2;
+ 	struct net_device *dev = alloc_etherdev(sizeof(*sky2));
++	const void *iap;
+ 
+ 	if (!dev)
+ 		return NULL;
+@@ -4805,8 +4808,16 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
+ 
+ 	dev->features |= dev->hw_features;
+ 
+-	/* read the mac address */
+-	memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port * 8, ETH_ALEN);
++	/* try to get mac address in the following order:
++	 * 1) from device tree data
++	 * 2) from internal registers set by bootloader
++	 */
++	iap = of_get_mac_address(hw->pdev->dev.of_node);
++	if (iap)
++		memcpy(dev->dev_addr, iap, ETH_ALEN);
++	else
++		memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port * 8,
++			      ETH_ALEN);
+ 
+ 	return dev;
+ }
+-- 
+1.8.3.2
