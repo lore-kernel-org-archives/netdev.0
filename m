@@ -1,81 +1,55 @@
-From: Zheng Liu <gnehzuil.liu@gmail.com>
-Subject: TCP fast open question
-Date: Sat, 8 Mar 2014 19:58:23 +0800
-Message-ID: <20140308115823.GA3185@gmail.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [PATCH] ath6kl: sdio: fix system panic when doing wifi stress test
+Date: Sat, 8 Mar 2014 13:57:36 +0200
+Message-ID: <87a9d0oqbz.fsf@kamboji.qca.qualcomm.com>
+References: <1384221185-8645-1-git-send-email-r64343@freescale.com>
+	<87k3fvjvjg.fsf@kamboji.qca.qualcomm.com>
+	<AD13664F485EE54694E29A7F9D5BE1AFC0AD96@039-SN2MPN1-022.039d.mgd.msft.net>
+	<20140307093813.GA28728@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Yuchung Cheng <ycheng@google.com>,
-	Jerry Chu <hkchu@google.com>,
-	Xiaochen Wang <xiaochen.wxc@alibaba-inc.com>,
-	Zheng Liu <wenqing.lz@taobao.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:50350 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751098AbaCHLww (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 06:52:52 -0500
-Received: by mail-pa0-f50.google.com with SMTP id kq14so5325661pab.9
-        for <netdev@vger.kernel.org>; Sat, 08 Mar 2014 03:52:52 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Hui Liu <Hui.Liu@freescale.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	<ath6kl@lists.infradead.org>
+To: Steffen Trumtrar <s.trumtrar@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140307093813.GA28728@pengutronix.de> (Steffen Trumtrar's
+	message of "Fri, 7 Mar 2014 10:38:13 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+Hi Steffen,
 
-Now we are trying to use TCP fast open in our nginx server, and we
-encounter a problem under non-blocking socket.  I appreciate if some one
-can reply this question.  Thanks in advance.
+Steffen Trumtrar <s.trumtrar@pengutronix.de> writes:
 
-I describe our question here.  we have two machines, one is as server and
-another is as client.  'net.ipv4.tcp_fastopen' on both of them are set to
-3.  The server program looks like below:
+>> > Does the patch below help? It would also fix the corruption with
+>> > scat_q_depth. Please note that I have only compile tested it. And I might
+>> > have also missed something important, so please review it carefully.
+>> 
+>> Yes, Firstly, I have looked at the asm code and the compiler(gcc 4.8.1) works correctly after applying
+>> the following patch. Secondly, I have tested the patch with compiler(gcc 4.8.1) on the real HW, and it
+>> works fine too. Without the patch, the kernel crash will happen 100%.
+>> 
+>> Thus, for the patch:
+>> 
+>> Acked-by: Jason Liu <r64343@freescale.com>
+>> Tested-by: Jason Liu <r64343@freescale.com>
 
-  ... 
-  listenfd = socket(AF_INET, SOCK_STREAM, 0);
-  bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
-  int tfo_opt = 1;
-  setsockopt(listenfd, SOL_TCP, TCP_LISTEN_INFO, &tfo_opt, sizeof(tfo_opt));
-  listen(listenfd, 5);
-  connfd = accept(listenfd, (struct sockaddr *)NULL, NULL);
-  recv(connfd, &buf, 4096)
-  ...
+[...]
 
-The client program:
+> What happend with this? If I look in mainline, I don't find it. At
+> least the reording of the struct fields looks as if one definitely
+> wants to have that.
 
-  ...
-  sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL, 0)|O_NONBLOCK);
-  sendto(sockfd, msg, strlen(msg), MSG_FASTOPEN,
-  	(struct sockaddr *)&servaddr, sizeof(servaddr);
-  recv(sockfd, buf, 4096, 0);
-  ...
+It seems that I forgot to submit this properly, sorry about that. I did
+it now:
 
-We use a non-blocking socket to connect the server and send some
-messages.  After calling sendto(2) we always get an EINPROGRESS error.
-We think it is reasonable because connect(2) could also return this
-error with a non-blocking socket and the connection will be established
-later.  The question is *whether or not the data will be sent* after the
-connection is established.  If I understand correctly, sendto(2) will
-return the number of bytes of data queued up in the kernel or sent in
-the SYN packet.  Even though the EINPROGRESS is returned.  If sendto(2)
-returns -1, that means that no data is queued up in kernel or sent in
-the packet.  Please correct me if I miss-understand something.
+http://lists.infradead.org/pipermail/ath6kl/2014-March/000000.html
 
-We run the program in our testing environment, and we use tcpdump(1) to
-capture the packets.  From the result we can see there is no any data
-that is sent.  Then we do another testing that after calling sendto(2)
-the client program will sleep for 5 seconds and then call send(2) to
-transfer some data.
-
-  $ ./client xx.xx.xx.xx
-  ret -1 errno 115
-
-The program works well.  So that means that after getting a EINPROGRESS
-error, the program must call send(2) manually.  Is it correct?  If we
-want to avoid this problem, we need to set 'net.ipv4.tcp_fastopen' to
-0x707 ?
-
-Regards,
-						- Zheng
+-- 
+Kalle Valo
