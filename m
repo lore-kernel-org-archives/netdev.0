@@ -1,72 +1,58 @@
-From: Steffen Trumtrar <s.trumtrar@pengutronix.de>
-Subject: Re: [PATCH] ath6kl: sdio: fix system panic when doing wifi stress
- test
-Date: Sat, 8 Mar 2014 16:37:30 +0100
-Message-ID: <20140308153730.GA27506@pengutronix.de>
-References: <1384221185-8645-1-git-send-email-r64343@freescale.com>
- <87k3fvjvjg.fsf@kamboji.qca.qualcomm.com>
- <AD13664F485EE54694E29A7F9D5BE1AFC0AD96@039-SN2MPN1-022.039d.mgd.msft.net>
- <20140307093813.GA28728@pengutronix.de>
- <87a9d0oqbz.fsf@kamboji.qca.qualcomm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] pkt_sched: move the sanity test in qdisc_list_add()
+Date: Sat, 08 Mar 2014 08:01:19 -0800
+Message-ID: <1394294479.20149.66.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <7625.1387476879@turing-police.cc.vt.edu>
+	 <1387556764.19078.441.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hui Liu <Hui.Liu@freescale.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	ath6kl@lists.infradead.org
-To: Kalle Valo <kvalo@qca.qualcomm.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
+To: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	David Miller <davem@davemloft.net>,
+	Mirco Tischler <mt-ml@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:42020 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751590AbaCHPhi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 10:37:38 -0500
-Content-Disposition: inline
-In-Reply-To: <87a9d0oqbz.fsf@kamboji.qca.qualcomm.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:61084 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751138AbaCHQBV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 11:01:21 -0500
+Received: by mail-pa0-f47.google.com with SMTP id lj1so5445722pab.20
+        for <netdev@vger.kernel.org>; Sat, 08 Mar 2014 08:01:21 -0800 (PST)
+In-Reply-To: <1387556764.19078.441.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 08, 2014 at 01:57:36PM +0200, Kalle Valo wrote:
-> Hi Steffen,
-> 
-> Steffen Trumtrar <s.trumtrar@pengutronix.de> writes:
-> 
-> >> > Does the patch below help? It would also fix the corruption with
-> >> > scat_q_depth. Please note that I have only compile tested it. And I might
-> >> > have also missed something important, so please review it carefully.
-> >> 
-> >> Yes, Firstly, I have looked at the asm code and the compiler(gcc 4.8.1) works correctly after applying
-> >> the following patch. Secondly, I have tested the patch with compiler(gcc 4.8.1) on the real HW, and it
-> >> works fine too. Without the patch, the kernel crash will happen 100%.
-> >> 
-> >> Thus, for the patch:
-> >> 
-> >> Acked-by: Jason Liu <r64343@freescale.com>
-> >> Tested-by: Jason Liu <r64343@freescale.com>
-> 
-> [...]
-> 
-> > What happend with this? If I look in mainline, I don't find it. At
-> > least the reording of the struct fields looks as if one definitely
-> > wants to have that.
-> 
-> It seems that I forgot to submit this properly, sorry about that. I did
-> it now:
-> 
-> http://lists.infradead.org/pipermail/ath6kl/2014-March/000000.html
-> 
+From: Eric Dumazet <edumazet@google.com>
 
-\o/ Thank you.
+The WARN_ON(root == &noop_qdisc)) added in qdisc_list_add()
+can trigger in normal conditions when devices are not up.
+It should be done only right before the list_add_tail() call.
 
-Regards,
+Fixes: e57a784d8cae4 ("pkt_sched: set root qdisc before change() in attach_default_qdiscs()")
+Reported-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+Tested-by: Mirco Tischler <mt-ml@gmx.de>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/sched/sch_api.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-Steffen
-
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index c31190e29b90..17c03198ebbc 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -273,11 +273,12 @@ static struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
+ 
+ void qdisc_list_add(struct Qdisc *q)
+ {
+-	struct Qdisc *root = qdisc_dev(q)->qdisc;
++	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS)) {
++		struct Qdisc *root = qdisc_dev(q)->qdisc;
+ 
+-	WARN_ON_ONCE(root == &noop_qdisc);
+-	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS))
++		WARN_ON_ONCE(root == &noop_qdisc);
+ 		list_add_tail(&q->list, &root->list);
++	}
+ }
+ EXPORT_SYMBOL(qdisc_list_add);
+ 
