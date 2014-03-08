@@ -1,71 +1,107 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/15] e1000e: Fix SHRA register access for 82579
-Date: Sat,  8 Mar 2014 01:25:38 -0800
-Message-ID: <1394270741-29926-13-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1394270741-29926-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	John Greene <jogreene@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
+Date: Sat,  8 Mar 2014 01:25:26 -0800
+Message-ID: <1394270741-29926-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:23968 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:39895 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751597AbaCHJZ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Mar 2014 04:25:59 -0500
-In-Reply-To: <1394270741-29926-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1750991AbaCHJZn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Mar 2014 04:25:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ertman <davidx.m.ertman@intel.com>
+This series contains updates to e1000e, ixgbevf and igb.
 
-Previous commit c3a0dce35af0 fixed an overrun for the RAR on i218 devices.
-This commit also attempted to homogenize the RAR/SHRA access for all parts
-accessed by the e1000e driver.  This change introduced an error for
-assigning MAC addresses to guest OS's for 82579 devices.
+Majority of this series contains fixes and cleanups to e1000e,
+most notably are:
 
-Only RAR[0] is accessible to the driver for 82579 parts, and additional
-addresses must be placed into the SHRA[L|H] registers.  The rar_entry_count
-was changed in the previous commit to an inaccurate value that accounted
-for all RAR and SHRA registers, not just the ones usable by the driver.
+Todd provides a fix to PTP in e1000e which adds a lock in e1000e_phc_adjfreq
+to prevent concurrent changes to TIMINCA and SYSTIMH/L.  Then provides an
+igb fix to use ARRAY_SIZE for array size calculation.
 
-This patch fixes the count to the correct value and adjusts the
-e1000_rar_set_pch2lan() function to user the correct index.
+David provides the remaining e1000e which contain:
+ - cleanup of pointer references that are no longer used
+ - fix an issue on systems with Management Engine enabled with the
+   ethernet cable unplugged
+ - fix an issue on 82579 where enabling EEE LPI sooner than one second
+   after link up causes link issues on some switches
+ - refactor the power management flows to prevent the suspend path from
+   being executed twice when hibernating
+ - refactor the runtime power management to fix interfering with the
+   functionality of Energy Efficient Ethernet when enabled and to fix
+   the device from repeatedly flip between suspend and resume with the
+   interface administratively downed
+ - enable the feature PHY Ultra Low Power Mode which is a power saving
+   feature that reduces the power consumption of the PHY when a cable is
+   not connected
+ - fix the ethtool offline tests for 82579 parts
+ - fix SHRA register access for 82579 parts which was introduced by
+   previous commit c3a0dce35af0 "e1000e: fix overrun of PHY RAR array"
 
-Cc: John Greene <jogreene@redhat.com>
-Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 2 +-
- drivers/net/ethernet/intel/e1000e/ich8lan.h | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+Florian provides a fix for ixgbevf where skb->pkt_type was being checked
+like a bitmask, but it is not a bitmask.
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 1898451..9866f26 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -1675,7 +1675,7 @@ static void e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index)
- 	/* RAR[1-6] are owned by manageability.  Skip those and program the
- 	 * next address into the SHRA register array.
- 	 */
--	if (index < (u32)(hw->mac.rar_entry_count - 6)) {
-+	if (index < (u32)(hw->mac.rar_entry_count)) {
- 		s32 ret_val;
- 
- 		ret_val = e1000_acquire_swflag_ich8lan(hw);
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.h b/drivers/net/ethernet/intel/e1000e/ich8lan.h
-index 553f05e..bead50f 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.h
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.h
-@@ -101,7 +101,7 @@
- #define PCIE_ICH8_SNOOP_ALL	PCIE_NO_SNOOP_ALL
- 
- #define E1000_ICH_RAR_ENTRIES	7
--#define E1000_PCH2_RAR_ENTRIES	11      /* RAR[0-6], SHRA[0-3] */
-+#define E1000_PCH2_RAR_ENTRIES	5	/* RAR[0], SHRA[0-3] */
- #define E1000_PCH_LPT_RAR_ENTRIES	12	/* RAR[0], SHRA[0-10] */
- 
- #define PHY_PAGE_SHIFT		5
+Fix an issue reported by Stephen Hemminger where there was a warning
+about code defined but never used if IGB_HWMON is not defined.
+
+The following are changes since commit 37147652cfaa20a87ead9bb04aec1834b40c5c97:
+  6lowpan: reassembly: fix return of init function
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+David Ertman (11):
+  e1000e: Cleanup unecessary references
+  e1000e: Resolve issues with Management Engine (ME) briefly blocking
+    PHY resets
+  e1000e: Fix 82579 sets LPI too early.
+  e1000e: Cleanup - Update GPL header and Copyright
+  e1000e: Add missing branding strings in ich8lan.c
+  e1000e: Refactor PM flows
+  e1000e Refactor of Runtime Power Management
+  e1000e: Feature Enable PHY Ultra Low Power Mode (ULP)
+  e1000e: Fix not generating an error on invalid load parameter
+  e1000e: Fix ethtool offline tests for 82579 parts
+  e1000e: Fix SHRA register access for 82579
+
+Florian Fainelli (1):
+  ixgbevf: fix skb->pkt_type checks
+
+Jeff Kirsher (1):
+  igb: fix warning if !CONFIG_IGB_HWMON
+
+Todd Fujinaka (2):
+  e1000e: PTP lock in e1000e_phc_adjustfreq
+  igb: fix array size calculation
+
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c   |  47 +--
+ drivers/net/ethernet/intel/e1000e/80003es2lan.h   |  47 +--
+ drivers/net/ethernet/intel/e1000e/82571.c         |  47 +--
+ drivers/net/ethernet/intel/e1000e/82571.h         |  47 +--
+ drivers/net/ethernet/intel/e1000e/Makefile        |   7 +-
+ drivers/net/ethernet/intel/e1000e/defines.h       |  55 ++-
+ drivers/net/ethernet/intel/e1000e/e1000.h         |  50 ++-
+ drivers/net/ethernet/intel/e1000e/ethtool.c       |  63 ++--
+ drivers/net/ethernet/intel/e1000e/hw.h            |  55 +--
+ drivers/net/ethernet/intel/e1000e/ich8lan.c       | 427 ++++++++++++++++++----
+ drivers/net/ethernet/intel/e1000e/ich8lan.h       |  72 ++--
+ drivers/net/ethernet/intel/e1000e/mac.c           |  47 +--
+ drivers/net/ethernet/intel/e1000e/mac.h           |  47 +--
+ drivers/net/ethernet/intel/e1000e/manage.c        |  47 +--
+ drivers/net/ethernet/intel/e1000e/manage.h        |  47 +--
+ drivers/net/ethernet/intel/e1000e/netdev.c        | 286 +++++++++------
+ drivers/net/ethernet/intel/e1000e/nvm.c           |  47 +--
+ drivers/net/ethernet/intel/e1000e/nvm.h           |  47 +--
+ drivers/net/ethernet/intel/e1000e/param.c         |  53 ++-
+ drivers/net/ethernet/intel/e1000e/phy.c           |  47 +--
+ drivers/net/ethernet/intel/e1000e/phy.h           |  47 +--
+ drivers/net/ethernet/intel/e1000e/ptp.c           |  52 ++-
+ drivers/net/ethernet/intel/e1000e/regs.h          |  48 ++-
+ drivers/net/ethernet/intel/igb/e1000_82575.c      |   6 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   3 +-
+ 25 files changed, 1003 insertions(+), 738 deletions(-)
+
 -- 
 1.8.3.1
