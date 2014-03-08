@@ -1,129 +1,52 @@
-From: behanw@converseincode.com
-Subject: [PATCH v2] mac80211: LLVMLinux: Remove VLAIS usage from mac80211
-Date: Fri,  7 Mar 2014 17:26:00 -0800
-Message-ID: <1394241960-1764-1-git-send-email-behanw@converseincode.com>
-References: <1394177091.4653.1.camel@jlt4.sipsolutions.net>
+From: poma <pomidorabelisima-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:264
+	dev_watchdog+0x276/0x280()
+Date: Sat, 08 Mar 2014 02:33:50 +0100
+Message-ID: <531A737E.4010200@gmail.com>
+References: <530332B7.10909@gmail.com> <53043521.4060206@gmail.com>
+	<5319059E.1010205@gmail.com> <5319F40F.4040304@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dwmw2@infradead.org,
-	pageexec@freemail.hu,
-	=?UTF-8?q?Jan-Simon=20M=C3=B6ller?= <dl9pf@gmx.de>,
-	Behan Webster <behanw@converseincode.com>,
-	=?UTF-8?q?Vin=C3=ADcius=20Tinti?= <viniciustinti@gmail.com>,
-	Mark Charlebois <charlebm@gmail.com>
-To: linville@tuxdriver.com, johannes@sipsolutions.net,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394177091.4653.1.camel@jlt4.sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Intel Corporation <linux.nics-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Mailing-List fedora-kernel <kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>,
+	Josh Boyer <jwboyer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	Linux Kernel list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Justin M. Forbes" <jforbes-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>, Thomas Haller <thaller-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
+Return-path: <kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
+In-Reply-To: <5319F40F.4040304-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://admin.fedoraproject.org/mailman/options/kernel>,
+	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.fedoraproject.org/pipermail/kernel/>
+List-Post: <mailto:kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
+List-Help: <mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=help>
+List-Subscribe: <https://admin.fedoraproject.org/mailman/listinfo/kernel>,
+	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=subscribe>
+Sender: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
+Errors-To: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Jan-Simon M=C3=B6ller <dl9pf@gmx.de>
-
-Replaced the use of a Variable Length Array In Struct (VLAIS) with a C9=
-9
-compliant equivalent. This is the original VLAIS struct.
-
-struct {
-	struct aead_request     req;
-	u8                      priv[crypto_aead_reqsize(tfm)];
-} aead_req;
-
-This patch instead allocates the appropriate amount of memory using an =
-char
-array.
-
-The new code can be compiled with both gcc and clang.
-
-Signed-off-by: Jan-Simon M=C3=B6ller <dl9pf@gmx.de>
-Signed-off-by: Behan Webster <behanw@converseincode.com>
-Signed-off-by: Vin=C3=ADcius Tinti <viniciustinti@gmail.com>
-Signed-off-by: Mark Charlebois <charlebm@gmail.com>
----
- net/mac80211/aes_ccm.c | 40 ++++++++++++++++++++++------------------
- 1 file changed, 22 insertions(+), 18 deletions(-)
-
-diff --git a/net/mac80211/aes_ccm.c b/net/mac80211/aes_ccm.c
-index 7c7df47..3317578 100644
---- a/net/mac80211/aes_ccm.c
-+++ b/net/mac80211/aes_ccm.c
-@@ -23,12 +23,14 @@ void ieee80211_aes_ccm_encrypt(struct crypto_aead *=
-tfm, u8 *b_0, u8 *aad,
- 			       u8 *data, size_t data_len, u8 *mic)
- {
- 	struct scatterlist assoc, pt, ct[2];
--	struct {
--		struct aead_request	req;
--		u8			priv[crypto_aead_reqsize(tfm)];
--	} aead_req;
-=20
--	memset(&aead_req, 0, sizeof(aead_req));
-+	char aead_req_data[sizeof(struct aead_request) +
-+				crypto_aead_reqsize(tfm) +
-+				CRYPTO_MINALIGN] CRYPTO_MINALIGN_ATTR;
-+
-+	struct aead_request *aead_req =3D (void *) aead_req_data;
-+
-+	memset(aead_req, 0, sizeof(aead_req_data));
-=20
- 	sg_init_one(&pt, data, data_len);
- 	sg_init_one(&assoc, &aad[2], be16_to_cpup((__be16 *)aad));
-@@ -36,23 +38,25 @@ void ieee80211_aes_ccm_encrypt(struct crypto_aead *=
-tfm, u8 *b_0, u8 *aad,
- 	sg_set_buf(&ct[0], data, data_len);
- 	sg_set_buf(&ct[1], mic, IEEE80211_CCMP_MIC_LEN);
-=20
--	aead_request_set_tfm(&aead_req.req, tfm);
--	aead_request_set_assoc(&aead_req.req, &assoc, assoc.length);
--	aead_request_set_crypt(&aead_req.req, &pt, ct, data_len, b_0);
-+	aead_request_set_tfm(aead_req, tfm);
-+	aead_request_set_assoc(aead_req, &assoc, assoc.length);
-+	aead_request_set_crypt(aead_req, &pt, ct, data_len, b_0);
-=20
--	crypto_aead_encrypt(&aead_req.req);
-+	crypto_aead_encrypt(aead_req);
- }
-=20
- int ieee80211_aes_ccm_decrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aa=
-d,
- 			      u8 *data, size_t data_len, u8 *mic)
- {
- 	struct scatterlist assoc, pt, ct[2];
--	struct {
--		struct aead_request	req;
--		u8			priv[crypto_aead_reqsize(tfm)];
--	} aead_req;
-=20
--	memset(&aead_req, 0, sizeof(aead_req));
-+	char aead_req_data[sizeof(struct aead_request) +
-+				crypto_aead_reqsize(tfm) +
-+				CRYPTO_MINALIGN] CRYPTO_MINALIGN_ATTR;
-+
-+	struct aead_request *aead_req =3D (void *) aead_req_data;
-+
-+	memset(aead_req, 0, sizeof(aead_req_data));
-=20
- 	sg_init_one(&pt, data, data_len);
- 	sg_init_one(&assoc, &aad[2], be16_to_cpup((__be16 *)aad));
-@@ -60,12 +64,12 @@ int ieee80211_aes_ccm_decrypt(struct crypto_aead *t=
-fm, u8 *b_0, u8 *aad,
- 	sg_set_buf(&ct[0], data, data_len);
- 	sg_set_buf(&ct[1], mic, IEEE80211_CCMP_MIC_LEN);
-=20
--	aead_request_set_tfm(&aead_req.req, tfm);
--	aead_request_set_assoc(&aead_req.req, &assoc, assoc.length);
--	aead_request_set_crypt(&aead_req.req, ct, &pt,
-+	aead_request_set_tfm(aead_req, tfm);
-+	aead_request_set_assoc(aead_req, &assoc, assoc.length);
-+	aead_request_set_crypt(aead_req, ct, &pt,
- 			       data_len + IEEE80211_CCMP_MIC_LEN, b_0);
-=20
--	return crypto_aead_decrypt(&aead_req.req);
-+	return crypto_aead_decrypt(aead_req);
- }
-=20
- struct crypto_aead *ieee80211_aes_key_setup_encrypt(const u8 key[])
---=20
-1.8.3.2
+T24gMDcuMDMuMjAxNCAxNzozMCwgcG9tYSB3cm90ZToKPiBPbiAwNy4wMy4yMDE0IDAwOjMyLCBw
+b21hIHdyb3RlOgo+PiAuLi4KPj4gQWZ0ZXIgYSBmZXcgZG96ZW4gdGVzdHMgd2l0aCB0aGUgdmFu
+aWxsYSBjb21taXRzLCBhbmQgd2l0aCB0aGUgc2FtZQo+PiBhbW91bnQgb2YgcmF3aGlkZSBrZXJu
+ZWxzIC4uLgo+PiBodHRwczovL2J1Z3ppbGxhLnJlZGhhdC5jb20vYXR0YWNobWVudC5jZ2k/aWQ9
+ODcxNjk0Cj4+Cj4+IERhbiwgRnJhbmNvaXMgeW91IGFyZSBib3RoIHdlbGNvbWUgd2l0aCBjb21t
+ZW50cyEKPj4gVGhhbmtzLgo+IAo+IFRob21hcyBVMi4gOikKPiAKPiBObyBiYXJraW5nIHctZG9n
+LCBidXQgbm93IHRoZSBuZXR3b3JrIHRyYWZmaWMgaXMgdG90YWxseSBidXN0ZWQhCj4gaHR0cHM6
+Ly9idWd6aWxsYS5yZWRoYXQuY29tL2F0dGFjaG1lbnQuY2dpP2lkPTg3MTk0Nwo+ICJwaW5nOiBz
+ZW5kbXNnOiBObyBidWZmZXIgc3BhY2UgYXZhaWxhYmxlIC4uLiIKCkZyYW5jb2lzLCBkbyB5b3Ug
+aGF2ZSB0aGlzWzFdIHBhdGNoIGFwcGxpY2FibGUgZm9yIHRoZSByZWNlbnQgJ3I4MTY5LmMnPwoK
+JCBwYXRjaCAtcDUgPCByODE2OS14bWl0LnBhdGNoCnBhdGNoaW5nIGZpbGUgcjgxNjkuYwpIdW5r
+ICMxIEZBSUxFRCBhdCA1ODcwLgpIdW5rICMyIHN1Y2NlZWRlZCBhdCA1NTQwIHdpdGggZnV6eiAy
+IChvZmZzZXQgLTQ4MiBsaW5lcykuCkh1bmsgIzMgc3VjY2VlZGVkIGF0IDU2NDEgKG9mZnNldCAt
+NDk0IGxpbmVzKS4KMSBvdXQgb2YgMyBodW5rcyBGQUlMRUQgLS0gc2F2aW5nIHJlamVjdHMgdG8g
+ZmlsZSByODE2OS5jLnJlagoKCnBvbWEKCgpbMV0gaHR0cHM6Ly9idWd6aWxsYS5rZXJuZWwub3Jn
+L2F0dGFjaG1lbnQuY2dpP2lkPTEyNTk2MQpodHRwczovL2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hv
+d19idWcuY2dpP2lkPTE0OTYyI2MzNwoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fCmtlcm5lbCBtYWlsaW5nIGxpc3QKa2VybmVsQGxpc3RzLmZlZG9yYXBy
+b2plY3Qub3JnCmh0dHBzOi8vYWRtaW4uZmVkb3JhcHJvamVjdC5vcmcvbWFpbG1hbi9saXN0aW5m
+by9rZXJuZWw=
