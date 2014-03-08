@@ -1,57 +1,113 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: Re: [RFC][PATCH] audit: Simplify by assuming the callers socket
- buffer is large enough
-Date: Fri, 07 Mar 2014 22:56:52 -0500
-Message-ID: <1394251012.17193.9.camel@localhost>
-References: <7457128.6VP2v68V93@x2> <87wqg8zfj4.fsf@xmission.com>
-	 <1394232722.17779.57.camel@flatline.rdu.redhat.com>
-	 <20140307.194801.1893514114998807038.davem@davemloft.net>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH V2 1/6] Drivers: net: hyperv: Enable scatter gather I/O
+Date: Sat, 8 Mar 2014 04:12:01 +0000
+Message-ID: <fd6bb08bd9a447aa9c0da3b584ea9bb8@BY2PR03MB299.namprd03.prod.outlook.com>
+References: <1394170320-1002-1-git-send-email-kys@microsoft.com>
+ <1394170361-1043-1-git-send-email-kys@microsoft.com>
+ <20140307.164756.1488071770631289333.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, sgrubb@redhat.com, rgb@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-audit@redhat.com, akpm@linux-foundation.org
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140307.194801.1893514114998807038.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140307.164756.1488071770631289333.davem@davemloft.net>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-03-07 at 19:48 -0500, David Miller wrote:
-> From: Eric Paris <eparis@redhat.com>
-> Date: Fri, 07 Mar 2014 17:52:02 -0500
-> 
-> > Audit is non-tolerant to failure and loss.
-> 
-> Netlink is not a loss-less transport.
-I'm happy to accept that (and know it to be true).  How can I better
-architect things?  It seems Eric is complaining that when we get a
-request for info, we queue that info up, and then use a kthread to make
-it available when the task next calls recv.  By using blocking sockets
-in the kthread we have no problem with the size of the socket read buf.
-If we switch to non-blocking sockets how can we possibly queue up more
-than rmem size of data?  (honestly, if userspace used INT_MAX it is
-almost certainly overkill for even the largest rulesets, but
-theoretically, it's not...)
 
-Is our design somehow wrong?  Flawed?  Mind you it's pretty dumb that we
-do basically the same thing in 3 different audit code path, but the
-architecture doesn't seem crazy to me.  Then again, I'm not brilliant by
-any stretch!
 
-   +------------------------------------------------------------------+
-   |                                                                  |
-   |               auditctl (audit tool run by root)                  |
-   |         netlink send                         netlink receive     |
-   +------------------------------------------------------------------+
-                  +                                        ^
-                  |                                        |
-                  v                                        +
-      +----------------------------+        +------------------------+
-      | kernel audit generate skbs |        | send skbs to userspace |
-      +----------------------------+        +------------------------+
-                  +                                        ^
-                  |        +------------------------+      |
-                  +------->| send skbs to a kthread |+-----+
-                           +------------------------+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Saturday, March 8, 2014 3:18 AM
+> To: KY Srinivasan
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
+> jasowang@redhat.com
+> Subject: Re: [PATCH V2 1/6] Drivers: net: hyperv: Enable scatter gather I/O
+> 
+> From: "K. Y. Srinivasan" <kys@microsoft.com>
+> Date: Thu,  6 Mar 2014 21:32:36 -0800
+> 
+> > +static u32 fill_pg_buf(struct page *page, u32 offset, u32 len,
+> > +			struct hv_page_buffer *pb)
+> > +{
+> > +	int j = 0;
+> > +
+> > +	/* Deal with compund pages by ignoring unused part
+> > +	 * of the page.
+> > +	 */
+> > +	page += offset  >> PAGE_SHIFT;
+> 
+> Please only one space between "offset" and ">>"
+> 
+> > +	offset &= ~PAGE_MASK;
+> > +
+> > +	while (len > 0) {
+> > +		unsigned long bytes;
+> > +
+> > +		bytes = PAGE_SIZE - offset;
+> > +		if (bytes > len)
+> > +			bytes = len;
+> > +		pb[j].pfn = page_to_pfn(page);
+> > +		pb[j].offset = offset;
+> > +		pb[j].len = bytes;
+> > +
+> > +		offset += bytes;
+> > +		len -= bytes;
+> > +
+> > +		if (offset == PAGE_SIZE && len) {
+> > +			page++;
+> > +			offset = 0;
+> > +			j++;
+> > +		}
+> > +	}
+> > +
+> > +	return j + 1;
+> > +}
+> 
+> I think this function has some edge case errors.
+> 
+> As I understand it, this function returns how many page buffer entries were
+> filled in.
+> 
+> But if we fill exactly the end of a page, we will report one too many in the
+> return value.
+
+I may be missing something here; but in the case you are describing we would return a value
+of one as we should. When offset + len is exactly equal to the page size, we would not increment
+the value of j, since at that point len == 0. Since the initial value of j was 0 and we return (j + 1),
+we will return 1.
+
+Regards,
+
+K. Y
+> 
+> Consider an "offset" of X, where X is smaller than PAGE_SIZE.  And a "len"
+> which is exactly "PAGE_SIZE - offset".
+> 
+> We will fill in exactly one page buffer entry, however we will erroneously
+> return 2 from this function.
+> 
+> I believe the fix is to first replace the test at the end of the loop
+> with:
+> 
+> 	page++;
+> 	offset = 0;
+> 	j++;
+> 
+> And subsequently change the function to just return plain "j".
