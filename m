@@ -1,7 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH RFC net-next v1 0/9] ptp: dynamic pin control
-Date: Sat,  8 Mar 2014 20:42:00 +0100
-Message-ID: <cover.1394307303.git.richardcochran@gmail.com>
+Subject: [PATCH RFC net-next v1 2/9] ptp: add the pin GET/SETFUNC ioctls to the testptp program.
+Date: Sat,  8 Mar 2014 20:42:02 +0100
+Message-ID: <b4f11759266a64a1abc242dc4a00eb8c515ebae7.1394307304.git.richardcochran@gmail.com>
+References: <cover.1394307303.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>,
 	Ben Hutchings <bhutchings@solarflare.com>,
 	Christian Riesch <christian.riesch@omicron.at>,
@@ -10,67 +11,146 @@ Cc: <linux-kernel@vger.kernel.org>,
 	<stefan.sorensen@spectralink.com>
 To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1394307303.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch series introduces a way of changing the auxiliary PTP
-Hardware Clock functions (periodic output signals and time stamping
-external signals) at run time. In the past on the netdev list, we have
-discussed other ways to handle this, such as module parameters and
-ethtool. This series implements a new PHC ioctl because that is the
-most natural way. Users already activate the auxiliary functions via
-the ioctls. The sysfs interface has also been expanded so that the pin
-configuration can be programmed using shell scripts.
+This patch adds a option to the test program that lists the
+programmable pins on a PTP Hardware Clock device, assuming there
+are any such pins. A second option lets the user reprogram the
+auxiliary function of a single pin.
 
-The first patch adds the new ioctls. The PHC subsystem does most of
-the work of maintaining the function-to-pin mapping. Drivers will only
-need to allocate and initialize a pin configuration table and also
-provide a new method that validates a particular assignment.
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+---
+ Documentation/ptp/testptp.c |   58 ++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 55 insertions(+), 3 deletions(-)
 
-Patches 5 and 6 just clean up a couple of issues in the phyter driver,
-and the remaining patches actually hook the phyter's pins into the new
-system.
-
-Comments and questions are most welcome.
-
-Thanks,
-Richard
-
-
-Richard Cochran (9):
-  ptp: introduce programmable pins.
-  ptp: add the pin GET/SETFUNC ioctls to the testptp program.
-  ptp: expose the programmable pins via sysfs
-  ptp: drivers: set the number of programmable pins.
-  dp83640: trivial fixes
-  dp83640: correct the periodic output frequency
-  dp83640: implement programmable pin functions.
-  dp83640: let external input pins from the module parameters be
-    defaults.
-  dp83640: let the periodic pin from the module parameter be a default.
-
- Documentation/ABI/testing/sysfs-ptp              |   20 ++++
- Documentation/ptp/testptp.c                      |   58 +++++++++-
- drivers/net/ethernet/adi/bfin_mac.c              |    1 +
- drivers/net/ethernet/broadcom/tg3.c              |    1 +
- drivers/net/ethernet/freescale/fec_ptp.c         |    1 +
- drivers/net/ethernet/freescale/gianfar_ptp.c     |    1 +
- drivers/net/ethernet/intel/e1000e/ptp.c          |    1 +
- drivers/net/ethernet/mellanox/mlx4/en_clock.c    |    1 +
- drivers/net/ethernet/sfc/ptp.c                   |    1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c |    1 +
- drivers/net/ethernet/ti/cpts.c                   |    1 +
- drivers/net/ethernet/tile/tilegx.c               |    1 +
- drivers/net/phy/dp83640.c                        |   93 ++++++++++++---
- drivers/ptp/ptp_chardev.c                        |  133 +++++++++++++++++++++-
- drivers/ptp/ptp_clock.c                          |   23 ++++
- drivers/ptp/ptp_ixp46x.c                         |    1 +
- drivers/ptp/ptp_pch.c                            |    1 +
- drivers/ptp/ptp_private.h                        |    7 ++
- drivers/ptp/ptp_sysfs.c                          |  109 ++++++++++++++++++
- include/linux/ptp_clock_kernel.h                 |   33 ++++++
- include/uapi/linux/ptp_clock.h                   |   39 ++++++-
- 21 files changed, 507 insertions(+), 20 deletions(-)
-
+diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
+index 4aba043..e9eaee6 100644
+--- a/Documentation/ptp/testptp.c
++++ b/Documentation/ptp/testptp.c
+@@ -120,6 +120,13 @@ static void usage(char *progname)
+ 		" -i val     index for event/trigger\n"
+ 		" -k val     measure the time offset between system and phc clock\n"
+ 		"            for 'val' times (Maximum 25)\n"
++		" -l         list the current pin configuration\n"
++		" -L pin,val configure pin index 'pin' with function 'val'\n"
++		"            the channel index is taken from the '-i' option\n"
++		"            'val' specifies the auxiliary function:\n"
++		"            0 - none\n"
++		"            1 - external time stamp\n"
++		"            2 - periodic output\n"
+ 		" -p val     enable output with a period of 'val' nanoseconds\n"
+ 		" -P val     enable or disable (val=1|0) the system clock PPS\n"
+ 		" -s         set the ptp clock time from the system time\n"
+@@ -134,6 +141,7 @@ int main(int argc, char *argv[])
+ 	struct ptp_extts_event event;
+ 	struct ptp_extts_request extts_request;
+ 	struct ptp_perout_request perout_request;
++	struct ptp_pin_desc desc;
+ 	struct timespec ts;
+ 	struct timex tx;
+ 
+@@ -156,11 +164,13 @@ int main(int argc, char *argv[])
+ 	int extts = 0;
+ 	int gettime = 0;
+ 	int index = 0;
++	int list_pins = 0;
+ 	int oneshot = 0;
+ 	int pct_offset = 0;
+ 	int n_samples = 0;
+ 	int periodic = 0;
+ 	int perout = -1;
++	int pin_index = -1, pin_func;
+ 	int pps = -1;
+ 	int settime = 0;
+ 
+@@ -169,7 +179,7 @@ int main(int argc, char *argv[])
+ 
+ 	progname = strrchr(argv[0], '/');
+ 	progname = progname ? 1+progname : argv[0];
+-	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghi:k:p:P:sSt:v"))) {
++	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghi:k:lL:p:P:sSt:v"))) {
+ 		switch (c) {
+ 		case 'a':
+ 			oneshot = atoi(optarg);
+@@ -199,6 +209,16 @@ int main(int argc, char *argv[])
+ 			pct_offset = 1;
+ 			n_samples = atoi(optarg);
+ 			break;
++		case 'l':
++			list_pins = 1;
++			break;
++		case 'L':
++			cnt = sscanf(optarg, "%d,%d", &pin_index, &pin_func);
++			if (cnt != 2) {
++				usage(progname);
++				return -1;
++			}
++			break;
+ 		case 'p':
+ 			perout = atoi(optarg);
+ 			break;
+@@ -245,12 +265,14 @@ int main(int argc, char *argv[])
+ 			       "  %d programmable alarms\n"
+ 			       "  %d external time stamp channels\n"
+ 			       "  %d programmable periodic signals\n"
+-			       "  %d pulse per second\n",
++			       "  %d pulse per second\n"
++			       "  %d programmable pins\n",
+ 			       caps.max_adj,
+ 			       caps.n_alarm,
+ 			       caps.n_ext_ts,
+ 			       caps.n_per_out,
+-			       caps.pps);
++			       caps.pps,
++			       caps.n_pins);
+ 		}
+ 	}
+ 
+@@ -331,6 +353,24 @@ int main(int argc, char *argv[])
+ 		}
+ 	}
+ 
++	if (list_pins) {
++		int n_pins = 0;
++		if (ioctl(fd, PTP_CLOCK_GETCAPS, &caps)) {
++			perror("PTP_CLOCK_GETCAPS");
++		} else {
++			n_pins = caps.n_pins;
++		}
++		for (i = 0; i < n_pins; i++) {
++			desc.index = i;
++			if (ioctl(fd, PTP_PIN_GETFUNC, &desc)) {
++				perror("PTP_PIN_GETFUNC");
++				break;
++			}
++			printf("name %s index %u func %u chan %u\n",
++			       desc.name, desc.index, desc.func, desc.chan);
++		}
++	}
++
+ 	if (oneshot) {
+ 		install_handler(SIGALRM, handle_alarm);
+ 		/* Create a timer. */
+@@ -392,6 +432,18 @@ int main(int argc, char *argv[])
+ 		}
+ 	}
+ 
++	if (pin_index >= 0) {
++		memset(&desc, 0, sizeof(desc));
++		desc.index = pin_index;
++		desc.func = pin_func;
++		desc.chan = index;
++		if (ioctl(fd, PTP_PIN_SETFUNC, &desc)) {
++			perror("PTP_PIN_SETFUNC");
++		} else {
++			puts("set pin function okay");
++		}
++	}
++
+ 	if (pps != -1) {
+ 		int enable = pps ? 1 : 0;
+ 		if (ioctl(fd, PTP_ENABLE_PPS, enable)) {
 -- 
 1.7.10.4
