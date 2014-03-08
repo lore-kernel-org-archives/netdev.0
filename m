@@ -1,68 +1,82 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: Re: [PATCH v2] mac80211: LLVMLinux: Remove VLAIS usage from mac80211
-Date: Sat, 8 Mar 2014 15:53:10 +0100
-Message-ID: <20140308145309.GA1615@redhat.com>
-References: <1394177091.4653.1.camel@jlt4.sipsolutions.net>
- <1394241960-1764-1-git-send-email-behanw@converseincode.com>
- <1394243809.6972.4.camel@joe-AO722>
- <531A7D4F.7090303@converseincode.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [BUG?] ixgbe: only num_online_cpus() of the tx queues are
+ enabled
+Date: Sat, 08 Mar 2014 07:27:41 -0800
+Message-ID: <1394292461.20149.55.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAG+wggZOQ_VyAiLBuUUfW13=OqUun3g1vnYj5SEuWN+3hHreLg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Joe Perches <joe@perches.com>, linville@tuxdriver.com,
-	johannes@sipsolutions.net, davem@davemloft.net,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dwmw2@infradead.org,
-	pageexec@freemail.hu,
-	Jan-Simon =?iso-8859-1?Q?M=F6ller?= <dl9pf@gmx.de>,
-	=?iso-8859-1?Q?Vin=EDcius?= Tinti <viniciustinti@gmail.com>,
-	Mark Charlebois <charlebm@gmail.com>
-To: Behan Webster <behanw@converseincode.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <531A7D4F.7090303@converseincode.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Erez Zadok <ezk@fsl.cs.sunysb.edu>,
+	Dean Hildebrand <dhildeb@us.ibm.com>,
+	Geoff Kuenning <geoff@cs.hmc.edu>
+To: Ming Chen <v.mingchen@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:60894 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751822AbaCHP1n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 10:27:43 -0500
+Received: by mail-pb0-f50.google.com with SMTP id md12so5421007pbc.37
+        for <netdev@vger.kernel.org>; Sat, 08 Mar 2014 07:27:43 -0800 (PST)
+In-Reply-To: <CAG+wggZOQ_VyAiLBuUUfW13=OqUun3g1vnYj5SEuWN+3hHreLg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 07, 2014 at 06:15:43PM -0800, Behan Webster wrote:
-> On 03/07/14 17:56, Joe Perches wrote:
-> >On Fri, 2014-03-07 at 17:26 -0800, behanw@converseincode.com wrote:
-> >>From: Jan-Simon M=F6ller <dl9pf@gmx.de>
-> >>
-> >>Replaced the use of a Variable Length Array In Struct (VLAIS) with =
-a C99
-> >>compliant equivalent. This is the original VLAIS struct.
-> >[]
-> >>diff --git a/net/mac80211/aes_ccm.c b/net/mac80211/aes_ccm.c
-> >[]
-> >>@@ -23,12 +23,14 @@ void ieee80211_aes_ccm_encrypt(struct crypto_ae=
-ad *tfm, u8 *b_0, u8 *aad,
-> >>  			       u8 *data, size_t data_len, u8 *mic)
-> >>  {
-> >>  	struct scatterlist assoc, pt, ct[2];
-> >>-	struct {
-> >>-		struct aead_request	req;
-> >>-		u8			priv[crypto_aead_reqsize(tfm)];
-> >>-	} aead_req;
-> >>-	memset(&aead_req, 0, sizeof(aead_req));
-> >>+	char aead_req_data[sizeof(struct aead_request) +
-> >>+				crypto_aead_reqsize(tfm) +
-> >>+				CRYPTO_MINALIGN] CRYPTO_MINALIGN_ATTR;
-> >Can this be a too large amount of stack?
-> >
-> >Is crypto_aead_reqsize() limited to < ~1k?
-> >
-> >Perhaps it'd be better to use kzalloc for this
-> >or another reserved pool
-> No more stack being used than with the the original code. The stack
-> memory use is identical.
+On Sat, 2014-03-08 at 01:13 -0500, Ming Chen wrote:
+> Hi,
+> 
+> We have an Intel 82599EB dual-port 10GbE NIC, which has 128 tx queues
+> (64 per port and we used only one port). We found only 12 of the tx
+> queues are enabled, where 12 is number of CPUs of our system.
+> 
+> We realized that, in the driver code, adapter->num_tx_queues (which
+> decides netdev->real_num_tx_queues) is indirectly set to "min_t(int,
+> IXGBE_MAX_RSS_INDICES, num_online_cpus())". It looks like the limit is
+> for RSS. But why tx queues is also set to the same as rx queues?
+> 
+> The problem of having a small number of tx queues is high probability
+> of hash collision in skb_tx_hash(). If we have a small number of
+> long-lived data-intensive TCP flows, the hash collision can causes
+> unfairness. We found this problem during our benchmarking of NFS when
+> identical NFS clients are getting very different throughput when
+> reading a big file from the server. We call this problem Hash-Cast. If
+> interested, you can take a look at this poster:
+> http://www.fsl.cs.sunysb.edu/~mchen/fast14poster-hashcast-portrait.pdf
+> 
+> Can anybody take a loot at this? It would be better to have all tx
+> queues enabled by default. If this is unlikely to happen, is there a
+> way to reconfigure the NIC so that we can use all tx queues if we
+> want?
+> 
+> FYI, our kernel version is 3.12.0, but I found the same limit of tx
+> queues in the code of the latest kernel. I am counting the number of
+> enabled queues using "ls /sys/class/net/p3p1/queues| grep -c tx-"
+> 
+> Best,
 
-Could you explain that? It looks like aead_req_data can be bigger than
-original struct aead_req up to CRYPTO_MINALIGN bytes. IOW adding
-CRYPTO_MINALIGN to size seems unneeded as aead_request->__ctx alignment
-requirement should by assured by proper sizeof(struct aead_request).
+Quite frankly, with a 1Gbe link, I would just use FQ and your problem
+would disappear.
 
-Besides, why not add VLAIS feature to llvm instead of fixing all
-programs that use it?
+(I also use FQ with 40Gbe links if that matters)
 
-Stanislaw
+For a 1Gbe link, the following command is more than enough.
+
+tc qdisc replace dev eth0 root fq
+
+Also, following patch would probably help fairness. I'll submit an
+official and more complete patch later.
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index bc0fb0fc7552..296c201516d1 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1911,8 +1911,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 		 * of queued bytes to ensure line rate.
+ 		 * One example is wifi aggregation (802.11 AMPDU)
+ 		 */
+-		limit = max_t(unsigned int, sysctl_tcp_limit_output_bytes,
+-			      sk->sk_pacing_rate >> 10);
++		limit = 2 * skb->truesize;
+ 
+ 		if (atomic_read(&sk->sk_wmem_alloc) > limit) {
+ 			set_bit(TSQ_THROTTLED, &tp->tsq_flags);
