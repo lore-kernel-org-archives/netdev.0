@@ -1,134 +1,81 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH V2 1/6] Drivers: net: hyperv: Enable scatter gather I/O
-Date: Sat, 8 Mar 2014 10:27:54 +0000
-Message-ID: <c72c0d17b4bd405cb218ab09b1c2e77e@BY2PR03MB299.namprd03.prod.outlook.com>
-References: <1394170361-1043-1-git-send-email-kys@microsoft.com>
- <20140307.164756.1488071770631289333.davem@davemloft.net>
- <fd6bb08bd9a447aa9c0da3b584ea9bb8@BY2PR03MB299.namprd03.prod.outlook.com>
- <20140308.013658.918013334851017662.davem@davemloft.net>
+From: Zheng Liu <gnehzuil.liu@gmail.com>
+Subject: TCP fast open question
+Date: Sat, 8 Mar 2014 19:58:23 +0800
+Message-ID: <20140308115823.GA3185@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140308.013658.918013334851017662.davem@davemloft.net>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Yuchung Cheng <ycheng@google.com>,
+	Jerry Chu <hkchu@google.com>,
+	Xiaochen Wang <xiaochen.wxc@alibaba-inc.com>,
+	Zheng Liu <wenqing.lz@taobao.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:50350 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751098AbaCHLww (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 06:52:52 -0500
+Received: by mail-pa0-f50.google.com with SMTP id kq14so5325661pab.9
+        for <netdev@vger.kernel.org>; Sat, 08 Mar 2014 03:52:52 -0800 (PST)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi all,
 
+Now we are trying to use TCP fast open in our nginx server, and we
+encounter a problem under non-blocking socket.  I appreciate if some one
+can reply this question.  Thanks in advance.
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Saturday, March 8, 2014 12:07 PM
-> To: KY Srinivasan
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
-> jasowang@redhat.com
-> Subject: Re: [PATCH V2 1/6] Drivers: net: hyperv: Enable scatter gather I/O
-> 
-> From: KY Srinivasan <kys@microsoft.com>
-> Date: Sat, 8 Mar 2014 04:12:01 +0000
-> 
-> >
-> >
-> >> -----Original Message-----
-> >> From: David Miller [mailto:davem@davemloft.net]
-> >> Sent: Saturday, March 8, 2014 3:18 AM
-> >> To: KY Srinivasan
-> >> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> >> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
-> >> jasowang@redhat.com
-> >> Subject: Re: [PATCH V2 1/6] Drivers: net: hyperv: Enable scatter
-> >> gather I/O
-> >>
-> >> From: "K. Y. Srinivasan" <kys@microsoft.com>
-> >> Date: Thu,  6 Mar 2014 21:32:36 -0800
-> >>
-> >> > +static u32 fill_pg_buf(struct page *page, u32 offset, u32 len,
-> >> > +			struct hv_page_buffer *pb)
-> >> > +{
-> >> > +	int j = 0;
-> >> > +
-> >> > +	/* Deal with compund pages by ignoring unused part
-> >> > +	 * of the page.
-> >> > +	 */
-> >> > +	page += offset  >> PAGE_SHIFT;
-> >>
-> >> Please only one space between "offset" and ">>"
-> >>
-> >> > +	offset &= ~PAGE_MASK;
-> >> > +
-> >> > +	while (len > 0) {
-> >> > +		unsigned long bytes;
-> >> > +
-> >> > +		bytes = PAGE_SIZE - offset;
-> >> > +		if (bytes > len)
-> >> > +			bytes = len;
-> >> > +		pb[j].pfn = page_to_pfn(page);
-> >> > +		pb[j].offset = offset;
-> >> > +		pb[j].len = bytes;
-> >> > +
-> >> > +		offset += bytes;
-> >> > +		len -= bytes;
-> >> > +
-> >> > +		if (offset == PAGE_SIZE && len) {
-> >> > +			page++;
-> >> > +			offset = 0;
-> >> > +			j++;
-> >> > +		}
-> >> > +	}
-> >> > +
-> >> > +	return j + 1;
-> >> > +}
-> >>
-> >> I think this function has some edge case errors.
-> >>
-> >> As I understand it, this function returns how many page buffer
-> >> entries were filled in.
-> >>
-> >> But if we fill exactly the end of a page, we will report one too many
-> >> in the return value.
-> >
-> > I may be missing something here; but in the case you are describing we
-> > would return a value of one as we should. When offset + len is exactly
-> > equal to the page size, we would not increment the value of j, since
-> > at that point len == 0. Since the initial value of j was 0 and we return (j + 1),
-> we will return 1.
-> 
-> That's not what happens, you execute the loop code at least once, and
-> hit:
-> 
-> >> > +		offset += bytes;
-> >> > +		len -= bytes;
-> >> > +		if (offset == PAGE_SIZE && len) {
-> >> > +			page++;
-> >> > +			offset = 0;
-> >> > +			j++;
-> >> > +		}
+I describe our question here.  we have two machines, one is as server and
+another is as client.  'net.ipv4.tcp_fastopen' on both of them are set to
+3.  The server program looks like below:
 
-> 
-> thus incrementing j before the return statement.
+  ... 
+  listenfd = socket(AF_INET, SOCK_STREAM, 0);
+  bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+  int tfo_opt = 1;
+  setsockopt(listenfd, SOL_TCP, TCP_LISTEN_INFO, &tfo_opt, sizeof(tfo_opt));
+  listen(listenfd, 5);
+  connfd = accept(listenfd, (struct sockaddr *)NULL, NULL);
+  recv(connfd, &buf, 4096)
+  ...
 
-I don't mean to be argumentative, but I still don't see the issue here. You are right, I
-will execute the loop code at least once, but j gets incremented only if len is non-zero as well as
-offset being == PAGE_SIZE. "len" would have gotten decremented prior to the check and in the case
-we are talking about, "len" would be zero and so j would not get incremented.
+The client program:
+
+  ...
+  sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL, 0)|O_NONBLOCK);
+  sendto(sockfd, msg, strlen(msg), MSG_FASTOPEN,
+  	(struct sockaddr *)&servaddr, sizeof(servaddr);
+  recv(sockfd, buf, 4096, 0);
+  ...
+
+We use a non-blocking socket to connect the server and send some
+messages.  After calling sendto(2) we always get an EINPROGRESS error.
+We think it is reasonable because connect(2) could also return this
+error with a non-blocking socket and the connection will be established
+later.  The question is *whether or not the data will be sent* after the
+connection is established.  If I understand correctly, sendto(2) will
+return the number of bytes of data queued up in the kernel or sent in
+the SYN packet.  Even though the EINPROGRESS is returned.  If sendto(2)
+returns -1, that means that no data is queued up in kernel or sent in
+the packet.  Please correct me if I miss-understand something.
+
+We run the program in our testing environment, and we use tcpdump(1) to
+capture the packets.  From the result we can see there is no any data
+that is sent.  Then we do another testing that after calling sendto(2)
+the client program will sleep for 5 seconds and then call send(2) to
+transfer some data.
+
+  $ ./client xx.xx.xx.xx
+  ret -1 errno 115
+
+The program works well.  So that means that after getting a EINPROGRESS
+error, the program must call send(2) manually.  Is it correct?  If we
+want to avoid this problem, we need to set 'net.ipv4.tcp_fastopen' to
+0x707 ?
 
 Regards,
-
-K. Y
+						- Zheng
