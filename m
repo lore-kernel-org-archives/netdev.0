@@ -1,16 +1,17 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/15] e1000e Refactor of Runtime Power Management
-Date: Sat,  8 Mar 2014 01:25:34 -0800
-Message-ID: <1394270741-29926-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/15] e1000e: Feature Enable PHY Ultra Low Power Mode (ULP)
+Date: Sat,  8 Mar 2014 01:25:35 -0800
+Message-ID: <1394270741-29926-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1394270741-29926-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:51114 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:39895 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751103AbaCHJZt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751533AbaCHJZt (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 8 Mar 2014 04:25:49 -0500
 In-Reply-To: <1394270741-29926-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,212 +19,587 @@ List-ID: <netdev.vger.kernel.org>
 
 From: David Ertman <davidx.m.ertman@intel.com>
 
-Fix issues with:
-RuntimePM causing the device to repeatedly flip between suspend and resume
-with the interface administratively downed.
-Having RuntimePM enabled interfering with the functionality of Energy
-Efficient Ethernet.
+ULP is a power saving feature that reduces the power consumption of the
+PHY when a cable is not connected.
 
-Added checks to disallow functions that should not be executed if the
-device is currently runtime suspended
+ULP is gated on the following conditions:
+1) The hardware must support ULP.  Currently this is only I218
+   devices from Intel
+2) ULP is initiated by the driver, so, no driver results in no ULP.
+3) ULP's implementation utilizes Runtime Power Management to toggle its
+   execution.  ULP is enabled/disabled based on the state of Runtime PM.
+4) ULP is not active when wake-on-unicast, multicast or broadcast is active
+   as these features are mutually-exclusive.
 
-Make runtime_idle callback to use same deterministic behavior as the igb
-driver.
+Since the PHY is in an unavailable state while ULP is active, any access
+of the PHY registers will fail.  This is resolved by utilizing kernel
+calls that cause the device to exit Runtime PM (e.g. pm_runtime_get_sync)
+and then, after PHY access is complete,  allow the device to resume
+Runtime PM (e.g. pm_runtime_put_sync).
+
+Under certain conditions, toggling the LANPHYPC is necessary to disable
+ULP mode.  Break out existing code to toggle LANPHYPC to a new function
+to avoid code duplication.
 
 Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
-Acked-by: Bruce Allan <bruce.w.allan@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/e1000.h  |  1 -
- drivers/net/ethernet/intel/e1000e/netdev.c | 77 ++++++++++++++++++------------
- 2 files changed, 46 insertions(+), 32 deletions(-)
+ drivers/net/ethernet/intel/e1000e/defines.h |   8 +-
+ drivers/net/ethernet/intel/e1000e/hw.h      |   8 +
+ drivers/net/ethernet/intel/e1000e/ich8lan.c | 324 +++++++++++++++++++++++++---
+ drivers/net/ethernet/intel/e1000e/ich8lan.h |  22 ++
+ drivers/net/ethernet/intel/e1000e/netdev.c  |  24 ++-
+ drivers/net/ethernet/intel/e1000e/regs.h    |   1 +
+ 6 files changed, 354 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index 129a9c3..5325e3e 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -326,7 +326,6 @@ struct e1000_adapter {
- 	struct work_struct update_phy_task;
- 	struct work_struct print_hang_task;
+diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
+index 1b7c268..d18e892 100644
+--- a/drivers/net/ethernet/intel/e1000e/defines.h
++++ b/drivers/net/ethernet/intel/e1000e/defines.h
+@@ -28,9 +28,11 @@
  
--	bool idle_check;
- 	int phy_hang_count;
+ /* Definitions for power management and wakeup registers */
+ /* Wake Up Control */
+-#define E1000_WUC_APME       0x00000001 /* APM Enable */
+-#define E1000_WUC_PME_EN     0x00000002 /* PME Enable */
+-#define E1000_WUC_PHY_WAKE   0x00000100 /* if PHY supports wakeup */
++#define E1000_WUC_APME		0x00000001	/* APM Enable */
++#define E1000_WUC_PME_EN	0x00000002	/* PME Enable */
++#define E1000_WUC_PME_STATUS	0x00000004	/* PME Status */
++#define E1000_WUC_APMPME	0x00000008	/* Assert PME on APM Wakeup */
++#define E1000_WUC_PHY_WAKE	0x00000100	/* if PHY supports wakeup */
  
- 	u16 tx_ring_count;
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 2669fdc..7fd1fea 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -3327,6 +3327,9 @@ static void e1000e_set_rx_mode(struct net_device *netdev)
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 rctl;
+ /* Wake Up Filter Control */
+ #define E1000_WUFC_LNKC 0x00000001 /* Link Status Change Wakeup Enable */
+diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
+index 01602835..6b3de5f 100644
+--- a/drivers/net/ethernet/intel/e1000e/hw.h
++++ b/drivers/net/ethernet/intel/e1000e/hw.h
+@@ -648,12 +648,20 @@ struct e1000_shadow_ram {
  
-+	if (pm_runtime_suspended(netdev->dev.parent))
-+		return;
+ #define E1000_ICH8_SHADOW_RAM_WORDS		2048
+ 
++/* I218 PHY Ultra Low Power (ULP) states */
++enum e1000_ulp_state {
++	e1000_ulp_state_unknown,
++	e1000_ulp_state_off,
++	e1000_ulp_state_on,
++};
 +
- 	/* Check for Promiscuous and All Multicast modes */
- 	rctl = er32(RCTL);
- 
-@@ -4317,7 +4320,6 @@ static int e1000_open(struct net_device *netdev)
- 	adapter->tx_hang_recheck = false;
- 	netif_start_queue(netdev);
- 
--	adapter->idle_check = true;
- 	hw->mac.get_link_status = true;
- 	pm_runtime_put(&pdev->dev);
- 
-@@ -4369,6 +4371,9 @@ static int e1000_close(struct net_device *netdev)
- 	if (!test_bit(__E1000_DOWN, &adapter->state)) {
- 		e1000e_down(adapter, true);
- 		e1000_free_irq(adapter);
-+
-+		/* Link status message must follow this format */
-+		pr_info("%s NIC Link is Down\n", adapter->netdev->name);
- 	}
- 
- 	napi_disable(&adapter->napi);
-@@ -5678,6 +5683,9 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
- 	adapter->max_frame_size = max_frame;
- 	e_info("changing MTU from %d to %d\n", netdev->mtu, new_mtu);
- 	netdev->mtu = new_mtu;
-+
-+	pm_runtime_get_sync(netdev->dev.parent);
-+
- 	if (netif_running(netdev))
- 		e1000e_down(adapter, true);
- 
-@@ -5705,6 +5713,8 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
- 	else
- 		e1000e_reset(adapter);
- 
-+	pm_runtime_put_sync(netdev->dev.parent);
-+
- 	clear_bit(__E1000_RESETTING, &adapter->state);
- 
- 	return 0;
-@@ -5979,6 +5989,9 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool runtime)
- 			ew32(CTRL_EXT, ctrl_ext);
- 		}
- 
-+		if (!runtime)
-+			e1000e_power_up_phy(adapter);
-+
- 		if (adapter->flags & FLAG_IS_ICH)
- 			e1000_suspend_workarounds_ich8lan(&adapter->hw);
- 
-@@ -6108,11 +6121,6 @@ static void e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
- }
- 
- #ifdef CONFIG_PM
--static bool e1000e_pm_ready(struct e1000_adapter *adapter)
--{
--	return !!adapter->tx_ring->buffer_info;
--}
--
- static int __e1000_resume(struct pci_dev *pdev)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
-@@ -6167,11 +6175,6 @@ static int __e1000_resume(struct pci_dev *pdev)
- 
- 	e1000_init_manageability_pt(adapter);
- 
--	if (netif_running(netdev))
--		e1000e_up(adapter);
--
--	netif_device_attach(netdev);
--
- 	/* If the controller has AMT, do not set DRV_LOAD until the interface
- 	 * is up.  For all other cases, let the f/w know that the h/w is now
- 	 * under the control of the driver.
-@@ -6226,47 +6229,59 @@ static int e1000e_pm_resume(struct device *dev)
- #endif /* CONFIG_PM_SLEEP */
- 
- #ifdef CONFIG_PM_RUNTIME
--static int e1000_runtime_suspend(struct device *dev)
-+static int e1000e_pm_runtime_idle(struct device *dev)
- {
- 	struct pci_dev *pdev = to_pci_dev(dev);
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 
--	if (!e1000e_pm_ready(adapter))
--		return 0;
-+	if (!e1000e_has_link(adapter))
-+		pm_schedule_suspend(dev, 5 * MSEC_PER_SEC);
- 
--	return __e1000_shutdown(pdev, true);
-+	return -EBUSY;
- }
- 
--static int e1000_idle(struct device *dev)
-+static int e1000e_pm_runtime_resume(struct device *dev)
- {
- 	struct pci_dev *pdev = to_pci_dev(dev);
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	int rc;
- 
--	if (!e1000e_pm_ready(adapter))
--		return 0;
-+	rc = __e1000_resume(pdev);
-+	if (rc)
-+		return rc;
- 
--	if (adapter->idle_check) {
--		adapter->idle_check = false;
--		if (!e1000e_has_link(adapter))
--			pm_schedule_suspend(dev, MSEC_PER_SEC);
--	}
-+	if (netdev->flags & IFF_UP)
-+		rc = e1000e_up(adapter);
- 
--	return -EBUSY;
-+	return rc;
- }
- 
--static int e1000_runtime_resume(struct device *dev)
-+static int e1000e_pm_runtime_suspend(struct device *dev)
- {
- 	struct pci_dev *pdev = to_pci_dev(dev);
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 
--	if (!e1000e_pm_ready(adapter))
--		return 0;
-+	if (netdev->flags & IFF_UP) {
-+		int count = E1000_CHECK_RESET_COUNT;
-+
-+		while (test_bit(__E1000_RESETTING, &adapter->state) && count--)
-+			usleep_range(10000, 20000);
- 
--	adapter->idle_check = !dev->power.runtime_auto;
--	return __e1000_resume(pdev);
-+		WARN_ON(test_bit(__E1000_RESETTING, &adapter->state));
-+
-+		/* Down the device without resetting the hardware */
-+		e1000e_down(adapter, false);
-+	}
-+
-+	if (__e1000_shutdown(pdev, true)) {
-+		e1000e_pm_runtime_resume(dev);
-+		return -EBUSY;
-+	}
-+
-+	return 0;
- }
- #endif /* CONFIG_PM_RUNTIME */
- #endif /* CONFIG_PM */
-@@ -7051,8 +7066,8 @@ static const struct dev_pm_ops e1000_pm_ops = {
- 	.thaw		= e1000e_pm_thaw,
- 	.poweroff	= e1000e_pm_suspend,
- 	.restore	= e1000e_pm_resume,
--	SET_RUNTIME_PM_OPS(e1000_runtime_suspend, e1000_runtime_resume,
--			   e1000_idle)
-+	SET_RUNTIME_PM_OPS(e1000e_pm_runtime_suspend, e1000e_pm_runtime_resume,
-+			   e1000e_pm_runtime_idle)
+ struct e1000_dev_spec_ich8lan {
+ 	bool kmrn_lock_loss_workaround_enabled;
+ 	struct e1000_shadow_ram shadow_ram[E1000_ICH8_SHADOW_RAM_WORDS];
+ 	bool nvm_k1_enabled;
+ 	bool eee_disable;
+ 	u16 eee_lp_ability;
++	enum e1000_ulp_state ulp_state;
  };
  
- /* PCI Device API Driver */
+ struct e1000_hw {
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index 723410a..1898451 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -143,7 +143,9 @@ static void e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index);
+ static void e1000_rar_set_pch_lpt(struct e1000_hw *hw, u8 *addr, u32 index);
+ static s32 e1000_k1_workaround_lv(struct e1000_hw *hw);
+ static void e1000_gate_hw_phy_config_ich8lan(struct e1000_hw *hw, bool gate);
++static s32 e1000_disable_ulp_lpt_lp(struct e1000_hw *hw, bool force);
+ static s32 e1000_setup_copper_link_pch_lpt(struct e1000_hw *hw);
++static s32 e1000_oem_bits_config_ich8lan(struct e1000_hw *hw, bool d0_state);
+ 
+ static inline u16 __er16flash(struct e1000_hw *hw, unsigned long reg)
+ {
+@@ -240,6 +242,47 @@ out:
+ }
+ 
+ /**
++ *  e1000_toggle_lanphypc_pch_lpt - toggle the LANPHYPC pin value
++ *  @hw: pointer to the HW structure
++ *
++ *  Toggling the LANPHYPC pin value fully power-cycles the PHY and is
++ *  used to reset the PHY to a quiescent state when necessary.
++ **/
++static void e1000_toggle_lanphypc_pch_lpt(struct e1000_hw *hw)
++{
++	u32 mac_reg;
++
++	/* Set Phy Config Counter to 50msec */
++	mac_reg = er32(FEXTNVM3);
++	mac_reg &= ~E1000_FEXTNVM3_PHY_CFG_COUNTER_MASK;
++	mac_reg |= E1000_FEXTNVM3_PHY_CFG_COUNTER_50MSEC;
++	ew32(FEXTNVM3, mac_reg);
++
++	/* Toggle LANPHYPC Value bit */
++	mac_reg = er32(CTRL);
++	mac_reg |= E1000_CTRL_LANPHYPC_OVERRIDE;
++	mac_reg &= ~E1000_CTRL_LANPHYPC_VALUE;
++	ew32(CTRL, mac_reg);
++	e1e_flush();
++	usleep_range(10, 20);
++	mac_reg &= ~E1000_CTRL_LANPHYPC_OVERRIDE;
++	ew32(CTRL, mac_reg);
++	e1e_flush();
++
++	if (hw->mac.type < e1000_pch_lpt) {
++		msleep(50);
++	} else {
++		u16 count = 20;
++
++		do {
++			usleep_range(5000, 10000);
++		} while (!(er32(CTRL_EXT) & E1000_CTRL_EXT_LPCD) && count--);
++
++		msleep(30);
++	}
++}
++
++/**
+  *  e1000_init_phy_workarounds_pchlan - PHY initialization workarounds
+  *  @hw: pointer to the HW structure
+  *
+@@ -257,6 +300,12 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
+ 	 */
+ 	e1000_gate_hw_phy_config_ich8lan(hw, true);
+ 
++	/* It is not possible to be certain of the current state of ULP
++	 * so forcibly disable it.
++	 */
++	hw->dev_spec.ich8lan.ulp_state = e1000_ulp_state_unknown;
++	e1000_disable_ulp_lpt_lp(hw, true);
++
+ 	ret_val = hw->phy.ops.acquire(hw);
+ 	if (ret_val) {
+ 		e_dbg("Failed to initialize PHY flow\n");
+@@ -302,33 +351,9 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
+ 			break;
+ 		}
+ 
+-		e_dbg("Toggling LANPHYPC\n");
+-
+-		/* Set Phy Config Counter to 50msec */
+-		mac_reg = er32(FEXTNVM3);
+-		mac_reg &= ~E1000_FEXTNVM3_PHY_CFG_COUNTER_MASK;
+-		mac_reg |= E1000_FEXTNVM3_PHY_CFG_COUNTER_50MSEC;
+-		ew32(FEXTNVM3, mac_reg);
+-
+ 		/* Toggle LANPHYPC Value bit */
+-		mac_reg = er32(CTRL);
+-		mac_reg |= E1000_CTRL_LANPHYPC_OVERRIDE;
+-		mac_reg &= ~E1000_CTRL_LANPHYPC_VALUE;
+-		ew32(CTRL, mac_reg);
+-		e1e_flush();
+-		usleep_range(10, 20);
+-		mac_reg &= ~E1000_CTRL_LANPHYPC_OVERRIDE;
+-		ew32(CTRL, mac_reg);
+-		e1e_flush();
+-		if (hw->mac.type < e1000_pch_lpt) {
+-			msleep(50);
+-		} else {
+-			u16 count = 20;
+-			do {
+-				usleep_range(5000, 10000);
+-			} while (!(er32(CTRL_EXT) &
+-				   E1000_CTRL_EXT_LPCD) && count--);
+-			usleep_range(30000, 60000);
++		e1000_toggle_lanphypc_pch_lpt(hw);
++		if (hw->mac.type >= e1000_pch_lpt) {
+ 			if (e1000_phy_is_accessible_pchlan(hw))
+ 				break;
+ 
+@@ -1006,6 +1031,253 @@ static s32 e1000_platform_pm_pch_lpt(struct e1000_hw *hw, bool link)
+ }
+ 
+ /**
++ *  e1000_enable_ulp_lpt_lp - configure Ultra Low Power mode for LynxPoint-LP
++ *  @hw: pointer to the HW structure
++ *  @to_sx: boolean indicating a system power state transition to Sx
++ *
++ *  When link is down, configure ULP mode to significantly reduce the power
++ *  to the PHY.  If on a Manageability Engine (ME) enabled system, tell the
++ *  ME firmware to start the ULP configuration.  If not on an ME enabled
++ *  system, configure the ULP mode by software.
++ */
++s32 e1000_enable_ulp_lpt_lp(struct e1000_hw *hw, bool to_sx)
++{
++	u32 mac_reg;
++	s32 ret_val = 0;
++	u16 phy_reg;
++
++	if ((hw->mac.type < e1000_pch_lpt) ||
++	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_LPT_I217_LM) ||
++	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_LPT_I217_V) ||
++	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_I218_LM2) ||
++	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_I218_V2) ||
++	    (hw->dev_spec.ich8lan.ulp_state == e1000_ulp_state_on))
++		return 0;
++
++	if (er32(FWSM) & E1000_ICH_FWSM_FW_VALID) {
++		/* Request ME configure ULP mode in the PHY */
++		mac_reg = er32(H2ME);
++		mac_reg |= E1000_H2ME_ULP | E1000_H2ME_ENFORCE_SETTINGS;
++		ew32(H2ME, mac_reg);
++
++		goto out;
++	}
++
++	if (!to_sx) {
++		int i = 0;
++
++		/* Poll up to 5 seconds for Cable Disconnected indication */
++		while (!(er32(FEXT) & E1000_FEXT_PHY_CABLE_DISCONNECTED)) {
++			/* Bail if link is re-acquired */
++			if (er32(STATUS) & E1000_STATUS_LU)
++				return -E1000_ERR_PHY;
++
++			if (i++ == 100)
++				break;
++
++			msleep(50);
++		}
++		e_dbg("CABLE_DISCONNECTED %s set after %dmsec\n",
++		      (er32(FEXT) &
++		       E1000_FEXT_PHY_CABLE_DISCONNECTED) ? "" : "not", i * 50);
++	}
++
++	ret_val = hw->phy.ops.acquire(hw);
++	if (ret_val)
++		goto out;
++
++	/* Force SMBus mode in PHY */
++	ret_val = e1000_read_phy_reg_hv_locked(hw, CV_SMB_CTRL, &phy_reg);
++	if (ret_val)
++		goto release;
++	phy_reg |= CV_SMB_CTRL_FORCE_SMBUS;
++	e1000_write_phy_reg_hv_locked(hw, CV_SMB_CTRL, phy_reg);
++
++	/* Force SMBus mode in MAC */
++	mac_reg = er32(CTRL_EXT);
++	mac_reg |= E1000_CTRL_EXT_FORCE_SMBUS;
++	ew32(CTRL_EXT, mac_reg);
++
++	/* Set Inband ULP Exit, Reset to SMBus mode and
++	 * Disable SMBus Release on PERST# in PHY
++	 */
++	ret_val = e1000_read_phy_reg_hv_locked(hw, I218_ULP_CONFIG1, &phy_reg);
++	if (ret_val)
++		goto release;
++	phy_reg |= (I218_ULP_CONFIG1_RESET_TO_SMBUS |
++		    I218_ULP_CONFIG1_DISABLE_SMB_PERST);
++	if (to_sx) {
++		if (er32(WUFC) & E1000_WUFC_LNKC)
++			phy_reg |= I218_ULP_CONFIG1_WOL_HOST;
++
++		phy_reg |= I218_ULP_CONFIG1_STICKY_ULP;
++	} else {
++		phy_reg |= I218_ULP_CONFIG1_INBAND_EXIT;
++	}
++	e1000_write_phy_reg_hv_locked(hw, I218_ULP_CONFIG1, phy_reg);
++
++	/* Set Disable SMBus Release on PERST# in MAC */
++	mac_reg = er32(FEXTNVM7);
++	mac_reg |= E1000_FEXTNVM7_DISABLE_SMB_PERST;
++	ew32(FEXTNVM7, mac_reg);
++
++	/* Commit ULP changes in PHY by starting auto ULP configuration */
++	phy_reg |= I218_ULP_CONFIG1_START;
++	e1000_write_phy_reg_hv_locked(hw, I218_ULP_CONFIG1, phy_reg);
++release:
++	hw->phy.ops.release(hw);
++out:
++	if (ret_val)
++		e_dbg("Error in ULP enable flow: %d\n", ret_val);
++	else
++		hw->dev_spec.ich8lan.ulp_state = e1000_ulp_state_on;
++
++	return ret_val;
++}
++
++/**
++ *  e1000_disable_ulp_lpt_lp - unconfigure Ultra Low Power mode for LynxPoint-LP
++ *  @hw: pointer to the HW structure
++ *  @force: boolean indicating whether or not to force disabling ULP
++ *
++ *  Un-configure ULP mode when link is up, the system is transitioned from
++ *  Sx or the driver is unloaded.  If on a Manageability Engine (ME) enabled
++ *  system, poll for an indication from ME that ULP has been un-configured.
++ *  If not on an ME enabled system, un-configure the ULP mode by software.
++ *
++ *  During nominal operation, this function is called when link is acquired
++ *  to disable ULP mode (force=false); otherwise, for example when unloading
++ *  the driver or during Sx->S0 transitions, this is called with force=true
++ *  to forcibly disable ULP.
++ */
++static s32 e1000_disable_ulp_lpt_lp(struct e1000_hw *hw, bool force)
++{
++	s32 ret_val = 0;
++	u32 mac_reg;
++	u16 phy_reg;
++	int i = 0;
++
++	if ((hw->mac.type < e1000_pch_lpt) ||
++	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_LPT_I217_LM) ||
++	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_LPT_I217_V) ||
++	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_I218_LM2) ||
++	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_I218_V2) ||
++	    (hw->dev_spec.ich8lan.ulp_state == e1000_ulp_state_off))
++		return 0;
++
++	if (er32(FWSM) & E1000_ICH_FWSM_FW_VALID) {
++		if (force) {
++			/* Request ME un-configure ULP mode in the PHY */
++			mac_reg = er32(H2ME);
++			mac_reg &= ~E1000_H2ME_ULP;
++			mac_reg |= E1000_H2ME_ENFORCE_SETTINGS;
++			ew32(H2ME, mac_reg);
++		}
++
++		/* Poll up to 100msec for ME to clear ULP_CFG_DONE */
++		while (er32(FWSM) & E1000_FWSM_ULP_CFG_DONE) {
++			if (i++ == 10) {
++				ret_val = -E1000_ERR_PHY;
++				goto out;
++			}
++
++			usleep_range(10000, 20000);
++		}
++		e_dbg("ULP_CONFIG_DONE cleared after %dmsec\n", i * 10);
++
++		if (force) {
++			mac_reg = er32(H2ME);
++			mac_reg &= ~E1000_H2ME_ENFORCE_SETTINGS;
++			ew32(H2ME, mac_reg);
++		} else {
++			/* Clear H2ME.ULP after ME ULP configuration */
++			mac_reg = er32(H2ME);
++			mac_reg &= ~E1000_H2ME_ULP;
++			ew32(H2ME, mac_reg);
++		}
++
++		goto out;
++	}
++
++	ret_val = hw->phy.ops.acquire(hw);
++	if (ret_val)
++		goto out;
++
++	if (force)
++		/* Toggle LANPHYPC Value bit */
++		e1000_toggle_lanphypc_pch_lpt(hw);
++
++	/* Unforce SMBus mode in PHY */
++	ret_val = e1000_read_phy_reg_hv_locked(hw, CV_SMB_CTRL, &phy_reg);
++	if (ret_val) {
++		/* The MAC might be in PCIe mode, so temporarily force to
++		 * SMBus mode in order to access the PHY.
++		 */
++		mac_reg = er32(CTRL_EXT);
++		mac_reg |= E1000_CTRL_EXT_FORCE_SMBUS;
++		ew32(CTRL_EXT, mac_reg);
++
++		msleep(50);
++
++		ret_val = e1000_read_phy_reg_hv_locked(hw, CV_SMB_CTRL,
++						       &phy_reg);
++		if (ret_val)
++			goto release;
++	}
++	phy_reg &= ~CV_SMB_CTRL_FORCE_SMBUS;
++	e1000_write_phy_reg_hv_locked(hw, CV_SMB_CTRL, phy_reg);
++
++	/* Unforce SMBus mode in MAC */
++	mac_reg = er32(CTRL_EXT);
++	mac_reg &= ~E1000_CTRL_EXT_FORCE_SMBUS;
++	ew32(CTRL_EXT, mac_reg);
++
++	/* When ULP mode was previously entered, K1 was disabled by the
++	 * hardware.  Re-Enable K1 in the PHY when exiting ULP.
++	 */
++	ret_val = e1000_read_phy_reg_hv_locked(hw, HV_PM_CTRL, &phy_reg);
++	if (ret_val)
++		goto release;
++	phy_reg |= HV_PM_CTRL_K1_ENABLE;
++	e1000_write_phy_reg_hv_locked(hw, HV_PM_CTRL, phy_reg);
++
++	/* Clear ULP enabled configuration */
++	ret_val = e1000_read_phy_reg_hv_locked(hw, I218_ULP_CONFIG1, &phy_reg);
++	if (ret_val)
++		goto release;
++	phy_reg &= ~(I218_ULP_CONFIG1_IND |
++		     I218_ULP_CONFIG1_STICKY_ULP |
++		     I218_ULP_CONFIG1_RESET_TO_SMBUS |
++		     I218_ULP_CONFIG1_WOL_HOST |
++		     I218_ULP_CONFIG1_INBAND_EXIT |
++		     I218_ULP_CONFIG1_DISABLE_SMB_PERST);
++	e1000_write_phy_reg_hv_locked(hw, I218_ULP_CONFIG1, phy_reg);
++
++	/* Commit ULP changes by starting auto ULP configuration */
++	phy_reg |= I218_ULP_CONFIG1_START;
++	e1000_write_phy_reg_hv_locked(hw, I218_ULP_CONFIG1, phy_reg);
++
++	/* Clear Disable SMBus Release on PERST# in MAC */
++	mac_reg = er32(FEXTNVM7);
++	mac_reg &= ~E1000_FEXTNVM7_DISABLE_SMB_PERST;
++	ew32(FEXTNVM7, mac_reg);
++
++release:
++	hw->phy.ops.release(hw);
++	if (force) {
++		e1000_phy_hw_reset(hw);
++		msleep(50);
++	}
++out:
++	if (ret_val)
++		e_dbg("Error in ULP disable flow: %d\n", ret_val);
++	else
++		hw->dev_spec.ich8lan.ulp_state = e1000_ulp_state_off;
++
++	return ret_val;
++}
++
++/**
+  *  e1000_check_for_copper_link_ich8lan - Check for link (Copper)
+  *  @hw: pointer to the HW structure
+  *
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.h b/drivers/net/ethernet/intel/e1000e/ich8lan.h
+index 51e0b15..553f05e 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.h
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.h
+@@ -58,11 +58,16 @@
+ 
+ #define E1000_FWSM_WLOCK_MAC_MASK	0x0380
+ #define E1000_FWSM_WLOCK_MAC_SHIFT	7
++#define E1000_FWSM_ULP_CFG_DONE		0x00000400	/* Low power cfg done */
+ 
+ /* Shared Receive Address Registers */
+ #define E1000_SHRAL_PCH_LPT(_i)		(0x05408 + ((_i) * 8))
+ #define E1000_SHRAH_PCH_LPT(_i)		(0x0540C + ((_i) * 8))
+ 
++#define E1000_H2ME		0x05B50	/* Host to ME */
++#define E1000_H2ME_ULP		0x00000800	/* ULP Indication Bit */
++#define E1000_H2ME_ENFORCE_SETTINGS	0x00001000	/* Enforce Settings */
++
+ #define ID_LED_DEFAULT_ICH8LAN	((ID_LED_DEF1_DEF2 << 12) | \
+ 				 (ID_LED_OFF1_OFF2 <<  8) | \
+ 				 (ID_LED_OFF1_ON2  <<  4) | \
+@@ -75,6 +80,9 @@
+ 
+ #define E1000_ICH8_LAN_INIT_TIMEOUT	1500
+ 
++/* FEXT register bit definition */
++#define E1000_FEXT_PHY_CABLE_DISCONNECTED	0x00000004
++
+ #define E1000_FEXTNVM_SW_CONFIG		1
+ #define E1000_FEXTNVM_SW_CONFIG_ICH8M	(1 << 27)	/* different on ICH8M */
+ 
+@@ -88,6 +96,8 @@
+ #define E1000_FEXTNVM6_REQ_PLL_CLK	0x00000100
+ #define E1000_FEXTNVM6_ENABLE_K1_ENTRY_CONDITION	0x00000200
+ 
++#define E1000_FEXTNVM7_DISABLE_SMB_PERST	0x00000020
++
+ #define PCIE_ICH8_SNOOP_ALL	PCIE_NO_SNOOP_ALL
+ 
+ #define E1000_ICH_RAR_ENTRIES	7
+@@ -154,6 +164,16 @@
+ #define CV_SMB_CTRL		PHY_REG(769, 23)
+ #define CV_SMB_CTRL_FORCE_SMBUS	0x0001
+ 
++/* I218 Ultra Low Power Configuration 1 Register */
++#define I218_ULP_CONFIG1		PHY_REG(779, 16)
++#define I218_ULP_CONFIG1_START		0x0001	/* Start auto ULP config */
++#define I218_ULP_CONFIG1_IND		0x0004	/* Pwr up from ULP indication */
++#define I218_ULP_CONFIG1_STICKY_ULP	0x0010	/* Set sticky ULP mode */
++#define I218_ULP_CONFIG1_INBAND_EXIT	0x0020	/* Inband on ULP exit */
++#define I218_ULP_CONFIG1_WOL_HOST	0x0040	/* WoL Host on ULP exit */
++#define I218_ULP_CONFIG1_RESET_TO_SMBUS	0x0100	/* Reset to SMBus mode */
++#define I218_ULP_CONFIG1_DISABLE_SMB_PERST	0x1000	/* Disable on PERST# */
++
+ /* SMBus Address Phy Register */
+ #define HV_SMB_ADDR		PHY_REG(768, 26)
+ #define HV_SMB_ADDR_MASK	0x007F
+@@ -188,6 +208,7 @@
+ /* PHY Power Management Control */
+ #define HV_PM_CTRL		PHY_REG(770, 17)
+ #define HV_PM_CTRL_PLL_STOP_IN_K1_GIGA	0x100
++#define HV_PM_CTRL_K1_ENABLE		0x4000
+ 
+ #define SW_FLAG_TIMEOUT		1000	/* SW Semaphore flag timeout in ms */
+ 
+@@ -262,4 +283,5 @@ s32 e1000_lv_jumbo_workaround_ich8lan(struct e1000_hw *hw, bool enable);
+ s32 e1000_read_emi_reg_locked(struct e1000_hw *hw, u16 addr, u16 *data);
+ s32 e1000_write_emi_reg_locked(struct e1000_hw *hw, u16 addr, u16 data);
+ s32 e1000_set_eee_pchlan(struct e1000_hw *hw);
++s32 e1000_enable_ulp_lpt_lp(struct e1000_hw *hw, bool to_sx);
+ #endif /* _E1000E_ICH8LAN_H_ */
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 7fd1fea..5129c4c 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -5856,7 +5856,7 @@ static int e1000_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
+ static int e1000_init_phy_wakeup(struct e1000_adapter *adapter, u32 wufc)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+-	u32 i, mac_reg;
++	u32 i, mac_reg, wuc;
+ 	u16 phy_reg, wuc_enable;
+ 	int retval;
+ 
+@@ -5903,13 +5903,18 @@ static int e1000_init_phy_wakeup(struct e1000_adapter *adapter, u32 wufc)
+ 		phy_reg |= BM_RCTL_RFCE;
+ 	hw->phy.ops.write_reg_page(&adapter->hw, BM_RCTL, phy_reg);
+ 
++	wuc = E1000_WUC_PME_EN;
++	if (wufc & (E1000_WUFC_MAG | E1000_WUFC_LNKC))
++		wuc |= E1000_WUC_APME;
++
+ 	/* enable PHY wakeup in MAC register */
+ 	ew32(WUFC, wufc);
+-	ew32(WUC, E1000_WUC_PHY_WAKE | E1000_WUC_PME_EN);
++	ew32(WUC, (E1000_WUC_PHY_WAKE | E1000_WUC_APMPME |
++		   E1000_WUC_PME_STATUS | wuc));
+ 
+ 	/* configure and enable PHY wakeup in PHY registers */
+ 	hw->phy.ops.write_reg_page(&adapter->hw, BM_WUFC, wufc);
+-	hw->phy.ops.write_reg_page(&adapter->hw, BM_WUC, E1000_WUC_PME_EN);
++	hw->phy.ops.write_reg_page(&adapter->hw, BM_WUC, wuc);
+ 
+ 	/* activate PHY wakeup */
+ 	wuc_enable |= BM_WUC_ENABLE_BIT | BM_WUC_HOST_WU_BIT;
+@@ -6012,8 +6017,19 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool runtime)
+ 		e1000_power_down_phy(adapter);
+ 	}
+ 
+-	if (adapter->hw.phy.type == e1000_phy_igp_3)
++	if (adapter->hw.phy.type == e1000_phy_igp_3) {
+ 		e1000e_igp3_phy_powerdown_workaround_ich8lan(&adapter->hw);
++	} else if (hw->mac.type == e1000_pch_lpt) {
++		if (!(wufc & (E1000_WUFC_EX | E1000_WUFC_MC | E1000_WUFC_BC)))
++			/* ULP does not support wake from unicast, multicast
++			 * or broadcast.
++			 */
++			retval = e1000_enable_ulp_lpt_lp(hw, !runtime);
++
++		if (retval)
++			return retval;
++	}
++
+ 
+ 	/* Release control of h/w to f/w.  If f/w is AMT enabled, this
+ 	 * would have already happened in close and is redundant.
+diff --git a/drivers/net/ethernet/intel/e1000e/regs.h b/drivers/net/ethernet/intel/e1000e/regs.h
+index 5c55ef3..ea235bb 100644
+--- a/drivers/net/ethernet/intel/e1000e/regs.h
++++ b/drivers/net/ethernet/intel/e1000e/regs.h
+@@ -32,6 +32,7 @@
+ #define E1000_SCTL	0x00024	/* SerDes Control - RW */
+ #define E1000_FCAL	0x00028	/* Flow Control Address Low - RW */
+ #define E1000_FCAH	0x0002C	/* Flow Control Address High -RW */
++#define E1000_FEXT	0x0002C	/* Future Extended - RW */
+ #define E1000_FEXTNVM	0x00028	/* Future Extended NVM - RW */
+ #define E1000_FEXTNVM3	0x0003C	/* Future Extended NVM 3 - RW */
+ #define E1000_FEXTNVM4	0x00024	/* Future Extended NVM 4 - RW */
 -- 
 1.8.3.1
