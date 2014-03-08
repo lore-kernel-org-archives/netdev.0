@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
-Date: Sat, 08 Mar 2014 18:50:08 -0500 (EST)
-Message-ID: <20140308.185008.2040072445038361801.davem@davemloft.net>
-References: <1394270741-29926-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next v7 0/9] xen-netback: TX grant mapping with
+ SKBTX_DEV_ZEROCOPY instead of copy
+Date: Sat, 08 Mar 2014 18:57:59 -0500 (EST)
+Message-ID: <20140308.185759.494043114567727021.davem@davemloft.net>
+References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>
+	<20140307.160552.282750558679341658.davem@davemloft.net>
+	<531B2B3E.5050800@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55115 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751767AbaCHXuJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 18:50:09 -0500
-In-Reply-To: <1394270741-29926-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ian.campbell@citrix.com, wei.liu2@citrix.com,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jonathan.davies@citrix.com,
+	andrew.bennieston@citrix.com
+To: zoltan.kiss@citrix.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <531B2B3E.5050800@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sat,  8 Mar 2014 01:25:26 -0800
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Date: Sat, 8 Mar 2014 14:37:50 +0000
 
-> This series contains updates to e1000e, ixgbevf and igb.
- ...
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+> Maybe you mixed up mine with that? But that's also not eligible to be
+> applied yet.
 
-Pulled, thanks a lot Jeff, and again welcome back.
+I can always revert the series if there are major objections.
