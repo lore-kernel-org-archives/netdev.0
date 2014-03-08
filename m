@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH RFC net-next v1 7/9] dp83640: implement programmable pin functions.
-Date: Sat,  8 Mar 2014 20:42:07 +0100
-Message-ID: <29a811f902a9fb4c568d42567c02ddc84efe9886.1394307304.git.richardcochran@gmail.com>
+Subject: [PATCH RFC net-next v1 9/9] dp83640: let the periodic pin from the module parameter be a default.
+Date: Sat,  8 Mar 2014 20:42:09 +0100
+Message-ID: <97ab5827d526c4e763ad202841b3b7640c93f42d.1394307304.git.richardcochran@gmail.com>
 References: <cover.1394307303.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>,
 	Ben Hutchings <bhutchings@solarflare.com>,
@@ -15,118 +15,70 @@ In-Reply-To: <cover.1394307303.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adapts the dp83640 driver to allow reconfiguration of which
-auxiliary function goes on which pin. The functions may be reassigned
-freely with the one exception of the calibration function.
+This patch changes the driver use the new pin configuration method when
+programming the periodic output signal.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/phy/dp83640.c |   52 +++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 52 insertions(+)
+ drivers/net/phy/dp83640.c |   19 +++++++++++++------
+ 1 file changed, 13 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index 9e26555..f98998f 100644
+index d60b90c..a829fd5 100644
 --- a/drivers/net/phy/dp83640.c
 +++ b/drivers/net/phy/dp83640.c
-@@ -47,6 +47,7 @@
- #define CAL_EVENT	7
- #define CAL_TRIGGER	7
- #define PER_TRIGGER	6
-+#define DP83640_N_PINS	12
- 
- #define MII_DP83640_MICR 0x11
- #define MII_DP83640_MISR 0x12
-@@ -173,6 +174,37 @@ MODULE_PARM_DESC(chosen_phy, \
- MODULE_PARM_DESC(gpio_tab, \
- 	"Which GPIO line to use for which purpose: cal,perout,extts1,...,extts6");
- 
-+static void dp83640_gpio_defaults(struct ptp_pin_desc *pd)
-+{
-+	int i, index;
-+
-+	for (i = 0; i < DP83640_N_PINS; i++) {
-+		snprintf(pd[i].name, sizeof(pd[i].name), "GPIO%d", 1 + i);
-+		pd[i].index = i;
-+	}
-+
-+	for (i = 0; i < GPIO_TABLE_SIZE; i++) {
-+		if (gpio_tab[i] < 1 || gpio_tab[i] > DP83640_N_PINS) {
-+			pr_err("gpio_tab[%d]=%hu out of range", i, gpio_tab[i]);
-+			return;
-+		}
-+	}
-+
-+	index = gpio_tab[CALIBRATE_GPIO] - 1;
-+	pd[index].func = PTP_PF_PHYSYNC;
-+	pd[index].chan = 0;
-+
-+	index = gpio_tab[PEROUT_GPIO] - 1;
-+	pd[index].func = PTP_PF_PEROUT;
-+	pd[index].chan = 0;
-+
-+	for (i = EXTTS0_GPIO; i < GPIO_TABLE_SIZE; i++) {
-+		index = gpio_tab[i] - 1;
-+		pd[index].func = PTP_PF_EXTTS;
-+		pd[index].chan = i - EXTTS0_GPIO;
-+	}
-+}
-+
- /* a list of clocks and a mutex to protect it */
- static LIST_HEAD(phyter_clocks);
- static DEFINE_MUTEX(phyter_clocks_lock);
-@@ -459,6 +491,12 @@ static int ptp_dp83640_enable(struct ptp_clock_info *ptp,
- 	return -EOPNOTSUPP;
+@@ -298,15 +298,22 @@ static u64 phy2txts(struct phy_txts *p)
+ 	return ns;
  }
  
-+static int ptp_dp83640_setpin(struct ptp_clock_info *ptp, unsigned int pin,
-+			      enum ptp_pin_function func, unsigned int chan)
-+{
-+	return 0;
-+}
-+
- static u8 status_frame_dst[6] = { 0x01, 0x1B, 0x19, 0x00, 0x00, 0x00 };
- static u8 status_frame_src[6] = { 0x08, 0x00, 0x17, 0x0B, 0x6B, 0x0F };
+-static void periodic_output(struct dp83640_clock *clock,
+-			    struct ptp_clock_request *clkreq, bool on)
++static int periodic_output(struct dp83640_clock *clock,
++			   struct ptp_clock_request *clkreq, bool on)
+ {
+ 	struct dp83640_private *dp83640 = clock->chosen;
+ 	struct phy_device *phydev = dp83640->phydev;
+ 	u32 sec, nsec, pwidth;
+ 	u16 gpio, ptp_trig, trigger, val;
  
-@@ -876,6 +914,7 @@ static void dp83640_free_clocks(void)
- 		mutex_destroy(&clock->extreg_lock);
- 		mutex_destroy(&clock->clock_lock);
- 		put_device(&clock->bus->dev);
-+		kfree(clock->caps.pin_config);
- 		kfree(clock);
+-	gpio = on ? gpio_tab[PEROUT_GPIO] : 0;
++	if (on) {
++		gpio = 1 + ptp_find_pin(clock->ptp_clock, PTP_PF_PEROUT, 0);
++		if (gpio < 1)
++			return -EINVAL;
++	} else {
++		gpio = 0;
++	}
++
+ 	trigger = PER_TRIGGER;
+ 
+ 	ptp_trig = TRIG_WR |
+@@ -323,7 +330,7 @@ static void periodic_output(struct dp83640_clock *clock,
+ 		ext_write(0, phydev, PAGE5, PTP_TRIG, ptp_trig);
+ 		ext_write(0, phydev, PAGE4, PTP_CTL, val);
+ 		mutex_unlock(&clock->extreg_lock);
+-		return;
++		return 0;
  	}
  
-@@ -895,12 +934,18 @@ static void dp83640_clock_init(struct dp83640_clock *clock, struct mii_bus *bus)
- 	clock->caps.n_alarm	= 0;
- 	clock->caps.n_ext_ts	= N_EXT_TS;
- 	clock->caps.n_per_out	= 1;
-+	clock->caps.n_pins	= DP83640_N_PINS;
- 	clock->caps.pps		= 0;
- 	clock->caps.adjfreq	= ptp_dp83640_adjfreq;
- 	clock->caps.adjtime	= ptp_dp83640_adjtime;
- 	clock->caps.gettime	= ptp_dp83640_gettime;
- 	clock->caps.settime	= ptp_dp83640_settime;
- 	clock->caps.enable	= ptp_dp83640_enable;
-+	clock->caps.setpin	= ptp_dp83640_setpin;
-+	/*
-+	 * Convert the module param defaults into a dynamic pin configuration.
-+	 */
-+	dp83640_gpio_defaults(clock->caps.pin_config);
- 	/*
- 	 * Get a reference to this bus instance.
- 	 */
-@@ -951,6 +996,13 @@ static struct dp83640_clock *dp83640_clock_get_bus(struct mii_bus *bus)
- 	if (!clock)
- 		goto out;
+ 	sec = clkreq->perout.start.sec;
+@@ -352,6 +359,7 @@ static void periodic_output(struct dp83640_clock *clock,
+ 	ext_write(0, phydev, PAGE4, PTP_CTL, val);
  
-+	clock->caps.pin_config = kzalloc(sizeof(struct ptp_pin_desc) *
-+					 DP83640_N_PINS, GFP_KERNEL);
-+	if (!clock->caps.pin_config) {
-+		kfree(clock);
-+		clock = NULL;
-+		goto out;
-+	}
- 	dp83640_clock_init(clock, bus);
- 	list_add_tail(&phyter_clocks, &clock->list);
- out:
+ 	mutex_unlock(&clock->extreg_lock);
++	return 0;
+ }
+ 
+ /* ptp clock methods */
+@@ -484,8 +492,7 @@ static int ptp_dp83640_enable(struct ptp_clock_info *ptp,
+ 	case PTP_CLK_REQ_PEROUT:
+ 		if (rq->perout.index != 0)
+ 			return -EINVAL;
+-		periodic_output(clock, rq, on);
+-		return 0;
++		return periodic_output(clock, rq, on);
+ 
+ 	default:
+ 		break;
 -- 
 1.7.10.4
