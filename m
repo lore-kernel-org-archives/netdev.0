@@ -1,61 +1,92 @@
-From: Krishna Chaitanya <chaitanya.mgit@gmail.com>
-Subject: Re: [PATCH] p54usb: fix leaks at failure path in p54u_probe()
-Date: Sun, 9 Mar 2014 04:40:58 +0530
-Message-ID: <CABPxzY+S_7CtKKPwgcU4v+W51Jmuu0j=Ds_W41OaPAQNmekDsA@mail.gmail.com>
-References: <1394226709-10763-1-git-send-email-khoroshilov@ispras.ru>
- <CABPxzYLzMvtWShP_PFdyTzV8P1P177yPZh=xAO=3tiy97UfEmQ@mail.gmail.com> <2894930.q0nCt6o0pg@debian64>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
-	ldv-project@linuxtesting.org
-To: Christian Lamparter <chunkeey@googlemail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v7 net-next 0/3] filter: add Extended BPF interpreter and converter, seccomp
+Date: Sat,  8 Mar 2014 15:15:27 -0800
+Message-ID: <1394320530-3508-1-git-send-email-ast@plumgrid.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2894930.q0nCt6o0pg@debian64>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 9, 2014 at 4:38 AM, Christian Lamparter
-<chunkeey@googlemail.com> wrote:
-> On Sunday, March 09, 2014 04:14:32 AM Krishna Chaitanya wrote:
->> On Sat, Mar 8, 2014 at 2:41 AM, Alexey Khoroshilov
->> <khoroshilov@ispras.ru> wrote:
->> > If p54u_load_firmware() fails, p54u_probe() does not deallocate
->> > already allocated resources. The patch adds proper failure handling.
->> >
->> > Found by Linux Driver Verification project (linuxtesting.org).
->> >
->> > Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
->> > ---
->> >  drivers/net/wireless/p54/p54usb.c | 4 ++++
->> >  1 file changed, 4 insertions(+)
->> >
->> > diff --git a/drivers/net/wireless/p54/p54usb.c b/drivers/net/wireless/p54/p54usb.c
->> > index 6e635cfa24c8..5df74503fd4f 100644
->> > --- a/drivers/net/wireless/p54/p54usb.c
->> > +++ b/drivers/net/wireless/p54/p54usb.c
->> > @@ -1053,6 +1053,10 @@ static int p54u_probe(struct usb_interface *intf,
->> >                 priv->upload_fw = p54u_upload_firmware_net2280;
->> >         }
->> >         err = p54u_load_firmware(dev, intf);
->> > +       if (err) {
->> > +               usb_put_dev(udev);
->> > +               p54_free_common(dev);
->> > +       }
->> >         return err;
->> >  }
->> The load_firmware puts down the reference
->> in case of error. Only free is required here.
-> No, the put is required too... But let me explain:
->
-> p54u_load_firmware calls usb_get_dev(udev) before it requests the firmware
-> load. The Reason is: the firmware callback is usually run in another thread
-> (usually it's pretty quick, but due to timeouts it could take up to 60 seconds
-> - or at least it did when I wrote it). Therefore I found it appropriate to give
-> that request callback its "reference++" as it needs the "udev" too (e.g.: for
-> dev_info, dev_err and releasing the driver if the device couldn't be
-> initialized).
->
-Thanks Christian and Alexey, you answered my next question as well :-).
+Hi Dave,
+
+V1 patches:
+http://thread.gmane.org/gmane.linux.kernel/1605783
+V2 patches:
+http://thread.gmane.org/gmane.linux.kernel/1642325
+V3 patches:
+http://thread.gmane.org/gmane.linux.kernel/1656538
+
+V4 summary:
+- addressed Daniel comments
+- RFC for seccomp with extended BPF
+- added extended BPF design doc
+
+V5 summary:
+- fixed commit one-liner, removed empty line
+- added Hagen's ack
+
+V6 summary:
+- unrolled loop in populate_seccomp_data() to help gcc on arm
+- removed empty line at the end of the file
+- removed redundant (u32) cast in JSET
+- fixed BPF_RVAL instead of BPF_SRC for BPF_RET in sk_convert_filter()
+- updated commit log
+- added Daniel's Reviewed-by
+- added Kees's Reviewed-by
+
+V7 summary:
+1/3:
+- addressed Dave's feedback regarding typecasting:
+  added 'jited' flag to sk_filter and union for bpf_func/bpf_func_ext
+- added a comment to sk_run_filter_ext() about ctx<->skb relation
+- removed CPU specific code from sk_run_filter() and sk_run_filter_ext()
+  because of that revised arm32 cache-hit bpf micro-bench numbers slightly
+  slower, but seccomp and cache-miss arm32 numbers stayed the same
+2/3 and 3/3: no changes
+
+x86_64, i386 and arm32 look clean.
+
+Thanks!
+
+Alexei Starovoitov (3):
+  filter: add Extended BPF interpreter and converter
+  seccomp: convert seccomp to use extended BPF
+  doc: filter: add Extended BPF documentation
+
+ Documentation/networking/filter.txt |  181 ++++++++
+ arch/arm/net/bpf_jit_32.c           |    3 +-
+ arch/powerpc/net/bpf_jit_comp.c     |    3 +-
+ arch/s390/net/bpf_jit_comp.c        |    3 +-
+ arch/sparc/net/bpf_jit_comp.c       |    3 +-
+ arch/x86/net/bpf_jit_comp.c         |    3 +-
+ include/linux/filter.h              |   16 +-
+ include/linux/netdevice.h           |    1 +
+ include/linux/seccomp.h             |    1 -
+ include/uapi/linux/filter.h         |   33 +-
+ kernel/seccomp.c                    |  118 +++--
+ net/core/filter.c                   |  806 ++++++++++++++++++++++++++++++++++-
+ net/core/sysctl_net_core.c          |    7 +
+ 13 files changed, 1077 insertions(+), 101 deletions(-)
+
+-- 
+1.7.9.5
