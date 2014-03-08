@@ -1,184 +1,79 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH RFC net-next v1 4/9] ptp: drivers: set the number of programmable pins.
-Date: Sat,  8 Mar 2014 20:42:04 +0100
-Message-ID: <0eb88f2a89788f4f1da4b2c013713c2b63dd69e6.1394307304.git.richardcochran@gmail.com>
-References: <cover.1394307303.git.richardcochran@gmail.com>
-Cc: <linux-kernel@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Christian Riesch <christian.riesch@omicron.at>,
-	David Miller <davem@davemloft.net>,
-	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
-	<stefan.sorensen@spectralink.com>
-To: <netdev@vger.kernel.org>
+From: Behan Webster <behanw@converseincode.com>
+Subject: Re: [PATCH v2] mac80211: LLVMLinux: Remove VLAIS usage from mac80211
+Date: Sat, 08 Mar 2014 12:17:35 -0800
+Message-ID: <531B7ADF.7030606@converseincode.com>
+References: <1394177091.4653.1.camel@jlt4.sipsolutions.net>	 <1394241960-1764-1-git-send-email-behanw@converseincode.com>	 <1394243809.6972.4.camel@joe-AO722> <531A7D4F.7090303@converseincode.com> <1394245662.6972.12.camel@joe-AO722>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linville@tuxdriver.com, johannes@sipsolutions.net,
+	davem@davemloft.net, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dwmw2@infradead.org, pageexec@freemail.hu,
+	=?ISO-8859-1?Q?Jan-Simon_M=F6?= =?ISO-8859-1?Q?ller?=
+	<dl9pf@gmx.de>,
+	=?ISO-8859-1?Q?Vin=EDcius_Tinti?= <viniciustinti@gmail.com>,
+	Mark Charlebois <charlebm@gmail.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1394307303.git.richardcochran@gmail.com>
+In-Reply-To: <1394245662.6972.12.camel@joe-AO722>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch updates the many PTP Hardware Clock drivers with the
-newly introduced field that advertises the number of programmable
-pins. Some of these devices do have programmable pins, but the
-implementation will have to wait for follow on patches.
+On 03/07/14 18:27, Joe Perches wrote:
+> On Fri, 2014-03-07 at 18:15 -0800, Behan Webster wrote:
+>> On 03/07/14 17:56, Joe Perches wrote:
+>>> On Fri, 2014-03-07 at 17:26 -0800, behanw@converseincode.com wrote:
+>>>> From: Jan-Simon M=F6ller <dl9pf@gmx.de>
+>>>>
+>>>> Replaced the use of a Variable Length Array In Struct (VLAIS) with=
+ a C99
+>>>> compliant equivalent. This is the original VLAIS struct.
+>>> []
+>>>> diff --git a/net/mac80211/aes_ccm.c b/net/mac80211/aes_ccm.c
+>>> []
+>>>> @@ -23,12 +23,14 @@ void ieee80211_aes_ccm_encrypt(struct crypto_a=
+ead *tfm, u8 *b_0, u8 *aad,
+>>>>    			       u8 *data, size_t data_len, u8 *mic)
+>>>>    {
+>>>>    	struct scatterlist assoc, pt, ct[2];
+>>>> -	struct {
+>>>> -		struct aead_request	req;
+>>>> -		u8			priv[crypto_aead_reqsize(tfm)];
+>>>> -	} aead_req;
+>>>>   =20
+>>>> -	memset(&aead_req, 0, sizeof(aead_req));
+>>>> +	char aead_req_data[sizeof(struct aead_request) +
+>>>> +				crypto_aead_reqsize(tfm) +
+>>>> +				CRYPTO_MINALIGN] CRYPTO_MINALIGN_ATTR;
+>>> Can this be a too large amount of stack?
+>>>
+>>> Is crypto_aead_reqsize() limited to < ~1k?
+>>>
+>>> Perhaps it'd be better to use kzalloc for this
+>>> or another reserved pool
+>> No more stack being used than with the the original code. The stack
+>> memory use is identical.
+> I do understand that, but that's not my question.
+>
+> I appreciate you're getting this to compile for llvm.
+>
+> Any idea of the max value of crypto_aead_reqsize?
+And I understand your question, as well as why it is important.
 
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- drivers/net/ethernet/adi/bfin_mac.c              |    1 +
- drivers/net/ethernet/broadcom/tg3.c              |    1 +
- drivers/net/ethernet/freescale/fec_ptp.c         |    1 +
- drivers/net/ethernet/freescale/gianfar_ptp.c     |    1 +
- drivers/net/ethernet/intel/e1000e/ptp.c          |    1 +
- drivers/net/ethernet/mellanox/mlx4/en_clock.c    |    1 +
- drivers/net/ethernet/sfc/ptp.c                   |    1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c |    1 +
- drivers/net/ethernet/ti/cpts.c                   |    1 +
- drivers/net/ethernet/tile/tilegx.c               |    1 +
- drivers/ptp/ptp_ixp46x.c                         |    1 +
- drivers/ptp/ptp_pch.c                            |    1 +
- 12 files changed, 12 insertions(+)
+Moving it from being stack based to alloacted memory may or may not be =
+a=20
+good thing, but is orthogonal to the intention of this particular patch=
+=20
+(which is just to remove the use of VLAIS from this code).
 
-diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-index c0f68dc..83a8cdb 100644
---- a/drivers/net/ethernet/adi/bfin_mac.c
-+++ b/drivers/net/ethernet/adi/bfin_mac.c
-@@ -1040,6 +1040,7 @@ static struct ptp_clock_info bfin_ptp_caps = {
- 	.n_alarm	= 0,
- 	.n_ext_ts	= 0,
- 	.n_per_out	= 0,
-+	.n_pins		= 0,
- 	.pps		= 0,
- 	.adjfreq	= bfin_ptp_adjfreq,
- 	.adjtime	= bfin_ptp_adjtime,
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index e12735f..5130c58 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -6322,6 +6322,7 @@ static const struct ptp_clock_info tg3_ptp_caps = {
- 	.n_alarm	= 0,
- 	.n_ext_ts	= 0,
- 	.n_per_out	= 1,
-+	.n_pins		= 0,
- 	.pps		= 0,
- 	.adjfreq	= tg3_ptp_adjfreq,
- 	.adjtime	= tg3_ptp_adjtime,
-diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
-index 89ccb5b..82386b2 100644
---- a/drivers/net/ethernet/freescale/fec_ptp.c
-+++ b/drivers/net/ethernet/freescale/fec_ptp.c
-@@ -372,6 +372,7 @@ void fec_ptp_init(struct platform_device *pdev)
- 	fep->ptp_caps.n_alarm = 0;
- 	fep->ptp_caps.n_ext_ts = 0;
- 	fep->ptp_caps.n_per_out = 0;
-+	fep->ptp_caps.n_pins = 0;
- 	fep->ptp_caps.pps = 0;
- 	fep->ptp_caps.adjfreq = fec_ptp_adjfreq;
- 	fep->ptp_caps.adjtime = fec_ptp_adjtime;
-diff --git a/drivers/net/ethernet/freescale/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
-index abc28da..bb56800 100644
---- a/drivers/net/ethernet/freescale/gianfar_ptp.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ptp.c
-@@ -414,6 +414,7 @@ static struct ptp_clock_info ptp_gianfar_caps = {
- 	.n_alarm	= 0,
- 	.n_ext_ts	= N_EXT_TS,
- 	.n_per_out	= 0,
-+	.n_pins		= 0,
- 	.pps		= 1,
- 	.adjfreq	= ptp_gianfar_adjfreq,
- 	.adjtime	= ptp_gianfar_adjtime,
-diff --git a/drivers/net/ethernet/intel/e1000e/ptp.c b/drivers/net/ethernet/intel/e1000e/ptp.c
-index 065f8c8..299ab50 100644
---- a/drivers/net/ethernet/intel/e1000e/ptp.c
-+++ b/drivers/net/ethernet/intel/e1000e/ptp.c
-@@ -191,6 +191,7 @@ static const struct ptp_clock_info e1000e_ptp_clock_info = {
- 	.n_alarm	= 0,
- 	.n_ext_ts	= 0,
- 	.n_per_out	= 0,
-+	.n_pins		= 0,
- 	.pps		= 0,
- 	.adjfreq	= e1000e_phc_adjfreq,
- 	.adjtime	= e1000e_phc_adjtime,
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-index abaf6bb..57dda95 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-@@ -276,6 +276,7 @@ static const struct ptp_clock_info mlx4_en_ptp_clock_info = {
- 	.n_alarm	= 0,
- 	.n_ext_ts	= 0,
- 	.n_per_out	= 0,
-+	.n_pins		= 0,
- 	.pps		= 0,
- 	.adjfreq	= mlx4_en_phc_adjfreq,
- 	.adjtime	= mlx4_en_phc_adjtime,
-diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
-index 722344f..6b861e3 100644
---- a/drivers/net/ethernet/sfc/ptp.c
-+++ b/drivers/net/ethernet/sfc/ptp.c
-@@ -1194,6 +1194,7 @@ static const struct ptp_clock_info efx_phc_clock_info = {
- 	.n_alarm	= 0,
- 	.n_ext_ts	= 0,
- 	.n_per_out	= 0,
-+	.n_pins		= 0,
- 	.pps		= 1,
- 	.adjfreq	= efx_phc_adjfreq,
- 	.adjtime	= efx_phc_adjtime,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-index 7680581..b7ad356 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
-@@ -164,6 +164,7 @@ static struct ptp_clock_info stmmac_ptp_clock_ops = {
- 	.n_alarm = 0,
- 	.n_ext_ts = 0,
- 	.n_per_out = 0,
-+	.n_pins = 0,
- 	.pps = 0,
- 	.adjfreq = stmmac_adjust_freq,
- 	.adjtime = stmmac_adjust_time,
-diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index 8c351f1..372cb19 100644
---- a/drivers/net/ethernet/ti/cpts.c
-+++ b/drivers/net/ethernet/ti/cpts.c
-@@ -217,6 +217,7 @@ static struct ptp_clock_info cpts_info = {
- 	.name		= "CTPS timer",
- 	.max_adj	= 1000000,
- 	.n_ext_ts	= 0,
-+	.n_pins		= 0,
- 	.pps		= 0,
- 	.adjfreq	= cpts_ptp_adjfreq,
- 	.adjtime	= cpts_ptp_adjtime,
-diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
-index 17503da..298d1c3 100644
---- a/drivers/net/ethernet/tile/tilegx.c
-+++ b/drivers/net/ethernet/tile/tilegx.c
-@@ -870,6 +870,7 @@ static struct ptp_clock_info ptp_mpipe_caps = {
- 	.name		= "mPIPE clock",
- 	.max_adj	= 999999999,
- 	.n_ext_ts	= 0,
-+	.n_pins		= 0,
- 	.pps		= 0,
- 	.adjfreq	= ptp_mpipe_adjfreq,
- 	.adjtime	= ptp_mpipe_adjtime,
-diff --git a/drivers/ptp/ptp_ixp46x.c b/drivers/ptp/ptp_ixp46x.c
-index 4a08727..604d340 100644
---- a/drivers/ptp/ptp_ixp46x.c
-+++ b/drivers/ptp/ptp_ixp46x.c
-@@ -244,6 +244,7 @@ static struct ptp_clock_info ptp_ixp_caps = {
- 	.name		= "IXP46X timer",
- 	.max_adj	= 66666655,
- 	.n_ext_ts	= N_EXT_TS,
-+	.n_pins		= 0,
- 	.pps		= 0,
- 	.adjfreq	= ptp_ixp_adjfreq,
- 	.adjtime	= ptp_ixp_adjtime,
-diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
-index 71a2559..90a1063 100644
---- a/drivers/ptp/ptp_pch.c
-+++ b/drivers/ptp/ptp_pch.c
-@@ -514,6 +514,7 @@ static struct ptp_clock_info ptp_pch_caps = {
- 	.name		= "PCH timer",
- 	.max_adj	= 50000000,
- 	.n_ext_ts	= N_EXT_TS,
-+	.n_pins		= 0,
- 	.pps		= 0,
- 	.adjfreq	= ptp_pch_adjfreq,
- 	.adjtime	= ptp_pch_adjtime,
--- 
-1.7.10.4
+> $ grep-2.5.4 -rP --include=3D*.[ch] "(?:->|\.)\s*\breqsize\s*=3D[^=3D=
+][^;]+;" *
+Very clever. I'm going to use this. :)
+
+Behan
+
+--=20
+Behan Webster
+behanw@converseincode.com
