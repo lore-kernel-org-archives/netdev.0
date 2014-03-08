@@ -1,103 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 1/6] Drivers: net: hyperv: Enable scatter gather I/O
-Date: Sat, 08 Mar 2014 01:36:58 -0500 (EST)
-Message-ID: <20140308.013658.918013334851017662.davem@davemloft.net>
-References: <1394170361-1043-1-git-send-email-kys@microsoft.com>
- <20140307.164756.1488071770631289333.davem@davemloft.net>
- <fd6bb08bd9a447aa9c0da3b584ea9bb8@BY2PR03MB299.namprd03.prod.outlook.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [BUG?] ixgbe: only num_online_cpus() of the tx queues are enabled
+Date: Fri, 07 Mar 2014 23:12:28 -0800
+Message-ID: <531AC2DC.4000403@intel.com>
+References: <CAG+wggZOQ_VyAiLBuUUfW13=OqUun3g1vnYj5SEuWN+3hHreLg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org
-To: kys@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <fd6bb08bd9a447aa9c0da3b584ea9bb8@BY2PR03MB299.namprd03.prod.outlook.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Erez Zadok <ezk@fsl.cs.sunysb.edu>,
+	Dean Hildebrand <dhildeb@us.ibm.com>,
+	Geoff Kuenning <geoff@cs.hmc.edu>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Ming Chen <v.mingchen@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:59187 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750911AbaCHHMv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Mar 2014 02:12:51 -0500
+In-Reply-To: <CAG+wggZOQ_VyAiLBuUUfW13=OqUun3g1vnYj5SEuWN+3hHreLg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: KY Srinivasan <kys@microsoft.com>
-Date: Sat, 8 Mar 2014 04:12:01 +0000
+On 3/7/2014 10:13 PM, Ming Chen wrote:
+> Hi,
+>
+> We have an Intel 82599EB dual-port 10GbE NIC, which has 128 tx queues
+> (64 per port and we used only one port). We found only 12 of the tx
+> queues are enabled, where 12 is number of CPUs of our system.
+>
+> We realized that, in the driver code, adapter->num_tx_queues (which
+> decides netdev->real_num_tx_queues) is indirectly set to "min_t(int,
+> IXGBE_MAX_RSS_INDICES, num_online_cpus())". It looks like the limit is
+> for RSS. But why tx queues is also set to the same as rx queues?
+>
+> The problem of having a small number of tx queues is high probability
+> of hash collision in skb_tx_hash(). If we have a small number of
+> long-lived data-intensive TCP flows, the hash collision can causes
+> unfairness. We found this problem during our benchmarking of NFS when
+> identical NFS clients are getting very different throughput when
+> reading a big file from the server. We call this problem Hash-Cast. If
+> interested, you can take a look at this poster:
+> http://www.fsl.cs.sunysb.edu/~mchen/fast14poster-hashcast-portrait.pdf
+>
+> Can anybody take a loot at this? It would be better to have all tx
+> queues enabled by default. If this is unlikely to happen, is there a
+> way to reconfigure the NIC so that we can use all tx queues if we
+> want?
 
-> 
-> 
->> -----Original Message-----
->> From: David Miller [mailto:davem@davemloft.net]
->> Sent: Saturday, March 8, 2014 3:18 AM
->> To: KY Srinivasan
->> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
->> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
->> jasowang@redhat.com
->> Subject: Re: [PATCH V2 1/6] Drivers: net: hyperv: Enable scatter gather I/O
->> 
->> From: "K. Y. Srinivasan" <kys@microsoft.com>
->> Date: Thu,  6 Mar 2014 21:32:36 -0800
->> 
->> > +static u32 fill_pg_buf(struct page *page, u32 offset, u32 len,
->> > +			struct hv_page_buffer *pb)
->> > +{
->> > +	int j = 0;
->> > +
->> > +	/* Deal with compund pages by ignoring unused part
->> > +	 * of the page.
->> > +	 */
->> > +	page += offset  >> PAGE_SHIFT;
->> 
->> Please only one space between "offset" and ">>"
->> 
->> > +	offset &= ~PAGE_MASK;
->> > +
->> > +	while (len > 0) {
->> > +		unsigned long bytes;
->> > +
->> > +		bytes = PAGE_SIZE - offset;
->> > +		if (bytes > len)
->> > +			bytes = len;
->> > +		pb[j].pfn = page_to_pfn(page);
->> > +		pb[j].offset = offset;
->> > +		pb[j].len = bytes;
->> > +
->> > +		offset += bytes;
->> > +		len -= bytes;
->> > +
->> > +		if (offset == PAGE_SIZE && len) {
->> > +			page++;
->> > +			offset = 0;
->> > +			j++;
->> > +		}
->> > +	}
->> > +
->> > +	return j + 1;
->> > +}
->> 
->> I think this function has some edge case errors.
->> 
->> As I understand it, this function returns how many page buffer entries were
->> filled in.
->> 
->> But if we fill exactly the end of a page, we will report one too many in the
->> return value.
-> 
-> I may be missing something here; but in the case you are describing we would return a value
-> of one as we should. When offset + len is exactly equal to the page size, we would not increment
-> the value of j, since at that point len == 0. Since the initial value of j was 0 and we return (j + 1),
-> we will return 1.
+One way to solve this would be to use XPS and cgroups. XPS will allow
+you to map the queues to CPUs and then use cgroups to map your
+application (NFS here) onto the correct CPU. Then which queue is
+picked is deterministic and you could manage the hash-cast problem.
+Having to use cgroup to do the management is not ideal though.
 
-That's not what happens, you execute the loop code at least once, and
-hit:
+Also once you have many sessions on a single mq qdisc queue you
+should consider using fq-codel configured via 'tc qdisc add ...'
+to get nice fairness properties amongst flows sharing a queue.
 
->> > +		if (offset == PAGE_SIZE && len) {
->> > +			page++;
->> > +			offset = 0;
->> > +			j++;
->> > +		}
+>
+> FYI, our kernel version is 3.12.0, but I found the same limit of tx
+> queues in the code of the latest kernel. I am counting the number of
+> enabled queues using "ls /sys/class/net/p3p1/queues| grep -c tx-"
 
-thus incrementing j before the return statement.
+Its been the same for sometime. It should be reasonably easy to allow
+this I'll take a look but wont get to it until next week. In the
+meantime I'll see what other sort of comments pop up.
+
+This is only observable with a small number of flows correct? With
+many flows the distribution should be fair.
+
+>
+> Best,
+> Ming
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
