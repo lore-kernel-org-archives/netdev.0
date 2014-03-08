@@ -1,82 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG?] ixgbe: only num_online_cpus() of the tx queues are
- enabled
-Date: Sat, 08 Mar 2014 07:27:41 -0800
-Message-ID: <1394292461.20149.55.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAG+wggZOQ_VyAiLBuUUfW13=OqUun3g1vnYj5SEuWN+3hHreLg@mail.gmail.com>
+From: Steffen Trumtrar <s.trumtrar@pengutronix.de>
+Subject: Re: [PATCH] ath6kl: sdio: fix system panic when doing wifi stress
+ test
+Date: Sat, 8 Mar 2014 16:37:30 +0100
+Message-ID: <20140308153730.GA27506@pengutronix.de>
+References: <1384221185-8645-1-git-send-email-r64343@freescale.com>
+ <87k3fvjvjg.fsf@kamboji.qca.qualcomm.com>
+ <AD13664F485EE54694E29A7F9D5BE1AFC0AD96@039-SN2MPN1-022.039d.mgd.msft.net>
+ <20140307093813.GA28728@pengutronix.de>
+ <87a9d0oqbz.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Erez Zadok <ezk@fsl.cs.sunysb.edu>,
-	Dean Hildebrand <dhildeb@us.ibm.com>,
-	Geoff Kuenning <geoff@cs.hmc.edu>
-To: Ming Chen <v.mingchen@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Hui Liu <Hui.Liu@freescale.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	ath6kl@lists.infradead.org
+To: Kalle Valo <kvalo@qca.qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:60894 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751822AbaCHP1n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 10:27:43 -0500
-Received: by mail-pb0-f50.google.com with SMTP id md12so5421007pbc.37
-        for <netdev@vger.kernel.org>; Sat, 08 Mar 2014 07:27:43 -0800 (PST)
-In-Reply-To: <CAG+wggZOQ_VyAiLBuUUfW13=OqUun3g1vnYj5SEuWN+3hHreLg@mail.gmail.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:42020 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751590AbaCHPhi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 10:37:38 -0500
+Content-Disposition: inline
+In-Reply-To: <87a9d0oqbz.fsf@kamboji.qca.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-03-08 at 01:13 -0500, Ming Chen wrote:
-> Hi,
+On Sat, Mar 08, 2014 at 01:57:36PM +0200, Kalle Valo wrote:
+> Hi Steffen,
 > 
-> We have an Intel 82599EB dual-port 10GbE NIC, which has 128 tx queues
-> (64 per port and we used only one port). We found only 12 of the tx
-> queues are enabled, where 12 is number of CPUs of our system.
+> Steffen Trumtrar <s.trumtrar@pengutronix.de> writes:
 > 
-> We realized that, in the driver code, adapter->num_tx_queues (which
-> decides netdev->real_num_tx_queues) is indirectly set to "min_t(int,
-> IXGBE_MAX_RSS_INDICES, num_online_cpus())". It looks like the limit is
-> for RSS. But why tx queues is also set to the same as rx queues?
+> >> > Does the patch below help? It would also fix the corruption with
+> >> > scat_q_depth. Please note that I have only compile tested it. And I might
+> >> > have also missed something important, so please review it carefully.
+> >> 
+> >> Yes, Firstly, I have looked at the asm code and the compiler(gcc 4.8.1) works correctly after applying
+> >> the following patch. Secondly, I have tested the patch with compiler(gcc 4.8.1) on the real HW, and it
+> >> works fine too. Without the patch, the kernel crash will happen 100%.
+> >> 
+> >> Thus, for the patch:
+> >> 
+> >> Acked-by: Jason Liu <r64343@freescale.com>
+> >> Tested-by: Jason Liu <r64343@freescale.com>
 > 
-> The problem of having a small number of tx queues is high probability
-> of hash collision in skb_tx_hash(). If we have a small number of
-> long-lived data-intensive TCP flows, the hash collision can causes
-> unfairness. We found this problem during our benchmarking of NFS when
-> identical NFS clients are getting very different throughput when
-> reading a big file from the server. We call this problem Hash-Cast. If
-> interested, you can take a look at this poster:
-> http://www.fsl.cs.sunysb.edu/~mchen/fast14poster-hashcast-portrait.pdf
+> [...]
 > 
-> Can anybody take a loot at this? It would be better to have all tx
-> queues enabled by default. If this is unlikely to happen, is there a
-> way to reconfigure the NIC so that we can use all tx queues if we
-> want?
+> > What happend with this? If I look in mainline, I don't find it. At
+> > least the reording of the struct fields looks as if one definitely
+> > wants to have that.
 > 
-> FYI, our kernel version is 3.12.0, but I found the same limit of tx
-> queues in the code of the latest kernel. I am counting the number of
-> enabled queues using "ls /sys/class/net/p3p1/queues| grep -c tx-"
+> It seems that I forgot to submit this properly, sorry about that. I did
+> it now:
 > 
-> Best,
+> http://lists.infradead.org/pipermail/ath6kl/2014-March/000000.html
+> 
 
-Quite frankly, with a 1Gbe link, I would just use FQ and your problem
-would disappear.
+\o/ Thank you.
 
-(I also use FQ with 40Gbe links if that matters)
+Regards,
 
-For a 1Gbe link, the following command is more than enough.
+Steffen
 
-tc qdisc replace dev eth0 root fq
-
-Also, following patch would probably help fairness. I'll submit an
-official and more complete patch later.
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index bc0fb0fc7552..296c201516d1 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1911,8 +1911,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 		 * of queued bytes to ensure line rate.
- 		 * One example is wifi aggregation (802.11 AMPDU)
- 		 */
--		limit = max_t(unsigned int, sysctl_tcp_limit_output_bytes,
--			      sk->sk_pacing_rate >> 10);
-+		limit = 2 * skb->truesize;
- 
- 		if (atomic_read(&sk->sk_wmem_alloc) > limit) {
- 			set_bit(TSQ_THROTTLED, &tp->tsq_flags);
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
