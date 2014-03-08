@@ -1,58 +1,44 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] pkt_sched: move the sanity test in qdisc_list_add()
-Date: Sat, 08 Mar 2014 08:01:19 -0800
-Message-ID: <1394294479.20149.66.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <7625.1387476879@turing-police.cc.vt.edu>
-	 <1387556764.19078.441.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [BUG?] ixgbe: only num_online_cpus() of the tx queues are
+ enabled
+Date: Sat, 08 Mar 2014 08:08:03 -0800
+Message-ID: <1394294883.20149.70.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAG+wggZOQ_VyAiLBuUUfW13=OqUun3g1vnYj5SEuWN+3hHreLg@mail.gmail.com>
+	 <1394292461.20149.55.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	David Miller <davem@davemloft.net>,
-	Mirco Tischler <mt-ml@gmx.de>
+Cc: netdev@vger.kernel.org, Erez Zadok <ezk@fsl.cs.sunysb.edu>,
+	Dean Hildebrand <dhildeb@us.ibm.com>,
+	Geoff Kuenning <geoff@cs.hmc.edu>
+To: Ming Chen <v.mingchen@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:61084 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751138AbaCHQBV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 11:01:21 -0500
-Received: by mail-pa0-f47.google.com with SMTP id lj1so5445722pab.20
-        for <netdev@vger.kernel.org>; Sat, 08 Mar 2014 08:01:21 -0800 (PST)
-In-Reply-To: <1387556764.19078.441.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:46548 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751130AbaCHQIF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 11:08:05 -0500
+Received: by mail-pb0-f41.google.com with SMTP id jt11so5481909pbb.0
+        for <netdev@vger.kernel.org>; Sat, 08 Mar 2014 08:08:04 -0800 (PST)
+In-Reply-To: <1394292461.20149.55.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Sat, 2014-03-08 at 07:27 -0800, Eric Dumazet wrote:
 
-The WARN_ON(root == &noop_qdisc)) added in qdisc_list_add()
-can trigger in normal conditions when devices are not up.
-It should be done only right before the list_add_tail() call.
+> Quite frankly, with a 1Gbe link, I would just use FQ and your problem
+> would disappear.
+> 
+> (I also use FQ with 40Gbe links if that matters)
+> 
+> For a 1Gbe link, the following command is more than enough.
+> 
+> tc qdisc replace dev eth0 root fq
+> 
+> Also, following patch would probably help fairness. I'll submit an
+> official and more complete patch later.
 
-Fixes: e57a784d8cae4 ("pkt_sched: set root qdisc before change() in attach_default_qdiscs()")
-Reported-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Tested-by: Mirco Tischler <mt-ml@gmx.de>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/sched/sch_api.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+Also try more recent kernels. TCP stack changes a lot these days ;)
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index c31190e29b90..17c03198ebbc 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -273,11 +273,12 @@ static struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
- 
- void qdisc_list_add(struct Qdisc *q)
- {
--	struct Qdisc *root = qdisc_dev(q)->qdisc;
-+	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS)) {
-+		struct Qdisc *root = qdisc_dev(q)->qdisc;
- 
--	WARN_ON_ONCE(root == &noop_qdisc);
--	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS))
-+		WARN_ON_ONCE(root == &noop_qdisc);
- 		list_add_tail(&q->list, &root->list);
-+	}
- }
- EXPORT_SYMBOL(qdisc_list_add);
- 
+http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git
+
+contains many TCP related stuff which should land in linux-3.15
