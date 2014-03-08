@@ -1,64 +1,188 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: rfc: checkpatch logical line continuations (was IBM Akebono:
- Add support for a new PHY interface to the IBM emac driver)
-Date: Fri, 07 Mar 2014 15:15:45 -0800
-Message-ID: <1394234145.16156.109.camel@joe-AO722>
-References: <1394077948-8395-1-git-send-email-alistair@popple.id.au>
-	 <1394077948-8395-3-git-send-email-alistair@popple.id.au>
-	 <20140307.154142.488351276799532264.davem@davemloft.net>
-	 <1394226164.16156.96.camel@joe-AO722> <20140307213017.GA18769@cloud>
-	 <20140307230420.GH29018@mwanda>
+From: Vincent Li <vincent.mc.li@gmail.com>
+Subject: is printk proper tool to trace code path in net code ?
+Date: Fri, 7 Mar 2014 16:09:14 -0800
+Message-ID: <CAK3+h2xOJnxKrHvcmxzzAGoT-ZZuSpzFhMCcD5+iTY6aepVmDw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: josh@joshtriplett.org, David Miller <davem@davemloft.net>,
-	alistair@popple.id.au, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-	devicetree@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dan Carpenter <error27@gmail.com>,
-	Randy Dunlap <randy.dunlap@oracle.com>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140307230420.GH29018@mwanda>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f49.google.com ([209.85.219.49]:34637 "EHLO
+	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751581AbaCHAJP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Mar 2014 19:09:15 -0500
+Received: by mail-oa0-f49.google.com with SMTP id g12so4850076oah.22
+        for <netdev@vger.kernel.org>; Fri, 07 Mar 2014 16:09:14 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-03-08 at 02:04 +0300, Dan Carpenter wrote:
-> On Fri, Mar 07, 2014 at 01:30:17PM -0800, josh@joshtriplett.org wrote:
-> > On Fri, Mar 07, 2014 at 01:02:44PM -0800, Joe Perches wrote:
-> > > On Fri, 2014-03-07 at 15:41 -0500, David Miller wrote:
-> > > > From: Alistair Popple <alistair@popple.id.au>
-> > > > Date: Thu,  6 Mar 2014 14:52:25 +1100
-> > > > 
-> > > > > +	out_be32(dev->reg, in_be32(dev->reg) | WKUP_ETH_RGMIIEN
-> > > > > +		 | WKUP_ETH_TX_OE | WKUP_ETH_RX_IE);
-> > > > 
-> > > > When an expression spans multiple lines, the lines should end with
-> > > > operators rather than begin with them.
-> > > 
-> > > That's not in CodingStyle currently.
-> > 
-> > It's also not even remotely consistent across existing kernel code, and
-> > it isn't obvious that there's a general developer consensus on the
-> > "right" way to write it.
-> > 
-> 
-> We just had this discussion in staging and Greg modified the patch to
-> put the operator at the end.
-> 
-> https://lkml.org/lkml/2014/2/25/125
+Hi,
 
-I remember and it's the reason I bring it up in a
-more public way.
+I am still trying to trace a potential kernel bug selecting wrong
+source ip 127.0.0.1 when there is route proper route table in kernel
+on centos 2.6.32 based kernel
 
-> It's like logical && and || operators which go at the end these days.
-> I don't really want to have a lot of checkpatch churn to convert
-> everything...
+http://www.spinics.net/lists/netdev/msg271050.html
 
-Nor I really.  I simply would like a tool that lets
-more core maintainers like David M avoid sending out
-"do this, not that" type emails about patches.
+ and here I am trying to use printk to understand a code path of
+kernel selecting source ip logic
 
-I don't mind adding style checking that emits something
-for patches and is quieter when scanning files.
+I am only doing printk when the destination ip matches my input ip
+'myip', I want to know if I am doing something stupid that could crash
+kernel, cause I did see get a kernel panic when I put printk in
+ip_route_output_slow() routine during reboot. but only see once so
+far.
+
+
+[root@vincent-centos64 kernel]# git diff net/ipv4/tcp_ipv4.c
+diff --git a/kernel/net/ipv4/tcp_ipv4.c b/kernel/net/ipv4/tcp_ipv4.c
+index f43a3b3..8f41d46 100644
+--- a/kernel/net/ipv4/tcp_ipv4.c
++++ b/kernel/net/ipv4/tcp_ipv4.c
+@@ -152,6 +152,7 @@ int tcp_v4_connect(struct sock *sk, struct
+sockaddr *uaddr, int addr_len)
+        __be32 daddr, nexthop;
+        int tmp;
+        int err;
++       u32 myip = 167921763;
+
+        if (addr_len < sizeof(struct sockaddr_in))
+                return -EINVAL;
+@@ -166,6 +167,14 @@ int tcp_v4_connect(struct sock *sk, struct
+sockaddr *uaddr, int addr_len)
+                nexthop = inet->opt->faddr;
+        }
+
++       if (ntohl(nexthop) == myip ) {
++               printk(KERN_INFO "%s:%d - %s()  (%pI4, %d)->(%pI4, %d)\n",
++                               __FILE__, __LINE__, __FUNCTION__,
++                               &inet->saddr, ntohs(inet->sport),
++                               &nexthop, ntohs(usin->sin_port));
++       }
++
++
+        tmp = ip_route_connect(&rt, nexthop, inet->saddr,
+                               RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
+                               IPPROTO_TCP,
+@@ -230,6 +239,13 @@ int tcp_v4_connect(struct sock *sk, struct
+sockaddr *uaddr, int addr_len)
+        if (err)
+                goto failure;
+
++        if (ntohl(inet->daddr) == myip ) {
++                printk(KERN_INFO "%s:%d - %s()  (%pI4, %d)->(%pI4, %d)\n",
++                                __FILE__, __LINE__, __FUNCTION__,
++                               &inet->saddr, ntohs(inet->sport),
++                               &inet->daddr, ntohs(inet->dport));
++        }
++
+        err = ip_route_newports(&rt, IPPROTO_TCP,
+                                inet->sport, inet->dport, sk);
+        if (err)
+
+
+[root@vincent-centos64 kernel]# git diff include/net/route.h
+diff --git a/kernel/include/net/route.h b/kernel/include/net/route.h
+index f494b24..85ef3e5 100644
+--- a/kernel/include/net/route.h
++++ b/kernel/include/net/route.h
+@@ -161,6 +161,7 @@ static inline int ip_route_connect(struct rtable
+**rp, __be32 dst,
+
+        int err;
+        struct net *net = sock_net(sk);
++       u32 myip = 167921763;
+
+        if (inet_sk(sk)->transparent)
+                fl.flags |= FLOWI_FLAG_ANYSRC;
+@@ -174,6 +175,14 @@ static inline int ip_route_connect(struct rtable
+**rp, __be32 dst,
+                ip_rt_put(*rp);
+                *rp = NULL;
+        }
++       if (ntohl(fl.fl4_dst) == myip ) {
++
++               printk(KERN_INFO "%s:%d - %s()  (%pI4, %d)->(%pI4, %d)\n",
++                               __FILE__, __LINE__, __FUNCTION__,
++                              &fl.fl4_src, ntohs(fl.fl_ip_sport),
++                               &fl.fl4_dst, ntohs(fl.fl_ip_dport));
++       }
++
+        security_sk_classify_flow(sk, &fl);
+        return ip_route_output_flow(net, rp, &fl, sk, flags);
+ }
+
+[root@vincent-centos64 kernel]# git diff net/ipv4/route.c
+diff --git a/kernel/net/ipv4/route.c b/kernel/net/ipv4/route.c
+index 5eef4e1..721b54d 100644
+--- a/kernel/net/ipv4/route.c
++++ b/kernel/net/ipv4/route.c
+@@ -2494,6 +2494,7 @@ static int ip_route_output_slow(struct net *net,
+struct rtable **rp,
+        int free_res = 0;
+        int err;
+
++        printk(KERN_INFO "%s:%d - %s() ", __FILE__, __LINE__, __FUNCTION__);
+
+        res.fi          = NULL;
+ #ifdef CONFIG_IP_MULTIPLE_TABLES
+@@ -2679,6 +2680,7 @@ int __ip_route_output_key(struct net *net,
+struct rtable **rp,
+ {
+        unsigned hash;
+        struct rtable *rth;
++       u32 myip = 167921763;
+
+        if (!rt_caching(net))
+                goto slow_output;
+@@ -2701,6 +2703,16 @@ int __ip_route_output_key(struct net *net,
+struct rtable **rp,
+                        RT_CACHE_STAT_INC(out_hit);
+                        rcu_read_unlock_bh();
+                        *rp = rth;
++                       if (ntohl((*rp)->rt_dst) == myip ) {
++                               printk(KERN_INFO "%s:%d - %s()  (%pI4,
+%d)->(%pI4, %d) dev %s oif %d\n",
++                                       __FILE__, __LINE__, __FUNCTION__,
++                                       &(*rp)->rt_src,
+ntohs((*rp)->fl.fl_ip_sport),
++                                               &(*rp)->rt_dst,
+ntohs((*rp)->fl.fl_ip_dport),
++                                               //&(*rp)->rt_dst,
+ntohs(flp->fl_ip_dport),
++                                       (*rp)->u.dst.dev->name, flp->oif
++                               );
++                       }
++
+                        return 0;
+                }
+                RT_CACHE_STAT_INC(out_hlist_search);
+
+
+[root@vincent-centos64 kernel]# git diff net/ipv4/devinet.c
+diff --git a/kernel/net/ipv4/devinet.c b/kernel/net/ipv4/devinet.c
+index f84f6dd..f9963e3 100644
+--- a/kernel/net/ipv4/devinet.c
++++ b/kernel/net/ipv4/devinet.c
+@@ -859,12 +859,21 @@ __be32 inet_select_addr(const struct net_device
+*dev, __be32 dst, int scope)
+        __be32 addr = 0;
+        struct in_device *in_dev;
+        struct net *net = dev_net(dev);
++       u32 myip = 167921763;
+
+        rcu_read_lock();
+        in_dev = __in_dev_get_rcu(dev);
++
+        if (!in_dev)
+                goto no_in_dev;
+
++        if (ntohl(dst) == myip ) {
++                printk(KERN_INFO "%s:%d - %s()  in_dev %s, dst %pI4\n",
++                           __FILE__, __LINE__, __FUNCTION__,
++                               in_dev->dev->name, &dst
++                  );
++       }
++
+        for_primary_ifa(in_dev) {
+                if (ifa->ifa_scope > scope)
+                        continue;
