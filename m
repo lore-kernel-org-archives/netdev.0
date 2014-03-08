@@ -1,62 +1,53 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/15] e1000e: PTP lock in e1000e_phc_adjustfreq
-Date: Sat,  8 Mar 2014 01:25:27 -0800
-Message-ID: <1394270741-29926-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/15] e1000e: Cleanup unecessary references
+Date: Sat,  8 Mar 2014 01:25:28 -0800
+Message-ID: <1394270741-29926-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1394270741-29926-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Todd Fujinaka <todd.fujinaka@intel.com>, netdev@vger.kernel.org,
+Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:23968 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:39895 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751097AbaCHJZo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Mar 2014 04:25:44 -0500
+	id S1751103AbaCHJZp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Mar 2014 04:25:45 -0500
 In-Reply-To: <1394270741-29926-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Todd Fujinaka <todd.fujinaka@intel.com>
+From: David Ertman <davidx.m.ertman@intel.com>
 
-Add lock in e1000e_phc_adjfreq to prevent concurrent changes to TIMINCA
-and SYSTIMH/L.
+Cleaning up some pointer references that are no longer necessary
 
-Signed-off-by: Todd Fujinaka <todd.fujinaka@intel.com>
+Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
 Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ptp.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ptp.c b/drivers/net/ethernet/intel/e1000e/ptp.c
-index 065f8c8..e24160d 100644
---- a/drivers/net/ethernet/intel/e1000e/ptp.c
-+++ b/drivers/net/ethernet/intel/e1000e/ptp.c
-@@ -47,6 +47,7 @@ static int e1000e_phc_adjfreq(struct ptp_clock_info *ptp, s32 delta)
- 						     ptp_clock_info);
- 	struct e1000_hw *hw = &adapter->hw;
- 	bool neg_adj = false;
-+	unsigned long flags;
- 	u64 adjustment;
- 	u32 timinca, incvalue;
- 	s32 ret_val;
-@@ -64,6 +65,8 @@ static int e1000e_phc_adjfreq(struct ptp_clock_info *ptp, s32 delta)
- 	if (ret_val)
- 		return ret_val;
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index e6f8961d..1f144e9 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1701,7 +1701,7 @@ static void e1000_clean_rx_ring(struct e1000_ring *rx_ring)
+ 	adapter->flags2 &= ~FLAG2_IS_DISCARDING;
  
-+	spin_lock_irqsave(&adapter->systim_lock, flags);
-+
- 	incvalue = timinca & E1000_TIMINCA_INCVALUE_MASK;
+ 	writel(0, rx_ring->head);
+-	if (rx_ring->adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
++	if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
+ 		e1000e_update_rdt_wa(rx_ring, 0);
+ 	else
+ 		writel(0, rx_ring->tail);
+@@ -2405,7 +2405,7 @@ static void e1000_clean_tx_ring(struct e1000_ring *tx_ring)
+ 	tx_ring->next_to_clean = 0;
  
- 	adjustment = incvalue;
-@@ -77,6 +80,8 @@ static int e1000e_phc_adjfreq(struct ptp_clock_info *ptp, s32 delta)
- 
- 	ew32(TIMINCA, timinca);
- 
-+	spin_unlock_irqrestore(&adapter->systim_lock, flags);
-+
- 	return 0;
- }
- 
+ 	writel(0, tx_ring->head);
+-	if (tx_ring->adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
++	if (adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
+ 		e1000e_update_tdt_wa(tx_ring, 0);
+ 	else
+ 		writel(0, tx_ring->tail);
 -- 
 1.8.3.1
