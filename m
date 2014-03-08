@@ -1,57 +1,54 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/15] e1000e: Fix not generating an error on invalid load parameter
-Date: Sat,  8 Mar 2014 01:25:36 -0800
-Message-ID: <1394270741-29926-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/15] ixgbevf: fix skb->pkt_type checks
+Date: Sat,  8 Mar 2014 01:25:39 -0800
+Message-ID: <1394270741-29926-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1394270741-29926-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:23968 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:51114 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751545AbaCHJZy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Mar 2014 04:25:54 -0500
+	id S1751609AbaCHJ0A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Mar 2014 04:26:00 -0500
 In-Reply-To: <1394270741-29926-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ertman <davidx.m.ertman@intel.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
 
-Valid values for InterruptThrottleRate are 10-100000, or one of
-0, 1, 3, 4.  '2' is not valid.  This is a legacy from the branching
-from the e1000 driver code that e1000e was based from.
+skb->pkt_type is not a bitmask, but contains only value at a time from
+the range defined in include/uapi/linux/if_packet.h.
 
-Prior to this patch, if the e1000e driver  was loaded with a forced
-invalid InterruptThrottleRate of '2', then no throttle rate would be
-set and no error message generated.
+Checking it like if it was a bitmask of values would also cause
+PACKET_OTHERHOST, PACKET_LOOPBACK and PACKET_FASTROUTE to be matched by
+this check since their lower 2 bits are also set, although that does not
+fix a real bug, it is still potentially confusing.
 
-Now, a message will be generated that an invalid value was used and the
-value for InterruptThrottleRate will be set to the default value.
+This bogus check was introduced in commit 815cccbf ("ixgbe: add setlink,
+getlink support to ixgbe and ixgbevf").
 
-Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/param.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/param.c b/drivers/net/ethernet/intel/e1000e/param.c
-index 01797b7..d0ac0f3 100644
---- a/drivers/net/ethernet/intel/e1000e/param.c
-+++ b/drivers/net/ethernet/intel/e1000e/param.c
-@@ -374,6 +374,12 @@ void e1000e_check_options(struct e1000_adapter *adapter)
- 				 "%s set to dynamic mode\n", opt.name);
- 			adapter->itr = 20000;
- 			break;
-+		case 2:
-+			dev_info(&adapter->pdev->dev,
-+				 "%s Invalid mode - setting default\n",
-+				 opt.name);
-+			adapter->itr_setting = opt.def;
-+			/* fall-through */
- 		case 3:
- 			dev_info(&adapter->pdev->dev,
- 				 "%s set to dynamic conservative mode\n",
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 57e0cd8..6ac5da2 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -516,7 +516,8 @@ static int ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
+ 		/* Workaround hardware that can't do proper VEPA multicast
+ 		 * source pruning.
+ 		 */
+-		if ((skb->pkt_type & (PACKET_BROADCAST | PACKET_MULTICAST)) &&
++		if ((skb->pkt_type == PACKET_BROADCAST ||
++		    skb->pkt_type == PACKET_MULTICAST) &&
+ 		    ether_addr_equal(rx_ring->netdev->dev_addr,
+ 				     eth_hdr(skb)->h_source)) {
+ 			dev_kfree_skb_irq(skb);
 -- 
 1.8.3.1
