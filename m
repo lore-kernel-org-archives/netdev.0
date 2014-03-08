@@ -1,36 +1,50 @@
-From: "PaX Team" <pageexec@freemail.hu>
-Subject: Re: [PATCH v2] mac80211: LLVMLinux: Remove VLAIS usage from mac80211
-Date: Sat, 08 Mar 2014 23:01:48 +0100
-Message-ID: <531B934C.31666.37555A14@pageexec.freemail.hu>
-References: <1394177091.4653.1.camel@jlt4.sipsolutions.net>, <1394241960-1764-1-git-send-email-behanw@converseincode.com>, <CABikg9y_j-SDOsMj1C5uogP0HNj6bsB_ySVFtAh_oNgZ0swd=g@mail.gmail.com>
-Reply-To: pageexec@freemail.hu
+From: Krishna Chaitanya <chaitanya.mgit@gmail.com>
+Subject: Re: [PATCH] p54usb: fix leaks at failure path in p54u_probe()
+Date: Sun, 9 Mar 2014 04:14:32 +0530
+Message-ID: <CABPxzYLzMvtWShP_PFdyTzV8P1P177yPZh=xAO=3tiy97UfEmQ@mail.gmail.com>
+References: <1394226709-10763-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linville@tuxdriver.com, johannes@sipsolutions.net,
-	davem@davemloft.net,
+Content-Type: text/plain; charset=KOI8-R
+Cc: Christian Lamparter <chunkeey@googlemail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
 	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dwmw2@infradead.org,
-	"=?UTF-8?Q?Jan-Simon_M=C3=B6ller?=" <dl9pf@gmx.de>,
-	"=?UTF-8?Q?Vin=C3=ADcius_Tinti?=" <viniciustinti@gmail.com>,
-	Mark Charlebois <charlebm@gmail.com>
-To: behanw@converseincode.com, Sergei Antonov <saproj@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <CABikg9y_j-SDOsMj1C5uogP0HNj6bsB_ySVFtAh_oNgZ0swd=g@mail.gmail.com>
-Content-description: Mail message body
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+	ldv-project@linuxtesting.org
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:60680 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751130AbaCHWoy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 17:44:54 -0500
+In-Reply-To: <1394226709-10763-1-git-send-email-khoroshilov@ispras.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 8 Mar 2014 at 21:29, Sergei Antonov wrote:
-
-> > -       memset(&aead_req, 0, sizeof(aead_req));
-> > +       char aead_req_data[sizeof(struct aead_request) +
-> > +                               crypto_aead_reqsize(tfm) +
-> > +                               CRYPTO_MINALIGN] CRYPTO_MINALIGN_ATTR;
-                                                     ^^^^^^^^^^^^^^^^^^^^
-wouldn't the underlined attribute ensure the required alignment?
-
-> Bad trick with regards to alignment.
-> The alignment requirement for struct aead_request is stronger than
-> what an array of chars may have.
+On Sat, Mar 8, 2014 at 2:41 AM, Alexey Khoroshilov
+<khoroshilov@ispras.ru> wrote:
+> If p54u_load_firmware() fails, p54u_probe() does not deallocate
+> already allocated resources. The patch adds proper failure handling.
+>
+> Found by Linux Driver Verification project (linuxtesting.org).
+>
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+> ---
+>  drivers/net/wireless/p54/p54usb.c | 4 ++++
+>  1 file changed, 4 insertions(+)
+>
+> diff --git a/drivers/net/wireless/p54/p54usb.c b/drivers/net/wireless/p54/p54usb.c
+> index 6e635cfa24c8..5df74503fd4f 100644
+> --- a/drivers/net/wireless/p54/p54usb.c
+> +++ b/drivers/net/wireless/p54/p54usb.c
+> @@ -1053,6 +1053,10 @@ static int p54u_probe(struct usb_interface *intf,
+>                 priv->upload_fw = p54u_upload_firmware_net2280;
+>         }
+>         err = p54u_load_firmware(dev, intf);
+> +       if (err) {
+> +               usb_put_dev(udev);
+> +               p54_free_common(dev);
+> +       }
+>         return err;
+>  }
+The load_firmware puts down the reference
+in case of error. Only free is required here.
