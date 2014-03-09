@@ -1,35 +1,41 @@
 From: Ming Chen <v.mingchen@gmail.com>
 Subject: Re: [BUG?] ixgbe: only num_online_cpus() of the tx queues are enabled
-Date: Sat, 8 Mar 2014 19:19:52 -0500
-Message-ID: <CAG+wggY-bK-0V0tK+Vw24NqM+MaFf1fpWNRZP_wxN-auB5pj6g@mail.gmail.com>
+Date: Sat, 8 Mar 2014 19:30:40 -0500
+Message-ID: <CAG+wggaUHeD5Vm_HF9m4+1SZZOUo_GeQroM+0kyA_qTC5c8=3Q@mail.gmail.com>
 References: <CAG+wggZOQ_VyAiLBuUUfW13=OqUun3g1vnYj5SEuWN+3hHreLg@mail.gmail.com>
-	<531AC2DC.4000403@intel.com>
+	<1394292461.20149.55.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Cc: netdev@vger.kernel.org, Erez Zadok <ezk@fsl.cs.sunysb.edu>,
 	Dean Hildebrand <dhildeb@us.ibm.com>,
-	Geoff Kuenning <geoff@cs.hmc.edu>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: John Fastabend <john.r.fastabend@intel.com>
+	Geoff Kuenning <geoff@cs.hmc.edu>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:52476 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751767AbaCIATw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 19:19:52 -0500
-Received: by mail-ig0-f180.google.com with SMTP id hl1so5246347igb.1
-        for <netdev@vger.kernel.org>; Sat, 08 Mar 2014 16:19:52 -0800 (PST)
-In-Reply-To: <531AC2DC.4000403@intel.com>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:59537 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751694AbaCIAal (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 19:30:41 -0500
+Received: by mail-ie0-f175.google.com with SMTP id to1so5667584ieb.6
+        for <netdev@vger.kernel.org>; Sat, 08 Mar 2014 16:30:40 -0800 (PST)
+In-Reply-To: <1394292461.20149.55.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi John,
+Hi Eric,
 
-Thanks for the suggestion. Please find my comments inline.
+Thanks for the suggestion. I believe "tc qdisc replace dev eth0 root
+fq" can achieve fairness if we have only one queue. My understanding
+is that we cannot directly apply FQ to a multiqueue devices, isn't it?
+If we apply FQ separately to each tx queue, then what if we have one
+flow (fl-0) in tx-0, but two flows (fl-1 and fl-2) in tx-1? With FQ,
+the two flows in tx-1 should get the same bandwidth. But how about
+fl-0 and fl-1?
 
-On Sat, Mar 8, 2014 at 2:12 AM, John Fastabend
-<john.r.fastabend@intel.com> wrote:
-> On 3/7/2014 10:13 PM, Ming Chen wrote:
->>
+Best,
+Ming
+
+On Sat, Mar 8, 2014 at 10:27 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Sat, 2014-03-08 at 01:13 -0500, Ming Chen wrote:
 >> Hi,
 >>
 >> We have an Intel 82599EB dual-port 10GbE NIC, which has 128 tx queues
@@ -54,57 +60,38 @@ On Sat, Mar 8, 2014 at 2:12 AM, John Fastabend
 >> queues enabled by default. If this is unlikely to happen, is there a
 >> way to reconfigure the NIC so that we can use all tx queues if we
 >> want?
->
->
-> One way to solve this would be to use XPS and cgroups. XPS will allow
-> you to map the queues to CPUs and then use cgroups to map your
-> application (NFS here) onto the correct CPU. Then which queue is
-> picked is deterministic and you could manage the hash-cast problem.
-> Having to use cgroup to do the management is not ideal though.
->
-> Also once you have many sessions on a single mq qdisc queue you
-> should consider using fq-codel configured via 'tc qdisc add ...'
-> to get nice fairness properties amongst flows sharing a queue.
->
-
-Yeah, we can let all NFS flows share just one queue using XPS and
-cgroups. And then use fd-codel to achieve fairness among them. But I
-have two doubts: (1) Is cgroups also applicable to kernel process as
-we were using the in-kernel NFS server. Never used cgroups before.
-
-(2) I have not tried yet, but would the network throughput be lower if
-we just use just one tx queue instead of multiple? Because NFS server
-is the only thing we care about in the machine. Using just one tx
-queue sounds like a waste of resources considering there are 64 in
-total. I will try this and measure the throughput.
-
->
 >>
 >> FYI, our kernel version is 3.12.0, but I found the same limit of tx
 >> queues in the code of the latest kernel. I am counting the number of
 >> enabled queues using "ls /sys/class/net/p3p1/queues| grep -c tx-"
->
->
-> Its been the same for sometime. It should be reasonably easy to allow
-> this I'll take a look but wont get to it until next week. In the
-> meantime I'll see what other sort of comments pop up.
-
-Thanks. It will be great if we can enable all tx-queues somehow.
-
->
-> This is only observable with a small number of flows correct? With
-> many flows the distribution should be fair.
-
-Right now we have only experimented with 5 flows. Not sure with larger
-number of flows.
-
->
 >>
 >> Best,
->> Ming
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
+>
+> Quite frankly, with a 1Gbe link, I would just use FQ and your problem
+> would disappear.
+>
+> (I also use FQ with 40Gbe links if that matters)
+>
+> For a 1Gbe link, the following command is more than enough.
+>
+> tc qdisc replace dev eth0 root fq
+>
+> Also, following patch would probably help fairness. I'll submit an
+> official and more complete patch later.
+>
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index bc0fb0fc7552..296c201516d1 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -1911,8 +1911,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+>                  * of queued bytes to ensure line rate.
+>                  * One example is wifi aggregation (802.11 AMPDU)
+>                  */
+> -               limit = max_t(unsigned int, sysctl_tcp_limit_output_bytes,
+> -                             sk->sk_pacing_rate >> 10);
+> +               limit = 2 * skb->truesize;
+>
+>                 if (atomic_read(&sk->sk_wmem_alloc) > limit) {
+>                         set_bit(TSQ_THROTTLED, &tp->tsq_flags);
+>
 >
