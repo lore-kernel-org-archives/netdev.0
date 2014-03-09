@@ -1,173 +1,43 @@
-From: Daniel Borkmann <borkmann@iogearbox.net>
-Subject: Re: [PATCH v7 net-next 1/3] filter: add Extended BPF interpreter
- and converter
-Date: Sun, 09 Mar 2014 13:29:41 +0100
-Message-ID: <531C5EB5.2080507@iogearbox.net>
-References: <1394320530-3508-1-git-send-email-ast@plumgrid.com> <1394320530-3508-2-git-send-email-ast@plumgrid.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [BUG?] ixgbe: only num_online_cpus() of the tx queues are
+ enabled
+Date: Sun, 09 Mar 2014 06:39:46 -0700
+Message-ID: <1394372386.20149.88.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAG+wggZOQ_VyAiLBuUUfW13=OqUun3g1vnYj5SEuWN+3hHreLg@mail.gmail.com>
+	 <1394292461.20149.55.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1394294883.20149.70.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAG+wggbNpUqL12EAWdXxxxX6mGPj0+1HktDKJeeSxum6emBY_g@mail.gmail.com>
+	 <1394336258.20149.80.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAG+wggY24+mc=8bCyr3fB+H7DJNfjANQuqbuDRcdUd9=+ip-Ew@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Jesse Gross <jesse@nicira.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Tom Zanussi <tom.zanussi@linux.intel.com>,
-	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Pekka Enberg <penberg@iki.fi>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.o
-To: Alexei Starovoitov <ast@plumgrid.com>
+Cc: netdev@vger.kernel.org, Erez Zadok <ezk@fsl.cs.sunysb.edu>,
+	Dean Hildebrand <dhildeb@us.ibm.com>,
+	Geoff Kuenning <geoff@cs.hmc.edu>
+To: Ming Chen <v.mingchen@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:43255 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752133AbaCIM3z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2014 08:29:55 -0400
-In-Reply-To: <1394320530-3508-2-git-send-email-ast@plumgrid.com>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:61152 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752209AbaCINjs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2014 09:39:48 -0400
+Received: by mail-pb0-f52.google.com with SMTP id rr13so6143858pbb.25
+        for <netdev@vger.kernel.org>; Sun, 09 Mar 2014 06:39:47 -0700 (PDT)
+In-Reply-To: <CAG+wggY24+mc=8bCyr3fB+H7DJNfjANQuqbuDRcdUd9=+ip-Ew@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/09/2014 12:15 AM, Alexei Starovoitov wrote:
-> Extended BPF extends old BPF in the following ways:
-> - from 2 to 10 registers
->    Original BPF has two registers (A and X) and hidden frame pointer.
->    Extended BPF has ten registers and read-only frame pointer.
-> - from 32-bit registers to 64-bit registers
->    semantics of old 32-bit ALU operations are preserved via 32-bit
->    subregisters
-> - if (cond) jump_true; else jump_false;
->    old BPF insns are replaced with:
->    if (cond) jump_true; /* else fallthrough */
-> - adds signed > and >= insns
-> - 16 4-byte stack slots for register spill-fill replaced with
->    up to 512 bytes of multi-use stack space
-> - introduces bpf_call insn and register passing convention for zero
->    overhead calls from/to other kernel functions (not part of this patch)
-> - adds arithmetic right shift insn
-> - adds swab32/swab64 insns
-> - adds atomic_add insn
-> - old tax/txa insns are replaced with 'mov dst,src' insn
->
-> Extended BPF is designed to be JITed with one to one mapping, which
-> allows GCC/LLVM backends to generate optimized BPF code that performs
-> almost as fast as natively compiled code
->
-> sk_convert_filter() remaps old style insns into extended:
-> 'sock_filter' instructions are remapped on the fly to
-> 'sock_filter_ext' extended instructions when
-> sysctl net.core.bpf_ext_enable=1
->
-> Old filter comes through sk_attach_filter() or sk_unattached_filter_create()
->   if (bpf_ext_enable) {
->      convert to new
->      sk_chk_filter() - check old bpf
->      use sk_run_filter_ext() - new interpreter
->   } else {
->      sk_chk_filter() - check old bpf
->      if (bpf_jit_enable)
->          use old jit
->      else
->          use sk_run_filter() - old interpreter
->   }
->
-> sk_run_filter_ext() interpreter is noticeably faster
-> than sk_run_filter() for two reasons:
->
-> 1.fall-through jumps
->    Old BPF jump instructions are forced to go either 'true' or 'false'
->    branch which causes branch-miss penalty.
->    Extended BPF jump instructions have one branch and fall-through,
->    which fit CPU branch predictor logic better.
->    'perf stat' shows drastic difference for branch-misses.
->
-> 2.jump-threaded implementation of interpreter vs switch statement
->    Instead of single tablejump at the top of 'switch' statement, GCC will
->    generate multiple tablejump instructions, which helps CPU branch predictor
->
-> Performance of two BPF filters generated by libpcap was measured
-> on x86_64, i386 and arm32.
->
-> fprog #1 is taken from Documentation/networking/filter.txt:
-> tcpdump -i eth0 port 22 -dd
->
-> fprog #2 is taken from 'man tcpdump':
-> tcpdump -i eth0 'tcp port 22 and (((ip[2:2] - ((ip[0]&0xf)<<2)) -
->     ((tcp[12]&0xf0)>>2)) != 0)' -dd
->
-> Other libpcap programs have similar performance differences.
->
-> Raw performance data from BPF micro-benchmark:
-> SK_RUN_FILTER on same SKB (cache-hit) or 10k SKBs (cache-miss)
-> time in nsec per call, smaller is better
-> --x86_64--
->           fprog #1  fprog #1   fprog #2  fprog #2
->           cache-hit cache-miss cache-hit cache-miss
-> old BPF     90       101       192       202
-> ext BPF     31        71       47         97
-> old BPF jit 12        34       17         44
-> ext BPF jit TBD
->
-> --i386--
->           fprog #1  fprog #1   fprog #2  fprog #2
->           cache-hit cache-miss cache-hit cache-miss
-> old BPF    107        136      227       252
-> ext BPF     40        119       69       172
->
-> --arm32--
->           fprog #1  fprog #1   fprog #2  fprog #2
->           cache-hit cache-miss cache-hit cache-miss
-> old BPF    202        300      475       540
-> ext BPF    180        270      330       470
-> old BPF jit 26        182       37       202
-> new BPF jit TBD
->
-> Tested with trinify BPF fuzzer
->
-> Future work:
->
-> 0. add bpf/ebpf testsuite to tools/testing/selftests/net/bpf
->
-> 1. add extended BPF JIT for x86_64
->
-> 2. add inband old/new demux and extended BPF verifier, so that new programs
->     can be loaded through old sk_attach_filter() and sk_unattached_filter_create()
->     interfaces
->
-> 3. tracing filters systemtap-like with extended BPF
->
-> 4. OVS with extended BPF
->
-> 5. nftables with extended BPF
->
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
-> Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
+On Sun, 2014-03-09 at 01:47 -0500, Ming Chen wrote:
 
-One more question or possible issue that came through my mind: When
-someone attaches a socket filter from user space, and bpf_ext_enable=1
-then the old filter will transparently be converted to the new
-representation. If then user space (e.g. through checkpoint restore)
-will issue a sk_get_filter() and thus we're calling sk_decode_filter()
-on sk->sk_filter and, therefore, try to decode what we stored in
-insns_ext[] with the assumption we still have the old code. Would that
-actually crash (or leak memory, or just return garbage), as we access
-decodes[] array with filt->code? Would be great if you could double-check.
+> Thanks for the patch. I forgot to mention that excessively big cwnd
+> (or bufferbloat) does play a part in Hash-Cast. We found that using
+> TCP Vegas does not show unfairness even in the presence of hash
+> collision among TCP flows. Comparing Vegas and Cubic, we found that
+> Vegas has a much smaller cwnd.
 
-The assumption with sk_get_filter() is that it returns the same filter
-that was previously attached, so that it can be re-attached again at
-a later point in time.
+Of course, Vegas is delay based. It does not need to increase cwnd to
+insane values.
 
-Cheers,
+Problem is it does not compete well in presence of non Vegas flows.
 
-Daniel
+And unfortunately, Internet is filled by non Vegas flows.
