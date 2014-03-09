@@ -1,91 +1,93 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v7 net-next 1/3] filter: add Extended BPF interpreter and converter
-Date: Sun, 9 Mar 2014 10:38:55 -0700
-Message-ID: <CAMEtUuyB9ZhvwU+Lv5UypXDbgAG02BgdRomF9nOef-GqNAxjww@mail.gmail.com>
-References: <1394320530-3508-1-git-send-email-ast@plumgrid.com>
-	<1394320530-3508-2-git-send-email-ast@plumgrid.com>
-	<1394376353.20149.96.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next v2 1/6] tipc: allow connection shutdown
+ callback to be invoked in advance
+Date: Sun, 09 Mar 2014 17:48:09 +0000
+Message-ID: <1394387289.2861.175.camel@deadeye.wl.decadent.org.uk>
+References: <1394006178-23966-1-git-send-email-erik.hugne@ericsson.com>
+	 <1394006178-23966-2-git-send-email-erik.hugne@ericsson.com>
+	 <20140305.235618.31002872977881096.davem@davemloft.net>
+	 <20140306090634.GA6630@eerihug-hybrid.rnd.ki.sw.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Jesse Gross <jesse@nicira.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Tom Zanussi <tom.zanussi@linux.intel.com>,
-	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Pekka Enberg <penberg@iki.fi>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.k
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394376353.20149.96.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-GrADIjGaA7YTLc3RUFyQ"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net, jon.maloy@ericsson.com,
+	maloy@donjonn.com, ying.xue@windriver.com,
+	paul.gortmaker@windriver.com, richard.alpe@ericsson.com
+To: Erik Hugne <erik.hugne@ericsson.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51058 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751329AbaCIRsY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2014 13:48:24 -0400
+In-Reply-To: <20140306090634.GA6630@eerihug-hybrid.rnd.ki.sw.ericsson.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 9, 2014 at 7:45 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sat, 2014-03-08 at 15:15 -0800, Alexei Starovoitov wrote:
->
->> +/**
->> + *   sk_run_filter_ext - run an extended filter
->> + *   @ctx: buffer to run the filter on
->> + *   @insn: filter to apply
->> + *
->> + * Decode and execute extended BPF instructions.
->> + * @ctx is the data we are operating on.
->> + * @filter is the array of filter instructions.
->> + */
->> +notrace u32 sk_run_filter_ext(void *ctx, const struct sock_filter_ext *insn)
->> +{
->> +     u64 stack[64];
->> +     u64 regs[16];
->> +     void *ptr;
->> +     u64 tmp;
->> +     int off;
 
-First of all, great that you finally reviewed it! Feedback is appreciated :)
+--=-GrADIjGaA7YTLc3RUFyQ
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> Why is this 'notrace' ?
+On Thu, 2014-03-06 at 10:06 +0100, Erik Hugne wrote:
+> On Wed, Mar 05, 2014 at 11:56:18PM -0500, David Miller wrote:
+> > From: <erik.hugne@ericsson.com>
+> > Date: Wed, 5 Mar 2014 08:56:13 +0100
+> >=20
+> > > @@ -413,8 +411,11 @@ int tipc_conn_sendmsg(struct tipc_server *s, int=
+ conid,
+> > >  	struct tipc_conn *con;
+> > > =20
+> > >  	con =3D tipc_conn_lookup(s, conid);
+> > > -	if (!con)
+> > > +	if (!con) {
+> > > +		pr_err("Connection %d not found on server %s\n", conid,
+> > > +		       s->name);
+> > >  		return -EINVAL;
+> > > +	}
+> > > =20
+> > >  	e =3D tipc_alloc_entry(data, len);
+> > >  	if (!e) {
+> >=20
+> > You really don't want to add kernel log messages which might be easily
+> > triggerable by the user.  Please remove this.
+>=20
+> Ok i'll remove it, but i'd anyway like to mention that this cannot be tri=
+ggered
+> by users. This function is only invoked from the TIPC internal services
+> (subscriber and config) as a response from network events.
 
-to avoid overhead of dummy call.
-JITed filters are not adding this dummy call.
-So 'notrace' on interpreter brings it to parity with JITed filters.
+If 'network events' are triggered by packets received from remote hosts
+or packets sent on behalf of arbitrary local users, then this is just as
+bad.  You need to rate-limit such logging, usually by making it
+conditional on net_ratelimit().
 
-> 80 u64 on the stack, that is 640 bytes to run a filter ????
+Ben.
 
-yes. that was described in commit log and in Doc...filter.txt:
-"
-- 16 4-byte stack slots for register spill-fill replaced with
-  up to 512 bytes of multi-use stack space
-"
+--=20
+Ben Hutchings
+I say we take off; nuke the site from orbit.  It's the only way to be sure.
 
-For interpreter it is prohibitive to dynamically allocate stack space
-that's why it just grabs 64*8 to run any program.
-For JIT it's going to be close to zero for majority of filters, since
-generated program will allocate only as much as was allowed
-by sk_chk_filter_ext(). Only largest programs would need 'up to 512'.
-This much stack would be needed for programs that need to use
-large key/value pairs in their ebpf tables.
-So far I haven't seen a program that approaches this limit,
-but it seems to me that 512 is reasonable, since kernel warns on
-functions with > 1k stack.
+--=-GrADIjGaA7YTLc3RUFyQ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-btw, current x86 jit just does 'subq  $96,%rsp',
-I think ebpf jit should use the minimum amount of stack. Only amount
-that is needed.
-May be I'm over thinking it and having 'subq $512, %rsp' for JIT is also fine.
-Let me know.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-Thanks
-Alexei
+iQIVAwUAUxypWee/yOyVhhEJAQrdwRAAsz3uEaXp2yI7ZPIw7jDXHgrPudcTOA+P
+ldHSCHHuC/Kx5XWK0u8qjukKvrETjgqbkQbuS61TvRWFWmP4oCYLJ/i8hAtFcKQX
+Z8vVBDSO46C01hsyNMFSqQoPl8RSxvgaqxzkHIXmQRrzh2mCYInQbxRRY1rgVxV5
+APHz8FMZzBbvFCkX9KUZiD9stWU0FfDelAsTwnztA96Mmao6DKeG3RvIpVRKYQGr
+NLEsAP+MhCZCme4wVsGspfT0RmmoGnQrrjOVm6jsRicml2mjhRyhoBvNArWxSWsl
+LaoI53424cES2oVdFDFxgU8CFRkki+cY4SF5idA6XznQwawg2499bCSgBMTpzzNR
+YD/4wDij0hG0by1g2FhPhMrBL/oGipK8IGzNp8/pg3W25/MGaPQhjy9MGniYa9WR
+CcXziA7lYUjEYSejzQyfwM9tDZZWazj8WcB/yp9J7FrQnytaoTcKdoLKYtYlFfUO
+ZbGkqJA8Ud+Hk4yOEsEozJxLCbbErafttugwT3Ism4OjWOdevnmn5ndkKKrIhnff
+haGCpQ5OwPO6v6twivxdoMMquozkdNNlCkgQSBPot6D2/P/AoADQstgtduOOxImC
+HyD9VDS/c3xgqBd/lhO0GrqClWuTUW+kSjUjMka5eVERYVMrW85MXzY4I4mi+oYo
+fmqwND3RXMQ=
+=AqGU
+-----END PGP SIGNATURE-----
+
+--=-GrADIjGaA7YTLc3RUFyQ--
