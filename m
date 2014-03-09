@@ -1,86 +1,185 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: TX timestamping for ICMP (sfc and core)?
-Date: Sun, 09 Mar 2014 17:07:37 +0000
-Message-ID: <1394384857.2861.159.camel@deadeye.wl.decadent.org.uk>
-References: <CALCETrXpaD4i9V2Qv_0xfouGRb_y27-R6fOQ5v4Q97jNwgecFA@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v7 net-next 1/3] filter: add Extended BPF interpreter and converter
+Date: Sun, 9 Mar 2014 10:08:05 -0700
+Message-ID: <CAMEtUux-Psz9NW+t7vf2-=iDE5TW7KDOag2TDbxTEvd6a=LKSw@mail.gmail.com>
+References: <1394320530-3508-1-git-send-email-ast@plumgrid.com>
+	<1394320530-3508-2-git-send-email-ast@plumgrid.com>
+	<531C5EB5.2080507@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-g9qxSDIHJ+Vir2m0VS3H"
-Cc: Network Development <netdev@vger.kernel.org>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:50975 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751307AbaCIRHp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2014 13:07:45 -0400
-In-Reply-To: <CALCETrXpaD4i9V2Qv_0xfouGRb_y27-R6fOQ5v4Q97jNwgecFA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.k
+To: Daniel Borkmann <borkmann@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <531C5EB5.2080507@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---=-g9qxSDIHJ+Vir2m0VS3H
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2014-03-04 at 12:43 -0800, Andy Lutomirski wrote:
-> I'm trying to get tx timestamping working on ping sockets.  My program
-> works fine (with hardware TX timestamps) if I send my "pings" on the
-> PTP UDP ports.  I want to send real ICMP pings, though.
->=20
-> It looks like there are two problems:
->=20
->  - Something in the core code seems to eat SKBTX_HW_STAMP on ping
-> sockets.  At least, this code in efx_hard_start_xmit triggers for
-> IPPROTO_UDP on PTP ports but not for IPPROTO_ICMP:
->=20
->         if (unlikely(efx_xmit_with_hwtstamp(skb)))
->                 printk(KERN_DEBUG "sfc: trying to do a TX timestamp\n");
+On Sun, Mar 9, 2014 at 5:29 AM, Daniel Borkmann <borkmann@iogearbox.net> wrote:
+> On 03/09/2014 12:15 AM, Alexei Starovoitov wrote:
+>>
+>> Extended BPF extends old BPF in the following ways:
+>> - from 2 to 10 registers
+>>    Original BPF has two registers (A and X) and hidden frame pointer.
+>>    Extended BPF has ten registers and read-only frame pointer.
+>> - from 32-bit registers to 64-bit registers
+>>    semantics of old 32-bit ALU operations are preserved via 32-bit
+>>    subregisters
+>> - if (cond) jump_true; else jump_false;
+>>    old BPF insns are replaced with:
+>>    if (cond) jump_true; /* else fallthrough */
+>> - adds signed > and >= insns
+>> - 16 4-byte stack slots for register spill-fill replaced with
+>>    up to 512 bytes of multi-use stack space
+>> - introduces bpf_call insn and register passing convention for zero
+>>    overhead calls from/to other kernel functions (not part of this patch)
+>> - adds arithmetic right shift insn
+>> - adds swab32/swab64 insns
+>> - adds atomic_add insn
+>> - old tax/txa insns are replaced with 'mov dst,src' insn
+>>
+>> Extended BPF is designed to be JITed with one to one mapping, which
+>> allows GCC/LLVM backends to generate optimized BPF code that performs
+>> almost as fast as natively compiled code
+>>
+>> sk_convert_filter() remaps old style insns into extended:
+>> 'sock_filter' instructions are remapped on the fly to
+>> 'sock_filter_ext' extended instructions when
+>> sysctl net.core.bpf_ext_enable=1
+>>
+>> Old filter comes through sk_attach_filter() or
+>> sk_unattached_filter_create()
+>>   if (bpf_ext_enable) {
+>>      convert to new
+>>      sk_chk_filter() - check old bpf
+>>      use sk_run_filter_ext() - new interpreter
+>>   } else {
+>>      sk_chk_filter() - check old bpf
+>>      if (bpf_jit_enable)
+>>          use old jit
+>>      else
+>>          use sk_run_filter() - old interpreter
+>>   }
+>>
+>> sk_run_filter_ext() interpreter is noticeably faster
+>> than sk_run_filter() for two reasons:
+>>
+>> 1.fall-through jumps
+>>    Old BPF jump instructions are forced to go either 'true' or 'false'
+>>    branch which causes branch-miss penalty.
+>>    Extended BPF jump instructions have one branch and fall-through,
+>>    which fit CPU branch predictor logic better.
+>>    'perf stat' shows drastic difference for branch-misses.
+>>
+>> 2.jump-threaded implementation of interpreter vs switch statement
+>>    Instead of single tablejump at the top of 'switch' statement, GCC will
+>>    generate multiple tablejump instructions, which helps CPU branch
+>> predictor
+>>
+>> Performance of two BPF filters generated by libpcap was measured
+>> on x86_64, i386 and arm32.
+>>
+>> fprog #1 is taken from Documentation/networking/filter.txt:
+>> tcpdump -i eth0 port 22 -dd
+>>
+>> fprog #2 is taken from 'man tcpdump':
+>> tcpdump -i eth0 'tcp port 22 and (((ip[2:2] - ((ip[0]&0xf)<<2)) -
+>>     ((tcp[12]&0xf0)>>2)) != 0)' -dd
+>>
+>> Other libpcap programs have similar performance differences.
+>>
+>> Raw performance data from BPF micro-benchmark:
+>> SK_RUN_FILTER on same SKB (cache-hit) or 10k SKBs (cache-miss)
+>> time in nsec per call, smaller is better
+>> --x86_64--
+>>           fprog #1  fprog #1   fprog #2  fprog #2
+>>           cache-hit cache-miss cache-hit cache-miss
+>> old BPF     90       101       192       202
+>> ext BPF     31        71       47         97
+>> old BPF jit 12        34       17         44
+>> ext BPF jit TBD
+>>
+>> --i386--
+>>           fprog #1  fprog #1   fprog #2  fprog #2
+>>           cache-hit cache-miss cache-hit cache-miss
+>> old BPF    107        136      227       252
+>> ext BPF     40        119       69       172
+>>
+>> --arm32--
+>>           fprog #1  fprog #1   fprog #2  fprog #2
+>>           cache-hit cache-miss cache-hit cache-miss
+>> old BPF    202        300      475       540
+>> ext BPF    180        270      330       470
+>> old BPF jit 26        182       37       202
+>> new BPF jit TBD
+>>
+>> Tested with trinify BPF fuzzer
+>>
+>> Future work:
+>>
+>> 0. add bpf/ebpf testsuite to tools/testing/selftests/net/bpf
+>>
+>> 1. add extended BPF JIT for x86_64
+>>
+>> 2. add inband old/new demux and extended BPF verifier, so that new
+>> programs
+>>     can be loaded through old sk_attach_filter() and
+>> sk_unattached_filter_create()
+>>     interfaces
+>>
+>> 3. tracing filters systemtap-like with extended BPF
+>>
+>> 4. OVS with extended BPF
+>>
+>> 5. nftables with extended BPF
+>>
+>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>> Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
+>> Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
 >
->  - The sfc driver refuses to timestamp non-PTP packets.  There's a
-> check in efx_hard_start_xmit and another in ptp.c.  I suspect that the
-> hardware can support timestamping any outgoing packet, but I'm not
-> really sure.  (I'm using an SFN7322F.)
+>
+> One more question or possible issue that came through my mind: When
+> someone attaches a socket filter from user space, and bpf_ext_enable=1
+> then the old filter will transparently be converted to the new
+> representation. If then user space (e.g. through checkpoint restore)
+> will issue a sk_get_filter() and thus we're calling sk_decode_filter()
+> on sk->sk_filter and, therefore, try to decode what we stored in
+> insns_ext[] with the assumption we still have the old code. Would that
+> actually crash (or leak memory, or just return garbage), as we access
+> decodes[] array with filt->code? Would be great if you could double-check.
 
-I think that the SFC9100 family can do TX timestamping for arbitrary
-packets, but they still have to be sent via the MC and that will greatly
-limit the packet rate.
+ohh. yes. missed that.
+when bpf_ext_enable=1 I think it's cleaner to return ebpf filter.
+This way the user space can see how old bpf filter was converted.
 
-(It may or may not be possible on the SFN[56]322F, as the addition of
-timestamping in a peripheral to the SFC9020 is quite a delicate
-arrangement.  The MCDI transport there also limits TX timestamped
-packets to 252 bytes.)
+Of course we can allocate extra memory and keep original bpf code there
+just to return it via sk_get_filter(), but that seems overkill.
 
-If you want to send more than a very low rate of packets with TX
-timestamping, the driver should probably tell the kernel to allocate an
-extra TX queue for them and should implement ndo_select_queue.
+> The assumption with sk_get_filter() is that it returns the same filter
+> that was previously attached, so that it can be re-attached again at
+> a later point in time.
 
-Ben.
+when bpf_ext_enable=1, load old, sk_get_filter() returns new ebpf,
+this ebpf will be re-attachable, since there will be inband demux for bpf/ebpf.
 
---=20
-Ben Hutchings
-I say we take off; nuke the site from orbit.  It's the only way to be sure.
-
---=-g9qxSDIHJ+Vir2m0VS3H
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUxyf2ee/yOyVhhEJAQp39Q/9Gsooy7N+UbrnIjIHzitjia2lTCLW7N9a
-tqxCR13fYtq8/3fdBBYICEfpsu1N0b0DvgwP6dORnEdoLTuJdmVgc7cvXKkQo+7h
-/KdSrrK6TRgur2ia4jahtdCGJGDsX3z4SVACi3DGa69u2/P6W7C3C2FsfG4wNLUl
-LOj2NQTEGPwlOHsnA5A70qAMm7DVpJ6jJjOn8c0CpW/mrby4pRzM0YAYDI5z4Kv+
-BcG11BGHtSrkGjMWkEtOnH61hKTGG5YRJNwGUVmSlK8ludMOiMYAjSPqHim3vdtj
-r4HpjToxhEThiPXGK4+G2bSvjXz3rF53NBVS87dU1tu0w3eGK6RBvDfMYIBHhmKJ
-oC+vvERhBKjJ39AfQxGn2DHB/KNjMNuCRCiK5RU4CarZYjWiX/m53q8sdzFwLzvl
-uGKPujg9/cmzS3gIU3gMB9P+UZC7nYhyoF1X9xnSPbIoenaIFcVaD3CbF6Eyov/L
-2MARgbxgBoiyroshGJKJXhzXH0wwdMzuRg4hq+jtuEnj5NRThLqUuOcqradxVyZT
-jI0jBbtbRIqM2lW5hPNi+2/MZLGYsKOrpMwK4rk1I5WeTnAeVGfSBmnfbAmnIqqD
-K/jW9E9iHBE0UZ10brfiuwXwduMEaKdqfJhmtT6myHu1vnnz7fsJt+guJOZdTsiS
-+/pV4Ck3U6E=
-=DkVA
------END PGP SIGNATURE-----
-
---=-g9qxSDIHJ+Vir2m0VS3H--
+Thanks
+Alexei
