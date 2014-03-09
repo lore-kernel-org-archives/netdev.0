@@ -1,185 +1,85 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v7 net-next 1/3] filter: add Extended BPF interpreter and converter
-Date: Sun, 9 Mar 2014 10:08:05 -0700
-Message-ID: <CAMEtUux-Psz9NW+t7vf2-=iDE5TW7KDOag2TDbxTEvd6a=LKSw@mail.gmail.com>
-References: <1394320530-3508-1-git-send-email-ast@plumgrid.com>
-	<1394320530-3508-2-git-send-email-ast@plumgrid.com>
-	<531C5EB5.2080507@iogearbox.net>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [RFC 1/2] net: Add support to configure SR-IOV VF minimum and
+ maximum Tx rate through ip tool.
+Date: Sun, 09 Mar 2014 17:23:29 +0000
+Message-ID: <1394385809.2861.168.camel@deadeye.wl.decadent.org.uk>
+References: <1394004816-23436-1-git-send-email-sucheta.chakraborty@qlogic.com>
+	 <1394004816-23436-2-git-send-email-sucheta.chakraborty@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Jesse Gross <jesse@nicira.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Tom Zanussi <tom.zanussi@linux.intel.com>,
-	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Pekka Enberg <penberg@iki.fi>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.k
-To: Daniel Borkmann <borkmann@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <531C5EB5.2080507@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-eJpDuQLfc/9lYecE4XUW"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Dept-HSGLinuxNICDev@qlogic.com
+To: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51007 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751231AbaCIRXg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2014 13:23:36 -0400
+In-Reply-To: <1394004816-23436-2-git-send-email-sucheta.chakraborty@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 9, 2014 at 5:29 AM, Daniel Borkmann <borkmann@iogearbox.net> wrote:
-> On 03/09/2014 12:15 AM, Alexei Starovoitov wrote:
->>
->> Extended BPF extends old BPF in the following ways:
->> - from 2 to 10 registers
->>    Original BPF has two registers (A and X) and hidden frame pointer.
->>    Extended BPF has ten registers and read-only frame pointer.
->> - from 32-bit registers to 64-bit registers
->>    semantics of old 32-bit ALU operations are preserved via 32-bit
->>    subregisters
->> - if (cond) jump_true; else jump_false;
->>    old BPF insns are replaced with:
->>    if (cond) jump_true; /* else fallthrough */
->> - adds signed > and >= insns
->> - 16 4-byte stack slots for register spill-fill replaced with
->>    up to 512 bytes of multi-use stack space
->> - introduces bpf_call insn and register passing convention for zero
->>    overhead calls from/to other kernel functions (not part of this patch)
->> - adds arithmetic right shift insn
->> - adds swab32/swab64 insns
->> - adds atomic_add insn
->> - old tax/txa insns are replaced with 'mov dst,src' insn
->>
->> Extended BPF is designed to be JITed with one to one mapping, which
->> allows GCC/LLVM backends to generate optimized BPF code that performs
->> almost as fast as natively compiled code
->>
->> sk_convert_filter() remaps old style insns into extended:
->> 'sock_filter' instructions are remapped on the fly to
->> 'sock_filter_ext' extended instructions when
->> sysctl net.core.bpf_ext_enable=1
->>
->> Old filter comes through sk_attach_filter() or
->> sk_unattached_filter_create()
->>   if (bpf_ext_enable) {
->>      convert to new
->>      sk_chk_filter() - check old bpf
->>      use sk_run_filter_ext() - new interpreter
->>   } else {
->>      sk_chk_filter() - check old bpf
->>      if (bpf_jit_enable)
->>          use old jit
->>      else
->>          use sk_run_filter() - old interpreter
->>   }
->>
->> sk_run_filter_ext() interpreter is noticeably faster
->> than sk_run_filter() for two reasons:
->>
->> 1.fall-through jumps
->>    Old BPF jump instructions are forced to go either 'true' or 'false'
->>    branch which causes branch-miss penalty.
->>    Extended BPF jump instructions have one branch and fall-through,
->>    which fit CPU branch predictor logic better.
->>    'perf stat' shows drastic difference for branch-misses.
->>
->> 2.jump-threaded implementation of interpreter vs switch statement
->>    Instead of single tablejump at the top of 'switch' statement, GCC will
->>    generate multiple tablejump instructions, which helps CPU branch
->> predictor
->>
->> Performance of two BPF filters generated by libpcap was measured
->> on x86_64, i386 and arm32.
->>
->> fprog #1 is taken from Documentation/networking/filter.txt:
->> tcpdump -i eth0 port 22 -dd
->>
->> fprog #2 is taken from 'man tcpdump':
->> tcpdump -i eth0 'tcp port 22 and (((ip[2:2] - ((ip[0]&0xf)<<2)) -
->>     ((tcp[12]&0xf0)>>2)) != 0)' -dd
->>
->> Other libpcap programs have similar performance differences.
->>
->> Raw performance data from BPF micro-benchmark:
->> SK_RUN_FILTER on same SKB (cache-hit) or 10k SKBs (cache-miss)
->> time in nsec per call, smaller is better
->> --x86_64--
->>           fprog #1  fprog #1   fprog #2  fprog #2
->>           cache-hit cache-miss cache-hit cache-miss
->> old BPF     90       101       192       202
->> ext BPF     31        71       47         97
->> old BPF jit 12        34       17         44
->> ext BPF jit TBD
->>
->> --i386--
->>           fprog #1  fprog #1   fprog #2  fprog #2
->>           cache-hit cache-miss cache-hit cache-miss
->> old BPF    107        136      227       252
->> ext BPF     40        119       69       172
->>
->> --arm32--
->>           fprog #1  fprog #1   fprog #2  fprog #2
->>           cache-hit cache-miss cache-hit cache-miss
->> old BPF    202        300      475       540
->> ext BPF    180        270      330       470
->> old BPF jit 26        182       37       202
->> new BPF jit TBD
->>
->> Tested with trinify BPF fuzzer
->>
->> Future work:
->>
->> 0. add bpf/ebpf testsuite to tools/testing/selftests/net/bpf
->>
->> 1. add extended BPF JIT for x86_64
->>
->> 2. add inband old/new demux and extended BPF verifier, so that new
->> programs
->>     can be loaded through old sk_attach_filter() and
->> sk_unattached_filter_create()
->>     interfaces
->>
->> 3. tracing filters systemtap-like with extended BPF
->>
->> 4. OVS with extended BPF
->>
->> 5. nftables with extended BPF
->>
->> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
->> Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
->> Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
->
->
-> One more question or possible issue that came through my mind: When
-> someone attaches a socket filter from user space, and bpf_ext_enable=1
-> then the old filter will transparently be converted to the new
-> representation. If then user space (e.g. through checkpoint restore)
-> will issue a sk_get_filter() and thus we're calling sk_decode_filter()
-> on sk->sk_filter and, therefore, try to decode what we stored in
-> insns_ext[] with the assumption we still have the old code. Would that
-> actually crash (or leak memory, or just return garbage), as we access
-> decodes[] array with filt->code? Would be great if you could double-check.
 
-ohh. yes. missed that.
-when bpf_ext_enable=1 I think it's cleaner to return ebpf filter.
-This way the user space can see how old bpf filter was converted.
+--=-eJpDuQLfc/9lYecE4XUW
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Of course we can allocate extra memory and keep original bpf code there
-just to return it via sk_get_filter(), but that seems overkill.
+On Wed, 2014-03-05 at 02:33 -0500, Sucheta Chakraborty wrote:
+> o A new handler set_vf_rate for attr IFLA_VF_RATE has been introduced
+>   which takes 4 arguments:
+>   netdev, VF number, min_tx_rate, max_tx_rate
+>=20
+> o min_tx_rate puts lower limit on the VF bandwidth. VF is guaranteed
+>   to have a bandwidth of at least this value.
+>   max_tx_rate puts cap on the VF bandwidth. VF can have a bandwidth
+>   of up to this value.
 
-> The assumption with sk_get_filter() is that it returns the same filter
-> that was previously attached, so that it can be re-attached again at
-> a later point in time.
+Supposing I only want to set a minimum, how would I specify that there
+is no maximum?
 
-when bpf_ext_enable=1, load old, sk_get_filter() returns new ebpf,
-this ebpf will be re-attachable, since there will be inband demux for bpf/ebpf.
+> o Idea is to deprecate IFLA_VF_TX_RATE and ndo_set_vf_tx_rate in future.
+>   And to have consistent display of rate values to user.
+[...]
 
-Thanks
-Alexei
+You can't deprecate the userland interface, but the driver operation
+should be replaced at the same time.
+
+- The rtnetlink core should combine userland settings from
+  IFLA_VF_TX_RATE and IFLA_VF_RATE.  If both are specified, I think
+  IFLA_VF_RATE should override.
+- If only IFLA_VF_TX_RATE is specified, the core should get the current
+  minimum before calling ndo_set_vf_rate.
+- Drivers that currently implement ndo_set_vf_tx_rate should be
+  converted to implement ndo_set_vf_rate and reject attempts to set a
+  minimum bandwidth greater than 0.
+
+Ben.
+
+--=20
+Ben Hutchings
+I say we take off; nuke the site from orbit.  It's the only way to be sure.
+
+--=-eJpDuQLfc/9lYecE4XUW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAUxyjkee/yOyVhhEJAQrH/A/+OFSG0kKc/S1TwCed3jDkF4ncCtiDigZd
+qn2ylDsJMUUgGm4hOw95F1z0RR0WC8taTa9rX/1v2qeCqU5hmQse5wgeKfT8cT8S
+sC6qUbam3ALYDtM/tZX34yNIrI4XDaan6JWtR9zN3t339rQE5lQj8wPeht1v1RNO
+k7zf0nhYnKQEQTTa9CVBhyFgdj7vn3QdnKU8HyL8CZ0A52rFfFlSMI+7cxGKgMKM
+lcjO8XSjAi1ZdXDapMnn1me4bZrVUmUZFCYd3Bz6has9gs4YAVTXBwzbNpNjAWvY
+YrX6rGWHkZwFsZfoqQ8f1q5w71KIin+uRl3+ECprZIEjTVB5w0ZBhUvB7iyIHJy8
+NcRPWceldePBJGuERtTk2iXVDjxW1qzo/+l0Rk51dENV60eNzUAh+pGwN1W0dT2r
+C7ffnpH47N+xi4R0rvh4ryFnfseFjNPSTKH1mSbEE1ZD4PTtlPgO8S7O50Zovrka
+k7MtZgpKEsASGGqjNtOdYm+B6AKPfwQ5VCCrN1g3RmSfKkExtUYgT70jgXce5lPF
+cvXcsGHOk9txlXNqQyLuWNACPm66G3VQjruJOHHy//Aao6TssZt1o+qcSk1s4iod
+tHuO9QvMyDmUKCUKMmXU4scXFNzBZjdnE6EVeIfxRpiOGq+xhRB8Svp1uiJ0JAZP
+xiF3elYFF+w=
+=pSxi
+-----END PGP SIGNATURE-----
+
+--=-eJpDuQLfc/9lYecE4XUW--
