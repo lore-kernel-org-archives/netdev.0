@@ -1,98 +1,133 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 5/6] Drivers: net: hyperv: Enable send side checksum
- offload
-Date: Sun, 09 Mar 2014 18:53:35 +0000
-Message-ID: <1394391215.15968.10.camel@deadeye.wl.decadent.org.uk>
-References: <1394104358-23438-1-git-send-email-kys@microsoft.com>
- <1394104390-23477-1-git-send-email-kys@microsoft.com>
- <1394104390-23477-5-git-send-email-kys@microsoft.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v7 net-next 1/3] filter: add Extended BPF interpreter and converter
+Date: Sun, 9 Mar 2014 11:57:09 -0700
+Message-ID: <CAMEtUuwYUhA=CKRVxr-8_KdTqzoQVD1OtgayyxX3aO48CTcxZw@mail.gmail.com>
+References: <1394320530-3508-1-git-send-email-ast@plumgrid.com>
+	<1394320530-3508-2-git-send-email-ast@plumgrid.com>
+	<1394376353.20149.96.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAMEtUuyB9ZhvwU+Lv5UypXDbgAG02BgdRomF9nOef-GqNAxjww@mail.gmail.com>
+	<1394388699.20149.105.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============6074936401748620906=="
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org,
- davem@davemloft.net
-To: "K. Y. Srinivasan" <kys@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1394104390-23477-5-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.k
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394388699.20149.105.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, Mar 9, 2014 at 11:11 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Sun, 2014-03-09 at 10:38 -0700, Alexei Starovoitov wrote:
+>> On Sun, Mar 9, 2014 at 7:45 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > On Sat, 2014-03-08 at 15:15 -0800, Alexei Starovoitov wrote:
+>> >
+>> >> +/**
+>> >> + *   sk_run_filter_ext - run an extended filter
+>> >> + *   @ctx: buffer to run the filter on
+>> >> + *   @insn: filter to apply
+>> >> + *
+>> >> + * Decode and execute extended BPF instructions.
+>> >> + * @ctx is the data we are operating on.
+>> >> + * @filter is the array of filter instructions.
+>> >> + */
+>> >> +notrace u32 sk_run_filter_ext(void *ctx, const struct sock_filter_ext *insn)
+>> >> +{
+>> >> +     u64 stack[64];
+>> >> +     u64 regs[16];
+>> >> +     void *ptr;
+>> >> +     u64 tmp;
+>> >> +     int off;
+>>
+>> First of all, great that you finally reviewed it! Feedback is appreciated :)
+>>
+>> > Why is this 'notrace' ?
+>>
+>> to avoid overhead of dummy call.
+>> JITed filters are not adding this dummy call.
+>> So 'notrace' on interpreter brings it to parity with JITed filters.
+>
+> Then its a wrong reason.
 
---===============6074936401748620906==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-7lnaNoDM4cc8PfvgbnVr"
+fine. I'll remove it then.
 
+> At the time we wrote JIT, there was (yet) no support for profiling JIT
+> from perf tools. I asked for help and nobody answered.
+>
+> Maybe this has changed, if so, please someone add support.
 
---=-7lnaNoDM4cc8PfvgbnVr
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I have few ideas on how to get the line number info from C
+into ebpf via llvm. Mainly to have nice messages when
+kernel rejects ebpf filter when it fails safety check.
+but that will come several commits from now.
+This info can be used to beautify perf tools as well.
 
-On Thu, 2014-03-06 at 03:13 -0800, K. Y. Srinivasan wrote:
-[...]
-> @@ -593,8 +658,9 @@ static int netvsc_probe(struct hv_device *dev,
->  	net->netdev_ops =3D &device_ops;
-> =20
->  	/* TODO: Add GSO and Checksum offload */
-> -	net->hw_features =3D NETIF_F_RXCSUM | NETIF_F_SG;
-> -	net->features =3D NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_SG | NETIF_F_RXCSUM=
-;
-> +	net->hw_features =3D NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_IP_CSUM;
-> +	net->features =3D NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_SG | NETIF_F_RXCSUM=
- |
-> +			NETIF_F_IP_CSUM;
+>>
+>> > 80 u64 on the stack, that is 640 bytes to run a filter ????
+>>
+>> yes. that was described in commit log and in Doc...filter.txt:
+>> "
+>> - 16 4-byte stack slots for register spill-fill replaced with
+>>   up to 512 bytes of multi-use stack space
+>> "
+>>
+>> For interpreter it is prohibitive to dynamically allocate stack space
+>> that's why it just grabs 64*8 to run any program.
+>
+> Where is checked the max capacity of this stack ?
 
-Missing NETIF_F_IPV6_CSUM?
+In case of sk_convert_filter() case the converted ebpf filter
+is guaranteed to use max 4*16 bytes of stack, since sk_chk_filter()
+verified old bpf.
 
-Ben.
+In case of ebpf, the check is done in several places.
+In V1 series there are check_stack_boundary() and
+check_mem_access() functions which are called from bpf_check()
+(which will be renamed to sk_chk_filter_ext())
+Here is a macro and comment from V1 series:
++/* JITed code allocates 512 bytes and used bottom 4 slots
++ * to save R6-R9
++ */
++#define MAX_BPF_STACK (512 - 4 * 8)
 
->  	SET_ETHTOOL_OPS(net, &ethtool_ops);
->  	SET_NETDEV_DEV(net, &dev->device);
+So sk_chk_filter_ext() enforces 480 byte limit for ebpf program
+itself and 512 of real CPU stack is allocated by ebpf jit-ed program.
+As I was saying in previous email I was planning to make
+this stack allocation less hard coded for JITed program.
+Here is relevant comment from V1 series:
++ * Future improvements:
++ * stack size is hardcoded to 512 bytes maximum per program, relax it
 
---=20
-Ben Hutchings
-I say we take off; nuke the site from orbit.  It's the only way to be sure.
+In sk_run_filter_ext() I used "u64 stack[64];", but "u64 stack[60];" is
+safe too, but I didn't want to go into extensive explanation
+of 'magic' 60 number in the first patch, so I just rounded it to 64.
+Since now you understand, I can make it stack[60] now :)
 
---=-7lnaNoDM4cc8PfvgbnVr
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Or, even better, I can reintroduce MAX_BPF_STACK into
+this patch set and use it in sk_run_filter_ext()...
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+I will also add:
+BUILD_BUG_ON(BPF_MEMWORDS * sizeof(u32) > MAX_BPF_STACK);
+to make sure that old filters via sk_convert_filter() stay correct.
 
-iQIVAwUAUxy4r+e/yOyVhhEJAQpsEA/7BzDm+K0Zk5/raSku9GyowwdFvpIJxcqp
-mYPQq2cMZ1hv6foGW6J62a1rGAI+LPN20wYr3GHGZehCcZSpI0Ao4jV+oT+Znf2z
-NgaSdgNR4IS6nMCf4RE4mGZ48RZ3AYjc/QF88TymqbzGXUc13u+ZnTwgFFZXA3kA
-slw8vGK+JzydoF2LULr3qVKFlwNArlHtq36wJo3ZVJZuCU0Cev/xX82YYrsVn72r
-8bQy966X9IiMpot1ORohDPeIdJtrblL2jauNxRfv/IpaFjqFQmsSLiLV+/fk+6zw
-UH+B3JeqvEBjEDoMQwrexrZ/E5AAGwBaF1nZcIR9wockhQfWFZ/Xu59emKH0+BBc
-Dnch5hVzHECx29si4r9UxoB4O7TPuCB1g8a0neExJVm60Bwtl0+zBiZTHBrXizC1
-uuBVT3vir4RXYMh8tsQrQztEFZiKpzVPY8gE6iM90wLe5fk1RmZi/ABRcsxxtB9y
-kDDtrjdKT2SVMW8bjMaWgpzRINGpV1rpEitp4HXCZbrH6ZFizfu76UZVFrWyPdba
-oA/RueVW7I1yA40rjOVNzictQrdlP3kegQtg4/bbc7fTP9CfM6LxSktpKXYUG42/
-FVhMrgUczb6A9VEaxoPvzVNh2l1wqzY4B0quZqioARuN+XGK8kQSA+neIC8prJxv
-USFpVJyEzJ8=
-=qdFc
------END PGP SIGNATURE-----
-
---=-7lnaNoDM4cc8PfvgbnVr--
-
---===============6074936401748620906==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-devel mailing list
-devel@linuxdriverproject.org
-http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
-
---===============6074936401748620906==--
+Thanks
+Alexei
