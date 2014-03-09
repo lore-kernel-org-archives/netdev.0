@@ -1,52 +1,45 @@
-From: Behan Webster <behanw@converseincode.com>
-Subject: Re: [PATCH v2] mac80211: LLVMLinux: Remove VLAIS usage from mac80211
-Date: Sat, 08 Mar 2014 17:58:21 -0800
-Message-ID: <531BCABD.6030000@converseincode.com>
-References: <1394177091.4653.1.camel@jlt4.sipsolutions.net>	<1394241960-1764-1-git-send-email-behanw@converseincode.com>	<CABikg9y_j-SDOsMj1C5uogP0HNj6bsB_ySVFtAh_oNgZ0swd=g@mail.gmail.com>	<531B934C.31666.37555A14@pageexec.freemail.hu> <CABikg9x+Z95bHcDc6iu5hBvRNO-ibM8-34_qA+OA_FjB52SPMw@mail.gmail.com>
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH V3 0/6] Drivers: net: hyperv: Enable various offloads
+Date: Sat,  8 Mar 2014 19:22:42 -0800
+Message-ID: <1394335362-11126-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: John Linville <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>, davem@davemloft.net,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Woodhouse <dwmw2@infradead.org>,
-	=?UTF-8?B?SmFuLVNpbW9uIE3DtmxsZXI=?= <dl9pf@gmx.de>,
-	=?UTF-8?B?Vmluw61jaQ==?= =?UTF-8?B?dXMgVGludGk=?=
-	<viniciustinti@gmail.com>, Mark Charlebois <charlebm@gmail.com>
-To: Sergei Antonov <saproj@gmail.com>, pageexec@freemail.hu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:48237 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751724AbaCIB6Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 20:58:25 -0500
-Received: by mail-pb0-f42.google.com with SMTP id rr13so5815841pbb.29
-        for <netdev@vger.kernel.org>; Sat, 08 Mar 2014 17:58:24 -0800 (PST)
-In-Reply-To: <CABikg9x+Z95bHcDc6iu5hBvRNO-ibM8-34_qA+OA_FjB52SPMw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+ jasowang@redhat.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On 03/08/14 15:00, Sergei Antonov wrote:
-> On 8 March 2014 23:01, PaX Team <pageexec@freemail.hu> wrote:
->> On 8 Mar 2014 at 21:29, Sergei Antonov wrote:
->>
->>>> -       memset(&aead_req, 0, sizeof(aead_req));
->>>> +       char aead_req_data[sizeof(struct aead_request) +
->>>> +                               crypto_aead_reqsize(tfm) +
->>>> +                               CRYPTO_MINALIGN] CRYPTO_MINALIGN_ATTR;
->>                                                       ^^^^^^^^^^^^^^^^^^^^
->> wouldn't the underlined attribute ensure the required alignment?
-> Yes. Sorry, I overlooked it.
->
-> I would remove unneeded CRYPTO_MINALIGN and get the alignment from the
-> target structure:
->          char aead_req_data[sizeof(struct aead_request) +
->                             crypto_aead_reqsize(tfm)]
->                  __attribute__((__aligned__(__alignof__(struct aead_request))));
-Even better. Will resubmit.
+This patch set enables both checksum as well as segmentation offload.
+As part of this effort I have enabled scatter gather I/O a well.
 
-Behan
+In version 2 of these patches, I addressed comments from David Miller and
+Dan Carpenter.
+
+In this version I have addressed the latest comments from David Miller.
+
+K. Y. Srinivasan (6):
+  Drivers: net: hyperv: Enable scatter gather I/O
+  Drivers: net: hyperv: Cleanup the send path
+  Drivers: net: hyperv: Enable offloads on the host
+  Drivers: net: hyperv: Enable receive side IP checksum offload
+  Drivers: net: hyperv: Enable send side checksum offload
+  Drivers: net: hyperv: Enable large send offload
+
+ drivers/net/hyperv/hyperv_net.h   |  135 ++++++++++++++-
+ drivers/net/hyperv/netvsc_drv.c   |  336 +++++++++++++++++++++++++++++++------
+ drivers/net/hyperv/rndis_filter.c |  153 ++++++++++--------
+ 3 files changed, 501 insertions(+), 123 deletions(-)
 
 -- 
-Behan Webster
-behanw@converseincode.com
+1.7.4.1
