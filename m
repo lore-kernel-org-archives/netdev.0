@@ -1,17 +1,16 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 5/7] mlx4: Implement IP based gids support for RoCE/SRIOV
-Date: Sun,  9 Mar 2014 16:54:02 +0200
-Message-ID: <1394376844-12812-6-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 3/7] mlx4: In RoCE allow guests to have multiple GIDS
+Date: Sun,  9 Mar 2014 16:54:00 +0200
+Message-ID: <1394376844-12812-4-git-send-email-ogerlitz@mellanox.com>
 References: <1394376844-12812-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, roland@kernel.org,
 	jackm@dev.mellanox.co.il, amirv@mellanox.com,
-	Moni Shoua <monis@mellanox.co.il>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:33015 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:33011 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752592AbaCIOyX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752568AbaCIOyX (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 9 Mar 2014 10:54:23 -0400
 In-Reply-To: <1394376844-12812-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,348 +18,415 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-Since there is no connection between the MAC/VLAN and the GID
-when using IP-based addressing, the proxy QP1 (running on the
-slave) must pass the source-mac, destination-mac, and vlan_id
-information separately from the GID. Additionally, the Host
-must pass the remote source-mac and vlan_id back to the slave,
+The GIDs are statically distributed, as follows:
+PF: gets 16 GIDs
+VFs:  Remaining GIDS are divided evenly between VFs activated by the driver.
+      If the division is not even, lower-numbered VFs get an extra GID.
 
-This is achieved as follows:
-Outgoing MADs:
-    1. Source MAC: obtained from the CQ completion structure
-       (struct ib_wc, smac field).
-    2. Destination MAC: obtained from the tunnel header
-    3. vlan_id: obtained from the tunnel header.
-Incoming MADs
-    1. The source (i.e., remote) MAC and vlan_id are passed in
-       the tunnel header to the proxy QP1.
+For an IB interface, the number of gids per guest remains as before: one gid per guest.
 
-VST mode support:
-     For outgoing MADs,  the vlan_id obtained from the header is
-        discarded, and the vlan_id specified by the Hypervisor is used
-        instead.
-     For incoming MADs, the incoming vlan_id (in the wc) is discarded, and the
-        "invalid" vlan (0xffff)  is substituted when forwarding to the slave.
-
-Signed-off-by: Moni Shoua <monis@mellanox.co.il>
 Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/infiniband/hw/mlx4/cq.c          |   42 +++++++++++++++++++---------
- drivers/infiniband/hw/mlx4/mad.c         |   44 ++++++++++++++++++++++++++---
- drivers/infiniband/hw/mlx4/mcg.c         |    2 +-
- drivers/infiniband/hw/mlx4/mlx4_ib.h     |    2 +-
- drivers/infiniband/hw/mlx4/qp.c          |   11 ++++++-
- drivers/net/ethernet/mellanox/mlx4/cmd.c |   23 +++++++++++++++
- include/linux/mlx4/cmd.h                 |    6 ++++
- include/linux/mlx4/device.h              |    3 +-
- 8 files changed, 109 insertions(+), 24 deletions(-)
+ drivers/infiniband/hw/mlx4/mad.c                   |   35 ++++++-
+ drivers/net/ethernet/mellanox/mlx4/fw.c            |    5 +-
+ drivers/net/ethernet/mellanox/mlx4/main.c          |    6 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    3 +
+ drivers/net/ethernet/mellanox/mlx4/port.c          |  117 ++++++++++++++++---
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   64 +++++++++--
+ include/linux/mlx4/device.h                        |    1 +
+ 7 files changed, 195 insertions(+), 36 deletions(-)
 
-diff --git a/drivers/infiniband/hw/mlx4/cq.c b/drivers/infiniband/hw/mlx4/cq.c
-index cc40f08..5f64081 100644
---- a/drivers/infiniband/hw/mlx4/cq.c
-+++ b/drivers/infiniband/hw/mlx4/cq.c
-@@ -564,7 +564,7 @@ static int mlx4_ib_ipoib_csum_ok(__be16 status, __be16 checksum)
- }
- 
- static int use_tunnel_data(struct mlx4_ib_qp *qp, struct mlx4_ib_cq *cq, struct ib_wc *wc,
--			   unsigned tail, struct mlx4_cqe *cqe)
-+			   unsigned tail, struct mlx4_cqe *cqe, int is_eth)
- {
- 	struct mlx4_ib_proxy_sqp_hdr *hdr;
- 
-@@ -574,12 +574,20 @@ static int use_tunnel_data(struct mlx4_ib_qp *qp, struct mlx4_ib_cq *cq, struct
- 				   DMA_FROM_DEVICE);
- 	hdr = (struct mlx4_ib_proxy_sqp_hdr *) (qp->sqp_proxy_rcv[tail].addr);
- 	wc->pkey_index	= be16_to_cpu(hdr->tun.pkey_index);
--	wc->slid	= be16_to_cpu(hdr->tun.slid_mac_47_32);
--	wc->sl		= (u8) (be16_to_cpu(hdr->tun.sl_vid) >> 12);
- 	wc->src_qp	= be32_to_cpu(hdr->tun.flags_src_qp) & 0xFFFFFF;
- 	wc->wc_flags   |= (hdr->tun.g_ml_path & 0x80) ? (IB_WC_GRH) : 0;
- 	wc->dlid_path_bits = 0;
- 
-+	if (is_eth) {
-+		wc->vlan_id = be16_to_cpu(hdr->tun.sl_vid);
-+		memcpy(&(wc->smac[0]), (char *)&hdr->tun.mac_31_0, 4);
-+		memcpy(&(wc->smac[4]), (char *)&hdr->tun.slid_mac_47_32, 2);
-+		wc->wc_flags |= (IB_WC_WITH_VLAN | IB_WC_WITH_SMAC);
-+	} else {
-+		wc->slid        = be16_to_cpu(hdr->tun.slid_mac_47_32);
-+		wc->sl          = (u8) (be16_to_cpu(hdr->tun.sl_vid) >> 12);
-+	}
-+
- 	return 0;
- }
- 
-@@ -594,6 +602,7 @@ static int mlx4_ib_poll_one(struct mlx4_ib_cq *cq,
- 	struct mlx4_srq *msrq = NULL;
- 	int is_send;
- 	int is_error;
-+	int is_eth;
- 	u32 g_mlpath_rqpn;
- 	u16 wqe_ctr;
- 	unsigned tail = 0;
-@@ -778,11 +787,15 @@ repoll:
- 			break;
- 		}
- 
-+		is_eth = (rdma_port_get_link_layer(wc->qp->device,
-+						  (*cur_qp)->port) ==
-+			  IB_LINK_LAYER_ETHERNET);
- 		if (mlx4_is_mfunc(to_mdev(cq->ibcq.device)->dev)) {
- 			if ((*cur_qp)->mlx4_ib_qp_type &
- 			    (MLX4_IB_QPT_PROXY_SMI_OWNER |
- 			     MLX4_IB_QPT_PROXY_SMI | MLX4_IB_QPT_PROXY_GSI))
--				return use_tunnel_data(*cur_qp, cq, wc, tail, cqe);
-+				return use_tunnel_data(*cur_qp, cq, wc, tail,
-+						       cqe, is_eth);
- 		}
- 
- 		wc->slid	   = be16_to_cpu(cqe->rlid);
-@@ -793,20 +806,21 @@ repoll:
- 		wc->pkey_index     = be32_to_cpu(cqe->immed_rss_invalid) & 0x7f;
- 		wc->wc_flags	  |= mlx4_ib_ipoib_csum_ok(cqe->status,
- 					cqe->checksum) ? IB_WC_IP_CSUM_OK : 0;
--		if (rdma_port_get_link_layer(wc->qp->device,
--				(*cur_qp)->port) == IB_LINK_LAYER_ETHERNET)
-+		if (is_eth) {
- 			wc->sl  = be16_to_cpu(cqe->sl_vid) >> 13;
--		else
--			wc->sl  = be16_to_cpu(cqe->sl_vid) >> 12;
--		if (be32_to_cpu(cqe->vlan_my_qpn) & MLX4_CQE_VLAN_PRESENT_MASK) {
--			wc->vlan_id = be16_to_cpu(cqe->sl_vid) &
--				MLX4_CQE_VID_MASK;
-+			if (be32_to_cpu(cqe->vlan_my_qpn) &
-+					MLX4_CQE_VLAN_PRESENT_MASK) {
-+				wc->vlan_id = be16_to_cpu(cqe->sl_vid) &
-+					MLX4_CQE_VID_MASK;
-+			} else {
-+				wc->vlan_id = 0xffff;
-+			}
-+			memcpy(wc->smac, cqe->smac, ETH_ALEN);
-+			wc->wc_flags |= (IB_WC_WITH_VLAN | IB_WC_WITH_SMAC);
- 		} else {
-+			wc->sl  = be16_to_cpu(cqe->sl_vid) >> 12;
- 			wc->vlan_id = 0xffff;
- 		}
--		wc->wc_flags |= IB_WC_WITH_VLAN;
--		memcpy(wc->smac, cqe->smac, ETH_ALEN);
--		wc->wc_flags |= IB_WC_WITH_SMAC;
- 	}
- 
- 	return 0;
 diff --git a/drivers/infiniband/hw/mlx4/mad.c b/drivers/infiniband/hw/mlx4/mad.c
-index 37a3fc7..7aeec4a 100644
+index e79a183..37a3fc7 100644
 --- a/drivers/infiniband/hw/mlx4/mad.c
 +++ b/drivers/infiniband/hw/mlx4/mad.c
-@@ -545,11 +545,36 @@ int mlx4_ib_send_to_slave(struct mlx4_ib_dev *dev, int slave, u8 port,
+@@ -511,7 +511,7 @@ int mlx4_ib_send_to_slave(struct mlx4_ib_dev *dev, int slave, u8 port,
+ 	memset(&attr, 0, sizeof attr);
+ 	attr.port_num = port;
+ 	if (is_eth) {
+-		mlx4_get_roce_gid_from_slave(dev->dev, port, slave, attr.grh.dgid.raw);
++		memcpy(&attr.grh.dgid.raw[0], &grh->dgid.raw[0], 16);
+ 		attr.ah_flags = IB_AH_GRH;
+ 	}
+ 	ah = ib_create_ah(tun_ctx->pd, &attr);
+@@ -1214,6 +1214,36 @@ out:
+ 	return ret;
+ }
  
- 	/* adjust tunnel data */
- 	tun_mad->hdr.pkey_index = cpu_to_be16(tun_pkey_ix);
--	tun_mad->hdr.sl_vid = cpu_to_be16(((u16)(wc->sl)) << 12);
--	tun_mad->hdr.slid_mac_47_32 = cpu_to_be16(wc->slid);
- 	tun_mad->hdr.flags_src_qp = cpu_to_be32(wc->src_qp & 0xFFFFFF);
- 	tun_mad->hdr.g_ml_path = (grh && (wc->wc_flags & IB_WC_GRH)) ? 0x80 : 0;
- 
-+	if (is_eth) {
-+		u16 vlan = 0;
-+		if (mlx4_get_slave_default_vlan(dev->dev, port, slave, &vlan,
-+						NULL)) {
-+			/* VST mode */
-+			if (vlan != wc->vlan_id)
-+				/* Packet vlan is not the VST-assigned vlan.
-+				 * Drop the packet.
-+				 */
-+				goto out;
-+			 else
-+				/* Remove the vlan tag before forwarding
-+				 * the packet to the VF.
-+				 */
-+				vlan = 0xffff;
-+		} else {
-+			vlan = wc->vlan_id;
-+		}
++static int get_slave_base_gid_ix(struct mlx4_ib_dev *dev, int slave, int port)
++{
++	int gids;
++	int vfs;
 +
-+		tun_mad->hdr.sl_vid = cpu_to_be16(vlan);
-+		memcpy((char *)&tun_mad->hdr.mac_31_0, &(wc->smac[0]), 4);
-+		memcpy((char *)&tun_mad->hdr.slid_mac_47_32, &(wc->smac[4]), 2);
-+	} else {
-+		tun_mad->hdr.sl_vid = cpu_to_be16(((u16)(wc->sl)) << 12);
-+		tun_mad->hdr.slid_mac_47_32 = cpu_to_be16(wc->slid);
++	if (rdma_port_get_link_layer(&dev->ib_dev, port) == IB_LINK_LAYER_INFINIBAND)
++		return slave;
++
++	gids = MLX4_ROCE_MAX_GIDS - MLX4_ROCE_PF_GIDS;
++	vfs = dev->dev->num_vfs;
++
++	if (slave == 0)
++		return 0;
++	if (slave <= gids % vfs)
++		return MLX4_ROCE_PF_GIDS + ((gids / vfs) + 1) * (slave - 1);
++
++	return MLX4_ROCE_PF_GIDS + (gids % vfs) + ((gids / vfs) * (slave - 1));
++}
++
++static int get_real_sgid_index(struct mlx4_ib_dev *dev, int slave, int port,
++			       struct ib_ah_attr *ah_attr)
++{
++	if (rdma_port_get_link_layer(&dev->ib_dev, port) == IB_LINK_LAYER_INFINIBAND) {
++		ah_attr->grh.sgid_index = slave;
++		return 0;
 +	}
++	ah_attr->grh.sgid_index += get_slave_base_gid_ix(dev, slave, port);
++	return 0;
++}
 +
- 	ib_dma_sync_single_for_device(&dev->ib_dev,
- 				      tun_qp->tx_ring[tun_tx_ix].buf.map,
- 				      sizeof (struct mlx4_rcv_tunnel_mad),
-@@ -1116,8 +1141,9 @@ static int is_proxy_qp0(struct mlx4_ib_dev *dev, int qpn, int slave)
- 
- 
- int mlx4_ib_send_to_wire(struct mlx4_ib_dev *dev, int slave, u8 port,
--			 enum ib_qp_type dest_qpt, u16 pkey_index, u32 remote_qpn,
--			 u32 qkey, struct ib_ah_attr *attr, struct ib_mad *mad)
-+			 enum ib_qp_type dest_qpt, u16 pkey_index,
-+			 u32 remote_qpn, u32 qkey, struct ib_ah_attr *attr,
-+			 u8 *s_mac, struct ib_mad *mad)
+ static void mlx4_ib_multiplex_mad(struct mlx4_ib_demux_pv_ctx *ctx, struct ib_wc *wc)
  {
- 	struct ib_sge list;
- 	struct ib_send_wr wr, *bad_wr;
-@@ -1206,6 +1232,9 @@ int mlx4_ib_send_to_wire(struct mlx4_ib_dev *dev, int slave, u8 port,
- 	wr.num_sge = 1;
- 	wr.opcode = IB_WR_SEND;
- 	wr.send_flags = IB_SEND_SIGNALED;
-+	if (s_mac)
-+		memcpy(to_mah(ah)->av.eth.s_mac, s_mac, 6);
-+
- 
- 	ret = ib_post_send(send_qp, &wr, &bad_wr);
- out:
-@@ -1333,6 +1362,11 @@ static void mlx4_ib_multiplex_mad(struct mlx4_ib_demux_pv_ctx *ctx, struct ib_wc
+ 	struct mlx4_ib_dev *dev = to_mdev(ctx->ib_dev);
+@@ -1301,7 +1331,8 @@ static void mlx4_ib_multiplex_mad(struct mlx4_ib_demux_pv_ctx *ctx, struct ib_wc
+ 	ah.ibah.device = ctx->ib_dev;
+ 	mlx4_ib_query_ah(&ah.ibah, &ah_attr);
  	if (ah_attr.ah_flags & IB_AH_GRH)
- 		if (get_real_sgid_index(dev, slave, ctx->port, &ah_attr))
- 			return;
-+	memcpy(ah_attr.dmac, tunnel->hdr.mac, 6);
-+	ah_attr.vlan_id = be16_to_cpu(tunnel->hdr.vlan);
-+	/* if slave have default vlan use it */
-+	mlx4_get_slave_default_vlan(dev->dev, ctx->port, slave,
-+				    &ah_attr.vlan_id, &ah_attr.sl);
+-		ah_attr.grh.sgid_index = slave;
++		if (get_real_sgid_index(dev, slave, ctx->port, &ah_attr))
++			return;
  
  	mlx4_ib_send_to_wire(dev, slave, ctx->port,
  			     is_proxy_qp0(dev, wc->src_qp, slave) ?
-@@ -1340,7 +1374,7 @@ static void mlx4_ib_multiplex_mad(struct mlx4_ib_demux_pv_ctx *ctx, struct ib_wc
- 			     be16_to_cpu(tunnel->hdr.pkey_index),
- 			     be32_to_cpu(tunnel->hdr.remote_qpn),
- 			     be32_to_cpu(tunnel->hdr.qkey),
--			     &ah_attr, &tunnel->mad);
-+			     &ah_attr, wc->smac, &tunnel->mad);
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 9cdf452..6e1ee21 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -934,7 +934,10 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
+ 		MLX4_PUT(outbox->buf, port_type,
+ 			 QUERY_PORT_SUPPORTED_TYPE_OFFSET);
  
- static int mlx4_ib_alloc_pv_bufs(struct mlx4_ib_demux_pv_ctx *ctx,
-diff --git a/drivers/infiniband/hw/mlx4/mcg.c b/drivers/infiniband/hw/mlx4/mcg.c
-index 25b2cdf..e192b3c 100644
---- a/drivers/infiniband/hw/mlx4/mcg.c
-+++ b/drivers/infiniband/hw/mlx4/mcg.c
-@@ -216,7 +216,7 @@ static int send_mad_to_wire(struct mlx4_ib_demux_ctx *ctx, struct ib_mad *mad)
- 	mlx4_ib_query_ah(dev->sm_ah[ctx->port - 1], &ah_attr);
- 	spin_unlock(&dev->sm_lock);
- 	return mlx4_ib_send_to_wire(dev, mlx4_master_func_num(dev->dev), ctx->port,
--				    IB_QPT_GSI, 0, 1, IB_QP1_QKEY, &ah_attr, mad);
-+				    IB_QPT_GSI, 0, 1, IB_QP1_QKEY, &ah_attr, NULL, mad);
- }
- 
- static int send_mad_to_slave(int slave, struct mlx4_ib_demux_ctx *ctx,
-diff --git a/drivers/infiniband/hw/mlx4/mlx4_ib.h b/drivers/infiniband/hw/mlx4/mlx4_ib.h
-index febc8f9..8216345 100644
---- a/drivers/infiniband/hw/mlx4/mlx4_ib.h
-+++ b/drivers/infiniband/hw/mlx4/mlx4_ib.h
-@@ -739,7 +739,7 @@ int mlx4_ib_send_to_slave(struct mlx4_ib_dev *dev, int slave, u8 port,
- 			  struct ib_grh *grh, struct ib_mad *mad);
- int mlx4_ib_send_to_wire(struct mlx4_ib_dev *dev, int slave, u8 port,
- 			 enum ib_qp_type dest_qpt, u16 pkey_index, u32 remote_qpn,
--			 u32 qkey, struct ib_ah_attr *attr, struct ib_mad *mad);
-+			 u32 qkey, struct ib_ah_attr *attr, u8 *s_mac, struct ib_mad *mad);
- __be64 mlx4_ib_get_new_demux_tid(struct mlx4_ib_demux_ctx *ctx);
- 
- int mlx4_ib_demux_cm_handler(struct ib_device *ibdev, int port, int *slave,
-diff --git a/drivers/infiniband/hw/mlx4/qp.c b/drivers/infiniband/hw/mlx4/qp.c
-index 11332f0..e1dc9c1 100644
---- a/drivers/infiniband/hw/mlx4/qp.c
-+++ b/drivers/infiniband/hw/mlx4/qp.c
-@@ -2152,7 +2152,7 @@ static int build_mlx_header(struct mlx4_ib_sqp *sqp, struct ib_send_wr *wr,
- 	}
- 
- 	if (is_eth) {
--		u8 smac[6];
-+		u8 *smac;
- 		struct in6_addr in6;
- 
- 		u16 pcp = (be32_to_cpu(ah->av.ib.sl_tclass_flowlabel) >> 29) << 13;
-@@ -2164,7 +2164,12 @@ static int build_mlx_header(struct mlx4_ib_sqp *sqp, struct ib_send_wr *wr,
- 		memcpy(&ctrl->srcrb_flags16[0], ah->av.eth.mac, 2);
- 		memcpy(&ctrl->imm, ah->av.eth.mac + 2, 4);
- 		memcpy(&in6, sgid.raw, sizeof(in6));
--		rdma_get_ll_mac(&in6, smac);
-+
-+		if (!mlx4_is_mfunc(to_mdev(ib_dev)->dev))
-+			smac = to_mdev(sqp->qp.ibqp.device)->
-+				iboe.netdevs[sqp->qp.port - 1]->dev_addr;
+-		short_field = 1; /* slave max gids */
++		if (dev->caps.port_type[vhcr->in_modifier] == MLX4_PORT_TYPE_ETH)
++			short_field = mlx4_get_slave_num_gids(dev, slave);
 +		else
-+			smac = ah->av.eth.s_mac;	/* use the src mac of the tunnel */
- 		memcpy(sqp->ud_header.eth.smac_h, smac, 6);
- 		if (!memcmp(sqp->ud_header.eth.smac_h, sqp->ud_header.eth.dmac_h, 6))
- 			mlx->flags |= cpu_to_be32(MLX4_WQE_CTRL_FORCE_LOOPBACK);
-@@ -2396,6 +2401,8 @@ static void build_tunnel_header(struct ib_send_wr *wr, void *wqe, unsigned *mlx_
- 	hdr.remote_qpn = cpu_to_be32(wr->wr.ud.remote_qpn);
- 	hdr.pkey_index = cpu_to_be16(wr->wr.ud.pkey_index);
- 	hdr.qkey = cpu_to_be32(wr->wr.ud.remote_qkey);
-+	memcpy(hdr.mac, ah->av.eth.mac, 6);
-+	hdr.vlan = ah->av.eth.vlan;
++			short_field = 1; /* slave max gids */
+ 		MLX4_PUT(outbox->buf, short_field,
+ 			 QUERY_PORT_CUR_MAX_GID_OFFSET);
  
- 	spc = MLX4_INLINE_ALIGN -
- 		((unsigned long) (inl + 1) & (MLX4_INLINE_ALIGN - 1));
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 0d02fba..e0c1ea4 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -2289,6 +2289,29 @@ int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 979ea43..4c441aa 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -1462,7 +1462,11 @@ static void mlx4_parav_master_pf_caps(struct mlx4_dev *dev)
+ 	int i;
+ 
+ 	for (i = 1; i <= dev->caps.num_ports; i++) {
+-		dev->caps.gid_table_len[i] = 1;
++		if (dev->caps.port_type[i] == MLX4_PORT_TYPE_ETH)
++			dev->caps.gid_table_len[i] =
++				mlx4_get_slave_num_gids(dev, 0);
++		else
++			dev->caps.gid_table_len[i] = 1;
+ 		dev->caps.pkey_table_len[i] =
+ 			dev->phys_caps.pkey_phys_table_len[i] - 1;
+ 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index da829f4..6ba38c9 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -1287,4 +1287,7 @@ void mlx4_vf_immed_vlan_work_handler(struct work_struct *_work);
+ 
+ void mlx4_init_quotas(struct mlx4_dev *dev);
+ 
++int mlx4_get_slave_num_gids(struct mlx4_dev *dev, int slave);
++int mlx4_get_base_gid_ix(struct mlx4_dev *dev, int slave);
++
+ #endif /* MLX4_H */
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index 095f74d..e50b201 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -507,6 +507,31 @@ int mlx4_get_port_ib_caps(struct mlx4_dev *dev, u8 port, __be32 *caps)
  }
- EXPORT_SYMBOL_GPL(mlx4_set_vf_vlan);
+ static struct mlx4_roce_gid_entry zgid_entry;
  
-+ /* mlx4_get_slave_default_vlan -
-+ * return true if VST ( default vlan)
-+ * if VST, will return vlan & qos (if not NULL)
-+ */
-+bool mlx4_get_slave_default_vlan(struct mlx4_dev *dev, int port, int slave, u16 *vlan, u8 *qos)
++int mlx4_get_slave_num_gids(struct mlx4_dev *dev, int slave)
 +{
-+	struct mlx4_vport_oper_state *vp_oper;
-+	struct mlx4_priv *priv;
-+
-+	priv = mlx4_priv(dev);
-+	vp_oper = &priv->mfunc.master.vf_oper[slave].vport[port];
-+
-+	if (MLX4_VGT != vp_oper->state.default_vlan) {
-+		if (vlan)
-+			*vlan = vp_oper->state.default_vlan;
-+		if (qos)
-+			*qos = vp_oper->state.default_qos;
-+		return true;
-+	}
-+	return false;
++	if (slave == 0)
++		return MLX4_ROCE_PF_GIDS;
++	if (slave <= ((MLX4_ROCE_MAX_GIDS - MLX4_ROCE_PF_GIDS) % dev->num_vfs))
++		return ((MLX4_ROCE_MAX_GIDS - MLX4_ROCE_PF_GIDS) / dev->num_vfs) + 1;
++	return (MLX4_ROCE_MAX_GIDS - MLX4_ROCE_PF_GIDS) / dev->num_vfs;
 +}
-+EXPORT_SYMBOL_GPL(mlx4_get_slave_default_vlan);
 +
- int mlx4_set_vf_spoofchk(struct mlx4_dev *dev, int port, int vf, bool setting)
++int mlx4_get_base_gid_ix(struct mlx4_dev *dev, int slave)
++{
++	int gids;
++	int vfs;
++
++	gids = MLX4_ROCE_MAX_GIDS - MLX4_ROCE_PF_GIDS;
++	vfs = dev->num_vfs;
++
++	if (slave == 0)
++		return 0;
++	if (slave <= gids % vfs)
++		return MLX4_ROCE_PF_GIDS + ((gids / vfs) + 1) * (slave - 1);
++
++	return MLX4_ROCE_PF_GIDS + (gids % vfs) + ((gids / vfs) * (slave - 1));
++}
++
+ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 				u8 op_mod, struct mlx4_cmd_mailbox *inbox)
+ {
+@@ -516,15 +541,18 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 	struct mlx4_slave_state *slave_st = &master->slave_state[slave];
+ 	struct mlx4_set_port_rqp_calc_context *qpn_context;
+ 	struct mlx4_set_port_general_context *gen_context;
+-	struct mlx4_roce_gid_entry *gid_entry;
++	struct mlx4_roce_gid_entry *gid_entry_tbl, *gid_entry_mbox, *gid_entry_mb1;
+ 	int reset_qkey_viols;
+ 	int port;
+ 	int is_eth;
++	int num_gids;
++	int base;
+ 	u32 in_modifier;
+ 	u32 promisc;
+ 	u16 mtu, prev_mtu;
+ 	int err;
+-	int i;
++	int i, j;
++	int offset;
+ 	__be32 agg_cap_mask;
+ 	__be32 slave_cap_mask;
+ 	__be32 new_cap_mask;
+@@ -585,26 +613,65 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 			gen_context->mtu = cpu_to_be16(master->max_mtu[port]);
+ 			break;
+ 		case MLX4_SET_PORT_GID_TABLE:
+-			gid_entry = (struct mlx4_roce_gid_entry *)(inbox->buf);
+-			/* check that do not have duplicates */
+-			if (memcmp(gid_entry->raw, zgid_entry.raw, 16)) {
+-				for (i = 0; i < MLX4_ROCE_MAX_GIDS; i++) {
+-					if (slave != i &&
+-					    !memcmp(gid_entry->raw, priv->roce_gids[port - 1][i].raw, 16)) {
+-						mlx4_warn(dev, "requested gid entry for slave:%d "
+-							  "is a duplicate of slave %d\n",
+-							  slave, i);
+-						return -EEXIST;
++			/* change to MULTIPLE entries: number of guest's gids
++			 * need a FOR-loop here over number of gids the guest has.
++			 * 1. Check no duplicates in gids passed by slave
++			 */
++			num_gids = mlx4_get_slave_num_gids(dev, slave);
++			base = mlx4_get_base_gid_ix(dev, slave);
++			gid_entry_mbox = (struct mlx4_roce_gid_entry *)(inbox->buf);
++			for (i = 0; i < num_gids; gid_entry_mbox++, i++) {
++				if (!memcmp(gid_entry_mbox->raw, zgid_entry.raw,
++					    sizeof(zgid_entry)))
++					continue;
++				gid_entry_mb1 = gid_entry_mbox + 1;
++				for (j = i + 1; j < num_gids; gid_entry_mb1++, j++) {
++					if (!memcmp(gid_entry_mb1->raw,
++						    zgid_entry.raw, sizeof(zgid_entry)))
++						continue;
++					if (!memcmp(gid_entry_mb1->raw, gid_entry_mbox->raw,
++						    sizeof(gid_entry_mbox->raw))) {
++						/* found duplicate */
++						return -EINVAL;
+ 					}
+ 				}
+ 			}
+-			/* insert slave GID at proper index */
+-			memcpy(priv->roce_gids[port - 1][slave].raw, gid_entry->raw, 16);
+-			/* rewrite roce port gids table to FW */
++
++			/* 2. Check that do not have duplicates in OTHER
++			 *    entries in the port GID table
++			 */
+ 			for (i = 0; i < MLX4_ROCE_MAX_GIDS; i++) {
+-				memcpy(gid_entry->raw, priv->roce_gids[port - 1][i].raw, 16);
+-				gid_entry++;
++				if (i >= base && i < base + num_gids)
++					continue; /* don't compare to slave's current gids */
++				gid_entry_tbl = &priv->roce_gids[port - 1][i];
++				if (!memcmp(gid_entry_tbl->raw, zgid_entry.raw, sizeof(zgid_entry)))
++					continue;
++				gid_entry_mbox = (struct mlx4_roce_gid_entry *)(inbox->buf);
++				for (j = 0; j < num_gids; gid_entry_mbox++, j++) {
++					if (!memcmp(gid_entry_mbox->raw, zgid_entry.raw,
++						    sizeof(zgid_entry)))
++						continue;
++					if (!memcmp(gid_entry_mbox->raw, gid_entry_tbl->raw,
++						    sizeof(gid_entry_tbl->raw))) {
++						/* found duplicate */
++						mlx4_warn(dev, "requested gid entry for slave:%d "
++							  "is a duplicate of gid at index %d\n",
++							  slave, i);
++						return -EINVAL;
++					}
++				}
+ 			}
++
++			/* insert slave GIDs with memcpy, starting at slave's base index */
++			gid_entry_mbox = (struct mlx4_roce_gid_entry *)(inbox->buf);
++			for (i = 0, offset = base; i < num_gids; gid_entry_mbox++, offset++, i++)
++				memcpy(priv->roce_gids[port - 1][offset].raw, gid_entry_mbox->raw, 16);
++
++			/* Now, copy roce port gids table to current mailbox for passing to FW */
++			gid_entry_mbox = (struct mlx4_roce_gid_entry *)(inbox->buf);
++			for (i = 0; i < MLX4_ROCE_MAX_GIDS; gid_entry_mbox++, i++)
++				memcpy(gid_entry_mbox->raw, priv->roce_gids[port - 1][i].raw, 16);
++
+ 			break;
+ 		}
+ 		return mlx4_cmd(dev, inbox->dma, in_mod, op_mod,
+@@ -957,6 +1024,7 @@ int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid, int *s
  {
  	struct mlx4_priv *priv = mlx4_priv(dev);
-diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
-index 79a3472..bae5f58 100644
---- a/include/linux/mlx4/cmd.h
-+++ b/include/linux/mlx4/cmd.h
-@@ -240,6 +240,12 @@ int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos);
- int mlx4_set_vf_spoofchk(struct mlx4_dev *dev, int port, int vf, bool setting);
- int mlx4_get_vf_config(struct mlx4_dev *dev, int port, int vf, struct ifla_vf_info *ivf);
- int mlx4_set_vf_link_state(struct mlx4_dev *dev, int port, int vf, int link_state);
-+/*
-+ * mlx4_get_slave_default_vlan -
-+ * return true if VST ( default vlan)
-+ * if VST, will return vlan & qos (if not NULL)
-+ */
-+bool mlx4_get_slave_default_vlan(struct mlx4_dev *dev, int port, int slave, u16 *vlan, u8 *qos);
+ 	int i, found_ix = -1;
++	int vf_gids = MLX4_ROCE_MAX_GIDS - MLX4_ROCE_PF_GIDS;
  
- #define MLX4_COMM_GET_IF_REV(cmd_chan_ver) (u8)((cmd_chan_ver) >> 8)
+ 	if (!mlx4_is_mfunc(dev))
+ 		return -EINVAL;
+@@ -968,8 +1036,19 @@ int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid, int *s
+ 		}
+ 	}
  
+-	if (found_ix >= 0)
+-		*slave_id = found_ix;
++	if (found_ix >= 0) {
++		if (found_ix < MLX4_ROCE_PF_GIDS)
++			*slave_id = 0;
++		else if (found_ix < MLX4_ROCE_PF_GIDS + (vf_gids % dev->num_vfs) *
++			 (vf_gids / dev->num_vfs + 1))
++			*slave_id = ((found_ix - MLX4_ROCE_PF_GIDS) /
++				     (vf_gids / dev->num_vfs + 1)) + 1;
++		else
++			*slave_id =
++			((found_ix - MLX4_ROCE_PF_GIDS -
++			  ((vf_gids % dev->num_vfs) * ((vf_gids / dev->num_vfs + 1)))) /
++			 (vf_gids / dev->num_vfs)) + vf_gids % dev->num_vfs + 1;
++	}
+ 
+ 	return (found_ix >= 0) ? 0 : -EINVAL;
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 57428a0..1c3634e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -219,6 +219,11 @@ struct res_fs_rule {
+ 	int			qpn;
+ };
+ 
++static int mlx4_is_eth(struct mlx4_dev *dev, int port)
++{
++	return dev->caps.port_mask[port] == MLX4_PORT_TYPE_IB ? 0 : 1;
++}
++
+ static void *res_tracker_lookup(struct rb_root *root, u64 res_id)
+ {
+ 	struct rb_node *node = root->rb_node;
+@@ -600,15 +605,34 @@ static void update_gid(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *inbox,
+ 	struct mlx4_qp_context	*qp_ctx = inbox->buf + 8;
+ 	enum mlx4_qp_optpar	optpar = be32_to_cpu(*(__be32 *) inbox->buf);
+ 	u32			ts = (be32_to_cpu(qp_ctx->flags) >> 16) & 0xff;
++	int port;
+ 
+-	if (MLX4_QP_ST_UD == ts)
+-		qp_ctx->pri_path.mgid_index = 0x80 | slave;
+-
+-	if (MLX4_QP_ST_RC == ts || MLX4_QP_ST_UC == ts) {
+-		if (optpar & MLX4_QP_OPTPAR_PRIMARY_ADDR_PATH)
+-			qp_ctx->pri_path.mgid_index = slave & 0x7F;
+-		if (optpar & MLX4_QP_OPTPAR_ALT_ADDR_PATH)
+-			qp_ctx->alt_path.mgid_index = slave & 0x7F;
++	if (MLX4_QP_ST_UD == ts) {
++		port = (qp_ctx->pri_path.sched_queue >> 6 & 1) + 1;
++		if (mlx4_is_eth(dev, port))
++			qp_ctx->pri_path.mgid_index = mlx4_get_base_gid_ix(dev, slave) | 0x80;
++		else
++			qp_ctx->pri_path.mgid_index = slave | 0x80;
++
++	} else if (MLX4_QP_ST_RC == ts || MLX4_QP_ST_XRC == ts || MLX4_QP_ST_UC == ts) {
++		if (optpar & MLX4_QP_OPTPAR_PRIMARY_ADDR_PATH) {
++			port = (qp_ctx->pri_path.sched_queue >> 6 & 1) + 1;
++			if (mlx4_is_eth(dev, port)) {
++				qp_ctx->pri_path.mgid_index += mlx4_get_base_gid_ix(dev, slave);
++				qp_ctx->pri_path.mgid_index &= 0x7f;
++			} else {
++				qp_ctx->pri_path.mgid_index = slave & 0x7F;
++			}
++		}
++		if (optpar & MLX4_QP_OPTPAR_ALT_ADDR_PATH) {
++			port = (qp_ctx->alt_path.sched_queue >> 6 & 1) + 1;
++			if (mlx4_is_eth(dev, port)) {
++				qp_ctx->alt_path.mgid_index += mlx4_get_base_gid_ix(dev, slave);
++				qp_ctx->alt_path.mgid_index &= 0x7f;
++			} else {
++				qp_ctx->alt_path.mgid_index = slave & 0x7F;
++			}
++		}
+ 	}
+ }
+ 
+@@ -2734,6 +2758,8 @@ static int verify_qp_parameters(struct mlx4_dev *dev,
+ 	u32			qp_type;
+ 	struct mlx4_qp_context	*qp_ctx;
+ 	enum mlx4_qp_optpar	optpar;
++	int port;
++	int num_gids;
+ 
+ 	qp_ctx  = inbox->buf + 8;
+ 	qp_type	= (be32_to_cpu(qp_ctx->flags) >> 16) & 0xff;
+@@ -2741,6 +2767,7 @@ static int verify_qp_parameters(struct mlx4_dev *dev,
+ 
+ 	switch (qp_type) {
+ 	case MLX4_QP_ST_RC:
++	case MLX4_QP_ST_XRC:
+ 	case MLX4_QP_ST_UC:
+ 		switch (transition) {
+ 		case QP_TRANS_INIT2RTR:
+@@ -2749,13 +2776,24 @@ static int verify_qp_parameters(struct mlx4_dev *dev,
+ 		case QP_TRANS_SQD2SQD:
+ 		case QP_TRANS_SQD2RTS:
+ 			if (slave != mlx4_master_func_num(dev))
+-				/* slaves have only gid index 0 */
+-				if (optpar & MLX4_QP_OPTPAR_PRIMARY_ADDR_PATH)
+-					if (qp_ctx->pri_path.mgid_index)
++				if (optpar & MLX4_QP_OPTPAR_PRIMARY_ADDR_PATH) {
++					port = (qp_ctx->pri_path.sched_queue >> 6 & 1) + 1;
++					if (dev->caps.port_mask[port] != MLX4_PORT_TYPE_IB)
++						num_gids = mlx4_get_slave_num_gids(dev, slave);
++					else
++						num_gids = 1;
++					if (qp_ctx->pri_path.mgid_index >= num_gids)
+ 						return -EINVAL;
+-				if (optpar & MLX4_QP_OPTPAR_ALT_ADDR_PATH)
+-					if (qp_ctx->alt_path.mgid_index)
++				}
++				if (optpar & MLX4_QP_OPTPAR_ALT_ADDR_PATH) {
++					port = (qp_ctx->alt_path.sched_queue >> 6 & 1) + 1;
++					if (dev->caps.port_mask[port] != MLX4_PORT_TYPE_IB)
++						num_gids = mlx4_get_slave_num_gids(dev, slave);
++					else
++						num_gids = 1;
++					if (qp_ctx->alt_path.mgid_index >= num_gids)
+ 						return -EINVAL;
++				}
+ 			break;
+ 		default:
+ 			break;
 diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 5cb7cee..5fe57bb 100644
+index fbe6cda..5cb7cee 100644
 --- a/include/linux/mlx4/device.h
 +++ b/include/linux/mlx4/device.h
-@@ -632,7 +632,8 @@ struct mlx4_eth_av {
- 	u8		hop_limit;
- 	__be32		sl_tclass_flowlabel;
- 	u8		dgid[16];
--	u32		reserved4[2];
-+	u8		s_mac[6];
-+	u8		reserved4[2];
- 	__be16		vlan;
- 	u8		mac[ETH_ALEN];
- };
+@@ -49,6 +49,7 @@
+ #define MIN_MSIX_P_PORT		5
+ 
+ #define MLX4_ROCE_MAX_GIDS	128
++#define MLX4_ROCE_PF_GIDS	16
+ 
+ enum {
+ 	MLX4_FLAG_MSI_X		= 1 << 0,
 -- 
 1.7.1
