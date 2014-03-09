@@ -1,82 +1,154 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next v4 1/4] ieee802154: add generic header handling
- routines
-Date: Sun, 09 Mar 2014 17:59:03 +0000
-Message-ID: <1394387943.15968.1.camel@deadeye.wl.decadent.org.uk>
-References: <1393943688-24221-2-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-	 <20140304.170050.2058599034902221847.davem@davemloft.net>
-	 <cc9ba7943aebff9ba87b60778b62f1a8.squirrel@webmail.itwm.fhg.de>
-	 <20140304.172025.2034977449200344617.davem@davemloft.net>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v7 net-next 1/3] filter: add Extended BPF interpreter and converter
+Date: Sun, 9 Mar 2014 11:02:40 -0700
+Message-ID: <CAMEtUuwyCD+-aWiOSRWf2+K0iaSxuDuW-Z8Em=LdskDgbtQkWA@mail.gmail.com>
+References: <1394320530-3508-1-git-send-email-ast@plumgrid.com>
+	<1394320530-3508-2-git-send-email-ast@plumgrid.com>
+	<1394376574.20149.99.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-mYihuwTH0yYwXqVZQeJf"
-Cc: phoebe.buckheister@itwm.fraunhofer.de, netdev@vger.kernel.org,
-	linux-zigbee-devel@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.k
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51083 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751090AbaCIR7M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2014 13:59:12 -0400
-In-Reply-To: <20140304.172025.2034977449200344617.davem@davemloft.net>
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:51061 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751231AbaCISCm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2014 14:02:42 -0400
+Received: by mail-wg0-f46.google.com with SMTP id b13so1343255wgh.5
+        for <netdev@vger.kernel.org>; Sun, 09 Mar 2014 11:02:40 -0700 (PDT)
+In-Reply-To: <1394376574.20149.99.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sun, Mar 9, 2014 at 7:49 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Sat, 2014-03-08 at 15:15 -0800, Alexei Starovoitov wrote:
+>
+>> +                     if (BPF_SRC(fp->code) == BPF_K &&
+>> +                         (int)fp->k < 0) {
+>> +                             /* extended BPF immediates are signed,
+>> +                              * zero extend immediate into tmp register
+>> +                              * and use it in compare insn
+>> +                              */
+>> +                             insn->code = BPF_ALU | BPF_MOV | BPF_K;
+>> +                             insn->a_reg = 2;
+>> +                             insn->imm = fp->k;
+>> +                             insn++;
+>> +
+>> +                             insn->a_reg = 6;
+>> +                             insn->x_reg = 2;
+>> +                             bpf_src = BPF_X;
+>> +                     } else {
+>> +                             insn->a_reg = 6;
+>> +                             insn->x_reg = 7;
+>> +                             insn->imm = fp->k;
+>> +                             bpf_src = BPF_SRC(fp->code);
+>> +                     }
+>> +                     /* common case where 'jump_false' is next insn */
+>> +                     if (fp->jf == 0) {
+>> +                             insn->code = BPF_JMP | BPF_OP(fp->code) |
+>> +                                     bpf_src;
+>> +                             tgt = i + fp->jt + 1;
+>> +                             EMIT_JMP;
+>> +                             break;
+>> +                     }
+>> +                     /* convert JEQ into JNE when 'jump_true' is next insn */
+>> +                     if (fp->jt == 0 && BPF_OP(fp->code) == BPF_JEQ) {
+>> +                             insn->code = BPF_JMP | BPF_JNE | bpf_src;
+>> +                             tgt = i + fp->jf + 1;
+>> +                             EMIT_JMP;
+>> +                             break;
+>> +                     }
+>> +                     /* other jumps are mapped into two insns: Jxx and JA */
+>> +                     tgt = i + fp->jt + 1;
+>> +                     insn->code = BPF_JMP | BPF_OP(fp->code) | bpf_src;
+>> +                     EMIT_JMP;
+>> +
+>> +                     insn++;
+>> +                     insn->code = BPF_JMP | BPF_JA;
+>> +                     tgt = i + fp->jf + 1;
+>> +                     EMIT_JMP;
+>> +                     break;
+>> +
+>> +             /* ldxb 4*([14]&0xf) is remaped into 3 insns */
+>> +             case BPF_LDX | BPF_MSH | BPF_B:
+>> +                     insn->code = BPF_LD | BPF_ABS | BPF_B;
+>> +                     insn->a_reg = 7;
+>> +                     insn->imm = fp->k;
+>> +
+>> +                     insn++;
+>> +                     insn->code = BPF_ALU | BPF_AND | BPF_K;
+>> +                     insn->a_reg = 7;
+>> +                     insn->imm = 0xf;
+>> +
+>> +                     insn++;
+>> +                     insn->code = BPF_ALU | BPF_LSH | BPF_K;
+>> +                     insn->a_reg = 7;
+>> +                     insn->imm = 2;
+>> +                     break;
+>> +
+>> +             /* RET_K, RET_A are remaped into 2 insns */
+>> +             case BPF_RET | BPF_A:
+>> +             case BPF_RET | BPF_K:
+>> +                     insn->code = BPF_ALU | BPF_MOV |
+>> +                             (BPF_RVAL(fp->code) == BPF_K ? BPF_K : BPF_X);
+>> +                     insn->a_reg = 0;
+>> +                     insn->x_reg = 6;
+>> +                     insn->imm = fp->k;
+>> +
+>> +                     insn++;
+>> +                     insn->code = BPF_RET | BPF_K;
+>> +                     break;
+>
+>
+> What the hell is this ?
+>
+> All this magical values, like 2, 6, 7, 10.
 
---=-mYihuwTH0yYwXqVZQeJf
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+they are register numbers, since they are assigned into 'a_reg' and 'x_reg'
+which are described in uapi/filter.h:
+        __u8    a_reg:4; /* dest register */
+        __u8    x_reg:4; /* source register */
+and in Doc...filter.txt
 
-On Tue, 2014-03-04 at 17:20 -0500, David Miller wrote:
-> From: "Phoebe Buckheister" <phoebe.buckheister@itwm.fraunhofer.de>
-> Date: Tue, 4 Mar 2014 23:16:31 +0100
->=20
-> > I see some value in being able to memcpy() to/from those fields directl=
-y
-> > when building/reading headers, but I also think that not having to do
-> > endianness conversion everywhere for a struct that cannot ever be a val=
-id
-> > header as is outweighs this.
->=20
-> Why have an intermediate copy when that's not necessary at all?  It
-> seems like pure overhead to be.
->=20
-> Furthermore, cpu's have byte-shifting load and store instructions
-> which will be used if you make use of the 'p' versions of the endian
-> swap functions, such as cpu_to_le16p().
->=20
-> So it's going to cost basically nothing.
+In the V1 series I had a bunch of #define like:
+#define R1 1
+#define R2 2
+which seemed as silly as doing '#define one 1'
 
-The real frame headers don't have naturally aligned fields, so if the
-structures are to mirror them they would need to be __packed.  I'm sure
-you realise what that does for performance.
+I thought that the sk_convert_filter() code is pretty clear in terms
+of what it's doing, but I'm happy to add an extensive comment to
+describe the mechanics.
+Also it felt that most of the time you and other folks want me to remove
+comments, so I figured I'll add comments on demand.
+Here looks like it's the case.
 
-Ben.
+> I am afraid nobody will be able to read this but you.
 
---=20
-Ben Hutchings
-I say we take off; nuke the site from orbit.  It's the only way to be sure.
+that's certainly not the intent. I've presented it at the last plumbers conf
+and would like to share more, since I think ebpf is a fundamental
+breakthrough that can be used by many kernel subsystems.
+This patch only covers old filters and seccomp.
+We can do a lot more interesting things with tracing+ebpf and so on.
 
---=-mYihuwTH0yYwXqVZQeJf
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUxyr5+e/yOyVhhEJAQrMGw//eNw4BoizFtuSc5KSMVUXcgfmNoCc2Hwc
-58l8k1AMNt+t6Dl9p5DPaf4zGnxZr0zJa38q149VM/yvShzTLZRLqfHHHPao0niY
-/4h+pZgQXEQpubfrOVRCARR56b9eV43AxdLjgafoydJ6RG+Rsm4dvWAsWyGMfM8U
-qXo/98UiJ992Dyh4gvWYHewvEdqnYeN3H8M91hONF1losDQ4OCc1gFrlBSrUtnNF
-XEdlRKMhlBErohInZt6Rk1GGmD7syF2mIG5IEl6XIAVurxDq6mKjDVEWOwINjz1X
-4tQQogtuiKiBQ8go4y61+zm4+hWkG55NrdU2qEDeFEx1ws8SAmeqXnyrItHpKhQA
-Y0fFscaYkIOyJKvJyNLFXq7jH4n2li6m2J0UH/kP2qFUjO9MwdUmCdvibCRmnxgq
-ZgT39yuv2YB3zrQA1VlRcPupTgKzhpJr5IM0mKRZhp+1d13i+SzniPyHwT+YM7cS
-MoG2PhTaH3a+K+LP5z+7lru0jpoi0OLNC0SW1/7iAD0kaHzAob3f4q3Yy8OfuPAc
-99x6CIdqQfScDQ1airvSVOyNCCdUfZD0uwKADlFnhVDny72dsiMNki6WS2OGei6r
-9sDZ5oIVQZoAzApa7XCY1Qy/ymFnTmli/Sjilv0A9EHVjxd/tMfmgOwVvxRDiWZX
-WhGrMnJnk58=
-=VCXe
------END PGP SIGNATURE-----
-
---=-mYihuwTH0yYwXqVZQeJf--
+Regards,
+Alexei
