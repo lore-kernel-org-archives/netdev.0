@@ -1,91 +1,75 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] net: sched: dev_deactivate_many(): use msleep(1)
- instead of yield() to wait for outstanding qdisc_run calls
-Date: Sun, 09 Mar 2014 23:17:52 +0000
-Message-ID: <1394407072.15968.81.camel@deadeye.wl.decadent.org.uk>
-References: <1393976987-23555-1-git-send-email-mkl@pengutronix.de>
-	 <20140306.160622.59358366688518505.davem@davemloft.net>
-	 <1394392160.15968.13.camel@deadeye.wl.decadent.org.uk>
-	 <20140309.185338.2057082497431220324.davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next 1/2] ethtool: Support for configurable RSS
+ hash key
+Date: Sun, 09 Mar 2014 23:23:02 +0000
+Message-ID: <1394407382.15968.84.camel@deadeye.wl.decadent.org.uk>
+References: <1393589141-10597-1-git-send-email-VenkatKumar.Duvvuru@Emulex.com>
+	 <0e1d7b54-dcbd-446d-b1c9-644086da138f@CMEXHTCAS2.ad.emulex.com>
+	 <1394063979.2861.25.camel@deadeye.wl.decadent.org.uk>
+	 <BF3270C86E8B1349A26C34E4EC1C44CB2C889D94@CMEXMB1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-2/ULzx60VvtLiA8I9fzc"
-Cc: mkl@pengutronix.de, linux-rt-users@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kernel@pengutronix.de
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140309.185338.2057082497431220324.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	protocol="application/pgp-signature"; boundary="=-HnQGBigPJmqENraXYzgQ"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51807 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751073AbaCIXXF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2014 19:23:05 -0400
+In-Reply-To: <BF3270C86E8B1349A26C34E4EC1C44CB2C889D94@CMEXMB1.ad.emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---=-2/ULzx60VvtLiA8I9fzc
+--=-HnQGBigPJmqENraXYzgQ
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Sun, 2014-03-09 at 18:53 -0400, David Miller wrote:
-> From: Ben Hutchings <ben@decadent.org.uk>
-> Date: Sun, 09 Mar 2014 19:09:20 +0000
->=20
-> > On Thu, 2014-03-06 at 16:06 -0500, David Miller wrote:
-> >> From: Marc Kleine-Budde <mkl@pengutronix.de>
-> >> Date: Wed,  5 Mar 2014 00:49:47 +0100
-> >>=20
-> >> > @@ -839,7 +839,7 @@ void dev_deactivate_many(struct list_head *head)
-> >> >       /* Wait for outstanding qdisc_run calls. */
-> >> >       list_for_each_entry(dev, head, unreg_list)
-> >> >               while (some_qdisc_is_busy(dev))
-> >> > -                     yield();
-> >> > +                     msleep(1)
-> >> >  }
-> >>=20
-> >> I don't understand this.
-> >>=20
-> >> yield() should really _mean_ yield.
-> >>=20
-> >> The intent of a yield() call, like this one here, is unambiguously
-> >> that the current thread cannot do anything until some other thread
-> >> gets onto the cpu and makes forward progress.
-> >>
-> >> Therefore it should allow lower priority threads to run, not just
-> >> equal or higher priority ones.
+On Thu, 2014-03-06 at 14:23 +0000, Venkata Duvvuru wrote:
+> > > + * @get_rxfh: Get the contents of the RX flow hash indirection table=
+ and
+> > hash
+> > > + *	key.
+> > > + *	Will not be called if @get_rxfh_indir_size and @get_rxfh_key_size
+> > > + *	returns zero.
 > >=20
-> > Until when?
-> >=20
-> > yield() is not a sensible operation in a preemptive multitasking system=
-,
-> > regardless of RT.
->=20
-> To me it means "I've got nothing to do if other tasks want to run right
-> now"  Yes, I even see it having this meaning when an RT task executes
-> it.
->=20
-> How else can you interpret the intent above?
+> > Shouldn't that 'and' be an 'or'?  I.e. this is only called if the drive=
+r exposes both
+> > the key and the indirection table.
+> What about the existing drivers those support only indirection configurat=
+ion.
 
-The problem is that 'I've got nothing to do ... now' is information
-about a *point* in time, which gives the scheduler no clue as to when
-this task might be ready again.  So far as task *state* goes, it never
-ceases to be ready.
+Right, I forgot to revise this after reading further.
 
-> If you change it to msleep(1), you're assigning an extra completely
-> arbitrary time limit to the yield.  The code doesn't want to sleep
-> for 1ms, that's not what it's asking for.
 [...]
+> > > +	rss_info->indir_size =3D user_indir_size;
+> > > +	rss_info->key_size =3D user_key_size;
+> > > +	ret =3D dev->ethtool_ops->get_rxfh(dev, rss_info);
+> >=20
+> > I think it would be better to pass the driver two separate pointers int=
+o the
+> > buffer, one for the indirection table and one for the key.
+> The intention is to avoid changing "get_rxfh/set_rxfh" interface every
+> time a new configurable parameter is introduced.
 
-I think you want to give up a 'time slice' to any task that's available.
-But that's not a meaningful concept for all schedulers.  If your task is
-highest priority and is ready, it must run.  You could drop priority
-temporarily, but then you need it to somehow be bumped up again at some
-time in the future.  Well, sleeping effectively does that.
+OK.
 
-I do understand that unconditionally sleeping also isn't ideal - the
-task that unblocks this one might already be running on another CPU and
-able to finish sooner than the sleep timeout.
+> > > +	if ((user_indir_size && ((user_indir_size !=3D 0xDEADBEEF) &&
+> > > +				 user_indir_size !=3D dev_indir_size)) ||
+> > > +	    (user_key_size && (user_key_size !=3D dev_key_size)))
+> > > +		return -EINVAL;
+> > > +
+> > > +	if (user_indir_size && user_indir_size !=3D 0xDEADBEEF)
+> > > +		indir_bytes =3D user_indir_size * sizeof(rss_info->rss_config[0]);
+> >=20
+> > Why is 0xDEADBEEF special?
+> Since 0 is used as a hint to reset to default, we should have a way to
+> hint that indirection table configuration is not requested in this
+> context.
 
-Maybe the answer is a yield_for(time) which sleeps for the given time or
-until there's an idle CPU, whichever is sooner.  But I don't know how
-hard that would be to implement or how widely useful it would be.
+That's not necessary, as you can read and then write back the same
+values.
 
 Ben.
 
@@ -93,26 +77,26 @@ Ben.
 Ben Hutchings
 I say we take off; nuke the site from orbit.  It's the only way to be sure.
 
---=-2/ULzx60VvtLiA8I9fzc
+--=-HnQGBigPJmqENraXYzgQ
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUAUxz2oOe/yOyVhhEJAQqEdRAAmXlGXs+/789OBmNlwKat0bSr4q2U2SN5
-Uxqe98KE18Khv6egE6yNenOyCVOMkIcEwrLQUoCFlm0mwA/oNBtQvGVCeP5mkSW4
-zmNUH7mxWP2gNMEy6g5BOTprz7fEmjuVhF7L3f3HeASglWld6y8TPllEccM3Tlvx
-9kwYlMi0A9hOxT4/0HWH/7ACRTkA8zOskaqFtBDyHpZgOj6Rrot+Gw4uStqDI7K8
-/e+nYG5g/Knk/FRy5YjWIpJxX121B77ie6PdDKNsX48/RlFizHbjuxVrKyAQTiOw
-2lGJGzgY+TythQbyavIICBGDeApFFfl1MDcEBottvUXjyHTLrgqpzR7bs/Ix3AS5
-sx+U6ojBTa/yAgOobHwnGQ+nv3zzUlFRBDTTjASDiVKjE47o4HCm3q3rFkcqRbLZ
-uOUjKQ5hV2fk2fWEVv6SX7qAeaBjlnKs3HsqW1ruSWH7fxfjIadTxFyi8xLZUIAH
-7nxO1kN47/YUSQmHK7TlvOoJGlxo7jrP6DO3oZyEolbJbca2+Y7JVQAatmeblwu8
-m1OKKfqDF0ZRN77Bn1SPQNNbajqviO5Ld0c/EKCxnvpKgwwly8qWfSRIO6Xbji1b
-Oj/0zTbGBJ1BAYXfB3kocz/a/FPtTT/SrIBozfm1i6yDIkDViKGvu9svrZ7w38BW
-teeIcMU74g8=
-=ymAx
+iQIVAwUAUxz31ue/yOyVhhEJAQrJvg/5AQfg8ucmaJKG7hM4EpYthQJlcgQdFRxe
+4aSlFeWT1GcdPfU0YFhj+1StSQ5LoxKyLedoehbVS+x/JRCekBM9uPQgf5SMjP4b
+k99QoahHt0389L8+Trv8rYipCagCb1rH17yM9WqS7eZi3W6ZpENixde7gm1YXZTn
+dGLI2uoStq6QhnDKJ5k/o0gm3soGKMn7MECJ5wQ5k30aWMNWO3B5nT6vHgGMonG5
+oLHGtcCQiKUs7pXZNKLwb0r5bCCW+nOV11X+oWTayi0Kx9JpgHznpqqPlihakdsp
+i7bZlZ9GF343CrCeV4JTCnQpe6nVsJnwRDV1eKNj8PO9yTlkMCR/dJUp3XO/Wng+
+D2oE5LTQvIbTpjWrTiWdrrg6allpi+szo7MlWEmrivmB0FSx1q3CF+/Q5CYoI9NE
+IMKGzFxz64K/HqgyWJ6akqDdvfrc015VxXo63BBPEs7CNO7Z7ZpjuUN/+MS9NPO0
+nRk5sR4J8qltOOjU1rXI4mJ1Adnh13TYgpOj8Kba6tVZR+q2bB2YZGusOEPPa2D/
+uzLiWeYy/tzttlOAlcKg/iPb/7dwm+0x10i0moXMgeiJzAtZmwW5yD/VYNxiZHyV
+dZIjLSqjJDuw+GZRHC6d7IWXJcGbOv51kd2/CWrpwE8wLkyjddi5EPNGWGqqqY2m
+jGHxEf9FxbI=
+=OVD8
 -----END PGP SIGNATURE-----
 
---=-2/ULzx60VvtLiA8I9fzc--
+--=-HnQGBigPJmqENraXYzgQ--
