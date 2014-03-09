@@ -1,273 +1,214 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH V3 2/6] Drivers: net: hyperv: Cleanup the send path
-Date: Sat,  8 Mar 2014 19:23:14 -0800
-Message-ID: <1394335398-11167-2-git-send-email-kys@microsoft.com>
+Subject: [PATCH V3 3/6] Drivers: net: hyperv: Enable offloads on the host
+Date: Sat,  8 Mar 2014 19:23:15 -0800
+Message-ID: <1394335398-11167-3-git-send-email-kys@microsoft.com>
 References: <1394335362-11126-1-git-send-email-kys@microsoft.com>
  <1394335398-11167-1-git-send-email-kys@microsoft.com>
-Cc: "K. Y. Srinivasan" <kys@microsoft.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
-	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+ jasowang@redhat.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 In-Reply-To: <1394335398-11167-1-git-send-email-kys@microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-In preparation for enabling offloads, cleanup the send path.
+Prior to enabling guest side offloads, enable the offloads on the host.
 
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h   |    7 +---
- drivers/net/hyperv/netvsc_drv.c   |   88 +++++++++++++++++++++++++++++--------
- drivers/net/hyperv/rndis_filter.c |   66 ---------------------------
- 3 files changed, 71 insertions(+), 90 deletions(-)
+ drivers/net/hyperv/hyperv_net.h   |   55 +++++++++++++++++++++++++
+ drivers/net/hyperv/rndis_filter.c |   80 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 135 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 39fc230..694bf7c 100644
+index 694bf7c..8bc4e76 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -73,7 +73,7 @@ struct hv_netvsc_packet {
- 	} completion;
+@@ -721,6 +721,61 @@ struct ndis_pkt_8021q_info {
+ 	};
+ };
  
- 	/* This points to the memory after page_buf */
--	void *extension;
-+	struct rndis_message *rndis_msg;
++struct ndis_oject_header {
++	u8 type;
++	u8 revision;
++	u16 size;
++};
++
++#define NDIS_OBJECT_TYPE_DEFAULT	0x80
++#define NDIS_OFFLOAD_PARAMETERS_REVISION_3 3
++#define NDIS_OFFLOAD_PARAMETERS_NO_CHANGE 0
++#define NDIS_OFFLOAD_PARAMETERS_LSOV2_DISABLED 1
++#define NDIS_OFFLOAD_PARAMETERS_LSOV2_ENABLED  2
++#define NDIS_OFFLOAD_PARAMETERS_LSOV1_ENABLED  2
++#define NDIS_OFFLOAD_PARAMETERS_RSC_DISABLED 1
++#define NDIS_OFFLOAD_PARAMETERS_RSC_ENABLED 2
++#define NDIS_OFFLOAD_PARAMETERS_TX_RX_DISABLED 1
++#define NDIS_OFFLOAD_PARAMETERS_TX_ENABLED_RX_DISABLED 2
++#define NDIS_OFFLOAD_PARAMETERS_RX_ENABLED_TX_DISABLED 3
++#define NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED 4
++
++/*
++ * New offload OIDs for NDIS 6
++ */
++#define OID_TCP_OFFLOAD_CURRENT_CONFIG 0xFC01020B /* query only */
++#define OID_TCP_OFFLOAD_PARAMETERS 0xFC01020C		/* set only */
++#define OID_TCP_OFFLOAD_HARDWARE_CAPABILITIES 0xFC01020D/* query only */
++#define OID_TCP_CONNECTION_OFFLOAD_CURRENT_CONFIG 0xFC01020E /* query only */
++#define OID_TCP_CONNECTION_OFFLOAD_HARDWARE_CAPABILITIES 0xFC01020F /* query */
++#define OID_OFFLOAD_ENCAPSULATION 0x0101010A /* set/query */
++
++struct ndis_offload_params {
++	struct ndis_oject_header header;
++	u8 ip_v4_csum;
++	u8 tcp_ip_v4_csum;
++	u8 udp_ip_v4_csum;
++	u8 tcp_ip_v6_csum;
++	u8 udp_ip_v6_csum;
++	u8 lso_v1;
++	u8 ip_sec_v1;
++	u8 lso_v2_ipv4;
++	u8 lso_v2_ipv6;
++	u8 tcp_connection_ip_v4;
++	u8 tcp_connection_ip_v6;
++	u32 flags;
++	u8 ip_sec_v2;
++	u8 ip_sec_v2_ip_v4;
++	struct {
++		u8 rsc_ip_v4;
++		u8 rsc_ip_v6;
++	};
++	struct {
++		u8 encapsulated_packet_task_offload;
++		u8 encapsulation_types;
++	};
++};
++
+ #define NDIS_VLAN_PPI_SIZE (sizeof(struct rndis_per_packet_info) + \
+ 		sizeof(struct ndis_pkt_8021q_info))
  
- 	u32 total_data_buflen;
- 	/* Points to the send/receive buffer where the ethernet frame is */
-@@ -126,11 +126,6 @@ void rndis_filter_device_remove(struct hv_device *dev);
- int rndis_filter_receive(struct hv_device *dev,
- 			struct hv_netvsc_packet *pkt);
- 
--
--
--int rndis_filter_send(struct hv_device *dev,
--			struct hv_netvsc_packet *pkt);
--
- int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter);
- int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac);
- 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 1f7b12f..7010c06 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -128,6 +128,27 @@ static int netvsc_close(struct net_device *net)
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index dcbf144e..9b02f21 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -627,6 +627,61 @@ cleanup:
  	return ret;
  }
  
-+static void *init_ppi_data(struct rndis_message *msg, u32 ppi_size,
-+				int pkt_type)
++int rndis_filter_set_offload_params(struct hv_device *hdev,
++				struct ndis_offload_params *req_offloads)
 +{
-+	struct rndis_packet *rndis_pkt;
-+	struct rndis_per_packet_info *ppi;
++	struct netvsc_device *nvdev = hv_get_drvdata(hdev);
++	struct rndis_device *rdev = nvdev->extension;
++	struct net_device *ndev = nvdev->ndev;
++	struct rndis_request *request;
++	struct rndis_set_request *set;
++	struct ndis_offload_params *offload_params;
++	struct rndis_set_complete *set_complete;
++	u32 extlen = sizeof(struct ndis_offload_params);
++	int ret, t;
 +
-+	rndis_pkt = &msg->msg.pkt;
-+	rndis_pkt->data_offset += ppi_size;
++	request = get_rndis_request(rdev, RNDIS_MSG_SET,
++		RNDIS_MESSAGE_SIZE(struct rndis_set_request) + extlen);
++	if (!request)
++		return -ENOMEM;
 +
-+	ppi = (struct rndis_per_packet_info *)((void *)rndis_pkt +
-+		rndis_pkt->per_pkt_info_offset + rndis_pkt->per_pkt_info_len);
++	set = &request->request_msg.msg.set_req;
++	set->oid = OID_TCP_OFFLOAD_PARAMETERS;
++	set->info_buflen = extlen;
++	set->info_buf_offset = sizeof(struct rndis_set_request);
++	set->dev_vc_handle = 0;
 +
-+	ppi->size = ppi_size;
-+	ppi->type = pkt_type;
-+	ppi->ppi_offset = sizeof(struct rndis_per_packet_info);
++	offload_params = (struct ndis_offload_params *)((ulong)set +
++				set->info_buf_offset);
++	*offload_params = *req_offloads;
++	offload_params->header.type = NDIS_OBJECT_TYPE_DEFAULT;
++	offload_params->header.revision = NDIS_OFFLOAD_PARAMETERS_REVISION_3;
++	offload_params->header.size = extlen;
 +
-+	rndis_pkt->per_pkt_info_len += ppi_size;
++	ret = rndis_filter_send_request(rdev, request);
++	if (ret != 0)
++		goto cleanup;
 +
-+	return ppi;
-+}
-+
- static void netvsc_xmit_completion(void *context)
- {
- 	struct hv_netvsc_packet *packet = (struct hv_netvsc_packet *)context;
-@@ -174,8 +195,8 @@ static u32 fill_pg_buf(struct page *page, u32 offset, u32 len,
- 	return j + 1;
- }
- 
--static void init_page_array(void *hdr, u32 len, struct sk_buff *skb,
--			    struct hv_page_buffer *pb)
-+static u32 init_page_array(void *hdr, u32 len, struct sk_buff *skb,
-+			   struct hv_page_buffer *pb)
- {
- 	u32 slots_used = 0;
- 	char *data = skb->data;
-@@ -203,6 +224,7 @@ static void init_page_array(void *hdr, u32 len, struct sk_buff *skb,
- 					frag->page_offset,
- 					skb_frag_size(frag), &pb[slots_used]);
- 	}
-+	return slots_used;
- }
- 
- static int count_skb_frag_slots(struct sk_buff *skb)
-@@ -240,14 +262,19 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	struct net_device_context *net_device_ctx = netdev_priv(net);
- 	struct hv_netvsc_packet *packet;
- 	int ret;
--	unsigned int num_data_pages;
-+	unsigned int num_data_pgs;
-+	struct rndis_message *rndis_msg;
-+	struct rndis_packet *rndis_pkt;
-+	u32 rndis_msg_size;
-+	bool isvlan;
-+	struct rndis_per_packet_info *ppi;
- 
- 	/* We will atmost need two pages to describe the rndis
- 	 * header. We can only transmit MAX_PAGE_BUFFER_COUNT number
- 	 * of pages in a single packet.
- 	 */
--	num_data_pages = netvsc_get_slots(skb) + 2;
--	if (num_data_pages > MAX_PAGE_BUFFER_COUNT) {
-+	num_data_pgs = netvsc_get_slots(skb) + 2;
-+	if (num_data_pgs > MAX_PAGE_BUFFER_COUNT) {
- 		netdev_err(net, "Packet too big: %u\n", skb->len);
- 		dev_kfree_skb(skb);
- 		net->stats.tx_dropped++;
-@@ -256,7 +283,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 
- 	/* Allocate a netvsc packet based on # of frags. */
- 	packet = kzalloc(sizeof(struct hv_netvsc_packet) +
--			 (num_data_pages * sizeof(struct hv_page_buffer)) +
-+			 (num_data_pgs * sizeof(struct hv_page_buffer)) +
- 			 sizeof(struct rndis_message) +
- 			 NDIS_VLAN_PPI_SIZE, GFP_ATOMIC);
- 	if (!packet) {
-@@ -270,26 +297,51 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 
- 	packet->vlan_tci = skb->vlan_tci;
- 
--	packet->extension = (void *)(unsigned long)packet +
--			sizeof(struct hv_netvsc_packet) +
--			(num_data_pages * sizeof(struct hv_page_buffer));
--
--	/* If the rndis msg goes beyond 1 page, we will add 1 later */
--	packet->page_buf_cnt = num_data_pages - 1;
--
--	/* Initialize it from the skb */
-+	packet->is_data_pkt = true;
- 	packet->total_data_buflen = skb->len;
- 
--	/* Start filling in the page buffers starting after RNDIS buffer. */
--	init_page_array(NULL, 0, skb, &packet->page_buf[1]);
-+	packet->rndis_msg = (struct rndis_message *)((unsigned long)packet +
-+				sizeof(struct hv_netvsc_packet) +
-+				(num_data_pgs * sizeof(struct hv_page_buffer)));
- 
- 	/* Set the completion routine */
- 	packet->completion.send.send_completion = netvsc_xmit_completion;
- 	packet->completion.send.send_completion_ctx = packet;
- 	packet->completion.send.send_completion_tid = (unsigned long)skb;
- 
--	ret = rndis_filter_send(net_device_ctx->device_ctx,
--				  packet);
-+	isvlan = packet->vlan_tci & VLAN_TAG_PRESENT;
-+
-+	/* Add the rndis header */
-+	rndis_msg = packet->rndis_msg;
-+	rndis_msg->ndis_msg_type = RNDIS_MSG_PACKET;
-+	rndis_msg->msg_len = packet->total_data_buflen;
-+	rndis_pkt = &rndis_msg->msg.pkt;
-+	rndis_pkt->data_offset = sizeof(struct rndis_packet);
-+	rndis_pkt->data_len = packet->total_data_buflen;
-+	rndis_pkt->per_pkt_info_offset = sizeof(struct rndis_packet);
-+
-+	rndis_msg_size = RNDIS_MESSAGE_SIZE(struct rndis_packet);
-+
-+	if (isvlan) {
-+		struct ndis_pkt_8021q_info *vlan;
-+
-+		rndis_msg_size += NDIS_VLAN_PPI_SIZE;
-+		ppi = init_ppi_data(rndis_msg, NDIS_VLAN_PPI_SIZE,
-+					IEEE_8021Q_INFO);
-+		vlan = (struct ndis_pkt_8021q_info *)((void *)ppi +
-+						ppi->ppi_offset);
-+		vlan->vlanid = packet->vlan_tci & VLAN_VID_MASK;
-+		vlan->pri = (packet->vlan_tci & VLAN_PRIO_MASK) >>
-+				VLAN_PRIO_SHIFT;
++	t = wait_for_completion_timeout(&request->wait_event, 5*HZ);
++	if (t == 0) {
++		netdev_err(ndev, "timeout before we got aOFFLOAD set response...\n");
++		/* can't put_rndis_request, since we may still receive a
++		 * send-completion.
++		 */
++		return -EBUSY;
++	} else {
++		set_complete = &request->response_msg.msg.set_complete;
++		if (set_complete->status != RNDIS_STATUS_SUCCESS) {
++			netdev_err(ndev, "Fail to set MAC on host side:0x%x\n",
++				   set_complete->status);
++			ret = -EINVAL;
++		}
 +	}
 +
-+	/* Start filling in the page buffers with the rndis hdr */
-+	rndis_msg->msg_len += rndis_msg_size;
-+	packet->page_buf_cnt = init_page_array(rndis_msg, rndis_msg_size,
-+					skb, &packet->page_buf[0]);
-+
-+	ret = netvsc_send(net_device_ctx->device_ctx, packet);
-+
- 	if (ret == 0) {
- 		net->stats.tx_bytes += skb->len;
- 		net->stats.tx_packets++;
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 6a9f602..dcbf144e 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -910,69 +910,3 @@ int rndis_filter_close(struct hv_device *dev)
++cleanup:
++	put_rndis_request(rdev, request);
++	return ret;
++}
  
- 	return rndis_filter_close_device(nvdev->extension);
+ static int rndis_filter_query_device_link_status(struct rndis_device *dev)
+ {
+@@ -826,6 +881,7 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	struct netvsc_device *net_device;
+ 	struct rndis_device *rndis_device;
+ 	struct netvsc_device_info *device_info = additional_info;
++	struct ndis_offload_params offloads;
+ 
+ 	rndis_device = get_rndis_device();
+ 	if (!rndis_device)
+@@ -865,6 +921,26 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 
+ 	memcpy(device_info->mac_adr, rndis_device->hw_mac_adr, ETH_ALEN);
+ 
++	/* Turn on the offloads; the host supports all of the relevant
++	 * offloads.
++	 */
++	memset(&offloads, 0, sizeof(struct ndis_offload_params));
++	/* A value of zero means "no change"; now turn on what we
++	 * want.
++	 */
++	offloads.ip_v4_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
++	offloads.tcp_ip_v4_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
++	offloads.udp_ip_v4_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
++	offloads.tcp_ip_v6_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
++	offloads.udp_ip_v6_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
++	offloads.lso_v2_ipv4 = NDIS_OFFLOAD_PARAMETERS_LSOV2_ENABLED;
++
++
++	ret = rndis_filter_set_offload_params(dev, &offloads);
++	if (ret)
++		goto err_dev_remv;
++
++
+ 	rndis_filter_query_device_link_status(rndis_device);
+ 
+ 	device_info->link_state = rndis_device->link_state;
+@@ -874,6 +950,10 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 		 device_info->link_state ? "down" : "up");
+ 
+ 	return ret;
++
++err_dev_remv:
++	rndis_filter_device_remove(dev);
++	return ret;
  }
--
--int rndis_filter_send(struct hv_device *dev,
--			     struct hv_netvsc_packet *pkt)
--{
--	struct rndis_message *rndis_msg;
--	struct rndis_packet *rndis_pkt;
--	u32 rndis_msg_size;
--	bool isvlan = pkt->vlan_tci & VLAN_TAG_PRESENT;
--
--	/* Add the rndis header */
--	rndis_msg = (struct rndis_message *)pkt->extension;
--
--	rndis_msg_size = RNDIS_MESSAGE_SIZE(struct rndis_packet);
--	if (isvlan)
--		rndis_msg_size += NDIS_VLAN_PPI_SIZE;
--
--	rndis_msg->ndis_msg_type = RNDIS_MSG_PACKET;
--	rndis_msg->msg_len = pkt->total_data_buflen +
--				      rndis_msg_size;
--
--	rndis_pkt = &rndis_msg->msg.pkt;
--	rndis_pkt->data_offset = sizeof(struct rndis_packet);
--	if (isvlan)
--		rndis_pkt->data_offset += NDIS_VLAN_PPI_SIZE;
--	rndis_pkt->data_len = pkt->total_data_buflen;
--
--	if (isvlan) {
--		struct rndis_per_packet_info *ppi;
--		struct ndis_pkt_8021q_info *vlan;
--
--		rndis_pkt->per_pkt_info_offset = sizeof(struct rndis_packet);
--		rndis_pkt->per_pkt_info_len = NDIS_VLAN_PPI_SIZE;
--
--		ppi = (struct rndis_per_packet_info *)((ulong)rndis_pkt +
--			rndis_pkt->per_pkt_info_offset);
--		ppi->size = NDIS_VLAN_PPI_SIZE;
--		ppi->type = IEEE_8021Q_INFO;
--		ppi->ppi_offset = sizeof(struct rndis_per_packet_info);
--
--		vlan = (struct ndis_pkt_8021q_info *)((ulong)ppi +
--			ppi->ppi_offset);
--		vlan->vlanid = pkt->vlan_tci & VLAN_VID_MASK;
--		vlan->pri = (pkt->vlan_tci & VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
--	}
--
--	pkt->is_data_pkt = true;
--	pkt->page_buf[0].pfn = virt_to_phys(rndis_msg) >> PAGE_SHIFT;
--	pkt->page_buf[0].offset =
--			(unsigned long)rndis_msg & (PAGE_SIZE-1);
--	pkt->page_buf[0].len = rndis_msg_size;
--
--	/* Add one page_buf if the rndis msg goes beyond page boundary */
--	if (pkt->page_buf[0].offset + rndis_msg_size > PAGE_SIZE) {
--		int i;
--		for (i = pkt->page_buf_cnt; i > 1; i--)
--			pkt->page_buf[i] = pkt->page_buf[i-1];
--		pkt->page_buf_cnt++;
--		pkt->page_buf[0].len = PAGE_SIZE - pkt->page_buf[0].offset;
--		pkt->page_buf[1].pfn = virt_to_phys((void *)((ulong)
--			rndis_msg + pkt->page_buf[0].len)) >> PAGE_SHIFT;
--		pkt->page_buf[1].offset = 0;
--		pkt->page_buf[1].len = rndis_msg_size - pkt->page_buf[0].len;
--	}
--
--	return netvsc_send(dev, pkt);
--}
+ 
+ void rndis_filter_device_remove(struct hv_device *dev)
 -- 
 1.7.4.1
