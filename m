@@ -1,98 +1,163 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 2/7] mlx4_core: For RoCE, allow slaves to set the GID entry at that slave's index
-Date: Sun,  9 Mar 2014 16:53:59 +0200
-Message-ID: <1394376844-12812-3-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 6/7] mlx4_ib: Fix SIDR support of for UD QPs under SRIOV/RoCE
+Date: Sun,  9 Mar 2014 16:54:03 +0200
+Message-ID: <1394376844-12812-7-git-send-email-ogerlitz@mellanox.com>
 References: <1394376844-12812-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, roland@kernel.org,
 	jackm@dev.mellanox.co.il, amirv@mellanox.com,
+	Shani Michaelli <shanim@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:41581 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:41576 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752494AbaCIOyW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752313AbaCIOyW (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 9 Mar 2014 10:54:22 -0400
 In-Reply-To: <1394376844-12812-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+From: Shani Michaelli <shanim@mellanox.com>
 
-For IB transport, the host determines the slave GIDs. For ETH (RoCE),
-however, the slave's GID is determined by the IP address that the slave
-itself assigns to the ETH device used by RoCE.
+* Handle CM_SIDR_REQ_ATTR_ID and CM_SIDR_REP_ATTR_ID
+  in multiplex_cm_handler and demux_cm_handler.
 
-In this case, the slave must be able to write its GIDs to the HCA gid table
-(at the GID indices that slave "owns").
+* Handle Service ID Resolution messages and REQ messages
+  separately, for their formats are different.
 
-This commit adds processing for the SET_PORT_GID_TABLE opcode modifier
-for the SET_PORT command wrapper (so that slaves may modify their GIDS
-for RoCE).
-
+Signed-off-by: Shani Michaeli <shanim@mellanox.com>
+Signed-off-by: Matan Barak <matanb@mellanox.com>
 Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/port.c |   27 ++++++++++++++++++++++++++-
- 1 files changed, 26 insertions(+), 1 deletions(-)
+ drivers/infiniband/hw/mlx4/cm.c |   72 ++++++++++++++++++++++++++++++--------
+ 1 files changed, 57 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
-index 9c063d6..095f74d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/port.c
-@@ -505,6 +505,7 @@ int mlx4_get_port_ib_caps(struct mlx4_dev *dev, u8 port, __be32 *caps)
- 	mlx4_free_cmd_mailbox(dev, outmailbox);
- 	return err;
+diff --git a/drivers/infiniband/hw/mlx4/cm.c b/drivers/infiniband/hw/mlx4/cm.c
+index b8d9115..56a593e 100644
+--- a/drivers/infiniband/hw/mlx4/cm.c
++++ b/drivers/infiniband/hw/mlx4/cm.c
+@@ -61,6 +61,11 @@ struct cm_generic_msg {
+ 	__be32 remote_comm_id;
+ };
+ 
++struct cm_sidr_generic_msg {
++	struct ib_mad_hdr hdr;
++	__be32 request_id;
++};
++
+ struct cm_req_msg {
+ 	unsigned char unused[0x60];
+ 	union ib_gid primary_path_sgid;
+@@ -69,28 +74,62 @@ struct cm_req_msg {
+ 
+ static void set_local_comm_id(struct ib_mad *mad, u32 cm_id)
+ {
+-	struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
+-	msg->local_comm_id = cpu_to_be32(cm_id);
++	if (mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
++		struct cm_sidr_generic_msg *msg =
++			(struct cm_sidr_generic_msg *)mad;
++		msg->request_id = cpu_to_be32(cm_id);
++	} else if (mad->mad_hdr.attr_id == CM_SIDR_REP_ATTR_ID) {
++		pr_err("trying to set local_comm_id in SIDR_REP\n");
++		return;
++	} else {
++		struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
++		msg->local_comm_id = cpu_to_be32(cm_id);
++	}
  }
-+static struct mlx4_roce_gid_entry zgid_entry;
  
- static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
- 				u8 op_mod, struct mlx4_cmd_mailbox *inbox)
-@@ -515,6 +516,7 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
- 	struct mlx4_slave_state *slave_st = &master->slave_state[slave];
- 	struct mlx4_set_port_rqp_calc_context *qpn_context;
- 	struct mlx4_set_port_general_context *gen_context;
-+	struct mlx4_roce_gid_entry *gid_entry;
- 	int reset_qkey_viols;
- 	int port;
- 	int is_eth;
-@@ -535,7 +537,8 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
- 	/* Slaves cannot perform SET_PORT operations except changing MTU */
- 	if (is_eth) {
- 		if (slave != dev->caps.function &&
--		    in_modifier != MLX4_SET_PORT_GENERAL) {
-+		    in_modifier != MLX4_SET_PORT_GENERAL &&
-+		    in_modifier != MLX4_SET_PORT_GID_TABLE) {
- 			mlx4_warn(dev, "denying SET_PORT for slave:%d\n",
- 					slave);
- 			return -EINVAL;
-@@ -581,6 +584,28 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ static u32 get_local_comm_id(struct ib_mad *mad)
+ {
+-	struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
+-
+-	return be32_to_cpu(msg->local_comm_id);
++	if (mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
++		struct cm_sidr_generic_msg *msg =
++			(struct cm_sidr_generic_msg *)mad;
++		return be32_to_cpu(msg->request_id);
++	} else if (mad->mad_hdr.attr_id == CM_SIDR_REP_ATTR_ID) {
++		pr_err("trying to set local_comm_id in SIDR_REP\n");
++		return -1;
++	} else {
++		struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
++		return be32_to_cpu(msg->local_comm_id);
++	}
+ }
  
- 			gen_context->mtu = cpu_to_be16(master->max_mtu[port]);
- 			break;
-+		case MLX4_SET_PORT_GID_TABLE:
-+			gid_entry = (struct mlx4_roce_gid_entry *)(inbox->buf);
-+			/* check that do not have duplicates */
-+			if (memcmp(gid_entry->raw, zgid_entry.raw, 16)) {
-+				for (i = 0; i < MLX4_ROCE_MAX_GIDS; i++) {
-+					if (slave != i &&
-+					    !memcmp(gid_entry->raw, priv->roce_gids[port - 1][i].raw, 16)) {
-+						mlx4_warn(dev, "requested gid entry for slave:%d "
-+							  "is a duplicate of slave %d\n",
-+							  slave, i);
-+						return -EEXIST;
-+					}
-+				}
-+			}
-+			/* insert slave GID at proper index */
-+			memcpy(priv->roce_gids[port - 1][slave].raw, gid_entry->raw, 16);
-+			/* rewrite roce port gids table to FW */
-+			for (i = 0; i < MLX4_ROCE_MAX_GIDS; i++) {
-+				memcpy(gid_entry->raw, priv->roce_gids[port - 1][i].raw, 16);
-+				gid_entry++;
-+			}
-+			break;
+ static void set_remote_comm_id(struct ib_mad *mad, u32 cm_id)
+ {
+-	struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
+-	msg->remote_comm_id = cpu_to_be32(cm_id);
++	if (mad->mad_hdr.attr_id == CM_SIDR_REP_ATTR_ID) {
++		struct cm_sidr_generic_msg *msg =
++			(struct cm_sidr_generic_msg *)mad;
++		msg->request_id = cpu_to_be32(cm_id);
++	} else if (mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
++		pr_err("trying to set remote_comm_id in SIDR_REQ\n");
++		return;
++	} else {
++		struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
++		msg->remote_comm_id = cpu_to_be32(cm_id);
++	}
+ }
+ 
+ static u32 get_remote_comm_id(struct ib_mad *mad)
+ {
+-	struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
+-
+-	return be32_to_cpu(msg->remote_comm_id);
++	if (mad->mad_hdr.attr_id == CM_SIDR_REP_ATTR_ID) {
++		struct cm_sidr_generic_msg *msg =
++			(struct cm_sidr_generic_msg *)mad;
++		return be32_to_cpu(msg->request_id);
++	} else if (mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
++		pr_err("trying to set remote_comm_id in SIDR_REQ\n");
++		return -1;
++	} else {
++		struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
++		return be32_to_cpu(msg->remote_comm_id);
++	}
+ }
+ 
+ static union ib_gid gid_from_req_msg(struct ib_device *ibdev, struct ib_mad *mad)
+@@ -282,19 +321,21 @@ int mlx4_ib_multiplex_cm_handler(struct ib_device *ibdev, int port, int slave_id
+ 	u32 sl_cm_id;
+ 	int pv_cm_id = -1;
+ 
+-	sl_cm_id = get_local_comm_id(mad);
+-
+ 	if (mad->mad_hdr.attr_id == CM_REQ_ATTR_ID ||
+-			mad->mad_hdr.attr_id == CM_REP_ATTR_ID) {
++			mad->mad_hdr.attr_id == CM_REP_ATTR_ID ||
++			mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
++		sl_cm_id = get_local_comm_id(mad);
+ 		id = id_map_alloc(ibdev, slave_id, sl_cm_id);
+ 		if (IS_ERR(id)) {
+ 			mlx4_ib_warn(ibdev, "%s: id{slave: %d, sl_cm_id: 0x%x} Failed to id_map_alloc\n",
+ 				__func__, slave_id, sl_cm_id);
+ 			return PTR_ERR(id);
  		}
- 		return mlx4_cmd(dev, inbox->dma, in_mod, op_mod,
- 				MLX4_CMD_SET_PORT, MLX4_CMD_TIME_CLASS_B,
+-	} else if (mad->mad_hdr.attr_id == CM_REJ_ATTR_ID) {
++	} else if (mad->mad_hdr.attr_id == CM_REJ_ATTR_ID ||
++		   mad->mad_hdr.attr_id == CM_SIDR_REP_ATTR_ID) {
+ 		return 0;
+ 	} else {
++		sl_cm_id = get_local_comm_id(mad);
+ 		id = id_map_get(ibdev, &pv_cm_id, slave_id, sl_cm_id);
+ 	}
+ 
+@@ -320,7 +361,8 @@ int mlx4_ib_demux_cm_handler(struct ib_device *ibdev, int port, int *slave,
+ 	u32 pv_cm_id;
+ 	struct id_map_entry *id;
+ 
+-	if (mad->mad_hdr.attr_id == CM_REQ_ATTR_ID) {
++	if (mad->mad_hdr.attr_id == CM_REQ_ATTR_ID ||
++	    mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
+ 		union ib_gid gid;
+ 
+ 		if (!slave)
 -- 
 1.7.1
