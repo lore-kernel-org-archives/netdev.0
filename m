@@ -1,46 +1,118 @@
-From: Ming Chen <v.mingchen@gmail.com>
-Subject: Re: [BUG?] ixgbe: only num_online_cpus() of the tx queues are enabled
-Date: Sun, 9 Mar 2014 01:56:18 -0500
-Message-ID: <CAG+wggY+Ya1ehtAF9ZF=wkq7aQ9jgsQOB-Nj0ZwQhJWTMs3PQA@mail.gmail.com>
-References: <CAG+wggZOQ_VyAiLBuUUfW13=OqUun3g1vnYj5SEuWN+3hHreLg@mail.gmail.com>
-	<1394292461.20149.55.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1394294883.20149.70.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAG+wggbNpUqL12EAWdXxxxX6mGPj0+1HktDKJeeSxum6emBY_g@mail.gmail.com>
-	<1394336258.20149.80.camel@edumazet-glaptop2.roam.corp.google.com>
-	<531BE567.3040101@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Erez Zadok <ezk@fsl.cs.sunysb.edu>,
-	Dean Hildebrand <dhildeb@us.ibm.com>,
-	Geoff Kuenning <geoff@cs.hmc.edu>
-To: John Fastabend <john.fastabend@gmail.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next V4 1/2] net: Utility function to get affinity_hint by policy
+Date: Sun,  9 Mar 2014 09:39:08 +0200
+Message-ID: <1394350749-30522-2-git-send-email-amirv@mellanox.com>
+References: <1394350749-30522-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Prarit Bhargava <prarit@redhat.com>,
+	Govindarajulu Varadarajan <gvaradar@cisco.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:64492 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750761AbaCIG4S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2014 01:56:18 -0500
-Received: by mail-ie0-f178.google.com with SMTP id lx4so6120267iec.9
-        for <netdev@vger.kernel.org>; Sat, 08 Mar 2014 22:56:18 -0800 (PST)
-In-Reply-To: <531BE567.3040101@gmail.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:42430 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752059AbaCIHjT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Mar 2014 03:39:19 -0400
+In-Reply-To: <1394350749-30522-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 8, 2014 at 10:52 PM, John Fastabend
-<john.fastabend@gmail.com> wrote:
->
-> The NIC by default will round robin amongst the queues and should be
-> reasonably fair. We could increase the number of TX queues the driver
-> enables and for a small number of flows the first condition is easier
-> to meet. Although it wont help as the flow count increases.
+This function sets the affinity_mask according to a numa aware policy.
+affinity_mask could be used as an affinity hint for the IRQ related to
+this rx queue.
+Current policy is to spread rx queues accross cores - local cores first.
+It could be extended in the future.
 
-Yes, it is definitely better to be capable of using all tx queues.
->From a customer's point of view, if someone bought an NIC with 64
-queues, then the vendor (and the NIC driver) should enable him/her to
-use all queues if the customer really want to.
+CC: Prarit Bhargava <prarit@redhat.com>
+CC: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ include/linux/netdevice.h |  3 +++
+ net/core/dev.c            | 57 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 60 insertions(+)
 
-In our case, we believe larger number of tx queues will reduce the
-probability of hash collision.
-
-Thanks,
-Ming
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 1a86948..db4fd12 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2526,6 +2526,9 @@ static inline int netif_set_real_num_rx_queues(struct net_device *dev,
+ }
+ #endif
+ 
++int netif_set_rx_queue_affinity_hint(int rxq, int numa_node,
++				     cpumask_var_t affinity_mask);
++
+ static inline int netif_copy_real_num_queues(struct net_device *to_dev,
+ 					     const struct net_device *from_dev)
+ {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b1b0c8d..72a46c2 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2117,6 +2117,63 @@ EXPORT_SYMBOL(netif_set_real_num_rx_queues);
+ #endif
+ 
+ /**
++ * netif_set_rx_queue_affinity_hint - set affinity hint of rx queue
++ * @rxq: index of rx queue
++ * @numa_node: prefered numa_node
++ * @affinity_mask: the relevant cpu bit is set according to the policy
++ *
++ * This function sets the affinity_mask according to a numa aware policy.
++ * affinity_mask coulbe used as an affinity hint for the IRQ related to this
++ * rx queue.
++ * The policy is to spread rx queues accross cores - local cores first.
++ *
++ * Returns 0 on success, or a negative error code.
++ */
++int netif_set_rx_queue_affinity_hint(int rxq, int numa_node,
++				     cpumask_var_t affinity_mask)
++{
++	const struct cpumask *p_numa_cores_mask;
++	cpumask_var_t non_numa_cores_mask = NULL;
++	int affinity_cpu;
++	int ret = 0;
++
++	rxq %= num_online_cpus();
++
++	p_numa_cores_mask = cpumask_of_node(numa_node);
++	if (!p_numa_cores_mask)
++		p_numa_cores_mask = cpu_online_mask;
++
++	for_each_cpu(affinity_cpu, p_numa_cores_mask) {
++		if (--rxq < 0)
++			goto out;
++	}
++
++	if (!zalloc_cpumask_var(&non_numa_cores_mask, GFP_KERNEL)) {
++		ret = -ENOMEM;
++		goto err;
++	}
++
++	cpumask_xor(non_numa_cores_mask, cpu_online_mask, p_numa_cores_mask);
++
++	for_each_cpu(affinity_cpu, non_numa_cores_mask) {
++		if (--rxq < 0)
++			goto out;
++	}
++
++	ret = -EINVAL;
++	goto err;
++
++out:
++	cpumask_set_cpu(affinity_cpu, affinity_mask);
++
++err:
++	free_cpumask_var(non_numa_cores_mask);
++
++	return ret;
++}
++EXPORT_SYMBOL(netif_set_rx_queue_affinity_hint);
++
++/**
+  * netif_get_num_default_rss_queues - default number of RSS queues
+  *
+  * This routine should set an upper limit on the number of RSS queues
+-- 
+1.8.3.1
