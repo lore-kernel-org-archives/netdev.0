@@ -1,33 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
-Date: Sat, 08 Mar 2014 19:10:07 -0500 (EST)
-Message-ID: <20140308.191007.432079065584935989.davem@davemloft.net>
-References: <1394270741-29926-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20140308.185008.2040072445038361801.davem@davemloft.net>
+Subject: Re: [PATCH] pkt_sched: fq: do not hold qdisc lock while allocating
+ memory
+Date: Sat, 08 Mar 2014 19:10:32 -0500 (EST)
+Message-ID: <20140308.191032.101129109368547659.davem@davemloft.net>
+References: <1394175472.20149.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140307.170450.1316250102185751283.davem@davemloft.net>
+	<1394233362.20149.47.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55224 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55228 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751818AbaCIAKJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 19:10:09 -0500
-In-Reply-To: <20140308.185008.2040072445038361801.davem@davemloft.net>
+	with ESMTP id S1752092AbaCIAKd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 19:10:33 -0500
+In-Reply-To: <1394233362.20149.47.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogU2F0LCAwOCBN
-YXIgMjAxNCAxODo1MDowOCAtMDUwMCAoRVNUKQ0KDQo+IEZyb206IEplZmYgS2lyc2hlciA8amVm
-ZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPg0KPiBEYXRlOiBTYXQsICA4IE1hciAyMDE0IDAxOjI1
-OjI2IC0wODAwDQo+IA0KPj4gVGhpcyBzZXJpZXMgY29udGFpbnMgdXBkYXRlcyB0byBlMTAwMGUs
-IGl4Z2JldmYgYW5kIGlnYi4NCj4gIC4uLg0KPj4gICBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIv
-c2NtL2xpbnV4L2tlcm5lbC9naXQvamtpcnNoZXIvbmV0LW5leHQgbWFzdGVyDQo+IA0KPiBQdWxs
-ZWQsIHRoYW5rcyBhIGxvdCBKZWZmLCBhbmQgYWdhaW4gd2VsY29tZSBiYWNrLg0KDQpKZWZmLCBw
-bGVhc2UgZ2V0IHRoaXMgbmV3IHdhcm5pbmcgZml4ZWQsIHRoYW5rczoNCg0KZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX2V0aHRvb2wuYzogSW4gZnVuY3Rpb24goWk0MGVfZGVs
-X2ZkaXJfZW50cnmiOg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX2V0aHRv
-b2wuYzoxNDQxOjE4OiB3YXJuaW5nOiB1bnVzZWQgdmFyaWFibGUgoXBmoiBbLVd1bnVzZWQtdmFy
-aWFibGVdDQogIHN0cnVjdCBpNDBlX3BmICpwZiA9IHZzaS0+YmFjazsNCiAgICAgICAgICAgICAg
-ICAgIF4NCg==
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 07 Mar 2014 15:02:42 -0800
+
+> On Fri, 2014-03-07 at 17:04 -0500, David Miller wrote:
+> 
+>> Eric I think you can simplify things a little further, and in fact I
+>> think it makes these functions easier to understand.
+>> 
+>> The fq_resize() part should just grab the lock around the rehash and
+>> the update of q->fq_root and q->fq_trees_log.
+>> 
+>> fq_change() should only grab the lock around the fq_dequeue() loop
+>> and the call to qdisc_tree_descrease_qlen().  The rest of this
+>> function is just validating netlink attributes and looking at state
+>> that cannot change while we hold RTNL.
+> 
+> Hmm, but all these parameters we change in fq_change() are read by other
+> cpus doing enqueue()/dequeue().
+> 
+> They are integers, so a race would be not a big deal I guess, but better
+> add a fat comment then ;)
+
+Good point, this patch as-is is fine, so applied.
