@@ -1,89 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v7 net-next 1/3] filter: add Extended BPF interpreter
- and converter
-Date: Sun, 09 Mar 2014 11:11:39 -0700
-Message-ID: <1394388699.20149.105.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1394320530-3508-1-git-send-email-ast@plumgrid.com>
-	 <1394320530-3508-2-git-send-email-ast@plumgrid.com>
-	 <1394376353.20149.96.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAMEtUuyB9ZhvwU+Lv5UypXDbgAG02BgdRomF9nOef-GqNAxjww@mail.gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [net-next 03/13] i40e: Flow Director sideband accounting
+Date: Sun, 09 Mar 2014 18:35:00 +0000
+Message-ID: <1394390100.15968.9.camel@deadeye.wl.decadent.org.uk>
+References: <1394079704-1108-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1394079704-1108-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-MA/q6hBZUtyW9BmL3BKO"
+Cc: davem@davemloft.net,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Anjali Singhai Jain <anjali.singhai@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Catherine Sullivan <catherine.sullivan@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51160 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751818AbaCISfJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2014 14:35:09 -0400
+In-Reply-To: <1394079704-1108-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-MA/q6hBZUtyW9BmL3BKO
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Jesse Gross <jesse@nicira.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Tom Zanussi <tom.zanussi@linux.intel.com>,
-	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Pekka Enberg <penberg@iki.fi>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.k
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMEtUuyB9ZhvwU+Lv5UypXDbgAG02BgdRomF9nOef-GqNAxjww@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
 
-On Sun, 2014-03-09 at 10:38 -0700, Alexei Starovoitov wrote:
-> On Sun, Mar 9, 2014 at 7:45 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Sat, 2014-03-08 at 15:15 -0800, Alexei Starovoitov wrote:
-> >
-> >> +/**
-> >> + *   sk_run_filter_ext - run an extended filter
-> >> + *   @ctx: buffer to run the filter on
-> >> + *   @insn: filter to apply
-> >> + *
-> >> + * Decode and execute extended BPF instructions.
-> >> + * @ctx is the data we are operating on.
-> >> + * @filter is the array of filter instructions.
-> >> + */
-> >> +notrace u32 sk_run_filter_ext(void *ctx, const struct sock_filter_ext *insn)
-> >> +{
-> >> +     u64 stack[64];
-> >> +     u64 regs[16];
-> >> +     void *ptr;
-> >> +     u64 tmp;
-> >> +     int off;
-> 
-> First of all, great that you finally reviewed it! Feedback is appreciated :)
-> 
-> > Why is this 'notrace' ?
-> 
-> to avoid overhead of dummy call.
-> JITed filters are not adding this dummy call.
-> So 'notrace' on interpreter brings it to parity with JITed filters.
+On Wed, 2014-03-05 at 20:21 -0800, Jeff Kirsher wrote:
+[...]
+> +static int i40e_get_ethtool_fdir_entry(struct i40e_pf *pf,
+> +                                      struct ethtool_rxnfc *cmd)
+> +{
+> +       struct ethtool_rx_flow_spec *fsp =3D
+> +                       (struct ethtool_rx_flow_spec *)&cmd->fs;
+> +       struct i40e_fdir_filter *rule =3D NULL;
+> +       struct hlist_node *node2;
+> +
+> +       /* report total rule count */
+> +       cmd->data =3D pf->hw.fdir_shared_filter_count +
+> +                   pf->fdir_pf_filter_count;
 
-Then its a wrong reason.
+The value of the data field is not defined for ETHTOOL_GRXCLSRULE, so
+don't set it here.
 
-At the time we wrote JIT, there was (yet) no support for profiling JIT
-from perf tools. I asked for help and nobody answered.
+[...]
+>  	case ETHTOOL_GRXCLSRLCNT:
+> -		cmd->rule_cnt =3D 10;
+> +		cmd->rule_cnt =3D pf->fdir_pf_active_filters;
+>  		ret =3D 0;
+>  		break;
+[...]
 
-Maybe this has changed, if so, please someone add support.
+However, ETHTOOL_GRXCLSRLCNT *should* set the data field consistently
+with ETHTOOL_GRXCLSRLALL.
 
+Ben.
 
-> 
-> > 80 u64 on the stack, that is 640 bytes to run a filter ????
-> 
-> yes. that was described in commit log and in Doc...filter.txt:
-> "
-> - 16 4-byte stack slots for register spill-fill replaced with
->   up to 512 bytes of multi-use stack space
-> "
-> 
-> For interpreter it is prohibitive to dynamically allocate stack space
-> that's why it just grabs 64*8 to run any program.
+--=20
+Ben Hutchings
+I say we take off; nuke the site from orbit.  It's the only way to be sure.
 
-Where is checked the max capacity of this stack ?
+--=-MA/q6hBZUtyW9BmL3BKO
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAUxy0VOe/yOyVhhEJAQom6g/+JHCpE2rXRQ4I2YugtJPjjTk71dj6p5aJ
+mnQyd9kQMwf/wvaUkNhV2GWK8fcHzJcWvv0dzL27HlNATMxF2QeeCtBWY2VPfRbb
+SHAkzZqDFze8fWQPwqWyZhw7TwynViBuvPpjDpHQxsKe0n8WowL9FqwZ4x003DOU
+F8MD+455dVX2Hipdok/SYaXGIUswMF+7Sg2OVasrVoqdBtDbc+RW1+YCHI1EHIKc
+2LrTNym2yD7jOrLwlBrHo4wprZceMLrKIjXyl8MpiV2H2AT2yB7Pr3h05ZurEvFO
+AUOA0sru28EMNsiEI0qsKyu5F2cOULOJEOc1tHplg+9J2gCxWKiyzAmjFDiognnz
+DxJgDBnCxmaaNe6MMgmFKwbQrDVYi5SJrDJ/TcHyZ7X/ccPS8WZqaZbT+g9pHSTo
+3YZDJwEehU71pYLL3BrJHfk6KUT43gOnjInUeyee5EPZv/2RyRe7rKlkULaamQJM
+m4d39QZAqlI/BuZ/i6nwpYyaD9BfG6OFv3Uutb25qXVyBbT/Rry4FFWbBqb5RvLE
+1lBjPdyD2XWu25fpfgpoOAlrfNQsRwffwNl4+5aqdExLGdFHBsmMze6sg+MFysgE
+KgS6sMpVG0IYJVHgOcyRQRfBMXt+tewnING+w6zlR/63tAy3KZ2LS3rgoQiquaeY
+IJrPGe0jT90=
+=Bphz
+-----END PGP SIGNATURE-----
+
+--=-MA/q6hBZUtyW9BmL3BKO--
