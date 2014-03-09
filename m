@@ -1,81 +1,55 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] net: sched: dev_deactivate_many(): use msleep(1)
- instead of yield() to wait for outstanding qdisc_run calls
-Date: Sun, 09 Mar 2014 19:09:20 +0000
-Message-ID: <1394392160.15968.13.camel@deadeye.wl.decadent.org.uk>
-References: <1393976987-23555-1-git-send-email-mkl@pengutronix.de>
-	 <20140306.160622.59358366688518505.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v7 net-next 1/3] filter: add Extended BPF interpreter
+ and converter
+Date: Sun, 09 Mar 2014 12:11:46 -0700
+Message-ID: <1394392306.20149.112.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1394320530-3508-1-git-send-email-ast@plumgrid.com>
+	 <1394320530-3508-2-git-send-email-ast@plumgrid.com>
+	 <1394376353.20149.96.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAMEtUuyB9ZhvwU+Lv5UypXDbgAG02BgdRomF9nOef-GqNAxjww@mail.gmail.com>
+	 <1394388699.20149.105.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAMEtUuwYUhA=CKRVxr-8_KdTqzoQVD1OtgayyxX3aO48CTcxZw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-HLK62Vvp03QgiYslYuPS"
-Cc: mkl@pengutronix.de, linux-rt-users@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kernel@pengutronix.de
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.k
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140306.160622.59358366688518505.davem@davemloft.net>
+In-Reply-To: <CAMEtUuwYUhA=CKRVxr-8_KdTqzoQVD1OtgayyxX3aO48CTcxZw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, 2014-03-09 at 11:57 -0700, Alexei Starovoitov wrote:
 
---=-HLK62Vvp03QgiYslYuPS
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> In sk_run_filter_ext() I used "u64 stack[64];", but "u64 stack[60];" is
+> safe too, but I didn't want to go into extensive explanation
+> of 'magic' 60 number in the first patch, so I just rounded it to 64.
+> Since now you understand, I can make it stack[60] now :)
 
-On Thu, 2014-03-06 at 16:06 -0500, David Miller wrote:
-> From: Marc Kleine-Budde <mkl@pengutronix.de>
-> Date: Wed,  5 Mar 2014 00:49:47 +0100
->=20
-> > @@ -839,7 +839,7 @@ void dev_deactivate_many(struct list_head *head)
-> >       /* Wait for outstanding qdisc_run calls. */
-> >       list_for_each_entry(dev, head, unreg_list)
-> >               while (some_qdisc_is_busy(dev))
-> > -                     yield();
-> > +                     msleep(1)
-> >  }
->=20
-> I don't understand this.
->=20
-> yield() should really _mean_ yield.
->=20
-> The intent of a yield() call, like this one here, is unambiguously
-> that the current thread cannot do anything until some other thread
-> gets onto the cpu and makes forward progress.
->
-> Therefore it should allow lower priority threads to run, not just
-> equal or higher priority ones.
+My point was : You should not use 64 or 60 in the C code.
 
-Until when?
+I should not have to ask you why it is safe.
 
-yield() is not a sensible operation in a preemptive multitasking system,
-regardless of RT.
+It should be obvious just reading the source code. And so far it is not.
 
-Ben.
-
---=20
-Ben Hutchings
-I say we take off; nuke the site from orbit.  It's the only way to be sure.
-
---=-HLK62Vvp03QgiYslYuPS
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUxy8YOe/yOyVhhEJAQrJHw//feVCWU5pdCrAekF77WydJLMswCI4BugN
-ah3nj6js5/ajHTmmyZl7sFtWrhCmbbsqzOYSWHkcCANiPbvKFAIHexKo/7B9FXTV
-xBSIjsFvRY4iTdzJyprksEMCXuVj/kplcCFU8191bWlvzCOAPbDhF7karD2HjbLd
-QV2yjzTDOpAmMis/IhKg8uFEczq5L2gIFB/IIVyLwoLPVyn9QyexcKKo4qe5RKpB
-ER/BItPozmZzbHRPmhIXAjyr/ky/Jz8de9sM85Z8wh1HTicPGL/FHnWj2MR+NPPx
-H8BiKg1NXEXyKvQsRJEY9r2XTeXnWIhclBTUiLNhRvTAyuz/U8eLDeXNIPnvC0NS
-WiyQLH9yseJ3R2UcSMc3tROnFl+fJ6z+Im6LDyiN+GSgi1BI9mz3XSoS5fvL7o3c
-HBuaR1PJShQvvt5zDay9hT30hhghbL/BTW1Oirxv/KbDX290uUkkyLaAOeGaQajr
-uClALOSrgFGKd6SE/+MFzpG5Hh0vLnr6bPnFrLYv0Ww5T1G+byoOWELE6ZkFVcZj
-90KjkTr0iRSs1IJD8mCAh/HSEYLsTOKVe6kYxa1r2+LVIixYEcOw5bKVImAfHvgz
-UY5z8BsDBjYjz2yzNq73bEnr2M3kwCcBRCBNbLS645TkOWJnz+pDrhbRhseX9VWe
-iHvuoyHWDrU=
-=A78/
------END PGP SIGNATURE-----
-
---=-HLK62Vvp03QgiYslYuPS--
+Thats why we use macros and comments at the macro definition.
