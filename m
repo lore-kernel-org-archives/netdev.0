@@ -1,78 +1,89 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net] bna: Replace large udelay() with mdelay()
-Date: Sun, 09 Mar 2014 04:03:22 +0000
-Message-ID: <1394337802.2861.71.camel@deadeye.wl.decadent.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [BUG?] ixgbe: only num_online_cpus() of the tx queues are
+ enabled
+Date: Sat, 08 Mar 2014 20:11:17 -0800
+Message-ID: <1394338277.20149.85.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAG+wggZOQ_VyAiLBuUUfW13=OqUun3g1vnYj5SEuWN+3hHreLg@mail.gmail.com>
+	  <1394292461.20149.55.camel@edumazet-glaptop2.roam.corp.google.com>
+	  <1394294883.20149.70.camel@edumazet-glaptop2.roam.corp.google.com>
+	  <CAG+wggbNpUqL12EAWdXxxxX6mGPj0+1HktDKJeeSxum6emBY_g@mail.gmail.com>
+	 <1394336258.20149.80.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <531BE567.3040101@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-0CdENdSBsUtJha3WqZbA"
-Cc: Vagrant Cascadian <vagrant@debian.org>,
-	Rasesh Mody <rmody@brocade.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ming Chen <v.mingchen@gmail.com>, netdev@vger.kernel.org,
+	Erez Zadok <ezk@fsl.cs.sunysb.edu>,
+	Dean Hildebrand <dhildeb@us.ibm.com>,
+	Geoff Kuenning <geoff@cs.hmc.edu>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:49486 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752356AbaCIED2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 23:03:28 -0500
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:40313 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752395AbaCIELT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Mar 2014 23:11:19 -0500
+Received: by mail-pb0-f52.google.com with SMTP id rr13so5881365pbb.11
+        for <netdev@vger.kernel.org>; Sat, 08 Mar 2014 20:11:18 -0800 (PST)
+In-Reply-To: <531BE567.3040101@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, 2014-03-08 at 19:52 -0800, John Fastabend wrote:
+> On 03/08/2014 07:37 PM, Eric Dumazet wrote:
+> > On Sat, 2014-03-08 at 19:53 -0500, Ming Chen wrote:
+> >> Hi Eric,
+> >>
+> >> We noticed many changes in the TCP stack, and a lot of them come from you :-)
+> >>
+> >> Actually, we have a question about this patch you submitted
+> >> (http://lwn.net/Articles/564979/) regarding an experiment we conducted
+> >> in the 3.12.0 kernel. The results we observed in shown in the second
+> >> figure of panel 6 in this poster at
+> >> http://www.fsl.cs.sunysb.edu/~mchen/fast14poster-hashcast-portrait.pdf
+> >> .  We have repeated the same experiment for 100 times, and observed
+> >> that results like that appeared 4 times. For this experiment, we
+> >> observed that all five flows are using dedicated tx queues.  But what
+> >> makes a big difference is the average packet sizes of the flows.
+> >> Client4 has an average packet size of around 3KB while all other
+> >> clients generate packet sizes over 50KB. We suspect it might be caused
+> >> by this TSO Packets Automatic Sizing feaure. Our reasoning is this: if
+> >> a TCP flow starts slowly, this feature will assign it a small packet
+> >> size. The packet size and the sending rate can somehow form a feedback
+> >> loop, which can force the TCP flow's rate to stay low. What do you
+> >> think about this?
+> >
+> > I think nothing at all. TCP is not fair. TCP tries to steal whole
+> > bandwidth by definition. One flow can have much more than the neighbour.
+> >
+> > With FQ, you can force some fairness, but if you use multiqueue, there
+> > is no guarantee at all, unless you make sure :
+> >
+> > - no more than one flow per queue.
+> > - Nic is able to provide fairness among all active TX queues.
+> >
+> 
+> The NIC by default will round robin amongst the queues and should be
+> reasonably fair. We could increase the number of TX queues the driver
+> enables and for a small number of flows the first condition is easier
+> to meet. Although it wont help as the flow count increases.
+> 
+> Using FQ as a root qdisc though I think will really hurt performance
+> on small packet sizes. For larger packet sizes its probably less
+> noticeable. Each queue can use FQ as noted previously.
+> 
 
---=-0CdENdSBsUtJha3WqZbA
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Note Ming case was using between 1 and 10 flows.
 
-udelay() does not work on some architectures for values above
-2000, in particular on ARM:
+Of course, the MQ+FQ is better for performance, but then the fairness
+problem is back.
 
-ERROR: "__bad_udelay" [drivers/net/ethernet/brocade/bna/bna.ko] undefined!
+It all depends of what is really wanted, thats why we can tweak
+things ;)
 
-Reported-by: Vagrant Cascadian <vagrant@debian.org>
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
- drivers/net/ethernet/brocade/bna/bfa_ioc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+To play with fq (instead of pfifo_fast), and mq, its as simple as :
 
-diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.c b/drivers/net/ether=
-net/brocade/bna/bfa_ioc.c
-index 1803c39..354ae97 100644
---- a/drivers/net/ethernet/brocade/bna/bfa_ioc.c
-+++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
-@@ -1704,7 +1704,7 @@ bfa_flash_sem_get(void __iomem *bar)
- 	while (!bfa_raw_sem_get(bar)) {
- 		if (--n <=3D 0)
- 			return BFA_STATUS_BADFLASH;
--		udelay(10000);
-+		mdelay(10);
- 	}
- 	return BFA_STATUS_OK;
- }
+echo fq >/proc/sys/net/core/default_qdisc
+tc qdisc replace dev eth0 root pfifo
+tc qdisc del dev eth0 root
 
-
---=20
-Ben Hutchings
-I say we take off; nuke the site from orbit.  It's the only way to be sure.
-
---=-0CdENdSBsUtJha3WqZbA
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUxvoCue/yOyVhhEJAQqZ3w/9EVJphhdlke0wA++msHs3ZJnwp/L54dr7
-/ZlAZphyDl6oWVsYuL68dIt5YAGndsUNcfvnpOrM+QnqZxfheXov9wycFmauePLL
-wv5k6mlwxDbj1Ve3PDV+6I/ECyG7tmaVsAJYrm7mosYpmAWpveTBA9GWhE0wJUom
-ZXKn62LfXCE5V/vQe7HEGFxH7g7rlTZ/McTwPZ3OodcSp8/un5TKbVgAt462g6OQ
-TfF+NwjOJjMs5lVB7BTe3+FwLB+v6IdUyPL0jhS+oYi4gmiM3c9VWxE0eButZBLl
-ebPGvuFamGOOK7Cc7KhoVLaYlYVR5+oPH+L8RZd6bm9Zz1rTVEMqdGKjmLtWKE4o
-E8RyeuJbDtwvbpaA/xtP58V560gUmNMHPl/ciFEcqbBLRnBhPlapDXYyxsJGq5Nw
-0c58FhoUjMsROS76Q90zY2M6eEOF3Ol8MuhBkQtUQ35BkUKnmEQ2gZ8xxMb3VWVe
-yKSqlM9NPcXjL44ay2wO55DdAtrJaU/HDarPST+0tlpZZPHhieSfJ9SZSLNM6k6U
-u49y8jTuse/mBr65cLGI+r7zm/IwgI4nivKC8n3lGmrURkp7TCRAGZWlS7PDufNL
-YcRb/ZQN54L2F0yV53gkD2eqBedSEjC6HKJc6ZtZS3lX9ZtA0NF6b3H+pLCc9T0L
-LnA8tWTLDsc=
-=48dO
------END PGP SIGNATURE-----
-
---=-0CdENdSBsUtJha3WqZbA--
+And you now have MQ+FQ, instead of MQ+pfifo_fast
