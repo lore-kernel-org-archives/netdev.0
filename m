@@ -1,65 +1,85 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH] net: phy: Add sysfs attribute to prevent PHY suspend
-Date: Mon, 10 Mar 2014 00:25:24 +0100
-Message-ID: <531CF864.9040406@gmail.com>
-References: <1393174719-20806-1-git-send-email-sebastian.hesselbarth@gmail.com> <1394192092-27461-1-git-send-email-sebastian.hesselbarth@gmail.com> <20140309.191235.1047481546773873653.davem@davemloft.net>
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: rob@landley.net, andrew@lunn.ch, f.fainelli@gmail.com,
-	netdev@vger.kernel.org, linux-doc@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: David Lang <david@lang.hm>
+Subject: Re: [PATCH] net: sched: dev_deactivate_many(): use msleep(1) instead
+ of yield() to wait for outstanding qdisc_run calls
+Date: Sun, 9 Mar 2014 16:28:16 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1403091625110.8854@nftneq.ynat.uz>
+References: <1393976987-23555-1-git-send-email-mkl@pengutronix.de>  <20140306.160622.59358366688518505.davem@davemloft.net>  <1394392160.15968.13.camel@deadeye.wl.decadent.org.uk>  <20140309.185338.2057082497431220324.davem@davemloft.net>
+ <1394407072.15968.81.camel@deadeye.wl.decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: David Miller <davem@davemloft.net>, mkl@pengutronix.de,
+	linux-rt-users@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, kernel@pengutronix.de
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140309.191235.1047481546773873653.davem@davemloft.net>
+In-Reply-To: <1394407072.15968.81.camel@deadeye.wl.decadent.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/10/2014 12:12 AM, David Miller wrote:
-> From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-> Date: Fri,  7 Mar 2014 12:34:52 +0100
->
->> commit 1211ce53077164e0d34641d0ca5fb4d4a7574498
->>    ("net: phy: resume/suspend PHYs on attach/detach")
->> introduced a feature to suspend PHYs when entering halted state.
+On Sun, 9 Mar 2014, Ben Hutchings wrote:
+
+> On Sun, 2014-03-09 at 18:53 -0400, David Miller wrote:
+>> From: Ben Hutchings <ben@decadent.org.uk>
+>> Date: Sun, 09 Mar 2014 19:09:20 +0000
 >>
->> Unfortunately, not all bootloaders properly power-up PHYs on reset
->> and fail to access ethernet because the PHY is still powered down.
+>>> On Thu, 2014-03-06 at 16:06 -0500, David Miller wrote:
+>>>> From: Marc Kleine-Budde <mkl@pengutronix.de>
+>>>> Date: Wed,  5 Mar 2014 00:49:47 +0100
+>>>>
+>>>>> @@ -839,7 +839,7 @@ void dev_deactivate_many(struct list_head *head)
+>>>>>       /* Wait for outstanding qdisc_run calls. */
+>>>>>       list_for_each_entry(dev, head, unreg_list)
+>>>>>               while (some_qdisc_is_busy(dev))
+>>>>> -                     yield();
+>>>>> +                     msleep(1)
+>>>>>  }
+>>>>
+>>>> I don't understand this.
+>>>>
+>>>> yield() should really _mean_ yield.
+>>>>
+>>>> The intent of a yield() call, like this one here, is unambiguously
+>>>> that the current thread cannot do anything until some other thread
+>>>> gets onto the cpu and makes forward progress.
+>>>>
+>>>> Therefore it should allow lower priority threads to run, not just
+>>>> equal or higher priority ones.
+>>>
+>>> Until when?
+>>>
+>>> yield() is not a sensible operation in a preemptive multitasking system,
+>>> regardless of RT.
 >>
->> Therefore, this adds code and documentation for a sysfs attribute to
->> allow/deny PHYs to be suspended on a per-PHY basis. Disabling that
->> attribute prevents PHYs from being suspended when entering halted state.
+>> To me it means "I've got nothing to do if other tasks want to run right
+>> now"  Yes, I even see it having this meaning when an RT task executes
+>> it.
 >>
->> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
->> Reported-by: Andrew Lunn <andrew@lunn.ch>
+>> How else can you interpret the intent above?
 >
-> I know you won't like what I have to say, but I want to see a solution
-> without this sysfs knob.
+> The problem is that 'I've got nothing to do ... now' is information
+> about a *point* in time, which gives the scheduler no clue as to when
+> this task might be ready again.  So far as task *state* goes, it never
+> ceases to be ready.
 >
-> First of all, you obviously have a way to end up having the sysfs knob
-> get set on the appropriate systems.
+>> If you change it to msleep(1), you're assigning an extra completely
+>> arbitrary time limit to the yield.  The code doesn't want to sleep
+>> for 1ms, that's not what it's asking for.
+> [...]
 >
-> Therefore, you obviously have some way to propagate the same piece of
-> information into the kernel somehow during boot time.
+> I think you want to give up a 'time slice' to any task that's available.
+> But that's not a meaningful concept for all schedulers.  If your task is
+> highest priority and is ready, it must run.  You could drop priority
+> temporarily, but then you need it to somehow be bumped up again at some
+> time in the future.  Well, sleeping effectively does that.
 >
-> For example, via a device tree property or similar.
+> I do understand that unconditionally sleeping also isn't ideal - the
+> task that unblocks this one might already be running on another CPU and
+> able to finish sooner than the sleep timeout.
+>
+> Maybe the answer is a yield_for(time) which sleeps for the given time or
+> until there's an idle CPU, whichever is sooner.  But I don't know how
+> hard that would be to implement or how widely useful it would be.
 
-There is no way to determine if a bootloader is broken or not. The
-sysfs knob allows to provide a use case based decision. Of course, we
-can invent some freaky device tree property but that the DT maintainers
-will not like either.
+what is msleep(0) defined to do? would it be any better?
 
-This is not an issue with broken HW but SW. The PHY is fine, you can
-suspend and resume it perfectly in Linux. But the bootloader fails to
-properly initialize it on a warm boot. You could update the bootloader
-and the issue disappears.
-
-> Please pursue an avenue such as that.  This sysfs thing, it's a user
-> facing interface we'd have to live with forever.
-
-If you want me to try a devicetree property for the issue, we also
-create ABI and we will have to live with it forever.
-
-I am open for suggestions, but I have a bad feeling about a "broken
-bootloader" DT property.
-
-Sebastian
+David Lang
