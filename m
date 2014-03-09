@@ -1,163 +1,81 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 6/7] mlx4_ib: Fix SIDR support of for UD QPs under SRIOV/RoCE
-Date: Sun,  9 Mar 2014 16:54:03 +0200
-Message-ID: <1394376844-12812-7-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 7/7] mlx4: Activate RoCE/SRIOV
+Date: Sun,  9 Mar 2014 16:54:04 +0200
+Message-ID: <1394376844-12812-8-git-send-email-ogerlitz@mellanox.com>
 References: <1394376844-12812-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, roland@kernel.org,
 	jackm@dev.mellanox.co.il, amirv@mellanox.com,
-	Shani Michaelli <shanim@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:41576 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:33012 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752313AbaCIOyW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752545AbaCIOyW (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 9 Mar 2014 10:54:22 -0400
 In-Reply-To: <1394376844-12812-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shani Michaelli <shanim@mellanox.com>
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-* Handle CM_SIDR_REQ_ATTR_ID and CM_SIDR_REP_ATTR_ID
-  in multiplex_cm_handler and demux_cm_handler.
+To activate RoCE/SRIOV, need to remove the following:
+1. In mlx4_ib_add, need to remove the error return preventing
+   initialization of a RoCE port under SRIOV.
+2. In update_vport_qp_params (in resource_tracker.c) need to remove
+   the error return when a RoCE RC or UD qp is detected.
+   This error return causes the INIT-to-RTR qp transition to fail
+   in the wrapper function under RoCE/SRIOV.
 
-* Handle Service ID Resolution messages and REQ messages
-  separately, for their formats are different.
-
-Signed-off-by: Shani Michaeli <shanim@mellanox.com>
-Signed-off-by: Matan Barak <matanb@mellanox.com>
 Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/infiniband/hw/mlx4/cm.c |   72 ++++++++++++++++++++++++++++++--------
- 1 files changed, 57 insertions(+), 15 deletions(-)
+ drivers/infiniband/hw/mlx4/main.c                  |    8 --------
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    7 -------
+ 2 files changed, 0 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/infiniband/hw/mlx4/cm.c b/drivers/infiniband/hw/mlx4/cm.c
-index b8d9115..56a593e 100644
---- a/drivers/infiniband/hw/mlx4/cm.c
-+++ b/drivers/infiniband/hw/mlx4/cm.c
-@@ -61,6 +61,11 @@ struct cm_generic_msg {
- 	__be32 remote_comm_id;
- };
+diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
+index f9c12e9..1d1750e 100644
+--- a/drivers/infiniband/hw/mlx4/main.c
++++ b/drivers/infiniband/hw/mlx4/main.c
+@@ -1888,14 +1888,6 @@ static void *mlx4_ib_add(struct mlx4_dev *dev)
  
-+struct cm_sidr_generic_msg {
-+	struct ib_mad_hdr hdr;
-+	__be32 request_id;
-+};
-+
- struct cm_req_msg {
- 	unsigned char unused[0x60];
- 	union ib_gid primary_path_sgid;
-@@ -69,28 +74,62 @@ struct cm_req_msg {
+ 	pr_info_once("%s", mlx4_ib_version);
  
- static void set_local_comm_id(struct ib_mad *mad, u32 cm_id)
- {
--	struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
--	msg->local_comm_id = cpu_to_be32(cm_id);
-+	if (mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
-+		struct cm_sidr_generic_msg *msg =
-+			(struct cm_sidr_generic_msg *)mad;
-+		msg->request_id = cpu_to_be32(cm_id);
-+	} else if (mad->mad_hdr.attr_id == CM_SIDR_REP_ATTR_ID) {
-+		pr_err("trying to set local_comm_id in SIDR_REP\n");
-+		return;
-+	} else {
-+		struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
-+		msg->local_comm_id = cpu_to_be32(cm_id);
-+	}
- }
- 
- static u32 get_local_comm_id(struct ib_mad *mad)
- {
--	struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
+-	mlx4_foreach_non_ib_transport_port(i, dev)
+-		num_ports++;
 -
--	return be32_to_cpu(msg->local_comm_id);
-+	if (mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
-+		struct cm_sidr_generic_msg *msg =
-+			(struct cm_sidr_generic_msg *)mad;
-+		return be32_to_cpu(msg->request_id);
-+	} else if (mad->mad_hdr.attr_id == CM_SIDR_REP_ATTR_ID) {
-+		pr_err("trying to set local_comm_id in SIDR_REP\n");
-+		return -1;
-+	} else {
-+		struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
-+		return be32_to_cpu(msg->local_comm_id);
-+	}
- }
- 
- static void set_remote_comm_id(struct ib_mad *mad, u32 cm_id)
- {
--	struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
--	msg->remote_comm_id = cpu_to_be32(cm_id);
-+	if (mad->mad_hdr.attr_id == CM_SIDR_REP_ATTR_ID) {
-+		struct cm_sidr_generic_msg *msg =
-+			(struct cm_sidr_generic_msg *)mad;
-+		msg->request_id = cpu_to_be32(cm_id);
-+	} else if (mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
-+		pr_err("trying to set remote_comm_id in SIDR_REQ\n");
-+		return;
-+	} else {
-+		struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
-+		msg->remote_comm_id = cpu_to_be32(cm_id);
-+	}
- }
- 
- static u32 get_remote_comm_id(struct ib_mad *mad)
- {
--	struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
+-	if (mlx4_is_mfunc(dev) && num_ports) {
+-		dev_err(&dev->pdev->dev, "RoCE is not supported over SRIOV as yet\n");
+-		return NULL;
+-	}
 -
--	return be32_to_cpu(msg->remote_comm_id);
-+	if (mad->mad_hdr.attr_id == CM_SIDR_REP_ATTR_ID) {
-+		struct cm_sidr_generic_msg *msg =
-+			(struct cm_sidr_generic_msg *)mad;
-+		return be32_to_cpu(msg->request_id);
-+	} else if (mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
-+		pr_err("trying to set remote_comm_id in SIDR_REQ\n");
-+		return -1;
-+	} else {
-+		struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
-+		return be32_to_cpu(msg->remote_comm_id);
-+	}
- }
+ 	num_ports = 0;
+ 	mlx4_foreach_ib_transport_port(i, dev)
+ 		num_ports++;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 706a6d2..74e490d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -645,7 +645,6 @@ static int update_vport_qp_param(struct mlx4_dev *dev,
+ 	struct mlx4_qp_context	*qpc = inbox->buf + 8;
+ 	struct mlx4_vport_oper_state *vp_oper;
+ 	struct mlx4_priv *priv;
+-	u32 qp_type;
+ 	int port;
  
- static union ib_gid gid_from_req_msg(struct ib_device *ibdev, struct ib_mad *mad)
-@@ -282,19 +321,21 @@ int mlx4_ib_multiplex_cm_handler(struct ib_device *ibdev, int port, int slave_id
- 	u32 sl_cm_id;
- 	int pv_cm_id = -1;
+ 	port = (qpc->pri_path.sched_queue & 0x40) ? 2 : 1;
+@@ -653,12 +652,6 @@ static int update_vport_qp_param(struct mlx4_dev *dev,
+ 	vp_oper = &priv->mfunc.master.vf_oper[slave].vport[port];
  
--	sl_cm_id = get_local_comm_id(mad);
+ 	if (MLX4_VGT != vp_oper->state.default_vlan) {
+-		qp_type	= (be32_to_cpu(qpc->flags) >> 16) & 0xff;
+-		if (MLX4_QP_ST_RC == qp_type ||
+-		    (MLX4_QP_ST_UD == qp_type &&
+-		     !mlx4_is_qp_reserved(dev, qpn)))
+-			return -EINVAL;
 -
- 	if (mad->mad_hdr.attr_id == CM_REQ_ATTR_ID ||
--			mad->mad_hdr.attr_id == CM_REP_ATTR_ID) {
-+			mad->mad_hdr.attr_id == CM_REP_ATTR_ID ||
-+			mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
-+		sl_cm_id = get_local_comm_id(mad);
- 		id = id_map_alloc(ibdev, slave_id, sl_cm_id);
- 		if (IS_ERR(id)) {
- 			mlx4_ib_warn(ibdev, "%s: id{slave: %d, sl_cm_id: 0x%x} Failed to id_map_alloc\n",
- 				__func__, slave_id, sl_cm_id);
- 			return PTR_ERR(id);
- 		}
--	} else if (mad->mad_hdr.attr_id == CM_REJ_ATTR_ID) {
-+	} else if (mad->mad_hdr.attr_id == CM_REJ_ATTR_ID ||
-+		   mad->mad_hdr.attr_id == CM_SIDR_REP_ATTR_ID) {
- 		return 0;
- 	} else {
-+		sl_cm_id = get_local_comm_id(mad);
- 		id = id_map_get(ibdev, &pv_cm_id, slave_id, sl_cm_id);
- 	}
- 
-@@ -320,7 +361,8 @@ int mlx4_ib_demux_cm_handler(struct ib_device *ibdev, int port, int *slave,
- 	u32 pv_cm_id;
- 	struct id_map_entry *id;
- 
--	if (mad->mad_hdr.attr_id == CM_REQ_ATTR_ID) {
-+	if (mad->mad_hdr.attr_id == CM_REQ_ATTR_ID ||
-+	    mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
- 		union ib_gid gid;
- 
- 		if (!slave)
+ 		/* the reserved QPs (special, proxy, tunnel)
+ 		 * do not operate over vlans
+ 		 */
 -- 
 1.7.1
