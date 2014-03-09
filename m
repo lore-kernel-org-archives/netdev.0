@@ -1,8 +1,9 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH V3 1/6] Drivers: net: hyperv: Enable scatter gather I/O
-Date: Sat,  8 Mar 2014 19:23:13 -0800
-Message-ID: <1394335398-11167-1-git-send-email-kys@microsoft.com>
+Subject: [PATCH V3 5/6] Drivers: net: hyperv: Enable send side checksum offload
+Date: Sat,  8 Mar 2014 19:23:17 -0800
+Message-ID: <1394335398-11167-5-git-send-email-kys@microsoft.com>
 References: <1394335362-11126-1-git-send-email-kys@microsoft.com>
+ <1394335398-11167-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,7 +11,7 @@ To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
  devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
  jasowang@redhat.com
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1394335362-11126-1-git-send-email-kys@microsoft.com>
+In-Reply-To: <1394335398-11167-1-git-send-email-kys@microsoft.com>
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
 List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
@@ -22,205 +23,134 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-Cleanup the code and enable scatter gather I/O.
+Enable send side checksum offload.
 
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- drivers/net/hyperv/netvsc_drv.c |  153 +++++++++++++++++++++++++++++----------
- 1 files changed, 114 insertions(+), 39 deletions(-)
+ drivers/net/hyperv/hyperv_net.h |   10 ++++++
+ drivers/net/hyperv/netvsc_drv.c |   69 +++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 77 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index faeb746..4cf2382 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -1035,6 +1035,16 @@ struct rndis_message {
+ #define NDIS_PACKET_TYPE_FUNCTIONAL	0x00000400
+ #define NDIS_PACKET_TYPE_MAC_FRAME	0x00000800
+ 
++#define INFO_IPV4       2
++#define INFO_IPV6       4
++#define INFO_TCP        2
++#define INFO_UDP        4
++
++#define TRANSPORT_INFO_NOT_IP   0
++#define TRANSPORT_INFO_IPV4_TCP ((INFO_IPV4 << 16) | INFO_TCP)
++#define TRANSPORT_INFO_IPV4_UDP ((INFO_IPV4 << 16) | INFO_UDP)
++#define TRANSPORT_INFO_IPV6_TCP ((INFO_IPV6 << 16) | INFO_TCP)
++#define TRANSPORT_INFO_IPV6_UDP ((INFO_IPV6 << 16) | INFO_UDP)
+ 
+ 
+ #endif /* _HYPERV_NET_H */
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 9ef6be9..1f7b12f 100644
+index 9bee065..6978375 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -140,21 +140,123 @@ static void netvsc_xmit_completion(void *context)
- 		dev_kfree_skb_any(skb);
+@@ -257,6 +257,35 @@ static int netvsc_get_slots(struct sk_buff *skb)
+ 	return slots + frag_slots;
  }
  
-+static u32 fill_pg_buf(struct page *page, u32 offset, u32 len,
-+			struct hv_page_buffer *pb)
++static u32 get_net_transport_info(struct sk_buff *skb, u32 *trans_off)
 +{
-+	int j = 0;
++	u32 ret_val = TRANSPORT_INFO_NOT_IP;
 +
-+	/* Deal with compund pages by ignoring unused part
-+	 * of the page.
-+	 */
-+	page += (offset >> PAGE_SHIFT);
-+	offset &= ~PAGE_MASK;
-+
-+	while (len > 0) {
-+		unsigned long bytes;
-+
-+		bytes = PAGE_SIZE - offset;
-+		if (bytes > len)
-+			bytes = len;
-+		pb[j].pfn = page_to_pfn(page);
-+		pb[j].offset = offset;
-+		pb[j].len = bytes;
-+
-+		offset += bytes;
-+		len -= bytes;
-+
-+		if (offset == PAGE_SIZE && len) {
-+			page++;
-+			offset = 0;
-+			j++;
-+		}
++	if ((eth_hdr(skb)->h_proto != htons(ETH_P_IP)) &&
++		(eth_hdr(skb)->h_proto != htons(ETH_P_IPV6))) {
++		goto not_ip;
 +	}
 +
-+	return j + 1;
-+}
++	*trans_off = skb_transport_offset(skb);
 +
-+static void init_page_array(void *hdr, u32 len, struct sk_buff *skb,
-+			    struct hv_page_buffer *pb)
-+{
-+	u32 slots_used = 0;
-+	char *data = skb->data;
-+	int frags = skb_shinfo(skb)->nr_frags;
-+	int i;
++	if ((eth_hdr(skb)->h_proto == htons(ETH_P_IP))) {
++		struct iphdr *iphdr = ip_hdr(skb);
 +
-+	/* The packet is laid out thus:
-+	 * 1. hdr
-+	 * 2. skb linear data
-+	 * 3. skb fragment data
-+	 */
-+	if (hdr != NULL)
-+		slots_used += fill_pg_buf(virt_to_page(hdr),
-+					offset_in_page(hdr),
-+					len, &pb[slots_used]);
-+
-+	slots_used += fill_pg_buf(virt_to_page(data),
-+				offset_in_page(data),
-+				skb_headlen(skb), &pb[slots_used]);
-+
-+	for (i = 0; i < frags; i++) {
-+		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
-+
-+		slots_used += fill_pg_buf(skb_frag_page(frag),
-+					frag->page_offset,
-+					skb_frag_size(frag), &pb[slots_used]);
++		if (iphdr->protocol == IPPROTO_TCP)
++			ret_val = TRANSPORT_INFO_IPV4_TCP;
++		else if (iphdr->protocol == IPPROTO_UDP)
++			ret_val = TRANSPORT_INFO_IPV4_UDP;
++	} else {
++		if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
++			ret_val = TRANSPORT_INFO_IPV6_TCP;
++		else if (ipv6_hdr(skb)->nexthdr == IPPROTO_UDP)
++			ret_val = TRANSPORT_INFO_IPV6_UDP;
 +	}
-+}
 +
-+static int count_skb_frag_slots(struct sk_buff *skb)
-+{
-+	int i, frags = skb_shinfo(skb)->nr_frags;
-+	int pages = 0;
-+
-+	for (i = 0; i < frags; i++) {
-+		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
-+		unsigned long size = skb_frag_size(frag);
-+		unsigned long offset = frag->page_offset;
-+
-+		/* Skip unused frames from start of page */
-+		offset &= ~PAGE_MASK;
-+		pages += PFN_UP(offset + size);
-+	}
-+	return pages;
-+}
-+
-+static int netvsc_get_slots(struct sk_buff *skb)
-+{
-+	char *data = skb->data;
-+	unsigned int offset = offset_in_page(data);
-+	unsigned int len = skb_headlen(skb);
-+	int slots;
-+	int frag_slots;
-+
-+	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE);
-+	frag_slots = count_skb_frag_slots(skb);
-+	return slots + frag_slots;
++not_ip:
++	return ret_val;
 +}
 +
  static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
  {
  	struct net_device_context *net_device_ctx = netdev_priv(net);
- 	struct hv_netvsc_packet *packet;
- 	int ret;
--	unsigned int i, num_pages, npg_data;
-+	unsigned int num_data_pages;
+@@ -268,6 +297,10 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	u32 rndis_msg_size;
+ 	bool isvlan;
+ 	struct rndis_per_packet_info *ppi;
++	struct ndis_tcp_ip_checksum_info *csum_info;
++	int  hdr_offset;
++	u32 net_trans_info;
++
  
--	/* Add multipages for skb->data and additional 2 for RNDIS */
--	npg_data = (((unsigned long)skb->data + skb_headlen(skb) - 1)
--		>> PAGE_SHIFT) - ((unsigned long)skb->data >> PAGE_SHIFT) + 1;
--	num_pages = skb_shinfo(skb)->nr_frags + npg_data + 2;
-+	/* We will atmost need two pages to describe the rndis
-+	 * header. We can only transmit MAX_PAGE_BUFFER_COUNT number
-+	 * of pages in a single packet.
+ 	/* We will atmost need two pages to describe the rndis
+ 	 * header. We can only transmit MAX_PAGE_BUFFER_COUNT number
+@@ -335,6 +368,37 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 				VLAN_PRIO_SHIFT;
+ 	}
+ 
++	net_trans_info = get_net_transport_info(skb, &hdr_offset);
++	if (net_trans_info == TRANSPORT_INFO_NOT_IP)
++		goto do_send;
++
++	/*
++	 * Setup the sendside checksum offload only if this is not a
++	 * GSO packet.
 +	 */
-+	num_data_pages = netvsc_get_slots(skb) + 2;
-+	if (num_data_pages > MAX_PAGE_BUFFER_COUNT) {
-+		netdev_err(net, "Packet too big: %u\n", skb->len);
-+		dev_kfree_skb(skb);
-+		net->stats.tx_dropped++;
-+		return NETDEV_TX_OK;
++	if (skb_is_gso(skb))
++		goto do_send;
++
++	rndis_msg_size += NDIS_CSUM_PPI_SIZE;
++	ppi = init_ppi_data(rndis_msg, NDIS_CSUM_PPI_SIZE,
++			    TCPIP_CHKSUM_PKTINFO);
++
++	csum_info = (struct ndis_tcp_ip_checksum_info *)((void *)ppi +
++			ppi->ppi_offset);
++
++	if (net_trans_info & (INFO_IPV4 << 16))
++		csum_info->transmit.is_ipv4 = 1;
++	else
++		csum_info->transmit.is_ipv6 = 1;
++
++	if (net_trans_info & INFO_TCP) {
++		csum_info->transmit.tcp_checksum = 1;
++		csum_info->transmit.tcp_header_offset = hdr_offset;
++	} else if (net_trans_info & INFO_UDP) {
++		csum_info->transmit.udp_checksum = 1;
 +	}
- 
- 	/* Allocate a netvsc packet based on # of frags. */
- 	packet = kzalloc(sizeof(struct hv_netvsc_packet) +
--			 (num_pages * sizeof(struct hv_page_buffer)) +
-+			 (num_data_pages * sizeof(struct hv_page_buffer)) +
- 			 sizeof(struct rndis_message) +
- 			 NDIS_VLAN_PPI_SIZE, GFP_ATOMIC);
- 	if (!packet) {
-@@ -169,44 +271,17 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	packet->vlan_tci = skb->vlan_tci;
- 
- 	packet->extension = (void *)(unsigned long)packet +
--				sizeof(struct hv_netvsc_packet) +
--				    (num_pages * sizeof(struct hv_page_buffer));
-+			sizeof(struct hv_netvsc_packet) +
-+			(num_data_pages * sizeof(struct hv_page_buffer));
- 
- 	/* If the rndis msg goes beyond 1 page, we will add 1 later */
--	packet->page_buf_cnt = num_pages - 1;
-+	packet->page_buf_cnt = num_data_pages - 1;
- 
- 	/* Initialize it from the skb */
- 	packet->total_data_buflen = skb->len;
- 
- 	/* Start filling in the page buffers starting after RNDIS buffer. */
--	packet->page_buf[1].pfn = virt_to_phys(skb->data) >> PAGE_SHIFT;
--	packet->page_buf[1].offset
--		= (unsigned long)skb->data & (PAGE_SIZE - 1);
--	if (npg_data == 1)
--		packet->page_buf[1].len = skb_headlen(skb);
--	else
--		packet->page_buf[1].len = PAGE_SIZE
--			- packet->page_buf[1].offset;
--
--	for (i = 2; i <= npg_data; i++) {
--		packet->page_buf[i].pfn = virt_to_phys(skb->data
--			+ PAGE_SIZE * (i-1)) >> PAGE_SHIFT;
--		packet->page_buf[i].offset = 0;
--		packet->page_buf[i].len = PAGE_SIZE;
--	}
--	if (npg_data > 1)
--		packet->page_buf[npg_data].len = (((unsigned long)skb->data
--			+ skb_headlen(skb) - 1) & (PAGE_SIZE - 1)) + 1;
--
--	/* Additional fragments are after SKB data */
--	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
--		const skb_frag_t *f = &skb_shinfo(skb)->frags[i];
--
--		packet->page_buf[i+npg_data+1].pfn =
--			page_to_pfn(skb_frag_page(f));
--		packet->page_buf[i+npg_data+1].offset = f->page_offset;
--		packet->page_buf[i+npg_data+1].len = skb_frag_size(f);
--	}
-+	init_page_array(NULL, 0, skb, &packet->page_buf[1]);
- 
- 	/* Set the completion routine */
- 	packet->completion.send.send_completion = netvsc_xmit_completion;
-@@ -451,8 +526,8 @@ static int netvsc_probe(struct hv_device *dev,
++
++do_send:
+ 	/* Start filling in the page buffers with the rndis hdr */
+ 	rndis_msg->msg_len += rndis_msg_size;
+ 	packet->page_buf_cnt = init_page_array(rndis_msg, rndis_msg_size,
+@@ -589,8 +653,9 @@ static int netvsc_probe(struct hv_device *dev,
  	net->netdev_ops = &device_ops;
  
  	/* TODO: Add GSO and Checksum offload */
--	net->hw_features = 0;
--	net->features = NETIF_F_HW_VLAN_CTAG_TX;
-+	net->hw_features = NETIF_F_SG;
-+	net->features = NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_SG;
+-	net->hw_features = NETIF_F_RXCSUM | NETIF_F_SG;
+-	net->features = NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_SG | NETIF_F_RXCSUM;
++	net->hw_features = NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_IP_CSUM;
++	net->features = NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_SG | NETIF_F_RXCSUM |
++			NETIF_F_IP_CSUM;
  
  	SET_ETHTOOL_OPS(net, &ethtool_ops);
  	SET_NETDEV_DEV(net, &dev->device);
