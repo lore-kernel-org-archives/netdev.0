@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv5 net-next 04/31] cxgb4: Updates for T5 SGE's Egress Congestion Threshold
-Date: Mon, 10 Mar 2014 22:38:01 +0530
-Message-ID: <1394471308-4304-5-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv5 net-next 09/31] iw_cxgb4: Treat CPL_ERR_KEEPALV_NEG_ADVICE as negative advice
+Date: Mon, 10 Mar 2014 22:38:06 +0530
+Message-ID: <1394471308-4304-10-git-send-email-hariprasad@chelsio.com>
 References: <1394471308-4304-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
 	swise@opengridcomputing.com, leedom@chelsio.com,
@@ -9,77 +9,98 @@ Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
 	hariprasad@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:10096 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:24161 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754303AbaCJRRH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:17:07 -0400
+	by vger.kernel.org with ESMTP id S1753468AbaCJRRZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:17:25 -0400
 In-Reply-To: <1394471308-4304-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kumar Sanghvi <kumaras@chelsio.com>
+From: Steve Wise <swise@opengridcomputing.com>
 
-Based on original work by Casey Leedom <leedom@chelsio.com>
+Based on original work by Anand Priyadarshee <anandp@chelsio.com>.
 
-Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/sge.c     | 18 +++++++++++++-----
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |  6 ++++++
- 2 files changed, 19 insertions(+), 5 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c            | 24 ++++++++++++------------
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h |  1 +
+ 2 files changed, 13 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 054bb03..a7c56b3 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2776,8 +2776,8 @@ static int t4_sge_init_hard(struct adapter *adap)
- int t4_sge_init(struct adapter *adap)
- {
- 	struct sge *s = &adap->sge;
--	u32 sge_control;
--	int ret;
-+	u32 sge_control, sge_conm_ctrl;
-+	int ret, egress_threshold;
+diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
+index 74a2250..c63dfe5 100644
+--- a/drivers/infiniband/hw/cxgb4/cm.c
++++ b/drivers/infiniband/hw/cxgb4/cm.c
+@@ -1648,6 +1648,15 @@ static inline int act_open_has_tid(int status)
+ 	       status != CPL_ERR_ARP_MISS;
+ }
  
- 	/*
- 	 * Ingress Padding Boundary and Egress Status Page Size are set up by
-@@ -2802,10 +2802,18 @@ int t4_sge_init(struct adapter *adap)
- 	 * SGE's Egress Congestion Threshold.  If it isn't, then we can get
- 	 * stuck waiting for new packets while the SGE is waiting for us to
- 	 * give it more Free List entries.  (Note that the SGE's Egress
--	 * Congestion Threshold is in units of 2 Free List pointers.)
-+	 * Congestion Threshold is in units of 2 Free List pointers.) For T4,
-+	 * there was only a single field to control this.  For T5 there's the
-+	 * original field which now only applies to Unpacked Mode Free List
-+	 * buffers and a new field which only applies to Packed Mode Free List
-+	 * buffers.
- 	 */
--	s->fl_starve_thres
--		= EGRTHRESHOLD_GET(t4_read_reg(adap, SGE_CONM_CTRL))*2 + 1;
-+	sge_conm_ctrl = t4_read_reg(adap, SGE_CONM_CTRL);
-+	if (is_t4(adap->params.chip))
-+		egress_threshold = EGRTHRESHOLD_GET(sge_conm_ctrl);
-+	else
-+		egress_threshold = EGRTHRESHOLDPACKING_GET(sge_conm_ctrl);
-+	s->fl_starve_thres = 2*egress_threshold + 1;
- 
- 	setup_timer(&s->rx_timer, sge_rx_timer_cb, (unsigned long)adap);
- 	setup_timer(&s->tx_timer, sge_tx_timer_cb, (unsigned long)adap);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 33cf9ef..225ad8a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -230,6 +230,12 @@
- #define  EGRTHRESHOLD(x)     ((x) << EGRTHRESHOLDshift)
- #define  EGRTHRESHOLD_GET(x) (((x) & EGRTHRESHOLD_MASK) >> EGRTHRESHOLDshift)
- 
-+#define EGRTHRESHOLDPACKING_MASK	0x3fU
-+#define EGRTHRESHOLDPACKING_SHIFT	14
-+#define EGRTHRESHOLDPACKING(x)		((x) << EGRTHRESHOLDPACKING_SHIFT)
-+#define EGRTHRESHOLDPACKING_GET(x)	(((x) >> EGRTHRESHOLDPACKING_SHIFT) & \
-+					  EGRTHRESHOLDPACKING_MASK)
++/* Returns whether a CPL status conveys negative advice.
++ */
++static int is_neg_adv(unsigned int status)
++{
++	return status == CPL_ERR_RTX_NEG_ADVICE ||
++	       status == CPL_ERR_PERSIST_NEG_ADVICE ||
++	       status == CPL_ERR_KEEPALV_NEG_ADVICE;
++}
 +
- #define SGE_DBFIFO_STATUS 0x10a4
- #define  HP_INT_THRESH_SHIFT 28
- #define  HP_INT_THRESH_MASK  0xfU
+ #define ACT_OPEN_RETRY_COUNT 2
+ 
+ static int import_ep(struct c4iw_ep *ep, int iptype, __u8 *peer_ip,
+@@ -1836,7 +1845,7 @@ static int act_open_rpl(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	PDBG("%s ep %p atid %u status %u errno %d\n", __func__, ep, atid,
+ 	     status, status2errno(status));
+ 
+-	if (status == CPL_ERR_RTX_NEG_ADVICE) {
++	if (is_neg_adv(status)) {
+ 		printk(KERN_WARNING MOD "Connection problems for atid %u\n",
+ 			atid);
+ 		return 0;
+@@ -2266,15 +2275,6 @@ static int peer_close(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	return 0;
+ }
+ 
+-/*
+- * Returns whether an ABORT_REQ_RSS message is a negative advice.
+- */
+-static int is_neg_adv_abort(unsigned int status)
+-{
+-	return status == CPL_ERR_RTX_NEG_ADVICE ||
+-	       status == CPL_ERR_PERSIST_NEG_ADVICE;
+-}
+-
+ static int peer_abort(struct c4iw_dev *dev, struct sk_buff *skb)
+ {
+ 	struct cpl_abort_req_rss *req = cplhdr(skb);
+@@ -2288,7 +2288,7 @@ static int peer_abort(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	unsigned int tid = GET_TID(req);
+ 
+ 	ep = lookup_tid(t, tid);
+-	if (is_neg_adv_abort(req->status)) {
++	if (is_neg_adv(req->status)) {
+ 		PDBG("%s neg_adv_abort ep %p tid %u\n", __func__, ep,
+ 		     ep->hwtid);
+ 		return 0;
+@@ -3572,7 +3572,7 @@ static int peer_abort_intr(struct c4iw_dev *dev, struct sk_buff *skb)
+ 		kfree_skb(skb);
+ 		return 0;
+ 	}
+-	if (is_neg_adv_abort(req->status)) {
++	if (is_neg_adv(req->status)) {
+ 		PDBG("%s neg_adv_abort ep %p tid %u\n", __func__, ep,
+ 		     ep->hwtid);
+ 		kfree_skb(skb);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+index cd6874b..f2738c7 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+@@ -116,6 +116,7 @@ enum CPL_error {
+ 	CPL_ERR_KEEPALIVE_TIMEDOUT = 34,
+ 	CPL_ERR_RTX_NEG_ADVICE     = 35,
+ 	CPL_ERR_PERSIST_NEG_ADVICE = 36,
++	CPL_ERR_KEEPALV_NEG_ADVICE = 37,
+ 	CPL_ERR_ABORT_FAILED       = 42,
+ 	CPL_ERR_IWARP_FLM          = 50,
+ };
 -- 
 1.8.4
