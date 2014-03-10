@@ -1,28 +1,79 @@
-From: Roland Dreier <roland@kernel.org>
-Subject: Re: [PATCH net-next 0/7] mlx4: Add SRIOV support for RoCE
-Date: Mon, 10 Mar 2014 11:17:20 -0700
-Message-ID: <CAG4TOxNe7L=6TtVMs1d-n7BcBmCUar8jsmGPNnAfWSqUgfCwYg@mail.gmail.com>
-References: <1394376844-12812-1-git-send-email-ogerlitz@mellanox.com>
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: RE: [PATCH net-next] ixgbe: fix ixgbe_check_reset_blocked()
+ declaration
+Date: Mon, 10 Mar 2014 18:26:56 +0000
+Message-ID: <F6FB0E698C9B3143BDF729DF2228664685D8692D@ORSMSX110.amr.corp.intel.com>
+References: <1394414342-2482-1-git-send-email-sakiwit@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Amir Vadai <amirv@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jean Sacren <sakiwit@gmail.com>,
+	"Brown, Aaron F" <aaron.f.brown@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f49.google.com ([209.85.216.49]:43476 "EHLO
-	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752527AbaCJSYG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 14:24:06 -0400
-Received: by mail-qa0-f49.google.com with SMTP id cm18so7169230qab.36
-        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 11:24:05 -0700 (PDT)
-In-Reply-To: <1394376844-12812-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mga09.intel.com ([134.134.136.24]:50392 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752046AbaCJS07 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 14:26:59 -0400
+In-Reply-To: <1394414342-2482-1-git-send-email-sakiwit@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 9, 2014 at 7:53 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
-> Roland, hope this is ok with you?
+> -----Original Message-----
+> From: Jean Sacren [mailto:sakiwit@gmail.com]
+> Sent: Sunday, March 09, 2014 6:19 PM
+> To: Brown, Aaron F
+> Cc: netdev@vger.kernel.org; Skidmore, Donald C
+> Subject: [PATCH net-next] ixgbe: fix ixgbe_check_reset_blocked()
+> declaration
+> 
+> The commit c97506ab0e22 ("ixgbe: Add check for FW veto bit") introduced
+> the new function ixgbe_check_reset_blocked() with a minor issue in
+> declaration. Fix the declaration by changing the type specifier to bool as the
+> definition returns a boolean value.
+> Additionally all ixgbe_check_reset_blocked() callers are expected to return a
+> boolean value.
+> 
+> Signed-off-by: Jean Sacren <sakiwit@gmail.com>
+> Cc: Don Skidmore <donald.c.skidmore@intel.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c | 2 +-
+> drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h | 2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+> b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+> index d2caae4750e0..05e083c99000 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+> @@ -106,7 +106,7 @@ s32 ixgbe_identify_phy_generic(struct ixgbe_hw
+> *hw)
+>   * have this bit just return false since the link can not be blocked
+>   * via this method.
+>   **/
+> -s32 ixgbe_check_reset_blocked(struct ixgbe_hw *hw)
+> +bool ixgbe_check_reset_blocked(struct ixgbe_hw *hw)
+>  {
+>  	u32 mmngc;
+> 
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+> b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+> index b4d4323666b8..52a9254c34bc 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+> @@ -131,7 +131,7 @@ s32 ixgbe_setup_phy_link_speed_generic(struct
+> ixgbe_hw *hw,
+>  s32 ixgbe_get_copper_link_capabilities_generic(struct ixgbe_hw *hw,
+>                                                 ixgbe_link_speed *speed,
+>                                                 bool *autoneg);
+> -s32 ixgbe_check_reset_blocked(struct ixgbe_hw *hw);
+> +bool ixgbe_check_reset_blocked(struct ixgbe_hw *hw);
+> 
+>  /* PHY specific */
+>  s32 ixgbe_check_phy_link_tnx(struct ixgbe_hw *hw,
 
+This was an over look on my part. Thanks for the patch. :)
 
-Sure, fine with me.
+Acked-By: Don Skidmore <donald.c.skidmore@intel.com>
