@@ -1,43 +1,87 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 1/5] vxlan: Make VXLAN default UDP port number
- available for others
-Date: Mon, 10 Mar 2014 12:43:03 -0700
-Message-ID: <20140310124303.165fc8b3@nehalam.linuxnetplumber.net>
-References: <1394470142-13992-1-git-send-email-shahed.shaikh@qlogic.com>
-	<1394470142-13992-2-git-send-email-shahed.shaikh@qlogic.com>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCHv5 net-next 15/31] iw_cxgb4: save the correct map length
+ for fast_reg_page_lists
+Date: Mon, 10 Mar 2014 23:43:21 +0300
+Message-ID: <531E23E9.4030702@cogentembedded.com>
+References: <1394471308-4304-1-git-send-email-hariprasad@chelsio.com> <1394471308-4304-16-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<Dept-HSGLinuxNICDev@qlogic.com>
-To: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:57510 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752954AbaCJTnH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 15:43:07 -0400
-Received: by mail-pa0-f42.google.com with SMTP id fb1so7792916pad.1
-        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 12:43:07 -0700 (PDT)
-In-Reply-To: <1394470142-13992-2-git-send-email-shahed.shaikh@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394471308-4304-16-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Mar 2014 12:48:58 -0400
-Shahed Shaikh <shahed.shaikh@qlogic.com> wrote:
+Hello.
 
-> From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-> 
-> Although vxlan module has capability to notify udp ports to
-> other interested net devices using .ndo_add_rx_vxlan_port and
-> .ndo_del_rx_vxlan_port, there could be some devices which support
-> vxlan offload but not interested in updating udp port numbers.
-> This may be because some hardware do not support programming multiple
-> udp ports and their drivers may decide to program only default udp port
-> into adapter. So that adapter, at least, can do offloading for
-> default udp port number.
-> 
-> Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+On 03/10/2014 08:08 PM, Hariprasad Shenai wrote:
 
-Rather than compiling in the value, it makes more sense to make
-the default port variable in vxlan driver exported. That way if user
-overrides it with a module parameter the offload will still work.
+> From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+
+> We cannot save the mapped length using the rdma max_page_list_len field
+> of the ib_fast_reg_page_list struct because the core code uses it.  This
+> results in an incorrect unmap of the page list in c4iw_free_fastreg_pbl().
+
+> I found this with dma map debugging enabled in the kernel.  The fix is
+> to save the length in the c4iw_fr_page_list struct.
+
+> Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+> ---
+>   drivers/infiniband/hw/cxgb4/iw_cxgb4.h |  1 +
+>   drivers/infiniband/hw/cxgb4/mem.c      | 12 ++++++++++--
+>   2 files changed, 11 insertions(+), 2 deletions(-)
+
+> diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+> index 8c32088..b75f8f5 100644
+> --- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+> +++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+> @@ -375,6 +375,7 @@ struct c4iw_fr_page_list {
+>   	DEFINE_DMA_UNMAP_ADDR(mapping);
+>   	dma_addr_t dma_addr;
+>   	struct c4iw_dev *dev;
+> +	int pll_len;
+>   };
+>
+>   static inline struct c4iw_fr_page_list *to_c4iw_fr_page_list(
+> diff --git a/drivers/infiniband/hw/cxgb4/mem.c b/drivers/infiniband/hw/cxgb4/mem.c
+> index 41b1195..cdaf257 100644
+> --- a/drivers/infiniband/hw/cxgb4/mem.c
+> +++ b/drivers/infiniband/hw/cxgb4/mem.c
+> @@ -903,7 +903,11 @@ struct ib_fast_reg_page_list *c4iw_alloc_fastreg_pbl(struct ib_device *device,
+>   	dma_unmap_addr_set(c4pl, mapping, dma_addr);
+>   	c4pl->dma_addr = dma_addr;
+>   	c4pl->dev = dev;
+> -	c4pl->ibpl.max_page_list_len = pll_len;
+> +	c4pl->pll_len = pll_len;
+> +
+> +	PDBG("%s c4pl %p pll_len %u page_list %p dma_addr %p\n",
+> +	     __func__, c4pl, c4pl->pll_len, c4pl->ibpl.page_list,
+> +	     (void *)c4pl->dma_addr);
+
+    There's %pad format for printing dma_addr_t, no need to cast and use %p.
+
+>
+>   	return &c4pl->ibpl;
+>   }
+> @@ -912,8 +916,12 @@ void c4iw_free_fastreg_pbl(struct ib_fast_reg_page_list *ibpl)
+>   {
+>   	struct c4iw_fr_page_list *c4pl = to_c4iw_fr_page_list(ibpl);
+>
+> +	PDBG("%s c4pl %p pll_len %u page_list %p dma_addr %p\n",
+> +	     __func__, c4pl, c4pl->pll_len, c4pl->ibpl.page_list,
+> +	     (void *)c4pl->dma_addr);
+> +
+
+    Likewise.
+
+WBR, Sergei
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
