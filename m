@@ -1,96 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 net-next 1/3] filter: add Extended BPF interpreter
- and converter
-Date: Mon, 10 Mar 2014 15:22:42 -0400 (EDT)
-Message-ID: <20140310.152242.340501323969517196.davem@davemloft.net>
-References: <1394076617-8108-2-git-send-email-ast@plumgrid.com>
-	<20140307.153808.649644634357014854.davem@davemloft.net>
-	<CAMEtUuzgM5xKAXZaC+Up9bKy6MaS8V6jFGq49QY7VxQOSFgcBw@mail.gmail.com>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: Re: pppd service crash in linux-3.13.6
+Date: Mon, 10 Mar 2014 15:23:06 -0400
+Message-ID: <531E111A.8040207@hurleysoftware.com>
+References: <531A37FF.4000509@totakura.in> <531DEEA6.4090808@totakura.in>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, mingo@kernel.org, wad@chromium.org,
-	rostedt@goodmis.org, a.p.zijlstra@chello.nl, hpa@zytor.com,
-	hagen@jauu.net, jesse@nicira.com, tglx@linutronix.de,
-	masami.hiramatsu.pt@hitachi.com, tom.zanussi@linux.intel.com,
-	jovi.zhangwei@gmail.com, edumazet@google.com,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	fweisbec@gmail.com, acme@infradead.org, penberg@iki.fi,
-	arjan@infradead.org, hch@infradead.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: ast@plumgrid.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Oleg Nesterov <oleg@redhat.com>
+To: Sree Harsha Totakura <sreeharsha@totakura.in>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMEtUuzgM5xKAXZaC+Up9bKy6MaS8V6jFGq49QY7VxQOSFgcBw@mail.gmail.com>
+In-Reply-To: <531DEEA6.4090808@totakura.in>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Fri, 7 Mar 2014 14:19:39 -0800
+[ +cc Oleg Nesterov ]
 
-> On Fri, Mar 7, 2014 at 12:38 PM, David Miller <davem@davemloft.net> wrote:
-> 2.
-> Another alternative is to do
-> struct sk_filter {
->   ..
-> union {
->     unsigned int (*bpf_func)(const struct sk_buff *skb,const struct
-> sock_filter *filter);
->     unsigned int (*bpf_func_ext)(void*, const struct sock_filter_ext *filter);
->     unsigned int (*bpf_func_generic)(void *, void*);
-> };
-> 
-> assignments into sk_filter will use correct field like:
-> fp->bpf_func_ext = sk_run_filter_ext;
-> and the hot call macro will look like:
-> #define SK_RUN_FILTER(F, CTX) (*F->bpf_func_generic)(CTX, F->insns)
-> 
-> I think current typecasts are equally ugly, but 'union' style
-> will be cleaner from gcc point of view.
+On 03/10/2014 12:56 PM, Sree Harsha Totakura wrote:
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+>
+> Hi,
+>
+> Using linux-3.13.6, I am observing the following output from the pppd
+> kernel thread.  This happens when I try to suspend my computer and it
+> *stops* the computer from suspending.
+>
+> I am using ppp via a bluetooth modem.
+>
+> Trace:
+> [22735.115313] PM: Syncing filesystems ... done.
+> [22735.665613] PM: Preparing system for mem sleep
+> [22735.665829] Freezing user space processes ...
+> [22755.659538] Freezing of tasks failed after 20.004 seconds (1 tasks
+> refusing to freeze, wq_
+> busy=0):
+> [22755.659555] pppd            D ffff8800376c9a58     0 16801      1
+> 0x00000006
+> [22755.659557]  ffff8800376c9750 0000000000000046 0000000000012e80
+> 0000000000012e80
+> [22755.659560]  ffff8802a1c1dfd8 ffff8800376c9750 0000000000000009
+> ffff8802a1c1dd78
+> [22755.659562]  0000000000000046 ffff8800376c9750 0000000000000028
+> ffff8800376c9750
+> [22755.659564] Call Trace:
+> [22755.659569]  [<ffffffff81048507>] ? do_exit+0x937/0xa50
+> [22755.659573]  [<ffffffff814bb6e1>] ? oops_end+0x91/0xd0
+> [22755.659575]  [<ffffffff814b1f4f>] ? no_context+0x1f3/0x1ff
+> [22755.659577]  [<ffffffff814bdb69>] ? __do_page_fault+0x89/0x500
+> [22755.659581]  [<ffffffff811017dc>] ? free_pcppages_bulk+0x17c/0x3b0
+> [22755.659584]  [<ffffffff81101cce>] ? free_hot_cold_page_list+0x3e/0x90
+> [22755.659586]  [<ffffffff814babf8>] ? page_fault+0x28/0x30
+> [22755.659591]  [<ffffffffa06fd5a3>] ? ppp_register_channel+0x13/0x20
+> [ppp_generic]
+> [22755.659594]  [<ffffffffa07062ab>] ? ppp_asynctty_open+0x12b/0x170
+> [ppp_async]
+> [22755.659596]  [<ffffffff812ec907>] ? tty_ldisc_open.isra.2+0x27/0x60
+> [22755.659598]  [<ffffffff812ed1d3>] ? tty_ldisc_hangup+0x1e3/0x220
+> [22755.659601]  [<ffffffff812e4614>] ? __tty_hangup+0x2c4/0x440
+> [22755.659603]  [<ffffffff812e56a1>] ? disassociate_ctty+0x61/0x270
+> [22755.659605]  [<ffffffff810483c2>] ? do_exit+0x7f2/0xa50
+> [22755.659607]  [<ffffffff81053ad2>] ? recalc_sigpending+0x12/0x50
+> [22755.659609]  [<ffffffff81054308>] ? __set_task_blocked+0x28/0x70
+> [22755.659611]  [<ffffffff81048684>] ? do_group_exit+0x34/0xa0
+> [22755.659613]  [<ffffffff810486fb>] ? SyS_exit_group+0xb/0x10
+> [22755.659615]  [<ffffffff814c1eb9>] ? system_call_fastpath+0x16/0x1b
+> [22755.659618]
+> [22755.659619] Restarting tasks ... done.
+>
+> If you need any more info, I am happy to provide.
 
-The main point is that we should only bypass the type protection provided
-by the C language as an absolute last resort.
+The NULL ptr dereference is from following the current->nsproxy ptr
+in ppp_register_channel().
 
-But in some cases, we can consider making an exception.
+This was broken by
 
-The problem with letting sk_check_filter() do the verification is that the
-type is also determined by the call site.  That requires some kind of type
-based or run time verification.
+commit 8aac62706adaaf0fab02c4327761561c8bda9448
+Author: Oleg Nesterov <oleg@redhat.com>
+Date:   Fri Jun 14 21:09:49 2013 +0200
 
-Although it doesn't use C typing, one thing you could do is encoded the
-pointer into an unsigned long.  Then you encode the context in the lowest
-bits of that value, masking them out when derferencing at run time.
+     move exit_task_namespaces() outside of exit_notify()
 
-So that way we can make sure seccomp _only_ runs seccomd filters.
+which moved the exit_task_namespaces(tsk) before disassociate_ctty().
 
-And sockets only run socket filters with SKBs in the second argument.
-
-> btw, ebpf jit coming in the next diff (it was also previewed in V1 series).
-> 
-> In the 1/3 commit log of this patch I explain the current relation
-> between bpf_ext_enable and bpf_jit_enable flags.
-> 
-> In the next patch with ebpf jit, single bpf_jit_enable flag will act for both:
->   if (bpf_ext_enable) {
->         convert to new
->         sk_chk_filter() - check old bpf
->         if (bpf_jit_enable)
->              use new jit
->         else
->              use new interpreter
->      } else {
->         sk_chk_filter() - check old bpf
->         if (bpf_jit_enable)
->             use old jit
->         else
->             use old interpreter
->      }
-> 
-> I believe Daniel oked this approach, but if you object, I can do it differently.
-> Are you saying 'bpf_jit_enable' flag should mean: do old jit no matter what?
-> Then we would need another flag 'bpf_ext_jit_enable' as well?
-> Seems overkill to me.
-
-It is not OK to create a temporary regression in between patch sets.
-
-You can make JIT higher priority than EBPF in this series, then once every
-single JIT is converted to EBPF, you can just adjust things accordingly.
+Regards,
+Peter Hurley
