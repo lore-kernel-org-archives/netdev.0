@@ -1,40 +1,57 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] netdev: set __percpu attribute on
- netdev_alloc_pcpu_stats
-Date: Mon, 10 Mar 2014 09:41:46 -0700
-Message-ID: <20140310094146.2aaa8e0e@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH] tcp: tcp_release_cb() should release socket ownership
+Date: Mon, 10 Mar 2014 09:43:51 -0700
+Message-ID: <1394469831.3607.27.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1393972752.26794.145.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140305.205938.287751582220842351.davem@davemloft.net>
+	 <1394071601.27473.17.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140305.211530.2206817902037251680.davem@davemloft.net>
+	 <1394072451.27473.24.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <771471B8871B5044A6CA7CCD9C26EEE10117E265CE84@xmail2.se.axis.com>
+	 <1394208065.20149.31.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, Cong Wang <amwang@redhat.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Lars Persson <lars.persson@axis.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:57781 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753399AbaCJQlx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 12:41:53 -0400
-Received: by mail-pd0-f176.google.com with SMTP id r10so7252418pdi.7
-        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 09:41:51 -0700 (PDT)
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:58806 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751833AbaCJQnx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 12:43:53 -0400
+Received: by mail-pb0-f53.google.com with SMTP id rp16so7444782pbb.26
+        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 09:43:52 -0700 (PDT)
+In-Reply-To: <1394208065.20149.31.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes sparse warnings in vlan driver.
-It propagates the sparse __percpu attribute from alloc_percpu
-into netdev_alloc_pcpu_stats. I expect it may trigger additional
-sparse warnings from other drivers that are missing the __percpu
-attribute.
+On Fri, 2014-03-07 at 08:01 -0800, Eric Dumazet wrote:
+> On Fri, 2014-03-07 at 16:45 +0100, Lars Persson wrote:
+> > So far no deadlock on the socket lock is seen with this patch. I have seen two out-of-memory crashes which leaves the system deadlocked trying to allocate memory.
+> > 
+> > Stack traces and kernel log from one of the oom crashes is attached. I was thinking this may be caused by having the dirty_ratio set too high given our product's heavy use of memory. Currently re-testing with dirty_ratio reduced to 5%.
+> > 
+> > 
+> > [11515.530000] Recording maint invoked oom-killer: gfp_mask=0x201da, order=0, oom_score_adj=0
+> > [11515.540000] CPU: 0 PID: 1304 Comm: Recording maint Tainted: G           O 3.10.32 #10
+> > [11515.550000] Stack : 80666e52 00000049 80660000 00000000 805563dc 8b1876f8 8054af80 805d2227
+> > 	  00000518 00000000 80656d40 8b1876f8 000007ce 00000002 00000000 8047d858
+> > 	  00000000 8003bb64 00000006 00000000 8054d024
+> >  [11515.580000]  8b189a84 8b189a84 8054af80
+> > 	  00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> > 	  00000000 00000000 00000000 00000000 00000000 00000000 00000000 8b189a18
+> > 	  ...
+> 
+> 
+> Well, this is 3.10.32, with local changes to dirty_ratio....
+> 
+> so I will simply ignore mm issues for the moment.
+> 
+> Thanks a lot Lars
+> 
+> Tested-by: Lars Persson <lars.persson@axis.com>
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+David, what happened with this patch ?
 
-
---- a/include/linux/netdevice.h	2014-03-03 10:37:53.282147105 -0800
-+++ b/include/linux/netdevice.h	2014-03-10 09:32:48.599837500 -0700
-@@ -1812,7 +1812,7 @@ struct pcpu_sw_netstats {
- 
- #define netdev_alloc_pcpu_stats(type)				\
- ({								\
--	typeof(type) *pcpu_stats = alloc_percpu(type);		\
-+	typeof(type) __percpu *pcpu_stats = alloc_percpu(type); \
- 	if (pcpu_stats)	{					\
- 		int i;						\
- 		for_each_possible_cpu(i) {			\
+Should I re-submit it ?
