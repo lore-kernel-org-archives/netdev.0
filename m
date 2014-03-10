@@ -1,69 +1,229 @@
-From: Sree Harsha Totakura <sreeharsha@totakura.in>
-Subject: pppd service crash in linux-3.13.6
-Date: Mon, 10 Mar 2014 17:56:06 +0100
-Message-ID: <531DEEA6.4090808@totakura.in>
-References: <531A37FF.4000509@totakura.in>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [RCU PATCH 00/14] Remove qdisc lock around ingress Qdisc
+Date: Mon, 10 Mar 2014 10:03:22 -0700
+Message-ID: <20140310170008.3011.73599.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <531A37FF.4000509@totakura.in>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: xiyou.wangcong@gmail.com, jhs@mojatatu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:43308 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753847AbaCJRDk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:03:40 -0400
+Received: by mail-ob0-f169.google.com with SMTP id va2so7260060obc.0
+        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 10:03:39 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+This series drops the qdisc lock that is currently protecting the
+ingress qdisc. This can be done after the tcf filters are made
+lockless and the statistic accounting is safe to run without locks.
 
-Hi,
+To do this the classifiers are converted to use RCU. This requires
+updating each classifier individually to handle the new copy/update
+requirement and also to update the core list traversals. This is
+done in patches 2-11. This also makes the assumption that updates
+to the tables are infrequent in comparison to the packet per second
+being classified. On a 10Gbps running near line rate we can easily
+produce 12+ million packets per second so IMO this is a reasonable
+assumption. And the updates are serialized by RTNL.
 
-Using linux-3.13.6, I am observing the following output from the pppd
-kernel thread.  This happens when I try to suspend my computer and it
-*stops* the computer from suspending.
+In order to have working statistics patch 13 converts the bstats,
+which do accounting for bytes and packets, into percpu variables
+and the u64_stats_update_{begin|end} infrastructure is used to
+maintain consistent statistics. Because these statistics are also
+used by the estimators those function calls had to be udpated as
+well. So that I didn't have to modify all qdiscs at this time many
+of which don't have an easy path to make lockless the percpu
+statistics are only used when the TCQ_F_LLQDISC flag is set. Its
+worth noting that in the mq and mqprio case sub-qdisc's are already
+mapped 1:1 with TX queues which tend to be equal to the number
+of CPUs in the system so its not clear that removing locking in
+these cases would provide any benefit. Most likely a new qdisc
+written from scratch would be needed to implement a mq-htb or
+mq-tbf qdisc.
 
-I am using ppp via a bluetooth modem.
+As for some history I wrote what was basically these patches some
+time ago and then got stalled working on other things. Cong Wang
+made a proposal to remove the locking around the ingress qdisc
+which then kicked me to get these patches working again.
 
-Trace:
-[22735.115313] PM: Syncing filesystems ... done.
-[22735.665613] PM: Preparing system for mem sleep
-[22735.665829] Freezing user space processes ...
-[22755.659538] Freezing of tasks failed after 20.004 seconds (1 tasks
-refusing to freeze, wq_
-busy=0):
-[22755.659555] pppd            D ffff8800376c9a58     0 16801      1
-0x00000006
-[22755.659557]  ffff8800376c9750 0000000000000046 0000000000012e80
-0000000000012e80
-[22755.659560]  ffff8802a1c1dfd8 ffff8800376c9750 0000000000000009
-ffff8802a1c1dd78
-[22755.659562]  0000000000000046 ffff8800376c9750 0000000000000028
-ffff8800376c9750
-[22755.659564] Call Trace:
-[22755.659569]  [<ffffffff81048507>] ? do_exit+0x937/0xa50
-[22755.659573]  [<ffffffff814bb6e1>] ? oops_end+0x91/0xd0
-[22755.659575]  [<ffffffff814b1f4f>] ? no_context+0x1f3/0x1ff
-[22755.659577]  [<ffffffff814bdb69>] ? __do_page_fault+0x89/0x500
-[22755.659581]  [<ffffffff811017dc>] ? free_pcppages_bulk+0x17c/0x3b0
-[22755.659584]  [<ffffffff81101cce>] ? free_hot_cold_page_list+0x3e/0x90
-[22755.659586]  [<ffffffff814babf8>] ? page_fault+0x28/0x30
-[22755.659591]  [<ffffffffa06fd5a3>] ? ppp_register_channel+0x13/0x20
-[ppp_generic]
-[22755.659594]  [<ffffffffa07062ab>] ? ppp_asynctty_open+0x12b/0x170
-[ppp_async]
-[22755.659596]  [<ffffffff812ec907>] ? tty_ldisc_open.isra.2+0x27/0x60
-[22755.659598]  [<ffffffff812ed1d3>] ? tty_ldisc_hangup+0x1e3/0x220
-[22755.659601]  [<ffffffff812e4614>] ? __tty_hangup+0x2c4/0x440
-[22755.659603]  [<ffffffff812e56a1>] ? disassociate_ctty+0x61/0x270
-[22755.659605]  [<ffffffff810483c2>] ? do_exit+0x7f2/0xa50
-[22755.659607]  [<ffffffff81053ad2>] ? recalc_sigpending+0x12/0x50
-[22755.659609]  [<ffffffff81054308>] ? __set_task_blocked+0x28/0x70
-[22755.659611]  [<ffffffff81048684>] ? do_group_exit+0x34/0xa0
-[22755.659613]  [<ffffffff810486fb>] ? SyS_exit_group+0xb/0x10
-[22755.659615]  [<ffffffff814c1eb9>] ? system_call_fastpath+0x16/0x1b
-[22755.659618]
-[22755.659619] Restarting tasks ... done.
+I have started to test this series and do no see any immediate
+splats or issues. I will continue doing some more testing for the
+rest of the week before submitting without the RCU tag but any
+feedback would be good. If someone has a better idea for the
+percpu union of gnet_stats_basic_* in struct Qdisc or finds it
+paticularly ugly that would be good to know.
 
-If you need any more info, I am happy to provide.
+The estimators also use pointer values to lookup the estimator
+entry. Now that the pointer can be either a percpu bstat or
+a single bstat entry I pushed the pointer type to void which
+creates these warnings,
 
-Regards,
-Sree
+net/core/gen_estimator.c: In function =E2=80=98gen_get_bstats=E2=80=99:
+net/core/gen_estimator.c:163:43: warning: pointer type mismatch in cond=
+itional expression [enabled by default]
+net/core/gen_estimator.c: In function =E2=80=98gen_find_node=E2=80=99:
+net/core/gen_estimator.c:191:28: warning: pointer type mismatch in cond=
+itional expression [enabled by default]
+
+I'm looking for some way to resolve this now.
+
+My test cases at this point cover all the filters with a
+tight loop to add/remove an entry. Some basic estimator tests
+where I add an estimator to the qdisc and verify the statistics
+are accurate using pktgen. And finally I have a small script to
+exercise the 'tc actions' interface. Feel free to send me more
+tests off list and I can run them.
+
+TODO:
+  - fix up checkpatch warnings
+
+=46uture work:
+  - provide metadata such as current cpu for the classifier
+    to match on. this would allow for a multiqueue ingress
+    qdisc strategy.
+  - provide filter hook on egress before queue is selected
+    to allow a classifier/action to pick the tx queue. This
+    generalizes mqprio and should remove the need for many
+    drivers to implement select_queue() callbacks.
+  - create a variant of tbf that does not require the qdisc
+    lock using eventually consistent counters.
+
+---
+
+John Fastabend (14):
+      net: qdisc: use rcu prefix and silence sparse warnings
+      net: rcu-ify tcf_proto
+      net: sched: cls_basic use RCU
+      net: sched: cls_cgroup use RCU
+      net: sched: cls_flow use RCU
+      net: sched: fw use RCU
+      net: sched: RCU cls_route
+      net: sched: RCU cls_tcindex
+      net: sched: make cls_u32 lockless
+      net: sched: rcu'ify cls_rsvp
+      net: make cls_bpf rcu safe
+      net: sched: make tc_action safe to walk under RCU
+      net: sched: make bstats per cpu and estimator RCU safe
+      net: sched: drop ingress qdisc lock
+
+
+ include/linux/netdevice.h  |   41 +------
+ include/linux/rtnetlink.h  |   10 ++
+ include/net/act_api.h      |    1=20
+ include/net/gen_stats.h    |   16 +++
+ include/net/pkt_cls.h      |   12 ++
+ include/net/sch_generic.h  |   74 +++++++++++--
+ net/core/dev.c             |   56 +++++++++-
+ net/core/gen_estimator.c   |   62 ++++++++---
+ net/core/gen_stats.c       |   41 +++++++
+ net/netfilter/xt_RATEEST.c |    4 -
+ net/sched/act_api.c        |   22 ++--
+ net/sched/act_police.c     |    4 -
+ net/sched/cls_api.c        |   44 ++++----
+ net/sched/cls_basic.c      |   80 ++++++++------
+ net/sched/cls_bpf.c        |   79 +++++++-------
+ net/sched/cls_cgroup.c     |   65 +++++++----
+ net/sched/cls_flow.c       |  145 ++++++++++++++-----------
+ net/sched/cls_fw.c         |  110 +++++++++++++------
+ net/sched/cls_route.c      |  217 +++++++++++++++++++++---------------=
+-
+ net/sched/cls_rsvp.h       |  152 +++++++++++++++-----------
+ net/sched/cls_tcindex.c    |  240 ++++++++++++++++++++++++++----------=
+-----
+ net/sched/cls_u32.c        |  257 +++++++++++++++++++++++++++++-------=
+--------
+ net/sched/sch_api.c        |   57 ++++++++--
+ net/sched/sch_atm.c        |   30 +++--
+ net/sched/sch_cbq.c        |   29 +++--
+ net/sched/sch_choke.c      |   18 ++-
+ net/sched/sch_drr.c        |   18 ++-
+ net/sched/sch_dsmark.c     |    8 +
+ net/sched/sch_fq_codel.c   |   11 +-
+ net/sched/sch_generic.c    |   16 ++-
+ net/sched/sch_hfsc.c       |   30 +++--
+ net/sched/sch_htb.c        |   33 +++---
+ net/sched/sch_ingress.c    |   16 ++-
+ net/sched/sch_mq.c         |    8 +
+ net/sched/sch_mqprio.c     |   16 +--
+ net/sched/sch_multiq.c     |   10 +-
+ net/sched/sch_prio.c       |   13 +-
+ net/sched/sch_qfq.c        |   21 ++--
+ net/sched/sch_sfb.c        |   15 ++-
+ net/sched/sch_sfq.c        |   11 +-
+ net/sched/sch_teql.c       |    9 +-
+ 41 files changed, 1337 insertions(+), 764 deletions(-)
+
+--=20
+Signature
+
+---
+
+John Fastabend (14):
+      net: qdisc: use rcu prefix and silence sparse warnings
+      net: rcu-ify tcf_proto
+      net: sched: cls_basic use RCU
+      net: sched: cls_cgroup use RCU
+      net: sched: cls_flow use RCU
+      net: sched: fw use RCU
+      net: sched: RCU cls_route
+      net: sched: RCU cls_tcindex
+      net: sched: make cls_u32 lockless
+      net: sched: rcu'ify cls_rsvp
+      net: make cls_bpf rcu safe
+      net: sched: make tc_action safe to walk under RCU
+      net: sched: make bstats per cpu and estimator RCU safe
+      net: sched: drop ingress qdisc lock
+
+
+ include/linux/netdevice.h  |   41 +------
+ include/linux/rtnetlink.h  |   10 ++
+ include/net/act_api.h      |    1=20
+ include/net/gen_stats.h    |   16 +++
+ include/net/pkt_cls.h      |   12 ++
+ include/net/sch_generic.h  |   74 +++++++++++--
+ net/core/dev.c             |   56 +++++++++-
+ net/core/gen_estimator.c   |   62 ++++++++---
+ net/core/gen_stats.c       |   41 +++++++
+ net/netfilter/xt_RATEEST.c |    4 -
+ net/sched/act_api.c        |   22 ++--
+ net/sched/act_police.c     |    4 -
+ net/sched/cls_api.c        |   44 ++++----
+ net/sched/cls_basic.c      |   80 ++++++++------
+ net/sched/cls_bpf.c        |   79 +++++++-------
+ net/sched/cls_cgroup.c     |   65 +++++++----
+ net/sched/cls_flow.c       |  145 ++++++++++++++-----------
+ net/sched/cls_fw.c         |  110 +++++++++++++------
+ net/sched/cls_route.c      |  217 +++++++++++++++++++++---------------=
+-
+ net/sched/cls_rsvp.h       |  152 +++++++++++++++-----------
+ net/sched/cls_tcindex.c    |  240 ++++++++++++++++++++++++++----------=
+-----
+ net/sched/cls_u32.c        |  257 +++++++++++++++++++++++++++++-------=
+--------
+ net/sched/sch_api.c        |   57 ++++++++--
+ net/sched/sch_atm.c        |   30 +++--
+ net/sched/sch_cbq.c        |   29 +++--
+ net/sched/sch_choke.c      |   18 ++-
+ net/sched/sch_drr.c        |   18 ++-
+ net/sched/sch_dsmark.c     |    8 +
+ net/sched/sch_fq_codel.c   |   11 +-
+ net/sched/sch_generic.c    |   16 ++-
+ net/sched/sch_hfsc.c       |   30 +++--
+ net/sched/sch_htb.c        |   33 +++---
+ net/sched/sch_ingress.c    |   16 ++-
+ net/sched/sch_mq.c         |    8 +
+ net/sched/sch_mqprio.c     |   16 +--
+ net/sched/sch_multiq.c     |   10 +-
+ net/sched/sch_prio.c       |   13 +-
+ net/sched/sch_qfq.c        |   21 ++--
+ net/sched/sch_sfb.c        |   15 ++-
+ net/sched/sch_sfq.c        |   11 +-
+ net/sched/sch_teql.c       |    9 +-
+ 41 files changed, 1337 insertions(+), 764 deletions(-)
+
+--=20
+Signature
