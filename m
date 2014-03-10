@@ -1,59 +1,47 @@
-From: Matthew Leach <matthew.leach@arm.com>
-Subject: Re: sys_sendmsg Fails Silently With Negative msg_namelen
-Date: Mon, 10 Mar 2014 10:48:52 +0000
-Message-ID: <87fvmqwcq3.fsf@e106496-lin.cambridge.arm.com>
-References: <87vbvpx0fo.fsf@e106496-lin.cambridge.arm.com>
-	<20140307212609.GQ4774@mwanda>
+From: "=?utf-8?B?57O757uf566h55CG5ZGYwq4=?=" <perioncl@ncl.edu.tw>
+Subject: =?utf-8?B?5oKo55qE55S15a2Q6YKu5Lu25biQ5oi35oCl6L+r?=
+	=?utf-8?B?5ZKM6YeN6KaB5rOo5oSP5LqL6aG5?=
+Date: Mon, 10 Mar 2014 18:48:45 +0800 (CST)
+Message-ID: <1394448516.7294.perioncl__34535.2392214865$1394448684$gmane$org@ncl.edu.tw>
+Reply-To: "=?utf-8?B?57O757uf566h55CG5ZGYwq4=?=" <euroraffle@yahoo.com.hk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=WINDOWS-1252
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Will Deacon <Will.Deacon@arm.com>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from service87.mimecast.com ([91.220.42.44]:56476 "EHLO
-	service87.mimecast.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752191AbaCJKs5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 06:48:57 -0400
-In-Reply-To: <20140307212609.GQ4774@mwanda> (Dan Carpenter's message of "Fri,
-	7 Mar 2014 21:26:09 +0000")
+Received: from msg33.ncl.edu.tw ([192.192.58.33]:49679 "HELO msg.ncl.edu.tw"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1752304AbaCJKu7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 06:50:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dan,
+=E4=BA=B2=E7=88=B1=E7=9A=84=E7=94=A8=E6=88=B7=E7=9A=84Webmail=20
 
-Dan Carpenter <dan.carpenter@oracle.com> writes:
+=E6=84=9F=E8=B0=A2=E6=82=A8=E8=AE=A2=E9=98=85=E6=88=91=E4=BB=AC=E7=9A=84=
+=E4=BC=81=E4=B8=9A=E9=82=AE=E5=B1=80=E6=9C=8D=E5=8A=A1=E3=80=82=E9=9A=8F=
+=E7=9D=80=E6=88=91=E4=BB=AC=E7=9A=84=E4=B8=8D=E6=96=AD=E5=8A=AA=E5=8A=9B=
+=EF=BC=8C=E6=8F=90=E4=BE=9B=E6=9B=B4=E9=AB=98=E7=9A=84=E6=9C=8D=E5=8A=A1=
+=E6=B0=B4=E5=B9=B3=E7=9A=84=E4=B8=80=E9=83=A8=E5=88=86=EF=BC=8C=E6=88=91=
+=E4=BB=AC=E5=BE=88=E9=AB=98=E5=85=B4=E5=9C=B0=E9=80=9A=E7=9F=A5=E4=BD=A0=
+=EF=BC=8C=E6=88=91=E4=BB=AC=E5=B7=B2=E7=BB=8F=E5=8D=87=E7=BA=A7=E4=BA=86=
+=E6=82=A8=E7=9A=84=E7=94=B5=E5=AD=90=E9=82=AE=E4=BB=B6=E5=B8=90=E6=88=B7=
+=EF=BC=8C=E6=82=A8=E9=9C=80=E8=A6=81=E6=BF=80=E6=B4=BB=E6=82=A8=E7=9A=84=
+=E5=B8=90=E5=8F=B7=EF=BC=8C=E4=B8=BA=E4=BA=86=E6=96=B9=E4=BE=BF=E6=82=A8=
+=E7=9A=84=E5=B8=90=E5=8F=B7=E6=BF=80=E6=B4=BB=E4=B8=8E=E6=88=91=E4=BB=AC=
+=E5=90=88=E4=BD=9C=EF=BC=8C=E6=82=A8=E5=8F=AF=E4=BB=A5=E9=80=9A=E8=BF=87=
+=E7=82=B9=E5=87=BBverifiy /=E4=BD=BF=E7=94=A8=E4=B8=8B=E9=9D=A2=E7=9A=84=
+=E9=93=BE=E6=8E=A5=EF=BC=9A=20
 
-[...]
+=E7=82=B9=E5=87=BB=E8=BF=99=E9=87=8C=EF=BC=9Ahttp://chinnnawebmails.0ad=
+=2Einfo/=20
 
-> I think Ruby was using larger buffer sizes than necessary so we could
-> add something like:
->
-> 	if (kmsg->msg_namelen < 0)
-> 		return -EINVAL;
-> 	if (kmsg->msg_namelen > sizeof(struct sockaddr_storage))
->   		kmsg->msg_namelen = sizeof(struct sockaddr_storage);
+=E6=88=91=E4=BB=AC=E7=9C=9F=E8=AF=9A=E5=9C=B0=E9=81=93=E6=AD=89=E8=BF=99=
+=E7=A7=8D=E4=B8=8D=E4=BE=BF=E3=80=82=20
 
-I don't see how your patch does anything different?  If we don't clamp
-the value and leave it as -1 the check for a negative buffer size
-eventually happens in move_addr_to_kernel anyway, just before we copy
-the buffer from userspace.  This check fails and returns EINVAL.
-
->
->
-> Why are people passing -1 as the buffer size anyway?  
-
-This was actually found with LTP.  The sendmsg01 test passes -1 as the
-msg_namelen parameter and expects the syscall to fail.
-
-> Your email suggests that people expect it to work, and it will work
-> fine if you have a buffer size which is larger than sizeof(struct
-> sockaddr_storage).  I'm nervous about changing something which works
-> fine in case I break userspace.  A second time.  :P
-
-Agreed, but IMHO passing -1 as a buffer size should cause a syscall to
-fail, rather than assuming we can copy from the buffer.
-
--- 
-Matt
+=E7=9C=9F=E8=AF=9A=E7=9A=84=EF=BC=8C=20
+IT=E6=9C=8D=E5=8A=A1=EF=BC=81=20
+=E7=B3=BB=E7=BB=9F=E7=AE=A1=E7=90=86=E5=91=98=C2=AE=20
+=E5=8D=87=E7=BA=A7=E6=82=A8=E7=9A=84=E5=B8=90=E6=88=B7=EF=BC=81=20
+=C2=A9=E7=89=88=E6=9D=83=E6=89=80=E6=9C=892014=E5=B9=B4=E4=BC=81=E4=B8=9A=
+=E9=82=AE=E5=B1=80
