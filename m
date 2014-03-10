@@ -1,148 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RCU PATCH 06/14] net: sched: fw use RCU
-Date: Mon, 10 Mar 2014 10:41:19 -0700
-Message-ID: <1394473279.3607.46.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140310170008.3011.73599.stgit@nitbit.x32>
-	 <20140310170546.3011.82918.stgit@nitbit.x32>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/5] skbuff: skb_segment: s/fskb/list_skb/
+Date: Mon, 10 Mar 2014 13:43:59 -0400 (EDT)
+Message-ID: <20140310.134359.1940025401945824360.davem@davemloft.net>
+References: <1394468807-25980-1-git-send-email-mst@redhat.com>
+	<1394468807-25980-5-git-send-email-mst@redhat.com>
+	<20140310.134054.2195508036199798660.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:34559 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753957AbaCJRlV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:41:21 -0400
-Received: by mail-pb0-f52.google.com with SMTP id rr13so7558087pbb.25
-        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 10:41:20 -0700 (PDT)
-In-Reply-To: <20140310170546.3011.82918.stgit@nitbit.x32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, jbenc@redhat.com,
+	edumazet@google.com, dborkman@redhat.com, horms@verge.net.au,
+	Paul.Durrant@citrix.com, tgraf@suug.ch,
+	herbert@gondor.apana.org.au, mszeredi@suse.cz,
+	panweiping3@gmail.com, netdev@vger.kernel.org
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140310.134054.2195508036199798660.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-03-10 at 10:05 -0700, John Fastabend wrote:
-> RCU'ify fw classifier.
+From: David Miller <davem@davemloft.net>
+Date: Mon, 10 Mar 2014 13:40:54 -0400 (EDT)
+
 > 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->  net/sched/cls_fw.c |  110 ++++++++++++++++++++++++++++++++++++----------------
->  1 file changed, 76 insertions(+), 34 deletions(-)
+> As a netdev reader, I don't see patches 1-3, did you post them somewhere else
+> and not CC: netdev?
 > 
-> diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
-> index a366537..ff392f1 100644
-> --- a/net/sched/cls_fw.c
-> +++ b/net/sched/cls_fw.c
-> @@ -32,18 +32,21 @@
->  #define HTSIZE (PAGE_SIZE/sizeof(struct fw_filter *))
->  
->  struct fw_head {
-> -	struct fw_filter *ht[HTSIZE];
-> +	struct rcu_head	rcu;
+> If so, please don't do that without at least making a mention of what's going
+> on in the 0/N posting.
 
-Try to put 'rcu' at the end of structures, we do not need it in fast
-path.
+Nevermind, I see them as older postings in my queue.
 
-> +	struct fw_filter __rcu *ht[HTSIZE];
->  	u32 mask;
->  };
->  
->  struct fw_filter {
-> -	struct fw_filter	*next;
-> +	struct fw_filter __rcu	*next;
-> +	struct rcu_head		rcu;
+Are you using the commit date as the date for your outgoing emails?
 
-same remark
-
->  	u32			id;
->  	struct tcf_result	res;
->  #ifdef CONFIG_NET_CLS_IND
->  	int			ifindex;
->  #endif /* CONFIG_NET_CLS_IND */
->  	struct tcf_exts		exts;
-> +	struct tcf_proto	*tp;
->  };
->  
->  static inline int fw_hash(u32 handle)
-> @@ -75,14 +78,16 @@ static inline int fw_hash(u32 handle)
->  static int fw_classify(struct sk_buff *skb, const struct tcf_proto *tp,
->  			  struct tcf_result *res)
->  {
-> -	struct fw_head *head = tp->root;
-> +	struct fw_head *head = rcu_dereference_bh(tp->root);
->  	struct fw_filter *f;
->  	int r;
->  	u32 id = skb->mark;
->  
->  	if (head != NULL) {
->  		id &= head->mask;
-> -		for (f = head->ht[fw_hash(id)]; f; f = f->next) {
-> +
-> +		for (f = rcu_dereference_bh(head->ht[fw_hash(id)]); f;
-> +		     f = rcu_dereference_bh(f->next)) {
->  			if (f->id == id) {
->  				*res = f->res;
->  #ifdef CONFIG_NET_CLS_IND
-> @@ -111,13 +116,14 @@ static int fw_classify(struct sk_buff *skb, const struct tcf_proto *tp,
->  
->  static unsigned long fw_get(struct tcf_proto *tp, u32 handle)
->  {
-> -	struct fw_head *head = tp->root;
-> +	struct fw_head *head = rtnl_dereference(tp->root);
->  	struct fw_filter *f;
->  
->  	if (head == NULL)
->  		return 0;
->  
-> -	for (f = head->ht[fw_hash(handle)]; f; f = f->next) {
-> +	f = rtnl_dereference(head->ht[fw_hash(handle)]);
-> +	for (; f; f = rtnl_dereference(f->next)) {
->  		if (f->id == handle)
->  			return (unsigned long)f;
->  	}
-> @@ -133,8 +139,11 @@ static int fw_init(struct tcf_proto *tp)
->  	return 0;
->  }
->  
-> -static void fw_delete_filter(struct tcf_proto *tp, struct fw_filter *f)
-> +static void fw_delete_filter(struct rcu_head *head)
->  {
-> +	struct fw_filter *f = container_of(head, struct fw_filter, rcu);
-> +	struct tcf_proto *tp = f->tp;
-> +
->  	tcf_unbind_filter(tp, &f->res);
->  	tcf_exts_destroy(tp, &f->exts);
->  	kfree(f);
-> @@ -142,7 +151,7 @@ static void fw_delete_filter(struct tcf_proto *tp, struct fw_filter *f)
->  
->  static void fw_destroy(struct tcf_proto *tp)
->  {
-> -	struct fw_head *head = tp->root;
-> +	struct fw_head *head = rtnl_dereference(tp->root);
->  	struct fw_filter *f;
->  	int h;
->  
-> @@ -150,29 +159,32 @@ static void fw_destroy(struct tcf_proto *tp)
->  		return;
->  
->  	for (h = 0; h < HTSIZE; h++) {
-> -		while ((f = head->ht[h]) != NULL) {
-> -			head->ht[h] = f->next;
-> -			fw_delete_filter(tp, f);
-> +		while ((f = rtnl_dereference(head->ht[h])) != NULL) {
-> +			rcu_assign_pointer(head->ht[h],
-> +					   rtnl_dereference(f->next));
-> +			call_rcu(&f->rcu, fw_delete_filter);
->  		}
->  	}
-> -	kfree(head);
-> +	rcu_assign_pointer(tp->root, NULL);
-
-RCU_INIT_POINTER
-
-> +	kfree_rcu(head, rcu);
->  }
->  
-
-
-rest seems fine.
+Don't do that, it causes a patch series get chopped up and intertwined
+with other ones in patchwork and therefore makes more work for me.
