@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv5 net-next 15/31] iw_cxgb4: save the correct map length for fast_reg_page_lists
-Date: Mon, 10 Mar 2014 22:38:12 +0530
-Message-ID: <1394471308-4304-16-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv5 net-next 13/31] iw_cxgb4: Mind the sq_sig_all/sq_sig_type QP attributes
+Date: Mon, 10 Mar 2014 22:38:10 +0530
+Message-ID: <1394471308-4304-14-git-send-email-hariprasad@chelsio.com>
 References: <1394471308-4304-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
 	swise@opengridcomputing.com, leedom@chelsio.com,
@@ -9,71 +9,64 @@ Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
 	hariprasad@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:3813 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:18122 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754189AbaCJRRs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:17:48 -0400
+	by vger.kernel.org with ESMTP id S1754189AbaCJRRn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:17:43 -0400
 In-Reply-To: <1394471308-4304-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Steve Wise <swise@opengridcomputing.com>
 
-We cannot save the mapped length using the rdma max_page_list_len field
-of the ib_fast_reg_page_list struct because the core code uses it.  This
-results in an incorrect unmap of the page list in c4iw_free_fastreg_pbl().
-
-I found this with dma map debugging enabled in the kernel.  The fix is
-to save the length in the c4iw_fr_page_list struct.
-
 Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h |  1 +
- drivers/infiniband/hw/cxgb4/mem.c      | 12 ++++++++++--
- 2 files changed, 11 insertions(+), 2 deletions(-)
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h | 1 +
+ drivers/infiniband/hw/cxgb4/qp.c       | 6 ++++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-index 8c32088..b75f8f5 100644
+index c05c875..8c32088 100644
 --- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
 +++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-@@ -375,6 +375,7 @@ struct c4iw_fr_page_list {
- 	DEFINE_DMA_UNMAP_ADDR(mapping);
- 	dma_addr_t dma_addr;
- 	struct c4iw_dev *dev;
-+	int pll_len;
+@@ -448,6 +448,7 @@ struct c4iw_qp {
+ 	atomic_t refcnt;
+ 	wait_queue_head_t wait;
+ 	struct timer_list timer;
++	int sq_sig_all;
  };
  
- static inline struct c4iw_fr_page_list *to_c4iw_fr_page_list(
-diff --git a/drivers/infiniband/hw/cxgb4/mem.c b/drivers/infiniband/hw/cxgb4/mem.c
-index 41b1195..cdaf257 100644
---- a/drivers/infiniband/hw/cxgb4/mem.c
-+++ b/drivers/infiniband/hw/cxgb4/mem.c
-@@ -903,7 +903,11 @@ struct ib_fast_reg_page_list *c4iw_alloc_fastreg_pbl(struct ib_device *device,
- 	dma_unmap_addr_set(c4pl, mapping, dma_addr);
- 	c4pl->dma_addr = dma_addr;
- 	c4pl->dev = dev;
--	c4pl->ibpl.max_page_list_len = pll_len;
-+	c4pl->pll_len = pll_len;
-+
-+	PDBG("%s c4pl %p pll_len %u page_list %p dma_addr %p\n",
-+	     __func__, c4pl, c4pl->pll_len, c4pl->ibpl.page_list,
-+	     (void *)c4pl->dma_addr);
+ static inline struct c4iw_qp *to_c4iw_qp(struct ib_qp *ibqp)
+diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
+index 7aee163..4c70df9 100644
+--- a/drivers/infiniband/hw/cxgb4/qp.c
++++ b/drivers/infiniband/hw/cxgb4/qp.c
+@@ -720,7 +720,7 @@ int c4iw_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
+ 		fw_flags = 0;
+ 		if (wr->send_flags & IB_SEND_SOLICITED)
+ 			fw_flags |= FW_RI_SOLICITED_EVENT_FLAG;
+-		if (wr->send_flags & IB_SEND_SIGNALED)
++		if (wr->send_flags & IB_SEND_SIGNALED || qhp->sq_sig_all)
+ 			fw_flags |= FW_RI_COMPLETION_FLAG;
+ 		swsqe = &qhp->wq.sq.sw_sq[qhp->wq.sq.pidx];
+ 		switch (wr->opcode) {
+@@ -781,7 +781,8 @@ int c4iw_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
+ 		}
+ 		swsqe->idx = qhp->wq.sq.pidx;
+ 		swsqe->complete = 0;
+-		swsqe->signaled = (wr->send_flags & IB_SEND_SIGNALED);
++		swsqe->signaled = (wr->send_flags & IB_SEND_SIGNALED) ||
++				  qhp->sq_sig_all;
+ 		swsqe->flushed = 0;
+ 		swsqe->wr_id = wr->wr_id;
  
- 	return &c4pl->ibpl;
- }
-@@ -912,8 +916,12 @@ void c4iw_free_fastreg_pbl(struct ib_fast_reg_page_list *ibpl)
- {
- 	struct c4iw_fr_page_list *c4pl = to_c4iw_fr_page_list(ibpl);
- 
-+	PDBG("%s c4pl %p pll_len %u page_list %p dma_addr %p\n",
-+	     __func__, c4pl, c4pl->pll_len, c4pl->ibpl.page_list,
-+	     (void *)c4pl->dma_addr);
-+
- 	dma_free_coherent(&c4pl->dev->rdev.lldi.pdev->dev,
--			  c4pl->ibpl.max_page_list_len,
-+			  c4pl->pll_len,
- 			  c4pl->ibpl.page_list, dma_unmap_addr(c4pl, mapping));
- 	kfree(c4pl);
- }
+@@ -1608,6 +1609,7 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
+ 	qhp->attr.enable_bind = 1;
+ 	qhp->attr.max_ord = 1;
+ 	qhp->attr.max_ird = 1;
++	qhp->sq_sig_all = attrs->sq_sig_type == IB_SIGNAL_ALL_WR;
+ 	spin_lock_init(&qhp->lock);
+ 	mutex_init(&qhp->mutex);
+ 	init_waitqueue_head(&qhp->wait);
 -- 
 1.8.4
