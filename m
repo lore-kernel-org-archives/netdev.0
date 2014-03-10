@@ -1,100 +1,115 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] net: phy: fix uninitalized WOL parameters in
- phy_ethtool_get_wol
-Date: Mon, 10 Mar 2014 23:18:40 +0000
-Message-ID: <1394493520.23624.22.camel@deadeye.wl.decadent.org.uk>
-References: <1394413270-7169-1-git-send-email-sebastian.hesselbarth@gmail.com>
-	 <1394419893.15968.88.camel@deadeye.wl.decadent.org.uk>
-	 <531D98D1.4000707@gmail.com>
-	 <20140310.162349.2007153760780671206.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-r7OroUKBBsRLjG3mP3hZ"
-Cc: sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140310.162349.2007153760780671206.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: [PATCH net-next v2 0/9] Altera Triple Speed Ethernet (TSE) Driver
+Date: Mon, 10 Mar 2014 18:14:28 -0500
+Message-ID: <1394493277-2105-1-git-send-email-vbridgers2013@gmail.com>
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	rob@landley.net, vbridgers2013@gmail.com
+To: devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+V2: Address comments from initial RFC review.
+    - The driver files were broken up by major sections of functionality.
+      These include MSGDMA, SGDMA, Misc, and Main. 
+    - Add patch for MAINTAINERS file, add the maintainer for this submission
+    - Use 32-bit lower/upper physical address accessor functions so the driver
+      is 64-bit ready.
+    - Use standard bindings where applicable. Especially phy-addr, and change
+      "altr,rx-fifo-depth" to "rx-fifo-depth" and "altr,tx-fifo-depth" to 
+      "tx-fifo-depth".
+    - Add use of max-frame-size property
+    - Update bindings documents accordingly
+    - Correct interrupt handler to use budget parameter in the convential way
+    - Use macros consistently to define bit fields across files
+    - Correct include exclusion macro in altera_msgdmahw.h (typo)
+    - Remove use of barriers, these were not necessary since the DMA APIs
+      ensure memory & buffer consistency
+    - Remove use of netif_carrier_off in driver
+    - move probing of phy from the open function to the probe function
+    - use of_get_phy_mode instead of custom function
+    - Use the .data field in the device structure to obtain a pointer
+      to SGDMA or MSGDMA device specific properties and functions. 
+    - remove custom function to access devicetree since Altera specific
+      bindings requiring it's use have been deprecated in favor of 
+      standard bindings. 
 
---=-r7OroUKBBsRLjG3mP3hZ
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+The Altera TSE is a 10/100/1000 Mbps Ethernet soft IP component that can be
+configured and synthesized using Quartus, and programmed into Altera FPGAs.
+Two types of soft DMA IP components are supported by this driver - the Altera
+SGDMA and the MSGDMA. The MSGDMA DMA component is preferred over the SGDMA,
+since the SGDMA will be deprecated in favor of the MSGDMA. Software supporting
+both is provided for customers still using the SGDMA and to demonstrate how
+multiple types of DMA engines may be supported by the TSE driver in the event
+customers wish to develop their own custom soft DMA engine for particular
+applications.
 
-On Mon, 2014-03-10 at 16:23 -0400, David Miller wrote:
-> From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-> Date: Mon, 10 Mar 2014 10:49:53 +0000
->=20
-> > void phy_ethtool_get_wol(struct phy_device *phydev, struct
-> > ethtool_wolinfo *wol)
-> > {
-> >       memset(wol, 0, sizeof(*wol));
-> >=20
-> >       if (phydev && phydev->drv->get_wol)
-> >               phydev->drv->get_wol(phydev, wol);
-> > }
-> >=20
-> > That would also simplify above drivers down to e.g:
-> >=20
-> > static void cpsw_get_wol(struct net_device *ndev, struct
-> > ethtool_wolinfo *wol)
-> > {
-> >       struct cpsw_priv *priv =3D netdev_priv(ndev);
-> >       int slave_no =3D cpsw_slave_index(priv);
-> >       phy_ethtool_get_wol(priv->slaves[slave_no].phy, wol);
-> > }
-> >=20
-> > instead of:
-> >=20
-> > static void cpsw_get_wol(struct net_device *ndev, struct
-> > ethtool_wolinfo *wol)
-> > {
-> >       struct cpsw_priv *priv =3D netdev_priv(ndev);
-> >       int slave_no =3D cpsw_slave_index(priv);
-> >=20
-> >       wol->supported =3D 0;
-> >       wol->wolopts =3D 0;
-> >=20
-> >       if (priv->slaves[slave_no].phy)
-> >               phy_ethtool_get_wol(priv->slaves[slave_no].phy, wol);
-> > }
->=20
-> Agreed, since phy_ethtool_get_wol() is the common routine used by the dri=
-vers,
-> we should make it clear the structure.
+The design has been tested on Altera's Cyclone 4, 5, and Cyclone 5 SOC
+development kits using an ARM A9 processor and an Altera NIOS2 processor.
+Differences in CPU/DMA coherency management and address alignment are
+addressed by proper use of driver APIs and semantics.
 
-No, ethtool_get_wol() is the common routine used by *all* the drivers
-and it initialises the struct properly.
+Patch 1/9 is for the MAINTAINERS modifications. Patch 2/9 is for the changes
+required to the drivers/net/ethernet build files. Patches 3 and 4 are for the 
+driver bindings and documentation. The remainder of the patches are for the
+Altera Triple Speed Ethernet driver broken up by logical function, such as
+build files, SGDMA, MSGDMA, Miscellaneous files, and the main driver source 
+and header file. 
 
-Ben.
+Thank you for the constructive comments so far, and I look forward to
+completing this process.
 
---=20
-Ben Hutchings
-Computers are not intelligent.	They only think they are.
+Vince 
 
---=-r7OroUKBBsRLjG3mP3hZ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Vince Bridgers (9):
+  MAINTAINERS: Add entry for Altera Triple Speed Ethernet Driver
+  net: ethernet: Change Ethernet Makefile and Kconfig for Altera TSE
+    driver
+  dts: Add bindings for the Altera Triple Speed Ethernet driver
+  Documentation: networking: Add Altera Ethernet (TSE) Documentation
+  Altera TSE: Add Altera Ethernet Driver Makefile and Kconfig
+  Altera TSE: Add Altera Ethernet Driver MSGDMA File Components
+  Altera TSE: Add Altera Ethernet Driver SGDMA file components
+  Altera TSE: Add Miscellaneous Files for Altera Ethernet Driver
+  Altera TSE: Add main and header file for Altera Ethernet Driver
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+ .../devicetree/bindings/net/altera_tse.txt         |  112 ++
+ Documentation/networking/altera_tse.txt            |  119 ++
+ MAINTAINERS                                        |    7 +
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/altera/Kconfig                |    8 +
+ drivers/net/ethernet/altera/Makefile               |    7 +
+ drivers/net/ethernet/altera/altera_msgdma.c        |  203 +++
+ drivers/net/ethernet/altera/altera_msgdma.h        |   34 +
+ drivers/net/ethernet/altera/altera_msgdmahw.h      |  167 +++
+ drivers/net/ethernet/altera/altera_sgdma.c         |  532 +++++++
+ drivers/net/ethernet/altera/altera_sgdma.h         |   35 +
+ drivers/net/ethernet/altera/altera_sgdmahw.h       |  124 ++
+ drivers/net/ethernet/altera/altera_tse.h           |  486 ++++++
+ drivers/net/ethernet/altera/altera_tse_ethtool.c   |  226 +++
+ drivers/net/ethernet/altera/altera_tse_main.c      | 1546 ++++++++++++++++++++
+ drivers/net/ethernet/altera/altera_utils.c         |   44 +
+ drivers/net/ethernet/altera/altera_utils.h         |   27 +
+ 18 files changed, 3679 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/altera_tse.txt
+ create mode 100644 Documentation/networking/altera_tse.txt
+ create mode 100644 drivers/net/ethernet/altera/Kconfig
+ create mode 100644 drivers/net/ethernet/altera/Makefile
+ create mode 100644 drivers/net/ethernet/altera/altera_msgdma.c
+ create mode 100644 drivers/net/ethernet/altera/altera_msgdma.h
+ create mode 100644 drivers/net/ethernet/altera/altera_msgdmahw.h
+ create mode 100644 drivers/net/ethernet/altera/altera_sgdma.c
+ create mode 100644 drivers/net/ethernet/altera/altera_sgdma.h
+ create mode 100644 drivers/net/ethernet/altera/altera_sgdmahw.h
+ create mode 100644 drivers/net/ethernet/altera/altera_tse.h
+ create mode 100644 drivers/net/ethernet/altera/altera_tse_ethtool.c
+ create mode 100644 drivers/net/ethernet/altera/altera_tse_main.c
+ create mode 100644 drivers/net/ethernet/altera/altera_utils.c
+ create mode 100644 drivers/net/ethernet/altera/altera_utils.h
 
-iQIVAwUAUx5IUOe/yOyVhhEJAQpVIw//XXBiJZFIo0w3xLC3YOvASK4iRz4WCcKP
-mMTJufmZ9345qcmJJSmysEzzGq/sfhpTYpUQmAxAzHbNvwOOKDC2/5N/6K0m7sPG
-C+AjbZOu8wbduQv6D8H9y5sNAVB+shtg+Wats4LEBQSA3fHSvYqKYp1O8lFFysB1
-Mu4Aob20fSv1YxHR66d4qdyS4waVmbjKwk7miVzVqKUTVHsIhJTsvSpIHTBtQGOr
-1CZq6emjdM4UQqgV37SumLBDfMja/F7r7PnfM6h+TdQn2O9phlHHI7wiDXJnCS4Z
-yRJTTmkILQKzEEfjA28YB2PTw6lyg6GSJrBE1L9Y6xbcs3dZqw35Wg9kgIBa4BXG
-MAIMsgi18nEzt345OBAlSwhbDDMSVFdZOU6f6kYRJ4IAC7X1vcTmUOhryU/60dRw
-OgOgu50Jm9TB9PTbcX+as5iZtKNLuK4Sq1qKJ4mJUD5iVkn0FTPi418AUqMO08Ec
-iFOMsAwxqM9QSGzKxW2//i5fn9NePuh2S81DHre+iSCFn6CMNw7PHb76UjWOIvQd
-Fkh7deZeVOX4E9SqK4AFxCweFS0pilezS4y6RKih1z9yfk9pxYKVtQnbOna1zGzO
-V1aKMyJ6GVBtvP/J7Zszp8VkBDMEuPQhIX2zE1KSve+zuZGrl0y5AazWiJrMusRG
-enAxdr9q5xI=
-=/suy
------END PGP SIGNATURE-----
+-- 
+1.7.9.5
 
---=-r7OroUKBBsRLjG3mP3hZ--
