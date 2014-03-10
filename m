@@ -1,72 +1,49 @@
-From: "christoph.paasch@uclouvain.be" <christoph.paasch@uclouvain.be>
-Subject: Re: [PATCH net] igb: Unset IGB_FLAG_HAS_MSIX-flag when falling back
- to msi-only
-Date: Mon, 10 Mar 2014 19:50:09 +0100
-Message-ID: <20140310185009.GB8001@cpaasch-mac>
-References: <1392766595-14454-1-git-send-email-christoph.paasch@uclouvain.be>
- <309B89C4C689E141A5FF6A0C5FB2118B73157E74@ORSMSX101.amr.corp.intel.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next] tcp: timestamp SYN+DATA messages
+Date: Mon, 10 Mar 2014 11:49:54 -0700
+Message-ID: <CAK6E8=d_H3y4aKwASi==mdc2_Wv4QkNsekoyU7ZCx2S1HRVcqA@mail.gmail.com>
+References: <1394411762.20149.130.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CADVnQy=ah3JAeTbsqOf_-T-45UdjXMHV1=r=GLiELThH1qS-uQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:59485 "EHLO
-	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752947AbaCJSuO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 14:50:14 -0400
-Content-Disposition: inline
-In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B73157E74@ORSMSX101.amr.corp.intel.com>
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:54421 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752099AbaCJSuf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 14:50:35 -0400
+Received: by mail-ie0-f171.google.com with SMTP id ar20so7793487iec.2
+        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 11:50:34 -0700 (PDT)
+In-Reply-To: <CADVnQy=ah3JAeTbsqOf_-T-45UdjXMHV1=r=GLiELThH1qS-uQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Aaron,
+On Mon, Mar 10, 2014 at 9:22 AM, Neal Cardwell <ncardwell@google.com> wrote:
+> On Sun, Mar 9, 2014 at 8:36 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> All skb in socket write queue should be properly timestamped.
+>>
+>> In case of FastOpen, we special case the SYN+DATA 'message' as we
+>> queue in socket wrote queue the two fallback skbs:
+>>
+>> 1) SYN message by itself.
+>> 2) DATA segment by itself.
+>>
+>> We should make sure these skbs have proper timestamps.
+>>
+>> Add a WARN_ON_ONCE() to eventually catch future violations.
+>>
+>> Fixes: 740b0f1841f6 ("tcp: switch rtt estimations to usec resolution")
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> Cc: Neal Cardwell <ncardwell@google.com>
+>> Cc: Yuchung Cheng <ycheng@google.com>
+>
+> Acked-by: Neal Cardwell <ncardwell@google.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
 
-On 19/02/14 - 00:05:30, Brown, Aaron F wrote:
-> On Wed, 2014-02-19 at 00:36 +0100, Christoph Paasch wrote:
-> > rior to cd14ef54d25 (igb: Change to use statically allocated array for
-> > MSIx entries), having msix_entries different from NULL was an
-> > indicator
-> > that MSIX is enabled.
-> > In igb_set_interrupt_capabiliy we may fall back to MSI-only. Prior to
-> > the above patch msix_entries was set to NULL by
-> > igb_reset_interrupt_capability.
-> > 
-> > However, now we are checking the flag for IGB_FLAG_HAS_MSIX and so the
-> > stack gets completly confused:
-> > 
-> > [   42.659791] ------------[ cut here ]------------
-> > <snip>
-> 
-> > [   47.892146] handlers:
-> > [   47.919301] [<ffffffff812fbd7d>] igb_intr
-> > 
-> > So, this patch unsets the flag to indicate that we are not using MSIX.
-> > This patch does exactly this: Unsetting the flag when falling back to
-> > MSI.
-> > 
-> > Fixes: cd14ef54d25b (igb: Change to use statically allocated array for
-> > MSIx entries)
-> > Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> > Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
-> > ---
-> >  drivers/net/ethernet/intel/igb/igb_main.c | 1 +
-> >  1 file changed, 1 insertion(+) 
-> 
-> Thanks Christoph, I have added this to our Jeff's internal queue as
-> well.
-
-are the patches in Jeff's queue?
-Because, in his last pull request they were not part of it.
-
-I think these patches should make it into 3.14, because my machines are not
-booting because of these issues.
-
-
-Cheers,
-Christoph
+>
+> neal
