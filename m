@@ -1,41 +1,49 @@
-From: Ming Chen <v.mingchen@gmail.com>
-Subject: Re: [BUG?] ixgbe: only num_online_cpus() of the tx queues are enabled
-Date: Mon, 10 Mar 2014 01:40:23 -0400
-Message-ID: <CAG+wggaPSfSiaTj6qPtOS3xnWRVrOa9+NA72YyQ8bXwB0i6SPg@mail.gmail.com>
-References: <CAG+wggZOQ_VyAiLBuUUfW13=OqUun3g1vnYj5SEuWN+3hHreLg@mail.gmail.com>
-	<1394292461.20149.55.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAG+wggaUHeD5Vm_HF9m4+1SZZOUo_GeQroM+0kyA_qTC5c8=3Q@mail.gmail.com>
-	<1394335754.20149.73.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAG+wggY=5BWaDujaiP6hnD5vTsXiOBNqBDYnqjEW_F4fdaMOyw@mail.gmail.com>
-	<1394372662.20149.92.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] ipv4: use unlikely to optimise in ip_forward
+Date: Sun, 09 Mar 2014 23:03:54 -0700
+Message-ID: <1394431434.3607.6.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1394428209-9919-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, Erez Zadok <ezk@fsl.cs.sunysb.edu>,
-	Dean Hildebrand <dhildeb@us.ibm.com>,
-	Geoff Kuenning <geoff@cs.hmc.edu>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:60956 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751873AbaCJFkX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 01:40:23 -0400
-Received: by mail-ie0-f174.google.com with SMTP id rp18so6774696iec.33
-        for <netdev@vger.kernel.org>; Sun, 09 Mar 2014 22:40:23 -0700 (PDT)
-In-Reply-To: <1394372662.20149.92.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:40661 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752110AbaCJGEH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 02:04:07 -0400
+Received: by mail-pd0-f169.google.com with SMTP id fp1so6662791pdb.28
+        for <netdev@vger.kernel.org>; Sun, 09 Mar 2014 23:04:04 -0700 (PDT)
+In-Reply-To: <1394428209-9919-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 9, 2014 at 9:44 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> Multiqueue is not a requirement in your case. You can easily reach line
-> rate with a single queue on a 10Gbe NIC.
->
+On Mon, 2014-03-10 at 13:10 +0800, roy.qing.li@gmail.com wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
+> 
+> The condition that skb->pkt_type is not PACKET_HOST in ip_forward, should never
+> happen, so use unlikely to optimise this check
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> ---
+>  net/ipv4/ip_forward.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+> index be8abe7..b82833a 100644
+> --- a/net/ipv4/ip_forward.c
+> +++ b/net/ipv4/ip_forward.c
+> @@ -128,7 +128,7 @@ int ip_forward(struct sk_buff *skb)
+>  	struct ip_options *opt	= &(IPCB(skb)->opt);
+>  
+>  	/* that should never happen */
+> -	if (skb->pkt_type != PACKET_HOST)
+> +	if (unlikely(skb->pkt_type != PACKET_HOST))
+>  		goto drop;
+>  
+>  	if (skb_warn_if_lro(skb))
 
-I repeated the experiment for 10 times using one tx queue with FQ, and
-all clients get fair share of the bandwidth. The overall throughout
-showed no difference between the single queue case and the mq case,
-and the throughput in both cases are close to the line rate.
+Compilers already do the right thing.
 
-Thanks,
-Ming
+This is one of the reason you see so many goto in the kernel.
