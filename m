@@ -1,50 +1,79 @@
-From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Subject: RE: [PATCHv5 net-next 00/31] Misc. fixes for cxgb4 and iw_cxgb4
-Date: Mon, 10 Mar 2014 13:01:33 -0500
-Message-ID: <004101cf3c8a$c58d02e0$50a708a0$@opengridcomputing.com>
-References: <1394471308-4304-1-git-send-email-hariprasad@chelsio.com> <20140310.133503.1268399872836123591.davem@davemloft.net>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH net-next 0/7] mlx4: Add SRIOV support for RoCE
+Date: Mon, 10 Mar 2014 13:08:02 -0500
+Message-ID: <1394474882.28217.6.camel@dcbw.local>
+References: <1394376844-12812-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>, <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	<santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	<nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: "'David Miller'" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140310.133503.1268399872836123591.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Content-Language: en-us
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, roland@kernel.org,
+	jackm@dev.mellanox.co.il, amirv@mellanox.com
+To: Or Gerlitz <ogerlitz@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:29857 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752381AbaCJSGY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Mar 2014 14:06:24 -0400
+In-Reply-To: <1394376844-12812-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sun, 2014-03-09 at 16:53 +0200, Or Gerlitz wrote:
+> Hi Dave, Roland
 > 
-> >    Dropped patch "cxgb4: use spinlock_irqsave/spinlock_irqrestore
-for db
-> lock".
-> >    save/restore spinlock variants are not required - thanks to
-review by
-> >    David Miller.
+> This series adds SRIOV support for RoCE (RDMA over Ethernet). 
 > 
-> That is absolutely not what I said.
+> The patches touch both the mlx4_core and mlx4_ib drivers, and as such we 
+> prefer to run them through netdev and the net-next tree. This will also 
+> allow for another feature we hope to get accepted during the coming merge 
+> window (single ported mlx4 VFs) which is strictly in mlx4_core to get in 
+> smoothly without heavy context based dependencies with the IB tree. 
 > 
-> I said that specific instances of the transformation were not correct,
-> the rest were and were absolutely necessary.
+> Roland, hope this is ok with you?
+
+While I could be wrong, I think the phys_port_id sysfs attribute is
+relevant here.  This attribute should be set for any VF so that
+userspace clients can determine that two VFs are backed by the same PF,
+which of course means they share bandwidth and thus some operations
+cannot be performed.  This is implemented with ndo_get_phys_port_id.
+
+Dan
+
+> The patches are against net-next, as of commit 2d8d40a "pkt_sched: fq: 
+> do not hold qdisc lock while allocating memory"
 > 
-
-The remaining changes from the removed patch are moved into patch 10/31
-(Doorbell Drop Avoidance Bug Fixes).  10/31 has the driver call
-disable_txq_db() from an interrupt handler, and I thought it would be
-better to put all the changes to fix how the db lock is acquired into
-this one patch.   
-
-We forgot mention this in the cover letter.  Sorry about that.
-
-Steve.
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Or.
+> 
+> 
+> Jack Morgenstein (6):
+>   mlx4: Adjust QP1 multiplexing for RoCE/SRIOV
+>   mlx4_core: For RoCE, allow slaves to set the GID entry at that slave's index
+>   mlx4: In RoCE allow guests to have multiple GIDS
+>   mlx4: Add ref counting to port MAC table for RoCE
+>   mlx4: Implement IP based gids support for RoCE/SRIOV
+>   mlx4: Activate RoCE/SRIOV
+> 
+> Shani Michaelli (1):
+>   mlx4_ib: Fix SIDR support of for UD QPs under SRIOV/RoCE
+> 
+>  drivers/infiniband/hw/mlx4/cm.c                    |   80 ++++-
+>  drivers/infiniband/hw/mlx4/cq.c                    |   42 ++-
+>  drivers/infiniband/hw/mlx4/mad.c                   |  123 +++++++-
+>  drivers/infiniband/hw/mlx4/main.c                  |    8 -
+>  drivers/infiniband/hw/mlx4/mcg.c                   |    2 +-
+>  drivers/infiniband/hw/mlx4/mlx4_ib.h               |   21 ++-
+>  drivers/infiniband/hw/mlx4/qp.c                    |  319 ++++++++++++++++----
+>  drivers/net/ethernet/mellanox/mlx4/cmd.c           |   23 ++
+>  drivers/net/ethernet/mellanox/mlx4/fw.c            |    5 +-
+>  drivers/net/ethernet/mellanox/mlx4/main.c          |    6 +-
+>  drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    8 +
+>  drivers/net/ethernet/mellanox/mlx4/port.c          |  142 +++++++++-
+>  .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  146 ++++++++--
+>  include/linux/mlx4/cmd.h                           |    6 +
+>  include/linux/mlx4/device.h                        |    8 +-
+>  15 files changed, 801 insertions(+), 138 deletions(-)
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
