@@ -1,92 +1,126 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net-next 1/5] vxlan: Make VXLAN default UDP port number
- available for others
-Date: Mon, 10 Mar 2014 21:57:40 +0200
-Message-ID: <CAJZOPZ+MFe2ev372L07uVvXs_wYnqAiZ3VMG4YteD2XmPWHoSQ@mail.gmail.com>
-References: <1394470142-13992-1-git-send-email-shahed.shaikh@qlogic.com>
-	<1394470142-13992-2-git-send-email-shahed.shaikh@qlogic.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v6 net-next 1/3] filter: add Extended BPF interpreter and converter
+Date: Mon, 10 Mar 2014 13:02:10 -0700
+Message-ID: <CAMEtUuyr__joDR9YYHuaqWd2fJL5-1ct5pEaQ2NRaq+G-BZK+w@mail.gmail.com>
+References: <1394076617-8108-2-git-send-email-ast@plumgrid.com>
+	<20140307.153808.649644634357014854.davem@davemloft.net>
+	<CAMEtUuzgM5xKAXZaC+Up9bKy6MaS8V6jFGq49QY7VxQOSFgcBw@mail.gmail.com>
+	<20140310.152242.340501323969517196.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Dept-HSGLinuxNICDev@qlogic.com
-To: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:65014 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752900AbaCJT5l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 15:57:41 -0400
-Received: by mail-pa0-f46.google.com with SMTP id kp14so7788479pab.33
-        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 12:57:40 -0700 (PDT)
-In-Reply-To: <1394470142-13992-2-git-send-email-shahed.shaikh@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	=?ISO-8859-1?Q?Fr=E9d=E9ric_Weisbecker?= <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140310.152242.340501323969517196.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 10, 2014 at 6:48 PM, Shahed Shaikh <shahed.shaikh@qlogic.com> wrote:
-> From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+On Mon, Mar 10, 2014 at 12:22 PM, David Miller <davem@davemloft.net> wrote:
+> From: Alexei Starovoitov <ast@plumgrid.com>
+> Date: Fri, 7 Mar 2014 14:19:39 -0800
 >
-> Although vxlan module has capability to notify udp ports to
-> other interested net devices using .ndo_add_rx_vxlan_port and
-> .ndo_del_rx_vxlan_port, there could be some devices which support
-> vxlan offload but not interested in updating udp port numbers.
-> This may be because some hardware do not support programming multiple
-> udp ports and their drivers may decide to program only default udp port
-> into adapter. So that adapter, at least, can do offloading for
-> default udp port number.
+>> On Fri, Mar 7, 2014 at 12:38 PM, David Miller <davem@davemloft.net> wrote:
+>> 2.
+>> Another alternative is to do
+>> struct sk_filter {
+>>   ..
+>> union {
+>>     unsigned int (*bpf_func)(const struct sk_buff *skb,const struct
+>> sock_filter *filter);
+>>     unsigned int (*bpf_func_ext)(void*, const struct sock_filter_ext *filter);
+>>     unsigned int (*bpf_func_generic)(void *, void*);
+>> };
+>>
+>> assignments into sk_filter will use correct field like:
+>> fp->bpf_func_ext = sk_run_filter_ext;
+>> and the hot call macro will look like:
+>> #define SK_RUN_FILTER(F, CTX) (*F->bpf_func_generic)(CTX, F->insns)
+>>
+>> I think current typecasts are equally ugly, but 'union' style
+>> will be cleaner from gcc point of view.
+>
+> The main point is that we should only bypass the type protection provided
+> by the C language as an absolute last resort.
+>
+> But in some cases, we can consider making an exception.
+>
+> The problem with letting sk_check_filter() do the verification is that the
+> type is also determined by the call site.  That requires some kind of type
+> based or run time verification.
 
-Indeed, but the default port number can be unused while another port
-is used. The ndo will be invoked only behalf
-of an actual instancing of udp port for listener socket (==
-destination port you want the hw to indentify), what's wrong
-with support this ndo also for devices that supported limited (say
-one) such port?
+agree. To solve the call site issue, we can do 'type based' verification:
+I can make sk_run_filter_ext(void *, ...) to be private in filter.c
+and provide two globally visible:
+sk_run_filter_ext_seccomp(struct seccomp_data*,...
+sk_run_filter_ext_skb(struct sk_buff*,...
 
+and inside them just call the private function.
+Compiler will do a type verification at the call site for us.
+The only problem with this approach is that tracing+ebpf, ovs+ebpf, nft+ebpf
+would need their own call functions.
 
+I feel we're overprotecting ourselves here.
+Please consider making an exception for this case.
+
+> Although it doesn't use C typing, one thing you could do is encoded the
+> pointer into an unsigned long.  Then you encode the context in the lowest
+> bits of that value, masking them out when derferencing at run time.
 >
-> Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
-> ---
->  drivers/net/vxlan.c | 6 +-----
->  include/net/vxlan.h | 6 ++++++
->  2 files changed, 7 insertions(+), 5 deletions(-)
+> So that way we can make sure seccomp _only_ runs seccomd filters.
 >
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index eb59b14..ace758f 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -71,11 +71,7 @@ struct vxlanhdr {
->         __be32 vx_vni;
->  };
+> And sockets only run socket filters with SKBs in the second argument.
 >
-> -/* UDP port for VXLAN traffic.
-> - * The IANA assigned port is 4789, but the Linux default is 8472
-> - * for compatibility with early adopters.
-> - */
-> -static unsigned short vxlan_port __read_mostly = 8472;
-> +static unsigned short vxlan_port __read_mostly = VXLAN_DEFAULT_PORT;
->  module_param_named(udp_port, vxlan_port, ushort, 0444);
->  MODULE_PARM_DESC(udp_port, "Destination UDP port");
+>> btw, ebpf jit coming in the next diff (it was also previewed in V1 series).
+>>
+>> In the 1/3 commit log of this patch I explain the current relation
+>> between bpf_ext_enable and bpf_jit_enable flags.
+>>
+>> In the next patch with ebpf jit, single bpf_jit_enable flag will act for both:
+>>   if (bpf_ext_enable) {
+>>         convert to new
+>>         sk_chk_filter() - check old bpf
+>>         if (bpf_jit_enable)
+>>              use new jit
+>>         else
+>>              use new interpreter
+>>      } else {
+>>         sk_chk_filter() - check old bpf
+>>         if (bpf_jit_enable)
+>>             use old jit
+>>         else
+>>             use old interpreter
+>>      }
+>>
+>> I believe Daniel oked this approach, but if you object, I can do it differently.
+>> Are you saying 'bpf_jit_enable' flag should mean: do old jit no matter what?
+>> Then we would need another flag 'bpf_ext_jit_enable' as well?
+>> Seems overkill to me.
 >
-> diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-> index 5deef1a..4c16629 100644
-> --- a/include/net/vxlan.h
-> +++ b/include/net/vxlan.h
-> @@ -8,6 +8,12 @@
->  #define VNI_HASH_BITS  10
->  #define VNI_HASH_SIZE  (1<<VNI_HASH_BITS)
+> It is not OK to create a temporary regression in between patch sets.
 >
-> +/* UDP port for VXLAN traffic.
-> + * The IANA assigned port is 4789, but the Linux default is 8472
-> + * for compatibility with early adopters.
-> + */
-> +#define VXLAN_DEFAULT_PORT 8472
-> +
->  struct vxlan_sock;
->  typedef void (vxlan_rcv_t)(struct vxlan_sock *vh, struct sk_buff *skb, __be32 key);
->
-> --
-> 1.8.3.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> You can make JIT higher priority than EBPF in this series, then once every
+> single JIT is converted to EBPF, you can just adjust things accordingly.
+
+ok. will change priority.
+
+Thanks
+Alex
