@@ -1,47 +1,91 @@
-From: "=?utf-8?B?57O757uf566h55CG5ZGYwq4=?=" <perioncl@ncl.edu.tw>
-Subject: =?utf-8?B?5oKo55qE55S15a2Q6YKu5Lu25biQ5oi35oCl6L+r?=
-	=?utf-8?B?5ZKM6YeN6KaB5rOo5oSP5LqL6aG5?=
-Date: Mon, 10 Mar 2014 18:48:45 +0800 (CST)
-Message-ID: <1394448516.7294.perioncl__34535.2392214865$1394448684$gmane$org@ncl.edu.tw>
-Reply-To: "=?utf-8?B?57O757uf566h55CG5ZGYwq4=?=" <euroraffle@yahoo.com.hk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from msg33.ncl.edu.tw ([192.192.58.33]:49679 "HELO msg.ncl.edu.tw"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752304AbaCJKu7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 06:50:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH v2] vmxnet3: fix netpoll race condition
+Date: Mon, 10 Mar 2014 06:55:55 -0400
+Message-ID: <1394448955-19915-1-git-send-email-nhorman@tuxdriver.com>
+References: <1394227527-31082-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>,
+	"VMware, Inc." <pv-drivers@vmware.com>,
+	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1394227527-31082-1-git-send-email-nhorman@tuxdriver.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=E4=BA=B2=E7=88=B1=E7=9A=84=E7=94=A8=E6=88=B7=E7=9A=84Webmail=20
+vmxnet3's netpoll driver is incorrectly coded.  It directly calls
+vmxnet3_do_poll, which is the driver internal napi poll routine.  As the netpoll
+controller method doesn't block real napi polls in any way, there is a potential
+for race conditions in which the netpoll controller method and the napi poll
+method run concurrently.  The result is data corruption causing panics such as this
+one recently observed:
+PID: 1371   TASK: ffff88023762caa0  CPU: 1   COMMAND: "rs:main Q:Reg"
+ #0 [ffff88023abd5780] machine_kexec at ffffffff81038f3b
+ #1 [ffff88023abd57e0] crash_kexec at ffffffff810c5d92
+ #2 [ffff88023abd58b0] oops_end at ffffffff8152b570
+ #3 [ffff88023abd58e0] die at ffffffff81010e0b
+ #4 [ffff88023abd5910] do_trap at ffffffff8152add4
+ #5 [ffff88023abd5970] do_invalid_op at ffffffff8100cf95
+ #6 [ffff88023abd5a10] invalid_op at ffffffff8100bf9b
+    [exception RIP: vmxnet3_rq_rx_complete+1968]
+    RIP: ffffffffa00f1e80  RSP: ffff88023abd5ac8  RFLAGS: 00010086
+    RAX: 0000000000000000  RBX: ffff88023b5dcee0  RCX: 00000000000000c0
+    RDX: 0000000000000000  RSI: 00000000000005f2  RDI: ffff88023b5dcee0
+    RBP: ffff88023abd5b48   R8: 0000000000000000   R9: ffff88023a3b6048
+    R10: 0000000000000000  R11: 0000000000000002  R12: ffff8802398d4cd8
+    R13: ffff88023af35140  R14: ffff88023b60c890  R15: 0000000000000000
+    ORIG_RAX: ffffffffffffffff  CS: 0010  SS: 0018
+ #7 [ffff88023abd5b50] vmxnet3_do_poll at ffffffffa00f204a [vmxnet3]
+ #8 [ffff88023abd5b80] vmxnet3_netpoll at ffffffffa00f209c [vmxnet3]
+ #9 [ffff88023abd5ba0] netpoll_poll_dev at ffffffff81472bb7
 
-=E6=84=9F=E8=B0=A2=E6=82=A8=E8=AE=A2=E9=98=85=E6=88=91=E4=BB=AC=E7=9A=84=
-=E4=BC=81=E4=B8=9A=E9=82=AE=E5=B1=80=E6=9C=8D=E5=8A=A1=E3=80=82=E9=9A=8F=
-=E7=9D=80=E6=88=91=E4=BB=AC=E7=9A=84=E4=B8=8D=E6=96=AD=E5=8A=AA=E5=8A=9B=
-=EF=BC=8C=E6=8F=90=E4=BE=9B=E6=9B=B4=E9=AB=98=E7=9A=84=E6=9C=8D=E5=8A=A1=
-=E6=B0=B4=E5=B9=B3=E7=9A=84=E4=B8=80=E9=83=A8=E5=88=86=EF=BC=8C=E6=88=91=
-=E4=BB=AC=E5=BE=88=E9=AB=98=E5=85=B4=E5=9C=B0=E9=80=9A=E7=9F=A5=E4=BD=A0=
-=EF=BC=8C=E6=88=91=E4=BB=AC=E5=B7=B2=E7=BB=8F=E5=8D=87=E7=BA=A7=E4=BA=86=
-=E6=82=A8=E7=9A=84=E7=94=B5=E5=AD=90=E9=82=AE=E4=BB=B6=E5=B8=90=E6=88=B7=
-=EF=BC=8C=E6=82=A8=E9=9C=80=E8=A6=81=E6=BF=80=E6=B4=BB=E6=82=A8=E7=9A=84=
-=E5=B8=90=E5=8F=B7=EF=BC=8C=E4=B8=BA=E4=BA=86=E6=96=B9=E4=BE=BF=E6=82=A8=
-=E7=9A=84=E5=B8=90=E5=8F=B7=E6=BF=80=E6=B4=BB=E4=B8=8E=E6=88=91=E4=BB=AC=
-=E5=90=88=E4=BD=9C=EF=BC=8C=E6=82=A8=E5=8F=AF=E4=BB=A5=E9=80=9A=E8=BF=87=
-=E7=82=B9=E5=87=BBverifiy /=E4=BD=BF=E7=94=A8=E4=B8=8B=E9=9D=A2=E7=9A=84=
-=E9=93=BE=E6=8E=A5=EF=BC=9A=20
+The fix is to do as other drivers do, and have the poll controller call the top
+half interrupt handler, which schedules a napi poll properly to recieve frames
 
-=E7=82=B9=E5=87=BB=E8=BF=99=E9=87=8C=EF=BC=9Ahttp://chinnnawebmails.0ad=
-=2Einfo/=20
+Tested by myself, successfully.
 
-=E6=88=91=E4=BB=AC=E7=9C=9F=E8=AF=9A=E5=9C=B0=E9=81=93=E6=AD=89=E8=BF=99=
-=E7=A7=8D=E4=B8=8D=E4=BE=BF=E3=80=82=20
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Shreyas Bhatewara <sbhatewara@vmware.com>
+CC: "VMware, Inc." <pv-drivers@vmware.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: stable@vger.kernel.org
 
-=E7=9C=9F=E8=AF=9A=E7=9A=84=EF=BC=8C=20
-IT=E6=9C=8D=E5=8A=A1=EF=BC=81=20
-=E7=B3=BB=E7=BB=9F=E7=AE=A1=E7=90=86=E5=91=98=C2=AE=20
-=E5=8D=87=E7=BA=A7=E6=82=A8=E7=9A=84=E5=B8=90=E6=88=B7=EF=BC=81=20
-=C2=A9=E7=89=88=E6=9D=83=E6=89=80=E6=9C=892014=E5=B9=B4=E4=BC=81=E4=B8=9A=
-=E9=82=AE=E5=B1=80
+---
+Change notes:
+v2)
+* Fixed missing break statements
+* Added loop for each rx queue
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 3be786f..b7daa02 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -1761,12 +1761,18 @@ static void
+ vmxnet3_netpoll(struct net_device *netdev)
+ {
+ 	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
++	int i;
+ 
+-	if (adapter->intr.mask_mode == VMXNET3_IMM_ACTIVE)
+-		vmxnet3_disable_all_intrs(adapter);
+-
+-	vmxnet3_do_poll(adapter, adapter->rx_queue[0].rx_ring[0].size);
+-	vmxnet3_enable_all_intrs(adapter);
++	switch (adapter->intr.type) {
++	case VMXNET3_IT_MSIX:
++		for (i = 0; i < adapter->num_rx_queues; i++)
++			vmxnet3_msix_rx(0, &adapter->rx_queue[i]);
++		break;
++	case VMXNET3_IT_MSI:
++	default:
++		vmxnet3_intr(0, adapter->netdev);
++		break;
++	}
+ 
+ }
+ #endif	/* CONFIG_NET_POLL_CONTROLLER */
+-- 
+1.8.3.1
