@@ -1,118 +1,161 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] net: phy: fix uninitalized WOL parameters in
- phy_ethtool_get_wol
-Date: Mon, 10 Mar 2014 02:51:33 +0000
-Message-ID: <1394419893.15968.88.camel@deadeye.wl.decadent.org.uk>
-References: <1394413270-7169-1-git-send-email-sebastian.hesselbarth@gmail.com>
+From: Qin Chuanyu <qinchuanyu@huawei.com>
+Subject: Re: [PATCH net V2] vhost: net: switch to use data copy if pending
+	DMAs exceed the limit
+Date: Mon, 10 Mar 2014 10:52:20 +0800
+Message-ID: <531D28E4.70002@huawei.com>
+References: <1394170107-12018-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0098268422476007236=="
-Cc: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
- David Miller <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org,
- linux-kernel@vger.kernel.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1394413270-7169-1-git-send-email-sebastian.hesselbarth@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+To: Jason Wang <jasowang@redhat.com>, <mst@redhat.com>, <kvm@vger.kernel.org>,
+	<virtio-dev@lists.oasis-open.org>,
+	<virtualization@lists.linux-foundation.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1394170107-12018-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-
---===============0098268422476007236==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-M2iU1wxOH00rdU/TUKFB"
-
-
---=-M2iU1wxOH00rdU/TUKFB
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, 2014-03-10 at 02:01 +0100, Sebastian Hesselbarth wrote:
-> phy_ethtool_get_wol is a helper to get current WOL settings from
-> a phy device. When using this helper on a PHY without .get_wol
-> callback, struct ethtool_wolinfo is never set-up correctly and
-> may contain misleading information about WOL status.
->=20
-> To fix this, always zero relevant fields of struct ethtool_wolinfo
-> regardless of .get_wol callback availability.
-
-I think it's the caller's responsibility to zero out struct
-ethtool_wolinfo.  That is what ethtool_get_wol() does.
-
-Maybe you could split ethtool_get_wol() like we did
-ethtool_get_settings(), to support in-kernel invocation of ETHTOOL_GWOL?
-
-Ben.
-
-> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+On 2014/3/7 13:28, Jason Wang wrote:
+> We used to stop the handling of tx when the number of pending DMAs
+> exceeds VHOST_MAX_PEND. This is used to reduce the memory occupation
+> of both host and guest. But it was too aggressive in some cases, since
+> any delay or blocking of a single packet may delay or block the guest
+> transmission. Consider the following setup:
+>
+>      +-----+        +-----+
+>      | VM1 |        | VM2 |
+>      +--+--+        +--+--+
+>         |              |
+>      +--+--+        +--+--+
+>      | tap0|        | tap1|
+>      +--+--+        +--+--+
+>         |              |
+>      pfifo_fast   htb(10Mbit/s)
+>         |              |
+>      +--+--------------+---+
+>      |     bridge          |
+>      +--+------------------+
+>         |
+>      pfifo_fast
+>         |
+>      +-----+
+>      | eth0|(100Mbit/s)
+>      +-----+
+>
+> - start two VMs and connect them to a bridge
+> - add an physical card (100Mbit/s) to that bridge
+> - setup htb on tap1 and limit its throughput to 10Mbit/s
+> - run two netperfs in the same time, one is from VM1 to VM2. Another is
+>    from VM1 to an external host through eth0.
+> - result shows that not only the VM1 to VM2 traffic were throttled but
+>    also the VM1 to external host through eth0 is also throttled somehow.
+>
+> This is because the delay added by htb may lead the delay the finish
+> of DMAs and cause the pending DMAs for tap0 exceeds the limit
+> (VHOST_MAX_PEND). In this case vhost stop handling tx request until
+> htb send some packets. The problem here is all of the packets
+> transmission were blocked even if it does not go to VM2.
+>
+> We can solve this issue by relaxing it a little bit: switching to use
+> data copy instead of stopping tx when the number of pending DMAs
+> exceed half of the vq size. This is safe because:
+>
+> - The number of pending DMAs were still limited (half of the vq size)
+> - The out of order completion during mode switch can make sure that
+>    most of the tx buffers were freed in time in guest.
+>
+> So even if about 50% packets were delayed in zero-copy case, vhost
+> could continue to do the transmission through data copy in this case.
+>
+> Test result:
+>
+> Before this patch:
+> VM1 to VM2 throughput is 9.3Mbit/s
+> VM1 to External throughput is 40Mbit/s
+> CPU utilization is 7%
+>
+> After this patch:
+> VM1 to VM2 throughput is 9.3Mbit/s
+> Vm1 to External throughput is 93Mbit/s
+> CPU utilization is 16%
+>
+> Completed performance test on 40gbe shows no obvious changes in both
+> throughput and cpu utilization with this patch.
+>
+> The patch only solve this issue when unlimited sndbuf. We still need a
+> solution for limited sndbuf.
+>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Qin Chuanyu <qinchuanyu@huawei.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 > ---
-> Cc: David Miller <davem@davemloft.net>
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: linux-kernel@vger.kernel.org
+> Changes from V1:
+> - Remove VHOST_MAX_PEND and switch to use half of the vq size as the limit
+> - Add cpu utilization in commit log
 > ---
->  drivers/net/phy/phy.c | 1 +
->  1 file changed, 1 insertion(+)
->=20
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> index 19c9eca0ef26..62a7cd401e1c 100644
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@ -1092,6 +1092,7 @@ EXPORT_SYMBOL(phy_ethtool_set_wol);
-> =20
->  void phy_ethtool_get_wol(struct phy_device *phydev, struct ethtool_wolin=
-fo *wol)
->  {
-> +	wol->supported =3D wol->wolopts =3D 0;
->  	if (phydev->drv->get_wol)
->  		phydev->drv->get_wol(phydev, wol);
->  }
-
---=20
-Ben Hutchings
-Computers are not intelligent.	They only think they are.
-
---=-M2iU1wxOH00rdU/TUKFB
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUx0otee/yOyVhhEJAQrXcg/+MTq4nMnpSS2NdDvwc4Gg5u0eDaU4q96k
-CaGXoGCyBNTf6wCXhpsmP1gxmVkwdQ/ZsIj+S8Gvrpf3OFlLMn8GXce6R11U4Y+0
-NT2V6H1YGls4jpryTAdm95ZnbFtBldNfeOGSkZ5dJHoehKrtnFTu4bB0jhFM50+p
-PoWdOEfw8dbJsdKYE2SuRG17sSDpFptLDWjFyn2GTMBsai4WNoMFNoG6+pfp3Q2l
-wDErIcasn5zck7YmG+/vbtnb6IH4a6gre8ah0OBka+5vhlCzmgMudtYSpW0S1ACZ
-m/X3iq1r7Kh4HhInCW7inwEpXncAUxBbI9im3vPFuLjTEJqqwgXelzmPVOPvRewg
-Y3VXXSmu5GZY4A6RQthu8derZrRvRLiM/ry6uKWQdUs1DwPKpl2loFnP/GCptiEr
-bezv/P4LaKZHfm0FhQshwBAp0tT/hG9kJKocmbjl6cKdVdDRdP7Y8RiG9Fg7o7+C
-IYW3k+sq7u15vTextN+irjwVgZnYfgt9fAMGNnJNd/RaMf1LCc6jIWkkV5ZwEUyZ
-p/Ae/jFnBQZLTRJjtrCcFt3YTH8gR2nGQSDQZe0xiFsDCPlecNDiHLKYlDDVGBU/
-aKp4g5+nlcgxhQf5nXLf/SDPVfZKq/BA4HEKkSra6dU6MzGRv636hpEKi8q/u1yZ
-VDU8U5wXvLc=
-=1+Ux
------END PGP SIGNATURE-----
-
---=-M2iU1wxOH00rdU/TUKFB--
-
-
---===============0098268422476007236==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-linux-arm-kernel mailing list
-linux-arm-kernel@lists.infradead.org
-http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-
---===============0098268422476007236==--
+>   drivers/vhost/net.c | 19 +++++++------------
+>   1 file changed, 7 insertions(+), 12 deletions(-)
+>
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index a0fa5de..2925e9a 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -38,8 +38,6 @@ MODULE_PARM_DESC(experimental_zcopytx, "Enable Zero Copy TX;"
+>    * Using this limit prevents one virtqueue from starving others. */
+>   #define VHOST_NET_WEIGHT 0x80000
+>
+> -/* MAX number of TX used buffers for outstanding zerocopy */
+> -#define VHOST_MAX_PEND 128
+>   #define VHOST_GOODCOPY_LEN 256
+>
+>   /*
+> @@ -345,7 +343,7 @@ static void handle_tx(struct vhost_net *net)
+>   		.msg_flags = MSG_DONTWAIT,
+>   	};
+>   	size_t len, total_len = 0;
+> -	int err;
+> +	int err, num_pends;
+>   	size_t hdr_size;
+>   	struct socket *sock;
+>   	struct vhost_net_ubuf_ref *uninitialized_var(ubufs);
+> @@ -366,13 +364,6 @@ static void handle_tx(struct vhost_net *net)
+>   		if (zcopy)
+>   			vhost_zerocopy_signal_used(net, vq);
+>
+> -		/* If more outstanding DMAs, queue the work.
+> -		 * Handle upend_idx wrap around
+> -		 */
+> -		if (unlikely((nvq->upend_idx + vq->num - VHOST_MAX_PEND)
+> -			      % UIO_MAXIOV == nvq->done_idx))
+> -			break;
+> -
+>   		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
+>   					 ARRAY_SIZE(vq->iov),
+>   					 &out, &in,
+> @@ -405,9 +396,13 @@ static void handle_tx(struct vhost_net *net)
+>   			break;
+>   		}
+>
+> +		num_pends = likely(nvq->upend_idx >= nvq->done_idx) ?
+> +			    (nvq->upend_idx - nvq->done_idx) :
+> +			    (nvq->upend_idx + UIO_MAXIOV -
+> +			     nvq->done_idx);
+> +
+>   		zcopy_used = zcopy && len >= VHOST_GOODCOPY_LEN
+> -				   && (nvq->upend_idx + 1) % UIO_MAXIOV !=
+> -				      nvq->done_idx
+> +				   && num_pends <= vq->num >> 1
+>   				   && vhost_net_tx_select_zcopy(net);
+>
+>   		/* use msg_control to pass vhost zerocopy ubuf info to skb */
+>
+Reviewed-by: Qin chuanyu <qinchuanyu@huawei.com>
