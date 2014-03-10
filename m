@@ -1,50 +1,40 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 4/5] skbuff: skb_segment: s/fskb/list_skb/
-Date: Mon, 10 Mar 2014 19:56:06 +0200
-Message-ID: <20140310175606.GA13907@redhat.com>
-References: <1394468807-25980-1-git-send-email-mst@redhat.com>
- <1394468807-25980-5-git-send-email-mst@redhat.com>
- <20140310.134054.2195508036199798660.davem@davemloft.net>
- <20140310.134359.1940025401945824360.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] netlink: autosize skb lengthes
+Date: Mon, 10 Mar 2014 13:56:55 -0400 (EDT)
+Message-ID: <20140310.135655.564901006977885920.davem@davemloft.net>
+References: <1394222553.20149.40.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, jbenc@redhat.com,
-	edumazet@google.com, dborkman@redhat.com, horms@verge.net.au,
-	Paul.Durrant@citrix.com, tgraf@suug.ch,
-	herbert@gondor.apana.org.au, mszeredi@suse.cz,
-	panweiping3@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140310.134359.1940025401945824360.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tgraf@suug.ch
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45194 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753092AbaCJR46 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:56:58 -0400
+In-Reply-To: <1394222553.20149.40.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 10, 2014 at 01:43:59PM -0400, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Mon, 10 Mar 2014 13:40:54 -0400 (EDT)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 07 Mar 2014 12:02:33 -0800
+
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> > 
-> > As a netdev reader, I don't see patches 1-3, did you post them somewhere else
-> > and not CC: netdev?
-> > 
-> > If so, please don't do that without at least making a mention of what's going
-> > on in the 0/N posting.
+> One known problem with netlink is the fact that NLMSG_GOODSIZE is
+> really small on PAGE_SIZE==4096 architectures, and it is difficult
+> to know in advance what buffer size is used by the application.
 > 
-> Nevermind, I see them as older postings in my queue.
+> This patch adds an automatic learning of the size.
 > 
-> Are you using the commit date as the date for your outgoing emails?
+> First netlink message will still be limited to ~4K, but if user used
+> bigger buffers, then following messages will be able to use up to 16KB.
+> 
+> This speedups dump() operations by a large factor and should be safe
+> for legacy applications.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Thomas Graf <tgraf@suug.ch>
 
-I don't really know, I just used git send-email to prepare them.
-
-I saw a large delay after I sent them all until patches 4/5
-appeared on list. Could just be some hiccup in the smtp server
-(using ssmtp).
-
-> Don't do that, it causes a patch series get chopped up and intertwined
-> with other ones in patchwork and therefore makes more work for me.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+This looks great, applied, thanks!
