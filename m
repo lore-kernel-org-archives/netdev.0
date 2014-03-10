@@ -1,55 +1,64 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 5/5] skbuff: skb_segment: orphan frags before copying
-Date: Tue, 11 Mar 2014 06:12:23 +0800
-Message-ID: <20140310221223.GA15839@gondor.apana.org.au>
-References: <1394468807-25980-1-git-send-email-mst@redhat.com>
- <1394468807-25980-6-git-send-email-mst@redhat.com>
- <20140310213404.GB15352@gondor.apana.org.au>
- <20140310215236.GA7052@redhat.com>
- <20140310215640.GA15684@gondor.apana.org.au>
- <20140310220717.GA7150@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2 0/3] net: phy: fix uninitalized WOL struct in phy_ethtool_get_wol
+Date: Mon, 10 Mar 2014 15:20:23 -0700
+Message-ID: <CAGVrzcbBcbPLnRa8ausZzcSyFBaySt=UEL_QQCAOJomrkaz1rw@mail.gmail.com>
+References: <1394413270-7169-1-git-send-email-sebastian.hesselbarth@gmail.com> <1394484661-4554-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, jbenc@redhat.com,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Simon Horman <horms@verge.net.au>,
-	Paul Durrant <Paul.Durrant@citrix.com>,
-	Thomas Graf <tgraf@suug.ch>, Miklos Szeredi <mszeredi@suse.cz>,
-	=?us-ascii?B?PT9VVEYtOD9xP1BldGVyPTIwUGFuPTI4PUU2PUJEPTk4PUU1PThEPUFC?=
-	 =?us-ascii?B?PUU1PUI5PUIzPTI5Pz0=?= <panweiping3@gmail.com>,
-	netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:49100 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752262AbaCJWMl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 18:12:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20140310220717.GA7150@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394484661-4554-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 11, 2014 at 12:07:17AM +0200, Michael S. Tsirkin wrote:
-> 
-> Once one skb completes the callback is invoked and userspace
-> reuses this buffer for something else.
-> At that point it's too late to do the copy.
+2014-03-10 13:50 GMT-07:00 Sebastian Hesselbarth
+<sebastian.hesselbarth@gmail.com>:
+> David,
+>
+> this is a small patch set based on a single patch sent earlier [1] to
+> fix uninitalized struct ethtool_wolinfo in phy_ethtool_get_wol.
+> Compared to the single patch, this clears the whole struct
+> ethtool_wolinfo passed to phy_ethtool_get_wol and adds a check for
+> non-NULL struct phy_device.
+>
+> I also added two cleanup patches for current users of
+> phy_ethtool_get_wol. Those two patches are also based on v3.14-rc1 but
+> aren't really part of the fix. They can wait for v3.15 and I'll rebase
+> on request.
 
-OK, would it be possible to delay the callback until all generated
-skbs are completed?
+Looks good to me, thanks Sebastian:
 
-> > IOW if we pass along SKBTX_SHARED_FRAG will it work?
-> 
-> I don't see how would SKBTX_SHARED_FRAG help with this at all.
-> That only works for pages gifted to kernel by e.g. vmsplice
-> that aren't reused by userspace.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Sorry cut-n-paste error, I meant SKBTX_DEV_ZEROCOPY.
+>
+> [1] https://lkml.org/lkml/2014/3/9/169
+>
+> Sebastian Hesselbarth (3):
+>   net: phy: fix uninitalized WOL parameters in phy_ethtool_get_wol
+>   net: mv643xx_eth: simplify phy_ethtool_get_wol call
+>   net: cpsw: simplify phy_ethtool_get_wol call
+>
+>  drivers/net/ethernet/marvell/mv643xx_eth.c | 5 +----
+>  drivers/net/ethernet/ti/cpsw.c             | 7 +------
+>  drivers/net/phy/phy.c                      | 4 +++-
+>  3 files changed, 5 insertions(+), 11 deletions(-)
+>
+> ---
+> Cc: David Miller <davem@davemloft.net>
+> Cc: Florian Fainelli <f.fainelli@gmail.com>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-arm-kernel@lists.infradead.org
+> Cc: linux-kernel@vger.kernel.org
+> --
+> 1.8.5.3
+>
 
-Cheers,
+
+
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Florian
