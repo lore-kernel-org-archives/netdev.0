@@ -1,39 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next] 6lowpan: reassembly: fix
- access of ctl table entry
-Date: Mon, 10 Mar 2014 16:03:27 -0400 (EDT)
-Message-ID: <20140310.160327.1140701710585124438.davem@davemloft.net>
-References: <1394355100-27824-1-git-send-email-alex.aring@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V4 1/2] net: Utility function to get
+ affinity_hint by policy
+Date: Mon, 10 Mar 2014 16:04:08 -0400 (EDT)
+Message-ID: <20140310.160408.1561130723524404573.davem@davemloft.net>
+References: <1394350749-30522-1-git-send-email-amirv@mellanox.com>
+	<1394350749-30522-2-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1394355100-27824-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, yevgenyp@mellanox.com,
+	ogerlitz@mellanox.com, prarit@redhat.com, gvaradar@cisco.com
+To: amirv@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46905 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753081AbaCJUEK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 16:04:10 -0400
+In-Reply-To: <1394350749-30522-2-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Sun,  9 Mar 2014 09:51:40 +0100
+From: Amir Vadai <amirv@mellanox.com>
+Date: Sun,  9 Mar 2014 09:39:08 +0200
 
-> Correct offset is 3 of the 6lowpanfrag_max_datagram_size value in proc
-> entry ctl table and not 2.
+> This function sets the affinity_mask according to a numa aware policy.
+> affinity_mask could be used as an affinity hint for the IRQ related to
+> this rx queue.
+> Current policy is to spread rx queues accross cores - local cores first.
+> It could be extended in the future.
 > 
-> Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> CC: Prarit Bhargava <prarit@redhat.com>
+> CC: Govindarajulu Varadarajan <gvaradar@cisco.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
 
-Applied, thanks.
-
-------------------------------------------------------------------------------
-Learn Graph Databases - Download FREE O'Reilly Book
-"Graph Databases" is the definitive new guide to graph databases and their
-applications. Written by three acclaimed leaders in the field,
-this first edition is now available. Download your free book today!
-http://p.sf.net/sfu/13534_NeoTech
+I hate to delay this even more, but I think Ben is right, this is really
+a generic function that probably belongs under kernel/  The block layer
+folks to multiqueue things on some devices, and they therefore could find
+it useful as well.
