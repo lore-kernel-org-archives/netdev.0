@@ -1,94 +1,141 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH net] ipv6: do not overwrite inetpeer metrics prematurely
-Date: Mon, 10 Mar 2014 14:15:10 +0100
-Message-ID: <20140310131510.GB27052@unicorn.suse.cz>
-References: <20140308080616.GB5493@order.stressinduktion.org>
- <20140309.202658.205858191881011540.davem@davemloft.net>
- <20140310005220.GD5493@order.stressinduktion.org>
- <20140310.010313.703650662340510015.davem@davemloft.net>
- <20140310081533.GA27052@unicorn.suse.cz>
- <20140310120016.GH5493@order.stressinduktion.org>
+From: annie li <annie.li@oracle.com>
+Subject: Re: [Xen-devel] [PATCH net] Xen-netback: Fix issue caused by using
+ gso_type wrongly
+Date: Mon, 10 Mar 2014 21:23:56 +0800
+Message-ID: <531DBCEC.4070201@oracle.com>
+References: <1394437454-2402-1-git-send-email-Annie.li@oracle.com> <9AAE0902D5BC7E449B7C8E4E778ABCD0279FBD@AMSPEX01CL01.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
+To: Paul Durrant <Paul.Durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:60773 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752229AbaCJNPN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Mar 2014 09:15:13 -0400
-Content-Disposition: inline
-In-Reply-To: <20140310120016.GH5493@order.stressinduktion.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:40105 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752804AbaCJNYO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 09:24:14 -0400
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD0279FBD@AMSPEX01CL01.citrite.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 10, 2014 at 01:00:16PM +0100, Hannes Frederic Sowa wrote:
-> On Mon, Mar 10, 2014 at 09:15:33AM +0100, Michal Kubecek wrote:
-> > On Mon, Mar 10, 2014 at 01:03:13AM -0400, David Miller wrote:
-> > > @@ -743,6 +743,30 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
-> > >  		BUG_ON(rt6i_nsiblings != rt->rt6i_nsiblings);
-> > >  	}
-> > >  
-> > > +	if (mx) {
-> > > +		struct nlattr *nla;
-> > > +		bool was_writable;
-> > > +		int remaining;
-> > > +		u32 *mp;
-> > > +
-> > > +		was_writable = !dst_metrics_read_only(&rt->dst);
-> > > +		mp = dst_metrics_write_ptr(&rt->dst);
-> > > +
-> > > +		if (was_writable)
-> > > +			memset(mp, 0, RTAX_MAX * sizeof(u32));
-> > > +
-> > > +		nla_for_each_attr(nla, mx, mx_len, remaining) {
-> > > +			int type = nla_type(nla);
-> > > +
-> > > +			if (type) {
-> > > +				if (type > RTAX_MAX)
-> > > +					return -EINVAL;
-> > > +
-> > > +				mp[type - 1] = nla_get_u32(nla);
-> > > +			}
-> > > +		}
-> > > +	}
-> > > +
-> > >  	/*
-> > >  	 *	insert node
-> > >  	 */
-> > 
-> > This is too early. After this point, the insertion can still fail if
-> > (!found && !add) (i.e. when trying to modify a non-existent route with
-> > "ip route change").
-> 
-> Yep, but we can make this a static function to ip6_fib.c and call it from the
-> code points you already proposed in your original patch?
 
-Yes, this sounds like the best option.
+On 2014/3/10 17:51, Paul Durrant wrote:
+>> -----Original Message-----
+>> From: Annie Li [mailto:Annie.li@oracle.com]
+>> Sent: 10 March 2014 07:44
+>> To:xen-devel@lists.xen.org;netdev@vger.kernel.org
+>> Cc:konrad.wilk@oracle.com; Ian Campbell; Wei Liu; Paul Durrant;
+>> annie.li@oracle.com
+>> Subject: [PATCH net] Xen-netback: Fix issue caused by using gso_type
+>> wrongly
+>>
+>> From: Annie Li<annie.li@oracle.com>
+>>
+>> Current netback uses gso_type to check whether the skb contains
+>> gso offload, and this is wrong. Gso_size is the right one to
+>> check gso existence, and gso_type is only used to check gso type.
+>>
+>> Some skbs contains nonzero gso_type and zero gso_size, current
+>> netback would treat these skbs as gso and create wrong response
+>> for this. This also causes ssh failure to domu from other server.
+>>
+> That's a shame. It would be nice if these things were consistent...
+>
+>> Signed-off-by: Annie Li<annie.li@oracle.com>
+>> ---
+>>   drivers/net/xen-netback/netback.c |   35 +++++++++++++++++---------------
+>> ---
+>>   1 files changed, 17 insertions(+), 18 deletions(-)
+>>
+>> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
+>> netback/netback.c
+>> index e5284bc..57a7d5d 100644
+>> --- a/drivers/net/xen-netback/netback.c
+>> +++ b/drivers/net/xen-netback/netback.c
+>> @@ -240,7 +240,7 @@ static void xenvif_gop_frag_copy(struct xenvif *vif,
+>> struct sk_buff *skb,
+>>   	struct gnttab_copy *copy_gop;
+>>   	struct xenvif_rx_meta *meta;
+>>   	unsigned long bytes;
+>> -	int gso_type;
+>> +	int gso_type = XEN_NETIF_GSO_TYPE_NONE;
+>>
+>>   	/* Data must not cross a page boundary. */
+>>   	BUG_ON(size + offset > PAGE_SIZE<<compound_order(page));
+>> @@ -299,12 +299,12 @@ static void xenvif_gop_frag_copy(struct xenvif *vif,
+>> struct sk_buff *skb,
+>>   		}
+>>
+>>   		/* Leave a gap for the GSO descriptor. */
+>> -		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
+>> -			gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
+>> -		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
+>> -			gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
+>> -		else
+>> -			gso_type = XEN_NETIF_GSO_TYPE_NONE;
+>> +		if (skb_shinfo(skb)->gso_size) {
+> You should probably use skb_is_gso(skb) for your test.
 
-> The reason why I liked David's proposal is that it removes the ambiguity
-> when looking up the inetpeer (we only get the inetpeer if we are sure
-> a new route is added). I don't mind the kzalloc that much. The only
-> overhead it produces would be if a user inserts a route for a /128 target
-> and specifies metrics.
+skb_is_gso does the same thing, skb_iso_gso and 
+skb_shinfo(skb)->gso_size coexist. But I can change the code as you 
+suggested if you like, will post a v2 patch for this.
 
-Right, I didn't realize that.
+Thanks
+Annie
 
-> > Or rather get a null pointer dereference in 
-> > fib6_add_rt2node() as dst_metrics_write_ptr() would return NULL. An 
-> > alternative solution (and perhaps a more suitable one) would be to 
-> > allocate the block in ip6_cow_metrics() instead of returning NULL.
-> 
-> I am not sure of the advantage here. If this patch targets net I would
-> like to keep the changes a bit more straightforward. In case it gives
-> a nice advantage, maybe another patch for net-next? Haven't had a close look
-> on that yet.
-
-Agreed. It would only delay the allocation for non-DST_HOST routes to
-the point we are sure we need it; on the other hand, it would require
-reorganizing the ip6_cow_metrics() code so I guess it can wait for
-net-next (if at all).
-
-                                                       Michal Kubecek
+>    Paul
+>
+>> +			if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
+>> +				gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
+>> +			else if (skb_shinfo(skb)->gso_type &
+>> SKB_GSO_TCPV6)
+>> +				gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
+>> +		}
+>>
+>>   		if (*head && ((1 << gso_type) & vif->gso_mask))
+>>   			vif->rx.req_cons++;
+>> @@ -342,15 +342,13 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+>>
+>>   	old_meta_prod = npo->meta_prod;
+>>
+>> -	if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4) {
+>> -		gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
+>> -		gso_size = skb_shinfo(skb)->gso_size;
+>> -	} else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
+>> -		gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
+>> -		gso_size = skb_shinfo(skb)->gso_size;
+>> -	} else {
+>> -		gso_type = XEN_NETIF_GSO_TYPE_NONE;
+>> -		gso_size = 0;
+>> +	gso_type = XEN_NETIF_GSO_TYPE_NONE;
+>> +	gso_size = skb_shinfo(skb)->gso_size;
+>> +	if (gso_size) {
+>> +		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
+>> +			gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
+>> +		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
+>> +			gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
+>>   	}
+>>
+>>   	/* Set up a GSO prefix descriptor, if necessary */
+>> @@ -500,8 +498,9 @@ static void xenvif_rx_action(struct xenvif *vif)
+>>   			size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
+>>   			max_slots_needed += DIV_ROUND_UP(size,
+>> PAGE_SIZE);
+>>   		}
+>> -		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4 ||
+>> -		    skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
+>> +		if (skb_shinfo(skb)->gso_size &&
+>> +		   (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4 ||
+>> +		    skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6))
+>>   			max_slots_needed++;
+>>
+>>   		/* If the skb may not fit then bail out now */
+>> --
+>> 1.7.3.4
+> _______________________________________________
+> Xen-devel mailing list
+> Xen-devel@lists.xen.org
+> http://lists.xen.org/xen-devel
