@@ -1,35 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ixgbe: fix ixgbe_check_reset_blocked()
- declaration
-Date: Mon, 10 Mar 2014 16:28:20 -0400 (EDT)
-Message-ID: <20140310.162820.532220881575176361.davem@davemloft.net>
-References: <1394414342-2482-1-git-send-email-sakiwit@gmail.com>
+Subject: Re: [PATCH] net: add a pre-check of net_ns in sk_change_net()
+Date: Mon, 10 Mar 2014 16:30:02 -0400 (EDT)
+Message-ID: <20140310.163002.2203078134032583309.davem@davemloft.net>
+References: <5319A3C2.8080001@cn.fujitsu.com>
+	<20140309.190941.472588800498066811.davem@davemloft.net>
+	<531D1C0E.6010507@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: aaron.f.brown@intel.com, netdev@vger.kernel.org,
-	donald.c.skidmore@intel.com, jeffrey.t.kirsher@intel.com
-To: sakiwit@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47194 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753255AbaCJU2W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 16:28:22 -0400
-In-Reply-To: <1394414342-2482-1-git-send-email-sakiwit@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: guz.fnst@cn.fujitsu.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <531D1C0E.6010507@cn.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jean Sacren <sakiwit@gmail.com>
-Date: Sun,  9 Mar 2014 19:19:02 -0600
+From: Gu Zheng <guz.fnst@cn.fujitsu.com>
+Date: Mon, 10 Mar 2014 09:57:34 +0800
 
-> The commit c97506ab0e22 ("ixgbe: Add check for FW veto bit")
-> introduced the new function ixgbe_check_reset_blocked() with a minor
-> issue in declaration. Fix the declaration by changing the type
-> specifier to bool as the definition returns a boolean value.
-> Additionally all ixgbe_check_reset_blocked() callers are expected to
-> return a boolean value.
+> We do not need to switch the net_ns if the target net_ns the same
+> as the current one, so here we add a pre-check of net_ns to avoid
+> this as David suggested.
 > 
-> Signed-off-by: Jean Sacren <sakiwit@gmail.com>
-> Cc: Don Skidmore <donald.c.skidmore@intel.com>
+> Signed-off-by: Gu Zheng <guz.fnst@cn.fujitsu.com>
 
-I assume Jeff will pick this up into his Intel tree.
+Applied to net-next, thank you.
