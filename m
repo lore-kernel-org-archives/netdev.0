@@ -1,83 +1,97 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v2] unix: add read side socket memory accounting for dgram sockets
-Date: Mon, 10 Mar 2014 22:04:09 +0100
-Message-ID: <20140310210409.GI5493@order.stressinduktion.org>
-References: <20140304201336.GB26307@order.stressinduktion.org> <20140304.153732.1314382655798460205.davem@davemloft.net> <20140310010754.GE5493@order.stressinduktion.org> <20140310.162756.2102404684106170700.davem@davemloft.net>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>
+Subject: [PATCHv2 1/2] bridge: multicast: add sanity check for
+	general query destination
+Date: Mon, 10 Mar 2014 22:25:24 +0100
+Message-ID: <1394486725-4992-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, yannick@koehler.name,
-	eric.dumazet@gmail.com, xiyou.wangcong@gmail.com, dan@mindstab.net,
-	tmorvai@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:54739 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752302AbaCJVEK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 17:04:10 -0400
-Content-Disposition: inline
-In-Reply-To: <20140310.162756.2102404684106170700.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Florian Westphal <fwestpha@redhat.com>, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>,
+	Jan Stancek <jstancek@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi!
+General IGMP and MLD queries are supposed to have the multicast
+link-local all-nodes address as their destination according to RFC2236
+section 9, RFC3376 section 4.1.12/9.1, RFC2710 section 8 and RFC3810
+section 5.1.15.
 
-On Mon, Mar 10, 2014 at 04:27:56PM -0400, David Miller wrote:
-> > First the unconnected send/reply benchmark, which look good.
-> > 
-> > /home/hannes/netperf-2.6.0/src/netperf -t  DG_RR -- -r 1,1
-> > 
-> > === Unpatched net-next: ===
-> > DG REQUEST/RESPONSE TEST
-> > Local /Remote
-> > Socket Size   Request  Resp.   Elapsed  Trans.
-> > Send   Recv   Size     Size    Time     Rate
-> > bytes  Bytes  bytes    bytes   secs.    per sec
-> > 
-> > 212992 212992 1        1       10.00    23587.28
-> > 4608   2304
-> > 
-> > === Patched net-next: ===
-> > DG REQUEST/RESPONSE TEST
-> > Local /Remote
-> > Socket Size   Request  Resp.   Elapsed  Trans.
-> > Send   Recv   Size     Size    Time     Rate
-> > bytes  Bytes  bytes    bytes   secs.    per sec
-> > 
-> > 212992 212992 1        1       10.00    21607.50
-> > 4608   2304
-> 
-> If I read those transaction rate numbers correctly, it's slowing
-> down by more then %8.  I'm not so sure that looks "good" to me.
+Without this check, such malformed IGMP/MLD queries can result in a
+denial of service: The queries are ignored by most IGMP/MLD listeners
+therefore they will not respond with an IGMP/MLD report. However,
+without this patch these malformed MLD queries would enable the
+snooping part in the bridge code, potentially shutting down the
+according ports towards these hosts for multicast traffic as the
+bridge did not learn about these listeners.
 
-You haven't seen the other benchmarks before I fixed the wakeup. ;)
+Reported-by: Jan Stancek <jstancek@redhat.com>
+Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
+---
+v2: simplified is_general_query variable assignment (thanks Cong!)
 
-(I should really have done more benchmarks before, I only was concerened
-about the "correctness" issue.)
 
-Ok, sure, a performance drop is clearly visible, I have to admit, even
-though I don't know if lot's of people use this style of communication.
+ net/bridge/br_multicast.c |   19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
 
-> > I couldn't do the parameterless netperf DG_STREAM benchmarks, because
-> > netserver unconditionally sets SO_RCVBUF to 0 and such the clamps this value
-> > to SOCK_MIN_RCVBUF. The sender cannot send netperf's normal packet size
-> > through the socket. In case there are other applications out there,
-> > are we allowed to break them?
->  ...
-> > The important question for me is if we can assume applications already
-> > setting SO_RCVBUF to some minimal value and because of this not receiving
-> > packets being buggy and ignore them or do we need to introduce some way
-> > around this?
-> 
-> I think if it works currently, the risk of breaking a lot of things is simply
-> too high to change this.
-
-Yes, it currently works.
-
-I have to think more about this, but the only solutions which I came up
-with is adding more special cases for connected dgram sockets etc. and
-that cannot be the solution either... (especially because even connected
-sockets can communicate with other sockets if msg->msg_name is specified).
-
-Thanks,
-
-  Hannes
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index fb0e36f..e56bae4 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1181,6 +1181,14 @@ static int br_ip4_multicast_query(struct net_bridg=
+e *br,
+ 			    IGMPV3_MRC(ih3->code) * (HZ / IGMP_TIMER_SCALE) : 1;
+ 	}
+=20
++	/* RFC2236+RFC3376 (IGMPv2+IGMPv3) require the multicast link layer
++	 * all-systems destination addresses (224.0.0.1) for general queries
++	 */
++	if (!group && iph->daddr !=3D htonl(INADDR_ALLHOSTS_GROUP)) {
++		err =3D -EINVAL;
++		goto out;
++	}
++
+ 	br_multicast_query_received(br, port, &br->ip4_querier, !!iph->saddr,
+ 				    max_delay);
+=20
+@@ -1228,6 +1236,7 @@ static int br_ip6_multicast_query(struct net_bridge=
+ *br,
+ 	unsigned long max_delay;
+ 	unsigned long now =3D jiffies;
+ 	const struct in6_addr *group =3D NULL;
++	bool is_general_query;
+ 	int err =3D 0;
+=20
+ 	spin_lock(&br->multicast_lock);
+@@ -1262,6 +1271,16 @@ static int br_ip6_multicast_query(struct net_bridg=
+e *br,
+ 		max_delay =3D max(msecs_to_jiffies(mldv2_mrc(mld2q)), 1UL);
+ 	}
+=20
++	is_general_query =3D group && ipv6_addr_any(group);
++
++	/* RFC2710+RFC3810 (MLDv1+MLDv2) require the multicast link layer
++	 * all-nodes destination address (ff02::1) for general queries
++	 */
++	if (is_general_query && !ipv6_addr_is_ll_all_nodes(&ip6h->daddr)) {
++		err =3D -EINVAL;
++		goto out;
++	}
++
+ 	br_multicast_query_received(br, port, &br->ip6_querier,
+ 				    !ipv6_addr_any(&ip6h->saddr), max_delay);
+=20
+--=20
+1.7.10.4
