@@ -1,99 +1,57 @@
-From: Annie Li <Annie.li@oracle.com>
-Subject: [PATCH net] Xen-netback: Fix issue caused by using gso_type wrongly
-Date: Mon, 10 Mar 2014 15:44:14 +0800
-Message-ID: <1394437454-2402-1-git-send-email-Annie.li@oracle.com>
-Cc: konrad.wilk@oracle.com, Ian.Campbell@citrix.com,
-	wei.liu2@citrix.com, paul.durrant@citrix.com, annie.li@oracle.com
-To: xen-devel@lists.xen.org, netdev@vger.kernel.org
+From: RongQing Li <roy.qing.li@gmail.com>
+Subject: Re: [PATCH net-next] ipv4: use unlikely to optimise in ip_forward
+Date: Mon, 10 Mar 2014 15:45:48 +0800
+Message-ID: <CAJFZqHyYwnBJJonnVRngq7wA6ZnnSUuAGXLbNZnvuuxtjVw_AA@mail.gmail.com>
+References: <1394428209-9919-1-git-send-email-roy.qing.li@gmail.com>
+	<1394431434.3607.6.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:36913 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752063AbaCJHmw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 03:42:52 -0400
+Received: from mail-qa0-f51.google.com ([209.85.216.51]:53903 "EHLO
+	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750890AbaCJHyI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 03:54:08 -0400
+Received: by mail-qa0-f51.google.com with SMTP id cm18so6365873qab.38
+        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 00:54:07 -0700 (PDT)
+In-Reply-To: <1394431434.3607.6.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Annie Li <annie.li@oracle.com>
+Ok, thanks
 
-Current netback uses gso_type to check whether the skb contains
-gso offload, and this is wrong. Gso_size is the right one to
-check gso existence, and gso_type is only used to check gso type.
+-R
 
-Some skbs contains nonzero gso_type and zero gso_size, current
-netback would treat these skbs as gso and create wrong response
-for this. This also causes ssh failure to domu from other server.
-
-Signed-off-by: Annie Li <annie.li@oracle.com>
----
- drivers/net/xen-netback/netback.c |   35 +++++++++++++++++------------------
- 1 files changed, 17 insertions(+), 18 deletions(-)
-
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index e5284bc..57a7d5d 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -240,7 +240,7 @@ static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
- 	struct gnttab_copy *copy_gop;
- 	struct xenvif_rx_meta *meta;
- 	unsigned long bytes;
--	int gso_type;
-+	int gso_type = XEN_NETIF_GSO_TYPE_NONE;
- 
- 	/* Data must not cross a page boundary. */
- 	BUG_ON(size + offset > PAGE_SIZE<<compound_order(page));
-@@ -299,12 +299,12 @@ static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
- 		}
- 
- 		/* Leave a gap for the GSO descriptor. */
--		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
--			gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
--		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
--			gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
--		else
--			gso_type = XEN_NETIF_GSO_TYPE_NONE;
-+		if (skb_shinfo(skb)->gso_size) {
-+			if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
-+				gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
-+			else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
-+				gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
-+		}
- 
- 		if (*head && ((1 << gso_type) & vif->gso_mask))
- 			vif->rx.req_cons++;
-@@ -342,15 +342,13 @@ static int xenvif_gop_skb(struct sk_buff *skb,
- 
- 	old_meta_prod = npo->meta_prod;
- 
--	if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4) {
--		gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
--		gso_size = skb_shinfo(skb)->gso_size;
--	} else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
--		gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
--		gso_size = skb_shinfo(skb)->gso_size;
--	} else {
--		gso_type = XEN_NETIF_GSO_TYPE_NONE;
--		gso_size = 0;
-+	gso_type = XEN_NETIF_GSO_TYPE_NONE;
-+	gso_size = skb_shinfo(skb)->gso_size;
-+	if (gso_size) {
-+		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
-+			gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
-+		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
-+			gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
- 	}
- 
- 	/* Set up a GSO prefix descriptor, if necessary */
-@@ -500,8 +498,9 @@ static void xenvif_rx_action(struct xenvif *vif)
- 			size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
- 			max_slots_needed += DIV_ROUND_UP(size, PAGE_SIZE);
- 		}
--		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4 ||
--		    skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
-+		if (skb_shinfo(skb)->gso_size &&
-+		   (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4 ||
-+		    skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6))
- 			max_slots_needed++;
- 
- 		/* If the skb may not fit then bail out now */
--- 
-1.7.3.4
+On Mon, Mar 10, 2014 at 2:03 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2014-03-10 at 13:10 +0800, roy.qing.li@gmail.com wrote:
+>> From: Li RongQing <roy.qing.li@gmail.com>
+>>
+>> The condition that skb->pkt_type is not PACKET_HOST in ip_forward, should never
+>> happen, so use unlikely to optimise this check
+>>
+>> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+>> ---
+>>  net/ipv4/ip_forward.c |    2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+>> index be8abe7..b82833a 100644
+>> --- a/net/ipv4/ip_forward.c
+>> +++ b/net/ipv4/ip_forward.c
+>> @@ -128,7 +128,7 @@ int ip_forward(struct sk_buff *skb)
+>>       struct ip_options *opt  = &(IPCB(skb)->opt);
+>>
+>>       /* that should never happen */
+>> -     if (skb->pkt_type != PACKET_HOST)
+>> +     if (unlikely(skb->pkt_type != PACKET_HOST))
+>>               goto drop;
+>>
+>>       if (skb_warn_if_lro(skb))
+>
+> Compilers already do the right thing.
+>
+> This is one of the reason you see so many goto in the kernel.
+>
+>
+>
