@@ -1,51 +1,59 @@
 From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net-next v2 1/9] MAINTAINERS: Add entry for Altera Triple Speed Ethernet Driver
-Date: Mon, 10 Mar 2014 18:14:29 -0500
-Message-ID: <1394493277-2105-2-git-send-email-vbridgers2013@gmail.com>
+Subject: [PATCH net-next v2 5/9] Altera TSE: Add Altera Ethernet Driver Makefile and Kconfig
+Date: Mon, 10 Mar 2014 18:14:33 -0500
+Message-ID: <1394493277-2105-6-git-send-email-vbridgers2013@gmail.com>
 References: <1394493277-2105-1-git-send-email-vbridgers2013@gmail.com>
 Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
 	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
 	rob@landley.net, vbridgers2013@gmail.com
 To: devicetree@vger.kernel.org, netdev@vger.kernel.org,
 	linux-doc@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:40122 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753838AbaCJXTY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 19:19:24 -0400
+Return-path: <linux-doc-owner@vger.kernel.org>
 In-Reply-To: <1394493277-2105-1-git-send-email-vbridgers2013@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add a MAINTAINERS entry covering the Altera Triple Speed
-Ethernet Driver, with support for the MSGDMA and SGDMA
-soft DMA IP components.
+This patch adds the Altera Triple Speed Ethernet Makfile and
+Kconfig file.
 
 Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
 ---
-V2: - Add a patch to update MAINTAINERS file, it was missed on the
-      initial RFC submission.
+V2: - Break up the driver files submission, no change to
+      the Makefile or Kconfig file
 ---
- MAINTAINERS |    7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/ethernet/altera/Kconfig  |    8 ++++++++
+ drivers/net/ethernet/altera/Makefile |    7 +++++++
+ 2 files changed, 15 insertions(+)
+ create mode 100644 drivers/net/ethernet/altera/Kconfig
+ create mode 100644 drivers/net/ethernet/altera/Makefile
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index e4ee191..cfa0dfa 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -536,6 +536,13 @@ S:	Odd Fixes
- L:	linux-alpha@vger.kernel.org
- F:	arch/alpha/
- 
-+ALTERA TRIPLE SPEED ETHERNET DRIVER
-+M:	Vince Bridgers <vbridgers2013@gmail.com
-+L:	netdev@vger.kernel.org
-+L:	nios2-dev@lists.rocketboards.org (moderated for non-subscribers)
-+S:	Maintained
-+F:	drivers/net/ethernet/altera/
+diff --git a/drivers/net/ethernet/altera/Kconfig b/drivers/net/ethernet/altera/Kconfig
+new file mode 100644
+index 0000000..80c1ab7
+--- /dev/null
++++ b/drivers/net/ethernet/altera/Kconfig
+@@ -0,0 +1,8 @@
++config ALTERA_TSE
++	tristate "Altera Triple-Speed Ethernet MAC support"
++	select PHYLIB
++	---help---
++	  This driver supports the Altera Triple-Speed (TSE) Ethernet MAC.
 +
- ALTERA UART/JTAG UART SERIAL DRIVERS
- M:	Tobias Klauser <tklauser@distanz.ch>
- L:	linux-serial@vger.kernel.org
++	  To compile this driver as a module, choose M here. The module
++	  will be called alteratse.
+diff --git a/drivers/net/ethernet/altera/Makefile b/drivers/net/ethernet/altera/Makefile
+new file mode 100644
+index 0000000..d4a187e
+--- /dev/null
++++ b/drivers/net/ethernet/altera/Makefile
+@@ -0,0 +1,7 @@
++#
++# Makefile for the Altera device drivers.
++#
++
++obj-$(CONFIG_ALTERA_TSE) += altera_tse.o
++altera_tse-objs := altera_tse_main.o altera_tse_ethtool.o \
++altera_msgdma.o altera_sgdma.o altera_utils.o
 -- 
 1.7.9.5
+
