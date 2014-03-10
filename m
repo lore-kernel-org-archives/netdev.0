@@ -1,45 +1,50 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCHv2 2/2] bridge: multicast: enable snooping on
-	general queries only
-Date: Mon, 10 Mar 2014 23:56:00 +0100
-Message-ID: <20140310225600.GJ5493@order.stressinduktion.org>
-References: <1394486725-4992-1-git-send-email-linus.luessing@web.de>
-	<1394486725-4992-2-git-send-email-linus.luessing@web.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, Florian Westphal <fwestpha@redhat.com>,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Jan Stancek <jstancek@redhat.com>
-To: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1394486725-4992-2-git-send-email-linus.luessing@web.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net] x86: bpf_jit: support negative offsets
+Date: Mon, 10 Mar 2014 15:56:51 -0700
+Message-ID: <1394492211-4268-1-git-send-email-ast@plumgrid.com>
+Cc: Jan Seiffert <kaffeemonster@googlemail.com>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:51556 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752678AbaCJW44 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 18:56:56 -0400
+Received: by mail-pb0-f47.google.com with SMTP id up15so7906306pbc.34
+        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 15:56:55 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 10, 2014 at 10:25:25PM +0100, Linus L=C3=BCssing wrote:
->  	br_multicast_query_received(br, port, &br->ip6_querier,
-> -				    !ipv6_addr_any(&ip6h->saddr), max_delay);
-> +				    !ipv6_addr_any(&ip6h->saddr),
-> +				    is_general_query, max_delay);
+Commit a998d4342337 claimed to introduce negative offset support to x86 jit,
+but it couldn't be working, since at the time of the execution
+of LD+ABS or LD+IND instructions via call into
+bpf_internal_load_pointer_neg_helper() the %edx (3rd argument of this func)
+had junk value instead of access size in bytes (1 or 2 or 4).
 
-Just a small nit, maybe for a later patch:
+Store size into %edx instead of %ecx (what original commit intended to do)
 
-After your change 6565b9eeef194a ("bridge: multicast: add sanity check
-for query source addresses"), which is still in -net only, we could
-replace !ipv6_addr_any(&ip6h->saddr) with '1'?
+Fixes: a998d4342337 ("bpf jit: Let the x86 jit handle negative offsets")
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Cc: Jan Seiffert <kaffeemonster@googlemail.com>
+Cc: Eric Dumazet <edumazet@google.com>
+--
+This is a single bit patch. Is there a leaderboard of shortest patches? ;)
 
-Greetings,
+ arch/x86/net/bpf_jit.S |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-  Hannes
+diff --git a/arch/x86/net/bpf_jit.S b/arch/x86/net/bpf_jit.S
+index 877b9a1..0149575 100644
+--- a/arch/x86/net/bpf_jit.S
++++ b/arch/x86/net/bpf_jit.S
+@@ -140,7 +140,7 @@ bpf_slow_path_byte_msh:
+ 	push	%r9;						\
+ 	push	SKBDATA;					\
+ /* rsi already has offset */					\
+-	mov	$SIZE,%ecx;	/* size */			\
++	mov	$SIZE,%edx;	/* size */			\
+ 	call	bpf_internal_load_pointer_neg_helper;		\
+ 	test	%rax,%rax;					\
+ 	pop	SKBDATA;					\
+-- 
+1.7.9.5
