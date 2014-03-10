@@ -1,57 +1,50 @@
-From: =?utf-8?B?U8O4cmVuc2VuLCBTdGVmYW4=?=
-	<Stefan.Sorensen@spectralink.com>
-Subject: Re: [PATCH RFC net-next v1 1/9] ptp: introduce programmable pins.
-Date: Mon, 10 Mar 2014 12:53:09 +0000
-Message-ID: <1394455989.2296.23.camel@e37108.spectralink.com>
-References: <cover.1394307303.git.richardcochran@gmail.com>
-	 <d9cb37a7d6e57d7f103dab78f98044697d3c4433.1394307304.git.richardcochran@gmail.com>
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: [PATCH (net.git) 0/4 (v4)] stmmac fixes: EEE and chained mode
+Date: Mon, 10 Mar 2014 13:40:30 +0100
+Message-ID: <1394455234-32021-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"christian.riesch@omicron.at" <christian.riesch@omicron.at>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "richardcochran@gmail.com" <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d9cb37a7d6e57d7f103dab78f98044697d3c4433.1394307304.git.richardcochran@gmail.com>
-Content-Language: en-US
-Content-ID: <205B8AA711C97A4091795D81D143D283@namprd07.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:38803 "EHLO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753399AbaCJNMm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 09:12:42 -0400
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 3D943224
+	for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 12:42:05 +0000 (GMT)
+Received: from Webmail-eu.st.com (Safex1hubcas24.st.com [10.75.90.94])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id C00CA16534
+	for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 12:42:05 +0000 (GMT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gU2F0LCAyMDE0LTAzLTA4IGF0IDIwOjQyICswMTAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6
-DQoNCj4raW50IHB0cF9zZXRwaW4oc3RydWN0IHB0cF9jbG9jayAqcHRwLCB1bnNpZ25lZCBpbnQg
-cGluLA0KPisgICAgICAgICAgICAgICBlbnVtIHB0cF9waW5fZnVuY3Rpb24gZnVuYywgdW5zaWdu
-ZWQgaW50IGNoYW4pDQoNCkZyb20gdGhlIG5hbWUgSSB3b3VsZCB0aGluayB0aGF0IHRoaXMgd291
-bGQgc2V0IHRoZSBzdGF0ZSBvZiB0aGUgcGluLg0KUmVuYW1lIHRvIHB0cF9zZXRfcGluZnVuYz8N
-Cg0KPiAraW50IHB0cF9maW5kX3BpbihzdHJ1Y3QgcHRwX2Nsb2NrICpwdHAsDQo+ICsJCSBlbnVt
-IHB0cF9waW5fZnVuY3Rpb24gZnVuYywgdW5zaWduZWQgaW50IGNoYW4pDQo+ICt7DQo+ICsJc3Ry
-dWN0IHB0cF9waW5fZGVzYyAqcGluID0gTlVMTDsNCj4gKwlpbnQgaTsNCj4gKw0KPiArCW11dGV4
-X2xvY2soJnB0cC0+cGluY2ZnX211eCk7DQo+ICsJZm9yIChpID0gMDsgaSA8IHB0cC0+aW5mby0+
-bl9waW5zOyBpKyspIHsNCj4gKwkJaWYgKHB0cC0+aW5mby0+cGluX2NvbmZpZ1tpXS5mdW5jID09
-IGZ1bmMgJiYNCj4gKwkJICAgIHB0cC0+aW5mby0+cGluX2NvbmZpZ1tpXS5jaGFuID09IGNoYW4p
-IHsNCj4gKwkJCXBpbiA9ICZwdHAtPmluZm8tPnBpbl9jb25maWdbaV07DQo+ICsJCQlicmVhazsN
-Cj4gKwkJfQ0KPiArCX0NCj4gKwltdXRleF91bmxvY2soJnB0cC0+cGluY2ZnX211eCk7DQo+ICsN
-Cj4gKwlyZXR1cm4gcGluID8gcGluIC0gcHRwLT5pbmZvLT5waW5fY29uZmlnIDogLTE7DQo+ICt9
-DQoNCk1heWJlIHJlcGxhY2UgJ3BpbiAtIHB0cC0+aW5mby0+cGluX2NvbmZpZycgd2l0aCAnaSc/
-DQoNCj4gKysrIGIvZHJpdmVycy9wdHAvcHRwX3ByaXZhdGUuaA0KPiBAQCAtNDgsNiArNDgsNyBA
-QCBzdHJ1Y3QgcHRwX2Nsb2NrIHsNCj4gIAlsb25nIGRpYWxlZF9mcmVxdWVuY3k7IC8qIHJlbWVt
-YmVycyB0aGUgZnJlcXVlbmN5IGFkanVzdG1lbnQgKi8NCj4gIAlzdHJ1Y3QgdGltZXN0YW1wX2V2
-ZW50X3F1ZXVlIHRzZXZxOyAvKiBzaW1wbGUgZmlmbyBmb3IgdGltZSBzdGFtcHMgKi8NCj4gIAlz
-dHJ1Y3QgbXV0ZXggdHNldnFfbXV4OyAvKiBvbmUgcHJvY2VzcyBhdCBhIHRpbWUgcmVhZGluZyB0
-aGUgZmlmbyAqLw0KPiArCXN0cnVjdCBtdXRleCBwaW5jZmdfbXV4OyAvKiBwcm90ZWN0IGNvbmN1
-cnJlbnQgaW5mby0+cGluX2NvbmZpZyBhY2Nlc3MgKi8NCg0KTGluZSBvdmVyIDgwIGNoYXJzLiAN
-Cg0KPiArICogQHNldHBpbjogICBDb25maXJtIHRoYXQgYSBwaW4gY2FuIHBlcmZvcm0gYSBnaXZl
-biBmdW5jdGlvbi4gVGhlIFBUUA0KPiArICogICAgICAgICAgICBIYXJkd2FyZSBDbG9jayBzdWJz
-eXN0ZW0gbWFpbnRhaW5zIHRoZSAncGluX2NvbmZpZycNCj4gKyAqICAgICAgICAgICAgYXJyYXkg
-b24gYmVoYWxmIG9mIHRoZSBkcml2ZXJzLCBidXQgdGhlIFBIQyBzdWJzeXN0ZW0NCj4gKyAqICAg
-ICAgICAgICAgYXNzdW1lcyB0aGF0IGV2ZXJ5IHBpbiBjYW4gcGVyZm9ybSBldmVyeSBmdW5jdGlv
-bi4gVGhpcw0KPiArICogICAgICAgICAgICBob29rIGdpdmVzIGRyaXZlcnMgYSB3YXkgb2YgdGVs
-bGluZyB0aGUgY29yZSBhYm91dA0KPiArICogICAgICAgICAgICBsaW1pdGF0aW9ucyBvbiBzcGVj
-aWZpYyBwaW5zLiBUaGlzIGZ1bmN0aW9uIG11c3QgcmV0dXJuDQo+ICsgKiAgICAgICAgICAgIHpl
-cm8gaWYgdGhlIGZ1bmN0aW9uIGNhbiBiZSBhc3NpZ25lZCB0byB0aGlzIHBpbiwgYW5kDQo+ICsg
-KiAgICAgICAgICAgIG5vbnplcm8gb3RoZXJ3aXNlLg0KDQpUaGUgZnVuY3Rpb24gZG9lcyBub3Qg
-YWN0dWFsbHkgc2V0IHRoZSBwaW4uIFJlbmFtZSB0byB2ZXJpZnlfcGluZnVuYz8NCg0KU3RlZmFu
-DQo=
+These patches are to fix some new problems in the STMMAC driver.
+
+Mandatory changes are for EEE that needs to be disabled if not supported
+and for the chain mode that is broken and the kernel panics if this mode
+is enabled.
+
+v3: removed a patch from my previous set that touched the stmmac_tx path
+    that has not to be applied. Other patches for cleaning-up will be
+    sent on top of net-next git repo.
+
+v4: do not surround the defaul buffer selection using Koption and adopt
+    a default to 1536bytes.
+
+Giuseppe Cavallaro (4):
+  stmmac: disable at run-time the EEE if not supported
+  stmmac: fix and better tune the default buffer sizes
+  stmmac: fix chained mode
+  stmmac: dwmac-sti: fix broken STiD127 compatibility
+
+ drivers/net/ethernet/stmicro/stmmac/chain_mode.c   |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/common.h       |   20 ++---
+ drivers/net/ethernet/stmicro/stmmac/ring_mode.c    |    9 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   91 ++++++++++---------
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    2 +-
+ 5 files changed, 60 insertions(+), 64 deletions(-)
+
+-- 
+1.7.4.4
