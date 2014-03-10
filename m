@@ -1,105 +1,320 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH RFC 0/3] bridge: 802.1ad vlan protocol support
-Date: Mon, 10 Mar 2014 17:11:03 +0900
-Message-ID: <1394439067-10477-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
+Subject: [PATCH RFC 2/3] bridge: Prepare for 802.1ad vlan filtering support
+Date: Mon, 10 Mar 2014 17:11:05 +0900
+Message-ID: <1394439067-10477-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+References: <1394439067-10477-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Stephen Hemminger <stephen@networkplumber.org>,
 	Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:57868 "EHLO
+	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752363AbaCJILZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 04:11:25 -0400
+In-Reply-To: <1394439067-10477-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently bridge vlan filtering doesn't work fine with 802.1ad protocol.
-Only if a bridge is configured without pvid and the bridge receives only
-802.1ad single tagged frames, it will work.
-Otherwise:
-- If pvid is configured, it can put only 802.1Q tags but cannot put 802.1ad
-  tags.
-- If 802.1Q and 802.1ad tagged frames arrive in mixture, it applies filtering
-  regardless of their protocols.
-- If 802.1Q is used as inner vlan tag (second vlan tag in stacked vlan),
-  not only outer tag but also inner tag will be stripped on an untagged port.
-Thus, we can't properly handle frames once 802.1ad is used.
+This enables a bridge to have vlan protocol informantion and allows vlan
+filtering code to take vlan protocols into account.
 
-Handling 802.1ad is useful if we want to allow stacked vlans to be used,
-e.g., guest VMs wants to use vlan tags and the host also wants to segregate
-guest's traffic from other guests' by vlan tags.
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+---
+ net/bridge/br_device.c  |  1 +
+ net/bridge/br_input.c   |  2 +-
+ net/bridge/br_private.h | 24 +++++++++++++++++++---
+ net/bridge/br_vlan.c    | 53 ++++++++++++++++++++++++++++++++-----------------
+ 4 files changed, 58 insertions(+), 22 deletions(-)
 
-Here is the image describing how to configure a bridge to filter VMs traffic.
-
-         +-------+p/u   +-----+  +---------+
- +----+  |       |------|vnet0|--|User A VM|
- |eth0|--|802.1ad|      +-----+  +---------+
- +----+  |bridge |p/u   +-----+  +---------+
-         |       |------|vnet1|--|User B VM|
-         +-------+      +-----+  +---------+
-p/u: pvid/untagged
-
-This patch set enables us to set vlan protocols per bridge.
-This tries to implement a bridge like S-VLAN component in IEEE 802.1Q-2011
-spec.
-
-Note that there is another possible implementation that sets vlan protocols
-per port. Some HW switches seem to take that approach.
-However, I think per-bridge approach is better, because;
-- I think the typical usage is segregating 802.1Q tagged traffic (like what
-  is described above), and this doesn't need the ability to be set protocols
-  per port. Also, If a bridge has many ports and it supports per-port
-  setting, we might have to make much more extra configurations to change
-  protocols of all ports, in this case.
-
-- I assume that the main perpose to set protocol per port is to assign S-VID
-  according to C-VID, or to realize two logical bridges (one is an 802.1Q
-  filtering bridge and another is an 802.1ad filtering bridge) in one bridge.
-  The former usually needs additional features such as vlan id mapping, and
-  is likely to be complicated. If a user wants, such enhanced features can be
-  accomplished by a combination of multiple bridges, so it is not absolutely
-  necessary to implement these features in a bridge itself.
-  The latter is simply unnecessary because we can easily make two bridges
-  of which one is an 802.1Q bridge and another is an 802.1ad bridge.
-
-Here is an example of the enhanced feature that we can realize by using
-multiple bridges and veth interfaces. This way is documented in
-IEEE 802.1Q-2011 clause 15.4 (C-tagged service interface).
-
- +----+  +-------+p/u         +------+  +----+  +--+
- |eth0|--|802.1ad|----veth----|802.1Q|--|vnet|--|VM|
- +----+  |bridge |----veth----|bridge|  +----+  +--+
-         +-------+p/u         +------+
-p/u: pvid/untagged
-
-In this configuration, we can map C-VIDs to any S-VID.
-For example;
- C-VID 10 and 20 to S-VID 100
- C-VID 30 to S-VID 110
-This is achieved through the 802.1Q bridge that forwards C-tagged frames to
-proper ports of the 802.1ad bridge.
-
-As this patch set is RFC, this includes a patch which is not appropriate for
-net-next (patch 1). If this approach is acceptable, I will submit each patch
-to appropriate tree. In this version, all patches except iproute2 (patch 4)
-are based on net-next.
-
-Toshiaki Makita (3):
-  bridge: Fix handling stacked vlan tags
-  bridge: Prepare for 802.1ad vlan filtering support
-  bridge: Support 802.1ad vlan filtering
-
- include/uapi/linux/if_bridge.h |   2 +
- net/bridge/br_device.c         |   1 +
- net/bridge/br_input.c          |   2 +-
- net/bridge/br_netlink.c        |  67 ++++++++++++++-------
- net/bridge/br_private.h        |  30 +++++++++-
- net/bridge/br_vlan.c           | 128 ++++++++++++++++++++++++++++++-----------
- 6 files changed, 170 insertions(+), 60 deletions(-)
-
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index b063050..6cf2fbc 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -381,4 +381,5 @@ void br_dev_setup(struct net_device *dev)
+ 	br_netfilter_rtable_init(br);
+ 	br_stp_timer_init(br);
+ 	br_multicast_init(br);
++	br_vlan_init(br);
+ }
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 28d5446..8b69da6 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -146,7 +146,7 @@ static int br_handle_local_finish(struct sk_buff *skb)
+ 	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
+ 	u16 vid = 0;
+ 
+-	br_vlan_get_tag(skb, &vid);
++	br_vlan_get_tag(skb, br_get_vlan_proto(p->br), &vid);
+ 	if (p->flags & BR_LEARNING)
+ 		br_fdb_update(p->br, p, eth_hdr(skb)->h_source, vid, false);
+ 	return 0;	 /* process further */
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index e1ca1dc..500cf0e 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -292,6 +292,7 @@ struct net_bridge
+ 	struct kobject			*ifobj;
+ #ifdef CONFIG_BRIDGE_VLAN_FILTERING
+ 	u8				vlan_enabled;
++	__be16				vlan_proto;
+ 	struct net_port_vlans __rcu	*vlan_info;
+ #endif
+ };
+@@ -589,6 +590,7 @@ int br_vlan_delete(struct net_bridge *br, u16 vid);
+ void br_vlan_flush(struct net_bridge *br);
+ bool br_vlan_find(struct net_bridge *br, u16 vid);
+ int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
++void br_vlan_init(struct net_bridge *br);
+ int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags);
+ int nbp_vlan_delete(struct net_bridge_port *port, u16 vid);
+ void nbp_vlan_flush(struct net_bridge_port *port);
+@@ -609,11 +611,12 @@ static inline struct net_port_vlans *nbp_get_vlan_info(
+ /* Since bridge now depends on 8021Q module, but the time bridge sees the
+  * skb, the vlan tag will always be present if the frame was tagged.
+  */
+-static inline int br_vlan_get_tag(const struct sk_buff *skb, u16 *vid)
++static inline int br_vlan_get_tag(const struct sk_buff *skb, __be16 proto,
++				  u16 *vid)
+ {
+ 	int err = 0;
+ 
+-	if (vlan_tx_tag_present(skb))
++	if (vlan_tx_tag_present(skb) && skb->vlan_proto == proto)
+ 		*vid = vlan_tx_tag_get(skb) & VLAN_VID_MASK;
+ 	else {
+ 		*vid = 0;
+@@ -632,6 +635,11 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
+ 	return v->pvid ?: VLAN_N_VID;
+ }
+ 
++static inline __be16 br_get_vlan_proto(const struct net_bridge *br)
++{
++	return br->vlan_proto;
++}
++
+ #else
+ static inline bool br_allowed_ingress(struct net_bridge *br,
+ 				      struct net_port_vlans *v,
+@@ -674,6 +682,10 @@ static inline bool br_vlan_find(struct net_bridge *br, u16 vid)
+ 	return false;
+ }
+ 
++static inline void br_vlan_init(struct net_bridge *br)
++{
++}
++
+ static inline int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
+ {
+ 	return -EOPNOTSUPP;
+@@ -704,7 +716,8 @@ static inline bool nbp_vlan_find(struct net_bridge_port *port, u16 vid)
+ 	return false;
+ }
+ 
+-static inline u16 br_vlan_get_tag(const struct sk_buff *skb, u16 *tag)
++static inline u16 br_vlan_get_tag(const struct sk_buff *skb, __be16 proto,
++				  u16 *tag)
+ {
+ 	return 0;
+ }
+@@ -712,6 +725,11 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
+ {
+ 	return VLAN_N_VID;	/* Returns invalid vid */
+ }
++
++static inline __be16 br_get_vlan_proto(const struct net_bridge *br)
++{
++	return 0;
++}
+ #endif
+ 
+ /* br_netfilter.c */
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index cda93e2..f05ef6a 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -32,7 +32,7 @@ static void __vlan_add_flags(struct net_port_vlans *v, u16 vid, u16 flags)
+ 		set_bit(vid, v->untagged_bitmap);
+ }
+ 
+-static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
++static int __vlan_add(struct net_port_vlans *v, __be16 proto, u16 vid, u16 flags)
+ {
+ 	struct net_bridge_port *p = NULL;
+ 	struct net_bridge *br;
+@@ -60,7 +60,7 @@ static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
+ 		 * that ever changes this code will allow tagged
+ 		 * traffic to enter the bridge.
+ 		 */
+-		err = vlan_vid_add(dev, htons(ETH_P_8021Q), vid);
++		err = vlan_vid_add(dev, proto, vid);
+ 		if (err)
+ 			return err;
+ 	}
+@@ -80,11 +80,11 @@ static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
+ 
+ out_filt:
+ 	if (p)
+-		vlan_vid_del(dev, htons(ETH_P_8021Q), vid);
++		vlan_vid_del(dev, proto, vid);
+ 	return err;
+ }
+ 
+-static int __vlan_del(struct net_port_vlans *v, u16 vid)
++static int __vlan_del(struct net_port_vlans *v, __be16 proto, u16 vid)
+ {
+ 	if (!test_bit(vid, v->vlan_bitmap))
+ 		return -EINVAL;
+@@ -93,7 +93,7 @@ static int __vlan_del(struct net_port_vlans *v, u16 vid)
+ 	clear_bit(vid, v->untagged_bitmap);
+ 
+ 	if (v->port_idx)
+-		vlan_vid_del(v->parent.port->dev, htons(ETH_P_8021Q), vid);
++		vlan_vid_del(v->parent.port->dev, proto, vid);
+ 
+ 	clear_bit(vid, v->vlan_bitmap);
+ 	v->num_vlans--;
+@@ -132,7 +132,7 @@ struct sk_buff *br_handle_vlan(struct net_bridge *br,
+ 	 * a valid vlan id.  If the vlan id is set in the untagged bitmap,
+ 	 * send untagged; otherwise, send tagged.
+ 	 */
+-	br_vlan_get_tag(skb, &vid);
++	br_vlan_get_tag(skb, br_get_vlan_proto(br), &vid);
+ 	if (test_bit(vid, pv->untagged_bitmap))
+ 		skb->vlan_tci = 0;
+ 
+@@ -145,6 +145,7 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+ 			struct sk_buff *skb, u16 *vid)
+ {
+ 	int err;
++	__be16 proto = br_get_vlan_proto(br);
+ 
+ 	/* If VLAN filtering is disabled on the bridge, all packets are
+ 	 * permitted.
+@@ -158,7 +159,7 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+ 	if (!v)
+ 		return false;
+ 
+-	err = br_vlan_get_tag(skb, vid);
++	err = br_vlan_get_tag(skb, proto, vid);
+ 	if (!*vid) {
+ 		u16 pvid = br_get_pvid(v);
+ 
+@@ -173,16 +174,27 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+ 		 * ingress frame is considered to belong to this vlan.
+ 		 */
+ 		*vid = pvid;
+-		if (likely(err))
++		if (likely(err)) {
+ 			/* Untagged Frame. */
+-			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
+-		else
++			if (vlan_tx_tag_present(skb)) {
++				/* skb->vlan_proto was different from br->vlan_proto */
++				skb_push(skb, ETH_HLEN);
++				skb = __vlan_put_tag(skb, skb->vlan_proto,
++						     vlan_tx_tag_get(skb));
++				if (unlikely(!skb))
++					return false;
++				skb_pull(skb, ETH_HLEN);
++				skb_reset_mac_len(skb);
++			}
++			__vlan_hwaccel_put_tag(skb, proto, pvid);
++		} else {
+ 			/* Priority-tagged Frame.
+ 			 * At this point, We know that skb->vlan_tci had
+ 			 * VLAN_TAG_PRESENT bit and its VID field was 0x000.
+ 			 * We update only VID field and preserve PCP field.
+ 			 */
+ 			skb->vlan_tci |= pvid;
++		}
+ 
+ 		return true;
+ 	}
+@@ -207,7 +219,7 @@ bool br_allowed_egress(struct net_bridge *br,
+ 	if (!v)
+ 		return false;
+ 
+-	br_vlan_get_tag(skb, &vid);
++	br_vlan_get_tag(skb, br_get_vlan_proto(br), &vid);
+ 	if (test_bit(vid, v->vlan_bitmap))
+ 		return true;
+ 
+@@ -226,7 +238,7 @@ int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags)
+ 
+ 	pv = rtnl_dereference(br->vlan_info);
+ 	if (pv)
+-		return __vlan_add(pv, vid, flags);
++		return __vlan_add(pv, br_get_vlan_proto(br), vid, flags);
+ 
+ 	/* Create port vlan infomration
+ 	 */
+@@ -235,7 +247,7 @@ int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags)
+ 		return -ENOMEM;
+ 
+ 	pv->parent.br = br;
+-	err = __vlan_add(pv, vid, flags);
++	err = __vlan_add(pv, br_get_vlan_proto(br), vid, flags);
+ 	if (err)
+ 		goto out;
+ 
+@@ -261,7 +273,7 @@ int br_vlan_delete(struct net_bridge *br, u16 vid)
+ 
+ 	br_fdb_find_delete_local(br, NULL, br->dev->dev_addr, vid);
+ 
+-	__vlan_del(pv, vid);
++	__vlan_del(pv, br_get_vlan_proto(br), vid);
+ 	return 0;
+ }
+ 
+@@ -311,6 +323,11 @@ unlock:
+ 	return 0;
+ }
+ 
++void br_vlan_init(struct net_bridge *br)
++{
++	br->vlan_proto = htons(ETH_P_8021Q);
++}
++
+ /* Must be protected by RTNL.
+  * Must be called with vid in range from 1 to 4094 inclusive.
+  */
+@@ -323,7 +340,7 @@ int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
+ 
+ 	pv = rtnl_dereference(port->vlan_info);
+ 	if (pv)
+-		return __vlan_add(pv, vid, flags);
++		return __vlan_add(pv, br_get_vlan_proto(port->br), vid, flags);
+ 
+ 	/* Create port vlan infomration
+ 	 */
+@@ -335,7 +352,7 @@ int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
+ 
+ 	pv->port_idx = port->port_no;
+ 	pv->parent.port = port;
+-	err = __vlan_add(pv, vid, flags);
++	err = __vlan_add(pv, br_get_vlan_proto(port->br), vid, flags);
+ 	if (err)
+ 		goto clean_up;
+ 
+@@ -362,7 +379,7 @@ int nbp_vlan_delete(struct net_bridge_port *port, u16 vid)
+ 
+ 	br_fdb_find_delete_local(port->br, port, port->dev->dev_addr, vid);
+ 
+-	return __vlan_del(pv, vid);
++	return __vlan_del(pv, br_get_vlan_proto(port->br), vid);
+ }
+ 
+ void nbp_vlan_flush(struct net_bridge_port *port)
+@@ -377,7 +394,7 @@ void nbp_vlan_flush(struct net_bridge_port *port)
+ 		return;
+ 
+ 	for_each_set_bit(vid, pv->vlan_bitmap, VLAN_N_VID)
+-		vlan_vid_del(port->dev, htons(ETH_P_8021Q), vid);
++		vlan_vid_del(port->dev, br_get_vlan_proto(port->br), vid);
+ 
+ 	__vlan_flush(pv);
+ }
 -- 
 1.8.1.2
