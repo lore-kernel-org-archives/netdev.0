@@ -1,47 +1,26 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RCU PATCH 05/14] net: sched: cls_flow use RCU
-Date: Mon, 10 Mar 2014 10:38:17 -0700
-Message-ID: <1394473097.3607.43.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140310170008.3011.73599.stgit@nitbit.x32>
-	 <20140310170518.3011.10518.stgit@nitbit.x32>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/5] skbuff: skb_segment: s/fskb/list_skb/
+Date: Mon, 10 Mar 2014 13:40:54 -0400 (EDT)
+Message-ID: <20140310.134054.2195508036199798660.davem@davemloft.net>
+References: <1394468807-25980-1-git-send-email-mst@redhat.com>
+	<1394468807-25980-5-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:53220 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751689AbaCJRiU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:38:20 -0400
-Received: by mail-pd0-f177.google.com with SMTP id g10so7252897pdj.8
-        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 10:38:19 -0700 (PDT)
-In-Reply-To: <20140310170518.3011.10518.stgit@nitbit.x32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, jbenc@redhat.com,
+	edumazet@google.com, dborkman@redhat.com, horms@verge.net.au,
+	Paul.Durrant@citrix.com, tgraf@suug.ch,
+	herbert@gondor.apana.org.au, mszeredi@suse.cz,
+	panweiping3@gmail.com, netdev@vger.kernel.org
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394468807-25980-5-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-03-10 at 10:05 -0700, John Fastabend wrote:
 
->  static void flow_destroy(struct tcf_proto *tp)
->  {
-> -	struct flow_head *head = tp->root;
-> +	struct flow_head *head = rtnl_dereference(tp->root);
->  	struct flow_filter *f, *next;
->  
->  	list_for_each_entry_safe(f, next, &head->filters, list) {
-> -		list_del(&f->list);
-> -		flow_destroy_filter(tp, f);
-> +		list_del_rcu(&f->list);
-> +		call_rcu(&f->rcu, flow_destroy_filter);
->  	}
-> -	kfree(head);
-> +	rcu_assign_pointer(tp->root, NULL);
+As a netdev reader, I don't see patches 1-3, did you post them somewhere else
+and not CC: netdev?
 
-RCU_INIT_POINTER()
-
-> +	kfree_rcu(head, rcu);
->  }
->  
-
-Otherwise, SGTM, thanks !
+If so, please don't do that without at least making a mention of what's going
+on in the 0/N posting.
