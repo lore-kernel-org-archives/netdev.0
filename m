@@ -1,118 +1,112 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] ipv6: do not overwrite inetpeer metrics prematurely
-Date: Mon, 10 Mar 2014 13:00:16 +0100
-Message-ID: <20140310120016.GH5493@order.stressinduktion.org>
-References: <20140308080616.GB5493@order.stressinduktion.org> <20140309.202658.205858191881011540.davem@davemloft.net> <20140310005220.GD5493@order.stressinduktion.org> <20140310.010313.703650662340510015.davem@davemloft.net> <20140310081533.GA27052@unicorn.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: Michal Kubecek <mkubecek@suse.cz>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] net: eth: cpsw: Use net_device_stats from struct net_device
+Date: Mon, 10 Mar 2014 13:12:23 +0100
+Message-ID: <1394453543-30094-1-git-send-email-tklauser@distanz.ch>
+Cc: Sebastian Siewior <bigeasy@linutronix.de>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:53374 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752258AbaCJMAR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 08:00:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20140310081533.GA27052@unicorn.suse.cz>
+Received: from mail.zhinst.com ([212.126.164.98]:39762 "EHLO mail.zhinst.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753300AbaCJMRi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Mar 2014 08:17:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 10, 2014 at 09:15:33AM +0100, Michal Kubecek wrote:
-> On Mon, Mar 10, 2014 at 01:03:13AM -0400, David Miller wrote:
-> > @@ -743,6 +743,30 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
-> >  		BUG_ON(rt6i_nsiblings != rt->rt6i_nsiblings);
-> >  	}
-> >  
-> > +	if (mx) {
-> > +		struct nlattr *nla;
-> > +		bool was_writable;
-> > +		int remaining;
-> > +		u32 *mp;
-> > +
-> > +		was_writable = !dst_metrics_read_only(&rt->dst);
-> > +		mp = dst_metrics_write_ptr(&rt->dst);
-> > +
-> > +		if (was_writable)
-> > +			memset(mp, 0, RTAX_MAX * sizeof(u32));
-> > +
-> > +		nla_for_each_attr(nla, mx, mx_len, remaining) {
-> > +			int type = nla_type(nla);
-> > +
-> > +			if (type) {
-> > +				if (type > RTAX_MAX)
-> > +					return -EINVAL;
-> > +
-> > +				mp[type - 1] = nla_get_u32(nla);
-> > +			}
-> > +		}
-> > +	}
-> > +
-> >  	/*
-> >  	 *	insert node
-> >  	 */
-> 
-> This is too early. After this point, the insertion can still fail if
-> (!found && !add) (i.e. when trying to modify a non-existent route with
-> "ip route change").
+Instead of using an own copy of struct net_device_stats in struct
+cpsw_priv, use stats from struct net_device. Also remove the thus
+unnecessary .ndo_get_stats function, as it just returns dev->stats,
+which is the default.
 
-Yep, but we can make this a static function to ip6_fib.c and call it from the
-code points you already proposed in your original patch?
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ drivers/net/ethernet/ti/cpsw.c |   24 ++++++++----------------
+ 1 file changed, 8 insertions(+), 16 deletions(-)
 
-> > @@ -1546,14 +1547,6 @@ int ip6_route_add(struct fib6_config *cfg)
-> >  	if (rt->rt6i_dst.plen == 128)
-> >  	       rt->dst.flags |= DST_HOST;
-> >  
-> > -	if (!(rt->dst.flags & DST_HOST) && cfg->fc_mx) {
-> > -		u32 *metrics = kzalloc(sizeof(u32) * RTAX_MAX, GFP_KERNEL);
-> > -		if (!metrics) {
-> > -			err = -ENOMEM;
-> > -			goto out;
-> > -		}
-> > -		dst_init_metrics(&rt->dst, metrics, 0);
-> > -	}
-> >  #ifdef CONFIG_IPV6_SUBTREES
-> >  	ipv6_addr_prefix(&rt->rt6i_src.addr, &cfg->fc_src, cfg->fc_src_len);
-> >  	rt->rt6i_src.plen = cfg->fc_src_len;
-> 
-> I think this should stay. We still need to allocate a separate copy of
-> metrics in the non-DST_HOST case, otherwise we would reintroduce the 
-> issue fixed by commit 8e2ec6391 ("ipv6: don't use inetpeer to store
-> metrics for routes.").
-
-Full ACK, we must only intantiate inetpeers for DST_HOST dsts but it seems to
-be possible at this point, too.
-
-The reason why I liked David's proposal is that it removes the ambiguity
-when looking up the inetpeer (we only get the inetpeer if we are sure
-a new route is added). I don't mind the kzalloc that much. The only
-overhead it produces would be if a user inserts a route for a /128 target
-and specifies metrics.
-
-Maybe we can remove this ambiguity by checking the already present
-info pointer.
-
-> Or rather get a null pointer dereference in 
-> fib6_add_rt2node() as dst_metrics_write_ptr() would return NULL. An 
-> alternative solution (and perhaps a more suitable one) would be to 
-> allocate the block in ip6_cow_metrics() instead of returning NULL.
-
-I am not sure of the advantage here. If this patch targets net I would
-like to keep the changes a bit more straightforward. In case it gives
-a nice advantage, maybe another patch for net-next? Haven't had a close look
-on that yet.
-
-> Other than that, I believe this should work. Actually, I was also 
-> considering this approach but I wasn't brave enough to propose passing 
-> those extra parameters all the way down to rt6_add_rt2node(). But if you
-> are OK with it, I agree that saving the extra kzalloc()/kfree() is worth
-> that bit of ugliness. We could also extract the metrics from the info 
-> parameter we already have but it would be inefficient to parse the whole
-> message again.
-
-Great! :)
-
-Thanks,
-
-  Hannes
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 53f85dd..543a081 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -378,7 +378,6 @@ struct cpsw_priv {
+ 	u32				version;
+ 	u32				coal_intvl;
+ 	u32				bus_freq_mhz;
+-	struct net_device_stats		stats;
+ 	int				rx_packet_max;
+ 	int				host_port;
+ 	struct clk			*clk;
+@@ -673,8 +672,8 @@ static void cpsw_tx_handler(void *token, int len, int status)
+ 	if (unlikely(netif_queue_stopped(ndev)))
+ 		netif_wake_queue(ndev);
+ 	cpts_tx_timestamp(priv->cpts, skb);
+-	priv->stats.tx_packets++;
+-	priv->stats.tx_bytes += len;
++	ndev->stats.tx_packets++;
++	ndev->stats.tx_bytes += len;
+ 	dev_kfree_skb_any(skb);
+ }
+ 
+@@ -700,10 +699,10 @@ static void cpsw_rx_handler(void *token, int len, int status)
+ 		cpts_rx_timestamp(priv->cpts, skb);
+ 		skb->protocol = eth_type_trans(skb, ndev);
+ 		netif_receive_skb(skb);
+-		priv->stats.rx_bytes += len;
+-		priv->stats.rx_packets++;
++		ndev->stats.rx_bytes += len;
++		ndev->stats.rx_packets++;
+ 	} else {
+-		priv->stats.rx_dropped++;
++		ndev->stats.rx_dropped++;
+ 		new_skb = skb;
+ 	}
+ 
+@@ -1313,7 +1312,7 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
+ 
+ 	if (skb_padto(skb, CPSW_MIN_PACKET_SIZE)) {
+ 		cpsw_err(priv, tx_err, "packet pad failed\n");
+-		priv->stats.tx_dropped++;
++		ndev->stats.tx_dropped++;
+ 		return NETDEV_TX_OK;
+ 	}
+ 
+@@ -1337,7 +1336,7 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
+ 
+ 	return NETDEV_TX_OK;
+ fail:
+-	priv->stats.tx_dropped++;
++	ndev->stats.tx_dropped++;
+ 	netif_stop_queue(ndev);
+ 	return NETDEV_TX_BUSY;
+ }
+@@ -1501,7 +1500,7 @@ static void cpsw_ndo_tx_timeout(struct net_device *ndev)
+ 	struct cpsw_priv *priv = netdev_priv(ndev);
+ 
+ 	cpsw_err(priv, tx_err, "transmit timeout, restarting dma\n");
+-	priv->stats.tx_errors++;
++	ndev->stats.tx_errors++;
+ 	cpsw_intr_disable(priv);
+ 	cpdma_ctlr_int_ctrl(priv->dma, false);
+ 	cpdma_chan_stop(priv->txch);
+@@ -1540,12 +1539,6 @@ static int cpsw_ndo_set_mac_address(struct net_device *ndev, void *p)
+ 	return 0;
+ }
+ 
+-static struct net_device_stats *cpsw_ndo_get_stats(struct net_device *ndev)
+-{
+-	struct cpsw_priv *priv = netdev_priv(ndev);
+-	return &priv->stats;
+-}
+-
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void cpsw_ndo_poll_controller(struct net_device *ndev)
+ {
+@@ -1638,7 +1631,6 @@ static const struct net_device_ops cpsw_netdev_ops = {
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_change_mtu		= eth_change_mtu,
+ 	.ndo_tx_timeout		= cpsw_ndo_tx_timeout,
+-	.ndo_get_stats		= cpsw_ndo_get_stats,
+ 	.ndo_set_rx_mode	= cpsw_ndo_set_rx_mode,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= cpsw_ndo_poll_controller,
+-- 
+1.7.9.5
