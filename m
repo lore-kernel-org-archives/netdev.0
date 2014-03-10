@@ -1,43 +1,62 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next] vlan: Fix lockdep warning when vlan dev handle
- notification
-Date: Mon, 10 Mar 2014 10:08:35 +0800
-Message-ID: <531D1EA3.2060708@huawei.com>
-References: <5318828D.3090308@huawei.com>	<20140306.145126.497070034648321818.davem@davemloft.net>	<5319270D.4030602@huawei.com> <20140307.014932.157368387111603644.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Re: Link-local source IPv6 address in unicast Neighbor Solicitation towards global destination
+Date: Mon, 10 Mar 2014 03:44:25 +0100
+Message-ID: <20140310024425.GG5493@order.stressinduktion.org>
+References: <20140306070250.GC26307@order.stressinduktion.org> <trinity-e0e97e3d-2c6a-4f81-bd27-f7151a67b303-1394097503168@3capp-gmx-bs05>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <ben@decadent.org.uk>, <john.r.fastabend@intel.com>,
-	<kaber@trash.net>, <netdev@vger.kernel.org>, <f.fainelli@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Simon Schneider <simon-schneider@gmx.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:35006 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752763AbaCJCKK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2014 22:10:10 -0400
-In-Reply-To: <20140307.014932.157368387111603644.davem@davemloft.net>
+Received: from order.stressinduktion.org ([87.106.68.36]:52579 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753108AbaCJCo0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Mar 2014 22:44:26 -0400
+Content-Disposition: inline
+In-Reply-To: <trinity-e0e97e3d-2c6a-4f81-bd27-f7151a67b303-1394097503168@3capp-gmx-bs05>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/3/7 14:49, David Miller wrote:
-> From: Ding Tianhong <dingtianhong@huawei.com>
-> Date: Fri, 7 Mar 2014 09:55:25 +0800
-> 
->> But I think if I vconfig add eth2.20.30 50, the warning would happen
->> again, but till now I could not find any scene that use 3 vlan id on
->> a virtual device, so I think it is not a problem.
-> 
-> My example was to show that you aren't really fixing the bug, but
-> rather are papering over it.
-> 
-> In that sense, it is a problem.
-> 
-> I also happen to disagree with your assertion that a 3 layered
-> VLAN is invalid, it is valid.  And if we allow the configuration
-> it shouldn't throw locking assertions.
-> 
-> 
-OK, thanks for your advise. I would think and solve this problem once-again.
+Hi Simon!
 
-Regards
-Ding
+On Thu, Mar 06, 2014 at 10:18:23AM +0100, Simon Schneider wrote:
+> thanks, checking that would be good.
+> 
+> Another point here (probably a bit academic): without link-local address on the interface (just the global one), the unicast NS for NUD is not sent at all.
+> 
+> The neighbor cache entry is in DELAY state for some time, unicast NS is not sent, then the entry is moved to FAILED rather quickly.
+
+Yep, that's the case. IMHO undefined behaviour so it is ok but could
+be improved.
+
+This would be the patch, should improve your initial observation and would
+also "fix" the situation you noted above. Could you give it a test drive?
+
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 09a22f4..43c66f6 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -553,7 +553,17 @@ void ndisc_send_ns(struct net_device *dev, struct neighbour *neigh,
+ 	struct nd_msg *msg;
+ 
+ 	if (saddr == NULL) {
+-		if (ipv6_get_lladdr(dev, &addr_buf,
++		if (!ipv6_dev_get_saddr(dev_net(dev), dev, daddr,
++				       inet6_sk(dev_net(dev)->ipv6.ndisc_sk)->srcprefs,
++				       &addr_buf) &&
++		    ipv6_chk_addr(dev_net(dev), &addr_buf, dev, 1)) {
++			struct inet6_ifaddr *ifp = ipv6_get_ifaddr(dev_net(dev), &addr_buf, dev, 1);
++			if (ifp && !(ifp->flags & IFA_F_OPTIMISTIC))
++				saddr = &addr_buf;
++			in6_ifa_put(ifp);
++		}
++
++		if (!saddr && ipv6_get_lladdr(dev, &addr_buf,
+ 				   (IFA_F_TENTATIVE|IFA_F_OPTIMISTIC)))
+ 			return;
+ 		saddr = &addr_buf;
+
+
+Thanks,
+
+  Hannes
