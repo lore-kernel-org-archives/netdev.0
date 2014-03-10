@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv5 net-next 08/31] iw_cxgb4: release neigh entry in error paths
-Date: Mon, 10 Mar 2014 22:38:05 +0530
-Message-ID: <1394471308-4304-9-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv5 net-next 05/31] cxgb4: Calculate len properly for LSO path
+Date: Mon, 10 Mar 2014 22:38:02 +0530
+Message-ID: <1394471308-4304-6-git-send-email-hariprasad@chelsio.com>
 References: <1394471308-4304-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
 	swise@opengridcomputing.com, leedom@chelsio.com,
@@ -9,49 +9,46 @@ Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
 	hariprasad@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:11602 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:17419 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754146AbaCJRRV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:17:21 -0400
+	by vger.kernel.org with ESMTP id S1753219AbaCJRRK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:17:10 -0400
 In-Reply-To: <1394471308-4304-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Wise <swise@opengridcomputing.com>
+From: Kumar Sanghvi <kumaras@chelsio.com>
 
-Always release the neigh entry in rx_pkt().
+Commit 0034b29 ("cxgb4: Don't assume LSO only uses SGL path in t4_eth_xmit()")
+introduced a regression where-in length was calculated wrongly for LSO path,
+causing chip hangs.
+So, correct the calculation of len.
 
-Based on original work by Santosh Rastapur <santosh@chelsio.com>.
-
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+Fixes: 0034b29 ("cxgb4: Don't assume LSO only uses SGL path in t4_eth_xmit()")
+Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 ---
- drivers/infiniband/hw/cxgb4/cm.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/sge.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index 360807e..74a2250 100644
---- a/drivers/infiniband/hw/cxgb4/cm.c
-+++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -3350,10 +3350,9 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
- 	if (!e) {
- 		pr_err("%s - failed to allocate l2t entry!\n",
- 		       __func__);
--		goto free_dst;
-+		goto free_neigh;
- 	}
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index a7c56b3..46429f9 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -1051,7 +1051,6 @@ out_free:	dev_kfree_skb(skb);
+ 	end = (u64 *)wr + flits;
  
--	neigh_release(neigh);
- 	step = dev->rdev.lldi.nrxq / dev->rdev.lldi.nchan;
- 	rss_qid = dev->rdev.lldi.rxq_ids[pi->port_id * step];
- 	window = (__force u16) htons((__force u16)tcph->window);
-@@ -3373,6 +3372,8 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
- 			      tcph->source, ntohl(tcph->seq), filter, window,
- 			      rss_qid, pi->port_id);
- 	cxgb4_l2t_release(e);
-+free_neigh:
-+	neigh_release(neigh);
- free_dst:
- 	dst_release(dst);
- reject:
+ 	len = immediate ? skb->len : 0;
+-	len += sizeof(*cpl);
+ 	ssi = skb_shinfo(skb);
+ 	if (ssi->gso_size) {
+ 		struct cpl_tx_pkt_lso *lso = (void *)wr;
+@@ -1079,6 +1078,7 @@ out_free:	dev_kfree_skb(skb);
+ 		q->tso++;
+ 		q->tx_cso += ssi->gso_segs;
+ 	} else {
++		len += sizeof(*cpl);
+ 		wr->op_immdlen = htonl(FW_WR_OP(FW_ETH_TX_PKT_WR) |
+ 				       FW_WR_IMMDLEN(len));
+ 		cpl = (void *)(wr + 1);
 -- 
 1.8.4
