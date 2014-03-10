@@ -1,37 +1,22 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/5] skbuff: skb_segment: s/fskb/list_skb/
-Date: Mon, 10 Mar 2014 13:43:59 -0400 (EDT)
-Message-ID: <20140310.134359.1940025401945824360.davem@davemloft.net>
-References: <1394468807-25980-1-git-send-email-mst@redhat.com>
-	<1394468807-25980-5-git-send-email-mst@redhat.com>
-	<20140310.134054.2195508036199798660.davem@davemloft.net>
+From: Dr Salvatore Carmela <salvatore.cascin29zs@alice.it>
+Subject: COMPENSATION VALUED $2.5MILLION
+Date: Mon, 10 Mar 2014 18:43:59 +0100 (CET)
+Message-ID: <144ad18113d.salvatore.cascin29zs@alice.it>
+Reply-To: williamnelson308@yahoo.fr
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, jbenc@redhat.com,
-	edumazet@google.com, dborkman@redhat.com, horms@verge.net.au,
-	Paul.Durrant@citrix.com, tgraf@suug.ch,
-	herbert@gondor.apana.org.au, mszeredi@suse.cz,
-	panweiping3@gmail.com, netdev@vger.kernel.org
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140310.134054.2195508036199798660.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp302.alice.it ([82.57.200.118]:23648 "EHLO smtp302.alice.it"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753227AbaCJRoh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Mar 2014 13:44:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Mon, 10 Mar 2014 13:40:54 -0400 (EDT)
-
-> 
-> As a netdev reader, I don't see patches 1-3, did you post them somewhere else
-> and not CC: netdev?
-> 
-> If so, please don't do that without at least making a mention of what's going
-> on in the 0/N posting.
-
-Nevermind, I see them as older postings in my queue.
-
-Are you using the commit date as the date for your outgoing emails?
-
-Don't do that, it causes a patch series get chopped up and intertwined
-with other ones in patchwork and therefore makes more work for me.
+I waited for your message as you told me with none reply anyway, contact my 
+secretary bellow, i kept an ATM Card with him value sum of USD2.5M for your 
+compensation He will mail it to you or remit it for transfer depending on how 
+you wanted it; Here is his contact information his name William Nelson,MAIL
+(williamnelson308@yahoo.fr) Thanks Dr Matin
