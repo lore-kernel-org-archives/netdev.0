@@ -1,173 +1,112 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv5 net-next 03/31] cxgb4: Rectify emitting messages about SGE Ingress DMA channels being potentially stuck
-Date: Mon, 10 Mar 2014 22:38:00 +0530
-Message-ID: <1394471308-4304-4-git-send-email-hariprasad@chelsio.com>
-References: <1394471308-4304-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
-	swise@opengridcomputing.com, leedom@chelsio.com,
-	santosh@chelsio.com, kumaras@chelsio.com, nirranjan@chelsio.com,
-	hariprasad@chelsio.com
-To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:7629 "EHLO
-	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754328AbaCJRRG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:17:06 -0400
-In-Reply-To: <1394471308-4304-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCHv5 net-next 00/31] Misc. fixes for cxgb4 and iw_cxgb4
+Date: Mon, 10 Mar 2014 22:37:57 +0530
+Message-ID: <1394471308-4304-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Kumar Sanghvi <kumaras@chelsio.com>
+Hi All,
 
-Based on original work by Casey Leedom <leedom@chelsio.com>
+This patch series provides miscelleneous fixes for Chelsio T4/T5 adapters
+related to cxgb4 related to sge and mtu. And includes DB Drop avoidance
+and other misc. fixes on iw-cxgb4.
 
-Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h |  9 ++-
- drivers/net/ethernet/chelsio/cxgb4/sge.c   | 90 ++++++++++++++++++++++++------
- 2 files changed, 79 insertions(+), 20 deletions(-)
+The patches series is created against David Miller's 'net-next' tree.
+And includes patches on cxgb4 and iw_cxgb4 driver.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 509c976..50abe1d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -556,8 +556,13 @@ struct sge {
- 	u32 pktshift;               /* padding between CPL & packet data */
- 	u32 fl_align;               /* response queue message alignment */
- 	u32 fl_starve_thres;        /* Free List starvation threshold */
--	unsigned int starve_thres;
--	u8 idma_state[2];
-+
-+	/* State variables for detecting an SGE Ingress DMA hang */
-+	unsigned int idma_1s_thresh;/* SGE same State Counter 1s threshold */
-+	unsigned int idma_stalled[2];/* SGE synthesized stalled timers in HZ */
-+	unsigned int idma_state[2]; /* SGE IDMA Hang detect state */
-+	unsigned int idma_qid[2];   /* SGE IDMA Hung Ingress Queue ID */
-+
- 	unsigned int egr_start;
- 	unsigned int ingr_start;
- 	void *egr_map[MAX_EGRQ];    /* qid->queue egress queue map */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 3a2ecd8..054bb03 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -93,6 +93,16 @@
-  */
- #define TX_QCHECK_PERIOD (HZ / 2)
- 
-+/* SGE Hung Ingress DMA Threshold Warning time (in Hz) and Warning Repeat Rate
-+ * (in RX_QCHECK_PERIOD multiples).  If we find one of the SGE Ingress DMA
-+ * State Machines in the same state for this amount of time (in HZ) then we'll
-+ * issue a warning about a potential hang.  We'll repeat the warning as the
-+ * SGE Ingress DMA Channel appears to be hung every N RX_QCHECK_PERIODs till
-+ * the situation clears.  If the situation clears, we'll note that as well.
-+ */
-+#define SGE_IDMA_WARN_THRESH (1 * HZ)
-+#define SGE_IDMA_WARN_REPEAT (20 * RX_QCHECK_PERIOD)
-+
- /*
-  * Max number of Tx descriptors to be reclaimed by the Tx timer.
-  */
-@@ -2008,7 +2018,7 @@ irq_handler_t t4_intr_handler(struct adapter *adap)
- static void sge_rx_timer_cb(unsigned long data)
- {
- 	unsigned long m;
--	unsigned int i, cnt[2];
-+	unsigned int i, idma_same_state_cnt[2];
- 	struct adapter *adap = (struct adapter *)data;
- 	struct sge *s = &adap->sge;
- 
-@@ -2031,21 +2041,64 @@ static void sge_rx_timer_cb(unsigned long data)
- 		}
- 
- 	t4_write_reg(adap, SGE_DEBUG_INDEX, 13);
--	cnt[0] = t4_read_reg(adap, SGE_DEBUG_DATA_HIGH);
--	cnt[1] = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
--
--	for (i = 0; i < 2; i++)
--		if (cnt[i] >= s->starve_thres) {
--			if (s->idma_state[i] || cnt[i] == 0xffffffff)
--				continue;
--			s->idma_state[i] = 1;
--			t4_write_reg(adap, SGE_DEBUG_INDEX, 11);
--			m = t4_read_reg(adap, SGE_DEBUG_DATA_LOW) >> (i * 16);
--			dev_warn(adap->pdev_dev,
--				 "SGE idma%u starvation detected for "
--				 "queue %lu\n", i, m & 0xffff);
--		} else if (s->idma_state[i])
--			s->idma_state[i] = 0;
-+	idma_same_state_cnt[0] = t4_read_reg(adap, SGE_DEBUG_DATA_HIGH);
-+	idma_same_state_cnt[1] = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
-+
-+	for (i = 0; i < 2; i++) {
-+		u32 debug0, debug11;
-+
-+		/* If the Ingress DMA Same State Counter ("timer") is less
-+		 * than 1s, then we can reset our synthesized Stall Timer and
-+		 * continue.  If we have previously emitted warnings about a
-+		 * potential stalled Ingress Queue, issue a note indicating
-+		 * that the Ingress Queue has resumed forward progress.
-+		 */
-+		if (idma_same_state_cnt[i] < s->idma_1s_thresh) {
-+			if (s->idma_stalled[i] >= SGE_IDMA_WARN_THRESH)
-+				CH_WARN(adap, "SGE idma%d, queue%u,resumed after %d sec\n",
-+					i, s->idma_qid[i],
-+					s->idma_stalled[i]/HZ);
-+			s->idma_stalled[i] = 0;
-+			continue;
-+		}
-+
-+		/* Synthesize an SGE Ingress DMA Same State Timer in the Hz
-+		 * domain.  The first time we get here it'll be because we
-+		 * passed the 1s Threshold; each additional time it'll be
-+		 * because the RX Timer Callback is being fired on its regular
-+		 * schedule.
-+		 *
-+		 * If the stall is below our Potential Hung Ingress Queue
-+		 * Warning Threshold, continue.
-+		 */
-+		if (s->idma_stalled[i] == 0)
-+			s->idma_stalled[i] = HZ;
-+		else
-+			s->idma_stalled[i] += RX_QCHECK_PERIOD;
-+
-+		if (s->idma_stalled[i] < SGE_IDMA_WARN_THRESH)
-+			continue;
-+
-+		/* We'll issue a warning every SGE_IDMA_WARN_REPEAT Hz */
-+		if (((s->idma_stalled[i] - HZ) % SGE_IDMA_WARN_REPEAT) != 0)
-+			continue;
-+
-+		/* Read and save the SGE IDMA State and Queue ID information.
-+		 * We do this every time in case it changes across time ...
-+		 */
-+		t4_write_reg(adap, SGE_DEBUG_INDEX, 0);
-+		debug0 = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
-+		s->idma_state[i] = (debug0 >> (i * 9)) & 0x3f;
-+
-+		t4_write_reg(adap, SGE_DEBUG_INDEX, 11);
-+		debug11 = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
-+		s->idma_qid[i] = (debug11 >> (i * 16)) & 0xffff;
-+
-+		CH_WARN(adap, "SGE idma%u, queue%u, maybe stuck state%u %dsecs (debug0=%#x, debug11=%#x)\n",
-+			i, s->idma_qid[i], s->idma_state[i],
-+			s->idma_stalled[i]/HZ, debug0, debug11);
-+		t4_sge_decode_idma_state(adap, s->idma_state[i]);
-+	}
- 
- 	mod_timer(&s->rx_timer, jiffies + RX_QCHECK_PERIOD);
- }
-@@ -2756,8 +2809,9 @@ int t4_sge_init(struct adapter *adap)
- 
- 	setup_timer(&s->rx_timer, sge_rx_timer_cb, (unsigned long)adap);
- 	setup_timer(&s->tx_timer, sge_tx_timer_cb, (unsigned long)adap);
--	s->starve_thres = core_ticks_per_usec(adap) * 1000000;  /* 1 s */
--	s->idma_state[0] = s->idma_state[1] = 0;
-+	s->idma_1s_thresh = core_ticks_per_usec(adap) * 1000000;  /* 1 s */
-+	s->idma_stalled[0] = 0;
-+	s->idma_stalled[1] = 0;
- 	spin_lock_init(&s->intrq_lock);
- 
- 	return 0;
+We would like to request this patch series to get merged via David Miller's
+'net-next' tree.
+
+We have included all the maintainers of respective drivers. Kindly review the
+change and let us know in case of any review comments.
+
+Thanks
+
+V5:
+   Dropped patch "cxgb4: use spinlock_irqsave/spinlock_irqrestore for db lock".
+   save/restore spinlock variants are not required - thanks to review by
+   David Miller.
+V4:
+   Fixed review comments given by Sergei Shtylyov, Joe Perches, Or Gerlitz.
+   And, dropped un-used module_params based on comment from Ben Hutchings.
+   Also adds a new patch ("cxgb4: Calculate len properly for LSO
+   path") which fixes regression.
+V3:
+   Fixed warnings reported by checkpatch.pl --strict & use networking code
+   multi-line comments. Also includes fixes based on review comments given by
+   Sergei Shtylyov.
+V2:
+   Dont drop existing module parameters.
+   (cxgb4/iw_cxgb4: Doorbell Drop Avoidance Bug Fixes.)
+
+
+Hariprasad Shenai (1):
+  iw_cxgb4: Use pr_warn_ratelimited
+
+Kumar Sanghvi (5):
+  cxgb4: Fix some small bugs in t4_sge_init_soft() when our Page Size is
+    64KB
+  cxgb4: Add code to dump SGE registers when hitting idma hangs
+  cxgb4: Rectify emitting messages about SGE Ingress DMA channels being
+    potentially stuck
+  cxgb4: Updates for T5 SGE's Egress Congestion Threshold
+  cxgb4: Calculate len properly for LSO path
+
+Steve Wise (25):
+  iw_cxgb4: cap CQ size at T4_MAX_IQ_SIZE
+  iw_cxgb4: Allow loopback connections
+  iw_cxgb4: release neigh entry in error paths
+  iw_cxgb4: Treat CPL_ERR_KEEPALV_NEG_ADVICE as negative advice
+  cxgb4/iw_cxgb4: Doorbell Drop Avoidance Bug Fixes
+  iw_cxgb4: use the BAR2/WC path for kernel QPs and T5 devices
+  iw_cxgb4: Fix incorrect BUG_ON conditions
+  iw_cxgb4: Mind the sq_sig_all/sq_sig_type QP attributes
+  iw_cxgb4: default peer2peer mode to 1
+  iw_cxgb4: save the correct map length for fast_reg_page_lists
+  iw_cxgb4: don't leak skb in c4iw_uld_rx_handler()
+  iw_cxgb4: fix possible memory leak in RX_PKT processing
+  iw_cxgb4: ignore read reponse type 1 CQEs
+  iw_cxgb4: connect_request_upcall fixes
+  iw_cxgb4: adjust tcp snd/rcv window based on link speed
+  iw_cxgb4: update snd_seq when sending MPA messages
+  iw_cxgb4: lock around accept/reject downcalls
+  iw_cxgb4: drop RX_DATA packets if the endpoint is gone
+  iw_cxgb4: rx_data() needs to hold the ep mutex
+  iw_cxgb4: endpoint timeout fixes
+  iw_cxgb4: rmb() after reading valid gen bit
+  iw_cxgb4: wc_wmb() needed after DB writes
+  iw_cxgb4: SQ flush fix
+  iw_cxgb4: minor fixes
+  iw_cxgb4: Max fastreg depth depends on DSGL support
+
+ drivers/infiniband/hw/cxgb4/cm.c                | 269 +++++++++++++++++-------
+ drivers/infiniband/hw/cxgb4/cq.c                |  54 +++--
+ drivers/infiniband/hw/cxgb4/device.c            | 239 +++++++++++++--------
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |  17 +-
+ drivers/infiniband/hw/cxgb4/mem.c               |  18 +-
+ drivers/infiniband/hw/cxgb4/provider.c          |  46 +++-
+ drivers/infiniband/hw/cxgb4/qp.c                | 216 ++++++++++---------
+ drivers/infiniband/hw/cxgb4/resource.c          |  10 +-
+ drivers/infiniband/hw/cxgb4/t4.h                |  78 ++++++-
+ drivers/infiniband/hw/cxgb4/user.h              |   5 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  11 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  77 ++++---
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        | 130 +++++++++---
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 106 ++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |   2 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   9 +
+ 16 files changed, 909 insertions(+), 378 deletions(-)
+
 -- 
 1.8.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
