@@ -1,65 +1,111 @@
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCHv5 net-next 27/31] iw_cxgb4: wc_wmb() needed after DB writes
-Date: Mon, 10 Mar 2014 22:38:24 +0530
-Message-ID: <1394471308-4304-28-git-send-email-hariprasad@chelsio.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCHv5 net-next 24/31] iw_cxgb4: rx_data() needs to hold the ep mutex
+Date: Mon, 10 Mar 2014 22:38:21 +0530
+Message-ID: <1394471308-4304-25-git-send-email-hariprasad@chelsio.com>
 References: <1394471308-4304-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394471308-4304-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
+	swise@opengridcomputing.com, leedom@chelsio.com,
+	santosh@chelsio.com, kumaras@chelsio.com, nirranjan@chelsio.com,
+	hariprasad@chelsio.com
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:25975 "EHLO
+	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754079AbaCJRSW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:18:22 -0400
+In-Reply-To: <1394471308-4304-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+From: Steve Wise <swise@opengridcomputing.com>
 
-Need to do an sfence after both the WC and regular PIDX DB write.
-Otherwise the host might reorder things and cause work request corruption
-(seen with NFSRDMA).
+To avoid racing with other threads doing close/flush/whatever, rx_data()
+should hold the endpoint mutex.
 
-Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/infiniband/hw/cxgb4/t4.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/t4.h b/drivers/infiniband/hw/cxgb4/t4.h
-index 67cd09ee..ace3154 100644
---- a/drivers/infiniband/hw/cxgb4/t4.h
-+++ b/drivers/infiniband/hw/cxgb4/t4.h
-@@ -470,12 +470,12 @@ static inline void t4_ring_sq_db(struct t4_wq *wq, u16 inc, u8 t5,
- 			PDBG("%s: WC wq->sq.pidx = %d\n",
- 			     __func__, wq->sq.pidx);
- 			pio_copy(wq->sq.udb + 7, (void *)wqe);
--			wc_wmb();
- 		} else {
- 			PDBG("%s: DB wq->sq.pidx = %d\n",
- 			     __func__, wq->sq.pidx);
- 			writel(PIDX_T5(inc), wq->sq.udb);
- 		}
-+		wc_wmb();
+diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
+index e7c6dfd..31e725e 100644
+--- a/drivers/infiniband/hw/cxgb4/cm.c
++++ b/drivers/infiniband/hw/cxgb4/cm.c
+@@ -1193,7 +1193,7 @@ static void process_mpa_reply(struct c4iw_ep *ep, struct sk_buff *skb)
+ 	 * the connection.
+ 	 */
+ 	stop_ep_timer(ep);
+-	if (state_read(&ep->com) != MPA_REQ_SENT)
++	if (ep->com.state != MPA_REQ_SENT)
  		return;
+ 
+ 	/*
+@@ -1268,7 +1268,7 @@ static void process_mpa_reply(struct c4iw_ep *ep, struct sk_buff *skb)
+ 	 * start reply message including private data. And
+ 	 * the MPA header is valid.
+ 	 */
+-	state_set(&ep->com, FPDU_MODE);
++	__state_set(&ep->com, FPDU_MODE);
+ 	ep->mpa_attr.crc_enabled = (mpa->flags & MPA_CRC) | crc_enabled ? 1 : 0;
+ 	ep->mpa_attr.recv_marker_enabled = markers_enabled;
+ 	ep->mpa_attr.xmit_marker_enabled = mpa->flags & MPA_MARKERS ? 1 : 0;
+@@ -1383,7 +1383,7 @@ static void process_mpa_reply(struct c4iw_ep *ep, struct sk_buff *skb)
  	}
- 	writel(QID(wq->sq.qid) | PIDX(inc), wq->db);
-@@ -490,12 +490,12 @@ static inline void t4_ring_rq_db(struct t4_wq *wq, u16 inc, u8 t5,
- 			PDBG("%s: WC wq->rq.pidx = %d\n",
- 			     __func__, wq->rq.pidx);
- 			pio_copy(wq->rq.udb + 7, (void *)wqe);
--			wc_wmb();
- 		} else {
- 			PDBG("%s: DB wq->rq.pidx = %d\n",
- 			     __func__, wq->rq.pidx);
- 			writel(PIDX_T5(inc), wq->rq.udb);
- 		}
-+		wc_wmb();
+ 	goto out;
+ err:
+-	state_set(&ep->com, ABORTING);
++	__state_set(&ep->com, ABORTING);
+ 	send_abort(ep, skb, GFP_KERNEL);
+ out:
+ 	connect_reply_upcall(ep, err);
+@@ -1398,7 +1398,7 @@ static void process_mpa_request(struct c4iw_ep *ep, struct sk_buff *skb)
+ 
+ 	PDBG("%s ep %p tid %u\n", __func__, ep, ep->hwtid);
+ 
+-	if (state_read(&ep->com) != MPA_REQ_WAIT)
++	if (ep->com.state != MPA_REQ_WAIT)
  		return;
+ 
+ 	/*
+@@ -1519,7 +1519,7 @@ static void process_mpa_request(struct c4iw_ep *ep, struct sk_buff *skb)
+ 	     ep->mpa_attr.xmit_marker_enabled, ep->mpa_attr.version,
+ 	     ep->mpa_attr.p2p_type);
+ 
+-	state_set(&ep->com, MPA_REQ_RCVD);
++	__state_set(&ep->com, MPA_REQ_RCVD);
+ 	stop_ep_timer(ep);
+ 
+ 	/* drive upcall */
+@@ -1549,11 +1549,12 @@ static int rx_data(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	PDBG("%s ep %p tid %u dlen %u\n", __func__, ep, ep->hwtid, dlen);
+ 	skb_pull(skb, sizeof(*hdr));
+ 	skb_trim(skb, dlen);
++	mutex_lock(&ep->com.mutex);
+ 
+ 	/* update RX credits */
+ 	update_rx_credits(ep, dlen);
+ 
+-	switch (state_read(&ep->com)) {
++	switch (ep->com.state) {
+ 	case MPA_REQ_SENT:
+ 		ep->rcv_seq += dlen;
+ 		process_mpa_reply(ep, skb);
+@@ -1569,7 +1570,7 @@ static int rx_data(struct c4iw_dev *dev, struct sk_buff *skb)
+ 			pr_err("%s Unexpected streaming data." \
+ 			       " qpid %u ep %p state %d tid %u status %d\n",
+ 			       __func__, ep->com.qp->wq.sq.qid, ep,
+-			       state_read(&ep->com), ep->hwtid, status);
++			       ep->com.state, ep->hwtid, status);
+ 		attrs.next_state = C4IW_QP_STATE_TERMINATE;
+ 		c4iw_modify_qp(ep->com.qp->rhp, ep->com.qp,
+ 			       C4IW_QP_ATTR_NEXT_STATE, &attrs, 0);
+@@ -1578,6 +1579,7 @@ static int rx_data(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	default:
+ 		break;
  	}
- 	writel(QID(wq->rq.qid) | PIDX(inc), wq->db);
++	mutex_unlock(&ep->com.mutex);
+ 	return 0;
+ }
+ 
 -- 
 1.8.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
