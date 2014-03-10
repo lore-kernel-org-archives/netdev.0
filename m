@@ -1,85 +1,99 @@
-From: Christian Riesch <christian.riesch@omicron.at>
-Subject: Re: [PATCH RFC] net: davinci_emac: Fix rollback of emac_dev_open()
-Date: Mon, 10 Mar 2014 08:16:14 +0100
-Message-ID: <851BA4133600BADF3FBB6427@[172.22.2.41]>
-References: <35CC5396F7326DBE44C9C624@[172.22.2.41]>
- <130fa9cb-7e94-4698-ac3f-f987a03c0604@mary.at.omicron.at>
- <5319DB6C.8080203@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davinci-linux-open-source@linux.davincidsp.com,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Jon Ringle <jon@ringle.org>
-To: Mugunthan V N <mugunthanvnm@ti.com>, netdev@vger.kernel.org
+From: Annie Li <Annie.li@oracle.com>
+Subject: [PATCH net] Xen-netback: Fix issue caused by using gso_type wrongly
+Date: Mon, 10 Mar 2014 15:44:14 +0800
+Message-ID: <1394437454-2402-1-git-send-email-Annie.li@oracle.com>
+Cc: konrad.wilk@oracle.com, Ian.Campbell@citrix.com,
+	wei.liu2@citrix.com, paul.durrant@citrix.com, annie.li@oracle.com
+To: xen-devel@lists.xen.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f171.google.com ([209.85.215.171]:64868 "EHLO
-	mail-ea0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751231AbaCJHQU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 03:16:20 -0400
-Received: by mail-ea0-f171.google.com with SMTP id n15so3510145ead.30
-        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 00:16:18 -0700 (PDT)
-In-Reply-To: <5319DB6C.8080203@ti.com>
-Content-Disposition: inline
+Received: from userp1040.oracle.com ([156.151.31.81]:36913 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752063AbaCJHmw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 03:42:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Annie Li <annie.li@oracle.com>
 
+Current netback uses gso_type to check whether the skb contains
+gso offload, and this is wrong. Gso_size is the right one to
+check gso existence, and gso_type is only used to check gso type.
 
---On March 07, 2014 20:15 +0530 Mugunthan V N <mugunthanvnm@ti.com> wrote:
+Some skbs contains nonzero gso_type and zero gso_size, current
+netback would treat these skbs as gso and create wrong response
+for this. This also causes ssh failure to domu from other server.
 
-> On Friday 07 March 2014 07:37 PM, Christian Riesch wrote:
->> Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
->> Cc: Prabhakar Lad <prabhakar.csengg@gmail.com>
->> Cc: Mugunthan V N <mugunthanvnm@ti.com>
->> Cc: Florian Fainelli <f.fainelli@gmail.com>
->> ---
->>
->> Hi again,
->>
->> How about this solution for fixing the rollback of emac_dev_open()?
->> Especially the change in davinci_cpdma.c, would this break anything?
->>
->> The patch applies on top of
->> [PATCH] net: davinci_emac: Replace devm_request_irq with request_irq
->>
->> Regards,
->> Christian
->>
->>  drivers/net/ethernet/ti/davinci_cpdma.c |    4 +--
->>  drivers/net/ethernet/ti/davinci_emac.c  |   44
->>  ++++++++++++++++++++----------- 2 files changed, 31 insertions(+), 17
->>  deletions(-)
->>
->> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c
->> b/drivers/net/ethernet/ti/davinci_cpdma.c index 364d0c7..88ef270 100644
->> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
->> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
->> @@ -355,7 +355,7 @@ int cpdma_ctlr_stop(struct cpdma_ctlr *ctlr)
->>  	int i;
->>
->>  	spin_lock_irqsave(&ctlr->lock, flags);
->> -	if (ctlr->state != CPDMA_STATE_ACTIVE) {
->> +	if (ctlr->state == CPDMA_STATE_TEARDOWN) {
->>  		spin_unlock_irqrestore(&ctlr->lock, flags);
->>  		return -EINVAL;
->>  	}
->> @@ -891,7 +891,7 @@ int cpdma_chan_stop(struct cpdma_chan *chan)
->>  	unsigned		timeout;
->>
->>  	spin_lock_irqsave(&chan->lock, flags);
->> -	if (chan->state != CPDMA_STATE_ACTIVE) {
->> +	if (chan->state == CPDMA_STATE_TEARDOWN) {
->>  		spin_unlock_irqrestore(&chan->lock, flags);
->>  		return -EINVAL;
->>  	}
->
-> Even when in idle mode chan stop should return error.
+Signed-off-by: Annie Li <annie.li@oracle.com>
+---
+ drivers/net/xen-netback/netback.c |   35 +++++++++++++++++------------------
+ 1 files changed, 17 insertions(+), 18 deletions(-)
 
-Can you please explain? I do not see why.
-
-I must be able to call cpdma_ctlr_stop in idle mode to free the rx 
-descriptors in case ndo_open in davinci_emac.c fails. Any other ideas how 
-to solve the problem addressed in the rest of the patch?
-
-Thanks, Christian
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index e5284bc..57a7d5d 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -240,7 +240,7 @@ static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
+ 	struct gnttab_copy *copy_gop;
+ 	struct xenvif_rx_meta *meta;
+ 	unsigned long bytes;
+-	int gso_type;
++	int gso_type = XEN_NETIF_GSO_TYPE_NONE;
+ 
+ 	/* Data must not cross a page boundary. */
+ 	BUG_ON(size + offset > PAGE_SIZE<<compound_order(page));
+@@ -299,12 +299,12 @@ static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
+ 		}
+ 
+ 		/* Leave a gap for the GSO descriptor. */
+-		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
+-			gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
+-		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
+-			gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
+-		else
+-			gso_type = XEN_NETIF_GSO_TYPE_NONE;
++		if (skb_shinfo(skb)->gso_size) {
++			if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
++				gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
++			else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
++				gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
++		}
+ 
+ 		if (*head && ((1 << gso_type) & vif->gso_mask))
+ 			vif->rx.req_cons++;
+@@ -342,15 +342,13 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+ 
+ 	old_meta_prod = npo->meta_prod;
+ 
+-	if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4) {
+-		gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
+-		gso_size = skb_shinfo(skb)->gso_size;
+-	} else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6) {
+-		gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
+-		gso_size = skb_shinfo(skb)->gso_size;
+-	} else {
+-		gso_type = XEN_NETIF_GSO_TYPE_NONE;
+-		gso_size = 0;
++	gso_type = XEN_NETIF_GSO_TYPE_NONE;
++	gso_size = skb_shinfo(skb)->gso_size;
++	if (gso_size) {
++		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
++			gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
++		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
++			gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
+ 	}
+ 
+ 	/* Set up a GSO prefix descriptor, if necessary */
+@@ -500,8 +498,9 @@ static void xenvif_rx_action(struct xenvif *vif)
+ 			size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
+ 			max_slots_needed += DIV_ROUND_UP(size, PAGE_SIZE);
+ 		}
+-		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4 ||
+-		    skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
++		if (skb_shinfo(skb)->gso_size &&
++		   (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4 ||
++		    skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6))
+ 			max_slots_needed++;
+ 
+ 		/* If the skb may not fit then bail out now */
+-- 
+1.7.3.4
