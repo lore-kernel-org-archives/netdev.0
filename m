@@ -1,27 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: add a pre-check of net_ns in sk_change_net()
-Date: Mon, 10 Mar 2014 16:30:02 -0400 (EDT)
-Message-ID: <20140310.163002.2203078134032583309.davem@davemloft.net>
-References: <5319A3C2.8080001@cn.fujitsu.com>
-	<20140309.190941.472588800498066811.davem@davemloft.net>
-	<531D1C0E.6010507@cn.fujitsu.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH net-next 1/7] mlx4: Adjust QP1 multiplexing for RoCE/SRIOV
+Date: Mon, 10 Mar 2014 22:31:52 +0200
+Message-ID: <CAJZOPZK=0e2j+qTp_+oL0oE5ORNO71f7vvFU8WW7uEzGhrzvXw@mail.gmail.com>
+References: <1394376844-12812-1-git-send-email-ogerlitz@mellanox.com>
+	<1394376844-12812-2-git-send-email-ogerlitz@mellanox.com>
+	<20140310.155015.1679111216670234389.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: guz.fnst@cn.fujitsu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <531D1C0E.6010507@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Roland Dreier <roland@kernel.org>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Amir Vadai <amirv@mellanox.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:50110 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751231AbaCJUbx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 16:31:53 -0400
+Received: by mail-pd0-f173.google.com with SMTP id z10so7548487pdj.4
+        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 13:31:52 -0700 (PDT)
+In-Reply-To: <20140310.155015.1679111216670234389.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gu Zheng <guz.fnst@cn.fujitsu.com>
-Date: Mon, 10 Mar 2014 09:57:34 +0800
+On Mon, Mar 10, 2014 at 9:50 PM, David Miller <davem@davemloft.net> wrote:
+> From: Or Gerlitz <ogerlitz@mellanox.com>
+> Date: Sun,  9 Mar 2014 16:53:58 +0200
+>
+>> @@ -509,6 +510,10 @@ int mlx4_ib_send_to_slave(struct mlx4_ib_dev *dev, int slave, u8 port,
+>>        * The driver will set the force loopback bit in post_send */
+>>       memset(&attr, 0, sizeof attr);
+>>       attr.port_num = port;
+>> +     if (is_eth) {
+>> +             mlx4_get_roce_gid_from_slave(dev->dev, port, slave, attr.grh.dgid.raw);
+>> +             attr.ah_flags = IB_AH_GRH;
+>> +     }
+>>       ah = ib_create_ah(tun_ctx->pd, &attr);
+>>       if (IS_ERR(ah))
+>>               return -ENOMEM;
+>
+> Either the error returned from mlx4_get_roce_gid_from_slave() doesn't matter...
+>
+>> +                     err = mlx4_get_roce_gid_from_slave(to_mdev(ib_dev)->dev,
+>> +                                                        be32_to_cpu(ah->av.ib.port_pd) >> 24,
+>> +                                                        ah->av.ib.gid_index, &sgid.raw[0]);
+>> +                     if (err)
+>> +                             return err;
+>
+> or it does.
+>
+> Please decide whether it does or not.  If it does, make all call sites check the return
+> value.  If it does not, remove the return value and make the function return void.
 
-> We do not need to switch the net_ns if the target net_ns the same
-> as the current one, so here we add a pre-check of net_ns to avoid
-> this as David suggested.
-> 
-> Signed-off-by: Gu Zheng <guz.fnst@cn.fujitsu.com>
-
-Applied to net-next, thank you.
+Sure, I'll take a look and respin V1
