@@ -1,27 +1,209 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: Add sysfs attribute to prevent PHY suspend
-Date: Sun, 09 Mar 2014 20:41:01 -0400 (EDT)
-Message-ID: <20140309.204101.47552917508273123.davem@davemloft.net>
-References: <531CF864.9040406@gmail.com>
-	<20140309.203001.1318893833441564547.davem@davemloft.net>
-	<531D094C.1090205@gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v7 net-next 1/3] filter: add Extended BPF interpreter and converter
+Date: Sun, 9 Mar 2014 17:41:53 -0700
+Message-ID: <CAMEtUuzOQ_8yfOi3PBdgPSGwWLHPwhX34kT4DpTazy6VTzx+9Q@mail.gmail.com>
+References: <1394320530-3508-1-git-send-email-ast@plumgrid.com>
+	<1394320530-3508-2-git-send-email-ast@plumgrid.com>
+	<531C5EB5.2080507@iogearbox.net>
+	<CAMEtUux-Psz9NW+t7vf2-=iDE5TW7KDOag2TDbxTEvd6a=LKSw@mail.gmail.com>
+	<531CE47E.40700@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rob@landley.net, andrew@lunn.ch, f.fainelli@gmail.com,
-	netdev@vger.kernel.org, linux-doc@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: sebastian.hesselbarth@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.k
+To: Daniel Borkmann <borkmann@iogearbox.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <531D094C.1090205@gmail.com>
+In-Reply-To: <531CE47E.40700@iogearbox.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Date: Mon, 10 Mar 2014 01:37:32 +0100
+On Sun, Mar 9, 2014 at 3:00 PM, Daniel Borkmann <borkmann@iogearbox.net> wrote:
+> On 03/09/2014 06:08 PM, Alexei Starovoitov wrote:
+>>
+>> On Sun, Mar 9, 2014 at 5:29 AM, Daniel Borkmann <borkmann@iogearbox.net>
+>> wrote:
+>>>
+>>> On 03/09/2014 12:15 AM, Alexei Starovoitov wrote:
+>>>>
+>>>>
+>>>> Extended BPF extends old BPF in the following ways:
+>>>> - from 2 to 10 registers
+>>>>     Original BPF has two registers (A and X) and hidden frame pointer.
+>>>>     Extended BPF has ten registers and read-only frame pointer.
+>>>> - from 32-bit registers to 64-bit registers
+>>>>     semantics of old 32-bit ALU operations are preserved via 32-bit
+>>>>     subregisters
+>>>> - if (cond) jump_true; else jump_false;
+>>>>     old BPF insns are replaced with:
+>>>>     if (cond) jump_true; /* else fallthrough */
+>>>> - adds signed > and >= insns
+>>>> - 16 4-byte stack slots for register spill-fill replaced with
+>>>>     up to 512 bytes of multi-use stack space
+>>>> - introduces bpf_call insn and register passing convention for zero
+>>>>     overhead calls from/to other kernel functions (not part of this
+>>>> patch)
+>>>> - adds arithmetic right shift insn
+>>>> - adds swab32/swab64 insns
+>>>> - adds atomic_add insn
+>>>> - old tax/txa insns are replaced with 'mov dst,src' insn
+>>>>
+>>>> Extended BPF is designed to be JITed with one to one mapping, which
+>>>> allows GCC/LLVM backends to generate optimized BPF code that performs
+>>>> almost as fast as natively compiled code
+>>>>
+>>>> sk_convert_filter() remaps old style insns into extended:
+>>>> 'sock_filter' instructions are remapped on the fly to
+>>>> 'sock_filter_ext' extended instructions when
+>>>> sysctl net.core.bpf_ext_enable=1
+>>>>
+>>>> Old filter comes through sk_attach_filter() or
+>>>> sk_unattached_filter_create()
+>>>>    if (bpf_ext_enable) {
+>>>>       convert to new
+>>>>       sk_chk_filter() - check old bpf
+>>>>       use sk_run_filter_ext() - new interpreter
+>>>>    } else {
+>>>>       sk_chk_filter() - check old bpf
+>>>>       if (bpf_jit_enable)
+>>>>           use old jit
+>>>>       else
+>>>>           use sk_run_filter() - old interpreter
+>>>>    }
+>>>>
+>>>> sk_run_filter_ext() interpreter is noticeably faster
+>>>> than sk_run_filter() for two reasons:
+>>>>
+>>>> 1.fall-through jumps
+>>>>     Old BPF jump instructions are forced to go either 'true' or 'false'
+>>>>     branch which causes branch-miss penalty.
+>>>>     Extended BPF jump instructions have one branch and fall-through,
+>>>>     which fit CPU branch predictor logic better.
+>>>>     'perf stat' shows drastic difference for branch-misses.
+>>>>
+>>>> 2.jump-threaded implementation of interpreter vs switch statement
+>>>>     Instead of single tablejump at the top of 'switch' statement, GCC
+>>>> will
+>>>>     generate multiple tablejump instructions, which helps CPU branch
+>>>> predictor
+>>>>
+>>>> Performance of two BPF filters generated by libpcap was measured
+>>>> on x86_64, i386 and arm32.
+>>>>
+>>>> fprog #1 is taken from Documentation/networking/filter.txt:
+>>>> tcpdump -i eth0 port 22 -dd
+>>>>
+>>>> fprog #2 is taken from 'man tcpdump':
+>>>> tcpdump -i eth0 'tcp port 22 and (((ip[2:2] - ((ip[0]&0xf)<<2)) -
+>>>>      ((tcp[12]&0xf0)>>2)) != 0)' -dd
+>>>>
+>>>> Other libpcap programs have similar performance differences.
+>>>>
+>>>> Raw performance data from BPF micro-benchmark:
+>>>> SK_RUN_FILTER on same SKB (cache-hit) or 10k SKBs (cache-miss)
+>>>> time in nsec per call, smaller is better
+>>>> --x86_64--
+>>>>            fprog #1  fprog #1   fprog #2  fprog #2
+>>>>            cache-hit cache-miss cache-hit cache-miss
+>>>> old BPF     90       101       192       202
+>>>> ext BPF     31        71       47         97
+>>>> old BPF jit 12        34       17         44
+>>>> ext BPF jit TBD
+>>>>
+>>>> --i386--
+>>>>            fprog #1  fprog #1   fprog #2  fprog #2
+>>>>            cache-hit cache-miss cache-hit cache-miss
+>>>> old BPF    107        136      227       252
+>>>> ext BPF     40        119       69       172
+>>>>
+>>>> --arm32--
+>>>>            fprog #1  fprog #1   fprog #2  fprog #2
+>>>>            cache-hit cache-miss cache-hit cache-miss
+>>>> old BPF    202        300      475       540
+>>>> ext BPF    180        270      330       470
+>>>> old BPF jit 26        182       37       202
+>>>> new BPF jit TBD
+>>>>
+>>>> Tested with trinify BPF fuzzer
+>>>>
+>>>> Future work:
+>>>>
+>>>> 0. add bpf/ebpf testsuite to tools/testing/selftests/net/bpf
+>>>>
+>>>> 1. add extended BPF JIT for x86_64
+>>>>
+>>>> 2. add inband old/new demux and extended BPF verifier, so that new
+>>>> programs
+>>>>      can be loaded through old sk_attach_filter() and
+>>>> sk_unattached_filter_create()
+>>>>      interfaces
+>>>>
+>>>> 3. tracing filters systemtap-like with extended BPF
+>>>>
+>>>> 4. OVS with extended BPF
+>>>>
+>>>> 5. nftables with extended BPF
+>>>>
+>>>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>>>> Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
+>>>> Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
+>>>
+>>>
+>>>
+>>> One more question or possible issue that came through my mind: When
+>>> someone attaches a socket filter from user space, and bpf_ext_enable=1
+>>> then the old filter will transparently be converted to the new
+>>> representation. If then user space (e.g. through checkpoint restore)
+>>> will issue a sk_get_filter() and thus we're calling sk_decode_filter()
+>>> on sk->sk_filter and, therefore, try to decode what we stored in
+>>> insns_ext[] with the assumption we still have the old code. Would that
+>>> actually crash (or leak memory, or just return garbage), as we access
+>>> decodes[] array with filt->code? Would be great if you could
+>>> double-check.
+>>
+>>
+>> ohh. yes. missed that.
+>> when bpf_ext_enable=1 I think it's cleaner to return ebpf filter.
+>> This way the user space can see how old bpf filter was converted.
+>>
+>> Of course we can allocate extra memory and keep original bpf code there
+>> just to return it via sk_get_filter(), but that seems overkill.
+>
+>
+> Cc'ing Pavel for a8fc92778080 ("sk-filter: Add ability to get socket
+> filter program (v2)").
+>
+> I think the issue can be that when applications could get migrated
+> from one machine to another and their kernel won't support ebpf yet,
+> then filter could not get loaded this way as it's expected to return
+> what the user loaded. The trade-off, however, is that the original
+> BPF code needs to be stored as well. :(
 
-> The mechanism is manual, no automatic way to determine it.
+I see.
+...even on one machine:
+bpf_ext=1, attach, get_filter, bpf_ext=0, re-attach...
+So we need to save original.
+At least we don't need to keep it for 'unattached' filters.
+Should memory come from sk_optmem budget or plain kmalloc is enough ?
+Latter would have simpler implementation, but former is probably cleaner?
 
-We recognize BIOS and ACPI bugs and work around them, by looking at
-version information and whatnot, so you really can't convince me that
-something similar can't be done here perhaps in the platform code.
+Thanks
+Alexei
