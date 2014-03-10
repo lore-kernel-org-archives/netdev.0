@@ -1,33 +1,61 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH] net: eth: cpsw: Use net_device_stats from struct net_device
-Date: Mon, 10 Mar 2014 17:52:16 +0530
-Message-ID: <531DAE78.2030302@ti.com>
-References: <1394453543-30094-1-git-send-email-tklauser@distanz.ch>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCHv2 2/2] selinux: add gfp argument to
+ security_xfrm_policy_alloc and fix callers
+Date: Mon, 10 Mar 2014 13:52:03 +0100
+Message-ID: <20140310125203.GZ32371@secunet.com>
+References: <20140227151954.GA30946@redhat.com>
+ <1394192659-10764-1-git-send-email-nikolay@redhat.com>
+ <1394192659-10764-3-git-send-email-nikolay@redhat.com>
+ <2297449.8Lk5u4VomY@sifl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Sebastian Siewior <bigeasy@linutronix.de>, <netdev@vger.kernel.org>
-To: Tobias Klauser <tklauser@distanz.ch>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:40485 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753053AbaCJMWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Mar 2014 08:22:25 -0400
-In-Reply-To: <1394453543-30094-1-git-send-email-tklauser@distanz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>, <netdev@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>, Fan Du <fan.du@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	LSM list <linux-security-module@vger.kernel.org>,
+	SELinux list <selinux@tycho.nsa.gov>
+To: Paul Moore <paul@paul-moore.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <2297449.8Lk5u4VomY@sifl>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday 10 March 2014 05:42 PM, Tobias Klauser wrote:
-> Instead of using an own copy of struct net_device_stats in struct
-> cpsw_priv, use stats from struct net_device. Also remove the thus
-> unnecessary .ndo_get_stats function, as it just returns dev->stats,
-> which is the default.
->
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+On Fri, Mar 07, 2014 at 05:27:17PM -0500, Paul Moore wrote:
+> On Friday, March 07, 2014 12:44:19 PM Nikolay Aleksandrov wrote:
+> > security_xfrm_policy_alloc can be called in atomic context so the
+> > allocation should be done with GFP_ATOMIC. Add an argument to let the
+> > callers choose the appropriate way. In order to do so a gfp argument
+> > needs to be added to the method xfrm_policy_alloc_security in struct
+> > security_operations and to the internal function
+> > selinux_xfrm_alloc_user. After that switch to GFP_ATOMIC in the atomic
+> > callers and leave GFP_KERNEL as before for the rest.
+> > The path that needed the gfp argument addition is:
+> > security_xfrm_policy_alloc -> security_ops.xfrm_policy_alloc_security ->
+> > all users of xfrm_policy_alloc_security (e.g. selinux_xfrm_policy_alloc) ->
+> > selinux_xfrm_alloc_user (here the allocation used to be GFP_KERNEL only)
+> > 
+> > Now adding a gfp argument to selinux_xfrm_alloc_user requires us to also
+> > add it to security_context_to_sid which is used inside and prior to this
+> > patch did only GFP_KERNEL allocation. So add gfp argument to
+> > security_context_to_sid and adjust all of its callers as well.
+> > 
+> > CC: Paul Moore <paul@paul-moore.com>
+> > CC: Dave Jones <davej@redhat.com>
+> > CC: Steffen Klassert <steffen.klassert@secunet.com>
+> > CC: Fan Du <fan.du@windriver.com>
+> > CC: David S. Miller <davem@davemloft.net>
+> > CC: LSM list <linux-security-module@vger.kernel.org>
+> > CC: SELinux list <selinux@tycho.nsa.gov>
+> > 
+> > Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> 
+> This looks good to me, thanks for finding this and following through with a 
+> patch.
+> 
+> Acked-by: Paul Moore <paul@paul-moore.com>
+> 
 
-Looks good to me.
-Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
+Both patches applied to the ipsec tree.
 
-Regards
-Mugunthan V N
+Thanks everyone!
