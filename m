@@ -1,143 +1,189 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net-next: NULL pointer dereference on adding a net namespace
- and a system freeze
-Date: Sun, 09 Mar 2014 21:09:17 -0700
-Message-ID: <1394424557.3607.4.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140310014452.144b0491@north>
-	 <1394424146.3607.2.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv6: do not overwrite inetpeer metrics prematurely
+Date: Mon, 10 Mar 2014 01:03:13 -0400 (EDT)
+Message-ID: <20140310.010313.703650662340510015.davem@davemloft.net>
+References: <20140308080616.GB5493@order.stressinduktion.org>
+	<20140309.202658.205858191881011540.davem@davemloft.net>
+	<20140310005220.GD5493@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Fan Du <fan.du@windriver.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Jakub Kicinski <moorray3@wp.pl>
+Cc: mkubecek@suse.cz, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:44727 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751299AbaCJEJT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 00:09:19 -0400
-Received: by mail-pd0-f176.google.com with SMTP id r10so6500962pdi.21
-        for <netdev@vger.kernel.org>; Sun, 09 Mar 2014 21:09:19 -0700 (PDT)
-In-Reply-To: <1394424146.3607.2.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38998 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752141AbaCJFDR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 01:03:17 -0400
+In-Reply-To: <20140310005220.GD5493@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-03-09 at 21:02 -0700, Eric Dumazet wrote:
-> On Mon, 2014-03-10 at 01:44 +0100, Jakub Kicinski wrote:
-> > Hi!
-> > 
-> > Running Fedora 20 with net-next I get the following warning when
-> > libvirt or rtkit comes up:
-> > 
-> > [  272.143488] kmem_cache_sanity_check (flow_cache): Cache name already exists.
-> > [  272.143586] CPU: 0 PID: 975 Comm: libvirtd Not tainted 3.14.0-rc5+ #1
-> > [  272.143589] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-> > [  272.143591]  0000000000000000 ffff88003ceadba0 ffffffff8167baf0 ffff88003db3d300
-> > [  272.143595]  ffff88003ceadc18 ffffffff8117795b ffff88003ceadbc8 ffff88003b235158
-> > [  272.143599]  0000000000000000 0000000000040000 0000000000000068 0000000000000000
-> > [  272.143602] Call Trace:
-> > [  272.143610]  [<ffffffff8167baf0>] dump_stack+0x4d/0x66
-> > [  272.143615]  [<ffffffff8117795b>] kmem_cache_create_memcg+0x12b/0x420
-> > [  272.143618]  [<ffffffff81177c7b>] kmem_cache_create+0x2b/0x30
-> > [  272.143622]  [<ffffffff815c4a0e>] flow_cache_init+0x2e/0x2b0
-> > [  272.143626]  [<ffffffff8164b017>] xfrm_net_init+0x227/0x360
-> > [  272.143629]  [<ffffffff8164af41>] ? xfrm_net_init+0x151/0x360
-> > [  272.143632]  [<ffffffff815a5921>] ops_init+0x41/0x150
-> > [  272.143635]  [<ffffffff815a5aa3>] setup_net+0x73/0x110
-> > [  272.143638]  [<ffffffff815a5fe2>] copy_net_ns+0x72/0x100
-> > [  272.143642]  [<ffffffff810943f9>] create_new_namespaces+0xf9/0x190
-> > [  272.143645]  [<ffffffff81094560>] copy_namespaces+0xd0/0xf0
-> > [  272.143648]  [<ffffffff81094495>] ? copy_namespaces+0x5/0xf0
-> > [  272.143651]  [<ffffffff81069be0>] copy_process.part.31+0x950/0x1b30
-> > [  272.143655]  [<ffffffff8106af95>] do_fork+0xd5/0x370
-> > [  272.143658]  [<ffffffff811c1b2d>] ? __fput+0x17d/0x240
-> > [  272.143662]  [<ffffffff8110440c>] ? __audit_syscall_entry+0x9c/0xf0
-> > [  272.143665]  [<ffffffff8106b2b6>] SyS_clone+0x16/0x20
-> > [  272.143669]  [<ffffffff8168cf19>] stub_clone+0x69/0x90
-> > [  272.143673]  [<ffffffff8168cb69>] ? system_call_fastpath+0x16/0x1b
-> > 
-> > 
-> > When I try to add a netns with 
-> > # ip netns add abcd
-> > I it dies with:
-> 
-> 
-> Yep, commit ca925cf1534ebcec332c08719a7dee6ee1782ce4 is buggy.
-> 
->     flowcache: Make flow cache name space aware
->     
->     Inserting a entry into flowcache, or flushing flowcache should be based
->     on per net scope. The reason to do so is flushing operation from fat
->     netns crammed with flow entries will also making the slim netns with only
->     a few flow cache entries go away in original implementation.
->     
->     Since flowcache is tightly coupled with IPsec, so it would be easier to
->     put flow cache global parameters into xfrm namespace part. And one last
->     thing needs to do is bumping flow cache genid, and flush flow cache should
->     also be made in per net style.
->     
->     Signed-off-by: Fan Du <fan.du@windriver.com>
->     Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> 
-> I fail to understand why the kmem_cache must be private to a netns.
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Mon, 10 Mar 2014 01:52:20 +0100
 
-Could you please try the following patch ?
+> So we need to change __ip6_ins_rt to take fib6_config as the second
+> argument instead, still have the info pointer in fc_nlinfo and only have
+> to wrap the info pointer in ip6_ins_rt into another structure. fib6_add
+> seems to be straightforward from there.
 
-diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
-index 51f0dce7b643..3492434baf88 100644
---- a/include/net/netns/xfrm.h
-+++ b/include/net/netns/xfrm.h
-@@ -64,7 +64,6 @@ struct netns_xfrm {
+fib6_config is too large to place on the stack I think, I was more
+thinking something along these lines:
+
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index aca0c27..9bcb220 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -284,7 +284,8 @@ struct fib6_node *fib6_locate(struct fib6_node *root,
+ void fib6_clean_all(struct net *net, int (*func)(struct rt6_info *, void *arg),
+ 		    void *arg);
  
- 	/* flow cache part */
- 	struct flow_cache	flow_cache_global;
--	struct kmem_cache	*flow_cachep;
- 	atomic_t		flow_cache_genid;
- 	struct list_head	flow_cache_gc_list;
- 	spinlock_t		flow_cache_gc_lock;
-diff --git a/net/core/flow.c b/net/core/flow.c
-index 344a184011fd..102f8ea2eb6e 100644
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -45,6 +45,8 @@ struct flow_flush_info {
- 	struct completion		completion;
- };
+-int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info);
++int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
++	     struct nlattr *mx, int mx_len);
  
-+static struct kmem_cache *flow_cachep __read_mostly;
-+
- #define flow_cache_hash_size(cache)	(1 << (cache)->hash_shift)
- #define FLOW_HASH_RND_PERIOD		(10 * 60 * HZ)
+ int fib6_del(struct rt6_info *rt, struct nl_info *info);
  
-@@ -75,7 +77,7 @@ static void flow_entry_kill(struct flow_cache_entry *fle,
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 075602f..941df4f 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -643,7 +643,7 @@ static inline bool rt6_qualify_for_ecmp(struct rt6_info *rt)
+  */
+ 
+ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
+-			    struct nl_info *info)
++			    struct nl_info *info, struct nlattr *mx, int mx_len)
  {
- 	if (fle->object)
- 		fle->object->ops->delete(fle->object);
--	kmem_cache_free(xfrm->flow_cachep, fle);
-+	kmem_cache_free(flow_cachep, fle);
+ 	struct rt6_info *iter = NULL;
+ 	struct rt6_info **ins;
+@@ -743,6 +743,30 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
+ 		BUG_ON(rt6i_nsiblings != rt->rt6i_nsiblings);
+ 	}
+ 
++	if (mx) {
++		struct nlattr *nla;
++		bool was_writable;
++		int remaining;
++		u32 *mp;
++
++		was_writable = !dst_metrics_read_only(&rt->dst);
++		mp = dst_metrics_write_ptr(&rt->dst);
++
++		if (was_writable)
++			memset(mp, 0, RTAX_MAX * sizeof(u32));
++
++		nla_for_each_attr(nla, mx, mx_len, remaining) {
++			int type = nla_type(nla);
++
++			if (type) {
++				if (type > RTAX_MAX)
++					return -EINVAL;
++
++				mp[type - 1] = nla_get_u32(nla);
++			}
++		}
++	}
++
+ 	/*
+ 	 *	insert node
+ 	 */
+@@ -806,7 +830,8 @@ void fib6_force_start_gc(struct net *net)
+  *	with source addr info in sub-trees
+  */
+ 
+-int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info)
++int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
++	     struct nlattr *mx, int mx_len)
+ {
+ 	struct fib6_node *fn, *pn = NULL;
+ 	int err = -ENOMEM;
+@@ -900,7 +925,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info)
+ 	}
+ #endif
+ 
+-	err = fib6_add_rt2node(fn, rt, info);
++	err = fib6_add_rt2node(fn, rt, info, mx, mx_len);
+ 	if (!err) {
+ 		fib6_start_gc(info->nl_net, rt);
+ 		if (!(rt->rt6i_flags & RTF_CACHE))
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index fba54a4..a39d3da 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -857,14 +857,15 @@ EXPORT_SYMBOL(rt6_lookup);
+    be destroyed.
+  */
+ 
+-static int __ip6_ins_rt(struct rt6_info *rt, struct nl_info *info)
++static int __ip6_ins_rt(struct rt6_info *rt, struct nl_info *info,
++			struct nlattr *mx, int mx_len)
+ {
+ 	int err;
+ 	struct fib6_table *table;
+ 
+ 	table = rt->rt6i_table;
+ 	write_lock_bh(&table->tb6_lock);
+-	err = fib6_add(&table->tb6_root, rt, info);
++	err = fib6_add(&table->tb6_root, rt, info, mx, mx_len);
+ 	write_unlock_bh(&table->tb6_lock);
+ 
+ 	return err;
+@@ -875,7 +876,7 @@ int ip6_ins_rt(struct rt6_info *rt)
+ 	struct nl_info info = {
+ 		.nl_net = dev_net(rt->dst.dev),
+ 	};
+-	return __ip6_ins_rt(rt, &info);
++	return __ip6_ins_rt(rt, &info, NULL, 0);
  }
  
- static void flow_cache_gc_task(struct work_struct *work)
-@@ -230,7 +232,7 @@ flow_cache_lookup(struct net *net, const struct flowi *key, u16 family, u8 dir,
- 		if (fcp->hash_count > fc->high_watermark)
- 			flow_cache_shrink(fc, fcp);
+ static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort,
+@@ -1546,14 +1547,6 @@ int ip6_route_add(struct fib6_config *cfg)
+ 	if (rt->rt6i_dst.plen == 128)
+ 	       rt->dst.flags |= DST_HOST;
  
--		fle = kmem_cache_alloc(net->xfrm.flow_cachep, GFP_ATOMIC);
-+		fle = kmem_cache_alloc(flow_cachep, GFP_ATOMIC);
- 		if (fle) {
- 			fle->net = net;
- 			fle->family = family;
-@@ -435,10 +437,10 @@ int flow_cache_init(struct net *net)
- 	int i;
- 	struct flow_cache *fc = &net->xfrm.flow_cache_global;
+-	if (!(rt->dst.flags & DST_HOST) && cfg->fc_mx) {
+-		u32 *metrics = kzalloc(sizeof(u32) * RTAX_MAX, GFP_KERNEL);
+-		if (!metrics) {
+-			err = -ENOMEM;
+-			goto out;
+-		}
+-		dst_init_metrics(&rt->dst, metrics, 0);
+-	}
+ #ifdef CONFIG_IPV6_SUBTREES
+ 	ipv6_addr_prefix(&rt->rt6i_src.addr, &cfg->fc_src, cfg->fc_src_len);
+ 	rt->rt6i_src.plen = cfg->fc_src_len;
+@@ -1672,31 +1665,13 @@ int ip6_route_add(struct fib6_config *cfg)
+ 	rt->rt6i_flags = cfg->fc_flags;
  
--	/* Initialize per-net flow cache global variables here */
--	net->xfrm.flow_cachep = kmem_cache_create("flow_cache",
--					sizeof(struct flow_cache_entry),
--					0, SLAB_PANIC, NULL);
-+	if (!flow_cachep)
-+		flow_cachep = kmem_cache_create("flow_cache",
-+						sizeof(struct flow_cache_entry),
-+						0, SLAB_PANIC, NULL);
- 	spin_lock_init(&net->xfrm.flow_cache_gc_lock);
- 	INIT_LIST_HEAD(&net->xfrm.flow_cache_gc_list);
- 	INIT_WORK(&net->xfrm.flow_cache_gc_work, flow_cache_gc_task);
+ install_route:
+-	if (cfg->fc_mx) {
+-		struct nlattr *nla;
+-		int remaining;
+-
+-		nla_for_each_attr(nla, cfg->fc_mx, cfg->fc_mx_len, remaining) {
+-			int type = nla_type(nla);
+-
+-			if (type) {
+-				if (type > RTAX_MAX) {
+-					err = -EINVAL;
+-					goto out;
+-				}
+-
+-				dst_metric_set(&rt->dst, type, nla_get_u32(nla));
+-			}
+-		}
+-	}
+-
+ 	rt->dst.dev = dev;
+ 	rt->rt6i_idev = idev;
+ 	rt->rt6i_table = table;
+ 
+ 	cfg->fc_nlinfo.nl_net = dev_net(dev);
+ 
+-	return __ip6_ins_rt(rt, &cfg->fc_nlinfo);
++	return __ip6_ins_rt(rt, &cfg->fc_nlinfo, cfg->fc_mx, cfg->fc_mx_len);
+ 
+ out:
+ 	if (dev)
