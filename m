@@ -1,46 +1,35 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH RFC net-next v1 0/9] ptp: dynamic pin control
-Date: Mon, 10 Mar 2014 14:42:27 +0100
-Message-ID: <20140310134227.GB19781@netboy>
-References: <cover.1394307303.git.richardcochran@gmail.com>
- <1394455974.2296.22.camel@e37108.spectralink.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net-next: NULL pointer dereference on adding a net namespace
+ and a system freeze
+Date: Mon, 10 Mar 2014 06:44:29 -0700
+Message-ID: <1394459069.3607.8.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140310014452.144b0491@north>
+		 <1394424146.3607.2.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1394424557.3607.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <531D60EF.9000501@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"christian.riesch@omicron.at" <christian.riesch@omicron.at>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: =?iso-8859-1?B?U/hyZW5zZW4s?= Stefan
-	<Stefan.Sorensen@spectralink.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1394455974.2296.22.camel@e37108.spectralink.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jakub Kicinski <moorray3@wp.pl>, netdev@vger.kernel.org,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Fan Du <fan.du@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:64316 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753660AbaCJNob (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 09:44:31 -0400
+Received: by mail-pd0-f180.google.com with SMTP id v10so7115590pde.11
+        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 06:44:30 -0700 (PDT)
+In-Reply-To: <531D60EF.9000501@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 10, 2014 at 12:52:57PM +0000, S=F8rensen, Stefan wrote:
->=20
-> What are the n_ext_ts and n_per_out supposed to be set to now? The
-> number of pins configured for the relevant function or the number of
-> channels that are available for the function?
+On Mon, 2014-03-10 at 14:51 +0800, Fan Du wrote:
 
-They are the number of available functions. This is not necessarily the
-same as the number of pins. Many chips have more functions than pins.
+> Sometimes network activity only on netns could trigger bugs like memory leakage,
+> using per-netns kmem_cache could help to identify which netns to be blamed.
+> 
+> Anyway if this is inappropriate, let's make it global as you did below.
 
-> The implementation is limited to a single function for each pin - the
-> dp83640 supports an ext_ts and several periodic outputs on the same p=
-in,
-> but I do not see that many real-world uses.=20
-
-Yes, it does support different functions on a single pin, but not at
-the same time.  You have to choose what function you want on each pin,
-and that is what the new ioctl lets you do.
-
-I did not change the n_per_out in this series, but once this basic
-support gets merged, then you will be able to increase n_per_out for
-the dp83640 with little extra effort.
-
-Thanks,
-Richard
+But you forgot to kmem_cache_destroy() the cache at netns removal, so
+this also is a leak ;)
