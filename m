@@ -1,46 +1,48 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v3 0/3] dp83640: Get pin and master/slave configuration
- from DT
-Date: Mon, 10 Mar 2014 14:54:03 +0100
-Message-ID: <20140310135402.GC19781@netboy>
-References: <1392302129-24947-1-git-send-email-stefan.sorensen@spectralink.com>
- <20140213.173957.2126489785330496380.davem@davemloft.net>
- <20140214090601.GA3906@netboy>
+From: Eric Paris <eparis@redhat.com>
+Subject: Re: [GIT PULL] namespaces fixes for 3.14-rcX
+Date: Mon, 10 Mar 2014 09:59:04 -0400
+Message-ID: <1394459944.17193.12.camel@localhost>
+References: <874n3ir0uw.fsf_-_@xmission.com>
+	 <87mwhaplo4.fsf_-_@xmission.com>
+	 <20140304133004.b565820f60f595a48e621e58@linux-foundation.org>
+	 <20140304.165122.445822929490466603.davem@davemloft.net>
+	 <87mwh5d1tf.fsf@xmission.com>
+	 <20140304145037.d46ee775d293dd1ad60aa8e3@linux-foundation.org>
+	 <87bnxesqf0.fsf_-_@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stefan.sorensen-usnHOLptxrsHrNJx0XZkJA@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20140214090601.GA3906@netboy>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, rgb@redhat.com,
+	linux-audit@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87bnxesqf0.fsf_-_@xmission.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 14, 2014 at 10:06:01AM +0100, Richard Cochran wrote:
-> On Thu, Feb 13, 2014 at 05:39:57PM -0500, David Miller wrote:
-> > If you don't like it, be angry at whoever added this module parameter
-> > in the first place, not me.  Module parameters are 99 times out of 100
-> > not the right way to configure something, really.
+On Sun, 2014-03-09 at 20:06 -0700, Eric W. Biederman wrote:
+> Linus,
 > 
-> Yeah, I am the one, be angry with me.
+> Please pull the for-linus branch from the git tree:
+> 
+>    git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/user-namespace.git for-linus
+> 
+>    HEAD: d211f177b28ec070c25b3d0b960aa55f352f731f audit: Update kdoc for audit_send_reply and audit_list_rules_send
+> 
+> Starting with 3.14-rc1 the audit code is faulty (think oopses and races)
+> with respect to how it computes the network namespace of which socket to
+> reply to, and I happened to notice by chance when reading through the
+> code.
+> 
+> My efforts to get these fixes noticed by people who care about audit
+> seem to have landed on deaf ears, so since these are namespace related I
+> have put them in my tree.
 
-Look back at this driver, there was in fact a good reason to have at
-least the "calibration" pin as a module parameter. When using multiple
-phyters, together they should act as one clock. The driver does this
-automatically during the probe method, and so it needs to know which
-pin to use well before user space is ready.
+This commentary sounds like a pile of crap seeing as how there was a
+whole discussion around how to handle this stuff, which you were a part
+of.  And that the audit tree already picked up these 2 patches.
 
-However, the other pin functions could have waited for user space
-configuration, but I had just lumped them all together. Going forward,
-I think the get/setpin ioctl will work fine both for this driver
-(without changing the legacy module parameters) and for future ones.
-
-Thanks,
-Richard
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+In any case, since I haven't sent them to Linus and I'm glad that is
+done, so feel free to consider this me Acking the pull request.
