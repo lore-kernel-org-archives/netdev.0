@@ -1,58 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: fix uninitalized WOL parameters in
- phy_ethtool_get_wol
-Date: Mon, 10 Mar 2014 16:23:49 -0400 (EDT)
-Message-ID: <20140310.162349.2007153760780671206.davem@davemloft.net>
-References: <1394413270-7169-1-git-send-email-sebastian.hesselbarth@gmail.com>
-	<1394419893.15968.88.camel@deadeye.wl.decadent.org.uk>
-	<531D98D1.4000707@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH V3] ss: Add support for retrieving SELinux contexts
+Date: Mon, 10 Mar 2014 13:24:04 -0700
+Message-ID: <20140310132404.6d792d30@nehalam.linuxnetplumber.net>
+References: <1394188612-3662-1-git-send-email-richard_c_haines@btinternet.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: sebastian.hesselbarth@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <531D98D1.4000707@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+To: Richard Haines <richard_c_haines@btinternet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:46709 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751231AbaCJUYH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 16:24:07 -0400
+Received: by mail-pd0-f175.google.com with SMTP id x10so7531918pdj.34
+        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 13:24:06 -0700 (PDT)
+In-Reply-To: <1394188612-3662-1-git-send-email-richard_c_haines@btinternet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Date: Mon, 10 Mar 2014 10:49:53 +0000
+On Fri,  7 Mar 2014 10:36:52 +0000
+Richard Haines <richard_c_haines@btinternet.com> wrote:
 
-> void phy_ethtool_get_wol(struct phy_device *phydev, struct
-> ethtool_wolinfo *wol)
-> {
-> 	memset(wol, 0, sizeof(*wol));
+> The process SELinux contexts can be added to the output using the -Z
+> option. Using the -z option will show the process and socket contexts (see
+> the man page for details).
+> For netlink sockets: if valid process show process context, if pid = 0
+> show kernel initial context, if unknown show "unavailable".
 > 
-> 	if (phydev && phydev->drv->get_wol)
-> 		phydev->drv->get_wol(phydev, wol);
-> }
-> 
-> That would also simplify above drivers down to e.g:
-> 
-> static void cpsw_get_wol(struct net_device *ndev, struct
-> ethtool_wolinfo *wol)
-> {
-> 	struct cpsw_priv *priv = netdev_priv(ndev);
-> 	int slave_no = cpsw_slave_index(priv);
-> 	phy_ethtool_get_wol(priv->slaves[slave_no].phy, wol);
-> }
-> 
-> instead of:
-> 
-> static void cpsw_get_wol(struct net_device *ndev, struct
-> ethtool_wolinfo *wol)
-> {
-> 	struct cpsw_priv *priv = netdev_priv(ndev);
-> 	int slave_no = cpsw_slave_index(priv);
-> 
-> 	wol->supported = 0;
-> 	wol->wolopts = 0;
-> 
-> 	if (priv->slaves[slave_no].phy)
-> 		phy_ethtool_get_wol(priv->slaves[slave_no].phy, wol);
-> }
+> Signed-off-by: Richard Haines <richard_c_haines@btinternet.com>
 
-Agreed, since phy_ethtool_get_wol() is the common routine used by the drivers,
-we should make it clear the structure.
+Applied, thanks
