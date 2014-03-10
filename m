@@ -1,59 +1,72 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv5 net-next 01/31] cxgb4: Fix some small bugs in t4_sge_init_soft() when our Page Size is 64KB
-Date: Mon, 10 Mar 2014 22:37:58 +0530
-Message-ID: <1394471308-4304-2-git-send-email-hariprasad@chelsio.com>
-References: <1394471308-4304-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
-	swise@opengridcomputing.com, leedom@chelsio.com,
-	santosh@chelsio.com, kumaras@chelsio.com, nirranjan@chelsio.com,
-	hariprasad@chelsio.com
-To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: [PATCH net-next 1/5] vxlan: Make VXLAN default UDP port number available for others
+Date: Mon, 10 Mar 2014 12:48:58 -0400
+Message-ID: <1394470142-13992-2-git-send-email-shahed.shaikh@qlogic.com>
+References: <1394470142-13992-1-git-send-email-shahed.shaikh@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:6719 "EHLO
-	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753667AbaCJRQ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:16:56 -0400
-In-Reply-To: <1394471308-4304-1-git-send-email-hariprasad@chelsio.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:55696 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754234AbaCJRZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:25:06 -0400
+In-Reply-To: <1394470142-13992-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kumar Sanghvi <kumaras@chelsio.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-We'd come in with SGE_FL_BUFFER_SIZE[0] and [1] both equal to 64KB and the
-extant logic would flag that as an error.
+Although vxlan module has capability to notify udp ports to
+other interested net devices using .ndo_add_rx_vxlan_port and
+.ndo_del_rx_vxlan_port, there could be some devices which support
+vxlan offload but not interested in updating udp port numbers.
+This may be because some hardware do not support programming multiple
+udp ports and their drivers may decide to program only default udp port
+into adapter. So that adapter, at least, can do offloading for
+default udp port number.
 
-Based on original work by Casey Leedom <leedom@chelsio.com>
-
-Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
+Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/sge.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/vxlan.c | 6 +-----
+ include/net/vxlan.h | 6 ++++++
+ 2 files changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index af76b25..3a2ecd8 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2596,11 +2596,19 @@ static int t4_sge_init_soft(struct adapter *adap)
- 	fl_small_mtu = READ_FL_BUF(RX_SMALL_MTU_BUF);
- 	fl_large_mtu = READ_FL_BUF(RX_LARGE_MTU_BUF);
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index eb59b14..ace758f 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -71,11 +71,7 @@ struct vxlanhdr {
+ 	__be32 vx_vni;
+ };
  
-+	/* We only bother using the Large Page logic if the Large Page Buffer
-+	 * is larger than our Page Size Buffer.
-+	 */
-+	if (fl_large_pg <= fl_small_pg)
-+		fl_large_pg = 0;
+-/* UDP port for VXLAN traffic.
+- * The IANA assigned port is 4789, but the Linux default is 8472
+- * for compatibility with early adopters.
+- */
+-static unsigned short vxlan_port __read_mostly = 8472;
++static unsigned short vxlan_port __read_mostly = VXLAN_DEFAULT_PORT;
+ module_param_named(udp_port, vxlan_port, ushort, 0444);
+ MODULE_PARM_DESC(udp_port, "Destination UDP port");
+ 
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index 5deef1a..4c16629 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -8,6 +8,12 @@
+ #define VNI_HASH_BITS	10
+ #define VNI_HASH_SIZE	(1<<VNI_HASH_BITS)
+ 
++/* UDP port for VXLAN traffic.
++ * The IANA assigned port is 4789, but the Linux default is 8472
++ * for compatibility with early adopters.
++ */
++#define VXLAN_DEFAULT_PORT 8472
 +
- 	#undef READ_FL_BUF
+ struct vxlan_sock;
+ typedef void (vxlan_rcv_t)(struct vxlan_sock *vh, struct sk_buff *skb, __be32 key);
  
-+	/* The Page Size Buffer must be exactly equal to our Page Size and the
-+	 * Large Page Size Buffer should be 0 (per above) or a power of 2.
-+	 */
- 	if (fl_small_pg != PAGE_SIZE ||
--	    (fl_large_pg != 0 && (fl_large_pg < fl_small_pg ||
--				  (fl_large_pg & (fl_large_pg-1)) != 0))) {
-+	    (fl_large_pg & (fl_large_pg-1)) != 0) {
- 		dev_err(adap->pdev_dev, "bad SGE FL page buffer sizes [%d, %d]\n",
- 			fl_small_pg, fl_large_pg);
- 		return -EINVAL;
 -- 
-1.8.4
+1.8.3.1
