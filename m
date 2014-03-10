@@ -1,59 +1,74 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH net-next] ipv6: ip6_forward: perform skb->pkt_type check at the beginning
-Date: Mon, 10 Mar 2014 13:10:20 +0800
-Message-ID: <1394428220-9955-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:34868 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752189AbaCJFJK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 01:09:10 -0400
-Received: by mail-pb0-f54.google.com with SMTP id ma3so6824884pbc.27
-        for <netdev@vger.kernel.org>; Sun, 09 Mar 2014 22:09:10 -0700 (PDT)
-Received: from localhost ([1.202.252.122])
-        by mx.google.com with ESMTPSA id pe3sm60889025pbc.23.2014.03.09.22.09.07
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Sun, 09 Mar 2014 22:09:09 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net V2] vhost: net: switch to use data copy if pending
+	DMAs exceed the limit
+Date: Mon, 10 Mar 2014 13:15:48 +0800
+Message-ID: <531D4A84.2060401@redhat.com>
+References: <1394170107-12018-1-git-send-email-jasowang@redhat.com>
+	<20140307.163948.633184079575086092.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: virtio-dev@lists.oasis-open.org, kvm@vger.kernel.org, mst@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, qinchuanyu@huawei.com
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140307.163948.633184079575086092.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Li RongQing <roy.qing.li@gmail.com> 
+On 03/08/2014 05:39 AM, David Miller wrote:
+> From: Jason Wang <jasowang@redhat.com>
+> Date: Fri,  7 Mar 2014 13:28:27 +0800
+>
+>> This is because the delay added by htb may lead the delay the finish
+>> of DMAs and cause the pending DMAs for tap0 exceeds the limit
+>> (VHOST_MAX_PEND). In this case vhost stop handling tx request until
+>> htb send some packets. The problem here is all of the packets
+>> transmission were blocked even if it does not go to VM2.
+> Isn't this essentially head of line blocking?
 
-Packets which have L2 address different from ours should be
-already filtered before entering into ip6_forward().
+Yes it is.
+>> We can solve this issue by relaxing it a little bit: switching to use
+>> data copy instead of stopping tx when the number of pending DMAs
+>> exceed half of the vq size. This is safe because:
+>>
+>> - The number of pending DMAs were still limited (half of the vq size)
+>> - The out of order completion during mode switch can make sure that
+>>   most of the tx buffers were freed in time in guest.
+>>
+>> So even if about 50% packets were delayed in zero-copy case, vhost
+>> could continue to do the transmission through data copy in this case.
+>>
+>> Test result:
+>>
+>> Before this patch:
+>> VM1 to VM2 throughput is 9.3Mbit/s
+>> VM1 to External throughput is 40Mbit/s
+>> CPU utilization is 7%
+>>
+>> After this patch:
+>> VM1 to VM2 throughput is 9.3Mbit/s
+>> Vm1 to External throughput is 93Mbit/s
+>> CPU utilization is 16%
+>>
+>> Completed performance test on 40gbe shows no obvious changes in both
+>> throughput and cpu utilization with this patch.
+>>
+>> The patch only solve this issue when unlimited sndbuf. We still need a
+>> solution for limited sndbuf.
+>>
+>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>> Cc: Qin Chuanyu <qinchuanyu@huawei.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> I'd like some vhost experts reviewing this before I apply it.
 
-Perform that check at the beginning to avoid processing such packets.
-And use unlikely to optimise.
-
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/ipv6/ip6_output.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 2bc1070..90dd551 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -367,6 +367,9 @@ int ip6_forward(struct sk_buff *skb)
- 	if (net->ipv6.devconf_all->forwarding == 0)
- 		goto error;
- 
-+	if (unlikely(skb->pkt_type != PACKET_HOST))
-+		goto drop;
-+
- 	if (skb_warn_if_lro(skb))
- 		goto drop;
- 
-@@ -376,9 +379,6 @@ int ip6_forward(struct sk_buff *skb)
- 		goto drop;
- 	}
- 
--	if (skb->pkt_type != PACKET_HOST)
--		goto drop;
--
- 	skb_forward_csum(skb);
- 
- 	/*
--- 
-1.7.10.4
+Sure.
