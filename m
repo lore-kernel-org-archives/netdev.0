@@ -1,48 +1,37 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: Re: [GIT PULL] namespaces fixes for 3.14-rcX
-Date: Mon, 10 Mar 2014 09:59:04 -0400
-Message-ID: <1394459944.17193.12.camel@localhost>
-References: <874n3ir0uw.fsf_-_@xmission.com>
-	 <87mwhaplo4.fsf_-_@xmission.com>
-	 <20140304133004.b565820f60f595a48e621e58@linux-foundation.org>
-	 <20140304.165122.445822929490466603.davem@davemloft.net>
-	 <87mwh5d1tf.fsf@xmission.com>
-	 <20140304145037.d46ee775d293dd1ad60aa8e3@linux-foundation.org>
-	 <87bnxesqf0.fsf_-_@xmission.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net-next: NULL pointer dereference on adding a net namespace
+ and a system freeze
+Date: Mon, 10 Mar 2014 07:04:36 -0700
+Message-ID: <1394460276.3607.10.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140310014452.144b0491@north>
+	 <1394424146.3607.2.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1394424557.3607.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140310131909.33a3042c@north>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, rgb@redhat.com,
-	linux-audit@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87bnxesqf0.fsf_-_@xmission.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Fan Du <fan.du@windriver.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Jakub =?UTF-8?Q?Kici=C5=84ski?= <moorray3@wp.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:60724 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753409AbaCJOEj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 10:04:39 -0400
+Received: by mail-pd0-f175.google.com with SMTP id x10so7110361pdj.20
+        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 07:04:38 -0700 (PDT)
+In-Reply-To: <20140310131909.33a3042c@north>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-03-09 at 20:06 -0700, Eric W. Biederman wrote:
-> Linus,
-> 
-> Please pull the for-linus branch from the git tree:
-> 
->    git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/user-namespace.git for-linus
-> 
->    HEAD: d211f177b28ec070c25b3d0b960aa55f352f731f audit: Update kdoc for audit_send_reply and audit_list_rules_send
-> 
-> Starting with 3.14-rc1 the audit code is faulty (think oopses and races)
-> with respect to how it computes the network namespace of which socket to
-> reply to, and I happened to notice by chance when reading through the
-> code.
-> 
-> My efforts to get these fixes noticed by people who care about audit
-> seem to have landed on deaf ears, so since these are namespace related I
-> have put them in my tree.
+On Mon, 2014-03-10 at 13:19 +0100, Jakub Kici=C5=84ski wrote:
 
-This commentary sounds like a pile of crap seeing as how there was a
-whole discussion around how to handle this stuff, which you were a part
-of.  And that the audit tree already picked up these 2 patches.
+> It helps with the flow_cache warning and BUG ("ip netns add" works) b=
+ut
+> machine still freezes after 5-10 minutes.  I will try to revert
+> ca925cf1534ebcec332c08719a7dee6ee1782ce4 and see if that solves it.
 
-In any case, since I haven't sent them to Linus and I'm glad that is
-done, so feel free to consider this me Acking the pull request.
+I think the other issue is separate. It might be triggered by
+conntracking change.
+
+Thanks !
