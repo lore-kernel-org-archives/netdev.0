@@ -1,79 +1,46 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH net-next 0/7] mlx4: Add SRIOV support for RoCE
-Date: Mon, 10 Mar 2014 13:08:02 -0500
-Message-ID: <1394474882.28217.6.camel@dcbw.local>
-References: <1394376844-12812-1-git-send-email-ogerlitz@mellanox.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RCU PATCH 13/14] net: sched: make bstats per cpu and estimator
+ RCU safe
+Date: Mon, 10 Mar 2014 11:06:14 -0700
+Message-ID: <1394474774.3607.53.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140310170008.3011.73599.stgit@nitbit.x32>
+	 <20140310170837.3011.21600.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, roland@kernel.org,
-	jackm@dev.mellanox.co.il, amirv@mellanox.com
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29857 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752381AbaCJSGY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Mar 2014 14:06:24 -0400
-In-Reply-To: <1394376844-12812-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:59767 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752121AbaCJSGX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 14:06:23 -0400
+Received: by mail-pd0-f174.google.com with SMTP id y13so7312802pdi.5
+        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 11:06:17 -0700 (PDT)
+In-Reply-To: <20140310170837.3011.21600.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-03-09 at 16:53 +0200, Or Gerlitz wrote:
-> Hi Dave, Roland
-> 
-> This series adds SRIOV support for RoCE (RDMA over Ethernet). 
-> 
-> The patches touch both the mlx4_core and mlx4_ib drivers, and as such we 
-> prefer to run them through netdev and the net-next tree. This will also 
-> allow for another feature we hope to get accepted during the coming merge 
-> window (single ported mlx4 VFs) which is strictly in mlx4_core to get in 
-> smoothly without heavy context based dependencies with the IB tree. 
-> 
-> Roland, hope this is ok with you?
+On Mon, 2014-03-10 at 10:08 -0700, John Fastabend wrote:
 
-While I could be wrong, I think the phys_port_id sysfs attribute is
-relevant here.  This attribute should be set for any VF so that
-userspace clients can determine that two VFs are backed by the same PF,
-which of course means they share bandwidth and thus some operations
-cannot be performed.  This is implemented with ndo_get_phys_port_id.
+> +void
+> +__gnet_stats_copy_basic_cpu(struct gnet_stats_basic_packed *bstats,
+> +			    struct gnet_stats_basic_cpu *b)
+> +{
+> +	int i;
+> +
+> +	for_each_possible_cpu(i) {
+> +		struct gnet_stats_basic_cpu *bcpu = per_cpu_ptr(b, i);
+> +		unsigned int start;
+> +
+> +		do {
+> +			start = u64_stats_fetch_begin_bh(&bcpu->syncp);
+> +			bstats->bytes += bcpu->bstats.bytes;
+> +			bstats->packets += bcpu->bstats.packets;
+> +		} while (u64_stats_fetch_retry_bh(&bcpu->syncp, start));
+> +	}
+> +}
 
-Dan
-
-> The patches are against net-next, as of commit 2d8d40a "pkt_sched: fq: 
-> do not hold qdisc lock while allocating memory"
-> 
-> Or.
-> 
-> 
-> Jack Morgenstein (6):
->   mlx4: Adjust QP1 multiplexing for RoCE/SRIOV
->   mlx4_core: For RoCE, allow slaves to set the GID entry at that slave's index
->   mlx4: In RoCE allow guests to have multiple GIDS
->   mlx4: Add ref counting to port MAC table for RoCE
->   mlx4: Implement IP based gids support for RoCE/SRIOV
->   mlx4: Activate RoCE/SRIOV
-> 
-> Shani Michaelli (1):
->   mlx4_ib: Fix SIDR support of for UD QPs under SRIOV/RoCE
-> 
->  drivers/infiniband/hw/mlx4/cm.c                    |   80 ++++-
->  drivers/infiniband/hw/mlx4/cq.c                    |   42 ++-
->  drivers/infiniband/hw/mlx4/mad.c                   |  123 +++++++-
->  drivers/infiniband/hw/mlx4/main.c                  |    8 -
->  drivers/infiniband/hw/mlx4/mcg.c                   |    2 +-
->  drivers/infiniband/hw/mlx4/mlx4_ib.h               |   21 ++-
->  drivers/infiniband/hw/mlx4/qp.c                    |  319 ++++++++++++++++----
->  drivers/net/ethernet/mellanox/mlx4/cmd.c           |   23 ++
->  drivers/net/ethernet/mellanox/mlx4/fw.c            |    5 +-
->  drivers/net/ethernet/mellanox/mlx4/main.c          |    6 +-
->  drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    8 +
->  drivers/net/ethernet/mellanox/mlx4/port.c          |  142 +++++++++-
->  .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  146 ++++++++--
->  include/linux/mlx4/cmd.h                           |    6 +
->  include/linux/mlx4/device.h                        |    8 +-
->  15 files changed, 801 insertions(+), 138 deletions(-)
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This is buggy. You need to use temporary variables, otherwise if the
+retry is done, you add bcpu->bstats.bytes/packets multiple times.
