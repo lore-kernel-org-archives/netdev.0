@@ -1,48 +1,51 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net] Xen-netback: Fix issue caused by using
- gso_type wrongly
-Date: Mon, 10 Mar 2014 13:29:08 +0000
-Message-ID: <531DBE24.8020403@citrix.com>
-References: <1394437454-2402-1-git-send-email-Annie.li@oracle.com> <9AAE0902D5BC7E449B7C8E4E778ABCD0279FBD@AMSPEX01CL01.citrite.net> <531DBCEC.4070201@oracle.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH RFC net-next v1 1/9] ptp: introduce programmable pins.
+Date: Mon, 10 Mar 2014 14:32:15 +0100
+Message-ID: <20140310133215.GA19781@netboy>
+References: <cover.1394307303.git.richardcochran@gmail.com>
+ <d9cb37a7d6e57d7f103dab78f98044697d3c4433.1394307304.git.richardcochran@gmail.com>
+ <1394455989.2296.23.camel@e37108.spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: annie li <annie.li@oracle.com>,
-	Paul Durrant <Paul.Durrant@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:4812 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752628AbaCJN3L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Mar 2014 09:29:11 -0400
-In-Reply-To: <531DBCEC.4070201@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"christian.riesch@omicron.at" <christian.riesch@omicron.at>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: =?iso-8859-1?B?U/hyZW5zZW4s?= Stefan
+	<Stefan.Sorensen@spectralink.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1394455989.2296.23.camel@e37108.spectralink.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/03/14 13:23, annie li wrote:
-> On 2014/3/10 17:51, Paul Durrant wrote:
->>> @@ -299,12 +299,12 @@ static void xenvif_gop_frag_copy(struct xenvif
->>> *vif,
->>> struct sk_buff *skb,
->>>           }
->>>
->>>           /* Leave a gap for the GSO descriptor. */
->>> -        if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
->>> -            gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
->>> -        else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
->>> -            gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
->>> -        else
->>> -            gso_type = XEN_NETIF_GSO_TYPE_NONE;
->>> +        if (skb_shinfo(skb)->gso_size) {
->> You should probably use skb_is_gso(skb) for your test.
->
-> skb_is_gso does the same thing, skb_iso_gso and
-> skb_shinfo(skb)->gso_size coexist. But I can change the code as you
-> suggested if you like, will post a v2 patch for this.
+On Mon, Mar 10, 2014 at 12:53:09PM +0000, S=F8rensen, Stefan wrote:
+> On Sat, 2014-03-08 at 20:42 +0100, Richard Cochran wrote:
 
-It's always better to use core functions which codify these rules. Also, 
-from the reader's point of view, it's more obvious to see skb_is_gso, 
-than checking gso_size.
+> > +int ptp_find_pin(struct ptp_clock *ptp,
+> > +		 enum ptp_pin_function func, unsigned int chan)
+> > +{
+> > +	struct ptp_pin_desc *pin =3D NULL;
+> > +	int i;
+> > +
+> > +	mutex_lock(&ptp->pincfg_mux);
+> > +	for (i =3D 0; i < ptp->info->n_pins; i++) {
+> > +		if (ptp->info->pin_config[i].func =3D=3D func &&
+> > +		    ptp->info->pin_config[i].chan =3D=3D chan) {
+> > +			pin =3D &ptp->info->pin_config[i];
+> > +			break;
+> > +		}
+> > +	}
+> > +	mutex_unlock(&ptp->pincfg_mux);
+> > +
+> > +	return pin ? pin - ptp->info->pin_config : -1;
+> > +}
+>=20
+> Maybe replace 'pin - ptp->info->pin_config' with 'i'?
+
+Yes, of course.
+
+Thanks,
+Richard
