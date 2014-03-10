@@ -1,35 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] pkt_sched: add cond_resched() to class and
- qdisc dump
-Date: Mon, 10 Mar 2014 13:12:24 -0700
-Message-ID: <1394482344.3607.58.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1394244064.20149.51.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140310.153205.851677230247140352.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] hyperv: Change the receive buffer size for
+ legacy hosts
+Date: Mon, 10 Mar 2014 16:16:53 -0400 (EDT)
+Message-ID: <20140310.161653.166084311676254585.davem@davemloft.net>
+References: <1394406659-22493-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:35944 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753258AbaCJUM0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 16:12:26 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rq2so7691064pbb.19
-        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 13:12:25 -0700 (PDT)
-In-Reply-To: <20140310.153205.851677230247140352.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1394406659-22493-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-03-10 at 15:32 -0400, David Miller wrote:
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Sun,  9 Mar 2014 16:10:59 -0700
 
-> Is it OK to sleep (or rather: cond_resched()) in an RCU region?
-> That's what will potentially happen via tc_dump_qdisc() it seems.
+> Due to a bug in the Hyper-V host verion 2008R2, we need to use a slightly smaller
+> receive buffer size, otherwise the buffer will not be accepted by the legacy hosts.
+> 
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
 
-Hmpf, you are right I forgot this.
-
-RTNL protects us in tc_dump_qdisc().
-
-I need to remove this useless rcu protection.
-
-Thanks
+Applied.
