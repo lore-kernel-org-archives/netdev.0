@@ -1,37 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] pkt_sched: move the sanity test in qdisc_list_add()
-Date: Mon, 10 Mar 2014 15:44:43 -0400 (EDT)
-Message-ID: <20140310.154443.2004305018874618616.davem@davemloft.net>
-References: <7625.1387476879@turing-police.cc.vt.edu>
-	<1387556764.19078.441.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1394294479.20149.66.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next 1/7] mlx4: Adjust QP1 multiplexing for
+ RoCE/SRIOV
+Date: Mon, 10 Mar 2014 15:50:15 -0400 (EDT)
+Message-ID: <20140310.155015.1679111216670234389.davem@davemloft.net>
+References: <1394376844-12812-1-git-send-email-ogerlitz@mellanox.com>
+	<1394376844-12812-2-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Valdis.Kletnieks@vt.edu, mt-ml@gmx.de, edumazet@google.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, roland@kernel.org,
+	jackm@dev.mellanox.co.il, amirv@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46699 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46732 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752304AbaCJToq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 15:44:46 -0400
-In-Reply-To: <1394294479.20149.66.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1753019AbaCJTuS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 15:50:18 -0400
+In-Reply-To: <1394376844-12812-2-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 08 Mar 2014 08:01:19 -0800
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Sun,  9 Mar 2014 16:53:58 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> The WARN_ON(root == &noop_qdisc)) added in qdisc_list_add()
-> can trigger in normal conditions when devices are not up.
-> It should be done only right before the list_add_tail() call.
-> 
-> Fixes: e57a784d8cae4 ("pkt_sched: set root qdisc before change() in attach_default_qdiscs()")
-> Reported-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-> Tested-by: Mirco Tischler <mt-ml@gmx.de>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> @@ -509,6 +510,10 @@ int mlx4_ib_send_to_slave(struct mlx4_ib_dev *dev, int slave, u8 port,
+>  	 * The driver will set the force loopback bit in post_send */
+>  	memset(&attr, 0, sizeof attr);
+>  	attr.port_num = port;
+> +	if (is_eth) {
+> +		mlx4_get_roce_gid_from_slave(dev->dev, port, slave, attr.grh.dgid.raw);
+> +		attr.ah_flags = IB_AH_GRH;
+> +	}
+>  	ah = ib_create_ah(tun_ctx->pd, &attr);
+>  	if (IS_ERR(ah))
+>  		return -ENOMEM;
 
-Applied, thanks Eric.
+Either the error returned from mlx4_get_roce_gid_from_slave() doesn't matter...
+
+> +			err = mlx4_get_roce_gid_from_slave(to_mdev(ib_dev)->dev,
+> +							   be32_to_cpu(ah->av.ib.port_pd) >> 24,
+> +							   ah->av.ib.gid_index, &sgid.raw[0]);
+> +			if (err)
+> +				return err;
+
+or it does.
+
+Please decide whether it does or not.  If it does, make all call sites check the return
+value.  If it does not, remove the return value and make the function return void.
