@@ -1,91 +1,37 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH v2] vmxnet3: fix netpoll race condition
-Date: Mon, 10 Mar 2014 06:55:55 -0400
-Message-ID: <1394448955-19915-1-git-send-email-nhorman@tuxdriver.com>
-References: <1394227527-31082-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Shreyas Bhatewara <sbhatewara@vmware.com>,
-	"VMware, Inc." <pv-drivers@vmware.com>,
-	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1394227527-31082-1-git-send-email-nhorman@tuxdriver.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Subject: RE: [PATCH v3 net-next 1/2] ethtool: Support for configurable RSS
+ hash key
+Date: Mon, 10 Mar 2014 11:13:23 +0000
+Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C88CD93@CMEXMB1.ad.emulex.com>
+References: <1393589141-10597-1-git-send-email-VenkatKumar.Duvvuru@Emulex.com>
+	 <0e1d7b54-dcbd-446d-b1c9-644086da138f@CMEXHTCAS2.ad.emulex.com>
+	 <1394063979.2861.25.camel@deadeye.wl.decadent.org.uk>
+	 <BF3270C86E8B1349A26C34E4EC1C44CB2C889D94@CMEXMB1.ad.emulex.com>
+ <1394407382.15968.84.camel@deadeye.wl.decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:7150 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752961AbaCJLNZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 07:13:25 -0400
+In-Reply-To: <1394407382.15968.84.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-vmxnet3's netpoll driver is incorrectly coded.  It directly calls
-vmxnet3_do_poll, which is the driver internal napi poll routine.  As the netpoll
-controller method doesn't block real napi polls in any way, there is a potential
-for race conditions in which the netpoll controller method and the napi poll
-method run concurrently.  The result is data corruption causing panics such as this
-one recently observed:
-PID: 1371   TASK: ffff88023762caa0  CPU: 1   COMMAND: "rs:main Q:Reg"
- #0 [ffff88023abd5780] machine_kexec at ffffffff81038f3b
- #1 [ffff88023abd57e0] crash_kexec at ffffffff810c5d92
- #2 [ffff88023abd58b0] oops_end at ffffffff8152b570
- #3 [ffff88023abd58e0] die at ffffffff81010e0b
- #4 [ffff88023abd5910] do_trap at ffffffff8152add4
- #5 [ffff88023abd5970] do_invalid_op at ffffffff8100cf95
- #6 [ffff88023abd5a10] invalid_op at ffffffff8100bf9b
-    [exception RIP: vmxnet3_rq_rx_complete+1968]
-    RIP: ffffffffa00f1e80  RSP: ffff88023abd5ac8  RFLAGS: 00010086
-    RAX: 0000000000000000  RBX: ffff88023b5dcee0  RCX: 00000000000000c0
-    RDX: 0000000000000000  RSI: 00000000000005f2  RDI: ffff88023b5dcee0
-    RBP: ffff88023abd5b48   R8: 0000000000000000   R9: ffff88023a3b6048
-    R10: 0000000000000000  R11: 0000000000000002  R12: ffff8802398d4cd8
-    R13: ffff88023af35140  R14: ffff88023b60c890  R15: 0000000000000000
-    ORIG_RAX: ffffffffffffffff  CS: 0010  SS: 0018
- #7 [ffff88023abd5b50] vmxnet3_do_poll at ffffffffa00f204a [vmxnet3]
- #8 [ffff88023abd5b80] vmxnet3_netpoll at ffffffffa00f209c [vmxnet3]
- #9 [ffff88023abd5ba0] netpoll_poll_dev at ffffffff81472bb7
-
-The fix is to do as other drivers do, and have the poll controller call the top
-half interrupt handler, which schedules a napi poll properly to recieve frames
-
-Tested by myself, successfully.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: Shreyas Bhatewara <sbhatewara@vmware.com>
-CC: "VMware, Inc." <pv-drivers@vmware.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: stable@vger.kernel.org
-
----
-Change notes:
-v2)
-* Fixed missing break statements
-* Added loop for each rx queue
----
- drivers/net/vmxnet3/vmxnet3_drv.c | 16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 3be786f..b7daa02 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -1761,12 +1761,18 @@ static void
- vmxnet3_netpoll(struct net_device *netdev)
- {
- 	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
-+	int i;
- 
--	if (adapter->intr.mask_mode == VMXNET3_IMM_ACTIVE)
--		vmxnet3_disable_all_intrs(adapter);
--
--	vmxnet3_do_poll(adapter, adapter->rx_queue[0].rx_ring[0].size);
--	vmxnet3_enable_all_intrs(adapter);
-+	switch (adapter->intr.type) {
-+	case VMXNET3_IT_MSIX:
-+		for (i = 0; i < adapter->num_rx_queues; i++)
-+			vmxnet3_msix_rx(0, &adapter->rx_queue[i]);
-+		break;
-+	case VMXNET3_IT_MSI:
-+	default:
-+		vmxnet3_intr(0, adapter->netdev);
-+		break;
-+	}
- 
- }
- #endif	/* CONFIG_NET_POLL_CONTROLLER */
--- 
-1.8.3.1
+PiA+ID4gV2h5IGlzIDB4REVBREJFRUYgc3BlY2lhbD8NCj4gPiBTaW5jZSAwIGlzIHVzZWQgYXMg
+YSBoaW50IHRvIHJlc2V0IHRvIGRlZmF1bHQsIHdlIHNob3VsZCBoYXZlIGEgd2F5IHRvDQo+ID4g
+aGludCB0aGF0IGluZGlyZWN0aW9uIHRhYmxlIGNvbmZpZ3VyYXRpb24gaXMgbm90IHJlcXVlc3Rl
+ZCBpbiB0aGlzDQo+ID4gY29udGV4dC4NCj4gDQo+IFRoYXQncyBub3QgbmVjZXNzYXJ5LCBhcyB5
+b3UgY2FuIHJlYWQgYW5kIHRoZW4gd3JpdGUgYmFjayB0aGUgc2FtZSB2YWx1ZXMuDQo+IA0KPiBC
+ZW4uDQoNCk1heSBiZSB0aGlzIGlzIGV4dHJlbWVseSBoeXBvdGhldGljYWwgYnV0IHdoYXQgaWYg
+YSBkcml2ZXIgZG9lc24ndCB3YW50IHRvIHN1cHBvcnQgaW5kaXJlY3Rpb24gY29uZmlndXJhdGlv
+biBhbmQgb25seSB3YW50cyB0byBzdXBwb3J0IGhhc2gga2V5IGNvbmZpZ3VyYXRpb24uDQpJbiBz
+dWNoIGEgY2FzZSwgdGhlIGtlcm5lbCBzaG91bGQga25vdyB0aGF0IGFyZSBubyBlbnRyaWVzIG9m
+IGluZGlyZWN0aW9uIGluIHJzc19jb25maWcuIEFsc28gSSB0aGluayBpdCdzIGJldHRlciB0byBr
+ZWVwIGhhc2gga2V5IGFuZCBpbmRpcmVjdGlvbiBjb25maWd1cmF0aW9ucyBpbmRlcGVuZGVudCBv
+ZiBlYWNoIG90aGVyLg0K
