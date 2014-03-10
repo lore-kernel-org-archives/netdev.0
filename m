@@ -1,98 +1,40 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH 2/5] skbuff: skb_segment: s/skb_frag/frag/
-Date: Mon, 10 Mar 2014 18:29:14 +0200
-Message-ID: <1394468807-25980-3-git-send-email-mst@redhat.com>
-References: <1394468807-25980-1-git-send-email-mst@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next] netdev: set __percpu attribute on
+ netdev_alloc_pcpu_stats
+Date: Mon, 10 Mar 2014 09:41:46 -0700
+Message-ID: <20140310094146.2aaa8e0e@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jbenc@redhat.com, David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Simon Horman <horms@verge.net.au>,
-	Paul Durrant <Paul.Durrant@citrix.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Miklos Szeredi <mszeredi@suse.cz>,
-	=?us-ascii?B?PT9VVEYtOD9xP1BldGVyPTIwUGFuPTI4PUU2PUJEPTk4PUU1PThEPUFC?=
-	 =?us-ascii?B?PUU1PUI5PUIzPTI5Pz0=?= <panweiping3@gmail.com>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1394468807-25980-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, Cong Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:57781 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753399AbaCJQlx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 12:41:53 -0400
+Received: by mail-pd0-f176.google.com with SMTP id r10so7252418pdi.7
+        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 09:41:51 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-skb_frag can in fact point at either skb
-or fskb so rename it generally "frag".
+This patch fixes sparse warnings in vlan driver.
+It propagates the sparse __percpu attribute from alloc_percpu
+into netdev_alloc_pcpu_stats. I expect it may trigger additional
+sparse warnings from other drivers that are missing the __percpu
+attribute.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- net/core/skbuff.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 3bc6d75..917cb60 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2853,7 +2853,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
- 	struct sk_buff *segs = NULL;
- 	struct sk_buff *tail = NULL;
- 	struct sk_buff *fskb = skb_shinfo(skb)->frag_list;
--	skb_frag_t *skb_frag = skb_shinfo(skb)->frags;
-+	skb_frag_t *frag = skb_shinfo(skb)->frags;
- 	unsigned int mss = skb_shinfo(skb)->gso_size;
- 	unsigned int doffset = skb->data - skb_mac_header(skb);
- 	unsigned int offset = doffset;
-@@ -2899,19 +2899,19 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+
+--- a/include/linux/netdevice.h	2014-03-03 10:37:53.282147105 -0800
++++ b/include/linux/netdevice.h	2014-03-10 09:32:48.599837500 -0700
+@@ -1812,7 +1812,7 @@ struct pcpu_sw_netstats {
  
- 			i = 0;
- 			nfrags = skb_shinfo(fskb)->nr_frags;
--			skb_frag = skb_shinfo(fskb)->frags;
-+			frag = skb_shinfo(fskb)->frags;
- 			pos += skb_headlen(fskb);
- 
- 			while (pos < offset + len) {
- 				BUG_ON(i >= nfrags);
- 
--				size = skb_frag_size(skb_frag);
-+				size = skb_frag_size(frag);
- 				if (pos + size > offset + len)
- 					break;
- 
- 				i++;
- 				pos += size;
--				skb_frag++;
-+				frag++;
- 			}
- 
- 			nskb = skb_clone(fskb, GFP_ATOMIC);
-@@ -2985,7 +2985,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
- 
- 				i = 0;
- 				nfrags = skb_shinfo(fskb)->nr_frags;
--				skb_frag = skb_shinfo(fskb)->frags;
-+				frag = skb_shinfo(fskb)->frags;
- 
- 				BUG_ON(!nfrags);
- 
-@@ -3000,7 +3000,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
- 				goto err;
- 			}
- 
--			*nskb_frag = *skb_frag;
-+			*nskb_frag = *frag;
- 			__skb_frag_ref(nskb_frag);
- 			size = skb_frag_size(nskb_frag);
- 
-@@ -3013,7 +3013,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
- 
- 			if (pos + size <= offset + len) {
- 				i++;
--				skb_frag++;
-+				frag++;
- 				pos += size;
- 			} else {
- 				skb_frag_size_sub(nskb_frag, pos + size - (offset + len));
--- 
-MST
+ #define netdev_alloc_pcpu_stats(type)				\
+ ({								\
+-	typeof(type) *pcpu_stats = alloc_percpu(type);		\
++	typeof(type) __percpu *pcpu_stats = alloc_percpu(type); \
+ 	if (pcpu_stats)	{					\
+ 		int i;						\
+ 		for_each_possible_cpu(i) {			\
