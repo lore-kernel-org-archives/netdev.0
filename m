@@ -1,91 +1,173 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: TCP fast open question
-Date: Mon, 10 Mar 2014 10:09:06 -0700
-Message-ID: <CAK6E8=cJnjReDL+TCv-hKxd1EaAud3T8kdz2C01NK=yYgAgBLQ@mail.gmail.com>
-References: <20140308115823.GA3185@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jerry Chu <hkchu@google.com>,
-	Xiaochen Wang <xiaochen.wxc@alibaba-inc.com>,
-	Zheng Liu <wenqing.lz@taobao.com>
-To: Zheng Liu <gnehzuil.liu@gmail.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCHv5 net-next 02/31] cxgb4: Add code to dump SGE registers when hitting idma hangs
+Date: Mon, 10 Mar 2014 22:37:59 +0530
+Message-ID: <1394471308-4304-3-git-send-email-hariprasad@chelsio.com>
+References: <1394471308-4304-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
+	swise@opengridcomputing.com, leedom@chelsio.com,
+	santosh@chelsio.com, kumaras@chelsio.com, nirranjan@chelsio.com,
+	hariprasad@chelsio.com
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:51356 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753520AbaCJRJr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:09:47 -0400
-Received: by mail-ie0-f179.google.com with SMTP id lx4so7571471iec.10
-        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 10:09:47 -0700 (PDT)
-In-Reply-To: <20140308115823.GA3185@gmail.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:5483 "EHLO
+	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754303AbaCJRRE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:17:04 -0400
+In-Reply-To: <1394471308-4304-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 8, 2014 at 3:58 AM, Zheng Liu <gnehzuil.liu@gmail.com> wrote:
-> Hi all,
->
-> Now we are trying to use TCP fast open in our nginx server, and we
-> encounter a problem under non-blocking socket.  I appreciate if some one
-> can reply this question.  Thanks in advance.
->
-> I describe our question here.  we have two machines, one is as server and
-> another is as client.  'net.ipv4.tcp_fastopen' on both of them are set to
-> 3.  The server program looks like below:
->
->   ...
->   listenfd = socket(AF_INET, SOCK_STREAM, 0);
->   bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
->   int tfo_opt = 1;
->   setsockopt(listenfd, SOL_TCP, TCP_LISTEN_INFO, &tfo_opt, sizeof(tfo_opt));
->   listen(listenfd, 5);
->   connfd = accept(listenfd, (struct sockaddr *)NULL, NULL);
->   recv(connfd, &buf, 4096)
->   ...
->
-> The client program:
->
->   ...
->   sockfd = socket(AF_INET, SOCK_STREAM, 0);
->   fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL, 0)|O_NONBLOCK);
->   sendto(sockfd, msg, strlen(msg), MSG_FASTOPEN,
->         (struct sockaddr *)&servaddr, sizeof(servaddr);
->   recv(sockfd, buf, 4096, 0);
->   ...
->
-> We use a non-blocking socket to connect the server and send some
-> messages.  After calling sendto(2) we always get an EINPROGRESS error.
-> We think it is reasonable because connect(2) could also return this
-> error with a non-blocking socket and the connection will be established
-> later.  The question is *whether or not the data will be sent* after the
-> connection is established.  If I understand correctly, sendto(2) will
-> return the number of bytes of data queued up in the kernel or sent in
-> the SYN packet.  Even though the EINPROGRESS is returned.  If sendto(2)
-> returns -1, that means that no data is queued up in kernel or sent in
-> the packet.  Please correct me if I miss-understand something.
-Correct.
-http://tools.ietf.org/html/draft-ietf-tcpm-fastopen-07#appendix-A.1
+From: Kumar Sanghvi <kumaras@chelsio.com>
 
->
-> We run the program in our testing environment, and we use tcpdump(1) to
-> capture the packets.  From the result we can see there is no any data
-> that is sent.  Then we do another testing that after calling sendto(2)
-The first handshake is used to get the Fast Open cookie for future
-connections. I suspect you didn't enable Fast Open on the server side.
-What're the output of 'sysctl net.ipv4.tcp_fastopen' on your client
-and server? pls send the tcpdump traces on both sides as well.
+Based on original work by Casey Leedom <leedom@chelsio.com>
 
-> the client program will sleep for 5 seconds and then call send(2) to
-> transfer some data.
->
->   $ ./client xx.xx.xx.xx
->   ret -1 errno 115
->
-> The program works well.  So that means that after getting a EINPROGRESS
-> error, the program must call send(2) manually.  Is it correct?  If we
-> want to avoid this problem, we need to set 'net.ipv4.tcp_fastopen' to
-> 0x707 ?
->
-> Regards,
->                                                 - Zheng
+Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h   |   1 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c   | 106 +++++++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |   3 +
+ 3 files changed, 110 insertions(+)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 944f2cb..509c976 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -1032,4 +1032,5 @@ void t4_db_dropped(struct adapter *adapter);
+ int t4_mem_win_read_len(struct adapter *adap, u32 addr, __be32 *data, int len);
+ int t4_fwaddrspace_write(struct adapter *adap, unsigned int mbox,
+ 			 u32 addr, u32 val);
++void t4_sge_decode_idma_state(struct adapter *adapter, int state);
+ #endif /* __CXGB4_H__ */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index d3c2a51..fb2fe65 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -2597,6 +2597,112 @@ int t4_mdio_wr(struct adapter *adap, unsigned int mbox, unsigned int phy_addr,
+ }
+ 
+ /**
++ *	t4_sge_decode_idma_state - decode the idma state
++ *	@adap: the adapter
++ *	@state: the state idma is stuck in
++ */
++void t4_sge_decode_idma_state(struct adapter *adapter, int state)
++{
++	static const char * const t4_decode[] = {
++		"IDMA_IDLE",
++		"IDMA_PUSH_MORE_CPL_FIFO",
++		"IDMA_PUSH_CPL_MSG_HEADER_TO_FIFO",
++		"Not used",
++		"IDMA_PHYSADDR_SEND_PCIEHDR",
++		"IDMA_PHYSADDR_SEND_PAYLOAD_FIRST",
++		"IDMA_PHYSADDR_SEND_PAYLOAD",
++		"IDMA_SEND_FIFO_TO_IMSG",
++		"IDMA_FL_REQ_DATA_FL_PREP",
++		"IDMA_FL_REQ_DATA_FL",
++		"IDMA_FL_DROP",
++		"IDMA_FL_H_REQ_HEADER_FL",
++		"IDMA_FL_H_SEND_PCIEHDR",
++		"IDMA_FL_H_PUSH_CPL_FIFO",
++		"IDMA_FL_H_SEND_CPL",
++		"IDMA_FL_H_SEND_IP_HDR_FIRST",
++		"IDMA_FL_H_SEND_IP_HDR",
++		"IDMA_FL_H_REQ_NEXT_HEADER_FL",
++		"IDMA_FL_H_SEND_NEXT_PCIEHDR",
++		"IDMA_FL_H_SEND_IP_HDR_PADDING",
++		"IDMA_FL_D_SEND_PCIEHDR",
++		"IDMA_FL_D_SEND_CPL_AND_IP_HDR",
++		"IDMA_FL_D_REQ_NEXT_DATA_FL",
++		"IDMA_FL_SEND_PCIEHDR",
++		"IDMA_FL_PUSH_CPL_FIFO",
++		"IDMA_FL_SEND_CPL",
++		"IDMA_FL_SEND_PAYLOAD_FIRST",
++		"IDMA_FL_SEND_PAYLOAD",
++		"IDMA_FL_REQ_NEXT_DATA_FL",
++		"IDMA_FL_SEND_NEXT_PCIEHDR",
++		"IDMA_FL_SEND_PADDING",
++		"IDMA_FL_SEND_COMPLETION_TO_IMSG",
++		"IDMA_FL_SEND_FIFO_TO_IMSG",
++		"IDMA_FL_REQ_DATAFL_DONE",
++		"IDMA_FL_REQ_HEADERFL_DONE",
++	};
++	static const char * const t5_decode[] = {
++		"IDMA_IDLE",
++		"IDMA_ALMOST_IDLE",
++		"IDMA_PUSH_MORE_CPL_FIFO",
++		"IDMA_PUSH_CPL_MSG_HEADER_TO_FIFO",
++		"IDMA_SGEFLRFLUSH_SEND_PCIEHDR",
++		"IDMA_PHYSADDR_SEND_PCIEHDR",
++		"IDMA_PHYSADDR_SEND_PAYLOAD_FIRST",
++		"IDMA_PHYSADDR_SEND_PAYLOAD",
++		"IDMA_SEND_FIFO_TO_IMSG",
++		"IDMA_FL_REQ_DATA_FL",
++		"IDMA_FL_DROP",
++		"IDMA_FL_DROP_SEND_INC",
++		"IDMA_FL_H_REQ_HEADER_FL",
++		"IDMA_FL_H_SEND_PCIEHDR",
++		"IDMA_FL_H_PUSH_CPL_FIFO",
++		"IDMA_FL_H_SEND_CPL",
++		"IDMA_FL_H_SEND_IP_HDR_FIRST",
++		"IDMA_FL_H_SEND_IP_HDR",
++		"IDMA_FL_H_REQ_NEXT_HEADER_FL",
++		"IDMA_FL_H_SEND_NEXT_PCIEHDR",
++		"IDMA_FL_H_SEND_IP_HDR_PADDING",
++		"IDMA_FL_D_SEND_PCIEHDR",
++		"IDMA_FL_D_SEND_CPL_AND_IP_HDR",
++		"IDMA_FL_D_REQ_NEXT_DATA_FL",
++		"IDMA_FL_SEND_PCIEHDR",
++		"IDMA_FL_PUSH_CPL_FIFO",
++		"IDMA_FL_SEND_CPL",
++		"IDMA_FL_SEND_PAYLOAD_FIRST",
++		"IDMA_FL_SEND_PAYLOAD",
++		"IDMA_FL_REQ_NEXT_DATA_FL",
++		"IDMA_FL_SEND_NEXT_PCIEHDR",
++		"IDMA_FL_SEND_PADDING",
++		"IDMA_FL_SEND_COMPLETION_TO_IMSG",
++	};
++	static const u32 sge_regs[] = {
++		SGE_DEBUG_DATA_LOW_INDEX_2,
++		SGE_DEBUG_DATA_LOW_INDEX_3,
++		SGE_DEBUG_DATA_HIGH_INDEX_10,
++	};
++	const char **sge_idma_decode;
++	int sge_idma_decode_nstates;
++	int i;
++
++	if (is_t4(adapter->params.chip)) {
++		sge_idma_decode = (const char **)t4_decode;
++		sge_idma_decode_nstates = ARRAY_SIZE(t4_decode);
++	} else {
++		sge_idma_decode = (const char **)t5_decode;
++		sge_idma_decode_nstates = ARRAY_SIZE(t5_decode);
++	}
++
++	if (state < sge_idma_decode_nstates)
++		CH_WARN(adapter, "idma state %s\n", sge_idma_decode[state]);
++	else
++		CH_WARN(adapter, "idma state %d unknown\n", state);
++
++	for (i = 0; i < ARRAY_SIZE(sge_regs); i++)
++		CH_WARN(adapter, "SGE register %#x value %#x\n",
++			sge_regs[i], t4_read_reg(adapter, sge_regs[i]));
++}
++
++/**
+  *      t4_fw_hello - establish communication with FW
+  *      @adap: the adapter
+  *      @mbox: mailbox to use for the FW command
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index 4082522..33cf9ef 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -278,6 +278,9 @@
+ #define SGE_DEBUG_INDEX 0x10cc
+ #define SGE_DEBUG_DATA_HIGH 0x10d0
+ #define SGE_DEBUG_DATA_LOW 0x10d4
++#define SGE_DEBUG_DATA_LOW_INDEX_2	0x12c8
++#define SGE_DEBUG_DATA_LOW_INDEX_3	0x12cc
++#define SGE_DEBUG_DATA_HIGH_INDEX_10	0x12a8
+ #define SGE_INGRESS_QUEUES_PER_PAGE_PF 0x10f4
+ 
+ #define S_HP_INT_THRESH    28
+-- 
+1.8.4
