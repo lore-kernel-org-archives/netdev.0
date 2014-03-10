@@ -1,58 +1,69 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: phy: Add sysfs attribute to prevent PHY suspend
-Date: Mon, 10 Mar 2014 09:56:49 -0700
-Message-ID: <CAGVrzcaMn2gevGK2=NrGO6-V31XvExQANz89Mk=EGZqxjdmWSA@mail.gmail.com>
-References: <531CF864.9040406@gmail.com> <20140309.203001.1318893833441564547.davem@davemloft.net>
- <531D094C.1090205@gmail.com> <20140309.204101.47552917508273123.davem@davemloft.net>
- <531D0D0D.4050703@gmail.com> <20140310142531.1fde5797@alan.etchedpixels.co.uk>
+From: Sree Harsha Totakura <sreeharsha@totakura.in>
+Subject: pppd service crash in linux-3.13.6
+Date: Mon, 10 Mar 2014 17:56:06 +0100
+Message-ID: <531DEEA6.4090808@totakura.in>
+References: <531A37FF.4000509@totakura.in>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Rob Landley <rob@landley.net>, Andrew Lunn <andrew@lunn.ch>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20140310142531.1fde5797@alan.etchedpixels.co.uk>
-Sender: linux-doc-owner@vger.kernel.org
+Content-Transfer-Encoding: 8bit
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <531A37FF.4000509@totakura.in>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2014-03-10 7:25 GMT-07:00 One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>:
-> On Mon, 10 Mar 2014 01:53:33 +0100
-> Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com> wrote:
->
->> On 03/10/2014 01:41 AM, David Miller wrote:
->> > From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
->> > Date: Mon, 10 Mar 2014 01:37:32 +0100
->> >
->> >> The mechanism is manual, no automatic way to determine it.
->> >
->> > We recognize BIOS and ACPI bugs and work around them, by looking at
->> > version information and whatnot, so you really can't convince me that
->> > something similar can't be done here perhaps in the platform code.
->>
->> Hmm, if the is a way to determine the version of that particual u-boot
->> I'd be happy to exploit that information.
->
-> If there isn't a way for a kernel to determine the U-boot version then
-> maybe that should get fixed instead. That also solves your problem
-> because if you can't find the uboot version you know its too old.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Once you have fixed how to determine the u-boot version (which BTW, is
-probably much simpler to determine from user-space by reading from the
-MTD partition exposing it, and using strings on the binary blob), you
-are left with the other bootloaders out there which also do not clear
-the BMCR_PWRDOWN bit of your PHY and will fail booting off the network
-as well.
+Hi,
 
-While I agree that there should be something done to help any OS
-determine which bootloader version/model it got booted from (ala. x86
-with type_of_bootloader), we still need a way to control this policy
-(auto-suspending the unused Ethernet PHYs) from Linux, regardless of
-whether the boot program is broken or not.
--- 
-Florian
+Using linux-3.13.6, I am observing the following output from the pppd
+kernel thread.  This happens when I try to suspend my computer and it
+*stops* the computer from suspending.
+
+I am using ppp via a bluetooth modem.
+
+Trace:
+[22735.115313] PM: Syncing filesystems ... done.
+[22735.665613] PM: Preparing system for mem sleep
+[22735.665829] Freezing user space processes ...
+[22755.659538] Freezing of tasks failed after 20.004 seconds (1 tasks
+refusing to freeze, wq_
+busy=0):
+[22755.659555] pppd            D ffff8800376c9a58     0 16801      1
+0x00000006
+[22755.659557]  ffff8800376c9750 0000000000000046 0000000000012e80
+0000000000012e80
+[22755.659560]  ffff8802a1c1dfd8 ffff8800376c9750 0000000000000009
+ffff8802a1c1dd78
+[22755.659562]  0000000000000046 ffff8800376c9750 0000000000000028
+ffff8800376c9750
+[22755.659564] Call Trace:
+[22755.659569]  [<ffffffff81048507>] ? do_exit+0x937/0xa50
+[22755.659573]  [<ffffffff814bb6e1>] ? oops_end+0x91/0xd0
+[22755.659575]  [<ffffffff814b1f4f>] ? no_context+0x1f3/0x1ff
+[22755.659577]  [<ffffffff814bdb69>] ? __do_page_fault+0x89/0x500
+[22755.659581]  [<ffffffff811017dc>] ? free_pcppages_bulk+0x17c/0x3b0
+[22755.659584]  [<ffffffff81101cce>] ? free_hot_cold_page_list+0x3e/0x90
+[22755.659586]  [<ffffffff814babf8>] ? page_fault+0x28/0x30
+[22755.659591]  [<ffffffffa06fd5a3>] ? ppp_register_channel+0x13/0x20
+[ppp_generic]
+[22755.659594]  [<ffffffffa07062ab>] ? ppp_asynctty_open+0x12b/0x170
+[ppp_async]
+[22755.659596]  [<ffffffff812ec907>] ? tty_ldisc_open.isra.2+0x27/0x60
+[22755.659598]  [<ffffffff812ed1d3>] ? tty_ldisc_hangup+0x1e3/0x220
+[22755.659601]  [<ffffffff812e4614>] ? __tty_hangup+0x2c4/0x440
+[22755.659603]  [<ffffffff812e56a1>] ? disassociate_ctty+0x61/0x270
+[22755.659605]  [<ffffffff810483c2>] ? do_exit+0x7f2/0xa50
+[22755.659607]  [<ffffffff81053ad2>] ? recalc_sigpending+0x12/0x50
+[22755.659609]  [<ffffffff81054308>] ? __set_task_blocked+0x28/0x70
+[22755.659611]  [<ffffffff81048684>] ? do_group_exit+0x34/0xa0
+[22755.659613]  [<ffffffff810486fb>] ? SyS_exit_group+0xb/0x10
+[22755.659615]  [<ffffffff814c1eb9>] ? system_call_fastpath+0x16/0x1b
+[22755.659618]
+[22755.659619] Restarting tasks ... done.
+
+If you need any more info, I am happy to provide.
+
+Regards,
+Sree
