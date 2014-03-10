@@ -1,115 +1,57 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net-next v2 0/9] Altera Triple Speed Ethernet (TSE) Driver
-Date: Mon, 10 Mar 2014 18:14:28 -0500
-Message-ID: <1394493277-2105-1-git-send-email-vbridgers2013@gmail.com>
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	rob@landley.net, vbridgers2013@gmail.com
-To: devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org
-Return-path: <linux-doc-owner@vger.kernel.org>
-Sender: linux-doc-owner@vger.kernel.org
+From: Vince Bridgers <vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next v2 2/9] net: ethernet: Change Ethernet Makefile and Kconfig for Altera TSE driver
+Date: Mon, 10 Mar 2014 18:14:30 -0500
+Message-ID: <1394493277-2105-3-git-send-email-vbridgers2013@gmail.com>
+References: <1394493277-2105-1-git-send-email-vbridgers2013@gmail.com>
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	rob-VoJi6FS/r0vR7s880joybQ@public.gmane.org, vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394493277-2105-1-git-send-email-vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-V2: Address comments from initial RFC review.
-    - The driver files were broken up by major sections of functionality.
-      These include MSGDMA, SGDMA, Misc, and Main. 
-    - Add patch for MAINTAINERS file, add the maintainer for this submission
-    - Use 32-bit lower/upper physical address accessor functions so the driver
-      is 64-bit ready.
-    - Use standard bindings where applicable. Especially phy-addr, and change
-      "altr,rx-fifo-depth" to "rx-fifo-depth" and "altr,tx-fifo-depth" to 
-      "tx-fifo-depth".
-    - Add use of max-frame-size property
-    - Update bindings documents accordingly
-    - Correct interrupt handler to use budget parameter in the convential way
-    - Use macros consistently to define bit fields across files
-    - Correct include exclusion macro in altera_msgdmahw.h (typo)
-    - Remove use of barriers, these were not necessary since the DMA APIs
-      ensure memory & buffer consistency
-    - Remove use of netif_carrier_off in driver
-    - move probing of phy from the open function to the probe function
-    - use of_get_phy_mode instead of custom function
-    - Use the .data field in the device structure to obtain a pointer
-      to SGDMA or MSGDMA device specific properties and functions. 
-    - remove custom function to access devicetree since Altera specific
-      bindings requiring it's use have been deprecated in favor of 
-      standard bindings. 
+This patch changes the Ethernet Makefile and Kconfig files to add the Altera
+Ethernet driver component.
 
-The Altera TSE is a 10/100/1000 Mbps Ethernet soft IP component that can be
-configured and synthesized using Quartus, and programmed into Altera FPGAs.
-Two types of soft DMA IP components are supported by this driver - the Altera
-SGDMA and the MSGDMA. The MSGDMA DMA component is preferred over the SGDMA,
-since the SGDMA will be deprecated in favor of the MSGDMA. Software supporting
-both is provided for customers still using the SGDMA and to demonstrate how
-multiple types of DMA engines may be supported by the TSE driver in the event
-customers wish to develop their own custom soft DMA engine for particular
-applications.
+Signed-off-by: Vince Bridgers <vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+V2: - No change to Kconfig and Makefile from initial RFC review
+---
+ drivers/net/ethernet/Kconfig  |    1 +
+ drivers/net/ethernet/Makefile |    1 +
+ 2 files changed, 2 insertions(+)
 
-The design has been tested on Altera's Cyclone 4, 5, and Cyclone 5 SOC
-development kits using an ARM A9 processor and an Altera NIOS2 processor.
-Differences in CPU/DMA coherency management and address alignment are
-addressed by proper use of driver APIs and semantics.
-
-Patch 1/9 is for the MAINTAINERS modifications. Patch 2/9 is for the changes
-required to the drivers/net/ethernet build files. Patches 3 and 4 are for the 
-driver bindings and documentation. The remainder of the patches are for the
-Altera Triple Speed Ethernet driver broken up by logical function, such as
-build files, SGDMA, MSGDMA, Miscellaneous files, and the main driver source 
-and header file. 
-
-Thank you for the constructive comments so far, and I look forward to
-completing this process.
-
-Vince 
-
-Vince Bridgers (9):
-  MAINTAINERS: Add entry for Altera Triple Speed Ethernet Driver
-  net: ethernet: Change Ethernet Makefile and Kconfig for Altera TSE
-    driver
-  dts: Add bindings for the Altera Triple Speed Ethernet driver
-  Documentation: networking: Add Altera Ethernet (TSE) Documentation
-  Altera TSE: Add Altera Ethernet Driver Makefile and Kconfig
-  Altera TSE: Add Altera Ethernet Driver MSGDMA File Components
-  Altera TSE: Add Altera Ethernet Driver SGDMA file components
-  Altera TSE: Add Miscellaneous Files for Altera Ethernet Driver
-  Altera TSE: Add main and header file for Altera Ethernet Driver
-
- .../devicetree/bindings/net/altera_tse.txt         |  112 ++
- Documentation/networking/altera_tse.txt            |  119 ++
- MAINTAINERS                                        |    7 +
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/altera/Kconfig                |    8 +
- drivers/net/ethernet/altera/Makefile               |    7 +
- drivers/net/ethernet/altera/altera_msgdma.c        |  203 +++
- drivers/net/ethernet/altera/altera_msgdma.h        |   34 +
- drivers/net/ethernet/altera/altera_msgdmahw.h      |  167 +++
- drivers/net/ethernet/altera/altera_sgdma.c         |  532 +++++++
- drivers/net/ethernet/altera/altera_sgdma.h         |   35 +
- drivers/net/ethernet/altera/altera_sgdmahw.h       |  124 ++
- drivers/net/ethernet/altera/altera_tse.h           |  486 ++++++
- drivers/net/ethernet/altera/altera_tse_ethtool.c   |  226 +++
- drivers/net/ethernet/altera/altera_tse_main.c      | 1546 ++++++++++++++++++++
- drivers/net/ethernet/altera/altera_utils.c         |   44 +
- drivers/net/ethernet/altera/altera_utils.h         |   27 +
- 18 files changed, 3679 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/altera_tse.txt
- create mode 100644 Documentation/networking/altera_tse.txt
- create mode 100644 drivers/net/ethernet/altera/Kconfig
- create mode 100644 drivers/net/ethernet/altera/Makefile
- create mode 100644 drivers/net/ethernet/altera/altera_msgdma.c
- create mode 100644 drivers/net/ethernet/altera/altera_msgdma.h
- create mode 100644 drivers/net/ethernet/altera/altera_msgdmahw.h
- create mode 100644 drivers/net/ethernet/altera/altera_sgdma.c
- create mode 100644 drivers/net/ethernet/altera/altera_sgdma.h
- create mode 100644 drivers/net/ethernet/altera/altera_sgdmahw.h
- create mode 100644 drivers/net/ethernet/altera/altera_tse.h
- create mode 100644 drivers/net/ethernet/altera/altera_tse_ethtool.c
- create mode 100644 drivers/net/ethernet/altera/altera_tse_main.c
- create mode 100644 drivers/net/ethernet/altera/altera_utils.c
- create mode 100644 drivers/net/ethernet/altera/altera_utils.h
-
+diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
+index 506b024..39484b5 100644
+--- a/drivers/net/ethernet/Kconfig
++++ b/drivers/net/ethernet/Kconfig
+@@ -22,6 +22,7 @@ source "drivers/net/ethernet/adaptec/Kconfig"
+ source "drivers/net/ethernet/aeroflex/Kconfig"
+ source "drivers/net/ethernet/allwinner/Kconfig"
+ source "drivers/net/ethernet/alteon/Kconfig"
++source "drivers/net/ethernet/altera/Kconfig"
+ source "drivers/net/ethernet/amd/Kconfig"
+ source "drivers/net/ethernet/apple/Kconfig"
+ source "drivers/net/ethernet/arc/Kconfig"
+diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
+index c0b8789..adf61af 100644
+--- a/drivers/net/ethernet/Makefile
++++ b/drivers/net/ethernet/Makefile
+@@ -8,6 +8,7 @@ obj-$(CONFIG_NET_VENDOR_ADAPTEC) += adaptec/
+ obj-$(CONFIG_GRETH) += aeroflex/
+ obj-$(CONFIG_NET_VENDOR_ALLWINNER) += allwinner/
+ obj-$(CONFIG_NET_VENDOR_ALTEON) += alteon/
++obj-$(CONFIG_ALTERA_TSE) += altera/
+ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
+ obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
+ obj-$(CONFIG_NET_VENDOR_ARC) += arc/
 -- 
 1.7.9.5
 
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
