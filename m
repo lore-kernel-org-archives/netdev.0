@@ -1,52 +1,50 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v5] can: xilinx CAN controller support.
-Date: Mon, 10 Mar 2014 16:15:42 +0100
-Message-ID: <3245971.RIuVmbVL0Z@wuerfel>
-References: <5254bfec-c6fd-4681-a34d-706d51e60fbb@VA3EHSMHS004.ehs.local> <531DD493.3030306@monstr.eu> <531DD5E7.7090406@pengutronix.de>
+From: Peter =?ISO-8859-1?Q?Bostr=F6m?= <peter.bostrom@netrounds.com>
+Subject: [PATCH] vlan: Set correct source MAC address with TX VLAN offload
+ enabled
+Date: Mon, 10 Mar 2014 16:17:15 +0100
+Message-ID: <1394464635.27812.7.camel@peter-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>, monstr@monstr.eu,
-	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, michal.simek@xilinx.com,
-	linux-can@vger.kernel.org, robh+dt@kernel.org,
-	Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
-	grant.likely@linaro.org,
-	Kedareswara rao Appana <appanad@xilinx.com>,
-	wg@grandegger.com
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <531DD5E7.7090406@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: kaber@trash.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 10 March 2014 16:10:31 Marc Kleine-Budde wrote:
-> >>> +config CAN_XILINXCAN
-> >>> +   tristate "Xilinx CAN"
-> >>> +   depends on ARCH_ZYNQ || MICROBLAZE
-> >>
-> >> Is Zynq multiarch already?
-> > 
-> > let me just answer this. Zynq is device with hardcoded dual arm cortex-a9 + some IPs
-> > and programmable logic.
-> > It means if you add Microblaze to PL or another CPU then you get multi architecture setup.
-> 
-> Sorry for the confusion, I'm not talking about
-> more-than-one-architecture-in-a-FPGA, but the feature of the ARM-Linux
-> Kernel to run on different ARM architecture. For example, it's possible
-> to start the same kernel on a freescale imx6 and a the new marvel ebu
-> platform. If the Zynq Kernel supports this feature, too, we should not
-> limit to ARCH_ZYNQ, but use ARM instead.
+With TX VLAN offload enabled the source MAC address for frames sent usi=
+ng the
+VLAN interface is currently set to the address of the real interface. T=
+his is
+wrong since the VLAN interface may be configured with a different addre=
+ss.
 
-Zynq has been multiplatform capable from the start. Ideally we'd let
-users build the driver for any architecture and specify the exact
-dependencies, it doesn't even have to be limited to ARM.
+The bug was introduced in commit 2205369a314e12fcec4781cc73ac9c08fc2b47=
+de
+("vlan: Fix header ops passthru when doing TX VLAN offload.").
 
-You probably want something like
+This patch sets the source address before calling the create function o=
+f the
+real interface.
 
-	config CAN_XILINX
-	tristate "Xilinx CAN"
-	depends on ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST
-	depends on COMMON_CLK && HAS_MMIO  # whatever you need for other architectures
+Signed-off-by: Peter Bostr=C3=B6m <peter.bostrom@netrounds.com>
+---
+ net/8021q/vlan_dev.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-	Arnd
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index de51c48..4b65aa4 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -538,6 +538,9 @@ static int vlan_passthru_hard_header(struct sk_buff=
+ *skb, struct net_device *dev
+ 	struct vlan_dev_priv *vlan =3D vlan_dev_priv(dev);
+ 	struct net_device *real_dev =3D vlan->real_dev;
+=20
++	if (saddr =3D=3D NULL)
++		saddr =3D dev->dev_addr;
++
+ 	return dev_hard_header(skb, real_dev, type, daddr, saddr, len);
+ }
+=20
