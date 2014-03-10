@@ -1,49 +1,104 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] ipv4: use unlikely to optimise in ip_forward
-Date: Sun, 09 Mar 2014 23:03:54 -0700
-Message-ID: <1394431434.3607.6.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1394428209-9919-1-git-send-email-roy.qing.li@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:40661 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752110AbaCJGEH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 02:04:07 -0400
-Received: by mail-pd0-f169.google.com with SMTP id fp1so6662791pdb.28
-        for <netdev@vger.kernel.org>; Sun, 09 Mar 2014 23:04:04 -0700 (PDT)
-In-Reply-To: <1394428209-9919-1-git-send-email-roy.qing.li@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v8 net-next 0/3] filter: add Extended BPF interpreter and converter, seccomp
+Date: Sun,  9 Mar 2014 23:04:01 -0700
+Message-ID: <1394431444-6987-1-git-send-email-ast@plumgrid.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-03-10 at 13:10 +0800, roy.qing.li@gmail.com wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> The condition that skb->pkt_type is not PACKET_HOST in ip_forward, should never
-> happen, so use unlikely to optimise this check
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
->  net/ipv4/ip_forward.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-> index be8abe7..b82833a 100644
-> --- a/net/ipv4/ip_forward.c
-> +++ b/net/ipv4/ip_forward.c
-> @@ -128,7 +128,7 @@ int ip_forward(struct sk_buff *skb)
->  	struct ip_options *opt	= &(IPCB(skb)->opt);
->  
->  	/* that should never happen */
-> -	if (skb->pkt_type != PACKET_HOST)
-> +	if (unlikely(skb->pkt_type != PACKET_HOST))
->  		goto drop;
->  
->  	if (skb_warn_if_lro(skb))
+Hi All,
 
-Compilers already do the right thing.
+V1 patches:
+http://thread.gmane.org/gmane.linux.kernel/1605783
+V2 patches:
+http://thread.gmane.org/gmane.linux.kernel/1642325
+V3 patches:
+http://thread.gmane.org/gmane.linux.kernel/1656538
 
-This is one of the reason you see so many goto in the kernel.
+V4 summary:
+- addressed Daniel comments
+- RFC for seccomp with extended BPF
+- added extended BPF design doc
+
+V5 summary:
+- fixed commit one-liner, removed empty line
+- added Hagen's ack
+
+V6 summary:
+- unrolled loop in populate_seccomp_data() to help gcc on arm
+- removed empty line at the end of the file
+- removed redundant (u32) cast in JSET
+- fixed BPF_RVAL instead of BPF_SRC for BPF_RET in sk_convert_filter()
+- updated commit log
+- added Daniel's Reviewed-by
+- added Kees's Reviewed-by
+
+V7 summary:
+1/3:
+- addressed Dave's feedback regarding typecasting:
+  added 'jited' flag to sk_filter and union for bpf_func/bpf_func_ext
+- added a comment to sk_run_filter_ext() about ctx<->skb relation
+- removed CPU specific code from sk_run_filter() and sk_run_filter_ext()
+  because of that revised arm32 cache-hit bpf micro-bench numbers slightly
+  slower, but seccomp and cache-miss arm32 numbers stayed the same
+2/3 and 3/3: no changes
+
+V8 summary:
+1/3:
+- fixed sk_get_filter() issue caught by Daniel:
+  need to save old filter, so it can be returned via sk_get_filter()
+  count memory out of socket optmem budget
+- addressed Eric's feedback:
+  removed 'notrace'
+  replaced integer registers constants and stack size with #define
+- retested with my own bpf/ebpf testuite, seccomp and Pavel's
+  so_get_filter test from crtools/test/zdtm/live/static/
+- trimmed cc list, since it looks too big
+2/3 and 3/3: no changes
+
+x86_64, i386 and arm32 look clean.
+
+Thanks!
+
+Alexei Starovoitov (3):
+  filter: add Extended BPF interpreter and converter
+  seccomp: convert seccomp to use extended BPF
+  doc: filter: add Extended BPF documentation
+
+ Documentation/networking/filter.txt |  181 ++++++++
+ arch/arm/net/bpf_jit_32.c           |    3 +-
+ arch/powerpc/net/bpf_jit_comp.c     |    3 +-
+ arch/s390/net/bpf_jit_comp.c        |    3 +-
+ arch/sparc/net/bpf_jit_comp.c       |    3 +-
+ arch/x86/net/bpf_jit_comp.c         |    3 +-
+ include/linux/filter.h              |   43 +-
+ include/linux/netdevice.h           |    1 +
+ include/linux/seccomp.h             |    1 -
+ include/net/sock.h                  |    4 +-
+ include/uapi/linux/filter.h         |   33 +-
+ kernel/seccomp.c                    |  118 +++--
+ net/core/filter.c                   |  855 ++++++++++++++++++++++++++++++++++-
+ net/core/sysctl_net_core.c          |    7 +
+ 14 files changed, 1148 insertions(+), 110 deletions(-)
+
+-- 
+1.7.9.5
