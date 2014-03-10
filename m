@@ -1,77 +1,91 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [RCU PATCH 14/14] net: sched: drop ingress qdisc lock
-Date: Mon, 10 Mar 2014 10:09:02 -0700
-Message-ID: <20140310170900.3011.95014.stgit@nitbit.x32>
-References: <20140310170008.3011.73599.stgit@nitbit.x32>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: TCP fast open question
+Date: Mon, 10 Mar 2014 10:09:06 -0700
+Message-ID: <CAK6E8=cJnjReDL+TCv-hKxd1EaAud3T8kdz2C01NK=yYgAgBLQ@mail.gmail.com>
+References: <20140308115823.GA3185@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: xiyou.wangcong@gmail.com, jhs@mojatatu.com
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jerry Chu <hkchu@google.com>,
+	Xiaochen Wang <xiaochen.wxc@alibaba-inc.com>,
+	Zheng Liu <wenqing.lz@taobao.com>
+To: Zheng Liu <gnehzuil.liu@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f171.google.com ([209.85.214.171]:34550 "EHLO
-	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753615AbaCJRJR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:09:17 -0400
-Received: by mail-ob0-f171.google.com with SMTP id wn1so7337651obc.30
-        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 10:09:17 -0700 (PDT)
-In-Reply-To: <20140310170008.3011.73599.stgit@nitbit.x32>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:51356 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753520AbaCJRJr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 13:09:47 -0400
+Received: by mail-ie0-f179.google.com with SMTP id lx4so7571471iec.10
+        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 10:09:47 -0700 (PDT)
+In-Reply-To: <20140308115823.GA3185@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After the previous patches to make the filters RCU safe and
-support per cpu counters we can drop the qdisc lock around
-the ingress qdisc hook.
+On Sat, Mar 8, 2014 at 3:58 AM, Zheng Liu <gnehzuil.liu@gmail.com> wrote:
+> Hi all,
+>
+> Now we are trying to use TCP fast open in our nginx server, and we
+> encounter a problem under non-blocking socket.  I appreciate if some one
+> can reply this question.  Thanks in advance.
+>
+> I describe our question here.  we have two machines, one is as server and
+> another is as client.  'net.ipv4.tcp_fastopen' on both of them are set to
+> 3.  The server program looks like below:
+>
+>   ...
+>   listenfd = socket(AF_INET, SOCK_STREAM, 0);
+>   bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+>   int tfo_opt = 1;
+>   setsockopt(listenfd, SOL_TCP, TCP_LISTEN_INFO, &tfo_opt, sizeof(tfo_opt));
+>   listen(listenfd, 5);
+>   connfd = accept(listenfd, (struct sockaddr *)NULL, NULL);
+>   recv(connfd, &buf, 4096)
+>   ...
+>
+> The client program:
+>
+>   ...
+>   sockfd = socket(AF_INET, SOCK_STREAM, 0);
+>   fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL, 0)|O_NONBLOCK);
+>   sendto(sockfd, msg, strlen(msg), MSG_FASTOPEN,
+>         (struct sockaddr *)&servaddr, sizeof(servaddr);
+>   recv(sockfd, buf, 4096, 0);
+>   ...
+>
+> We use a non-blocking socket to connect the server and send some
+> messages.  After calling sendto(2) we always get an EINPROGRESS error.
+> We think it is reasonable because connect(2) could also return this
+> error with a non-blocking socket and the connection will be established
+> later.  The question is *whether or not the data will be sent* after the
+> connection is established.  If I understand correctly, sendto(2) will
+> return the number of bytes of data queued up in the kernel or sent in
+> the SYN packet.  Even though the EINPROGRESS is returned.  If sendto(2)
+> returns -1, that means that no data is queued up in kernel or sent in
+> the packet.  Please correct me if I miss-understand something.
+Correct.
+http://tools.ietf.org/html/draft-ietf-tcpm-fastopen-07#appendix-A.1
 
-This is possible because the ingress qdisc is a very basic
-qdisc and only updates stats and runs tc_classify. Its the
-simplest qdiscs we have.
+>
+> We run the program in our testing environment, and we use tcpdump(1) to
+> capture the packets.  From the result we can see there is no any data
+> that is sent.  Then we do another testing that after calling sendto(2)
+The first handshake is used to get the Fast Open cookie for future
+connections. I suspect you didn't enable Fast Open on the server side.
+What're the output of 'sysctl net.ipv4.tcp_fastopen' on your client
+and server? pls send the tcpdump traces on both sides as well.
 
-In order for the per-cpu counters to get invoked the
-ingress qdisc must set the LLQDISC flag.
-
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- net/core/dev.c          |    2 --
- net/sched/sch_ingress.c |    6 ++++++
- 2 files changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index dc1aa6c..1f90a04 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3449,10 +3449,8 @@ static int ing_filter(struct sk_buff *skb, struct netdev_queue *rxq)
- 
- 	q = rcu_dereference(rxq->qdisc);
- 	if (q != &noop_qdisc) {
--		spin_lock(qdisc_lock(q));
- 		if (likely(!test_bit(__QDISC_STATE_DEACTIVATED, &q->state)))
- 			result = qdisc_enqueue_root(skb, q);
--		spin_unlock(qdisc_lock(q));
- 	}
- 
- 	return result;
-diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
-index 86cc5ce..012f9dc 100644
---- a/net/sched/sch_ingress.c
-+++ b/net/sched/sch_ingress.c
-@@ -86,6 +86,11 @@ static int ingress_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- }
- 
- /* ------------------------------------------------------------- */
-+static int ingress_init(struct Qdisc *sch, struct nlattr *opt)
-+{
-+	sch->flags |= TCQ_F_LLQDISC;
-+	return 0;
-+}
- 
- static void ingress_destroy(struct Qdisc *sch)
- {
-@@ -121,6 +126,7 @@ static const struct Qdisc_class_ops ingress_class_ops = {
- };
- 
- static struct Qdisc_ops ingress_qdisc_ops __read_mostly = {
-+	.init		=	ingress_init,
- 	.cl_ops		=	&ingress_class_ops,
- 	.id		=	"ingress",
- 	.priv_size	=	sizeof(struct ingress_qdisc_data),
+> the client program will sleep for 5 seconds and then call send(2) to
+> transfer some data.
+>
+>   $ ./client xx.xx.xx.xx
+>   ret -1 errno 115
+>
+> The program works well.  So that means that after getting a EINPROGRESS
+> error, the program must call send(2) manually.  Is it correct?  If we
+> want to avoid this problem, we need to set 'net.ipv4.tcp_fastopen' to
+> 0x707 ?
+>
+> Regards,
+>                                                 - Zheng
