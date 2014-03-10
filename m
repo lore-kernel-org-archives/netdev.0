@@ -1,33 +1,37 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH V3] ss: Add support for retrieving SELinux contexts
-Date: Mon, 10 Mar 2014 13:24:04 -0700
-Message-ID: <20140310132404.6d792d30@nehalam.linuxnetplumber.net>
-References: <1394188612-3662-1-git-send-email-richard_c_haines@btinternet.com>
+Subject: Re: [PATCH] iproute2: Fix warnings with gcc 4.9 and clang 3.4
+Date: Mon, 10 Mar 2014 13:25:40 -0700
+Message-ID: <20140310132540.6123548b@nehalam.linuxnetplumber.net>
+References: <284875ac93e0904c42a436cbf05cc57d@mail.lindev.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
-To: Richard Haines <richard_c_haines@btinternet.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Bernhard =?ISO-8859-1?B?Um9zZW5rcuRuemVy?= <bero@lindev.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:46709 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751231AbaCJUYH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 16:24:07 -0400
-Received: by mail-pd0-f175.google.com with SMTP id x10so7531918pdj.34
-        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 13:24:06 -0700 (PDT)
-In-Reply-To: <1394188612-3662-1-git-send-email-richard_c_haines@btinternet.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:57457 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752853AbaCJUZo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 16:25:44 -0400
+Received: by mail-pa0-f45.google.com with SMTP id kl14so7752785pab.4
+        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 13:25:43 -0700 (PDT)
+In-Reply-To: <284875ac93e0904c42a436cbf05cc57d@mail.lindev.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri,  7 Mar 2014 10:36:52 +0000
-Richard Haines <richard_c_haines@btinternet.com> wrote:
+On Fri, 07 Mar 2014 03:00:53 +0100
+Bernhard Rosenkr=E4nzer <bero@lindev.ch> wrote:
 
-> The process SELinux contexts can be added to the output using the -Z
-> option. Using the -z option will show the process and socket contexts (see
-> the man page for details).
-> For netlink sockets: if valid process show process context, if pid = 0
-> show kernel initial context, if unknown show "unavailable".
-> 
-> Signed-off-by: Richard Haines <richard_c_haines@btinternet.com>
+> Hi,
+> the latest compilers (gcc 4.9 and clang 3.4) issue warnings when doin=
+g=20
+> an incomplete struct initialization (e.g. "struct tc_sizespec s =3D=20
+> {0};").
+>=20
+> Since many people like to compile lower level bits and pieces with=20
+> -Werror, this should probably be fixed. Patch attached.
+>=20
+> ttyl
+> bero
 
-Applied, thanks
+Does not apply to current source, please update:
