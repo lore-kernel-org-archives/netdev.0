@@ -1,95 +1,70 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: Re: [PATCH net-next v2 2/9] net: ethernet: Change Ethernet Makefile
- and Kconfig for Altera TSE driver
-Date: Tue, 11 Mar 2014 10:46:19 -0500
-Message-ID: <CAOwfj2O_vZ=2Dah5qycV2-tVm1hG6OxrcHZSzqhM8+tWFUBtMw@mail.gmail.com>
-References: <1394493277-2105-1-git-send-email-vbridgers2013@gmail.com>
-	<1394493277-2105-3-git-send-email-vbridgers2013@gmail.com>
-	<531F1928.4080505@cogentembedded.com>
+From: Yegor Yefremov <yegorslists@googlemail.com>
+Subject: Re: [PATCH] net: phy: Add support for SMSC/Microchip LAN9303 3-port switch
+Date: Tue, 11 Mar 2014 16:49:49 +0100
+Message-ID: <CAGm1_kt9eDRtqwL-twLKheW-XMD8RJ7Rmmsbxwdd6EB2NkopOQ@mail.gmail.com>
+References: <1393492072-15364-1-git-send-email-sr@denx.de> <20140227.170240.1910151216729314077.davem@davemloft.net>
+ <CAGVrzcZd7mO6t4eAsn6HVNWFZpPopkBk2trjgSh+3rcWQPHw7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"pawel.moll@arm.com" <pawel.moll@arm.com>,
-	"mark.rutland@arm.com" <mark.rutland@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Rob Landley <rob@landley.net>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <531F1928.4080505@cogentembedded.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Felix Fietkau <nbd@openwrt.org>, Stefan Roese <sr@denx.de>,
+	netdev <netdev@vger.kernel.org>, r.meier@siemens.com,
+	lukas.stockmann@siemens.com
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:53808 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753364AbaCKPuN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 11:50:13 -0400
+Received: by mail-pb0-f52.google.com with SMTP id rr13so9020579pbb.11
+        for <netdev@vger.kernel.org>; Tue, 11 Mar 2014 08:50:09 -0700 (PDT)
+In-Reply-To: <CAGVrzcZd7mO6t4eAsn6HVNWFZpPopkBk2trjgSh+3rcWQPHw7g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei,
+Hi Florian,
 
-On Tue, Mar 11, 2014 at 9:09 AM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> Hello.
+On Thu, Feb 27, 2014 at 11:21 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> 2014-02-27 14:02 GMT-08:00 David Miller <davem@davemloft.net>:
+>> From: Stefan Roese <sr@denx.de>
+>> Date: Thu, 27 Feb 2014 10:07:52 +0100
+>>
+>>> This driver exposes a sysfs interface to access the LAN9303 registers to
+>>> userspace. These sysfs files can be used to configure the switch.
+>>>
+>>> Signed-off-by: Stefan Roese <sr@denx.de>
+>>
+>> We have an abstraction for programming switch devices called DSA.
+>>
+>> Even if DSA doesn't fullfill your needs, doing adjustments using sysfs
+>> files in userland is going to be the worst user experience possible.
 >
+> If you remember the discussion that started around the 'swconfig'
+> patches, DSA is not suitable for all types of switches, especially not
+> those which have no proprietary tagging support (which are about 80%
+> of the switches used in embedded systems). That discussion has kind of
+> stalled now, so we should probably bring it back...
 >
-> On 11-03-2014 3:14, Vince Bridgers wrote:
+>>
+>> Every driver will export different things to tweak, each device will
+>> have different semantics and limitations for these settings, etc.
+>>
+>> Better is to come up with a real, types, interface for programming
+>> such devices and providing an implementation of that.
 >
->> This patch changes the Ethernet Makefile and Kconfig files to add the
->> Altera
->> Ethernet driver component.
->
->
->> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
->> ---
->> V2: - No change to Kconfig and Makefile from initial RFC review
->
->
->    Unfortunately, the order of patches seems wrong. This patch should be
-> among the last.
->
->
->> ---
->>   drivers/net/ethernet/Kconfig  |    1 +
->>   drivers/net/ethernet/Makefile |    1 +
->>   2 files changed, 2 insertions(+)
->
->
->> diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
->> index 506b024..39484b5 100644
->> --- a/drivers/net/ethernet/Kconfig
->> +++ b/drivers/net/ethernet/Kconfig
->> @@ -22,6 +22,7 @@ source "drivers/net/ethernet/adaptec/Kconfig"
->>   source "drivers/net/ethernet/aeroflex/Kconfig"
->>   source "drivers/net/ethernet/allwinner/Kconfig"
->>   source "drivers/net/ethernet/alteon/Kconfig"
->> +source "drivers/net/ethernet/altera/Kconfig"
->
->
->    This file doesn't exist yet.
->
->
->>   source "drivers/net/ethernet/amd/Kconfig"
->>   source "drivers/net/ethernet/apple/Kconfig"
->>   source "drivers/net/ethernet/arc/Kconfig"
->> diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
->> index c0b8789..adf61af 100644
->> --- a/drivers/net/ethernet/Makefile
->> +++ b/drivers/net/ethernet/Makefile
->> @@ -8,6 +8,7 @@ obj-$(CONFIG_NET_VENDOR_ADAPTEC) += adaptec/
->>   obj-$(CONFIG_GRETH) += aeroflex/
->>   obj-$(CONFIG_NET_VENDOR_ALLWINNER) += allwinner/
->>   obj-$(CONFIG_NET_VENDOR_ALTEON) += alteon/
->> +obj-$(CONFIG_ALTERA_TSE) += altera/
->
->
->    This directory doesn't exist yet.
->
-> WBR, Sergei
->
+> These are definitively the goals of the 'swconfig' patches that were
+> posted a while ago, to provide an unified programming API.
+> --
+> Florian
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Understood, this was an oversight on my part when I created the
-patchset. I'll address and respin.
+Have you tried to apply your swconfig patches to 3.14? There some
+compiler errors meanwhile. genl_register_ops() is not available, so
+one has to switch to genl_register_family_with_ops() or similar
+macros. It would be great, if you could post the updates series and if
+possible with ICplus drive included.
 
-Thank you for taking the time to review and comment,
-
-All the best,
-
-Vince
+Yegor
