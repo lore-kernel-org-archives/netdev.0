@@ -1,90 +1,60 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next v3 5/9] Altera TSE: Add Miscellaneous Files for
- Altera Ethernet Driver
-Date: Tue, 11 Mar 2014 15:59:07 -0700
-Message-ID: <1394578747.28839.4.camel@joe-AO722>
-References: <1394577791-6547-1-git-send-email-vbridgers2013@gmail.com>
-	 <1394577791-6547-6-git-send-email-vbridgers2013@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, rob@landley.net
-To: Vince Bridgers <vbridgers2013@gmail.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1394577791-6547-6-git-send-email-vbridgers2013@gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: [PATCH v3] net: phy: fix uninitalized WOL parameters in phy_ethtool_get_wol
+Date: Wed, 12 Mar 2014 00:02:55 +0100
+Message-ID: <1394578975-12588-1-git-send-email-sebastian.hesselbarth@gmail.com>
+References: <1394484661-4554-2-git-send-email-sebastian.hesselbarth@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394484661-4554-2-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-03-11 at 17:43 -0500, Vince Bridgers wrote:
-> This patch adds miscellaneous files for the Altera Ethernet Driver,
-> including ethtool support.
+phy_ethtool_get_wol is a helper to get current WOL settings from
+a phy device. When using this helper on a PHY without .get_wol
+callback, struct ethtool_wolinfo is never set-up correctly and
+may contain misleading information about WOL status.
 
-trivial notes:
+To fix this, always zero relevant fields of struct ethtool_wolinfo
+regardless of .get_wol callback availability.
 
-> diff --git a/drivers/net/ethernet/altera/altera_tse_ethtool.c b/drivers/net/ethernet/altera/altera_tse_ethtool.c
-[]
-> +static char const stat_gstrings[][ETH_GSTRING_LEN] = {
+Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Changelog:
+v1->v2:
+- clear whole struct ethtool_wolinfo
+- check for non-NULL phy_device
+v2->v3:
+- only clear ->supported and ->wolopts (Suggested by Ben Hutchings)
 
-static const char
+Cc: David Miller <davem@davemloft.net>
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Ben Hutchings <ben@decadent.org.uk>
+Cc: netdev@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-kernel@vger.kernel.org
+---
+ drivers/net/phy/phy.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-> +	"aFramesTransmittedOK",
-
-Why the prefix with a?
-
-> +	"aFramesReceivedOK",
-
-"rx_packets" is typically used
-
-> +	"aFramesCheckSequenceErrors",
-
-> +	"aAlignmentErrors",
-> +	"aOctetsTransmittedOK",
-> +	"aOctetsReceivedOK",
-> +	"aTxPAUSEMACCtrlFrames",
-> +	"aRxPAUSEMACCtrlFrames",
-> +	"ifInErrors",
-> +	"ifOutErrors",
-> +	"ifInUcastPkts",
-> +	"ifInMulticastPkts",
-> +	"ifInBroadcastPkts",
-> +	"ifOutDiscards",
-> +	"ifOutUcastPkts",
-> +	"ifOutMulticastPkts",
-> +	"ifOutBroadcastPkts",
-> +	"etherStatsDropEvents",
-> +	"etherStatsOctets",
-> +	"etherStatsPkts",
-> +	"etherStatsUndersizePkts",
-> +	"etherStatsOversizePkts",
-> +	"etherStatsPkts64Octets",
-> +	"etherStatsPkts65to127Octets",
-> +	"etherStatsPkts128to255Octets",
-> +	"etherStatsPkts256to511Octets",
-> +	"etherStatsPkts512to1023Octets",
-> +	"etherStatsPkts1024to1518Octets",
-> +	"etherStatsPkts1519toXOctets",
-> +	"etherStatsJabbers",
-> +	"etherStatsFragments",
-
-Perhaps review all of these strings for
-unusual naming.
-
-> +static void tse_get_regs(struct net_device *dev, struct ethtool_regs *regs,
-> +			 void *regbuf)
-> +{
-> +	int i;
-> +	struct altera_tse_private *priv = netdev_priv(dev);
-> +	u32 *tse_mac_regs = (u32 *)priv->mac_dev;
-> +	u32 *buf = (u32 *)regbuf;
-
-void * doesn't need a cast
-
-	u32 *buf = regbuf
-
-is just fine.
-
-
-
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 19c9eca0ef26..94234a91a50f 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -1092,7 +1092,9 @@ EXPORT_SYMBOL(phy_ethtool_set_wol);
+ 
+ void phy_ethtool_get_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol)
+ {
+-	if (phydev->drv->get_wol)
++	wol->supported = wol->wolopts = 0;
++
++	if (phydev && phydev->drv->get_wol)
+ 		phydev->drv->get_wol(phydev, wol);
+ }
+ EXPORT_SYMBOL(phy_ethtool_get_wol);
+-- 
+1.8.5.3
