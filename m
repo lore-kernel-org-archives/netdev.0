@@ -1,101 +1,107 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next] gianfar: Fix multi-queue support checks @probe()
-Date: Tue, 11 Mar 2014 18:01:24 +0200
-Message-ID: <1394553684-12061-1-git-send-email-claudiu.manoil@freescale.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net RESEND] bonding: set correct vlan id for alb xmit path
+Date: Tue, 11 Mar 2014 17:26:39 +0100
+Message-ID: <20140311162639.GB2770@redhat.com>
+References: <531E7168.1030407@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe003.messaging.microsoft.com ([207.46.163.26]:39358
-	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752692AbaCKQDR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 12:03:17 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:22023 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753055AbaCKQ1D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Mar 2014 12:27:03 -0400
+Content-Disposition: inline
+In-Reply-To: <531E7168.1030407@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-priv is not instantiated at gfar_of_init() time, when
-parsing the DT for info on supported HW queues.  Before
-the netdev can be allocated, the number of supported
-queues must be known.  Because the number of supported
-queues depends on device type, move the compatibility
-checks before netdev allocation.  Local vars are used
-to hold the operation mode info before netdev allocation.
-This fixes the null accesses for priv->.., in gfar_of_init.
+On Tue, Mar 11, 2014 at 10:14:00AM +0800, Ding Tianhong wrote:
+>The commit d3ab3ffd1d728d7ee77340e7e7e2c7cfe6a4013e
+>(bonding: use rlb_client_info->vlan_id instead of ->tag)
+>remove the rlb_client_info->tag, but occur some issues,
+>The vlan_get_tag() will return 0 for success and -EINVAL for
+>error, so the client_info->vlan_id always be set to 0 if the
+>vlan_get_tag return 0 for success, so the client_info would
+>never get a correct vlan id, and could not send a skb for vlan id 0.
 
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
----
- drivers/net/ethernet/freescale/gianfar.c | 28 ++++++++++++++++++----------
- 1 file changed, 18 insertions(+), 10 deletions(-)
+VLAN id 0 is a reserved value, afaik, used for traffic prioritizing (by
+8021p), so it shouldn't be treated as a normal VLAN.
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 28effbe..68d9bf7 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -733,21 +733,30 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 	const u32 *stash_idx;
- 	unsigned int num_tx_qs, num_rx_qs;
- 	u32 *tx_queues, *rx_queues;
-+	unsigned short mode, poll_mode;
- 
- 	if (!np || !of_device_is_available(np))
- 		return -ENODEV;
- 
-+	if (of_device_is_compatible(np, "fsl,etsec2")) {
-+		mode = MQ_MG_MODE;
-+		poll_mode = GFAR_SQ_POLLING;
-+	} else {
-+		mode = SQ_SG_MODE;
-+		poll_mode = GFAR_SQ_POLLING;
-+	}
-+
- 	/* parse the num of HW tx and rx queues */
- 	tx_queues = (u32 *)of_get_property(np, "fsl,num_tx_queues", NULL);
- 	rx_queues = (u32 *)of_get_property(np, "fsl,num_rx_queues", NULL);
- 
--	if (priv->mode == SQ_SG_MODE) {
-+	if (mode == SQ_SG_MODE) {
- 		num_tx_qs = 1;
- 		num_rx_qs = 1;
- 	} else { /* MQ_MG_MODE */
--		if (priv->poll_mode == GFAR_SQ_POLLING) {
--			num_tx_qs = 2; /* one q per int group */
--			num_rx_qs = 2; /* one q per int group */
-+		if (poll_mode == GFAR_SQ_POLLING) {
-+			num_tx_qs = 2; /* one txq per int group */
-+			num_rx_qs = 2; /* one rxq per int group */
- 		} else { /* GFAR_MQ_POLLING */
- 			num_tx_qs = tx_queues ? *tx_queues : 1;
- 			num_rx_qs = rx_queues ? *rx_queues : 1;
-@@ -776,6 +785,9 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 	priv = netdev_priv(dev);
- 	priv->ndev = dev;
- 
-+	priv->mode = mode;
-+	priv->poll_mode = poll_mode;
-+
- 	priv->num_tx_queues = num_tx_qs;
- 	netif_set_real_num_rx_queues(dev, num_rx_qs);
- 	priv->num_rx_queues = num_rx_qs;
-@@ -799,17 +811,13 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
- 		priv->gfargrp[i].regs = NULL;
- 
- 	/* Parse and initialize group specific information */
--	if (of_device_is_compatible(np, "fsl,etsec2")) {
--		priv->mode = MQ_MG_MODE;
--		priv->poll_mode = GFAR_SQ_POLLING;
-+	if (priv->mode == MQ_MG_MODE) {
- 		for_each_child_of_node(np, child) {
- 			err = gfar_parse_group(child, priv, model);
- 			if (err)
- 				goto err_grp_init;
- 		}
--	} else {
--		priv->mode = SQ_SG_MODE;
--		priv->poll_mode = GFAR_SQ_POLLING;
-+	} else { /* SQ_SG_MODE */
- 		err = gfar_parse_group(np, priv, model);
- 		if (err)
- 			goto err_grp_init;
--- 
-1.7.11.7
+Also, I remember that it was used internally for HW filtering, so it might
+interfere with those (if a devices has NETIF_F_HW_VLAN_CTAG_FITLER VLAN id
+0 is added automatically).
+
+Based on these I don't think that bonding should see VLAN 0 as a normal
+VLAN.
+
+>
+>Fix this by convert the client_info->vlan_id from u16 to s16,
+>and set to -1 for default value, the s16 is enough for the range
+>of the vlan id.
+>
+>Fixes: d3ab3ffd1d7 (bonding: use rlb_client_info->vlan_id instead of ->tag)
+>
+>Cc: Jay Vosburgh <fubar@us.ibm.com>
+>Cc: Veaceslav Falico <vfalico@redhat.com>
+>Cc: Andy Gospodarek <andy@greyhouse.net>
+>Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>---
+> drivers/net/bonding/bond_alb.c | 8 ++++----
+> drivers/net/bonding/bond_alb.h | 2 +-
+> 2 files changed, 5 insertions(+), 5 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+>index aaeeacf..fa95f70 100644
+>--- a/drivers/net/bonding/bond_alb.c
+>+++ b/drivers/net/bonding/bond_alb.c
+>@@ -539,7 +539,7 @@ static void rlb_update_client(struct rlb_client_info *client_info)
+>
+> 		skb->dev = client_info->slave->dev;
+>
+>-		if (client_info->vlan_id) {
+>+		if (client_info->vlan_id >= 0) {
+> 			skb = vlan_put_tag(skb, htons(ETH_P_8021Q), client_info->vlan_id);
+> 			if (!skb) {
+> 				pr_err("%s: Error: failed to insert VLAN tag\n",
+>@@ -722,8 +722,8 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+> 			client_info->ntt = 0;
+> 		}
+>
+>-		if (!vlan_get_tag(skb, &client_info->vlan_id))
+>-			client_info->vlan_id = 0;
+>+		if (vlan_get_tag(skb, &client_info->vlan_id))
+>+			client_info->vlan_id = -1;
+>
+> 		if (!client_info->assigned) {
+> 			u32 prev_tbl_head = bond_info->rx_hashtbl_used_head;
+>@@ -827,7 +827,7 @@ static void rlb_init_table_entry_dst(struct rlb_client_info *entry)
+> 	entry->used_prev = RLB_NULL_INDEX;
+> 	entry->assigned = 0;
+> 	entry->slave = NULL;
+>-	entry->vlan_id = 0;
+>+	entry->vlan_id = -1;
+> }
+> static void rlb_init_table_entry_src(struct rlb_client_info *entry)
+> {
+>diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
+>index e09dd4bf..b49af98 100644
+>--- a/drivers/net/bonding/bond_alb.h
+>+++ b/drivers/net/bonding/bond_alb.h
+>@@ -125,7 +125,7 @@ struct rlb_client_info {
+> 	u8  assigned;		/* checking whether this entry is assigned */
+> 	u8  ntt;		/* flag - need to transmit client info */
+> 	struct slave *slave;	/* the slave assigned to this client */
+>-	unsigned short vlan_id;	/* VLAN tag associated with IP address */
+>+	short vlan_id;		/* VLAN tag associated with IP address */
+> };
+>
+> struct tlb_slave_info {
+>-- 
+>1.8.0
+>
+>
