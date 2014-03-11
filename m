@@ -1,53 +1,81 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 5/5] skbuff: skb_segment: orphan frags before copying
-Date: Tue, 11 Mar 2014 15:21:10 +0800
-Message-ID: <20140311072109.GA18872@gondor.apana.org.au>
-References: <1394468807-25980-1-git-send-email-mst@redhat.com>
- <1394468807-25980-6-git-send-email-mst@redhat.com>
- <20140310213404.GB15352@gondor.apana.org.au>
- <20140310215236.GA7052@redhat.com>
- <20140310215640.GA15684@gondor.apana.org.au>
- <20140310220717.GA7150@redhat.com>
- <20140310221223.GA15839@gondor.apana.org.au>
- <20140310223001.GA7218@redhat.com>
- <20140311003940.GA16886@gondor.apana.org.au>
- <20140311064150.GA10874@redhat.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: RE: [PATCH net-next 1/5] vxlan: Make VXLAN default UDP port number
+ available for others
+Date: Tue, 11 Mar 2014 07:22:31 +0000
+Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F798F5@avmb2.qlogic.org>
+References: <1394470142-13992-1-git-send-email-shahed.shaikh@qlogic.com>
+	<1394470142-13992-2-git-send-email-shahed.shaikh@qlogic.com>
+	<CAJZOPZ+MFe2ev372L07uVvXs_wYnqAiZ3VMG4YteD2XmPWHoSQ@mail.gmail.com>
+	<262CB373A6D1F14F9B81E82F74F77D5A46F797EE@avmb2.qlogic.org>
+ <CAJZOPZKBdZPuEe5uKLb3sw92q3Qko4RS-90uVAQK=+pFXVAfSA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, jbenc@redhat.com,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Simon Horman <horms@verge.net.au>,
-	Paul Durrant <Paul.Durrant@citrix.com>,
-	Thomas Graf <tgraf@suug.ch>, Miklos Szeredi <mszeredi@suse.cz>,
-	=?us-ascii?B?PT9VVEYtOD9xP1BldGVyPTIwUGFuPTI4PUU2PUJEPTk4PUU1PThEPUFC?=
-	 =?us-ascii?B?PUU1PUI5PUIzPTI5Pz0=?= <panweiping3@gmail.com>,
-	netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140311064150.GA10874@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	"Stephen Hemminger (stephen@networkplumber.org)"
+	<stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:39771 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753456AbaCKHWj convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Mar 2014 03:22:39 -0400
+In-Reply-To: <CAJZOPZKBdZPuEe5uKLb3sw92q3Qko4RS-90uVAQK=+pFXVAfSA@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 11, 2014 at 08:41:50AM +0200, Michael S. Tsirkin wrote:
-> On Tue, Mar 11, 2014 at 08:39:41AM +0800, Herbert Xu wrote:
-> > On Tue, Mar 11, 2014 at 12:30:01AM +0200, Michael S. Tsirkin wrote:
-> > >
-> > > How about we do the simple thing as the first step and try to optimize
-> > > as a separate patch on top?
-> > 
-> > Sure let's do that.
-> > 
-> > Cheers,
+> -----Original Message-----
+> From: Or Gerlitz [mailto:or.gerlitz@gmail.com]
+> Sent: Tuesday, March 11, 2014 12:12 PM
+> To: Shahed Shaikh; Joseph Gasparakis; John Fastabend
+> Cc: David Miller; netdev; Dept-HSG Linux NIC Dev
+> Subject: Re: [PATCH net-next 1/5] vxlan: Make VXLAN default UDP port
+> number available for others
 > 
-> Could you send an ack to my patchset then?
+...
+> >> >
+> >> > Although vxlan module has capability to notify udp ports to other
+> >> > interested net devices using .ndo_add_rx_vxlan_port and
+> >> > .ndo_del_rx_vxlan_port, there could be some devices which support
+> >> > vxlan offload but not interested in updating udp port numbers.
+> >> > This may be because some hardware do not support programming
+> >> > multiple udp ports and their drivers may decide to program only
+> >> > default udp port into adapter. So that adapter, at least, can do
+> >> > offloading for default udp port number.
+> >>
+> >> Indeed, but the default port number can be unused while another port
+> >> is used. The ndo will be invoked only behalf of an actual instancing
+> >> of udp port for listener socket (== destination port you want the hw
+> >> to indentify), what's wrong with support this ndo also for devices
+> >> that supported limited (say
+> >> one) such port?
+> >
+> >
+> >  If driver implements .ndo for udp port and user creates multiple
+> > vxlan device with different udp ports, it may end up programming the
+> > udp port which may not go through the adapter and no offload will
+> > happen. OTOH, if drive does not implement .ndo and if user is aware
+> > that driver  is capable of offloading for default port, he can at least crate
+> vxlan device on top of qlcnic interface  with default udp port. So, there is no
+> chance for other udp port numbers to replace default udp port and disturb
+> offloading.
+> 
+> I see your point, but doesn't this suggests we need to somehow enhance
+> the current framework to let drivers know which vxlan traffic is expected to
+> be received over them according to the current routing rules?
 
-Sure,
+Agree. Because of this limitation I used default udp port for offloading.
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> I understand this is a bit tricky because  vxlan and routing  are l3 constructs
+> while drivers deal with l2, John/Joseph - what's your thinking here?
+
+Yes. May be John, Joseph or Stephen can suggest on this.
+
+Thanks,
+Shahed
