@@ -1,42 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] skbuff: fix skb_segment with zero copy skbs
-Date: Tue, 11 Mar 2014 16:27:14 -0400 (EDT)
-Message-ID: <20140311.162714.1118698288267206477.davem@davemloft.net>
-References: <1394468807-25980-1-git-send-email-mst@redhat.com>
+Subject: Re: [RCU PATCH 00/14] Remove qdisc lock around ingress Qdisc
+Date: Tue, 11 Mar 2014 16:36:42 -0400 (EDT)
+Message-ID: <20140311.163642.197791800524216561.davem@davemloft.net>
+References: <20140310170008.3011.73599.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, jbenc@redhat.com,
-	netdev@vger.kernel.org
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394468807-25980-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org
+To: john.fastabend@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58362 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755491AbaCKUgn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 16:36:43 -0400
+In-Reply-To: <20140310170008.3011.73599.stgit@nitbit.x32>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Mon, 10 Mar 2014 18:29:01 +0200
+From: John Fastabend <john.fastabend@gmail.com>
+Date: Mon, 10 Mar 2014 10:03:22 -0700
 
-> This fixes a bug in skb_segment where it moves frags
-> between skbs without orphaning them.
-> This causes userspace to assume it's safe to
-> reuse the buffer, and receiver gets corrupted data.
-> This further might leak information from the
-> transmitter on the wire.
-> 
-> To fix track which skb does a copied frag belong
-> to, and orphan frags when copying them.
-> 
-> As we are tracking multiple skbs here, using
-> short names (skb,nskb,fskb,skb_frag,frag) becomes confusing.
-> So before adding another one, I refactor these names
-> slightly.
-> 
-> Patch is split out to make it easier to
-> verify that all trasformations are trivially correct.
-> 
-> The problem was observed in the field,
-> so I think that the patch is necessary on stable
-> as well.
+> This series drops the qdisc lock that is currently protecting the
+> ingress qdisc. This can be done after the tcf filters are made
+> lockless and the statistic accounting is safe to run without locks.
 
-Series applied and queued up for -stable, thanks for fixing this.
+This series looks great, nice work.
+
+Please address Eric Dumazet's feedback and repost, then I'd like to
+see Jamal and Cong at least give a cursory review before I apply this.
+
+Thanks.
