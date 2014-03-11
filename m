@@ -1,72 +1,54 @@
-From: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] openvswitch: Orphan frags before sending to
- userspace via Netlink to avoid guest stall
-Date: Tue, 11 Mar 2014 19:41:04 +0000
-Message-ID: <531F66D0.1050000@citrix.com>
-References: <1393615016-9187-1-git-send-email-zoltan.kiss@citrix.com>	<5319F272.1070101@redhat.com>
- <CALnjE+q=fejHPsjVj9+jnypJCUHfCDFc553U48WR48Tjcf3FZw@mail.gmail.com>
- <531A0911.4040304@redhat.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC PATCH 0/2] remove netpoll rx support
+Date: Tue, 11 Mar 2014 12:48:30 -0700
+Message-ID: <87wqg0cy9d.fsf@xmission.com>
+References: <20140311.004217.1616529960369263682.davem@davemloft.net>
+	<1394514158.21721.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	<87a9cxf7mp.fsf_-_@xmission.com>
+	<20140311.124907.1180556684992271103.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org,
- LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <531A0911.4040304-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:32861 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755079AbaCKTsh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 15:48:37 -0400
+In-Reply-To: <20140311.124907.1180556684992271103.davem@davemloft.net> (David
+	Miller's message of "Tue, 11 Mar 2014 12:49:07 -0400 (EDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/03/14 17:59, Thomas Graf wrote:
-> On 03/07/2014 06:28 PM, Pravin Shelar wrote:
->> Problem is mapping SKBTX_DEV_ZEROCOPY pages to userspace. skb_zerocopy
->> is not doing that.
->>
->> Unless I missing something, Current netlink code can not handle
->> skb-frags with zero copy. So we have to copy skb anyways and no need
->> to orphan-frags here.
->> If you are planning on handling skb-frags without copying then
->> skb_orphan_frags should be done in netlink.
+David Miller <davem@davemloft.net> writes:
+
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Tue, 11 Mar 2014 01:43:10 -0700
 >
-> If you look at the second part of skb_zerocopy() this is exactly what
-> it is doing unless the target skb has sufficient linear space
-> preallocated. At least unless mmap is enabled in which case we would
-> have to copy again until we have implemented a way to pass page refs
-> via the nl ring buffer.
+>> Furthermore netpoll by it's design depends on the ability to receive
+>> packets in netpoll_poll_dev.  It is a capability I don't think we have
+>> ever used in the mainline kernel but it is a capability that is there
+>> deliberately.  Which means if we want netpoll to not mess with the rx
+>> path we need to change netpoll.
 >
-> So I think Zoltan is correct in orphaning frags that come from f.e.
-> a tun device via zerocopy_sg_from_iovec().
+> This breaks kdump, and any other users of netpoll_rx() et al.
 
-Now as I'm checking how Netlink works, I might be wrong at some parts :) 
-skb_zerocopy correctly add the frags to the user_skb we are sending 
-upwards, however when the userspace receive it in netlink_recvmsg(), it 
-gets copied to the supplied buffer anyway. Is that correct? In which 
-case we don't need to worry that userspace will sit on that page 
-indefinitely. However we have to worry about userspace not calling recv 
-on that Netlink socket, so in the end we still need skb_orphan_frags, 
-just for a different reason :)
-We can put skb_orphan_frags into skb_zerocopy, skb_clone also do that.
+It does not break kdump.  (kdump starts a new kernel to do it's work). 
 
-However with Netlink mmapped IO, we should take a different approach, 
-and instead of calling skb_orphan_frags we should make sure user_skb can 
-hold any skb we get from the kernel, and copy the frags there. Even if 
-we would be able to pass page refs to userspace through the ring buffer 
-(AFAIK currently we can't), it would be fragile to just pass kernel 
-pages directly to userspace, even if they came without the 
-SKBTX_DEV_ZEROCOPY flag. And I think it would be quite rare that we need 
-that copy anyway, because the flow setup usually happens with small 
-packets without frags.
-If we choose the above approach with Netlink mmap, we don't need 
-skb_orphan_frags, in fact
+It does break the ancient lkcd netdump that was never merged, and has
+been abandoned (to the best of my knowledge). crash dumps proved
+entirely too fragile to perform from a broken kernel.
 
-Regards,
+It does break kgdboe that was never merged.
 
-Zoli
+> Make the zero budget depend upon us being invoked from hardware
+> irq context, or something like that.
+
+Good enough.  I will respin my driver patches based on the assumption
+that netpoll will be changed in this way.  There are no dependencies
+for the drivers, I just need to remove my rx path changes.
+
+We can have the conversation about how to change netpoll in parallel.
+
+Eric
