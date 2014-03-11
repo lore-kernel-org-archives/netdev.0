@@ -1,95 +1,59 @@
-From: Christian Riesch <christian.riesch@omicron.at>
-Subject: Re: [PATCH RFC net-next v1 1/9] ptp: introduce programmable pins.
-Date: Tue, 11 Mar 2014 08:58:45 +0100
-Message-ID: <F85F72BA1EE25F8F7FB77295@[172.22.2.41]>
-References: <cover.1394307303.git.richardcochran@gmail.com>
- <d9cb37a7d6e57d7f103dab78f98044697d3c4433.1394307304.git.richardcochran@gmail.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: Re: [PATCH net-next v2 0/2] gianfar: Tx timeout issue
+Date: Tue, 11 Mar 2014 10:10:22 +0200
+Message-ID: <531EC4EE.8080104@freescale.com>
+References: <1394196166-24932-1-git-send-email-claudiu.manoil@freescale.com> <20140310.131827.672807362272151307.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	=?UTF-8?Q?Stefan_S=C3=B8rensen?= <stefan.sorensen@spectralink.com>
-To: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d9cb37a7d6e57d7f103dab78f98044697d3c4433.1394307304.git.richardcochran@gmail.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tx2ehsobe002.messaging.microsoft.com ([65.55.88.12]:43768 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751689AbaCKIKd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 04:10:33 -0400
+In-Reply-To: <20140310.131827.672807362272151307.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Richard,
-
---On March 08, 2014 20:42 +0100 Richard Cochran <richardcochran@gmail.com> 
-wrote:
-
-> This patch adds a pair of new ioctls to the PTP Hardware Clock device
-> interface. Using the ioctls, user space programs can query each pin to
-> find out its current function and also reprogram a different function
-> if desired.
+On 3/10/2014 7:18 PM, David Miller wrote:
+> From: Claudiu Manoil <claudiu.manoil@freescale.com>
+> Date: Fri, 7 Mar 2014 14:42:44 +0200
 >
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
-> ---
->  drivers/ptp/ptp_chardev.c        |  133
-> +++++++++++++++++++++++++++++++++++++-  drivers/ptp/ptp_clock.c
-> |   23 +++++++
->  drivers/ptp/ptp_private.h        |    4 ++
->  include/linux/ptp_clock_kernel.h |   33 ++++++++++
->  include/uapi/linux/ptp_clock.h   |   39 ++++++++++-
->  5 files changed, 230 insertions(+), 2 deletions(-)
+>> There's an older Tx timeout issue showing up on etsec2 devices
+>> with 2 CPUs.  I pinned this issue down to processing overhead
+>> incurred by supporting multiple Tx/Rx rings, as explained in
+>> the 2nd patch below.  But before this, there's also a concurency
+>> issue leading to Rx/Tx spurrious interrupts, addressed by the
+>> 'Tx NAPI' patch below.
+>> The Tx timeout can be triggered with multiple Tx flows,
+>> 'iperf -c -N 8' commands, on a 2 CPUs etsec2 based (P1020) board.
 >
-> diff --git a/drivers/ptp/ptp_chardev.c b/drivers/ptp/ptp_chardev.c
-> index 34a0c60..dc13d1e 100644
-> --- a/drivers/ptp/ptp_chardev.c
-> +++ b/drivers/ptp/ptp_chardev.c
-[...]
-> +int ptp_setpin(struct ptp_clock *ptp, unsigned int pin,
-> +	       enum ptp_pin_function func, unsigned int chan)
-> +{
-> +	struct ptp_clock_info *info = ptp->info;
-> +	struct ptp_pin_desc *pin1 = NULL, *pin2 = &info->pin_config[pin];
-> +	unsigned int i;
-> +
-> +	/* Check to see if any other pin previously had this function. */
-> +	if (mutex_lock_interruptible(&ptp->pincfg_mux))
-> +		return -ERESTARTSYS;
-> +	for (i = 0; i < info->n_pins; i++) {
-> +		if (info->pin_config[i].func == func &&
-> +		    info->pin_config[i].chan == chan) {
-> +			pin1 = &info->pin_config[i];
-> +			break;
-> +		}
-> +	}
-> +	mutex_unlock(&ptp->pincfg_mux);
-> +	if (pin1 && i == pin)
-> +		return 0;
-> +
-> +	/* Check the desired function and channel. */
-> +	switch (func) {
-> +	case PTP_PF_NONE:
-> +		break;
-> +	case PTP_PF_EXTTS:
-> +		if (chan >= info->n_ext_ts)
-> +			return -EINVAL;
-> +		break;
-> +	case PTP_PF_PEROUT:
-> +		if (chan >= info->n_per_out)
-> +			return -EINVAL;
-> +		break;
-> +	case PTP_PF_PHYSYNC:
-> +		pr_err("sorry, cannot reassign the calibration pin\n");
-> +		return -EINVAL;
-> +	default:
-> +		return -EINVAL;
-> +	}
-> +
-> +	if (pin1 && pin1->func == PTP_PF_PHYSYNC) {
-> +		pr_err("sorry, cannot reprogram the calibration pin\n");
-> +		return -EINVAL;
+> Series applied, thanks.
+>
+>
 
-            ^^^^
-Will this ever happen? pin1 && pin1->func == PTP_PF_PHYSYNC means that func 
-== PTP_PF_PHYSYNC, but in this case you already return -EINVAL a few lines 
-above.
+Thanks David.
+However there's a problem with the second patch:
+http://patchwork.ozlabs.org/patch/327941/
+(gianfar: Use Single-Queue polling for "fsl,etsec2")
 
-Christian
+According to my comments, I retracted the patch because
+of null access in gfar_of_init(): priv is not instantiated
+at that time, which makes the run time checks (to limit
+the number of supported queues) to be tricky.
+
+What do you prefer: an additional separate patch to fix this
+null access issue, or to revert the existing patch?
+
+Another point is that the "Use Single-Queue polling..." patch
+(http://patchwork.ozlabs.org/patch/327941/)
+aims to obsolete the multi-queue polling, i.e. supporting
+multiple queues per single NAPI instance.  How do you fill
+about removing multi-queue polling support from the driver?
+Is there a point for a linux eth driver to support more than
+a Rx/Tx queue per NAPI instance?
+
+Thanks again.
+Claudiu
