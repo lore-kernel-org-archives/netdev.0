@@ -1,68 +1,113 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v2 2/9] net: ethernet: Change Ethernet Makefile
- and Kconfig for Altera TSE driver
-Date: Tue, 11 Mar 2014 18:09:44 +0400
-Message-ID: <531F1928.4080505@cogentembedded.com>
-References: <1394493277-2105-1-git-send-email-vbridgers2013@gmail.com> <1394493277-2105-3-git-send-email-vbridgers2013@gmail.com>
+From: Jakub =?UTF-8?B?S2ljacWEc2tp?= <moorray3@wp.pl>
+Subject: Re: net-next: NULL pointer dereference on adding a net namespace
+ and a system freeze
+Date: Tue, 11 Mar 2014 15:30:29 +0100
+Message-ID: <20140311153029.1de9d6e9@north>
+References: <20140310014452.144b0491@north>
+	<1394424146.3607.2.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1394424557.3607.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140310131909.33a3042c@north>
+	<1394460276.3607.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140311014649.1716bde1@north>
+	<20140311120059.GB32371@secunet.com>
+	<1394541626.21721.24.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140311132030.GD32371@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	rob@landley.net
-To: Vince Bridgers <vbridgers2013@gmail.com>,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1394493277-2105-3-git-send-email-vbridgers2013@gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>,
+	Fan Du <fan.du@windriver.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.wp.pl ([212.77.101.10]:7372 "EHLO mx3.wp.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752176AbaCKOae (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Mar 2014 10:30:34 -0400
+In-Reply-To: <20140311132030.GD32371@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Tue, 11 Mar 2014 14:20:30 +0100, Steffen Klassert wrote:
+> On Tue, Mar 11, 2014 at 05:40:26AM -0700, Eric Dumazet wrote:
+> > On Tue, 2014-03-11 at 13:00 +0100, Steffen Klassert wrote:
+> > 
+> > > I was unable to reproduce this here, but it looks like the flowcache
+> > > namespace changes are still not complete. We leak an active timer
+> > > and all the allocated resources when we exit a namespace.
+> > > 
+> > > Could you please try the patch below?
+> > > 
+> > > Also, please send your config if the patch does not fix your problem.
+> > > 
+> > > Thanks!
+> > > 
+> > > ---
+> > >  include/net/flow.h     |    1 +
+> > >  net/core/flow.c        |   18 ++++++++++++++++++
+> > >  net/xfrm/xfrm_policy.c |    7 ++++++-
+> > >  3 files changed, 25 insertions(+), 1 deletion(-)
+> > > 
+> > > diff --git a/include/net/flow.h b/include/net/flow.h
+> > > index bee3741..64fd248 100644
+> > > --- a/include/net/flow.h
+> > > +++ b/include/net/flow.h
+> > > @@ -219,6 +219,7 @@ struct flow_cache_object *flow_cache_lookup(struct net *net,
+> > >  					    u8 dir, flow_resolve_t resolver,
+> > >  					    void *ctx);
+> > >  int flow_cache_init(struct net *net);
+> > > +void flow_cache_fini(struct net *net);
+> > >  
+> > >  void flow_cache_flush(struct net *net);
+> > >  void flow_cache_flush_deferred(struct net *net);
+> > > diff --git a/net/core/flow.c b/net/core/flow.c
+> > > index 102f8ea..d31c3c4 100644
+> > > --- a/net/core/flow.c
+> > > +++ b/net/core/flow.c
+> > > @@ -484,3 +484,21 @@ err:
+> > >  	return -ENOMEM;
+> > >  }
+> > >  EXPORT_SYMBOL(flow_cache_init);
+> > > +
+> > > +void flow_cache_fini(struct net *net)
+> > > +{
+> > > +	int i;
+> > > +	struct flow_cache *fc = &net->xfrm.flow_cache_global;
+> > > +
+> > > +	del_timer(&fc->rnd_timer);
+> > 
+> > 
+> > del_timer_sync() I guess is better.
+> > 
+> 
+> Right.
+> 
+> I've just noticed that I also forgot to do a
+> unregister_hotcpu_notifier(&fc->hotcpu_notifier).
+> 
+> Will update the next version according to that.
 
-On 11-03-2014 3:14, Vince Bridgers wrote:
+Tested with del_timer_sync and unregister_hotcpu_notifier:
 
-> This patch changes the Ethernet Makefile and Kconfig files to add the Altera
-> Ethernet driver component.
+void flow_cache_fini(struct net *net)
+{
+	int i;
+	struct flow_cache *fc = &net->xfrm.flow_cache_global;
 
-> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
-> ---
-> V2: - No change to Kconfig and Makefile from initial RFC review
+	unregister_hotcpu_notifier(&fc->hotcpu_notifier);
+	del_timer_sync(&fc->rnd_timer);
 
-    Unfortunately, the order of patches seems wrong. This patch should be 
-among the last.
+	for_each_possible_cpu(i) {
+		struct flow_cache_percpu *fcp = per_cpu_ptr(fc->percpu, i);
+		kfree(fcp->hash_table);
+		fcp->hash_table = NULL;
+	}
 
-> ---
->   drivers/net/ethernet/Kconfig  |    1 +
->   drivers/net/ethernet/Makefile |    1 +
->   2 files changed, 2 insertions(+)
+	free_percpu(fc->percpu);
+	fc->percpu = NULL;
+}
+EXPORT_SYMBOL(flow_cache_fini);
 
-> diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-> index 506b024..39484b5 100644
-> --- a/drivers/net/ethernet/Kconfig
-> +++ b/drivers/net/ethernet/Kconfig
-> @@ -22,6 +22,7 @@ source "drivers/net/ethernet/adaptec/Kconfig"
->   source "drivers/net/ethernet/aeroflex/Kconfig"
->   source "drivers/net/ethernet/allwinner/Kconfig"
->   source "drivers/net/ethernet/alteon/Kconfig"
-> +source "drivers/net/ethernet/altera/Kconfig"
 
-    This file doesn't exist yet.
+Seems to solve both the freeze and the bug on restarting libvirtd/rtkit!
 
->   source "drivers/net/ethernet/amd/Kconfig"
->   source "drivers/net/ethernet/apple/Kconfig"
->   source "drivers/net/ethernet/arc/Kconfig"
-> diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-> index c0b8789..adf61af 100644
-> --- a/drivers/net/ethernet/Makefile
-> +++ b/drivers/net/ethernet/Makefile
-> @@ -8,6 +8,7 @@ obj-$(CONFIG_NET_VENDOR_ADAPTEC) += adaptec/
->   obj-$(CONFIG_GRETH) += aeroflex/
->   obj-$(CONFIG_NET_VENDOR_ALLWINNER) += allwinner/
->   obj-$(CONFIG_NET_VENDOR_ALTEON) += alteon/
-> +obj-$(CONFIG_ALTERA_TSE) += altera/
-
-    This directory doesn't exist yet.
-
-WBR, Sergei
-
+	-- kuba
