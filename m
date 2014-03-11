@@ -1,70 +1,47 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: Re: [PATCH] net: phy: Add support for SMSC/Microchip LAN9303 3-port switch
-Date: Tue, 11 Mar 2014 16:49:49 +0100
-Message-ID: <CAGm1_kt9eDRtqwL-twLKheW-XMD8RJ7Rmmsbxwdd6EB2NkopOQ@mail.gmail.com>
-References: <1393492072-15364-1-git-send-email-sr@denx.de> <20140227.170240.1910151216729314077.davem@davemloft.net>
- <CAGVrzcZd7mO6t4eAsn6HVNWFZpPopkBk2trjgSh+3rcWQPHw7g@mail.gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] MAINTAINERS: Add tools/net to NETWORKING [GENERAL]
+Date: Tue, 11 Mar 2014 16:52:57 +0100
+Message-ID: <531F3159.6060607@redhat.com>
+References: <1394535984-17924-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Felix Fietkau <nbd@openwrt.org>, Stefan Roese <sr@denx.de>,
-	netdev <netdev@vger.kernel.org>, r.meier@siemens.com,
-	lukas.stockmann@siemens.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:53808 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753364AbaCKPuN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 11:50:13 -0400
-Received: by mail-pb0-f52.google.com with SMTP id rr13so9020579pbb.11
-        for <netdev@vger.kernel.org>; Tue, 11 Mar 2014 08:50:09 -0700 (PDT)
-In-Reply-To: <CAGVrzcZd7mO6t4eAsn6HVNWFZpPopkBk2trjgSh+3rcWQPHw7g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Joe Perches <joe@perches.com>, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Tobias Klauser <tklauser@distanz.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394535984-17924-1-git-send-email-tklauser@distanz.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Florian,
-
-On Thu, Feb 27, 2014 at 11:21 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> 2014-02-27 14:02 GMT-08:00 David Miller <davem@davemloft.net>:
->> From: Stefan Roese <sr@denx.de>
->> Date: Thu, 27 Feb 2014 10:07:52 +0100
->>
->>> This driver exposes a sysfs interface to access the LAN9303 registers to
->>> userspace. These sysfs files can be used to configure the switch.
->>>
->>> Signed-off-by: Stefan Roese <sr@denx.de>
->>
->> We have an abstraction for programming switch devices called DSA.
->>
->> Even if DSA doesn't fullfill your needs, doing adjustments using sysfs
->> files in userland is going to be the worst user experience possible.
+On 03/11/2014 12:06 PM, Tobias Klauser wrote:
+> Make sure patches for these tools go to the netdev list as well.
 >
-> If you remember the discussion that started around the 'swconfig'
-> patches, DSA is not suitable for all types of switches, especially not
-> those which have no proprietary tagging support (which are about 80%
-> of the switches used in embedded systems). That discussion has kind of
-> stalled now, so we should probably bring it back...
+> References: https://marc.info/?l=linux-kernel&m=139450284501328&w=2
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> ---
+>   MAINTAINERS |    1 +
+>   1 file changed, 1 insertion(+)
 >
->>
->> Every driver will export different things to tweak, each device will
->> have different semantics and limitations for these settings, etc.
->>
->> Better is to come up with a real, types, interface for programming
->> such devices and providing an implementation of that.
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index ab32ad5..fa7b379 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -6042,6 +6042,7 @@ F:	include/linux/netdevice.h
+>   F:	include/uapi/linux/in.h
+>   F:	include/uapi/linux/net.h
+>   F:	include/uapi/linux/netdevice.h
+> +F:	tools/net/
+
+We should perhaps also add an entry for networking
+selftests later on, that is:
+
+   tools/testing/selftests/net/
+
+>   NETWORKING [IPv4/IPv6]
+>   M:	"David S. Miller" <davem@davemloft.net>
 >
-> These are definitively the goals of the 'swconfig' patches that were
-> posted a while ago, to provide an unified programming API.
-> --
-> Florian
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-Have you tried to apply your swconfig patches to 3.14? There some
-compiler errors meanwhile. genl_register_ops() is not available, so
-one has to switch to genl_register_family_with_ops() or similar
-macros. It would be great, if you could post the updates series and if
-possible with ICplus drive included.
-
-Yegor
