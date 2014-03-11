@@ -1,54 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] vmxnet3: fix netpoll race condition
-Date: Tue, 11 Mar 2014 13:16:15 -0400 (EDT)
-Message-ID: <20140311.131615.1099547048239011196.davem@davemloft.net>
-References: <1394227527-31082-1-git-send-email-nhorman@tuxdriver.com>
-	<1394448955-19915-1-git-send-email-nhorman@tuxdriver.com>
+From: Julius Werner <jwerner-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: Re: usbnet: driver_info->stop required to stop USB interrupts?
+Date: Tue, 11 Mar 2014 10:27:15 -0700
+Message-ID: <CAODwPW8rQptt+jnfZ+KjpuOOpKi9ktb-y2kCYGZJo_ava1ktjg@mail.gmail.com>
+References: <CANEJEGsvqkT_H4i+UZpBaWMYmgXHmpD8SZ4tU1OHzLd8gyznow@mail.gmail.com>
+	<CANEJEGv03ohVwoS0Pd1Z3az9k-C=dTzG4qE1SBL6Um97QC1Ehw@mail.gmail.com>
+	<CAODwPW_t9COeg0LWfkiqXC_yTbSNhUHX-8T95KRZHfOTSiZK1Q@mail.gmail.com>
+	<1394529263.16128.6.camel@linux-fkkt.site>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sbhatewara@vmware.com,
-	pv-drivers@vmware.com, stable@vger.kernel.org
-To: nhorman@tuxdriver.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1394448955-19915-1-git-send-email-nhorman@tuxdriver.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Julius Werner <jwerner-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394529263.16128.6.camel-B2T3B9s34ElbnMAlSieJcQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Mon, 10 Mar 2014 06:55:55 -0400
+I don't know enough about how runtime PM works in this driver to
+really review that patch, sorry. (Would this do a complete resume of
+the device if we call usbnet_stop() while it was suspended? Is that
+what we want?)
 
-> vmxnet3's netpoll driver is incorrectly coded.  It directly calls
-> vmxnet3_do_poll, which is the driver internal napi poll routine.  As the netpoll
-> controller method doesn't block real napi polls in any way, there is a potential
-> for race conditions in which the netpoll controller method and the napi poll
-> method run concurrently.  The result is data corruption causing panics such as this
-> one recently observed:
-> PID: 1371   TASK: ffff88023762caa0  CPU: 1   COMMAND: "rs:main Q:Reg"
->  #0 [ffff88023abd5780] machine_kexec at ffffffff81038f3b
->  #1 [ffff88023abd57e0] crash_kexec at ffffffff810c5d92
->  #2 [ffff88023abd58b0] oops_end at ffffffff8152b570
->  #3 [ffff88023abd58e0] die at ffffffff81010e0b
->  #4 [ffff88023abd5910] do_trap at ffffffff8152add4
->  #5 [ffff88023abd5970] do_invalid_op at ffffffff8100cf95
->  #6 [ffff88023abd5a10] invalid_op at ffffffff8100bf9b
->     [exception RIP: vmxnet3_rq_rx_complete+1968]
->     RIP: ffffffffa00f1e80  RSP: ffff88023abd5ac8  RFLAGS: 00010086
->     RAX: 0000000000000000  RBX: ffff88023b5dcee0  RCX: 00000000000000c0
->     RDX: 0000000000000000  RSI: 00000000000005f2  RDI: ffff88023b5dcee0
->     RBP: ffff88023abd5b48   R8: 0000000000000000   R9: ffff88023a3b6048
->     R10: 0000000000000000  R11: 0000000000000002  R12: ffff8802398d4cd8
->     R13: ffff88023af35140  R14: ffff88023b60c890  R15: 0000000000000000
->     ORIG_RAX: ffffffffffffffff  CS: 0010  SS: 0018
->  #7 [ffff88023abd5b50] vmxnet3_do_poll at ffffffffa00f204a [vmxnet3]
->  #8 [ffff88023abd5b80] vmxnet3_netpoll at ffffffffa00f209c [vmxnet3]
->  #9 [ffff88023abd5ba0] netpoll_poll_dev at ffffffff81472bb7
-> 
-> The fix is to do as other drivers do, and have the poll controller call the top
-> half interrupt handler, which schedules a napi poll properly to recieve frames
-> 
-> Tested by myself, successfully.
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-
-VMware folks, please review.
+I think you could have also preserved the original logic of using
+dev->wait as a flag if you had just replaced 'if (!dev->wait &&' with
+'if (!waitqueue_active(&dev->wait) &&' to check whether the waitqueue
+is empty.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
