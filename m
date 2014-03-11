@@ -1,224 +1,207 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH RFC 0/9] socket filtering using nf_tables
-Date: Tue, 11 Mar 2014 10:59:42 -0700
-Message-ID: <CAMEtUuyJne-8uNtOAK7EcFFQNXz9m7J2DDLGH_GbYe6oWZx1pQ@mail.gmail.com>
-References: <1394529560-3490-1-git-send-email-pablo@netfilter.org>
-	<531EE5A2.7090501@redhat.com>
+Subject: Re: [PATCH v7 net-next 1/3] filter: add Extended BPF interpreter and converter
+Date: Tue, 11 Mar 2014 11:03:47 -0700
+Message-ID: <CAMEtUuyh4_je-vbtZ91bG4Qo5rKAHMuVd1==TJFxQS1oR3L4Mg@mail.gmail.com>
+References: <1394320530-3508-1-git-send-email-ast@plumgrid.com>
+	<1394320530-3508-2-git-send-email-ast@plumgrid.com>
+	<531C5EB5.2080507@iogearbox.net>
+	<CAMEtUux-Psz9NW+t7vf2-=iDE5TW7KDOag2TDbxTEvd6a=LKSw@mail.gmail.com>
+	<531CE47E.40700@iogearbox.net>
+	<531F4A8C.3020403@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org,
+Cc: Daniel Borkmann <borkmann@iogearbox.net>,
 	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>, kaber@trash.net,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <531EE5A2.7090501@redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+	Daniel Borkmann <dborkman@redhat.com>,
+	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	LKML <l
+To: Pavel Emelyanov <xemul@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <531F4A8C.3020403@parallels.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 11, 2014 at 3:29 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> On 03/11/2014 10:19 AM, Pablo Neira Ayuso wrote:
+On Tue, Mar 11, 2014 at 10:40 AM, Pavel Emelyanov <xemul@parallels.com> wrote:
+> On 03/10/2014 02:00 AM, Daniel Borkmann wrote:
+>> On 03/09/2014 06:08 PM, Alexei Starovoitov wrote:
+>>> On Sun, Mar 9, 2014 at 5:29 AM, Daniel Borkmann <borkmann@iogearbox.net> wrote:
+>>>> On 03/09/2014 12:15 AM, Alexei Starovoitov wrote:
+>>>>>
+>>>>> Extended BPF extends old BPF in the following ways:
+>>>>> - from 2 to 10 registers
+>>>>>     Original BPF has two registers (A and X) and hidden frame pointer.
+>>>>>     Extended BPF has ten registers and read-only frame pointer.
+>>>>> - from 32-bit registers to 64-bit registers
+>>>>>     semantics of old 32-bit ALU operations are preserved via 32-bit
+>>>>>     subregisters
+>>>>> - if (cond) jump_true; else jump_false;
+>>>>>     old BPF insns are replaced with:
+>>>>>     if (cond) jump_true; /* else fallthrough */
+>>>>> - adds signed > and >= insns
+>>>>> - 16 4-byte stack slots for register spill-fill replaced with
+>>>>>     up to 512 bytes of multi-use stack space
+>>>>> - introduces bpf_call insn and register passing convention for zero
+>>>>>     overhead calls from/to other kernel functions (not part of this patch)
+>>>>> - adds arithmetic right shift insn
+>>>>> - adds swab32/swab64 insns
+>>>>> - adds atomic_add insn
+>>>>> - old tax/txa insns are replaced with 'mov dst,src' insn
+>>>>>
+>>>>> Extended BPF is designed to be JITed with one to one mapping, which
+>>>>> allows GCC/LLVM backends to generate optimized BPF code that performs
+>>>>> almost as fast as natively compiled code
+>>>>>
+>>>>> sk_convert_filter() remaps old style insns into extended:
+>>>>> 'sock_filter' instructions are remapped on the fly to
+>>>>> 'sock_filter_ext' extended instructions when
+>>>>> sysctl net.core.bpf_ext_enable=1
+>>>>>
+>>>>> Old filter comes through sk_attach_filter() or
+>>>>> sk_unattached_filter_create()
+>>>>>    if (bpf_ext_enable) {
+>>>>>       convert to new
+>>>>>       sk_chk_filter() - check old bpf
+>>>>>       use sk_run_filter_ext() - new interpreter
+>>>>>    } else {
+>>>>>       sk_chk_filter() - check old bpf
+>>>>>       if (bpf_jit_enable)
+>>>>>           use old jit
+>>>>>       else
+>>>>>           use sk_run_filter() - old interpreter
+>>>>>    }
+>>>>>
+>>>>> sk_run_filter_ext() interpreter is noticeably faster
+>>>>> than sk_run_filter() for two reasons:
+>>>>>
+>>>>> 1.fall-through jumps
+>>>>>     Old BPF jump instructions are forced to go either 'true' or 'false'
+>>>>>     branch which causes branch-miss penalty.
+>>>>>     Extended BPF jump instructions have one branch and fall-through,
+>>>>>     which fit CPU branch predictor logic better.
+>>>>>     'perf stat' shows drastic difference for branch-misses.
+>>>>>
+>>>>> 2.jump-threaded implementation of interpreter vs switch statement
+>>>>>     Instead of single tablejump at the top of 'switch' statement, GCC will
+>>>>>     generate multiple tablejump instructions, which helps CPU branch
+>>>>> predictor
+>>>>>
+>>>>> Performance of two BPF filters generated by libpcap was measured
+>>>>> on x86_64, i386 and arm32.
+>>>>>
+>>>>> fprog #1 is taken from Documentation/networking/filter.txt:
+>>>>> tcpdump -i eth0 port 22 -dd
+>>>>>
+>>>>> fprog #2 is taken from 'man tcpdump':
+>>>>> tcpdump -i eth0 'tcp port 22 and (((ip[2:2] - ((ip[0]&0xf)<<2)) -
+>>>>>      ((tcp[12]&0xf0)>>2)) != 0)' -dd
+>>>>>
+>>>>> Other libpcap programs have similar performance differences.
+>>>>>
+>>>>> Raw performance data from BPF micro-benchmark:
+>>>>> SK_RUN_FILTER on same SKB (cache-hit) or 10k SKBs (cache-miss)
+>>>>> time in nsec per call, smaller is better
+>>>>> --x86_64--
+>>>>>            fprog #1  fprog #1   fprog #2  fprog #2
+>>>>>            cache-hit cache-miss cache-hit cache-miss
+>>>>> old BPF     90       101       192       202
+>>>>> ext BPF     31        71       47         97
+>>>>> old BPF jit 12        34       17         44
+>>>>> ext BPF jit TBD
+>>>>>
+>>>>> --i386--
+>>>>>            fprog #1  fprog #1   fprog #2  fprog #2
+>>>>>            cache-hit cache-miss cache-hit cache-miss
+>>>>> old BPF    107        136      227       252
+>>>>> ext BPF     40        119       69       172
+>>>>>
+>>>>> --arm32--
+>>>>>            fprog #1  fprog #1   fprog #2  fprog #2
+>>>>>            cache-hit cache-miss cache-hit cache-miss
+>>>>> old BPF    202        300      475       540
+>>>>> ext BPF    180        270      330       470
+>>>>> old BPF jit 26        182       37       202
+>>>>> new BPF jit TBD
+>>>>>
+>>>>> Tested with trinify BPF fuzzer
+>>>>>
+>>>>> Future work:
+>>>>>
+>>>>> 0. add bpf/ebpf testsuite to tools/testing/selftests/net/bpf
+>>>>>
+>>>>> 1. add extended BPF JIT for x86_64
+>>>>>
+>>>>> 2. add inband old/new demux and extended BPF verifier, so that new
+>>>>> programs
+>>>>>      can be loaded through old sk_attach_filter() and
+>>>>> sk_unattached_filter_create()
+>>>>>      interfaces
+>>>>>
+>>>>> 3. tracing filters systemtap-like with extended BPF
+>>>>>
+>>>>> 4. OVS with extended BPF
+>>>>>
+>>>>> 5. nftables with extended BPF
+>>>>>
+>>>>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>>>>> Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
+>>>>> Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
+>>>>
+>>>>
+>>>> One more question or possible issue that came through my mind: When
+>>>> someone attaches a socket filter from user space, and bpf_ext_enable=1
+>>>> then the old filter will transparently be converted to the new
+>>>> representation. If then user space (e.g. through checkpoint restore)
+>>>> will issue a sk_get_filter() and thus we're calling sk_decode_filter()
+>>>> on sk->sk_filter and, therefore, try to decode what we stored in
+>>>> insns_ext[] with the assumption we still have the old code. Would that
+>>>> actually crash (or leak memory, or just return garbage), as we access
+>>>> decodes[] array with filt->code? Would be great if you could double-check.
+>>>
+>>> ohh. yes. missed that.
+>>> when bpf_ext_enable=1 I think it's cleaner to return ebpf filter.
+>>> This way the user space can see how old bpf filter was converted.
+>>>
+>>> Of course we can allocate extra memory and keep original bpf code there
+>>> just to return it via sk_get_filter(), but that seems overkill.
 >>
->> Hi!
+>> Cc'ing Pavel for a8fc92778080 ("sk-filter: Add ability to get socket
+>> filter program (v2)").
 >>
->> The following patchset provides a socket filtering alternative to BPF
->> which allows you to define your filter using the nf_tables expressions.
->>
->> Similarly to BPF, you can attach filters via setsockopt()
->> SO_ATTACH_NFT_FILTER. The filter that is passed to the kernel is
->> expressed in netlink TLV format which looks like:
->>
->>   expression list (nested attribute)
->>    expression element (nested attribute)
->>     expression name (string)
->>     expression data (nested attribute)
->>      ... specific attribute for this expression go here
->>
->> This is similar to the netlink format of the nf_tables rules, so we
->> can re-use most of the infrastructure that we already have in userspace.
->> The kernel takes the TLV representation and translates it to the native
->> nf_tables representation.
->>
->> The patches 1-3 have helped to generalize the existing socket filtering
->> infrastructure to allow pluging new socket filtering frameworks. Then,
->> patches 4-8 generalize the nf_tables code by move the neccessary nf_tables
->> expression and data initialization core infrastructure. Then, patch 9
->> provides the nf_tables socket filtering capabilities.
->>
->> Patrick and I have been discussing for a while that part of this
->> generalisation works should also help to add support for providing a
->> replacement to the tc framework, so with the necessary work, nf_tables
->> may provide in the near future packet a single packet classification
->> framework for Linux.
+>> I think the issue can be that when applications could get migrated
+>> from one machine to another and their kernel won't support ebpf yet,
+>> then filter could not get loaded this way as it's expected to return
+>> what the user loaded. The trade-off, however, is that the original
+>> BPF code needs to be stored as well. :(
 >
->
-> I'm being curious here ;) as there's currently an ongoing effort on
-> netdev for Alexei's eBPF engine (part 1 at [1,2,3]), which addresses
-> shortcomings of current BPF and shall long term entirely replace the
-> current BPF engine code to let filters entirely run in eBPF resp.
-> eBPF's JIT engine, as I understand, which is also transparently usable
-> in cls_bpf for classification in tc w/o rewriting on a different filter
-> language. Performance figures have been posted/provided in [1] as well.
->
-> So the plan on your side would be to have an alternative to eBPF, or
-> build on top of it to reuse its in-kernel JIT compiler?
->
->  [1] http://patchwork.ozlabs.org/patch/328927/
->  [2] http://patchwork.ozlabs.org/patch/328926/
->  [3] http://patchwork.ozlabs.org/patch/328928/
->
->
->> There is an example of the userspace code available at:
->>
->>   http://people.netfilter.org/pablo/nft-sock-filter-test.c
->>
->> I'm currently reusing the existing libnftnl interfaces, my plan is to
->> new interfaces in that library for easier and more simple filter
->> definition for socket filtering.
->>
->> Note that the current nf_tables expression-set is also limited with
->> regards to BPF, but the infrastructure that we have can be easily
->> extended with new expressions.
->>
->> Comments welcome!
+> Sorry if I miss the point, but isn't the original filter kept on socket?
+> The sk_attach_filter() does so, then calls __sk_prepare_filter, which
+> in turn calls bpf_jit_compile(), and the latter two keep the insns in place.
 
-Hi Pablo,
-
-Could you share what performance you're getting when doing nft
-filter equivalent to 'tcpdump port 22' ?
-Meaning your filter needs to parse eth->proto, ip or ipv6 header and
-check both ports. How will it compare with JITed bpf/ebpf ?
-
-I was trying to go the other way: improve nft performance with ebpf.
-10/40G links are way to fast for interpreters. imo JIT is the only way.
-
-here are some comments about patches:
-1/9:
--       if (fp->bpf_func != sk_run_filter)
--               module_free(NULL, fp->bpf_func);
-+       if (fp->run_filter != sk_run_filter)
-+               module_free(NULL, fp->run_filter);
-
-David suggested that these comparisons in all jits are ugly.
-I've fixed it in my patches. When they're in, you wouldn't need to
-mess with this.
-
-2/9:
--       atomic_sub(sk_filter_size(fp->len), &sk->sk_omem_alloc);
-+       atomic_sub(fp->size, &sk->sk_omem_alloc);
-
-that's a big change in socket memory accounting.
-We used to account for the whole sk_filter... now you're counting
-filter size only.
-Is it valid?
-
-7/9:
-whole nft_expr_autoload() looks scary from security point of view.
-If I'm reading it correctly, the code will do request_module() based on
-userspace request to attach filter?
-
-9/9:
-+       case SO_NFT_GET_FILTER:
-+               len = sk_nft_get_filter(sk, (struct sock_filter __user
-*)optval, len);
-with my patches there was a concern regarding socket checkpoint/restore
-and I had to preserve existing filter image to make sure it's not broken.
-Could you please coordinate with Pavel and co to test this piece?
-
-What will happen if nft_filter attached, but so_get_filter is called? crash?
-
-+static int nft_sock_expr_autoload(const struct nft_ctx *ctx,
-+                                 const struct nlattr *nla)
-+{
-+#ifdef CONFIG_MODULES
-+       mutex_unlock(&nft_expr_info_mutex);
-+       request_module("nft-expr-%.*s", nla_len(nla), (char *)nla_data(nla));
-+       mutex_lock(&nft_expr_info_mutex);
-
-same security concern here...
-
-+int sk_nft_attach_filter(char __user *optval, struct sock *sk)
-+{
-
-what about sk_clone_lock()? since filter program is in nft, do you need to do
-special steps during copy of socket?
-
-+       fp = sock_kmalloc(sk, sizeof(struct sk_filter) + size, GFP_KERNEL);
-
-this may allocate more memory then you need.
-Currently sk_filter_size() computes it in an accurate way.
-
-Also the same issue of optmem accounting as I mentioned in 2/9
-
-+err4:
-+       sock_kfree_s(sk, fp, size);
-
-a small bug: allocated sizeof(sk_filter)+size, but freeing 'size' only...
-
-Overall I think it's very interesting work.
-Not sure what's the use case for it though.
-
-I'll cook up a patch for the opposite approach (use ebpf inside nft)
-and will send you for review.
-I would prefer to work together to satisfy your and our user requests.
+Yes. in V8/V9 series original filter is kept on socket.
+and your crtools/test/zdtm/live/static/socket_filter.c test passes.
+Let me know if there are any other tests I can try.
 
 Thanks
 Alexei
 
->> Pablo Neira Ayuso (9):
->>    net: rename fp->bpf_func to fp->run_filter
->>    net: filter: account filter length in bytes
->>    net: filter: generalise sk_filter_release
->>    netfilter: nf_tables: move fast operations to header
->>    netfilter: nf_tables: add nft_value_init
->>    netfilter: nf_tables: rename nf_tables_core.c to nf_tables_nf.c
->>    netfilter: nf_tables: move expression infrastructure to built-in core
->>    netfilter: nf_tables: generalize verdict handling and introduce scopes
->>    netfilter: nf_tables: add support for socket filtering
->>
->>   arch/arm/net/bpf_jit_32.c              |   25 +-
->>   arch/powerpc/net/bpf_jit_comp.c        |   10 +-
->>   arch/s390/net/bpf_jit_comp.c           |   16 +-
->>   arch/sparc/net/bpf_jit_comp.c          |    8 +-
->>   arch/x86/net/bpf_jit_comp.c            |    8 +-
->>   include/linux/filter.h                 |   28 +-
->>   include/net/netfilter/nf_tables.h      |   27 +-
->>   include/net/netfilter/nf_tables_core.h |   84 +++++
->>   include/net/netfilter/nft_reject.h     |    3 +-
->>   include/net/sock.h                     |    8 +-
->>   include/uapi/asm-generic/socket.h      |    4 +
->>   net/core/filter.c                      |   28 +-
->>   net/core/sock.c                        |   19 ++
->>   net/core/sock_diag.c                   |    4 +-
->>   net/netfilter/Kconfig                  |   13 +
->>   net/netfilter/Makefile                 |    9 +-
->>   net/netfilter/nf_tables_api.c          |  440 ++++---------------------
->>   net/netfilter/nf_tables_core.c         |  564
->> +++++++++++++++++++++-----------
->>   net/netfilter/nf_tables_nf.c           |  189 +++++++++++
->>   net/netfilter/nf_tables_sock.c         |  327 ++++++++++++++++++
->>   net/netfilter/nft_bitwise.c            |   35 +-
->>   net/netfilter/nft_byteorder.c          |   28 +-
->>   net/netfilter/nft_cmp.c                |   43 ++-
->>   net/netfilter/nft_compat.c             |    6 +-
->>   net/netfilter/nft_counter.c            |    3 +-
->>   net/netfilter/nft_ct.c                 |    9 +-
->>   net/netfilter/nft_exthdr.c             |    3 +-
->>   net/netfilter/nft_hash.c               |   12 +-
->>   net/netfilter/nft_immediate.c          |   35 +-
->>   net/netfilter/nft_limit.c              |    3 +-
->>   net/netfilter/nft_log.c                |    3 +-
->>   net/netfilter/nft_lookup.c             |    3 +-
->>   net/netfilter/nft_meta.c               |   51 ++-
->>   net/netfilter/nft_nat.c                |    3 +-
->>   net/netfilter/nft_payload.c            |   29 +-
->>   net/netfilter/nft_queue.c              |    3 +-
->>   net/netfilter/nft_rbtree.c             |   12 +-
->>   net/netfilter/nft_reject.c             |    3 +-
->>   38 files changed, 1416 insertions(+), 682 deletions(-)
->>   create mode 100644 net/netfilter/nf_tables_nf.c
->>   create mode 100644 net/netfilter/nf_tables_sock.c
->>
+>
+> Thanks,
+> Pavel
 >
