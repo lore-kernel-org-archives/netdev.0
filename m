@@ -1,10 +1,11 @@
 From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: [PATCH v8 net-next 1/3] filter: add Extended BPF interpreter and converter
-Date: Mon, 10 Mar 2014 19:02:18 -0700
-Message-ID: <CA+55aFx7rdm9DGOTTgAKTHNkdfrvQYhT9PRs5MhUPr1gQzWEgA@mail.gmail.com>
+Date: Mon, 10 Mar 2014 19:05:28 -0700
+Message-ID: <CA+55aFwB5Z74+zi5-9O9jPLxZDZDJjioaJa6MSWQjhVEn_hn4Q@mail.gmail.com>
 References: <1394431444-6987-1-git-send-email-ast@plumgrid.com>
 	<1394431444-6987-2-git-send-email-ast@plumgrid.com>
 	<20140310.215104.2095195123238829635.davem@davemloft.net>
+	<CA+55aFx7rdm9DGOTTgAKTHNkdfrvQYhT9PRs5MhUPr1gQzWEgA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: ast@plumgrid.com, dborkman@redhat.com,
@@ -26,44 +27,22 @@ Cc: ast@plumgrid.com, dborkman@redhat.com,
 	Network Development <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140310.215104.2095195123238829635.davem@davemloft.net>
+In-Reply-To: <CA+55aFx7rdm9DGOTTgAKTHNkdfrvQYhT9PRs5MhUPr1gQzWEgA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 10, 2014 at 6:51 PM, David Miller <davem@davemloft.net> wrote:
-> From: Alexei Starovoitov <ast@plumgrid.com>
-> Date: Sun,  9 Mar 2014 23:04:02 -0700
+On Mon, Mar 10, 2014 at 7:02 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
 >
->> +     unsigned int            jited:1;
->
-> The C language has a proper type for boolean states, please therefore
-> use 'bool', true, and false.
+> So please don't sell "bool" as some kind of panacea. It has at least
+> as many problems as it has advantages.
 
-No, the C standard actually has no such thing.
+Side note: not that bitfields are all that great either, partly
+because gcc tends to occasionally generate absolutely disgusting code
+for even simple things, and they have the worse-than-average problems
+with byte/bit ordering etc. So quite frankly, often "unsigned int
+flags" together with manual accesses is the way to go if you care
+about code generation quality. Of course, there's the whole
+convenience issue..
 
-In a structure, a bitfield is actually better than bool, because it
-takes only one bit. A "bool" takes at least a byte.
-
-Now, in this case it may not be an issue (looks like there are no
-other uses that can use the better packing, so bit/byte/word is all
-the same), but I really really want to make it clear that it is not at
-all true that "bool" is somehow better than a single-bit bitfield. The
-bitfield can pack *much* better, and I would actually say that it's
-generally a *better* idea to use a bitfield, because you can much more
-easily expand on it later by adding other bitfields.
-
-There are very few actual real advantages to "bool". The magic casting
-behavior is arguably an advantage (the implicit cast in assigning to a
-bitfield truncates to the low bits, the implicit cast on assignment to
-"bool" does a test against zero), but is also quite arguably a
-possible source of confusion and can cause problems down the line when
-converting from bool to a bitfield (for the afore-mentioned packing
-reasons).
-
-So please don't sell "bool" as some kind of panacea. It has at least
-as many problems as it has advantages.
-
-I would generally suggest that people only use "bool" for function
-return types, and absolutely nothing else. Seriously.
-
-              Linus
+          Linus
