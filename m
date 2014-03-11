@@ -1,75 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fw: [Bug 71781] New: Kernel panic - not syncing: Fatal
- exception in interrupt
-Date: Mon, 10 Mar 2014 22:30:07 -0700
-Message-ID: <1394515807.21721.14.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140310091208.65c31c75@nehalam.linuxnetplumber.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 01/11] bonding: Call dev_kfree_skby_any instead of kfree_skb.
+Date: Mon, 10 Mar 2014 22:31:49 -0700
+Message-ID: <87y50hl2re.fsf@xmission.com>
+References: <871ty9qvaf.fsf_-_@xmission.com> <87vbvlpgnk.fsf_-_@xmission.com>
+	<1394509467.21721.2.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140311.004217.1616529960369263682.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:53381 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753355AbaCKFaK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 01:30:10 -0400
-Received: by mail-pd0-f170.google.com with SMTP id v10so8116057pde.1
-        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 22:30:10 -0700 (PDT)
-In-Reply-To: <20140310091208.65c31c75@nehalam.linuxnetplumber.net>
+Received: from out03.mta.xmission.com ([166.70.13.233]:51172 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752562AbaCKFb4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 01:31:56 -0400
+In-Reply-To: <20140311.004217.1616529960369263682.davem@davemloft.net> (David
+	Miller's message of "Tue, 11 Mar 2014 00:42:17 -0400 (EDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-03-10 at 09:12 -0700, Stephen Hemminger wrote:
-> 
-> Begin forwarded message:
-> 
-> Date: Mon, 10 Mar 2014 05:51:48 -0700
-> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-> To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-> Subject: [Bug 71781] New: Kernel panic - not syncing: Fatal exception in interrupt
-> 
-> 
-> https://bugzilla.kernel.org/show_bug.cgi?id=71781
-> 
->             Bug ID: 71781
->            Summary: Kernel panic - not syncing: Fatal exception in
->                     interrupt
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 3.10.32
->           Hardware: x86-64
->                 OS: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: blocking
->           Priority: P1
->          Component: IPV4
->           Assignee: shemminger@linux-foundation.org
->           Reporter: asilva@wirelessmundi.com
->         Regression: No
-> 
-> Created attachment 128811
->   --> https://bugzilla.kernel.org/attachment.cgi?id=128811&action=edit
-> full boot sequence log
-> 
-> The servers just panic on boot time:
-> 
-> [   18.647435] BUG: unable to handle kernel NULL pointer dereference at
-> 0000000000000080
-> [   18.656468] IP: [<ffffffff810f4c8d>] ____cache_alloc+0x1f/0x290
-> [   18.663269] PGD 0 
-> [   18.665581] Oops: 0000 [#1] SMP 
-> 
-> .... (see attach log for the full message)
-> 
-> [   19.200202] ---[ end trace 85fce9ca9a98a944 ]---
-> [   19.207209] Kernel panic - not syncing: Fatal exception in interrupt
-> [   19.216142] Rebooting in 1 seconds..
+David Miller <davem@davemloft.net> writes:
 
-Yes, and the interesting part in the clipped message is :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 10 Mar 2014 20:44:27 -0700
+>
+>> On Mon, 2014-03-10 at 20:18 -0700, Eric W. Biederman wrote:
+>>> -			consume_skb(skb);
+>>> +			dev_consume_skb_any(skb);
+>> 
+>> Why is this needed ? AFAIK we run in softirq here.
+>> 
+>>>  			return ret;
+>>>  		}
+>>>  	}
+>>> @@ -1132,7 +1132,7 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
+>>>  
+>>>  		if (unlikely(skb_cow_head(skb,
+>>>  					  skb->data - skb_mac_header(skb)))) {
+>>> -			kfree_skb(skb);
+>>> +			dev_kfree_skb_any(skb);
+>> 
+>> same here.
+>
+> These changes eminate from a recent discussion about netpoll, which can
+> call into the driver from hardware interrupts, particularly when netconsole
+> services a printk from hardware interrupt context.
+>
+> bnx2x already makes similar ammends.
+>
+> I hope that Eric B. here audited to make sure he's only doing this
+> transformation in situations that actually need this treatment for
+> the above mentioned issue.
 
-[   16.431685] 	Hooking IMQ after NAT on PREROUTING.
-[   16.436985] 	Hooking IMQ before NAT on POSTROUTING.
+It looks like our replies crossed.  Yes every location that I changed is
+a location that I can currently find a code path to from a printk in a
+hard irq context.
 
-Sorry, we do not support IMQ in upstream kernel.
+Furthermore the difference between dev_kfree_skb/kfree_skb and
+dev_kfree_skb_any is simply a test to see if you are in interrupt
+context so there should be no functional differences except
+when we make it to these code paths in interrupt context.
+
+Eric
