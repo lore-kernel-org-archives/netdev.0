@@ -1,37 +1,57 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2] vmxnet3: fix netpoll race condition
-Date: Tue, 11 Mar 2014 16:08:34 -0400
-Message-ID: <20140311200834.GA2630@hmsreliant.think-freely.org>
-References: <1394227527-31082-1-git-send-email-nhorman@tuxdriver.com>
- <1394448955-19915-1-git-send-email-nhorman@tuxdriver.com>
- <20140311.131615.1099547048239011196.davem@davemloft.net>
- <382556580.40955263.1394562248901.JavaMail.root@vmware.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH 0/2] remove netpoll rx support
+Date: Tue, 11 Mar 2014 16:09:31 -0400 (EDT)
+Message-ID: <20140311.160931.1395978386605601765.davem@davemloft.net>
+References: <87a9cxf7mp.fsf_-_@xmission.com>
+	<20140311.124907.1180556684992271103.davem@davemloft.net>
+	<87wqg0cy9d.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	pv-drivers@vmware.com, stable@vger.kernel.org
-To: Shreyas Bhatewara <sbhatewara@vmware.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <382556580.40955263.1394562248901.JavaMail.root@vmware.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
+To: ebiederm@xmission.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58193 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755649AbaCKUJf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 16:09:35 -0400
+In-Reply-To: <87wqg0cy9d.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 11, 2014 at 11:24:08AM -0700, Shreyas Bhatewara wrote:
-> > > The fix is to do as other drivers do, and have the poll controller call the
-> > > top
-> > > half interrupt handler, which schedules a napi poll properly to recieve
-> > > frames
-> > > 
-> > > Tested by myself, successfully.
-> > > 
-> > > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> > 
-> > VMware folks, please review
-> > 
-> Neil, thanks for the updated change. It looks good.
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 11 Mar 2014 12:48:30 -0700
+
+> David Miller <davem@davemloft.net> writes:
 > 
-> Reviewed-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
+>> From: ebiederm@xmission.com (Eric W. Biederman)
+>> Date: Tue, 11 Mar 2014 01:43:10 -0700
+>>
+>>> Furthermore netpoll by it's design depends on the ability to receive
+>>> packets in netpoll_poll_dev.  It is a capability I don't think we have
+>>> ever used in the mainline kernel but it is a capability that is there
+>>> deliberately.  Which means if we want netpoll to not mess with the rx
+>>> path we need to change netpoll.
+>>
+>> This breaks kdump, and any other users of netpoll_rx() et al.
 > 
-Thanks guys!
-Neil
+> It does not break kdump.  (kdump starts a new kernel to do it's work). 
+> 
+> It does break the ancient lkcd netdump that was never merged, and has
+> been abandoned (to the best of my knowledge). crash dumps proved
+> entirely too fragile to perform from a broken kernel.
+
+I feel like I've mixed this up in the past, multiple times, thanks
+for the sanity check.
+
+>> Make the zero budget depend upon us being invoked from hardware
+>> irq context, or something like that.
+> 
+> Good enough.  I will respin my driver patches based on the assumption
+> that netpoll will be changed in this way.  There are no dependencies
+> for the drivers, I just need to remove my rx path changes.
+> 
+> We can have the conversation about how to change netpoll in parallel.
+
+Sounds great.
