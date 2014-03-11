@@ -1,231 +1,414 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 2/7] be2net: Add link state control for VFs
-Date: Tue, 11 Mar 2014 18:53:04 +0530
-Message-ID: <1394544189-20277-3-git-send-email-sathya.perla@emulex.com>
-References: <1394544189-20277-1-git-send-email-sathya.perla@emulex.com>
+From: Jagan Teki <jagannadh.teki@gmail.com>
+Subject: Re: ethernet/broadcom/tg3.c - DMA Status error with INTx
+Date: Tue, 11 Mar 2014 19:11:28 +0530
+Message-ID: <CAD6G_RQef0pQqswW6jsfSgpBC=81wBWcL63t3oR04sM2aHFvPw@mail.gmail.com>
+References: <CAD6G_RRaDG-F9tqDMc3HWJdEZ3h_apNe8bx12g+ddTsPpHx06w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:35589 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752543AbaCKNT4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 09:19:56 -0400
-In-Reply-To: <1394544189-20277-1-git-send-email-sathya.perla@emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	Nithin Nayak Sujir <nsujir@broadcom.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	Bjorn Helgaas <bhelgaas@google.com>, aav@xilinx.com,
+	Srikanth T <srikuuuu@gmail.com>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <CAD6G_RRaDG-F9tqDMc3HWJdEZ3h_apNe8bx12g+ddTsPpHx06w@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Suresh Reddy <suresh.reddy@emulex.com>
+On Tue, Mar 11, 2014 at 3:29 PM, Jagan Teki <jagannadh.teki@gmail.com> wrote:
+> Hi All,
+>
+> We observed DMA status error issue on tg3 while setting link up, this
+> is PCIe bridge with tg3 endpoint
+> which I would discussed on earlier thread [1]
+>
+> From the below log dump, INTx is trigger two times from the EP where
+> second trigger once the
+> reading of 0x204 is done in ISR, sblk->status on tg3_poll caused a
+> SD_STATUS_ERROR.
+>
+> What is this SD_STATUS_ERROR implies? Request for any help on this issue.
+>
+> Log dump:
+> # ifconfig eth0 up
+> pcie_handler: 0x1
+> # iter 0 status_tag = 0x1, last_irq_tag = 0x0 in ISR
+> writing on 0x204 in ISR
+> reading 0x204 in ISR
+> (tg3_int_reenable) writing on 0x204 in BH
+>
+> #
+> # pcie_handler: 0x1
+> iter 1 status_tag = 0x2, last_irq_tag = 0x1 in ISR
+> writing on 0x204 in ISR
+> reading 0x204 in ISR
+> 0x4804 = 0x10, 0x4c04 = 0x0
+> tg3 0000:01:00.0 eth0: DMA Status error.  Resetting chip.
+> tg3 0000:01:00.0 eth0: 0x00000000: 0x167714e4, 0x40100146, 0x02000021,
+> 0x00000010
+> tg3 0000:01:00.0 eth0: 0x00000010: 0x40500004, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00000020: 0x00000000, 0x00000000, 0x00000007,
+> 0x167714e4
+> tg3 0000:01:00.0 eth0: 0x00000030: 0x80120000, 0x00000048, 0x00000000,
+> 0x00000159
+> tg3 0000:01:00.0 eth0: 0x00000040: 0x00000000, 0x00000000, 0x40025001,
+> 0x64002000
+> tg3 0000:01:00.0 eth0: 0x00000050: 0x00fc5803, 0x78000000, 0x0086d005,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00000060: 0x002240c0, 0x00000000, 0x42010298,
+> 0x76180000
+> tg3 0000:01:00.0 eth0: 0x00000070: 0x000010f2, 0x000000a0, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00000080: 0x167714e4, 0x00000000, 0x04130034,
+> 0x3c081082
+> tg3 0000:01:00.0 eth0: 0x00000090: 0x01000709, 0x00000001, 0x00000000,
+> 0x000000c8
+> tg3 0000:01:00.0 eth0: 0x000000b0: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x000000c0: 0x00000000, 0x00000000, 0x0000000e,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x000000d0: 0x00010010, 0x00000fa0, 0x00122000,
+> 0x00036c11
+> tg3 0000:01:00.0 eth0: 0x00 0000e0: 0x10110000, 0x00000000,
+> 0x00000000, 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00000100: 0x13c10001, 0x00004000, 0x00000000,
+> 0x00062010
+> tg3 0000:01:00.0 eth0: 0x00000110: 0x00000001, 0x00000000, 0x000000ae,
+> 0x40000001
+> tg3 0000:01:00.0 eth0: 0x00000120: 0x0000000f, 0x40500204, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00000130: 0x00000000, 0x00000000, 0x00000000,
+> 0x16010002
+> tg3 0000:01:00.0 eth0: 0x00000150: 0x800000ff, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00000160: 0x16c10003, 0xfe32d2a9, 0x001018ff,
+> 0x00010004
+> tg3 0000:01:00.0 eth0: 0x00000170: 0x00000000, 0x0007810e, 0x00000000,
+> 0x2c0c3c0e
+> tg3 0000:01:00.0 eth0: 0x00000180: 0x3f062304, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00000200: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00000210: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00000220: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00000230: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00000240: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00000250: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00000260: 0x00000000, 0x00000001, 0x00000000,
+> 0x000000c8
+> tg3 0000:01:00.0 eth0: 0x00000270: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00000400: 0x00e04808, 0x00401000, 0x00001000,
+> 0x00000880
+> tg3 0000:01:00.0 eth0: 0x00000410: 0x00000010, 0x1832d2a9, 0x00000010,
+> 0x1832d2a9
+> tg3 0000:01:00.0 eth0: 0x00000420: 0x00000010, 0x1832d2a9, 0x00000010,
+> 0x1832d2a9
+> tg3 0000:01:00.0 eth0: 0x00000430: 0x00000000, 0x00000000, 0x0000022d,
+> 0x000005f2
+> tg3 0000:01:00.0 eth0: 0x00000440: 0x00000000, 0x00000000, 0x00000000,
+> 0x08340000
+> tg3 0000:01:00.0 eth0: 0x00000450: 0x00000001, 0x000c0000, 0x00000000,
+> 0x00000002
+> tg3 0000:01:00.0 eth0: 0x00000460: 0x00000008, 0x00002620, 0x00000002,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00000470: 0x00000000, 0x00000000, 0x00000000,
+> 0x40000000
+> tg3 0000:01:00.0 eth0: 0x00000480: 0x42000000, 0x7fffffff, 0x06000004,
+> 0x7fffffff
+> tg3 0000:01:00.0 eth0: 0x00000500: 0x00000008, 0x00000002, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00000590: 0x01e00000, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00000600: 0xffffffff, 0x00f80011, 0x00000000,
+> 0x00001f04
+> tg3 0000:01:00.0 eth0: 0x00000610: 0xffffffff, 0x00000000, 0x07c00004,
+> 0x31201000
+> tg3 0000:01:00.0 eth0: 0x00000620: 0x00000040, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00000800: 0x00000000, 0xffffffff, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00000810: 0x00000000, 0xffffffff, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00000820: 0x00000000, 0x00000000, 0xffffffff,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00000830: 0x00000000, 0xffffffff, 0xffffffff,
+> 0xffffffff
+> tg3 0000:01:00.0 eth0: 0x00000840: 0xffffffff, 0xffffffff, 0xffffffff,
+> 0xffffffff
+> tg3 0000:01:00.0 eth0: 0x00000850: 0xffffffff, 0xffffffff, 0xffffffff,
+> 0xffffffff
+> tg3 0000:01:00.0 eth0: 0x00000860: 0xffffffff, 0xffffffff, 0xffffffff,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x000008f0: 0x00000001, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00000c00: 0x0000000a, 0x00000000, 0x00000003,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00000ce0: 0x2f1b0142, 0x00000000, 0x0000002a,
+> 0x00040028
+> tg3 0000:01:00.0 eth0: 0x00000cf0: 0x00000000, 0x40000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00001000: 0x00000002, 0x00000000, 0xa0000208,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00001010: 0x00000060, 0x00000208, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00001400: 0x00000006, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00001480: 0x00000001, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00001800: 0x00000016, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00001840: 0x00000000, 0x00000000, 0x00000200,
+> 0x00000010
+> tg3 0000:01:00.0 eth0: 0x00001850: 0x2e846000, 0x00000000, 0x00004000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00001c00: 0x00000002, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00002000: 0x00000002, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00002010: 0x00000181, 0x00000001, 0x00790807,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00002100: 0x000c5028, 0x000c5028, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00002110: 0x000c5028, 0x000c5028, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00002120: 0x000c5028, 0x000c5028, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00002130: 0x000c5028, 0x000c5028, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00002140: 0x000c5028, 0x000c5028, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00002150: 0x000c5028, 0x000c5028, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00002160: 0x000c5028, 0x000c5028, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00002170: 0x000c5028, 0x000c5028, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00002180: 0x000c5028, 0x000c5028, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00002190: 0x000c5028, 0x000c5028, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x000021a0: 0x000c5028, 0x000c5028, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x000021b0: 0x000c5028, 0x000c5028, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x000021c0: 0x000c5028, 0x000c5028, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x000021d0: 0x000c5028, 0x000c5028, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x000021e0: 0x000c5028, 0x000c5028, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x000021f0: 0x000c5028, 0x000c5028, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00002400: 0x00000012, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00002450: 0x00000000, 0x2e854000, 0x02000000,
+> 0x00006000
+> tg3 0000:01:00.0 eth0: 0x000024c0: 0x08000001, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00002800: 0x00000006, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00002c00: 0x00000006, 0x00000000, 0x00000000,
+> 0x0000007f
+> tg3 0000:01:00.0 eth0: 0x00002c10: 0x00000000, 0x00000000, 0x00000008,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00003000: 0x00000006, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00003c00: 0x00000302, 0x00000000, 0x00000014,
+> 0x00000048
+> tg3 0000:01:00.0 eth0: 0x00003c10: 0x00000005, 0x00000035, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00003c20: 0x00000005, 0x00000005, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00003c30: 0x00000000, 0x00000000, 0x00000000,
+> 0x2f16b000
+> tg3 0000:01:00.0 eth0: 0x00003c40: 0x00000000, 0x00000b00, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00004000: 0x00000002, 0x00000000, 0x00100400,
+> 0x00000048
+> tg3 0000:01:00.0 eth0: 0x00004010: 0x00408660, 0x00000012, 0x00800440,
+> 0x008400d2
+> tg3 0000:01:00.0 eth0: 0x00004020: 0x0021b441, 0x00000000, 0x00000010,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00004030: 0x00000010, 0x00000030, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00004040: 0x00000000, 0x00000000, 0x00000010,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00004050: 0x00000000, 0x00000000, 0x00228040,
+> 0x00407002
+> tg3 0000:01:00.0 eth0: 0x00004060: 0x00400000, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00004400: 0x00000006, 0x00000000, 0x00011080,
+> 0x0000df80
+> tg3 0000:01:00.0 eth0: 0x00004410: 0x00000000, 0x00000010, 0x00000060,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00004420: 0x0000003d, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00004440: 0x00000000, 0x00000000, 0x00000000,
+> 0x00802001
+> tg3 0000:01:00.0 eth0: 0x00004450: 0x000103be, 0x00000001, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00004800: 0x080303fe, 0x00000010, 0x01000000,
+> 0x00000020
+> tg3 0000:01:00.0 eth0: 0x00004810: 0x00000011, 0x00000004, 0x00000001,
+> 0x00000004
+> tg3 0000:01:00.0 eth0: 0x00004820: 0x0fe00000, 0x00000000, 0xa0a40fe0,
+> 0x2e854000
+> tg3 0000:01:00.0 eth0: 0x00004830: 0x00000fe0, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00004840: 0x00000000, 0x00000000, 0x000e0000,
+> 0x000eefb4
+> tg3 0000:01:00.0 eth0: 0x00004850: 0xffff0000, 0x8400002a, 0x07080708,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00004c00: 0x000003fe, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00004c10: 0x0000002a, 0x00000000, 0x00000003,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00004c20: 0x00000000, 0x00000000, 0x00000000,
+> 0x00000003
+> tg3 0000:01:00.0 eth0: 0x00004c30: 0x00000000, 0x00000000, 0x00000008,
+> 0x00000008
+> tg3 0000:01:00.0 eth0: 0x00004c40: 0x00000000, 0x2f16b000, 0x00010040,
+> 0x00000020
+> tg3 0000:01:00.0 eth0: 0x00005000: 0x00009800, 0x80004000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00005010: 0x00000000, 0x00000000, 0x00000000,
+> 0x00010790
+> tg3 0000:01:00.0 eth0: 0x00005020: 0x03e00008, 0x00000000, 0x00000000,
+> 0x40000020
+> tg3 0000:01:00.0 eth0: 0x00005030: 0x00000000, 0x0000001d, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00005040: 0x00000000, 0x00000000, 0x0001084c,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00005200: 0xc0000000, 0x0001ff90, 0x00000000,
+> 0x4b657654
+> tg3 0000:01:00.0 eth0: 0x00005210: 0x00000000, 0x00000000, 0x00010850,
+> 0x0001ff90
+> tg3 0000:01:00.0 eth0: 0x00005220: 0x00000000, 0xb49a89ab, 0xc0000000,
+> 0x0001ff90
+> tg3 0000:01:00.0 eth0: 0x00005230: 0x00000000, 0x4b657654, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00005240: 0x00010850, 0x0001ff90, 0x00000000,
+> 0x00080000
+> tg3 0000:01:00.0 eth0: 0x00005250: 0x00000000, 0x00000000, 0x00000000,
+> 0x4b657654
+> tg3 0000:01:00.0 eth0: 0x00005260: 0x00000000, 0x00000000, 0x0001ff90,
+> 0x0001ff90
+> tg3 0000:01:00.0 eth0: 0x00005270: 0x00000000, 0x00000000, 0x00000000,
+> 0x0001ff90
+> tg3 0000:01:00.0 eth0: 0x00005800: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005810: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005820: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005830: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005840: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005850: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005860: 0x00000000, 0x00000001, 0x00000000,
+> 0x000000c8
+> tg3 0000:01:00.0 eth0: 0x00005870: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005880: 0x00000000, 0x00000000, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005890: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x000058a0: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x000058b0: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x000058c0: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x000058d0: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x000058e0: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x000058f0: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005900: 0x00000000, 0x00000000, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005910: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005920: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005930: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005940: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005950: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005960: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005970: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005980: 0x00000000, 0x00000000, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005990: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x000059a0: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x000059b0: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x000059c0: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x000059d0: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x000059e0: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x000059f0: 0x00000000, 0x00000001, 0x00000000,
+> 0x00000001
+> tg3 0000:01:00.0 eth0: 0x00005a00: 0x00012001, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00006000: 0x00000002, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00006800: 0x04130034, 0x3c081082, 0x01000709,
+> 0x0045f5eb
+> tg3 0000:01:00.0 eth0: 0x00006810: 0x83120000, 0xffffffff, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00006830: 0xfffc3ccf, 0xfffc0fff, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00006840: 0x00000024, 0x00000000, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00006c40: 0x00000000, 0x000f0000, 0x00000000,
+> 0x00000012
+> tg3 0000:01:00.0 eth0: 0x00007000: 0x00000188, 0x00000000, 0x00000000,
+> 0x000000c0
+> tg3 0000:01:00.0 eth0: 0x00007010: 0x0a000064, 0x02008273, 0x00570081,
+> 0x68848353
+> tg3 0000:01:00.0 eth0: 0x00007020: 0x00000000, 0x00000000, 0xaf000400,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00007400: 0x00000000, 0x000000aa, 0x00000000,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00007800: 0x00000000, 0x00000000, 0x00000001,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0x00007810: 0x00000000, 0x00000060, 0x000000fb,
+> 0x00000000
+> tg3 0000:01:00.0 eth0: 0: Host status block
+> [00000007:00000002:(0000:0000:0000):(0000:0000)]
+> tg3 0000:01:00.0 eth0: 0: NAPI info
+> [00000001:00000002:(0000:0000:01ff):0000:(00c8:0000:0000:0000)]
+> tg3 0000:01:00.0 eth0: Link is up at 1000 Mbps, full duplex
+> tg3 0000:01:00.0 eth0: Flow control is on for TX and on for RX
+> (tg3_int_reenable) writing on 0x204 in BH
+>
+>
+> [1] http://www.spinics.net/lists/netdev/msg273502.html
 
-Add support to control VF's link state by implementing the
-ndo_set_vf_link_state() hook.
+Just add one more point here, Read DMA Status Register(0x4804) value here
+was 0x10 which means Read DMA PCI Parity Error, can anyone send what are
+the possible cases to trigger this error.!
 
-Signed-off-by: Suresh Reddy <suresh.reddy@emulex.com>
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h      |    1 +
- drivers/net/ethernet/emulex/benet/be_cmds.c |   50 +++++++++++++++++++++++++--
- drivers/net/ethernet/emulex/benet/be_cmds.h |   10 +++++
- drivers/net/ethernet/emulex/benet/be_main.c |   32 ++++++++++++++++-
- 4 files changed, 88 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index a91267b..d08c707 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -359,6 +359,7 @@ struct be_vf_cfg {
- 	int pmac_id;
- 	u16 vlan_tag;
- 	u32 tx_rate;
-+	u32 plink_tracking;
- };
- 
- enum vf_state {
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 72bde5d..ff353d7 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -202,8 +202,12 @@ static void be_async_link_state_process(struct be_adapter *adapter,
- 	/* When link status changes, link speed must be re-queried from FW */
- 	adapter->phy.link_speed = -1;
- 
--	/* Ignore physical link event */
--	if (lancer_chip(adapter) &&
-+	/* On BEx the FW does not send a separate link status
-+	 * notification for physical and logical link.
-+	 * On other chips just process the logical link
-+	 * status notification
-+	 */
-+	if (!BEx_chip(adapter) &&
- 	    !(evt->port_link_status & LOGICAL_LINK_STATUS_MASK))
- 		return;
- 
-@@ -211,7 +215,8 @@ static void be_async_link_state_process(struct be_adapter *adapter,
- 	 * it may not be received in some cases.
- 	 */
- 	if (adapter->flags & BE_FLAGS_LINK_STATUS_INIT)
--		be_link_status_update(adapter, evt->port_link_status);
-+		be_link_status_update(adapter,
-+				      evt->port_link_status & LINK_STATUS_MASK);
- }
- 
- /* Grp5 CoS Priority evt */
-@@ -3743,6 +3748,45 @@ err:
- 	return status;
- }
- 
-+int be_cmd_set_logical_link_config(struct be_adapter *adapter,
-+				   int link_state, u8 domain)
-+{
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_set_ll_link *req;
-+	int status;
-+
-+	if (BEx_chip(adapter) || lancer_chip(adapter))
-+		return 0;
-+
-+	spin_lock_bh(&adapter->mcc_lock);
-+
-+	wrb = wrb_from_mccq(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
-+	}
-+
-+	req = embedded_payload(wrb);
-+
-+	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
-+			       OPCODE_COMMON_SET_LOGICAL_LINK_CONFIG,
-+			       sizeof(*req), wrb, NULL);
-+
-+	req->hdr.version = 1;
-+	req->hdr.domain = domain;
-+
-+	if (link_state == IFLA_VF_LINK_STATE_ENABLE)
-+		req->link_config |= 1;
-+
-+	if (link_state == IFLA_VF_LINK_STATE_AUTO)
-+		req->link_config |= 1 << PLINK_TRACK_SHIFT;
-+
-+	status = be_mcc_notify_wait(adapter);
-+err:
-+	spin_unlock_bh(&adapter->mcc_lock);
-+	return status;
-+}
-+
- int be_roce_mcc_cmd(void *netdev_handle, void *wrb_payload,
- 			int wrb_payload_size, u16 *cmd_status, u16 *ext_status)
- {
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index d0ab980..fda3e88 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -203,6 +203,7 @@ struct be_mcc_mailbox {
- #define OPCODE_COMMON_GET_BEACON_STATE			70
- #define OPCODE_COMMON_READ_TRANSRECV_DATA		73
- #define OPCODE_COMMON_GET_PORT_NAME			77
-+#define OPCODE_COMMON_SET_LOGICAL_LINK_CONFIG		80
- #define OPCODE_COMMON_SET_INTERRUPT_ENABLE		89
- #define OPCODE_COMMON_SET_FN_PRIVILEGES			100
- #define OPCODE_COMMON_GET_PHY_DETAILS			102
-@@ -1991,6 +1992,13 @@ struct be_cmd_resp_get_iface_list {
- 	struct be_if_desc if_desc;
- };
- 
-+/*************** Set logical link ********************/
-+#define PLINK_TRACK_SHIFT	8
-+struct be_cmd_req_set_ll_link {
-+	struct be_cmd_req_hdr hdr;
-+	u32 link_config; /* Bit 0: UP_DOWN, Bit 9: PLINK */
-+};
-+
- int be_pci_fnum_get(struct be_adapter *adapter);
- int be_fw_wait_ready(struct be_adapter *adapter);
- int be_cmd_mac_addr_query(struct be_adapter *adapter, u8 *mac_addr,
-@@ -2112,3 +2120,5 @@ int be_cmd_get_if_id(struct be_adapter *adapter, struct be_vf_cfg *vf_cfg,
- 		     int vf_num);
- int be_cmd_enable_vf(struct be_adapter *adapter, u8 domain);
- int be_cmd_intr_set(struct be_adapter *adapter, bool intr_enable);
-+int be_cmd_set_logical_link_config(struct be_adapter *adapter,
-+					  int link_state, u8 domain);
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 5ba1ea5..2f02bcb 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -652,7 +652,7 @@ void be_link_status_update(struct be_adapter *adapter, u8 link_status)
- 		adapter->flags |= BE_FLAGS_LINK_STATUS_INIT;
- 	}
- 
--	if ((link_status & LINK_STATUS_MASK) == LINK_UP)
-+	if (link_status)
- 		netif_carrier_on(netdev);
- 	else
- 		netif_carrier_off(netdev);
-@@ -1288,6 +1288,7 @@ static int be_get_vf_config(struct net_device *netdev, int vf,
- 	vi->vlan = vf_cfg->vlan_tag & VLAN_VID_MASK;
- 	vi->qos = vf_cfg->vlan_tag >> VLAN_PRIO_SHIFT;
- 	memcpy(&vi->mac, vf_cfg->mac_addr, ETH_ALEN);
-+	vi->linkstate = adapter->vf_cfg[vf].plink_tracking;
- 
- 	return 0;
- }
-@@ -1354,6 +1355,24 @@ static int be_set_vf_tx_rate(struct net_device *netdev,
- 		adapter->vf_cfg[vf].tx_rate = rate;
- 	return status;
- }
-+static int be_set_vf_link_state(struct net_device *netdev, int vf,
-+				int link_state)
-+{
-+	struct be_adapter *adapter = netdev_priv(netdev);
-+	int status;
-+
-+	if (!sriov_enabled(adapter))
-+		return -EPERM;
-+
-+	if (vf >= adapter->num_vfs)
-+		return -EINVAL;
-+
-+	status = be_cmd_set_logical_link_config(adapter, link_state, vf+1);
-+	if (!status)
-+		adapter->vf_cfg[vf].plink_tracking = link_state;
-+
-+	return status;
-+}
- 
- static void be_aic_update(struct be_aic_obj *aic, u64 rx_pkts, u64 tx_pkts,
- 			  ulong now)
-@@ -3109,8 +3128,12 @@ static int be_vf_setup(struct be_adapter *adapter)
- 		if (!status)
- 			vf_cfg->tx_rate = lnk_speed;
- 
--		if (!old_vfs)
-+		if (!old_vfs) {
- 			be_cmd_enable_vf(adapter, vf + 1);
-+			be_cmd_set_logical_link_config(adapter,
-+						       IFLA_VF_LINK_STATE_AUTO,
-+						       vf+1);
-+		}
- 	}
- 
- 	if (!old_vfs) {
-@@ -3467,6 +3490,10 @@ static int be_setup(struct be_adapter *adapter)
- 		be_cmd_set_flow_control(adapter, adapter->tx_fc,
- 					adapter->rx_fc);
- 
-+	if (be_physfn(adapter))
-+		be_cmd_set_logical_link_config(adapter,
-+					       IFLA_VF_LINK_STATE_AUTO, 0);
-+
- 	if (sriov_want(adapter)) {
- 		if (be_max_vfs(adapter))
- 			be_vf_setup(adapter);
-@@ -4106,6 +4133,7 @@ static const struct net_device_ops be_netdev_ops = {
- 	.ndo_set_vf_vlan	= be_set_vf_vlan,
- 	.ndo_set_vf_tx_rate	= be_set_vf_tx_rate,
- 	.ndo_get_vf_config	= be_get_vf_config,
-+	.ndo_set_vf_link_state  = be_set_vf_link_state,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= be_netpoll,
- #endif
 -- 
-1.7.1
+Jagan.
