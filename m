@@ -1,31 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v8 net-next 1/3] filter: add Extended BPF interpreter
- and converter
-Date: Mon, 10 Mar 2014 22:24:49 -0400 (EDT)
-Message-ID: <20140310.222449.561233409099006984.davem@davemloft.net>
-References: <1394431444-6987-2-git-send-email-ast@plumgrid.com>
-	<20140310.215104.2095195123238829635.davem@davemloft.net>
-	<CA+55aFx7rdm9DGOTTgAKTHNkdfrvQYhT9PRs5MhUPr1gQzWEgA@mail.gmail.com>
+Subject: Re: [PATCH net-next v2] r8152: add skb_cow_head
+Date: Mon, 10 Mar 2014 22:25:20 -0400 (EDT)
+Message-ID: <20140310.222520.814414646267623877.davem@davemloft.net>
+References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
+	<1394504432-998-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, dborkman@redhat.com, mingo@kernel.org,
-	wad@chromium.org, rostedt@goodmis.org, a.p.zijlstra@chello.nl,
-	hpa@zytor.com, hagen@jauu.net, jesse@nicira.com,
-	tglx@linutronix.de, edumazet@google.com, akpm@linux-foundation.org,
-	fweisbec@gmail.com, acme@infradead.org, penberg@iki.fi,
-	arjan@infradead.org, hch@infradead.org, xemul@parallels.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFx7rdm9DGOTTgAKTHNkdfrvQYhT9PRs5MhUPr1gQzWEgA@mail.gmail.com>
+In-Reply-To: <1394504432-998-1-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Mon, 10 Mar 2014 19:02:18 -0700
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Tue, 11 Mar 2014 10:20:32 +0800
 
-> I would generally suggest that people only use "bool" for function
-> return types, and absolutely nothing else. Seriously.
+> Call skb_cow_head() before editing the tx packet header. The header
+> would be reallocated if it is shared.
+> 
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 
-I think it makes sense for function arguments too.
+Applied, thanks.
