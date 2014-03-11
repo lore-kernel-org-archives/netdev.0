@@ -1,59 +1,81 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V1 net-next 0/7] mlx4: Add SRIOV support for RoCE
-Date: Tue, 11 Mar 2014 15:02:49 +0200
-Message-ID: <1394542976-20095-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH V1 net-next 7/7] mlx4: Activate RoCE/SRIOV
+Date: Tue, 11 Mar 2014 15:02:56 +0200
+Message-ID: <1394542976-20095-8-git-send-email-ogerlitz@mellanox.com>
+References: <1394542976-20095-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, roland@kernel.org,
 	jackm@dev.mellanox.co.il, amirv@mellanox.com,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:43173 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:41172 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751986AbaCKNDC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Mar 2014 09:03:02 -0400
+	id S1751950AbaCKNDG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Mar 2014 09:03:06 -0400
+In-Reply-To: <1394542976-20095-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-This series adds SRIOV support for RoCE (RDMA over Ethernet).
+To activate RoCE/SRIOV, need to remove the following:
+1. In mlx4_ib_add, need to remove the error return preventing
+   initialization of a RoCE port under SRIOV.
+2. In update_vport_qp_params (in resource_tracker.c) need to remove
+   the error return when a RoCE RC or UD qp is detected.
+   This error return causes the INIT-to-RTR qp transition to fail
+   in the wrapper function under RoCE/SRIOV.
 
-The patches are against net-next, as of commit 2d8d40a "pkt_sched: fq:
-do not hold qdisc lock while allocating memory"
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/infiniband/hw/mlx4/main.c                  |    8 --------
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    7 -------
+ 2 files changed, 0 insertions(+), 15 deletions(-)
 
-Or.
-
-changes from V0:
-  - always check the return code of mlx4_get_roce_gid_from_slave().
-    The call we fixed is introduced in patch #1 and later removed by 
-    patch #3 that allows guests to have multiple GIDS. The 1..3 
-    separation was done for proper division of patches to logical changes.
-
-Jack Morgenstein (6):
-  mlx4: Adjust QP1 multiplexing for RoCE/SRIOV
-  mlx4_core: For RoCE, allow slaves to set the GID entry at that
-    slave's index
-  mlx4: In RoCE allow guests to have multiple GIDS
-  mlx4: Add ref counting to port MAC table for RoCE
-  mlx4: Implement IP based gids support for RoCE/SRIOV
-  mlx4: Activate RoCE/SRIOV
-
-Shani Michaelli (1):
-  mlx4_ib: Fix SIDR support of for UD QPs under SRIOV/RoCE
-
- drivers/infiniband/hw/mlx4/cm.c                    |   80 ++++-
- drivers/infiniband/hw/mlx4/cq.c                    |   42 ++-
- drivers/infiniband/hw/mlx4/mad.c                   |  123 +++++++-
- drivers/infiniband/hw/mlx4/main.c                  |    8 -
- drivers/infiniband/hw/mlx4/mcg.c                   |    2 +-
- drivers/infiniband/hw/mlx4/mlx4_ib.h               |   21 ++-
- drivers/infiniband/hw/mlx4/qp.c                    |  319 ++++++++++++++++----
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |   23 ++
- drivers/net/ethernet/mellanox/mlx4/fw.c            |    5 +-
- drivers/net/ethernet/mellanox/mlx4/main.c          |    6 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    8 +
- drivers/net/ethernet/mellanox/mlx4/port.c          |  142 +++++++++-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  146 ++++++++--
- include/linux/mlx4/cmd.h                           |    6 +
- include/linux/mlx4/device.h                        |    8 +-
- 15 files changed, 801 insertions(+), 138 deletions(-)
+diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
+index f9c12e9..1d1750e 100644
+--- a/drivers/infiniband/hw/mlx4/main.c
++++ b/drivers/infiniband/hw/mlx4/main.c
+@@ -1888,14 +1888,6 @@ static void *mlx4_ib_add(struct mlx4_dev *dev)
+ 
+ 	pr_info_once("%s", mlx4_ib_version);
+ 
+-	mlx4_foreach_non_ib_transport_port(i, dev)
+-		num_ports++;
+-
+-	if (mlx4_is_mfunc(dev) && num_ports) {
+-		dev_err(&dev->pdev->dev, "RoCE is not supported over SRIOV as yet\n");
+-		return NULL;
+-	}
+-
+ 	num_ports = 0;
+ 	mlx4_foreach_ib_transport_port(i, dev)
+ 		num_ports++;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 706a6d2..74e490d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -645,7 +645,6 @@ static int update_vport_qp_param(struct mlx4_dev *dev,
+ 	struct mlx4_qp_context	*qpc = inbox->buf + 8;
+ 	struct mlx4_vport_oper_state *vp_oper;
+ 	struct mlx4_priv *priv;
+-	u32 qp_type;
+ 	int port;
+ 
+ 	port = (qpc->pri_path.sched_queue & 0x40) ? 2 : 1;
+@@ -653,12 +652,6 @@ static int update_vport_qp_param(struct mlx4_dev *dev,
+ 	vp_oper = &priv->mfunc.master.vf_oper[slave].vport[port];
+ 
+ 	if (MLX4_VGT != vp_oper->state.default_vlan) {
+-		qp_type	= (be32_to_cpu(qpc->flags) >> 16) & 0xff;
+-		if (MLX4_QP_ST_RC == qp_type ||
+-		    (MLX4_QP_ST_UD == qp_type &&
+-		     !mlx4_is_qp_reserved(dev, qpn)))
+-			return -EINVAL;
+-
+ 		/* the reserved QPs (special, proxy, tunnel)
+ 		 * do not operate over vlans
+ 		 */
+-- 
+1.7.1
