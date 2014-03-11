@@ -1,189 +1,78 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net-next] r8152: support dumping the hw counters
-Date: Tue, 11 Mar 2014 16:24:19 +0800
-Message-ID: <1394526259-5513-1-git-send-email-hayeswang@realtek.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH] net: phy: fix uninitalized WOL parameters in phy_ethtool_get_wol
+Date: Tue, 11 Mar 2014 09:40:26 +0100
+Message-ID: <531ECBFA.5010300@gmail.com>
+References: <1394413270-7169-1-git-send-email-sebastian.hesselbarth@gmail.com> <1394419893.15968.88.camel@deadeye.wl.decadent.org.uk> <531D98D1.4000707@gmail.com> <1394493477.23624.21.camel@deadeye.wl.decadent.org.uk>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394493477.23624.21.camel@deadeye.wl.decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add dumping the tally counter by ethtool.
+On 03/11/2014 12:17 AM, Ben Hutchings wrote:
+> On Mon, 2014-03-10 at 10:49 +0000, Sebastian Hesselbarth wrote:
+>> On 03/10/2014 02:51 AM, Ben Hutchings wrote:
+>>> On Mon, 2014-03-10 at 02:01 +0100, Sebastian Hesselbarth wrote:
+>>>> phy_ethtool_get_wol is a helper to get current WOL settings from
+>>>> a phy device. When using this helper on a PHY without .get_wol
+>>>> callback, struct ethtool_wolinfo is never set-up correctly and
+>>>> may contain misleading information about WOL status.
+>>>>
+>>>> To fix this, always zero relevant fields of struct ethtool_wolinfo
+>>>> regardless of .get_wol callback availability.
+>>>
+>>> I think it's the caller's responsibility to zero out struct
+>>> ethtool_wolinfo.  That is what ethtool_get_wol() does.
+>>
+>> Actually, phy_ethtool_get_wol is the caller here. This belongs to
+>> a set of helpers that deal with phy_device, not netdev.
+>
+> Right, but ethtool_get_wol() is further up the stack and is responsible
+> for initialising the struct to defaults.
 
-Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
----
- drivers/net/usb/r8152.c | 95 +++++++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 93 insertions(+), 2 deletions(-)
+Ok, currently we have 3 users of phy_ethtool_get_wol():
+- mv643xx_eth and cpsw use that in their .get_wol callback that is
+   called on ethtool_get_wol().
+- phy_suspend to determine if it is safe to suspend a PHY
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index a90a7eb9..aa1d5b2 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -60,7 +60,7 @@
- #define PLA_TCR0		0xe610
- #define PLA_TCR1		0xe612
- #define PLA_TXFIFO_CTRL		0xe618
--#define PLA_RSTTELLY		0xe800
-+#define PLA_RSTTALLY		0xe800
- #define PLA_CR			0xe813
- #define PLA_CRWECR		0xe81c
- #define PLA_CONFIG12		0xe81e	/* CONFIG1, CONFIG2 */
-@@ -72,7 +72,7 @@
- #define PLA_MISC_0		0xe858
- #define PLA_MISC_1		0xe85a
- #define PLA_OCP_GPHY_BASE	0xe86c
--#define PLA_TELLYCNT		0xe890
-+#define PLA_TALLYCNT		0xe890
- #define PLA_SFF_STS_7		0xe8de
- #define PLA_PHYSTATUS		0xe908
- #define PLA_BP_BA		0xfc26
-@@ -180,6 +180,9 @@
- /* PLA_TCR1 */
- #define VERSION_MASK		0x7cf0
- 
-+/* PLA_RSTTALLY */
-+#define TALLY_RESET		0x0001
-+
- /* PLA_CR */
- #define CR_RST			0x10
- #define CR_RE			0x08
-@@ -465,6 +468,22 @@ enum rtl8152_flags {
- #define REALTEK_USB_DEVICE(vend, prod)	\
- 	USB_DEVICE_INTERFACE_CLASS(vend, prod, USB_CLASS_VENDOR_SPEC)
- 
-+struct tally_counter {
-+	__le64	tx_packets;
-+	__le64	rx_packets;
-+	__le64	tx_errors;
-+	__le32	rx_errors;
-+	__le16	rx_missed;
-+	__le16	align_errors;
-+	__le32	tx_one_collision;
-+	__le32	tx_multi_collision;
-+	__le64	rx_unicast;
-+	__le64	rx_broadcast;
-+	__le32	rx_multicast;
-+	__le16	tx_aborted;
-+	__le16	tx_underun;
-+};
-+
- struct rx_desc {
- 	__le32 opts1;
- #define RX_LEN_MASK			0x7fff
-@@ -2872,6 +2891,15 @@ static void r8152b_enable_fc(struct r8152 *tp)
- 	r8152_mdio_write(tp, MII_ADVERTISE, anar);
- }
- 
-+static void rtl_tally_reset(struct r8152 *tp)
-+{
-+	u32 ocp_data;
-+
-+	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_RSTTALLY);
-+	ocp_data |= TALLY_RESET;
-+	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RSTTALLY, ocp_data);
-+}
-+
- static void r8152b_init(struct r8152 *tp)
- {
- 	u32 ocp_data;
-@@ -2898,6 +2926,7 @@ static void r8152b_init(struct r8152 *tp)
- 	r8152b_enable_eee(tp);
- 	r8152b_enable_aldps(tp);
- 	r8152b_enable_fc(tp);
-+	rtl_tally_reset(tp);
- 
- 	/* enable rx aggregation */
- 	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_USB_CTRL);
-@@ -2965,6 +2994,7 @@ static void r8153_init(struct r8152 *tp)
- 	r8153_enable_eee(tp);
- 	r8153_enable_aldps(tp);
- 	r8152b_enable_fc(tp);
-+	rtl_tally_reset(tp);
- }
- 
- static int rtl8152_suspend(struct usb_interface *intf, pm_message_t message)
-@@ -3105,6 +3135,64 @@ out:
- 	return ret;
- }
- 
-+static const char rtl8152_gstrings[][ETH_GSTRING_LEN] = {
-+	"tx_packets",
-+	"rx_packets",
-+	"tx_errors",
-+	"rx_errors",
-+	"rx_missed",
-+	"align_errors",
-+	"tx_single_collisions",
-+	"tx_multi_collisions",
-+	"rx_unicast",
-+	"rx_broadcast",
-+	"rx_multicast",
-+	"tx_aborted",
-+	"tx_underrun",
-+};
-+
-+static int rtl8152_get_sset_count(struct net_device *dev, int sset)
-+{
-+	switch (sset) {
-+	case ETH_SS_STATS:
-+		return ARRAY_SIZE(rtl8152_gstrings);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static void rtl8152_get_ethtool_stats(struct net_device *dev,
-+				      struct ethtool_stats *stats, u64 *data)
-+{
-+	struct r8152 *tp = netdev_priv(dev);
-+	struct tally_counter tally;
-+
-+	generic_ocp_read(tp, PLA_TALLYCNT, sizeof(tally), &tally, MCU_TYPE_PLA);
-+
-+	data[0] = le64_to_cpu(tally.tx_packets);
-+	data[1] = le64_to_cpu(tally.rx_packets);
-+	data[2] = le64_to_cpu(tally.tx_errors);
-+	data[3] = le32_to_cpu(tally.rx_errors);
-+	data[4] = le16_to_cpu(tally.rx_missed);
-+	data[5] = le16_to_cpu(tally.align_errors);
-+	data[6] = le32_to_cpu(tally.tx_one_collision);
-+	data[7] = le32_to_cpu(tally.tx_multi_collision);
-+	data[8] = le64_to_cpu(tally.rx_unicast);
-+	data[9] = le64_to_cpu(tally.rx_broadcast);
-+	data[10] = le32_to_cpu(tally.rx_multicast);
-+	data[11] = le16_to_cpu(tally.tx_aborted);
-+	data[12] = le16_to_cpu(tally.tx_underun);
-+}
-+
-+static void rtl8152_get_strings(struct net_device *dev, u32 stringset, u8 *data)
-+{
-+	switch (stringset) {
-+	case ETH_SS_STATS:
-+		memcpy(data, *rtl8152_gstrings, sizeof(rtl8152_gstrings));
-+		break;
-+	}
-+}
-+
- static struct ethtool_ops ops = {
- 	.get_drvinfo = rtl8152_get_drvinfo,
- 	.get_settings = rtl8152_get_settings,
-@@ -3114,6 +3202,9 @@ static struct ethtool_ops ops = {
- 	.set_msglevel = rtl8152_set_msglevel,
- 	.get_wol = rtl8152_get_wol,
- 	.set_wol = rtl8152_set_wol,
-+	.get_strings = rtl8152_get_strings,
-+	.get_sset_count = rtl8152_get_sset_count,
-+	.get_ethtool_stats = rtl8152_get_ethtool_stats,
- };
- 
- static int rtl8152_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
--- 
-1.8.4.2
+With phy_suspend, I could use a kernel-compatible __ethtool_get_wol()
+but that requires to have an .attached_dev as __ethtool_get_wol()
+takes netdev. This would limit phy_suspend to attached PHYs while
+even non-attached PHYs should be suspended.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+OTOH, if we don't want phy_ethtool_get_wol to clear out ethtool_wol and
+no dependency on .attached_dev, phy_suspend is the only place to
+properly initialize ethtool_wol on this level.
+
+>>> Maybe you could split ethtool_get_wol() like we did
+>>> ethtool_get_settings(), to support in-kernel invocation of ETHTOOL_GWOL?
+>>
+>> Looking at the other users of phy_ethtool_get_wol (mv643xx_eth and
+>> cpsw), both drivers use this helper to determine what to pass back
+>> on the corresponding ethtool_get_wol call.
+>>
+>> BTW, both drivers above do zero ethtool_wolinfo before calling
+>> phy_ethtool_get_wol. I can either zero it in phy_suspend too or we
+>> deal with it properly in phy_ethtool_get_wol instead:
+>>
+>> void phy_ethtool_get_wol(struct phy_device *phydev, struct
+>> ethtool_wolinfo *wol)
+>> {
+>> 	memset(wol, 0, sizeof(*wol));
+>>
+>> 	if (phydev && phydev->drv->get_wol)
+>> 		phydev->drv->get_wol(phydev, wol);
+>> }
+> [...]
+>
+> This trashes wol->cmd.  Don't do that.
+
+You are right on this one, I'll missed it and will fix it up.
+
+Sebastian
