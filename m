@@ -1,40 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V2] Xen-netback: Fix issue caused by using gso_type
- wrongly
-Date: Mon, 10 Mar 2014 21:58:26 -0400 (EDT)
-Message-ID: <20140310.215826.2152685771330034462.davem@davemloft.net>
-References: <1394463514-2979-1-git-send-email-Annie.li@oracle.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH v8 net-next 1/3] filter: add Extended BPF interpreter and converter
+Date: Mon, 10 Mar 2014 19:02:18 -0700
+Message-ID: <CA+55aFx7rdm9DGOTTgAKTHNkdfrvQYhT9PRs5MhUPr1gQzWEgA@mail.gmail.com>
+References: <1394431444-6987-1-git-send-email-ast@plumgrid.com>
+	<1394431444-6987-2-git-send-email-ast@plumgrid.com>
+	<20140310.215104.2095195123238829635.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	konrad.wilk@oracle.com, Ian.Campbell@citrix.com,
-	wei.liu2@citrix.com, paul.durrant@citrix.com
-To: Annie.li@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49262 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752575AbaCKB62 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 21:58:28 -0400
-In-Reply-To: <1394463514-2979-1-git-send-email-Annie.li@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: ast@plumgrid.com, dborkman@redhat.com,
+	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Peter Anvin <hpa@zytor.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Eric Dumazet <edumazet@google.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	=?UTF-8?B?RnLDqWTDqXJpYyBXZWlzYmVja2Vy?= <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	penberg@iki.fi, Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140310.215104.2095195123238829635.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Annie Li <Annie.li@oracle.com>
-Date: Mon, 10 Mar 2014 22:58:34 +0800
+On Mon, Mar 10, 2014 at 6:51 PM, David Miller <davem@davemloft.net> wrote:
+> From: Alexei Starovoitov <ast@plumgrid.com>
+> Date: Sun,  9 Mar 2014 23:04:02 -0700
+>
+>> +     unsigned int            jited:1;
+>
+> The C language has a proper type for boolean states, please therefore
+> use 'bool', true, and false.
 
-> From: Annie Li <annie.li@oracle.com>
-> 
-> Current netback uses gso_type to check whether the skb contains
-> gso offload, and this is wrong. Gso_size is the right one to
-> check gso existence, and gso_type is only used to check gso type.
-> 
-> Some skbs contains nonzero gso_type and zero gso_size, current
-> netback would treat these skbs as gso and create wrong response
-> for this. This also causes ssh failure to domu from other server.
-> 
-> V2: use skb_is_gso function as Paul Durrant suggested
-> 
-> Signed-off-by: Annie Li <annie.li@oracle.com>
+No, the C standard actually has no such thing.
 
-Applied, thank you.
+In a structure, a bitfield is actually better than bool, because it
+takes only one bit. A "bool" takes at least a byte.
+
+Now, in this case it may not be an issue (looks like there are no
+other uses that can use the better packing, so bit/byte/word is all
+the same), but I really really want to make it clear that it is not at
+all true that "bool" is somehow better than a single-bit bitfield. The
+bitfield can pack *much* better, and I would actually say that it's
+generally a *better* idea to use a bitfield, because you can much more
+easily expand on it later by adding other bitfields.
+
+There are very few actual real advantages to "bool". The magic casting
+behavior is arguably an advantage (the implicit cast in assigning to a
+bitfield truncates to the low bits, the implicit cast on assignment to
+"bool" does a test against zero), but is also quite arguably a
+possible source of confusion and can cause problems down the line when
+converting from bool to a bitfield (for the afore-mentioned packing
+reasons).
+
+So please don't sell "bool" as some kind of panacea. It has at least
+as many problems as it has advantages.
+
+I would generally suggest that people only use "bool" for function
+return types, and absolutely nothing else. Seriously.
+
+              Linus
