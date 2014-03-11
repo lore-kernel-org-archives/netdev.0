@@ -1,42 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 2/2] netpoll: Don't poll for received packets
-Date: Tue, 11 Mar 2014 05:44:23 -0700
-Message-ID: <1394541863.21721.25.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <871ty9qvaf.fsf_-_@xmission.com>
-	 <87vbvlpgnk.fsf_-_@xmission.com>
-	 <1394509467.21721.2.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140311.004217.1616529960369263682.davem@davemloft.net>
-	 <1394514158.21721.7.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <87a9cxf7mp.fsf_-_@xmission.com> <87wqg1dsyw.fsf_-_@xmission.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net] Xen-netback: Fix issue caused by using
+ gso_type wrongly
+Date: Tue, 11 Mar 2014 12:48:12 +0000
+Message-ID: <1394542092.18366.59.camel@kazak.uk.xensource.com>
+References: <1394437454-2402-1-git-send-email-Annie.li@oracle.com>
+	 <9AAE0902D5BC7E449B7C8E4E778ABCD0279FBD@AMSPEX01CL01.citrite.net>
+	 <531DBCEC.4070201@oracle.com> <531DBE24.8020403@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: annie li <annie.li@oracle.com>,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:49758 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754377AbaCKMo0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 08:44:26 -0400
-Received: by mail-pb0-f44.google.com with SMTP id rp16so8758276pbb.31
-        for <netdev@vger.kernel.org>; Tue, 11 Mar 2014 05:44:25 -0700 (PDT)
-In-Reply-To: <87wqg1dsyw.fsf_-_@xmission.com>
+Received: from smtp.citrix.com ([66.165.176.89]:38994 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752558AbaCKMsO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Mar 2014 08:48:14 -0400
+In-Reply-To: <531DBE24.8020403@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-03-11 at 01:45 -0700, Eric W. Biederman wrote:
-> When calling drivers napi poll function pass it a budget of 0, to
-> request that no rx packets be processed, and warn if any rx packets
-> are actually processed.
+On Mon, 2014-03-10 at 13:29 +0000, Zoltan Kiss wrote:
+> On 10/03/14 13:23, annie li wrote:
+> > On 2014/3/10 17:51, Paul Durrant wrote:
+> >>> @@ -299,12 +299,12 @@ static void xenvif_gop_frag_copy(struct xenvif
+> >>> *vif,
+> >>> struct sk_buff *skb,
+> >>>           }
+> >>>
+> >>>           /* Leave a gap for the GSO descriptor. */
+> >>> -        if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4)
+> >>> -            gso_type = XEN_NETIF_GSO_TYPE_TCPV4;
+> >>> -        else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
+> >>> -            gso_type = XEN_NETIF_GSO_TYPE_TCPV6;
+> >>> -        else
+> >>> -            gso_type = XEN_NETIF_GSO_TYPE_NONE;
+> >>> +        if (skb_shinfo(skb)->gso_size) {
+> >> You should probably use skb_is_gso(skb) for your test.
+> >
+> > skb_is_gso does the same thing, skb_iso_gso and
+> > skb_shinfo(skb)->gso_size coexist. But I can change the code as you
+> > suggested if you like, will post a v2 patch for this.
 > 
-> Additionally remove the drop_mon tracepoint as nothing interesting
-> should be happening in netpoll, and running an arbitrary tracepoint
-> in irq context is probably a bad idea.
-> 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
->  net/core/netpoll.c |   28 +++++++++-------------------
->  1 files changed, 9 insertions(+), 19 deletions(-)
+> It's always better to use core functions which codify these rules. Also, 
+> from the reader's point of view, it's more obvious to see skb_is_gso, 
+> than checking gso_size.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Agreed on both counts.
+
+Ian.
