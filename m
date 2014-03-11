@@ -1,57 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH 0/2] remove netpoll rx support
-Date: Tue, 11 Mar 2014 16:09:31 -0400 (EDT)
-Message-ID: <20140311.160931.1395978386605601765.davem@davemloft.net>
-References: <87a9cxf7mp.fsf_-_@xmission.com>
-	<20140311.124907.1180556684992271103.davem@davemloft.net>
-	<87wqg0cy9d.fsf@xmission.com>
+From: Yegor Yefremov <yegorslists@googlemail.com>
+Subject: Re: [PATCH] net: phy: Add support for SMSC/Microchip LAN9303 3-port switch
+Date: Tue, 11 Mar 2014 21:11:16 +0100
+Message-ID: <CAGm1_ksPrSjV8+o7LCGDtJz_6qY8bqGuqdpYNHKh_6JO2X0sqg@mail.gmail.com>
+References: <1393492072-15364-1-git-send-email-sr@denx.de> <20140227.170240.1910151216729314077.davem@davemloft.net>
+ <531057A4.5020607@denx.de> <20140228.130020.2022765291621434648.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
-To: ebiederm@xmission.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Stefan Roese <sr@denx.de>, netdev <netdev@vger.kernel.org>,
+	r.meier@siemens.com, lukas.stockmann@siemens.com,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58193 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755649AbaCKUJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 16:09:35 -0400
-In-Reply-To: <87wqg0cy9d.fsf@xmission.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:43577 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755419AbaCKULh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 16:11:37 -0400
+Received: by mail-pa0-f50.google.com with SMTP id kq14so38477pab.23
+        for <netdev@vger.kernel.org>; Tue, 11 Mar 2014 13:11:37 -0700 (PDT)
+In-Reply-To: <20140228.130020.2022765291621434648.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Tue, 11 Mar 2014 12:48:30 -0700
-
-> David Miller <davem@davemloft.net> writes:
-> 
->> From: ebiederm@xmission.com (Eric W. Biederman)
->> Date: Tue, 11 Mar 2014 01:43:10 -0700
+On Fri, Feb 28, 2014 at 7:00 PM, David Miller <davem@davemloft.net> wrote:
+> From: Stefan Roese <sr@denx.de>
+> Date: Fri, 28 Feb 2014 10:32:20 +0100
+>
+>> On 27.02.2014 23:02, David Miller wrote:
+>>> From: Stefan Roese <sr@denx.de>
+>>> Date: Thu, 27 Feb 2014 10:07:52 +0100
+>>>
+>>> Better is to come up with a real, types, interface for programming
+>>> such devices and providing an implementation of that.
 >>
->>> Furthermore netpoll by it's design depends on the ability to receive
->>> packets in netpoll_poll_dev.  It is a capability I don't think we have
->>> ever used in the mainline kernel but it is a capability that is there
->>> deliberately.  Which means if we want netpoll to not mess with the rx
->>> path we need to change netpoll.
->>
->> This breaks kdump, and any other users of netpoll_rx() et al.
-> 
-> It does not break kdump.  (kdump starts a new kernel to do it's work). 
-> 
-> It does break the ancient lkcd netdump that was never merged, and has
-> been abandoned (to the best of my knowledge). crash dumps proved
-> entirely too fragile to perform from a broken kernel.
+>> Right. Such a thing would be better. But as Florian already pointed
+>> out, nothing like this is available in kernel.org right now. Thats the
+>> reason why I chose to implement this "simple" driver, btw as done in
+>> drivers/net/phy/spi_ks8995.c.
+>
+> When a suitable user facing interface is lacking, you create one
+> and submit it for review here.  You don't just submit adhoc driver
+> local stuff.
 
-I feel like I've mixed this up in the past, multiple times, thanks
-for the sanity check.
+David, what about enabling ethtool to read/write from/to the PHY
+registers (via passing PHY ID and register number)? I'm trying to get
+ICplus IP175D running and it has lots of registers, that I would like
+to look at dynamically.
 
->> Make the zero budget depend upon us being invoked from hardware
->> irq context, or something like that.
-> 
-> Good enough.  I will respin my driver patches based on the assumption
-> that netpoll will be changed in this way.  There are no dependencies
-> for the drivers, I just need to remove my rx path changes.
-> 
-> We can have the conversation about how to change netpoll in parallel.
-
-Sounds great.
+Yegor
