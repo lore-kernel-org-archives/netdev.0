@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] netdev: set __percpu attribute on
- netdev_alloc_pcpu_stats
-Date: Tue, 11 Mar 2014 16:37:46 -0400 (EDT)
-Message-ID: <20140311.163746.552920260998285786.davem@davemloft.net>
-References: <20140310094146.2aaa8e0e@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH net-next] bonding: force cast of IP address in options
+Date: Tue, 11 Mar 2014 16:37:54 -0400 (EDT)
+Message-ID: <20140311.163754.1376810404707141660.davem@davemloft.net>
+References: <20140310094838.6d286cb2@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, netdev@vger.kernel.org
+Cc: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net,
+	netdev@vger.kernel.org
 To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58374 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58381 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755623AbaCKUht (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 16:37:49 -0400
-In-Reply-To: <20140310094146.2aaa8e0e@nehalam.linuxnetplumber.net>
+	with ESMTP id S1755623AbaCKUh4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 16:37:56 -0400
+In-Reply-To: <20140310094838.6d286cb2@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Mon, 10 Mar 2014 09:41:46 -0700
+Date: Mon, 10 Mar 2014 09:48:38 -0700
 
-> This patch fixes sparse warnings in vlan driver.
-> It propagates the sparse __percpu attribute from alloc_percpu
-> into netdev_alloc_pcpu_stats. I expect it may trigger additional
-> sparse warnings from other drivers that are missing the __percpu
-> attribute.
+> The option code is taking IP address and putting it into a generic
+> container. Force cast to silence sparse warnings.
 > 
 > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
