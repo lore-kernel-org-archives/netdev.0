@@ -1,36 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH (net.git) 0/4 (v4)] stmmac fixes: EEE and chained mode
-Date: Tue, 11 Mar 2014 16:16:06 -0400 (EDT)
-Message-ID: <20140311.161606.493536375947957857.davem@davemloft.net>
-References: <1394455234-32021-1-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [PATCH 0/5] skbuff: fix skb_segment with zero copy skbs
+Date: Tue, 11 Mar 2014 16:27:14 -0400 (EDT)
+Message-ID: <20140311.162714.1118698288267206477.davem@davemloft.net>
+References: <1394468807-25980-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58247 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755516AbaCKUQH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 16:16:07 -0400
-In-Reply-To: <1394455234-32021-1-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, jbenc@redhat.com,
+	netdev@vger.kernel.org
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394468807-25980-1-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Date: Mon, 10 Mar 2014 13:40:30 +0100
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Mon, 10 Mar 2014 18:29:01 +0200
 
-> These patches are to fix some new problems in the STMMAC driver.
+> This fixes a bug in skb_segment where it moves frags
+> between skbs without orphaning them.
+> This causes userspace to assume it's safe to
+> reuse the buffer, and receiver gets corrupted data.
+> This further might leak information from the
+> transmitter on the wire.
 > 
-> Mandatory changes are for EEE that needs to be disabled if not supported
-> and for the chain mode that is broken and the kernel panics if this mode
-> is enabled.
+> To fix track which skb does a copied frag belong
+> to, and orphan frags when copying them.
 > 
-> v3: removed a patch from my previous set that touched the stmmac_tx path
->     that has not to be applied. Other patches for cleaning-up will be
->     sent on top of net-next git repo.
+> As we are tracking multiple skbs here, using
+> short names (skb,nskb,fskb,skb_frag,frag) becomes confusing.
+> So before adding another one, I refactor these names
+> slightly.
 > 
-> v4: do not surround the defaul buffer selection using Koption and adopt
->     a default to 1536bytes.
+> Patch is split out to make it easier to
+> verify that all trasformations are trivially correct.
+> 
+> The problem was observed in the field,
+> so I think that the patch is necessary on stable
+> as well.
 
-Series applied.
+Series applied and queued up for -stable, thanks for fixing this.
