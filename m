@@ -1,163 +1,59 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V1 net-next 6/7] mlx4_ib: Fix SIDR support of for UD QPs under SRIOV/RoCE
-Date: Tue, 11 Mar 2014 15:02:55 +0200
-Message-ID: <1394542976-20095-7-git-send-email-ogerlitz@mellanox.com>
-References: <1394542976-20095-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH V1 net-next 0/7] mlx4: Add SRIOV support for RoCE
+Date: Tue, 11 Mar 2014 15:02:49 +0200
+Message-ID: <1394542976-20095-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, roland@kernel.org,
 	jackm@dev.mellanox.co.il, amirv@mellanox.com,
-	Shani Michaelli <shanim@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:43174 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:43173 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752024AbaCKNDC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751986AbaCKNDC (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 11 Mar 2014 09:03:02 -0400
-In-Reply-To: <1394542976-20095-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shani Michaelli <shanim@mellanox.com>
+Hi Dave,
 
-* Handle CM_SIDR_REQ_ATTR_ID and CM_SIDR_REP_ATTR_ID
-  in multiplex_cm_handler and demux_cm_handler.
+This series adds SRIOV support for RoCE (RDMA over Ethernet).
 
-* Handle Service ID Resolution messages and REQ messages
-  separately, for their formats are different.
+The patches are against net-next, as of commit 2d8d40a "pkt_sched: fq:
+do not hold qdisc lock while allocating memory"
 
-Signed-off-by: Shani Michaeli <shanim@mellanox.com>
-Signed-off-by: Matan Barak <matanb@mellanox.com>
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/infiniband/hw/mlx4/cm.c |   72 ++++++++++++++++++++++++++++++--------
- 1 files changed, 57 insertions(+), 15 deletions(-)
+Or.
 
-diff --git a/drivers/infiniband/hw/mlx4/cm.c b/drivers/infiniband/hw/mlx4/cm.c
-index b8d9115..56a593e 100644
---- a/drivers/infiniband/hw/mlx4/cm.c
-+++ b/drivers/infiniband/hw/mlx4/cm.c
-@@ -61,6 +61,11 @@ struct cm_generic_msg {
- 	__be32 remote_comm_id;
- };
- 
-+struct cm_sidr_generic_msg {
-+	struct ib_mad_hdr hdr;
-+	__be32 request_id;
-+};
-+
- struct cm_req_msg {
- 	unsigned char unused[0x60];
- 	union ib_gid primary_path_sgid;
-@@ -69,28 +74,62 @@ struct cm_req_msg {
- 
- static void set_local_comm_id(struct ib_mad *mad, u32 cm_id)
- {
--	struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
--	msg->local_comm_id = cpu_to_be32(cm_id);
-+	if (mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
-+		struct cm_sidr_generic_msg *msg =
-+			(struct cm_sidr_generic_msg *)mad;
-+		msg->request_id = cpu_to_be32(cm_id);
-+	} else if (mad->mad_hdr.attr_id == CM_SIDR_REP_ATTR_ID) {
-+		pr_err("trying to set local_comm_id in SIDR_REP\n");
-+		return;
-+	} else {
-+		struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
-+		msg->local_comm_id = cpu_to_be32(cm_id);
-+	}
- }
- 
- static u32 get_local_comm_id(struct ib_mad *mad)
- {
--	struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
--
--	return be32_to_cpu(msg->local_comm_id);
-+	if (mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
-+		struct cm_sidr_generic_msg *msg =
-+			(struct cm_sidr_generic_msg *)mad;
-+		return be32_to_cpu(msg->request_id);
-+	} else if (mad->mad_hdr.attr_id == CM_SIDR_REP_ATTR_ID) {
-+		pr_err("trying to set local_comm_id in SIDR_REP\n");
-+		return -1;
-+	} else {
-+		struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
-+		return be32_to_cpu(msg->local_comm_id);
-+	}
- }
- 
- static void set_remote_comm_id(struct ib_mad *mad, u32 cm_id)
- {
--	struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
--	msg->remote_comm_id = cpu_to_be32(cm_id);
-+	if (mad->mad_hdr.attr_id == CM_SIDR_REP_ATTR_ID) {
-+		struct cm_sidr_generic_msg *msg =
-+			(struct cm_sidr_generic_msg *)mad;
-+		msg->request_id = cpu_to_be32(cm_id);
-+	} else if (mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
-+		pr_err("trying to set remote_comm_id in SIDR_REQ\n");
-+		return;
-+	} else {
-+		struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
-+		msg->remote_comm_id = cpu_to_be32(cm_id);
-+	}
- }
- 
- static u32 get_remote_comm_id(struct ib_mad *mad)
- {
--	struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
--
--	return be32_to_cpu(msg->remote_comm_id);
-+	if (mad->mad_hdr.attr_id == CM_SIDR_REP_ATTR_ID) {
-+		struct cm_sidr_generic_msg *msg =
-+			(struct cm_sidr_generic_msg *)mad;
-+		return be32_to_cpu(msg->request_id);
-+	} else if (mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
-+		pr_err("trying to set remote_comm_id in SIDR_REQ\n");
-+		return -1;
-+	} else {
-+		struct cm_generic_msg *msg = (struct cm_generic_msg *)mad;
-+		return be32_to_cpu(msg->remote_comm_id);
-+	}
- }
- 
- static union ib_gid gid_from_req_msg(struct ib_device *ibdev, struct ib_mad *mad)
-@@ -282,19 +321,21 @@ int mlx4_ib_multiplex_cm_handler(struct ib_device *ibdev, int port, int slave_id
- 	u32 sl_cm_id;
- 	int pv_cm_id = -1;
- 
--	sl_cm_id = get_local_comm_id(mad);
--
- 	if (mad->mad_hdr.attr_id == CM_REQ_ATTR_ID ||
--			mad->mad_hdr.attr_id == CM_REP_ATTR_ID) {
-+			mad->mad_hdr.attr_id == CM_REP_ATTR_ID ||
-+			mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
-+		sl_cm_id = get_local_comm_id(mad);
- 		id = id_map_alloc(ibdev, slave_id, sl_cm_id);
- 		if (IS_ERR(id)) {
- 			mlx4_ib_warn(ibdev, "%s: id{slave: %d, sl_cm_id: 0x%x} Failed to id_map_alloc\n",
- 				__func__, slave_id, sl_cm_id);
- 			return PTR_ERR(id);
- 		}
--	} else if (mad->mad_hdr.attr_id == CM_REJ_ATTR_ID) {
-+	} else if (mad->mad_hdr.attr_id == CM_REJ_ATTR_ID ||
-+		   mad->mad_hdr.attr_id == CM_SIDR_REP_ATTR_ID) {
- 		return 0;
- 	} else {
-+		sl_cm_id = get_local_comm_id(mad);
- 		id = id_map_get(ibdev, &pv_cm_id, slave_id, sl_cm_id);
- 	}
- 
-@@ -320,7 +361,8 @@ int mlx4_ib_demux_cm_handler(struct ib_device *ibdev, int port, int *slave,
- 	u32 pv_cm_id;
- 	struct id_map_entry *id;
- 
--	if (mad->mad_hdr.attr_id == CM_REQ_ATTR_ID) {
-+	if (mad->mad_hdr.attr_id == CM_REQ_ATTR_ID ||
-+	    mad->mad_hdr.attr_id == CM_SIDR_REQ_ATTR_ID) {
- 		union ib_gid gid;
- 
- 		if (!slave)
--- 
-1.7.1
+changes from V0:
+  - always check the return code of mlx4_get_roce_gid_from_slave().
+    The call we fixed is introduced in patch #1 and later removed by 
+    patch #3 that allows guests to have multiple GIDS. The 1..3 
+    separation was done for proper division of patches to logical changes.
+
+Jack Morgenstein (6):
+  mlx4: Adjust QP1 multiplexing for RoCE/SRIOV
+  mlx4_core: For RoCE, allow slaves to set the GID entry at that
+    slave's index
+  mlx4: In RoCE allow guests to have multiple GIDS
+  mlx4: Add ref counting to port MAC table for RoCE
+  mlx4: Implement IP based gids support for RoCE/SRIOV
+  mlx4: Activate RoCE/SRIOV
+
+Shani Michaelli (1):
+  mlx4_ib: Fix SIDR support of for UD QPs under SRIOV/RoCE
+
+ drivers/infiniband/hw/mlx4/cm.c                    |   80 ++++-
+ drivers/infiniband/hw/mlx4/cq.c                    |   42 ++-
+ drivers/infiniband/hw/mlx4/mad.c                   |  123 +++++++-
+ drivers/infiniband/hw/mlx4/main.c                  |    8 -
+ drivers/infiniband/hw/mlx4/mcg.c                   |    2 +-
+ drivers/infiniband/hw/mlx4/mlx4_ib.h               |   21 ++-
+ drivers/infiniband/hw/mlx4/qp.c                    |  319 ++++++++++++++++----
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           |   23 ++
+ drivers/net/ethernet/mellanox/mlx4/fw.c            |    5 +-
+ drivers/net/ethernet/mellanox/mlx4/main.c          |    6 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    8 +
+ drivers/net/ethernet/mellanox/mlx4/port.c          |  142 +++++++++-
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  146 ++++++++--
+ include/linux/mlx4/cmd.h                           |    6 +
+ include/linux/mlx4/device.h                        |    8 +-
+ 15 files changed, 801 insertions(+), 138 deletions(-)
