@@ -1,81 +1,95 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V5 0/2] irq,net: Affinity hint helper function
-Date: Tue, 11 Mar 2014 09:33:25 +0200
-Message-ID: <1394523207-7338-1-git-send-email-amirv@mellanox.com>
+From: Christian Riesch <christian.riesch@omicron.at>
+Subject: Re: [PATCH RFC net-next v1 1/9] ptp: introduce programmable pins.
+Date: Tue, 11 Mar 2014 08:58:45 +0100
+Message-ID: <F85F72BA1EE25F8F7FB77295@[172.22.2.41]>
+References: <cover.1394307303.git.richardcochran@gmail.com>
+ <d9cb37a7d6e57d7f103dab78f98044697d3c4433.1394307304.git.richardcochran@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
 	Ben Hutchings <bhutchings@solarflare.com>,
-	Amir Vadai <amirv@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>
+	David Miller <davem@davemloft.net>,
+	=?UTF-8?Q?Stefan_S=C3=B8rensen?= <stefan.sorensen@spectralink.com>
+To: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <d9cb37a7d6e57d7f103dab78f98044697d3c4433.1394307304.git.richardcochran@gmail.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi Richard,
 
-This patchset will set affinity hint to influence IRQs to be allocated on the
-same NUMA node as the one where the card resides. As discussed in
-http://www.spinics.net/lists/netdev/msg271497.html
+--On March 08, 2014 20:42 +0100 Richard Cochran <richardcochran@gmail.com> 
+wrote:
 
-If number of IRQs allocated is greater than the number of local NUMA cores, all
-local cores will be used first, and the rest of the IRQs will be on a remote
-NUMA node.
-If no NUMA support - IRQ's and cores will be mapped 1:1
+> This patch adds a pair of new ioctls to the PTP Hardware Clock device
+> interface. Using the ioctls, user space programs can query each pin to
+> find out its current function and also reprogram a different function
+> if desired.
+>
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+> ---
+>  drivers/ptp/ptp_chardev.c        |  133
+> +++++++++++++++++++++++++++++++++++++-  drivers/ptp/ptp_clock.c
+> |   23 +++++++
+>  drivers/ptp/ptp_private.h        |    4 ++
+>  include/linux/ptp_clock_kernel.h |   33 ++++++++++
+>  include/uapi/linux/ptp_clock.h   |   39 ++++++++++-
+>  5 files changed, 230 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/ptp/ptp_chardev.c b/drivers/ptp/ptp_chardev.c
+> index 34a0c60..dc13d1e 100644
+> --- a/drivers/ptp/ptp_chardev.c
+> +++ b/drivers/ptp/ptp_chardev.c
+[...]
+> +int ptp_setpin(struct ptp_clock *ptp, unsigned int pin,
+> +	       enum ptp_pin_function func, unsigned int chan)
+> +{
+> +	struct ptp_clock_info *info = ptp->info;
+> +	struct ptp_pin_desc *pin1 = NULL, *pin2 = &info->pin_config[pin];
+> +	unsigned int i;
+> +
+> +	/* Check to see if any other pin previously had this function. */
+> +	if (mutex_lock_interruptible(&ptp->pincfg_mux))
+> +		return -ERESTARTSYS;
+> +	for (i = 0; i < info->n_pins; i++) {
+> +		if (info->pin_config[i].func == func &&
+> +		    info->pin_config[i].chan == chan) {
+> +			pin1 = &info->pin_config[i];
+> +			break;
+> +		}
+> +	}
+> +	mutex_unlock(&ptp->pincfg_mux);
+> +	if (pin1 && i == pin)
+> +		return 0;
+> +
+> +	/* Check the desired function and channel. */
+> +	switch (func) {
+> +	case PTP_PF_NONE:
+> +		break;
+> +	case PTP_PF_EXTTS:
+> +		if (chan >= info->n_ext_ts)
+> +			return -EINVAL;
+> +		break;
+> +	case PTP_PF_PEROUT:
+> +		if (chan >= info->n_per_out)
+> +			return -EINVAL;
+> +		break;
+> +	case PTP_PF_PHYSYNC:
+> +		pr_err("sorry, cannot reassign the calibration pin\n");
+> +		return -EINVAL;
+> +	default:
+> +		return -EINVAL;
+> +	}
+> +
+> +	if (pin1 && pin1->func == PTP_PF_PHYSYNC) {
+> +		pr_err("sorry, cannot reprogram the calibration pin\n");
+> +		return -EINVAL;
 
-This patchset was tested and applied on top of net-next since the first
-consumer is a network device (mlx4_en) - commit be14cc9: "vlan: use use
-ether_addr_equal_64bits to instead of ether_addr_equal"
+            ^^^^
+Will this ever happen? pin1 && pin1->func == PTP_PF_PHYSYNC means that func 
+== PTP_PF_PHYSYNC, but in this case you already return -EINVAL a few lines 
+above.
 
-Amir
-
-Changes from V4:
-- Patch 1/2: irq: Utility function to get affinity_hint by policy
-  Thank you Ben for the great review:
-  - Moved the function it kernel/irq/manage.c since it could be useful for
-    block mq devices
-  - Fixed Typo's
-  - Use cpumask_t * instead of cpumask_var_t in function header  
-  - Restructured the function to remove NULL assignment in a cpumask_var_t
-  - Fix for offline local CPU's
-
-Changes from V3:
-- Patch 2/2: net/mlx4_en: Use affinity hint
-  - somehow patch file was corrupted
-
-Changes from V2:
-- Patch 1/2: net: Utility function to get affinity_hint by policy
-  - Fixed style issues
-
-Changes from V1:
-- Patch 1/2: net: Utility function to get affinity_hint by policy
-  - Fixed error flow to return -EINVAL on error (thanks govind)
-- Patch 2/2: net/mlx4_en: Use affinity hint
-  - Set ring->affinity_hint to NULL on error
-
-Changes from V0:
-- Fixed small style issues
-
-
-Amir Vadai (1):
-  irq: Utility function to get affinity_hint by policy
-
-Yuval Atias (1):
-  net/mlx4_en: Use affinity hint
-
- drivers/infiniband/hw/mlx4/main.c              |  2 +-
- drivers/net/ethernet/mellanox/mlx4/en_cq.c     |  6 ++-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 30 +++++++++++++
- drivers/net/ethernet/mellanox/mlx4/eq.c        | 14 ++++++-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  1 +
- include/linux/interrupt.h                      |  9 ++++
- include/linux/mlx4/device.h                    |  2 +-
- kernel/irq/manage.c                            | 58 ++++++++++++++++++++++++++
- 8 files changed, 118 insertions(+), 4 deletions(-)
-
--- 
-1.8.3.4
+Christian
