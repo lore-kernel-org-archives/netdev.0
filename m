@@ -1,96 +1,68 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net] bonding: set correct vlan id for alb xmit path
-Date: Tue, 11 Mar 2014 10:15:20 +0800
-Message-ID: <531E71B8.3060109@huawei.com>
-References: <531E6D77.60808@huawei.com>
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH net-next v2] r8152: add skb_cow_head
+Date: Tue, 11 Mar 2014 10:20:32 +0800
+Message-ID: <1394504432-998-1-git-send-email-hayeswang@realtek.com>
+References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:55246 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753508AbaCKCPn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 22:15:43 -0400
-In-Reply-To: <531E6D77.60808@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1393934464-23675-1-git-send-email-hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/3/11 9:57, Ding Tianhong wrote:
-> The commit d3ab3ffd1d728d7ee77340e7e7e2c7cfe6a4013e
-> (bonding: use rlb_client_info->vlan_id instead of ->tag)
-> remove the rlb_client_info->tag, but occur some issues,
-> The vlan_get_tag() will return 0 for success and -EINVAL for
-> error, so the client_info->vlan_id always be set to 0 if the
-> vlan_get_tag return 0 for success, so the client_info would
-> never get a correct vlan id, and could not send a skb for vlan id 0.
-> 
-> Fix this by convert the client_info->vlan_id from u16 to s16,
-> and set to -1 for default value, the s16 is enough for the range
-> of the vlan id.
-> 
-> Fixes: d3ab3ffd1d7 (bonding: use rlb_client_info->vlan_id instead of ->tag)
-> 
-> CC: Ding Tianhong <dingtianhong@huawei.com>
-> CC: Jay Vosburgh <fubar@us.ibm.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Call skb_cow_head() before editing the tx packet header. The header
+would be reallocated if it is shared.
 
-Wrong CC list, sorry for that, resend.
+Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+---
+ drivers/net/usb/r8152.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
-> ---
->  drivers/net/bonding/bond_alb.c | 8 ++++----
->  drivers/net/bonding/bond_alb.h | 2 +-
->  2 files changed, 5 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-> index aaeeacf..fa95f70 100644
-> --- a/drivers/net/bonding/bond_alb.c
-> +++ b/drivers/net/bonding/bond_alb.c
-> @@ -539,7 +539,7 @@ static void rlb_update_client(struct rlb_client_info *client_info)
->  
->  		skb->dev = client_info->slave->dev;
->  
-> -		if (client_info->vlan_id) {
-> +		if (client_info->vlan_id >= 0) {
->  			skb = vlan_put_tag(skb, htons(ETH_P_8021Q), client_info->vlan_id);
->  			if (!skb) {
->  				pr_err("%s: Error: failed to insert VLAN tag\n",
-> @@ -722,8 +722,8 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
->  			client_info->ntt = 0;
->  		}
->  
-> -		if (!vlan_get_tag(skb, &client_info->vlan_id))
-> -			client_info->vlan_id = 0;
-> +		if (vlan_get_tag(skb, &client_info->vlan_id))
-> +			client_info->vlan_id = -1;
->  
->  		if (!client_info->assigned) {
->  			u32 prev_tbl_head = bond_info->rx_hashtbl_used_head;
-> @@ -827,7 +827,7 @@ static void rlb_init_table_entry_dst(struct rlb_client_info *entry)
->  	entry->used_prev = RLB_NULL_INDEX;
->  	entry->assigned = 0;
->  	entry->slave = NULL;
-> -	entry->vlan_id = 0;
-> +	entry->vlan_id = -1;
->  }
->  static void rlb_init_table_entry_src(struct rlb_client_info *entry)
->  {
-> diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
-> index e09dd4bf..b49af98 100644
-> --- a/drivers/net/bonding/bond_alb.h
-> +++ b/drivers/net/bonding/bond_alb.h
-> @@ -125,7 +125,7 @@ struct rlb_client_info {
->  	u8  assigned;		/* checking whether this entry is assigned */
->  	u8  ntt;		/* flag - need to transmit client info */
->  	struct slave *slave;	/* the slave assigned to this client */
-> -	unsigned short vlan_id;	/* VLAN tag associated with IP address */
-> +	short vlan_id;		/* VLAN tag associated with IP address */
->  };
->  
->  struct tlb_slave_info {
-> 
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index c7ef30d..a90a7eb9 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -1376,6 +1376,11 @@ static int msdn_giant_send_check(struct sk_buff *skb)
+ {
+ 	const struct ipv6hdr *ipv6h;
+ 	struct tcphdr *th;
++	int ret;
++
++	ret = skb_cow_head(skb, 0);
++	if (ret)
++		return ret;
+ 
+ 	ipv6h = ipv6_hdr(skb);
+ 	th = tcp_hdr(skb);
+@@ -1383,7 +1388,7 @@ static int msdn_giant_send_check(struct sk_buff *skb)
+ 	th->check = 0;
+ 	th->check = ~tcp_v6_check(0, &ipv6h->saddr, &ipv6h->daddr, 0);
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ static int r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc,
+@@ -1412,8 +1417,11 @@ static int r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc,
+ 			break;
+ 
+ 		case htons(ETH_P_IPV6):
++			if (msdn_giant_send_check(skb)) {
++				ret = TX_CSUM_TSO;
++				goto unavailable;
++			}
+ 			opts1 |= GTSENDV6;
+-			msdn_giant_send_check(skb);
+ 			break;
+ 
+ 		default:
+-- 
+1.8.4.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
