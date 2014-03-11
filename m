@@ -1,64 +1,67 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: RE: [PATCH net-next 1/5] vxlan: Make VXLAN default UDP port number
- available for others
-Date: Tue, 11 Mar 2014 05:41:37 +0000
-Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F797EE@avmb2.qlogic.org>
-References: <1394470142-13992-1-git-send-email-shahed.shaikh@qlogic.com>
-	<1394470142-13992-2-git-send-email-shahed.shaikh@qlogic.com>
- <CAJZOPZ+MFe2ev372L07uVvXs_wYnqAiZ3VMG4YteD2XmPWHoSQ@mail.gmail.com>
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Subject: RE: [RFC 1/2] net: Add support to configure SR-IOV VF minimum and
+	maximum Tx rate through ip tool.
+Date: Tue, 11 Mar 2014 06:08:29 +0000
+Message-ID: <290BEC245535C3449143D5D84900EEF78CDFCE4D@avmb3.qlogic.org>
+References: <1394004816-23436-1-git-send-email-sucheta.chakraborty@qlogic.com>
+	<1394004816-23436-2-git-send-email-sucheta.chakraborty@qlogic.com>
+ <1394385809.2861.168.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
 	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:57008 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:44176 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752562AbaCKFlk convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Mar 2014 01:41:40 -0400
-In-Reply-To: <CAJZOPZ+MFe2ev372L07uVvXs_wYnqAiZ3VMG4YteD2XmPWHoSQ@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1751649AbaCKGIh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 02:08:37 -0400
+In-Reply-To: <1394385809.2861.168.camel@deadeye.wl.decadent.org.uk>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Or Gerlitz [mailto:or.gerlitz@gmail.com]
-> Sent: Tuesday, March 11, 2014 1:28 AM
-> To: Shahed Shaikh
-> Cc: David Miller; netdev; Dept-HSG Linux NIC Dev
-> Subject: Re: [PATCH net-next 1/5] vxlan: Make VXLAN default UDP port
-> number available for others
-> 
-> On Mon, Mar 10, 2014 at 6:48 PM, Shahed Shaikh
-> <shahed.shaikh@qlogic.com> wrote:
-> > From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-> >
-> > Although vxlan module has capability to notify udp ports to other
-> > interested net devices using .ndo_add_rx_vxlan_port and
-> > .ndo_del_rx_vxlan_port, there could be some devices which support
-> > vxlan offload but not interested in updating udp port numbers.
-> > This may be because some hardware do not support programming multiple
-> > udp ports and their drivers may decide to program only default udp
-> > port into adapter. So that adapter, at least, can do offloading for
-> > default udp port number.
-> 
-> Indeed, but the default port number can be unused while another port is
-> used. The ndo will be invoked only behalf of an actual instancing of udp port
-> for listener socket (== destination port you want the hw to indentify), what's
-> wrong with support this ndo also for devices that supported limited (say
-> one) such port?
-
-
- If driver implements .ndo for udp port and user creates multiple vxlan device with different 
-udp ports, it may end up programming the udp port which may not go through the adapter 
-and no offload will happen. OTOH, if drive does not implement .ndo and if user is aware that driver
- is capable of offloading for default port, he can at least crate vxlan device on top of qlcnic interface
- with default udp port. So, there is no chance for other udp port numbers to replace default udp port and disturb offloading.
-
-Like Stephen suggested, exporting udp port variable of vxlan driver will be more suitable approach.
-
-Thanks,
-Shahed  
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
+aGFsZiBPZiBCZW4gSHV0Y2hpbmdzDQo+IFNlbnQ6IFN1bmRheSwgTWFyY2ggMDksIDIwMTQgMTA6
+NTMgUE0NCj4gVG86IFN1Y2hldGEgQ2hha3JhYm9ydHkNCj4gQ2M6IERhdmlkIE1pbGxlcjsgbmV0
+ZGV2OyBEZXB0LUhTRyBMaW51eCBOSUMgRGV2DQo+IFN1YmplY3Q6IFJlOiBbUkZDIDEvMl0gbmV0
+OiBBZGQgc3VwcG9ydCB0byBjb25maWd1cmUgU1ItSU9WIFZGIG1pbmltdW0NCj4gYW5kIG1heGlt
+dW0gVHggcmF0ZSB0aHJvdWdoIGlwIHRvb2wuDQo+IA0KPiBPbiBXZWQsIDIwMTQtMDMtMDUgYXQg
+MDI6MzMgLTA1MDAsIFN1Y2hldGEgQ2hha3JhYm9ydHkgd3JvdGU6DQo+ID4gbyBBIG5ldyBoYW5k
+bGVyIHNldF92Zl9yYXRlIGZvciBhdHRyIElGTEFfVkZfUkFURSBoYXMgYmVlbiBpbnRyb2R1Y2Vk
+DQo+ID4gICB3aGljaCB0YWtlcyA0IGFyZ3VtZW50czoNCj4gPiAgIG5ldGRldiwgVkYgbnVtYmVy
+LCBtaW5fdHhfcmF0ZSwgbWF4X3R4X3JhdGUNCj4gPg0KPiA+IG8gbWluX3R4X3JhdGUgcHV0cyBs
+b3dlciBsaW1pdCBvbiB0aGUgVkYgYmFuZHdpZHRoLiBWRiBpcyBndWFyYW50ZWVkDQo+ID4gICB0
+byBoYXZlIGEgYmFuZHdpZHRoIG9mIGF0IGxlYXN0IHRoaXMgdmFsdWUuDQo+ID4gICBtYXhfdHhf
+cmF0ZSBwdXRzIGNhcCBvbiB0aGUgVkYgYmFuZHdpZHRoLiBWRiBjYW4gaGF2ZSBhIGJhbmR3aWR0
+aA0KPiA+ICAgb2YgdXAgdG8gdGhpcyB2YWx1ZS4NCj4gDQo+IFN1cHBvc2luZyBJIG9ubHkgd2Fu
+dCB0byBzZXQgYSBtaW5pbXVtLCBob3cgd291bGQgSSBzcGVjaWZ5IHRoYXQgdGhlcmUNCj4gaXMg
+bm8gbWF4aW11bT8NCj4gDQoNClN1Y2hldGE+IFRoZSBjdXJyZW50IGltcGxlbWVudGF0aW9uIGFs
+bG93cyB1c2VyIHRvIHNlbmQgb25seQ0KbWluX3R4X3JhdGUgYXMgd2VsbC4gSW4gdGhhdCBjYXNl
+LCBtYXhfdHhfcmF0ZSBpcyByZWFkIGJhY2sgZnJvbSBkcml2ZXINCmFuZCBwYXNzZWQgYXMgaXQg
+aXMuIElmIHVzZXIgaGFzIG5vdCBkb25lIGFueSBzZXR0aW5nIHdpdGggcmVzcGVjdCB0bw0KbWF4
+X3R4X3JhdGUgdGlsbCBub3csIHRoZSBkZWZhdWx0IG1heCByZXR1cm5lZCBieSBkcml2ZXIgd2ls
+bCBiZSB1c2VkLg0KDQo+ID4gbyBJZGVhIGlzIHRvIGRlcHJlY2F0ZSBJRkxBX1ZGX1RYX1JBVEUg
+YW5kIG5kb19zZXRfdmZfdHhfcmF0ZSBpbg0KPiBmdXR1cmUuDQo+ID4gICBBbmQgdG8gaGF2ZSBj
+b25zaXN0ZW50IGRpc3BsYXkgb2YgcmF0ZSB2YWx1ZXMgdG8gdXNlci4NCj4gWy4uLl0NCj4gDQo+
+IFlvdSBjYW4ndCBkZXByZWNhdGUgdGhlIHVzZXJsYW5kIGludGVyZmFjZSwgYnV0IHRoZSBkcml2
+ZXIgb3BlcmF0aW9uDQo+IHNob3VsZCBiZSByZXBsYWNlZCBhdCB0aGUgc2FtZSB0aW1lLg0KPiAN
+Cj4gLSBUaGUgcnRuZXRsaW5rIGNvcmUgc2hvdWxkIGNvbWJpbmUgdXNlcmxhbmQgc2V0dGluZ3Mg
+ZnJvbQ0KPiAgIElGTEFfVkZfVFhfUkFURSBhbmQgSUZMQV9WRl9SQVRFLiAgSWYgYm90aCBhcmUg
+c3BlY2lmaWVkLCBJIHRoaW5rDQo+ICAgSUZMQV9WRl9SQVRFIHNob3VsZCBvdmVycmlkZS4NCj4g
+LSBJZiBvbmx5IElGTEFfVkZfVFhfUkFURSBpcyBzcGVjaWZpZWQsIHRoZSBjb3JlIHNob3VsZCBn
+ZXQgdGhlIGN1cnJlbnQNCj4gICBtaW5pbXVtIGJlZm9yZSBjYWxsaW5nIG5kb19zZXRfdmZfcmF0
+ZS4NCj4gLSBEcml2ZXJzIHRoYXQgY3VycmVudGx5IGltcGxlbWVudCBuZG9fc2V0X3ZmX3R4X3Jh
+dGUgc2hvdWxkIGJlDQo+ICAgY29udmVydGVkIHRvIGltcGxlbWVudCBuZG9fc2V0X3ZmX3JhdGUg
+YW5kIHJlamVjdCBhdHRlbXB0cyB0byBzZXQgYQ0KPiAgIG1pbmltdW0gYmFuZHdpZHRoIGdyZWF0
+ZXIgdGhhbiAwLg0KPiANCg0KU3VjaGV0YT4gT2suIEJ5IG1pbmltdW0gYmFuZHdpZHRoIDAsIGRp
+ZCB5b3UgbWVhbiBkcml2ZXIgc3BlY2lmaWVkDQpkZWZhdWx0IGZvciBtaW5pbXVtIEJXPyBTbywg
+ZHJpdmVycyB0aGF0IGN1cnJlbnRseSBpbXBsZW1lbnQNCm5kb19zZXRfdmZfdHhfcmF0ZSBzaG91
+bGQgY2FsbCBuZG9fc2V0X3ZmX3JhdGUgaW5zdGVhZCwgd2l0aCBkZWZhdWx0DQptaW5pbXVtIEJX
+IHNldCBmb3IgdGhlIGRyaXZlci4NCg0KPiBCZW4uDQo+IA0KPiAtLQ0KPiBCZW4gSHV0Y2hpbmdz
+DQo+IEkgc2F5IHdlIHRha2Ugb2ZmOyBudWtlIHRoZSBzaXRlIGZyb20gb3JiaXQuICBJdCdzIHRo
+ZSBvbmx5IHdheSB0byBiZQ0KPiBzdXJlLg0KDQpUaGFua3MgZm9yIHlvdXIgY29tbWVudHMuDQoN
+ClJlZ2FyZHMsDQpTdWNoZXRhLg0K
