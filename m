@@ -1,37 +1,37 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net] x86: bpf_jit: support negative offsets
-Date: Tue, 11 Mar 2014 09:59:28 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6DA58F@AcuExch.aculab.com>
-References: <1394492211-4268-1-git-send-email-ast@plumgrid.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH RFC net-next v1 1/9] ptp: introduce programmable pins.
+Date: Tue, 11 Mar 2014 11:08:19 +0100
+Message-ID: <20140311100818.GA4266@netboy>
+References: <cover.1394307303.git.richardcochran@gmail.com>
+ <d9cb37a7d6e57d7f103dab78f98044697d3c4433.1394307304.git.richardcochran@gmail.com>
+ <F85F72BA1EE25F8F7FB77295@[172.22.2.41]>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Jan Seiffert <kaffeemonster@googlemail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Alexei Starovoitov' <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:43353 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754000AbaCKKAT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 06:00:19 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 18378-06 for <netdev@vger.kernel.org>;
- Tue, 11 Mar 2014 10:00:17 +0000 (GMT)
-In-Reply-To: <1394492211-4268-1-git-send-email-ast@plumgrid.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Stefan =?iso-8859-1?Q?S=F8rensen?=
+	<stefan.sorensen@spectralink.com>
+To: Christian Riesch <christian.riesch@omicron.at>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <F85F72BA1EE25F8F7FB77295@[172.22.2.41]>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From:  Alexei Starovoitov
-> This is a single bit patch. Is there a leaderboard of shortest patches? ;)
+On Tue, Mar 11, 2014 at 08:58:45AM +0100, Christian Riesch wrote:
+> >+	if (pin1 && pin1->func == PTP_PF_PHYSYNC) {
+> >+		pr_err("sorry, cannot reprogram the calibration pin\n");
+> >+		return -EINVAL;
+> 
+>            ^^^^
+> Will this ever happen? pin1 && pin1->func == PTP_PF_PHYSYNC means
+> that func == PTP_PF_PHYSYNC, but in this case you already return
+> -EINVAL a few lines above.
 
-The shortest patches will be the ones that invert a conditional branch.
-Unless the compiler reorders the code they will be 1-bit (on most archs).
-Since that is a common error, there will be a few of them.
+This a bug. I really meant to test (pin2->func == PTP_PF_PHYSYNC) to
+prevent clobbering the calibration function with some other function.
+I'll fix it for v2.
 
-Now a 1/2bit patch would be a challenge:-)
-
-	David
+Thanks,
+Richard
