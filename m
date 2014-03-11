@@ -1,56 +1,101 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next v2 8/9] Altera TSE: Add Miscellaneous Files for
- Altera Ethernet Driver
-Date: Tue, 11 Mar 2014 15:51:59 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6DAA4B@AcuExch.aculab.com>
-References: <1394493277-2105-1-git-send-email-vbridgers2013@gmail.com>
-	<1394493277-2105-9-git-send-email-vbridgers2013@gmail.com>
-	<20140310174031.4145a3ff@nehalam.linuxnetplumber.net>
- <CAOwfj2O8p2MQtFhaLrSzjRAnOYtR2qS3POXaaDd=3qtnwwovZg@mail.gmail.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH net-next] gianfar: Fix multi-queue support checks @probe()
+Date: Tue, 11 Mar 2014 18:01:24 +0200
+Message-ID: <1394553684-12061-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"pawel.moll@arm.com" <pawel.moll@arm.com>,
-	"mark.rutland@arm.com" <mark.rutland@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Rob Landley <rob@landley.net>
-To: 'Vince Bridgers' <vbridgers2013@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <CAOwfj2O8p2MQtFhaLrSzjRAnOYtR2qS3POXaaDd=3qtnwwovZg@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from co9ehsobe003.messaging.microsoft.com ([207.46.163.26]:39358
+	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752692AbaCKQDR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 12:03:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vince Bridgers
-> On Mon, Mar 10, 2014 at 7:40 PM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
-> > On Mon, 10 Mar 2014 18:14:36 -0500
-> > Vince Bridgers <vbridgers2013@gmail.com> wrote:
-> >
-> >> +
-> >> +     buf[0] = (u64) ioread32(&mac->frames_transmitted_ok);
-> >
-> > The cast to u64 is not really necessary, C will do it for you.
-> > You do need the cast to do the shift for the 64 bit values.
-> 
-> Ok, understood. I generally add the cast so it's explicit, but I'll modify.
+priv is not instantiated at gfar_of_init() time, when
+parsing the DT for info on supported HW queues.  Before
+the netdev can be allocated, the number of supported
+queues must be known.  Because the number of supported
+queues depends on device type, move the compatibility
+checks before netdev allocation.  Local vars are used
+to hold the operation mode info before netdev allocation.
+This fixes the null accesses for priv->.., in gfar_of_init.
 
-The problem is that the cast will allow incorrect code to compile.
-eg, you might have a pointer, not an integer.
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+---
+ drivers/net/ethernet/freescale/gianfar.c | 28 ++++++++++++++++++----------
+ 1 file changed, 18 insertions(+), 10 deletions(-)
 
-Many years ago I got caught out by a #define like the following:
-#define foo(ptr) { int s = splhi(); do_foo((void *)ptr); splx(s); }
-My code crashed because I'd called foo(s).
-Now that #define is broken in so many ways, but the (void *) cast
-stopped the compiler erroring one of them.
-
-	David
-
-
-
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 28effbe..68d9bf7 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -733,21 +733,30 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
+ 	const u32 *stash_idx;
+ 	unsigned int num_tx_qs, num_rx_qs;
+ 	u32 *tx_queues, *rx_queues;
++	unsigned short mode, poll_mode;
+ 
+ 	if (!np || !of_device_is_available(np))
+ 		return -ENODEV;
+ 
++	if (of_device_is_compatible(np, "fsl,etsec2")) {
++		mode = MQ_MG_MODE;
++		poll_mode = GFAR_SQ_POLLING;
++	} else {
++		mode = SQ_SG_MODE;
++		poll_mode = GFAR_SQ_POLLING;
++	}
++
+ 	/* parse the num of HW tx and rx queues */
+ 	tx_queues = (u32 *)of_get_property(np, "fsl,num_tx_queues", NULL);
+ 	rx_queues = (u32 *)of_get_property(np, "fsl,num_rx_queues", NULL);
+ 
+-	if (priv->mode == SQ_SG_MODE) {
++	if (mode == SQ_SG_MODE) {
+ 		num_tx_qs = 1;
+ 		num_rx_qs = 1;
+ 	} else { /* MQ_MG_MODE */
+-		if (priv->poll_mode == GFAR_SQ_POLLING) {
+-			num_tx_qs = 2; /* one q per int group */
+-			num_rx_qs = 2; /* one q per int group */
++		if (poll_mode == GFAR_SQ_POLLING) {
++			num_tx_qs = 2; /* one txq per int group */
++			num_rx_qs = 2; /* one rxq per int group */
+ 		} else { /* GFAR_MQ_POLLING */
+ 			num_tx_qs = tx_queues ? *tx_queues : 1;
+ 			num_rx_qs = rx_queues ? *rx_queues : 1;
+@@ -776,6 +785,9 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
+ 	priv = netdev_priv(dev);
+ 	priv->ndev = dev;
+ 
++	priv->mode = mode;
++	priv->poll_mode = poll_mode;
++
+ 	priv->num_tx_queues = num_tx_qs;
+ 	netif_set_real_num_rx_queues(dev, num_rx_qs);
+ 	priv->num_rx_queues = num_rx_qs;
+@@ -799,17 +811,13 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
+ 		priv->gfargrp[i].regs = NULL;
+ 
+ 	/* Parse and initialize group specific information */
+-	if (of_device_is_compatible(np, "fsl,etsec2")) {
+-		priv->mode = MQ_MG_MODE;
+-		priv->poll_mode = GFAR_SQ_POLLING;
++	if (priv->mode == MQ_MG_MODE) {
+ 		for_each_child_of_node(np, child) {
+ 			err = gfar_parse_group(child, priv, model);
+ 			if (err)
+ 				goto err_grp_init;
+ 		}
+-	} else {
+-		priv->mode = SQ_SG_MODE;
+-		priv->poll_mode = GFAR_SQ_POLLING;
++	} else { /* SQ_SG_MODE */
+ 		err = gfar_parse_group(np, priv, model);
+ 		if (err)
+ 			goto err_grp_init;
+-- 
+1.7.11.7
