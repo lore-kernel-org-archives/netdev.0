@@ -1,149 +1,121 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Subject: RE: [PATCH v5] can: xilinx CAN controller support.
-Date: Tue, 11 Mar 2014 12:35:13 +0000
-Message-ID: <21dba33d-9def-43e1-becd-335f6cb5fd83@CO9EHSMHS011.ehs.local>
-References: <5254bfec-c6fd-4681-a34d-706d51e60fbb@VA3EHSMHS004.ehs.local>
- <CAL_JsqL3V7Gmkx5MoAhzwbM8Po6QURUY+g3ytxs+H_u-FLR6SQ@mail.gmail.com>
- <531DD8C3.5050006@xilinx.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net-next: NULL pointer dereference on adding a net namespace
+ and a system freeze
+Date: Tue, 11 Mar 2014 05:40:26 -0700
+Message-ID: <1394541626.21721.24.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140310014452.144b0491@north>
+	 <1394424146.3607.2.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1394424557.3607.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140310131909.33a3042c@north>
+	 <1394460276.3607.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140311014649.1716bde1@north> <20140311120059.GB32371@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Michal Simek <michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Michal Simek <michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <531DD8C3.5050006-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jakub =?UTF-8?Q?Kici=C5=84ski?= <moorray3@wp.pl>,
+	netdev@vger.kernel.org, Fan Du <fan.du@windriver.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:62763 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753381AbaCKMk2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 08:40:28 -0400
+Received: by mail-pb0-f50.google.com with SMTP id md12so8732790pbc.37
+        for <netdev@vger.kernel.org>; Tue, 11 Mar 2014 05:40:27 -0700 (PDT)
+In-Reply-To: <20140311120059.GB32371@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Michal,
+On Tue, 2014-03-11 at 13:00 +0100, Steffen Klassert wrote:
 
-> -----Original Message-----
-> From: Michal Simek [mailto:michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org]
-> Sent: Monday, March 10, 2014 8:53 PM
-> To: Rob Herring
-> Cc: Appana Durga Kedareswara Rao; Wolfgang Grandegger; Marc Kleine-
-> Budde; Michal Simek; Grant Likely; Rob Herring; linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
-> netdev; linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org; linux-
-> kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Appana Durga
-> Kedareswara Rao
-> Subject: Re: [PATCH v5] can: xilinx CAN controller support.
->
-> On 03/10/2014 04:15 PM, Rob Herring wrote:
-> > On Tue, Mar 4, 2014 at 7:20 AM, Kedareswara rao Appana
-> > <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org> wrote:
-> >> This patch adds xilinx CAN controller support.
-> >> This driver supports both ZYNQ CANPS and Soft IP AXI CAN controller.
-> >>
-> >> Signed-off-by: Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-> >> ---
-> >> This patch is rebased on the 3.14 rc5 kernel.
-> >> Changes for v5:
-> >> - Updated the driver with the review comments.
-> >> - Remove the check for the tx fifo full interrupt condition
-> >>   form Tx interrupt routine as we are checking it in the _xmit
-> >>   routine.
-> >> - Clearing the txok interrupt in the tx interrupt routine for
-> >>   every Tx can frame.
-> >> Changes for v4:
-> >> - Added check for the tx fifo full interrupt condition in
-> >>   Tx interrupt routine.
-> >> - Added be iohelper functions.
-> >> - Moved the clock enable/disable to probe/remove because of
-> >>   Added big endian support for AXI CAN controller case(reading
-> >>   a register during probe for that we need to enable clock).
-> >> Changes for v3:
-> >> - Updated the driver with the review comments.
-> >> - Modified the tranmit logic as per Marc suggestion.
-> >> - Enabling the clock when the interface is up to reduce the
-> >>   Power consumption.
-> >> Changes for v2:
-> >> - Updated with the review comments.
-> >> - Removed the unnecessary debug prints.
-> >> - include tx,rx fifo depths in ZYNQ CANPS case also.
-> >> ---
-> >>  .../devicetree/bindings/net/can/xilinx_can.txt     |   45 +
-> >>  drivers/net/can/Kconfig                            |    7 +
-> >>  drivers/net/can/Makefile                           |    1 +
-> >>  drivers/net/can/xilinx_can.c                       | 1195 ++++++++++++++++++++
-> >>  4 files changed, 1248 insertions(+), 0 deletions(-)  create mode
-> >> 100644 Documentation/devicetree/bindings/net/can/xilinx_can.txt
-> >>  create mode 100644 drivers/net/can/xilinx_can.c
-> >>
-> >> diff --git a/Documentation/devicetree/bindings/net/can/xilinx_can.txt
-> >> b/Documentation/devicetree/bindings/net/can/xilinx_can.txt
-> >> new file mode 100644
-> >> index 0000000..0e57103
-> >> --- /dev/null
-> >> +++ b/Documentation/devicetree/bindings/net/can/xilinx_can.txt
-> >> @@ -0,0 +1,45 @@
-> >> +Xilinx Axi CAN/Zynq CANPS controller Device Tree Bindings
-> >> +---------------------------------------------------------
-> >> +
-> >> +Required properties:
-> >> +- compatible           : Should be "xlnx,zynq-can-1.00.a" for Zynq CAN
-> >> +                         controllers and "xlnx,axi-can-1.00.a" for Axi CAN
-> >> +                         controllers.
-> >> +- reg                  : Physical base address and size of the Axi CAN/Zynq
-> >> +                         CANPS registers map.
-> >> +- interrupts           : Property with a value describing the interrupt
-> >> +                         number.
-> >> +- interrupt-parent     : Must be core interrupt controller
-> >> +- clock-names          : List of input clock names - "ref_clk", "aper_clk"
-> >> +                         (See clock bindings for details. Two clocks are
-> >> +                          required for Zynq CAN. For Axi CAN
-> >> +                          case it is one(ref_clk)).
-> >> +- clocks               : Clock phandles (see clock bindings for details).
-> >> +- tx-fifo-depth                : Can Tx fifo depth.
-> >> +- rx-fifo-depth                : Can Rx fifo depth.
-> >> +
-> >> +
-> >> +Example:
-> >> +
-> >> +For Zynq CANPS Dts file:
-> >> +       zynq_can_0: zynq-can@e0008000 {
-> >
-> > The preferred node name convention is to use the type of device. There
-> > is no standard in this case, but I would use just "can@...".
-> >
-> > Otherwise, for the binding:
-> >
-> > Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
->
-> Thanks Rob for your ACK.
->
-> Kedar: You have got more things to change from Marc that's why please
-> change this too.
->
-Thanks Rob for the ACk
-Michal@  I  will do
-
-Regards,
-Kedar.
+> I was unable to reproduce this here, but it looks like the flowcache
+> namespace changes are still not complete. We leak an active timer
+> and all the allocated resources when we exit a namespace.
+> 
+> Could you please try the patch below?
+> 
+> Also, please send your config if the patch does not fix your problem.
+> 
+> Thanks!
+> 
+> ---
+>  include/net/flow.h     |    1 +
+>  net/core/flow.c        |   18 ++++++++++++++++++
+>  net/xfrm/xfrm_policy.c |    7 ++++++-
+>  3 files changed, 25 insertions(+), 1 deletion(-)
+> 
+> diff --git a/include/net/flow.h b/include/net/flow.h
+> index bee3741..64fd248 100644
+> --- a/include/net/flow.h
+> +++ b/include/net/flow.h
+> @@ -219,6 +219,7 @@ struct flow_cache_object *flow_cache_lookup(struct net *net,
+>  					    u8 dir, flow_resolve_t resolver,
+>  					    void *ctx);
+>  int flow_cache_init(struct net *net);
+> +void flow_cache_fini(struct net *net);
+>  
+>  void flow_cache_flush(struct net *net);
+>  void flow_cache_flush_deferred(struct net *net);
+> diff --git a/net/core/flow.c b/net/core/flow.c
+> index 102f8ea..d31c3c4 100644
+> --- a/net/core/flow.c
+> +++ b/net/core/flow.c
+> @@ -484,3 +484,21 @@ err:
+>  	return -ENOMEM;
+>  }
+>  EXPORT_SYMBOL(flow_cache_init);
+> +
+> +void flow_cache_fini(struct net *net)
+> +{
+> +	int i;
+> +	struct flow_cache *fc = &net->xfrm.flow_cache_global;
+> +
+> +	del_timer(&fc->rnd_timer);
 
 
-> Thanks,
-> Michal
->
->
+del_timer_sync() I guess is better.
 
-
-
-This email and any attachments are intended for the sole use of the named recipient(s) and contain(s) confidential information that may be proprietary, privileged or copyrighted under applicable law. If you are not the intended recipient, do not read, copy, or forward this email message or any attachments. Delete this email message and any attachments immediately.
-
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +
+> +	for_each_possible_cpu(i) {
+> +		struct flow_cache_percpu *fcp = per_cpu_ptr(fc->percpu, i);
+> +		kfree(fcp->hash_table);
+> +		fcp->hash_table = NULL;
+> +	}
+> +
+> +	free_percpu(fc->percpu);
+> +	fc->percpu = NULL;
+> +}
+> +EXPORT_SYMBOL(flow_cache_fini);
+> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> index a75fae4..f02f511 100644
+> --- a/net/xfrm/xfrm_policy.c
+> +++ b/net/xfrm/xfrm_policy.c
+> @@ -2913,15 +2913,19 @@ static int __net_init xfrm_net_init(struct net *net)
+>  	rv = xfrm_sysctl_init(net);
+>  	if (rv < 0)
+>  		goto out_sysctl;
+> +	rv = flow_cache_init(net);
+> +	if (rv < 0)
+> +		goto out;
+>  
+>  	/* Initialize the per-net locks here */
+>  	spin_lock_init(&net->xfrm.xfrm_state_lock);
+>  	rwlock_init(&net->xfrm.xfrm_policy_lock);
+>  	mutex_init(&net->xfrm.xfrm_cfg_mutex);
+>  
+> -	flow_cache_init(net);
+>  	return 0;
+>  
+> +out:
+> +	xfrm_sysctl_fini(net);
+>  out_sysctl:
+>  	xfrm_policy_fini(net);
+>  out_policy:
+> @@ -2934,6 +2938,7 @@ out_statistics:
+>  
+>  static void __net_exit xfrm_net_exit(struct net *net)
+>  {
+> +	flow_cache_fini(net);
+>  	xfrm_sysctl_fini(net);
+>  	xfrm_policy_fini(net);
+>  	xfrm_state_fini(net);
