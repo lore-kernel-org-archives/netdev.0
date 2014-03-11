@@ -1,47 +1,36 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net] xen-netback: use skb_is_gso in xenvif_start_xmit
-Date: Tue, 11 Mar 2014 12:45:32 +0000
-Message-ID: <1394541932-8119-1-git-send-email-wei.liu2@citrix.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH RFC 0/9] socket filtering using nf_tables
+Date: Tue, 11 Mar 2014 05:57:39 -0700
+Message-ID: <871ty8hozg.fsf@tassilo.jf.intel.com>
+References: <1394529560-3490-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Wei Liu <wei.liu2@citrix.com>, Annie Li <annie.li@oracle.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Paul Durrant <paul.durrant@citrix.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, kaber@trash.net
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:40979 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752056AbaCKMvb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 08:51:31 -0400
+Received: from mga09.intel.com ([134.134.136.24]:61304 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751986AbaCKM5r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Mar 2014 08:57:47 -0400
+In-Reply-To: <1394529560-3490-1-git-send-email-pablo@netfilter.org> (Pablo
+	Neira Ayuso's message of "Tue, 11 Mar 2014 10:19:11 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In 5bd076708 ("Xen-netback: Fix issue caused by using gso_type wrongly")
-we use skb_is_gso to determine if we need an extra slot to accommodate
-the SKB. There's similar error in interface.c. Change that to use
-skb_is_gso as well.
+Pablo Neira Ayuso <pablo@netfilter.org> writes:
 
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-Cc: Annie Li <annie.li@oracle.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: Paul Durrant <paul.durrant@citrix.com>
----
- drivers/net/xen-netback/interface.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+> The following patchset provides a socket filtering alternative to BPF
+> which allows you to define your filter using the nf_tables expressions.
+>
+> Similarly to BPF, you can attach filters via setsockopt()
+> SO_ATTACH_NFT_FILTER. The filter that is passed to the kernel is
+> expressed in netlink TLV format which looks like:
 
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 7669d49..301cc03 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -132,8 +132,7 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	/* If the skb is GSO then we'll also need an extra slot for the
- 	 * metadata.
- 	 */
--	if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4 ||
--	    skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
-+	if (skb_is_gso(skb))
- 		min_slots_needed++;
- 
- 	/* If the skb can't possibly fit in the remaining slots
+Could you explain how you validted and tested the nf engine to make it safe for
+non root without any security problems?
+
+-andi 
+
 -- 
-1.7.10.4
+ak@linux.intel.com -- Speaking for myself only
