@@ -1,41 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/11] bonding: Call dev_kfree_skby_any instead of
- kfree_skb.
-Date: Tue, 11 Mar 2014 12:39:01 -0400 (EDT)
-Message-ID: <20140311.123901.1984947447632413268.davem@davemloft.net>
-References: <1394509467.21721.2.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140311.004217.1616529960369263682.davem@davemloft.net>
+Subject: Re: [RFC PATCH 0/2] remove netpoll rx support
+Date: Tue, 11 Mar 2014 12:49:07 -0400 (EDT)
+Message-ID: <20140311.124907.1180556684992271103.davem@davemloft.net>
+References: <20140311.004217.1616529960369263682.davem@davemloft.net>
 	<1394514158.21721.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	<87a9cxf7mp.fsf_-_@xmission.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, netdev@vger.kernel.org,
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
 	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
-To: eric.dumazet@gmail.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56582 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56698 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752558AbaCKQjF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 12:39:05 -0400
-In-Reply-To: <1394514158.21721.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1752669AbaCKQtJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 12:49:09 -0400
+In-Reply-To: <87a9cxf7mp.fsf_-_@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 10 Mar 2014 22:02:38 -0700
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 11 Mar 2014 01:43:10 -0700
 
-> It seems netpoll should not drain rx queues.
+> Furthermore netpoll by it's design depends on the ability to receive
+> packets in netpoll_poll_dev.  It is a capability I don't think we have
+> ever used in the mainline kernel but it is a capability that is there
+> deliberately.  Which means if we want netpoll to not mess with the rx
+> path we need to change netpoll.
 
-There are netpoll users (admittedly, out of tree) that make use of
-packet receive.
+This breaks kdump, and any other users of netpoll_rx() et al.
 
-kdump is one.
+Make the zero budget depend upon us being invoked from hardware
+irq context, or something like that.
 
-That's what all of the __netpoll_rx() et al. stuff is for.
-
-Therefore we'll probably just have to enforce that if a netpoll
-user wants RX packets, he has to invoke netpoll from a reasonable
-context.
-
-But if we're called from hardware interrupts, yes we block RX
-processing.
+Thanks.
