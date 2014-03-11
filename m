@@ -1,56 +1,50 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 1/2] pkt_sched: do not use rcu in tc_dump_qdisc()
-Date: Mon, 10 Mar 2014 17:11:42 -0700
-Message-ID: <1394496703-9278-2-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 2/2] pkt_sched: add cond_resched() to class and qdisc dump
+Date: Mon, 10 Mar 2014 17:11:43 -0700
+Message-ID: <1394496703-9278-3-git-send-email-edumazet@google.com>
 References: <1394496703-9278-1-git-send-email-edumazet@google.com>
 Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f201.google.com ([209.85.214.201]:38039 "EHLO
-	mail-ob0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753224AbaCKAMM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 20:12:12 -0400
-Received: by mail-ob0-f201.google.com with SMTP id gq1so1656038obb.2
-        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 17:12:11 -0700 (PDT)
+Received: from mail-pb0-f73.google.com ([209.85.160.73]:42897 "EHLO
+	mail-pb0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752912AbaCKATA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 20:19:00 -0400
+Received: by mail-pb0-f73.google.com with SMTP id rp16so1053031pbb.2
+        for <netdev@vger.kernel.org>; Mon, 10 Mar 2014 17:19:00 -0700 (PDT)
 In-Reply-To: <1394496703-9278-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Like all rtnetlink dump operations, we hold RTNL in tc_dump_qdisc(),
-so we do not need to use rcu protection to protect list of netdevices.
+We have seen delays of more than 50ms in class or qdisc dumps, in case
+device is under high TX stress, even with the prior 4KB per skb limit.
 
-This will allow preemption to occur, thus reducing latencies.
-Following patch adds explicit cond_resched() calls.
+Add cond_resched() to give a chance to higher prio tasks to get cpu.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by; Eric Dumazet <edumazet@google.com>
 ---
- net/sched/sch_api.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ net/sched/sch_api.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 1313145e3b86..272292efa7f0 100644
+index 272292efa7f0..0a99d7ced71e 100644
 --- a/net/sched/sch_api.c
 +++ b/net/sched/sch_api.c
-@@ -1434,9 +1434,9 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
- 	s_idx = cb->args[0];
- 	s_q_idx = q_idx = cb->args[1];
+@@ -1303,6 +1303,7 @@ static int tc_fill_qdisc(struct sk_buff *skb, struct Qdisc *q, u32 clid,
+ 	struct gnet_dump d;
+ 	struct qdisc_size_table *stab;
  
--	rcu_read_lock();
- 	idx = 0;
--	for_each_netdev_rcu(net, dev) {
-+	ASSERT_RTNL();
-+	for_each_netdev(net, dev) {
- 		struct netdev_queue *dev_queue;
++	cond_resched();
+ 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*tcm), flags);
+ 	if (!nlh)
+ 		goto out_nlmsg_trim;
+@@ -1615,6 +1616,7 @@ static int tc_fill_tclass(struct sk_buff *skb, struct Qdisc *q,
+ 	struct gnet_dump d;
+ 	const struct Qdisc_class_ops *cl_ops = q->ops->cl_ops;
  
- 		if (idx < s_idx)
-@@ -1459,8 +1459,6 @@ cont:
- 	}
- 
- done:
--	rcu_read_unlock();
--
- 	cb->args[0] = idx;
- 	cb->args[1] = q_idx;
- 
++	cond_resched();
+ 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*tcm), flags);
+ 	if (!nlh)
+ 		goto out_nlmsg_trim;
 -- 
 1.9.0.279.gdc9e3eb
