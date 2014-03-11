@@ -1,38 +1,62 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: Re: [PATCH net-next v2 8/9] Altera TSE: Add Miscellaneous Files for
- Altera Ethernet Driver
-Date: Tue, 11 Mar 2014 10:33:45 -0500
-Message-ID: <CAOwfj2PekMTsc+r6bBGrSxUbmUD+BhvTfWomCuDuST5qgc0=Yg@mail.gmail.com>
-References: <1394493277-2105-1-git-send-email-vbridgers2013@gmail.com>
-	<1394493277-2105-9-git-send-email-vbridgers2013@gmail.com>
-	<20140310173836.5845b01c@nehalam.linuxnetplumber.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC PATCH 1/2] netpoll:  Remove dead netpoll_rx code
+Date: Tue, 11 Mar 2014 16:34:03 +0100
+Message-ID: <20140311153403.GC29404@order.stressinduktion.org>
+References: <871ty9qvaf.fsf_-_@xmission.com> <87vbvlpgnk.fsf_-_@xmission.com> <1394509467.21721.2.camel@edumazet-glaptop2.roam.corp.google.com> <20140311.004217.1616529960369263682.davem@davemloft.net> <1394514158.21721.7.camel@edumazet-glaptop2.roam.corp.google.com> <87a9cxf7mp.fsf_-_@xmission.com> <8738ipf7kn.fsf_-_@xmission.com> <1394540961.21721.22.camel@edumazet-glaptop2.roam.corp.google.com> <20140311082312.5ad00119@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"pawel.moll@arm.com" <pawel.moll@arm.com>,
-	"mark.rutland@arm.com" <mark.rutland@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Rob Landley <rob@landley.net>
+Content-Type: text/plain; charset=utf-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
 To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20140310173836.5845b01c@nehalam.linuxnetplumber.net>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:56768 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752470AbaCKPeE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 11:34:04 -0400
+Content-Disposition: inline
+In-Reply-To: <20140311082312.5ad00119@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 10, 2014 at 7:38 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Mon, 10 Mar 2014 18:14:36 -0500
-> Vince Bridgers <vbridgers2013@gmail.com> wrote:
->
->> +static char stat_gstrings[][ETH_GSTRING_LEN] = {
->> +     "aFramesTransmittedOK",
->> +     "aFramesReceivedOK",
->> +     "aFramesCheckSequenceErro
->
-> nit: should be const char
+On Tue, Mar 11, 2014 at 08:23:12AM -0700, Stephen Hemminger wrote:
+> On Tue, 11 Mar 2014 05:29:21 -0700
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+> > On Tue, 2014-03-11 at 01:44 -0700, Eric W. Biederman wrote:
+> > > The netpoll_rx code only becomes active if the netpoll rx_skb_hook is
+> > > implemented.  There is not a single implementation of the netpoll
+> > > rx_skb_hook in the kernel.
+> > > 
+> > > There are problems with the netpoll packet receive code. Most
+> > > speifically every packet that makes it to netpoll_neigh_reply is
+> > > leaked.
+> > > 
+> > > Given that the netpoll packet receive code is buggy and has not been used
+> > > for a decade let's just remove it.
+> > > 
+> > > Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> > > ---
+> > >  drivers/net/Kconfig       |    5 -
+> > >  include/linux/netdevice.h |   17 --
+> > >  include/linux/netpoll.h   |   59 ------
+> > >  net/core/dev.c            |   11 +-
+> > >  net/core/netpoll.c        |  471 ---------------------------------------------
+> > >  5 files changed, 1 insertions(+), 562 deletions(-)
+> > 
+> > I cannot agree more, thanks Eric.
+> > 
+> > Acked-by: Eric Dumazet <edumazet@google.com>
+> 
+> I agree but removing it breaks people trying to kgdb over network (kgdboe).
+> That code never made it upstream, was unreliable and fragile and should be
+> sent to the retirement home with IMQ.
 
-Ok, will address.
+:)
+
+But there is still no replacement for IMQ if one wants to do ingress NAT-aware
+traffic shaping, not even with ifb, I fear? So to be fair there still seems to
+be a reason why IMQ is still around.
+
+But that is a different topic...
