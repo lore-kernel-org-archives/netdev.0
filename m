@@ -1,50 +1,61 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] ipv6: do not overwrite inetpeer metrics prematurely
-Date: Tue, 11 Mar 2014 16:20:29 +0100
-Message-ID: <20140311152029.GB29404@order.stressinduktion.org>
-References: <20140310.010313.703650662340510015.davem@davemloft.net> <20140310081533.GA27052@unicorn.suse.cz> <20140310120016.GH5493@order.stressinduktion.org> <20140310.223841.953940361609160158.davem@davemloft.net> <20140311095309.GA3287@unicorn.suse.cz> <20140311150814.GB3287@unicorn.suse.cz>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC PATCH 1/2] netpoll:  Remove dead netpoll_rx code
+Date: Tue, 11 Mar 2014 08:23:12 -0700
+Message-ID: <20140311082312.5ad00119@nehalam.linuxnetplumber.net>
+References: <871ty9qvaf.fsf_-_@xmission.com>
+	<87vbvlpgnk.fsf_-_@xmission.com>
+	<1394509467.21721.2.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140311.004217.1616529960369263682.davem@davemloft.net>
+	<1394514158.21721.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	<87a9cxf7mp.fsf_-_@xmission.com>
+	<8738ipf7kn.fsf_-_@xmission.com>
+	<1394540961.21721.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: Michal Kubecek <mkubecek@suse.cz>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:56731 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750981AbaCKPUb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 11:20:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20140311150814.GB3287@unicorn.suse.cz>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:48653 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753217AbaCKPXS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 11:23:18 -0400
+Received: by mail-pb0-f48.google.com with SMTP id md12so8907379pbc.21
+        for <netdev@vger.kernel.org>; Tue, 11 Mar 2014 08:23:16 -0700 (PDT)
+In-Reply-To: <1394540961.21721.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 11, 2014 at 04:08:14PM +0100, Michal Kubecek wrote:
-> +static int fib6_commit_metrics(struct dst_entry *old_dst, struct dst_entry *dst,
-> +			       struct nlattr *mx, int mx_len)
-> +{
-> +	struct nlattr *nla;
-> +	int remaining;
-> +	u32 *mp;
-> +
-> +	/* no new metrics and not inheriting an inetpeer with old ones */
-> +	if (!mx && (!(dst->flags & DST_HOST) || !old_dst ||
-> +		    dst_metrics_read_only(old_dst)))
-> +		return 0;
-> +
-> +	mp = dst_metrics_write_ptr(dst);
-> +	if ((dst->flags & DST_HOST) &&
-> +	    old_dst && !dst_metrics_read_only(old_dst))
-> +		memset(mp, 0, RTAX_MAX * sizeof(u32));
-> +
+On Tue, 11 Mar 2014 05:29:21 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Small question:
+> On Tue, 2014-03-11 at 01:44 -0700, Eric W. Biederman wrote:
+> > The netpoll_rx code only becomes active if the netpoll rx_skb_hook is
+> > implemented.  There is not a single implementation of the netpoll
+> > rx_skb_hook in the kernel.
+> > 
+> > There are problems with the netpoll packet receive code. Most
+> > speifically every packet that makes it to netpoll_neigh_reply is
+> > leaked.
+> > 
+> > Given that the netpoll packet receive code is buggy and has not been used
+> > for a decade let's just remove it.
+> > 
+> > Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> > ---
+> >  drivers/net/Kconfig       |    5 -
+> >  include/linux/netdevice.h |   17 --
+> >  include/linux/netpoll.h   |   59 ------
+> >  net/core/dev.c            |   11 +-
+> >  net/core/netpoll.c        |  471 ---------------------------------------------
+> >  5 files changed, 1 insertions(+), 562 deletions(-)
+> 
+> I cannot agree more, thanks Eric.
+> 
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-Wouldn't make it easier if we move the kzalloc/dst_init_metrics part to
-here in case we aren't a DST_HOST and remove it from ip6_route_add, too?
-
-Otherwise (but really just a first look!), it seems ok to me.
-
-Thanks,
-
-  Hannes
+I agree but removing it breaks people trying to kgdb over network (kgdboe).
+That code never made it upstream, was unreliable and fragile and should be
+sent to the retirement home with IMQ.
