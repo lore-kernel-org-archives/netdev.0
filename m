@@ -1,194 +1,36 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH v7 net-next 1/3] filter: add Extended BPF interpreter
- and converter
-Date: Tue, 11 Mar 2014 21:40:28 +0400
-Message-ID: <531F4A8C.3020403@parallels.com>
-References: <1394320530-3508-1-git-send-email-ast@plumgrid.com> <1394320530-3508-2-git-send-email-ast@plumgrid.com> <531C5EB5.2080507@iogearbox.net> <CAMEtUux-Psz9NW+t7vf2-=iDE5TW7KDOag2TDbxTEvd6a=LKSw@mail.gmail.com> <531CE47E.40700@iogearbox.net>
+From: Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: Re: usbnet: driver_info->stop required to stop USB interrupts?
+Date: Tue, 11 Mar 2014 10:52:03 -0700
+Message-ID: <CANEJEGtJqzVv6KGF15mt_PAqSKB+nJ_ysAuUhYvG+4GhxeLbeA@mail.gmail.com>
+References: <CANEJEGsvqkT_H4i+UZpBaWMYmgXHmpD8SZ4tU1OHzLd8gyznow@mail.gmail.com>
+	<CANEJEGv03ohVwoS0Pd1Z3az9k-C=dTzG4qE1SBL6Um97QC1Ehw@mail.gmail.com>
+	<CAODwPW_t9COeg0LWfkiqXC_yTbSNhUHX-8T95KRZHfOTSiZK1Q@mail.gmail.com>
+	<CANEJEGv77PnbLZsyOdTevXjij-_wLSq4uGCnSjnAwN9OK8m3Yg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Jesse Gross <jesse@nicira.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Tom Zanussi <tom.zanussi@linux.intel.com>,
-	Jovi Zhangwei <jovi.zhangwei@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Pekka Enberg <penberg@iki.fi>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	LKML <linu
-To: Daniel Borkmann <borkmann@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <531CE47E.40700@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+To: Julius Werner <jwerner-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CANEJEGv77PnbLZsyOdTevXjij-_wLSq4uGCnSjnAwN9OK8m3Yg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 03/10/2014 02:00 AM, Daniel Borkmann wrote:
-> On 03/09/2014 06:08 PM, Alexei Starovoitov wrote:
->> On Sun, Mar 9, 2014 at 5:29 AM, Daniel Borkmann <borkmann@iogearbox.net> wrote:
->>> On 03/09/2014 12:15 AM, Alexei Starovoitov wrote:
->>>>
->>>> Extended BPF extends old BPF in the following ways:
->>>> - from 2 to 10 registers
->>>>     Original BPF has two registers (A and X) and hidden frame pointer.
->>>>     Extended BPF has ten registers and read-only frame pointer.
->>>> - from 32-bit registers to 64-bit registers
->>>>     semantics of old 32-bit ALU operations are preserved via 32-bit
->>>>     subregisters
->>>> - if (cond) jump_true; else jump_false;
->>>>     old BPF insns are replaced with:
->>>>     if (cond) jump_true; /* else fallthrough */
->>>> - adds signed > and >= insns
->>>> - 16 4-byte stack slots for register spill-fill replaced with
->>>>     up to 512 bytes of multi-use stack space
->>>> - introduces bpf_call insn and register passing convention for zero
->>>>     overhead calls from/to other kernel functions (not part of this patch)
->>>> - adds arithmetic right shift insn
->>>> - adds swab32/swab64 insns
->>>> - adds atomic_add insn
->>>> - old tax/txa insns are replaced with 'mov dst,src' insn
->>>>
->>>> Extended BPF is designed to be JITed with one to one mapping, which
->>>> allows GCC/LLVM backends to generate optimized BPF code that performs
->>>> almost as fast as natively compiled code
->>>>
->>>> sk_convert_filter() remaps old style insns into extended:
->>>> 'sock_filter' instructions are remapped on the fly to
->>>> 'sock_filter_ext' extended instructions when
->>>> sysctl net.core.bpf_ext_enable=1
->>>>
->>>> Old filter comes through sk_attach_filter() or
->>>> sk_unattached_filter_create()
->>>>    if (bpf_ext_enable) {
->>>>       convert to new
->>>>       sk_chk_filter() - check old bpf
->>>>       use sk_run_filter_ext() - new interpreter
->>>>    } else {
->>>>       sk_chk_filter() - check old bpf
->>>>       if (bpf_jit_enable)
->>>>           use old jit
->>>>       else
->>>>           use sk_run_filter() - old interpreter
->>>>    }
->>>>
->>>> sk_run_filter_ext() interpreter is noticeably faster
->>>> than sk_run_filter() for two reasons:
->>>>
->>>> 1.fall-through jumps
->>>>     Old BPF jump instructions are forced to go either 'true' or 'false'
->>>>     branch which causes branch-miss penalty.
->>>>     Extended BPF jump instructions have one branch and fall-through,
->>>>     which fit CPU branch predictor logic better.
->>>>     'perf stat' shows drastic difference for branch-misses.
->>>>
->>>> 2.jump-threaded implementation of interpreter vs switch statement
->>>>     Instead of single tablejump at the top of 'switch' statement, GCC will
->>>>     generate multiple tablejump instructions, which helps CPU branch
->>>> predictor
->>>>
->>>> Performance of two BPF filters generated by libpcap was measured
->>>> on x86_64, i386 and arm32.
->>>>
->>>> fprog #1 is taken from Documentation/networking/filter.txt:
->>>> tcpdump -i eth0 port 22 -dd
->>>>
->>>> fprog #2 is taken from 'man tcpdump':
->>>> tcpdump -i eth0 'tcp port 22 and (((ip[2:2] - ((ip[0]&0xf)<<2)) -
->>>>      ((tcp[12]&0xf0)>>2)) != 0)' -dd
->>>>
->>>> Other libpcap programs have similar performance differences.
->>>>
->>>> Raw performance data from BPF micro-benchmark:
->>>> SK_RUN_FILTER on same SKB (cache-hit) or 10k SKBs (cache-miss)
->>>> time in nsec per call, smaller is better
->>>> --x86_64--
->>>>            fprog #1  fprog #1   fprog #2  fprog #2
->>>>            cache-hit cache-miss cache-hit cache-miss
->>>> old BPF     90       101       192       202
->>>> ext BPF     31        71       47         97
->>>> old BPF jit 12        34       17         44
->>>> ext BPF jit TBD
->>>>
->>>> --i386--
->>>>            fprog #1  fprog #1   fprog #2  fprog #2
->>>>            cache-hit cache-miss cache-hit cache-miss
->>>> old BPF    107        136      227       252
->>>> ext BPF     40        119       69       172
->>>>
->>>> --arm32--
->>>>            fprog #1  fprog #1   fprog #2  fprog #2
->>>>            cache-hit cache-miss cache-hit cache-miss
->>>> old BPF    202        300      475       540
->>>> ext BPF    180        270      330       470
->>>> old BPF jit 26        182       37       202
->>>> new BPF jit TBD
->>>>
->>>> Tested with trinify BPF fuzzer
->>>>
->>>> Future work:
->>>>
->>>> 0. add bpf/ebpf testsuite to tools/testing/selftests/net/bpf
->>>>
->>>> 1. add extended BPF JIT for x86_64
->>>>
->>>> 2. add inband old/new demux and extended BPF verifier, so that new
->>>> programs
->>>>      can be loaded through old sk_attach_filter() and
->>>> sk_unattached_filter_create()
->>>>      interfaces
->>>>
->>>> 3. tracing filters systemtap-like with extended BPF
->>>>
->>>> 4. OVS with extended BPF
->>>>
->>>> 5. nftables with extended BPF
->>>>
->>>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
->>>> Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
->>>> Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
->>>
->>>
->>> One more question or possible issue that came through my mind: When
->>> someone attaches a socket filter from user space, and bpf_ext_enable=1
->>> then the old filter will transparently be converted to the new
->>> representation. If then user space (e.g. through checkpoint restore)
->>> will issue a sk_get_filter() and thus we're calling sk_decode_filter()
->>> on sk->sk_filter and, therefore, try to decode what we stored in
->>> insns_ext[] with the assumption we still have the old code. Would that
->>> actually crash (or leak memory, or just return garbage), as we access
->>> decodes[] array with filt->code? Would be great if you could double-check.
->>
->> ohh. yes. missed that.
->> when bpf_ext_enable=1 I think it's cleaner to return ebpf filter.
->> This way the user space can see how old bpf filter was converted.
->>
->> Of course we can allocate extra memory and keep original bpf code there
->> just to return it via sk_get_filter(), but that seems overkill.
-> 
-> Cc'ing Pavel for a8fc92778080 ("sk-filter: Add ability to get socket
-> filter program (v2)").
-> 
-> I think the issue can be that when applications could get migrated
-> from one machine to another and their kernel won't support ebpf yet,
-> then filter could not get loaded this way as it's expected to return
-> what the user loaded. The trade-off, however, is that the original
-> BPF code needs to be stored as well. :(
+On Tue, Mar 11, 2014 at 10:31 AM, Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org> wrote:
+> FWIW, I've reproduced this on "Samsung Chromebook" (Exynos 5250) with
 
-Sorry if I miss the point, but isn't the original filter kept on socket?
-The sk_attach_filter() does so, then calls __sk_prepare_filter, which
-in turn calls bpf_jit_compile(), and the latter two keep the insns in place.
+FYA - I just noticed the system crashed on the 2048th iteration :)
 
-Thanks,
-Pavel
+...
+RELOAD 2046  20140310202523  LINK 1000_full (3 sec)  IP 192.168.1.116 (1 Sec)
+RELOAD 2047  20140310202533  LINK 1000_full (2 sec)  IP 192.168.1.116 (1 Sec)
+RELOAD 2048   SSH timeout
+
+thought folks would be amused by the coincidence.
+
+grant
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
