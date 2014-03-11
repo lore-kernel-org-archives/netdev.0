@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RCU PATCH 00/14] Remove qdisc lock around ingress Qdisc
-Date: Tue, 11 Mar 2014 16:36:42 -0400 (EDT)
-Message-ID: <20140311.163642.197791800524216561.davem@davemloft.net>
-References: <20140310170008.3011.73599.stgit@nitbit.x32>
+Subject: Re: [PATCH net-next] netdev: set __percpu attribute on
+ netdev_alloc_pcpu_stats
+Date: Tue, 11 Mar 2014 16:37:46 -0400 (EDT)
+Message-ID: <20140311.163746.552920260998285786.davem@davemloft.net>
+References: <20140310094146.2aaa8e0e@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org
-To: john.fastabend@gmail.com
+Cc: amwang@redhat.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58362 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58374 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755491AbaCKUgn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 16:36:43 -0400
-In-Reply-To: <20140310170008.3011.73599.stgit@nitbit.x32>
+	with ESMTP id S1755623AbaCKUht (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 16:37:49 -0400
+In-Reply-To: <20140310094146.2aaa8e0e@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Mon, 10 Mar 2014 10:03:22 -0700
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Mon, 10 Mar 2014 09:41:46 -0700
 
-> This series drops the qdisc lock that is currently protecting the
-> ingress qdisc. This can be done after the tcf filters are made
-> lockless and the statistic accounting is safe to run without locks.
+> This patch fixes sparse warnings in vlan driver.
+> It propagates the sparse __percpu attribute from alloc_percpu
+> into netdev_alloc_pcpu_stats. I expect it may trigger additional
+> sparse warnings from other drivers that are missing the __percpu
+> attribute.
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-This series looks great, nice work.
-
-Please address Eric Dumazet's feedback and repost, then I'd like to
-see Jamal and Cong at least give a cursory review before I apply this.
-
-Thanks.
+Applied.
