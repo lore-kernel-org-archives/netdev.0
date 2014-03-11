@@ -1,105 +1,59 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH V1 net-next 2/7] mlx4_core: For RoCE, allow slaves to set
- the GID entry at that slave's index
-Date: Tue, 11 Mar 2014 22:12:33 +0200
-Message-ID: <CAJZOPZJJ9YaTpzx-M9r-M7-fZq1m2YFjhKzffUH=eHhyvsvQtw@mail.gmail.com>
-References: <1394542976-20095-1-git-send-email-ogerlitz@mellanox.com>
-	<1394542976-20095-3-git-send-email-ogerlitz@mellanox.com>
-	<531F6004.4070208@cogentembedded.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: Add support for SMSC/Microchip LAN9303 3-port switch
+Date: Tue, 11 Mar 2014 13:14:32 -0700
+Message-ID: <CAGVrzcZQp0tdig72K0FpPOFQ8edn4T=u6oQNPc8jkKh=1WkM6Q@mail.gmail.com>
+References: <1393492072-15364-1-git-send-email-sr@denx.de> <20140227.170240.1910151216729314077.davem@davemloft.net>
+ <531057A4.5020607@denx.de> <20140228.130020.2022765291621434648.davem@davemloft.net>
+ <CAGm1_ksPrSjV8+o7LCGDtJz_6qY8bqGuqdpYNHKh_6JO2X0sqg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Roland Dreier <roland@kernel.org>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Amir Vadai <amirv@mellanox.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, Stefan Roese <sr@denx.de>,
+	netdev <netdev@vger.kernel.org>, r.meier@siemens.com,
+	lukas.stockmann@siemens.com
+To: Yegor Yefremov <yegorslists@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:49956 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755257AbaCKUMe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 16:12:34 -0400
-Received: by mail-pa0-f53.google.com with SMTP id ld10so38793pab.26
-        for <netdev@vger.kernel.org>; Tue, 11 Mar 2014 13:12:33 -0700 (PDT)
-In-Reply-To: <531F6004.4070208@cogentembedded.com>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:45366 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754341AbaCKUPN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 16:15:13 -0400
+Received: by mail-pd0-f171.google.com with SMTP id r10so42709pdi.16
+        for <netdev@vger.kernel.org>; Tue, 11 Mar 2014 13:15:13 -0700 (PDT)
+In-Reply-To: <CAGm1_ksPrSjV8+o7LCGDtJz_6qY8bqGuqdpYNHKh_6JO2X0sqg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 11, 2014 at 9:12 PM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> Hello.
->
->
-> On 03/11/2014 04:02 PM, Or Gerlitz wrote:
->
->> From: Jack Morgenstein <jackm@dev.mellanox.co.il>
->
->
->> For IB transport, the host determines the slave GIDs. For ETH (RoCE),
->> however, the slave's GID is determined by the IP address that the slave
->> itself assigns to the ETH device used by RoCE.
->
->
->> In this case, the slave must be able to write its GIDs to the HCA gid
->> table
->> (at the GID indices that slave "owns").
->
->
->> This commit adds processing for the SET_PORT_GID_TABLE opcode modifier
->> for the SET_PORT command wrapper (so that slaves may modify their GIDS
->> for RoCE).
->
->
->> Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
->> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
->> ---
->>   drivers/net/ethernet/mellanox/mlx4/port.c |   27
->> ++++++++++++++++++++++++++-
->>   1 files changed, 26 insertions(+), 1 deletions(-)
->
->
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c
->> b/drivers/net/ethernet/mellanox/mlx4/port.c
->> index 9c063d6..095f74d 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/port.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/port.c
->
-> [...]
->
->> @@ -581,6 +584,28 @@ static int mlx4_common_set_port(struct mlx4_dev *dev,
->> int slave, u32 in_mod,
+2014-03-11 13:11 GMT-07:00 Yegor Yefremov <yegorslists@googlemail.com>:
+> On Fri, Feb 28, 2014 at 7:00 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Stefan Roese <sr@denx.de>
+>> Date: Fri, 28 Feb 2014 10:32:20 +0100
 >>
->>                         gen_context->mtu =
->> cpu_to_be16(master->max_mtu[port]);
->>                         break;
->> +               case MLX4_SET_PORT_GID_TABLE:
->> +                       gid_entry = (struct mlx4_roce_gid_entry
->> *)(inbox->buf);
->> +                       /* check that do not have duplicates */
->> +                       if (memcmp(gid_entry->raw, zgid_entry.raw, 16)) {
->> +                               for (i = 0; i < MLX4_ROCE_MAX_GIDS; i++) {
->> +                                       if (slave != i &&
->> +                                           !memcmp(gid_entry->raw,
->> priv->roce_gids[port - 1][i].raw, 16)) {
+>>> On 27.02.2014 23:02, David Miller wrote:
+>>>> From: Stefan Roese <sr@denx.de>
+>>>> Date: Thu, 27 Feb 2014 10:07:52 +0100
+>>>>
+>>>> Better is to come up with a real, types, interface for programming
+>>>> such devices and providing an implementation of that.
+>>>
+>>> Right. Such a thing would be better. But as Florian already pointed
+>>> out, nothing like this is available in kernel.org right now. Thats the
+>>> reason why I chose to implement this "simple" driver, btw as done in
+>>> drivers/net/phy/spi_ks8995.c.
+>>
+>> When a suitable user facing interface is lacking, you create one
+>> and submit it for review here.  You don't just submit adhoc driver
+>> local stuff.
 >
->
->    This line is over 80 columns, as checkpatch.pl would have told.
+> David, what about enabling ethtool to read/write from/to the PHY
+> registers (via passing PHY ID and register number)? I'm trying to get
+> ICplus IP175D running and it has lots of registers, that I would like
+> to look at dynamically.
 
-Indeed, I don't think the 80 columns warning of checkpatch is
-considered a gating factor for accepting patches, so I would prefer
-not to re-spin the series just to fix this sort of warnings.
+ethtool does not do that already for Ethernet MACs attached to a
+single Ethernet PHY, so I do not think this would be the right tool
+for this job. Something custom which uses SIOC{G,S}MIIREG might be
+more suited for this as you would have control over the target PHY
+address.
 
-
->
->
->> +                                               mlx4_warn(dev, "requested
->> gid entry for slave:%d "
->> +                                                         "is a duplicate
->> of slave %d\n",
->
->
->     checkpatch.pl would have warned not to break up the string literal here
-> -- it's an exception from the 80-column rule.
-
-I see, yep, I assume we can fix that if needed.
+Maybe swconfig needs to be resubmitted again...
+-- 
+Florian
