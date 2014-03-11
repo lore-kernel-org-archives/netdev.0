@@ -1,68 +1,40 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net-next v2] r8152: add skb_cow_head
-Date: Tue, 11 Mar 2014 10:20:32 +0800
-Message-ID: <1394504432-998-1-git-send-email-hayeswang@realtek.com>
-References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] vlan: Set correct source MAC address with TX VLAN
+ offload enabled
+Date: Mon, 10 Mar 2014 22:22:26 -0400 (EDT)
+Message-ID: <20140310.222226.1557956325482157663.davem@davemloft.net>
+References: <1394464635.27812.7.camel@peter-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1393934464-23675-1-git-send-email-hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: peter.bostrom@netrounds.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394464635.27812.7.camel@peter-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Call skb_cow_head() before editing the tx packet header. The header
-would be reallocated if it is shared.
+=46rom: Peter Bostr=F6m <peter.bostrom@netrounds.com>
+Date: Mon, 10 Mar 2014 16:17:15 +0100
 
-Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
----
- drivers/net/usb/r8152.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+> With TX VLAN offload enabled the source MAC address for frames sent u=
+sing the
+> VLAN interface is currently set to the address of the real interface.=
+ This is
+> wrong since the VLAN interface may be configured with a different add=
+ress.
+>=20
+> The bug was introduced in commit 2205369a314e12fcec4781cc73ac9c08fc2b=
+47de
+> ("vlan: Fix header ops passthru when doing TX VLAN offload.").
+>=20
+> This patch sets the source address before calling the create function=
+ of the
+> real interface.
+>=20
+> Signed-off-by: Peter Bostr=F6m <peter.bostrom@netrounds.com>
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index c7ef30d..a90a7eb9 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -1376,6 +1376,11 @@ static int msdn_giant_send_check(struct sk_buff *skb)
- {
- 	const struct ipv6hdr *ipv6h;
- 	struct tcphdr *th;
-+	int ret;
-+
-+	ret = skb_cow_head(skb, 0);
-+	if (ret)
-+		return ret;
- 
- 	ipv6h = ipv6_hdr(skb);
- 	th = tcp_hdr(skb);
-@@ -1383,7 +1388,7 @@ static int msdn_giant_send_check(struct sk_buff *skb)
- 	th->check = 0;
- 	th->check = ~tcp_v6_check(0, &ipv6h->saddr, &ipv6h->daddr, 0);
- 
--	return 0;
-+	return ret;
- }
- 
- static int r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc,
-@@ -1412,8 +1417,11 @@ static int r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc,
- 			break;
- 
- 		case htons(ETH_P_IPV6):
-+			if (msdn_giant_send_check(skb)) {
-+				ret = TX_CSUM_TSO;
-+				goto unavailable;
-+			}
- 			opts1 |= GTSENDV6;
--			msdn_giant_send_check(skb);
- 			break;
- 
- 		default:
--- 
-1.8.4.2
+Good catch.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied and queued up for -stable, thanks!
