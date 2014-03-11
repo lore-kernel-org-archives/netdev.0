@@ -1,28 +1,80 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next v2 8/9] Altera TSE: Add Miscellaneous Files for
- Altera Ethernet Driver
-Date: Mon, 10 Mar 2014 17:40:31 -0700
-Message-ID: <20140310174031.4145a3ff@nehalam.linuxnetplumber.net>
-References: <1394493277-2105-1-git-send-email-vbridgers2013@gmail.com>
-	<1394493277-2105-9-git-send-email-vbridgers2013@gmail.com>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH V3 0/6] Drivers: net: hyperv: Enable various offloads
+Date: Tue, 11 Mar 2014 00:42:35 +0000
+Message-ID: <8a794a772a8044d9bd3a22197da57945@BY2PR03MB299.namprd03.prod.outlook.com>
+References: <1394335362-11126-1-git-send-email-kys@microsoft.com>
+ <20140310.155557.1576514754598895473.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, rob@landley.net
-To: Vince Bridgers <vbridgers2013@gmail.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1394493277-2105-9-git-send-email-vbridgers2013@gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140310.155557.1576514754598895473.davem@davemloft.net>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Mar 2014 18:14:36 -0500
-Vince Bridgers <vbridgers2013@gmail.com> wrote:
 
-> +
-> +	buf[0] = (u64) ioread32(&mac->frames_transmitted_ok);
 
-The cast to u64 is not really necessary, C will do it for you.
-You do need the cast to do the shift for the 64 bit values.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Tuesday, March 11, 2014 1:26 AM
+> To: KY Srinivasan
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
+> jasowang@redhat.com
+> Subject: Re: [PATCH V3 0/6] Drivers: net: hyperv: Enable various offloads
+> 
+> From: "K. Y. Srinivasan" <kys@microsoft.com>
+> Date: Sat,  8 Mar 2014 19:22:42 -0800
+> 
+> > This patch set enables both checksum as well as segmentation offload.
+> > As part of this effort I have enabled scatter gather I/O a well.
+> >
+> > In version 2 of these patches, I addressed comments from David Miller
+> > and Dan Carpenter.
+> >
+> > In this version I have addressed the latest comments from David Miller.
+> 
+> Series applied, thanks.
+> 
+> I still think that fill_pg_buf() could be improved.
+> 
+> For example, it returns '1' if len is passed in as zero.  Maybe that can't
+> happen, but if it does the page buffer array will be corrupted and the driver
+> will process garbage.
+> 
+> It seems so much more straightforward to me if you simply incremented 'j' in
+> the loop when an array entry is actually filled in.  Then just return 'j'.
+> 
+> 	int j; 
+>  ...
+> 		pb[j].pfn = page_to_pfn(page);
+> 		pb[j].offset = offset;
+> 		pb[j].len = bytes;
+> 		j++;
+>  ...
+> 	return j;
+> 
+> 
+> Then 'j' is unambiguously the number of pb array entries which were filled in,
+> no matter what.
+Thanks David. As you suggest, I will send a patch to make this cleaner.
+
+Regards,
+
+K. Y
