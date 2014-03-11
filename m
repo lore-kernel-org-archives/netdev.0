@@ -1,59 +1,35 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: phy: Add support for SMSC/Microchip LAN9303 3-port switch
-Date: Tue, 11 Mar 2014 13:14:32 -0700
-Message-ID: <CAGVrzcZQp0tdig72K0FpPOFQ8edn4T=u6oQNPc8jkKh=1WkM6Q@mail.gmail.com>
-References: <1393492072-15364-1-git-send-email-sr@denx.de> <20140227.170240.1910151216729314077.davem@davemloft.net>
- <531057A4.5020607@denx.de> <20140228.130020.2022765291621434648.davem@davemloft.net>
- <CAGm1_ksPrSjV8+o7LCGDtJz_6qY8bqGuqdpYNHKh_6JO2X0sqg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] vmxnet3: fix netpoll race condition
+Date: Tue, 11 Mar 2014 16:15:59 -0400 (EDT)
+Message-ID: <20140311.161559.441950272628803826.davem@davemloft.net>
+References: <1394227527-31082-1-git-send-email-nhorman@tuxdriver.com>
+	<1394448955-19915-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Stefan Roese <sr@denx.de>,
-	netdev <netdev@vger.kernel.org>, r.meier@siemens.com,
-	lukas.stockmann@siemens.com
-To: Yegor Yefremov <yegorslists@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:45366 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754341AbaCKUPN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 16:15:13 -0400
-Received: by mail-pd0-f171.google.com with SMTP id r10so42709pdi.16
-        for <netdev@vger.kernel.org>; Tue, 11 Mar 2014 13:15:13 -0700 (PDT)
-In-Reply-To: <CAGm1_ksPrSjV8+o7LCGDtJz_6qY8bqGuqdpYNHKh_6JO2X0sqg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sbhatewara@vmware.com,
+	pv-drivers@vmware.com, stable@vger.kernel.org
+To: nhorman@tuxdriver.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1394448955-19915-1-git-send-email-nhorman@tuxdriver.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2014-03-11 13:11 GMT-07:00 Yegor Yefremov <yegorslists@googlemail.com>:
-> On Fri, Feb 28, 2014 at 7:00 PM, David Miller <davem@davemloft.net> wrote:
->> From: Stefan Roese <sr@denx.de>
->> Date: Fri, 28 Feb 2014 10:32:20 +0100
->>
->>> On 27.02.2014 23:02, David Miller wrote:
->>>> From: Stefan Roese <sr@denx.de>
->>>> Date: Thu, 27 Feb 2014 10:07:52 +0100
->>>>
->>>> Better is to come up with a real, types, interface for programming
->>>> such devices and providing an implementation of that.
->>>
->>> Right. Such a thing would be better. But as Florian already pointed
->>> out, nothing like this is available in kernel.org right now. Thats the
->>> reason why I chose to implement this "simple" driver, btw as done in
->>> drivers/net/phy/spi_ks8995.c.
->>
->> When a suitable user facing interface is lacking, you create one
->> and submit it for review here.  You don't just submit adhoc driver
->> local stuff.
->
-> David, what about enabling ethtool to read/write from/to the PHY
-> registers (via passing PHY ID and register number)? I'm trying to get
-> ICplus IP175D running and it has lots of registers, that I would like
-> to look at dynamically.
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Mon, 10 Mar 2014 06:55:55 -0400
 
-ethtool does not do that already for Ethernet MACs attached to a
-single Ethernet PHY, so I do not think this would be the right tool
-for this job. Something custom which uses SIOC{G,S}MIIREG might be
-more suited for this as you would have control over the target PHY
-address.
+> vmxnet3's netpoll driver is incorrectly coded.  It directly calls
+> vmxnet3_do_poll, which is the driver internal napi poll routine.  As the netpoll
+> controller method doesn't block real napi polls in any way, there is a potential
+> for race conditions in which the netpoll controller method and the napi poll
+> method run concurrently.  The result is data corruption causing panics such as this
+> one recently observed:
+ ...
+> The fix is to do as other drivers do, and have the poll controller call the top
+> half interrupt handler, which schedules a napi poll properly to recieve frames
+> 
+> Tested by myself, successfully.
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-Maybe swconfig needs to be resubmitted again...
--- 
-Florian
+Applied.
