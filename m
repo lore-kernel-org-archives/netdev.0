@@ -1,31 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 02/11] bnx2: Call dev_kfree_skby_any instead of
- dev_kfree_skb.
-Date: Tue, 11 Mar 2014 00:43:32 -0400 (EDT)
-Message-ID: <20140311.004332.1434735323137341311.davem@davemloft.net>
-References: <871ty9qvaf.fsf_-_@xmission.com>
-	<87ppltpgme.fsf_-_@xmission.com>
-	<1394509677.21721.4.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: Re: [PATCH v5] can: xilinx CAN controller support.
+Date: Tue, 11 Mar 2014 12:45:55 +0800
+Message-ID: <20140311044555.GA12373@localhost>
+References: <5254bfec-c6fd-4681-a34d-706d51e60fbb@VA3EHSMHS004.ehs.local>
+ <531DD493.3030306@monstr.eu>
+ <531DD5E7.7090406@pengutronix.de>
+ <3245971.RIuVmbVL0Z@wuerfel>
+ <1964213d-6bd9-49fa-805e-42e1e0630fd5@VA3EHSMHS029.ehs.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50635 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754435AbaCKEne (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 00:43:34 -0400
-In-Reply-To: <1394509677.21721.4.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	linux-arm-kernel@lists.infradead.org,
+	Marc Kleine-Budde <mkl@pengutronix.de>, monstr@monstr.eu,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	robh+dt@kernel.org,
+	Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
+	grant.likely@linaro.org,
+	Kedareswara rao Appana <appanad@xilinx.com>,
+	wg@grandegger.com
+To: Michal Simek <michal.simek@xilinx.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1964213d-6bd9-49fa-805e-42e1e0630fd5@VA3EHSMHS029.ehs.local>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 10 Mar 2014 20:47:57 -0700
+> > You probably want something like
+> > 
+> > 	config CAN_XILINX
+> > 	tristate "Xilinx CAN"
+> > 	depends on ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST
+> > 	depends on COMMON_CLK && HAS_MMIO  # whatever you need for other architectures
+> 
+> Fengguang: Are you use COMPILE_TEST in zero day testing system?
 
-> Anyway, why can this be called from hard irq ?
+Yeah, the randconfig build/boot tests should cover both COMPILE_TEST
+and !COMPILE_TEST cases.
 
-Eric B. explains this in his 0/11 posting, the culprit is netpoll.
-
-I had a discussion about this with him on this list last week.
+Thanks,
+Fengguang
