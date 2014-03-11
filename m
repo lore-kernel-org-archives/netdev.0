@@ -1,92 +1,54 @@
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: Re: [PATCH net-next 1/5] vxlan: Make VXLAN default UDP port number
- available for others
-Date: Tue, 11 Mar 2014 10:28:45 -0700 (PDT)
-Message-ID: <alpine.LFD.2.03.1403111013570.16490@intel.com>
-References: <1394470142-13992-1-git-send-email-shahed.shaikh@qlogic.com> <1394470142-13992-2-git-send-email-shahed.shaikh@qlogic.com> <CAJZOPZ+MFe2ev372L07uVvXs_wYnqAiZ3VMG4YteD2XmPWHoSQ@mail.gmail.com> <262CB373A6D1F14F9B81E82F74F77D5A46F797EE@avmb2.qlogic.org>
- <CAJZOPZKBdZPuEe5uKLb3sw92q3Qko4RS-90uVAQK=+pFXVAfSA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] vmxnet3: fix netpoll race condition
+Date: Tue, 11 Mar 2014 13:16:15 -0400 (EDT)
+Message-ID: <20140311.131615.1099547048239011196.davem@davemloft.net>
+References: <1394227527-31082-1-git-send-email-nhorman@tuxdriver.com>
+	<1394448955-19915-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:36561 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753415AbaCKRMk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Mar 2014 13:12:40 -0400
-In-Reply-To: <CAJZOPZKBdZPuEe5uKLb3sw92q3Qko4RS-90uVAQK=+pFXVAfSA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sbhatewara@vmware.com,
+	pv-drivers@vmware.com, stable@vger.kernel.org
+To: nhorman@tuxdriver.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1394448955-19915-1-git-send-email-nhorman@tuxdriver.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Mon, 10 Mar 2014 06:55:55 -0400
 
-
-On Mon, 10 Mar 2014, Or Gerlitz wrote:
-
-> On Tue, Mar 11, 2014 at 7:41 AM, Shahed Shaikh <shahed.shaikh@qlogic.com> wrote:
-> >> -----Original Message-----
-> >> From: Or Gerlitz [mailto:or.gerlitz@gmail.com]
-> >> Sent: Tuesday, March 11, 2014 1:28 AM
-> >> To: Shahed Shaikh
-> >> Cc: David Miller; netdev; Dept-HSG Linux NIC Dev
-> >> Subject: Re: [PATCH net-next 1/5] vxlan: Make VXLAN default UDP port
-> >> number available for others
-> >>
-> >> On Mon, Mar 10, 2014 at 6:48 PM, Shahed Shaikh
-> >> <shahed.shaikh@qlogic.com> wrote:
-> >> > From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-> >> >
-> >> > Although vxlan module has capability to notify udp ports to other
-> >> > interested net devices using .ndo_add_rx_vxlan_port and
-> >> > .ndo_del_rx_vxlan_port, there could be some devices which support
-> >> > vxlan offload but not interested in updating udp port numbers.
-> >> > This may be because some hardware do not support programming multiple
-> >> > udp ports and their drivers may decide to program only default udp
-> >> > port into adapter. So that adapter, at least, can do offloading for
-> >> > default udp port number.
-> >>
-> >> Indeed, but the default port number can be unused while another port is
-> >> used. The ndo will be invoked only behalf of an actual instancing of udp port
-> >> for listener socket (== destination port you want the hw to indentify), what's
-> >> wrong with support this ndo also for devices that supported limited (say
-> >> one) such port?
-> >
-> >
-> >  If driver implements .ndo for udp port and user creates multiple vxlan device with different
-> > udp ports, it may end up programming the udp port which may not go through the adapter
-> > and no offload will happen. OTOH, if drive does not implement .ndo and if user is aware that driver
-> >  is capable of offloading for default port, he can at least crate vxlan device on top of qlcnic interface
-> >  with default udp port. So, there is no chance for other udp port numbers to replace default udp port and disturb offloading.
+> vmxnet3's netpoll driver is incorrectly coded.  It directly calls
+> vmxnet3_do_poll, which is the driver internal napi poll routine.  As the netpoll
+> controller method doesn't block real napi polls in any way, there is a potential
+> for race conditions in which the netpoll controller method and the napi poll
+> method run concurrently.  The result is data corruption causing panics such as this
+> one recently observed:
+> PID: 1371   TASK: ffff88023762caa0  CPU: 1   COMMAND: "rs:main Q:Reg"
+>  #0 [ffff88023abd5780] machine_kexec at ffffffff81038f3b
+>  #1 [ffff88023abd57e0] crash_kexec at ffffffff810c5d92
+>  #2 [ffff88023abd58b0] oops_end at ffffffff8152b570
+>  #3 [ffff88023abd58e0] die at ffffffff81010e0b
+>  #4 [ffff88023abd5910] do_trap at ffffffff8152add4
+>  #5 [ffff88023abd5970] do_invalid_op at ffffffff8100cf95
+>  #6 [ffff88023abd5a10] invalid_op at ffffffff8100bf9b
+>     [exception RIP: vmxnet3_rq_rx_complete+1968]
+>     RIP: ffffffffa00f1e80  RSP: ffff88023abd5ac8  RFLAGS: 00010086
+>     RAX: 0000000000000000  RBX: ffff88023b5dcee0  RCX: 00000000000000c0
+>     RDX: 0000000000000000  RSI: 00000000000005f2  RDI: ffff88023b5dcee0
+>     RBP: ffff88023abd5b48   R8: 0000000000000000   R9: ffff88023a3b6048
+>     R10: 0000000000000000  R11: 0000000000000002  R12: ffff8802398d4cd8
+>     R13: ffff88023af35140  R14: ffff88023b60c890  R15: 0000000000000000
+>     ORIG_RAX: ffffffffffffffff  CS: 0010  SS: 0018
+>  #7 [ffff88023abd5b50] vmxnet3_do_poll at ffffffffa00f204a [vmxnet3]
+>  #8 [ffff88023abd5b80] vmxnet3_netpoll at ffffffffa00f209c [vmxnet3]
+>  #9 [ffff88023abd5ba0] netpoll_poll_dev at ffffffff81472bb7
 > 
-> I see your point, but doesn't this suggests we need to somehow enhance
->  the current framework to
-> let drivers know which vxlan traffic is expected to be received over
-> them according to the current routing rules?
-> I understand this is a bit tricky because  vxlan and routing  are l3
-> constructs while drivers deal with l2, John/Joseph -
-> what's your thinking here?
->
-
-For the sake of simplicity: if you have say two VXLANs listening on two 
-different UDP ports, and a single port NIC that can only offload traffic 
-from one UDP port, how would you know which VXLAN is more useful to 
-offload? There might be traffic from the one port (and in this case it 
-might be the default one or not) or you might have traffic from both.
-The fact is that you have a hw limitation, and you need something 
-to help you predict what which VXLAN you are going to have traffic from 
-which is not trivial at all.
-Therefore even having a way to use the routing tables wouldn't help I 
-think.
-
-In other words, IMHO the best option for running a NIC that can offload X 
-UDP ports, is to use up to X UDP ports. Anything else, requres guessing that 
-might not be accurate and hence can make things worse instead of better.
-
- 
+> The fix is to do as other drivers do, and have the poll controller call the top
+> half interrupt handler, which schedules a napi poll properly to recieve frames
 > 
-> > Like Stephen suggested, exporting udp port variable of vxlan driver will be more suitable approach.
+> Tested by myself, successfully.
 > 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+
+VMware folks, please review.
