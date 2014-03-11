@@ -1,52 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: Add support for SMSC/Microchip LAN9303
- 3-port switch
-Date: Tue, 11 Mar 2014 16:39:24 -0400 (EDT)
-Message-ID: <20140311.163924.934541574802061078.davem@davemloft.net>
-References: <531057A4.5020607@denx.de>
-	<20140228.130020.2022765291621434648.davem@davemloft.net>
-	<CAGm1_ksPrSjV8+o7LCGDtJz_6qY8bqGuqdpYNHKh_6JO2X0sqg@mail.gmail.com>
+Subject: Re: [PATCH resend] tcp: tcp_release_cb() should release socket
+ ownership
+Date: Tue, 11 Mar 2014 16:46:44 -0400 (EDT)
+Message-ID: <20140311.164644.516273403169764933.davem@davemloft.net>
+References: <20140304.134811.86791174090638790.davem@davemloft.net>
+	<1393972752.26794.145.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1394470211.3607.30.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sr@denx.de, netdev@vger.kernel.org, r.meier@siemens.com,
-	lukas.stockmann@siemens.com, f.fainelli@gmail.com
-To: yegorslists@googlemail.com
+Cc: lars.persson@axis.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58398 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58446 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755845AbaCKUj0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 16:39:26 -0400
-In-Reply-To: <CAGm1_ksPrSjV8+o7LCGDtJz_6qY8bqGuqdpYNHKh_6JO2X0sqg@mail.gmail.com>
+	with ESMTP id S1755336AbaCKUqq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 16:46:46 -0400
+In-Reply-To: <1394470211.3607.30.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Date: Tue, 11 Mar 2014 21:11:16 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 10 Mar 2014 09:50:11 -0700
 
-> On Fri, Feb 28, 2014 at 7:00 PM, David Miller <davem@davemloft.net> wrote:
->> From: Stefan Roese <sr@denx.de>
->> Date: Fri, 28 Feb 2014 10:32:20 +0100
->>
->>> On 27.02.2014 23:02, David Miller wrote:
->>>> From: Stefan Roese <sr@denx.de>
->>>> Date: Thu, 27 Feb 2014 10:07:52 +0100
->>>>
->>>> Better is to come up with a real, types, interface for programming
->>>> such devices and providing an implementation of that.
->>>
->>> Right. Such a thing would be better. But as Florian already pointed
->>> out, nothing like this is available in kernel.org right now. Thats the
->>> reason why I chose to implement this "simple" driver, btw as done in
->>> drivers/net/phy/spi_ks8995.c.
->>
->> When a suitable user facing interface is lacking, you create one
->> and submit it for review here.  You don't just submit adhoc driver
->> local stuff.
+> Lars Persson reported following deadlock :
+ ...
+> Bug occurs because __tcp_checksum_complete_user() enables BH, assuming
+> it is running from softirq context.
 > 
-> David, what about enabling ethtool to read/write from/to the PHY
-> registers (via passing PHY ID and register number)? I'm trying to get
-> ICplus IP175D running and it has lots of registers, that I would like
-> to look at dynamically.
+> Lars trace involved a NIC without RX checksum support but other points
+> are problematic as well, like the prequeue stuff.
+> 
+> Problem is triggered by a timer, that found socket being owned by user.
+> 
+> tcp_release_cb() should call tcp_write_timer_handler() or
+> tcp_delack_timer_handler() in the appropriate context :
+> 
+> BH disabled and socket lock held, but 'owned' field cleared,
+> as if they were running from timer handlers.
+> 
+> Fixes: 6f458dfb4092 ("tcp: improve latencies of timer triggered events")
+> Reported-by: Lars Persson <lars.persson@axis.com>
+> Tested-by: Lars Persson <lars.persson@axis.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-For debugging, register dumps are already supported by ethtool.
+Applied and queued up for -stable, thanks!
