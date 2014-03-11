@@ -1,55 +1,34 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCH bluetooth-next] bluetooth: make bluetooth 6lowpan as an
- option
-Date: Tue, 11 Mar 2014 19:20:01 +0100
-Message-ID: <20140311182000.GA11022@omega>
-References: <1393924982-14001-1-git-send-email-alex.aring@gmail.com>
- <5D79FB52-77AC-4391-9CAB-6F792388EFD8@holtmann.org>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: Re: [PATCH v2] vmxnet3: fix netpoll race condition
+Date: Tue, 11 Mar 2014 11:24:08 -0700 (PDT)
+Message-ID: <382556580.40955263.1394562248901.JavaMail.root@vmware.com>
+References: <1394227527-31082-1-git-send-email-nhorman@tuxdriver.com> <1394448955-19915-1-git-send-email-nhorman@tuxdriver.com> <20140311.131615.1099547048239011196.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"bluez mailin list (linux-bluetooth@vger.kernel.org)"
-	<linux-bluetooth@vger.kernel.org>, netdev@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>
+Content-Transfer-Encoding: 7bit
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
+	pv-drivers@vmware.com, stable@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f179.google.com ([209.85.215.179]:60099 "EHLO
-	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752478AbaCKSUI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 14:20:08 -0400
-Content-Disposition: inline
-In-Reply-To: <5D79FB52-77AC-4391-9CAB-6F792388EFD8@holtmann.org>
+Received: from smtp-outbound-2.vmware.com ([208.91.2.13]:41677 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755052AbaCKSYK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 14:24:10 -0400
+In-Reply-To: <20140311.131615.1099547048239011196.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Marcel,
-
-On Tue, Mar 11, 2014 at 07:56:52AM -0700, Marcel Holtmann wrote:
-> Hi Alexander,
-> 
-> > Currently you can have bluetooth 6lowpan without ipv6 enabled. This
-> > doesn't make any sense. With this patch you can disable/enable bluetooth
-> > 6lowpan support at compile time.
+> > The fix is to do as other drivers do, and have the poll controller call the
+> > top
+> > half interrupt handler, which schedules a napi poll properly to recieve
+> > frames
 > > 
-> > The current bluetooth 6lowpan implementation doesn't check the return
-> > value of 6lowpan function. Nevertheless I added -EOPNOTSUPP as return value
-> > if 6lowpan bluetooth is disabled.
+> > Tested by myself, successfully.
 > > 
-> > Signed-off-by: Alexander Aring <alex.aring@gmail.com>
-> > ---
-> > net/bluetooth/6lowpan.h | 21 +++++++++++++++++++++
-> > net/bluetooth/Kconfig   |  8 +++++++-
-> > net/bluetooth/Makefile  |  3 ++-
-> > 3 files changed, 30 insertions(+), 2 deletions(-)
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 > 
-> patch has been applied to bluetooth-next tree.
+> VMware folks, please review
 > 
+Neil, thanks for the updated change. It looks good.
 
-thanks and I see that next time I need to write:
-
-"Bluetooth: ..." instead "bluetooth: ..."
-
-Sorry, about that!
-
-- Alex
+Reviewed-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
