@@ -1,65 +1,84 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v8 net-next 1/3] filter: add Extended BPF interpreter
- and converter
-Date: Tue, 11 Mar 2014 09:51:32 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6DA53F@AcuExch.aculab.com>
-References: <1394431444-6987-2-git-send-email-ast@plumgrid.com>
-	<20140310.215104.2095195123238829635.davem@davemloft.net>
-	<CA+55aFx7rdm9DGOTTgAKTHNkdfrvQYhT9PRs5MhUPr1gQzWEgA@mail.gmail.com>
- <20140310.222449.561233409099006984.davem@davemloft.net>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH net] ipv6: do not overwrite inetpeer metrics prematurely
+Date: Tue, 11 Mar 2014 10:53:09 +0100
+Message-ID: <20140311095309.GA3287@unicorn.suse.cz>
+References: <20140310.010313.703650662340510015.davem@davemloft.net>
+ <20140310081533.GA27052@unicorn.suse.cz>
+ <20140310120016.GH5493@order.stressinduktion.org>
+ <20140310.223841.953940361609160158.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "ast@plumgrid.com" <ast@plumgrid.com>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"mingo@kernel.org" <mingo@kernel.org>,
-	"wad@chromium.org" <wad@chromium.org>,
-	"rostedt@goodmis.org" <rostedt@goodmis.org>,
-	"a.p.zijlstra@chello.nl" <a.p.zijlstra@chello.nl>,
-	"hpa@zytor.com" <hpa@zytor.com>, "hagen@jauu.net" <hagen@jauu.net>,
-	"jesse@nicira.com" <jesse@nicira.com>,
-	"tglx@linutronix.de" <tglx@linutronix.de>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"fweisbec@gmail.com" <fweisbec@gmail.com>,
-	"acme@infradead.org" <acme@infradead.org>,
-	"penberg@iki.fi" <penberg@iki.fi>,
-	"arjan@infradead.org" <arjan@infradead.org>,
-	"hch@infradead.org" <hch@infradead.org>,
-	"xemul@parallels.com" <xemul@parallels.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'David Miller' <davem@davemloft.net>,
-	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140310.222449.561233409099006984.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:50288 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753263AbaCKJxL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Mar 2014 05:53:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20140310.223841.953940361609160158.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller
-> From: Linus Torvalds <torvalds@linux-foundation.org>
-> Date: Mon, 10 Mar 2014 19:02:18 -0700
+On Mon, Mar 10, 2014 at 10:38:41PM -0400, David Miller wrote:
 > 
-> > I would generally suggest that people only use "bool" for function
-> > return types, and absolutely nothing else. Seriously.
-> 
-> I think it makes sense for function arguments too.
+> Does this version address everyone's concerns?  Michal can you test it
+> for me?
 
-'bool' doesn't necessarily even make sense for function arguments
-and results.
-It might require the same additional masking of high bits that
-are required for 'short' and 'char' parameters.
+There is still a problem:
 
-Also, IIRC, one of the arm ABIs used 32bit 'bool'.
+12sp0:~ # ip route add fec0::1 dev eth0 rto_min 1000
+12sp0:~ # ip -6 route show
+fe80::/64 dev eth0  proto kernel  metric 256 
+fec0::1 dev eth0  metric 1024  rto_min lock 1s
+12sp0:~ # ip route change fec0::1 dev eth0 hoplimit 10
+12sp0:~ # ip -6 route show
+fe80::/64 dev eth0  proto kernel  metric 256 
+fec0::1 dev eth0  metric 1024  hoplimit 10 rto_min lock 1s
 
-Even the extra code that gets added to ensure that the 'bool'
-values are either 0 or 1 can be a problem.
-I don't know whether the recent compilers (or standards) say
-whether the reader or writer is expected to enforce the domain.
-But if the compiler uses a bit-wise AND for bool_a & bool_b there
-is definitely scope for unexpected behaviour, and if the compiler
-does anything else you get unwanted instructions and possibly branches.
-Some old versions of gcc made a 'pigs breakfast' of bool_a |= bool_b.
+IMHO this comes from the was_writable test in fib_commit_metrics():
 
-	David
+> +static int fib_commit_metrics(struct dst_entry *dst, struct nlattr *mx, int mx_len)
+> +{
+> +	struct nlattr *nla;
+> +	bool was_writable;
+> +	int remaining;
+> +	u32 *mp;
+> +
+> +	was_writable = !dst_metrics_read_only(dst);
+> +	mp = dst_metrics_write_ptr(dst);
+> +
+> +	if (was_writable)
+> +		memset(mp, 0, RTAX_MAX * sizeof(u32));
+> +
+> +	nla_for_each_attr(nla, mx, mx_len, remaining) {
+> +		int type = nla_type(nla);
+> +
+> +		if (type) {
+> +			if (type > RTAX_MAX)
+> +				return -EINVAL;
+> +
+> +			mp[type - 1] = nla_get_u32(nla);
+> +		}
+> +	}
+> +	return 0;
+> +}
+
+For DST_HOST, was_writable is always false as at this point,
+dst->_metrics still points to the shared default. I believe what we want
+to know is whether the _original_ dst_entry (the one we are replacing,
+if any) has writable metrics. Because if it has, we are reusing them, if
+not, we get new ones. For non-DST_HOST routes, we can always skip the
+memset() as we never share (writeable) metrics between old and new in
+the non-DST_HOST case.
+
+I also believe the function should return immediately if mx is null so
+that we don't call dst_metrics_write_ptr() if no metrics are to be set
+for the new route.
+
+I'll test these changes and send an updated patch if I find no problem
+with it.
+
+                                                         Michal Kubecek
