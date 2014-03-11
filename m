@@ -1,113 +1,235 @@
-From: Jakub =?UTF-8?B?S2ljacWEc2tp?= <moorray3@wp.pl>
-Subject: Re: net-next: NULL pointer dereference on adding a net namespace
- and a system freeze
-Date: Tue, 11 Mar 2014 15:30:29 +0100
-Message-ID: <20140311153029.1de9d6e9@north>
-References: <20140310014452.144b0491@north>
-	<1394424146.3607.2.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1394424557.3607.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140310131909.33a3042c@north>
-	<1394460276.3607.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140311014649.1716bde1@north>
-	<20140311120059.GB32371@secunet.com>
-	<1394541626.21721.24.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140311132030.GD32371@secunet.com>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH v5] can: xilinx CAN controller support.
+Date: Tue, 11 Mar 2014 15:31:12 +0100
+Message-ID: <531F1E30.4040203@pengutronix.de>
+References: <5254bfec-c6fd-4681-a34d-706d51e60fbb@VA3EHSMHS004.ehs.local> <531DD2C4.5060109@pengutronix.de> <f1e2f08f-05fc-40d3-8437-4c6817d631cb@AM1EHSMHS010.ehs.local> <531F0636.4050608@pengutronix.de> <a99feda0-7463-4781-bb73-90b99e65b014@CO9EHSMHS028.ehs.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>,
-	Fan Du <fan.du@windriver.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.wp.pl ([212.77.101.10]:7372 "EHLO mx3.wp.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752176AbaCKOae (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Mar 2014 10:30:34 -0400
-In-Reply-To: <20140311132030.GD32371@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="s6hbhFM2k7JuRJMTdBPESiGGTKRN0GCnw"
+Cc: "linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Michal Simek <michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+	"wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+	"fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Soren Brinkmann <sorenb-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+To: Appana Durga Kedareswara Rao <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <a99feda0-7463-4781-bb73-90b99e65b014-QhSrsHip19sNTaRkHJHP0bjjLBE8jN/0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 11 Mar 2014 14:20:30 +0100, Steffen Klassert wrote:
-> On Tue, Mar 11, 2014 at 05:40:26AM -0700, Eric Dumazet wrote:
-> > On Tue, 2014-03-11 at 13:00 +0100, Steffen Klassert wrote:
-> > 
-> > > I was unable to reproduce this here, but it looks like the flowcache
-> > > namespace changes are still not complete. We leak an active timer
-> > > and all the allocated resources when we exit a namespace.
-> > > 
-> > > Could you please try the patch below?
-> > > 
-> > > Also, please send your config if the patch does not fix your problem.
-> > > 
-> > > Thanks!
-> > > 
-> > > ---
-> > >  include/net/flow.h     |    1 +
-> > >  net/core/flow.c        |   18 ++++++++++++++++++
-> > >  net/xfrm/xfrm_policy.c |    7 ++++++-
-> > >  3 files changed, 25 insertions(+), 1 deletion(-)
-> > > 
-> > > diff --git a/include/net/flow.h b/include/net/flow.h
-> > > index bee3741..64fd248 100644
-> > > --- a/include/net/flow.h
-> > > +++ b/include/net/flow.h
-> > > @@ -219,6 +219,7 @@ struct flow_cache_object *flow_cache_lookup(struct net *net,
-> > >  					    u8 dir, flow_resolve_t resolver,
-> > >  					    void *ctx);
-> > >  int flow_cache_init(struct net *net);
-> > > +void flow_cache_fini(struct net *net);
-> > >  
-> > >  void flow_cache_flush(struct net *net);
-> > >  void flow_cache_flush_deferred(struct net *net);
-> > > diff --git a/net/core/flow.c b/net/core/flow.c
-> > > index 102f8ea..d31c3c4 100644
-> > > --- a/net/core/flow.c
-> > > +++ b/net/core/flow.c
-> > > @@ -484,3 +484,21 @@ err:
-> > >  	return -ENOMEM;
-> > >  }
-> > >  EXPORT_SYMBOL(flow_cache_init);
-> > > +
-> > > +void flow_cache_fini(struct net *net)
-> > > +{
-> > > +	int i;
-> > > +	struct flow_cache *fc = &net->xfrm.flow_cache_global;
-> > > +
-> > > +	del_timer(&fc->rnd_timer);
-> > 
-> > 
-> > del_timer_sync() I guess is better.
-> > 
-> 
-> Right.
-> 
-> I've just noticed that I also forgot to do a
-> unregister_hotcpu_notifier(&fc->hotcpu_notifier).
-> 
-> Will update the next version according to that.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--s6hbhFM2k7JuRJMTdBPESiGGTKRN0GCnw
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Tested with del_timer_sync and unregister_hotcpu_notifier:
+On 03/11/2014 03:08 PM, Appana Durga Kedareswara Rao wrote:
 
-void flow_cache_fini(struct net *net)
-{
-	int i;
-	struct flow_cache *fc = &net->xfrm.flow_cache_global;
+>>>>> +   struct napi_struct napi;
+>>>>> +   u32 (*read_reg)(const struct xcan_priv *priv, enum xcan_reg reg=
+);
+>>>>> +   void (*write_reg)(const struct xcan_priv *priv, enum xcan_reg r=
+eg,
+>>>>> +                   u32 val);
+>>>>> +   struct net_device *dev;
+>>>>> +   void __iomem *reg_base;
+>>>>> +   unsigned long irq_flags;
+>>>>> +   struct clk *aperclk;
+>>>>> +   struct clk *devclk;
+>>>>
+>>>> Please rename the clock variables to match the names in the DT.
+>>>>
+>>> The clock names are different for axi CAN and CANPS case.
+>>> So will make them as busclk and devclk Are you ok with this?
+>>
+>> Why not "ref_clk" and "aper_clk" as used in the DT?
+>>
+> One of the comments I got from the Soren(sorenb-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org)
+> Is the  clock-names must match the data sheet.
+> If I Modify the clock names then it is different names for AXI CAN
+> and CANPS case.
 
-	unregister_hotcpu_notifier(&fc->hotcpu_notifier);
-	del_timer_sync(&fc->rnd_timer);
+Sorry, my faul, I thought the names are already these from the
+datasheet. As S=C3=B6ren pointed out please use 's_axi_aclk' and
+'can_clk' for the DT and for the the variable names in the private
+struct, too.
 
-	for_each_possible_cpu(i) {
-		struct flow_cache_percpu *fcp = per_cpu_ptr(fc->percpu, i);
-		kfree(fcp->hash_table);
-		fcp->hash_table = NULL;
+The 'official' name of the ip core seems to be axi_can, should we rename
+the driver? I suspect, that Michal wants to keep xilinx in the name for
+marketing reasons :P
+
+[...]
+
+>>>>> +/**
+>>>>> + * xcan_chip_start - This the drivers start routine
+>>>>> + * @ndev:  Pointer to net_device structure
+>>>>> + *
+>>>>> + * This is the drivers start routine.
+>>>>> + * Based on the State of the CAN device it puts
+>>>>> + * the CAN device into a proper mode.
+>>>>> + *
+>>>>> + * Return: 0 on success and failure value on error  */ static int
+>>>>> +xcan_chip_start(struct net_device *ndev) {
+>>>>> +   struct xcan_priv *priv =3D netdev_priv(ndev);
+>>>>> +   u32 err;
+>>>>> +   unsigned long timeout;
+>>>>> +
+>>>>> +   /* Check if it is in reset mode */
+>>>>> +   err =3D set_reset_mode(ndev);
+>>>>> +   if (err < 0)
+>>>>> +           return err;
+>>>>> +
+>>>>> +   err =3D xcan_set_bittiming(ndev);
+>>>>> +   if (err < 0)
+>>>>> +           return err;
+>>>>> +
+>>>>> +   /* Enable interrupts */
+>>>>> +   priv->write_reg(priv, XCAN_IER_OFFSET, XCAN_INTR_ALL);
+>>>>> +
+>>>>> +   /* Check whether it is loopback mode or normal mode  */
+>>>>> +   if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK)
+>>>>> +           /* Put device into loopback mode */
+>>>>> +           priv->write_reg(priv, XCAN_MSR_OFFSET,
+>>>> XCAN_MSR_LBACK_MASK);
+>>>>> +   else
+>>>>> +           /* The device is in normal mode */
+>>>>> +           priv->write_reg(priv, XCAN_MSR_OFFSET, 0);
+>>>>> +
+>>>>> +   if (priv->can.state =3D=3D CAN_STATE_STOPPED) {
+>>>>
+>>>> Your device is in stopped mode, add you go though set_reset_mode()
+>>>> already.
+>>>
+>>> Will remove this if condition I putted this condition here because in=
+
+>>> set_reset_mode we are putting the Device state in Stopped state.
+>>
+>> So the device is in CAN_STATE_STOPPED, as this code just went through
+>> set_reset_mode() some lines ago. so it makes no sense to check if it
+>> (still) is (the code runs serialized here).
+>>
+>=20
+> After removing the if condition and the line(CAN_STATE_STOPPED from
+> the set_reset_mode) the code for chip_start is below It is better to
+> check whether it is really Configured in the loopback or normal mode=20
+> That's why kept the loops as it is.
+>=20
+> static int xcan_chip_start(struct net_device *ndev)
+> {
+>         struct xcan_priv *priv =3D netdev_priv(ndev);
+>         u32 err;
+>         unsigned long timeout;
+>=20
+>         /* Check if it is in reset mode */
+>         err =3D set_reset_mode(ndev);
+>         if (err < 0)
+>                 return err;
+>=20
+>         err =3D xcan_set_bittiming(ndev);
+>         if (err < 0)
+>                 return err;
+>=20
+>         /* Enable interrupts */
+>         priv->write_reg(priv, XCAN_IER_OFFSET, XCAN_INTR_ALL);
+>=20
+>         /* Check whether it is loopback mode or normal mode  */
+>         if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK)
+>                 /* Put device into loopback mode */
+>                 priv->write_reg(priv, XCAN_MSR_OFFSET, XCAN_MSR_LBACK_M=
+ASK);
+>         else
+>                 /* The device is in normal mode */
+>                 priv->write_reg(priv, XCAN_MSR_OFFSET, 0);
+
+What about using two temp variables? Like this (untested, though):
+
+	u32 reg_msg;
+	u32 reg_sr_mask;
+
+	if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) {
+		reg_msr =3D XCAN_MSR_LBACK_MASK;
+		reg_sr_mask =3D XCAN_SR_LBACK_MASK;
+	} else {
+		reg_msr =3D 0x0;
+		reg_sr_mask =3D XCAN_SR_NORMAL_MASK;
 	}
 
-	free_percpu(fc->percpu);
-	fc->percpu = NULL;
-}
-EXPORT_SYMBOL(flow_cache_fini);
+	priv->write_reg(priv, XCAN_MSR_OFFSET, reg_msr);
+	priv->write_reg(priv, XCAN_SRR_OFFSET, XCAN_SRR_CEN_MASK);
+
+	timeout =3D jiffies + XCAN_TIMEOUT;
+	while (!(priv->read_reg(priv, XCAN_SR_OFFSET) & reg_sr_mask)) {
+		if (time_after(jiffies, timeout)) {
+			netdev_warn(ndev, "time out waiting for correct mode\n")
+			return -ETIMEDOUT;
+			}
+		usleep_range(500, 10000);
+	}
+
+>=20
+>         priv->write_reg(priv, XCAN_SRR_OFFSET, XCAN_SRR_CEN_MASK);
+>         timeout =3D jiffies + XCAN_TIMEOUT;
+>         if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) {
+>                 while ((priv->read_reg(priv, XCAN_SR_OFFSET)
+>                                 & XCAN_SR_LBACK_MASK) =3D=3D 0) {
+>                         if (time_after(jiffies, timeout)) {
+>                                 netdev_warn(ndev,
+>                                         "timedout for loopback mode\n")=
+;
+>                                 return -ETIMEDOUT;
+>                         }
+>                         usleep_range(500, 10000);
+>                 }
+>         } else {
+>                 while ((priv->read_reg(priv, XCAN_SR_OFFSET)
+>                                 & XCAN_SR_NORMAL_MASK) =3D=3D 0) {
+>                         if (time_after(jiffies, timeout)) {
+>                                 netdev_warn(ndev,
+>                                         "timedout for normal mode\n");
+>                                 return -ETIMEDOUT;
+>                         }
+>                         usleep_range(500, 10000);
+>                 }
+>         }
+>         netdev_dbg(ndev, "status:#x%08x\n",
+>                         priv->read_reg(priv, XCAN_SR_OFFSET));
+>=20
+>         priv->can.state =3D CAN_STATE_ERROR_ACTIVE;
+>         return 0;
+> }
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
-Seems to solve both the freeze and the bug on restarting libvirtd/rtkit!
+--s6hbhFM2k7JuRJMTdBPESiGGTKRN0GCnw
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-	-- kuba
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlMfHjAACgkQjTAFq1RaXHPucACgklJJ6wu+OQoyQs41gCD9WM/t
+uW8AnAmGAiSzSZZftZT9G3wZ2KY0N4xg
+=EpQl
+-----END PGP SIGNATURE-----
+
+--s6hbhFM2k7JuRJMTdBPESiGGTKRN0GCnw--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
