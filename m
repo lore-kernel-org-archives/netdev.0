@@ -1,103 +1,86 @@
-From: Jakub =?UTF-8?B?S2ljacWEc2tp?= <moorray3@wp.pl>
-Subject: Re: net-next: NULL pointer dereference on adding a net namespace
- and a system freeze
-Date: Tue, 11 Mar 2014 01:46:49 +0100
-Message-ID: <20140311014649.1716bde1@north>
-References: <20140310014452.144b0491@north>
-	<1394424146.3607.2.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1394424557.3607.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140310131909.33a3042c@north>
-	<1394460276.3607.10.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Thomas Stilwell <stilwellt-OAZXG8/CaxzQFizaE/u3fw@public.gmane.org>
+Subject: [PATCH net-next] ieee802154: at86rf230: add
+	support for rf233 chip
+Date: Mon, 10 Mar 2014 19:29:25 -0500
+Message-ID: <1394497765-5288-1-git-send-email-stilwellt@openlabs.co>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Fan Du <fan.du@windriver.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.11]:58126 "EHLO mx4.wp.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753860AbaCKAqw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 20:46:52 -0400
-In-Reply-To: <1394460276.3607.10.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Mar 2014 07:04:36 -0700, Eric Dumazet wrote:
-> On Mon, 2014-03-10 at 13:19 +0100, Jakub Kici=C5=84ski wrote:
->=20
-> > It helps with the flow_cache warning and BUG ("ip netns add" works)=
- but
-> > machine still freezes after 5-10 minutes.  I will try to revert
-> > ca925cf1534ebcec332c08719a7dee6ee1782ce4 and see if that solves it.
->=20
-> I think the other issue is separate. It might be triggered by
-> conntracking change.
+The rf233 and rf231 are sufficiently similar that we can treat
+rf233 like rf231.
 
-I bisected the other issue to be caused/uncovered by:
+rf233 is missing some features that rf231 has, but we don't currently
+make use of them so there's nothing to handle differently yet.
 
-commit 1a1ccc96abb2ed9b8fbb71018e64b97324caef53
-Author: Steffen Klassert <steffen.klassert@secunet.com>
-Date:   Wed Feb 19 10:07:34 2014 +0100
+Should we add support in the future for rf231 *_NOCLK or SLEEP states,
+or PAD_IO drive strength, exceptions will need to be made for rf233.
 
-    xfrm: Remove caching of xfrm_policy_sk_bundles
-   =20
-    We currently cache socket policy bundles at xfrm_policy_sk_bundles.
-    These cached bundles are never used. Instead we create and cache
-    a new one whenever xfrm_lookup() is called on a socket policy.
-   =20
-    Most protocols cache the used routes to the socket, so let's
-    remove the unused caching of socket policy bundles in xfrm.
-   =20
-    Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Thomas Stilwell <stilwellt-OAZXG8/CaxzQFizaE/u3fw@public.gmane.org>
+---
+ drivers/net/ieee802154/Kconfig     |    4 ++--
+ drivers/net/ieee802154/at86rf230.c |    5 +++++
+ 2 files changed, 7 insertions(+), 2 deletions(-)
 
-
-Machine freezes after FLOW_HASH_RND_PERIOD (default 10 minutes).
-Now get this warning during boot:
-
-[   31.664820] ------------[ cut here ]------------
-[   31.664824] WARNING: CPU: 2 PID: 3560 at /home/kuba/Development/Linu=
-x/net-next/lib/list_debug.c:33 __list_add+0xac/0xc0()
-[   31.664826] list_add corruption. prev->next should be next (ffff8802=
-24579598), but was           (null). (prev=3Dffff8802106140e8).
-[   31.664827] Modules linked in: xt_CHECKSUM tun bridge stp llc ccm xt=
-_conntrack iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_=
-nat nf_conntrack iptable_mangle iptable_security iptable_raw ftdi_sio a=
-rc4 rt2800pci rt2800mmio rt2800lib crc_ccitt eeprom_93cx6 rt2x00pci kvm=
-_amd rt2x00mmio rt2x00lib mac80211 kvm snd_ca0106 cfg80211 e1000e snd_a=
-c97_codec ac97_bus microcode serio_raw ptp i2c_piix4 k10temp acpi_cpufr=
-eq pps_core wmi r8169 mii rfkill nfsd auth_rpcgss nfs_acl lockd binfmt_=
-misc sunrpc usb_storage radeon drm_kms_helper ttm
-[   31.664855] CPU: 2 PID: 3560 Comm: (t-daemon) Not tainted 3.14.0-rc2=
--1a1ccc96abb2ed9b8fbb71018e64b97324caef53+ #11
-[   31.664856] Hardware name: Gigabyte Technology Co., Ltd. GA-MA790XT-=
-UD4P/GA-MA790XT-UD4P, BIOS F9b 08/17/2012
-[   31.664857]  0000000000000009 ffff8802242e7c70 ffffffff81627878 ffff=
-8802242e7cb8
-[   31.664859]  ffff8802242e7ca8 ffffffff8104a28d ffff880210610ea8 ffff=
-880224579598
-[   31.664861]  ffff8802106140e8 ffff880224578000 0000000000000000 ffff=
-8802242e7d08
-[   31.664863] Call Trace:
-[   31.664865]  [<ffffffff81627878>] dump_stack+0x4d/0x66
-[   31.664867]  [<ffffffff8104a28d>] warn_slowpath_common+0x7d/0xa0
-[   31.664869]  [<ffffffff8104a2fc>] warn_slowpath_fmt+0x4c/0x50
-[   31.664871]  [<ffffffff812fdd8c>] __list_add+0xac/0xc0
-[   31.664873]  [<ffffffff81055d33>] __internal_add_timer+0x113/0x130
-[   31.664875]  [<ffffffff81055f47>] internal_add_timer+0x17/0x40
-[   31.664876]  [<ffffffff810587b2>] mod_timer+0x102/0x230
-[   31.664878]  [<ffffffff810588f8>] add_timer+0x18/0x20
-[   31.664880]  [<ffffffff81572204>] flow_cache_init+0x224/0x2b0
-[   31.664882]  [<ffffffff815f7247>] xfrm_net_init+0x227/0x360
-[   31.664884]  [<ffffffff815f7171>] ? xfrm_net_init+0x151/0x360
-[   31.664886]  [<ffffffff81553131>] ops_init+0x41/0x150
-[   31.664888]  [<ffffffff815532b3>] setup_net+0x73/0x110
-[   31.664890]  [<ffffffff815537f2>] copy_net_ns+0x72/0x100
-[   31.664892]  [<ffffffff81072619>] create_new_namespaces+0xf9/0x190
-[   31.664894]  [<ffffffff81072891>] unshare_nsproxy_namespaces+0x61/0x=
-a0
-[   31.664895]  [<ffffffff81049949>] SyS_unshare+0x159/0x270
-[   31.664897]  [<ffffffff81638092>] system_call_fastpath+0x16/0x1b
+diff --git a/drivers/net/ieee802154/Kconfig b/drivers/net/ieee802154/Kconfig
+index 9aa06ec..3e89bea 100644
+--- a/drivers/net/ieee802154/Kconfig
++++ b/drivers/net/ieee802154/Kconfig
+@@ -32,10 +32,10 @@ config IEEE802154_FAKELB
+ 
+ config IEEE802154_AT86RF230
+ 	depends on IEEE802154_DRIVERS && MAC802154
+-	tristate "AT86RF230/231/212 transceiver driver"
++	tristate "AT86RF230/231/233/212 transceiver driver"
+ 	depends on SPI
+ 	---help---
+-	  Say Y here to enable the at86rf230/231/212 SPI 802.15.4 wireless
++	  Say Y here to enable the at86rf230/231/233/212 SPI 802.15.4 wireless
+ 	  controller.
+ 
+ 	  This driver can also be built as a module. To do so, say M here.
+diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
+index 03e24c5..b8e7321 100644
+--- a/drivers/net/ieee802154/at86rf230.c
++++ b/drivers/net/ieee802154/at86rf230.c
+@@ -244,6 +244,7 @@ static bool is_rf212(struct at86rf230_local *local)
+ #define STATE_TX_ON		0x09
+ /* 0x0a - 0x0e */			/* 0x0a - UNSUPPORTED_ATTRIBUTE */
+ #define STATE_SLEEP		0x0F
++#define STATE_PREP_DEEP_SLEEP	0x10
+ #define STATE_BUSY_RX_AACK	0x11
+ #define STATE_BUSY_TX_ARET	0x12
+ #define STATE_RX_AACK_ON	0x16
+@@ -1108,6 +1109,10 @@ static int at86rf230_probe(struct spi_device *spi)
+ 		if (version == 1)
+ 			ops = &at86rf212_ops;
+ 		break;
++	case 11:
++		chip = "at86rf233";
++		ops = &at86rf230_ops;
++		break;
+ 	default:
+ 		chip = "UNKNOWN";
+ 		break;
+-- 
+1.7.10.4
 
 
-	-- kuba
+------------------------------------------------------------------------------
+Learn Graph Databases - Download FREE O'Reilly Book
+"Graph Databases" is the definitive new guide to graph databases and their
+applications. Written by three acclaimed leaders in the field,
+this first edition is now available. Download your free book today!
+http://p.sf.net/sfu/13534_NeoTech
