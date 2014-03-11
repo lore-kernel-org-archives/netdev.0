@@ -1,235 +1,116 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH v5] can: xilinx CAN controller support.
-Date: Tue, 11 Mar 2014 15:31:12 +0100
-Message-ID: <531F1E30.4040203@pengutronix.de>
-References: <5254bfec-c6fd-4681-a34d-706d51e60fbb@VA3EHSMHS004.ehs.local> <531DD2C4.5060109@pengutronix.de> <f1e2f08f-05fc-40d3-8437-4c6817d631cb@AM1EHSMHS010.ehs.local> <531F0636.4050608@pengutronix.de> <a99feda0-7463-4781-bb73-90b99e65b014@CO9EHSMHS028.ehs.local>
+From: "Zimmermann, Alexander" <Alexander.Zimmermann@netapp.com>
+Subject: Re: TCP reordering and Multiple DL path
+Date: Tue, 11 Mar 2014 14:40:00 +0000
+Message-ID: <71451900-EEAF-484D-BA3B-26628F4082B4@netapp.com>
+References: <AB9D0874A51C404B8D86602911E629521A9E0D4D@IRSMSX102.ger.corp.intel.com>
+ <1394468108.3607.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="s6hbhFM2k7JuRJMTdBPESiGGTKRN0GCnw"
-Cc: "linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Michal Simek <michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	"wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	"fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Soren Brinkmann <sorenb-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-To: Appana Durga Kedareswara Rao <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <a99feda0-7463-4781-bb73-90b99e65b014-QhSrsHip19sNTaRkHJHP0bjjLBE8jN/0@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_EDCD5692-F5CA-4CDA-B868-3F902F19F45E";
+	protocol="application/pgp-signature"; micalg=pgp-sha1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "Soum, Redouane" <redouane.soum@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx12.netapp.com ([216.240.18.77]:13519 "EHLO mx12.netapp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751250AbaCKOkC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Mar 2014 10:40:02 -0400
+In-Reply-To: <1394468108.3607.22.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---s6hbhFM2k7JuRJMTdBPESiGGTKRN0GCnw
-Content-Type: text/plain; charset=UTF-8
+--Apple-Mail=_EDCD5692-F5CA-4CDA-B868-3F902F19F45E
 Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=us-ascii
 
-On 03/11/2014 03:08 PM, Appana Durga Kedareswara Rao wrote:
 
->>>>> +   struct napi_struct napi;
->>>>> +   u32 (*read_reg)(const struct xcan_priv *priv, enum xcan_reg reg=
-);
->>>>> +   void (*write_reg)(const struct xcan_priv *priv, enum xcan_reg r=
-eg,
->>>>> +                   u32 val);
->>>>> +   struct net_device *dev;
->>>>> +   void __iomem *reg_base;
->>>>> +   unsigned long irq_flags;
->>>>> +   struct clk *aperclk;
->>>>> +   struct clk *devclk;
->>>>
->>>> Please rename the clock variables to match the names in the DT.
->>>>
->>> The clock names are different for axi CAN and CANPS case.
->>> So will make them as busclk and devclk Are you ok with this?
->>
->> Why not "ref_clk" and "aper_clk" as used in the DT?
->>
-> One of the comments I got from the Soren(sorenb-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org)
-> Is the  clock-names must match the data sheet.
-> If I Modify the clock names then it is different names for AXI CAN
-> and CANPS case.
+Am 10.03.2014 um 17:15 schrieb Eric Dumazet <eric.dumazet@gmail.com>:
 
-Sorry, my faul, I thought the names are already these from the
-datasheet. As S=C3=B6ren pointed out please use 's_axi_aclk' and
-'can_clk' for the DT and for the the variable names in the private
-struct, too.
-
-The 'official' name of the ip core seems to be axi_can, should we rename
-the driver? I suspect, that Michal wants to keep xilinx in the name for
-marketing reasons :P
-
-[...]
-
->>>>> +/**
->>>>> + * xcan_chip_start - This the drivers start routine
->>>>> + * @ndev:  Pointer to net_device structure
->>>>> + *
->>>>> + * This is the drivers start routine.
->>>>> + * Based on the State of the CAN device it puts
->>>>> + * the CAN device into a proper mode.
->>>>> + *
->>>>> + * Return: 0 on success and failure value on error  */ static int
->>>>> +xcan_chip_start(struct net_device *ndev) {
->>>>> +   struct xcan_priv *priv =3D netdev_priv(ndev);
->>>>> +   u32 err;
->>>>> +   unsigned long timeout;
->>>>> +
->>>>> +   /* Check if it is in reset mode */
->>>>> +   err =3D set_reset_mode(ndev);
->>>>> +   if (err < 0)
->>>>> +           return err;
->>>>> +
->>>>> +   err =3D xcan_set_bittiming(ndev);
->>>>> +   if (err < 0)
->>>>> +           return err;
->>>>> +
->>>>> +   /* Enable interrupts */
->>>>> +   priv->write_reg(priv, XCAN_IER_OFFSET, XCAN_INTR_ALL);
->>>>> +
->>>>> +   /* Check whether it is loopback mode or normal mode  */
->>>>> +   if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK)
->>>>> +           /* Put device into loopback mode */
->>>>> +           priv->write_reg(priv, XCAN_MSR_OFFSET,
->>>> XCAN_MSR_LBACK_MASK);
->>>>> +   else
->>>>> +           /* The device is in normal mode */
->>>>> +           priv->write_reg(priv, XCAN_MSR_OFFSET, 0);
->>>>> +
->>>>> +   if (priv->can.state =3D=3D CAN_STATE_STOPPED) {
->>>>
->>>> Your device is in stopped mode, add you go though set_reset_mode()
->>>> already.
->>>
->>> Will remove this if condition I putted this condition here because in=
-
->>> set_reset_mode we are putting the Device state in Stopped state.
->>
->> So the device is in CAN_STATE_STOPPED, as this code just went through
->> set_reset_mode() some lines ago. so it makes no sense to check if it
->> (still) is (the code runs serialized here).
->>
+> On Mon, 2014-03-10 at 15:44 +0000, Soum, Redouane wrote:
+>> Hi,
+>>=20
+>> I have several path in DL between an Application Processor and a =
+Modem
+>> using different network interfaces (USB CDC NCMs) with the same ip
+>> address (connected to the same network)
+>>=20
+>> Having several network interfaces used in DL implies to have out of
+>> order packets, even if the ooo packets will most likely come close
+>> together.
+>>=20
+>> Here is my understanding on the impact on TCP throughput :
+>>=20
+>> -        OOO packets will lead to Dup acks.
+>> -        When sender receives 3 Dup acks it'll start fast recovery
+>> which will reduce TCP congestion window.
+>>=20
+>> First question is my understanding correct ?
+>>=20
+>> Assuming it is :=20
+>> In order to solve that issue I am thinking to add a small delay =
+before
+>> sending dup acks for OoO packets.
+>> The objective is to be sure that dup acks for OoO packets will only =
+be
+>> sent for OoO packet due to different path in the network, and not
+>> because of the different network interfaces.
+>>=20
+>> However I am not sure how complex it would be to implement and which
+>> part of the TCP stack need to be modified.
+>> Any advice to solve that issue ?
 >=20
-> After removing the if condition and the line(CAN_STATE_STOPPED from
-> the set_reset_mode) the code for chip_start is below It is better to
-> check whether it is really Configured in the loopback or normal mode=20
-> That's why kept the loops as it is.
->=20
-> static int xcan_chip_start(struct net_device *ndev)
-> {
->         struct xcan_priv *priv =3D netdev_priv(ndev);
->         u32 err;
->         unsigned long timeout;
->=20
->         /* Check if it is in reset mode */
->         err =3D set_reset_mode(ndev);
->         if (err < 0)
->                 return err;
->=20
->         err =3D xcan_set_bittiming(ndev);
->         if (err < 0)
->                 return err;
->=20
->         /* Enable interrupts */
->         priv->write_reg(priv, XCAN_IER_OFFSET, XCAN_INTR_ALL);
->=20
->         /* Check whether it is loopback mode or normal mode  */
->         if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK)
->                 /* Put device into loopback mode */
->                 priv->write_reg(priv, XCAN_MSR_OFFSET, XCAN_MSR_LBACK_M=
-ASK);
->         else
->                 /* The device is in normal mode */
->                 priv->write_reg(priv, XCAN_MSR_OFFSET, 0);
+> This is quite complex.
 
-What about using two temp variables? Like this (untested, though):
+Indeed. They are currently some efforts in TCPM to specify a reordering
+robust TCP. See
 
-	u32 reg_msg;
-	u32 reg_sr_mask;
+=
+http://tools.ietf.org/id/draft-zimmermann-tcpm-reordering-detection-00.txt=
 
-	if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) {
-		reg_msr =3D XCAN_MSR_LBACK_MASK;
-		reg_sr_mask =3D XCAN_SR_LBACK_MASK;
-	} else {
-		reg_msr =3D 0x0;
-		reg_sr_mask =3D XCAN_SR_NORMAL_MASK;
-	}
+=
+http://tools.ietf.org/html/draft-zimmermann-tcpm-reordering-reaction-00.tx=
+t
 
-	priv->write_reg(priv, XCAN_MSR_OFFSET, reg_msr);
-	priv->write_reg(priv, XCAN_SRR_OFFSET, XCAN_SRR_CEN_MASK);
-
-	timeout =3D jiffies + XCAN_TIMEOUT;
-	while (!(priv->read_reg(priv, XCAN_SR_OFFSET) & reg_sr_mask)) {
-		if (time_after(jiffies, timeout)) {
-			netdev_warn(ndev, "time out waiting for correct mode\n")
-			return -ETIMEDOUT;
-			}
-		usleep_range(500, 10000);
-	}
+Alex
 
 >=20
->         priv->write_reg(priv, XCAN_SRR_OFFSET, XCAN_SRR_CEN_MASK);
->         timeout =3D jiffies + XCAN_TIMEOUT;
->         if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) {
->                 while ((priv->read_reg(priv, XCAN_SR_OFFSET)
->                                 & XCAN_SR_LBACK_MASK) =3D=3D 0) {
->                         if (time_after(jiffies, timeout)) {
->                                 netdev_warn(ndev,
->                                         "timedout for loopback mode\n")=
-;
->                                 return -ETIMEDOUT;
->                         }
->                         usleep_range(500, 10000);
->                 }
->         } else {
->                 while ((priv->read_reg(priv, XCAN_SR_OFFSET)
->                                 & XCAN_SR_NORMAL_MASK) =3D=3D 0) {
->                         if (time_after(jiffies, timeout)) {
->                                 netdev_warn(ndev,
->                                         "timedout for normal mode\n");
->                                 return -ETIMEDOUT;
->                         }
->                         usleep_range(500, 10000);
->                 }
->         }
->         netdev_dbg(ndev, "status:#x%08x\n",
->                         priv->read_reg(priv, XCAN_SR_OFFSET));
+> Note that we are working on a more generic solution, involving a high =
+resolution timer,
+> for not only this case, but more generally :
 >=20
->         priv->can.state =3D CAN_STATE_ERROR_ACTIVE;
->         return 0;
-> }
+> Delayed ACK (application could tell TCP stack its max latency for RPC)
+>=20
+> TSO autodefer bugs (currently we rely on future ACKS, while we should
+> not)
+>=20
+> TCP_CORK_US (extend TCP auto cork with a usec timer)
+>=20
+> Trick is to not add uncontrolled jitter on ACKs, otherwise we screw up
+> delay based CC.
+>=20
+>=20
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Marc
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---s6hbhFM2k7JuRJMTdBPESiGGTKRN0GCnw
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
+--Apple-Mail=_EDCD5692-F5CA-4CDA-B868-3F902F19F45E
+Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Message signed with OpenPGP using GPGMail
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+Comment: GPGTools - http://gpgtools.org
 
-iEYEARECAAYFAlMfHjAACgkQjTAFq1RaXHPucACgklJJ6wu+OQoyQs41gCD9WM/t
-uW8AnAmGAiSzSZZftZT9G3wZ2KY0N4xg
-=EpQl
+iEYEARECAAYFAlMfIEAACgkQdyiq39b9uS712QCfUDDblcJPvyOv0TxcjJKRoimq
+ODgAoK05pnuzZcB1pVccNqGPi3auaMYM
+=mVOF
 -----END PGP SIGNATURE-----
 
---s6hbhFM2k7JuRJMTdBPESiGGTKRN0GCnw--
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--Apple-Mail=_EDCD5692-F5CA-4CDA-B868-3F902F19F45E--
