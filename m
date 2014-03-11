@@ -1,45 +1,63 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] net: reflect the fwmark for replies with no socket
-Date: Tue, 11 Mar 2014 22:52:39 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1403112242190.1769@ja.home.ssi.bg>
-References: <1394536541-25702-1-git-send-email-lorenzo@google.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH next-next 0/10] Using dev_kfree_skb_any for functions called in multiple contexts
+Date: Tue, 11 Mar 2014 14:13:56 -0700
+Message-ID: <87r468bfqj.fsf_-_@xmission.com>
+References: <87a9cxf7mp.fsf_-_@xmission.com>
+	<20140311.124907.1180556684992271103.davem@davemloft.net>
+	<87wqg0cy9d.fsf@xmission.com>
+	<20140311.160931.1395978386605601765.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Lorenzo Colitti <lorenzo@google.com>
+Content-Type: text/plain
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:53626 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755614AbaCKUxV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Mar 2014 16:53:21 -0400
-In-Reply-To: <1394536541-25702-1-git-send-email-lorenzo@google.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:56055 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753782AbaCKVOE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 17:14:04 -0400
+In-Reply-To: <20140311.160931.1395978386605601765.davem@davemloft.net> (David
+	Miller's message of "Tue, 11 Mar 2014 16:09:31 -0400 (EDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-	Hello,
+This patchset should be an uncontroversial set of changes to change
+dev_kfree_skb to dev_kfree_skb_any for code paths that are called in
+hard irq contexts in addition to other contexts.  netpoll is the reason
+this code gets called in multiple contexts.
 
-On Tue, 11 Mar 2014, Lorenzo Colitti wrote:
+There is more coming but these changes are a good starting place, and
+stand on their own.
 
-> Kernel-originated IP packets that have no user socket associated
-> with them (e.g., ICMP errors and echo replies, TCP RSTs, etc.)
-> are emitted with a mark of zero. Instead, make them have the
-> same mark as the packet they are replying to.
-> 
-> This is consistent with TOS, which is also reflected from the
-> incoming packet, and it allows the administrator to use
-> mark-based routing, firewalling, etc. for these replies by
-> marking the original packets inbound.
+Since the last round changes to the rx path have been removed netpoll
+will changed to avoid that.
 
-	If you can do it with CONNMARK save+restore,
-do not change behavior for existing setups. It is
-hard to predict how the mark is used in ip and
-POST ROUTING rules.
+Eric W. Biederman (10):
+      8139cp: Call dev_kfree_skby_any instead of kfree_skb.
+      8139too: Call dev_kfree_skby_any instead of dev_kfree_skb.
+      r8169: Call dev_kfree_skby_any instead of dev_kfree_skb.
+      bonding: Call dev_kfree_skby_any instead of kfree_skb.
+      bnx2: Call dev_kfree_skby_any instead of dev_kfree_skb.
+      tg3: Call dev_kfree_skby_any instead of dev_kfree_skb.
+      ixgb: Call dev_kfree_skby_any instead of dev_kfree_skb.
+      mlx4: Call dev_kfree_skby_any instead of dev_kfree_skb.
+      benet: Call dev_kfree_skby_any instead of kfree_skb.
+      gianfar: Carefully free skbs in functions called by netpoll.
 
-> Also fix the IPv6 code to reflect the tclass in replies like the
-> IPv4 code does.
 
-Regards
+ drivers/net/bonding/bond_3ad.c              |    2 +-
+ drivers/net/bonding/bond_alb.c              |    2 +-
+ drivers/net/bonding/bond_main.c             |   10 +++++-----
+ drivers/net/ethernet/broadcom/bnx2.c        |    6 +++---
+ drivers/net/ethernet/broadcom/tg3.c         |   14 +++++++-------
+ drivers/net/ethernet/emulex/benet/be_main.c |    2 +-
+ drivers/net/ethernet/freescale/gianfar.c    |    4 ++--
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c |    6 +++---
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c  |    2 +-
+ drivers/net/ethernet/realtek/8139cp.c       |    2 +-
+ drivers/net/ethernet/realtek/8139too.c      |    4 ++--
+ drivers/net/ethernet/realtek/r8169.c        |    6 +++---
+ 12 files changed, 30 insertions(+), 30 deletions(-)
 
---
-Julian Anastasov <ja@ssi.bg>
+Eric
