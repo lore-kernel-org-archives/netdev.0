@@ -1,65 +1,58 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 01/11] bonding: Call dev_kfree_skby_any instead of kfree_skb.
-Date: Mon, 10 Mar 2014 22:31:49 -0700
-Message-ID: <87y50hl2re.fsf@xmission.com>
-References: <871ty9qvaf.fsf_-_@xmission.com> <87vbvlpgnk.fsf_-_@xmission.com>
-	<1394509467.21721.2.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140311.004217.1616529960369263682.davem@davemloft.net>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: RE: [PATCH net-next 1/5] vxlan: Make VXLAN default UDP port number
+ available for others
+Date: Tue, 11 Mar 2014 05:37:44 +0000
+Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F797D4@avmb2.qlogic.org>
+References: <1394470142-13992-1-git-send-email-shahed.shaikh@qlogic.com>
+	<1394470142-13992-2-git-send-email-shahed.shaikh@qlogic.com>
+ <20140310124303.165fc8b3@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:51172 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752562AbaCKFb4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 01:31:56 -0400
-In-Reply-To: <20140311.004217.1616529960369263682.davem@davemloft.net> (David
-	Miller's message of "Tue, 11 Mar 2014 00:42:17 -0400 (EDT)")
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:47847 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752514AbaCKFhu convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Mar 2014 01:37:50 -0400
+In-Reply-To: <20140310124303.165fc8b3@nehalam.linuxnetplumber.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+> Sent: Tuesday, March 11, 2014 1:13 AM
+> To: Shahed Shaikh
+> Cc: David Miller; netdev; Dept-HSG Linux NIC Dev
+> Subject: Re: [PATCH net-next 1/5] vxlan: Make VXLAN default UDP port
+> number available for others
+> 
+> On Mon, 10 Mar 2014 12:48:58 -0400
+> Shahed Shaikh <shahed.shaikh@qlogic.com> wrote:
+> 
+> > From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+> >
+> > Although vxlan module has capability to notify udp ports to other
+> > interested net devices using .ndo_add_rx_vxlan_port and
+> > .ndo_del_rx_vxlan_port, there could be some devices which support
+> > vxlan offload but not interested in updating udp port numbers.
+> > This may be because some hardware do not support programming multiple
+> > udp ports and their drivers may decide to program only default udp
+> > port into adapter. So that adapter, at least, can do offloading for
+> > default udp port number.
+> >
+> > Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+> 
+> Rather than compiling in the value, it makes more sense to make the default
+> port variable in vxlan driver exported. That way if user overrides it with a
+> module parameter the offload will still work.
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 10 Mar 2014 20:44:27 -0700
->
->> On Mon, 2014-03-10 at 20:18 -0700, Eric W. Biederman wrote:
->>> -			consume_skb(skb);
->>> +			dev_consume_skb_any(skb);
->> 
->> Why is this needed ? AFAIK we run in softirq here.
->> 
->>>  			return ret;
->>>  		}
->>>  	}
->>> @@ -1132,7 +1132,7 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
->>>  
->>>  		if (unlikely(skb_cow_head(skb,
->>>  					  skb->data - skb_mac_header(skb)))) {
->>> -			kfree_skb(skb);
->>> +			dev_kfree_skb_any(skb);
->> 
->> same here.
->
-> These changes eminate from a recent discussion about netpoll, which can
-> call into the driver from hardware interrupts, particularly when netconsole
-> services a printk from hardware interrupt context.
->
-> bnx2x already makes similar ammends.
->
-> I hope that Eric B. here audited to make sure he's only doing this
-> transformation in situations that actually need this treatment for
-> the above mentioned issue.
+Makes sense. I will re-spin this patch to export default port variable. Thanks for the feedback.
 
-It looks like our replies crossed.  Yes every location that I changed is
-a location that I can currently find a code path to from a printk in a
-hard irq context.
-
-Furthermore the difference between dev_kfree_skb/kfree_skb and
-dev_kfree_skb_any is simply a test to see if you are in interrupt
-context so there should be no functional differences except
-when we make it to these code paths in interrupt context.
-
-Eric
+Thanks,
+Shahed
