@@ -1,38 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RCU PATCH 00/14] Remove qdisc lock around ingress Qdisc
-Date: Tue, 11 Mar 2014 13:53:03 -0700
-Message-ID: <1394571183.21721.30.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140310170008.3011.73599.stgit@nitbit.x32>
-	 <20140311.163642.197791800524216561.davem@davemloft.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] net: reflect the fwmark for replies with no socket
+Date: Tue, 11 Mar 2014 22:52:39 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1403112242190.1769@ja.home.ssi.bg>
+References: <1394536541-25702-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: john.fastabend@gmail.com, xiyou.wangcong@gmail.com,
-	jhs@mojatatu.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:40374 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753782AbaCKUxK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 16:53:10 -0400
-Received: by mail-pb0-f44.google.com with SMTP id rp16so77836pbb.31
-        for <netdev@vger.kernel.org>; Tue, 11 Mar 2014 13:53:10 -0700 (PDT)
-In-Reply-To: <20140311.163642.197791800524216561.davem@davemloft.net>
+Received: from ja.ssi.bg ([178.16.129.10]:53626 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755614AbaCKUxV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Mar 2014 16:53:21 -0400
+In-Reply-To: <1394536541-25702-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-03-11 at 16:36 -0400, David Miller wrote:
-> From: John Fastabend <john.fastabend@gmail.com>
-> Date: Mon, 10 Mar 2014 10:03:22 -0700
-> 
-> > This series drops the qdisc lock that is currently protecting the
-> > ingress qdisc. This can be done after the tcf filters are made
-> > lockless and the statistic accounting is safe to run without locks.
-> 
-> This series looks great, nice work.
-> 
-> Please address Eric Dumazet's feedback and repost, then I'd like to
-> see Jamal and Cong at least give a cursory review before I apply this.
 
-Yep, I'll redo a full review, this is finally happening, very nice job
-John !
+	Hello,
+
+On Tue, 11 Mar 2014, Lorenzo Colitti wrote:
+
+> Kernel-originated IP packets that have no user socket associated
+> with them (e.g., ICMP errors and echo replies, TCP RSTs, etc.)
+> are emitted with a mark of zero. Instead, make them have the
+> same mark as the packet they are replying to.
+> 
+> This is consistent with TOS, which is also reflected from the
+> incoming packet, and it allows the administrator to use
+> mark-based routing, firewalling, etc. for these replies by
+> marking the original packets inbound.
+
+	If you can do it with CONNMARK save+restore,
+do not change behavior for existing setups. It is
+hard to predict how the mark is used in ip and
+POST ROUTING rules.
+
+> Also fix the IPv6 code to reflect the tclass in replies like the
+> IPv4 code does.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
