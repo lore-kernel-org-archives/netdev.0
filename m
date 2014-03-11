@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v8 net-next 1/3] filter: add Extended BPF interpreter
- and converter
-Date: Mon, 10 Mar 2014 21:51:04 -0400 (EDT)
-Message-ID: <20140310.215104.2095195123238829635.davem@davemloft.net>
-References: <1394431444-6987-1-git-send-email-ast@plumgrid.com>
-	<1394431444-6987-2-git-send-email-ast@plumgrid.com>
+Subject: Re: [PATCH] net: eth: cpsw: Use net_device_stats from struct
+ net_device
+Date: Mon, 10 Mar 2014 21:54:06 -0400 (EDT)
+Message-ID: <20140310.215406.1145985583181167513.davem@davemloft.net>
+References: <1394453543-30094-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, mingo@kernel.org, wad@chromium.org,
-	rostedt@goodmis.org, a.p.zijlstra@chello.nl, hpa@zytor.com,
-	hagen@jauu.net, jesse@nicira.com, tglx@linutronix.de,
-	edumazet@google.com, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, fweisbec@gmail.com, acme@infradead.org,
-	penberg@iki.fi, arjan@infradead.org, hch@infradead.org,
-	xemul@parallels.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: ast@plumgrid.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394431444-6987-2-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mugunthanvnm@ti.com, bigeasy@linutronix.de, netdev@vger.kernel.org
+To: tklauser@distanz.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49212 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753927AbaCKByI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Mar 2014 21:54:08 -0400
+In-Reply-To: <1394453543-30094-1-git-send-email-tklauser@distanz.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Sun,  9 Mar 2014 23:04:02 -0700
+From: Tobias Klauser <tklauser@distanz.ch>
+Date: Mon, 10 Mar 2014 13:12:23 +0100
 
-> +	unsigned int		jited:1;
+> Instead of using an own copy of struct net_device_stats in struct
+> cpsw_priv, use stats from struct net_device. Also remove the thus
+> unnecessary .ndo_get_stats function, as it just returns dev->stats,
+> which is the default.
+> 
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
-The C language has a proper type for boolean states, please therefore
-use 'bool', true, and false.
+Applied to net-next, thanks.
