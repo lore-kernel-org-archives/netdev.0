@@ -1,70 +1,89 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: linux-next: manual merge of the net-next tree with the  tree
-Date: Tue, 11 Mar 2014 12:07:31 +0000
-Message-ID: <20140311120731.d18ae172bfe02469fda4b2a4@kernel.org>
+From: "Simon Schneider" <simon-schneider@gmx.net>
+Subject: Aw: Re: Re: Link-local source IPv6 address in unicast Neighbor
+ Solicitation towards global destination
+Date: Tue, 11 Mar 2014 13:15:17 +0100
+Message-ID: <trinity-a0afda04-2344-47fa-bfa9-d1d45d0c15f8-1394540117766@3capp-gmx-bs43>
+References: <20140306070250.GC26307@order.stressinduktion.org>
+ <trinity-e0e97e3d-2c6a-4f81-bd27-f7151a67b303-1394097503168@3capp-gmx-bs05>,
+ <20140310024425.GG5493@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__11_Mar_2014_12_07_31_+0000__lNQNr5yEm/oXOuB"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Annie Li <annie.li@oracle.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: "Hannes Frederic Sowa" <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.15.18]:55287 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753809AbaCKMPU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 08:15:20 -0400
+In-Reply-To: <20140310024425.GG5493@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__11_Mar_2014_12_07_31_+0000__lNQNr5yEm/oXOuB
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Hi Hannes,
+thanks a lot.
 
-Hi all,
+We'll integrate and test the patch.
 
-Today's linux-next merge of the net-next tree got a conflict in drivers/net=
-/xen-netback/netback.c between commit 5bd076708664313f ("Xen-netback: Fix i=
-ssue caused by using gso_type wrongly") from Linus' tree and commit 3e2234b=
-3149f66 ("xen-netback: Handle foreign mapped pages on the guest RX path") f=
-rom the net-next tree.
+best regards,Simon
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
 
-diff --cc drivers/net/xen-netback/netback.c
-index 438d0c09b7e6,bc943205a691..000000000000
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@@ -338,6 -348,10 +348,9 @@@ static int xenvif_gop_skb(struct sk_buf
-        int head =3D 1;
-        int old_meta_prod;
-        int gso_type;
- -      int gso_size;
-+       struct ubuf_info *ubuf =3D skb_shinfo(skb)->destructor_arg;
-+       grant_ref_t foreign_grefs[MAX_SKB_FRAGS];
-+       struct xenvif *foreign_vif =3D NULL;
- =20
-        old_meta_prod =3D npo->meta_prod;
- =20
-
---Signature=_Tue__11_Mar_2014_12_07_31_+0000__lNQNr5yEm/oXOuB
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBAgAGBQJTHvyDAAoJELSic+t+oim9PucQAJsfjqyQ4MlY2mNs2icLChWW
-FcGCPjnndTFvsds+uoYMe//Eb5QVJ4mqv79A/45GCNIV6Q9Bc0GE6YDOl+34SQSn
-zeqkiBX1s/OGQn2kmm2hEGMJizWEdCU3z66Gd+0Otnmvl91SY4uJIWpuyKnDZ11v
-Z0dGPzSXXiqd3Pzwqlr3JmOm8BETIhY/0dTuTmYTJeQB/Z594go9M1KNMxm2Kvww
-NIJ58UWLo9ll1CWVC7AVGMiijn6yFr1rdrzEiKMu+I9Ta8Pql155zGxcD9fScwo2
-7rK0aIAgEiKtJ23EwUU0XLDpJC1WFBWAtliAoYQ47+uXxMt0xzz/bCGrte4lJjMo
-eA0zhtb8thOKd2RJbFIBcvTHHQrJmJpCXJDCHj6J7mFkAERvtAHtuhK3zcgR0QQK
-oGzZamF1nWjYrYNfl7bAI5kF1Q1V/73FYRONpgC+3xAyzwlHUlSKnM2SrgF8hw/s
-lJ9uURZUNq4Drovw752I2MqFph82iKUL++SsLKvubcwHWjFObDcMwZAsc8zVM7H7
-tPrxHo8uNYD0KRjRik0TG8VJksnOq1Y7s8YHo1afNmE1KRjyC1KaeXlwIzSb267e
-8p6hEEUKotn+9UQPI4SHwXefsSu/B6aLYjd+qLK0sAeWHsarAyvD9RQGovNedCL+
-kdQicKskYkKZzD/PCb9v
-=5hHm
------END PGP SIGNATURE-----
-
---Signature=_Tue__11_Mar_2014_12_07_31_+0000__lNQNr5yEm/oXOuB--
+> Gesendet: Montag, 10. M=C3=A4rz 2014 um 03:44 Uhr
+> Von: "Hannes Frederic Sowa" <hannes@stressinduktion.org>
+> An: "Simon Schneider" <simon-schneider@gmx.net>
+> Cc: netdev@vger.kernel.org
+> Betreff: Re: Re: Link-local source IPv6 address in unicast Neighbor S=
+olicitation towards global destination
+>
+> Hi Simon!
+>=20
+> On Thu, Mar 06, 2014 at 10:18:23AM +0100, Simon Schneider wrote:
+> > thanks, checking that would be good.
+> >=20
+> > Another point here (probably a bit academic): without link-local ad=
+dress on the interface (just the global one), the unicast NS for NUD is=
+ not sent at all.
+> >=20
+> > The neighbor cache entry is in DELAY state for some time, unicast N=
+S is not sent, then the entry is moved to FAILED rather quickly.
+>=20
+> Yep, that's the case. IMHO undefined behaviour so it is ok but could
+> be improved.
+>=20
+> This would be the patch, should improve your initial observation and =
+would
+> also "fix" the situation you noted above. Could you give it a test dr=
+ive?
+>=20
+> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+> index 09a22f4..43c66f6 100644
+> --- a/net/ipv6/ndisc.c
+> +++ b/net/ipv6/ndisc.c
+> @@ -553,7 +553,17 @@ void ndisc_send_ns(struct net_device *dev, struc=
+t neighbour *neigh,
+>  	struct nd_msg *msg;
+> =20
+>  	if (saddr =3D=3D NULL) {
+> -		if (ipv6_get_lladdr(dev, &addr_buf,
+> +		if (!ipv6_dev_get_saddr(dev_net(dev), dev, daddr,
+> +				       inet6_sk(dev_net(dev)->ipv6.ndisc_sk)->srcprefs,
+> +				       &addr_buf) &&
+> +		    ipv6_chk_addr(dev_net(dev), &addr_buf, dev, 1)) {
+> +			struct inet6_ifaddr *ifp =3D ipv6_get_ifaddr(dev_net(dev), &addr_=
+buf, dev, 1);
+> +			if (ifp && !(ifp->flags & IFA_F_OPTIMISTIC))
+> +				saddr =3D &addr_buf;
+> +			in6_ifa_put(ifp);
+> +		}
+> +
+> +		if (!saddr && ipv6_get_lladdr(dev, &addr_buf,
+>  				   (IFA_F_TENTATIVE|IFA_F_OPTIMISTIC)))
+>  			return;
+>  		saddr =3D &addr_buf;
+>=20
+>=20
+> Thanks,
+>=20
+>   Hannes
+>=20
+>
