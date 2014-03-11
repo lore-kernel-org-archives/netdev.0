@@ -1,185 +1,65 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [PATCH net-next v2 9/9] Altera TSE: Add main and header file
- for Altera Ethernet Driver
-Date: Tue, 11 Mar 2014 09:44:32 +0000
-Message-ID: <20140311094432.GB31679@e106331-lin.cambridge.arm.com>
-References: <1394493277-2105-1-git-send-email-vbridgers2013@gmail.com>
- <1394493277-2105-10-git-send-email-vbridgers2013@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v8 net-next 1/3] filter: add Extended BPF interpreter
+ and converter
+Date: Tue, 11 Mar 2014 09:51:32 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6DA53F@AcuExch.aculab.com>
+References: <1394431444-6987-2-git-send-email-ast@plumgrid.com>
+	<20140310.215104.2095195123238829635.davem@davemloft.net>
+	<CA+55aFx7rdm9DGOTTgAKTHNkdfrvQYhT9PRs5MhUPr1gQzWEgA@mail.gmail.com>
+ <20140310.222449.561233409099006984.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	Pawel Moll <Pawel.Moll@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	"galak@codeaurora.org" <galak@codeaurora.org>,
-	"rob@landley.net" <rob@landley.net>
-To: Vince Bridgers <vbridgers2013@gmail.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1394493277-2105-10-git-send-email-vbridgers2013@gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "ast@plumgrid.com" <ast@plumgrid.com>,
+	"dborkman@redhat.com" <dborkman@redhat.com>,
+	"mingo@kernel.org" <mingo@kernel.org>,
+	"wad@chromium.org" <wad@chromium.org>,
+	"rostedt@goodmis.org" <rostedt@goodmis.org>,
+	"a.p.zijlstra@chello.nl" <a.p.zijlstra@chello.nl>,
+	"hpa@zytor.com" <hpa@zytor.com>, "hagen@jauu.net" <hagen@jauu.net>,
+	"jesse@nicira.com" <jesse@nicira.com>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"fweisbec@gmail.com" <fweisbec@gmail.com>,
+	"acme@infradead.org" <acme@infradead.org>,
+	"penberg@iki.fi" <penberg@iki.fi>,
+	"arjan@infradead.org" <arjan@infradead.org>,
+	"hch@infradead.org" <hch@infradead.org>,
+	"xemul@parallels.com" <xemul@parallels.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'David Miller' <davem@davemloft.net>,
+	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140310.222449.561233409099006984.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 10, 2014 at 11:14:37PM +0000, Vince Bridgers wrote:
-> This patch adds the main driver and header file for the Altera Triple
-> Speed Ethernet driver.
+From: David Miller
+> From: Linus Torvalds <torvalds@linux-foundation.org>
+> Date: Mon, 10 Mar 2014 19:02:18 -0700
 > 
-> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
-> ---
-> V2: - Address all comments from initial RFC (thanks Florian!)
->     - Moved asm/cacheflush.h to bottom of header includes
->     - Remove barriers since DMA APIs ensure memory consistency
->     - Add max-frame-size property
->     - Use accessor function of_get_phy_mode instead of custom function
->     - Remove custom function to access devicetree, use of APIs
->     - Deprecate use of Altera devicetree properties where standard
->       ones exist
->     - Remove use of netif_carrier_off - not necessary where it was used
->     - Move probing of phy to the probe routine instead of open
->     - use ether_addr_copy instead of memcpy
-> ---
->  drivers/net/ethernet/altera/altera_tse.h      |  486 ++++++++
->  drivers/net/ethernet/altera/altera_tse_main.c | 1546 +++++++++++++++++++++++++
->  2 files changed, 2032 insertions(+)
->  create mode 100644 drivers/net/ethernet/altera/altera_tse.h
->  create mode 100644 drivers/net/ethernet/altera/altera_tse_main.c
+> > I would generally suggest that people only use "bool" for function
+> > return types, and absolutely nothing else. Seriously.
+> 
+> I think it makes sense for function arguments too.
 
-[...]
+'bool' doesn't necessarily even make sense for function arguments
+and results.
+It might require the same additional masking of high bits that
+are required for 'short' and 'char' parameters.
 
-> +static int altera_tse_mdio_create(struct net_device *dev, unsigned int id)
-> +{
-> +       struct altera_tse_private *priv = netdev_priv(dev);
-> +       int ret;
-> +       int i;
-> +       struct device_node *mdio_node;
-> +       struct mii_bus *mdio;
-> +
-> +       mdio_node = of_find_compatible_node(priv->device->of_node, NULL,
-> +               "altr,tse-mdio");
+Also, IIRC, one of the arm ABIs used 32bit 'bool'.
 
-This doesn't find a subnode, as the binding requires. This finds _any_
-compatible node in the tree.
+Even the extra code that gets added to ensure that the 'bool'
+values are either 0 or 1 can be a problem.
+I don't know whether the recent compilers (or standards) say
+whether the reader or writer is expected to enforce the domain.
+But if the compiler uses a bit-wise AND for bool_a & bool_b there
+is definitely scope for unexpected behaviour, and if the compiler
+does anything else you get unwanted instructions and possibly branches.
+Some old versions of gcc made a 'pigs breakfast' of bool_a |= bool_b.
 
-There doesn't seem to be an of_find_compatible_child_node, but you can
-use for_each_child_of_node and of_device_is_compatible to achieve the
-same effect.
-
-[...]
-
-> +static struct phy_device *connect_local_phy(struct net_device *dev)
-> +{
-> +       struct altera_tse_private *priv = netdev_priv(dev);
-> +       struct phy_device *phydev = NULL;
-> +       char phy_id_fmt[MII_BUS_ID_SIZE + 3];
-> +       int ret;
-> +
-> +       if (priv->phy_addr != POLL_PHY) {
-> +               snprintf(phy_id_fmt, MII_BUS_ID_SIZE + 3, PHY_ID_FMT,
-> +                        priv->mdio->id, priv->phy_addr);
-> +
-> +               dev_dbg(priv->device, "trying to attach to %s\n", phy_id_fmt);
-> +
-> +               phydev = phy_connect(dev, phy_id_fmt, &altera_tse_adjust_link,
-> +                                    priv->phy_iface);
-> +               if (IS_ERR(phydev))
-> +                       netdev_err(dev, "Could not attach to PHY\n");
-> +
-> +       } else {
-> +               phydev = phy_find_first(priv->mdio);
-> +               if (phydev == NULL) {
-> +                       netdev_err(dev, "No PHY found\n");
-> +                       return phydev;
-> +               }
-> +
-> +               ret = phy_connect_direct(dev, phydev, &altera_tse_adjust_link,
-> +                               priv->phy_iface);
-> +               if (ret != 0) {
-> +                       netdev_err(dev, "Could not attach to PHY\n");
-> +                       phydev = NULL;
-> +               }
-> +       }
-> +       return phydev;
-> +}
-> +
-> +/* Initialize driver's PHY state, and attach to the PHY
-> + */
-> +static int init_phy(struct net_device *dev)
-> +{
-> +       struct altera_tse_private *priv = netdev_priv(dev);
-> +       struct phy_device *phydev;
-> +       struct device_node *phynode;
-> +
-> +       priv->oldlink = 0;
-> +       priv->oldspeed = 0;
-> +       priv->oldduplex = -1;
-> +
-> +       phynode = of_parse_phandle(priv->device->of_node, "phy-handle", 0);
-> +
-> +       if (!phynode) {
-> +               netdev_dbg(dev, "no phy-handle found\n");
-> +               if (!priv->mdio) {
-> +                       netdev_err(dev,
-> +                                  "No phy-handle nor local mdio specified\n");
-> +                       return -ENODEV;
-> +               }
-> +               phydev = connect_local_phy(dev);
-> +       } else {
-> +               netdev_dbg(dev, "phy-handle found\n");
-> +               phydev = of_phy_connect(dev, phynode,
-> +                       &altera_tse_adjust_link, 0, priv->phy_iface);
-> +       }
-
-Be aware that of_phy_connect can return NULL (e.g. if the phy-handle
-phandle pointed to a node that wasn't a phy). You'll want to check it's
-not NULL before dereferencing it below.
-
-The same seems to be true of connect_local_phy, so the check can be
-shared.
-
-[...]
-
-> +       /* get hash filter settings for this instance */
-> +       if (of_property_read_u32(pdev->dev.of_node, "altr,enable-hash",
-> +                                &priv->hash_filter)) {
-> +               dev_err(&pdev->dev, "cannot obtain altr,enable-hash\n");
-> +               priv->hash_filter = 0;
-> +       }
-> +
-> +       /* get supplemental address settings for this instance */
-> +       if (of_property_read_u32(pdev->dev.of_node, "altr,enable-sup-addr",
-> +                                &priv->added_unicast)) {
-> +               dev_err(&pdev->dev, "cannot obtain altr,enable-sup-addr\n");
-> +               priv->added_unicast = 0;
-> +       }
-
-Please change these to boolean/empty properties and use
-of_property_read_bool.
-
-> +
-> +       /* Max MTU is 1500, ETH_DATA_LEN */
-> +       priv->max_mtu = ETH_DATA_LEN;
-> +
-> +       /* Get the max mtu from the device tree. Note that the
-> +        * "max-frame-size" parameter is actually max mtu. Definition
-> +        * in the ePAPR v1.1 spec and usage differ, so go with usage.
-> +        */
-> +       of_property_read_u32(pdev->dev.of_node, "max-frame-size",
-> +                            &priv->max_mtu);
-> +
-> +       /* The DMA buffer size already accounts for an alignment bias
-> +        * to avoid unaligned access exceptions for the NIOS processor,
-> +        */
-> +       priv->rx_dma_buf_sz = ALTERA_RXDMABUFFER_SIZE;
-> +
-> +       /* get default MAC address from device tree */
-> +       macaddr = of_get_property(pdev->dev.of_node, "local-mac-address", &len);
-> +       if (macaddr && len == ETH_ALEN)
-> +               ether_addr_copy(ndev->dev_addr, macaddr);
-
-Any reason we couldn't use of_get_mac_address here? It also checks that
-the address is valid.
-
-Cheers,
-Mark.
+	David
