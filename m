@@ -1,41 +1,42 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: ip6_append_data_mtu do not handle the mtu of the second fragment properly
-Date: Tue, 11 Mar 2014 15:49:06 +0100
-Message-ID: <20140311144906.GA29404@order.stressinduktion.org>
-References: <1394512309-8823-1-git-send-email-lucien.xin@gmail.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH net-next 0/7] mlx4: Add SRIOV support for RoCE
+Date: Tue, 11 Mar 2014 09:55:42 -0500
+Message-ID: <1394549742.2377.2.camel@dcbw.local>
+References: <1394376844-12812-1-git-send-email-ogerlitz@mellanox.com>
+	 <1394474882.28217.6.camel@dcbw.local> <531E0D04.1040404@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: network dev <netdev@vger.kernel.org>,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, roland@kernel.org,
+	jackm@dev.mellanox.co.il, amirv@mellanox.com
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:56672 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753217AbaCKOtH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 10:49:07 -0400
-Content-Disposition: inline
-In-Reply-To: <1394512309-8823-1-git-send-email-lucien.xin@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:9526 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751575AbaCKOxw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Mar 2014 10:53:52 -0400
+In-Reply-To: <531E0D04.1040404@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 11, 2014 at 12:31:49PM +0800, Xin Long wrote:
-> -			*mtu = min(*mtu, pmtuprobe ?
-> -				   rt->dst.dev->mtu :
-> -				   dst_mtu(rt->dst.path));
-> +			*mtu = pmtuprobe ? rt->dst.dev->mtu :
-> +				   dst_mtu(rt->dst.path);
+On Mon, 2014-03-10 at 21:05 +0200, Or Gerlitz wrote:
+> On 10/03/2014 20:08, Dan Williams wrote:
+> >
+> > While I could be wrong, I think the phys_port_id sysfs attribute is
+> > relevant here.  This attribute should be set for any VF so that
+> > userspace clients can determine that two VFs are backed by the same PF,
+> > which of course means they share bandwidth and thus some operations
+> > cannot be performed.  This is implemented with ndo_get_phys_port_id.
+> >
+> Indeed, and this is supported for mlx4 through the sequence of these 
+> commits\\
+> 
+> 84c8640 net/mlx4_en: Implement ndo_get_phys_port_id
+> 8e1a28e net/mlx4_core: Expose physical port id as PF/VF capability
+> eb17711 net/mlx4_core: Introduce nic_info new flag in QUERY_FUNC_CAP
+> 73e74ab net/mlx4_core: Rename QUERY_FUNC_CAP fields
+> 7b25d81 net/mlx4_core: Remove zeroed out of explicit QUERY_FUNC_CAP fields
 
-Sorry, that is not correct:
+Ah!  My mistake, I didn't see that.  Carry on :)
 
-The min() protects the mtu going over np->frag_size (if set). In case we
-remove the min we would fallback to dev->mtu or dst_mtu and thus this could
-lead to a situation where the first fragment respects frag_size but second
-not. This confuses ip6_append_data and would lead to a crash.
-
-I am thinking about changing this to
-
-min(*mtu + rt->dst.header_len, pmtuprobe ? rt->dst.dev->mtu : dst_mtu(rt->dst.path))
-
-or we pass the np directly and test for frag_size again.
-
-Good catch which should be fixed. Thanks!
+Dan
