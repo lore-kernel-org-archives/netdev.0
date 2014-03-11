@@ -1,78 +1,75 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH] net: phy: fix uninitalized WOL parameters in phy_ethtool_get_wol
-Date: Tue, 11 Mar 2014 09:40:26 +0100
-Message-ID: <531ECBFA.5010300@gmail.com>
-References: <1394413270-7169-1-git-send-email-sebastian.hesselbarth@gmail.com> <1394419893.15968.88.camel@deadeye.wl.decadent.org.uk> <531D98D1.4000707@gmail.com> <1394493477.23624.21.camel@deadeye.wl.decadent.org.uk>
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394493477.23624.21.camel@deadeye.wl.decadent.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [RFC PATCH 0/2] remove netpoll rx support
+Date: Tue, 11 Mar 2014 01:43:10 -0700
+Message-ID: <87a9cxf7mp.fsf_-_@xmission.com>
+References: <871ty9qvaf.fsf_-_@xmission.com> <87vbvlpgnk.fsf_-_@xmission.com>
+	<1394509467.21721.2.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140311.004217.1616529960369263682.davem@davemloft.net>
+	<1394514158.21721.7.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out03.mta.xmission.com ([166.70.13.233]:44166 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752787AbaCKInR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 04:43:17 -0400
+In-Reply-To: <1394514158.21721.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	(Eric Dumazet's message of "Mon, 10 Mar 2014 22:02:38 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/11/2014 12:17 AM, Ben Hutchings wrote:
-> On Mon, 2014-03-10 at 10:49 +0000, Sebastian Hesselbarth wrote:
->> On 03/10/2014 02:51 AM, Ben Hutchings wrote:
->>> On Mon, 2014-03-10 at 02:01 +0100, Sebastian Hesselbarth wrote:
->>>> phy_ethtool_get_wol is a helper to get current WOL settings from
->>>> a phy device. When using this helper on a PHY without .get_wol
->>>> callback, struct ethtool_wolinfo is never set-up correctly and
->>>> may contain misleading information about WOL status.
->>>>
->>>> To fix this, always zero relevant fields of struct ethtool_wolinfo
->>>> regardless of .get_wol callback availability.
->>>
->>> I think it's the caller's responsibility to zero out struct
->>> ethtool_wolinfo.  That is what ethtool_get_wol() does.
->>
->> Actually, phy_ethtool_get_wol is the caller here. This belongs to
->> a set of helpers that deal with phy_device, not netdev.
+Eric Dumazet <eric.dumazet@gmail.com> writes:
+
+> On Tue, 2014-03-11 at 00:42 -0400, David Miller wrote:
 >
-> Right, but ethtool_get_wol() is further up the stack and is responsible
-> for initialising the struct to defaults.
-
-Ok, currently we have 3 users of phy_ethtool_get_wol():
-- mv643xx_eth and cpsw use that in their .get_wol callback that is
-   called on ethtool_get_wol().
-- phy_suspend to determine if it is safe to suspend a PHY
-
-With phy_suspend, I could use a kernel-compatible __ethtool_get_wol()
-but that requires to have an .attached_dev as __ethtool_get_wol()
-takes netdev. This would limit phy_suspend to attached PHYs while
-even non-attached PHYs should be suspended.
-
-OTOH, if we don't want phy_ethtool_get_wol to clear out ethtool_wol and
-no dependency on .attached_dev, phy_suspend is the only place to
-properly initialize ethtool_wol on this level.
-
->>> Maybe you could split ethtool_get_wol() like we did
->>> ethtool_get_settings(), to support in-kernel invocation of ETHTOOL_GWOL?
->>
->> Looking at the other users of phy_ethtool_get_wol (mv643xx_eth and
->> cpsw), both drivers use this helper to determine what to pass back
->> on the corresponding ethtool_get_wol call.
->>
->> BTW, both drivers above do zero ethtool_wolinfo before calling
->> phy_ethtool_get_wol. I can either zero it in phy_suspend too or we
->> deal with it properly in phy_ethtool_get_wol instead:
->>
->> void phy_ethtool_get_wol(struct phy_device *phydev, struct
->> ethtool_wolinfo *wol)
->> {
->> 	memset(wol, 0, sizeof(*wol));
->>
->> 	if (phydev && phydev->drv->get_wol)
->> 		phydev->drv->get_wol(phydev, wol);
->> }
-> [...]
+>> These changes eminate from a recent discussion about netpoll, which can
+>> call into the driver from hardware interrupts, particularly when netconsole
+>> services a printk from hardware interrupt context.
+>> 
+>> bnx2x already makes similar ammends.
+>> 
+>> I hope that Eric B. here audited to make sure he's only doing this
+>> transformation in situations that actually need this treatment for
+>> the above mentioned issue.
 >
-> This trashes wol->cmd.  Don't do that.
+> I totally understand the TX path, not the RX.
+>
+> It seems netpoll should not drain rx queues.
 
-You are right on this one, I'll missed it and will fix it up.
+It does seem desirable that netpoll should not drain the rx queues.
+Unfortunately that is not how netpoll is built.  By my quick count
+there are 132 drivers in the kernel that support netpoll.
 
-Sebastian
+Several of them such as the e1000e driver already call dev_kfree_skb_any
+or dev_kfree_skb_irq in their rx paths.  What I am implementing seems to
+be the pattern that the better drivers follow today.
+
+Furthermore netpoll by it's design depends on the ability to receive
+packets in netpoll_poll_dev.  It is a capability I don't think we have
+ever used in the mainline kernel but it is a capability that is there
+deliberately.  Which means if we want netpoll to not mess with the rx
+path we need to change netpoll.
+
+
+If we are willing to change the definition of netpoll this is fixable.
+
+The big enabler is the fact that calling the napi poll function with a
+budget of 0 means don't perform any rx work.
+
+Which leads to the following set of changes to netpoll if we are brave.
+
+Eric W. Biederman (2):
+      netpoll:  Remove dead netpoll_rx code
+      netpoll: Don't poll for received packets
+
+ drivers/net/Kconfig       |    5 -
+ include/linux/netdevice.h |   17 --
+ include/linux/netpoll.h   |   59 ------
+ net/core/dev.c            |   11 +-
+ net/core/netpoll.c        |  499 +--------------------------------------------
+ 5 files changed, 10 insertions(+), 581 deletions(-)
+
+Eric
