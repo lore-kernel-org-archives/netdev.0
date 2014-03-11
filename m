@@ -1,37 +1,92 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH 0/2] remove netpoll rx support
-Date: Tue, 11 Mar 2014 12:49:07 -0400 (EDT)
-Message-ID: <20140311.124907.1180556684992271103.davem@davemloft.net>
-References: <20140311.004217.1616529960369263682.davem@davemloft.net>
-	<1394514158.21721.7.camel@edumazet-glaptop2.roam.corp.google.com>
-	<87a9cxf7mp.fsf_-_@xmission.com>
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: Re: [PATCH net-next 1/5] vxlan: Make VXLAN default UDP port number
+ available for others
+Date: Tue, 11 Mar 2014 10:28:45 -0700 (PDT)
+Message-ID: <alpine.LFD.2.03.1403111013570.16490@intel.com>
+References: <1394470142-13992-1-git-send-email-shahed.shaikh@qlogic.com> <1394470142-13992-2-git-send-email-shahed.shaikh@qlogic.com> <CAJZOPZ+MFe2ev372L07uVvXs_wYnqAiZ3VMG4YteD2XmPWHoSQ@mail.gmail.com> <262CB373A6D1F14F9B81E82F74F77D5A46F797EE@avmb2.qlogic.org>
+ <CAJZOPZKBdZPuEe5uKLb3sw92q3Qko4RS-90uVAQK=+pFXVAfSA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
-To: ebiederm@xmission.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56698 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752669AbaCKQtJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 12:49:09 -0400
-In-Reply-To: <87a9cxf7mp.fsf_-_@xmission.com>
+Received: from mga02.intel.com ([134.134.136.20]:36561 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753415AbaCKRMk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Mar 2014 13:12:40 -0400
+In-Reply-To: <CAJZOPZKBdZPuEe5uKLb3sw92q3Qko4RS-90uVAQK=+pFXVAfSA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Tue, 11 Mar 2014 01:43:10 -0700
 
-> Furthermore netpoll by it's design depends on the ability to receive
-> packets in netpoll_poll_dev.  It is a capability I don't think we have
-> ever used in the mainline kernel but it is a capability that is there
-> deliberately.  Which means if we want netpoll to not mess with the rx
-> path we need to change netpoll.
 
-This breaks kdump, and any other users of netpoll_rx() et al.
+On Mon, 10 Mar 2014, Or Gerlitz wrote:
 
-Make the zero budget depend upon us being invoked from hardware
-irq context, or something like that.
+> On Tue, Mar 11, 2014 at 7:41 AM, Shahed Shaikh <shahed.shaikh@qlogic.com> wrote:
+> >> -----Original Message-----
+> >> From: Or Gerlitz [mailto:or.gerlitz@gmail.com]
+> >> Sent: Tuesday, March 11, 2014 1:28 AM
+> >> To: Shahed Shaikh
+> >> Cc: David Miller; netdev; Dept-HSG Linux NIC Dev
+> >> Subject: Re: [PATCH net-next 1/5] vxlan: Make VXLAN default UDP port
+> >> number available for others
+> >>
+> >> On Mon, Mar 10, 2014 at 6:48 PM, Shahed Shaikh
+> >> <shahed.shaikh@qlogic.com> wrote:
+> >> > From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+> >> >
+> >> > Although vxlan module has capability to notify udp ports to other
+> >> > interested net devices using .ndo_add_rx_vxlan_port and
+> >> > .ndo_del_rx_vxlan_port, there could be some devices which support
+> >> > vxlan offload but not interested in updating udp port numbers.
+> >> > This may be because some hardware do not support programming multiple
+> >> > udp ports and their drivers may decide to program only default udp
+> >> > port into adapter. So that adapter, at least, can do offloading for
+> >> > default udp port number.
+> >>
+> >> Indeed, but the default port number can be unused while another port is
+> >> used. The ndo will be invoked only behalf of an actual instancing of udp port
+> >> for listener socket (== destination port you want the hw to indentify), what's
+> >> wrong with support this ndo also for devices that supported limited (say
+> >> one) such port?
+> >
+> >
+> >  If driver implements .ndo for udp port and user creates multiple vxlan device with different
+> > udp ports, it may end up programming the udp port which may not go through the adapter
+> > and no offload will happen. OTOH, if drive does not implement .ndo and if user is aware that driver
+> >  is capable of offloading for default port, he can at least crate vxlan device on top of qlcnic interface
+> >  with default udp port. So, there is no chance for other udp port numbers to replace default udp port and disturb offloading.
+> 
+> I see your point, but doesn't this suggests we need to somehow enhance
+>  the current framework to
+> let drivers know which vxlan traffic is expected to be received over
+> them according to the current routing rules?
+> I understand this is a bit tricky because  vxlan and routing  are l3
+> constructs while drivers deal with l2, John/Joseph -
+> what's your thinking here?
+>
 
-Thanks.
+For the sake of simplicity: if you have say two VXLANs listening on two 
+different UDP ports, and a single port NIC that can only offload traffic 
+from one UDP port, how would you know which VXLAN is more useful to 
+offload? There might be traffic from the one port (and in this case it 
+might be the default one or not) or you might have traffic from both.
+The fact is that you have a hw limitation, and you need something 
+to help you predict what which VXLAN you are going to have traffic from 
+which is not trivial at all.
+Therefore even having a way to use the routing tables wouldn't help I 
+think.
+
+In other words, IMHO the best option for running a NIC that can offload X 
+UDP ports, is to use up to X UDP ports. Anything else, requres guessing that 
+might not be accurate and hence can make things worse instead of better.
+
+ 
+> 
+> > Like Stephen suggested, exporting udp port variable of vxlan driver will be more suitable approach.
+> 
