@@ -1,41 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] tipc: simplifications in socket and port
- layer
-Date: Wed, 12 Mar 2014 15:54:37 -0400 (EDT)
-Message-ID: <20140312.155437.928020616843113075.davem@davemloft.net>
-References: <1394638273-6127-1-git-send-email-jon.maloy@ericsson.com>
+From: Heiner Kallweit <heiner.kallweit@web.de>
+Subject: [PATCH] ipv6: Avoid unnecessary temporary addresses being generated
+Date: Wed, 12 Mar 2014 20:53:48 +0100
+Message-ID: <5320BB4C.9060400@web.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40932 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751101AbaCLTyj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 15:54:39 -0400
-In-Reply-To: <1394638273-6127-1-git-send-email-jon.maloy@ericsson.com>
+Received: from mout.web.de ([212.227.15.3]:53060 "EHLO mout.web.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751101AbaCLTy5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Mar 2014 15:54:57 -0400
+Received: from [192.168.178.101] ([84.153.195.113]) by smtp.web.de (mrweb103)
+ with ESMTPSA (Nemesis) id 0MVcZf-1Wf9wd1OD1-00Z3Hc for
+ <netdev@vger.kernel.org>; Wed, 12 Mar 2014 20:54:56 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Wed, 12 Mar 2014 11:31:06 -0400
+tmp_prefered_lft is an offset to ifp->tstamp, not now. Therefore
+age needs to be added to the condition.
 
-> After the removal of the tipc native API the relation between
-> tipc_port and its API types is strictly one-to-one, i.e, the latter
-> can now only be a socket API. This change opens up for
-> simplifications both in the code, data and locking structure. 
-> 
-> We start with this series, where we ensure that port and socket
-> structures are co-allocated. Note that the first commit in the
-> series is unrelated to the above.
+Age calculation in ipv6_create_tempaddr is different from the one
+in addrconf_verify and doesn't consider ADDRCONF_TIMER_FUZZ_MINUS.
+This can cause age in ipv6_create_tempaddr to be less than the one
+in addrconf_verify and therefore unnecessary temporary address to
+be generated.
+Use age calculation as in addrconf_modify to avoid this.
 
-Series applied, thanks Jon.
+Signed-off-by: Heiner Kallweit <heiner.kallweit@web.de>
+---
+ net/ipv6/addrconf.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-I noticed one or two places where two empty lines were created between
-functions, please only use one empty line to seperate functions in
-the future.
-
-Thanks.
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index fdbfeca..bd64dbe 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1103,8 +1103,11 @@ retry:
+ 	 * Lifetime is greater than REGEN_ADVANCE time units.  In particular,
+ 	 * an implementation must not create a temporary address with a zero
+ 	 * Preferred Lifetime.
++	 * Use age calculation as in addrconf_verify to avoid unnecessary
++	 * temporary addresses being generated.
+ 	 */
+-	if (tmp_prefered_lft <= regen_advance) {
++	age = (now - ifp->tstamp + ADDRCONF_TIMER_FUZZ_MINUS) / HZ;
++	if (tmp_prefered_lft <= regen_advance + age) {
+ 		in6_ifa_put(ifp);
+ 		in6_dev_put(idev);
+ 		ret = -1;
+-- 
+1.7.10.4
