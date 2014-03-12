@@ -1,70 +1,53 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2a RESEND 2/2] of_mdio: Allow the DT to specify the phy
- ID and avoid autoprobing
-Date: Thu, 13 Mar 2014 01:46:18 +0300
-Message-ID: <5320E3BA.5070309@cogentembedded.com>
-References: <1394658311-17769-1-git-send-email-jgunthorpe@obsidianresearch.com> <1394658311-17769-2-git-send-email-jgunthorpe@obsidianresearch.com>
+From: Carol Soto <clsoto-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [Patch 1/2] IB/mlx5: Implementation of PCI error handler
+Date: Wed, 12 Mar 2014 17:00:37 -0500
+Message-ID: <5320D905.4060509@linux.vnet.ibm.com>
+References: <20140312034219.637916521@linux.vnet.ibm.com> <20140312034512.065218504@linux.vnet.ibm.com> <1394649252.23624.36.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-	Rob Herring <robh+dt@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394658311-17769-2-git-send-email-jgunthorpe@obsidianresearch.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brking-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+To: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394649252.23624.36.camel-nDn/Rdv9kqW9Jme8/bJn5UCKIB8iOfG2tUK59QYPAWc@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
 
-On 03/13/2014 12:05 AM, Jason Gunthorpe wrote:
-
-> This makes the generic of_mdiobus_register parse the DT compatible string for
-> the pattern ethernet-phy-idAAAA.BBBB. If present it should be a value that
-> matches the phy-id register normally readable through MDIO.
-
-> When the ID is given the phy autoprobing is defeated and the phy is
-> created directly.
-
-> This is necessary to support phy's that cannot be autoprobed when
-> of_mdiobus_register is called. Specifically, my case has the phy in reset at
-> of_mdiobus_register, the reset is only released once the ethernet driver
-> starts, before it attaches to the phy.
-
-> Tested on ARM Kirkwood with phy id 0x01410e90 (Marvell 88E1318)
-
-> Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->   drivers/of/of_mdio.c | 30 +++++++++++++++++++++++++++++-
->   1 file changed, 29 insertions(+), 1 deletion(-)
-
-> There was some reworking of the original code in v3.14-rc6, this resolves the
-> merge conflicts and I retested the resolved patch on Kirkwood.
-
-> Florian, do you know what path to mainline a this patch should take?
-
-> Thanks,
-> Jason
-
-> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-> index 5b3c24f..6cdcbda 100644
-> --- a/drivers/of/of_mdio.c
-> +++ b/drivers/of/of_mdio.c
-> @@ -43,6 +43,30 @@ static void of_set_phy_supported(struct phy_device *phydev, u32 max_speed)
->   	}
->   }
+On 3/12/2014 1:34 PM, Ben Hutchings wrote:
+> On Tue, 2014-03-11 at 22:42 -0500, clsoto-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org wrote:
+> [...]
+>> Index: b/include/linux/mlx5/driver.h
+>> ===================================================================
+>> --- a/include/linux/mlx5/driver.h
+>> +++ b/include/linux/mlx5/driver.h
+>> @@ -51,10 +51,10 @@ enum {
+>>   };
+>>   
+>>   enum {
+>> -       /* one minute for the sake of bringup. Generally, commands must always
+>> +       /* 10 msecs for the sake of bringup. Generally, commands must always
+>>           * complete and we may need to increase this timeout value
+>>           */
+>> -       MLX5_CMD_TIMEOUT_MSEC   = 7200 * 1000,
+>> +       MLX5_CMD_TIMEOUT_MSEC   = 10 * 1000,
+> You seem to be changing the timeout from 2 hours (not one minute) to 10
+> seconds (not milliseconds).
 >
-> +/* Extract the clause 22 phy ID from the compatible string of the form
-> + * ethernet-phy-idAAAA.BBBB */
+> Ben.
+Yes you are right the comment should say 10 seconds instead of 10 msecs.
 
-    The preferred multi-line comment style is:
+Carol
+>
+>>          MLX5_CMD_WQ_MAX_NAME    = 32,
+>>   };
+>>   
+>>
 
-/*
-  * bla
-  * bla
-  */
 
-WBR, Sergei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
