@@ -1,39 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] flowcache: Fix resource leaks on namespace
- exit.
-Date: Wed, 12 Mar 2014 15:31:33 -0400 (EDT)
-Message-ID: <20140312.153133.1311495376693560386.davem@davemloft.net>
-References: <20140311153029.1de9d6e9@north>
-	<20140312083827.GE32371@secunet.com>
-	<20140312084317.GF32371@secunet.com>
+From: Heiner Kallweit <heiner.kallweit@web.de>
+Subject: [PATCH] Avoid unnecessary temporary addresses being generated
+Date: Wed, 12 Mar 2014 20:41:15 +0100
+Message-ID: <5320B85B.4000100@web.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: moorray3@wp.pl, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	fan.du@windriver.com
-To: steffen.klassert@secunet.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40558 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751101AbaCLTbe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 15:31:34 -0400
-In-Reply-To: <20140312084317.GF32371@secunet.com>
+Received: from mout.web.de ([212.227.15.14]:50504 "EHLO mout.web.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750882AbaCLTlg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Mar 2014 15:41:36 -0400
+Received: from [192.168.178.101] ([84.153.195.113]) by smtp.web.de (mrweb101)
+ with ESMTPSA (Nemesis) id 0LetYx-1WwYTo1d4p-00qggM for
+ <netdev@vger.kernel.org>; Wed, 12 Mar 2014 20:41:35 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Wed, 12 Mar 2014 09:43:17 +0100
+tmp_prefered_lft is an offset to ifp->tstamp, not now. Therefore
+age needs to be added to the condition.
 
-> We leak an active timer, the hotcpu notifier and all allocated
-> resources when we exit a namespace. Fix this by introducing a
-> flow_cache_fini() function where we release the resources before
-> we exit.
-> 
-> Fixes: ca925cf1534e ("flowcache: Make flow cache name space aware")
-> Reported-by: Jakub Kicinski <moorray3@wp.pl>
-> Tested-by: Jakub Kicinski <moorray3@wp.pl>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Fan Du <fan.du@windriver.com>
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Age calculation in ipv6_create_tempaddr is different from the one
+in addrconf_verify and doesn't consider ADDRCONF_TIMER_FUZZ_MINUS.
+This can cause age in ipv6_create_tempaddr to be less than the one
+in addrconf_verify and therefore unnecessary temporary address to
+be generated.
+Use age calculation as in addrconf_modify to avoid this.
 
-Applied, thanks everyone.
+Signed-off-by: Heiner Kallweit <heiner.kallweit@web.de>
+---
+ net/ipv6/addrconf.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index fdbfeca..bd64dbe 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1103,8 +1103,11 @@ retry:
+ 	 * Lifetime is greater than REGEN_ADVANCE time units.  In particular,
+ 	 * an implementation must not create a temporary address with a zero
+ 	 * Preferred Lifetime.
++	 * Use age calculation as in addrconf_verify to avoid unnecessary
++	 * temporary addresses being generated.
+ 	 */
+-	if (tmp_prefered_lft <= regen_advance) {
++	age = (now - ifp->tstamp + ADDRCONF_TIMER_FUZZ_MINUS) / HZ;
++	if (tmp_prefered_lft <= regen_advance + age) {
+ 		in6_ifa_put(ifp);
+ 		in6_dev_put(idev);
+ 		ret = -1;
+-- 
+1.7.10.4
