@@ -1,53 +1,67 @@
-From: Heiner Kallweit <heiner.kallweit@web.de>
-Subject: [PATCH] ipv6: Avoid unnecessary temporary addresses being generated
-Date: Wed, 12 Mar 2014 20:53:48 +0100
-Message-ID: <5320BB4C.9060400@web.de>
+From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Subject: RE: [PATCHv6 net-next 00/31] Misc. fixes for cxgb4 and iw_cxgb4
+Date: Wed, 12 Mar 2014 14:57:49 -0500
+Message-ID: <008601cf3e2d$583b5e90$08b21bb0$@opengridcomputing.com>
+References: <1394639446-6504-1-git-send-email-hariprasad@chelsio.com> <20140312.155125.1045693666130935765.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.15.3]:53060 "EHLO mout.web.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751101AbaCLTy5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Mar 2014 15:54:57 -0400
-Received: from [192.168.178.101] ([84.153.195.113]) by smtp.web.de (mrweb103)
- with ESMTPSA (Nemesis) id 0MVcZf-1Wf9wd1OD1-00Z3Hc for
- <netdev@vger.kernel.org>; Wed, 12 Mar 2014 20:54:56 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>, <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+	<santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+	<nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: "'David Miller'" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140312.155125.1045693666130935765.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Language: en-us
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-tmp_prefered_lft is an offset to ifp->tstamp, not now. Therefore
-age needs to be added to the condition.
 
-Age calculation in ipv6_create_tempaddr is different from the one
-in addrconf_verify and doesn't consider ADDRCONF_TIMER_FUZZ_MINUS.
-This can cause age in ipv6_create_tempaddr to be less than the one
-in addrconf_verify and therefore unnecessary temporary address to
-be generated.
-Use age calculation as in addrconf_modify to avoid this.
 
-Signed-off-by: Heiner Kallweit <heiner.kallweit@web.de>
----
- net/ipv6/addrconf.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+> -----Original Message-----
+> From: David Miller [mailto:davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org]
+> Sent: Wednesday, March 12, 2014 2:51 PM
+> To: hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org;
+> dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org; swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org; leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org;
+> santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org; kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org; nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+> Subject: Re: [PATCHv6 net-next 00/31] Misc. fixes for cxgb4 and iw_cxgb4
+> 
+> From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+> Date: Wed, 12 Mar 2014 21:20:15 +0530
+> 
+> > V6:
+> >    In patch 8/31, move the existing neigh_release() call right before the
+> >    if(!e) test, that way you don't need a completely new label and code block
+> >    to fix this bug - thanks to review by David Miller
+> >    In patch 15/31, use %pad to print dma_addr - thanks to review by Joe Perches
+> >    In patch 10/31, add the "STOPPED" state string to db_state_str - thanks
+> >    to review by Steve Wise
+> >    In patch 10/31, t4_db_dropped() needs to disable dbs and send DB_FULL
+> >    event to iw_cxgb4 - thanks to review by Steve Wise
+> > V5:
+> >    Dropped patch "cxgb4: use spinlock_irqsave/spinlock_irqrestore for db lock".
+> 
+> I do not see the spinlock patch reinstated, part of it was correct and
+> fixed a real bug.  For the second time, I only stated that parts of it
+> were superfluous, not all of it.
+> 
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index fdbfeca..bd64dbe 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1103,8 +1103,11 @@ retry:
- 	 * Lifetime is greater than REGEN_ADVANCE time units.  In particular,
- 	 * an implementation must not create a temporary address with a zero
- 	 * Preferred Lifetime.
-+	 * Use age calculation as in addrconf_verify to avoid unnecessary
-+	 * temporary addresses being generated.
- 	 */
--	if (tmp_prefered_lft <= regen_advance) {
-+	age = (now - ifp->tstamp + ADDRCONF_TIMER_FUZZ_MINUS) / HZ;
-+	if (tmp_prefered_lft <= regen_advance + age) {
- 		in6_ifa_put(ifp);
- 		in6_dev_put(idev);
- 		ret = -1;
--- 
-1.7.10.4
+Ok we can reinstate this patch and remove the bits from 10/31 if that's what you prefer.
+
+Steve.
+
+BTW: From my earlier reply explaining that we didn't drop the needed fixes:
+
+The remaining changes from the removed patch are moved into patch 10/31
+(Doorbell Drop Avoidance Bug Fixes).  10/31 has the driver call
+disable_txq_db() from an interrupt handler, and I thought it would be
+better to put all the changes to fix how the db lock is acquired into
+this one patch.   
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
