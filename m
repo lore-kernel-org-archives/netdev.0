@@ -1,108 +1,357 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] net: phy: Add support for SMSC/Microchip LAN9303 3-port
- switch
-Date: Wed, 12 Mar 2014 20:21:11 +0000
-Message-ID: <1394655671.20857.2.camel@deadeye.wl.decadent.org.uk>
-References: <531057A4.5020607@denx.de>
-	 <20140228.130020.2022765291621434648.davem@davemloft.net>
-	 <CAGm1_ksPrSjV8+o7LCGDtJz_6qY8bqGuqdpYNHKh_6JO2X0sqg@mail.gmail.com>
-	 <20140311.163924.934541574802061078.davem@davemloft.net>
-	 <CAGm1_kvTRkCq93BaPgN-MY5Oji3e4is7eq-BtOLv-LJGDCDqPQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ZKDonz5Hhd5i7+cubah6"
-Cc: David Miller <davem@davemloft.net>, Stefan Roese <sr@denx.de>,
-	netdev <netdev@vger.kernel.org>, "r.meier" <r.meier@siemens.com>,
-	"lukas.stockmann" <lukas.stockmann@siemens.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Yegor Yefremov <yegorslists@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:34283 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752582AbaCLUVa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 16:21:30 -0400
-In-Reply-To: <CAGm1_kvTRkCq93BaPgN-MY5Oji3e4is7eq-BtOLv-LJGDCDqPQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: [PATCH net-next V4 5/9] Altera TSE: Add Miscellaneous Files for Altera Ethernet Driver
+Date: Wed, 12 Mar 2014 15:15:30 -0500
+Message-ID: <1394655334-29547-6-git-send-email-vbridgers2013@gmail.com>
+References: <1394655334-29547-1-git-send-email-vbridgers2013@gmail.com>
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	rob@landley.net, vbridgers2013@gmail.com
+To: devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1394655334-29547-1-git-send-email-vbridgers2013@gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+This patch adds miscellaneous files for the Altera Ethernet Driver,
+including ethtool support.
 
---=-ZKDonz5Hhd5i7+cubah6
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+---
+V4: - Change names of statistics to match common usage found in most
+      drivers instead of TSE databook names.
+    - Remove unnecessary cast
 
-On Wed, 2014-03-12 at 09:43 +0100, Yegor Yefremov wrote:
-> On Tue, Mar 11, 2014 at 9:39 PM, David Miller <davem@davemloft.net> wrote=
-:
-> > From: Yegor Yefremov <yegorslists@googlemail.com>
-> > Date: Tue, 11 Mar 2014 21:11:16 +0100
-> >
-> >> On Fri, Feb 28, 2014 at 7:00 PM, David Miller <davem@davemloft.net> wr=
-ote:
-> >>> From: Stefan Roese <sr@denx.de>
-> >>> Date: Fri, 28 Feb 2014 10:32:20 +0100
-> >>>
-> >>>> On 27.02.2014 23:02, David Miller wrote:
-> >>>>> From: Stefan Roese <sr@denx.de>
-> >>>>> Date: Thu, 27 Feb 2014 10:07:52 +0100
-> >>>>>
-> >>>>> Better is to come up with a real, types, interface for programming
-> >>>>> such devices and providing an implementation of that.
-> >>>>
-> >>>> Right. Such a thing would be better. But as Florian already pointed
-> >>>> out, nothing like this is available in kernel.org right now. Thats t=
-he
-> >>>> reason why I chose to implement this "simple" driver, btw as done in
-> >>>> drivers/net/phy/spi_ks8995.c.
-> >>>
-> >>> When a suitable user facing interface is lacking, you create one
-> >>> and submit it for review here.  You don't just submit adhoc driver
-> >>> local stuff.
-> >>
-> >> David, what about enabling ethtool to read/write from/to the PHY
-> >> registers (via passing PHY ID and register number)? I'm trying to get
-> >> ICplus IP175D running and it has lots of registers, that I would like
-> >> to look at dynamically.
-> >
-> > For debugging, register dumps are already supported by ethtool.
->=20
-> Do you mean 'ethtool -e' option? AFAIK it dumps Ethernet controller
-> regs, if it implements ethtool_ops.get_regs(). What I need are PHY
-> registers, that I can get via MII interface. ethtool should provide
-> access to PHY registers like mdiobus_read() and mdiobus_write()
-> routines.
-[...]
+V3: - Reorder commits
+    - Remove cast to u64 when reading stats per comments
+    - add const to array of statistics string names per comments
 
-Perhaps, but only as a test/debug interface.  It is not acceptable as a
-production configuration interface - that needs some abstraction so the
-same command will work on any switch chip that can support the
-operation.
+V2: - Break up driver files for initial submission by logical function.
+    - Change bus type in ethtool from "AVALON" to "platform"
+---
+ drivers/net/ethernet/altera/altera_tse_ethtool.c |  226 ++++++++++++++++++++++
+ drivers/net/ethernet/altera/altera_utils.c       |   44 +++++
+ drivers/net/ethernet/altera/altera_utils.h       |   27 +++
+ 3 files changed, 297 insertions(+)
+ create mode 100644 drivers/net/ethernet/altera/altera_tse_ethtool.c
+ create mode 100644 drivers/net/ethernet/altera/altera_utils.c
+ create mode 100644 drivers/net/ethernet/altera/altera_utils.h
 
-Ben.
+diff --git a/drivers/net/ethernet/altera/altera_tse_ethtool.c b/drivers/net/ethernet/altera/altera_tse_ethtool.c
+new file mode 100644
+index 0000000..cf40aef
+--- /dev/null
++++ b/drivers/net/ethernet/altera/altera_tse_ethtool.c
+@@ -0,0 +1,226 @@
++/* Ethtool support for Altera Triple-Speed Ethernet MAC driver
++ * Copyright (C) 2008-2014 Altera Corporation. All rights reserved
++ *
++ * Contributors:
++ *   Dalon Westergreen
++ *   Thomas Chou
++ *   Ian Abbott
++ *   Yuriy Kozlov
++ *   Tobias Klauser
++ *   Andriy Smolskyy
++ *   Roman Bulgakov
++ *   Dmytro Mytarchuk
++ *
++ * Original driver contributed by SLS.
++ * Major updates contributed by GlobalLogic
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include <linux/ethtool.h>
++#include <linux/kernel.h>
++#include <linux/netdevice.h>
++#include <linux/phy.h>
++
++#include "altera_tse.h"
++
++#define TSE_STATS_LEN 31
++
++static char const stat_gstrings[][ETH_GSTRING_LEN] = {
++	"tx_packets",
++	"rx_packets",
++	"rx_crc_errors",
++	"rx_align_errors",
++	"tx_bytes",
++	"rx_bytes",
++	"tx_pause",
++	"rx_pause",
++	"rx_errors",
++	"tx_errors",
++	"rx_unicast",
++	"rx_multicast",
++	"rx_broadcast",
++	"tx_discards",
++	"tx_unicast",
++	"tx_multicast",
++	"tx_broadcast",
++	"rx_fifo_drops",
++	"rx_total_bytes",
++	"rx_total_packets",
++	"rx_undersize",
++	"rx_oversize",
++	"rx_64_bytes",
++	"rx_65_127_bytes",
++	"rx_128_255_bytes",
++	"rx_256_511_bytes",
++	"rx_512_1023_bytes",
++	"rx_1024_1518_bytes",
++	"rx_gte_1519_bytes",
++	"rx_jabbers",
++	"rx_runts",
++};
++
++static void tse_get_drvinfo(struct net_device *dev,
++			    struct ethtool_drvinfo *info)
++{
++	struct altera_tse_private *priv = netdev_priv(dev);
++	u32 rev = ioread32(&priv->mac_dev->megacore_revision);
++
++	strcpy(info->driver, "Altera TSE MAC IP Driver");
++	strcpy(info->version, "v8.0");
++	snprintf(info->fw_version, ETHTOOL_FWVERS_LEN, "v%d.%d",
++		 rev & 0xFFFF, (rev & 0xFFFF0000) >> 16);
++	sprintf(info->bus_info, "platform");
++}
++
++/* Fill in a buffer with the strings which correspond to the
++ * stats
++ */
++static void tse_gstrings(struct net_device *dev, u32 stringset, u8 *buf)
++{
++	memcpy(buf, stat_gstrings, TSE_STATS_LEN * ETH_GSTRING_LEN);
++}
++
++static void tse_fill_stats(struct net_device *dev, struct ethtool_stats *dummy,
++			   u64 *buf)
++{
++	struct altera_tse_private *priv = netdev_priv(dev);
++	struct altera_tse_mac *mac = priv->mac_dev;
++	u64 ext;
++
++	buf[0] = ioread32(&mac->frames_transmitted_ok);
++	buf[1] = ioread32(&mac->frames_received_ok);
++	buf[2] = ioread32(&mac->frames_check_sequence_errors);
++	buf[3] = ioread32(&mac->alignment_errors);
++
++	/* Extended aOctetsTransmittedOK counter */
++	ext = (u64) ioread32(&mac->msb_octets_transmitted_ok) << 32;
++	ext |= ioread32(&mac->octets_transmitted_ok);
++	buf[4] = ext;
++
++	/* Extended aOctetsReceivedOK counter */
++	ext = (u64) ioread32(&mac->msb_octets_received_ok) << 32;
++	ext |= ioread32(&mac->octets_received_ok);
++	buf[5] = ext;
++
++	buf[6] = ioread32(&mac->tx_pause_mac_ctrl_frames);
++	buf[7] = ioread32(&mac->rx_pause_mac_ctrl_frames);
++	buf[8] = ioread32(&mac->if_in_errors);
++	buf[9] = ioread32(&mac->if_out_errors);
++	buf[10] = ioread32(&mac->if_in_ucast_pkts);
++	buf[11] = ioread32(&mac->if_in_multicast_pkts);
++	buf[12] = ioread32(&mac->if_in_broadcast_pkts);
++	buf[13] = ioread32(&mac->if_out_discards);
++	buf[14] = ioread32(&mac->if_out_ucast_pkts);
++	buf[15] = ioread32(&mac->if_out_multicast_pkts);
++	buf[16] = ioread32(&mac->if_out_broadcast_pkts);
++	buf[17] = ioread32(&mac->ether_stats_drop_events);
++
++	/* Extended etherStatsOctets counter */
++	ext = (u64) ioread32(&mac->msb_ether_stats_octets) << 32;
++	ext |= ioread32(&mac->ether_stats_octets);
++	buf[18] = ext;
++
++	buf[19] = ioread32(&mac->ether_stats_pkts);
++	buf[20] = ioread32(&mac->ether_stats_undersize_pkts);
++	buf[21] = ioread32(&mac->ether_stats_oversize_pkts);
++	buf[22] = ioread32(&mac->ether_stats_pkts_64_octets);
++	buf[23] = ioread32(&mac->ether_stats_pkts_65to127_octets);
++	buf[24] = ioread32(&mac->ether_stats_pkts_128to255_octets);
++	buf[25] = ioread32(&mac->ether_stats_pkts_256to511_octets);
++	buf[26] = ioread32(&mac->ether_stats_pkts_512to1023_octets);
++	buf[27] = ioread32(&mac->ether_stats_pkts_1024to1518_octets);
++	buf[28] = ioread32(&mac->ether_stats_pkts_1519tox_octets);
++	buf[29] = ioread32(&mac->ether_stats_jabbers);
++	buf[30] = ioread32(&mac->ether_stats_fragments);
++}
++
++static int tse_sset_count(struct net_device *dev, int sset)
++{
++	switch (sset) {
++	case ETH_SS_STATS:
++		return TSE_STATS_LEN;
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static u32 tse_get_msglevel(struct net_device *dev)
++{
++	struct altera_tse_private *priv = netdev_priv(dev);
++	return priv->msg_enable;
++}
++
++static void tse_set_msglevel(struct net_device *dev, uint32_t data)
++{
++	struct altera_tse_private *priv = netdev_priv(dev);
++	priv->msg_enable = data;
++}
++
++static int tse_reglen(struct net_device *dev)
++{
++	return sizeof(struct altera_tse_mac);
++}
++
++static void tse_get_regs(struct net_device *dev, struct ethtool_regs *regs,
++			 void *regbuf)
++{
++	int i;
++	struct altera_tse_private *priv = netdev_priv(dev);
++	u32 *tse_mac_regs = (u32 *)priv->mac_dev;
++	u32 *buf = regbuf;
++
++	for (i = 0; i < sizeof(struct altera_tse_mac) / sizeof(u32); i++)
++		buf[i] = ioread32(&tse_mac_regs[i]);
++}
++
++static int tse_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct altera_tse_private *priv = netdev_priv(dev);
++	struct phy_device *phydev = priv->phydev;
++
++	if (phydev == NULL)
++		return -ENODEV;
++
++	return phy_ethtool_gset(phydev, cmd);
++}
++
++static int tse_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct altera_tse_private *priv = netdev_priv(dev);
++	struct phy_device *phydev = priv->phydev;
++
++	if (phydev == NULL)
++		return -ENODEV;
++
++	return phy_ethtool_sset(phydev, cmd);
++}
++
++static const struct ethtool_ops tse_ethtool_ops = {
++	.get_drvinfo = tse_get_drvinfo,
++	.get_regs_len = tse_reglen,
++	.get_regs = tse_get_regs,
++	.get_link = ethtool_op_get_link,
++	.get_settings = tse_get_settings,
++	.set_settings = tse_set_settings,
++	.get_strings = tse_gstrings,
++	.get_sset_count = tse_sset_count,
++	.get_ethtool_stats = tse_fill_stats,
++	.get_msglevel = tse_get_msglevel,
++	.set_msglevel = tse_set_msglevel,
++};
++
++void altera_tse_set_ethtool_ops(struct net_device *netdev)
++{
++	SET_ETHTOOL_OPS(netdev, &tse_ethtool_ops);
++}
+diff --git a/drivers/net/ethernet/altera/altera_utils.c b/drivers/net/ethernet/altera/altera_utils.c
+new file mode 100644
+index 0000000..70fa13f
+--- /dev/null
++++ b/drivers/net/ethernet/altera/altera_utils.c
+@@ -0,0 +1,44 @@
++/* Altera TSE SGDMA and MSGDMA Linux driver
++ * Copyright (C) 2014 Altera Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include "altera_tse.h"
++#include "altera_utils.h"
++
++void tse_set_bit(void __iomem *ioaddr, u32 bit_mask)
++{
++	u32 value = ioread32(ioaddr);
++	value |= bit_mask;
++	iowrite32(value, ioaddr);
++}
++
++void tse_clear_bit(void __iomem *ioaddr, u32 bit_mask)
++{
++	u32 value = ioread32(ioaddr);
++	value &= ~bit_mask;
++	iowrite32(value, ioaddr);
++}
++
++int tse_bit_is_set(void __iomem *ioaddr, u32 bit_mask)
++{
++	u32 value = ioread32(ioaddr);
++	return (value & bit_mask) ? 1 : 0;
++}
++
++int tse_bit_is_clear(void __iomem *ioaddr, u32 bit_mask)
++{
++	u32 value = ioread32(ioaddr);
++	return (value & bit_mask) ? 0 : 1;
++}
+diff --git a/drivers/net/ethernet/altera/altera_utils.h b/drivers/net/ethernet/altera/altera_utils.h
+new file mode 100644
+index 0000000..ce1db36
+--- /dev/null
++++ b/drivers/net/ethernet/altera/altera_utils.h
+@@ -0,0 +1,27 @@
++/* Altera TSE SGDMA and MSGDMA Linux driver
++ * Copyright (C) 2014 Altera Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include <linux/kernel.h>
++
++#ifndef __ALTERA_UTILS_H__
++#define __ALTERA_UTILS_H__
++
++void tse_set_bit(void __iomem *ioaddr, u32 bit_mask);
++void tse_clear_bit(void __iomem *ioaddr, u32 bit_mask);
++int tse_bit_is_set(void __iomem *ioaddr, u32 bit_mask);
++int tse_bit_is_clear(void __iomem *ioaddr, u32 bit_mask);
++
++#endif /* __ALTERA_UTILS_H__*/
+-- 
+1.7.9.5
 
---=20
-Ben Hutchings
-Any sufficiently advanced bug is indistinguishable from a feature.
-
---=-ZKDonz5Hhd5i7+cubah6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUyDBt+e/yOyVhhEJAQo+3Q/9FiKJ3g5aWYu/zHISX9wwDJ3dRfJXfmvD
-Gq/nKyzO7NyG+fvxOWw5asAkKr0ezO5NpPYotgebKBjqtn7jJe6hoSx46RkEurin
-TObMceRGHG5JhCAhyFSh1JXlYzmKtwMaDolRiwLG3RZP/chwNJeT8grKNMZAIj+j
-2KCvYrMRwbhmVEKUsDgz5s0hZc/Tyic/pPJ/7sLqbFD/1BHRxEyt04nEUG041TK4
-lZ+vF8mElYBnhU2VXKwfL93ap0ZHZTLHwqxRs1GKyZtxNWJEC4GgKKYqO5UA327S
-bMioiGNv6pzhNzdlTTZgIMrKxzr3vyb4AM3VvWxZao5uyA4ohJ2qN2wDo6W/kl5r
-y5EIZwqbSw9SCnJvnBjK3eDH27XLMDk7kKPPGZRLoJxTAzSrFmyoLUHCNBsmvPmz
-7LhNpI4N0hxC8ZPR0CoO26zD2z687XVSkCr0Nlj9ymtwj8M1oD4HQWTzpngEeASq
-KGggh+2qSXNM20YxAh80A96pTwi/++gDYMdB8AlpLp1Yg8Pq0Tzc6Ri3yJSYDm0e
-h9+w0/JDTTmx7dmuFogjh6CeMZqgUWHdvpgNbmBU9IKIacrMZncP7Ylte8qL48qQ
-iV2bWHZTYYIANaZ93wCtpPqwWT8s/IFy7oXjw9R0h2OYYPbEm7GxthtLjsdKLCZu
-9EgvmytNrfE=
-=JNVV
------END PGP SIGNATURE-----
-
---=-ZKDonz5Hhd5i7+cubah6--
