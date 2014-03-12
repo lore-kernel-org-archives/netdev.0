@@ -1,55 +1,38 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 0/3] bonding: support 802.1ad vlan protocol
-Date: Wed, 12 Mar 2014 16:57:21 +0800
-Message-ID: <53202171.9090501@huawei.com>
-References: <1394509422-8704-1-git-send-email-dingtianhong@huawei.com> <20140312061353.GA2924@redhat.com>
+From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Subject: RE: [PATCH v3 net-next 1/2] ethtool: Support for configurable RSS
+ hash key
+Date: Wed, 12 Mar 2014 08:59:36 +0000
+Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C88E4CF@CMEXMB1.ad.emulex.com>
+References: <1393589141-10597-1-git-send-email-VenkatKumar.Duvvuru@Emulex.com>
+	 <0e1d7b54-dcbd-446d-b1c9-644086da138f@CMEXHTCAS2.ad.emulex.com>
+	 <1394063979.2861.25.camel@deadeye.wl.decadent.org.uk>
+	 <BF3270C86E8B1349A26C34E4EC1C44CB2C889D94@CMEXMB1.ad.emulex.com>
+ <1394407382.15968.84.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <fubar@us.ibm.com>, <andy@greyhouse.net>, <kaber@trash.net>,
-	<davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Veaceslav Falico <vfalico@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:41317 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751341AbaCLI6z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 04:58:55 -0400
-In-Reply-To: <20140312061353.GA2924@redhat.com>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:26454 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751802AbaCLI7i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 04:59:38 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/3/12 14:13, Veaceslav Falico wrote:
-> On Tue, Mar 11, 2014 at 11:43:39AM +0800, Ding Tianhong wrote:
->> The bonding could only use vlan proto 802.1q regardless the vlan dev is
->> 802.1ad or 802.1q, so add new interface to get vlan proto by vlan dev and
->> use it to send packages by correct vlan protocol.
-> 
-> It's not that easy. 802.1ad packets should be double-tagged, however you're
-> just changing the protocol (from 1q to 1ad) and tagging just once.
-> 
-> Have you actually tested this patchset, does it produce correct QinQ
-> packets?
-> 
-
-I will add test log and resend, thanks
-
-Ding
-
->>
->> Ding Tianhong (3):
->>  vlan: make a new function  vlan_dev_vlan_proto() and export
->>  bonding: support different vlan proto for bond_arp_send()
->>  bonding: choose the correct vlan proto for alb_send_learning_packets
->>
->> drivers/net/bonding/bond_alb.c  |  7 ++++---
->> drivers/net/bonding/bond_main.c | 23 +++++++++++++++--------
->> include/linux/if_vlan.h         |  7 +++++++
->> net/8021q/vlan_core.c           |  6 ++++++
->> 4 files changed, 32 insertions(+), 11 deletions(-)
->>
->> -- 
->> 1.8.0
->>
->>
-> 
-> 
+PiA+ID4gPiBXaHkgaXMgMHhERUFEQkVFRiBzcGVjaWFsPw0KPiA+ID4gU2luY2UgMCBpcyB1c2Vk
+IGFzIGEgaGludCB0byByZXNldCB0byBkZWZhdWx0LCB3ZSBzaG91bGQgaGF2ZSBhIHdheQ0KPiA+
+ID4gdG8gaGludCB0aGF0IGluZGlyZWN0aW9uIHRhYmxlIGNvbmZpZ3VyYXRpb24gaXMgbm90IHJl
+cXVlc3RlZCBpbg0KPiA+ID4gdGhpcyBjb250ZXh0Lg0KPiA+DQo+ID4gVGhhdCdzIG5vdCBuZWNl
+c3NhcnksIGFzIHlvdSBjYW4gcmVhZCBhbmQgdGhlbiB3cml0ZSBiYWNrIHRoZSBzYW1lIHZhbHVl
+cy4NCj4gPg0KPiA+IEJlbi4NCj4NCg0KDQo+IE1heSBiZSB0aGlzIGlzIGV4dHJlbWVseSBoeXBv
+dGhldGljYWwgYnV0IHdoYXQgaWYgYSBkcml2ZXIgZG9lc24ndCB3YW50IHRvDQo+IHN1cHBvcnQg
+aW5kaXJlY3Rpb24gY29uZmlndXJhdGlvbiBhbmQgb25seSB3YW50cyB0byBzdXBwb3J0IGhhc2gg
+a2V5DQo+IGNvbmZpZ3VyYXRpb24uDQo+IEluIHN1Y2ggYSBjYXNlLCB0aGUga2VybmVsIHNob3Vs
+ZCBrbm93IHRoYXQgYXJlIG5vIGVudHJpZXMgb2YgaW5kaXJlY3Rpb24gaW4NCj4gcnNzX2NvbmZp
+Zy4gQWxzbyBJIHRoaW5rIGl0J3MgYmV0dGVyIHRvIGtlZXAgaGFzaCBrZXkgYW5kIGluZGlyZWN0
+aW9uDQo+IGNvbmZpZ3VyYXRpb25zIGluZGVwZW5kZW50IG9mIGVhY2ggb3RoZXIuDQoNCkJlbiwg
+cGxlYXNlIGxldCBtZSBrbm93IHlvdXIgb3BpbmlvbiBvbiBteSBhYm92ZSBjb21tZW50LiBUaGFu
+a3MuDQo=
