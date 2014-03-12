@@ -1,46 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] flowcache: Fix resource leaks on namespace
- exit.
-Date: Wed, 12 Mar 2014 04:43:40 -0700
-Message-ID: <1394624620.21721.43.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1394424146.3607.2.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1394424557.3607.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140310131909.33a3042c@north>
-	 <1394460276.3607.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140311014649.1716bde1@north> <20140311120059.GB32371@secunet.com>
-	 <1394541626.21721.24.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140311132030.GD32371@secunet.com> <20140311153029.1de9d6e9@north>
-	 <20140312083827.GE32371@secunet.com> <20140312084317.GF32371@secunet.com>
+From: Zhouyi Zhou <zhouzhouyi@gmail.com>
+Subject: Re: [PATCH RFC] netfilter: cacheline aligning in struct netns_ct
+Date: Wed, 12 Mar 2014 20:20:21 +0800
+Message-ID: <CAABZP2yJFaWN1OKs0ax-4TCYjo5hi+N6JBq7RAdM89mG_cdphQ@mail.gmail.com>
+References: <1394610994-22794-1-git-send-email-yizhouzhou@ict.ac.cn>
+	<063D6719AE5E284EB5DD2968C1650D6D0F6DB542@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jakub =?UTF-8?Q?Kici=C5=84ski?= <moorray3@wp.pl>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Fan Du <fan.du@windriver.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:52836 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753414AbaCLLnm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 07:43:42 -0400
-Received: by mail-pa0-f50.google.com with SMTP id kq14so994186pab.9
-        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 04:43:42 -0700 (PDT)
-In-Reply-To: <20140312084317.GF32371@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"pablo@netfilter.org" <pablo@netfilter.org>,
+	"jbenc@redhat.com" <jbenc@redhat.com>,
+	"brouer@redhat.com" <brouer@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6DB542@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-03-12 at 09:43 +0100, Steffen Klassert wrote:
-> We leak an active timer, the hotcpu notifier and all allocated
-> resources when we exit a namespace. Fix this by introducing a
-> flow_cache_fini() function where we release the resources before
-> we exit.
-> 
-> Fixes: ca925cf1534e ("flowcache: Make flow cache name space aware")
-> Reported-by: Jakub Kicinski <moorray3@wp.pl>
-> Tested-by: Jakub Kicinski <moorray3@wp.pl>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Fan Du <fan.du@windriver.com>
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
+Thanks Jesper and David for reviewing and replying.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Great commitment of Jesper for moving above three hlist_nulls_heads to
+percpu structure. Sorry to miss the newest advances in nf-next.
+
+And arbitrarily cache-line aligning structure members is not a good idea
+for large cache lines.
+
+Still I have an idea that could we pack the seldom changed members
+ (nf_ct_proto included) to a structure and we allocated it from a
+cache aligned slub when the structure "net" is initialized.
+
+
+Zhouyi
+
+On Wed, Mar 12, 2014 at 5:36 PM, David Laight <David.Laight@aculab.com> wrote:
+> From: Zhouyi Zhou
+>> not frequently changing components should share same cachelines
+>>
+>> Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+>> ---
+>>  include/net/netns/conntrack.h |   12 ++++++++----
+>>  1 file changed, 8 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
+>> index fbcc7fa..69d2d58 100644
+>> --- a/include/net/netns/conntrack.h
+>> +++ b/include/net/netns/conntrack.h
+>> @@ -65,6 +65,12 @@ struct nf_ip_net {
+>>  struct netns_ct {
+>>       atomic_t                count;
+>>       unsigned int            expect_count;
+>> +     struct hlist_nulls_head unconfirmed;
+>> +     struct hlist_nulls_head dying;
+>> +     struct hlist_nulls_head tmpl;
+>> +
+>> +     /*  not frequently changing components should share same cachelines */
+>> +     struct nf_ip_net        nf_ct_proto ____cacheline_aligned_in_smp;
+>
+> I'm not sure this has the effect you are trying to achieve.
+> Adding an __attribute__((aligned(n))) to a structure member not only
+> adds padding before the member, but also pads the member to a multiple
+> of the specified size.
+>
+> With large cache lines you probably want neither.
+> IIRC one of the ppc systems has something like 256 byte cache lines
+> (and if it doesn't now, it might have soon).
+> So arbitrarily cache-line aligning structure members may not be a good idea.
+>
+> In any case reducing the number of cache lines accessed, and the number
+> dirtied is probably more important than putting 'readonly' data in its
+> own cache lines.
+>
+>         David
+>
+>
+>
