@@ -1,55 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH next-next 0/10] Using dev_kfree_skb_any for functions
- called in multiple contexts
-Date: Tue, 11 Mar 2014 19:54:05 -0700
-Message-ID: <1394592845.21721.38.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <87a9cxf7mp.fsf_-_@xmission.com>
-	 <20140311.124907.1180556684992271103.davem@davemloft.net>
-	 <87wqg0cy9d.fsf@xmission.com>
-	 <20140311.160931.1395978386605601765.davem@davemloft.net>
-	 <87r468bfqj.fsf_-_@xmission.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 1/2] bridge: multicast: add sanity check for
+ general query destination
+Date: Tue, 11 Mar 2014 23:23:25 -0400 (EDT)
+Message-ID: <20140311.232325.2172162494177450404.davem@davemloft.net>
+References: <1394486725-4992-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:47551 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751015AbaCLCyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 22:54:08 -0400
-Received: by mail-pb0-f45.google.com with SMTP id uo5so437409pbc.18
-        for <netdev@vger.kernel.org>; Tue, 11 Mar 2014 19:54:08 -0700 (PDT)
-In-Reply-To: <87r468bfqj.fsf_-_@xmission.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, fwestpha@redhat.com,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	stephen@networkplumber.org, jstancek@redhat.com
+To: linus.luessing@web.de
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1394486725-4992-1-git-send-email-linus.luessing@web.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-03-11 at 14:13 -0700, Eric W. Biederman wrote:
-> This patchset should be an uncontroversial set of changes to change
-> dev_kfree_skb to dev_kfree_skb_any for code paths that are called in
-> hard irq contexts in addition to other contexts.  netpoll is the reason
-> this code gets called in multiple contexts.
-> 
-> There is more coming but these changes are a good starting place, and
-> stand on their own.
-> 
-> Since the last round changes to the rx path have been removed netpoll
-> will changed to avoid that.
-> 
-> Eric W. Biederman (10):
->       8139cp: Call dev_kfree_skby_any instead of kfree_skb.
->       8139too: Call dev_kfree_skby_any instead of dev_kfree_skb.
->       r8169: Call dev_kfree_skby_any instead of dev_kfree_skb.
->       bonding: Call dev_kfree_skby_any instead of kfree_skb.
->       bnx2: Call dev_kfree_skby_any instead of dev_kfree_skb.
->       tg3: Call dev_kfree_skby_any instead of dev_kfree_skb.
->       ixgb: Call dev_kfree_skby_any instead of dev_kfree_skb.
->       mlx4: Call dev_kfree_skby_any instead of dev_kfree_skb.
->       benet: Call dev_kfree_skby_any instead of kfree_skb.
->       gianfar: Carefully free skbs in functions called by netpoll.
+From: Linus L=FCssing <linus.luessing@web.de>
+Date: Mon, 10 Mar 2014 22:25:24 +0100
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+> General IGMP and MLD queries are supposed to have the multicast
+> link-local all-nodes address as their destination according to RFC223=
+6
+> section 9, RFC3376 section 4.1.12/9.1, RFC2710 section 8 and RFC3810
+> section 5.1.15.
+> =
 
-We'll have some follow up, but these patches seem fine.
- 
+> Without this check, such malformed IGMP/MLD queries can result in a
+> denial of service: The queries are ignored by most IGMP/MLD listeners=
+
+> therefore they will not respond with an IGMP/MLD report. However,
+> without this patch these malformed MLD queries would enable the
+> snooping part in the bridge code, potentially shutting down the
+> according ports towards these hosts for multicast traffic as the
+> bridge did not learn about these listeners.
+> =
+
+> Reported-by: Jan Stancek <jstancek@redhat.com>
+> Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
+
+Applied.
