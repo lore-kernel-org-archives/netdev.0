@@ -1,53 +1,50 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next 12/13] ixgbe: fix some multiline hw_dbg prints
-Date: Wed, 12 Mar 2014 18:51:05 +0400
-Message-ID: <53207459.5010306@cogentembedded.com>
-References: <1394603618-1044-1-git-send-email-jeffrey.t.kirsher@intel.com> <1394603618-1044-13-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Martin Vopatek <vopatek@ingate.com>
+Subject: iproute2: ip addr flush fail on many secondary addresses
+Date: Wed, 12 Mar 2014 15:45:09 +0100
+Message-ID: <532072F5.4000304@ingate.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f170.google.com ([209.85.217.170]:61518 "EHLO
-	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754210AbaCLOvK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 10:51:10 -0400
-Received: by mail-lb0-f170.google.com with SMTP id s7so6812513lbd.1
-        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 07:51:09 -0700 (PDT)
-In-Reply-To: <1394603618-1044-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from neko.ingate.se ([193.180.23.132]:37066 "EHLO neko.ingate.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753073AbaCLOzS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Mar 2014 10:55:18 -0400
+Received: from [192.168.2.11] (sip.intertex.se [213.136.58.100])
+	by neko.ingate.se (Postfix) with ESMTPSA id AABE71F740
+	for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 15:45:09 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi!
 
-On 12-03-2014 9:53, Jeff Kirsher wrote:
+ip addr flush dev eth0
 
-> From: Jacob Keller <jacob.e.keller@intel.com>
+Returns:
+Failed to send flush request: Cannot assign requested address
+when I have many (> 62) secondary addresses.
 
-> This patch fixes some formatting on multilined print messages, so that
-> the text of the print appears on a single line, which aids in grepping
-> the sourcecode for where the error came from.
+Deletion is handled by ipaddr_flush sending two filters
+(secondary/primary) to rtnl_dump_filter_l.
 
-> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->   drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 8 +++-----
->   1 file changed, 3 insertions(+), 5 deletions(-)
+With a lot of addresses rtnl_dump_filter_l calls recvmsg
+more than once. However, all filters are traversed for each
+recv call, so the primary address will be deleted before
+all the secondary addresses have been removed.
 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-> index 446df3c..3bc9b67 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-> @@ -512,7 +512,7 @@ out:
->    *
->    * Disables link, should be called during D3 power down sequence.
->    *
-> - */
-> + **/
+Running with stat the primary address is not the last.
+ip -stat -stat addr flush dev eth0
 
-    Hm? What's this for?
+Flushing secondary/primary addresses has been addressed before:
+b49240ec7eab91418d2f090536bf8cd2205988d6
+3bc1c4f29777171b484d36abf673667e3729202b
 
-WBR, Sergei
+As mentioned there, trying to remove the remaining secondary
+addresses will cause an error as they were auto removed when
+deleting the primary.
+
+Workaround:
+sysctl -w net.ipv4.conf.all.promote_secondaries=1
+
+Regards, vopatek
