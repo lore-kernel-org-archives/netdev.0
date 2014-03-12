@@ -1,33 +1,45 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Linux network subsystem : Implementation intricacies
-Date: Wed, 12 Mar 2014 09:58:38 -0700
-Message-ID: <CAHA+R7PA7W8oUeyeuhYwCT2DUisBrJd5k-wG8g-42+HdB8VwUQ@mail.gmail.com>
-References: <1394631595.4679.YahooMailNeo@web192304.mail.sg3.yahoo.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RCU PATCH 06/14] net: sched: fw use RCU
+Date: Wed, 12 Mar 2014 10:01:13 -0700
+Message-ID: <1394643673.21721.48.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140310170008.3011.73599.stgit@nitbit.x32>
+	  <20140310170546.3011.82918.stgit@nitbit.x32>
+	 <1394473279.3607.46.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <53208E3F.5090401@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Mohit ." <reachme01@ymail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f181.google.com ([209.85.217.181]:56591 "EHLO
-	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751168AbaCLQ6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 12:58:40 -0400
-Received: by mail-lb0-f181.google.com with SMTP id c11so6745899lbj.40
-        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 09:58:39 -0700 (PDT)
-In-Reply-To: <1394631595.4679.YahooMailNeo@web192304.mail.sg3.yahoo.com>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:58441 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751276AbaCLRBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 13:01:16 -0400
+Received: by mail-pd0-f181.google.com with SMTP id p10so1311175pdj.26
+        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 10:01:15 -0700 (PDT)
+In-Reply-To: <53208E3F.5090401@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 12, 2014 at 6:39 AM, Mohit . <reachme01@ymail.com> wrote:
-> However, I am not sure if this would be the right path to follow or not.Please advise what path should I follow?
->
+On Wed, 2014-03-12 at 09:41 -0700, John Fastabend wrote:
 
-There is no one true way, everyone has different way to learn.
+> Rearranging the rcu_head placement above results in this error:
+>=20
+> net/sched/cls_fw.c: In function =E2=80=98fw_destroy=E2=80=99:
+> net/sched/cls_fw.c:169:279: error: call to =E2=80=98__compiletime_ass=
+ert_169=E2=80=99=20
+> declared with attribute error: BUILD_BUG_ON failed:=20
+> !__is_kfree_rcu_offset(__builtin_offsetof(typeof(*(head)),rcu))
+>=20
+>=20
+> However it seems best to have the rcu_head at the end of the struct
+> so I'll just convert the kfree_rcu() to call_rcu().
 
-> Also, I met a few senior developers in my computer institute. They suggested that I should also try & learn linux socket programming & Linux device drivers. Well, Do I need to learn all of that as well?
->
 
-Basically yes. Books from Stevens are pretty useful to learn TCP/IP:
-http://en.wikipedia.org/wiki/TCP/IP_Illustrated
+I missed HTSIZE was so big.
 
-Good luck.
+Its unfortunate because it makes struct fw_head slightly larger than on=
+e
+page.
