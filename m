@@ -1,52 +1,37 @@
-From: Yong Zhang <fell198904@gmail.com>
-Subject: The ssthresh reduce during 3WHS
-Date: Wed, 12 Mar 2014 21:46:04 +0800
-Message-ID: <CAH4NVoT4ofCNKAmcnO1AgEbs+ywbXom=E28k2VU4dB+yK79S_A@mail.gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH net-next 1/2] r8152: add CONFIG_RTL8152_EARLY_AGG_SUPER
+Date: Wed, 12 Mar 2014 14:40:17 +0100
+Message-ID: <87txb3lem6.fsf@nemi.mork.no>
+References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
+	<1394526259-5513-2-git-send-email-hayeswang@realtek.com>
+	<1394628023-12713-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yong Zhang <fell198904@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f193.google.com ([209.85.128.193]:63675 "EHLO
-	mail-ve0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753620AbaCLNqF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 09:46:05 -0400
-Received: by mail-ve0-f193.google.com with SMTP id oz11so3767067veb.0
-        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 06:46:04 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <nic_swsd@realtek.com>,
+	<linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394628023-12713-1-git-send-email-hayeswang@realtek.com> (Hayes
+	Wang's message of "Wed, 12 Mar 2014 20:39:58 +0800")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-hi=EF=BC=8C
+Hayes Wang <hayeswang@realtek.com> writes:
 
-I am trying to to apply patch 9ad7c049f0f79c418e293b1b68cf10d68f54fcdb
-to my old version kernel, but I am not understanding the following
-changes.
+> +	config RTL8152_EARLY_AGG_SUPER
+> +		hex "rx early agg parameter for super speed"
+> +		default 0x0e832981
+> +		help
+> +		  This is the rx early agg parameter for USB super speed.
+> +
+> +	endmenu
 
-The comments int the patch say ssthresh may reduce unnecessarily
-druing 3WHS,  but i can not find the reduce operation of ssthresh
-during 3WHS.
-
-Can you please explain when dose this may hanppen?
-
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index bef9f04..ea0d218 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -880,6 +880,11 @@ static void tcp_init_metrics(struct sock *sk)
-
-        tp->snd_ssthresh =3D dst_metric(dst, RTAX_SSTHRESH);
-                 if (tp->snd_ssthresh > tp->snd_cwnd_clamp)
-                         tp->snd_ssthresh =3D tp->snd_cwnd_clamp;
-+       } else {
-+                /* ssthresh may have been reduced unnecessarily during=
-=2E
-+                * 3WHS. Restore it back to its initial default.
-+                */
-+                tp->snd_ssthresh =3D TCP_INFINITE_SSTHRESH;
-         }
+How do I as an end user know how to adjust this magic(?) value?  Having
+a config setting like this without further documentation seems
+completely pointless. Anyone with enough knowledge about the driver and
+devices will be perfectly capable of editing the driver source anyway.
 
 
-Thanks,
-=46el
+
+Bj=C3=B8rn
