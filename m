@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv6 net-next 02/31] cxgb4: Add code to dump SGE registers when hitting idma hangs
-Date: Wed, 12 Mar 2014 21:20:17 +0530
-Message-ID: <1394639446-6504-3-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv6 net-next 03/31] cxgb4: Rectify emitting messages about SGE Ingress DMA channels being potentially stuck
+Date: Wed, 12 Mar 2014 21:20:18 +0530
+Message-ID: <1394639446-6504-4-git-send-email-hariprasad@chelsio.com>
 References: <1394639446-6504-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
 	swise@opengridcomputing.com, leedom@chelsio.com,
@@ -9,10 +9,10 @@ Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
 	hariprasad@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:32097 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:10355 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755185AbaCLP64 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 11:58:56 -0400
+	by vger.kernel.org with ESMTP id S1755279AbaCLP67 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 11:58:59 -0400
 In-Reply-To: <1394639446-6504-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -23,151 +23,151 @@ Based on original work by Casey Leedom <leedom@chelsio.com>
 
 Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h   |   1 +
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c   | 106 +++++++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |   3 +
- 3 files changed, 110 insertions(+)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h |  9 ++-
+ drivers/net/ethernet/chelsio/cxgb4/sge.c   | 90 ++++++++++++++++++++++++------
+ 2 files changed, 79 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 944f2cb..509c976 100644
+index 509c976..50abe1d 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -1032,4 +1032,5 @@ void t4_db_dropped(struct adapter *adapter);
- int t4_mem_win_read_len(struct adapter *adap, u32 addr, __be32 *data, int len);
- int t4_fwaddrspace_write(struct adapter *adap, unsigned int mbox,
- 			 u32 addr, u32 val);
-+void t4_sge_decode_idma_state(struct adapter *adapter, int state);
- #endif /* __CXGB4_H__ */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index d3c2a51..fb2fe65 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -2597,6 +2597,112 @@ int t4_mdio_wr(struct adapter *adap, unsigned int mbox, unsigned int phy_addr,
- }
+@@ -556,8 +556,13 @@ struct sge {
+ 	u32 pktshift;               /* padding between CPL & packet data */
+ 	u32 fl_align;               /* response queue message alignment */
+ 	u32 fl_starve_thres;        /* Free List starvation threshold */
+-	unsigned int starve_thres;
+-	u8 idma_state[2];
++
++	/* State variables for detecting an SGE Ingress DMA hang */
++	unsigned int idma_1s_thresh;/* SGE same State Counter 1s threshold */
++	unsigned int idma_stalled[2];/* SGE synthesized stalled timers in HZ */
++	unsigned int idma_state[2]; /* SGE IDMA Hang detect state */
++	unsigned int idma_qid[2];   /* SGE IDMA Hung Ingress Queue ID */
++
+ 	unsigned int egr_start;
+ 	unsigned int ingr_start;
+ 	void *egr_map[MAX_EGRQ];    /* qid->queue egress queue map */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index 3a2ecd8..054bb03 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -93,6 +93,16 @@
+  */
+ #define TX_QCHECK_PERIOD (HZ / 2)
  
- /**
-+ *	t4_sge_decode_idma_state - decode the idma state
-+ *	@adap: the adapter
-+ *	@state: the state idma is stuck in
++/* SGE Hung Ingress DMA Threshold Warning time (in Hz) and Warning Repeat Rate
++ * (in RX_QCHECK_PERIOD multiples).  If we find one of the SGE Ingress DMA
++ * State Machines in the same state for this amount of time (in HZ) then we'll
++ * issue a warning about a potential hang.  We'll repeat the warning as the
++ * SGE Ingress DMA Channel appears to be hung every N RX_QCHECK_PERIODs till
++ * the situation clears.  If the situation clears, we'll note that as well.
 + */
-+void t4_sge_decode_idma_state(struct adapter *adapter, int state)
-+{
-+	static const char * const t4_decode[] = {
-+		"IDMA_IDLE",
-+		"IDMA_PUSH_MORE_CPL_FIFO",
-+		"IDMA_PUSH_CPL_MSG_HEADER_TO_FIFO",
-+		"Not used",
-+		"IDMA_PHYSADDR_SEND_PCIEHDR",
-+		"IDMA_PHYSADDR_SEND_PAYLOAD_FIRST",
-+		"IDMA_PHYSADDR_SEND_PAYLOAD",
-+		"IDMA_SEND_FIFO_TO_IMSG",
-+		"IDMA_FL_REQ_DATA_FL_PREP",
-+		"IDMA_FL_REQ_DATA_FL",
-+		"IDMA_FL_DROP",
-+		"IDMA_FL_H_REQ_HEADER_FL",
-+		"IDMA_FL_H_SEND_PCIEHDR",
-+		"IDMA_FL_H_PUSH_CPL_FIFO",
-+		"IDMA_FL_H_SEND_CPL",
-+		"IDMA_FL_H_SEND_IP_HDR_FIRST",
-+		"IDMA_FL_H_SEND_IP_HDR",
-+		"IDMA_FL_H_REQ_NEXT_HEADER_FL",
-+		"IDMA_FL_H_SEND_NEXT_PCIEHDR",
-+		"IDMA_FL_H_SEND_IP_HDR_PADDING",
-+		"IDMA_FL_D_SEND_PCIEHDR",
-+		"IDMA_FL_D_SEND_CPL_AND_IP_HDR",
-+		"IDMA_FL_D_REQ_NEXT_DATA_FL",
-+		"IDMA_FL_SEND_PCIEHDR",
-+		"IDMA_FL_PUSH_CPL_FIFO",
-+		"IDMA_FL_SEND_CPL",
-+		"IDMA_FL_SEND_PAYLOAD_FIRST",
-+		"IDMA_FL_SEND_PAYLOAD",
-+		"IDMA_FL_REQ_NEXT_DATA_FL",
-+		"IDMA_FL_SEND_NEXT_PCIEHDR",
-+		"IDMA_FL_SEND_PADDING",
-+		"IDMA_FL_SEND_COMPLETION_TO_IMSG",
-+		"IDMA_FL_SEND_FIFO_TO_IMSG",
-+		"IDMA_FL_REQ_DATAFL_DONE",
-+		"IDMA_FL_REQ_HEADERFL_DONE",
-+	};
-+	static const char * const t5_decode[] = {
-+		"IDMA_IDLE",
-+		"IDMA_ALMOST_IDLE",
-+		"IDMA_PUSH_MORE_CPL_FIFO",
-+		"IDMA_PUSH_CPL_MSG_HEADER_TO_FIFO",
-+		"IDMA_SGEFLRFLUSH_SEND_PCIEHDR",
-+		"IDMA_PHYSADDR_SEND_PCIEHDR",
-+		"IDMA_PHYSADDR_SEND_PAYLOAD_FIRST",
-+		"IDMA_PHYSADDR_SEND_PAYLOAD",
-+		"IDMA_SEND_FIFO_TO_IMSG",
-+		"IDMA_FL_REQ_DATA_FL",
-+		"IDMA_FL_DROP",
-+		"IDMA_FL_DROP_SEND_INC",
-+		"IDMA_FL_H_REQ_HEADER_FL",
-+		"IDMA_FL_H_SEND_PCIEHDR",
-+		"IDMA_FL_H_PUSH_CPL_FIFO",
-+		"IDMA_FL_H_SEND_CPL",
-+		"IDMA_FL_H_SEND_IP_HDR_FIRST",
-+		"IDMA_FL_H_SEND_IP_HDR",
-+		"IDMA_FL_H_REQ_NEXT_HEADER_FL",
-+		"IDMA_FL_H_SEND_NEXT_PCIEHDR",
-+		"IDMA_FL_H_SEND_IP_HDR_PADDING",
-+		"IDMA_FL_D_SEND_PCIEHDR",
-+		"IDMA_FL_D_SEND_CPL_AND_IP_HDR",
-+		"IDMA_FL_D_REQ_NEXT_DATA_FL",
-+		"IDMA_FL_SEND_PCIEHDR",
-+		"IDMA_FL_PUSH_CPL_FIFO",
-+		"IDMA_FL_SEND_CPL",
-+		"IDMA_FL_SEND_PAYLOAD_FIRST",
-+		"IDMA_FL_SEND_PAYLOAD",
-+		"IDMA_FL_REQ_NEXT_DATA_FL",
-+		"IDMA_FL_SEND_NEXT_PCIEHDR",
-+		"IDMA_FL_SEND_PADDING",
-+		"IDMA_FL_SEND_COMPLETION_TO_IMSG",
-+	};
-+	static const u32 sge_regs[] = {
-+		SGE_DEBUG_DATA_LOW_INDEX_2,
-+		SGE_DEBUG_DATA_LOW_INDEX_3,
-+		SGE_DEBUG_DATA_HIGH_INDEX_10,
-+	};
-+	const char **sge_idma_decode;
-+	int sge_idma_decode_nstates;
-+	int i;
++#define SGE_IDMA_WARN_THRESH (1 * HZ)
++#define SGE_IDMA_WARN_REPEAT (20 * RX_QCHECK_PERIOD)
 +
-+	if (is_t4(adapter->params.chip)) {
-+		sge_idma_decode = (const char **)t4_decode;
-+		sge_idma_decode_nstates = ARRAY_SIZE(t4_decode);
-+	} else {
-+		sge_idma_decode = (const char **)t5_decode;
-+		sge_idma_decode_nstates = ARRAY_SIZE(t5_decode);
-+	}
-+
-+	if (state < sge_idma_decode_nstates)
-+		CH_WARN(adapter, "idma state %s\n", sge_idma_decode[state]);
-+	else
-+		CH_WARN(adapter, "idma state %d unknown\n", state);
-+
-+	for (i = 0; i < ARRAY_SIZE(sge_regs); i++)
-+		CH_WARN(adapter, "SGE register %#x value %#x\n",
-+			sge_regs[i], t4_read_reg(adapter, sge_regs[i]));
-+}
-+
-+/**
-  *      t4_fw_hello - establish communication with FW
-  *      @adap: the adapter
-  *      @mbox: mailbox to use for the FW command
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 4082522..33cf9ef 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -278,6 +278,9 @@
- #define SGE_DEBUG_INDEX 0x10cc
- #define SGE_DEBUG_DATA_HIGH 0x10d0
- #define SGE_DEBUG_DATA_LOW 0x10d4
-+#define SGE_DEBUG_DATA_LOW_INDEX_2	0x12c8
-+#define SGE_DEBUG_DATA_LOW_INDEX_3	0x12cc
-+#define SGE_DEBUG_DATA_HIGH_INDEX_10	0x12a8
- #define SGE_INGRESS_QUEUES_PER_PAGE_PF 0x10f4
+ /*
+  * Max number of Tx descriptors to be reclaimed by the Tx timer.
+  */
+@@ -2008,7 +2018,7 @@ irq_handler_t t4_intr_handler(struct adapter *adap)
+ static void sge_rx_timer_cb(unsigned long data)
+ {
+ 	unsigned long m;
+-	unsigned int i, cnt[2];
++	unsigned int i, idma_same_state_cnt[2];
+ 	struct adapter *adap = (struct adapter *)data;
+ 	struct sge *s = &adap->sge;
  
- #define S_HP_INT_THRESH    28
+@@ -2031,21 +2041,64 @@ static void sge_rx_timer_cb(unsigned long data)
+ 		}
+ 
+ 	t4_write_reg(adap, SGE_DEBUG_INDEX, 13);
+-	cnt[0] = t4_read_reg(adap, SGE_DEBUG_DATA_HIGH);
+-	cnt[1] = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
+-
+-	for (i = 0; i < 2; i++)
+-		if (cnt[i] >= s->starve_thres) {
+-			if (s->idma_state[i] || cnt[i] == 0xffffffff)
+-				continue;
+-			s->idma_state[i] = 1;
+-			t4_write_reg(adap, SGE_DEBUG_INDEX, 11);
+-			m = t4_read_reg(adap, SGE_DEBUG_DATA_LOW) >> (i * 16);
+-			dev_warn(adap->pdev_dev,
+-				 "SGE idma%u starvation detected for "
+-				 "queue %lu\n", i, m & 0xffff);
+-		} else if (s->idma_state[i])
+-			s->idma_state[i] = 0;
++	idma_same_state_cnt[0] = t4_read_reg(adap, SGE_DEBUG_DATA_HIGH);
++	idma_same_state_cnt[1] = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
++
++	for (i = 0; i < 2; i++) {
++		u32 debug0, debug11;
++
++		/* If the Ingress DMA Same State Counter ("timer") is less
++		 * than 1s, then we can reset our synthesized Stall Timer and
++		 * continue.  If we have previously emitted warnings about a
++		 * potential stalled Ingress Queue, issue a note indicating
++		 * that the Ingress Queue has resumed forward progress.
++		 */
++		if (idma_same_state_cnt[i] < s->idma_1s_thresh) {
++			if (s->idma_stalled[i] >= SGE_IDMA_WARN_THRESH)
++				CH_WARN(adap, "SGE idma%d, queue%u,resumed after %d sec\n",
++					i, s->idma_qid[i],
++					s->idma_stalled[i]/HZ);
++			s->idma_stalled[i] = 0;
++			continue;
++		}
++
++		/* Synthesize an SGE Ingress DMA Same State Timer in the Hz
++		 * domain.  The first time we get here it'll be because we
++		 * passed the 1s Threshold; each additional time it'll be
++		 * because the RX Timer Callback is being fired on its regular
++		 * schedule.
++		 *
++		 * If the stall is below our Potential Hung Ingress Queue
++		 * Warning Threshold, continue.
++		 */
++		if (s->idma_stalled[i] == 0)
++			s->idma_stalled[i] = HZ;
++		else
++			s->idma_stalled[i] += RX_QCHECK_PERIOD;
++
++		if (s->idma_stalled[i] < SGE_IDMA_WARN_THRESH)
++			continue;
++
++		/* We'll issue a warning every SGE_IDMA_WARN_REPEAT Hz */
++		if (((s->idma_stalled[i] - HZ) % SGE_IDMA_WARN_REPEAT) != 0)
++			continue;
++
++		/* Read and save the SGE IDMA State and Queue ID information.
++		 * We do this every time in case it changes across time ...
++		 */
++		t4_write_reg(adap, SGE_DEBUG_INDEX, 0);
++		debug0 = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
++		s->idma_state[i] = (debug0 >> (i * 9)) & 0x3f;
++
++		t4_write_reg(adap, SGE_DEBUG_INDEX, 11);
++		debug11 = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
++		s->idma_qid[i] = (debug11 >> (i * 16)) & 0xffff;
++
++		CH_WARN(adap, "SGE idma%u, queue%u, maybe stuck state%u %dsecs (debug0=%#x, debug11=%#x)\n",
++			i, s->idma_qid[i], s->idma_state[i],
++			s->idma_stalled[i]/HZ, debug0, debug11);
++		t4_sge_decode_idma_state(adap, s->idma_state[i]);
++	}
+ 
+ 	mod_timer(&s->rx_timer, jiffies + RX_QCHECK_PERIOD);
+ }
+@@ -2756,8 +2809,9 @@ int t4_sge_init(struct adapter *adap)
+ 
+ 	setup_timer(&s->rx_timer, sge_rx_timer_cb, (unsigned long)adap);
+ 	setup_timer(&s->tx_timer, sge_tx_timer_cb, (unsigned long)adap);
+-	s->starve_thres = core_ticks_per_usec(adap) * 1000000;  /* 1 s */
+-	s->idma_state[0] = s->idma_state[1] = 0;
++	s->idma_1s_thresh = core_ticks_per_usec(adap) * 1000000;  /* 1 s */
++	s->idma_stalled[0] = 0;
++	s->idma_stalled[1] = 0;
+ 	spin_lock_init(&s->intrq_lock);
+ 
+ 	return 0;
 -- 
 1.8.4
