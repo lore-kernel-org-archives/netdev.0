@@ -1,46 +1,53 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCHv6 net-next 20/31] iw_cxgb4: adjust tcp snd/rcv window
- based on link speed
-Date: Wed, 12 Mar 2014 18:12:45 -0400 (EDT)
-Message-ID: <20140312.181245.1921772176964395946.davem@davemloft.net>
-References: <008801cf3e2e$d8679b00$8936d100$@opengridcomputing.com>
-	<20140312.162348.2225551653125401290.davem@davemloft.net>
-	<008d01cf3e3a$257edc90$707c95b0$@opengridcomputing.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH v9 net-next 1/3] filter: add Extended BPF interpreter and converter
+Date: Wed, 12 Mar 2014 15:16:15 -0700
+Message-ID: <CAHA+R7P=XAWAPkJTZSfHs02-+V+VOMQ04ZNNjY6LmPdRENzCJA@mail.gmail.com>
+References: <1394512892-5448-1-git-send-email-ast@plumgrid.com>
+	<1394512892-5448-2-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <008d01cf3e3a$257edc90$707c95b0$@opengridcomputing.com>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394512892-5448-2-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Date: Wed, 12 Mar 2014 16:29:27 -0500
+(Sorry for jumping into this thread late.)
 
->> >> You can just use the TCP settings the kernel already provides for
->> >> the real TCP stack.
->> >
->> > Do you mean use sysctl_tcp_*mem, sysctl_tcp_timestamps, sysctl_tcp_window_scaling,
-> etc?
->> > I'll look into this.
->> 
->> And the socket memory limits, which we use to compute default window
->> sizes.
-> 
-> How's this look (compile-tested only)?  Note I had to export some of the tcp limits.
+On Mon, Mar 10, 2014 at 9:41 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+>
+> 3. tracing filters systemtap-like with extended BPF
+>
+> 4. OVS with extended BPF
+>
+> 5. nftables with extended BPF
 
-Well, the problem is that you've dug your own hole already.
+If you plan to use extended BPF out of networking, does
+it make sense to make it independent of networking?
+That is, rename those sk_*() APIs?
 
-You can't just remove these existing module parameters that users can
-set.  They are user visible APIs, you can't just remove them.
+>
+> +int bpf_ext_enable __read_mostly;
+> +
 
-The best you can do is stop adding new ones.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This could be converted to a jump label, no?
