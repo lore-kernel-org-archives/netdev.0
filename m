@@ -1,49 +1,60 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/2] cgroup: Provide empty definition of
- task_cgroup_path()
-Date: Wed, 12 Mar 2014 15:00:20 -0400 (EDT)
-Message-ID: <20140312.150020.340861233360073600.davem@davemloft.net>
-References: <1394649942-5854-1-git-send-email-vgoyal@redhat.com>
-	<1394649942-5854-2-git-send-email-vgoyal@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next 12/13] ixgbe: fix some multiline hw_dbg prints
+Date: Wed, 12 Mar 2014 23:11:15 +0300
+Message-ID: <5320BF63.30403@cogentembedded.com>
+References: <1394603618-1044-1-git-send-email-jeffrey.t.kirsher@intel.com>	 <1394603618-1044-13-git-send-email-jeffrey.t.kirsher@intel.com>	 <53207459.5010306@cogentembedded.com> <1394649063.3030.3.camel@jekeller-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394649942-5854-2-git-send-email-vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:62957 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750846AbaCLTLU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 15:11:20 -0400
+Received: by mail-lb0-f175.google.com with SMTP id w7so6975853lbi.34
+        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 12:11:19 -0700 (PDT)
+In-Reply-To: <1394649063.3030.3.camel@jekeller-desk1.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Wed, 12 Mar 2014 14:45:41 -0400
+Hello.
 
-> Compilation with !CONFIG_CGROUP fails for task_cgroup_path() user. So
-> provide an emtpy definition.
-> 
-> Signed-off-by: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> ---
->  include/linux/cgroup.h | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
-> index 9450f02..bf40adb 100644
-> --- a/include/linux/cgroup.h
-> +++ b/include/linux/cgroup.h
-> @@ -869,6 +869,8 @@ static inline int cgroup_attach_task_all(struct task_struct *from,
->  	return 0;
->  }
->  
-> +static inline int task_cgroup_path(struct task_struct *task, char *buf, size_t buflen) {return 0;}
-> +
+On 03/12/2014 09:31 PM, Keller, Jacob E wrote:
 
-Please properly format this just like any other function.
+>>> From: Jacob Keller <jacob.e.keller@intel.com>
 
-static inline int task_cgroup_path(struct task_struct *task, char *buf, size_t buflen)
-{
-	eturn 0;
-}
+>>> This patch fixes some formatting on multilined print messages, so that
+>>> the text of the print appears on a single line, which aids in grepping
+>>> the sourcecode for where the error came from.
 
-It looked like a plain static declaration on first glance.
+>>> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+>>> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+>>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>>> ---
+>>>    drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 8 +++-----
+>>>    1 file changed, 3 insertions(+), 5 deletions(-)
+
+>>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+>>> index 446df3c..3bc9b67 100644
+>>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+>>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+>>> @@ -512,7 +512,7 @@ out:
+>>>     *
+>>>     * Disables link, should be called during D3 power down sequence.
+>>>     *
+>>> - */
+>>> + **/
+
+>>      Hm? What's this for?
+
+> The extra **/ is part of the standard doc format for function headers,
+
+    It is not. Reread Documentation/kernel-doc-nano-HOWTO.txt please.
+
+WBR, Sergei
