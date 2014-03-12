@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv6 net-next 28/31] iw_cxgb4: SQ flush fix
-Date: Wed, 12 Mar 2014 21:20:43 +0530
-Message-ID: <1394639446-6504-29-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv6 net-next 24/31] iw_cxgb4: rx_data() needs to hold the ep mutex
+Date: Wed, 12 Mar 2014 21:20:39 +0530
+Message-ID: <1394639446-6504-25-git-send-email-hariprasad@chelsio.com>
 References: <1394639446-6504-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
 	swise@opengridcomputing.com, leedom@chelsio.com,
@@ -9,127 +9,103 @@ Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
 	hariprasad@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:19693 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:21487 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755411AbaCLQAe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 12:00:34 -0400
+	by vger.kernel.org with ESMTP id S1755255AbaCLQAT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 12:00:19 -0400
 In-Reply-To: <1394639446-6504-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Steve Wise <swise@opengridcomputing.com>
 
-There is a race when moving a QP from RTS->CLOSING where a SQ work
-request could be posted after the FW receives the RDMA_RI/FINI WR.
-The SQ work request will never get processed, and should be completed
-with FLUSHED status.  Function c4iw_flush_sq(), however was dropping
-the oldest SQ work request when in CLOSING or IDLE states, instead of
-completing the pending work request. If that oldest pending work request
-was actually complete and has a CQE in the CQ, then when that CQE is
-proceessed in poll_cq, we'll BUG_ON() due to the inconsistent SQ/CQ state.
-
-This is a very small timing hole and has only been hit once so far.
-
-The fix is two-fold:
-
-1) c4iw_flush_sq() MUST always flush all non-completed WRs with FLUSHED
-status regardless of the QP state.
-
-2) In c4iw_modify_rc_qp(), always set the "in error" bit on the queue
-before moving the state out of RTS.  This ensures that the state
-transition will not happen while another thread is in post_rc_send(),
-because set_state() and post_rc_send() both aquire the qp spinlock.
-Also, once we transition the state out of RTS, subsequent calls to
-post_rc_send() will fail because the "in error" bit is set.  I don't
-think this fully closes the race where the FW can get a FINI followed a
-SQ work request being posted (because they are posted to differente EQs),
-but the #1 fix will handle the issue by flushing the SQ work request.
+To avoid racing with other threads doing close/flush/whatever, rx_data()
+should hold the endpoint mutex.
 
 Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/infiniband/hw/cxgb4/cq.c | 22 ++++++++--------------
- drivers/infiniband/hw/cxgb4/qp.c |  6 +++---
- 2 files changed, 11 insertions(+), 17 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/cq.c b/drivers/infiniband/hw/cxgb4/cq.c
-index 55f7157..121ad07 100644
---- a/drivers/infiniband/hw/cxgb4/cq.c
-+++ b/drivers/infiniband/hw/cxgb4/cq.c
-@@ -235,27 +235,21 @@ int c4iw_flush_sq(struct c4iw_qp *qhp)
- 	struct t4_cq *cq = &chp->cq;
- 	int idx;
- 	struct t4_swsqe *swsqe;
--	int error = (qhp->attr.state != C4IW_QP_STATE_CLOSING &&
--			qhp->attr.state != C4IW_QP_STATE_IDLE);
+diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
+index f62801a..c3267b5 100644
+--- a/drivers/infiniband/hw/cxgb4/cm.c
++++ b/drivers/infiniband/hw/cxgb4/cm.c
+@@ -1193,7 +1193,7 @@ static void process_mpa_reply(struct c4iw_ep *ep, struct sk_buff *skb)
+ 	 * the connection.
+ 	 */
+ 	stop_ep_timer(ep);
+-	if (state_read(&ep->com) != MPA_REQ_SENT)
++	if (ep->com.state != MPA_REQ_SENT)
+ 		return;
  
- 	if (wq->sq.flush_cidx == -1)
- 		wq->sq.flush_cidx = wq->sq.cidx;
- 	idx = wq->sq.flush_cidx;
- 	BUG_ON(idx >= wq->sq.size);
- 	while (idx != wq->sq.pidx) {
--		if (error) {
--			swsqe = &wq->sq.sw_sq[idx];
--			BUG_ON(swsqe->flushed);
--			swsqe->flushed = 1;
--			insert_sq_cqe(wq, cq, swsqe);
--			if (wq->sq.oldest_read == swsqe) {
--				BUG_ON(swsqe->opcode != FW_RI_READ_REQ);
--				advance_oldest_read(wq);
--			}
--			flushed++;
--		} else {
--			t4_sq_consume(wq);
-+		swsqe = &wq->sq.sw_sq[idx];
-+		BUG_ON(swsqe->flushed);
-+		swsqe->flushed = 1;
-+		insert_sq_cqe(wq, cq, swsqe);
-+		if (wq->sq.oldest_read == swsqe) {
-+			BUG_ON(swsqe->opcode != FW_RI_READ_REQ);
-+			advance_oldest_read(wq);
- 		}
-+		flushed++;
- 		if (++idx == wq->sq.size)
- 			idx = 0;
+ 	/*
+@@ -1268,7 +1268,7 @@ static void process_mpa_reply(struct c4iw_ep *ep, struct sk_buff *skb)
+ 	 * start reply message including private data. And
+ 	 * the MPA header is valid.
+ 	 */
+-	state_set(&ep->com, FPDU_MODE);
++	__state_set(&ep->com, FPDU_MODE);
+ 	ep->mpa_attr.crc_enabled = (mpa->flags & MPA_CRC) | crc_enabled ? 1 : 0;
+ 	ep->mpa_attr.recv_marker_enabled = markers_enabled;
+ 	ep->mpa_attr.xmit_marker_enabled = mpa->flags & MPA_MARKERS ? 1 : 0;
+@@ -1383,7 +1383,7 @@ static void process_mpa_reply(struct c4iw_ep *ep, struct sk_buff *skb)
  	}
-diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
-index 4c70df9..141999d 100644
---- a/drivers/infiniband/hw/cxgb4/qp.c
-+++ b/drivers/infiniband/hw/cxgb4/qp.c
-@@ -1359,6 +1359,7 @@ int c4iw_modify_qp(struct c4iw_dev *rhp, struct c4iw_qp *qhp,
- 		switch (attrs->next_state) {
- 		case C4IW_QP_STATE_CLOSING:
- 			BUG_ON(atomic_read(&qhp->ep->com.kref.refcount) < 2);
-+			t4_set_wq_in_error(&qhp->wq);
- 			set_state(qhp, C4IW_QP_STATE_CLOSING);
- 			ep = qhp->ep;
- 			if (!internal) {
-@@ -1366,16 +1367,15 @@ int c4iw_modify_qp(struct c4iw_dev *rhp, struct c4iw_qp *qhp,
- 				disconnect = 1;
- 				c4iw_get_ep(&qhp->ep->com);
- 			}
--			t4_set_wq_in_error(&qhp->wq);
- 			ret = rdma_fini(rhp, qhp, ep);
- 			if (ret)
- 				goto err;
- 			break;
- 		case C4IW_QP_STATE_TERMINATE:
-+			t4_set_wq_in_error(&qhp->wq);
- 			set_state(qhp, C4IW_QP_STATE_TERMINATE);
- 			qhp->attr.layer_etype = attrs->layer_etype;
- 			qhp->attr.ecode = attrs->ecode;
--			t4_set_wq_in_error(&qhp->wq);
- 			ep = qhp->ep;
- 			disconnect = 1;
- 			if (!internal)
-@@ -1388,8 +1388,8 @@ int c4iw_modify_qp(struct c4iw_dev *rhp, struct c4iw_qp *qhp,
- 			c4iw_get_ep(&qhp->ep->com);
- 			break;
- 		case C4IW_QP_STATE_ERROR:
--			set_state(qhp, C4IW_QP_STATE_ERROR);
- 			t4_set_wq_in_error(&qhp->wq);
-+			set_state(qhp, C4IW_QP_STATE_ERROR);
- 			if (!internal) {
- 				abort = 1;
- 				disconnect = 1;
+ 	goto out;
+ err:
+-	state_set(&ep->com, ABORTING);
++	__state_set(&ep->com, ABORTING);
+ 	send_abort(ep, skb, GFP_KERNEL);
+ out:
+ 	connect_reply_upcall(ep, err);
+@@ -1398,7 +1398,7 @@ static void process_mpa_request(struct c4iw_ep *ep, struct sk_buff *skb)
+ 
+ 	PDBG("%s ep %p tid %u\n", __func__, ep, ep->hwtid);
+ 
+-	if (state_read(&ep->com) != MPA_REQ_WAIT)
++	if (ep->com.state != MPA_REQ_WAIT)
+ 		return;
+ 
+ 	/*
+@@ -1519,7 +1519,7 @@ static void process_mpa_request(struct c4iw_ep *ep, struct sk_buff *skb)
+ 	     ep->mpa_attr.xmit_marker_enabled, ep->mpa_attr.version,
+ 	     ep->mpa_attr.p2p_type);
+ 
+-	state_set(&ep->com, MPA_REQ_RCVD);
++	__state_set(&ep->com, MPA_REQ_RCVD);
+ 	stop_ep_timer(ep);
+ 
+ 	/* drive upcall */
+@@ -1549,11 +1549,12 @@ static int rx_data(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	PDBG("%s ep %p tid %u dlen %u\n", __func__, ep, ep->hwtid, dlen);
+ 	skb_pull(skb, sizeof(*hdr));
+ 	skb_trim(skb, dlen);
++	mutex_lock(&ep->com.mutex);
+ 
+ 	/* update RX credits */
+ 	update_rx_credits(ep, dlen);
+ 
+-	switch (state_read(&ep->com)) {
++	switch (ep->com.state) {
+ 	case MPA_REQ_SENT:
+ 		ep->rcv_seq += dlen;
+ 		process_mpa_reply(ep, skb);
+@@ -1569,7 +1570,7 @@ static int rx_data(struct c4iw_dev *dev, struct sk_buff *skb)
+ 			pr_err("%s Unexpected streaming data." \
+ 			       " qpid %u ep %p state %d tid %u status %d\n",
+ 			       __func__, ep->com.qp->wq.sq.qid, ep,
+-			       state_read(&ep->com), ep->hwtid, status);
++			       ep->com.state, ep->hwtid, status);
+ 		attrs.next_state = C4IW_QP_STATE_TERMINATE;
+ 		c4iw_modify_qp(ep->com.qp->rhp, ep->com.qp,
+ 			       C4IW_QP_ATTR_NEXT_STATE, &attrs, 0);
+@@ -1578,6 +1579,7 @@ static int rx_data(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	default:
+ 		break;
+ 	}
++	mutex_unlock(&ep->com.mutex);
+ 	return 0;
+ }
+ 
 -- 
 1.8.4
