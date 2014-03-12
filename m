@@ -1,99 +1,94 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RCU PATCH 06/14] net: sched: fw use RCU
-Date: Wed, 12 Mar 2014 09:41:35 -0700
-Message-ID: <53208E3F.5090401@gmail.com>
-References: <20140310170008.3011.73599.stgit@nitbit.x32>  <20140310170546.3011.82918.stgit@nitbit.x32> <1394473279.3607.46.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [RCU PATCH 00/14] Remove qdisc lock around ingress Qdisc
+Date: Wed, 12 Mar 2014 09:45:05 -0700
+Message-ID: <53208F11.8010304@gmail.com>
+References: <20140310170008.3011.73599.stgit@nitbit.x32> <53200588.5060805@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
+Content-Type: text/plain; charset=windows-1252;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
 	davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:53665 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755197AbaCLQl7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 12:41:59 -0400
-Received: by mail-ob0-f169.google.com with SMTP id va2so10173011obc.14
-        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 09:41:59 -0700 (PDT)
-In-Reply-To: <1394473279.3607.46.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:55169 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754756AbaCLQpW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 12:45:22 -0400
+Received: by mail-ob0-f175.google.com with SMTP id uy5so10197676obc.6
+        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 09:45:22 -0700 (PDT)
+In-Reply-To: <53200588.5060805@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/10/2014 10:41 AM, Eric Dumazet wrote:
-> On Mon, 2014-03-10 at 10:05 -0700, John Fastabend wrote:
->> RCU'ify fw classifier.
+On 03/11/2014 11:58 PM, Jamal Hadi Salim wrote:
+> On 03/10/14 13:03, John Fastabend wrote:
+>> This series drops the qdisc lock that is currently protecting the
+>> ingress qdisc. This can be done after the tcf filters are made
+>> lockless and the statistic accounting is safe to run without locks.
 >>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> ---
->>   net/sched/cls_fw.c |  110 ++++++++++++++++++++++++++++++++++++----=
-------------
->>   1 file changed, 76 insertions(+), 34 deletions(-)
+>> To do this the classifiers are converted to use RCU. This requires
+>> updating each classifier individually to handle the new copy/update
+>> requirement and also to update the core list traversals. This is
+>> done in patches 2-11. This also makes the assumption that updates
+>> to the tables are infrequent in comparison to the packet per second
+>> being classified. On a 10Gbps running near line rate we can easily
+>> produce 12+ million packets per second so IMO this is a reasonable
+>> assumption. And the updates are serialized by RTNL.
 >>
->> diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
->> index a366537..ff392f1 100644
->> --- a/net/sched/cls_fw.c
->> +++ b/net/sched/cls_fw.c
->> @@ -32,18 +32,21 @@
->>   #define HTSIZE (PAGE_SIZE/sizeof(struct fw_filter *))
->>
->>   struct fw_head {
->> -	struct fw_filter *ht[HTSIZE];
->> +	struct rcu_head	rcu;
 >
-> Try to put 'rcu' at the end of structures, we do not need it in fast
-> path.
 >
->> +	struct fw_filter __rcu *ht[HTSIZE];
->>   	u32 mask;
->>   };
->>
->>   struct fw_filter {
->> -	struct fw_filter	*next;
->> +	struct fw_filter __rcu	*next;
->> +	struct rcu_head		rcu;
+> I am in travel mode and dont have much cycles to do full review
+> and the patch set seems to be based on what we discussed earlier.
+> I worry on whether the assumption that table updates being
+> infrequent is going to cripple some of the use cases that have
+> made the interface powerful.  Cant find a presentation i did a
+> while back nor my data (i will look when i get back)- but one of the
+> things we prided on was ability to do extremely fast updates (both
+> latency and throughput) even in presence of datapath activity.
+> My comparison at the time was against netfilter (we were about
+> a magnitude faster).
+> So a good metric is to pick some classifier and action - then do
+> table updates with no traffic as a base metric and with your changes
+> after. Likewise with traffic.
+
+Sure I can provide this data as part of the patch description. My
+expectation is now that the qdisc lock is not needed there should
+be less impact to throughput/latency due to filter updates. But I'll
+produce the data.
+
 >
-> same remark
->
+> BTW: does this mean there may be lack of sync between what the
+> control update is doing and what is being used in the datapath?
 
-[...]
+Yes upto one RCU grace period. Although I don't think this is an
+issue because we get consistency eventually and even with the qdisc
+lock there is no way to know if a set of skbs hit the filter list
+before or after the update.
 
->>
->> @@ -150,29 +159,32 @@ static void fw_destroy(struct tcf_proto *tp)
->>   		return;
->>
->>   	for (h =3D 0; h < HTSIZE; h++) {
->> -		while ((f =3D head->ht[h]) !=3D NULL) {
->> -			head->ht[h] =3D f->next;
->> -			fw_delete_filter(tp, f);
->> +		while ((f =3D rtnl_dereference(head->ht[h])) !=3D NULL) {
->> +			rcu_assign_pointer(head->ht[h],
->> +					   rtnl_dereference(f->next));
->> +			call_rcu(&f->rcu, fw_delete_filter);
->>   		}
->>   	}
->> -	kfree(head);
->> +	rcu_assign_pointer(tp->root, NULL);
->
-> RCU_INIT_POINTER
->
->> +	kfree_rcu(head, rcu);
+I'll get a v2 out tomorrow morning after making Eric's changes and
+fixing the last compiler warning.
 
-Rearranging the rcu_head placement above results in this error:
+> net/core/gen_estimator.c: In function =91gen_get_bstats=92:
+> net/core/gen_estimator.c:163:43: warning: pointer type mismatch in co=
+nditional expression [enabled by default]
+> net/core/gen_estimator.c: In function =91gen_find_node=92:
+> net/core/gen_estimator.c:191:28: warning: pointer type mismatch in co=
+nditional expression [enabled by default]
 
-net/sched/cls_fw.c: In function =E2=80=98fw_destroy=E2=80=99:
-net/sched/cls_fw.c:169:279: error: call to =E2=80=98__compiletime_asser=
-t_169=E2=80=99=20
-declared with attribute error: BUILD_BUG_ON failed:=20
-!__is_kfree_rcu_offset(__builtin_offsetof(typeof(*(head)),rcu))
-
-
-However it seems best to have the rcu_head at the end of the struct
-so I'll just convert the kfree_rcu() to call_rcu().
+compiler doesn't like the usage of voids here.
 
 Thanks,
 John
+
+
+>
+> cheers,
+> jamal
+>
+>
+>
+
 
 --=20
 John Fastabend         Intel Corporation
