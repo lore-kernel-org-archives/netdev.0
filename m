@@ -1,118 +1,93 @@
-From: Vince Bridgers <vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v3 5/9] Altera TSE: Add Miscellaneous Files for
- Altera Ethernet Driver
-Date: Tue, 11 Mar 2014 19:28:53 -0500
-Message-ID: <CAOwfj2Ot+ssTZgMoOoShVEUi+RkxjpPpRUfHAkP9RETm3TuUzg@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next v3 6/9] Altera TSE: Add main and header file
+ for Altera Ethernet Driver
+Date: Tue, 11 Mar 2014 17:45:44 -0700
+Message-ID: <1394585144.28839.32.camel@joe-AO722>
 References: <1394577791-6547-1-git-send-email-vbridgers2013@gmail.com>
-	<1394577791-6547-6-git-send-email-vbridgers2013@gmail.com>
-	<1394578747.28839.4.camel@joe-AO722>
+	 <1394577791-6547-7-git-send-email-vbridgers2013@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"pawel.moll-5wv7dgnIgG8@public.gmane.org" <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	"mark.rutland-5wv7dgnIgG8@public.gmane.org" <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	"ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org" <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Rob Landley <rob-VoJi6FS/r0vR7s880joybQ@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394578747.28839.4.camel@joe-AO722>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, rob@landley.net
+To: Vince Bridgers <vbridgers2013@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1394577791-6547-7-git-send-email-vbridgers2013@gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Joe,
+On Tue, 2014-03-11 at 17:43 -0500, Vince Bridgers wrote:
+> This patch adds the main driver and header file for the Altera Triple
+> Speed Ethernet driver.
 
-On Tue, Mar 11, 2014 at 5:59 PM, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
-> On Tue, 2014-03-11 at 17:43 -0500, Vince Bridgers wrote:
->> This patch adds miscellaneous files for the Altera Ethernet Driver,
->> including ethtool support.
->
-> trivial notes:
->
->> diff --git a/drivers/net/ethernet/altera/altera_tse_ethtool.c b/drivers/net/ethernet/altera/altera_tse_ethtool.c
-> []
->> +static char const stat_gstrings[][ETH_GSTRING_LEN] = {
->
-> static const char
->
->> +     "aFramesTransmittedOK",
->
-> Why the prefix with a?
+trivial notes about message logging:
 
-These names follow the names of the statistics found in the databook
-for the Altera Triple Speed Ethernet (TSE) soft IP. I'm not
-emotionally attached to these names, so will review the statistics
-names and follow common usage instead. Thank you for noticing and
-commenting.
+> diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
+[]
+> +static const u32 default_msg_level = (NETIF_MSG_DRV | NETIF_MSG_PROBE |
+> +					NETIF_MSG_LINK | NETIF_MSG_IFUP |
+> +					NETIF_MSG_IFDOWN);
+[]
+> +static int altera_tse_mdio_create(struct net_device *dev, unsigned int id)
+> +{
+[]
+> +	mdio->irq = kcalloc(PHY_MAX_ADDR, sizeof(int), GFP_KERNEL);
+> +	if (mdio->irq == NULL) {
+> +		dev_err(priv->device, "%s: Cannot allocate memory\n", __func__);
 
->
->> +     "aFramesReceivedOK",
->
-> "rx_packets" is typically used
->
->> +     "aFramesCheckSequenceErrors",
->
->> +     "aAlignmentErrors",
->> +     "aOctetsTransmittedOK",
->> +     "aOctetsReceivedOK",
->> +     "aTxPAUSEMACCtrlFrames",
->> +     "aRxPAUSEMACCtrlFrames",
->> +     "ifInErrors",
->> +     "ifOutErrors",
->> +     "ifInUcastPkts",
->> +     "ifInMulticastPkts",
->> +     "ifInBroadcastPkts",
->> +     "ifOutDiscards",
->> +     "ifOutUcastPkts",
->> +     "ifOutMulticastPkts",
->> +     "ifOutBroadcastPkts",
->> +     "etherStatsDropEvents",
->> +     "etherStatsOctets",
->> +     "etherStatsPkts",
->> +     "etherStatsUndersizePkts",
->> +     "etherStatsOversizePkts",
->> +     "etherStatsPkts64Octets",
->> +     "etherStatsPkts65to127Octets",
->> +     "etherStatsPkts128to255Octets",
->> +     "etherStatsPkts256to511Octets",
->> +     "etherStatsPkts512to1023Octets",
->> +     "etherStatsPkts1024to1518Octets",
->> +     "etherStatsPkts1519toXOctets",
->> +     "etherStatsJabbers",
->> +     "etherStatsFragments",
->
-> Perhaps review all of these strings for
-> unusual naming.
+OOM messages aren't necessary as all allocs have
+a generic OOM message as well as a dump_stack();
+(well, any alloc without GFP_NOWARN)
 
-Will do, thanks.
+> +	ret = of_mdiobus_register(mdio, mdio_node);
+> +	if (ret != 0) {
+> +		dev_err(priv->device, "Cannot register MDIO bus %s\n",
+> +			mdio->id);
 
->
->> +static void tse_get_regs(struct net_device *dev, struct ethtool_regs *regs,
->> +                      void *regbuf)
->> +{
->> +     int i;
->> +     struct altera_tse_private *priv = netdev_priv(dev);
->> +     u32 *tse_mac_regs = (u32 *)priv->mac_dev;
->> +     u32 *buf = (u32 *)regbuf;
->
-> void * doesn't need a cast
->
->         u32 *buf = regbuf
->
-> is just fine.
+Because you have a struct net_device * available,
+you should probably use that.
 
-I'll pick this up while reviewing and updating the stats names.
+		netdev_err(dev, "Cannot register MDIO bus %s\n", mdio->id);
 
-Thank you for taking the time to review and provide constructive
-comments. I'll address these and respin.
+> +		goto out_free_mdio_irq;
+> +	}
+> +
+> +	if (netif_msg_drv(priv))
+> +		dev_info(priv->device, "MDIO bus %s: created\n", mdio->id);
 
-All the best,
+There are generic functions for this with the struct net_device *
 
-Vince
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	netif_info(priv, drv, dev, "MDIO bus %s: created\n", mdio->id);
+
+> +static void altera_tse_mdio_destroy(struct net_device *dev)
+> +{
+[]
+> +	if (netif_msg_drv(priv))
+> +		dev_info(priv->device, "MDIO bus %s: removed\n",
+> +			 priv->mdio->id);
+
+	netif_info(priv, drv, dev, "MDIO bus %s: removed\n, priv->mdio->id);
+
+[]
+
+> +static int tse_init_rx_buffer(struct altera_tse_private *priv,
+> +			      struct tse_buffer *rxbuffer, int len)
+> +{
+> +	rxbuffer->skb = netdev_alloc_skb_ip_align(priv->dev, len);
+> +	if (!rxbuffer->skb) {
+> +		dev_err(priv->device, "%s: Rx init fails; skb is NULL\n",
+> +			__func__);
+
+		netdev_err(priv->dev, "%s: etc...)
+
+but this is also a generic alloc and will get the same generic OOM.
+
+> +	if (dma_mapping_error(priv->device, rxbuffer->dma_addr)) {
+> +		dev_err(priv->device, "%s: DMA mapping error\n", __func__);
+
+		netdev_err(priv->dev, etc...)
+
+etc...
+
