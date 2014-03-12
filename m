@@ -1,67 +1,40 @@
-From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Subject: RE: [PATCHv6 net-next 00/31] Misc. fixes for cxgb4 and iw_cxgb4
-Date: Wed, 12 Mar 2014 14:57:49 -0500
-Message-ID: <008601cf3e2d$583b5e90$08b21bb0$@opengridcomputing.com>
-References: <1394639446-6504-1-git-send-email-hariprasad@chelsio.com> <20140312.155125.1045693666130935765.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 net-next 0/7] mlx4: Add SRIOV support for RoCE
+Date: Wed, 12 Mar 2014 15:57:58 -0400 (EDT)
+Message-ID: <20140312.155758.2303597747142158471.davem@davemloft.net>
+References: <1394618443-20337-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>, <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	<santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	<nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: "'David Miller'" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140312.155125.1045693666130935765.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Content-Language: en-us
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, roland@kernel.org,
+	jackm@dev.mellanox.co.il, amirv@mellanox.com
+To: ogerlitz@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40986 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751296AbaCLT6A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 15:58:00 -0400
+In-Reply-To: <1394618443-20337-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Wed, 12 Mar 2014 12:00:36 +0200
 
-
-> -----Original Message-----
-> From: David Miller [mailto:davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org]
-> Sent: Wednesday, March 12, 2014 2:51 PM
-> To: hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org;
-> dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org; swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org; leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org;
-> santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org; kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org; nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-> Subject: Re: [PATCHv6 net-next 00/31] Misc. fixes for cxgb4 and iw_cxgb4
+> This series adds SRIOV support for RoCE (RDMA over Ethernet) to the mlx4 driver.
 > 
-> From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-> Date: Wed, 12 Mar 2014 21:20:15 +0530
+> The patches are against net-next, as of commit 2d8d40a "pkt_sched: fq:
+> do not hold qdisc lock while allocating memory"
+ ...
+> changes from V1:
+>  - addressed feedback from Dave on patch #3 and changed get_real_sgid_index()
+>    to be called fill_in_real_sgid_index() and be a void  function.
+>  - removed some checkpatch warnings on long lines
 > 
-> > V6:
-> >    In patch 8/31, move the existing neigh_release() call right before the
-> >    if(!e) test, that way you don't need a completely new label and code block
-> >    to fix this bug - thanks to review by David Miller
-> >    In patch 15/31, use %pad to print dma_addr - thanks to review by Joe Perches
-> >    In patch 10/31, add the "STOPPED" state string to db_state_str - thanks
-> >    to review by Steve Wise
-> >    In patch 10/31, t4_db_dropped() needs to disable dbs and send DB_FULL
-> >    event to iw_cxgb4 - thanks to review by Steve Wise
-> > V5:
-> >    Dropped patch "cxgb4: use spinlock_irqsave/spinlock_irqrestore for db lock".
-> 
-> I do not see the spinlock patch reinstated, part of it was correct and
-> fixed a real bug.  For the second time, I only stated that parts of it
-> were superfluous, not all of it.
-> 
+> changes from V0:
+>   - always check the return code of mlx4_get_roce_gid_from_slave().
+>     The call we fixed is introduced in patch #1 and later removed by 
+>     patch #3 that allows guests to have multiple GIDS. The 1..3 
+>     separation was done for proper division of patches to logical changes.
 
-Ok we can reinstate this patch and remove the bits from 10/31 if that's what you prefer.
-
-Steve.
-
-BTW: From my earlier reply explaining that we didn't drop the needed fixes:
-
-The remaining changes from the removed patch are moved into patch 10/31
-(Doorbell Drop Avoidance Bug Fixes).  10/31 has the driver call
-disable_txq_db() from an interrupt handler, and I thought it would be
-better to put all the changes to fix how the db lock is acquired into
-this one patch.   
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, thanks Or.
