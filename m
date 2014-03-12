@@ -1,53 +1,55 @@
-From: Carol Soto <clsoto-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [Patch 1/2] IB/mlx5: Implementation of PCI error handler
-Date: Wed, 12 Mar 2014 17:00:37 -0500
-Message-ID: <5320D905.4060509@linux.vnet.ibm.com>
-References: <20140312034219.637916521@linux.vnet.ibm.com> <20140312034512.065218504@linux.vnet.ibm.com> <1394649252.23624.36.camel@deadeye.wl.decadent.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 02/10] 8139too: Call dev_kfree_skby_any instead
+ of dev_kfree_skb.
+Date: Wed, 12 Mar 2014 15:01:35 -0700
+Message-ID: <1394661695.21721.50.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <87a9cxf7mp.fsf_-_@xmission.com>
+	 <20140311.124907.1180556684992271103.davem@davemloft.net>
+	 <87wqg0cy9d.fsf@xmission.com>
+	 <20140311.160931.1395978386605601765.davem@davemloft.net>
+	 <87r468bfqj.fsf_-_@xmission.com> <87fvmobfnr.fsf_-_@xmission.com>
+	 <1394589986.21721.37.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140312212429.GA14893@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brking-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
-To: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394649252.23624.36.camel-nDn/Rdv9kqW9Jme8/bJn5UCKIB8iOfG2tUK59QYPAWc@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:58397 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752254AbaCLWBh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 18:01:37 -0400
+Received: by mail-pb0-f50.google.com with SMTP id md12so135136pbc.37
+        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 15:01:37 -0700 (PDT)
+In-Reply-To: <20140312212429.GA14893@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On 3/12/2014 1:34 PM, Ben Hutchings wrote:
-> On Tue, 2014-03-11 at 22:42 -0500, clsoto-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org wrote:
+On Wed, 2014-03-12 at 22:24 +0100, Francois Romieu wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> :
 > [...]
->> Index: b/include/linux/mlx5/driver.h
->> ===================================================================
->> --- a/include/linux/mlx5/driver.h
->> +++ b/include/linux/mlx5/driver.h
->> @@ -51,10 +51,10 @@ enum {
->>   };
->>   
->>   enum {
->> -       /* one minute for the sake of bringup. Generally, commands must always
->> +       /* 10 msecs for the sake of bringup. Generally, commands must always
->>           * complete and we may need to increase this timeout value
->>           */
->> -       MLX5_CMD_TIMEOUT_MSEC   = 7200 * 1000,
->> +       MLX5_CMD_TIMEOUT_MSEC   = 10 * 1000,
-> You seem to be changing the timeout from 2 hours (not one minute) to 10
-> seconds (not milliseconds).
->
-> Ben.
-Yes you are right the comment should say 10 seconds instead of 10 msecs.
+> > Same u64_stats_fetch_begin_bh() problem for this driver to fetch TX
+> > stats.
+> 
+> Same problem for any NAPI context Tx completing driver that claims
+> netpoll support. For instance:
+> drivers/net/ethernet/emulex/benet
+> drivers/net/ethernet/intel/i40e
+> drivers/net/ethernet/intel/igb
+> drivers/net/ethernet/intel/ixgbe
+> drivers/net/ethernet/marvell/sky2.c
+> drivers/net/ethernet/neterion/vxge ?
+> 
+> Similar problem for the drivers below. They update Tx stats in start_xmit
+> and use u64_.*_bh:
+> drivers/net/ethernet/tile/tilepro.c
+> drivers/net/team/team.c
+> drivers/net/virtio_net.c
+> 
 
-Carol
->
->>          MLX5_CMD_WQ_MAX_NAME    = 32,
->>   };
->>   
->>
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yep, note that this issue is not caused by Eric patches, we need to take
+care of this by providing u64_stats_fetch_{begin|retry}_irq() regardless
+of how skb are freed.
