@@ -1,59 +1,58 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next] xen-netback: Schedule NAPI from dealloc thread instead of callback
-Date: Wed, 12 Mar 2014 21:04:41 +0000
-Message-ID: <1394658281-2488-1-git-send-email-zoltan.kiss@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<jonathan.davies@citrix.com>, Zoltan Kiss <zoltan.kiss@citrix.com>
-To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: [PATCH v2 RESEND 1/2] dt: Document a compatible entry for MDIO ethernet Phys
+Date: Wed, 12 Mar 2014 15:05:10 -0600
+Message-ID: <1394658311-17769-1-git-send-email-jgunthorpe@obsidianresearch.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Rob Herring <robh+dt@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If there are unconsumed requests in the ring, but there isn't enough free
-pending slots, the NAPI instance deschedule itself. As the frontend won't send
-any more interrupts in this case, it is the task of whoever release the pending
-slots to schedule the NAPI instance in this case. Originally it was done in the
-callback, but it's better at the end of the dealloc thread, otherwise there is
-a risk that the NAPI instance just deschedule itself as the dealloc thread
-couldn't release any used slot yet. However, as there are a lot of pending
-packets, NAPI will be scheduled again, and it is very unlikely that the dealloc
-thread can't release enough slots in the meantime.
+This describes a compatible entry of the form:
+  ethernet-phy-idAAAA,BBBB
+Which is modelled after the PCI structured compatible entry
+(pciVVVV,DDDD.SSSS.ssss.RR)
 
-Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+If present the OF core will be able to use this information to
+directly create the correct phy without auto probing the bus.
+
+Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Acked-by: Rob Herring <robh@kernel.org>
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
+ Documentation/devicetree/bindings/net/phy.txt | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index eae9724..07c9677 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -1516,13 +1516,6 @@ void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success)
- 	wake_up(&vif->dealloc_wq);
- 	spin_unlock_irqrestore(&vif->callback_lock, flags);
+This version is just a resend rebased against 3.14-rc6, with the minor merge
+conflicts resolved.
+
+I'm not sure who is supposed to pick this patch up?
+
+diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
+index 58307d0..5b8c589 100644
+--- a/Documentation/devicetree/bindings/net/phy.txt
++++ b/Documentation/devicetree/bindings/net/phy.txt
+@@ -21,10 +21,18 @@ Optional Properties:
+   elements.
+ - max-speed: Maximum PHY supported speed (10, 100, 1000...)
  
--	if (RING_HAS_UNCONSUMED_REQUESTS(&vif->tx) &&
--	    xenvif_tx_pending_slots_available(vif)) {
--		local_bh_disable();
--		napi_schedule(&vif->napi);
--		local_bh_enable();
--	}
--
- 	if (likely(zerocopy_success))
- 		vif->tx_zerocopy_success++;
- 	else
-@@ -1594,6 +1587,13 @@ static inline void xenvif_tx_dealloc_action(struct xenvif *vif)
- 	for (i = 0; i < gop - vif->tx_unmap_ops; ++i)
- 		xenvif_idx_release(vif, pending_idx_release[i],
- 				   XEN_NETIF_RSP_OKAY);
++  If the phy's identifier is known then the list may contain an entry
++  of the form: "ethernet-phy-idAAAA.BBBB" where
++     AAAA - The value of the 16 bit Phy Identifier 1 register as
++            4 hex digits. This is the chip vendor OUI bits 3:18
++     BBBB - The value of the 16 bit Phy Identifier 2 register as
++            4 hex digits. This is the chip vendor OUI bits 19:24,
++            followed by 10 bits of a vendor specific ID.
 +
-+	if (RING_HAS_UNCONSUMED_REQUESTS(&vif->tx) &&
-+	    xenvif_tx_pending_slots_available(vif)) {
-+		local_bh_disable();
-+		napi_schedule(&vif->napi);
-+		local_bh_enable();
-+	}
- }
+ Example:
  
- 
+ ethernet-phy@0 {
+-	compatible = "ethernet-phy-ieee802.3-c22";
++	compatible = "ethernet-phy-id0141.0e90", "ethernet-phy-ieee802.3-c22";
+ 	interrupt-parent = <40000>;
+ 	interrupts = <35 1>;
+ 	reg = <0>;
+-- 
+1.8.1.2
