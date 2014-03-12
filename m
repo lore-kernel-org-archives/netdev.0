@@ -1,60 +1,70 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH V2 bluetooth-next 2/6] bluetooth: Convert uses of
- __constant_<foo> to <foo>
-Date: Wed, 12 Mar 2014 11:22:34 -0700
-Message-ID: <1394648554.3915.22.camel@joe-AO722>
-References: <cover.1394643455.git.joe@perches.com>
-	 <51892631f2289665bf47b294c783ee9560a8317e.1394643455.git.joe@perches.com>
-	 <F2E9571C-2D55-4529-A361-D8CD4B3FC491@holtmann.org>
-	 <1394646755.3915.8.camel@joe-AO722>
-	 <34E193D0-F15B-4C23-83F7-697096916D4D@holtmann.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [RCU PATCH 00/14] Remove qdisc lock around ingress Qdisc
+Date: Wed, 12 Mar 2014 11:25:29 -0700
+Message-ID: <CAM_iQpUd=KDVG-6hxQCeHKp+LRx6Yi5jSUo2MEivJiar+QETGg@mail.gmail.com>
+References: <20140310170008.3011.73599.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>,
-	"Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"bluez mailin list (linux-bluetooth@vger.kernel.org)"
-	<linux-bluetooth@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <34E193D0-F15B-4C23-83F7-697096916D4D@holtmann.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f177.google.com ([209.85.214.177]:60699 "EHLO
+	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751766AbaCLSZ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 14:25:29 -0400
+Received: by mail-ob0-f177.google.com with SMTP id wo20so10071437obc.36
+        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 11:25:29 -0700 (PDT)
+In-Reply-To: <20140310170008.3011.73599.stgit@nitbit.x32>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-03-12 at 11:11 -0700, Marcel Holtmann wrote:
+On Mon, Mar 10, 2014 at 10:03 AM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+> This series drops the qdisc lock that is currently protecting the
+> ingress qdisc. This can be done after the tcf filters are made
+> lockless and the statistic accounting is safe to run without locks.
+>
+> To do this the classifiers are converted to use RCU. This requires
+> updating each classifier individually to handle the new copy/update
+> requirement and also to update the core list traversals. This is
+> done in patches 2-11. This also makes the assumption that updates
+> to the tables are infrequent in comparison to the packet per second
+> being classified. On a 10Gbps running near line rate we can easily
+> produce 12+ million packets per second so IMO this is a reasonable
+> assumption. And the updates are serialized by RTNL.
+>
+> In order to have working statistics patch 13 converts the bstats,
+> which do accounting for bytes and packets, into percpu variables
+> and the u64_stats_update_{begin|end} infrastructure is used to
+> maintain consistent statistics. Because these statistics are also
+> used by the estimators those function calls had to be udpated as
+> well. So that I didn't have to modify all qdiscs at this time many
+> of which don't have an easy path to make lockless the percpu
+> statistics are only used when the TCQ_F_LLQDISC flag is set. Its
+> worth noting that in the mq and mqprio case sub-qdisc's are already
+> mapped 1:1 with TX queues which tend to be equal to the number
+> of CPUs in the system so its not clear that removing locking in
+> these cases would provide any benefit. Most likely a new qdisc
+> written from scratch would be needed to implement a mq-htb or
+> mq-tbf qdisc.
+>
+> As for some history I wrote what was basically these patches some
+> time ago and then got stalled working on other things. Cong Wang
+> made a proposal to remove the locking around the ingress qdisc
+> which then kicked me to get these patches working again.
+>
+> I have started to test this series and do no see any immediate
+> splats or issues. I will continue doing some more testing for the
+> rest of the week before submitting without the RCU tag but any
+> feedback would be good. If someone has a better idea for the
+> percpu union of gnet_stats_basic_* in struct Qdisc or finds it
+> paticularly ugly that would be good to know.
 
-> > 	/* Connection accept timeout ~20 secs */
-> > -	param = __constant_cpu_to_le16(0x7d00);
-> > +	param = cpu_to_le16(0x7d00);
-> > 
-> > 0x7d00 is 32000, presumably that's 32 seconds.
-> 
-> so it is 0x7d00 * 0.625 which results in 20 seconds.
+I assume you mean RFC, otherwise RCU tag doesn't make
+any sense to me.
 
-Hi again Marcel.
-
-Swell.  No worries then.
-
-Is this clocking divisor defined somewhere?
-Is .625 or 5/8 as a magic number defined somewhere?
-(I didn't see it in a brief scan)
-Maybe it'd be better to use 20000 * 5 / 8 or
-add some define like
-
-#define msecs_to_bt_clocks(ms) ((ms) * 5 / 8)
-
-> > and
-> > 		/* 160 msec page scan interval */
-> > -		acp.interval = __constant_cpu_to_le16(0x0100);
-> > +		acp.interval = cpu_to_le16(0x0100);
-> > 256 msecs?
-> 
-> also here 0x0100 * 0.625 resulting in 160 msecs.
-
-Same as above.
-
-> patch has been applied to bluetooth-next tree.
-
-cheers, Joe
+And what about sch->qstats? You seem still don't touch it
+in this patchset, and it is you who pointed out qstats.drop++
+is not atomic on all architecture to me. :)
