@@ -1,60 +1,118 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH v3] net: phy: fix uninitalized WOL parameters in phy_ethtool_get_wol
-Date: Wed, 12 Mar 2014 00:02:55 +0100
-Message-ID: <1394578975-12588-1-git-send-email-sebastian.hesselbarth@gmail.com>
-References: <1394484661-4554-2-git-send-email-sebastian.hesselbarth@gmail.com>
-Cc: David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394484661-4554-2-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Vince Bridgers <vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v3 5/9] Altera TSE: Add Miscellaneous Files for
+ Altera Ethernet Driver
+Date: Tue, 11 Mar 2014 19:28:53 -0500
+Message-ID: <CAOwfj2Ot+ssTZgMoOoShVEUi+RkxjpPpRUfHAkP9RETm3TuUzg@mail.gmail.com>
+References: <1394577791-6547-1-git-send-email-vbridgers2013@gmail.com>
+	<1394577791-6547-6-git-send-email-vbridgers2013@gmail.com>
+	<1394578747.28839.4.camel@joe-AO722>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"pawel.moll-5wv7dgnIgG8@public.gmane.org" <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	"mark.rutland-5wv7dgnIgG8@public.gmane.org" <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	"ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org" <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Rob Landley <rob-VoJi6FS/r0vR7s880joybQ@public.gmane.org>
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394578747.28839.4.camel@joe-AO722>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-phy_ethtool_get_wol is a helper to get current WOL settings from
-a phy device. When using this helper on a PHY without .get_wol
-callback, struct ethtool_wolinfo is never set-up correctly and
-may contain misleading information about WOL status.
+Hi Joe,
 
-To fix this, always zero relevant fields of struct ethtool_wolinfo
-regardless of .get_wol callback availability.
+On Tue, Mar 11, 2014 at 5:59 PM, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
+> On Tue, 2014-03-11 at 17:43 -0500, Vince Bridgers wrote:
+>> This patch adds miscellaneous files for the Altera Ethernet Driver,
+>> including ethtool support.
+>
+> trivial notes:
+>
+>> diff --git a/drivers/net/ethernet/altera/altera_tse_ethtool.c b/drivers/net/ethernet/altera/altera_tse_ethtool.c
+> []
+>> +static char const stat_gstrings[][ETH_GSTRING_LEN] = {
+>
+> static const char
+>
+>> +     "aFramesTransmittedOK",
+>
+> Why the prefix with a?
 
-Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
----
-Changelog:
-v1->v2:
-- clear whole struct ethtool_wolinfo
-- check for non-NULL phy_device
-v2->v3:
-- only clear ->supported and ->wolopts (Suggested by Ben Hutchings)
+These names follow the names of the statistics found in the databook
+for the Altera Triple Speed Ethernet (TSE) soft IP. I'm not
+emotionally attached to these names, so will review the statistics
+names and follow common usage instead. Thank you for noticing and
+commenting.
 
-Cc: David Miller <davem@davemloft.net>
-Cc: Florian Fainelli <f.fainelli@gmail.com>
-Cc: Ben Hutchings <ben@decadent.org.uk>
-Cc: netdev@vger.kernel.org
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org
----
- drivers/net/phy/phy.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+>
+>> +     "aFramesReceivedOK",
+>
+> "rx_packets" is typically used
+>
+>> +     "aFramesCheckSequenceErrors",
+>
+>> +     "aAlignmentErrors",
+>> +     "aOctetsTransmittedOK",
+>> +     "aOctetsReceivedOK",
+>> +     "aTxPAUSEMACCtrlFrames",
+>> +     "aRxPAUSEMACCtrlFrames",
+>> +     "ifInErrors",
+>> +     "ifOutErrors",
+>> +     "ifInUcastPkts",
+>> +     "ifInMulticastPkts",
+>> +     "ifInBroadcastPkts",
+>> +     "ifOutDiscards",
+>> +     "ifOutUcastPkts",
+>> +     "ifOutMulticastPkts",
+>> +     "ifOutBroadcastPkts",
+>> +     "etherStatsDropEvents",
+>> +     "etherStatsOctets",
+>> +     "etherStatsPkts",
+>> +     "etherStatsUndersizePkts",
+>> +     "etherStatsOversizePkts",
+>> +     "etherStatsPkts64Octets",
+>> +     "etherStatsPkts65to127Octets",
+>> +     "etherStatsPkts128to255Octets",
+>> +     "etherStatsPkts256to511Octets",
+>> +     "etherStatsPkts512to1023Octets",
+>> +     "etherStatsPkts1024to1518Octets",
+>> +     "etherStatsPkts1519toXOctets",
+>> +     "etherStatsJabbers",
+>> +     "etherStatsFragments",
+>
+> Perhaps review all of these strings for
+> unusual naming.
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 19c9eca0ef26..94234a91a50f 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -1092,7 +1092,9 @@ EXPORT_SYMBOL(phy_ethtool_set_wol);
- 
- void phy_ethtool_get_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol)
- {
--	if (phydev->drv->get_wol)
-+	wol->supported = wol->wolopts = 0;
-+
-+	if (phydev && phydev->drv->get_wol)
- 		phydev->drv->get_wol(phydev, wol);
- }
- EXPORT_SYMBOL(phy_ethtool_get_wol);
--- 
-1.8.5.3
+Will do, thanks.
+
+>
+>> +static void tse_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+>> +                      void *regbuf)
+>> +{
+>> +     int i;
+>> +     struct altera_tse_private *priv = netdev_priv(dev);
+>> +     u32 *tse_mac_regs = (u32 *)priv->mac_dev;
+>> +     u32 *buf = (u32 *)regbuf;
+>
+> void * doesn't need a cast
+>
+>         u32 *buf = regbuf
+>
+> is just fine.
+
+I'll pick this up while reviewing and updating the stats names.
+
+Thank you for taking the time to review and provide constructive
+comments. I'll address these and respin.
+
+All the best,
+
+Vince
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
