@@ -1,33 +1,43 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH V2 0/7] add new Samsung sxgbe driver
-Date: Wed, 12 Mar 2014 07:09:17 -0700
-Message-ID: <1394633357.28839.52.camel@joe-AO722>
-References: <005001cf3df6$e2678d00$a736a700$%an@samsung.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH RFC net-next v1 0/9] ptp: dynamic pin control
+Date: Wed, 12 Mar 2014 15:22:48 +0100
+Message-ID: <20140312142248.GA10256@netboy>
+References: <cover.1394307303.git.richardcochran@gmail.com>
+ <1394455974.2296.22.camel@e37108.spectralink.com>
+ <20140310134227.GB19781@netboy>
+ <E9E8485F5E84770575AD1FAB@[172.22.2.41]>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
-	davem@davemloft.net, ilho215.lee@samsung.com
-To: Byungho An <bh74.an@samsung.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0101.hostedemail.com ([216.40.44.101]:38392 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754629AbaCLOJV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 10:09:21 -0400
-In-Reply-To: <005001cf3df6$e2678d00$a736a700$%an@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: =?iso-8859-1?B?U/hyZW5zZW4s?= <Stefan.Sorensen@spectralink.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bhutchings@solarflare.com, davem@davemloft.net
+To: Christian Riesch <christian.riesch@omicron.at>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <E9E8485F5E84770575AD1FAB@[172.22.2.41]>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-03-12 at 22:27 +0900, Byungho An wrote:
-> Hi all,
-[]
->  drivers/net/ethernet/samsung/sxgbe_main.c          | 2447
-> ++++++++++++++++++++
+On Wed, Mar 12, 2014 at 07:58:37AM +0100, Christian Riesch wrote:
+> >I did not change the n_per_out in this series,
+> 
+> Why not? I think it would be a good idea to set both n_ext_ts and
+> n_per_out to the correct value right from the start (8, right?).
+> Christian
 
-The patch set is word wrapped and can not be applied.
+Yes, it is a good idea, but it is a little extra work, especially
+testing it. Channels 0 and 1 must be programmed differently, IIRC.
 
-Please resend without the word wrapping.
+Right now, I am focusing on:
 
-Using Outlook can make this difficult.
+1. getting the new ioctl interface right
+2. making it work for the phyter while keeping the module params.
 
-If possible, use git send-email.
+After that, as I said before:
+ 
+> >but once this basic
+> >support gets merged, then you will be able to increase n_per_out for
+> >the dp83640 with little extra effort.
+
+Thanks,
+Richard
