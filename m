@@ -1,12 +1,9 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 7/9] xilinx: Convert uses of __constant_<foo> to <foo>
-Date: Wed, 12 Mar 2014 10:22:36 -0700
-Message-ID: <2722ce785ea17ccd8bdbb20f0accd89232aa2b2a.1394644825.git.joe@perches.com>
+Subject: [PATCH net-next 1/9] brocade: Convert uses of __constant_<foo> to <foo>
+Date: Wed, 12 Mar 2014 10:22:30 -0700
+Message-ID: <784c96cedcbfc68e05a8814fc8acfb3f142639d9.1394644825.git.joe@perches.com>
 References: <cover.1394644825.git.joe@perches.com>
-Cc: Michal Simek <michal.simek@xilinx.com>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	John Linn <John.Linn@xilinx.com>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+Cc: Rasesh Mody <rmody@brocade.com>, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1394644825.git.joe@perches.com>
@@ -19,37 +16,61 @@ Make these uses consistent with the rest of the kernel.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/xilinx/ll_temac_main.c       | 4 ++--
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/brocade/bna/bnad.c | 16 ++++++----------
+ 1 file changed, 6 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index a434750..fa193c4 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -771,8 +771,8 @@ static void ll_temac_recv(struct net_device *ndev)
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index aeec9cc..cb76253 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -2845,13 +2845,11 @@ bnad_txq_wi_prepare(struct bnad *bnad, struct bna_tcb *tcb,
+ 		}
+ 		if (unlikely((gso_size + skb_transport_offset(skb) +
+ 			      tcp_hdrlen(skb)) >= skb->len)) {
+-			txqent->hdr.wi.opcode =
+-				__constant_htons(BNA_TXQ_WI_SEND);
++			txqent->hdr.wi.opcode = htons(BNA_TXQ_WI_SEND);
+ 			txqent->hdr.wi.lso_mss = 0;
+ 			BNAD_UPDATE_CTR(bnad, tx_skb_tso_too_short);
+ 		} else {
+-			txqent->hdr.wi.opcode =
+-				__constant_htons(BNA_TXQ_WI_SEND_LSO);
++			txqent->hdr.wi.opcode = htons(BNA_TXQ_WI_SEND_LSO);
+ 			txqent->hdr.wi.lso_mss = htons(gso_size);
+ 		}
  
- 		/* if we're doing rx csum offload, set it up */
- 		if (((lp->temac_features & TEMAC_FEATURE_RX_CSUM) != 0) &&
--			(skb->protocol == __constant_htons(ETH_P_IP)) &&
--			(skb->len > 64)) {
-+		    (skb->protocol == htons(ETH_P_IP)) &&
-+		    (skb->len > 64)) {
+@@ -2865,7 +2863,7 @@ bnad_txq_wi_prepare(struct bnad *bnad, struct bna_tcb *tcb,
+ 			htons(BNA_TXQ_WI_L4_HDR_N_OFFSET(
+ 			tcp_hdrlen(skb) >> 2, skb_transport_offset(skb)));
+ 	} else  {
+-		txqent->hdr.wi.opcode =	__constant_htons(BNA_TXQ_WI_SEND);
++		txqent->hdr.wi.opcode =	htons(BNA_TXQ_WI_SEND);
+ 		txqent->hdr.wi.lso_mss = 0;
  
- 			skb->csum = cur_p->app3 & 0xFFFF;
- 			skb->ip_summed = CHECKSUM_COMPLETE;
-diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-index 4bfdf8c..7b0a735 100644
---- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-@@ -756,7 +756,7 @@ static void axienet_recv(struct net_device *ndev)
- 				skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 		if (unlikely(skb->len > (bnad->netdev->mtu + ETH_HLEN))) {
+@@ -2876,11 +2874,10 @@ bnad_txq_wi_prepare(struct bnad *bnad, struct bna_tcb *tcb,
+ 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 			u8 proto = 0;
+ 
+-			if (skb->protocol == __constant_htons(ETH_P_IP))
++			if (skb->protocol == htons(ETH_P_IP))
+ 				proto = ip_hdr(skb)->protocol;
+ #ifdef NETIF_F_IPV6_CSUM
+-			else if (skb->protocol ==
+-				 __constant_htons(ETH_P_IPV6)) {
++			else if (skb->protocol == htons(ETH_P_IPV6)) {
+ 				/* nexthdr may not be TCP immediately. */
+ 				proto = ipv6_hdr(skb)->nexthdr;
  			}
- 		} else if ((lp->features & XAE_FEATURE_PARTIAL_RX_CSUM) != 0 &&
--			   skb->protocol == __constant_htons(ETH_P_IP) &&
-+			   skb->protocol == htons(ETH_P_IP) &&
- 			   skb->len > 64) {
- 			skb->csum = be32_to_cpu(cur_p->app3 & 0xFFFF);
- 			skb->ip_summed = CHECKSUM_COMPLETE;
+@@ -3062,8 +3059,7 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 			vect_id = 0;
+ 			BNA_QE_INDX_INC(prod, q_depth);
+ 			txqent = &((struct bna_txq_entry *)tcb->sw_q)[prod];
+-			txqent->hdr.wi_ext.opcode =
+-				__constant_htons(BNA_TXQ_WI_EXTENSION);
++			txqent->hdr.wi_ext.opcode = htons(BNA_TXQ_WI_EXTENSION);
+ 			unmap = &unmap_q[prod];
+ 		}
+ 
 -- 
 1.8.1.2.459.gbcd45b4.dirty
