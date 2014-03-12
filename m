@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv6 net-next 04/31] cxgb4: Updates for T5 SGE's Egress Congestion Threshold
-Date: Wed, 12 Mar 2014 21:20:19 +0530
-Message-ID: <1394639446-6504-5-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv6 net-next 06/31] iw_cxgb4: cap CQ size at T4_MAX_IQ_SIZE
+Date: Wed, 12 Mar 2014 21:20:21 +0530
+Message-ID: <1394639446-6504-7-git-send-email-hariprasad@chelsio.com>
 References: <1394639446-6504-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
 	swise@opengridcomputing.com, leedom@chelsio.com,
@@ -9,77 +9,33 @@ Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
 	hariprasad@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:2917 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:24568 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752262AbaCLP7D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 11:59:03 -0400
+	by vger.kernel.org with ESMTP id S1752262AbaCLP7L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 11:59:11 -0400
 In-Reply-To: <1394639446-6504-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kumar Sanghvi <kumaras@chelsio.com>
+From: Steve Wise <swise@opengridcomputing.com>
 
-Based on original work by Casey Leedom <leedom@chelsio.com>
-
-Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/sge.c     | 18 +++++++++++++-----
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |  6 ++++++
- 2 files changed, 19 insertions(+), 5 deletions(-)
+ drivers/infiniband/hw/cxgb4/cq.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 054bb03..a7c56b3 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2776,8 +2776,8 @@ static int t4_sge_init_hard(struct adapter *adap)
- int t4_sge_init(struct adapter *adap)
- {
- 	struct sge *s = &adap->sge;
--	u32 sge_control;
--	int ret;
-+	u32 sge_control, sge_conm_ctrl;
-+	int ret, egress_threshold;
+diff --git a/drivers/infiniband/hw/cxgb4/cq.c b/drivers/infiniband/hw/cxgb4/cq.c
+index 88de3aa..c0673ac 100644
+--- a/drivers/infiniband/hw/cxgb4/cq.c
++++ b/drivers/infiniband/hw/cxgb4/cq.c
+@@ -881,7 +881,7 @@ struct ib_cq *c4iw_create_cq(struct ib_device *ibdev, int entries,
+ 	/*
+ 	 * Make actual HW queue 2x to avoid cdix_inc overflows.
+ 	 */
+-	hwentries = entries * 2;
++	hwentries = min(entries * 2, T4_MAX_IQ_SIZE);
  
  	/*
- 	 * Ingress Padding Boundary and Egress Status Page Size are set up by
-@@ -2802,10 +2802,18 @@ int t4_sge_init(struct adapter *adap)
- 	 * SGE's Egress Congestion Threshold.  If it isn't, then we can get
- 	 * stuck waiting for new packets while the SGE is waiting for us to
- 	 * give it more Free List entries.  (Note that the SGE's Egress
--	 * Congestion Threshold is in units of 2 Free List pointers.)
-+	 * Congestion Threshold is in units of 2 Free List pointers.) For T4,
-+	 * there was only a single field to control this.  For T5 there's the
-+	 * original field which now only applies to Unpacked Mode Free List
-+	 * buffers and a new field which only applies to Packed Mode Free List
-+	 * buffers.
- 	 */
--	s->fl_starve_thres
--		= EGRTHRESHOLD_GET(t4_read_reg(adap, SGE_CONM_CTRL))*2 + 1;
-+	sge_conm_ctrl = t4_read_reg(adap, SGE_CONM_CTRL);
-+	if (is_t4(adap->params.chip))
-+		egress_threshold = EGRTHRESHOLD_GET(sge_conm_ctrl);
-+	else
-+		egress_threshold = EGRTHRESHOLDPACKING_GET(sge_conm_ctrl);
-+	s->fl_starve_thres = 2*egress_threshold + 1;
- 
- 	setup_timer(&s->rx_timer, sge_rx_timer_cb, (unsigned long)adap);
- 	setup_timer(&s->tx_timer, sge_tx_timer_cb, (unsigned long)adap);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 33cf9ef..225ad8a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -230,6 +230,12 @@
- #define  EGRTHRESHOLD(x)     ((x) << EGRTHRESHOLDshift)
- #define  EGRTHRESHOLD_GET(x) (((x) & EGRTHRESHOLD_MASK) >> EGRTHRESHOLDshift)
- 
-+#define EGRTHRESHOLDPACKING_MASK	0x3fU
-+#define EGRTHRESHOLDPACKING_SHIFT	14
-+#define EGRTHRESHOLDPACKING(x)		((x) << EGRTHRESHOLDPACKING_SHIFT)
-+#define EGRTHRESHOLDPACKING_GET(x)	(((x) >> EGRTHRESHOLDPACKING_SHIFT) & \
-+					  EGRTHRESHOLDPACKING_MASK)
-+
- #define SGE_DBFIFO_STATUS 0x10a4
- #define  HP_INT_THRESH_SHIFT 28
- #define  HP_INT_THRESH_MASK  0xfU
+ 	 * Make HW queue at least 64 entries so GTS updates aren't too
 -- 
 1.8.4
