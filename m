@@ -1,10 +1,10 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 5/9] ixgbe: Convert uses of
+Subject: Re: [PATCH net-next 3/9] igb: Convert uses of
  __constant_<foo> to <foo>
-Date: Wed, 12 Mar 2014 15:29:51 -0400 (EDT)
-Message-ID: <20140312.152951.1951796893968999628.davem@davemloft.net>
+Date: Wed, 12 Mar 2014 15:30:05 -0400 (EDT)
+Message-ID: <20140312.153005.2285406960520887369.davem@davemloft.net>
 References: <cover.1394644825.git.joe@perches.com>
-	<a8b7fce92d51c6c97e1450bc291b0815325935d0.1394644825.git.joe@perches.com>
+	<0eb4523c7e13dc35a6467332e22a24719f7d7041.1394644825.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,7 +13,7 @@ Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, john.ronciak@intel.com
 To: joe@perches.com
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <a8b7fce92d51c6c97e1450bc291b0815325935d0.1394644825.git.joe@perches.com>
+In-Reply-To: <0eb4523c7e13dc35a6467332e22a24719f7d7041.1394644825.git.joe@perches.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -25,7 +25,7 @@ Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
 From: Joe Perches <joe@perches.com>
-Date: Wed, 12 Mar 2014 10:22:34 -0700
+Date: Wed, 12 Mar 2014 10:22:32 -0700
 
 > The use of __constant_<foo> has been unnecessary for quite awhile now.
 > 
