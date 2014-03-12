@@ -1,25 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH trivial 08/16] packet: doc: Spelling s/than/that/
-Date: Wed, 12 Mar 2014 16:15:32 -0400 (EDT)
-Message-ID: <20140312.161532.340403170540438471.davem@davemloft.net>
-References: <1394533430-4746-1-git-send-email-geert@linux-m68k.org>
-	<1394533430-4746-8-git-send-email-geert@linux-m68k.org>
+Subject: Re: [PATCH] net: reflect the fwmark for replies with no socket
+Date: Wed, 12 Mar 2014 16:17:37 -0400 (EDT)
+Message-ID: <20140312.161737.1125059989320204564.davem@davemloft.net>
+References: <1394536541-25702-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: trivial@kernel.org, linux-kernel@vger.kernel.org,
-	geert+renesas@linux-m68k.org, netdev@vger.kernel.org
-To: geert@linux-m68k.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394533430-4746-8-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: lorenzo@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41298 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752423AbaCLURj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 16:17:39 -0400
+In-Reply-To: <1394536541-25702-1-git-send-email-lorenzo@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Tue, 11 Mar 2014 11:23:42 +0100
+From: Lorenzo Colitti <lorenzo@google.com>
+Date: Tue, 11 Mar 2014 20:15:41 +0900
 
-> From: Geert Uytterhoeven <geert+renesas@linux-m68k.org>
+> Kernel-originated IP packets that have no user socket associated
+> with them (e.g., ICMP errors and echo replies, TCP RSTs, etc.)
+> are emitted with a mark of zero. Instead, make them have the
+> same mark as the packet they are replying to.
 > 
-> Signed-off-by: Geert Uytterhoeven <geert+renesas@linux-m68k.org>
+> This is consistent with TOS, which is also reflected from the
+> incoming packet, and it allows the administrator to use
+> mark-based routing, firewalling, etc. for these replies by
+> marking the original packets inbound.
+> 
+> Also fix the IPv6 code to reflect the tclass in replies like the
+> IPv4 code does.
+> 
+> Change-Id: Ifd8dd75016e60dc982e7860f720d45c27dcaf04c
+> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 
-Applied, thanks Geert.
+I don't think it's safe to change this behavior after all of this
+time.
+
+And incoming marks absolutely do not have any automatic relation
+to what an administartor might want to use for output packets.
+
+I'm not applying this, sorry.
