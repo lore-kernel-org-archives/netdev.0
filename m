@@ -1,55 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 02/10] 8139too: Call dev_kfree_skby_any instead
- of dev_kfree_skb.
-Date: Wed, 12 Mar 2014 15:01:35 -0700
-Message-ID: <1394661695.21721.50.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <87a9cxf7mp.fsf_-_@xmission.com>
-	 <20140311.124907.1180556684992271103.davem@davemloft.net>
-	 <87wqg0cy9d.fsf@xmission.com>
-	 <20140311.160931.1395978386605601765.davem@davemloft.net>
-	 <87r468bfqj.fsf_-_@xmission.com> <87fvmobfnr.fsf_-_@xmission.com>
-	 <1394589986.21721.37.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140312212429.GA14893@electric-eye.fr.zoreil.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2a RESEND 2/2] of_mdio: Allow the DT to specify the phy
+ ID and avoid autoprobing
+Date: Wed, 12 Mar 2014 15:06:34 -0700
+Message-ID: <CAGVrzcYVK6baunDFzyTm58-+=cw14nvQn9+rFFPca_YUnmbJ=A@mail.gmail.com>
+References: <1394658311-17769-1-git-send-email-jgunthorpe@obsidianresearch.com>
+ <1394658311-17769-2-git-send-email-jgunthorpe@obsidianresearch.com> <CAL_Jsq+qdbiwXErkZv1zZ9rphYY9NP6zHmmjw313tMvGeSTODg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:58397 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752254AbaCLWBh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 18:01:37 -0400
-Received: by mail-pb0-f50.google.com with SMTP id md12so135136pbc.37
-        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 15:01:37 -0700 (PDT)
-In-Reply-To: <20140312212429.GA14893@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Rob Herring <robherring2@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAL_Jsq+qdbiwXErkZv1zZ9rphYY9NP6zHmmjw313tMvGeSTODg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-03-12 at 22:24 +0100, Francois Romieu wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> :
-> [...]
-> > Same u64_stats_fetch_begin_bh() problem for this driver to fetch TX
-> > stats.
-> 
-> Same problem for any NAPI context Tx completing driver that claims
-> netpoll support. For instance:
-> drivers/net/ethernet/emulex/benet
-> drivers/net/ethernet/intel/i40e
-> drivers/net/ethernet/intel/igb
-> drivers/net/ethernet/intel/ixgbe
-> drivers/net/ethernet/marvell/sky2.c
-> drivers/net/ethernet/neterion/vxge ?
-> 
-> Similar problem for the drivers below. They update Tx stats in start_xmit
-> and use u64_.*_bh:
-> drivers/net/ethernet/tile/tilepro.c
-> drivers/net/team/team.c
-> drivers/net/virtio_net.c
-> 
+2014-03-12 14:35 GMT-07:00 Rob Herring <robherring2@gmail.com>:
+> On Wed, Mar 12, 2014 at 4:05 PM, Jason Gunthorpe
+> <jgunthorpe@obsidianresearch.com> wrote:
+>> This makes the generic of_mdiobus_register parse the DT compatible string for
+>> the pattern ethernet-phy-idAAAA.BBBB. If present it should be a value that
+>> matches the phy-id register normally readable through MDIO.
+>>
+>> When the ID is given the phy autoprobing is defeated and the phy is
+>> created directly.
+>>
+>> This is necessary to support phy's that cannot be autoprobed when
+>> of_mdiobus_register is called. Specifically, my case has the phy in reset at
+>> of_mdiobus_register, the reset is only released once the ethernet driver
+>> starts, before it attaches to the phy.
+>>
+>> Tested on ARM Kirkwood with phy id 0x01410e90 (Marvell 88E1318)
+>>
+>> Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+>> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+>> ---
+>>  drivers/of/of_mdio.c | 30 +++++++++++++++++++++++++++++-
+>>  1 file changed, 29 insertions(+), 1 deletion(-)
+>>
+>> There was some reworking of the original code in v3.14-rc6, this resolves the
+>> merge conflicts and I retested the resolved patch on Kirkwood.
+>>
+>> Florian, do you know what path to mainline a this patch should take?
+>
+> Via David's net tree.
 
-Yep, note that this issue is not caused by Eric patches, we need to take
-care of this by providing u64_stats_fetch_{begin|retry}_irq() regardless
-of how skb are freed.
+In that case, this is probably more relevant for the 'net-next' tree
+since it is not a bug fix and we are fairly late in the 3.14 cycle?
+-- 
+Florian
