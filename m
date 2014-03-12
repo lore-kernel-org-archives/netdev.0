@@ -1,68 +1,65 @@
-From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: Re: [PATCH net resend] eth: fec: Fix lost promiscuous mode after reconnecting cable
-Date: Wed, 12 Mar 2014 11:28:19 +0100
-Message-ID: <1394620099-4509-1-git-send-email-stefan.wahren@i2se.com>
-References: <20140311.224834.40412164133780234.davem@davemloft.net>
-Cc: fugang.duan@freescale.com, lznuaa@gmail.com, festevam@gmail.com,
-	netdev@vger.kernel.org, shawn.guo@linaro.org,
-	Fabio.Estevam@freescale.com, Frank.Li@freescale.com,
-	kernel@pengutronix.de
-To: David Miller <davem@davemloft.net>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net] bonding: set correct vlan id for alb xmit path
+Date: Wed, 12 Mar 2014 11:37:00 +0100
+Message-ID: <20140312103700.GA5442@redhat.com>
+References: <531E6D77.60808@huawei.com>
+ <5320298F.2010101@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.130]:57371 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752558AbaCLK3T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 06:29:19 -0400
-In-Reply-To: <20140311.224834.40412164133780234.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:8262 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750981AbaCLKhN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Mar 2014 06:37:13 -0400
+Content-Disposition: inline
+In-Reply-To: <5320298F.2010101@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the Freescale fec is in promiscuous mode and network cable is
-reconnected then the promiscuous mode get lost. The problem is caused
-by a too soon call of set_multicast_list to re-enable promisc mode.
-The FEC_R_CNTRL register changes are overwritten by fec_restart.
+On Wed, Mar 12, 2014 at 05:31:59PM +0800, Ding Tianhong wrote:
+>The commit d3ab3ffd1d728d7ee77340e7e7e2c7cfe6a4013e
+>(bonding: use rlb_client_info->vlan_id instead of ->tag)
+>remove the rlb_client_info->tag, but occur some issues,
+>The vlan_get_tag() will return 0 for success and -EINVAL for
+>error, so the client_info->vlan_id always be set to 0 if the
+>vlan_get_tag return 0 for success, so the client_info would
+>never get a correct vlan id.
+>
+>We should only set the vlan id to 0 when the vlan_get_tag return error.
+>
+>Fixes: d3ab3ffd1d7 (bonding: use rlb_client_info->vlan_id instead of ->tag)
+>
+>CC: Ding Tianhong <dingtianhong@huawei.com>
+>CC: Jay Vosburgh <fubar@us.ibm.com>
+>CC: Andy Gospodarek <andy@greyhouse.net>
+>Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 
-This patch fixes this by moving the call behind the init of FEC_R_CNTRL
-register in fec_restart.
+Acked-by: Veaceslav Falico <vfalico@redhat.com>
 
-Successful tested on a i.MX28 board.
-
-Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
----
- drivers/net/ethernet/freescale/fec_main.c |   14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 479a7cb..03a3513 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -528,13 +528,6 @@ fec_restart(struct net_device *ndev, int duplex)
- 	/* Clear any outstanding interrupt. */
- 	writel(0xffc00000, fep->hwp + FEC_IEVENT);
- 
--	/* Setup multicast filter. */
--	set_multicast_list(ndev);
--#ifndef CONFIG_M5272
--	writel(0, fep->hwp + FEC_HASH_TABLE_HIGH);
--	writel(0, fep->hwp + FEC_HASH_TABLE_LOW);
--#endif
--
- 	/* Set maximum receive buffer size. */
- 	writel(PKT_MAXBLR_SIZE, fep->hwp + FEC_R_BUFF_SIZE);
- 
-@@ -655,6 +648,13 @@ fec_restart(struct net_device *ndev, int duplex)
- 
- 	writel(rcntl, fep->hwp + FEC_R_CNTRL);
- 
-+	/* Setup multicast filter. */
-+	set_multicast_list(ndev);
-+#ifndef CONFIG_M5272
-+	writel(0, fep->hwp + FEC_HASH_TABLE_HIGH);
-+	writel(0, fep->hwp + FEC_HASH_TABLE_LOW);
-+#endif
-+
- 	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC) {
- 		/* enable ENET endian swap */
- 		ecntl |= (1 << 8);
--- 
-1.7.10.4
+>---
+> drivers/net/bonding/bond_alb.c | 2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+>diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+>index a2c4747..e8f133e 100644
+>--- a/drivers/net/bonding/bond_alb.c
+>+++ b/drivers/net/bonding/bond_alb.c
+>@@ -730,7 +730,7 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+> 			client_info->ntt = 0;
+> 		}
+>
+>-		if (!vlan_get_tag(skb, &client_info->vlan_id))
+>+		if (vlan_get_tag(skb, &client_info->vlan_id))
+> 			client_info->vlan_id = 0;
+>
+> 		if (!client_info->assigned) {
+>-- 
+>1.8.0
+>
+>
+>
