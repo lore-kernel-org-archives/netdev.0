@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/7] tipc: replace reference table rwlock with spinlock
-Date: Wed, 12 Mar 2014 11:31:07 -0400
-Message-ID: <1394638273-6127-2-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 2/7] tipc: remove redundant 'peer_name' field in struct tipc_sock
+Date: Wed, 12 Mar 2014 11:31:08 -0400
+Message-ID: <1394638273-6127-3-git-send-email-jon.maloy@ericsson.com>
 References: <1394638273-6127-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,75 +10,182 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.ne1.yahoo.com ([98.138.207.11]:33815 "HELO
+Received: from smtp104.biz.mail.ne1.yahoo.com ([98.138.207.11]:33827 "HELO
 	smtp104.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754899AbaCLPbV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 11:31:21 -0400
+	by vger.kernel.org with SMTP id S1755095AbaCLPbX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 11:31:23 -0400
 In-Reply-To: <1394638273-6127-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The lock for protecting the reference table is declared as an
-RWLOCK, although it is only used in write mode, never in read
-mode.
+The field 'peer_name' in struct tipc_sock is redundant, since
+this information already is available from tipc_port, to which
+tipc_sock has a reference.
 
-We redefine it to become a spinlock.
+We remove the field, and ensure that peer node and peer port
+info instead is fetched via the functions that already exist
+for this purpose.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 ---
- net/tipc/ref.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ net/tipc/port.c   |   25 +++++++------------------
+ net/tipc/port.h   |   11 +++++++++++
+ net/tipc/socket.c |   21 ++++++++++++---------
+ 3 files changed, 30 insertions(+), 27 deletions(-)
 
-diff --git a/net/tipc/ref.c b/net/tipc/ref.c
-index de3d593..67176b5 100644
---- a/net/tipc/ref.c
-+++ b/net/tipc/ref.c
-@@ -89,7 +89,7 @@ struct ref_table {
+diff --git a/net/tipc/port.c b/net/tipc/port.c
+index c7c2b54..d1abe11 100644
+--- a/net/tipc/port.c
++++ b/net/tipc/port.c
+@@ -54,17 +54,6 @@ static struct sk_buff *port_build_self_abort_msg(struct tipc_port *, u32 err);
+ static struct sk_buff *port_build_peer_abort_msg(struct tipc_port *, u32 err);
+ static void port_timeout(unsigned long ref);
  
- static struct ref_table tipc_ref_table;
- 
--static DEFINE_RWLOCK(ref_table_lock);
-+static DEFINE_SPINLOCK(ref_table_lock);
- 
+-
+-static u32 port_peernode(struct tipc_port *p_ptr)
+-{
+-	return msg_destnode(&p_ptr->phdr);
+-}
+-
+-static u32 port_peerport(struct tipc_port *p_ptr)
+-{
+-	return msg_destport(&p_ptr->phdr);
+-}
+-
  /**
-  * tipc_ref_table_init - create reference table for objects
-@@ -159,7 +159,7 @@ u32 tipc_ref_acquire(void *object, spinlock_t **lock)
+  * tipc_port_peer_msg - verify message was sent by connected port's peer
+  *
+@@ -76,11 +65,11 @@ int tipc_port_peer_msg(struct tipc_port *p_ptr, struct tipc_msg *msg)
+ 	u32 peernode;
+ 	u32 orignode;
+ 
+-	if (msg_origport(msg) != port_peerport(p_ptr))
++	if (msg_origport(msg) != tipc_port_peerport(p_ptr))
+ 		return 0;
+ 
+ 	orignode = msg_orignode(msg);
+-	peernode = port_peernode(p_ptr);
++	peernode = tipc_port_peernode(p_ptr);
+ 	return (orignode == peernode) ||
+ 		(!orignode && (peernode == tipc_own_addr)) ||
+ 		(!peernode && (orignode == tipc_own_addr));
+@@ -351,8 +340,8 @@ static struct sk_buff *port_build_proto_msg(struct tipc_port *p_ptr,
+ 	if (buf) {
+ 		msg = buf_msg(buf);
+ 		tipc_msg_init(msg, CONN_MANAGER, type, INT_H_SIZE,
+-			      port_peernode(p_ptr));
+-		msg_set_destport(msg, port_peerport(p_ptr));
++			      tipc_port_peernode(p_ptr));
++		msg_set_destport(msg, tipc_port_peerport(p_ptr));
+ 		msg_set_origport(msg, p_ptr->ref);
+ 		msg_set_msgcnt(msg, ack);
  	}
+@@ -585,8 +574,8 @@ static int port_print(struct tipc_port *p_ptr, char *buf, int len, int full_id)
+ 		ret = tipc_snprintf(buf, len, "%-10u:", p_ptr->ref);
  
- 	/* take a free entry, if available; otherwise initialize a new entry */
--	write_lock_bh(&ref_table_lock);
-+	spin_lock_bh(&ref_table_lock);
- 	if (tipc_ref_table.first_free) {
- 		index = tipc_ref_table.first_free;
- 		entry = &(tipc_ref_table.entries[index]);
-@@ -175,7 +175,7 @@ u32 tipc_ref_acquire(void *object, spinlock_t **lock)
- 	} else {
- 		ref = 0;
- 	}
--	write_unlock_bh(&ref_table_lock);
-+	spin_unlock_bh(&ref_table_lock);
+ 	if (p_ptr->connected) {
+-		u32 dport = port_peerport(p_ptr);
+-		u32 destnode = port_peernode(p_ptr);
++		u32 dport = tipc_port_peerport(p_ptr);
++		u32 destnode = tipc_port_peernode(p_ptr);
  
- 	/*
- 	 * Grab the lock so no one else can modify this entry
-@@ -216,7 +216,7 @@ void tipc_ref_discard(u32 ref)
- 	index = ref & index_mask;
- 	entry = &(tipc_ref_table.entries[index]);
+ 		ret += tipc_snprintf(buf + ret, len - ret,
+ 				     " connected to <%u.%u.%u:%u>",
+@@ -926,7 +915,7 @@ int tipc_send(u32 ref, struct iovec const *msg_sect, unsigned int len)
  
--	write_lock_bh(&ref_table_lock);
-+	spin_lock_bh(&ref_table_lock);
- 
- 	if (!entry->object) {
- 		pr_err("Attempt to discard ref. to non-existent obj\n");
-@@ -242,7 +242,7 @@ void tipc_ref_discard(u32 ref)
- 	tipc_ref_table.last_free = index;
- 
- exit:
--	write_unlock_bh(&ref_table_lock);
-+	spin_unlock_bh(&ref_table_lock);
+ 	p_ptr->congested = 1;
+ 	if (!tipc_port_congested(p_ptr)) {
+-		destnode = port_peernode(p_ptr);
++		destnode = tipc_port_peernode(p_ptr);
+ 		if (likely(!in_own_node(destnode)))
+ 			res = tipc_link_iovec_xmit_fast(p_ptr, msg_sect, len,
+ 							destnode);
+diff --git a/net/tipc/port.h b/net/tipc/port.h
+index 3ec3e94..4a2a1ac 100644
+--- a/net/tipc/port.h
++++ b/net/tipc/port.h
+@@ -198,4 +198,15 @@ static inline int tipc_port_congested(struct tipc_port *p_ptr)
+ 	return (p_ptr->sent - p_ptr->acked) >= (TIPC_FLOW_CONTROL_WIN * 2);
  }
  
- /**
++
++static inline u32 tipc_port_peernode(struct tipc_port *p_ptr)
++{
++	return msg_destnode(&p_ptr->phdr);
++}
++
++static inline u32 tipc_port_peerport(struct tipc_port *p_ptr)
++{
++	return msg_destport(&p_ptr->phdr);
++}
++
+ #endif
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 336e18d..6265577 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -48,7 +48,6 @@
+ struct tipc_sock {
+ 	struct sock sk;
+ 	struct tipc_port *p;
+-	struct tipc_portid peer_name;
+ 	unsigned int conn_timeout;
+ };
+ 
+@@ -445,8 +444,9 @@ static int tipc_getname(struct socket *sock, struct sockaddr *uaddr,
+ 		if ((sock->state != SS_CONNECTED) &&
+ 			((peer != 2) || (sock->state != SS_DISCONNECTING)))
+ 			return -ENOTCONN;
+-		addr->addr.id.ref = tsock->peer_name.ref;
+-		addr->addr.id.node = tsock->peer_name.node;
++
++		addr->addr.id.ref = tipc_port_peerport(tsock->p);
++		addr->addr.id.node = tipc_port_peernode(tsock->p);
+ 	} else {
+ 		addr->addr.id.ref = tsock->p->ref;
+ 		addr->addr.id.node = tipc_own_addr;
+@@ -881,14 +881,16 @@ static int auto_connect(struct socket *sock, struct tipc_msg *msg)
+ {
+ 	struct tipc_sock *tsock = tipc_sk(sock->sk);
+ 	struct tipc_port *p_ptr;
++	struct tipc_portid peer;
++
++	peer.ref = msg_origport(msg);
++	peer.node = msg_orignode(msg);
+ 
+-	tsock->peer_name.ref = msg_origport(msg);
+-	tsock->peer_name.node = msg_orignode(msg);
+ 	p_ptr = tipc_port_deref(tsock->p->ref);
+ 	if (!p_ptr)
+ 		return -EINVAL;
+ 
+-	__tipc_port_connect(tsock->p->ref, p_ptr, &tsock->peer_name);
++	__tipc_port_connect(p_ptr->ref, p_ptr, &peer);
+ 
+ 	if (msg_importance(msg) > TIPC_CRITICAL_IMPORTANCE)
+ 		return -EINVAL;
+@@ -1662,6 +1664,7 @@ static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags)
+ 	struct tipc_sock *new_tsock;
+ 	struct tipc_port *new_tport;
+ 	struct tipc_msg *msg;
++	struct tipc_portid peer;
+ 	u32 new_ref;
+ 	long timeo;
+ 	int res;
+@@ -1700,9 +1703,9 @@ static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags)
+ 	reject_rx_queue(new_sk);
+ 
+ 	/* Connect new socket to it's peer */
+-	new_tsock->peer_name.ref = msg_origport(msg);
+-	new_tsock->peer_name.node = msg_orignode(msg);
+-	tipc_port_connect(new_ref, &new_tsock->peer_name);
++	peer.ref = msg_origport(msg);
++	peer.node = msg_orignode(msg);
++	tipc_port_connect(new_ref, &peer);
+ 	new_sock->state = SS_CONNECTED;
+ 
+ 	tipc_set_portimportance(new_ref, msg_importance(msg));
 -- 
 1.7.9.5
