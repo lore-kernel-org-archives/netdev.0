@@ -1,46 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 2/2] bridge: multicast: enable snooping on
- general queries only
-Date: Tue, 11 Mar 2014 23:23:31 -0400 (EDT)
-Message-ID: <20140311.232331.953854418721439734.davem@davemloft.net>
-References: <1394486725-4992-1-git-send-email-linus.luessing@web.de>
-	<1394486725-4992-2-git-send-email-linus.luessing@web.de>
+Subject: Re: [PATCH net] x86: bpf_jit: support negative offsets
+Date: Tue, 11 Mar 2014 23:26:08 -0400 (EDT)
+Message-ID: <20140311.232608.1193651497868512588.davem@davemloft.net>
+References: <1394492211-4268-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, fwestpha@redhat.com,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	stephen@networkplumber.org, jstancek@redhat.com
-To: linus.luessing@web.de
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1394486725-4992-2-git-send-email-linus.luessing@web.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaffeemonster@googlemail.com, edumazet@google.com,
+	netdev@vger.kernel.org
+To: ast@plumgrid.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33190 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752826AbaCLD0K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 23:26:10 -0400
+In-Reply-To: <1394492211-4268-1-git-send-email-ast@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus L=FCssing <linus.luessing@web.de>
-Date: Mon, 10 Mar 2014 22:25:25 +0100
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Mon, 10 Mar 2014 15:56:51 -0700
 
-> Without this check someone could easily create a denial of service
-> by injecting multicast-specific queries to enable the bridge
-> snooping part if no real querier issuing periodic general queries
-> is present on the link which would result in the bridge wrongly
-> shutting down ports for multicast traffic as the bridge did not learn=
+> Commit a998d4342337 claimed to introduce negative offset support to x86 jit,
+> but it couldn't be working, since at the time of the execution
+> of LD+ABS or LD+IND instructions via call into
+> bpf_internal_load_pointer_neg_helper() the %edx (3rd argument of this func)
+> had junk value instead of access size in bytes (1 or 2 or 4).
+> 
+> Store size into %edx instead of %ecx (what original commit intended to do)
+> 
+> Fixes: a998d4342337 ("bpf jit: Let the x86 jit handle negative offsets")
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> Cc: Jan Seiffert <kaffeemonster@googlemail.com>
+> Cc: Eric Dumazet <edumazet@google.com>
 
-> about these listeners.
-> =
-
-> With this patch the snooping code is enabled upon receiving valid,
-> general queries only.
-> =
-
-> Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
-
-Applied.
+Applied and queued up for -stable, thanks.
