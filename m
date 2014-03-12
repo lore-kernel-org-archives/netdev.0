@@ -1,69 +1,51 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next 5/9] ixgbe: Convert uses of __constant_<foo> to
- <foo>
-Date: Wed, 12 Mar 2014 13:50:55 -0700
-Message-ID: <1394657455.2167.7.camel@jtkirshe-mobl>
-References: <cover.1394644825.git.joe@perches.com>
-	 <a8b7fce92d51c6c97e1450bc291b0815325935d0.1394644825.git.joe@perches.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv6: do not overwrite inetpeer metrics prematurely
+Date: Wed, 12 Mar 2014 16:54:43 -0400 (EDT)
+Message-ID: <20140312.165443.1358759725438654072.davem@davemloft.net>
+References: <20140310.223841.953940361609160158.davem@davemloft.net>
+	<20140311095309.GA3287@unicorn.suse.cz>
+	<20140311150814.GB3287@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-O3VCieOghYswgqeJ/Ynr"
-Cc: netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	e1000-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a8b7fce92d51c6c97e1450bc291b0815325935d0.1394644825.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---=-O3VCieOghYswgqeJ/Ynr
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2014-03-12 at 10:22 -0700, Joe Perches wrote:
-> The use of __constant_<foo> has been unnecessary for quite awhile now.
->=20
-> Make these uses consistent with the rest of the kernel.
->=20
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |  8 +++----
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 30
-> +++++++++++++--------------
->  2 files changed, 19 insertions(+), 19 deletions(-)
-
-Thanks Joe, I will add this to my queue.
-
---=-O3VCieOghYswgqeJ/Ynr
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+To: mkubecek@suse.cz
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41726 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751692AbaCLUyo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 16:54:44 -0400
+In-Reply-To: <20140311150814.GB3287@unicorn.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+From: Michal Kubecek <mkubecek@suse.cz>
+Date: Tue, 11 Mar 2014 16:08:14 +0100
 
-iQIcBAABCgAGBQJTIMivAAoJEOVv75VaS+3OLPsQAJLC0WAXCJa2CsnJZ4NArziX
-6tKkDN2++A2zzZ/ezDsEFSts2RP6a5+JIBnnQQ4ZEjeJ8mf79qRP/6p9PBAPQo5c
-pl53a5ZC00tfMecy2UsoBPKV92WtjEi2J/H+PH002/eZHLizLaEW2Iw2EKUCsXGN
-BZdnnBTAAIljusjNp2wzEyMWv777O1N50eH6Ht3GT0p/fQVi294r2G5PxRksSDw8
-hFMX/sntupYHrVF3RVkGn9MtdmUNZofHkSrfiO6cEghx2eu5gDffCH+CIfXXjWI3
-434MfwZtX7yvfjf38OJC+tCNzNGM6kV7fcXFh4VvQtJnFnMJeZX5Hp3RILt987Lv
-pgMitSI26aJfapZ8R1Ni6FJh2KaRsFFNL5er9Z9YtZLJBLc+rRK/aMU5B9zKmB/h
-WVAGOhus4EnPvA8pP/P3iuVtx5atLD7G8WKAxDVVV73R/F6mLy0mEvmgHrkZKcnO
-w2eJnGdGsR4j/QHlCVSx/2csBT4u+poEHIvU1Gvbe2Kx+/zj3RKoac3G8WT2JCJd
-QEZPSVav5S/PI91DJ+8B0NUh0OIqOjEMmfJxPNjyTIuIvevQi7X2HRjJRPPTX+Vy
-LCed0rN0ioSRHTYQoRS1PZlMkQgdnnPe5S5gpiycld6lfLjLRIArMDzhVhKGgEWa
-lRM3m1PV/STXmNkF9uc7
-=lRut
------END PGP SIGNATURE-----
+> +	nla_for_each_attr(nla, mx, mx_len, remaining) {
+> +		int type = nla_type(nla);
+> +
+> +		if (type) {
+> +			if (type > RTAX_MAX)
+> +				return -EINVAL;
+> +
+> +			mp[type - 1] = nla_get_u32(nla);
+> +		}
+> +	}
 
---=-O3VCieOghYswgqeJ/Ynr--
+It was surprising to me that nla_for_each_attr() works with a second
+argument of NULL.
+
+It only does so when the length is zero, due to how the test in nla_ok()
+is codified.
+
+I know it's a minor nit, but can you only execute this loop if mx is
+non-NULL?
+
+Perhaps you can put this into (yet another) helper function:
+
+int __fib6_commit_metrics(u32 *mp, struct nlattr *mx, int mx_len)
+
+Otherwise looks good to me.
