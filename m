@@ -1,137 +1,672 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V2 net-next 2/7] mlx4_core: For RoCE, allow slaves to set the GID entry at that slave's index
-Date: Wed, 12 Mar 2014 12:00:38 +0200
-Message-ID: <1394618443-20337-3-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH V2 net-next 4/7] mlx4: Add ref counting to port MAC table for RoCE
+Date: Wed, 12 Mar 2014 12:00:40 +0200
+Message-ID: <1394618443-20337-5-git-send-email-ogerlitz@mellanox.com>
 References: <1394618443-20337-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, roland@kernel.org,
 	jackm@dev.mellanox.co.il, amirv@mellanox.com,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:59212 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:59221 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750981AbaCLKZo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Mar 2014 06:25:44 -0400
+	id S1752696AbaCLKZr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Mar 2014 06:25:47 -0400
 In-Reply-To: <1394618443-20337-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-For IB transport, the host determines the slave GIDs. For ETH (RoCE),
-however, the slave's GID is determined by the IP address that the slave
-itself assigns to the ETH device used by RoCE.
+The IB side of RoCE requires the MAC table index of the
+MAC address used by its QPs.
 
-In this case, the slave must be able to write its GIDs to the HCA gid table
-(at the GID indices that slave "owns").
+To obtain the real MAC index, the IB side registers the
+MAC (increasing its ref count, and also returning the
+real MAC index) during the modify-qp sequence.
 
-This commit adds processing for the SET_PORT_GID_TABLE opcode modifier
-for the SET_PORT command wrapper (so that slaves may modify their GIDS
-for RoCE).
+This protects against the ETH side deleting or modifying
+that MAC table entry while the QP is active.
+
+Note that until the modify-qp command returns success,
+the MAC and VLAN information only has "candidate" status.
+If the modify-qp succeeds, the "candidate" info is promoted
+to the operational MAC/VLAN info for the qp. If the modify fails,
+the candidate MAC/VLAN is unregistered, and the old qp info
+is preserved.
+
+The patch is a bit complex, because there are multiple qp
+transitions where the primary-path information may be
+modified:  INIT-to-RTR, and SQD-to-SQD.
+
+Similarly for the alternate path information.
+
+Therefore the code must handle cases where path information
+has already been entered into the QP context by previous
+qp transitions.
+
+For the MAC address, the success logic is as follows:
+1. If there was no previous MAC, simply move the candidate
+   MAC information to the operational information, and reset
+   the candidate MAC info.
+2. If there was a previous MAC, unregister it.  Then move
+   the MAC information from candidate to operational, and
+   reset the candidate info (as in 1. above).
+
+The MAC address failure logic is the same for all cases:
+ - Unregister the candidate MAC, and reset the candidate MAC info.
+
+For Vlan registration, the logic is similar.
 
 Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/port.c |   33 ++++++++++++++++++++++++++--
- include/linux/mlx4/device.h               |    7 ++++-
- 2 files changed, 35 insertions(+), 5 deletions(-)
+ drivers/infiniband/hw/mlx4/mlx4_ib.h               |   19 ++-
+ drivers/infiniband/hw/mlx4/qp.c                    |  285 +++++++++++++++++---
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   75 +++++-
+ 3 files changed, 329 insertions(+), 50 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
-index 9c063d6..591740b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/port.c
-@@ -505,6 +505,7 @@ int mlx4_get_port_ib_caps(struct mlx4_dev *dev, u8 port, __be32 *caps)
- 	mlx4_free_cmd_mailbox(dev, outmailbox);
+diff --git a/drivers/infiniband/hw/mlx4/mlx4_ib.h b/drivers/infiniband/hw/mlx4/mlx4_ib.h
+index a230683..febc8f9 100644
+--- a/drivers/infiniband/hw/mlx4/mlx4_ib.h
++++ b/drivers/infiniband/hw/mlx4/mlx4_ib.h
+@@ -241,6 +241,22 @@ struct mlx4_ib_proxy_sqp_hdr {
+ 	struct mlx4_rcv_tunnel_hdr tun;
+ }  __packed;
+ 
++struct mlx4_roce_smac_vlan_info {
++	u64 smac;
++	int smac_index;
++	int smac_port;
++	u64 candidate_smac;
++	int candidate_smac_index;
++	int candidate_smac_port;
++	u16 vid;
++	int vlan_index;
++	int vlan_port;
++	u16 candidate_vid;
++	int candidate_vlan_index;
++	int candidate_vlan_port;
++	int update_vid;
++};
++
+ struct mlx4_ib_qp {
+ 	struct ib_qp		ibqp;
+ 	struct mlx4_qp		mqp;
+@@ -273,8 +289,9 @@ struct mlx4_ib_qp {
+ 	struct list_head	gid_list;
+ 	struct list_head	steering_rules;
+ 	struct mlx4_ib_buf	*sqp_proxy_rcv;
++	struct mlx4_roce_smac_vlan_info pri;
++	struct mlx4_roce_smac_vlan_info alt;
+ 	u64			reg_id;
+-
+ };
+ 
+ struct mlx4_ib_srq {
+diff --git a/drivers/infiniband/hw/mlx4/qp.c b/drivers/infiniband/hw/mlx4/qp.c
+index c6ef2e7..11332f0 100644
+--- a/drivers/infiniband/hw/mlx4/qp.c
++++ b/drivers/infiniband/hw/mlx4/qp.c
+@@ -662,10 +662,14 @@ static int create_qp_common(struct mlx4_ib_dev *dev, struct ib_pd *pd,
+ 			if (!sqp)
+ 				return -ENOMEM;
+ 			qp = &sqp->qp;
++			qp->pri.vid = 0xFFFF;
++			qp->alt.vid = 0xFFFF;
+ 		} else {
+ 			qp = kzalloc(sizeof (struct mlx4_ib_qp), GFP_KERNEL);
+ 			if (!qp)
+ 				return -ENOMEM;
++			qp->pri.vid = 0xFFFF;
++			qp->alt.vid = 0xFFFF;
+ 		}
+ 	} else
+ 		qp = *caller_qp;
+@@ -940,11 +944,32 @@ static void destroy_qp_common(struct mlx4_ib_dev *dev, struct mlx4_ib_qp *qp,
+ {
+ 	struct mlx4_ib_cq *send_cq, *recv_cq;
+ 
+-	if (qp->state != IB_QPS_RESET)
++	if (qp->state != IB_QPS_RESET) {
+ 		if (mlx4_qp_modify(dev->dev, NULL, to_mlx4_state(qp->state),
+ 				   MLX4_QP_STATE_RST, NULL, 0, 0, &qp->mqp))
+ 			pr_warn("modify QP %06x to RESET failed.\n",
+ 			       qp->mqp.qpn);
++		if (qp->pri.smac) {
++			mlx4_unregister_mac(dev->dev, qp->pri.smac_port, qp->pri.smac);
++			qp->pri.smac = 0;
++		}
++		if (qp->alt.smac) {
++			mlx4_unregister_mac(dev->dev, qp->alt.smac_port, qp->alt.smac);
++			qp->alt.smac = 0;
++		}
++		if (qp->pri.vid < 0x1000) {
++			mlx4_unregister_vlan(dev->dev, qp->pri.vlan_port, qp->pri.vid);
++			qp->pri.vid = 0xFFFF;
++			qp->pri.candidate_vid = 0xFFFF;
++			qp->pri.update_vid = 0;
++		}
++		if (qp->alt.vid < 0x1000) {
++			mlx4_unregister_vlan(dev->dev, qp->alt.vlan_port, qp->alt.vid);
++			qp->alt.vid = 0xFFFF;
++			qp->alt.candidate_vid = 0xFFFF;
++			qp->alt.update_vid = 0;
++		}
++	}
+ 
+ 	get_cqs(qp, &send_cq, &recv_cq);
+ 
+@@ -1057,6 +1082,8 @@ struct ib_qp *mlx4_ib_create_qp(struct ib_pd *pd,
+ 		qp = kzalloc(sizeof *qp, GFP_KERNEL);
+ 		if (!qp)
+ 			return ERR_PTR(-ENOMEM);
++		qp->pri.vid = 0xFFFF;
++		qp->alt.vid = 0xFFFF;
+ 		/* fall through */
+ 	case IB_QPT_UD:
+ 	{
+@@ -1188,12 +1215,13 @@ static void mlx4_set_sched(struct mlx4_qp_path *path, u8 port)
+ 
+ static int _mlx4_set_path(struct mlx4_ib_dev *dev, const struct ib_ah_attr *ah,
+ 			  u64 smac, u16 vlan_tag, struct mlx4_qp_path *path,
+-			  u8 port)
++			  struct mlx4_roce_smac_vlan_info *smac_info, u8 port)
+ {
+ 	int is_eth = rdma_port_get_link_layer(&dev->ib_dev, port) ==
+ 		IB_LINK_LAYER_ETHERNET;
+ 	int vidx;
+ 	int smac_index;
++	int err;
+ 
+ 
+ 	path->grh_mylmc     = ah->src_path_bits & 0x7f;
+@@ -1223,61 +1251,103 @@ static int _mlx4_set_path(struct mlx4_ib_dev *dev, const struct ib_ah_attr *ah,
+ 	}
+ 
+ 	if (is_eth) {
+-		path->sched_queue = MLX4_IB_DEFAULT_SCHED_QUEUE |
+-			((port - 1) << 6) | ((ah->sl & 7) << 3);
+-
+ 		if (!(ah->ah_flags & IB_AH_GRH))
+ 			return -1;
+ 
+-		memcpy(path->dmac, ah->dmac, ETH_ALEN);
+-		path->ackto = MLX4_IB_LINK_TYPE_ETH;
+-		/* find the index  into MAC table for IBoE */
+-		if (!is_zero_ether_addr((const u8 *)&smac)) {
+-			if (mlx4_find_cached_mac(dev->dev, port, smac,
+-						 &smac_index))
+-				return -ENOENT;
+-		} else {
+-			smac_index = 0;
+-		}
+-
+-		path->grh_mylmc &= 0x80 | smac_index;
++		path->sched_queue = MLX4_IB_DEFAULT_SCHED_QUEUE |
++			((port - 1) << 6) | ((ah->sl & 7) << 3);
+ 
+ 		path->feup |= MLX4_FEUP_FORCE_ETH_UP;
+ 		if (vlan_tag < 0x1000) {
+-			if (mlx4_find_cached_vlan(dev->dev, port, vlan_tag, &vidx))
+-				return -ENOENT;
+-
+-			path->vlan_index = vidx;
+-			path->fl = 1 << 6;
++			if (smac_info->vid < 0x1000) {
++				/* both valid vlan ids */
++				if (smac_info->vid != vlan_tag) {
++					/* different VIDs.  unreg old and reg new */
++					err = mlx4_register_vlan(dev->dev, port, vlan_tag, &vidx);
++					if (err)
++						return err;
++					smac_info->candidate_vid = vlan_tag;
++					smac_info->candidate_vlan_index = vidx;
++					smac_info->candidate_vlan_port = port;
++					smac_info->update_vid = 1;
++					path->vlan_index = vidx;
++				} else {
++					path->vlan_index = smac_info->vlan_index;
++				}
++			} else {
++				/* no current vlan tag in qp */
++				err = mlx4_register_vlan(dev->dev, port, vlan_tag, &vidx);
++				if (err)
++					return err;
++				smac_info->candidate_vid = vlan_tag;
++				smac_info->candidate_vlan_index = vidx;
++				smac_info->candidate_vlan_port = port;
++				smac_info->update_vid = 1;
++				path->vlan_index = vidx;
++			}
+ 			path->feup |= MLX4_FVL_FORCE_ETH_VLAN;
++			path->fl = 1 << 6;
++		} else {
++			/* have current vlan tag. unregister it at modify-qp success */
++			if (smac_info->vid < 0x1000) {
++				smac_info->candidate_vid = 0xFFFF;
++				smac_info->update_vid = 1;
++			}
+ 		}
+-	} else
++
++		/* get smac_index for RoCE use.
++		 * If no smac was yet assigned, register one.
++		 * If one was already assigned, but the new mac differs,
++		 * unregister the old one and register the new one.
++		*/
++		if (!smac_info->smac || smac_info->smac != smac) {
++			/* register candidate now, unreg if needed, after success */
++			smac_index = mlx4_register_mac(dev->dev, port, smac);
++			if (smac_index >= 0) {
++				smac_info->candidate_smac_index = smac_index;
++				smac_info->candidate_smac = smac;
++				smac_info->candidate_smac_port = port;
++			} else {
++				return -EINVAL;
++			}
++		} else {
++			smac_index = smac_info->smac_index;
++		}
++
++		memcpy(path->dmac, ah->dmac, 6);
++		path->ackto = MLX4_IB_LINK_TYPE_ETH;
++		/* put MAC table smac index for IBoE */
++		path->grh_mylmc = (u8) (smac_index) | 0x80;
++	} else {
+ 		path->sched_queue = MLX4_IB_DEFAULT_SCHED_QUEUE |
+ 			((port - 1) << 6) | ((ah->sl & 0xf) << 2);
++	}
+ 
+ 	return 0;
+ }
+ 
+ static int mlx4_set_path(struct mlx4_ib_dev *dev, const struct ib_qp_attr *qp,
+ 			 enum ib_qp_attr_mask qp_attr_mask,
++			 struct mlx4_ib_qp *mqp,
+ 			 struct mlx4_qp_path *path, u8 port)
+ {
+ 	return _mlx4_set_path(dev, &qp->ah_attr,
+ 			      mlx4_mac_to_u64((u8 *)qp->smac),
+ 			      (qp_attr_mask & IB_QP_VID) ? qp->vlan_id : 0xffff,
+-			      path, port);
++			      path, &mqp->pri, port);
+ }
+ 
+ static int mlx4_set_alt_path(struct mlx4_ib_dev *dev,
+ 			     const struct ib_qp_attr *qp,
+ 			     enum ib_qp_attr_mask qp_attr_mask,
++			     struct mlx4_ib_qp *mqp,
+ 			     struct mlx4_qp_path *path, u8 port)
+ {
+ 	return _mlx4_set_path(dev, &qp->alt_ah_attr,
+ 			      mlx4_mac_to_u64((u8 *)qp->alt_smac),
+ 			      (qp_attr_mask & IB_QP_ALT_VID) ?
+ 			      qp->alt_vlan_id : 0xffff,
+-			      path, port);
++			      path, &mqp->alt, port);
+ }
+ 
+ static void update_mcg_macs(struct mlx4_ib_dev *dev, struct mlx4_ib_qp *qp)
+@@ -1292,6 +1362,37 @@ static void update_mcg_macs(struct mlx4_ib_dev *dev, struct mlx4_ib_qp *qp)
+ 	}
+ }
+ 
++static int handle_eth_ud_smac_index(struct mlx4_ib_dev *dev, struct mlx4_ib_qp *qp, u8 *smac,
++				    struct mlx4_qp_context *context)
++{
++	struct net_device *ndev;
++	u64 u64_mac;
++	int smac_index;
++
++
++	ndev = dev->iboe.netdevs[qp->port - 1];
++	if (ndev) {
++		smac = ndev->dev_addr;
++		u64_mac = mlx4_mac_to_u64(smac);
++	} else {
++		u64_mac = dev->dev->caps.def_mac[qp->port];
++	}
++
++	context->pri_path.sched_queue = MLX4_IB_DEFAULT_SCHED_QUEUE | ((qp->port - 1) << 6);
++	if (!qp->pri.smac) {
++		smac_index = mlx4_register_mac(dev->dev, qp->port, u64_mac);
++		if (smac_index >= 0) {
++			qp->pri.candidate_smac_index = smac_index;
++			qp->pri.candidate_smac = u64_mac;
++			qp->pri.candidate_smac_port = qp->port;
++			context->pri_path.grh_mylmc = 0x80 | (u8) smac_index;
++		} else {
++			return -ENOENT;
++		}
++	}
++	return 0;
++}
++
+ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
+ 			       const struct ib_qp_attr *attr, int attr_mask,
+ 			       enum ib_qp_state cur_state, enum ib_qp_state new_state)
+@@ -1403,7 +1504,7 @@ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
+ 	}
+ 
+ 	if (attr_mask & IB_QP_AV) {
+-		if (mlx4_set_path(dev, attr, attr_mask, &context->pri_path,
++		if (mlx4_set_path(dev, attr, attr_mask, qp, &context->pri_path,
+ 				  attr_mask & IB_QP_PORT ?
+ 				  attr->port_num : qp->port))
+ 			goto out;
+@@ -1426,7 +1527,8 @@ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
+ 		    dev->dev->caps.pkey_table_len[attr->alt_port_num])
+ 			goto out;
+ 
+-		if (mlx4_set_alt_path(dev, attr, attr_mask, &context->alt_path,
++		if (mlx4_set_alt_path(dev, attr, attr_mask, qp,
++				      &context->alt_path,
+ 				      attr->alt_port_num))
+ 			goto out;
+ 
+@@ -1532,6 +1634,20 @@ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
+ 				context->pri_path.fl = 0x80;
+ 			context->pri_path.sched_queue |= MLX4_IB_DEFAULT_SCHED_QUEUE;
+ 		}
++		if (rdma_port_get_link_layer(&dev->ib_dev, qp->port) ==
++		    IB_LINK_LAYER_ETHERNET) {
++			if (qp->mlx4_ib_qp_type == MLX4_IB_QPT_TUN_GSI ||
++			    qp->mlx4_ib_qp_type == MLX4_IB_QPT_GSI)
++				context->pri_path.feup = 1 << 7; /* don't fsm */
++			/* handle smac_index */
++			if (qp->mlx4_ib_qp_type == MLX4_IB_QPT_UD ||
++			    qp->mlx4_ib_qp_type == MLX4_IB_QPT_PROXY_GSI ||
++			    qp->mlx4_ib_qp_type == MLX4_IB_QPT_TUN_GSI) {
++				err = handle_eth_ud_smac_index(dev, qp, (u8 *)attr->smac, context);
++				if (err)
++					return -EINVAL;
++			}
++		}
+ 	}
+ 
+ 	if (qp->ibqp.qp_type == IB_QPT_RAW_PACKET)
+@@ -1619,28 +1735,113 @@ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
+ 	 * If we moved a kernel QP to RESET, clean up all old CQ
+ 	 * entries and reinitialize the QP.
+ 	 */
+-	if (new_state == IB_QPS_RESET && !ibqp->uobject) {
+-		mlx4_ib_cq_clean(recv_cq, qp->mqp.qpn,
+-				 ibqp->srq ? to_msrq(ibqp->srq): NULL);
+-		if (send_cq != recv_cq)
+-			mlx4_ib_cq_clean(send_cq, qp->mqp.qpn, NULL);
++	if (new_state == IB_QPS_RESET) {
++		if (!ibqp->uobject) {
++			mlx4_ib_cq_clean(recv_cq, qp->mqp.qpn,
++					 ibqp->srq ? to_msrq(ibqp->srq) : NULL);
++			if (send_cq != recv_cq)
++				mlx4_ib_cq_clean(send_cq, qp->mqp.qpn, NULL);
++
++			qp->rq.head = 0;
++			qp->rq.tail = 0;
++			qp->sq.head = 0;
++			qp->sq.tail = 0;
++			qp->sq_next_wqe = 0;
++			if (qp->rq.wqe_cnt)
++				*qp->db.db  = 0;
+ 
+-		qp->rq.head = 0;
+-		qp->rq.tail = 0;
+-		qp->sq.head = 0;
+-		qp->sq.tail = 0;
+-		qp->sq_next_wqe = 0;
+-		if (qp->rq.wqe_cnt)
+-			*qp->db.db  = 0;
++			if (qp->flags & MLX4_IB_QP_NETIF)
++				mlx4_ib_steer_qp_reg(dev, qp, 0);
++		}
++		if (qp->pri.smac) {
++			mlx4_unregister_mac(dev->dev, qp->pri.smac_port, qp->pri.smac);
++			qp->pri.smac = 0;
++		}
++		if (qp->alt.smac) {
++			mlx4_unregister_mac(dev->dev, qp->alt.smac_port, qp->alt.smac);
++			qp->alt.smac = 0;
++		}
++		if (qp->pri.vid < 0x1000) {
++			mlx4_unregister_vlan(dev->dev, qp->pri.vlan_port, qp->pri.vid);
++			qp->pri.vid = 0xFFFF;
++			qp->pri.candidate_vid = 0xFFFF;
++			qp->pri.update_vid = 0;
++		}
+ 
+-		if (qp->flags & MLX4_IB_QP_NETIF)
+-			mlx4_ib_steer_qp_reg(dev, qp, 0);
++		if (qp->alt.vid < 0x1000) {
++			mlx4_unregister_vlan(dev->dev, qp->alt.vlan_port, qp->alt.vid);
++			qp->alt.vid = 0xFFFF;
++			qp->alt.candidate_vid = 0xFFFF;
++			qp->alt.update_vid = 0;
++		}
+ 	}
+-
+ out:
+ 	if (err && steer_qp)
+ 		mlx4_ib_steer_qp_reg(dev, qp, 0);
+ 	kfree(context);
++	if (qp->pri.candidate_smac) {
++		if (err) {
++			mlx4_unregister_mac(dev->dev, qp->pri.candidate_smac_port, qp->pri.candidate_smac);
++		} else {
++			if (qp->pri.smac)
++				mlx4_unregister_mac(dev->dev, qp->pri.smac_port, qp->pri.smac);
++			qp->pri.smac = qp->pri.candidate_smac;
++			qp->pri.smac_index = qp->pri.candidate_smac_index;
++			qp->pri.smac_port = qp->pri.candidate_smac_port;
++		}
++		qp->pri.candidate_smac = 0;
++		qp->pri.candidate_smac_index = 0;
++		qp->pri.candidate_smac_port = 0;
++	}
++	if (qp->alt.candidate_smac) {
++		if (err) {
++			mlx4_unregister_mac(dev->dev, qp->alt.candidate_smac_port, qp->alt.candidate_smac);
++		} else {
++			if (qp->alt.smac)
++				mlx4_unregister_mac(dev->dev, qp->alt.smac_port, qp->alt.smac);
++			qp->alt.smac = qp->alt.candidate_smac;
++			qp->alt.smac_index = qp->alt.candidate_smac_index;
++			qp->alt.smac_port = qp->alt.candidate_smac_port;
++		}
++		qp->alt.candidate_smac = 0;
++		qp->alt.candidate_smac_index = 0;
++		qp->alt.candidate_smac_port = 0;
++	}
++
++	if (qp->pri.update_vid) {
++		if (err) {
++			if (qp->pri.candidate_vid < 0x1000)
++				mlx4_unregister_vlan(dev->dev, qp->pri.candidate_vlan_port,
++						     qp->pri.candidate_vid);
++		} else {
++			if (qp->pri.vid < 0x1000)
++				mlx4_unregister_vlan(dev->dev, qp->pri.vlan_port,
++						     qp->pri.vid);
++			qp->pri.vid = qp->pri.candidate_vid;
++			qp->pri.vlan_port = qp->pri.candidate_vlan_port;
++			qp->pri.vlan_index =  qp->pri.candidate_vlan_index;
++		}
++		qp->pri.candidate_vid = 0xFFFF;
++		qp->pri.update_vid = 0;
++	}
++
++	if (qp->alt.update_vid) {
++		if (err) {
++			if (qp->alt.candidate_vid < 0x1000)
++				mlx4_unregister_vlan(dev->dev, qp->alt.candidate_vlan_port,
++						     qp->alt.candidate_vid);
++		} else {
++			if (qp->alt.vid < 0x1000)
++				mlx4_unregister_vlan(dev->dev, qp->alt.vlan_port,
++						     qp->alt.vid);
++			qp->alt.vid = qp->alt.candidate_vid;
++			qp->alt.vlan_port = qp->alt.candidate_vlan_port;
++			qp->alt.vlan_index =  qp->alt.candidate_vlan_index;
++		}
++		qp->alt.candidate_vid = 0xFFFF;
++		qp->alt.update_vid = 0;
++	}
++
  	return err;
  }
-+static struct mlx4_roce_gid_entry zgid_entry;
  
- static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
- 				u8 op_mod, struct mlx4_cmd_mailbox *inbox)
-@@ -515,6 +516,7 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
- 	struct mlx4_slave_state *slave_st = &master->slave_state[slave];
- 	struct mlx4_set_port_rqp_calc_context *qpn_context;
- 	struct mlx4_set_port_general_context *gen_context;
-+	struct mlx4_roce_gid_entry *gid_entry;
- 	int reset_qkey_viols;
- 	int port;
- 	int is_eth;
-@@ -535,7 +537,8 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
- 	/* Slaves cannot perform SET_PORT operations except changing MTU */
- 	if (is_eth) {
- 		if (slave != dev->caps.function &&
--		    in_modifier != MLX4_SET_PORT_GENERAL) {
-+		    in_modifier != MLX4_SET_PORT_GENERAL &&
-+		    in_modifier != MLX4_SET_PORT_GID_TABLE) {
- 			mlx4_warn(dev, "denying SET_PORT for slave:%d\n",
- 					slave);
- 			return -EINVAL;
-@@ -581,6 +584,28 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 1c3634e..706a6d2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -52,6 +52,8 @@
+ struct mac_res {
+ 	struct list_head list;
+ 	u64 mac;
++	int ref_count;
++	u8 smac_index;
+ 	u8 port;
+ };
  
- 			gen_context->mtu = cpu_to_be16(master->max_mtu[port]);
- 			break;
-+		case MLX4_SET_PORT_GID_TABLE:
-+			gid_entry = (struct mlx4_roce_gid_entry *)(inbox->buf);
-+			/* check that do not have duplicates */
-+			if (memcmp(gid_entry->raw, zgid_entry.raw, 16)) {
-+				for (i = 0; i < MLX4_ROCE_MAX_GIDS; i++) {
-+					if (slave != i &&
-+					    !memcmp(gid_entry->raw, priv->roce_gids[port - 1][i].raw, 16)) {
-+						mlx4_warn(dev, "requested gid entry for slave:%d "
-+							  "is a duplicate of slave %d\n",
-+							  slave, i);
-+						return -EEXIST;
-+					}
-+				}
-+			}
-+			/* insert slave GID at proper index */
-+			memcpy(priv->roce_gids[port - 1][slave].raw, gid_entry->raw, 16);
-+			/* rewrite roce port gids table to FW */
-+			for (i = 0; i < MLX4_ROCE_MAX_GIDS; i++) {
-+				memcpy(gid_entry->raw, priv->roce_gids[port - 1][i].raw, 16);
-+				gid_entry++;
-+			}
-+			break;
- 		}
- 		return mlx4_cmd(dev, inbox->dma, in_mod, op_mod,
- 				MLX4_CMD_SET_PORT, MLX4_CMD_TIME_CLASS_B,
-@@ -928,7 +953,8 @@ void mlx4_set_stats_bitmap(struct mlx4_dev *dev, u64 *stats_bitmap)
+@@ -1683,11 +1685,39 @@ static int srq_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ 	return err;
  }
- EXPORT_SYMBOL(mlx4_set_stats_bitmap);
  
--int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid, int *slave_id)
-+int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid,
-+				 int *slave_id)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	int i, found_ix = -1;
-@@ -950,7 +976,8 @@ int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid, int *s
- }
- EXPORT_SYMBOL(mlx4_get_slave_from_roce_gid);
- 
--int mlx4_get_roce_gid_from_slave(struct mlx4_dev *dev, int port, int slave_id, u8 *gid)
-+int mlx4_get_roce_gid_from_slave(struct mlx4_dev *dev, int port, int slave_id,
-+				 u8 *gid)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index fbe6cda..e485365 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -1184,8 +1184,11 @@ int set_and_calc_slave_port_state(struct mlx4_dev *dev, int slave, u8 port, int
- 
- void mlx4_put_slave_node_guid(struct mlx4_dev *dev, int slave, __be64 guid);
- __be64 mlx4_get_slave_node_guid(struct mlx4_dev *dev, int slave);
--int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid, int *slave_id);
--int mlx4_get_roce_gid_from_slave(struct mlx4_dev *dev, int port, int slave_id, u8 *gid);
+-static int mac_add_to_slave(struct mlx4_dev *dev, int slave, u64 mac, int port)
++static int mac_find_smac_ix_in_slave(struct mlx4_dev *dev, int slave, int port,
++				     u8 smac_index, u64 *mac)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_resource_tracker *tracker = &priv->mfunc.master.res_tracker;
++	struct list_head *mac_list =
++		&tracker->slave_list[slave].res_list[RES_MAC];
++	struct mac_res *res, *tmp;
 +
-+int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid,
-+				 int *slave_id);
-+int mlx4_get_roce_gid_from_slave(struct mlx4_dev *dev, int port, int slave_id,
-+				 u8 *gid);
++	list_for_each_entry_safe(res, tmp, mac_list, list) {
++		if (res->smac_index == smac_index && res->port == (u8) port) {
++			*mac = res->mac;
++			return 0;
++		}
++	}
++	return -ENOENT;
++}
++
++static int mac_add_to_slave(struct mlx4_dev *dev, int slave, u64 mac, int port, u8 smac_index)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	struct mlx4_resource_tracker *tracker = &priv->mfunc.master.res_tracker;
+-	struct mac_res *res;
++	struct list_head *mac_list =
++		&tracker->slave_list[slave].res_list[RES_MAC];
++	struct mac_res *res, *tmp;
++
++	list_for_each_entry_safe(res, tmp, mac_list, list) {
++		if (res->mac == mac && res->port == (u8) port) {
++			/* mac found. update ref count */
++			++res->ref_count;
++			return 0;
++		}
++	}
  
- int mlx4_FLOW_STEERING_IB_UC_QP_RANGE(struct mlx4_dev *dev, u32 min_range_qpn,
- 				      u32 max_range_qpn);
+ 	if (mlx4_grant_resource(dev, slave, RES_MAC, 1, port))
+ 		return -EINVAL;
+@@ -1698,6 +1728,8 @@ static int mac_add_to_slave(struct mlx4_dev *dev, int slave, u64 mac, int port)
+ 	}
+ 	res->mac = mac;
+ 	res->port = (u8) port;
++	res->smac_index = smac_index;
++	res->ref_count = 1;
+ 	list_add_tail(&res->list,
+ 		      &tracker->slave_list[slave].res_list[RES_MAC]);
+ 	return 0;
+@@ -1714,9 +1746,11 @@ static void mac_del_from_slave(struct mlx4_dev *dev, int slave, u64 mac,
+ 
+ 	list_for_each_entry_safe(res, tmp, mac_list, list) {
+ 		if (res->mac == mac && res->port == (u8) port) {
+-			list_del(&res->list);
+-			mlx4_release_resource(dev, slave, RES_MAC, 1, port);
+-			kfree(res);
++			if (!--res->ref_count) {
++				list_del(&res->list);
++				mlx4_release_resource(dev, slave, RES_MAC, 1, port);
++				kfree(res);
++			}
+ 			break;
+ 		}
+ 	}
+@@ -1729,10 +1763,13 @@ static void rem_slave_macs(struct mlx4_dev *dev, int slave)
+ 	struct list_head *mac_list =
+ 		&tracker->slave_list[slave].res_list[RES_MAC];
+ 	struct mac_res *res, *tmp;
++	int i;
+ 
+ 	list_for_each_entry_safe(res, tmp, mac_list, list) {
+ 		list_del(&res->list);
+-		__mlx4_unregister_mac(dev, res->port, res->mac);
++		/* dereference the mac the num times the slave referenced it */
++		for (i = 0; i < res->ref_count; i++)
++			__mlx4_unregister_mac(dev, res->port, res->mac);
+ 		mlx4_release_resource(dev, slave, RES_MAC, 1, res->port);
+ 		kfree(res);
+ 	}
+@@ -1744,6 +1781,7 @@ static int mac_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ 	int err = -EINVAL;
+ 	int port;
+ 	u64 mac;
++	u8 smac_index;
+ 
+ 	if (op != RES_OP_RESERVE_AND_MAP)
+ 		return err;
+@@ -1753,12 +1791,13 @@ static int mac_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ 
+ 	err = __mlx4_register_mac(dev, port, mac);
+ 	if (err >= 0) {
++		smac_index = err;
+ 		set_param_l(out_param, err);
+ 		err = 0;
+ 	}
+ 
+ 	if (!err) {
+-		err = mac_add_to_slave(dev, slave, mac, port);
++		err = mac_add_to_slave(dev, slave, mac, port, smac_index);
+ 		if (err)
+ 			__mlx4_unregister_mac(dev, port, mac);
+ 	}
+@@ -3306,6 +3345,25 @@ int mlx4_INIT2INIT_QP_wrapper(struct mlx4_dev *dev, int slave,
+ 	return mlx4_GEN_QP_wrapper(dev, slave, vhcr, inbox, outbox, cmd);
+ }
+ 
++static int roce_verify_mac(struct mlx4_dev *dev, int slave,
++				struct mlx4_qp_context *qpc,
++				struct mlx4_cmd_mailbox *inbox)
++{
++	u64 mac;
++	int port;
++	u32 ts = (be32_to_cpu(qpc->flags) >> 16) & 0xff;
++	u8 sched = *(u8 *)(inbox->buf + 64);
++	u8 smac_ix;
++
++	port = (sched >> 6 & 1) + 1;
++	if (mlx4_is_eth(dev, port) && (ts != MLX4_QP_ST_MLX)) {
++		smac_ix = qpc->pri_path.grh_mylmc & 0x7f;
++		if (mac_find_smac_ix_in_slave(dev, slave, port, smac_ix, &mac))
++			return -ENOENT;
++	}
++	return 0;
++}
++
+ int mlx4_INIT2RTR_QP_wrapper(struct mlx4_dev *dev, int slave,
+ 			     struct mlx4_vhcr *vhcr,
+ 			     struct mlx4_cmd_mailbox *inbox,
+@@ -3328,6 +3386,9 @@ int mlx4_INIT2RTR_QP_wrapper(struct mlx4_dev *dev, int slave,
+ 	if (err)
+ 		return err;
+ 
++	if (roce_verify_mac(dev, slave, qpc, inbox))
++		return -EINVAL;
++
+ 	update_pkey_index(dev, slave, inbox);
+ 	update_gid(dev, inbox, (u8)slave);
+ 	adjust_proxy_tun_qkey(dev, vhcr, qpc);
 -- 
 1.7.1
