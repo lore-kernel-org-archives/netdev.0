@@ -1,63 +1,52 @@
-From: "Mohit ." <reachme01@ymail.com>
-Subject: Linux network subsystem : Implementation intricacies
-Date: Wed, 12 Mar 2014 21:39:55 +0800 (SGT)
-Message-ID: <1394631595.4679.YahooMailNeo@web192304.mail.sg3.yahoo.com>
-Reply-To: "Mohit ." <reachme01@ymail.com>
+From: Yong Zhang <fell198904@gmail.com>
+Subject: The ssthresh reduce during 3WHS
+Date: Wed, 12 Mar 2014 21:46:04 +0800
+Message-ID: <CAH4NVoT4ofCNKAmcnO1AgEbs+ywbXom=E28k2VU4dB+yK79S_A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: Yong Zhang <fell198904@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm10.bullet.mail.sg3.yahoo.com ([106.10.148.89]:48090 "EHLO
-	nm10.bullet.mail.sg3.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754343AbaCLNpq convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Mar 2014 09:45:46 -0400
+Received: from mail-ve0-f193.google.com ([209.85.128.193]:63675 "EHLO
+	mail-ve0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753620AbaCLNqF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 09:46:05 -0400
+Received: by mail-ve0-f193.google.com with SMTP id oz11so3767067veb.0
+        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 06:46:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+hi=EF=BC=8C
 
-I know emails like these are not welcome.But trust me I am writing in a=
-fter having done my side of the research and yet the big picture is unc=
-lear. I promise I wont send in more emails like this one.
+I am trying to to apply patch 9ad7c049f0f79c418e293b1b68cf10d68f54fcdb
+to my old version kernel, but I am not understanding the following
+changes.
 
-------------------------------------
-My problem
-------------------------------------
-=A0I have finished learning=A0
--C language, pointers, data structures,=A0
--linux kernel development - Robert love
+The comments int the patch say ssthresh may reduce unnecessarily
+druing 3WHS,  but i can not find the reduce operation of ssthresh
+during 3WHS.
 
-Now I want to learn as to how "Linux kernel network subsystem" not from=
- the user space standpoint but from the kernel side. I have been trying=
- hard to figure the path that I should follow , however, I have not bee=
-n able to find one.So far this is what i have found out...that I should=
- try & learn
+Can you please explain when dose this may hanppen?
 
-- Computer networks : A. Tanenbaum
-- Learn TCP/IP
-- Linux Network Internals : O'Reilly
 
-----------------------------------------
-My Questions
-----------------------------------------
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index bef9f04..ea0d218 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -880,6 +880,11 @@ static void tcp_init_metrics(struct sock *sk)
 
-However, I am not sure if this would be the right path to follow or not=
-=2EPlease advise what path should I follow?
+        tp->snd_ssthresh =3D dst_metric(dst, RTAX_SSTHRESH);
+                 if (tp->snd_ssthresh > tp->snd_cwnd_clamp)
+                         tp->snd_ssthresh =3D tp->snd_cwnd_clamp;
++       } else {
++                /* ssthresh may have been reduced unnecessarily during=
+=2E
++                * 3WHS. Restore it back to its initial default.
++                */
++                tp->snd_ssthresh =3D TCP_INFINITE_SSTHRESH;
+         }
 
-Also, I met a few senior developers in my computer institute. They sugg=
-ested that I should also try & learn linux socket programming & Linux d=
-evice drivers. Well, Do I need to learn all of that as well?
 
-lastly, Is there any hardware dependency while trying to LEARN OR WORK =
-with linux kernel network subsystem from kernel side. If yes, how to ta=
-ke care of that?
-
-----------------------------------------
-
-Thanks for your patience.Wont bother with such emails.=A0
-
-Regards,
-
-Mohit
+Thanks,
+=46el
