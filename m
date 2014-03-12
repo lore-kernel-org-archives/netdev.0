@@ -1,38 +1,73 @@
-From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
-Subject: RE: [PATCH v3 net-next 1/2] ethtool: Support for configurable RSS
- hash key
-Date: Wed, 12 Mar 2014 08:59:36 +0000
-Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C88E4CF@CMEXMB1.ad.emulex.com>
-References: <1393589141-10597-1-git-send-email-VenkatKumar.Duvvuru@Emulex.com>
-	 <0e1d7b54-dcbd-446d-b1c9-644086da138f@CMEXHTCAS2.ad.emulex.com>
-	 <1394063979.2861.25.camel@deadeye.wl.decadent.org.uk>
-	 <BF3270C86E8B1349A26C34E4EC1C44CB2C889D94@CMEXMB1.ad.emulex.com>
- <1394407382.15968.84.camel@deadeye.wl.decadent.org.uk>
+From: "Meier, Roger" <r.meier@siemens.com>
+Subject: RE: [PATCH] net: phy: Add support for SMSC/Microchip LAN9303 3-port
+ switch
+Date: Wed, 12 Mar 2014 08:55:52 +0000
+Message-ID: <7B43E01F5906F9448BF8BAACD5D26B3810386D@DENBGAT9EH2MSX.ww902.siemens.net>
+References: <1393492072-15364-1-git-send-email-sr@denx.de>
+ <20140227.170240.1910151216729314077.davem@davemloft.net>
+ <531057A4.5020607@denx.de>
+ <20140228.130020.2022765291621434648.davem@davemloft.net>
+ <CAGm1_ksPrSjV8+o7LCGDtJz_6qY8bqGuqdpYNHKh_6JO2X0sqg@mail.gmail.com>
+ <CAGVrzcZQp0tdig72K0FpPOFQ8edn4T=u6oQNPc8jkKh=1WkM6Q@mail.gmail.com>
+ <CAGm1_ksBkGi=QqfOyK1cxebNshjQ3UfKqOAUAsWxw98yHErw-g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
+Cc: David Miller <davem@davemloft.net>, Stefan Roese <sr@denx.de>,
+	netdev <netdev@vger.kernel.org>,
+	"Stockmann, Lukas" <lukas.stockmann@siemens.com>
+To: Yegor Yefremov <yegorslists@googlemail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:26454 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751802AbaCLI7i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 04:59:38 -0400
+Received: from lizzard.sbs.de ([194.138.37.39]:38201 "EHLO lizzard.sbs.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750703AbaCLJGu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Mar 2014 05:06:50 -0400
+In-Reply-To: <CAGm1_ksBkGi=QqfOyK1cxebNshjQ3UfKqOAUAsWxw98yHErw-g@mail.gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+ID4gPiBXaHkgaXMgMHhERUFEQkVFRiBzcGVjaWFsPw0KPiA+ID4gU2luY2UgMCBpcyB1c2Vk
-IGFzIGEgaGludCB0byByZXNldCB0byBkZWZhdWx0LCB3ZSBzaG91bGQgaGF2ZSBhIHdheQ0KPiA+
-ID4gdG8gaGludCB0aGF0IGluZGlyZWN0aW9uIHRhYmxlIGNvbmZpZ3VyYXRpb24gaXMgbm90IHJl
-cXVlc3RlZCBpbg0KPiA+ID4gdGhpcyBjb250ZXh0Lg0KPiA+DQo+ID4gVGhhdCdzIG5vdCBuZWNl
-c3NhcnksIGFzIHlvdSBjYW4gcmVhZCBhbmQgdGhlbiB3cml0ZSBiYWNrIHRoZSBzYW1lIHZhbHVl
-cy4NCj4gPg0KPiA+IEJlbi4NCj4NCg0KDQo+IE1heSBiZSB0aGlzIGlzIGV4dHJlbWVseSBoeXBv
-dGhldGljYWwgYnV0IHdoYXQgaWYgYSBkcml2ZXIgZG9lc24ndCB3YW50IHRvDQo+IHN1cHBvcnQg
-aW5kaXJlY3Rpb24gY29uZmlndXJhdGlvbiBhbmQgb25seSB3YW50cyB0byBzdXBwb3J0IGhhc2gg
-a2V5DQo+IGNvbmZpZ3VyYXRpb24uDQo+IEluIHN1Y2ggYSBjYXNlLCB0aGUga2VybmVsIHNob3Vs
-ZCBrbm93IHRoYXQgYXJlIG5vIGVudHJpZXMgb2YgaW5kaXJlY3Rpb24gaW4NCj4gcnNzX2NvbmZp
-Zy4gQWxzbyBJIHRoaW5rIGl0J3MgYmV0dGVyIHRvIGtlZXAgaGFzaCBrZXkgYW5kIGluZGlyZWN0
-aW9uDQo+IGNvbmZpZ3VyYXRpb25zIGluZGVwZW5kZW50IG9mIGVhY2ggb3RoZXIuDQoNCkJlbiwg
-cGxlYXNlIGxldCBtZSBrbm93IHlvdXIgb3BpbmlvbiBvbiBteSBhYm92ZSBjb21tZW50LiBUaGFu
-a3MuDQo=
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBZZWdvciBZZWZyZW1vdiBbbWFp
+bHRvOnllZ29yc2xpc3RzQGdvb2dsZW1haWwuY29tXQ0KPiBPbiBUdWUsIE1hciAxMSwgMjAxNCBh
+dCA5OjE0IFBNLCBGbG9yaWFuIEZhaW5lbGxpIDxmLmZhaW5lbGxpQGdtYWlsLmNvbT4NCj4gd3Jv
+dGU6DQo+ID4gMjAxNC0wMy0xMSAxMzoxMSBHTVQtMDc6MDAgWWVnb3IgWWVmcmVtb3YgPHllZ29y
+c2xpc3RzQGdvb2dsZW1haWwuY29tPjoNCj4gPj4gT24gRnJpLCBGZWIgMjgsIDIwMTQgYXQgNzow
+MCBQTSwgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0PiB3cm90ZToNCj4gPj4+IEZy
+b206IFN0ZWZhbiBSb2VzZSA8c3JAZGVueC5kZT4NCj4gPj4+IERhdGU6IEZyaSwgMjggRmViIDIw
+MTQgMTA6MzI6MjAgKzAxMDANCj4gPj4+DQo+ID4+Pj4gT24gMjcuMDIuMjAxNCAyMzowMiwgRGF2
+aWQgTWlsbGVyIHdyb3RlOg0KPiA+Pj4+PiBGcm9tOiBTdGVmYW4gUm9lc2UgPHNyQGRlbnguZGU+
+DQo+ID4+Pj4+IERhdGU6IFRodSwgMjcgRmViIDIwMTQgMTA6MDc6NTIgKzAxMDANCj4gPj4+Pj4N
+Cj4gPj4+Pj4gQmV0dGVyIGlzIHRvIGNvbWUgdXAgd2l0aCBhIHJlYWwsIHR5cGVzLCBpbnRlcmZh
+Y2UgZm9yIHByb2dyYW1taW5nDQo+ID4+Pj4+IHN1Y2ggZGV2aWNlcyBhbmQgcHJvdmlkaW5nIGFu
+IGltcGxlbWVudGF0aW9uIG9mIHRoYXQuDQo+ID4+Pj4NCj4gPj4+PiBSaWdodC4gU3VjaCBhIHRo
+aW5nIHdvdWxkIGJlIGJldHRlci4gQnV0IGFzIEZsb3JpYW4gYWxyZWFkeSBwb2ludGVkDQo+ID4+
+Pj4gb3V0LCBub3RoaW5nIGxpa2UgdGhpcyBpcyBhdmFpbGFibGUgaW4ga2VybmVsLm9yZyByaWdo
+dCBub3cuIFRoYXRzIHRoZQ0KPiA+Pj4+IHJlYXNvbiB3aHkgSSBjaG9zZSB0byBpbXBsZW1lbnQg
+dGhpcyAic2ltcGxlIiBkcml2ZXIsIGJ0dyBhcyBkb25lIGluDQo+ID4+Pj4gZHJpdmVycy9uZXQv
+cGh5L3NwaV9rczg5OTUuYy4NCj4gPj4+DQo+ID4+PiBXaGVuIGEgc3VpdGFibGUgdXNlciBmYWNp
+bmcgaW50ZXJmYWNlIGlzIGxhY2tpbmcsIHlvdSBjcmVhdGUgb25lDQo+ID4+PiBhbmQgc3VibWl0
+IGl0IGZvciByZXZpZXcgaGVyZS4gIFlvdSBkb24ndCBqdXN0IHN1Ym1pdCBhZGhvYyBkcml2ZXIN
+Cj4gPj4+IGxvY2FsIHN0dWZmLg0KPiA+Pg0KPiA+PiBEYXZpZCwgd2hhdCBhYm91dCBlbmFibGlu
+ZyBldGh0b29sIHRvIHJlYWQvd3JpdGUgZnJvbS90byB0aGUgUEhZDQo+ID4+IHJlZ2lzdGVycyAo
+dmlhIHBhc3NpbmcgUEhZIElEIGFuZCByZWdpc3RlciBudW1iZXIpPyBJJ20gdHJ5aW5nIHRvIGdl
+dA0KPiA+PiBJQ3BsdXMgSVAxNzVEIHJ1bm5pbmcgYW5kIGl0IGhhcyBsb3RzIG9mIHJlZ2lzdGVy
+cywgdGhhdCBJIHdvdWxkIGxpa2UNCj4gPj4gdG8gbG9vayBhdCBkeW5hbWljYWxseS4NCj4gPg0K
+PiA+IGV0aHRvb2wgZG9lcyBub3QgZG8gdGhhdCBhbHJlYWR5IGZvciBFdGhlcm5ldCBNQUNzIGF0
+dGFjaGVkIHRvIGENCj4gPiBzaW5nbGUgRXRoZXJuZXQgUEhZLCBzbyBJIGRvIG5vdCB0aGluayB0
+aGlzIHdvdWxkIGJlIHRoZSByaWdodCB0b29sDQo+ID4gZm9yIHRoaXMgam9iLiBTb21ldGhpbmcg
+Y3VzdG9tIHdoaWNoIHVzZXMgU0lPQ3tHLFN9TUlJUkVHIG1pZ2h0IGJlDQo+ID4gbW9yZSBzdWl0
+ZWQgZm9yIHRoaXMgYXMgeW91IHdvdWxkIGhhdmUgY29udHJvbCBvdmVyIHRoZSB0YXJnZXQgUEhZ
+DQo+ID4gYWRkcmVzcy4NCj4gPg0KPiA+IE1heWJlIHN3Y29uZmlnIG5lZWRzIHRvIGJlIHJlc3Vi
+bWl0dGVkIGFnYWluLi4uDQo+IA0KPiBJdCBkZWZpbml0ZWx5IHNob3VsZC4gQW5vdGhlciBvcHRp
+b24gd2VyZSB0byBjcmVhdGUgYSByZXBvIChrZXJuZWwNCj4gZm9yaykgYXQgR2l0SHViIGFuZCBj
+cmVhdGUgYSBwZXIgcmVsZWFzZSBicmFuY2ggZm9yIHN3Y29uZmlnLiBUaGlzIHdheQ0KPiBwZW9w
+bGUgY2FuIGNvbnRyaWJ1dGUgc3djb25maWcgY29tcGF0aWJsZSBkcml2ZXJzIGZvciBkaWZmZXJl
+bnQgc3dpdGNoDQo+IGNoaXBzLiBXZSB3b3VsZCBoYXZlIGFsbCBzb3VyY2UgYXQgb25lIGNlbnRy
+YWwgcGxhY2UuIEFuZCB3aGVuIHRoZQ0KPiBkZWNpc2lvbiBhYm91dCBmaW5hbC9vZmZpY2lhbCBz
+d2l0Y2ggaW50ZXJmYWNlIHdpbGwgYmUgbWFkZSwgd2Ugd291bGQNCj4gaGF2ZSAnb25seScgdG8g
+cmV3cml0ZSB0aGUgZHJpdmVycyBmb3IgdGhlIGZpbmFsIHN3Y29uZmlnIHZlcnNpb24uDQpJIGxp
+a2UgdGhhdCBpZGVhLg0KV2UgcmVhbGx5IG5lZWQgc3VjaCBhIGNvbW1vbiBzd2l0Y2ggY29uZmln
+dXJhdGlvbiBhcGkgdG8gc2ltcGxpZnkgdXNhZ2UNCmFuZCByZWR1Y2UgZWZmb3J0cyBmb3IgdGhl
+IGdyb3dpbmcgY29tbXVuaXR5IHRoYXQgdXNlcyBldGhlcm5ldCBzd2l0Y2hlcy4NCg0KLXJvZ2Vy
+DQo=
