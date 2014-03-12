@@ -1,16 +1,18 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 0/9] drivers/net: Convert uses of
+Subject: [PATCH net-next 3/9] igb: Convert uses of
 	__constant_<foo> to <foo>
-Date: Wed, 12 Mar 2014 10:22:29 -0700
-Message-ID: <cover.1394644825.git.joe@perches.com>
+Date: Wed, 12 Mar 2014 10:22:32 -0700
+Message-ID: <0eb4523c7e13dc35a6467332e22a24719f7d7041.1394644825.git.joe@perches.com>
+References: <cover.1394644825.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, linux-usb@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ath9k-devel@lists.ath9k.org, linux-arm-kernel@lists.infradead.org
+Cc: e1000-devel@lists.sourceforge.net, Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org, John Ronciak <john.ronciak@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <cover.1394644825.git.joe@perches.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -21,30 +23,70 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Joe Perches (9):
-  brocade: Convert uses of __constant_<foo> to <foo>
-  e100: Convert uses of __constant_<foo> to <foo>
-  igb: Convert uses of __constant_<foo> to <foo>
-  igbvf: Convert uses of __constant_<foo> to <foo>
-  ixgbe: Convert uses of __constant_<foo> to <foo>
-  ixgbevf: Convert uses of __constant_<foo> to <foo>
-  xilinx: Convert uses of __constant_<foo> to <foo>
-  lg-vl600: Convert uses of __constant_<foo> to <foo>
-  ath9k: Convert uses of __constant_<foo> to <foo>
+The use of __constant_<foo> has been unnecessary for quite awhile now.
 
- drivers/net/ethernet/brocade/bna/bnad.c           | 16 +++++-------
- drivers/net/ethernet/intel/e100.c                 |  4 +--
- drivers/net/ethernet/intel/igb/igb_main.c         | 12 ++++-----
- drivers/net/ethernet/intel/igbvf/netdev.c         |  4 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c     |  8 +++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     | 30 +++++++++++------------
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  4 +--
- drivers/net/ethernet/xilinx/ll_temac_main.c       |  4 +--
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c |  2 +-
- drivers/net/usb/lg-vl600.c                        |  2 +-
- drivers/net/wireless/ath/ath9k/ar9003_eeprom.c    |  4 +--
- 11 files changed, 43 insertions(+), 47 deletions(-)
+Make these uses consistent with the rest of the kernel.
 
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/ethernet/intel/igb/igb_main.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 3384156..5476e25 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -4546,7 +4546,7 @@ static int igb_tso(struct igb_ring *tx_ring,
+ 	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
+ 	type_tucmd = E1000_ADVTXD_TUCMD_L4T_TCP;
+ 
+-	if (first->protocol == __constant_htons(ETH_P_IP)) {
++	if (first->protocol == htons(ETH_P_IP)) {
+ 		struct iphdr *iph = ip_hdr(skb);
+ 		iph->tot_len = 0;
+ 		iph->check = 0;
+@@ -4602,12 +4602,12 @@ static void igb_tx_csum(struct igb_ring *tx_ring, struct igb_tx_buffer *first)
+ 	} else {
+ 		u8 l4_hdr = 0;
+ 		switch (first->protocol) {
+-		case __constant_htons(ETH_P_IP):
++		case htons(ETH_P_IP):
+ 			vlan_macip_lens |= skb_network_header_len(skb);
+ 			type_tucmd |= E1000_ADVTXD_TUCMD_IPV4;
+ 			l4_hdr = ip_hdr(skb)->protocol;
+ 			break;
+-		case __constant_htons(ETH_P_IPV6):
++		case htons(ETH_P_IPV6):
+ 			vlan_macip_lens |= skb_network_header_len(skb);
+ 			l4_hdr = ipv6_hdr(skb)->nexthdr;
+ 			break;
+@@ -6690,7 +6690,7 @@ static unsigned int igb_get_headlen(unsigned char *data,
+ 	hdr.network += ETH_HLEN;
+ 
+ 	/* handle any vlan tag if present */
+-	if (protocol == __constant_htons(ETH_P_8021Q)) {
++	if (protocol == htons(ETH_P_8021Q)) {
+ 		if ((hdr.network - data) > (max_len - VLAN_HLEN))
+ 			return max_len;
+ 
+@@ -6699,7 +6699,7 @@ static unsigned int igb_get_headlen(unsigned char *data,
+ 	}
+ 
+ 	/* handle L3 protocols */
+-	if (protocol == __constant_htons(ETH_P_IP)) {
++	if (protocol == htons(ETH_P_IP)) {
+ 		if ((hdr.network - data) > (max_len - sizeof(struct iphdr)))
+ 			return max_len;
+ 
+@@ -6713,7 +6713,7 @@ static unsigned int igb_get_headlen(unsigned char *data,
+ 		/* record next protocol if header is present */
+ 		if (!(hdr.ipv4->frag_off & htons(IP_OFFSET)))
+ 			nexthdr = hdr.ipv4->protocol;
+-	} else if (protocol == __constant_htons(ETH_P_IPV6)) {
++	} else if (protocol == htons(ETH_P_IPV6)) {
+ 		if ((hdr.network - data) > (max_len - sizeof(struct ipv6hdr)))
+ 			return max_len;
+ 
 -- 
 1.8.1.2.459.gbcd45b4.dirty
 
