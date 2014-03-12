@@ -1,86 +1,149 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: [PATCH net] at86rf230: fix lockdep splats
-Date: Wed, 12 Mar 2014 08:21:24 +0100
-Message-ID: <1394608884-3644-1-git-send-email-alex.aring@gmail.com>
-Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, Alexander Aring <alex.aring@gmail.com>
-To: alex.bluesman.smirnov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f179.google.com ([209.85.215.179]:53135 "EHLO
-	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756211AbaCLHVe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 03:21:34 -0400
-Received: by mail-ea0-f179.google.com with SMTP id q10so4737053ead.24
-        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 00:21:33 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jan Stancek <jstancek@redhat.com>
+Subject: Re: bridge is not forwaring ICMP6 neighbor solicitation to
+ KVM guest
+Date: Wed, 12 Mar 2014 03:45:18 -0400 (EDT)
+Message-ID: <1519668985.2363287.1394610318371.JavaMail.zimbra@redhat.com>
+References: <1566805413.12693479.1393872931017.JavaMail.zimbra@redhat.com>
+	<20140304105253.GC5090@Linus-Debian>
+	<1663332249.12962360.1393931189285.JavaMail.zimbra@redhat.com>
+	<20140304213757.GJ5090@Linus-Debian>
+	<521731164.13535687.1394021407825.JavaMail.zimbra@redhat.com>
+	<20140305142706.GL5090@Linus-Debian>
+	<1662523546.13613467.1394031472806.JavaMail.zimbra@redhat.com>
+	<20140312043740.GS5090@Linus-Debian>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, Florian Westphal <fwestpha@redhat.com>,
+	bridge@lists.linux-foundation.org
+To: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140312043740.GS5090@Linus-Debian>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This patch fix a lockdep in the at86rf230 driver, otherwise we get:
 
-[   30.206517] =================================
-[   30.211078] [ INFO: inconsistent lock state ]
-[   30.215647] 3.14.0-20140108-1-00994-g32e9426 #163 Not tainted
-[   30.221660] ---------------------------------
-[   30.226222] inconsistent {HARDIRQ-ON-W} -> {IN-HARDIRQ-W} usage.
-[   30.232514] systemd-udevd/157 [HC1[1]:SC0[0]:HE0:SE1] takes:
-[   30.238439]  (&(&lp->lock)->rlock){?.+...}, at: [<c03600f8>] at86rf230_isr+0x18/0x44
-[   30.246621] {HARDIRQ-ON-W} state was registered at:
-[   30.251728]   [<c0061ce4>] __lock_acquire+0x7a4/0x18d8
-[   30.257135]   [<c0063500>] lock_acquire+0x68/0x7c
-[   30.262071]   [<c0588820>] _raw_spin_lock+0x28/0x38
-[   30.267203]   [<c0361240>] at86rf230_xmit+0x1c/0x144
-[   30.272412]   [<c057ba6c>] mac802154_xmit_worker+0x88/0x148
-[   30.278271]   [<c0047844>] process_one_work+0x274/0x404
-[   30.283761]   [<c00484c0>] worker_thread+0x228/0x374
-[   30.288971]   [<c004cfb8>] kthread+0xd0/0xe4
-[   30.293455]   [<c000dac8>] ret_from_fork+0x14/0x2c
-[   30.298493] irq event stamp: 8948
-[   30.301963] hardirqs last  enabled at (8947): [<c00cb290>] __kmalloc+0xb4/0x110
-[   30.309636] hardirqs last disabled at (8948): [<c00115d4>] __irq_svc+0x34/0x5c
-[   30.317215] softirqs last  enabled at (8452): [<c0037324>] __do_softirq+0x1dc/0x264
-[   30.325243] softirqs last disabled at (8439): [<c0037638>] irq_exit+0x80/0xf4
 
-We use the lp->lock inside the isr of at86rf230, that's why we need the
-irqsave spinlock calls.
 
-Signed-off-by: Alexander Aring <alex.aring@gmail.com>
----
- drivers/net/ieee802154/at86rf230.c | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index ab31544..a30258a 100644
---- a/drivers/net/ieee802154/at86rf230.c
-+++ b/drivers/net/ieee802154/at86rf230.c
-@@ -546,12 +546,12 @@ at86rf230_xmit(struct ieee802154_dev *dev, struct sk_buff *skb)
- 	int rc;
- 	unsigned long flags;
- 
--	spin_lock(&lp->lock);
-+	spin_lock_irqsave(&lp->lock, flags);
- 	if  (lp->irq_busy) {
--		spin_unlock(&lp->lock);
-+		spin_unlock_irqrestore(&lp->lock, flags);
- 		return -EBUSY;
- 	}
--	spin_unlock(&lp->lock);
-+	spin_unlock_irqrestore(&lp->lock, flags);
- 
- 	might_sleep();
- 
-@@ -725,10 +725,11 @@ static void at86rf230_irqwork_level(struct work_struct *work)
- static irqreturn_t at86rf230_isr(int irq, void *data)
- {
- 	struct at86rf230_local *lp = data;
-+	unsigned long flags;
- 
--	spin_lock(&lp->lock);
-+	spin_lock_irqsave(&lp->lock, flags);
- 	lp->irq_busy = 1;
--	spin_unlock(&lp->lock);
-+	spin_unlock_irqrestore(&lp->lock, flags);
- 
- 	schedule_work(&lp->irqwork);
- 
--- 
-1.9.0
+----- Original Message -----
+> From: "Linus L=C3=BCssing" <linus.luessing@web.de>
+> To: "Jan Stancek" <jstancek@redhat.com>
+> Cc: netdev@vger.kernel.org, "Florian Westphal" <fwestpha@redhat.com>, bri=
+dge@lists.linux-foundation.org
+> Sent: Wednesday, 12 March, 2014 5:37:40 AM
+> Subject: Re: bridge is not forwaring ICMP6 neighbor solicitation to KVM g=
+uest
+>=20
+> Hi Jan,
+>=20
+> Hope your bridge-snooping related issues are resolved with the two
+> new patches present in net. If not just let me/us know. Thanks
+> again for the detailed and helpful reporting!
+
+Hi,
+
+looks good, I wasn't able to reproduce this issue after I applied
+patches you posted recently.
+
+Regards,
+Jan
+
+>=20
+> Cheers, Linus
+>=20
+>=20
+> On Wed, Mar 05, 2014 at 09:57:52AM -0500, Jan Stancek wrote:
+> >=20
+> >=20
+> >=20
+> >=20
+> > ----- Original Message -----
+> > > From: "Linus L=C3=BCssing" <linus.luessing@web.de>
+> > > To: "Jan Stancek" <jstancek@redhat.com>
+> > > Cc: netdev@vger.kernel.org, "Florian Westphal" <fwestpha@redhat.com>,
+> > > bridge@lists.linux-foundation.org
+> > > Sent: Wednesday, 5 March, 2014 3:27:07 PM
+> > > Subject: Re: bridge is not forwaring ICMP6 neighbor solicitation to K=
+VM
+> > > guest
+> >=20
+> > <snip>
+> >=20
+> > >=20
+> > > > I hand-crafted one new packet from malformed one used in previous
+> > > > tests.
+> > > > I modified source address from :: to host B link-scope address and
+> > > > changed
+> > > > dst address from ff02::1 to ff02::1:ffaa:aaaa
+> > >=20
+> > > Okay, again according to your capture the guest is receiving the
+> > > MLD query on its interface but does not react with an MLD report.
+> > >=20
+> > > Two things I'd like to know:
+> > >=20
+> > > Is using the link-scope address as a source and "ff02::1" as the
+> > > destination address for the MLD query work for you?
+> >=20
+> > Yes, I could not trigger it with such query:
+> > http://jan.stancek.eu/tmp/neigh_solicit_and_bridge_traces2/guest_mld_qu=
+ery_ff02_1.cap
+> >   frame 795 -> query
+> >   frame 1040 -> MLD report from guest
+> >   ~20 seconds later
+> >   frame 1507, 1508 -> neigh solicit/advert
+> >   frame 1580, 1581 -> neigh solicit/advert
+> >=20
+> > >=20
+> > > Is using the link-scope address as a source and "ff02::1:ff00:29"
+> > > as the destination address for the MLD query "work" for you (do
+> > > we see an MLD report from the guest and keep on seeing neighbor
+> > > solicitations from host B then?).
+> >=20
+> > Yes, this also worked (though I received 2 reports):
+> > http://jan.stancek.eu/tmp/neigh_solicit_and_bridge_traces2/guest_mld_qu=
+ery_ff02_1_ff0029.cap
+> >   frame 446 -> query
+> >   frame 448 -> MLD report from guest
+> >   frame 465 -> MLD report from guest
+> >   frame 689, 690 -> neigh solicit/advert
+> >   frame 760, 761 -> neigh solicit/advert
+> >   ...
+> >=20
+> > Both host and guest were running 3.14.0-rc5 with your sanity check patc=
+h.
+> >=20
+> > Regards,
+> > Jan
+> >=20
+> > >=20
+> > > For the latter, I don't see anything in particular filtering these
+> > > for a general MLD query wrong destination address in the IPv6
+> > > code from igmp6_event_query() on. But I suspect that the query
+> > > doesn't even get that far on the kernel of the guest, as it is not
+> > > listening on ff02::1:ffaa:aaaa. Therefore the test with
+> > > "ff02::1:ff00:29", an address the guest is listening on, would be
+> > > interesting.
+> > >=20
+> > > If that works, then I'm going to make a patch ignore General MLD
+> > > Queries without ff02::1 as their destination address, too.
+> > >=20
+> > >=20
+> > > Hm, looking at more checks in igmp6_event_query(), I'm currently
+> > > wondering whether we should only enable the snooping behaviour in
+> > > the bridge when receiving a General MLD Query, so one with "::" in
+> > > the multicast field of the MLD message, instead of activating it
+> > > upon a Multicast-Address-Specific Query, too. That'd seem more
+> > > sane to me, I'm going to make a patch for that tomorrow.
+> > >=20
+> > > Cheers, Linus
+> > >=20
+>=20
