@@ -1,55 +1,45 @@
-From: lucien xin <lucien.xin@gmail.com>
-Subject: Re: [PATCH] ipv6: ip6_append_data_mtu do not handle the mtu of the
- second fragment properly
-Date: Wed, 12 Mar 2014 10:40:50 +0800
-Message-ID: <CADvbK_fS0rhPodczcZ52YN9D7NBY_TG+6xXvt-shvvz+e3qLnw@mail.gmail.com>
-References: <1394512309-8823-1-git-send-email-lucien.xin@gmail.com>
-	<20140311144906.GA29404@order.stressinduktion.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] eth: fec: Fix lost promiscuous mode after
+ reconnecting cable
+Date: Tue, 11 Mar 2014 22:48:34 -0400 (EDT)
+Message-ID: <20140311.224834.40412164133780234.davem@davemloft.net>
+References: <f7c8b4dab2114552b919310c2a5bb444@BLUPR03MB373.namprd03.prod.outlook.com>
+	<5319ED04.9070003@i2se.com>
+	<531E0210.1090009@i2se.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Xin Long <lucien.xin@gmail.com>,
-	network dev <netdev@vger.kernel.org>,
-	Gao feng <gaofeng@cn.fujitsu.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: fugang.duan@freescale.com, lznuaa@gmail.com, festevam@gmail.com,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
+	shawn.guo@linaro.org, Fabio.Estevam@freescale.com,
+	Frank.Li@freescale.com, kernel@pengutronix.de
+To: stefan.wahren@i2se.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f173.google.com ([74.125.82.173]:49285 "EHLO
-	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751015AbaCLCkx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 22:40:53 -0400
-Received: by mail-we0-f173.google.com with SMTP id w61so10825896wes.32
-        for <netdev@vger.kernel.org>; Tue, 11 Mar 2014 19:40:52 -0700 (PDT)
-In-Reply-To: <20140311144906.GA29404@order.stressinduktion.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33047 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751015AbaCLCsj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 22:48:39 -0400
+In-Reply-To: <531E0210.1090009@i2se.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 11, 2014 at 10:49 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
->
-> Sorry, that is not correct:
->
-> The min() protects the mtu going over np->frag_size (if set). In case we
-> remove the min we would fallback to dev->mtu or dst_mtu and thus this could
-> lead to a situation where the first fragment respects frag_size but second
-> not. This confuses ip6_append_data and would lead to a crash.
->
-yes, your analysis is quite right,  I ignore the code:
-                if (np->frag_size < mtu) {
-                        if (np->frag_size)
-                                mtu = np->frag_size;
-                }
-> I am thinking about changing this to
->
-> min(*mtu + rt->dst.header_len, pmtuprobe ? rt->dst.dev->mtu : dst_mtu(rt->dst.path))
->
-> or we pass the np directly and test for frag_size again.
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Date: Mon, 10 Mar 2014 19:18:56 +0100
 
-but I cannot understand the top half of ip6_append_data() has the code
-to get mtu,
-                if (rt->dst.flags & DST_XFRM_TUNNEL)
-                        mtu = np->pmtudisc >= IPV6_PMTUDISC_PROBE ?
-                              rt->dst.dev->mtu : dst_mtu(&rt->dst);
-                else
-                        mtu = np->pmtudisc >= IPV6_PMTUDISC_PROBE ?
-                              rt->dst.dev->mtu : dst_mtu(rt->dst.path);
+> If the Freescale i.MX28 fec is in promiscuous mode and network cable is
+> reconnected then the promiscuous mode get lost. The problem is caused
+> by a too soon call of set_multicast_list to re-enable promisc mode.
+> The FEC_R_CNTRL register changes are overwritten by fec_restart.
+> 
+> This patch fixes this by moving the call behind the init of FEC_R_CNTRL
+> register in fec_restart.
+> 
+> Successful tested on a i.MX28 board.
+> 
+> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 
- why it need to calculate mtu again?  just "mtu=*mtu +
-rt->dst.header_len", isn't it sufficient?
+Your email client has corrupted your patch, making it unusable for us.
+
+In particular, it has transformed TAB characters into spaces.
+
+Please fix this and resubmit your patch, thank you.
