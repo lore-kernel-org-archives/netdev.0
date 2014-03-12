@@ -1,32 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: socket: error on a negative msg_namelen
-Date: Wed, 12 Mar 2014 16:31:30 -0400 (EDT)
-Message-ID: <20140312.163130.1932426314100805531.davem@davemloft.net>
-References: <1394539107-1432-1-git-send-email-matthew.leach@arm.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next V4 5/9] Altera TSE: Add Miscellaneous Files for
+ Altera Ethernet Driver
+Date: Wed, 12 Mar 2014 13:34:35 -0700
+Message-ID: <1394656475.3915.35.camel@joe-AO722>
+References: <1394655334-29547-1-git-send-email-vbridgers2013@gmail.com>
+	 <1394655334-29547-6-git-send-email-vbridgers2013@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Will.Deacon@arm.com, Mark.Rutland@arm.com,
-	dan.carpenter@oracle.com
-To: matthew.leach@arm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41498 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751304AbaCLUbc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 16:31:32 -0400
-In-Reply-To: <1394539107-1432-1-git-send-email-matthew.leach@arm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, rob@landley.net
+To: Vince Bridgers <vbridgers2013@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1394655334-29547-6-git-send-email-vbridgers2013@gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Matthew Leach <matthew.leach@arm.com>
-Date: Tue, 11 Mar 2014 11:58:27 +0000
-
-> When copying in a struct msghdr from the user, if the user has set the
-> msg_namelen parameter to a negative value it gets clamped to a valid
-> size due to a comparison between signed and unsigned values.
+On Wed, 2014-03-12 at 15:15 -0500, Vince Bridgers wrote:
+> This patch adds miscellaneous files for the Altera Ethernet Driver,
+> including ethtool support.
 > 
-> Ensure the syscall errors when the user passes in a negative value.
-> 
-> Signed-off-by: Matthew Leach <matthew.leach@arm.com>
+> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+> ---
+> V4: - Change names of statistics to match common usage found in most
+>       drivers instead of TSE databook names.
+>     - Remove unnecessary cast
 
-Applied and queued up for -stable, thanks.
+thanks, maybe this one thing below:
+
+> diff --git a/drivers/net/ethernet/altera/altera_tse_ethtool.c b/drivers/net/ethernet/altera/altera_tse_ethtool.c
+
+> +static char const stat_gstrings[][ETH_GSTRING_LEN] = {
+
+static const char
+
+
