@@ -1,171 +1,492 @@
 From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net-next V4 1/9] dts: Add bindings for the Altera Triple Speed Ethernet driver
-Date: Wed, 12 Mar 2014 15:15:26 -0500
-Message-ID: <1394655334-29547-2-git-send-email-vbridgers2013@gmail.com>
+Subject: =?UTF-8?q?=5BPATCH=20net-next=20V4=203/9=5D=20Altera=20TSE=3A=20Add=20Altera=20Ethernet=20Driver=20MSGDMA=20File=20Components?=
+Date: Wed, 12 Mar 2014 15:15:28 -0500
+Message-ID: <1394655334-29547-4-git-send-email-vbridgers2013@gmail.com>
 References: <1394655334-29547-1-git-send-email-vbridgers2013@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
 	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
 	rob@landley.net, vbridgers2013@gmail.com
 To: devicetree@vger.kernel.org, netdev@vger.kernel.org,
 	linux-doc@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:42473 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752520AbaCLUUX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 16:20:23 -0400
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:58188 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752878AbaCLUU2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 16:20:28 -0400
 In-Reply-To: <1394655334-29547-1-git-send-email-vbridgers2013@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a bindings description for the Altera Triple Speed Ethernet
-(TSE) driver. The bindings support the legacy SGDMA soft IP as well as the
-preferred MSGDMA soft IP. The TSE can be configured and synthesized in soft
-logic using Altera's Quartus toolchain. Please consult the bindings document
-for supported options.
+This patch adds the MSGDMA soft IP support for the Altera Triple
+Speed Ethernet driver.
 
 Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
 ---
-V4: - No change to this file for V4
+V4: - Modify use of dev_* to netdev_* where possible
 
-V3: - Change order of commits
-    - Change names of enable-sup-addr and enable-hash to
-      has-supplementary-unicast and has-hash-multicast-filter
-      respectively, change interpretation to boolen/empty.
-    - Update devicetree to include commas in unit addresses.
-    - Bracket address lists for consistency
-    - Bracket interrupt list for consistency
-    - Drop unit address from mdio node
+V3: - Reorder commits, otherwise no changes to these files.
 
-V2: - Update bindings to use standard Ethernet and Phy bindings.
-      Use standard "phy-addr" instead of Altera's "phy-addr".
-      Use "rx-fifo-depth" and "tx-fifo-depth" instead of versions
-      prepended with "altr," in units of 32-bit quantities.
-      Add missing bindings to describe "altr,enable-hash" and
-      "altr,enable-sup-addr".
+V2: - Use 32-bit upper/lower physical address accessors per comments
+      from Florian.
+    - Break up the driver file submission into seperate patches
+      broken up by functions in the driver.
 ---
- .../devicetree/bindings/net/altera_tse.txt         |  114 ++++++++++++++++++++
- 1 file changed, 114 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/altera_tse.txt
+ drivers/net/ethernet/altera/altera_msgdma.c   |  203 +++++++++++++++++=
+++++++++
+ drivers/net/ethernet/altera/altera_msgdma.h   |   34 +++++
+ drivers/net/ethernet/altera/altera_msgdmahw.h |  167 +++++++++++++++++=
++++
+ 3 files changed, 404 insertions(+)
+ create mode 100644 drivers/net/ethernet/altera/altera_msgdma.c
+ create mode 100644 drivers/net/ethernet/altera/altera_msgdma.h
+ create mode 100644 drivers/net/ethernet/altera/altera_msgdmahw.h
 
-diff --git a/Documentation/devicetree/bindings/net/altera_tse.txt b/Documentation/devicetree/bindings/net/altera_tse.txt
+diff --git a/drivers/net/ethernet/altera/altera_msgdma.c b/drivers/net/=
+ethernet/altera/altera_msgdma.c
 new file mode 100644
-index 0000000..a706297
+index 0000000..66ca0ce
 --- /dev/null
-+++ b/Documentation/devicetree/bindings/net/altera_tse.txt
-@@ -0,0 +1,114 @@
-+* Altera Triple-Speed Ethernet MAC driver (TSE)
++++ b/drivers/net/ethernet/altera/altera_msgdma.c
+@@ -0,0 +1,203 @@
++/* Altera TSE SGDMA and MSGDMA Linux driver
++ * Copyright (C) 2014 Altera Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modif=
+y it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITH=
+OUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY =
+or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public Licen=
+se for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License a=
+long with
++ * this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
 +
-+Required properties:
-+- compatible: Should be "altr,tse-1.0" for legacy SGDMA based TSE, and should
-+		be "altr,tse-msgdma-1.0" for the preferred MSGDMA based TSE.
-+		ALTR is supported for legacy device trees, but is deprecated.
-+		altr should be used for all new designs.
-+- reg: Address and length of the register set for the device. It contains
-+  the information of registers in the same order as described by reg-names
-+- reg-names: Should contain the reg names
-+  "control_port": MAC configuration space region
-+  "tx_csr":       xDMA Tx dispatcher control and status space region
-+  "tx_desc":      MSGDMA Tx dispatcher descriptor space region
-+  "rx_csr" :      xDMA Rx dispatcher control and status space region
-+  "rx_desc":      MSGDMA Rx dispatcher descriptor space region
-+  "rx_resp":      MSGDMA Rx dispatcher response space region
-+  "s1":		  SGDMA descriptor memory
-+- interrupts: Should contain the TSE interrupts and it's mode.
-+- interrupt-names: Should contain the interrupt names
-+  "rx_irq":       xDMA Rx dispatcher interrupt
-+  "tx_irq":       xDMA Tx dispatcher interrupt
-+- rx-fifo-depth: MAC receive FIFO buffer depth in bytes
-+- tx-fifo-depth: MAC transmit FIFO buffer depth in bytes
-+- phy-mode: See ethernet.txt in the same directory.
-+- phy-handle: See ethernet.txt in the same directory.
-+- phy-addr: See ethernet.txt in the same directory. A configuration should
-+		include phy-handle or phy-addr.
-+- altr,has-supplementary-unicast:
-+		If present, TSE supports additional unicast addresses.
-+		Otherwise additional unicast addresses are not supported.
-+- altr,has-hash-multicast-filter:
-+		If present, TSE supports a hash based multicast filter.
-+		Otherwise, hash-based multicast filtering is not supported.
++#include "altera_utils.h"
++#include "altera_tse.h"
++#include "altera_msgdmahw.h"
 +
-+- mdio device tree subnode: When the TSE has a phy connected to its local
-+		mdio, there must be device tree subnode with the following
-+		required properties:
++/* No initialization work to do for MSGDMA */
++int msgdma_initialize(struct altera_tse_private *priv)
++{
++	return 0;
++}
 +
-+	- compatible: Must be "altr,tse-mdio".
-+	- #address-cells: Must be <1>.
-+	- #size-cells: Must be <0>.
++void msgdma_uninitialize(struct altera_tse_private *priv)
++{
++}
 +
-+	For each phy on the mdio bus, there must be a node with the following
-+	fields:
++void msgdma_reset(struct altera_tse_private *priv)
++{
++	int counter;
++	struct msgdma_csr *txcsr =3D
++		(struct msgdma_csr *)priv->tx_dma_csr;
++	struct msgdma_csr *rxcsr =3D
++		(struct msgdma_csr *)priv->rx_dma_csr;
 +
-+	- reg: phy id used to communicate to phy.
-+	- device_type: Must be "ethernet-phy".
++	/* Reset Rx mSGDMA */
++	iowrite32(MSGDMA_CSR_STAT_MASK, &rxcsr->status);
++	iowrite32(MSGDMA_CSR_CTL_RESET, &rxcsr->control);
 +
-+Optional properties:
-+- local-mac-address: See ethernet.txt in the same directory.
-+- max-frame-size: See ethernet.txt in the same directory.
++	counter =3D 0;
++	while (counter++ < ALTERA_TSE_SW_RESET_WATCHDOG_CNTR) {
++		if (tse_bit_is_clear(&rxcsr->status,
++				     MSGDMA_CSR_STAT_RESETTING))
++			break;
++		udelay(1);
++	}
 +
-+Example:
++	if ((counter >=3D ALTERA_TSE_SW_RESET_WATCHDOG_CNTR) &&
++	    (netif_msg_drv(priv)))
++		netdev_warn(priv->dev,
++			    "TSE Rx mSGDMA resetting bit never cleared!\n");
 +
-+	tse_sub_0_eth_tse_0: ethernet@0x1,00000000 {
-+		compatible = "altr,tse-msgdma-1.0";
-+		reg =	<0x00000001 0x00000000 0x00000400>,
-+			<0x00000001 0x00000460 0x00000020>,
-+			<0x00000001 0x00000480 0x00000020>,
-+			<0x00000001 0x000004A0 0x00000008>,
-+			<0x00000001 0x00000400 0x00000020>,
-+			<0x00000001 0x00000420 0x00000020>;
-+		reg-names = "control_port", "rx_csr", "rx_desc", "rx_resp", "tx_csr", "tx_desc";
-+		interrupt-parent = <&hps_0_arm_gic_0>;
-+		interrupts = <0 41 4>, <0 40 4>;
-+		interrupt-names = "rx_irq", "tx_irq";
-+		rx-fifo-depth = <2048>;
-+		tx-fifo-depth = <2048>;
-+		address-bits = <48>;
-+		max-frame-size = <1500>;
-+		local-mac-address = [ 00 00 00 00 00 00 ];
-+		phy-mode = "gmii";
-+		altr,has-supplementary-unicast;
-+		altr,has-hash-multicast-filter;
-+		phy-handle = <&phy0>;
-+		mdio {
-+			compatible = "altr,tse-mdio";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			phy0: ethernet-phy@0 {
-+				reg = <0x0>;
-+				device_type = "ethernet-phy";
-+			};
++	/* clear all status bits */
++	iowrite32(MSGDMA_CSR_STAT_MASK, &rxcsr->status);
 +
-+			phy1: ethernet-phy@1 {
-+				reg = <0x1>;
-+				device_type = "ethernet-phy";
-+			};
++	/* Reset Tx mSGDMA */
++	iowrite32(MSGDMA_CSR_STAT_MASK, &txcsr->status);
++	iowrite32(MSGDMA_CSR_CTL_RESET, &txcsr->control);
 +
-+		};
-+	};
++	counter =3D 0;
++	while (counter++ < ALTERA_TSE_SW_RESET_WATCHDOG_CNTR) {
++		if (tse_bit_is_clear(&txcsr->status,
++				     MSGDMA_CSR_STAT_RESETTING))
++			break;
++		udelay(1);
++	}
 +
-+	tse_sub_1_eth_tse_0: ethernet@0x1,00001000 {
-+		compatible = "altr,tse-msgdma-1.0";
-+		reg = 	<0x00000001 0x00001000 0x00000400>,
-+			<0x00000001 0x00001460 0x00000020>,
-+			<0x00000001 0x00001480 0x00000020>,
-+			<0x00000001 0x000014A0 0x00000008>,
-+			<0x00000001 0x00001400 0x00000020>,
-+			<0x00000001 0x00001420 0x00000020>;
-+		reg-names = "control_port", "rx_csr", "rx_desc", "rx_resp", "tx_csr", "tx_desc";
-+		interrupt-parent = <&hps_0_arm_gic_0>;
-+		interrupts = <0 43 4>, <0 42 4>;
-+		interrupt-names = "rx_irq", "tx_irq";
-+		rx-fifo-depth = <2048>;
-+		tx-fifo-depth = <2048>;
-+		address-bits = <48>;
-+		max-frame-size = <1500>;
-+		local-mac-address = [ 00 00 00 00 00 00 ];
-+		phy-mode = "gmii";
-+		altr,has-supplementary-unicast;
-+		altr,has-hash-multicast-filter;
-+		phy-handle = <&phy1>;
-+	};
--- 
++	if ((counter >=3D ALTERA_TSE_SW_RESET_WATCHDOG_CNTR) &&
++	    (netif_msg_drv(priv)))
++		netdev_warn(priv->dev,
++			    "TSE Tx mSGDMA resetting bit never cleared!\n");
++
++	/* clear all status bits */
++	iowrite32(MSGDMA_CSR_STAT_MASK, &txcsr->status);
++}
++
++void msgdma_disable_rxirq(struct altera_tse_private *priv)
++{
++	struct msgdma_csr *csr =3D priv->rx_dma_csr;
++	tse_clear_bit(&csr->control, MSGDMA_CSR_CTL_GLOBAL_INTR);
++}
++
++void msgdma_enable_rxirq(struct altera_tse_private *priv)
++{
++	struct msgdma_csr *csr =3D priv->rx_dma_csr;
++	tse_set_bit(&csr->control, MSGDMA_CSR_CTL_GLOBAL_INTR);
++}
++
++void msgdma_disable_txirq(struct altera_tse_private *priv)
++{
++	struct msgdma_csr *csr =3D priv->tx_dma_csr;
++	tse_clear_bit(&csr->control, MSGDMA_CSR_CTL_GLOBAL_INTR);
++}
++
++void msgdma_enable_txirq(struct altera_tse_private *priv)
++{
++	struct msgdma_csr *csr =3D priv->tx_dma_csr;
++	tse_set_bit(&csr->control, MSGDMA_CSR_CTL_GLOBAL_INTR);
++}
++
++void msgdma_clear_rxirq(struct altera_tse_private *priv)
++{
++	struct msgdma_csr *csr =3D priv->rx_dma_csr;
++	iowrite32(MSGDMA_CSR_STAT_IRQ, &csr->status);
++}
++
++void msgdma_clear_txirq(struct altera_tse_private *priv)
++{
++	struct msgdma_csr *csr =3D priv->tx_dma_csr;
++	iowrite32(MSGDMA_CSR_STAT_IRQ, &csr->status);
++}
++
++/* return 0 to indicate transmit is pending */
++int msgdma_tx_buffer(struct altera_tse_private *priv, struct tse_buffe=
+r *buffer)
++{
++	struct msgdma_extended_desc *desc =3D priv->tx_dma_desc;
++
++	iowrite32(lower_32_bits(buffer->dma_addr), &desc->read_addr_lo);
++	iowrite32(upper_32_bits(buffer->dma_addr), &desc->read_addr_hi);
++	iowrite32(0, &desc->write_addr_lo);
++	iowrite32(0, &desc->write_addr_hi);
++	iowrite32(buffer->len, &desc->len);
++	iowrite32(0, &desc->burst_seq_num);
++	iowrite32(MSGDMA_DESC_TX_STRIDE, &desc->stride);
++	iowrite32(MSGDMA_DESC_CTL_TX_SINGLE, &desc->control);
++	return 0;
++}
++
++u32 msgdma_tx_completions(struct altera_tse_private *priv)
++{
++	u32 ready =3D 0;
++	u32 inuse;
++	u32 status;
++	struct msgdma_csr *txcsr =3D
++		(struct msgdma_csr *)priv->tx_dma_csr;
++
++	/* Get number of sent descriptors */
++	inuse =3D ioread32(&txcsr->rw_fill_level) & 0xffff;
++
++	if (inuse) { /* Tx FIFO is not empty */
++		ready =3D priv->tx_prod - priv->tx_cons - inuse - 1;
++	} else {
++		/* Check for buffered last packet */
++		status =3D ioread32(&txcsr->status);
++		if (status & MSGDMA_CSR_STAT_BUSY)
++			ready =3D priv->tx_prod - priv->tx_cons - 1;
++		else
++			ready =3D priv->tx_prod - priv->tx_cons;
++	}
++	return ready;
++}
++
++/* Put buffer to the mSGDMA RX FIFO
++ */
++int msgdma_add_rx_desc(struct altera_tse_private *priv,
++			struct tse_buffer *rxbuffer)
++{
++	struct msgdma_extended_desc *desc =3D priv->rx_dma_desc;
++	u32 len =3D priv->rx_dma_buf_sz;
++	dma_addr_t dma_addr =3D rxbuffer->dma_addr;
++	u32 control =3D (MSGDMA_DESC_CTL_END_ON_EOP
++			| MSGDMA_DESC_CTL_END_ON_LEN
++			| MSGDMA_DESC_CTL_TR_COMP_IRQ
++			| MSGDMA_DESC_CTL_EARLY_IRQ
++			| MSGDMA_DESC_CTL_TR_ERR_IRQ
++			| MSGDMA_DESC_CTL_GO);
++
++	iowrite32(0, &desc->read_addr_lo);
++	iowrite32(0, &desc->read_addr_hi);
++	iowrite32(lower_32_bits(dma_addr), &desc->write_addr_lo);
++	iowrite32(upper_32_bits(dma_addr), &desc->write_addr_hi);
++	iowrite32(len, &desc->len);
++	iowrite32(0, &desc->burst_seq_num);
++	iowrite32(0x00010001, &desc->stride);
++	iowrite32(control, &desc->control);
++	return 1;
++}
++
++/* status is returned on upper 16 bits,
++ * length is returned in lower 16 bits
++ */
++u32 msgdma_rx_status(struct altera_tse_private *priv)
++{
++	u32 rxstatus =3D 0;
++	u32 pktlength;
++	u32 pktstatus;
++	struct msgdma_csr *rxcsr =3D
++		(struct msgdma_csr *)priv->rx_dma_csr;
++	struct msgdma_response *rxresp =3D
++		(struct msgdma_response *)priv->rx_dma_resp;
++
++	if (ioread32(&rxcsr->resp_fill_level) & 0xffff) {
++		pktlength =3D ioread32(&rxresp->bytes_transferred);
++		pktstatus =3D ioread32(&rxresp->status);
++		rxstatus =3D pktstatus;
++		rxstatus =3D rxstatus << 16;
++		rxstatus |=3D (pktlength & 0xffff);
++	}
++	return rxstatus;
++}
+diff --git a/drivers/net/ethernet/altera/altera_msgdma.h b/drivers/net/=
+ethernet/altera/altera_msgdma.h
+new file mode 100644
+index 0000000..7f0f5bf
+--- /dev/null
++++ b/drivers/net/ethernet/altera/altera_msgdma.h
+@@ -0,0 +1,34 @@
++/* Altera TSE SGDMA and MSGDMA Linux driver
++ * Copyright (C) 2014 Altera Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modif=
+y it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITH=
+OUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY =
+or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public Licen=
+se for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License a=
+long with
++ * this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#ifndef __ALTERA_MSGDMA_H__
++#define __ALTERA_MSGDMA_H__
++
++void msgdma_reset(struct altera_tse_private *);
++void msgdma_enable_txirq(struct altera_tse_private *);
++void msgdma_enable_rxirq(struct altera_tse_private *);
++void msgdma_disable_rxirq(struct altera_tse_private *);
++void msgdma_disable_txirq(struct altera_tse_private *);
++void msgdma_clear_rxirq(struct altera_tse_private *);
++void msgdma_clear_txirq(struct altera_tse_private *);
++u32 msgdma_tx_completions(struct altera_tse_private *);
++int msgdma_add_rx_desc(struct altera_tse_private *, struct tse_buffer =
+*);
++int msgdma_tx_buffer(struct altera_tse_private *, struct tse_buffer *)=
+;
++u32 msgdma_rx_status(struct altera_tse_private *);
++int msgdma_initialize(struct altera_tse_private *);
++void msgdma_uninitialize(struct altera_tse_private *);
++
++#endif /*  __ALTERA_MSGDMA_H__ */
+diff --git a/drivers/net/ethernet/altera/altera_msgdmahw.h b/drivers/ne=
+t/ethernet/altera/altera_msgdmahw.h
+new file mode 100644
+index 0000000..d7b59ba
+--- /dev/null
++++ b/drivers/net/ethernet/altera/altera_msgdmahw.h
+@@ -0,0 +1,167 @@
++/* Altera TSE SGDMA and MSGDMA Linux driver
++ * Copyright (C) 2014 Altera Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modif=
+y it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITH=
+OUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY =
+or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public Licen=
+se for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License a=
+long with
++ * this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#ifndef __ALTERA_MSGDMAHW_H__
++#define __ALTERA_MSGDMAHW_H__
++
++/* mSGDMA standard descriptor format
++ */
++struct msgdma_desc {
++	u32 read_addr;	/* data buffer source address */
++	u32 write_addr;	/* data buffer destination address */
++	u32 len;	/* the number of bytes to transfer per descriptor */
++	u32 control;	/* characteristics of the transfer */
++};
++
++/* mSGDMA extended descriptor format
++ */
++struct msgdma_extended_desc {
++	u32 read_addr_lo;	/* data buffer source address low bits */
++	u32 write_addr_lo;	/* data buffer destination address low bits */
++	u32 len;		/* the number of bytes to transfer
++				 * per descriptor
++				 */
++	u32 burst_seq_num;	/* bit 31:24 write burst
++				 * bit 23:16 read burst
++				 * bit 15:0  sequence number
++				 */
++	u32 stride;		/* bit 31:16 write stride
++				 * bit 15:0  read stride
++				 */
++	u32 read_addr_hi;	/* data buffer source address high bits */
++	u32 write_addr_hi;	/* data buffer destination address high bits */
++	u32 control;		/* characteristics of the transfer */
++};
++
++/* mSGDMA descriptor control field bit definitions
++ */
++#define MSGDMA_DESC_CTL_SET_CH(x)	((x) & 0xff)
++#define MSGDMA_DESC_CTL_GEN_SOP		BIT(8)
++#define MSGDMA_DESC_CTL_GEN_EOP		BIT(9)
++#define MSGDMA_DESC_CTL_PARK_READS	BIT(10)
++#define MSGDMA_DESC_CTL_PARK_WRITES	BIT(11)
++#define MSGDMA_DESC_CTL_END_ON_EOP	BIT(12)
++#define MSGDMA_DESC_CTL_END_ON_LEN	BIT(13)
++#define MSGDMA_DESC_CTL_TR_COMP_IRQ	BIT(14)
++#define MSGDMA_DESC_CTL_EARLY_IRQ	BIT(15)
++#define MSGDMA_DESC_CTL_TR_ERR_IRQ	(0xff << 16)
++#define MSGDMA_DESC_CTL_EARLY_DONE	BIT(24)
++/* Writing =E2=80=981=E2=80=99 to the =E2=80=98go=E2=80=99 bit commits=
+ the entire descriptor into the
++ * descriptor FIFO(s)
++ */
++#define MSGDMA_DESC_CTL_GO		BIT(31)
++
++/* Tx buffer control flags
++ */
++#define MSGDMA_DESC_CTL_TX_FIRST	(MSGDMA_DESC_CTL_GEN_SOP |	\
++					 MSGDMA_DESC_CTL_TR_ERR_IRQ |	\
++					 MSGDMA_DESC_CTL_GO)
++
++#define MSGDMA_DESC_CTL_TX_MIDDLE	(MSGDMA_DESC_CTL_TR_ERR_IRQ |	\
++					 MSGDMA_DESC_CTL_GO)
++
++#define MSGDMA_DESC_CTL_TX_LAST		(MSGDMA_DESC_CTL_GEN_EOP |	\
++					 MSGDMA_DESC_CTL_TR_COMP_IRQ |	\
++					 MSGDMA_DESC_CTL_TR_ERR_IRQ |	\
++					 MSGDMA_DESC_CTL_GO)
++
++#define MSGDMA_DESC_CTL_TX_SINGLE	(MSGDMA_DESC_CTL_GEN_SOP |	\
++					 MSGDMA_DESC_CTL_GEN_EOP |	\
++					 MSGDMA_DESC_CTL_TR_COMP_IRQ |	\
++					 MSGDMA_DESC_CTL_TR_ERR_IRQ |	\
++					 MSGDMA_DESC_CTL_GO)
++
++#define MSGDMA_DESC_CTL_RX_SINGLE	(MSGDMA_DESC_CTL_END_ON_EOP |	\
++					 MSGDMA_DESC_CTL_END_ON_LEN |	\
++					 MSGDMA_DESC_CTL_TR_COMP_IRQ |	\
++					 MSGDMA_DESC_CTL_EARLY_IRQ |	\
++					 MSGDMA_DESC_CTL_TR_ERR_IRQ |	\
++					 MSGDMA_DESC_CTL_GO)
++
++/* mSGDMA extended descriptor stride definitions
++ */
++#define MSGDMA_DESC_TX_STRIDE		(0x00010001)
++#define MSGDMA_DESC_RX_STRIDE		(0x00010001)
++
++/* mSGDMA dispatcher control and status register map
++ */
++struct msgdma_csr {
++	u32 status;		/* Read/Clear */
++	u32 control;		/* Read/Write */
++	u32 rw_fill_level;	/* bit 31:16 - write fill level
++				 * bit 15:0  - read fill level
++				 */
++	u32 resp_fill_level;	/* bit 15:0 */
++	u32 rw_seq_num;		/* bit 31:16 - write sequence number
++				 * bit 15:0  - read sequence number
++				 */
++	u32 pad[3];		/* reserved */
++};
++
++/* mSGDMA CSR status register bit definitions
++ */
++#define MSGDMA_CSR_STAT_BUSY			BIT(0)
++#define MSGDMA_CSR_STAT_DESC_BUF_EMPTY		BIT(1)
++#define MSGDMA_CSR_STAT_DESC_BUF_FULL		BIT(2)
++#define MSGDMA_CSR_STAT_RESP_BUF_EMPTY		BIT(3)
++#define MSGDMA_CSR_STAT_RESP_BUF_FULL		BIT(4)
++#define MSGDMA_CSR_STAT_STOPPED			BIT(5)
++#define MSGDMA_CSR_STAT_RESETTING		BIT(6)
++#define MSGDMA_CSR_STAT_STOPPED_ON_ERR		BIT(7)
++#define MSGDMA_CSR_STAT_STOPPED_ON_EARLY	BIT(8)
++#define MSGDMA_CSR_STAT_IRQ			BIT(9)
++#define MSGDMA_CSR_STAT_MASK			0x3FF
++#define MSGDMA_CSR_STAT_MASK_WITHOUT_IRQ	0x1FF
++
++#define MSGDMA_CSR_STAT_BUSY_GET(v)			GET_BIT_VALUE(v, 0)
++#define MSGDMA_CSR_STAT_DESC_BUF_EMPTY_GET(v)		GET_BIT_VALUE(v, 1)
++#define MSGDMA_CSR_STAT_DESC_BUF_FULL_GET(v)		GET_BIT_VALUE(v, 2)
++#define MSGDMA_CSR_STAT_RESP_BUF_EMPTY_GET(v)		GET_BIT_VALUE(v, 3)
++#define MSGDMA_CSR_STAT_RESP_BUF_FULL_GET(v)		GET_BIT_VALUE(v, 4)
++#define MSGDMA_CSR_STAT_STOPPED_GET(v)			GET_BIT_VALUE(v, 5)
++#define MSGDMA_CSR_STAT_RESETTING_GET(v)		GET_BIT_VALUE(v, 6)
++#define MSGDMA_CSR_STAT_STOPPED_ON_ERR_GET(v)		GET_BIT_VALUE(v, 7)
++#define MSGDMA_CSR_STAT_STOPPED_ON_EARLY_GET(v)		GET_BIT_VALUE(v, 8)
++#define MSGDMA_CSR_STAT_IRQ_GET(v)			GET_BIT_VALUE(v, 9)
++
++/* mSGDMA CSR control register bit definitions
++ */
++#define MSGDMA_CSR_CTL_STOP			BIT(0)
++#define MSGDMA_CSR_CTL_RESET			BIT(1)
++#define MSGDMA_CSR_CTL_STOP_ON_ERR		BIT(2)
++#define MSGDMA_CSR_CTL_STOP_ON_EARLY		BIT(3)
++#define MSGDMA_CSR_CTL_GLOBAL_INTR		BIT(4)
++#define MSGDMA_CSR_CTL_STOP_DESCS		BIT(5)
++
++/* mSGDMA CSR fill level bits
++ */
++#define MSGDMA_CSR_WR_FILL_LEVEL_GET(v)		(((v) & 0xffff0000) >> 16)
++#define MSGDMA_CSR_RD_FILL_LEVEL_GET(v)		((v) & 0x0000ffff)
++#define MSGDMA_CSR_RESP_FILL_LEVEL_GET(v)	((v) & 0x0000ffff)
++
++/* mSGDMA response register map
++ */
++struct msgdma_response {
++	u32 bytes_transferred;
++	u32 status;
++};
++
++/* mSGDMA response register bit definitions
++ */
++#define MSGDMA_RESP_EARLY_TERM	BIT(8)
++#define MSGDMA_RESP_ERR_MASK	0xFF
++
++#endif /* __ALTERA_MSGDMA_H__*/
+--=20
 1.7.9.5
