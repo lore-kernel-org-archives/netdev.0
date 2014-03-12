@@ -1,65 +1,137 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V2 net-next 0/7] mlx4: Add SRIOV support for RoCE
-Date: Wed, 12 Mar 2014 12:00:36 +0200
-Message-ID: <1394618443-20337-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH V2 net-next 2/7] mlx4_core: For RoCE, allow slaves to set the GID entry at that slave's index
+Date: Wed, 12 Mar 2014 12:00:38 +0200
+Message-ID: <1394618443-20337-3-git-send-email-ogerlitz@mellanox.com>
+References: <1394618443-20337-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, roland@kernel.org,
 	jackm@dev.mellanox.co.il, amirv@mellanox.com,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:59204 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:59212 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750981AbaCLKZl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Mar 2014 06:25:41 -0400
+	id S1750981AbaCLKZo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Mar 2014 06:25:44 -0400
+In-Reply-To: <1394618443-20337-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-This series adds SRIOV support for RoCE (RDMA over Ethernet) to the mlx4 driver.
+For IB transport, the host determines the slave GIDs. For ETH (RoCE),
+however, the slave's GID is determined by the IP address that the slave
+itself assigns to the ETH device used by RoCE.
 
-The patches are against net-next, as of commit 2d8d40a "pkt_sched: fq:
-do not hold qdisc lock while allocating memory"
+In this case, the slave must be able to write its GIDs to the HCA gid table
+(at the GID indices that slave "owns").
 
-Or.
+This commit adds processing for the SET_PORT_GID_TABLE opcode modifier
+for the SET_PORT command wrapper (so that slaves may modify their GIDS
+for RoCE).
 
-changes from V1:
- - addressed feedback from Dave on patch #3 and changed get_real_sgid_index()
-   to be called fill_in_real_sgid_index() and be a void  function.
- - removed some checkpatch warnings on long lines
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/port.c |   33 ++++++++++++++++++++++++++--
+ include/linux/mlx4/device.h               |    7 ++++-
+ 2 files changed, 35 insertions(+), 5 deletions(-)
 
-changes from V0:
-  - always check the return code of mlx4_get_roce_gid_from_slave().
-    The call we fixed is introduced in patch #1 and later removed by 
-    patch #3 that allows guests to have multiple GIDS. The 1..3 
-    separation was done for proper division of patches to logical changes.
-
-
-Jack Morgenstein (6):
-  mlx4: Adjust QP1 multiplexing for RoCE/SRIOV
-  mlx4_core: For RoCE, allow slaves to set the GID entry at that
-    slave's index
-  mlx4: In RoCE allow guests to have multiple GIDS
-  mlx4: Add ref counting to port MAC table for RoCE
-  mlx4: Implement IP based gids support for RoCE/SRIOV
-  mlx4: Activate RoCE/SRIOV
-
-Shani Michaelli (1):
-  mlx4_ib: Fix SIDR support of for UD QPs under SRIOV/RoCE
-
- drivers/infiniband/hw/mlx4/cm.c                    |   80 ++++-
- drivers/infiniband/hw/mlx4/cq.c                    |   42 ++-
- drivers/infiniband/hw/mlx4/mad.c                   |  121 +++++++-
- drivers/infiniband/hw/mlx4/main.c                  |    8 -
- drivers/infiniband/hw/mlx4/mcg.c                   |    5 +-
- drivers/infiniband/hw/mlx4/mlx4_ib.h               |   24 ++-
- drivers/infiniband/hw/mlx4/qp.c                    |  319 ++++++++++++++++----
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |   24 ++
- drivers/net/ethernet/mellanox/mlx4/fw.c            |    5 +-
- drivers/net/ethernet/mellanox/mlx4/main.c          |    6 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    8 +
- drivers/net/ethernet/mellanox/mlx4/port.c          |  144 +++++++++-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  146 ++++++++--
- include/linux/mlx4/cmd.h                           |    7 +
- include/linux/mlx4/device.h                        |   11 +-
- 15 files changed, 811 insertions(+), 139 deletions(-)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index 9c063d6..591740b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -505,6 +505,7 @@ int mlx4_get_port_ib_caps(struct mlx4_dev *dev, u8 port, __be32 *caps)
+ 	mlx4_free_cmd_mailbox(dev, outmailbox);
+ 	return err;
+ }
++static struct mlx4_roce_gid_entry zgid_entry;
+ 
+ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 				u8 op_mod, struct mlx4_cmd_mailbox *inbox)
+@@ -515,6 +516,7 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 	struct mlx4_slave_state *slave_st = &master->slave_state[slave];
+ 	struct mlx4_set_port_rqp_calc_context *qpn_context;
+ 	struct mlx4_set_port_general_context *gen_context;
++	struct mlx4_roce_gid_entry *gid_entry;
+ 	int reset_qkey_viols;
+ 	int port;
+ 	int is_eth;
+@@ -535,7 +537,8 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 	/* Slaves cannot perform SET_PORT operations except changing MTU */
+ 	if (is_eth) {
+ 		if (slave != dev->caps.function &&
+-		    in_modifier != MLX4_SET_PORT_GENERAL) {
++		    in_modifier != MLX4_SET_PORT_GENERAL &&
++		    in_modifier != MLX4_SET_PORT_GID_TABLE) {
+ 			mlx4_warn(dev, "denying SET_PORT for slave:%d\n",
+ 					slave);
+ 			return -EINVAL;
+@@ -581,6 +584,28 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 
+ 			gen_context->mtu = cpu_to_be16(master->max_mtu[port]);
+ 			break;
++		case MLX4_SET_PORT_GID_TABLE:
++			gid_entry = (struct mlx4_roce_gid_entry *)(inbox->buf);
++			/* check that do not have duplicates */
++			if (memcmp(gid_entry->raw, zgid_entry.raw, 16)) {
++				for (i = 0; i < MLX4_ROCE_MAX_GIDS; i++) {
++					if (slave != i &&
++					    !memcmp(gid_entry->raw, priv->roce_gids[port - 1][i].raw, 16)) {
++						mlx4_warn(dev, "requested gid entry for slave:%d "
++							  "is a duplicate of slave %d\n",
++							  slave, i);
++						return -EEXIST;
++					}
++				}
++			}
++			/* insert slave GID at proper index */
++			memcpy(priv->roce_gids[port - 1][slave].raw, gid_entry->raw, 16);
++			/* rewrite roce port gids table to FW */
++			for (i = 0; i < MLX4_ROCE_MAX_GIDS; i++) {
++				memcpy(gid_entry->raw, priv->roce_gids[port - 1][i].raw, 16);
++				gid_entry++;
++			}
++			break;
+ 		}
+ 		return mlx4_cmd(dev, inbox->dma, in_mod, op_mod,
+ 				MLX4_CMD_SET_PORT, MLX4_CMD_TIME_CLASS_B,
+@@ -928,7 +953,8 @@ void mlx4_set_stats_bitmap(struct mlx4_dev *dev, u64 *stats_bitmap)
+ }
+ EXPORT_SYMBOL(mlx4_set_stats_bitmap);
+ 
+-int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid, int *slave_id)
++int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid,
++				 int *slave_id)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	int i, found_ix = -1;
+@@ -950,7 +976,8 @@ int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid, int *s
+ }
+ EXPORT_SYMBOL(mlx4_get_slave_from_roce_gid);
+ 
+-int mlx4_get_roce_gid_from_slave(struct mlx4_dev *dev, int port, int slave_id, u8 *gid)
++int mlx4_get_roce_gid_from_slave(struct mlx4_dev *dev, int port, int slave_id,
++				 u8 *gid)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index fbe6cda..e485365 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -1184,8 +1184,11 @@ int set_and_calc_slave_port_state(struct mlx4_dev *dev, int slave, u8 port, int
+ 
+ void mlx4_put_slave_node_guid(struct mlx4_dev *dev, int slave, __be64 guid);
+ __be64 mlx4_get_slave_node_guid(struct mlx4_dev *dev, int slave);
+-int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid, int *slave_id);
+-int mlx4_get_roce_gid_from_slave(struct mlx4_dev *dev, int port, int slave_id, u8 *gid);
++
++int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid,
++				 int *slave_id);
++int mlx4_get_roce_gid_from_slave(struct mlx4_dev *dev, int port, int slave_id,
++				 u8 *gid);
+ 
+ int mlx4_FLOW_STEERING_IB_UC_QP_RANGE(struct mlx4_dev *dev, u32 min_range_qpn,
+ 				      u32 max_range_qpn);
+-- 
+1.7.1
