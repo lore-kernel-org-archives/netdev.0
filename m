@@ -1,69 +1,38 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v9 net-next 1/3] filter: add Extended BPF interpreter and converter
-Date: Wed, 12 Mar 2014 15:43:02 -0700
-Message-ID: <CAMEtUuz-e6zQdK975mfLX-UBRt001L0KvXPDtELyTk-rzb2jQg@mail.gmail.com>
-References: <1394512892-5448-1-git-send-email-ast@plumgrid.com>
-	<1394512892-5448-2-git-send-email-ast@plumgrid.com>
-	<CAHA+R7P=XAWAPkJTZSfHs02-+V+VOMQ04ZNNjY6LmPdRENzCJA@mail.gmail.com>
+From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Subject: RE: [PATCHv6 net-next 20/31] iw_cxgb4: adjust tcp snd/rcv window based on link speed
+Date: Wed, 12 Mar 2014 17:57:16 -0500
+Message-ID: <00a301cf3e46$69da22d0$3d8e6870$@opengridcomputing.com>
+References: <008801cf3e2e$d8679b00$8936d100$@opengridcomputing.com>	<20140312.162348.2225551653125401290.davem@davemloft.net>	<008d01cf3e3a$257edc90$707c95b0$@opengridcomputing.com> <20140312.181245.1921772176964395946.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Jesse Gross <jesse@nicira.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Eric Dumazet <edumazet@google.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Pekka Enberg <penberg@iki.fi>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHA+R7P=XAWAPkJTZSfHs02-+V+VOMQ04ZNNjY6LmPdRENzCJA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
+	<dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+	<kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: "'David Miller'" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140312.181245.1921772176964395946.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Language: en-us
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 12, 2014 at 3:16 PM, Cong Wang <cwang@twopensource.com> wrote:
-> (Sorry for jumping into this thread late.)
+> >
+> > How's this look (compile-tested only)?  Note I had to export some of the tcp limits.
+> 
+> Well, the problem is that you've dug your own hole already.
+> 
+> You can't just remove these existing module parameters that users can
+> set.  They are user visible APIs, you can't just remove them.
+> 
+> The best you can do is stop adding new ones.
 >
-> On Mon, Mar 10, 2014 at 9:41 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
->>
->> 3. tracing filters systemtap-like with extended BPF
->>
->> 4. OVS with extended BPF
->>
->> 5. nftables with extended BPF
->
-> If you plan to use extended BPF out of networking, does
-> it make sense to make it independent of networking?
-> That is, rename those sk_*() APIs?
 
-well, v1 and v2 series already demonstrate how ebpf can be used for tracing.
-That's why in v1 series they were under kernel/ dir, but since it's
-a natural bpf extension that reuses a lot of bpf pieces, it makes sense
-for the whole thing be in net/core/filter.c and in linux/filter.h
-I believe that was a consensus in v2-v3 series.
-I don't want to rename the whole thing once again.
-Also seccomp is not networking, but it already uses bpf and
-after these patches ebpf. So net/core/filter.c location is fine.
+Ok thanks.
 
->>
->> +int bpf_ext_enable __read_mostly;
->> +
->
-> This could be converted to a jump label, no?
 
-yes, but it's not in critical path, so no need.
-
-Thank you for taking a look!
-Even late feedback is always appreciated.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
