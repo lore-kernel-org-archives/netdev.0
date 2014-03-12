@@ -1,47 +1,97 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/13] net: ixgbe calls skb_set_hash
-Date: Tue, 11 Mar 2014 22:53:32 -0700
-Message-ID: <1394603618-1044-8-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1394603618-1044-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/13][pull request] Intel Wired LAN Driver Updates
+Date: Tue, 11 Mar 2014 22:53:25 -0700
+Message-ID: <1394603618-1044-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:57958 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:33779 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755063AbaCLFxn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Mar 2014 01:53:43 -0400
-In-Reply-To: <1394603618-1044-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1753965AbaCLFxk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Mar 2014 01:53:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
+This series contains updates to igb, e1000e, ixgbe and ixgbevf.
 
-Drivers should call skb_set_hash to set the hash and its type
-in an skbuff.
+Tom Herbert provides changes to e1000e, igb and ixgbe to call skb_set_hash()
+to set the hash and its type in an skbuff.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+Carolyn provides a fix for igb where using ethtool for EEE settings, which
+was not working correctly.  Also provides patches to add debugfs support
+for igb.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 10b35d8..815e81e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1311,7 +1311,9 @@ static inline void ixgbe_rx_hash(struct ixgbe_ring *ring,
- 				 struct sk_buff *skb)
- {
- 	if (ring->netdev->features & NETIF_F_RXHASH)
--		skb->rxhash = le32_to_cpu(rx_desc->wb.lower.hi_dword.rss);
-+		skb_set_hash(skb,
-+			     le32_to_cpu(rx_desc->wb.lower.hi_dword.rss),
-+			     PKT_HASH_TYPE_L3);
- }
- 
- #ifdef IXGBE_FCOE
+Jacob provides some trivial cleanups and fixes for ixgbe which mainly
+dealt with the file headers.
+
+Julia Lawall provides a one fix for ixgbevf where the driver did not need
+to adjust the power state on suspend, so the call to pci_set_power_state()
+in the resume function was a no-op.
+
+The following are changes since commit a19a7ec8fc8eb32113efeaff2a1ceca273726e9b:
+  bonding: force cast of IP address in options
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Carolyn Wyborny (4):
+  igb: Fix for devices using ethtool for EEE settings
+  igb: Add debugfs skeleton
+  igb: Add support for debugfs
+  igb: Add debugfs command/register read and write functionality
+
+Jacob Keller (4):
+  ixgbe: move setting rx_pb_size into get_invariants
+  ixgbe: add Linux NICS mailing list to contact info
+  ixgbe: fixup header for ixgbe_set_rxpba_82598
+  ixgbe: fix some multiline hw_dbg prints
+
+Julia Lawall (1):
+  ixgbevf: delete unneeded call to pci_set_power_state
+
+Masanari Iida (1):
+  ixgbe: Fix format string in ixgbe_fcoe.c
+
+Tom Herbert (3):
+  net: e1000e calls skb_set_hash
+  net: igb calls skb_set_hash
+  net: ixgbe calls skb_set_hash
+
+ drivers/net/ethernet/intel/e1000e/netdev.c         |   2 +-
+ drivers/net/ethernet/intel/igb/Makefile            |   2 +-
+ drivers/net/ethernet/intel/igb/e1000_82575.h       |  13 +
+ drivers/net/ethernet/intel/igb/e1000_defines.h     |   4 +-
+ drivers/net/ethernet/intel/igb/e1000_regs.h        |   2 +
+ drivers/net/ethernet/intel/igb/igb.h               |  33 +
+ drivers/net/ethernet/intel/igb/igb_debugfs.c       | 707 +++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/igb_ethtool.c       |  45 +-
+ drivers/net/ethernet/intel/igb/igb_main.c          | 126 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h           |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     |  18 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c     |  11 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h    |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c   |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c      |   3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h      |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c       |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   5 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c       |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h       |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c       |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h       |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c       |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h     |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c     |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c      |   3 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  |   1 -
+ 33 files changed, 940 insertions(+), 53 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/igb/igb_debugfs.c
+
 -- 
 1.8.3.1
