@@ -1,45 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RCU PATCH 06/14] net: sched: fw use RCU
-Date: Wed, 12 Mar 2014 10:01:13 -0700
-Message-ID: <1394643673.21721.48.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140310170008.3011.73599.stgit@nitbit.x32>
-	  <20140310170546.3011.82918.stgit@nitbit.x32>
-	 <1394473279.3607.46.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <53208E3F.5090401@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:58441 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751276AbaCLRBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 13:01:16 -0400
-Received: by mail-pd0-f181.google.com with SMTP id p10so1311175pdj.26
-        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 10:01:15 -0700 (PDT)
-In-Reply-To: <53208E3F.5090401@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next 0/6] net: Convert uses of __constant_<foo> to <foo>
+Date: Wed, 12 Mar 2014 10:04:14 -0700
+Message-ID: <cover.1394643455.git.joe@perches.com>
+Cc: linux-kernel@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+	linux-zigbee-devel@lists.sourceforge.net,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, tipc-discussion@lists.sourceforge.net
+To: netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-03-12 at 09:41 -0700, John Fastabend wrote:
+Joe Perches (6):
+  8021q: Convert uses of __constant_<foo> to <foo>
+  bluetooth: Convert uses of __constant_<foo> to <foo>
+  net: Convert uses of __constant_<foo> to <foo>
+  ieee802154: Convert uses of __constant_<foo> to <foo>
+  netfilter: Convert uses of __constant_<foo> to <foo>
+  tipc: Convert uses of __constant_<foo> to <foo>
 
-> Rearranging the rcu_head placement above results in this error:
->=20
-> net/sched/cls_fw.c: In function =E2=80=98fw_destroy=E2=80=99:
-> net/sched/cls_fw.c:169:279: error: call to =E2=80=98__compiletime_ass=
-ert_169=E2=80=99=20
-> declared with attribute error: BUILD_BUG_ON failed:=20
-> !__is_kfree_rcu_offset(__builtin_offsetof(typeof(*(head)),rcu))
->=20
->=20
-> However it seems best to have the rcu_head at the end of the struct
-> so I'll just convert the kfree_rcu() to call_rcu().
+ net/8021q/vlan.h               |  4 +-
+ net/8021q/vlan_netlink.c       |  4 +-
+ net/bluetooth/a2mp.c           |  4 +-
+ net/bluetooth/hci_conn.c       | 26 ++++++------
+ net/bluetooth/hci_core.c       |  2 +-
+ net/bluetooth/hci_event.c      |  6 +--
+ net/bluetooth/hci_sock.c       | 16 ++++----
+ net/bluetooth/l2cap_core.c     | 90 +++++++++++++++++++++---------------------
+ net/bluetooth/l2cap_sock.c     |  6 +--
+ net/bluetooth/mgmt.c           | 26 ++++++------
+ net/bluetooth/rfcomm/core.c    |  4 +-
+ net/bluetooth/sco.c            | 10 ++---
+ net/bluetooth/smp.c            |  2 +-
+ net/core/dev.c                 | 10 ++---
+ net/core/flow_dissector.c      | 14 +++----
+ net/ieee802154/6lowpan_rtnl.c  |  2 +-
+ net/ieee802154/af_ieee802154.c |  2 +-
+ net/netfilter/ipset/pfxlen.c   |  4 +-
+ net/netfilter/xt_AUDIT.c       |  4 +-
+ net/tipc/bearer.c              |  2 +-
+ 20 files changed, 119 insertions(+), 119 deletions(-)
 
+-- 
+1.8.1.2.459.gbcd45b4.dirty
 
-I missed HTSIZE was so big.
-
-Its unfortunate because it makes struct fw_head slightly larger than on=
-e
-page.
