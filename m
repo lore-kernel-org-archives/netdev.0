@@ -1,68 +1,99 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [net-next 05/13] igb: Add support for debugfs
-Date: Wed, 12 Mar 2014 16:35:49 +0000
-Message-ID: <9BBC4E0CF881AA4299206E2E1412B6264FAB3870@ORSMSX102.amr.corp.intel.com>
-References: <1394603618-1044-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1394603618-1044-6-git-send-email-jeffrey.t.kirsher@intel.com>
- <CAJZOPZ+TtFRjeA=9WZMhONSd65HZwMizf732W7oe-HJ=E0MBvg@mail.gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RCU PATCH 06/14] net: sched: fw use RCU
+Date: Wed, 12 Mar 2014 09:41:35 -0700
+Message-ID: <53208E3F.5090401@gmail.com>
+References: <20140310170008.3011.73599.stgit@nitbit.x32>  <20140310170546.3011.82918.stgit@nitbit.x32> <1394473279.3607.46.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	Josh Hay <hayja@mail.uc.edu>, Amir Vadai <amirv@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"Andy Gospodarek" <gospo@redhat.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:53326 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754676AbaCLQgI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 12:36:08 -0400
-In-Reply-To: <CAJZOPZ+TtFRjeA=9WZMhONSd65HZwMizf732W7oe-HJ=E0MBvg@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:53665 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755197AbaCLQl7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 12:41:59 -0400
+Received: by mail-ob0-f169.google.com with SMTP id va2so10173011obc.14
+        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 09:41:59 -0700 (PDT)
+In-Reply-To: <1394473279.3607.46.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Or Gerlitz
-> Sent: Wednesday, March 12, 2014 8:58 AM
-> To: Kirsher, Jeffrey T; David Miller; Andy Gospodarek
-> Cc: Wyborny, Carolyn; netdev@vger.kernel.org; sassmann@redhat.com; Josh
-> Hay; Amir Vadai; Yevgeny Petrilin
-> Subject: Re: [net-next 05/13] igb: Add support for debugfs
-> 
-> On Wed, Mar 12, 2014 at 7:53 AM, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> wrote:
-> > This patch adds the necessary defines, variables, and stats updating
-> > procedures to use the commands implemented in debugfs.
-> 
-> Guys,
-> 
-> Do we have a clear criteria when it makes sense to have debugfs for network
-> driver and when it doesn't, for example we got this cold shower
-> http://marc.info/?l=linux-netdev&m=135959539719935&w=2 when attempting
-> to do so and I am not fully clear (or want to sharpen the sow) how to review a
-> concrete design/need for debugs to fall into yes, it makes sense, or no, it
-> doesn't b/c there are existing mechanisms that can be used or extended for that
-> matter.
-> 
-> Or.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a
-> message to majordomo@vger.kernel.org More majordomo info at
-> http://vger.kernel.org/majordomo-info.html
+On 03/10/2014 10:41 AM, Eric Dumazet wrote:
+> On Mon, 2014-03-10 at 10:05 -0700, John Fastabend wrote:
+>> RCU'ify fw classifier.
+>>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> ---
+>>   net/sched/cls_fw.c |  110 ++++++++++++++++++++++++++++++++++++----=
+------------
+>>   1 file changed, 76 insertions(+), 34 deletions(-)
+>>
+>> diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
+>> index a366537..ff392f1 100644
+>> --- a/net/sched/cls_fw.c
+>> +++ b/net/sched/cls_fw.c
+>> @@ -32,18 +32,21 @@
+>>   #define HTSIZE (PAGE_SIZE/sizeof(struct fw_filter *))
+>>
+>>   struct fw_head {
+>> -	struct fw_filter *ht[HTSIZE];
+>> +	struct rcu_head	rcu;
+>
+> Try to put 'rcu' at the end of structures, we do not need it in fast
+> path.
+>
+>> +	struct fw_filter __rcu *ht[HTSIZE];
+>>   	u32 mask;
+>>   };
+>>
+>>   struct fw_filter {
+>> -	struct fw_filter	*next;
+>> +	struct fw_filter __rcu	*next;
+>> +	struct rcu_head		rcu;
+>
+> same remark
+>
 
-Josh and I tried very hard to not reimplement anything already available in some other tool or mechanism and used the examples we already have for this in our other drivers.  That being said, we'll abide and follow any clear criteria provided.
+[...]
+
+>>
+>> @@ -150,29 +159,32 @@ static void fw_destroy(struct tcf_proto *tp)
+>>   		return;
+>>
+>>   	for (h =3D 0; h < HTSIZE; h++) {
+>> -		while ((f =3D head->ht[h]) !=3D NULL) {
+>> -			head->ht[h] =3D f->next;
+>> -			fw_delete_filter(tp, f);
+>> +		while ((f =3D rtnl_dereference(head->ht[h])) !=3D NULL) {
+>> +			rcu_assign_pointer(head->ht[h],
+>> +					   rtnl_dereference(f->next));
+>> +			call_rcu(&f->rcu, fw_delete_filter);
+>>   		}
+>>   	}
+>> -	kfree(head);
+>> +	rcu_assign_pointer(tp->root, NULL);
+>
+> RCU_INIT_POINTER
+>
+>> +	kfree_rcu(head, rcu);
+
+Rearranging the rcu_head placement above results in this error:
+
+net/sched/cls_fw.c: In function =E2=80=98fw_destroy=E2=80=99:
+net/sched/cls_fw.c:169:279: error: call to =E2=80=98__compiletime_asser=
+t_169=E2=80=99=20
+declared with attribute error: BUILD_BUG_ON failed:=20
+!__is_kfree_rcu_offset(__builtin_offsetof(typeof(*(head)),rcu))
+
+
+However it seems best to have the rcu_head at the end of the struct
+so I'll just convert the kfree_rcu() to call_rcu().
 
 Thanks,
+John
 
-Carolyn
-
-Carolyn Wyborny 
-Linux Development 
-Networking Division 
-Intel Corporation 
+--=20
+John Fastabend         Intel Corporation
