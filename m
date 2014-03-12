@@ -1,40 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next 0/7] mlx4: Add SRIOV support for RoCE
-Date: Wed, 12 Mar 2014 15:57:58 -0400 (EDT)
-Message-ID: <20140312.155758.2303597747142158471.davem@davemloft.net>
-References: <1394618443-20337-1-git-send-email-ogerlitz@mellanox.com>
+From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Subject: RE: [PATCHv6 net-next 20/31] iw_cxgb4: adjust tcp snd/rcv window based on link speed
+Date: Wed, 12 Mar 2014 15:08:33 -0500
+Message-ID: <008801cf3e2e$d8679b00$8936d100$@opengridcomputing.com>
+References: <1394639446-6504-1-git-send-email-hariprasad@chelsio.com>	<1394639446-6504-21-git-send-email-hariprasad@chelsio.com> <20140312.155017.118512327402563943.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roland@kernel.org,
-	jackm@dev.mellanox.co.il, amirv@mellanox.com
-To: ogerlitz@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40986 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751296AbaCLT6A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 15:58:00 -0400
-In-Reply-To: <1394618443-20337-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>, <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+	<santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+	<nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: "'David Miller'" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140312.155017.118512327402563943.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Language: en-us
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Wed, 12 Mar 2014 12:00:36 +0200
-
-> This series adds SRIOV support for RoCE (RDMA over Ethernet) to the mlx4 driver.
+> > Added module option named adjust_win, defaulted to 1, that allows
+> > disabling the 40G window bump.  This allows a user to specify the exact
+> > default window sizes via module options snd_win and rcv_win.
 > 
-> The patches are against net-next, as of commit 2d8d40a "pkt_sched: fq:
-> do not hold qdisc lock while allocating memory"
- ...
-> changes from V1:
->  - addressed feedback from Dave on patch #3 and changed get_real_sgid_index()
->    to be called fill_in_real_sgid_index() and be a void  function.
->  - removed some checkpatch warnings on long lines
+> This is terrible.  As is the existing other TCP tweaking module
+> parameters.
 > 
-> changes from V0:
->   - always check the return code of mlx4_get_roce_gid_from_slave().
->     The call we fixed is introduced in patch #1 and later removed by 
->     patch #3 that allows guests to have multiple GIDS. The 1..3 
->     separation was done for proper division of patches to logical changes.
+> You can just use the TCP settings the kernel already provides for
+> the real TCP stack.
 
-Series applied, thanks Or.
+Do you mean use sysctl_tcp_*mem, sysctl_tcp_timestamps, sysctl_tcp_window_scaling, etc?
+I'll look into this.  
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
