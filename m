@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv6 net-next 03/31] cxgb4: Rectify emitting messages about SGE Ingress DMA channels being potentially stuck
-Date: Wed, 12 Mar 2014 21:20:18 +0530
-Message-ID: <1394639446-6504-4-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv6 net-next 04/31] cxgb4: Updates for T5 SGE's Egress Congestion Threshold
+Date: Wed, 12 Mar 2014 21:20:19 +0530
+Message-ID: <1394639446-6504-5-git-send-email-hariprasad@chelsio.com>
 References: <1394639446-6504-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
 	swise@opengridcomputing.com, leedom@chelsio.com,
@@ -9,10 +9,10 @@ Cc: davem@davemloft.net, roland@purestorage.com, dm@chelsio.com,
 	hariprasad@chelsio.com
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:10355 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:2917 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755279AbaCLP67 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 11:58:59 -0400
+	by vger.kernel.org with ESMTP id S1752262AbaCLP7D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 11:59:03 -0400
 In-Reply-To: <1394639446-6504-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -23,151 +23,63 @@ Based on original work by Casey Leedom <leedom@chelsio.com>
 
 Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h |  9 ++-
- drivers/net/ethernet/chelsio/cxgb4/sge.c   | 90 ++++++++++++++++++++++++------
- 2 files changed, 79 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/sge.c     | 18 +++++++++++++-----
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |  6 ++++++
+ 2 files changed, 19 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 509c976..50abe1d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -556,8 +556,13 @@ struct sge {
- 	u32 pktshift;               /* padding between CPL & packet data */
- 	u32 fl_align;               /* response queue message alignment */
- 	u32 fl_starve_thres;        /* Free List starvation threshold */
--	unsigned int starve_thres;
--	u8 idma_state[2];
-+
-+	/* State variables for detecting an SGE Ingress DMA hang */
-+	unsigned int idma_1s_thresh;/* SGE same State Counter 1s threshold */
-+	unsigned int idma_stalled[2];/* SGE synthesized stalled timers in HZ */
-+	unsigned int idma_state[2]; /* SGE IDMA Hang detect state */
-+	unsigned int idma_qid[2];   /* SGE IDMA Hung Ingress Queue ID */
-+
- 	unsigned int egr_start;
- 	unsigned int ingr_start;
- 	void *egr_map[MAX_EGRQ];    /* qid->queue egress queue map */
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 3a2ecd8..054bb03 100644
+index 054bb03..a7c56b3 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -93,6 +93,16 @@
-  */
- #define TX_QCHECK_PERIOD (HZ / 2)
- 
-+/* SGE Hung Ingress DMA Threshold Warning time (in Hz) and Warning Repeat Rate
-+ * (in RX_QCHECK_PERIOD multiples).  If we find one of the SGE Ingress DMA
-+ * State Machines in the same state for this amount of time (in HZ) then we'll
-+ * issue a warning about a potential hang.  We'll repeat the warning as the
-+ * SGE Ingress DMA Channel appears to be hung every N RX_QCHECK_PERIODs till
-+ * the situation clears.  If the situation clears, we'll note that as well.
-+ */
-+#define SGE_IDMA_WARN_THRESH (1 * HZ)
-+#define SGE_IDMA_WARN_REPEAT (20 * RX_QCHECK_PERIOD)
-+
- /*
-  * Max number of Tx descriptors to be reclaimed by the Tx timer.
-  */
-@@ -2008,7 +2018,7 @@ irq_handler_t t4_intr_handler(struct adapter *adap)
- static void sge_rx_timer_cb(unsigned long data)
+@@ -2776,8 +2776,8 @@ static int t4_sge_init_hard(struct adapter *adap)
+ int t4_sge_init(struct adapter *adap)
  {
- 	unsigned long m;
--	unsigned int i, cnt[2];
-+	unsigned int i, idma_same_state_cnt[2];
- 	struct adapter *adap = (struct adapter *)data;
  	struct sge *s = &adap->sge;
+-	u32 sge_control;
+-	int ret;
++	u32 sge_control, sge_conm_ctrl;
++	int ret, egress_threshold;
  
-@@ -2031,21 +2041,64 @@ static void sge_rx_timer_cb(unsigned long data)
- 		}
- 
- 	t4_write_reg(adap, SGE_DEBUG_INDEX, 13);
--	cnt[0] = t4_read_reg(adap, SGE_DEBUG_DATA_HIGH);
--	cnt[1] = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
--
--	for (i = 0; i < 2; i++)
--		if (cnt[i] >= s->starve_thres) {
--			if (s->idma_state[i] || cnt[i] == 0xffffffff)
--				continue;
--			s->idma_state[i] = 1;
--			t4_write_reg(adap, SGE_DEBUG_INDEX, 11);
--			m = t4_read_reg(adap, SGE_DEBUG_DATA_LOW) >> (i * 16);
--			dev_warn(adap->pdev_dev,
--				 "SGE idma%u starvation detected for "
--				 "queue %lu\n", i, m & 0xffff);
--		} else if (s->idma_state[i])
--			s->idma_state[i] = 0;
-+	idma_same_state_cnt[0] = t4_read_reg(adap, SGE_DEBUG_DATA_HIGH);
-+	idma_same_state_cnt[1] = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
-+
-+	for (i = 0; i < 2; i++) {
-+		u32 debug0, debug11;
-+
-+		/* If the Ingress DMA Same State Counter ("timer") is less
-+		 * than 1s, then we can reset our synthesized Stall Timer and
-+		 * continue.  If we have previously emitted warnings about a
-+		 * potential stalled Ingress Queue, issue a note indicating
-+		 * that the Ingress Queue has resumed forward progress.
-+		 */
-+		if (idma_same_state_cnt[i] < s->idma_1s_thresh) {
-+			if (s->idma_stalled[i] >= SGE_IDMA_WARN_THRESH)
-+				CH_WARN(adap, "SGE idma%d, queue%u,resumed after %d sec\n",
-+					i, s->idma_qid[i],
-+					s->idma_stalled[i]/HZ);
-+			s->idma_stalled[i] = 0;
-+			continue;
-+		}
-+
-+		/* Synthesize an SGE Ingress DMA Same State Timer in the Hz
-+		 * domain.  The first time we get here it'll be because we
-+		 * passed the 1s Threshold; each additional time it'll be
-+		 * because the RX Timer Callback is being fired on its regular
-+		 * schedule.
-+		 *
-+		 * If the stall is below our Potential Hung Ingress Queue
-+		 * Warning Threshold, continue.
-+		 */
-+		if (s->idma_stalled[i] == 0)
-+			s->idma_stalled[i] = HZ;
-+		else
-+			s->idma_stalled[i] += RX_QCHECK_PERIOD;
-+
-+		if (s->idma_stalled[i] < SGE_IDMA_WARN_THRESH)
-+			continue;
-+
-+		/* We'll issue a warning every SGE_IDMA_WARN_REPEAT Hz */
-+		if (((s->idma_stalled[i] - HZ) % SGE_IDMA_WARN_REPEAT) != 0)
-+			continue;
-+
-+		/* Read and save the SGE IDMA State and Queue ID information.
-+		 * We do this every time in case it changes across time ...
-+		 */
-+		t4_write_reg(adap, SGE_DEBUG_INDEX, 0);
-+		debug0 = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
-+		s->idma_state[i] = (debug0 >> (i * 9)) & 0x3f;
-+
-+		t4_write_reg(adap, SGE_DEBUG_INDEX, 11);
-+		debug11 = t4_read_reg(adap, SGE_DEBUG_DATA_LOW);
-+		s->idma_qid[i] = (debug11 >> (i * 16)) & 0xffff;
-+
-+		CH_WARN(adap, "SGE idma%u, queue%u, maybe stuck state%u %dsecs (debug0=%#x, debug11=%#x)\n",
-+			i, s->idma_qid[i], s->idma_state[i],
-+			s->idma_stalled[i]/HZ, debug0, debug11);
-+		t4_sge_decode_idma_state(adap, s->idma_state[i]);
-+	}
- 
- 	mod_timer(&s->rx_timer, jiffies + RX_QCHECK_PERIOD);
- }
-@@ -2756,8 +2809,9 @@ int t4_sge_init(struct adapter *adap)
+ 	/*
+ 	 * Ingress Padding Boundary and Egress Status Page Size are set up by
+@@ -2802,10 +2802,18 @@ int t4_sge_init(struct adapter *adap)
+ 	 * SGE's Egress Congestion Threshold.  If it isn't, then we can get
+ 	 * stuck waiting for new packets while the SGE is waiting for us to
+ 	 * give it more Free List entries.  (Note that the SGE's Egress
+-	 * Congestion Threshold is in units of 2 Free List pointers.)
++	 * Congestion Threshold is in units of 2 Free List pointers.) For T4,
++	 * there was only a single field to control this.  For T5 there's the
++	 * original field which now only applies to Unpacked Mode Free List
++	 * buffers and a new field which only applies to Packed Mode Free List
++	 * buffers.
+ 	 */
+-	s->fl_starve_thres
+-		= EGRTHRESHOLD_GET(t4_read_reg(adap, SGE_CONM_CTRL))*2 + 1;
++	sge_conm_ctrl = t4_read_reg(adap, SGE_CONM_CTRL);
++	if (is_t4(adap->params.chip))
++		egress_threshold = EGRTHRESHOLD_GET(sge_conm_ctrl);
++	else
++		egress_threshold = EGRTHRESHOLDPACKING_GET(sge_conm_ctrl);
++	s->fl_starve_thres = 2*egress_threshold + 1;
  
  	setup_timer(&s->rx_timer, sge_rx_timer_cb, (unsigned long)adap);
  	setup_timer(&s->tx_timer, sge_tx_timer_cb, (unsigned long)adap);
--	s->starve_thres = core_ticks_per_usec(adap) * 1000000;  /* 1 s */
--	s->idma_state[0] = s->idma_state[1] = 0;
-+	s->idma_1s_thresh = core_ticks_per_usec(adap) * 1000000;  /* 1 s */
-+	s->idma_stalled[0] = 0;
-+	s->idma_stalled[1] = 0;
- 	spin_lock_init(&s->intrq_lock);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index 33cf9ef..225ad8a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -230,6 +230,12 @@
+ #define  EGRTHRESHOLD(x)     ((x) << EGRTHRESHOLDshift)
+ #define  EGRTHRESHOLD_GET(x) (((x) & EGRTHRESHOLD_MASK) >> EGRTHRESHOLDshift)
  
- 	return 0;
++#define EGRTHRESHOLDPACKING_MASK	0x3fU
++#define EGRTHRESHOLDPACKING_SHIFT	14
++#define EGRTHRESHOLDPACKING(x)		((x) << EGRTHRESHOLDPACKING_SHIFT)
++#define EGRTHRESHOLDPACKING_GET(x)	(((x) >> EGRTHRESHOLDPACKING_SHIFT) & \
++					  EGRTHRESHOLDPACKING_MASK)
++
+ #define SGE_DBFIFO_STATUS 0x10a4
+ #define  HP_INT_THRESH_SHIFT 28
+ #define  HP_INT_THRESH_MASK  0xfU
 -- 
 1.8.4
