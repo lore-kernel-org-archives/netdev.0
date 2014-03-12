@@ -1,45 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] eth: fec: Fix lost promiscuous mode after
- reconnecting cable
-Date: Tue, 11 Mar 2014 22:48:34 -0400 (EDT)
-Message-ID: <20140311.224834.40412164133780234.davem@davemloft.net>
-References: <f7c8b4dab2114552b919310c2a5bb444@BLUPR03MB373.namprd03.prod.outlook.com>
-	<5319ED04.9070003@i2se.com>
-	<531E0210.1090009@i2se.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next 2014-03-10
+Date: Tue, 11 Mar 2014 22:50:23 -0400 (EDT)
+Message-ID: <20140311.225023.1953610775705849306.davem@davemloft.net>
+References: <20140310190101.GB25703@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fugang.duan@freescale.com, lznuaa@gmail.com, festevam@gmail.com,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk,
-	shawn.guo@linaro.org, Fabio.Estevam@freescale.com,
-	Frank.Li@freescale.com, kernel@pengutronix.de
-To: stefan.wahren@i2se.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33047 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751015AbaCLCsj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Mar 2014 22:48:39 -0400
-In-Reply-To: <531E0210.1090009@i2se.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140310190101.GB25703-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Stefan Wahren <stefan.wahren@i2se.com>
-Date: Mon, 10 Mar 2014 19:18:56 +0100
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Mon, 10 Mar 2014 15:01:02 -0400
 
-> If the Freescale i.MX28 fec is in promiscuous mode and network cable is
-> reconnected then the promiscuous mode get lost. The problem is caused
-> by a too soon call of set_multicast_list to re-enable promisc mode.
-> The FEC_R_CNTRL register changes are overwritten by fec_restart.
+> For the mac80211 bits, Johannes says:
 > 
-> This patch fixes this by moving the call behind the init of FEC_R_CNTRL
-> register in fec_restart.
+> "This time, I have a number of small fixes and improvements, and those
+> are fairly straight-forward. More interesting changes come from Luca
+> with some preparations for the CSA work, mostly around interface/channel
+> combinations checking. One other possibly interesting change is a small
+> one by myself to add NAPI support back to mac80211, which can help
+> improve TCP behaviour through GRO."
 > 
-> Successful tested on a i.MX28 board.
+> For the Bluetooth bits, Gustavo says:
 > 
-> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+> "This is our first pull request for 3.15, the main feature here is the addition of
+> the privacy feature for low energy devices. Other than that we have a bunch of small
+> improvements, fixes, and clean ups all over the tree."
+> 
+> And...
+> 
+> "Another pull request to 3.15. Here we have the second part of the LE private
+> feature, the LE auto-connect feature and improvements to the power off
+> procedures. The rest are small improvements, clean up, and fixes."
+> 
+> For the iwlwifi bits, Emmanuel says:
+> 
+> "I have here a whole bunch of various things. Trivial cleanups,
+> debugfs handlers and new stuff for the new generation of devices
+> along with new capabilities for monitor mode. We also have support
+> for power save for dual interface mode, but that is not supported by
+> the firmware currently available."
+> 
+> And for the Atheros bits, Kalle says:
+> 
+> "For ath10k Alexander did some cleanup to PCI error cases and switched
+> ath10k to use pci_enable_msi_range(). Michal implemented AP CSA support
+> and sta_rc_update() operation. I enabled firmware "STA quick kickout"
+> functionality for faster detection of disappeared clients.
+> 
+> Also there are lots of small fixes to everywhere from various people."
+> 
+> I pulled the wireless tree to avoid some merge conflicts, and I
+> reverted the staging patch that I had mistakenly merged previously.
+> Along with that, mwifiex, brcmfmac, wil6210, ath9k, and a few other
+> drivers get their usual round of updates.  Also notable is the addition
+> of yet another driver in the rtlwifi family.
+> 
+> Please let me know if there are problems!
 
-Your email client has corrupted your patch, making it unusable for us.
-
-In particular, it has transformed TAB characters into spaces.
-
-Please fix this and resubmit your patch, thank you.
+Pulled, thanks a lot John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
