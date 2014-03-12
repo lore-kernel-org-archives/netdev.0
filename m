@@ -1,63 +1,58 @@
-From: Michael Braun <michael-dev@fami-braun.de>
-Subject: [PATCH] Notify userspace about bridge learning MAC on new
-	port
-Date: Wed, 12 Mar 2014 14:14:56 +0100
-Message-ID: <1394630096-14239-1-git-send-email-michael-dev@fami-braun.de>
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Michael Braun <michael-dev@fami-braun.de>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Byungho An <bh74.an@samsung.com>
+Subject: [PATCH V2 0/7] add new Samsung sxgbe driver
+Date: Wed, 12 Mar 2014 22:27:58 +0900
+Message-ID: <005001cf3df6$e2678d00$a736a700$%an@samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, ilho215.lee@samsung.com
+To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+Content-language: ko
+Sender: linux-samsung-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently, the userspace is informed about the port the MAC is learned on a
-bridge and about the bridge removing the MAC from its forwarding table, but not
-when the MAC is learned on a different port.
-This is inconsistent and makes it difficult for applications to keep track
-of all MACs learned by a bridge on a subset of its ports.
+Hi all,
 
-Signed-off-by: Michael Braun <michael-dev@fami-braun.de>
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-Cc: <bridge@lists.linux-foundation.org>
-Cc: <netdev@vger.kernel.org>
----
- net/bridge/br_fdb.c | 5 +++++
- 1 file changed, 5 insertions(+)
+This series adds Samsung sxgbe driver.
 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 9203d5a..25a7772 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -487,6 +487,7 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
- {
- 	struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
- 	struct net_bridge_fdb_entry *fdb;
-+	struct net_bridge_port *origsrc;
- 
- 	/* some users want to always flood. */
- 	if (hold_time(br) == 0)
-@@ -507,10 +508,14 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
- 					source->dev->name);
- 		} else {
- 			/* fastpath: update of existing entry */
-+			origsrc = fdb->dst;
- 			fdb->dst = source;
- 			fdb->updated = jiffies;
- 			if (unlikely(added_by_user))
- 				fdb->added_by_user = 1;
-+			/* notify applications of modified slave device */
-+			if (origsrc != source)
-+				fdb_notify(br, fdb, RTM_NEWNEIGH);
- 		}
- 	} else {
- 		spin_lock(&br->hash_lock);
--- 
-1.8.3.2
+
+Byungho An (1):
+      MAINTAINERS: add maintainer for Samsung sxgbe driver
+
+Girish K S (2):
+      net: sxgbe: add EEE(Energy Efficient Ethernet) for Samsung sxgbe
+      net: sxgbe: add WOL(Wakeup-On-Lan)support for Samsung sxgbe
+
+Siva Reddy (1):
+      net: sxgbe: add basic framework for Samsung 10Gb ethernet driver
+
+Vipul Pandya (3):
+      net: sxgbe: add TSO support for Samsung sxgbe
+      net: sxgbe: add Checksum offload support for Samsung sxgbe
+      net: sxgbe: add ethtool related functions support Samsung sxgbe
+
+ .../devicetree/bindings/net/samsung-sxgbe.txt      |   39 +
+ MAINTAINERS                                        |    9 +
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/samsung/Kconfig               |    7 +
+ drivers/net/ethernet/samsung/Makefile              |    4 +
+ drivers/net/ethernet/samsung/sxgbe_common.h        |  571 +++++
+ drivers/net/ethernet/samsung/sxgbe_core.c          |  290 +++
+ drivers/net/ethernet/samsung/sxgbe_desc.c          |  515 ++++
+ drivers/net/ethernet/samsung/sxgbe_desc.h          |  298 +++
+ drivers/net/ethernet/samsung/sxgbe_dma.c           |  381 +++
+ drivers/net/ethernet/samsung/sxgbe_dma.h           |   51 +
+ drivers/net/ethernet/samsung/sxgbe_ethtool.c       |  628 +++++
+ drivers/net/ethernet/samsung/sxgbe_main.c          | 2447
+++++++++++++++++++++
+ drivers/net/ethernet/samsung/sxgbe_mdio.c          |  274 +++
+ drivers/net/ethernet/samsung/sxgbe_mtl.c           |  279 +++
+ drivers/net/ethernet/samsung/sxgbe_mtl.h           |  108 +
+ drivers/net/ethernet/samsung/sxgbe_platform.c      |  272 +++
+ drivers/net/ethernet/samsung/sxgbe_reg.h           |  491 ++++
+ drivers/net/ethernet/samsung/sxgbe_xpcs.c          |   92 +
+ drivers/net/ethernet/samsung/sxgbe_xpcs.h          |   38 +
+ include/linux/sxgbe_platform.h                     |   54 +
+ 22 files changed, 6850 insertions(+)
