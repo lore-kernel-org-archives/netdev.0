@@ -1,38 +1,38 @@
-From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Subject: RE: [PATCHv6 net-next 20/31] iw_cxgb4: adjust tcp snd/rcv window based on link speed
-Date: Wed, 12 Mar 2014 17:57:16 -0500
-Message-ID: <00a301cf3e46$69da22d0$3d8e6870$@opengridcomputing.com>
-References: <008801cf3e2e$d8679b00$8936d100$@opengridcomputing.com>	<20140312.162348.2225551653125401290.davem@davemloft.net>	<008d01cf3e3a$257edc90$707c95b0$@opengridcomputing.com> <20140312.181245.1921772176964395946.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
-	<dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	<kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: "'David Miller'" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+From: Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCHv6 net-next 00/31] Misc. fixes for cxgb4 and iw_cxgb4
+Date: Wed, 12 Mar 2014 16:48:18 -0700
+Message-ID: <C0E17A65-945A-4030-8D58-4DBD2076BCAC@chelsio.com>
+References: <1394639446-6504-1-git-send-email-hariprasad@chelsio.com> <20140312.155125.1045693666130935765.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 7.2 \(1874\))
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140312.181245.1921772176964395946.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Content-Language: en-us
+In-Reply-To: <20140312.155125.1045693666130935765.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> >
-> > How's this look (compile-tested only)?  Note I had to export some of the tcp limits.
-> 
-> Well, the problem is that you've dug your own hole already.
-> 
-> You can't just remove these existing module parameters that users can
-> set.  They are user visible APIs, you can't just remove them.
-> 
-> The best you can do is stop adding new ones.
+[[Sorry, the first effort at this reply fell afoul of netdev=92s HTML e=
+mail filter and my Mail Agent=92s default modes. =97 Casey]]
+
+On Mar 12, 2014, at 12:51 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
 >
+> This is becomming beyond tiring.
 
-Ok thanks.
+  Im really sorry for how much work this has turned into David.  Hari i=
+s trying to do the right thing but it=92s an insanely large patch set. =
+ A while back someone recommended backing off and restarting with a ser=
+ies of much smaller patch sets.  I think the decision at that time was =
+that too much time had gone into this patch set so Hari should proceed =
+with the effort.  Should we revisit that decision and ask Hari to submi=
+t a series of much smaller patch sets (one at a time obviously)?
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+Casey--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
