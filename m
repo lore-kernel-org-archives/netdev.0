@@ -1,49 +1,63 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: [PATCH V2 7/7] MAINTAINERS: add maintainer for Samsung sxgbe driver
-Date: Wed, 12 Mar 2014 22:28:11 +0900
-Message-ID: <005701cf3df6$ea5a4f70$bf0eee50$%an@samsung.com>
+From: "Mohit ." <reachme01@ymail.com>
+Subject: Linux network subsystem : Implementation intricacies
+Date: Wed, 12 Mar 2014 21:39:55 +0800 (SGT)
+Message-ID: <1394631595.4679.YahooMailNeo@web192304.mail.sg3.yahoo.com>
+Reply-To: "Mohit ." <reachme01@ymail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, siva.kallam@samsung.com,
-	vipul.pandya@samsung.com, ks.giri@samsung.com,
-	ilho215.lee@samsung.com
-To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.samsung.com ([203.254.224.25]:36061 "EHLO
-	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754193AbaCLN2j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 09:28:39 -0400
-Content-language: ko
+Received: from nm10.bullet.mail.sg3.yahoo.com ([106.10.148.89]:48090 "EHLO
+	nm10.bullet.mail.sg3.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754343AbaCLNpq convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Mar 2014 09:45:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Byungho An <bh74.an@samsung.com>
+Hello,
 
-Signed-off-by: Byungho An <bh74.an@samsung.com>
----
- MAINTAINERS |    9 +++++++++
- 1 file changed, 9 insertions(+)
+I know emails like these are not welcome.But trust me I am writing in a=
+fter having done my side of the research and yet the big picture is unc=
+lear. I promise I wont send in more emails like this one.
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index b2cf5cf..d4ce0a5 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -7497,6 +7497,15 @@ S:	Supported
- L:	linux-samsung-soc@vger.kernel.org (moderated for non-subscribers)
- F:	drivers/clk/samsung/
- 
-+SAMSUNG SXGBE DRIVERS
-+M:	Byungho An <bh74.an@samsung.com>
-+M:	Girish K S <ks.giri@samsung.com>
-+M:	Siva Reddy Kallam <siva.kallam@samsung.com>
-+M:	Vipul Pandya <vipul.pandya@samsung.com>
-+S:	Supported
-+L:	netdev@vger.kernel.org
-+F:	drivers/net/ethernet/samsung/
-+
- SERIAL DRIVERS
- M:	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
- L:	linux-serial@vger.kernel.org
--- 
-1.7.10.4
+------------------------------------
+My problem
+------------------------------------
+=A0I have finished learning=A0
+-C language, pointers, data structures,=A0
+-linux kernel development - Robert love
+
+Now I want to learn as to how "Linux kernel network subsystem" not from=
+ the user space standpoint but from the kernel side. I have been trying=
+ hard to figure the path that I should follow , however, I have not bee=
+n able to find one.So far this is what i have found out...that I should=
+ try & learn
+
+- Computer networks : A. Tanenbaum
+- Learn TCP/IP
+- Linux Network Internals : O'Reilly
+
+----------------------------------------
+My Questions
+----------------------------------------
+
+However, I am not sure if this would be the right path to follow or not=
+=2EPlease advise what path should I follow?
+
+Also, I met a few senior developers in my computer institute. They sugg=
+ested that I should also try & learn linux socket programming & Linux d=
+evice drivers. Well, Do I need to learn all of that as well?
+
+lastly, Is there any hardware dependency while trying to LEARN OR WORK =
+with linux kernel network subsystem from kernel side. If yes, how to ta=
+ke care of that?
+
+----------------------------------------
+
+Thanks for your patience.Wont bother with such emails.=A0
+
+Regards,
+
+Mohit
