@@ -1,77 +1,57 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH RFC] netfilter: cacheline aligning in struct netns_ct
-Date: Wed, 12 Mar 2014 10:26:47 +0100
-Message-ID: <20140312102647.5758f95d@redhat.com>
-References: <1394610994-22794-1-git-send-email-yizhouzhou@ict.ac.cn>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net] bonding: set correct vlan id for alb xmit path
+Date: Wed, 12 Mar 2014 17:31:59 +0800
+Message-ID: <5320298F.2010101@huawei.com>
+References: <531E6D77.60808@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <pablo@netfilter.org>, <jbenc@redhat.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Zhouyi Zhou <yizhouzhou@ict.ac.cn>, brouer@redhat.com
-To: Zhouyi Zhou <zhouzhouyi@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394610994-22794-1-git-send-email-yizhouzhou@ict.ac.cn>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:8164 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752262AbaCLJc5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 05:32:57 -0400
+In-Reply-To: <531E6D77.60808@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 12 Mar 2014 15:56:34 +0800
-Zhouyi Zhou <zhouzhouyi@gmail.com> wrote:
+The commit d3ab3ffd1d728d7ee77340e7e7e2c7cfe6a4013e
+(bonding: use rlb_client_info->vlan_id instead of ->tag)
+remove the rlb_client_info->tag, but occur some issues,
+The vlan_get_tag() will return 0 for success and -EINVAL for
+error, so the client_info->vlan_id always be set to 0 if the
+vlan_get_tag return 0 for success, so the client_info would
+never get a correct vlan id.
 
-> not frequently changing components should share same cachelines
-> 
-> Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-> ---
->  include/net/netns/conntrack.h |   12 ++++++++----
->  1 file changed, 8 insertions(+), 4 deletions(-)
+We should only set the vlan id to 0 when the vlan_get_tag return error.
 
-NACK because I have already moved these "special" lists in commit:
+Fixes: d3ab3ffd1d7 (bonding: use rlb_client_info->vlan_id instead of ->tag)
 
-https://git.kernel.org/cgit/linux/kernel/git/pablo/nf-next.git/commit/?id=b7779d06f9950e14a008a2de970b44233fe49c86
+CC: Ding Tianhong <dingtianhong@huawei.com>
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/bonding/bond_alb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Next remember that this struct netns_ct, is inlined in struct net
-(include/net/net_namespace.h).  Thus, the alignment is not quite as you
-might expect...
-
-> diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
-> index fbcc7fa..69d2d58 100644
-> --- a/include/net/netns/conntrack.h
-> +++ b/include/net/netns/conntrack.h
-> @@ -65,6 +65,12 @@ struct nf_ip_net {
->  struct netns_ct {
->  	atomic_t		count;
->  	unsigned int		expect_count;
-> +	struct hlist_nulls_head	unconfirmed;
-> +	struct hlist_nulls_head	dying;
-> +	struct hlist_nulls_head tmpl;
-> +
-> +	/*  not frequently changing components should share same cachelines */
-> +	struct nf_ip_net	nf_ct_proto ____cacheline_aligned_in_smp;
->  #ifdef CONFIG_SYSCTL
->  	struct ctl_table_header	*sysctl_header;
->  	struct ctl_table_header	*acct_sysctl_header;
-> @@ -86,13 +92,11 @@ struct netns_ct {
->  	struct kmem_cache	*nf_conntrack_cachep;
->  	struct hlist_nulls_head	*hash;
->  	struct hlist_head	*expect_hash;
-> -	struct hlist_nulls_head	unconfirmed;
-> -	struct hlist_nulls_head	dying;
-> -	struct hlist_nulls_head tmpl;
-> +
->  	struct ip_conntrack_stat __percpu *stat;
->  	struct nf_ct_event_notifier __rcu *nf_conntrack_event_cb;
->  	struct nf_exp_event_notifier __rcu *nf_expect_event_cb;
-> -	struct nf_ip_net	nf_ct_proto;
-> +
->  #if defined(CONFIG_NF_CONNTRACK_LABELS)
->  	unsigned int		labels_used;
->  	u8			label_words;
-
-
-
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index a2c4747..e8f133e 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -730,7 +730,7 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ 			client_info->ntt = 0;
+ 		}
+ 
+-		if (!vlan_get_tag(skb, &client_info->vlan_id))
++		if (vlan_get_tag(skb, &client_info->vlan_id))
+ 			client_info->vlan_id = 0;
+ 
+ 		if (!client_info->assigned) {
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+1.8.0
