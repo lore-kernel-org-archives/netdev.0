@@ -1,8 +1,8 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 4/9] igbvf: Convert uses of
+Subject: [PATCH net-next 5/9] ixgbe: Convert uses of
 	__constant_<foo> to <foo>
-Date: Wed, 12 Mar 2014 10:22:33 -0700
-Message-ID: <52ad53c6822c19de67480e8b3e36201a30cab308.1394644825.git.joe@perches.com>
+Date: Wed, 12 Mar 2014 10:22:34 -0700
+Message-ID: <a8b7fce92d51c6c97e1450bc291b0815325935d0.1394644825.git.joe@perches.com>
 References: <cover.1394644825.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -29,28 +29,167 @@ Make these uses consistent with the rest of the kernel.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/intel/igbvf/netdev.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |  8 +++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 30 +++++++++++++--------------
+ 2 files changed, 19 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
-index e2c6d80..b7ab03a 100644
---- a/drivers/net/ethernet/intel/igbvf/netdev.c
-+++ b/drivers/net/ethernet/intel/igbvf/netdev.c
-@@ -2014,12 +2014,12 @@ static inline bool igbvf_tx_csum(struct igbvf_adapter *adapter,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+index f58db45..5564331 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+@@ -407,13 +407,13 @@ int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
  
- 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 			switch (skb->protocol) {
--			case __constant_htons(ETH_P_IP):
-+			case htons(ETH_P_IP):
- 				tu_cmd |= E1000_ADVTXD_TUCMD_IPV4;
- 				if (ip_hdr(skb)->protocol == IPPROTO_TCP)
- 					tu_cmd |= E1000_ADVTXD_TUCMD_L4T_TCP;
- 				break;
--			case __constant_htons(ETH_P_IPV6):
-+			case htons(ETH_P_IPV6):
- 				if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
- 					tu_cmd |= E1000_ADVTXD_TUCMD_L4T_TCP;
- 				break;
+ 	switch (ixgbe_test_staterr(rx_desc, IXGBE_RXDADV_STAT_FCSTAT)) {
+ 	/* return 0 to bypass going to ULD for DDPed data */
+-	case __constant_cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_DDP):
++	case cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_DDP):
+ 		/* update length of DDPed data */
+ 		ddp->len = le32_to_cpu(rx_desc->wb.lower.hi_dword.rss);
+ 		rc = 0;
+ 		break;
+ 	/* unmap the sg list when FCPRSP is received */
+-	case __constant_cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_FCPRSP):
++	case cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_FCPRSP):
+ 		dma_unmap_sg(&adapter->pdev->dev, ddp->sgl,
+ 			     ddp->sgc, DMA_FROM_DEVICE);
+ 		ddp->err = ddp_err;
+@@ -421,14 +421,14 @@ int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
+ 		ddp->sgc = 0;
+ 		/* fall through */
+ 	/* if DDP length is present pass it through to ULD */
+-	case __constant_cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_NODDP):
++	case cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_NODDP):
+ 		/* update length of DDPed data */
+ 		ddp->len = le32_to_cpu(rx_desc->wb.lower.hi_dword.rss);
+ 		if (ddp->len)
+ 			rc = ddp->len;
+ 		break;
+ 	/* no match will return as an error */
+-	case __constant_cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_NOMTCH):
++	case cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_NOMTCH):
+ 	default:
+ 		break;
+ 	}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 10b35d8..20d2519 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1527,7 +1527,7 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
+ 	hdr.network += ETH_HLEN;
+ 
+ 	/* handle any vlan tag if present */
+-	if (protocol == __constant_htons(ETH_P_8021Q)) {
++	if (protocol == htons(ETH_P_8021Q)) {
+ 		if ((hdr.network - data) > (max_len - VLAN_HLEN))
+ 			return max_len;
+ 
+@@ -1536,7 +1536,7 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
+ 	}
+ 
+ 	/* handle L3 protocols */
+-	if (protocol == __constant_htons(ETH_P_IP)) {
++	if (protocol == htons(ETH_P_IP)) {
+ 		if ((hdr.network - data) > (max_len - sizeof(struct iphdr)))
+ 			return max_len;
+ 
+@@ -1550,7 +1550,7 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
+ 		/* record next protocol if header is present */
+ 		if (!(hdr.ipv4->frag_off & htons(IP_OFFSET)))
+ 			nexthdr = hdr.ipv4->protocol;
+-	} else if (protocol == __constant_htons(ETH_P_IPV6)) {
++	} else if (protocol == htons(ETH_P_IPV6)) {
+ 		if ((hdr.network - data) > (max_len - sizeof(struct ipv6hdr)))
+ 			return max_len;
+ 
+@@ -1558,7 +1558,7 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
+ 		nexthdr = hdr.ipv6->nexthdr;
+ 		hlen = sizeof(struct ipv6hdr);
+ #ifdef IXGBE_FCOE
+-	} else if (protocol == __constant_htons(ETH_P_FCOE)) {
++	} else if (protocol == htons(ETH_P_FCOE)) {
+ 		if ((hdr.network - data) > (max_len - FCOE_HEADER_LEN))
+ 			return max_len;
+ 		hlen = FCOE_HEADER_LEN;
+@@ -6508,7 +6508,7 @@ static int ixgbe_tso(struct ixgbe_ring *tx_ring,
+ 	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
+ 	type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_TCP;
+ 
+-	if (first->protocol == __constant_htons(ETH_P_IP)) {
++	if (first->protocol == htons(ETH_P_IP)) {
+ 		struct iphdr *iph = ip_hdr(skb);
+ 		iph->tot_len = 0;
+ 		iph->check = 0;
+@@ -6568,12 +6568,12 @@ static void ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
+ 	} else {
+ 		u8 l4_hdr = 0;
+ 		switch (first->protocol) {
+-		case __constant_htons(ETH_P_IP):
++		case htons(ETH_P_IP):
+ 			vlan_macip_lens |= skb_network_header_len(skb);
+ 			type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
+ 			l4_hdr = ip_hdr(skb)->protocol;
+ 			break;
+-		case __constant_htons(ETH_P_IPV6):
++		case htons(ETH_P_IPV6):
+ 			vlan_macip_lens |= skb_network_header_len(skb);
+ 			l4_hdr = ipv6_hdr(skb)->nexthdr;
+ 			break;
+@@ -6848,9 +6848,9 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
+ 	hdr.network = skb_network_header(first->skb);
+ 
+ 	/* Currently only IPv4/IPv6 with TCP is supported */
+-	if ((first->protocol != __constant_htons(ETH_P_IPV6) ||
++	if ((first->protocol != htons(ETH_P_IPV6) ||
+ 	     hdr.ipv6->nexthdr != IPPROTO_TCP) &&
+-	    (first->protocol != __constant_htons(ETH_P_IP) ||
++	    (first->protocol != htons(ETH_P_IP) ||
+ 	     hdr.ipv4->protocol != IPPROTO_TCP))
+ 		return;
+ 
+@@ -6883,12 +6883,12 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
+ 	 * and write the value to source port portion of compressed dword
+ 	 */
+ 	if (first->tx_flags & (IXGBE_TX_FLAGS_SW_VLAN | IXGBE_TX_FLAGS_HW_VLAN))
+-		common.port.src ^= th->dest ^ __constant_htons(ETH_P_8021Q);
++		common.port.src ^= th->dest ^ htons(ETH_P_8021Q);
+ 	else
+ 		common.port.src ^= th->dest ^ first->protocol;
+ 	common.port.dst ^= th->source;
+ 
+-	if (first->protocol == __constant_htons(ETH_P_IP)) {
++	if (first->protocol == htons(ETH_P_IP)) {
+ 		input.formatted.flow_type = IXGBE_ATR_FLOW_TYPE_TCPV4;
+ 		common.ip ^= hdr.ipv4->saddr ^ hdr.ipv4->daddr;
+ 	} else {
+@@ -6954,8 +6954,8 @@ static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb,
+ 	 * or FIP and we have FCoE enabled on the adapter
+ 	 */
+ 	switch (vlan_get_protocol(skb)) {
+-	case __constant_htons(ETH_P_FCOE):
+-	case __constant_htons(ETH_P_FIP):
++	case htons(ETH_P_FCOE):
++	case htons(ETH_P_FIP):
+ 		adapter = netdev_priv(dev);
+ 
+ 		if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)
+@@ -7016,7 +7016,7 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
+ 		tx_flags |= vlan_tx_tag_get(skb) << IXGBE_TX_FLAGS_VLAN_SHIFT;
+ 		tx_flags |= IXGBE_TX_FLAGS_HW_VLAN;
+ 	/* else if it is a SW VLAN check the next protocol and store the tag */
+-	} else if (protocol == __constant_htons(ETH_P_8021Q)) {
++	} else if (protocol == htons(ETH_P_8021Q)) {
+ 		struct vlan_hdr *vhdr, _vhdr;
+ 		vhdr = skb_header_pointer(skb, ETH_HLEN, sizeof(_vhdr), &_vhdr);
+ 		if (!vhdr)
+@@ -7075,7 +7075,7 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
+ 
+ #ifdef IXGBE_FCOE
+ 	/* setup tx offload for FCoE */
+-	if ((protocol == __constant_htons(ETH_P_FCOE)) &&
++	if ((protocol == htons(ETH_P_FCOE)) &&
+ 	    (tx_ring->netdev->features & (NETIF_F_FSO | NETIF_F_FCOE_CRC))) {
+ 		tso = ixgbe_fso(tx_ring, first, &hdr_len);
+ 		if (tso < 0)
 -- 
 1.8.1.2.459.gbcd45b4.dirty
 
