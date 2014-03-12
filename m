@@ -1,35 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ieee802154: at86rf230: add support for rf233
- chip
-Date: Wed, 12 Mar 2014 00:06:04 -0400 (EDT)
-Message-ID: <20140312.000604.2215858990248416668.davem@davemloft.net>
-References: <1394497765-5288-1-git-send-email-stilwellt@openlabs.co>
+Subject: Re: [PATCH v2] tools/net/Makefile: Define PACKAGE to fix build
+ problems
+Date: Wed, 12 Mar 2014 00:08:33 -0400 (EDT)
+Message-ID: <20140312.000833.1949958699048857702.davem@davemloft.net>
+References: <1394447988-31299-1-git-send-email-markos.chandras@imgtec.com>
+	<1394527779-6995-1-git-send-email-markos.chandras@imgtec.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: stilwellt@openlabs.co
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33427 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750737AbaCLEGG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 00:06:06 -0400
-In-Reply-To: <1394497765-5288-1-git-send-email-stilwellt@openlabs.co>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, dborkman@redhat.com,
+	netdev@vger.kernel.org
+To: markos.chandras@imgtec.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394527779-6995-1-git-send-email-markos.chandras@imgtec.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Stilwell <stilwellt@openlabs.co>
-Date: Mon, 10 Mar 2014 19:29:25 -0500
+From: Markos Chandras <markos.chandras@imgtec.com>
+Date: Tue, 11 Mar 2014 08:49:39 +0000
 
-> The rf233 and rf231 are sufficiently similar that we can treat
-> rf233 like rf231.
+> Fixes the following build problem with binutils-2.24
 > 
-> rf233 is missing some features that rf231 has, but we don't currently
-> make use of them so there's nothing to handle differently yet.
+> gcc -Wall -O2   -c -o bpf_jit_disasm.o bpf_jit_disasm.c
+> In file included from bpf_jit_disasm.c:25:0:
+> /usr/include/bfd.h:35:2: error: #error config.h must be included
+> before this header
+>  #error config.h must be included before this header
 > 
-> Should we add support in the future for rf231 *_NOCLK or SLEEP states,
-> or PAD_IO drive strength, exceptions will need to be made for rf233.
+> This is similar to commit 3ce711a6abc27abce1554e1d671a8762b7187690
+> "perf tools: bfd.h/libbfd detection fails with recent binutils"
 > 
-> Signed-off-by: Thomas Stilwell <stilwellt@openlabs.co>
+> See: https://sourceware.org/bugzilla/show_bug.cgi?id=14243
+> 
+> CC: David S. Miller <davem@davemloft.net>
+> CC: Daniel Borkmann <dborkman@redhat.com>
+> CC: netdev@vger.kernel.org
+> Acked-by: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
 
 Applied, thank you.
