@@ -1,54 +1,46 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2a RESEND 2/2] of_mdio: Allow the DT to specify the phy
- ID and avoid autoprobing
-Date: Wed, 12 Mar 2014 15:06:34 -0700
-Message-ID: <CAGVrzcYVK6baunDFzyTm58-+=cw14nvQn9+rFFPca_YUnmbJ=A@mail.gmail.com>
-References: <1394658311-17769-1-git-send-email-jgunthorpe@obsidianresearch.com>
- <1394658311-17769-2-git-send-email-jgunthorpe@obsidianresearch.com> <CAL_Jsq+qdbiwXErkZv1zZ9rphYY9NP6zHmmjw313tMvGeSTODg@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCHv6 net-next 20/31] iw_cxgb4: adjust tcp snd/rcv window
+ based on link speed
+Date: Wed, 12 Mar 2014 18:12:45 -0400 (EDT)
+Message-ID: <20140312.181245.1921772176964395946.davem@davemloft.net>
+References: <008801cf3e2e$d8679b00$8936d100$@opengridcomputing.com>
+	<20140312.162348.2225551653125401290.davem@davemloft.net>
+	<008d01cf3e3a$257edc90$707c95b0$@opengridcomputing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Rob Herring <robherring2@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAL_Jsq+qdbiwXErkZv1zZ9rphYY9NP6zHmmjw313tMvGeSTODg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <008d01cf3e3a$257edc90$707c95b0$@opengridcomputing.com>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-2014-03-12 14:35 GMT-07:00 Rob Herring <robherring2@gmail.com>:
-> On Wed, Mar 12, 2014 at 4:05 PM, Jason Gunthorpe
-> <jgunthorpe@obsidianresearch.com> wrote:
->> This makes the generic of_mdiobus_register parse the DT compatible string for
->> the pattern ethernet-phy-idAAAA.BBBB. If present it should be a value that
->> matches the phy-id register normally readable through MDIO.
->>
->> When the ID is given the phy autoprobing is defeated and the phy is
->> created directly.
->>
->> This is necessary to support phy's that cannot be autoprobed when
->> of_mdiobus_register is called. Specifically, my case has the phy in reset at
->> of_mdiobus_register, the reset is only released once the ethernet driver
->> starts, before it attaches to the phy.
->>
->> Tested on ARM Kirkwood with phy id 0x01410e90 (Marvell 88E1318)
->>
->> Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
->> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
->>  drivers/of/of_mdio.c | 30 +++++++++++++++++++++++++++++-
->>  1 file changed, 29 insertions(+), 1 deletion(-)
->>
->> There was some reworking of the original code in v3.14-rc6, this resolves the
->> merge conflicts and I retested the resolved patch on Kirkwood.
->>
->> Florian, do you know what path to mainline a this patch should take?
->
-> Via David's net tree.
+From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Date: Wed, 12 Mar 2014 16:29:27 -0500
 
-In that case, this is probably more relevant for the 'net-next' tree
-since it is not a bug fix and we are fairly late in the 3.14 cycle?
--- 
-Florian
+>> >> You can just use the TCP settings the kernel already provides for
+>> >> the real TCP stack.
+>> >
+>> > Do you mean use sysctl_tcp_*mem, sysctl_tcp_timestamps, sysctl_tcp_window_scaling,
+> etc?
+>> > I'll look into this.
+>> 
+>> And the socket memory limits, which we use to compute default window
+>> sizes.
+> 
+> How's this look (compile-tested only)?  Note I had to export some of the tcp limits.
+
+Well, the problem is that you've dug your own hole already.
+
+You can't just remove these existing module parameters that users can
+set.  They are user visible APIs, you can't just remove them.
+
+The best you can do is stop adding new ones.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
