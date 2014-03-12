@@ -1,53 +1,76 @@
-From: Heiner Kallweit <heiner.kallweit@web.de>
-Subject: [PATCH] Avoid unnecessary temporary addresses being generated
-Date: Wed, 12 Mar 2014 20:41:15 +0100
-Message-ID: <5320B85B.4000100@web.de>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH net-next 5/6] netfilter: Convert uses of __constant_<foo>
+ to <foo>
+Date: Wed, 12 Mar 2014 20:41:34 +0100 (CET)
+Message-ID: <alpine.DEB.2.10.1403122040360.18314@blackhole.kfki.hu>
+References: <cover.1394643455.git.joe@perches.com> <d0259d9122d308e3297cac6f7bc47c9955c3597b.1394643455.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.15.14]:50504 "EHLO mout.web.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750882AbaCLTlg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Mar 2014 15:41:36 -0400
-Received: from [192.168.178.101] ([84.153.195.113]) by smtp.web.de (mrweb101)
- with ESMTPSA (Nemesis) id 0LetYx-1WwYTo1d4p-00qggM for
- <netdev@vger.kernel.org>; Wed, 12 Mar 2014 20:41:35 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <d0259d9122d308e3297cac6f7bc47c9955c3597b.1394643455.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-tmp_prefered_lft is an offset to ifp->tstamp, not now. Therefore
-age needs to be added to the condition.
+On Wed, 12 Mar 2014, Joe Perches wrote:
 
-Age calculation in ipv6_create_tempaddr is different from the one
-in addrconf_verify and doesn't consider ADDRCONF_TIMER_FUZZ_MINUS.
-This can cause age in ipv6_create_tempaddr to be less than the one
-in addrconf_verify and therefore unnecessary temporary address to
-be generated.
-Use age calculation as in addrconf_modify to avoid this.
+> The use of __constant_<foo> has been unnecessary for quite awhile now.
+> 
+> Make these uses consistent with the rest of the kernel.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Signed-off-by: Heiner Kallweit <heiner.kallweit@web.de>
----
- net/ipv6/addrconf.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index fdbfeca..bd64dbe 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1103,8 +1103,11 @@ retry:
- 	 * Lifetime is greater than REGEN_ADVANCE time units.  In particular,
- 	 * an implementation must not create a temporary address with a zero
- 	 * Preferred Lifetime.
-+	 * Use age calculation as in addrconf_verify to avoid unnecessary
-+	 * temporary addresses being generated.
- 	 */
--	if (tmp_prefered_lft <= regen_advance) {
-+	age = (now - ifp->tstamp + ADDRCONF_TIMER_FUZZ_MINUS) / HZ;
-+	if (tmp_prefered_lft <= regen_advance + age) {
- 		in6_ifa_put(ifp);
- 		in6_dev_put(idev);
- 		ret = -1;
--- 
-1.7.10.4
+> ---
+>  net/netfilter/ipset/pfxlen.c | 4 ++--
+>  net/netfilter/xt_AUDIT.c     | 4 ++--
+>  2 files changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/netfilter/ipset/pfxlen.c b/net/netfilter/ipset/pfxlen.c
+> index 4f29fa9..04d15fd 100644
+> --- a/net/netfilter/ipset/pfxlen.c
+> +++ b/net/netfilter/ipset/pfxlen.c
+> @@ -7,8 +7,8 @@
+>  
+>  #define E(a, b, c, d) \
+>  	{.ip6 = { \
+> -		__constant_htonl(a), __constant_htonl(b), \
+> -		__constant_htonl(c), __constant_htonl(d), \
+> +		htonl(a), htonl(b), \
+> +		htonl(c), htonl(d), \
+>  	} }
+>  
+>  /*
+> diff --git a/net/netfilter/xt_AUDIT.c b/net/netfilter/xt_AUDIT.c
+> index 3228d7f..4973cbd 100644
+> --- a/net/netfilter/xt_AUDIT.c
+> +++ b/net/netfilter/xt_AUDIT.c
+> @@ -146,11 +146,11 @@ audit_tg(struct sk_buff *skb, const struct xt_action_param *par)
+>  
+>  		if (par->family == NFPROTO_BRIDGE) {
+>  			switch (eth_hdr(skb)->h_proto) {
+> -			case __constant_htons(ETH_P_IP):
+> +			case htons(ETH_P_IP):
+>  				audit_ip4(ab, skb);
+>  				break;
+>  
+> -			case __constant_htons(ETH_P_IPV6):
+> +			case htons(ETH_P_IPV6):
+>  				audit_ip6(ab, skb);
+>  				break;
+>  			}
+> -- 
+> 1.8.1.2.459.gbcd45b4.dirty
+> 
+
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
