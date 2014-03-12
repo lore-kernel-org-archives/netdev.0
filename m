@@ -1,52 +1,49 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [net-next 12/13] ixgbe: fix some multiline hw_dbg prints
-Date: Wed, 12 Mar 2014 18:31:03 +0000
-Message-ID: <1394649063.3030.3.camel@jekeller-desk1.amr.corp.intel.com>
-References: <1394603618-1044-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1394603618-1044-13-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <53207459.5010306@cogentembedded.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [RFC PATCH 1/2] netpoll: Remove dead netpoll_rx code
+Date: Wed, 12 Mar 2014 11:31:57 -0700
+Message-ID: <CAM_iQpWL09n2k_KQqNshChssk-iYGJXoRxEuLZDBh164tbJcnA@mail.gmail.com>
+References: <871ty9qvaf.fsf_-_@xmission.com>
+	<87vbvlpgnk.fsf_-_@xmission.com>
+	<1394509467.21721.2.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140311.004217.1616529960369263682.davem@davemloft.net>
+	<1394514158.21721.7.camel@edumazet-glaptop2.roam.corp.google.com>
+	<87a9cxf7mp.fsf_-_@xmission.com>
+	<8738ipf7kn.fsf_-_@xmission.com>
+	<1394540961.21721.22.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140311082312.5ad00119@nehalam.linuxnetplumber.net>
+	<87eh28cvi6.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Matt Mackall <mpm@selenic.com>,
+	Satyam Sharma <satyam.sharma@gmail.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:48128 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755848AbaCLSbi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Mar 2014 14:31:38 -0400
-In-Reply-To: <53207459.5010306@cogentembedded.com>
-Content-Language: en-US
-Content-ID: <3D516CF397CFBE4FAE5F29EE991D682C@intel.com>
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:33260 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756145AbaCLSb5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 14:31:57 -0400
+Received: by mail-ob0-f181.google.com with SMTP id wp4so10416898obc.12
+        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 11:31:57 -0700 (PDT)
+In-Reply-To: <87eh28cvi6.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCAyMDE0LTAzLTEyIGF0IDE4OjUxICswNDAwLCBTZXJnZWkgU2h0eWx5b3Ygd3JvdGU6
-DQo+IEhlbGxvLg0KPiANCj4gT24gMTItMDMtMjAxNCA5OjUzLCBKZWZmIEtpcnNoZXIgd3JvdGU6
-DQo+IA0KPiA+IEZyb206IEphY29iIEtlbGxlciA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0K
-PiANCj4gPiBUaGlzIHBhdGNoIGZpeGVzIHNvbWUgZm9ybWF0dGluZyBvbiBtdWx0aWxpbmVkIHBy
-aW50IG1lc3NhZ2VzLCBzbyB0aGF0DQo+ID4gdGhlIHRleHQgb2YgdGhlIHByaW50IGFwcGVhcnMg
-b24gYSBzaW5nbGUgbGluZSwgd2hpY2ggYWlkcyBpbiBncmVwcGluZw0KPiA+IHRoZSBzb3VyY2Vj
-b2RlIGZvciB3aGVyZSB0aGUgZXJyb3IgY2FtZSBmcm9tLg0KPiANCj4gPiBTaWduZWQtb2ZmLWJ5
-OiBKYWNvYiBLZWxsZXIgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT4NCj4gPiBUZXN0ZWQtYnk6
-IFBoaWwgU2NobWl0dCA8cGhpbGxpcC5qLnNjaG1pdHRAaW50ZWwuY29tPg0KPiA+IFNpZ25lZC1v
-ZmYtYnk6IEplZmYgS2lyc2hlciA8amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPg0KPiA+IC0t
-LQ0KPiA+ICAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfODI1OTkuYyB8
-IDggKysrLS0tLS0NCj4gPiAgIDEgZmlsZSBjaGFuZ2VkLCAzIGluc2VydGlvbnMoKyksIDUgZGVs
-ZXRpb25zKC0pDQo+IA0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRl
-bC9peGdiZS9peGdiZV84MjU5OS5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUv
-aXhnYmVfODI1OTkuYw0KPiA+IGluZGV4IDQ0NmRmM2MuLjNiYzliNjcgMTAwNjQ0DQo+ID4gLS0t
-IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfODI1OTkuYw0KPiA+ICsr
-KyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlXzgyNTk5LmMNCj4gPiBA
-QCAtNTEyLDcgKzUxMiw3IEBAIG91dDoNCj4gPiAgICAqDQo+ID4gICAgKiBEaXNhYmxlcyBsaW5r
-LCBzaG91bGQgYmUgY2FsbGVkIGR1cmluZyBEMyBwb3dlciBkb3duIHNlcXVlbmNlLg0KPiA+ICAg
-ICoNCj4gPiAtICovDQo+ID4gKyAqKi8NCj4gDQo+ICAgICBIbT8gV2hhdCdzIHRoaXMgZm9yPw0K
-PiANCg0KVGhlIGV4dHJhICoqLyBpcyBwYXJ0IG9mIHRoZSBzdGFuZGFyZCBkb2MgZm9ybWF0IGZv
-ciBmdW5jdGlvbiBoZWFkZXJzLA0KYW5kIHRoaXMgd2FzIGxpa2VseSBhIGZpeCB0byBjb252ZXJ0
-IGl0IHRvIHRoZSBzdGFuZGFyZCBmb3JtYXQsIHRob3VnaA0KcHJvYmFibHkgd2FzIG1lYW50IHRv
-IGVuZCB1cCBpbiBhIHNlcGFyYXRlIHBhdGNoLi4uIEkgZG9uJ3QgZnVsbHkNCnJlY2FsbC4NCg0K
-VGhhbmtzLA0KSmFrZQ0KDQo+IFdCUiwgU2VyZ2VpDQo+IA0KDQoNCg==
+On Tue, Mar 11, 2014 at 1:48 PM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+>
+> To play devil's advocate to my own patch.  Does anyone know where kgdb
+> over network (kgdboe) code lives today?
+>
+> What little I could find in a quick google search strongly suggests that
+> kgdboe was abandoned in 2010 or so.
+>
+> I am trying to figure out if there are any active out of tree projects
+> that need by directional netpoll.
+>
+
+We simply don't care about out-of-tree modules, they just need to be
+merged into upstream for us to care.
