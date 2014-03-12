@@ -1,113 +1,132 @@
-From: Rob Herring <robherring2@gmail.com>
-Subject: Re: [PATCH v2a RESEND 2/2] of_mdio: Allow the DT to specify the phy
- ID and avoid autoprobing
-Date: Wed, 12 Mar 2014 16:35:54 -0500
-Message-ID: <CAL_Jsq+qdbiwXErkZv1zZ9rphYY9NP6zHmmjw313tMvGeSTODg@mail.gmail.com>
-References: <1394658311-17769-1-git-send-email-jgunthorpe@obsidianresearch.com>
-	<1394658311-17769-2-git-send-email-jgunthorpe@obsidianresearch.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Rob Herring <robh+dt@kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v10 net-next 0/3] filter: add Extended BPF interpreter and converter, seccomp
+Date: Wed, 12 Mar 2014 14:43:31 -0700
+Message-ID: <1394660614-4436-1-git-send-email-ast@plumgrid.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Pekka Enberg <penberg@iki.fi>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Christoph Hellwig <hch@infradead.org>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394658311-17769-2-git-send-email-jgunthorpe@obsidianresearch.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 12, 2014 at 4:05 PM, Jason Gunthorpe
-<jgunthorpe@obsidianresearch.com> wrote:
-> This makes the generic of_mdiobus_register parse the DT compatible string for
-> the pattern ethernet-phy-idAAAA.BBBB. If present it should be a value that
-> matches the phy-id register normally readable through MDIO.
->
-> When the ID is given the phy autoprobing is defeated and the phy is
-> created directly.
->
-> This is necessary to support phy's that cannot be autoprobed when
-> of_mdiobus_register is called. Specifically, my case has the phy in reset at
-> of_mdiobus_register, the reset is only released once the ethernet driver
-> starts, before it attaches to the phy.
->
-> Tested on ARM Kirkwood with phy id 0x01410e90 (Marvell 88E1318)
->
-> Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  drivers/of/of_mdio.c | 30 +++++++++++++++++++++++++++++-
->  1 file changed, 29 insertions(+), 1 deletion(-)
->
-> There was some reworking of the original code in v3.14-rc6, this resolves the
-> merge conflicts and I retested the resolved patch on Kirkwood.
->
-> Florian, do you know what path to mainline a this patch should take?
+Hi All,
 
-Via David's net tree.
+V1 patches:
+http://thread.gmane.org/gmane.linux.kernel/1605783
+V2 patches:
+http://thread.gmane.org/gmane.linux.kernel/1642325
+V3 patches:
+http://thread.gmane.org/gmane.linux.kernel/1656538
 
->
-> Thanks,
-> Jason
->
-> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-> index 5b3c24f..6cdcbda 100644
-> --- a/drivers/of/of_mdio.c
-> +++ b/drivers/of/of_mdio.c
-> @@ -43,6 +43,30 @@ static void of_set_phy_supported(struct phy_device *phydev, u32 max_speed)
->         }
->  }
->
-> +/* Extract the clause 22 phy ID from the compatible string of the form
-> + * ethernet-phy-idAAAA.BBBB */
-> +static int of_get_phy_id(struct device_node *device, u32 *phy_id)
-> +{
-> +       const char *cp;
-> +       int cplen, l;
-> +       unsigned int upper, lower;
-> +
-> +       cp = of_get_property(device, "compatible", &cplen);
-> +       if (cp == NULL)
-> +               return -EINVAL;
-> +       while (cplen > 0) {
+V4 summary:
+- addressed Daniel comments
+- RFC for seccomp with extended BPF
+- added extended BPF design doc
 
-This can all be:
+V5 summary:
+- fixed commit one-liner, removed empty line
+- added Hagen's ack
 
-  of_property_for_each_string(device, "compatible", prop, cp)
+V6 summary:
+- unrolled loop in populate_seccomp_data() to help gcc on arm
+- removed empty line at the end of the file
+- removed redundant (u32) cast in JSET
+- fixed BPF_RVAL instead of BPF_SRC for BPF_RET in sk_convert_filter()
+- updated commit log
+- added Daniel's Reviewed-by
+- added Kees's Reviewed-by
 
-> +               if (sscanf(cp, "ethernet-phy-id%4x.%4x", &upper, &lower) == 2) {
-> +                       *phy_id = ((upper & 0xFFFF) << 16) | (lower & 0xFFFF);
-> +                       return 0;
-> +               }
-> +
-> +               l = strlen(cp) + 1;
-> +               cp += l;
-> +               cplen -= l;
-> +       }
-> +       return -EINVAL;
-> +}
-> +
->  static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *child,
->                                    u32 addr)
->  {
-> @@ -50,11 +74,15 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
->         bool is_c45;
->         int rc;
->         u32 max_speed = 0;
-> +       u32 phy_id;
->
->         is_c45 = of_device_is_compatible(child,
->                                          "ethernet-phy-ieee802.3-c45");
->
-> -       phy = get_phy_device(mdio, addr, is_c45);
-> +       if (!is_c45 && !of_get_phy_id(child, &phy_id))
-> +               phy = phy_device_create(mdio, addr, phy_id, 0, NULL);
-> +       else
-> +               phy = get_phy_device(mdio, addr, is_c45);
->         if (!phy || IS_ERR(phy))
->                 return 1;
->
-> --
-> 1.8.1.2
->
+V7 summary:
+1/3:
+- addressed Dave's feedback regarding typecasting:
+  added 'jited' flag to sk_filter and union for bpf_func/bpf_func_ext
+- added a comment to sk_run_filter_ext() about ctx<->skb relation
+- removed CPU specific code from sk_run_filter() and sk_run_filter_ext()
+  because of that revised arm32 cache-hit bpf micro-bench numbers slightly
+  slower, but seccomp and cache-miss arm32 numbers stayed the same
+2/3 and 3/3: no changes
+
+V8 summary:
+1/3:
+- fixed sk_get_filter() issue caught by Daniel:
+  need to save old filter, so it can be returned via sk_get_filter()
+  count memory out of socket optmem budget
+- addressed Eric's feedback:
+  removed 'notrace'
+  replaced integer registers constants and stack size with #define
+- retested with my own bpf/ebpf testuite, seccomp and Pavel's
+  so_get_filter test from crtools/test/zdtm/live/static/
+- trimmed cc list, since it looks too big
+2/3 and 3/3: no changes
+
+V9 summary:
+1/3:
+- addressed David's feedback:
+- changed priority, so that bpf_jit_enable takes precedence over bpf_ext_enable
+- made sk_run_filter_ext() static and private to filter.c
+  and added 'ctx == seccomp' and 'ctx == skb' wrappers, so that
+  compiler can do 'ctx' type verification at the call site.
+  offending union in struct sk_filter now looks like:
+  union {
+    unsigned int (*bpf_func)(const struct sk_buff *skb,
+                             const struct sock_filter *fp);
+    unsigned int (*bpf_func_ext)(const struct sk_buff *skb, <<< was void* before
+                                 const struct sock_filter_ext *fp);
+  }
+- kept 'unsigned jited:1', since that's my reading of 'bool vs bitfield' thread
+2/3: call sk_run_filter_ext_seccomp(const struct seccomp_data*,...) instead of
+     sk_run_filter_ext(void*,...) which is now private
+3/3: no change
+
+V10 summary:
+1/1:
+- addressed David's feedback:
+  added conditional #define for bpf_jit_enable
+  removed 64-bit requirement from XADD_DW ebpf insn
+- silenced gcc warning in arch/arm/net/bpf_jit due to missing seccomp_data
+- cleaned up stack[64] with stack[ARRAY_SIZE(stack)]
+2/3 and 3/3: no changes
+
+x86_64, i386 and arm32 look clean.
+
+Thanks!
+
+Alexei Starovoitov (3):
+  filter: add Extended BPF interpreter and converter
+  seccomp: convert seccomp to use extended BPF
+  doc: filter: add Extended BPF documentation
+
+ Documentation/networking/filter.txt |  181 ++++++++
+ arch/arm/net/bpf_jit_32.c           |    3 +-
+ arch/powerpc/net/bpf_jit_comp.c     |    3 +-
+ arch/s390/net/bpf_jit_comp.c        |    3 +-
+ arch/sparc/net/bpf_jit_comp.c       |    3 +-
+ arch/x86/net/bpf_jit_comp.c         |    3 +-
+ include/linux/filter.h              |   47 +-
+ include/linux/netdevice.h           |    5 +
+ include/linux/seccomp.h             |    1 -
+ include/net/sock.h                  |    4 +-
+ include/uapi/linux/filter.h         |   33 +-
+ kernel/seccomp.c                    |  118 +++--
+ net/core/filter.c                   |  857 ++++++++++++++++++++++++++++++++++-
+ net/core/sysctl_net_core.c          |    7 +
+ 14 files changed, 1158 insertions(+), 110 deletions(-)
+
+-- 
+1.7.9.5
