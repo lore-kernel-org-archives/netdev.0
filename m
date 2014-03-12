@@ -1,37 +1,59 @@
-From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Subject: RE: [PATCHv6 net-next 20/31] iw_cxgb4: adjust tcp snd/rcv window based on link speed
-Date: Wed, 12 Mar 2014 15:08:33 -0500
-Message-ID: <008801cf3e2e$d8679b00$8936d100$@opengridcomputing.com>
-References: <1394639446-6504-1-git-send-email-hariprasad@chelsio.com>	<1394639446-6504-21-git-send-email-hariprasad@chelsio.com> <20140312.155017.118512327402563943.davem@davemloft.net>
+From: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 1/2] cgroup: Provide empty definition of
+ task_cgroup_path()
+Date: Wed, 12 Mar 2014 16:13:29 -0400
+Message-ID: <20140312201329.GL14981@redhat.com>
+References: <1394649942-5854-1-git-send-email-vgoyal@redhat.com>
+ <1394649942-5854-2-git-send-email-vgoyal@redhat.com>
+ <20140312.150020.340861233360073600.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>, <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	<santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	<nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: "'David Miller'" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140312.155017.118512327402563943.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Content-Language: en-us
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20140312.150020.340861233360073600.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> > Added module option named adjust_win, defaulted to 1, that allows
-> > disabling the 40G window bump.  This allows a user to specify the exact
-> > default window sizes via module options snd_win and rcv_win.
+On Wed, Mar 12, 2014 at 03:00:20PM -0400, David Miller wrote:
+> From: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> Date: Wed, 12 Mar 2014 14:45:41 -0400
 > 
-> This is terrible.  As is the existing other TCP tweaking module
-> parameters.
+> > Compilation with !CONFIG_CGROUP fails for task_cgroup_path() user. So
+> > provide an emtpy definition.
+> > 
+> > Signed-off-by: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> > ---
+> >  include/linux/cgroup.h | 2 ++
+> >  1 file changed, 2 insertions(+)
+> > 
+> > diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
+> > index 9450f02..bf40adb 100644
+> > --- a/include/linux/cgroup.h
+> > +++ b/include/linux/cgroup.h
+> > @@ -869,6 +869,8 @@ static inline int cgroup_attach_task_all(struct task_struct *from,
+> >  	return 0;
+> >  }
+> >  
+> > +static inline int task_cgroup_path(struct task_struct *task, char *buf, size_t buflen) {return 0;}
+> > +
 > 
-> You can just use the TCP settings the kernel already provides for
-> the real TCP stack.
+> Please properly format this just like any other function.
+> 
+> static inline int task_cgroup_path(struct task_struct *task, char *buf, size_t buflen)
+> {
+> 	eturn 0;
+> }
+> 
+> It looked like a plain static declaration on first glance.
 
-Do you mean use sysctl_tcp_*mem, sysctl_tcp_timestamps, sysctl_tcp_window_scaling, etc?
-I'll look into this.  
+Sure I will.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Also, looks like I have introduced a bug in second round of changes I made. I
+will fix that too and do a new posting.
+
+Thanks
+Vivek
