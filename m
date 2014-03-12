@@ -1,66 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V1 net-next 3/7] mlx4: In RoCE allow guests to have
- multiple GIDS
-Date: Wed, 12 Mar 2014 01:00:52 -0400 (EDT)
-Message-ID: <20140312.010052.1153760698053567291.davem@davemloft.net>
-References: <1394542976-20095-1-git-send-email-ogerlitz@mellanox.com>
-	<1394542976-20095-4-git-send-email-ogerlitz@mellanox.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] bnx2: Don't receive packets when the napi
+ budget == 0
+Date: Tue, 11 Mar 2014 22:07:35 -0700
+Message-ID: <1394600855.21721.41.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <87a9cxf7mp.fsf_-_@xmission.com>
+	 <20140311.124907.1180556684992271103.davem@davemloft.net>
+	 <87wqg0cy9d.fsf@xmission.com>
+	 <20140311.160931.1395978386605601765.davem@davemloft.net>
+	 <877g808luk.fsf_-_@xmission.com> <871ty88lsy.fsf_-_@xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roland@kernel.org,
-	jackm@dev.mellanox.co.il, amirv@mellanox.com
-To: ogerlitz@mellanox.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33607 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753250AbaCLFAy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 01:00:54 -0400
-In-Reply-To: <1394542976-20095-4-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:56335 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750874AbaCLFHh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 01:07:37 -0400
+Received: by mail-pa0-f41.google.com with SMTP id fa1so568425pad.28
+        for <netdev@vger.kernel.org>; Tue, 11 Mar 2014 22:07:37 -0700 (PDT)
+In-Reply-To: <871ty88lsy.fsf_-_@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Tue, 11 Mar 2014 15:02:52 +0200
+On Tue, 2014-03-11 at 14:31 -0700, Eric W. Biederman wrote:
+> Processing any incoming packets with a with a napi budget of 0
+> is incorrect driver behavior.
+> 
+> This matters as netpoll will shortly call drivers with a budget of 0
+> to avoid receive packet processing happening in hard irq context.
+> 
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2.c |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
 
-> +static int get_slave_base_gid_ix(struct mlx4_ib_dev *dev, int slave, int port)
-> +{
-> +	int gids;
-> +	int vfs;
-> +
-> +	if (rdma_port_get_link_layer(&dev->ib_dev, port) == IB_LINK_LAYER_INFINIBAND)
-> +		return slave;
-> +
-> +	gids = MLX4_ROCE_MAX_GIDS - MLX4_ROCE_PF_GIDS;
-> +	vfs = dev->dev->num_vfs;
-> +
-> +	if (slave == 0)
-> +		return 0;
-> +	if (slave <= gids % vfs)
-> +		return MLX4_ROCE_PF_GIDS + ((gids / vfs) + 1) * (slave - 1);
-> +
-> +	return MLX4_ROCE_PF_GIDS + (gids % vfs) + ((gids / vfs) * (slave - 1));
-> +}
-> +
-> +static int get_real_sgid_index(struct mlx4_ib_dev *dev, int slave, int port,
-> +			       struct ib_ah_attr *ah_attr)
-> +{
-> +	if (rdma_port_get_link_layer(&dev->ib_dev, port) == IB_LINK_LAYER_INFINIBAND) {
-> +		ah_attr->grh.sgid_index = slave;
-> +		return 0;
-> +	}
-> +	ah_attr->grh.sgid_index += get_slave_base_gid_ix(dev, slave, port);
-> +	return 0;
-> +}
-
-I hate to be picky like this, but this second function could be improved.
-
-The first function is fine, it's named "get_*" and it really does return
-a value.
-
-But the second one, it's also named "get_*" but it doesn't return the
-stated value.  Instead, it assigns it into a structure.
-
-The return value is always zero, so I suggest you make it return void and
-adjust the name.  Perhaps "fill_in_real_sgid_index", since that states
-explicitly that the value is "filled in" to the passed ah_attr.
+Acked-by: Eric Dumazet <edumazet@google.com>
