@@ -1,87 +1,45 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [tcp] The ssthresh reduce during 3WHS
-Date: Wed, 12 Mar 2014 08:44:25 -0700
-Message-ID: <CAK6E8=cHqFNe8xTcG=PnOOLWDoX2wh0TKDSeFsbtTnUSZWSvjA@mail.gmail.com>
-References: <CAH4NVoT4ofCNKAmcnO1AgEbs+ywbXom=E28k2VU4dB+yK79S_A@mail.gmail.com>
- <1394634390.21721.46.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [net-next 05/13] igb: Add support for debugfs
+Date: Wed, 12 Mar 2014 17:57:40 +0200
+Message-ID: <CAJZOPZ+TtFRjeA=9WZMhONSd65HZwMizf732W7oe-HJ=E0MBvg@mail.gmail.com>
+References: <1394603618-1044-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1394603618-1044-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yong Zhang <fell198904@gmail.com>, netdev <netdev@vger.kernel.org>,
-	Jerry Chu <hkchu@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	Josh Hay <hayja@mail.uc.edu>, Amir Vadai <amirv@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <gospo@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:43246 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754858AbaCLPpG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 11:45:06 -0400
-Received: by mail-ie0-f173.google.com with SMTP id rl12so10711187iec.18
-        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 08:45:05 -0700 (PDT)
-In-Reply-To: <1394634390.21721.46.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:45915 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755193AbaCLP5l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 11:57:41 -0400
+Received: by mail-pd0-f173.google.com with SMTP id z10so1252420pdj.4
+        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 08:57:40 -0700 (PDT)
+In-Reply-To: <1394603618-1044-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 12, 2014 at 7:26 AM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
->
-> On Wed, 2014-03-12 at 21:46 +0800, Yong Zhang wrote:
-> > hi=EF=BC=8C
-> >
-> > I am trying to to apply patch 9ad7c049f0f79c418e293b1b68cf10d68f54f=
-cdb
-> > to my old version kernel, but I am not understanding the following
-> > changes.
-> >
-> > The comments int the patch say ssthresh may reduce unnecessarily
-> > druing 3WHS,  but i can not find the reduce operation of ssthresh
-> > during 3WHS.
-> >
-> > Can you please explain when dose this may hanppen?
-I can think of two cases:
+On Wed, Mar 12, 2014 at 7:53 AM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> This patch adds the necessary defines, variables, and stats updating
+> procedures to use the commands implemented in debugfs.
 
-1. active open: syn -> (timeout) -> tcp_retransmit_timer ->
-tcp_enter_loss -> reduce ssthresh
+Guys,
 
-2. passive fast open: data sent during 3whs after syn-ack -> timeout
--> tcp_enter_loss -> reduce ssthresh
+Do we have a clear criteria when it makes sense to have debugfs for
+network driver and when it doesn't, for example
+we got this cold shower
+http://marc.info/?l=linux-netdev&m=135959539719935&w=2 when attempting
+to do so and I am
+not fully clear (or want to sharpen the sow) how to review a concrete
+design/need for debugs to fall into yes, it makes sense, or
+no, it doesn't b/c there are existing mechanisms that can be used or
+extended for that matter.
 
-It's arguable the resetting is necessary or not. but resetting
-ssthresh seems better b/c it is unlikely to be the BDP, especially in
-case 1.
-
-btw, it'll be easy to test this using https://code.google.com/p/packetd=
-rill/
-
-> >
->
-> You might CC patch author when asking such questions...
->
->
-> >
-> > diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> > index bef9f04..ea0d218 100644
-> > --- a/net/ipv4/tcp_input.c
-> > +++ b/net/ipv4/tcp_input.c
-> > @@ -880,6 +880,11 @@ static void tcp_init_metrics(struct sock *sk)
-> >
-> >         tp->snd_ssthresh =3D dst_metric(dst, RTAX_SSTHRESH);
-> >                  if (tp->snd_ssthresh > tp->snd_cwnd_clamp)
-> >                          tp->snd_ssthresh =3D tp->snd_cwnd_clamp;
-> > +       } else {
-> > +                /* ssthresh may have been reduced unnecessarily du=
-ring.
-> > +                * 3WHS. Restore it back to its initial default.
-> > +                */
-> > +                tp->snd_ssthresh =3D TCP_INFINITE_SSTHRESH;
-> >          }
-> >
-> >
-> > Thanks,
-> > Fel
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" i=
-n
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+Or.
