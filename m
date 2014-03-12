@@ -1,24 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/6] bluetooth: Convert uses of
- __constant_<foo> to <foo>
-Date: Wed, 12 Mar 2014 15:28:34 -0400 (EDT)
-Message-ID: <20140312.152834.46256646072434827.davem@davemloft.net>
+Subject: Re: [PATCH net-next 3/6] net: Convert uses of __constant_<foo> to
+ <foo>
+Date: Wed, 12 Mar 2014 15:28:39 -0400 (EDT)
+Message-ID: <20140312.152839.798485560031245185.davem@davemloft.net>
 References: <cover.1394643455.git.joe@perches.com>
-	<51892631f2289665bf47b294c783ee9560a8317e.1394643455.git.joe@perches.com>
+	<5bc6ebcb56edc59ea478416474fbbe52200a8cb2.1394643455.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, marcel@holtmann.org, gustavo@padovan.org,
-	johan.hedberg@gmail.com, linux-bluetooth@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: joe@perches.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51892631f2289665bf47b294c783ee9560a8317e.1394643455.git.joe@perches.com>
+In-Reply-To: <5bc6ebcb56edc59ea478416474fbbe52200a8cb2.1394643455.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Joe Perches <joe@perches.com>
-Date: Wed, 12 Mar 2014 10:04:16 -0700
+Date: Wed, 12 Mar 2014 10:04:17 -0700
 
 > The use of __constant_<foo> has been unnecessary for quite awhile now.
 > 
@@ -26,4 +24,4 @@ Date: Wed, 12 Mar 2014 10:04:16 -0700
 > 
 > Signed-off-by: Joe Perches <joe@perches.com>
 
-Will let the bluetooth folks pick this one up.
+Applied.
