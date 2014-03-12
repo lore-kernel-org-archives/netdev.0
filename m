@@ -1,8 +1,8 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 3/9] igb: Convert uses of
+Subject: [PATCH net-next 4/9] igbvf: Convert uses of
 	__constant_<foo> to <foo>
-Date: Wed, 12 Mar 2014 10:22:32 -0700
-Message-ID: <0eb4523c7e13dc35a6467332e22a24719f7d7041.1394644825.git.joe@perches.com>
+Date: Wed, 12 Mar 2014 10:22:33 -0700
+Message-ID: <52ad53c6822c19de67480e8b3e36201a30cab308.1394644825.git.joe@perches.com>
 References: <cover.1394644825.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -29,64 +29,28 @@ Make these uses consistent with the rest of the kernel.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/igbvf/netdev.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 3384156..5476e25 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -4546,7 +4546,7 @@ static int igb_tso(struct igb_ring *tx_ring,
- 	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
- 	type_tucmd = E1000_ADVTXD_TUCMD_L4T_TCP;
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index e2c6d80..b7ab03a 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -2014,12 +2014,12 @@ static inline bool igbvf_tx_csum(struct igbvf_adapter *adapter,
  
--	if (first->protocol == __constant_htons(ETH_P_IP)) {
-+	if (first->protocol == htons(ETH_P_IP)) {
- 		struct iphdr *iph = ip_hdr(skb);
- 		iph->tot_len = 0;
- 		iph->check = 0;
-@@ -4602,12 +4602,12 @@ static void igb_tx_csum(struct igb_ring *tx_ring, struct igb_tx_buffer *first)
- 	} else {
- 		u8 l4_hdr = 0;
- 		switch (first->protocol) {
--		case __constant_htons(ETH_P_IP):
-+		case htons(ETH_P_IP):
- 			vlan_macip_lens |= skb_network_header_len(skb);
- 			type_tucmd |= E1000_ADVTXD_TUCMD_IPV4;
- 			l4_hdr = ip_hdr(skb)->protocol;
- 			break;
--		case __constant_htons(ETH_P_IPV6):
-+		case htons(ETH_P_IPV6):
- 			vlan_macip_lens |= skb_network_header_len(skb);
- 			l4_hdr = ipv6_hdr(skb)->nexthdr;
- 			break;
-@@ -6690,7 +6690,7 @@ static unsigned int igb_get_headlen(unsigned char *data,
- 	hdr.network += ETH_HLEN;
- 
- 	/* handle any vlan tag if present */
--	if (protocol == __constant_htons(ETH_P_8021Q)) {
-+	if (protocol == htons(ETH_P_8021Q)) {
- 		if ((hdr.network - data) > (max_len - VLAN_HLEN))
- 			return max_len;
- 
-@@ -6699,7 +6699,7 @@ static unsigned int igb_get_headlen(unsigned char *data,
- 	}
- 
- 	/* handle L3 protocols */
--	if (protocol == __constant_htons(ETH_P_IP)) {
-+	if (protocol == htons(ETH_P_IP)) {
- 		if ((hdr.network - data) > (max_len - sizeof(struct iphdr)))
- 			return max_len;
- 
-@@ -6713,7 +6713,7 @@ static unsigned int igb_get_headlen(unsigned char *data,
- 		/* record next protocol if header is present */
- 		if (!(hdr.ipv4->frag_off & htons(IP_OFFSET)))
- 			nexthdr = hdr.ipv4->protocol;
--	} else if (protocol == __constant_htons(ETH_P_IPV6)) {
-+	} else if (protocol == htons(ETH_P_IPV6)) {
- 		if ((hdr.network - data) > (max_len - sizeof(struct ipv6hdr)))
- 			return max_len;
- 
+ 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 			switch (skb->protocol) {
+-			case __constant_htons(ETH_P_IP):
++			case htons(ETH_P_IP):
+ 				tu_cmd |= E1000_ADVTXD_TUCMD_IPV4;
+ 				if (ip_hdr(skb)->protocol == IPPROTO_TCP)
+ 					tu_cmd |= E1000_ADVTXD_TUCMD_L4T_TCP;
+ 				break;
+-			case __constant_htons(ETH_P_IPV6):
++			case htons(ETH_P_IPV6):
+ 				if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
+ 					tu_cmd |= E1000_ADVTXD_TUCMD_L4T_TCP;
+ 				break;
 -- 
 1.8.1.2.459.gbcd45b4.dirty
 
