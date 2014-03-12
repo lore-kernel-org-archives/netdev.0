@@ -1,206 +1,296 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 4/7] tipc: eliminate upcall
-	function pointers between port and socket
-Date: Wed, 12 Mar 2014 11:31:10 -0400
-Message-ID: <1394638273-6127-5-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 5/7] tipc: eliminate redundant locking
+Date: Wed, 12 Mar 2014 11:31:11 -0400
+Message-ID: <1394638273-6127-6-git-send-email-jon.maloy@ericsson.com>
 References: <1394638273-6127-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp104.biz.mail.ne1.yahoo.com ([98.138.207.11]:33895 "HELO
+	smtp104.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755125AbaCLPb2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 11:31:28 -0400
 In-Reply-To: <1394638273-6127-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RHVlIHRvIHRoZSBvcmlnaW5hbCBvbmUtdG8tbWFueSByZWxhdGlvbiBiZXR3ZWVuIHBvcnQgYW5k
-IHVzZXIgQVBJCmxheWVycywgdXBjYWxscyB0byB0aGUgQVBJIGhhdmUgYmVlbiBwZXJmb3JtZWQg
-dmlhIGZ1bmN0aW9uIHBvaW50ZXJzLAppbnN0YWxsZWQgaW4gc3RydWN0IHRpcGNfcG9ydCBhdCBj
-cmVhdGlvbi4gU2luY2UgdGhpcyByZWxhdGlvbiBub3cKYWx3YXlzIGlzIG9uZS10by1vbmUsIHdl
-IGNhbiBpbnN0ZWFkIHVzZSBvcmRpbmFyeSBmdW5jdGlvbiBjYWxscy4KCldlIHJlbW92ZSB0aGUg
-ZnVuY3Rpb24gcG9pbnRlcnMgJ2Rpc3BhdGNoZXInIGFuZCDCtHdha2V1cCcgZnJvbQpzdHJ1Y3Qg
-dGlwY19wb3J0LCBhbmQgcmVwbGFjZSB0aGVtIHdpdGggY2FsbHMgdG8gdGhlIHJlbmFtZWQKZnVu
-Y3Rpb25zIHRpcGNfc2tfcmN2KCkgYW5kIHRpcGNfc2tfd2FrZXVwKCkuCgpBdCB0aGUgc2FtZSB0
-aW1lIHdlIGNoYW5nZSB0aGUgbmFtZSBhbmQgc2lnbmF0dXJlIG9mIHRoZSBmdW5jdGlvbnMKdGlw
-Y19jcmVhdGVwb3J0KCkgYW5kIHRpcGNfZGVsZXRlcG9ydCgpIHRvIHJlZmxlY3QgdGhlaXIgbmV3
-IHJvbGUKYXMgbWVyZSBpbml0aWFsaXphdGlvbi9kZXN0cnVjdGlvbiBmdW5jdGlvbnMuCgpTaWdu
-ZWQtb2ZmLWJ5OiBKb24gTWFsb3kgPGpvbi5tYWxveUBlcmljc3Nvbi5jb20+ClJldmlld2VkLWJ5
-OiBZaW5nIFh1ZSA8eWluZy54dWVAd2luZHJpdmVyLmNvbT4KUmV2aWV3ZWQtYnk6IEVyaWsgSHVn
-bmUgPGVyaWsuaHVnbmVAZXJpY3Nzb24uY29tPgotLS0KIG5ldC90aXBjL2xpbmsuYyAgIHwgICAg
-NCArLS0tCiBuZXQvdGlwYy9wb3J0LmMgICB8ICAgMzUgKysrKysrKysrKysrKysrKy0tLS0tLS0t
-LS0tLS0tLS0tLS0KIG5ldC90aXBjL3BvcnQuaCAgIHwgICAxNCArKysrLS0tLS0tLS0tLQogbmV0
-L3RpcGMvc29ja2V0LmMgfCAgIDMyICsrKysrKy0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiBu
-ZXQvdGlwYy9zb2NrZXQuaCB8ICAgIDcgKysrKysrKwogNSBmaWxlcyBjaGFuZ2VkLCAzNCBpbnNl
-cnRpb25zKCspLCA1OCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQvdGlwYy9saW5rLmMg
-Yi9uZXQvdGlwYy9saW5rLmMKaW5kZXggZDFhNzY0Yi4uYTQyZjRhMSAxMDA2NDQKLS0tIGEvbmV0
-L3RpcGMvbGluay5jCisrKyBiL25ldC90aXBjL2xpbmsuYwpAQCAtMzI3LDggKzMyNyw2IEBAIHN0
-YXRpYyBpbnQgbGlua19zY2hlZHVsZV9wb3J0KHN0cnVjdCB0aXBjX2xpbmsgKmxfcHRyLCB1MzIg
-b3JpZ3BvcnQsIHUzMiBzeikKIAlzcGluX2xvY2tfYmgoJnRpcGNfcG9ydF9saXN0X2xvY2spOwog
-CXBfcHRyID0gdGlwY19wb3J0X2xvY2sob3JpZ3BvcnQpOwogCWlmIChwX3B0cikgewotCQlpZiAo
-IXBfcHRyLT53YWtldXApCi0JCQlnb3RvIGV4aXQ7CiAJCWlmICghbGlzdF9lbXB0eSgmcF9wdHIt
-PndhaXRfbGlzdCkpCiAJCQlnb3RvIGV4aXQ7CiAJCXBfcHRyLT5jb25nZXN0ZWQgPSAxOwpAQCAt
-MzYzLDcgKzM2MSw3IEBAIHZvaWQgdGlwY19saW5rX3dha2V1cF9wb3J0cyhzdHJ1Y3QgdGlwY19s
-aW5rICpsX3B0ciwgaW50IGFsbCkKIAkJbGlzdF9kZWxfaW5pdCgmcF9wdHItPndhaXRfbGlzdCk7
-CiAJCXNwaW5fbG9ja19iaChwX3B0ci0+bG9jayk7CiAJCXBfcHRyLT5jb25nZXN0ZWQgPSAwOwot
-CQlwX3B0ci0+d2FrZXVwKHBfcHRyKTsKKwkJdGlwY19wb3J0X3dha2V1cChwX3B0cik7CiAJCXdp
-biAtPSBwX3B0ci0+d2FpdGluZ19wa3RzOwogCQlzcGluX3VubG9ja19iaChwX3B0ci0+bG9jayk7
-CiAJfQpkaWZmIC0tZ2l0IGEvbmV0L3RpcGMvcG9ydC5jIGIvbmV0L3RpcGMvcG9ydC5jCmluZGV4
-IDdiMDI3ZTkuLjVkMjRhMTkgMTAwNjQ0Ci0tLSBhL25ldC90aXBjL3BvcnQuYworKysgYi9uZXQv
-dGlwYy9wb3J0LmMKQEAgLTE5MCwzMyArMTkwLDMyIEBAIGV4aXQ6CiAJdGlwY19wb3J0X2xpc3Rf
-ZnJlZShkcCk7CiB9CiAKLS8qKgotICogdGlwY19jcmVhdGVwb3J0IC0gY3JlYXRlIGEgZ2VuZXJp
-YyBUSVBDIHBvcnQKKwordm9pZCB0aXBjX3BvcnRfd2FrZXVwKHN0cnVjdCB0aXBjX3BvcnQgKnBv
-cnQpCit7CisJdGlwY19za193YWtldXAodGlwY19wb3J0X3RvX3NrKHBvcnQpKTsKK30KKworLyog
-dGlwY19wb3J0X2luaXQgLSBpbnRpYXRlIFRJUEMgcG9ydCBhbmQgbG9jayBpdAogICoKLSAqIFJl
-dHVybnMgcG9pbnRlciB0byAobG9ja2VkKSBUSVBDIHBvcnQsIG9yIE5VTEwgaWYgdW5hYmxlIHRv
-IGNyZWF0ZSBpdAorICogUmV0dXJucyBvYnRhaW5lZCByZWZlcmVuY2UgaWYgaW5pdGlhbGl6YXRp
-b24gaXMgc3VjY2Vzc2Z1bCwgemVybyBvdGhlcndpc2UKICAqLwotc3RydWN0IHRpcGNfcG9ydCAq
-dGlwY19jcmVhdGVwb3J0KHN0cnVjdCBzb2NrICpzaywKLQkJCQkgIHUzMiAoKmRpc3BhdGNoZXIp
-KHN0cnVjdCB0aXBjX3BvcnQgKiwKLQkJCQkgIHN0cnVjdCBza19idWZmICopLAotCQkJCSAgdm9p
-ZCAoKndha2V1cCkoc3RydWN0IHRpcGNfcG9ydCAqKSwKLQkJCQkgIGNvbnN0IHUzMiBpbXBvcnRh
-bmNlKQordTMyIHRpcGNfcG9ydF9pbml0KHN0cnVjdCB0aXBjX3BvcnQgKnBfcHRyLAorCQkgICBj
-b25zdCB1bnNpZ25lZCBpbnQgaW1wb3J0YW5jZSkKIHsKLQlzdHJ1Y3QgdGlwY19wb3J0ICpwX3B0
-ciA9IHRpcGNfc2tfcG9ydChzayk7CiAJc3RydWN0IHRpcGNfbXNnICptc2c7CiAJdTMyIHJlZjsK
-IAogCXJlZiA9IHRpcGNfcmVmX2FjcXVpcmUocF9wdHIsICZwX3B0ci0+bG9jayk7CiAJaWYgKCFy
-ZWYpIHsKIAkJcHJfd2FybigiUG9ydCByZWdpc3RyYXRpb24gZmFpbGVkLCByZWYuIHRhYmxlIGV4
-aGF1c3RlZFxuIik7Ci0JCXJldHVybiBOVUxMOworCQlyZXR1cm4gMDsKIAl9CiAKIAlwX3B0ci0+
-bWF4X3BrdCA9IE1BWF9QS1RfREVGQVVMVDsKIAlwX3B0ci0+cmVmID0gcmVmOwogCUlOSVRfTElT
-VF9IRUFEKCZwX3B0ci0+d2FpdF9saXN0KTsKIAlJTklUX0xJU1RfSEVBRCgmcF9wdHItPnN1YnNj
-cmlwdGlvbi5ub2Rlc3ViX2xpc3QpOwotCXBfcHRyLT5kaXNwYXRjaGVyID0gZGlzcGF0Y2hlcjsK
-LQlwX3B0ci0+d2FrZXVwID0gd2FrZXVwOwogCWtfaW5pdF90aW1lcigmcF9wdHItPnRpbWVyLCAo
-SGFuZGxlcilwb3J0X3RpbWVvdXQsIHJlZik7CiAJSU5JVF9MSVNUX0hFQUQoJnBfcHRyLT5wdWJs
-aWNhdGlvbnMpOwogCUlOSVRfTElTVF9IRUFEKCZwX3B0ci0+cG9ydF9saXN0KTsKQEAgLTIzMiwx
-MCArMjMxLDEwIEBAIHN0cnVjdCB0aXBjX3BvcnQgKnRpcGNfY3JlYXRlcG9ydChzdHJ1Y3Qgc29j
-ayAqc2ssCiAJbXNnX3NldF9vcmlncG9ydChtc2csIHJlZik7CiAJbGlzdF9hZGRfdGFpbCgmcF9w
-dHItPnBvcnRfbGlzdCwgJnBvcnRzKTsKIAlzcGluX3VubG9ja19iaCgmdGlwY19wb3J0X2xpc3Rf
-bG9jayk7Ci0JcmV0dXJuIHBfcHRyOworCXJldHVybiByZWY7CiB9CiAKLWludCB0aXBjX2RlbGV0
-ZXBvcnQoc3RydWN0IHRpcGNfcG9ydCAqcF9wdHIpCit2b2lkIHRpcGNfcG9ydF9kZXN0cm95KHN0
-cnVjdCB0aXBjX3BvcnQgKnBfcHRyKQogewogCXN0cnVjdCBza19idWZmICpidWYgPSBOVUxMOwog
-CkBAIC0yNTcsNyArMjU2LDYgQEAgaW50IHRpcGNfZGVsZXRlcG9ydChzdHJ1Y3QgdGlwY19wb3J0
-ICpwX3B0cikKIAlzcGluX3VubG9ja19iaCgmdGlwY19wb3J0X2xpc3RfbG9jayk7CiAJa190ZXJt
-X3RpbWVyKCZwX3B0ci0+dGltZXIpOwogCXRpcGNfbmV0X3JvdXRlX21zZyhidWYpOwotCXJldHVy
-biAwOwogfQogCiBzdGF0aWMgaW50IHBvcnRfdW5yZWxpYWJsZShzdHJ1Y3QgdGlwY19wb3J0ICpw
-X3B0cikKQEAgLTUzMCwxMyArNTI4LDEyIEBAIHZvaWQgdGlwY19wb3J0X3Byb3RvX3JjdihzdHJ1
-Y3Qgc2tfYnVmZiAqYnVmKQogCS8qIFByb2Nlc3MgcHJvdG9jb2wgbWVzc2FnZSBzZW50IGJ5IHBl
-ZXIgKi8KIAlzd2l0Y2ggKG1zZ190eXBlKG1zZykpIHsKIAljYXNlIENPTk5fQUNLOgotCQl3YWtl
-YWJsZSA9IHRpcGNfcG9ydF9jb25nZXN0ZWQocF9wdHIpICYmIHBfcHRyLT5jb25nZXN0ZWQgJiYK
-LQkJCXBfcHRyLT53YWtldXA7CisJCXdha2VhYmxlID0gdGlwY19wb3J0X2Nvbmdlc3RlZChwX3B0
-cikgJiYgcF9wdHItPmNvbmdlc3RlZDsKIAkJcF9wdHItPmFja2VkICs9IG1zZ19tc2djbnQobXNn
-KTsKIAkJaWYgKCF0aXBjX3BvcnRfY29uZ2VzdGVkKHBfcHRyKSkgewogCQkJcF9wdHItPmNvbmdl
-c3RlZCA9IDA7CiAJCQlpZiAod2FrZWFibGUpCi0JCQkJcF9wdHItPndha2V1cChwX3B0cik7CisJ
-CQkJdGlwY19wb3J0X3dha2V1cChwX3B0cik7CiAJCX0KIAkJYnJlYWs7CiAJY2FzZSBDT05OX1BS
-T0JFOgpAQCAtODY1LDcgKzg2Miw3IEBAIGludCB0aXBjX3BvcnRfcmN2KHN0cnVjdCBza19idWZm
-ICpidWYpCiAJLyogdmFsaWRhdGUgZGVzdGluYXRpb24gJiBwYXNzIHRvIHBvcnQsIG90aGVyd2lz
-ZSByZWplY3QgbWVzc2FnZSAqLwogCXBfcHRyID0gdGlwY19wb3J0X2xvY2soZGVzdHBvcnQpOwog
-CWlmIChsaWtlbHkocF9wdHIpKSB7Ci0JCWVyciA9IHBfcHRyLT5kaXNwYXRjaGVyKHBfcHRyLCBi
-dWYpOworCQllcnIgPSB0aXBjX3NrX3Jjdih0aXBjX3BvcnRfdG9fc2socF9wdHIpLCBidWYpOwog
-CQl0aXBjX3BvcnRfdW5sb2NrKHBfcHRyKTsKIAkJaWYgKGxpa2VseSghZXJyKSkKIAkJCXJldHVy
-biBkc3o7CmRpZmYgLS1naXQgYS9uZXQvdGlwYy9wb3J0LmggYi9uZXQvdGlwYy9wb3J0LmgKaW5k
-ZXggMWIyMDA2Mi4uMWM5MGNiZCAxMDA2NDQKLS0tIGEvbmV0L3RpcGMvcG9ydC5oCisrKyBiL25l
-dC90aXBjL3BvcnQuaApAQCAtNTksOCArNTksNiBAQAogICogQHJlZjogdW5pcXVlIHJlZmVyZW5j
-ZSB0byBwb3J0IGluIFRJUEMgb2JqZWN0IHJlZ2lzdHJ5CiAgKiBAcGhkcjogcHJlZm9ybWF0dGVk
-IG1lc3NhZ2UgaGVhZGVyIHVzZWQgd2hlbiBzZW5kaW5nIG1lc3NhZ2VzCiAgKiBAcG9ydF9saXN0
-OiBhZGphY2VudCBwb3J0cyBpbiBUSVBDJ3MgZ2xvYmFsIGxpc3Qgb2YgcG9ydHMKLSAqIEBkaXNw
-YXRjaGVyOiBwdHIgdG8gcm91dGluZSB3aGljaCBoYW5kbGVzIHJlY2VpdmVkIG1lc3NhZ2VzCi0g
-KiBAd2FrZXVwOiBwdHIgdG8gcm91dGluZSB0byBjYWxsIHdoZW4gcG9ydCBpcyBubyBsb25nZXIg
-Y29uZ2VzdGVkCiAgKiBAd2FpdF9saXN0OiBhZGphY2VudCBwb3J0cyBpbiBsaXN0IG9mIHBvcnRz
-IHdhaXRpbmcgb24gbGluayBjb25nZXN0aW9uCiAgKiBAd2FpdGluZ19wa3RzOgogICogQHNlbnQ6
-ICMgb2Ygbm9uLWVtcHR5IG1lc3NhZ2VzIHNlbnQgYnkgcG9ydApAQCAtODQsOCArODIsNiBAQCBz
-dHJ1Y3QgdGlwY19wb3J0IHsKIAl1MzIgcmVmOwogCXN0cnVjdCB0aXBjX21zZyBwaGRyOwogCXN0
-cnVjdCBsaXN0X2hlYWQgcG9ydF9saXN0OwotCXUzMiAoKmRpc3BhdGNoZXIpKHN0cnVjdCB0aXBj
-X3BvcnQgKiwgc3RydWN0IHNrX2J1ZmYgKik7Ci0Jdm9pZCAoKndha2V1cCkoc3RydWN0IHRpcGNf
-cG9ydCAqKTsKIAlzdHJ1Y3QgbGlzdF9oZWFkIHdhaXRfbGlzdDsKIAl1MzIgd2FpdGluZ19wa3Rz
-OwogCXUzMiBzZW50OwpAQCAtMTA0LDE3ICsxMDAsMTQgQEAgc3RydWN0IHRpcGNfcG9ydF9saXN0
-OwogLyoKICAqIFRJUEMgcG9ydCBtYW5pcHVsYXRpb24gcm91dGluZXMKICAqLwotc3RydWN0IHRp
-cGNfcG9ydCAqdGlwY19jcmVhdGVwb3J0KHN0cnVjdCBzb2NrICpzaywKLQkJCQkgIHUzMiAoKmRp
-c3BhdGNoZXIpKHN0cnVjdCB0aXBjX3BvcnQgKiwKLQkJCQkgIHN0cnVjdCBza19idWZmICopLAot
-CQkJCSAgdm9pZCAoKndha2V1cCkoc3RydWN0IHRpcGNfcG9ydCAqKSwKLQkJCQkgIGNvbnN0IHUz
-MiBpbXBvcnRhbmNlKTsKK3UzMiB0aXBjX3BvcnRfaW5pdChzdHJ1Y3QgdGlwY19wb3J0ICpwX3B0
-ciwKKwkJICAgY29uc3QgdW5zaWduZWQgaW50IGltcG9ydGFuY2UpOwogCiBpbnQgdGlwY19yZWpl
-Y3RfbXNnKHN0cnVjdCBza19idWZmICpidWYsIHUzMiBlcnIpOwogCiB2b2lkIHRpcGNfYWNrbm93
-bGVkZ2UodTMyIHBvcnRfcmVmLCB1MzIgYWNrKTsKIAotaW50IHRpcGNfZGVsZXRlcG9ydChzdHJ1
-Y3QgdGlwY19wb3J0ICpwX3B0cik7Cit2b2lkIHRpcGNfcG9ydF9kZXN0cm95KHN0cnVjdCB0aXBj
-X3BvcnQgKnBfcHRyKTsKIAogaW50IHRpcGNfcG9ydGltcG9ydGFuY2UodTMyIHBvcnRyZWYsIHVu
-c2lnbmVkIGludCAqaW1wb3J0YW5jZSk7CiBpbnQgdGlwY19zZXRfcG9ydGltcG9ydGFuY2UodTMy
-IHBvcnRyZWYsIHVuc2lnbmVkIGludCBpbXBvcnRhbmNlKTsKQEAgLTEzNiw2ICsxMjksNyBAQCBp
-bnQgdGlwY19wb3J0X2Rpc2Nvbm5lY3QodTMyIHBvcnRyZWYpOwogCiBpbnQgdGlwY19wb3J0X3No
-dXRkb3duKHUzMiByZWYpOwogCit2b2lkIHRpcGNfcG9ydF93YWtldXAoc3RydWN0IHRpcGNfcG9y
-dCAqcG9ydCk7CiAKIC8qCiAgKiBUaGUgZm9sbG93aW5nIHJvdXRpbmVzIHJlcXVpcmUgdGhhdCB0
-aGUgcG9ydCBiZSBsb2NrZWQgb24gZW50cnkKZGlmZiAtLWdpdCBhL25ldC90aXBjL3NvY2tldC5j
-IGIvbmV0L3RpcGMvc29ja2V0LmMKaW5kZXggOTEyNjY1ZC4uZDE0N2VhYSAxMDA2NDQKLS0tIGEv
-bmV0L3RpcGMvc29ja2V0LmMKKysrIGIvbmV0L3RpcGMvc29ja2V0LmMKQEAgLTQ0LDEwICs0NCw3
-IEBACiAKICNkZWZpbmUgQ09OTl9USU1FT1VUX0RFRkFVTFQJODAwMAkvKiBkZWZhdWx0IGNvbm5l
-Y3QgdGltZW91dCA9IDhzICovCiAKLQogc3RhdGljIGludCBiYWNrbG9nX3JjdihzdHJ1Y3Qgc29j
-ayAqc2ssIHN0cnVjdCBza19idWZmICpza2IpOwotc3RhdGljIHUzMiBkaXNwYXRjaChzdHJ1Y3Qg
-dGlwY19wb3J0ICp0cG9ydCwgc3RydWN0IHNrX2J1ZmYgKmJ1Zik7Ci1zdGF0aWMgdm9pZCB3YWtl
-dXBkaXNwYXRjaChzdHJ1Y3QgdGlwY19wb3J0ICp0cG9ydCk7CiBzdGF0aWMgdm9pZCB0aXBjX2Rh
-dGFfcmVhZHkoc3RydWN0IHNvY2sgKnNrLCBpbnQgbGVuKTsKIHN0YXRpYyB2b2lkIHRpcGNfd3Jp
-dGVfc3BhY2Uoc3RydWN0IHNvY2sgKnNrKTsKIHN0YXRpYyBpbnQgdGlwY19yZWxlYXNlKHN0cnVj
-dCBzb2NrZXQgKnNvY2spOwpAQCAtMTgxLDEwICsxNzgsOCBAQCBzdGF0aWMgaW50IHRpcGNfc2tf
-Y3JlYXRlKHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0IHNvY2tldCAqc29jaywgaW50IHByb3RvY29s
-LAogCWlmIChzayA9PSBOVUxMKQogCQlyZXR1cm4gLUVOT01FTTsKIAotCS8qIEFsbG9jYXRlIFRJ
-UEMgcG9ydCBmb3Igc29ja2V0IHRvIHVzZSAqLwotCXRwX3B0ciA9IHRpcGNfY3JlYXRlcG9ydChz
-aywgJmRpc3BhdGNoLCAmd2FrZXVwZGlzcGF0Y2gsCi0JCQkJIFRJUENfTE9XX0lNUE9SVEFOQ0Up
-OwotCWlmICh1bmxpa2VseSghdHBfcHRyKSkgeworCXRwX3B0ciA9IHRpcGNfc2tfcG9ydChzayk7
-CisJaWYgKCF0aXBjX3BvcnRfaW5pdCh0cF9wdHIsIFRJUENfTE9XX0lNUE9SVEFOQ0UpKSB7CiAJ
-CXNrX2ZyZWUoc2spOwogCQlyZXR1cm4gLUVOT01FTTsKIAl9CkBAIC0xOTksNyArMTk0LDYgQEAg
-c3RhdGljIGludCB0aXBjX3NrX2NyZWF0ZShzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBzb2NrZXQg
-KnNvY2ssIGludCBwcm90b2NvbCwKIAlzay0+c2tfZGF0YV9yZWFkeSA9IHRpcGNfZGF0YV9yZWFk
-eTsKIAlzay0+c2tfd3JpdGVfc3BhY2UgPSB0aXBjX3dyaXRlX3NwYWNlOwogCXRpcGNfc2soc2sp
-LT5jb25uX3RpbWVvdXQgPSBDT05OX1RJTUVPVVRfREVGQVVMVDsKLQogCXNwaW5fdW5sb2NrX2Jo
-KHRwX3B0ci0+bG9jayk7CiAKIAlpZiAoc29jay0+c3RhdGUgPT0gU1NfUkVBRFkpIHsKQEAgLTIw
-Nyw3ICsyMDEsNiBAQCBzdGF0aWMgaW50IHRpcGNfc2tfY3JlYXRlKHN0cnVjdCBuZXQgKm5ldCwg
-c3RydWN0IHNvY2tldCAqc29jaywgaW50IHByb3RvY29sLAogCQlpZiAoc29jay0+dHlwZSA9PSBT
-T0NLX0RHUkFNKQogCQkJdGlwY19zZXRfcG9ydHVucmVsaWFibGUodHBfcHRyLT5yZWYsIDEpOwog
-CX0KLQogCXJldHVybiAwOwogfQogCkBAIC0zMzcsNyArMzMwLDcgQEAgc3RhdGljIGludCB0aXBj
-X3JlbGVhc2Uoc3RydWN0IHNvY2tldCAqc29jaykKIAkgKiBEZWxldGUgVElQQyBwb3J0OyB0aGlz
-IGVuc3VyZXMgbm8gbW9yZSBtZXNzYWdlcyBhcmUgcXVldWVkCiAJICogKGFsc28gZGlzY29ubmVj
-dHMgYW4gYWN0aXZlIGNvbm5lY3Rpb24gJiBzZW5kcyBhICdGSU4tJyB0byBwZWVyKQogCSAqLwot
-CXJlcyA9IHRpcGNfZGVsZXRlcG9ydCh0cG9ydCk7CisJdGlwY19wb3J0X2Rlc3Ryb3kodHBvcnQp
-OwogCiAJLyogRGlzY2FyZCBhbnkgcmVtYWluaW5nIChjb25uZWN0aW9uLWJhc2VkKSBtZXNzYWdl
-cyBpbiByZWNlaXZlIHF1ZXVlICovCiAJX19za2JfcXVldWVfcHVyZ2UoJnNrLT5za19yZWNlaXZl
-X3F1ZXVlKTsKQEAgLTE0MzAsMTcgKzE0MjMsMTYgQEAgc3RhdGljIGludCBiYWNrbG9nX3Jjdihz
-dHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBza19idWZmICpidWYpCiB9CiAKIC8qKgotICogZGlzcGF0
-Y2ggLSBoYW5kbGUgaW5jb21pbmcgbWVzc2FnZQotICogQHRwb3J0OiBUSVBDIHBvcnQgdGhhdCBy
-ZWNlaXZlZCBtZXNzYWdlCisgKiB0aXBjX3NrX3JjdiAtIGhhbmRsZSBpbmNvbWluZyBtZXNzYWdl
-CisgKiBAc2s6ICBzb2NrZXQgcmVjZWl2aW5nIG1lc3NhZ2UKICAqIEBidWY6IG1lc3NhZ2UKICAq
-CiAgKiBDYWxsZWQgd2l0aCBwb3J0IGxvY2sgYWxyZWFkeSB0YWtlbi4KICAqCiAgKiBSZXR1cm5z
-IFRJUEMgZXJyb3Igc3RhdHVzIGNvZGUgKFRJUENfT0sgaWYgbWVzc2FnZSBpcyBub3QgdG8gYmUg
-cmVqZWN0ZWQpCiAgKi8KLXN0YXRpYyB1MzIgZGlzcGF0Y2goc3RydWN0IHRpcGNfcG9ydCAqcG9y
-dCwgc3RydWN0IHNrX2J1ZmYgKmJ1ZikKK3UzMiB0aXBjX3NrX3JjdihzdHJ1Y3Qgc29jayAqc2ss
-IHN0cnVjdCBza19idWZmICpidWYpCiB7Ci0Jc3RydWN0IHNvY2sgKnNrID0gdGlwY19wb3J0X3Rv
-X3NrKHBvcnQpOwogCXUzMiByZXM7CiAKIAkvKgpAQCAtMTQ2MywxOCArMTQ1NSw2IEBAIHN0YXRp
-YyB1MzIgZGlzcGF0Y2goc3RydWN0IHRpcGNfcG9ydCAqcG9ydCwgc3RydWN0IHNrX2J1ZmYgKmJ1
-ZikKIAlyZXR1cm4gcmVzOwogfQogCi0vKioKLSAqIHdha2V1cGRpc3BhdGNoIC0gd2FrZSB1cCBw
-b3J0IGFmdGVyIGNvbmdlc3Rpb24KLSAqIEB0cG9ydDogcG9ydCB0byB3YWtldXAKLSAqCi0gKiBD
-YWxsZWQgd2l0aCBwb3J0IGxvY2sgYWxyZWFkeSB0YWtlbi4KLSAqLwotc3RhdGljIHZvaWQgd2Fr
-ZXVwZGlzcGF0Y2goc3RydWN0IHRpcGNfcG9ydCAqcG9ydCkKLXsKLQlzdHJ1Y3Qgc29jayAqc2sg
-PSB0aXBjX3BvcnRfdG9fc2socG9ydCk7Ci0Jc2stPnNrX3dyaXRlX3NwYWNlKHNrKTsKLX0KLQog
-c3RhdGljIGludCB0aXBjX3dhaXRfZm9yX2Nvbm5lY3Qoc3RydWN0IHNvY2tldCAqc29jaywgbG9u
-ZyAqdGltZW9fcCkKIHsKIAlzdHJ1Y3Qgc29jayAqc2sgPSBzb2NrLT5zazsKZGlmZiAtLWdpdCBh
-L25ldC90aXBjL3NvY2tldC5oIGIvbmV0L3RpcGMvc29ja2V0LmgKaW5kZXggZjFjZDU0YS4uYTAy
-ZDBiYiAxMDA2NDQKLS0tIGEvbmV0L3RpcGMvc29ja2V0LmgKKysrIGIvbmV0L3RpcGMvc29ja2V0
-LmgKQEAgLTY3LDQgKzY3LDExIEBAIHN0YXRpYyBpbmxpbmUgc3RydWN0IHNvY2sgKnRpcGNfcG9y
-dF90b19zayhjb25zdCBzdHJ1Y3QgdGlwY19wb3J0ICpwb3J0KQogCXJldHVybiAmKGNvbnRhaW5l
-cl9vZihwb3J0LCBzdHJ1Y3QgdGlwY19zb2NrLCBwb3J0KSktPnNrOwogfQogCitzdGF0aWMgaW5s
-aW5lIHZvaWQgdGlwY19za193YWtldXAoc3RydWN0IHNvY2sgKnNrKQoreworCXNrLT5za193cml0
-ZV9zcGFjZShzayk7Cit9CisKK3UzMiB0aXBjX3NrX3JjdihzdHJ1Y3Qgc29jayAqc2ssIHN0cnVj
-dCBza19idWZmICpidWYpOworCiAjZW5kaWYKLS0gCjEuNy45LjUKCgotLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0KTGVhcm4gR3JhcGggRGF0YWJhc2VzIC0gRG93bmxvYWQgRlJFRSBPJ1JlaWxseSBCb29r
-CiJHcmFwaCBEYXRhYmFzZXMiIGlzIHRoZSBkZWZpbml0aXZlIG5ldyBndWlkZSB0byBncmFwaCBk
-YXRhYmFzZXMgYW5kIHRoZWlyCmFwcGxpY2F0aW9ucy4gV3JpdHRlbiBieSB0aHJlZSBhY2NsYWlt
-ZWQgbGVhZGVycyBpbiB0aGUgZmllbGQsCnRoaXMgZmlyc3QgZWRpdGlvbiBpcyBub3cgYXZhaWxh
-YmxlLiBEb3dubG9hZCB5b3VyIGZyZWUgYm9vayB0b2RheSEKaHR0cDovL3Auc2YubmV0L3NmdS8x
-MzUzNF9OZW9UZWNoCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fCnRpcGMtZGlzY3Vzc2lvbiBtYWlsaW5nIGxpc3QKdGlwYy1kaXNjdXNzaW9uQGxpc3RzLnNv
-dXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5m
-by90aXBjLWRpc2N1c3Npb24K
+The three functions tipc_portimportance(), tipc_portunreliable() and
+tipc_portunreturnable() and their corresponding tipc_set* functions,
+are all grabbing port_lock when accessing the targeted port. This is
+unnecessary in the current code, since these calls only are made from
+within socket downcalls, already protected by sock_lock.
+
+We remove the redundant locking. Also, since the functions now become
+trivial one-liners, we move them to port.h and make them inline.
+
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
+Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+---
+ net/tipc/port.c   |   96 +++--------------------------------------------------
+ net/tipc/port.h   |   42 ++++++++++++++++++-----
+ net/tipc/socket.c |   18 +++++-----
+ 3 files changed, 47 insertions(+), 109 deletions(-)
+
+diff --git a/net/tipc/port.c b/net/tipc/port.c
+index 5d24a19..ec8153f 100644
+--- a/net/tipc/port.c
++++ b/net/tipc/port.c
+@@ -258,64 +258,6 @@ void tipc_port_destroy(struct tipc_port *p_ptr)
+ 	tipc_net_route_msg(buf);
+ }
+ 
+-static int port_unreliable(struct tipc_port *p_ptr)
+-{
+-	return msg_src_droppable(&p_ptr->phdr);
+-}
+-
+-int tipc_portunreliable(u32 ref, unsigned int *isunreliable)
+-{
+-	struct tipc_port *p_ptr;
+-
+-	p_ptr = tipc_port_lock(ref);
+-	if (!p_ptr)
+-		return -EINVAL;
+-	*isunreliable = port_unreliable(p_ptr);
+-	tipc_port_unlock(p_ptr);
+-	return 0;
+-}
+-
+-int tipc_set_portunreliable(u32 ref, unsigned int isunreliable)
+-{
+-	struct tipc_port *p_ptr;
+-
+-	p_ptr = tipc_port_lock(ref);
+-	if (!p_ptr)
+-		return -EINVAL;
+-	msg_set_src_droppable(&p_ptr->phdr, (isunreliable != 0));
+-	tipc_port_unlock(p_ptr);
+-	return 0;
+-}
+-
+-static int port_unreturnable(struct tipc_port *p_ptr)
+-{
+-	return msg_dest_droppable(&p_ptr->phdr);
+-}
+-
+-int tipc_portunreturnable(u32 ref, unsigned int *isunrejectable)
+-{
+-	struct tipc_port *p_ptr;
+-
+-	p_ptr = tipc_port_lock(ref);
+-	if (!p_ptr)
+-		return -EINVAL;
+-	*isunrejectable = port_unreturnable(p_ptr);
+-	tipc_port_unlock(p_ptr);
+-	return 0;
+-}
+-
+-int tipc_set_portunreturnable(u32 ref, unsigned int isunrejectable)
+-{
+-	struct tipc_port *p_ptr;
+-
+-	p_ptr = tipc_port_lock(ref);
+-	if (!p_ptr)
+-		return -EINVAL;
+-	msg_set_dest_droppable(&p_ptr->phdr, (isunrejectable != 0));
+-	tipc_port_unlock(p_ptr);
+-	return 0;
+-}
+-
+ /*
+  * port_build_proto_msg(): create connection protocol message for port
+  *
+@@ -653,34 +595,6 @@ void tipc_acknowledge(u32 ref, u32 ack)
+ 	tipc_net_route_msg(buf);
+ }
+ 
+-int tipc_portimportance(u32 ref, unsigned int *importance)
+-{
+-	struct tipc_port *p_ptr;
+-
+-	p_ptr = tipc_port_lock(ref);
+-	if (!p_ptr)
+-		return -EINVAL;
+-	*importance = (unsigned int)msg_importance(&p_ptr->phdr);
+-	tipc_port_unlock(p_ptr);
+-	return 0;
+-}
+-
+-int tipc_set_portimportance(u32 ref, unsigned int imp)
+-{
+-	struct tipc_port *p_ptr;
+-
+-	if (imp > TIPC_CRITICAL_IMPORTANCE)
+-		return -EINVAL;
+-
+-	p_ptr = tipc_port_lock(ref);
+-	if (!p_ptr)
+-		return -EINVAL;
+-	msg_set_importance(&p_ptr->phdr, (u32)imp);
+-	tipc_port_unlock(p_ptr);
+-	return 0;
+-}
+-
+-
+ int tipc_publish(struct tipc_port *p_ptr, unsigned int scope,
+ 		 struct tipc_name_seq const *seq)
+ {
+@@ -919,7 +833,7 @@ int tipc_send(u32 ref, struct iovec const *msg_sect, unsigned int len)
+ 			return res;
+ 		}
+ 	}
+-	if (port_unreliable(p_ptr)) {
++	if (tipc_port_unreliable(p_ptr)) {
+ 		p_ptr->congested = 0;
+ 		return len;
+ 	}
+@@ -966,9 +880,9 @@ int tipc_send2name(u32 ref, struct tipc_name const *name, unsigned int domain,
+ 				p_ptr->sent++;
+ 			return res;
+ 		}
+-		if (port_unreliable(p_ptr)) {
++		if (tipc_port_unreliable(p_ptr))
+ 			return len;
+-		}
++
+ 		return -ELINKCONG;
+ 	}
+ 	return tipc_port_iovec_reject(p_ptr, msg, msg_sect, len,
+@@ -1009,8 +923,8 @@ int tipc_send2port(u32 ref, struct tipc_portid const *dest,
+ 			p_ptr->sent++;
+ 		return res;
+ 	}
+-	if (port_unreliable(p_ptr)) {
++	if (tipc_port_unreliable(p_ptr))
+ 		return len;
+-	}
++
+ 	return -ELINKCONG;
+ }
+diff --git a/net/tipc/port.h b/net/tipc/port.h
+index 1c90cbd..53ec5f0 100644
+--- a/net/tipc/port.h
++++ b/net/tipc/port.h
+@@ -109,15 +109,6 @@ void tipc_acknowledge(u32 port_ref, u32 ack);
+ 
+ void tipc_port_destroy(struct tipc_port *p_ptr);
+ 
+-int tipc_portimportance(u32 portref, unsigned int *importance);
+-int tipc_set_portimportance(u32 portref, unsigned int importance);
+-
+-int tipc_portunreliable(u32 portref, unsigned int *isunreliable);
+-int tipc_set_portunreliable(u32 portref, unsigned int isunreliable);
+-
+-int tipc_portunreturnable(u32 portref, unsigned int *isunreturnable);
+-int tipc_set_portunreturnable(u32 portref, unsigned int isunreturnable);
+-
+ int tipc_publish(struct tipc_port *p_ptr, unsigned int scope,
+ 		 struct tipc_name_seq const *name_seq);
+ int tipc_withdraw(struct tipc_port *p_ptr, unsigned int scope,
+@@ -201,4 +192,37 @@ static inline u32 tipc_port_peerport(struct tipc_port *p_ptr)
+ 	return msg_destport(&p_ptr->phdr);
+ }
+ 
++static inline  bool tipc_port_unreliable(struct tipc_port *port)
++{
++	return msg_src_droppable(&port->phdr) != 0;
++}
++
++static inline void tipc_port_set_unreliable(struct tipc_port *port,
++					    bool unreliable)
++{
++	msg_set_src_droppable(&port->phdr, unreliable ? 1 : 0);
++}
++
++static inline bool tipc_port_unreturnable(struct tipc_port *port)
++{
++	return msg_dest_droppable(&port->phdr) != 0;
++}
++
++static inline void tipc_port_set_unreturnable(struct tipc_port *port,
++					     bool unreturnable)
++{
++	msg_set_dest_droppable(&port->phdr, unreturnable ? 1 : 0);
++}
++
++
++static inline int tipc_port_importance(struct tipc_port *port)
++{
++	return msg_importance(&port->phdr);
++}
++
++static inline void tipc_port_set_importance(struct tipc_port *port, int imp)
++{
++	msg_set_importance(&port->phdr, (u32)imp);
++}
++
+ #endif
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index d147eaa..6c71988 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -197,9 +197,9 @@ static int tipc_sk_create(struct net *net, struct socket *sock, int protocol,
+ 	spin_unlock_bh(tp_ptr->lock);
+ 
+ 	if (sock->state == SS_READY) {
+-		tipc_set_portunreturnable(tp_ptr->ref, 1);
++		tipc_port_set_unreturnable(tp_ptr, true);
+ 		if (sock->type == SOCK_DGRAM)
+-			tipc_set_portunreliable(tp_ptr->ref, 1);
++			tipc_port_set_unreliable(tp_ptr, true);
+ 	}
+ 	return 0;
+ }
+@@ -1675,7 +1675,7 @@ static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags)
+ 	tipc_port_connect(new_ref, &peer);
+ 	new_sock->state = SS_CONNECTED;
+ 
+-	tipc_set_portimportance(new_ref, msg_importance(msg));
++	tipc_port_set_importance(new_port, msg_importance(msg));
+ 	if (msg_named(msg)) {
+ 		new_port->conn_type = msg_nametype(msg);
+ 		new_port->conn_instance = msg_nameinst(msg);
+@@ -1797,16 +1797,16 @@ static int tipc_setsockopt(struct socket *sock, int lvl, int opt,
+ 
+ 	switch (opt) {
+ 	case TIPC_IMPORTANCE:
+-		res = tipc_set_portimportance(tport->ref, value);
++		tipc_port_set_importance(tport, value);
+ 		break;
+ 	case TIPC_SRC_DROPPABLE:
+ 		if (sock->type != SOCK_STREAM)
+-			res = tipc_set_portunreliable(tport->ref, value);
++			tipc_port_set_unreliable(tport, value);
+ 		else
+ 			res = -ENOPROTOOPT;
+ 		break;
+ 	case TIPC_DEST_DROPPABLE:
+-		res = tipc_set_portunreturnable(tport->ref, value);
++		tipc_port_set_unreturnable(tport, value);
+ 		break;
+ 	case TIPC_CONN_TIMEOUT:
+ 		tipc_sk(sk)->conn_timeout = value;
+@@ -1855,13 +1855,13 @@ static int tipc_getsockopt(struct socket *sock, int lvl, int opt,
+ 
+ 	switch (opt) {
+ 	case TIPC_IMPORTANCE:
+-		res = tipc_portimportance(tport->ref, &value);
++		value = tipc_port_importance(tport);
+ 		break;
+ 	case TIPC_SRC_DROPPABLE:
+-		res = tipc_portunreliable(tport->ref, &value);
++		value = tipc_port_unreliable(tport);
+ 		break;
+ 	case TIPC_DEST_DROPPABLE:
+-		res = tipc_portunreturnable(tport->ref, &value);
++		value = tipc_port_unreturnable(tport);
+ 		break;
+ 	case TIPC_CONN_TIMEOUT:
+ 		value = tipc_sk(sk)->conn_timeout;
+-- 
+1.7.9.5
