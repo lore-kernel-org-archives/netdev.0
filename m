@@ -1,76 +1,38 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH net-next 5/6] netfilter: Convert uses of __constant_<foo>
- to <foo>
-Date: Wed, 12 Mar 2014 20:41:34 +0100 (CET)
-Message-ID: <alpine.DEB.2.10.1403122040360.18314@blackhole.kfki.hu>
-References: <cover.1394643455.git.joe@perches.com> <d0259d9122d308e3297cac6f7bc47c9955c3597b.1394643455.git.joe@perches.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 05/13] igb: Add support for debugfs
+Date: Wed, 12 Mar 2014 15:46:50 -0400 (EDT)
+Message-ID: <20140312.154650.1047434627285395570.davem@davemloft.net>
+References: <1394603618-1044-6-git-send-email-jeffrey.t.kirsher@intel.com>
+	<CAJZOPZ+TtFRjeA=9WZMhONSd65HZwMizf732W7oe-HJ=E0MBvg@mail.gmail.com>
+	<9BBC4E0CF881AA4299206E2E1412B6264FAB3870@ORSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d0259d9122d308e3297cac6f7bc47c9955c3597b.1394643455.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: or.gerlitz@gmail.com, jeffrey.t.kirsher@intel.com,
+	gospo@redhat.com, netdev@vger.kernel.org, sassmann@redhat.com,
+	hayja@mail.uc.edu, amirv@mellanox.com, yevgenyp@mellanox.com
+To: carolyn.wyborny@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40787 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750967AbaCLTqw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 15:46:52 -0400
+In-Reply-To: <9BBC4E0CF881AA4299206E2E1412B6264FAB3870@ORSMSX102.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 12 Mar 2014, Joe Perches wrote:
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Date: Wed, 12 Mar 2014 16:35:49 +0000
 
-> The use of __constant_<foo> has been unnecessary for quite awhile now.
-> 
-> Make these uses consistent with the rest of the kernel.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Josh and I tried very hard to not reimplement anything already
+> available in some other tool or mechanism and used the examples we
+> already have for this in our other drivers.  That being said, we'll
+> abide and follow any clear criteria provided.
 
-Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+I don't think what's being done here is appropriate.
 
-> ---
->  net/netfilter/ipset/pfxlen.c | 4 ++--
->  net/netfilter/xt_AUDIT.c     | 4 ++--
->  2 files changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/netfilter/ipset/pfxlen.c b/net/netfilter/ipset/pfxlen.c
-> index 4f29fa9..04d15fd 100644
-> --- a/net/netfilter/ipset/pfxlen.c
-> +++ b/net/netfilter/ipset/pfxlen.c
-> @@ -7,8 +7,8 @@
->  
->  #define E(a, b, c, d) \
->  	{.ip6 = { \
-> -		__constant_htonl(a), __constant_htonl(b), \
-> -		__constant_htonl(c), __constant_htonl(d), \
-> +		htonl(a), htonl(b), \
-> +		htonl(c), htonl(d), \
->  	} }
->  
->  /*
-> diff --git a/net/netfilter/xt_AUDIT.c b/net/netfilter/xt_AUDIT.c
-> index 3228d7f..4973cbd 100644
-> --- a/net/netfilter/xt_AUDIT.c
-> +++ b/net/netfilter/xt_AUDIT.c
-> @@ -146,11 +146,11 @@ audit_tg(struct sk_buff *skb, const struct xt_action_param *par)
->  
->  		if (par->family == NFPROTO_BRIDGE) {
->  			switch (eth_hdr(skb)->h_proto) {
-> -			case __constant_htons(ETH_P_IP):
-> +			case htons(ETH_P_IP):
->  				audit_ip4(ab, skb);
->  				break;
->  
-> -			case __constant_htons(ETH_P_IPV6):
-> +			case htons(ETH_P_IPV6):
->  				audit_ip6(ab, skb);
->  				break;
->  			}
-> -- 
-> 1.8.1.2.459.gbcd45b4.dirty
-> 
+ethtool can provide the extended statistics.
 
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+We already have a way to dump registers in ethtool as well.  If you
+want to add fine-grained register read support and write support, that
+would be a nice addition to ethtool.
