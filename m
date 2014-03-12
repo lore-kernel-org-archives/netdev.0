@@ -1,96 +1,86 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: [PATCH v2a RESEND 2/2] of_mdio: Allow the DT to specify the phy ID and avoid autoprobing
-Date: Wed, 12 Mar 2014 15:05:11 -0600
-Message-ID: <1394658311-17769-2-git-send-email-jgunthorpe@obsidianresearch.com>
-References: <1394658311-17769-1-git-send-email-jgunthorpe@obsidianresearch.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Rob Herring <robh+dt@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394658311-17769-1-git-send-email-jgunthorpe@obsidianresearch.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: [PATCH 0/2][V2] net: Implement SO_PEERCGROUP to get cgroup of peer
+Date: Wed, 12 Mar 2014 14:09:35 -0700
+Message-ID: <CALCETrVPu_37FfY+DN8AowUdq7W4pLgczw-Pd7Z_O8h740giNw@mail.gmail.com>
+References: <1394657163-7472-1-git-send-email-vgoyal@redhat.com>
+ <5320C9FC.6070301@amacapital.net> <1394657970.32465.200.camel@willson.li.ssimo.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394657970.32465.200.camel-Hs+ccMQdwurzDu64bZtGtWD2FQJk+8+b@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This makes the generic of_mdiobus_register parse the DT compatible string for
-the pattern ethernet-phy-idAAAA.BBBB. If present it should be a value that
-matches the phy-id register normally readable through MDIO.
+On Wed, Mar 12, 2014 at 1:59 PM, Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> On Wed, 2014-03-12 at 13:56 -0700, Andy Lutomirski wrote:
+>> On 03/12/2014 01:46 PM, Vivek Goyal wrote:
+>> > Hi,
+>> >
+>> > This is V2 of patches. Fixed the function format issue and also I was using
+>> > CONFIG_CGROUP instead of CONFIG_CGROUPS. That led to crash at boot. Fixed that.
+>> >
+>> > Some applications like sssd want to know the cgroup of connected peer over
+>> > unix stream socket. They want to use this information to map the cgroup to
+>> > the container client belongs to and then decide what kind of policies apply
+>> > on the container.
+>> >
+>>
+>> Can you explain what the use case is?
+>
+> External programs contacted from inside a container want to know 'who'
+> is contacting them. Whee 'who' is determined by the cgroup their put in.
+> This way these external programs can apply appropriate policy associated
+> with the specific 'marking' cgroup.
+>
+>> My a priori opinion is that this is a terrible idea.  cgroups are a
+>> nasty interface, and letting knowledge of cgroups leak into the programs
+>> that live in the groups (as opposed to the cgroup manager) seems like a
+>> huge mistake to me.
+>
+> I am not sure where you are going, the program that want's to know about
+> the cgroup is outside the group.
+>
+>> If you want to know where in the process hierarchy a message sender is,
+>> add *that* and figure out how to fix the races (it shouldn't be that hard).
+>
+> What is *that* here ?
 
-When the ID is given the phy autoprobing is defeated and the phy is
-created directly.
+It sounds like your use case is:
 
-This is necessary to support phy's that cannot be autoprobed when
-of_mdiobus_register is called. Specifically, my case has the phy in reset at
-of_mdiobus_register, the reset is only released once the ethernet driver
-starts, before it attaches to the phy.
+systemd shoves a service in a cgroup.  Its children stay in that
+cgroup.  One of those children sends a message back to systemd or
+something that knows about systemd's use of cgroups and wants to
+identify which service it is.
 
-Tested on ARM Kirkwood with phy id 0x01410e90 (Marvell 88E1318)
+Now imagine that you're using a non-systemd cgroup controller, or you
+have more than one cgroup hierarchy, or you have two services that
+want to share a cgroup.  Or imagine that you're totally happy with
+systemd but that you want to use this same facility from something
+unprivileged.
 
-Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/of/of_mdio.c | 30 +++++++++++++++++++++++++++++-
- 1 file changed, 29 insertions(+), 1 deletion(-)
+So let's rethink this.  There's already SCM_CREDENTIALS for sending
+pid, but using pid there is inherently racy.  If that race were fixed
+and there were a clean way to look up with process subtree or service
+a pid lives in, then I think this would solve your problem.  No
+cgroups needed.
 
-There was some reworking of the original code in v3.14-rc6, this resolves the
-merge conflicts and I retested the resolved patch on Kirkwood.
+--Andy
 
-Florian, do you know what path to mainline a this patch should take?
+>
+> Simo.
+>
+>
+>
 
-Thanks,
-Jason
 
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 5b3c24f..6cdcbda 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -43,6 +43,30 @@ static void of_set_phy_supported(struct phy_device *phydev, u32 max_speed)
- 	}
- }
- 
-+/* Extract the clause 22 phy ID from the compatible string of the form
-+ * ethernet-phy-idAAAA.BBBB */
-+static int of_get_phy_id(struct device_node *device, u32 *phy_id)
-+{
-+	const char *cp;
-+	int cplen, l;
-+	unsigned int upper, lower;
-+
-+	cp = of_get_property(device, "compatible", &cplen);
-+	if (cp == NULL)
-+		return -EINVAL;
-+	while (cplen > 0) {
-+		if (sscanf(cp, "ethernet-phy-id%4x.%4x", &upper, &lower) == 2) {
-+			*phy_id = ((upper & 0xFFFF) << 16) | (lower & 0xFFFF);
-+			return 0;
-+		}
-+
-+		l = strlen(cp) + 1;
-+		cp += l;
-+		cplen -= l;
-+	}
-+	return -EINVAL;
-+}
-+
- static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *child,
- 				   u32 addr)
- {
-@@ -50,11 +74,15 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
- 	bool is_c45;
- 	int rc;
- 	u32 max_speed = 0;
-+	u32 phy_id;
- 
- 	is_c45 = of_device_is_compatible(child,
- 					 "ethernet-phy-ieee802.3-c45");
- 
--	phy = get_phy_device(mdio, addr, is_c45);
-+	if (!is_c45 && !of_get_phy_id(child, &phy_id))
-+		phy = phy_device_create(mdio, addr, phy_id, 0, NULL);
-+	else
-+		phy = get_phy_device(mdio, addr, is_c45);
- 	if (!phy || IS_ERR(phy))
- 		return 1;
- 
+
 -- 
-1.8.1.2
+Andy Lutomirski
+AMA Capital Management, LLC
