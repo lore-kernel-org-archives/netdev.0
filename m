@@ -1,63 +1,30 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net-next V4 7/9] Altera TSE: Add Altera Ethernet Driver Makefile and Kconfig
-Date: Wed, 12 Mar 2014 15:15:32 -0500
-Message-ID: <1394655334-29547-8-git-send-email-vbridgers2013@gmail.com>
-References: <1394655334-29547-1-git-send-email-vbridgers2013@gmail.com>
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	rob@landley.net, vbridgers2013@gmail.com
-To: devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1394655334-29547-1-git-send-email-vbridgers2013@gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/7] be2net: patch set
+Date: Wed, 12 Mar 2014 16:20:33 -0400 (EDT)
+Message-ID: <20140312.162033.1974748803629263908.davem@davemloft.net>
+References: <1394544189-20277-1-git-send-email-sathya.perla@emulex.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41334 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753220AbaCLUUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 16:20:35 -0400
+In-Reply-To: <1394544189-20277-1-git-send-email-sathya.perla@emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds the Altera Triple Speed Ethernet Makfile and
-Kconfig file.
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Tue, 11 Mar 2014 18:53:02 +0530
 
-Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
----
-V4: - No changes to these files for V4
+> Pls apply. Thanks!
 
-V3: - Reorder commits from V2, otherwise no changes to these files
+Series applied, but in the future could you please give a proper
+high level description of your changes in this header posting?
 
-V2: - Break up the driver files submission, no change to
-      the Makefile or Kconfig file
----
- drivers/net/ethernet/altera/Kconfig  |    8 ++++++++
- drivers/net/ethernet/altera/Makefile |    7 +++++++
- 2 files changed, 15 insertions(+)
- create mode 100644 drivers/net/ethernet/altera/Kconfig
- create mode 100644 drivers/net/ethernet/altera/Makefile
+Just providing the shortlog does not cut it.
 
-diff --git a/drivers/net/ethernet/altera/Kconfig b/drivers/net/ethernet/altera/Kconfig
-new file mode 100644
-index 0000000..80c1ab7
---- /dev/null
-+++ b/drivers/net/ethernet/altera/Kconfig
-@@ -0,0 +1,8 @@
-+config ALTERA_TSE
-+	tristate "Altera Triple-Speed Ethernet MAC support"
-+	select PHYLIB
-+	---help---
-+	  This driver supports the Altera Triple-Speed (TSE) Ethernet MAC.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called alteratse.
-diff --git a/drivers/net/ethernet/altera/Makefile b/drivers/net/ethernet/altera/Makefile
-new file mode 100644
-index 0000000..d4a187e
---- /dev/null
-+++ b/drivers/net/ethernet/altera/Makefile
-@@ -0,0 +1,7 @@
-+#
-+# Makefile for the Altera device drivers.
-+#
-+
-+obj-$(CONFIG_ALTERA_TSE) += altera_tse.o
-+altera_tse-objs := altera_tse_main.o altera_tse_ethtool.o \
-+altera_msgdma.o altera_sgdma.o altera_utils.o
--- 
-1.7.9.5
-
+Thanks.
