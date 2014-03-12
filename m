@@ -1,36 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Avoid unnecessary temporary addresses being generated
-Date: Wed, 12 Mar 2014 15:47:56 -0400 (EDT)
-Message-ID: <20140312.154756.2041500360476257988.davem@davemloft.net>
-References: <5320B85B.4000100@web.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCHv6 net-next 20/31] iw_cxgb4: adjust tcp snd/rcv window
+ based on link speed
+Date: Wed, 12 Mar 2014 15:50:17 -0400 (EDT)
+Message-ID: <20140312.155017.118512327402563943.davem@davemloft.net>
+References: <1394639446-6504-1-git-send-email-hariprasad@chelsio.com>
+	<1394639446-6504-21-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: heiner.kallweit@web.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40810 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751283AbaCLTr5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 15:47:57 -0400
-In-Reply-To: <5320B85B.4000100@web.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394639446-6504-21-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Heiner Kallweit <heiner.kallweit@web.de>
-Date: Wed, 12 Mar 2014 20:41:15 +0100
+From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Date: Wed, 12 Mar 2014 21:20:35 +0530
 
-> tmp_prefered_lft is an offset to ifp->tstamp, not now. Therefore
-> age needs to be added to the condition.
-> 
-> Age calculation in ipv6_create_tempaddr is different from the one
-> in addrconf_verify and doesn't consider ADDRCONF_TIMER_FUZZ_MINUS.
-> This can cause age in ipv6_create_tempaddr to be less than the one
-> in addrconf_verify and therefore unnecessary temporary address to
-> be generated.
-> Use age calculation as in addrconf_modify to avoid this.
-> 
-> Signed-off-by: Heiner Kallweit <heiner.kallweit@web.de>
+> Added module option named adjust_win, defaulted to 1, that allows
+> disabling the 40G window bump.  This allows a user to specify the exact
+> default window sizes via module options snd_win and rcv_win.
 
-Please provide a proper subsystem prefix in your subject line,
-after "[PATCH] ". In this case it would be "ipv6: ".
+This is terrible.  As is the existing other TCP tweaking module
+parameters.
+
+You can just use the TCP settings the kernel already provides for
+the real TCP stack.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
