@@ -1,43 +1,54 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCHv6 net-next 20/31] iw_cxgb4: adjust tcp snd/rcv window
- based on link speed
-Date: Wed, 12 Mar 2014 16:23:48 -0400 (EDT)
-Message-ID: <20140312.162348.2225551653125401290.davem@davemloft.net>
-References: <1394639446-6504-21-git-send-email-hariprasad@chelsio.com>
-	<20140312.155017.118512327402563943.davem@davemloft.net>
-	<008801cf3e2e$d8679b00$8936d100$@opengridcomputing.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 05/13] igb: Add support for debugfs
+Date: Wed, 12 Mar 2014 16:24:10 -0400 (EDT)
+Message-ID: <20140312.162410.1250724491800391563.davem@davemloft.net>
+References: <9BBC4E0CF881AA4299206E2E1412B6264FAB3870@ORSMSX102.amr.corp.intel.com>
+	<20140312.154650.1047434627285395570.davem@davemloft.net>
+	<9BBC4E0CF881AA4299206E2E1412B6264FAB6029@ORSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <008801cf3e2e$d8679b00$8936d100$@opengridcomputing.com>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: or.gerlitz@gmail.com, jeffrey.t.kirsher@intel.com,
+	gospo@redhat.com, netdev@vger.kernel.org, sassmann@redhat.com,
+	hayja@mail.uc.edu, amirv@mellanox.com, yevgenyp@mellanox.com
+To: carolyn.wyborny@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41422 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751166AbaCLUYL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 16:24:11 -0400
+In-Reply-To: <9BBC4E0CF881AA4299206E2E1412B6264FAB6029@ORSMSX102.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Date: Wed, 12 Mar 2014 15:08:33 -0500
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Date: Wed, 12 Mar 2014 20:13:53 +0000
 
->> > Added module option named adjust_win, defaulted to 1, that allows
->> > disabling the 40G window bump.  This allows a user to specify the exact
->> > default window sizes via module options snd_win and rcv_win.
+>> -----Original Message-----
+>> From: David Miller [mailto:davem@davemloft.net]
+>> Sent: Wednesday, March 12, 2014 12:47 PM
+>> To: Wyborny, Carolyn
+>> Cc: or.gerlitz@gmail.com; Kirsher, Jeffrey T; gospo@redhat.com;
+>> netdev@vger.kernel.org; sassmann@redhat.com; hayja@mail.uc.edu;
+>> amirv@mellanox.com; yevgenyp@mellanox.com
+>> Subject: Re: [net-next 05/13] igb: Add support for debugfs
 >> 
->> This is terrible.  As is the existing other TCP tweaking module
->> parameters.
+>> From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+>> Date: Wed, 12 Mar 2014 16:35:49 +0000
 >> 
->> You can just use the TCP settings the kernel already provides for
->> the real TCP stack.
+>> > Josh and I tried very hard to not reimplement anything already
+>> > available in some other tool or mechanism and used the examples we
+>> > already have for this in our other drivers.  That being said, we'll
+>> > abide and follow any clear criteria provided.
+>> 
+>> I don't think what's being done here is appropriate.
+>> 
+>> ethtool can provide the extended statistics.
+>> 
+>> We already have a way to dump registers in ethtool as well.  If you want to add
+>> fine-grained register read support and write support, that would be a nice
+>> addition to ethtool.
 > 
-> Do you mean use sysctl_tcp_*mem, sysctl_tcp_timestamps, sysctl_tcp_window_scaling, etc?
-> I'll look into this.  
+> Ok, I'll remove the register outputs.  Is there any objection to the other functionality provided?
 
-And the socket memory limits, which we use to compute default window
-sizes.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I said the statistics can be done with ethtool, so I object to everything.
