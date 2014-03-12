@@ -1,86 +1,78 @@
-From: Krishna Chaitanya <chaitanya.mgit@gmail.com>
-Subject: Re: [mac80211_hwsim] BUG: unable to handle kernel paging request at ce1db404
-Date: Thu, 13 Mar 2014 02:15:25 +0530
-Message-ID: <CABPxzYLJA-gQjw2CwmL63dYEQ35h073k_vsp1uEM0B-sAmEwKQ@mail.gmail.com>
-References: <20140305125703.GA7193@localhost> <20140305132317.GB10880@localhost>
- <20140308121138.GA8359@localhost> <20140312173446.GD2983@piware.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Fengguang Wu <fengguang.wu@intel.com>,
-	Johannes Berg <johannes.berg@intel.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Martin Pitt <martin.pitt@ubuntu.com>
+From: Vivek Goyal <vgoyal@redhat.com>
+Subject: [PATCH 0/2][V2] net: Implement SO_PEERCGROUP to get cgroup of peer
+Date: Wed, 12 Mar 2014 16:46:01 -0400
+Message-ID: <1394657163-7472-1-git-send-email-vgoyal@redhat.com>
+Cc: ssorce@redhat.com, jkaluza@redhat.com, lpoetter@redhat.com,
+	kay@redhat.com, Vivek Goyal <vgoyal@redhat.com>
+To: linux-kernel@vger.kernel.org, cgroups@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net, tj@kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140312173446.GD2983@piware.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 12, 2014 at 11:04 PM, Martin Pitt <martin.pitt@ubuntu.com> wrote:
->
-> Fengguang Wu [2014-03-08 20:11 +0800]:
-> > [    4.429993] mac80211_hwsim: ieee80211_register_hw failed (-2)
-> > [...]
-> > [    4.431924]  [<c12377de>] get_device+0xf/0x17
-> > [    4.431924]  [<c123a165>] driver_detach+0x38/0x8f
-> > [    4.431924]  [<c1239433>] bus_remove_driver+0x53/0x66
-> > [    4.431924]  [<c123a535>] driver_unregister+0x38/0x3d
-> > [    4.431924]  [<c123b3aa>] platform_driver_unregister+0xb/0xd
-> > [    4.431924]  [<c1c4ac9f>] init_mac80211_hwsim+0x3a5/0x3b6
->
->
-> So that first message is from
-> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/mac80211_hwsim.c?id=9ea927748#n2428
->
-> At this point we registered the platform driver and the class, and it
-> should have created two devices (at least for the default radios=2).
-> What's odd is that I don't see this printk in your kernel log:
->
->   mac80211_hwsim: Initializing radio %d
->
-> If for some reasons "radio" is 0, it would not show this and not
-> initialize data->dev, but then you shouldn't get to
-> ieee80211_register_hw() either as it's in the same loop. So that's a
-> bit of a mystery to me.
->
-> On failure, above ieee80211_register_hw() jumps to the cleanup:
->
-> | failed_hw:
-> |       device_unregister(data->dev);
-> | failed_drvdata:
-> |       ieee80211_free_hw(hw);
-> | failed:
-> |       mac80211_hwsim_free();
-> | failed_unregister_driver:
-> |       driver_unregister(&mac80211_hwsim_driver);
-> |       return err;
-> | }
->
->
-> The mac80211_hwsim_free() function again calls
-> device_unregister(data->dev) for a list (not sure which, I'm not
-> certain how to interpret
->
->   list_for_each_entry_safe(data, tmpdata, &tmplist, list)
->
-> ) Could that be the double free causing the memory corruption?
->
-> If you are in a position to do quick builds and tests, does the crash
-> go away with this?
->
->                 printk(KERN_DEBUG "mac80211_hwsim: device_bind_driver failed (%d)\n",
->                        err);
-> -               goto failed_hw;
-> +               goto failed_drvdata;
->         }
->
-> (I'm not claiming that this is correct, just taking a stab at
-> understanding what happens) If not, does it go away with changing the
-> goto to failed_unregister_driver()?
->
->From the logs it looks like "rate_control_alloc" is failed,
-causing ieee80211_register_hw to fail triggering the crash.
-what RC are u using? Default should be minstrel, i dont see
-a reason for rc alloc to fail (remote reason kmalloc failure),
-so did you disable RC completely? No prints either w.r.t RC either in
-dmesg?
+Hi,
+
+This is V2 of patches. Fixed the function format issue and also I was using
+CONFIG_CGROUP instead of CONFIG_CGROUPS. That led to crash at boot. Fixed that.
+
+Some applications like sssd want to know the cgroup of connected peer over
+unix stream socket. They want to use this information to map the cgroup to 
+the container client belongs to and then decide what kind of policies apply
+on the container.
+
+Well why not use SO_PEERCRED, extract pid from it and lookup in
+/proc/pid/cgroup to figure out cgroup of client. Problem there is that it
+is racy. By the time we look up in /proc, it might happen that client
+exited (possibly after handing over socket fd to a child), and client pid
+can possibly be assigned to another process. That's the reason people are
+looking for more reliable mechanism.
+
+There are others like journald who want similar information over unix
+datagram sockets. A patchset to provide that functionality was posted
+here.
+
+https://lkml.org/lkml/2014/1/13/43
+
+But this was rejected because of overhead it will cause for rest of the
+cases.
+
+https://lkml.org/lkml/2014/1/15/480
+
+This patch series implements SO_PEERCGROUP, which gives the cgroup of
+client at the time of opening the connection. So overhead is involved only
+during connection setup and there should not be any overhead after that.
+
+So it does not solve all the use cases out there but can solve the needs
+of sssd. Hence I am posting this patch.
+
+Please consider it for inclusion.
+
+Thanks
+Vivek
+
+Vivek Goyal (2):
+  cgroup: Provide empty definition of task_cgroup_path()
+  net: Implement SO_PEERCGROUP
+
+ arch/alpha/include/uapi/asm/socket.h   |  1 +
+ arch/avr32/include/uapi/asm/socket.h   |  1 +
+ arch/cris/include/uapi/asm/socket.h    |  2 ++
+ arch/frv/include/uapi/asm/socket.h     |  1 +
+ arch/ia64/include/uapi/asm/socket.h    |  2 ++
+ arch/m32r/include/uapi/asm/socket.h    |  1 +
+ arch/mips/include/uapi/asm/socket.h    |  1 +
+ arch/mn10300/include/uapi/asm/socket.h |  1 +
+ arch/parisc/include/uapi/asm/socket.h  |  1 +
+ arch/powerpc/include/uapi/asm/socket.h |  1 +
+ arch/s390/include/uapi/asm/socket.h    |  1 +
+ arch/sparc/include/uapi/asm/socket.h   |  2 ++
+ arch/xtensa/include/uapi/asm/socket.h  |  1 +
+ include/linux/cgroup.h                 |  6 +++++
+ include/net/sock.h                     |  1 +
+ include/uapi/asm-generic/socket.h      |  2 ++
+ net/core/sock.c                        | 19 ++++++++++++++
+ net/unix/af_unix.c                     | 48 ++++++++++++++++++++++++++++++++++
+ 18 files changed, 92 insertions(+)
+
+-- 
+1.8.5.3
