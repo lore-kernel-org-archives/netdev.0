@@ -1,33 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] mlx4 fixes
-Date: Wed, 12 Mar 2014 16:14:08 -0400 (EDT)
-Message-ID: <20140312.161408.2149985285610209.davem@davemloft.net>
-References: <1394637392-31104-1-git-send-email-ogerlitz@mellanox.com>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [net-next 05/13] igb: Add support for debugfs
+Date: Wed, 12 Mar 2014 20:13:53 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B6264FAB6029@ORSMSX102.amr.corp.intel.com>
+References: <1394603618-1044-6-git-send-email-jeffrey.t.kirsher@intel.com>
+	<CAJZOPZ+TtFRjeA=9WZMhONSd65HZwMizf732W7oe-HJ=E0MBvg@mail.gmail.com>
+	<9BBC4E0CF881AA4299206E2E1412B6264FAB3870@ORSMSX102.amr.corp.intel.com>
+ <20140312.154650.1047434627285395570.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com
-To: ogerlitz@mellanox.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "or.gerlitz@gmail.com" <or.gerlitz@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"hayja@mail.uc.edu" <hayja@mail.uc.edu>,
+	"amirv@mellanox.com" <amirv@mellanox.com>,
+	"yevgenyp@mellanox.com" <yevgenyp@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41248 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751963AbaCLUOK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 16:14:10 -0400
-In-Reply-To: <1394637392-31104-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mga01.intel.com ([192.55.52.88]:33798 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751963AbaCLUON convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 16:14:13 -0400
+In-Reply-To: <20140312.154650.1047434627285395570.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Wed, 12 Mar 2014 17:16:29 +0200
-
-> These short series fixes two bugs related to the vxlan support and a
-> missing req module call for the IB driver which is needed to support
-> IB/RDMA over Ethernet.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, March 12, 2014 12:47 PM
+> To: Wyborny, Carolyn
+> Cc: or.gerlitz@gmail.com; Kirsher, Jeffrey T; gospo@redhat.com;
+> netdev@vger.kernel.org; sassmann@redhat.com; hayja@mail.uc.edu;
+> amirv@mellanox.com; yevgenyp@mellanox.com
+> Subject: Re: [net-next 05/13] igb: Add support for debugfs
 > 
-> Pathes done over the net tree, commit dd38743 "vlan: Set correct
-> source MAC address with TX VLAN offload enabled"
+> From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+> Date: Wed, 12 Mar 2014 16:35:49 +0000
+> 
+> > Josh and I tried very hard to not reimplement anything already
+> > available in some other tool or mechanism and used the examples we
+> > already have for this in our other drivers.  That being said, we'll
+> > abide and follow any clear criteria provided.
+> 
+> I don't think what's being done here is appropriate.
+> 
+> ethtool can provide the extended statistics.
+> 
+> We already have a way to dump registers in ethtool as well.  If you want to add
+> fine-grained register read support and write support, that would be a nice
+> addition to ethtool.
 
-Series applied, thanks Or.
+Ok, I'll remove the register outputs.  Is there any objection to the other functionality provided?
 
-I wonder though, if a MAC address change results in a VLAN steering
-rule insertion failure, won't we be left in an inconsistent state?
+Thanks,
+
+Carolyn
