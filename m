@@ -1,631 +1,206 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 6/7] tipc: align usage of variable names and macros in socket
-Date: Wed, 12 Mar 2014 11:31:12 -0400
-Message-ID: <1394638273-6127-7-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 4/7] tipc: eliminate upcall
+	function pointers between port and socket
+Date: Wed, 12 Mar 2014 11:31:10 -0400
+Message-ID: <1394638273-6127-5-git-send-email-jon.maloy@ericsson.com>
 References: <1394638273-6127-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.ne1.yahoo.com ([98.138.207.11]:33907 "HELO
-	smtp104.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755037AbaCLPba (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 11:31:30 -0400
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 In-Reply-To: <1394638273-6127-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-The practice of naming variables in TIPC is inconistent, sometimes
-even within the same file.
-
-In this commit we align variable names and declarations within
-socket.c, and function and macro names within socket.h. We also
-reduce the number of conversion macros to two, in order to make
-usage less obsure.
-
-These changes are purely cosmetic.
-
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
----
- net/tipc/port.c   |    4 +-
- net/tipc/socket.c |  165 +++++++++++++++++++++++++++++------------------------
- net/tipc/socket.h |   13 ++---
- 3 files changed, 98 insertions(+), 84 deletions(-)
-
-diff --git a/net/tipc/port.c b/net/tipc/port.c
-index ec8153f..894c0d9 100644
---- a/net/tipc/port.c
-+++ b/net/tipc/port.c
-@@ -193,7 +193,7 @@ exit:
- 
- void tipc_port_wakeup(struct tipc_port *port)
- {
--	tipc_sk_wakeup(tipc_port_to_sk(port));
-+	tipc_sock_wakeup(tipc_port_to_sock(port));
- }
- 
- /* tipc_port_init - intiate TIPC port and lock it
-@@ -776,7 +776,7 @@ int tipc_port_rcv(struct sk_buff *buf)
- 	/* validate destination & pass to port, otherwise reject message */
- 	p_ptr = tipc_port_lock(destport);
- 	if (likely(p_ptr)) {
--		err = tipc_sk_rcv(tipc_port_to_sk(p_ptr), buf);
-+		err = tipc_sk_rcv(&tipc_port_to_sock(p_ptr)->sk, buf);
- 		tipc_port_unlock(p_ptr);
- 		if (likely(!err))
- 			return dsz;
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 6c71988..9cea92e 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -139,13 +139,15 @@ static void reject_rx_queue(struct sock *sk)
-  *
-  * Returns 0 on success, errno otherwise
-  */
--static int tipc_sk_create(struct net *net, struct socket *sock, int protocol,
--			  int kern)
-+static int tipc_sk_create(struct net *net, struct socket *sock,
-+			  int protocol, int kern)
- {
- 	const struct proto_ops *ops;
- 	socket_state state;
- 	struct sock *sk;
--	struct tipc_port *tp_ptr;
-+	struct tipc_sock *tsk;
-+	struct tipc_port *port;
-+	u32 ref;
- 
- 	/* Validate arguments */
- 	if (unlikely(protocol != 0))
-@@ -178,8 +180,12 @@ static int tipc_sk_create(struct net *net, struct socket *sock, int protocol,
- 	if (sk == NULL)
- 		return -ENOMEM;
- 
--	tp_ptr = tipc_sk_port(sk);
--	if (!tipc_port_init(tp_ptr, TIPC_LOW_IMPORTANCE)) {
-+	tsk = tipc_sk(sk);
-+	port = &tsk->port;
-+
-+	ref = tipc_port_init(port, TIPC_LOW_IMPORTANCE);
-+	if (!ref) {
-+		pr_warn("Socket registration failed, ref. table exhausted\n");
- 		sk_free(sk);
- 		return -ENOMEM;
- 	}
-@@ -194,12 +200,12 @@ static int tipc_sk_create(struct net *net, struct socket *sock, int protocol,
- 	sk->sk_data_ready = tipc_data_ready;
- 	sk->sk_write_space = tipc_write_space;
- 	tipc_sk(sk)->conn_timeout = CONN_TIMEOUT_DEFAULT;
--	spin_unlock_bh(tp_ptr->lock);
-+	tipc_port_unlock(port);
- 
- 	if (sock->state == SS_READY) {
--		tipc_port_set_unreturnable(tp_ptr, true);
-+		tipc_port_set_unreturnable(port, true);
- 		if (sock->type == SOCK_DGRAM)
--			tipc_port_set_unreliable(tp_ptr, true);
-+			tipc_port_set_unreliable(port, true);
- 	}
- 	return 0;
- }
-@@ -292,7 +298,8 @@ int tipc_sock_accept_local(struct socket *sock, struct socket **newsock,
- static int tipc_release(struct socket *sock)
- {
- 	struct sock *sk = sock->sk;
--	struct tipc_port *tport;
-+	struct tipc_sock *tsk;
-+	struct tipc_port *port;
- 	struct sk_buff *buf;
- 	int res;
- 
-@@ -303,7 +310,8 @@ static int tipc_release(struct socket *sock)
- 	if (sk == NULL)
- 		return 0;
- 
--	tport = tipc_sk_port(sk);
-+	tsk = tipc_sk(sk);
-+	port = &tsk->port;
- 	lock_sock(sk);
- 
- 	/*
-@@ -320,17 +328,16 @@ static int tipc_release(struct socket *sock)
- 			if ((sock->state == SS_CONNECTING) ||
- 			    (sock->state == SS_CONNECTED)) {
- 				sock->state = SS_DISCONNECTING;
--				tipc_port_disconnect(tport->ref);
-+				tipc_port_disconnect(port->ref);
- 			}
- 			tipc_reject_msg(buf, TIPC_ERR_NO_PORT);
- 		}
- 	}
- 
--	/*
--	 * Delete TIPC port; this ensures no more messages are queued
--	 * (also disconnects an active connection & sends a 'FIN-' to peer)
-+	/* Destroy TIPC port; also disconnects an active connection and
-+	 * sends a 'FIN-' to peer.
- 	 */
--	tipc_port_destroy(tport);
-+	tipc_port_destroy(port);
- 
- 	/* Discard any remaining (connection-based) messages in receive queue */
- 	__skb_queue_purge(&sk->sk_receive_queue);
-@@ -365,12 +372,12 @@ static int tipc_bind(struct socket *sock, struct sockaddr *uaddr,
- {
- 	struct sock *sk = sock->sk;
- 	struct sockaddr_tipc *addr = (struct sockaddr_tipc *)uaddr;
--	struct tipc_port *tport = tipc_sk_port(sock->sk);
-+	struct tipc_sock *tsk = tipc_sk(sk);
- 	int res = -EINVAL;
- 
- 	lock_sock(sk);
- 	if (unlikely(!uaddr_len)) {
--		res = tipc_withdraw(tport, 0, NULL);
-+		res = tipc_withdraw(&tsk->port, 0, NULL);
- 		goto exit;
- 	}
- 
-@@ -398,8 +405,8 @@ static int tipc_bind(struct socket *sock, struct sockaddr *uaddr,
- 	}
- 
- 	res = (addr->scope > 0) ?
--		tipc_publish(tport, addr->scope, &addr->addr.nameseq) :
--		tipc_withdraw(tport, -addr->scope, &addr->addr.nameseq);
-+		tipc_publish(&tsk->port, addr->scope, &addr->addr.nameseq) :
-+		tipc_withdraw(&tsk->port, -addr->scope, &addr->addr.nameseq);
- exit:
- 	release_sock(sk);
- 	return res;
-@@ -422,17 +429,17 @@ static int tipc_getname(struct socket *sock, struct sockaddr *uaddr,
- 			int *uaddr_len, int peer)
- {
- 	struct sockaddr_tipc *addr = (struct sockaddr_tipc *)uaddr;
--	struct tipc_port *port = tipc_sk_port(sock->sk);
-+	struct tipc_sock *tsk = tipc_sk(sock->sk);
- 
- 	memset(addr, 0, sizeof(*addr));
- 	if (peer) {
- 		if ((sock->state != SS_CONNECTED) &&
- 			((peer != 2) || (sock->state != SS_DISCONNECTING)))
- 			return -ENOTCONN;
--		addr->addr.id.ref = tipc_port_peerport(port);
--		addr->addr.id.node = tipc_port_peernode(port);
-+		addr->addr.id.ref = tipc_port_peerport(&tsk->port);
-+		addr->addr.id.node = tipc_port_peernode(&tsk->port);
- 	} else {
--		addr->addr.id.ref = port->ref;
-+		addr->addr.id.ref = tsk->port.ref;
- 		addr->addr.id.node = tipc_own_addr;
- 	}
- 
-@@ -489,18 +496,19 @@ static unsigned int tipc_poll(struct file *file, struct socket *sock,
- 			      poll_table *wait)
- {
- 	struct sock *sk = sock->sk;
-+	struct tipc_sock *tsk = tipc_sk(sk);
- 	u32 mask = 0;
- 
- 	sock_poll_wait(file, sk_sleep(sk), wait);
- 
- 	switch ((int)sock->state) {
- 	case SS_UNCONNECTED:
--		if (!tipc_sk_port(sk)->congested)
-+		if (!tsk->port.congested)
- 			mask |= POLLOUT;
- 		break;
- 	case SS_READY:
- 	case SS_CONNECTED:
--		if (!tipc_sk_port(sk)->congested)
-+		if (!tsk->port.congested)
- 			mask |= POLLOUT;
- 		/* fall thru' */
- 	case SS_CONNECTING:
-@@ -550,7 +558,7 @@ static int dest_name_check(struct sockaddr_tipc *dest, struct msghdr *m)
- static int tipc_wait_for_sndmsg(struct socket *sock, long *timeo_p)
- {
- 	struct sock *sk = sock->sk;
--	struct tipc_port *tport = tipc_sk_port(sk);
-+	struct tipc_sock *tsk = tipc_sk(sk);
- 	DEFINE_WAIT(wait);
- 	int done;
- 
-@@ -566,12 +574,13 @@ static int tipc_wait_for_sndmsg(struct socket *sock, long *timeo_p)
- 			return sock_intr_errno(*timeo_p);
- 
- 		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
--		done = sk_wait_event(sk, timeo_p, !tport->congested);
-+		done = sk_wait_event(sk, timeo_p, !tsk->port.congested);
- 		finish_wait(sk_sleep(sk), &wait);
- 	} while (!done);
- 	return 0;
- }
- 
-+
- /**
-  * tipc_sendmsg - send message in connectionless manner
-  * @iocb: if NULL, indicates that socket lock is already held
-@@ -590,10 +599,11 @@ static int tipc_sendmsg(struct kiocb *iocb, struct socket *sock,
- 			struct msghdr *m, size_t total_len)
- {
- 	struct sock *sk = sock->sk;
--	struct tipc_port *tport = tipc_sk_port(sk);
-+	struct tipc_sock *tsk = tipc_sk(sk);
- 	DECLARE_SOCKADDR(struct sockaddr_tipc *, dest, m->msg_name);
- 	int needs_conn;
- 	long timeo;
-+	u32 ref = tsk->port.ref;
- 	int res = -EINVAL;
- 
- 	if (unlikely(!dest))
-@@ -617,13 +627,13 @@ static int tipc_sendmsg(struct kiocb *iocb, struct socket *sock,
- 			res = -EISCONN;
- 			goto exit;
- 		}
--		if (tport->published) {
-+		if (tsk->port.published) {
- 			res = -EOPNOTSUPP;
- 			goto exit;
- 		}
- 		if (dest->addrtype == TIPC_ADDR_NAME) {
--			tport->conn_type = dest->addr.name.name.type;
--			tport->conn_instance = dest->addr.name.name.instance;
-+			tsk->port.conn_type = dest->addr.name.name.type;
-+			tsk->port.conn_instance = dest->addr.name.name.instance;
- 		}
- 
- 		/* Abort any pending connection attempts (very unlikely) */
-@@ -636,13 +646,13 @@ static int tipc_sendmsg(struct kiocb *iocb, struct socket *sock,
- 			res = dest_name_check(dest, m);
- 			if (res)
- 				break;
--			res = tipc_send2name(tport->ref,
-+			res = tipc_send2name(ref,
- 					     &dest->addr.name.name,
- 					     dest->addr.name.domain,
- 					     m->msg_iov,
- 					     total_len);
- 		} else if (dest->addrtype == TIPC_ADDR_ID) {
--			res = tipc_send2port(tport->ref,
-+			res = tipc_send2port(ref,
- 					     &dest->addr.id,
- 					     m->msg_iov,
- 					     total_len);
-@@ -654,7 +664,7 @@ static int tipc_sendmsg(struct kiocb *iocb, struct socket *sock,
- 			res = dest_name_check(dest, m);
- 			if (res)
- 				break;
--			res = tipc_port_mcast_xmit(tport->ref,
-+			res = tipc_port_mcast_xmit(ref,
- 						   &dest->addr.nameseq,
- 						   m->msg_iov,
- 						   total_len);
-@@ -678,7 +688,8 @@ exit:
- static int tipc_wait_for_sndpkt(struct socket *sock, long *timeo_p)
- {
- 	struct sock *sk = sock->sk;
--	struct tipc_port *tport = tipc_sk_port(sk);
-+	struct tipc_sock *tsk = tipc_sk(sk);
-+	struct tipc_port *port = &tsk->port;
- 	DEFINE_WAIT(wait);
- 	int done;
- 
-@@ -697,7 +708,7 @@ static int tipc_wait_for_sndpkt(struct socket *sock, long *timeo_p)
- 
- 		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
- 		done = sk_wait_event(sk, timeo_p,
--				     (!tport->congested || !tport->connected));
-+				     (!port->congested || !port->connected));
- 		finish_wait(sk_sleep(sk), &wait);
- 	} while (!done);
- 	return 0;
-@@ -718,7 +729,7 @@ static int tipc_send_packet(struct kiocb *iocb, struct socket *sock,
- 			    struct msghdr *m, size_t total_len)
- {
- 	struct sock *sk = sock->sk;
--	struct tipc_port *tport = tipc_sk_port(sk);
-+	struct tipc_sock *tsk = tipc_sk(sk);
- 	DECLARE_SOCKADDR(struct sockaddr_tipc *, dest, m->msg_name);
- 	int res = -EINVAL;
- 	long timeo;
-@@ -743,7 +754,7 @@ static int tipc_send_packet(struct kiocb *iocb, struct socket *sock,
- 
- 	timeo = sock_sndtimeo(sk, m->msg_flags & MSG_DONTWAIT);
- 	do {
--		res = tipc_send(tport->ref, m->msg_iov, total_len);
-+		res = tipc_send(tsk->port.ref, m->msg_iov, total_len);
- 		if (likely(res != -ELINKCONG))
- 			break;
- 		res = tipc_wait_for_sndpkt(sock, &timeo);
-@@ -772,7 +783,7 @@ static int tipc_send_stream(struct kiocb *iocb, struct socket *sock,
- 			    struct msghdr *m, size_t total_len)
- {
- 	struct sock *sk = sock->sk;
--	struct tipc_port *tport = tipc_sk_port(sk);
-+	struct tipc_sock *tsk = tipc_sk(sk);
- 	struct msghdr my_msg;
- 	struct iovec my_iov;
- 	struct iovec *curr_iov;
-@@ -820,14 +831,14 @@ static int tipc_send_stream(struct kiocb *iocb, struct socket *sock,
- 	my_msg.msg_name = NULL;
- 	bytes_sent = 0;
- 
--	hdr_size = msg_hdr_sz(&tport->phdr);
-+	hdr_size = msg_hdr_sz(&tsk->port.phdr);
- 
- 	while (curr_iovlen--) {
- 		curr_start = curr_iov->iov_base;
- 		curr_left = curr_iov->iov_len;
- 
- 		while (curr_left) {
--			bytes_to_send = tport->max_pkt - hdr_size;
-+			bytes_to_send = tsk->port.max_pkt - hdr_size;
- 			if (bytes_to_send > TIPC_MAX_USER_MSG_SIZE)
- 				bytes_to_send = TIPC_MAX_USER_MSG_SIZE;
- 			if (curr_left < bytes_to_send)
-@@ -856,28 +867,29 @@ exit:
- 
- /**
-  * auto_connect - complete connection setup to a remote port
-- * @sock: socket structure
-+ * @tsk: tipc socket structure
-  * @msg: peer's response message
-  *
-  * Returns 0 on success, errno otherwise
-  */
--static int auto_connect(struct socket *sock, struct tipc_msg *msg)
-+static int auto_connect(struct tipc_sock *tsk, struct tipc_msg *msg)
- {
--	struct tipc_port *p_ptr = tipc_sk_port(sock->sk);
-+	struct tipc_port *port = &tsk->port;
-+	struct socket *sock = tsk->sk.sk_socket;
- 	struct tipc_portid peer;
- 
- 	peer.ref = msg_origport(msg);
- 	peer.node = msg_orignode(msg);
- 
--	p_ptr = tipc_port_deref(p_ptr->ref);
--	if (!p_ptr)
-+	port = tipc_port_deref(port->ref);
-+	if (!port)
- 		return -EINVAL;
- 
--	__tipc_port_connect(p_ptr->ref, p_ptr, &peer);
-+	__tipc_port_connect(port->ref, port, &peer);
- 
- 	if (msg_importance(msg) > TIPC_CRITICAL_IMPORTANCE)
- 		return -EINVAL;
--	msg_set_importance(&p_ptr->phdr, (u32)msg_importance(msg));
-+	msg_set_importance(&port->phdr, (u32)msg_importance(msg));
- 	sock->state = SS_CONNECTED;
- 	return 0;
- }
-@@ -1023,7 +1035,8 @@ static int tipc_recvmsg(struct kiocb *iocb, struct socket *sock,
- 			struct msghdr *m, size_t buf_len, int flags)
- {
- 	struct sock *sk = sock->sk;
--	struct tipc_port *tport = tipc_sk_port(sk);
-+	struct tipc_sock *tsk = tipc_sk(sk);
-+	struct tipc_port *port = &tsk->port;
- 	struct sk_buff *buf;
- 	struct tipc_msg *msg;
- 	long timeo;
-@@ -1066,7 +1079,7 @@ restart:
- 	set_orig_addr(m, msg);
- 
- 	/* Capture ancillary data (optional) */
--	res = anc_data_recv(m, msg, tport);
-+	res = anc_data_recv(m, msg, port);
- 	if (res)
- 		goto exit;
- 
-@@ -1092,8 +1105,8 @@ restart:
- 	/* Consume received message (optional) */
- 	if (likely(!(flags & MSG_PEEK))) {
- 		if ((sock->state != SS_READY) &&
--		    (++tport->conn_unacked >= TIPC_FLOW_CONTROL_WIN))
--			tipc_acknowledge(tport->ref, tport->conn_unacked);
-+		    (++port->conn_unacked >= TIPC_FLOW_CONTROL_WIN))
-+			tipc_acknowledge(port->ref, port->conn_unacked);
- 		advance_rx_queue(sk);
- 	}
- exit:
-@@ -1117,7 +1130,8 @@ static int tipc_recv_stream(struct kiocb *iocb, struct socket *sock,
- 			    struct msghdr *m, size_t buf_len, int flags)
- {
- 	struct sock *sk = sock->sk;
--	struct tipc_port *tport = tipc_sk_port(sk);
-+	struct tipc_sock *tsk = tipc_sk(sk);
-+	struct tipc_port *port = &tsk->port;
- 	struct sk_buff *buf;
- 	struct tipc_msg *msg;
- 	long timeo;
-@@ -1162,7 +1176,7 @@ restart:
- 	/* Optionally capture sender's address & ancillary data of first msg */
- 	if (sz_copied == 0) {
- 		set_orig_addr(m, msg);
--		res = anc_data_recv(m, msg, tport);
-+		res = anc_data_recv(m, msg, port);
- 		if (res)
- 			goto exit;
- 	}
-@@ -1200,8 +1214,8 @@ restart:
- 
- 	/* Consume received message (optional) */
- 	if (likely(!(flags & MSG_PEEK))) {
--		if (unlikely(++tport->conn_unacked >= TIPC_FLOW_CONTROL_WIN))
--			tipc_acknowledge(tport->ref, tport->conn_unacked);
-+		if (unlikely(++port->conn_unacked >= TIPC_FLOW_CONTROL_WIN))
-+			tipc_acknowledge(port->ref, port->conn_unacked);
- 		advance_rx_queue(sk);
- 	}
- 
-@@ -1253,15 +1267,16 @@ static void tipc_data_ready(struct sock *sk, int len)
- 
- /**
-  * filter_connect - Handle all incoming messages for a connection-based socket
-- * @port: TIPC port
-+ * @tsk: TIPC socket
-  * @msg: message
-  *
-  * Returns TIPC error status code and socket error status code
-  * once it encounters some errors
-  */
--static u32 filter_connect(struct tipc_port *port, struct sk_buff **buf)
-+static u32 filter_connect(struct tipc_sock *tsk, struct sk_buff **buf)
- {
--	struct sock *sk = tipc_port_to_sk(port);
-+	struct sock *sk = &tsk->sk;
-+	struct tipc_port *port = &tsk->port;
- 	struct socket *sock = sk->sk_socket;
- 	struct tipc_msg *msg = buf_msg(*buf);
- 
-@@ -1294,7 +1309,7 @@ static u32 filter_connect(struct tipc_port *port, struct sk_buff **buf)
- 		if (unlikely(!msg_connected(msg)))
- 			break;
- 
--		res = auto_connect(sock, msg);
-+		res = auto_connect(tsk, msg);
- 		if (res) {
- 			sock->state = SS_DISCONNECTING;
- 			sk->sk_err = -res;
-@@ -1373,6 +1388,7 @@ static unsigned int rcvbuf_limit(struct sock *sk, struct sk_buff *buf)
- static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
- {
- 	struct socket *sock = sk->sk_socket;
-+	struct tipc_sock *tsk = tipc_sk(sk);
- 	struct tipc_msg *msg = buf_msg(buf);
- 	unsigned int limit = rcvbuf_limit(sk, buf);
- 	u32 res = TIPC_OK;
-@@ -1385,7 +1401,7 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
- 		if (msg_connected(msg))
- 			return TIPC_ERR_NO_PORT;
- 	} else {
--		res = filter_connect(tipc_sk_port(sk), &buf);
-+		res = filter_connect(tsk, &buf);
- 		if (res != TIPC_OK || buf == NULL)
- 			return res;
- 	}
-@@ -1656,7 +1672,7 @@ static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags)
- 		goto exit;
- 
- 	new_sk = new_sock->sk;
--	new_port = tipc_sk_port(new_sk);
-+	new_port = &tipc_sk(new_sk)->port;
- 	new_ref = new_port->ref;
- 	msg = buf_msg(buf);
- 
-@@ -1713,7 +1729,8 @@ exit:
- static int tipc_shutdown(struct socket *sock, int how)
- {
- 	struct sock *sk = sock->sk;
--	struct tipc_port *tport = tipc_sk_port(sk);
-+	struct tipc_sock *tsk = tipc_sk(sk);
-+	struct tipc_port *port = &tsk->port;
- 	struct sk_buff *buf;
- 	int res;
- 
-@@ -1734,10 +1751,10 @@ restart:
- 				kfree_skb(buf);
- 				goto restart;
- 			}
--			tipc_port_disconnect(tport->ref);
-+			tipc_port_disconnect(port->ref);
- 			tipc_reject_msg(buf, TIPC_CONN_SHUTDOWN);
- 		} else {
--			tipc_port_shutdown(tport->ref);
-+			tipc_port_shutdown(port->ref);
- 		}
- 
- 		sock->state = SS_DISCONNECTING;
-@@ -1779,7 +1796,8 @@ static int tipc_setsockopt(struct socket *sock, int lvl, int opt,
- 			   char __user *ov, unsigned int ol)
- {
- 	struct sock *sk = sock->sk;
--	struct tipc_port *tport = tipc_sk_port(sk);
-+	struct tipc_sock *tsk = tipc_sk(sk);
-+	struct tipc_port *port = &tsk->port;
- 	u32 value;
- 	int res;
- 
-@@ -1797,16 +1815,16 @@ static int tipc_setsockopt(struct socket *sock, int lvl, int opt,
- 
- 	switch (opt) {
- 	case TIPC_IMPORTANCE:
--		tipc_port_set_importance(tport, value);
-+		tipc_port_set_importance(port, value);
- 		break;
- 	case TIPC_SRC_DROPPABLE:
- 		if (sock->type != SOCK_STREAM)
--			tipc_port_set_unreliable(tport, value);
-+			tipc_port_set_unreliable(port, value);
- 		else
- 			res = -ENOPROTOOPT;
- 		break;
- 	case TIPC_DEST_DROPPABLE:
--		tipc_port_set_unreturnable(tport, value);
-+		tipc_port_set_unreturnable(port, value);
- 		break;
- 	case TIPC_CONN_TIMEOUT:
- 		tipc_sk(sk)->conn_timeout = value;
-@@ -1838,7 +1856,8 @@ static int tipc_getsockopt(struct socket *sock, int lvl, int opt,
- 			   char __user *ov, int __user *ol)
- {
- 	struct sock *sk = sock->sk;
--	struct tipc_port *tport = tipc_sk_port(sk);
-+	struct tipc_sock *tsk = tipc_sk(sk);
-+	struct tipc_port *port = &tsk->port;
- 	int len;
- 	u32 value;
- 	int res;
-@@ -1855,13 +1874,13 @@ static int tipc_getsockopt(struct socket *sock, int lvl, int opt,
- 
- 	switch (opt) {
- 	case TIPC_IMPORTANCE:
--		value = tipc_port_importance(tport);
-+		value = tipc_port_importance(port);
- 		break;
- 	case TIPC_SRC_DROPPABLE:
--		value = tipc_port_unreliable(tport);
-+		value = tipc_port_unreliable(port);
- 		break;
- 	case TIPC_DEST_DROPPABLE:
--		value = tipc_port_unreturnable(tport);
-+		value = tipc_port_unreturnable(port);
- 		break;
- 	case TIPC_CONN_TIMEOUT:
- 		value = tipc_sk(sk)->conn_timeout;
-diff --git a/net/tipc/socket.h b/net/tipc/socket.h
-index a02d0bb..74e5c7f 100644
---- a/net/tipc/socket.h
-+++ b/net/tipc/socket.h
-@@ -57,19 +57,14 @@ static inline struct tipc_sock *tipc_sk(const struct sock *sk)
- 	return container_of(sk, struct tipc_sock, sk);
- }
- 
--static inline struct tipc_port *tipc_sk_port(const struct sock *sk)
-+static inline struct tipc_sock *tipc_port_to_sock(const struct tipc_port *port)
- {
--	return &(tipc_sk(sk)->port);
-+	return container_of(port, struct tipc_sock, port);
- }
- 
--static inline struct sock *tipc_port_to_sk(const struct tipc_port *port)
-+static inline void tipc_sock_wakeup(struct tipc_sock *tsk)
- {
--	return &(container_of(port, struct tipc_sock, port))->sk;
--}
--
--static inline void tipc_sk_wakeup(struct sock *sk)
--{
--	sk->sk_write_space(sk);
-+	tsk->sk.sk_write_space(&tsk->sk);
- }
- 
- u32 tipc_sk_rcv(struct sock *sk, struct sk_buff *buf);
--- 
-1.7.9.5
+RHVlIHRvIHRoZSBvcmlnaW5hbCBvbmUtdG8tbWFueSByZWxhdGlvbiBiZXR3ZWVuIHBvcnQgYW5k
+IHVzZXIgQVBJCmxheWVycywgdXBjYWxscyB0byB0aGUgQVBJIGhhdmUgYmVlbiBwZXJmb3JtZWQg
+dmlhIGZ1bmN0aW9uIHBvaW50ZXJzLAppbnN0YWxsZWQgaW4gc3RydWN0IHRpcGNfcG9ydCBhdCBj
+cmVhdGlvbi4gU2luY2UgdGhpcyByZWxhdGlvbiBub3cKYWx3YXlzIGlzIG9uZS10by1vbmUsIHdl
+IGNhbiBpbnN0ZWFkIHVzZSBvcmRpbmFyeSBmdW5jdGlvbiBjYWxscy4KCldlIHJlbW92ZSB0aGUg
+ZnVuY3Rpb24gcG9pbnRlcnMgJ2Rpc3BhdGNoZXInIGFuZCDCtHdha2V1cCcgZnJvbQpzdHJ1Y3Qg
+dGlwY19wb3J0LCBhbmQgcmVwbGFjZSB0aGVtIHdpdGggY2FsbHMgdG8gdGhlIHJlbmFtZWQKZnVu
+Y3Rpb25zIHRpcGNfc2tfcmN2KCkgYW5kIHRpcGNfc2tfd2FrZXVwKCkuCgpBdCB0aGUgc2FtZSB0
+aW1lIHdlIGNoYW5nZSB0aGUgbmFtZSBhbmQgc2lnbmF0dXJlIG9mIHRoZSBmdW5jdGlvbnMKdGlw
+Y19jcmVhdGVwb3J0KCkgYW5kIHRpcGNfZGVsZXRlcG9ydCgpIHRvIHJlZmxlY3QgdGhlaXIgbmV3
+IHJvbGUKYXMgbWVyZSBpbml0aWFsaXphdGlvbi9kZXN0cnVjdGlvbiBmdW5jdGlvbnMuCgpTaWdu
+ZWQtb2ZmLWJ5OiBKb24gTWFsb3kgPGpvbi5tYWxveUBlcmljc3Nvbi5jb20+ClJldmlld2VkLWJ5
+OiBZaW5nIFh1ZSA8eWluZy54dWVAd2luZHJpdmVyLmNvbT4KUmV2aWV3ZWQtYnk6IEVyaWsgSHVn
+bmUgPGVyaWsuaHVnbmVAZXJpY3Nzb24uY29tPgotLS0KIG5ldC90aXBjL2xpbmsuYyAgIHwgICAg
+NCArLS0tCiBuZXQvdGlwYy9wb3J0LmMgICB8ICAgMzUgKysrKysrKysrKysrKysrKy0tLS0tLS0t
+LS0tLS0tLS0tLS0KIG5ldC90aXBjL3BvcnQuaCAgIHwgICAxNCArKysrLS0tLS0tLS0tLQogbmV0
+L3RpcGMvc29ja2V0LmMgfCAgIDMyICsrKysrKy0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiBu
+ZXQvdGlwYy9zb2NrZXQuaCB8ICAgIDcgKysrKysrKwogNSBmaWxlcyBjaGFuZ2VkLCAzNCBpbnNl
+cnRpb25zKCspLCA1OCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQvdGlwYy9saW5rLmMg
+Yi9uZXQvdGlwYy9saW5rLmMKaW5kZXggZDFhNzY0Yi4uYTQyZjRhMSAxMDA2NDQKLS0tIGEvbmV0
+L3RpcGMvbGluay5jCisrKyBiL25ldC90aXBjL2xpbmsuYwpAQCAtMzI3LDggKzMyNyw2IEBAIHN0
+YXRpYyBpbnQgbGlua19zY2hlZHVsZV9wb3J0KHN0cnVjdCB0aXBjX2xpbmsgKmxfcHRyLCB1MzIg
+b3JpZ3BvcnQsIHUzMiBzeikKIAlzcGluX2xvY2tfYmgoJnRpcGNfcG9ydF9saXN0X2xvY2spOwog
+CXBfcHRyID0gdGlwY19wb3J0X2xvY2sob3JpZ3BvcnQpOwogCWlmIChwX3B0cikgewotCQlpZiAo
+IXBfcHRyLT53YWtldXApCi0JCQlnb3RvIGV4aXQ7CiAJCWlmICghbGlzdF9lbXB0eSgmcF9wdHIt
+PndhaXRfbGlzdCkpCiAJCQlnb3RvIGV4aXQ7CiAJCXBfcHRyLT5jb25nZXN0ZWQgPSAxOwpAQCAt
+MzYzLDcgKzM2MSw3IEBAIHZvaWQgdGlwY19saW5rX3dha2V1cF9wb3J0cyhzdHJ1Y3QgdGlwY19s
+aW5rICpsX3B0ciwgaW50IGFsbCkKIAkJbGlzdF9kZWxfaW5pdCgmcF9wdHItPndhaXRfbGlzdCk7
+CiAJCXNwaW5fbG9ja19iaChwX3B0ci0+bG9jayk7CiAJCXBfcHRyLT5jb25nZXN0ZWQgPSAwOwot
+CQlwX3B0ci0+d2FrZXVwKHBfcHRyKTsKKwkJdGlwY19wb3J0X3dha2V1cChwX3B0cik7CiAJCXdp
+biAtPSBwX3B0ci0+d2FpdGluZ19wa3RzOwogCQlzcGluX3VubG9ja19iaChwX3B0ci0+bG9jayk7
+CiAJfQpkaWZmIC0tZ2l0IGEvbmV0L3RpcGMvcG9ydC5jIGIvbmV0L3RpcGMvcG9ydC5jCmluZGV4
+IDdiMDI3ZTkuLjVkMjRhMTkgMTAwNjQ0Ci0tLSBhL25ldC90aXBjL3BvcnQuYworKysgYi9uZXQv
+dGlwYy9wb3J0LmMKQEAgLTE5MCwzMyArMTkwLDMyIEBAIGV4aXQ6CiAJdGlwY19wb3J0X2xpc3Rf
+ZnJlZShkcCk7CiB9CiAKLS8qKgotICogdGlwY19jcmVhdGVwb3J0IC0gY3JlYXRlIGEgZ2VuZXJp
+YyBUSVBDIHBvcnQKKwordm9pZCB0aXBjX3BvcnRfd2FrZXVwKHN0cnVjdCB0aXBjX3BvcnQgKnBv
+cnQpCit7CisJdGlwY19za193YWtldXAodGlwY19wb3J0X3RvX3NrKHBvcnQpKTsKK30KKworLyog
+dGlwY19wb3J0X2luaXQgLSBpbnRpYXRlIFRJUEMgcG9ydCBhbmQgbG9jayBpdAogICoKLSAqIFJl
+dHVybnMgcG9pbnRlciB0byAobG9ja2VkKSBUSVBDIHBvcnQsIG9yIE5VTEwgaWYgdW5hYmxlIHRv
+IGNyZWF0ZSBpdAorICogUmV0dXJucyBvYnRhaW5lZCByZWZlcmVuY2UgaWYgaW5pdGlhbGl6YXRp
+b24gaXMgc3VjY2Vzc2Z1bCwgemVybyBvdGhlcndpc2UKICAqLwotc3RydWN0IHRpcGNfcG9ydCAq
+dGlwY19jcmVhdGVwb3J0KHN0cnVjdCBzb2NrICpzaywKLQkJCQkgIHUzMiAoKmRpc3BhdGNoZXIp
+KHN0cnVjdCB0aXBjX3BvcnQgKiwKLQkJCQkgIHN0cnVjdCBza19idWZmICopLAotCQkJCSAgdm9p
+ZCAoKndha2V1cCkoc3RydWN0IHRpcGNfcG9ydCAqKSwKLQkJCQkgIGNvbnN0IHUzMiBpbXBvcnRh
+bmNlKQordTMyIHRpcGNfcG9ydF9pbml0KHN0cnVjdCB0aXBjX3BvcnQgKnBfcHRyLAorCQkgICBj
+b25zdCB1bnNpZ25lZCBpbnQgaW1wb3J0YW5jZSkKIHsKLQlzdHJ1Y3QgdGlwY19wb3J0ICpwX3B0
+ciA9IHRpcGNfc2tfcG9ydChzayk7CiAJc3RydWN0IHRpcGNfbXNnICptc2c7CiAJdTMyIHJlZjsK
+IAogCXJlZiA9IHRpcGNfcmVmX2FjcXVpcmUocF9wdHIsICZwX3B0ci0+bG9jayk7CiAJaWYgKCFy
+ZWYpIHsKIAkJcHJfd2FybigiUG9ydCByZWdpc3RyYXRpb24gZmFpbGVkLCByZWYuIHRhYmxlIGV4
+aGF1c3RlZFxuIik7Ci0JCXJldHVybiBOVUxMOworCQlyZXR1cm4gMDsKIAl9CiAKIAlwX3B0ci0+
+bWF4X3BrdCA9IE1BWF9QS1RfREVGQVVMVDsKIAlwX3B0ci0+cmVmID0gcmVmOwogCUlOSVRfTElT
+VF9IRUFEKCZwX3B0ci0+d2FpdF9saXN0KTsKIAlJTklUX0xJU1RfSEVBRCgmcF9wdHItPnN1YnNj
+cmlwdGlvbi5ub2Rlc3ViX2xpc3QpOwotCXBfcHRyLT5kaXNwYXRjaGVyID0gZGlzcGF0Y2hlcjsK
+LQlwX3B0ci0+d2FrZXVwID0gd2FrZXVwOwogCWtfaW5pdF90aW1lcigmcF9wdHItPnRpbWVyLCAo
+SGFuZGxlcilwb3J0X3RpbWVvdXQsIHJlZik7CiAJSU5JVF9MSVNUX0hFQUQoJnBfcHRyLT5wdWJs
+aWNhdGlvbnMpOwogCUlOSVRfTElTVF9IRUFEKCZwX3B0ci0+cG9ydF9saXN0KTsKQEAgLTIzMiwx
+MCArMjMxLDEwIEBAIHN0cnVjdCB0aXBjX3BvcnQgKnRpcGNfY3JlYXRlcG9ydChzdHJ1Y3Qgc29j
+ayAqc2ssCiAJbXNnX3NldF9vcmlncG9ydChtc2csIHJlZik7CiAJbGlzdF9hZGRfdGFpbCgmcF9w
+dHItPnBvcnRfbGlzdCwgJnBvcnRzKTsKIAlzcGluX3VubG9ja19iaCgmdGlwY19wb3J0X2xpc3Rf
+bG9jayk7Ci0JcmV0dXJuIHBfcHRyOworCXJldHVybiByZWY7CiB9CiAKLWludCB0aXBjX2RlbGV0
+ZXBvcnQoc3RydWN0IHRpcGNfcG9ydCAqcF9wdHIpCit2b2lkIHRpcGNfcG9ydF9kZXN0cm95KHN0
+cnVjdCB0aXBjX3BvcnQgKnBfcHRyKQogewogCXN0cnVjdCBza19idWZmICpidWYgPSBOVUxMOwog
+CkBAIC0yNTcsNyArMjU2LDYgQEAgaW50IHRpcGNfZGVsZXRlcG9ydChzdHJ1Y3QgdGlwY19wb3J0
+ICpwX3B0cikKIAlzcGluX3VubG9ja19iaCgmdGlwY19wb3J0X2xpc3RfbG9jayk7CiAJa190ZXJt
+X3RpbWVyKCZwX3B0ci0+dGltZXIpOwogCXRpcGNfbmV0X3JvdXRlX21zZyhidWYpOwotCXJldHVy
+biAwOwogfQogCiBzdGF0aWMgaW50IHBvcnRfdW5yZWxpYWJsZShzdHJ1Y3QgdGlwY19wb3J0ICpw
+X3B0cikKQEAgLTUzMCwxMyArNTI4LDEyIEBAIHZvaWQgdGlwY19wb3J0X3Byb3RvX3JjdihzdHJ1
+Y3Qgc2tfYnVmZiAqYnVmKQogCS8qIFByb2Nlc3MgcHJvdG9jb2wgbWVzc2FnZSBzZW50IGJ5IHBl
+ZXIgKi8KIAlzd2l0Y2ggKG1zZ190eXBlKG1zZykpIHsKIAljYXNlIENPTk5fQUNLOgotCQl3YWtl
+YWJsZSA9IHRpcGNfcG9ydF9jb25nZXN0ZWQocF9wdHIpICYmIHBfcHRyLT5jb25nZXN0ZWQgJiYK
+LQkJCXBfcHRyLT53YWtldXA7CisJCXdha2VhYmxlID0gdGlwY19wb3J0X2Nvbmdlc3RlZChwX3B0
+cikgJiYgcF9wdHItPmNvbmdlc3RlZDsKIAkJcF9wdHItPmFja2VkICs9IG1zZ19tc2djbnQobXNn
+KTsKIAkJaWYgKCF0aXBjX3BvcnRfY29uZ2VzdGVkKHBfcHRyKSkgewogCQkJcF9wdHItPmNvbmdl
+c3RlZCA9IDA7CiAJCQlpZiAod2FrZWFibGUpCi0JCQkJcF9wdHItPndha2V1cChwX3B0cik7CisJ
+CQkJdGlwY19wb3J0X3dha2V1cChwX3B0cik7CiAJCX0KIAkJYnJlYWs7CiAJY2FzZSBDT05OX1BS
+T0JFOgpAQCAtODY1LDcgKzg2Miw3IEBAIGludCB0aXBjX3BvcnRfcmN2KHN0cnVjdCBza19idWZm
+ICpidWYpCiAJLyogdmFsaWRhdGUgZGVzdGluYXRpb24gJiBwYXNzIHRvIHBvcnQsIG90aGVyd2lz
+ZSByZWplY3QgbWVzc2FnZSAqLwogCXBfcHRyID0gdGlwY19wb3J0X2xvY2soZGVzdHBvcnQpOwog
+CWlmIChsaWtlbHkocF9wdHIpKSB7Ci0JCWVyciA9IHBfcHRyLT5kaXNwYXRjaGVyKHBfcHRyLCBi
+dWYpOworCQllcnIgPSB0aXBjX3NrX3Jjdih0aXBjX3BvcnRfdG9fc2socF9wdHIpLCBidWYpOwog
+CQl0aXBjX3BvcnRfdW5sb2NrKHBfcHRyKTsKIAkJaWYgKGxpa2VseSghZXJyKSkKIAkJCXJldHVy
+biBkc3o7CmRpZmYgLS1naXQgYS9uZXQvdGlwYy9wb3J0LmggYi9uZXQvdGlwYy9wb3J0LmgKaW5k
+ZXggMWIyMDA2Mi4uMWM5MGNiZCAxMDA2NDQKLS0tIGEvbmV0L3RpcGMvcG9ydC5oCisrKyBiL25l
+dC90aXBjL3BvcnQuaApAQCAtNTksOCArNTksNiBAQAogICogQHJlZjogdW5pcXVlIHJlZmVyZW5j
+ZSB0byBwb3J0IGluIFRJUEMgb2JqZWN0IHJlZ2lzdHJ5CiAgKiBAcGhkcjogcHJlZm9ybWF0dGVk
+IG1lc3NhZ2UgaGVhZGVyIHVzZWQgd2hlbiBzZW5kaW5nIG1lc3NhZ2VzCiAgKiBAcG9ydF9saXN0
+OiBhZGphY2VudCBwb3J0cyBpbiBUSVBDJ3MgZ2xvYmFsIGxpc3Qgb2YgcG9ydHMKLSAqIEBkaXNw
+YXRjaGVyOiBwdHIgdG8gcm91dGluZSB3aGljaCBoYW5kbGVzIHJlY2VpdmVkIG1lc3NhZ2VzCi0g
+KiBAd2FrZXVwOiBwdHIgdG8gcm91dGluZSB0byBjYWxsIHdoZW4gcG9ydCBpcyBubyBsb25nZXIg
+Y29uZ2VzdGVkCiAgKiBAd2FpdF9saXN0OiBhZGphY2VudCBwb3J0cyBpbiBsaXN0IG9mIHBvcnRz
+IHdhaXRpbmcgb24gbGluayBjb25nZXN0aW9uCiAgKiBAd2FpdGluZ19wa3RzOgogICogQHNlbnQ6
+ICMgb2Ygbm9uLWVtcHR5IG1lc3NhZ2VzIHNlbnQgYnkgcG9ydApAQCAtODQsOCArODIsNiBAQCBz
+dHJ1Y3QgdGlwY19wb3J0IHsKIAl1MzIgcmVmOwogCXN0cnVjdCB0aXBjX21zZyBwaGRyOwogCXN0
+cnVjdCBsaXN0X2hlYWQgcG9ydF9saXN0OwotCXUzMiAoKmRpc3BhdGNoZXIpKHN0cnVjdCB0aXBj
+X3BvcnQgKiwgc3RydWN0IHNrX2J1ZmYgKik7Ci0Jdm9pZCAoKndha2V1cCkoc3RydWN0IHRpcGNf
+cG9ydCAqKTsKIAlzdHJ1Y3QgbGlzdF9oZWFkIHdhaXRfbGlzdDsKIAl1MzIgd2FpdGluZ19wa3Rz
+OwogCXUzMiBzZW50OwpAQCAtMTA0LDE3ICsxMDAsMTQgQEAgc3RydWN0IHRpcGNfcG9ydF9saXN0
+OwogLyoKICAqIFRJUEMgcG9ydCBtYW5pcHVsYXRpb24gcm91dGluZXMKICAqLwotc3RydWN0IHRp
+cGNfcG9ydCAqdGlwY19jcmVhdGVwb3J0KHN0cnVjdCBzb2NrICpzaywKLQkJCQkgIHUzMiAoKmRp
+c3BhdGNoZXIpKHN0cnVjdCB0aXBjX3BvcnQgKiwKLQkJCQkgIHN0cnVjdCBza19idWZmICopLAot
+CQkJCSAgdm9pZCAoKndha2V1cCkoc3RydWN0IHRpcGNfcG9ydCAqKSwKLQkJCQkgIGNvbnN0IHUz
+MiBpbXBvcnRhbmNlKTsKK3UzMiB0aXBjX3BvcnRfaW5pdChzdHJ1Y3QgdGlwY19wb3J0ICpwX3B0
+ciwKKwkJICAgY29uc3QgdW5zaWduZWQgaW50IGltcG9ydGFuY2UpOwogCiBpbnQgdGlwY19yZWpl
+Y3RfbXNnKHN0cnVjdCBza19idWZmICpidWYsIHUzMiBlcnIpOwogCiB2b2lkIHRpcGNfYWNrbm93
+bGVkZ2UodTMyIHBvcnRfcmVmLCB1MzIgYWNrKTsKIAotaW50IHRpcGNfZGVsZXRlcG9ydChzdHJ1
+Y3QgdGlwY19wb3J0ICpwX3B0cik7Cit2b2lkIHRpcGNfcG9ydF9kZXN0cm95KHN0cnVjdCB0aXBj
+X3BvcnQgKnBfcHRyKTsKIAogaW50IHRpcGNfcG9ydGltcG9ydGFuY2UodTMyIHBvcnRyZWYsIHVu
+c2lnbmVkIGludCAqaW1wb3J0YW5jZSk7CiBpbnQgdGlwY19zZXRfcG9ydGltcG9ydGFuY2UodTMy
+IHBvcnRyZWYsIHVuc2lnbmVkIGludCBpbXBvcnRhbmNlKTsKQEAgLTEzNiw2ICsxMjksNyBAQCBp
+bnQgdGlwY19wb3J0X2Rpc2Nvbm5lY3QodTMyIHBvcnRyZWYpOwogCiBpbnQgdGlwY19wb3J0X3No
+dXRkb3duKHUzMiByZWYpOwogCit2b2lkIHRpcGNfcG9ydF93YWtldXAoc3RydWN0IHRpcGNfcG9y
+dCAqcG9ydCk7CiAKIC8qCiAgKiBUaGUgZm9sbG93aW5nIHJvdXRpbmVzIHJlcXVpcmUgdGhhdCB0
+aGUgcG9ydCBiZSBsb2NrZWQgb24gZW50cnkKZGlmZiAtLWdpdCBhL25ldC90aXBjL3NvY2tldC5j
+IGIvbmV0L3RpcGMvc29ja2V0LmMKaW5kZXggOTEyNjY1ZC4uZDE0N2VhYSAxMDA2NDQKLS0tIGEv
+bmV0L3RpcGMvc29ja2V0LmMKKysrIGIvbmV0L3RpcGMvc29ja2V0LmMKQEAgLTQ0LDEwICs0NCw3
+IEBACiAKICNkZWZpbmUgQ09OTl9USU1FT1VUX0RFRkFVTFQJODAwMAkvKiBkZWZhdWx0IGNvbm5l
+Y3QgdGltZW91dCA9IDhzICovCiAKLQogc3RhdGljIGludCBiYWNrbG9nX3JjdihzdHJ1Y3Qgc29j
+ayAqc2ssIHN0cnVjdCBza19idWZmICpza2IpOwotc3RhdGljIHUzMiBkaXNwYXRjaChzdHJ1Y3Qg
+dGlwY19wb3J0ICp0cG9ydCwgc3RydWN0IHNrX2J1ZmYgKmJ1Zik7Ci1zdGF0aWMgdm9pZCB3YWtl
+dXBkaXNwYXRjaChzdHJ1Y3QgdGlwY19wb3J0ICp0cG9ydCk7CiBzdGF0aWMgdm9pZCB0aXBjX2Rh
+dGFfcmVhZHkoc3RydWN0IHNvY2sgKnNrLCBpbnQgbGVuKTsKIHN0YXRpYyB2b2lkIHRpcGNfd3Jp
+dGVfc3BhY2Uoc3RydWN0IHNvY2sgKnNrKTsKIHN0YXRpYyBpbnQgdGlwY19yZWxlYXNlKHN0cnVj
+dCBzb2NrZXQgKnNvY2spOwpAQCAtMTgxLDEwICsxNzgsOCBAQCBzdGF0aWMgaW50IHRpcGNfc2tf
+Y3JlYXRlKHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0IHNvY2tldCAqc29jaywgaW50IHByb3RvY29s
+LAogCWlmIChzayA9PSBOVUxMKQogCQlyZXR1cm4gLUVOT01FTTsKIAotCS8qIEFsbG9jYXRlIFRJ
+UEMgcG9ydCBmb3Igc29ja2V0IHRvIHVzZSAqLwotCXRwX3B0ciA9IHRpcGNfY3JlYXRlcG9ydChz
+aywgJmRpc3BhdGNoLCAmd2FrZXVwZGlzcGF0Y2gsCi0JCQkJIFRJUENfTE9XX0lNUE9SVEFOQ0Up
+OwotCWlmICh1bmxpa2VseSghdHBfcHRyKSkgeworCXRwX3B0ciA9IHRpcGNfc2tfcG9ydChzayk7
+CisJaWYgKCF0aXBjX3BvcnRfaW5pdCh0cF9wdHIsIFRJUENfTE9XX0lNUE9SVEFOQ0UpKSB7CiAJ
+CXNrX2ZyZWUoc2spOwogCQlyZXR1cm4gLUVOT01FTTsKIAl9CkBAIC0xOTksNyArMTk0LDYgQEAg
+c3RhdGljIGludCB0aXBjX3NrX2NyZWF0ZShzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBzb2NrZXQg
+KnNvY2ssIGludCBwcm90b2NvbCwKIAlzay0+c2tfZGF0YV9yZWFkeSA9IHRpcGNfZGF0YV9yZWFk
+eTsKIAlzay0+c2tfd3JpdGVfc3BhY2UgPSB0aXBjX3dyaXRlX3NwYWNlOwogCXRpcGNfc2soc2sp
+LT5jb25uX3RpbWVvdXQgPSBDT05OX1RJTUVPVVRfREVGQVVMVDsKLQogCXNwaW5fdW5sb2NrX2Jo
+KHRwX3B0ci0+bG9jayk7CiAKIAlpZiAoc29jay0+c3RhdGUgPT0gU1NfUkVBRFkpIHsKQEAgLTIw
+Nyw3ICsyMDEsNiBAQCBzdGF0aWMgaW50IHRpcGNfc2tfY3JlYXRlKHN0cnVjdCBuZXQgKm5ldCwg
+c3RydWN0IHNvY2tldCAqc29jaywgaW50IHByb3RvY29sLAogCQlpZiAoc29jay0+dHlwZSA9PSBT
+T0NLX0RHUkFNKQogCQkJdGlwY19zZXRfcG9ydHVucmVsaWFibGUodHBfcHRyLT5yZWYsIDEpOwog
+CX0KLQogCXJldHVybiAwOwogfQogCkBAIC0zMzcsNyArMzMwLDcgQEAgc3RhdGljIGludCB0aXBj
+X3JlbGVhc2Uoc3RydWN0IHNvY2tldCAqc29jaykKIAkgKiBEZWxldGUgVElQQyBwb3J0OyB0aGlz
+IGVuc3VyZXMgbm8gbW9yZSBtZXNzYWdlcyBhcmUgcXVldWVkCiAJICogKGFsc28gZGlzY29ubmVj
+dHMgYW4gYWN0aXZlIGNvbm5lY3Rpb24gJiBzZW5kcyBhICdGSU4tJyB0byBwZWVyKQogCSAqLwot
+CXJlcyA9IHRpcGNfZGVsZXRlcG9ydCh0cG9ydCk7CisJdGlwY19wb3J0X2Rlc3Ryb3kodHBvcnQp
+OwogCiAJLyogRGlzY2FyZCBhbnkgcmVtYWluaW5nIChjb25uZWN0aW9uLWJhc2VkKSBtZXNzYWdl
+cyBpbiByZWNlaXZlIHF1ZXVlICovCiAJX19za2JfcXVldWVfcHVyZ2UoJnNrLT5za19yZWNlaXZl
+X3F1ZXVlKTsKQEAgLTE0MzAsMTcgKzE0MjMsMTYgQEAgc3RhdGljIGludCBiYWNrbG9nX3Jjdihz
+dHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBza19idWZmICpidWYpCiB9CiAKIC8qKgotICogZGlzcGF0
+Y2ggLSBoYW5kbGUgaW5jb21pbmcgbWVzc2FnZQotICogQHRwb3J0OiBUSVBDIHBvcnQgdGhhdCBy
+ZWNlaXZlZCBtZXNzYWdlCisgKiB0aXBjX3NrX3JjdiAtIGhhbmRsZSBpbmNvbWluZyBtZXNzYWdl
+CisgKiBAc2s6ICBzb2NrZXQgcmVjZWl2aW5nIG1lc3NhZ2UKICAqIEBidWY6IG1lc3NhZ2UKICAq
+CiAgKiBDYWxsZWQgd2l0aCBwb3J0IGxvY2sgYWxyZWFkeSB0YWtlbi4KICAqCiAgKiBSZXR1cm5z
+IFRJUEMgZXJyb3Igc3RhdHVzIGNvZGUgKFRJUENfT0sgaWYgbWVzc2FnZSBpcyBub3QgdG8gYmUg
+cmVqZWN0ZWQpCiAgKi8KLXN0YXRpYyB1MzIgZGlzcGF0Y2goc3RydWN0IHRpcGNfcG9ydCAqcG9y
+dCwgc3RydWN0IHNrX2J1ZmYgKmJ1ZikKK3UzMiB0aXBjX3NrX3JjdihzdHJ1Y3Qgc29jayAqc2ss
+IHN0cnVjdCBza19idWZmICpidWYpCiB7Ci0Jc3RydWN0IHNvY2sgKnNrID0gdGlwY19wb3J0X3Rv
+X3NrKHBvcnQpOwogCXUzMiByZXM7CiAKIAkvKgpAQCAtMTQ2MywxOCArMTQ1NSw2IEBAIHN0YXRp
+YyB1MzIgZGlzcGF0Y2goc3RydWN0IHRpcGNfcG9ydCAqcG9ydCwgc3RydWN0IHNrX2J1ZmYgKmJ1
+ZikKIAlyZXR1cm4gcmVzOwogfQogCi0vKioKLSAqIHdha2V1cGRpc3BhdGNoIC0gd2FrZSB1cCBw
+b3J0IGFmdGVyIGNvbmdlc3Rpb24KLSAqIEB0cG9ydDogcG9ydCB0byB3YWtldXAKLSAqCi0gKiBD
+YWxsZWQgd2l0aCBwb3J0IGxvY2sgYWxyZWFkeSB0YWtlbi4KLSAqLwotc3RhdGljIHZvaWQgd2Fr
+ZXVwZGlzcGF0Y2goc3RydWN0IHRpcGNfcG9ydCAqcG9ydCkKLXsKLQlzdHJ1Y3Qgc29jayAqc2sg
+PSB0aXBjX3BvcnRfdG9fc2socG9ydCk7Ci0Jc2stPnNrX3dyaXRlX3NwYWNlKHNrKTsKLX0KLQog
+c3RhdGljIGludCB0aXBjX3dhaXRfZm9yX2Nvbm5lY3Qoc3RydWN0IHNvY2tldCAqc29jaywgbG9u
+ZyAqdGltZW9fcCkKIHsKIAlzdHJ1Y3Qgc29jayAqc2sgPSBzb2NrLT5zazsKZGlmZiAtLWdpdCBh
+L25ldC90aXBjL3NvY2tldC5oIGIvbmV0L3RpcGMvc29ja2V0LmgKaW5kZXggZjFjZDU0YS4uYTAy
+ZDBiYiAxMDA2NDQKLS0tIGEvbmV0L3RpcGMvc29ja2V0LmgKKysrIGIvbmV0L3RpcGMvc29ja2V0
+LmgKQEAgLTY3LDQgKzY3LDExIEBAIHN0YXRpYyBpbmxpbmUgc3RydWN0IHNvY2sgKnRpcGNfcG9y
+dF90b19zayhjb25zdCBzdHJ1Y3QgdGlwY19wb3J0ICpwb3J0KQogCXJldHVybiAmKGNvbnRhaW5l
+cl9vZihwb3J0LCBzdHJ1Y3QgdGlwY19zb2NrLCBwb3J0KSktPnNrOwogfQogCitzdGF0aWMgaW5s
+aW5lIHZvaWQgdGlwY19za193YWtldXAoc3RydWN0IHNvY2sgKnNrKQoreworCXNrLT5za193cml0
+ZV9zcGFjZShzayk7Cit9CisKK3UzMiB0aXBjX3NrX3JjdihzdHJ1Y3Qgc29jayAqc2ssIHN0cnVj
+dCBza19idWZmICpidWYpOworCiAjZW5kaWYKLS0gCjEuNy45LjUKCgotLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0KTGVhcm4gR3JhcGggRGF0YWJhc2VzIC0gRG93bmxvYWQgRlJFRSBPJ1JlaWxseSBCb29r
+CiJHcmFwaCBEYXRhYmFzZXMiIGlzIHRoZSBkZWZpbml0aXZlIG5ldyBndWlkZSB0byBncmFwaCBk
+YXRhYmFzZXMgYW5kIHRoZWlyCmFwcGxpY2F0aW9ucy4gV3JpdHRlbiBieSB0aHJlZSBhY2NsYWlt
+ZWQgbGVhZGVycyBpbiB0aGUgZmllbGQsCnRoaXMgZmlyc3QgZWRpdGlvbiBpcyBub3cgYXZhaWxh
+YmxlLiBEb3dubG9hZCB5b3VyIGZyZWUgYm9vayB0b2RheSEKaHR0cDovL3Auc2YubmV0L3NmdS8x
+MzUzNF9OZW9UZWNoCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fCnRpcGMtZGlzY3Vzc2lvbiBtYWlsaW5nIGxpc3QKdGlwYy1kaXNjdXNzaW9uQGxpc3RzLnNv
+dXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5m
+by90aXBjLWRpc2N1c3Npb24K
