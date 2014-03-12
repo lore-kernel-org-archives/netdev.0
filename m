@@ -1,191 +1,220 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 2/7] tipc: remove redundant 'peer_name' field in struct tipc_sock
-Date: Wed, 12 Mar 2014 11:31:08 -0400
-Message-ID: <1394638273-6127-3-git-send-email-jon.maloy@ericsson.com>
-References: <1394638273-6127-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.ne1.yahoo.com ([98.138.207.11]:33827 "HELO
-	smtp104.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755095AbaCLPbX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 11:31:23 -0400
-In-Reply-To: <1394638273-6127-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
+Subject: Re: Simplifying the 802.15.4 stack
+Date: Wed, 12 Mar 2014 16:31:03 +0100
+Message-ID: <20140312163103.1d413b86@zoidberg>
+References: <20140307133924.21165955@zoidberg>
+	<41ad409189cf3c414ca246c204f69f33.squirrel@webmail.itwm.fhg.de>
+	<CALT56yOBjfb5_dG=FdVCPbWmPzUdPP7DbdTXL9ges3c-fRYx-A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-zigbee-devel <linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <CALT56yOBjfb5_dG=FdVCPbWmPzUdPP7DbdTXL9ges3c-fRYx-A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The field 'peer_name' in struct tipc_sock is redundant, since
-this information already is available from tipc_port, to which
-tipc_sock has a reference.
-
-We remove the field, and ensure that peer node and peer port
-info instead is fetched via the functions that already exist
-for this purpose.
-
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
----
- net/tipc/port.c   |   25 +++++++------------------
- net/tipc/port.h   |   11 +++++++++++
- net/tipc/socket.c |   21 ++++++++++++---------
- 3 files changed, 30 insertions(+), 27 deletions(-)
-
-diff --git a/net/tipc/port.c b/net/tipc/port.c
-index c7c2b54..d1abe11 100644
---- a/net/tipc/port.c
-+++ b/net/tipc/port.c
-@@ -54,17 +54,6 @@ static struct sk_buff *port_build_self_abort_msg(struct tipc_port *, u32 err);
- static struct sk_buff *port_build_peer_abort_msg(struct tipc_port *, u32 err);
- static void port_timeout(unsigned long ref);
- 
--
--static u32 port_peernode(struct tipc_port *p_ptr)
--{
--	return msg_destnode(&p_ptr->phdr);
--}
--
--static u32 port_peerport(struct tipc_port *p_ptr)
--{
--	return msg_destport(&p_ptr->phdr);
--}
--
- /**
-  * tipc_port_peer_msg - verify message was sent by connected port's peer
-  *
-@@ -76,11 +65,11 @@ int tipc_port_peer_msg(struct tipc_port *p_ptr, struct tipc_msg *msg)
- 	u32 peernode;
- 	u32 orignode;
- 
--	if (msg_origport(msg) != port_peerport(p_ptr))
-+	if (msg_origport(msg) != tipc_port_peerport(p_ptr))
- 		return 0;
- 
- 	orignode = msg_orignode(msg);
--	peernode = port_peernode(p_ptr);
-+	peernode = tipc_port_peernode(p_ptr);
- 	return (orignode == peernode) ||
- 		(!orignode && (peernode == tipc_own_addr)) ||
- 		(!peernode && (orignode == tipc_own_addr));
-@@ -351,8 +340,8 @@ static struct sk_buff *port_build_proto_msg(struct tipc_port *p_ptr,
- 	if (buf) {
- 		msg = buf_msg(buf);
- 		tipc_msg_init(msg, CONN_MANAGER, type, INT_H_SIZE,
--			      port_peernode(p_ptr));
--		msg_set_destport(msg, port_peerport(p_ptr));
-+			      tipc_port_peernode(p_ptr));
-+		msg_set_destport(msg, tipc_port_peerport(p_ptr));
- 		msg_set_origport(msg, p_ptr->ref);
- 		msg_set_msgcnt(msg, ack);
- 	}
-@@ -585,8 +574,8 @@ static int port_print(struct tipc_port *p_ptr, char *buf, int len, int full_id)
- 		ret = tipc_snprintf(buf, len, "%-10u:", p_ptr->ref);
- 
- 	if (p_ptr->connected) {
--		u32 dport = port_peerport(p_ptr);
--		u32 destnode = port_peernode(p_ptr);
-+		u32 dport = tipc_port_peerport(p_ptr);
-+		u32 destnode = tipc_port_peernode(p_ptr);
- 
- 		ret += tipc_snprintf(buf + ret, len - ret,
- 				     " connected to <%u.%u.%u:%u>",
-@@ -926,7 +915,7 @@ int tipc_send(u32 ref, struct iovec const *msg_sect, unsigned int len)
- 
- 	p_ptr->congested = 1;
- 	if (!tipc_port_congested(p_ptr)) {
--		destnode = port_peernode(p_ptr);
-+		destnode = tipc_port_peernode(p_ptr);
- 		if (likely(!in_own_node(destnode)))
- 			res = tipc_link_iovec_xmit_fast(p_ptr, msg_sect, len,
- 							destnode);
-diff --git a/net/tipc/port.h b/net/tipc/port.h
-index 3ec3e94..4a2a1ac 100644
---- a/net/tipc/port.h
-+++ b/net/tipc/port.h
-@@ -198,4 +198,15 @@ static inline int tipc_port_congested(struct tipc_port *p_ptr)
- 	return (p_ptr->sent - p_ptr->acked) >= (TIPC_FLOW_CONTROL_WIN * 2);
- }
- 
-+
-+static inline u32 tipc_port_peernode(struct tipc_port *p_ptr)
-+{
-+	return msg_destnode(&p_ptr->phdr);
-+}
-+
-+static inline u32 tipc_port_peerport(struct tipc_port *p_ptr)
-+{
-+	return msg_destport(&p_ptr->phdr);
-+}
-+
- #endif
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 336e18d..6265577 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -48,7 +48,6 @@
- struct tipc_sock {
- 	struct sock sk;
- 	struct tipc_port *p;
--	struct tipc_portid peer_name;
- 	unsigned int conn_timeout;
- };
- 
-@@ -445,8 +444,9 @@ static int tipc_getname(struct socket *sock, struct sockaddr *uaddr,
- 		if ((sock->state != SS_CONNECTED) &&
- 			((peer != 2) || (sock->state != SS_DISCONNECTING)))
- 			return -ENOTCONN;
--		addr->addr.id.ref = tsock->peer_name.ref;
--		addr->addr.id.node = tsock->peer_name.node;
-+
-+		addr->addr.id.ref = tipc_port_peerport(tsock->p);
-+		addr->addr.id.node = tipc_port_peernode(tsock->p);
- 	} else {
- 		addr->addr.id.ref = tsock->p->ref;
- 		addr->addr.id.node = tipc_own_addr;
-@@ -881,14 +881,16 @@ static int auto_connect(struct socket *sock, struct tipc_msg *msg)
- {
- 	struct tipc_sock *tsock = tipc_sk(sock->sk);
- 	struct tipc_port *p_ptr;
-+	struct tipc_portid peer;
-+
-+	peer.ref = msg_origport(msg);
-+	peer.node = msg_orignode(msg);
- 
--	tsock->peer_name.ref = msg_origport(msg);
--	tsock->peer_name.node = msg_orignode(msg);
- 	p_ptr = tipc_port_deref(tsock->p->ref);
- 	if (!p_ptr)
- 		return -EINVAL;
- 
--	__tipc_port_connect(tsock->p->ref, p_ptr, &tsock->peer_name);
-+	__tipc_port_connect(p_ptr->ref, p_ptr, &peer);
- 
- 	if (msg_importance(msg) > TIPC_CRITICAL_IMPORTANCE)
- 		return -EINVAL;
-@@ -1662,6 +1664,7 @@ static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags)
- 	struct tipc_sock *new_tsock;
- 	struct tipc_port *new_tport;
- 	struct tipc_msg *msg;
-+	struct tipc_portid peer;
- 	u32 new_ref;
- 	long timeo;
- 	int res;
-@@ -1700,9 +1703,9 @@ static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags)
- 	reject_rx_queue(new_sk);
- 
- 	/* Connect new socket to it's peer */
--	new_tsock->peer_name.ref = msg_origport(msg);
--	new_tsock->peer_name.node = msg_orignode(msg);
--	tipc_port_connect(new_ref, &new_tsock->peer_name);
-+	peer.ref = msg_origport(msg);
-+	peer.node = msg_orignode(msg);
-+	tipc_port_connect(new_ref, &peer);
- 	new_sock->state = SS_CONNECTED;
- 
- 	tipc_set_portimportance(new_ref, msg_importance(msg));
--- 
-1.7.9.5
+T24gVHVlLCAxMSBNYXIgMjAxNCAxNjozMDoxMiArMDQwMApEbWl0cnkgRXJlbWluLVNvbGVuaWtv
+diA8ZGJhcnlzaGtvdkBnbWFpbC5jb20+IHdyb3RlOgoKPiBIZWxvLApb4oCmXQo+ID4gRGlmZmVy
+ZW50aWF0aW5nIGJldHdlZW4gZGlmZmVyZW50IHJvbGVzIG9mIGEgZGV2aWNlIHdpdGggZGlmZmVy
+ZW50Cj4gPiB0eXBlcyBvZiBpbnRlcmZhY2VzIGlzIGEgc2Vuc2libGUgaWRlYS4gSSdtIG5vdCBh
+Y3R1YWxseSBvcHBvc2VkIHRvCj4gPiB0aGF0LCBxdWl0ZSB0aGUgY29udHJhcnkgLSBJIGFtIG1h
+aW5seSBpbnRlcmVzdGVkIGluIGEgd29ya2luZyBhbmQKPiA+IHNlbWFudGljYWxseSBjb3JyZWN0
+IHN5c3RlbS4KPiA+Cj4gPiBBcyBmYXIgYXMgODAyLjE1LjQgaXMgY29uY2VybmVkLCBJIGRvIHdh
+bnQgdG8gYmUgYWJsZSB0byBzdXBwb3J0Cj4gPiBhbGwga2luZHMgb2YgZGV2aWNlcyB0aGF0IG1h
+a2Ugc2Vuc2UuIEl0IGlzIG5vdCBzZW5zaWJsZSB0aG91Z2ggdG8KPiA+IGFkZCBhIG1vbml0b3Ig
+ZGV2aWNlIG9uIGEgUEhZIHRoYXQgaXMgYWxyZWFkeSBydW5uaW5nIGEgV1BBTiBpZgo+ID4gdGhh
+dCBQSFkgZG9lcyBub3Qgc3VwcG9ydCBjb25jdXJyZW50IG1vbml0b3JzLCBzbyB0aGF0IHNob3Vs
+ZCBub3QKPiA+IGJlIGFsbG93ZWQgZm9yIDgwMi4xNS40IGp1c3QgYXMgaXQgaXMgbm90IGFsbG93
+ZWQgZm9yIDgwMi4xMS4gRm9yCj4gPiB3aHkgSSB0aGluayBpdCBpcyBub3Qgc2Vuc2libGUgdG8g
+YWxsb3cgbXVsdGlwbGUgODAyLjE1LjQgc2xhdmUKPiA+IGRldmljZXMgb24gb25lIFBIWSwgc2Vl
+IGJlbG93Lgo+IAo+IElmIHlvdSB3aXNoIHRvIGRpc2FsbG93IG11bHRpcGxlIDgwMi4xNS40IGRl
+dmljZXMgb24gYSBzaW5nbGUgcGh5LAo+IGp1c3QgZG8gaXQuCj4gCj4gSG93ZXZlciBiZWZvcmUg
+cmVtb3ZpbmcgdGhlIHJlc3Qgb2YgdGhlIHBoeS9kZXZpY2UgQVBJLCBwbGVhc2UsCj4gUGxlYXNl
+LCBQTEVBU0UsIGdvIGFuZCBjb25zdWx0IHRoZSA4MDIuMTEgc2VwYXJhdGlvbiBpbiBMaW51eCBr
+ZXJuZWwuCj4gVGhpcyBsYXJnZXN0IHBhcnQgb2Ygc2xhdmUgc3VwcG9ydCBjb2RlIHdhcyBtb2Rl
+bGVkIGFmdGVyIDgwMi4xMQo+IHN0YWNrLiBUaGlzIGlzIG5vdCBhYm91dCB0aGUgcm9sZXMgb2Yg
+dGhlIGRldmljZSAtIGl0IGlzIGFib3V0IHRoZQo+IG11bHRpcGxlIHJvbGVzIGJlaW5nIGF0dGFj
+aGVkIHRvIHRoZSBkZXZpY2UuCj4gRm9yIGV4YW1wbGUgbW9uaXRvciBtb2RlIHdvdWxkIGJlIGhh
+cmQgdG8gc3VwcG9ydCBvbiBwbGFpbiA4MDIuMTUuNCAtCj4gb25lIGNhbiBleHBlY3QgdGhhdCBt
+YWM4MDIuMTUuNCB3aWxsIGNoYW5nZSB0aGUgc2tiLiBFc3BlY2lhbGx5IGFmdGVyCj4gYWRkaW5n
+IHNlY3VyaXR5L2VuY3J5cHRpb24uIE1vbml0b3IgKHdpcmVzaGFyay93aGF0ZXZlcikgbXVzdCBy
+ZWNlaXZlCj4gc2ticyBiZWZvcmUgYWxsIHRoZSByZXN0IG9mIHRoZSBoYW5kbGVycy4gSXQgaXMg
+bm90IGRpcmVjdGx5IHBvc3NpYmxlCj4gd2l0aCBvdGhlciBhcmNoaXRlY3R1cmVzLgoKUmVtb3Zp
+bmcgdGhlIHJlc3Qgb2YgdGhlIHBoeS9kZXZpY2UgQVBJIGlzIG5vdCBteSBpbnRlbnRpb24uIFRo
+ZQpzZXBhcmF0aW9uIGJldHdlZW4gUEhZIGFuZCBkZXZpY2Ugd2FzIHNvbWV0aGluZyBJIG5ldmVy
+IHdhbnRlZCB0bwpyZW1vdmUsIHRob3VnaCBJIGRpZCB3YW50IHRvIHJlbW92ZSB0aGUgYWJpbGl0
+eSB0byBhZGQgbXVsdGlwbGUKZGV2aWNlcy9zbGF2ZXMgdG8gdGhlIHNhbWUgUEhZLiBZb3UndmUg
+Y29udmluY2VkIG1lIHRoYXQgdGhhdCdzIGEKcmVhbGx5IGJhZCBpZGVhLCBidXQgeW91J3ZlIGFs
+c28gY29udmluY2VkIG1lIHRoYXQgYW5vdGhlciBraW5kIG9mCnJlc3RyaWN0aW9uIHdvdWxkIGJl
+IHdlbGwgaW4gb3JkZXI6IGFsbG93IGFuIGFyYml0cmFyeSBudW1iZXIgb2YKbG93LWxldmVsIG1v
+bml0b3IgZGV2aWNlcywgaWYgdGhlIFBIWSBzdXBwb3J0cyB0aGF0IGZ1bmN0aW9uYWxpdHksIGFu
+ZApleGFjdGx5IG9uZSBwcm90b2NvbCBpbXBsZW1lbnRhdGlvbi4gRm9yIDgwMi4xNS40IFdQQU4s
+IEkgdGhpbmsgdGhhdAppbXBsZW1lbnRhdGlvbiBzaG91bGQgcmVzdHJpY3QgaXRzZWxmIHRvIG9u
+ZSBuZXRkZXYgYW5kIGFuIGFkZGl0aW9uYWwKbGlzdCBvZiBzbGF2ZSByb2xlcyBhcyBuZWNlc3Nh
+cnksIGUuZy4gY29vcmRpbmF0b3IgZnVuY3Rpb25zIHRoYXQgYXJlCm9ubHkgYWNjZXNzaWJsZSB0
+aHJvdWdoIG5ldGxpbmsuCgpb4oCmXQo+ID4gVGhvc2UgYXJlIGludGVyZXN0aW5nIHByb3RvY29s
+cyB0byBzdXBwb3J0IHdpdGggdGhlIGN1cnJlbnQgUEhZCj4gPiBpbmZyYXN0cnVjdHVyZSwgeWVz
+LiBNaVdpIG1pZ2h0IGJlbmVmaXQgZ3JlYXRseSBmcm9tIHNoYXJpbmcgY29kZQo+ID4gd2l0aCBt
+YWM4MDIxNTQsIHNvIHRoZXJlIGlzIHJlYXNvbiB0byBrZWVwIHRoYXQgY29kZSByZWFzb25hYmx5
+Cj4gPiBnZW5lcmljIGlmIGFueW9uZSBldmVyIHdhbnRlZCB0byBpbXBsZW1lbnQgV2lNaSwgdGhl
+IHNhbWUgaG9sZHMgZm9yCj4gPiBWTEMuCj4gPgo+ID4gQWxsIG9mIHRob3NlIHByb3RvY29scyBt
+YXkgdmVyeSB3ZWxsIHNoYXJlIHRoZSBQSFkgYW5kIHBhcnRzIG9mIHRoZQo+ID4gY29kZSB3aXRo
+IHJlZ3VsYXIgODAyLjE1LjQsIGJ1dCA4MDIuMTUuNCBhbmQgdGhlc2UgcHJvdG9jb2xzIGFyZQo+
+ID4gYWxsIGluIHNvbWUgd2F5IGluY29tcGF0aWJsZSB3aXRoIGVhY2ggb3RoZXIuIEZvciB3aGF0
+IEkgY2FuIHRlbGwsCj4gPiBTTUFDIHVzZXMgdGhlIGZpcnN0IHR3byBieXRlcyBvZiBhIGZyYW1l
+IGFzIGRhdGEsIHdoZXJlIDgwMi4xNS40Cj4gPiBleHBlY3RzIGEgZnJhbWUgY29udHJvbCB3b3Jk
+LCBzbyB0aG9zZSBjYW5ub3Qgd29yayB0b2dldGhlciBvbiB0aGUKPiA+IHNhbWUgUEhZIHdpdGhv
+dXQgaW50ZXJmZXJpbmcgd2l0aCBlYWNoIG90aGVyLiBNaVdpLCBhcyBhbiBleHRlbmRlZAo+ID4g
+c3Vic2V0IG9mIDgwMi4xNS40LCBwcm9iYWJseSBhbHNvIGNhbm5vdCBjb2V4aXN0IHdpdGggODAy
+LjE1LjQgb3IKPiA+IFNNQUMgb24gdGhlIHNhbWUgUEhZLiBUd28gcHJvdG9jb2xzIGNhbiBvbmx5
+IHJlbGlhYmx5IGNvZXhpc3QgaWYKPiA+IHRoZXkgd2VyZSBleHBsaWNpdGx5IGRlc2lnbmVkIHRv
+IGRvIHRoYXQsIGJ1dCBJIGNvdWxkbid0IGNvbmZpcm0KPiA+IHRoYXQgd2hhdCB5b3UgbGlzdGVk
+IHdhcyBkZXNpZ25lZCB0by4KPiAKPiBUaGlzIGlzIHVwIHRvIHRoZSBwcm90b2NvbCBhbmQgYXBw
+bGljYXRpb24gdG8gZGVjaWRlLCB3aGV0aGVyIGl0IGNhbgo+IHBhcnNlIHBhY2tldHMgb3IgaXQg
+Y2FuIGlnbm9yZSB0aGVtLiBDb21wYXJlIHRoaXMgdG8gaGF2aW5nIElQdjQsCj4gSVB2NiwgSVBY
+IGFuZCBTTUIgKE5ldEJFVUkgb3Igd2hhdGV2ZXIgdGhhdCB3YXMgY2FsbGVkKSBwYWNrZXRzIG9u
+Cj4gdG9wIG9mIGEgd2lyZS4gSXQgaXMgdXAgdG8gdGhlIHByb3RvY29sIHRvIGRlY2lkZSwgd2hl
+dGhlciBpdCBjYW4KPiBwYXJzZSB0aGUgcGFja2V0IGFuZCB3aGV0aGVyIHRoZSBwYWNrZXQgbG9v
+a3MgZ29vZCBlbm91Z2ggdG8gYmUgcGFzc2VkCj4gdG8gdXBwZXIgbGF5ZXJzLgoKVXN1YWxseSwg
+bGluayBsYXllcnMgc3VwcG9ydCBzb21lIGtpbmQgb2YgdXBwZXIgbGF5ZXIgcHJvdG9jb2wgdHlw
+ZQppbmRpY2F0b3IuIEV0aGVybmV0IGhhcyB0aGUgZXRoZXJ0eXBlIGZpZWxkLCBmb3IgZXhhbXBs
+ZSwgc28gd2hpY2gKcHJvdG9jb2wgcGF5bG9hZCBhIHBhY2tldCBjb250YWlucyBpcyBkZXNjcmli
+ZWQgYnkgdGhlIHBhY2tldCBpdHNlbGYuIE9uCjgwMi4xNS40IFBIWXMsIHdlIGRvbid0IHVzdWFs
+bHkgaGF2ZSB0aGF0IC0gU01BQyBpcyBqdXN0IGEgcGlwZSBpbnRvCnRoZSBhaXIsIDgwMi4xNS40
+IFdQQU4gc3VwcG9ydHMgbm8gcHJvdG9jb2wgaW5kaWNhdGlvbiwgYW5kIE1pV2kgb3IKb3RoZXJz
+IHByb2JhYmx5IGRvIG5vdCBlaXRoZXIuIEFzIHN1Y2gsIHdoaWNoIHByb3RvY29sIHNob3VsZCBi
+ZSB1c2VkCnRvIHByb2Nlc3MgaXMgYSBwYWNrZXQgaXMgbm90IGEgcHJvcGVydHkgb2YgdGhlIHBh
+Y2tldCwgYnV0IGEgcHJvcGVydHkKb2YgdGhlIG5ldHdvcmsgdGhlIFBIWSBpcyBpbiAtIGJhcnJp
+bmcgaW50ZXJmZXJlcnMgb24gdGhlIHNhbWUgY2hhbm5lbAp0aGF0IHNlbmQgb3RoZXIgdGhpbmdz
+LiBPbiA4MDIuMTUuNCBXUEFOcywgdGhvc2UgaW50ZXJmZXJlcnMgY2FuIGJlCmVhc2lseSBpZ25v
+cmVkIGJ5IHN3aXRjaGluZyB0byBhIGRpZmZlcmVudCBQQU4gYW5kIGlnbm9yaW5nIGJyb2FkY2Fz
+dApmcmFtZXMgZnJvbSBvdGhlciBQQU5zLCBidXQgb3RoZXIgcHJvdG9jb2xzIG1pZ2h0IG5vdCBt
+YWtlIHRoaXMgYXMgZWFzeS4KClNheSwgeW91IGhhdmUgYW4gU01BQyBkZXZpY2UgYW5kIGEgODAy
+LjE1LjQgV1BBTiBvbiB0aGUgc2FtZSBQSFksIGFuZAp0d28gbWFjaGluZXMgd2l0aCB0aGlzIHNl
+dHVwLiBPbmUgbWFjaGluZSBzZW5kcyBhbiBTTUFDIGZyYW1lIHRoYXQganVzdApzbyBoYXBwZW5z
+IHRvIGxvb2sgbGlrZSBhbiA4MDIuMTUuNCBXUEFOIGRpc3Nhc29jaWF0aW9uIHJlcXVlc3QsIGFu
+ZAp0aGUgb3RoZXIgbWFjaGluZSdzIDgwMi4xNS40IFdQQU4gaW1wbGVtZW50YXRpb24gbWlnaHQg
+aGFwcGlseSBwcm9jZXNzCml0IGFzIHN1Y2ggZXZlbiB0aG91Z2ggaXQgd2FzIG5ldmVyIG1lYW50
+IHRvLiBXZSBjb3VsZCBvZiBjb3Vyc2UgdGVsbApTTUFDIHRvICJqdXN0IGRvbid0IGRvIHRoYXQi
+LCBidXQgdGhlbiB0aGF0J3Mgbm90IHJlYWxseSBTTUFDIGFueW1vcmUKYW5kIGFsc28gbm90IHdo
+YXQgYW4gU01BQyB1c2VyIHdvdWxkIGV4cGVjdC4KCk91ciBzaXR1YXRpb24gaGVyZSwgSSB0aGlu
+aywgaXMgbXVjaCBtb3JlIGFraW4gdG8gYW4gUlM0ODUgbmV0d29yayBvcgpzaW1pbGFyIG5ldHdv
+cmtzIHRoYXQgcHJvdmlkZSBvbmx5IHJhdywgdW5hZHVsdGVyYXRlZCBieXRlc3RyZWFtCnRyYW5z
+cG9ydC4gRm9yIFNNQUMgY2VydGFpbmx5LCA4MDIuMTUuNCBXUEFOIGRvZXMgaW1wb3NlIHNvbWUK
+cmVzdHJpY3Rpb25zIG9uIHRoaXMgd2l0aCB0aGUgUEFOIGNvbmNlcHQgYW5kIGV4cGxpY2l0IG5v
+bi1icm9hZGNhc3QKZnJhbWVzIHRvIHNlcGFyYXRlIGRpZmZlcmVudCBlbnRpdGllcywgYnV0IHRo
+ZSBwcm90b2NvbCBjb250YWluZWQgaW4gYQpmcmFtZSB0YWtlbiBmcm9tIHRoZSBQSFkgaXMgc3Rp
+bGwgdmVyeSBtdWNoIGRlcGVuZGVudCBvbiB0aGUgbmV0d29yawppdHNlbGYuIEl0IHdpbGwgY29u
+dGludWUgdG8gYmUgaGFyZCB0byBoYXZlIG11bHRpcGxlIHByb3RvY29scyBvbiB0aGUKc2FtZSBj
+aGFubmVsIGV2ZW4gd2l0aCB0aGUgcmVzdHJpY3Rpb24gdG8gb25lIHByb3RvY29sIGltcGxlbWVu
+dGF0aW9uCnBlciBQSFksIGJ1dCB0aGF0J3MgYWxyZWFkeSBoYXJkIHRvIGltcG9zc2libGUgbm93
+IC0gYWxsIGRlcGVuZGluZyBvbgp0aGUgb3RoZXIgcHJvdG9jb2xzIHByZXNlbnQgb24gdGhlIGNo
+YW5uZWwuCgo+ID4gU28geWVzLCBpdCBpcyBzZW5zaWJsZSB0byBhbGxvdyBkaWZmZXJlbnQgcHJv
+dG9jb2xzIG9uIHRvcCBvZiB0aGUKPiA+IFBIWSwgYnV0IG5vdCB0d28gZGlmZmVyZW50IHByb3Rv
+Y29scyBhdCBvbmNlLCBhbmQgYWxzbyBub3QgdHdvCj4gPiBkaWZmZXJlbnQgaW5zdGFuY2VzIG9m
+IHRoZSBzYW1lIHByb3RvY29sIHRoYXQgaW50ZXJmZXJlIHdpdGggZWFjaAo+ID4gb3RoZXIgLSB3
+aGljaCwgZm9yIHRoZSB0cmFuc2NlaXZlcnMgdGhhdCBoYXZlIGRyaXZlcnMgaW4gdGhlIGtlcm5l
+bAo+ID4gbm93LCBhcmUgYW55IHR3byBpbnN0YW5jZXMgYXQgYWxsLiBUaGUgdHJhbnNjZWl2ZXJz
+IHdlIHN1cHBvcnQgYXJlCj4gPiBkZXNpZ25lZCBieSB0aGVpciBtYW51ZmFjdHVyZXJzIHRvIGJl
+IGFzIGNoZWFwIGFzIHBvc3NpYmxlIHdoaWxlCj4gPiBzdGlsbCBhbGxvd2luZyBhIGZ1bGwgaW1w
+bGVtZW50YXRpb24gb2YgYW4gODAyLjE1LjQgc3RhY2ssIHdoaWNoCj4gPiBub3RhYmxlIGRvZXMg
+bm90IGluY2x1ZGUgYSByZXF1aXJlbWVudCBmb3Igb25lIGRldmljZSB0byBiZQo+ID4gYWNjZXNz
+aWJsZSBpbiBkaWZmZXJlbnQgc3BlY2lmaWMgV1BBTnMgYXQgb25jZS4KPiAKPiBBbmQgdGhpcyBp
+cyB0byB0aGUgZHJpdmVyIHRvIGRlY2lkZS4gSSBkb24ndCByZW1lbWJlciwgd2hpY2ggZ290IHRv
+Cj4gdGhlIGtlcm5lbC4gTXkgb3JpZ2luYWwgY29kZSBhbGxvd2VkIHRoZSB1cHBlciBsYXllcnMg
+YW5kIHByb3RvY29sIHRvCj4gYWdyZWUgb24gd2hhdCBpcyBhbGxvd2VkIGFuZCB3aGF0IGlzIG5v
+dC4gSXQgaXMgdGhlIGRyaXZlciwgd2hvIGtub3dzCj4gd2hhdCBpcyBjdXJyZW50bHkgZW5hYmxl
+ZCAoYWRkcmVzcyBmaWx0ZXJpbmcsIGF1dG8tYWNrLCBwcm9taXNjLAo+IGV0YykuIE1hYzgwMi4x
+NS40IHNob3VsZCBub3QgaW1wb3NlIGFkZGl0aW9uYWwgcmVzdHJpY3Rpb25zIG9uIHRvcCBvZgo+
+IHRoYXQuCgpZZXMsIGJ1dCBpdCBhbHNvIHNob3VsZG4ndCBhbGxvdyB0d28gc2xhdmVzIG9uIHRo
+ZSBzYW1lIFBIWSB3aXRoCmRpZmZlcmluZyB2aWV3cyBvZiByZWFsaXR5LiBJbiB0aGUgYmVzdCBj
+YXNlLCBvbmUgc2xhdmUgd2lsbCBub3QgYmUKc2VydmljZWQgYXMgZXhwZWN0ZWQsIGluIHRoZSB3
+b3JzdCBjYXNlLCBub25lIG9mIHRoZSBzbGF2ZXMgd2lsbCBiZQpzZXJ2aWNlZCBhdCBhbGwuCgo+
+ID4gSWYgdGhlIHN0YXRlZCBnb2FsIG9mIG1hYzgwMjE1NCBpcyB0byBzdXBwb3J0IGFueXRoaW5n
+IHRoYXQgdXNlcyBhCj4gPiA4MDIuMTUuNCBQSFksIG9yIGEgc2ltaWxhciBQSFksIHRoZW4gbWF5
+YmUgdGhlIHN0YWNrIHNob3VsZCByZW5hbWVkCj4gPiB0byByZWZsZWN0IHRoYXQuIE9yIGl0IGNv
+dWxkIGJlIHNwbGl0IGludG8gbWFjODAyMTV4IGFuZAo+ID4gaWVlZTgwMjE1NCwgc21hYywgbWl3
+aSAuLi4gQSBiYXNpYyBzdGFjayBmb3IganVzdCB0aGUgUEhZIGZ1bmN0aW9ucwo+ID4gYW5kIG9u
+ZSBzdGFjayBmb3IgZWFjaCBwcm90b2NvbCwgd2hlcmUgdGhvc2Ugc3RhY2sgY291bGQgb2YgY291
+cnNlCj4gPiBzaGFyZSBjb2RlIHdoZXJlIGFwcHJvcHJpYXRlLiBTaW5jZSBub3RoaW5nIGhhcyBt
+YWRlIGEgbW92ZSBmb3IKPiA+IG1haW5saW5lIHNpbmNlIHRoZSA4MDIuMTUuNCBQSFkgaW5mcmFz
+dHJ1Y3R1cmUgd2FzIGFkZGVkLCBJIGRvCj4gPiBiZWxpZXZlIHRoYXQgdGhpcyBjb21wbGV4aXR5
+IGlzIG5vdCB3YXJyYW50ZWQgYXQgdGhlIG1vbWVudC4gVGhhdAo+ID4gbWlnaHQgY2hhbmdlIHdo
+ZW4gdGhvc2UgcHJvdG9jb2xzIHdpc2ggdG8gZ28gbWFpbmxpbmUsIGJ1dCByaWdodAo+ID4gbm93
+IHRoZSBpbXBsZW1lbnRhdGlvbiBpbiB0aGUga2VybmVsIGlzIGFuIDgwMi4xNS40IHN0YWNrLCBh
+bmQgdGhlCj4gPiBhc3N1bXB0aW9uIHRoYXQgaXQgaXMgYSBwdXJlIDgwMi4xNS40IHN0YWNrIGlz
+IGFsc28gcHJlc2VudCBpbiB0aGUKPiA+IFBIWSBkcml2ZXJzLiBJbiBteSBvcGluaW9uLCB3ZSBz
+aG91bGQgc3RpY2sgdG8gd2hhdCB3ZSBrbm93IC0KPiA+IDgwMi4xNS40IC0gdW50aWwgdGhlIG5l
+ZWQgdG8gZGl2ZXJzaWZ5IGFyaXNlcy4KPiAKPiBQSFkgZG9lcy9zaG91bGQgbm90IGRlcGVuZCBv
+biBoYXZpbmcgb25seSA4MDIuMTUuNC4gTW9uaXRvcmluZyBhbmQKPiBTTUFDIHdvcmtlZCB3L28g
+YW55IGlzc3Vlcy4gSW4gZmFjdCB0aGlzIHdhcyB0aGUgb3JpZ2luYWwgY2F1c2UgZm9yCj4gcmVk
+dWNlZCBhbmQgZnVsbCBNTE1FIG9wcywgbm90IHRoYXQgUkZEL0ZGRCBjcmFwLCB0aGF0IGlzIGN1
+cnJlbnRseQo+IHdyaXR0ZW4gaW4gdGhlIGNvbW1lbnQgaW4gaWVlZTgwMjE1NF9uZXRkZXYuaCBm
+aWxlLgoKSXQgZG9lcyBub3QsIHRoYXQncyBjb3JyZWN0LCBidXQgYWN0aXZhdGluZyBldmVuIG9u
+ZSA4MDIuMTUuNCBXUEFOIG9uIGEKUEhZIHRoYXQgc3VwcG9ydHMgYWRkcmVzcyBmaWx0ZXJpbmcg
+d2lsbCBlZmZlY3RpdmVseSBsb2NrIG91dApldmVyeXRoaW5nIGVsc2Ugb24gdGhlIHNhbWUgUEhZ
+LCBpbmNsdWRpbmcgU01BQy4gTGV0dGluZyB0aGUgUEhZCnBlcmZvcm0gb25seSB0aGUgbG93ZXN0
+IGNvbW1vbiBkZW5vbWluYXRvciBvZiBhbGwgdGhhdCBpcyByZXF1ZXN0ZWQgYnkKc2xhdmVzIHdp
+bGwgYWxzbyBub3Qgd29yaywgYmVjYXVzZSB3ZSBjYW5ub3QgcG9zc2libHkgaW1wbGVtZW50IGV2
+ZW4KdGhlIEFDSyBtZWNoYW5pc20gb2YgODAyLjE1LjQgV1BBTiBpbiB0aGUgY3VycmVudCBzdGFj
+ayB3aXRob3V0IFBIWQpzdXBwb3J0LiBUaGF0J3Mgbm90IG9ubHkgYmVjYXVzZSB3ZSB1c2Ugd29y
+a3F1ZXVlcyBmb3IgUlgsIGJ1dCBhbHNvCmJlY2F1c2Ugc29tZSBjb21tb25seSBTUEkgZHJpdmVy
+cyB1c2Ugd29ya3F1ZXVlcyBmb3IgdGhlaXIgaW50ZXJuYWxzLgpPbiBhIDEwMGticHMgT1FQU0sg
+bmV0d29yaywgd2UgaGF2ZSAxMiBzeW1ib2wgcGVyaW9kcyBiZWZvcmUgYW4gQUNLIGZvcgphIGZy
+YW1lIGhhcyB0byBiZSBzZW50LCBvciBhYm91dCAwLjUgbWlsbGlzZWNvbmRzLiBJbmNsdWRpbmcg
+dGhlIFNQSQp0cmFuc2ZlcnMgcmVxdWlyZWQsIHRoZXJlJ3MganVzdCBubyB3YXkgdG8ga2VlcCB0
+aGF0IGRlYWRsaW5lLgoKPiA+IEFzIGV4cGxhaW5lZCBhYm92ZSwgSSBhbSBub3Qgb3Bwb3NlZCB0
+byB0aGUgc2VwYXJhdGlvbiBpbnRvIFBIWQo+ID4gZGV2aWNlcyBhbmQgbmV0ZGV2cy4gVGhlIGN1
+cnJlbnQgbW9kZSBvZiBzZXBlcmF0aW9uIGlzIGF0IG9kZHMgd2l0aAo+ID4gd2hhdCBjYW4gYmUg
+aW1wbGVtZW50ZWQgaW4gcmVhbGl0eSB3aXRob3V0IGJyZWFraW5nIGF0IGxlYXN0IG9uZQo+ID4g
+YXNzdW1wdGlvbiBvZiB0aGUgbmV0ZGV2IG1vZGVsIHRob3VnaCwgc28gSSB0aGluayB3ZSBzaG91
+bGQgcmV0aGluawo+ID4gYXQgbGVhc3QgdGhlIG1vZGUgb2Ygc2VwYXJhdGlvbiAtIHRoZSBzZXBh
+cmF0aW9uIGl0c2VsZiBpcyBhCj4gPiBzZW5zaWJsZSB0aGluZy4KPiAKPiBJJ20gb3BlbiB0byBh
+bnkgcmVhbCBzdWdnZXN0aW9ucy4gQnV0IHBsZWFzZSBjaGVjayB0aGUgODAyMTEga2VybmVsCj4g
+Y29kZSBmaXJzdC4KCiAqIHNwbGl0IHRoZSBzbGF2ZSBsaXN0IGludG8gYSBsaXN0IG9mIG1vbml0
+b3JzIGFuZCBhIHByb3RvY29sIGltcGwKICogaGF2ZSBlYWNoIHByb3RvY29sIHRoYXQgd2FudHMg
+dG8gcnVuIG9uIHRoZSBwaHkgcHJvdmlkZSBhIHByb3RvY29sCiAgIGltcGwsIGFraW4gdG8gcGFj
+a2V0X3R5cGUgbWVjaGFuaXNtIG9mIHRoZSBuZXRkZXYgc3RhY2sKICogcHJvdG9jb2wgaW1wbHMg
+YXJlIGZyZWUgdG8gZG8gd2hhdGV2ZXIgdGhleSB3aXNoLiBGb3IgODAyLjE1LjQgV1BBTiwKICAg
+SSdkIHdpc2ggdGhlIHByb3RvY29sIGltcGwgdG8gYWxsb3cgb25seSBvbmUgbmV0ZGV2IGFuZCBz
+b21lIHNldCBvZgogICBvdGhlciByb2xlcywgYXMgb3V0bGluZWQgYWJvdmUuIFRoYXQnZCBiZSBv
+bmUgYWN0aXZlIHNsYXZlIHRoYXQgYWN0cwogICBhcyBhIG5ldHdvcmsgZGV2aWNlLCBhbmQgYSBu
+dW1iZXIgb2Ygb3RoZXIgc2xhdmVzIHRoYXQgZG9uJ3QgLSBidXQKICAgc3RpbGwgcHJvY2VzcyBh
+bmQgdHJhbnNtaXQgcGFja2V0cy4KClvigKZdCj4gRmlyc3QsIGp1c3QgdG8gbWFrZSBzdXJlIHRo
+YXQgeW91IHVuZGVyc3RhbmQgaXQuICdhIFRYIG9wZXJhdGlvbgo+IHdyaXRlcyBhIGZyYW1lIHRv
+IHRoZSBkZXZpY2UgZnJhbWUgYnVmZmVyLCBjaGFuZ2VzIHN0YXRlLCBjaGVja3MgdGhhdAo+IHRo
+ZSBzdGF0ZSBjaGFuZ2UgaGFzIHN1Y2NlZWRlZCcuCj4gVGhpcyBwYXJ0IGFscmVhZHkgaW5jbHVk
+ZXMgc2xlZXBpbmcgYSBsb3QuIE9uZSBjYW4gY2hhbmdlIHRoZSBkcml2ZXJzCj4gY29kZSB0byBk
+byBhbGwgdGhlIGpvYiBvbiBhc3luY2hyb25vdXMgY2FsbGJhY2tzIG9yIGluIHRoZSBzcGVjaWFs
+Cj4gZHJpdmVyLWxvY2FsIHdvcmtlci4gQnV0IHlvdSBzdGlsbCBmYWNlIHRoZSBpc3N1ZS4gQWdh
+aW4sIHNlbmQgdGhlCj4gcGF0Y2hlcyBvbiBob3cgdG8gaW1wcm92ZSB0aGUgc2l0dWF0aW9uLgoK
+SSB3b3VsZCBkaWZmZXJlbnRpYXRlIGJldHdlZW4gc2xlZXBpbmcgKHRlbGxpbmcgdGhlIHNjaGVk
+dWxlciB0bwppZ25vcmUgdGhlIGN1cnJlbnQgdGhyZWFkIHVudGlsIHNvbWUgY29uZGl0aW9uIGhv
+bGRzKSBhbmQgd2FpdGluZwoodGVsbGluZyBhbiBhY3RvciB0byBwcm92aWRlIGFzeW5jaHJvbm91
+cyBpbmRpY2F0aW9uIG9mIGNvbXBsZXRpb24pLgpUaGUgdW5kZXJseWluZyBhY3RvciBtYXkgb2Yg
+Y291cnNlIHNsZWVwLCBhcyBzb21lIFNQSSBkcml2ZXJzIGRvLCBidXQKdGhhdCBkb2Vzbid0IGZv
+cmNlIGFueSBvdGhlciB1c2VyIHRvIHNsZWVwIGFzIHdlbGwuCgpPbmNlIEkgaGF2ZSBzb21lIHBh
+dGNoZXMgdG8gc2hvdyB3aGF0IEkgbWVhbiwgSSdsbCBzdWJtaXQgdGhlbS4gVGhlcmUKYXJlIG90
+aGVyIHRoaW5ncyBJIGhhdmUgdG8gdGFrZSBvZiBmaXJzdCwgdGhvdWdoLCBzbyB0aGlzIG1pZ2h0
+IG5vdApoYXBwZW4gZm9yIGFub3RoZXIgZmV3IHdlZWtzLgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+CkxlYXJuIEdyYXBoIERhdGFiYXNlcyAtIERvd25sb2FkIEZSRUUgTydSZWlsbHkgQm9vawoiR3Jh
+cGggRGF0YWJhc2VzIiBpcyB0aGUgZGVmaW5pdGl2ZSBuZXcgZ3VpZGUgdG8gZ3JhcGggZGF0YWJh
+c2VzIGFuZCB0aGVpcgphcHBsaWNhdGlvbnMuIFdyaXR0ZW4gYnkgdGhyZWUgYWNjbGFpbWVkIGxl
+YWRlcnMgaW4gdGhlIGZpZWxkLAp0aGlzIGZpcnN0IGVkaXRpb24gaXMgbm93IGF2YWlsYWJsZS4g
+RG93bmxvYWQgeW91ciBmcmVlIGJvb2sgdG9kYXkhCmh0dHA6Ly9wLnNmLm5ldC9zZnUvMTM1MzRf
+TmVvVGVjaApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpM
+aW51eC16aWdiZWUtZGV2ZWwgbWFpbGluZyBsaXN0CkxpbnV4LXppZ2JlZS1kZXZlbEBsaXN0cy5z
+b3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGlu
+Zm8vbGludXgtemlnYmVlLWRldmVsCg==
