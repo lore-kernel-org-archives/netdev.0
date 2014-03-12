@@ -1,105 +1,51 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: Re: [PATCH net-next v3 6/9] Altera TSE: Add main and header file for
- Altera Ethernet Driver
-Date: Wed, 12 Mar 2014 10:25:26 -0500
-Message-ID: <CAOwfj2Png8mY1duQ6ewUMOCqO37UZD85Q6ptpLVzuoanvrJ1RA@mail.gmail.com>
-References: <1394577791-6547-1-git-send-email-vbridgers2013@gmail.com>
-	<1394577791-6547-7-git-send-email-vbridgers2013@gmail.com>
-	<1394585144.28839.32.camel@joe-AO722>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next 0/7] tipc: simplifications in socket and port layer
+Date: Wed, 12 Mar 2014 11:31:06 -0400
+Message-ID: <1394638273-6127-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"pawel.moll@arm.com" <pawel.moll@arm.com>,
-	"mark.rutland@arm.com" <mark.rutland@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Rob Landley <rob@landley.net>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1394585144.28839.32.camel@joe-AO722>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp104.biz.mail.ne1.yahoo.com ([98.138.207.11]:33790 "HELO
+	smtp104.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754899AbaCLPbT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 11:31:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 11, 2014 at 7:45 PM, Joe Perches <joe@perches.com> wrote:
-> On Tue, 2014-03-11 at 17:43 -0500, Vince Bridgers wrote:
->> This patch adds the main driver and header file for the Altera Triple
->> Speed Ethernet driver.
->
-> trivial notes about message logging:
->
->> diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
-> []
->> +static const u32 default_msg_level = (NETIF_MSG_DRV | NETIF_MSG_PROBE |
->> +                                     NETIF_MSG_LINK | NETIF_MSG_IFUP |
->> +                                     NETIF_MSG_IFDOWN);
-> []
->> +static int altera_tse_mdio_create(struct net_device *dev, unsigned int id)
->> +{
-> []
->> +     mdio->irq = kcalloc(PHY_MAX_ADDR, sizeof(int), GFP_KERNEL);
->> +     if (mdio->irq == NULL) {
->> +             dev_err(priv->device, "%s: Cannot allocate memory\n", __func__);
->
-> OOM messages aren't necessary as all allocs have
-> a generic OOM message as well as a dump_stack();
-> (well, any alloc without GFP_NOWARN)
->
->> +     ret = of_mdiobus_register(mdio, mdio_node);
->> +     if (ret != 0) {
->> +             dev_err(priv->device, "Cannot register MDIO bus %s\n",
->> +                     mdio->id);
->
-> Because you have a struct net_device * available,
-> you should probably use that.
->
->                 netdev_err(dev, "Cannot register MDIO bus %s\n", mdio->id);
->
->> +             goto out_free_mdio_irq;
->> +     }
->> +
->> +     if (netif_msg_drv(priv))
->> +             dev_info(priv->device, "MDIO bus %s: created\n", mdio->id);
->
-> There are generic functions for this with the struct net_device *
->
->         netif_info(priv, drv, dev, "MDIO bus %s: created\n", mdio->id);
->
->> +static void altera_tse_mdio_destroy(struct net_device *dev)
->> +{
-> []
->> +     if (netif_msg_drv(priv))
->> +             dev_info(priv->device, "MDIO bus %s: removed\n",
->> +                      priv->mdio->id);
->
->         netif_info(priv, drv, dev, "MDIO bus %s: removed\n, priv->mdio->id);
->
-> []
->
->> +static int tse_init_rx_buffer(struct altera_tse_private *priv,
->> +                           struct tse_buffer *rxbuffer, int len)
->> +{
->> +     rxbuffer->skb = netdev_alloc_skb_ip_align(priv->dev, len);
->> +     if (!rxbuffer->skb) {
->> +             dev_err(priv->device, "%s: Rx init fails; skb is NULL\n",
->> +                     __func__);
->
->                 netdev_err(priv->dev, "%s: etc...)
->
-> but this is also a generic alloc and will get the same generic OOM.
->
->> +     if (dma_mapping_error(priv->device, rxbuffer->dma_addr)) {
->> +             dev_err(priv->device, "%s: DMA mapping error\n", __func__);
->
->                 netdev_err(priv->dev, etc...)
->
-> etc...
->
-Thank you for taking the time to review and provide constructive
-comments. I'll address the comments and respin.
+After the removal of the tipc native API the relation between
+tipc_port and its API types is strictly one-to-one, i.e, the latter
+can now only be a socket API. This change opens up for
+simplifications both in the code, data and locking structure. 
 
-All the best,
+We start with this series, where we ensure that port and socket
+structures are co-allocated. Note that the first commit in the
+series is unrelated to the above.
 
-Vince
+Jon Maloy (7):
+  tipc: replace reference table rwlock with spinlock
+  tipc: remove redundant 'peer_name' field in struct tipc_sock
+  tipc: aggregate port structure into socket structure
+  tipc: eliminate upcall function pointers between port and socket
+  tipc: eliminate redundant locking
+  tipc: align usage of variable names and macros in socket
+  tipc: eliminate redundant lookups in registry
+
+ net/tipc/link.c   |    4 +-
+ net/tipc/port.c   |  208 +++++++++++-----------------------------------
+ net/tipc/port.h   |  112 ++++++++++++++++---------
+ net/tipc/ref.c    |   27 ++----
+ net/tipc/ref.h    |    1 -
+ net/tipc/socket.c |  240 +++++++++++++++++++++++++----------------------------
+ net/tipc/socket.h |   72 ++++++++++++++++
+ 7 files changed, 314 insertions(+), 350 deletions(-)
+ create mode 100644 net/tipc/socket.h
+
+-- 
+1.7.9.5
