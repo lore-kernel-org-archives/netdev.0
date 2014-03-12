@@ -1,65 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [tcp] The ssthresh reduce during 3WHS
-Date: Wed, 12 Mar 2014 07:26:30 -0700
-Message-ID: <1394634390.21721.46.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAH4NVoT4ofCNKAmcnO1AgEbs+ywbXom=E28k2VU4dB+yK79S_A@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH RFC net-next v1 0/9] ptp: dynamic pin control
+Date: Wed, 12 Mar 2014 15:46:02 +0100
+Message-ID: <20140312144602.GB10256@netboy>
+References: <cover.1394307303.git.richardcochran@gmail.com>
+ <D4F856CB7308D0C94855B452@[172.22.2.41]>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Jerry Chu <hkchu@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Yong Zhang <fell198904@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:45554 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754221AbaCLO0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 10:26:32 -0400
-Received: by mail-pd0-f182.google.com with SMTP id y10so483180pdj.13
-        for <netdev@vger.kernel.org>; Wed, 12 Mar 2014 07:26:31 -0700 (PDT)
-In-Reply-To: <CAH4NVoT4ofCNKAmcnO1AgEbs+ywbXom=E28k2VU4dB+yK79S_A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Stefan =?iso-8859-1?Q?S=F8rensen?=
+	<stefan.sorensen@spectralink.com>
+To: Christian Riesch <christian.riesch@omicron.at>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <D4F856CB7308D0C94855B452@[172.22.2.41]>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-03-12 at 21:46 +0800, Yong Zhang wrote:
-> hi=EF=BC=8C
->=20
-> I am trying to to apply patch 9ad7c049f0f79c418e293b1b68cf10d68f54fcd=
-b
-> to my old version kernel, but I am not understanding the following
-> changes.
->=20
-> The comments int the patch say ssthresh may reduce unnecessarily
-> druing 3WHS,  but i can not find the reduce operation of ssthresh
-> during 3WHS.
->=20
-> Can you please explain when dose this may hanppen?
->=20
+On Wed, Mar 12, 2014 at 09:21:00AM +0100, Christian Riesch wrote:
+> 
+> Do you think it is possible to extend this in the future, e.g. for
+> selecting the polarity of periodic output signals  or for time
+> stamping of external signals (rising edge/falling edge), or duty
+> cycles of the periodic signal other than 50%? How could this be
+> done? Using the reserved fields in struct ptp_pin_desc?
 
-You might CC patch author when asking such questions...
+Yes, this can be done, but this relates to the ptp_xyz_request ioctls
+and not to the ptp_pin_desc. You asked for three things. Here is how
+one might implement them.
 
+1. selecting the polarity of periodic output signals
 
->=20
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index bef9f04..ea0d218 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -880,6 +880,11 @@ static void tcp_init_metrics(struct sock *sk)
->=20
->         tp->snd_ssthresh =3D dst_metric(dst, RTAX_SSTHRESH);
->                  if (tp->snd_ssthresh > tp->snd_cwnd_clamp)
->                          tp->snd_ssthresh =3D tp->snd_cwnd_clamp;
-> +       } else {
-> +                /* ssthresh may have been reduced unnecessarily duri=
-ng.
-> +                * 3WHS. Restore it back to its initial default.
-> +                */
-> +                tp->snd_ssthresh =3D TCP_INFINITE_SSTHRESH;
->          }
->=20
->=20
-> Thanks,
-> Fel
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+   ptp_perout_request.flags (new flag)
+
+2. time stamping of external signals (rising edge/falling edge)
+
+   This is already supported in the ptp_extts_request.flags field.
+   The drivers just need to implement it.
+
+3. duty cycles of the periodic signal other than 50%?
+
+   Maybe using one of the ptp_perout_request.rsv fields.
+ 
+> Do you think the concept allows an extension for single pulse
+> output, e.g. programming a pin to output a single pulse at a given
+> time, as supported by the DP83640?
+
+Yes, either a new ioctl or maybe ptp_perout_request.flags with a
+ONE-SHOT flag.
+
+> If several DP83640 are connected together with the calibration
+> function, only the GPIOs of the master device can be used, right? I
+> guess this could also be extended in the future to use the GPIOs of
+> all DP83640, right? Or do you see a problem with your concept here?
+
+If the driver would combine all of the pins and functions over all the
+devices, that would be best. I think it would be tricky to implement,
+since the driver probe() function doesn't know how many more phyters
+to expect.
+
+Thanks,
+Richard
