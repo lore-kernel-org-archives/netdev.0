@@ -1,118 +1,175 @@
-From: Martin Pitt <martin.pitt@ubuntu.com>
-Subject: Re: [mac80211_hwsim] BUG: unable to handle kernel paging request at
- ce1db404
-Date: Wed, 12 Mar 2014 18:34:46 +0100
-Message-ID: <20140312173446.GD2983@piware.de>
-References: <20140305125703.GA7193@localhost>
- <20140305132317.GB10880@localhost>
- <20140308121138.GA8359@localhost>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="3siQDZowHQqNOShm"
-Cc: Johannes Berg <johannes.berg@intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Fengguang Wu <fengguang.wu@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140308121138.GA8359@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: [PATCH v6] sh_eth: update OF PHY registeration
+Date: Wed, 12 Mar 2014 17:47:40 +0000
+Message-ID: <1394646460-18170-1-git-send-email-ben.dooks@codethink.co.uk>
+Cc: devicetree@vger.kernel.org, magnus.damm@opensource.se,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	horms+renesas@verge.net.au, linux-kernel@lists.codethink.co.uk,
+	Ben Dooks <ben.dooks@codethink.co.uk>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 82-68-191-81.dsl.posilan.com ([82.68.191.81]:37804 "EHLO
+	rainbowdash.ducie.codethink.co.uk" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755870AbaCLRrs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Mar 2014 13:47:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+If the sh_eth device is registered using OF, then the driver
+should call of_mdiobus_register() to register the PHYs described
+in the devicetree and then use of_phy_connect() to connect the
+PHYs to the device.
 
---3siQDZowHQqNOShm
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This ensures that any PHYs registered in the device tree are
+appropriately connected to the parent devices nodes so that
+the PHY drivers can access their OF properties.
 
-Fengguang Wu [2014-03-08 20:11 +0800]:
-> [    4.429993] mac80211_hwsim: ieee80211_register_hw failed (-2)
-> [...]
-> [    4.431924]  [<c12377de>] get_device+0xf/0x17
-> [    4.431924]  [<c123a165>] driver_detach+0x38/0x8f
-> [    4.431924]  [<c1239433>] bus_remove_driver+0x53/0x66
-> [    4.431924]  [<c123a535>] driver_unregister+0x38/0x3d
-> [    4.431924]  [<c123b3aa>] platform_driver_unregister+0xb/0xd
-> [    4.431924]  [<c1c4ac9f>] init_mac80211_hwsim+0x3a5/0x3b6
+Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
 
+--
+v2:
+	- allocate mdio->irq array at init time
+	- set devdata after succesful mdio registration
+v3:
+	- do not parse phy->irq in of setup (done by of_mdiobus)
+	- use of_phy_connect to connect phy
+v4:
+	- fix review comments on code
+	- reword patch description
+	- change if to be two way in mdio init code
+v5:
+	- fix comment duplication
+	- move error to out of mdio init
+	- updated patch description
+	- add copyright codethink to header
+v6:
+	- minor messages and comment fixes for Sergei
+---
+ drivers/net/ethernet/renesas/sh_eth.c | 59 +++++++++++++++++++++++------------
+ 1 file changed, 39 insertions(+), 20 deletions(-)
 
-So that first message is from
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/drivers=
-/net/wireless/mac80211_hwsim.c?id=3D9ea927748#n2428
-
-At this point we registered the platform driver and the class, and it
-should have created two devices (at least for the default radios=3D2).
-What's odd is that I don't see this printk in your kernel log:
-
-  mac80211_hwsim: Initializing radio %d
-
-If for some reasons "radio" is 0, it would not show this and not
-initialize data->dev, but then you shouldn't get to
-ieee80211_register_hw() either as it's in the same loop. So that's a
-bit of a mystery to me.
-
-On failure, above ieee80211_register_hw() jumps to the cleanup:
-
-| failed_hw:
-| 	device_unregister(data->dev);
-| failed_drvdata:
-| 	ieee80211_free_hw(hw);
-| failed:
-| 	mac80211_hwsim_free();
-| failed_unregister_driver:
-| 	driver_unregister(&mac80211_hwsim_driver);
-| 	return err;
-| }
-
-
-The mac80211_hwsim_free() function again calls
-device_unregister(data->dev) for a list (not sure which, I'm not
-certain how to interpret
-
-  list_for_each_entry_safe(data, tmpdata, &tmplist, list)
-
-) Could that be the double free causing the memory corruption?
-
-If you are in a position to do quick builds and tests, does the crash
-go away with this?
-
- 		printk(KERN_DEBUG "mac80211_hwsim: device_bind_driver failed (%d)\n",
- 		       err);
-- 		goto failed_hw;
-+ 		goto failed_drvdata;
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index a18cbe1..be7211d 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -3,6 +3,7 @@
+  *  Copyright (C) 2006-2012 Nobuhiro Iwamatsu
+  *  Copyright (C) 2008-2014 Renesas Solutions Corp.
+  *  Copyright (C) 2013-2014 Cogent Embedded, Inc.
++ *  Copyright (C) 2014 Codethink Limited
+  *
+  *  This program is free software; you can redistribute it and/or modify it
+  *  under the terms and conditions of the GNU General Public License,
+@@ -40,6 +41,7 @@
+ #include <linux/if_vlan.h>
+ #include <linux/clk.h>
+ #include <linux/sh_eth.h>
++#include <linux/of_mdio.h>
+ 
+ #include "sh_eth.h"
+ 
+@@ -1761,22 +1763,37 @@ static void sh_eth_adjust_link(struct net_device *ndev)
+ /* PHY init function */
+ static int sh_eth_phy_init(struct net_device *ndev)
+ {
++	struct device_node *np = ndev->dev.parent->of_node;
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
+-	char phy_id[MII_BUS_ID_SIZE + 3];
+ 	struct phy_device *phydev = NULL;
+ 
+-	snprintf(phy_id, sizeof(phy_id), PHY_ID_FMT,
+-		 mdp->mii_bus->id, mdp->phy_id);
+-
+ 	mdp->link = 0;
+ 	mdp->speed = 0;
+ 	mdp->duplex = -1;
+ 
+ 	/* Try connect to PHY */
+-	phydev = phy_connect(ndev, phy_id, sh_eth_adjust_link,
+-			     mdp->phy_interface);
++	if (np) {
++		struct device_node *pn;
++
++		pn = of_parse_phandle(np, "phy-handle", 0);
++		phydev = of_phy_connect(ndev, pn,
++					sh_eth_adjust_link, 0,
++					mdp->phy_interface);
++
++		if (!phydev)
++			phydev = ERR_PTR(-ENOENT);
++	} else {
++		char phy_id[MII_BUS_ID_SIZE + 3];
++
++		snprintf(phy_id, sizeof(phy_id), PHY_ID_FMT,
++			 mdp->mii_bus->id, mdp->phy_id);
++
++		phydev = phy_connect(ndev, phy_id, sh_eth_adjust_link,
++				     mdp->phy_interface);
++	}
++
+ 	if (IS_ERR(phydev)) {
+-		dev_err(&ndev->dev, "phy_connect failed\n");
++		dev_err(&ndev->dev, "failed to connect PHY\n");
+ 		return PTR_ERR(phydev);
  	}
-
-(I'm not claiming that this is correct, just taking a stab at
-understanding what happens) If not, does it go away with changing the
-goto to failed_unregister_driver()?
-
-Thanks,
-
-Martin
---=20
-Martin Pitt                        | http://www.piware.de
-Ubuntu Developer (www.ubuntu.com)  | Debian Developer  (www.debian.org)
-
---3siQDZowHQqNOShm
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBCAAGBQJTIJq2AAoJENFO8V2v4RNHA/8P/0BtuaxdqeAdJtkjKXXuSKCT
-WZNcimLWbKr0jf7miXzhRaMonkBo9iBnYwCGytu9ELKWUkvFfdu6SHM9GOGKmy9o
-B92qHFbHNy1wAeGo0Oblay9gVhmDU2+PgNySlKFW5u24DDd3Ym2sYpcsl3PI+BfP
-cOA1tQYEGOEYdoSEAt92Rf2sP8FQoH/YwHAE/y1exE7wEgToXmdbdLDcI3nHY571
-SVtw6le28BSlXnOYUPxiTWpVSe/9GDnjU3wxQfelVEAmzlzCtUDDXYBnaCxgU/Tc
-LV1z76K3nDbfyFwfecurxOwKFG8+Em7v6b9CeN+MZP3A9xstu2zDQ8LNbGoHR2vp
-ba1XYdsMsu+jHl63BwClgfwN4AWg7MvK5675u1ePXmHU2KIbB0Uj93m95ydYRQ0D
-f5bYLXQjMleoOwPk/X2ostgI8DxYrq8wQpUYGHTfY+dGjsHTyddZ5TemrMxNnM3s
-Sf12e1bsmFCBQeu6ZA2TdIt/Vg6O97tnuZ62x3yWWW7ti94rgvogMqbtJD9+vFKi
-Cy5FsU8yO6pmWpwVUkFq2o9C/IIW0IrOhVq8JQdBV34MzvXXhDf8KsEX8Zy74Hox
-92cbLAOgE06rSv2Iz7MaSsZHc1JPjfvG4Nx+plmjEmmj1Ebp7I+6gla4Q+9EtxwV
-FS9gf4rf8R6G0oieWJ2Z
-=uieF
------END PGP SIGNATURE-----
-
---3siQDZowHQqNOShm--
+ 
+@@ -2638,13 +2655,19 @@ static int sh_mdio_init(struct net_device *ndev, int id,
+ 		goto out_free_bus;
+ 	}
+ 
+-	for (i = 0; i < PHY_MAX_ADDR; i++)
+-		mdp->mii_bus->irq[i] = PHY_POLL;
+-	if (pd->phy_irq > 0)
+-		mdp->mii_bus->irq[pd->phy] = pd->phy_irq;
+-
+ 	/* register mdio bus */
+-	ret = mdiobus_register(mdp->mii_bus);
++	if (ndev->dev.parent->of_node) {
++		ret = of_mdiobus_register(mdp->mii_bus,
++					  ndev->dev.parent->of_node);
++	} else {
++		for (i = 0; i < PHY_MAX_ADDR; i++)
++			mdp->mii_bus->irq[i] = PHY_POLL;
++		if (pd->phy_irq > 0)
++			mdp->mii_bus->irq[pd->phy] = pd->phy_irq;
++
++		ret = mdiobus_register(mdp->mii_bus);
++	}
++
+ 	if (ret)
+ 		goto out_free_bus;
+ 
+@@ -2719,7 +2742,6 @@ static struct sh_eth_plat_data *sh_eth_parse_dt(struct device *dev)
+ {
+ 	struct device_node *np = dev->of_node;
+ 	struct sh_eth_plat_data *pdata;
+-	struct device_node *phy;
+ 	const char *mac_addr;
+ 
+ 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+@@ -2728,11 +2750,6 @@ static struct sh_eth_plat_data *sh_eth_parse_dt(struct device *dev)
+ 
+ 	pdata->phy_interface = of_get_phy_mode(np);
+ 
+-	phy = of_parse_phandle(np, "phy-handle", 0);
+-	if (of_property_read_u32(phy, "reg", &pdata->phy))
+-		return NULL;
+-	pdata->phy_irq = irq_of_parse_and_map(phy, 0);
+-
+ 	mac_addr = of_get_mac_address(np);
+ 	if (mac_addr)
+ 		memcpy(pdata->mac_addr, mac_addr, ETH_ALEN);
+@@ -2896,8 +2913,10 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 
+ 	/* mdio bus init */
+ 	ret = sh_mdio_init(ndev, pdev->id, pd);
+-	if (ret)
++	if (ret) {
++		dev_err(&ndev->dev, "failed to initialise MDIO\n");
+ 		goto out_unregister;
++	}
+ 
+ 	/* print device information */
+ 	pr_info("Base address at 0x%x, %pM, IRQ %d.\n",
+-- 
+1.9.0
