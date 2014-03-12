@@ -1,67 +1,65 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: RE: [PATCH net-next 1/5] vxlan: Make VXLAN default UDP port number
- available for others
-Date: Wed, 12 Mar 2014 10:20:14 +0000
-Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F7A575@avmb2.qlogic.org>
-References: <1394470142-13992-1-git-send-email-shahed.shaikh@qlogic.com>
- <1394470142-13992-2-git-send-email-shahed.shaikh@qlogic.com>
- <CAJZOPZ+MFe2ev372L07uVvXs_wYnqAiZ3VMG4YteD2XmPWHoSQ@mail.gmail.com>
- <262CB373A6D1F14F9B81E82F74F77D5A46F797EE@avmb2.qlogic.org>
- <CAJZOPZKBdZPuEe5uKLb3sw92q3Qko4RS-90uVAQK=+pFXVAfSA@mail.gmail.com>
- <alpine.LFD.2.03.1403111013570.16490@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Dept-HSG Linux NIC Dev" <Dept-HSGLinuxNICDev@qlogic.com>
-To: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH V2 net-next 0/7] mlx4: Add SRIOV support for RoCE
+Date: Wed, 12 Mar 2014 12:00:36 +0200
+Message-ID: <1394618443-20337-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, roland@kernel.org,
+	jackm@dev.mellanox.co.il, amirv@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:18117 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752811AbaCLKUT convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Mar 2014 06:20:19 -0400
-In-Reply-To: <alpine.LFD.2.03.1403111013570.16490@intel.com>
-Content-Language: en-US
+Received: from mailp.voltaire.com ([193.47.165.129]:59204 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750981AbaCLKZl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Mar 2014 06:25:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Joseph Gasparakis [mailto:joseph.gasparakis@intel.com]
-> Sent: Tuesday, March 11, 2014 10:59 PM
-> To: Or Gerlitz
-> Cc: Shahed Shaikh; Joseph Gasparakis; John Fastabend; David Miller; netdev;
-> Dept-HSG Linux NIC Dev
-> Subject: Re: [PATCH net-next 1/5] vxlan: Make VXLAN default UDP port
-> number available for others
-> 
-> 
-> 
-...
-> 
-> For the sake of simplicity: if you have say two VXLANs listening on two
-> different UDP ports, and a single port NIC that can only offload traffic from
-> one UDP port, how would you know which VXLAN is more useful to offload?
-> There might be traffic from the one port (and in this case it might be the
-> default one or not) or you might have traffic from both.
-> The fact is that you have a hw limitation, and you need something to help
-> you predict what which VXLAN you are going to have traffic from which is not
-> trivial at all.
-> Therefore even having a way to use the routing tables wouldn't help I think.
-> 
-> In other words, IMHO the best option for running a NIC that can offload X
-> UDP ports, is to use up to X UDP ports. Anything else, requres guessing that
-> might not be accurate and hence can make things worse instead of better.
+Hi Dave,
 
-Makes sense. Thanks for your feedback Joseph.
+This series adds SRIOV support for RoCE (RDMA over Ethernet) to the mlx4 driver.
 
-Thanks,
-Shahed
-> 
-> >
-> > > Like Stephen suggested, exporting udp port variable of vxlan driver will
-> be more suitable approach.
-> >
+The patches are against net-next, as of commit 2d8d40a "pkt_sched: fq:
+do not hold qdisc lock while allocating memory"
+
+Or.
+
+changes from V1:
+ - addressed feedback from Dave on patch #3 and changed get_real_sgid_index()
+   to be called fill_in_real_sgid_index() and be a void  function.
+ - removed some checkpatch warnings on long lines
+
+changes from V0:
+  - always check the return code of mlx4_get_roce_gid_from_slave().
+    The call we fixed is introduced in patch #1 and later removed by 
+    patch #3 that allows guests to have multiple GIDS. The 1..3 
+    separation was done for proper division of patches to logical changes.
+
+
+Jack Morgenstein (6):
+  mlx4: Adjust QP1 multiplexing for RoCE/SRIOV
+  mlx4_core: For RoCE, allow slaves to set the GID entry at that
+    slave's index
+  mlx4: In RoCE allow guests to have multiple GIDS
+  mlx4: Add ref counting to port MAC table for RoCE
+  mlx4: Implement IP based gids support for RoCE/SRIOV
+  mlx4: Activate RoCE/SRIOV
+
+Shani Michaelli (1):
+  mlx4_ib: Fix SIDR support of for UD QPs under SRIOV/RoCE
+
+ drivers/infiniband/hw/mlx4/cm.c                    |   80 ++++-
+ drivers/infiniband/hw/mlx4/cq.c                    |   42 ++-
+ drivers/infiniband/hw/mlx4/mad.c                   |  121 +++++++-
+ drivers/infiniband/hw/mlx4/main.c                  |    8 -
+ drivers/infiniband/hw/mlx4/mcg.c                   |    5 +-
+ drivers/infiniband/hw/mlx4/mlx4_ib.h               |   24 ++-
+ drivers/infiniband/hw/mlx4/qp.c                    |  319 ++++++++++++++++----
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           |   24 ++
+ drivers/net/ethernet/mellanox/mlx4/fw.c            |    5 +-
+ drivers/net/ethernet/mellanox/mlx4/main.c          |    6 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    8 +
+ drivers/net/ethernet/mellanox/mlx4/port.c          |  144 +++++++++-
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  146 ++++++++--
+ include/linux/mlx4/cmd.h                           |    7 +
+ include/linux/mlx4/device.h                        |   11 +-
+ 15 files changed, 811 insertions(+), 139 deletions(-)
