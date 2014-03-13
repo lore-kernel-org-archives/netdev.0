@@ -1,53 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 1/2] r8152: add
- RTL8152_EARLY_AGG_TIMEOUT_SUPER
-Date: Thu, 13 Mar 2014 13:22:22 -0400 (EDT)
-Message-ID: <20140313.132222.536931544768069240.davem@davemloft.net>
-References: <1394712342-15778-1-Taiwan-albertk@realtek.com>
-	<1394712342-15778-2-Taiwan-albertk@realtek.com>
-	<063D6719AE5E284EB5DD2968C1650D6D0F6DCB6E@AcuExch.aculab.com>
+Subject: Re: [PATCH net-next] net: sctp: remove NULL check in
+ sctp_assoc_update_retran_path
+Date: Thu, 13 Mar 2014 13:24:46 -0400 (EDT)
+Message-ID: <20140313.132446.1003026026338152564.davem@davemloft.net>
+References: <1394718326-6415-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hayeswang@realtek.com, netdev@vger.kernel.org,
-	nic_swsd@realtek.com, linux-kernel@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: David.Laight@ACULAB.COM
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6DCB6E@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	davej@redhat.com, dan.carpenter@oracle.com
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53917 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753787AbaCMRYs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 13:24:48 -0400
+In-Reply-To: <1394718326-6415-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Laight <David.Laight@ACULAB.COM>
-Date: Thu, 13 Mar 2014 13:12:35 +0000
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Thu, 13 Mar 2014 14:45:26 +0100
 
-> From: Hayes Wang
-> ...
+> This is basically just to let Coverity et al shut up. Remove an
+> unneeded NULL check in sctp_assoc_update_retran_path().
 > 
-> I should have spotted this before.
+> It is safe to remove it, because in sctp_assoc_update_retran_path()
+> we iterate over the list of transports, our own transport which is
+> asoc->peer.retran_path included. In the iteration, we skip the
+> list head element and transports in state SCTP_UNCONFIRMED.
 > 
->>  /* USB_RX_EARLY_AGG */
->> -#define EARLY_AGG_SUPPER	0x0e832981
->> +#define EARLY_AGG_SUPER	((((rx_buf_sz - 1522) / 4) << 16) | \
->> +	(u32)(CONFIG_RTL8152_EARLY_AGG_TIMEOUT_SUPER <= 0 ? 85 * 125 : \
->> +	min(CONFIG_RTL8152_EARLY_AGG_TIMEOUT_SUPER * 125, 0xffff)))
->>  #define EARLY_AGG_HIGH		0x0e837a12
->>  #define EARLY_AGG_SLOW		0x0e83ffff
->> 
->> @@ -1978,7 +1980,7 @@ static void r8153_set_rx_agg(struct r8152 *tp)
->>  			ocp_write_dword(tp, MCU_TYPE_USB, USB_RX_BUF_TH,
->>  					RX_THR_SUPPER);
->>  			ocp_write_dword(tp, MCU_TYPE_USB, USB_RX_EARLY_AGG,
->> -					EARLY_AGG_SUPPER);
->> +					EARLY_AGG_SUPER);
->>  		} else {
->>  			ocp_write_dword(tp, MCU_TYPE_USB, USB_RX_BUF_TH,
->>  					RX_THR_HIGH);
+> Such transports came from peer addresses received in INIT/INIT-ACK
+> address parameters. They are not yet confirmed by a heartbeat and
+> not available for data transfers.
 > 
-> It looks as though rx_buf_sz should be a parameter to EARLY_AGG_SUPER.
+> We know however that in the list of transports, even if it contains
+> such elements, it at least contains our asoc->peer.retran_path as
+> well, so even if next to that element, we only encounter
+> SCTP_UNCONFIRMED transports, we are always going to fall back to
+> asoc->peer.retran_path through sctp_trans_elect_best(), as that is
+> for sure not SCTP_UNCONFIRMED as per fbdf501c9374 ("sctp: Do no
+> select unconfirmed transports for retransmissions").
+> 
+> Whenever we call sctp_trans_elect_best() it will give us a non-NULL
+> element back, and therefore when we break out of the loop, we are
+> guaranteed to have a non-NULL transport pointer, and can remove
+> the NULL check.
+> 
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Reported-by: Dave Jones <davej@redhat.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-And I fundamentally disagree with this being a Kconfig parameter.
-
-Make it run-time calculated _or_ settable via ethtool.
-
-Thanks.
+Applied, thanks Daniel.
