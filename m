@@ -1,138 +1,136 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net V2] vhost: net: switch to use data copy if pending
-	DMAs exceed the limit
-Date: Thu, 13 Mar 2014 15:28:34 +0800
-Message-ID: <53215E22.8020207@redhat.com>
-References: <1394170107-12018-1-git-send-email-jasowang@redhat.com>
-	<20140310080310.GA754@redhat.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [RCU PATCH 00/14] Remove qdisc lock around ingress Qdisc
+Date: Thu, 13 Mar 2014 04:44:25 -0400
+Message-ID: <53216FE9.7090604@mojatatu.com>
+References: <20140310170008.3011.73599.stgit@nitbit.x32> <53200588.5060805@mojatatu.com> <53208F11.8010304@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/mixed;
+ boundary="------------040006090701090009060602"
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:57803 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751286AbaCMIo3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 04:44:29 -0400
+Received: by mail-wi0-f181.google.com with SMTP id bs8so747002wib.14
+        for <netdev@vger.kernel.org>; Thu, 13 Mar 2014 01:44:28 -0700 (PDT)
+In-Reply-To: <53208F11.8010304@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------040006090701090009060602
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 8bit
+
+On 03/12/14 12:45, John Fastabend wrote:
+> On 03/11/2014 11:58 PM, Jamal Hadi Salim wrote:
+>> On 03/10/14 13:03, John Fastabend wrote:
+>
+> Sure I can provide this data as part of the patch description. My
+> expectation is now that the qdisc lock is not needed there should
+> be less impact to throughput/latency due to filter updates.
+
+Thats what i would think as well (which would be great).
+
+>
+> Yes upto one RCU grace period. Although I don't think this is an
+> issue because we get consistency eventually and even with the qdisc
+> lock there is no way to know if a set of skbs hit the filter list
+> before or after the update.
+>
+
+Probably not a big issue - but needs to be document clearly since the
+expectations have changed.
+
+> I'll get a v2 out tomorrow morning after making Eric's changes and
+> fixing the last compiler warning.
+>
+
+There is one more thing. Actions can be shared. I am wondering how this
+change is going to affect it - can you try this attached script? Sorry,
+I could have sent a much simpler script - but this is one sitting on
+my laptop (i have annotated it - notice the 2 policer instances
+are shared).
+Would be useful to do pings across two devices at the same time while 
+concurently doing dumps and see if anything goes crazy (like an oops).
+
+cheers,
+jamal
+
+
+>> net/core/gen_estimator.c: In function ‘gen_get_bstats’:
+>> net/core/gen_estimator.c:163:43: warning: pointer type mismatch in
+>> conditional expression [enabled by default]
+>> net/core/gen_estimator.c: In function ‘gen_find_node’:
+>> net/core/gen_estimator.c:191:28: warning: pointer type mismatch in
+>> conditional expression [enabled by default]
+>
+> compiler doesn't like the usage of voids here.
+>
+> Thanks,
+> John
+>
+>
+>>
+>> cheers,
+>> jamal
+>>
+>>
+>>
+>
+>
+
+
+--------------040006090701090009060602
+Content-Type: text/plain; charset=us-ascii;
+ name="shared-act-tst1"
 Content-Transfer-Encoding: 7bit
-Cc: virtio-dev@lists.oasis-open.org, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Qin Chuanyu <qinchuanyu@huawei.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140310080310.GA754@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Disposition: attachment;
+ filename="shared-act-tst1"
 
-On 03/10/2014 04:03 PM, Michael S. Tsirkin wrote:
-> On Fri, Mar 07, 2014 at 01:28:27PM +0800, Jason Wang wrote:
->> > We used to stop the handling of tx when the number of pending DMAs
->> > exceeds VHOST_MAX_PEND. This is used to reduce the memory occupation
->> > of both host and guest. But it was too aggressive in some cases, since
->> > any delay or blocking of a single packet may delay or block the guest
->> > transmission. Consider the following setup:
->> > 
->> >     +-----+        +-----+
->> >     | VM1 |        | VM2 |
->> >     +--+--+        +--+--+
->> >        |              |
->> >     +--+--+        +--+--+
->> >     | tap0|        | tap1|
->> >     +--+--+        +--+--+
->> >        |              |
->> >     pfifo_fast   htb(10Mbit/s)
->> >        |              |
->> >     +--+--------------+---+
->> >     |     bridge          |
->> >     +--+------------------+
->> >        |
->> >     pfifo_fast
->> >        |
->> >     +-----+
->> >     | eth0|(100Mbit/s)
->> >     +-----+
->> > 
->> > - start two VMs and connect them to a bridge
->> > - add an physical card (100Mbit/s) to that bridge
->> > - setup htb on tap1 and limit its throughput to 10Mbit/s
->> > - run two netperfs in the same time, one is from VM1 to VM2. Another is
->> >   from VM1 to an external host through eth0.
->> > - result shows that not only the VM1 to VM2 traffic were throttled but
->> >   also the VM1 to external host through eth0 is also throttled somehow.
->> > 
->> > This is because the delay added by htb may lead the delay the finish
->> > of DMAs and cause the pending DMAs for tap0 exceeds the limit
->> > (VHOST_MAX_PEND). In this case vhost stop handling tx request until
->> > htb send some packets. The problem here is all of the packets
->> > transmission were blocked even if it does not go to VM2.
->> > 
->> > We can solve this issue by relaxing it a little bit: switching to use
->> > data copy instead of stopping tx when the number of pending DMAs
->> > exceed half of the vq size. This is safe because:
->> > 
->> > - The number of pending DMAs were still limited (half of the vq size)
->> > - The out of order completion during mode switch can make sure that
->> >   most of the tx buffers were freed in time in guest.
->> > 
->> > So even if about 50% packets were delayed in zero-copy case, vhost
->> > could continue to do the transmission through data copy in this case.
->> > 
->> > Test result:
->> > 
->> > Before this patch:
->> > VM1 to VM2 throughput is 9.3Mbit/s
->> > VM1 to External throughput is 40Mbit/s
->> > CPU utilization is 7%
->> > 
->> > After this patch:
->> > VM1 to VM2 throughput is 9.3Mbit/s
->> > Vm1 to External throughput is 93Mbit/s
->> > CPU utilization is 16%
->> > 
->> > Completed performance test on 40gbe shows no obvious changes in both
->> > throughput and cpu utilization with this patch.
->> > 
->> > The patch only solve this issue when unlimited sndbuf. We still need a
->> > solution for limited sndbuf.
->> > 
->> > Cc: Michael S. Tsirkin <mst@redhat.com>
->> > Cc: Qin Chuanyu <qinchuanyu@huawei.com>
->> > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> I thought hard about this.
-> Here's what worries me: if there are still head of line
-> blocking issues lurking in the stack, they will still
-> hurt guests such as windows which rely on timely
-> completion of buffers, but it makes it
-> that much harder to reproduce the problems with
-> linux guests which don't.
-> And this will make even it harder to figure out
-> whether zero copy is actually active to diagnose
-> high cpu utilization cases.
+TC="/sbin/tc"
+#
+sudo ifconfig dummy0 up
+sudo ifconfig dummy1 up
+DEV1="eth0"
+DEV2="eth1"
+#
+#
+#
+sudo $TC qdisc del dev $DEV1 ingress
+sudo $TC qdisc add dev $DEV1 ingress
+sudo $TC qdisc del dev $DEV2 ingress
+sudo $TC qdisc add dev $DEV2 ingress
+#Note - older tc did not pipe for skbedit (add "pipe" if this is rejected)
+sudo $TC filter add dev $DEV1 parent ffff: protocol ip pref 10 \
+u32 match ip protocol 1 0xff flowid 1:10 \
+action skbedit mark 11 \
+action police rate 10kbit burst 10k pipe index 1 \
+action skbedit mark 12 \
+action police rate 20kbit burst 20k pipe index 2 \
+action mirred egress mirror dev dummy0
+#note sharing of the two policers by two flows
+#across multiple devices
+sudo $TC filter add dev $DEV2 parent ffff: protocol ip pref 10 \
+u32 match ip protocol 1 0xff flowid 1:10 \
+action skbedit mark 21 \
+action police rate 10kbit burst 10k pipe index 1 \
+action skbedit mark 22 \
+action police rate 20kbit burst 20k pipe index 2 \
+action mirred egress mirror dev dummy1
+#
+#
+# now do a ping -f to somewhere, for more exciting results
+# do a -s 2048 or so
+# sudo ping -f 192.168.1.100 -c 10000
+# sudo ping -f 127.0.0.1 -c 10000
+#
+sudo tc -s filter ls dev $DEV1 parent ffff: protocol ip 
+sudo tc -s filter ls dev $DEV2 parent ffff: protocol ip 
+sudo tc -s actions ls action police
+sudo tc -s actions ls action skbedit
 
-Yes.
->
->
-> So I think this is a good trick, but let's make
-> this path conditional on a new debugging module parameter:
-> how about head_of_line_blocking with default off?
-
-Sure. But the head of line blocking was only partially solved in the
-patch since we only support in-order completion of zerocopy packets.
-Maybe we need consider switching to out of order completion even for
-zerocopy skbs?
-> This way if we suspect packets are delayed forever
-> somewhere, we can enable that and see guest networking block.
->
-> Additionally, I think we should add a way to count zero copy
-> and non zero copy packets.
-> I see two ways to implement this: add tracepoints in vhost-net
-> or add counters in tun accessible with ethtool.
-> This can be a patch on top and does not have to block
-> this one though.
->
-
-Yes, I post a RFC about 2 years ago, see
-https://lkml.org/lkml/2012/4/9/478 which only traces generic vhost
-behaviours. I can refresh this and add some -net specific tracepoints.
+--------------040006090701090009060602--
