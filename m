@@ -1,70 +1,55 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] vmxnet3: fix building without CONFIG_PCI_MSI
-Date: Thu, 13 Mar 2014 07:02:58 -0400
-Message-ID: <20140313110258.GB20768@hmsreliant.think-freely.org>
-References: <7825453.7LB7BmvA2b@wuerfel>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next v7 4/9] xen-netback: Introduce TX
+ grant mapping
+Date: Thu, 13 Mar 2014 11:09:08 +0000
+Message-ID: <532191D4.3000501@citrix.com>
+References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>		<1394142511-14827-5-git-send-email-zoltan.kiss@citrix.com>	 <1394706812.25873.28.camel@kazak.uk.xensource.com>	 <53218EDA.8040904@citrix.com> <1394708555.25873.43.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Shreyas Bhatewara <sbhatewara@vmware.com>,
-	"VMware, Inc." <pv-drivers@vmware.com>,
-	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <7825453.7LB7BmvA2b@wuerfel>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <jonathan.davies@citrix.com>,
+	<wei.liu2@citrix.com>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394708555.25873.43.camel@kazak.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 13, 2014 at 10:44:34AM +0100, Arnd Bergmann wrote:
-> Since commit d25f06ea466e "vmxnet3: fix netpoll race condition",
-> the vmxnet3 driver fails to build when CONFIG_PCI_MSI is disabled,
-> because it unconditionally references the vmxnet3_msix_rx()
-> function.
+On 13/03/14 11:02, Ian Campbell wrote:
+> On Thu, 2014-03-13 at 10:56 +0000, David Vrabel wrote:
+>> On 13/03/14 10:33, Ian Campbell wrote:
+>>> On Thu, 2014-03-06 at 21:48 +0000, Zoltan Kiss wrote:
+>>>> @@ -135,13 +146,31 @@ struct xenvif {
+>>>>  	pending_ring_idx_t pending_cons;
+>>>>  	u16 pending_ring[MAX_PENDING_REQS];
+>>>>  	struct pending_tx_info pending_tx_info[MAX_PENDING_REQS];
+>>>> +	grant_handle_t grant_tx_handle[MAX_PENDING_REQS];
+>>>>  
+>>>>  	/* Coalescing tx requests before copying makes number of grant
+>>>>  	 * copy ops greater or equal to number of slots required. In
+>>>>  	 * worst case a tx request consumes 2 gnttab_copy.
+>>>>  	 */
+>>>>  	struct gnttab_copy tx_copy_ops[2*MAX_PENDING_REQS];
+>>>> -
+>>>> +	struct gnttab_map_grant_ref tx_map_ops[MAX_PENDING_REQS];
+>>>> +	struct gnttab_unmap_grant_ref tx_unmap_ops[MAX_PENDING_REQS];
+>>>
+>>> I wonder if we should break some of these arrays into separate
+>>> allocations? Wasn't there a problem with sizeof(struct xenvif) at one
+>>> point?
+>>
+>> alloc_netdev() falls back to vmalloc() if the kmalloc failed so there's
+>> no need to split these structures.
 > 
-> To fix this, use the same #ifdef in the caller that exists around
-> the function definition.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Cc: Shreyas Bhatewara <sbhatewara@vmware.com>
-> Cc: "VMware, Inc." <pv-drivers@vmware.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: stable@vger.kernel.org
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> Is vmalloc space in abundant supply? For some reason I thought it was
+> limited (maybe that's a 32-bit only limitation?)
 
-> ---
-> Found this during randconfig testing on ARM. Most of the time when
-> I report network driver problems, they get fixed in the netdev tree
-> before I even find them, but since this is for a patch marked "stable",
-> I made a proper patch anyway.
-> 
-> Please ignore if this is already a known problem, otherwise make sure
-> the original patch doesn't get backported without addressing this
-> issue first.
-> 
-> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-> index cbd898f..28965ad 100644
-> --- a/drivers/net/vmxnet3/vmxnet3_drv.c
-> +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-> @@ -1761,13 +1761,16 @@ static void
->  vmxnet3_netpoll(struct net_device *netdev)
->  {
->  	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
-> -	int i;
->  
->  	switch (adapter->intr.type) {
-> -	case VMXNET3_IT_MSIX:
-> +#ifdef CONFIG_PCI_MSI
-> +	case VMXNET3_IT_MSIX: {
-> +		int i;
->  		for (i = 0; i < adapter->num_rx_queues; i++)
->  			vmxnet3_msix_rx(0, &adapter->rx_queue[i]);
->  		break;
-> +	}
-> +#endif
->  	case VMXNET3_IT_MSI:
->  	default:
->  		vmxnet3_intr(0, adapter->netdev);
-> 
-> 
+It is limited in 32-bit, but 64-bit has stupid amounts.
+
+/proc/meminfo:
+
+VmallocTotal:   34359738367 kB
+
+David
