@@ -1,43 +1,39 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: [PATCH V2 RE-SEND 7/7] MAINTAINERS: add maintainer for Samsung sxgbe
- driver
-Date: Thu, 13 Mar 2014 15:56:21 +0900
-Message-ID: <008001cf3e89$576767f0$063637d0$%an@samsung.com>
+From: Sathya Perla <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH net-next 0/7] be2net: patch set
+Date: Thu, 13 Mar 2014 07:22:50 +0000
+Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C2A407B6C@CMEXMB1.ad.emulex.com>
+References: <1394544189-20277-1-git-send-email-sathya.perla@emulex.com>
+ <20140312.162033.1974748803629263908.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, ilho215.lee@samsung.com
-To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-Content-language: ko
-Sender: linux-samsung-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:13832 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751388AbaCMHWw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 03:22:52 -0400
+In-Reply-To: <20140312.162033.1974748803629263908.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> 
+> From: Sathya Perla <sathya.perla@emulex.com>
+> Date: Tue, 11 Mar 2014 18:53:02 +0530
+> 
+> > Pls apply. Thanks!
+> 
+> Series applied, but in the future could you please give a proper
+> high level description of your changes in this header posting?
+> 
+> Just providing the shortlog does not cut it.
+> 
 
-Signed-off-by: Byungho An <bh74.an@samsung.com>
----
- MAINTAINERS |    9 +++++++++
- 1 file changed, 9 insertions(+)
+Sure, will do. 
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index b2cf5cf..344702c 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -7497,6 +7497,15 @@ S:	Supported
- L:	linux-samsung-soc@vger.kernel.org (moderated for non-subscribers)
- F:	drivers/clk/samsung/
- 
-+SAMSUNG SXGBE DRIVERS
-+M:	Byungho An <bh74.an@samsung.com>
-+M:	Girish K S <ks.giri@samsung.com>
-+M:	Siva Reddy Kallam <siva.kallam@samsung.com>
-+M:	Vipul Pandya <vipul.pandya@samsung.com>
-+S:	Supported
-+L:	netdev@vger.kernel.org
-+F:	drivers/net/ethernet/samsung/
-+
- SERIAL DRIVERS
- M:	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
- L:	linux-serial@vger.kernel.org
--- 
-1.7.10.4
+thanks,
+-Sathya
