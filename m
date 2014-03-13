@@ -1,50 +1,42 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH net-next v7 4/9] xen-netback: Introduce TX grant mapping
-Date: Thu, 13 Mar 2014 10:17:54 +0000
-Message-ID: <1394705874.25873.19.camel@kazak.uk.xensource.com>
-References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>
-	 <1394142511-14827-5-git-send-email-zoltan.kiss@citrix.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next] xen-netback: Schedule NAPI from
+ dealloc thread instead of callback
+Date: Thu, 13 Mar 2014 10:17:20 +0000
+Message-ID: <20140313101720.GA16807@zion.uk.xensource.com>
+References: <1394658281-2488-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<jonathan.davies@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	David Vrabel <david.vrabel@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394142511-14827-5-git-send-email-zoltan.kiss@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: jonathan.davies@citrix.com, wei.liu2@citrix.com, ian.campbell@citrix.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	xen-devel@lists.xenproject.org
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+Content-Disposition: inline
+In-Reply-To: <1394658281-2488-1-git-send-email-zoltan.kiss@citrix.com>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
-Pulling out this one comment for the attention on the core Xen/Linux
-maintainers.
+On Wed, Mar 12, 2014 at 09:04:41PM +0000, Zoltan Kiss wrote:
+> If there are unconsumed requests in the ring, but there isn't enough free
+> pending slots, the NAPI instance deschedule itself. As the frontend won't send
+> any more interrupts in this case, it is the task of whoever release the pending
+> slots to schedule the NAPI instance in this case. Originally it was done in the
+> callback, but it's better at the end of the dealloc thread, otherwise there is
+> a risk that the NAPI instance just deschedule itself as the dealloc thread
+> couldn't release any used slot yet. However, as there are a lot of pending
+> packets, NAPI will be scheduled again, and it is very unlikely that the dealloc
+> thread can't release enough slots in the meantime.
+> 
 
-On Thu, 2014-03-06 at 21:48 +0000, Zoltan Kiss wrote:
-[...]
-> @@ -343,8 +347,26 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
->  	vif->pending_prod = MAX_PENDING_REQS;
->  	for (i = 0; i < MAX_PENDING_REQS; i++)
->  		vif->pending_ring[i] = i;
-> -	for (i = 0; i < MAX_PENDING_REQS; i++)
-> -		vif->mmap_pages[i] = NULL;
-> +	spin_lock_init(&vif->callback_lock);
-> +	spin_lock_init(&vif->response_lock);
-> +	/* If ballooning is disabled, this will consume real memory, so you
-> +	 * better enable it. The long term solution would be to use just a
-> +	 * bunch of valid page descriptors, without dependency on ballooning
-> +	 */
+So this patch restores the property that "only two parties access the
+ring", right?
 
-I wonder if we ought to enforce this via Kconfig? i.e. making
-CONFIG_XEN_BACKEND (or the individual backends) depend on BALLOON (or
-select?) or by making CONFIG_XEN_BALLOON non-optional etc.
-
-IIRC David V was looking into a solution involving auto hotplugging a
-new region to use for this case, but then I guess
-CONFIG_XEN_BALLOON_MEMORY_HOTPLUG would equally need to be enabled.
-
-> +	err = alloc_xenballooned_pages(MAX_PENDING_REQS,
-> +				       vif->mmap_pages,
-> +				       false);
-[...]
+Wei.
