@@ -1,67 +1,34 @@
-From: Vivek Goyal <vgoyal@redhat.com>
-Subject: Re: [PATCH 2/2] net: Implement SO_PEERCGROUP
-Date: Thu, 13 Mar 2014 16:06:49 -0400
-Message-ID: <20140313200649.GN18914@redhat.com>
-References: <1394658983.32465.203.camel@willson.li.ssimo.org>
- <CALCETrU29CpcK4dVRD45BGOD7AVEudADiFxOgFgKWkpFzw07eg@mail.gmail.com>
- <1394673476.32465.215.camel@willson.li.ssimo.org>
- <CALCETrWbCuKfV4zMkZajDOGhGkKduW0C2L7uHv=vtvqhVeAc6w@mail.gmail.com>
- <1394675038.32465.223.camel@willson.li.ssimo.org>
- <CALCETrV7GE0YL1sDDqTUV81rWL9zk2vTR1-VLkR7CfTA-FSrgw@mail.gmail.com>
- <1394733077.32465.243.camel@willson.li.ssimo.org>
- <CALCETrXWzja6W6y=p9MrtynGZMsrD5KQu0KBK6Bs1dQxnesv2A@mail.gmail.com>
- <20140313195349.GM18914@redhat.com>
- <CALCETrUj4aPEd6ujXnUJNFq+BQkfQoF=XRChP1p5=ZysTN-zwg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 RE-SEND 0/7] add new Samsung SXGbE driver
+Date: Thu, 13 Mar 2014 16:09:47 -0400 (EDT)
+Message-ID: <20140313.160947.1309757358549172711.davem@davemloft.net>
+References: <007901cf3e89$37d632e0$a78298a0$%an@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simo Sorce <ssorce@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	cgroups@vger.kernel.org,
-	Network Development <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
-	jkaluza@redhat.com, lpoetter@redhat.com, kay@redhat.com
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CALCETrUj4aPEd6ujXnUJNFq+BQkfQoF=XRChP1p5=ZysTN-zwg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
+	ilho215.lee@samsung.com
+To: bh74.an@samsung.com
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+In-Reply-To: <007901cf3e89$37d632e0$a78298a0$%an@samsung.com>
+Sender: linux-samsung-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 13, 2014 at 12:58:14PM -0700, Andy Lutomirski wrote:
-> On Thu, Mar 13, 2014 at 12:53 PM, Vivek Goyal <vgoyal@redhat.com> wrote:
-> > On Thu, Mar 13, 2014 at 10:55:16AM -0700, Andy Lutomirski wrote:
-> >
-> > [..]
-> >> >> 2. Docker is a container system, so use the "container" (aka
-> >> >> namespace) APIs.  There are probably several clever things that could
-> >> >> be done with /proc/<pid>/ns.
-> >> >
-> >> > pid is racy, if it weren't I would simply go straight
-> >> > to /proc/<pid>/cgroups ...
-> >>
-> >> How about:
-> >>
-> >> open("/proc/self/ns/ipc", O_RDONLY);
-> >> send the result over SCM_RIGHTS?
-> >
-> > As I don't know I will ask. So what will server now do with this file
-> > descriptor of client's ipc namespace.
-> >
-> > IOW, what information/identifier does it contain which can be
-> > used to map to pre-configrued per container/per namespace policies.
+From: Byungho An <bh74.an@samsung.com>
+Date: Thu, 13 Mar 2014 15:55:28 +0900
+
+> This is 2nd posting for Samsung SXGbE driver and just re-sending because of
+> line wrapping in previous posting.
 > 
-> Inode number, which will match that assigned to the container at runtime.
-> 
+> Changes since v1:
+> - changed name of driver to SXGbE as per Ben's comment
+> - squashed Joe's neatening for many stuff in original patches
 
-But what would I do with this inode number. I am assuming this is
-generated dynamically when respective namespace was created. To me
-this is like assigning a pid dynamically and one does not create
-policies in user space based on pid. Similarly I will not be able
-to create policies based on an inode number which is generated
-dynamically.
+I'm mostly happy with this driver, but all of those module parameters
+have to be removed except for 'debug'.
 
-For it to be useful, it should map to something more static which
-user space understands.
+They duplicate functionality provided by ethtool.
 
-Thanks
-Vivek 
+Module parameters are strongly, if not completely, discouraged.  A
+suitable generic configuration mechanism, such as ethtool, should
+always be used instead.
