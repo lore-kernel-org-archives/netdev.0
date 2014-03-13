@@ -1,68 +1,52 @@
-From: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/2] net: Implement SO_PEERCGROUP
-Date: Thu, 13 Mar 2014 11:00:34 -0400
-Message-ID: <20140313150034.GG18914@redhat.com>
-References: <1394657163-7472-1-git-send-email-vgoyal@redhat.com>
- <1394657163-7472-3-git-send-email-vgoyal@redhat.com>
- <5320CAEC.6030008@amacapital.net>
- <CALCETrUTjN=XKwnO62P9roZtLLuk7_9Oi17Mj_Aa2ZFtZc1gVA@mail.gmail.com>
- <20140313141422.GB18914@redhat.com>
- <1394722534.32465.227.camel@willson.li.ssimo.org>
+From: Carol Soto <clsoto-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [Patch 1/2] IB/mlx5: Implementation of PCI error handler
+Date: Thu, 13 Mar 2014 10:12:19 -0500
+Message-ID: <5321CAD3.2070301@linux.vnet.ibm.com>
+References: <20140312034219.637916521@linux.vnet.ibm.com> <20140312034512.065218504@linux.vnet.ibm.com> <1394649252.23624.36.camel@deadeye.wl.decadent.org.uk> <20140313064521.GH20224@mtldesk30>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1394722534.32465.227.camel-Hs+ccMQdwurzDu64bZtGtWD2FQJk+8+b@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brking-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+To: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140313064521.GH20224@mtldesk30>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 13, 2014 at 10:55:34AM -0400, Simo Sorce wrote:
 
-[..]
-> > > This might not be quite as awful as I thought.  At least you're
-> > > looking up the cgroup at connection time instead of at send time.
-> > > 
-> > > OTOH, this is still racy -- the socket could easily outlive the cgroup
-> > > that created it.
-> > 
-> > That's a good point. What guarantees that previous cgroup was not
-> > reassigned to a different container.
-> > 
-> > What if a process A opens the connection with sssd. Process A passes the
-> > file descriptor to a different process B in a differnt container.
-> 
-> Stop right here.
-> If the process passes the fd it is not my problem anymore.
-> The process can as well just 'proxy' all the information to another
-> process.
-> 
-> We just care to properly identify the 'original' container, we are not
-> in the business of detecting malicious behavior. That's something other
-> mechanism need to protect against (SELinux or other LSMs, normal
-> permissions, capabilities, etc...).
-> 
-> > Process A exits. Container gets removed from system and new one gets
-> > launched which uses same cgroup as old one. Now process B sends a new
-> > request and SSSD will serve it based on policy of newly launched
-> > container.
-> > 
-> > This sounds very similar to pid race where socket/connection will outlive
-> > the pid.
-> 
-> Nope, completely different.
-> 
+On 3/13/2014 1:45 AM, Eli Cohen wrote:
+> On Wed, Mar 12, 2014 at 06:34:12PM +0000, Ben Hutchings wrote:
+>>>   
+>>>   enum {
+>>> -       /* one minute for the sake of bringup. Generally, commands must always
+>>> +       /* 10 msecs for the sake of bringup. Generally, commands must always
+>>>           * complete and we may need to increase this timeout value
+>>>           */
+>>> -       MLX5_CMD_TIMEOUT_MSEC   = 7200 * 1000,
+>>> +       MLX5_CMD_TIMEOUT_MSEC   = 10 * 1000,
+>> You seem to be changing the timeout from 2 hours (not one minute) to 10
+>> seconds (not milliseconds).
+>>
+> Thanks for noting this. Actually, the time should remain 2 hours and
+> the comment should be fixed. Also note that long time/missing
+> completion of a command is, genrallly, not indicative of a PCI error.
+> If that happens, we would want to have enough time to do diagnostics
+> before timing out.
+>
+Hi Eli
 
-I think you missed my point. Passing file descriptor is not the problem.
-Problem is reuse of same cgroup name for a different container while
-socket lives on. And it is same race as reuse of a pid for a different
-process.
+In mlx4 code, I do not recall a timeout for commands this big. So the 
+reason in mlx5 is 2 hrs is just for
+debugging purposes? So if for any reason a command hang then the user 
+can not remove this module
+for the next 2 hrs?
 
-Thanks
-Vivek
+Carol
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
