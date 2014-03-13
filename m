@@ -1,64 +1,76 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 02/10] 8139too: Call dev_kfree_skby_any instead of dev_kfree_skb.
-Date: Thu, 13 Mar 2014 14:08:21 -0700
-Message-ID: <87eh254xiy.fsf@xmission.com>
-References: <87a9cxf7mp.fsf_-_@xmission.com>
-	<20140311.124907.1180556684992271103.davem@davemloft.net>
-	<87wqg0cy9d.fsf@xmission.com>
-	<20140311.160931.1395978386605601765.davem@davemloft.net>
-	<87r468bfqj.fsf_-_@xmission.com> <87fvmobfnr.fsf_-_@xmission.com>
-	<1394589986.21721.37.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140312212429.GA14893@electric-eye.fr.zoreil.com>
-	<1394661695.21721.50.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [RCU PATCH 06/14] net: sched: fw use RCU
+Date: Thu, 13 Mar 2014 14:15:09 -0700
+Message-ID: <20140313211509.GP21124@linux.vnet.ibm.com>
+References: <20140310170008.3011.73599.stgit@nitbit.x32>
+ <20140310170546.3011.82918.stgit@nitbit.x32>
+ <1394473279.3607.46.camel@edumazet-glaptop2.roam.corp.google.com>
+ <53208E3F.5090401@gmail.com>
+ <1394643673.21721.48.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140313202245.GK21124@linux.vnet.ibm.com>
+ <1394744203.21721.53.camel@edumazet-glaptop2.roam.corp.google.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
+	davem@davemloft.net
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:51424 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750890AbaCMVI2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 17:08:28 -0400
-In-Reply-To: <1394661695.21721.50.camel@edumazet-glaptop2.roam.corp.google.com>
-	(Eric Dumazet's message of "Wed, 12 Mar 2014 15:01:35 -0700")
+Received: from e33.co.us.ibm.com ([32.97.110.151]:37507 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752254AbaCMVPO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 17:15:14 -0400
+Received: from /spool/local
+	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+	Thu, 13 Mar 2014 15:15:14 -0600
+Received: from b03cxnp07029.gho.boulder.ibm.com (b03cxnp07029.gho.boulder.ibm.com [9.17.130.16])
+	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 9E8323E40026
+	for <netdev@vger.kernel.org>; Thu, 13 Mar 2014 15:15:10 -0600 (MDT)
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by b03cxnp07029.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2DJCMYS11993358
+	for <netdev@vger.kernel.org>; Thu, 13 Mar 2014 20:12:22 +0100
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id s2DLIhdC027039
+	for <netdev@vger.kernel.org>; Thu, 13 Mar 2014 15:18:43 -0600
+Content-Disposition: inline
+In-Reply-To: <1394744203.21721.53.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
+On Thu, Mar 13, 2014 at 01:56:43PM -0700, Eric Dumazet wrote:
+> On Thu, 2014-03-13 at 13:22 -0700, Paul E. McKenney wrote:
+> 
+> > Hmmm...  You know, the offset that kfree uses is a byte offset.  I see
+> > no reason why any of the rcu_head structures should be misaligned.  If
+> > HTSIZE is too big by only a factor of four or smaller, would the following
+> > (untested) patch to RCU be appropriate?
+> > 
+> > 							Thanx, Paul
+> > 
+> > ------------------------------------------------------------------------
+> > 
+> > rcu: Increase kfree_rcu() offset range
+> > 
+> > The kfree_rcu() function operates by placing an offset into the rcu_head
+> > structure in place of the function pointer that is normally there.
+> > This offset cannot exceed 4095, on the theory that no Linux kernel will
+> > ever have executable code in page zero.  However, the rcu_head structure
+> > contains a pair of function pointers, and should never be misaligned.
+> > This commit therefore divides the offset by the size of a pointer when
+> > being placed into the rcu_head structure, and multiplies it by this
+> > same constant when pulling it out.
+> > 
+> > Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> 
+> SGTM, thanks Paul.
+> 
+> Reviewed-by: Eric Dumazet <edumzzet@google.com>
 
-> On Wed, 2014-03-12 at 22:24 +0100, Francois Romieu wrote:
->> Eric Dumazet <eric.dumazet@gmail.com> :
->> [...]
->> > Same u64_stats_fetch_begin_bh() problem for this driver to fetch TX
->> > stats.
->> 
->> Same problem for any NAPI context Tx completing driver that claims
->> netpoll support. For instance:
->> drivers/net/ethernet/emulex/benet
->> drivers/net/ethernet/intel/i40e
->> drivers/net/ethernet/intel/igb
->> drivers/net/ethernet/intel/ixgbe
->> drivers/net/ethernet/marvell/sky2.c
->> drivers/net/ethernet/neterion/vxge ?
->> 
->> Similar problem for the drivers below. They update Tx stats in start_xmit
->> and use u64_.*_bh:
->> drivers/net/ethernet/tile/tilepro.c
->> drivers/net/team/team.c
->> drivers/net/virtio_net.c
->> 
->
-> Yep, note that this issue is not caused by Eric patches, we need to take
-> care of this by providing u64_stats_fetch_{begin|retry}_irq() regardless
-> of how skb are freed.
+Very good, thank you!
 
-By my read of the code this is actually only a problem on 32bit
-uniprocessor, and at worst it scrambles the reported nuumbers if we
-happen to have a printk in irq context while we are fetching the stats.
+John, could you please give it a try with that rcu_head structure
+moved to the end and let me know how it goes?
 
-Given the rest of the problems that I am fixing can corrupt things, and
-can happen on any platform I am going to ignore this problem for now.
-
-Eric
+							Thanx, Paul
