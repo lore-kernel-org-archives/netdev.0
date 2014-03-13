@@ -1,65 +1,81 @@
-From: Vivek Goyal <vgoyal@redhat.com>
+From: Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Subject: Re: [PATCH 2/2] net: Implement SO_PEERCGROUP
-Date: Thu, 13 Mar 2014 10:27:55 -0400
-Message-ID: <20140313142755.GC18914@redhat.com>
+Date: Thu, 13 Mar 2014 10:55:34 -0400
+Message-ID: <1394722534.32465.227.camel@willson.li.ssimo.org>
 References: <1394657163-7472-1-git-send-email-vgoyal@redhat.com>
- <1394657163-7472-3-git-send-email-vgoyal@redhat.com>
- <5320CAEC.6030008@amacapital.net>
- <CALCETrUTjN=XKwnO62P9roZtLLuk7_9Oi17Mj_Aa2ZFtZc1gVA@mail.gmail.com>
- <1394658983.32465.203.camel@willson.li.ssimo.org>
- <CALCETrU29CpcK4dVRD45BGOD7AVEudADiFxOgFgKWkpFzw07eg@mail.gmail.com>
- <1394673476.32465.215.camel@willson.li.ssimo.org>
- <CALCETrWbCuKfV4zMkZajDOGhGkKduW0C2L7uHv=vtvqhVeAc6w@mail.gmail.com>
- <1394675038.32465.223.camel@willson.li.ssimo.org>
- <CALCETrV7GE0YL1sDDqTUV81rWL9zk2vTR1-VLkR7CfTA-FSrgw@mail.gmail.com>
+	 <1394657163-7472-3-git-send-email-vgoyal@redhat.com>
+	 <5320CAEC.6030008@amacapital.net>
+	 <CALCETrUTjN=XKwnO62P9roZtLLuk7_9Oi17Mj_Aa2ZFtZc1gVA@mail.gmail.com>
+	 <20140313141422.GB18914@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simo Sorce <ssorce@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	cgroups@vger.kernel.org,
-	Network Development <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
-	jkaluza@redhat.com, lpoetter@redhat.com, kay@redhat.com
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CALCETrV7GE0YL1sDDqTUV81rWL9zk2vTR1-VLkR7CfTA-FSrgw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140313141422.GB18914-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 12, 2014 at 07:12:25PM -0700, Andy Lutomirski wrote:
-
-[..]
-> >> Can you give a realistic example?
-> >>
-> >> I could say that I'd like to disclose information to processes based
-> >> on their rlimits at the time they connected, but I don't think that
-> >> would carry much weight.
-> >
-> > We want to be able to show different user's list from SSSD based on the
-> > docker container that is asking for it.
-> >
-> > This works by having libnsss_sss.so from the containerized application
-> > connect to an SSSD daemon running on the host or in another container.
-> >
-> > The only way to distinguish between containers "from the outside" is to
-> > lookup the cgroup of the requesting process. It has a unique container
-> > ID, and can therefore be mapped to the appropriate policy that will let
-> > us decide which 'user domain' to serve to the container.
-> >
+On Thu, 2014-03-13 at 10:14 -0400, Vivek Goyal wrote:
+> On Wed, Mar 12, 2014 at 02:12:33PM -0700, Andy Lutomirski wrote:
+> > On Wed, Mar 12, 2014 at 2:00 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+> > > On 03/12/2014 01:46 PM, Vivek Goyal wrote:
+> > >> Implement SO_PEERCGROUP along the lines of SO_PEERCRED. This returns the
+> > >> cgroup of first mounted hierarchy of the task. For the case of client,
+> > >> it represents the cgroup of client at the time of opening the connection.
+> > >> After that client cgroup might change.
+> > >
+> > > Even if people decide that sending cgroups over a unix socket is a good
+> > > idea, this API has my NAK in the strongest possible sense, for whatever
+> > > my NAK is worth.
+> > >
+> > > IMO SO_PEERCRED is a disaster.  Calling send(2) or write(2) should
+> > > *never* imply the use of a credential.  A program should always have to
+> > > *explicitly* request use of a credential.  What you want is SCM_CGROUP.
+> > >
+> > > (I've found privilege escalations before based on this observation, and
+> > > I suspect I'll find them again.)
+> > >
+> > >
+> > > Note that I think that you really want SCM_SOMETHING_ELSE and not
+> > > SCM_CGROUP, but I don't know what the use case is yet.
+> > 
+> > This might not be quite as awful as I thought.  At least you're
+> > looking up the cgroup at connection time instead of at send time.
+> > 
+> > OTOH, this is still racy -- the socket could easily outlive the cgroup
+> > that created it.
 > 
-> I can think of at least three other ways to do this.
+> That's a good point. What guarantees that previous cgroup was not
+> reassigned to a different container.
 > 
-> 1. Fix Docker to use user namespaces and use the uid of the requesting
-> process via SCM_CREDENTIALS.
+> What if a process A opens the connection with sssd. Process A passes the
+> file descriptor to a different process B in a differnt container.
 
-Using user namespaces sounds like the right way to do it (atleast
-conceptually). But I think hurdle here is that people are not convinced
-yet that user namespaces are secure and work well. IOW, some people
-don't seem to think that user namespaces are ready yet.
+Stop right here.
+If the process passes the fd it is not my problem anymore.
+The process can as well just 'proxy' all the information to another
+process.
 
-I guess that's the reason people are looking for other ways to
-achieve their goal.
+We just care to properly identify the 'original' container, we are not
+in the business of detecting malicious behavior. That's something other
+mechanism need to protect against (SELinux or other LSMs, normal
+permissions, capabilities, etc...).
 
-Thanks
-Vivek
+> Process A exits. Container gets removed from system and new one gets
+> launched which uses same cgroup as old one. Now process B sends a new
+> request and SSSD will serve it based on policy of newly launched
+> container.
+> 
+> This sounds very similar to pid race where socket/connection will outlive
+> the pid.
+
+Nope, completely different.
+
+Simo.
