@@ -1,40 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/mlx4_en: Deregister multicast vxlan steering
- rules when going down
-Date: Thu, 13 Mar 2014 13:36:13 -0400 (EDT)
-Message-ID: <20140313.133613.1290687362543432702.davem@davemloft.net>
-References: <1394715135-18791-1-git-send-email-ogerlitz@mellanox.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v7 4/9] xen-netback: Introduce TX grant mapping
+Date: Thu, 13 Mar 2014 17:43:35 +0000
+Message-ID: <5321EE47.5070709@citrix.com>
+References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>		 <1394142511-14827-5-git-send-email-zoltan.kiss@citrix.com>	 <1394706812.25873.28.camel@kazak.uk.xensource.com>	 <5321B006.9070608@citrix.com> <1394718990.25873.70.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com
-To: ogerlitz@mellanox.com
+Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54071 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754266AbaCMRgP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 13:36:15 -0400
-In-Reply-To: <1394715135-18791-1-git-send-email-ogerlitz@mellanox.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:13047 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754325AbaCMRni (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 13:43:38 -0400
+In-Reply-To: <1394718990.25873.70.camel@kazak.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu, 13 Mar 2014 14:52:15 +0200
+On 13/03/14 13:56, Ian Campbell wrote:
+> On Thu, 2014-03-13 at 13:17 +0000, Zoltan Kiss wrote:
+>> On 13/03/14 10:33, Ian Campbell wrote:
+>>> On Thu, 2014-03-06 at 21:48 +0000, Zoltan Kiss wrote:
+>>>
+>>>> +				netdev_err(vif->dev,
+>>>> +					   "Page still granted! Index: %x\n",
+>>>> +					   i);
+>>>> +			i = -1;
+>>>
+>>> Should there not be a break here? Otherwise don't we restart the for
+>>> loop from 0 again? If that is intentional then a comment would be very
+>>> useful.
+>> Yes, that's intentional, we shouldn't exit this loop until everything is
+>> unmapped. An i-- would be fine as well. I will put a comment there.
+>
+> Yes please do, it's very non-obvious what is going on. I'm almost
+> inclined to suggest that this is one of the few places where a goto
+> retry might be appropriate.
+>
+> Can you also add a comment saying what is doing the actual unmap work
+> which we are waiting for here since it is not actually part of the loop.
+> Might a barrier be needed to ensure we see that work happening?
+I don't think a barrier is necessary here, if this function ran into 
+!NETBACK_INVALID_HANDLE, it just starts again the checking.
 
-> When mlx4_en_stop_port() is called, we need to deregister also the
-> tunnel steering rules that relate to multicast.
-> 
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> ---
-> 
-> Dave - this is a small fix which is addition to yesterday's set. 
+On 13/03/14 13:17, Zoltan Kiss wrote:>>
+ >> [...]
+ >>> +    /* Btw. already unmapped? */
+ >>
+ >> What does this comment mean? Is it a fixme? An indicator that
+ >> xenvif_grant_handle_reset is supposed to handle this case or something
+ >> else?
+ > It comes from the time when xenvif_grant_handle_reset was not a
+ > standalone function. Yes, it refers to the check in the beginning of
+ > that function, and it should go there.
 
-Ok, applied, thanks.
+I ended up removing that comment, the error message in the function 
+tells the same.
 
-> While on that, I noted that there are places where we do check for the 
-> return value of mlx4_flow_detach() and print something, while in other places
-> we don't. I will work on net-next patch that makes it consistent all across 
-> the place by setting that to void, as we should be OK with the warning 
-> which exists within mlx4_flow_detach()
-
-Great, look forward to seeing those patches.
+Zoli
