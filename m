@@ -1,42 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bonding: set correct vlan id for alb xmit path
-Date: Thu, 13 Mar 2014 15:45:32 -0400 (EDT)
-Message-ID: <20140313.154532.1174268119094634467.davem@davemloft.net>
-References: <531E6D77.60808@huawei.com>
-	<5320298F.2010101@huawei.com>
+Subject: Re: [PATCH net resend] eth: fec: Fix lost promiscuous mode after
+ reconnecting cable
+Date: Thu, 13 Mar 2014 15:46:37 -0400 (EDT)
+Message-ID: <20140313.154637.2019326790014536724.davem@davemloft.net>
+References: <20140311.224834.40412164133780234.davem@davemloft.net>
+	<1394620099-4509-1-git-send-email-stefan.wahren@i2se.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net,
-	netdev@vger.kernel.org
-To: dingtianhong@huawei.com
+Cc: fugang.duan@freescale.com, lznuaa@gmail.com, festevam@gmail.com,
+	netdev@vger.kernel.org, shawn.guo@linaro.org,
+	Fabio.Estevam@freescale.com, Frank.Li@freescale.com,
+	kernel@pengutronix.de
+To: stefan.wahren@i2se.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55716 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55735 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754593AbaCMTpe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 15:45:34 -0400
-In-Reply-To: <5320298F.2010101@huawei.com>
+	with ESMTP id S1754938AbaCMTqk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 15:46:40 -0400
+In-Reply-To: <1394620099-4509-1-git-send-email-stefan.wahren@i2se.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Wed, 12 Mar 2014 17:31:59 +0800
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Date: Wed, 12 Mar 2014 11:28:19 +0100
 
-> The commit d3ab3ffd1d728d7ee77340e7e7e2c7cfe6a4013e
-> (bonding: use rlb_client_info->vlan_id instead of ->tag)
-> remove the rlb_client_info->tag, but occur some issues,
-> The vlan_get_tag() will return 0 for success and -EINVAL for
-> error, so the client_info->vlan_id always be set to 0 if the
-> vlan_get_tag return 0 for success, so the client_info would
-> never get a correct vlan id.
+> If the Freescale fec is in promiscuous mode and network cable is
+> reconnected then the promiscuous mode get lost. The problem is caused
+> by a too soon call of set_multicast_list to re-enable promisc mode.
+> The FEC_R_CNTRL register changes are overwritten by fec_restart.
 > 
-> We should only set the vlan id to 0 when the vlan_get_tag return error.
+> This patch fixes this by moving the call behind the init of FEC_R_CNTRL
+> register in fec_restart.
 > 
-> Fixes: d3ab3ffd1d7 (bonding: use rlb_client_info->vlan_id instead of ->tag)
+> Successful tested on a i.MX28 board.
 > 
-> CC: Ding Tianhong <dingtianhong@huawei.com>
-> CC: Jay Vosburgh <fubar@us.ibm.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 
-Applied, thanks.
+Applied, thank you.
