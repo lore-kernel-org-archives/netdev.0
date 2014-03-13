@@ -1,79 +1,117 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: [PATCH 2/2] net: Implement SO_PEERCGROUP
-Date: Wed, 12 Mar 2014 19:12:25 -0700
-Message-ID: <CALCETrV7GE0YL1sDDqTUV81rWL9zk2vTR1-VLkR7CfTA-FSrgw@mail.gmail.com>
-References: <1394657163-7472-1-git-send-email-vgoyal@redhat.com>
- <1394657163-7472-3-git-send-email-vgoyal@redhat.com> <5320CAEC.6030008@amacapital.net>
- <CALCETrUTjN=XKwnO62P9roZtLLuk7_9Oi17Mj_Aa2ZFtZc1gVA@mail.gmail.com>
- <1394658983.32465.203.camel@willson.li.ssimo.org> <CALCETrU29CpcK4dVRD45BGOD7AVEudADiFxOgFgKWkpFzw07eg@mail.gmail.com>
- <1394673476.32465.215.camel@willson.li.ssimo.org> <CALCETrWbCuKfV4zMkZajDOGhGkKduW0C2L7uHv=vtvqhVeAc6w@mail.gmail.com>
- <1394675038.32465.223.camel@willson.li.ssimo.org>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH v3] net: phy: fix uninitalized WOL parameters in
+ phy_ethtool_get_wol
+Date: Thu, 13 Mar 2014 02:21:45 +0000
+Message-ID: <1394677305.20857.29.camel@deadeye.wl.decadent.org.uk>
+References: <1394484661-4554-2-git-send-email-sebastian.hesselbarth@gmail.com>
+	 <1394578975-12588-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394675038.32465.223.camel-Hs+ccMQdwurzDu64bZtGtWD2FQJk+8+b@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-cJ6XNnnryeEvTdHkSyDc"
+Cc: David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394578975-12588-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 12, 2014 at 6:43 PM, Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> On Wed, 2014-03-12 at 18:21 -0700, Andy Lutomirski wrote:
->> On Wed, Mar 12, 2014 at 6:17 PM, Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
->> > On Wed, 2014-03-12 at 14:19 -0700, Andy Lutomirski wrote:
->> >> On Wed, Mar 12, 2014 at 2:16 PM, Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
->> >>
->> >> >
->> >> > Connection time is all we do and can care about.
->> >>
->> >> You have not answered why.
->> >
->> > We are going to disclose information to the peer based on policy that
->> > depends on the cgroup the peer is part of. All we care for is who opened
->> > the connection, if the peer wants to pass on that information after it
->> > has obtained it there is nothing we can do, so connection time is all we
->> > really care about.
->>
->> Can you give a realistic example?
->>
->> I could say that I'd like to disclose information to processes based
->> on their rlimits at the time they connected, but I don't think that
->> would carry much weight.
->
-> We want to be able to show different user's list from SSSD based on the
-> docker container that is asking for it.
->
-> This works by having libnsss_sss.so from the containerized application
-> connect to an SSSD daemon running on the host or in another container.
->
-> The only way to distinguish between containers "from the outside" is to
-> lookup the cgroup of the requesting process. It has a unique container
-> ID, and can therefore be mapped to the appropriate policy that will let
-> us decide which 'user domain' to serve to the container.
->
 
-I can think of at least three other ways to do this.
+--=-cJ6XNnnryeEvTdHkSyDc
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-1. Fix Docker to use user namespaces and use the uid of the requesting
-process via SCM_CREDENTIALS.
+On Wed, 2014-03-12 at 00:02 +0100, Sebastian Hesselbarth wrote:
+> phy_ethtool_get_wol is a helper to get current WOL settings from
+> a phy device. When using this helper on a PHY without .get_wol
+> callback, struct ethtool_wolinfo is never set-up correctly and
+> may contain misleading information about WOL status.
+>=20
+> To fix this, always zero relevant fields of struct ethtool_wolinfo
+> regardless of .get_wol callback availability.
 
-2. Docker is a container system, so use the "container" (aka
-namespace) APIs.  There are probably several clever things that could
-be done with /proc/<pid>/ns.
+Sorry, I still disagree with this.
 
-3. Given that Docker uses network namespaces, I assume that the socket
-connection between the two sssd instances either comes from Docker
-itself or uses socket inodes.  In either case, the same mechanism
-should be usable for authentication.
+You're trying to make phy_ethtool_get_wol() do two subtly different
+things:
+- Provide an implementation of ethtool_ops::get_wol, leaving the net
+  driver only to look up phy_device
+- Provide a standalone function for executing ETHTOOL_GWOL on a
+  phy_device
 
-On an unrelated note, since you seem to have found a way to get unix
-sockets to connect the inside and outside of a Docker container, it
-would be awesome if Docker could use the same mechanism to pass TCP
-sockets around rather than playing awful games with virtual networks.
+You may notice that phy_suspend() already sets wol.cmd =3D ETHTOOL_GWOL.
+So it seems to me like it's taking responsibility for initialising the
+structure like ethtool_get_wol() does.  The bug is then that
+phy_suspend() doesn't clear the rest of the structure.  That is not the
+responsibility of phy_ethtool_get_wol().
 
---Andy
+Ben.
+
+> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+> Changelog:
+> v1->v2:
+> - clear whole struct ethtool_wolinfo
+> - check for non-NULL phy_device
+> v2->v3:
+> - only clear ->supported and ->wolopts (Suggested by Ben Hutchings)
+>=20
+> Cc: David Miller <davem@davemloft.net>
+> Cc: Florian Fainelli <f.fainelli@gmail.com>
+> Cc: Ben Hutchings <ben@decadent.org.uk>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-arm-kernel@lists.infradead.org
+> Cc: linux-kernel@vger.kernel.org
+> ---
+>  drivers/net/phy/phy.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index 19c9eca0ef26..94234a91a50f 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+> @@ -1092,7 +1092,9 @@ EXPORT_SYMBOL(phy_ethtool_set_wol);
+> =20
+>  void phy_ethtool_get_wol(struct phy_device *phydev, struct ethtool_wolin=
+fo *wol)
+>  {
+> -	if (phydev->drv->get_wol)
+> +	wol->supported =3D wol->wolopts =3D 0;
+> +
+> +	if (phydev && phydev->drv->get_wol)
+>  		phydev->drv->get_wol(phydev, wol);
+>  }
+>  EXPORT_SYMBOL(phy_ethtool_get_wol);
+
+--=20
+Ben Hutchings
+Experience is directly proportional to the value of equipment destroyed.
+                                                         - Carolyn Scheppne=
+r
+
+--=-cJ6XNnnryeEvTdHkSyDc
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAUyEWOee/yOyVhhEJAQoQtxAAnaZ6iZcw/qt6LK/r9YoH89oFKHmBFsSO
+k/4qX4TuYvoPgLgipZXLZj6HH0PlZIFA3bo/E9wkIhxb9VDtulsHnjcI6PLOwnA5
++SxuO/Wquv3bcZaPVzHiqoM11bmxJP3EuSEU8GPYrgf43e1qifEetHFRvdBiZSNW
+Sk8fBzv0sWqru+wpfZr/vFe8veU4I1eucBfgiiKhMFbMxMw7gIEmd2w/r2VV3HEG
+/L5ljIoTEvuYJ2ajjbGSsag4C6DayHlce+CM7MYAOyWdj0onktFiBsHvYaFAbX0j
+zfXLPQFWJdn4K7D0GCGn3am/Lqm36hchJQkZe7FCuYWhKRtIMcgGuCX9uVUygeri
+W+hpkc3G4pO24CczmspUIy4S5RCRNc3bKZxejYRpu2F9zBgdLK4M/bgOWUdQOcBa
+2GfkARIvH27z/J4BzV9NgKtrpwqnzO7fQ/GN3lU/sVIvbfgd+ydoD5N2fd/JvySI
+PROMJaZgmF+1uLE9ICNUglbdC7cJXo/yHOjp7ALIPQmjLd+kAxpApk//oIQYBwl9
+U7ClZ1ribbmJo5Zk2Tq7HKUdnPILpWOcKxBVNJ2ceQ0cREepS1RTLTqqqqFbGxlD
+/R9DpPZv/J4DtMYqsAhTfxrdDP6qX+EYq4fJe2AGb4BFrTGo2RTEo85TP7Y5ZJqf
+zz3O/+NKR3Y=
+=gFGA
+-----END PGP SIGNATURE-----
+
+--=-cJ6XNnnryeEvTdHkSyDc--
