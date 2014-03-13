@@ -1,50 +1,53 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 0/5] Misc. fixes for cxgb4
-Date: Thu, 13 Mar 2014 20:50:45 +0530
-Message-ID: <1394724050-9291-1-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 5/5] cxgb4: Calculate len properly for LSO path
+Date: Thu, 13 Mar 2014 20:50:50 +0530
+Message-ID: <1394724050-9291-6-git-send-email-hariprasad@chelsio.com>
+References: <1394724050-9291-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, dm@chelsio.com, swise@opengridcomputing.com,
 	leedom@chelsio.com, santosh@chelsio.com, kumaras@chelsio.com,
 	nirranjan@chelsio.com, hariprasad@chelsio.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:10950 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:25874 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753802AbaCMP3P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 11:29:15 -0400
+	by vger.kernel.org with ESMTP id S1754344AbaCMP3Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 11:29:25 -0400
+In-Reply-To: <1394724050-9291-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+From: Kumar Sanghvi <kumaras@chelsio.com>
 
-This patch series provides miscelleneous fixes for Chelsio T4/T5 adapters
-cxgb4 driver related to SGE and MTU.
+Commit 0034b29 ("cxgb4: Don't assume LSO only uses SGL path in t4_eth_xmit()")
+introduced a regression where-in length was calculated wrongly for LSO path,
+causing chip hangs.
+So, correct the calculation of len.
 
-Also fixes regression in LSO calcuation path.
-("cxgb4: Calculate len properly for LSO path")
+Fixes: 0034b29 ("cxgb4: Don't assume LSO only uses SGL path in t4_eth_xmit()")
+Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/sge.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-The patches series is created against David Miller's 'net-next' tree.
-And includes patches on cxgb4 driver.
-
-We would like to request this patch series to get merged via David Miller's
-'net-next' tree.
-
-We have included all the maintainers of respective drivers. Kindly review the
-change and let us know in case of any review comments.
-
-Kumar Sanghvi (5):
-  cxgb4: Fix some small bugs in t4_sge_init_soft() when our Page Size is
-    64KB
-  cxgb4: Add code to dump SGE registers when hitting idma hangs
-  cxgb4: Rectify emitting messages about SGE Ingress DMA channels being
-    potentially stuck
-  cxgb4: Updates for T5 SGE's Egress Congestion Threshold
-  cxgb4: Calculate len properly for LSO path
-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h   |  10 ++-
- drivers/net/ethernet/chelsio/cxgb4/sge.c     | 122 +++++++++++++++++++++------
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c   | 106 +++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |   9 ++
- 4 files changed, 219 insertions(+), 28 deletions(-)
-
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index a7c56b3..46429f9 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -1051,7 +1051,6 @@ out_free:	dev_kfree_skb(skb);
+ 	end = (u64 *)wr + flits;
+ 
+ 	len = immediate ? skb->len : 0;
+-	len += sizeof(*cpl);
+ 	ssi = skb_shinfo(skb);
+ 	if (ssi->gso_size) {
+ 		struct cpl_tx_pkt_lso *lso = (void *)wr;
+@@ -1079,6 +1078,7 @@ out_free:	dev_kfree_skb(skb);
+ 		q->tso++;
+ 		q->tx_cso += ssi->gso_segs;
+ 	} else {
++		len += sizeof(*cpl);
+ 		wr->op_immdlen = htonl(FW_WR_OP(FW_ETH_TX_PKT_WR) |
+ 				       FW_WR_IMMDLEN(len));
+ 		cpl = (void *)(wr + 1);
 -- 
 1.8.4
