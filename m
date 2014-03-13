@@ -1,47 +1,79 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net] net/mlx4_en: Deregister multicast vxlan steering rules when going down
-Date: Thu, 13 Mar 2014 14:52:15 +0200
-Message-ID: <1394715135-18791-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, amirv@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:42400 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750994AbaCMMwU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Mar 2014 08:52:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH V2 RE-SEND 1/7] net: sxgbe: add basic framework for
+ Samsung 10Gb ethernet driver
+Date: Thu, 13 Mar 2014 05:53:09 -0700
+Message-ID: <1394715189.3915.76.camel@joe-AO722>
+References: <007a01cf3e89$3bbdf460$b339dd20$%an@samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
+	davem@davemloft.net, ilho215.lee@samsung.com,
+	siva.kallam@samsung.com, vipul.pandya@samsung.com,
+	ks.giri@samsung.com
+To: Byungho An <bh74.an@samsung.com>
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+In-Reply-To: <007a01cf3e89$3bbdf460$b339dd20$%an@samsung.com>
+Sender: linux-samsung-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When mlx4_en_stop_port() is called, we need to deregister also the
-tunnel steering rules that relate to multicast.
+On Thu, 2014-03-13 at 15:55 +0900, Byungho An wrote:
+> This patch adds support for Samsung 10Gb ethernet driver(sxgbe).
+> - sxgbe core initialization
+> - Tx and Rx support
+> - MDIO support
+> - ISRs for Tx and Rx
+> - ifconfig support to driver
+[]
+> diff --git a/drivers/net/ethernet/samsung/sxgbe_desc.c b/drivers/net/ethernet/samsung/sxgbe_desc.c
+[]
+> +/* Set Time stamp */
+> +static void sxgbe_tx_ctxt_desc_set_tstamp(struct sxgbe_tx_ctxt_desc *p,
+> +					  u8 ostc_enable, u64 tstamp)
+> +{
+> +	if (ostc_enable) {
+> +		p->ostc = ostc_enable;
+> +		p->tstamp_lo = (u32) tstamp;
+> +		p->tstamp_hi = (u32) (tstamp>>32);
+> +	}
+> +}
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
+[]
 
-Dave - this is a small fix which is addition to yesterday's set. 
+> +static u64 sxgbe_get_rx_timestamp(struct sxgbe_rx_ctxt_desc *p)
+> +{
+> +	u64 ns;
+> +	ns = p->tstamp_lo;
+> +	ns += p->tstamp_hi * 1000000000ULL;
+> +
+> +	return ns;
+> +}
 
-While on that, I noted that there are places where we do check for the 
-return value of mlx4_flow_detach() and print something, while in other places
-we don't. I will work on net-next patch that makes it consistent all across 
-the place by setting that to void, as we should be OK with the warning 
-which exists within mlx4_flow_detach()
+This looks odd.
 
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+rx and tx timestamps are different clocks?
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index ba21261..84a96f7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1800,6 +1800,8 @@ void mlx4_en_stop_port(struct net_device *dev, int detach)
- 		mc_list[5] = priv->port;
- 		mlx4_multicast_detach(mdev->dev, &priv->rss_map.indir_qp,
- 				      mc_list, MLX4_PROT_ETH, mclist->reg_id);
-+		if (mclist->tunnel_reg_id)
-+			mlx4_flow_detach(mdev->dev, mclist->tunnel_reg_id);
- 	}
- 	mlx4_en_clear_list(dev);
- 	list_for_each_entry_safe(mclist, tmp, &priv->curr_list, list) {
--- 
-1.7.1
+rx tstamp_lo resets every second but tx_stamp
+is free-running?
+
+Maybe this was supposed to be something like
+
+	ns = p->tstamp_lo
+	ns |= ((u64)tstamp_hi) << 32;
+
+If not, maybe it warrants a comment around
+here or on the descriptor definition
+
+> diff --git a/drivers/net/ethernet/samsung/sxgbe_desc.h b/drivers/net/ethernet/samsung/sxgbe_desc.h
+[]
+> +/* Context descriptor structure */
+> +struct sxgbe_tx_ctxt_desc {
+> +	u32 tstamp_lo:32;
+> +	u32 tstamp_hi:32;
+
+[]
+
+> +struct sxgbe_rx_ctxt_desc {
+> +	u32 tstamp_lo:32;
+> +	u32 tstamp_hi:32;
+ 
