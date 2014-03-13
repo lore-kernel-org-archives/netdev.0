@@ -1,63 +1,54 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] net: sctp: remove NULL check in sctp_assoc_update_retran_path
-Date: Thu, 13 Mar 2014 14:45:26 +0100
-Message-ID: <1394718326-6415-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	davej@redhat.com, dan.carpenter@oracle.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49034 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752428AbaCMNpo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Mar 2014 09:45:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2/2] net: Implement SO_PEERCGROUP
+Date: Thu, 13 Mar 2014 09:48:40 -0400
+Message-ID: <20140313134840.GA18914@redhat.com>
+References: <1394657163-7472-1-git-send-email-vgoyal@redhat.com>
+ <1394657163-7472-3-git-send-email-vgoyal@redhat.com>
+ <CAHA+R7OrNoa7_J-rOskxgdvkM5gAnQyoFBeCXSziY7XMd-yLNA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAHA+R7OrNoa7_J-rOskxgdvkM5gAnQyoFBeCXSziY7XMd-yLNA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is basically just to let Coverity et al shut up. Remove an
-unneeded NULL check in sctp_assoc_update_retran_path().
+On Wed, Mar 12, 2014 at 01:58:57PM -0700, Cong Wang wrote:
+> On Wed, Mar 12, 2014 at 1:46 PM, Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> > @@ -1098,6 +1135,16 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+> >         if (newsk == NULL)
+> >                 goto out;
+> >
+> > +       err = init_peercgroup(newsk);
+> > +       if (err)
+> > +               goto out;
+> > +
+> > +       err = alloc_cgroup_path(sk);
+> > +       if (err)
+> > +               goto out;
+> > +
+> > +       err = -ENOMEM;
+> > +
+> 
+> Don't we need to free the cgroup_path on error path
+> in this function?
 
-It is safe to remove it, because in sctp_assoc_update_retran_path()
-we iterate over the list of transports, our own transport which is
-asoc->peer.retran_path included. In the iteration, we skip the
-list head element and transports in state SCTP_UNCONFIRMED.
+Previous allocated cgroup_path is now in newsk->cgroup_path and I was
+relying on __sk_free() freeing that memory if error happens.
 
-Such transports came from peer addresses received in INIT/INIT-ACK
-address parameters. They are not yet confirmed by a heartbeat and
-not available for data transfers.
+unix_release_sock(sk)
+  sock_put()
+    sk_free()
+      __sk_free()
+        kfree(sk->cgroup_path)
 
-We know however that in the list of transports, even if it contains
-such elements, it at least contains our asoc->peer.retran_path as
-well, so even if next to that element, we only encounter
-SCTP_UNCONFIRMED transports, we are always going to fall back to
-asoc->peer.retran_path through sctp_trans_elect_best(), as that is
-for sure not SCTP_UNCONFIRMED as per fbdf501c9374 ("sctp: Do no
-select unconfirmed transports for retransmissions").
+Do you see a problem with that?
 
-Whenever we call sctp_trans_elect_best() it will give us a non-NULL
-element back, and therefore when we break out of the loop, we are
-guaranteed to have a non-NULL transport pointer, and can remove
-the NULL check.
-
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Reported-by: Dave Jones <davej@redhat.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/sctp/associola.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index ee13d28..4f6d6f9 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -1319,8 +1319,7 @@ void sctp_assoc_update_retran_path(struct sctp_association *asoc)
- 			break;
- 	}
- 
--	if (trans_next != NULL)
--		asoc->peer.retran_path = trans_next;
-+	asoc->peer.retran_path = trans_next;
- 
- 	pr_debug("%s: association:%p updated new path to addr:%pISpc\n",
- 		 __func__, asoc, &asoc->peer.retran_path->ipaddr.sa);
--- 
-1.8.3.1
+Thanks
+Vivek
