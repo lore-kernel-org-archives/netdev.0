@@ -1,161 +1,111 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH RFC 0/9] socket filtering using nf_tables
-Date: Thu, 13 Mar 2014 13:29:13 +0100
-Message-ID: <20140313122913.GA4898@localhost>
-References: <1394529560-3490-1-git-send-email-pablo@netfilter.org>
- <531EE5A2.7090501@redhat.com>
- <CAMEtUuyJne-8uNtOAK7EcFFQNXz9m7J2DDLGH_GbYe6oWZx1pQ@mail.gmail.com>
- <20140312091500.GA4638@localhost>
- <CAMEtUuztfWniTr+3u6ttuygvG=xYdp0ANn_w9MGqacQvHrXtWA@mail.gmail.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH RFC 2/3] bridge: Prepare for 802.1ad vlan
+ filtering support
+Date: Thu, 13 Mar 2014 21:33:37 +0900
+Message-ID: <1394714017.4078.51.camel@ubuntu-vm-makita>
+References: <1394439067-10477-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	<1394439067-10477-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	<532098D2.6050504@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	netfilter-devel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>, kaber@trash.net,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAMEtUuztfWniTr+3u6ttuygvG=xYdp0ANn_w9MGqacQvHrXtWA@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: vyasevic@redhat.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <532098D2.6050504@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 12, 2014 at 08:29:07PM -0700, Alexei Starovoitov wrote:
-> On Wed, Mar 12, 2014 at 2:15 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-[...]
-> The patches don't explain the reasons to do nft socket filtering.
-
-OK, some reasons from the interface point of view:
-
-1) It provides an extensible interface to userspace. We didn't
-   invented a new wheel in that regard, we just reused the
-   extensibility of TLVs used in netlink as intermediate format
-   between user and kernelspace, also used many other applications
-   outthere. The TLV parsing and building is not new code, most that of
-   that code has been exposed to userspace already through netlink.
-
-2) It shows that, with little generalisation, we can open the door to
-   one single *classification interface* for the users. Just make some
-   little googling, you'll find *lots of people* barfing on the fact that
-   we have that many interfaces to classify packets in Linux. And I'm
-   *not* talking about the packet classification approach itself, that's a
-   different debate of course.
-
-[...]
-> Simplicity and performance should be the deciding factor.
-> imo nft+sock_filter example is not simple.
-
-OK, some comments in that regard:
-
-1) Simplicity: With the nft approach you can just use a filter
-expressed in json, eg.
-
-{"rule":
- {"expr":[
-  {"type":"meta","dreg":1,"key":"protocol"},
-  {"type":"cmp","sreg":1,"op":"eq","cmpdata":{"data_reg":{"type":"value","len":2,"data0":"0x00000008"}}},
-  {"type":"payload","dreg":1,"offset":9,"len":1,"base":"network"},
-  {"type":"cmp","sreg":1,"op":"eq","cmpdata":{"data_reg":{"type":"value","len":1,"data0":"0x00000006"}}},
-  {"type":"immediate","dreg":0,"immediatedata":{"data_reg":{"type":"verdict","verdict":"0xffffffff"}}}]
- }
-}
-
-Which is still more readable and easier to maintain that a BPF
-snippet. So you just pass it to the json parser in the libnftnl
-library (or whatever other better minimalistic library we would ever
-have) which transforms this to TLV format that you can pass to the
-kernel.  The kernel will do the job to translate this.
-
-How are users going to integrate the restricted C's eBPF code
-infrastructure into their projects? I don't think that will be simple.
-They will likely include the BPF snippet to avoid all the integration
-burden, as it already happens in many projects with BPF filters.
-
-2) Performance. Patrick has been doing many progress with the generic
-   set infrastructure for nft. In that regard, we aim to achieve
-   performance by arranging data using performance data structures,
-   *jit is not the only way to boost performance* (although we also
-   want to have it).
-
-Some example:
-
-   set type IPv4 address = { N thousands of IPv4 addresses }
-
-   reg1 <- payload(network header, offsetof(struct iphdr, daddr), 4)
-   lookup(reg1, set)
-   reg0 <- immediate(0xffffffff)
-
-Or even better, using dictionaries:
-
-   set type IPv4 address = { 1.1.1.1 : accept, 2.2.2.2 : accept, 3.3.3.3 : drop ...}
-
-   reg1 <- payload(network header, offsetof(struct iphdr, daddr), 4)
-   reg0 <- lookup(reg1, set)
-
-Where "accept" is an alias of 0xffffffff and "drop" is 0 in the
-nft-sock case. The verdict part has been generalised so we can adapt
-nft to the corresponding packet classification engine.
-
-This part just needs a follow-up patch to add set-based filtering for
-nft-sockets. See this for more information about ongoing efforts on
-the nft set infrastructure: http://patchwork.ozlabs.org/patch/326368/
-that will also integrate into nft-sock.
-
-[...]
-> > +struct sock_filter_ext {
-> > +       __u8    code;    /* opcode */
-> > +       __u8    a_reg:4; /* dest register */
-> > +       __u8    x_reg:4; /* source register */
-> > +       __s16   off;     /* signed offset */
-> > +       __s32   imm;     /* signed immediate constant */
-> > +};
-> >
-> > If I didn't miss anything from your patchset, that structure is again
-> > exposed to userspace, so we won't be able to change it ever unless we
-> > add a new binary interface.
-> >
-> > From the user interface perspective, our nft approach is quite
-> > different, from userspace you express the filter using TLVs (like in
-> > the payload of the netlink message). Then, nf_tables core
-> > infrastructure parses this and transforms it to the kernel
-> > representation. It's very flexible since you don't expose the internal
-> > representation to userspace, which means that we can change the
-> > internal layout anytime, thus, highly extensible.
+On Wed, 2014-03-12 at 13:26 -0400, Vlad Yasevich wrote:
+> On 03/10/2014 04:11 AM, Toshiaki Makita wrote:
+> > This enables a bridge to have vlan protocol informantion and allows vlan
+> > filtering code to take vlan protocols into account.
+...
+> > @@ -173,16 +174,27 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+> >  		 * ingress frame is considered to belong to this vlan.
+> >  		 */
+> >  		*vid = pvid;
+> > -		if (likely(err))
+> > +		if (likely(err)) {
+> >  			/* Untagged Frame. */
+> > -			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
+> > -		else
+> > +			if (vlan_tx_tag_present(skb)) {
+> > +				/* skb->vlan_proto was different from br->vlan_proto */
+> > +				skb_push(skb, ETH_HLEN);
+> > +				skb = __vlan_put_tag(skb, skb->vlan_proto,
+> > +						     vlan_tx_tag_get(skb));
+> > +				if (unlikely(!skb))
+> > +					return false;
+> > +				skb_pull(skb, ETH_HLEN);
+> > +				skb_reset_mac_len(skb);
+> > +			}
+> > +			__vlan_hwaccel_put_tag(skb, proto, pvid);
 > 
-> bpf/ebpf is an instruction set. Arguing about fixed vs non-fixed
-> insn size is like arguing x86 variable encoding vs sparc fixed.
-> Both are infinitely flexible.
+> So this seems to be handling the case where we had a protocol mis-match.
+> My question is why are we hiding this case behind our inability to
+> fetch the vid from the packet.
+> 
+> I think it might be clearer to make the protocol check explicit
+> (at least if we were to continue using the approach of defining
+>  the protocol per bridge).
 
-Right, you can extend interfaces forever with lots of patchwork and
-"smart tricks" but that doesn't mean that will look nice...
+I didn't intend to handle protocol mismatch, but handle the case where
+the vlan_tci we are about to use happens to be already used.
+In this function, it can occur only if the frame is originally tagged
+with another protocol.
 
-As I said, I believe that having a nice extensible interface is
-extremely important to make it easier for development. If we have to
-rearrange the internal representation for some reason, we can do it
-indeed without bothering about making translations to avoid breaking
-userspace and having to use ugly tricks (just see sk_decode_filter()
-or any other translation to support any new way to express a
-filter...).
+However, indeed, we seem to need the check of skb->vlan_proto only at
+ingress.
+So it maybe makes sense to check the vid and the protocol separately.
 
-[...]
-> Say you want to translate nft-cmp instruction into sequence of native
-> comparisons. You'd need to use load from memory, compare and
-> branch operations. That's ebpf!
+I'm thinking of changing that code like this.
 
-Nope sorry, that's not ebpf. That's assembler code.
+	bool untagged;
+...
+	err = br_vlan_get_tag(skb, vid);
+	if (!err) {
+		if (skb->vlan_proto != proto) {
+			...
+			skb = __vlan_put_tag(...);
+			...
+			*vid = 0;
+			untagged = true;
+		} else {
+			untagged = false;
+		}
+	} else {
+		untagged = true;
+	}
 
-[...]
-> You can view ebpf as a tool to achieve jiting of nft.
-> It will save you a lot of time.
+	if (!*vid) {
+		...
+		if (likely(untagged)) {
+			/* Untagged Frame. */
+			...
+		} else {
+			/* Priority-tagged Frame.
+			...
+		}
+	}
 
-nft interface is already well-abstracted from the representation, so I
-don't find a good reason to make a step backward that will force us to
-represent the instructions using a fixed layout structure that is
-exposed to userspace, that we won't be able to change once if this
-gets into mainstream.
+> 
+> This code also has a side-effect that it would be permit 802.1ad packets
+> on an 802.1Q bridge and possibly forward such packets encapsulated yet
+> again.
 
-Probably the nft is not the easiest path, I agree, it's been not so
-far if you look at the record. But with time and development hours
-from everyone, I believe we'll enjoy a nice framework.
+Well, this is an interesting situation.
+But I have no reason to restrict it.
+Users can configure such an environment if they want.
+
+Thanks,
+Toshiaki Makita
