@@ -1,33 +1,79 @@
-From: <infor_project1@voila.fr>
-Subject: YOUR ASSISTANCE NEEDED PLEASE
-Date: Thu, 13 Mar 2014 22:10:17 +0000 (GMT)
-Message-ID: <1394748617.35843.YahooMailBasic@web172904.mail.ir2.yahoo.com>
-Reply-To: infor_project1@voila.fr
+From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
+Subject: Zynq macb
+Date: Thu, 13 Mar 2014 15:16:51 -0700
+Message-ID: <c6344e9b-fa32-4313-8950-59030c4bffb8@AM1EHSMHS003.ehs.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: undisclosed recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm13-vm7.bullet.mail.ir2.yahoo.com ([212.82.96.186]:29220 "EHLO
-	nm13-vm7.bullet.mail.ir2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753471AbaCMWQj convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Mar 2014 18:16:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>,
+	Michal Simek <michal.simek@xilinx.com>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	Punnaiah Choudary Kalluri
+	<punnaiah.choudary.kalluri@xilinx.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Nicolas,
 
-Dear Friend,
+I did some testing on the current linux-next tree and ran iperf on Zynq=
+=2E
+It seems that network and even the whole system can collapse when doing
+that.
+I don't really know what's going on, but once I saw the message:
+	"inconsistent Rx descriptor chain"
+printed twice (system frozen afterwards).
 
+I don't know what exactly is going wrong, but suspect something around
+memory/DMA. I have no clue whether it makes any sense or not, but I
+tried using the macb_* functions instead of the gem_* ones (see diff be=
+low).
+That seems to result in a stable system and working Ethernet.
 
-Greetings to you and your family.
+So, I guess my questions are:
+Does any of this make sense?
+Is it reasonable for the Zynq GEM to use the macb_* routines (are there
+any implementation options to check whether one or the other are
+appropriate for an macb implementation?)?
+Any other hints?
 
+	Thanks,
+	S=C3=B6ren
 
-  My name is Mrs Marvis Zil, the current Chief Auditor of a formidable bank here in Ouagadougou, Burkina Faso, West Africa. I have a transaction worth of 7.5 Million U.S dollars for transferring into your care for our mutual benefits, so i need your assistance with 100% cooperation to realise this task.
-
-
- Further details about the fund, its source and the administrative procedure to transfer this fund into your receiving bank account shall be made known to you immediately as I have your positive response.
-
-
-Thanks and Regards,
-Mrs Marvis Zil
+-----------8<-------------8<---------------8<--------------8<----------=
+------8<--------
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet=
+/cadence/macb.c
+index d0c38e01e99f..8c73cd43457e 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -1905,17 +1905,10 @@ static int __init macb_probe(struct platform_de=
+vice *pdev)
+        dev->base_addr =3D regs->start;
+=20
+        /* setup appropriated routines according to adapter type */
+-       if (macb_is_gem(bp)) {
+-               bp->macbgem_ops.mog_alloc_rx_buffers =3D gem_alloc_rx_b=
+uffers;
+-               bp->macbgem_ops.mog_free_rx_buffers =3D gem_free_rx_buf=
+fers;
+-               bp->macbgem_ops.mog_init_rings =3D gem_init_rings;
+-               bp->macbgem_ops.mog_rx =3D gem_rx;
+-       } else {
+-               bp->macbgem_ops.mog_alloc_rx_buffers =3D macb_alloc_rx_=
+buffers;
+-               bp->macbgem_ops.mog_free_rx_buffers =3D macb_free_rx_bu=
+ffers;
+-               bp->macbgem_ops.mog_init_rings =3D macb_init_rings;
+-               bp->macbgem_ops.mog_rx =3D macb_rx;
+-       }
++       bp->macbgem_ops.mog_alloc_rx_buffers =3D macb_alloc_rx_buffers;
++       bp->macbgem_ops.mog_free_rx_buffers =3D macb_free_rx_buffers;
++       bp->macbgem_ops.mog_init_rings =3D macb_init_rings;
++       bp->macbgem_ops.mog_rx =3D macb_rx;
+=20
+        /* Set MII management clock divider */
+        config =3D macb_mdc_clk_div(bp);
