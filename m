@@ -1,43 +1,44 @@
-From: Eli Cohen <eli@dev.mellanox.co.il>
-Subject: Re: [Patch 1/2] IB/mlx5: Implementation of PCI error handler
-Date: Thu, 13 Mar 2014 17:40:02 +0200
-Message-ID: <20140313154002.GA28066@mtldesk30>
-References: <20140312034219.637916521@linux.vnet.ibm.com>
- <20140312034512.065218504@linux.vnet.ibm.com>
- <1394649252.23624.36.camel@deadeye.wl.decadent.org.uk>
- <20140313064521.GH20224@mtldesk30>
- <5321CAD3.2070301@linux.vnet.ibm.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next] xen-netback: Schedule NAPI from dealloc thread
+ instead of callback
+Date: Thu, 13 Mar 2014 15:44:37 +0000
+Message-ID: <5321D265.8070907@citrix.com>
+References: <1394658281-2488-1-git-send-email-zoltan.kiss@citrix.com>	 <20140313101720.GA16807@zion.uk.xensource.com> <1394707350.25873.34.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <ben@decadent.org.uk>, eli@mellanox.com,
-	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
-	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	brking@linux.vnet.ibm.com
-To: Carol Soto <clsoto@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f50.google.com ([74.125.83.50]:46998 "EHLO
-	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753802AbaCMPkI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 11:40:08 -0400
-Received: by mail-ee0-f50.google.com with SMTP id c13so508328eek.9
-        for <netdev@vger.kernel.org>; Thu, 13 Mar 2014 08:40:07 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <5321CAD3.2070301@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394707350.25873.34.camel@kazak.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 13, 2014 at 10:12:19AM -0500, Carol Soto wrote:
-> 
-> In mlx4 code, I do not recall a timeout for commands this big. So
-> the reason in mlx5 is 2 hrs is just for
-> debugging purposes? So if for any reason a command hang then the
-> user can not remove this module
-> for the next 2 hrs?
-> 
-Hi Carol,
-well I haven't seen any such case with latest firmware releases.
-Anyway, 10 msec is really too short timeout value since there are
-commands that can take more than that (e.g. memory registartion of
-regions larger then 512 MB - though this will be changed soon). I
-wonder what was the original motivation and have you been able to
-simulate PCI errors and see this in action.
+On 13/03/14 10:42, Ian Campbell wrote:
+> On Thu, 2014-03-13 at 10:17 +0000, Wei Liu wrote:
+>> On Wed, Mar 12, 2014 at 09:04:41PM +0000, Zoltan Kiss wrote:
+>>> If there are unconsumed requests in the ring, but there isn't enough free
+>>> pending slots, the NAPI instance deschedule itself. As the frontend won't send
+>>> any more interrupts in this case, it is the task of whoever release the pending
+>>> slots to schedule the NAPI instance in this case. Originally it was done in the
+>>> callback, but it's better at the end of the dealloc thread, otherwise there is
+>>> a risk that the NAPI instance just deschedule itself as the dealloc thread
+>>> couldn't release any used slot yet. However, as there are a lot of pending
+>>> packets, NAPI will be scheduled again, and it is very unlikely that the dealloc
+>>> thread can't release enough slots in the meantime.
+>>>
+>>
+>> So this patch restores the property that "only two parties access the
+>> ring", right?
+>
+> I think so, and therefore:
+> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+
+I've just discussed this with Ian, this solution still doesn't solve the 
+racing between NAPI and the dealloc thread, however it only causes some 
+unnecessary napi_schedule's, not ring stalls.
+There is a better solution, I'll post it as soon as it passes all the test!
+
+Zoli
