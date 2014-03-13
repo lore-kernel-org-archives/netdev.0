@@ -1,68 +1,63 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: [loopback] b17c706987f: +91.0% qperf.sctp_bw.bw.MB_sec
-Date: Thu, 13 Mar 2014 17:29:33 +0800
-Message-ID: <20140313092933.GA31360@localhost>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] vmxnet3: fix building without CONFIG_PCI_MSI
+Date: Thu, 13 Mar 2014 10:44:34 +0100
+Message-ID: <7825453.7LB7BmvA2b@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>, lkp@01.org,
-	netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Shreyas Bhatewara <sbhatewara@vmware.com>,
+	"VMware, Inc." <pv-drivers@vmware.com>,
+	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Daniel,
+Since commit d25f06ea466e "vmxnet3: fix netpoll race condition",
+the vmxnet3 driver fails to build when CONFIG_PCI_MSI is disabled,
+because it unconditionally references the vmxnet3_msix_rx()
+function.
 
-We are glad to notice this big performance gain on
+To fix this, use the same #ifdef in the caller that exists around
+the function definition.
 
-git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-commit b17c706987fa6f28bdc1771c8266e7a69e22adcb ("loopback: sctp: add NETIF_F_SCTP_CSUM to device features")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: Shreyas Bhatewara <sbhatewara@vmware.com>
+Cc: "VMware, Inc." <pv-drivers@vmware.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: stable@vger.kernel.org
+---
+Found this during randconfig testing on ARM. Most of the time when
+I report network driver problems, they get fixed in the netdev tree
+before I even find them, but since this is for a patch marked "stable",
+I made a proper patch anyway.
 
-test case: lkp-a06/micro/qperf/600s
+Please ignore if this is already a known problem, otherwise make sure
+the original patch doesn't get backported without addressing this
+issue first.
 
-72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
----------------  -------------------------  
-     39.30 ~ 3%     +91.0%      75.06 ~11%  TOTAL qperf.sctp_bw.bw.MB_sec
-       126 ~ 0%      -3.2%        122 ~ 0%  TOTAL qperf.sctp_lat.latency.us
-    216270 ~ 2%     -46.5%     115740 ~ 4%  TOTAL cpuidle.C4.usage
-  48722971 ~ 5%     +45.1%   70681678 ~ 7%  TOTAL cpuidle.C2.time
-    370655 ~ 2%     +46.8%     543952 ~ 7%  TOTAL cpuidle.C2.usage
-      1.00 ~13%     -22.8%       0.77 ~15%  TOTAL perf-profile.cpu-cycles.acpi_processor_ffh_cstate_enter.acpi_idle_enter_bm.cpuidle_enter_state.cpuidle_idle_call.arch_cpu_idle
-  15233974 ~ 0%     +14.2%   17397187 ~ 3%  TOTAL proc-vmstat.pgalloc_normal
-  24268359 ~ 0%     +14.2%   27716949 ~ 3%  TOTAL proc-vmstat.pgfree
-   9034872 ~ 0%     +14.2%   10321019 ~ 3%  TOTAL proc-vmstat.pgalloc_dma32
-     51262 ~ 2%     -10.0%      46151 ~ 3%  TOTAL time.involuntary_context_switches
-     13874 ~ 1%      +4.8%      14540 ~ 0%  TOTAL vmstat.system.cs
-       812 ~ 0%      -3.4%        784 ~ 1%  TOTAL time.system_time
-   4125867 ~ 1%      +3.9%    4285302 ~ 0%  TOTAL time.voluntary_context_switches
-
-Legend:
-	~XX%    - stddev percent
-	[+-]XX% - change percent
-
-
-                              qperf.sctp_bw.bw.MB_sec
-
-   90 ++------------------------------------------------------------O-------+
-      |            O                             O                          |
-   80 ++              O  O       O    O     O         O                     |
-      O  O O  O                     O               O            O       O  |
-      |          O          O            O    O                O            |
-   70 ++                                                 O  O               O
-      |                                                                O    |
-   60 ++                      O                                             |
-      |                                                                     |
-   50 ++                                                                    |
-      |                                                                     |
-      |      .*..               .*..         .*..  .*.     .*..             |
-   40 *+.*.*.    *.*..*..*..*.*.    *.*..*..*    *.   *..*.    *.*..*..*    |
-      |                                                                     |
-   30 ++--------------------------------------------------------------------+
-
-	[O] bisect-bad  sample
-	[*] bisect-good sample
-
-Thanks,
-Fengguang
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index cbd898f..28965ad 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -1761,13 +1761,16 @@ static void
+ vmxnet3_netpoll(struct net_device *netdev)
+ {
+ 	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
+-	int i;
+ 
+ 	switch (adapter->intr.type) {
+-	case VMXNET3_IT_MSIX:
++#ifdef CONFIG_PCI_MSI
++	case VMXNET3_IT_MSIX: {
++		int i;
+ 		for (i = 0; i < adapter->num_rx_queues; i++)
+ 			vmxnet3_msix_rx(0, &adapter->rx_queue[i]);
+ 		break;
++	}
++#endif
+ 	case VMXNET3_IT_MSI:
+ 	default:
+ 		vmxnet3_intr(0, adapter->netdev);
