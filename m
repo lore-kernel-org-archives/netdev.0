@@ -1,36 +1,58 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] MAINTAINERS: add networking selftests to NETWORKING
-Date: Thu, 13 Mar 2014 10:18:53 +0100
-Message-ID: <1394702333-32578-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53552 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753316AbaCMJS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Mar 2014 05:18:56 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v2 1/2] r8152: add
+ RTL8152_EARLY_AGG_TIMEOUT_SUPER
+Date: Thu, 13 Mar 2014 09:28:12 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6DC810@AcuExch.aculab.com>
+References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com>
+ <1394681648-7321-1-git-send-email-albertk@realtek.com>
+ <1394681648-7321-2-git-send-email-albertk@realtek.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "nic_swsd@realtek.com" <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: 'Hayes Wang' <hayeswang@realtek.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394681648-7321-2-git-send-email-albertk@realtek.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add it to NETWORKING [GENERAL] to make sure patches for selftests
-go to the netdev list as well.
+From: Hayes Wang
+> For slow CPU, the frequent bulk transfer would cause poor throughput.
+> One solution is to increase the timeout of the aggregation. It let
+> the hw could complete the bulk transfer later and fill more packets
+> into the buffer. Besides, it could reduce the frequency of the bulk
+> transfer efficiently and improve the performance.
+> 
+> However, the optimization value of the timeout depends on the
+> capability of the hardware, especially the CPU. For example, according
+> to the experiment, the timeout 164 us is better than the default
+> value for the chromebook with the ARM CPU.
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- MAINTAINERS | 1 +
- 1 file changed, 1 insertion(+)
+The best value probably depends on the workload as well as the
+cpu speed.
+I wonder if a sane algorithm for dynamically setting this value exists.
+It really needs a CBU (crystal ball unit), but working ones are
+difficult to come by.
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index e1be77c..b359eb0 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -6003,6 +6003,7 @@ F:	include/uapi/linux/in.h
- F:	include/uapi/linux/net.h
- F:	include/uapi/linux/netdevice.h
- F:	tools/net/
-+F:	tools/testing/selftests/net/
- 
- NETWORKING [IPv4/IPv6]
- M:	"David S. Miller" <davem@davemloft.net>
--- 
-1.7.11.7
+Passing the buck to the 'user' is rather a cop-out (but we all do it).
+
+> Now add RTL8152_EARLY_AGG_TIMEOUT_SUPER to let someone could choose
+> desired timeout value if he wants to get the best performance.
+...
+>  /* USB_RX_EARLY_AGG */
+> -#define EARLY_AGG_SUPPER	0x0e832981
+> +#define EARLY_AGG_SUPER	((((rx_buf_sz - 1522) / 4) << 16) | \
+> +	(u32)(CONFIG_RTL8152_EARLY_AGG_TIMEOUT_SUPER <= 0 ? 0x2981 : \
+> +	((CONFIG_RTL8152_EARLY_AGG_TIMEOUT_SUPER * 125) < 0xffff ? \
+> +	CONFIG_RTL8152_EARLY_AGG_TIMEOUT_SUPER * 125 : 0xffff)))
+
+The 0x2981 would be better written as (85 * 125).
+But maybe replace with something like:
+	min((CONFIG_RTL8152_EARLY_AGG_TIMEOUT_SUPER <= 0 ? 85 :
+		CONFIG_RTL8152_EARLY_AGG_TIMEOUT_SUPER) * 125u, 0xffffu)
+
+	David
