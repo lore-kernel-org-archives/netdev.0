@@ -1,109 +1,93 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH 2/2] net: Implement SO_PEERCGROUP
-Date: Thu, 13 Mar 2014 10:55:16 -0700
-Message-ID: <CALCETrXWzja6W6y=p9MrtynGZMsrD5KQu0KBK6Bs1dQxnesv2A@mail.gmail.com>
-References: <1394657163-7472-1-git-send-email-vgoyal@redhat.com>
- <1394657163-7472-3-git-send-email-vgoyal@redhat.com> <5320CAEC.6030008@amacapital.net>
- <CALCETrUTjN=XKwnO62P9roZtLLuk7_9Oi17Mj_Aa2ZFtZc1gVA@mail.gmail.com>
- <1394658983.32465.203.camel@willson.li.ssimo.org> <CALCETrU29CpcK4dVRD45BGOD7AVEudADiFxOgFgKWkpFzw07eg@mail.gmail.com>
- <1394673476.32465.215.camel@willson.li.ssimo.org> <CALCETrWbCuKfV4zMkZajDOGhGkKduW0C2L7uHv=vtvqhVeAc6w@mail.gmail.com>
- <1394675038.32465.223.camel@willson.li.ssimo.org> <CALCETrV7GE0YL1sDDqTUV81rWL9zk2vTR1-VLkR7CfTA-FSrgw@mail.gmail.com>
- <1394733077.32465.243.camel@willson.li.ssimo.org>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: Re: pppd service crash in linux-3.13.6
+Date: Thu, 13 Mar 2014 13:55:31 -0400
+Message-ID: <5321F113.7090000@hurleysoftware.com>
+References: <531A37FF.4000509@totakura.in> <531DEEA6.4090808@totakura.in> <531E111A.8040207@hurleysoftware.com> <20140313170622.GA31206@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Vivek Goyal <vgoyal@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	cgroups@vger.kernel.org,
-	Network Development <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
-	jkaluza@redhat.com, lpoetter@redhat.com, kay@redhat.com
-To: Simo Sorce <ssorce@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f179.google.com ([209.85.220.179]:38556 "EHLO
-	mail-vc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754621AbaCMRzh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 13:55:37 -0400
-Received: by mail-vc0-f179.google.com with SMTP id ij19so1514014vcb.38
-        for <netdev@vger.kernel.org>; Thu, 13 Mar 2014 10:55:36 -0700 (PDT)
-In-Reply-To: <1394733077.32465.243.camel@willson.li.ssimo.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Sree Harsha Totakura <sreeharsha@totakura.in>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Oleg Nesterov <oleg@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140313170622.GA31206@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 13, 2014 at 10:51 AM, Simo Sorce <ssorce@redhat.com> wrote:
-> On Wed, 2014-03-12 at 19:12 -0700, Andy Lutomirski wrote:
->> On Wed, Mar 12, 2014 at 6:43 PM, Simo Sorce <ssorce@redhat.com> wrote:
->> > On Wed, 2014-03-12 at 18:21 -0700, Andy Lutomirski wrote:
->> >> On Wed, Mar 12, 2014 at 6:17 PM, Simo Sorce <ssorce@redhat.com> wrote:
->> >> > On Wed, 2014-03-12 at 14:19 -0700, Andy Lutomirski wrote:
->> >> >> On Wed, Mar 12, 2014 at 2:16 PM, Simo Sorce <ssorce@redhat.com> wrote:
->> >> >>
->> >> >> >
->> >> >> > Connection time is all we do and can care about.
->> >> >>
->> >> >> You have not answered why.
->> >> >
->> >> > We are going to disclose information to the peer based on policy that
->> >> > depends on the cgroup the peer is part of. All we care for is who opened
->> >> > the connection, if the peer wants to pass on that information after it
->> >> > has obtained it there is nothing we can do, so connection time is all we
->> >> > really care about.
->> >>
->> >> Can you give a realistic example?
->> >>
->> >> I could say that I'd like to disclose information to processes based
->> >> on their rlimits at the time they connected, but I don't think that
->> >> would carry much weight.
->> >
->> > We want to be able to show different user's list from SSSD based on the
->> > docker container that is asking for it.
->> >
->> > This works by having libnsss_sss.so from the containerized application
->> > connect to an SSSD daemon running on the host or in another container.
->> >
->> > The only way to distinguish between containers "from the outside" is to
->> > lookup the cgroup of the requesting process. It has a unique container
->> > ID, and can therefore be mapped to the appropriate policy that will let
->> > us decide which 'user domain' to serve to the container.
->> >
+Hi Oleg,
+
+On 03/13/2014 01:06 PM, Oleg Nesterov wrote:
+> On 03/10, Peter Hurley wrote:
 >>
->> I can think of at least three other ways to do this.
+>> [ +cc Oleg Nesterov ]
+>
+> Thanks.
+>
+>> The NULL ptr dereference is from following the current->nsproxy ptr
+>> in ppp_register_channel().
 >>
->> 1. Fix Docker to use user namespaces and use the uid of the requesting
->> process via SCM_CREDENTIALS.
+>> This was broken by
+>>
+>> commit 8aac62706adaaf0fab02c4327761561c8bda9448
+>> Author: Oleg Nesterov <oleg@redhat.com>
+>> Date:   Fri Jun 14 21:09:49 2013 +0200
+>>
+>>      move exit_task_namespaces() outside of exit_notify()
+>>
+>> which moved the exit_task_namespaces(tsk) before disassociate_ctty().
 >
-> This is not practical, I have no control on what UIDs will be used
-> within a container, and IIRC user namespaces have severe limitations
-> that may make them unusable in some situations. Forcing the use of user
-> namespaces on docker to satisfy my use case is not in my power.
+> Heh. OK, we can move it down after disassociate_ctty(), the original
+> motivation for that commit was the problem which was also (hopefully)
+> fixed by e7b2c406925273 "fput: task_work_add() can fail if the caller
+> has passed exit_task_work()".
 
-Except that Docker w/o userns is basically completely insecure unless
-selinux or apparmor is in use, so this may not matter.
+I didn't look into what motivated the change; I will now though.
 
+> In fact I think that it makes sense to move it down after
+> exit_task_work() anyway. But this is almost off-topic and I'd like to
+> avoid this right now.
 >
->> 2. Docker is a container system, so use the "container" (aka
->> namespace) APIs.  There are probably several clever things that could
->> be done with /proc/<pid>/ns.
+> OTOH, why we should delay disassociate_ctty? IOW, do you see any
+> potential problem with the trivial patch below?
+
+I have no idea what kind of dependencies might exist between
+task works, cgroup_exit() and all the teardown that disassociate_ctty()
+does. I'll look into though.
+
+> And it seems that it makes sense to move (at least) check_stack_usage()
+> down, but this is offtopic too.
+
+I agree that it makes sense to check the stack _after_ teardown code
+runs, but all the arch-dependent exit_thread() code would need to be
+audited first.
+
+> Oleg.
 >
-> pid is racy, if it weren't I would simply go straight
-> to /proc/<pid>/cgroups ...
-
-How about:
-
-open("/proc/self/ns/ipc", O_RDONLY);
-send the result over SCM_RIGHTS?
-
+> --- x/kernel/exit.c
+> +++ kernel/exit.c/
+> @@ -784,6 +784,8 @@ void do_exit(long code)
+>   	exit_shm(tsk);
+>   	exit_files(tsk);
+>   	exit_fs(tsk);
+> +	if (group_dead)
+> +		disassociate_ctty(1);
+>   	exit_task_namespaces(tsk);
+>   	exit_task_work(tsk);
+>   	check_stack_usage();
+> @@ -799,13 +801,9 @@ void do_exit(long code)
 >
->> 3. Given that Docker uses network namespaces, I assume that the socket
->> connection between the two sssd instances either comes from Docker
->> itself or uses socket inodes.  In either case, the same mechanism
->> should be usable for authentication.
+>   	cgroup_exit(tsk, 1);
 >
-> It is a unix socket, ie bind mounted on the container filesystem, not
-> sure network namespaces really come into the picture, and I do not know
-> of a racefree way of knowing what is the namespace of the peer at
-> connect time.
-> Is there a SO_PEER_NAMESPACE option ?
+> -	if (group_dead)
+> -		disassociate_ctty(1);
+> -
+>   	module_put(task_thread_info(tsk)->exec_domain->module);
+>
+>   	proc_exit_connector(tsk);
+> -
+>   	/*
+>   	 * FIXME: do that only when needed, using sched_exit tracepoint
+>   	 */
 
-So give each container its own unix socket.  Problem solved, no?
-
---Andy
+Regards,
+Peter Hurley
