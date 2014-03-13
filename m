@@ -1,57 +1,57 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net-next v7 4/9] xen-netback: Introduce TX
- grant mapping
-Date: Thu, 13 Mar 2014 11:13:22 +0000
-Message-ID: <20140313111322.GB16807@zion.uk.xensource.com>
-References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>
- <1394142511-14827-5-git-send-email-zoltan.kiss@citrix.com>
- <1394706812.25873.28.camel@kazak.uk.xensource.com>
- <53218EDA.8040904@citrix.com>
- <1394708555.25873.43.camel@kazak.uk.xensource.com>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: Re: [PATCH v5] can: xilinx CAN controller support.
+Date: Thu, 13 Mar 2014 19:21:12 +0800
+Message-ID: <20140313112112.GB8806@localhost>
+References: <5254bfec-c6fd-4681-a34d-706d51e60fbb@VA3EHSMHS004.ehs.local>
+ <531DD493.3030306@monstr.eu>
+ <531DD5E7.7090406@pengutronix.de>
+ <3245971.RIuVmbVL0Z@wuerfel>
+ <1964213d-6bd9-49fa-805e-42e1e0630fd5@VA3EHSMHS029.ehs.local>
+ <20140311044555.GA12373@localhost>
+ <546dbc60-dd7b-4249-bab8-ad7e008b9aad@AM1EHSMHS001.ehs.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Vrabel <david.vrabel@citrix.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <jonathan.davies@citrix.com>,
-	<wei.liu2@citrix.com>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	linux-arm-kernel@lists.infradead.org,
+	Marc Kleine-Budde <mkl@pengutronix.de>, monstr@monstr.eu,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	robh+dt@kernel.org,
+	Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
+	grant.likely@linaro.org,
+	Kedareswara rao Appana <appanad@xilinx.com>,
+	wg@grandegger.com
+To: Michal Simek <michal.simek@xilinx.com>
+Return-path: <linux-can-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1394708555.25873.43.camel@kazak.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <546dbc60-dd7b-4249-bab8-ad7e008b9aad@AM1EHSMHS001.ehs.local>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 13, 2014 at 11:02:35AM +0000, Ian Campbell wrote:
-> On Thu, 2014-03-13 at 10:56 +0000, David Vrabel wrote:
-> > On 13/03/14 10:33, Ian Campbell wrote:
-> > > On Thu, 2014-03-06 at 21:48 +0000, Zoltan Kiss wrote:
-> > >> @@ -135,13 +146,31 @@ struct xenvif {
-> > >>  	pending_ring_idx_t pending_cons;
-> > >>  	u16 pending_ring[MAX_PENDING_REQS];
-> > >>  	struct pending_tx_info pending_tx_info[MAX_PENDING_REQS];
-> > >> +	grant_handle_t grant_tx_handle[MAX_PENDING_REQS];
-> > >>  
-> > >>  	/* Coalescing tx requests before copying makes number of grant
-> > >>  	 * copy ops greater or equal to number of slots required. In
-> > >>  	 * worst case a tx request consumes 2 gnttab_copy.
-> > >>  	 */
-> > >>  	struct gnttab_copy tx_copy_ops[2*MAX_PENDING_REQS];
-> > >> -
-> > >> +	struct gnttab_map_grant_ref tx_map_ops[MAX_PENDING_REQS];
-> > >> +	struct gnttab_unmap_grant_ref tx_unmap_ops[MAX_PENDING_REQS];
-> > > 
-> > > I wonder if we should break some of these arrays into separate
-> > > allocations? Wasn't there a problem with sizeof(struct xenvif) at one
-> > > point?
+Hi Michal,
+
+On Tue, Mar 11, 2014 at 10:38:14AM +0100, Michal Simek wrote:
+> On 03/11/2014 05:45 AM, Fengguang Wu wrote:
+> >>> You probably want something like
+> >>>
+> >>> 	config CAN_XILINX
+> >>> 	tristate "Xilinx CAN"
+> >>> 	depends on ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST
+> >>> 	depends on COMMON_CLK && HAS_MMIO  # whatever you need for other architectures
+> >>
+> >> Fengguang: Are you use COMPILE_TEST in zero day testing system?
 > > 
-> > alloc_netdev() falls back to vmalloc() if the kmalloc failed so there's
-> > no need to split these structures.
+> > Yeah, the randconfig build/boot tests should cover both COMPILE_TEST
+> > and !COMPILE_TEST cases.
 > 
-> Is vmalloc space in abundant supply? For some reason I thought it was
-> limited (maybe that's a 32-bit only limitation?)
+> But the point is that randconfig is really random it means it definitely can
+> cover but not there is no certainty that for that build, you are running,
+> has both option for all architectures enabled.
+> Or do I read it wrongly?
 
-32-bit has a limitation of 128MB by default. 64-bit has much larger
-address space.
+Good point!  Since the 0day system is running randconfig tests
+everyday, it has very good opportunity to cover the COMPILE_TEST case.
+But to be sure, I'll explicitly enable COMPILE_TEST in some cases.
 
-Wei.
+Thanks,
+Fengguang
