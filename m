@@ -1,372 +1,307 @@
 From: Byungho An <bh74.an@samsung.com>
-Subject: [PATCH V2 RE-SEND 2/7] net: sxgbe: add TSO support for Samsung sxgbe
-Date: Thu, 13 Mar 2014 15:55:46 +0900
-Message-ID: <007b01cf3e89$4289ea10$c79dbe30$%an@samsung.com>
+Subject: [PATCH V2 RE-SEND 4/7] net: sxgbe: add Checksum offload support for
+ Samsung sxgbe
+Date: Thu, 13 Mar 2014 15:56:02 +0900
+Message-ID: <007d01cf3e89$4be479e0$e3ad6da0$%an@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, ilho215.lee@samsung.com,
 	vipul.pandya@samsung.com, 'Joe Perches' <joe@perches.com>
 To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:48922 "EHLO
-	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751158AbaCMGz6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 02:55:58 -0400
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
 Content-language: ko
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-samsung-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Vipul Pandya <vipul.pandya@samsung.com>
 
-Enable TSO during initialization for each DMA channels
+This patch adds TX and RX checksum offload support.
 
 Signed-off-by: Vipul Pandya <vipul.pandya@samsung.com>
 Neatening-by: Joe Perches <joe@perches.com>
 Signed-off-by: Byungho An <bh74.an@samsung.com>
 ---
- drivers/net/ethernet/samsung/sxgbe_desc.c |   47 +++++++++++++++---
- drivers/net/ethernet/samsung/sxgbe_desc.h |   17 +++++--
- drivers/net/ethernet/samsung/sxgbe_dma.c  |   10 ++++
- drivers/net/ethernet/samsung/sxgbe_dma.h  |    2 +
- drivers/net/ethernet/samsung/sxgbe_main.c |   75 ++++++++++++++++++++++++++---
- 5 files changed, 130 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/samsung/sxgbe_common.h |    6 +++-
+ drivers/net/ethernet/samsung/sxgbe_core.c   |   20 ++++++++++++
+ drivers/net/ethernet/samsung/sxgbe_desc.c   |   27 ++++++++++++----
+ drivers/net/ethernet/samsung/sxgbe_desc.h   |    6 ++--
+ drivers/net/ethernet/samsung/sxgbe_main.c   |   46 ++++++++++++++++++++-------
+ 5 files changed, 84 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/samsung/sxgbe_desc.c b/drivers/net/ethernet/samsung/sxgbe_desc.c
-index 9a93553..fa21236 100644
---- a/drivers/net/ethernet/samsung/sxgbe_desc.c
-+++ b/drivers/net/ethernet/samsung/sxgbe_desc.c
-@@ -28,6 +28,16 @@ static void sxgbe_init_tx_desc(struct sxgbe_tx_norm_desc *p)
- 	p->tdes23.tx_rd_des23.own_bit = 0;
- }
- 
-+static void sxgbe_tx_desc_enable_tse(struct sxgbe_tx_norm_desc *p, u8 is_tse,
-+				     u32 total_hdr_len, u32 tcp_hdr_len,
-+				     u32 tcp_payload_len)
-+{
-+	p->tdes23.tx_rd_des23.tse_bit = is_tse;
-+	p->tdes23.tx_rd_des23.buf1_size = total_hdr_len;
-+	p->tdes23.tx_rd_des23.tcp_hdr_len = tcp_hdr_len / 4;
-+	p->tdes23.tx_rd_des23.tx_pkt_len.tcp_payload_len  = tcp_payload_len;
-+}
+diff --git a/drivers/net/ethernet/samsung/sxgbe_common.h b/drivers/net/ethernet/samsung/sxgbe_common.h
+index 21d8ee6..68e8ad4 100644
+--- a/drivers/net/ethernet/samsung/sxgbe_common.h
++++ b/drivers/net/ethernet/samsung/sxgbe_common.h
+@@ -347,6 +347,10 @@ struct sxgbe_core_ops {
+ 	void (*set_eee_timer)(void __iomem *ioaddr, const int ls,
+ 			      const int tw);
+ 	void (*set_eee_pls)(void __iomem *ioaddr, const int link);
 +
- /* Assign buffer lengths for descriptor */
- static void sxgbe_prepare_tx_desc(struct sxgbe_tx_norm_desc *p, u8 is_fd,
- 				  int buf1_len, int pkt_len, int cksum)
-@@ -102,36 +112,47 @@ static int sxgbe_get_tx_timestamp_status(struct sxgbe_tx_norm_desc *p)
++	/* Enable disable checksum offload operations */
++	void (*enable_rx_csum)(void __iomem *ioaddr);
++	void (*disable_rx_csum)(void __iomem *ioaddr);
+ };
+ 
+ const struct sxgbe_core_ops *sxgbe_get_core_ops(void);
+@@ -462,7 +466,7 @@ struct sxgbe_priv_data {
+ 	struct net_device *dev;
+ 	struct device *device;
+ 	struct sxgbe_ops *hw;/* sxgbe specific ops */
+-	int no_csum_insertion;
++	int rxcsum_insertion;
+ 	spinlock_t lock;
+ 	spinlock_t stats_lock;
+ 
+diff --git a/drivers/net/ethernet/samsung/sxgbe_core.c b/drivers/net/ethernet/samsung/sxgbe_core.c
+index bf93b16..5885fd6 100644
+--- a/drivers/net/ethernet/samsung/sxgbe_core.c
++++ b/drivers/net/ethernet/samsung/sxgbe_core.c
+@@ -217,6 +217,24 @@ static void  sxgbe_set_eee_timer(void __iomem *ioaddr,
+ 	writel(value, ioaddr + SXGBE_CORE_LPI_TIMER_CTRL);
  }
  
- /* TX Context Descripto Specific */
--static void sxgbe_init_tx_ctxtdesc(struct sxgbe_tx_ctxt_desc *p)
-+static void sxgbe_tx_ctxt_desc_set_ctxt(struct sxgbe_tx_ctxt_desc *p)
- {
- 	p->ctxt_bit = 1;
--	p->own_bit = 0;
- }
- 
- /* Set the owner of TX context descriptor */
--static void sxgbe_set_tx_ctxt_owner(struct sxgbe_tx_ctxt_desc *p)
-+static void sxgbe_tx_ctxt_desc_set_owner(struct sxgbe_tx_ctxt_desc *p)
- {
- 	p->own_bit = 1;
- }
- 
- /* Get the owner of TX context descriptor */
--static int sxgbe_get_tx_ctxt_owner(struct sxgbe_tx_ctxt_desc *p)
-+static int sxgbe_tx_ctxt_desc_get_owner(struct sxgbe_tx_ctxt_desc *p)
- {
- 	return p->own_bit;
- }
- 
- /* Set TX mss in TX context Descriptor */
--static void sxgbe_tx_ctxt_desc_setmss(struct sxgbe_tx_ctxt_desc *p, int mss)
-+static void sxgbe_tx_ctxt_desc_set_mss(struct sxgbe_tx_ctxt_desc *p, u16 mss)
- {
- 	p->maxseg_size = mss;
- }
- 
- /* Get TX mss from TX context Descriptor */
--static int sxgbe_tx_ctxt_desc_getmss(struct sxgbe_tx_ctxt_desc *p)
-+static int sxgbe_tx_ctxt_desc_get_mss(struct sxgbe_tx_ctxt_desc *p)
- {
- 	return p->maxseg_size;
- }
- 
-+/* Set TX tcmssv in TX context Descriptor */
-+static void sxgbe_tx_ctxt_desc_set_tcmssv(struct sxgbe_tx_ctxt_desc *p)
-+{
-+	p->tcmssv = 1;
-+}
-+
-+/* Reset TX ostc in TX context Descriptor */
-+static void sxgbe_tx_ctxt_desc_reset_ostc(struct sxgbe_tx_ctxt_desc *p)
-+{
-+	p->ostc = 0;
-+}
-+
- /* Set IVLAN information */
- static void sxgbe_tx_ctxt_desc_set_ivlantag(struct sxgbe_tx_ctxt_desc *p,
- 					    int is_ivlanvalid, int ivlan_tag,
-@@ -177,13 +198,13 @@ static void sxgbe_tx_ctxt_desc_set_tstamp(struct sxgbe_tx_ctxt_desc *p,
- 	}
- }
- /* Close TX context descriptor */
--static void sxgbe_close_tx_ctxt_desc(struct sxgbe_tx_ctxt_desc *p)
-+static void sxgbe_tx_ctxt_desc_close(struct sxgbe_tx_ctxt_desc *p)
- {
- 	p->own_bit = 1;
- }
- 
- /* WB status of context descriptor */
--static int sxgbe_get_tx_ctxt_cde(struct sxgbe_tx_ctxt_desc *p)
-+static int sxgbe_tx_ctxt_desc_get_cde(struct sxgbe_tx_ctxt_desc *p)
- {
- 	return p->ctxt_desc_err;
- }
-@@ -432,6 +453,7 @@ static u64 sxgbe_get_rx_timestamp(struct sxgbe_rx_ctxt_desc *p)
- 
- static const struct sxgbe_desc_ops desc_ops = {
- 	.init_tx_desc = sxgbe_init_tx_desc,
-+	.tx_desc_enable_tse = sxgbe_tx_desc_enable_tse,
- 	.prepare_tx_desc = sxgbe_prepare_tx_desc,
- 	.tx_vlanctl_desc = sxgbe_tx_vlanctl_desc,
- 	.set_tx_owner = sxgbe_set_tx_owner,
-@@ -443,11 +465,20 @@ static const struct sxgbe_desc_ops desc_ops = {
- 	.get_tx_len = sxgbe_get_tx_len,
- 	.tx_enable_tstamp = sxgbe_tx_enable_tstamp,
- 	.get_tx_timestamp_status = sxgbe_get_tx_timestamp_status,
-+	.tx_ctxt_desc_set_ctxt = sxgbe_tx_ctxt_desc_set_ctxt,
-+	.tx_ctxt_desc_set_owner =  sxgbe_tx_ctxt_desc_set_owner,
-+	.get_tx_ctxt_owner = sxgbe_tx_ctxt_desc_get_owner,
-+	.tx_ctxt_desc_set_mss = sxgbe_tx_ctxt_desc_set_mss,
-+	.tx_ctxt_desc_get_mss = sxgbe_tx_ctxt_desc_get_mss,
-+	.tx_ctxt_desc_set_tcmssv = sxgbe_tx_ctxt_desc_set_tcmssv,
-+	.tx_ctxt_desc_reset_ostc = sxgbe_tx_ctxt_desc_reset_ostc,
- 	.tx_ctxt_desc_set_ivlantag = sxgbe_tx_ctxt_desc_set_ivlantag,
- 	.tx_ctxt_desc_get_ivlantag = sxgbe_tx_ctxt_desc_get_ivlantag,
- 	.tx_ctxt_desc_set_vlantag = sxgbe_tx_ctxt_desc_set_vlantag,
- 	.tx_ctxt_desc_get_vlantag = sxgbe_tx_ctxt_desc_get_vlantag,
- 	.tx_ctxt_set_tstamp = sxgbe_tx_ctxt_desc_set_tstamp,
-+	.close_tx_ctxt_desc = sxgbe_tx_ctxt_desc_close,
-+	.get_tx_ctxt_cde = sxgbe_tx_ctxt_desc_get_cde,
- 	.init_rx_desc = sxgbe_init_rx_desc,
- 	.get_rx_owner = sxgbe_get_rx_owner,
- 	.set_rx_owner = sxgbe_set_rx_owner,
-diff --git a/drivers/net/ethernet/samsung/sxgbe_desc.h b/drivers/net/ethernet/samsung/sxgbe_desc.h
-index 761b521..976d5ac 100644
---- a/drivers/net/ethernet/samsung/sxgbe_desc.h
-+++ b/drivers/net/ethernet/samsung/sxgbe_desc.h
-@@ -167,8 +167,9 @@ struct sxgbe_desc_ops {
- 	void (*init_tx_desc)(struct sxgbe_tx_norm_desc *p);
- 
- 	/* Invoked by the xmit function to prepare the tx descriptor */
--	void (*tx_enable_tse)(struct sxgbe_tx_norm_desc *p, u8 is_tse,
--				u32 hdr_len, u32 payload_len);
-+	void (*tx_desc_enable_tse)(struct sxgbe_tx_norm_desc *p, u8 is_tse,
-+				   u32 total_hdr_len, u32 tcp_hdr_len,
-+				   u32 tcp_payload_len);
- 
- 	/* Assign buffer lengths for descriptor */
- 	void (*prepare_tx_desc)(struct sxgbe_tx_norm_desc *p, u8 is_fd,
-@@ -207,20 +208,26 @@ struct sxgbe_desc_ops {
- 	int (*get_tx_timestamp_status)(struct sxgbe_tx_norm_desc *p);
- 
- 	/* TX Context Descripto Specific */
--	void (*init_tx_ctxt_desc)(struct sxgbe_tx_ctxt_desc *p);
-+	void (*tx_ctxt_desc_set_ctxt)(struct sxgbe_tx_ctxt_desc *p);
- 
- 	/* Set the owner of the TX context descriptor */
--	void (*set_tx_ctxt_owner)(struct sxgbe_tx_ctxt_desc *p);
-+	void (*tx_ctxt_desc_set_owner)(struct sxgbe_tx_ctxt_desc *p);
- 
- 	/* Get the owner of the TX context descriptor */
- 	int (*get_tx_ctxt_owner)(struct sxgbe_tx_ctxt_desc *p);
- 
- 	/* Set TX mss */
--	void (*tx_ctxt_desc_setmss)(struct sxgbe_tx_ctxt_desc *p, int mss);
-+	void (*tx_ctxt_desc_set_mss)(struct sxgbe_tx_ctxt_desc *p, u16 mss);
- 
- 	/* Set TX mss */
- 	int (*tx_ctxt_desc_get_mss)(struct sxgbe_tx_ctxt_desc *p);
- 
-+	/* Set TX tcmssv */
-+	void (*tx_ctxt_desc_set_tcmssv)(struct sxgbe_tx_ctxt_desc *p);
-+
-+	/* Reset TX ostc */
-+	void (*tx_ctxt_desc_reset_ostc)(struct sxgbe_tx_ctxt_desc *p);
-+
- 	/* Set IVLAN information */
- 	void (*tx_ctxt_desc_set_ivlantag)(struct sxgbe_tx_ctxt_desc *p,
- 					  int is_ivlanvalid, int ivlan_tag,
-diff --git a/drivers/net/ethernet/samsung/sxgbe_dma.c b/drivers/net/ethernet/samsung/sxgbe_dma.c
-index 9ee4a3c..61fa64e 100644
---- a/drivers/net/ethernet/samsung/sxgbe_dma.c
-+++ b/drivers/net/ethernet/samsung/sxgbe_dma.c
-@@ -353,6 +353,15 @@ static void sxgbe_dma_rx_watchdog(void __iomem *ioaddr, u32 riwt)
- 	}
- }
- 
-+static void sxgbe_enable_tso(void __iomem *ioaddr, u8 chan_num)
++static void sxgbe_enable_rx_csum(void __iomem *ioaddr)
 +{
 +	u32 ctrl;
 +
-+	ctrl = readl(ioaddr + SXGBE_DMA_CHA_TXCTL_REG(chan_num));
-+	ctrl |= SXGBE_DMA_CHA_TXCTL_TSE_ENABLE;
-+	writel(ctrl, ioaddr + SXGBE_DMA_CHA_TXCTL_REG(chan_num));
++	ctrl = readl(ioaddr + SXGBE_CORE_RX_CONFIG_REG);
++	ctrl |= SXGBE_RX_CSUMOFFLOAD_ENABLE;
++	writel(ctrl, ioaddr + SXGBE_CORE_RX_CONFIG_REG);
 +}
 +
- static const struct sxgbe_dma_ops sxgbe_dma_ops = {
- 	.init = sxgbe_dma_init,
- 	.cha_init = sxgbe_dma_channel_init,
-@@ -368,6 +377,7 @@ static const struct sxgbe_dma_ops sxgbe_dma_ops = {
- 	.tx_dma_int_status = sxgbe_tx_dma_int_status,
- 	.rx_dma_int_status = sxgbe_rx_dma_int_status,
- 	.rx_watchdog = sxgbe_dma_rx_watchdog,
-+	.enable_tso = sxgbe_enable_tso,
++static void sxgbe_disable_rx_csum(void __iomem *ioaddr)
++{
++	u32 ctrl;
++
++	ctrl = readl(ioaddr + SXGBE_CORE_RX_CONFIG_REG);
++	ctrl &= ~SXGBE_RX_CSUMOFFLOAD_ENABLE;
++	writel(ctrl, ioaddr + SXGBE_CORE_RX_CONFIG_REG);
++}
++
+ const struct sxgbe_core_ops core_ops = {
+ 	.core_init = sxgbe_core_init,
+ 	.dump_regs = sxgbe_core_dump_regs,
+@@ -233,6 +251,8 @@ const struct sxgbe_core_ops core_ops = {
+ 	.reset_eee_mode = sxgbe_reset_eee_mode,
+ 	.set_eee_timer = sxgbe_set_eee_timer,
+ 	.set_eee_pls = sxgbe_set_eee_pls,
++	.enable_rx_csum = sxgbe_enable_rx_csum,
++	.disable_rx_csum = sxgbe_disable_rx_csum,
  };
  
- const struct sxgbe_dma_ops *sxgbe_get_dma_ops(void)
-diff --git a/drivers/net/ethernet/samsung/sxgbe_dma.h b/drivers/net/ethernet/samsung/sxgbe_dma.h
-index 50c8054..6c070ac 100644
---- a/drivers/net/ethernet/samsung/sxgbe_dma.h
-+++ b/drivers/net/ethernet/samsung/sxgbe_dma.h
-@@ -42,6 +42,8 @@ struct sxgbe_dma_ops {
- 				 struct sxgbe_extra_stats *x);
- 	/* Program the HW RX Watchdog */
- 	void (*rx_watchdog)(void __iomem *ioaddr, u32 riwt);
-+	/* Enable TSO for each DMA channel */
-+	void (*enable_tso)(void __iomem *ioaddr, u8 chan_num);
- };
+ const struct sxgbe_core_ops *sxgbe_get_core_ops(void)
+diff --git a/drivers/net/ethernet/samsung/sxgbe_desc.c b/drivers/net/ethernet/samsung/sxgbe_desc.c
+index fa21236..8d9ee61 100644
+--- a/drivers/net/ethernet/samsung/sxgbe_desc.c
++++ b/drivers/net/ethernet/samsung/sxgbe_desc.c
+@@ -47,6 +47,9 @@ static void sxgbe_prepare_tx_desc(struct sxgbe_tx_norm_desc *p, u8 is_fd,
  
- const struct sxgbe_dma_ops *sxgbe_get_dma_ops(void);
-diff --git a/drivers/net/ethernet/samsung/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe_main.c
-index 7b5a6bd..857048e 100644
---- a/drivers/net/ethernet/samsung/sxgbe_main.c
-+++ b/drivers/net/ethernet/samsung/sxgbe_main.c
-@@ -1168,6 +1168,28 @@ static int sxgbe_release(struct net_device *dev)
- 	return 0;
+ 	p->tdes23.tx_rd_des23.tx_pkt_len.cksum_pktlen.total_pkt_len = pkt_len;
+ 
++	if (cksum)
++		p->tdes23.tx_rd_des23.tx_pkt_len.cksum_pktlen.cksum_ctl =
++			cic_full;
  }
  
-+/* Prepare first Tx descriptor for doing TSO operation */
-+void sxgbe_tso_prepare(struct sxgbe_priv_data *priv,
-+		       struct sxgbe_tx_norm_desc *first_desc,
-+		       struct sk_buff *skb)
-+{
-+	unsigned int total_hdr_len, tcp_hdr_len;
-+
-+	/* Write first Tx descriptor with appropriate value */
-+	tcp_hdr_len = tcp_hdrlen(skb);
-+	total_hdr_len = skb_transport_offset(skb) + tcp_hdr_len;
-+
-+	first_desc->tdes01 = dma_map_single(priv->device, skb->data,
-+					    total_hdr_len, DMA_TO_DEVICE);
-+	if (dma_mapping_error(priv->device, first_desc->tdes01))
-+		pr_err("%s: TX dma mapping failed!!\n", __func__);
-+
-+	first_desc->tdes23.tx_rd_des23.first_desc = 1;
-+	priv->hw->desc->tx_desc_enable_tse(first_desc, 1, total_hdr_len,
-+					   tcp_hdr_len,
-+					   skb->len - total_hdr_len);
-+}
-+
- /**
-  *  sxgbe_xmit: Tx entry point of the driver
-  *  @skb : the socket buffer
-@@ -1185,13 +1207,22 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
- 	unsigned int tx_rsize = priv->dma_tx_size;
- 	struct sxgbe_tx_queue *tqueue = priv->txq[txq_index];
- 	struct sxgbe_tx_norm_desc *tx_desc, *first_desc;
-+	struct sxgbe_tx_ctxt_desc *ctxt_desc = NULL;
- 	int nr_frags = skb_shinfo(skb)->nr_frags;
- 	int no_pagedlen = skb_headlen(skb);
- 	int is_jumbo = 0;
-+	u16 mss;
-+	u32 ctxt_desc_req = 0;
+ /* Set VLAN control information */
+@@ -250,31 +253,40 @@ static int sxgbe_get_rx_ld_status(struct sxgbe_rx_norm_desc *p)
  
- 	/* get the TX queue handle */
- 	dev_txq = netdev_get_tx_queue(dev, txq_index);
  
-+	if (likely(skb_is_gso(skb) ||
-+		   vlan_tx_tag_present(skb) ||
-+		   ((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
-+		    tqueue->hwts_tx_en)))
-+		ctxt_desc_req = 1;
-+
- 	/* get the spinlock */
- 	spin_lock(&tqueue->tx_lock);
+ /* Return the RX status looking at the WB fields */
+-static void sxgbe_rx_wbstatus(struct sxgbe_rx_norm_desc *p,
+-			struct sxgbe_extra_stats *x)
++static int sxgbe_rx_wbstatus(struct sxgbe_rx_norm_desc *p,
++			     struct sxgbe_extra_stats *x, int *checksum)
+ {
++	int status = 0;
  
-@@ -1210,18 +1241,36 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
- 	tx_desc = tqueue->dma_tx + entry;
++	*checksum = CHECKSUM_UNNECESSARY;
+ 	if (p->rdes23.rx_wb_des23.err_summary) {
+ 		switch (p->rdes23.rx_wb_des23.err_l2_type) {
+ 		case RX_GMII_ERR:
++			status = -EINVAL;
+ 			x->rx_code_gmii_err++;
+ 			break;
+ 		case RX_WATCHDOG_ERR:
++			status = -EINVAL;
+ 			x->rx_watchdog_err++;
+ 			break;
+ 		case RX_CRC_ERR:
++			status = -EINVAL;
+ 			x->rx_crc_err++;
+ 			break;
+ 		case RX_GAINT_ERR:
++			status = -EINVAL;
+ 			x->rx_gaint_pkt_err++;
+ 			break;
+ 		case RX_IP_HDR_ERR:
++			*checksum = CHECKSUM_NONE;
+ 			x->ip_hdr_err++;
+ 			break;
+ 		case RX_PAYLOAD_ERR:
++			*checksum = CHECKSUM_NONE;
+ 			x->ip_payload_err++;
+ 			break;
+ 		case RX_OVERFLOW_ERR:
++			status = -EINVAL;
+ 			x->overflow_error++;
+ 			break;
+ 		default:
+@@ -366,12 +378,14 @@ static void sxgbe_rx_wbstatus(struct sxgbe_rx_norm_desc *p,
+ 	if (p->rdes23.rx_wb_des23.vlan_filter_match)
+ 		x->vlan_filter_match++;
  
- 	first_desc = tx_desc;
-+	if (ctxt_desc_req)
-+		ctxt_desc = (struct sxgbe_tx_ctxt_desc *)first_desc;
- 
- 	/* save the skb address */
- 	tqueue->tx_skbuff[entry] = skb;
- 
- 	if (!is_jumbo) {
--		tx_desc->tdes01 = dma_map_single(priv->device, skb->data,
--						   no_pagedlen, DMA_TO_DEVICE);
--		if (dma_mapping_error(priv->device, tx_desc->tdes01))
--			pr_err("%s: TX dma mapping failed!!\n", __func__);
+-	if (p->rdes23.rx_wb_des23.sa_filter_fail)
++	if (p->rdes23.rx_wb_des23.sa_filter_fail) {
++		status = -EINVAL;
+ 		x->sa_filter_fail++;
 -
--		priv->hw->desc->prepare_tx_desc(tx_desc, 1, no_pagedlen,
--						no_pagedlen);
-+		if (likely(skb_is_gso(skb))) {
-+			/* TSO support */
-+			mss = skb_shinfo(skb)->gso_size;
-+			priv->hw->desc->tx_ctxt_desc_set_mss(ctxt_desc, mss);
-+			priv->hw->desc->tx_ctxt_desc_set_tcmssv(ctxt_desc);
-+			priv->hw->desc->tx_ctxt_desc_reset_ostc(ctxt_desc);
-+			priv->hw->desc->tx_ctxt_desc_set_ctxt(ctxt_desc);
-+			priv->hw->desc->tx_ctxt_desc_set_owner(ctxt_desc);
-+
-+			entry = (++tqueue->cur_tx) % tx_rsize;
-+			first_desc = tqueue->dma_tx + entry;
-+
-+			sxgbe_tso_prepare(priv, first_desc, skb);
+-	if (p->rdes23.rx_wb_des23.da_filter_fail)
++	}
++	if (p->rdes23.rx_wb_des23.da_filter_fail) {
++		status = -EINVAL;
+ 		x->da_filter_fail++;
+-
++	}
+ 	if (p->rdes23.rx_wb_des23.hash_filter_pass)
+ 		x->hash_filter_pass++;
+ 
+@@ -381,6 +395,7 @@ static void sxgbe_rx_wbstatus(struct sxgbe_rx_norm_desc *p,
+ 	if (p->rdes23.rx_wb_des23.l4_filter_match)
+ 		x->l4_filter_match++;
+ 
++	return status;
+ }
+ 
+ /* Get own bit of context descriptor */
+diff --git a/drivers/net/ethernet/samsung/sxgbe_desc.h b/drivers/net/ethernet/samsung/sxgbe_desc.h
+index 976d5ac..032789c 100644
+--- a/drivers/net/ethernet/samsung/sxgbe_desc.h
++++ b/drivers/net/ethernet/samsung/sxgbe_desc.h
+@@ -113,7 +113,7 @@ struct sxgbe_rx_norm_desc {
+ 			/* WB RDES3 */
+ 			u32 pkt_len:14;
+ 			u32 rdes3_reserved:1;
+-			u32 err_summary:15;
++			u32 err_summary:1;
+ 			u32 err_l2_type:4;
+ 			u32 layer34_pkt_type:4;
+ 			u32 no_coagulation_pkt:1;
+@@ -273,8 +273,8 @@ struct sxgbe_desc_ops {
+ 	int (*get_rx_ld_status)(struct sxgbe_rx_norm_desc *p);
+ 
+ 	/* Return the reception status looking at the RDES1 */
+-	void (*rx_wbstatus)(struct sxgbe_rx_norm_desc *p,
+-				struct sxgbe_extra_stats *x);
++	int (*rx_wbstatus)(struct sxgbe_rx_norm_desc *p,
++			   struct sxgbe_extra_stats *x, int *checksum);
+ 
+ 	/* Get own bit */
+ 	int (*get_rx_ctxt_owner)(struct sxgbe_rx_ctxt_desc *p);
+diff --git a/drivers/net/ethernet/samsung/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe_main.c
+index cd09cdd..e6b4406 100644
+--- a/drivers/net/ethernet/samsung/sxgbe_main.c
++++ b/drivers/net/ethernet/samsung/sxgbe_main.c
+@@ -1314,6 +1314,7 @@ void sxgbe_tso_prepare(struct sxgbe_priv_data *priv,
+ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	unsigned int entry, frag_num;
++	int cksum_flag = 0;
+ 	struct netdev_queue *dev_txq;
+ 	unsigned txq_index = skb_get_queue_mapping(skb);
+ 	struct sxgbe_priv_data *priv = netdev_priv(dev);
+@@ -1385,7 +1386,7 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ 					   __func__);
+ 
+ 			priv->hw->desc->prepare_tx_desc(tx_desc, 1, no_pagedlen,
+-							no_pagedlen);
++							no_pagedlen, cksum_flag);
+ 		}
+ 	}
+ 
+@@ -1402,7 +1403,7 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 		/* prepare the descriptor */
+ 		priv->hw->desc->prepare_tx_desc(tx_desc, 0, len,
+-						len);
++						len, cksum_flag);
+ 		/* memory barrier to flush descriptor */
+ 		wmb();
+ 
+@@ -1528,6 +1529,8 @@ static int sxgbe_rx(struct sxgbe_priv_data *priv, int limit)
+ 	unsigned int entry = priv->rxq[qnum]->cur_rx;
+ 	unsigned int next_entry = 0;
+ 	unsigned int count = 0;
++	int checksum;
++	int status;
+ 
+ 	while (count < limit) {
+ 		struct sxgbe_rx_norm_desc *p;
+@@ -1544,7 +1547,18 @@ static int sxgbe_rx(struct sxgbe_priv_data *priv, int limit)
+ 		next_entry = (++priv->rxq[qnum]->cur_rx) % rxsize;
+ 		prefetch(priv->rxq[qnum]->dma_rx + next_entry);
+ 
+-		/*TO DO read the status of the incoming frame */
++		/* Read the status of the incoming frame and also get checksum
++		 * value based on whether it is enabled in SXGBE hardware or
++		 * not.
++		 */
++		status = priv->hw->desc->rx_wbstatus(p, &priv->xstats,
++						     &checksum);
++		if (unlikely(status < 0)) {
++			entry = next_entry;
++			continue;
++		}
++		if (unlikely(!priv->rxcsum_insertion))
++			checksum = CHECKSUM_NONE;
+ 
+ 		skb = priv->rxq[qnum]->rx_skbuff[entry];
+ 
+@@ -1558,7 +1572,11 @@ static int sxgbe_rx(struct sxgbe_priv_data *priv, int limit)
+ 
+ 		skb_put(skb, frame_len);
+ 
+-		netif_receive_skb(skb);
++		skb->ip_summed = checksum;
++		if (checksum == CHECKSUM_NONE)
++			netif_receive_skb(skb);
++		else
++			napi_gro_receive(&priv->napi, skb);
+ 
+ 		entry = next_entry;
+ 	}
+@@ -1789,15 +1807,15 @@ static int sxgbe_set_features(struct net_device *dev,
+ {
+ 	struct sxgbe_priv_data *priv = netdev_priv(dev);
+ 	netdev_features_t changed = dev->features ^ features;
+-	u32 ctrl;
+ 
+ 	if (changed & NETIF_F_RXCSUM) {
+-		ctrl = readl(priv->ioaddr + SXGBE_CORE_RX_CONFIG_REG);
+-		if (features & NETIF_F_RXCSUM)
+-			ctrl |= SXGBE_RX_CSUMOFFLOAD_ENABLE;
+-		else
+-			ctrl &= ~SXGBE_RX_CSUMOFFLOAD_ENABLE;
+-		writel(ctrl, priv->ioaddr + SXGBE_CORE_RX_CONFIG_REG);
++		if (features & NETIF_F_RXCSUM) {
++			priv->hw->mac->enable_rx_csum(priv->ioaddr);
++			priv->rxcsum_insertion = true;
 +		} else {
-+			tx_desc->tdes01 = dma_map_single(priv->device,
-+							 skb->data, no_pagedlen, DMA_TO_DEVICE);
-+			if (dma_mapping_error(priv->device, tx_desc->tdes01))
-+				netdev_err(dev, "%s: TX dma mapping failed!!\n",
-+					   __func__);
-+
-+			priv->hw->desc->prepare_tx_desc(tx_desc, 1, no_pagedlen,
-+							no_pagedlen);
++			priv->hw->mac->disable_rx_csum(priv->ioaddr);
++			priv->rxcsum_insertion = false;
 +		}
  	}
  
- 	for (frag_num = 0; frag_num < nr_frags; frag_num++) {
-@@ -1913,6 +1962,7 @@ struct sxgbe_priv_data *sxgbe_dvr_probe(struct device *device,
- 	int ret = 0;
- 	struct net_device *ndev = NULL;
- 	struct sxgbe_priv_data *priv;
-+	u8 queue_num;
+ 	return 0;
+@@ -2163,6 +2181,12 @@ struct sxgbe_priv_data *sxgbe_dvr_probe(struct device *device,
+ 		}
+ 	}
  
- 	ndev = alloc_etherdev_mqs(sizeof(struct sxgbe_priv_data),
- 				  SXGBE_TX_QUEUES, SXGBE_RX_QUEUES);
-@@ -1957,7 +2007,9 @@ struct sxgbe_priv_data *sxgbe_dvr_probe(struct device *device,
- 
- 	ndev->netdev_ops = &sxgbe_netdev_ops;
- 
--	ndev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM;
-+	ndev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-+		NETIF_F_RXCSUM | NETIF_F_TSO | NETIF_F_TSO6 |
-+		NETIF_F_GRO;
- 	ndev->features |= ndev->hw_features | NETIF_F_HIGHDMA;
- 	ndev->watchdog_timeo = msecs_to_jiffies(watchdog);
- 
-@@ -1969,6 +2021,13 @@ struct sxgbe_priv_data *sxgbe_dvr_probe(struct device *device,
- 	if (flow_ctrl)
- 		priv->flow_ctrl = SXGBE_FLOW_AUTO;	/* RX/TX pause on */
- 
-+	/* Enable TCP segmentation offload for all DMA channels */
-+	if (priv->hw_cap.tcpseg_offload) {
-+		SXGBE_FOR_EACH_QUEUE(SXGBE_TX_QUEUES, queue_num) {
-+			priv->hw->dma->enable_tso(priv->ioaddr, queue_num);
-+		}
++	/* Enable Rx checksum offload */
++	if (priv->hw_cap.rx_csum_offload) {
++		priv->hw->mac->enable_rx_csum(priv->ioaddr);
++		priv->rxcsum_insertion = true;
 +	}
 +
  	/* Rx Watchdog is available, enable depend on platform data */
