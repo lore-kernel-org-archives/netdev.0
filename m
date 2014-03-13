@@ -1,52 +1,84 @@
-From: Carol Soto <clsoto-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [Patch 1/2] IB/mlx5: Implementation of PCI error handler
-Date: Thu, 13 Mar 2014 10:12:19 -0500
-Message-ID: <5321CAD3.2070301@linux.vnet.ibm.com>
-References: <20140312034219.637916521@linux.vnet.ibm.com> <20140312034512.065218504@linux.vnet.ibm.com> <1394649252.23624.36.camel@deadeye.wl.decadent.org.uk> <20140313064521.GH20224@mtldesk30>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brking-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
-To: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140313064521.GH20224@mtldesk30>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next 4/5] cxgb4: Updates for T5 SGE's Egress Congestion Threshold
+Date: Thu, 13 Mar 2014 20:50:49 +0530
+Message-ID: <1394724050-9291-5-git-send-email-hariprasad@chelsio.com>
+References: <1394724050-9291-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, dm@chelsio.com, swise@opengridcomputing.com,
+	leedom@chelsio.com, santosh@chelsio.com, kumaras@chelsio.com,
+	nirranjan@chelsio.com, hariprasad@chelsio.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:12654 "EHLO
+	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754344AbaCMP3W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 11:29:22 -0400
+In-Reply-To: <1394724050-9291-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Kumar Sanghvi <kumaras@chelsio.com>
 
-On 3/13/2014 1:45 AM, Eli Cohen wrote:
-> On Wed, Mar 12, 2014 at 06:34:12PM +0000, Ben Hutchings wrote:
->>>   
->>>   enum {
->>> -       /* one minute for the sake of bringup. Generally, commands must always
->>> +       /* 10 msecs for the sake of bringup. Generally, commands must always
->>>           * complete and we may need to increase this timeout value
->>>           */
->>> -       MLX5_CMD_TIMEOUT_MSEC   = 7200 * 1000,
->>> +       MLX5_CMD_TIMEOUT_MSEC   = 10 * 1000,
->> You seem to be changing the timeout from 2 hours (not one minute) to 10
->> seconds (not milliseconds).
->>
-> Thanks for noting this. Actually, the time should remain 2 hours and
-> the comment should be fixed. Also note that long time/missing
-> completion of a command is, genrallly, not indicative of a PCI error.
-> If that happens, we would want to have enough time to do diagnostics
-> before timing out.
->
-Hi Eli
+Based on original work by Casey Leedom <leedom@chelsio.com>
 
-In mlx4 code, I do not recall a timeout for commands this big. So the 
-reason in mlx5 is 2 hrs is just for
-debugging purposes? So if for any reason a command hang then the user 
-can not remove this module
-for the next 2 hrs?
+Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/sge.c     | 18 +++++++++++++-----
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |  6 ++++++
+ 2 files changed, 19 insertions(+), 5 deletions(-)
 
-Carol
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index 054bb03..a7c56b3 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -2776,8 +2776,8 @@ static int t4_sge_init_hard(struct adapter *adap)
+ int t4_sge_init(struct adapter *adap)
+ {
+ 	struct sge *s = &adap->sge;
+-	u32 sge_control;
+-	int ret;
++	u32 sge_control, sge_conm_ctrl;
++	int ret, egress_threshold;
+ 
+ 	/*
+ 	 * Ingress Padding Boundary and Egress Status Page Size are set up by
+@@ -2802,10 +2802,18 @@ int t4_sge_init(struct adapter *adap)
+ 	 * SGE's Egress Congestion Threshold.  If it isn't, then we can get
+ 	 * stuck waiting for new packets while the SGE is waiting for us to
+ 	 * give it more Free List entries.  (Note that the SGE's Egress
+-	 * Congestion Threshold is in units of 2 Free List pointers.)
++	 * Congestion Threshold is in units of 2 Free List pointers.) For T4,
++	 * there was only a single field to control this.  For T5 there's the
++	 * original field which now only applies to Unpacked Mode Free List
++	 * buffers and a new field which only applies to Packed Mode Free List
++	 * buffers.
+ 	 */
+-	s->fl_starve_thres
+-		= EGRTHRESHOLD_GET(t4_read_reg(adap, SGE_CONM_CTRL))*2 + 1;
++	sge_conm_ctrl = t4_read_reg(adap, SGE_CONM_CTRL);
++	if (is_t4(adap->params.chip))
++		egress_threshold = EGRTHRESHOLD_GET(sge_conm_ctrl);
++	else
++		egress_threshold = EGRTHRESHOLDPACKING_GET(sge_conm_ctrl);
++	s->fl_starve_thres = 2*egress_threshold + 1;
+ 
+ 	setup_timer(&s->rx_timer, sge_rx_timer_cb, (unsigned long)adap);
+ 	setup_timer(&s->tx_timer, sge_tx_timer_cb, (unsigned long)adap);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index 33cf9ef..225ad8a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -230,6 +230,12 @@
+ #define  EGRTHRESHOLD(x)     ((x) << EGRTHRESHOLDshift)
+ #define  EGRTHRESHOLD_GET(x) (((x) & EGRTHRESHOLD_MASK) >> EGRTHRESHOLDshift)
+ 
++#define EGRTHRESHOLDPACKING_MASK	0x3fU
++#define EGRTHRESHOLDPACKING_SHIFT	14
++#define EGRTHRESHOLDPACKING(x)		((x) << EGRTHRESHOLDPACKING_SHIFT)
++#define EGRTHRESHOLDPACKING_GET(x)	(((x) >> EGRTHRESHOLDPACKING_SHIFT) & \
++					  EGRTHRESHOLDPACKING_MASK)
++
+ #define SGE_DBFIFO_STATUS 0x10a4
+ #define  HP_INT_THRESH_SHIFT 28
+ #define  HP_INT_THRESH_MASK  0xfU
+-- 
+1.8.4
