@@ -1,111 +1,55 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH RFC 2/3] bridge: Prepare for 802.1ad vlan
- filtering support
-Date: Thu, 13 Mar 2014 21:33:37 +0900
-Message-ID: <1394714017.4078.51.camel@ubuntu-vm-makita>
-References: <1394439067-10477-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	<1394439067-10477-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	<532098D2.6050504@redhat.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v7 4/9] xen-netback: Introduce TX grant mapping
+Date: Thu, 13 Mar 2014 12:34:32 +0000
+Message-ID: <5321A5D8.3060507@citrix.com>
+References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>	 <1394142511-14827-5-git-send-email-zoltan.kiss@citrix.com> <1394705874.25873.19.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: vyasevic@redhat.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <532098D2.6050504@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394705874.25873.19.camel@kazak.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-03-12 at 13:26 -0400, Vlad Yasevich wrote:
-> On 03/10/2014 04:11 AM, Toshiaki Makita wrote:
-> > This enables a bridge to have vlan protocol informantion and allows vlan
-> > filtering code to take vlan protocols into account.
-...
-> > @@ -173,16 +174,27 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
-> >  		 * ingress frame is considered to belong to this vlan.
-> >  		 */
-> >  		*vid = pvid;
-> > -		if (likely(err))
-> > +		if (likely(err)) {
-> >  			/* Untagged Frame. */
-> > -			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
-> > -		else
-> > +			if (vlan_tx_tag_present(skb)) {
-> > +				/* skb->vlan_proto was different from br->vlan_proto */
-> > +				skb_push(skb, ETH_HLEN);
-> > +				skb = __vlan_put_tag(skb, skb->vlan_proto,
-> > +						     vlan_tx_tag_get(skb));
-> > +				if (unlikely(!skb))
-> > +					return false;
-> > +				skb_pull(skb, ETH_HLEN);
-> > +				skb_reset_mac_len(skb);
-> > +			}
-> > +			__vlan_hwaccel_put_tag(skb, proto, pvid);
-> 
-> So this seems to be handling the case where we had a protocol mis-match.
-> My question is why are we hiding this case behind our inability to
-> fetch the vid from the packet.
-> 
-> I think it might be clearer to make the protocol check explicit
-> (at least if we were to continue using the approach of defining
->  the protocol per bridge).
+On 13/03/14 10:17, Ian Campbell wrote:
+> Pulling out this one comment for the attention on the core Xen/Linux
+> maintainers.
+>
+> On Thu, 2014-03-06 at 21:48 +0000, Zoltan Kiss wrote:
+> [...]
+>> @@ -343,8 +347,26 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+>>   	vif->pending_prod = MAX_PENDING_REQS;
+>>   	for (i = 0; i < MAX_PENDING_REQS; i++)
+>>   		vif->pending_ring[i] = i;
+>> -	for (i = 0; i < MAX_PENDING_REQS; i++)
+>> -		vif->mmap_pages[i] = NULL;
+>> +	spin_lock_init(&vif->callback_lock);
+>> +	spin_lock_init(&vif->response_lock);
+>> +	/* If ballooning is disabled, this will consume real memory, so you
+>> +	 * better enable it. The long term solution would be to use just a
+>> +	 * bunch of valid page descriptors, without dependency on ballooning
+>> +	 */
+>
+> I wonder if we ought to enforce this via Kconfig? i.e. making
+> CONFIG_XEN_BACKEND (or the individual backends) depend on BALLOON (or
+> select?) or by making CONFIG_XEN_BALLOON non-optional etc.
+I support this idea, but let's have other's views.
+>
+> IIRC David V was looking into a solution involving auto hotplugging a
+> new region to use for this case, but then I guess
+> CONFIG_XEN_BALLOON_MEMORY_HOTPLUG would equally need to be enabled.
+Yes, if that happens in the near future, we shouldn't be bothered by the 
+above right now.
 
-I didn't intend to handle protocol mismatch, but handle the case where
-the vlan_tci we are about to use happens to be already used.
-In this function, it can occur only if the frame is originally tagged
-with another protocol.
-
-However, indeed, we seem to need the check of skb->vlan_proto only at
-ingress.
-So it maybe makes sense to check the vid and the protocol separately.
-
-I'm thinking of changing that code like this.
-
-	bool untagged;
-...
-	err = br_vlan_get_tag(skb, vid);
-	if (!err) {
-		if (skb->vlan_proto != proto) {
-			...
-			skb = __vlan_put_tag(...);
-			...
-			*vid = 0;
-			untagged = true;
-		} else {
-			untagged = false;
-		}
-	} else {
-		untagged = true;
-	}
-
-	if (!*vid) {
-		...
-		if (likely(untagged)) {
-			/* Untagged Frame. */
-			...
-		} else {
-			/* Priority-tagged Frame.
-			...
-		}
-	}
-
-> 
-> This code also has a side-effect that it would be permit 802.1ad packets
-> on an 802.1Q bridge and possibly forward such packets encapsulated yet
-> again.
-
-Well, this is an interesting situation.
-But I have no reason to restrict it.
-Users can configure such an environment if they want.
-
-Thanks,
-Toshiaki Makita
+>
+>> +	err = alloc_xenballooned_pages(MAX_PENDING_REQS,
+>> +				       vif->mmap_pages,
+>> +				       false);
+> [...]
+>
