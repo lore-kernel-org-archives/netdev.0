@@ -1,39 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] vlan: Fix lockdep warning when vlan dev handle
- notification
-Date: Thu, 13 Mar 2014 15:52:30 -0400 (EDT)
-Message-ID: <20140313.155230.2146893995359373637.davem@davemloft.net>
-References: <5321165A.1000208@huawei.com>
+From: Vivek Goyal <vgoyal@redhat.com>
+Subject: Re: [PATCH 2/2] net: Implement SO_PEERCGROUP
+Date: Thu, 13 Mar 2014 15:53:49 -0400
+Message-ID: <20140313195349.GM18914@redhat.com>
+References: <5320CAEC.6030008@amacapital.net>
+ <CALCETrUTjN=XKwnO62P9roZtLLuk7_9Oi17Mj_Aa2ZFtZc1gVA@mail.gmail.com>
+ <1394658983.32465.203.camel@willson.li.ssimo.org>
+ <CALCETrU29CpcK4dVRD45BGOD7AVEudADiFxOgFgKWkpFzw07eg@mail.gmail.com>
+ <1394673476.32465.215.camel@willson.li.ssimo.org>
+ <CALCETrWbCuKfV4zMkZajDOGhGkKduW0C2L7uHv=vtvqhVeAc6w@mail.gmail.com>
+ <1394675038.32465.223.camel@willson.li.ssimo.org>
+ <CALCETrV7GE0YL1sDDqTUV81rWL9zk2vTR1-VLkR7CfTA-FSrgw@mail.gmail.com>
+ <1394733077.32465.243.camel@willson.li.ssimo.org>
+ <CALCETrXWzja6W6y=p9MrtynGZMsrD5KQu0KBK6Bs1dQxnesv2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, john.r.fastabend@intel.com, kaber@trash.net,
-	netdev@vger.kernel.org, f.fainelli@gmail.com
-To: dingtianhong@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55813 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754740AbaCMTwd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 15:52:33 -0400
-In-Reply-To: <5321165A.1000208@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Simo Sorce <ssorce@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	cgroups@vger.kernel.org,
+	Network Development <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
+	jkaluza@redhat.com, lpoetter@redhat.com, kay@redhat.com
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CALCETrXWzja6W6y=p9MrtynGZMsrD5KQu0KBK6Bs1dQxnesv2A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Thu, 13 Mar 2014 10:22:18 +0800
+On Thu, Mar 13, 2014 at 10:55:16AM -0700, Andy Lutomirski wrote:
 
-> v1->v2: Convert the vlan_netdev_addr_lock_key to an array of eight elements, which
-> 	could support to add 8 vlan id on a same vlan dev, I think it is enough for current
-> 	scene, because a netdev's name is limited to IFNAMSIZ which could not hold 8 vlan id,
-> 	and the vlan dev would not meet the same class key with its real dev.
+[..]
+> >> 2. Docker is a container system, so use the "container" (aka
+> >> namespace) APIs.  There are probably several clever things that could
+> >> be done with /proc/<pid>/ns.
+> >
+> > pid is racy, if it weren't I would simply go straight
+> > to /proc/<pid>/cgroups ...
 > 
-> 	The new function vlan_dev_get_lockdep_subkey() will return the subkey and make the vlan
-> 	dev could get a suitable class key.
+> How about:
+> 
+> open("/proc/self/ns/ipc", O_RDONLY);
+> send the result over SCM_RIGHTS?
 
-I still am not happy with this solution, unfortunately.  Although I do
-appreciate your efforts.
+As I don't know I will ask. So what will server now do with this file
+descriptor of client's ipc namespace.
 
-I'm going to do some more research into this issue and try to give you
-some more constructive, meaningful, feedback.
+IOW, what information/identifier does it contain which can be
+used to map to pre-configrued per container/per namespace policies.
 
-Thanks.
+Thanks
+Vivek
