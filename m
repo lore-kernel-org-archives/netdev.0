@@ -1,62 +1,94 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next v7 4/9] xen-netback: Introduce TX grant mapping
-Date: Thu, 13 Mar 2014 17:43:35 +0000
-Message-ID: <5321EE47.5070709@citrix.com>
-References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>		 <1394142511-14827-5-git-send-email-zoltan.kiss@citrix.com>	 <1394706812.25873.28.camel@kazak.uk.xensource.com>	 <5321B006.9070608@citrix.com> <1394718990.25873.70.camel@kazak.uk.xensource.com>
+From: Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2/2] net: Implement SO_PEERCGROUP
+Date: Thu, 13 Mar 2014 13:51:17 -0400
+Message-ID: <1394733077.32465.243.camel@willson.li.ssimo.org>
+References: <1394657163-7472-1-git-send-email-vgoyal@redhat.com>
+	 <1394657163-7472-3-git-send-email-vgoyal@redhat.com>
+	 <5320CAEC.6030008@amacapital.net>
+	 <CALCETrUTjN=XKwnO62P9roZtLLuk7_9Oi17Mj_Aa2ZFtZc1gVA@mail.gmail.com>
+	 <1394658983.32465.203.camel@willson.li.ssimo.org>
+	 <CALCETrU29CpcK4dVRD45BGOD7AVEudADiFxOgFgKWkpFzw07eg@mail.gmail.com>
+	 <1394673476.32465.215.camel@willson.li.ssimo.org>
+	 <CALCETrWbCuKfV4zMkZajDOGhGkKduW0C2L7uHv=vtvqhVeAc6w@mail.gmail.com>
+	 <1394675038.32465.223.camel@willson.li.ssimo.org>
+	 <CALCETrV7GE0YL1sDDqTUV81rWL9zk2vTR1-VLkR7CfTA-FSrgw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<jonathan.davies@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:13047 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754325AbaCMRni (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 13:43:38 -0400
-In-Reply-To: <1394718990.25873.70.camel@kazak.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALCETrV7GE0YL1sDDqTUV81rWL9zk2vTR1-VLkR7CfTA-FSrgw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 13/03/14 13:56, Ian Campbell wrote:
-> On Thu, 2014-03-13 at 13:17 +0000, Zoltan Kiss wrote:
->> On 13/03/14 10:33, Ian Campbell wrote:
->>> On Thu, 2014-03-06 at 21:48 +0000, Zoltan Kiss wrote:
->>>
->>>> +				netdev_err(vif->dev,
->>>> +					   "Page still granted! Index: %x\n",
->>>> +					   i);
->>>> +			i = -1;
->>>
->>> Should there not be a break here? Otherwise don't we restart the for
->>> loop from 0 again? If that is intentional then a comment would be very
->>> useful.
->> Yes, that's intentional, we shouldn't exit this loop until everything is
->> unmapped. An i-- would be fine as well. I will put a comment there.
->
-> Yes please do, it's very non-obvious what is going on. I'm almost
-> inclined to suggest that this is one of the few places where a goto
-> retry might be appropriate.
->
-> Can you also add a comment saying what is doing the actual unmap work
-> which we are waiting for here since it is not actually part of the loop.
-> Might a barrier be needed to ensure we see that work happening?
-I don't think a barrier is necessary here, if this function ran into 
-!NETBACK_INVALID_HANDLE, it just starts again the checking.
+On Wed, 2014-03-12 at 19:12 -0700, Andy Lutomirski wrote:
+> On Wed, Mar 12, 2014 at 6:43 PM, Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> > On Wed, 2014-03-12 at 18:21 -0700, Andy Lutomirski wrote:
+> >> On Wed, Mar 12, 2014 at 6:17 PM, Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> >> > On Wed, 2014-03-12 at 14:19 -0700, Andy Lutomirski wrote:
+> >> >> On Wed, Mar 12, 2014 at 2:16 PM, Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> >> >>
+> >> >> >
+> >> >> > Connection time is all we do and can care about.
+> >> >>
+> >> >> You have not answered why.
+> >> >
+> >> > We are going to disclose information to the peer based on policy that
+> >> > depends on the cgroup the peer is part of. All we care for is who opened
+> >> > the connection, if the peer wants to pass on that information after it
+> >> > has obtained it there is nothing we can do, so connection time is all we
+> >> > really care about.
+> >>
+> >> Can you give a realistic example?
+> >>
+> >> I could say that I'd like to disclose information to processes based
+> >> on their rlimits at the time they connected, but I don't think that
+> >> would carry much weight.
+> >
+> > We want to be able to show different user's list from SSSD based on the
+> > docker container that is asking for it.
+> >
+> > This works by having libnsss_sss.so from the containerized application
+> > connect to an SSSD daemon running on the host or in another container.
+> >
+> > The only way to distinguish between containers "from the outside" is to
+> > lookup the cgroup of the requesting process. It has a unique container
+> > ID, and can therefore be mapped to the appropriate policy that will let
+> > us decide which 'user domain' to serve to the container.
+> >
+> 
+> I can think of at least three other ways to do this.
+> 
+> 1. Fix Docker to use user namespaces and use the uid of the requesting
+> process via SCM_CREDENTIALS.
 
-On 13/03/14 13:17, Zoltan Kiss wrote:>>
- >> [...]
- >>> +    /* Btw. already unmapped? */
- >>
- >> What does this comment mean? Is it a fixme? An indicator that
- >> xenvif_grant_handle_reset is supposed to handle this case or something
- >> else?
- > It comes from the time when xenvif_grant_handle_reset was not a
- > standalone function. Yes, it refers to the check in the beginning of
- > that function, and it should go there.
+This is not practical, I have no control on what UIDs will be used
+within a container, and IIRC user namespaces have severe limitations
+that may make them unusable in some situations. Forcing the use of user
+namespaces on docker to satisfy my use case is not in my power.
 
-I ended up removing that comment, the error message in the function 
-tells the same.
+> 2. Docker is a container system, so use the "container" (aka
+> namespace) APIs.  There are probably several clever things that could
+> be done with /proc/<pid>/ns.
 
-Zoli
+pid is racy, if it weren't I would simply go straight
+to /proc/<pid>/cgroups ...
+
+> 3. Given that Docker uses network namespaces, I assume that the socket
+> connection between the two sssd instances either comes from Docker
+> itself or uses socket inodes.  In either case, the same mechanism
+> should be usable for authentication.
+
+It is a unix socket, ie bind mounted on the container filesystem, not
+sure network namespaces really come into the picture, and I do not know
+of a racefree way of knowing what is the namespace of the peer at
+connect time.
+Is there a SO_PEER_NAMESPACE option ?
+
+Simo.
