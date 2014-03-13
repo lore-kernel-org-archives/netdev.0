@@ -1,114 +1,149 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH RFC 2/3] bridge: Prepare for 802.1ad vlan filtering support
-Date: Thu, 13 Mar 2014 09:53:31 -0400
-Message-ID: <5321B85B.1020203@redhat.com>
-References: <1394439067-10477-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>	 <1394439067-10477-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>	 <532098D2.6050504@redhat.com> <1394714017.4078.51.camel@ubuntu-vm-makita>
-Reply-To: vyasevic@redhat.com
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH net-next v7 4/9] xen-netback: Introduce TX grant mapping
+Date: Thu, 13 Mar 2014 13:56:30 +0000
+Message-ID: <1394718990.25873.70.camel@kazak.uk.xensource.com>
+References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>
+		 <1394142511-14827-5-git-send-email-zoltan.kiss@citrix.com>
+	 <1394706812.25873.28.camel@kazak.uk.xensource.com>
+	 <5321B006.9070608@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15761 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750994AbaCMNxh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Mar 2014 09:53:37 -0400
-In-Reply-To: <1394714017.4078.51.camel@ubuntu-vm-makita>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5321B006.9070608@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/13/2014 08:33 AM, Toshiaki Makita wrote:
-> On Wed, 2014-03-12 at 13:26 -0400, Vlad Yasevich wrote:
->> On 03/10/2014 04:11 AM, Toshiaki Makita wrote:
->>> This enables a bridge to have vlan protocol informantion and allows vlan
->>> filtering code to take vlan protocols into account.
-> ...
->>> @@ -173,16 +174,27 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
->>>  		 * ingress frame is considered to belong to this vlan.
->>>  		 */
->>>  		*vid = pvid;
->>> -		if (likely(err))
->>> +		if (likely(err)) {
->>>  			/* Untagged Frame. */
->>> -			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
->>> -		else
->>> +			if (vlan_tx_tag_present(skb)) {
->>> +				/* skb->vlan_proto was different from br->vlan_proto */
->>> +				skb_push(skb, ETH_HLEN);
->>> +				skb = __vlan_put_tag(skb, skb->vlan_proto,
->>> +						     vlan_tx_tag_get(skb));
->>> +				if (unlikely(!skb))
->>> +					return false;
->>> +				skb_pull(skb, ETH_HLEN);
->>> +				skb_reset_mac_len(skb);
->>> +			}
->>> +			__vlan_hwaccel_put_tag(skb, proto, pvid);
->>
->> So this seems to be handling the case where we had a protocol mis-match.
->> My question is why are we hiding this case behind our inability to
->> fetch the vid from the packet.
->>
->> I think it might be clearer to make the protocol check explicit
->> (at least if we were to continue using the approach of defining
->>  the protocol per bridge).
-> 
-> I didn't intend to handle protocol mismatch, but handle the case where
-> the vlan_tci we are about to use happens to be already used.
-> In this function, it can occur only if the frame is originally tagged
-> with another protocol.
-> 
-> However, indeed, we seem to need the check of skb->vlan_proto only at
-> ingress.
-> So it maybe makes sense to check the vid and the protocol separately.
-> 
-> I'm thinking of changing that code like this.
-> 
-> 	bool untagged;
-> ...
-> 	err = br_vlan_get_tag(skb, vid);
-> 	if (!err) {
-> 		if (skb->vlan_proto != proto) {
-> 			...
-> 			skb = __vlan_put_tag(...);
-> 			...
-> 			*vid = 0;
-> 			untagged = true;
-> 		} else {
-> 			untagged = false;
-> 		}
-> 	} else {
-> 		untagged = true;
-> 	}
-> 
-> 	if (!*vid) {
-> 		...
-> 		if (likely(untagged)) {
-> 			/* Untagged Frame. */
-> 			...
-> 		} else {
-> 			/* Priority-tagged Frame.
-> 			...
-> 		}
-> 	}
-> 
->>
->> This code also has a side-effect that it would be permit 802.1ad packets
->> on an 802.1Q bridge and possibly forward such packets encapsulated yet
->> again.
-> 
-> Well, this is an interesting situation.
-> But I have no reason to restrict it.
-> Users can configure such an environment if they want.
+On Thu, 2014-03-13 at 13:17 +0000, Zoltan Kiss wrote:
+> On 13/03/14 10:33, Ian Campbell wrote:
+> > On Thu, 2014-03-06 at 21:48 +0000, Zoltan Kiss wrote:
+> >> @@ -135,13 +146,31 @@ struct xenvif {
+> >>   	pending_ring_idx_t pending_cons;
+> >>   	u16 pending_ring[MAX_PENDING_REQS];
+> >>   	struct pending_tx_info pending_tx_info[MAX_PENDING_REQS];
+> >> +	grant_handle_t grant_tx_handle[MAX_PENDING_REQS];
+> >>
+> >>   	/* Coalescing tx requests before copying makes number of grant
+> >>   	 * copy ops greater or equal to number of slots required. In
+> >>   	 * worst case a tx request consumes 2 gnttab_copy.
+> >>   	 */
+> >>   	struct gnttab_copy tx_copy_ops[2*MAX_PENDING_REQS];
+> >> -
+> >> +	struct gnttab_map_grant_ref tx_map_ops[MAX_PENDING_REQS];
+> >> +	struct gnttab_unmap_grant_ref tx_unmap_ops[MAX_PENDING_REQS];
+> >
+> > I wonder if we should break some of these arrays into separate
+> > allocations? Wasn't there a problem with sizeof(struct xenvif) at one
+> > point?
+> tx_copy_ops will be removed in the next patch. Yes, for grant_copy_op we 
+> allocate it separately, because it has MAX_SKB_FRAGS * 
+> XEN_NETIF_RX_RING_SIZE elements, but that's for the RX thread
 
-This is almost like tunnel mode that is available on some switches.
-Does it make sense to explicitly permit/restrict it?
+OK
 
--vlad
+> >> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+> >> index bc32627..1fe9fe5 100644
+> >> --- a/drivers/net/xen-netback/interface.c
+> >> +++ b/drivers/net/xen-netback/interface.c
+> >> @@ -493,6 +533,23 @@ void xenvif_disconnect(struct xenvif *vif)
+> >>
+> >>   void xenvif_free(struct xenvif *vif)
+> >>   {
+> >> +	int i, unmap_timeout = 0;
+> >> +
+> >> +	for (i = 0; i < MAX_PENDING_REQS; ++i) {
+> >> +		if (vif->grant_tx_handle[i] != NETBACK_INVALID_HANDLE) {
+> >> +			unmap_timeout++;
+> >> +			schedule_timeout(msecs_to_jiffies(1000));
+> >> +			if (unmap_timeout > 9 &&
+> >> +			    net_ratelimit())
+> >
+> > Does this really reach 80 columns when unwrapped?
+> Not here, but in a later patch 9 will be replaced with 
+> worst_case_skb_lifetime.
 
-> 
-> Thanks,
-> Toshiaki Makita
-> 
-> 
+OK.
+
+> > (there seems to my eye to be a lot of overaggressive wrapping in this
+> > patch, but nevermind)
+> I tried to fix every warning and error noticed by checkpatch.pl, however 
+> there are still a few lines longer than 80, just because I couldn't 
+> reasonably wrap them.
+
+I thought checkpatch had been reined in a bit wrt 80 columns because the
+cure is often worse than the disease. Anyway, it's there now.
+
+> >
+> >> +				netdev_err(vif->dev,
+> >> +					   "Page still granted! Index: %x\n",
+> >> +					   i);
+> >> +			i = -1;
+> >
+> > Should there not be a break here? Otherwise don't we restart the for
+> > loop from 0 again? If that is intentional then a comment would be very
+> > useful.
+> Yes, that's intentional, we shouldn't exit this loop until everything is 
+> unmapped. An i-- would be fine as well. I will put a comment there.
+
+Yes please do, it's very non-obvious what is going on. I'm almost
+inclined to suggest that this is one of the few places where a goto
+retry might be appropriate.
+
+Can you also add a comment saying what is doing the actual unmap work
+which we are waiting for here since it is not actually part of the loop.
+Might a barrier be needed to ensure we see that work happening?
+
+> >
+> >> @@ -919,11 +873,38 @@ err:
+> >>   	return NULL;
+> >>   }
+> >>
+> >> +static inline void xenvif_grant_handle_set(struct xenvif *vif,
+> >> +					   u16 pending_idx,
+> >> +					   grant_handle_t handle)
+> >> +{
+> >> +	if (unlikely(vif->grant_tx_handle[pending_idx] !=
+> >> +		     NETBACK_INVALID_HANDLE)) {
+> >> +		netdev_err(vif->dev,
+> >
+> > Is this in any way guest triggerable? Needs to be ratelimited in that
+> > case (and arguably even if not?)
+> It shouldn't be guest triggerable. It only means netback really screwed 
+> up the accounting of granted pages. There is a BUG right after it, and 
+> the kernel should panic here.
+
+OK.
+
+> >> +			   "Trying to unmap invalid handle! pending_idx: %x\n",
+> >> +			   pending_idx);
+> >> +		BUG();
+> >> +	}
+> >> +	vif->grant_tx_handle[pending_idx] = NETBACK_INVALID_HANDLE;
+> >> +}
+> >> +
+> >> @@ -1001,6 +982,17 @@ static void xenvif_fill_frags(struct xenvif *vif, struct sk_buff *skb)
+> >>
+> >>   		pending_idx = frag_get_pending_idx(frag);
+> >>
+> >> +		/* If this is not the first frag, chain it to the previous*/
+> >> +		if (unlikely(prev_pending_idx == INVALID_PENDING_IDX))
+> >> +			skb_shinfo(skb)->destructor_arg =
+> >> +				&vif->pending_tx_info[pending_idx].callback_struct;
+> >> +		else if (likely(pending_idx != prev_pending_idx))
+> >> +			vif->pending_tx_info[prev_pending_idx].callback_struct.ctx =
+> >> +				&(vif->pending_tx_info[pending_idx].callback_struct);
+> >
+> > #define callback_for(vif, pending_idx) .... would make this and a bunch
+> > of other places a lot less verbose IMHO.
+> Yeah, I was thinking about that, but it's really used here and 2 places 
+> in tx_submit, so I didn't bother to do it.
+
+That's still 5-6 uses I think. Worth it IMHO.
+
+Thanks,
+
+Ian.
