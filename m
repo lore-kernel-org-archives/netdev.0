@@ -1,57 +1,45 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [PATCH v5] can: xilinx CAN controller support.
-Date: Thu, 13 Mar 2014 19:21:12 +0800
-Message-ID: <20140313112112.GB8806@localhost>
-References: <5254bfec-c6fd-4681-a34d-706d51e60fbb@VA3EHSMHS004.ehs.local>
- <531DD493.3030306@monstr.eu>
- <531DD5E7.7090406@pengutronix.de>
- <3245971.RIuVmbVL0Z@wuerfel>
- <1964213d-6bd9-49fa-805e-42e1e0630fd5@VA3EHSMHS029.ehs.local>
- <20140311044555.GA12373@localhost>
- <546dbc60-dd7b-4249-bab8-ad7e008b9aad@AM1EHSMHS001.ehs.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	linux-arm-kernel@lists.infradead.org,
-	Marc Kleine-Budde <mkl@pengutronix.de>, monstr@monstr.eu,
-	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	robh+dt@kernel.org,
-	Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
-	grant.likely@linaro.org,
-	Kedareswara rao Appana <appanad@xilinx.com>,
-	wg@grandegger.com
-To: Michal Simek <michal.simek@xilinx.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <546dbc60-dd7b-4249-bab8-ad7e008b9aad@AM1EHSMHS001.ehs.local>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH net-next 2/2] bonding: use the correct ether type for alb
+Date: Thu, 13 Mar 2014 12:41:58 +0100
+Message-ID: <1394710918-29540-3-git-send-email-vfalico@redhat.com>
+References: <1394710918-29540-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51131 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753952AbaCMLqR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Mar 2014 07:46:17 -0400
+In-Reply-To: <1394710918-29540-1-git-send-email-vfalico@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Michal,
+Currently it's using the wrong ETH_P_LOOP type, which is sometimes treated
+as packet length instead of ether type (because it's 0x0060).
 
-On Tue, Mar 11, 2014 at 10:38:14AM +0100, Michal Simek wrote:
-> On 03/11/2014 05:45 AM, Fengguang Wu wrote:
-> >>> You probably want something like
-> >>>
-> >>> 	config CAN_XILINX
-> >>> 	tristate "Xilinx CAN"
-> >>> 	depends on ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST
-> >>> 	depends on COMMON_CLK && HAS_MMIO  # whatever you need for other architectures
-> >>
-> >> Fengguang: Are you use COMPILE_TEST in zero day testing system?
-> > 
-> > Yeah, the randconfig build/boot tests should cover both COMPILE_TEST
-> > and !COMPILE_TEST cases.
-> 
-> But the point is that randconfig is really random it means it definitely can
-> cover but not there is no certainty that for that build, you are running,
-> has both option for all architectures enabled.
-> Or do I read it wrongly?
+Use the new ETH_P_LOOPBACK type.
 
-Good point!  Since the 0day system is running randconfig tests
-everyday, it has very good opportunity to cover the COMPILE_TEST case.
-But to be sure, I'll explicitly enable COMPILE_TEST in some cases.
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+ drivers/net/bonding/bond_alb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks,
-Fengguang
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 9cf836b6..060b611 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -1005,7 +1005,7 @@ static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
+ 	memset(&pkt, 0, size);
+ 	ether_addr_copy(pkt.mac_dst, mac_addr);
+ 	ether_addr_copy(pkt.mac_src, mac_addr);
+-	pkt.type = cpu_to_be16(ETH_P_LOOP);
++	pkt.type = cpu_to_be16(ETH_P_LOOPBACK);
+ 
+ 	skb = dev_alloc_skb(size);
+ 	if (!skb)
+-- 
+1.8.4
