@@ -1,39 +1,44 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH net-next] xen-netback: Schedule NAPI from dealloc thread
- instead of callback
-Date: Thu, 13 Mar 2014 10:42:30 +0000
-Message-ID: <1394707350.25873.34.camel@kazak.uk.xensource.com>
-References: <1394658281-2488-1-git-send-email-zoltan.kiss@citrix.com>
-	 <20140313101720.GA16807@zion.uk.xensource.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next v7 4/9] xen-netback: Introduce TX
+ grant mapping
+Date: Thu, 13 Mar 2014 10:56:26 +0000
+Message-ID: <53218EDA.8040904@citrix.com>
+References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>	<1394142511-14827-5-git-send-email-zoltan.kiss@citrix.com> <1394706812.25873.28.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
+	<xen-devel@lists.xenproject.org>, <jonathan.davies@citrix.com>,
+	<wei.liu2@citrix.com>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140313101720.GA16807@zion.uk.xensource.com>
+In-Reply-To: <1394706812.25873.28.camel@kazak.uk.xensource.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-03-13 at 10:17 +0000, Wei Liu wrote:
-> On Wed, Mar 12, 2014 at 09:04:41PM +0000, Zoltan Kiss wrote:
-> > If there are unconsumed requests in the ring, but there isn't enough free
-> > pending slots, the NAPI instance deschedule itself. As the frontend won't send
-> > any more interrupts in this case, it is the task of whoever release the pending
-> > slots to schedule the NAPI instance in this case. Originally it was done in the
-> > callback, but it's better at the end of the dealloc thread, otherwise there is
-> > a risk that the NAPI instance just deschedule itself as the dealloc thread
-> > couldn't release any used slot yet. However, as there are a lot of pending
-> > packets, NAPI will be scheduled again, and it is very unlikely that the dealloc
-> > thread can't release enough slots in the meantime.
-> > 
+On 13/03/14 10:33, Ian Campbell wrote:
+> On Thu, 2014-03-06 at 21:48 +0000, Zoltan Kiss wrote:
+>> @@ -135,13 +146,31 @@ struct xenvif {
+>>  	pending_ring_idx_t pending_cons;
+>>  	u16 pending_ring[MAX_PENDING_REQS];
+>>  	struct pending_tx_info pending_tx_info[MAX_PENDING_REQS];
+>> +	grant_handle_t grant_tx_handle[MAX_PENDING_REQS];
+>>  
+>>  	/* Coalescing tx requests before copying makes number of grant
+>>  	 * copy ops greater or equal to number of slots required. In
+>>  	 * worst case a tx request consumes 2 gnttab_copy.
+>>  	 */
+>>  	struct gnttab_copy tx_copy_ops[2*MAX_PENDING_REQS];
+>> -
+>> +	struct gnttab_map_grant_ref tx_map_ops[MAX_PENDING_REQS];
+>> +	struct gnttab_unmap_grant_ref tx_unmap_ops[MAX_PENDING_REQS];
 > 
-> So this patch restores the property that "only two parties access the
-> ring", right?
+> I wonder if we should break some of these arrays into separate
+> allocations? Wasn't there a problem with sizeof(struct xenvif) at one
+> point?
 
-I think so, and therefore:
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
+alloc_netdev() falls back to vmalloc() if the kmalloc failed so there's
+no need to split these structures.
 
-Ian.
+David
