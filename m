@@ -1,172 +1,43 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 2/5] cxgb4: Add code to dump SGE registers when hitting idma hangs
-Date: Thu, 13 Mar 2014 20:50:47 +0530
-Message-ID: <1394724050-9291-3-git-send-email-hariprasad@chelsio.com>
-References: <1394724050-9291-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, dm@chelsio.com, swise@opengridcomputing.com,
-	leedom@chelsio.com, santosh@chelsio.com, kumaras@chelsio.com,
-	nirranjan@chelsio.com, hariprasad@chelsio.com
-To: netdev@vger.kernel.org
+From: Eli Cohen <eli@dev.mellanox.co.il>
+Subject: Re: [Patch 1/2] IB/mlx5: Implementation of PCI error handler
+Date: Thu, 13 Mar 2014 17:40:02 +0200
+Message-ID: <20140313154002.GA28066@mtldesk30>
+References: <20140312034219.637916521@linux.vnet.ibm.com>
+ <20140312034512.065218504@linux.vnet.ibm.com>
+ <1394649252.23624.36.camel@deadeye.wl.decadent.org.uk>
+ <20140313064521.GH20224@mtldesk30>
+ <5321CAD3.2070301@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <ben@decadent.org.uk>, eli@mellanox.com,
+	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
+	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+	brking@linux.vnet.ibm.com
+To: Carol Soto <clsoto@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:20806 "EHLO
-	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754057AbaCMP3Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 11:29:16 -0400
-In-Reply-To: <1394724050-9291-1-git-send-email-hariprasad@chelsio.com>
+Received: from mail-ee0-f50.google.com ([74.125.83.50]:46998 "EHLO
+	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753802AbaCMPkI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 11:40:08 -0400
+Received: by mail-ee0-f50.google.com with SMTP id c13so508328eek.9
+        for <netdev@vger.kernel.org>; Thu, 13 Mar 2014 08:40:07 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <5321CAD3.2070301@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kumar Sanghvi <kumaras@chelsio.com>
-
-Based on original work by Casey Leedom <leedom@chelsio.com>
-
-Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h   |   1 +
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c   | 106 +++++++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |   3 +
- 3 files changed, 110 insertions(+)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 944f2cb..509c976 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -1032,4 +1032,5 @@ void t4_db_dropped(struct adapter *adapter);
- int t4_mem_win_read_len(struct adapter *adap, u32 addr, __be32 *data, int len);
- int t4_fwaddrspace_write(struct adapter *adap, unsigned int mbox,
- 			 u32 addr, u32 val);
-+void t4_sge_decode_idma_state(struct adapter *adapter, int state);
- #endif /* __CXGB4_H__ */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index d3c2a51..fb2fe65 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -2597,6 +2597,112 @@ int t4_mdio_wr(struct adapter *adap, unsigned int mbox, unsigned int phy_addr,
- }
- 
- /**
-+ *	t4_sge_decode_idma_state - decode the idma state
-+ *	@adap: the adapter
-+ *	@state: the state idma is stuck in
-+ */
-+void t4_sge_decode_idma_state(struct adapter *adapter, int state)
-+{
-+	static const char * const t4_decode[] = {
-+		"IDMA_IDLE",
-+		"IDMA_PUSH_MORE_CPL_FIFO",
-+		"IDMA_PUSH_CPL_MSG_HEADER_TO_FIFO",
-+		"Not used",
-+		"IDMA_PHYSADDR_SEND_PCIEHDR",
-+		"IDMA_PHYSADDR_SEND_PAYLOAD_FIRST",
-+		"IDMA_PHYSADDR_SEND_PAYLOAD",
-+		"IDMA_SEND_FIFO_TO_IMSG",
-+		"IDMA_FL_REQ_DATA_FL_PREP",
-+		"IDMA_FL_REQ_DATA_FL",
-+		"IDMA_FL_DROP",
-+		"IDMA_FL_H_REQ_HEADER_FL",
-+		"IDMA_FL_H_SEND_PCIEHDR",
-+		"IDMA_FL_H_PUSH_CPL_FIFO",
-+		"IDMA_FL_H_SEND_CPL",
-+		"IDMA_FL_H_SEND_IP_HDR_FIRST",
-+		"IDMA_FL_H_SEND_IP_HDR",
-+		"IDMA_FL_H_REQ_NEXT_HEADER_FL",
-+		"IDMA_FL_H_SEND_NEXT_PCIEHDR",
-+		"IDMA_FL_H_SEND_IP_HDR_PADDING",
-+		"IDMA_FL_D_SEND_PCIEHDR",
-+		"IDMA_FL_D_SEND_CPL_AND_IP_HDR",
-+		"IDMA_FL_D_REQ_NEXT_DATA_FL",
-+		"IDMA_FL_SEND_PCIEHDR",
-+		"IDMA_FL_PUSH_CPL_FIFO",
-+		"IDMA_FL_SEND_CPL",
-+		"IDMA_FL_SEND_PAYLOAD_FIRST",
-+		"IDMA_FL_SEND_PAYLOAD",
-+		"IDMA_FL_REQ_NEXT_DATA_FL",
-+		"IDMA_FL_SEND_NEXT_PCIEHDR",
-+		"IDMA_FL_SEND_PADDING",
-+		"IDMA_FL_SEND_COMPLETION_TO_IMSG",
-+		"IDMA_FL_SEND_FIFO_TO_IMSG",
-+		"IDMA_FL_REQ_DATAFL_DONE",
-+		"IDMA_FL_REQ_HEADERFL_DONE",
-+	};
-+	static const char * const t5_decode[] = {
-+		"IDMA_IDLE",
-+		"IDMA_ALMOST_IDLE",
-+		"IDMA_PUSH_MORE_CPL_FIFO",
-+		"IDMA_PUSH_CPL_MSG_HEADER_TO_FIFO",
-+		"IDMA_SGEFLRFLUSH_SEND_PCIEHDR",
-+		"IDMA_PHYSADDR_SEND_PCIEHDR",
-+		"IDMA_PHYSADDR_SEND_PAYLOAD_FIRST",
-+		"IDMA_PHYSADDR_SEND_PAYLOAD",
-+		"IDMA_SEND_FIFO_TO_IMSG",
-+		"IDMA_FL_REQ_DATA_FL",
-+		"IDMA_FL_DROP",
-+		"IDMA_FL_DROP_SEND_INC",
-+		"IDMA_FL_H_REQ_HEADER_FL",
-+		"IDMA_FL_H_SEND_PCIEHDR",
-+		"IDMA_FL_H_PUSH_CPL_FIFO",
-+		"IDMA_FL_H_SEND_CPL",
-+		"IDMA_FL_H_SEND_IP_HDR_FIRST",
-+		"IDMA_FL_H_SEND_IP_HDR",
-+		"IDMA_FL_H_REQ_NEXT_HEADER_FL",
-+		"IDMA_FL_H_SEND_NEXT_PCIEHDR",
-+		"IDMA_FL_H_SEND_IP_HDR_PADDING",
-+		"IDMA_FL_D_SEND_PCIEHDR",
-+		"IDMA_FL_D_SEND_CPL_AND_IP_HDR",
-+		"IDMA_FL_D_REQ_NEXT_DATA_FL",
-+		"IDMA_FL_SEND_PCIEHDR",
-+		"IDMA_FL_PUSH_CPL_FIFO",
-+		"IDMA_FL_SEND_CPL",
-+		"IDMA_FL_SEND_PAYLOAD_FIRST",
-+		"IDMA_FL_SEND_PAYLOAD",
-+		"IDMA_FL_REQ_NEXT_DATA_FL",
-+		"IDMA_FL_SEND_NEXT_PCIEHDR",
-+		"IDMA_FL_SEND_PADDING",
-+		"IDMA_FL_SEND_COMPLETION_TO_IMSG",
-+	};
-+	static const u32 sge_regs[] = {
-+		SGE_DEBUG_DATA_LOW_INDEX_2,
-+		SGE_DEBUG_DATA_LOW_INDEX_3,
-+		SGE_DEBUG_DATA_HIGH_INDEX_10,
-+	};
-+	const char **sge_idma_decode;
-+	int sge_idma_decode_nstates;
-+	int i;
-+
-+	if (is_t4(adapter->params.chip)) {
-+		sge_idma_decode = (const char **)t4_decode;
-+		sge_idma_decode_nstates = ARRAY_SIZE(t4_decode);
-+	} else {
-+		sge_idma_decode = (const char **)t5_decode;
-+		sge_idma_decode_nstates = ARRAY_SIZE(t5_decode);
-+	}
-+
-+	if (state < sge_idma_decode_nstates)
-+		CH_WARN(adapter, "idma state %s\n", sge_idma_decode[state]);
-+	else
-+		CH_WARN(adapter, "idma state %d unknown\n", state);
-+
-+	for (i = 0; i < ARRAY_SIZE(sge_regs); i++)
-+		CH_WARN(adapter, "SGE register %#x value %#x\n",
-+			sge_regs[i], t4_read_reg(adapter, sge_regs[i]));
-+}
-+
-+/**
-  *      t4_fw_hello - establish communication with FW
-  *      @adap: the adapter
-  *      @mbox: mailbox to use for the FW command
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 4082522..33cf9ef 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -278,6 +278,9 @@
- #define SGE_DEBUG_INDEX 0x10cc
- #define SGE_DEBUG_DATA_HIGH 0x10d0
- #define SGE_DEBUG_DATA_LOW 0x10d4
-+#define SGE_DEBUG_DATA_LOW_INDEX_2	0x12c8
-+#define SGE_DEBUG_DATA_LOW_INDEX_3	0x12cc
-+#define SGE_DEBUG_DATA_HIGH_INDEX_10	0x12a8
- #define SGE_INGRESS_QUEUES_PER_PAGE_PF 0x10f4
- 
- #define S_HP_INT_THRESH    28
--- 
-1.8.4
+On Thu, Mar 13, 2014 at 10:12:19AM -0500, Carol Soto wrote:
+> 
+> In mlx4 code, I do not recall a timeout for commands this big. So
+> the reason in mlx5 is 2 hrs is just for
+> debugging purposes? So if for any reason a command hang then the
+> user can not remove this module
+> for the next 2 hrs?
+> 
+Hi Carol,
+well I haven't seen any such case with latest firmware releases.
+Anyway, 10 msec is really too short timeout value since there are
+commands that can take more than that (e.g. memory registartion of
+regions larger then 512 MB - though this will be changed soon). I
+wonder what was the original motivation and have you been able to
+simulate PCI errors and see this in action.
