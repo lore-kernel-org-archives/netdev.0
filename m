@@ -1,96 +1,66 @@
-From: Prabhakar Lad <prabhakar.csengg@gmail.com>
-Subject: Re: [PATCH RFC] net: davinci_emac: Fix rollback of emac_dev_open()
-Date: Thu, 13 Mar 2014 23:47:50 +0530
-Message-ID: <CA+V-a8vTEriU9x4BcOy7FcT3KYbcFC=L8xdYKT4J-4Fz_+jd3g@mail.gmail.com>
-References: <35CC5396F7326DBE44C9C624@172.22.2.41> <130fa9cb-7e94-4698-ac3f-f987a03c0604@mary.at.omicron.at>
- <5319DB6C.8080203@ti.com> <851BA4133600BADF3FBB6427@172.22.2.41>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v7 0/9] xen-netback: TX grant mapping with SKBTX_DEV_ZEROCOPY
+ instead of copy
+Date: Thu, 13 Mar 2014 18:23:04 +0000
+Message-ID: <5321F788.2010402@citrix.com>
+References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com> <1394705313.25873.13.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	dlos <davinci-linux-open-source@linux.davincidsp.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Jon Ringle <jon@ringle.org>
-To: Mugunthan V N <mugunthanvnm@ti.com>,
-	Christian Riesch <christian.riesch@omicron.at>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f176.google.com ([209.85.220.176]:54709 "EHLO
-	mail-vc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754899AbaCMSSL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 14:18:11 -0400
-Received: by mail-vc0-f176.google.com with SMTP id lc6so1530739vcb.21
-        for <netdev@vger.kernel.org>; Thu, 13 Mar 2014 11:18:10 -0700 (PDT)
-In-Reply-To: <851BA4133600BADF3FBB6427@172.22.2.41>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>,
+	Marcus Granado <Marcus.Granado@eu.citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394705313.25873.13.camel@kazak.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Mugunthan,
+On 13/03/14 10:08, Ian Campbell wrote:
+> On Thu, 2014-03-06 at 21:48 +0000, Zoltan Kiss wrote:
+>> >A long known problem of the upstream netback implementation that on the TX
+>> >path (from guest to Dom0) it copies the whole packet from guest memory into
+>> >Dom0. That simply became a bottleneck with 10Gb NICs, and generally it's a
+>> >huge perfomance penalty. The classic kernel version of netback used grant
+>> >mapping, and to get notified when the page can be unmapped, it used page
+>> >destructors. Unfortunately that destructor is not an upstreamable solution.
+>> >Ian Campbell's skb fragment destructor patch series [1] tried to solve this
+>> >problem, however it seems to be very invasive on the network stack's code,
+>> >and therefore haven't progressed very well.
+>> >This patch series use SKBTX_DEV_ZEROCOPY flags to tell the stack it needs to
+>> >know when the skb is freed up. That is the way KVM solved the same problem,
+>> >and based on my initial tests it can do the same for us. Avoiding the extra
+>> >copy boosted up TX throughput from 6.8 Gbps to 7.9 (I used a slower AMD
+>> >Interlagos box, both Dom0 and guest on upstream kernel, on the same NUMA node,
+>> >running iperf 2.0.5, and the remote end was a bare metal box on the same 10Gb
+>> >switch)
+> Do you have any other numbers? e.g. for a modern Intel or AMD system? A
+> slower box is likely to make the difference between copy and map larger,
+> whereas modern Intel for example is supposed to be very good at copying.
+Performance team made a lot of measurements, I've added Marcus to 
+comment on that.
+With the latest version and tip net-next kernel I could see even ~9.3 
+Gbps peak throughput on the same AMD box, which is the practical maximum 
+for 10G cards. However with older guests I couldn't reach that. A lot 
+depends on netfront and TCP stack, e.g. the tcp_limit_output_bytes 
+sysctl can cause an artificial cap.
+Perf team now has 40 Gbps NICs I guess, it would be interesting to see 
+how does this perform there.
+I just checked the intrahost guest-to-guest throughput with 2 upstream 
+kernel, I could get out 5.6-5.8 Gbps at most.
 
-On Mon, Mar 10, 2014 at 12:46 PM, Christian Riesch
-<christian.riesch@omicron.at> wrote:
 >
->
-> --On March 07, 2014 20:15 +0530 Mugunthan V N <mugunthanvnm@ti.com> wrote:
->
->> On Friday 07 March 2014 07:37 PM, Christian Riesch wrote:
->>>
->>> Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
->>> Cc: Prabhakar Lad <prabhakar.csengg@gmail.com>
->>> Cc: Mugunthan V N <mugunthanvnm@ti.com>
->>> Cc: Florian Fainelli <f.fainelli@gmail.com>
->>> ---
->>>
->>> Hi again,
->>>
->>> How about this solution for fixing the rollback of emac_dev_open()?
->>> Especially the change in davinci_cpdma.c, would this break anything?
->>>
->>> The patch applies on top of
->>> [PATCH] net: davinci_emac: Replace devm_request_irq with request_irq
->>>
->>> Regards,
->>> Christian
->>>
->>>  drivers/net/ethernet/ti/davinci_cpdma.c |    4 +--
->>>  drivers/net/ethernet/ti/davinci_emac.c  |   44
->>>  ++++++++++++++++++++----------- 2 files changed, 31 insertions(+), 17
->>>  deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c
->>> b/drivers/net/ethernet/ti/davinci_cpdma.c index 364d0c7..88ef270 100644
->>> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
->>> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
->>> @@ -355,7 +355,7 @@ int cpdma_ctlr_stop(struct cpdma_ctlr *ctlr)
->>>         int i;
->>>
->>>         spin_lock_irqsave(&ctlr->lock, flags);
->>> -       if (ctlr->state != CPDMA_STATE_ACTIVE) {
->>> +       if (ctlr->state == CPDMA_STATE_TEARDOWN) {
->>>                 spin_unlock_irqrestore(&ctlr->lock, flags);
->>>                 return -EINVAL;
->>>         }
->>> @@ -891,7 +891,7 @@ int cpdma_chan_stop(struct cpdma_chan *chan)
->>>         unsigned                timeout;
->>>
->>>         spin_lock_irqsave(&chan->lock, flags);
->>> -       if (chan->state != CPDMA_STATE_ACTIVE) {
->>> +       if (chan->state == CPDMA_STATE_TEARDOWN) {
->>>                 spin_unlock_irqrestore(&chan->lock, flags);
->>>                 return -EINVAL;
->>>         }
->>
->>
->> Even when in idle mode chan stop should return error.
->
->
-> Can you please explain? I do not see why.
->
-> I must be able to call cpdma_ctlr_stop in idle mode to free the rx
-> descriptors in case ndo_open in davinci_emac.c fails. Any other ideas how to
-> solve the problem addressed in the rest of the patch?
->
-Do you have any comments on this patch ? I have tested it on OMAP-L138 evm
-and works fine. If you have none comments may be Christian can consolidate this
-patch with earlier and repost it.
+>> >Based on my investigations the packet get only copied if it is delivered to
+>> >Dom0 IP stack through deliver_skb, which is due to this [2] patch. This affects
+>> >DomU->Dom0 IP traffic and when Dom0 does routing/NAT for the guest. That's a bit
+>> >unfortunate, but luckily it doesn't cause a major regression for this usecase.
+> Numbers?
+I've checked that back in November:
 
-Thanks,
---Prabhakar Lad
+https://lkml.org/lkml/2013/11/5/288
+
+Originally it was 5.4 vs with my patch it was 5.2. I've checked DomU to 
+Dom0 iperf again, about the same still with my series.
+
+Zoli
