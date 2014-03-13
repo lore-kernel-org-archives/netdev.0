@@ -1,92 +1,47 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 00/10][pull request] Intel Wired LAN Driver Updates
-Date: Wed, 12 Mar 2014 19:31:20 -0700
-Message-ID: <1394677890-11043-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next v2 04/10] net: ixgbe calls skb_set_hash
+Date: Wed, 12 Mar 2014 19:31:24 -0700
+Message-ID: <1394677890-11043-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1394677890-11043-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:42803 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:33591 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753226AbaCMCb4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Mar 2014 22:31:56 -0400
+	id S1752568AbaCMCb5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Mar 2014 22:31:57 -0400
+In-Reply-To: <1394677890-11043-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to igb, e1000e, ixgbe and ixgbevf.
+From: Tom Herbert <therbert@google.com>
 
-Tom Herbert provides changes to e1000e, igb and ixgbe to call skb_set_hash()
-to set the hash and its type in an skbuff.
+Drivers should call skb_set_hash to set the hash and its type
+in an skbuff.
 
-Carolyn provides a fix for igb where using ethtool for EEE settings, which
-was not working correctly.
+Signed-off-by: Tom Herbert <therbert@google.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-Jacob provides some trivial cleanups and fixes for ixgbe which mainly
-dealt with the file headers.
-
-Julia Lawall provides a one fix for ixgbevf where the driver did not need
-to adjust the power state on suspend, so the call to pci_set_power_state()
-in the resume function was a no-op.
-
-v2:
-- dropped patches 4-6 from original series which implemented debugfs for
-  igb from Carolyn based on feed back from David Miller and Or Gerlitz
-
-The following are changes since commit 8a83d9396a4945dcaa129b14a725311e5846b2d5:
-  Merge branch 'dev_kfree_skb_any'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Carolyn Wyborny (1):
-  igb: Fix for devices using ethtool for EEE settings
-
-Jacob Keller (4):
-  ixgbe: move setting rx_pb_size into get_invariants
-  ixgbe: add Linux NICS mailing list to contact info
-  ixgbe: fixup header for ixgbe_set_rxpba_82598
-  ixgbe: fix some multiline hw_dbg prints
-
-Julia Lawall (1):
-  ixgbevf: delete unneeded call to pci_set_power_state
-
-Masanari Iida (1):
-  ixgbe: Fix format string in ixgbe_fcoe.c
-
-Tom Herbert (3):
-  net: e1000e calls skb_set_hash
-  net: igb calls skb_set_hash
-  net: ixgbe calls skb_set_hash
-
- drivers/net/ethernet/intel/e1000e/netdev.c         |  2 +-
- drivers/net/ethernet/intel/igb/e1000_82575.h       |  1 +
- drivers/net/ethernet/intel/igb/igb.h               |  3 +
- drivers/net/ethernet/intel/igb/igb_ethtool.c       | 45 ++++++++-----
- drivers/net/ethernet/intel/igb/igb_main.c          | 73 +++++++++++++++++-----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h           |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     | 18 +++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c     | 11 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h    |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c   |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c      |  3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h      |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c       |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  5 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c       |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h       |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c       |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h       |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c       |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h     |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c     |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c      |  3 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  |  1 -
- 29 files changed, 132 insertions(+), 51 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 10b35d8..815e81e 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1311,7 +1311,9 @@ static inline void ixgbe_rx_hash(struct ixgbe_ring *ring,
+ 				 struct sk_buff *skb)
+ {
+ 	if (ring->netdev->features & NETIF_F_RXHASH)
+-		skb->rxhash = le32_to_cpu(rx_desc->wb.lower.hi_dword.rss);
++		skb_set_hash(skb,
++			     le32_to_cpu(rx_desc->wb.lower.hi_dword.rss),
++			     PKT_HASH_TYPE_L3);
+ }
+ 
+ #ifdef IXGBE_FCOE
 -- 
 1.8.3.1
