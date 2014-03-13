@@ -1,93 +1,93 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH net-next v7 0/9] xen-netback: TX grant mapping with
- SKBTX_DEV_ZEROCOPY instead of copy
-Date: Thu, 13 Mar 2014 10:08:33 +0000
-Message-ID: <1394705313.25873.13.camel@kazak.uk.xensource.com>
-References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH v3] net: phy: fix uninitalized WOL parameters in phy_ethtool_get_wol
+Date: Thu, 13 Mar 2014 10:14:21 +0000
+Message-ID: <532184FD.4000808@gmail.com>
+References: <1394484661-4554-2-git-send-email-sebastian.hesselbarth@gmail.com> <1394578975-12588-1-git-send-email-sebastian.hesselbarth@gmail.com> <1394677305.20857.29.camel@deadeye.wl.decadent.org.uk>
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<jonathan.davies@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Cc: David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>
+In-Reply-To: <1394677305.20857.29.camel@deadeye.wl.decadent.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-03-06 at 21:48 +0000, Zoltan Kiss wrote:
-> A long known problem of the upstream netback implementation that on the TX
-> path (from guest to Dom0) it copies the whole packet from guest memory into
-> Dom0. That simply became a bottleneck with 10Gb NICs, and generally it's a
-> huge perfomance penalty. The classic kernel version of netback used grant
-> mapping, and to get notified when the page can be unmapped, it used page
-> destructors. Unfortunately that destructor is not an upstreamable solution.
-> Ian Campbell's skb fragment destructor patch series [1] tried to solve this
-> problem, however it seems to be very invasive on the network stack's code,
-> and therefore haven't progressed very well.
-> This patch series use SKBTX_DEV_ZEROCOPY flags to tell the stack it needs to
-> know when the skb is freed up. That is the way KVM solved the same problem,
-> and based on my initial tests it can do the same for us. Avoiding the extra
-> copy boosted up TX throughput from 6.8 Gbps to 7.9 (I used a slower AMD
-> Interlagos box, both Dom0 and guest on upstream kernel, on the same NUMA node,
-> running iperf 2.0.5, and the remote end was a bare metal box on the same 10Gb
-> switch)
+On 03/13/2014 02:21 AM, Ben Hutchings wrote:
+> On Wed, 2014-03-12 at 00:02 +0100, Sebastian Hesselbarth wrote:
+>> phy_ethtool_get_wol is a helper to get current WOL settings from
+>> a phy device. When using this helper on a PHY without .get_wol
+>> callback, struct ethtool_wolinfo is never set-up correctly and
+>> may contain misleading information about WOL status.
+>>
+>> To fix this, always zero relevant fields of struct ethtool_wolinfo
+>> regardless of .get_wol callback availability.
+>
+> Sorry, I still disagree with this.
 
-Do you have any other numbers? e.g. for a modern Intel or AMD system? A
-slower box is likely to make the difference between copy and map larger,
-whereas modern Intel for example is supposed to be very good at copying.
+Which is really fine with me. Thanks for constantly commenting this.
 
-> Based on my investigations the packet get only copied if it is delivered to
-> Dom0 IP stack through deliver_skb, which is due to this [2] patch. This affects
-> DomU->Dom0 IP traffic and when Dom0 does routing/NAT for the guest. That's a bit
-> unfortunate, but luckily it doesn't cause a major regression for this usecase.
+> You're trying to make phy_ethtool_get_wol() do two subtly different
+> things:
+> - Provide an implementation of ethtool_ops::get_wol, leaving the net
+>    driver only to look up phy_device
+> - Provide a standalone function for executing ETHTOOL_GWOL on a
+>    phy_device
+>
+> You may notice that phy_suspend() already sets wol.cmd = ETHTOOL_GWOL.
 
-Numbers?
+Yeah, which was added by me because I misinterpreted phy_ethtool_get_wol
+depending on it. It doesn't because we just "reuse" struct
+ethtool_wolinfo.
 
-> In the future we should try to eliminate that copy somehow.
-> There are a few spinoff tasks which will be addressed in separate patches:
-> - grant copy the header directly instead of map and memcpy. This should help
->   us avoiding TLB flushing
-> - use something else than ballooned pages
-> - fix grant map to use page->index properly
-> I've tried to broke it down to smaller patches, with mixed results, so I
-> welcome suggestions on that part as well:
-> 1: Use skb->cb to store pending_idx
-> 2: Some refactoring
-> 3: Change RX path for mapped SKB fragments (moved here to keep bisectability,
-> review it after #4)
-> 4: Introduce TX grant mapping
-> 5: Remove old TX grant copy definitons and fix indentations
-> 6: Add stat counters for zerocopy
-> 7: Handle guests with too many frags
-> 8: Timeout packets in RX path
-> 9: Aggregate TX unmap operations
-> 
-> v2: I've fixed some smaller things, see the individual patches. I've added a
-> few new stat counters, and handling the important use case when an older guest
-> sends lots of slots. Instead of delayed copy now we timeout packets on the RX
-> path, based on the assumption that otherwise packets should get stucked
-> anywhere else. Finally some unmap batching to avoid too much TLB flush
-> 
-> v3: Apart from fixing a few things mentioned in responses the important change
-> is the use the hypercall directly for grant [un]mapping, therefore we can
-> avoid m2p override.
-> 
-> v4: Now we are using a new grant mapping API to avoid m2p_override. The RX queue
-> timeout logic changed also.
-> 
-> v5: Only minor fixes based on Wei's comments
-> 
-> v6: Important bugfixes for xenvif_poll exit path and zerocopy callback, see
-> first 2 patches. Also rework of handling packets with too many slots, and
-> reorder the series a bit.
-> 
-> v7: Small fixes in comments/log messages/error paths, and merging the frag
-> overflow stats patch into its parent.
-> 
-> [1] http://lwn.net/Articles/491522/
-> [2] https://lkml.org/lkml/2012/7/20/363
-> 
-> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-> 
+> So it seems to me like it's taking responsibility for initialising the
+> structure like ethtool_get_wol() does.  The bug is then that
+> phy_suspend() doesn't clear the rest of the structure.  That is not the
+> responsibility of phy_ethtool_get_wol().
+
+I agree that public ethtool_get_wol should clear the struct, but I am
+not so happy to have an in-kernel API depend on the caller to setup the
+struct. In any way, if there are strong reasons not to clear struct
+ethtool_wolinfo again in phy_ethtool_get_wol, I can properly clear it
+in phy_suspend instead. I don't have a strong opinion about it.
+
+Sebastian
+
+>> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+>> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+>> ---
+>> Changelog:
+>> v1->v2:
+>> - clear whole struct ethtool_wolinfo
+>> - check for non-NULL phy_device
+>> v2->v3:
+>> - only clear ->supported and ->wolopts (Suggested by Ben Hutchings)
+>>
+>> Cc: David Miller <davem@davemloft.net>
+>> Cc: Florian Fainelli <f.fainelli@gmail.com>
+>> Cc: Ben Hutchings <ben@decadent.org.uk>
+>> Cc: netdev@vger.kernel.org
+>> Cc: linux-arm-kernel@lists.infradead.org
+>> Cc: linux-kernel@vger.kernel.org
+>> ---
+>>   drivers/net/phy/phy.c | 4 +++-
+>>   1 file changed, 3 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+>> index 19c9eca0ef26..94234a91a50f 100644
+>> --- a/drivers/net/phy/phy.c
+>> +++ b/drivers/net/phy/phy.c
+>> @@ -1092,7 +1092,9 @@ EXPORT_SYMBOL(phy_ethtool_set_wol);
+>>
+>>   void phy_ethtool_get_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol)
+>>   {
+>> -	if (phydev->drv->get_wol)
+>> +	wol->supported = wol->wolopts = 0;
+>> +
+>> +	if (phydev && phydev->drv->get_wol)
+>>   		phydev->drv->get_wol(phydev, wol);
+>>   }
+>>   EXPORT_SYMBOL(phy_ethtool_get_wol);
+>
