@@ -1,55 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RCU PATCH 06/14] net: sched: fw use RCU
-Date: Thu, 13 Mar 2014 13:56:43 -0700
-Message-ID: <1394744203.21721.53.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140310170008.3011.73599.stgit@nitbit.x32>
-	 <20140310170546.3011.82918.stgit@nitbit.x32>
-	 <1394473279.3607.46.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <53208E3F.5090401@gmail.com>
-	 <1394643673.21721.48.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140313202245.GK21124@linux.vnet.ibm.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 02/10] 8139too: Call dev_kfree_skby_any instead of dev_kfree_skb.
+Date: Thu, 13 Mar 2014 14:08:21 -0700
+Message-ID: <87eh254xiy.fsf@xmission.com>
+References: <87a9cxf7mp.fsf_-_@xmission.com>
+	<20140311.124907.1180556684992271103.davem@davemloft.net>
+	<87wqg0cy9d.fsf@xmission.com>
+	<20140311.160931.1395978386605601765.davem@davemloft.net>
+	<87r468bfqj.fsf_-_@xmission.com> <87fvmobfnr.fsf_-_@xmission.com>
+	<1394589986.21721.37.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140312212429.GA14893@electric-eye.fr.zoreil.com>
+	<1394661695.21721.50.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: paulmck@linux.vnet.ibm.com
+Content-Type: text/plain
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:63135 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755101AbaCMU4p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 16:56:45 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rq2so1647351pbb.33
-        for <netdev@vger.kernel.org>; Thu, 13 Mar 2014 13:56:45 -0700 (PDT)
-In-Reply-To: <20140313202245.GK21124@linux.vnet.ibm.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:51424 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750890AbaCMVI2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 17:08:28 -0400
+In-Reply-To: <1394661695.21721.50.camel@edumazet-glaptop2.roam.corp.google.com>
+	(Eric Dumazet's message of "Wed, 12 Mar 2014 15:01:35 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-03-13 at 13:22 -0700, Paul E. McKenney wrote:
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-> Hmmm...  You know, the offset that kfree uses is a byte offset.  I see
-> no reason why any of the rcu_head structures should be misaligned.  If
-> HTSIZE is too big by only a factor of four or smaller, would the following
-> (untested) patch to RCU be appropriate?
-> 
-> 							Thanx, Paul
-> 
-> ------------------------------------------------------------------------
-> 
-> rcu: Increase kfree_rcu() offset range
-> 
-> The kfree_rcu() function operates by placing an offset into the rcu_head
-> structure in place of the function pointer that is normally there.
-> This offset cannot exceed 4095, on the theory that no Linux kernel will
-> ever have executable code in page zero.  However, the rcu_head structure
-> contains a pair of function pointers, and should never be misaligned.
-> This commit therefore divides the offset by the size of a pointer when
-> being placed into the rcu_head structure, and multiplies it by this
-> same constant when pulling it out.
-> 
-> Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> On Wed, 2014-03-12 at 22:24 +0100, Francois Romieu wrote:
+>> Eric Dumazet <eric.dumazet@gmail.com> :
+>> [...]
+>> > Same u64_stats_fetch_begin_bh() problem for this driver to fetch TX
+>> > stats.
+>> 
+>> Same problem for any NAPI context Tx completing driver that claims
+>> netpoll support. For instance:
+>> drivers/net/ethernet/emulex/benet
+>> drivers/net/ethernet/intel/i40e
+>> drivers/net/ethernet/intel/igb
+>> drivers/net/ethernet/intel/ixgbe
+>> drivers/net/ethernet/marvell/sky2.c
+>> drivers/net/ethernet/neterion/vxge ?
+>> 
+>> Similar problem for the drivers below. They update Tx stats in start_xmit
+>> and use u64_.*_bh:
+>> drivers/net/ethernet/tile/tilepro.c
+>> drivers/net/team/team.c
+>> drivers/net/virtio_net.c
+>> 
+>
+> Yep, note that this issue is not caused by Eric patches, we need to take
+> care of this by providing u64_stats_fetch_{begin|retry}_irq() regardless
+> of how skb are freed.
 
-SGTM, thanks Paul.
+By my read of the code this is actually only a problem on 32bit
+uniprocessor, and at worst it scrambles the reported nuumbers if we
+happen to have a printk in irq context while we are fetching the stats.
 
-Reviewed-by: Eric Dumazet <edumzzet@google.com>
+Given the rest of the problems that I am fixing can corrupt things, and
+can happen on any platform I am going to ignore this problem for now.
+
+Eric
