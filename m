@@ -1,54 +1,114 @@
-From: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/2] net: Implement SO_PEERCGROUP
-Date: Thu, 13 Mar 2014 09:48:40 -0400
-Message-ID: <20140313134840.GA18914@redhat.com>
-References: <1394657163-7472-1-git-send-email-vgoyal@redhat.com>
- <1394657163-7472-3-git-send-email-vgoyal@redhat.com>
- <CAHA+R7OrNoa7_J-rOskxgdvkM5gAnQyoFBeCXSziY7XMd-yLNA@mail.gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH RFC 2/3] bridge: Prepare for 802.1ad vlan filtering support
+Date: Thu, 13 Mar 2014 09:53:31 -0400
+Message-ID: <5321B85B.1020203@redhat.com>
+References: <1394439067-10477-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>	 <1394439067-10477-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>	 <532098D2.6050504@redhat.com> <1394714017.4078.51.camel@ubuntu-vm-makita>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: Cong Wang <cwang-xCSkyg8dI+0RB7SZvlqPiA@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAHA+R7OrNoa7_J-rOskxgdvkM5gAnQyoFBeCXSziY7XMd-yLNA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:15761 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750994AbaCMNxh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Mar 2014 09:53:37 -0400
+In-Reply-To: <1394714017.4078.51.camel@ubuntu-vm-makita>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 12, 2014 at 01:58:57PM -0700, Cong Wang wrote:
-> On Wed, Mar 12, 2014 at 1:46 PM, Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> > @@ -1098,6 +1135,16 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
-> >         if (newsk == NULL)
-> >                 goto out;
-> >
-> > +       err = init_peercgroup(newsk);
-> > +       if (err)
-> > +               goto out;
-> > +
-> > +       err = alloc_cgroup_path(sk);
-> > +       if (err)
-> > +               goto out;
-> > +
-> > +       err = -ENOMEM;
-> > +
+On 03/13/2014 08:33 AM, Toshiaki Makita wrote:
+> On Wed, 2014-03-12 at 13:26 -0400, Vlad Yasevich wrote:
+>> On 03/10/2014 04:11 AM, Toshiaki Makita wrote:
+>>> This enables a bridge to have vlan protocol informantion and allows vlan
+>>> filtering code to take vlan protocols into account.
+> ...
+>>> @@ -173,16 +174,27 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+>>>  		 * ingress frame is considered to belong to this vlan.
+>>>  		 */
+>>>  		*vid = pvid;
+>>> -		if (likely(err))
+>>> +		if (likely(err)) {
+>>>  			/* Untagged Frame. */
+>>> -			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
+>>> -		else
+>>> +			if (vlan_tx_tag_present(skb)) {
+>>> +				/* skb->vlan_proto was different from br->vlan_proto */
+>>> +				skb_push(skb, ETH_HLEN);
+>>> +				skb = __vlan_put_tag(skb, skb->vlan_proto,
+>>> +						     vlan_tx_tag_get(skb));
+>>> +				if (unlikely(!skb))
+>>> +					return false;
+>>> +				skb_pull(skb, ETH_HLEN);
+>>> +				skb_reset_mac_len(skb);
+>>> +			}
+>>> +			__vlan_hwaccel_put_tag(skb, proto, pvid);
+>>
+>> So this seems to be handling the case where we had a protocol mis-match.
+>> My question is why are we hiding this case behind our inability to
+>> fetch the vid from the packet.
+>>
+>> I think it might be clearer to make the protocol check explicit
+>> (at least if we were to continue using the approach of defining
+>>  the protocol per bridge).
 > 
-> Don't we need to free the cgroup_path on error path
-> in this function?
+> I didn't intend to handle protocol mismatch, but handle the case where
+> the vlan_tci we are about to use happens to be already used.
+> In this function, it can occur only if the frame is originally tagged
+> with another protocol.
+> 
+> However, indeed, we seem to need the check of skb->vlan_proto only at
+> ingress.
+> So it maybe makes sense to check the vid and the protocol separately.
+> 
+> I'm thinking of changing that code like this.
+> 
+> 	bool untagged;
+> ...
+> 	err = br_vlan_get_tag(skb, vid);
+> 	if (!err) {
+> 		if (skb->vlan_proto != proto) {
+> 			...
+> 			skb = __vlan_put_tag(...);
+> 			...
+> 			*vid = 0;
+> 			untagged = true;
+> 		} else {
+> 			untagged = false;
+> 		}
+> 	} else {
+> 		untagged = true;
+> 	}
+> 
+> 	if (!*vid) {
+> 		...
+> 		if (likely(untagged)) {
+> 			/* Untagged Frame. */
+> 			...
+> 		} else {
+> 			/* Priority-tagged Frame.
+> 			...
+> 		}
+> 	}
+> 
+>>
+>> This code also has a side-effect that it would be permit 802.1ad packets
+>> on an 802.1Q bridge and possibly forward such packets encapsulated yet
+>> again.
+> 
+> Well, this is an interesting situation.
+> But I have no reason to restrict it.
+> Users can configure such an environment if they want.
 
-Previous allocated cgroup_path is now in newsk->cgroup_path and I was
-relying on __sk_free() freeing that memory if error happens.
+This is almost like tunnel mode that is available on some switches.
+Does it make sense to explicitly permit/restrict it?
 
-unix_release_sock(sk)
-  sock_put()
-    sk_free()
-      __sk_free()
-        kfree(sk->cgroup_path)
+-vlad
 
-Do you see a problem with that?
-
-Thanks
-Vivek
+> 
+> Thanks,
+> Toshiaki Makita
+> 
+> 
