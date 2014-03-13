@@ -1,52 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 00/10][pull request] Intel Wired LAN Driver
- Updates
-Date: Thu, 13 Mar 2014 15:04:03 -0400 (EDT)
-Message-ID: <20140313.150403.1216425576381362401.davem@davemloft.net>
-References: <1394677890-11043-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2 net-next] consolidate duplicate code is
+ skb_checksum_setup() helpers
+Date: Thu, 13 Mar 2014 15:16:58 -0400 (EDT)
+Message-ID: <20140313.151658.365532834403324479.davem@davemloft.net>
+References: <530F3B8F020000780011FD33@nat28.tlf.novell.com>
+	<9AAE0902D5BC7E449B7C8E4E778ABCD025D6D2@AMSPEX01CL01.citrite.net>
+	<531F24050200007800122CEC@nat28.tlf.novell.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, Paul.Durrant@citrix.com,
+	edumazet@google.com
+To: JBeulich@suse.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55002 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55251 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752866AbaCMTEF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 15:04:05 -0400
-In-Reply-To: <1394677890-11043-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1753626AbaCMTRA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 15:17:00 -0400
+In-Reply-To: <531F24050200007800122CEC@nat28.tlf.novell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 12 Mar 2014 19:31:20 -0700
+From: "Jan Beulich" <JBeulich@suse.com>
+Date: Tue, 11 Mar 2014 13:56:05 +0000
 
-> This series contains updates to igb, e1000e, ixgbe and ixgbevf.
+> consolidate duplicate code is skb_checksum_setup() helpers
 > 
-> Tom Herbert provides changes to e1000e, igb and ixgbe to call skb_set_hash()
-> to set the hash and its type in an skbuff.
+> Realizing that the skb_maybe_pull_tail() calls in the IP-protocol
+> specific portions of both helpers are terminal ones (i.e. no further
+> pulls are expected), their maximum size to be pulled can be made match
+> their minimal size needed, thus making the code identical and hence
+> possible to be moved into another helper.
 > 
-> Carolyn provides a fix for igb where using ethtool for EEE settings, which
-> was not working correctly.
-> 
-> Jacob provides some trivial cleanups and fixes for ixgbe which mainly
-> dealt with the file headers.
-> 
-> Julia Lawall provides a one fix for ixgbevf where the driver did not need
-> to adjust the power state on suspend, so the call to pci_set_power_state()
-> in the resume function was a no-op.
-> 
-> v2:
-> - dropped patches 4-6 from original series which implemented debugfs for
->   igb from Carolyn based on feed back from David Miller and Or Gerlitz
+> Signed-off-by: Jan Beulich <jbeulich@suse.com>
 
-Pulled, thanks a lot Jeff.
-
-BTW, from patch #3:
-
-+	/*Re-establish EEE setting */
-
-There really should be a space after "/*", please fix this up in a future
-pull request.
-
-Thanks.
+Ok, looks good, applied.
