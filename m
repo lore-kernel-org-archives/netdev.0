@@ -1,28 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] MAINTAINERS: add networking selftests to NETWORKING
-Date: Thu, 13 Mar 2014 12:55:03 -0400 (EDT)
-Message-ID: <20140313.125503.133493892577642041.davem@davemloft.net>
-References: <1394702333-32578-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH] vmxnet3: fix building without CONFIG_PCI_MSI
+Date: Thu, 13 Mar 2014 12:57:10 -0400 (EDT)
+Message-ID: <20140313.125710.1893798649203550983.davem@davemloft.net>
+References: <7825453.7LB7BmvA2b@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53499 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753238AbaCMQzH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 12:55:07 -0400
-In-Reply-To: <1394702333-32578-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nhorman@tuxdriver.com, sbhatewara@vmware.com,
+	pv-drivers@vmware.com, stable@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7825453.7LB7BmvA2b@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Thu, 13 Mar 2014 10:18:53 +0100
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Thu, 13 Mar 2014 10:44:34 +0100
 
-> Add it to NETWORKING [GENERAL] to make sure patches for selftests
-> go to the netdev list as well.
+> Since commit d25f06ea466e "vmxnet3: fix netpoll race condition",
+> the vmxnet3 driver fails to build when CONFIG_PCI_MSI is disabled,
+> because it unconditionally references the vmxnet3_msix_rx()
+> function.
 > 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> To fix this, use the same #ifdef in the caller that exists around
+> the function definition.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Cc: Shreyas Bhatewara <sbhatewara@vmware.com>
+> Cc: "VMware, Inc." <pv-drivers@vmware.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: stable@vger.kernel.org
+> ---
+> Found this during randconfig testing on ARM. Most of the time when
+> I report network driver problems, they get fixed in the netdev tree
+> before I even find them, but since this is for a patch marked "stable",
+> I made a proper patch anyway.
+> 
+> Please ignore if this is already a known problem, otherwise make sure
+> the original patch doesn't get backported without addressing this
+> issue first.
 
-Applied, thanks.
+Applied, and queued up for -stable, thanks.
