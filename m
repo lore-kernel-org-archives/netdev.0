@@ -1,87 +1,54 @@
-From: Sebastian Reichel <sre@ring0.de>
-Subject: Re: [RESEND] [PATCHv2 0/5] wl1251 device tree support
-Date: Thu, 13 Mar 2014 19:01:52 +0100
-Message-ID: <20140313180152.GA21701@earth.universe>
-References: <20140125000929.GD25488@atomide.com>
- <1392419156-14394-1-git-send-email-sre@debian.org>
- <20140226194436.GA20992@earth.universe>
- <20140313170038.GA20372@earth.universe>
- <20140313172726.GC30579@tuxdriver.com>
+From: Vivek Goyal <vgoyal@redhat.com>
+Subject: Re: [PATCH 2/2] net: Implement SO_PEERCGROUP
+Date: Thu, 13 Mar 2014 14:02:24 -0400
+Message-ID: <20140313180224.GJ18914@redhat.com>
+References: <1394657163-7472-3-git-send-email-vgoyal@redhat.com>
+ <5320CAEC.6030008@amacapital.net>
+ <CALCETrUTjN=XKwnO62P9roZtLLuk7_9Oi17Mj_Aa2ZFtZc1gVA@mail.gmail.com>
+ <1394658983.32465.203.camel@willson.li.ssimo.org>
+ <CALCETrU29CpcK4dVRD45BGOD7AVEudADiFxOgFgKWkpFzw07eg@mail.gmail.com>
+ <1394673476.32465.215.camel@willson.li.ssimo.org>
+ <CALCETrWbCuKfV4zMkZajDOGhGkKduW0C2L7uHv=vtvqhVeAc6w@mail.gmail.com>
+ <1394675038.32465.223.camel@willson.li.ssimo.org>
+ <CALCETrV7GE0YL1sDDqTUV81rWL9zk2vTR1-VLkR7CfTA-FSrgw@mail.gmail.com>
+ <1394733077.32465.243.camel@willson.li.ssimo.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-	protocol="application/pgp-signature"; boundary="IS0zKkzwUGydFO0o"
-Cc: Tony Lindgren <tony@atomide.com>, Luciano Coelho <luca@coelho.fi>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140313172726.GC30579@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---IS0zKkzwUGydFO0o
 Content-Type: text/plain; charset=us-ascii
+Cc: Andy Lutomirski <luto@amacapital.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	cgroups@vger.kernel.org,
+	Network Development <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
+	jkaluza@redhat.com, lpoetter@redhat.com, kay@redhat.com
+To: Simo Sorce <ssorce@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:25633 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754439AbaCMSC2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Mar 2014 14:02:28 -0400
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <1394733077.32465.243.camel@willson.li.ssimo.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 13, 2014 at 01:27:27PM -0400, John W. Linville wrote:
-> On Thu, Mar 13, 2014 at 06:00:39PM +0100, Sebastian Reichel wrote:
-> > Hi,
-> >=20
-> > On Wed, Feb 26, 2014 at 08:44:36PM +0100, Sebastian Reichel wrote:
-> > > On Sat, Feb 15, 2014 at 12:05:51AM +0100, Sebastian Reichel wrote:
-> > > > The following patchset adds device tree support to the spi variant =
-of the
-> > > > wl1251 driver, which is used in the Nokia N900. Tony requested, tha=
-t you
-> > > > take the whole series even if that may introduce merge conflicts:
-> > > >=20
-> > > > > Sebastian, please resend the whole series to John and feel free t=
-o add my
-> > > > > acks.  It's best that John picks them all up, otherwise we'll hav=
-e the same
-> > > > > issue for v3.15. It seems that we should have just taken the merg=
-e conflict
-> > > > > rather than going back and forth with this.
-> > >=20
-> > > ping! Is there still anything wrong with this patchset?
-> >=20
-> > ping! This patchset is quite old now. Please pull it into
-> > wireless-next, so that it can appear in 3.15.
-> >=20
-> > -- Sebastian
->=20
-> These are already in wireless-next...
+On Thu, Mar 13, 2014 at 01:51:17PM -0400, Simo Sorce wrote:
 
-oops, sorry for the noise. I have checked the git repository and my
-mailbox before sending another ping, but overlooked the commits.
+[..]
+> > 1. Fix Docker to use user namespaces and use the uid of the requesting
+> > process via SCM_CREDENTIALS.
+> 
+> This is not practical, I have no control on what UIDs will be used
+> within a container,
 
-Thanks for applying them.
+I guess uid to container mapping has to be managed by somebody, say systemd.
+Then there systemd should export an API to query the container a uid is
+mapped into. So that should not be the real problem.
 
--- Sebastian
+> and IIRC user namespaces have severe limitations
+> that may make them unusable in some situations. Forcing the use of user
+> namespaces on docker to satisfy my use case is not in my power.
 
---IS0zKkzwUGydFO0o
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+I think that's the real practical problem. Adoption of user name space.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBCgAGBQJTIfKPAAoJENju1/PIO/qabJ0P/RO7ZR94Hp2AJ7Hd3w5Y2NHI
-TiIEHy+3sX4ghx5g/8WGbZwLaZlVLGNYl5MtkIl8seUVGvyQeh3OHZ6U1cykPoac
-eBEjUYynnibyeXIYf5yibVp9GFFg7Ik2RYTJklgMDTptVAcK7vzyZA6mpB9GlZWx
-f6Kyx/MPmDk62GLjYWC25s00fSonz77+K0gd1pQ07zRmZ8AmS+7pwR4Qt6Bx3Tl1
-vuSCN0679KJP2iDBuNlNm6A2uE+joa30W+9KR+lTUR0DHd93hUjPBbEwp687MQJ4
-uVoI6R1spA2EILKBaWgbfM4QYJxTPXFHbpSb6YcXBYg1ygwaAOa1RV6dTyGUDVFM
-+fYtJPGoZGM2v9aden7oFsv/iklc9Op6GExEuIx7Mz/0HvpH/BT8+6xeDolZxTkI
-SvNBeDDZoC2rXIQDJlQvGW4nTcu6MBXnFHIyg2kodP6trrOdYLoZbn8FdJ4LIkMz
-0J9CWhSpzhksLxP5ztSKlJPYG1Ir9mxvqasMT8pT5F6pa1LP/lt1DQOLSiwoe4+B
-A/1EY9fb8Hs+3h9uM5A6kp6jB3ShP0yczl3mOxD5dat9uQmqSJdQmVpgyMTX1J8o
-+bfnAutjFRz7w8/bAIUSywOkkN1dkmrAwwLDtOTq1kGNKMfZLK/yerM2zQvDSoAG
-e0GjYjNnu/pyqZUot6kd
-=0wKX
------END PGP SIGNATURE-----
-
---IS0zKkzwUGydFO0o--
+Thanks
+Vivek
