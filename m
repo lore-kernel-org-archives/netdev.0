@@ -1,74 +1,28 @@
-From: Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/2] net: Implement SO_PEERCGROUP
-Date: Thu, 13 Mar 2014 12:33:09 -0400
-Message-ID: <1394728389.32465.230.camel@willson.li.ssimo.org>
-References: <1394657163-7472-1-git-send-email-vgoyal@redhat.com>
-	 <1394657163-7472-3-git-send-email-vgoyal@redhat.com>
-	 <5320CAEC.6030008@amacapital.net>
-	 <CALCETrUTjN=XKwnO62P9roZtLLuk7_9Oi17Mj_Aa2ZFtZc1gVA@mail.gmail.com>
-	 <20140313141422.GB18914@redhat.com>
-	 <1394722534.32465.227.camel@willson.li.ssimo.org>
-	 <20140313150034.GG18914@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] MAINTAINERS: add networking selftests to NETWORKING
+Date: Thu, 13 Mar 2014 12:55:03 -0400 (EDT)
+Message-ID: <20140313.125503.133493892577642041.davem@davemloft.net>
+References: <1394702333-32578-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140313150034.GG18914-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53499 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753238AbaCMQzH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 12:55:07 -0400
+In-Reply-To: <1394702333-32578-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-03-13 at 11:00 -0400, Vivek Goyal wrote:
-> On Thu, Mar 13, 2014 at 10:55:34AM -0400, Simo Sorce wrote:
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Thu, 13 Mar 2014 10:18:53 +0100
+
+> Add it to NETWORKING [GENERAL] to make sure patches for selftests
+> go to the netdev list as well.
 > 
-> [..]
-> > > > This might not be quite as awful as I thought.  At least you're
-> > > > looking up the cgroup at connection time instead of at send time.
-> > > > 
-> > > > OTOH, this is still racy -- the socket could easily outlive the cgroup
-> > > > that created it.
-> > > 
-> > > That's a good point. What guarantees that previous cgroup was not
-> > > reassigned to a different container.
-> > > 
-> > > What if a process A opens the connection with sssd. Process A passes the
-> > > file descriptor to a different process B in a differnt container.
-> > 
-> > Stop right here.
-> > If the process passes the fd it is not my problem anymore.
-> > The process can as well just 'proxy' all the information to another
-> > process.
-> > 
-> > We just care to properly identify the 'original' container, we are not
-> > in the business of detecting malicious behavior. That's something other
-> > mechanism need to protect against (SELinux or other LSMs, normal
-> > permissions, capabilities, etc...).
-> > 
-> > > Process A exits. Container gets removed from system and new one gets
-> > > launched which uses same cgroup as old one. Now process B sends a new
-> > > request and SSSD will serve it based on policy of newly launched
-> > > container.
-> > > 
-> > > This sounds very similar to pid race where socket/connection will outlive
-> > > the pid.
-> > 
-> > Nope, completely different.
-> > 
-> 
-> I think you missed my point. Passing file descriptor is not the problem.
-> Problem is reuse of same cgroup name for a different container while
-> socket lives on. And it is same race as reuse of a pid for a different
-> process.
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-The cgroup name should not be reused of course, if userspace does that,
-it is userspace's issue. cgroup names are not a constrained namespace
-like pids which force the kernel to reuse them for processes of a
-different nature.
-
-Simo.
+Applied, thanks.
