@@ -1,70 +1,160 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: [PATCH 2/2] net: Implement SO_PEERCGROUP
-Date: Thu, 13 Mar 2014 14:21:40 -0700
-Message-ID: <CALCETrUGOR=_QNvDXQ0+zvPg7ZKVVohaXj91EGop80hGM7xNLw@mail.gmail.com>
-References: <1394658983.32465.203.camel@willson.li.ssimo.org>
- <CALCETrU29CpcK4dVRD45BGOD7AVEudADiFxOgFgKWkpFzw07eg@mail.gmail.com>
- <1394673476.32465.215.camel@willson.li.ssimo.org> <CALCETrWbCuKfV4zMkZajDOGhGkKduW0C2L7uHv=vtvqhVeAc6w@mail.gmail.com>
- <1394675038.32465.223.camel@willson.li.ssimo.org> <CALCETrV7GE0YL1sDDqTUV81rWL9zk2vTR1-VLkR7CfTA-FSrgw@mail.gmail.com>
- <1394733077.32465.243.camel@willson.li.ssimo.org> <CALCETrXWzja6W6y=p9MrtynGZMsrD5KQu0KBK6Bs1dQxnesv2A@mail.gmail.com>
- <20140313195349.GM18914@redhat.com> <CALCETrUj4aPEd6ujXnUJNFq+BQkfQoF=XRChP1p5=ZysTN-zwg@mail.gmail.com>
- <20140313200649.GN18914@redhat.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH net-next v6 0/3] The huawei_cdc_ncm driver / E3276
+ problem
+Date: Thu, 13 Mar 2014 16:41:47 -0500
+Message-ID: <1394746907.15946.8.camel@dcbw.local>
+References: <1383555049-24834-1-git-send-email-bjorn@mork.no>
+	 <20140313202557.GV3200@reaktio.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	jkaluza-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140313200649.GN18914-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Enrico Mioso <mrkiko.rs@gmail.com>,
+	Oliver Neukum <oliver@neukum.org>
+To: Pasi =?ISO-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38327 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753290AbaCMVkR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Mar 2014 17:40:17 -0400
+In-Reply-To: <20140313202557.GV3200@reaktio.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 13, 2014 at 1:06 PM, Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> On Thu, Mar 13, 2014 at 12:58:14PM -0700, Andy Lutomirski wrote:
->> On Thu, Mar 13, 2014 at 12:53 PM, Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
->> > On Thu, Mar 13, 2014 at 10:55:16AM -0700, Andy Lutomirski wrote:
->> >
->> > [..]
->> >> >> 2. Docker is a container system, so use the "container" (aka
->> >> >> namespace) APIs.  There are probably several clever things that could
->> >> >> be done with /proc/<pid>/ns.
->> >> >
->> >> > pid is racy, if it weren't I would simply go straight
->> >> > to /proc/<pid>/cgroups ...
->> >>
->> >> How about:
->> >>
->> >> open("/proc/self/ns/ipc", O_RDONLY);
->> >> send the result over SCM_RIGHTS?
->> >
->> > As I don't know I will ask. So what will server now do with this file
->> > descriptor of client's ipc namespace.
->> >
->> > IOW, what information/identifier does it contain which can be
->> > used to map to pre-configrued per container/per namespace policies.
->>
->> Inode number, which will match that assigned to the container at runtime.
->>
->
-> But what would I do with this inode number. I am assuming this is
-> generated dynamically when respective namespace was created. To me
-> this is like assigning a pid dynamically and one does not create
-> policies in user space based on pid. Similarly I will not be able
-> to create policies based on an inode number which is generated
-> dynamically.
->
-> For it to be useful, it should map to something more static which
-> user space understands.
+On Thu, 2014-03-13 at 22:25 +0200, Pasi K=C3=A4rkk=C3=A4inen wrote:
+> On Mon, Nov 04, 2013 at 09:50:46AM +0100, Bj=C3=B8rn Mork wrote:
+> >=20
+> > [quote Enrico Mioso]
+> >=20
+> > So this is a new, revised, edition of the huawei_cdc_ncm.c driver, =
+which=20
+> > supports devices resembling the NCM standard, but using it also as =
+a mean=20
+> > to encapsulate other protocols, as is the case for the Huawei E3131=
+ and
+> > E3251 modem devices.
+> >
+>=20
+> Hello,
+>=20
+> I'm trying to use Huawei E3276 4G/LTE USB dongle with Linux 3.13.6 ke=
+rnel,
+> and thus i'm using the new huawei_cdc_ncm driver.
+>=20
+> I'm using the /dev/cdc-wdm0 device to send AT commands to it, and tha=
+t seems to work,
+> so the dongle seems like it's connected (also the LED on the dongle s=
+uggests it's connected).
+>=20
+> .. the problem is the wwan0 interface (well, udev renames it to wwp0s=
+26u1u5i1) doesn't work.
+> Launching a dhcp client on the wwp0s26u1u5i1 doesn't get any IP addre=
+ss.
+>=20
+> Any tips how to troubleshoot this?=20
 
-Like what?  I imagine that, at best, sssd will be hardcoding some
-understanding of Docker's cgroup names.  As an alternative, it could
-ask Docker for a uid or an inode number of something else -- it's
-hardcoding an understanding of Docker anyway.  And Docker needs to
-cooperate regardless, since otherwise it could change its cgroup
-naming or stop using cgroups entirely.
+Which AT commands are you using to start the data connection?
 
---Andy
+I believe Huawei says that DHCP on the network port is only supported i=
+f
+network port's USB interface has Class 0x2 + SubClass [0x6 | 0xd] +
+Protocol 0x0.
+
+Lastly, I think the E3276 has a couple of different "modes" that it can
+switch into with usb_modeswitch too, and only some modes expose the
+right network interface.  What modeswitch command is getting sent to th=
+e
+device?
+
+Dan
+
+> I'm seeing "RX errors" listed for the interface in "ifconfig -a" outp=
+ut.. is that normal?=20
+>=20
+> The device in question is (ATI command output):
+>=20
+> Manufacturer: huawei
+> Model: E3276
+> Revision: 21.263.03.00.07
+> IMEI: 863XYZXYZXYZXYZ
+> +GCAP: +CGSM,+DS,+ES
+>=20
+> Thanks!
+>=20
+> -- Pasi
+>=20
+>=20
+> > Some precisations are needed however - and I encourage discussion o=
+n this: and=20
+> > that's why I'm sending this message with a broader CC.
+> > Merging those patches might change:
+> > - the way Modem Manager interacts with those devices
+> > - some regressions might be possible if there are some unknown firm=
+ware=20
+> >   variants around (Franko?)
+> >=20
+> > First of all: I observed the behaviours of two devices.
+> > Huawei E3131: this device doesn't accept NDIS setup requests unless=
+ they're=20
+> > sent via the embedded AT channel exposed by this driver.
+> > So actually we gain funcionality in this case!
+> >=20
+> > The second case, is the Huawei E3251: which works with standard NCM=
+ driver,=20
+> > still exposing an AT embedded channel. Whith this patch set applied=
+, you gain=20
+> > some funcionality, loosing the ability to catch standard NCM events=
+ for now.
+> > The device will work in both ways with no problems, but this has to=
+ be=20
+> > acknowledged and discussed. Might be we can develop this driver fur=
+ther to=20
+> > change this, when more devices are tested.
+> >=20
+> > We where thinking Huawei changed their interfaces on new devices - =
+but probably=20
+> > this driver only works around a nice firmware bug present in E3131,=
+ which=20
+> > prevented the modem from being used in NDIS mode.
+> >=20
+> > I think committing this is definitely wortth-while, since it will a=
+llow for=20
+> > more Huawei devices to be used without serial connection. Some devi=
+ces like the=20
+> > E3251 also, reports some status information only via the embedded A=
+T channel,=20
+> > at least in my case.
+> > Note: I'm not subscribed to any list except the Modem Manager's one=
+, so please=20
+> > CC me, thanks!!
+> >=20
+> > [/quote]
+> >=20
+> > Enrico Mioso (3):
+> >   net: cdc_ncm: Export cdc_ncm_{tx,rx}_fixup functions for re-use
+> >   net: huawei_cdc_ncm: Introduce the huawei_cdc_ncm driver
+> >   net: cdc_ncm: remove non-standard NCM device IDs
+> >=20
+> >  drivers/net/usb/Kconfig          |   15 +++
+> >  drivers/net/usb/Makefile         |    1 +
+> >  drivers/net/usb/cdc_ncm.c        |   17 +--
+> >  drivers/net/usb/huawei_cdc_ncm.c |  230 ++++++++++++++++++++++++++=
+++++++++++++
+> >  include/linux/usb/cdc_ncm.h      |    3 +
+> >  5 files changed, 253 insertions(+), 13 deletions(-)
+> >  create mode 100644 drivers/net/usb/huawei_cdc_ncm.c
+> >=20
+> > --=20
+> > 1.7.10.4
+> >=20
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" i=
+n
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-usb" =
+in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
