@@ -1,90 +1,67 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next v2 00/10][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 13 Mar 2014 15:48:38 -0700
-Message-ID: <1394750918.2167.26.camel@jtkirshe-mobl>
-References: <1394677890-11043-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20140313.150403.1216425576381362401.davem@davemloft.net>
+Subject: Re: next-20140313 - build error in e1000e driver
+Date: Thu, 13 Mar 2014 16:01:51 -0700
+Message-ID: <CAL3LdT79V+NLJ9Kd8aX+qnmKfJag2rn7Smdteq=kWYeJOLSe3g@mail.gmail.com>
+References: <59774.1394739168@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Mr/p8bM00PT9f7OUqBAT"
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:59991 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755484AbaCMWsm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Mar 2014 18:48:42 -0400
-In-Reply-To: <20140313.150403.1216425576381362401.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	netdev <netdev@vger.kernel.org>,
+	Mika Westerberg <mika.westerberg@linux.intel.com>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <59774.1394739168@turing-police.cc.vt.edu>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-
---=-Mr/p8bM00PT9f7OUqBAT
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2014-03-13 at 15:04 -0400, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Wed, 12 Mar 2014 19:31:20 -0700
->=20
-> > This series contains updates to igb, e1000e, ixgbe and ixgbevf.
-> >=20
-> > Tom Herbert provides changes to e1000e, igb and ixgbe to call skb_set_h=
-ash()
-> > to set the hash and its type in an skbuff.
-> >=20
-> > Carolyn provides a fix for igb where using ethtool for EEE settings, wh=
-ich
-> > was not working correctly.
-> >=20
-> > Jacob provides some trivial cleanups and fixes for ixgbe which mainly
-> > dealt with the file headers.
-> >=20
-> > Julia Lawall provides a one fix for ixgbevf where the driver did not ne=
-ed
-> > to adjust the power state on suspend, so the call to pci_set_power_stat=
-e()
-> > in the resume function was a no-op.
-> >=20
-> > v2:
-> > - dropped patches 4-6 from original series which implemented debugfs fo=
-r
-> >   igb from Carolyn based on feed back from David Miller and Or Gerlitz
->=20
-> Pulled, thanks a lot Jeff.
->=20
-> BTW, from patch #3:
->=20
-> +	/*Re-establish EEE setting */
->=20
-> There really should be a space after "/*", please fix this up in a future
-> pull request.
->=20
-> Thanks.
-
-Putting together a patch (and series now).  Thanks Dave!
-
---=-Mr/p8bM00PT9f7OUqBAT
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAABCgAGBQJTIjXGAAoJEOVv75VaS+3OowIP/RK1x7/sQWuZh/whRh2uzcNV
-qD1sl/clFnXRukr9uImE3AJzWMCStIX0srmRUcTwLRpj40PHsuMs293DPf6GOFv6
-F1MGikwVop2hDL4SA1M9v57sFj46GHccBdYWzv/F11YLGpj4oyVH7ZwAAa1ZbcFd
-PSFkzkXVkv/gXh3kC+sZW9R1/YoxMORi/UxyRX81uJpRVNWn0QE6Z+JF76IkIcco
-DNNOcBFDVSLqQsTTlIxI6pEPazhBMxSmb+KroLACjX+1C8tzhbmJotqLxDDt/M7w
-alSVxGLZIR4wRoRR4lq5ZPxjL3XM3PvWWDcvsKSDtVYISzf8OunbMYaaiMfEN0J7
-Vg+evxK1+UxNk0MMwiKQ8QSxmdH2gPeUTWFg1fF03BD+MHse0mm6q1A4+uyb8Qd2
-E74Wx0qXtQVYxEYMVotyT/nFmhmKIZMXdEj0kqxIZh1x77TsFUbS3KAqjuxVqpLF
-zXN0l8SXi2V/PsEdMwa5x9coF/UMTQ4RsBNL++TQMPlcsBqf7Ym3/9+2blRmHVIN
-kDpzs/n2J5aVGNJSVPHtFxZefsNbCMqyNsYUVgI5mUFQJairsw8BEpxrGmWz0zcK
-xqKLK1KNRWrueLyMjwR9XCAacZvMm4ah9mcxEWUgtesR6+BcXOMjmxhnryNidSXa
-8HkRMZjARh88m1tfs0R0
-=mKvi
------END PGP SIGNATURE-----
-
---=-Mr/p8bM00PT9f7OUqBAT--
+T24gVGh1LCBNYXIgMTMsIDIwMTQgYXQgMTI6MzIgUE0sIFZhbGRpcyBLbGV0bmlla3MKPFZhbGRp
+cy5LbGV0bmlla3NAdnQuZWR1PiB3cm90ZToKPiBNeSBrZXJuZWwgaGFzIENPTkZJR19QTV9TTEVF
+UD1uLCB3aGljaCBsZWFkcyB0byBoaWxhcml0eS4uLgo+Cj4gICBDQyAgICAgIGRyaXZlcnMvbmV0
+L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYubwo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2lu
+dGVsL2UxMDAwZS9uZXRkZXYuYzo3MDc5OjEzOiBlcnJvcjogJ2UxMDAwZV9wbV9zdXNwZW5kJyB1
+bmRlY2xhcmVkIGhlcmUgKG5vdCBpbiBhIGZ1bmN0aW9uKQo+ICAgLnN1c3BlbmQgPSBlMTAwMGVf
+cG1fc3VzcGVuZCwKPiAgICAgICAgICAgICAgXgo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2UxMDAwZS9uZXRkZXYuYzo3MDgwOjEzOiBlcnJvcjogJ2UxMDAwZV9wbV9yZXN1bWUnIHVuZGVj
+bGFyZWQgaGVyZSAobm90IGluIGEgZnVuY3Rpb24pCj4gICAucmVzdW1lICA9IGUxMDAwZV9wbV9y
+ZXN1bWUsCj4gICAgICAgICAgICAgIF4KPiBtYWtlWzVdOiAqKiogW2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L2ludGVsL2UxMDAwZS9uZXRkZXYub10gRXJyb3IgMQo+IG1ha2VbNF06ICoqKiBbZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBlXSBFcnJvciAyCj4gbWFrZVszXTogKioqIFtkcml2
+ZXJzL25ldC9ldGhlcm5ldC9pbnRlbF0gRXJyb3IgMgo+IG1ha2VbMl06ICoqKiBbZHJpdmVycy9u
+ZXQvZXRoZXJuZXRdIEVycm9yIDIKPiBtYWtlWzFdOiAqKiogW2RyaXZlcnMvbmV0XSBFcnJvciAy
+Cj4gbWFrZTogKioqIFtkcml2ZXJzXSBFcnJvciAyCj4KPiBDb21taXQgMzhhNTI5YjVkNCBjbGFp
+bXMgdG8gZml4IGEgcmVsYXRlZCBpc3N1ZSwgYnV0IGRvZXNuJ3Qgc2VlbSB0byBkbyBzbyBjb3Jy
+ZWN0bHkuCj4KPiBBdXRob3I6IE1pa2EgV2VzdGVyYmVyZyA8bWlrYS53ZXN0ZXJiZXJnQGxpbnV4
+LmludGVsLmNvbT4KPiBEYXRlOiAgIFRodSBKYW4gMTYgMTQ6Mzk6MzkgMjAxNCArMDIwMAo+Cj4g
+ICAgIGUxMDAwZTogRml4IGNvbXBpbGF0aW9uIHdhcm5pbmcgd2hlbiAhQ09ORklHX1BNX1NMRUVQ
+Cj4KPiAgICAgQ29tbWl0IDc1MDk5NjNjNzAzYiAoZTEwMDBlOiBGaXggYSBjb21waWxlIGZsYWcg
+bWlzLW1hdGNoIGZvcgo+ICAgICBzdXNwZW5kL3Jlc3VtZSkgbW92ZWQgc3VzcGVuZCBhbmQgcmVz
+dW1lIGhvb2tzIHRvIGJlIGF2YWlsYWJsZSB3aGVuCj4gICAgIENPTkZJR19QTSBpcyBzZXQuIEhv
+d2V2ZXIsIGl0IGNhbiBiZSBzZXQgZXZlbiBpZiBDT05GSUdfUE1fU0xFRVAgaXMgbm90IHNldAo+
+ICAgICBjYXVzaW5nIGZvbGxvd2luZyB3YXJuaW5ncyB0byBiZSBlbWl0dGVkOgo+Cj4gICAgIGRy
+aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYzo2MTc4OjEyOiB3YXJuaW5n
+Ogo+ICAgICAgICAgw6LigqzLnGUxMDAwX3N1c3BlbmTDouKCrOKEoiBkZWZpbmVkIGJ1dCBub3Qg
+dXNlZCBbLVd1bnVzZWQtZnVuY3Rpb25dCj4KPiAgICAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50
+ZWwvZTEwMDBlL25ldGRldi5jOjYxODU6MTI6IHdhcm5pbmc6Cj4gICAgICAgICDDouKCrMucZTEw
+MDBfcmVzdW1lw6LigqzihKIgZGVmaW5lZCBidXQgbm90IHVzZWQgWy1XdW51c2VkLWZ1bmN0aW9u
+XQo+CgpJIGJlbGlldmUgRGF2aWQgRXJ0bWFuIGZpeGVkIHRoaXMgYW5kIERhdmlkIE1pbGxlcidz
+IG5ldC1uZXh0IHRyZWUKY29udGFpbnMgdGhlIHBhdGNoIHRoYXQgcmVzb2x2ZWQgdGhpcy4KCi0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLQpMZWFybiBHcmFwaCBEYXRhYmFzZXMgLSBEb3dubG9hZCBGUkVF
+IE8nUmVpbGx5IEJvb2sKIkdyYXBoIERhdGFiYXNlcyIgaXMgdGhlIGRlZmluaXRpdmUgbmV3IGd1
+aWRlIHRvIGdyYXBoIGRhdGFiYXNlcyBhbmQgdGhlaXIKYXBwbGljYXRpb25zLiBXcml0dGVuIGJ5
+IHRocmVlIGFjY2xhaW1lZCBsZWFkZXJzIGluIHRoZSBmaWVsZCwKdGhpcyBmaXJzdCBlZGl0aW9u
+IGlzIG5vdyBhdmFpbGFibGUuIERvd25sb2FkIHlvdXIgZnJlZSBib29rIHRvZGF5IQpodHRwOi8v
+cC5zZi5uZXQvc2Z1LzEzNTM0X05lb1RlY2gKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX18KRTEwMDAtZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRldmVsQGxp
+c3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9s
+aXN0aW5mby9lMTAwMC1kZXZlbApUbyBsZWFybiBtb3JlIGFib3V0IEludGVsJiMxNzQ7IEV0aGVy
+bmV0LCB2aXNpdCBodHRwOi8vY29tbXVuaXRpZXMuaW50ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
