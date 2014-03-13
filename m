@@ -1,45 +1,43 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next 2/2] bonding: use the correct ether type for alb
-Date: Thu, 13 Mar 2014 12:41:58 +0100
-Message-ID: <1394710918-29540-3-git-send-email-vfalico@redhat.com>
-References: <1394710918-29540-1-git-send-email-vfalico@redhat.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH net-next 0/2] bonding: use correct ether type for alb
+Date: Thu, 13 Mar 2014 12:41:56 +0100
+Message-ID: <1394710918-29540-1-git-send-email-vfalico@redhat.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Simon Wunderlich <sw@simonwunderlich.de>,
+	Neil Jerram <Neil.Jerram@metaswitch.com>,
+	Simon Horman <horms@verge.net.au>,
+	Arvid Brodin <Arvid.Brodin@xdin.com>,
+	linux-kernel@vger.kernel.org, Veaceslav Falico <vfalico@redhat.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51131 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753952AbaCMLqR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Mar 2014 07:46:17 -0400
-In-Reply-To: <1394710918-29540-1-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently it's using the wrong ETH_P_LOOP type, which is sometimes treated
-as packet length instead of ether type (because it's 0x0060).
+Hi,
 
-Use the new ETH_P_LOOPBACK type.
+There have been reports that, while using the ETH_P_LOOP ether type
+(0x0060), the ether type is treated as its packet length.
+
+To avoid that and to not break already existing apps - add new ether type
+ETH_P_LOOPBACK that contains the correct id - 0x9000.
+
 
 CC: Jay Vosburgh <fubar@us.ibm.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Stefan Richter <stefanr@s5r6.in-berlin.de>
+CC: Simon Wunderlich <sw@simonwunderlich.de>
+CC: Neil Jerram <Neil.Jerram@metaswitch.com>
+CC: Simon Horman <horms@verge.net.au>
+CC: Arvid Brodin <Arvid.Brodin@xdin.com>
+CC: netdev@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+
 ---
  drivers/net/bonding/bond_alb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 9cf836b6..060b611 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1005,7 +1005,7 @@ static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
- 	memset(&pkt, 0, size);
- 	ether_addr_copy(pkt.mac_dst, mac_addr);
- 	ether_addr_copy(pkt.mac_src, mac_addr);
--	pkt.type = cpu_to_be16(ETH_P_LOOP);
-+	pkt.type = cpu_to_be16(ETH_P_LOOPBACK);
- 
- 	skb = dev_alloc_skb(size);
- 	if (!skb)
--- 
-1.8.4
+ include/uapi/linux/if_ether.h  | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
