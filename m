@@ -1,81 +1,74 @@
-From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
-Subject: Re: Zynq macb
-Date: Thu, 13 Mar 2014 15:33:16 -0700
-Message-ID: <73734ba5-00d3-445d-8c6f-a1a868cdd537@CH1EHSMHS024.ehs.local>
-References: <c6344e9b-fa32-4313-8950-59030c4bffb8@AM1EHSMHS003.ehs.local>
+From: Yegor Yefremov <yegorslists@googlemail.com>
+Subject: Re: [PATCH] net: phy: Add support for SMSC/Microchip LAN9303 3-port switch
+Date: Thu, 13 Mar 2014 23:42:43 +0100
+Message-ID: <CAGm1_kviiz6Y4UjiRXdKNONC9PQbuEHJaDfOpMb8LsuwrEE92A@mail.gmail.com>
+References: <531057A4.5020607@denx.de> <20140228.130020.2022765291621434648.davem@davemloft.net>
+ <CAGm1_ksPrSjV8+o7LCGDtJz_6qY8bqGuqdpYNHKh_6JO2X0sqg@mail.gmail.com>
+ <20140311.163924.934541574802061078.davem@davemloft.net> <CAGm1_kvTRkCq93BaPgN-MY5Oji3e4is7eq-BtOLv-LJGDCDqPQ@mail.gmail.com>
+ <1394655671.20857.2.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michal Simek <michal.simek@xilinx.com>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	Punnaiah Choudary Kalluri
-	<punnaiah.choudary.kalluri@xilinx.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <c6344e9b-fa32-4313-8950-59030c4bffb8@AM1EHSMHS003.ehs.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, Stefan Roese <sr@denx.de>,
+	netdev <netdev@vger.kernel.org>, "r.meier" <r.meier@siemens.com>,
+	"lukas.stockmann" <lukas.stockmann@siemens.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:61924 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753378AbaCMWnE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 18:43:04 -0400
+Received: by mail-pa0-f42.google.com with SMTP id fb1so1765518pad.15
+        for <netdev@vger.kernel.org>; Thu, 13 Mar 2014 15:43:03 -0700 (PDT)
+In-Reply-To: <1394655671.20857.2.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-03-13 at 03:16PM -0700, S=C3=B6ren Brinkmann wrote:
-> Hi Nicolas,
->=20
-> I did some testing on the current linux-next tree and ran iperf on Zy=
-nq.
-> It seems that network and even the whole system can collapse when doi=
-ng
-> that.
-> I don't really know what's going on, but once I saw the message:
-> 	"inconsistent Rx descriptor chain"
-> printed twice (system frozen afterwards).
->=20
-> I don't know what exactly is going wrong, but suspect something aroun=
-d
-> memory/DMA. I have no clue whether it makes any sense or not, but I
-> tried using the macb_* functions instead of the gem_* ones (see diff =
-below).
-> That seems to result in a stable system and working Ethernet.
+On Wed, Mar 12, 2014 at 9:21 PM, Ben Hutchings <ben@decadent.org.uk> wrote:
+> On Wed, 2014-03-12 at 09:43 +0100, Yegor Yefremov wrote:
+>> On Tue, Mar 11, 2014 at 9:39 PM, David Miller <davem@davemloft.net> wrote:
+>> > From: Yegor Yefremov <yegorslists@googlemail.com>
+>> > Date: Tue, 11 Mar 2014 21:11:16 +0100
+>> >
+>> >> On Fri, Feb 28, 2014 at 7:00 PM, David Miller <davem@davemloft.net> wrote:
+>> >>> From: Stefan Roese <sr@denx.de>
+>> >>> Date: Fri, 28 Feb 2014 10:32:20 +0100
+>> >>>
+>> >>>> On 27.02.2014 23:02, David Miller wrote:
+>> >>>>> From: Stefan Roese <sr@denx.de>
+>> >>>>> Date: Thu, 27 Feb 2014 10:07:52 +0100
+>> >>>>>
+>> >>>>> Better is to come up with a real, types, interface for programming
+>> >>>>> such devices and providing an implementation of that.
+>> >>>>
+>> >>>> Right. Such a thing would be better. But as Florian already pointed
+>> >>>> out, nothing like this is available in kernel.org right now. Thats the
+>> >>>> reason why I chose to implement this "simple" driver, btw as done in
+>> >>>> drivers/net/phy/spi_ks8995.c.
+>> >>>
+>> >>> When a suitable user facing interface is lacking, you create one
+>> >>> and submit it for review here.  You don't just submit adhoc driver
+>> >>> local stuff.
+>> >>
+>> >> David, what about enabling ethtool to read/write from/to the PHY
+>> >> registers (via passing PHY ID and register number)? I'm trying to get
+>> >> ICplus IP175D running and it has lots of registers, that I would like
+>> >> to look at dynamically.
+>> >
+>> > For debugging, register dumps are already supported by ethtool.
+>>
+>> Do you mean 'ethtool -e' option? AFAIK it dumps Ethernet controller
+>> regs, if it implements ethtool_ops.get_regs(). What I need are PHY
+>> registers, that I can get via MII interface. ethtool should provide
+>> access to PHY registers like mdiobus_read() and mdiobus_write()
+>> routines.
+> [...]
+>
+> Perhaps, but only as a test/debug interface.  It is not acceptable as a
+> production configuration interface - that needs some abstraction so the
+> same command will work on any switch chip that can support the
+> operation.
 
-That was a little too early. After roughly 25 minutest the system runs
-into a deadlock:
-  BUG: spinlock lockup suspected on CPU#1, iperf/774
-   lock: 0xeda0366c, .magic: dead4ead, .owner: swapper/0/0, .owner_cpu:=
- 0
-  CPU: 1 PID: 774 Comm: iperf Tainted: G        W    3.14.0-rc6-next-20=
-140312-xilinx-dirty #41
-  [<c00153c0>] (unwind_backtrace) from [<c0011e70>] (show_stack+0x10/0x=
-14)
-  [<c0011e70>] (show_stack) from [<c03d6b50>] (dump_stack+0x80/0xcc)
-  [<c03d6b50>] (dump_stack) from [<c00670ac>] (do_raw_spin_lock+0xd4/0x=
-190)
-  [<c00670ac>] (do_raw_spin_lock) from [<c03dc79c>] (_raw_spin_lock_irq=
-save+0x58/0x64)
-  [<c03dc79c>] (_raw_spin_lock_irqsave) from [<c02b0810>] (macb_start_x=
-mit+0x24/0x2d0)
-  [<c02b0810>] (macb_start_xmit) from [<c0321b10>] (dev_hard_start_xmit=
-+0x334/0x470)
-  [<c0321b10>] (dev_hard_start_xmit) from [<c0339aa8>] (sch_direct_xmit=
-+0x78/0x2f8)
-  [<c0339aa8>] (sch_direct_xmit) from [<c0321f60>] (__dev_queue_xmit+0x=
-314/0x704)
-  [<c0321f60>] (__dev_queue_xmit) from [<c034cb3c>] (ip_finish_output+0=
-x6c4/0x894)
-  [<c034cb3c>] (ip_finish_output) from [<c034cf24>] (ip_local_out+0x74/=
-0x90)
-  [<c034cf24>] (ip_local_out) from [<c034d340>] (ip_queue_xmit+0x400/0x=
-5c4)
-  [<c034d340>] (ip_queue_xmit) from [<c03634b8>] (tcp_transmit_skb+0xa1=
-8/0xab0)
-  [<c03634b8>] (tcp_transmit_skb) from [<c035856c>] (tcp_recvmsg+0x92c/=
-0xae4)
-  [<c035856c>] (tcp_recvmsg) from [<c03806f0>] (inet_recvmsg+0x1c0/0x1f=
-c)
-  [<c03806f0>] (inet_recvmsg) from [<c030769c>] (sock_recvmsg+0x7c/0x98=
-)
-  [<c030769c>] (sock_recvmsg) from [<c0309988>] (SyS_recvfrom+0x9c/0x10=
-8)
-  [<c0309988>] (SyS_recvfrom) from [<c0309a08>] (sys_recv+0x14/0x18)
-  [<c0309a08>] (sys_recv) from [<c000ea60>] (ret_fast_syscall+0x0/0x48)
+Sure, I'd like to have this functionality for test/debug purpose.
 
-  	S=C3=B6ren
+Yegor
