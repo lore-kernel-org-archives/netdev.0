@@ -1,95 +1,67 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next] 6lowpan: reassembly: un-export local functions
-Date: Thu, 13 Mar 2014 20:58:03 +0100
-Message-ID: <1394740683-6910-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>,
-	Alexander Aring <alex.aring@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42191 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753171AbaCMUCW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 16:02:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivek Goyal <vgoyal@redhat.com>
+Subject: Re: [PATCH 2/2] net: Implement SO_PEERCGROUP
+Date: Thu, 13 Mar 2014 16:06:49 -0400
+Message-ID: <20140313200649.GN18914@redhat.com>
+References: <1394658983.32465.203.camel@willson.li.ssimo.org>
+ <CALCETrU29CpcK4dVRD45BGOD7AVEudADiFxOgFgKWkpFzw07eg@mail.gmail.com>
+ <1394673476.32465.215.camel@willson.li.ssimo.org>
+ <CALCETrWbCuKfV4zMkZajDOGhGkKduW0C2L7uHv=vtvqhVeAc6w@mail.gmail.com>
+ <1394675038.32465.223.camel@willson.li.ssimo.org>
+ <CALCETrV7GE0YL1sDDqTUV81rWL9zk2vTR1-VLkR7CfTA-FSrgw@mail.gmail.com>
+ <1394733077.32465.243.camel@willson.li.ssimo.org>
+ <CALCETrXWzja6W6y=p9MrtynGZMsrD5KQu0KBK6Bs1dQxnesv2A@mail.gmail.com>
+ <20140313195349.GM18914@redhat.com>
+ <CALCETrUj4aPEd6ujXnUJNFq+BQkfQoF=XRChP1p5=ZysTN-zwg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Simo Sorce <ssorce@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	cgroups@vger.kernel.org,
+	Network Development <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
+	jkaluza@redhat.com, lpoetter@redhat.com, kay@redhat.com
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CALCETrUj4aPEd6ujXnUJNFq+BQkfQoF=XRChP1p5=ZysTN-zwg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-most of these are only used locally, make them static.
-fold lowpan_expire_frag_queue into its caller, its small enough.
+On Thu, Mar 13, 2014 at 12:58:14PM -0700, Andy Lutomirski wrote:
+> On Thu, Mar 13, 2014 at 12:53 PM, Vivek Goyal <vgoyal@redhat.com> wrote:
+> > On Thu, Mar 13, 2014 at 10:55:16AM -0700, Andy Lutomirski wrote:
+> >
+> > [..]
+> >> >> 2. Docker is a container system, so use the "container" (aka
+> >> >> namespace) APIs.  There are probably several clever things that could
+> >> >> be done with /proc/<pid>/ns.
+> >> >
+> >> > pid is racy, if it weren't I would simply go straight
+> >> > to /proc/<pid>/cgroups ...
+> >>
+> >> How about:
+> >>
+> >> open("/proc/self/ns/ipc", O_RDONLY);
+> >> send the result over SCM_RIGHTS?
+> >
+> > As I don't know I will ask. So what will server now do with this file
+> > descriptor of client's ipc namespace.
+> >
+> > IOW, what information/identifier does it contain which can be
+> > used to map to pre-configrued per container/per namespace policies.
+> 
+> Inode number, which will match that assigned to the container at runtime.
+> 
 
-Cc: Alexander Aring <alex.aring@gmail.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- Compile tested only.
+But what would I do with this inode number. I am assuming this is
+generated dynamically when respective namespace was created. To me
+this is like assigning a pid dynamically and one does not create
+policies in user space based on pid. Similarly I will not be able
+to create policies based on an inode number which is generated
+dynamically.
 
- Seems this was cloned off ipv6/reassembly.c which exports
- some function for ipv6 netfilter defrag, these exports
- seem to be unneeded for 6lowpan.
+For it to be useful, it should map to something more static which
+user space understands.
 
- net/ieee802154/reassembly.c | 30 +++++++++++-------------------
- 1 file changed, 11 insertions(+), 19 deletions(-)
-
-diff --git a/net/ieee802154/reassembly.c b/net/ieee802154/reassembly.c
-index f4ac957..1dae199 100644
---- a/net/ieee802154/reassembly.c
-+++ b/net/ieee802154/reassembly.c
-@@ -58,7 +58,7 @@ static unsigned int lowpan_hashfn(struct inet_frag_queue *q)
- 	return lowpan_hash_frag(fq->tag, fq->d_size, &fq->saddr, &fq->daddr);
- }
- 
--bool lowpan_frag_match(struct inet_frag_queue *q, void *a)
-+static bool lowpan_frag_match(struct inet_frag_queue *q, void *a)
- {
- 	struct lowpan_frag_queue *fq;
- 	struct lowpan_create_arg *arg = a;
-@@ -68,9 +68,8 @@ bool lowpan_frag_match(struct inet_frag_queue *q, void *a)
- 		ieee802154_addr_addr_equal(&fq->saddr, arg->src) &&
- 		ieee802154_addr_addr_equal(&fq->daddr, arg->dst);
- }
--EXPORT_SYMBOL(lowpan_frag_match);
- 
--void lowpan_frag_init(struct inet_frag_queue *q, void *a)
-+static void lowpan_frag_init(struct inet_frag_queue *q, void *a)
- {
- 	struct lowpan_frag_queue *fq;
- 	struct lowpan_create_arg *arg = a;
-@@ -82,21 +81,6 @@ void lowpan_frag_init(struct inet_frag_queue *q, void *a)
- 	fq->saddr = *arg->src;
- 	fq->daddr = *arg->dst;
- }
--EXPORT_SYMBOL(lowpan_frag_init);
--
--void lowpan_expire_frag_queue(struct frag_queue *fq, struct inet_frags *frags)
--{
--	spin_lock(&fq->q.lock);
--
--	if (fq->q.last_in & INET_FRAG_COMPLETE)
--		goto out;
--
--	inet_frag_kill(&fq->q, frags);
--out:
--	spin_unlock(&fq->q.lock);
--	inet_frag_put(&fq->q, frags);
--}
--EXPORT_SYMBOL(lowpan_expire_frag_queue);
- 
- static void lowpan_frag_expire(unsigned long data)
- {
-@@ -106,7 +90,15 @@ static void lowpan_frag_expire(unsigned long data)
- 	fq = container_of((struct inet_frag_queue *)data, struct frag_queue, q);
- 	net = container_of(fq->q.net, struct net, ieee802154_lowpan.frags);
- 
--	lowpan_expire_frag_queue(fq, &lowpan_frags);
-+	spin_lock(&fq->q.lock);
-+
-+	if (fq->q.last_in & INET_FRAG_COMPLETE)
-+		goto out;
-+
-+	inet_frag_kill(&fq->q, &lowpan_frags);
-+out:
-+	spin_unlock(&fq->q.lock);
-+	inet_frag_put(&fq->q, &lowpan_frags);
- }
- 
- static inline struct lowpan_frag_queue *
--- 
-1.8.1.5
+Thanks
+Vivek 
