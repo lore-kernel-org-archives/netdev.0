@@ -1,49 +1,32 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC PATCH 2/2] netpoll: Don't poll for received packets
-Date: Thu, 13 Mar 2014 13:48:29 -0700
-Message-ID: <8738il6d0i.fsf@xmission.com>
-References: <871ty9qvaf.fsf_-_@xmission.com> <87vbvlpgnk.fsf_-_@xmission.com>
-	<1394509467.21721.2.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140311.004217.1616529960369263682.davem@davemloft.net>
-	<1394514158.21721.7.camel@edumazet-glaptop2.roam.corp.google.com>
-	<87a9cxf7mp.fsf_-_@xmission.com> <87wqg1dsyw.fsf_-_@xmission.com>
-	<CAM_iQpVRkHR7_coMDUSLkVmhAgbO==b4BVPuKTMpKz+SRz=WjA@mail.gmail.com>
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: ethernet/broadcom/tg3.c - DMA Status error with INTx
+Date: Thu, 13 Mar 2014 13:56:20 -0700
+Message-ID: <1394744180.4632.116.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <CAD6G_RRaDG-F9tqDMc3HWJdEZ3h_apNe8bx12g+ddTsPpHx06w@mail.gmail.com>
+	 <CAD6G_RQef0pQqswW6jsfSgpBC=81wBWcL63t3oR04sM2aHFvPw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Matt Mackall <mpm@selenic.com>,
-	Satyam Sharma <satyam.sharma@gmail.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:55214 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752248AbaCMUsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 16:48:36 -0400
-In-Reply-To: <CAM_iQpVRkHR7_coMDUSLkVmhAgbO==b4BVPuKTMpKz+SRz=WjA@mail.gmail.com>
-	(Cong Wang's message of "Wed, 12 Mar 2014 11:39:49 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="cp1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	Nithin Nayak Sujir <nsujir@broadcom.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	Bjorn Helgaas <bhelgaas@google.com>, <aav@xilinx.com>,
+	Srikanth T <srikuuuu@gmail.com>
+To: Jagan Teki <jagannadh.teki@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <CAD6G_RQef0pQqswW6jsfSgpBC=81wBWcL63t3oR04sM2aHFvPw@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cong Wang <xiyou.wangcong@gmail.com> writes:
+On Tue, 2014-03-11 at 19:11 +0530, Jagan Teki wrote: 
+> Just add one more point here, Read DMA Status Register(0x4804) value here
+> was 0x10 which means Read DMA PCI Parity Error, can anyone send what are
+> the possible cases to trigger this error.! 
 
-> On Tue, Mar 11, 2014 at 1:45 AM, Eric W. Biederman
-> <ebiederm@xmission.com> wrote:
->> -       work = napi->poll(napi, budget);
->> -       trace_napi_poll(napi);
->> +       /* Use a budget of 0 to request the drivers not process
->> +        * their receive queue.  Warn when they do anyway.
->> +        */
->> +       work = napi->poll(napi, 0);
->> +       WARN_ON_ONCE(work != 0);
->>
->
-> Adding more printk's in netpoll call path would only bring more
-> troubles.
-
-That is why I used WARN_ON_ONCE.  So we are alerted to problems but
-because it only prints once service won't be denied if nothing except
-that warning cares.
-
-Eric
+A parity error is detected during read DMA (from root complex to tg3
+device).  You can also check the AER capability in config space which
+has more information about correctable and uncorrectable errors.  I
+think it means that your PCIE link is not very stable if you get these
+errors repeatedly.
