@@ -1,84 +1,93 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 05/14] i40e: make string references to q be queue
-Date: Fri, 14 Mar 2014 16:34:26 -0700
-Message-ID: <1394840075-6851-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1394840075-6851-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 00/14][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 14 Mar 2014 16:34:21 -0700
+Message-ID: <1394840075-6851-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:29252 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756255AbaCNXfH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Mar 2014 19:35:07 -0400
-In-Reply-To: <1394840075-6851-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1754791AbaCNXfF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Mar 2014 19:35:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+This series contains updates to igb, i40e and i40evf.
 
-This cleans up strings for consistency, q is replaced with queue.
+I provide a code comment fix which David Miller noticed in the last
+series of patches I submitted.
 
-Change-ID: Ia5f9dfae9af261f4c24485854264e02363729cf3
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+Shannon provides a patch to cleanup the NAPI structs when deleting the
+netdev.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index a3f122e..acf0b20 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2582,7 +2582,7 @@ static void i40e_configure_msi_and_legacy(struct i40e_vsi *vsi)
- 	/* FIRSTQ_INDX = 0, FIRSTQ_TYPE = 0 (rx) */
- 	wr32(hw, I40E_PFINT_LNKLST0, 0);
- 
--	/* Associate the queue pair to the vector and enable the q int */
-+	/* Associate the queue pair to the vector and enable the queue int */
- 	val = I40E_QINT_RQCTL_CAUSE_ENA_MASK		      |
- 	      (I40E_RX_ITR << I40E_QINT_RQCTL_ITR_INDX_SHIFT) |
- 	      (I40E_QUEUE_TYPE_TX << I40E_QINT_TQCTL_NEXTQ_TYPE_SHIFT);
-@@ -5442,7 +5442,7 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
- 		u8 queue = (reg & I40E_GL_MDET_TX_QUEUE_MASK)
- 				>> I40E_GL_MDET_TX_QUEUE_SHIFT;
- 		dev_info(&pf->pdev->dev,
--			 "Malicious Driver Detection TX event 0x%02x on q %d of function 0x%02x\n",
-+			 "Malicious Driver Detection event 0x%02x on TX queue %d of function 0x%02x\n",
- 			 event, queue, func);
- 		wr32(hw, I40E_GL_MDET_TX, 0xffffffff);
- 		mdd_detected = true;
-@@ -5456,7 +5456,7 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
- 		u8 queue = (reg & I40E_GL_MDET_RX_QUEUE_MASK)
- 				>> I40E_GL_MDET_RX_QUEUE_SHIFT;
- 		dev_info(&pf->pdev->dev,
--			 "Malicious Driver Detection RX event 0x%02x on q %d of function 0x%02x\n",
-+			 "Malicious Driver Detection event 0x%02x on RX queue %d of function 0x%02x\n",
- 			 event, queue, func);
- 		wr32(hw, I40E_GL_MDET_RX, 0xffffffff);
- 		mdd_detected = true;
-@@ -6882,8 +6882,7 @@ static int i40e_vsi_setup_vectors(struct i40e_vsi *vsi)
- 	}
- 
- 	if (vsi->base_vector) {
--		dev_info(&pf->pdev->dev,
--			 "VSI %d has non-zero base vector %d\n",
-+		dev_info(&pf->pdev->dev, "VSI %d has non-zero base vector %d\n",
- 			 vsi->seid, vsi->base_vector);
- 		return -EEXIST;
- 	}
-@@ -6902,7 +6901,7 @@ static int i40e_vsi_setup_vectors(struct i40e_vsi *vsi)
- 						 vsi->num_q_vectors, vsi->idx);
- 	if (vsi->base_vector < 0) {
- 		dev_info(&pf->pdev->dev,
--			 "failed to get q tracking for VSI %d, err=%d\n",
-+			 "failed to get queue tracking for VSI %d, err=%d\n",
- 			 vsi->seid, vsi->base_vector);
- 		i40e_vsi_free_q_vectors(vsi);
- 		ret = -ENOENT;
+Anjali provides several patches for i40e, first fixes a bug in the update
+filter logic which was causing a kernel panic.  Then provides a fix to
+rename an error bit to correctly indicate the error.  Adds a definition
+for a new state variable to keep track of features automatically disabled
+due to hardware resource limitations versus user enforced feature disabled.
+Anjali provides a patch to add code to handle when there is a filter
+programming error due to a full table, which also resolves a previous
+compile warning about an unused "*pf" variable introduced in the last i40e
+series patch submission.
+
+Jesse provides three i40e patches to cleanup strings to make more
+consistent and to align with other Intel drivers.
+
+Akeem cleans up a misleading function header comment for i40e.
+
+Mitch provides a fix for i40e/i40evf to use the correctly reported number
+of MSI-X vectors in the PF an VF.  Then provides a patch to use
+dma_set_mask_and_coherent() which was introduced in v3.13 and simplifies
+the DMA mapping code a bit.
+
+v2:
+- dropped the 2 ixgbe patches from Emil based on feedback from David Miller,
+  where the 2 fixes should be handled in the net core to fix all drivers
+
+The following are changes since commit 177943260a6088bec51fc6c04643d84e43bef423:
+  6lowpan: reassembly: un-export local functions
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Akeem G Abodunrin (1):
+  i40e: Fix function comments
+
+Anjali Singhai Jain (6):
+  i40e: Fix a bug in the update logic for FDIR SB filter.
+  i40e/i40evf: Some flow director HW definition fixes
+  i40e: Define a new state variable to keep track of feature auto
+    disable
+  i40e: Add code to handle FD table full condition
+  i40e: Bug fix for FDIR replay logic
+  i40e: Let MDD events be handled by MDD handler
+
+Jeff Kirsher (1):
+  igb: Fix code comment
+
+Jesse Brandeburg (3):
+  i40e: make string references to q be queue
+  i40e: cleanup strings
+  i40e: simplified init string
+
+Mitch Williams (2):
+  i40e/i40evf: Use correct number of VF vectors
+  i40e/i40evf: Use dma_set_mask_and_coherent
+
+Shannon Nelson (1):
+  i40e: delete netdev after deleting napi and vectors
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |  10 +-
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |  25 ++-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  37 +++-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 190 +++++++++++++++------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  60 ++++++-
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |   6 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   9 +-
+ drivers/net/ethernet/intel/i40evf/i40e_type.h      |   6 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  19 +--
+ drivers/net/ethernet/intel/igb/igb_main.c          |   2 +-
+ 10 files changed, 269 insertions(+), 95 deletions(-)
+
 -- 
 1.8.3.1
