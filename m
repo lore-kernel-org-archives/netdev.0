@@ -1,75 +1,40 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] vmxnet3: fix building without CONFIG_PCI_MSI
-Date: Fri, 14 Mar 2014 22:33:02 +0300
-Message-ID: <5323596E.5070209@cogentembedded.com>
-References: <7825453.7LB7BmvA2b@wuerfel>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next 2/2] bonding: use the correct ether type for alb
+Date: Fri, 14 Mar 2014 19:42:52 +0100
+Message-ID: <20140314184251.GA30498@redhat.com>
+References: <1394710918-29540-1-git-send-email-vfalico@redhat.com>
+ <1394710918-29540-3-git-send-email-vfalico@redhat.com>
+ <20140314.142935.1237930025090619830.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Shreyas Bhatewara <sbhatewara@vmware.com>,
-	"VMware, Inc." <pv-drivers@vmware.com>,
-	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>, Neil Horman <nhorman@tuxdriver.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <7825453.7LB7BmvA2b@wuerfel>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41145 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754820AbaCNSnE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Mar 2014 14:43:04 -0400
+Content-Disposition: inline
+In-Reply-To: <20140314.142935.1237930025090619830.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 03/13/2014 12:44 PM, Arnd Bergmann wrote:
-
-> Since commit d25f06ea466e "vmxnet3: fix netpoll race condition",
-> the vmxnet3 driver fails to build when CONFIG_PCI_MSI is disabled,
-> because it unconditionally references the vmxnet3_msix_rx()
-> function.
-
-> To fix this, use the same #ifdef in the caller that exists around
-> the function definition.
-
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Cc: Shreyas Bhatewara <sbhatewara@vmware.com>
-> Cc: "VMware, Inc." <pv-drivers@vmware.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: stable@vger.kernel.org
-> ---
-> Found this during randconfig testing on ARM. Most of the time when
-> I report network driver problems, they get fixed in the netdev tree
-> before I even find them, but since this is for a patch marked "stable",
-> I made a proper patch anyway.
-
-> Please ignore if this is already a known problem, otherwise make sure
-> the original patch doesn't get backported without addressing this
-> issue first.
-
-> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-> index cbd898f..28965ad 100644
-> --- a/drivers/net/vmxnet3/vmxnet3_drv.c
-> +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-> @@ -1761,13 +1761,16 @@ static void
->   vmxnet3_netpoll(struct net_device *netdev)
->   {
->   	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
-> -	int i;
+On Fri, Mar 14, 2014 at 02:29:35PM -0400, David Miller wrote:
+>From: Veaceslav Falico <vfalico@redhat.com>
+>Date: Thu, 13 Mar 2014 12:41:58 +0100
 >
->   	switch (adapter->intr.type) {
-> -	case VMXNET3_IT_MSIX:
-> +#ifdef CONFIG_PCI_MSI
-> +	case VMXNET3_IT_MSIX: {
-> +		int i;
+>> @@ -1005,7 +1005,7 @@ static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
+>>  	memset(&pkt, 0, size);
+>>  	ether_addr_copy(pkt.mac_dst, mac_addr);
+>>  	ether_addr_copy(pkt.mac_src, mac_addr);
+>> -	pkt.type = cpu_to_be16(ETH_P_LOOP);
+>> +	pkt.type = cpu_to_be16(ETH_P_LOOPBACK);
+>
+>Had this really never worked properly at all?
 
-    This file's coding style assumes empty line after declaration, so does the 
-networking coding style in general.
+Yep, but only in cases where the hw/sw didn't filter out broken packets
+*before* arp processing, as far as I can tell.
 
->   		for (i = 0; i < adapter->num_rx_queues; i++)
->   			vmxnet3_msix_rx(0, &adapter->rx_queue[i]);
->   		break;
-> +	}
-> +#endif
->   	case VMXNET3_IT_MSI:
->   	default:
->   		vmxnet3_intr(0, adapter->netdev);
-
-WBR, Sergei
+>
+>It's been this way since the beginning of GIT history, and I imagine
+>since the learning packet code even existed.
