@@ -1,123 +1,60 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 3/3] sh_eth: fold netif_msg_*() and netdev_*() calls into netif_*() invocations
-Date: Sat, 15 Mar 2014 03:30:59 +0300
-Message-ID: <201403150330.59864.sergei.shtylyov@cogentembedded.com>
-References: <201403150321.47674.sergei.shtylyov@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-sh@vger.kernel.org, joe@perches.com
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 02/14] i40e: delete netdev after deleting napi and vectors
+Date: Fri, 14 Mar 2014 16:34:23 -0700
+Message-ID: <1394840075-6851-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1394840075-6851-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:40462 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754791AbaCNXa7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 19:30:59 -0400
-Received: by mail-lb0-f171.google.com with SMTP id w7so2221268lbi.2
-        for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 16:30:58 -0700 (PDT)
-In-Reply-To: <201403150321.47674.sergei.shtylyov@cogentembedded.com>
+Received: from mga01.intel.com ([192.55.52.88]:29252 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754883AbaCNXfG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Mar 2014 19:35:06 -0400
+In-Reply-To: <1394840075-6851-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that we call netdev_*() under netif_msg_*() checks, we can fold these into
-netif_*() macro invocations.
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Suggested-by: Joe Perches <joe@perches.com>
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+We've been deleting the netdev before getting around to deleting the napi
+structs.  Unfortunately, we then didn't delete the napi structs because we
+have a check for netdev, thus we were leaving garbage around in the system.
 
+Change-ID: Ife540176f6c9f801147495b3f2d2ac2e61ddcc58
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/renesas/sh_eth.c |   33 +++++++++++----------------------
- 1 file changed, 11 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1557,8 +1557,7 @@ ignore_link:
- 		/* Unused write back interrupt */
- 		if (intr_status & EESR_TABT) {	/* Transmit Abort int */
- 			ndev->stats.tx_aborted_errors++;
--			if (netif_msg_tx_err(mdp))
--				netdev_err(ndev, "Transmit Abort\n");
-+			netif_err(mdp, tx_err, ndev, "Transmit Abort\n");
- 		}
- 	}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 43d391b..a3f122e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -6806,8 +6806,6 @@ int i40e_vsi_release(struct i40e_vsi *vsi)
+ 			if (vsi->netdev) {
+ 				/* results in a call to i40e_close() */
+ 				unregister_netdev(vsi->netdev);
+-				free_netdev(vsi->netdev);
+-				vsi->netdev = NULL;
+ 			}
+ 		} else {
+ 			if (!test_and_set_bit(__I40E_DOWN, &vsi->state))
+@@ -6826,6 +6824,10 @@ int i40e_vsi_release(struct i40e_vsi *vsi)
  
-@@ -1567,45 +1566,38 @@ ignore_link:
- 		if (intr_status & EESR_RFRMER) {
- 			/* Receive Frame Overflow int */
- 			ndev->stats.rx_frame_errors++;
--			if (netif_msg_rx_err(mdp))
--				netdev_err(ndev, "Receive Abort\n");
-+			netif_err(mdp, rx_err, ndev, "Receive Abort\n");
- 		}
- 	}
+ 	i40e_vsi_delete(vsi);
+ 	i40e_vsi_free_q_vectors(vsi);
++	if (vsi->netdev) {
++		free_netdev(vsi->netdev);
++		vsi->netdev = NULL;
++	}
+ 	i40e_vsi_clear_rings(vsi);
+ 	i40e_vsi_clear(vsi);
  
- 	if (intr_status & EESR_TDE) {
- 		/* Transmit Descriptor Empty int */
- 		ndev->stats.tx_fifo_errors++;
--		if (netif_msg_tx_err(mdp))
--			netdev_err(ndev, "Transmit Descriptor Empty\n");
-+		netif_err(mdp, tx_err, ndev, "Transmit Descriptor Empty\n");
- 	}
- 
- 	if (intr_status & EESR_TFE) {
- 		/* FIFO under flow */
- 		ndev->stats.tx_fifo_errors++;
--		if (netif_msg_tx_err(mdp))
--			netdev_err(ndev, "Transmit FIFO Under flow\n");
-+		netif_err(mdp, tx_err, ndev, "Transmit FIFO Under flow\n");
- 	}
- 
- 	if (intr_status & EESR_RDE) {
- 		/* Receive Descriptor Empty int */
- 		ndev->stats.rx_over_errors++;
--
--		if (netif_msg_rx_err(mdp))
--			netdev_err(ndev, "Receive Descriptor Empty\n");
-+		netif_err(mdp, rx_err, ndev, "Receive Descriptor Empty\n");
- 	}
- 
- 	if (intr_status & EESR_RFE) {
- 		/* Receive FIFO Overflow int */
- 		ndev->stats.rx_fifo_errors++;
--		if (netif_msg_rx_err(mdp))
--			netdev_err(ndev, "Receive FIFO Overflow\n");
-+		netif_err(mdp, rx_err, ndev, "Receive FIFO Overflow\n");
- 	}
- 
- 	if (!mdp->cd->no_ade && (intr_status & EESR_ADE)) {
- 		/* Address Error */
- 		ndev->stats.tx_fifo_errors++;
--		if (netif_msg_tx_err(mdp))
--			netdev_err(ndev, "Address Error\n");
-+		netif_err(mdp, tx_err, ndev, "Address Error\n");
- 	}
- 
- 	mask = EESR_TWB | EESR_TABT | EESR_ADE | EESR_TDE | EESR_TFE;
-@@ -2064,11 +2056,9 @@ static void sh_eth_tx_timeout(struct net
- 
- 	netif_stop_queue(ndev);
- 
--	if (netif_msg_timer(mdp)) {
--		netdev_err(ndev,
--			   "transmit timed out, status %8.8x, resetting...\n",
--			   (int)sh_eth_read(ndev, EESR));
--	}
-+	netif_err(mdp, timer, ndev,
-+		  "transmit timed out, status %8.8x, resetting...\n",
-+		  (int)sh_eth_read(ndev, EESR));
- 
- 	/* tx_errors count up */
- 	ndev->stats.tx_errors++;
-@@ -2103,8 +2093,7 @@ static int sh_eth_start_xmit(struct sk_b
- 	spin_lock_irqsave(&mdp->lock, flags);
- 	if ((mdp->cur_tx - mdp->dirty_tx) >= (mdp->num_tx_ring - 4)) {
- 		if (!sh_eth_txfree(ndev)) {
--			if (netif_msg_tx_queued(mdp))
--				netdev_warn(ndev, "TxFD exhausted.\n");
-+			netif_warn(mdp, tx_queued, ndev, "TxFD exhausted.\n");
- 			netif_stop_queue(ndev);
- 			spin_unlock_irqrestore(&mdp->lock, flags);
- 			return NETDEV_TX_BUSY;
+-- 
+1.8.3.1
