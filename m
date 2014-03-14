@@ -1,82 +1,101 @@
-From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v6 0/3] The huawei_cdc_ncm driver / E3276
- problem
-Date: Fri, 14 Mar 2014 10:37:34 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1403141036590.6461@gmail.com>
-References: <1383555049-24834-1-git-send-email-bjorn@mork.no> <20140313202557.GV3200@reaktio.net> <1394746907.15946.8.camel@dcbw.local> <20140313220812.GW3200@reaktio.net> <20140314075548.GX3200@reaktio.net> <87wqfxnppc.fsf@nemi.mork.no> <20140314084159.GA3200@reaktio.net>
- <87siqlnol8.fsf@nemi.mork.no> <20140314090525.GB3200@reaktio.net> <87ob19nndo.fsf@nemi.mork.no>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-683441087-389333343-1394789855=:6461"
-Cc: =?ISO-8859-15?Q?Pasi_K=E4rkk=E4inen?= <pasik-X3B1VOXEql0@public.gmane.org>,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87ob19nndo.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/16][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 14 Mar 2014 02:47:10 -0700
+Message-ID: <1394790446-31591-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:43772 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755543AbaCNJr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Mar 2014 05:47:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+This series contains updates to ixgbe, igb, i40e and i40evf.
 
----683441087-389333343-1394789855=:6461
-Content-Type: TEXT/PLAIN; charset=utf-8
-Content-Transfer-Encoding: 8BIT
+Emil provides two fixes for ixgbe which could have been sent to the
+net tree, but being this late in the -rc, I chose to go through net-next
+and have stable pick these up.  Both fixes resolve issues found when
+using netconsole, first prevents resets on ifup/ifdown when the interface
+is down and the second resolves a hand with busy poll.
 
-Yes, this is
-the
-solution, dfefinitively.
+I provide a code comment fix which David Miller noticed in the last
+series of patches I submitted.
 
+Shannon provides a patch to cleanup the NAPI structs when deleting the
+netdev.
 
-On Fri, 14 Mar 2014, Bjørn Mork wrote:
+Anjali provides several patches for i40e, first fixes a bug in the update
+filter logic which was causing a kernel panic.  Then provides a fix to
+rename an error bit to correctly indicate the error.  Adds a definition
+for a new state variable to keep track of features automatically disabled
+due to hardware resource limitations versus user enforced feature disabled.
+Anjali provides a patch to add code to handle when there is a filter
+programming error due to a full table, which also resolves a previous
+compile warning about an unused "*pf" variable introduced in the last i40e
+series patch submission.
 
-==Date: Fri, 14 Mar 2014 10:24:51
-==From: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-==To: Pasi Kärkkäinen <pasik-X3B1VOXEql0@public.gmane.org>
-==Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-==    linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-==    Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-==Subject: Re: [PATCH net-next v6 0/3] The huawei_cdc_ncm driver / E3276 problem
-==
-==Pasi Kärkkäinen <pasik-X3B1VOXEql0@public.gmane.org> writes:
-==
-==> # ifconfig wwp0s26u1u5i1
-==> wwp0s26u1u5i1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
-==>         inet 10.8.219.204  netmask 255.255.255.248  broadcast 10.8.219.207
-==>         inet6 fe80::e5b:8fff:fe27:9a64  prefixlen 64  scopeid 0x20<link>
-==>         ether 0c:5b:8f:27:9a:64  txqueuelen 1000  (Ethernet)
-==>         RX packets 0  bytes 0 (0.0 B)
-==>         RX errors 1493  dropped 0  overruns 0  frame 0
-==>
-==> Note the RX errors.. ? 
-==
-==
-==Yes, that is not expected and is quite possibly hiding the explanation.
-==
-==Could you do a usbmon dump to try to capture the contents of the USB
-==buffers we drop here?  See
-==https://www.kernel.org/doc/Documentation/usb/usbmon.txt
-==
-==Note that the text interface may truncate the buffers too early for the
-==result to be useful.  wireshark/thsark will for example allow you to
-==capture the whole buffer (when snooping on the "usbmonX" interface - not
-==the netdev!)
-==
-==We also have a few debug messages in the driver for different types of
-==errors we drop.  Turning on those might explain something (assuming you
-==have DYNAMIC_DEBUG enabled):
-==
-==  ethtool -s wwp0s26u1u5i1 msglvl rx_err on
-==
-==Note that these will be logged at "debug" level, so you need to turn on
-==logging/showing such messages as well.
-==
-==
-==
-==Bjørn
-==
----683441087-389333343-1394789855=:6461--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Jesse provides three i40e patches to cleanup strings to make more
+consistent and to align with other Intel drivers.
+
+Akeem cleans up a misleading function header comment for i40e.
+
+Mitch provides a fix for i40e/i40evf to use the correctly reported number
+of MSI-X vectors in the PF an VF.  Then provides a patch to use
+dma_set_mask_and_coherent() which was introduced in v3.13 and simplifies
+the DMA mapping code a bit.
+
+The following are changes since commit 177943260a6088bec51fc6c04643d84e43bef423:
+  6lowpan: reassembly: un-export local functions
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Akeem G Abodunrin (1):
+  i40e: Fix function comments
+
+Anjali Singhai Jain (6):
+  i40e: Fix a bug in the update logic for FDIR SB filter.
+  i40e/i40evf: Some flow director HW definition fixes
+  i40e: Define a new state variable to keep track of feature auto
+    disable
+  i40e: Add code to handle FD table full condition
+  i40e: Bug fix for FDIR replay logic
+  i40e: Let MDD events be handled by MDD handler
+
+Emil Tantilov (2):
+  ixgbe: add check for netif_carrier_ok in ixgbe_xmit_frame
+  ixgbe: fix spinlock recursion with netpoll and busy poll
+
+Jeff Kirsher (1):
+  igb: Fix code comment
+
+Jesse Brandeburg (3):
+  i40e: make string references to q be queue
+  i40e: cleanup strings
+  i40e: simplified init string
+
+Mitch Williams (2):
+  i40e/i40evf: Use correct number of VF vectors
+  i40e/i40evf: Use dma_set_mask_and_coherent
+
+Shannon Nelson (1):
+  i40e: delete netdev after deleting napi and vectors
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |  10 +-
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |  25 ++-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  37 +++-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 190 +++++++++++++++------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  60 ++++++-
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |   6 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   9 +-
+ drivers/net/ethernet/intel/i40evf/i40e_type.h      |   6 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  19 +--
+ drivers/net/ethernet/intel/igb/igb_main.c          |   2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h           |   3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  23 ++-
+ 12 files changed, 285 insertions(+), 105 deletions(-)
+
+-- 
+1.8.3.1
