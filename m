@@ -1,58 +1,70 @@
-From: Kevin Hao <haokexin@gmail.com>
-Subject: [PATCH net-next] e1000e: fix the build error when PM is disabled
-Date: Fri, 14 Mar 2014 14:57:13 +0800
-Message-ID: <1394780233-8066-1-git-send-email-haokexin@gmail.com>
-To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:63091 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755234AbaCNG5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 02:57:44 -0400
-Received: by mail-pd0-f179.google.com with SMTP id w10so2163301pde.10
-        for <netdev@vger.kernel.org>; Thu, 13 Mar 2014 23:57:44 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: [PATCH v2.55] datapath: Add basic MPLS support to kernel
+Date: Fri, 14 Mar 2014 16:12:39 +0900
+Message-ID: <1394781160-8331-1-git-send-email-horms@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-The commit 2800209994f8 (e1000e: Refactor PM flows) changed the
-SET_SYSTEM_SLEEP_PM_OPS to open-coded assignment, but forgot to
-protect them with CONFIG_PM_SLEEP. Then cause the following build
-error when PM is disabled:
-drivers/net/ethernet/intel/e1000e/netdev.c:7079:13:
-error: 'e1000e_pm_suspend' undeclared here (not in a function)
-  .suspend = e1000e_pm_suspend,
-             ^
-drivers/net/ethernet/intel/e1000e/netdev.c:7080:13:
-error: 'e1000e_pm_resume' undeclared here (not in a function)
-  .resume  = e1000e_pm_resume,
-             ^
-drivers/net/ethernet/intel/e1000e/netdev.c:7082:11:
-error: 'e1000e_pm_thaw' undeclared here (not in a function)
-  .thaw  = e1000e_pm_thaw,
-           ^
+Hi Pravin, Hi Jesse, Hi All,
 
-Signed-off-by: Kevin Hao <haokexin@gmail.com>
----
- drivers/net/ethernet/intel/e1000e/netdev.c | 2 ++
- 1 file changed, 2 insertions(+)
+I have updated this patch so that:
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 3f044e736de8..eafad410e59a 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -7076,12 +7076,14 @@ static DEFINE_PCI_DEVICE_TABLE(e1000_pci_tbl) = {
- MODULE_DEVICE_TABLE(pci, e1000_pci_tbl);
- 
- static const struct dev_pm_ops e1000_pm_ops = {
-+#ifdef CONFIG_PM_SLEEP
- 	.suspend	= e1000e_pm_suspend,
- 	.resume		= e1000e_pm_resume,
- 	.freeze		= e1000e_pm_freeze,
- 	.thaw		= e1000e_pm_thaw,
- 	.poweroff	= e1000e_pm_suspend,
- 	.restore	= e1000e_pm_resume,
-+#endif
- 	SET_RUNTIME_PM_OPS(e1000e_pm_runtime_suspend, e1000e_pm_runtime_resume,
- 			   e1000e_pm_runtime_idle)
- };
+* The datapath rejects push MPLS actions in the presence of VLAN tags.
+
+  I have done this by white-listing the following:
+  - ETH_P_IP (0x0800)
+  - ETH_P_ARP (0x0806)
+  - ETH_P_RARP (0x0835)
+  - ETH_P_IPV6 (0x86DD)
+
+  Previously it was done by blacklisting the following:
+  - ETH_P_8021Q (0x8100)
+  - ETH_P_8021AD (0x88A8)
+  - ETH_P_QINQ1 (0x0x9100)
+  - ETH_P_QINQ2 (0x0x9200)
+  - ETH_P_QINQ3 (0x0x9300)
+
+  Although the whitelist probably wants to be expanded
+  it seems to me to be a more conservative and safer
+  way to guard against unknown tag ordering.
+
+to aid review this patch is available in git at:
+https://github.com/horms/openvswitch devel/mpls-v2.55
+
+Simon Horman (1):
+  datapath: Add basic MPLS support to kernel
+
+ OPENFLOW-1.1+                                   |   4 -
+ datapath/Modules.mk                             |   1 +
+ datapath/actions.c                              | 119 +++++++++-
+ datapath/datapath.c                             |   4 +-
+ datapath/flow.c                                 |  29 +++
+ datapath/flow.h                                 |  17 +-
+ datapath/flow_netlink.c                         | 297 ++++++++++++++++++++++--
+ datapath/flow_netlink.h                         |   2 +-
+ datapath/linux/compat/gso.c                     |  70 +++++-
+ datapath/linux/compat/gso.h                     |  41 +++-
+ datapath/linux/compat/include/linux/netdevice.h |   6 +-
+ datapath/linux/compat/netdevice.c               |  10 +-
+ datapath/mpls.h                                 |  15 ++
+ include/linux/openvswitch.h                     |   7 +-
+ 14 files changed, 567 insertions(+), 55 deletions(-)
+ create mode 100644 datapath/mpls.h
+
 -- 
-1.8.5.3
+1.8.5.2
