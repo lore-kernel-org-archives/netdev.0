@@ -1,48 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next 02/10] e1000e: add timeout for TX HW time
- stamping work
-Date: Fri, 14 Mar 2014 16:20:31 -0700
-Message-ID: <1394839231.2167.96.camel@jtkirshe-mobl>
+Subject: Re: [PATCH net-next 09/10] i40e: never generate both software and
+ hardware timestamps
+Date: Fri, 14 Mar 2014 16:18:48 -0700
+Message-ID: <1394839128.2167.95.camel@jtkirshe-mobl>
 References: <1394818481-7652-1-git-send-email-kubakici@wp.pl>
-	 <1394818481-7652-3-git-send-email-kubakici@wp.pl>
+	 <1394818481-7652-10-git-send-email-kubakici@wp.pl>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-wFYr6M5V+yo+LN6MpTzb"
+	protocol="application/pgp-signature"; boundary="=-5pMibSgsjUKAdrCSLS+V"
 Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
 To: Jakub Kicinski <kubakici@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:36039 "EHLO mga09.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:45749 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754791AbaCNXUd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Mar 2014 19:20:33 -0400
-In-Reply-To: <1394818481-7652-3-git-send-email-kubakici@wp.pl>
+	id S1756556AbaCNXUl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Mar 2014 19:20:41 -0400
+In-Reply-To: <1394818481-7652-10-git-send-email-kubakici@wp.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-wFYr6M5V+yo+LN6MpTzb
+--=-5pMibSgsjUKAdrCSLS+V
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 On Fri, 2014-03-14 at 18:34 +0100, Jakub Kicinski wrote:
-> Hardware may fail to report time stamp e.g.:
->  - when hardware time stamping is not enabled
->  - when time stamp is requested shortly after ifup
+> skb_tx_timestamp() does not report software time stamp
+> if SKBTX_IN_PROGRESS is set. According to timestamping.txt
+> software time stamps are a fallback and should not be
+> generated if hardware time stamp is provided.
 >=20
-> Timeout time stamp reading work to prevent it from
-> scheduling itself indefinitely. Report timeout events
-> via system log and device stats.
+> Move call to skb_tx_timestamp() after setting
+> SKBTX_IN_PROGRESS.
 >=20
 > Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
 > ---
->  drivers/net/ethernet/intel/e1000e/e1000.h   | 2 ++
->  drivers/net/ethernet/intel/e1000e/ethtool.c | 1 +
->  drivers/net/ethernet/intel/e1000e/netdev.c  | 7 +++++++
->  3 files changed, 10 insertions(+)
+>  drivers/net/ethernet/intel/i40e/i40e_txrx.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 
 Thanks Jakub, I will add this patch to my queue.
 
---=-wFYr6M5V+yo+LN6MpTzb
+--=-5pMibSgsjUKAdrCSLS+V
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -50,19 +48,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIcBAABCgAGBQJTI46/AAoJEOVv75VaS+3OObAP/0i5iOuR00j3UGU5rn+fR0T8
-1HcLr2KVMkHANjzCS7vs8tf1XttxGRLCTz1prcMRiVhTZcMInXnhYkXPQDcwiiQa
-5tMNnqCdHo1246Jinj+x/bINMmdhD8MpjYdj/trGadCYZETTpq8TTN6YwxiP6Ymu
-sXCi24sIIoCHIwIZe87jIoJHh5ZhlAHVTOlI9ASDbpPRA1rhbQs6iFbzSRQ333mt
-MTviEREvBXoGIw4qaeNivtGmkS/5GRq6ZWCkEPY1FR365kiUUnL556YIHAzuvs4U
-788YA2RfAtPDzs2D+ytC+Znz5NEy38ufiB7Sb4t04tm4JZRgZEUajW9aY5XpAy4I
-zFXLVcPejNmLo3MbI+HIiDhISuMZE0O9r4MiFuwlUdSdt4b4CWjJiYpXoc5VrahB
-AJGQkUCHB/U+/brhB5Z3a4ErLzejd05zeQwr0bcj22a2DGRiiPppQIAdfMzZCXwi
-Jf2xznYlyMvd8/46qru+KZRV+TnrJO8qhW0sOXbjYKdWlarZ4YdR6wv0ol8vQLkQ
-v+kk+1+kztpt3/dyJL5B2GO/PE96p9gIPpiBz0Qz5sFOerIZaTxbu+jdMvlMxyOY
-ehxeAKFRDDbmIKNCRirR5dQMJZ0bpwbk37lEg1dyG93mhL18VXA7gPAOXcWjH4Ms
-MhmoD4Hh3kkiuhstdxM+
-=TwyG
+iQIcBAABCgAGBQJTI45YAAoJEOVv75VaS+3OUDIP/RZbsfE+yiSJ+Lu+hu9CzfLT
+r01v6UHdHWKCEbQ1NW1/yfSv24dC0LLiV5SS6oFflQK0HWsPwhh1oUbgGe6/s+mH
+ak13ArvhIBFs/IYDli6UgP1kYCrZroSjslRsj3gYBJhFQ+EugZ7yZc42taZMR5GH
+wL/8bO4Bw8chtmsmfjoK2fSv3UTV4CtqSYkA/Eg6D9wCjX6qWQSg1KJuwZnF8dzs
+bfHSipjDvhYV9PFjAeX+J8bbzDmtFrk0pEpZ2DmkGuiDNzLLt0FyFF2S4hYJ3a7U
+2wvdJe0TrLlEg+PPtPZx7U02HwM5w5++O+T3YAfGlbEg2g8S7sR7lTFw6yklRR50
+g1ycV4GBxhHHR8W7hYvdK/dIrs37DlfY/HHLzQo5dKm4Jl69gCXtwAKZM2X1lJ64
+FuebiTwArLacoUtTRn9IEnREFNxftf1vitCG/ajxAOl+XaVg2I1NZNUFsdVznfMN
+u9IjWaj6TO1uh0vmBmzsup3pTT4jAUoa7Cd4NiMkjAwdh/zdmCWTKqiU2JKOmO//
++rag15pa9OpTMGCMiNhMbQuDr8yIVhfSLrQRBBkdNu0Sjt09JT/mksB/TXzDAwm8
+jadPDF0kvySqwV3RsyJiYs3hx1sfn4DvKO+F1e2YLH+cZzxlUY8zv9viH5yZ4BVd
+WVs1d9tGkHpbUE8dJB4g
+=FEWS
 -----END PGP SIGNATURE-----
 
---=-wFYr6M5V+yo+LN6MpTzb--
+--=-5pMibSgsjUKAdrCSLS+V--
