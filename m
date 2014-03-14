@@ -1,95 +1,132 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: [Xen-devel] [PATCH V6 net-next 0/5] xen-net{back, front}: Multiple transmit and receive queues
-Date: Fri, 14 Mar 2014 17:21:23 +0100
-Message-ID: <405829732.20140314172123@eikelenboom.it>
-References: <1393847269-6981-1-git-send-email-andrew.bennieston@citrix.com> <13310465521.20140306175259@eikelenboom.it> <1394813175.6442.135.camel@kazak.uk.xensource.com>
+From: Toshiaki Makita <toshiaki.makita1@gmail.com>
+Subject: Re: [PATCH RFC 2/3] bridge: Prepare for 802.1ad vlan
+ filtering support
+Date: Sat, 15 Mar 2014 01:18:56 +0900
+Message-ID: <1394813936.1758.23.camel@localhost.localdomain>
+References: <1394439067-10477-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	<1394439067-10477-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	<532098D2.6050504@redhat.com>
+	<1394714017.4078.51.camel@ubuntu-vm-makita>
+	<5321B85B.1020203@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<paul.durrant@citrix.com>, <wei.liu2@citrix.com>,
-	<david.vrabel@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vserver.eikelenboom.it ([84.200.39.61]:41822 "EHLO
-	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754113AbaCNQVa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 12:21:30 -0400
-In-Reply-To: <1394813175.6442.135.camel@kazak.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Hemminger <stephen@networkplumber.org>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: vyasevic@redhat.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <5321B85B.1020203@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, 2014-03-13 at 09:53 -0400, Vlad Yasevich wrote:
+> On 03/13/2014 08:33 AM, Toshiaki Makita wrote:
+> > On Wed, 2014-03-12 at 13:26 -0400, Vlad Yasevich wrote:
+> >> On 03/10/2014 04:11 AM, Toshiaki Makita wrote:
+> >>> This enables a bridge to have vlan protocol informantion and allows vlan
+> >>> filtering code to take vlan protocols into account.
+> > ...
+> >>> @@ -173,16 +174,27 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+> >>>  		 * ingress frame is considered to belong to this vlan.
+> >>>  		 */
+> >>>  		*vid = pvid;
+> >>> -		if (likely(err))
+> >>> +		if (likely(err)) {
+> >>>  			/* Untagged Frame. */
+> >>> -			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
+> >>> -		else
+> >>> +			if (vlan_tx_tag_present(skb)) {
+> >>> +				/* skb->vlan_proto was different from br->vlan_proto */
+> >>> +				skb_push(skb, ETH_HLEN);
+> >>> +				skb = __vlan_put_tag(skb, skb->vlan_proto,
+> >>> +						     vlan_tx_tag_get(skb));
+> >>> +				if (unlikely(!skb))
+> >>> +					return false;
+> >>> +				skb_pull(skb, ETH_HLEN);
+> >>> +				skb_reset_mac_len(skb);
+> >>> +			}
+> >>> +			__vlan_hwaccel_put_tag(skb, proto, pvid);
+> >>
+> >> So this seems to be handling the case where we had a protocol mis-match.
+> >> My question is why are we hiding this case behind our inability to
+> >> fetch the vid from the packet.
+> >>
+> >> I think it might be clearer to make the protocol check explicit
+> >> (at least if we were to continue using the approach of defining
+> >>  the protocol per bridge).
+> > 
+> > I didn't intend to handle protocol mismatch, but handle the case where
+> > the vlan_tci we are about to use happens to be already used.
+> > In this function, it can occur only if the frame is originally tagged
+> > with another protocol.
+> > 
+> > However, indeed, we seem to need the check of skb->vlan_proto only at
+> > ingress.
+> > So it maybe makes sense to check the vid and the protocol separately.
+> > 
+> > I'm thinking of changing that code like this.
+> > 
+> > 	bool untagged;
+> > ...
+> > 	err = br_vlan_get_tag(skb, vid);
+> > 	if (!err) {
+> > 		if (skb->vlan_proto != proto) {
+> > 			...
+> > 			skb = __vlan_put_tag(...);
+> > 			...
+> > 			*vid = 0;
+> > 			untagged = true;
+> > 		} else {
+> > 			untagged = false;
+> > 		}
+> > 	} else {
+> > 		untagged = true;
+> > 	}
+> > 
+> > 	if (!*vid) {
+> > 		...
+> > 		if (likely(untagged)) {
+> > 			/* Untagged Frame. */
+> > 			...
+> > 		} else {
+> > 			/* Priority-tagged Frame.
+> > 			...
+> > 		}
+> > 	}
+> > 
+> >>
+> >> This code also has a side-effect that it would be permit 802.1ad packets
+> >> on an 802.1Q bridge and possibly forward such packets encapsulated yet
+> >> again.
+> > 
+> > Well, this is an interesting situation.
+> > But I have no reason to restrict it.
+> > Users can configure such an environment if they want.
+> 
+> This is almost like tunnel mode that is available on some switches.
+> Does it make sense to explicitly permit/restrict it?
 
-Friday, March 14, 2014, 5:06:15 PM, you wrote:
+I haven't found a description to prohibit a 802.1Q bridge from
+encapsulating S-tagged frames. So I'm permitting it.
+A C-VLAN component shouldn't recognize S-tag according to 802.1Q-2011
+5.5. Therefore, a C-VLAN component behaves regardless of existence of
+S-tag.
 
-> On Thu, 2014-03-06 at 17:52 +0100, Sander Eikelenboom wrote:
->> Hi Andrew,
->> 
->> Just tried your series but i ran into this lockdep warning:
+I think some switches support stacked 802.1Q tags (not using 802.1ad).
+This can't be realized by current implementation. It maybe needs an
+option to insert a new tag even if the received frame is already tagged.
 
-> In the guest (so netfront), correct?
+BTW, I happen to have noticed that an S-VLAN bridge uses different
+destination MAC address for STP (802.1Q-2011 8.13.5 and 13.2).
+I have to consider it and something similar to it (LACPDU, etc).
 
-Erhmm yes correct, sorry for not mentioning that.
-
->> 
->> [    0.932289]
->> [    0.932293] =============================================
->> [    0.932297] [ INFO: possible recursive locking detected ]
->> [    0.932302] 3.14.0-rc5-20140306-xennext-netnext-bennie+ #1 Not tainted
->> [    0.932306] ---------------------------------------------
->> [    0.932311] xenwatch/26 is trying to acquire lock:
->> [    0.932315]  (&(&queue->rx_lock)->rlock){+.....}, at: [<ffffffff817b30f4>] netback_changed+0xc84/0xea0
->> [    0.932328]
->> [    0.932328] but task is already holding lock:
->> [    0.932333]  (&(&queue->rx_lock)->rlock){+.....}, at: [<ffffffff817b30f4>] netback_changed+0xc84/0xea0
->> [    0.932343]
->> [    0.932343] other info that might help us debug this:
->> [    0.932348]  Possible unsafe locking scenario:
->> [    0.932348]
->> [    0.932353]        CPU0
->> [    0.932355]        ----
->> [    0.932358]   lock(&(&queue->rx_lock)->rlock);
->> [    0.932363]   lock(&(&queue->rx_lock)->rlock);
->> [    0.932367]
->> [    0.932367]  *** DEADLOCK ***
->> [    0.932367]
->> [    0.932372]  May be due to missing lock nesting notation
->> [    0.932372]
->> [    0.932378] 3 locks held by xenwatch/26:
->> [    0.935540]  #0:  (xenwatch_mutex){+.+.+.}, at: [<ffffffff81581d96>] xenwatch_thread+0x86/0x130
->> [    0.935540]  #1:  (&(&queue->rx_lock)->rlock){+.....}, at: [<ffffffff817b30f4>] netback_changed+0xc84/0xea0
->> [    0.935540]  #2:  (&(&queue->tx_lock)->rlock){......}, at: [<ffffffff817b3101>] netback_changed+0xc91/0xea0
->> [    0.935540]
->> [    0.935540] stack backtrace:
->> [    0.935540] CPU: 1 PID: 26 Comm: xenwatch Not tainted 3.14.0-rc5-20140306-xennext-netnext-bennie+ #1
->> [    0.935540]  ffffffff82766230 ffff88001eac3b98 ffffffff81b83684 ffff88001e97d870
->> [    0.935540]  ffffffff82766230 ffff88001eac3c68 ffffffff81115b7e 00000000000233a0
->> [    0.935540]  ffffffff00000003 ffffffff82766230 ffffffff82ca7ec0 5001f47aeae10000
->> [    0.935540] Call Trace:
->> [    0.935540]  [<ffffffff81b83684>] dump_stack+0x46/0x58
->> [    0.935540]  [<ffffffff81115b7e>] __lock_acquire+0x86e/0x2220
->> [    0.935540]  [<ffffffff811e40be>] ? kfree+0x1ee/0x200
->> [    0.935540]  [<ffffffff81117b9d>] lock_acquire+0xbd/0x150
->> [    0.935540]  [<ffffffff817b30f4>] ? netback_changed+0xc84/0xea0
->> [    0.935540]  [<ffffffff81b8c4fe>] ? mutex_unlock+0xe/0x10
->> [    0.935540]  [<ffffffff817b00f4>] ? xennet_release_tx_bufs+0x104/0x110
->> [    0.935540]  [<ffffffff81b8d7cf>] _raw_spin_lock_bh+0x3f/0x50
->> [    0.935540]  [<ffffffff817b30f4>] ? netback_changed+0xc84/0xea0
->> [    0.935540]  [<ffffffff817b30f4>] netback_changed+0xc84/0xea0
->> [    0.935540]  [<ffffffff815835f0>] xenbus_otherend_changed+0xb0/0xc0
->> [    0.935540]  [<ffffffff81581d10>] ? xs_watch+0x60/0x60
->> [    0.935540]  [<ffffffff815851d3>] backend_changed+0x13/0x20
->> [    0.935540]  [<ffffffff81581d55>] xenwatch_thread+0x45/0x130
->> [    0.935540]  [<ffffffff8110d590>] ? __init_waitqueue_head+0x60/0x60
->> [    0.935540]  [<ffffffff810ee394>] kthread+0xe4/0x100
->> [    0.935540]  [<ffffffff81b8ddb0>] ? _raw_spin_unlock_irq+0x30/0x50
->> [    0.935540]  [<ffffffff810ee2b0>] ? __init_kthread_worker+0x70/0x70
->> [    0.935540]  [<ffffffff81b8efbc>] ret_from_fork+0x7c/0xb0
->> [    0.935540]  [<ffffffff810ee2b0>] ? __init_kthread_worker+0x70/0x70
->> 
->> 
->> 
->> --
->> Sander
->> 
+Thanks,
+Toshiaki Makita
