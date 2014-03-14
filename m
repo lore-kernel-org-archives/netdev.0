@@ -1,46 +1,28 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net v2] vlan: Fix lockdep warning when vlan dev handle
- notification
-Date: Fri, 14 Mar 2014 09:43:15 +0800
-Message-ID: <53225EB3.3030605@huawei.com>
-References: <5321165A.1000208@huawei.com> <20140313.155230.2146893995359373637.davem@davemloft.net>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next v3 1/2] r8152: addRTL8152_EARLY_AGG_TIMEOUT_SUPER
+Date: Fri, 14 Mar 2014 10:37:21 +0800
+Message-ID: <A56A13416A724183888BB62CEFD2B817@realtek.com.tw>
+References: <1394712342-15778-1-Taiwan-albertk@realtek.com><1394712342-15778-2-Taiwan-albertk@realtek.com><063D6719AE5E284EB5DD2968C1650D6D0F6DCB6E@AcuExch.aculab.com> <20140313.132222.536931544768069240.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <ben@decadent.org.uk>, <john.r.fastabend@intel.com>,
-	<kaber@trash.net>, <netdev@vger.kernel.org>, <f.fainelli@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:17982 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752350AbaCNBoA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Mar 2014 21:44:00 -0400
-In-Reply-To: <20140313.155230.2146893995359373637.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <nic_swsd@realtek.com>,
+	<linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>
+To: 'David Miller' <davem@davemloft.net>, <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140313.132222.536931544768069240.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/3/14 3:52, David Miller wrote:
-> From: Ding Tianhong <dingtianhong@huawei.com>
-> Date: Thu, 13 Mar 2014 10:22:18 +0800
+ From: David Miller [mailto:davem@davemloft.net] 
+ Sent: Friday, March 14, 2014 1:22 AM
+[...]
+> And I fundamentally disagree with this being a Kconfig parameter.
 > 
->> v1->v2: Convert the vlan_netdev_addr_lock_key to an array of eight elements, which
->> 	could support to add 8 vlan id on a same vlan dev, I think it is enough for current
->> 	scene, because a netdev's name is limited to IFNAMSIZ which could not hold 8 vlan id,
->> 	and the vlan dev would not meet the same class key with its real dev.
->>
->> 	The new function vlan_dev_get_lockdep_subkey() will return the subkey and make the vlan
->> 	dev could get a suitable class key.
-> 
-> I still am not happy with this solution, unfortunately.  Although I do
-> appreciate your efforts.
-> 
-> I'm going to do some more research into this issue and try to give you
-> some more constructive, meaningful, feedback.
-> 
-> Thanks.
-> 
-> 
-Thanks for any constructive feedback.
+> Make it run-time calculated _or_ settable via ethtool.
 
-Regards
-Ding
+Excuse me. How should I make it run-time calculated without a
+Kconfig parameter? Should I use module_param? 
+
+Best Regards,
+Hayes
