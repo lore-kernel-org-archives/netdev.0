@@ -1,92 +1,61 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v10 net-next 1/3] filter: add Extended BPF interpreter and converter
-Date: Fri, 14 Mar 2014 08:37:27 -0700
-Message-ID: <CAMEtUuzqzAHf64DHBao3xKzHdhrp77JEZhe-_c5oC3Vr63QxNA@mail.gmail.com>
-References: <1394660614-4436-1-git-send-email-ast@plumgrid.com>
-	<1394660614-4436-2-git-send-email-ast@plumgrid.com>
-	<20140314125822.GA16457@localhost>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [RCU PATCH 06/14] net: sched: fw use RCU
+Date: Fri, 14 Mar 2014 08:38:11 -0700
+Message-ID: <20140314153810.GX21124@linux.vnet.ibm.com>
+References: <20140310170546.3011.82918.stgit@nitbit.x32>
+ <1394473279.3607.46.camel@edumazet-glaptop2.roam.corp.google.com>
+ <53208E3F.5090401@gmail.com>
+ <1394643673.21721.48.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140313202245.GK21124@linux.vnet.ibm.com>
+ <1394744203.21721.53.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140313211509.GP21124@linux.vnet.ibm.com>
+ <53229704.1040808@gmail.com>
+ <20140314132834.GS21124@linux.vnet.ibm.com>
+ <1394804798.21721.64.camel@edumazet-glaptop2.roam.corp.google.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Ingo Molnar <mingo@kernel.org>, Will Drewry <wad@chromium.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Jesse Gross <jesse@nicira.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Eric Dumazet <edumazet@google.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Pekka Enberg <penberg@iki.fi>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140314125822.GA16457@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e37.co.us.ibm.com ([32.97.110.158]:57740 "EHLO
+	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753644AbaCNPiR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 11:38:17 -0400
+Received: from /spool/local
+	by e37.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+	Fri, 14 Mar 2014 09:38:17 -0600
+Received: from b03cxnp07028.gho.boulder.ibm.com (b03cxnp07028.gho.boulder.ibm.com [9.17.130.15])
+	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id 106571FF003B
+	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 09:38:14 -0600 (MDT)
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by b03cxnp07028.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2EFbYEs11075996
+	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 16:37:34 +0100
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id s2EFflEh018110
+	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 09:41:47 -0600
+Content-Disposition: inline
+In-Reply-To: <1394804798.21721.64.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 14, 2014 at 5:58 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Wed, Mar 12, 2014 at 02:43:32PM -0700, Alexei Starovoitov wrote:
->> diff --git a/include/linux/filter.h b/include/linux/filter.h
->> index e568c8ef896b..6e6aab5e062b 100644
->> --- a/include/linux/filter.h
->> +++ b/include/linux/filter.h
->> @@ -25,20 +25,45 @@ struct sock;
->>  struct sk_filter
->>  {
->>       atomic_t                refcnt;
->> -     unsigned int            len;    /* Number of filter blocks */
->> +     /* len - number of insns in sock_filter program
->> +      * len_ext - number of insns in socket_filter_ext program
->> +      * jited - true if either original or extended program was JITed
->> +      * orig_prog - original sock_filter program if not NULL
->> +      */
->> +     unsigned int            len;
->> +     unsigned int            len_ext;
->> +     unsigned int            jited:1;
->
-> This is consuming 4 bytes just to store the jited bit. I think you can
-> scratch that bit from len, given the maximum filter length for bpf. I
-> think the the jited bit change that David suggested have to come in
-> first place as a separated patch in the series.
+On Fri, Mar 14, 2014 at 06:46:38AM -0700, Eric Dumazet wrote:
+> On Fri, 2014-03-14 at 06:28 -0700, Paul E. McKenney wrote:
+> 
+> > Now I just need to figure out why it -causes- a BUILD_BUG_ON for the
+> > cris and m68k architectures in Fengguang Wu's testing...
+> 
+> Right, they don't necessarily align pointers ;)
+> 
+> alignof(void *) ?
 
-It was reviewed so many times that I would prefer not to break it
-apart just to split it for single 'jited' bitfield, though I agree with taking
-one bit from len.
-I actually proposed it in 'bool vs bitfield' thread few days ago.
-I think it can be done as a separate commit after this one goes in.
+It complained about the size rather than the alignment, but it would
+certainly make sense to constrain the rcu_head structure's alignment,
+now that you mention it.  I will do that and see if it helps.  ;-)
 
->> +     struct sock_filter      *orig_prog;
->
-> If your new extended filtering is not used, this consumes 8 extra
-> bytes + len_ext (bytes) in x86_64. I think a more generic way to make
-> this is that you can move the original bpf filter and its length at
-> the bottom of this structure after insns to store something like:
->
-> struct sk_bpf_compat {
->         struct sock_filter      *prog;
->         unsigned int            len;
-> };
->
-> This would be only allocated when you filtering approach is used. For
-> that you'll need some enum in sk_filter to indicate the filtering
-> approach, but we'll save 8 bytes per filter in the end with regards to
-> this current patch.
+Thank you for the tip!
 
-this is also can be done as separate commit after this one.
-Though I don't like the idea, because access to 'prog' and 'len'
-becomes very complicated. In every place we need a helper
-function to calculate an offset to this 'sk_bpf_compat',
-then typecast that memory location, etc.
-Imo single pointer is much cleaner.
-
-Thanks
-Alexei
+							Thanx, Paul
