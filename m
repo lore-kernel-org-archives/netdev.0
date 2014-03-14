@@ -1,68 +1,90 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [net-next 01/16] ixgbe: add check for netif_carrier_ok in
- ixgbe_xmit_frame
-Date: Fri, 14 Mar 2014 20:19:38 +0000
-Message-ID: <87618083B2453E4A8714035B62D679924FF2B099@FMSMSX105.amr.corp.intel.com>
-References: <1394790446-31591-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1394790446-31591-2-git-send-email-jeffrey.t.kirsher@intel.com>
- <20140314.145735.289100032884651109.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"asharma@fb.com" <asharma@fb.com>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20140314.145735.289100032884651109.davem@davemloft.net>
-Content-Language: en-US
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next v2 0/8] ieee802154: fix endianness and header handling
+Date: Fri, 14 Mar 2014 21:23:56 +0100
+Message-ID: <1394828644-19898-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from selenium.quasiparticle.net ([188.40.96.248]:52603 "EHLO
+	quasiparticle.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754470AbaCNUYI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 16:24:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: David Miller [mailto:davem@davemloft.net]
->Sent: Friday, March 14, 2014 11:58 AM
->To: Kirsher, Jeffrey T
->Cc: Tantilov, Emil S; netdev@vger.kernel.org;
->gospo@redhat.com; sassmann@redhat.com; asharma@fb.com;
->stable@vger.kernel.org
->Subject: Re: [net-next 01/16] ixgbe: add check for
->netif_carrier_ok in ixgbe_xmit_frame
->
->From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->Date: Fri, 14 Mar 2014 02:47:11 -0700
->
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> index 851c413..8bea6ca 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> @@ -7121,6 +7121,11 @@ static netdev_tx_t
->__ixgbe_xmit_frame(struct sk_buff *skb,
->>  	struct ixgbe_adapter *adapter = netdev_priv(netdev);
->>  	struct ixgbe_ring *tx_ring;
->>
->> +	if (!netif_carrier_ok(netdev)) {
->> +		dev_kfree_skb_any(skb);
->> +		return NETDEV_TX_OK;
->> +	}
->> +
->
->I would much prefer that this check moves into netpoll's
->direct invocation of
->->ndo_start_xmit().
->
->Otherwise every driver will start to add this check and that
->kind of duplication doesn't make any sense at all.
+This patch set enforces network byte order on all internal operations and
+fields of the 802.15.4 stack and adds a general representation of 802.15.4
+headers with operations to create and parse those headers. This reduces code
+duplication in the current stack and also allows for upper layers to read
+headers of packets they have just received; it is also necessary for 802.15.4
+link layer security, which requires header mangling.
 
-That would work, but what if there are other callers of ndo_start_xmit that don't have this check? Handling this in the driver takes care of all instances.
+---
 
-Specifically this issue was seen with netconsole, but we also had reports of the same issue where I'm not sure netconsole was the culprit (I just don't have enough info about the setup).
+Changes since v1:
+ * fixed lowpan packet rx after reassembly. Control blocks were used to
+   retrieve source/dest addresses, but the CB is clobbered by reassembly.
+   Instead, parse the header anew in lowpan.
 
-If the netif_carrier_ok() check in ixgbe_start_xmit() is not acceptable we'll still have to plug a possible issue in ixgbe_watchdog_flush_tx() where a call to ndo_start_xmit may fill the rings after the HW reset and cause the driver to go into a reset loop.
+---
 
-Thanks,
-Emil
+What this patch set does *not* do is change endianness of the netlink/socket
+API. I would very much wish to change that as well. My research has uncovered
+two projects that use the stack, both of which extensively copy kernel headers
+that were never part of uapi and were also never installed as userspace headers
+before the uapi split. One of those projects is lowpan-tools[1], which is
+easily changed, and IBR-DTN[2], which does not seem to make much use of the
+stack either. In fact, the near uselessness of 6lowpan until a few weeks ago
+and a number of minor problems with datagram sockets suggests that nobody has
+ever used the stack for more than cursory experiments. Moreover, most projects
+on the internet that run on Linux and make some use of 802.15.4 radios even
+include their own drivers and often implement their own version of the protocol
+stack.
+
+The fact that the only users I could find copy private headers to get their
+definitions would have me assume that it's okay to change those headers and the
+definitions, since the were never actually exposed. Is this correct, does it
+allow us to change the netlink/socket API that already exists?
+
+[1] http://sourceforge.net/apps/trac/linux-zigbee/wiki
+[2] http://trac.ibr.cs.tu-bs.de/project-cm-2012-ibrdtn/
+
+---
+
+
+Phoebe Buckheister (8):
+      ieee802154: rename struct ieee802154_addr to *_sa
+      ieee802154: add address struct with proper endiannes and some operations
+      ieee802154: enforce consistent endianness in the 802.15.4 stack
+      ieee802154: add header structs with endiannes and operations
+      mac802154: use header operations to create/parse headers
+      ieee802154: use ieee802154_addr instead of *_sa variants
+      6lowpan: move lowpan frag_info out of 802.15.4 headers
+      ieee802154: add proper length checks to header creations
+
+
+ drivers/net/ieee802154/at86rf230.c |  25 +--
+ drivers/net/ieee802154/fakehard.c  |  22 +--
+ drivers/net/ieee802154/mrf24j40.c  |  17 +-
+ include/net/af_ieee802154.h        |   4 +-
+ include/net/ieee802154.h           |  28 ++-
+ include/net/ieee802154_netdev.h    | 181 ++++++++++++++++--
+ include/net/mac802154.h            |   6 +-
+ include/net/nl802154.h             |   6 +-
+ net/ieee802154/6lowpan_rtnl.c      |  58 +++---
+ net/ieee802154/Makefile            |   5 +-
+ net/ieee802154/af802154.h          |   5 +-
+ net/ieee802154/af_ieee802154.c     |  20 +-
+ net/ieee802154/dgram.c             |  56 +++---
+ net/ieee802154/header_ops.c        | 287 ++++++++++++++++++++++++++++
+ net/ieee802154/nl-mac.c            | 102 ++++++----
+ net/ieee802154/raw.c               |  14 +-
+ net/ieee802154/reassembly.c        |  40 ++--
+ net/ieee802154/reassembly.h        |  31 +--
+ net/mac802154/Makefile             |   2 +
+ net/mac802154/ieee802154_dev.c     |   5 +-
+ net/mac802154/mac802154.h          |   9 +-
+ net/mac802154/mac_cmd.c            |   2 +-
+ net/mac802154/mib.c                |  22 ++-
+ net/mac802154/wpan.c               | 376 ++++++++++++-------------------------
+ 24 files changed, 841 insertions(+), 482 deletions(-)
