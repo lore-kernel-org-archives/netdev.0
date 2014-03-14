@@ -1,49 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V5 0/9] Altera Triple Speed Ethernet (TSE)
- Driver
-Date: Fri, 14 Mar 2014 15:15:24 -0400 (EDT)
-Message-ID: <20140314.151524.753884730788957176.davem@davemloft.net>
-References: <1394805887-22030-1-git-send-email-vbridgers2013@gmail.com>
-	<20140314.150720.734350362080616095.davem@davemloft.net>
+From: Jakub =?UTF-8?B?S2ljacWEc2tp?= <moorray3@wp.pl>
+Subject: Re: [PATCH net-next 02/10] e1000e: add timeout for TX HW time
+ stamping work
+Date: Fri, 14 Mar 2014 20:16:45 +0100
+Message-ID: <20140314201645.6c1b2c0f@north>
+References: <1394818481-7652-1-git-send-email-kubakici@wp.pl>
+	<1394818481-7652-3-git-send-email-kubakici@wp.pl>
+	<1394819317.3253.3.camel@joe-AO722>
+	<20140314190242.4bba2b42@north>
+	<1394822655.3253.7.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, rob@landley.net
-To: vbridgers2013@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38861 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754113AbaCNTP0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 15:15:26 -0400
-In-Reply-To: <20140314.150720.734350362080616095.davem@davemloft.net>
+Received: from mx4.wp.pl ([212.77.101.12]:56112 "EHLO mx4.wp.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755105AbaCNTQs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 15:16:48 -0400
+In-Reply-To: <1394822655.3253.7.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogRnJpLCAxNCBN
-YXIgMjAxNCAxNTowNzoyMCAtMDQwMCAoRURUKQ0KDQo+IEZyb206IFZpbmNlIEJyaWRnZXJzIDx2
-YnJpZGdlcnMyMDEzQGdtYWlsLmNvbT4NCj4gRGF0ZTogRnJpLCAxNCBNYXIgMjAxNCAwOTowNDoz
-OCAtMDUwMA0KPiANCj4+IFRoaXMgaXMgdGhlIHZlcnNpb24gNSBzdWJtaXNzaW9uIGZvciB0aGUg
-QWx0ZXJhIFRyaXBsZSBTcGVlZCBFdGhlcm5ldCAoVFNFKQ0KPj4gZHJpdmVyLiBBbGwgY29tbWVu
-dHMgcmVjZWl2ZWQgZHVyaW5nIHRoZSB2ZXJzaW9uIDIsIDMsIGFuZCA0IHN1Ym1pc3Npb25zIGhh
-dmUgDQo+PiBiZWVuIGFjY2VwdGVkLiBQbGVhc2UgZmluZCB0aGUgY2hhbmdlIGxvZyBhbmQgYSBk
-ZXNjcmlwdGlvbiBvZiB0aGUgc3VibWlzc2lvbg0KPj4gYmVsb3cuIA0KPiANCj4gU2VyaWVzIGFw
-cGxpZWQgdG8gbmV0LW5leHQsIHRoYW5rcy4NCg0KQWN0dWFsbHksIEkgaGFkIHRvIHJldmVydCwg
-eW91ciBkcml2ZXIgYWRkcyBuZXcgd2FybmluZ3MgdG8gdGhlIGJ1aWxkOg0KDQpkcml2ZXJzL25l
-dC9ldGhlcm5ldC9hbHRlcmEvYWx0ZXJhX3RzZV9tYWluLmM6IEluIGZ1bmN0aW9uIKFhbHRlcmFf
-dHNlX3Byb2JlojoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2FsdGVyYS9hbHRlcmFfdHNlX21haW4u
-YzoxMjM4OjIzOiB3YXJuaW5nOiBjYXN0IHRvIHBvaW50ZXIgZnJvbSBpbnRlZ2VyIG9mIGRpZmZl
-cmVudCBzaXplIFstV2ludC10by1wb2ludGVyLWNhc3RdDQogICBwcml2LT50eF9kbWFfZGVzYyA9
-ICh2b2lkICopZGVzY21hcDsNCiAgICAgICAgICAgICAgICAgICAgICAgXg0KZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvYWx0ZXJhL2FsdGVyYV90c2VfbWFpbi5jOjEyNDI6MjM6IHdhcm5pbmc6IGNhc3Qg
-dG8gcG9pbnRlciBmcm9tIGludGVnZXIgb2YgZGlmZmVyZW50IHNpemUgWy1XaW50LXRvLXBvaW50
-ZXItY2FzdF0NCiAgIHByaXYtPnJ4X2RtYV9kZXNjID0gKHZvaWQgKikoZGVzY21hcCtwcml2LT50
-eGRlc2NtZW0pOw0KICAgICAgICAgICAgICAgICAgICAgICBeDQoNCkEgcG9pbnRlciBjYW4gYmUg
-bGFyZ2VyIHRoYW4gYW4gInVuc2lnbmVkIGludCIsIHlvdSB0aGVyZWZvcmUgY2Fubm90DQpjYXN0
-IGl0IHRvIGEgcG9pbnRlci4NCg0KSW4gZmFjdCB0aGlzIGNvZGUgcGF0aCBoYXMgYSBsb3Qgb2Yg
-cHJvYmxlbXMsIHdlIHBhc3MgYSBwb2ludGVyIHRvIGFuIHVuc2lnbmVkIGludA0KYXMgYSAidm9p
-ZCBfX2lvbWVtICoiIHRvIHJlcXVlc3RfYW5kX21hcCgpLiAgSXQncyBub3QsIGRvbid0IHByZXRl
-bmQgdGhhdCBpdCBpcywNCmFuZCBkb24ndCB1c2UgY2FzdHMgdG8gdHJ5IGFuZCBtYWtlIHRoZSBj
-b21waWxlciBhbHNvIG5vdCBzZWUgdGhlIHByb2JsZW0uDQo=
+On Fri, 14 Mar 2014 11:44:15 -0700, Joe Perches wrote:
+> On Fri, 2014-03-14 at 19:02 +0100, Jakub Kici=C5=84ski wrote:
+> > On Fri, 14 Mar 2014 10:48:37 -0700, Joe Perches wrote:
+> > > On Fri, 2014-03-14 at 18:34 +0100, Jakub Kicinski wrote:
+> > > > Hardware may fail to report time stamp e.g.:
+> > > >  - when hardware time stamping is not enabled
+> > > >  - when time stamp is requested shortly after ifup
+> > >=20
+> > > trivia:
+> > >=20
+> > > > diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drive=
+rs/net/ethernet/intel/e1000e/netdev.c
+> > > []
+> > > > @@ -1155,6 +1155,12 @@ static void e1000e_tx_hwtstamp_work(stru=
+ct work_struct *work)
+> > > >  		skb_tstamp_tx(adapter->tx_hwtstamp_skb, &shhwtstamps);
+> > > >  		dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
+> > > >  		adapter->tx_hwtstamp_skb =3D NULL;
+> > > > +	} else if (time_after(jiffies, adapter->tx_hwtstamp_start
+> > > > +			      + adapter->tx_timeout_factor * HZ)) {
+> > > > +		dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
+> > > > +		adapter->tx_hwtstamp_skb =3D NULL;
+> > > > +		adapter->tx_hwtstamp_timeouts++;
+> > > > +		e_warn("clearing Tx timestamp hang");
+> > >=20
+> > > Missing \n termination
+> >=20
+> > I copied that line from ixgbe and assumed that the magic macro adds
+> > termination...
+> >=20
+> > I see that igb and i40e also lack the \n on similar messages.
+>=20
+> There's a bunch of them.
+>=20
+> >  Can I fix
+> > them all in a single follow-up patch?
+>=20
+> There are also a bunch of _dbg messages that lack that
+> \n and those seem to be function tracing uses that should
+> just be deleted.
+
+Good point!  I'll take care of them too, thanks!
+
+	-- kuba
