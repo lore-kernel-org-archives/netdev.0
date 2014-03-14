@@ -1,8 +1,8 @@
 From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Subject: [PATCH net-next 2/8] ieee802154: add address
-	struct with proper endiannes and some operations
-Date: Fri, 14 Mar 2014 16:23:27 +0100
-Message-ID: <1394810613-5657-3-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next 8/8] ieee802154: add proper
+	length checks to header creations
+Date: Fri, 14 Mar 2014 16:23:33 +0100
+Message-ID: <1394810613-5657-9-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 References: <1394810613-5657-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,100 +21,59 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add a replacement ieee802154_addr struct with proper endianness on
-fields. Short address fields are stored as __le16 as on the network,
-extended (EUI64) addresses are __le64 as opposed to the u8[8] format
-used previously. This disconnect with the netdev address, which is
-stored as big-endian u8[8], is intentional.
+Have mac802154 header_ops.create fail with -EMSGSIZE if the length
+passed will be too large to fit a frame. Since 6lowpan will ensure that
+no packet payload will be too large, pass a length of 0 there. 802.15.4
+dgram sockets will also return -EMSGSIZE on payloads larger than the
+device MTU instead of -EINVAL.
 
 Signed-off-by: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
 ---
- include/net/ieee802154_netdev.h |   72 +++++++++++++++++++++++++++++++++++++++
- 1 file changed, 72 insertions(+)
+ net/ieee802154/6lowpan_rtnl.c |    2 +-
+ net/ieee802154/dgram.c        |    2 +-
+ net/mac802154/wpan.c          |    3 +++
+ 3 files changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/ieee802154_netdev.h b/include/net/ieee802154_netdev.h
-index 53937cd..86d5d50 100644
---- a/include/net/ieee802154_netdev.h
-+++ b/include/net/ieee802154_netdev.h
-@@ -29,6 +29,78 @@
+diff --git a/net/ieee802154/6lowpan_rtnl.c b/net/ieee802154/6lowpan_rtnl.c
+index 26d4c4c..a7bc65d 100644
+--- a/net/ieee802154/6lowpan_rtnl.c
++++ b/net/ieee802154/6lowpan_rtnl.c
+@@ -141,7 +141,7 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 	}
  
- #include <net/af_ieee802154.h>
+ 	return dev_hard_header(skb, lowpan_dev_info(dev)->real_dev,
+-			type, (void *)&da, (void *)&sa, skb->len);
++			type, (void *)&da, (void *)&sa, 0);
+ }
  
-+struct ieee802154_addr {
-+	u8 mode;
-+	__le16 pan_id;
-+	union {
-+		__le16 short_addr;
-+		__le64 extended_addr;
-+	};
-+};
+ static int lowpan_give_skb_to_devices(struct sk_buff *skb,
+diff --git a/net/ieee802154/dgram.c b/net/ieee802154/dgram.c
+index 55f2dc4..4c47154 100644
+--- a/net/ieee802154/dgram.c
++++ b/net/ieee802154/dgram.c
+@@ -233,7 +233,7 @@ static int dgram_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 
+ 	if (size > mtu) {
+ 		pr_debug("size = %Zu, mtu = %u\n", size, mtu);
+-		err = -EINVAL;
++		err = -EMSGSIZE;
+ 		goto out_dev;
+ 	}
+ 
+diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
+index b614266..80cbee1 100644
+--- a/net/mac802154/wpan.c
++++ b/net/mac802154/wpan.c
+@@ -150,6 +150,9 @@ static int mac802154_header_create(struct sk_buff *skb,
+ 	skb_reset_mac_header(skb);
+ 	skb->mac_len = hlen;
+ 
++	if (hlen + len + 2 > dev->mtu)
++		return -EMSGSIZE;
 +
-+static inline bool ieee802154_addr_equal(const struct ieee802154_addr *a1,
-+					 const struct ieee802154_addr *a2)
-+{
-+	if (a1->pan_id != a2->pan_id || a1->mode != a2->mode)
-+		return false;
-+
-+	if ((a1->mode == IEEE802154_ADDR_LONG &&
-+	     a1->extended_addr != a2->extended_addr) ||
-+	    (a1->mode == IEEE802154_ADDR_SHORT &&
-+	     a1->short_addr != a2->short_addr))
-+		return false;
-+
-+	return true;
-+}
-+
-+static inline __le64 ieee802154_devaddr_from_raw(const void *raw)
-+{
-+	u64 temp;
-+
-+	memcpy(&temp, raw, IEEE802154_ADDR_LEN);
-+	return (__force __le64)swab64(temp);
-+}
-+
-+static inline void ieee802154_devaddr_to_raw(void *raw, __le64 addr)
-+{
-+	u64 temp = swab64((__force u64)addr);
-+
-+	memcpy(raw, &temp, IEEE802154_ADDR_LEN);
-+}
-+
-+static inline void ieee802154_addr_from_sa(struct ieee802154_addr *a,
-+					   const struct ieee802154_addr_sa *sa)
-+{
-+	a->mode = sa->addr_type;
-+	a->pan_id = cpu_to_le16(sa->pan_id);
-+
-+	switch (a->mode) {
-+	case IEEE802154_ADDR_SHORT:
-+		a->short_addr = cpu_to_le16(sa->short_addr);
-+		break;
-+	case IEEE802154_ADDR_LONG:
-+		a->extended_addr = ieee802154_devaddr_from_raw(sa->hwaddr);
-+		break;
-+	}
-+}
-+
-+static inline void ieee802154_addr_to_sa(struct ieee802154_addr_sa *sa,
-+					 const struct ieee802154_addr *a)
-+{
-+	sa->addr_type = a->mode;
-+	sa->pan_id = le16_to_cpu(a->pan_id);
-+
-+	switch (a->mode) {
-+	case IEEE802154_ADDR_SHORT:
-+		sa->short_addr = le16_to_cpu(a->short_addr);
-+		break;
-+	case IEEE802154_ADDR_LONG:
-+		ieee802154_devaddr_to_raw(sa->hwaddr, a->extended_addr);
-+		break;
-+	}
-+}
-+
-+
- struct ieee802154_frag_info {
- 	__be16 d_tag;
- 	u16 d_size;
+ 	return hlen;
+ }
+ 
 -- 
 1.7.9.5
 
