@@ -1,42 +1,88 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [RFC PATCH] MAINTAINERS: Add linux.nics@intel.com to INTEL
- ETHERNET DRIVERS
-Date: Fri, 14 Mar 2014 16:09:45 -0700
-Message-ID: <1394838585.2167.86.camel@jtkirshe-mobl>
-References: <1394730705.3915.82.camel@joe-AO722>
-	 <20140314.154301.2284386287213663606.davem@davemloft.net>
+Subject: Re: [PATCH net-next ] i40evf: Rename i40e_ptype_lookup
+ i40evf_ptype_lookup
+Date: Fri, 14 Mar 2014 16:13:13 -0700
+Message-ID: <1394838793.2167.88.camel@jtkirshe-mobl>
+References: <87k3bw2xjp.fsf@xmission.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ooUblQEfFfYrJeNsrc70"
-Cc: joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140314.154301.2284386287213663606.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	protocol="application/pgp-signature"; boundary="=-BpW/RJXk3c4+Qf57O8Nq"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
+	Kavindya Deegala <kavindya.s.deegala@intel.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:34855 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754470AbaCNXNP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Mar 2014 19:13:15 -0400
+In-Reply-To: <87k3bw2xjp.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---=-ooUblQEfFfYrJeNsrc70
+--=-BpW/RJXk3c4+Qf57O8Nq
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2014-03-14 at 15:43 -0400, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Thu, 13 Mar 2014 10:11:45 -0700
+On Fri, 2014-03-14 at 16:03 -0700, Eric W. Biederman wrote:
 >=20
-> > If this is added to the driver files, then maybe it's
-> > appropriate to add to MAINTAINERS as well.
-> >=20
-> > Signed-off-by: Joe Perches <joe@perches.com>
+> When compiling the i40e and the i40evf driver into the same kernel I
+> get:
+> LD      drivers/net/ethernet/intel/built-in.o
+> drivers/net/ethernet/intel/i40evf/built-in.o:(.data+0x300): multiple
+> definition of `i40e_ptype_lookup'
+> drivers/net/ethernet/intel/i40e/built-in.o:(.data+0x780): first
+> defined here
+> make[3]: *** [drivers/net/ethernet/intel/built-in.o] Error 1
+> make[2]: *** [drivers/net/ethernet/intel] Error 2
+> make[1]: *** [drivers/net/ethernet/] Error 2
+> make: *** [sub-make] Error 2
 >=20
-> Intel folks, this look ok to you?
+> Fix this by renaming the i40evf version of this structure from
+> i40e_ptype_lookup to i40evf_ptype_lookup.
+>=20
+> This build failure was introduced in:
+> commit 206812b5fccb808d1194344eaa942f68f59b2630
+> Author: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Date:   Wed Feb 12 01:45:33 2014 +0000
+>=20
+>     i40e/i40evf: i40e implementation for skb_set_hash
+>=20
+>     Original comment from Tom Herbert <therbert@google.com>
+>=20
+>        Drivers should call skb_set_hash to set the hash and its type
+>        in an skbuff.
+>=20
+>     This patch builds upon Tom's original implementation and adds
+>     the L4 type return when we know it is an L4 hash.
+>     This requires use of the ptype decoder ring, so enable it.
+>=20
+>     Change-ID: I2f9fa86d1a6add58cff13386f7f4238b1abcc468
+>     CC: Tom Herbert <therbert@google.com>
+>     Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>     Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+>     Acked-by: Mitch Williams <mitch.a.williams@intel.com>
+>     Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+>     Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+>     Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>=20
+> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Cc: Catherine Sullivan <catherine.sullivan@intel.com>
+> Cc: Kavindya Deegala <kavindya.s.deegala@intel.com>
+> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> ---
+>  drivers/net/ethernet/intel/i40evf/i40e_common.c    |    8 ++++----
+>  drivers/net/ethernet/intel/i40evf/i40e_prototype.h |    4 ++--
+>  2 files changed, 6 insertions(+), 6 deletions(-)
 
-Yeah, it is fine.  Sorry, I overlooked this because of the RFC.
+Thanks Eric, I already have a patch in the queue that was to resolve
+this which was going to be pushed after this last series I just sent
+out.
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
---=-ooUblQEfFfYrJeNsrc70
+--=-BpW/RJXk3c4+Qf57O8Nq
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -44,19 +90,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIcBAABCgAGBQJTI4w5AAoJEOVv75VaS+3OAXoP+QEbxRgWiNMkNGU05jFGpSOy
-Eg9rutWZyY/BWpzk90DRmp7B9OZnUuOGtwdYZrTsUyXeb3UoVNEGpCPV8kcpmKFC
-9yhzTeXZgEj3KOuM7DIrztQL16Th14r9i5qVYwTl06OjCmU8bfOKUokD0gS+Jz2C
-M/tb0N8QWPF2gRRv35SJ86s/+HYgmxqzamNZ5oxG9Ah6szSp9WmAbtpSfc+t+TIa
-B4cJ/TmyxTRzS4u2/PddiDlThNDL6/d13DyXqMkIOO1EPv+1Lpm6DPER8huPlPR9
-Bmy85TjkztwgyRRWA3U0d+eYtxqSUbvLSfvYsjwJflNgFcVcq87XTfPloDw1UI89
-l2ZDllB9/kND0bVJuKGuNm0qLXfdtn10XtjSe9PToUPOomolteqs7dL9rD/YKX/f
-yL1Xu1Jk0U/pGgH7C9hreHCcwCD9DbDii0hGOjVZuvkF2qjcHJgrX0K23i1jPdPB
-PAMopC4OKeXwqpHEgvdwRH4wqcaYAfwm8TyqsaT2xbviuhsJSqafT8fKci8haj6Y
-eI42qP0NAF+OkFiK94QD1sPPkRHY5dUWifBp2VuOfvzfD1IGe4Ik0VBm0Gbh1VXx
-PqkufpXmKrQPpNzUAqaS/aI9KVb7mfk2+ru7rr8/1ACDxAUdDd5y5qQSBD+O2uUL
-3Zaa/pD2OQzEOYiV05lf
-=r0N5
+iQIcBAABCgAGBQJTI40JAAoJEOVv75VaS+3OPngQAIuqCd9lWOhpiR0y+aCFT/4Q
+LxUeNgW69ynYc0Zr8Fj3M9vlel7C9USZpkrMcsDLUMKzOjFaLAduB4r1TTmDAW4c
+t0m7zsina4YdlIyXH06hRy75Auqg5TVXwn9uKKYmbPXbDh3p3Gh8ZO4c4sOMQE/W
+UzgV8K1cbvDC0RyVuUMMLzktbQ+Z9fKIRtLwUyF7Q4RhV5Ezz0qx8ZvwwuyEzBSd
+4gcv9My/ZB0Zzzu/0mgsb083X4PB7Vc/KLjyIyA/v+Rq5t0woh++/1ItILNENNlG
+2BMgFYfnSP7bQvOHk+HUPt1Dg/OdW6MBqpgJ2B8ix0vBBtaGSPmviMCruednbphJ
+yYXvObhZFPj+wIknQdr1vFoy0wQNmXOSreK0sIANadDXxM+iC2tLY+ByoC0Oe+Gu
+c48fLpmi5fp8El1HAFHn7RI3xcTwwIBPTA99q+CFss75x4CVKSB761FsAD05yRdY
+lwvThJT+g+xfoRymPLhPp6TmEGvu7OnvYSyRr2tXVQ5Sb3aa3mF5mdT4PJO6SMXX
+LOFxo6u5niEoWsWePddP+0gcoqQPib6HL9jNynCxL2DRMQnpNlaHwBsdoQ3vSUuN
+wt/yOaX7FBF/JOvoIqggHxOufj2e3jiXv831jgUQEuvD4srDjrVgC1x7hcYRgIja
++LSnwlnNlM9ymYwprT1p
+=u3WI
 -----END PGP SIGNATURE-----
 
---=-ooUblQEfFfYrJeNsrc70--
+--=-BpW/RJXk3c4+Qf57O8Nq--
