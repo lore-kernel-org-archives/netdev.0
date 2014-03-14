@@ -1,39 +1,145 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RCU PATCH 06/14] net: sched: fw use RCU
-Date: Fri, 14 Mar 2014 06:46:38 -0700
-Message-ID: <1394804798.21721.64.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140310170008.3011.73599.stgit@nitbit.x32>
-	 <20140310170546.3011.82918.stgit@nitbit.x32>
-	 <1394473279.3607.46.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <53208E3F.5090401@gmail.com>
-	 <1394643673.21721.48.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140313202245.GK21124@linux.vnet.ibm.com>
-	 <1394744203.21721.53.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140313211509.GP21124@linux.vnet.ibm.com> <53229704.1040808@gmail.com>
-	 <20140314132834.GS21124@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: paulmck@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:54918 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754114AbaCNNqi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 09:46:38 -0400
-Received: by mail-pb0-f49.google.com with SMTP id jt11so2603440pbb.8
-        for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 06:46:37 -0700 (PDT)
-In-Reply-To: <20140314132834.GS21124@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: [PATCH net-next V5 0/9] Altera Triple Speed Ethernet (TSE) Driver
+Date: Fri, 14 Mar 2014 09:04:38 -0500
+Message-ID: <1394805887-22030-1-git-send-email-vbridgers2013@gmail.com>
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	rob@landley.net, vbridgers2013@gmail.com
+To: devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-03-14 at 06:28 -0700, Paul E. McKenney wrote:
+This is the version 5 submission for the Altera Triple Speed Ethernet (TSE)
+driver. All comments received during the version 2, 3, and 4 submissions have 
+been accepted. Please find the change log and a description of the submission
+below. 
 
-> Now I just need to figure out why it -causes- a BUILD_BUG_ON for the
-> cris and m68k architectures in Fengguang Wu's testing...
+If you find the submission acceptable, please consider this patch set for 
+inclusion into the Linux kernel. 
 
-Right, they don't necessarily align pointers ;)
+Thank you,
 
-alignof(void *) ?
+Vince
+
+V5: Address comments from V4 review
+    - Add descriptions of statistics to driver documentation. The statstics
+      supported by the driver/controller map to IEEE and RFC statistics, and
+      the names and mappings are described in the user documentation. 
+    - Change "unsigned int" to u32 in device structure definitions
+    - Change used of netdev_warn to netif_warn in altera_sgdma.c
+    - Change stat name rx_fifo_drops to ether_drops to match the event
+      actually counted by the hardware.
+
+V4: Address comments from V3 review
+    - Change statistics names in ethtool module to follow common use in 
+      other ethernet drivers.
+    - remove an unnecessary case in ethtool module
+    - change logging to use netdev_* where possible instead of dev_*
+    - remove logging for OOM errors since those are already logged
+
+V3: Address comments from V2 review
+    - Reorder patch submission so that net/ethernet Makefile and Kconfig
+      are committed last, thus not breaking bisect
+    - Use of_get_mac_address instead of of_get_property
+    - Change supplemental and hash configuration bindings to boolean/empty,
+      and more meaningful names
+    - Add check for failure from calls to of_phy_connect and 
+      connect_local_phy
+    - Correct code to find mdio child node
+    - Update bindings document 
+    - Remove cast to u64 when not necessary
+    - add use of const for statistics strings
+
+V2: Address comments from initial RFC review.
+    - The driver files were broken up by major sections of functionality.
+      These include MSGDMA, SGDMA, Misc, and Main. 
+    - Add patch for MAINTAINERS file, add the maintainer for this submission
+    - Use 32-bit lower/upper physical address accessor functions so the driver
+      is 64-bit ready.
+    - Use standard bindings where applicable. Especially phy-addr, and change
+      "altr,rx-fifo-depth" to "rx-fifo-depth" and "altr,tx-fifo-depth" to 
+      "tx-fifo-depth".
+    - Add use of max-frame-size property
+    - Update bindings documents accordingly
+    - Correct interrupt handler to use budget parameter in the convential way
+    - Use macros consistently to define bit fields across files
+    - Correct include exclusion macro in altera_msgdmahw.h (typo)
+    - Remove use of barriers, these were not necessary since the DMA APIs
+      ensure memory & buffer consistency
+    - Remove use of netif_carrier_off in driver
+    - move probing of phy from the open function to the probe function
+    - use of_get_phy_mode instead of custom function
+    - Use the .data field in the device structure to obtain a pointer
+      to SGDMA or MSGDMA device specific properties and functions. 
+    - remove custom function to access devicetree since Altera specific
+      bindings requiring it's use have been deprecated in favor of 
+      standard bindings. 
+
+The Altera TSE is a 10/100/1000 Mbps Ethernet soft IP component that can be
+configured and synthesized using Quartus, and programmed into Altera FPGAs.
+Two types of soft DMA IP components are supported by this driver - the Altera
+SGDMA and the MSGDMA. The MSGDMA DMA component is preferred over the SGDMA,
+since the SGDMA will be deprecated in favor of the MSGDMA. Software supporting
+both is provided for customers still using the SGDMA and to demonstrate how
+multiple types of DMA engines may be supported by the TSE driver in the event
+customers wish to develop their own custom soft DMA engine for particular
+applications.
+
+The design has been tested on Altera's Cyclone 4, 5, and Cyclone 5 SOC
+development kits using an ARM A9 processor and an Altera NIOS2 processor.
+Differences in CPU/DMA coherency management and address alignment are
+addressed by proper use of driver APIs and semantics.
+
+
+Vince Bridgers (9):
+  dts: Add bindings for the Altera Triple Speed Ethernet driver
+  Documentation: networking: Add Altera Ethernet (TSE) Documentation
+  Altera TSE: Add Altera Ethernet Driver MSGDMA File Components
+  Altera TSE: Add Altera Ethernet Driver SGDMA file components
+  Altera TSE: Add Miscellaneous Files for Altera Ethernet Driver
+  Altera TSE: Add main and header file for Altera Ethernet Driver
+  Altera TSE: Add Altera Ethernet Driver Makefile and Kconfig
+  MAINTAINERS: Add entry for Altera Triple Speed Ethernet Driver
+  net: ethernet: Change Ethernet Makefile and Kconfig for Altera TSE
+    driver
+
+ .../devicetree/bindings/net/altera_tse.txt         |  114 ++
+ Documentation/networking/altera_tse.txt            |  263 ++++
+ MAINTAINERS                                        |    7 +
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/altera/Kconfig                |    8 +
+ drivers/net/ethernet/altera/Makefile               |    7 +
+ drivers/net/ethernet/altera/altera_msgdma.c        |  202 +++
+ drivers/net/ethernet/altera/altera_msgdma.h        |   34 +
+ drivers/net/ethernet/altera/altera_msgdmahw.h      |  167 +++
+ drivers/net/ethernet/altera/altera_sgdma.c         |  511 +++++++
+ drivers/net/ethernet/altera/altera_sgdma.h         |   35 +
+ drivers/net/ethernet/altera/altera_sgdmahw.h       |  124 ++
+ drivers/net/ethernet/altera/altera_tse.h           |  486 +++++++
+ drivers/net/ethernet/altera/altera_tse_ethtool.c   |  226 +++
+ drivers/net/ethernet/altera/altera_tse_main.c      | 1535 ++++++++++++++++++++
+ drivers/net/ethernet/altera/altera_utils.c         |   44 +
+ drivers/net/ethernet/altera/altera_utils.h         |   27 +
+ 18 files changed, 3792 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/altera_tse.txt
+ create mode 100644 Documentation/networking/altera_tse.txt
+ create mode 100644 drivers/net/ethernet/altera/Kconfig
+ create mode 100644 drivers/net/ethernet/altera/Makefile
+ create mode 100644 drivers/net/ethernet/altera/altera_msgdma.c
+ create mode 100644 drivers/net/ethernet/altera/altera_msgdma.h
+ create mode 100644 drivers/net/ethernet/altera/altera_msgdmahw.h
+ create mode 100644 drivers/net/ethernet/altera/altera_sgdma.c
+ create mode 100644 drivers/net/ethernet/altera/altera_sgdma.h
+ create mode 100644 drivers/net/ethernet/altera/altera_sgdmahw.h
+ create mode 100644 drivers/net/ethernet/altera/altera_tse.h
+ create mode 100644 drivers/net/ethernet/altera/altera_tse_ethtool.c
+ create mode 100644 drivers/net/ethernet/altera/altera_tse_main.c
+ create mode 100644 drivers/net/ethernet/altera/altera_utils.c
+ create mode 100644 drivers/net/ethernet/altera/altera_utils.h
+
+-- 
+1.7.9.5
+
