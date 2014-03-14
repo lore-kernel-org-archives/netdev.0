@@ -1,55 +1,70 @@
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net-next 0/2] Doorbell drop Avoidance Bug fix for iw_cxgb4
-Date: Fri, 14 Mar 2014 21:52:06 +0530
-Message-ID: <1394814128-8815-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
+Subject: Re: [PATCH net-next 2/8] ieee802154: add
+ address struct with proper endiannes and some operations
+Date: Fri, 14 Mar 2014 17:30:10 +0100
+Message-ID: <20140314173010.25039487@zoidberg>
+References: <1394810613-5657-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+	<1394810613-5657-3-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+	<063D6719AE5E284EB5DD2968C1650D6D0F6DDDE4@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org"
+	<linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6DDDE4-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi All,
+On Fri, 14 Mar 2014 16:00:39 +0000
+David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org> wrote:
 
-This patch series provides fixes for Chelsio T4/T5 adapters
-related to DB Drop avoidance and other small fix related to keepalive on
-iw-cxgb4.
+> From: Phoebe Buckheister
+> > Add a replacement ieee802154_addr struct with proper endianness on
+> > fields. Short address fields are stored as __le16 as on the network,
+> > extended (EUI64) addresses are __le64 as opposed to the u8[8] format
+> > used previously. This disconnect with the netdev address, which is
+> > stored as big-endian u8[8], is intentional.
+> ...
+> > +struct ieee802154_addr {
+> > +	u8 mode;
+> > +	__le16 pan_id;
+> > +	union {
+> > +		__le16 short_addr;
+> > +		__le64 extended_addr;
+> > +	};
+> > +};
+> 
+> There is a lot of padding in there - especially on 64bit systems.
+> You didn't make it clear where the above is used, but if it is
+> passed to userspace I'd add explicit padding fields to ensure
+> that the alignment is the same on all (sensible) architectures
 
-The patches series is created against David Miller's 'net-next' tree.
-And includes patches on cxgb4 and iw_cxgb4 driver.
+Yes, there is. The intention for this struct was to be used only within
+the stack, not to be exported to userspace - the original
+ieee802154_addr (now *_sa) should be used for that for consistency. If
+there was a way to fix endianness exported through visible kernel
+interfaces, this struct should indeed not be used. Since I'm not sure
+whether that's possible, I haven't added padding fields yet.
 
-We would like to request this patch series to get merged via David Miller's
-'net-next' tree.
+As explained in the cover letter, I do think we could change that, and
+if we ever wanted to, now would be the time to do it. If we did, I'd
+lay out the struct as u8 mode, u8 __pad1, __le16 pan_id, u32 __pad2,
+and then the union.
 
-We have included all the maintainers of respective drivers. Kindly review the
-change and let us know in case of any review comments.
-
-Thanks
-
-
-Steve Wise (2):
-  cxgb4/iw_cxgb4: Treat CPL_ERR_KEEPALV_NEG_ADVICE as negative advice
-  cxgb4/iw_cxgb4: Doorbell Drop Avoidance Bug Fixes
-
- drivers/infiniband/hw/cxgb4/cm.c                |  24 ++--
- drivers/infiniband/hw/cxgb4/device.c            | 177 ++++++++++++++----------
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |   9 +-
- drivers/infiniband/hw/cxgb4/provider.c          |  43 +++++-
- drivers/infiniband/hw/cxgb4/qp.c                | 140 +++++++++----------
- drivers/infiniband/hw/cxgb4/t4.h                |   6 +
- drivers/infiniband/hw/cxgb4/user.h              |   5 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  87 +++++++-----
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |   8 +-
- drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |   1 +
- 11 files changed, 299 insertions(+), 202 deletions(-)
-
--- 
-1.8.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+------------------------------------------------------------------------------
+Learn Graph Databases - Download FREE O'Reilly Book
+"Graph Databases" is the definitive new guide to graph databases and their
+applications. Written by three acclaimed leaders in the field,
+this first edition is now available. Download your free book today!
+http://p.sf.net/sfu/13534_NeoTech
