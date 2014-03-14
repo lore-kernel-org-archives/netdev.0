@@ -1,61 +1,98 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [RCU PATCH 06/14] net: sched: fw use RCU
-Date: Fri, 14 Mar 2014 08:38:11 -0700
-Message-ID: <20140314153810.GX21124@linux.vnet.ibm.com>
-References: <20140310170546.3011.82918.stgit@nitbit.x32>
- <1394473279.3607.46.camel@edumazet-glaptop2.roam.corp.google.com>
- <53208E3F.5090401@gmail.com>
- <1394643673.21721.48.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140313202245.GK21124@linux.vnet.ibm.com>
- <1394744203.21721.53.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140313211509.GP21124@linux.vnet.ibm.com>
- <53229704.1040808@gmail.com>
- <20140314132834.GS21124@linux.vnet.ibm.com>
- <1394804798.21721.64.camel@edumazet-glaptop2.roam.corp.google.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
+Subject: Re: Zynq macb
+Date: Fri, 14 Mar 2014 08:46:49 -0700
+Message-ID: <d1a10044-b85c-4664-8fc3-2fb3c7e1a274@CO9EHSMHS026.ehs.local>
+References: <c6344e9b-fa32-4313-8950-59030c4bffb8@AM1EHSMHS003.ehs.local>
+ <73734ba5-00d3-445d-8c6f-a1a868cdd537@CH1EHSMHS024.ehs.local>
+ <53229584.7000100@monstr.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:57740 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753644AbaCNPiR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 11:38:17 -0400
-Received: from /spool/local
-	by e37.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-	Fri, 14 Mar 2014 09:38:17 -0600
-Received: from b03cxnp07028.gho.boulder.ibm.com (b03cxnp07028.gho.boulder.ibm.com [9.17.130.15])
-	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id 106571FF003B
-	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 09:38:14 -0600 (MDT)
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by b03cxnp07028.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2EFbYEs11075996
-	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 16:37:34 +0100
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id s2EFflEh018110
-	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 09:41:47 -0600
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	Punnaiah Choudary Kalluri
+	<punnaiah.choudary.kalluri@xilinx.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Michal Simek <monstr@monstr.eu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1394804798.21721.64.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <53229584.7000100@monstr.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 14, 2014 at 06:46:38AM -0700, Eric Dumazet wrote:
-> On Fri, 2014-03-14 at 06:28 -0700, Paul E. McKenney wrote:
-> 
-> > Now I just need to figure out why it -causes- a BUILD_BUG_ON for the
-> > cris and m68k architectures in Fengguang Wu's testing...
-> 
-> Right, they don't necessarily align pointers ;)
-> 
-> alignof(void *) ?
+On Fri, 2014-03-14 at 06:37AM +0100, Michal Simek wrote:
+> On 03/13/2014 11:33 PM, S=C3=B6ren Brinkmann wrote:
+> > On Thu, 2014-03-13 at 03:16PM -0700, S=C3=B6ren Brinkmann wrote:
+> >> Hi Nicolas,
+> >>
+> >> I did some testing on the current linux-next tree and ran iperf on=
+ Zynq.
+> >> It seems that network and even the whole system can collapse when =
+doing
+> >> that.
+> >> I don't really know what's going on, but once I saw the message:
+> >> 	"inconsistent Rx descriptor chain"
+> >> printed twice (system frozen afterwards).
+> >>
+> >> I don't know what exactly is going wrong, but suspect something ar=
+ound
+> >> memory/DMA. I have no clue whether it makes any sense or not, but =
+I
+> >> tried using the macb_* functions instead of the gem_* ones (see di=
+ff below).
+> >> That seems to result in a stable system and working Ethernet.
+> >=20
+> > That was a little too early. After roughly 25 minutest the system r=
+uns
+> > into a deadlock:
+> >   BUG: spinlock lockup suspected on CPU#1, iperf/774
+> >    lock: 0xeda0366c, .magic: dead4ead, .owner: swapper/0/0, .owner_=
+cpu: 0
+> >   CPU: 1 PID: 774 Comm: iperf Tainted: G        W    3.14.0-rc6-nex=
+t-20140312-xilinx-dirty #41
+> >   [<c00153c0>] (unwind_backtrace) from [<c0011e70>] (show_stack+0x1=
+0/0x14)
+> >   [<c0011e70>] (show_stack) from [<c03d6b50>] (dump_stack+0x80/0xcc=
+)
+> >   [<c03d6b50>] (dump_stack) from [<c00670ac>] (do_raw_spin_lock+0xd=
+4/0x190)
+> >   [<c00670ac>] (do_raw_spin_lock) from [<c03dc79c>] (_raw_spin_lock=
+_irqsave+0x58/0x64)
+> >   [<c03dc79c>] (_raw_spin_lock_irqsave) from [<c02b0810>] (macb_sta=
+rt_xmit+0x24/0x2d0)
+> >   [<c02b0810>] (macb_start_xmit) from [<c0321b10>] (dev_hard_start_=
+xmit+0x334/0x470)
+> >   [<c0321b10>] (dev_hard_start_xmit) from [<c0339aa8>] (sch_direct_=
+xmit+0x78/0x2f8)
+> >   [<c0339aa8>] (sch_direct_xmit) from [<c0321f60>] (__dev_queue_xmi=
+t+0x314/0x704)
+> >   [<c0321f60>] (__dev_queue_xmit) from [<c034cb3c>] (ip_finish_outp=
+ut+0x6c4/0x894)
+> >   [<c034cb3c>] (ip_finish_output) from [<c034cf24>] (ip_local_out+0=
+x74/0x90)
+> >   [<c034cf24>] (ip_local_out) from [<c034d340>] (ip_queue_xmit+0x40=
+0/0x5c4)
+> >   [<c034d340>] (ip_queue_xmit) from [<c03634b8>] (tcp_transmit_skb+=
+0xa18/0xab0)
+> >   [<c03634b8>] (tcp_transmit_skb) from [<c035856c>] (tcp_recvmsg+0x=
+92c/0xae4)
+> >   [<c035856c>] (tcp_recvmsg) from [<c03806f0>] (inet_recvmsg+0x1c0/=
+0x1fc)
+> >   [<c03806f0>] (inet_recvmsg) from [<c030769c>] (sock_recvmsg+0x7c/=
+0x98)
+> >   [<c030769c>] (sock_recvmsg) from [<c0309988>] (SyS_recvfrom+0x9c/=
+0x108)
+> >   [<c0309988>] (SyS_recvfrom) from [<c0309a08>] (sys_recv+0x14/0x18=
+)
+> >   [<c0309a08>] (sys_recv) from [<c000ea60>] (ret_fast_syscall+0x0/0=
+x48)
+>=20
+> Do you have this change in your tree?
+> https://github.com/Xilinx/linux-xlnx/commit/1a85939af40acca2bf963407b=
+497cc31c303ff3e
+>=20
+> I don't think we have sent this to mainline yet.
 
-It complained about the size rather than the alignment, but it would
-certainly make sense to constrain the rcu_head structure's alignment,
-now that you mention it.  I will do that and see if it helps.  ;-)
+If it's not in next, it wasn't in my kernel.
 
-Thank you for the tip!
-
-							Thanx, Paul
+	S=C3=B6ren
