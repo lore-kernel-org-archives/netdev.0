@@ -1,253 +1,123 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/16] i40e: cleanup strings
-Date: Fri, 14 Mar 2014 02:47:18 -0700
-Message-ID: <1394790446-31591-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/16] ixgbe: fix spinlock recursion with netpoll and busy poll
+Date: Fri, 14 Mar 2014 02:47:12 -0700
+Message-ID: <1394790446-31591-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1394790446-31591-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Arun Sharma <asharma@fb.com>, stable <stable@vger.kernel.org>,
+	Jacob Keller <jacob.e.keller@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:52888 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:32977 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755939AbaCNJrd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Mar 2014 05:47:33 -0400
+	id S1755800AbaCNJr3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Mar 2014 05:47:29 -0400
 In-Reply-To: <1394790446-31591-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This patch cleans up the strings that the driver prints during normal
-operation and moves many strings into dev_dbg.  It also cleans up
-strings printed during reset.
+This patch resolves a hang with busy poll when used with netconsole.
 
-Change-ID: I1835cc4e3c3b22596182b683284e6bb87eac61b2
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+The main change is the check for netpoll packets in ixgbe_poll() which
+prevents a call to spin_lock_bh() while interrupts are disabled.
+
+In addition it removes the call to netif_rx() since netif_receive_skb()
+can deal with netpoll packets and also replaced the global adapter flag
+with per-q_vector bool that indicates Rx packet from netpoll which
+should help with performance.
+
+CC: Arun Sharma <asharma@fb.com>
+CC: stable <stable@vger.kernel.org>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c |  8 ++---
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 47 +++++++++++---------------
- 2 files changed, 24 insertions(+), 31 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  3 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 18 +++++++++---------
+ 2 files changed, 11 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 57fc864..47b9754 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -1467,19 +1467,19 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 				 pf->msg_enable);
- 		}
- 	} else if (strncmp(cmd_buf, "pfr", 3) == 0) {
--		dev_info(&pf->pdev->dev, "forcing PFR\n");
-+		dev_info(&pf->pdev->dev, "debugfs: forcing PFR\n");
- 		i40e_do_reset_safe(pf, (1 << __I40E_PF_RESET_REQUESTED));
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 2fff0fc..d34abbc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -386,6 +386,7 @@ struct ixgbe_q_vector {
+ 	int numa_node;
+ 	struct rcu_head rcu;	/* to avoid race with update stats on free */
+ 	char name[IFNAMSIZ + 9];
++	bool netpoll_rx;
  
- 	} else if (strncmp(cmd_buf, "corer", 5) == 0) {
--		dev_info(&pf->pdev->dev, "forcing CoreR\n");
-+		dev_info(&pf->pdev->dev, "debugfs: forcing CoreR\n");
- 		i40e_do_reset_safe(pf, (1 << __I40E_CORE_RESET_REQUESTED));
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+ 	unsigned int state;
+@@ -643,7 +644,7 @@ struct ixgbe_adapter {
+ #define IXGBE_FLAG_RX_1BUF_CAPABLE              (u32)(1 << 4)
+ #define IXGBE_FLAG_RX_PS_CAPABLE                (u32)(1 << 5)
+ #define IXGBE_FLAG_RX_PS_ENABLED                (u32)(1 << 6)
+-#define IXGBE_FLAG_IN_NETPOLL                   (u32)(1 << 7)
++
+ #define IXGBE_FLAG_DCA_ENABLED                  (u32)(1 << 8)
+ #define IXGBE_FLAG_DCA_CAPABLE                  (u32)(1 << 9)
+ #define IXGBE_FLAG_IMIR_ENABLED                 (u32)(1 << 10)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 8bea6ca..06aab2c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1670,14 +1670,10 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
+ static void ixgbe_rx_skb(struct ixgbe_q_vector *q_vector,
+ 			 struct sk_buff *skb)
+ {
+-	struct ixgbe_adapter *adapter = q_vector->adapter;
+-
+-	if (ixgbe_qv_busy_polling(q_vector))
++	if (ixgbe_qv_busy_polling(q_vector) || q_vector->netpoll_rx)
+ 		netif_receive_skb(skb);
+-	else if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL))
+-		napi_gro_receive(&q_vector->napi, skb);
+ 	else
+-		netif_rx(skb);
++		napi_gro_receive(&q_vector->napi, skb);
+ }
  
- 	} else if (strncmp(cmd_buf, "globr", 5) == 0) {
--		dev_info(&pf->pdev->dev, "forcing GlobR\n");
-+		dev_info(&pf->pdev->dev, "debugfs: forcing GlobR\n");
- 		i40e_do_reset_safe(pf, (1 << __I40E_GLOBAL_RESET_REQUESTED));
+ /**
+@@ -2159,6 +2155,7 @@ static int ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 	u64_stats_update_end(&rx_ring->syncp);
+ 	q_vector->rx.total_packets += total_rx_packets;
+ 	q_vector->rx.total_bytes += total_rx_bytes;
++	q_vector->netpoll_rx = false;
  
- 	} else if (strncmp(cmd_buf, "empr", 4) == 0) {
--		dev_info(&pf->pdev->dev, "forcing EMPR\n");
-+		dev_info(&pf->pdev->dev, "debugfs: forcing EMPR\n");
- 		i40e_do_reset_safe(pf, (1 << __I40E_EMP_RESET_REQUESTED));
+ 	if (cleaned_count)
+ 		ixgbe_alloc_rx_buffers(rx_ring, cleaned_count);
+@@ -2758,6 +2755,9 @@ int ixgbe_poll(struct napi_struct *napi, int budget)
+ 	ixgbe_for_each_ring(ring, q_vector->tx)
+ 		clean_complete &= !!ixgbe_clean_tx_irq(q_vector, ring);
  
- 	} else if (strncmp(cmd_buf, "read", 4) == 0) {
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index acf0b20..f7b1753ac 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -3755,8 +3755,8 @@ static int i40e_vsi_configure_bw_alloc(struct i40e_vsi *vsi, u8 enabled_tc,
- 					  NULL);
- 	if (aq_ret) {
- 		dev_info(&vsi->back->pdev->dev,
--			 "%s: AQ command Config VSI BW allocation per TC failed = %d\n",
--			 __func__, vsi->back->hw.aq.asq_last_status);
-+			 "AQ command Config VSI BW allocation per TC failed = %d\n",
-+			 vsi->back->hw.aq.asq_last_status);
- 		return -EINVAL;
++	if (test_bit(NAPI_STATE_NPSVC, &napi->state))
++		return budget;
++
+ 	if (!ixgbe_qv_lock_napi(q_vector))
+ 		return budget;
+ 
+@@ -7273,14 +7273,14 @@ static void ixgbe_netpoll(struct net_device *netdev)
+ 	if (test_bit(__IXGBE_DOWN, &adapter->state))
+ 		return;
+ 
+-	adapter->flags |= IXGBE_FLAG_IN_NETPOLL;
+ 	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
+-		for (i = 0; i < adapter->num_q_vectors; i++)
++		for (i = 0; i < adapter->num_q_vectors; i++) {
++			adapter->q_vector[i]->netpoll_rx = true;
+ 			ixgbe_msix_clean_rings(0, adapter->q_vector[i]);
++		}
+ 	} else {
+ 		ixgbe_intr(adapter->pdev->irq, netdev);
  	}
+-	adapter->flags &= ~IXGBE_FLAG_IN_NETPOLL;
+ }
  
-@@ -4364,7 +4364,7 @@ void i40e_do_reset(struct i40e_pf *pf, u32 reset_flags)
- 		 * for the warning interrupt will deal with the shutdown
- 		 * and recovery of the switch setup.
- 		 */
--		dev_info(&pf->pdev->dev, "GlobalR requested\n");
-+		dev_dbg(&pf->pdev->dev, "GlobalR requested\n");
- 		val = rd32(&pf->hw, I40E_GLGEN_RTRIG);
- 		val |= I40E_GLGEN_RTRIG_GLOBR_MASK;
- 		wr32(&pf->hw, I40E_GLGEN_RTRIG, val);
-@@ -4375,7 +4375,7 @@ void i40e_do_reset(struct i40e_pf *pf, u32 reset_flags)
- 		 *
- 		 * Same as Global Reset, except does *not* include the MAC/PHY
- 		 */
--		dev_info(&pf->pdev->dev, "CoreR requested\n");
-+		dev_dbg(&pf->pdev->dev, "CoreR requested\n");
- 		val = rd32(&pf->hw, I40E_GLGEN_RTRIG);
- 		val |= I40E_GLGEN_RTRIG_CORER_MASK;
- 		wr32(&pf->hw, I40E_GLGEN_RTRIG, val);
-@@ -4409,7 +4409,7 @@ void i40e_do_reset(struct i40e_pf *pf, u32 reset_flags)
- 		 * the switch, since we need to do all the recovery as
- 		 * for the Core Reset.
- 		 */
--		dev_info(&pf->pdev->dev, "PFR requested\n");
-+		dev_dbg(&pf->pdev->dev, "PFR requested\n");
- 		i40e_handle_reset_warning(pf);
- 
- 	} else if (reset_flags & (1 << __I40E_REINIT_REQUESTED)) {
-@@ -4458,18 +4458,18 @@ bool i40e_dcb_need_reconfig(struct i40e_pf *pf,
- 			   &old_cfg->etscfg.prioritytable,
- 			   sizeof(new_cfg->etscfg.prioritytable))) {
- 			need_reconfig = true;
--			dev_info(&pf->pdev->dev, "ETS UP2TC changed.\n");
-+			dev_dbg(&pf->pdev->dev, "ETS UP2TC changed.\n");
- 		}
- 
- 		if (memcmp(&new_cfg->etscfg.tcbwtable,
- 			   &old_cfg->etscfg.tcbwtable,
- 			   sizeof(new_cfg->etscfg.tcbwtable)))
--			dev_info(&pf->pdev->dev, "ETS TC BW Table changed.\n");
-+			dev_dbg(&pf->pdev->dev, "ETS TC BW Table changed.\n");
- 
- 		if (memcmp(&new_cfg->etscfg.tsatable,
- 			   &old_cfg->etscfg.tsatable,
- 			   sizeof(new_cfg->etscfg.tsatable)))
--			dev_info(&pf->pdev->dev, "ETS TSA Table changed.\n");
-+			dev_dbg(&pf->pdev->dev, "ETS TSA Table changed.\n");
- 	}
- 
- 	/* Check if PFC configuration has changed */
-@@ -4477,7 +4477,7 @@ bool i40e_dcb_need_reconfig(struct i40e_pf *pf,
- 		   &old_cfg->pfc,
- 		   sizeof(new_cfg->pfc))) {
- 		need_reconfig = true;
--		dev_info(&pf->pdev->dev, "PFC config change detected.\n");
-+		dev_dbg(&pf->pdev->dev, "PFC config change detected.\n");
- 	}
- 
- 	/* Check if APP Table has changed */
-@@ -4485,7 +4485,7 @@ bool i40e_dcb_need_reconfig(struct i40e_pf *pf,
- 		   &old_cfg->app,
- 		   sizeof(new_cfg->app))) {
- 		need_reconfig = true;
--		dev_info(&pf->pdev->dev, "APP Table change detected.\n");
-+		dev_dbg(&pf->pdev->dev, "APP Table change detected.\n");
- 	}
- 
- 	return need_reconfig;
-@@ -4535,7 +4535,7 @@ static int i40e_handle_lldp_event(struct i40e_pf *pf,
- 
- 	/* No change detected in DCBX configs */
- 	if (!memcmp(&tmp_dcbx_cfg, dcbx_cfg, sizeof(tmp_dcbx_cfg))) {
--		dev_info(&pf->pdev->dev, "No change detected in DCBX configuration.\n");
-+		dev_dbg(&pf->pdev->dev, "No change detected in DCBX configuration.\n");
- 		goto exit;
- 	}
- 
-@@ -4593,8 +4593,8 @@ static void i40e_handle_lan_overflow_event(struct i40e_pf *pf,
- 	struct i40e_vf *vf;
- 	u16 vf_id;
- 
--	dev_info(&pf->pdev->dev, "%s: Rx Queue Number = %d QTX_CTL=0x%08x\n",
--		 __func__, queue, qtx_ctl);
-+	dev_dbg(&pf->pdev->dev, "overflow Rx Queue Number = %d QTX_CTL=0x%08x\n",
-+		queue, qtx_ctl);
- 
- 	/* Queue belongs to VF, find the VF and issue VF reset */
- 	if (((qtx_ctl & I40E_QTX_CTL_PFVF_Q_MASK)
-@@ -4946,7 +4946,7 @@ static void i40e_clean_adminq_subtask(struct i40e_pf *pf)
- 					event.msg_size);
- 			break;
- 		case i40e_aqc_opc_lldp_update_mib:
--			dev_info(&pf->pdev->dev, "ARQ: Update LLDP MIB event received\n");
-+			dev_dbg(&pf->pdev->dev, "ARQ: Update LLDP MIB event received\n");
- #ifdef CONFIG_I40E_DCB
- 			rtnl_lock();
- 			ret = i40e_handle_lldp_event(pf, &event);
-@@ -4954,7 +4954,7 @@ static void i40e_clean_adminq_subtask(struct i40e_pf *pf)
- #endif /* CONFIG_I40E_DCB */
- 			break;
- 		case i40e_aqc_opc_event_lan_overflow:
--			dev_info(&pf->pdev->dev, "ARQ LAN queue overflow event received\n");
-+			dev_dbg(&pf->pdev->dev, "ARQ LAN queue overflow event received\n");
- 			i40e_handle_lan_overflow_event(pf, &event);
- 			break;
- 		case i40e_aqc_opc_send_msg_to_peer:
-@@ -5231,7 +5231,7 @@ static int i40e_prep_for_reset(struct i40e_pf *pf)
- 	if (test_and_set_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state))
- 		return 0;
- 
--	dev_info(&pf->pdev->dev, "Tearing down internal switch for reset\n");
-+	dev_dbg(&pf->pdev->dev, "Tearing down internal switch for reset\n");
- 
- 	if (i40e_check_asq_alive(hw))
- 		i40e_vc_notify_reset(pf);
-@@ -5278,7 +5278,7 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
- 
- 	if (test_bit(__I40E_DOWN, &pf->state))
- 		goto end_core_reset;
--	dev_info(&pf->pdev->dev, "Rebuilding internal switch\n");
-+	dev_dbg(&pf->pdev->dev, "Rebuilding internal switch\n");
- 
- 	/* rebuild the basics for the AdminQ, HMC, and initial HW switch */
- 	ret = i40e_init_adminq(&pf->hw);
-@@ -5328,7 +5328,7 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
- 	 * try to recover minimal use by getting the basic PF VSI working.
- 	 */
- 	if (pf->vsi[pf->lan_vsi]->uplink_seid != pf->mac_seid) {
--		dev_info(&pf->pdev->dev, "attempting to rebuild switch\n");
-+		dev_dbg(&pf->pdev->dev, "attempting to rebuild switch\n");
- 		/* find the one VEB connected to the MAC, and find orphans */
- 		for (v = 0; v < I40E_MAX_VEB; v++) {
- 			if (!pf->veb[v])
-@@ -5393,7 +5393,7 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
- 	dv.subbuild_version = 0;
- 	i40e_aq_send_driver_version(&pf->hw, &dv, NULL);
- 
--	dev_info(&pf->pdev->dev, "PF reset done\n");
-+	dev_info(&pf->pdev->dev, "reset complete\n");
- 
- end_core_reset:
- 	clear_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state);
-@@ -6293,12 +6293,8 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 	    (pf->hw.func_caps.fd_filters_best_effort > 0)) {
- 		pf->flags |= I40E_FLAG_FD_ATR_ENABLED;
- 		pf->atr_sample_rate = I40E_DEFAULT_ATR_SAMPLE_RATE;
--		dev_info(&pf->pdev->dev,
--			"Flow Director ATR mode Enabled\n");
- 		if (!(pf->flags & I40E_FLAG_MFP_ENABLED)) {
- 			pf->flags |= I40E_FLAG_FD_SB_ENABLED;
--			dev_info(&pf->pdev->dev,
--				 "Flow Director Side Band mode Enabled\n");
- 		} else {
- 			dev_info(&pf->pdev->dev,
- 				 "Flow Director Side Band mode Disabled in MFP mode\n");
-@@ -6322,9 +6318,6 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 		pf->num_req_vfs = min_t(int,
- 					pf->hw.func_caps.num_vfs,
- 					I40E_MAX_VF_COUNT);
--		dev_info(&pf->pdev->dev,
--			 "Number of VFs being requested for PF[%d] = %d\n",
--			 pf->hw.pf_id, pf->num_req_vfs);
- 	}
- #endif /* CONFIG_PCI_IOV */
- 	pf->eeprom_version = 0xDEAD;
-@@ -8131,7 +8124,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	i40e_set_pci_config_data(hw, link_status);
- 
--	dev_info(&pdev->dev, "PCI Express: %s %s\n",
-+	dev_info(&pdev->dev, "PCI-Express: %s %s\n",
- 		(hw->bus.speed == i40e_bus_speed_8000 ? "Speed 8.0GT/s" :
- 		 hw->bus.speed == i40e_bus_speed_5000 ? "Speed 5.0GT/s" :
- 		 hw->bus.speed == i40e_bus_speed_2500 ? "Speed 2.5GT/s" :
+ #endif
 -- 
 1.8.3.1
