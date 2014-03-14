@@ -1,238 +1,55 @@
-From: David L Stevens <dlstevens@us.ibm.com>
-Subject: [PATCH VXLAN] fix nonfunctional neigh_reduce
-Date: Fri, 14 Mar 2014 13:49:57 -0400
-Message-ID: <201403141749.s2EHnvgc030976@lab1.dls>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>
+From: Jakub =?UTF-8?B?S2ljacWEc2tp?= <moorray3@wp.pl>
+Subject: Re: [PATCH net-next 02/10] e1000e: add timeout for TX HW time
+ stamping work
+Date: Fri, 14 Mar 2014 19:02:42 +0100
+Message-ID: <20140314190242.4bba2b42@north>
+References: <1394818481-7652-1-git-send-email-kubakici@wp.pl>
+	<1394818481-7652-3-git-send-email-kubakici@wp.pl>
+	<1394819317.3253.3.camel@joe-AO722>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:44942 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754478AbaCNRuE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 13:50:04 -0400
-Received: from /spool/local
-	by e34.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Fri, 14 Mar 2014 11:50:04 -0600
-Received: from b03cxnp08027.gho.boulder.ibm.com (b03cxnp08027.gho.boulder.ibm.com [9.17.130.19])
-	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id 604A11FF0029
-	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 11:50:01 -0600 (MDT)
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by b03cxnp08027.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2EHnUfA11338108
-	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 18:49:30 +0100
-Received: from d03av01.boulder.ibm.com (localhost [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s2EHo06Z001992
-	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 11:50:01 -0600
+Received: from mx3.wp.pl ([212.77.101.9]:20482 "EHLO mx3.wp.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754461AbaCNSCp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Mar 2014 14:02:45 -0400
+In-Reply-To: <1394819317.3253.3.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 14 Mar 2014 10:48:37 -0700, Joe Perches wrote:
+> On Fri, 2014-03-14 at 18:34 +0100, Jakub Kicinski wrote:
+> > Hardware may fail to report time stamp e.g.:
+> >  - when hardware time stamping is not enabled
+> >  - when time stamp is requested shortly after ifup
+> 
+> trivia:
+> 
+> > diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+> []
+> > @@ -1155,6 +1155,12 @@ static void e1000e_tx_hwtstamp_work(struct work_struct *work)
+> >  		skb_tstamp_tx(adapter->tx_hwtstamp_skb, &shhwtstamps);
+> >  		dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
+> >  		adapter->tx_hwtstamp_skb = NULL;
+> > +	} else if (time_after(jiffies, adapter->tx_hwtstamp_start
+> > +			      + adapter->tx_timeout_factor * HZ)) {
+> > +		dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
+> > +		adapter->tx_hwtstamp_skb = NULL;
+> > +		adapter->tx_hwtstamp_timeouts++;
+> > +		e_warn("clearing Tx timestamp hang");
+> 
+> Missing \n termination
 
-	The VXLAN neigh_reduce() code is completely non-functional since
-check-in. Specific errors:
+I copied that line from ixgbe and assumed that the magic macro adds
+termination...
 
-1) The original code drops all packets with a multicast destination address,
-	even though neighbor solicitations are sent to the solicited-node
-	address, a multicast address. The code after this check was never run.
-2) The neighbor table lookup used the IPv6 header destination, which is the
-	solicited node address, rather than the target address from the
-	neighbor solicitation. So neighbor lookups would always fail if it
-	got this far. Also for L3MISSes.
-3) The code calls ndisc_send_na(), which does a send on the tunnel device.
-	The context for neigh_reduce() is the transmit path, vxlan_xmit(),
-	where the host or a bridge-attached neighbor is trying to transmit
-	a neighbor solicitation. To respond to it, the tunnel endpoint needs
-	to do a *receive* of the appropriate neighbor advertisement. Doing a
-	send, would only try to send the advertisement, encapsulated, to the
-	remote destinations in the fdb -- hosts that definitely did not do the
-	corresponding solicitation.
-4) The code uses the tunnel endpoint IPv6 forwarding flag to determine the
-	isrouter flag in the advertisement. This has nothing to do with whether
-	or not the target is a router, and generally won't be set since the
-	tunnel endpoint is bridging, not routing, traffic.
+I see that igb and i40e also lack the \n on similar messages. Can I fix
+them all in a single follow-up patch?
 
-	The patch below creates a proxy neighbor advertisement to respond to
-neighbor solicitions as intended, providing proper IPv6 support for neighbor
-reduction.
+Thanks for catching this.
 
-Signed-Off-By: David L Stevens <dlstevens@us.ibm.com>
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index eb59b14..b905d57 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1336,14 +1336,109 @@ out:
- }
- 
- #if IS_ENABLED(CONFIG_IPV6)
-+
-+static struct sk_buff *vxlan_na_create(struct sk_buff *request,
-+	struct neighbour *n, bool isrouter)
-+{
-+	struct net_device *dev = request->dev;
-+	struct sk_buff *reply = NULL;
-+	struct nd_msg *ns, *na;
-+	struct ipv6hdr *pip6 = ipv6_hdr(reply);
-+	u8 *daddr;
-+	int olen = 8; /* opt hdr + ETH_ALEN for target */
-+	int i, len;
-+
-+	if (dev == NULL)
-+		return NULL;
-+
-+	ns = (struct nd_msg *)skb_transport_header(request);
-+
-+	len = LL_RESERVED_SPACE(dev) + sizeof(struct ipv6hdr) +
-+		sizeof(*na) + olen + dev->needed_tailroom;
-+	reply = alloc_skb(len, GFP_ATOMIC);
-+	if (reply == NULL)
-+		goto out;
-+
-+	reply->protocol = htons(ETH_P_IPV6);
-+	reply->dev = dev;
-+	skb_reserve(reply, LL_RESERVED_SPACE(request->dev));
-+	skb_push(reply, sizeof(struct ethhdr));
-+	skb_set_mac_header(reply, 0);
-+
-+	daddr = eth_hdr(request)->h_source;
-+	olen = request->len - skb_transport_offset(request) - sizeof(*ns);
-+	for (i = 0; i < olen-1; i += (ns->opt[i+1]<<3)) {
-+		if (ns->opt[i] == ND_OPT_SOURCE_LL_ADDR) {
-+			daddr = ns->opt + i + sizeof(struct nd_opt_hdr);
-+			break;
-+		}
-+	}
-+
-+	/* Ethernet header */
-+	memcpy(eth_hdr(reply)->h_dest, daddr, ETH_ALEN);
-+	memcpy(eth_hdr(reply)->h_source, n->ha, ETH_ALEN);
-+	eth_hdr(reply)->h_proto = htons(ETH_P_IPV6);
-+	reply->protocol = htons(ETH_P_IPV6);
-+
-+	skb_pull(reply, sizeof(struct ethhdr));
-+	skb_set_network_header(reply, 0);
-+	skb_put(reply, sizeof(struct ipv6hdr));
-+
-+	/* IPv6 header */
-+
-+	pip6 = ipv6_hdr(reply);
-+	memset(pip6, 0, sizeof(struct ipv6hdr));
-+	pip6->version = 6;
-+	pip6->priority = ipv6_hdr(request)->priority;
-+	pip6->nexthdr = IPPROTO_ICMPV6;
-+	pip6->hop_limit = 255;
-+	pip6->daddr = ipv6_hdr(request)->saddr;
-+	pip6->saddr = *(struct in6_addr *)n->primary_key;
-+
-+	skb_pull(reply, sizeof(struct ipv6hdr));
-+	skb_set_transport_header(reply, 0);
-+
-+	olen = 8; /* ND_OPT_TARGET_LL_ADDR */
-+	na = (struct nd_msg *)skb_put(reply, sizeof(*na) + olen);
-+
-+	/* Neighbor Advertisement */
-+	memset(na, 0, sizeof(*na)+olen);
-+	na->icmph.icmp6_type = NDISC_NEIGHBOUR_ADVERTISEMENT;
-+	na->icmph.icmp6_router = isrouter;
-+	na->icmph.icmp6_override = 1;
-+	na->icmph.icmp6_solicited = 1;
-+	na->target = ns->target;
-+	memcpy(&na->opt[2], n->ha, ETH_ALEN);
-+	na->opt[0] = ND_OPT_TARGET_LL_ADDR;
-+	na->opt[1] = 1; /* 8 bytes */
-+
-+	na->icmph.icmp6_cksum = csum_ipv6_magic(&pip6->saddr,
-+		&pip6->daddr, sizeof(*na)+olen, IPPROTO_ICMPV6, 
-+		csum_partial(na, sizeof(*na)+olen, 0));
-+
-+	pip6->payload_len = htons(sizeof(*na)+olen);
-+
-+	skb_push(reply, sizeof(struct ipv6hdr));
-+
-+	reply->ip_summed = CHECKSUM_UNNECESSARY;
-+
-+	return reply;
-+out:
-+	if (reply)
-+		kfree_skb(reply);
-+	return 0;
-+}
-+
- static int neigh_reduce(struct net_device *dev, struct sk_buff *skb)
- {
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
-+	struct vxlan_fdb *f;
- 	struct neighbour *n;
- 	union vxlan_addr ipa;
- 	const struct ipv6hdr *iphdr;
- 	const struct in6_addr *saddr, *daddr;
- 	struct nd_msg *msg;
-+	struct sk_buff *reply;
- 	struct inet6_dev *in6_dev = NULL;
- 
- 	in6_dev = __in6_dev_get(dev);
-@@ -1357,8 +1452,7 @@ static int neigh_reduce(struct net_device *dev, struct sk_buff *skb)
- 	saddr = &iphdr->saddr;
- 	daddr = &iphdr->daddr;
- 
--	if (ipv6_addr_loopback(daddr) ||
--	    ipv6_addr_is_multicast(daddr))
-+	if (ipv6_addr_loopback(daddr))
- 		goto out;
- 
- 	msg = (struct nd_msg *)skb_transport_header(skb);
-@@ -1366,33 +1460,35 @@ static int neigh_reduce(struct net_device *dev, struct sk_buff *skb)
- 	    msg->icmph.icmp6_type != NDISC_NEIGHBOUR_SOLICITATION)
- 		goto out;
- 
--	n = neigh_lookup(ipv6_stub->nd_tbl, daddr, dev);
-+	n = neigh_lookup(ipv6_stub->nd_tbl, &msg->target, dev);
- 
--	if (n) {
--		struct vxlan_fdb *f;
--
--		if (!(n->nud_state & NUD_CONNECTED)) {
--			neigh_release(n);
--			goto out;
-+	if (!n) {
-+		if (vxlan->flags & VXLAN_F_L3MISS) {
-+			ipa.sin6.sin6_addr = msg->target;
-+			ipa.sa.sa_family = AF_INET6;
-+			vxlan_ip_miss(dev, &ipa);
- 		}
-+		goto out;
-+	}
- 
--		f = vxlan_find_mac(vxlan, n->ha);
--		if (f && vxlan_addr_any(&(first_remote_rcu(f)->remote_ip))) {
--			/* bridge-local neighbor */
--			neigh_release(n);
--			goto out;
--		}
-+	if (!(n->nud_state & NUD_CONNECTED)) {
-+		neigh_release(n);
-+		goto out;
-+	}
- 
--		ipv6_stub->ndisc_send_na(dev, n, saddr, &msg->target,
--					 !!in6_dev->cnf.forwarding,
--					 true, false, false);
-+	f = vxlan_find_mac(vxlan, n->ha);
-+	if (f && vxlan_addr_any(&(first_remote_rcu(f)->remote_ip))) {
-+		/* bridge-local neighbor */
- 		neigh_release(n);
--	} else if (vxlan->flags & VXLAN_F_L3MISS) {
--		ipa.sin6.sin6_addr = *daddr;
--		ipa.sa.sa_family = AF_INET6;
--		vxlan_ip_miss(dev, &ipa);
-+		goto out;
- 	}
- 
-+	reply = vxlan_na_create(skb, n, !!(f ? f->flags & NTF_ROUTER : 0));
-+
-+	neigh_release(n);
-+
-+	if (reply && netif_rx_ni(reply) == NET_RX_DROP)
-+		dev->stats.rx_dropped++;
- out:
- 	consume_skb(skb);
- 	return NETDEV_TX_OK;
+	-- kuba
