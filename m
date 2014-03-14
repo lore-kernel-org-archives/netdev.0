@@ -1,40 +1,41 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH net-next] flowcache: Tune per cpu flow cache shrink size
-Date: Fri, 14 Mar 2014 15:42:46 +0800
-Message-ID: <1394782966-9792-1-git-send-email-fan.du@windriver.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [RCU PATCH 00/14] Remove qdisc lock around ingress Qdisc
+Date: Fri, 14 Mar 2014 03:45:51 -0400
+Message-ID: <5322B3AF.3080004@mojatatu.com>
+References: <20140310170008.3011.73599.stgit@nitbit.x32> <53200588.5060805@mojatatu.com> <53208F11.8010304@gmail.com> <53216FE9.7090604@mojatatu.com> <5322AF88.60702@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:57148 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755133AbaCNHml (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 03:42:41 -0400
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:47744 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755419AbaCNHqB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 03:46:01 -0400
+Received: by mail-wi0-f179.google.com with SMTP id f8so2187184wiw.0
+        for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 00:46:00 -0700 (PDT)
+In-Reply-To: <5322AF88.60702@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When per cpu flow cache entries count reaches over high_watermark,
-flow cache will be shrinked gently to around low_watermark, not
-brutally killing most of cached entries by left only two.
+On 03/14/14 03:28, John Fastabend wrote:
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
- net/core/flow.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Ran the attached script and modified it to match UDP packets so I could
+> use it with pktgen to hammer it a bit more. And changed it to add/delete
+> filters with traffic while doing a watch on the filter and qdisc stats.
+> No oops, splats or anything else crazy.
+>
 
-diff --git a/net/core/flow.c b/net/core/flow.c
-index 31cfb365e0c6..e379cdcd699b 100644
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -142,7 +142,7 @@ static void __flow_cache_shrink(struct flow_cache *fc,
- static void flow_cache_shrink(struct flow_cache *fc,
- 			      struct flow_cache_percpu *fcp)
- {
--	int shrink_to = fc->low_watermark / flow_cache_hash_size(fc);
-+	int shrink_to = fc->low_watermark;
- 
- 	__flow_cache_shrink(fc, fcp, shrink_to);
- }
--- 
-1.7.9.5
+Most excellent;->
+Please add my Acked-by when you send the next series.
+
+> I need to get some sleep now though so the performance numbers will have
+> to wait for tomorrow.
+
+NP. Not expecting to see a regression (likely an improvement like you
+said).
+
+cheers,
+jamal
