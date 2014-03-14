@@ -1,145 +1,104 @@
-From: Pasi =?iso-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>
-Subject: Re: [PATCH net-next v6 0/3] The huawei_cdc_ncm driver / E3276
- problem
-Date: Fri, 14 Mar 2014 16:25:59 +0200
-Message-ID: <20140314142559.GD3200@reaktio.net>
-References: <1394746907.15946.8.camel@dcbw.local>
- <20140313220812.GW3200@reaktio.net>
- <20140314075548.GX3200@reaktio.net>
- <87wqfxnppc.fsf@nemi.mork.no>
- <20140314084159.GA3200@reaktio.net>
- <87siqlnol8.fsf@nemi.mork.no>
- <20140314090525.GB3200@reaktio.net>
- <87ob19nndo.fsf@nemi.mork.no>
- <20140314125934.GC3200@reaktio.net>
- <87vbvgnbv3.fsf@nemi.mork.no>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH] net: phy: Add support for SMSC/Microchip LAN9303 3-port
+ switch
+Date: Fri, 14 Mar 2014 14:29:36 +0000
+Message-ID: <1394807376.20857.41.camel@deadeye.wl.decadent.org.uk>
+References: <531057A4.5020607@denx.de>
+	 <20140228.130020.2022765291621434648.davem@davemloft.net>
+	 <CAGm1_ksPrSjV8+o7LCGDtJz_6qY8bqGuqdpYNHKh_6JO2X0sqg@mail.gmail.com>
+	 <20140311.163924.934541574802061078.davem@davemloft.net>
+	 <CAGm1_kvTRkCq93BaPgN-MY5Oji3e4is7eq-BtOLv-LJGDCDqPQ@mail.gmail.com>
+	 <1394655671.20857.2.camel@deadeye.wl.decadent.org.uk>
+	 <CAGm1_kviiz6Y4UjiRXdKNONC9PQbuEHJaDfOpMb8LsuwrEE92A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, Enrico Mioso <mrkiko.rs@gmail.com>,
-	Oliver Neukum <oliver@neukum.org>
-To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-0WJKbdeTPYcn2jx4/0U7"
+Cc: David Miller <davem@davemloft.net>, Stefan Roese <sr@denx.de>,
+	netdev <netdev@vger.kernel.org>, "r.meier" <r.meier@siemens.com>,
+	"lukas.stockmann" <lukas.stockmann@siemens.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Yegor Yefremov <yegorslists@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emh07.mail.saunalahti.fi ([62.142.5.117]:41982 "EHLO
-	emh07.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754804AbaCNO0C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 10:26:02 -0400
-Content-Disposition: inline
-In-Reply-To: <87vbvgnbv3.fsf@nemi.mork.no>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:39942 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754378AbaCNO3o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 10:29:44 -0400
+In-Reply-To: <CAGm1_kviiz6Y4UjiRXdKNONC9PQbuEHJaDfOpMb8LsuwrEE92A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 14, 2014 at 02:33:36PM +0100, Bj=F8rn Mork wrote:
-> Pasi K=E4rkk=E4inen <pasik@iki.fi> writes:
-> > On Fri, Mar 14, 2014 at 10:24:51AM +0100, Bj=F8rn Mork wrote:
-> >> Pasi K=E4rkk=E4inen <pasik@iki.fi> writes:
-> >>=20
-> >> > # ifconfig wwp0s26u1u5i1
-> >> > wwp0s26u1u5i1: flags=3D4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu=
- 1500
-> >> >         inet 10.8.219.204  netmask 255.255.255.248  broadcast 10=
-=2E8.219.207
-> >> >         inet6 fe80::e5b:8fff:fe27:9a64  prefixlen 64  scopeid 0x=
-20<link>
-> >> >         ether 0c:5b:8f:27:9a:64  txqueuelen 1000  (Ethernet)
-> >> >         RX packets 0  bytes 0 (0.0 B)
-> >> >         RX errors 1493  dropped 0  overruns 0  frame 0
+
+--=-0WJKbdeTPYcn2jx4/0U7
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2014-03-13 at 23:42 +0100, Yegor Yefremov wrote:
+> On Wed, Mar 12, 2014 at 9:21 PM, Ben Hutchings <ben@decadent.org.uk> wrot=
+e:
+> > On Wed, 2014-03-12 at 09:43 +0100, Yegor Yefremov wrote:
+> >> On Tue, Mar 11, 2014 at 9:39 PM, David Miller <davem@davemloft.net> wr=
+ote:
+> >> > From: Yegor Yefremov <yegorslists@googlemail.com>
+[...]
+> >> >> David, what about enabling ethtool to read/write from/to the PHY
+> >> >> registers (via passing PHY ID and register number)? I'm trying to g=
+et
+> >> >> ICplus IP175D running and it has lots of registers, that I would li=
+ke
+> >> >> to look at dynamically.
 > >> >
-> >> > Note the RX errors.. ?=20
-> >>=20
-> >>=20
-> >> Yes, that is not expected and is quite possibly hiding the explana=
-tion.
-> >>=20
+> >> > For debugging, register dumps are already supported by ethtool.
+> >>
+> >> Do you mean 'ethtool -e' option? AFAIK it dumps Ethernet controller
+> >> regs, if it implements ethtool_ops.get_regs(). What I need are PHY
+> >> registers, that I can get via MII interface. ethtool should provide
+> >> access to PHY registers like mdiobus_read() and mdiobus_write()
+> >> routines.
+> > [...]
 > >
-> > Ok, good to know.
-> >
-> >> Could you do a usbmon dump to try to capture the contents of the U=
-SB
-> >> buffers we drop here?  See
-> >> https://www.kernel.org/doc/Documentation/usb/usbmon.txt
-> >>=20
-> >> Note that the text interface may truncate the buffers too early fo=
-r the
-> >> result to be useful.  wireshark/thsark will for example allow you =
-to
-> >> capture the whole buffer (when snooping on the "usbmonX" interface=
- - not
-> >> the netdev!)
-> >>=20
-> >
-> > I'll try that..=20
-> >
-> >> We also have a few debug messages in the driver for different type=
-s of
-> >> errors we drop.  Turning on those might explain something (assumin=
-g you
-> >> have DYNAMIC_DEBUG enabled):
-> >>=20
-> >>   ethtool -s wwp0s26u1u5i1 msglvl rx_err on
-> >>=20
-> >> Note that these will be logged at "debug" level, so you need to tu=
-rn on
-> >> logging/showing such messages as well.
-> >>=20
-> >
-> > # uname -a
-> > Linux localhost.localdomain 3.13.6-200.fc20.x86_64 #1 SMP Fri Mar 7=
- 17:02:28 UTC 2014 x86_64 x86_64 x86_64 GNU/Linux
-> >
-> > # grep -i DYNAMIC_DEBUG /boot/config-3.13.6-200.fc20.x86_64
-> > CONFIG_DYNAMIC_DEBUG=3Dy
-> >
-> > # echo 8 > /proc/sys/kernel/printk
-> > # cat /proc/sys/kernel/printk
-> > 8       4       1       7
-> >
-> > # ethtool -s wwp0s26u1u5i1 msglvl rx_err on
-> >
-> > Is that enough?
+> > Perhaps, but only as a test/debug interface.  It is not acceptable as a
+> > production configuration interface - that needs some abstraction so the
+> > same command will work on any switch chip that can support the
+> > operation.
 >=20
-> I believe so, but I don't feel too steady on all the dynamic-ness her=
-e.
->=20
-> > I don't see any errors logged in "dmesg" output,
-> > but the RX errors counters do keep increasing in ifconfig output..=20
->=20
-> OK, let's see if we can figure it out based on the usbmon data.
->=20
+> Sure, I'd like to have this functionality for test/debug purpose.
 
-http://pasik.reaktio.net/huawei-e3276-usbmon3.pcapng
+OK.  First check that mii-tool doesn't already provide what you need.
 
-(I did move the dongle to a different usb bus nr 3 to make it the only =
-device on that bus before capturing..)=20
+If it doesn't, please submit patches for ethtool to support MDIO
+register get/set.  These should cover both clause 22 and clause 45 PHYs.
+Register dump may also be useful, but requires some thought about how to
+handle the clause 45 address range (65536 registers per MMD, potentially
+2 million per PRTAD).
 
-So what I did:
+Ben.
 
-- Start wireshark capture on USB bus nr 3.
-- Plug in the Huawei E3276 dongle.
-- Wait for usb_modeswitch to happen.
-- Use minicom to talk to /dev/cdc-wdm0 and send AT commands to connect =
-to Internet:
-	- ATQ0 V1 E1 S0=3D0
-	- AT^NDISDUP=3D1,1,"internet"
+--=20
+Ben Hutchings
+Experience is directly proportional to the value of equipment destroyed.
+                                                         - Carolyn Scheppne=
+r
 
-- After the dongle has connected query for DHCP status:
-	- AT^DHCP?
+--=-0WJKbdeTPYcn2jx4/0U7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-- Launch dhcp client (dhclient) on wwp0s20u1i1 interface.
-- Wait for a while and see RX error counters increasing on ifconfig out=
-put.
-- Cancel (ctrl+c) the dhclient.
-- Stop wireshark capture.=20
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
+iQIVAwUAUyMSUOe/yOyVhhEJAQogtA/9FGGcSHcy/F5rgWqIRwwb8RTQr31cpZ/z
+pK4Grz1+809g8sdr/PjXggv2w0+VG8sCsUgXFgUlCB2cds1FWEsBk/Nss6mNLP2c
+jXvfUXEUS2h1BBy+ipxgELocYQUvLlaGQsLjvLM1P7935gmcdpN/TGONuo1hWGGJ
+d23AgM7Nx+HxoHXJOPGAUptT0teZOvhtFAVIknkHXwa19rdYOr8ZI7BDWen0uUgK
+Hsfy/auKqDsTSAGkP2XcB18LF4ErR2QwelZYUIUeBmNwrBWT/fkF/8l8mbnPpZO8
+U7LZtScSoWl6wxcgmAt/ix+b48HxEqJBZ3SxviuAlNJLZankjH53+Vg09Z5SDD/J
+aznRbSBkcMYRhG4rUi/bXWktNEAyJZx6qrzMmq7njJ+YvWTDQZj15zBafvMbNcgX
+l9NL4EVUZ0NNVhLAQR3La8kohkLK5KVct9g+8M8EaWNoo09nGxuxKsRn+TjyPbQC
+Iop4TnK2YuEn8t4xj1vc7k8RTS3XlznuwaEp7y4NwdXhqrw/lDpHoV2gEzbulbZt
+1sAfVLFDHps3yYXIZk/mq6R30kaJXU4+U/yzGo+/po0CSzUYjrsjCMjP1Bk45nCL
+NPnbSpMU/hof3RXLAAQjkDzzspwJqMuvnB1jpJmvq3h+4TU40xcL2xTqnFlV2FnO
+yOAblM+Fja0=
+=qXzU
+-----END PGP SIGNATURE-----
 
-Does that capture file show anything interesting to you?=20
-
->=20
->=20
-> Bj=F8rn
-
-
-Thanks,
-
--- Pasi
+--=-0WJKbdeTPYcn2jx4/0U7--
