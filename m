@@ -1,68 +1,109 @@
-From: Pasi =?iso-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>
-Subject: Re: [PATCH net-next v6 0/3] The huawei_cdc_ncm driver / E3276
- problem
-Date: Fri, 14 Mar 2014 10:41:59 +0200
-Message-ID: <20140314084159.GA3200@reaktio.net>
-References: <1383555049-24834-1-git-send-email-bjorn@mork.no>
- <20140313202557.GV3200@reaktio.net>
- <1394746907.15946.8.camel@dcbw.local>
- <20140313220812.GW3200@reaktio.net>
- <20140314075548.GX3200@reaktio.net>
- <87wqfxnppc.fsf@nemi.mork.no>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] e1000e: fix the build error when
+ PM is disabled
+Date: Fri, 14 Mar 2014 01:55:43 -0700
+Message-ID: <1394787343.2167.48.camel@jtkirshe-mobl>
+References: <1394780233-8066-1-git-send-email-haokexin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, Enrico Mioso <mrkiko.rs@gmail.com>,
-	Oliver Neukum <oliver@neukum.org>
-To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from emh02.mail.saunalahti.fi ([62.142.5.108]:49158 "EHLO
-	emh02.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755771AbaCNImC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 04:42:02 -0400
+Content-Type: multipart/mixed; boundary="===============4561376667088049128=="
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Kevin Hao <haokexin@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1394780233-8066-1-git-send-email-haokexin@gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
+
+
+--===============4561376667088049128==
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-9TlLOsGLgGoWpI5pZN8a"
+
+
+--=-9TlLOsGLgGoWpI5pZN8a
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, 2014-03-14 at 14:57 +0800, Kevin Hao wrote:
+> The commit 2800209994f8 (e1000e: Refactor PM flows) changed the
+> SET_SYSTEM_SLEEP_PM_OPS to open-coded assignment, but forgot to
+> protect them with CONFIG_PM_SLEEP. Then cause the following build
+> error when PM is disabled:
+> drivers/net/ethernet/intel/e1000e/netdev.c:7079:13:
+> error: 'e1000e_pm_suspend' undeclared here (not in a function)
+>   .suspend =3D e1000e_pm_suspend,
+>              ^
+> drivers/net/ethernet/intel/e1000e/netdev.c:7080:13:
+> error: 'e1000e_pm_resume' undeclared here (not in a function)
+>   .resume  =3D e1000e_pm_resume,
+>              ^
+> drivers/net/ethernet/intel/e1000e/netdev.c:7082:11:
+> error: 'e1000e_pm_thaw' undeclared here (not in a function)
+>   .thaw  =3D e1000e_pm_thaw,
+>            ^
+>=20
+> Signed-off-by: Kevin Hao <haokexin@gmail.com>
+> ---
+>  drivers/net/ethernet/intel/e1000e/netdev.c | 2 ++
+>  1 file changed, 2 insertions(+)
+
+Thanks Kevin, I will add this to my queue.
+
+--=-9TlLOsGLgGoWpI5pZN8a
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAABCgAGBQJTIsQPAAoJEOVv75VaS+3OORcP/2a9crF0ANjX0g5Z8eFd1Ic/
+RNxCFe+Y24shVk+EtojADfDIeJmFKv7lKOkKuzKrMqhYIHfnZyKD63ssX+qRVN2N
+2ODp3AFgV94nUFi9eJV07nfBFRJOhvXVZLptqjkZbeqXDKUKNVmTJl4/gFH/7Mx8
+IXsn2YnbXJBNR/2ol6F3o25QD39zJUeePIcEQxIlxhcrekmq6jfwctW7lSisIGwW
+v6KVIwcEGApIV0NSGPacTCGVLSD7Nv3LCgvWtQeVcyWjm1FW89zH9Gomak08Gi9Q
+v0caVxt+j/HrHtrXne/MpfcEbZCOC1u2hPln5VwC/CaCjq0AsIodpjkTL+ydU6p9
+/tMMfCkLBfZ4YU3v5nbQwtNvs4baHY20SVq9G6ypDMsL0g11H+vcLxg3TDu+9NRd
+HY7g+a6gcWAartI+uZd6fYdOis4I0DIhXtfaMAaNSmZrNh73f3YKbpFP1ENIHzWW
+ed8+fp76vtc3cRKWQlAydsq9/mWtcZKmWQeLJgHIZWR8tT/pYUj/lQD4U2RTx0mw
+jaIQlm0F535r9EEibCfYkGEwMjM3Hera+5HvO7rmRN1IQYKg1QJqGZZ68JYO9m6p
+ru2ayYWNeTtKckzuQY+y6OVDBSC2f5Xn99e0vTdlLqJSGfv9ZnRNQ4jK69qk1bmP
+kjC44QYhiQBzdifOPlKY
+=xKl0
+-----END PGP SIGNATURE-----
+
+--=-9TlLOsGLgGoWpI5pZN8a--
+
+
+
+--===============4561376667088049128==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
-In-Reply-To: <87wqfxnppc.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 14, 2014 at 09:34:39AM +0100, Bj=F8rn Mork wrote:
-> Pasi K=E4rkk=E4inen <pasik@iki.fi> writes:
-> > On Fri, Mar 14, 2014 at 12:08:12AM +0200, Pasi K=E4rkk=E4inen wrote=
-:
-> >>
-> >> I've been using:
-> >>=20
-> >> ATQ0 V1 E1 S0=3D0
-> >> AT^NDISDUP=3D1,1,"internet"
-> >> AT^DHCP?
-> >>
-> >
-> > Oh, I forgot to mention.. after I send AT^NDISDUP=3D1,1,"internet" =
-I get this:
-> >
-> > ^NDISSTAT:1,,,"IPV4"
-> >
-> > .. which to my understanding means it's connected (1=3D=3Dconnected=
-).
-> > Also sending AT^NDISSTATQRY? results in:
-> >
-> > ^NDISSTATQRY: 1,,,"IPV4"
->=20
->=20
-> What response do you get to the AT^DHCP? request when connected?
->=20
+------------------------------------------------------------------------------
+Learn Graph Databases - Download FREE O'Reilly Book
+"Graph Databases" is the definitive new guide to graph databases and their
+applications. Written by three acclaimed leaders in the field,
+this first edition is now available. Download your free book today!
+http://p.sf.net/sfu/13534_NeoTech
+--===============4561376667088049128==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-^NDISSTAT:1,,,"IPV4"
-^RSSI: 21
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
 
-<I send: AT^DHCP?>
-^DHCP: CCDB080A,F8FFFFFF,C9DB080A,C9DB080A,E67B59C0,E77B59C0,85600,8560=
-0
-
-
->=20
-> Bj=F8rn
-
-
--- Pasi
+--===============4561376667088049128==--
