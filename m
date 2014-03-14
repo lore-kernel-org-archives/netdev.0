@@ -1,77 +1,28 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [RCU PATCH 06/14] net: sched: fw use RCU
-Date: Fri, 14 Mar 2014 11:59:17 -0700
-Message-ID: <20140314185917.GA18933@linux.vnet.ibm.com>
-References: <53208E3F.5090401@gmail.com>
- <1394643673.21721.48.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140313202245.GK21124@linux.vnet.ibm.com>
- <1394744203.21721.53.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140313211509.GP21124@linux.vnet.ibm.com>
- <53229704.1040808@gmail.com>
- <20140314132834.GS21124@linux.vnet.ibm.com>
- <1394804798.21721.64.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140314153810.GX21124@linux.vnet.ibm.com>
- <20140314185005.GA17041@linux.vnet.ibm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 net-next 1/2] ethtool: Support for configurable RSS
+ hash key
+Date: Fri, 14 Mar 2014 15:02:09 -0400 (EDT)
+Message-ID: <20140314.150209.780805827828727740.davem@davemloft.net>
+References: <1394794484-12957-1-git-send-email-VenkatKumar.Duvvuru@Emulex.com>
+	<0e1a43a0-8126-45f8-97f1-0ede7637a9b0@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: VenkatKumar.Duvvuru@Emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:53336 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754927AbaCNS7V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 14:59:21 -0400
-Received: from /spool/local
-	by e32.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-	Fri, 14 Mar 2014 12:59:20 -0600
-Received: from b03cxnp08027.gho.boulder.ibm.com (b03cxnp08027.gho.boulder.ibm.com [9.17.130.19])
-	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id C989819D8046
-	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 12:59:15 -0600 (MDT)
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by b03cxnp08027.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2EIwljw7864660
-	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 19:58:47 +0100
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id s2EJ2pMK019932
-	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 13:02:52 -0600
-Content-Disposition: inline
-In-Reply-To: <20140314185005.GA17041@linux.vnet.ibm.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38743 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753644AbaCNTCL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 15:02:11 -0400
+In-Reply-To: <0e1a43a0-8126-45f8-97f1-0ede7637a9b0@CMEXHTCAS1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 14, 2014 at 11:50:05AM -0700, Paul E. McKenney wrote:
-> On Fri, Mar 14, 2014 at 08:38:10AM -0700, Paul E. McKenney wrote:
-> > On Fri, Mar 14, 2014 at 06:46:38AM -0700, Eric Dumazet wrote:
-> > > On Fri, 2014-03-14 at 06:28 -0700, Paul E. McKenney wrote:
-> > > 
-> > > > Now I just need to figure out why it -causes- a BUILD_BUG_ON for the
-> > > > cris and m68k architectures in Fengguang Wu's testing...
-> > > 
-> > > Right, they don't necessarily align pointers ;)
-> > > 
-> > > alignof(void *) ?
-> > 
-> > It complained about the size rather than the alignment, but it would
-> > certainly make sense to constrain the rcu_head structure's alignment,
-> > now that you mention it.  I will do that and see if it helps.  ;-)
-> > 
-> > Thank you for the tip!
-> 
-> And you were quite right...  When the alignment is bad, it complains
-> about the size.  And although I can specify that struct rcu_head be
-> aligned, but __attribute__(packed) overrides this when specified on an
-> enclosing structure.  As does the -fpack-struct gcc command-line option.
-> 
-> Other thoughts on getting around this problem?
-> 
-> Hmmm...  Maybe if cris and m68k guaranteed to keep functions out of the
-> bottom four pages of memory...
+From: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
+Date: Fri, 14 Mar 2014 16:24:43 +0530
 
-Or I could find some other large area of memory that never contains
-functions, for example, the beginning of data or bss (if we still have
-those).  Then check for a range rather than a cutoff.
+> +static inline int ethtool_copy_validate_indir(u32 *indir, void __user *useraddr,
 
-							Thanx, Paul
+Please don't add explicit inline to functions contained in *.c files, let
+the compiler decide.
