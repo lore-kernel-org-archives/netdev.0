@@ -1,80 +1,123 @@
-From: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] openvswitch: Orphan frags before sending to
- userspace via Netlink to avoid guest stall
-Date: Fri, 14 Mar 2014 22:26:36 +0000
-Message-ID: <5323821C.70001@citrix.com>
-References: <1393615016-9187-1-git-send-email-zoltan.kiss@citrix.com>	<5319F272.1070101@redhat.com>
- <CALnjE+q=fejHPsjVj9+jnypJCUHfCDFc553U48WR48Tjcf3FZw@mail.gmail.com>
- <531A0911.4040304@redhat.com> <531F66D0.1050000@citrix.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH net-next ] i40evf: Rename i40e_ptype_lookup i40evf_ptype_lookup
+Date: Fri, 14 Mar 2014 16:03:06 -0700
+Message-ID: <87k3bw2xjp.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org,
- LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <531F66D0.1050000-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
+	Kavindya Deegala <kavindya.s.deegala@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:32860 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752030AbaCNXDO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 19:03:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/03/14 19:41, Zoltan Kiss wrote:
-> On 07/03/14 17:59, Thomas Graf wrote:
->> On 03/07/2014 06:28 PM, Pravin Shelar wrote:
->>> Problem is mapping SKBTX_DEV_ZEROCOPY pages to userspace. skb_zerocopy
->>> is not doing that.
->>>
->>> Unless I missing something, Current netlink code can not handle
->>> skb-frags with zero copy. So we have to copy skb anyways and no need
->>> to orphan-frags here.
->>> If you are planning on handling skb-frags without copying then
->>> skb_orphan_frags should be done in netlink.
->>
->> If you look at the second part of skb_zerocopy() this is exactly what
->> it is doing unless the target skb has sufficient linear space
->> preallocated. At least unless mmap is enabled in which case we would
->> have to copy again until we have implemented a way to pass page refs
->> via the nl ring buffer.
->>
->> So I think Zoltan is correct in orphaning frags that come from f.e.
->> a tun device via zerocopy_sg_from_iovec().
->
-> Now as I'm checking how Netlink works, I might be wrong at some parts :)
-> skb_zerocopy correctly add the frags to the user_skb we are sending
-> upwards, however when the userspace receive it in netlink_recvmsg(), it
-> gets copied to the supplied buffer anyway. Is that correct? In which
-> case we don't need to worry that userspace will sit on that page
-> indefinitely. However we have to worry about userspace not calling recv
-> on that Netlink socket, so in the end we still need skb_orphan_frags,
-> just for a different reason :)
-> We can put skb_orphan_frags into skb_zerocopy, skb_clone also do that.
->
-> However with Netlink mmapped IO, we should take a different approach,
-> and instead of calling skb_orphan_frags we should make sure user_skb can
-> hold any skb we get from the kernel, and copy the frags there. Even if
-> we would be able to pass page refs to userspace through the ring buffer
-> (AFAIK currently we can't), it would be fragile to just pass kernel
-> pages directly to userspace, even if they came without the
-> SKBTX_DEV_ZEROCOPY flag. And I think it would be quite rare that we need
-> that copy anyway, because the flow setup usually happens with small
-> packets without frags.
-> If we choose the above approach with Netlink mmap, we don't need
-> skb_orphan_frags, in fact
 
-I spent some time to think about this mmaped scenaria, and discussed it 
-with others: the conclusion is that it shouldn't be a big problem to 
-expose local kernel pages through the frags array as I thought before. 
-So OVS can get along with passing refs to those pages in the shared 
-ring. However skb_orphan_frags would be still necessary in skb_zerocopy, 
-for the same reason as now.
-Should I post a new patch which does calls orphan_frags in zerocopy? Or 
-do you have any other opinion?
+When compiling the i40e and the i40evf driver into the same kernel I get:
+LD      drivers/net/ethernet/intel/built-in.o
+drivers/net/ethernet/intel/i40evf/built-in.o:(.data+0x300): multiple definition of `i40e_ptype_lookup'
+drivers/net/ethernet/intel/i40e/built-in.o:(.data+0x780): first defined here
+make[3]: *** [drivers/net/ethernet/intel/built-in.o] Error 1
+make[2]: *** [drivers/net/ethernet/intel] Error 2
+make[1]: *** [drivers/net/ethernet/] Error 2
+make: *** [sub-make] Error 2
 
-Zoli
+Fix this by renaming the i40evf version of this structure from
+i40e_ptype_lookup to i40evf_ptype_lookup.
+
+This build failure was introduced in:
+commit 206812b5fccb808d1194344eaa942f68f59b2630
+Author: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Date:   Wed Feb 12 01:45:33 2014 +0000
+
+    i40e/i40evf: i40e implementation for skb_set_hash
+
+    Original comment from Tom Herbert <therbert@google.com>
+
+       Drivers should call skb_set_hash to set the hash and its type
+       in an skbuff.
+
+    This patch builds upon Tom's original implementation and adds
+    the L4 type return when we know it is an L4 hash.
+    This requires use of the ptype decoder ring, so enable it.
+
+    Change-ID: I2f9fa86d1a6add58cff13386f7f4238b1abcc468
+    CC: Tom Herbert <therbert@google.com>
+    Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+    Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+    Acked-by: Mitch Williams <mitch.a.williams@intel.com>
+    Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+    Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+    Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>
+Cc: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ drivers/net/ethernet/intel/i40evf/i40e_common.c    |    8 ++++----
+ drivers/net/ethernet/intel/i40evf/i40e_prototype.h |    4 ++--
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+index 78618af271cf..c688a0fc5c29 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+@@ -160,7 +160,7 @@ i40e_status i40evf_aq_queue_shutdown(struct i40e_hw *hw,
+ }
+ 
+ 
+-/* The i40e_ptype_lookup table is used to convert from the 8-bit ptype in the
++/* The i40evf_ptype_lookup table is used to convert from the 8-bit ptype in the
+  * hardware to a bit-field that can be used by SW to more easily determine the
+  * packet type.
+  *
+@@ -173,10 +173,10 @@ i40e_status i40evf_aq_queue_shutdown(struct i40e_hw *hw,
+  *
+  * Typical work flow:
+  *
+- * IF NOT i40e_ptype_lookup[ptype].known
++ * IF NOT i40evf_ptype_lookup[ptype].known
+  * THEN
+  *      Packet is unknown
+- * ELSE IF i40e_ptype_lookup[ptype].outer_ip == I40E_RX_PTYPE_OUTER_IP
++ * ELSE IF i40evf_ptype_lookup[ptype].outer_ip == I40E_RX_PTYPE_OUTER_IP
+  *      Use the rest of the fields to look at the tunnels, inner protocols, etc
+  * ELSE
+  *      Use the enum i40e_rx_l2_ptype to decode the packet type
+@@ -205,7 +205,7 @@ i40e_status i40evf_aq_queue_shutdown(struct i40e_hw *hw,
+ #define I40E_RX_PTYPE_INNER_PROT_TS	I40E_RX_PTYPE_INNER_PROT_TIMESYNC
+ 
+ /* Lookup table mapping the HW PTYPE to the bit field for decoding */
+-struct i40e_rx_ptype_decoded i40e_ptype_lookup[] = {
++struct i40e_rx_ptype_decoded i40evf_ptype_lookup[] = {
+ 	/* L2 Packet types */
+ 	I40E_PTT_UNUSED_ENTRY(0),
+ 	I40E_PTT(1,  L2, NONE, NOF, NONE, NONE, NOF, NONE, PAY2),
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_prototype.h b/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
+index 33c99051cc96..862fcdf52675 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
+@@ -63,11 +63,11 @@ i40e_status i40evf_aq_queue_shutdown(struct i40e_hw *hw,
+ 
+ i40e_status i40e_set_mac_type(struct i40e_hw *hw);
+ 
+-extern struct i40e_rx_ptype_decoded i40e_ptype_lookup[];
++extern struct i40e_rx_ptype_decoded i40evf_ptype_lookup[];
+ 
+ static inline struct i40e_rx_ptype_decoded decode_rx_desc_ptype(u8 ptype)
+ {
+-	return  i40e_ptype_lookup[ptype];
++	return  i40evf_ptype_lookup[ptype];
+ }
+ 
+ /* prototype for functions used for SW locks */
+-- 
+1.7.5.4
