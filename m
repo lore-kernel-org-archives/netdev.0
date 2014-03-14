@@ -1,117 +1,91 @@
-From: Pasi =?iso-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>
-Subject: Re: [PATCH net-next v6 0/3] The huawei_cdc_ncm driver / E3276
- problem
-Date: Fri, 14 Mar 2014 11:05:25 +0200
-Message-ID: <20140314090525.GB3200@reaktio.net>
-References: <1383555049-24834-1-git-send-email-bjorn@mork.no>
- <20140313202557.GV3200@reaktio.net>
- <1394746907.15946.8.camel@dcbw.local>
- <20140313220812.GW3200@reaktio.net>
- <20140314075548.GX3200@reaktio.net>
- <87wqfxnppc.fsf@nemi.mork.no>
- <20140314084159.GA3200@reaktio.net>
- <87siqlnol8.fsf@nemi.mork.no>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH v3] net: phy: fix uninitalized WOL parameters in
+ phy_ethtool_get_wol
+Date: Fri, 14 Mar 2014 10:06:58 +0100
+Message-ID: <5322C6B2.6040905@gmail.com>
+References: <1394484661-4554-2-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1394578975-12588-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <20140313.153832.967564223480298567.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, Enrico Mioso <mrkiko.rs@gmail.com>,
-	Oliver Neukum <oliver@neukum.org>
-To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from emh06.mail.saunalahti.fi ([62.142.5.116]:35308 "EHLO
-	emh06.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755601AbaCNJF2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 05:05:28 -0400
-Content-Disposition: inline
-In-Reply-To: <87siqlnol8.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com, ben@decadent.org.uk,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20140313.153832.967564223480298567.davem@davemloft.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 14, 2014 at 09:58:43AM +0100, Bj=F8rn Mork wrote:
-> Pasi K=E4rkk=E4inen <pasik@iki.fi> writes:
->=20
-> > ^NDISSTAT:1,,,"IPV4"
-> > ^RSSI: 21
-> >
-> > <I send: AT^DHCP?>
-> > ^DHCP: CCDB080A,F8FFFFFF,C9DB080A,C9DB080A,E67B59C0,E77B59C0,85600,=
-85600
->=20
->=20
-> The hex numbers are IPv4 addresses in little endian. The decimal numb=
-ers
-> at the end are speed down/up IIRC.
->=20
-> Printed in a more readable form, this is:
->=20
->  10.8.219.204,255.255.255.248,10.8.219.201,10.8.219.201,192.89.123.23=
-0,192.89.123.231,85600,85600
->=20
-> I believe this is to be interpreted as
->=20
->  yourip, netmask, gw, gw?, dns1, dns2
->=20
->=20
-> Do stuff work if you manually configure the interface with the
-> 10.8.219.204 address and set the default route to 10.8.219.201?
->=20
-
-Unfortunately no :(=20
-
-# ifconfig wwp0s26u1u5i1
-wwp0s26u1u5i1: flags=3D4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
-        inet 10.8.219.204  netmask 255.255.255.248  broadcast 10.8.219.=
-207
-        inet6 fe80::e5b:8fff:fe27:9a64  prefixlen 64  scopeid 0x20<link=
+On 03/13/2014 08:38 PM, David Miller wrote:
+> From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+> Date: Wed, 12 Mar 2014 00:02:55 +0100
 >
-        ether 0c:5b:8f:27:9a:64  txqueuelen 1000  (Ethernet)
-        RX packets 0  bytes 0 (0.0 B)
-        RX errors 1493  dropped 0  overruns 0  frame 0
+>> phy_ethtool_get_wol is a helper to get current WOL settings from
+>> a phy device. When using this helper on a PHY without .get_wol
+>> callback, struct ethtool_wolinfo is never set-up correctly and
+>> may contain misleading information about WOL status.
+>>
+>> To fix this, always zero relevant fields of struct ethtool_wolinfo
+>> regardless of .get_wol callback availability.
+>>
+>> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+>> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+>
+> I'm starting to see this situation more clearly now, especially with
+> Ben's most recent commentary.
+>
+> The basic notion is that one must do ethtool ops are designed such that
+> the top-level execution context in net/core/ethtool.c takes care of
+> initializing the structure.
+>
+> In this case, we're referring specifically to ethtool_get_wol(), which
+> runs any time ETHTOOL_GWOL is requested.
+>
+> Therefore no ethtool_ops->get_wol() implementation should duplicate
+> this work, that goes for all of such cases which invoke the function
+> we are talking about here, phy_ethtool_get_wol().
+>
+> So the first change is definitely to remove:
+>
+> 	wol->supported = 0;
+> 	wol->wolopts = 0;
+>
+> from:
+>
+> drivers/net/ethernet/marvell/mv643xx_eth.c:mv643xx_eth_get_wol()
+> drivers/net/ethernet/ti/cpsw.c:cpsw_get_wol()
+>
+> Next, I think phy_suspend() must create the same environment the
+> call sites above guarentee for phy_ethtool_get_wol(), namely
+> by changing the declaration of 'wol' to:
+>
+> 	struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
+>
+> which will cause the compiler to clear out the rest of the structure
+> for us, as the same declaration does in ethtool_get_wol().
+>
+> Finally, purge the spurious clears in phydev_ops->get_wol(), namely
+> in at803x_get_wol() and m88e1318_get_wol().
+>
+> So, to reiterate, OPS never have to be mindful of initializing the
+> ethtool result with zeros.  However, anyone who calls into OPS
+> directly must provide said expected state.
+>
+> Are we all on the same page now?
 
-Note the RX errors.. ?=20
+Yes, we are. I'll send a fix for phy_suspend in a minute - still based
+on v3.14-rc1 in case there will be another -rc.
 
-        TX packets 53  bytes 532885 (520.3 KiB)
-        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+If not, I'll rebase that fix on net-next together with patches for the
+four offending drivers you named above.
 
-# route -n
-Kernel IP routing table
-Destination     Gateway         Genmask         Flags Metric Ref    Use=
- Iface
-0.0.0.0         10.8.219.201    0.0.0.0         UG    0      0        0=
- wwp0s26u1u5i1
-10.8.219.200    0.0.0.0         255.255.255.248 U     0      0        0=
- wwp0s26u1u5i1
-
-
-# ping 10.8.219.201
-PING 10.8.219.201 (10.8.219.201) 56(84) bytes of data.
-=46rom 10.8.219.204 icmp_seq=3D1 Destination Host Unreachable
-=46rom 10.8.219.204 icmp_seq=3D2 Destination Host Unreachable
-=46rom 10.8.219.204 icmp_seq=3D3 Destination Host Unreachable
-=46rom 10.8.219.204 icmp_seq=3D4 Destination Host Unreachable
-
-
-And pinging anywhere else doesn't work either.. (I also tried telnet/ss=
-h/web - doesn't work).
-
-More ideas?=20
-
-
-> This is one way to rewrite the addresses if you need to for a new
-> connection:
->=20
->  perl -e 'print join(".", reverse map {hex} unpack("(A2)*", shift)),"=
-\n"' C9DB080A
->=20
-
-This is handy, thanks!
-
->=20
->=20
-> Bj=F8rn
->=20
-
-
-
--- Pasi
+Sebastian
