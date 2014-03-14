@@ -1,81 +1,89 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 03/14] i40e: Fix a bug in the update logic for FDIR SB filter.
-Date: Fri, 14 Mar 2014 16:34:24 -0700
-Message-ID: <1394840075-6851-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 04/14] i40e/i40evf: Some flow director HW definition fixes
+Date: Fri, 14 Mar 2014 16:34:25 -0700
+Message-ID: <1394840075-6851-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1394840075-6851-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Kevin Scott <kevin.c.scott@intel.com>,
 	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:35472 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:29252 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754791AbaCNXfH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Mar 2014 19:35:07 -0400
+	id S1755869AbaCNXfG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Mar 2014 19:35:06 -0400
 In-Reply-To: <1394840075-6851-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-The update filter logic was causing a kernel panic in the original code.
-We need to compare the input set to decide whether or not to delete a
-filter since we do not have a hash stored. This new design helps fix the issue.
+1) Fix a name of the error bit to correctly indicate the error.
+2) Added a fd_id field in the 32 byte desc at the place(qw0) where it gets
+reported in the programming error desc WB. In a normal data desc
+the fd_id field is reported in qw3.
 
-Change-ID: I2462b108e58ca4833312804cda730b4660cc18c9
+Change-ID: Ide9a24bff7273da5889c36635d629bc3b5212010
 Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Kevin Scott <kevin.c.scott@intel.com>
 Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 27 +++++++++++++++++++++-----
- 1 file changed, 22 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_type.h   | 6 +++++-
+ drivers/net/ethernet/intel/i40evf/i40e_type.h | 6 +++++-
+ 2 files changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index d34ff31..718a3e0 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1357,6 +1357,24 @@ static int i40e_set_rss_hash_opt(struct i40e_pf *pf, struct ethtool_rxnfc *nfc)
- }
- 
- /**
-+ * i40e_match_fdir_input_set - Match a new filter against an existing one
-+ * @rule: The filter already added
-+ * @input: The new filter to comapre against
-+ *
-+ * Returns true if the two input set match
-+ **/
-+static bool i40e_match_fdir_input_set(struct i40e_fdir_filter *rule,
-+				      struct i40e_fdir_filter *input)
-+{
-+	if ((rule->dst_ip[0] != input->dst_ip[0]) ||
-+	    (rule->src_ip[0] != input->src_ip[0]) ||
-+	    (rule->dst_port != input->dst_port) ||
-+	    (rule->src_port != input->src_port))
-+		return false;
-+	return true;
-+}
-+
-+/**
-  * i40e_update_ethtool_fdir_entry - Updates the fdir filter entry
-  * @vsi: Pointer to the targeted VSI
-  * @input: The filter to update or NULL to indicate deletion
-@@ -1391,11 +1409,10 @@ static int i40e_update_ethtool_fdir_entry(struct i40e_vsi *vsi,
- 
- 	/* if there is an old rule occupying our place remove it */
- 	if (rule && (rule->fd_id == sw_idx)) {
--		if (!input || (rule->fd_id != input->fd_id)) {
--			cmd->fs.flow_type = rule->flow_type;
--			err = i40e_add_del_fdir_ethtool(vsi, cmd, false);
--		}
--
-+		if (input && !i40e_match_fdir_input_set(rule, input))
-+			err = i40e_add_del_fdir(vsi, rule, false);
-+		else if (!input)
-+			err = i40e_add_del_fdir(vsi, rule, false);
- 		hlist_del(&rule->fdir_node);
- 		kfree(rule);
- 		pf->fdir_pf_active_filters--;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 181a825..5c902f4 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -458,6 +458,10 @@ union i40e_32byte_rx_desc {
+ 			union {
+ 				__le32 rss; /* RSS Hash */
+ 				__le32 fcoe_param; /* FCoE DDP Context id */
++				/* Flow director filter id in case of
++				 * Programming status desc WB
++				 */
++				__le32 fd_id;
+ 			} hi_dword;
+ 		} qword0;
+ 		struct {
+@@ -698,7 +702,7 @@ enum i40e_rx_prog_status_desc_prog_id_masks {
+ enum i40e_rx_prog_status_desc_error_bits {
+ 	/* Note: These are predefined bit offsets */
+ 	I40E_RX_PROG_STATUS_DESC_FD_TBL_FULL_SHIFT	= 0,
+-	I40E_RX_PROG_STATUS_DESC_NO_FD_QUOTA_SHIFT	= 1,
++	I40E_RX_PROG_STATUS_DESC_NO_FD_ENTRY_SHIFT	= 1,
+ 	I40E_RX_PROG_STATUS_DESC_FCOE_TBL_FULL_SHIFT	= 2,
+ 	I40E_RX_PROG_STATUS_DESC_FCOE_CONFLICT_SHIFT	= 3
+ };
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index 092aace..7189d6f 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -464,6 +464,10 @@ union i40e_32byte_rx_desc {
+ 			union {
+ 				__le32 rss; /* RSS Hash */
+ 				__le32 fcoe_param; /* FCoE DDP Context id */
++				/* Flow director filter id in case of
++				 * Programming status desc WB
++				 */
++				__le32 fd_id;
+ 			} hi_dword;
+ 		} qword0;
+ 		struct {
+@@ -704,7 +708,7 @@ enum i40e_rx_prog_status_desc_prog_id_masks {
+ enum i40e_rx_prog_status_desc_error_bits {
+ 	/* Note: These are predefined bit offsets */
+ 	I40E_RX_PROG_STATUS_DESC_FD_TBL_FULL_SHIFT	= 0,
+-	I40E_RX_PROG_STATUS_DESC_NO_FD_QUOTA_SHIFT	= 1,
++	I40E_RX_PROG_STATUS_DESC_NO_FD_ENTRY_SHIFT	= 1,
+ 	I40E_RX_PROG_STATUS_DESC_FCOE_TBL_FULL_SHIFT	= 2,
+ 	I40E_RX_PROG_STATUS_DESC_FCOE_CONFLICT_SHIFT	= 3
+ };
 -- 
 1.8.3.1
