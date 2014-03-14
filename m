@@ -1,68 +1,51 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH net-next v6 0/3] The huawei_cdc_ncm driver / E3276 problem
-Date: Fri, 14 Mar 2014 10:24:51 +0100
-Message-ID: <87ob19nndo.fsf@nemi.mork.no>
-References: <1383555049-24834-1-git-send-email-bjorn@mork.no>
-	<20140313202557.GV3200@reaktio.net>
-	<1394746907.15946.8.camel@dcbw.local>
-	<20140313220812.GW3200@reaktio.net>
-	<20140314075548.GX3200@reaktio.net> <87wqfxnppc.fsf@nemi.mork.no>
-	<20140314084159.GA3200@reaktio.net> <87siqlnol8.fsf@nemi.mork.no>
-	<20140314090525.GB3200@reaktio.net>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: Re: [mac80211_hwsim] BUG: unable to handle kernel paging request at
+ ce1db404
+Date: Fri, 14 Mar 2014 17:30:02 +0800
+Message-ID: <20140314093002.GA20607@localhost>
+References: <20140305125703.GA7193@localhost>
+ <20140305132317.GB10880@localhost>
+ <20140312170806.GC2983@piware.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, Enrico Mioso <mrkiko.rs@gmail.com>,
-	Oliver Neukum <oliver@neukum.org>
-To: Pasi =?utf-8?B?S8Okcmtrw6RpbmVu?= <pasik@iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:48463 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755507AbaCNJZL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 05:25:11 -0400
-In-Reply-To: <20140314090525.GB3200@reaktio.net> ("Pasi =?utf-8?Q?K=C3=A4r?=
- =?utf-8?Q?kk=C3=A4inen=22's?= message
-	of "Fri, 14 Mar 2014 11:05:25 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes.berg@intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Martin Pitt <martin.pitt@ubuntu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140312170806.GC2983@piware.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Pasi K=C3=A4rkk=C3=A4inen <pasik@iki.fi> writes:
+Hi Martin,
 
-> # ifconfig wwp0s26u1u5i1
-> wwp0s26u1u5i1: flags=3D4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
->         inet 10.8.219.204  netmask 255.255.255.248  broadcast 10.8.21=
-9.207
->         inet6 fe80::e5b:8fff:fe27:9a64  prefixlen 64  scopeid 0x20<li=
-nk>
->         ether 0c:5b:8f:27:9a:64  txqueuelen 1000  (Ethernet)
->         RX packets 0  bytes 0 (0.0 B)
->         RX errors 1493  dropped 0  overruns 0  frame 0
->
-> Note the RX errors.. ?=20
+On Wed, Mar 12, 2014 at 06:08:06PM +0100, Martin Pitt wrote:
+> Hey Fengguang,
+> 
+> Fengguang Wu [2014-03-05 21:23 +0800]:
+> > git bisect start v3.10 v3.9 --
+[snip]
+> > git bisect  bad d8efcf38b13df3e9e889cf7cc214cb85dc53600c  # 04:30      0-      3  Merge tag 'for-linus' of git://git.kernel.org/pub/scm/virt/kvm/kvm
+> > git bisect  bad b148a42ba7823e34971cd4e5b05a5c74fa3311ed  # 04:30      0-     19  Add linux-next specific files for 20140228
+> 
+> I noticed that this bisect list didn't include Sasha Levin's followup fix:
+> 
+>   http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/drivers/net/wireless/mac80211_hwsim.c?id=c07fe5ae06
+> 
+> That was supposed to fix problems at registration. Is that actually
+> inclued in your bisection? I suppose it is, but it's quite clear that
+> with only 9ea927 you'd get crashes with building it statically.
 
+The "git bisect start v3.10 v3.9" itself may not include that fixing
+commit, however the bisect script will check latest mainline and
+linux-next kernels at the end, and this line shows that linux-next at
+that day is still bad:
 
-Yes, that is not expected and is quite possibly hiding the explanation.
+> > git bisect  bad b148a42ba7823e34971cd4e5b05a5c74fa3311ed  # 04:30      0-     19  Add linux-next specific files for 20140228
 
-Could you do a usbmon dump to try to capture the contents of the USB
-buffers we drop here?  See
-https://www.kernel.org/doc/Documentation/usb/usbmon.txt
+I confirmed that b148a42ba7823e34971cd4e5b05a5c74fa3311ed does contain
+the fixing commit c07fe5ae06.
 
-Note that the text interface may truncate the buffers too early for the
-result to be useful.  wireshark/thsark will for example allow you to
-capture the whole buffer (when snooping on the "usbmonX" interface - no=
-t
-the netdev!)
-
-We also have a few debug messages in the driver for different types of
-errors we drop.  Turning on those might explain something (assuming you
-have DYNAMIC_DEBUG enabled):
-
-  ethtool -s wwp0s26u1u5i1 msglvl rx_err on
-
-Note that these will be logged at "debug" level, so you need to turn on
-logging/showing such messages as well.
-
-
-
-Bj=C3=B8rn
+Thanks,
+Fengguang
