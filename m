@@ -1,121 +1,66 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: Zynq macb
-Date: Fri, 14 Mar 2014 06:37:08 +0100
-Message-ID: <53229584.7000100@monstr.eu>
-References: <c6344e9b-fa32-4313-8950-59030c4bffb8@AM1EHSMHS003.ehs.local> <73734ba5-00d3-445d-8c6f-a1a868cdd537@CH1EHSMHS024.ehs.local>
-Reply-To: monstr@monstr.eu
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RCU PATCH 06/14] net: sched: fw use RCU
+Date: Thu, 13 Mar 2014 22:43:32 -0700
+Message-ID: <53229704.1040808@gmail.com>
+References: <20140310170008.3011.73599.stgit@nitbit.x32> <20140310170546.3011.82918.stgit@nitbit.x32> <1394473279.3607.46.camel@edumazet-glaptop2.roam.corp.google.com> <53208E3F.5090401@gmail.com> <1394643673.21721.48.camel@edumazet-glaptop2.roam.corp.google.com> <20140313202245.GK21124@linux.vnet.ibm.com> <1394744203.21721.53.camel@edumazet-glaptop2.roam.corp.google.com> <20140313211509.GP21124@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="7EAmv0r3cX2VDXHVioPQRjD023ftaAehV"
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	Punnaiah Choudary Kalluri
-	<punnaiah.choudary.kalluri@xilinx.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: =?UTF-8?B?U8O2cmVuIEJyaW5rbWFubg==?= <soren.brinkmann@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <73734ba5-00d3-445d-8c6f-a1a868cdd537@CH1EHSMHS024.ehs.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, xiyou.wangcong@gmail.com,
+	jhs@mojatatu.com, netdev@vger.kernel.org, davem@davemloft.net
+To: paulmck@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:44173 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752170AbaCNFny (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 01:43:54 -0400
+Received: by mail-oa0-f46.google.com with SMTP id i7so2136379oag.33
+        for <netdev@vger.kernel.org>; Thu, 13 Mar 2014 22:43:53 -0700 (PDT)
+In-Reply-To: <20140313211509.GP21124@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---7EAmv0r3cX2VDXHVioPQRjD023ftaAehV
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 03/13/2014 11:33 PM, S=C3=B6ren Brinkmann wrote:
-> On Thu, 2014-03-13 at 03:16PM -0700, S=C3=B6ren Brinkmann wrote:
->> Hi Nicolas,
+On 03/13/2014 02:15 PM, Paul E. McKenney wrote:
+> On Thu, Mar 13, 2014 at 01:56:43PM -0700, Eric Dumazet wrote:
+>> On Thu, 2014-03-13 at 13:22 -0700, Paul E. McKenney wrote:
 >>
->> I did some testing on the current linux-next tree and ran iperf on Zyn=
-q.
->> It seems that network and even the whole system can collapse when doin=
-g
->> that.
->> I don't really know what's going on, but once I saw the message:
->> 	"inconsistent Rx descriptor chain"
->> printed twice (system frozen afterwards).
+>>> Hmmm...  You know, the offset that kfree uses is a byte offset.  I see
+>>> no reason why any of the rcu_head structures should be misaligned.  If
+>>> HTSIZE is too big by only a factor of four or smaller, would the following
+>>> (untested) patch to RCU be appropriate?
+>>>
+>>> 							Thanx, Paul
+>>>
+>>> ------------------------------------------------------------------------
+>>>
+>>> rcu: Increase kfree_rcu() offset range
+>>>
+>>> The kfree_rcu() function operates by placing an offset into the rcu_head
+>>> structure in place of the function pointer that is normally there.
+>>> This offset cannot exceed 4095, on the theory that no Linux kernel will
+>>> ever have executable code in page zero.  However, the rcu_head structure
+>>> contains a pair of function pointers, and should never be misaligned.
+>>> This commit therefore divides the offset by the size of a pointer when
+>>> being placed into the rcu_head structure, and multiplies it by this
+>>> same constant when pulling it out.
+>>>
+>>> Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 >>
->> I don't know what exactly is going wrong, but suspect something around=
+>> SGTM, thanks Paul.
+>>
+>> Reviewed-by: Eric Dumazet <edumzzet@google.com>
+>
+> Very good, thank you!
+>
+> John, could you please give it a try with that rcu_head structure
+> moved to the end and let me know how it goes?
+>
+> 							Thanx, Paul
+>
 
->> memory/DMA. I have no clue whether it makes any sense or not, but I
->> tried using the macb_* functions instead of the gem_* ones (see diff b=
-elow).
->> That seems to result in a stable system and working Ethernet.
->=20
-> That was a little too early. After roughly 25 minutest the system runs
-> into a deadlock:
->   BUG: spinlock lockup suspected on CPU#1, iperf/774
->    lock: 0xeda0366c, .magic: dead4ead, .owner: swapper/0/0, .owner_cpu:=
- 0
->   CPU: 1 PID: 774 Comm: iperf Tainted: G        W    3.14.0-rc6-next-20=
-140312-xilinx-dirty #41
->   [<c00153c0>] (unwind_backtrace) from [<c0011e70>] (show_stack+0x10/0x=
-14)
->   [<c0011e70>] (show_stack) from [<c03d6b50>] (dump_stack+0x80/0xcc)
->   [<c03d6b50>] (dump_stack) from [<c00670ac>] (do_raw_spin_lock+0xd4/0x=
-190)
->   [<c00670ac>] (do_raw_spin_lock) from [<c03dc79c>] (_raw_spin_lock_irq=
-save+0x58/0x64)
->   [<c03dc79c>] (_raw_spin_lock_irqsave) from [<c02b0810>] (macb_start_x=
-mit+0x24/0x2d0)
->   [<c02b0810>] (macb_start_xmit) from [<c0321b10>] (dev_hard_start_xmit=
-+0x334/0x470)
->   [<c0321b10>] (dev_hard_start_xmit) from [<c0339aa8>] (sch_direct_xmit=
-+0x78/0x2f8)
->   [<c0339aa8>] (sch_direct_xmit) from [<c0321f60>] (__dev_queue_xmit+0x=
-314/0x704)
->   [<c0321f60>] (__dev_queue_xmit) from [<c034cb3c>] (ip_finish_output+0=
-x6c4/0x894)
->   [<c034cb3c>] (ip_finish_output) from [<c034cf24>] (ip_local_out+0x74/=
-0x90)
->   [<c034cf24>] (ip_local_out) from [<c034d340>] (ip_queue_xmit+0x400/0x=
-5c4)
->   [<c034d340>] (ip_queue_xmit) from [<c03634b8>] (tcp_transmit_skb+0xa1=
-8/0xab0)
->   [<c03634b8>] (tcp_transmit_skb) from [<c035856c>] (tcp_recvmsg+0x92c/=
-0xae4)
->   [<c035856c>] (tcp_recvmsg) from [<c03806f0>] (inet_recvmsg+0x1c0/0x1f=
-c)
->   [<c03806f0>] (inet_recvmsg) from [<c030769c>] (sock_recvmsg+0x7c/0x98=
-)
->   [<c030769c>] (sock_recvmsg) from [<c0309988>] (SyS_recvfrom+0x9c/0x10=
-8)
->   [<c0309988>] (SyS_recvfrom) from [<c0309a08>] (sys_recv+0x14/0x18)
->   [<c0309a08>] (sys_recv) from [<c000ea60>] (ret_fast_syscall+0x0/0x48)=
+Yep, this resolves the BUILD_BUG_ON I was seeing previously. Thanks!
 
+Tested-by: John Fastabend <john.r.fastabend@intel.com>
 
-Do you have this change in your tree?
-https://github.com/Xilinx/linux-xlnx/commit/1a85939af40acca2bf963407b497c=
-c31c303ff3e
-
-I don't think we have sent this to mainline yet.
-
-Thanks,
-Michal
-
---=20
-Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
-Maintainer of Linux kernel - Xilinx Zynq ARM architecture
-Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
-
-
-
---7EAmv0r3cX2VDXHVioPQRjD023ftaAehV
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iEYEARECAAYFAlMilYQACgkQykllyylKDCEd7wCeL6u+0XBA6Q/34oByqcQQ63vj
-J9sAmwU/OOfvfPKEU3QyJBIhoz1niUpL
-=KQgz
------END PGP SIGNATURE-----
-
---7EAmv0r3cX2VDXHVioPQRjD023ftaAehV--
+-- 
+John Fastabend         Intel Corporation
