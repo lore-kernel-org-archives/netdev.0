@@ -1,98 +1,231 @@
-From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
-Subject: Re: Zynq macb
-Date: Fri, 14 Mar 2014 08:46:49 -0700
-Message-ID: <d1a10044-b85c-4664-8fc3-2fb3c7e1a274@CO9EHSMHS026.ehs.local>
-References: <c6344e9b-fa32-4313-8950-59030c4bffb8@AM1EHSMHS003.ehs.local>
- <73734ba5-00d3-445d-8c6f-a1a868cdd537@CH1EHSMHS024.ehs.local>
- <53229584.7000100@monstr.eu>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH V6 net-next 1/5] xen-netback: Factor queue-specific data
+ into queue struct.
+Date: Fri, 14 Mar 2014 15:55:05 +0000
+Message-ID: <1394812505.6442.128.camel@kazak.uk.xensource.com>
+References: <1393847269-6981-1-git-send-email-andrew.bennieston@citrix.com>
+	 <1393847269-6981-2-git-send-email-andrew.bennieston@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	Punnaiah Choudary Kalluri
-	<punnaiah.choudary.kalluri@xilinx.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Michal Simek <monstr@monstr.eu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <53229584.7000100@monstr.eu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <xen-devel@lists.xenproject.org>, <wei.liu2@citrix.com>,
+	<paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
+	<david.vrabel@citrix.com>
+To: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:53942 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754471AbaCNP5W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 11:57:22 -0400
+In-Reply-To: <1393847269-6981-2-git-send-email-andrew.bennieston@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-03-14 at 06:37AM +0100, Michal Simek wrote:
-> On 03/13/2014 11:33 PM, S=C3=B6ren Brinkmann wrote:
-> > On Thu, 2014-03-13 at 03:16PM -0700, S=C3=B6ren Brinkmann wrote:
-> >> Hi Nicolas,
-> >>
-> >> I did some testing on the current linux-next tree and ran iperf on=
- Zynq.
-> >> It seems that network and even the whole system can collapse when =
-doing
-> >> that.
-> >> I don't really know what's going on, but once I saw the message:
-> >> 	"inconsistent Rx descriptor chain"
-> >> printed twice (system frozen afterwards).
-> >>
-> >> I don't know what exactly is going wrong, but suspect something ar=
-ound
-> >> memory/DMA. I have no clue whether it makes any sense or not, but =
-I
-> >> tried using the macb_* functions instead of the gem_* ones (see di=
-ff below).
-> >> That seems to result in a stable system and working Ethernet.
-> >=20
-> > That was a little too early. After roughly 25 minutest the system r=
-uns
-> > into a deadlock:
-> >   BUG: spinlock lockup suspected on CPU#1, iperf/774
-> >    lock: 0xeda0366c, .magic: dead4ead, .owner: swapper/0/0, .owner_=
-cpu: 0
-> >   CPU: 1 PID: 774 Comm: iperf Tainted: G        W    3.14.0-rc6-nex=
-t-20140312-xilinx-dirty #41
-> >   [<c00153c0>] (unwind_backtrace) from [<c0011e70>] (show_stack+0x1=
-0/0x14)
-> >   [<c0011e70>] (show_stack) from [<c03d6b50>] (dump_stack+0x80/0xcc=
-)
-> >   [<c03d6b50>] (dump_stack) from [<c00670ac>] (do_raw_spin_lock+0xd=
-4/0x190)
-> >   [<c00670ac>] (do_raw_spin_lock) from [<c03dc79c>] (_raw_spin_lock=
-_irqsave+0x58/0x64)
-> >   [<c03dc79c>] (_raw_spin_lock_irqsave) from [<c02b0810>] (macb_sta=
-rt_xmit+0x24/0x2d0)
-> >   [<c02b0810>] (macb_start_xmit) from [<c0321b10>] (dev_hard_start_=
-xmit+0x334/0x470)
-> >   [<c0321b10>] (dev_hard_start_xmit) from [<c0339aa8>] (sch_direct_=
-xmit+0x78/0x2f8)
-> >   [<c0339aa8>] (sch_direct_xmit) from [<c0321f60>] (__dev_queue_xmi=
-t+0x314/0x704)
-> >   [<c0321f60>] (__dev_queue_xmit) from [<c034cb3c>] (ip_finish_outp=
-ut+0x6c4/0x894)
-> >   [<c034cb3c>] (ip_finish_output) from [<c034cf24>] (ip_local_out+0=
-x74/0x90)
-> >   [<c034cf24>] (ip_local_out) from [<c034d340>] (ip_queue_xmit+0x40=
-0/0x5c4)
-> >   [<c034d340>] (ip_queue_xmit) from [<c03634b8>] (tcp_transmit_skb+=
-0xa18/0xab0)
-> >   [<c03634b8>] (tcp_transmit_skb) from [<c035856c>] (tcp_recvmsg+0x=
-92c/0xae4)
-> >   [<c035856c>] (tcp_recvmsg) from [<c03806f0>] (inet_recvmsg+0x1c0/=
-0x1fc)
-> >   [<c03806f0>] (inet_recvmsg) from [<c030769c>] (sock_recvmsg+0x7c/=
-0x98)
-> >   [<c030769c>] (sock_recvmsg) from [<c0309988>] (SyS_recvfrom+0x9c/=
-0x108)
-> >   [<c0309988>] (SyS_recvfrom) from [<c0309a08>] (sys_recv+0x14/0x18=
-)
-> >   [<c0309a08>] (sys_recv) from [<c000ea60>] (ret_fast_syscall+0x0/0=
-x48)
->=20
-> Do you have this change in your tree?
-> https://github.com/Xilinx/linux-xlnx/commit/1a85939af40acca2bf963407b=
-497cc31c303ff3e
->=20
-> I don't think we have sent this to mainline yet.
+On Mon, 2014-03-03 at 11:47 +0000, Andrew J. Bennieston wrote:
+> From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
+> 
+> In preparation for multi-queue support in xen-netback, move the
+> queue-specific data from struct xenvif into struct xenvif_queue, and
+> update the rest of the code to use this.
+> 
+> Also[...]
+> 
+> Finally,[...]
 
-If it's not in next, it wasn't in my kernel.
+This is already quite a big patch, and I don't think the commit log
+covers everything it changes/refactors, does it?
 
-	S=C3=B6ren
+It's always a good idea to break these things apart but in particular
+separating the mechanical stuff (s/vif/queue/g) from the non-mechanical
+stuff, since the mechanical stuff is essentially trivial to review and
+getting it out the way makes the non-mechanical stuff much easier to
+check (or even spot).
+
+
+> 
+> Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
+> Reviewed-by: Paul Durrant <paul.durrant@citrix.com>
+> ---
+>  drivers/net/xen-netback/common.h    |   85 ++++--
+>  drivers/net/xen-netback/interface.c |  329 ++++++++++++++--------
+>  drivers/net/xen-netback/netback.c   |  530 ++++++++++++++++++-----------------
+>  drivers/net/xen-netback/xenbus.c    |   87 ++++--
+>  4 files changed, 608 insertions(+), 423 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+> index ae413a2..4176539 100644
+> --- a/drivers/net/xen-netback/common.h
+> +++ b/drivers/net/xen-netback/common.h
+> @@ -108,17 +108,39 @@ struct xenvif_rx_meta {
+>   */
+>  #define MAX_GRANT_COPY_OPS (MAX_SKB_FRAGS * XEN_NETIF_RX_RING_SIZE)
+>  
+> -struct xenvif {
+> -	/* Unique identifier for this interface. */
+> -	domid_t          domid;
+> -	unsigned int     handle;
+> +/* Queue name is interface name with "-qNNN" appended */
+> +#define QUEUE_NAME_SIZE (IFNAMSIZ + 6)
+
+One more than necessary? Or does IFNAMSIZ not include the NULL? (I can't
+figure out if it does or not!)
+
+> [...] 
+> -	/* This array is allocated seperately as it is large */
+> -	struct gnttab_copy *grant_copy_op;
+> +	struct gnttab_copy grant_copy_op[MAX_GRANT_COPY_OPS];
+
+Is this deliberate? It seems like a retrograde step reverting parts of
+ac3d5ac27735 "xen-netback: fix guest-receive-side array sizes" from Paul
+(at least you are nuking a speeling erorr)
+
+How does this series interact with Zoltan's foreign mapping one? Badly I
+should imagine, are you going to rebase?
+
+> +	/* First, check if there is only one queue to optimise the
+> +	 * single-queue or old frontend scenario.
+> +	 */
+> +	if (vif->num_queues == 1) {
+> +		queue_index = 0;
+> +	} else {
+> +		/* Use skb_get_hash to obtain an L4 hash if available */
+> +		hash = skb_get_hash(skb);
+> +		queue_index = (u16) (((u64)hash * vif->num_queues) >> 32);
+
+No modulo num_queues here?
+
+Is the multiply and shift from some best practice somewhere? Or else
+what is it doing?
+
+
+> +	/* Obtain the queue to be used to transmit this packet */
+> +	index = skb_get_queue_mapping(skb);
+> +	if (index >= vif->num_queues)
+> +		index = 0; /* Fall back to queue 0 if out of range */
+
+Is this actually allowed to happen?
+
+Even if yes, not modulo num_queue so spread it around a bit?
+
+>  static void xenvif_up(struct xenvif *vif)
+>  {
+> -	napi_enable(&vif->napi);
+> -	enable_irq(vif->tx_irq);
+> -	if (vif->tx_irq != vif->rx_irq)
+> -		enable_irq(vif->rx_irq);
+> -	xenvif_check_rx_xenvif(vif);
+> +	struct xenvif_queue *queue = NULL;
+> +	unsigned int queue_index;
+> +
+> +	for (queue_index = 0; queue_index < vif->num_queues; ++queue_index) {
+
+This vif->num_queues -- is it the same as dev->num_tx_queues? Or areew
+there differing concepts of queue around?
+
+> +		queue = &vif->queues[queue_index];
+> +		napi_enable(&queue->napi);
+> +		enable_irq(queue->tx_irq);
+> +		if (queue->tx_irq != queue->rx_irq)
+> +			enable_irq(queue->rx_irq);
+> +		xenvif_check_rx_xenvif(queue);
+> +	}
+>  }
+>  
+>  static void xenvif_down(struct xenvif *vif)
+>  {
+> -	napi_disable(&vif->napi);
+> -	disable_irq(vif->tx_irq);
+> -	if (vif->tx_irq != vif->rx_irq)
+> -		disable_irq(vif->rx_irq);
+> -	del_timer_sync(&vif->credit_timeout);
+> +	struct xenvif_queue *queue = NULL;
+> +	unsigned int queue_index;
+
+Why unsigned?
+
+> @@ -496,9 +497,30 @@ static void connect(struct backend_info *be)
+>  		return;
+>  	}
+>  
+> -	xen_net_read_rate(dev, &be->vif->credit_bytes,
+> -			  &be->vif->credit_usec);
+> -	be->vif->remaining_credit = be->vif->credit_bytes;
+> +	xen_net_read_rate(dev, &credit_bytes, &credit_usec);
+> +	read_xenbus_vif_flags(be);
+> +
+> +	be->vif->num_queues = 1;
+> +	be->vif->queues = vzalloc(be->vif->num_queues *
+> +			sizeof(struct xenvif_queue));
+> +
+> +	for (queue_index = 0; queue_index < be->vif->num_queues; ++queue_index) {
+> +		queue = &be->vif->queues[queue_index];
+> +		queue->vif = be->vif;
+> +		queue->id = queue_index;
+> +		snprintf(queue->name, sizeof(queue->name), "%s-q%u",
+> +				be->vif->dev->name, queue->id);
+> +
+> +		xenvif_init_queue(queue);
+> +
+> +		queue->remaining_credit = credit_bytes;
+> +
+> +		err = connect_rings(be, queue);
+> +		if (err)
+> +			goto err;
+> +	}
+> +
+> +	xenvif_carrier_on(be->vif);
+>  
+>  	unregister_hotplug_status_watch(be);
+>  	err = xenbus_watch_pathfmt(dev, &be->hotplug_status_watch,
+> @@ -507,18 +529,24 @@ static void connect(struct backend_info *be)
+>  	if (!err)
+>  		be->have_hotplug_status_watch = 1;
+>  
+> -	netif_wake_queue(be->vif->dev);
+> +	netif_tx_wake_all_queues(be->vif->dev);
+> +
+> +	return;
+> +
+> +err:
+> +	vfree(be->vif->queues);
+> +	be->vif->queues = NULL;
+> +	be->vif->num_queues = 0;
+> +	return;
+
+Do you not need to unwind the setup already done on the previous queues
+before the failure?
+
+>  }
+>  
+> 
+> -static int connect_rings(struct backend_info *be)
+> +static int connect_rings(struct backend_info *be, struct xenvif_queue *queue)
+>  {
+> -	struct xenvif *vif = be->vif;
+>  	struct xenbus_device *dev = be->dev;
+>  	unsigned long tx_ring_ref, rx_ring_ref;
+> -	unsigned int tx_evtchn, rx_evtchn, rx_copy;
+> +	unsigned int tx_evtchn, rx_evtchn;
+>  	int err;
+> -	int val;
+>  
+>  	err = xenbus_gather(XBT_NIL, dev->otherend,
+>  			    "tx-ring-ref", "%lu", &tx_ring_ref,
+> @@ -546,6 +574,27 @@ static int connect_rings(struct backend_info *be)
+>  		rx_evtchn = tx_evtchn;
+>  	}
+>  
+> +	/* Map the shared frame, irq etc. */
+> +	err = xenvif_connect(queue, tx_ring_ref, rx_ring_ref,
+> +			     tx_evtchn, rx_evtchn);
+> +	if (err) {
+> +		xenbus_dev_fatal(dev, err,
+> +				 "mapping shared-frames %lu/%lu port tx %u rx %u",
+> +				 tx_ring_ref, rx_ring_ref,
+> +				 tx_evtchn, rx_evtchn);
+> +		return err;
+> +	}
+> +
+> +	return 0;
+> +}
+> +
