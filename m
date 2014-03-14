@@ -1,99 +1,62 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/16] i40e: simplified init string
-Date: Fri, 14 Mar 2014 02:47:19 -0700
-Message-ID: <1394790446-31591-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/16] ixgbe: add check for netif_carrier_ok in ixgbe_xmit_frame
+Date: Fri, 14 Mar 2014 02:47:11 -0700
+Message-ID: <1394790446-31591-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1394790446-31591-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Arun Sharma <asharma@fb.com>,
+	stable-kernel <stable@vger.kernel.org>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:10941 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:43772 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755605AbaCNJre (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Mar 2014 05:47:34 -0400
+	id S1755605AbaCNJr3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Mar 2014 05:47:29 -0400
 In-Reply-To: <1394790446-31591-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-In a similar way to how ixgbe works, print a short one-line string
-showing what features and number of queues the driver and hardware has
-enabled at probe time.
+This patch prevents reset/s on ifdown/up which can happen if
+ixgbe_xmit_frame is invoked (netconsole) while the interface is down and
+there are Tx rings to clean:
 
-Example (wrapped for the commit message):
-i40e 0000:06:00.1: Features: PF-id[1] VFs: 64 VSIs: 66 QP: 32 FDir RSS
-ATR NTUPLE DCB
+     kworker/6:0-11169 [006] d..2 75290.700064: ixgbe_xmit_frame <-netpoll_send_skb_on_dev
+     kworker/6:0-11169 [006] d..2 75290.700064: ixgbe_xmit_frame_ring <-ixgbe_xmit_frame
+     kworker/6:0-11169 [006] .N.. 75290.700097: ixgbe_get_link_capabilities_82599 <-ixgbe_service_task
+     kworker/6:0-11169 [006] .N.. 75290.700097: ixgbe_setup_mac_link_82599 <-ixgbe_service_task
+     kworker/6:0-11169 [006] .N.. 75290.700099: ixgbe_get_link_capabilities_82599 <-ixgbe_setup_mac_link_82599
+     kworker/6:0-11169 [006] .N.. 75290.700100: ixgbe_check_mac_link_generic <-ixgbe_service_task
+     kworker/6:0-11169 [006] .N.. 75290.700103: ixgbe_update_stats <-ixgbe_service_task
+     kworker/6:0-11169 [006] .N.. 75290.700289: ixgbe_service_task: initiating reset to clear Tx work after link loss
 
-Change-ID: I177bf7f93d1c4c921529c92fdf66e614f6b4f755
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+CC: Arun Sharma <asharma@fb.com>
+CC: stable-kernel <stable@vger.kernel.org>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 41 +++++++++++++++++++++++++++++
- 1 file changed, 41 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index f7b1753ac..79be808 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7851,6 +7851,44 @@ static int i40e_setup_pf_filter_control(struct i40e_pf *pf)
- 	return 0;
- }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 851c413..8bea6ca 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7121,6 +7121,11 @@ static netdev_tx_t __ixgbe_xmit_frame(struct sk_buff *skb,
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_ring *tx_ring;
  
-+#define INFO_STRING_LEN 255
-+static void i40e_print_features(struct i40e_pf *pf)
-+{
-+	struct i40e_hw *hw = &pf->hw;
-+	char *buf, *string;
-+
-+	string = kzalloc(INFO_STRING_LEN, GFP_KERNEL);
-+	if (!string) {
-+		dev_err(&pf->pdev->dev, "Features string allocation failed\n");
-+		return;
++	if (!netif_carrier_ok(netdev)) {
++		dev_kfree_skb_any(skb);
++		return NETDEV_TX_OK;
 +	}
 +
-+	buf = string;
-+
-+	buf += sprintf(string, "Features: PF-id[%d] ", hw->pf_id);
-+#ifdef CONFIG_PCI_IOV
-+	buf += sprintf(buf, "VFs: %d ", pf->num_req_vfs);
-+#endif
-+	buf += sprintf(buf, "VSIs: %d QP: %d ", pf->hw.func_caps.num_vsis,
-+		       pf->vsi[pf->lan_vsi]->num_queue_pairs);
-+
-+	if (pf->flags & I40E_FLAG_RSS_ENABLED)
-+		buf += sprintf(buf, "RSS ");
-+	buf += sprintf(buf, "FDir ");
-+	if (pf->flags & I40E_FLAG_FD_ATR_ENABLED)
-+		buf += sprintf(buf, "ATR ");
-+	if (pf->flags & I40E_FLAG_FD_SB_ENABLED)
-+		buf += sprintf(buf, "NTUPLE ");
-+	if (pf->flags & I40E_FLAG_DCB_ENABLED)
-+		buf += sprintf(buf, "DCB ");
-+	if (pf->flags & I40E_FLAG_PTP)
-+		buf += sprintf(buf, "PTP ");
-+
-+	BUG_ON(buf > (string + INFO_STRING_LEN));
-+	dev_info(&pf->pdev->dev, "%s\n", string);
-+	kfree(string);
-+}
-+
- /**
-  * i40e_probe - Device initialization routine
-  * @pdev: PCI device information struct
-@@ -8141,6 +8179,9 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		dev_warn(&pdev->dev, "Please move the device to a different PCI-e link with more lanes and/or higher transfer rate.\n");
- 	}
- 
-+	/* print a string summarizing features */
-+	i40e_print_features(pf);
-+
- 	return 0;
- 
- 	/* Unwind what we've done if something failed in the setup */
+ 	/*
+ 	 * The minimum packet size for olinfo paylen is 17 so pad the skb
+ 	 * in order to meet this minimum size requirement.
 -- 
 1.8.3.1
