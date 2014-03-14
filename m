@@ -1,45 +1,36 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [PATCH 3/3] ath10k: add firmware files
-Date: Fri, 14 Mar 2014 10:25:16 -0700
-Message-ID: <CAB=NE6VhT0XbW6kNdksLMex8CB9iuiqEv+50_Lx9wQsXXwq+Jg@mail.gmail.com>
-References: <20140314084501.23100.13103.stgit@x230> <20140314084514.23100.72654.stgit@x230>
- <CAB=NE6WW8yX4kdy02j2fT4g0JvYj4a_XkiqYtXKZSMB7FHuwNg@mail.gmail.com> <87ob18ogj2.fsf@kamboji.qca.qualcomm.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCHv9] macvlan: add source mode
+Date: Fri, 14 Mar 2014 10:25:53 -0700
+Message-ID: <20140314102553.06a9939a@nehalam.linuxnetplumber.net>
+References: <1394797786-27420-1-git-send-email-michael-dev@fami-braun.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	David Woodhouse <dwmw2@infradead.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	ath10k@lists.infradead.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87ob18ogj2.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, <netdev@vger.kernel.org>,
+	<projekt-wlan@fem.tu-ilmenau.de>, Stefan Gula <steweg@gmail.com>
+To: Michael Braun <michael-dev@fami-braun.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:41498 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755970AbaCNRZ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 13:25:56 -0400
+Received: by mail-pa0-f45.google.com with SMTP id kl14so2915872pab.4
+        for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 10:25:56 -0700 (PDT)
+In-Reply-To: <1394797786-27420-1-git-send-email-michael-dev@fami-braun.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 14, 2014 at 10:07 AM, Kalle Valo <kvalo@qca.qualcomm.com> wrote:
-> "Luis R. Rodriguez" <mcgrof@do-not-panic.com> writes:
->
->> On Fri, Mar 14, 2014 at 1:45 AM, Kalle Valo <kvalo@qca.qualcomm.com> wrote:
->>
->>> + NO LICENSES OR OTHER RIGHTS,
->>> +WHETHER EXPRESS, IMPLIED, BASED ON ESTOPPEL OR OTHERWISE, ARE GRANTED
->>> +TO ANY PARTY'S PATENTS, PATENT APPLICATIONS, OR PATENTABLE INVENTIONS
->>> +BY VIRTUE OF THIS LICENSE OR THE DELIVERY OR PROVISION BY QUALCOMM
->>> +ATHEROS, INC. OF THE SOFTWARE.
->>
->> This -- however is new to linux-firmware -- and I hereby raise a big
->> red fucking flag. All other licenses on linux-firmware provide at the
->> very least a limited patent grant. What makes Qualcomm special ?
->
-> Well, I was just told to use this license with our firmware, I didn't
-> write this.
+On Fri, 14 Mar 2014 12:49:46 +0100
+Michael Braun <michael-dev@fami-braun.de> wrote:
 
-I realize this, back in the day they told me to submit that too, and I
-didn't. You are doing what you are told. That doesn't mean we can't
-raise questions over this. So pass the questions back onto those
-crafty attorneys and let them engage on this public thread and clarify
-exactly what they are doing.
+> +static void macvlan_forward_sources(struct sk_buff *skb,
+> +				    struct macvlan_port *port,
+> +				    const unsigned char *addr)
+> +{
+> +	struct macvlan_source_list *list;
+> +	struct hlist_head *h = &port->vlan_source_hash[addr[5]];
+> +
 
- Luis
+If you are going to use a hash table, better to use a real hash function.
+It could be as simple as jhash, or you could be faster/smaller
+by putting ether address into 64 bit number and using hash_64.
