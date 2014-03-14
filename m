@@ -1,62 +1,72 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 02/10] e1000e: add timeout for TX HW time
- stamping work
-Date: Fri, 14 Mar 2014 11:44:15 -0700
-Message-ID: <1394822655.3253.7.camel@joe-AO722>
-References: <1394818481-7652-1-git-send-email-kubakici@wp.pl>
-	 <1394818481-7652-3-git-send-email-kubakici@wp.pl>
-	 <1394819317.3253.3.camel@joe-AO722> <20140314190242.4bba2b42@north>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [RCU PATCH 06/14] net: sched: fw use RCU
+Date: Fri, 14 Mar 2014 11:50:05 -0700
+Message-ID: <20140314185005.GA17041@linux.vnet.ibm.com>
+References: <1394473279.3607.46.camel@edumazet-glaptop2.roam.corp.google.com>
+ <53208E3F.5090401@gmail.com>
+ <1394643673.21721.48.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140313202245.GK21124@linux.vnet.ibm.com>
+ <1394744203.21721.53.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140313211509.GP21124@linux.vnet.ibm.com>
+ <53229704.1040808@gmail.com>
+ <20140314132834.GS21124@linux.vnet.ibm.com>
+ <1394804798.21721.64.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140314153810.GX21124@linux.vnet.ibm.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-To: Jakub =?UTF-8?Q?Kici=C5=84ski?= <moorray3@wp.pl>
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0170.hostedemail.com ([216.40.44.170]:54944 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755985AbaCNSoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 14:44:19 -0400
-In-Reply-To: <20140314190242.4bba2b42@north>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:41797 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754263AbaCNSuK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 14:50:10 -0400
+Received: from /spool/local
+	by e34.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+	Fri, 14 Mar 2014 12:50:10 -0600
+Received: from b03cxnp07028.gho.boulder.ibm.com (b03cxnp07028.gho.boulder.ibm.com [9.17.130.15])
+	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 3597C3E4003F
+	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 12:50:07 -0600 (MDT)
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by b03cxnp07028.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2EInRet6226392
+	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 19:49:27 +0100
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id s2EIregc020811
+	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 12:53:40 -0600
+Content-Disposition: inline
+In-Reply-To: <20140314153810.GX21124@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-03-14 at 19:02 +0100, Jakub Kici=C5=84ski wrote:
-> On Fri, 14 Mar 2014 10:48:37 -0700, Joe Perches wrote:
-> > On Fri, 2014-03-14 at 18:34 +0100, Jakub Kicinski wrote:
-> > > Hardware may fail to report time stamp e.g.:
-> > >  - when hardware time stamping is not enabled
-> > >  - when time stamp is requested shortly after ifup
-> >=20
-> > trivia:
-> >=20
-> > > diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers=
-/net/ethernet/intel/e1000e/netdev.c
-> > []
-> > > @@ -1155,6 +1155,12 @@ static void e1000e_tx_hwtstamp_work(struct=
- work_struct *work)
-> > >  		skb_tstamp_tx(adapter->tx_hwtstamp_skb, &shhwtstamps);
-> > >  		dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
-> > >  		adapter->tx_hwtstamp_skb =3D NULL;
-> > > +	} else if (time_after(jiffies, adapter->tx_hwtstamp_start
-> > > +			      + adapter->tx_timeout_factor * HZ)) {
-> > > +		dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
-> > > +		adapter->tx_hwtstamp_skb =3D NULL;
-> > > +		adapter->tx_hwtstamp_timeouts++;
-> > > +		e_warn("clearing Tx timestamp hang");
-> >=20
-> > Missing \n termination
->=20
-> I copied that line from ixgbe and assumed that the magic macro adds
-> termination...
->=20
-> I see that igb and i40e also lack the \n on similar messages.
+On Fri, Mar 14, 2014 at 08:38:10AM -0700, Paul E. McKenney wrote:
+> On Fri, Mar 14, 2014 at 06:46:38AM -0700, Eric Dumazet wrote:
+> > On Fri, 2014-03-14 at 06:28 -0700, Paul E. McKenney wrote:
+> > 
+> > > Now I just need to figure out why it -causes- a BUILD_BUG_ON for the
+> > > cris and m68k architectures in Fengguang Wu's testing...
+> > 
+> > Right, they don't necessarily align pointers ;)
+> > 
+> > alignof(void *) ?
+> 
+> It complained about the size rather than the alignment, but it would
+> certainly make sense to constrain the rcu_head structure's alignment,
+> now that you mention it.  I will do that and see if it helps.  ;-)
+> 
+> Thank you for the tip!
 
-There's a bunch of them.
+And you were quite right...  When the alignment is bad, it complains
+about the size.  And although I can specify that struct rcu_head be
+aligned, but __attribute__(packed) overrides this when specified on an
+enclosing structure.  As does the -fpack-struct gcc command-line option.
 
->  Can I fix
-> them all in a single follow-up patch?
+Other thoughts on getting around this problem?
 
-There are also a bunch of _dbg messages that lack that
-\n and those seem to be function tracing uses that should
-just be deleted.
+Hmmm...  Maybe if cris and m68k guaranteed to keep functions out of the
+bottom four pages of memory...
+
+							Thanx, Paul
