@@ -1,28 +1,31 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH RFC v2 0/12] vti6: prepare namespace and interfamily
- support.
-Date: Fri, 14 Mar 2014 10:54:53 +0100
-Message-ID: <20140314095453.GI32371@secunet.com>
-References: <1394023276-2591-1-git-send-email-steffen.klassert@secunet.com>
+Subject: Re: [PATCH net-next] flowcache: Tune per cpu flow cache shrink size
+Date: Fri, 14 Mar 2014 11:26:25 +0100
+Message-ID: <20140314102625.GJ32371@secunet.com>
+References: <1394782966-9792-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Christophe Gouault <christophe.gouault@6wind.com>
-To: <netdev@vger.kernel.org>
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:42882 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:43607 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755605AbaCNJy4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Mar 2014 05:54:56 -0400
+	id S1752662AbaCNK02 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Mar 2014 06:26:28 -0400
 Content-Disposition: inline
-In-Reply-To: <1394023276-2591-1-git-send-email-steffen.klassert@secunet.com>
+In-Reply-To: <1394782966-9792-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 05, 2014 at 01:41:04PM +0100, Steffen Klassert wrote:
-> This patchset prepares vti6 for proper namespace and interfamily support.
+On Fri, Mar 14, 2014 at 03:42:46PM +0800, Fan Du wrote:
+> When per cpu flow cache entries count reaches over high_watermark,
+> flow cache will be shrinked gently to around low_watermark, not
+> brutally killing most of cached entries by left only two.
 > 
-> With this patchset vti6 uses the new IPsec protocol multiplexer to
-> register it's own receive side hooks for ESP, AH and IPCOMP exactly
-> like the ipv4 side does that now.
 
-This is now applied to ipsec-next.
+We currently keep two entries per hash bucket, this means that
+we keep low_watermark entries at most in the flow cache.
+
+With your change, we would keep low_watermark entries per hash bucket.
+The flow cache would grow to low_watermark * flow_cache_hash_size then.
+This would make DoS attacks against the flow cache quite easy.
