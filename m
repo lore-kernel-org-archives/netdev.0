@@ -1,101 +1,60 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/16][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 14 Mar 2014 02:47:10 -0700
-Message-ID: <1394790446-31591-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 04/16] i40e: delete netdev after deleting napi and vectors
+Date: Fri, 14 Mar 2014 02:47:14 -0700
+Message-ID: <1394790446-31591-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1394790446-31591-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:43772 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:26976 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755543AbaCNJr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Mar 2014 05:47:28 -0400
+	id S1755916AbaCNJra (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Mar 2014 05:47:30 -0400
+In-Reply-To: <1394790446-31591-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe, igb, i40e and i40evf.
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Emil provides two fixes for ixgbe which could have been sent to the
-net tree, but being this late in the -rc, I chose to go through net-next
-and have stable pick these up.  Both fixes resolve issues found when
-using netconsole, first prevents resets on ifup/ifdown when the interface
-is down and the second resolves a hand with busy poll.
+We've been deleting the netdev before getting around to deleting the napi
+structs.  Unfortunately, we then didn't delete the napi structs because we
+have a check for netdev, thus we were leaving garbage around in the system.
 
-I provide a code comment fix which David Miller noticed in the last
-series of patches I submitted.
+Change-ID: Ife540176f6c9f801147495b3f2d2ac2e61ddcc58
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-Shannon provides a patch to cleanup the NAPI structs when deleting the
-netdev.
-
-Anjali provides several patches for i40e, first fixes a bug in the update
-filter logic which was causing a kernel panic.  Then provides a fix to
-rename an error bit to correctly indicate the error.  Adds a definition
-for a new state variable to keep track of features automatically disabled
-due to hardware resource limitations versus user enforced feature disabled.
-Anjali provides a patch to add code to handle when there is a filter
-programming error due to a full table, which also resolves a previous
-compile warning about an unused "*pf" variable introduced in the last i40e
-series patch submission.
-
-Jesse provides three i40e patches to cleanup strings to make more
-consistent and to align with other Intel drivers.
-
-Akeem cleans up a misleading function header comment for i40e.
-
-Mitch provides a fix for i40e/i40evf to use the correctly reported number
-of MSI-X vectors in the PF an VF.  Then provides a patch to use
-dma_set_mask_and_coherent() which was introduced in v3.13 and simplifies
-the DMA mapping code a bit.
-
-The following are changes since commit 177943260a6088bec51fc6c04643d84e43bef423:
-  6lowpan: reassembly: un-export local functions
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Akeem G Abodunrin (1):
-  i40e: Fix function comments
-
-Anjali Singhai Jain (6):
-  i40e: Fix a bug in the update logic for FDIR SB filter.
-  i40e/i40evf: Some flow director HW definition fixes
-  i40e: Define a new state variable to keep track of feature auto
-    disable
-  i40e: Add code to handle FD table full condition
-  i40e: Bug fix for FDIR replay logic
-  i40e: Let MDD events be handled by MDD handler
-
-Emil Tantilov (2):
-  ixgbe: add check for netif_carrier_ok in ixgbe_xmit_frame
-  ixgbe: fix spinlock recursion with netpoll and busy poll
-
-Jeff Kirsher (1):
-  igb: Fix code comment
-
-Jesse Brandeburg (3):
-  i40e: make string references to q be queue
-  i40e: cleanup strings
-  i40e: simplified init string
-
-Mitch Williams (2):
-  i40e/i40evf: Use correct number of VF vectors
-  i40e/i40evf: Use dma_set_mask_and_coherent
-
-Shannon Nelson (1):
-  i40e: delete netdev after deleting napi and vectors
-
- drivers/net/ethernet/intel/i40e/i40e.h             |  10 +-
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |  25 ++-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  37 +++-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 190 +++++++++++++++------
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  60 ++++++-
- drivers/net/ethernet/intel/i40e/i40e_type.h        |   6 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   9 +-
- drivers/net/ethernet/intel/i40evf/i40e_type.h      |   6 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  19 +--
- drivers/net/ethernet/intel/igb/igb_main.c          |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h           |   3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  23 ++-
- 12 files changed, 285 insertions(+), 105 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 43d391b..a3f122e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -6806,8 +6806,6 @@ int i40e_vsi_release(struct i40e_vsi *vsi)
+ 			if (vsi->netdev) {
+ 				/* results in a call to i40e_close() */
+ 				unregister_netdev(vsi->netdev);
+-				free_netdev(vsi->netdev);
+-				vsi->netdev = NULL;
+ 			}
+ 		} else {
+ 			if (!test_and_set_bit(__I40E_DOWN, &vsi->state))
+@@ -6826,6 +6824,10 @@ int i40e_vsi_release(struct i40e_vsi *vsi)
+ 
+ 	i40e_vsi_delete(vsi);
+ 	i40e_vsi_free_q_vectors(vsi);
++	if (vsi->netdev) {
++		free_netdev(vsi->netdev);
++		vsi->netdev = NULL;
++	}
+ 	i40e_vsi_clear_rings(vsi);
+ 	i40e_vsi_clear(vsi);
+ 
 -- 
 1.8.3.1
