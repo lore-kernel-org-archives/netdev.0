@@ -1,91 +1,73 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] net: phy: fix uninitalized ethtool_wolinfo in
- phy_suspend
-Date: Fri, 14 Mar 2014 14:18:06 +0000
-Message-ID: <1394806686.20857.31.camel@deadeye.wl.decadent.org.uk>
-References: <20140313.153832.967564223480298567.davem@davemloft.net>
-	 <1394788064-6832-1-git-send-email-sebastian.hesselbarth@gmail.com>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: Re: pppd service crash in linux-3.13.6
+Date: Fri, 14 Mar 2014 10:19:17 -0400
+Message-ID: <53230FE5.9020204@hurleysoftware.com>
+References: <531A37FF.4000509@totakura.in> <531DEEA6.4090808@totakura.in> <531E111A.8040207@hurleysoftware.com> <20140313170622.GA31206@redhat.com> <5321F113.7090000@hurleysoftware.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-HdbWYWZmkJYw3LtGMkZ9"
-Cc: David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Sree Harsha Totakura <sreeharsha@totakura.in>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Oleg Nesterov <oleg@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394788064-6832-1-git-send-email-sebastian.hesselbarth@gmail.com>
+In-Reply-To: <5321F113.7090000@hurleysoftware.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+[ +cc Eric Biederman ]
 
---=-HdbWYWZmkJYw3LtGMkZ9
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+On 03/13/2014 01:55 PM, Peter Hurley wrote:
+> Hi Oleg,
+>
+> On 03/13/2014 01:06 PM, Oleg Nesterov wrote:
+>> On 03/10, Peter Hurley wrote:
+>>>
+>>> [ +cc Oleg Nesterov ]
+>>
+>> Thanks.
+>>
+>>> The NULL ptr dereference is from following the current->nsproxy ptr
+>>> in ppp_register_channel().
+>>>
+>>> This was broken by
+>>>
+>>> commit 8aac62706adaaf0fab02c4327761561c8bda9448
+>>> Author: Oleg Nesterov <oleg@redhat.com>
+>>> Date:   Fri Jun 14 21:09:49 2013 +0200
+>>>
+>>>      move exit_task_namespaces() outside of exit_notify()
+>>>
+>>> which moved the exit_task_namespaces(tsk) before disassociate_ctty().
+>>
+>> Heh. OK, we can move it down after disassociate_ctty(), the original
+>> motivation for that commit was the problem which was also (hopefully)
+>> fixed by e7b2c406925273 "fput: task_work_add() can fail if the caller
+>> has passed exit_task_work()".
 
-On Fri, 2014-03-14 at 10:07 +0100, Sebastian Hesselbarth wrote:
-> Callers of phy_ethtool_get_wol are supposed to provide a properly
-> cleared struct ethtool_wolinfo. Therefore, fix phy_suspend to clear
-> it before passing it to phy_ethtool_get_wol.
->=20
-> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Thanks for fixing that!
+tty teardown (hangup from disassociate_ctty) requires fput() to work :)
 
-Reviewed-by: Ben Hutchings <ben@decadent.org.uk>
+> I didn't look into what motivated the change; I will now though.
+>
+>> In fact I think that it makes sense to move it down after
+>> exit_task_work() anyway. But this is almost off-topic and I'd like to
+>> avoid this right now.
+>>
+>> OTOH, why we should delay disassociate_ctty? IOW, do you see any
+>> potential problem with the trivial patch below?
 
-> ---
-> Cc: David Miller <davem@davemloft.net>
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
-> Cc: Ben Hutchings <ben@decadent.org.uk>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: linux-kernel@vger.kernel.org
-> ---
->  drivers/net/phy/phy_device.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
->=20
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 4b03e63639b7..7512e28866f1 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -683,10 +683,9 @@ EXPORT_SYMBOL(phy_detach);
->  int phy_suspend(struct phy_device *phydev)
->  {
->  	struct phy_driver *phydrv =3D to_phy_driver(phydev->dev.driver);
-> -	struct ethtool_wolinfo wol;
-> +	struct ethtool_wolinfo wol =3D { .cmd =3D ETHTOOL_GWOL };
-> =20
->  	/* If the device has WOL enabled, we cannot suspend the PHY */
-> -	wol.cmd =3D ETHTOOL_GWOL;
->  	phy_ethtool_get_wol(phydev, &wol);
->  	if (wol.wolopts)
->  		return -EBUSY;
+Won't work.
 
---=20
-Ben Hutchings
-Experience is directly proportional to the value of equipment destroyed.
-                                                         - Carolyn Scheppne=
-r
+> I have no idea what kind of dependencies might exist between
+> task works, cgroup_exit() and all the teardown that disassociate_ctty()
+> does. I'll look into though.
 
---=-HdbWYWZmkJYw3LtGMkZ9
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+cgroup_exit() can exec a userspace process (the notify_on_exit() facility)
+which requires both namespace and tty facilities.
+Plus, proc_exit_connector() uses netlink which uses user_ns.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+I think it's better to have task namespaces valid up to exit_notify().
 
-iQIVAwUAUyMPnue/yOyVhhEJAQod7A//ZSCIu4vNPz+Qw7EsK7DiuTJA6BNZwRTa
-Ojf5s3lVq73VV8gvkLMLCdijbkCwdg+KY4oOHFfX0w97cv9OvGQaebaXrOjsu9I0
-bSWxioD/HTIPJa7wySHxkgVsfeqbtTYZSXYQaYG1959oUh/wJPDEBtLMhaNMngna
-hsYblLtq8/NwmgZiGBuyqwGTz8MupudSh1XavDGUxpeLOHCSUi+/T6MhlqXx1OhG
-fn+jOGO/GbPJPzW6tVabeCWrF0M44Jyy9HDj2c6dsno4lPRk9zZUcGl4+JtVkVud
-htn+E3Webgu2/A48Utwvb/4WxGk5mZ6TRpJoFzZT0XXzivHORwPp9/PJd4f3+svx
-Zo2Tde76PbIIY+XlVwUcu83tO8veUCskJYo/R1ozZbd1OdTpPzTObDL/rSqr7f+4
-RO0zn6Yx52ZkV+R1/g0BMTlJBH8ztR2VvHhN4i08iWEs4CQV+t25iPhm7F8m/GAN
-C//kb1dYdMfaaXebrbmvU7R5xmVOsnkSmC0ArUvRenhoCEVO4qcMREmga7fHL12k
-k+yt9jA6FouPRR9vhOaaRiXRW+BgcQIATTr+5vQxa8IQLl+0A/jISiO+fAbGonOn
-v3KJVQhh8K3ZaD4otVqarKpQS49zZyzlFLVwVsxKSB4SLdaCTCtOqtbRepzZ29wa
-x/iAFcCNI9g=
-=Kml+
------END PGP SIGNATURE-----
-
---=-HdbWYWZmkJYw3LtGMkZ9--
+Regards,
+Peter Hurley
