@@ -1,46 +1,68 @@
-From: hayeswang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: RE: [PATCH net-next v3 1/2] r8152:addRTL8152_EARLY_AGG_TIMEOUT_SUPER
-Date: Fri, 14 Mar 2014 15:24:50 +0800
-Message-ID: <CE95F5CF3B924F0A921DDC3493A67365@realtek.com.tw>
-References: <063D6719AE5E284EB5DD2968C1650D6D0F6DCB6E@AcuExch.aculab.com><20140313.132222.536931544768069240.davem@davemloft.net><A56A13416A724183888BB62CEFD2B817@realtek.com.tw> <20140314.000741.1829674011496195593.davem@davemloft.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RCU PATCH 00/14] Remove qdisc lock around ingress Qdisc
+Date: Fri, 14 Mar 2014 00:28:08 -0700
+Message-ID: <5322AF88.60702@gmail.com>
+References: <20140310170008.3011.73599.stgit@nitbit.x32> <53200588.5060805@mojatatu.com> <53208F11.8010304@gmail.com> <53216FE9.7090604@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: 'David Miller' <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140314.000741.1829674011496195593.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:41809 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755133AbaCNH2Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 03:28:25 -0400
+Received: by mail-ob0-f173.google.com with SMTP id gq1so2168872obb.4
+        for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 00:28:25 -0700 (PDT)
+In-Reply-To: <53216FE9.7090604@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- From: David Miller [mailto:davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org] 
- Sent: Friday, March 14, 2014 12:08 PM
-[...]
-> >> And I fundamentally disagree with this being a Kconfig parameter.
-> >> 
-> >> Make it run-time calculated _or_ settable via ethtool.
-> > 
-> > Excuse me. How should I make it run-time calculated without a
-> > Kconfig parameter? Should I use module_param? 
-> 
-> You run-time determine the setting based upon the negotiated link
-> speed and traffic patterns.
+On 03/13/2014 01:44 AM, Jamal Hadi Salim wrote:
+> On 03/12/14 12:45, John Fastabend wrote:
+>> On 03/11/2014 11:58 PM, Jamal Hadi Salim wrote:
+>>> On 03/10/14 13:03, John Fastabend wrote:
+>>
+>> Sure I can provide this data as part of the patch description. My
+>> expectation is now that the qdisc lock is not needed there should
+>> be less impact to throughput/latency due to filter updates.
+>
+> Thats what i would think as well (which would be great).
+>
+>>
+>> Yes upto one RCU grace period. Although I don't think this is an
+>> issue because we get consistency eventually and even with the qdisc
+>> lock there is no way to know if a set of skbs hit the filter list
+>> before or after the update.
+>>
+>
+> Probably not a big issue - but needs to be document clearly since the
+> expectations have changed.
+>
+>> I'll get a v2 out tomorrow morning after making Eric's changes and
+>> fixing the last compiler warning.
+>>
+>
+> There is one more thing. Actions can be shared. I am wondering how this
+> change is going to affect it - can you try this attached script? Sorry,
+> I could have sent a much simpler script - but this is one sitting on
+> my laptop (i have annotated it - notice the 2 policer instances
+> are shared).
+> Would be useful to do pings across two devices at the same time while
+> concurently doing dumps and see if anything goes crazy (like an oops).
 
-It is difficult to design a algorithm which considers the hardware
-of the platform, network traffic, and even the USB behavior to
-dynamically modify the setting. I don't think I have the capability
-to do it.
+Ran the attached script and modified it to match UDP packets so I could
+use it with pktgen to hammer it a bit more. And changed it to add/delete
+filters with traffic while doing a watch on the filter and qdisc stats.
+No oops, splats or anything else crazy.
 
-Besides, I don't wish to modify the setting by ethtool when re-loading
-the driver or rebooting every time.
+I need to get some sleep now though so the performance numbers will have
+to wait for tomorrow.
 
-Excuse me. Why is it not accepted for being a Kconfig parameter.
-It let the manufactuers of some platforms, especially the embedded
-system, could tune their performance. Should I give up this patch?
+Thanks!
+John
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+John Fastabend         Intel Corporation
