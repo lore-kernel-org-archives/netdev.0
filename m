@@ -1,8 +1,8 @@
 From: Jakub Kicinski <kubakici@wp.pl>
-Subject: [PATCH net-next 05/10] ixgbe: never generate both
+Subject: [PATCH net-next 07/10] igb: never generate both
 	software and hardware timestamps
-Date: Fri, 14 Mar 2014 18:34:36 +0100
-Message-ID: <1394818481-7652-6-git-send-email-kubakici@wp.pl>
+Date: Fri, 14 Mar 2014 18:34:38 +0100
+Message-ID: <1394818481-7652-8-git-send-email-kubakici@wp.pl>
 References: <1394818481-7652-1-git-send-email-kubakici@wp.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -32,31 +32,31 @@ SKBTX_IN_PROGRESS.
 
 Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 4 ++--
+ drivers/net/ethernet/intel/igb/igb_main.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 851c413..f6ac11c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7031,8 +7031,6 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 		tx_flags |= IXGBE_TX_FLAGS_SW_VLAN;
- 	}
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 340a344..ee9a482 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -4946,8 +4946,6 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+ 	first->bytecount = skb->len;
+ 	first->gso_segs = 1;
  
 -	skb_tx_timestamp(skb);
 -
  	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
- 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
- 		tx_flags |= IXGBE_TX_FLAGS_TSTAMP;
-@@ -7043,6 +7041,8 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 		schedule_work(&adapter->ptp_tx_work);
+ 		struct igb_adapter *adapter = netdev_priv(tx_ring->netdev);
+ 
+@@ -4962,6 +4960,8 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+ 		}
  	}
  
 +	skb_tx_timestamp(skb);
 +
- #ifdef CONFIG_PCI_IOV
- 	/*
- 	 * Use the l2switch_enable flag - would be false if the DMA
+ 	if (vlan_tx_tag_present(skb)) {
+ 		tx_flags |= IGB_TX_FLAGS_VLAN;
+ 		tx_flags |= (vlan_tx_tag_get(skb) << IGB_TX_FLAGS_VLAN_SHIFT);
 -- 
 1.8.5.3
 
