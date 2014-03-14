@@ -1,173 +1,91 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net-next V5 1/9] dts: Add bindings for the Altera Triple Speed Ethernet driver
-Date: Fri, 14 Mar 2014 09:04:39 -0500
-Message-ID: <1394805887-22030-2-git-send-email-vbridgers2013@gmail.com>
-References: <1394805887-22030-1-git-send-email-vbridgers2013@gmail.com>
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	rob@landley.net, vbridgers2013@gmail.com
-To: devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f51.google.com ([209.85.219.51]:53578 "EHLO
-	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754713AbaCNOJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 10:09:34 -0400
-In-Reply-To: <1394805887-22030-1-git-send-email-vbridgers2013@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH] net: phy: fix uninitalized ethtool_wolinfo in
+ phy_suspend
+Date: Fri, 14 Mar 2014 14:18:06 +0000
+Message-ID: <1394806686.20857.31.camel@deadeye.wl.decadent.org.uk>
+References: <20140313.153832.967564223480298567.davem@davemloft.net>
+	 <1394788064-6832-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-HdbWYWZmkJYw3LtGMkZ9"
+Cc: David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394788064-6832-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds a bindings description for the Altera Triple Speed Ethernet
-(TSE) driver. The bindings support the legacy SGDMA soft IP as well as the
-preferred MSGDMA soft IP. The TSE can be configured and synthesized in soft
-logic using Altera's Quartus toolchain. Please consult the bindings document
-for supported options.
 
-Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
----
-V5: - No changes for V5
+--=-HdbWYWZmkJYw3LtGMkZ9
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-V4: - No change to this file for V4
+On Fri, 2014-03-14 at 10:07 +0100, Sebastian Hesselbarth wrote:
+> Callers of phy_ethtool_get_wol are supposed to provide a properly
+> cleared struct ethtool_wolinfo. Therefore, fix phy_suspend to clear
+> it before passing it to phy_ethtool_get_wol.
+>=20
+> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 
-V3: - Change order of commits
-    - Change names of enable-sup-addr and enable-hash to
-      has-supplementary-unicast and has-hash-multicast-filter
-      respectively, change interpretation to boolen/empty.
-    - Update devicetree to include commas in unit addresses.
-    - Bracket address lists for consistency
-    - Bracket interrupt list for consistency
-    - Drop unit address from mdio node
+Reviewed-by: Ben Hutchings <ben@decadent.org.uk>
 
-V2: - Update bindings to use standard Ethernet and Phy bindings.
-      Use standard "phy-addr" instead of Altera's "phy-addr".
-      Use "rx-fifo-depth" and "tx-fifo-depth" instead of versions
-      prepended with "altr," in units of 32-bit quantities.
-      Add missing bindings to describe "altr,enable-hash" and
-      "altr,enable-sup-addr".
----
- .../devicetree/bindings/net/altera_tse.txt         |  114 ++++++++++++++++++++
- 1 file changed, 114 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/altera_tse.txt
+> ---
+> Cc: David Miller <davem@davemloft.net>
+> Cc: Florian Fainelli <f.fainelli@gmail.com>
+> Cc: Ben Hutchings <ben@decadent.org.uk>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-arm-kernel@lists.infradead.org
+> Cc: linux-kernel@vger.kernel.org
+> ---
+>  drivers/net/phy/phy_device.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index 4b03e63639b7..7512e28866f1 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -683,10 +683,9 @@ EXPORT_SYMBOL(phy_detach);
+>  int phy_suspend(struct phy_device *phydev)
+>  {
+>  	struct phy_driver *phydrv =3D to_phy_driver(phydev->dev.driver);
+> -	struct ethtool_wolinfo wol;
+> +	struct ethtool_wolinfo wol =3D { .cmd =3D ETHTOOL_GWOL };
+> =20
+>  	/* If the device has WOL enabled, we cannot suspend the PHY */
+> -	wol.cmd =3D ETHTOOL_GWOL;
+>  	phy_ethtool_get_wol(phydev, &wol);
+>  	if (wol.wolopts)
+>  		return -EBUSY;
 
-diff --git a/Documentation/devicetree/bindings/net/altera_tse.txt b/Documentation/devicetree/bindings/net/altera_tse.txt
-new file mode 100644
-index 0000000..a706297
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/altera_tse.txt
-@@ -0,0 +1,114 @@
-+* Altera Triple-Speed Ethernet MAC driver (TSE)
-+
-+Required properties:
-+- compatible: Should be "altr,tse-1.0" for legacy SGDMA based TSE, and should
-+		be "altr,tse-msgdma-1.0" for the preferred MSGDMA based TSE.
-+		ALTR is supported for legacy device trees, but is deprecated.
-+		altr should be used for all new designs.
-+- reg: Address and length of the register set for the device. It contains
-+  the information of registers in the same order as described by reg-names
-+- reg-names: Should contain the reg names
-+  "control_port": MAC configuration space region
-+  "tx_csr":       xDMA Tx dispatcher control and status space region
-+  "tx_desc":      MSGDMA Tx dispatcher descriptor space region
-+  "rx_csr" :      xDMA Rx dispatcher control and status space region
-+  "rx_desc":      MSGDMA Rx dispatcher descriptor space region
-+  "rx_resp":      MSGDMA Rx dispatcher response space region
-+  "s1":		  SGDMA descriptor memory
-+- interrupts: Should contain the TSE interrupts and it's mode.
-+- interrupt-names: Should contain the interrupt names
-+  "rx_irq":       xDMA Rx dispatcher interrupt
-+  "tx_irq":       xDMA Tx dispatcher interrupt
-+- rx-fifo-depth: MAC receive FIFO buffer depth in bytes
-+- tx-fifo-depth: MAC transmit FIFO buffer depth in bytes
-+- phy-mode: See ethernet.txt in the same directory.
-+- phy-handle: See ethernet.txt in the same directory.
-+- phy-addr: See ethernet.txt in the same directory. A configuration should
-+		include phy-handle or phy-addr.
-+- altr,has-supplementary-unicast:
-+		If present, TSE supports additional unicast addresses.
-+		Otherwise additional unicast addresses are not supported.
-+- altr,has-hash-multicast-filter:
-+		If present, TSE supports a hash based multicast filter.
-+		Otherwise, hash-based multicast filtering is not supported.
-+
-+- mdio device tree subnode: When the TSE has a phy connected to its local
-+		mdio, there must be device tree subnode with the following
-+		required properties:
-+
-+	- compatible: Must be "altr,tse-mdio".
-+	- #address-cells: Must be <1>.
-+	- #size-cells: Must be <0>.
-+
-+	For each phy on the mdio bus, there must be a node with the following
-+	fields:
-+
-+	- reg: phy id used to communicate to phy.
-+	- device_type: Must be "ethernet-phy".
-+
-+Optional properties:
-+- local-mac-address: See ethernet.txt in the same directory.
-+- max-frame-size: See ethernet.txt in the same directory.
-+
-+Example:
-+
-+	tse_sub_0_eth_tse_0: ethernet@0x1,00000000 {
-+		compatible = "altr,tse-msgdma-1.0";
-+		reg =	<0x00000001 0x00000000 0x00000400>,
-+			<0x00000001 0x00000460 0x00000020>,
-+			<0x00000001 0x00000480 0x00000020>,
-+			<0x00000001 0x000004A0 0x00000008>,
-+			<0x00000001 0x00000400 0x00000020>,
-+			<0x00000001 0x00000420 0x00000020>;
-+		reg-names = "control_port", "rx_csr", "rx_desc", "rx_resp", "tx_csr", "tx_desc";
-+		interrupt-parent = <&hps_0_arm_gic_0>;
-+		interrupts = <0 41 4>, <0 40 4>;
-+		interrupt-names = "rx_irq", "tx_irq";
-+		rx-fifo-depth = <2048>;
-+		tx-fifo-depth = <2048>;
-+		address-bits = <48>;
-+		max-frame-size = <1500>;
-+		local-mac-address = [ 00 00 00 00 00 00 ];
-+		phy-mode = "gmii";
-+		altr,has-supplementary-unicast;
-+		altr,has-hash-multicast-filter;
-+		phy-handle = <&phy0>;
-+		mdio {
-+			compatible = "altr,tse-mdio";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			phy0: ethernet-phy@0 {
-+				reg = <0x0>;
-+				device_type = "ethernet-phy";
-+			};
-+
-+			phy1: ethernet-phy@1 {
-+				reg = <0x1>;
-+				device_type = "ethernet-phy";
-+			};
-+
-+		};
-+	};
-+
-+	tse_sub_1_eth_tse_0: ethernet@0x1,00001000 {
-+		compatible = "altr,tse-msgdma-1.0";
-+		reg = 	<0x00000001 0x00001000 0x00000400>,
-+			<0x00000001 0x00001460 0x00000020>,
-+			<0x00000001 0x00001480 0x00000020>,
-+			<0x00000001 0x000014A0 0x00000008>,
-+			<0x00000001 0x00001400 0x00000020>,
-+			<0x00000001 0x00001420 0x00000020>;
-+		reg-names = "control_port", "rx_csr", "rx_desc", "rx_resp", "tx_csr", "tx_desc";
-+		interrupt-parent = <&hps_0_arm_gic_0>;
-+		interrupts = <0 43 4>, <0 42 4>;
-+		interrupt-names = "rx_irq", "tx_irq";
-+		rx-fifo-depth = <2048>;
-+		tx-fifo-depth = <2048>;
-+		address-bits = <48>;
-+		max-frame-size = <1500>;
-+		local-mac-address = [ 00 00 00 00 00 00 ];
-+		phy-mode = "gmii";
-+		altr,has-supplementary-unicast;
-+		altr,has-hash-multicast-filter;
-+		phy-handle = <&phy1>;
-+	};
--- 
-1.7.9.5
+--=20
+Ben Hutchings
+Experience is directly proportional to the value of equipment destroyed.
+                                                         - Carolyn Scheppne=
+r
+
+--=-HdbWYWZmkJYw3LtGMkZ9
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAUyMPnue/yOyVhhEJAQod7A//ZSCIu4vNPz+Qw7EsK7DiuTJA6BNZwRTa
+Ojf5s3lVq73VV8gvkLMLCdijbkCwdg+KY4oOHFfX0w97cv9OvGQaebaXrOjsu9I0
+bSWxioD/HTIPJa7wySHxkgVsfeqbtTYZSXYQaYG1959oUh/wJPDEBtLMhaNMngna
+hsYblLtq8/NwmgZiGBuyqwGTz8MupudSh1XavDGUxpeLOHCSUi+/T6MhlqXx1OhG
+fn+jOGO/GbPJPzW6tVabeCWrF0M44Jyy9HDj2c6dsno4lPRk9zZUcGl4+JtVkVud
+htn+E3Webgu2/A48Utwvb/4WxGk5mZ6TRpJoFzZT0XXzivHORwPp9/PJd4f3+svx
+Zo2Tde76PbIIY+XlVwUcu83tO8veUCskJYo/R1ozZbd1OdTpPzTObDL/rSqr7f+4
+RO0zn6Yx52ZkV+R1/g0BMTlJBH8ztR2VvHhN4i08iWEs4CQV+t25iPhm7F8m/GAN
+C//kb1dYdMfaaXebrbmvU7R5xmVOsnkSmC0ArUvRenhoCEVO4qcMREmga7fHL12k
+k+yt9jA6FouPRR9vhOaaRiXRW+BgcQIATTr+5vQxa8IQLl+0A/jISiO+fAbGonOn
+v3KJVQhh8K3ZaD4otVqarKpQS49zZyzlFLVwVsxKSB4SLdaCTCtOqtbRepzZ29wa
+x/iAFcCNI9g=
+=Kml+
+-----END PGP SIGNATURE-----
+
+--=-HdbWYWZmkJYw3LtGMkZ9--
