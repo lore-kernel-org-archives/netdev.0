@@ -1,72 +1,106 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [RCU PATCH 06/14] net: sched: fw use RCU
-Date: Fri, 14 Mar 2014 11:50:05 -0700
-Message-ID: <20140314185005.GA17041@linux.vnet.ibm.com>
-References: <1394473279.3607.46.camel@edumazet-glaptop2.roam.corp.google.com>
- <53208E3F.5090401@gmail.com>
- <1394643673.21721.48.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140313202245.GK21124@linux.vnet.ibm.com>
- <1394744203.21721.53.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140313211509.GP21124@linux.vnet.ibm.com>
- <53229704.1040808@gmail.com>
- <20140314132834.GS21124@linux.vnet.ibm.com>
- <1394804798.21721.64.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140314153810.GX21124@linux.vnet.ibm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: Re: [PATCH net-next V5 6/9] Altera TSE: Add main and header file for
+ Altera Ethernet Driver
+Date: Fri, 14 Mar 2014 13:52:04 -0500
+Message-ID: <CAOwfj2NosO9t-C6ArW6WX02nko-7fWyBS3vqYaDQ1-CpbGdH3A@mail.gmail.com>
+References: <1394805887-22030-1-git-send-email-vbridgers2013@gmail.com>
+	<1394805887-22030-7-git-send-email-vbridgers2013@gmail.com>
+	<20140314143918.GA2253@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:41797 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754263AbaCNSuK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 14:50:10 -0400
-Received: from /spool/local
-	by e34.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-	Fri, 14 Mar 2014 12:50:10 -0600
-Received: from b03cxnp07028.gho.boulder.ibm.com (b03cxnp07028.gho.boulder.ibm.com [9.17.130.15])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 3597C3E4003F
-	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 12:50:07 -0600 (MDT)
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by b03cxnp07028.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2EInRet6226392
-	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 19:49:27 +0100
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id s2EIregc020811
-	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 12:53:40 -0600
-Content-Disposition: inline
-In-Reply-To: <20140314153810.GX21124@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"pawel.moll@arm.com" <pawel.moll@arm.com>,
+	"mark.rutland@arm.com" <mark.rutland@arm.com>,
+	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Rob Landley <rob@landley.net>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20140314143918.GA2253@netboy>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 14, 2014 at 08:38:10AM -0700, Paul E. McKenney wrote:
-> On Fri, Mar 14, 2014 at 06:46:38AM -0700, Eric Dumazet wrote:
-> > On Fri, 2014-03-14 at 06:28 -0700, Paul E. McKenney wrote:
-> > 
-> > > Now I just need to figure out why it -causes- a BUILD_BUG_ON for the
-> > > cris and m68k architectures in Fengguang Wu's testing...
-> > 
-> > Right, they don't necessarily align pointers ;)
-> > 
-> > alignof(void *) ?
-> 
-> It complained about the size rather than the alignment, but it would
-> certainly make sense to constrain the rcu_head structure's alignment,
-> now that you mention it.  I will do that and see if it helps.  ;-)
-> 
-> Thank you for the tip!
+Hi Richard,
 
-And you were quite right...  When the alignment is bad, it complains
-about the size.  And although I can specify that struct rcu_head be
-aligned, but __attribute__(packed) overrides this when specified on an
-enclosing structure.  As does the -fpack-struct gcc command-line option.
+On Fri, Mar 14, 2014 at 9:39 AM, Richard Cochran
+<richardcochran@gmail.com> wrote:
+> On Fri, Mar 14, 2014 at 09:04:44AM -0500, Vince Bridgers wrote:
+>> +static int tse_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>> +{
+>> +     struct altera_tse_private *priv = netdev_priv(dev);
+>> +     unsigned int txsize = priv->tx_ring_size;
+>> +     unsigned int entry;
+>> +     struct tse_buffer *buffer = NULL;
+>> +     int nfrags = skb_shinfo(skb)->nr_frags;
+>> +     unsigned int nopaged_len = skb_headlen(skb);
+>> +     enum netdev_tx ret = NETDEV_TX_OK;
+>> +     dma_addr_t dma_addr;
+>> +     int txcomplete = 0;
+>> +
+>> +     spin_lock_bh(&priv->tx_lock);
+>> +
+>> +     if (unlikely(tse_tx_avail(priv) < nfrags + 1)) {
+>> +             if (!netif_queue_stopped(dev)) {
+>> +                     netif_stop_queue(dev);
+>> +                     /* This is a hard error, log it. */
+>> +                     netdev_err(priv->dev,
+>> +                                "%s: Tx list full when queue awake\n",
+>> +                                __func__);
+>> +             }
+>> +             ret = NETDEV_TX_BUSY;
+>> +             goto out;
+>> +     }
+>> +
+>> +     /* Map the first skb fragment */
+>> +     entry = priv->tx_prod % txsize;
+>> +     buffer = &priv->tx_ring[entry];
+>> +
+>> +     dma_addr = dma_map_single(priv->device, skb->data, nopaged_len,
+>> +                               DMA_TO_DEVICE);
+>> +     if (dma_mapping_error(priv->device, dma_addr)) {
+>> +             netdev_err(priv->dev, "%s: DMA mapping error\n", __func__);
+>> +             ret = NETDEV_TX_OK;
+>> +             goto out;
+>> +     }
+>> +
+>> +     buffer->skb = skb;
+>> +     buffer->dma_addr = dma_addr;
+>> +     buffer->len = nopaged_len;
+>> +
+>> +     /* Push data out of the cache hierarchy into main memory */
+>> +     dma_sync_single_for_device(priv->device, buffer->dma_addr,
+>> +                                buffer->len, DMA_TO_DEVICE);
+>> +
+>> +     txcomplete = priv->dmaops->tx_buffer(priv, buffer);
+>> +
+>> +     priv->tx_prod++;
+>> +     dev->stats.tx_bytes += skb->len;
+>
+> This could use a call to skb_tx_timestamp() somewhere around here.
 
-Other thoughts on getting around this problem?
+Thank you, I'll add the call
 
-Hmmm...  Maybe if cris and m68k guaranteed to keep functions out of the
-bottom four pages of memory...
+>
+>> +
+>> +     if (unlikely(tse_tx_avail(priv) <= TXQUEUESTOP_THRESHHOLD)) {
+>> +             if (netif_msg_hw(priv))
+>> +                     netdev_dbg(priv->dev, "%s: stop transmitted packets\n",
+>> +                                __func__);
+>> +             netif_stop_queue(dev);
+>> +     }
+>> +
+>> +out:
+>> +     spin_unlock_bh(&priv->tx_lock);
+>> +
+>> +     return ret;
+>> +}
+>
+> Thanks,
+> Richard
 
-							Thanx, Paul
+All the best,
+
+Vince
