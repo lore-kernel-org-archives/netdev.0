@@ -1,7 +1,7 @@
 From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net-next V5 2/9] Documentation: networking: Add Altera Ethernet (TSE) Documentation
-Date: Fri, 14 Mar 2014 09:04:40 -0500
-Message-ID: <1394805887-22030-3-git-send-email-vbridgers2013@gmail.com>
+Subject: [PATCH net-next V5 4/9] Altera TSE: Add Altera Ethernet Driver SGDMA file components
+Date: Fri, 14 Mar 2014 09:04:42 -0500
+Message-ID: <1394805887-22030-5-git-send-email-vbridgers2013@gmail.com>
 References: <1394805887-22030-1-git-send-email-vbridgers2013@gmail.com>
 Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
 	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
@@ -9,303 +9,725 @@ Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
 To: devicetree@vger.kernel.org, netdev@vger.kernel.org,
 	linux-doc@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:57523 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754491AbaCNOJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 10:09:35 -0400
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:46322 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754945AbaCNOJj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 10:09:39 -0400
 In-Reply-To: <1394805887-22030-1-git-send-email-vbridgers2013@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a bindings description for the Altera Triple Speed Ethernet
-(TSE) driver. The bindings support the legacy SGDMA soft IP as well as the
-preferred MSGDMA soft IP. The TSE can be configured and synthesized in soft
-logic using Altera's Quartus toolchain. Please consult the bindings document
-for supported options.
+This patch adds the SGDMA soft IP support for the Altera Triple
+Speed Ethernet driver.
 
 Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
 ---
-V5: - Add cross references to standard definitions of statistics and
-      summary definitions of statistics for users.
+V5: - No changes for V5
 
-V4: - No change to this file for V4
+V4: - use netdev_* logging instead of dev_* logging.
 
-V3: - Reorder commits, otherwise no changes to this file
+V3: - Reorder commits, otherwise no changes to these files
 
-V2: - Minor edits. No substantial changes to this file.
+V2: - Use 32-bit lower/upper physical address accessors per comments
+      from Florian.
+    - Break up driver file submission for initial review by logical
+      function.
 ---
- Documentation/networking/altera_tse.txt |  263 +++++++++++++++++++++++++++++++
- 1 file changed, 263 insertions(+)
- create mode 100644 Documentation/networking/altera_tse.txt
+ drivers/net/ethernet/altera/altera_sgdma.c   |  511 ++++++++++++++++++++++++++
+ drivers/net/ethernet/altera/altera_sgdma.h   |   35 ++
+ drivers/net/ethernet/altera/altera_sgdmahw.h |  124 +++++++
+ 3 files changed, 670 insertions(+)
+ create mode 100644 drivers/net/ethernet/altera/altera_sgdma.c
+ create mode 100644 drivers/net/ethernet/altera/altera_sgdma.h
+ create mode 100644 drivers/net/ethernet/altera/altera_sgdmahw.h
 
-diff --git a/Documentation/networking/altera_tse.txt b/Documentation/networking/altera_tse.txt
+diff --git a/drivers/net/ethernet/altera/altera_sgdma.c b/drivers/net/ethernet/altera/altera_sgdma.c
 new file mode 100644
-index 0000000..3f24df8
+index 0000000..cbeee07
 --- /dev/null
-+++ b/Documentation/networking/altera_tse.txt
-@@ -0,0 +1,263 @@
-+       Altera Triple-Speed Ethernet MAC driver
++++ b/drivers/net/ethernet/altera/altera_sgdma.c
+@@ -0,0 +1,511 @@
++/* Altera TSE SGDMA and MSGDMA Linux driver
++ * Copyright (C) 2014 Altera Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
 +
-+Copyright (C) 2008-2014 Altera Corporation
++#include <linux/list.h>
++#include "altera_utils.h"
++#include "altera_tse.h"
++#include "altera_sgdmahw.h"
++#include "altera_sgdma.h"
 +
-+This is the driver for the Altera Triple-Speed Ethernet (TSE) controllers
-+using the SGDMA and MSGDMA soft DMA IP components. The driver uses the
-+platform bus to obtain component resources. The designs used to test this
-+driver were built for a Cyclone(R) V SOC FPGA board, a Cyclone(R) V FPGA board,
-+and tested with ARM and NIOS processor hosts seperately. The anticipated use
-+cases are simple communications between an embedded system and an external peer
-+for status and simple configuration of the embedded system.
++static void sgdma_descrip(struct sgdma_descrip *desc,
++			  struct sgdma_descrip *ndesc,
++			  dma_addr_t ndesc_phys,
++			  dma_addr_t raddr,
++			  dma_addr_t waddr,
++			  u16 length,
++			  int generate_eop,
++			  int rfixed,
++			  int wfixed);
 +
-+For more information visit www.altera.com and www.rocketboards.org. Support
-+forums for the driver may be found on www.rocketboards.org, and a design used
-+to test this driver may be found there as well. Support is also available from
-+the maintainer of this driver, found in MAINTAINERS.
++static int sgdma_async_write(struct altera_tse_private *priv,
++			      struct sgdma_descrip *desc);
 +
-+The Triple-Speed Ethernet, SGDMA, and MSGDMA components are all soft IP
-+components that can be assembled and built into an FPGA using the Altera
-+Quartus toolchain. Quartus 13.1 and 14.0 were used to build the design that
-+this driver was tested against. The sopc2dts tool is used to create the
-+device tree for the driver, and may be found at rocketboards.org.
++static int sgdma_async_read(struct altera_tse_private *priv);
 +
-+The driver probe function examines the device tree and determines if the
-+Triple-Speed Ethernet instance is using an SGDMA or MSGDMA component. The
-+probe function then installs the appropriate set of DMA routines to
-+initialize, setup transmits, receives, and interrupt handling primitives for
-+the respective configurations.
++static dma_addr_t
++sgdma_txphysaddr(struct altera_tse_private *priv,
++		 struct sgdma_descrip *desc);
 +
-+The SGDMA component is to be deprecated in the near future (over the next 1-2
-+years as of this writing in early 2014) in favor of the MSGDMA component.
-+SGDMA support is included for existing designs and reference in case a
-+developer wishes to support their own soft DMA logic and driver support. Any
-+new designs should not use the SGDMA.
++static dma_addr_t
++sgdma_rxphysaddr(struct altera_tse_private *priv,
++		 struct sgdma_descrip *desc);
 +
-+The SGDMA supports only a single transmit or receive operation at a time, and
-+therefore will not perform as well compared to the MSGDMA soft IP. Please
-+visit www.altera.com for known, documented SGDMA errata.
++static int sgdma_txbusy(struct altera_tse_private *priv);
 +
-+Scatter-gather DMA is not supported by the SGDMA or MSGDMA at this time.
-+Scatter-gather DMA will be added to a future maintenance update to this
-+driver.
++static int sgdma_rxbusy(struct altera_tse_private *priv);
 +
-+Jumbo frames are not supported at this time.
++static void
++queue_tx(struct altera_tse_private *priv, struct tse_buffer *buffer);
 +
-+The driver limits PHY operations to 10/100Mbps, and has not yet been fully
-+tested for 1Gbps. This support will be added in a future maintenance update.
++static void
++queue_rx(struct altera_tse_private *priv, struct tse_buffer *buffer);
 +
-+1) Kernel Configuration
-+The kernel configuration option is ALTERA_TSE:
-+ Device Drivers ---> Network device support ---> Ethernet driver support --->
-+ Altera Triple-Speed Ethernet MAC support (ALTERA_TSE)
++static struct tse_buffer *
++dequeue_tx(struct altera_tse_private *priv);
 +
-+2) Driver parameters list:
-+	debug: message level (0: no output, 16: all);
-+	dma_rx_num: Number of descriptors in the RX list (default is 64);
-+	dma_tx_num: Number of descriptors in the TX list (default is 64).
++static struct tse_buffer *
++dequeue_rx(struct altera_tse_private *priv);
 +
-+3) Command line options
-+Driver parameters can be also passed in command line by using:
-+	altera_tse=dma_rx_num:128,dma_tx_num:512
++static struct tse_buffer *
++queue_rx_peekhead(struct altera_tse_private *priv);
 +
-+4) Driver information and notes
++int sgdma_initialize(struct altera_tse_private *priv)
++{
++	priv->txctrlreg = SGDMA_CTRLREG_ILASTD;
 +
-+4.1) Transmit process
-+When the driver's transmit routine is called by the kernel, it sets up a
-+transmit descriptor by calling the underlying DMA transmit routine (SGDMA or
-+MSGDMA), and initites a transmit operation. Once the transmit is complete, an
-+interrupt is driven by the transmit DMA logic. The driver handles the transmit
-+completion in the context of the interrupt handling chain by recycling
-+resource required to send and track the requested transmit operation.
++	priv->rxctrlreg = SGDMA_CTRLREG_IDESCRIP |
++		      SGDMA_CTRLREG_ILASTD;
 +
-+4.2) Receive process
-+The driver will post receive buffers to the receive DMA logic during driver
-+intialization. Receive buffers may or may not be queued depending upon the
-+underlying DMA logic (MSGDMA is able queue receive buffers, SGDMA is not able
-+to queue receive buffers to the SGDMA receive logic). When a packet is
-+received, the DMA logic generates an interrupt. The driver handles a receive
-+interrupt by obtaining the DMA receive logic status, reaping receive
-+completions until no more receive completions are available.
++	INIT_LIST_HEAD(&priv->txlisthd);
++	INIT_LIST_HEAD(&priv->rxlisthd);
 +
-+4.3) Interrupt Mitigation
-+The driver is able to mitigate the number of its DMA interrupts
-+using NAPI for receive operations. Interrupt mitigation is not yet supported
-+for transmit operations, but will be added in a future maintenance release.
++	priv->rxdescphys = (dma_addr_t) 0;
++	priv->txdescphys = (dma_addr_t) 0;
 +
-+4.4) Ethtool support
-+Ethtool is supported. Driver statistics and internal errors can be taken using:
-+ethtool -S ethX command. It is possible to dump registers etc.
++	priv->rxdescphys = dma_map_single(priv->device, priv->rx_dma_desc,
++					  priv->rxdescmem, DMA_BIDIRECTIONAL);
 +
-+4.5) PHY Support
-+The driver is compatible with PAL to work with PHY and GPHY devices.
++	if (dma_mapping_error(priv->device, priv->rxdescphys)) {
++		sgdma_uninitialize(priv);
++		netdev_err(priv->dev, "error mapping rx descriptor memory\n");
++		return -EINVAL;
++	}
 +
-+4.7) List of source files:
-+ o Kconfig
-+ o Makefile
-+ o altera_tse_main.c: main network device driver
-+ o altera_tse_ethtool.c: ethtool support
-+ o altera_tse.h: private driver structure and common definitions
-+ o altera_msgdma.h: MSGDMA implementation function definitions
-+ o altera_sgdma.h: SGDMA implementation function definitions
-+ o altera_msgdma.c: MSGDMA implementation
-+ o altera_sgdma.c: SGDMA implementation
-+ o altera_sgdmahw.h: SGDMA register and descriptor definitions
-+ o altera_msgdmahw.h: MSGDMA register and descriptor definitions
-+ o altera_utils.c: Driver utility functions
-+ o altera_utils.h: Driver utility function definitions
++	priv->txdescphys = dma_map_single(priv->device, priv->rx_dma_desc,
++					  priv->rxdescmem, DMA_TO_DEVICE);
 +
-+5) Debug Information
++	if (dma_mapping_error(priv->device, priv->txdescphys)) {
++		sgdma_uninitialize(priv);
++		netdev_err(priv->dev, "error mapping tx descriptor memory\n");
++		return -EINVAL;
++	}
 +
-+The driver exports debug information such as internal statistics,
-+debug information, MAC and DMA registers etc.
++	return 0;
++}
 +
-+A user may use the ethtool support to get statistics:
-+e.g. using: ethtool -S ethX (that shows the statistics counters)
-+or sees the MAC registers: e.g. using: ethtool -d ethX
++void sgdma_uninitialize(struct altera_tse_private *priv)
++{
++	if (priv->rxdescphys)
++		dma_unmap_single(priv->device, priv->rxdescphys,
++				 priv->rxdescmem, DMA_BIDIRECTIONAL);
 +
-+The developer can also use the "debug" module parameter to get
-+further debug information.
++	if (priv->txdescphys)
++		dma_unmap_single(priv->device, priv->txdescphys,
++				 priv->txdescmem, DMA_TO_DEVICE);
++}
 +
-+6) Statistics Support
++/* This function resets the SGDMA controller and clears the
++ * descriptor memory used for transmits and receives.
++ */
++void sgdma_reset(struct altera_tse_private *priv)
++{
++	u32 *ptxdescripmem = (u32 *)priv->tx_dma_desc;
++	u32 txdescriplen   = priv->txdescmem;
++	u32 *prxdescripmem = (u32 *)priv->rx_dma_desc;
++	u32 rxdescriplen   = priv->rxdescmem;
++	struct sgdma_csr *ptxsgdma = (struct sgdma_csr *)priv->tx_dma_csr;
++	struct sgdma_csr *prxsgdma = (struct sgdma_csr *)priv->rx_dma_csr;
 +
-+The controller and driver support a mix of IEEE standard defined statistics,
-+RFC defined statistics, and driver or Altera defined statistics. The four
-+specifications containing the standard definitions for these statistics are
-+as follows:
++	/* Initialize descriptor memory to 0 */
++	memset(ptxdescripmem, 0, txdescriplen);
++	memset(prxdescripmem, 0, rxdescriplen);
 +
-+ o IEEE 802.3-2012 - IEEE Standard for Ethernet.
-+ o RFC 2863 found at http://www.rfc-editor.org/rfc/rfc2863.txt.
-+ o RFC 2819 found at http://www.rfc-editor.org/rfc/rfc2819.txt.
-+ o Altera Triple Speed Ethernet User Guide, found at http://www.altera.com
++	iowrite32(SGDMA_CTRLREG_RESET, &ptxsgdma->control);
++	iowrite32(0, &ptxsgdma->control);
 +
-+The statistics supported by the TSE and the device driver are as follows:
++	iowrite32(SGDMA_CTRLREG_RESET, &prxsgdma->control);
++	iowrite32(0, &prxsgdma->control);
++}
 +
-+"tx_packets" is equivalent to aFramesTransmittedOK defined in IEEE 802.3-2012,
-+Section 5.2.2.1.2. This statistics is the count of frames that are successfully
-+transmitted.
++void sgdma_enable_rxirq(struct altera_tse_private *priv)
++{
++	struct sgdma_csr *csr = (struct sgdma_csr *)priv->rx_dma_csr;
++	priv->rxctrlreg |= SGDMA_CTRLREG_INTEN;
++	tse_set_bit(&csr->control, SGDMA_CTRLREG_INTEN);
++}
 +
-+"rx_packets" is equivalent to aFramesReceivedOK defined in IEEE 802.3-2012,
-+Section 5.2.2.1.5. This statistic is the count of frames that are successfully
-+received. This count does not include any error packets such as CRC errors,
-+length errors, or alignment errors.
++void sgdma_enable_txirq(struct altera_tse_private *priv)
++{
++	struct sgdma_csr *csr = (struct sgdma_csr *)priv->tx_dma_csr;
++	priv->txctrlreg |= SGDMA_CTRLREG_INTEN;
++	tse_set_bit(&csr->control, SGDMA_CTRLREG_INTEN);
++}
 +
-+"rx_crc_errors" is equivalent to aFrameCheckSequenceErrors defined in IEEE
-+802.3-2012, Section 5.2.2.1.6. This statistic is the count of frames that are
-+an integral number of bytes in length and do not pass the CRC test as the frame
-+is received.
++/* for SGDMA, RX interrupts remain enabled after enabling */
++void sgdma_disable_rxirq(struct altera_tse_private *priv)
++{
++}
 +
-+"rx_align_errors" is equivalent to aAlignmentErrors defined in IEEE 802.3-2012,
-+Section 5.2.2.1.7. This statistic is the count of frames that are not an
-+integral number of bytes in length and do not pass the CRC test as the frame is
-+received.
++/* for SGDMA, TX interrupts remain enabled after enabling */
++void sgdma_disable_txirq(struct altera_tse_private *priv)
++{
++}
 +
-+"tx_bytes" is equivalent to aOctetsTransmittedOK defined in IEEE 802.3-2012,
-+Section 5.2.2.1.8. This statistic is the count of data and pad bytes
-+successfully transmitted from the interface.
++void sgdma_clear_rxirq(struct altera_tse_private *priv)
++{
++	struct sgdma_csr *csr = (struct sgdma_csr *)priv->rx_dma_csr;
++	tse_set_bit(&csr->control, SGDMA_CTRLREG_CLRINT);
++}
 +
-+"rx_bytes" is equivalent to aOctetsReceivedOK defined in IEEE 802.3-2012,
-+Section 5.2.2.1.14. This statistic is the count of data and pad bytes
-+successfully received by the controller.
++void sgdma_clear_txirq(struct altera_tse_private *priv)
++{
++	struct sgdma_csr *csr = (struct sgdma_csr *)priv->tx_dma_csr;
++	tse_set_bit(&csr->control, SGDMA_CTRLREG_CLRINT);
++}
 +
-+"tx_pause" is equivalent to aPAUSEMACCtrlFramesTransmitted defined in IEEE
-+802.3-2012, Section 30.3.4.2. This statistic is a count of PAUSE frames
-+transmitted from the network controller.
++/* transmits buffer through SGDMA. Returns number of buffers
++ * transmitted, 0 if not possible.
++ *
++ * tx_lock is held by the caller
++ */
++int sgdma_tx_buffer(struct altera_tse_private *priv, struct tse_buffer *buffer)
++{
++	int pktstx = 0;
++	struct sgdma_descrip *descbase =
++		(struct sgdma_descrip *)priv->tx_dma_desc;
 +
-+"rx_pause" is equivalent to aPAUSEMACCtrlFramesReceived defined in IEEE
-+802.3-2012, Section 30.3.4.3. This statistic is a count of PAUSE frames
-+received by the network controller.
++	struct sgdma_descrip *cdesc = &descbase[0];
++	struct sgdma_descrip *ndesc = &descbase[1];
 +
-+"rx_errors" is equivalent to ifInErrors defined in RFC 2863. This statistic is
-+a count of the number of packets received containing errors that prevented the
-+packet from being delivered to a higher level protocol.
++	/* wait 'til the tx sgdma is ready for the next transmit request */
++	if (sgdma_txbusy(priv))
++		return 0;
 +
-+"tx_errors" is equivalent to ifOutErrors defined in RFC 2863. This statistic
-+is a count of the number of packets that could not be transmitted due to errors.
++	sgdma_descrip(cdesc,			/* current descriptor */
++		      ndesc,			/* next descriptor */
++		      sgdma_txphysaddr(priv, ndesc),
++		      buffer->dma_addr,		/* address of packet to xmit */
++		      0,			/* write addr 0 for tx dma */
++		      buffer->len,		/* length of packet */
++		      SGDMA_CONTROL_EOP,	/* Generate EOP */
++		      0,			/* read fixed */
++		      SGDMA_CONTROL_WR_FIXED);	/* Generate SOP */
 +
-+"rx_unicast" is equivalent to ifInUcastPkts defined in RFC 2863. This
-+statistic is a count of the number of packets received that were not addressed
-+to the broadcast address or a multicast group.
++	pktstx = sgdma_async_write(priv, cdesc);
 +
-+"rx_multicast" is equivalent to ifInMulticastPkts defined in RFC 2863. This
-+statistic is a count of the number of packets received that were addressed to
-+a multicast address group.
++	/* enqueue the request to the pending transmit queue */
++	queue_tx(priv, buffer);
 +
-+"rx_broadcast" is equivalent to ifInBroadcastPkts defined in RFC 2863. This
-+statistic is a count of the number of packets received that were addressed to
-+the broadcast address.
++	return 1;
++}
 +
-+"tx_discards" is equivalent to ifOutDiscards defined in RFC 2863. This
-+statistic is the number of outbound packets not transmitted even though an
-+error was not detected. An example of a reason this might occur is to free up
-+internal buffer space.
 +
-+"tx_unicast" is equivalent to ifOutUcastPkts defined in RFC 2863. This
-+statistic counts the number of packets transmitted that were not addressed to
-+a multicast group or broadcast address.
++/* tx_lock held to protect access to queued tx list
++ */
++u32 sgdma_tx_completions(struct altera_tse_private *priv)
++{
++	u32 ready = 0;
++	struct sgdma_descrip *desc = (struct sgdma_descrip *)priv->tx_dma_desc;
 +
-+"tx_multicast" is equivalent to ifOutMulticastPkts defined in RFC 2863. This
-+statistic counts the number of packets transmitted that were addressed to a
-+multicast group.
++	if (!sgdma_txbusy(priv) &&
++	    ((desc->control & SGDMA_CONTROL_HW_OWNED) == 0) &&
++	    (dequeue_tx(priv))) {
++		ready = 1;
++	}
 +
-+"tx_broadcast" is equivalent to ifOutBroadcastPkts defined in RFC 2863. This
-+statistic counts the number of packets transmitted that were addressed to a
-+broadcast address.
++	return ready;
++}
 +
-+"ether_drops" is equivalent to etherStatsDropEvents defined in RFC 2819.
-+This statistic counts the number of packets dropped due to lack of internal
-+controller resources.
++int sgdma_add_rx_desc(struct altera_tse_private *priv,
++		      struct tse_buffer *rxbuffer)
++{
++	queue_rx(priv, rxbuffer);
++	return sgdma_async_read(priv);
++}
 +
-+"rx_total_bytes" is equivalent to etherStatsOctets defined in RFC 2819.
-+This statistic counts the total number of bytes received by the controller,
-+including error and discarded packets.
++/* status is returned on upper 16 bits,
++ * length is returned in lower 16 bits
++ */
++u32 sgdma_rx_status(struct altera_tse_private *priv)
++{
++	struct sgdma_csr *csr = (struct sgdma_csr *)priv->rx_dma_csr;
++	struct sgdma_descrip *base = (struct sgdma_descrip *)priv->rx_dma_desc;
++	struct sgdma_descrip *desc = NULL;
++	int pktsrx;
++	unsigned int rxstatus = 0;
++	unsigned int pktlength = 0;
++	unsigned int pktstatus = 0;
++	struct tse_buffer *rxbuffer = NULL;
 +
-+"rx_total_packets" is equivalent to etherStatsPkts defined in RFC 2819.
-+This statistic counts the total number of packets received by the controller,
-+including error, discarded, unicast, multicast, and broadcast packets.
++	dma_sync_single_for_cpu(priv->device,
++				priv->rxdescphys,
++				priv->rxdescmem,
++				DMA_BIDIRECTIONAL);
 +
-+"rx_undersize" is equivalent to etherStatsUndersizePkts defined in RFC 2819.
-+This statistic counts the number of correctly formed packets received less
-+than 64 bytes long.
++	desc = &base[0];
++	if ((ioread32(&csr->status) & SGDMA_STSREG_EOP) ||
++	    (desc->status & SGDMA_STATUS_EOP)) {
++		pktlength = desc->bytes_xferred;
++		pktstatus = desc->status & 0x3f;
++		rxstatus = pktstatus;
++		rxstatus = rxstatus << 16;
++		rxstatus |= (pktlength & 0xffff);
 +
-+"rx_oversize" is equivalent to etherStatsOversizePkts defined in RFC 2819.
-+This statistic counts the number of correctly formed packets greater than 1518
-+bytes long.
++		desc->status = 0;
 +
-+"rx_64_bytes" is equivalent to etherStatsPkts64Octets defined in RFC 2819.
-+This statistic counts the total number of packets received that were 64 octets
-+in length.
++		rxbuffer = dequeue_rx(priv);
++		if (rxbuffer == NULL)
++			netdev_err(priv->dev,
++				   "sgdma rx and rx queue empty!\n");
 +
-+"rx_65_127_bytes" is equivalent to etherStatsPkts65to127Octets defined in RFC
-+2819. This statistic counts the total number of packets received that were
-+between 65 and 127 octets in length inclusive.
++		/* kick the rx sgdma after reaping this descriptor */
++		pktsrx = sgdma_async_read(priv);
++	}
 +
-+"rx_128_255_bytes" is equivalent to etherStatsPkts128to255Octets defined in
-+RFC 2819. This statistic is the total number of packets received that were
-+between 128 and 255 octets in length inclusive.
++	return rxstatus;
++}
 +
-+"rx_256_511_bytes" is equivalent to etherStatsPkts256to511Octets defined in
-+RFC 2819. This statistic is the total number of packets received that were
-+between 256 and 511 octets in length inclusive.
 +
-+"rx_512_1023_bytes" is equivalent to etherStatsPkts512to1023Octets defined in
-+RFC 2819. This statistic is the total number of packets received that were
-+between 512 and 1023 octets in length inclusive.
++/* Private functions */
++static void sgdma_descrip(struct sgdma_descrip *desc,
++			  struct sgdma_descrip *ndesc,
++			  dma_addr_t ndesc_phys,
++			  dma_addr_t raddr,
++			  dma_addr_t waddr,
++			  u16 length,
++			  int generate_eop,
++			  int rfixed,
++			  int wfixed)
++{
++	/* Clear the next descriptor as not owned by hardware */
++	u32 ctrl = ndesc->control;
++	ctrl &= ~SGDMA_CONTROL_HW_OWNED;
++	ndesc->control = ctrl;
 +
-+"rx_1024_1518_bytes" is equivalent to etherStatsPkts1024to1518Octets define
-+in RFC 2819. This statistic is the total number of packets received that were
-+between 1024 and 1518 octets in length inclusive.
++	ctrl = 0;
++	ctrl = SGDMA_CONTROL_HW_OWNED;
++	ctrl |= generate_eop;
++	ctrl |= rfixed;
++	ctrl |= wfixed;
 +
-+"rx_gte_1519_bytes" is a statistic defined specific to the behavior of the
-+Altera TSE. This statistics counts the number of received good and errored
-+frames between the length of 1519 and the maximum frame length configured
-+in the frm_length register. See the Altera TSE User Guide for More details.
++	/* Channel is implicitly zero, initialized to 0 by default */
 +
-+"rx_jabbers" is equivalent to etherStatsJabbers defined in RFC 2819. This
-+statistic is the total number of packets received that were longer than 1518
-+octets, and had either a bad CRC with an integral number of octets (CRC Error)
-+or a bad CRC with a non-integral number of octets (Alignment Error).
++	desc->raddr = raddr;
++	desc->waddr = waddr;
++	desc->next = lower_32_bits(ndesc_phys);
++	desc->control = ctrl;
++	desc->status = 0;
++	desc->rburst = 0;
++	desc->wburst = 0;
++	desc->bytes = length;
++	desc->bytes_xferred = 0;
++}
 +
-+"rx_runts" is equivalent to etherStatsFragments defined in RFC 2819. This
-+statistic is the total number of packets received that were less than 64 octets
-+in length and had either a bad CRC with an integral number of octets (CRC
-+error) or a bad CRC with a non-integral number of octets (Alignment Error).
++/* If hardware is busy, don't restart async read.
++ * if status register is 0 - meaning initial state, restart async read,
++ * probably for the first time when populating a receive buffer.
++ * If read status indicate not busy and a status, restart the async
++ * DMA read.
++ */
++static int sgdma_async_read(struct altera_tse_private *priv)
++{
++	struct sgdma_csr *csr = (struct sgdma_csr *)priv->rx_dma_csr;
++	struct sgdma_descrip *descbase =
++		(struct sgdma_descrip *)priv->rx_dma_desc;
++
++	struct sgdma_descrip *cdesc = &descbase[0];
++	struct sgdma_descrip *ndesc = &descbase[1];
++
++	unsigned int sts = ioread32(&csr->status);
++	struct tse_buffer *rxbuffer = NULL;
++
++	if (!sgdma_rxbusy(priv)) {
++		rxbuffer = queue_rx_peekhead(priv);
++		if (rxbuffer == NULL)
++			return 0;
++
++		sgdma_descrip(cdesc,		/* current descriptor */
++			      ndesc,		/* next descriptor */
++			      sgdma_rxphysaddr(priv, ndesc),
++			      0,		/* read addr 0 for rx dma */
++			      rxbuffer->dma_addr, /* write addr for rx dma */
++			      0,		/* read 'til EOP */
++			      0,		/* EOP: NA for rx dma */
++			      0,		/* read fixed: NA for rx dma */
++			      0);		/* SOP: NA for rx DMA */
++
++		/* clear control and status */
++		iowrite32(0, &csr->control);
++
++		/* If statuc available, clear those bits */
++		if (sts & 0xf)
++			iowrite32(0xf, &csr->status);
++
++		dma_sync_single_for_device(priv->device,
++					   priv->rxdescphys,
++					   priv->rxdescmem,
++					   DMA_BIDIRECTIONAL);
++
++		iowrite32(lower_32_bits(sgdma_rxphysaddr(priv, cdesc)),
++			  &csr->next_descrip);
++
++		iowrite32((priv->rxctrlreg | SGDMA_CTRLREG_START),
++			  &csr->control);
++
++		return 1;
++	}
++
++	return 0;
++}
++
++static int sgdma_async_write(struct altera_tse_private *priv,
++			     struct sgdma_descrip *desc)
++{
++	struct sgdma_csr *csr = (struct sgdma_csr *)priv->tx_dma_csr;
++
++	if (sgdma_txbusy(priv))
++		return 0;
++
++	/* clear control and status */
++	iowrite32(0, &csr->control);
++	iowrite32(0x1f, &csr->status);
++
++	dma_sync_single_for_device(priv->device, priv->txdescphys,
++				   priv->txdescmem, DMA_TO_DEVICE);
++
++	iowrite32(lower_32_bits(sgdma_txphysaddr(priv, desc)),
++		  &csr->next_descrip);
++
++	iowrite32((priv->txctrlreg | SGDMA_CTRLREG_START),
++		  &csr->control);
++
++	return 1;
++}
++
++static dma_addr_t
++sgdma_txphysaddr(struct altera_tse_private *priv,
++		 struct sgdma_descrip *desc)
++{
++	dma_addr_t paddr = priv->txdescmem_busaddr;
++	dma_addr_t offs = (dma_addr_t)((dma_addr_t)desc -
++				(dma_addr_t)priv->tx_dma_desc);
++	return paddr + offs;
++}
++
++static dma_addr_t
++sgdma_rxphysaddr(struct altera_tse_private *priv,
++		 struct sgdma_descrip *desc)
++{
++	dma_addr_t paddr = priv->rxdescmem_busaddr;
++	dma_addr_t offs = (dma_addr_t)((dma_addr_t)desc -
++				(dma_addr_t)priv->rx_dma_desc);
++	return paddr + offs;
++}
++
++#define list_remove_head(list, entry, type, member)			\
++	do {								\
++		entry = NULL;						\
++		if (!list_empty(list)) {				\
++			entry = list_entry((list)->next, type, member);	\
++			list_del_init(&entry->member);			\
++		}							\
++	} while (0)
++
++#define list_peek_head(list, entry, type, member)			\
++	do {								\
++		entry = NULL;						\
++		if (!list_empty(list)) {				\
++			entry = list_entry((list)->next, type, member);	\
++		}							\
++	} while (0)
++
++/* adds a tse_buffer to the tail of a tx buffer list.
++ * assumes the caller is managing and holding a mutual exclusion
++ * primitive to avoid simultaneous pushes/pops to the list.
++ */
++static void
++queue_tx(struct altera_tse_private *priv, struct tse_buffer *buffer)
++{
++	list_add_tail(&buffer->lh, &priv->txlisthd);
++}
++
++
++/* adds a tse_buffer to the tail of a rx buffer list
++ * assumes the caller is managing and holding a mutual exclusion
++ * primitive to avoid simultaneous pushes/pops to the list.
++ */
++static void
++queue_rx(struct altera_tse_private *priv, struct tse_buffer *buffer)
++{
++	list_add_tail(&buffer->lh, &priv->rxlisthd);
++}
++
++/* dequeues a tse_buffer from the transmit buffer list, otherwise
++ * returns NULL if empty.
++ * assumes the caller is managing and holding a mutual exclusion
++ * primitive to avoid simultaneous pushes/pops to the list.
++ */
++static struct tse_buffer *
++dequeue_tx(struct altera_tse_private *priv)
++{
++	struct tse_buffer *buffer = NULL;
++	list_remove_head(&priv->txlisthd, buffer, struct tse_buffer, lh);
++	return buffer;
++}
++
++/* dequeues a tse_buffer from the receive buffer list, otherwise
++ * returns NULL if empty
++ * assumes the caller is managing and holding a mutual exclusion
++ * primitive to avoid simultaneous pushes/pops to the list.
++ */
++static struct tse_buffer *
++dequeue_rx(struct altera_tse_private *priv)
++{
++	struct tse_buffer *buffer = NULL;
++	list_remove_head(&priv->rxlisthd, buffer, struct tse_buffer, lh);
++	return buffer;
++}
++
++/* dequeues a tse_buffer from the receive buffer list, otherwise
++ * returns NULL if empty
++ * assumes the caller is managing and holding a mutual exclusion
++ * primitive to avoid simultaneous pushes/pops to the list while the
++ * head is being examined.
++ */
++static struct tse_buffer *
++queue_rx_peekhead(struct altera_tse_private *priv)
++{
++	struct tse_buffer *buffer = NULL;
++	list_peek_head(&priv->rxlisthd, buffer, struct tse_buffer, lh);
++	return buffer;
++}
++
++/* check and return rx sgdma status without polling
++ */
++static int sgdma_rxbusy(struct altera_tse_private *priv)
++{
++	struct sgdma_csr *csr = (struct sgdma_csr *)priv->rx_dma_csr;
++	return ioread32(&csr->status) & SGDMA_STSREG_BUSY;
++}
++
++/* waits for the tx sgdma to finish it's current operation, returns 0
++ * when it transitions to nonbusy, returns 1 if the operation times out
++ */
++static int sgdma_txbusy(struct altera_tse_private *priv)
++{
++	int delay = 0;
++	struct sgdma_csr *csr = (struct sgdma_csr *)priv->tx_dma_csr;
++
++	/* if DMA is busy, wait for current transactino to finish */
++	while ((ioread32(&csr->status) & SGDMA_STSREG_BUSY) && (delay++ < 100))
++		udelay(1);
++
++	if (ioread32(&csr->status) & SGDMA_STSREG_BUSY) {
++		netdev_err(priv->dev, "timeout waiting for tx dma\n");
++		return 1;
++	}
++	return 0;
++}
+diff --git a/drivers/net/ethernet/altera/altera_sgdma.h b/drivers/net/ethernet/altera/altera_sgdma.h
+new file mode 100644
+index 0000000..07d4717
+--- /dev/null
++++ b/drivers/net/ethernet/altera/altera_sgdma.h
+@@ -0,0 +1,35 @@
++/* Altera TSE SGDMA and MSGDMA Linux driver
++ * Copyright (C) 2014 Altera Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#ifndef __ALTERA_SGDMA_H__
++#define __ALTERA_SGDMA_H__
++
++void sgdma_reset(struct altera_tse_private *);
++void sgdma_enable_txirq(struct altera_tse_private *);
++void sgdma_enable_rxirq(struct altera_tse_private *);
++void sgdma_disable_rxirq(struct altera_tse_private *);
++void sgdma_disable_txirq(struct altera_tse_private *);
++void sgdma_clear_rxirq(struct altera_tse_private *);
++void sgdma_clear_txirq(struct altera_tse_private *);
++int sgdma_tx_buffer(struct altera_tse_private *priv, struct tse_buffer *);
++u32 sgdma_tx_completions(struct altera_tse_private *);
++int sgdma_add_rx_desc(struct altera_tse_private *priv, struct tse_buffer *);
++void sgdma_status(struct altera_tse_private *);
++u32 sgdma_rx_status(struct altera_tse_private *);
++int sgdma_initialize(struct altera_tse_private *);
++void sgdma_uninitialize(struct altera_tse_private *);
++
++#endif /*  __ALTERA_SGDMA_H__ */
+diff --git a/drivers/net/ethernet/altera/altera_sgdmahw.h b/drivers/net/ethernet/altera/altera_sgdmahw.h
+new file mode 100644
+index 0000000..ba3334f
+--- /dev/null
++++ b/drivers/net/ethernet/altera/altera_sgdmahw.h
+@@ -0,0 +1,124 @@
++/* Altera TSE SGDMA and MSGDMA Linux driver
++ * Copyright (C) 2014 Altera Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#ifndef __ALTERA_SGDMAHW_H__
++#define __ALTERA_SGDMAHW_H__
++
++/* SGDMA descriptor structure */
++struct sgdma_descrip {
++	unsigned int	raddr; /* address of data to be read */
++	unsigned int	pad1;
++	unsigned int	waddr;
++	unsigned int    pad2;
++	unsigned int	next;
++	unsigned int	pad3;
++	unsigned short  bytes;
++	unsigned char   rburst;
++	unsigned char	wburst;
++	unsigned short	bytes_xferred;	/* 16 bits, bytes xferred */
++
++	/* bit 0: error
++	 * bit 1: length error
++	 * bit 2: crc error
++	 * bit 3: truncated error
++	 * bit 4: phy error
++	 * bit 5: collision error
++	 * bit 6: reserved
++	 * bit 7: status eop for recv case
++	 */
++	unsigned char	status;
++
++	/* bit 0: eop
++	 * bit 1: read_fixed
++	 * bit 2: write fixed
++	 * bits 3,4,5,6: Channel (always 0)
++	 * bit 7: hardware owned
++	 */
++	unsigned char	control;
++} __packed;
++
++
++#define SGDMA_STATUS_ERR		BIT(0)
++#define SGDMA_STATUS_LENGTH_ERR		BIT(1)
++#define SGDMA_STATUS_CRC_ERR		BIT(2)
++#define SGDMA_STATUS_TRUNC_ERR		BIT(3)
++#define SGDMA_STATUS_PHY_ERR		BIT(4)
++#define SGDMA_STATUS_COLL_ERR		BIT(5)
++#define SGDMA_STATUS_EOP		BIT(7)
++
++#define SGDMA_CONTROL_EOP		BIT(0)
++#define SGDMA_CONTROL_RD_FIXED		BIT(1)
++#define SGDMA_CONTROL_WR_FIXED		BIT(2)
++
++/* Channel is always 0, so just zero initialize it */
++
++#define SGDMA_CONTROL_HW_OWNED		BIT(7)
++
++/* SGDMA register space */
++struct sgdma_csr {
++	/* bit 0: error
++	 * bit 1: eop
++	 * bit 2: descriptor completed
++	 * bit 3: chain completed
++	 * bit 4: busy
++	 * remainder reserved
++	 */
++	u32	status;
++	u32	pad1[3];
++
++	/* bit 0: interrupt on error
++	 * bit 1: interrupt on eop
++	 * bit 2: interrupt after every descriptor
++	 * bit 3: interrupt after last descrip in a chain
++	 * bit 4: global interrupt enable
++	 * bit 5: starts descriptor processing
++	 * bit 6: stop core on dma error
++	 * bit 7: interrupt on max descriptors
++	 * bits 8-15: max descriptors to generate interrupt
++	 * bit 16: Software reset
++	 * bit 17: clears owned by hardware if 0, does not clear otherwise
++	 * bit 18: enables descriptor polling mode
++	 * bit 19-26: clocks before polling again
++	 * bit 27-30: reserved
++	 * bit 31: clear interrupt
++	 */
++	u32	control;
++	u32	pad2[3];
++	u32	next_descrip;
++	u32	pad3[3];
++};
++
++
++#define SGDMA_STSREG_ERR	BIT(0) /* Error */
++#define SGDMA_STSREG_EOP	BIT(1) /* EOP */
++#define SGDMA_STSREG_DESCRIP	BIT(2) /* Descriptor completed */
++#define SGDMA_STSREG_CHAIN	BIT(3) /* Chain completed */
++#define SGDMA_STSREG_BUSY	BIT(4) /* Controller busy */
++
++#define SGDMA_CTRLREG_IOE	BIT(0) /* Interrupt on error */
++#define SGDMA_CTRLREG_IOEOP	BIT(1) /* Interrupt on EOP */
++#define SGDMA_CTRLREG_IDESCRIP	BIT(2) /* Interrupt after every descriptor */
++#define SGDMA_CTRLREG_ILASTD	BIT(3) /* Interrupt after last descriptor */
++#define SGDMA_CTRLREG_INTEN	BIT(4) /* Global Interrupt enable */
++#define SGDMA_CTRLREG_START	BIT(5) /* starts descriptor processing */
++#define SGDMA_CTRLREG_STOPERR	BIT(6) /* stop on dma error */
++#define SGDMA_CTRLREG_INTMAX	BIT(7) /* Interrupt on max descriptors */
++#define SGDMA_CTRLREG_RESET	BIT(16)/* Software reset */
++#define SGDMA_CTRLREG_COBHW	BIT(17)/* Clears owned by hardware */
++#define SGDMA_CTRLREG_POLL	BIT(18)/* enables descriptor polling mode */
++#define SGDMA_CTRLREG_CLRINT	BIT(31)/* Clears interrupt */
++
++#endif /* __ALTERA_SGDMAHW_H__ */
 -- 
 1.7.9.5
