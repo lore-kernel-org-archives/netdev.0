@@ -1,128 +1,99 @@
 From: clsoto@linux.vnet.ibm.com
-Subject: [PATCH v2 2/2] IB/mlx5: Free resources during PCI error
-Date: Fri, 14 Mar 2014 12:14:58 -0500
-Message-ID: <20140314171659.686646150@linux.vnet.ibm.com>
+Subject: [PATCH v2 1/2] IB/mlx5: Implementation of PCI error handler
+Date: Fri, 14 Mar 2014 12:14:57 -0500
+Message-ID: <20140314171659.508052123@linux.vnet.ibm.com>
 References: <20140314171456.181059236@linux.vnet.ibm.com>
 Cc: brking@linux.vnet.ibm.com, clsoto@linux.vnet.ibm.com
 To: eli@mellanox.com, roland@kernel.org, sean.hefty@intel.com,
 	hal.rosenstock@gmail.com, linux-rdma@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [32.97.110.57] ([32.97.110.57]:60595 "HELO
+Received: from [32.97.110.57] ([32.97.110.57]:60593 "HELO
 	jupiter1-lp2.austin.ibm.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with SMTP id S1756029AbaCNRUF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 13:20:05 -0400
-Content-Disposition: inline; filename=ib_mlx5_free_resources_during_pci_error.patch
+	by vger.kernel.org with SMTP id S1755970AbaCNRUE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 13:20:04 -0400
+Content-Disposition: inline; filename=ib_mlx5_add_pci_error.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to make sure that during a pci error, the remove_one
-function frees the resources even though the hardware command failed
-to avoid memory leaks when the adapter recovers.  Also make sure that
-remove_one function goes thru all the functions like disable all irqs
-and disable pci so when the remove_one function is done then the eehd
-daemon will continue the recovery process.
+This patch is to add PCI error handler function support for mlx5.
+Created the functions for error_detected and slot_rest, plus will
+send a port down event to users when the driver error_detected
+function is invoked. This is to prevent a hang seeing in
+mcast_remove_one at the time ib_unregister_device is called for the
+ib_sa module. It will fail hardware commands while the driver is
+handling a PCI error. 
 
 Signed-off-by: Carol Soto <clsoto@linux.vnet.ibm.com>
 ---
- drivers/infiniband/hw/mlx5/mr.c                |    9 ++++++---
- drivers/infiniband/hw/mlx5/qp.c                |    6 +++++-
- drivers/net/ethernet/mellanox/mlx5/core/eq.c   |    8 +++-----
- drivers/net/ethernet/mellanox/mlx5/core/main.c |    1 -
- include/linux/mlx5/driver.h                    |    2 +-
- 5 files changed, 15 insertions(+), 11 deletions(-)
+ drivers/infiniband/hw/mlx5/main.c             |   32 +++++++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c |    7 +++++
+ 2 files changed, 38 insertions(+), 1 deletion(-)
 
-Index: b/drivers/infiniband/hw/mlx5/mr.c
+Index: b/drivers/infiniband/hw/mlx5/main.c
 ===================================================================
---- a/drivers/infiniband/hw/mlx5/mr.c
-+++ b/drivers/infiniband/hw/mlx5/mr.c
-@@ -471,9 +471,12 @@ static void clean_keys(struct mlx5_ib_de
- 		ent->size--;
- 		spin_unlock_irq(&ent->lock);
- 		err = mlx5_core_destroy_mkey(&dev->mdev, &mr->mmr);
--		if (err)
--			mlx5_ib_warn(dev, "failed destroy mkey\n");
--		else
-+		if (err) {
-+			if (pci_channel_offline(dev->mdev.pdev))
-+				kfree(mr);
-+			else
-+				mlx5_ib_warn(dev, "failed destroy mkey\n");
-+		} else
- 			kfree(mr);
- 	}
- }
-Index: b/drivers/infiniband/hw/mlx5/qp.c
+--- a/drivers/infiniband/hw/mlx5/main.c
++++ b/drivers/infiniband/hw/mlx5/main.c
+@@ -1508,11 +1508,41 @@ static DEFINE_PCI_DEVICE_TABLE(mlx5_ib_p
+ 
+ MODULE_DEVICE_TABLE(pci, mlx5_ib_pci_table);
+ 
++static pci_ers_result_t mlx5_pci_err_detected(struct pci_dev *pdev,
++					      pci_channel_state_t state)
++{
++	struct mlx5_ib_dev *dev = mlx5_pci2ibdev(pdev);
++	struct mlx5_core_dev *mdev = &dev->mdev;
++	u8 port;
++
++	/* To avoid the mcast hang with ipoib up */
++	for (port = 1; port <= dev->mdev.caps.num_ports; port++)
++		mlx5_ib_event(mdev, MLX5_DEV_EVENT_PORT_DOWN, &port);
++
++	remove_one(pdev);
++
++	return state == pci_channel_io_perm_failure ?
++		PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_NEED_RESET;
++}
++
++static pci_ers_result_t mlx5_pci_slot_reset(struct pci_dev *pdev)
++{
++	int ret = init_one(pdev, 0);
++
++	return ret ? PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_RECOVERED;
++}
++
++static const struct pci_error_handlers mlx5_err_handler = {
++	.error_detected = mlx5_pci_err_detected,
++	.slot_reset     = mlx5_pci_slot_reset,
++};
++
+ static struct pci_driver mlx5_ib_driver = {
+ 	.name		= DRIVER_NAME,
+ 	.id_table	= mlx5_ib_pci_table,
+ 	.probe		= init_one,
+-	.remove		= remove_one
++	.remove		= remove_one,
++	.err_handler	= &mlx5_err_handler,
+ };
+ 
+ static int __init mlx5_ib_init(void)
+Index: b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
 ===================================================================
---- a/drivers/infiniband/hw/mlx5/qp.c
-+++ b/drivers/infiniband/hw/mlx5/qp.c
-@@ -2564,7 +2564,11 @@ int mlx5_ib_dealloc_xrcd(struct ib_xrcd 
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -646,6 +646,13 @@ static int mlx5_cmd_invoke(struct mlx5_c
+ 	if (callback && page_queue)
+ 		return -EINVAL;
  
- 	err = mlx5_core_xrcd_dealloc(&dev->mdev, xrcdn);
- 	if (err) {
--		mlx5_ib_warn(dev, "failed to dealloc xrcdn 0x%x\n", xrcdn);
-+		if (pci_channel_offline(dev->mdev.pdev))
-+			kfree(xrcd);
-+		else
-+			mlx5_ib_warn(dev, "failed to dealloc xrcdn 0x%x\n",
-+				     xrcdn);
- 		return err;
- 	}
- 
-Index: b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-===================================================================
---- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-@@ -482,14 +482,12 @@ err1:
- 	return err;
- }
- 
--int mlx5_stop_eqs(struct mlx5_core_dev *dev)
-+void mlx5_stop_eqs(struct mlx5_core_dev *dev)
- {
- 	struct mlx5_eq_table *table = &dev->priv.eq_table;
- 	int err;
- 
--	err = mlx5_destroy_unmap_eq(dev, &table->pages_eq);
--	if (err)
--		return err;
-+	mlx5_destroy_unmap_eq(dev, &table->pages_eq);
- 
- 	mlx5_destroy_unmap_eq(dev, &table->async_eq);
- 	mlx5_cmd_use_polling(dev);
-@@ -498,7 +496,7 @@ int mlx5_stop_eqs(struct mlx5_core_dev *
- 	if (err)
- 		mlx5_cmd_use_events(dev);
- 
--	return err;
-+	return;
- }
- 
- int mlx5_core_eq_query(struct mlx5_core_dev *dev, struct mlx5_eq *eq,
-Index: b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-===================================================================
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -508,7 +508,6 @@ void mlx5_dev_cleanup(struct mlx5_core_d
- 	mlx5_stop_health_poll(dev);
- 	if (mlx5_cmd_teardown_hca(dev)) {
- 		dev_err(&dev->pdev->dev, "tear_down_hca failed, skip cleanup\n");
--		return;
- 	}
- 	mlx5_pagealloc_stop(dev);
- 	mlx5_reclaim_startup_pages(dev);
-Index: b/include/linux/mlx5/driver.h
-===================================================================
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -721,7 +721,7 @@ int mlx5_create_map_eq(struct mlx5_core_
- 		       int nent, u64 mask, const char *name, struct mlx5_uar *uar);
- int mlx5_destroy_unmap_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
- int mlx5_start_eqs(struct mlx5_core_dev *dev);
--int mlx5_stop_eqs(struct mlx5_core_dev *dev);
-+void mlx5_stop_eqs(struct mlx5_core_dev *dev);
- int mlx5_core_attach_mcg(struct mlx5_core_dev *dev, union ib_gid *mgid, u32 qpn);
- int mlx5_core_detach_mcg(struct mlx5_core_dev *dev, union ib_gid *mgid, u32 qpn);
- 
++	if (pci_channel_offline(dev->pdev)) {
++		/* Device is going through error recovery
++		 * and cannot accept commands.
++		 */
++		return -EIO;
++	}
++
+ 	ent = alloc_cmd(cmd, in, out, uout, uout_size, callback, context,
+ 			page_queue);
+ 	if (IS_ERR(ent))
 
 -- 
