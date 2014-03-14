@@ -1,8 +1,8 @@
 From: Jakub Kicinski <kubakici@wp.pl>
-Subject: [PATCH net-next 09/10] i40e: never generate both
-	software and hardware timestamps
-Date: Fri, 14 Mar 2014 18:34:40 +0100
-Message-ID: <1394818481-7652-10-git-send-email-kubakici@wp.pl>
+Subject: [PATCH net-next 10/10] i40e: fix race conditions on
+	queuing skb for HW time stamp
+Date: Fri, 14 Mar 2014 18:34:41 +0100
+Message-ID: <1394818481-7652-11-git-send-email-kubakici@wp.pl>
 References: <1394818481-7652-1-git-send-email-kubakici@wp.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,39 +22,71 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-skb_tx_timestamp() does not report software time stamp
-if SKBTX_IN_PROGRESS is set. According to timestamping.txt
-software time stamps are a fallback and should not be
-generated if hardware time stamp is provided.
-
-Move call to skb_tx_timestamp() after setting
-SKBTX_IN_PROGRESS.
+i40e has a single set of TX time stamping resources per NIC.
+Use a simple bit lock to avoid race conditions and leaking skbs
+when multiple TX rings try to claim time stamping.
 
 Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      | 1 +
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c  | 3 +++
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 3 ++-
+ 3 files changed, 6 insertions(+), 1 deletion(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 838b69b..7ed0303 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -136,6 +136,7 @@ enum i40e_state_t {
+ 	__I40E_EMP_RESET_REQUESTED,
+ 	__I40E_FILTER_OVERFLOW_PROMISC,
+ 	__I40E_SUSPENDED,
++	__I40E_PTP_TX_IN_PROGRESS,
+ };
+ 
+ enum i40e_interrupt_policy {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+index e33ec6c..545079c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+@@ -238,6 +238,7 @@ static void i40e_ptp_tx_work(struct work_struct *work)
+ 				   I40E_PTP_TX_TIMEOUT)) {
+ 		dev_kfree_skb_any(pf->ptp_tx_skb);
+ 		pf->ptp_tx_skb = NULL;
++		clear_bit_unlock(__I40E_PTP_TX_IN_PROGRESS, &pf->state);
+ 		pf->tx_hwtstamp_timeouts++;
+ 		dev_warn(&pf->pdev->dev, "clearing Tx timestamp hang");
+ 		return;
+@@ -350,6 +351,7 @@ void i40e_ptp_tx_hwtstamp(struct i40e_pf *pf)
+ 	skb_tstamp_tx(pf->ptp_tx_skb, &shhwtstamps);
+ 	dev_kfree_skb_any(pf->ptp_tx_skb);
+ 	pf->ptp_tx_skb = NULL;
++	clear_bit_unlock(__I40E_PTP_TX_IN_PROGRESS, &pf->state);
+ }
+ 
+ /**
+@@ -651,6 +653,7 @@ void i40e_ptp_stop(struct i40e_pf *pf)
+ 	if (pf->ptp_tx_skb) {
+ 		dev_kfree_skb_any(pf->ptp_tx_skb);
+ 		pf->ptp_tx_skb = NULL;
++		clear_bit_unlock(__I40E_PTP_TX_IN_PROGRESS, &pf->state);
+ 	}
+ 
+ 	if (pf->ptp_clock) {
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 2081bdb..9543683 100644
+index 9543683..9db6efa 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -2167,13 +2167,13 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
- 	else if (tso)
- 		tx_flags |= I40E_TX_FLAGS_TSO;
- 
--	skb_tx_timestamp(skb);
--
- 	tsyn = i40e_tsyn(tx_ring, skb, tx_flags, &cd_type_cmd_tso_mss);
- 
- 	if (tsyn)
- 		tx_flags |= I40E_TX_FLAGS_TSYN;
- 
-+	skb_tx_timestamp(skb);
-+
- 	/* always enable CRC insertion offload */
- 	td_cmd |= I40E_TX_DESC_CMD_ICRC;
- 
+@@ -1746,7 +1746,8 @@ static int i40e_tsyn(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 	 * we are not already transmitting a packet to be timestamped
+ 	 */
+ 	pf = i40e_netdev_to_pf(tx_ring->netdev);
+-	if (pf->ptp_tx && !pf->ptp_tx_skb) {
++	if (pf->ptp_tx &&
++	    !test_and_set_bit_lock(__I40E_PTP_TX_IN_PROGRESS, &pf->state)) {
+ 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+ 		pf->ptp_tx_skb = skb_get(skb);
+ 	} else {
 -- 
 1.8.5.3
 
