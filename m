@@ -1,49 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 02/16] ixgbe: fix spinlock recursion with netpoll
- and busy poll
-Date: Fri, 14 Mar 2014 14:58:50 -0400 (EDT)
-Message-ID: <20140314.145850.706702494963811330.davem@davemloft.net>
-References: <1394790446-31591-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1394790446-31591-3-git-send-email-jeffrey.t.kirsher@intel.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [RCU PATCH 06/14] net: sched: fw use RCU
+Date: Fri, 14 Mar 2014 11:59:17 -0700
+Message-ID: <20140314185917.GA18933@linux.vnet.ibm.com>
+References: <53208E3F.5090401@gmail.com>
+ <1394643673.21721.48.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140313202245.GK21124@linux.vnet.ibm.com>
+ <1394744203.21721.53.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140313211509.GP21124@linux.vnet.ibm.com>
+ <53229704.1040808@gmail.com>
+ <20140314132834.GS21124@linux.vnet.ibm.com>
+ <1394804798.21721.64.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140314153810.GX21124@linux.vnet.ibm.com>
+ <20140314185005.GA17041@linux.vnet.ibm.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: emil.s.tantilov@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, asharma@fb.com,
-	stable@vger.kernel.org, jacob.e.keller@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1394790446-31591-3-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:53336 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754927AbaCNS7V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 14:59:21 -0400
+Received: from /spool/local
+	by e32.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+	Fri, 14 Mar 2014 12:59:20 -0600
+Received: from b03cxnp08027.gho.boulder.ibm.com (b03cxnp08027.gho.boulder.ibm.com [9.17.130.19])
+	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id C989819D8046
+	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 12:59:15 -0600 (MDT)
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by b03cxnp08027.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2EIwljw7864660
+	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 19:58:47 +0100
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id s2EJ2pMK019932
+	for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 13:02:52 -0600
+Content-Disposition: inline
+In-Reply-To: <20140314185005.GA17041@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 14 Mar 2014 02:47:12 -0700
-
-> From: Emil Tantilov <emil.s.tantilov@intel.com>
+On Fri, Mar 14, 2014 at 11:50:05AM -0700, Paul E. McKenney wrote:
+> On Fri, Mar 14, 2014 at 08:38:10AM -0700, Paul E. McKenney wrote:
+> > On Fri, Mar 14, 2014 at 06:46:38AM -0700, Eric Dumazet wrote:
+> > > On Fri, 2014-03-14 at 06:28 -0700, Paul E. McKenney wrote:
+> > > 
+> > > > Now I just need to figure out why it -causes- a BUILD_BUG_ON for the
+> > > > cris and m68k architectures in Fengguang Wu's testing...
+> > > 
+> > > Right, they don't necessarily align pointers ;)
+> > > 
+> > > alignof(void *) ?
+> > 
+> > It complained about the size rather than the alignment, but it would
+> > certainly make sense to constrain the rcu_head structure's alignment,
+> > now that you mention it.  I will do that and see if it helps.  ;-)
+> > 
+> > Thank you for the tip!
 > 
-> This patch resolves a hang with busy poll when used with netconsole.
+> And you were quite right...  When the alignment is bad, it complains
+> about the size.  And although I can specify that struct rcu_head be
+> aligned, but __attribute__(packed) overrides this when specified on an
+> enclosing structure.  As does the -fpack-struct gcc command-line option.
 > 
-> The main change is the check for netpoll packets in ixgbe_poll() which
-> prevents a call to spin_lock_bh() while interrupts are disabled.
+> Other thoughts on getting around this problem?
 > 
-> In addition it removes the call to netif_rx() since netif_receive_skb()
-> can deal with netpoll packets and also replaced the global adapter flag
-> with per-q_vector bool that indicates Rx packet from netpoll which
-> should help with performance.
-> 
-> CC: Arun Sharma <asharma@fb.com>
-> CC: stable <stable@vger.kernel.org>
-> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-> Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Hmmm...  Maybe if cris and m68k guaranteed to keep functions out of the
+> bottom four pages of memory...
 
-Eric Biederman and co. are working to make this completely unnecessary.
+Or I could find some other large area of memory that never contains
+functions, for example, the beginning of data or bss (if we still have
+those).  Then check for a range rather than a cutoff.
 
-What is going to happen is that poll will be called with a budget of
-zero, and no RX processing will thus occur, for netpoll.
-
-Nothing in the RX path can handle being invoked from hardware
-interrupt context, so we have to prevent it completely in all
-drivers that support netpoll.
+							Thanx, Paul
