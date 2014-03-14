@@ -1,8 +1,8 @@
 From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Subject: [PATCH net-next 8/8] ieee802154: add proper
-	length checks to header creations
-Date: Fri, 14 Mar 2014 16:23:33 +0100
-Message-ID: <1394810613-5657-9-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next 7/8] 6lowpan: move lowpan
+	frag_info out of 802.15.4 headers
+Date: Fri, 14 Mar 2014 16:23:32 +0100
+Message-ID: <1394810613-5657-8-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 References: <1394810613-5657-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,58 +21,120 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Have mac802154 header_ops.create fail with -EMSGSIZE if the length
-passed will be too large to fit a frame. Since 6lowpan will ensure that
-no packet payload will be too large, pass a length of 0 there. 802.15.4
-dgram sockets will also return -EMSGSIZE on payloads larger than the
-device MTU instead of -EINVAL.
+Fragmentation and reassembly information for 6lowpan is independent from
+the 802.15.4 stack and used only by the 6lowpan reassembly process. Move
+the ieee802154_frag_info struct to a private are, it needn't be in the
+802.15.4 skb control block.
 
 Signed-off-by: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
 ---
- net/ieee802154/6lowpan_rtnl.c |    2 +-
- net/ieee802154/dgram.c        |    2 +-
- net/mac802154/wpan.c          |    3 +++
- 3 files changed, 5 insertions(+), 2 deletions(-)
+ include/net/ieee802154_netdev.h |    8 --------
+ net/ieee802154/reassembly.c     |   27 ++++++++++++++++++---------
+ 2 files changed, 18 insertions(+), 17 deletions(-)
 
-diff --git a/net/ieee802154/6lowpan_rtnl.c b/net/ieee802154/6lowpan_rtnl.c
-index 26d4c4c..a7bc65d 100644
---- a/net/ieee802154/6lowpan_rtnl.c
-+++ b/net/ieee802154/6lowpan_rtnl.c
-@@ -141,7 +141,7 @@ static int lowpan_header_create(struct sk_buff *skb,
+diff --git a/include/net/ieee802154_netdev.h b/include/net/ieee802154_netdev.h
+index 827e3e3..e1717cb 100644
+--- a/include/net/ieee802154_netdev.h
++++ b/include/net/ieee802154_netdev.h
+@@ -187,13 +187,6 @@ static inline void ieee802154_addr_to_sa(struct ieee802154_addr_sa *sa,
  	}
- 
- 	return dev_hard_header(skb, lowpan_dev_info(dev)->real_dev,
--			type, (void *)&da, (void *)&sa, skb->len);
-+			type, (void *)&da, (void *)&sa, 0);
  }
  
- static int lowpan_give_skb_to_devices(struct sk_buff *skb,
-diff --git a/net/ieee802154/dgram.c b/net/ieee802154/dgram.c
-index 55f2dc4..4c47154 100644
---- a/net/ieee802154/dgram.c
-+++ b/net/ieee802154/dgram.c
-@@ -233,7 +233,7 @@ static int dgram_sendmsg(struct kiocb *iocb, struct sock *sk,
+-
+-struct ieee802154_frag_info {
+-	__be16 d_tag;
+-	u16 d_size;
+-	u8 d_offset;
+-};
+-
+ /*
+  * A control block of skb passed between the ARPHRD_IEEE802154 device
+  * and other stack parts.
+@@ -202,7 +195,6 @@ struct ieee802154_mac_cb {
+ 	u8 lqi;
+ 	u8 flags;
+ 	u8 seq;
+-	struct ieee802154_frag_info frag_info;
+ 	struct ieee802154_addr source;
+ 	struct ieee802154_addr dest;
+ };
+diff --git a/net/ieee802154/reassembly.c b/net/ieee802154/reassembly.c
+index a2b9e4e..ef2d543 100644
+--- a/net/ieee802154/reassembly.c
++++ b/net/ieee802154/reassembly.c
+@@ -30,6 +30,17 @@
  
- 	if (size > mtu) {
- 		pr_debug("size = %Zu, mtu = %u\n", size, mtu);
--		err = -EINVAL;
-+		err = -EMSGSIZE;
- 		goto out_dev;
- 	}
+ #include "reassembly.h"
  
-diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
-index b614266..80cbee1 100644
---- a/net/mac802154/wpan.c
-+++ b/net/mac802154/wpan.c
-@@ -150,6 +150,9 @@ static int mac802154_header_create(struct sk_buff *skb,
- 	skb_reset_mac_header(skb);
- 	skb->mac_len = hlen;
- 
-+	if (hlen + len + 2 > dev->mtu)
-+		return -EMSGSIZE;
++struct lowpan_frag_info {
++	__be16 d_tag;
++	u16 d_size;
++	u8 d_offset;
++};
 +
- 	return hlen;
++struct lowpan_frag_info *lowpan_cb(struct sk_buff *skb)
++{
++	return (struct lowpan_frag_info *)skb->cb;
++}
++
+ static struct inet_frags lowpan_frags;
+ 
+ static int lowpan_frag_reasm(struct lowpan_frag_queue *fq,
+@@ -102,7 +113,7 @@ out:
  }
+ 
+ static inline struct lowpan_frag_queue *
+-fq_find(struct net *net, const struct ieee802154_frag_info *frag_info,
++fq_find(struct net *net, const struct lowpan_frag_info *frag_info,
+ 	const struct ieee802154_addr *src,
+ 	const struct ieee802154_addr *dst)
+ {
+@@ -137,8 +148,8 @@ static int lowpan_frag_queue(struct lowpan_frag_queue *fq,
+ 	if (fq->q.last_in & INET_FRAG_COMPLETE)
+ 		goto err;
+ 
+-	offset = mac_cb(skb)->frag_info.d_offset << 3;
+-	end = mac_cb(skb)->frag_info.d_size;
++	offset = lowpan_cb(skb)->d_offset << 3;
++	end = lowpan_cb(skb)->d_size;
+ 
+ 	/* Is this the final fragment? */
+ 	if (offset + skb->len == end) {
+@@ -164,15 +175,13 @@ static int lowpan_frag_queue(struct lowpan_frag_queue *fq,
+ 	 * this fragment, right?
+ 	 */
+ 	prev = fq->q.fragments_tail;
+-	if (!prev || mac_cb(prev)->frag_info.d_offset <
+-		     mac_cb(skb)->frag_info.d_offset) {
++	if (!prev || lowpan_cb(prev)->d_offset < lowpan_cb(skb)->d_offset) {
+ 		next = NULL;
+ 		goto found;
+ 	}
+ 	prev = NULL;
+ 	for (next = fq->q.fragments; next != NULL; next = next->next) {
+-		if (mac_cb(next)->frag_info.d_offset >=
+-		    mac_cb(skb)->frag_info.d_offset)
++		if (lowpan_cb(next)->d_offset >= lowpan_cb(skb)->d_offset)
+ 			break;	/* bingo! */
+ 		prev = next;
+ 	}
+@@ -319,7 +328,7 @@ out_oom:
+ }
+ 
+ static int lowpan_get_frag_info(struct sk_buff *skb, const u8 frag_type,
+-				struct ieee802154_frag_info *frag_info)
++				struct lowpan_frag_info *frag_info)
+ {
+ 	bool fail;
+ 	u8 pattern = 0, low = 0;
+@@ -346,7 +355,7 @@ int lowpan_frag_rcv(struct sk_buff *skb, const u8 frag_type)
+ {
+ 	struct lowpan_frag_queue *fq;
+ 	struct net *net = dev_net(skb->dev);
+-	struct ieee802154_frag_info *frag_info = &mac_cb(skb)->frag_info;
++	struct lowpan_frag_info *frag_info = lowpan_cb(skb);
+ 	struct ieee802154_addr source, dest;
+ 	int err;
  
 -- 
 1.7.9.5
