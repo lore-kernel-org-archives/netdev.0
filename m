@@ -1,49 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v10 net-next 1/3] filter: add Extended BPF interpreter
- and converter
-Date: Fri, 14 Mar 2014 16:08:51 -0400 (EDT)
-Message-ID: <20140314.160851.1134730495663127657.davem@davemloft.net>
-References: <20140314125822.GA16457@localhost>
-	<CAMEtUuzqzAHf64DHBao3xKzHdhrp77JEZhe-_c5oC3Vr63QxNA@mail.gmail.com>
-	<CAMEtUuxd0yd81p7KPxyotMOcOxm3MS4Cj9oguS5QAzfXYChLXQ@mail.gmail.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [net-next 01/16] ixgbe: add check for netif_carrier_ok in
+ ixgbe_xmit_frame
+Date: Fri, 14 Mar 2014 20:19:38 +0000
+Message-ID: <87618083B2453E4A8714035B62D679924FF2B099@FMSMSX105.amr.corp.intel.com>
+References: <1394790446-31591-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1394790446-31591-2-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20140314.145735.289100032884651109.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, dborkman@redhat.com, mingo@kernel.org,
-	wad@chromium.org, rostedt@goodmis.org, a.p.zijlstra@chello.nl,
-	hpa@zytor.com, hagen@jauu.net, jesse@nicira.com,
-	tglx@linutronix.de, edumazet@google.com,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	fweisbec@gmail.com, acme@infradead.org, penberg@iki.fi,
-	arjan@infradead.org, hch@infradead.org, xemul@parallels.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: ast@plumgrid.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMEtUuxd0yd81p7KPxyotMOcOxm3MS4Cj9oguS5QAzfXYChLXQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"asharma@fb.com" <asharma@fb.com>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20140314.145735.289100032884651109.davem@davemloft.net>
+Content-Language: en-US
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Fri, 14 Mar 2014 12:51:17 -0700
+>-----Original Message-----
+>From: David Miller [mailto:davem@davemloft.net]
+>Sent: Friday, March 14, 2014 11:58 AM
+>To: Kirsher, Jeffrey T
+>Cc: Tantilov, Emil S; netdev@vger.kernel.org;
+>gospo@redhat.com; sassmann@redhat.com; asharma@fb.com;
+>stable@vger.kernel.org
+>Subject: Re: [net-next 01/16] ixgbe: add check for
+>netif_carrier_ok in ixgbe_xmit_frame
+>
+>From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>Date: Fri, 14 Mar 2014 02:47:11 -0700
+>
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> index 851c413..8bea6ca 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> @@ -7121,6 +7121,11 @@ static netdev_tx_t
+>__ixgbe_xmit_frame(struct sk_buff *skb,
+>>  	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+>>  	struct ixgbe_ring *tx_ring;
+>>
+>> +	if (!netif_carrier_ok(netdev)) {
+>> +		dev_kfree_skb_any(skb);
+>> +		return NETDEV_TX_OK;
+>> +	}
+>> +
+>
+>I would much prefer that this check moves into netpoll's
+>direct invocation of
+>->ndo_start_xmit().
+>
+>Otherwise every driver will start to add this check and that
+>kind of duplication doesn't make any sense at all.
 
-> can you please explain why the status of these
-> patches is 'deferred' in patchwork ?
-> Is it because of bpf vs nft thread?
-> I think that's orthogonal.
+That would work, but what if there are other callers of ndo_start_xmit that don't have this check? Handling this in the driver takes care of all instances.
 
-I do not find it orthogonal, Pablo brings up some very valid points
-which I agree with.
+Specifically this issue was seen with netconsole, but we also had reports of the same issue where I'm not sure netconsole was the culprit (I just don't have enough info about the setup).
 
-EBPF has a lot of the same user side interface limitations that the
-existing BPF has, and you refuse to accept this core point Pablo is
-making.
+If the netif_carrier_ok() check in ixgbe_start_xmit() is not acceptable we'll still have to plug a possible issue in ixgbe_watchdog_flush_tx() where a call to ndo_start_xmit may fill the rings after the HW reset and cause the driver to go into a reset loop.
 
-That is, that it lacks extensibility, and is too strongly tied to the
-implementation.
-
-This is exactly how we run into problems in the future, and you'll be
-proposing EBPF_2.0 to address such problems.
-
-I refuse to setup such a situation, and there is absolutely not rush
-whatsoever to apply your patches.  We can take our time with this
-stuff.
+Thanks,
+Emil
