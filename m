@@ -1,62 +1,332 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/16] ixgbe: add check for netif_carrier_ok in ixgbe_xmit_frame
-Date: Fri, 14 Mar 2014 02:47:11 -0700
-Message-ID: <1394790446-31591-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/16] i40e: Add code to handle FD table full condition
+Date: Fri, 14 Mar 2014 02:47:22 -0700
+Message-ID: <1394790446-31591-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1394790446-31591-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Arun Sharma <asharma@fb.com>,
-	stable-kernel <stable@vger.kernel.org>,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:43772 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:37488 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755605AbaCNJr3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Mar 2014 05:47:29 -0400
+	id S1755809AbaCNJrf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Mar 2014 05:47:35 -0400
 In-Reply-To: <1394790446-31591-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-This patch prevents reset/s on ifdown/up which can happen if
-ixgbe_xmit_frame is invoked (netconsole) while the interface is down and
-there are Tx rings to clean:
+Add code to enforce the following policy:
+- If the HW reports filter programming error, we check if it's due to a
+  full table.
+- If so, we go ahead and turn off new rule addition for ATR and then SB
+  in that order.
+- We monitor the programmed filter count, if enough room is created due
+  to filter deletion/reset, we then re-enable SB and ATR new rule addition.
 
-     kworker/6:0-11169 [006] d..2 75290.700064: ixgbe_xmit_frame <-netpoll_send_skb_on_dev
-     kworker/6:0-11169 [006] d..2 75290.700064: ixgbe_xmit_frame_ring <-ixgbe_xmit_frame
-     kworker/6:0-11169 [006] .N.. 75290.700097: ixgbe_get_link_capabilities_82599 <-ixgbe_service_task
-     kworker/6:0-11169 [006] .N.. 75290.700097: ixgbe_setup_mac_link_82599 <-ixgbe_service_task
-     kworker/6:0-11169 [006] .N.. 75290.700099: ixgbe_get_link_capabilities_82599 <-ixgbe_setup_mac_link_82599
-     kworker/6:0-11169 [006] .N.. 75290.700100: ixgbe_check_mac_link_generic <-ixgbe_service_task
-     kworker/6:0-11169 [006] .N.. 75290.700103: ixgbe_update_stats <-ixgbe_service_task
-     kworker/6:0-11169 [006] .N.. 75290.700289: ixgbe_service_task: initiating reset to clear Tx work after link loss
-
-CC: Arun Sharma <asharma@fb.com>
-CC: stable-kernel <stable@vger.kernel.org>
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Change-ID: I69d24b29e5c45bc4fa861258e11c2fa7b8868748
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e.h         |  7 ++-
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 17 ++++++--
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 10 ++++-
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 58 ++++++++++++++++++++++++-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c    | 60 ++++++++++++++++++++++----
+ 5 files changed, 135 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 851c413..8bea6ca 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7121,6 +7121,11 @@ static netdev_tx_t __ixgbe_xmit_frame(struct sk_buff *skb,
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_ring *tx_ring;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index a191653..bd1b469 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -152,7 +152,10 @@ struct i40e_lump_tracking {
+ };
  
-+	if (!netif_carrier_ok(netdev)) {
-+		dev_kfree_skb_any(skb);
-+		return NETDEV_TX_OK;
-+	}
+ #define I40E_DEFAULT_ATR_SAMPLE_RATE	20
+-#define I40E_FDIR_MAX_RAW_PACKET_SIZE   512
++#define I40E_FDIR_MAX_RAW_PACKET_SIZE	512
++#define I40E_FDIR_BUFFER_FULL_MARGIN	10
++#define I40E_FDIR_BUFFER_HEAD_ROOM	200
 +
- 	/*
- 	 * The minimum packet size for olinfo paylen is 17 so pad the skb
- 	 * in order to meet this minimum size requirement.
+ struct i40e_fdir_filter {
+ 	struct hlist_node fdir_node;
+ 	/* filter ipnut set */
+@@ -553,6 +556,8 @@ int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
+ 			     struct i40e_pf *pf, bool add);
+ int i40e_add_del_fdir(struct i40e_vsi *vsi,
+ 		      struct i40e_fdir_filter *input, bool add);
++void i40e_fdir_check_and_reenable(struct i40e_pf *pf);
++int i40e_get_current_fd_count(struct i40e_pf *pf);
+ void i40e_set_ethtool_ops(struct net_device *netdev);
+ struct i40e_mac_filter *i40e_add_filter(struct i40e_vsi *vsi,
+ 					u8 *macaddr, s16 vlan,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index 47b9754..afd43d7 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -1011,10 +1011,12 @@ static void i40e_dbg_dump_veb_all(struct i40e_pf *pf)
+  **/
+ static void i40e_dbg_cmd_fd_ctrl(struct i40e_pf *pf, u64 flag, bool enable)
+ {
+-	if (enable)
++	if (enable) {
+ 		pf->flags |= flag;
+-	else
++	} else {
+ 		pf->flags &= ~flag;
++		pf->auto_disable_flags |= flag;
++	}
+ 	dev_info(&pf->pdev->dev, "requesting a pf reset\n");
+ 	i40e_do_reset_safe(pf, (1 << __I40E_PF_RESET_REQUESTED));
+ }
+@@ -1670,6 +1672,15 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 		bool add = false;
+ 		int ret;
+ 
++		if (!(pf->flags & I40E_FLAG_FD_SB_ENABLED))
++			goto command_write_done;
++
++		if (strncmp(cmd_buf, "add", 3) == 0)
++			add = true;
++
++		if (add && (pf->auto_disable_flags & I40E_FLAG_FD_SB_ENABLED))
++			goto command_write_done;
++
+ 		asc_packet = kzalloc(I40E_FDIR_MAX_RAW_PACKET_SIZE,
+ 				     GFP_KERNEL);
+ 		if (!asc_packet)
+@@ -1684,8 +1695,6 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 			goto command_write_done;
+ 		}
+ 
+-		if (strncmp(cmd_buf, "add", 3) == 0)
+-			add = true;
+ 		cnt = sscanf(&cmd_buf[13],
+ 			     "%hx %2hhx %2hhx %hx %2hhx %2hhx %hx %x %hd %511s",
+ 			     &fd_data.q_index,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 718a3e0..8ee224f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1460,6 +1460,7 @@ static int i40e_del_fdir_entry(struct i40e_vsi *vsi,
+ 
+ 	ret = i40e_update_ethtool_fdir_entry(vsi, NULL, fsp->location, cmd);
+ 
++	i40e_fdir_check_and_reenable(pf);
+ 	return ret;
+ }
+ 
+@@ -1483,9 +1484,16 @@ static int i40e_add_del_fdir_ethtool(struct i40e_vsi *vsi,
+ 	if (!vsi)
+ 		return -EINVAL;
+ 
+-	fsp = (struct ethtool_rx_flow_spec *)&cmd->fs;
+ 	pf = vsi->back;
+ 
++	if (!(pf->flags & I40E_FLAG_FD_SB_ENABLED))
++		return -EOPNOTSUPP;
++
++	if (add && (pf->auto_disable_flags & I40E_FLAG_FD_SB_ENABLED))
++		return -ENOSPC;
++
++	fsp = (struct ethtool_rx_flow_spec *)&cmd->fs;
++
+ 	if (fsp->location >= (pf->hw.func_caps.fd_filters_best_effort +
+ 			      pf->hw.func_caps.fd_filters_guaranteed)) {
+ 		return -EINVAL;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 63776ea..6185856 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -2436,6 +2436,9 @@ static void i40e_fdir_filter_restore(struct i40e_vsi *vsi)
+ 	struct i40e_pf *pf = vsi->back;
+ 	struct hlist_node *node;
+ 
++	if (!(pf->flags & I40E_FLAG_FD_SB_ENABLED))
++		return;
++
+ 	hlist_for_each_entry_safe(filter, node,
+ 				  &pf->fdir_filter_list, fdir_node) {
+ 		i40e_add_del_fdir(vsi, filter, true);
+@@ -4624,6 +4627,54 @@ static void i40e_service_event_complete(struct i40e_pf *pf)
+ }
+ 
+ /**
++ * i40e_get_current_fd_count - Get the count of FD filters programmed in the HW
++ * @pf: board private structure
++ **/
++int i40e_get_current_fd_count(struct i40e_pf *pf)
++{
++	int val, fcnt_prog;
++	val = rd32(&pf->hw, I40E_PFQF_FDSTAT);
++	fcnt_prog = (val & I40E_PFQF_FDSTAT_GUARANT_CNT_MASK) +
++		    ((val & I40E_PFQF_FDSTAT_BEST_CNT_MASK) >>
++		      I40E_PFQF_FDSTAT_BEST_CNT_SHIFT);
++	return fcnt_prog;
++}
++
++/**
++ * i40e_fdir_check_and_reenable - Function to reenabe FD ATR or SB if disabled
++ * @pf: board private structure
++ **/
++void i40e_fdir_check_and_reenable(struct i40e_pf *pf)
++{
++	u32 fcnt_prog, fcnt_avail;
++
++	/* Check if, FD SB or ATR was auto disabled and if there is enough room
++	 * to re-enable
++	 */
++	if ((pf->flags & I40E_FLAG_FD_ATR_ENABLED) &&
++	    (pf->flags & I40E_FLAG_FD_SB_ENABLED))
++		return;
++	fcnt_prog = i40e_get_current_fd_count(pf);
++	fcnt_avail = pf->hw.fdir_shared_filter_count +
++					       pf->fdir_pf_filter_count;
++	if (fcnt_prog < (fcnt_avail - I40E_FDIR_BUFFER_HEAD_ROOM)) {
++		if ((pf->flags & I40E_FLAG_FD_SB_ENABLED) &&
++		    (pf->auto_disable_flags & I40E_FLAG_FD_SB_ENABLED)) {
++			pf->auto_disable_flags &= ~I40E_FLAG_FD_SB_ENABLED;
++			dev_info(&pf->pdev->dev, "FD Sideband/ntuple is being enabled since we have space in the table now\n");
++		}
++	}
++	/* Wait for some more space to be available to turn on ATR */
++	if (fcnt_prog < (fcnt_avail - I40E_FDIR_BUFFER_HEAD_ROOM * 2)) {
++		if ((pf->flags & I40E_FLAG_FD_ATR_ENABLED) &&
++		    (pf->auto_disable_flags & I40E_FLAG_FD_ATR_ENABLED)) {
++			pf->auto_disable_flags &= ~I40E_FLAG_FD_ATR_ENABLED;
++			dev_info(&pf->pdev->dev, "ATR is being enabled since we have space in the table now\n");
++		}
++	}
++}
++
++/**
+  * i40e_fdir_reinit_subtask - Worker thread to reinit FDIR filter table
+  * @pf: board private structure
+  **/
+@@ -4632,11 +4683,14 @@ static void i40e_fdir_reinit_subtask(struct i40e_pf *pf)
+ 	if (!(pf->flags & I40E_FLAG_FDIR_REQUIRES_REINIT))
+ 		return;
+ 
+-	pf->flags &= ~I40E_FLAG_FDIR_REQUIRES_REINIT;
+-
+ 	/* if interface is down do nothing */
+ 	if (test_bit(__I40E_DOWN, &pf->state))
+ 		return;
++	i40e_fdir_check_and_reenable(pf);
++
++	if ((pf->flags & I40E_FLAG_FD_ATR_ENABLED) &&
++	    (pf->flags & I40E_FLAG_FD_SB_ENABLED))
++		pf->flags &= ~I40E_FLAG_FDIR_REQUIRES_REINIT;
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 2081bdb..daa3b29 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -430,23 +430,61 @@ int i40e_add_del_fdir(struct i40e_vsi *vsi,
+ /**
+  * i40e_fd_handle_status - check the Programming Status for FD
+  * @rx_ring: the Rx ring for this descriptor
+- * @qw: the descriptor data
++ * @rx_desc: the Rx descriptor for programming Status, not a packet descriptor.
+  * @prog_id: the id originally used for programming
+  *
+  * This is used to verify if the FD programming or invalidation
+  * requested by SW to the HW is successful or not and take actions accordingly.
+  **/
+-static void i40e_fd_handle_status(struct i40e_ring *rx_ring, u32 qw, u8 prog_id)
++static void i40e_fd_handle_status(struct i40e_ring *rx_ring,
++				  union i40e_rx_desc *rx_desc, u8 prog_id)
+ {
+-	struct pci_dev *pdev = rx_ring->vsi->back->pdev;
++	struct i40e_pf *pf = rx_ring->vsi->back;
++	struct pci_dev *pdev = pf->pdev;
++	u32 fcnt_prog, fcnt_avail;
+ 	u32 error;
++	u64 qw;
+ 
++	qw = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+ 	error = (qw & I40E_RX_PROG_STATUS_DESC_QW1_ERROR_MASK) >>
+ 		I40E_RX_PROG_STATUS_DESC_QW1_ERROR_SHIFT;
+ 
+-	/* for now just print the Status */
+-	dev_info(&pdev->dev, "FD programming id %02x, Status %08x\n",
+-		 prog_id, error);
++	if (error == (0x1 << I40E_RX_PROG_STATUS_DESC_FD_TBL_FULL_SHIFT)) {
++		dev_warn(&pdev->dev, "ntuple filter loc = %d, could not be added\n",
++			 rx_desc->wb.qword0.hi_dword.fd_id);
++
++		/* filter programming failed most likely due to table full */
++		fcnt_prog = i40e_get_current_fd_count(pf);
++		fcnt_avail = pf->hw.fdir_shared_filter_count +
++						       pf->fdir_pf_filter_count;
++
++		/* If ATR is running fcnt_prog can quickly change,
++		 * if we are very close to full, it makes sense to disable
++		 * FD ATR/SB and then re-enable it when there is room.
++		 */
++		if (fcnt_prog >= (fcnt_avail - I40E_FDIR_BUFFER_FULL_MARGIN)) {
++			/* Turn off ATR first */
++			if (pf->flags | I40E_FLAG_FD_ATR_ENABLED) {
++				pf->flags &= ~I40E_FLAG_FD_ATR_ENABLED;
++				dev_warn(&pdev->dev, "FD filter space full, ATR for further flows will be turned off\n");
++				pf->auto_disable_flags |=
++						       I40E_FLAG_FD_ATR_ENABLED;
++				pf->flags |= I40E_FLAG_FDIR_REQUIRES_REINIT;
++			} else if (pf->flags | I40E_FLAG_FD_SB_ENABLED) {
++				pf->flags &= ~I40E_FLAG_FD_SB_ENABLED;
++				dev_warn(&pdev->dev, "FD filter space full, new ntuple rules will not be added\n");
++				pf->auto_disable_flags |=
++							I40E_FLAG_FD_SB_ENABLED;
++				pf->flags |= I40E_FLAG_FDIR_REQUIRES_REINIT;
++			}
++		} else {
++			dev_info(&pdev->dev, "FD filter programming error");
++		}
++	} else if (error ==
++			  (0x1 << I40E_RX_PROG_STATUS_DESC_NO_FD_ENTRY_SHIFT)) {
++		netdev_info(rx_ring->vsi->netdev, "ntuple filter loc = %d, could not be removed\n",
++			    rx_desc->wb.qword0.hi_dword.fd_id);
++	}
+ }
+ 
+ /**
+@@ -843,7 +881,7 @@ static void i40e_clean_programming_status(struct i40e_ring *rx_ring,
+ 		  I40E_RX_PROG_STATUS_DESC_QW1_PROGID_SHIFT;
+ 
+ 	if (id == I40E_RX_PROG_STATUS_DESC_FD_FILTER_STATUS)
+-		i40e_fd_handle_status(rx_ring, qw, id);
++		i40e_fd_handle_status(rx_ring, rx_desc, id);
+ }
+ 
+ /**
+@@ -1536,8 +1574,6 @@ static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 	if (!tx_ring->atr_sample_rate)
+ 		return;
+ 
+-	tx_ring->atr_count++;
+-
+ 	/* snag network header to get L4 type and address */
+ 	hdr.network = skb_network_header(skb);
+ 
+@@ -1559,6 +1595,12 @@ static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 
+ 	th = (struct tcphdr *)(hdr.network + hlen);
+ 
++	/* Due to lack of space, no more new filters can be programmed */
++	if (th->syn && (pf->auto_disable_flags & I40E_FLAG_FD_ATR_ENABLED))
++		return;
++
++	tx_ring->atr_count++;
++
+ 	/* sample on all syn/fin packets or once every atr sample rate */
+ 	if (!th->fin && !th->syn && (tx_ring->atr_count < tx_ring->atr_sample_rate))
+ 		return;
 -- 
 1.8.3.1
