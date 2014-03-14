@@ -1,47 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/16] i40e: Fix function comments
-Date: Fri, 14 Mar 2014 02:47:20 -0700
-Message-ID: <1394790446-31591-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/16] i40e: Define a new state variable to keep track of feature auto disable
+Date: Fri, 14 Mar 2014 02:47:21 -0700
+Message-ID: <1394790446-31591-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1394790446-31591-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:52888 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:10941 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755916AbaCNJrf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755739AbaCNJrf (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 14 Mar 2014 05:47:35 -0400
 In-Reply-To: <1394790446-31591-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Correct misleading function comment.
+This variable is a bit mask. It is needed to differentiate between
+user enforced feature disables and auto disable of features due to
+HW resource limitations.
 
-Change-ID: I3f66cff5cc00250a285756b6500a58fad8eba4b5
-Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+Change-ID: Ib4b4f6ae1bb2668c12e482d2555100bc8ad713d5
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e.h | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 79be808..63776ea 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1985,7 +1985,7 @@ static int i40e_vlan_rx_add_vid(struct net_device *netdev,
-  * @netdev: network interface to be adjusted
-  * @vid: vlan id to be removed
-  *
-- * net_device_ops implementation for adding vlan ids
-+ * net_device_ops implementation for removing vlan ids
-  **/
- static int i40e_vlan_rx_kill_vid(struct net_device *netdev,
- 				 __always_unused __be16 proto, u16 vid)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 838b69b..a191653 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -263,6 +263,9 @@ struct i40e_pf {
+ #define I40E_FLAG_VXLAN_FILTER_SYNC            (u64)(1 << 27)
+ #endif
+ 
++	/* tracks features that get auto disabled by errors */
++	u64 auto_disable_flags;
++
+ 	bool stat_offsets_loaded;
+ 	struct i40e_hw_port_stats stats;
+ 	struct i40e_hw_port_stats stats_offsets;
 -- 
 1.8.3.1
