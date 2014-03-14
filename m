@@ -1,7 +1,7 @@
 From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net-next V5 9/9] net: ethernet: Change Ethernet Makefile and Kconfig for Altera TSE driver
-Date: Fri, 14 Mar 2014 09:04:47 -0500
-Message-ID: <1394805887-22030-10-git-send-email-vbridgers2013@gmail.com>
+Subject: [PATCH net-next V5 7/9] Altera TSE: Add Altera Ethernet Driver Makefile and Kconfig
+Date: Fri, 14 Mar 2014 09:04:45 -0500
+Message-ID: <1394805887-22030-8-git-send-email-vbridgers2013@gmail.com>
 References: <1394805887-22030-1-git-send-email-vbridgers2013@gmail.com>
 Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
 	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
@@ -13,48 +13,53 @@ In-Reply-To: <1394805887-22030-1-git-send-email-vbridgers2013@gmail.com>
 Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch changes the Ethernet Makefile and Kconfig files to add the Altera
-Ethernet driver component.
+This patch adds the Altera Triple Speed Ethernet Makfile and
+Kconfig file.
 
 Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
 ---
-V5: - No changes to these files for V5
+V5: - No change for V5
 
 V4: - No changes to these files for V4
 
-V3: - Reorder commits so kernel Kconfig and Makefile are last commit,
-      otherwise no change to these files from V2
+V3: - Reorder commits from V2, otherwise no changes to these files
 
-V2: - No change to Kconfig and Makefile from initial RFC review
+V2: - Break up the driver files submission, no change to
+      the Makefile or Kconfig file
 ---
- drivers/net/ethernet/Kconfig  |    1 +
- drivers/net/ethernet/Makefile |    1 +
- 2 files changed, 2 insertions(+)
+ drivers/net/ethernet/altera/Kconfig  |    8 ++++++++
+ drivers/net/ethernet/altera/Makefile |    7 +++++++
+ 2 files changed, 15 insertions(+)
+ create mode 100644 drivers/net/ethernet/altera/Kconfig
+ create mode 100644 drivers/net/ethernet/altera/Makefile
 
-diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 506b024..39484b5 100644
---- a/drivers/net/ethernet/Kconfig
-+++ b/drivers/net/ethernet/Kconfig
-@@ -22,6 +22,7 @@ source "drivers/net/ethernet/adaptec/Kconfig"
- source "drivers/net/ethernet/aeroflex/Kconfig"
- source "drivers/net/ethernet/allwinner/Kconfig"
- source "drivers/net/ethernet/alteon/Kconfig"
-+source "drivers/net/ethernet/altera/Kconfig"
- source "drivers/net/ethernet/amd/Kconfig"
- source "drivers/net/ethernet/apple/Kconfig"
- source "drivers/net/ethernet/arc/Kconfig"
-diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index c0b8789..adf61af 100644
---- a/drivers/net/ethernet/Makefile
-+++ b/drivers/net/ethernet/Makefile
-@@ -8,6 +8,7 @@ obj-$(CONFIG_NET_VENDOR_ADAPTEC) += adaptec/
- obj-$(CONFIG_GRETH) += aeroflex/
- obj-$(CONFIG_NET_VENDOR_ALLWINNER) += allwinner/
- obj-$(CONFIG_NET_VENDOR_ALTEON) += alteon/
-+obj-$(CONFIG_ALTERA_TSE) += altera/
- obj-$(CONFIG_NET_VENDOR_AMD) += amd/
- obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
- obj-$(CONFIG_NET_VENDOR_ARC) += arc/
+diff --git a/drivers/net/ethernet/altera/Kconfig b/drivers/net/ethernet/altera/Kconfig
+new file mode 100644
+index 0000000..80c1ab7
+--- /dev/null
++++ b/drivers/net/ethernet/altera/Kconfig
+@@ -0,0 +1,8 @@
++config ALTERA_TSE
++	tristate "Altera Triple-Speed Ethernet MAC support"
++	select PHYLIB
++	---help---
++	  This driver supports the Altera Triple-Speed (TSE) Ethernet MAC.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called alteratse.
+diff --git a/drivers/net/ethernet/altera/Makefile b/drivers/net/ethernet/altera/Makefile
+new file mode 100644
+index 0000000..d4a187e
+--- /dev/null
++++ b/drivers/net/ethernet/altera/Makefile
+@@ -0,0 +1,7 @@
++#
++# Makefile for the Altera device drivers.
++#
++
++obj-$(CONFIG_ALTERA_TSE) += altera_tse.o
++altera_tse-objs := altera_tse_main.o altera_tse_ethtool.o \
++altera_msgdma.o altera_sgdma.o altera_utils.o
 -- 
 1.7.9.5
 
