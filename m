@@ -1,132 +1,55 @@
-From: Toshiaki Makita <toshiaki.makita1@gmail.com>
-Subject: Re: [PATCH RFC 2/3] bridge: Prepare for 802.1ad vlan
- filtering support
-Date: Sat, 15 Mar 2014 01:18:56 +0900
-Message-ID: <1394813936.1758.23.camel@localhost.localdomain>
-References: <1394439067-10477-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	<1394439067-10477-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	<532098D2.6050504@redhat.com>
-	<1394714017.4078.51.camel@ubuntu-vm-makita>
-	<5321B85B.1020203@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: vyasevic@redhat.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <5321B85B.1020203@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH net-next 0/2] Doorbell drop Avoidance Bug fix for iw_cxgb4
+Date: Fri, 14 Mar 2014 21:52:06 +0530
+Message-ID: <1394814128-8815-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-03-13 at 09:53 -0400, Vlad Yasevich wrote:
-> On 03/13/2014 08:33 AM, Toshiaki Makita wrote:
-> > On Wed, 2014-03-12 at 13:26 -0400, Vlad Yasevich wrote:
-> >> On 03/10/2014 04:11 AM, Toshiaki Makita wrote:
-> >>> This enables a bridge to have vlan protocol informantion and allows vlan
-> >>> filtering code to take vlan protocols into account.
-> > ...
-> >>> @@ -173,16 +174,27 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
-> >>>  		 * ingress frame is considered to belong to this vlan.
-> >>>  		 */
-> >>>  		*vid = pvid;
-> >>> -		if (likely(err))
-> >>> +		if (likely(err)) {
-> >>>  			/* Untagged Frame. */
-> >>> -			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
-> >>> -		else
-> >>> +			if (vlan_tx_tag_present(skb)) {
-> >>> +				/* skb->vlan_proto was different from br->vlan_proto */
-> >>> +				skb_push(skb, ETH_HLEN);
-> >>> +				skb = __vlan_put_tag(skb, skb->vlan_proto,
-> >>> +						     vlan_tx_tag_get(skb));
-> >>> +				if (unlikely(!skb))
-> >>> +					return false;
-> >>> +				skb_pull(skb, ETH_HLEN);
-> >>> +				skb_reset_mac_len(skb);
-> >>> +			}
-> >>> +			__vlan_hwaccel_put_tag(skb, proto, pvid);
-> >>
-> >> So this seems to be handling the case where we had a protocol mis-match.
-> >> My question is why are we hiding this case behind our inability to
-> >> fetch the vid from the packet.
-> >>
-> >> I think it might be clearer to make the protocol check explicit
-> >> (at least if we were to continue using the approach of defining
-> >>  the protocol per bridge).
-> > 
-> > I didn't intend to handle protocol mismatch, but handle the case where
-> > the vlan_tci we are about to use happens to be already used.
-> > In this function, it can occur only if the frame is originally tagged
-> > with another protocol.
-> > 
-> > However, indeed, we seem to need the check of skb->vlan_proto only at
-> > ingress.
-> > So it maybe makes sense to check the vid and the protocol separately.
-> > 
-> > I'm thinking of changing that code like this.
-> > 
-> > 	bool untagged;
-> > ...
-> > 	err = br_vlan_get_tag(skb, vid);
-> > 	if (!err) {
-> > 		if (skb->vlan_proto != proto) {
-> > 			...
-> > 			skb = __vlan_put_tag(...);
-> > 			...
-> > 			*vid = 0;
-> > 			untagged = true;
-> > 		} else {
-> > 			untagged = false;
-> > 		}
-> > 	} else {
-> > 		untagged = true;
-> > 	}
-> > 
-> > 	if (!*vid) {
-> > 		...
-> > 		if (likely(untagged)) {
-> > 			/* Untagged Frame. */
-> > 			...
-> > 		} else {
-> > 			/* Priority-tagged Frame.
-> > 			...
-> > 		}
-> > 	}
-> > 
-> >>
-> >> This code also has a side-effect that it would be permit 802.1ad packets
-> >> on an 802.1Q bridge and possibly forward such packets encapsulated yet
-> >> again.
-> > 
-> > Well, this is an interesting situation.
-> > But I have no reason to restrict it.
-> > Users can configure such an environment if they want.
-> 
-> This is almost like tunnel mode that is available on some switches.
-> Does it make sense to explicitly permit/restrict it?
+Hi All,
 
-I haven't found a description to prohibit a 802.1Q bridge from
-encapsulating S-tagged frames. So I'm permitting it.
-A C-VLAN component shouldn't recognize S-tag according to 802.1Q-2011
-5.5. Therefore, a C-VLAN component behaves regardless of existence of
-S-tag.
+This patch series provides fixes for Chelsio T4/T5 adapters
+related to DB Drop avoidance and other small fix related to keepalive on
+iw-cxgb4.
 
-I think some switches support stacked 802.1Q tags (not using 802.1ad).
-This can't be realized by current implementation. It maybe needs an
-option to insert a new tag even if the received frame is already tagged.
+The patches series is created against David Miller's 'net-next' tree.
+And includes patches on cxgb4 and iw_cxgb4 driver.
 
-BTW, I happen to have noticed that an S-VLAN bridge uses different
-destination MAC address for STP (802.1Q-2011 8.13.5 and 13.2).
-I have to consider it and something similar to it (LACPDU, etc).
+We would like to request this patch series to get merged via David Miller's
+'net-next' tree.
 
-Thanks,
-Toshiaki Makita
+We have included all the maintainers of respective drivers. Kindly review the
+change and let us know in case of any review comments.
+
+Thanks
+
+
+Steve Wise (2):
+  cxgb4/iw_cxgb4: Treat CPL_ERR_KEEPALV_NEG_ADVICE as negative advice
+  cxgb4/iw_cxgb4: Doorbell Drop Avoidance Bug Fixes
+
+ drivers/infiniband/hw/cxgb4/cm.c                |  24 ++--
+ drivers/infiniband/hw/cxgb4/device.c            | 177 ++++++++++++++----------
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |   9 +-
+ drivers/infiniband/hw/cxgb4/provider.c          |  43 +++++-
+ drivers/infiniband/hw/cxgb4/qp.c                | 140 +++++++++----------
+ drivers/infiniband/hw/cxgb4/t4.h                |   6 +
+ drivers/infiniband/hw/cxgb4/user.h              |   5 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  87 +++++++-----
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |   8 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |   1 +
+ 11 files changed, 299 insertions(+), 202 deletions(-)
+
+-- 
+1.8.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
