@@ -1,65 +1,140 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 09/16] sky2: Don't receive packets when the
- napi budget == 0
-Date: Fri, 14 Mar 2014 18:34:36 -0700
-Message-ID: <20140314183436.6638068a@nehalam.linuxnetplumber.net>
-References: <87a9cxf7mp.fsf_-_@xmission.com>
-	<20140311.124907.1180556684992271103.davem@davemloft.net>
-	<87wqg0cy9d.fsf@xmission.com>
-	<20140311.160931.1395978386605601765.davem@davemloft.net>
-	<877g808luk.fsf_-_@xmission.com>
-	<871ty41dps.fsf_-_@xmission.com>
-	<87mwgsxodl.fsf_-_@xmission.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 5/9] netpoll: Don't drop all received packets.
+Date: Fri, 14 Mar 2014 18:34:58 -0700
+Message-ID: <87lhwctfb1.fsf_-_@xmission.com>
+References: <1394540961.21721.22.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140311082312.5ad00119@nehalam.linuxnetplumber.net>
+	<87eh28cvi6.fsf@xmission.com>
+	<20140313.152311.1995854418463980325.davem@davemloft.net>
+	<87eh24uu3d.fsf_-_@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+Content-Type: text/plain
+Cc: stephen@networkplumber.org, eric.dumazet@gmail.com,
 	netdev@vger.kernel.org, xiyou.wangcong@gmail.com, mpm@selenic.com,
 	satyam.sharma@gmail.com
-To: ebiederm@xmission.com (Eric W. Biederman)
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:46930 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754170AbaCOBej (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 21:34:39 -0400
-Received: by mail-pb0-f49.google.com with SMTP id jt11so3316321pbb.36
-        for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 18:34:39 -0700 (PDT)
-In-Reply-To: <87mwgsxodl.fsf_-_@xmission.com>
+Received: from out01.mta.xmission.com ([166.70.13.231]:60725 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754170AbaCOBfF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 21:35:05 -0400
+In-Reply-To: <87eh24uu3d.fsf_-_@xmission.com> (Eric W. Biederman's message of
+	"Fri, 14 Mar 2014 18:30:14 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 14 Mar 2014 18:05:26 -0700
-ebiederm@xmission.com (Eric W. Biederman) wrote:
 
-> 
-> Processing any incoming packets with a with a napi budget of 0
-> is incorrect driver behavior.
-> 
-> This matters as netpoll will shortly call drivers with a budget of 0
-> to avoid receive packet processing happening in hard irq context.
-> 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
->  drivers/net/ethernet/marvell/sky2.c |    3 +++
->  1 files changed, 3 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-> index 2434611d1b4e..0ddfc43069ba 100644
-> --- a/drivers/net/ethernet/marvell/sky2.c
-> +++ b/drivers/net/ethernet/marvell/sky2.c
-> @@ -2735,6 +2735,9 @@ static int sky2_status_intr(struct sky2_hw *hw, int to_do, u16 idx)
->  	unsigned int total_bytes[2] = { 0 };
->  	unsigned int total_packets[2] = { 0 };
->  
-> +	if (to_do <= 0)
-> +		return work_done;
-> +
->  	rmb();
->  	do {
->  		struct sky2_port *sky2;
+Change the strategy of netpoll from dropping all packets received
+during netpoll_poll_dev to calling napi poll with a budget of 0
+(to avoid processing drivers rx queue), and to ignore packets received
+with netif_rx (those will safely be placed on the backlog queue).
 
+All of the netpoll supporting drivers have been reviewed to ensure
+either thay use netif_rx or that a budget of 0 is supported by their
+napi poll routine and that a budget of 0 will not process the drivers
+rx queues.
 
-I am fine with this.
+Not dropping packets makes NETPOLL_RX_DROP unnecesary so it is removed.
 
-Really should change to_do to an unsigned but that is another
-battle.
+npinfo->rx_flags is removed  as rx_flags with just the NETPOLL_RX_ENABLED
+flag becomes just a redundant mirror of list_empty(&npinfo->rx_np).
+
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ include/linux/netpoll.h |    3 +--
+ net/core/netpoll.c      |   17 ++++++-----------
+ 2 files changed, 7 insertions(+), 13 deletions(-)
+
+diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
+index 479d15c97770..154f9776056c 100644
+--- a/include/linux/netpoll.h
++++ b/include/linux/netpoll.h
+@@ -39,7 +39,6 @@ struct netpoll {
+ struct netpoll_info {
+ 	atomic_t refcnt;
+ 
+-	unsigned long rx_flags;
+ 	spinlock_t rx_lock;
+ 	struct semaphore dev_lock;
+ 	struct list_head rx_np; /* netpolls that registered an rx_skb_hook */
+@@ -99,7 +98,7 @@ static inline bool netpoll_rx_on(struct sk_buff *skb)
+ {
+ 	struct netpoll_info *npinfo = rcu_dereference_bh(skb->dev->npinfo);
+ 
+-	return npinfo && (netpoll_rx_processing(npinfo) || npinfo->rx_flags);
++	return npinfo && netpoll_rx_processing(npinfo);
+ }
+ 
+ static inline bool netpoll_rx(struct sk_buff *skb)
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index ef83a2530e98..793dc04d2f19 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -51,8 +51,6 @@ static atomic_t trapped;
+ DEFINE_STATIC_SRCU(netpoll_srcu);
+ 
+ #define USEC_PER_POLL	50
+-#define NETPOLL_RX_ENABLED  1
+-#define NETPOLL_RX_DROP     2
+ 
+ #define MAX_SKB_SIZE							\
+ 	(sizeof(struct ethhdr) +					\
+@@ -193,7 +191,8 @@ static void netpoll_poll_dev(struct net_device *dev)
+ {
+ 	const struct net_device_ops *ops;
+ 	struct netpoll_info *ni = rcu_dereference_bh(dev->npinfo);
+-	int budget = 16;
++	bool rx_processing = netpoll_rx_processing(ni);
++	int budget = rx_processing? 16 : 0;
+ 
+ 	/* Don't do any rx activity if the dev_lock mutex is held
+ 	 * the dev_open/close paths use this to block netpoll activity
+@@ -207,8 +206,8 @@ static void netpoll_poll_dev(struct net_device *dev)
+ 		return;
+ 	}
+ 
+-	ni->rx_flags |= NETPOLL_RX_DROP;
+-	atomic_inc(&trapped);
++	if (rx_processing)
++		atomic_inc(&trapped);
+ 
+ 	ops = dev->netdev_ops;
+ 	if (!ops->ndo_poll_controller) {
+@@ -221,8 +220,8 @@ static void netpoll_poll_dev(struct net_device *dev)
+ 
+ 	poll_napi(dev, budget);
+ 
+-	atomic_dec(&trapped);
+-	ni->rx_flags &= ~NETPOLL_RX_DROP;
++	if (rx_processing)
++		atomic_dec(&trapped);
+ 
+ 	up(&ni->dev_lock);
+ 
+@@ -1050,7 +1049,6 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev, gfp_t gfp)
+ 			goto out;
+ 		}
+ 
+-		npinfo->rx_flags = 0;
+ 		INIT_LIST_HEAD(&npinfo->rx_np);
+ 
+ 		spin_lock_init(&npinfo->rx_lock);
+@@ -1076,7 +1074,6 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev, gfp_t gfp)
+ 
+ 	if (np->rx_skb_hook) {
+ 		spin_lock_irqsave(&npinfo->rx_lock, flags);
+-		npinfo->rx_flags |= NETPOLL_RX_ENABLED;
+ 		list_add_tail(&np->rx, &npinfo->rx_np);
+ 		spin_unlock_irqrestore(&npinfo->rx_lock, flags);
+ 	}
+@@ -1258,8 +1255,6 @@ void __netpoll_cleanup(struct netpoll *np)
+ 	if (!list_empty(&npinfo->rx_np)) {
+ 		spin_lock_irqsave(&npinfo->rx_lock, flags);
+ 		list_del(&np->rx);
+-		if (list_empty(&npinfo->rx_np))
+-			npinfo->rx_flags &= ~NETPOLL_RX_ENABLED;
+ 		spin_unlock_irqrestore(&npinfo->rx_lock, flags);
+ 	}
+ 
+-- 
+1.7.5.4
