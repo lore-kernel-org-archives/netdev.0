@@ -1,887 +1,429 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 10/10] netpoll: Remove dead packet receive code (CONFIG_NETPOLL_TRAP)
-Date: Fri, 14 Mar 2014 20:51:52 -0700
-Message-ID: <87mwgsnmp3.fsf_-_@xmission.com>
-References: <87eh28cvi6.fsf@xmission.com>
-	<20140313.152311.1995854418463980325.davem@davemloft.net>
-	<87eh24uu3d.fsf_-_@xmission.com>
-	<20140314.225923.61318448733570839.davem@davemloft.net>
-	<87k3bwqgf7.fsf@xmission.com> <877g7wqg8e.fsf_-_@xmission.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH RFC 0/9] socket filtering using nf_tables
+Date: Fri, 14 Mar 2014 21:04:50 -0700
+Message-ID: <CAMEtUuzFkCgpvMy-V5iZycfpLQmebc_Jq-MedD=FJn-EEDkdcg@mail.gmail.com>
+References: <1394529560-3490-1-git-send-email-pablo@netfilter.org>
+	<531EE5A2.7090501@redhat.com>
+	<CAMEtUuyJne-8uNtOAK7EcFFQNXz9m7J2DDLGH_GbYe6oWZx1pQ@mail.gmail.com>
+	<20140312091500.GA4638@localhost>
+	<CAMEtUuztfWniTr+3u6ttuygvG=xYdp0ANn_w9MGqacQvHrXtWA@mail.gmail.com>
+	<20140313122913.GA4898@localhost>
+	<CAMEtUuwV2=8sVdmfKSOytC8LKsw2RX+fgfxvucSVV0=L0XEkOg@mail.gmail.com>
+	<20140314181600.GA2809@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: stephen@networkplumber.org, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, xiyou.wangcong@gmail.com, mpm@selenic.com,
-	satyam.sharma@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	netfilter-devel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:52003 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755623AbaCODv7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 23:51:59 -0400
-In-Reply-To: <877g7wqg8e.fsf_-_@xmission.com> (Eric W. Biederman's message of
-	"Fri, 14 Mar 2014 20:43:13 -0700")
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:63216 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750704AbaCOEEw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Mar 2014 00:04:52 -0400
+Received: by mail-wg0-f46.google.com with SMTP id b13so2809551wgh.17
+        for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 21:04:50 -0700 (PDT)
+In-Reply-To: <20140314181600.GA2809@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Mar 14, 2014 at 11:16 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> On Fri, Mar 14, 2014 at 08:28:05AM -0700, Alexei Starovoitov wrote:
+>> On Thu, Mar 13, 2014 at 5:29 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+>> > On Wed, Mar 12, 2014 at 08:29:07PM -0700, Alexei Starovoitov wrote:
+>> >> On Wed, Mar 12, 2014 at 2:15 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+>> > [...]
+>>
+>> It seems you're assuming that ebpf inherited all the shortcomings
+>> of bpf and making conclusion based on that. Not your fault.
+>> I didn't explain it well enough.
+>
+> Frankly, from the *interface point of view* it is indeed inheriting
+> all of its shortcomings...
 
-The netpoll packet receive code only becomes active if the netpoll
-rx_skb_hook is implemented, and there is not a single implementation
-of the netpoll rx_skb_hook in the kernel.
+Hi Pablo, David,
 
-All of the out of tree implementations I have found all call
-netpoll_poll which was removed from the kernel in 2011, so this
-change should not add any additional breakage.
+Let's go back to what ebpf is...
+ebpf == generalization of assembler instructions across different architectures.
 
-There are problems with the netpoll packet receive code.  __netpoll_rx
-does not call dev_kfree_skb_irq or dev_kfree_skb_any in hard irq
-context.  netpoll_neigh_reply leaks every skb it receives.  Reception
-of packets does not work successfully on stacked devices (aka bonding,
-team, bridge, and vlans).
+Take x86_64 instructions ld/st/alu/mov/cmp/call/jmp and
+then rename them into my_ld, my_st, my_add, my_call, etc
+Then do the same for arm64.
+Also rename register names into r0,r1,r2
+and remember how you did the mapping.
+Also analyze x86_64, arm64 call convention, so that callee saved
+registers are mapped to the same regs and arguments are passed
+in r1, r2, ...
 
-Given that the netpoll packet receive code is buggy, there are no
-out of tree users that will be merged soon, and the code has
-not been used for in tree for a decade let's just remove it.
+A function call in such assembler will look like:
+my_mov r1, 1
+my_mov r2, 2
+my_call foo
 
-Reverting this commit can server as a starting point for anyone
-who wants to resurrect netpoll packet reception support.
+that maps back to x86_64:
+mov rdi, 1
+mov rsi, 2
+call foo
 
-Acked-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- drivers/net/Kconfig       |    5 -
- include/linux/netdevice.h |   17 --
- include/linux/netpoll.h   |   84 --------
- net/core/dev.c            |   11 +-
- net/core/netpoll.c        |  520 +--------------------------------------------
- 5 files changed, 2 insertions(+), 635 deletions(-)
+Since calling convention is compatible between 'renamed assembler'
+and original x86_64 or arm assembler, the program written in 'renamed
+assembler' can call native functions directly.
+The opposite is also true.
+Functions written in x86 assembler or C can call into functions
+written in 'renamed' assembler.
+Example:
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 494b888a6568..89402c3b64f8 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -177,11 +177,6 @@ config NETCONSOLE_DYNAMIC
- config NETPOLL
- 	def_bool NETCONSOLE
- 
--config NETPOLL_TRAP
--	bool "Netpoll traffic trapping"
--	default n
--	depends on NETPOLL
--
- config NET_POLL_CONTROLLER
- 	def_bool NETPOLL
- 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index b8d8c805fd75..4b6d12c7b803 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1979,9 +1979,6 @@ struct net_device *__dev_get_by_index(struct net *net, int ifindex);
- struct net_device *dev_get_by_index_rcu(struct net *net, int ifindex);
- int netdev_get_name(struct net *net, char *name, int ifindex);
- int dev_restart(struct net_device *dev);
--#ifdef CONFIG_NETPOLL_TRAP
--int netpoll_trap(void);
--#endif
- int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb);
- 
- static inline unsigned int skb_gro_offset(const struct sk_buff *skb)
-@@ -2186,12 +2183,6 @@ static inline void netif_tx_start_all_queues(struct net_device *dev)
- 
- static inline void netif_tx_wake_queue(struct netdev_queue *dev_queue)
- {
--#ifdef CONFIG_NETPOLL_TRAP
--	if (netpoll_trap()) {
--		netif_tx_start_queue(dev_queue);
--		return;
--	}
--#endif
- 	if (test_and_clear_bit(__QUEUE_STATE_DRV_XOFF, &dev_queue->state))
- 		__netif_schedule(dev_queue->qdisc);
- }
-@@ -2435,10 +2426,6 @@ static inline void netif_start_subqueue(struct net_device *dev, u16 queue_index)
- static inline void netif_stop_subqueue(struct net_device *dev, u16 queue_index)
- {
- 	struct netdev_queue *txq = netdev_get_tx_queue(dev, queue_index);
--#ifdef CONFIG_NETPOLL_TRAP
--	if (netpoll_trap())
--		return;
--#endif
- 	netif_tx_stop_queue(txq);
- }
- 
-@@ -2473,10 +2460,6 @@ static inline bool netif_subqueue_stopped(const struct net_device *dev,
- static inline void netif_wake_subqueue(struct net_device *dev, u16 queue_index)
- {
- 	struct netdev_queue *txq = netdev_get_tx_queue(dev, queue_index);
--#ifdef CONFIG_NETPOLL_TRAP
--	if (netpoll_trap())
--		return;
--#endif
- 	if (test_and_clear_bit(__QUEUE_STATE_DRV_XOFF, &txq->state))
- 		__netif_schedule(txq->qdisc);
- }
-diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index a0632af88d8b..1b475a5a7239 100644
---- a/include/linux/netpoll.h
-+++ b/include/linux/netpoll.h
-@@ -31,12 +31,6 @@ struct netpoll {
- 	u8 remote_mac[ETH_ALEN];
- 
- 	struct work_struct cleanup_work;
--
--#ifdef CONFIG_NETPOLL_TRAP
--	void (*rx_skb_hook)(struct netpoll *np, int source, struct sk_buff *skb,
--			    int offset, int len);
--	struct list_head rx; /* rx_np list element */
--#endif
- };
- 
- struct netpoll_info {
-@@ -50,12 +44,6 @@ struct netpoll_info {
- 
- 	struct netpoll *netpoll;
- 	struct rcu_head rcu;
--
--#ifdef CONFIG_NETPOLL_TRAP
--	spinlock_t rx_lock;
--	struct list_head rx_np; /* netpolls that registered an rx_skb_hook */
--	struct sk_buff_head neigh_tx; /* list of neigh requests to reply to */
--#endif
- };
- 
- #ifdef CONFIG_NETPOLL
-@@ -84,78 +72,6 @@ static inline void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
- 	local_irq_restore(flags);
- }
- 
--#ifdef CONFIG_NETPOLL_TRAP
--int netpoll_trap(void);
--void netpoll_set_trap(int trap);
--int __netpoll_rx(struct sk_buff *skb, struct netpoll_info *npinfo);
--static inline bool netpoll_rx_processing(struct netpoll_info *npinfo)
--{
--	return !list_empty(&npinfo->rx_np);
--}
--
--static inline bool netpoll_rx_on(struct sk_buff *skb)
--{
--	struct netpoll_info *npinfo = rcu_dereference_bh(skb->dev->npinfo);
--
--	return npinfo && netpoll_rx_processing(npinfo);
--}
--
--static inline bool netpoll_rx(struct sk_buff *skb)
--{
--	struct netpoll_info *npinfo;
--	unsigned long flags;
--	bool ret = false;
--
--	local_irq_save(flags);
--
--	if (!netpoll_rx_on(skb))
--		goto out;
--
--	npinfo = rcu_dereference_bh(skb->dev->npinfo);
--	spin_lock(&npinfo->rx_lock);
--	/* check rx_processing again with the lock held */
--	if (netpoll_rx_processing(npinfo) && __netpoll_rx(skb, npinfo))
--		ret = true;
--	spin_unlock(&npinfo->rx_lock);
--
--out:
--	local_irq_restore(flags);
--	return ret;
--}
--
--static inline int netpoll_receive_skb(struct sk_buff *skb)
--{
--	if (!list_empty(&skb->dev->napi_list))
--		return netpoll_rx(skb);
--	return 0;
--}
--
--#else
--static inline int netpoll_trap(void)
--{
--	return 0;
--}
--static inline void netpoll_set_trap(int trap)
--{
--}
--static inline bool netpoll_rx_processing(struct netpoll_info *npinfo)
--{
--	return false;
--}
--static inline bool netpoll_rx(struct sk_buff *skb)
--{
--	return false;
--}
--static inline bool netpoll_rx_on(struct sk_buff *skb)
--{
--	return false;
--}
--static inline int netpoll_receive_skb(struct sk_buff *skb)
--{
--	return 0;
--}
--#endif
--
- #ifdef CONFIG_NETPOLL
- static inline void *netpoll_poll_lock(struct napi_struct *napi)
- {
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 587f9fb85d73..55f8e64c03a2 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3231,10 +3231,6 @@ static int netif_rx_internal(struct sk_buff *skb)
- {
- 	int ret;
- 
--	/* if netpoll wants it, pretend we never saw it */
--	if (netpoll_rx(skb))
--		return NET_RX_DROP;
--
- 	net_timestamp_check(netdev_tstamp_prequeue, skb);
- 
- 	trace_netif_rx(skb);
-@@ -3520,10 +3516,6 @@ static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
- 
- 	trace_netif_receive_skb(skb);
- 
--	/* if we've gotten here through NAPI, check netpoll */
--	if (netpoll_receive_skb(skb))
--		goto out;
--
- 	orig_dev = skb->dev;
- 
- 	skb_reset_network_header(skb);
-@@ -3650,7 +3642,6 @@ drop:
- 
- unlock:
- 	rcu_read_unlock();
--out:
- 	return ret;
- }
- 
-@@ -3875,7 +3866,7 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
- 	int same_flow;
- 	enum gro_result ret;
- 
--	if (!(skb->dev->features & NETIF_F_GRO) || netpoll_rx_on(skb))
-+	if (!(skb->dev->features & NETIF_F_GRO))
- 		goto normal;
- 
- 	if (skb_is_gso(skb) || skb_has_frag_list(skb))
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index adb5768be5a5..7291dde93469 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -46,11 +46,6 @@
- 
- static struct sk_buff_head skb_pool;
- 
--#ifdef CONFIG_NETPOLL_TRAP
--static atomic_t trapped;
--static void netpoll_neigh_reply(struct sk_buff *skb, struct netpoll_info *npinfo);
--#endif
--
- DEFINE_STATIC_SRCU(netpoll_srcu);
- 
- #define USEC_PER_POLL	50
-@@ -109,27 +104,6 @@ static void queue_process(struct work_struct *work)
- 	}
- }
- 
--#ifdef CONFIG_NETPOLL_TRAP
--static __sum16 checksum_udp(struct sk_buff *skb, struct udphdr *uh,
--			    unsigned short ulen, __be32 saddr, __be32 daddr)
--{
--	__wsum psum;
--
--	if (uh->check == 0 || skb_csum_unnecessary(skb))
--		return 0;
--
--	psum = csum_tcpudp_nofold(saddr, daddr, ulen, IPPROTO_UDP, 0);
--
--	if (skb->ip_summed == CHECKSUM_COMPLETE &&
--	    !csum_fold(csum_add(psum, skb->csum)))
--		return 0;
--
--	skb->csum = psum;
--
--	return __skb_checksum_complete(skb);
--}
--#endif /* CONFIG_NETPOLL_TRAP */
--
- /*
-  * Check whether delayed processing was scheduled for our NIC. If so,
-  * we attempt to grab the poll lock and use ->poll() to pump the card.
-@@ -140,11 +114,6 @@ static __sum16 checksum_udp(struct sk_buff *skb, struct udphdr *uh,
-  * trylock here and interrupts are already disabled in the softirq
-  * case. Further, we test the poll_owner to avoid recursion on UP
-  * systems where the lock doesn't exist.
-- *
-- * In cases where there is bi-directional communications, reading only
-- * one message at a time can lead to packets being dropped by the
-- * network adapter, forcing superfluous retries and possibly timeouts.
-- * Thus, we set our budget to greater than 1.
-  */
- static int poll_one_napi(struct napi_struct *napi, int budget)
- {
-@@ -181,38 +150,11 @@ static void poll_napi(struct net_device *dev, int budget)
- 	}
- }
- 
--#ifdef CONFIG_NETPOLL_TRAP
--static void service_neigh_queue(struct net_device *dev,
--				struct netpoll_info *npi)
--{
--	struct sk_buff *skb;
--	if (dev->flags & IFF_SLAVE) {
--		struct net_device *bond_dev;
--		struct netpoll_info *bond_ni;
--
--		bond_dev = netdev_master_upper_dev_get_rcu(dev);
--		bond_ni = rcu_dereference_bh(bond_dev->npinfo);
--		while ((skb = skb_dequeue(&npi->neigh_tx))) {
--			skb->dev = bond_dev;
--			skb_queue_tail(&bond_ni->neigh_tx, skb);
--		}
--	}
--	while ((skb = skb_dequeue(&npi->neigh_tx)))
--		netpoll_neigh_reply(skb, npi);
--}
--#else /* !CONFIG_NETPOLL_TRAP */
--static inline void service_neigh_queue(struct net_device *dev,
--				struct netpoll_info *npi)
--{
--}
--#endif /* CONFIG_NETPOLL_TRAP */
--
- static void netpoll_poll_dev(struct net_device *dev)
- {
- 	const struct net_device_ops *ops;
- 	struct netpoll_info *ni = rcu_dereference_bh(dev->npinfo);
--	bool rx_processing = netpoll_rx_processing(ni);
--	int budget = rx_processing? 16 : 0;
-+	int budget = 0;
- 
- 	/* Don't do any rx activity if the dev_lock mutex is held
- 	 * the dev_open/close paths use this to block netpoll activity
-@@ -226,9 +168,6 @@ static void netpoll_poll_dev(struct net_device *dev)
- 		return;
- 	}
- 
--	if (rx_processing)
--		netpoll_set_trap(1);
--
- 	ops = dev->netdev_ops;
- 	if (!ops->ndo_poll_controller) {
- 		up(&ni->dev_lock);
-@@ -240,13 +179,8 @@ static void netpoll_poll_dev(struct net_device *dev)
- 
- 	poll_napi(dev, budget);
- 
--	if (rx_processing)
--		netpoll_set_trap(0);
--
- 	up(&ni->dev_lock);
- 
--	service_neigh_queue(dev, ni);
--
- 	zap_completion_queue();
- }
- 
-@@ -531,434 +465,6 @@ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
- }
- EXPORT_SYMBOL(netpoll_send_udp);
- 
--#ifdef CONFIG_NETPOLL_TRAP
--static void netpoll_neigh_reply(struct sk_buff *skb, struct netpoll_info *npinfo)
--{
--	int size, type = ARPOP_REPLY;
--	__be32 sip, tip;
--	unsigned char *sha;
--	struct sk_buff *send_skb;
--	struct netpoll *np, *tmp;
--	unsigned long flags;
--	int hlen, tlen;
--	int hits = 0, proto;
--
--	if (!netpoll_rx_processing(npinfo))
--		return;
--
--	/* Before checking the packet, we do some early
--	   inspection whether this is interesting at all */
--	spin_lock_irqsave(&npinfo->rx_lock, flags);
--	list_for_each_entry_safe(np, tmp, &npinfo->rx_np, rx) {
--		if (np->dev == skb->dev)
--			hits++;
--	}
--	spin_unlock_irqrestore(&npinfo->rx_lock, flags);
--
--	/* No netpoll struct is using this dev */
--	if (!hits)
--		return;
--
--	proto = ntohs(eth_hdr(skb)->h_proto);
--	if (proto == ETH_P_ARP) {
--		struct arphdr *arp;
--		unsigned char *arp_ptr;
--		/* No arp on this interface */
--		if (skb->dev->flags & IFF_NOARP)
--			return;
--
--		if (!pskb_may_pull(skb, arp_hdr_len(skb->dev)))
--			return;
--
--		skb_reset_network_header(skb);
--		skb_reset_transport_header(skb);
--		arp = arp_hdr(skb);
--
--		if ((arp->ar_hrd != htons(ARPHRD_ETHER) &&
--		     arp->ar_hrd != htons(ARPHRD_IEEE802)) ||
--		    arp->ar_pro != htons(ETH_P_IP) ||
--		    arp->ar_op != htons(ARPOP_REQUEST))
--			return;
--
--		arp_ptr = (unsigned char *)(arp+1);
--		/* save the location of the src hw addr */
--		sha = arp_ptr;
--		arp_ptr += skb->dev->addr_len;
--		memcpy(&sip, arp_ptr, 4);
--		arp_ptr += 4;
--		/* If we actually cared about dst hw addr,
--		   it would get copied here */
--		arp_ptr += skb->dev->addr_len;
--		memcpy(&tip, arp_ptr, 4);
--
--		/* Should we ignore arp? */
--		if (ipv4_is_loopback(tip) || ipv4_is_multicast(tip))
--			return;
--
--		size = arp_hdr_len(skb->dev);
--
--		spin_lock_irqsave(&npinfo->rx_lock, flags);
--		list_for_each_entry_safe(np, tmp, &npinfo->rx_np, rx) {
--			if (tip != np->local_ip.ip)
--				continue;
--
--			hlen = LL_RESERVED_SPACE(np->dev);
--			tlen = np->dev->needed_tailroom;
--			send_skb = find_skb(np, size + hlen + tlen, hlen);
--			if (!send_skb)
--				continue;
--
--			skb_reset_network_header(send_skb);
--			arp = (struct arphdr *) skb_put(send_skb, size);
--			send_skb->dev = skb->dev;
--			send_skb->protocol = htons(ETH_P_ARP);
--
--			/* Fill the device header for the ARP frame */
--			if (dev_hard_header(send_skb, skb->dev, ETH_P_ARP,
--					    sha, np->dev->dev_addr,
--					    send_skb->len) < 0) {
--				kfree_skb(send_skb);
--				continue;
--			}
--
--			/*
--			 * Fill out the arp protocol part.
--			 *
--			 * we only support ethernet device type,
--			 * which (according to RFC 1390) should
--			 * always equal 1 (Ethernet).
--			 */
--
--			arp->ar_hrd = htons(np->dev->type);
--			arp->ar_pro = htons(ETH_P_IP);
--			arp->ar_hln = np->dev->addr_len;
--			arp->ar_pln = 4;
--			arp->ar_op = htons(type);
--
--			arp_ptr = (unsigned char *)(arp + 1);
--			memcpy(arp_ptr, np->dev->dev_addr, np->dev->addr_len);
--			arp_ptr += np->dev->addr_len;
--			memcpy(arp_ptr, &tip, 4);
--			arp_ptr += 4;
--			memcpy(arp_ptr, sha, np->dev->addr_len);
--			arp_ptr += np->dev->addr_len;
--			memcpy(arp_ptr, &sip, 4);
--
--			netpoll_send_skb(np, send_skb);
--
--			/* If there are several rx_skb_hooks for the same
--			 * address we're fine by sending a single reply
--			 */
--			break;
--		}
--		spin_unlock_irqrestore(&npinfo->rx_lock, flags);
--	} else if( proto == ETH_P_IPV6) {
--#if IS_ENABLED(CONFIG_IPV6)
--		struct nd_msg *msg;
--		u8 *lladdr = NULL;
--		struct ipv6hdr *hdr;
--		struct icmp6hdr *icmp6h;
--		const struct in6_addr *saddr;
--		const struct in6_addr *daddr;
--		struct inet6_dev *in6_dev = NULL;
--		struct in6_addr *target;
--
--		in6_dev = in6_dev_get(skb->dev);
--		if (!in6_dev || !in6_dev->cnf.accept_ra)
--			return;
--
--		if (!pskb_may_pull(skb, skb->len))
--			return;
--
--		msg = (struct nd_msg *)skb_transport_header(skb);
--
--		__skb_push(skb, skb->data - skb_transport_header(skb));
--
--		if (ipv6_hdr(skb)->hop_limit != 255)
--			return;
--		if (msg->icmph.icmp6_code != 0)
--			return;
--		if (msg->icmph.icmp6_type != NDISC_NEIGHBOUR_SOLICITATION)
--			return;
--
--		saddr = &ipv6_hdr(skb)->saddr;
--		daddr = &ipv6_hdr(skb)->daddr;
--
--		size = sizeof(struct icmp6hdr) + sizeof(struct in6_addr);
--
--		spin_lock_irqsave(&npinfo->rx_lock, flags);
--		list_for_each_entry_safe(np, tmp, &npinfo->rx_np, rx) {
--			if (!ipv6_addr_equal(daddr, &np->local_ip.in6))
--				continue;
--
--			hlen = LL_RESERVED_SPACE(np->dev);
--			tlen = np->dev->needed_tailroom;
--			send_skb = find_skb(np, size + hlen + tlen, hlen);
--			if (!send_skb)
--				continue;
--
--			send_skb->protocol = htons(ETH_P_IPV6);
--			send_skb->dev = skb->dev;
--
--			skb_reset_network_header(send_skb);
--			hdr = (struct ipv6hdr *) skb_put(send_skb, sizeof(struct ipv6hdr));
--			*(__be32*)hdr = htonl(0x60000000);
--			hdr->payload_len = htons(size);
--			hdr->nexthdr = IPPROTO_ICMPV6;
--			hdr->hop_limit = 255;
--			hdr->saddr = *saddr;
--			hdr->daddr = *daddr;
--
--			icmp6h = (struct icmp6hdr *) skb_put(send_skb, sizeof(struct icmp6hdr));
--			icmp6h->icmp6_type = NDISC_NEIGHBOUR_ADVERTISEMENT;
--			icmp6h->icmp6_router = 0;
--			icmp6h->icmp6_solicited = 1;
--
--			target = (struct in6_addr *) skb_put(send_skb, sizeof(struct in6_addr));
--			*target = msg->target;
--			icmp6h->icmp6_cksum = csum_ipv6_magic(saddr, daddr, size,
--							      IPPROTO_ICMPV6,
--							      csum_partial(icmp6h,
--									   size, 0));
--
--			if (dev_hard_header(send_skb, skb->dev, ETH_P_IPV6,
--					    lladdr, np->dev->dev_addr,
--					    send_skb->len) < 0) {
--				kfree_skb(send_skb);
--				continue;
--			}
--
--			netpoll_send_skb(np, send_skb);
--
--			/* If there are several rx_skb_hooks for the same
--			 * address, we're fine by sending a single reply
--			 */
--			break;
--		}
--		spin_unlock_irqrestore(&npinfo->rx_lock, flags);
--#endif
--	}
--}
--
--static bool pkt_is_ns(struct sk_buff *skb)
--{
--	struct nd_msg *msg;
--	struct ipv6hdr *hdr;
--
--	if (skb->protocol != htons(ETH_P_ARP))
--		return false;
--	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr) + sizeof(struct nd_msg)))
--		return false;
--
--	msg = (struct nd_msg *)skb_transport_header(skb);
--	__skb_push(skb, skb->data - skb_transport_header(skb));
--	hdr = ipv6_hdr(skb);
--
--	if (hdr->nexthdr != IPPROTO_ICMPV6)
--		return false;
--	if (hdr->hop_limit != 255)
--		return false;
--	if (msg->icmph.icmp6_code != 0)
--		return false;
--	if (msg->icmph.icmp6_type != NDISC_NEIGHBOUR_SOLICITATION)
--		return false;
--
--	return true;
--}
--
--int __netpoll_rx(struct sk_buff *skb, struct netpoll_info *npinfo)
--{
--	int proto, len, ulen, data_len;
--	int hits = 0, offset;
--	const struct iphdr *iph;
--	struct udphdr *uh;
--	struct netpoll *np, *tmp;
--	uint16_t source;
--
--	if (!netpoll_rx_processing(npinfo))
--		goto out;
--
--	if (skb->dev->type != ARPHRD_ETHER)
--		goto out;
--
--	/* check if netpoll clients need ARP */
--	if (skb->protocol == htons(ETH_P_ARP) && netpoll_trap()) {
--		skb_queue_tail(&npinfo->neigh_tx, skb);
--		return 1;
--	} else if (pkt_is_ns(skb) && netpoll_trap()) {
--		skb_queue_tail(&npinfo->neigh_tx, skb);
--		return 1;
--	}
--
--	if (skb->protocol == cpu_to_be16(ETH_P_8021Q)) {
--		skb = vlan_untag(skb);
--		if (unlikely(!skb))
--			goto out;
--	}
--
--	proto = ntohs(eth_hdr(skb)->h_proto);
--	if (proto != ETH_P_IP && proto != ETH_P_IPV6)
--		goto out;
--	if (skb->pkt_type == PACKET_OTHERHOST)
--		goto out;
--	if (skb_shared(skb))
--		goto out;
--
--	if (proto == ETH_P_IP) {
--		if (!pskb_may_pull(skb, sizeof(struct iphdr)))
--			goto out;
--		iph = (struct iphdr *)skb->data;
--		if (iph->ihl < 5 || iph->version != 4)
--			goto out;
--		if (!pskb_may_pull(skb, iph->ihl*4))
--			goto out;
--		iph = (struct iphdr *)skb->data;
--		if (ip_fast_csum((u8 *)iph, iph->ihl) != 0)
--			goto out;
--
--		len = ntohs(iph->tot_len);
--		if (skb->len < len || len < iph->ihl*4)
--			goto out;
--
--		/*
--		 * Our transport medium may have padded the buffer out.
--		 * Now We trim to the true length of the frame.
--		 */
--		if (pskb_trim_rcsum(skb, len))
--			goto out;
--
--		iph = (struct iphdr *)skb->data;
--		if (iph->protocol != IPPROTO_UDP)
--			goto out;
--
--		len -= iph->ihl*4;
--		uh = (struct udphdr *)(((char *)iph) + iph->ihl*4);
--		offset = (unsigned char *)(uh + 1) - skb->data;
--		ulen = ntohs(uh->len);
--		data_len = skb->len - offset;
--		source = ntohs(uh->source);
--
--		if (ulen != len)
--			goto out;
--		if (checksum_udp(skb, uh, ulen, iph->saddr, iph->daddr))
--			goto out;
--		list_for_each_entry_safe(np, tmp, &npinfo->rx_np, rx) {
--			if (np->local_ip.ip && np->local_ip.ip != iph->daddr)
--				continue;
--			if (np->remote_ip.ip && np->remote_ip.ip != iph->saddr)
--				continue;
--			if (np->local_port && np->local_port != ntohs(uh->dest))
--				continue;
--
--			np->rx_skb_hook(np, source, skb, offset, data_len);
--			hits++;
--		}
--	} else {
--#if IS_ENABLED(CONFIG_IPV6)
--		const struct ipv6hdr *ip6h;
--
--		if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
--			goto out;
--		ip6h = (struct ipv6hdr *)skb->data;
--		if (ip6h->version != 6)
--			goto out;
--		len = ntohs(ip6h->payload_len);
--		if (!len)
--			goto out;
--		if (len + sizeof(struct ipv6hdr) > skb->len)
--			goto out;
--		if (pskb_trim_rcsum(skb, len + sizeof(struct ipv6hdr)))
--			goto out;
--		ip6h = ipv6_hdr(skb);
--		if (!pskb_may_pull(skb, sizeof(struct udphdr)))
--			goto out;
--		uh = udp_hdr(skb);
--		offset = (unsigned char *)(uh + 1) - skb->data;
--		ulen = ntohs(uh->len);
--		data_len = skb->len - offset;
--		source = ntohs(uh->source);
--		if (ulen != skb->len)
--			goto out;
--		if (udp6_csum_init(skb, uh, IPPROTO_UDP))
--			goto out;
--		list_for_each_entry_safe(np, tmp, &npinfo->rx_np, rx) {
--			if (!ipv6_addr_equal(&np->local_ip.in6, &ip6h->daddr))
--				continue;
--			if (!ipv6_addr_equal(&np->remote_ip.in6, &ip6h->saddr))
--				continue;
--			if (np->local_port && np->local_port != ntohs(uh->dest))
--				continue;
--
--			np->rx_skb_hook(np, source, skb, offset, data_len);
--			hits++;
--		}
--#endif
--	}
--
--	if (!hits)
--		goto out;
--
--	kfree_skb(skb);
--	return 1;
--
--out:
--	if (netpoll_trap()) {
--		kfree_skb(skb);
--		return 1;
--	}
--
--	return 0;
--}
--
--static void netpoll_trap_setup_info(struct netpoll_info *npinfo)
--{
--	INIT_LIST_HEAD(&npinfo->rx_np);
--	spin_lock_init(&npinfo->rx_lock);
--	skb_queue_head_init(&npinfo->neigh_tx);
--}
--
--static void netpoll_trap_cleanup_info(struct netpoll_info *npinfo)
--{
--	skb_queue_purge(&npinfo->neigh_tx);
--}
--
--static void netpoll_trap_setup(struct netpoll *np, struct netpoll_info *npinfo)
--{
--	unsigned long flags;
--	if (np->rx_skb_hook) {
--		spin_lock_irqsave(&npinfo->rx_lock, flags);
--		list_add_tail(&np->rx, &npinfo->rx_np);
--		spin_unlock_irqrestore(&npinfo->rx_lock, flags);
--	}
--}
--
--static void netpoll_trap_cleanup(struct netpoll *np, struct netpoll_info *npinfo)
--{
--	unsigned long flags;
--	if (!list_empty(&npinfo->rx_np)) {
--		spin_lock_irqsave(&npinfo->rx_lock, flags);
--		list_del(&np->rx);
--		spin_unlock_irqrestore(&npinfo->rx_lock, flags);
--	}
--}
--
--#else /* !CONFIG_NETPOLL_TRAP */
--static inline void netpoll_trap_setup_info(struct netpoll_info *npinfo)
--{
--}
--static inline void netpoll_trap_cleanup_info(struct netpoll_info *npinfo)
--{
--}
--static inline 
--void netpoll_trap_setup(struct netpoll *np, struct netpoll_info *npinfo)
--{
--}
--static inline
--void netpoll_trap_cleanup(struct netpoll *np, struct netpoll_info *npinfo)
--{
--}
--#endif /* CONFIG_NETPOLL_TRAP */
--
- void netpoll_print_options(struct netpoll *np)
- {
- 	np_info(np, "local port %d\n", np->local_port);
-@@ -1103,8 +609,6 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev, gfp_t gfp)
- 			goto out;
- 		}
- 
--		netpoll_trap_setup_info(npinfo);
--
- 		sema_init(&npinfo->dev_lock, 1);
- 		skb_queue_head_init(&npinfo->txq);
- 		INIT_DELAYED_WORK(&npinfo->tx_work, queue_process);
-@@ -1124,8 +628,6 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev, gfp_t gfp)
- 
- 	npinfo->netpoll = np;
- 
--	netpoll_trap_setup(np, npinfo);
--
- 	/* last thing to do is link it to the net device structure */
- 	rcu_assign_pointer(ndev->npinfo, npinfo);
- 
-@@ -1274,7 +776,6 @@ static void rcu_cleanup_netpoll_info(struct rcu_head *rcu_head)
- 	struct netpoll_info *npinfo =
- 			container_of(rcu_head, struct netpoll_info, rcu);
- 
--	netpoll_trap_cleanup_info(npinfo);
- 	skb_queue_purge(&npinfo->txq);
- 
- 	/* we can't call cancel_delayed_work_sync here, as we are in softirq */
-@@ -1299,8 +800,6 @@ void __netpoll_cleanup(struct netpoll *np)
- 	if (!npinfo)
- 		return;
- 
--	netpoll_trap_cleanup(np, npinfo);
--
- 	synchronize_srcu(&netpoll_srcu);
- 
- 	if (atomic_dec_and_test(&npinfo->refcnt)) {
-@@ -1344,20 +843,3 @@ out:
- 	rtnl_unlock();
- }
- EXPORT_SYMBOL(netpoll_cleanup);
--
--#ifdef CONFIG_NETPOLL_TRAP
--int netpoll_trap(void)
--{
--	return atomic_read(&trapped);
--}
--EXPORT_SYMBOL(netpoll_trap);
--
--void netpoll_set_trap(int trap)
--{
--	if (trap)
--		atomic_inc(&trapped);
--	else
--		atomic_dec(&trapped);
--}
--EXPORT_SYMBOL(netpoll_set_trap);
--#endif /* CONFIG_NETPOLL_TRAP */
--- 
-1.7.5.4
+f1.s:
+ mov rdi, 1
+ mov rsi, 2
+ call f2
+ ret
+
+f2.s:
+  my_mov r3, r1
+  my_mov r2, r1
+  my_mov r1, r3
+  my_call f3
+  my_ret
+
+f3.s:
+  mov rax, rdi
+  sub  rax, rsi
+  ret
+
+fyi, in C these assembler blobs roughly do:
+u64 f1() { return f2(1,2); }
+u64 f2(u64 a, u64 b) { return f3(b, a); }
+u64 f3(u64 a, u64 b) { return a - b; }
+
+f1.s and f3.s are written in x86_64 and f2.s is written in 'renamed assembler'.
+
+compile f1.s, f3.s into binary x86 code
+compile f2.s into some binary code
+(either fixed insn size or variable, that's irrelevant), let's call it format B
+
+Now load all three binary blobs into kernel.
+1st and 3rd blob can be loaded as-is.
+2nd blob needs to be remapped from format B into x86_64 binary code.
+
+After that CPU can call f1() and receive 1 back.
+
+What programs can be written in x86_64 assembler? Anything.
+What programs can be written in renamed assembler? Anything.
+
+How often do we want to extend x86_64 assembler? Rarely.
+Only when an algorithm implemented in pure x86_64 needs
+mmx/ssa acceleration.
+Intel does not extend x86 to add a feature, but to accelerate a feature.
+Same with 'renamed' assembler.
+Any algorithm can be implemented using renamed assembler.
+
+So what is ebpf? It's a format B. It can be fixed size or variable.
+That is irrelevant. While loading, the program in format B is
+reverse mapped into x86 binary code.
+
+What programs can be written in format B? Anything.
+Does format B needs to be extended to support nft? no
+to support socket filters? no
+to support tracing filters? no
+to support crazy idea that will come N years from now? no
+Hard to believe? Think back that it is renamed x86 assembler.
+
+Format B was chosen to look like bpf to make an adoption easier
+and to make conversion from bpf to ebpf trivial,
+but looks like it was a bad idea.
+I should have just called it 'simplified x86_64 insn set'.
+
+Now about 'user interface point of view'...
+old bpf, netlink, nft format are interfaces.
+Until format B is exposed to user space it is not an interface.
+nftables can use format B to jit the code.
+nftables's user interface doesn't change.
+
+In the patches I sent, ebpf is _not_ exposed to the user.
+My patch set immediately helps performance of existing
+socket filters and seccomp.
+And can do jitting for nft.
+
+Another way of thinking about ebpf:
+ebpf is a different way of encoding x86 insns.
+
+I also think we can expose ebpf to the user space,
+but that's a different patch and a different discussion.
+
+Thanks!
+
+Hi Pablo,
+
+now back to our discussion:
+
+>> Technically ebpf is a small evolution of bpf, but applicability made a
+>> giant leap. I cannot compile C into bpf, but I can do that with ebpf.
+>
+> Good that we can get better userspace tools, but still the layout of
+> your instructions is exposed to userspace so it cannot be changed
+> *ever*. The kernel interface is still an array of binary structures of
+> fixed size just like BPF does.
+
+that fixed size is irrelevant from extensibility point of view.
+sparc has fixed size instructions too, but we don't change sparc
+instruction width.
+Let's say we decided to remap all sparc instructions and add new
+pseudo instructions. These pseudo sparc insns won't buy us any
+performance, because in the end they're remapped into real
+instructions that cpu can execute.
+These fake new pseudo sparc instructions won't give us
+any new features either.
+
+Format B should not be changed.
+We can add new instructions if we really really need,
+but there will not be a need to change existing insns.
+Hard to believe? Think back that it is simplified x86.
+We don't have a need to change existing x86 insns.
+
+Example 1:
+there are xadd_w and xadd_dw insns in format B to do
+atomic increments. They don't have to be in the instruction set.
+I've added them for performance and not because it cannot
+be done without them.
+atomic increments could have been done with function call.
+ebpf call insn is #1 instruction that was missing in bpf.
+It makes ebpf usable for any job.
+ebpf program can always call a function.
+
+Example 2:
+In old bpf there are many extensions that fetch skb->protocol,
+skb->len, skb->pkt_type and so on.
+One extension per skb field. That was bad.
+They were done as instruction extensions in old bpf,
+because bpf didn't have a generic load operation.
+ebpf doesn't need extensions for them. All these old bpf
+extensions are converted to generic 'load' insn in ebpf.
+and jited to x86 as single load, whereas old bpf jit needs
+to have its own 'case' statement for every extension.
+
+We can gradually replace old bpf jits with new ebpf jits.
+and take time while doing this without exposing ebpf
+to the userspace.
+
+Example 3:
+Old bpf_s_anc_nlattr extension cannot be jited with
+current bpf jit, because it's too complicated
+(requires thinking about calling convention, etc)
+After conversion to ebpf it finally can be jited,
+since it becomes a function call in x86.
+
+That's the point. We do not need to change ebpf insn set.
+Anything can be implemented as generic load/store operations
+and function calls because ebpf == x86 assembler.
+
+> Why do we have to have a 32 bits immediate that may be zero most of
+> the time? Just because:
+>
+> 1) You needed to align your new instruction layout to 64 bits / two 32
+> bits words.
+
+wrong guess. It's not alignment.
+Format B could be anything.
+I just picked it to be similar to old BPF to be easier to understand.
+Apparently it's not that easy.
+
+> 2) You noticed you get better performance with those changes,
+> including the new "if" statement that works better with branch
+> prediction.
+
+nope. that's a side effect of 'simplified x86 assembler'
+Neither x86 nor arm nor other CPUs have 'dual branch'
+instructions. All CPUs either branch or fall through and
+since ebpf is just a simplified x86 here you have such
+style of branches.
+
+> 3) It's easier for you to make the jit translation.
+
+sorry, but 'easier' was not a factor.
+ebpf instructions are 8-byte wide, just because old bpfs are
+8-byte wide. I fitted all x86 instructions into 8 bytes.
+Could have picked any other size.
+
+Another way of thinking about ebpf:
+ebpf is a different way of encoding x86 insns.
+
+Whether instructions are variable length or fixed, it's
+the same complexity to map back to x86.
+
+ebpf interpreter is a different matter.
+Interpreter obviously works better with fixed insn size.
+ebpf interpreter you see only exists to support architectures
+that don't have ebpf->native mapper yet.
+
+If majority thinks that variable length insns will work better,
+let's re-encode the whole thing into variable length.
+I just don't see what it will buy us.
+but I'm fine re-encoding ebpf into any other format.
+Obviously 'simplified x86/arm insn set' can have any format,
+as long as it is convenient to execute by interpreter,
+not too complex for remapping into native
+and has room to add instructions.
+imo proposed ebpf format fits these three attributes just fine.
+
+> That means your interface is exposing *all of your internal
+> implementation decisions* and that's a very bad since we will always
+> have to come up with smart tricks not to break backward compatibility
+> if we want to improve the internal implementation.
+
+We're not going to go back and break compatibility.
+We're not breaking compatibility now either.
+Did Intel change x86 encoding? no.
+Same with ebpf. We don't need to change ebpf encoding.
+
+>> I cannot do table lookups in bpf, but I can do that in ebpf.
+>> I cannot rewrite packet headers in bpf, but I can do that in ebpf, etc.
+>
+> Sorry, I don't buy this "we get more features" if in the long run we
+> have restricted extensibility.
+
+That's not productive to keep saying 'restricted extensibility'
+without providing a specific example.
+Please come up with at least one case that ebpf cannot
+handle as presented.
+What instructions do you think are missing?
+
+>> Here is the example from V2 series that shows how hash tables can be
+>> used in C that translates to ebpf, without changing ebpf itself:
+>> void dropmon(struct kprobe_args *ctx)
+>> {
+>>         void *loc;
+>>         uint64_t *drop_cnt;
+>>         /* skb:kfree_skb is defined as:
+>>          * TRACE_EVENT(kfree_skb,
+>>          *         TP_PROTO(struct sk_buff *skb, void *location),
+>>          * so ctx->arg2 is 'location'
+>>          */
+>>         loc = (void *)ctx->arg2;
+>>
+>>         drop_cnt = bpf_table_lookup(ctx, 0, &loc);
+>
+> Is there room to extend your framework with any other data structure
+> which is *not* a hashtable? What are you plans for that?
+
+Please understand hashtable or xyztable is not an ebpf instruction.
+It is a function call.
+Generic call.
+ebpf can call any function.
+ebpf doesn't need to change a single bit to support other tables.
+ebpf jits don't need to change either.
+How table is implemented is out side of ebpf scope.
+Type of keys, values are arbitrary.
+bpf_table_lookup() is a C function inside kernel that ebpf
+program calls.
+
+> The only different that I see with ebpf is that you provide nice end
+> user tools, but the design from the kernel interface has exactly the
+> same problems.
+
+ok. what problems? Please be specific.
+
+>> > Right, you can extend interfaces forever with lots of patchwork and
+>> > "smart tricks" but that doesn't mean that will look nice...
+>>
+>> I'm not sure what you mean here.
+>
+> For example, this:
+>
+> diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+> index cf9cd13509a7..e1b979312588 100644
+> --- a/net/core/sysctl_net_core.c
+> +++ b/net/core/sysctl_net_core.c
+> @@ -273,6 +273,13 @@  static struct ctl_table net_core_table[] = {
+>         },
+>  #endif
+>         {
+> +               .procname       = "bpf_ext_enable",
+> +               .data           = &bpf_ext_enable,
+> +               .maxlen         = sizeof(int),
+> +               .mode           = 0644,
+> +               .proc_handler   = proc_dointvec
+> +       },
+>
+> This /proc thing seems to me like the last resource we have to avoid
+> breaking backward compatibility. I have used it as well myself, but
+> it's like the *pull alarm* when we did a wrong design decision.
+>
+> What if we need a new ABI breakage for BPF again? Will we need to add
+> a new /proc interface for that? As far as I can tell from your
+> patches, the answer is yes.
+
+Where do you see ABI breakage? It's not broken.
+I can remove bpf_ext_enable flag.
+On or off it doesn't break any user interface.
+Socket filters are still loading old bpf programs.
+seccomp is still loading old bpf programs.
+They get converted on the fly to new ebpf.
+I added the flag only to be able to easily benchmark two interpreters.
+We're planning to remove old bpf interpreter. It's obsolete.
+Just like old sk_decode_filter().
+This /proc flag doesn't need to be there. It can be removed.
+Not a single user space app will notice the difference,
+other than faster performance.
+
+>> > As I said, I believe that having a nice extensible interface is
+>> > extremely important to make it easier for development. If we have to
+>> > rearrange the internal representation for some reason, we can do it
+>> > indeed without bothering about making translations to avoid breaking
+>> > userspace and having to use ugly tricks (just see sk_decode_filter()
+>> > or any other translation to support any new way to express a
+>> > filter...).
+>>
+>> nice that your brought this up :)
+>> As I mentioned in v4 thread sk_decode_filter() can be removed.
+>> It was introduced to improve old interpreter performance and now
+>> this part is obsolete.
+>
+> What are your plans then? Will you implement that converter in
+> userspace? You mention that you don't want to enhance libpcap, which
+> seems to me like the natural way to extend things.
+
+Please see 1/3 patch. Converter from old bpf to ebpf takes 263 lines
+of trivial remapping. It's that simple.
+
+>> >> Say you want to translate nft-cmp instruction into sequence of native
+>> >> comparisons. You'd need to use load from memory, compare and
+>> >> branch operations. That's ebpf!
+>> >
+>> > Nope sorry, that's not ebpf. That's assembler code.
+>>
+>> Well, in my previous email I tried to explain that assembler == ebpf :)
+>
+> I see, so I was right. You want to expose a pseudo-assembler
+> interface just because that makes it easier to you to provide the jit
+> translation.
+
+If you're saying that ebpf == assembler, then yes, you're right.
+
+>> Please post x86_64 assembler code that future nft-jit suppose to
+>> generate and I can post equivalent ebpf code that will be jited
+>> exactly to your x86_64...
+>
+> That's possible of course. There are many ways to implement the same
+> thing, they can provide the same features, but not the same degree of
+> extensibility.
+
+Totally agree. nft is definitely less extensible than ebpf.
+You need to change nft for every new feature, whereas I don't need
+to change ebpf. I don't need to change ebpf jits either.
+
+Key point is: ebpf does not _need_ to be changed.
+There are still plenty of reserved bits, so new instructions can be
+added to improve performance, but so far I don't see a need.
+We don't _have_ to add instructions. There is always
+a way to do with what it has now.
+It is a complete instruction set to support any integer program.
+Yeah, floating point is not supported and will not be.
+
+Thanks
+Alexei
