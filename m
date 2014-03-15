@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 04/10] netpoll: Warn if more packets are processed than are budgeted
-Date: Fri, 14 Mar 2014 20:47:15 -0700
-Message-ID: <87k3bwp1h8.fsf_-_@xmission.com>
+Subject: [PATCH 05/10] netpoll: Add netpoll_rx_processing
+Date: Fri, 14 Mar 2014 20:47:49 -0700
+Message-ID: <87eh24p1ga.fsf_-_@xmission.com>
 References: <87eh28cvi6.fsf@xmission.com>
 	<20140313.152311.1995854418463980325.davem@davemloft.net>
 	<87eh24uu3d.fsf_-_@xmission.com>
@@ -14,41 +14,88 @@ Cc: stephen@networkplumber.org, eric.dumazet@gmail.com,
 	satyam.sharma@gmail.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:54488 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755863AbaCODrV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 23:47:21 -0400
+Received: from out01.mta.xmission.com ([166.70.13.231]:51454 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755570AbaCODr4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 23:47:56 -0400
 In-Reply-To: <877g7wqg8e.fsf_-_@xmission.com> (Eric W. Biederman's message of
 	"Fri, 14 Mar 2014 20:43:13 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-There is already a warning for this case in the normal netpoll path,
-but put a copy here in case how netpoll calls the poll functions
-causes a differenet result.
-
-netpoll will shortly call the napi poll routine with a budget 0 to
-avoid any rx packets being processed.  As nothing does that today
-we may encounter drivers that have problems so a netpoll specific
-warning seems desirable.
+Add a helper netpoll_rx_processing that reports when netpoll has
+receive side processing to perform.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/core/netpoll.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ include/linux/netpoll.h |   18 ++++++++++++++----
+ net/core/netpoll.c      |    4 ++--
+ 2 files changed, 16 insertions(+), 6 deletions(-)
 
+diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
+index fbfdb9d8d3a7..479d15c97770 100644
+--- a/include/linux/netpoll.h
++++ b/include/linux/netpoll.h
+@@ -82,14 +82,24 @@ static inline void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
+ 	local_irq_restore(flags);
+ }
+ 
+-
++#ifdef CONFIG_NETPOLL_TRAP
++static inline bool netpoll_rx_processing(struct netpoll_info *npinfo)
++{
++	return !list_empty(&npinfo->rx_np);
++}
++#else
++static inline bool netpoll_rx_processing(struct netpoll_info *npinfo)
++{
++	return false;
++}
++#endif
+ 
+ #ifdef CONFIG_NETPOLL
+ static inline bool netpoll_rx_on(struct sk_buff *skb)
+ {
+ 	struct netpoll_info *npinfo = rcu_dereference_bh(skb->dev->npinfo);
+ 
+-	return npinfo && (!list_empty(&npinfo->rx_np) || npinfo->rx_flags);
++	return npinfo && (netpoll_rx_processing(npinfo) || npinfo->rx_flags);
+ }
+ 
+ static inline bool netpoll_rx(struct sk_buff *skb)
+@@ -105,8 +115,8 @@ static inline bool netpoll_rx(struct sk_buff *skb)
+ 
+ 	npinfo = rcu_dereference_bh(skb->dev->npinfo);
+ 	spin_lock(&npinfo->rx_lock);
+-	/* check rx_flags again with the lock held */
+-	if (npinfo->rx_flags && __netpoll_rx(skb, npinfo))
++	/* check rx_processing again with the lock held */
++	if (netpoll_rx_processing(npinfo) && __netpoll_rx(skb, npinfo))
+ 		ret = true;
+ 	spin_unlock(&npinfo->rx_lock);
+ 
 diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index d9e3d74ec9ac..2ad330e02967 100644
+index 2ad330e02967..ef83a2530e98 100644
 --- a/net/core/netpoll.c
 +++ b/net/core/netpoll.c
-@@ -158,6 +158,7 @@ static int poll_one_napi(struct napi_struct *napi, int budget)
- 	set_bit(NAPI_STATE_NPSVC, &napi->state);
+@@ -538,7 +538,7 @@ static void netpoll_neigh_reply(struct sk_buff *skb, struct netpoll_info *npinfo
+ 	int hlen, tlen;
+ 	int hits = 0, proto;
  
- 	work = napi->poll(napi, budget);
-+	WARN_ONCE(work > budget, "%pF exceeded budget in poll\n", napi->poll);
- 	trace_napi_poll(napi);
+-	if (list_empty(&npinfo->rx_np))
++	if (!netpoll_rx_processing(npinfo))
+ 		return;
  
- 	clear_bit(NAPI_STATE_NPSVC, &napi->state);
+ 	/* Before checking the packet, we do some early
+@@ -770,7 +770,7 @@ int __netpoll_rx(struct sk_buff *skb, struct netpoll_info *npinfo)
+ 	struct netpoll *np, *tmp;
+ 	uint16_t source;
+ 
+-	if (list_empty(&npinfo->rx_np))
++	if (!netpoll_rx_processing(npinfo))
+ 		goto out;
+ 
+ 	if (skb->dev->type != ARPHRD_ETHER)
 -- 
 1.7.5.4
