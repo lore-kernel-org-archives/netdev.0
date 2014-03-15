@@ -1,101 +1,67 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: [PATCH 2/3] bridge: trigger a bridge calculation upon port
-	changes
-Date: Sat, 15 Mar 2014 02:39:40 +0100
-Message-ID: <20140315013940.GA28801@wotan.suse.de>
-References: <1394680527-28970-1-git-send-email-mcgrof@do-not-panic.com> <1394680527-28970-3-git-send-email-mcgrof@do-not-panic.com> <CAHA+R7Pf6rM5h1uGiqrru5LkN9C7Nm7V42cucHSOV1s7_+F7Gw@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [BUG] RTNL assert fail via addrconf_join_solicit
+Date: Fri, 14 Mar 2014 18:42:14 -0700
+Message-ID: <20140314184214.34ae9bfb@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="1yeeQ81UyVL57Vl7"
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	kvm@vger.kernel.org, xen-devel@lists.xenproject.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	bridge@lists.linux-foundation.org
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAHA+R7Pf6rM5h1uGiqrru5LkN9C7Nm7V42cucHSOV1s7_+F7Gw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:33163 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752107AbaCOBmS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 21:42:18 -0400
+Received: by mail-pd0-f182.google.com with SMTP id y10so3249447pdj.13
+        for <netdev@vger.kernel.org>; Fri, 14 Mar 2014 18:42:18 -0700 (PDT)
+Received: from nehalam.linuxnetplumber.net (static-50-53-83-51.bvtn.or.frontiernet.net. [50.53.83.51])
+        by mx.google.com with ESMTPSA id un5sm33494341pab.3.2014.03.14.18.42.17
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Fri, 14 Mar 2014 18:42:17 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+When doing VRRP which uses macvlan and multicast, we see the following
+kernel assertion error.  This is on 3.10.33 but looks like no changes
+in this area in recent kernels.
 
 
---1yeeQ81UyVL57Vl7
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+[  541.030090] RTNL: assertion failed at net/core/dev.c (4496)
+[  541.031143] CPU: 0 PID: 0 Comm: swapper/0 Tainted: G           O 3.10.33-1-amd64-vyatta #1
+[  541.031145] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
+[  541.031146]  ffffffff8148a9f0 000000000000002f ffffffff813c98c1 ffff88007c4451f8
+[  541.031148]  0000000000000000 0000000000000000 ffffffff813d3540 ffff88007fc03d18
+[  541.031150]  0000880000000006 ffff88007c445000 ffffffffa0194160 0000000000000000
+[  541.031152] Call Trace:
+[  541.031153]  <IRQ>  [<ffffffff8148a9f0>] ? dump_stack+0xd/0x17
+[  541.031180]  [<ffffffff813c98c1>] ? __dev_set_promiscuity+0x101/0x180
+[  541.031183]  [<ffffffff813d3540>] ? __hw_addr_create_ex+0x60/0xc0
+[  541.031185]  [<ffffffff813cfe1a>] ? __dev_set_rx_mode+0xaa/0xc0
+[  541.031189]  [<ffffffff813d3a81>] ? __dev_mc_add+0x61/0x90
+[  541.031198]  [<ffffffffa01dcf9c>] ? igmp6_group_added+0xfc/0x1a0 [ipv6]
+[  541.031208]  [<ffffffff8111237b>] ? kmem_cache_alloc+0xcb/0xd0
+[  541.031212]  [<ffffffffa01ddcd7>] ? ipv6_dev_mc_inc+0x267/0x300 [ipv6]
+[  541.031216]  [<ffffffffa01c2fae>] ? addrconf_join_solict+0x2e/0x40 [ipv6]
+[  541.031219]  [<ffffffffa01ba2e9>] ? ipv6_dev_ac_inc+0x159/0x1f0 [ipv6]
+[  541.031223]  [<ffffffffa01c0772>] ? addrconf_join_anycast+0x92/0xa0 [ipv6]
+[  541.031226]  [<ffffffffa01c311e>] ? __ipv6_ifa_notify+0x11e/0x1e0 [ipv6]
+[  541.031229]  [<ffffffffa01c3213>] ? ipv6_ifa_notify+0x33/0x50 [ipv6]
+[  541.031233]  [<ffffffffa01c36c8>] ? addrconf_dad_completed+0x28/0x100 [ipv6]
+[  541.031241]  [<ffffffff81075c1d>] ? task_cputime+0x2d/0x50
+[  541.031244]  [<ffffffffa01c38d6>] ? addrconf_dad_timer+0x136/0x150 [ipv6]
+[  541.031247]  [<ffffffffa01c37a0>] ? addrconf_dad_completed+0x100/0x100 [ipv6]
+[  541.031255]  [<ffffffff8105313a>] ? call_timer_fn.isra.22+0x2a/0x90
+[  541.031258]  [<ffffffffa01c37a0>] ? addrconf_dad_completed+0x100/0x100 [ipv6]
+[  541.031261]  [<ffffffff81053531>] ? run_timer_softirq+0x1a1/0x260
+[  541.031267]  [<ffffffff810350cf>] ? kvm_clock_read+0x1f/0x30
+[  541.031272]  [<ffffffff810132a5>] ? sched_clock+0x5/0x10
+[  541.031274]  [<ffffffff81074bd5>] ? sched_clock_local+0x15/0x80
+[  541.031276]  [<ffffffff8104d586>] ? __do_softirq+0xd6/0x1b0
+[  541.031282]  [<ffffffff8149109c>] ? call_softirq+0x1c/0x30
+[  541.031284]  [<ffffffff8100d835>] ? do_softirq+0x75/0xb0
+[  541.031286]  [<ffffffff8104d7ed>] ? irq_exit+0xbd/0xc0
 
-On Thu, Mar 13, 2014 at 11:26:25AM -0700, Cong Wang wrote:
-> On Wed, Mar 12, 2014 at 8:15 PM, Luis R. Rodriguez
-> <mcgrof@do-not-panic.com> wrote:
-> >                         spin_lock_bh(&p->br->lock);
-> >                         err =3D br_setport(p, tb);
-> > +                       changed =3D br_stp_recalculate_bridge_id(p->br);
->=20
-> Looks like you only want to check if the mac addr gets changed here,
 
-Nope, the reason why we want a full thorough check is that br_setport()
-may change currently any of these:
-                                                                           =
-    =20
-  * IFLA_BRPORT_MODE
-  * IFLA_BRPORT_GUARD
-  * IFLA_BRPORT_FAST_LEAVE
-  * IFLA_BRPORT_PROTECT
-  * IFLA_BRPORT_LEARNING,
-  * IFLA_BRPORT_UNICAST_FLOOD
-  * IFLA_BRPORT_COST
-  * IFLA_BRPORT_PRIORITY
-  * IFLA_BRPORT_STATE
-
-That's good reason to trigger a good inspection. Having the MAC address
-change would be simply collateral and its just something we need to do
-some additional work for outside of the locking context.
-
-> but br_stp_recalculate_bridge_id() does more than just checking it,
-> are you sure the side-effects are all what you want here?
-
-Yeap.
-
-> >                         spin_unlock_bh(&p->br->lock);
-> > +                       if (changed)
-> > +                               call_netdevice_notifiers(NETDEV_CHANGEA=
-DDR,
-> > +                                                        p->br->dev);
-> > +                       netdev_update_features(p->br->dev);
->=20
-> I think this is supposed to be in netdev event handler of br->dev
-> instead of here.
-
-Do you mean netdev_update_features() ? I mimic'd what was being done on
-br_del_if() given that root blocking is doing something similar. If
-we need to change something for the above then I suppose it means we need
-to change br_del_if() too. Let me know if you see any reason for something
-else.
-
-  Luis
-
---1yeeQ81UyVL57Vl7
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.9 (GNU/Linux)
-
-iQIcBAEBAgAGBQJTI69cAAoJEPep4JnvMe6zBXUQALlx2cRo/BS6YgXGAzVf38zU
-s0A6ea1zlvQneip/PAmLrmL+qCKEq+aEHPpM/tjKHzftDOk82CSgNH9aa2nSB6DT
-WeJSlskszW9Otb0Fu0HodioN4+ViNE7ZPYJ5Sm9lCtiM1CV5jDSSrFWjFX5s43LU
-EqRWkE7QuMcvPTNzDvwPgr2FECpoqbSybTTKIHlKRCpnZlAA5jwnzkHt7iC8VLo3
-7MvWgayax/JGJCE3TmwXPzAgLhemYnBE7ltAt5b+na2Exkil0sje1vZouNkjC1Qx
-lT60/vDmo/w+BgLshG6tY87yJx87CvB9dc7VzK2bDfcny9mjJIfcv7BjatOD5UCF
-XpR1M/onnBG2nMYQpWwRKzcu4bHJP1EmLxgl89aWFQBpllHb3gx61EJ0ZZTFDiWw
-kAGEnbN5d4+Wl9WythLKEZMrC0UBewtCRyXtMmOpoz1A6zE1ST5VKXGsLPH6ALQ3
-vfWZsxWZrkAvHWD/zudyXQsl99zj0KYUxGzguqiQQNW+dpYBB0xH2Q+ew0S/MuXo
-/HPgiTcm/Pkv21lAiaV9f8pqNcpqfKfK21AZvWita4QmJGUf6X2uOEUMOWFyEIJJ
-EtExV0WbZIDhv9sqQewopbUEmBjTOygq/H9r2UE9Qi6DQk5AxSChLsFk9svwEIvj
-Zo8NtXCbpYQlkqsAvSz7
-=wjkU
------END PGP SIGNATURE-----
-
---1yeeQ81UyVL57Vl7--
+Also it looks like ipv6 anycast has same potential issue of changing
+unicast filters without holding rtnl_lock.
+ ipv6_ac_inc -> addrconf_join_solict ->  ipv6_dev_mc_inc
