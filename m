@@ -1,67 +1,59 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next 16/16] sfc: Don't receive packets when the napi budget == 0
-Date: Fri, 14 Mar 2014 18:11:22 -0700
-Message-ID: <87lhwcw9j9.fsf_-_@xmission.com>
-References: <87a9cxf7mp.fsf_-_@xmission.com>
-	<20140311.124907.1180556684992271103.davem@davemloft.net>
-	<87wqg0cy9d.fsf@xmission.com>
-	<20140311.160931.1395978386605601765.davem@davemloft.net>
-	<877g808luk.fsf_-_@xmission.com> <871ty41dps.fsf_-_@xmission.com>
+Subject: [PATCH 0/9] netpoll: Cleanup received packet processing
+Date: Fri, 14 Mar 2014 18:30:14 -0700
+Message-ID: <87eh24uu3d.fsf_-_@xmission.com>
+References: <1394540961.21721.22.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140311082312.5ad00119@nehalam.linuxnetplumber.net>
+	<87eh28cvi6.fsf@xmission.com>
+	<20140313.152311.1995854418463980325.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
+Cc: stephen@networkplumber.org, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, xiyou.wangcong@gmail.com, mpm@selenic.com,
+	satyam.sharma@gmail.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:59945 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754167AbaCOBL2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 21:11:28 -0400
-In-Reply-To: <871ty41dps.fsf_-_@xmission.com> (Eric W. Biederman's message of
-	"Fri, 14 Mar 2014 17:56:47 -0700")
+Received: from out03.mta.xmission.com ([166.70.13.233]:38951 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752107AbaCOBaV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 21:30:21 -0400
+In-Reply-To: <20140313.152311.1995854418463980325.davem@davemloft.net> (David
+	Miller's message of "Thu, 13 Mar 2014 15:23:11 -0400 (EDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Processing any incoming packets with a with a napi budget of 0
-is incorrect driver behavior.
+This is the long-winded, careful, and polite version of removing the netpoll
+receive packet processing.
 
-This matters as netpoll will shortly call drivers with a budget of 0
-to avoid receive packet processing happening in hard irq context.
+First I untangle the code in small steps.  Then I modify the code to not
+force reception and dropping of packets when we are transmiting a packet
+with netpoll.  Finally I move all of the packet reception under
+CONFIG_NETPOLL_TRAP and delete CONFIG_NETPOLL_TRAP.
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- drivers/net/ethernet/sfc/ef10.c  |    3 +++
- drivers/net/ethernet/sfc/farch.c |    3 +++
- 2 files changed, 6 insertions(+), 0 deletions(-)
+If someone wants to do a stable backport it would take backporting
+the first 18 patches that handle the budget == 0 in the networking
+drivers, and the first 5 of these patches.
 
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index eb75675f6e32..651626e133f9 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -1955,6 +1955,9 @@ static int efx_ef10_ev_process(struct efx_channel *channel, int quota)
- 	int tx_descs = 0;
- 	int spent = 0;
- 
-+	if (quota <= 0)
-+		return spent;
-+
- 	read_ptr = channel->eventq_read_ptr;
- 
- 	for (;;) {
-diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
-index aa1b169f45ec..a08761360cdf 100644
---- a/drivers/net/ethernet/sfc/farch.c
-+++ b/drivers/net/ethernet/sfc/farch.c
-@@ -1248,6 +1248,9 @@ int efx_farch_ev_process(struct efx_channel *channel, int budget)
- 	int tx_packets = 0;
- 	int spent = 0;
- 
-+	if (budget <= 0)
-+		return spent;
-+
- 	read_ptr = channel->eventq_read_ptr;
- 
- 	for (;;) {
--- 
-1.7.5.4
+If anyone wants to resurrect netpoll packet reception someday it should
+just be a matter of reverting the last patch.
+
+Eric W. Biederman (9):
+      netpoll: Pass budget into poll_napi
+      netpoll: Visit all napi handlers in poll_napi
+      netpoll: Warn if more packets are processed than are budgeted
+      netpoll: Add netpoll_rx_processing
+      netpoll: Don't drop all received packets.
+      netpoll: Move netpoll_trap under CONFIG_NETPOLL_TRAP
+      netpoll: Consolidate neigh_tx processing in service_neigh_queue
+      netpoll: Move all receive processing under CONFIG_NETPOLL_TRAP
+      netpoll: Remove dead packet receive code (CONFIG_NETPOLL_TRAP)
+
+ drivers/net/Kconfig       |    5 -
+ include/linux/netdevice.h |   17 --
+ include/linux/netpoll.h   |   61 ------
+ net/core/dev.c            |   11 +-
+ net/core/netpoll.c        |  488 +--------------------------------------------
+ 5 files changed, 5 insertions(+), 577 deletions(-)
+
+Eric
