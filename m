@@ -1,67 +1,92 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] vlan: Fix lockdep warning when vlan dev handle
- notification
-Date: Fri, 14 Mar 2014 22:02:53 -0400 (EDT)
-Message-ID: <20140314.220253.2108022241165181233.davem@davemloft.net>
-References: <5321165A.1000208@huawei.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [net-next 02/16] ixgbe: fix spinlock recursion with netpoll and busy poll
+Date: Fri, 14 Mar 2014 19:08:09 -0700
+Message-ID: <87siqkqkmu.fsf@xmission.com>
+References: <1394790446-31591-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1394790446-31591-3-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20140314.145850.706702494963811330.davem@davemloft.net>
+	<87618083B2453E4A8714035B62D679924FF2B0DD@FMSMSX105.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, john.r.fastabend@intel.com, kaber@trash.net,
-	netdev@vger.kernel.org, f.fainelli@gmail.com
-To: dingtianhong@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41255 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752107AbaCOCC5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 22:02:57 -0400
-In-Reply-To: <5321165A.1000208@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>,
+	"Kirsher\, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo\@redhat.com" <gospo@redhat.com>,
+	"sassmann\@redhat.com" <sassmann@redhat.com>,
+	"asharma\@fb.com" <asharma@fb.com>,
+	"stable\@vger.kernel.org" <stable@vger.kernel.org>,
+	"Keller\, Jacob E" <jacob.e.keller@intel.com>
+To: "Tantilov\, Emil S" <emil.s.tantilov@intel.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <87618083B2453E4A8714035B62D679924FF2B0DD@FMSMSX105.amr.corp.intel.com>
+	(Emil S. Tantilov's message of "Fri, 14 Mar 2014 20:40:25 +0000")
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Thu, 13 Mar 2014 10:22:18 +0800
+"Tantilov, Emil S" <emil.s.tantilov@intel.com> writes:
 
-> When I open the LOCKDEP config and run these steps:
+>>-----Original Message-----
+>>From: David Miller [mailto:davem@davemloft.net]
+>>Sent: Friday, March 14, 2014 11:59 AM
+>>To: Kirsher, Jeffrey T
+>>Cc: Tantilov, Emil S; netdev@vger.kernel.org;
+>>gospo@redhat.com; sassmann@redhat.com; asharma@fb.com;
+>>stable@vger.kernel.org; Keller, Jacob E
+>>Subject: Re: [net-next 02/16] ixgbe: fix spinlock recursion
+>>with netpoll and busy poll
+>>
+>>From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>>Date: Fri, 14 Mar 2014 02:47:12 -0700
+>>
+>>> From: Emil Tantilov <emil.s.tantilov@intel.com>
+>>>
+>>> This patch resolves a hang with busy poll when used with netconsole.
+>>>
+>>> The main change is the check for netpoll packets in ixgbe_poll() which
+>>> prevents a call to spin_lock_bh() while interrupts are disabled.
+>>>
+>>> In addition it removes the call to netif_rx() since netif_receive_skb()
+>>> can deal with netpoll packets and also replaced the global adapter flag
+>>> with per-q_vector bool that indicates Rx packet from netpoll which
+>>> should help with performance.
+>>>
+>>> CC: Arun Sharma <asharma@fb.com>
+>>> CC: stable <stable@vger.kernel.org>
+>>> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+>>> Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+>>> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+>>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>>
+>>Eric Biederman and co. are working to make this completely unnecessary.
+>>
+>>What is going to happen is that poll will be called with a budget of
+>>zero, and no RX processing will thus occur, for netpoll.
+>>
+>>Nothing in the RX path can handle being invoked from hardware
+>>interrupt context, so we have to prevent it completely in all
+>>drivers that support netpoll.
+>
+> I noticed Eric's patches and this is obviously the better way to deal
+> with it, but once the netpoll_rx patches are accepted will they make
+> it into previous stable releases? Currently kernels between 3.11 and
+> 3.13 (assuming Eric's changes make it into 3.14) will hang when
+> netpoll and busy poll are used together.
 
-This doesn't work?
+A quick comment on this patch.  IXGBE_FLAG_IN_NETPOLL in ixgbe (before
+your refinement) is harmless but complete nonsense.  The napi poll
+methods do not get called from ndo_poll_controller.  So the call of
+netif_rx is bunk.
 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 4b65aa4..9ad89ff 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -556,10 +556,22 @@ static struct device_type vlan_type = {
- 
- static const struct net_device_ops vlan_netdev_ops;
- 
-+static int vlan_calculate_locking_subclass(struct net_device *real_dev)
-+{
-+	int subclass = 0;
-+
-+	while (is_vlan_dev(real_dev)) {
-+		subclass++;
-+		real_dev = vlan_dev_priv(real_dev)->real_dev;
-+	}
-+
-+	return subclass;
-+}
-+
- static int vlan_dev_init(struct net_device *dev)
- {
- 	struct net_device *real_dev = vlan_dev_priv(dev)->real_dev;
--	int subclass = 0, i;
-+	int subclass, i;
- 
- 	netif_carrier_off(dev);
- 
-@@ -604,9 +616,7 @@ static int vlan_dev_init(struct net_device *dev)
- 
- 	SET_NETDEV_DEVTYPE(dev, &vlan_type);
- 
--	if (is_vlan_dev(real_dev))
--		subclass = 1;
--
-+	subclass = vlan_calculate_locking_subclass(real_dev);
- 	vlan_dev_set_lockdep_class(dev, subclass);
- 
- 	vlan_dev_priv(dev)->vlan_pcpu_stats = alloc_percpu(struct vlan_pcpu_stats);
+Before my patches go in netpoll will cause any packets processed with
+napi_gro_receive or netif_receive_skb while netconsole is sending a
+packet to be dropped, so netif_rx (which is not called) should be
+unnecessary.
+
+As for the netpoll hang taking the lock. I expect that the fix for
+handling receving packets with netpoll is simply to disable interrupts
+in the ixgbe_qv_lock_ family of functions, so you can handle netpoll
+from hard irq context.
+
+Of course that won't be needed as soon David merges my patches and but shrug.
+
+Eric
