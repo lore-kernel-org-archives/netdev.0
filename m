@@ -1,50 +1,46 @@
-From: Krishna Chaitanya <chaitanya.mgit@gmail.com>
-Subject: Re: [mac80211_hwsim] BUG: unable to handle kernel paging request at ce1db404
-Date: Sat, 15 Mar 2014 21:39:18 +0530
-Message-ID: <CABPxzYKGoCDwosqZ12f0godkgT=qy_QQyDuBLmR=_5s03y6V5g@mail.gmail.com>
-References: <20140305125703.GA7193@localhost> <20140305132317.GB10880@localhost>
- <20140308121138.GA8359@localhost> <20140312173446.GD2983@piware.de>
- <CABPxzYLJA-gQjw2CwmL63dYEQ35h073k_vsp1uEM0B-sAmEwKQ@mail.gmail.com>
- <1394896841.30941.4.camel@jlt4.sipsolutions.net> <CABPxzYJXQR=t6u33uFT5dU2y6sKK1QhCbBn+t4TmmNfVhNk5gw@mail.gmail.com>
- <1394898081.30941.5.camel@jlt4.sipsolutions.net>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next, v2,
+ 0/1] hyperv: Add support for virtual Receive Side Scaling (vRSS)
+Date: Sat, 15 Mar 2014 10:18:06 -0700
+Message-ID: <1394903887-30421-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Martin Pitt <martin.pitt@ubuntu.com>,
-	Fengguang Wu <fengguang.wu@intel.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394898081.30941.5.camel@jlt4.sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, haiyangz@microsoft.com
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 15, 2014 at 9:11 PM, Johannes Berg
-<johannes@sipsolutions.net> wrote:
-> On Sat, 2014-03-15 at 21:03 +0530, Krishna Chaitanya wrote:
->
->> > > what RC are u using? Default should be minstrel, i dont see
->> > > a reason for rc alloc to fail (remote reason kmalloc failure),
->> > > so did you disable RC completely? No prints either w.r.t RC either in
->> > > dmesg?
->> >
->> > Pay attention to the .config.
->> >
->> Missed the attachment, thanks for pointing.
->> As guessed the rate control is empty causing the registration fail.
->
-> It still shouldn't crash though. Looks like there's a fix in this
-> thread, can somebody verify & post it?
->
-Yes, it should not crash. The change suggested by martin is not correct
-there is no double free as the the list he mentioned will be empty.
-(Only after successful registration we will add the radio to the list)
+In this updated version, I have re-written the send queue selection, which is
+based on ndo_select_queue now. I also applied the stop/wake queue for each
+queue separately as suggested by reviewers.
 
-the problem here is platform_driver_unregister internally calls the
-driver_unregister
-which tries to get the kobject through get_device, but we have already
-freed the kobject using
-device_unregister (which calls device_del which frees the kobject).
+Tom Herbert <therbert@google.com> has submitted a Toeplitz library function with
+some optimization. But it's not accepted yet. I'm still using my Toeplitz
+implementation in netvsc module. Please accept my patch if no other issues, 
+because it already provides significant performance enhancement at current
+state. I will be happy to switch to the Toeplitz library function when it's
+accepted in the future.
 
-In other failures cases we use mac80211_hwsim_free() and return, so the call to
-platform_driver_unregister is not there, hence no crash.
+Haiyang Zhang (1):
+  hyperv: Add support for virtual Receive Side Scaling (vRSS)
+
+ drivers/net/hyperv/hyperv_net.h   |  111 ++++++++++++++++++++++-
+ drivers/net/hyperv/netvsc.c       |  132 +++++++++++++++++++++-----
+ drivers/net/hyperv/netvsc_drv.c   |  104 ++++++++++++++++++++-
+ drivers/net/hyperv/rndis_filter.c |  186 ++++++++++++++++++++++++++++++++++++-
+ 4 files changed, 500 insertions(+), 33 deletions(-)
+
+-- 
+1.7.4.1
