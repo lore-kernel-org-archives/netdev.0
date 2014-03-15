@@ -1,40 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 16/16] sfc: Don't receive packets when the napi
- budget == 0
-Date: Sat, 15 Mar 2014 11:54:53 -0700
-Message-ID: <1394909693.9668.6.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <871ty41dps.fsf_-_@xmission.com>
-	 <87lhwcw9j9.fsf_-_@xmission.com>
-	 <1394897014.15764.26.camel@deadeye.wl.decadent.org.uk>
-	 <20140315.122912.1621610280186900725.davem@davemloft.net>
-	 <1394904231.15764.34.camel@deadeye.wl.decadent.org.uk>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH RFC 0/9] socket filtering using nf_tables
+Date: Sat, 15 Mar 2014 20:03:01 +0100
+Message-ID: <20140315190301.GA4458@localhost>
+References: <1394529560-3490-1-git-send-email-pablo@netfilter.org>
+ <531EE5A2.7090501@redhat.com>
+ <CAMEtUuyJne-8uNtOAK7EcFFQNXz9m7J2DDLGH_GbYe6oWZx1pQ@mail.gmail.com>
+ <20140312091500.GA4638@localhost>
+ <CAMEtUuztfWniTr+3u6ttuygvG=xYdp0ANn_w9MGqacQvHrXtWA@mail.gmail.com>
+ <20140313122913.GA4898@localhost>
+ <CAMEtUuwV2=8sVdmfKSOytC8LKsw2RX+fgfxvucSVV0=L0XEkOg@mail.gmail.com>
+ <20140314181600.GA2809@localhost>
+ <CAMEtUuzFkCgpvMy-V5iZycfpLQmebc_Jq-MedD=FJn-EEDkdcg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, ebiederm@xmission.com,
-	netdev@vger.kernel.org, xiyou.wangcong@gmail.com, mpm@selenic.com,
-	satyam.sharma@gmail.com
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:39572 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755951AbaCOSy5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Mar 2014 14:54:57 -0400
-Received: by mail-pd0-f174.google.com with SMTP id y13so3917883pdi.33
-        for <netdev@vger.kernel.org>; Sat, 15 Mar 2014 11:54:57 -0700 (PDT)
-In-Reply-To: <1394904231.15764.34.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	netfilter-devel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAMEtUuzFkCgpvMy-V5iZycfpLQmebc_Jq-MedD=FJn-EEDkdcg@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2014-03-15 at 17:23 +0000, Ben Hutchings wrote:
+On Fri, Mar 14, 2014 at 09:04:50PM -0700, Alexei Starovoitov wrote:
+[...]
+> In the patches I sent, ebpf is _not_ exposed to the user.
 
-> The Solarflare hardware provides generic event queues for RX and TX
-> completions, link changes, errors, etc.  The driver can't process TX
-> completions without going through all the other events mixed in with
-> them.
-> 
+>From your last patch: http://patchwork.ozlabs.org/patch/329713/
 
-ndo_poll_controller() could process all events, and queue incoming
-packets through netif_rx().
+diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
+index 8eb9ccaa5b48..4e98fe16ba88 100644
+--- a/include/uapi/linux/filter.h
++++ b/include/uapi/linux/filter.h
+@@ -1,5 +1,6 @@ 
+ /*
+  * Linux Socket Filter Data Structures
++ * Extended BPF is Copyright (c) 2011-2014, PLUMgrid, http://plumgrid.com
+  */
+ 
+ #ifndef _UAPI__LINUX_FILTER_H__
+@@ -19,7 +20,7 @@ 
+  *     Try and keep these values and structures similar to BSD,
+  *     especially
+  *     the BPF code definitions which need to match so you can share
+  *     filters
+  */
+- 
++
+ struct sock_filter {   /* Filter block */
+        __u16   code;   /* Actual filter code */
+        __u8    jt;     /* Jump true */
+@@ -27,6 +28,14 @@  struct sock_filter {        /* Filter block */
+        __u32   k;      /* Generic multiuse field */
+ };
+ 
++struct sock_filter_ext {
++       __u8    code;    /* opcode */
++       __u8    a_reg:4; /* dest register */
++       __u8    x_reg:4; /* source register */
++       __s16   off;     /* signed offset */
++       __s32   imm;     /* signed immediate constant */
++};
++
+ struct sock_fprog {    /* Required for SO_ATTACH_FILTER. */
+        unsigned short          len;    /* Number of filter blocks */
+        struct sock_filter __user *filter;
 
-Nobody cares about performance in this path.
+That sock_filter_ext structure is exposed to userspace as well as many
+other new BPF_* macros that you have defined.
