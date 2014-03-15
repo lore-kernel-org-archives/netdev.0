@@ -1,65 +1,71 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: Re: [PATCH net-next V5 0/9] Altera Triple Speed Ethernet (TSE) Driver
-Date: Sat, 15 Mar 2014 15:52:15 -0500
-Message-ID: <CAOwfj2P4EWHmVgOVM=seUnwBpHupyGoeh5aM-X-tC8tXhWTjkQ@mail.gmail.com>
-References: <1394805887-22030-1-git-send-email-vbridgers2013@gmail.com>
-	<20140314.150720.734350362080616095.davem@davemloft.net>
-	<20140314.151524.753884730788957176.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] ATHEROS-ALX: Use dma_set_mask_and_coherent and fix a
+ bug
+Date: Sun, 16 Mar 2014 02:56:29 +0300
+Message-ID: <5324E8AD.6000206@cogentembedded.com>
+References: <1394907548-10084-1-git-send-email-peter.senna@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"pawel.moll@arm.com" <pawel.moll@arm.com>,
-	"mark.rutland@arm.com" <mark.rutland@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Rob Landley <rob@landley.net>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20140314.151524.753884730788957176.davem@davemloft.net>
-Sender: linux-doc-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Peter Senna Tschudin <peter.senna@gmail.com>, jcliburn@gmail.com,
+	chris.snook@gmail.com, davem@davemloft.net,
+	johannes@sipsolutions.net, jg1.han@samsung.com,
+	wangyijing@huawei.com, linux@hahnjo.de, sd@queasysnail.net,
+	hahnjo@hahnjo.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394907548-10084-1-git-send-email-peter.senna@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave
+Hello.
 
-On Fri, Mar 14, 2014 at 2:15 PM, David Miller <davem@davemloft.net> wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Fri, 14 Mar 2014 15:07:20 -0400 (EDT)
->
->> From: Vince Bridgers <vbridgers2013@gmail.com>
->> Date: Fri, 14 Mar 2014 09:04:38 -0500
->>
->>> This is the version 5 submission for the Altera Triple Speed Ethernet (TSE)
->>> driver. All comments received during the version 2, 3, and 4 submissions have
->>> been accepted. Please find the change log and a description of the submission
->>> below.
->>
->> Series applied to net-next, thanks.
->
-> Actually, I had to revert, your driver adds new warnings to the build:
->
-> drivers/net/ethernet/altera/altera_tse_main.c: In function 'altera_tse_probe':
-> drivers/net/ethernet/altera/altera_tse_main.c:1238:23: warning: cast to pointer from integer of different size [-Wint-to-pointer-cast]
->    priv->tx_dma_desc = (void *)descmap;
->                        ^
-> drivers/net/ethernet/altera/altera_tse_main.c:1242:23: warning: cast to pointer from integer of different size [-Wint-to-pointer-cast]
->    priv->rx_dma_desc = (void *)(descmap+priv->txdescmem);
->                        ^
->
-> A pointer can be larger than an "unsigned int", you therefore cannot
-> cast it to a pointer.
->
-> In fact this code path has a lot of problems, we pass a pointer to an unsigned int
-> as a "void __iomem *" to request_and_map().  It's not, don't pretend that it is,
-> and don't use casts to try and make the compiler also not see the problem.
+On 03/15/2014 09:19 PM, Peter Senna Tschudin wrote:
 
-Thank for catching this, another oversight on my part. I'll address
-the issue in our pre-submission process, correct the problem and
-resubmit. For what it's worth, we did not see the compiler warnings
-before submitting.
+>   1. For the 64 bits dma mask use dma_set_mask_and_coherent instead of
+>   dma_set_mask and dma_set_coherent_mask.
 
-All the best,
+>   2. For the 32 bits dma mask dma_set_coherent_mask is only called if
+>   dma_set_mask fails, which is unusual. Assuming this as a bug, fixes
+>   it by replacing calls to dma_set_mask and dma_set_coherent_mask by a
+>   call to dma_set_coherent_mask.
 
-Vince
+    You meant to say dma_set_mask_and_coherent() here?
+
+>   Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
+> ---
+
+>   Tested by compilation only.
+
+>   drivers/net/ethernet/atheros/alx/main.c | 14 ++++----------
+>   1 file changed, 4 insertions(+), 10 deletions(-)
+
+> diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
+> index 2e45f6e..380d249 100644
+> --- a/drivers/net/ethernet/atheros/alx/main.c
+> +++ b/drivers/net/ethernet/atheros/alx/main.c
+> @@ -1248,19 +1248,13 @@ static int alx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+>   	 * shared register for the high 32 bits, so only a single, aligned,
+>   	 * 4 GB physical address range can be used for descriptors.
+>   	 */
+> -	if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(64)) &&
+> -	    !dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64))) {
+> +	if (!dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64))) {
+>   		dev_dbg(&pdev->dev, "DMA to 64-BIT addresses\n");
+>   	} else {
+> -		err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
+> +		err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+>   		if (err) {
+> -			err = dma_set_coherent_mask(&pdev->dev,
+> -						    DMA_BIT_MASK(32));
+> -			if (err) {
+> -				dev_err(&pdev->dev,
+> -					"No usable DMA config, aborting\n");
+> -				goto out_pci_disable;
+> -			}
+> +			dev_err(&pdev->dev, "No usable DMA config, aborting\n");
+> +			goto out_pci_disable;
+>   		}
+>   	}
+
+WBR, Sergei
