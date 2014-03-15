@@ -1,57 +1,73 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [net-next 01/16] ixgbe: add check for netif_carrier_ok in
- ixgbe_xmit_frame
-Date: Sat, 15 Mar 2014 00:24:02 +0000
-Message-ID: <87618083B2453E4A8714035B62D679924FF2B3CF@FMSMSX105.amr.corp.intel.com>
-References: <1394790446-31591-2-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20140314.145735.289100032884651109.davem@davemloft.net>
-	 <87618083B2453E4A8714035B62D679924FF2B099@FMSMSX105.amr.corp.intel.com>
-	 <20140314.175131.1233519777786848021.davem@davemloft.net>
- <1394842754.15764.13.camel@deadeye.wl.decadent.org.uk>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH net-next 0/16] Don't receive packets when the napi budget == 0
+Date: Fri, 14 Mar 2014 17:56:47 -0700
+Message-ID: <871ty41dps.fsf_-_@xmission.com>
+References: <87a9cxf7mp.fsf_-_@xmission.com>
+	<20140311.124907.1180556684992271103.davem@davemloft.net>
+	<87wqg0cy9d.fsf@xmission.com>
+	<20140311.160931.1395978386605601765.davem@davemloft.net>
+	<877g808luk.fsf_-_@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"asharma@fb.com" <asharma@fb.com>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1394842754.15764.13.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:54656 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753732AbaCOA4y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 20:56:54 -0400
+In-Reply-To: <877g808luk.fsf_-_@xmission.com> (Eric W. Biederman's message of
+	"Tue, 11 Mar 2014 14:30:11 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRv
-OmJlbkBkZWNhZGVudC5vcmcudWtdDQo+U2VudDogRnJpZGF5LCBNYXJjaCAxNCwgMjAxNCA1OjE5
-IFBNDQo+VG86IERhdmlkIE1pbGxlcg0KPkNjOiBUYW50aWxvdiwgRW1pbCBTOyBLaXJzaGVyLCBK
-ZWZmcmV5IFQ7DQo+bmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgZ29zcG9AcmVkaGF0LmNvbTsNCj5z
-YXNzbWFubkByZWRoYXQuY29tOyBhc2hhcm1hQGZiLmNvbTsgc3RhYmxlQHZnZXIua2VybmVsLm9y
-Zw0KPlN1YmplY3Q6IFJlOiBbbmV0LW5leHQgMDEvMTZdIGl4Z2JlOiBhZGQgY2hlY2sgZm9yDQo+
-bmV0aWZfY2Fycmllcl9vayBpbiBpeGdiZV94bWl0X2ZyYW1lDQo+DQo+T24gRnJpLCAyMDE0LTAz
-LTE0IGF0IDE3OjUxIC0wNDAwLCBEYXZpZCBNaWxsZXIgd3JvdGU6DQo+PiBGcm9tOiAiVGFudGls
-b3YsIEVtaWwgUyIgPGVtaWwucy50YW50aWxvdkBpbnRlbC5jb20+DQo+PiBEYXRlOiBGcmksIDE0
-IE1hciAyMDE0IDIwOjE5OjM4ICswMDAwDQo+Pg0KPj4gPiBUaGF0IHdvdWxkIHdvcmssIGJ1dCB3
-aGF0IGlmIHRoZXJlIGFyZSBvdGhlciBjYWxsZXJzIG9mDQo+PiA+IG5kb19zdGFydF94bWl0IHRo
-YXQgZG9uJ3QgaGF2ZSB0aGlzIGNoZWNrPyBIYW5kbGluZyB0aGlzIGluIHRoZQ0KPj4gPiBkcml2
-ZXIgdGFrZXMgY2FyZSBvZiBhbGwgaW5zdGFuY2VzLg0KPj4NCj4+IG5ldGlmX2NhcnJpZXJfb2Zm
-KCkgaXMgc3VwcG9zZWQgdG8gc3RvcCB0cmFmZmljIGZyb20gZmxvd2luZyB0bw0KPj4gdGhlIGRl
-dmljZS4NCj4+DQo+PiBUaGUgcWRpc2MgbGF5ZXIgc2hvdWxkIGJlIGhvbm9yaW5nIHRoaXMgcHJv
-cGVydHksIGFuZCBteQ0KPj4gc3VzcGljaW9uIGlzIHRoYXQgaXQgaXMganVzdCBuZXRwb2xsIG9w
-ZXJhdGVzIGluIHRoZSB1bmlxdWUNCj4+IGVudmlyb25tZW50IHRoYXQgZG9lc24ndC4NCj4NCj5U
-aGVyZSBpcyBubyBjaGVjayBmb3IgbmV0aWZfY2Fycmllcl9vaygpIGluIHRoZSBxZGlzYyB0cmFu
-c21pdCBwYXRoLg0KPkluc3RlYWQgbmV0aWZfY2Fycmllcl9vZmYoKSBldmVudHVhbGx5IGNhdXNl
-cyBsaW5rX3dhdGNoIHRvIGNhbGwNCj5kZXZfZGVhY3RpdmF0ZSgpIHdoaWNoIGluc3RhbGxzIHRo
-ZSBub29wIHFkaXNjLg0KPg0KPkl0IGRvZXMgc2VlbSBsaWtlIHRyYW5zbWl0dGVycyB0aGF0IGJ5
-cGFzcyB0aGUgcWRpc2Mgc2hvdWxkDQo+YmUgY2hlY2tpbmcgbmV0aWZfY2Fycmllcl9vaygpLCBi
-dXQgZHJpdmVycyBtdXN0IGFsc28gYWNjZXB0IHRoYXQgdGhlDQo+ZWZmZWN0IG9mIG5ldGlmX2Nh
-cnJpZXJfb2ZmKCkgaXMgbm90IGltbWVkaWF0ZS4NCj4NCj5NYXliZSBpeGdiZSBpcyBub3QgY2Fs
-bGluZyBuZXRpZl9zdG9wX2FsbF9xdWV1ZXMoKSBhdCBxdWl0ZQ0KPnRoZSByaWdodCB0aW1lPw0K
-DQpZb3UncmUgcHJvYmFibHkgcmlnaHQuIEknbSBsb29raW5nIGludG8gaXQuDQoNClRoYW5rcywN
-CkVtaWwNCg0KPg0KPkJlbi4NCj4NCj4tLQ0KPkJlbiBIdXRjaGluZ3MNCj5XaGVuIHlvdSBzYXkg
-YEkgd3JvdGUgYSBwcm9ncmFtIHRoYXQgY3Jhc2hlZCBXaW5kb3dzJywNCj5wZW9wbGUganVzdCBz
-dGFyZSAuLi4NCj5hbmQgc2F5IGBIZXksIEkgZ290IHRob3NlIHdpdGggdGhlIHN5c3RlbSwgKmZv
-ciBmcmVlKicuIC0NCj5MaW51cyBUb3J2YWxkcw0K
+
+After reading through all 120 drivers supporting netpoll I have found 16
+more that process at least received packet when the napi budget == 0.
+
+Processing more packets than your budget has always been a bug but
+we haven't cared before so it looks like these drivers slipped through,
+and need fixes.
+
+As netpoll will shortly be using a budget of 0 to get the tx queue
+processing with the rx queue processing we now care.
+
+Eric W. Biederman (16):
+      bnx2x: Don't receive packets when the napi budget == 0
+      i40e: Don't receive packets when the napi budget == 0
+      igb: Don't receive packets when the napi budget == 0
+      ixgbe: Don't receive packets when the napi budget == 0
+      amd8111e: Don't receive packets when the napi budget == 0
+      enic: Don't receive packets when the napi budget == 0
+      fs_enet: Don't receive packets when the napi budget == 0
+      ibmveth: Don't receive packets when the napi budget == 0
+      sky2: Don't receive packets when the napi budget == 0
+      mlx4: Don't receive packets when the napi budget == 0
+      s2io: Don't receive packets when the napi budget == 0
+      tilegx: Don't receive packets when the napi budget == 0
+      tilepro: Don't receive packets when the napi budget == 0
+      tc35815: Don't receive packets when the napi budget == 0
+      vxge: Don't receive packets when the napi budget == 0
+      sfc: Don't receive packets when the napi budget == 0
+
+ drivers/net/ethernet/amd/amd8111e.c                |    3 +++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |    2 ++
+ drivers/net/ethernet/cisco/enic/enic_main.c        |   14 ++++++++------
+ .../net/ethernet/freescale/fs_enet/fs_enet-main.c  |    3 +++
+ drivers/net/ethernet/ibm/ibmveth.c                 |    4 ++--
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |    3 +++
+ drivers/net/ethernet/intel/igb/igb_main.c          |    4 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |    4 ++--
+ drivers/net/ethernet/marvell/sky2.c                |    3 +++
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c         |    3 +++
+ drivers/net/ethernet/neterion/s2io.c               |    3 +++
+ drivers/net/ethernet/neterion/vxge/vxge-main.c     |    4 ++++
+ drivers/net/ethernet/sfc/ef10.c                    |    3 +++
+ drivers/net/ethernet/sfc/farch.c                   |    3 +++
+ drivers/net/ethernet/tile/tilegx.c                 |    3 +++
+ drivers/net/ethernet/tile/tilepro.c                |    3 +++
+ drivers/net/ethernet/toshiba/tc35815.c             |    3 +++
+ 17 files changed, 53 insertions(+), 12 deletions(-)
+
+Eric
