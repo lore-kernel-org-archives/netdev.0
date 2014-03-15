@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 2/9] netpoll: Visit all napi handlers in poll_napi
-Date: Fri, 14 Mar 2014 18:32:09 -0700
-Message-ID: <8738ikuu06.fsf_-_@xmission.com>
+Subject: [PATCH 3/9] netpoll: Warn if more packets are processed than are budgeted
+Date: Fri, 14 Mar 2014 18:33:01 -0700
+Message-ID: <87wqfwtfea.fsf_-_@xmission.com>
 References: <1394540961.21721.22.camel@edumazet-glaptop2.roam.corp.google.com>
 	<20140311082312.5ad00119@nehalam.linuxnetplumber.net>
 	<87eh28cvi6.fsf@xmission.com>
@@ -14,38 +14,41 @@ Cc: stephen@networkplumber.org, eric.dumazet@gmail.com,
 	satyam.sharma@gmail.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:39170 "EHLO
+Received: from out03.mta.xmission.com ([166.70.13.233]:39250 "EHLO
 	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755418AbaCOBcP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 21:32:15 -0400
+	with ESMTP id S1754826AbaCOBdH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 21:33:07 -0400
 In-Reply-To: <87eh24uu3d.fsf_-_@xmission.com> (Eric W. Biederman's message of
 	"Fri, 14 Mar 2014 18:30:14 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-In poll_napi loop through all of the napi handlers even when the
-budget falls to 0 to ensure that we process all of the tx_queues, and
-so that we continue to call into drivers when our initial budget is 0.
+There is already a warning for this case in the normal netpoll path,
+but put a copy here in case how netpoll calls the poll functions
+causes a differenet result.
+
+netpoll will shortly call the napi poll routine with a budget 0 to
+avoid any rx packets being processed.  As nothing does that today
+we may encounter drivers that have problems so a netpoll specific
+warning seems desirable.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/core/netpoll.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
+ net/core/netpoll.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
 diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 147c75855c9b..d9e3d74ec9ac 100644
+index d9e3d74ec9ac..2ad330e02967 100644
 --- a/net/core/netpoll.c
 +++ b/net/core/netpoll.c
-@@ -174,9 +174,6 @@ static void poll_napi(struct net_device *dev, int budget)
- 		    spin_trylock(&napi->poll_lock)) {
- 			budget = poll_one_napi(napi, budget);
- 			spin_unlock(&napi->poll_lock);
--
--			if (!budget)
--				break;
- 		}
- 	}
- }
+@@ -158,6 +158,7 @@ static int poll_one_napi(struct napi_struct *napi, int budget)
+ 	set_bit(NAPI_STATE_NPSVC, &napi->state);
+ 
+ 	work = napi->poll(napi, budget);
++	WARN_ONCE(work > budget, "%pF exceeded budget in poll\n", napi->poll);
+ 	trace_napi_poll(napi);
+ 
+ 	clear_bit(NAPI_STATE_NPSVC, &napi->state);
 -- 
 1.7.5.4
