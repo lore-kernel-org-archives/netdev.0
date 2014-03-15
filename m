@@ -1,53 +1,69 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 16/16] sfc: Don't receive packets when the napi budget == 0
-Date: Sat, 15 Mar 2014 12:25:06 -0700
-Message-ID: <874n2znu25.fsf@xmission.com>
-References: <871ty41dps.fsf_-_@xmission.com> <87lhwcw9j9.fsf_-_@xmission.com>
-	<1394897014.15764.26.camel@deadeye.wl.decadent.org.uk>
-	<20140315.122912.1621610280186900725.davem@davemloft.net>
-	<1394904231.15764.34.camel@deadeye.wl.decadent.org.uk>
-	<1394909693.9668.6.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v10 net-next 1/3] filter: add Extended BPF interpreter
+ and converter
+Date: Sat, 15 Mar 2014 20:53:55 +0100
+Message-ID: <5324AFD3.8040804@redhat.com>
+References: <20140314125822.GA16457@localhost> <CAMEtUuzqzAHf64DHBao3xKzHdhrp77JEZhe-_c5oC3Vr63QxNA@mail.gmail.com> <CAMEtUuxd0yd81p7KPxyotMOcOxm3MS4Cj9oguS5QAzfXYChLXQ@mail.gmail.com> <20140314.160851.1134730495663127657.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:45098 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750900AbaCOTZP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Mar 2014 15:25:15 -0400
-In-Reply-To: <1394909693.9668.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	(Eric Dumazet's message of "Sat, 15 Mar 2014 11:54:53 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ast@plumgrid.com, pablo@netfilter.org, mingo@kernel.org,
+	wad@chromium.org, rostedt@goodmis.org, a.p.zijlstra@chello.nl,
+	hpa@zytor.com, hagen@jauu.net, jesse@nicira.com,
+	tglx@linutronix.de, edumazet@google.com,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	fweisbec@gmail.com, acme@infradead.org, penberg@iki.fi,
+	arjan@infradead.org, hch@infradead.org, xemul@parallels.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140314.160851.1134730495663127657.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
-
-> On Sat, 2014-03-15 at 17:23 +0000, Ben Hutchings wrote:
+On 03/14/2014 09:08 PM, David Miller wrote:
+> From: Alexei Starovoitov <ast@plumgrid.com>
+> Date: Fri, 14 Mar 2014 12:51:17 -0700
 >
->> The Solarflare hardware provides generic event queues for RX and TX
->> completions, link changes, errors, etc.  The driver can't process TX
->> completions without going through all the other events mixed in with
->> them.
->> 
+>> can you please explain why the status of these
+>> patches is 'deferred' in patchwork ?
+>> Is it because of bpf vs nft thread?
+>> I think that's orthogonal.
 >
-> ndo_poll_controller() could process all events, and queue incoming
-> packets through netif_rx().
+> I do not find it orthogonal, Pablo brings up some very valid points
+> which I agree with.
 >
-> Nobody cares about performance in this path.
+> EBPF has a lot of the same user side interface limitations that the
+> existing BPF has, and you refuse to accept this core point Pablo is
+> making.
+>
+> That is, that it lacks extensibility, and is too strongly tied to the
+> implementation.
+>
+> This is exactly how we run into problems in the future, and you'll be
+> proposing EBPF_2.0 to address such problems.
 
-I made this change so that we don't process rx packets in hard irq
-context and cause things to break, and I made the most minimal most
-obvious change I could.
+Hm, so currently there's no interface where this is exposed to uapi,
+and we surely can and should put the definitions back to the non-uapi
+include to keep it inside the kernel, you're right.
 
-queueing incoming packets with trough netif_rx sounds elegant.
+I think, at least for me, the take-away of Alexei's work is, that
+even (if we assume) without any further functionality, the new design
+would greatly improve the interpreter (and presumably later on as
+well JIT) performance based on Alexei's benchmarks, which would already
+be a win for seccomp and socket filters and where ever they are being
+used across the networking subsystem, and therefore out-of-the-box
+without any changes for user space applications such as libpcap.
 
-The practical challenge is that there might be napi bottom halves
-already scheduled to run before ndo_poll_controller is called so even
-if ndo_poll_controller processes all of the events and calls netif_rx
-to deal with the incoming packets the napi bottom halves will have to
-still not process the queues when they are called.
+I was thinking that it could be an option to make this transparently
+available to everyone, by just dropping the bpf_ext_enable knob, and
+perhaps just replace the old BPF interpreter entirely in this set?
+So the process would be: 1) test if normal BPF filter can be JIT'ed,
+go for it, if it's not supported by JIT (or if it is disabled), run
+it transparently in the new (non-exposed) BPF representation to have
+a better overall performance.
 
-Eric
+Would that perhaps address the above concern? So on the big picture,
+it provides a BPF performance improvement. I think if there's a wish
+to extend the socket filtering api to run alternative interpreters,
+such as nft, then that could still happen, of course.
