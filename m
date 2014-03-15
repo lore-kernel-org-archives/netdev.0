@@ -1,60 +1,40 @@
-From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: [PATCH] ATHEROS-ALX: Use dma_set_mask_and_coherent and fix a bug
-Date: Sat, 15 Mar 2014 19:19:08 +0100
-Message-ID: <1394907548-10084-1-git-send-email-peter.senna@gmail.com>
-Cc: Peter Senna Tschudin <peter.senna@gmail.com>
-To: jcliburn@gmail.com, chris.snook@gmail.com, davem@davemloft.net,
-	johannes@sipsolutions.net, jg1.han@samsung.com,
-	wangyijing@huawei.com, linux@hahnjo.de, sd@queasysnail.net,
-	hahnjo@hahnjo.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 16/16] sfc: Don't receive packets when the napi
+ budget == 0
+Date: Sat, 15 Mar 2014 11:54:53 -0700
+Message-ID: <1394909693.9668.6.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <871ty41dps.fsf_-_@xmission.com>
+	 <87lhwcw9j9.fsf_-_@xmission.com>
+	 <1394897014.15764.26.camel@deadeye.wl.decadent.org.uk>
+	 <20140315.122912.1621610280186900725.davem@davemloft.net>
+	 <1394904231.15764.34.camel@deadeye.wl.decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, ebiederm@xmission.com,
+	netdev@vger.kernel.org, xiyou.wangcong@gmail.com, mpm@selenic.com,
+	satyam.sharma@gmail.com
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:39572 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755951AbaCOSy5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Mar 2014 14:54:57 -0400
+Received: by mail-pd0-f174.google.com with SMTP id y13so3917883pdi.33
+        for <netdev@vger.kernel.org>; Sat, 15 Mar 2014 11:54:57 -0700 (PDT)
+In-Reply-To: <1394904231.15764.34.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- 1. For the 64 bits dma mask use dma_set_mask_and_coherent instead of
- dma_set_mask and dma_set_coherent_mask.
+On Sat, 2014-03-15 at 17:23 +0000, Ben Hutchings wrote:
 
- 2. For the 32 bits dma mask dma_set_coherent_mask is only called if
- dma_set_mask fails, which is unusual. Assuming this as a bug, fixes
- it by replacing calls to dma_set_mask and dma_set_coherent_mask by a
- call to dma_set_coherent_mask.
- 
- Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
----
+> The Solarflare hardware provides generic event queues for RX and TX
+> completions, link changes, errors, etc.  The driver can't process TX
+> completions without going through all the other events mixed in with
+> them.
+> 
 
- Tested by compilation only.
+ndo_poll_controller() could process all events, and queue incoming
+packets through netif_rx().
 
- drivers/net/ethernet/atheros/alx/main.c | 14 ++++----------
- 1 file changed, 4 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
-index 2e45f6e..380d249 100644
---- a/drivers/net/ethernet/atheros/alx/main.c
-+++ b/drivers/net/ethernet/atheros/alx/main.c
-@@ -1248,19 +1248,13 @@ static int alx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	 * shared register for the high 32 bits, so only a single, aligned,
- 	 * 4 GB physical address range can be used for descriptors.
- 	 */
--	if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(64)) &&
--	    !dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64))) {
-+	if (!dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64))) {
- 		dev_dbg(&pdev->dev, "DMA to 64-BIT addresses\n");
- 	} else {
--		err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
-+		err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
- 		if (err) {
--			err = dma_set_coherent_mask(&pdev->dev,
--						    DMA_BIT_MASK(32));
--			if (err) {
--				dev_err(&pdev->dev,
--					"No usable DMA config, aborting\n");
--				goto out_pci_disable;
--			}
-+			dev_err(&pdev->dev, "No usable DMA config, aborting\n");
-+			goto out_pci_disable;
- 		}
- 	}
- 
--- 
-1.8.3.1
+Nobody cares about performance in this path.
