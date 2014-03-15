@@ -1,106 +1,83 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next ] i40evf: Rename i40e_ptype_lookup
- i40evf_ptype_lookup
-Date: Sat, 15 Mar 2014 00:36:44 -0700
-Message-ID: <1394869004.2167.124.camel@jtkirshe-mobl>
-References: <87k3bw2xjp.fsf@xmission.com>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next 1/5] at86rf230: fix unexpected
+	state change
+Date: Sat, 15 Mar 2014 09:29:03 +0100
+Message-ID: <1394872147-3021-2-git-send-email-alex.aring@gmail.com>
+References: <1394872147-3021-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-H43CN285Y2k80H7jKCl2"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
-	Kavindya Deegala <kavindya.s.deegala@intel.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:51224 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751402AbaCOHgp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Mar 2014 03:36:45 -0400
-In-Reply-To: <87k3bw2xjp.fsf@xmission.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-H43CN285Y2k80H7jKCl2
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, 2014-03-14 at 16:03 -0700, Eric W. Biederman wrote:
-> When compiling the i40e and the i40evf driver into the same kernel I
-> get:
-> LD      drivers/net/ethernet/intel/built-in.o
-> drivers/net/ethernet/intel/i40evf/built-in.o:(.data+0x300): multiple
-> definition of `i40e_ptype_lookup'
-> drivers/net/ethernet/intel/i40e/built-in.o:(.data+0x780): first
-> defined here
-> make[3]: *** [drivers/net/ethernet/intel/built-in.o] Error 1
-> make[2]: *** [drivers/net/ethernet/intel] Error 2
-> make[1]: *** [drivers/net/ethernet/] Error 2
-> make: *** [sub-make] Error 2
->=20
-> Fix this by renaming the i40evf version of this structure from
-> i40e_ptype_lookup to i40evf_ptype_lookup.
->=20
-> This build failure was introduced in:
-> commit 206812b5fccb808d1194344eaa942f68f59b2630
-> Author: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Date:   Wed Feb 12 01:45:33 2014 +0000
->=20
->     i40e/i40evf: i40e implementation for skb_set_hash
->=20
->     Original comment from Tom Herbert <therbert@google.com>
->=20
->        Drivers should call skb_set_hash to set the hash and its type
->        in an skbuff.
->=20
->     This patch builds upon Tom's original implementation and adds
->     the L4 type return when we know it is an L4 hash.
->     This requires use of the ptype decoder ring, so enable it.
->=20
->     Change-ID: I2f9fa86d1a6add58cff13386f7f4238b1abcc468
->     CC: Tom Herbert <therbert@google.com>
->     Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
->     Acked-by: Shannon Nelson <shannon.nelson@intel.com>
->     Acked-by: Mitch Williams <mitch.a.williams@intel.com>
->     Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
->     Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
->     Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->=20
-> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Cc: Catherine Sullivan <catherine.sullivan@intel.com>
-> Cc: Kavindya Deegala <kavindya.s.deegala@intel.com>
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
->  drivers/net/ethernet/intel/i40evf/i40e_common.c    |    8 ++++----
->  drivers/net/ethernet/intel/i40evf/i40e_prototype.h |    4 ++--
->  2 files changed, 6 insertions(+), 6 deletions(-)
-
-Correction, I guess I did not already have a fix for this in my queue,
-so I have added this patch to my queue.  Thanks Eric!
-
---=-H43CN285Y2k80H7jKCl2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1394872147-3021-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+This patch fix a unexpected state change for the at86rf231 chip.
+We can't change into STATE_FORCE_TX_ON while the chip is in one of
+SLEEP, P_ON, RESET, TRX_OFF, and all *_NOCLK states.
 
-iQIcBAABCgAGBQJTJAMMAAoJEOVv75VaS+3Oet4P/0ktVMh6jXbFjBYonnr8ftC2
-2vpPdTILoBEvKXHOWFkbrBpZyAnT/yB8i9UPOSPeSY7LSmtoE1bZ4BBHa4Tlt8dd
-jbcgR4ZpbZWr01zLgnyAvxVkO6bkOhGg77+RXNouedcn1Hbcekfv01zoIVuFQMZ0
-6MKmz78nA+yuwJffgSlmhTerXAosj996XTiO6aLO9euAox3wtW7Hfg0eokTdliGs
-T10BCsnywHzbUaNRFqkUo5KW2zq9XuuvwHn5R/sgUn1q+8hSUtA6PQOkDrfQCa1F
-Ut+VkV8T1cUt5DUHmF59rqBxeNTGyHNpULF5mRaKAnTu+dNAqlykWuPVaaVnzk4Z
-gyogsVrHKLy8ZXHkGiwJz522SgkC+fOpQMoa8+QBMqWNrnQLYrEPasdWU4MatjhW
-9bd4vgp2emIqyb6aNZLCyNKP8w53fAbwXmrjkBWtfYsT3PJmtRQPv1IK0P71ljaz
-CZUNEEA9G0dFTibJZ1SVuUnQAEE/c2VT5JJvWnxR/kSSTCWPMarvyU/ES/iGEanR
-csYE38r1BNwyPuB3lnSMENX18bEOZIOMvgOURhpWskop6bWDn5ZLR7a6bHzEmO36
-E6cYUSTm7caxudmpDavx2C+3f/dZ1gpMYVdrbOgju+mOe/E+0B31qMpSN5oNcB78
-W16BKfPzxlYuRsI1uQug
-=3yqy
------END PGP SIGNATURE-----
+In this case we are in the TRX_OFF state. See datasheet [1] page 71 for
+more information.
 
---=-H43CN285Y2k80H7jKCl2--
+Without this patch you will get the following message on a at86rf231 device:
+
+[   20.065218] unexpected state change: 8, asked for 4
+[   20.070527] ------------[ cut here ]------------
+[   20.075414] WARNING: CPU: 0 PID: 160 at net/mac802154/ieee802154_dev.c:43 mac802154_slave_open+0x70/0xb8()
+[   20.085594] Modules linked in: autofs4
+[   20.089667] CPU: 0 PID: 160 Comm: ifconfig Not tainted 3.14.0-20140108-1-00993-g905c192 #162
+[   20.098612] [<c00127b8>] (unwind_backtrace) from [<c0010b1c>] (show_stack+0x10/0x14)
+[   20.106819] [<c0010b1c>] (show_stack) from [<c0033838>] (warn_slowpath_common+0x60/0x80)
+[   20.115311] [<c0033838>] (warn_slowpath_common) from [<c00338e8>] (warn_slowpath_null+0x18/0x20)
+[   20.124590] [<c00338e8>] (warn_slowpath_null) from [<c057b7e8>] (mac802154_slave_open+0x70/0xb8)
+[   20.133880] [<c057b7e8>] (mac802154_slave_open) from [<c0488a58>] (__dev_open+0xa8/0x108)
+[   20.142553] [<c0488a58>] (__dev_open) from [<c0488cb0>] (__dev_change_flags+0x8c/0x148)
+[   20.151051] [<c0488cb0>] (__dev_change_flags) from [<c0488d84>] (dev_change_flags+0x18/0x48)
+[   20.159968] [<c0488d84>] (dev_change_flags) from [<c04e2e9c>] (devinet_ioctl+0x2b0/0x63c)
+[   20.168623] [<c04e2e9c>] (devinet_ioctl) from [<c04712e4>] (sock_ioctl+0x23c/0x29c)
+[   20.176727] [<c04712e4>] (sock_ioctl) from [<c00e3cb8>] (do_vfs_ioctl+0x4a8/0x578)
+[   20.184671] [<c00e3cb8>] (do_vfs_ioctl) from [<c00e3dd4>] (SyS_ioctl+0x4c/0x78)
+[   20.192402] [<c00e3dd4>] (SyS_ioctl) from [<c000da00>] (ret_fast_syscall+0x0/0x48)
+[   20.200392] ---[ end trace 9a34542f4ea08e47 ]---
+
+This patch was tested on at86rf231 and at86rf212.
+
+[1] http://www.atmel.com/images/doc8111.pdf
+
+Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ drivers/net/ieee802154/at86rf230.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
+index ae38a98..ad296bc 100644
+--- a/drivers/net/ieee802154/at86rf230.c
++++ b/drivers/net/ieee802154/at86rf230.c
+@@ -574,7 +574,7 @@ at86rf230_start(struct ieee802154_dev *dev)
+ 	if (rc)
+ 		return rc;
+ 
+-	rc = at86rf230_state(dev, STATE_FORCE_TX_ON);
++	rc = at86rf230_state(dev, STATE_TX_ON);
+ 	if (rc)
+ 		return rc;
+ 
+-- 
+1.9.0
+
+
+------------------------------------------------------------------------------
+Learn Graph Databases - Download FREE O'Reilly Book
+"Graph Databases" is the definitive new guide to graph databases and their
+applications. Written by three acclaimed leaders in the field,
+this first edition is now available. Download your free book today!
+http://p.sf.net/sfu/13534_NeoTech
