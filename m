@@ -1,28 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] bonding: use correct ether type for alb
-Date: Fri, 14 Mar 2014 22:21:33 -0400 (EDT)
-Message-ID: <20140314.222133.1978976674383447094.davem@davemloft.net>
-References: <1394710918-29540-1-git-send-email-vfalico@redhat.com>
+Subject: Re: [RFC PATCH] MAINTAINERS: Add linux.nics@intel.com to INTEL
+ ETHERNET DRIVERS
+Date: Fri, 14 Mar 2014 22:37:11 -0400 (EDT)
+Message-ID: <20140314.223711.556924220874865651.davem@davemloft.net>
+References: <1394730705.3915.82.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	stefanr@s5r6.in-berlin.de, sw@simonwunderlich.de,
-	Neil.Jerram@metaswitch.com, horms@verge.net.au,
-	Arvid.Brodin@xdin.com, linux-kernel@vger.kernel.org
-To: vfalico@redhat.com
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: joe@perches.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394710918-29540-1-git-send-email-vfalico@redhat.com>
+In-Reply-To: <1394730705.3915.82.camel@joe-AO722>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Veaceslav Falico <vfalico@redhat.com>
-Date: Thu, 13 Mar 2014 12:41:56 +0100
+From: Joe Perches <joe@perches.com>
+Date: Thu, 13 Mar 2014 10:11:45 -0700
 
-> There have been reports that, while using the ETH_P_LOOP ether type
-> (0x0060), the ether type is treated as its packet length.
+> If this is added to the driver files, then maybe it's
+> appropriate to add to MAINTAINERS as well.
 > 
-> To avoid that and to not break already existing apps - add new ether type
-> ETH_P_LOOPBACK that contains the correct id - 0x9000.
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Series applied, thanks Veaceslav.
+Applied, thanks Joe.
