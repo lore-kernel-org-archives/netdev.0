@@ -1,39 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2014-03-14
-Date: Fri, 14 Mar 2014 22:51:47 -0400 (EDT)
-Message-ID: <20140314.225147.855002342224224013.davem@davemloft.net>
-References: <20140314182024.GA20339@tuxdriver.com>
+Subject: Re: [PATCH net-next 0/16] Don't receive packets when the napi
+ budget == 0
+Date: Fri, 14 Mar 2014 22:54:01 -0400 (EDT)
+Message-ID: <20140314.225401.1475848510205014871.davem@davemloft.net>
+References: <20140311.160931.1395978386605601765.davem@davemloft.net>
+	<877g808luk.fsf_-_@xmission.com>
+	<871ty41dps.fsf_-_@xmission.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140314182024.GA20339@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
+To: ebiederm@xmission.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41694 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754391AbaCOCyD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 22:54:03 -0400
+In-Reply-To: <871ty41dps.fsf_-_@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 14 Mar 2014 14:20:26 -0400
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Fri, 14 Mar 2014 17:56:47 -0700
 
-> Please pull these last(?) few wireless bits intended for the 3.14
-> stream.  Each is here to address a problem found with a patch already
-> merged...
+> After reading through all 120 drivers supporting netpoll I have found 16
+> more that process at least received packet when the napi budget == 0.
 > 
-> Dave Jones gives us a memory leak fix, for an error path in brcmfmac.
+> Processing more packets than your budget has always been a bug but
+> we haven't cared before so it looks like these drivers slipped through,
+> and need fixes.
 > 
-> Felix Fietkau moves a small delay to make it actually reachable.
-> 
-> Helmut Schaa fixes an ath9k sequence numbering problem for non-data
-> frames.
-> 
-> Stanislaw Gruszka reverts an earlier fix that was found to cause
-> random connection drops on RT5390 PCI adapters
-> 
-> Please let me know if there are problems!  I'll be back from watching
-> the Veronica Mars movie by about 9pm... :-)
+> As netpoll will shortly be using a budget of 0 to get the tx queue
+> processing with the rx queue processing we now care.
 
-:-)
-
-Pulled, thanks John.
+Series applied, thanks Eric.
