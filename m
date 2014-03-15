@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 3/5] at86rf230: change reset
-	timings
-Date: Sat, 15 Mar 2014 09:29:05 +0100
-Message-ID: <1394872147-3021-4-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH net-next 4/5] at86rf230: make reset pin
+	optionally
+Date: Sat, 15 Mar 2014 09:29:06 +0100
+Message-ID: <1394872147-3021-5-git-send-email-alex.aring@gmail.com>
 References: <1394872147-3021-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,43 +21,88 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-While checkpatch another patch I got a:
-
-"WARNING: msleep < 20ms can sleep for up to 20ms"
-
-The datasheet of at86rf231 and at86rf212 says a minimum delay for reset
-pulse width and spi access latency after reset is 625 nanoseconds.
-
-This patch removes the 1 milliseconds sleep and replace it with a 1
-microseconds udelay which should be also okay for the reset pulse width.
-
-To change the state from RESET -> TRX_OFF the at86rf230 device needs 120
-microseconds, this is a worst case of all at86rf* chips.
+This patch make the reset pin optionally. Some devices like the atben
+from qi-hardware don't have a reset pin externally. The usually way is
+to turn power off/on for the atben device to initiate a device reset.
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ieee802154/at86rf230.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ieee802154/at86rf230.c | 34 +++++++++++++++++++++-------------
+ 1 file changed, 21 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index 030bf39..3744240 100644
+index 3744240..47677e3f9 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -1080,11 +1080,11 @@ static int at86rf230_probe(struct spi_device *spi)
+@@ -1059,9 +1059,11 @@ static int at86rf230_probe(struct spi_device *spi)
+ 		return -EINVAL;
+ 	}
+ 
+-	rc = gpio_request(pdata->rstn, "rstn");
+-	if (rc)
+-		return rc;
++	if (gpio_is_valid(pdata->rstn)) {
++		rc = gpio_request(pdata->rstn, "rstn");
++		if (rc)
++			return rc;
++	}
+ 
+ 	if (gpio_is_valid(pdata->slp_tr)) {
+ 		rc = gpio_request(pdata->slp_tr, "slp_tr");
+@@ -1069,9 +1071,11 @@ static int at86rf230_probe(struct spi_device *spi)
+ 			goto err_slp_tr;
+ 	}
+ 
+-	rc = gpio_direction_output(pdata->rstn, 1);
+-	if (rc)
+-		goto err_gpio_dir;
++	if (gpio_is_valid(pdata->rstn)) {
++		rc = gpio_direction_output(pdata->rstn, 1);
++		if (rc)
++			goto err_gpio_dir;
++	}
+ 
+ 	if (gpio_is_valid(pdata->slp_tr)) {
+ 		rc = gpio_direction_output(pdata->slp_tr, 0);
+@@ -1080,11 +1084,13 @@ static int at86rf230_probe(struct spi_device *spi)
  	}
  
  	/* Reset */
--	msleep(1);
-+	udelay(1);
- 	gpio_set_value(pdata->rstn, 0);
--	msleep(1);
-+	udelay(1);
- 	gpio_set_value(pdata->rstn, 1);
--	msleep(1);
-+	usleep_range(120, 240);
+-	udelay(1);
+-	gpio_set_value(pdata->rstn, 0);
+-	udelay(1);
+-	gpio_set_value(pdata->rstn, 1);
+-	usleep_range(120, 240);
++	if (gpio_is_valid(pdata->rstn)) {
++		udelay(1);
++		gpio_set_value(pdata->rstn, 0);
++		udelay(1);
++		gpio_set_value(pdata->rstn, 1);
++		usleep_range(120, 240);
++	}
  
  	rc = __at86rf230_detect_device(spi, &man_id, &part, &version);
  	if (rc < 0)
+@@ -1198,7 +1204,8 @@ err_gpio_dir:
+ 	if (gpio_is_valid(pdata->slp_tr))
+ 		gpio_free(pdata->slp_tr);
+ err_slp_tr:
+-	gpio_free(pdata->rstn);
++	if (gpio_is_valid(pdata->rstn))
++		gpio_free(pdata->rstn);
+ 	return rc;
+ }
+ 
+@@ -1214,7 +1221,8 @@ static int at86rf230_remove(struct spi_device *spi)
+ 
+ 	if (gpio_is_valid(pdata->slp_tr))
+ 		gpio_free(pdata->slp_tr);
+-	gpio_free(pdata->rstn);
++	if (gpio_is_valid(pdata->rstn))
++		gpio_free(pdata->rstn);
+ 
+ 	mutex_destroy(&lp->bmux);
+ 	ieee802154_free_device(lp->dev);
 -- 
 1.9.0
 
