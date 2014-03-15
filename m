@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 6/9] netpoll: Move netpoll_trap under CONFIG_NETPOLL_TRAP
-Date: Fri, 14 Mar 2014 18:35:43 -0700
-Message-ID: <87fvmktf9s.fsf_-_@xmission.com>
+Subject: [PATCH 7/9] netpoll: Consolidate neigh_tx processing in service_neigh_queue
+Date: Fri, 14 Mar 2014 18:36:22 -0700
+Message-ID: <87a9cstf8p.fsf_-_@xmission.com>
 References: <1394540961.21721.22.camel@edumazet-glaptop2.roam.corp.google.com>
 	<20140311082312.5ad00119@nehalam.linuxnetplumber.net>
 	<87eh28cvi6.fsf@xmission.com>
@@ -14,129 +14,84 @@ Cc: stephen@networkplumber.org, eric.dumazet@gmail.com,
 	satyam.sharma@gmail.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:39653 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752107AbaCOBft (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 21:35:49 -0400
+Received: from out01.mta.xmission.com ([166.70.13.231]:60916 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752107AbaCOBg2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 21:36:28 -0400
 In-Reply-To: <87eh24uu3d.fsf_-_@xmission.com> (Eric W. Biederman's message of
 	"Fri, 14 Mar 2014 18:30:14 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Now that we no longer need to receive packets to safely drain the
-network drivers receive queue move netpoll_trap and netpoll_set_trap
-under CONFIG_NETPOLL_TRAP
+Move the bond slave device neigh_tx handling into service_neigh_queue.
 
-Making netpoll_trap and netpoll_set_trap noop inline functions
-when CONFIG_NETPOLL_TRAP is not set.
+In connection with neigh_tx processing remove unnecessary tests of
+a NULL netpoll_info.  As the netpoll_poll_dev has already used
+and thus verified the existince of the netpoll_info.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- include/linux/netpoll.h |   11 +++++++++--
- net/core/netpoll.c      |   14 +++++++++-----
- 2 files changed, 18 insertions(+), 7 deletions(-)
+ net/core/netpoll.c |   38 ++++++++++++++++----------------------
+ 1 files changed, 16 insertions(+), 22 deletions(-)
 
-diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index 154f9776056c..ab9aaaff8d04 100644
---- a/include/linux/netpoll.h
-+++ b/include/linux/netpoll.h
-@@ -65,8 +65,6 @@ void netpoll_print_options(struct netpoll *np);
- int netpoll_parse_options(struct netpoll *np, char *opt);
- int __netpoll_setup(struct netpoll *np, struct net_device *ndev, gfp_t gfp);
- int netpoll_setup(struct netpoll *np);
--int netpoll_trap(void);
--void netpoll_set_trap(int trap);
- void __netpoll_cleanup(struct netpoll *np);
- void __netpoll_free_async(struct netpoll *np);
- void netpoll_cleanup(struct netpoll *np);
-@@ -82,11 +80,20 @@ static inline void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
- }
- 
- #ifdef CONFIG_NETPOLL_TRAP
-+int netpoll_trap(void);
-+void netpoll_set_trap(int trap);
- static inline bool netpoll_rx_processing(struct netpoll_info *npinfo)
- {
- 	return !list_empty(&npinfo->rx_np);
- }
- #else
-+static inline int netpoll_trap(void)
-+{
-+	return 0;
-+}
-+static inline void netpoll_set_trap(int trap)
-+{
-+}
- static inline bool netpoll_rx_processing(struct netpoll_info *npinfo)
- {
- 	return false;
 diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 793dc04d2f19..0e45835f1737 100644
+index 0e45835f1737..b69bb3f1ba3f 100644
 --- a/net/core/netpoll.c
 +++ b/net/core/netpoll.c
-@@ -46,7 +46,9 @@
- 
- static struct sk_buff_head skb_pool;
- 
-+#ifdef CONFIG_NETPOLL_TRAP
- static atomic_t trapped;
-+#endif
- 
- DEFINE_STATIC_SRCU(netpoll_srcu);
- 
-@@ -207,7 +209,7 @@ static void netpoll_poll_dev(struct net_device *dev)
+@@ -179,14 +179,23 @@ static void poll_napi(struct net_device *dev, int budget)
  	}
+ }
  
- 	if (rx_processing)
--		atomic_inc(&trapped);
-+		netpoll_set_trap(1);
+-static void service_neigh_queue(struct netpoll_info *npi)
++static void service_neigh_queue(struct net_device *dev,
++				struct netpoll_info *npi)
+ {
+-	if (npi) {
+-		struct sk_buff *skb;
+-
+-		while ((skb = skb_dequeue(&npi->neigh_tx)))
+-			netpoll_neigh_reply(skb, npi);
++	struct sk_buff *skb;
++	if (dev->flags & IFF_SLAVE) {
++		struct net_device *bond_dev;
++		struct netpoll_info *bond_ni;
++
++		bond_dev = netdev_master_upper_dev_get_rcu(dev);
++		bond_ni = rcu_dereference_bh(bond_dev->npinfo);
++		while ((skb = skb_dequeue(&npi->neigh_tx))) {
++			skb->dev = bond_dev;
++			skb_queue_tail(&bond_ni->neigh_tx, skb);
++		}
+ 	}
++	while ((skb = skb_dequeue(&npi->neigh_tx)))
++		netpoll_neigh_reply(skb, npi);
+ }
  
- 	ops = dev->netdev_ops;
- 	if (!ops->ndo_poll_controller) {
-@@ -221,7 +223,7 @@ static void netpoll_poll_dev(struct net_device *dev)
- 	poll_napi(dev, budget);
- 
- 	if (rx_processing)
--		atomic_dec(&trapped);
-+		netpoll_set_trap(0);
+ static void netpoll_poll_dev(struct net_device *dev)
+@@ -227,22 +236,7 @@ static void netpoll_poll_dev(struct net_device *dev)
  
  	up(&ni->dev_lock);
  
-@@ -776,10 +778,10 @@ int __netpoll_rx(struct sk_buff *skb, struct netpoll_info *npinfo)
- 		goto out;
+-	if (dev->flags & IFF_SLAVE) {
+-		if (ni) {
+-			struct net_device *bond_dev;
+-			struct sk_buff *skb;
+-			struct netpoll_info *bond_ni;
+-
+-			bond_dev = netdev_master_upper_dev_get_rcu(dev);
+-			bond_ni = rcu_dereference_bh(bond_dev->npinfo);
+-			while ((skb = skb_dequeue(&ni->neigh_tx))) {
+-				skb->dev = bond_dev;
+-				skb_queue_tail(&bond_ni->neigh_tx, skb);
+-			}
+-		}
+-	}
+-
+-	service_neigh_queue(ni);
++	service_neigh_queue(dev, ni);
  
- 	/* check if netpoll clients need ARP */
--	if (skb->protocol == htons(ETH_P_ARP) && atomic_read(&trapped)) {
-+	if (skb->protocol == htons(ETH_P_ARP) && netpoll_trap()) {
- 		skb_queue_tail(&npinfo->neigh_tx, skb);
- 		return 1;
--	} else if (pkt_is_ns(skb) && atomic_read(&trapped)) {
-+	} else if (pkt_is_ns(skb) && netpoll_trap()) {
- 		skb_queue_tail(&npinfo->neigh_tx, skb);
- 		return 1;
- 	}
-@@ -896,7 +898,7 @@ int __netpoll_rx(struct sk_buff *skb, struct netpoll_info *npinfo)
- 	return 1;
- 
- out:
--	if (atomic_read(&trapped)) {
-+	if (netpoll_trap()) {
- 		kfree_skb(skb);
- 		return 1;
- 	}
-@@ -1302,6 +1304,7 @@ out:
+ 	zap_completion_queue();
  }
- EXPORT_SYMBOL(netpoll_cleanup);
- 
-+#ifdef CONFIG_NETPOLL_TRAP
- int netpoll_trap(void)
- {
- 	return atomic_read(&trapped);
-@@ -1316,3 +1319,4 @@ void netpoll_set_trap(int trap)
- 		atomic_dec(&trapped);
- }
- EXPORT_SYMBOL(netpoll_set_trap);
-+#endif /* CONFIG_NETPOLL_TRAP */
 -- 
 1.7.5.4
