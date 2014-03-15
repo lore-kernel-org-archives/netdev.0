@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 5/9] netpoll: Don't drop all received packets.
-Date: Fri, 14 Mar 2014 18:34:58 -0700
-Message-ID: <87lhwctfb1.fsf_-_@xmission.com>
+Subject: [PATCH 6/9] netpoll: Move netpoll_trap under CONFIG_NETPOLL_TRAP
+Date: Fri, 14 Mar 2014 18:35:43 -0700
+Message-ID: <87fvmktf9s.fsf_-_@xmission.com>
 References: <1394540961.21721.22.camel@edumazet-glaptop2.roam.corp.google.com>
 	<20140311082312.5ad00119@nehalam.linuxnetplumber.net>
 	<87eh28cvi6.fsf@xmission.com>
@@ -14,127 +14,129 @@ Cc: stephen@networkplumber.org, eric.dumazet@gmail.com,
 	satyam.sharma@gmail.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:60725 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754170AbaCOBfF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 21:35:05 -0400
+Received: from out03.mta.xmission.com ([166.70.13.233]:39653 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752107AbaCOBft (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Mar 2014 21:35:49 -0400
 In-Reply-To: <87eh24uu3d.fsf_-_@xmission.com> (Eric W. Biederman's message of
 	"Fri, 14 Mar 2014 18:30:14 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Change the strategy of netpoll from dropping all packets received
-during netpoll_poll_dev to calling napi poll with a budget of 0
-(to avoid processing drivers rx queue), and to ignore packets received
-with netif_rx (those will safely be placed on the backlog queue).
+Now that we no longer need to receive packets to safely drain the
+network drivers receive queue move netpoll_trap and netpoll_set_trap
+under CONFIG_NETPOLL_TRAP
 
-All of the netpoll supporting drivers have been reviewed to ensure
-either thay use netif_rx or that a budget of 0 is supported by their
-napi poll routine and that a budget of 0 will not process the drivers
-rx queues.
-
-Not dropping packets makes NETPOLL_RX_DROP unnecesary so it is removed.
-
-npinfo->rx_flags is removed  as rx_flags with just the NETPOLL_RX_ENABLED
-flag becomes just a redundant mirror of list_empty(&npinfo->rx_np).
+Making netpoll_trap and netpoll_set_trap noop inline functions
+when CONFIG_NETPOLL_TRAP is not set.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- include/linux/netpoll.h |    3 +--
- net/core/netpoll.c      |   17 ++++++-----------
- 2 files changed, 7 insertions(+), 13 deletions(-)
+ include/linux/netpoll.h |   11 +++++++++--
+ net/core/netpoll.c      |   14 +++++++++-----
+ 2 files changed, 18 insertions(+), 7 deletions(-)
 
 diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index 479d15c97770..154f9776056c 100644
+index 154f9776056c..ab9aaaff8d04 100644
 --- a/include/linux/netpoll.h
 +++ b/include/linux/netpoll.h
-@@ -39,7 +39,6 @@ struct netpoll {
- struct netpoll_info {
- 	atomic_t refcnt;
- 
--	unsigned long rx_flags;
- 	spinlock_t rx_lock;
- 	struct semaphore dev_lock;
- 	struct list_head rx_np; /* netpolls that registered an rx_skb_hook */
-@@ -99,7 +98,7 @@ static inline bool netpoll_rx_on(struct sk_buff *skb)
- {
- 	struct netpoll_info *npinfo = rcu_dereference_bh(skb->dev->npinfo);
- 
--	return npinfo && (netpoll_rx_processing(npinfo) || npinfo->rx_flags);
-+	return npinfo && netpoll_rx_processing(npinfo);
+@@ -65,8 +65,6 @@ void netpoll_print_options(struct netpoll *np);
+ int netpoll_parse_options(struct netpoll *np, char *opt);
+ int __netpoll_setup(struct netpoll *np, struct net_device *ndev, gfp_t gfp);
+ int netpoll_setup(struct netpoll *np);
+-int netpoll_trap(void);
+-void netpoll_set_trap(int trap);
+ void __netpoll_cleanup(struct netpoll *np);
+ void __netpoll_free_async(struct netpoll *np);
+ void netpoll_cleanup(struct netpoll *np);
+@@ -82,11 +80,20 @@ static inline void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
  }
  
- static inline bool netpoll_rx(struct sk_buff *skb)
+ #ifdef CONFIG_NETPOLL_TRAP
++int netpoll_trap(void);
++void netpoll_set_trap(int trap);
+ static inline bool netpoll_rx_processing(struct netpoll_info *npinfo)
+ {
+ 	return !list_empty(&npinfo->rx_np);
+ }
+ #else
++static inline int netpoll_trap(void)
++{
++	return 0;
++}
++static inline void netpoll_set_trap(int trap)
++{
++}
+ static inline bool netpoll_rx_processing(struct netpoll_info *npinfo)
+ {
+ 	return false;
 diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index ef83a2530e98..793dc04d2f19 100644
+index 793dc04d2f19..0e45835f1737 100644
 --- a/net/core/netpoll.c
 +++ b/net/core/netpoll.c
-@@ -51,8 +51,6 @@ static atomic_t trapped;
+@@ -46,7 +46,9 @@
+ 
+ static struct sk_buff_head skb_pool;
+ 
++#ifdef CONFIG_NETPOLL_TRAP
+ static atomic_t trapped;
++#endif
+ 
  DEFINE_STATIC_SRCU(netpoll_srcu);
  
- #define USEC_PER_POLL	50
--#define NETPOLL_RX_ENABLED  1
--#define NETPOLL_RX_DROP     2
- 
- #define MAX_SKB_SIZE							\
- 	(sizeof(struct ethhdr) +					\
-@@ -193,7 +191,8 @@ static void netpoll_poll_dev(struct net_device *dev)
- {
- 	const struct net_device_ops *ops;
- 	struct netpoll_info *ni = rcu_dereference_bh(dev->npinfo);
--	int budget = 16;
-+	bool rx_processing = netpoll_rx_processing(ni);
-+	int budget = rx_processing? 16 : 0;
- 
- 	/* Don't do any rx activity if the dev_lock mutex is held
- 	 * the dev_open/close paths use this to block netpoll activity
-@@ -207,8 +206,8 @@ static void netpoll_poll_dev(struct net_device *dev)
- 		return;
+@@ -207,7 +209,7 @@ static void netpoll_poll_dev(struct net_device *dev)
  	}
  
--	ni->rx_flags |= NETPOLL_RX_DROP;
--	atomic_inc(&trapped);
-+	if (rx_processing)
-+		atomic_inc(&trapped);
+ 	if (rx_processing)
+-		atomic_inc(&trapped);
++		netpoll_set_trap(1);
  
  	ops = dev->netdev_ops;
  	if (!ops->ndo_poll_controller) {
-@@ -221,8 +220,8 @@ static void netpoll_poll_dev(struct net_device *dev)
- 
+@@ -221,7 +223,7 @@ static void netpoll_poll_dev(struct net_device *dev)
  	poll_napi(dev, budget);
  
--	atomic_dec(&trapped);
--	ni->rx_flags &= ~NETPOLL_RX_DROP;
-+	if (rx_processing)
-+		atomic_dec(&trapped);
+ 	if (rx_processing)
+-		atomic_dec(&trapped);
++		netpoll_set_trap(0);
  
  	up(&ni->dev_lock);
  
-@@ -1050,7 +1049,6 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev, gfp_t gfp)
- 			goto out;
- 		}
+@@ -776,10 +778,10 @@ int __netpoll_rx(struct sk_buff *skb, struct netpoll_info *npinfo)
+ 		goto out;
  
--		npinfo->rx_flags = 0;
- 		INIT_LIST_HEAD(&npinfo->rx_np);
- 
- 		spin_lock_init(&npinfo->rx_lock);
-@@ -1076,7 +1074,6 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev, gfp_t gfp)
- 
- 	if (np->rx_skb_hook) {
- 		spin_lock_irqsave(&npinfo->rx_lock, flags);
--		npinfo->rx_flags |= NETPOLL_RX_ENABLED;
- 		list_add_tail(&np->rx, &npinfo->rx_np);
- 		spin_unlock_irqrestore(&npinfo->rx_lock, flags);
+ 	/* check if netpoll clients need ARP */
+-	if (skb->protocol == htons(ETH_P_ARP) && atomic_read(&trapped)) {
++	if (skb->protocol == htons(ETH_P_ARP) && netpoll_trap()) {
+ 		skb_queue_tail(&npinfo->neigh_tx, skb);
+ 		return 1;
+-	} else if (pkt_is_ns(skb) && atomic_read(&trapped)) {
++	} else if (pkt_is_ns(skb) && netpoll_trap()) {
+ 		skb_queue_tail(&npinfo->neigh_tx, skb);
+ 		return 1;
  	}
-@@ -1258,8 +1255,6 @@ void __netpoll_cleanup(struct netpoll *np)
- 	if (!list_empty(&npinfo->rx_np)) {
- 		spin_lock_irqsave(&npinfo->rx_lock, flags);
- 		list_del(&np->rx);
--		if (list_empty(&npinfo->rx_np))
--			npinfo->rx_flags &= ~NETPOLL_RX_ENABLED;
- 		spin_unlock_irqrestore(&npinfo->rx_lock, flags);
- 	}
+@@ -896,7 +898,7 @@ int __netpoll_rx(struct sk_buff *skb, struct netpoll_info *npinfo)
+ 	return 1;
  
+ out:
+-	if (atomic_read(&trapped)) {
++	if (netpoll_trap()) {
+ 		kfree_skb(skb);
+ 		return 1;
+ 	}
+@@ -1302,6 +1304,7 @@ out:
+ }
+ EXPORT_SYMBOL(netpoll_cleanup);
+ 
++#ifdef CONFIG_NETPOLL_TRAP
+ int netpoll_trap(void)
+ {
+ 	return atomic_read(&trapped);
+@@ -1316,3 +1319,4 @@ void netpoll_set_trap(int trap)
+ 		atomic_dec(&trapped);
+ }
+ EXPORT_SYMBOL(netpoll_set_trap);
++#endif /* CONFIG_NETPOLL_TRAP */
 -- 
 1.7.5.4
