@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 4/5] at86rf230: make reset pin
-	optionally
-Date: Sat, 15 Mar 2014 09:29:06 +0100
-Message-ID: <1394872147-3021-5-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH net-next 5/5] at86rf230: add support
+	for devicetree
+Date: Sat, 15 Mar 2014 09:29:07 +0100
+Message-ID: <1394872147-3021-6-git-send-email-alex.aring@gmail.com>
 References: <1394872147-3021-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,88 +21,99 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch make the reset pin optionally. Some devices like the atben
-from qi-hardware don't have a reset pin externally. The usually way is
-to turn power off/on for the atben device to initiate a device reset.
+This patch adds devicetree support for the at86rf230 driver.
+
+Possible gpios to configure are "reset-gpio" and "sleep-gpio".
+Also add support to configure the "irq-type" for the irq polarity
+register.
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ieee802154/at86rf230.c | 34 +++++++++++++++++++++-------------
- 1 file changed, 21 insertions(+), 13 deletions(-)
+ drivers/net/ieee802154/at86rf230.c | 48 +++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 47 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index 3744240..47677e3f9 100644
+index 47677e3f9..e8004ef 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -1059,9 +1059,11 @@ static int at86rf230_probe(struct spi_device *spi)
+@@ -31,6 +31,7 @@
+ #include <linux/spi/spi.h>
+ #include <linux/spi/at86rf230.h>
+ #include <linux/skbuff.h>
++#include <linux/of_gpio.h>
+ 
+ #include <net/mac802154.h>
+ #include <net/wpan-phy.h>
+@@ -1035,6 +1036,40 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
+ 	return 0;
+ }
+ 
++static struct at86rf230_platform_data *
++at86rf230_get_pdata(struct spi_device *spi)
++{
++	struct at86rf230_platform_data *pdata;
++	const char *irq_type;
++
++	if (!IS_ENABLED(CONFIG_OF) || !spi->dev.of_node)
++		return spi->dev.platform_data;
++
++	pdata = devm_kzalloc(&spi->dev, sizeof(*pdata), GFP_KERNEL);
++	if (!pdata)
++		goto done;
++
++	pdata->rstn = of_get_named_gpio(spi->dev.of_node, "reset-gpio", 0);
++	pdata->slp_tr = of_get_named_gpio(spi->dev.of_node, "sleep-gpio", 0);
++
++	pdata->irq_type = IRQF_TRIGGER_RISING;
++	of_property_read_string(spi->dev.of_node, "irq-type", &irq_type);
++	if (!strcmp(irq_type, "level-high"))
++		pdata->irq_type = IRQF_TRIGGER_HIGH;
++	else if (!strcmp(irq_type, "level-low"))
++		pdata->irq_type = IRQF_TRIGGER_LOW;
++	else if (!strcmp(irq_type, "edge-rising"))
++		pdata->irq_type = IRQF_TRIGGER_RISING;
++	else if (!strcmp(irq_type, "edge-falling"))
++		pdata->irq_type = IRQF_TRIGGER_FALLING;
++	else
++		dev_warn(&spi->dev, "wrong irq-type specified using edge-rising\n");
++
++	spi->dev.platform_data = pdata;
++done:
++	return pdata;
++}
++
+ static int at86rf230_probe(struct spi_device *spi)
+ {
+ 	struct at86rf230_platform_data *pdata;
+@@ -1053,7 +1088,7 @@ static int at86rf230_probe(struct spi_device *spi)
  		return -EINVAL;
  	}
  
--	rc = gpio_request(pdata->rstn, "rstn");
--	if (rc)
--		return rc;
-+	if (gpio_is_valid(pdata->rstn)) {
-+		rc = gpio_request(pdata->rstn, "rstn");
-+		if (rc)
-+			return rc;
-+	}
- 
- 	if (gpio_is_valid(pdata->slp_tr)) {
- 		rc = gpio_request(pdata->slp_tr, "slp_tr");
-@@ -1069,9 +1071,11 @@ static int at86rf230_probe(struct spi_device *spi)
- 			goto err_slp_tr;
- 	}
- 
--	rc = gpio_direction_output(pdata->rstn, 1);
--	if (rc)
--		goto err_gpio_dir;
-+	if (gpio_is_valid(pdata->rstn)) {
-+		rc = gpio_direction_output(pdata->rstn, 1);
-+		if (rc)
-+			goto err_gpio_dir;
-+	}
- 
- 	if (gpio_is_valid(pdata->slp_tr)) {
- 		rc = gpio_direction_output(pdata->slp_tr, 0);
-@@ -1080,11 +1084,13 @@ static int at86rf230_probe(struct spi_device *spi)
- 	}
- 
- 	/* Reset */
--	udelay(1);
--	gpio_set_value(pdata->rstn, 0);
--	udelay(1);
--	gpio_set_value(pdata->rstn, 1);
--	usleep_range(120, 240);
-+	if (gpio_is_valid(pdata->rstn)) {
-+		udelay(1);
-+		gpio_set_value(pdata->rstn, 0);
-+		udelay(1);
-+		gpio_set_value(pdata->rstn, 1);
-+		usleep_range(120, 240);
-+	}
- 
- 	rc = __at86rf230_detect_device(spi, &man_id, &part, &version);
- 	if (rc < 0)
-@@ -1198,7 +1204,8 @@ err_gpio_dir:
- 	if (gpio_is_valid(pdata->slp_tr))
- 		gpio_free(pdata->slp_tr);
- err_slp_tr:
--	gpio_free(pdata->rstn);
-+	if (gpio_is_valid(pdata->rstn))
-+		gpio_free(pdata->rstn);
- 	return rc;
+-	pdata = spi->dev.platform_data;
++	pdata = at86rf230_get_pdata(spi);
+ 	if (!pdata) {
+ 		dev_err(&spi->dev, "no platform_data\n");
+ 		return -EINVAL;
+@@ -1231,8 +1266,19 @@ static int at86rf230_remove(struct spi_device *spi)
+ 	return 0;
  }
  
-@@ -1214,7 +1221,8 @@ static int at86rf230_remove(struct spi_device *spi)
- 
- 	if (gpio_is_valid(pdata->slp_tr))
- 		gpio_free(pdata->slp_tr);
--	gpio_free(pdata->rstn);
-+	if (gpio_is_valid(pdata->rstn))
-+		gpio_free(pdata->rstn);
- 
- 	mutex_destroy(&lp->bmux);
- 	ieee802154_free_device(lp->dev);
++#if IS_ENABLED(CONFIG_OF)
++static struct of_device_id at86rf230_of_match[] = {
++	{ .compatible = "atmel,at86rf230", },
++	{ .compatible = "atmel,at86rf231", },
++	{ .compatible = "atmel,at86rf233", },
++	{ .compatible = "atmel,at86rf212", },
++	{ },
++};
++#endif
++
+ static struct spi_driver at86rf230_driver = {
+ 	.driver = {
++		.of_match_table = of_match_ptr(at86rf230_of_match),
+ 		.name	= "at86rf230",
+ 		.owner	= THIS_MODULE,
+ 	},
 -- 
 1.9.0
 
