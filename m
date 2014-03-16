@@ -1,156 +1,44 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next v2 2/9] ptp: add the pin GET/SETFUNC ioctls to the testptp program.
-Date: Sun, 16 Mar 2014 14:29:23 +0100
-Message-ID: <692fb4c8eb29aa7229fc92c7e431e3b9e45244d5.1394975663.git.richardcochran@gmail.com>
-References: <cover.1394975663.git.richardcochran@gmail.com>
-Cc: <linux-kernel@vger.kernel.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Christian Riesch <christian.riesch@omicron.at>,
-	David Miller <davem@davemloft.net>,
-	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
-	<stefan.sorensen@spectralink.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1394975663.git.richardcochran@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: What's the status of TCP friends?
+Date: Sun, 16 Mar 2014 07:03:39 -0700
+Message-ID: <1394978619.9668.14.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140316090744.GA14572@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Li Yu <bingtian.ly@taobao.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Bruce Brutus Curtis <brutus@google.com>,
+	Weiping Pan <panweiping3@gmail.com>
+To: Zheng Liu <gnehzuil.liu@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:49951 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751634AbaCPODl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 10:03:41 -0400
+Received: by mail-pb0-f41.google.com with SMTP id jt11so4629482pbb.0
+        for <netdev@vger.kernel.org>; Sun, 16 Mar 2014 07:03:41 -0700 (PDT)
+In-Reply-To: <20140316090744.GA14572@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds a option to the test program that lists the
-programmable pins on a PTP Hardware Clock device, assuming there
-are any such pins. A second option lets the user reprogram the
-auxiliary function of a single pin.
+On Sun, 2014-03-16 at 17:07 +0800, Zheng Liu wrote:
+> Hi all,
+> 
+> Until now the TCP friends patch set doesn't be applied.  Now what's the
+> status of TCP friends?  Is it applicable to be merged into upstream
+> kernel?  Any problem that needs to be fixed?  Please let me know if I
+> can help.
 
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- Documentation/ptp/testptp.c |   58 ++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 55 insertions(+), 3 deletions(-)
+Well, last attempts showed that while the idea sounded cool,
+implementation opened many races and added quite a lot of complexity in
+fast path.
 
-diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
-index 4aba043..e9eaee6 100644
---- a/Documentation/ptp/testptp.c
-+++ b/Documentation/ptp/testptp.c
-@@ -120,6 +120,13 @@ static void usage(char *progname)
- 		" -i val     index for event/trigger\n"
- 		" -k val     measure the time offset between system and phc clock\n"
- 		"            for 'val' times (Maximum 25)\n"
-+		" -l         list the current pin configuration\n"
-+		" -L pin,val configure pin index 'pin' with function 'val'\n"
-+		"            the channel index is taken from the '-i' option\n"
-+		"            'val' specifies the auxiliary function:\n"
-+		"            0 - none\n"
-+		"            1 - external time stamp\n"
-+		"            2 - periodic output\n"
- 		" -p val     enable output with a period of 'val' nanoseconds\n"
- 		" -P val     enable or disable (val=1|0) the system clock PPS\n"
- 		" -s         set the ptp clock time from the system time\n"
-@@ -134,6 +141,7 @@ int main(int argc, char *argv[])
- 	struct ptp_extts_event event;
- 	struct ptp_extts_request extts_request;
- 	struct ptp_perout_request perout_request;
-+	struct ptp_pin_desc desc;
- 	struct timespec ts;
- 	struct timex tx;
- 
-@@ -156,11 +164,13 @@ int main(int argc, char *argv[])
- 	int extts = 0;
- 	int gettime = 0;
- 	int index = 0;
-+	int list_pins = 0;
- 	int oneshot = 0;
- 	int pct_offset = 0;
- 	int n_samples = 0;
- 	int periodic = 0;
- 	int perout = -1;
-+	int pin_index = -1, pin_func;
- 	int pps = -1;
- 	int settime = 0;
- 
-@@ -169,7 +179,7 @@ int main(int argc, char *argv[])
- 
- 	progname = strrchr(argv[0], '/');
- 	progname = progname ? 1+progname : argv[0];
--	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghi:k:p:P:sSt:v"))) {
-+	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghi:k:lL:p:P:sSt:v"))) {
- 		switch (c) {
- 		case 'a':
- 			oneshot = atoi(optarg);
-@@ -199,6 +209,16 @@ int main(int argc, char *argv[])
- 			pct_offset = 1;
- 			n_samples = atoi(optarg);
- 			break;
-+		case 'l':
-+			list_pins = 1;
-+			break;
-+		case 'L':
-+			cnt = sscanf(optarg, "%d,%d", &pin_index, &pin_func);
-+			if (cnt != 2) {
-+				usage(progname);
-+				return -1;
-+			}
-+			break;
- 		case 'p':
- 			perout = atoi(optarg);
- 			break;
-@@ -245,12 +265,14 @@ int main(int argc, char *argv[])
- 			       "  %d programmable alarms\n"
- 			       "  %d external time stamp channels\n"
- 			       "  %d programmable periodic signals\n"
--			       "  %d pulse per second\n",
-+			       "  %d pulse per second\n"
-+			       "  %d programmable pins\n",
- 			       caps.max_adj,
- 			       caps.n_alarm,
- 			       caps.n_ext_ts,
- 			       caps.n_per_out,
--			       caps.pps);
-+			       caps.pps,
-+			       caps.n_pins);
- 		}
- 	}
- 
-@@ -331,6 +353,24 @@ int main(int argc, char *argv[])
- 		}
- 	}
- 
-+	if (list_pins) {
-+		int n_pins = 0;
-+		if (ioctl(fd, PTP_CLOCK_GETCAPS, &caps)) {
-+			perror("PTP_CLOCK_GETCAPS");
-+		} else {
-+			n_pins = caps.n_pins;
-+		}
-+		for (i = 0; i < n_pins; i++) {
-+			desc.index = i;
-+			if (ioctl(fd, PTP_PIN_GETFUNC, &desc)) {
-+				perror("PTP_PIN_GETFUNC");
-+				break;
-+			}
-+			printf("name %s index %u func %u chan %u\n",
-+			       desc.name, desc.index, desc.func, desc.chan);
-+		}
-+	}
-+
- 	if (oneshot) {
- 		install_handler(SIGALRM, handle_alarm);
- 		/* Create a timer. */
-@@ -392,6 +432,18 @@ int main(int argc, char *argv[])
- 		}
- 	}
- 
-+	if (pin_index >= 0) {
-+		memset(&desc, 0, sizeof(desc));
-+		desc.index = pin_index;
-+		desc.func = pin_func;
-+		desc.chan = index;
-+		if (ioctl(fd, PTP_PIN_SETFUNC, &desc)) {
-+			perror("PTP_PIN_SETFUNC");
-+		} else {
-+			puts("set pin function okay");
-+		}
-+	}
-+
- 	if (pps != -1) {
- 		int enable = pps ? 1 : 0;
- 		if (ioctl(fd, PTP_ENABLE_PPS, enable)) {
--- 
-1.7.10.4
+We have AF_UNIX with a lot of problems in it, do we really want to bring
+these AF_UNIX problems to AF_INET ?
+
+I would rather spend time on AF_UNIX if it doesn't fit your needs right
+now, or consider jumping to KDBUS modern design.
+
+Using AF_INET for IPC is poor choice.
