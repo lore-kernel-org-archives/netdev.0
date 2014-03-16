@@ -1,98 +1,84 @@
-From: Zheng Liu <gnehzuil.liu@gmail.com>
-Subject: Re: TCP fast open question
-Date: Sun, 16 Mar 2014 13:57:25 +0800
-Message-ID: <20140316055725.GA2659@gmail.com>
-References: <20140308115823.GA3185@gmail.com>
- <CAK6E8=cJnjReDL+TCv-hKxd1EaAud3T8kdz2C01NK=yYgAgBLQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jerry Chu <hkchu@google.com>,
-	Xiaochen Wang <xiaochen.wxc@alibaba-inc.com>,
-	Zheng Liu <wenqing.lz@taobao.com>
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:54315 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750732AbaCPFvl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 01:51:41 -0400
-Received: by mail-pd0-f177.google.com with SMTP id y10so4203326pdj.8
-        for <netdev@vger.kernel.org>; Sat, 15 Mar 2014 22:51:40 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAK6E8=cJnjReDL+TCv-hKxd1EaAud3T8kdz2C01NK=yYgAgBLQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Chan <benchan-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: [PATCH 2/2] net: cdc_ncm: respect operator preferred MTU reported by MBIM
+Date: Sat, 15 Mar 2014 23:49:10 -0700
+Message-ID: <1394952550-9308-2-git-send-email-benchan@chromium.org>
+References: <1394952550-9308-1-git-send-email-benchan@chromium.org>
+Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394952550-9308-1-git-send-email-benchan-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Yuchung,
+According to "Universal Serial Bus Communications Class Subclass
+Specification for Mobile Broadband Interface Model, Revision 1.0,
+Errata-1" published by USB-IF, the wMTU field of the MBIM extended
+functional descriptor indicates the operator preferred MTU for IP data
+streams.
 
-Sorry for the late reply because of an urgent issue.
+This patch modifies cdc_ncm_setup to ensure that the MTU value set on
+the usbnet device does not exceed the operator preferred MTU indicated
+by wMTU if the MBIM device exposes a MBIM extended functional
+descriptor.
 
-On Mon, Mar 10, 2014 at 10:09:06AM -0700, Yuchung Cheng wrote:
-> On Sat, Mar 8, 2014 at 3:58 AM, Zheng Liu <gnehzuil.liu@gmail.com> wrote:
-> > Hi all,
-> >
-> > Now we are trying to use TCP fast open in our nginx server, and we
-> > encounter a problem under non-blocking socket.  I appreciate if some one
-> > can reply this question.  Thanks in advance.
-> >
-> > I describe our question here.  we have two machines, one is as server and
-> > another is as client.  'net.ipv4.tcp_fastopen' on both of them are set to
-> > 3.  The server program looks like below:
-> >
-> >   ...
-> >   listenfd = socket(AF_INET, SOCK_STREAM, 0);
-> >   bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
-> >   int tfo_opt = 1;
-> >   setsockopt(listenfd, SOL_TCP, TCP_LISTEN_INFO, &tfo_opt, sizeof(tfo_opt));
-> >   listen(listenfd, 5);
-> >   connfd = accept(listenfd, (struct sockaddr *)NULL, NULL);
-> >   recv(connfd, &buf, 4096)
-> >   ...
-> >
-> > The client program:
-> >
-> >   ...
-> >   sockfd = socket(AF_INET, SOCK_STREAM, 0);
-> >   fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL, 0)|O_NONBLOCK);
-> >   sendto(sockfd, msg, strlen(msg), MSG_FASTOPEN,
-> >         (struct sockaddr *)&servaddr, sizeof(servaddr);
-> >   recv(sockfd, buf, 4096, 0);
-> >   ...
-> >
-> > We use a non-blocking socket to connect the server and send some
-> > messages.  After calling sendto(2) we always get an EINPROGRESS error.
-> > We think it is reasonable because connect(2) could also return this
-> > error with a non-blocking socket and the connection will be established
-> > later.  The question is *whether or not the data will be sent* after the
-> > connection is established.  If I understand correctly, sendto(2) will
-> > return the number of bytes of data queued up in the kernel or sent in
-> > the SYN packet.  Even though the EINPROGRESS is returned.  If sendto(2)
-> > returns -1, that means that no data is queued up in kernel or sent in
-> > the packet.  Please correct me if I miss-understand something.
-> Correct.
-> http://tools.ietf.org/html/draft-ietf-tcpm-fastopen-07#appendix-A.1
-> 
-> >
-> > We run the program in our testing environment, and we use tcpdump(1) to
-> > capture the packets.  From the result we can see there is no any data
-> > that is sent.  Then we do another testing that after calling sendto(2)
-> The first handshake is used to get the Fast Open cookie for future
-> connections. I suspect you didn't enable Fast Open on the server side.
-> What're the output of 'sysctl net.ipv4.tcp_fastopen' on your client
-> and server? pls send the tcpdump traces on both sides as well.
+Signed-off-by: Ben Chan <benchan-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+---
+ drivers/net/usb/cdc_ncm.c   | 15 +++++++++++++++
+ include/linux/usb/cdc_ncm.h |  1 +
+ 2 files changed, 16 insertions(+)
 
-Sorry, let me clarify the description please.  We can capture the syn
-packet without data.  So that means that client has issued a cookie
-request.  My question is when the data could be sent out.
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index dbff290..0b036ed 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -261,6 +261,13 @@ out:
+ 	/* set MTU to max supported by the device if necessary */
+ 	if (dev->net->mtu > ctx->max_datagram_size - eth_hlen)
+ 		dev->net->mtu = ctx->max_datagram_size - eth_hlen;
++
++	/* do not exceed operater preferred MTU */
++	if (ctx->mbim_extended_desc &&
++		ctx->mbim_extended_desc->wMTU != 0 &&
++		dev->net->mtu > ctx->mbim_extended_desc->wMTU)
++		dev->net->mtu = ctx->mbim_extended_desc->wMTU;
++
+ 	return 0;
+ }
+ 
+@@ -399,6 +406,14 @@ int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_
+ 			ctx->mbim_desc = (const struct usb_cdc_mbim_desc *)buf;
+ 			break;
+ 
++		case USB_CDC_MBIM_EXTENDED_TYPE:
++			if (buf[0] < sizeof(*(ctx->mbim_extended_desc)))
++				break;
++
++			ctx->mbim_extended_desc =
++				(const struct usb_cdc_mbim_extended_desc *)buf;
++			break;
++
+ 		default:
+ 			break;
+ 		}
+diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
+index c3fa807..bdf05fb 100644
+--- a/include/linux/usb/cdc_ncm.h
++++ b/include/linux/usb/cdc_ncm.h
+@@ -93,6 +93,7 @@ struct cdc_ncm_ctx {
+ 
+ 	const struct usb_cdc_ncm_desc *func_desc;
+ 	const struct usb_cdc_mbim_desc *mbim_desc;
++	const struct usb_cdc_mbim_extended_desc *mbim_extended_desc;
+ 	const struct usb_cdc_ether_desc *ether_desc;
+ 
+ 	struct usb_interface *control;
+-- 
+1.9.0.279.gdc9e3eb
 
-Here I miss understand the behaviour when the program is the first time
-to call sendto(2).  As RFC draft of TFO described, sendto(2) will return
--1 with EINPROGRESS error if the cookie is not available locallly.  That
-means that we need to call write(2) to send the data after the connection
-is established.  Namely, after getting -1 with EINPROGRESS, the caller
-must call write(2) again later.  Now this problem has been solved.
-
-Thanks for your help,
-                                                - Zheng
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
