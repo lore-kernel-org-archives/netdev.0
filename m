@@ -1,89 +1,49 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] Staging: gdm724x: gdm_lte.c: fixed coding style
-Date: Sun, 16 Mar 2014 12:31:21 -0700
-Message-ID: <1394998281.5689.63.camel@joe-AO722>
-References: <20140316192025.GE3478@quad>
-	 <1394997876.5689.60.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jonathan Kim <jonathankim@gctsemi.com>,
-	Dean ahn <deanahn@gctsemi.com>, devel@driverdev.osuosl.org,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Daniel Ngu <daniel.dy.ngu@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394997876.5689.60.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: [PATCH v2 net-next] doc: update driver TX algorithm in timestamping.txt
+Date: Sun, 16 Mar 2014 20:32:48 +0100
+Message-ID: <1394998368-6907-1-git-send-email-kubakici@wp.pl>
+Cc: Jakub Kicinski <kubakici@wp.pl>, netdev@vger.kernel.org,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	linux-doc@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2014-03-16 at 12:24 -0700, Joe Perches wrote:
+Since cd4d8fdad1f1 ("net: kernel panic in dev_hard_start_xmit:
+remove faulty software TX time stamping") dev_hard_start_xmit()
+will not provide software timestamps. It's a responsibility of
+the drivers to call skb_tx_timestamp() at the right time.
 
-> > @@ -551,28 +583,41 @@ static void gdm_lte_netif_rx(struct net_device *dev, char *buf, int len, int fla
-> []
-> >  			struct dhcp_packet {
-> 
-> This one would be better fixed by moving the struct definition
-> out of this function altogether.
-> 
-> >  				u8 op;      /* BOOTREQUEST or BOOTREPLY */
-> > -				u8 htype;   /* hardware address type. 1 = 10mb ethernet */
-> > +				u8 htype;   /* hardware address type.
-> > +					       1 = 10mb ethernet */
-> >  				u8 hlen;    /* hardware address length */
-> >  				u8 hops;    /* used by relay agents only */
-> >  				u32 xid;    /* unique id */
-> > -				u16 secs;   /* elapsed since client began acquisition/renewal */
-> > +				u16 secs;   /* elapsed since client began
-> > +					       acquisition/renewal */
-> >  				u16 flags;  /* only one flag so far: */
-> > -				#define BROADCAST_FLAG 0x8000 /* "I need broadcast replies" */
-> > -				u32 ciaddr; /* client IP (if client is in BOUND, RENEW or REBINDING state) */
-> > +				#define BROADCAST_FLAG 0x8000 /* "I need
-> > +								 broadcast
-> > +								 replies" */
-> > +				u32 ciaddr; /* client IP (if client is in
-> > +					       BOUND, RENEW or REBINDING
-> > +					       state) */
-> >  				u32 yiaddr; /* 'your' (client) IP address */
-> > -				/* IP address of next server to use in bootstrap, returned in DHCPOFFER, DHCPACK by server */
-> > +				/* IP address of next server to use in
-> > +				 * bootstrap, returned in DHCPOFFER, DHCPACK by
-> > +				 * server */
-> >  				u32 siaddr_nip;
-> >  				u32 gateway_nip; /* relay agent IP address */
-> > -				u8 chaddr[16];   /* link-layer client hardware address (MAC) */
-> > +				u8 chaddr[16];   /* link-layer client hardware
-> > +						    address (MAC) */
-> >  				u8 sname[64];    /* server host name (ASCIZ) */
-> >  				u8 file[128];    /* boot file name (ASCIZ) */
-> > -				u32 cookie;      /* fixed first four option bytes (99,130,83,99 dec) */
-> > +				u32 cookie;      /* fixed first four option
-> > +						    bytes (99,130,83,99 dec) */
-> >  			} __packed;
+Cc: linux-doc@vger.kernel.org
+Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
+---
+v1 -> v2: fix commit message, thanks Sergei!
+---
+ Documentation/networking/timestamping.txt | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Also, the net/ipv4/ipconfig.c definition
-seems a lot more sensible as it uses endian
-specific types
+diff --git a/Documentation/networking/timestamping.txt b/Documentation/networking/timestamping.txt
+index 661d3c3..e0f259c 100644
+--- a/Documentation/networking/timestamping.txt
++++ b/Documentation/networking/timestamping.txt
+@@ -190,6 +190,9 @@ Time stamps for outgoing packets are to be generated as follows:
+   and not free the skb. A driver not supporting hardware time stamping doesn't
+   do that. A driver must never touch sk_buff::tstamp! It is used to store
+   software generated time stamps by the network subsystem.
++- Driver should call skb_tx_timestamp() as close to passing sk_buff to hardware
++  as possible. skb_tx_timestamp() provides a software time stamp if requested
++  and hardware timestamping is not possible (SKBTX_IN_PROGRESS not set).
+ - As soon as the driver has sent the packet and/or obtained a
+   hardware time stamp for it, it passes the time stamp back by
+   calling skb_hwtstamp_tx() with the original skb, the raw
+@@ -200,6 +203,3 @@ Time stamps for outgoing packets are to be generated as follows:
+   this would occur at a later time in the processing pipeline than other
+   software time stamping and therefore could lead to unexpected deltas
+   between time stamps.
+-- If the driver did not set the SKBTX_IN_PROGRESS flag (see above), then
+-  dev_hard_start_xmit() checks whether software time stamping
+-  is wanted as fallback and potentially generates the time stamp.
+-- 
+1.8.5.3
 
-struct bootp_pkt {		/* BOOTP packet format */
-	struct iphdr iph;	/* IP header */
-	struct udphdr udph;	/* UDP header */
-	u8 op;			/* 1=request, 2=reply */
-	u8 htype;		/* HW address type */
-	u8 hlen;		/* HW address length */
-	u8 hops;		/* Used only by gateways */
-	__be32 xid;		/* Transaction ID */
-	__be16 secs;		/* Seconds since we started */
-	__be16 flags;		/* Just what it says */
-	__be32 client_ip;		/* Client's IP address if known */
-	__be32 your_ip;		/* Assigned IP address */
-	__be32 server_ip;		/* (Next, e.g. NFS) Server's IP address */
-	__be32 relay_ip;		/* IP address of BOOTP relay */
-	u8 hw_addr[16];		/* Client's HW address */
-	u8 serv_name[64];	/* Server host name */
-	u8 boot_file[128];	/* Name of boot file */
-	u8 exten[312];		/* DHCP options / BOOTP vendor extensions */
-};
-
-It'd probably be better to make that struct definition public
-and use it instead.
