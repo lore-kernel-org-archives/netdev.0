@@ -1,55 +1,32 @@
-From: Ben Chan <benchan@chromium.org>
-Subject: [PATCH 1/2] USB: cdc: add MBIM extended functional descriptor structure
-Date: Sat, 15 Mar 2014 23:49:09 -0700
-Message-ID: <1394952550-9308-1-git-send-email-benchan@chromium.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
-	Greg Suarez <gsuarez@smithmicro.com>
-To: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, Oliver Neukum <oliver@neukum.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Zheng Liu <gnehzuil.liu@gmail.com>
+Subject: What's the status of TCP friends?
+Date: Sun, 16 Mar 2014 17:07:44 +0800
+Message-ID: <20140316090744.GA14572@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Li Yu <bingtian.ly@taobao.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Bruce Brutus Curtis <brutus@google.com>,
+	Weiping Pan <panweiping3@gmail.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:35092 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750837AbaCPJCA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 05:02:00 -0400
+Received: by mail-pa0-f51.google.com with SMTP id kq14so4451616pab.24
+        for <netdev@vger.kernel.org>; Sun, 16 Mar 2014 02:01:59 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds the MBIM extended functional descriptor structure
-defined in "Universal Serial Bus Communications Class Subclass
-Specification for Mobile Broadband Interface Model, Revision 1.0,
-Errata-1" published by USB-IF.
+Hi all,
 
-Signed-off-by: Ben Chan <benchan@chromium.org>
----
- include/uapi/linux/usb/cdc.h | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+Until now the TCP friends patch set doesn't be applied.  Now what's the
+status of TCP friends?  Is it applicable to be merged into upstream
+kernel?  Any problem that needs to be fixed?  Please let me know if I
+can help.
 
-diff --git a/include/uapi/linux/usb/cdc.h b/include/uapi/linux/usb/cdc.h
-index f35aa0a..b6a9cdd 100644
---- a/include/uapi/linux/usb/cdc.h
-+++ b/include/uapi/linux/usb/cdc.h
-@@ -56,6 +56,7 @@
- #define USB_CDC_OBEX_TYPE		0x15
- #define USB_CDC_NCM_TYPE		0x1a
- #define USB_CDC_MBIM_TYPE		0x1b
-+#define USB_CDC_MBIM_EXTENDED_TYPE	0x1c
- 
- /* "Header Functional Descriptor" from CDC spec  5.2.3.1 */
- struct usb_cdc_header_desc {
-@@ -205,6 +206,17 @@ struct usb_cdc_mbim_desc {
- 	__u8    bmNetworkCapabilities;
- } __attribute__ ((packed));
- 
-+/* "MBIM Extended Functional Descriptor" from CDC MBIM spec 1.0 errata-1 */
-+struct usb_cdc_mbim_extended_desc {
-+	__u8	bLength;
-+	__u8	bDescriptorType;
-+	__u8	bDescriptorSubType;
-+
-+	__le16	bcdMBIMExtendedVersion;
-+	__u8	bMaxOutstandingCommandMessages;
-+	__le16	wMTU;
-+} __attribute__ ((packed));
-+
- /*-------------------------------------------------------------------------*/
- 
- /*
--- 
-1.9.0.279.gdc9e3eb
+Thanks,
+						- Zheng
