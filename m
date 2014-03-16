@@ -1,108 +1,54 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH v2] ethtool: allow for a smaller build
-Date: Sun, 16 Mar 2014 02:24:20 +0000
-Message-ID: <1394936660.15764.65.camel@deadeye.wl.decadent.org.uk>
-References: <1393544581-1252-1-git-send-email-f.fainelli@gmail.com>
+From: lucien xin <lucien.xin@gmail.com>
+Subject: Re: [PATCH] ipv6: ip6_append_data_mtu do not handle the mtu of the
+ second fragment properly
+Date: Sun, 16 Mar 2014 12:50:31 +0800
+Message-ID: <CADvbK_dzTX64DwHmebT=FB8nAg6teKaWw58nUYXoshJcVuhaYQ@mail.gmail.com>
+References: <1394512309-8823-1-git-send-email-lucien.xin@gmail.com>
+	<20140311144906.GA29404@order.stressinduktion.org>
+	<CADvbK_fS0rhPodczcZ52YN9D7NBY_TG+6xXvt-shvvz+e3qLnw@mail.gmail.com>
+	<20140312102646.GD29404@order.stressinduktion.org>
+	<CADvbK_eZ5AO3g7uHRykspHouXnvtCTf0dUWOXf8hd3r0wV6Hnw@mail.gmail.com>
+	<20140315155519.GA12291@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-/dowtqaNTc7BNFuvqTJH"
-Cc: netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: lucien xin <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>,
+	Gao feng <gaofeng@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:44500 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753159AbaCPCYb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Mar 2014 22:24:31 -0400
-In-Reply-To: <1393544581-1252-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-we0-f182.google.com ([74.125.82.182]:51963 "EHLO
+	mail-we0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750732AbaCPEud convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 00:50:33 -0400
+Received: by mail-we0-f182.google.com with SMTP id p61so3503387wes.27
+        for <netdev@vger.kernel.org>; Sat, 15 Mar 2014 21:50:32 -0700 (PDT)
+In-Reply-To: <20140315155519.GA12291@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-/dowtqaNTc7BNFuvqTJH
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2014-02-27 at 15:43 -0800, Florian Fainelli wrote:
-> Introduce a new configure script option: --disable-pretty-dump which will
-> disable building the driver specific register, EEPROM and SFP
-> pretty printing objects, the saving are:
->=20
-> ~500 Kbytes on a x86_64 build
-> ~337 Kbytes on a arm build
->=20
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
-> Changes in v2:
-> - reworked the small build around the ETHTOOL_ENABLE_PRETTY_DUMP
->   option which is enabled by default
-
-But not if you actually specify the option.
-
-[...]
-> --- a/configure.ac
-> +++ b/configure.ac
-> @@ -30,5 +30,14 @@ dnl Checks for library functions.
->  AC_HEADER_STDC
->  AC_CHECK_FUNCS(socket strtol)
-> =20
-> +dnl Check for options
-> +AC_ARG_ENABLE(pretty-dump,
-> +	       [  --enable-pretty-dump	  enable registers, EEPROM and SFP prett=
-y dumps (enabled by default)],,
-
-Too many commas there!  The following logic needs to be the third
-argument to AC_ARG_ENABLE:
-
-> +	       [if test x$enableval !=3D xno; then
-> +			AC_DEFINE(ETHTOOL_ENABLE_PRETTY_DUMP, 1,
-> +			[Define this to enable register, EEPROM and SFP pretty dumps.]) enabl=
-e_prettydump=3Dyes
-> +		fi])
-
-And then the fourth argument is for the default, which must set
-enable_prettydump=3Dyes.
-
-[...]
-> --- a/ethtool.c
-> +++ b/ethtool.c
-[...]
-> @@ -973,13 +979,13 @@ static int dump_eeprom(int geeprom_dump_raw, struct=
- ethtool_drvinfo *info,
->  		fwrite(ee->data, 1, ee->len, stdout);
->  		return 0;
->  	}
-> -
-> +#ifdef ETHTOOL_ENABL_PRETTY_DUMP
-[...]
-
-Typo.
-
-Ben.
-
---=20
-Ben Hutchings
-Computers are not intelligent.	They only think they are.
-
---=-/dowtqaNTc7BNFuvqTJH
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUyULVOe/yOyVhhEJAQpzZA//d2SkZs+qg1KUiFEpVgJh3ac37E4XswQz
-gdzYxTTIh6fF40rFqI1lvjZ4xbwC/DzXlNoDqb3WYVNnJgoFDjGrDGLG0wTPV/uN
-APkRoM1mLS+tENTnlgqimKiFwZ4pt7FyDrlGX2UXZqNpw38g2g12f8OC9lCY+GO8
-ce7fg1shdcU+BpGR4swtPWx9I3CjR/qGuWLt4/mHsPQO2Vb6skVq7Zx0ZDJnQQWp
-ffNm6Sj8+YV6sqUhm/scdZa4PScuGvm0gPoTAVUJlf63diY/7b2ZE3oGt08rah0P
-xLtIKjvpPOmxyf5v2tqMUS8f1oq0MnA+FMdCWJST3YK9UOyVlaHBnuPgvVzCI93G
-au2gF6VoE76Lx5XASfBJGtns78VDEPqqdpc59cIs4xbSUyuVPgXcyijdUvP/umJ6
-M4vhCaJXDJs03BSZ/UeOo+9MnVQLaXbOh7cKF2cY2YQv3XgP4KwM9/804MKpx5mv
-s+5GPvb1V4jUltsbjli7BJg5E1dzJRZMti2exfkFDChXVUNDPFsU21M7LypV1a5d
-nV5Zd33mmLaF0d9Fl7KIaBeFUgDDd/uzsT6a75M+DJkvouDec/x6ZusFp1X9/kKx
-OF24lvbUBS91fbPm3s7d8aN74WBYR6wSohV7EA8CtZ4+KQMh7t2OHPOGlbi8cufS
-j4XuWR6u+w4=
-=IYwk
------END PGP SIGNATURE-----
-
---=-/dowtqaNTc7BNFuvqTJH--
+On Sat, Mar 15, 2014 at 11:55 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Thu, Mar 13, 2014 at 01:38:15PM +0800, lucien xin wrote:
+>> On Wed, Mar 12, 2014 at 6:26 PM, Hannes Frederic Sowa
+>> <hannes@stressinduktion.org> wrote:
+>> > On Wed, Mar 12, 2014 at 10:40:50AM +0800, lucien xin wrote:
+>> >
+>> > It would be possible if we are absolutely sure if we don't call
+>> > ip6_append_data_mtu a second time, which I have not yet reviewed.
+>> >
+>> > The line I proposed above may also suffer from this problem.
+>> >
+>> > Maybe you already checked that?
+>> >
+>> hmm... this problem do exist.  when it enter "the while( length>0 ){
+>> }" with skb !=3D NULL first, the problem
+>> will happen, of course, perhaps there are also other cases that
+>> trigger that problem.  because  that code seems
+>> a little mess=EF=BC=8C I hope the following change can make it more =
+clear and
+>> eliminate potential insecurity,
+>> pls help to check it
+>
+> The diff is good, thanks!
+>
+okay , I'll repost it.
