@@ -1,49 +1,52 @@
-From: David Herrmann <dh.herrmann@gmail.com>
-Subject: Re: [PATCH v2 1/4] net: add name_assign_type netdev attribute
-Date: Sun, 16 Mar 2014 22:53:48 +0100
-Message-ID: <CANq1E4R8WAWu5_V+_D_8e+u0hmhayi4Ueh7pDwcbvGwp=KTRBw@mail.gmail.com>
-References: <1394990490-1076-1-git-send-email-dh.herrmann@gmail.com>
-	<1394990490-1076-2-git-send-email-dh.herrmann@gmail.com>
-	<1394997429.15764.116.camel@deadeye.wl.decadent.org.uk>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH V2 RE-SEND 1/7] net: sxgbe: add basic framework for
+ Samsung 10Gb ethernet driver
+Date: Mon, 17 Mar 2014 00:11:01 +0100
+Message-ID: <20140316231101.GA23765@electric-eye.fr.zoreil.com>
+References: <007a01cf3e89$3bbdf460$b339dd20$%an@samsung.com>
+ <20140314004454.GA10982@electric-eye.fr.zoreil.com>
+ <000e01cf40ac$08c19290$1a44b7b0$@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Tom Gundersen <teg@jklm.no>,
-	Johannes berg <johannes@sipsolutions.net>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394997429.15764.116.camel@deadeye.wl.decadent.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
+	davem@davemloft.net, ilho215.lee@samsung.com,
+	siva.kallam@samsung.com, vipul.pandya@samsung.com,
+	ks.giri@samsung.com, "'Joe Perches'" <joe@perches.com>
+To: "Andrew.an" <bh74.an@samsung.com>
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <000e01cf40ac$08c19290$1a44b7b0$@samsung.com>
+Sender: linux-samsung-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi
+Andrew.an <bh74.an@samsung.com> :
+[...]
+> > > +struct sxgbe_core_ops {
+> > > +	/* MAC core initialization */
+> > > +	void (*core_init)(void __iomem *ioaddr);
+[...]
+> > > +	/* adjust SXGBE speed */
+> > > +	void (*set_speed)(void __iomem *ioaddr, unsigned char speed);
+> > > +};
+> > 
+> > This indirection level is never used.
+> Those are used, can you give more detail?
 
-On Sun, Mar 16, 2014 at 8:17 PM, Ben Hutchings <ben@decadent.org.uk> wrote:
-> On Sun, 2014-03-16 at 18:21 +0100, David Herrmann wrote:
-> [...]
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -74,6 +74,11 @@ void netdev_set_default_ethtool_ops(struct net_device *dev,
->>  #define NET_RX_SUCCESS               0       /* keep 'em coming, baby */
->>  #define NET_RX_DROP          1       /* packet dropped */
->>
->> +/* interface name assignment types */
->> +#define NET_NAME_ENUM                0       /* enumerated by kernel (default) */
->> +#define NET_NAME_USER                1       /* provided by user-space */
->> +#define NET_NAME_RENAMED     2       /* renamed by user-space */
-> [...]
->
-> I think these definitions should be put in a UAPI header.  Even if the
-> names don't end up being used by userland, that would make it clear that
-> the numbers are a stable ABI.
+They are used but they always point to the same set of methods.
+Those methods could thus be directly called.
 
-I tried to follow addr_assign_type as closely as possible. The
-NET_ADDR_* constants are only defined internally either. I am fine
-with exporting the constants, just want to make sure there's no reason
-to hide them that I'm not aware of.
+[...]
+> > > +/* SXGBE private data structures */
+> > > +struct sxgbe_tx_queue {
+> > > +	u8 queue_no;
+> > > +	unsigned int irq_no;
+> > > +	struct sxgbe_priv_data *priv_ptr;
+> > > +	struct sxgbe_tx_norm_desc *dma_tx;
+> > 
+> > You may lay things a bit differently.
+> can you give more detail?
 
-Thanks
-David
+Bigger fields first, u8 at the end. It will save padding in the struct.
+
+-- 
+Ueimor
