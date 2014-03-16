@@ -1,28 +1,60 @@
-From: <TsetseroTsetse@gmail.com>
-Subject: =?utf-8?B?M9C0cGHQsmPRgtCyedC50YJlISBCYWMg0LjQvdGCZXBlY3nRjm0ga9C70LjQtdC90YLRgWvQuGUg0LFh0LfRiyDQtNCw0L3QvdGLeD8=?=
-Date: Sun, 16 Mar 2014 15:09:02 -0300 (BRT)
-Message-ID: <20140316180903.5A02E30946A@email1.dufrio.com.br>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: [GIT PULL] namespaces fixes for 3.14-rcX
+Date: Sun, 16 Mar 2014 14:36:51 -0400
+Message-ID: <20140316183651.GJ27244@madcap2.tricolour.ca>
+References: <874n3ir0uw.fsf_-_@xmission.com>
+ <87mwhaplo4.fsf_-_@xmission.com>
+ <20140304133004.b565820f60f595a48e621e58@linux-foundation.org>
+ <20140304.165122.445822929490466603.davem@davemloft.net>
+ <87mwh5d1tf.fsf@xmission.com>
+ <20140304145037.d46ee775d293dd1ad60aa8e3@linux-foundation.org>
+ <87bnxesqf0.fsf_-_@xmission.com>
+ <1394459944.17193.12.camel@localhost>
+ <87r469rfop.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from email1.dufrio.com.br ([187.58.133.174]:35762 "EHLO
-	email1.dufrio.com.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753281AbaCPSJG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 14:09:06 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by email1.dufrio.com.br (Postfix) with ESMTP id 22121309471
-	for <netdev@vger.kernel.org>; Sun, 16 Mar 2014 15:09:05 -0300 (BRT)
-Received: from email1.dufrio.com.br ([127.0.0.1])
-	by localhost (email1.dufrio.com.br [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id ELGhb3ct7Xbw for <netdev@vger.kernel.org>;
-	Sun, 16 Mar 2014 15:09:04 -0300 (BRT)
-Received: from SRVDF014 (srvdf014.dufrio.local [192.168.0.234])
-	by email1.dufrio.com.br (Postfix) with ESMTP id 5A02E30946A
-	for <netdev@vger.kernel.org>; Sun, 16 Mar 2014 15:09:02 -0300 (BRT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Paris <eparis@redhat.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, linux-audit@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87r469rfop.fsf@xmission.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-3=E4pa=E2c=F2=E2y=E9=F2e! Bac =E8=ED=F2epecy=FEm k=EB=E8=E5=ED=F2=F1k=E8=
-e =E1a=E7=FB =E4=E0=ED=ED=FBx?
+On 14/03/10, Eric W. Biederman wrote:
+> Eric Paris <eparis@redhat.com> writes:
+> 
+> > On Sun, 2014-03-09 at 20:06 -0700, Eric W. Biederman wrote:
+> >> My efforts to get these fixes noticed by people who care about audit
+> >> seem to have landed on deaf ears, so since these are namespace related I
+> >> have put them in my tree.
+> >
+> > This commentary sounds like a pile of crap seeing as how there was a
+> > whole discussion around how to handle this stuff, which you were a part
+> > of.  And that the audit tree already picked up these 2 patches.
+> 
+> My apologies for offending.  Last night when I looked the audit tree had
+> not been updated in 7 weeks, and Andrew Morton wasn't ready to push
+> these fixes to Linus and was looking for someone who would.  Keeping
+> important bug fixes in my retransmit queue leaves me very grumpy.
+
+Well, it is offensive.  Please stick to the facts.  Some of us may not
+be as smart as you, but continuing to suggest people don't care is
+starting to get abusive.
+
+> > In any case, since I haven't sent them to Linus and I'm glad that is
+> > done, so feel free to consider this me Acking the pull request.
+> 
+> Eric
+
+- RGB
+
+--
+Richard Guy Briggs <rbriggs@redhat.com>
+Senior Software Engineer, Kernel Security, AMER ENG Base Operating Systems, Red Hat
+Remote, Ottawa, Canada
+Voice: +1.647.777.2635, Internal: (81) 32635, Alt: +1.613.693.0684x3545
