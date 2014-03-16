@@ -1,69 +1,20 @@
-From: hahnjo <hahnjo@hahnjo.de>
-Subject: Re: [PATCH V2] ATHEROS-ALX: Use dma_set_mask_and_coherent and fix a
- bug
-Date: Sun, 16 Mar 2014 09:39:34 +0100
-Message-ID: <1394959174.5764.4.camel@archlinux-laptop.fritz.box>
-References: <1394926252-2269-1-git-send-email-peter.senna@gmail.com>
+From: Santander Group <finance03@awardfin.onmicrosoft.com>
+Subject: Loan Assistance / Credit Offer
+Date: Sun, 16 Mar 2014 12:33:26 +0100
+Message-ID: <1e4eaa3e-2b72-4104-bb22-8a573bc97f68@DB3PR06MB201.eurprd06.prod.outlook.com>
+Reply-To: <asloan01.loan@aol.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jcliburn@gmail.com, chris.snook@gmail.com, davem@davemloft.net,
-	johannes@sipsolutions.net, jg1.han@samsung.com,
-	wangyijing@huawei.com, sd@queasysnail.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Peter Senna Tschudin <peter.senna@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394926252-2269-1-git-send-email-peter.senna@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <finance03@awardfin.onmicrosoft.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-am1un0251.outbound.protection.outlook.com ([157.56.112.251]:40167
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751322AbaCPMDq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 08:03:46 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Sonntag, den 16.03.2014, 00:30 +0100 schrieb Peter Senna Tschudin:
->  1. For the 64 bits dma mask use dma_set_mask_and_coherent instead of
->  dma_set_mask and dma_set_coherent_mask.
-> 
->  2. For the 32 bits dma mask dma_set_coherent_mask is only called if
->  dma_set_mask fails, which is unusual. Assuming this as a bug, fixes
->  it by replacing calls to dma_set_mask and dma_set_coherent_mask by a
->  call to dma_set_mask_and_coherent.
->  
-Tested-by: Jonas Hahnfeld <hahnjo@hahnjo.de>
->  Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
-> ---
-> 
->  Tested by compilation only.
-> 
->  Change from V1: Updated commit message.
-> 
->  drivers/net/ethernet/atheros/alx/main.c | 14 ++++----------
->  1 file changed, 4 insertions(+), 10 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
-> index 2e45f6e..380d249 100644
-> --- a/drivers/net/ethernet/atheros/alx/main.c
-> +++ b/drivers/net/ethernet/atheros/alx/main.c
-> @@ -1248,19 +1248,13 @@ static int alx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
->  	 * shared register for the high 32 bits, so only a single, aligned,
->  	 * 4 GB physical address range can be used for descriptors.
->  	 */
-> -	if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(64)) &&
-> -	    !dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64))) {
-> +	if (!dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64))) {
->  		dev_dbg(&pdev->dev, "DMA to 64-BIT addresses\n");
->  	} else {
-> -		err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
-> +		err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
->  		if (err) {
-> -			err = dma_set_coherent_mask(&pdev->dev,
-> -						    DMA_BIT_MASK(32));
-> -			if (err) {
-> -				dev_err(&pdev->dev,
-> -					"No usable DMA config, aborting\n");
-> -				goto out_pci_disable;
-> -			}
-> +			dev_err(&pdev->dev, "No usable DMA config, aborting\n");
-> +			goto out_pci_disable;
->  		}
->  	}
->  
-
-No obvious problems noticed on my ASUS N56VZ.
+We offer all purpose loan at 3% interest rate. Contact Us for more details by Email:santanderfinancegroup@gmail.com
