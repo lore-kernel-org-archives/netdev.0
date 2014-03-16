@@ -1,51 +1,120 @@
-From: Benedikt Spranger <b.spranger@linutronix.de>
-Subject: [PATCH] net: cpsw: do not register cpts twice
-Date: Sun, 16 Mar 2014 16:36:29 +0100
-Message-ID: <1394984189-1659-2-git-send-email-b.spranger@linutronix.de>
-References: <1394984189-1659-1-git-send-email-b.spranger@linutronix.de>
-Cc: tglx@linutronix.de, Mugunthan V N <mugunthanvnm@ti.com>,
-	Felipe Balbi <balbi@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Benedikt Spranger <b.spranger@linutronix.de>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: sched: use no more than one page in struct
+ fw_head
+Date: Sun, 16 Mar 2014 09:06:30 -0700
+Message-ID: <1394985990.9668.26.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <53208E3F.5090401@gmail.com>
+	 <1394643673.21721.48.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140313202245.GK21124@linux.vnet.ibm.com>
+	 <1394744203.21721.53.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140313211509.GP21124@linux.vnet.ibm.com> <53229704.1040808@gmail.com>
+	 <20140314132834.GS21124@linux.vnet.ibm.com>
+	 <1394804798.21721.64.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140314153810.GX21124@linux.vnet.ibm.com>
+	 <20140314185005.GA17041@linux.vnet.ibm.com>
+	 <20140314185917.GA18933@linux.vnet.ibm.com>
+	 <1394826958.9668.4.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>, netdev@vger.kernel.org,
+	Thomas Graf <tgraf@suug.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:40195 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751122AbaCPPgv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 11:36:51 -0400
-In-Reply-To: <1394984189-1659-1-git-send-email-b.spranger@linutronix.de>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:41394 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753833AbaCPQGc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 12:06:32 -0400
+Received: by mail-pd0-f182.google.com with SMTP id y10so4537014pdj.41
+        for <netdev@vger.kernel.org>; Sun, 16 Mar 2014 09:06:32 -0700 (PDT)
+In-Reply-To: <1394826958.9668.4.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit f280e89a (drivers: net: cpsw: fix for cpsw crash when build as modules)
-moved cpts_register()/cpts_unregister() to  ndo_open()/ndo_stop(), but failed
-to remove cpts_register in cpsw_probe() which leads to a double registration
-and the following debug object splat.
+From: Eric Dumazet <edumazet@google.com>
 
-[   18.991902] ODEBUG: init active (active state 0) object type: timer_list hint: delayed_work_timer_fn+0x0/0x2c
-[   19.082249] [<c0059e80>] (init_timer_key) from [<c04965d4>] (cpts_register+0x1f0/0x2c4)
-[   19.090642] [<c04965d4>] (cpts_register) from [<c04931dc>] (cpsw_ndo_open+0x780/0x81c)
-[   19.098948] [<c04931dc>] (cpsw_ndo_open) from [<c0599c2c>] (__dev_open+0xb4/0x118)
+In commit b4e9b520ca5d ("[NET_SCHED]: Add mask support to fwmark
+classifier") Patrick added an u32 field in fw_head, making it slightly
+bigger than one page.
 
-Signed-off-by: Benedikt Spranger <b.spranger@linutronix.de>
+Change the layout of this structure and let compiler emit a reciprocal
+divide for fw_hash(), as this makes the core more readable and
+more efficient those days.
+
+This brings back the memory usage to a single page, and permits John
+to add a rcu_head later without any worry.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Thomas Graf <tgraf@suug.ch>
+Cc: John Fastabend <john.fastabend@gmail.com>
 ---
- drivers/net/ethernet/ti/cpsw.c | 4 ----
- 1 file changed, 4 deletions(-)
+ net/sched/cls_fw.c |   38 ++++++++++----------------------------
+ 1 file changed, 10 insertions(+), 28 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index ffd4d12..7d6d8ec 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2229,10 +2229,6 @@ static int cpsw_probe(struct platform_device *pdev)
- 		goto clean_ale_ret;
- 	}
+diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
+index a366537f82c6..e054adafe836 100644
+--- a/net/sched/cls_fw.c
++++ b/net/sched/cls_fw.c
+@@ -29,13 +29,16 @@
+ #include <net/act_api.h>
+ #include <net/pkt_cls.h>
  
--	if (cpts_register(&pdev->dev, priv->cpts,
--			  data->cpts_clock_mult, data->cpts_clock_shift))
--		dev_err(priv->dev, "error registering cpts device\n");
+-#define HTSIZE (PAGE_SIZE/sizeof(struct fw_filter *))
 -
- 	cpsw_notice(priv, probe, "initialized device (regs %pa, irq %d)\n",
- 		    &ss_res->start, ndev->irq);
+ struct fw_head {
+-	struct fw_filter *ht[HTSIZE];
+-	u32 mask;
++	u32			mask;
++	struct fw_filter	*ht[0];
+ };
  
--- 
-1.9.0
++#define FW_HEAD_SIZE PAGE_SIZE
++
++#define HTSIZE ((FW_HEAD_SIZE - sizeof(struct fw_head)) /	\
++		sizeof(struct fw_filter *))
++
+ struct fw_filter {
+ 	struct fw_filter	*next;
+ 	u32			id;
+@@ -46,30 +49,9 @@ struct fw_filter {
+ 	struct tcf_exts		exts;
+ };
+ 
+-static inline int fw_hash(u32 handle)
++static u32 fw_hash(u32 handle)
+ {
+-	if (HTSIZE == 4096)
+-		return ((handle >> 24) & 0xFFF) ^
+-		       ((handle >> 12) & 0xFFF) ^
+-		       (handle & 0xFFF);
+-	else if (HTSIZE == 2048)
+-		return ((handle >> 22) & 0x7FF) ^
+-		       ((handle >> 11) & 0x7FF) ^
+-		       (handle & 0x7FF);
+-	else if (HTSIZE == 1024)
+-		return ((handle >> 20) & 0x3FF) ^
+-		       ((handle >> 10) & 0x3FF) ^
+-		       (handle & 0x3FF);
+-	else if (HTSIZE == 512)
+-		return (handle >> 27) ^
+-		       ((handle >> 18) & 0x1FF) ^
+-		       ((handle >> 9) & 0x1FF) ^
+-		       (handle & 0x1FF);
+-	else if (HTSIZE == 256) {
+-		u8 *t = (u8 *) &handle;
+-		return t[0] ^ t[1] ^ t[2] ^ t[3];
+-	} else
+-		return handle & (HTSIZE - 1);
++	return handle % HTSIZE;
+ }
+ 
+ static int fw_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+@@ -266,7 +248,7 @@ static int fw_change(struct net *net, struct sk_buff *in_skb,
+ 		if (tb[TCA_FW_MASK])
+ 			mask = nla_get_u32(tb[TCA_FW_MASK]);
+ 
+-		head = kzalloc(sizeof(struct fw_head), GFP_KERNEL);
++		head = kzalloc(FW_HEAD_SIZE, GFP_KERNEL);
+ 		if (head == NULL)
+ 			return -ENOBUFS;
+ 		head->mask = mask;
