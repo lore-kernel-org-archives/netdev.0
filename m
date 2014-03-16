@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next v2 6/9] dp83640: correct the periodic output frequency
-Date: Sun, 16 Mar 2014 14:29:27 +0100
-Message-ID: <39aa0aefeed43f2e1ad7b041ed9e5162e7374259.1394975663.git.richardcochran@gmail.com>
+Subject: [PATCH net-next v2 4/9] ptp: drivers: set the number of programmable pins.
+Date: Sun, 16 Mar 2014 14:29:25 +0100
+Message-ID: <e8042d1638360744b538c500fbc77376ac6a0a12.1394975663.git.richardcochran@gmail.com>
 References: <cover.1394975663.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>,
 	Ben Hutchings <ben@decadent.org.uk>,
@@ -15,51 +15,170 @@ In-Reply-To: <cover.1394975663.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The phyter driver incorrectly feeds the value of the period into what
-is in fact a pulse width register, resulting in the actual period
-being twice the dialed value. This patch fixes the issue and renames a
-variable to make the code at bit more clear.
+This patch updates the many PTP Hardware Clock drivers with the
+newly introduced field that advertises the number of programmable
+pins. Some of these devices do have programmable pins, but the
+implementation will have to wait for follow on patches.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/phy/dp83640.c |   11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/adi/bfin_mac.c              |    1 +
+ drivers/net/ethernet/broadcom/tg3.c              |    1 +
+ drivers/net/ethernet/freescale/fec_ptp.c         |    1 +
+ drivers/net/ethernet/freescale/gianfar_ptp.c     |    1 +
+ drivers/net/ethernet/intel/e1000e/ptp.c          |    1 +
+ drivers/net/ethernet/mellanox/mlx4/en_clock.c    |    1 +
+ drivers/net/ethernet/sfc/ptp.c                   |    1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c |    1 +
+ drivers/net/ethernet/ti/cpts.c                   |    1 +
+ drivers/net/ethernet/tile/tilegx.c               |    1 +
+ drivers/ptp/ptp_ixp46x.c                         |    1 +
+ drivers/ptp/ptp_pch.c                            |    1 +
+ 12 files changed, 12 insertions(+)
 
-diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index d6c1061..9e26555 100644
---- a/drivers/net/phy/dp83640.c
-+++ b/drivers/net/phy/dp83640.c
-@@ -271,7 +271,7 @@ static void periodic_output(struct dp83640_clock *clock,
- {
- 	struct dp83640_private *dp83640 = clock->chosen;
- 	struct phy_device *phydev = dp83640->phydev;
--	u32 sec, nsec, period;
-+	u32 sec, nsec, pwidth;
- 	u16 gpio, ptp_trig, trigger, val;
- 
- 	gpio = on ? gpio_tab[PEROUT_GPIO] : 0;
-@@ -296,8 +296,9 @@ static void periodic_output(struct dp83640_clock *clock,
- 
- 	sec = clkreq->perout.start.sec;
- 	nsec = clkreq->perout.start.nsec;
--	period = clkreq->perout.period.sec * 1000000000UL;
--	period += clkreq->perout.period.nsec;
-+	pwidth = clkreq->perout.period.sec * 1000000000UL;
-+	pwidth += clkreq->perout.period.nsec;
-+	pwidth /= 2;
- 
- 	mutex_lock(&clock->extreg_lock);
- 
-@@ -310,8 +311,8 @@ static void periodic_output(struct dp83640_clock *clock,
- 	ext_write(0, phydev, PAGE4, PTP_TDR, nsec >> 16);      /* ns[31:16] */
- 	ext_write(0, phydev, PAGE4, PTP_TDR, sec & 0xffff);    /* sec[15:0] */
- 	ext_write(0, phydev, PAGE4, PTP_TDR, sec >> 16);       /* sec[31:16] */
--	ext_write(0, phydev, PAGE4, PTP_TDR, period & 0xffff); /* ns[15:0] */
--	ext_write(0, phydev, PAGE4, PTP_TDR, period >> 16);    /* ns[31:16] */
-+	ext_write(0, phydev, PAGE4, PTP_TDR, pwidth & 0xffff); /* ns[15:0] */
-+	ext_write(0, phydev, PAGE4, PTP_TDR, pwidth >> 16);    /* ns[31:16] */
- 
- 	/*enable trigger*/
- 	val &= ~TRIG_LOAD;
+diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+index c0f68dc..83a8cdb 100644
+--- a/drivers/net/ethernet/adi/bfin_mac.c
++++ b/drivers/net/ethernet/adi/bfin_mac.c
+@@ -1040,6 +1040,7 @@ static struct ptp_clock_info bfin_ptp_caps = {
+ 	.n_alarm	= 0,
+ 	.n_ext_ts	= 0,
+ 	.n_per_out	= 0,
++	.n_pins		= 0,
+ 	.pps		= 0,
+ 	.adjfreq	= bfin_ptp_adjfreq,
+ 	.adjtime	= bfin_ptp_adjtime,
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index bbbd2a4..37422af 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -6322,6 +6322,7 @@ static const struct ptp_clock_info tg3_ptp_caps = {
+ 	.n_alarm	= 0,
+ 	.n_ext_ts	= 0,
+ 	.n_per_out	= 1,
++	.n_pins		= 0,
+ 	.pps		= 0,
+ 	.adjfreq	= tg3_ptp_adjfreq,
+ 	.adjtime	= tg3_ptp_adjtime,
+diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+index 89ccb5b..82386b2 100644
+--- a/drivers/net/ethernet/freescale/fec_ptp.c
++++ b/drivers/net/ethernet/freescale/fec_ptp.c
+@@ -372,6 +372,7 @@ void fec_ptp_init(struct platform_device *pdev)
+ 	fep->ptp_caps.n_alarm = 0;
+ 	fep->ptp_caps.n_ext_ts = 0;
+ 	fep->ptp_caps.n_per_out = 0;
++	fep->ptp_caps.n_pins = 0;
+ 	fep->ptp_caps.pps = 0;
+ 	fep->ptp_caps.adjfreq = fec_ptp_adjfreq;
+ 	fep->ptp_caps.adjtime = fec_ptp_adjtime;
+diff --git a/drivers/net/ethernet/freescale/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
+index abc28da..bb56800 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ptp.c
++++ b/drivers/net/ethernet/freescale/gianfar_ptp.c
+@@ -414,6 +414,7 @@ static struct ptp_clock_info ptp_gianfar_caps = {
+ 	.n_alarm	= 0,
+ 	.n_ext_ts	= N_EXT_TS,
+ 	.n_per_out	= 0,
++	.n_pins		= 0,
+ 	.pps		= 1,
+ 	.adjfreq	= ptp_gianfar_adjfreq,
+ 	.adjtime	= ptp_gianfar_adjtime,
+diff --git a/drivers/net/ethernet/intel/e1000e/ptp.c b/drivers/net/ethernet/intel/e1000e/ptp.c
+index 3bd79a3..fb1a914 100644
+--- a/drivers/net/ethernet/intel/e1000e/ptp.c
++++ b/drivers/net/ethernet/intel/e1000e/ptp.c
+@@ -189,6 +189,7 @@ static const struct ptp_clock_info e1000e_ptp_clock_info = {
+ 	.n_alarm	= 0,
+ 	.n_ext_ts	= 0,
+ 	.n_per_out	= 0,
++	.n_pins		= 0,
+ 	.pps		= 0,
+ 	.adjfreq	= e1000e_phc_adjfreq,
+ 	.adjtime	= e1000e_phc_adjtime,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+index abaf6bb..57dda95 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+@@ -276,6 +276,7 @@ static const struct ptp_clock_info mlx4_en_ptp_clock_info = {
+ 	.n_alarm	= 0,
+ 	.n_ext_ts	= 0,
+ 	.n_per_out	= 0,
++	.n_pins		= 0,
+ 	.pps		= 0,
+ 	.adjfreq	= mlx4_en_phc_adjfreq,
+ 	.adjtime	= mlx4_en_phc_adjtime,
+diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
+index 722344f..6b861e3 100644
+--- a/drivers/net/ethernet/sfc/ptp.c
++++ b/drivers/net/ethernet/sfc/ptp.c
+@@ -1194,6 +1194,7 @@ static const struct ptp_clock_info efx_phc_clock_info = {
+ 	.n_alarm	= 0,
+ 	.n_ext_ts	= 0,
+ 	.n_per_out	= 0,
++	.n_pins		= 0,
+ 	.pps		= 1,
+ 	.adjfreq	= efx_phc_adjfreq,
+ 	.adjtime	= efx_phc_adjtime,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+index 7680581..b7ad356 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c
+@@ -164,6 +164,7 @@ static struct ptp_clock_info stmmac_ptp_clock_ops = {
+ 	.n_alarm = 0,
+ 	.n_ext_ts = 0,
+ 	.n_per_out = 0,
++	.n_pins = 0,
+ 	.pps = 0,
+ 	.adjfreq = stmmac_adjust_freq,
+ 	.adjtime = stmmac_adjust_time,
+diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+index 8c351f1..372cb19 100644
+--- a/drivers/net/ethernet/ti/cpts.c
++++ b/drivers/net/ethernet/ti/cpts.c
+@@ -217,6 +217,7 @@ static struct ptp_clock_info cpts_info = {
+ 	.name		= "CTPS timer",
+ 	.max_adj	= 1000000,
+ 	.n_ext_ts	= 0,
++	.n_pins		= 0,
+ 	.pps		= 0,
+ 	.adjfreq	= cpts_ptp_adjfreq,
+ 	.adjtime	= cpts_ptp_adjtime,
+diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
+index b43f1b3..7e1c91d 100644
+--- a/drivers/net/ethernet/tile/tilegx.c
++++ b/drivers/net/ethernet/tile/tilegx.c
+@@ -873,6 +873,7 @@ static struct ptp_clock_info ptp_mpipe_caps = {
+ 	.name		= "mPIPE clock",
+ 	.max_adj	= 999999999,
+ 	.n_ext_ts	= 0,
++	.n_pins		= 0,
+ 	.pps		= 0,
+ 	.adjfreq	= ptp_mpipe_adjfreq,
+ 	.adjtime	= ptp_mpipe_adjtime,
+diff --git a/drivers/ptp/ptp_ixp46x.c b/drivers/ptp/ptp_ixp46x.c
+index 4a08727..604d340 100644
+--- a/drivers/ptp/ptp_ixp46x.c
++++ b/drivers/ptp/ptp_ixp46x.c
+@@ -244,6 +244,7 @@ static struct ptp_clock_info ptp_ixp_caps = {
+ 	.name		= "IXP46X timer",
+ 	.max_adj	= 66666655,
+ 	.n_ext_ts	= N_EXT_TS,
++	.n_pins		= 0,
+ 	.pps		= 0,
+ 	.adjfreq	= ptp_ixp_adjfreq,
+ 	.adjtime	= ptp_ixp_adjtime,
+diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
+index 71a2559..90a1063 100644
+--- a/drivers/ptp/ptp_pch.c
++++ b/drivers/ptp/ptp_pch.c
+@@ -514,6 +514,7 @@ static struct ptp_clock_info ptp_pch_caps = {
+ 	.name		= "PCH timer",
+ 	.max_adj	= 50000000,
+ 	.n_ext_ts	= N_EXT_TS,
++	.n_pins		= 0,
+ 	.pps		= 0,
+ 	.adjfreq	= ptp_pch_adjfreq,
+ 	.adjtime	= ptp_pch_adjtime,
 -- 
 1.7.10.4
