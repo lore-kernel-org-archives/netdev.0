@@ -1,73 +1,28 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH] isdn/capi: Make Middleware depend on CAPI2.0
-Date: Sun, 16 Mar 2014 18:44:21 +0100
-Message-ID: <5325E2F5.5030204@imap.cc>
-References: <1394919189.13157.1.camel@x220>
+From: <TsetseroTsetse@gmail.com>
+Subject: =?utf-8?B?M9C0cGHQsmPRgtCyedC50YJlISBCYWMg0LjQvdGCZXBlY3nRjm0ga9C70LjQtdC90YLRgWvQuGUg0LFh0LfRiyDQtNCw0L3QvdGLeD8=?=
+Date: Sun, 16 Mar 2014 15:09:02 -0300 (BRT)
+Message-ID: <20140316180903.5A02E30946A@email1.dufrio.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Paul Bolle <pebolle@tiscali.nl>, isdn4linux@listserv.isdn4linux.de,
-	"Keil, Karsten" <isdn@linux-pingi.de>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:59282 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753406AbaCPRoX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 13:44:23 -0400
-In-Reply-To: <1394919189.13157.1.camel@x220>
+Received: from email1.dufrio.com.br ([187.58.133.174]:35762 "EHLO
+	email1.dufrio.com.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753281AbaCPSJG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 14:09:06 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by email1.dufrio.com.br (Postfix) with ESMTP id 22121309471
+	for <netdev@vger.kernel.org>; Sun, 16 Mar 2014 15:09:05 -0300 (BRT)
+Received: from email1.dufrio.com.br ([127.0.0.1])
+	by localhost (email1.dufrio.com.br [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id ELGhb3ct7Xbw for <netdev@vger.kernel.org>;
+	Sun, 16 Mar 2014 15:09:04 -0300 (BRT)
+Received: from SRVDF014 (srvdf014.dufrio.local [192.168.0.234])
+	by email1.dufrio.com.br (Postfix) with ESMTP id 5A02E30946A
+	for <netdev@vger.kernel.org>; Sun, 16 Mar 2014 15:09:02 -0300 (BRT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Bolle <pebolle@tiscali.nl>
-
-The Kconfig symbol ISDN_CAPI_MIDDLEWARE is only used in capi.c. Setting
-it without setting ISDN_CAPI_CAPI20 is therefor useless. Make it depend
-on ISDN_CAPI_CAPI20 and put its entry after ISDN_CAPI_CAPI20's entry.
-
-Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
----
-
- drivers/isdn/capi/Kconfig | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/isdn/capi/Kconfig b/drivers/isdn/capi/Kconfig
-index f046865..9816c51 100644
---- a/drivers/isdn/capi/Kconfig
-+++ b/drivers/isdn/capi/Kconfig
-@@ -16,9 +16,17 @@ config CAPI_TRACE
- 	  This will increase the size of the kernelcapi module by 20 KB.
- 	  If unsure, say Y.
- 
-+config ISDN_CAPI_CAPI20
-+	tristate "CAPI2.0 /dev/capi support"
-+	help
-+	  This option will provide the CAPI 2.0 interface to userspace
-+	  applications via /dev/capi20. Applications should use the
-+	  standardized libcapi20 to access this functionality.  You should say
-+	  Y/M here.
-+
- config ISDN_CAPI_MIDDLEWARE
- 	bool "CAPI2.0 Middleware support"
--	depends on TTY
-+	depends on ISDN_CAPI_CAPI20 && TTY
- 	help
- 	  This option will enhance the capabilities of the /dev/capi20
- 	  interface.  It will provide a means of moving a data connection,
-@@ -26,14 +34,6 @@ config ISDN_CAPI_MIDDLEWARE
- 	  device.  If you want to use pppd with pppdcapiplugin to dial up to
- 	  your ISP, say Y here.
- 
--config ISDN_CAPI_CAPI20
--	tristate "CAPI2.0 /dev/capi support"
--	help
--	  This option will provide the CAPI 2.0 interface to userspace
--	  applications via /dev/capi20. Applications should use the
--	  standardized libcapi20 to access this functionality.  You should say
--	  Y/M here.
--
- config ISDN_CAPI_CAPIDRV
- 	tristate "CAPI2.0 capidrv interface support"
- 	depends on ISDN_I4L
--- 
-1.8.5.3
+3=E4pa=E2c=F2=E2y=E9=F2e! Bac =E8=ED=F2epecy=FEm k=EB=E8=E5=ED=F2=F1k=E8=
+e =E1a=E7=FB =E4=E0=ED=ED=FBx?
