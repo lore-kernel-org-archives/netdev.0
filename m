@@ -1,52 +1,53 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH V2 RE-SEND 1/7] net: sxgbe: add basic framework for
- Samsung 10Gb ethernet driver
-Date: Mon, 17 Mar 2014 00:11:01 +0100
-Message-ID: <20140316231101.GA23765@electric-eye.fr.zoreil.com>
-References: <007a01cf3e89$3bbdf460$b339dd20$%an@samsung.com>
- <20140314004454.GA10982@electric-eye.fr.zoreil.com>
- <000e01cf40ac$08c19290$1a44b7b0$@samsung.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2] ipv6: ip6_append_data_mtu do not handle the mtu of the second fragment properly
+Date: Mon, 17 Mar 2014 00:20:56 +0100
+Message-ID: <20140316232056.GD12291@order.stressinduktion.org>
+References: <1394945457-16212-1-git-send-email-lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
-	davem@davemloft.net, ilho215.lee@samsung.com,
-	siva.kallam@samsung.com, vipul.pandya@samsung.com,
-	ks.giri@samsung.com, "'Joe Perches'" <joe@perches.com>
-To: "Andrew.an" <bh74.an@samsung.com>
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: network dev <netdev@vger.kernel.org>,
+	Gao feng <gaofeng@cn.fujitsu.com>
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:39634 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755735AbaCPXU6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 19:20:58 -0400
 Content-Disposition: inline
-In-Reply-To: <000e01cf40ac$08c19290$1a44b7b0$@samsung.com>
-Sender: linux-samsung-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1394945457-16212-1-git-send-email-lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andrew.an <bh74.an@samsung.com> :
-[...]
-> > > +struct sxgbe_core_ops {
-> > > +	/* MAC core initialization */
-> > > +	void (*core_init)(void __iomem *ioaddr);
-[...]
-> > > +	/* adjust SXGBE speed */
-> > > +	void (*set_speed)(void __iomem *ioaddr, unsigned char speed);
-> > > +};
-> > 
-> > This indirection level is never used.
-> Those are used, can you give more detail?
+Hi!
 
-They are used but they always point to the same set of methods.
-Those methods could thus be directly called.
+On Sun, Mar 16, 2014 at 12:50:57PM +0800, Xin Long wrote:
+> In ip6_append_data_mtu(), when the xfrm mode is not tunnel(such as
+> transport),the ipsec header need to be added in the first fragment, so the mtu
+> will decrease to reserve space for it, then the second fragment come, the mtu
+> should be turn back, as the commit 0c1833797a5a6ec23ea9261d979aa18078720b74
+> said.  however, in the commit a493e60ac4bbe2e977e7129d6d8cbb0dd236be, it use
+> *mtu = min(*mtu, ...) to change the mtu, which lead to the new mtu is alway
+> equal with the first fragment's. and cannot turn back.
+> 
+> when I test through  ping6 -c1 -s5000 $ip (mtu=1280):
+> ...frag (0|1232) ESP(spi=0x00002000,seq=0xb), length 1232
+> ...frag (1232|1216)
+> ...frag (2448|1216)
+> ...frag (3664|1216)
+> ...frag (4880|164)
+> 
+> which should be:
+> ...frag (0|1232) ESP(spi=0x00001000,seq=0x1), length 1232
+> ...frag (1232|1232)
+> ...frag (2464|1232)
+> ...frag (3696|1232)
+> ...frag (4928|116)
+> 
+> so delete the min() when change back the mtu.
 
-[...]
-> > > +/* SXGBE private data structures */
-> > > +struct sxgbe_tx_queue {
-> > > +	u8 queue_no;
-> > > +	unsigned int irq_no;
-> > > +	struct sxgbe_priv_data *priv_ptr;
-> > > +	struct sxgbe_tx_norm_desc *dma_tx;
-> > 
-> > You may lay things a bit differently.
-> can you give more detail?
+While the patch looks good it does not seem to apply cleanly on net. Maybe you
+could have a look?
 
-Bigger fields first, u8 at the end. It will save padding in the struct.
+Thanks,
 
--- 
-Ueimor
+  Hannes
