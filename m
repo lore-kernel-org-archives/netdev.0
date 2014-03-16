@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next v2 5/9] dp83640: trivial fixes
-Date: Sun, 16 Mar 2014 14:29:26 +0100
-Message-ID: <91de995709abdb2c689eb5adcfa6c90606589c32.1394975663.git.richardcochran@gmail.com>
+Subject: [PATCH net-next v2 6/9] dp83640: correct the periodic output frequency
+Date: Sun, 16 Mar 2014 14:29:27 +0100
+Message-ID: <39aa0aefeed43f2e1ad7b041ed9e5162e7374259.1394975663.git.richardcochran@gmail.com>
 References: <cover.1394975663.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>,
 	Ben Hutchings <ben@decadent.org.uk>,
@@ -15,46 +15,51 @@ In-Reply-To: <cover.1394975663.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch cleans up the input checking code on the external time stamp
-function by using an unsigned rather than a signed channel index.
-
-Also, this patch corrects the author's email address. When this macro
-was last changed, the top level domain part of the email address was
-left behind.
+The phyter driver incorrectly feeds the value of the period into what
+is in fact a pulse width register, resulting in the actual period
+being twice the dialed value. This patch fixes the issue and renames a
+variable to make the code at bit more clear.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/phy/dp83640.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/phy/dp83640.c |   11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index 98e7cbf..d6c1061 100644
+index d6c1061..9e26555 100644
 --- a/drivers/net/phy/dp83640.c
 +++ b/drivers/net/phy/dp83640.c
-@@ -424,13 +424,13 @@ static int ptp_dp83640_enable(struct ptp_clock_info *ptp,
- 	struct dp83640_clock *clock =
- 		container_of(ptp, struct dp83640_clock, caps);
- 	struct phy_device *phydev = clock->chosen->phydev;
--	int index;
-+	unsigned int index;
- 	u16 evnt, event_num, gpio_num;
+@@ -271,7 +271,7 @@ static void periodic_output(struct dp83640_clock *clock,
+ {
+ 	struct dp83640_private *dp83640 = clock->chosen;
+ 	struct phy_device *phydev = dp83640->phydev;
+-	u32 sec, nsec, period;
++	u32 sec, nsec, pwidth;
+ 	u16 gpio, ptp_trig, trigger, val;
  
- 	switch (rq->type) {
- 	case PTP_CLK_REQ_EXTTS:
- 		index = rq->extts.index;
--		if (index < 0 || index >= N_EXT_TS)
-+		if (index >= N_EXT_TS)
- 			return -EINVAL;
- 		event_num = EXT_EVENT + index;
- 		evnt = EVNT_WR | (event_num & EVNT_SEL_MASK) << EVNT_SEL_SHIFT;
-@@ -1363,7 +1363,7 @@ static void __exit dp83640_exit(void)
- }
+ 	gpio = on ? gpio_tab[PEROUT_GPIO] : 0;
+@@ -296,8 +296,9 @@ static void periodic_output(struct dp83640_clock *clock,
  
- MODULE_DESCRIPTION("National Semiconductor DP83640 PHY driver");
--MODULE_AUTHOR("Richard Cochran <richardcochran@gmail.at>");
-+MODULE_AUTHOR("Richard Cochran <richardcochran@gmail.com>");
- MODULE_LICENSE("GPL");
+ 	sec = clkreq->perout.start.sec;
+ 	nsec = clkreq->perout.start.nsec;
+-	period = clkreq->perout.period.sec * 1000000000UL;
+-	period += clkreq->perout.period.nsec;
++	pwidth = clkreq->perout.period.sec * 1000000000UL;
++	pwidth += clkreq->perout.period.nsec;
++	pwidth /= 2;
  
- module_init(dp83640_init);
+ 	mutex_lock(&clock->extreg_lock);
+ 
+@@ -310,8 +311,8 @@ static void periodic_output(struct dp83640_clock *clock,
+ 	ext_write(0, phydev, PAGE4, PTP_TDR, nsec >> 16);      /* ns[31:16] */
+ 	ext_write(0, phydev, PAGE4, PTP_TDR, sec & 0xffff);    /* sec[15:0] */
+ 	ext_write(0, phydev, PAGE4, PTP_TDR, sec >> 16);       /* sec[31:16] */
+-	ext_write(0, phydev, PAGE4, PTP_TDR, period & 0xffff); /* ns[15:0] */
+-	ext_write(0, phydev, PAGE4, PTP_TDR, period >> 16);    /* ns[31:16] */
++	ext_write(0, phydev, PAGE4, PTP_TDR, pwidth & 0xffff); /* ns[15:0] */
++	ext_write(0, phydev, PAGE4, PTP_TDR, pwidth >> 16);    /* ns[31:16] */
+ 
+ 	/*enable trigger*/
+ 	val &= ~TRIG_LOAD;
 -- 
 1.7.10.4
