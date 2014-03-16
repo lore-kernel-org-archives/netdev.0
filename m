@@ -1,74 +1,73 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next] bonding: net_ratelimit() pr_warn()s in 802.3ad
- mode
-Date: Sun, 16 Mar 2014 18:02:36 +0100
-Message-ID: <20140316170236.GD30498@redhat.com>
-References: <1394987380-15765-1-git-send-email-vfalico@redhat.com>
- <1394989163.5689.42.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Joe Perches <joe@perches.com>
+From: David Herrmann <dh.herrmann@gmail.com>
+Subject: [PATCH v2 0/4] Provide netdev naming-policy via sysfs
+Date: Sun, 16 Mar 2014 18:21:26 +0100
+Message-ID: <1394990490-1076-1-git-send-email-dh.herrmann@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Tom Gundersen <teg@jklm.no>,
+	Johannes berg <johannes@sipsolutions.net>,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	David Herrmann <dh.herrmann@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52634 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751219AbaCPRCs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Mar 2014 13:02:48 -0400
-Content-Disposition: inline
-In-Reply-To: <1394989163.5689.42.camel@joe-AO722>
+Received: from mail-bk0-f49.google.com ([209.85.214.49]:35632 "EHLO
+	mail-bk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753281AbaCPRVu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 13:21:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 16, 2014 at 09:59:23AM -0700, Joe Perches wrote:
->On Sun, 2014-03-16 at 17:29 +0100, Veaceslav Falico wrote:
->> Only ratelimit the ones that might spam, omiting the ones from
->> enslave/deslave.
->
->No, this patch isn't good and must not be applied.
->You've also changed flow here.
+Hi
 
-Hrm, seems like geomagnetic storm that's going on outside buffed my
-stupidity.
+This is v2 of the netdev naming-policy series. You can find v1 here:
+  http://thread.gmane.org/gmane.linux.kernel/1657015
+Changes in v2:
+  - fix mac80211 core to set NET_NAME_ENUM for wlan%d kernel-provided names
+  - acked-by udev developers
 
-Sent v2 with pr_warn_ratelimit(), it changes nothing in the logic.
 
->
->> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
->[]
->> @@ -2080,7 +2081,7 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
->>
->>  		/* select the active aggregator for the bond */
->>  		if (port) {
->> -			if (!port->slave) {
->> +			if (!port->slave && net_ratelimit()) {
->>  				pr_warn("%s: Warning: bond's first port is uninitialized\n",
->>  					bond->dev->name);
->>  				goto re_arm;
->
->Now the goto is ratelimited too.
->
->> @@ -2095,7 +2096,7 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
->>  	/* for each port run the state machines */
->>  	bond_for_each_slave_rcu(bond, slave, iter) {
->>  		port = &(SLAVE_AD_INFO(slave).port);
->> -		if (!port->slave) {
->> +		if (!port->slave && net_ratelimit()) {
->>  			pr_warn("%s: Warning: Found an uninitialized port\n",
->>  				bond->dev->name);
->>  			goto re_arm;
->
->here too.
->
->> @@ -2157,7 +2158,7 @@ static int bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave,
->>
->>  		port = &(SLAVE_AD_INFO(slave).port);
->>
->> -		if (!port->slave) {
->> +		if (!port->slave && net_ratelimit()) {
->>  			pr_warn("%s: Warning: port of slave %s is uninitialized\n",
->>  				slave->dev->name, slave->bond->dev->name);
->>  			return ret;
->
->And the return 3.
->
+This series implements a new sysfs attribute for netdevs called
+"name_assign_type". It provides an integer that describes where an interface
+name comes from. See Patch #1 for a description of this attribute. It is
+modelled after the existing "addr_assign_type" attribute.
+
+The main use-case is to allow udev to skip applying reliable ifnames to virtual
+devices. For instance, if wifi-P2P devices are created, wpas already provides a
+suitable naming-policy and udev shouldn't touch these devices. Same is true for
+other virtual devices.
+The idea is that if a device-name was provided by user-space, we should always
+prefer fixing this naming-policy instead of making udev rename the device. For
+kernel provided names that's hardly possible, though. Providing the
+naming-policy source via sysfs is thus a simple way to see whether renames are
+needed.
+
+Additionally, this field allows to detect whether a netdev has been manually
+renamed, which is quite useful for debugging and during crash-recovery.
+Furthermore, it fixes real udev bugs if a netdev is already renamed in the
+initrd and udev only runs in the real root. Detecting renames avoids overwriting
+custom user provided names.
+
+Thanks
+David
+
+David Herrmann (4):
+  net: add name_assign_type netdev attribute
+  mac80211: set NET_NAME_USER for user-space created ifs
+  ath6kl: set NET_NAME_USER for P2P ifs
+  brcmfmac: set NET_NAME_USER for P2P ifs
+
+ drivers/net/wireless/ath/ath6kl/cfg80211.c    | 5 ++++-
+ drivers/net/wireless/ath/ath6kl/cfg80211.h    | 1 +
+ drivers/net/wireless/ath/ath6kl/core.c        | 4 ++--
+ drivers/net/wireless/brcm80211/brcmfmac/p2p.c | 1 +
+ include/linux/netdevice.h                     | 6 ++++++
+ net/core/dev.c                                | 7 +++++++
+ net/core/net-sysfs.c                          | 2 ++
+ net/core/rtnetlink.c                          | 2 ++
+ net/mac80211/cfg.c                            | 2 +-
+ net/mac80211/ieee80211_i.h                    | 1 +
+ net/mac80211/iface.c                          | 2 ++
+ net/mac80211/main.c                           | 2 +-
+ 12 files changed, 30 insertions(+), 5 deletions(-)
+
+-- 
+1.9.0
