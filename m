@@ -1,104 +1,98 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH v2] ipv6: ip6_append_data_mtu do not handle the mtu of the second fragment properly
-Date: Sun, 16 Mar 2014 12:50:57 +0800
-Message-ID: <1394945457-16212-1-git-send-email-lucien.xin@gmail.com>
-Cc: Xin Long <lucien.xin@gmail.com>
-To: network dev <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Gao feng <gaofeng@cn.fujitsu.com>
+From: Zheng Liu <gnehzuil.liu@gmail.com>
+Subject: Re: TCP fast open question
+Date: Sun, 16 Mar 2014 13:57:25 +0800
+Message-ID: <20140316055725.GA2659@gmail.com>
+References: <20140308115823.GA3185@gmail.com>
+ <CAK6E8=cJnjReDL+TCv-hKxd1EaAud3T8kdz2C01NK=yYgAgBLQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jerry Chu <hkchu@google.com>,
+	Xiaochen Wang <xiaochen.wxc@alibaba-inc.com>,
+	Zheng Liu <wenqing.lz@taobao.com>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:64370 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750732AbaCPEvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 00:51:11 -0400
-Received: by mail-pd0-f173.google.com with SMTP id z10so4219866pdj.32
-        for <netdev@vger.kernel.org>; Sat, 15 Mar 2014 21:51:11 -0700 (PDT)
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:54315 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750732AbaCPFvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 01:51:41 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y10so4203326pdj.8
+        for <netdev@vger.kernel.org>; Sat, 15 Mar 2014 22:51:40 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAK6E8=cJnjReDL+TCv-hKxd1EaAud3T8kdz2C01NK=yYgAgBLQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In ip6_append_data_mtu(), when the xfrm mode is not tunnel(such as
-transport),the ipsec header need to be added in the first fragment, so the mtu
-will decrease to reserve space for it, then the second fragment come, the mtu
-should be turn back, as the commit 0c1833797a5a6ec23ea9261d979aa18078720b74
-said.  however, in the commit a493e60ac4bbe2e977e7129d6d8cbb0dd236be, it use
-*mtu = min(*mtu, ...) to change the mtu, which lead to the new mtu is alway
-equal with the first fragment's. and cannot turn back.
+Hi Yuchung,
 
-when I test through  ping6 -c1 -s5000 $ip (mtu=1280):
-...frag (0|1232) ESP(spi=0x00002000,seq=0xb), length 1232
-...frag (1232|1216)
-...frag (2448|1216)
-...frag (3664|1216)
-...frag (4880|164)
+Sorry for the late reply because of an urgent issue.
 
-which should be:
-...frag (0|1232) ESP(spi=0x00001000,seq=0x1), length 1232
-...frag (1232|1232)
-...frag (2464|1232)
-...frag (3696|1232)
-...frag (4928|116)
+On Mon, Mar 10, 2014 at 10:09:06AM -0700, Yuchung Cheng wrote:
+> On Sat, Mar 8, 2014 at 3:58 AM, Zheng Liu <gnehzuil.liu@gmail.com> wrote:
+> > Hi all,
+> >
+> > Now we are trying to use TCP fast open in our nginx server, and we
+> > encounter a problem under non-blocking socket.  I appreciate if some one
+> > can reply this question.  Thanks in advance.
+> >
+> > I describe our question here.  we have two machines, one is as server and
+> > another is as client.  'net.ipv4.tcp_fastopen' on both of them are set to
+> > 3.  The server program looks like below:
+> >
+> >   ...
+> >   listenfd = socket(AF_INET, SOCK_STREAM, 0);
+> >   bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+> >   int tfo_opt = 1;
+> >   setsockopt(listenfd, SOL_TCP, TCP_LISTEN_INFO, &tfo_opt, sizeof(tfo_opt));
+> >   listen(listenfd, 5);
+> >   connfd = accept(listenfd, (struct sockaddr *)NULL, NULL);
+> >   recv(connfd, &buf, 4096)
+> >   ...
+> >
+> > The client program:
+> >
+> >   ...
+> >   sockfd = socket(AF_INET, SOCK_STREAM, 0);
+> >   fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL, 0)|O_NONBLOCK);
+> >   sendto(sockfd, msg, strlen(msg), MSG_FASTOPEN,
+> >         (struct sockaddr *)&servaddr, sizeof(servaddr);
+> >   recv(sockfd, buf, 4096, 0);
+> >   ...
+> >
+> > We use a non-blocking socket to connect the server and send some
+> > messages.  After calling sendto(2) we always get an EINPROGRESS error.
+> > We think it is reasonable because connect(2) could also return this
+> > error with a non-blocking socket and the connection will be established
+> > later.  The question is *whether or not the data will be sent* after the
+> > connection is established.  If I understand correctly, sendto(2) will
+> > return the number of bytes of data queued up in the kernel or sent in
+> > the SYN packet.  Even though the EINPROGRESS is returned.  If sendto(2)
+> > returns -1, that means that no data is queued up in kernel or sent in
+> > the packet.  Please correct me if I miss-understand something.
+> Correct.
+> http://tools.ietf.org/html/draft-ietf-tcpm-fastopen-07#appendix-A.1
+> 
+> >
+> > We run the program in our testing environment, and we use tcpdump(1) to
+> > capture the packets.  From the result we can see there is no any data
+> > that is sent.  Then we do another testing that after calling sendto(2)
+> The first handshake is used to get the Fast Open cookie for future
+> connections. I suspect you didn't enable Fast Open on the server side.
+> What're the output of 'sysctl net.ipv4.tcp_fastopen' on your client
+> and server? pls send the tcpdump traces on both sides as well.
 
-so delete the min() when change back the mtu.
+Sorry, let me clarify the description please.  We can capture the syn
+packet without data.  So that means that client has issued a cookie
+request.  My question is when the data could be sent out.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/ipv6/ip6_output.c | 13 ++++++-------
- 1 file changed, 6 insertions(+), 7 deletions(-)
+Here I miss understand the behaviour when the program is the first time
+to call sendto(2).  As RFC draft of TFO described, sendto(2) will return
+-1 with EINPROGRESS error if the cookie is not available locallly.  That
+means that we need to call write(2) to send the data after the connection
+is established.  Namely, after getting -1 with EINPROGRESS, the caller
+must call write(2) again later.  Now this problem has been solved.
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 117c093..6184dfa 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1101,20 +1101,19 @@ static void ip6_append_data_mtu(unsigned int *mtu,
- 				unsigned int fragheaderlen,
- 				struct sk_buff *skb,
- 				struct rt6_info *rt,
--				bool pmtuprobe)
-+				unsigned int orig_mtu)
- {
- 	if (!(rt->dst.flags & DST_XFRM_TUNNEL)) {
- 		if (skb == NULL) {
- 			/* first fragment, reserve header_len */
--			*mtu = *mtu - rt->dst.header_len;
-+			*mtu = orig_mtu - rt->dst.header_len;
- 
- 		} else {
- 			/*
- 			 * this fragment is not first, the headers
- 			 * space is regarded as data space.
- 			 */
--			*mtu = pmtuprobe ? rt->dst.dev->mtu :
--				   dst_mtu(rt->dst.path);
-+			*mtu = orig_mtu;
- 		}
- 		*maxfraglen = ((*mtu - fragheaderlen) & ~7)
- 			      + fragheaderlen - sizeof(struct frag_hdr);
-@@ -1131,7 +1130,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct inet_cork *cork;
- 	struct sk_buff *skb, *skb_prev = NULL;
--	unsigned int maxfraglen, fragheaderlen, mtu;
-+	unsigned int maxfraglen, fragheaderlen, mtu, orig_mtu;
- 	int exthdrlen;
- 	int dst_exthdrlen;
- 	int hh_len;
-@@ -1213,6 +1212,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 		dst_exthdrlen = 0;
- 		mtu = cork->fragsize;
- 	}
-+	orig_mtu = mtu;
- 
- 	hh_len = LL_RESERVED_SPACE(rt->dst.dev);
- 
-@@ -1312,8 +1312,7 @@ alloc_new_skb:
- 			if (skb == NULL || skb_prev == NULL)
- 				ip6_append_data_mtu(&mtu, &maxfraglen,
- 						    fragheaderlen, skb, rt,
--						    np->pmtudisc >=
--						    IPV6_PMTUDISC_PROBE);
-+						    orig_mtu);
- 
- 			skb_prev = skb;
- 
--- 
-1.8.3.1
+Thanks for your help,
+                                                - Zheng
