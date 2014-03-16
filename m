@@ -1,45 +1,49 @@
-From: Jean Sacren <sakiwit@gmail.com>
-Subject: [PATCH net-next] i40e: fix function kernel doc description
-Date: Sun, 16 Mar 2014 15:41:15 -0600
-Message-ID: <1395006075-10919-1-git-send-email-sakiwit@gmail.com>
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:59570 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932084AbaCPVoq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 17:44:46 -0400
-Received: by mail-pd0-f178.google.com with SMTP id x10so4749256pdj.37
-        for <netdev@vger.kernel.org>; Sun, 16 Mar 2014 14:44:45 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Herrmann <dh.herrmann@gmail.com>
+Subject: Re: [PATCH v2 1/4] net: add name_assign_type netdev attribute
+Date: Sun, 16 Mar 2014 22:53:48 +0100
+Message-ID: <CANq1E4R8WAWu5_V+_D_8e+u0hmhayi4Ueh7pDwcbvGwp=KTRBw@mail.gmail.com>
+References: <1394990490-1076-1-git-send-email-dh.herrmann@gmail.com>
+	<1394990490-1076-2-git-send-email-dh.herrmann@gmail.com>
+	<1394997429.15764.116.camel@deadeye.wl.decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Tom Gundersen <teg@jklm.no>,
+	Johannes berg <johannes@sipsolutions.net>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394997429.15764.116.camel@deadeye.wl.decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The commit c7d05ca89f8e ("i40e: driver ethtool core") introduced the
-new function i40e_add_del_fdir_sctpv4() with the kernel doc
-description a little bit off. The trivial error was copied over to a
-different file by the commit 17a73f6b1401 ("i40e: Flow Director
-sideband accounting") most recently. Fix the kernel doc with the
-correct description for clarity.
+Hi
 
-Signed-off-by: Jean Sacren <sakiwit@gmail.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Sun, Mar 16, 2014 at 8:17 PM, Ben Hutchings <ben@decadent.org.uk> wrote:
+> On Sun, 2014-03-16 at 18:21 +0100, David Herrmann wrote:
+> [...]
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+>> @@ -74,6 +74,11 @@ void netdev_set_default_ethtool_ops(struct net_device *dev,
+>>  #define NET_RX_SUCCESS               0       /* keep 'em coming, baby */
+>>  #define NET_RX_DROP          1       /* packet dropped */
+>>
+>> +/* interface name assignment types */
+>> +#define NET_NAME_ENUM                0       /* enumerated by kernel (default) */
+>> +#define NET_NAME_USER                1       /* provided by user-space */
+>> +#define NET_NAME_RENAMED     2       /* renamed by user-space */
+> [...]
+>
+> I think these definitions should be put in a UAPI header.  Even if the
+> names don't end up being used by userland, that would make it clear that
+> the numbers are a stable ABI.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 88666adb0743..a53c4bcada79 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -299,7 +299,7 @@ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
-  * @raw_packet: the pre-allocated packet buffer for FDir
-  * @add: true adds a filter, false removes it
-  *
-- * Returns 0 if the filters were successfully added or removed
-+ * Always returns -EOPNOTSUPP
-  **/
- static int i40e_add_del_fdir_sctpv4(struct i40e_vsi *vsi,
- 				    struct i40e_fdir_filter *fd_data,
+I tried to follow addr_assign_type as closely as possible. The
+NET_ADDR_* constants are only defined internally either. I am fine
+with exporting the constants, just want to make sure there's no reason
+to hide them that I'm not aware of.
+
+Thanks
+David
