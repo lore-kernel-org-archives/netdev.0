@@ -1,60 +1,84 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Subject: Re: [GIT PULL] namespaces fixes for 3.14-rcX
-Date: Sun, 16 Mar 2014 14:36:51 -0400
-Message-ID: <20140316183651.GJ27244@madcap2.tricolour.ca>
-References: <874n3ir0uw.fsf_-_@xmission.com>
- <87mwhaplo4.fsf_-_@xmission.com>
- <20140304133004.b565820f60f595a48e621e58@linux-foundation.org>
- <20140304.165122.445822929490466603.davem@davemloft.net>
- <87mwh5d1tf.fsf@xmission.com>
- <20140304145037.d46ee775d293dd1ad60aa8e3@linux-foundation.org>
- <87bnxesqf0.fsf_-_@xmission.com>
- <1394459944.17193.12.camel@localhost>
- <87r469rfop.fsf@xmission.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 3/3] ath10k: add firmware files
+Date: Sun, 16 Mar 2014 18:57:10 +0000
+Message-ID: <1394996230.15764.113.camel@deadeye.wl.decadent.org.uk>
+References: <20140314084501.23100.13103.stgit@x230>
+	 <20140314084514.23100.72654.stgit@x230>
+	 <CAB=NE6WW8yX4kdy02j2fT4g0JvYj4a_XkiqYtXKZSMB7FHuwNg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Paris <eparis@redhat.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, linux-audit@redhat.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-ANVEt/7OdFBiJ+ufZy8u"
+Cc: Kalle Valo <kvalo@qca.qualcomm.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Woodhouse <dwmw2@infradead.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	ath10k@lists.infradead.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87r469rfop.fsf@xmission.com>
+In-Reply-To: <CAB=NE6WW8yX4kdy02j2fT4g0JvYj4a_XkiqYtXKZSMB7FHuwNg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 14/03/10, Eric W. Biederman wrote:
-> Eric Paris <eparis@redhat.com> writes:
-> 
-> > On Sun, 2014-03-09 at 20:06 -0700, Eric W. Biederman wrote:
-> >> My efforts to get these fixes noticed by people who care about audit
-> >> seem to have landed on deaf ears, so since these are namespace related I
-> >> have put them in my tree.
-> >
-> > This commentary sounds like a pile of crap seeing as how there was a
-> > whole discussion around how to handle this stuff, which you were a part
-> > of.  And that the audit tree already picked up these 2 patches.
-> 
-> My apologies for offending.  Last night when I looked the audit tree had
-> not been updated in 7 weeks, and Andrew Morton wasn't ready to push
-> these fixes to Linus and was looking for someone who would.  Keeping
-> important bug fixes in my retransmit queue leaves me very grumpy.
 
-Well, it is offensive.  Please stick to the facts.  Some of us may not
-be as smart as you, but continuing to suggest people don't care is
-starting to get abusive.
+--=-ANVEt/7OdFBiJ+ufZy8u
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> > In any case, since I haven't sent them to Linus and I'm glad that is
-> > done, so feel free to consider this me Acking the pull request.
-> 
-> Eric
+On Fri, 2014-03-14 at 05:36 -0700, Luis R. Rodriguez wrote:
+> On Fri, Mar 14, 2014 at 1:45 AM, Kalle Valo <kvalo@qca.qualcomm.com> wrot=
+e:
+[...]
+> > + NO LICENSES OR OTHER RIGHTS,
+> > +WHETHER EXPRESS, IMPLIED, BASED ON ESTOPPEL OR OTHERWISE, ARE GRANTED
+> > +TO ANY PARTY'S PATENTS, PATENT APPLICATIONS, OR PATENTABLE INVENTIONS
+> > +BY VIRTUE OF THIS LICENSE OR THE DELIVERY OR PROVISION BY QUALCOMM
+> > +ATHEROS, INC. OF THE SOFTWARE.
+>=20
+> This -- however is new to linux-firmware -- and I hereby raise a big
+> red fucking flag. All other licenses on linux-firmware provide at the
+> very least a limited patent grant. What makes Qualcomm special ?
+[...]
 
-- RGB
+There are several licence texts that don't mention patents at all.  I'm
+assuming that the companies submitting firmware for inclusion in Linux
+or linux-firmware do intend to grant whatever licences are required to
+distribute it to end users.
 
---
-Richard Guy Briggs <rbriggs@redhat.com>
-Senior Software Engineer, Kernel Security, AMER ENG Base Operating Systems, Red Hat
-Remote, Ottawa, Canada
-Voice: +1.647.777.2635, Internal: (81) 32635, Alt: +1.613.693.0684x3545
+Several licence texts explicitly exclude patent licences relating to any
+*other* products of the same company, but that's quite redundant.
+
+However this language seems to explicitly exclude *any* patent licence.
+You're right to raise a red flag because, assuming Qualcomm does have
+patents that cover the firmware alone, this seems to disallow
+redistribution in whatever jurisdictions those patents apply.
+
+Ben.
+
+--=20
+Ben Hutchings
+Computers are not intelligent.	They only think they are.
+
+--=-ANVEt/7OdFBiJ+ufZy8u
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAUyX0Bue/yOyVhhEJAQpPeQ/8D6Z1UqLY4JPQsVWUWUMd/9CMVO3pBIK8
+m8+yo0qgC8WL7CWHe8kPDkL05gNPdj5ef7qc+AzqYTKEvaa4pTbQ6BS8Y14FhTVS
+cUo4fDjhJfT9R7uP7XBtCGagcaOUzFoDvYgMlH+pN2qeoV+v+IkxXTadTRsfpY5x
+oLHklcoFTrwf02VLba77eNsEzKHciOG9go3rJVXn/wgwCYdBCCNhzwpmfZJQzPZm
+AwNFshs2ndQI7yVlU+zT/hSdEgpOj2Q20rZxFVVTQSxRd2J5NKvaqXu1vkSlDkGh
+m0uUCsluIHSt1VUK0RSBaJ/pIG/NatimdSCpH1V4ohREGAO5u3K7N/FUFcJk0apO
+3keexu3nJ40hkxyArPzL8mYNJb0mJ63cvAkkCyf6a5xECXJV24byG/5pvdSrLTkf
+M1pI9nQvQYRMN8YQTocNBiw3L8oQF/jEpabZKluHqy3Cayvnj+EluDhXOsbtcg/x
+ufhcViPr5xsyyTimkhcEVPPNKyPNdzXccRO7w5Ee6uN8mPrxlSHEShV4mnOdSGWH
+T2r4Y3ms2uTmmTDk2JNrDtengTg1qM8+B6dODOB7wR02j2bO7O2D8yei8dVm7SMG
+IVT4iJ0M9rv8jKrC/lTXG+EmfLaFKr4fOTe5jqTM2Gn8racr/hjvT2ywbV4wwdYq
+BYuxxRlkn6w=
+=r1Jd
+-----END PGP SIGNATURE-----
+
+--=-ANVEt/7OdFBiJ+ufZy8u--
