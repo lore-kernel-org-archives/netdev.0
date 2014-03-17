@@ -1,102 +1,170 @@
-From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Subject: [PATCH net] net: vxlan: fix crash when interface is created with no group
-Date: Mon, 17 Mar 2014 13:17:30 +0200
-Message-ID: <1395055050-20874-1-git-send-email-mike.rapoport@ravellosystems.com>
-Cc: Mike Rapoport <mike.rapoport@ravellosystems.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f49.google.com ([74.125.83.49]:47326 "EHLO
-	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932514AbaCQLRl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 07:17:41 -0400
-Received: by mail-ee0-f49.google.com with SMTP id c41so3984001eek.36
-        for <netdev@vger.kernel.org>; Mon, 17 Mar 2014 04:17:40 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH 2/2] net: cdc_ncm: respect operator preferred MTU reported by MBIM
+Date: Mon, 17 Mar 2014 10:42:09 +0100
+Message-ID: <87ob15maa6.fsf@nemi.mork.no>
+References: <1394952550-9308-1-git-send-email-benchan@chromium.org>
+	<1394952550-9308-2-git-send-email-benchan@chromium.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Greg Suarez <gsuarez@smithmicro.com>
+To: Ben Chan <benchan@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394952550-9308-2-git-send-email-benchan@chromium.org> (Ben
+	Chan's message of "Sat, 15 Mar 2014 23:49:10 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If the vxlan interface is created without group definition, there is a
-panic on the first packet reception:
+Is this *really* driver material, or should we just leave the IP MTU
+hint handling up to the userspace management application?
 
-$ ip link add dev vxlan0 type vxlan id 1
-$ ip addr add dev vxlan0 10.0.0.1/24
-$ ip link set up dev vxlan0
+There are no less than 3(!) different ways for a device to specify the
+MBIM MTU:
 
-  BUG: unable to handle kernel paging request at 0000000100000103
-  IP: [<ffffffff8143435b>] ipv6_rcv+0xfa/0x399
-  PGD 7c397067 PUD 0
-  Oops: 0000 [#1] SMP
-  Modules linked in:
-  CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.14.0-rc6-hvx-xen-00153-gee7d07e #95
-  Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-  task: ffffffff81813450 ti: ffffffff81800000 task.ti: ffffffff81800000
-  RIP: 0010:[<ffffffff8143435b>]  [<ffffffff8143435b>] ipv6_rcv+0xfa/0x399
-  RSP: 0018:ffff88007fc03d78  EFLAGS: 00010282
-  RAX: 0000000100000003 RBX: ffff88007bd29000 RCX: 0000000000000000
-  RDX: ffff88007bd29028 RSI: ffff88007c29a000 RDI: ffff88007bd29040
-  RBP: ffff88007fc03da8 R08: 0000000000000000 R09: ffff88007b1bc548
-  R10: ffff88007bd29a00 R11: ffff88007bd29000 R12: ffff88007bcc5800
-  R13: ffffffff8186a000 R14: ffff88007c29a000 R15: 0000000000000000
-  FS:  0000000000000000(0000) GS:ffff88007fc00000(0000) knlGS:0000000000000000
-  CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-  CR2: 0000000100000103 CR3: 000000007bc01000 CR4: 00000000000006f0
-  Stack:
-   ffff88007bd29a00 ffffffff81886010 ffffffff8187fa48 000000000000dd86
-   ffff88007c29a000 0000000000000000 ffff88007fc03e18 ffffffff8139a42c
-   ffff88007fc03dd8 ffffffff812a320f ffffffff8187fa70 ffff88007bd29000
-  Call Trace:
-   <IRQ>
-   [<ffffffff8139a42c>] __netif_receive_skb_core+0x43e/0x478
-   [<ffffffff812a320f>] ? virtqueue_poll+0x16/0x27
-   [<ffffffff8139a4bb>] __netif_receive_skb+0x55/0x5a
-   [<ffffffff8139a536>] process_backlog+0x76/0x12f
-   [<ffffffff8139a864>] net_rx_action+0xa2/0x1ab
-   [<ffffffff81047847>] __do_softirq+0xca/0x1d1
-   [<ffffffff81047ace>] irq_exit+0x3e/0x85
-   [<ffffffff8100b98b>] do_IRQ+0xa9/0xc4
-   [<ffffffff814a972d>] common_interrupt+0x6d/0x6d
-   <EOI>
-   [<ffffffff810378db>] ? native_safe_halt+0x6/0x8
-   [<ffffffff810110c7>] default_idle+0x9/0xd
-   [<ffffffff81011694>] arch_cpu_idle+0x13/0x1c
-   [<ffffffff810747fd>] cpu_startup_entry+0xbc/0x137
-   [<ffffffff8149bd8e>] rest_init+0x72/0x74
-   [<ffffffff8189eda7>] start_kernel+0x3e6/0x3f3
-   [<ffffffff8189e7ca>] ? repair_env_string+0x56/0x56
-   [<ffffffff8189e120>] ? early_idt_handlers+0x120/0x120
-   [<ffffffff8189e4cd>] x86_64_start_reservations+0x2a/0x2c
-   [<ffffffff8189e5c2>] x86_64_start_kernel+0xf3/0x102
-  Code: 40 68 e9 a9 02 00 00 48 8d 53 28 31 c0 b9 06 00 00 00 48 89 d7 f3 ab 48 8b 43 58 48 83 e0 fe 74 12 48 8b 80 48 01 00 00 48 8b 00 <8b> 80 00 01 00 00 eb 07 41 8b 86 00 01 00 00 8b 53 68 89 43 28
-  RIP  [<ffffffff8143435b>] ipv6_rcv+0xfa/0x399
-   RSP <ffff88007fc03d78>
-  CR2: 0000000100000103
-  ---[ end trace d4e5022768991ebe ]---
+ 1) wMaxSegmentSize field of the "MBIM Control Model Functional
+      Descriptor"
+      (mandatory, pre-errata1, per-device, both IP and DSS)
 
-The crash occurs because vxlan_rcv decides on protocol version of outer
-packed using vxlan->default_dst.remote_ip.sa.sa_family field which is
-not initialized if no multicast group was specified at interface
-creation time. This causes vxlan driver to always assume that outer
-packet is IPv6.
+ 2) IPv4Mtu/IPv6Mtu fields of the MBIM_IP_CONFIGURATION_INFO response t=
+o
+      MBIM_CID_IP_CONFIGURATION
+      (mandatory, pre-errata1, per-session, IP only)
+=20
+ 3) wMTU field of the "MBIM Extended Functional Descriptor"
+      (optional, errata1, per-operator, IP only)
 
-Using IP protocol version from skb instead of default destination
-address family fixes the problem.
+I see the optional extended MBIM descriptor as no more than a hint, and
+given that MBIM_CID_IP_CONFIGURATION is mandatory I see no real use cas=
+e
+at all.
 
-Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
----
- drivers/net/vxlan.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+If the extended decriptor is there, and the application supports it,
+then fine - let the application base the default IP MTU on this
+value. But I cannot see anything possibly break for an application and
+driver which does not support it.  The fact that the USB-IF didn't
+bother to update the MBIM version number when they added this descripto=
+r
+supports that claim IMHO.  It tells us that it is perfectly OK for any
+MBIM v1.0 compliant application/driver to not even parse this
+descriptor, because the application/driver can predate Errata1.  The
+descriptor was added out of the blue in something called an "Errata",
+and is IMHO best ignored until a proper new version of the standard is
+published.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index b0f705c..a810ce4 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1206,7 +1206,7 @@ static void vxlan_rcv(struct vxlan_sock *vs,
- 		goto drop;
- 
- 	/* Re-examine inner Ethernet packet */
--	if (remote_ip->sa.sa_family == AF_INET) {
-+	if (ip_hdr(skb)->version == 4) {
- 		oip = ip_hdr(skb);
- 		saddr.sin.sin_addr.s_addr = oip->saddr;
- 		saddr.sa.sa_family = AF_INET;
--- 
-1.8.1.5
+The driver currently set the MTU based on the wMaxSegmentSize from the
+mandatory MBIM descriptor.  AFAICS this is the only field the driver
+*can* use.  The MBIM management application may make use of the extende=
+d
+descriptor, because it will know about "operator" and the relation to
+"IP data streams".  The driver does not have this knowledge, and it mus=
+t
+be capable of supporting non-IP streams (DSS) multiplexed over the same
+network device.
+
+AFAICS, the MTU information provided by the extended descriptor is
+completely redundant for all cases where it has a meaning (the mandator=
+y
+MBIM_CID_IP_CONFIGURATION will provde the IPv4 and IPv6 per-session
+MTUs), and possily completely wrong for any other case (wMaxSegmentSize
+sets the maximum size for non-IP sessions)
+
+My advice is to leave parsing of this descriptor to userspace.  That is
+also the only place where we can make use of the
+bMaxOutstandingCommandMessages, which actually is useful information. I
+just don't understand why they had to make that part of a descriptor
+when they have defined a new dedicated and extensible management
+protocol....
+
+In case you disagree with the above (and do feel free to do so... I am
+often wrong), some minor nits regarding the actual implementation:
+
+
+Ben Chan <benchan@chromium.org> writes:
+
+> According to "Universal Serial Bus Communications Class Subclass
+> Specification for Mobile Broadband Interface Model, Revision 1.0,
+> Errata-1" published by USB-IF, the wMTU field of the MBIM extended
+> functional descriptor indicates the operator preferred MTU for IP dat=
+a
+> streams.
+>
+> This patch modifies cdc_ncm_setup to ensure that the MTU value set on
+> the usbnet device does not exceed the operator preferred MTU indicate=
+d
+> by wMTU if the MBIM device exposes a MBIM extended functional
+> descriptor.
+>
+> Signed-off-by: Ben Chan <benchan@chromium.org>
+> ---
+>  drivers/net/usb/cdc_ncm.c   | 15 +++++++++++++++
+>  include/linux/usb/cdc_ncm.h |  1 +
+>  2 files changed, 16 insertions(+)
+>
+> diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+> index dbff290..0b036ed 100644
+> --- a/drivers/net/usb/cdc_ncm.c
+> +++ b/drivers/net/usb/cdc_ncm.c
+> @@ -261,6 +261,13 @@ out:
+>  	/* set MTU to max supported by the device if necessary */
+>  	if (dev->net->mtu > ctx->max_datagram_size - eth_hlen)
+>  		dev->net->mtu =3D ctx->max_datagram_size - eth_hlen;
+> +
+> +	/* do not exceed operater preferred MTU */
+> +	if (ctx->mbim_extended_desc &&
+> +		ctx->mbim_extended_desc->wMTU !=3D 0 &&
+> +		dev->net->mtu > ctx->mbim_extended_desc->wMTU)
+> +		dev->net->mtu =3D ctx->mbim_extended_desc->wMTU;
+
+wMTU access needs le16_to_cpu.
+
+> +
+>  	return 0;
+>  }
+> =20
+> @@ -399,6 +406,14 @@ int cdc_ncm_bind_common(struct usbnet *dev, stru=
+ct usb_interface *intf, u8 data_
+>  			ctx->mbim_desc =3D (const struct usb_cdc_mbim_desc *)buf;
+>  			break;
+> =20
+> +		case USB_CDC_MBIM_EXTENDED_TYPE:
+> +			if (buf[0] < sizeof(*(ctx->mbim_extended_desc)))
+> +				break;
+> +
+> +			ctx->mbim_extended_desc =3D
+> +				(const struct usb_cdc_mbim_extended_desc *)buf;
+> +			break;
+> +
+>  		default:
+>  			break;
+>  		}
+> diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.=
+h
+> index c3fa807..bdf05fb 100644
+> --- a/include/linux/usb/cdc_ncm.h
+> +++ b/include/linux/usb/cdc_ncm.h
+> @@ -93,6 +93,7 @@ struct cdc_ncm_ctx {
+> =20
+>  	const struct usb_cdc_ncm_desc *func_desc;
+>  	const struct usb_cdc_mbim_desc *mbim_desc;
+> +	const struct usb_cdc_mbim_extended_desc *mbim_extended_desc;
+>  	const struct usb_cdc_ether_desc *ether_desc;
+> =20
+>  	struct usb_interface *control;
+
+
+Could we move this final MTU correction from cdc_ncm_setup to
+cdc_ncm_bind_common to avoid bloating the device struct with another
+descriptor pointer we don=C3=A6t really need to keep around?
+
+I know we look into descriptors in cdc_ncm_setup, because we have to,
+but ideally I would have loved to see cdc_ncm_setup dealing with *just*
+the NCM/MBIM specific control setup messages and cdc_ncm_bind_common
+dealing with all the functional descriptors.  That seems most logic to
+me (but is of course only my personal opinion and nothing else - I do
+not know what the original cdc_ncm author intended)
+
+
+Bj=C3=B8rn
