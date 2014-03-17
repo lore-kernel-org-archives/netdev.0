@@ -1,72 +1,36 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next,v2,1/1] hyperv: Add support for virtual Receive
- Side Scaling (vRSS)
-Date: Mon, 17 Mar 2014 20:59:33 +0000
-Message-ID: <00f34d2e88ab447bb13e0a19af3cf816@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <1394903887-30421-1-git-send-email-haiyangz@microsoft.com>
- <1394903887-30421-2-git-send-email-haiyangz@microsoft.com>
- <1395088079.22343.6.camel@deadeye.wl.decadent.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] netfilter: conntrack: Fix UP builds
+Date: Mon, 17 Mar 2014 17:15:07 -0400 (EDT)
+Message-ID: <20140317.171507.1078092240612029454.davem@davemloft.net>
+References: <1395088673.9668.65.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1395088079.22343.6.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: brouer@redhat.com, pablo@netfilter.org, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43194 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750706AbaCQVPL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 17:15:11 -0400
+In-Reply-To: <1395088673.9668.65.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 17 Mar 2014 13:37:53 -0700
 
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> ARRAY_SIZE(nf_conntrack_locks) is undefined if spinlock_t is an
+> empty structure. Replace it by CONNTRACK_LOCKS
+> 
+> Fixes: 93bb0ceb75be ("netfilter: conntrack: remove central spinlock nf_conntrack_lock")
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Jesper Dangaard Brouer <brouer@redhat.com>
+> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> ---
+> David, you might merge this asap instead of going through Pablo queue ?
 
-> -----Original Message-----
-> From: Ben Hutchings [mailto:ben@decadent.org.uk]
-> Sent: Monday, March 17, 2014 4:28 PM
-> To: Haiyang Zhang
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; KY Srinivasan;
-> olaf@aepfle.de; jasowang@redhat.com; linux-kernel@vger.kernel.org;
-> driverdev-devel@linuxdriverproject.org
-> Subject: Re: [PATCH net-next,v2,1/1] hyperv: Add support for virtual Receive
-> Side Scaling (vRSS)
-> 
-> On Sat, 2014-03-15 at 10:18 -0700, Haiyang Zhang wrote:
-> [...]
-> >  #define RING_SIZE_MIN 64
-> > -static int ring_size = 128;
-> > +int ring_size = 128;
-> >  module_param(ring_size, int, S_IRUGO);  MODULE_PARM_DESC(ring_size,
-> > "Ring buffer size (# of pages)");
-> 
-> You have to add some driver-specific prefix to the variable name if it is going to
-> be extern.  (And use module_param_named to avoid changing the parameter
-> name too.)
-> 
-> [...]
-> > +u8 hash_key[HASH_KEYLEN] = {
-> > +	0x6d, 0x5a, 0x56, 0xda, 0x25, 0x5b, 0x0e, 0xc2,
-> > +	0x41, 0x67, 0x25, 0x3d, 0x43, 0xa3, 0x8f, 0xb0,
-> > +	0xd0, 0xca, 0x2b, 0xcb, 0xae, 0x7b, 0x30, 0xb4,
-> > +	0x77, 0xcb, 0x2d, 0xa3, 0x80, 0x30, 0xf2, 0x0c,
-> > +	0x6a, 0x42, 0xb7, 0x3b, 0xbe, 0xac, 0x01, 0xfa };
-> [...]
-> 
-> Same for this one.
-> 
-I will do.
-
-Thanks,
-- Haiyang
+Sure, applied, thanks Eric.
