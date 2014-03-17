@@ -1,327 +1,265 @@
-From: Andrew Bennieston <andrew.bennieston@citrix.com>
-Subject: Re: [PATCH V6 net-next 1/5] xen-netback: Factor queue-specific data
- into queue struct.
-Date: Mon, 17 Mar 2014 11:53:35 +0000
-Message-ID: <5326E23F.8050304@citrix.com>
-References: <1393847269-6981-1-git-send-email-andrew.bennieston@citrix.com>	 <1393847269-6981-2-git-send-email-andrew.bennieston@citrix.com> <1394812505.6442.128.camel@kazak.uk.xensource.com>
+From: Pasi =?iso-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>
+Subject: Re: [PATCH net-next v6 0/3] The huawei_cdc_ncm driver / E3276
+ problem
+Date: Mon, 17 Mar 2014 13:59:19 +0200
+Message-ID: <20140317115919.GK3200@reaktio.net>
+References: <20140314075548.GX3200@reaktio.net>
+ <87wqfxnppc.fsf@nemi.mork.no>
+ <20140314084159.GA3200@reaktio.net>
+ <87siqlnol8.fsf@nemi.mork.no>
+ <20140314090525.GB3200@reaktio.net>
+ <87ob19nndo.fsf@nemi.mork.no>
+ <20140314125934.GC3200@reaktio.net>
+ <87vbvgnbv3.fsf@nemi.mork.no>
+ <20140314142559.GD3200@reaktio.net>
+ <87k3btm57a.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <xen-devel@lists.xenproject.org>, <wei.liu2@citrix.com>,
-	<paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
-	<david.vrabel@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, Enrico Mioso <mrkiko.rs@gmail.com>,
+	Oliver Neukum <oliver@neukum.org>
+To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:30197 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932672AbaCQLxv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 07:53:51 -0400
-In-Reply-To: <1394812505.6442.128.camel@kazak.uk.xensource.com>
+Received: from emh03.mail.saunalahti.fi ([62.142.5.109]:59534 "EHLO
+	emh03.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932866AbaCQL7W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 07:59:22 -0400
+Content-Disposition: inline
+In-Reply-To: <87k3btm57a.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14/03/14 15:55, Ian Campbell wrote:
-> On Mon, 2014-03-03 at 11:47 +0000, Andrew J. Bennieston wrote:
->> From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
->>
->> In preparation for multi-queue support in xen-netback, move the
->> queue-specific data from struct xenvif into struct xenvif_queue, and
->> update the rest of the code to use this.
->>
->> Also[...]
->>
->> Finally,[...]
->
-> This is already quite a big patch, and I don't think the commit log
-> covers everything it changes/refactors, does it?
->
-> It's always a good idea to break these things apart but in particular
-> separating the mechanical stuff (s/vif/queue/g) from the non-mechanic=
-al
-> stuff, since the mechanical stuff is essentially trivial to review an=
-d
-> getting it out the way makes the non-mechanical stuff much easier to
-> check (or even spot).
->
+On Mon, Mar 17, 2014 at 12:31:53PM +0100, Bj=F8rn Mork wrote:
+> Pasi K=E4rkk=E4inen <pasik@iki.fi> writes:
+>=20
+> > http://pasik.reaktio.net/huawei-e3276-usbmon3.pcapng
+> >
+> > (I did move the dongle to a different usb bus nr 3 to make it the o=
+nly device on that bus before capturing..)=20
+>=20
+> Thanks.  That helps.
+>=20
+> > So what I did:
+> >
+> > - Start wireshark capture on USB bus nr 3.
+> > - Plug in the Huawei E3276 dongle.
+> > - Wait for usb_modeswitch to happen.
+> > - Use minicom to talk to /dev/cdc-wdm0 and send AT commands to conn=
+ect to Internet:
+> > 	- ATQ0 V1 E1 S0=3D0
+> > 	- AT^NDISDUP=3D1,1,"internet"
+> >
+> > - After the dongle has connected query for DHCP status:
+> > 	- AT^DHCP?
+> >
+> > - Launch dhcp client (dhclient) on wwp0s20u1i1 interface.
+> > - Wait for a while and see RX error counters increasing on ifconfig=
+ output.
+> > - Cancel (ctrl+c) the dhclient.
+> > - Stop wireshark capture.=20
+> >
+> >
+> > Does that capture file show anything interesting to you?=20
+>=20
+> I see two devices (excluding the root hub), both with a single
+> configuration:=20
+>  12d1:14fe (addr: 4)
+>  12d1:1506 (addr: 5)
+>=20
+> The 12d1:14fe device is before mode switching, so I'll just ignore th=
+at
+> and concentrate on the two modem interfaces of the 12d1:1506 device:
+> 0 (serial, AT command) and 1 (NCM combined).
+>=20
 
-The vast majority of changes in this patch are s/vif/queue/g. The rest
-are related changes, such as inserting loops over queues, and moving
-queue-specific initialisation away from the vif-wide initialisation, so
-that it can be done once per queue.
+Correct.=20
 
-I consider these things to be logically related and definitely within
-the purview of this single patch. Without doing this, it is difficult t=
-o
-get a patch that results in something that even compiles, without
-putting in a bunch of placeholder code that will be removed in the very
-next patch.
 
-When I split this feature into multiple patches, I took care to group
-as little as possible into this first patch (and the same for netfront)=
+> Possibly unrelated, but a bit unexpected:  I see a request for string
+> descriptor 0xee, which is the "magic Microsoft descriptor".  I don't
+> know of any Linux software requesting this by default.  Anyone else?
+> The request results in a stall, so it's obviously unsupported by this
+> devices and cannot possibly matter.  But I still wonder who sends it.=
+=2E.
+>=20
+
+Hmm.. no idea about that :) This is a pretty standard Fedora 20 box,
+with no thirdparty software..=20
+
+
+>=20
+> Anyway, I believe I can see the problem. Or some part of it.  I'm sti=
+ll
+> not quite sure what the cause is.
+>=20
+> If you look at the data sent by the driver to endpoint 0x02 (which is
+> the endpoint used for NCM data from host to device), you'll see
+> something like this:
+>=20
+> 0040  4e 43 4d 48 0c 00 01 00 00 80 0c 00 4e 43 4d 30   NCMH........N=
+CM0
+> 0050  10 00 00 00 b8 00 56 01 00 00 00 00 00 00 00 00   ......V......=
+=2E..
+> 0060  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 0070  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 0080  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 0090  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 00a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 00b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 00c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 00d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 00e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 00f0  00 00 00 00 00 00 00 00 ff ff ff ff ff ff 0c 5b   .............=
+=2E.[
+> 0100  8f 27 9a 64 08 00 45 10 01 48 00 00 00 00 80 11   .'.d..E..H...=
+=2E..
+> 0110  39 96 00 00 00 00 ff ff ff ff 00 44 00 43 01 34   9..........D.=
+C.4
+> 0120  3a dd 01 01 06 00 ef 52 11 28 00 00 00 00 00 00   :......R.(...=
+=2E..
+> 0130  00 00 00 00 00 00 00 00 00 00 00 00 00 00 0c 5b   .............=
+=2E.[
+> 0140  8f 27 9a 64 00 00 00 00 00 00 00 00 00 00 00 00   .'.d.........=
+=2E..
+> 0150  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 0160  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 0170  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 0180  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 0190  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 01a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 01b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 01c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 01d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 01e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 01f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 0200  00 00 00 00 00 00 00 00 00 00 00 00 00 00 63 82   .............=
+=2Ec.
+> 0210  53 63 35 01 01 37 0d 01 1c 02 79 0f 06 0c 28 29   Sc5..7....y..=
+=2E()
+> 0220  2a 1a 77 03 3d 07 01 0c 5b 8f 27 9a 64 ff 00 00   *.w.=3D...[.'=
+=2Ed...
+> 0230  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 0240  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+> 0250  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   .............=
+=2E..
+>=20
+> followed by lots of zero bytes because we pad to the max size.
+>=20
+> Looking at the data receided from the device on endpoint 0x83 (which =
+is
+> used for data from device to host):
+>=20
+> 0040  6e 63 6d 68 10 00 00 00 6e 00 00 00 10 00 00 00   ncmh....n....=
+=2E..
+> 0050  6e 63 6d 30 20 00 00 00 00 00 00 00 00 00 00 00   ncm0 ........=
+=2E..
+> 0060  32 00 00 00 3c 00 00 00 00 00 00 00 00 00 00 00   2...<........=
+=2E..
+> 0070  00 00 ff ff ff ff ff ff 4c 54 99 45 e5 d5 08 06   ........LT.E.=
+=2E..
+> 0080  00 01 08 00 06 04 00 01 4c 54 99 45 e5 d5 0a 3d   ........LT.E.=
+=2E.=3D
+> 0090  8a 41 00 00 00 00 00 00 0a 3d 8a 48 00 00 00 00   .A.......=3D.=
+H....
+> 00a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00         .............=
 =2E
-It is still a large patch, but by my count most of this is a simple
-replacement of vif with queue...
-
-A first-order approximation, searching for line pairs where the first
-has 'vif' and the second has 'queue', yields:
-
-=E2=9E=9C  xen-netback git:(saturn) git show HEAD~4 | grep -A 1 vif | g=
-rep queue=20
-| wc -l
-380
-
-i.e. 760 (=3D380*2) lines out of the 2240 (~ 40%) are trivial replaceme=
+>=20
+>=20
+> The padding differences making the latter much more compact can be
+> ignored.  But do notice the 'ncmh' !=3D 'NCMH' and 'ncm0' !=3D 'NCM0'=
+=2E
+> These are all standard NCM header and datagram signatures, but the lo=
+wer
+> and upper case versions have different meanings.  The lower case vers=
+ion
+> means that the device use 32 bit length and index fields, while the
+> driver use the variants with 16 bit fields.
+>=20
+> This explains why the driver drops received frames.  It only supports
+> the 16 bit variants.  They are mandatory according to the spec and th=
+e
+> driver will never accept buffer sizes big enough for the 32 bit varia=
 nts
-of vif with queue, and this is not counting multi-line replacements, of
-which there are many. What remains is mostly adding loops over these
-queues. This could, in principle, be done in a second patch, but the
-impact of this is small.
+> make a difference.  So adding support for the 32 bit versions has so =
+far
+> seemed pointless.
+>=20
+> But here we have a device which does not comform to spec (that's OK,
+> Huawei doesn't claim it does - this is a vendor specific function aft=
+er
+> all), and which seems to be locked to 32 bit mode?  Either it require=
+s
+> the 32 bit variant, or we are doing something "wrong" during setup to
+> make the device go into this mode.
+>=20
 
->
->>
->> Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
->> Reviewed-by: Paul Durrant <paul.durrant@citrix.com>
->> ---
->>   drivers/net/xen-netback/common.h    |   85 ++++--
->>   drivers/net/xen-netback/interface.c |  329 ++++++++++++++--------
->>   drivers/net/xen-netback/netback.c   |  530 ++++++++++++++++++-----=
-------------
->>   drivers/net/xen-netback/xenbus.c    |   87 ++++--
->>   4 files changed, 608 insertions(+), 423 deletions(-)
->>
->> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netb=
-ack/common.h
->> index ae413a2..4176539 100644
->> --- a/drivers/net/xen-netback/common.h
->> +++ b/drivers/net/xen-netback/common.h
->> @@ -108,17 +108,39 @@ struct xenvif_rx_meta {
->>    */
->>   #define MAX_GRANT_COPY_OPS (MAX_SKB_FRAGS * XEN_NETIF_RX_RING_SIZE=
-)
->>
->> -struct xenvif {
->> -	/* Unique identifier for this interface. */
->> -	domid_t          domid;
->> -	unsigned int     handle;
->> +/* Queue name is interface name with "-qNNN" appended */
->> +#define QUEUE_NAME_SIZE (IFNAMSIZ + 6)
->
-> One more than necessary? Or does IFNAMSIZ not include the NULL? (I ca=
-n't
-> figure out if it does or not!)
-
-interface.c contains the line:
-snprintf(name, IFNAMSIZ - 1, "vif%u.%u", domid, handle);
-
-This suggests that IFNAMSIZ counts the trailing NULL, so I can reduce
-this count by 1 on that basis.
-
->
->> [...]
->> -	/* This array is allocated seperately as it is large */
->> -	struct gnttab_copy *grant_copy_op;
->> +	struct gnttab_copy grant_copy_op[MAX_GRANT_COPY_OPS];
->
-> Is this deliberate? It seems like a retrograde step reverting parts o=
-f
-> ac3d5ac27735 "xen-netback: fix guest-receive-side array sizes" from P=
-aul
-> (at least you are nuking a speeling erorr)
-
-Yes, this was deliberate. These arrays were moved out to avoid problems
-with kmalloc for the struct net_device (which contains the struct xenvi=
-f
-in its netdev_priv space). Since the queues are now allocated via
-vzalloc, there is no need to do separate allocations (with the
-requirement to also separately free on every error/teardown path) so I
-moved these back into the main queue structure.
-
->
-> How does this series interact with Zoltan's foreign mapping one? Badl=
-y I
-> should imagine, are you going to rebase?
-
-I'm working on the rebase right now.
-
->
->> +	/* First, check if there is only one queue to optimise the
->> +	 * single-queue or old frontend scenario.
->> +	 */
->> +	if (vif->num_queues =3D=3D 1) {
->> +		queue_index =3D 0;
->> +	} else {
->> +		/* Use skb_get_hash to obtain an L4 hash if available */
->> +		hash =3D skb_get_hash(skb);
->> +		queue_index =3D (u16) (((u64)hash * vif->num_queues) >> 32);
->
-> No modulo num_queues here?
->
-> Is the multiply and shift from some best practice somewhere? Or else
-> what is it doing?
-
-It seems to be what a bunch of other net drivers do in this scenario. I
-guess the reasoning is it'll be faster than a mod num_queues.
-
->
->
->> +	/* Obtain the queue to be used to transmit this packet */
->> +	index =3D skb_get_queue_mapping(skb);
->> +	if (index >=3D vif->num_queues)
->> +		index =3D 0; /* Fall back to queue 0 if out of range */
->
-> Is this actually allowed to happen?
->
-> Even if yes, not modulo num_queue so spread it around a bit?
-
-This probably isn't allowed to happen. I figured it didn't hurt to be a
-little defensive with the code here, and falling back to queue 0 is a
-fairly safe thing to do.
-
->>   static void xenvif_up(struct xenvif *vif)
->>   {
->> -	napi_enable(&vif->napi);
->> -	enable_irq(vif->tx_irq);
->> -	if (vif->tx_irq !=3D vif->rx_irq)
->> -		enable_irq(vif->rx_irq);
->> -	xenvif_check_rx_xenvif(vif);
->> +	struct xenvif_queue *queue =3D NULL;
->> +	unsigned int queue_index;
->> +
->> +	for (queue_index =3D 0; queue_index < vif->num_queues; ++queue_ind=
-ex) {
->
-> This vif->num_queues -- is it the same as dev->num_tx_queues? Or aree=
-w
-> there differing concepts of queue around?
-
-It should be the same as dev->real_num_tx_queues, which may be less tha=
-n
-dev->num_tx_queues.
-
->> +		queue =3D &vif->queues[queue_index];
->> +		napi_enable(&queue->napi);
->> +		enable_irq(queue->tx_irq);
->> +		if (queue->tx_irq !=3D queue->rx_irq)
->> +			enable_irq(queue->rx_irq);
->> +		xenvif_check_rx_xenvif(queue);
->> +	}
->>   }
->>
->>   static void xenvif_down(struct xenvif *vif)
->>   {
->> -	napi_disable(&vif->napi);
->> -	disable_irq(vif->tx_irq);
->> -	if (vif->tx_irq !=3D vif->rx_irq)
->> -		disable_irq(vif->rx_irq);
->> -	del_timer_sync(&vif->credit_timeout);
->> +	struct xenvif_queue *queue =3D NULL;
->> +	unsigned int queue_index;
->
-> Why unsigned?
-Why not? You can't have a negative number of queues. Zero indicates "I
-don't have any set up yet". I'm not expecting people to have 4 billion
-or so queues, but equally I can't see a valid use for negative values
-here.
-
->
->> @@ -496,9 +497,30 @@ static void connect(struct backend_info *be)
->>   		return;
->>   	}
->>
->> -	xen_net_read_rate(dev, &be->vif->credit_bytes,
->> -			  &be->vif->credit_usec);
->> -	be->vif->remaining_credit =3D be->vif->credit_bytes;
->> +	xen_net_read_rate(dev, &credit_bytes, &credit_usec);
->> +	read_xenbus_vif_flags(be);
->> +
->> +	be->vif->num_queues =3D 1;
->> +	be->vif->queues =3D vzalloc(be->vif->num_queues *
->> +			sizeof(struct xenvif_queue));
->> +
->> +	for (queue_index =3D 0; queue_index < be->vif->num_queues; ++queue=
-_index) {
->> +		queue =3D &be->vif->queues[queue_index];
->> +		queue->vif =3D be->vif;
->> +		queue->id =3D queue_index;
->> +		snprintf(queue->name, sizeof(queue->name), "%s-q%u",
->> +				be->vif->dev->name, queue->id);
->> +
->> +		xenvif_init_queue(queue);
->> +
->> +		queue->remaining_credit =3D credit_bytes;
->> +
->> +		err =3D connect_rings(be, queue);
->> +		if (err)
->> +			goto err;
->> +	}
->> +
->> +	xenvif_carrier_on(be->vif);
->>
->>   	unregister_hotplug_status_watch(be);
->>   	err =3D xenbus_watch_pathfmt(dev, &be->hotplug_status_watch,
->> @@ -507,18 +529,24 @@ static void connect(struct backend_info *be)
->>   	if (!err)
->>   		be->have_hotplug_status_watch =3D 1;
->>
->> -	netif_wake_queue(be->vif->dev);
->> +	netif_tx_wake_all_queues(be->vif->dev);
->> +
->> +	return;
->> +
->> +err:
->> +	vfree(be->vif->queues);
->> +	be->vif->queues =3D NULL;
->> +	be->vif->num_queues =3D 0;
->> +	return;
->
-> Do you not need to unwind the setup already done on the previous queu=
-es
-> before the failure?
+Makes sense.. this seems like a good progress getting the "mystery" of =
+this dongle solved.
 
 
-Err... yes. I was sure that code existed at some point, but I can't fin=
-d
-it now. Oops!
+> Adding 32 bit NCM support should be fairly easy after the changes we
+> made to support MBIM.  But we need to know when to enable it, or whet=
+her
+> we do something wrong during setup.  So it would be useful to see if =
+the
+> cdc_ncm_setup function logs any interesting debug messages.
+>=20
+> Since you have dynamic debugging, could you do:
+>=20
+>   mount -t debugfs none /sys/kernel/debug
+>   echo "file cdc_ncm.c +fp" >/sys/kernel/debug/dynamic_debug/control
+>=20
+> and then reconnect the device while capturing debug output?
+>=20
+
+I just did:
+
+# mount -t debugfs none /sys/kernel/debug
+(well it was already mounted by fedora)
+
+# cat /proc/sys/kernel/printk
+4       4       1       7
+
+# echo 8 > /proc/sys/kernel/printk
+# cat /proc/sys/kernel/printk
+8       4       1       7
+
+# echo "file cdc_ncm.c +fp" >/sys/kernel/debug/dynamic_debug/control
 
 
--Andrew
->
->>   }
->>
->>
->> -static int connect_rings(struct backend_info *be)
->> +static int connect_rings(struct backend_info *be, struct xenvif_que=
-ue *queue)
->>   {
->> -	struct xenvif *vif =3D be->vif;
->>   	struct xenbus_device *dev =3D be->dev;
->>   	unsigned long tx_ring_ref, rx_ring_ref;
->> -	unsigned int tx_evtchn, rx_evtchn, rx_copy;
->> +	unsigned int tx_evtchn, rx_evtchn;
->>   	int err;
->> -	int val;
->>
->>   	err =3D xenbus_gather(XBT_NIL, dev->otherend,
->>   			    "tx-ring-ref", "%lu", &tx_ring_ref,
->> @@ -546,6 +574,27 @@ static int connect_rings(struct backend_info *b=
-e)
->>   		rx_evtchn =3D tx_evtchn;
->>   	}
->>
->> +	/* Map the shared frame, irq etc. */
->> +	err =3D xenvif_connect(queue, tx_ring_ref, rx_ring_ref,
->> +			     tx_evtchn, rx_evtchn);
->> +	if (err) {
->> +		xenbus_dev_fatal(dev, err,
->> +				 "mapping shared-frames %lu/%lu port tx %u rx %u",
->> +				 tx_ring_ref, rx_ring_ref,
->> +				 tx_evtchn, rx_evtchn);
->> +		return err;
->> +	}
->> +
->> +	return 0;
->> +}
->> +
->
->
+And then I connected the dongle.. nothing in dmesg. I also tried changi=
+ng the filename=20
+to huawei_cdc_ncm.c but that didn't produce any output either.=20
+
+I wonder if i'm missing some commands to get debug output to dmesg..=20
+
+>=20
+>=20
+> Bj=F8rn
+
+Thanks,
+
+-- Pasi
