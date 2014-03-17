@@ -1,175 +1,96 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net,stable] net: cdc_ncm: fix control message ordering
-Date: Mon, 17 Mar 2014 16:25:18 +0100
-Message-ID: <1395069918-18585-1-git-send-email-bjorn@mork.no>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next] net: sched: use no more than one page in struct
+ fw_head
+Date: Mon, 17 Mar 2014 15:28:52 +0000
+Message-ID: <20140317152852.GB8956@casper.infradead.org>
+References: <53229704.1040808@gmail.com>
+ <20140314132834.GS21124@linux.vnet.ibm.com>
+ <1394804798.21721.64.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140314153810.GX21124@linux.vnet.ibm.com>
+ <20140314185005.GA17041@linux.vnet.ibm.com>
+ <20140314185917.GA18933@linux.vnet.ibm.com>
+ <1394826958.9668.4.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1394985990.9668.26.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140317135101.GA8956@casper.infradead.org>
+ <1395065631.9668.44.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
-	Alexey Orishko <alexey.orishko@gmail.com>,
-	=?UTF-8?q?Pasi=20K=C3=A4rkk=C3=A4inen?= <pasik@iki.fi>,
-	=?UTF-8?q?Thomas=20Sch=C3=A4fer?= <tschaefer@t-online.de>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	John Fastabend <john.fastabend@gmail.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:36293 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754444AbaCQP0I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2014 11:26:08 -0400
+Received: from casper.infradead.org ([85.118.1.10]:42930 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754805AbaCQP2y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 11:28:54 -0400
+Content-Disposition: inline
+In-Reply-To: <1395065631.9668.44.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a context modified revert of commit 6a9612e2cb22
-("net: cdc_ncm: remove ncm_parm field") which introduced
-a NCM specification violation, causing setup errors for
-some devices. These errors resulted in the device and
-host disagreeing about shared settings, with complete
-failure to communicate as the end result.
+On 03/17/14 at 07:13am, Eric Dumazet wrote:
+> On Mon, 2014-03-17 at 13:51 +0000, Thomas Graf wrote:
+> > On 03/16/14 at 09:06am, Eric Dumazet wrote:
+> > > From: Eric Dumazet <edumazet@google.com>
+> > > 
+> > > In commit b4e9b520ca5d ("[NET_SCHED]: Add mask support to fwmark
+> > > classifier") Patrick added an u32 field in fw_head, making it slightly
+> > > bigger than one page.
+> > > 
+> > > Change the layout of this structure and let compiler emit a reciprocal
+> > > divide for fw_hash(), as this makes the core more readable and
+> > > more efficient those days.
+> > 
+> > I think you  need to educate me a bit on this. objdump
+> > spits out the following:
+> > 
+> > static u32 fw_hash(u32 handle)
+> > {
+> >         return handle % HTSIZE;
+> >   1d:   bf ff 01 00 00          mov    edi,0x1ff
+> >   22:   89 f0                   mov    eax,esi
+> >   24:   31 d2                   xor    edx,edx
+> >   26:   f7 f7                   div    edi
+> > 
+> > Doesn't look like a reciprocal div to me. Where did I
+> > screw up or why doesn't gcc optimize it properly?
+> > --
+> 
+> Thats because on your cpu, gcc knows the divide is cheaper than anything
+> else (a multiply followed by a shift)
 
-The NCM specification require that many of the NCM specific
-control reuests are sent only while the NCM Data Interface
-is in alternate setting 0. Reverting the commit ensures that
-we follow this requirement.
+OK.
 
-=46ixes: 6a9612e2cb22 ("net: cdc_ncm: remove ncm_parm field")
-Reported-and-tested-by: Pasi K=C3=A4rkk=C3=A4inen <pasik@iki.fi>
-Reported-by: Thomas Sch=C3=A4fer <tschaefer@t-online.de>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
-This needs to go to v3.14 and v3.13.x stable. The bug was introduced
-in v3.13.
+> What are your exact CFLAGS ?
 
-Bj=C3=B8rn
-
- drivers/net/usb/cdc_ncm.c   | 48 ++++++++++++++++++++++---------------=
---------
- include/linux/usb/cdc_ncm.h |  1 +
- 2 files changed, 24 insertions(+), 25 deletions(-)
-
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index dbff290ed0e4..d350d2795e10 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -68,7 +68,6 @@ static struct usb_driver cdc_ncm_driver;
- static int cdc_ncm_setup(struct usbnet *dev)
- {
- 	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
--	struct usb_cdc_ncm_ntb_parameters ncm_parm;
- 	u32 val;
- 	u8 flags;
- 	u8 iface_no;
-@@ -82,22 +81,22 @@ static int cdc_ncm_setup(struct usbnet *dev)
- 	err =3D usbnet_read_cmd(dev, USB_CDC_GET_NTB_PARAMETERS,
- 			      USB_TYPE_CLASS | USB_DIR_IN
- 			      |USB_RECIP_INTERFACE,
--			      0, iface_no, &ncm_parm,
--			      sizeof(ncm_parm));
-+			      0, iface_no, &ctx->ncm_parm,
-+			      sizeof(ctx->ncm_parm));
- 	if (err < 0) {
- 		dev_err(&dev->intf->dev, "failed GET_NTB_PARAMETERS\n");
- 		return err; /* GET_NTB_PARAMETERS is required */
- 	}
-=20
- 	/* read correct set of parameters according to device mode */
--	ctx->rx_max =3D le32_to_cpu(ncm_parm.dwNtbInMaxSize);
--	ctx->tx_max =3D le32_to_cpu(ncm_parm.dwNtbOutMaxSize);
--	ctx->tx_remainder =3D le16_to_cpu(ncm_parm.wNdpOutPayloadRemainder);
--	ctx->tx_modulus =3D le16_to_cpu(ncm_parm.wNdpOutDivisor);
--	ctx->tx_ndp_modulus =3D le16_to_cpu(ncm_parm.wNdpOutAlignment);
-+	ctx->rx_max =3D le32_to_cpu(ctx->ncm_parm.dwNtbInMaxSize);
-+	ctx->tx_max =3D le32_to_cpu(ctx->ncm_parm.dwNtbOutMaxSize);
-+	ctx->tx_remainder =3D le16_to_cpu(ctx->ncm_parm.wNdpOutPayloadRemaind=
-er);
-+	ctx->tx_modulus =3D le16_to_cpu(ctx->ncm_parm.wNdpOutDivisor);
-+	ctx->tx_ndp_modulus =3D le16_to_cpu(ctx->ncm_parm.wNdpOutAlignment);
- 	/* devices prior to NCM Errata shall set this field to zero */
--	ctx->tx_max_datagrams =3D le16_to_cpu(ncm_parm.wNtbOutMaxDatagrams);
--	ntb_fmt_supported =3D le16_to_cpu(ncm_parm.bmNtbFormatsSupported);
-+	ctx->tx_max_datagrams =3D le16_to_cpu(ctx->ncm_parm.wNtbOutMaxDatagra=
-ms);
-+	ntb_fmt_supported =3D le16_to_cpu(ctx->ncm_parm.bmNtbFormatsSupported=
-);
-=20
- 	/* there are some minor differences in NCM and MBIM defaults */
- 	if (cdc_ncm_comm_intf_is_mbim(ctx->control->cur_altsetting)) {
-@@ -146,7 +145,7 @@ static int cdc_ncm_setup(struct usbnet *dev)
- 	}
-=20
- 	/* inform device about NTB input size changes */
--	if (ctx->rx_max !=3D le32_to_cpu(ncm_parm.dwNtbInMaxSize)) {
-+	if (ctx->rx_max !=3D le32_to_cpu(ctx->ncm_parm.dwNtbInMaxSize)) {
- 		__le32 dwNtbInMaxSize =3D cpu_to_le32(ctx->rx_max);
-=20
- 		err =3D usbnet_write_cmd(dev, USB_CDC_SET_NTB_INPUT_SIZE,
-@@ -162,14 +161,6 @@ static int cdc_ncm_setup(struct usbnet *dev)
- 		dev_dbg(&dev->intf->dev, "Using default maximum transmit length=3D%d=
-\n",
- 			CDC_NCM_NTB_MAX_SIZE_TX);
- 		ctx->tx_max =3D CDC_NCM_NTB_MAX_SIZE_TX;
--
--		/* Adding a pad byte here simplifies the handling in
--		 * cdc_ncm_fill_tx_frame, by making tx_max always
--		 * represent the real skb max size.
--		 */
--		if (ctx->tx_max % usb_maxpacket(dev->udev, dev->out, 1) =3D=3D 0)
--			ctx->tx_max++;
--
- 	}
-=20
- 	/*
-@@ -439,6 +430,10 @@ advance:
- 		goto error2;
- 	}
-=20
-+	/* initialize data interface */
-+	if (cdc_ncm_setup(dev))
-+		goto error2;
-+
- 	/* configure data interface */
- 	temp =3D usb_set_interface(dev->udev, iface_no, data_altsetting);
- 	if (temp) {
-@@ -453,12 +448,6 @@ advance:
- 		goto error2;
- 	}
-=20
--	/* initialize data interface */
--	if (cdc_ncm_setup(dev))	{
--		dev_dbg(&intf->dev, "cdc_ncm_setup() failed\n");
--		goto error2;
--	}
--
- 	usb_set_intfdata(ctx->data, dev);
- 	usb_set_intfdata(ctx->control, dev);
-=20
-@@ -475,6 +464,15 @@ advance:
- 	dev->hard_mtu =3D ctx->tx_max;
- 	dev->rx_urb_size =3D ctx->rx_max;
-=20
-+	/* cdc_ncm_setup will override dwNtbOutMaxSize if it is
-+	 * outside the sane range. Adding a pad byte here if necessary
-+	 * simplifies the handling in cdc_ncm_fill_tx_frame, making
-+	 * tx_max always represent the real skb max size.
-+	 */
-+	if (ctx->tx_max !=3D le32_to_cpu(ctx->ncm_parm.dwNtbOutMaxSize) &&
-+	    ctx->tx_max % usb_maxpacket(dev->udev, dev->out, 1) =3D=3D 0)
-+		ctx->tx_max++;
-+
- 	return 0;
-=20
- error2:
-diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
-index c3fa80745996..2c14d9cdd57a 100644
---- a/include/linux/usb/cdc_ncm.h
-+++ b/include/linux/usb/cdc_ncm.h
-@@ -88,6 +88,7 @@
- #define cdc_ncm_data_intf_is_mbim(x)  ((x)->desc.bInterfaceProtocol =3D=
-=3D USB_CDC_MBIM_PROTO_NTB)
-=20
- struct cdc_ncm_ctx {
-+	struct usb_cdc_ncm_ntb_parameters ncm_parm;
- 	struct hrtimer tx_timer;
- 	struct tasklet_struct bh;
-=20
---=20
-1.9.0
+  gcc -Wp,-MD,net/sched/.cls_fw.o.d  -nostdinc -isystem
+/usr/lib/gcc/x86_64-redhat-linux/4.8.2/include
+-I/home/tgraf/dev/linux/net/arch/x86/include
+-Iarch/x86/include/generated  -Iinclude
+-I/home/tgraf/dev/linux/net/arch/x86/include/uapi
+-Iarch/x86/include/generated/uapi
+-I/home/tgraf/dev/linux/net/include/uapi -Iinclude/generated/uapi
+-include /home/tgraf/dev/linux/net/include/linux/kconfig.h
+-D__KERNEL__ -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs
+-fno-strict-aliasing -fno-common -Werror-implicit-function-declaration
+-Wno-format-security -fno-delete-null-pointer-checks -Os
+-Wno-maybe-uninitialized -m64 -mno-mmx -mno-sse
+-mpreferred-stack-boundary=3 -mtune=generic -mno-red-zone
+-mcmodel=kernel -funit-at-a-time -maccumulate-outgoing-args
+-DCONFIG_X86_X32_ABI -DCONFIG_AS_CFI=1 -DCONFIG_AS_CFI_SIGNAL_FRAME=1
+-DCONFIG_AS_CFI_SECTIONS=1 -DCONFIG_AS_FXSAVEQ=1 -DCONFIG_AS_AVX=1
+-DCONFIG_AS_AVX2=1 -pipe -Wno-sign-compare
+-fno-asynchronous-unwind-tables -mno-sse -mno-mmx -mno-sse2 -mno-3dnow
+-mno-avx -fno-reorder-blocks -fno-ipa-cp-clone -fno-partial-inlining
+-Wframe-larger-than=2048 -fno-stack-protector
+-Wno-unused-but-set-variable -fno-omit-frame-pointer
+-fno-optimize-sibling-calls -g -femit-struct-debug-baseonly
+-fno-var-tracking -pg -mfentry -DCC_USING_FENTRY
+-fno-inline-functions-called-once -Wdeclaration-after-statement
+-Wno-pointer-sign -fno-strict-overflow -fconserve-stack
+-Werror=implicit-int -Werror=strict-prototypes -DCC_HAVE_ASM_GOTO
+-fprofile-arcs -ftest-coverage  -DMODULE  -D"KBUILD_STR(s)=#s"
+-D"KBUILD_BASENAME=KBUILD_STR(cls_fw)"
+-D"KBUILD_MODNAME=KBUILD_STR(cls_fw)" -c -o net/sched/.tmp_cls_fw.o
+net/sched/cls_fw.c
