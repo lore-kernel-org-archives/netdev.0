@@ -1,105 +1,69 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH v2] ipv6: ip6_append_data_mtu do not handle the mtu of the second fragment properly
-Date: Mon, 17 Mar 2014 12:51:01 +0800
-Message-ID: <1395031861-19564-1-git-send-email-lucien.xin@gmail.com>
-Cc: Xin Long <lucien.xin@gmail.com>
-To: network dev <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Gao feng <gaofeng@cn.fujitsu.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH] net: reflect the fwmark for replies with no socket
+Date: Mon, 17 Mar 2014 14:24:57 +0900
+Message-ID: <CAKD1Yr2rSwpzSdvjsO-=QUkivAkw2gnj+_mvydtR8OfAnsTicg@mail.gmail.com>
+References: <1394536541-25702-1-git-send-email-lorenzo@google.com> <20140312.161737.1125059989320204564.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:62143 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072AbaCQEvO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 00:51:14 -0400
-Received: by mail-pd0-f176.google.com with SMTP id r10so5089294pdi.35
-        for <netdev@vger.kernel.org>; Sun, 16 Mar 2014 21:51:13 -0700 (PDT)
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:46615 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751515AbaCQFZR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 01:25:17 -0400
+Received: by mail-ig0-f171.google.com with SMTP id hl1so4547851igb.4
+        for <netdev@vger.kernel.org>; Sun, 16 Mar 2014 22:25:17 -0700 (PDT)
+In-Reply-To: <20140312.161737.1125059989320204564.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In ip6_append_data_mtu(), when the xfrm mode is not tunnel(such as
-transport),the ipsec header need to be added in the first fragment, so the mtu
-will decrease to reserve space for it, then the second fragment come, the mtu
-should be turn back, as the commit 0c1833797a5a6ec23ea9261d979aa18078720b74
-said.  however, in the commit a493e60ac4bbe2e977e7129d6d8cbb0dd236be, it use
-*mtu = min(*mtu, ...) to change the mtu, which lead to the new mtu is alway
-equal with the first fragment's. and cannot turn back.
+On Thu, Mar 13, 2014 at 5:17 AM, David Miller <davem@davemloft.net> wrote:
+>> Kernel-originated IP packets that have no user socket associated
+>> with them (e.g., ICMP errors and echo replies, TCP RSTs, etc.)
+>> are emitted with a mark of zero. Instead, make them have the
+>> same mark as the packet they are replying to.
+>>
+>> This is consistent with TOS, which is also reflected from the
+>> incoming packet, and it allows the administrator to use
+>> mark-based routing, firewalling, etc. for these replies by
+>> marking the original packets inbound.
+>>
+>> Also fix the IPv6 code to reflect the tclass in replies like the
+>> IPv4 code does.
+>>
+>> Change-Id: Ifd8dd75016e60dc982e7860f720d45c27dcaf04c
+>> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+>
+> I don't think it's safe to change this behavior after all of this
+> time.
 
-when I test through  ping6 -c1 -s5000 $ip (mtu=1280):
-...frag (0|1232) ESP(spi=0x00002000,seq=0xb), length 1232
-...frag (1232|1216)
-...frag (2448|1216)
-...frag (3664|1216)
-...frag (4880|164)
+Fair enough. My bad.
 
-which should be:
-...frag (0|1232) ESP(spi=0x00001000,seq=0x1), length 1232
-...frag (1232|1232)
-...frag (2464|1232)
-...frag (3696|1232)
-...frag (4928|116)
+> And incoming marks absolutely do not have any automatic relation
+> to what an administartor might want to use for output packets.
 
-so delete the min() when change back the mtu.
+In general, that's true. Still - currently the mark on these packets
+is 0, period, and the administrator can't do anything about that at
+all. The idea was that some control is better than zero control, and
+since these packets are always in reply to other packets, then marking
+responses based on the packets that provoked them made sense, since
+the input marking can be as flexible as the administrator desires.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/ipv6/ip6_output.c | 14 ++++++--------
- 1 file changed, 6 insertions(+), 8 deletions(-)
+If this was optional behaviour (e.g., controlled by
+/proc/sys/net/ipv{4,6}/reflect_fwmark), would that be acceptable?
+That way, even if it doesn't work for everyone, at least some
+environments will be able to use it. I'm happy to send in a new patch
+that does that.
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 90dd551..6184dfa 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1101,21 +1101,19 @@ static void ip6_append_data_mtu(unsigned int *mtu,
- 				unsigned int fragheaderlen,
- 				struct sk_buff *skb,
- 				struct rt6_info *rt,
--				bool pmtuprobe)
-+				unsigned int orig_mtu)
- {
- 	if (!(rt->dst.flags & DST_XFRM_TUNNEL)) {
- 		if (skb == NULL) {
- 			/* first fragment, reserve header_len */
--			*mtu = *mtu - rt->dst.header_len;
-+			*mtu = orig_mtu - rt->dst.header_len;
- 
- 		} else {
- 			/*
- 			 * this fragment is not first, the headers
- 			 * space is regarded as data space.
- 			 */
--			*mtu = min(*mtu, pmtuprobe ?
--				   rt->dst.dev->mtu :
--				   dst_mtu(rt->dst.path));
-+			*mtu = orig_mtu;
- 		}
- 		*maxfraglen = ((*mtu - fragheaderlen) & ~7)
- 			      + fragheaderlen - sizeof(struct frag_hdr);
-@@ -1132,7 +1130,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct inet_cork *cork;
- 	struct sk_buff *skb, *skb_prev = NULL;
--	unsigned int maxfraglen, fragheaderlen, mtu;
-+	unsigned int maxfraglen, fragheaderlen, mtu, orig_mtu;
- 	int exthdrlen;
- 	int dst_exthdrlen;
- 	int hh_len;
-@@ -1214,6 +1212,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 		dst_exthdrlen = 0;
- 		mtu = cork->fragsize;
- 	}
-+	orig_mtu = mtu;
- 
- 	hh_len = LL_RESERVED_SPACE(rt->dst.dev);
- 
-@@ -1313,8 +1312,7 @@ alloc_new_skb:
- 			if (skb == NULL || skb_prev == NULL)
- 				ip6_append_data_mtu(&mtu, &maxfraglen,
- 						    fragheaderlen, skb, rt,
--						    np->pmtudisc >=
--						    IPV6_PMTUDISC_PROBE);
-+						    orig_mtu);
- 
- 			skb_prev = skb;
- 
--- 
-1.8.3.1
+If not, do you see another way to do this? If you use mark-based
+routing, there doesn't currently seem to be a good way of sending
+these packets where they need to go. iptables doesn't really work,
+because it can only touch the packet after a lot of it has been
+decided. You can override some of those decisions via NAT / MSS
+rewrite / ..., but it gets messy, and it seems better to send the
+right packet off the bat rather than send the wrong one and then
+rewrite it without updating any of the socket structures.
+
+Regards,
+Lorenzo
