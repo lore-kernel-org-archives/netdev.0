@@ -1,62 +1,63 @@
-From: Zheng Liu <gnehzuil.liu@gmail.com>
-Subject: Re: What's the status of TCP friends?
-Date: Mon, 17 Mar 2014 11:16:05 +0800
-Message-ID: <20140317031605.GA22502@gmail.com>
-References: <20140316090744.GA14572@gmail.com>
- <1394978619.9668.14.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Byungho An <bh74.an@samsung.com>
+Subject: RE: [PATCH V2 RE-SEND 1/7] net: sxgbe: add basic framework for Samsung
+ 10Gb ethernet driver
+Date: Sun, 16 Mar 2014 20:53:25 -0700
+Message-ID: <005601cf4194$752c0c60$5f842520$@samsung.com>
+References: <007a01cf3e89$3bbdf460$b339dd20$%an@samsung.com>
+ <20140314004454.GA10982@electric-eye.fr.zoreil.com>
+ <000e01cf40ac$08c19290$1a44b7b0$@samsung.com>
+ <20140316231101.GA23765@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, Li Yu <bingtian.ly@taobao.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Bruce Brutus Curtis <brutus@google.com>,
-	Weiping Pan <panweiping3@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:52624 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756068AbaCQDKT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 23:10:19 -0400
-Received: by mail-pa0-f51.google.com with SMTP id kq14so5150087pab.10
-        for <netdev@vger.kernel.org>; Sun, 16 Mar 2014 20:10:19 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1394978619.9668.14.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
+	davem@davemloft.net, ilho215.lee@samsung.com,
+	siva.kallam@samsung.com, vipul.pandya@samsung.com,
+	ks.giri@samsung.com, 'Joe Perches' <joe@perches.com>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+In-reply-to: <20140316231101.GA23765@electric-eye.fr.zoreil.com>
+Content-language: en-us
+Sender: linux-samsung-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 16, 2014 at 07:03:39AM -0700, Eric Dumazet wrote:
-> On Sun, 2014-03-16 at 17:07 +0800, Zheng Liu wrote:
-> > Hi all,
-> > 
-> > Until now the TCP friends patch set doesn't be applied.  Now what's the
-> > status of TCP friends?  Is it applicable to be merged into upstream
-> > kernel?  Any problem that needs to be fixed?  Please let me know if I
-> > can help.
+Francois Romieu <romieu@fr.zoreil.com> :
+> [...]
+> > > > +struct sxgbe_core_ops {
+> > > > +	/* MAC core initialization */
+> > > > +	void (*core_init)(void __iomem *ioaddr);
+> [...]
+> > > > +	/* adjust SXGBE speed */
+> > > > +	void (*set_speed)(void __iomem *ioaddr, unsigned char
+speed); };
+> > >
+> > > This indirection level is never used.
+> > Those are used, can you give more detail?
 > 
-> Well, last attempts showed that while the idea sounded cool,
-> implementation opened many races and added quite a lot of complexity in
-> fast path.
-
-Thanks for letting me know the current status of this patch set.
+> They are used but they always point to the same set of methods.
+> Those methods could thus be directly called.
+Yes, those methods can be called directly.
+But I think it is acceptable for manageability and extension for future.
 
 > 
-> We have AF_UNIX with a lot of problems in it, do we really want to bring
-> these AF_UNIX problems to AF_INET ?
-
-Please bear with me because I am a newbie.  Out of curiosity, what's the
-problem in AF_UNIX?
+> [...]
+> > > > +/* SXGBE private data structures */ struct sxgbe_tx_queue {
+> > > > +	u8 queue_no;
+> > > > +	unsigned int irq_no;
+> > > > +	struct sxgbe_priv_data *priv_ptr;
+> > > > +	struct sxgbe_tx_norm_desc *dma_tx;
+> > >
+> > > You may lay things a bit differently.
+> > can you give more detail?
+> 
+> Bigger fields first, u8 at the end. It will save padding in the struct.
+OK.
 
 > 
-> I would rather spend time on AF_UNIX if it doesn't fit your needs right
-> now, or consider jumping to KDBUS modern design.
-> 
-> Using AF_INET for IPC is poor choice.
-
-The reason why we use AF_INET for IPC rather than use AF_UNIX is that we
-have two applications that need to communicate with each other.  They
-could be deployed on the same server or different servers.  So obviously
-if we use AF_INET, we just need to indicate a IP address in config file.
-That sounds rational and maintainable for our operation team.
-
-Regards,
-                                                - Zheng
+> --
+> Ueimor
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in the
+body
+> of a message to majordomo@vger.kernel.org More majordomo info at
+> http://vger.kernel.org/majordomo-info.html
