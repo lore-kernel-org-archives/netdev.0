@@ -1,53 +1,78 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2] ipv6: ip6_append_data_mtu do not handle the mtu of the second fragment properly
-Date: Mon, 17 Mar 2014 00:20:56 +0100
-Message-ID: <20140316232056.GD12291@order.stressinduktion.org>
-References: <1394945457-16212-1-git-send-email-lucien.xin@gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net v2] vlan: Fix lockdep warning when vlan dev handle
+ notification
+Date: Mon, 17 Mar 2014 11:08:37 +0800
+Message-ID: <53266735.8050607@huawei.com>
+References: <5321165A.1000208@huawei.com> <20140314.220253.2108022241165181233.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: network dev <netdev@vger.kernel.org>,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <ben@decadent.org.uk>, <john.r.fastabend@intel.com>,
+	<kaber@trash.net>, <netdev@vger.kernel.org>, <f.fainelli@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:39634 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755735AbaCPXU6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 19:20:58 -0400
-Content-Disposition: inline
-In-Reply-To: <1394945457-16212-1-git-send-email-lucien.xin@gmail.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:10987 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755818AbaCQDJz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 23:09:55 -0400
+In-Reply-To: <20140314.220253.2108022241165181233.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
-
-On Sun, Mar 16, 2014 at 12:50:57PM +0800, Xin Long wrote:
-> In ip6_append_data_mtu(), when the xfrm mode is not tunnel(such as
-> transport),the ipsec header need to be added in the first fragment, so the mtu
-> will decrease to reserve space for it, then the second fragment come, the mtu
-> should be turn back, as the commit 0c1833797a5a6ec23ea9261d979aa18078720b74
-> said.  however, in the commit a493e60ac4bbe2e977e7129d6d8cbb0dd236be, it use
-> *mtu = min(*mtu, ...) to change the mtu, which lead to the new mtu is alway
-> equal with the first fragment's. and cannot turn back.
+On 2014/3/15 10:02, David Miller wrote:
+> From: Ding Tianhong <dingtianhong@huawei.com>
+> Date: Thu, 13 Mar 2014 10:22:18 +0800
 > 
-> when I test through  ping6 -c1 -s5000 $ip (mtu=1280):
-> ...frag (0|1232) ESP(spi=0x00002000,seq=0xb), length 1232
-> ...frag (1232|1216)
-> ...frag (2448|1216)
-> ...frag (3664|1216)
-> ...frag (4880|164)
+>> When I open the LOCKDEP config and run these steps:
 > 
-> which should be:
-> ...frag (0|1232) ESP(spi=0x00001000,seq=0x1), length 1232
-> ...frag (1232|1232)
-> ...frag (2464|1232)
-> ...frag (3696|1232)
-> ...frag (4928|116)
+> This doesn't work?
 > 
-> so delete the min() when change back the mtu.
 
-While the patch looks good it does not seem to apply cleanly on net. Maybe you
-could have a look?
+It make no sense, I have try it before, the class check only focus on the lock_class_key,
+not the lockdep_subclass_key.
 
-Thanks,
+Regards
+Ding
 
-  Hannes
+> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+> index 4b65aa4..9ad89ff 100644
+> --- a/net/8021q/vlan_dev.c
+> +++ b/net/8021q/vlan_dev.c
+> @@ -556,10 +556,22 @@ static struct device_type vlan_type = {
+>  
+>  static const struct net_device_ops vlan_netdev_ops;
+>  
+> +static int vlan_calculate_locking_subclass(struct net_device *real_dev)
+> +{
+> +	int subclass = 0;
+> +
+> +	while (is_vlan_dev(real_dev)) {
+> +		subclass++;
+> +		real_dev = vlan_dev_priv(real_dev)->real_dev;
+> +	}
+> +
+> +	return subclass;
+> +}
+> +
+>  static int vlan_dev_init(struct net_device *dev)
+>  {
+>  	struct net_device *real_dev = vlan_dev_priv(dev)->real_dev;
+> -	int subclass = 0, i;
+> +	int subclass, i;
+>  
+>  	netif_carrier_off(dev);
+>  
+> @@ -604,9 +616,7 @@ static int vlan_dev_init(struct net_device *dev)
+>  
+>  	SET_NETDEV_DEVTYPE(dev, &vlan_type);
+>  
+> -	if (is_vlan_dev(real_dev))
+> -		subclass = 1;
+> -
+> +	subclass = vlan_calculate_locking_subclass(real_dev);
+>  	vlan_dev_set_lockdep_class(dev, subclass);
+>  
+>  	vlan_dev_priv(dev)->vlan_pcpu_stats = alloc_percpu(struct vlan_pcpu_stats);
+> 
+> .
+> 
