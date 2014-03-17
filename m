@@ -1,70 +1,147 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next] i40e: fix function kernel doc
-	description
-Date: Sun, 16 Mar 2014 23:15:40 -0700
-Message-ID: <CAL3LdT4YpovVN+RGCPf9rp0K6GF-ap96_K2vkLyApoaecP4_ZQ@mail.gmail.com>
-References: <1395006075-10919-1-git-send-email-sakiwit@gmail.com>
+From: Ronen Hod <rhod@redhat.com>
+Subject: Re: [PATCH net V2] vhost: net: switch to use data copy if pending
+	DMAs exceed the limit
+Date: Mon, 17 Mar 2014 08:43:22 +0200
+Message-ID: <5326998A.6060003@redhat.com>
+References: <1394170107-12018-1-git-send-email-jasowang@redhat.com>
+	<20140310080310.GA754@redhat.com> <53215E22.8020207@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Jean Sacren <sakiwit@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1395006075-10919-1-git-send-email-sakiwit@gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: virtio-dev@lists.oasis-open.org, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Qin Chuanyu <qinchuanyu@huawei.com>
+To: Jason Wang <jasowang@redhat.com>, "Michael S. Tsirkin" <mst@redhat.com>,
+	Yan Vugenfirer <yvugenfi@redhat.com>, Dmitry Fleytman <dfleytma@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <53215E22.8020207@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 16, 2014 at 2:41 PM, Jean Sacren <sakiwit@gmail.com> wrote:
-> The commit c7d05ca89f8e ("i40e: driver ethtool core") introduced the
-> new function i40e_add_del_fdir_sctpv4() with the kernel doc
-> description a little bit off. The trivial error was copied over to a
-> different file by the commit 17a73f6b1401 ("i40e: Flow Director
-> sideband accounting") most recently. Fix the kernel doc with the
-> correct description for clarity.
->
-> Signed-off-by: Jean Sacren <sakiwit@gmail.com>
-> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_txrx.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
+On 03/13/2014 09:28 AM, Jason Wang wrote:
+> On 03/10/2014 04:03 PM, Michael S. Tsirkin wrote:
+>> On Fri, Mar 07, 2014 at 01:28:27PM +0800, Jason Wang wrote:
+>>>> We used to stop the handling of tx when the number of pending DMAs
+>>>> exceeds VHOST_MAX_PEND. This is used to reduce the memory occupation
+>>>> of both host and guest. But it was too aggressive in some cases, since
+>>>> any delay or blocking of a single packet may delay or block the guest
+>>>> transmission. Consider the following setup:
+>>>>
+>>>>      +-----+        +-----+
+>>>>      | VM1 |        | VM2 |
+>>>>      +--+--+        +--+--+
+>>>>         |              |
+>>>>      +--+--+        +--+--+
+>>>>      | tap0|        | tap1|
+>>>>      +--+--+        +--+--+
+>>>>         |              |
+>>>>      pfifo_fast   htb(10Mbit/s)
+>>>>         |              |
+>>>>      +--+--------------+---+
+>>>>      |     bridge          |
+>>>>      +--+------------------+
+>>>>         |
+>>>>      pfifo_fast
+>>>>         |
+>>>>      +-----+
+>>>>      | eth0|(100Mbit/s)
+>>>>      +-----+
+>>>>
+>>>> - start two VMs and connect them to a bridge
+>>>> - add an physical card (100Mbit/s) to that bridge
+>>>> - setup htb on tap1 and limit its throughput to 10Mbit/s
+>>>> - run two netperfs in the same time, one is from VM1 to VM2. Another is
+>>>>    from VM1 to an external host through eth0.
+>>>> - result shows that not only the VM1 to VM2 traffic were throttled but
+>>>>    also the VM1 to external host through eth0 is also throttled somehow.
+>>>>
+>>>> This is because the delay added by htb may lead the delay the finish
+>>>> of DMAs and cause the pending DMAs for tap0 exceeds the limit
+>>>> (VHOST_MAX_PEND). In this case vhost stop handling tx request until
+>>>> htb send some packets. The problem here is all of the packets
+>>>> transmission were blocked even if it does not go to VM2.
+>>>>
+>>>> We can solve this issue by relaxing it a little bit: switching to use
+>>>> data copy instead of stopping tx when the number of pending DMAs
+>>>> exceed half of the vq size. This is safe because:
+>>>>
+>>>> - The number of pending DMAs were still limited (half of the vq size)
+>>>> - The out of order completion during mode switch can make sure that
+>>>>    most of the tx buffers were freed in time in guest.
+>>>>
+>>>> So even if about 50% packets were delayed in zero-copy case, vhost
+>>>> could continue to do the transmission through data copy in this case.
+>>>>
+>>>> Test result:
+>>>>
+>>>> Before this patch:
+>>>> VM1 to VM2 throughput is 9.3Mbit/s
+>>>> VM1 to External throughput is 40Mbit/s
+>>>> CPU utilization is 7%
+>>>>
+>>>> After this patch:
+>>>> VM1 to VM2 throughput is 9.3Mbit/s
+>>>> Vm1 to External throughput is 93Mbit/s
+>>>> CPU utilization is 16%
+>>>>
+>>>> Completed performance test on 40gbe shows no obvious changes in both
+>>>> throughput and cpu utilization with this patch.
+>>>>
+>>>> The patch only solve this issue when unlimited sndbuf. We still need a
+>>>> solution for limited sndbuf.
+>>>>
+>>>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>>>> Cc: Qin Chuanyu <qinchuanyu@huawei.com>
+>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> I thought hard about this.
+>> Here's what worries me: if there are still head of line
+>> blocking issues lurking in the stack, they will still
+>> hurt guests such as windows which rely on timely
+>> completion of buffers, but it makes it
+>> that much harder to reproduce the problems with
+>> linux guests which don't.
+>> And this will make even it harder to figure out
+>> whether zero copy is actually active to diagnose
+>> high cpu utilization cases.
+> Yes.
+>>
+>> So I think this is a good trick, but let's make
+>> this path conditional on a new debugging module parameter:
+>> how about head_of_line_blocking with default off?
+> Sure. But the head of line blocking was only partially solved in the
+> patch since we only support in-order completion of zerocopy packets.
+> Maybe we need consider switching to out of order completion even for
+> zerocopy skbs?
 
-Thanks Jean, I will add your patch to my queue.
+Yan, Dima,
 
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-> index 88666adb0743..a53c4bcada79 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-> @@ -299,7 +299,7 @@ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
->   * @raw_packet: the pre-allocated packet buffer for FDir
->   * @add: true adds a filter, false removes it
->   *
-> - * Returns 0 if the filters were successfully added or removed
-> + * Always returns -EOPNOTSUPP
->   **/
->  static int i40e_add_del_fdir_sctpv4(struct i40e_vsi *vsi,
->                                     struct i40e_fdir_filter *fd_data,
->
+I remember that there is an issue with out-of-order packets and WHQL.
 
-------------------------------------------------------------------------------
-Learn Graph Databases - Download FREE O'Reilly Book
-"Graph Databases" is the definitive new guide to graph databases and their
-applications. Written by three acclaimed leaders in the field,
-this first edition is now available. Download your free book today!
-http://p.sf.net/sfu/13534_NeoTech
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Ronen.
+
+>> This way if we suspect packets are delayed forever
+>> somewhere, we can enable that and see guest networking block.
+>>
+>> Additionally, I think we should add a way to count zero copy
+>> and non zero copy packets.
+>> I see two ways to implement this: add tracepoints in vhost-net
+>> or add counters in tun accessible with ethtool.
+>> This can be a patch on top and does not have to block
+>> this one though.
+>>
+> Yes, I post a RFC about 2 years ago, see
+> https://lkml.org/lkml/2012/4/9/478 which only traces generic vhost
+> behaviours. I can refresh this and add some -net specific tracepoints.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
