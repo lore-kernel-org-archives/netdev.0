@@ -1,71 +1,114 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/16] e1000e: Fix Explicitly set Transmit Control Register
-Date: Mon, 17 Mar 2014 05:45:12 -0700
-Message-ID: <1395060316-16897-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/16] e1000e: Fix Hardware Unit Hang
+Date: Mon, 17 Mar 2014 05:45:11 -0700
+Message-ID: <1395060316-16897-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Todd Fujinaka <todd.fujinaka@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:26782 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:33804 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756482AbaCQMpZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2014 08:45:25 -0400
+	id S1756543AbaCQMpY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Mar 2014 08:45:24 -0400
 In-Reply-To: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: David Ertman <davidx.m.ertman@intel.com>
 
-This patch causes the TCTL to be explicitly set to fix a problem with
-poor network performance (throughput) on certain silicon when configured
-for 100M HDX performance.
+The check for pending Tx work when link is lost was mistakenly moved to be
+done only when link is first detected to be lost.  It turns out there is a
+small window of opportunity for additional Tx work to get queued up shortly
+after link is dropped.
 
-Cc: Todd Fujinaka <todd.fujinaka@intel.com>
+Move the check back to the place it was before in the watchdog task.  Put in
+additional debug information for other reset paths and a final catch-all for
+false hangs in the scheduled function that prints out the hardware hang
+message.
+
 Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
-Acked-by: Bruce W. Allan <bruce.w.allan@intel.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 32 +++++++++++++++++++++---------
+ 1 file changed, 23 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index ecd8043..de56309 100644
+index 3f044e7..ecd8043 100644
 --- a/drivers/net/ethernet/intel/e1000e/netdev.c
 +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -2898,7 +2898,7 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct e1000_ring *tx_ring = adapter->tx_ring;
- 	u64 tdba;
--	u32 tdlen, tarc;
-+	u32 tdlen, tctl, tarc;
- 
- 	/* Setup the HW Tx Head and Tail descriptor pointers */
- 	tdba = tx_ring->dma;
-@@ -2935,6 +2935,12 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	/* erratum work around: set txdctl the same for both queues */
- 	ew32(TXDCTL(1), er32(TXDCTL(0)));
- 
-+	/* Program the Transmit Control Register */
-+	tctl = er32(TCTL);
-+	tctl &= ~E1000_TCTL_CT;
-+	tctl |= E1000_TCTL_PSP | E1000_TCTL_RTLC |
-+		(E1000_COLLISION_THRESHOLD << E1000_CT_SHIFT);
+@@ -1090,8 +1090,14 @@ static void e1000_print_hw_hang(struct work_struct *work)
+ 		adapter->tx_hang_recheck = true;
+ 		return;
+ 	}
+-	/* Real hang detected */
+ 	adapter->tx_hang_recheck = false;
 +
- 	if (adapter->flags & FLAG_TARC_SPEED_MODE_BIT) {
- 		tarc = er32(TARC(0));
- 		/* set the speed mode bit, we'll clear it if we're not at
-@@ -2965,6 +2971,8 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	/* enable Report Status bit */
- 	adapter->txd_cmd |= E1000_TXD_CMD_RS;
- 
-+	ew32(TCTL, tctl);
++	if (er32(TDH(0)) == er32(TDT(0))) {
++		e_dbg("false hang detected, ignoring\n");
++		return;
++	}
 +
- 	hw->mac.ops.config_collision_dist(hw);
++	/* Real hang detected */
+ 	netif_stop_queue(netdev);
+ 
+ 	e1e_rphy(hw, MII_BMSR, &phy_status);
+@@ -1121,6 +1127,8 @@ static void e1000_print_hw_hang(struct work_struct *work)
+ 	      eop, jiffies, eop_desc->upper.fields.status, er32(STATUS),
+ 	      phy_status, phy_1000t_status, phy_ext_status, pci_status);
+ 
++	e1000e_dump(adapter);
++
+ 	/* Suggest workaround for known h/w issue */
+ 	if ((hw->mac.type == e1000_pchlan) && (er32(CTRL) & E1000_CTRL_TFCE))
+ 		e_err("Try turning off Tx pause (flow control) via ethtool\n");
+@@ -4798,6 +4806,7 @@ static void e1000e_check_82574_phy_workaround(struct e1000_adapter *adapter)
+ 
+ 	if (adapter->phy_hang_count > 1) {
+ 		adapter->phy_hang_count = 0;
++		e_dbg("PHY appears hung - resetting\n");
+ 		schedule_work(&adapter->reset_task);
+ 	}
  }
+@@ -4956,15 +4965,11 @@ static void e1000_watchdog_task(struct work_struct *work)
+ 				mod_timer(&adapter->phy_info_timer,
+ 					  round_jiffies(jiffies + 2 * HZ));
  
+-			/* The link is lost so the controller stops DMA.
+-			 * If there is queued Tx work that cannot be done
+-			 * or if on an 8000ES2LAN which requires a Rx packet
+-			 * buffer work-around on link down event, reset the
+-			 * controller to flush the Tx/Rx packet buffers.
+-			 * (Do the reset outside of interrupt context).
++			/* 8000ES2LAN requires a Rx packet buffer work-around
++			 * on link down event; reset the controller to flush
++			 * the Rx packet buffer.
+ 			 */
+-			if ((adapter->flags & FLAG_RX_NEEDS_RESTART) ||
+-			    (e1000_desc_unused(tx_ring) + 1 < tx_ring->count))
++			if (adapter->flags & FLAG_RX_NEEDS_RESTART)
+ 				adapter->flags |= FLAG_RESTART_NOW;
+ 			else
+ 				pm_schedule_suspend(netdev->dev.parent,
+@@ -4987,6 +4992,15 @@ link_up:
+ 	adapter->gotc_old = adapter->stats.gotc;
+ 	spin_unlock(&adapter->stats64_lock);
+ 
++	/* If the link is lost the controller stops DMA, but
++	 * if there is queued Tx work it cannot be done.  So
++	 * reset the controller to flush the Tx packet buffers.
++	 */
++	if (!netif_carrier_ok(netdev) &&
++	    (e1000_desc_unused(tx_ring) + 1 < tx_ring->count))
++		adapter->flags |= FLAG_RESTART_NOW;
++
++	/* If reset is necessary, do it outside of interrupt context. */
+ 	if (adapter->flags & FLAG_RESTART_NOW) {
+ 		schedule_work(&adapter->reset_task);
+ 		/* return immediately since reset is imminent */
 -- 
 1.8.3.1
