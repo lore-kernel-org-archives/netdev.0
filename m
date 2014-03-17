@@ -1,200 +1,298 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 2/2] bonding: support QinQ for bond arp interval
-Date: Mon, 17 Mar 2014 20:06:15 +0800
-Message-ID: <1395057975-19084-3-git-send-email-dingtianhong@huawei.com>
-References: <1395057975-19084-1-git-send-email-dingtianhong@huawei.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH V6 net-next 1/5] xen-netback: Factor queue-specific data
+ into queue struct.
+Date: Mon, 17 Mar 2014 12:19:20 +0000
+Message-ID: <1395058760.7428.18.camel@kazak.uk.xensource.com>
+References: <1393847269-6981-1-git-send-email-andrew.bennieston@citrix.com>
+		 <1393847269-6981-2-git-send-email-andrew.bennieston@citrix.com>
+	 <1394812505.6442.128.camel@kazak.uk.xensource.com>
+	 <5326E23F.8050304@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <fubar@us.ibm.com>, <vfalico@redhat.com>, <andy@greyhouse.net>,
-	<kaber@trash.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <xen-devel@lists.xenproject.org>, <wei.liu2@citrix.com>,
+	<paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
+	<david.vrabel@citrix.com>
+To: Andrew Bennieston <andrew.bennieston@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:40987 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933032AbaCQMG7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 08:06:59 -0400
-In-Reply-To: <1395057975-19084-1-git-send-email-dingtianhong@huawei.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:8344 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932767AbaCQMTX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Mar 2014 08:19:23 -0400
+In-Reply-To: <5326E23F.8050304@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond send arp request to indicate that the slave is active, and if the bond dev
-is a vlan dev, it will set the vlan tag in skb to notice the vlan group, but the
-bond could only send a skb with 802.1q proto, not support for QinQ.
+On Mon, 2014-03-17 at 11:53 +0000, Andrew Bennieston wrote:
+> On 14/03/14 15:55, Ian Campbell wrote:
+> > On Mon, 2014-03-03 at 11:47 +0000, Andrew J. Bennieston wrote:
+> >> From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
+> >>
+> >> In preparation for multi-queue support in xen-netback, move the
+> >> queue-specific data from struct xenvif into struct xenvif_queue, a=
+nd
+> >> update the rest of the code to use this.
+> >>
+> >> Also[...]
+> >>
+> >> Finally,[...]
+> >
+> > This is already quite a big patch, and I don't think the commit log
+> > covers everything it changes/refactors, does it?
+> >
+> > It's always a good idea to break these things apart but in particul=
+ar
+> > separating the mechanical stuff (s/vif/queue/g) from the non-mechan=
+ical
+> > stuff, since the mechanical stuff is essentially trivial to review =
+and
+> > getting it out the way makes the non-mechanical stuff much easier t=
+o
+> > check (or even spot).
+> >
+>=20
+> The vast majority of changes in this patch are s/vif/queue/g. The res=
+t
+> are related changes, such as inserting loops over queues, and moving
+> queue-specific initialisation away from the vif-wide initialisation, =
+so
+> that it can be done once per queue.
+>=20
+> I consider these things to be logically related and definitely within
+> the purview of this single patch. Without doing this, it is difficult=
+ to
+> get a patch that results in something that even compiles, without
+> putting in a bunch of placeholder code that will be removed in the ve=
+ry
+> next patch.
 
-So add outer tag for lower vlan tag and inner tag for upper vlan tag to support QinQ,
-The new skb will be consist of two vlan tag just like this:
+Well, I'd have introduced a single xenvif_queue instance without tellin=
+g
+the core network stuff we were doing multiqueue yet which would allow
+all the function arguments etc to be changed mechanically without doing
+a lot of the other work at the same time, like refactoring the carrier
+handling or even adding the loops. But what's done is done now.
 
-dst mac | src mac | outer vlan tag | inner vlan tag | data | .....
+>=20
+> When I split this feature into multiple patches, I took care to group
+> as little as possible into this first patch (and the same for netfron=
+t).
+> It is still a large patch, but by my count most of this is a simple
+> replacement of vif with queue...
+>=20
+> A first-order approximation, searching for line pairs where the first
+> has 'vif' and the second has 'queue', yields:
+>=20
+> =E2=9E=9C  xen-netback git:(saturn) git show HEAD~4 | grep -A 1 vif |=
+ grep queue=20
+> | wc -l
+> 380
+>=20
+> i.e. 760 (=3D380*2) lines out of the 2240 (~ 40%) are trivial replace=
+ments
+> of vif with queue, and this is not counting multi-line replacements, =
+of
+> which there are many. What remains is mostly adding loops over these
+> queues. This could, in principle, be done in a second patch, but the
+> impact of this is small.
 
-If We don't need QinQ, the inner vlan tag could be set to 0 and use outer vlan tag
- as a normal vlan group.
+Actually, the readability/reviewability impact is quite high IMHO.
 
-Using "ip link" to configure the bond for QinQ and add test log:
-
-ip link add link bond0  bond0.20 type vlan proto 802.1ad id 20
-ip link add link bond0.20  bond0.20.200 type vlan proto 802.1q id 200
-
-ifconfig bond0.20 11.11.20.36/24
-ifconfig bond0.20.200 11.11.200.36/24
-
-echo +11.11.200.37 > /sys/class/net/bond0/bonding/arp_ip_target
-
-90:e2:ba:07:4a:5c (oui Unknown) > Broadcast, ethertype 802.1Q-QinQ (0x88a8),length 50: vlan 20, p 0,ethertype 802.1Q, vlan 200, p 0, ethertype ARP, Ethernet (len 6), IPv4 (len 4), Request who-has 11.11.200.37 tell 11.11.200.36, length 28
-
-90:e2:ba:06:f9:86 (oui Unknown) > 90:e2:ba:07:4a:5c (oui Unknown), ethertype 802.1Q-QinQ (0x88a8), length 50: vlan 20, p 0, ethertype 802.1Q, vlan 200, p 0, ethertype ARP, Ethernet (len 6), IPv4 (len 4), Reply 11.11.200.37 is-at 90:e2:ba:06:f9:86 (oui Unknown), length 28
-
-Cc: Jay Vosburgh <fubar@us.ibm.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>
-Cc: Andy Gospodarek <andy@greyhouse.net>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/bonding/bond_main.c | 61 ++++++++++++++++++++++++++++++-----------
- drivers/net/bonding/bonding.h   |  5 ++++
- 2 files changed, 50 insertions(+), 16 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 324389b..068f983 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2124,12 +2124,15 @@ static bool bond_has_this_ip(struct bonding *bond, __be32 ip)
-  * switches in VLAN mode (especially if ports are configured as
-  * "native" to a VLAN) might not pass non-tagged frames.
-  */
--static void bond_arp_send(struct net_device *slave_dev, int arp_op, __be32 dest_ip, __be32 src_ip, unsigned short vlan_id)
-+static void bond_arp_send(struct net_device *slave_dev, int arp_op,
-+			  __be32 dest_ip, __be32 src_ip,
-+			  struct bond_vlan_tag *inner,
-+			  struct bond_vlan_tag *outer)
- {
- 	struct sk_buff *skb;
- 
--	pr_debug("arp %d on slave %s: dst %pI4 src %pI4 vid %d\n",
--		 arp_op, slave_dev->name, &dest_ip, &src_ip, vlan_id);
-+	pr_debug("arp %d on slave %s: dst %pI4 src %pI4\n",
-+		 arp_op, slave_dev->name, &dest_ip, &src_ip);
- 
- 	skb = arp_create(arp_op, ETH_P_ARP, dest_ip, slave_dev, src_ip,
- 			 NULL, slave_dev->dev_addr, NULL);
-@@ -2138,10 +2141,22 @@ static void bond_arp_send(struct net_device *slave_dev, int arp_op, __be32 dest_
- 		pr_err("ARP packet allocation failed\n");
- 		return;
- 	}
--	if (vlan_id) {
--		skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vlan_id);
-+	if (outer->vlan_id) {
-+		if (inner->vlan_id) {
-+			pr_debug("inner tag: proto %X vid %X\n",
-+				 ntohs(inner->vlan_proto), inner->vlan_id);
-+			skb = __vlan_put_tag(skb, inner->vlan_proto, inner->vlan_id);
-+			if (!skb) {
-+				pr_err("failed to insert inner VLAN tag\n");
-+				return;
-+			}
-+		}
-+
-+		pr_debug("outer reg: proto %X vid %X\n",
-+			 ntohs(outer->vlan_proto), outer->vlan_id);
-+		skb = vlan_put_tag(skb, outer->vlan_proto, outer->vlan_id);
- 		if (!skb) {
--			pr_err("failed to insert VLAN tag\n");
-+			pr_err("failed to insert outer VLAN tag\n");
- 			return;
- 		}
- 	}
-@@ -2154,11 +2169,16 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 	struct net_device *upper, *vlan_upper;
- 	struct list_head *iter, *vlan_iter;
- 	struct rtable *rt;
-+	struct bond_vlan_tag inner, outer;
- 	__be32 *targets = bond->params.arp_targets, addr;
--	int i, vlan_id;
-+	int i;
- 
- 	for (i = 0; i < BOND_MAX_ARP_TARGETS && targets[i]; i++) {
- 		pr_debug("basa: target %pI4\n", &targets[i]);
-+		inner.vlan_proto = 0;
-+		inner.vlan_id = 0;
-+		outer.vlan_proto = 0;
-+		outer.vlan_id = 0;
- 
- 		/* Find out through which dev should the packet go */
- 		rt = ip_route_output(dev_net(bond->dev), targets[i], 0,
-@@ -2170,12 +2190,10 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 			if (bond->params.arp_validate && net_ratelimit())
- 				pr_warn("%s: no route to arp_ip_target %pI4 and arp_validate is set\n",
- 					bond->dev->name, &targets[i]);
--			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i], 0, 0);
-+			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i], 0, &inner, &outer);
- 			continue;
- 		}
- 
--		vlan_id = 0;
+>=20
+> >
+> >>
+> >> Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
+> >> Reviewed-by: Paul Durrant <paul.durrant@citrix.com>
+> >> ---
+> >>   drivers/net/xen-netback/common.h    |   85 ++++--
+> >>   drivers/net/xen-netback/interface.c |  329 ++++++++++++++-------=
 -
- 		/* bond device itself */
- 		if (rt->dst.dev == bond->dev)
- 			goto found;
-@@ -2192,10 +2210,25 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 						  vlan_iter) {
- 			if (!is_vlan_dev(vlan_upper))
- 				continue;
-+
-+			if (vlan_upper == rt->dst.dev) {
-+				outer.vlan_proto = vlan_dev_vlan_proto(vlan_upper);
-+				outer.vlan_id = vlan_dev_vlan_id(vlan_upper);
-+				rcu_read_unlock();
-+				goto found;
-+			}
- 			netdev_for_each_all_upper_dev_rcu(vlan_upper, upper,
- 							  iter) {
- 				if (upper == rt->dst.dev) {
--					vlan_id = vlan_dev_vlan_id(vlan_upper);
-+					/* If the upper dev is a vlan dev too,
-+					 *  set the vlan tag to inner tag.
-+					 */
-+					if (is_vlan_dev(upper)) {
-+						inner.vlan_proto = vlan_dev_vlan_proto(upper);
-+						inner.vlan_id = vlan_dev_vlan_id(upper);
-+					}
-+					outer.vlan_proto = vlan_dev_vlan_proto(vlan_upper);
-+					outer.vlan_id = vlan_dev_vlan_id(vlan_upper);
- 					rcu_read_unlock();
- 					goto found;
- 				}
-@@ -2208,10 +2241,6 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 		 */
- 		netdev_for_each_all_upper_dev_rcu(bond->dev, upper, iter) {
- 			if (upper == rt->dst.dev) {
--				/* if it's a vlan - get its VID */
--				if (is_vlan_dev(upper))
--					vlan_id = vlan_dev_vlan_id(upper);
--
- 				rcu_read_unlock();
- 				goto found;
- 			}
-@@ -2230,7 +2259,7 @@ found:
- 		addr = bond_confirm_addr(rt->dst.dev, targets[i], 0);
- 		ip_rt_put(rt);
- 		bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
--			      addr, vlan_id);
-+			      addr, &inner, &outer);
- 	}
- }
- 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 0896f1d..b8bdd0a 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -266,6 +266,11 @@ struct bonding {
- #define bond_slave_get_rtnl(dev) \
- 	((struct slave *) rtnl_dereference(dev->rx_handler_data))
- 
-+struct bond_vlan_tag {
-+	__be16		vlan_proto;
-+	unsigned short	vlan_id;
-+};
-+
- /**
-  * Returns NULL if the net_device does not belong to any of the bond's slaves
-  *
--- 
-1.8.0
+> >>   drivers/net/xen-netback/netback.c   |  530 ++++++++++++++++++---=
+--------------
+> >>   drivers/net/xen-netback/xenbus.c    |   87 ++++--
+> >>   4 files changed, 608 insertions(+), 423 deletions(-)
+> >>
+> >> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-ne=
+tback/common.h
+> >> index ae413a2..4176539 100644
+> >> --- a/drivers/net/xen-netback/common.h
+> >> +++ b/drivers/net/xen-netback/common.h
+> >> @@ -108,17 +108,39 @@ struct xenvif_rx_meta {
+> >>    */
+> >>   #define MAX_GRANT_COPY_OPS (MAX_SKB_FRAGS * XEN_NETIF_RX_RING_SI=
+ZE)
+> >>
+> >> -struct xenvif {
+> >> -	/* Unique identifier for this interface. */
+> >> -	domid_t          domid;
+> >> -	unsigned int     handle;
+> >> +/* Queue name is interface name with "-qNNN" appended */
+> >> +#define QUEUE_NAME_SIZE (IFNAMSIZ + 6)
+> >
+> > One more than necessary? Or does IFNAMSIZ not include the NULL? (I =
+can't
+> > figure out if it does or not!)
+>=20
+> interface.c contains the line:
+> snprintf(name, IFNAMSIZ - 1, "vif%u.%u", domid, handle);
+>=20
+> This suggests that IFNAMSIZ counts the trailing NULL, so I can reduce
+> this count by 1 on that basis.
+
+Thanks.
+
+> >> [...]
+> >> -	/* This array is allocated seperately as it is large */
+> >> -	struct gnttab_copy *grant_copy_op;
+> >> +	struct gnttab_copy grant_copy_op[MAX_GRANT_COPY_OPS];
+> >
+> > Is this deliberate? It seems like a retrograde step reverting parts=
+ of
+> > ac3d5ac27735 "xen-netback: fix guest-receive-side array sizes" from=
+ Paul
+> > (at least you are nuking a speeling erorr)
+>=20
+> Yes, this was deliberate. These arrays were moved out to avoid proble=
+ms
+> with kmalloc for the struct net_device (which contains the struct xen=
+vif
+> in its netdev_priv space). Since the queues are now allocated via
+> vzalloc, there is no need to do separate allocations (with the
+> requirement to also separately free on every error/teardown path) so =
+I
+> moved these back into the main queue structure.
+
+Please do this as a separate change then, either pre or post as
+appropriate.
+
+> > How does this series interact with Zoltan's foreign mapping one? Ba=
+dly I
+> > should imagine, are you going to rebase?
+>=20
+> I'm working on the rebase right now.
+>=20
+> >
+> >> +	/* First, check if there is only one queue to optimise the
+> >> +	 * single-queue or old frontend scenario.
+> >> +	 */
+> >> +	if (vif->num_queues =3D=3D 1) {
+> >> +		queue_index =3D 0;
+> >> +	} else {
+> >> +		/* Use skb_get_hash to obtain an L4 hash if available */
+> >> +		hash =3D skb_get_hash(skb);
+> >> +		queue_index =3D (u16) (((u64)hash * vif->num_queues) >> 32);
+> >
+> > No modulo num_queues here?
+> >
+> > Is the multiply and shift from some best practice somewhere? Or els=
+e
+> > what is it doing?
+>=20
+> It seems to be what a bunch of other net drivers do in this scenario.=
+ I
+> guess the reasoning is it'll be faster than a mod num_queues.
+
+Hard to believe that's the reason for the num_queues =3D=3D 2^x case at
+least (which must be most common I'd expect).
+
+> >
+> >> +	/* Obtain the queue to be used to transmit this packet */
+> >> +	index =3D skb_get_queue_mapping(skb);
+> >> +	if (index >=3D vif->num_queues)
+> >> +		index =3D 0; /* Fall back to queue 0 if out of range */
+> >
+> > Is this actually allowed to happen?
+> >
+> > Even if yes, not modulo num_queue so spread it around a bit?
+>=20
+> This probably isn't allowed to happen. I figured it didn't hurt to be=
+ a
+> little defensive with the code here, and falling back to queue 0 is a
+> fairly safe thing to do.
+
+If it shouldn't happen then is a ratelimited warning appropriate?
+
+>=20
+> >>   static void xenvif_up(struct xenvif *vif)
+> >>   {
+> >> -	napi_enable(&vif->napi);
+> >> -	enable_irq(vif->tx_irq);
+> >> -	if (vif->tx_irq !=3D vif->rx_irq)
+> >> -		enable_irq(vif->rx_irq);
+> >> -	xenvif_check_rx_xenvif(vif);
+> >> +	struct xenvif_queue *queue =3D NULL;
+> >> +	unsigned int queue_index;
+> >> +
+> >> +	for (queue_index =3D 0; queue_index < vif->num_queues; ++queue_i=
+ndex) {
+> >
+> > This vif->num_queues -- is it the same as dev->num_tx_queues? Or ar=
+eew
+> > there differing concepts of queue around?
+>=20
+> It should be the same as dev->real_num_tx_queues, which may be less t=
+han
+> dev->num_tx_queues.
+
+It'd be better to use the single variable in dev then I think, rather
+than duplicate and risk them getting out of sync etc. I'm a bit
+surprised there are no helpers in the core for this sort of thing (at
+least not that I can find).
+
+>=20
+> >> +		queue =3D &vif->queues[queue_index];
+> >> +		napi_enable(&queue->napi);
+> >> +		enable_irq(queue->tx_irq);
+> >> +		if (queue->tx_irq !=3D queue->rx_irq)
+> >> +			enable_irq(queue->rx_irq);
+> >> +		xenvif_check_rx_xenvif(queue);
+> >> +	}
+> >>   }
+> >>
+> >>   static void xenvif_down(struct xenvif *vif)
+> >>   {
+> >> -	napi_disable(&vif->napi);
+> >> -	disable_irq(vif->tx_irq);
+> >> -	if (vif->tx_irq !=3D vif->rx_irq)
+> >> -		disable_irq(vif->rx_irq);
+> >> -	del_timer_sync(&vif->credit_timeout);
+> >> +	struct xenvif_queue *queue =3D NULL;
+> >> +	unsigned int queue_index;
+> >
+> > Why unsigned?
+> Why not? You can't have a negative number of queues. Zero indicates "=
+I
+> don't have any set up yet". I'm not expecting people to have 4 billio=
+n
+> or so queues, but equally I can't see a valid use for negative values
+> here.
+
+It's just unusual that's all.
+
+> @@ -507,18 +529,24 @@ static void connect(struct backend_info *be)
+> >>   	if (!err)
+> >>   		be->have_hotplug_status_watch =3D 1;
+> >>
+> >> -	netif_wake_queue(be->vif->dev);
+> >> +	netif_tx_wake_all_queues(be->vif->dev);
+> >> +
+> >> +	return;
+> >> +
+> >> +err:
+> >> +	vfree(be->vif->queues);
+> >> +	be->vif->queues =3D NULL;
+> >> +	be->vif->num_queues =3D 0;
+> >> +	return;
+> >
+> > Do you not need to unwind the setup already done on the previous qu=
+eues
+> > before the failure?
+>=20
+>=20
+> Err... yes. I was sure that code existed at some point, but I can't f=
+ind
+> it now. Oops!
+
+;-)
+
+Ian.
