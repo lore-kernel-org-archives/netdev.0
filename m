@@ -1,364 +1,313 @@
 From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net-next V6 5/9] Altera TSE: Add Miscellaneous Files for Altera Ethernet Driver
-Date: Mon, 17 Mar 2014 17:52:37 -0500
-Message-ID: <1395096761-15407-6-git-send-email-vbridgers2013@gmail.com>
+Subject: [PATCH net-next V6 2/9] Documentation: networking: Add Altera Ethernet (TSE) Documentation
+Date: Mon, 17 Mar 2014 17:52:34 -0500
+Message-ID: <1395096761-15407-3-git-send-email-vbridgers2013@gmail.com>
 References: <1395096761-15407-1-git-send-email-vbridgers2013@gmail.com>
 Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
 	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
 	rob@landley.net, vbridgers2013@gmail.com
 To: devicetree@vger.kernel.org, netdev@vger.kernel.org,
 	linux-doc@vger.kernel.org
-Return-path: <linux-doc-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f52.google.com ([209.85.219.52]:55045 "EHLO
+	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751092AbaCQW53 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 18:57:29 -0400
 In-Reply-To: <1395096761-15407-1-git-send-email-vbridgers2013@gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds miscellaneous files for the Altera Ethernet Driver,
-including ethtool support.
+This patch adds a bindings description for the Altera Triple Speed Ethernet
+(TSE) driver. The bindings support the legacy SGDMA soft IP as well as the
+preferred MSGDMA soft IP. The TSE can be configured and synthesized in soft
+logic using Altera's Quartus toolchain. Please consult the bindings document
+for supported options.
 
 Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
 ---
-V6: - Modify ethtool gets regs to read first 128 registers
+V6: - No changes for V6
 
-V5: - Change name of rx_fifo_drops to ether_drops to match closer to
-      the event it's actually counting and the description added
-      to the driver documentation.
+V5: - Add cross references to standard definitions of statistics and
+      summary definitions of statistics for users.
 
-V4: - Change names of statistics to match common usage found in most
-      drivers instead of TSE databook names.
-    - Remove unnecessary cast
+V4: - No change to this file for V4
 
-V3: - Reorder commits
-    - Remove cast to u64 when reading stats per comments
-    - add const to array of statistics string names per comments
+V3: - Reorder commits, otherwise no changes to this file
 
-V2: - Break up driver files for initial submission by logical function.
-    - Change bus type in ethtool from "AVALON" to "platform"
+V2: - Minor edits. No substantial changes to this file.
 ---
- drivers/net/ethernet/altera/altera_tse_ethtool.c |  227 ++++++++++++++++++++++
- drivers/net/ethernet/altera/altera_utils.c       |   44 +++++
- drivers/net/ethernet/altera/altera_utils.h       |   27 +++
- 3 files changed, 298 insertions(+)
- create mode 100644 drivers/net/ethernet/altera/altera_tse_ethtool.c
- create mode 100644 drivers/net/ethernet/altera/altera_utils.c
- create mode 100644 drivers/net/ethernet/altera/altera_utils.h
+ Documentation/networking/altera_tse.txt |  263 +++++++++++++++++++++++++++++++
+ 1 file changed, 263 insertions(+)
+ create mode 100644 Documentation/networking/altera_tse.txt
 
-diff --git a/drivers/net/ethernet/altera/altera_tse_ethtool.c b/drivers/net/ethernet/altera/altera_tse_ethtool.c
+diff --git a/Documentation/networking/altera_tse.txt b/Documentation/networking/altera_tse.txt
 new file mode 100644
-index 0000000..63ac5f4
+index 0000000..3f24df8
 --- /dev/null
-+++ b/drivers/net/ethernet/altera/altera_tse_ethtool.c
-@@ -0,0 +1,227 @@
-+/* Ethtool support for Altera Triple-Speed Ethernet MAC driver
-+ * Copyright (C) 2008-2014 Altera Corporation. All rights reserved
-+ *
-+ * Contributors:
-+ *   Dalon Westergreen
-+ *   Thomas Chou
-+ *   Ian Abbott
-+ *   Yuriy Kozlov
-+ *   Tobias Klauser
-+ *   Andriy Smolskyy
-+ *   Roman Bulgakov
-+ *   Dmytro Mytarchuk
-+ *
-+ * Original driver contributed by SLS.
-+ * Major updates contributed by GlobalLogic
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program.  If not, see <http://www.gnu.org/licenses/>.
-+ */
++++ b/Documentation/networking/altera_tse.txt
+@@ -0,0 +1,263 @@
++       Altera Triple-Speed Ethernet MAC driver
 +
-+#include <linux/ethtool.h>
-+#include <linux/kernel.h>
-+#include <linux/netdevice.h>
-+#include <linux/phy.h>
++Copyright (C) 2008-2014 Altera Corporation
 +
-+#include "altera_tse.h"
++This is the driver for the Altera Triple-Speed Ethernet (TSE) controllers
++using the SGDMA and MSGDMA soft DMA IP components. The driver uses the
++platform bus to obtain component resources. The designs used to test this
++driver were built for a Cyclone(R) V SOC FPGA board, a Cyclone(R) V FPGA board,
++and tested with ARM and NIOS processor hosts seperately. The anticipated use
++cases are simple communications between an embedded system and an external peer
++for status and simple configuration of the embedded system.
 +
-+#define TSE_STATS_LEN	31
-+#define TSE_NUM_REGS	128
++For more information visit www.altera.com and www.rocketboards.org. Support
++forums for the driver may be found on www.rocketboards.org, and a design used
++to test this driver may be found there as well. Support is also available from
++the maintainer of this driver, found in MAINTAINERS.
 +
-+static char const stat_gstrings[][ETH_GSTRING_LEN] = {
-+	"tx_packets",
-+	"rx_packets",
-+	"rx_crc_errors",
-+	"rx_align_errors",
-+	"tx_bytes",
-+	"rx_bytes",
-+	"tx_pause",
-+	"rx_pause",
-+	"rx_errors",
-+	"tx_errors",
-+	"rx_unicast",
-+	"rx_multicast",
-+	"rx_broadcast",
-+	"tx_discards",
-+	"tx_unicast",
-+	"tx_multicast",
-+	"tx_broadcast",
-+	"ether_drops",
-+	"rx_total_bytes",
-+	"rx_total_packets",
-+	"rx_undersize",
-+	"rx_oversize",
-+	"rx_64_bytes",
-+	"rx_65_127_bytes",
-+	"rx_128_255_bytes",
-+	"rx_256_511_bytes",
-+	"rx_512_1023_bytes",
-+	"rx_1024_1518_bytes",
-+	"rx_gte_1519_bytes",
-+	"rx_jabbers",
-+	"rx_runts",
-+};
++The Triple-Speed Ethernet, SGDMA, and MSGDMA components are all soft IP
++components that can be assembled and built into an FPGA using the Altera
++Quartus toolchain. Quartus 13.1 and 14.0 were used to build the design that
++this driver was tested against. The sopc2dts tool is used to create the
++device tree for the driver, and may be found at rocketboards.org.
 +
-+static void tse_get_drvinfo(struct net_device *dev,
-+			    struct ethtool_drvinfo *info)
-+{
-+	struct altera_tse_private *priv = netdev_priv(dev);
-+	u32 rev = ioread32(&priv->mac_dev->megacore_revision);
++The driver probe function examines the device tree and determines if the
++Triple-Speed Ethernet instance is using an SGDMA or MSGDMA component. The
++probe function then installs the appropriate set of DMA routines to
++initialize, setup transmits, receives, and interrupt handling primitives for
++the respective configurations.
 +
-+	strcpy(info->driver, "Altera TSE MAC IP Driver");
-+	strcpy(info->version, "v8.0");
-+	snprintf(info->fw_version, ETHTOOL_FWVERS_LEN, "v%d.%d",
-+		 rev & 0xFFFF, (rev & 0xFFFF0000) >> 16);
-+	sprintf(info->bus_info, "platform");
-+}
++The SGDMA component is to be deprecated in the near future (over the next 1-2
++years as of this writing in early 2014) in favor of the MSGDMA component.
++SGDMA support is included for existing designs and reference in case a
++developer wishes to support their own soft DMA logic and driver support. Any
++new designs should not use the SGDMA.
 +
-+/* Fill in a buffer with the strings which correspond to the
-+ * stats
-+ */
-+static void tse_gstrings(struct net_device *dev, u32 stringset, u8 *buf)
-+{
-+	memcpy(buf, stat_gstrings, TSE_STATS_LEN * ETH_GSTRING_LEN);
-+}
++The SGDMA supports only a single transmit or receive operation at a time, and
++therefore will not perform as well compared to the MSGDMA soft IP. Please
++visit www.altera.com for known, documented SGDMA errata.
 +
-+static void tse_fill_stats(struct net_device *dev, struct ethtool_stats *dummy,
-+			   u64 *buf)
-+{
-+	struct altera_tse_private *priv = netdev_priv(dev);
-+	struct altera_tse_mac *mac = priv->mac_dev;
-+	u64 ext;
++Scatter-gather DMA is not supported by the SGDMA or MSGDMA at this time.
++Scatter-gather DMA will be added to a future maintenance update to this
++driver.
 +
-+	buf[0] = ioread32(&mac->frames_transmitted_ok);
-+	buf[1] = ioread32(&mac->frames_received_ok);
-+	buf[2] = ioread32(&mac->frames_check_sequence_errors);
-+	buf[3] = ioread32(&mac->alignment_errors);
++Jumbo frames are not supported at this time.
 +
-+	/* Extended aOctetsTransmittedOK counter */
-+	ext = (u64) ioread32(&mac->msb_octets_transmitted_ok) << 32;
-+	ext |= ioread32(&mac->octets_transmitted_ok);
-+	buf[4] = ext;
++The driver limits PHY operations to 10/100Mbps, and has not yet been fully
++tested for 1Gbps. This support will be added in a future maintenance update.
 +
-+	/* Extended aOctetsReceivedOK counter */
-+	ext = (u64) ioread32(&mac->msb_octets_received_ok) << 32;
-+	ext |= ioread32(&mac->octets_received_ok);
-+	buf[5] = ext;
++1) Kernel Configuration
++The kernel configuration option is ALTERA_TSE:
++ Device Drivers ---> Network device support ---> Ethernet driver support --->
++ Altera Triple-Speed Ethernet MAC support (ALTERA_TSE)
 +
-+	buf[6] = ioread32(&mac->tx_pause_mac_ctrl_frames);
-+	buf[7] = ioread32(&mac->rx_pause_mac_ctrl_frames);
-+	buf[8] = ioread32(&mac->if_in_errors);
-+	buf[9] = ioread32(&mac->if_out_errors);
-+	buf[10] = ioread32(&mac->if_in_ucast_pkts);
-+	buf[11] = ioread32(&mac->if_in_multicast_pkts);
-+	buf[12] = ioread32(&mac->if_in_broadcast_pkts);
-+	buf[13] = ioread32(&mac->if_out_discards);
-+	buf[14] = ioread32(&mac->if_out_ucast_pkts);
-+	buf[15] = ioread32(&mac->if_out_multicast_pkts);
-+	buf[16] = ioread32(&mac->if_out_broadcast_pkts);
-+	buf[17] = ioread32(&mac->ether_stats_drop_events);
++2) Driver parameters list:
++	debug: message level (0: no output, 16: all);
++	dma_rx_num: Number of descriptors in the RX list (default is 64);
++	dma_tx_num: Number of descriptors in the TX list (default is 64).
 +
-+	/* Extended etherStatsOctets counter */
-+	ext = (u64) ioread32(&mac->msb_ether_stats_octets) << 32;
-+	ext |= ioread32(&mac->ether_stats_octets);
-+	buf[18] = ext;
++3) Command line options
++Driver parameters can be also passed in command line by using:
++	altera_tse=dma_rx_num:128,dma_tx_num:512
 +
-+	buf[19] = ioread32(&mac->ether_stats_pkts);
-+	buf[20] = ioread32(&mac->ether_stats_undersize_pkts);
-+	buf[21] = ioread32(&mac->ether_stats_oversize_pkts);
-+	buf[22] = ioread32(&mac->ether_stats_pkts_64_octets);
-+	buf[23] = ioread32(&mac->ether_stats_pkts_65to127_octets);
-+	buf[24] = ioread32(&mac->ether_stats_pkts_128to255_octets);
-+	buf[25] = ioread32(&mac->ether_stats_pkts_256to511_octets);
-+	buf[26] = ioread32(&mac->ether_stats_pkts_512to1023_octets);
-+	buf[27] = ioread32(&mac->ether_stats_pkts_1024to1518_octets);
-+	buf[28] = ioread32(&mac->ether_stats_pkts_1519tox_octets);
-+	buf[29] = ioread32(&mac->ether_stats_jabbers);
-+	buf[30] = ioread32(&mac->ether_stats_fragments);
-+}
++4) Driver information and notes
 +
-+static int tse_sset_count(struct net_device *dev, int sset)
-+{
-+	switch (sset) {
-+	case ETH_SS_STATS:
-+		return TSE_STATS_LEN;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
++4.1) Transmit process
++When the driver's transmit routine is called by the kernel, it sets up a
++transmit descriptor by calling the underlying DMA transmit routine (SGDMA or
++MSGDMA), and initites a transmit operation. Once the transmit is complete, an
++interrupt is driven by the transmit DMA logic. The driver handles the transmit
++completion in the context of the interrupt handling chain by recycling
++resource required to send and track the requested transmit operation.
 +
-+static u32 tse_get_msglevel(struct net_device *dev)
-+{
-+	struct altera_tse_private *priv = netdev_priv(dev);
-+	return priv->msg_enable;
-+}
++4.2) Receive process
++The driver will post receive buffers to the receive DMA logic during driver
++intialization. Receive buffers may or may not be queued depending upon the
++underlying DMA logic (MSGDMA is able queue receive buffers, SGDMA is not able
++to queue receive buffers to the SGDMA receive logic). When a packet is
++received, the DMA logic generates an interrupt. The driver handles a receive
++interrupt by obtaining the DMA receive logic status, reaping receive
++completions until no more receive completions are available.
 +
-+static void tse_set_msglevel(struct net_device *dev, uint32_t data)
-+{
-+	struct altera_tse_private *priv = netdev_priv(dev);
-+	priv->msg_enable = data;
-+}
++4.3) Interrupt Mitigation
++The driver is able to mitigate the number of its DMA interrupts
++using NAPI for receive operations. Interrupt mitigation is not yet supported
++for transmit operations, but will be added in a future maintenance release.
 +
-+static int tse_reglen(struct net_device *dev)
-+{
-+	return TSE_NUM_REGS * sizeof(u32);
-+}
++4.4) Ethtool support
++Ethtool is supported. Driver statistics and internal errors can be taken using:
++ethtool -S ethX command. It is possible to dump registers etc.
 +
-+static void tse_get_regs(struct net_device *dev, struct ethtool_regs *regs,
-+			 void *regbuf)
-+{
-+	int i;
-+	struct altera_tse_private *priv = netdev_priv(dev);
-+	u32 *tse_mac_regs = (u32 *)priv->mac_dev;
-+	u32 *buf = regbuf;
++4.5) PHY Support
++The driver is compatible with PAL to work with PHY and GPHY devices.
 +
-+	for (i = 0; i < TSE_NUM_REGS; i++)
-+		buf[i] = ioread32(&tse_mac_regs[i]);
-+}
++4.7) List of source files:
++ o Kconfig
++ o Makefile
++ o altera_tse_main.c: main network device driver
++ o altera_tse_ethtool.c: ethtool support
++ o altera_tse.h: private driver structure and common definitions
++ o altera_msgdma.h: MSGDMA implementation function definitions
++ o altera_sgdma.h: SGDMA implementation function definitions
++ o altera_msgdma.c: MSGDMA implementation
++ o altera_sgdma.c: SGDMA implementation
++ o altera_sgdmahw.h: SGDMA register and descriptor definitions
++ o altera_msgdmahw.h: MSGDMA register and descriptor definitions
++ o altera_utils.c: Driver utility functions
++ o altera_utils.h: Driver utility function definitions
 +
-+static int tse_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+{
-+	struct altera_tse_private *priv = netdev_priv(dev);
-+	struct phy_device *phydev = priv->phydev;
++5) Debug Information
 +
-+	if (phydev == NULL)
-+		return -ENODEV;
++The driver exports debug information such as internal statistics,
++debug information, MAC and DMA registers etc.
 +
-+	return phy_ethtool_gset(phydev, cmd);
-+}
++A user may use the ethtool support to get statistics:
++e.g. using: ethtool -S ethX (that shows the statistics counters)
++or sees the MAC registers: e.g. using: ethtool -d ethX
 +
-+static int tse_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+{
-+	struct altera_tse_private *priv = netdev_priv(dev);
-+	struct phy_device *phydev = priv->phydev;
++The developer can also use the "debug" module parameter to get
++further debug information.
 +
-+	if (phydev == NULL)
-+		return -ENODEV;
++6) Statistics Support
 +
-+	return phy_ethtool_sset(phydev, cmd);
-+}
++The controller and driver support a mix of IEEE standard defined statistics,
++RFC defined statistics, and driver or Altera defined statistics. The four
++specifications containing the standard definitions for these statistics are
++as follows:
 +
-+static const struct ethtool_ops tse_ethtool_ops = {
-+	.get_drvinfo = tse_get_drvinfo,
-+	.get_regs_len = tse_reglen,
-+	.get_regs = tse_get_regs,
-+	.get_link = ethtool_op_get_link,
-+	.get_settings = tse_get_settings,
-+	.set_settings = tse_set_settings,
-+	.get_strings = tse_gstrings,
-+	.get_sset_count = tse_sset_count,
-+	.get_ethtool_stats = tse_fill_stats,
-+	.get_msglevel = tse_get_msglevel,
-+	.set_msglevel = tse_set_msglevel,
-+};
++ o IEEE 802.3-2012 - IEEE Standard for Ethernet.
++ o RFC 2863 found at http://www.rfc-editor.org/rfc/rfc2863.txt.
++ o RFC 2819 found at http://www.rfc-editor.org/rfc/rfc2819.txt.
++ o Altera Triple Speed Ethernet User Guide, found at http://www.altera.com
 +
-+void altera_tse_set_ethtool_ops(struct net_device *netdev)
-+{
-+	SET_ETHTOOL_OPS(netdev, &tse_ethtool_ops);
-+}
-diff --git a/drivers/net/ethernet/altera/altera_utils.c b/drivers/net/ethernet/altera/altera_utils.c
-new file mode 100644
-index 0000000..70fa13f
---- /dev/null
-+++ b/drivers/net/ethernet/altera/altera_utils.c
-@@ -0,0 +1,44 @@
-+/* Altera TSE SGDMA and MSGDMA Linux driver
-+ * Copyright (C) 2014 Altera Corporation. All rights reserved
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program.  If not, see <http://www.gnu.org/licenses/>.
-+ */
++The statistics supported by the TSE and the device driver are as follows:
 +
-+#include "altera_tse.h"
-+#include "altera_utils.h"
++"tx_packets" is equivalent to aFramesTransmittedOK defined in IEEE 802.3-2012,
++Section 5.2.2.1.2. This statistics is the count of frames that are successfully
++transmitted.
 +
-+void tse_set_bit(void __iomem *ioaddr, u32 bit_mask)
-+{
-+	u32 value = ioread32(ioaddr);
-+	value |= bit_mask;
-+	iowrite32(value, ioaddr);
-+}
++"rx_packets" is equivalent to aFramesReceivedOK defined in IEEE 802.3-2012,
++Section 5.2.2.1.5. This statistic is the count of frames that are successfully
++received. This count does not include any error packets such as CRC errors,
++length errors, or alignment errors.
 +
-+void tse_clear_bit(void __iomem *ioaddr, u32 bit_mask)
-+{
-+	u32 value = ioread32(ioaddr);
-+	value &= ~bit_mask;
-+	iowrite32(value, ioaddr);
-+}
++"rx_crc_errors" is equivalent to aFrameCheckSequenceErrors defined in IEEE
++802.3-2012, Section 5.2.2.1.6. This statistic is the count of frames that are
++an integral number of bytes in length and do not pass the CRC test as the frame
++is received.
 +
-+int tse_bit_is_set(void __iomem *ioaddr, u32 bit_mask)
-+{
-+	u32 value = ioread32(ioaddr);
-+	return (value & bit_mask) ? 1 : 0;
-+}
++"rx_align_errors" is equivalent to aAlignmentErrors defined in IEEE 802.3-2012,
++Section 5.2.2.1.7. This statistic is the count of frames that are not an
++integral number of bytes in length and do not pass the CRC test as the frame is
++received.
 +
-+int tse_bit_is_clear(void __iomem *ioaddr, u32 bit_mask)
-+{
-+	u32 value = ioread32(ioaddr);
-+	return (value & bit_mask) ? 0 : 1;
-+}
-diff --git a/drivers/net/ethernet/altera/altera_utils.h b/drivers/net/ethernet/altera/altera_utils.h
-new file mode 100644
-index 0000000..ce1db36
---- /dev/null
-+++ b/drivers/net/ethernet/altera/altera_utils.h
-@@ -0,0 +1,27 @@
-+/* Altera TSE SGDMA and MSGDMA Linux driver
-+ * Copyright (C) 2014 Altera Corporation. All rights reserved
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program.  If not, see <http://www.gnu.org/licenses/>.
-+ */
++"tx_bytes" is equivalent to aOctetsTransmittedOK defined in IEEE 802.3-2012,
++Section 5.2.2.1.8. This statistic is the count of data and pad bytes
++successfully transmitted from the interface.
 +
-+#include <linux/kernel.h>
++"rx_bytes" is equivalent to aOctetsReceivedOK defined in IEEE 802.3-2012,
++Section 5.2.2.1.14. This statistic is the count of data and pad bytes
++successfully received by the controller.
 +
-+#ifndef __ALTERA_UTILS_H__
-+#define __ALTERA_UTILS_H__
++"tx_pause" is equivalent to aPAUSEMACCtrlFramesTransmitted defined in IEEE
++802.3-2012, Section 30.3.4.2. This statistic is a count of PAUSE frames
++transmitted from the network controller.
 +
-+void tse_set_bit(void __iomem *ioaddr, u32 bit_mask);
-+void tse_clear_bit(void __iomem *ioaddr, u32 bit_mask);
-+int tse_bit_is_set(void __iomem *ioaddr, u32 bit_mask);
-+int tse_bit_is_clear(void __iomem *ioaddr, u32 bit_mask);
++"rx_pause" is equivalent to aPAUSEMACCtrlFramesReceived defined in IEEE
++802.3-2012, Section 30.3.4.3. This statistic is a count of PAUSE frames
++received by the network controller.
 +
-+#endif /* __ALTERA_UTILS_H__*/
++"rx_errors" is equivalent to ifInErrors defined in RFC 2863. This statistic is
++a count of the number of packets received containing errors that prevented the
++packet from being delivered to a higher level protocol.
++
++"tx_errors" is equivalent to ifOutErrors defined in RFC 2863. This statistic
++is a count of the number of packets that could not be transmitted due to errors.
++
++"rx_unicast" is equivalent to ifInUcastPkts defined in RFC 2863. This
++statistic is a count of the number of packets received that were not addressed
++to the broadcast address or a multicast group.
++
++"rx_multicast" is equivalent to ifInMulticastPkts defined in RFC 2863. This
++statistic is a count of the number of packets received that were addressed to
++a multicast address group.
++
++"rx_broadcast" is equivalent to ifInBroadcastPkts defined in RFC 2863. This
++statistic is a count of the number of packets received that were addressed to
++the broadcast address.
++
++"tx_discards" is equivalent to ifOutDiscards defined in RFC 2863. This
++statistic is the number of outbound packets not transmitted even though an
++error was not detected. An example of a reason this might occur is to free up
++internal buffer space.
++
++"tx_unicast" is equivalent to ifOutUcastPkts defined in RFC 2863. This
++statistic counts the number of packets transmitted that were not addressed to
++a multicast group or broadcast address.
++
++"tx_multicast" is equivalent to ifOutMulticastPkts defined in RFC 2863. This
++statistic counts the number of packets transmitted that were addressed to a
++multicast group.
++
++"tx_broadcast" is equivalent to ifOutBroadcastPkts defined in RFC 2863. This
++statistic counts the number of packets transmitted that were addressed to a
++broadcast address.
++
++"ether_drops" is equivalent to etherStatsDropEvents defined in RFC 2819.
++This statistic counts the number of packets dropped due to lack of internal
++controller resources.
++
++"rx_total_bytes" is equivalent to etherStatsOctets defined in RFC 2819.
++This statistic counts the total number of bytes received by the controller,
++including error and discarded packets.
++
++"rx_total_packets" is equivalent to etherStatsPkts defined in RFC 2819.
++This statistic counts the total number of packets received by the controller,
++including error, discarded, unicast, multicast, and broadcast packets.
++
++"rx_undersize" is equivalent to etherStatsUndersizePkts defined in RFC 2819.
++This statistic counts the number of correctly formed packets received less
++than 64 bytes long.
++
++"rx_oversize" is equivalent to etherStatsOversizePkts defined in RFC 2819.
++This statistic counts the number of correctly formed packets greater than 1518
++bytes long.
++
++"rx_64_bytes" is equivalent to etherStatsPkts64Octets defined in RFC 2819.
++This statistic counts the total number of packets received that were 64 octets
++in length.
++
++"rx_65_127_bytes" is equivalent to etherStatsPkts65to127Octets defined in RFC
++2819. This statistic counts the total number of packets received that were
++between 65 and 127 octets in length inclusive.
++
++"rx_128_255_bytes" is equivalent to etherStatsPkts128to255Octets defined in
++RFC 2819. This statistic is the total number of packets received that were
++between 128 and 255 octets in length inclusive.
++
++"rx_256_511_bytes" is equivalent to etherStatsPkts256to511Octets defined in
++RFC 2819. This statistic is the total number of packets received that were
++between 256 and 511 octets in length inclusive.
++
++"rx_512_1023_bytes" is equivalent to etherStatsPkts512to1023Octets defined in
++RFC 2819. This statistic is the total number of packets received that were
++between 512 and 1023 octets in length inclusive.
++
++"rx_1024_1518_bytes" is equivalent to etherStatsPkts1024to1518Octets define
++in RFC 2819. This statistic is the total number of packets received that were
++between 1024 and 1518 octets in length inclusive.
++
++"rx_gte_1519_bytes" is a statistic defined specific to the behavior of the
++Altera TSE. This statistics counts the number of received good and errored
++frames between the length of 1519 and the maximum frame length configured
++in the frm_length register. See the Altera TSE User Guide for More details.
++
++"rx_jabbers" is equivalent to etherStatsJabbers defined in RFC 2819. This
++statistic is the total number of packets received that were longer than 1518
++octets, and had either a bad CRC with an integral number of octets (CRC Error)
++or a bad CRC with a non-integral number of octets (Alignment Error).
++
++"rx_runts" is equivalent to etherStatsFragments defined in RFC 2819. This
++statistic is the total number of packets received that were less than 64 octets
++in length and had either a bad CRC with an integral number of octets (CRC
++error) or a bad CRC with a non-integral number of octets (Alignment Error).
 -- 
 1.7.9.5
-
