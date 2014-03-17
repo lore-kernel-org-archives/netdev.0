@@ -1,41 +1,53 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: usbnet: driver_info->stop required to stop USB interrupts?
-Date: Mon, 17 Mar 2014 22:55:43 +0100
-Message-ID: <1395093343.3961.2.camel@linux-fkkt.site>
-References: <CANEJEGsvqkT_H4i+UZpBaWMYmgXHmpD8SZ4tU1OHzLd8gyznow@mail.gmail.com>
-	 <CANEJEGv03ohVwoS0Pd1Z3az9k-C=dTzG4qE1SBL6Um97QC1Ehw@mail.gmail.com>
-	 <CAODwPW_t9COeg0LWfkiqXC_yTbSNhUHX-8T95KRZHfOTSiZK1Q@mail.gmail.com>
-	 <1394529263.16128.6.camel@linux-fkkt.site>
-	 <CAODwPW8rQptt+jnfZ+KjpuOOpKi9ktb-y2kCYGZJo_ava1ktjg@mail.gmail.com>
-	 <CAODwPW-CqigMBvwZtb+KLY5XbT+LDssPpvDZj86ej183DMiPkQ@mail.gmail.com>
+From: Byungho An <bh74.an@samsung.com>
+Subject: RE: [PATCH V3 2/8] net: sxgbe: add basic framework for Samsung 10Gb
+ ethernet driver
+Date: Mon, 17 Mar 2014 14:58:05 -0700
+Message-ID: <00c501cf422b$faf26410$f0d72c30$@samsung.com>
+References: <00bf01cf4221$95373150$bfa593f0$@samsung.com>
+ <20140317.171825.1118518563919818497.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Grant Grundler <grundler@google.com>,
-	netdev <netdev@vger.kernel.org>, Freddy Xin <freddy@asix.com.tw>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	Allan Chou <allan@asix.com.tw>
-To: Julius Werner <jwerner@chromium.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:49478 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752152AbaCQVzp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2014 17:55:45 -0400
-In-Reply-To: <CAODwPW-CqigMBvwZtb+KLY5XbT+LDssPpvDZj86ej183DMiPkQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
+	siva.kallam@samsung.com, vipul.pandya@samsung.com,
+	ks.giri@samsung.com, ilho215.lee@samsung.com
+To: 'David Miller' <davem@davemloft.net>
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+In-reply-to: <20140317.171825.1118518563919818497.davem@davemloft.net>
+Content-language: en-us
+Sender: linux-samsung-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-03-17 at 14:53 -0700, Julius Werner wrote:
-> Hi Oliver,
+
+David Miller <davem@davemloft.net> :
+> From: Byungho An <bh74.an@samsung.com>
+> Date: Mon, 17 Mar 2014 13:43:37 -0700
 > 
-> Any update on the state of this patch? Did it get picked up for merge
-> somewhere? Do you agree with my suggestion of sticking closer to the
-> original logic instead of adding that autopm_get(), or do you maybe
-> want to add some more reviewers to confirm your code? I don't really
-> care that much which way we choose in the end, I just want to make
-> sure this bug gets fixed and we don't forget about it.
+> > +static void sxgbe_tx_timer(unsigned long data) {
+> > +	struct sxgbe_tx_queue *p = (struct sxgbe_tx_queue *)data;
+> > +	sxgbe_tx_queue_clean(p);
+> > +}
+> 
+> A empty line after local variable declarations please.
+> 
+> > +	SXGBE_FOR_EACH_QUEUE(SXGBE_TX_QUEUES, queue_num) {
+> > +		struct sxgbe_tx_queue *p = priv->txq[queue_num];
+> > +		p->tx_coal_frames =  SXGBE_TX_FRAMES;
+> 
+> Likewise.
+> 
+> > +	SXGBE_FOR_EACH_QUEUE(SXGBE_TX_QUEUES, queue_num) {
+> > +		struct sxgbe_tx_queue *p = priv->txq[queue_num];
+> > +		del_timer_sync(&p->txtimer);
+> > +	}
+> 
+> Likewise.
+> 
+> Please audit your entire submission for this problem.
+OK, will do that.
 
-I am hping for the reporter of the original bug to test it.
-
-	Regards
-		Oliver
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in the
+body of
+> a message to majordomo@vger.kernel.org More majordomo info at
+> http://vger.kernel.org/majordomo-info.html
