@@ -1,59 +1,140 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/16] i40e/i40evf: Bump build versions
-Date: Mon, 17 Mar 2014 05:45:10 -0700
-Message-ID: <1395060316-16897-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/16] i40e: Refactor and cleanup i40e_open(), adding i40e_vsi_open()
+Date: Mon, 17 Mar 2014 05:45:06 -0700
+Message-ID: <1395060316-16897-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+Cc: Elizabeth Kappler <elizabeth.m.kappler@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:33804 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756501AbaCQMpY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2014 08:45:24 -0400
+	id S1756386AbaCQMpW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Mar 2014 08:45:22 -0400
 In-Reply-To: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+From: Elizabeth Kappler <elizabeth.m.kappler@intel.com>
 
-Bump to version 0.3.36 for i40e and 0.9.16 for i40evf.
+This patch cleans up and moves a portion of i40e_open to i40e_vsi_open,
+in order to have a shorter vsi_open function that does only that.
 
-Change-ID: I7b4ff97b32d2825181803c03c316381a7608a618
+Change-ID: I1c418dda94dcfc0eb7d4386a70c330692ef5ecc9
+Signed-off-by: Elizabeth Kappler <elizabeth.m.kappler@intel.com>
+Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      |  3 ++-
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 40 +++++++++++++++++++++++------
+ 2 files changed, 34 insertions(+), 9 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index ac04112..33cd8b6 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -208,7 +208,7 @@ struct i40e_pf {
+ 	bool fc_autoneg_status;
+ 
+ 	u16 eeprom_version;
+-	u16 num_vmdq_vsis;         /* num vmdq pools this pf has set up */
++	u16 num_vmdq_vsis;         /* num vmdq vsis this pf has set up */
+ 	u16 num_vmdq_qps;          /* num queue pairs per vmdq pool */
+ 	u16 num_vmdq_msix;         /* num queue vectors per vmdq pool */
+ 	u16 num_req_vfs;           /* num vfs requested for this vf */
+@@ -597,6 +597,7 @@ void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector);
+ void i40e_irq_dynamic_disable_icr0(struct i40e_pf *pf);
+ void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf);
+ int i40e_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd);
++int i40e_vsi_open(struct i40e_vsi *vsi);
+ void i40e_vlan_stripping_disable(struct i40e_vsi *vsi);
+ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid);
+ int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid);
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 2f72eed..27be9b3 100644
+index 0c7eff3..0734eef 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -38,7 +38,7 @@ static const char i40e_driver_string[] =
+@@ -4235,7 +4235,6 @@ static int i40e_open(struct net_device *netdev)
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_vsi *vsi = np->vsi;
+ 	struct i40e_pf *pf = vsi->back;
+-	char int_name[IFNAMSIZ];
+ 	int err;
  
- #define DRV_VERSION_MAJOR 0
- #define DRV_VERSION_MINOR 3
--#define DRV_VERSION_BUILD 34
-+#define DRV_VERSION_BUILD 36
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 963387c..21934bf 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -31,7 +31,7 @@ char i40evf_driver_name[] = "i40evf";
- static const char i40evf_driver_string[] =
- 	"Intel(R) XL710 X710 Virtual Function Network Driver";
+ 	/* disallow open during test */
+@@ -4244,6 +4243,31 @@ static int i40e_open(struct net_device *netdev)
  
--#define DRV_VERSION "0.9.14"
-+#define DRV_VERSION "0.9.16"
- const char i40evf_driver_version[] = DRV_VERSION;
- static const char i40evf_copyright[] =
- 	"Copyright (c) 2013 - 2014 Intel Corporation.";
+ 	netif_carrier_off(netdev);
+ 
++	err = i40e_vsi_open(vsi);
++	if (err)
++		return err;
++
++#ifdef CONFIG_I40E_VXLAN
++	vxlan_get_rx_port(netdev);
++#endif
++
++	return 0;
++}
++
++/**
++ * i40e_vsi_open -
++ * @vsi: the VSI to open
++ *
++ * Finish initialization of the VSI.
++ *
++ * Returns 0 on success, negative value on failure
++ **/
++int i40e_vsi_open(struct i40e_vsi *vsi)
++{
++	struct i40e_pf *pf = vsi->back;
++	char int_name[IFNAMSIZ];
++	int err;
++
+ 	/* allocate descriptors */
+ 	err = i40e_vsi_setup_tx_resources(vsi);
+ 	if (err)
+@@ -4256,18 +4280,22 @@ static int i40e_open(struct net_device *netdev)
+ 	if (err)
+ 		goto err_setup_rx;
+ 
++	if (!vsi->netdev) {
++		err = EINVAL;
++		goto err_setup_rx;
++	}
+ 	snprintf(int_name, sizeof(int_name) - 1, "%s-%s",
+-		 dev_driver_string(&pf->pdev->dev), netdev->name);
++		 dev_driver_string(&pf->pdev->dev), vsi->netdev->name);
+ 	err = i40e_vsi_request_irq(vsi, int_name);
+ 	if (err)
+ 		goto err_setup_rx;
+ 
+ 	/* Notify the stack of the actual queue counts. */
+-	err = netif_set_real_num_tx_queues(netdev, vsi->num_queue_pairs);
++	err = netif_set_real_num_tx_queues(vsi->netdev, vsi->num_queue_pairs);
+ 	if (err)
+ 		goto err_set_queues;
+ 
+-	err = netif_set_real_num_rx_queues(netdev, vsi->num_queue_pairs);
++	err = netif_set_real_num_rx_queues(vsi->netdev, vsi->num_queue_pairs);
+ 	if (err)
+ 		goto err_set_queues;
+ 
+@@ -4275,10 +4303,6 @@ static int i40e_open(struct net_device *netdev)
+ 	if (err)
+ 		goto err_up_complete;
+ 
+-#ifdef CONFIG_I40E_VXLAN
+-	vxlan_get_rx_port(netdev);
+-#endif
+-
+ 	return 0;
+ 
+ err_up_complete:
 -- 
 1.8.3.1
