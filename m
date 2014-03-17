@@ -1,69 +1,284 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH] net: reflect the fwmark for replies with no socket
-Date: Mon, 17 Mar 2014 14:24:57 +0900
-Message-ID: <CAKD1Yr2rSwpzSdvjsO-=QUkivAkw2gnj+_mvydtR8OfAnsTicg@mail.gmail.com>
-References: <1394536541-25702-1-git-send-email-lorenzo@google.com> <20140312.161737.1125059989320204564.davem@davemloft.net>
+From: Byungho An <bh74.an@samsung.com>
+Subject: RE: [PATCH V2 1/7] net: sxgbe: add basic framework for Samsung 10Gb
+ ethernet driver
+Date: Sun, 16 Mar 2014 22:51:21 -0700
+Message-ID: <005701cf41a4$eee0ddf0$cca299d0$@samsung.com>
+References: <005101cf3df6$e37664f0$aa632ed0$%an@samsung.com>
+ <20140312151008.GA5035@e106331-lin.cambridge.arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-samsung-soc@vger.kernel.org, davem@davemloft.net,
+	siva.kallam@samsung.com, vipul.pandya@samsung.com,
+	ks.giri@samsung.com, ilho215.lee@samsung.com
+To: 'Mark Rutland' <mark.rutland@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:46615 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751515AbaCQFZR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 01:25:17 -0400
-Received: by mail-ig0-f171.google.com with SMTP id hl1so4547851igb.4
-        for <netdev@vger.kernel.org>; Sun, 16 Mar 2014 22:25:17 -0700 (PDT)
-In-Reply-To: <20140312.161737.1125059989320204564.davem@davemloft.net>
+Received: from mailout2.samsung.com ([203.254.224.25]:8793 "EHLO
+	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbaCQFvi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 01:51:38 -0400
+In-reply-to: <20140312151008.GA5035@e106331-lin.cambridge.arm.com>
+Content-language: en-us
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 13, 2014 at 5:17 AM, David Miller <davem@davemloft.net> wrote:
->> Kernel-originated IP packets that have no user socket associated
->> with them (e.g., ICMP errors and echo replies, TCP RSTs, etc.)
->> are emitted with a mark of zero. Instead, make them have the
->> same mark as the packet they are replying to.
->>
->> This is consistent with TOS, which is also reflected from the
->> incoming packet, and it allows the administrator to use
->> mark-based routing, firewalling, etc. for these replies by
->> marking the original packets inbound.
->>
->> Also fix the IPv6 code to reflect the tclass in replies like the
->> IPv4 code does.
->>
->> Change-Id: Ifd8dd75016e60dc982e7860f720d45c27dcaf04c
->> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
->
-> I don't think it's safe to change this behavior after all of this
-> time.
+Mark Rutland <mark.rutland@arm.com> :
+> On Wed, Mar 12, 2014 at 01:28:00PM +0000, Byungho An wrote:
+> > From: Siva Reddy <siva.kallam@samsung.com>
+> >
+> > This patch adds support for Samsung 10Gb ethernet driver(sxgbe).
+> >
+> > - sxgbe core initialization
+> > - Tx and Rx support
+> > - MDIO support
+> > - ISRs for Tx and Rx
+> > - ifconfig support to driver
+> >
+> > Signed-off-by: Siva Reddy Kallam <siva.kallam@samsung.com>
+> > Signed-off-by: Vipul Pandya <vipul.pandya@samsung.com>
+> > Signed-off-by: Girish K S <ks.giri@samsung.com>
+> > Neatening-by: Joe Perches <joe@perches.com>
+> > Signed-off-by: Byungho An <bh74.an@samsung.com>
+> > ---
+> 
+> [...]
+> 
+> > diff --git a/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
+> > b/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
+> > new file mode 100644
+> > index 0000000..f2abf65
+> > --- /dev/null
+> > +++ b/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
+> 
+> Please split the binding into a separate patch from the code (it makes it
+far
+> easier for us DT guys to find that portions relevant to use).
+> 
+> Is there any public documentation?
+No.
 
-Fair enough. My bad.
+> 
+> > @@ -0,0 +1,39 @@
+> > +* Samsung 10G Ethernet driver (SXGBE)
+> > +
+> > +Required properties:
+> > +- compatible: Should be "samsung,sxgbe-v2.0a"
+> > +- reg: Address and length of the register set for the device
+> > +- interrupt-parent: Should be the phandle for the interrupt
+> > +controller
+> > +  that services interrupts for this device
+> > +- interrupts: Should contain the SXGBE interrupts
+> 
+> How many, in which order, what are each of them for?
+total = 26, first mandatory interrupt common to all, followed by 8 tx
+interrupt (which can vary based on platform), 16 rx interrupts  (which can
+vary based on platform) and a optional lpi interrupt
+> 
+> > +- samsung,burst-map        Program the possible bursts supported by
+sxgbe
+> > +- samsung,fixed-burst  Program the DMA to use the fixed burst mode
+> > +- samsung,adv-addr-mode        program the DMA to use Enhanced address
+> mode
+> 
+> What are valid values?
+> 
+> Units/types?
+> 
+> Please describe what these actually do.
+These will be updated in the binding document as per your review.
 
-> And incoming marks absolutely do not have any automatic relation
-> to what an administartor might want to use for output packets.
+> 
+> > +- samsung,force_thresh_dma_mode        Force DMA to use the threshold
+> mode
+> > for
+> > +                               both tx and rx
+> 
+> Odd formatting here.
+> 
+> s/_/-/ in property names please.
+> 
+> When and why should this property be set in a dt?
+Addressed in the new document
 
-In general, that's true. Still - currently the mark on these packets
-is 0, period, and the administrator can't do anything about that at
-all. The idea was that some control is better than zero control, and
-since these packets are always in reply to other packets, then marking
-responses based on the packets that provoked them made sense, since
-the input marking can be as flexible as the administrator desires.
+> 
+> > +- samsung,force_sf_dma_mode    Force DMA to use the Store and
+> Forward
+> > +                               mode for both tx and rx. This flag is
+> > +                               ignored if force_thresh_dma_mode is set.
+> 
+> Likewise, for all points.
+OK.
 
-If this was optional behaviour (e.g., controlled by
-/proc/sys/net/ipv{4,6}/reflect_fwmark), would that be acceptable?
-That way, even if it doesn't work for everyone, at least some
-environments will be able to use it. I'm happy to send in a new patch
-that does that.
+> 
+> [...]
+> 
+> > +/* Clean the tx descriptor as soon as the tx irq is received */
+> > +static void sxgbe_release_tx_desc(struct sxgbe_tx_norm_desc *p) {
+> > +       memset(p, 0, sizeof(struct sxgbe_tx_norm_desc));
+> 
+> You can use sizeof(*p) here.
+OK.
 
-If not, do you see another way to do this? If you use mark-based
-routing, there doesn't currently seem to be a good way of sending
-these packets where they need to go. iptables doesn't really work,
-because it can only touch the packet after a lot of it has been
-decided. You can override some of those decisions via NAT / MSS
-rewrite / ..., but it gets messy, and it seems better to send the
-right packet off the bat rather than send the wrong one and then
-rewrite it without updating any of the socket structures.
+> 
+> [...]
+> 
+> > +static int sxgbe_probe_config_dt(struct platform_device *pdev,
+> > +                                struct sxgbe_plat_data *plat,
+> > +                                const char **mac) {
+> > +       struct device_node *np = pdev->dev.of_node;
+> > +       struct sxgbe_dma_cfg *dma_cfg;
+> > +       u32 phy_addr;
+> > +
+> > +       if (!np)
+> > +               return -ENODEV;
+> > +
+> > +       *mac = of_get_mac_address(np);
+> 
+> I see that of_get_mac_address returns a *void rather than *char, but it's
+> always a string of hex digits. Would it make sense to change the
+> of_get_mac_address prototype to return a char* ?
+This implementation is of_ specific, our driver only uses it.
 
-Regards,
-Lorenzo
+> 
+> > +       plat->interface = of_get_phy_mode(np);
+> > +
+> > +       plat->bus_id = of_alias_get_id(np, "ethernet");
+> > +       if (plat->bus_id < 0)
+> > +               plat->bus_id = 0;
+> 
+> This wasn't mentioned in the binding.
+It doesn't need to  be in the binding document, because we get the alias id
+by passing the node name. Here ethernet is not a property it is the dt node
+name
+e.g.
+ ethernet@xxxxx {
+
+};
+
+> 
+> > +
+> > +       of_property_read_u32(np, "samsung,phy-addr", &plat->phy_addr);
+> 
+> Neither was this.
+OK.
+
+> 
+> > +
+> > +       plat->mdio_bus_data = devm_kzalloc(&pdev->dev,
+> > +                                          sizeof(struct
+> > sxgbe_mdio_bus_data),
+> > +                                          GFP_KERNEL);
+> > +
+> > +       if (of_device_is_compatible(np, "samsung,sxgbe-v2.0a"))
+> > +               plat->pmt = 1;
+> 
+> Only one compatible string is documented. When would this _not_ be the
+> case?
+Removed as it is unused
+
+> 
+> [...]
+> 
+> > +static int sxgbe_platform_probe(struct platform_device *pdev) {
+> > +       int ret = 0;
+> > +       int loop = 0;
+> > +       int index1, index2;
+> > +       struct resource *res;
+> > +       struct device *dev = &pdev->dev;
+> > +       void __iomem *addr = NULL;
+> > +       struct sxgbe_priv_data *priv = NULL;
+> > +       struct sxgbe_plat_data *plat_dat = NULL;
+> > +       const char *mac = NULL;
+> > +       int total_dma_channels = SXGBE_TX_QUEUES + SXGBE_RX_QUEUES;
+> > +
+> > +       /* Get memory resource */
+> > +       res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> > +       if (!res)
+> > +               return -ENODEV;
+> > +
+> > +       addr = devm_ioremap_resource(dev, res);
+> > +       if (IS_ERR(addr))
+> > +               return PTR_ERR(addr);
+> > +
+> > +       plat_dat = pdev->dev.platform_data;
+> 
+> This is a new dt-driven driver. Why would you need additional platform
+data?
+> Why can this information not come from dt?
+Same above.
+
+> 
+> > +       if (pdev->dev.of_node) {
+> > +               if (!plat_dat)
+> > +                       plat_dat = devm_kzalloc(&pdev->dev,
+> > +                                               sizeof(struct
+> > sxgbe_plat_data),
+> > +                                               GFP_KERNEL);
+> > +               if (!plat_dat)
+> > +                       return  -ENOMEM;
+> > +
+> > +               ret = sxgbe_probe_config_dt(pdev, plat_dat, &mac);
+> > +               if (ret) {
+> > +                       pr_err("%s: main dt probe failed\n", __func__);
+> > +                       return ret;
+> > +               }
+> > +       }
+> > +
+> > +       priv = sxgbe_dvr_probe(&(pdev->dev), plat_dat, addr);
+> > +       if (!priv) {
+> > +               pr_err("%s: main driver probe failed\n", __func__);
+> > +               return -ENODEV;
+> > +       }
+> > +
+> > +       /* Get MAC address if available (DT) */
+> > +       if (mac)
+> > +               ether_addr_copy(priv->dev->dev_addr, mac);
+> > +
+> > +       /* Get the SXGBE common INT information */
+> > +       priv->dev->irq  = irq_of_parse_and_map(dev->of_node, loop++);
+> > +       if (priv->dev->irq <= 0) {
+> > +               dev_err(dev, "sxgbe common irq parsing failed\n");
+> > +               return -EINVAL;
+> > +       }
+> 
+> So the first IRQ is assumed to be a common interrupt...
+Right.
+
+> 
+> > +
+> > +       /* Get the TX/RX IRQ numbers */
+> > +       for (index1 = 0, index2 = 0 ; loop < total_dma_channels; loop++)
+{
+> > +               if (loop < SXGBE_TX_QUEUES) {
+> > +                       (priv->txq[index1])->irq_no  =
+> > +                               irq_of_parse_and_map(dev->of_node,
+> > + loop);
+> 
+> then there's a TX IRQ for each queue, in order...
+> 
+> > +                       if ((priv->txq[index1++])->irq_no <= 0) {
+> > +                               dev_err(dev, "sxgbe tx irq parsing
+> > failed\n");
+> > +                               return -EINVAL;
+> > +                       }
+> > +               } else {
+> > +                       (priv->rxq[index2])->irq_no  =
+> > +                               irq_of_parse_and_map(dev->of_node,
+> > + loop);
+> 
+> then an RX IRQ for each queue, in order.
+> 
+> That should be in the binding document.
+taken care in the binding document.
+
+Thanks Mark for your comments
+
+> 
+> Cheers,
+> Mark.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in the
+body
+> of a message to majordomo@vger.kernel.org More majordomo info at
+> http://vger.kernel.org/majordomo-info.html
