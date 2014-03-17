@@ -1,735 +1,495 @@
 From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net-next V6 4/9] Altera TSE: Add Altera Ethernet Driver SGDMA file components
-Date: Mon, 17 Mar 2014 17:52:36 -0500
-Message-ID: <1395096761-15407-5-git-send-email-vbridgers2013@gmail.com>
+Subject: =?UTF-8?q?=5BPATCH=20net-next=20V6=203/9=5D=20Altera=20TSE=3A=20Add=20Altera=20Ethernet=20Driver=20MSGDMA=20File=20Components?=
+Date: Mon, 17 Mar 2014 17:52:35 -0500
+Message-ID: <1395096761-15407-4-git-send-email-vbridgers2013@gmail.com>
 References: <1395096761-15407-1-git-send-email-vbridgers2013@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
 	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
 	rob@landley.net, vbridgers2013@gmail.com
 To: devicetree@vger.kernel.org, netdev@vger.kernel.org,
 	linux-doc@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f54.google.com ([209.85.219.54]:49825 "EHLO
-	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752976AbaCQW5d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 18:57:33 -0400
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:37964 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752974AbaCQW5b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 18:57:31 -0400
 In-Reply-To: <1395096761-15407-1-git-send-email-vbridgers2013@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the SGDMA soft IP support for the Altera Triple
+This patch adds the MSGDMA soft IP support for the Altera Triple
 Speed Ethernet driver.
 
 Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
 ---
 V6: - No changes for V6
 
-V5: - No changes for V5
+V5: - Use netif_warn instead of checking message level then netdev_warn
 
-V4: - use netdev_* logging instead of dev_* logging.
+V4: - Modify use of dev_* to netdev_* where possible
 
-V3: - Reorder commits, otherwise no changes to these files
+V3: - Reorder commits, otherwise no changes to these files.
 
-V2: - Use 32-bit lower/upper physical address accessors per comments
+V2: - Use 32-bit upper/lower physical address accessors per comments
       from Florian.
-    - Break up driver file submission for initial review by logical
-      function.
+    - Break up the driver file submission into seperate patches
+      broken up by functions in the driver.
 ---
- drivers/net/ethernet/altera/altera_sgdma.c   |  511 ++++++++++++++++++++++++++
- drivers/net/ethernet/altera/altera_sgdma.h   |   35 ++
- drivers/net/ethernet/altera/altera_sgdmahw.h |  124 +++++++
- 3 files changed, 670 insertions(+)
- create mode 100644 drivers/net/ethernet/altera/altera_sgdma.c
- create mode 100644 drivers/net/ethernet/altera/altera_sgdma.h
- create mode 100644 drivers/net/ethernet/altera/altera_sgdmahw.h
+ drivers/net/ethernet/altera/altera_msgdma.c   |  202 +++++++++++++++++=
+++++++++
+ drivers/net/ethernet/altera/altera_msgdma.h   |   34 +++++
+ drivers/net/ethernet/altera/altera_msgdmahw.h |  167 +++++++++++++++++=
++++
+ 3 files changed, 403 insertions(+)
+ create mode 100644 drivers/net/ethernet/altera/altera_msgdma.c
+ create mode 100644 drivers/net/ethernet/altera/altera_msgdma.h
+ create mode 100644 drivers/net/ethernet/altera/altera_msgdmahw.h
 
-diff --git a/drivers/net/ethernet/altera/altera_sgdma.c b/drivers/net/ethernet/altera/altera_sgdma.c
+diff --git a/drivers/net/ethernet/altera/altera_msgdma.c b/drivers/net/=
+ethernet/altera/altera_msgdma.c
 new file mode 100644
-index 0000000..cbeee07
+index 0000000..3df1866
 --- /dev/null
-+++ b/drivers/net/ethernet/altera/altera_sgdma.c
-@@ -0,0 +1,511 @@
++++ b/drivers/net/ethernet/altera/altera_msgdma.c
+@@ -0,0 +1,202 @@
 +/* Altera TSE SGDMA and MSGDMA Linux driver
 + * Copyright (C) 2014 Altera Corporation. All rights reserved
 + *
-+ * This program is free software; you can redistribute it and/or modify it
++ * This program is free software; you can redistribute it and/or modif=
+y it
 + * under the terms and conditions of the GNU General Public License,
 + * version 2, as published by the Free Software Foundation.
 + *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * This program is distributed in the hope it will be useful, but WITH=
+OUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY =
+or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public Licen=
+se for
 + * more details.
 + *
-+ * You should have received a copy of the GNU General Public License along with
++ * You should have received a copy of the GNU General Public License a=
+long with
 + * this program.  If not, see <http://www.gnu.org/licenses/>.
 + */
 +
-+#include <linux/list.h>
++#include <linux/netdevice.h>
 +#include "altera_utils.h"
 +#include "altera_tse.h"
-+#include "altera_sgdmahw.h"
-+#include "altera_sgdma.h"
++#include "altera_msgdmahw.h"
 +
-+static void sgdma_descrip(struct sgdma_descrip *desc,
-+			  struct sgdma_descrip *ndesc,
-+			  dma_addr_t ndesc_phys,
-+			  dma_addr_t raddr,
-+			  dma_addr_t waddr,
-+			  u16 length,
-+			  int generate_eop,
-+			  int rfixed,
-+			  int wfixed);
-+
-+static int sgdma_async_write(struct altera_tse_private *priv,
-+			      struct sgdma_descrip *desc);
-+
-+static int sgdma_async_read(struct altera_tse_private *priv);
-+
-+static dma_addr_t
-+sgdma_txphysaddr(struct altera_tse_private *priv,
-+		 struct sgdma_descrip *desc);
-+
-+static dma_addr_t
-+sgdma_rxphysaddr(struct altera_tse_private *priv,
-+		 struct sgdma_descrip *desc);
-+
-+static int sgdma_txbusy(struct altera_tse_private *priv);
-+
-+static int sgdma_rxbusy(struct altera_tse_private *priv);
-+
-+static void
-+queue_tx(struct altera_tse_private *priv, struct tse_buffer *buffer);
-+
-+static void
-+queue_rx(struct altera_tse_private *priv, struct tse_buffer *buffer);
-+
-+static struct tse_buffer *
-+dequeue_tx(struct altera_tse_private *priv);
-+
-+static struct tse_buffer *
-+dequeue_rx(struct altera_tse_private *priv);
-+
-+static struct tse_buffer *
-+queue_rx_peekhead(struct altera_tse_private *priv);
-+
-+int sgdma_initialize(struct altera_tse_private *priv)
++/* No initialization work to do for MSGDMA */
++int msgdma_initialize(struct altera_tse_private *priv)
 +{
-+	priv->txctrlreg = SGDMA_CTRLREG_ILASTD;
-+
-+	priv->rxctrlreg = SGDMA_CTRLREG_IDESCRIP |
-+		      SGDMA_CTRLREG_ILASTD;
-+
-+	INIT_LIST_HEAD(&priv->txlisthd);
-+	INIT_LIST_HEAD(&priv->rxlisthd);
-+
-+	priv->rxdescphys = (dma_addr_t) 0;
-+	priv->txdescphys = (dma_addr_t) 0;
-+
-+	priv->rxdescphys = dma_map_single(priv->device, priv->rx_dma_desc,
-+					  priv->rxdescmem, DMA_BIDIRECTIONAL);
-+
-+	if (dma_mapping_error(priv->device, priv->rxdescphys)) {
-+		sgdma_uninitialize(priv);
-+		netdev_err(priv->dev, "error mapping rx descriptor memory\n");
-+		return -EINVAL;
-+	}
-+
-+	priv->txdescphys = dma_map_single(priv->device, priv->rx_dma_desc,
-+					  priv->rxdescmem, DMA_TO_DEVICE);
-+
-+	if (dma_mapping_error(priv->device, priv->txdescphys)) {
-+		sgdma_uninitialize(priv);
-+		netdev_err(priv->dev, "error mapping tx descriptor memory\n");
-+		return -EINVAL;
-+	}
-+
 +	return 0;
 +}
 +
-+void sgdma_uninitialize(struct altera_tse_private *priv)
-+{
-+	if (priv->rxdescphys)
-+		dma_unmap_single(priv->device, priv->rxdescphys,
-+				 priv->rxdescmem, DMA_BIDIRECTIONAL);
-+
-+	if (priv->txdescphys)
-+		dma_unmap_single(priv->device, priv->txdescphys,
-+				 priv->txdescmem, DMA_TO_DEVICE);
-+}
-+
-+/* This function resets the SGDMA controller and clears the
-+ * descriptor memory used for transmits and receives.
-+ */
-+void sgdma_reset(struct altera_tse_private *priv)
-+{
-+	u32 *ptxdescripmem = (u32 *)priv->tx_dma_desc;
-+	u32 txdescriplen   = priv->txdescmem;
-+	u32 *prxdescripmem = (u32 *)priv->rx_dma_desc;
-+	u32 rxdescriplen   = priv->rxdescmem;
-+	struct sgdma_csr *ptxsgdma = (struct sgdma_csr *)priv->tx_dma_csr;
-+	struct sgdma_csr *prxsgdma = (struct sgdma_csr *)priv->rx_dma_csr;
-+
-+	/* Initialize descriptor memory to 0 */
-+	memset(ptxdescripmem, 0, txdescriplen);
-+	memset(prxdescripmem, 0, rxdescriplen);
-+
-+	iowrite32(SGDMA_CTRLREG_RESET, &ptxsgdma->control);
-+	iowrite32(0, &ptxsgdma->control);
-+
-+	iowrite32(SGDMA_CTRLREG_RESET, &prxsgdma->control);
-+	iowrite32(0, &prxsgdma->control);
-+}
-+
-+void sgdma_enable_rxirq(struct altera_tse_private *priv)
-+{
-+	struct sgdma_csr *csr = (struct sgdma_csr *)priv->rx_dma_csr;
-+	priv->rxctrlreg |= SGDMA_CTRLREG_INTEN;
-+	tse_set_bit(&csr->control, SGDMA_CTRLREG_INTEN);
-+}
-+
-+void sgdma_enable_txirq(struct altera_tse_private *priv)
-+{
-+	struct sgdma_csr *csr = (struct sgdma_csr *)priv->tx_dma_csr;
-+	priv->txctrlreg |= SGDMA_CTRLREG_INTEN;
-+	tse_set_bit(&csr->control, SGDMA_CTRLREG_INTEN);
-+}
-+
-+/* for SGDMA, RX interrupts remain enabled after enabling */
-+void sgdma_disable_rxirq(struct altera_tse_private *priv)
++void msgdma_uninitialize(struct altera_tse_private *priv)
 +{
 +}
 +
-+/* for SGDMA, TX interrupts remain enabled after enabling */
-+void sgdma_disable_txirq(struct altera_tse_private *priv)
++void msgdma_reset(struct altera_tse_private *priv)
 +{
-+}
++	int counter;
++	struct msgdma_csr *txcsr =3D
++		(struct msgdma_csr *)priv->tx_dma_csr;
++	struct msgdma_csr *rxcsr =3D
++		(struct msgdma_csr *)priv->rx_dma_csr;
 +
-+void sgdma_clear_rxirq(struct altera_tse_private *priv)
-+{
-+	struct sgdma_csr *csr = (struct sgdma_csr *)priv->rx_dma_csr;
-+	tse_set_bit(&csr->control, SGDMA_CTRLREG_CLRINT);
-+}
++	/* Reset Rx mSGDMA */
++	iowrite32(MSGDMA_CSR_STAT_MASK, &rxcsr->status);
++	iowrite32(MSGDMA_CSR_CTL_RESET, &rxcsr->control);
 +
-+void sgdma_clear_txirq(struct altera_tse_private *priv)
-+{
-+	struct sgdma_csr *csr = (struct sgdma_csr *)priv->tx_dma_csr;
-+	tse_set_bit(&csr->control, SGDMA_CTRLREG_CLRINT);
-+}
-+
-+/* transmits buffer through SGDMA. Returns number of buffers
-+ * transmitted, 0 if not possible.
-+ *
-+ * tx_lock is held by the caller
-+ */
-+int sgdma_tx_buffer(struct altera_tse_private *priv, struct tse_buffer *buffer)
-+{
-+	int pktstx = 0;
-+	struct sgdma_descrip *descbase =
-+		(struct sgdma_descrip *)priv->tx_dma_desc;
-+
-+	struct sgdma_descrip *cdesc = &descbase[0];
-+	struct sgdma_descrip *ndesc = &descbase[1];
-+
-+	/* wait 'til the tx sgdma is ready for the next transmit request */
-+	if (sgdma_txbusy(priv))
-+		return 0;
-+
-+	sgdma_descrip(cdesc,			/* current descriptor */
-+		      ndesc,			/* next descriptor */
-+		      sgdma_txphysaddr(priv, ndesc),
-+		      buffer->dma_addr,		/* address of packet to xmit */
-+		      0,			/* write addr 0 for tx dma */
-+		      buffer->len,		/* length of packet */
-+		      SGDMA_CONTROL_EOP,	/* Generate EOP */
-+		      0,			/* read fixed */
-+		      SGDMA_CONTROL_WR_FIXED);	/* Generate SOP */
-+
-+	pktstx = sgdma_async_write(priv, cdesc);
-+
-+	/* enqueue the request to the pending transmit queue */
-+	queue_tx(priv, buffer);
-+
-+	return 1;
-+}
-+
-+
-+/* tx_lock held to protect access to queued tx list
-+ */
-+u32 sgdma_tx_completions(struct altera_tse_private *priv)
-+{
-+	u32 ready = 0;
-+	struct sgdma_descrip *desc = (struct sgdma_descrip *)priv->tx_dma_desc;
-+
-+	if (!sgdma_txbusy(priv) &&
-+	    ((desc->control & SGDMA_CONTROL_HW_OWNED) == 0) &&
-+	    (dequeue_tx(priv))) {
-+		ready = 1;
++	counter =3D 0;
++	while (counter++ < ALTERA_TSE_SW_RESET_WATCHDOG_CNTR) {
++		if (tse_bit_is_clear(&rxcsr->status,
++				     MSGDMA_CSR_STAT_RESETTING))
++			break;
++		udelay(1);
 +	}
 +
++	if (counter >=3D ALTERA_TSE_SW_RESET_WATCHDOG_CNTR)
++		netif_warn(priv, drv, priv->dev,
++			   "TSE Rx mSGDMA resetting bit never cleared!\n");
++
++	/* clear all status bits */
++	iowrite32(MSGDMA_CSR_STAT_MASK, &rxcsr->status);
++
++	/* Reset Tx mSGDMA */
++	iowrite32(MSGDMA_CSR_STAT_MASK, &txcsr->status);
++	iowrite32(MSGDMA_CSR_CTL_RESET, &txcsr->control);
++
++	counter =3D 0;
++	while (counter++ < ALTERA_TSE_SW_RESET_WATCHDOG_CNTR) {
++		if (tse_bit_is_clear(&txcsr->status,
++				     MSGDMA_CSR_STAT_RESETTING))
++			break;
++		udelay(1);
++	}
++
++	if (counter >=3D ALTERA_TSE_SW_RESET_WATCHDOG_CNTR)
++		netif_warn(priv, drv, priv->dev,
++			   "TSE Tx mSGDMA resetting bit never cleared!\n");
++
++	/* clear all status bits */
++	iowrite32(MSGDMA_CSR_STAT_MASK, &txcsr->status);
++}
++
++void msgdma_disable_rxirq(struct altera_tse_private *priv)
++{
++	struct msgdma_csr *csr =3D priv->rx_dma_csr;
++	tse_clear_bit(&csr->control, MSGDMA_CSR_CTL_GLOBAL_INTR);
++}
++
++void msgdma_enable_rxirq(struct altera_tse_private *priv)
++{
++	struct msgdma_csr *csr =3D priv->rx_dma_csr;
++	tse_set_bit(&csr->control, MSGDMA_CSR_CTL_GLOBAL_INTR);
++}
++
++void msgdma_disable_txirq(struct altera_tse_private *priv)
++{
++	struct msgdma_csr *csr =3D priv->tx_dma_csr;
++	tse_clear_bit(&csr->control, MSGDMA_CSR_CTL_GLOBAL_INTR);
++}
++
++void msgdma_enable_txirq(struct altera_tse_private *priv)
++{
++	struct msgdma_csr *csr =3D priv->tx_dma_csr;
++	tse_set_bit(&csr->control, MSGDMA_CSR_CTL_GLOBAL_INTR);
++}
++
++void msgdma_clear_rxirq(struct altera_tse_private *priv)
++{
++	struct msgdma_csr *csr =3D priv->rx_dma_csr;
++	iowrite32(MSGDMA_CSR_STAT_IRQ, &csr->status);
++}
++
++void msgdma_clear_txirq(struct altera_tse_private *priv)
++{
++	struct msgdma_csr *csr =3D priv->tx_dma_csr;
++	iowrite32(MSGDMA_CSR_STAT_IRQ, &csr->status);
++}
++
++/* return 0 to indicate transmit is pending */
++int msgdma_tx_buffer(struct altera_tse_private *priv, struct tse_buffe=
+r *buffer)
++{
++	struct msgdma_extended_desc *desc =3D priv->tx_dma_desc;
++
++	iowrite32(lower_32_bits(buffer->dma_addr), &desc->read_addr_lo);
++	iowrite32(upper_32_bits(buffer->dma_addr), &desc->read_addr_hi);
++	iowrite32(0, &desc->write_addr_lo);
++	iowrite32(0, &desc->write_addr_hi);
++	iowrite32(buffer->len, &desc->len);
++	iowrite32(0, &desc->burst_seq_num);
++	iowrite32(MSGDMA_DESC_TX_STRIDE, &desc->stride);
++	iowrite32(MSGDMA_DESC_CTL_TX_SINGLE, &desc->control);
++	return 0;
++}
++
++u32 msgdma_tx_completions(struct altera_tse_private *priv)
++{
++	u32 ready =3D 0;
++	u32 inuse;
++	u32 status;
++	struct msgdma_csr *txcsr =3D
++		(struct msgdma_csr *)priv->tx_dma_csr;
++
++	/* Get number of sent descriptors */
++	inuse =3D ioread32(&txcsr->rw_fill_level) & 0xffff;
++
++	if (inuse) { /* Tx FIFO is not empty */
++		ready =3D priv->tx_prod - priv->tx_cons - inuse - 1;
++	} else {
++		/* Check for buffered last packet */
++		status =3D ioread32(&txcsr->status);
++		if (status & MSGDMA_CSR_STAT_BUSY)
++			ready =3D priv->tx_prod - priv->tx_cons - 1;
++		else
++			ready =3D priv->tx_prod - priv->tx_cons;
++	}
 +	return ready;
 +}
 +
-+int sgdma_add_rx_desc(struct altera_tse_private *priv,
-+		      struct tse_buffer *rxbuffer)
++/* Put buffer to the mSGDMA RX FIFO
++ */
++int msgdma_add_rx_desc(struct altera_tse_private *priv,
++			struct tse_buffer *rxbuffer)
 +{
-+	queue_rx(priv, rxbuffer);
-+	return sgdma_async_read(priv);
++	struct msgdma_extended_desc *desc =3D priv->rx_dma_desc;
++	u32 len =3D priv->rx_dma_buf_sz;
++	dma_addr_t dma_addr =3D rxbuffer->dma_addr;
++	u32 control =3D (MSGDMA_DESC_CTL_END_ON_EOP
++			| MSGDMA_DESC_CTL_END_ON_LEN
++			| MSGDMA_DESC_CTL_TR_COMP_IRQ
++			| MSGDMA_DESC_CTL_EARLY_IRQ
++			| MSGDMA_DESC_CTL_TR_ERR_IRQ
++			| MSGDMA_DESC_CTL_GO);
++
++	iowrite32(0, &desc->read_addr_lo);
++	iowrite32(0, &desc->read_addr_hi);
++	iowrite32(lower_32_bits(dma_addr), &desc->write_addr_lo);
++	iowrite32(upper_32_bits(dma_addr), &desc->write_addr_hi);
++	iowrite32(len, &desc->len);
++	iowrite32(0, &desc->burst_seq_num);
++	iowrite32(0x00010001, &desc->stride);
++	iowrite32(control, &desc->control);
++	return 1;
 +}
 +
 +/* status is returned on upper 16 bits,
 + * length is returned in lower 16 bits
 + */
-+u32 sgdma_rx_status(struct altera_tse_private *priv)
++u32 msgdma_rx_status(struct altera_tse_private *priv)
 +{
-+	struct sgdma_csr *csr = (struct sgdma_csr *)priv->rx_dma_csr;
-+	struct sgdma_descrip *base = (struct sgdma_descrip *)priv->rx_dma_desc;
-+	struct sgdma_descrip *desc = NULL;
-+	int pktsrx;
-+	unsigned int rxstatus = 0;
-+	unsigned int pktlength = 0;
-+	unsigned int pktstatus = 0;
-+	struct tse_buffer *rxbuffer = NULL;
++	u32 rxstatus =3D 0;
++	u32 pktlength;
++	u32 pktstatus;
++	struct msgdma_csr *rxcsr =3D
++		(struct msgdma_csr *)priv->rx_dma_csr;
++	struct msgdma_response *rxresp =3D
++		(struct msgdma_response *)priv->rx_dma_resp;
 +
-+	dma_sync_single_for_cpu(priv->device,
-+				priv->rxdescphys,
-+				priv->rxdescmem,
-+				DMA_BIDIRECTIONAL);
-+
-+	desc = &base[0];
-+	if ((ioread32(&csr->status) & SGDMA_STSREG_EOP) ||
-+	    (desc->status & SGDMA_STATUS_EOP)) {
-+		pktlength = desc->bytes_xferred;
-+		pktstatus = desc->status & 0x3f;
-+		rxstatus = pktstatus;
-+		rxstatus = rxstatus << 16;
-+		rxstatus |= (pktlength & 0xffff);
-+
-+		desc->status = 0;
-+
-+		rxbuffer = dequeue_rx(priv);
-+		if (rxbuffer == NULL)
-+			netdev_err(priv->dev,
-+				   "sgdma rx and rx queue empty!\n");
-+
-+		/* kick the rx sgdma after reaping this descriptor */
-+		pktsrx = sgdma_async_read(priv);
++	if (ioread32(&rxcsr->resp_fill_level) & 0xffff) {
++		pktlength =3D ioread32(&rxresp->bytes_transferred);
++		pktstatus =3D ioread32(&rxresp->status);
++		rxstatus =3D pktstatus;
++		rxstatus =3D rxstatus << 16;
++		rxstatus |=3D (pktlength & 0xffff);
 +	}
-+
 +	return rxstatus;
 +}
-+
-+
-+/* Private functions */
-+static void sgdma_descrip(struct sgdma_descrip *desc,
-+			  struct sgdma_descrip *ndesc,
-+			  dma_addr_t ndesc_phys,
-+			  dma_addr_t raddr,
-+			  dma_addr_t waddr,
-+			  u16 length,
-+			  int generate_eop,
-+			  int rfixed,
-+			  int wfixed)
-+{
-+	/* Clear the next descriptor as not owned by hardware */
-+	u32 ctrl = ndesc->control;
-+	ctrl &= ~SGDMA_CONTROL_HW_OWNED;
-+	ndesc->control = ctrl;
-+
-+	ctrl = 0;
-+	ctrl = SGDMA_CONTROL_HW_OWNED;
-+	ctrl |= generate_eop;
-+	ctrl |= rfixed;
-+	ctrl |= wfixed;
-+
-+	/* Channel is implicitly zero, initialized to 0 by default */
-+
-+	desc->raddr = raddr;
-+	desc->waddr = waddr;
-+	desc->next = lower_32_bits(ndesc_phys);
-+	desc->control = ctrl;
-+	desc->status = 0;
-+	desc->rburst = 0;
-+	desc->wburst = 0;
-+	desc->bytes = length;
-+	desc->bytes_xferred = 0;
-+}
-+
-+/* If hardware is busy, don't restart async read.
-+ * if status register is 0 - meaning initial state, restart async read,
-+ * probably for the first time when populating a receive buffer.
-+ * If read status indicate not busy and a status, restart the async
-+ * DMA read.
-+ */
-+static int sgdma_async_read(struct altera_tse_private *priv)
-+{
-+	struct sgdma_csr *csr = (struct sgdma_csr *)priv->rx_dma_csr;
-+	struct sgdma_descrip *descbase =
-+		(struct sgdma_descrip *)priv->rx_dma_desc;
-+
-+	struct sgdma_descrip *cdesc = &descbase[0];
-+	struct sgdma_descrip *ndesc = &descbase[1];
-+
-+	unsigned int sts = ioread32(&csr->status);
-+	struct tse_buffer *rxbuffer = NULL;
-+
-+	if (!sgdma_rxbusy(priv)) {
-+		rxbuffer = queue_rx_peekhead(priv);
-+		if (rxbuffer == NULL)
-+			return 0;
-+
-+		sgdma_descrip(cdesc,		/* current descriptor */
-+			      ndesc,		/* next descriptor */
-+			      sgdma_rxphysaddr(priv, ndesc),
-+			      0,		/* read addr 0 for rx dma */
-+			      rxbuffer->dma_addr, /* write addr for rx dma */
-+			      0,		/* read 'til EOP */
-+			      0,		/* EOP: NA for rx dma */
-+			      0,		/* read fixed: NA for rx dma */
-+			      0);		/* SOP: NA for rx DMA */
-+
-+		/* clear control and status */
-+		iowrite32(0, &csr->control);
-+
-+		/* If statuc available, clear those bits */
-+		if (sts & 0xf)
-+			iowrite32(0xf, &csr->status);
-+
-+		dma_sync_single_for_device(priv->device,
-+					   priv->rxdescphys,
-+					   priv->rxdescmem,
-+					   DMA_BIDIRECTIONAL);
-+
-+		iowrite32(lower_32_bits(sgdma_rxphysaddr(priv, cdesc)),
-+			  &csr->next_descrip);
-+
-+		iowrite32((priv->rxctrlreg | SGDMA_CTRLREG_START),
-+			  &csr->control);
-+
-+		return 1;
-+	}
-+
-+	return 0;
-+}
-+
-+static int sgdma_async_write(struct altera_tse_private *priv,
-+			     struct sgdma_descrip *desc)
-+{
-+	struct sgdma_csr *csr = (struct sgdma_csr *)priv->tx_dma_csr;
-+
-+	if (sgdma_txbusy(priv))
-+		return 0;
-+
-+	/* clear control and status */
-+	iowrite32(0, &csr->control);
-+	iowrite32(0x1f, &csr->status);
-+
-+	dma_sync_single_for_device(priv->device, priv->txdescphys,
-+				   priv->txdescmem, DMA_TO_DEVICE);
-+
-+	iowrite32(lower_32_bits(sgdma_txphysaddr(priv, desc)),
-+		  &csr->next_descrip);
-+
-+	iowrite32((priv->txctrlreg | SGDMA_CTRLREG_START),
-+		  &csr->control);
-+
-+	return 1;
-+}
-+
-+static dma_addr_t
-+sgdma_txphysaddr(struct altera_tse_private *priv,
-+		 struct sgdma_descrip *desc)
-+{
-+	dma_addr_t paddr = priv->txdescmem_busaddr;
-+	dma_addr_t offs = (dma_addr_t)((dma_addr_t)desc -
-+				(dma_addr_t)priv->tx_dma_desc);
-+	return paddr + offs;
-+}
-+
-+static dma_addr_t
-+sgdma_rxphysaddr(struct altera_tse_private *priv,
-+		 struct sgdma_descrip *desc)
-+{
-+	dma_addr_t paddr = priv->rxdescmem_busaddr;
-+	dma_addr_t offs = (dma_addr_t)((dma_addr_t)desc -
-+				(dma_addr_t)priv->rx_dma_desc);
-+	return paddr + offs;
-+}
-+
-+#define list_remove_head(list, entry, type, member)			\
-+	do {								\
-+		entry = NULL;						\
-+		if (!list_empty(list)) {				\
-+			entry = list_entry((list)->next, type, member);	\
-+			list_del_init(&entry->member);			\
-+		}							\
-+	} while (0)
-+
-+#define list_peek_head(list, entry, type, member)			\
-+	do {								\
-+		entry = NULL;						\
-+		if (!list_empty(list)) {				\
-+			entry = list_entry((list)->next, type, member);	\
-+		}							\
-+	} while (0)
-+
-+/* adds a tse_buffer to the tail of a tx buffer list.
-+ * assumes the caller is managing and holding a mutual exclusion
-+ * primitive to avoid simultaneous pushes/pops to the list.
-+ */
-+static void
-+queue_tx(struct altera_tse_private *priv, struct tse_buffer *buffer)
-+{
-+	list_add_tail(&buffer->lh, &priv->txlisthd);
-+}
-+
-+
-+/* adds a tse_buffer to the tail of a rx buffer list
-+ * assumes the caller is managing and holding a mutual exclusion
-+ * primitive to avoid simultaneous pushes/pops to the list.
-+ */
-+static void
-+queue_rx(struct altera_tse_private *priv, struct tse_buffer *buffer)
-+{
-+	list_add_tail(&buffer->lh, &priv->rxlisthd);
-+}
-+
-+/* dequeues a tse_buffer from the transmit buffer list, otherwise
-+ * returns NULL if empty.
-+ * assumes the caller is managing and holding a mutual exclusion
-+ * primitive to avoid simultaneous pushes/pops to the list.
-+ */
-+static struct tse_buffer *
-+dequeue_tx(struct altera_tse_private *priv)
-+{
-+	struct tse_buffer *buffer = NULL;
-+	list_remove_head(&priv->txlisthd, buffer, struct tse_buffer, lh);
-+	return buffer;
-+}
-+
-+/* dequeues a tse_buffer from the receive buffer list, otherwise
-+ * returns NULL if empty
-+ * assumes the caller is managing and holding a mutual exclusion
-+ * primitive to avoid simultaneous pushes/pops to the list.
-+ */
-+static struct tse_buffer *
-+dequeue_rx(struct altera_tse_private *priv)
-+{
-+	struct tse_buffer *buffer = NULL;
-+	list_remove_head(&priv->rxlisthd, buffer, struct tse_buffer, lh);
-+	return buffer;
-+}
-+
-+/* dequeues a tse_buffer from the receive buffer list, otherwise
-+ * returns NULL if empty
-+ * assumes the caller is managing and holding a mutual exclusion
-+ * primitive to avoid simultaneous pushes/pops to the list while the
-+ * head is being examined.
-+ */
-+static struct tse_buffer *
-+queue_rx_peekhead(struct altera_tse_private *priv)
-+{
-+	struct tse_buffer *buffer = NULL;
-+	list_peek_head(&priv->rxlisthd, buffer, struct tse_buffer, lh);
-+	return buffer;
-+}
-+
-+/* check and return rx sgdma status without polling
-+ */
-+static int sgdma_rxbusy(struct altera_tse_private *priv)
-+{
-+	struct sgdma_csr *csr = (struct sgdma_csr *)priv->rx_dma_csr;
-+	return ioread32(&csr->status) & SGDMA_STSREG_BUSY;
-+}
-+
-+/* waits for the tx sgdma to finish it's current operation, returns 0
-+ * when it transitions to nonbusy, returns 1 if the operation times out
-+ */
-+static int sgdma_txbusy(struct altera_tse_private *priv)
-+{
-+	int delay = 0;
-+	struct sgdma_csr *csr = (struct sgdma_csr *)priv->tx_dma_csr;
-+
-+	/* if DMA is busy, wait for current transactino to finish */
-+	while ((ioread32(&csr->status) & SGDMA_STSREG_BUSY) && (delay++ < 100))
-+		udelay(1);
-+
-+	if (ioread32(&csr->status) & SGDMA_STSREG_BUSY) {
-+		netdev_err(priv->dev, "timeout waiting for tx dma\n");
-+		return 1;
-+	}
-+	return 0;
-+}
-diff --git a/drivers/net/ethernet/altera/altera_sgdma.h b/drivers/net/ethernet/altera/altera_sgdma.h
+diff --git a/drivers/net/ethernet/altera/altera_msgdma.h b/drivers/net/=
+ethernet/altera/altera_msgdma.h
 new file mode 100644
-index 0000000..07d4717
+index 0000000..7f0f5bf
 --- /dev/null
-+++ b/drivers/net/ethernet/altera/altera_sgdma.h
-@@ -0,0 +1,35 @@
++++ b/drivers/net/ethernet/altera/altera_msgdma.h
+@@ -0,0 +1,34 @@
 +/* Altera TSE SGDMA and MSGDMA Linux driver
 + * Copyright (C) 2014 Altera Corporation. All rights reserved
 + *
-+ * This program is free software; you can redistribute it and/or modify it
++ * This program is free software; you can redistribute it and/or modif=
+y it
 + * under the terms and conditions of the GNU General Public License,
 + * version 2, as published by the Free Software Foundation.
 + *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * This program is distributed in the hope it will be useful, but WITH=
+OUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY =
+or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public Licen=
+se for
 + * more details.
 + *
-+ * You should have received a copy of the GNU General Public License along with
++ * You should have received a copy of the GNU General Public License a=
+long with
 + * this program.  If not, see <http://www.gnu.org/licenses/>.
 + */
 +
-+#ifndef __ALTERA_SGDMA_H__
-+#define __ALTERA_SGDMA_H__
++#ifndef __ALTERA_MSGDMA_H__
++#define __ALTERA_MSGDMA_H__
 +
-+void sgdma_reset(struct altera_tse_private *);
-+void sgdma_enable_txirq(struct altera_tse_private *);
-+void sgdma_enable_rxirq(struct altera_tse_private *);
-+void sgdma_disable_rxirq(struct altera_tse_private *);
-+void sgdma_disable_txirq(struct altera_tse_private *);
-+void sgdma_clear_rxirq(struct altera_tse_private *);
-+void sgdma_clear_txirq(struct altera_tse_private *);
-+int sgdma_tx_buffer(struct altera_tse_private *priv, struct tse_buffer *);
-+u32 sgdma_tx_completions(struct altera_tse_private *);
-+int sgdma_add_rx_desc(struct altera_tse_private *priv, struct tse_buffer *);
-+void sgdma_status(struct altera_tse_private *);
-+u32 sgdma_rx_status(struct altera_tse_private *);
-+int sgdma_initialize(struct altera_tse_private *);
-+void sgdma_uninitialize(struct altera_tse_private *);
++void msgdma_reset(struct altera_tse_private *);
++void msgdma_enable_txirq(struct altera_tse_private *);
++void msgdma_enable_rxirq(struct altera_tse_private *);
++void msgdma_disable_rxirq(struct altera_tse_private *);
++void msgdma_disable_txirq(struct altera_tse_private *);
++void msgdma_clear_rxirq(struct altera_tse_private *);
++void msgdma_clear_txirq(struct altera_tse_private *);
++u32 msgdma_tx_completions(struct altera_tse_private *);
++int msgdma_add_rx_desc(struct altera_tse_private *, struct tse_buffer =
+*);
++int msgdma_tx_buffer(struct altera_tse_private *, struct tse_buffer *)=
+;
++u32 msgdma_rx_status(struct altera_tse_private *);
++int msgdma_initialize(struct altera_tse_private *);
++void msgdma_uninitialize(struct altera_tse_private *);
 +
-+#endif /*  __ALTERA_SGDMA_H__ */
-diff --git a/drivers/net/ethernet/altera/altera_sgdmahw.h b/drivers/net/ethernet/altera/altera_sgdmahw.h
++#endif /*  __ALTERA_MSGDMA_H__ */
+diff --git a/drivers/net/ethernet/altera/altera_msgdmahw.h b/drivers/ne=
+t/ethernet/altera/altera_msgdmahw.h
 new file mode 100644
-index 0000000..ba3334f
+index 0000000..d7b59ba
 --- /dev/null
-+++ b/drivers/net/ethernet/altera/altera_sgdmahw.h
-@@ -0,0 +1,124 @@
++++ b/drivers/net/ethernet/altera/altera_msgdmahw.h
+@@ -0,0 +1,167 @@
 +/* Altera TSE SGDMA and MSGDMA Linux driver
 + * Copyright (C) 2014 Altera Corporation. All rights reserved
 + *
-+ * This program is free software; you can redistribute it and/or modify it
++ * This program is free software; you can redistribute it and/or modif=
+y it
 + * under the terms and conditions of the GNU General Public License,
 + * version 2, as published by the Free Software Foundation.
 + *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * This program is distributed in the hope it will be useful, but WITH=
+OUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY =
+or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public Licen=
+se for
 + * more details.
 + *
-+ * You should have received a copy of the GNU General Public License along with
++ * You should have received a copy of the GNU General Public License a=
+long with
 + * this program.  If not, see <http://www.gnu.org/licenses/>.
 + */
 +
-+#ifndef __ALTERA_SGDMAHW_H__
-+#define __ALTERA_SGDMAHW_H__
++#ifndef __ALTERA_MSGDMAHW_H__
++#define __ALTERA_MSGDMAHW_H__
 +
-+/* SGDMA descriptor structure */
-+struct sgdma_descrip {
-+	unsigned int	raddr; /* address of data to be read */
-+	unsigned int	pad1;
-+	unsigned int	waddr;
-+	unsigned int    pad2;
-+	unsigned int	next;
-+	unsigned int	pad3;
-+	unsigned short  bytes;
-+	unsigned char   rburst;
-+	unsigned char	wburst;
-+	unsigned short	bytes_xferred;	/* 16 bits, bytes xferred */
-+
-+	/* bit 0: error
-+	 * bit 1: length error
-+	 * bit 2: crc error
-+	 * bit 3: truncated error
-+	 * bit 4: phy error
-+	 * bit 5: collision error
-+	 * bit 6: reserved
-+	 * bit 7: status eop for recv case
-+	 */
-+	unsigned char	status;
-+
-+	/* bit 0: eop
-+	 * bit 1: read_fixed
-+	 * bit 2: write fixed
-+	 * bits 3,4,5,6: Channel (always 0)
-+	 * bit 7: hardware owned
-+	 */
-+	unsigned char	control;
-+} __packed;
-+
-+
-+#define SGDMA_STATUS_ERR		BIT(0)
-+#define SGDMA_STATUS_LENGTH_ERR		BIT(1)
-+#define SGDMA_STATUS_CRC_ERR		BIT(2)
-+#define SGDMA_STATUS_TRUNC_ERR		BIT(3)
-+#define SGDMA_STATUS_PHY_ERR		BIT(4)
-+#define SGDMA_STATUS_COLL_ERR		BIT(5)
-+#define SGDMA_STATUS_EOP		BIT(7)
-+
-+#define SGDMA_CONTROL_EOP		BIT(0)
-+#define SGDMA_CONTROL_RD_FIXED		BIT(1)
-+#define SGDMA_CONTROL_WR_FIXED		BIT(2)
-+
-+/* Channel is always 0, so just zero initialize it */
-+
-+#define SGDMA_CONTROL_HW_OWNED		BIT(7)
-+
-+/* SGDMA register space */
-+struct sgdma_csr {
-+	/* bit 0: error
-+	 * bit 1: eop
-+	 * bit 2: descriptor completed
-+	 * bit 3: chain completed
-+	 * bit 4: busy
-+	 * remainder reserved
-+	 */
-+	u32	status;
-+	u32	pad1[3];
-+
-+	/* bit 0: interrupt on error
-+	 * bit 1: interrupt on eop
-+	 * bit 2: interrupt after every descriptor
-+	 * bit 3: interrupt after last descrip in a chain
-+	 * bit 4: global interrupt enable
-+	 * bit 5: starts descriptor processing
-+	 * bit 6: stop core on dma error
-+	 * bit 7: interrupt on max descriptors
-+	 * bits 8-15: max descriptors to generate interrupt
-+	 * bit 16: Software reset
-+	 * bit 17: clears owned by hardware if 0, does not clear otherwise
-+	 * bit 18: enables descriptor polling mode
-+	 * bit 19-26: clocks before polling again
-+	 * bit 27-30: reserved
-+	 * bit 31: clear interrupt
-+	 */
-+	u32	control;
-+	u32	pad2[3];
-+	u32	next_descrip;
-+	u32	pad3[3];
++/* mSGDMA standard descriptor format
++ */
++struct msgdma_desc {
++	u32 read_addr;	/* data buffer source address */
++	u32 write_addr;	/* data buffer destination address */
++	u32 len;	/* the number of bytes to transfer per descriptor */
++	u32 control;	/* characteristics of the transfer */
 +};
 +
++/* mSGDMA extended descriptor format
++ */
++struct msgdma_extended_desc {
++	u32 read_addr_lo;	/* data buffer source address low bits */
++	u32 write_addr_lo;	/* data buffer destination address low bits */
++	u32 len;		/* the number of bytes to transfer
++				 * per descriptor
++				 */
++	u32 burst_seq_num;	/* bit 31:24 write burst
++				 * bit 23:16 read burst
++				 * bit 15:0  sequence number
++				 */
++	u32 stride;		/* bit 31:16 write stride
++				 * bit 15:0  read stride
++				 */
++	u32 read_addr_hi;	/* data buffer source address high bits */
++	u32 write_addr_hi;	/* data buffer destination address high bits */
++	u32 control;		/* characteristics of the transfer */
++};
 +
-+#define SGDMA_STSREG_ERR	BIT(0) /* Error */
-+#define SGDMA_STSREG_EOP	BIT(1) /* EOP */
-+#define SGDMA_STSREG_DESCRIP	BIT(2) /* Descriptor completed */
-+#define SGDMA_STSREG_CHAIN	BIT(3) /* Chain completed */
-+#define SGDMA_STSREG_BUSY	BIT(4) /* Controller busy */
++/* mSGDMA descriptor control field bit definitions
++ */
++#define MSGDMA_DESC_CTL_SET_CH(x)	((x) & 0xff)
++#define MSGDMA_DESC_CTL_GEN_SOP		BIT(8)
++#define MSGDMA_DESC_CTL_GEN_EOP		BIT(9)
++#define MSGDMA_DESC_CTL_PARK_READS	BIT(10)
++#define MSGDMA_DESC_CTL_PARK_WRITES	BIT(11)
++#define MSGDMA_DESC_CTL_END_ON_EOP	BIT(12)
++#define MSGDMA_DESC_CTL_END_ON_LEN	BIT(13)
++#define MSGDMA_DESC_CTL_TR_COMP_IRQ	BIT(14)
++#define MSGDMA_DESC_CTL_EARLY_IRQ	BIT(15)
++#define MSGDMA_DESC_CTL_TR_ERR_IRQ	(0xff << 16)
++#define MSGDMA_DESC_CTL_EARLY_DONE	BIT(24)
++/* Writing =E2=80=981=E2=80=99 to the =E2=80=98go=E2=80=99 bit commits=
+ the entire descriptor into the
++ * descriptor FIFO(s)
++ */
++#define MSGDMA_DESC_CTL_GO		BIT(31)
 +
-+#define SGDMA_CTRLREG_IOE	BIT(0) /* Interrupt on error */
-+#define SGDMA_CTRLREG_IOEOP	BIT(1) /* Interrupt on EOP */
-+#define SGDMA_CTRLREG_IDESCRIP	BIT(2) /* Interrupt after every descriptor */
-+#define SGDMA_CTRLREG_ILASTD	BIT(3) /* Interrupt after last descriptor */
-+#define SGDMA_CTRLREG_INTEN	BIT(4) /* Global Interrupt enable */
-+#define SGDMA_CTRLREG_START	BIT(5) /* starts descriptor processing */
-+#define SGDMA_CTRLREG_STOPERR	BIT(6) /* stop on dma error */
-+#define SGDMA_CTRLREG_INTMAX	BIT(7) /* Interrupt on max descriptors */
-+#define SGDMA_CTRLREG_RESET	BIT(16)/* Software reset */
-+#define SGDMA_CTRLREG_COBHW	BIT(17)/* Clears owned by hardware */
-+#define SGDMA_CTRLREG_POLL	BIT(18)/* enables descriptor polling mode */
-+#define SGDMA_CTRLREG_CLRINT	BIT(31)/* Clears interrupt */
++/* Tx buffer control flags
++ */
++#define MSGDMA_DESC_CTL_TX_FIRST	(MSGDMA_DESC_CTL_GEN_SOP |	\
++					 MSGDMA_DESC_CTL_TR_ERR_IRQ |	\
++					 MSGDMA_DESC_CTL_GO)
 +
-+#endif /* __ALTERA_SGDMAHW_H__ */
--- 
++#define MSGDMA_DESC_CTL_TX_MIDDLE	(MSGDMA_DESC_CTL_TR_ERR_IRQ |	\
++					 MSGDMA_DESC_CTL_GO)
++
++#define MSGDMA_DESC_CTL_TX_LAST		(MSGDMA_DESC_CTL_GEN_EOP |	\
++					 MSGDMA_DESC_CTL_TR_COMP_IRQ |	\
++					 MSGDMA_DESC_CTL_TR_ERR_IRQ |	\
++					 MSGDMA_DESC_CTL_GO)
++
++#define MSGDMA_DESC_CTL_TX_SINGLE	(MSGDMA_DESC_CTL_GEN_SOP |	\
++					 MSGDMA_DESC_CTL_GEN_EOP |	\
++					 MSGDMA_DESC_CTL_TR_COMP_IRQ |	\
++					 MSGDMA_DESC_CTL_TR_ERR_IRQ |	\
++					 MSGDMA_DESC_CTL_GO)
++
++#define MSGDMA_DESC_CTL_RX_SINGLE	(MSGDMA_DESC_CTL_END_ON_EOP |	\
++					 MSGDMA_DESC_CTL_END_ON_LEN |	\
++					 MSGDMA_DESC_CTL_TR_COMP_IRQ |	\
++					 MSGDMA_DESC_CTL_EARLY_IRQ |	\
++					 MSGDMA_DESC_CTL_TR_ERR_IRQ |	\
++					 MSGDMA_DESC_CTL_GO)
++
++/* mSGDMA extended descriptor stride definitions
++ */
++#define MSGDMA_DESC_TX_STRIDE		(0x00010001)
++#define MSGDMA_DESC_RX_STRIDE		(0x00010001)
++
++/* mSGDMA dispatcher control and status register map
++ */
++struct msgdma_csr {
++	u32 status;		/* Read/Clear */
++	u32 control;		/* Read/Write */
++	u32 rw_fill_level;	/* bit 31:16 - write fill level
++				 * bit 15:0  - read fill level
++				 */
++	u32 resp_fill_level;	/* bit 15:0 */
++	u32 rw_seq_num;		/* bit 31:16 - write sequence number
++				 * bit 15:0  - read sequence number
++				 */
++	u32 pad[3];		/* reserved */
++};
++
++/* mSGDMA CSR status register bit definitions
++ */
++#define MSGDMA_CSR_STAT_BUSY			BIT(0)
++#define MSGDMA_CSR_STAT_DESC_BUF_EMPTY		BIT(1)
++#define MSGDMA_CSR_STAT_DESC_BUF_FULL		BIT(2)
++#define MSGDMA_CSR_STAT_RESP_BUF_EMPTY		BIT(3)
++#define MSGDMA_CSR_STAT_RESP_BUF_FULL		BIT(4)
++#define MSGDMA_CSR_STAT_STOPPED			BIT(5)
++#define MSGDMA_CSR_STAT_RESETTING		BIT(6)
++#define MSGDMA_CSR_STAT_STOPPED_ON_ERR		BIT(7)
++#define MSGDMA_CSR_STAT_STOPPED_ON_EARLY	BIT(8)
++#define MSGDMA_CSR_STAT_IRQ			BIT(9)
++#define MSGDMA_CSR_STAT_MASK			0x3FF
++#define MSGDMA_CSR_STAT_MASK_WITHOUT_IRQ	0x1FF
++
++#define MSGDMA_CSR_STAT_BUSY_GET(v)			GET_BIT_VALUE(v, 0)
++#define MSGDMA_CSR_STAT_DESC_BUF_EMPTY_GET(v)		GET_BIT_VALUE(v, 1)
++#define MSGDMA_CSR_STAT_DESC_BUF_FULL_GET(v)		GET_BIT_VALUE(v, 2)
++#define MSGDMA_CSR_STAT_RESP_BUF_EMPTY_GET(v)		GET_BIT_VALUE(v, 3)
++#define MSGDMA_CSR_STAT_RESP_BUF_FULL_GET(v)		GET_BIT_VALUE(v, 4)
++#define MSGDMA_CSR_STAT_STOPPED_GET(v)			GET_BIT_VALUE(v, 5)
++#define MSGDMA_CSR_STAT_RESETTING_GET(v)		GET_BIT_VALUE(v, 6)
++#define MSGDMA_CSR_STAT_STOPPED_ON_ERR_GET(v)		GET_BIT_VALUE(v, 7)
++#define MSGDMA_CSR_STAT_STOPPED_ON_EARLY_GET(v)		GET_BIT_VALUE(v, 8)
++#define MSGDMA_CSR_STAT_IRQ_GET(v)			GET_BIT_VALUE(v, 9)
++
++/* mSGDMA CSR control register bit definitions
++ */
++#define MSGDMA_CSR_CTL_STOP			BIT(0)
++#define MSGDMA_CSR_CTL_RESET			BIT(1)
++#define MSGDMA_CSR_CTL_STOP_ON_ERR		BIT(2)
++#define MSGDMA_CSR_CTL_STOP_ON_EARLY		BIT(3)
++#define MSGDMA_CSR_CTL_GLOBAL_INTR		BIT(4)
++#define MSGDMA_CSR_CTL_STOP_DESCS		BIT(5)
++
++/* mSGDMA CSR fill level bits
++ */
++#define MSGDMA_CSR_WR_FILL_LEVEL_GET(v)		(((v) & 0xffff0000) >> 16)
++#define MSGDMA_CSR_RD_FILL_LEVEL_GET(v)		((v) & 0x0000ffff)
++#define MSGDMA_CSR_RESP_FILL_LEVEL_GET(v)	((v) & 0x0000ffff)
++
++/* mSGDMA response register map
++ */
++struct msgdma_response {
++	u32 bytes_transferred;
++	u32 status;
++};
++
++/* mSGDMA response register bit definitions
++ */
++#define MSGDMA_RESP_EARLY_TERM	BIT(8)
++#define MSGDMA_RESP_ERR_MASK	0xFF
++
++#endif /* __ALTERA_MSGDMA_H__*/
+--=20
 1.7.9.5
