@@ -1,77 +1,181 @@
-From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Subject: Re: [PATCH] sh_eth: ensure pm_runtime cannot suspend the device during init
-Date: Mon, 17 Mar 2014 22:34:49 +0100
-Message-ID: <2182534.rxjU11HcCL@avalon>
-References: <1395056275-5005-1-git-send-email-ben.dooks@codethink.co.uk> <2780951.47jzSPgHnH@avalon> <53277782.6070804@cogentembedded.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH V3 2/8] net: sxgbe: add basic framework for Samsung 10Gb
+ ethernet driver
+Date: Mon, 17 Mar 2014 14:35:56 -0700
+Message-ID: <1395092156.2556.56.camel@joe-AO722>
+References: <00bf01cf4221$95373150$bfa593f0$@samsung.com>
+	 <20140317.171825.1118518563919818497.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Ben Dooks <ben.dooks@codethink.co.uk>, linux-sh@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: bh74.an@samsung.com, netdev@vger.kernel.org,
+	linux-samsung-soc@vger.kernel.org, siva.kallam@samsung.com,
+	vipul.pandya@samsung.com, ks.giri@samsung.com,
+	ilho215.lee@samsung.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perceval.ideasonboard.com ([95.142.166.194]:42155 "EHLO
-	perceval.ideasonboard.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752386AbaCQVdF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 17:33:05 -0400
-In-Reply-To: <53277782.6070804@cogentembedded.com>
+Received: from smtprelay0078.hostedemail.com ([216.40.44.78]:50489 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750706AbaCQVgA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 17:36:00 -0400
+In-Reply-To: <20140317.171825.1118518563919818497.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei,
-
-On Tuesday 18 March 2014 01:30:26 Sergei Shtylyov wrote:
-> On 03/17/2014 11:23 PM, Laurent Pinchart wrote:
-> >> The pm_rumtime work queue is causing the device to be suspended during
-> >> initialisation, thus the initialisation may not be able to access
-> >> registers properly. As the code is called from a work queue, it is
-> >> possible that this is not seen from certain configurations/builds due to
-> >> the asynchronos nature of the code.
-> >> 
-> >> Use pm_runtime_get_sync() and pm_runtime_put_sync() to ensure that the
-> >> pm system does not suspend it during the probe() call and remove the
-> >> now unnecessary pm_runtime_resume() call.
-> >> 
-> >> This fixes the external abort that can cause /sbin/init or other such
-> >> init processed to die.
-> >> 
-> >> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
-> >> Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> >> ---
-> >> 
-> >>   drivers/net/ethernet/renesas/sh_eth.c | 3 ++-
-> >>   1 file changed, 2 insertions(+), 1 deletion(-)
-> >> 
-> >> diff --git a/drivers/net/ethernet/renesas/sh_eth.c
-> >> b/drivers/net/ethernet/renesas/sh_eth.c index 4f76b5e..f1cfd64 100644
-> >> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> >> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> >> @@ -2869,7 +2869,7 @@ static int sh_eth_drv_probe(struct platform_device
-> >> *pdev) spin_lock_init(&mdp->lock);
-> >> 
-> >>   	mdp->pdev = pdev;
-> >>   	pm_runtime_enable(&pdev->dev);
-> >> 
-> >> -	pm_runtime_resume(&pdev->dev);
-> >> +	pm_runtime_get_sync(&pdev->dev);
-> > 
-> > Now that we've found out that the problem is caused by registering the
-> > network device before registering the mdio bus, shouldn't the proper
-> > solution be to register the network device last in the probe function ?
+On Mon, 2014-03-17 at 17:18 -0400, David Miller wrote:
+> From: Byungho An <bh74.an@samsung.com>
+> Date: Mon, 17 Mar 2014 13:43:37 -0700
 > 
-> Unfortunately, it's not easy to do, as sh_mdio_init() uses net_device::dev.
-> Probably could get rid of that use by partly reverting my managed device API
-> patch since the only user seems to be devm_kzalloc() in that function, at
-> least I hope so... still looking into this.
+> > +static void sxgbe_tx_timer(unsigned long data)
+> > +{
+> > +	struct sxgbe_tx_queue *p = (struct sxgbe_tx_queue *)data;
+> > +	sxgbe_tx_queue_clean(p);
+> > +}
+> 
+> A empty line after local variable declarations please.
+[]
+> Please audit your entire submission for this problem.
 
-What about using pdev->dev instead ?
+Hi again Byungho An (and all the other Samsung folk)
 
-> BTW, quite many drivers have the same problem, doing different things after
-> register_netdev() call, many of them probing MDIO as well.
+I suggest using scripts/checkpatch.pl --strict from linux-next.
+It flags (imperfectly) a lot of these things.
 
-Great, that means more opportunities to fix bugs :-D
+I would ignore the Non-standard signature, CamelCase and the
+long line warnings, but I suppose the rest could be improved.
 
--- 
-Regards,
+I get:
 
-Laurent Pinchart
+WARNING: Non-standard signature: Neatening-by:
+#99: 
+Neatening-by: Joe Perches <joe@perches.com>
+
+CHECK: Avoid CamelCase: <BUF_SIZE_16KiB>
+#292: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h:55:
++#define BUF_SIZE_16KiB 16384
+
+CHECK: Avoid CamelCase: <BUF_SIZE_8KiB>
+#293: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h:56:
++#define BUF_SIZE_8KiB 8192
+
+CHECK: Avoid CamelCase: <BUF_SIZE_4KiB>
+#294: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h:57:
++#define BUF_SIZE_4KiB 4096
+
+CHECK: Avoid CamelCase: <BUF_SIZE_2KiB>
+#295: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h:58:
++#define BUF_SIZE_2KiB 2048
+
+CHECK: spinlock_t definition without comment
+#560: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h:323:
++	spinlock_t tx_lock;
+
+CHECK: spinlock_t definition without comment
+#644: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h:407:
++	spinlock_t stats_lock;
+
+WARNING: line over 80 characters
+#2474: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c:304:
++					      tx_rsize * sizeof(struct sxgbe_tx_norm_desc),
+
+WARNING: line over 80 characters
+#2562: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c:392:
++					      rx_rsize * sizeof(struct sxgbe_rx_norm_desc),
+
+WARNING: line over 80 characters
+#2575: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c:405:
++					   sizeof(struct sk_buff *), GFP_KERNEL);
+
+WARNING: line over 80 characters
+#2740: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c:570:
++						    sizeof(struct sxgbe_tx_queue), GFP_KERNEL);
+
+WARNING: line over 80 characters
+#2757: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c:587:
++						    sizeof(struct sxgbe_rx_queue), GFP_KERNEL);
+
+WARNING: line over 80 characters
+#2854: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c:684:
++		     sxgbe_tx_avail(tqueue, tx_rsize) > SXGBE_TX_THRESH(priv))) {
+
+WARNING: Missing a blank line after declarations
+#3355: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c:1185:
++		int len = skb_frag_size(frag);
++		entry = (++tqueue->cur_tx) % tx_rsize;
+
+WARNING: line over 80 characters
+#3542: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c:1372:
++						    struct sxgbe_priv_data, napi);
+
+WARNING: line over 80 characters
+#3669: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c:1499:
++						   struct rtnl_link_stats64 *stats)
+
+WARNING: line over 80 characters
+#3699: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c:1529:
++					       SXGBE_MMC_RXFIFOOVERFLOWHI_GBCNT_REG));
+
+CHECK: __setup appears un-documented -- check Documentation/kernel-parameters.txt
+#4229: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c:2059:
++__setup("sxgbeeth=", sxgbe_cmdline_opt);
+
+WARNING: Missing a blank line after declarations
+#4556: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c:27:
++	u32 reg_val;
++	reg_val = readl(ioaddr + SXGBE_MTL_OP_MODE_REG);
+
+WARNING: Missing a blank line after declarations
+#4617: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c:88:
++	u32 reg_val;
++	reg_val = readl(ioaddr + SXGBE_MTL_TXQ_OPMODE_REG(queue_num));
+
+WARNING: Missing a blank line after declarations
+#4625: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c:96:
++	u32 reg_val;
++	reg_val = readl(ioaddr + SXGBE_MTL_TXQ_OPMODE_REG(queue_num));
+
+WARNING: Missing a blank line after declarations
+#4634: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c:105:
++	u32 reg_val;
++	reg_val = readl(ioaddr + SXGBE_MTL_RXQ_OPMODE_REG(queue_num));
+
+WARNING: Missing a blank line after declarations
+#4644: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c:115:
++	u32 reg_val;
++	reg_val = readl(ioaddr + SXGBE_MTL_RXQ_OPMODE_REG(queue_num));
+
+WARNING: Missing a blank line after declarations
+#4653: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c:124:
++	u32 reg_val;
++	reg_val = readl(ioaddr + SXGBE_MTL_RXQ_OPMODE_REG(queue_num));
+
+WARNING: Missing a blank line after declarations
+#4663: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c:134:
++	u32 reg_val;
++	reg_val = readl(ioaddr + SXGBE_MTL_RXQ_OPMODE_REG(queue_num));
+
+WARNING: Missing a blank line after declarations
+#4672: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c:143:
++	u32 reg_val;
++	reg_val = readl(ioaddr + SXGBE_MTL_RXQ_OPMODE_REG(queue_num));
+
+WARNING: Missing a blank line after declarations
+#4681: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c:152:
++	u32 reg_val;
++	reg_val = readl(ioaddr + SXGBE_MTL_RXQ_OPMODE_REG(queue_num));
+
+WARNING: Missing a blank line after declarations
+#4690: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c:161:
++	u32 reg_val;
++	reg_val = readl(ioaddr + SXGBE_MTL_RXQ_OPMODE_REG(queue_num));
+
+WARNING: Missing a blank line after declarations
+#4732: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c:203:
++	u32 reg_val;
++	reg_val = readl(ioaddr + SXGBE_MTL_RXQ_OPMODE_REG(queue_num));
+
+WARNING: DT compatible string "samsung,sxgbe-v2.0a" appears un-documented -- check ./Documentation/devicetree/bindings/
+#5115: FILE: drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c:229:
++	{ .compatible = "samsung,sxgbe-v2.0a"},
+
+total: 0 errors, 25 warnings, 7 checks, 5555 lines checked
