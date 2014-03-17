@@ -1,26 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] Beautify 'sh_eth' driver's messages
-Date: Mon, 17 Mar 2014 16:07:16 -0400 (EDT)
-Message-ID: <20140317.160716.1032368159779908756.davem@davemloft.net>
-References: <201403150321.47674.sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 0/5] at86rf230: various fixes and devicetree
+ support
+Date: Mon, 17 Mar 2014 16:11:01 -0400 (EDT)
+Message-ID: <20140317.161101.376055249410239403.davem@davemloft.net>
+References: <1394872147-3021-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <201403150321.47674.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: alex.aring@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42432 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750745AbaCQULE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 16:11:04 -0400
+In-Reply-To: <1394872147-3021-1-git-send-email-alex.aring@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Sat, 15 Mar 2014 03:21:47 +0300
+From: Alexander Aring <alex.aring@gmail.com>
+Date: Sat, 15 Mar 2014 09:29:02 +0100
 
-> This patchset converts te driver to using netdev_*() and netif_*() to print out
-> its messages whenever possible.
-> 
-> [1/3] sh_eth: convert pr_*() to netdev_*() calls
-> [2/3] sh_eth: convert dev_*() to netdev_*() calls
-> [3/3] sh_eth: fold netif_msg_*() and dev_*() calls into netif_*() invocations
+> this patch series fix some bugs with the at86rf231 chip and cleaup some code.
+> Also add devicetree support for the at86rf230 driver.
 
-Series applied to net-next, thanks.
+Series applied, thank you.
