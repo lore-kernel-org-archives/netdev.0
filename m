@@ -1,69 +1,103 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 37/38] netfilter: connlimit: make same_source_net signed
-Date: Mon, 17 Mar 2014 13:42:57 +0100
-Message-ID: <1395060178-11833-38-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 34/38] netfilter: connlimit: use kmem_cache for conn objects
+Date: Mon, 17 Mar 2014 13:42:54 +0100
+Message-ID: <1395060178-11833-35-git-send-email-pablo@netfilter.org>
 References: <1395060178-11833-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59546 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933186AbaCQMnv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2014 08:43:51 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1395060178-11833-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Florian Westphal <fw@strlen.de>
 
-currently returns 1 if they're the same.  Make it work like mem/strcmp
-so it can be used as rbtree search function.
+We might allocate thousands of these (one object per connection).
+Use distinct kmem cache to permit simplte tracking on how many
+objects are currently used by the connlimit match via the sysfs.
 
 Reviewed-by: Jesper Dangaard Brouer <brouer@redhat.com>
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_connlimit.c |    9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ net/netfilter/xt_connlimit.c |   24 +++++++++++++++++++-----
+ 1 file changed, 19 insertions(+), 5 deletions(-)
 
 diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
-index ad290cc..dc5207f 100644
+index 0220d40..a8eaabb 100644
 --- a/net/netfilter/xt_connlimit.c
 +++ b/net/netfilter/xt_connlimit.c
-@@ -78,13 +78,14 @@ static inline bool already_closed(const struct nf_conn *conn)
- 		return 0;
- }
+@@ -44,6 +44,7 @@ struct xt_connlimit_data {
+ };
  
--static inline unsigned int
-+static int
- same_source_net(const union nf_inet_addr *addr,
- 		const union nf_inet_addr *mask,
- 		const union nf_inet_addr *u3, u_int8_t family)
+ static u_int32_t connlimit_rnd __read_mostly;
++static struct kmem_cache *connlimit_conn_cachep __read_mostly;
+ 
+ static inline unsigned int connlimit_iphash(__be32 addr)
  {
- 	if (family == NFPROTO_IPV4) {
--		return (addr->ip & mask->ip) == (u3->ip & mask->ip);
-+		return ntohl(addr->ip & mask->ip) -
-+		       ntohl(u3->ip & mask->ip);
- 	} else {
- 		union nf_inet_addr lh, rh;
- 		unsigned int i;
-@@ -94,7 +95,7 @@ same_source_net(const union nf_inet_addr *addr,
- 			rh.ip6[i] = u3->ip6[i] & mask->ip6[i];
- 		}
- 
--		return memcmp(&lh.ip6, &rh.ip6, sizeof(lh.ip6)) == 0;
-+		return memcmp(&lh.ip6, &rh.ip6, sizeof(lh.ip6));
- 	}
- }
- 
-@@ -143,7 +144,7 @@ static int count_hlist(struct net *net,
+@@ -113,7 +114,7 @@ static int count_hlist(struct net *net,
+ 						 &conn->tuple);
+ 		if (found == NULL) {
+ 			hlist_del(&conn->node);
+-			kfree(conn);
++			kmem_cache_free(connlimit_conn_cachep, conn);
  			continue;
  		}
  
--		if (same_source_net(addr, mask, &conn->addr, family))
-+		if (same_source_net(addr, mask, &conn->addr, family) == 0)
- 			/* same source network -> be counted! */
- 			++matches;
- 		nf_ct_put(found_ct);
+@@ -133,7 +134,7 @@ static int count_hlist(struct net *net,
+ 			 */
+ 			nf_ct_put(found_ct);
+ 			hlist_del(&conn->node);
+-			kfree(conn);
++			kmem_cache_free(connlimit_conn_cachep, conn);
+ 			continue;
+ 		}
+ 
+@@ -152,7 +153,9 @@ static bool add_hlist(struct hlist_head *head,
+ 		      const struct nf_conntrack_tuple *tuple,
+ 		      const union nf_inet_addr *addr)
+ {
+-	struct xt_connlimit_conn *conn = kmalloc(sizeof(*conn), GFP_ATOMIC);
++	struct xt_connlimit_conn *conn;
++
++	conn = kmem_cache_alloc(connlimit_conn_cachep, GFP_ATOMIC);
+ 	if (conn == NULL)
+ 		return false;
+ 	conn->tuple = *tuple;
+@@ -285,7 +288,7 @@ static void connlimit_mt_destroy(const struct xt_mtdtor_param *par)
+ 	for (i = 0; i < ARRAY_SIZE(info->data->iphash); ++i) {
+ 		hlist_for_each_entry_safe(conn, n, &hash[i], node) {
+ 			hlist_del(&conn->node);
+-			kfree(conn);
++			kmem_cache_free(connlimit_conn_cachep, conn);
+ 		}
+ 	}
+ 
+@@ -305,12 +308,23 @@ static struct xt_match connlimit_mt_reg __read_mostly = {
+ 
+ static int __init connlimit_mt_init(void)
+ {
+-	return xt_register_match(&connlimit_mt_reg);
++	int ret;
++	connlimit_conn_cachep = kmem_cache_create("xt_connlimit_conn",
++					   sizeof(struct xt_connlimit_conn),
++					   0, 0, NULL);
++	if (!connlimit_conn_cachep)
++		return -ENOMEM;
++
++	ret = xt_register_match(&connlimit_mt_reg);
++	if (ret != 0)
++		kmem_cache_destroy(connlimit_conn_cachep);
++	return ret;
+ }
+ 
+ static void __exit connlimit_mt_exit(void)
+ {
+ 	xt_unregister_match(&connlimit_mt_reg);
++	kmem_cache_destroy(connlimit_conn_cachep);
+ }
+ 
+ module_init(connlimit_mt_init);
 -- 
 1.7.10.4
+
