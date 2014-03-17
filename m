@@ -1,117 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/16][pull request] Intel Wired LAN Driver Updates
-Date: Mon, 17 Mar 2014 05:45:00 -0700
-Message-ID: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 10/16] i40e/i40evf: Bump build versions
+Date: Mon, 17 Mar 2014 05:45:10 -0700
+Message-ID: <1395060316-16897-11-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:9205 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:33804 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752014AbaCQMpU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2014 08:45:20 -0400
+	id S1756501AbaCQMpY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Mar 2014 08:45:24 -0400
+In-Reply-To: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e, i40evf, e1000e, ixgbe and ixgbevf.
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-Mitch adds support for the VF link state ndo which allows the PF driver
-to control the virtual link state of the VF devices.  Fixed the RSS HLUT
-programming loop in i40evf because most of the entries were not being
-written at all which caused the flows to end up at queue zero.  Added
-support for viewing and modifying RSS hash options and RSS hash look-up
-table programming through ethtool for i40evf.  Fixed complaint about
-the use of min() where min_t() should be used in i40evf.
+Bump to version 0.3.36 for i40e and 0.9.16 for i40evf.
 
-Anjali adds support for ethtool -k option for NTUPLE control for i40e.
+Change-ID: I7b4ff97b32d2825181803c03c316381a7608a618
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Elizabeth cleans up and refactors i40e_open() to separate out the VSI
-code into its own i40e_vsi_open().
-
-Jesse enables the hardware feature head write back to avoid updating the
-descriptor ring by marking each descriptor with a DD bit and instead
-writes a memory location with an update to where the driver should clean
-up to in i40e and i40evf.  Reduces context descriptors for i40e/i40evf
-since we do not need context descriptors for every packet, only for
-TSO or timesync.
-
-Dan Carpenter fixes a potential array underflow in i40e_vc_process_vf_msg().
-
-Dave fixes an e1000e hardware unit hang where the check for pending Tx work
-when link is lost was mistakenly moved to be done only when link is first
-detected to be lost.  Fixed a problem with poor network performance on
-certain silicon in e1000e when configured for 100M HDX performance.
-
-Carolyn adds register defines needed for time sync functions and the code
-to call the updated defines.
-
-Jacob adds the ixgbe function for writing PCI config word and checks
-whether the adapter has been removed first.
-
-Mark adds the bit __IXGBEVF_REMOVING to indicate that the module is being
-removed because the __IXGBEVF_DOWN bit had been overloaded for this
-purpose, but leads to trouble.  ixgbevf_down function can now prevent
-multiple executions by doing test_and_set_bit on __IXGBEVF_DOWN.
-
-The following are changes since commit e7ef085d0a9dc1cc72e7d8108ed3b4e1a5e8d938:
-  Merge branch 'napi_budget_zero'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Anjali Singhai Jain (1):
-  i40e: Patch to enable Ethtool/netdev feature flag for NTUPLE control
-
-Carolyn Wyborny (1):
-  igb: Add register defines needed for time sync functions
-
-Catherine Sullivan (1):
-  i40e/i40evf: Bump build versions
-
-Dan Carpenter (1):
-  i40e: potential array underflow in i40e_vc_process_vf_msg()
-
-David Ertman (2):
-  e1000e: Fix Hardware Unit Hang
-  e1000e: Fix Explicitly set Transmit Control Register
-
-Elizabeth Kappler (1):
-  i40e: Refactor and cleanup i40e_open(), adding i40e_vsi_open()
-
-Jacob Keller (1):
-  ixgbe: add ixgbe_write_pci_cfg_word with ixgbe_removed check
-
-Jesse Brandeburg (2):
-  i40e/i40evf: enable hardware feature head write back
-  i40e/i40evf: reduce context descriptors
-
-Mark Rustad (2):
-  ixgbevf: Indicate removal state explicitly
-  ixgbevf: Protect ixgbevf_down with __IXGBEVF_DOWN bit
-
-Mitch Williams (4):
-  i40e: support VF link state ndo
-  i40evf: correctly program RSS HLUT table
-  i40evf: Support RSS option in ethtool
-  i40evf: use min_t
-
- drivers/net/ethernet/intel/e1000e/netdev.c         |  42 ++-
- drivers/net/ethernet/intel/i40e/i40e.h             |   4 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  89 +++++-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  48 +++-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  91 +++++-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   4 +
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  48 +++-
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 315 +++++++++++++++++++++
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  23 +-
- drivers/net/ethernet/intel/igb/e1000_defines.h     |  70 ++++-
- drivers/net/ethernet/intel/igb/e1000_regs.h        |   9 +
- drivers/net/ethernet/intel/igb/igb_ptp.c           |   4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     |   6 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h    |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   9 +
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h       |   5 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  |  18 +-
- 17 files changed, 715 insertions(+), 71 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 2f72eed..27be9b3 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -38,7 +38,7 @@ static const char i40e_driver_string[] =
+ 
+ #define DRV_VERSION_MAJOR 0
+ #define DRV_VERSION_MINOR 3
+-#define DRV_VERSION_BUILD 34
++#define DRV_VERSION_BUILD 36
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 963387c..21934bf 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -31,7 +31,7 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710 X710 Virtual Function Network Driver";
+ 
+-#define DRV_VERSION "0.9.14"
++#define DRV_VERSION "0.9.16"
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+ 	"Copyright (c) 2013 - 2014 Intel Corporation.";
 -- 
 1.8.3.1
