@@ -1,77 +1,67 @@
-From: Pasi =?iso-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>
-Subject: Re: [PATCH net-next v6 0/3] The huawei_cdc_ncm driver / E3276
- problem
-Date: Mon, 17 Mar 2014 15:17:31 +0200
-Message-ID: <20140317131731.GM3200@reaktio.net>
-References: <87siqlnol8.fsf@nemi.mork.no>
- <20140314090525.GB3200@reaktio.net>
- <87ob19nndo.fsf@nemi.mork.no>
- <20140314125934.GC3200@reaktio.net>
- <87vbvgnbv3.fsf@nemi.mork.no>
- <20140314142559.GD3200@reaktio.net>
- <87k3btm57a.fsf@nemi.mork.no>
- <20140317115919.GK3200@reaktio.net>
- <20140317124555.GL3200@reaktio.net>
- <87y509kluc.fsf@nemi.mork.no>
+From: Eli Cohen <eli@dev.mellanox.co.il>
+Subject: Re: [PATCH v2 2/2] IB/mlx5: Free resources during PCI error
+Date: Mon, 17 Mar 2014 15:32:55 +0200
+Message-ID: <20140317133255.GA22637@mtldesk30>
+References: <20140314171456.181059236@linux.vnet.ibm.com>
+ <20140314171659.686646150@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, Enrico Mioso <mrkiko.rs@gmail.com>,
-	Oliver Neukum <oliver@neukum.org>
-To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Content-Type: text/plain; charset=us-ascii
+Cc: eli@mellanox.com, roland@kernel.org, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, brking@linux.vnet.ibm.com
+To: clsoto@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emh06.mail.saunalahti.fi ([62.142.5.116]:44061 "EHLO
-	emh06.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756229AbaCQNRd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 09:17:33 -0400
+Received: from mail-ee0-f41.google.com ([74.125.83.41]:46923 "EHLO
+	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933409AbaCQNdB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 09:33:01 -0400
+Received: by mail-ee0-f41.google.com with SMTP id t10so4147720eei.14
+        for <netdev@vger.kernel.org>; Mon, 17 Mar 2014 06:33:00 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <87y509kluc.fsf@nemi.mork.no>
+In-Reply-To: <20140314171659.686646150@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 17, 2014 at 02:15:23PM +0100, Bj=F8rn Mork wrote:
-> Pasi K=E4rkk=E4inen <pasik@iki.fi> writes:
->=20
-> > After playing with it for a while I got this:
-> >
-> > [ 1082.972880] cdc_ncm_setup: huawei_cdc_ncm 3-1:1.1: dwNtbInMaxSiz=
-e=3D262144 dwNtbOutMaxSize=3D32768 wNdpOutPayloadRemainder=3D2 wNdpOutD=
-ivisor=3D4 wNdpOutAlignment=3D4 wNtbOutMaxDatagrams=3D0 flags=3D0x1f
-> > [ 1082.972893] cdc_ncm_setup: huawei_cdc_ncm 3-1:1.1: Using default=
- maximum receive length=3D32768
-> > [ 1082.973281] cdc_ncm_setup: huawei_cdc_ncm 3-1:1.1: Setting NTB f=
-ormat to 16-bit failed
-> >
-> > .. which looks to be related..
->=20
-> Yes, that is what I expected after thinking long enough to realize th=
-at
-> I could just read this out of the usbmon dump you provided.
->
+On Fri, Mar 14, 2014 at 12:14:58PM -0500, clsoto@linux.vnet.ibm.com wrote:
 
-:)
-=20
-> Thanks a lot for all your help providing extremely useful debug info
-> here.  This helped fixing (soon, anyway :-) a nasty bug, hitting only=
- a
-> few devices.
->=20
+Hi Carol, see my comments below.
+Also, can please share with us if you've been making any testing to
+these patches, how you tested and what were the results?
+ 
+> @@ -471,9 +471,12 @@ static void clean_keys(struct mlx5_ib_de
+>  		ent->size--;
+>  		spin_unlock_irq(&ent->lock);
+>  		err = mlx5_core_destroy_mkey(&dev->mdev, &mr->mmr);
+> -		if (err)
+> -			mlx5_ib_warn(dev, "failed destroy mkey\n");
+> -		else
+> +		if (err) {
+> +			if (pci_channel_offline(dev->mdev.pdev))
+> +				kfree(mr);
 
-No problems. Happy to help to get this device working :)=20
+Why not just check if -EIO returned.
 
-> I still don't know for sure, but I do hope this bug is the real cause=
- of
-> the problems you are having.  I'll send you a patch for testing as so=
-on
-> as it is ready.
->=20
-
-Sure. I'll be happy to test the patch!
-
->=20
-> Bj=F8rn
-
-Thanks,
-
--- Pasi
+> +			else
+> +				mlx5_ib_warn(dev, "failed destroy mkey\n");
+> +		} else
+>  			kfree(mr);
+>  	}
+>  }
+> Index: b/drivers/infiniband/hw/mlx5/qp.c
+> ===================================================================
+> --- a/drivers/infiniband/hw/mlx5/qp.c
+> +++ b/drivers/infiniband/hw/mlx5/qp.c
+> @@ -2564,7 +2564,11 @@ int mlx5_ib_dealloc_xrcd(struct ib_xrcd 
+>  
+>  	err = mlx5_core_xrcd_dealloc(&dev->mdev, xrcdn);
+>  	if (err) {
+> -		mlx5_ib_warn(dev, "failed to dealloc xrcdn 0x%x\n", xrcdn);
+> +		if (pci_channel_offline(dev->mdev.pdev))
+> +			kfree(xrcd);
+> +		else
+> +			mlx5_ib_warn(dev, "failed to dealloc xrcdn 0x%x\n",
+> +				     xrcdn);
+You chose to give special treatment to this command, why is that?
+>  		return err;
+>  	}
+>  
