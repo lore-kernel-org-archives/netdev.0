@@ -1,62 +1,69 @@
 From: "Williams, Mitch A" <mitch.a.williams@intel.com>
 Subject: RE: [net-next 03/16] i40evf: Support RSS option in ethtool
-Date: Mon, 17 Mar 2014 18:55:44 +0000
-Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D6556FAEF@FMSMSX113.amr.corp.intel.com>
+Date: Mon, 17 Mar 2014 18:55:22 +0000
+Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D6556FAE5@FMSMSX113.amr.corp.intel.com>
 References: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1395060316-16897-4-git-send-email-jeffrey.t.kirsher@intel.com>
- <1395082411.22343.4.camel@deadeye.wl.decadent.org.uk>
+	<1395060316-16897-4-git-send-email-jeffrey.t.kirsher@intel.com>
+ <CAJZOPZJWCDGcC3hWAVsLkN8LSY-7GifDSKN6OhDRjgwFpjtuSw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"gospo@redhat.com" <gospo@redhat.com>,
 	"sassmann@redhat.com" <sassmann@redhat.com>,
 	"Sullivan, Catherine" <catherine.sullivan@intel.com>
-To: Ben Hutchings <ben@decadent.org.uk>,
+To: Or Gerlitz <or.gerlitz@gmail.com>,
 	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:48442 "EHLO mga02.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:33876 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750716AbaCQSz4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2014 14:55:56 -0400
-In-Reply-To: <1395082411.22343.4.camel@deadeye.wl.decadent.org.uk>
+	id S1750706AbaCQSzz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 14:55:55 -0400
+In-Reply-To: <CAJZOPZJWCDGcC3hWAVsLkN8LSY-7GifDSKN6OhDRjgwFpjtuSw@mail.gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJlbkBkZWNhZGVudC5vcmcudWtdDQo+IFNlbnQ6IE1vbmRheSwgTWFyY2ggMTcsIDIw
-MTQgMTE6NTQgQU0NCj4gVG86IEtpcnNoZXIsIEplZmZyZXkgVA0KPiBDYzogZGF2ZW1AZGF2ZW1s
-b2Z0Lm5ldDsgV2lsbGlhbXMsIE1pdGNoIEE7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+IGdv
-c3BvQHJlZGhhdC5jb207IHNhc3NtYW5uQHJlZGhhdC5jb207IFN1bGxpdmFuLCBDYXRoZXJpbmUN
-Cj4gU3ViamVjdDogUmU6IFtuZXQtbmV4dCAwMy8xNl0gaTQwZXZmOiBTdXBwb3J0IFJTUyBvcHRp
-b24gaW4gZXRodG9vbA0KPiANCj4gT24gTW9uLCAyMDE0LTAzLTE3IGF0IDA1OjQ1IC0wNzAwLCBK
-ZWZmIEtpcnNoZXIgd3JvdGU6DQo+ID4gRnJvbTogTWl0Y2ggV2lsbGlhbXMgPG1pdGNoLmEud2ls
-bGlhbXNAaW50ZWwuY29tPg0KPiA+DQo+ID4gQWRkIHN1cHBvcnQgZm9yIHZpZXdpbmcgYW5kIG1v
-ZGlmeWluZyBSU1MgaGFzaCBvcHRpb25zIGFuZCBSU1MgaGFzaA0KPiA+IGxvb2stdXAgdGFibGUg
-cHJvZ3JhbW1pbmcgdGhyb3VnaCBldGh0b29sLiBCZWNhdXNlIHRoZSBsb29rdXAgdGFibGUgaXMN
-Cj4gPiBzbyBzbWFsbCBmb3IgdGhlIFZGcyAob25seSAxNiByZWdpc3RlcnMpLCB3ZSBkb24ndCBi
-b3RoZXIgdG8gbWFpbnRhaW4gYQ0KPiA+IHNoYWRvdyB0YWJsZSBpbiBtZW1vcnksIHdlIGp1c3Qg
-cmVhZCBhbmQgd3JpdGUgdGhlIHJlZ2lzdGVycyBkaXJlY3RseS4NCj4gWy4uLl0NCj4gPiArc3Rh
-dGljIGludCBpNDBldmZfZ2V0X3Jzc19oYXNoX29wdHMoc3RydWN0IGk0MGV2Zl9hZGFwdGVyICph
-ZGFwdGVyLA0KPiA+ICsJCQkJICAgIHN0cnVjdCBldGh0b29sX3J4bmZjICpjbWQpDQo+ID4gK3sN
-Cj4gPiArCWNtZC0+ZGF0YSA9IDA7DQo+ID4gKw0KPiA+ICsJLyogUmVwb3J0IGRlZmF1bHQgb3B0
-aW9ucyBmb3IgUlNTIG9uIGk0MGUgKi8NCj4gDQo+IEJ1dCB5b3UncmUgYWxsb3dpbmcgdGhlbSB0
-byBiZSBjaGFuZ2VkIGZyb20gdGhlIGRlZmF1bHRzLCBzbyB0aGlzIGlzDQo+IHdyb25nLg0KPiAN
-Cj4gWy4uLl0NCj4gPiArc3RhdGljIGludCBpNDBldmZfc2V0X3J4ZmhfaW5kaXIoc3RydWN0IG5l
-dF9kZXZpY2UgKm5ldGRldiwgY29uc3QgdTMyDQo+ICppbmRpcikNCj4gPiArew0KPiA+ICsJc3Ry
-dWN0IGk0MGV2Zl9hZGFwdGVyICphZGFwdGVyID0gbmV0ZGV2X3ByaXYobmV0ZGV2KTsNCj4gPiAr
-CXN0cnVjdCBpNDBlX2h3ICpodyA9ICZhZGFwdGVyLT5odzsNCj4gPiArCXUzMiBobHV0X3ZhbDsN
-Cj4gPiArCWludCBpLCBqOw0KPiA+ICsNCj4gPiArCS8qIFZlcmlmeSB1c2VyIGlucHV0LiAqLw0K
-PiA+ICsJZm9yIChpID0gMDsgaSA8IChJNDBFX1ZGUUZfSExVVF9NQVhfSU5ERVggKyAxKSAqIDQ7
-IGkrKykgew0KPiA+ICsJCWlmIChpbmRpcltpXSA+PSBhZGFwdGVyLT52c2lfcmVzLT5udW1fcXVl
-dWVfcGFpcnMpDQo+ID4gKwkJCXJldHVybiAtRUlOVkFMOw0KPiA+ICsJfQ0KPiBbLi4uXQ0KPiAN
-Cj4gZXRodG9vbF9zZXRfcnhmaF9pbmRpcigpIGRvZXMgdGhpcyB2YWxpZGF0aW9uIHNvIHlvdSBk
-b24ndCBoYXZlIHRvLg0KPiAoVGhpcyB3YXNuJ3QgdHJ1ZSBvcmlnaW5hbGx5IHNvIHlvdSdsbCBu
-ZWVkIHRvIGtlZXAgaXQgaW4gY29tcGF0aWJpbGl0eQ0KPiBjb2RlIGZvciB5b3VyIE9PVCBkcml2
-ZXIuKQ0KDQpUaGFua3MsIEJlbi4gV2UnbGwgcmVzcGluIHRoaXMuDQoNCi1NaXRjaA0KDQo+IA0K
-PiBCZW4uDQo+IA0KPiAtLQ0KPiBCZW4gSHV0Y2hpbmdzDQo+IEknbSBhbHdheXMgYW1hemVkIGJ5
-IHRoZSBudW1iZXIgb2YgcGVvcGxlIHdobyB0YWtlIHVwIHNvbGlwc2lzbSBiZWNhdXNlDQo+IHRo
-ZXkgaGVhcmQgc29tZW9uZSBlbHNlIGV4cGxhaW4gaXQuIC0gRSpCb3JnIG9uIGFsdC5mYW4ucHJh
-dGNoZXR0DQo=
+
+> -----Original Message-----
+> From: Or Gerlitz [mailto:or.gerlitz@gmail.com]
+> Sent: Monday, March 17, 2014 7:40 AM
+> To: Kirsher, Jeffrey T
+> Cc: David Miller; Williams, Mitch A; netdev@vger.kernel.org;
+> gospo@redhat.com; sassmann@redhat.com; Sullivan, Catherine
+> Subject: Re: [net-next 03/16] i40evf: Support RSS option in ethtool
+> 
+> On Mon, Mar 17, 2014 at 2:45 PM, Jeff Kirsher
+> <jeffrey.t.kirsher@intel.com> wrote:
+> > From: Mitch Williams <mitch.a.williams@intel.com>
+> >
+> > Add support for viewing and modifying RSS hash options and RSS hash
+> > look-up table programming through ethtool.
+> [...]
+> 
+> FWIW, this commit does more... wouldn't it be worth dropping some
+> words on that on that change-log?
+> 
+
+Well, Or, I'm not sure really what to say. I added code to change which hashing options RSS would use, and code to change the RSS lookup table.
+
+Looks like Ben has some comments, so we'll have to respin this anyway. I'm happy to change the description, just wondering what you'd like to see here.
+
+-Mitch
+
+> [...]
+> >  static struct ethtool_ops i40evf_ethtool_ops = {
+> >         .get_settings           = i40evf_get_settings,
+> >         .get_drvinfo            = i40evf_get_drvinfo,
+> > @@ -378,6 +687,12 @@ static struct ethtool_ops i40evf_ethtool_ops = {
+> >         .set_msglevel           = i40evf_set_msglevel,
+> >         .get_coalesce           = i40evf_get_coalesce,
+> >         .set_coalesce           = i40evf_set_coalesce,
+> > +       .get_rxnfc              = i40evf_get_rxnfc,
+> > +       .set_rxnfc              = i40evf_set_rxnfc,
+> > +       .get_rxfh_indir_size    = i40evf_get_rxfh_indir_size,
+> > +       .get_rxfh_indir         = i40evf_get_rxfh_indir,
+> > +       .set_rxfh_indir         = i40evf_set_rxfh_indir,
+> > +       .get_channels           = i40evf_get_channels,
+> >  };
