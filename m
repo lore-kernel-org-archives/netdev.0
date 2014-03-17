@@ -1,146 +1,117 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 36/38] netfilter: connlimit: use keyed locks
-Date: Mon, 17 Mar 2014 13:42:56 +0100
-Message-ID: <1395060178-11833-37-git-send-email-pablo@netfilter.org>
-References: <1395060178-11833-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/16][pull request] Intel Wired LAN Driver Updates
+Date: Mon, 17 Mar 2014 05:45:00 -0700
+Message-ID: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59544 "EHLO mail.us.es"
+Received: from mga09.intel.com ([134.134.136.24]:9205 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933184AbaCQMnv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2014 08:43:51 -0400
-In-Reply-To: <1395060178-11833-1-git-send-email-pablo@netfilter.org>
+	id S1752014AbaCQMpU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Mar 2014 08:45:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+This series contains updates to i40e, i40evf, e1000e, ixgbe and ixgbevf.
 
-connlimit currently suffers from spinlock contention, example for
-4-core system with rps enabled:
+Mitch adds support for the VF link state ndo which allows the PF driver
+to control the virtual link state of the VF devices.  Fixed the RSS HLUT
+programming loop in i40evf because most of the entries were not being
+written at all which caused the flows to end up at queue zero.  Added
+support for viewing and modifying RSS hash options and RSS hash look-up
+table programming through ethtool for i40evf.  Fixed complaint about
+the use of min() where min_t() should be used in i40evf.
 
-+  20.84%   ksoftirqd/2  [kernel.kallsyms] [k] _raw_spin_lock_bh
-+  20.76%   ksoftirqd/1  [kernel.kallsyms] [k] _raw_spin_lock_bh
-+  20.42%   ksoftirqd/0  [kernel.kallsyms] [k] _raw_spin_lock_bh
-+   6.07%   ksoftirqd/2  [nf_conntrack]    [k] ____nf_conntrack_find
-+   6.07%   ksoftirqd/1  [nf_conntrack]    [k] ____nf_conntrack_find
-+   5.97%   ksoftirqd/0  [nf_conntrack]    [k] ____nf_conntrack_find
-+   2.47%   ksoftirqd/2  [nf_conntrack]    [k] hash_conntrack_raw
-+   2.45%   ksoftirqd/0  [nf_conntrack]    [k] hash_conntrack_raw
-+   2.44%   ksoftirqd/1  [nf_conntrack]    [k] hash_conntrack_raw
+Anjali adds support for ethtool -k option for NTUPLE control for i40e.
 
-May allow parallel lookup/insert/delete if the entry is hashed to
-another slot.  With patch:
+Elizabeth cleans up and refactors i40e_open() to separate out the VSI
+code into its own i40e_vsi_open().
 
-+  20.95%  ksoftirqd/0  [nf_conntrack] [k] ____nf_conntrack_find
-+  20.50%  ksoftirqd/1  [nf_conntrack] [k] ____nf_conntrack_find
-+  20.27%  ksoftirqd/2  [nf_conntrack] [k] ____nf_conntrack_find
-+   5.76%  ksoftirqd/1  [nf_conntrack] [k] hash_conntrack_raw
-+   5.39%  ksoftirqd/2  [nf_conntrack] [k] hash_conntrack_raw
-+   5.35%  ksoftirqd/0  [nf_conntrack] [k] hash_conntrack_raw
-+   2.00%  ksoftirqd/1  [kernel.kallsyms] [k] __rcu_read_unlock
+Jesse enables the hardware feature head write back to avoid updating the
+descriptor ring by marking each descriptor with a DD bit and instead
+writes a memory location with an update to where the driver should clean
+up to in i40e and i40evf.  Reduces context descriptors for i40e/i40evf
+since we do not need context descriptors for every packet, only for
+TSO or timesync.
 
-Improved rx processing rate from ~35kpps to ~50 kpps.
+Dan Carpenter fixes a potential array underflow in i40e_vc_process_vf_msg().
 
-Reviewed-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/xt_connlimit.c |   26 ++++++++++++++++++--------
- 1 file changed, 18 insertions(+), 8 deletions(-)
+Dave fixes an e1000e hardware unit hang where the check for pending Tx work
+when link is lost was mistakenly moved to be done only when link is first
+detected to be lost.  Fixed a problem with poor network performance on
+certain silicon in e1000e when configured for 100M HDX performance.
 
-diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
-index a8eaabb..ad290cc 100644
---- a/net/netfilter/xt_connlimit.c
-+++ b/net/netfilter/xt_connlimit.c
-@@ -31,6 +31,9 @@
- #include <net/netfilter/nf_conntrack_tuple.h>
- #include <net/netfilter/nf_conntrack_zones.h>
- 
-+#define CONNLIMIT_SLOTS	256
-+#define CONNLIMIT_LOCK_SLOTS	32
-+
- /* we will save the tuples of all connections we care about */
- struct xt_connlimit_conn {
- 	struct hlist_node		node;
-@@ -39,8 +42,8 @@ struct xt_connlimit_conn {
- };
- 
- struct xt_connlimit_data {
--	struct hlist_head	iphash[256];
--	spinlock_t		lock;
-+	struct hlist_head	iphash[CONNLIMIT_SLOTS];
-+	spinlock_t		locks[CONNLIMIT_LOCK_SLOTS];
- };
- 
- static u_int32_t connlimit_rnd __read_mostly;
-@@ -48,7 +51,8 @@ static struct kmem_cache *connlimit_conn_cachep __read_mostly;
- 
- static inline unsigned int connlimit_iphash(__be32 addr)
- {
--	return jhash_1word((__force __u32)addr, connlimit_rnd) & 0xFF;
-+	return jhash_1word((__force __u32)addr,
-+			    connlimit_rnd) % CONNLIMIT_SLOTS;
- }
- 
- static inline unsigned int
-@@ -61,7 +65,8 @@ connlimit_iphash6(const union nf_inet_addr *addr,
- 	for (i = 0; i < ARRAY_SIZE(addr->ip6); ++i)
- 		res.ip6[i] = addr->ip6[i] & mask->ip6[i];
- 
--	return jhash2((u32 *)res.ip6, ARRAY_SIZE(res.ip6), connlimit_rnd) & 0xFF;
-+	return jhash2((u32 *)res.ip6, ARRAY_SIZE(res.ip6),
-+		       connlimit_rnd) % CONNLIMIT_SLOTS;
- }
- 
- static inline bool already_closed(const struct nf_conn *conn)
-@@ -183,7 +188,7 @@ static int count_them(struct net *net,
- 
- 	hhead = &data->iphash[hash];
- 
--	spin_lock_bh(&data->lock);
-+	spin_lock_bh(&data->locks[hash % CONNLIMIT_LOCK_SLOTS]);
- 	count = count_hlist(net, hhead, tuple, addr, mask, family, &addit);
- 	if (addit) {
- 		if (add_hlist(hhead, tuple, addr))
-@@ -191,7 +196,7 @@ static int count_them(struct net *net,
- 		else
- 			count = -ENOMEM;
- 	}
--	spin_unlock_bh(&data->lock);
-+	spin_unlock_bh(&data->locks[hash % CONNLIMIT_LOCK_SLOTS]);
- 
- 	return count;
- }
-@@ -227,7 +232,6 @@ connlimit_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 
- 	connections = count_them(net, info->data, tuple_ptr, &addr,
- 	                         &info->mask, par->family);
--
- 	if (connections < 0)
- 		/* kmalloc failed, drop it entirely */
- 		goto hotdrop;
-@@ -268,7 +272,9 @@ static int connlimit_mt_check(const struct xt_mtchk_param *par)
- 		return -ENOMEM;
- 	}
- 
--	spin_lock_init(&info->data->lock);
-+	for (i = 0; i < ARRAY_SIZE(info->data->locks); ++i)
-+		spin_lock_init(&info->data->locks[i]);
-+
- 	for (i = 0; i < ARRAY_SIZE(info->data->iphash); ++i)
- 		INIT_HLIST_HEAD(&info->data->iphash[i]);
- 
-@@ -309,6 +315,10 @@ static struct xt_match connlimit_mt_reg __read_mostly = {
- static int __init connlimit_mt_init(void)
- {
- 	int ret;
-+
-+	BUILD_BUG_ON(CONNLIMIT_LOCK_SLOTS > CONNLIMIT_SLOTS);
-+	BUILD_BUG_ON((CONNLIMIT_SLOTS % CONNLIMIT_LOCK_SLOTS) != 0);
-+
- 	connlimit_conn_cachep = kmem_cache_create("xt_connlimit_conn",
- 					   sizeof(struct xt_connlimit_conn),
- 					   0, 0, NULL);
+Carolyn adds register defines needed for time sync functions and the code
+to call the updated defines.
+
+Jacob adds the ixgbe function for writing PCI config word and checks
+whether the adapter has been removed first.
+
+Mark adds the bit __IXGBEVF_REMOVING to indicate that the module is being
+removed because the __IXGBEVF_DOWN bit had been overloaded for this
+purpose, but leads to trouble.  ixgbevf_down function can now prevent
+multiple executions by doing test_and_set_bit on __IXGBEVF_DOWN.
+
+The following are changes since commit e7ef085d0a9dc1cc72e7d8108ed3b4e1a5e8d938:
+  Merge branch 'napi_budget_zero'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Anjali Singhai Jain (1):
+  i40e: Patch to enable Ethtool/netdev feature flag for NTUPLE control
+
+Carolyn Wyborny (1):
+  igb: Add register defines needed for time sync functions
+
+Catherine Sullivan (1):
+  i40e/i40evf: Bump build versions
+
+Dan Carpenter (1):
+  i40e: potential array underflow in i40e_vc_process_vf_msg()
+
+David Ertman (2):
+  e1000e: Fix Hardware Unit Hang
+  e1000e: Fix Explicitly set Transmit Control Register
+
+Elizabeth Kappler (1):
+  i40e: Refactor and cleanup i40e_open(), adding i40e_vsi_open()
+
+Jacob Keller (1):
+  ixgbe: add ixgbe_write_pci_cfg_word with ixgbe_removed check
+
+Jesse Brandeburg (2):
+  i40e/i40evf: enable hardware feature head write back
+  i40e/i40evf: reduce context descriptors
+
+Mark Rustad (2):
+  ixgbevf: Indicate removal state explicitly
+  ixgbevf: Protect ixgbevf_down with __IXGBEVF_DOWN bit
+
+Mitch Williams (4):
+  i40e: support VF link state ndo
+  i40evf: correctly program RSS HLUT table
+  i40evf: Support RSS option in ethtool
+  i40evf: use min_t
+
+ drivers/net/ethernet/intel/e1000e/netdev.c         |  42 ++-
+ drivers/net/ethernet/intel/i40e/i40e.h             |   4 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  89 +++++-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  48 +++-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  91 +++++-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   4 +
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  48 +++-
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 315 +++++++++++++++++++++
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  23 +-
+ drivers/net/ethernet/intel/igb/e1000_defines.h     |  70 ++++-
+ drivers/net/ethernet/intel/igb/e1000_regs.h        |   9 +
+ drivers/net/ethernet/intel/igb/igb_ptp.c           |   4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     |   6 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h    |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   9 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h       |   5 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  |  18 +-
+ 17 files changed, 715 insertions(+), 71 deletions(-)
+
 -- 
-1.7.10.4
+1.8.3.1
