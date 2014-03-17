@@ -1,50 +1,65 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 16/38] netfilter: ipset: move registration message to init from net_init
-Date: Mon, 17 Mar 2014 13:42:36 +0100
-Message-ID: <1395060178-11833-17-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 29/38] netfilter: nft_ct: remove family from struct nft_ct
+Date: Mon, 17 Mar 2014 13:42:49 +0100
+Message-ID: <1395060178-11833-30-git-send-email-pablo@netfilter.org>
 References: <1395060178-11833-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59412 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:59489 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933127AbaCQMng (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2014 08:43:36 -0400
+	id S933164AbaCQMno (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Mar 2014 08:43:44 -0400
 In-Reply-To: <1395060178-11833-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ilia Mirkin <imirkin@alum.mit.edu>
+From: Patrick McHardy <kaber@trash.net>
 
-Commit 1785e8f473 ("netfiler: ipset: Add net namespace for ipset") moved
-the initialization print into net_init, which can get called a lot due
-to namespaces. Move it back into init, reduce to pr_info.
+Since we have the context available during destruction again, we can
+remove the family from the private structure.
 
-Signed-off-by: Ilia Mirkin <imirkin@alum.mit.edu>
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipset/ip_set_core.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/nft_ct.c |    9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
 
-diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
-index c6c97b8..636cb8d 100644
---- a/net/netfilter/ipset/ip_set_core.c
-+++ b/net/netfilter/ipset/ip_set_core.c
-@@ -1945,7 +1945,6 @@ ip_set_net_init(struct net *net)
- 		return -ENOMEM;
- 	inst->is_deleted = 0;
- 	rcu_assign_pointer(inst->ip_set_list, list);
--	pr_notice("ip_set: protocol %u\n", IPSET_PROTOCOL);
+diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
+index 65a2c7b..bd0d41e 100644
+--- a/net/netfilter/nft_ct.c
++++ b/net/netfilter/nft_ct.c
+@@ -24,11 +24,10 @@
+ struct nft_ct {
+ 	enum nft_ct_keys	key:8;
+ 	enum ip_conntrack_dir	dir:8;
+-	union{
++	union {
+ 		enum nft_registers	dreg:8;
+ 		enum nft_registers	sreg:8;
+ 	};
+-	uint8_t			family;
+ };
+ 
+ static void nft_ct_get_eval(const struct nft_expr *expr,
+@@ -316,17 +315,13 @@ static int nft_ct_init(const struct nft_ctx *ctx,
+ 	if (err < 0)
+ 		return err;
+ 
+-	priv->family = ctx->afi->family;
+-
  	return 0;
  }
  
-@@ -1996,6 +1995,7 @@ ip_set_init(void)
- 		nfnetlink_subsys_unregister(&ip_set_netlink_subsys);
- 		return ret;
- 	}
-+	pr_info("ip_set: protocol %u\n", IPSET_PROTOCOL);
- 	return 0;
+ static void nft_ct_destroy(const struct nft_ctx *ctx,
+ 			   const struct nft_expr *expr)
+ {
+-	struct nft_ct *priv = nft_expr_priv(expr);
+-
+-	nft_ct_l3proto_module_put(priv->family);
++	nft_ct_l3proto_module_put(ctx->afi->family);
  }
  
+ static int nft_ct_get_dump(struct sk_buff *skb, const struct nft_expr *expr)
 -- 
 1.7.10.4
