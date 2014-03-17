@@ -1,8 +1,8 @@
 From: Oleg Nesterov <oleg@redhat.com>
-Subject: [PATCH 0/2] (Was: pppd service crash in linux-3.13.6)
-Date: Mon, 17 Mar 2014 19:04:16 +0100
-Message-ID: <20140317180416.GA15708@redhat.com>
-References: <531A37FF.4000509@totakura.in> <531DEEA6.4090808@totakura.in> <531E111A.8040207@hurleysoftware.com> <20140313170622.GA31206@redhat.com> <5321F113.7090000@hurleysoftware.com> <53230FE5.9020204@hurleysoftware.com> <20140314192346.GA14823@redhat.com> <53236662.3020707@hurleysoftware.com> <20140314210456.GA19032@redhat.com> <53244C61.5090508@hurleysoftware.com>
+Subject: [PATCH 2/2] exit: move check_stack_usage() to the end of do_exit()
+Date: Mon, 17 Mar 2014 19:05:10 +0100
+Message-ID: <20140317180510.GC15708@redhat.com>
+References: <531DEEA6.4090808@totakura.in> <531E111A.8040207@hurleysoftware.com> <20140313170622.GA31206@redhat.com> <5321F113.7090000@hurleysoftware.com> <53230FE5.9020204@hurleysoftware.com> <20140314192346.GA14823@redhat.com> <53236662.3020707@hurleysoftware.com> <20140314210456.GA19032@redhat.com> <53244C61.5090508@hurleysoftware.com> <20140317180416.GA15708@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Sree Harsha Totakura <sreeharsha@totakura.in>,
@@ -11,41 +11,47 @@ Cc: Sree Harsha Totakura <sreeharsha@totakura.in>,
 	Jeff Dike <jdike@addtoit.com>, Ingo Molnar <mingo@elte.hu>
 To: Peter Hurley <peter@hurleysoftware.com>,
 	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:31456 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932530AbaCQSFu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Mar 2014 14:05:50 -0400
 Content-Disposition: inline
-In-Reply-To: <53244C61.5090508@hurleysoftware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20140317180416.GA15708@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/15, Peter Hurley wrote:
->
-> On 03/14/2014 05:04 PM, Oleg Nesterov wrote:
->>
->> But it can't even know who called call_usermodehelper(). Besides,
->> cgroup_release_agent() uses UMH_WAIT_EXEC, so the caller can continue
->> and disappear completely before the usermode process has any chance
->> to do something.
->
-> I'm just hypothesizing potential breakage, since the order of teardown
-> is sensitive to changes, and I didn't do a complete audit of all the
-> possibilities.
+It is not clear why check_stack_usage() is called so early and
+thus it never checks the stack usage in, say, exit_notify() or
+flush_ptrace_hw_breakpoint() or other functions which are only
+called by do_exit().
 
-Yes, I understand your concerns. Still I do not see how cgroup_exit()
-can depend on tty/namespace.
+Move the callsite down to the last preempt_disable/schedule.
 
-> If you feel strongly about moving disassociate_tty(), I won't object.
+Signed-off-by: Oleg Nesterov <oleg@redhat.com>
+---
+ kernel/exit.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-It is not that I feel really strongly... just in looks better to me.
-If nothing else:
-
-	1. If we actually can not do disassociate_ctty() before, say,
-	   cgroup_exit(), then we should understand and document the
-	   reason.
-
-	2. task_work_add() can have more users in drivers/tty which
-	   can be triggered by disassociate_tty() paths. So I think
-	   it would be nice to call it before task_work_exit().
-
-2/2 is offtopic and hopefully trivial.
-
-Oleg.
+diff --git a/kernel/exit.c b/kernel/exit.c
+index 5d5b472..6d1f245 100644
+--- a/kernel/exit.c
++++ b/kernel/exit.c
+@@ -788,7 +788,6 @@ void do_exit(long code)
+ 		disassociate_ctty(1);
+ 	exit_task_namespaces(tsk);
+ 	exit_task_work(tsk);
+-	check_stack_usage();
+ 	exit_thread();
+ 
+ 	/*
+@@ -842,6 +841,7 @@ void do_exit(long code)
+ 
+ 	validate_creds_for_do_exit(tsk);
+ 
++	check_stack_usage();
+ 	preempt_disable();
+ 	if (tsk->nr_dirtied)
+ 		__this_cpu_add(dirty_throttle_leaks, tsk->nr_dirtied);
+-- 
+1.5.5.1
