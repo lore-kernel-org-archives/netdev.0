@@ -1,64 +1,39 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] sh_eth: ensure pm_runtime cannot suspend the device during
- init
-Date: Tue, 18 Mar 2014 01:30:26 +0300
-Message-ID: <53277782.6070804@cogentembedded.com>
-References: <1395056275-5005-1-git-send-email-ben.dooks@codethink.co.uk> <2780951.47jzSPgHnH@avalon>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-sh@vger.kernel.org, netdev@vger.kernel.org
-To: Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
-	Ben Dooks <ben.dooks@codethink.co.uk>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <2780951.47jzSPgHnH@avalon>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH -next] netfilter: connlimit: fix UP build
+Date: Mon, 17 Mar 2014 22:27:50 +0100
+Message-ID: <1395091670-28238-1-git-send-email-fw@strlen.de>
+References: <53275dbf./J0nBeffRcN62Ddt%fengguang.wu@intel.com>
+Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
+To: netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:54324 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752414AbaCQVcl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 17:32:41 -0400
+In-Reply-To: <53275dbf./J0nBeffRcN62Ddt%fengguang.wu@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+cannot use ARRAY_SIZE() if spinlock_t is empty struct.
 
-On 03/17/2014 11:23 PM, Laurent Pinchart wrote:
+Fixes: 1442e7507dd597 ("netfilter: connlimit: use keyed locks")
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+Another one, did UP build with LOCKDEP=y  8-(
 
->> The pm_rumtime work queue is causing the device to be suspended during
->> initialisation, thus the initialisation may not be able to access registers
->> properly. As the code is called from a work queue, it is possible that this
->> is not seen from certain configurations/builds due to the asynchronos
->> nature of the code.
-
->> Use pm_runtime_get_sync() and pm_runtime_put_sync() to ensure that the
->> pm system does not suspend it during the probe() call and remove the
->> now unnecessary pm_runtime_resume() call.
-
->> This fixes the external abort that can cause /sbin/init or other such
->> init processed to die.
-
->> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
->> Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
->> ---
->>   drivers/net/ethernet/renesas/sh_eth.c | 3 ++-
->>   1 file changed, 2 insertions(+), 1 deletion(-)
-
->> diff --git a/drivers/net/ethernet/renesas/sh_eth.c
->> b/drivers/net/ethernet/renesas/sh_eth.c index 4f76b5e..f1cfd64 100644
->> --- a/drivers/net/ethernet/renesas/sh_eth.c
->> +++ b/drivers/net/ethernet/renesas/sh_eth.c
->> @@ -2869,7 +2869,7 @@ static int sh_eth_drv_probe(struct platform_device
->> *pdev) spin_lock_init(&mdp->lock);
->>   	mdp->pdev = pdev;
->>   	pm_runtime_enable(&pdev->dev);
->> -	pm_runtime_resume(&pdev->dev);
->> +	pm_runtime_get_sync(&pdev->dev);
-
-> Now that we've found out that the problem is caused by registering the network
-> device before registering the mdio bus, shouldn't the proper solution be to
-> register the network device last in the probe function ?
-
-    Unfortunately, it's not easy to do, as sh_mdio_init() uses net_device::dev.
-Probably could get rid of that use by partly reverting my managed device API 
-patch since the only user seems to be devm_kzalloc() in that function, at 
-least I hope so... still looking into this.
-    BTW, quite many drivers have the same problem, doing different things 
-after register_netdev() call, many of them probing MDIO as well.
-
-WBR, Sergei
-
+diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
+index 458464e..a6e129e 100644
+--- a/net/netfilter/xt_connlimit.c
++++ b/net/netfilter/xt_connlimit.c
+@@ -377,7 +377,7 @@ static int connlimit_mt_check(const struct xt_mtchk_param *par)
+ 		return -ENOMEM;
+ 	}
+ 
+-	for (i = 0; i < ARRAY_SIZE(info->data->locks); ++i)
++	for (i = 0; i < CONNLIMIT_LOCK_SLOTS; ++i)
+ 		spin_lock_init(&info->data->locks[i]);
+ 
+ 	for (i = 0; i < ARRAY_SIZE(info->data->climit_root4); ++i)
+-- 
+1.8.1.5
