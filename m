@@ -1,38 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: mlx4 netpoll and rx/tx weirdness
-Date: Mon, 17 Mar 2014 14:40:10 -0700
-Message-ID: <1395092410.9668.68.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140315.122912.1621610280186900725.davem@davemloft.net>
-	 <87ob17kz96.fsf_-_@xmission.com>
-	 <1394986621.9668.31.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140317.172230.76193310497948256.davem@davemloft.net>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: RE: [net-next 01/16] i40e: support VF link state ndo
+Date: Mon, 17 Mar 2014 21:40:17 +0000
+Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D65571229@FMSMSX113.amr.corp.intel.com>
+References: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1395060316-16897-2-git-send-email-jeffrey.t.kirsher@intel.com>
+ <CAJZOPZLrwg2sMnhQZZhpjWdqjBEBuWujv0Uy9q-_bViK5j46zg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, ben@decadent.org.uk, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com,
-	amirv@mellanox.com, ogerlitz@mellanox.com, jackm@dev.mellanox.co.il
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"Sullivan, Catherine" <catherine.sullivan@intel.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:35992 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751757AbaCQVkO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 17:40:14 -0400
-Received: by mail-pb0-f45.google.com with SMTP id uo5so6273716pbc.32
-        for <netdev@vger.kernel.org>; Mon, 17 Mar 2014 14:40:13 -0700 (PDT)
-In-Reply-To: <20140317.172230.76193310497948256.davem@davemloft.net>
+Received: from mga01.intel.com ([192.55.52.88]:6136 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752107AbaCQVk5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 17:40:57 -0400
+In-Reply-To: <CAJZOPZLrwg2sMnhQZZhpjWdqjBEBuWujv0Uy9q-_bViK5j46zg@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-03-17 at 17:22 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Sun, 16 Mar 2014 09:17:01 -0700
-> 
-> > Wait a minute, I thought ndo_poll_controller() had to be synchronous,
-> > not schedule a napi ?
-> 
-> ndo_poll_controller() basically runs the hardware interrupt handler,
-> which might schedule NAPI processing.  Then netpoll invokes
-> the NAPI poll in whatever state ndo_poll_controller() left it in.
 
-Ah right, this makes sense, poll_napi() uses a spin_trylock()...
+
+> -----Original Message-----
+> From: Or Gerlitz [mailto:or.gerlitz@gmail.com]
+> Sent: Monday, March 17, 2014 2:24 PM
+> To: Kirsher, Jeffrey T
+> Cc: David Miller; Williams, Mitch A; netdev@vger.kernel.org;
+> gospo@redhat.com; sassmann@redhat.com; Sullivan, Catherine
+> Subject: Re: [net-next 01/16] i40e: support VF link state ndo
+> 
+> On Mon, Mar 17, 2014 at 2:45 PM, Jeff Kirsher
+> <jeffrey.t.kirsher@intel.com> wrote:
+> > From: Mitch Williams <mitch.a.williams@intel.com>
+> > This netdev op allows the PF driver to control the virtual link state of
+> > the VF devices. This can be used to deny naughty VF drivers access to the
+> wire,
+> 
+> Does this denial exists in the patch or the current code? where?
+> 
+> Or.
+
+To clarify: you can manually deny link to a VF with this functionality. This would not automatically find and shut down misbehaving VFs. That functionality is planned but is not yet ready, and would operate on the hardware level.
+
+-Mitch
