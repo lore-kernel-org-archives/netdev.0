@@ -1,92 +1,114 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 30/38] netfilter: nft_nat: fix family validation
-Date: Mon, 17 Mar 2014 13:42:50 +0100
-Message-ID: <1395060178-11833-31-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 33/38] netfilter: connlimit: move insertion of new element out of count function
+Date: Mon, 17 Mar 2014 13:42:53 +0100
+Message-ID: <1395060178-11833-34-git-send-email-pablo@netfilter.org>
 References: <1395060178-11833-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59520 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:59521 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933177AbaCQMns (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S933179AbaCQMns (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 17 Mar 2014 08:43:48 -0400
 In-Reply-To: <1395060178-11833-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+From: Florian Westphal <fw@strlen.de>
 
-The family in the NAT expression is basically completely useless since
-we have it available during runtime anyway. Nevertheless it is used to
-decide the NAT family, so at least validate it properly. As we don't
-support cross-family NAT, it needs to match the family of the table the
-expression exists in.
+Allows easier code-reuse in followup patches.
 
-Unfortunately we can't remove it completely since we need to dump it for
-userspace (*sigh*), so at least reduce the memory waste.
-
-Additionally clean up the module init function by removing useless
-temporary variables.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Reviewed-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nft_nat.c |   22 ++++++++++------------
- 1 file changed, 10 insertions(+), 12 deletions(-)
+ net/netfilter/xt_connlimit.c |   38 +++++++++++++++++++++++---------------
+ 1 file changed, 23 insertions(+), 15 deletions(-)
 
-diff --git a/net/netfilter/nft_nat.c b/net/netfilter/nft_nat.c
-index d3b1ffe..a0195d2 100644
---- a/net/netfilter/nft_nat.c
-+++ b/net/netfilter/nft_nat.c
-@@ -31,8 +31,8 @@ struct nft_nat {
- 	enum nft_registers      sreg_addr_max:8;
- 	enum nft_registers      sreg_proto_min:8;
- 	enum nft_registers      sreg_proto_max:8;
--	int                     family;
--	enum nf_nat_manip_type  type;
-+	enum nf_nat_manip_type  type:8;
-+	u8			family;
- };
- 
- static void nft_nat_eval(const struct nft_expr *expr,
-@@ -88,6 +88,7 @@ static int nft_nat_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
- 			const struct nlattr * const tb[])
+diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
+index d4c6db1..0220d40 100644
+--- a/net/netfilter/xt_connlimit.c
++++ b/net/netfilter/xt_connlimit.c
+@@ -97,13 +97,12 @@ static int count_hlist(struct net *net,
+ 		       const struct nf_conntrack_tuple *tuple,
+ 		       const union nf_inet_addr *addr,
+ 		       const union nf_inet_addr *mask,
+-		       u_int8_t family)
++		       u_int8_t family, bool *addit)
  {
- 	struct nft_nat *priv = nft_expr_priv(expr);
-+	u32 family;
- 	int err;
+ 	const struct nf_conntrack_tuple_hash *found;
+ 	struct xt_connlimit_conn *conn;
+ 	struct hlist_node *n;
+ 	struct nf_conn *found_ct;
+-	bool addit = true;
+ 	int matches = 0;
  
- 	if (tb[NFTA_NAT_TYPE] == NULL)
-@@ -107,9 +108,12 @@ static int nft_nat_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
- 	if (tb[NFTA_NAT_FAMILY] == NULL)
- 		return -EINVAL;
+ 	rcu_read_lock();
+@@ -126,7 +125,7 @@ static int count_hlist(struct net *net,
+ 			 * We should not see tuples twice unless someone hooks
+ 			 * this into a table without "-p tcp --syn".
+ 			 */
+-			addit = false;
++			*addit = false;
+ 		} else if (already_closed(found_ct)) {
+ 			/*
+ 			 * we do not care about connections which are
+@@ -146,20 +145,22 @@ static int count_hlist(struct net *net,
  
--	priv->family = ntohl(nla_get_be32(tb[NFTA_NAT_FAMILY]));
--	if (priv->family != AF_INET && priv->family != AF_INET6)
--		return -EINVAL;
-+	family = ntohl(nla_get_be32(tb[NFTA_NAT_FAMILY]));
-+	if (family != AF_INET && family != AF_INET6)
-+		return -EAFNOSUPPORT;
-+	if (family != ctx->afi->family)
-+		return -EOPNOTSUPP;
-+	priv->family = family;
+ 	rcu_read_unlock();
  
- 	if (tb[NFTA_NAT_REG_ADDR_MIN]) {
- 		priv->sreg_addr_min = ntohl(nla_get_be32(
-@@ -202,13 +206,7 @@ static struct nft_expr_type nft_nat_type __read_mostly = {
- 
- static int __init nft_nat_module_init(void)
- {
--	int err;
+-	if (addit) {
+-		/* save the new connection in our list */
+-		conn = kmalloc(sizeof(*conn), GFP_ATOMIC);
+-		if (conn == NULL)
+-			return -ENOMEM;
+-		conn->tuple = *tuple;
+-		conn->addr = *addr;
+-		hlist_add_head(&conn->node, head);
+-		++matches;
+-	}
 -
--	err = nft_register_expr(&nft_nat_type);
--	if (err < 0)
--		return err;
--
--	return 0;
-+	return nft_register_expr(&nft_nat_type);
+ 	return matches;
  }
  
- static void __exit nft_nat_module_exit(void)
++static bool add_hlist(struct hlist_head *head,
++		      const struct nf_conntrack_tuple *tuple,
++		      const union nf_inet_addr *addr)
++{
++	struct xt_connlimit_conn *conn = kmalloc(sizeof(*conn), GFP_ATOMIC);
++	if (conn == NULL)
++		return false;
++	conn->tuple = *tuple;
++	conn->addr = *addr;
++	hlist_add_head(&conn->node, head);
++	return true;
++}
++
+ static int count_them(struct net *net,
+ 		      struct xt_connlimit_data *data,
+ 		      const struct nf_conntrack_tuple *tuple,
+@@ -170,6 +171,7 @@ static int count_them(struct net *net,
+ 	struct hlist_head *hhead;
+ 	int count;
+ 	u32 hash;
++	bool addit = true;
+ 
+ 	if (family == NFPROTO_IPV6)
+ 		hash = connlimit_iphash6(addr, mask);
+@@ -179,7 +181,13 @@ static int count_them(struct net *net,
+ 	hhead = &data->iphash[hash];
+ 
+ 	spin_lock_bh(&data->lock);
+-	count = count_hlist(net, hhead, tuple, addr, mask, family);
++	count = count_hlist(net, hhead, tuple, addr, mask, family, &addit);
++	if (addit) {
++		if (add_hlist(hhead, tuple, addr))
++			count++;
++		else
++			count = -ENOMEM;
++	}
+ 	spin_unlock_bh(&data->lock);
+ 
+ 	return count;
 -- 
 1.7.10.4
