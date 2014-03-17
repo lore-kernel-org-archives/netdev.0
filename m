@@ -1,170 +1,212 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 2/2] net: cdc_ncm: respect operator preferred MTU reported by MBIM
-Date: Mon, 17 Mar 2014 10:42:09 +0100
-Message-ID: <87ob15maa6.fsf@nemi.mork.no>
-References: <1394952550-9308-1-git-send-email-benchan@chromium.org>
-	<1394952550-9308-2-git-send-email-benchan@chromium.org>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH net-next v6 0/3] The huawei_cdc_ncm driver / E3276 problem
+Date: Mon, 17 Mar 2014 12:31:53 +0100
+Message-ID: <87k3btm57a.fsf@nemi.mork.no>
+References: <1394746907.15946.8.camel@dcbw.local>
+	<20140313220812.GW3200@reaktio.net>
+	<20140314075548.GX3200@reaktio.net> <87wqfxnppc.fsf@nemi.mork.no>
+	<20140314084159.GA3200@reaktio.net> <87siqlnol8.fsf@nemi.mork.no>
+	<20140314090525.GB3200@reaktio.net> <87ob19nndo.fsf@nemi.mork.no>
+	<20140314125934.GC3200@reaktio.net> <87vbvgnbv3.fsf@nemi.mork.no>
+	<20140314142559.GD3200@reaktio.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Greg Suarez <gsuarez@smithmicro.com>
-To: Ben Chan <benchan@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394952550-9308-2-git-send-email-benchan@chromium.org> (Ben
-	Chan's message of "Sat, 15 Mar 2014 23:49:10 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+To: Pasi =?utf-8?B?S8Okcmtrw6RpbmVu?= <pasik-X3B1VOXEql0@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140314142559.GD3200-GxtO3QLqHcLR7s880joybQ@public.gmane.org> ("Pasi =?utf-8?Q?K=C3=A4r?=
+ =?utf-8?Q?kk=C3=A4inen=22's?= message
+	of "Fri, 14 Mar 2014 16:25:59 +0200")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Is this *really* driver material, or should we just leave the IP MTU
-hint handling up to the userspace management application?
+Pasi K=C3=A4rkk=C3=A4inen <pasik-X3B1VOXEql0@public.gmane.org> writes:
 
-There are no less than 3(!) different ways for a device to specify the
-MBIM MTU:
+> http://pasik.reaktio.net/huawei-e3276-usbmon3.pcapng
+>
+> (I did move the dongle to a different usb bus nr 3 to make it the onl=
+y device on that bus before capturing..)=20
 
- 1) wMaxSegmentSize field of the "MBIM Control Model Functional
-      Descriptor"
-      (mandatory, pre-errata1, per-device, both IP and DSS)
+Thanks.  That helps.
 
- 2) IPv4Mtu/IPv6Mtu fields of the MBIM_IP_CONFIGURATION_INFO response t=
-o
-      MBIM_CID_IP_CONFIGURATION
-      (mandatory, pre-errata1, per-session, IP only)
-=20
- 3) wMTU field of the "MBIM Extended Functional Descriptor"
-      (optional, errata1, per-operator, IP only)
+> So what I did:
+>
+> - Start wireshark capture on USB bus nr 3.
+> - Plug in the Huawei E3276 dongle.
+> - Wait for usb_modeswitch to happen.
+> - Use minicom to talk to /dev/cdc-wdm0 and send AT commands to connec=
+t to Internet:
+> 	- ATQ0 V1 E1 S0=3D0
+> 	- AT^NDISDUP=3D1,1,"internet"
+>
+> - After the dongle has connected query for DHCP status:
+> 	- AT^DHCP?
+>
+> - Launch dhcp client (dhclient) on wwp0s20u1i1 interface.
+> - Wait for a while and see RX error counters increasing on ifconfig o=
+utput.
+> - Cancel (ctrl+c) the dhclient.
+> - Stop wireshark capture.=20
+>
+>
+> Does that capture file show anything interesting to you?=20
 
-I see the optional extended MBIM descriptor as no more than a hint, and
-given that MBIM_CID_IP_CONFIGURATION is mandatory I see no real use cas=
-e
-at all.
+I see two devices (excluding the root hub), both with a single
+configuration:=20
+ 12d1:14fe (addr: 4)
+ 12d1:1506 (addr: 5)
 
-If the extended decriptor is there, and the application supports it,
-then fine - let the application base the default IP MTU on this
-value. But I cannot see anything possibly break for an application and
-driver which does not support it.  The fact that the USB-IF didn't
-bother to update the MBIM version number when they added this descripto=
+The 12d1:14fe device is before mode switching, so I'll just ignore that
+and concentrate on the two modem interfaces of the 12d1:1506 device:
+0 (serial, AT command) and 1 (NCM combined).
+
+Possibly unrelated, but a bit unexpected:  I see a request for string
+descriptor 0xee, which is the "magic Microsoft descriptor".  I don't
+know of any Linux software requesting this by default.  Anyone else?
+The request results in a stall, so it's obviously unsupported by this
+devices and cannot possibly matter.  But I still wonder who sends it...
+
+
+Anyway, I believe I can see the problem. Or some part of it.  I'm still
+not quite sure what the cause is.
+
+If you look at the data sent by the driver to endpoint 0x02 (which is
+the endpoint used for NCM data from host to device), you'll see
+something like this:
+
+0040  4e 43 4d 48 0c 00 01 00 00 80 0c 00 4e 43 4d 30   NCMH........NCM=
+0
+0050  10 00 00 00 b8 00 56 01 00 00 00 00 00 00 00 00   ......V........=
+=2E
+0060  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+0070  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+0080  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+0090  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+00a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+00b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+00c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+00d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+00e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+00f0  00 00 00 00 00 00 00 00 ff ff ff ff ff ff 0c 5b   ...............=
+[
+0100  8f 27 9a 64 08 00 45 10 01 48 00 00 00 00 80 11   .'.d..E..H.....=
+=2E
+0110  39 96 00 00 00 00 ff ff ff ff 00 44 00 43 01 34   9..........D.C.=
+4
+0120  3a dd 01 01 06 00 ef 52 11 28 00 00 00 00 00 00   :......R.(.....=
+=2E
+0130  00 00 00 00 00 00 00 00 00 00 00 00 00 00 0c 5b   ...............=
+[
+0140  8f 27 9a 64 00 00 00 00 00 00 00 00 00 00 00 00   .'.d...........=
+=2E
+0150  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+0160  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+0170  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+0180  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+0190  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+01a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+01b0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+01c0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+01d0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+01e0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+01f0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+0200  00 00 00 00 00 00 00 00 00 00 00 00 00 00 63 82   ..............c=
+=2E
+0210  53 63 35 01 01 37 0d 01 1c 02 79 0f 06 0c 28 29   Sc5..7....y...(=
+)
+0220  2a 1a 77 03 3d 07 01 0c 5b 8f 27 9a 64 ff 00 00   *.w.=3D...[.'.d=
+=2E..
+0230  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+0240  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+0250  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00   ...............=
+=2E
+
+followed by lots of zero bytes because we pad to the max size.
+
+Looking at the data receided from the device on endpoint 0x83 (which is
+used for data from device to host):
+
+0040  6e 63 6d 68 10 00 00 00 6e 00 00 00 10 00 00 00   ncmh....n......=
+=2E
+0050  6e 63 6d 30 20 00 00 00 00 00 00 00 00 00 00 00   ncm0 ..........=
+=2E
+0060  32 00 00 00 3c 00 00 00 00 00 00 00 00 00 00 00   2...<..........=
+=2E
+0070  00 00 ff ff ff ff ff ff 4c 54 99 45 e5 d5 08 06   ........LT.E...=
+=2E
+0080  00 01 08 00 06 04 00 01 4c 54 99 45 e5 d5 0a 3d   ........LT.E...=
+=3D
+0090  8a 41 00 00 00 00 00 00 0a 3d 8a 48 00 00 00 00   .A.......=3D.H.=
+=2E..
+00a0  00 00 00 00 00 00 00 00 00 00 00 00 00 00         ..............
+
+
+The padding differences making the latter much more compact can be
+ignored.  But do notice the 'ncmh' !=3D 'NCMH' and 'ncm0' !=3D 'NCM0'.
+These are all standard NCM header and datagram signatures, but the lowe=
 r
-supports that claim IMHO.  It tells us that it is perfectly OK for any
-MBIM v1.0 compliant application/driver to not even parse this
-descriptor, because the application/driver can predate Errata1.  The
-descriptor was added out of the blue in something called an "Errata",
-and is IMHO best ignored until a proper new version of the standard is
-published.
+and upper case versions have different meanings.  The lower case versio=
+n
+means that the device use 32 bit length and index fields, while the
+driver use the variants with 16 bit fields.
 
-The driver currently set the MTU based on the wMaxSegmentSize from the
-mandatory MBIM descriptor.  AFAICS this is the only field the driver
-*can* use.  The MBIM management application may make use of the extende=
-d
-descriptor, because it will know about "operator" and the relation to
-"IP data streams".  The driver does not have this knowledge, and it mus=
-t
-be capable of supporting non-IP streams (DSS) multiplexed over the same
-network device.
+This explains why the driver drops received frames.  It only supports
+the 16 bit variants.  They are mandatory according to the spec and the
+driver will never accept buffer sizes big enough for the 32 bit variant=
+s
+make a difference.  So adding support for the 32 bit versions has so fa=
+r
+seemed pointless.
 
-AFAICS, the MTU information provided by the extended descriptor is
-completely redundant for all cases where it has a meaning (the mandator=
-y
-MBIM_CID_IP_CONFIGURATION will provde the IPv4 and IPv6 per-session
-MTUs), and possily completely wrong for any other case (wMaxSegmentSize
-sets the maximum size for non-IP sessions)
+But here we have a device which does not comform to spec (that's OK,
+Huawei doesn't claim it does - this is a vendor specific function after
+all), and which seems to be locked to 32 bit mode?  Either it requires
+the 32 bit variant, or we are doing something "wrong" during setup to
+make the device go into this mode.
 
-My advice is to leave parsing of this descriptor to userspace.  That is
-also the only place where we can make use of the
-bMaxOutstandingCommandMessages, which actually is useful information. I
-just don't understand why they had to make that part of a descriptor
-when they have defined a new dedicated and extensible management
-protocol....
+Adding 32 bit NCM support should be fairly easy after the changes we
+made to support MBIM.  But we need to know when to enable it, or whethe=
+r
+we do something wrong during setup.  So it would be useful to see if th=
+e
+cdc_ncm_setup function logs any interesting debug messages.
 
-In case you disagree with the above (and do feel free to do so... I am
-often wrong), some minor nits regarding the actual implementation:
+Since you have dynamic debugging, could you do:
 
+  mount -t debugfs none /sys/kernel/debug
+  echo "file cdc_ncm.c +fp" >/sys/kernel/debug/dynamic_debug/control
 
-Ben Chan <benchan@chromium.org> writes:
+and then reconnect the device while capturing debug output?
 
-> According to "Universal Serial Bus Communications Class Subclass
-> Specification for Mobile Broadband Interface Model, Revision 1.0,
-> Errata-1" published by USB-IF, the wMTU field of the MBIM extended
-> functional descriptor indicates the operator preferred MTU for IP dat=
-a
-> streams.
->
-> This patch modifies cdc_ncm_setup to ensure that the MTU value set on
-> the usbnet device does not exceed the operator preferred MTU indicate=
-d
-> by wMTU if the MBIM device exposes a MBIM extended functional
-> descriptor.
->
-> Signed-off-by: Ben Chan <benchan@chromium.org>
-> ---
->  drivers/net/usb/cdc_ncm.c   | 15 +++++++++++++++
->  include/linux/usb/cdc_ncm.h |  1 +
->  2 files changed, 16 insertions(+)
->
-> diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-> index dbff290..0b036ed 100644
-> --- a/drivers/net/usb/cdc_ncm.c
-> +++ b/drivers/net/usb/cdc_ncm.c
-> @@ -261,6 +261,13 @@ out:
->  	/* set MTU to max supported by the device if necessary */
->  	if (dev->net->mtu > ctx->max_datagram_size - eth_hlen)
->  		dev->net->mtu =3D ctx->max_datagram_size - eth_hlen;
-> +
-> +	/* do not exceed operater preferred MTU */
-> +	if (ctx->mbim_extended_desc &&
-> +		ctx->mbim_extended_desc->wMTU !=3D 0 &&
-> +		dev->net->mtu > ctx->mbim_extended_desc->wMTU)
-> +		dev->net->mtu =3D ctx->mbim_extended_desc->wMTU;
-
-wMTU access needs le16_to_cpu.
-
-> +
->  	return 0;
->  }
-> =20
-> @@ -399,6 +406,14 @@ int cdc_ncm_bind_common(struct usbnet *dev, stru=
-ct usb_interface *intf, u8 data_
->  			ctx->mbim_desc =3D (const struct usb_cdc_mbim_desc *)buf;
->  			break;
-> =20
-> +		case USB_CDC_MBIM_EXTENDED_TYPE:
-> +			if (buf[0] < sizeof(*(ctx->mbim_extended_desc)))
-> +				break;
-> +
-> +			ctx->mbim_extended_desc =3D
-> +				(const struct usb_cdc_mbim_extended_desc *)buf;
-> +			break;
-> +
->  		default:
->  			break;
->  		}
-> diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.=
-h
-> index c3fa807..bdf05fb 100644
-> --- a/include/linux/usb/cdc_ncm.h
-> +++ b/include/linux/usb/cdc_ncm.h
-> @@ -93,6 +93,7 @@ struct cdc_ncm_ctx {
-> =20
->  	const struct usb_cdc_ncm_desc *func_desc;
->  	const struct usb_cdc_mbim_desc *mbim_desc;
-> +	const struct usb_cdc_mbim_extended_desc *mbim_extended_desc;
->  	const struct usb_cdc_ether_desc *ether_desc;
-> =20
->  	struct usb_interface *control;
-
-
-Could we move this final MTU correction from cdc_ncm_setup to
-cdc_ncm_bind_common to avoid bloating the device struct with another
-descriptor pointer we don=C3=A6t really need to keep around?
-
-I know we look into descriptors in cdc_ncm_setup, because we have to,
-but ideally I would have loved to see cdc_ncm_setup dealing with *just*
-the NCM/MBIM specific control setup messages and cdc_ncm_bind_common
-dealing with all the functional descriptors.  That seems most logic to
-me (but is of course only my personal opinion and nothing else - I do
-not know what the original cdc_ncm author intended)
 
 
 Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
