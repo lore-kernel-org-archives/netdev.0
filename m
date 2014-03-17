@@ -1,64 +1,70 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 06/38] netfilter: nf_tables: add nft_dereference() macro
-Date: Mon, 17 Mar 2014 13:42:26 +0100
-Message-ID: <1395060178-11833-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 15/38] netfilter: ipset: kernel: uapi: fix MARKMASK attr ABI breakage
+Date: Mon, 17 Mar 2014 13:42:35 +0100
+Message-ID: <1395060178-11833-16-git-send-email-pablo@netfilter.org>
 References: <1395060178-11833-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59383 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:59394 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933115AbaCQMnc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2014 08:43:32 -0400
+	id S933120AbaCQMne (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Mar 2014 08:43:34 -0400
 In-Reply-To: <1395060178-11833-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+From: Florian Westphal <fw@strlen.de>
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+commit 2dfb973c0dcc6d2211 (add markmask for hash:ip,mark data type)
+inserted IPSET_ATTR_MARKMASK in-between other enum values, i.e.
+changing values of all further attributes.  This causes 'ipset list'
+segfault on existing kernels since ipset no longer finds
+IPSET_ATTR_MEMSIZE (it has a different value on kernel side).
+
+Jozsef points out it should be moved below IPSET_ATTR_MARK which
+works since there is some extra reserved space after that value.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 ---
- include/net/netfilter/nf_tables.h |    4 ++++
- net/netfilter/nf_tables_api.c     |    3 +--
- 2 files changed, 5 insertions(+), 2 deletions(-)
+ include/uapi/linux/netfilter/ipset/ip_set.h |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index e7e14ff..81abd61 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -3,6 +3,7 @@
+diff --git a/include/uapi/linux/netfilter/ipset/ip_set.h b/include/uapi/linux/netfilter/ipset/ip_set.h
+index a29a378..a1ca244 100644
+--- a/include/uapi/linux/netfilter/ipset/ip_set.h
++++ b/include/uapi/linux/netfilter/ipset/ip_set.h
+@@ -83,13 +83,13 @@ enum {
+ 	IPSET_ATTR_CADT_FLAGS,	/* 8 */
+ 	IPSET_ATTR_CADT_LINENO = IPSET_ATTR_LINENO,	/* 9 */
+ 	IPSET_ATTR_MARK,	/* 10 */
++	IPSET_ATTR_MARKMASK,	/* 11 */
+ 	/* Reserve empty slots */
+ 	IPSET_ATTR_CADT_MAX = 16,
+ 	/* Create-only specific attributes */
+ 	IPSET_ATTR_GC,
+ 	IPSET_ATTR_HASHSIZE,
+ 	IPSET_ATTR_MAXELEM,
+-	IPSET_ATTR_MARKMASK,
+ 	IPSET_ATTR_NETMASK,
+ 	IPSET_ATTR_PROBES,
+ 	IPSET_ATTR_RESIZE,
+@@ -139,7 +139,6 @@ enum ipset_errno {
+ 	IPSET_ERR_EXIST,
+ 	IPSET_ERR_INVALID_CIDR,
+ 	IPSET_ERR_INVALID_NETMASK,
+-	IPSET_ERR_INVALID_MARKMASK,
+ 	IPSET_ERR_INVALID_FAMILY,
+ 	IPSET_ERR_TIMEOUT,
+ 	IPSET_ERR_REFERENCED,
+@@ -147,6 +146,7 @@ enum ipset_errno {
+ 	IPSET_ERR_IPADDR_IPV6,
+ 	IPSET_ERR_COUNTER,
+ 	IPSET_ERR_COMMENT,
++	IPSET_ERR_INVALID_MARKMASK,
  
- #include <linux/list.h>
- #include <linux/netfilter.h>
-+#include <linux/netfilter/nfnetlink.h>
- #include <linux/netfilter/x_tables.h>
- #include <linux/netfilter/nf_tables.h>
- #include <net/netlink.h>
-@@ -521,6 +522,9 @@ void nft_unregister_chain_type(const struct nf_chain_type *);
- int nft_register_expr(struct nft_expr_type *);
- void nft_unregister_expr(struct nft_expr_type *);
- 
-+#define nft_dereference(p)					\
-+	nfnl_dereference(p, NFNL_SUBSYS_NFTABLES)
-+
- #define MODULE_ALIAS_NFT_FAMILY(family)	\
- 	MODULE_ALIAS("nft-afinfo-" __stringify(family))
- 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index adce01e..4b7e14d 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -794,9 +794,8 @@ nf_tables_counters(struct nft_base_chain *chain, const struct nlattr *attr)
- 	stats->pkts = be64_to_cpu(nla_get_be64(tb[NFTA_COUNTER_PACKETS]));
- 
- 	if (chain->stats) {
--		/* nfnl_lock is held, add some nfnl function for this, later */
- 		struct nft_stats __percpu *oldstats =
--			rcu_dereference_protected(chain->stats, 1);
-+				nft_dereference(chain->stats);
- 
- 		rcu_assign_pointer(chain->stats, newstats);
- 		synchronize_rcu();
+ 	/* Type specific error codes */
+ 	IPSET_ERR_TYPE_SPECIFIC = 4352,
 -- 
 1.7.10.4
