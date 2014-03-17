@@ -1,255 +1,442 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 27/38] netfilter: nf_tables: restore context for expression destructors
-Date: Mon, 17 Mar 2014 13:42:47 +0100
-Message-ID: <1395060178-11833-28-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 12/38] netfilter: ipset: add hash:ip,mark data type to ipset
+Date: Mon, 17 Mar 2014 13:42:32 +0100
+Message-ID: <1395060178-11833-13-git-send-email-pablo@netfilter.org>
 References: <1395060178-11833-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:59393 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933119AbaCQMne (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Mar 2014 08:43:34 -0400
 In-Reply-To: <1395060178-11833-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+From: Vytas Dauksa <vytas.dauksa@smoothwall.net>
 
-In order to fix set destruction notifications and get rid of unnecessary
-members in private data structures, pass the context to expressions'
-destructor functions again.
+Introduce packet mark support with new ip,mark hash set. This includes
+userspace and kernelspace code, hash:ip,mark set tests and man page
+updates.
 
-In order to do so, replace various members in the nft_rule_trans structure
-by the full context.
+The intended use of ip,mark set is similar to the ip:port type, but for
+protocols which don't use a predictable port number. Instead of port
+number it matches a firewall mark determined by a layer 7 filtering
+program like opendpi.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+As well as allowing or blocking traffic it will also be used for
+accounting packets and bytes sent for each protocol.
+
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 ---
- include/net/netfilter/nf_tables.h |   13 ++++---------
- net/netfilter/nf_tables_api.c     |   34 +++++++++++++++++-----------------
- net/netfilter/nft_compat.c        |    4 ++--
- net/netfilter/nft_ct.c            |    3 ++-
- net/netfilter/nft_immediate.c     |    3 ++-
- net/netfilter/nft_log.c           |    3 ++-
- net/netfilter/nft_lookup.c        |    3 ++-
- 7 files changed, 31 insertions(+), 32 deletions(-)
+ include/linux/netfilter/ipset/ip_set.h      |   10 +-
+ include/uapi/linux/netfilter/ipset/ip_set.h |    1 +
+ net/netfilter/ipset/Kconfig                 |    9 +
+ net/netfilter/ipset/Makefile                |    1 +
+ net/netfilter/ipset/ip_set_hash_ipmark.c    |  312 +++++++++++++++++++++++++++
+ 5 files changed, 329 insertions(+), 4 deletions(-)
+ create mode 100644 net/netfilter/ipset/ip_set_hash_ipmark.c
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index 5af56da..e6bc14d 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -289,7 +289,8 @@ struct nft_expr_ops {
- 	int				(*init)(const struct nft_ctx *ctx,
- 						const struct nft_expr *expr,
- 						const struct nlattr * const tb[]);
--	void				(*destroy)(const struct nft_expr *expr);
-+	void				(*destroy)(const struct nft_ctx *ctx,
-+						   const struct nft_expr *expr);
- 	int				(*dump)(struct sk_buff *skb,
- 						const struct nft_expr *expr);
- 	int				(*validate)(const struct nft_ctx *ctx,
-@@ -343,19 +344,13 @@ struct nft_rule {
-  *	struct nft_rule_trans - nf_tables rule update in transaction
-  *
-  *	@list: used internally
-+ *	@ctx: rule context
-  *	@rule: rule that needs to be updated
-- *	@chain: chain that this rule belongs to
-- *	@table: table for which this chain applies
-- *	@nlh: netlink header of the message that contain this update
-- *	@family: family expressesed as AF_*
-  */
- struct nft_rule_trans {
- 	struct list_head		list;
-+	struct nft_ctx			ctx;
- 	struct nft_rule			*rule;
--	const struct nft_chain		*chain;
--	const struct nft_table		*table;
--	const struct nlmsghdr		*nlh;
--	u8				family;
+diff --git a/include/linux/netfilter/ipset/ip_set.h b/include/linux/netfilter/ipset/ip_set.h
+index 0c7d01e..4ac00d4 100644
+--- a/include/linux/netfilter/ipset/ip_set.h
++++ b/include/linux/netfilter/ipset/ip_set.h
+@@ -39,11 +39,13 @@ enum ip_set_feature {
+ 	IPSET_TYPE_NAME = (1 << IPSET_TYPE_NAME_FLAG),
+ 	IPSET_TYPE_IFACE_FLAG = 5,
+ 	IPSET_TYPE_IFACE = (1 << IPSET_TYPE_IFACE_FLAG),
+-	IPSET_TYPE_NOMATCH_FLAG = 6,
++	IPSET_TYPE_MARK_FLAG = 6,
++	IPSET_TYPE_MARK = (1 << IPSET_TYPE_MARK_FLAG),
++	IPSET_TYPE_NOMATCH_FLAG = 7,
+ 	IPSET_TYPE_NOMATCH = (1 << IPSET_TYPE_NOMATCH_FLAG),
+ 	/* Strictly speaking not a feature, but a flag for dumping:
+ 	 * this settype must be dumped last */
+-	IPSET_DUMP_LAST_FLAG = 7,
++	IPSET_DUMP_LAST_FLAG = 8,
+ 	IPSET_DUMP_LAST = (1 << IPSET_DUMP_LAST_FLAG),
  };
  
- static inline struct nft_expr *nft_expr_first(const struct nft_rule *rule)
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 611afc0..2c10c3f 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -1253,10 +1253,11 @@ err1:
- 	return err;
- }
+@@ -171,8 +173,6 @@ struct ip_set_type {
+ 	char name[IPSET_MAXNAMELEN];
+ 	/* Protocol version */
+ 	u8 protocol;
+-	/* Set features to control swapping */
+-	u8 features;
+ 	/* Set type dimension */
+ 	u8 dimension;
+ 	/*
+@@ -182,6 +182,8 @@ struct ip_set_type {
+ 	u8 family;
+ 	/* Type revisions */
+ 	u8 revision_min, revision_max;
++	/* Set features to control swapping */
++	u16 features;
  
--static void nf_tables_expr_destroy(struct nft_expr *expr)
-+static void nf_tables_expr_destroy(const struct nft_ctx *ctx,
-+				   struct nft_expr *expr)
- {
- 	if (expr->ops->destroy)
--		expr->ops->destroy(expr);
-+		expr->ops->destroy(ctx, expr);
- 	module_put(expr->ops->type->owner);
- }
+ 	/* Create set */
+ 	int (*create)(struct net *net, struct ip_set *set,
+diff --git a/include/uapi/linux/netfilter/ipset/ip_set.h b/include/uapi/linux/netfilter/ipset/ip_set.h
+index 25d3b2f..5368f82 100644
+--- a/include/uapi/linux/netfilter/ipset/ip_set.h
++++ b/include/uapi/linux/netfilter/ipset/ip_set.h
+@@ -82,6 +82,7 @@ enum {
+ 	IPSET_ATTR_PROTO,	/* 7 */
+ 	IPSET_ATTR_CADT_FLAGS,	/* 8 */
+ 	IPSET_ATTR_CADT_LINENO = IPSET_ATTR_LINENO,	/* 9 */
++	IPSET_ATTR_MARK,	/* 10 */
+ 	/* Reserve empty slots */
+ 	IPSET_ATTR_CADT_MAX = 16,
+ 	/* Create-only specific attributes */
+diff --git a/net/netfilter/ipset/Kconfig b/net/netfilter/ipset/Kconfig
+index 44cd4f5..2f7f5c3 100644
+--- a/net/netfilter/ipset/Kconfig
++++ b/net/netfilter/ipset/Kconfig
+@@ -61,6 +61,15 @@ config IP_SET_HASH_IP
  
-@@ -1536,7 +1537,8 @@ err:
- 	return err;
- }
+ 	  To compile it as a module, choose M here.  If unsure, say N.
  
--static void nf_tables_rule_destroy(struct nft_rule *rule)
-+static void nf_tables_rule_destroy(const struct nft_ctx *ctx,
-+				   struct nft_rule *rule)
- {
- 	struct nft_expr *expr;
++config IP_SET_HASH_IPMARK
++	tristate "hash:ip,mark set support"
++	depends on IP_SET
++	help
++	  This option adds the hash:ip,mark set type support, by which one
++	  can store IPv4/IPv6 address and mark pairs.
++
++	  To compile it as a module, choose M here.  If unsure, say N.
++
+ config IP_SET_HASH_IPPORT
+ 	tristate "hash:ip,port set support"
+ 	depends on IP_SET
+diff --git a/net/netfilter/ipset/Makefile b/net/netfilter/ipset/Makefile
+index 44b2d38..231f101 100644
+--- a/net/netfilter/ipset/Makefile
++++ b/net/netfilter/ipset/Makefile
+@@ -14,6 +14,7 @@ obj-$(CONFIG_IP_SET_BITMAP_PORT) += ip_set_bitmap_port.o
  
-@@ -1546,7 +1548,7 @@ static void nf_tables_rule_destroy(struct nft_rule *rule)
- 	 */
- 	expr = nft_expr_first(rule);
- 	while (expr->ops && expr != nft_expr_last(rule)) {
--		nf_tables_expr_destroy(expr);
-+		nf_tables_expr_destroy(ctx, expr);
- 		expr = nft_expr_next(expr);
- 	}
- 	kfree(rule);
-@@ -1565,11 +1567,8 @@ nf_tables_trans_add(struct nft_ctx *ctx, struct nft_rule *rule)
- 	if (rupd == NULL)
- 	       return NULL;
- 
--	rupd->chain = ctx->chain;
--	rupd->table = ctx->table;
-+	rupd->ctx = *ctx;
- 	rupd->rule = rule;
--	rupd->family = ctx->afi->family;
--	rupd->nlh = ctx->nlh;
- 	list_add_tail(&rupd->list, &ctx->net->nft.commit_list);
- 
- 	return rupd;
-@@ -1721,7 +1720,7 @@ err3:
- 		kfree(repl);
- 	}
- err2:
--	nf_tables_rule_destroy(rule);
-+	nf_tables_rule_destroy(&ctx, rule);
- err1:
- 	for (i = 0; i < n; i++) {
- 		if (info[i].ops != NULL)
-@@ -1831,10 +1830,10 @@ static int nf_tables_commit(struct sk_buff *skb)
- 		 */
- 		if (nft_rule_is_active(net, rupd->rule)) {
- 			nft_rule_clear(net, rupd->rule);
--			nf_tables_rule_notify(skb, rupd->nlh, rupd->table,
--					      rupd->chain, rupd->rule,
--					      NFT_MSG_NEWRULE, 0,
--					      rupd->family);
-+			nf_tables_rule_notify(skb, rupd->ctx.nlh,
-+					      rupd->ctx.table, rupd->ctx.chain,
-+					      rupd->rule, NFT_MSG_NEWRULE, 0,
-+					      rupd->ctx.afi->family);
- 			list_del(&rupd->list);
- 			kfree(rupd);
- 			continue;
-@@ -1842,9 +1841,10 @@ static int nf_tables_commit(struct sk_buff *skb)
- 
- 		/* This rule is in the past, get rid of it */
- 		list_del_rcu(&rupd->rule->list);
--		nf_tables_rule_notify(skb, rupd->nlh, rupd->table, rupd->chain,
-+		nf_tables_rule_notify(skb, rupd->ctx.nlh,
-+				      rupd->ctx.table, rupd->ctx.chain,
- 				      rupd->rule, NFT_MSG_DELRULE, 0,
--				      rupd->family);
-+				      rupd->ctx.afi->family);
- 	}
- 
- 	/* Make sure we don't see any packet traversing old rules */
-@@ -1852,7 +1852,7 @@ static int nf_tables_commit(struct sk_buff *skb)
- 
- 	/* Now we can safely release unused old rules */
- 	list_for_each_entry_safe(rupd, tmp, &net->nft.commit_list, list) {
--		nf_tables_rule_destroy(rupd->rule);
-+		nf_tables_rule_destroy(&rupd->ctx, rupd->rule);
- 		list_del(&rupd->list);
- 		kfree(rupd);
- 	}
-@@ -1881,7 +1881,7 @@ static int nf_tables_abort(struct sk_buff *skb)
- 	synchronize_rcu();
- 
- 	list_for_each_entry_safe(rupd, tmp, &net->nft.commit_list, list) {
--		nf_tables_rule_destroy(rupd->rule);
-+		nf_tables_rule_destroy(&rupd->ctx, rupd->rule);
- 		list_del(&rupd->list);
- 		kfree(rupd);
- 	}
-diff --git a/net/netfilter/nft_compat.c b/net/netfilter/nft_compat.c
-index 82cb823..8a779be 100644
---- a/net/netfilter/nft_compat.c
-+++ b/net/netfilter/nft_compat.c
-@@ -192,7 +192,7 @@ err:
- }
- 
- static void
--nft_target_destroy(const struct nft_expr *expr)
-+nft_target_destroy(const struct nft_ctx *ctx, const struct nft_expr *expr)
- {
- 	struct xt_target *target = expr->ops->data;
- 
-@@ -379,7 +379,7 @@ err:
- }
- 
- static void
--nft_match_destroy(const struct nft_expr *expr)
-+nft_match_destroy(const struct nft_ctx *ctx, const struct nft_expr *expr)
- {
- 	struct xt_match *match = expr->ops->data;
- 
-diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
-index e59b08f..65a2c7b 100644
---- a/net/netfilter/nft_ct.c
-+++ b/net/netfilter/nft_ct.c
-@@ -321,7 +321,8 @@ static int nft_ct_init(const struct nft_ctx *ctx,
- 	return 0;
- }
- 
--static void nft_ct_destroy(const struct nft_expr *expr)
-+static void nft_ct_destroy(const struct nft_ctx *ctx,
-+			   const struct nft_expr *expr)
- {
- 	struct nft_ct *priv = nft_expr_priv(expr);
- 
-diff --git a/net/netfilter/nft_immediate.c b/net/netfilter/nft_immediate.c
-index f169501..810385e 100644
---- a/net/netfilter/nft_immediate.c
-+++ b/net/netfilter/nft_immediate.c
-@@ -70,7 +70,8 @@ err1:
- 	return err;
- }
- 
--static void nft_immediate_destroy(const struct nft_expr *expr)
-+static void nft_immediate_destroy(const struct nft_ctx *ctx,
-+				  const struct nft_expr *expr)
- {
- 	const struct nft_immediate_expr *priv = nft_expr_priv(expr);
- 	return nft_data_uninit(&priv->data, nft_dreg_to_type(priv->dreg));
-diff --git a/net/netfilter/nft_log.c b/net/netfilter/nft_log.c
-index 26c5154..10cfb15 100644
---- a/net/netfilter/nft_log.c
-+++ b/net/netfilter/nft_log.c
-@@ -74,7 +74,8 @@ static int nft_log_init(const struct nft_ctx *ctx,
- 	return 0;
- }
- 
--static void nft_log_destroy(const struct nft_expr *expr)
-+static void nft_log_destroy(const struct nft_ctx *ctx,
-+			    const struct nft_expr *expr)
- {
- 	struct nft_log *priv = nft_expr_priv(expr);
- 
-diff --git a/net/netfilter/nft_lookup.c b/net/netfilter/nft_lookup.c
-index bb4ef4c..953978e 100644
---- a/net/netfilter/nft_lookup.c
-+++ b/net/netfilter/nft_lookup.c
-@@ -89,7 +89,8 @@ static int nft_lookup_init(const struct nft_ctx *ctx,
- 	return 0;
- }
- 
--static void nft_lookup_destroy(const struct nft_expr *expr)
-+static void nft_lookup_destroy(const struct nft_ctx *ctx,
-+			       const struct nft_expr *expr)
- {
- 	struct nft_lookup *priv = nft_expr_priv(expr);
- 
+ # hash types
+ obj-$(CONFIG_IP_SET_HASH_IP) += ip_set_hash_ip.o
++obj-$(CONFIG_IP_SET_HASH_IPMARK) += ip_set_hash_ipmark.o
+ obj-$(CONFIG_IP_SET_HASH_IPPORT) += ip_set_hash_ipport.o
+ obj-$(CONFIG_IP_SET_HASH_IPPORTIP) += ip_set_hash_ipportip.o
+ obj-$(CONFIG_IP_SET_HASH_IPPORTNET) += ip_set_hash_ipportnet.o
+diff --git a/net/netfilter/ipset/ip_set_hash_ipmark.c b/net/netfilter/ipset/ip_set_hash_ipmark.c
+new file mode 100644
+index 0000000..e56c0d9
+--- /dev/null
++++ b/net/netfilter/ipset/ip_set_hash_ipmark.c
+@@ -0,0 +1,312 @@
++/* Copyright (C) 2003-2013 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
++ * Copyright (C) 2013 Smoothwall Ltd. <vytas.dauksa@smoothwall.net>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++/* Kernel module implementing an IP set type: the hash:ip,mark type */
++
++#include <linux/jhash.h>
++#include <linux/module.h>
++#include <linux/ip.h>
++#include <linux/skbuff.h>
++#include <linux/errno.h>
++#include <linux/random.h>
++#include <net/ip.h>
++#include <net/ipv6.h>
++#include <net/netlink.h>
++#include <net/tcp.h>
++
++#include <linux/netfilter.h>
++#include <linux/netfilter/ipset/pfxlen.h>
++#include <linux/netfilter/ipset/ip_set.h>
++#include <linux/netfilter/ipset/ip_set_hash.h>
++
++#define IPSET_TYPE_REV_MIN	0
++#define IPSET_TYPE_REV_MAX	0
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Vytas Dauksa <vytas.dauksa@smoothwall.net>");
++IP_SET_MODULE_DESC("hash:ip,mark", IPSET_TYPE_REV_MIN, IPSET_TYPE_REV_MAX);
++MODULE_ALIAS("ip_set_hash:ip,mark");
++
++/* Type specific function prefix */
++#define HTYPE		hash_ipmark
++
++/* IPv4 variant */
++
++/* Member elements */
++struct hash_ipmark4_elem {
++	__be32 ip;
++	__u32 mark;
++};
++
++/* Common functions */
++
++static inline bool
++hash_ipmark4_data_equal(const struct hash_ipmark4_elem *ip1,
++			const struct hash_ipmark4_elem *ip2,
++			u32 *multi)
++{
++	return ip1->ip == ip2->ip &&
++	       ip1->mark == ip2->mark;
++}
++
++static bool
++hash_ipmark4_data_list(struct sk_buff *skb,
++		       const struct hash_ipmark4_elem *data)
++{
++	if (nla_put_ipaddr4(skb, IPSET_ATTR_IP, data->ip) ||
++	    nla_put_net32(skb, IPSET_ATTR_MARK, htonl(data->mark)))
++		goto nla_put_failure;
++	return 0;
++
++nla_put_failure:
++	return 1;
++}
++
++static inline void
++hash_ipmark4_data_next(struct hash_ipmark4_elem *next,
++		       const struct hash_ipmark4_elem *d)
++{
++	next->ip = d->ip;
++}
++
++#define MTYPE           hash_ipmark4
++#define PF              4
++#define HOST_MASK       32
++#define HKEY_DATALEN	sizeof(struct hash_ipmark4_elem)
++#include "ip_set_hash_gen.h"
++
++static int
++hash_ipmark4_kadt(struct ip_set *set, const struct sk_buff *skb,
++		  const struct xt_action_param *par,
++		  enum ipset_adt adt, struct ip_set_adt_opt *opt)
++{
++	ipset_adtfn adtfn = set->variant->adt[adt];
++	struct hash_ipmark4_elem e = { };
++	struct ip_set_ext ext = IP_SET_INIT_KEXT(skb, opt, set);
++
++	e.mark = skb->mark;
++
++	ip4addrptr(skb, opt->flags & IPSET_DIM_ONE_SRC, &e.ip);
++	return adtfn(set, &e, &ext, &opt->ext, opt->cmdflags);
++}
++
++static int
++hash_ipmark4_uadt(struct ip_set *set, struct nlattr *tb[],
++		  enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
++{
++	const struct hash_ipmark *h = set->data;
++	ipset_adtfn adtfn = set->variant->adt[adt];
++	struct hash_ipmark4_elem e = { };
++	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
++	u32 ip, ip_to = 0;
++	int ret;
++
++	if (unlikely(!tb[IPSET_ATTR_IP] ||
++		     !ip_set_attr_netorder(tb, IPSET_ATTR_MARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
++		return -IPSET_ERR_PROTOCOL;
++
++	if (tb[IPSET_ATTR_LINENO])
++		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
++
++	ret = ip_set_get_ipaddr4(tb[IPSET_ATTR_IP], &e.ip) ||
++	      ip_set_get_extensions(set, tb, &ext);
++	if (ret)
++		return ret;
++
++	e.mark = ntohl(nla_get_u32(tb[IPSET_ATTR_MARK]));
++
++	if (adt == IPSET_TEST ||
++	    !(tb[IPSET_ATTR_IP_TO] || tb[IPSET_ATTR_CIDR])) {
++		ret = adtfn(set, &e, &ext, &ext, flags);
++		return ip_set_eexist(ret, flags) ? 0 : ret;
++	}
++
++	ip_to = ip = ntohl(e.ip);
++	if (tb[IPSET_ATTR_IP_TO]) {
++		ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP_TO], &ip_to);
++		if (ret)
++			return ret;
++		if (ip > ip_to)
++			swap(ip, ip_to);
++	} else if (tb[IPSET_ATTR_CIDR]) {
++		u8 cidr = nla_get_u8(tb[IPSET_ATTR_CIDR]);
++
++		if (!cidr || cidr > 32)
++			return -IPSET_ERR_INVALID_CIDR;
++		ip_set_mask_from_to(ip, ip_to, cidr);
++	}
++
++	if (retried)
++		ip = ntohl(h->next.ip);
++	for (; !before(ip_to, ip); ip++) {
++		e.ip = htonl(ip);
++		ret = adtfn(set, &e, &ext, &ext, flags);
++
++		if (ret && !ip_set_eexist(ret, flags))
++			return ret;
++		else
++			ret = 0;
++	}
++	return ret;
++}
++
++/* IPv6 variant */
++
++struct hash_ipmark6_elem {
++	union nf_inet_addr ip;
++	__u32 mark;
++};
++
++/* Common functions */
++
++static inline bool
++hash_ipmark6_data_equal(const struct hash_ipmark6_elem *ip1,
++			const struct hash_ipmark6_elem *ip2,
++			u32 *multi)
++{
++	return ipv6_addr_equal(&ip1->ip.in6, &ip2->ip.in6) &&
++	       ip1->mark == ip2->mark;
++}
++
++static bool
++hash_ipmark6_data_list(struct sk_buff *skb,
++		       const struct hash_ipmark6_elem *data)
++{
++	if (nla_put_ipaddr6(skb, IPSET_ATTR_IP, &data->ip.in6) ||
++	    nla_put_net32(skb, IPSET_ATTR_MARK, htonl(data->mark)))
++		goto nla_put_failure;
++	return 0;
++
++nla_put_failure:
++	return 1;
++}
++
++static inline void
++hash_ipmark6_data_next(struct hash_ipmark4_elem *next,
++		       const struct hash_ipmark6_elem *d)
++{
++}
++
++#undef MTYPE
++#undef PF
++#undef HOST_MASK
++#undef HKEY_DATALEN
++
++#define MTYPE		hash_ipmark6
++#define PF		6
++#define HOST_MASK	128
++#define HKEY_DATALEN	sizeof(struct hash_ipmark6_elem)
++#define	IP_SET_EMIT_CREATE
++#include "ip_set_hash_gen.h"
++
++
++static int
++hash_ipmark6_kadt(struct ip_set *set, const struct sk_buff *skb,
++		  const struct xt_action_param *par,
++		  enum ipset_adt adt, struct ip_set_adt_opt *opt)
++{
++	ipset_adtfn adtfn = set->variant->adt[adt];
++	struct hash_ipmark6_elem e = { };
++	struct ip_set_ext ext = IP_SET_INIT_KEXT(skb, opt, set);
++
++	e.mark = skb->mark;
++
++	ip6addrptr(skb, opt->flags & IPSET_DIM_ONE_SRC, &e.ip.in6);
++	return adtfn(set, &e, &ext, &opt->ext, opt->cmdflags);
++}
++
++static int
++hash_ipmark6_uadt(struct ip_set *set, struct nlattr *tb[],
++		  enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
++{
++	ipset_adtfn adtfn = set->variant->adt[adt];
++	struct hash_ipmark6_elem e = { };
++	struct ip_set_ext ext = IP_SET_INIT_UEXT(set);
++	int ret;
++
++	if (unlikely(!tb[IPSET_ATTR_IP] ||
++		     !ip_set_attr_netorder(tb, IPSET_ATTR_MARK) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
++		     tb[IPSET_ATTR_IP_TO] ||
++		     tb[IPSET_ATTR_CIDR]))
++		return -IPSET_ERR_PROTOCOL;
++
++	if (tb[IPSET_ATTR_LINENO])
++		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
++
++	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip) ||
++	      ip_set_get_extensions(set, tb, &ext);
++	if (ret)
++		return ret;
++
++	e.mark = ntohl(nla_get_u32(tb[IPSET_ATTR_MARK]));
++
++	if (adt == IPSET_TEST) {
++		ret = adtfn(set, &e, &ext, &ext, flags);
++		return ip_set_eexist(ret, flags) ? 0 : ret;
++	}
++
++	ret = adtfn(set, &e, &ext, &ext, flags);
++	if (ret && !ip_set_eexist(ret, flags))
++		return ret;
++	else
++		ret = 0;
++
++	return ret;
++}
++
++static struct ip_set_type hash_ipmark_type __read_mostly = {
++	.name		= "hash:ip,mark",
++	.protocol	= IPSET_PROTOCOL,
++	.features	= IPSET_TYPE_IP | IPSET_TYPE_MARK,
++	.dimension	= IPSET_DIM_TWO,
++	.family		= NFPROTO_UNSPEC,
++	.revision_min	= IPSET_TYPE_REV_MIN,
++	.revision_max	= IPSET_TYPE_REV_MAX,
++	.create		= hash_ipmark_create,
++	.create_policy	= {
++		[IPSET_ATTR_HASHSIZE]	= { .type = NLA_U32 },
++		[IPSET_ATTR_MAXELEM]	= { .type = NLA_U32 },
++		[IPSET_ATTR_PROBES]	= { .type = NLA_U8 },
++		[IPSET_ATTR_RESIZE]	= { .type = NLA_U8  },
++		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
++		[IPSET_ATTR_CADT_FLAGS]	= { .type = NLA_U32 },
++	},
++	.adt_policy	= {
++		[IPSET_ATTR_IP]		= { .type = NLA_NESTED },
++		[IPSET_ATTR_IP_TO]	= { .type = NLA_NESTED },
++		[IPSET_ATTR_MARK]	= { .type = NLA_U32 },
++		[IPSET_ATTR_CIDR]	= { .type = NLA_U8 },
++		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
++		[IPSET_ATTR_LINENO]	= { .type = NLA_U32 },
++		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
++		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
++		[IPSET_ATTR_COMMENT]	= { .type = NLA_NUL_STRING },
++	},
++	.me		= THIS_MODULE,
++};
++
++static int __init
++hash_ipmark_init(void)
++{
++	return ip_set_type_register(&hash_ipmark_type);
++}
++
++static void __exit
++hash_ipmark_fini(void)
++{
++	ip_set_type_unregister(&hash_ipmark_type);
++}
++
++module_init(hash_ipmark_init);
++module_exit(hash_ipmark_fini);
 -- 
 1.7.10.4
-
