@@ -1,33 +1,51 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [Linux-zigbee-devel] [PATCH net-next v2] ieee802154: properly
- unshare skbs in ieee802154 *_rcv functions
-Date: Mon, 17 Mar 2014 19:02:32 +0100
-Message-ID: <20140317180229.GA12756@omega>
-References: <1395077419-20456-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: [PATCH 0/2] (Was: pppd service crash in linux-3.13.6)
+Date: Mon, 17 Mar 2014 19:04:16 +0100
+Message-ID: <20140317180416.GA15708@redhat.com>
+References: <531A37FF.4000509@totakura.in> <531DEEA6.4090808@totakura.in> <531E111A.8040207@hurleysoftware.com> <20140313170622.GA31206@redhat.com> <5321F113.7090000@hurleysoftware.com> <53230FE5.9020204@hurleysoftware.com> <20140314192346.GA14823@redhat.com> <53236662.3020707@hurleysoftware.com> <20140314210456.GA19032@redhat.com> <53244C61.5090508@hurleysoftware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-zigbee-devel@lists.sourceforge.net
-To: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f49.google.com ([74.125.83.49]:64360 "EHLO
-	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755533AbaCQSCj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 14:02:39 -0400
-Received: by mail-ee0-f49.google.com with SMTP id c41so4403632eek.8
-        for <netdev@vger.kernel.org>; Mon, 17 Mar 2014 11:02:38 -0700 (PDT)
+Content-Type: text/plain; charset=us-ascii
+Cc: Sree Harsha Totakura <sreeharsha@totakura.in>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Jeff Dike <jdike@addtoit.com>, Ingo Molnar <mingo@elte.hu>
+To: Peter Hurley <peter@hurleysoftware.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1395077419-20456-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <53244C61.5090508@hurleysoftware.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 17, 2014 at 06:30:19PM +0100, Phoebe Buckheister wrote:
-> ieee802154 sockets do not properly unshare received skbs, which leads to
-> panics (at least) when they are used in conjunction with 6lowpan, so
-> run skb_share_check on received skbs.
-> 6lowpan also contains a use-after-free, which is trivially fixed by
-> replacing the inlined skb_share_check with the explicit call.
-> 
-> Signed-off-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+On 03/15, Peter Hurley wrote:
+>
+> On 03/14/2014 05:04 PM, Oleg Nesterov wrote:
+>>
+>> But it can't even know who called call_usermodehelper(). Besides,
+>> cgroup_release_agent() uses UMH_WAIT_EXEC, so the caller can continue
+>> and disappear completely before the usermode process has any chance
+>> to do something.
+>
+> I'm just hypothesizing potential breakage, since the order of teardown
+> is sensitive to changes, and I didn't do a complete audit of all the
+> possibilities.
 
-Tested-by: Alexander Aring <alex.aring@gmail.com>
+Yes, I understand your concerns. Still I do not see how cgroup_exit()
+can depend on tty/namespace.
+
+> If you feel strongly about moving disassociate_tty(), I won't object.
+
+It is not that I feel really strongly... just in looks better to me.
+If nothing else:
+
+	1. If we actually can not do disassociate_ctty() before, say,
+	   cgroup_exit(), then we should understand and document the
+	   reason.
+
+	2. task_work_add() can have more users in drivers/tty which
+	   can be triggered by disassociate_tty() paths. So I think
+	   it would be nice to call it before task_work_exit().
+
+2/2 is offtopic and hopefully trivial.
+
+Oleg.
