@@ -1,51 +1,39 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [net-next 01/16] i40e: support VF link state ndo
-Date: Mon, 17 Mar 2014 21:40:17 +0000
-Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D65571229@FMSMSX113.amr.corp.intel.com>
-References: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1395060316-16897-2-git-send-email-jeffrey.t.kirsher@intel.com>
- <CAJZOPZLrwg2sMnhQZZhpjWdqjBEBuWujv0Uy9q-_bViK5j46zg@mail.gmail.com>
+From: Julius Werner <jwerner@chromium.org>
+Subject: Re: usbnet: driver_info->stop required to stop USB interrupts?
+Date: Mon, 17 Mar 2014 14:53:06 -0700
+Message-ID: <CAODwPW-CqigMBvwZtb+KLY5XbT+LDssPpvDZj86ej183DMiPkQ@mail.gmail.com>
+References: <CANEJEGsvqkT_H4i+UZpBaWMYmgXHmpD8SZ4tU1OHzLd8gyznow@mail.gmail.com>
+	<CANEJEGv03ohVwoS0Pd1Z3az9k-C=dTzG4qE1SBL6Um97QC1Ehw@mail.gmail.com>
+	<CAODwPW_t9COeg0LWfkiqXC_yTbSNhUHX-8T95KRZHfOTSiZK1Q@mail.gmail.com>
+	<1394529263.16128.6.camel@linux-fkkt.site>
+	<CAODwPW8rQptt+jnfZ+KjpuOOpKi9ktb-y2kCYGZJo_ava1ktjg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"Sullivan, Catherine" <catherine.sullivan@intel.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Grant Grundler <grundler@google.com>,
+	Julius Werner <jwerner@chromium.org>,
+	netdev <netdev@vger.kernel.org>, Freddy Xin <freddy@asix.com.tw>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	Allan Chou <allan@asix.com.tw>
+To: Oliver Neukum <oneukum@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:6136 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752107AbaCQVk5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 17:40:57 -0400
-In-Reply-To: <CAJZOPZLrwg2sMnhQZZhpjWdqjBEBuWujv0Uy9q-_bViK5j46zg@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-oa0-f48.google.com ([209.85.219.48]:37357 "EHLO
+	mail-oa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750899AbaCQVxI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 17:53:08 -0400
+Received: by mail-oa0-f48.google.com with SMTP id m1so6301157oag.21
+        for <netdev@vger.kernel.org>; Mon, 17 Mar 2014 14:53:07 -0700 (PDT)
+In-Reply-To: <CAODwPW8rQptt+jnfZ+KjpuOOpKi9ktb-y2kCYGZJo_ava1ktjg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Oliver,
 
+Any update on the state of this patch? Did it get picked up for merge
+somewhere? Do you agree with my suggestion of sticking closer to the
+original logic instead of adding that autopm_get(), or do you maybe
+want to add some more reviewers to confirm your code? I don't really
+care that much which way we choose in the end, I just want to make
+sure this bug gets fixed and we don't forget about it.
 
-> -----Original Message-----
-> From: Or Gerlitz [mailto:or.gerlitz@gmail.com]
-> Sent: Monday, March 17, 2014 2:24 PM
-> To: Kirsher, Jeffrey T
-> Cc: David Miller; Williams, Mitch A; netdev@vger.kernel.org;
-> gospo@redhat.com; sassmann@redhat.com; Sullivan, Catherine
-> Subject: Re: [net-next 01/16] i40e: support VF link state ndo
-> 
-> On Mon, Mar 17, 2014 at 2:45 PM, Jeff Kirsher
-> <jeffrey.t.kirsher@intel.com> wrote:
-> > From: Mitch Williams <mitch.a.williams@intel.com>
-> > This netdev op allows the PF driver to control the virtual link state of
-> > the VF devices. This can be used to deny naughty VF drivers access to the
-> wire,
-> 
-> Does this denial exists in the patch or the current code? where?
-> 
-> Or.
-
-To clarify: you can manually deny link to a VF with this functionality. This would not automatically find and shut down misbehaving VFs. That functionality is planned but is not yet ready, and would operate on the hardware level.
-
--Mitch
+Thanks,
+Julius
