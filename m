@@ -1,78 +1,62 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net v2] vlan: Fix lockdep warning when vlan dev handle
- notification
-Date: Mon, 17 Mar 2014 11:08:37 +0800
-Message-ID: <53266735.8050607@huawei.com>
-References: <5321165A.1000208@huawei.com> <20140314.220253.2108022241165181233.davem@davemloft.net>
+From: Zheng Liu <gnehzuil.liu@gmail.com>
+Subject: Re: What's the status of TCP friends?
+Date: Mon, 17 Mar 2014 11:16:05 +0800
+Message-ID: <20140317031605.GA22502@gmail.com>
+References: <20140316090744.GA14572@gmail.com>
+ <1394978619.9668.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <ben@decadent.org.uk>, <john.r.fastabend@intel.com>,
-	<kaber@trash.net>, <netdev@vger.kernel.org>, <f.fainelli@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, Li Yu <bingtian.ly@taobao.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Bruce Brutus Curtis <brutus@google.com>,
+	Weiping Pan <panweiping3@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:10987 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755818AbaCQDJz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 23:09:55 -0400
-In-Reply-To: <20140314.220253.2108022241165181233.davem@davemloft.net>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:52624 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756068AbaCQDKT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Mar 2014 23:10:19 -0400
+Received: by mail-pa0-f51.google.com with SMTP id kq14so5150087pab.10
+        for <netdev@vger.kernel.org>; Sun, 16 Mar 2014 20:10:19 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1394978619.9668.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/3/15 10:02, David Miller wrote:
-> From: Ding Tianhong <dingtianhong@huawei.com>
-> Date: Thu, 13 Mar 2014 10:22:18 +0800
+On Sun, Mar 16, 2014 at 07:03:39AM -0700, Eric Dumazet wrote:
+> On Sun, 2014-03-16 at 17:07 +0800, Zheng Liu wrote:
+> > Hi all,
+> > 
+> > Until now the TCP friends patch set doesn't be applied.  Now what's the
+> > status of TCP friends?  Is it applicable to be merged into upstream
+> > kernel?  Any problem that needs to be fixed?  Please let me know if I
+> > can help.
 > 
->> When I open the LOCKDEP config and run these steps:
-> 
-> This doesn't work?
-> 
+> Well, last attempts showed that while the idea sounded cool,
+> implementation opened many races and added quite a lot of complexity in
+> fast path.
 
-It make no sense, I have try it before, the class check only focus on the lock_class_key,
-not the lockdep_subclass_key.
+Thanks for letting me know the current status of this patch set.
 
-Regards
-Ding
+> 
+> We have AF_UNIX with a lot of problems in it, do we really want to bring
+> these AF_UNIX problems to AF_INET ?
 
-> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-> index 4b65aa4..9ad89ff 100644
-> --- a/net/8021q/vlan_dev.c
-> +++ b/net/8021q/vlan_dev.c
-> @@ -556,10 +556,22 @@ static struct device_type vlan_type = {
->  
->  static const struct net_device_ops vlan_netdev_ops;
->  
-> +static int vlan_calculate_locking_subclass(struct net_device *real_dev)
-> +{
-> +	int subclass = 0;
-> +
-> +	while (is_vlan_dev(real_dev)) {
-> +		subclass++;
-> +		real_dev = vlan_dev_priv(real_dev)->real_dev;
-> +	}
-> +
-> +	return subclass;
-> +}
-> +
->  static int vlan_dev_init(struct net_device *dev)
->  {
->  	struct net_device *real_dev = vlan_dev_priv(dev)->real_dev;
-> -	int subclass = 0, i;
-> +	int subclass, i;
->  
->  	netif_carrier_off(dev);
->  
-> @@ -604,9 +616,7 @@ static int vlan_dev_init(struct net_device *dev)
->  
->  	SET_NETDEV_DEVTYPE(dev, &vlan_type);
->  
-> -	if (is_vlan_dev(real_dev))
-> -		subclass = 1;
-> -
-> +	subclass = vlan_calculate_locking_subclass(real_dev);
->  	vlan_dev_set_lockdep_class(dev, subclass);
->  
->  	vlan_dev_priv(dev)->vlan_pcpu_stats = alloc_percpu(struct vlan_pcpu_stats);
+Please bear with me because I am a newbie.  Out of curiosity, what's the
+problem in AF_UNIX?
+
 > 
-> .
+> I would rather spend time on AF_UNIX if it doesn't fit your needs right
+> now, or consider jumping to KDBUS modern design.
 > 
+> Using AF_INET for IPC is poor choice.
+
+The reason why we use AF_INET for IPC rather than use AF_UNIX is that we
+have two applications that need to communicate with each other.  They
+could be deployed on the same server or different servers.  So obviously
+if we use AF_INET, we just need to indicate a IP address in config file.
+That sounds rational and maintainable for our operation team.
+
+Regards,
+                                                - Zheng
