@@ -1,92 +1,118 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/16] ixgbe: add ixgbe_write_pci_cfg_word with ixgbe_removed check
-Date: Mon, 17 Mar 2014 05:45:14 -0700
-Message-ID: <1395060316-16897-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/16] ixgbevf: Indicate removal state explicitly
+Date: Mon, 17 Mar 2014 05:45:15 -0700
+Message-ID: <1395060316-16897-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:26782 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:16178 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932969AbaCQMp0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S933073AbaCQMp0 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 17 Mar 2014 08:45:26 -0400
 In-Reply-To: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-Inline with the current use for ixgbe_read_pci_cfg_word, create a
-similar function for writing PCI config, which checks whether the
-adapter has been removed first, if Live Error Recovery has been enabled.
+Add a bit, __IXGBEVF_REMOVING, to indicate that the module is being
+removed. The __IXGBEVF_DOWN bit had been overloaded for this purpose,
+but that leads to trouble. A few places now check both __IXGBEVF_DOWN
+and __IXGBEVF_REMOVING.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  | 6 +-----
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h | 1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 9 +++++++++
- 3 files changed, 11 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  5 +++--
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 14 +++++++++-----
+ 2 files changed, 12 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index f8ebe58..7fe2254 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -58,7 +58,6 @@ static s32 ixgbe_read_i2c_eeprom_82598(struct ixgbe_hw *hw, u8 byte_offset,
-  **/
- static void ixgbe_set_pcie_completion_timeout(struct ixgbe_hw *hw)
- {
--	struct ixgbe_adapter *adapter = hw->back;
- 	u32 gcr = IXGBE_READ_REG(hw, IXGBE_GCR);
- 	u16 pcie_devctl2;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index 5482932..08fb88a 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
  
-@@ -84,11 +83,8 @@ static void ixgbe_set_pcie_completion_timeout(struct ixgbe_hw *hw)
- 	 * 16ms to 55ms
- 	 */
- 	pcie_devctl2 = ixgbe_read_pci_cfg_word(hw, IXGBE_PCI_DEVICE_CONTROL2);
--	if (ixgbe_removed(hw->hw_addr))
--		return;
- 	pcie_devctl2 |= IXGBE_PCI_DEVICE_CONTROL2_16ms;
--	pci_write_config_word(adapter->pdev,
--	                      IXGBE_PCI_DEVICE_CONTROL2, pcie_devctl2);
-+	ixgbe_write_pci_cfg_word(hw, IXGBE_PCI_DEVICE_CONTROL2, pcie_devctl2);
- out:
- 	/* disable completion timeout resend */
- 	gcr &= ~IXGBE_GCR_CMPL_TMOUT_RESEND;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index d1d67ba..afa1cda 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -133,6 +133,7 @@ s32 ixgbe_init_thermal_sensor_thresh_generic(struct ixgbe_hw *hw);
- #define IXGBE_FAILED_READ_CFG_WORD 0xffffU
+   Intel 82599 Virtual Function driver
+-  Copyright(c) 1999 - 2012 Intel Corporation.
++  Copyright(c) 1999 - 2014 Intel Corporation.
  
- u16 ixgbe_read_pci_cfg_word(struct ixgbe_hw *hw, u32 reg);
-+void ixgbe_write_pci_cfg_word(struct ixgbe_hw *hw, u32 reg, u16 value);
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+@@ -412,7 +412,8 @@ struct ixgbevf_adapter {
+ enum ixbgevf_state_t {
+ 	__IXGBEVF_TESTING,
+ 	__IXGBEVF_RESETTING,
+-	__IXGBEVF_DOWN
++	__IXGBEVF_DOWN,
++	__IXGBEVF_REMOVING,
+ };
  
- static inline bool ixgbe_removed(void __iomem *addr)
- {
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 18cd8ca..c773d6c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -361,6 +361,15 @@ static u32 ixgbe_read_pci_cfg_dword(struct ixgbe_hw *hw, u32 reg)
- }
- #endif /* CONFIG_PCI_IOV */
+ struct ixgbevf_cb {
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 8581079..940d924 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
  
-+void ixgbe_write_pci_cfg_word(struct ixgbe_hw *hw, u32 reg, u16 value)
-+{
-+	struct ixgbe_adapter *adapter = hw->back;
-+
-+	if (ixgbe_removed(hw->hw_addr))
-+		return;
-+	pci_write_config_word(adapter->pdev, reg, value);
-+}
-+
- static void ixgbe_service_event_complete(struct ixgbe_adapter *adapter)
- {
- 	BUG_ON(!test_bit(__IXGBE_SERVICE_SCHED, &adapter->state));
+   Intel 82599 Virtual Function driver
+-  Copyright(c) 1999 - 2012 Intel Corporation.
++  Copyright(c) 1999 - 2014 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+@@ -608,7 +608,8 @@ static int ixgbevf_poll(struct napi_struct *napi, int budget)
+ 	napi_complete(napi);
+ 	if (adapter->rx_itr_setting & 1)
+ 		ixgbevf_set_itr(q_vector);
+-	if (!test_bit(__IXGBEVF_DOWN, &adapter->state))
++	if (!test_bit(__IXGBEVF_DOWN, &adapter->state) &&
++	    !test_bit(__IXGBEVF_REMOVING, &adapter->state))
+ 		ixgbevf_irq_enable_queues(adapter,
+ 					  1 << q_vector->v_idx);
+ 
+@@ -833,7 +834,8 @@ static irqreturn_t ixgbevf_msix_other(int irq, void *data)
+ 
+ 	hw->mac.get_link_status = 1;
+ 
+-	if (!test_bit(__IXGBEVF_DOWN, &adapter->state))
++	if (!test_bit(__IXGBEVF_DOWN, &adapter->state) &&
++	    !test_bit(__IXGBEVF_REMOVING, &adapter->state))
+ 		mod_timer(&adapter->watchdog_timer, jiffies);
+ 
+ 	IXGBE_WRITE_REG(hw, IXGBE_VTEIMS, adapter->eims_other);
+@@ -2329,6 +2331,7 @@ static void ixgbevf_reset_task(struct work_struct *work)
+ 
+ 	/* If we're already down or resetting, just bail */
+ 	if (test_bit(__IXGBEVF_DOWN, &adapter->state) ||
++	    test_bit(__IXGBEVF_REMOVING, &adapter->state) ||
+ 	    test_bit(__IXGBEVF_RESETTING, &adapter->state))
+ 		return;
+ 
+@@ -2413,7 +2416,8 @@ static void ixgbevf_watchdog_task(struct work_struct *work)
+ 
+ pf_has_reset:
+ 	/* Reset the timer */
+-	if (!test_bit(__IXGBEVF_DOWN, &adapter->state))
++	if (!test_bit(__IXGBEVF_DOWN, &adapter->state) &&
++	    !test_bit(__IXGBEVF_REMOVING, &adapter->state))
+ 		mod_timer(&adapter->watchdog_timer,
+ 			  round_jiffies(jiffies + (2 * HZ)));
+ 
+@@ -3563,7 +3567,7 @@ static void ixgbevf_remove(struct pci_dev *pdev)
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+ 
+-	set_bit(__IXGBEVF_DOWN, &adapter->state);
++	set_bit(__IXGBEVF_REMOVING, &adapter->state);
+ 
+ 	del_timer_sync(&adapter->watchdog_timer);
+ 
 -- 
 1.8.3.1
