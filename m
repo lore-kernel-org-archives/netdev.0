@@ -1,40 +1,66 @@
-From: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
-Subject: [PATCH v4 ethtool 0/2] patchset - Support for configurable RSS hash key
-Date: Mon, 17 Mar 2014 18:02:50 +0530
-Message-ID: <39597853-033d-4a1e-a311-e40e5c0eddb9@CMEXHTCAS2.ad.emulex.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] netpoll: send arp reply on master device immediately
+Date: Mon, 17 Mar 2014 16:41:18 +0400
+Message-ID: <5326ED6E.9030001@cogentembedded.com>
+References: <1395042106-25179-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: amwang@redhat.com, nhorman@tuxdriver.com
+To: roy.qing.li@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:28293 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933022AbaCQMdJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 08:33:09 -0400
+Received: from mail-la0-f54.google.com ([209.85.215.54]:61283 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932906AbaCQMlV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 08:41:21 -0400
+Received: by mail-la0-f54.google.com with SMTP id mc6so3572682lab.41
+        for <netdev@vger.kernel.org>; Mon, 17 Mar 2014 05:41:20 -0700 (PDT)
+In-Reply-To: <1395042106-25179-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-NIC drivers that support RSS use either a hard-coded value or a random value
-for the RSS hash key. Irrespective of the type of the key used, the user
-would want to change the hash key if he/she is not satisfied with the
-effectiveness of the default hash-key in spreading the incoming flows evenly
-across the RSS queues.
+Hello.
 
-This patch set adds support for configuring the RSS hash-key via the ethtool
-interface using .X/-x option.
+On 17-03-2014 11:41, roy.qing.li@gmail.com wrote:
 
-v4:
-1. Edited ethtool_rxfh command description to fit into one physical line.
-2. Edited rss_config description to explain how indirection table and hashkey
-   are arranged in memory.
-3. Added description about what "indir_size == 0xDEADBEEF" means.
+> From: Li RongQing <roy.qing.li@gmail.com>
 
+> 1. the arp queue has been moved from slave device to master, so the
+> master device netpoll_info should be as input of service_arp_queue()
+> 2. not need to check if ni is NULL or not, since it has been used before.
 
-Venkat Duvvuru (2):
-  ethtool: Support for configurable RSS hash key
-  ethtool: Support for configurable RSS hash key
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> Cc: WANG Cong <amwang@redhat.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> ---
+>   net/core/netpoll.c |   26 ++++++++++++--------------
+>   1 file changed, 12 insertions(+), 14 deletions(-)
 
- ethtool-copy.h |   34 +++++++-
- ethtool.8.in   |   18 +++--
- ethtool.c      |  253 ++++++++++++++++++++++++++++++++++++++++++++------------
- 3 files changed, 244 insertions(+), 61 deletions(-)
+> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> index a664f78..dd0a796 100644
+> --- a/net/core/netpoll.c
+> +++ b/net/core/netpoll.c
+> @@ -229,21 +229,19 @@ static void netpoll_poll_dev(struct net_device *dev)
+>   	up(&ni->dev_lock);
+>
+>   	if (dev->flags & IFF_SLAVE) {
+[...]
+> +		struct net_device *bond_dev;
+> +		struct sk_buff *skb;
+> +		struct netpoll_info *bond_ni;
+>
+> -	service_neigh_queue(ni);
+> +		bond_dev = netdev_master_upper_dev_get_rcu(dev);
+> +		bond_ni = rcu_dereference_bh(bond_dev->npinfo);
+> +		while ((skb = skb_dequeue(&ni->neigh_tx))) {
+> +			skb->dev = bond_dev;
+> +			skb_queue_tail(&bond_ni->neigh_tx, skb);
+> +		}
+> +		service_neigh_queue(bond_ni);
+> +	} else
+> +		service_neigh_queue(ni);
+
+     The *else* branch should also have {}, according to 
+Documentation/CodingStyle.
+
+WBR, Sergei
