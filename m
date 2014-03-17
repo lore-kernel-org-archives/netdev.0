@@ -1,175 +1,364 @@
 From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net-next V6 1/9] dts: Add bindings for the Altera Triple Speed Ethernet driver
-Date: Mon, 17 Mar 2014 17:52:33 -0500
-Message-ID: <1395096761-15407-2-git-send-email-vbridgers2013@gmail.com>
+Subject: [PATCH net-next V6 5/9] Altera TSE: Add Miscellaneous Files for Altera Ethernet Driver
+Date: Mon, 17 Mar 2014 17:52:37 -0500
+Message-ID: <1395096761-15407-6-git-send-email-vbridgers2013@gmail.com>
 References: <1395096761-15407-1-git-send-email-vbridgers2013@gmail.com>
 Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
 	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
 	rob@landley.net, vbridgers2013@gmail.com
 To: devicetree@vger.kernel.org, netdev@vger.kernel.org,
 	linux-doc@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f44.google.com ([209.85.219.44]:36106 "EHLO
-	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751771AbaCQW51 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 18:57:27 -0400
+Return-path: <linux-doc-owner@vger.kernel.org>
 In-Reply-To: <1395096761-15407-1-git-send-email-vbridgers2013@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds a bindings description for the Altera Triple Speed Ethernet
-(TSE) driver. The bindings support the legacy SGDMA soft IP as well as the
-preferred MSGDMA soft IP. The TSE can be configured and synthesized in soft
-logic using Altera's Quartus toolchain. Please consult the bindings document
-for supported options.
+This patch adds miscellaneous files for the Altera Ethernet Driver,
+including ethtool support.
 
 Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
 ---
-V6: - No changes for V6
+V6: - Modify ethtool gets regs to read first 128 registers
 
-V5: - No changes for V5
+V5: - Change name of rx_fifo_drops to ether_drops to match closer to
+      the event it's actually counting and the description added
+      to the driver documentation.
 
-V4: - No change to this file for V4
+V4: - Change names of statistics to match common usage found in most
+      drivers instead of TSE databook names.
+    - Remove unnecessary cast
 
-V3: - Change order of commits
-    - Change names of enable-sup-addr and enable-hash to
-      has-supplementary-unicast and has-hash-multicast-filter
-      respectively, change interpretation to boolen/empty.
-    - Update devicetree to include commas in unit addresses.
-    - Bracket address lists for consistency
-    - Bracket interrupt list for consistency
-    - Drop unit address from mdio node
+V3: - Reorder commits
+    - Remove cast to u64 when reading stats per comments
+    - add const to array of statistics string names per comments
 
-V2: - Update bindings to use standard Ethernet and Phy bindings.
-      Use standard "phy-addr" instead of Altera's "phy-addr".
-      Use "rx-fifo-depth" and "tx-fifo-depth" instead of versions
-      prepended with "altr," in units of 32-bit quantities.
-      Add missing bindings to describe "altr,enable-hash" and
-      "altr,enable-sup-addr".
+V2: - Break up driver files for initial submission by logical function.
+    - Change bus type in ethtool from "AVALON" to "platform"
 ---
- .../devicetree/bindings/net/altera_tse.txt         |  114 ++++++++++++++++++++
- 1 file changed, 114 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/altera_tse.txt
+ drivers/net/ethernet/altera/altera_tse_ethtool.c |  227 ++++++++++++++++++++++
+ drivers/net/ethernet/altera/altera_utils.c       |   44 +++++
+ drivers/net/ethernet/altera/altera_utils.h       |   27 +++
+ 3 files changed, 298 insertions(+)
+ create mode 100644 drivers/net/ethernet/altera/altera_tse_ethtool.c
+ create mode 100644 drivers/net/ethernet/altera/altera_utils.c
+ create mode 100644 drivers/net/ethernet/altera/altera_utils.h
 
-diff --git a/Documentation/devicetree/bindings/net/altera_tse.txt b/Documentation/devicetree/bindings/net/altera_tse.txt
+diff --git a/drivers/net/ethernet/altera/altera_tse_ethtool.c b/drivers/net/ethernet/altera/altera_tse_ethtool.c
 new file mode 100644
-index 0000000..a706297
+index 0000000..63ac5f4
 --- /dev/null
-+++ b/Documentation/devicetree/bindings/net/altera_tse.txt
-@@ -0,0 +1,114 @@
-+* Altera Triple-Speed Ethernet MAC driver (TSE)
++++ b/drivers/net/ethernet/altera/altera_tse_ethtool.c
+@@ -0,0 +1,227 @@
++/* Ethtool support for Altera Triple-Speed Ethernet MAC driver
++ * Copyright (C) 2008-2014 Altera Corporation. All rights reserved
++ *
++ * Contributors:
++ *   Dalon Westergreen
++ *   Thomas Chou
++ *   Ian Abbott
++ *   Yuriy Kozlov
++ *   Tobias Klauser
++ *   Andriy Smolskyy
++ *   Roman Bulgakov
++ *   Dmytro Mytarchuk
++ *
++ * Original driver contributed by SLS.
++ * Major updates contributed by GlobalLogic
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
 +
-+Required properties:
-+- compatible: Should be "altr,tse-1.0" for legacy SGDMA based TSE, and should
-+		be "altr,tse-msgdma-1.0" for the preferred MSGDMA based TSE.
-+		ALTR is supported for legacy device trees, but is deprecated.
-+		altr should be used for all new designs.
-+- reg: Address and length of the register set for the device. It contains
-+  the information of registers in the same order as described by reg-names
-+- reg-names: Should contain the reg names
-+  "control_port": MAC configuration space region
-+  "tx_csr":       xDMA Tx dispatcher control and status space region
-+  "tx_desc":      MSGDMA Tx dispatcher descriptor space region
-+  "rx_csr" :      xDMA Rx dispatcher control and status space region
-+  "rx_desc":      MSGDMA Rx dispatcher descriptor space region
-+  "rx_resp":      MSGDMA Rx dispatcher response space region
-+  "s1":		  SGDMA descriptor memory
-+- interrupts: Should contain the TSE interrupts and it's mode.
-+- interrupt-names: Should contain the interrupt names
-+  "rx_irq":       xDMA Rx dispatcher interrupt
-+  "tx_irq":       xDMA Tx dispatcher interrupt
-+- rx-fifo-depth: MAC receive FIFO buffer depth in bytes
-+- tx-fifo-depth: MAC transmit FIFO buffer depth in bytes
-+- phy-mode: See ethernet.txt in the same directory.
-+- phy-handle: See ethernet.txt in the same directory.
-+- phy-addr: See ethernet.txt in the same directory. A configuration should
-+		include phy-handle or phy-addr.
-+- altr,has-supplementary-unicast:
-+		If present, TSE supports additional unicast addresses.
-+		Otherwise additional unicast addresses are not supported.
-+- altr,has-hash-multicast-filter:
-+		If present, TSE supports a hash based multicast filter.
-+		Otherwise, hash-based multicast filtering is not supported.
++#include <linux/ethtool.h>
++#include <linux/kernel.h>
++#include <linux/netdevice.h>
++#include <linux/phy.h>
 +
-+- mdio device tree subnode: When the TSE has a phy connected to its local
-+		mdio, there must be device tree subnode with the following
-+		required properties:
++#include "altera_tse.h"
 +
-+	- compatible: Must be "altr,tse-mdio".
-+	- #address-cells: Must be <1>.
-+	- #size-cells: Must be <0>.
++#define TSE_STATS_LEN	31
++#define TSE_NUM_REGS	128
 +
-+	For each phy on the mdio bus, there must be a node with the following
-+	fields:
++static char const stat_gstrings[][ETH_GSTRING_LEN] = {
++	"tx_packets",
++	"rx_packets",
++	"rx_crc_errors",
++	"rx_align_errors",
++	"tx_bytes",
++	"rx_bytes",
++	"tx_pause",
++	"rx_pause",
++	"rx_errors",
++	"tx_errors",
++	"rx_unicast",
++	"rx_multicast",
++	"rx_broadcast",
++	"tx_discards",
++	"tx_unicast",
++	"tx_multicast",
++	"tx_broadcast",
++	"ether_drops",
++	"rx_total_bytes",
++	"rx_total_packets",
++	"rx_undersize",
++	"rx_oversize",
++	"rx_64_bytes",
++	"rx_65_127_bytes",
++	"rx_128_255_bytes",
++	"rx_256_511_bytes",
++	"rx_512_1023_bytes",
++	"rx_1024_1518_bytes",
++	"rx_gte_1519_bytes",
++	"rx_jabbers",
++	"rx_runts",
++};
 +
-+	- reg: phy id used to communicate to phy.
-+	- device_type: Must be "ethernet-phy".
++static void tse_get_drvinfo(struct net_device *dev,
++			    struct ethtool_drvinfo *info)
++{
++	struct altera_tse_private *priv = netdev_priv(dev);
++	u32 rev = ioread32(&priv->mac_dev->megacore_revision);
 +
-+Optional properties:
-+- local-mac-address: See ethernet.txt in the same directory.
-+- max-frame-size: See ethernet.txt in the same directory.
++	strcpy(info->driver, "Altera TSE MAC IP Driver");
++	strcpy(info->version, "v8.0");
++	snprintf(info->fw_version, ETHTOOL_FWVERS_LEN, "v%d.%d",
++		 rev & 0xFFFF, (rev & 0xFFFF0000) >> 16);
++	sprintf(info->bus_info, "platform");
++}
 +
-+Example:
++/* Fill in a buffer with the strings which correspond to the
++ * stats
++ */
++static void tse_gstrings(struct net_device *dev, u32 stringset, u8 *buf)
++{
++	memcpy(buf, stat_gstrings, TSE_STATS_LEN * ETH_GSTRING_LEN);
++}
 +
-+	tse_sub_0_eth_tse_0: ethernet@0x1,00000000 {
-+		compatible = "altr,tse-msgdma-1.0";
-+		reg =	<0x00000001 0x00000000 0x00000400>,
-+			<0x00000001 0x00000460 0x00000020>,
-+			<0x00000001 0x00000480 0x00000020>,
-+			<0x00000001 0x000004A0 0x00000008>,
-+			<0x00000001 0x00000400 0x00000020>,
-+			<0x00000001 0x00000420 0x00000020>;
-+		reg-names = "control_port", "rx_csr", "rx_desc", "rx_resp", "tx_csr", "tx_desc";
-+		interrupt-parent = <&hps_0_arm_gic_0>;
-+		interrupts = <0 41 4>, <0 40 4>;
-+		interrupt-names = "rx_irq", "tx_irq";
-+		rx-fifo-depth = <2048>;
-+		tx-fifo-depth = <2048>;
-+		address-bits = <48>;
-+		max-frame-size = <1500>;
-+		local-mac-address = [ 00 00 00 00 00 00 ];
-+		phy-mode = "gmii";
-+		altr,has-supplementary-unicast;
-+		altr,has-hash-multicast-filter;
-+		phy-handle = <&phy0>;
-+		mdio {
-+			compatible = "altr,tse-mdio";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			phy0: ethernet-phy@0 {
-+				reg = <0x0>;
-+				device_type = "ethernet-phy";
-+			};
++static void tse_fill_stats(struct net_device *dev, struct ethtool_stats *dummy,
++			   u64 *buf)
++{
++	struct altera_tse_private *priv = netdev_priv(dev);
++	struct altera_tse_mac *mac = priv->mac_dev;
++	u64 ext;
 +
-+			phy1: ethernet-phy@1 {
-+				reg = <0x1>;
-+				device_type = "ethernet-phy";
-+			};
++	buf[0] = ioread32(&mac->frames_transmitted_ok);
++	buf[1] = ioread32(&mac->frames_received_ok);
++	buf[2] = ioread32(&mac->frames_check_sequence_errors);
++	buf[3] = ioread32(&mac->alignment_errors);
 +
-+		};
-+	};
++	/* Extended aOctetsTransmittedOK counter */
++	ext = (u64) ioread32(&mac->msb_octets_transmitted_ok) << 32;
++	ext |= ioread32(&mac->octets_transmitted_ok);
++	buf[4] = ext;
 +
-+	tse_sub_1_eth_tse_0: ethernet@0x1,00001000 {
-+		compatible = "altr,tse-msgdma-1.0";
-+		reg = 	<0x00000001 0x00001000 0x00000400>,
-+			<0x00000001 0x00001460 0x00000020>,
-+			<0x00000001 0x00001480 0x00000020>,
-+			<0x00000001 0x000014A0 0x00000008>,
-+			<0x00000001 0x00001400 0x00000020>,
-+			<0x00000001 0x00001420 0x00000020>;
-+		reg-names = "control_port", "rx_csr", "rx_desc", "rx_resp", "tx_csr", "tx_desc";
-+		interrupt-parent = <&hps_0_arm_gic_0>;
-+		interrupts = <0 43 4>, <0 42 4>;
-+		interrupt-names = "rx_irq", "tx_irq";
-+		rx-fifo-depth = <2048>;
-+		tx-fifo-depth = <2048>;
-+		address-bits = <48>;
-+		max-frame-size = <1500>;
-+		local-mac-address = [ 00 00 00 00 00 00 ];
-+		phy-mode = "gmii";
-+		altr,has-supplementary-unicast;
-+		altr,has-hash-multicast-filter;
-+		phy-handle = <&phy1>;
-+	};
++	/* Extended aOctetsReceivedOK counter */
++	ext = (u64) ioread32(&mac->msb_octets_received_ok) << 32;
++	ext |= ioread32(&mac->octets_received_ok);
++	buf[5] = ext;
++
++	buf[6] = ioread32(&mac->tx_pause_mac_ctrl_frames);
++	buf[7] = ioread32(&mac->rx_pause_mac_ctrl_frames);
++	buf[8] = ioread32(&mac->if_in_errors);
++	buf[9] = ioread32(&mac->if_out_errors);
++	buf[10] = ioread32(&mac->if_in_ucast_pkts);
++	buf[11] = ioread32(&mac->if_in_multicast_pkts);
++	buf[12] = ioread32(&mac->if_in_broadcast_pkts);
++	buf[13] = ioread32(&mac->if_out_discards);
++	buf[14] = ioread32(&mac->if_out_ucast_pkts);
++	buf[15] = ioread32(&mac->if_out_multicast_pkts);
++	buf[16] = ioread32(&mac->if_out_broadcast_pkts);
++	buf[17] = ioread32(&mac->ether_stats_drop_events);
++
++	/* Extended etherStatsOctets counter */
++	ext = (u64) ioread32(&mac->msb_ether_stats_octets) << 32;
++	ext |= ioread32(&mac->ether_stats_octets);
++	buf[18] = ext;
++
++	buf[19] = ioread32(&mac->ether_stats_pkts);
++	buf[20] = ioread32(&mac->ether_stats_undersize_pkts);
++	buf[21] = ioread32(&mac->ether_stats_oversize_pkts);
++	buf[22] = ioread32(&mac->ether_stats_pkts_64_octets);
++	buf[23] = ioread32(&mac->ether_stats_pkts_65to127_octets);
++	buf[24] = ioread32(&mac->ether_stats_pkts_128to255_octets);
++	buf[25] = ioread32(&mac->ether_stats_pkts_256to511_octets);
++	buf[26] = ioread32(&mac->ether_stats_pkts_512to1023_octets);
++	buf[27] = ioread32(&mac->ether_stats_pkts_1024to1518_octets);
++	buf[28] = ioread32(&mac->ether_stats_pkts_1519tox_octets);
++	buf[29] = ioread32(&mac->ether_stats_jabbers);
++	buf[30] = ioread32(&mac->ether_stats_fragments);
++}
++
++static int tse_sset_count(struct net_device *dev, int sset)
++{
++	switch (sset) {
++	case ETH_SS_STATS:
++		return TSE_STATS_LEN;
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static u32 tse_get_msglevel(struct net_device *dev)
++{
++	struct altera_tse_private *priv = netdev_priv(dev);
++	return priv->msg_enable;
++}
++
++static void tse_set_msglevel(struct net_device *dev, uint32_t data)
++{
++	struct altera_tse_private *priv = netdev_priv(dev);
++	priv->msg_enable = data;
++}
++
++static int tse_reglen(struct net_device *dev)
++{
++	return TSE_NUM_REGS * sizeof(u32);
++}
++
++static void tse_get_regs(struct net_device *dev, struct ethtool_regs *regs,
++			 void *regbuf)
++{
++	int i;
++	struct altera_tse_private *priv = netdev_priv(dev);
++	u32 *tse_mac_regs = (u32 *)priv->mac_dev;
++	u32 *buf = regbuf;
++
++	for (i = 0; i < TSE_NUM_REGS; i++)
++		buf[i] = ioread32(&tse_mac_regs[i]);
++}
++
++static int tse_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct altera_tse_private *priv = netdev_priv(dev);
++	struct phy_device *phydev = priv->phydev;
++
++	if (phydev == NULL)
++		return -ENODEV;
++
++	return phy_ethtool_gset(phydev, cmd);
++}
++
++static int tse_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct altera_tse_private *priv = netdev_priv(dev);
++	struct phy_device *phydev = priv->phydev;
++
++	if (phydev == NULL)
++		return -ENODEV;
++
++	return phy_ethtool_sset(phydev, cmd);
++}
++
++static const struct ethtool_ops tse_ethtool_ops = {
++	.get_drvinfo = tse_get_drvinfo,
++	.get_regs_len = tse_reglen,
++	.get_regs = tse_get_regs,
++	.get_link = ethtool_op_get_link,
++	.get_settings = tse_get_settings,
++	.set_settings = tse_set_settings,
++	.get_strings = tse_gstrings,
++	.get_sset_count = tse_sset_count,
++	.get_ethtool_stats = tse_fill_stats,
++	.get_msglevel = tse_get_msglevel,
++	.set_msglevel = tse_set_msglevel,
++};
++
++void altera_tse_set_ethtool_ops(struct net_device *netdev)
++{
++	SET_ETHTOOL_OPS(netdev, &tse_ethtool_ops);
++}
+diff --git a/drivers/net/ethernet/altera/altera_utils.c b/drivers/net/ethernet/altera/altera_utils.c
+new file mode 100644
+index 0000000..70fa13f
+--- /dev/null
++++ b/drivers/net/ethernet/altera/altera_utils.c
+@@ -0,0 +1,44 @@
++/* Altera TSE SGDMA and MSGDMA Linux driver
++ * Copyright (C) 2014 Altera Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include "altera_tse.h"
++#include "altera_utils.h"
++
++void tse_set_bit(void __iomem *ioaddr, u32 bit_mask)
++{
++	u32 value = ioread32(ioaddr);
++	value |= bit_mask;
++	iowrite32(value, ioaddr);
++}
++
++void tse_clear_bit(void __iomem *ioaddr, u32 bit_mask)
++{
++	u32 value = ioread32(ioaddr);
++	value &= ~bit_mask;
++	iowrite32(value, ioaddr);
++}
++
++int tse_bit_is_set(void __iomem *ioaddr, u32 bit_mask)
++{
++	u32 value = ioread32(ioaddr);
++	return (value & bit_mask) ? 1 : 0;
++}
++
++int tse_bit_is_clear(void __iomem *ioaddr, u32 bit_mask)
++{
++	u32 value = ioread32(ioaddr);
++	return (value & bit_mask) ? 0 : 1;
++}
+diff --git a/drivers/net/ethernet/altera/altera_utils.h b/drivers/net/ethernet/altera/altera_utils.h
+new file mode 100644
+index 0000000..ce1db36
+--- /dev/null
++++ b/drivers/net/ethernet/altera/altera_utils.h
+@@ -0,0 +1,27 @@
++/* Altera TSE SGDMA and MSGDMA Linux driver
++ * Copyright (C) 2014 Altera Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include <linux/kernel.h>
++
++#ifndef __ALTERA_UTILS_H__
++#define __ALTERA_UTILS_H__
++
++void tse_set_bit(void __iomem *ioaddr, u32 bit_mask);
++void tse_clear_bit(void __iomem *ioaddr, u32 bit_mask);
++int tse_bit_is_set(void __iomem *ioaddr, u32 bit_mask);
++int tse_bit_is_clear(void __iomem *ioaddr, u32 bit_mask);
++
++#endif /* __ALTERA_UTILS_H__*/
 -- 
 1.7.9.5
+
