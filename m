@@ -1,37 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: reflect the fwmark for replies with no socket
-Date: Mon, 17 Mar 2014 14:55:22 -0400 (EDT)
-Message-ID: <20140317.145522.584337331452843243.davem@davemloft.net>
-References: <1394536541-25702-1-git-send-email-lorenzo@google.com>
-	<20140312.161737.1125059989320204564.davem@davemloft.net>
-	<CAKD1Yr2rSwpzSdvjsO-=QUkivAkw2gnj+_mvydtR8OfAnsTicg@mail.gmail.com>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: RE: [net-next 03/16] i40evf: Support RSS option in ethtool
+Date: Mon, 17 Mar 2014 18:55:44 +0000
+Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D6556FAEF@FMSMSX113.amr.corp.intel.com>
+References: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1395060316-16897-4-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1395082411.22343.4.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: lorenzo@google.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"Sullivan, Catherine" <catherine.sullivan@intel.com>
+To: Ben Hutchings <ben@decadent.org.uk>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41317 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750706AbaCQSza (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 14:55:30 -0400
-In-Reply-To: <CAKD1Yr2rSwpzSdvjsO-=QUkivAkw2gnj+_mvydtR8OfAnsTicg@mail.gmail.com>
+Received: from mga02.intel.com ([134.134.136.20]:48442 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750716AbaCQSz4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Mar 2014 14:55:56 -0400
+In-Reply-To: <1395082411.22343.4.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lorenzo Colitti <lorenzo@google.com>
-Date: Mon, 17 Mar 2014 14:24:57 +0900
-
-> In general, that's true. Still - currently the mark on these packets
-> is 0, period, and the administrator can't do anything about that at
-> all. The idea was that some control is better than zero control, and
-> since these packets are always in reply to other packets, then marking
-> responses based on the packets that provoked them made sense, since
-> the input marking can be as flexible as the administrator desires.
-
-I do not agree with this assesment at all, a default of 0 is better
-than an potentially undesirable default.
-
-The incoming fwmark is controlled by external entities, and most people
-are usually unhappy with external entities having influence upon their
-machine's behavior.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
+bWFpbHRvOmJlbkBkZWNhZGVudC5vcmcudWtdDQo+IFNlbnQ6IE1vbmRheSwgTWFyY2ggMTcsIDIw
+MTQgMTE6NTQgQU0NCj4gVG86IEtpcnNoZXIsIEplZmZyZXkgVA0KPiBDYzogZGF2ZW1AZGF2ZW1s
+b2Z0Lm5ldDsgV2lsbGlhbXMsIE1pdGNoIEE7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+IGdv
+c3BvQHJlZGhhdC5jb207IHNhc3NtYW5uQHJlZGhhdC5jb207IFN1bGxpdmFuLCBDYXRoZXJpbmUN
+Cj4gU3ViamVjdDogUmU6IFtuZXQtbmV4dCAwMy8xNl0gaTQwZXZmOiBTdXBwb3J0IFJTUyBvcHRp
+b24gaW4gZXRodG9vbA0KPiANCj4gT24gTW9uLCAyMDE0LTAzLTE3IGF0IDA1OjQ1IC0wNzAwLCBK
+ZWZmIEtpcnNoZXIgd3JvdGU6DQo+ID4gRnJvbTogTWl0Y2ggV2lsbGlhbXMgPG1pdGNoLmEud2ls
+bGlhbXNAaW50ZWwuY29tPg0KPiA+DQo+ID4gQWRkIHN1cHBvcnQgZm9yIHZpZXdpbmcgYW5kIG1v
+ZGlmeWluZyBSU1MgaGFzaCBvcHRpb25zIGFuZCBSU1MgaGFzaA0KPiA+IGxvb2stdXAgdGFibGUg
+cHJvZ3JhbW1pbmcgdGhyb3VnaCBldGh0b29sLiBCZWNhdXNlIHRoZSBsb29rdXAgdGFibGUgaXMN
+Cj4gPiBzbyBzbWFsbCBmb3IgdGhlIFZGcyAob25seSAxNiByZWdpc3RlcnMpLCB3ZSBkb24ndCBi
+b3RoZXIgdG8gbWFpbnRhaW4gYQ0KPiA+IHNoYWRvdyB0YWJsZSBpbiBtZW1vcnksIHdlIGp1c3Qg
+cmVhZCBhbmQgd3JpdGUgdGhlIHJlZ2lzdGVycyBkaXJlY3RseS4NCj4gWy4uLl0NCj4gPiArc3Rh
+dGljIGludCBpNDBldmZfZ2V0X3Jzc19oYXNoX29wdHMoc3RydWN0IGk0MGV2Zl9hZGFwdGVyICph
+ZGFwdGVyLA0KPiA+ICsJCQkJICAgIHN0cnVjdCBldGh0b29sX3J4bmZjICpjbWQpDQo+ID4gK3sN
+Cj4gPiArCWNtZC0+ZGF0YSA9IDA7DQo+ID4gKw0KPiA+ICsJLyogUmVwb3J0IGRlZmF1bHQgb3B0
+aW9ucyBmb3IgUlNTIG9uIGk0MGUgKi8NCj4gDQo+IEJ1dCB5b3UncmUgYWxsb3dpbmcgdGhlbSB0
+byBiZSBjaGFuZ2VkIGZyb20gdGhlIGRlZmF1bHRzLCBzbyB0aGlzIGlzDQo+IHdyb25nLg0KPiAN
+Cj4gWy4uLl0NCj4gPiArc3RhdGljIGludCBpNDBldmZfc2V0X3J4ZmhfaW5kaXIoc3RydWN0IG5l
+dF9kZXZpY2UgKm5ldGRldiwgY29uc3QgdTMyDQo+ICppbmRpcikNCj4gPiArew0KPiA+ICsJc3Ry
+dWN0IGk0MGV2Zl9hZGFwdGVyICphZGFwdGVyID0gbmV0ZGV2X3ByaXYobmV0ZGV2KTsNCj4gPiAr
+CXN0cnVjdCBpNDBlX2h3ICpodyA9ICZhZGFwdGVyLT5odzsNCj4gPiArCXUzMiBobHV0X3ZhbDsN
+Cj4gPiArCWludCBpLCBqOw0KPiA+ICsNCj4gPiArCS8qIFZlcmlmeSB1c2VyIGlucHV0LiAqLw0K
+PiA+ICsJZm9yIChpID0gMDsgaSA8IChJNDBFX1ZGUUZfSExVVF9NQVhfSU5ERVggKyAxKSAqIDQ7
+IGkrKykgew0KPiA+ICsJCWlmIChpbmRpcltpXSA+PSBhZGFwdGVyLT52c2lfcmVzLT5udW1fcXVl
+dWVfcGFpcnMpDQo+ID4gKwkJCXJldHVybiAtRUlOVkFMOw0KPiA+ICsJfQ0KPiBbLi4uXQ0KPiAN
+Cj4gZXRodG9vbF9zZXRfcnhmaF9pbmRpcigpIGRvZXMgdGhpcyB2YWxpZGF0aW9uIHNvIHlvdSBk
+b24ndCBoYXZlIHRvLg0KPiAoVGhpcyB3YXNuJ3QgdHJ1ZSBvcmlnaW5hbGx5IHNvIHlvdSdsbCBu
+ZWVkIHRvIGtlZXAgaXQgaW4gY29tcGF0aWJpbGl0eQ0KPiBjb2RlIGZvciB5b3VyIE9PVCBkcml2
+ZXIuKQ0KDQpUaGFua3MsIEJlbi4gV2UnbGwgcmVzcGluIHRoaXMuDQoNCi1NaXRjaA0KDQo+IA0K
+PiBCZW4uDQo+IA0KPiAtLQ0KPiBCZW4gSHV0Y2hpbmdzDQo+IEknbSBhbHdheXMgYW1hemVkIGJ5
+IHRoZSBudW1iZXIgb2YgcGVvcGxlIHdobyB0YWtlIHVwIHNvbGlwc2lzbSBiZWNhdXNlDQo+IHRo
+ZXkgaGVhcmQgc29tZW9uZSBlbHNlIGV4cGxhaW4gaXQuIC0gRSpCb3JnIG9uIGFsdC5mYW4ucHJh
+dGNoZXR0DQo=
