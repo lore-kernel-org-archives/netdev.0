@@ -1,100 +1,88 @@
-From: David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v4 2/4] mac80211: set NET_NAME_USER for user-space created ifs
-Date: Mon, 17 Mar 2014 20:42:36 +0100
-Message-ID: <1395085358-1171-3-git-send-email-dh.herrmann@gmail.com>
+From: David Herrmann <dh.herrmann@gmail.com>
+Subject: [PATCH v4 3/4] ath6kl: set NET_NAME_USER for P2P ifs
+Date: Mon, 17 Mar 2014 20:42:37 +0100
+Message-ID: <1395085358-1171-4-git-send-email-dh.herrmann@gmail.com>
 References: <1395085358-1171-1-git-send-email-dh.herrmann@gmail.com>
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Tom Gundersen <teg-B22kvLQNl6c@public.gmane.org>,
-	Johannes berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1395085358-1171-1-git-send-email-dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Tom Gundersen <teg@jklm.no>,
+	Johannes berg <johannes@sipsolutions.net>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Herrmann <dh.herrmann@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395085358-1171-1-git-send-email-dh.herrmann@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The nl80211 interface allows creating new netdevs from user-space. The
-name is *always* provided by user-space, so we should set NET_NAME_USER to
-provide that information via sysfs. But we must not set it for the default
-wlan%d names as these are kernel-provided names.
+P2P netdevs and other devices that are created via nl80211 from user-space
+have a name provided by user-space. Therefore, set NET_NAME_USER so this
+is correctly shown in sysfs.
 
-This allows udev to not rename dynamically created wifi devices (like wifi
-P2P devices).
-
-Cc: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Signed-off-by: David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Acked-by: Tom Gundersen <teg-B22kvLQNl6c@public.gmane.org>
+Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
+Acked-by: Kalle Valo <kvalo@qca.qualcomm.com>
+Acked-by: Tom Gundersen <teg@jklm.no>
 ---
- net/mac80211/cfg.c         | 2 +-
- net/mac80211/ieee80211_i.h | 1 +
- net/mac80211/iface.c       | 2 ++
- net/mac80211/main.c        | 2 +-
- 4 files changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/wireless/ath/ath6kl/cfg80211.c | 5 ++++-
+ drivers/net/wireless/ath/ath6kl/cfg80211.h | 1 +
+ drivers/net/wireless/ath/ath6kl/core.c     | 4 ++--
+ 3 files changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
-index 1acb291..34f10fe 100644
---- a/net/mac80211/cfg.c
-+++ b/net/mac80211/cfg.c
-@@ -31,7 +31,7 @@ static struct wireless_dev *ieee80211_add_iface(struct wiphy *wiphy,
- 	struct ieee80211_sub_if_data *sdata;
- 	int err;
+diff --git a/drivers/net/wireless/ath/ath6kl/cfg80211.c b/drivers/net/wireless/ath/ath6kl/cfg80211.c
+index c2c6f46..131d8ab 100644
+--- a/drivers/net/wireless/ath/ath6kl/cfg80211.c
++++ b/drivers/net/wireless/ath/ath6kl/cfg80211.c
+@@ -1512,7 +1512,8 @@ static struct wireless_dev *ath6kl_cfg80211_add_iface(struct wiphy *wiphy,
+ 		return ERR_PTR(-EINVAL);
+ 	}
  
--	err = ieee80211_if_add(local, name, &wdev, type, params);
-+	err = ieee80211_if_add(local, name, NET_NAME_USER, &wdev, type, params);
- 	if (err)
- 		return ERR_PTR(err);
+-	wdev = ath6kl_interface_add(ar, name, type, if_idx, nw_type);
++	wdev = ath6kl_interface_add(ar, name, NET_NAME_USER, type,
++				    if_idx, nw_type);
+ 	if (!wdev)
+ 		return ERR_PTR(-ENOMEM);
  
-diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
-index 0d1a0f8..96f453a 100644
---- a/net/mac80211/ieee80211_i.h
-+++ b/net/mac80211/ieee80211_i.h
-@@ -1469,6 +1469,7 @@ int ieee80211_channel_switch(struct wiphy *wiphy, struct net_device *dev,
- int ieee80211_iface_init(void);
- void ieee80211_iface_exit(void);
- int ieee80211_if_add(struct ieee80211_local *local, const char *name,
-+		     unsigned char name_assign_type,
- 		     struct wireless_dev **new_wdev, enum nl80211_iftype type,
- 		     struct vif_params *params);
- int ieee80211_if_change_type(struct ieee80211_sub_if_data *sdata,
-diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
-index b8d331e..fe84853 100644
---- a/net/mac80211/iface.c
-+++ b/net/mac80211/iface.c
-@@ -1574,6 +1574,7 @@ static void ieee80211_assign_perm_addr(struct ieee80211_local *local,
+@@ -3630,6 +3631,7 @@ void ath6kl_cfg80211_vif_cleanup(struct ath6kl_vif *vif)
  }
  
- int ieee80211_if_add(struct ieee80211_local *local, const char *name,
-+		     unsigned char name_assign_type,
- 		     struct wireless_dev **new_wdev, enum nl80211_iftype type,
- 		     struct vif_params *params)
+ struct wireless_dev *ath6kl_interface_add(struct ath6kl *ar, const char *name,
++					  unsigned char name_assign_type,
+ 					  enum nl80211_iftype type,
+ 					  u8 fw_vif_idx, u8 nw_type)
  {
-@@ -1617,6 +1618,7 @@ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
- 					+ IEEE80211_ENCRYPT_HEADROOM;
- 		ndev->needed_tailroom = IEEE80211_ENCRYPT_TAILROOM;
+@@ -3666,6 +3668,7 @@ struct wireless_dev *ath6kl_interface_add(struct ath6kl *ar, const char *name,
+ 			ndev->dev_addr[4] ^= 0x80;
+ 	}
  
-+		ndev->name_assign_type = name_assign_type;
- 		ret = dev_alloc_name(ndev, ndev->name);
- 		if (ret < 0) {
- 			free_netdev(ndev);
-diff --git a/net/mac80211/main.c b/net/mac80211/main.c
-index b055f6a5..ee32a83 100644
---- a/net/mac80211/main.c
-+++ b/net/mac80211/main.c
-@@ -1012,7 +1012,7 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
++	ndev->name_assign_type = name_assign_type;
+ 	init_netdev(ndev);
  
- 	/* add one default STA interface if supported */
- 	if (local->hw.wiphy->interface_modes & BIT(NL80211_IFTYPE_STATION)) {
--		result = ieee80211_if_add(local, "wlan%d", NULL,
-+		result = ieee80211_if_add(local, "wlan%d", NET_NAME_ENUM, NULL,
- 					  NL80211_IFTYPE_STATION, NULL);
- 		if (result)
- 			wiphy_warn(local->hw.wiphy,
+ 	ath6kl_init_control_info(vif);
+diff --git a/drivers/net/wireless/ath/ath6kl/cfg80211.h b/drivers/net/wireless/ath/ath6kl/cfg80211.h
+index b59becd..5aa57a7 100644
+--- a/drivers/net/wireless/ath/ath6kl/cfg80211.h
++++ b/drivers/net/wireless/ath/ath6kl/cfg80211.h
+@@ -25,6 +25,7 @@ enum ath6kl_cfg_suspend_mode {
+ };
+ 
+ struct wireless_dev *ath6kl_interface_add(struct ath6kl *ar, const char *name,
++					  unsigned char name_assign_type,
+ 					  enum nl80211_iftype type,
+ 					  u8 fw_vif_idx, u8 nw_type);
+ void ath6kl_cfg80211_ch_switch_notify(struct ath6kl_vif *vif, int freq,
+diff --git a/drivers/net/wireless/ath/ath6kl/core.c b/drivers/net/wireless/ath/ath6kl/core.c
+index 4b46adb..3cc8145 100644
+--- a/drivers/net/wireless/ath/ath6kl/core.c
++++ b/drivers/net/wireless/ath/ath6kl/core.c
+@@ -195,8 +195,8 @@ int ath6kl_core_init(struct ath6kl *ar, enum ath6kl_htc_type htc_type)
+ 	rtnl_lock();
+ 
+ 	/* Add an initial station interface */
+-	wdev = ath6kl_interface_add(ar, "wlan%d", NL80211_IFTYPE_STATION, 0,
+-				    INFRA_NETWORK);
++	wdev = ath6kl_interface_add(ar, "wlan%d", NET_NAME_ENUM,
++				    NL80211_IFTYPE_STATION, 0, INFRA_NETWORK);
+ 
+ 	rtnl_unlock();
+ 
 -- 
 1.9.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
