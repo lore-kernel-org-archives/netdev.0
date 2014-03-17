@@ -1,69 +1,40 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH] netpoll: send arp reply on master device immediately
-Date: Mon, 17 Mar 2014 15:41:46 +0800
-Message-ID: <1395042106-25179-1-git-send-email-roy.qing.li@gmail.com>
-Cc: amwang@redhat.com, nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: [PATCH] via: fix a punctuation typo
+Date: Mon, 17 Mar 2014 15:52:17 +0800
+Message-ID: <5326A9B1.7050609@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <rl@hellgate.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:54830 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932413AbaCQHly (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 03:41:54 -0400
-Received: by mail-pa0-f51.google.com with SMTP id kq14so5393631pab.10
-        for <netdev@vger.kernel.org>; Mon, 17 Mar 2014 00:41:54 -0700 (PDT)
+Received: from szxga01-in.huawei.com ([119.145.14.64]:45703 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932377AbaCQHwy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 03:52:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
+In generic, after an assignment, we use ';' instead of ','.
+Although, it won't hurt.
 
-1. the arp queue has been moved from slave device to master, so the
-master device netpoll_info should be as input of service_arp_queue()
-2. not need to check if ni is NULL or not, since it has been used before.
-
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-Cc: WANG Cong <amwang@redhat.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 ---
- net/core/netpoll.c |   26 ++++++++++++--------------
- 1 file changed, 12 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/via/via-rhine.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index a664f78..dd0a796 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -229,21 +229,19 @@ static void netpoll_poll_dev(struct net_device *dev)
- 	up(&ni->dev_lock);
+diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+index 5bc1a2d..9d93fa1 100644
+--- a/drivers/net/ethernet/via/via-rhine.c
++++ b/drivers/net/ethernet/via/via-rhine.c
+@@ -1022,7 +1022,7 @@ static int rhine_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  
- 	if (dev->flags & IFF_SLAVE) {
--		if (ni) {
--			struct net_device *bond_dev;
--			struct sk_buff *skb;
--			struct netpoll_info *bond_ni;
--
--			bond_dev = netdev_master_upper_dev_get_rcu(dev);
--			bond_ni = rcu_dereference_bh(bond_dev->npinfo);
--			while ((skb = skb_dequeue(&ni->neigh_tx))) {
--				skb->dev = bond_dev;
--				skb_queue_tail(&bond_ni->neigh_tx, skb);
--			}
--		}
--	}
-+		struct net_device *bond_dev;
-+		struct sk_buff *skb;
-+		struct netpoll_info *bond_ni;
+ 	/* The chip-specific entries in the device structure. */
+ 	dev->netdev_ops = &rhine_netdev_ops;
+-	dev->ethtool_ops = &netdev_ethtool_ops,
++	dev->ethtool_ops = &netdev_ethtool_ops;
+ 	dev->watchdog_timeo = TX_TIMEOUT;
  
--	service_neigh_queue(ni);
-+		bond_dev = netdev_master_upper_dev_get_rcu(dev);
-+		bond_ni = rcu_dereference_bh(bond_dev->npinfo);
-+		while ((skb = skb_dequeue(&ni->neigh_tx))) {
-+			skb->dev = bond_dev;
-+			skb_queue_tail(&bond_ni->neigh_tx, skb);
-+		}
-+		service_neigh_queue(bond_ni);
-+	} else
-+		service_neigh_queue(ni);
- 
- 	zap_completion_queue();
- }
+ 	netif_napi_add(dev, &rp->napi, rhine_napipoll, 64);
 -- 
-1.7.10.4
+1.7.12
