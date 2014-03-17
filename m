@@ -1,254 +1,181 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/16] i40e/i40evf: enable hardware feature head write back
-Date: Mon, 17 Mar 2014 05:45:07 -0700
-Message-ID: <1395060316-16897-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/16] igb: Add register defines needed for time sync functions
+Date: Mon, 17 Mar 2014 05:45:13 -0700
+Message-ID: <1395060316-16897-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:4492 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:33804 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756476AbaCQMpX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2014 08:45:23 -0400
+	id S1756493AbaCQMp0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Mar 2014 08:45:26 -0400
 In-Reply-To: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-The hardware supports a feature to avoid updating the descriptor
-ring by marking each descriptor with a DD bit, and instead
-writes a memory location with an update to where the driver
-should clean up to.  Enable this feature.
+This patch adds defines needed for implementing the auxiliary time sync
+functions and also changes code to call the updated defines instead of
+the old.
 
-Change-ID: I5da4e0681f0b581a6401c950a81808792267fe57
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Reported-by: Richard Cochran <ricahrdcochran@gmail.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  5 +++
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 45 +++++++++++++++++++---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  3 ++
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 45 +++++++++++++++++++---
- 4 files changed, 86 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_defines.h | 70 ++++++++++++++++++++++++--
+ drivers/net/ethernet/intel/igb/e1000_regs.h    |  9 ++++
+ drivers/net/ethernet/intel/igb/igb_ptp.c       |  4 +-
+ 3 files changed, 78 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 0734eef..2f72eed 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2181,6 +2181,11 @@ static int i40e_configure_tx_ring(struct i40e_ring *ring)
- 	tx_ctx.fd_ena = !!(vsi->back->flags & (I40E_FLAG_FD_SB_ENABLED |
- 					       I40E_FLAG_FD_ATR_ENABLED));
- 	tx_ctx.timesync_ena = !!(vsi->back->flags & I40E_FLAG_PTP);
-+	/* FDIR VSI tx ring can still use RS bit and writebacks */
-+	if (vsi->type != I40E_VSI_FDIR)
-+		tx_ctx.head_wb_ena = 1;
-+	tx_ctx.head_wb_addr = ring->dma +
-+			      (ring->count * sizeof(struct i40e_tx_desc));
+diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
+index 393c896..b05bf92 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_defines.h
++++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
+@@ -43,7 +43,11 @@
+ #define E1000_WUFC_BC   0x00000010 /* Broadcast Wakeup Enable */
  
- 	/* As part of VSI creation/update, FW allocates certain
- 	 * Tx arbitration queue sets for each TC enabled for
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 88666ad..9892a69 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -619,6 +619,19 @@ static bool i40e_check_tx_hang(struct i40e_ring *tx_ring)
- }
- 
- /**
-+ * i40e_get_head - Retrieve head from head writeback
-+ * @tx_ring:  tx ring to fetch head of
-+ *
-+ * Returns value of Tx ring head based on value stored
-+ * in head write-back location
-+ **/
-+static inline u32 i40e_get_head(struct i40e_ring *tx_ring)
-+{
-+	void *head = (struct i40e_tx_desc *)tx_ring->desc + tx_ring->count;
-+	return le32_to_cpu(*(volatile __le32 *)head);
-+}
+ /* Extended Device Control */
++#define E1000_CTRL_EXT_SDP2_DATA 0x00000040 /* Value of SW Defineable Pin 2 */
+ #define E1000_CTRL_EXT_SDP3_DATA 0x00000080 /* Value of SW Defineable Pin 3 */
++#define E1000_CTRL_EXT_SDP2_DIR  0x00000400 /* SDP2 Data direction */
++#define E1000_CTRL_EXT_SDP3_DIR  0x00000800 /* SDP3 Data direction */
 +
-+/**
-  * i40e_clean_tx_irq - Reclaim resources after transmit completes
-  * @tx_ring:  tx ring to clean
-  * @budget:   how many cleans we're allowed
-@@ -629,6 +642,7 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- {
- 	u16 i = tx_ring->next_to_clean;
- 	struct i40e_tx_buffer *tx_buf;
-+	struct i40e_tx_desc *tx_head;
- 	struct i40e_tx_desc *tx_desc;
- 	unsigned int total_packets = 0;
- 	unsigned int total_bytes = 0;
-@@ -637,6 +651,8 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- 	tx_desc = I40E_TX_DESC(tx_ring, i);
- 	i -= tx_ring->count;
+ /* Physical Func Reset Done Indication */
+ #define E1000_CTRL_EXT_PFRSTD    0x00004000
+ #define E1000_CTRL_EXT_LINK_MODE_MASK 0x00C00000
+@@ -190,7 +194,8 @@
+ /* enable link status from external LINK_0 and LINK_1 pins */
+ #define E1000_CTRL_SWDPIN0  0x00040000  /* SWDPIN 0 value */
+ #define E1000_CTRL_SWDPIN1  0x00080000  /* SWDPIN 1 value */
+-#define E1000_CTRL_SWDPIO0  0x00400000  /* SWDPIN 0 Input or output */
++#define E1000_CTRL_SDP0_DIR 0x00400000  /* SDP0 Data direction */
++#define E1000_CTRL_SDP1_DIR 0x00800000  /* SDP1 Data direction */
+ #define E1000_CTRL_RST      0x04000000  /* Global reset */
+ #define E1000_CTRL_RFCE     0x08000000  /* Receive Flow Control enable */
+ #define E1000_CTRL_TFCE     0x10000000  /* Transmit flow control enable */
+@@ -528,8 +533,67 @@
  
-+	tx_head = I40E_TX_DESC(tx_ring, i40e_get_head(tx_ring));
+ #define E1000_TIMINCA_16NS_SHIFT 24
+ 
+-#define E1000_TSICR_TXTS 0x00000002
+-#define E1000_TSIM_TXTS 0x00000002
++/* Time Sync Interrupt Cause/Mask Register Bits */
 +
- 	do {
- 		struct i40e_tx_desc *eop_desc = tx_buf->next_to_watch;
++#define TSINTR_SYS_WRAP  (1 << 0) /* SYSTIM Wrap around. */
++#define TSINTR_TXTS      (1 << 1) /* Transmit Timestamp. */
++#define TSINTR_RXTS      (1 << 2) /* Receive Timestamp. */
++#define TSINTR_TT0       (1 << 3) /* Target Time 0 Trigger. */
++#define TSINTR_TT1       (1 << 4) /* Target Time 1 Trigger. */
++#define TSINTR_AUTT0     (1 << 5) /* Auxiliary Timestamp 0 Taken. */
++#define TSINTR_AUTT1     (1 << 6) /* Auxiliary Timestamp 1 Taken. */
++#define TSINTR_TADJ      (1 << 7) /* Time Adjust Done. */
++
++#define TSYNC_INTERRUPTS TSINTR_TXTS
++#define E1000_TSICR_TXTS TSINTR_TXTS
++
++/* TSAUXC Configuration Bits */
++#define TSAUXC_EN_TT0    (1 << 0)  /* Enable target time 0. */
++#define TSAUXC_EN_TT1    (1 << 1)  /* Enable target time 1. */
++#define TSAUXC_EN_CLK0   (1 << 2)  /* Enable Configurable Frequency Clock 0. */
++#define TSAUXC_SAMP_AUT0 (1 << 3)  /* Latch SYSTIML/H into AUXSTMPL/0. */
++#define TSAUXC_ST0       (1 << 4)  /* Start Clock 0 Toggle on Target Time 0. */
++#define TSAUXC_EN_CLK1   (1 << 5)  /* Enable Configurable Frequency Clock 1. */
++#define TSAUXC_SAMP_AUT1 (1 << 6)  /* Latch SYSTIML/H into AUXSTMPL/1. */
++#define TSAUXC_ST1       (1 << 7)  /* Start Clock 1 Toggle on Target Time 1. */
++#define TSAUXC_EN_TS0    (1 << 8)  /* Enable hardware timestamp 0. */
++#define TSAUXC_AUTT0     (1 << 9)  /* Auxiliary Timestamp Taken. */
++#define TSAUXC_EN_TS1    (1 << 10) /* Enable hardware timestamp 0. */
++#define TSAUXC_AUTT1     (1 << 11) /* Auxiliary Timestamp Taken. */
++#define TSAUXC_PLSG      (1 << 17) /* Generate a pulse. */
++#define TSAUXC_DISABLE   (1 << 31) /* Disable SYSTIM Count Operation. */
++
++/* SDP Configuration Bits */
++#define AUX0_SEL_SDP0    (0 << 0)  /* Assign SDP0 to auxiliary time stamp 0. */
++#define AUX0_SEL_SDP1    (1 << 0)  /* Assign SDP1 to auxiliary time stamp 0. */
++#define AUX0_SEL_SDP2    (2 << 0)  /* Assign SDP2 to auxiliary time stamp 0. */
++#define AUX0_SEL_SDP3    (3 << 0)  /* Assign SDP3 to auxiliary time stamp 0. */
++#define AUX0_TS_SDP_EN   (1 << 2)  /* Enable auxiliary time stamp trigger 0. */
++#define AUX1_SEL_SDP0    (0 << 3)  /* Assign SDP0 to auxiliary time stamp 1. */
++#define AUX1_SEL_SDP1    (1 << 3)  /* Assign SDP1 to auxiliary time stamp 1. */
++#define AUX1_SEL_SDP2    (2 << 3)  /* Assign SDP2 to auxiliary time stamp 1. */
++#define AUX1_SEL_SDP3    (3 << 3)  /* Assign SDP3 to auxiliary time stamp 1. */
++#define AUX1_TS_SDP_EN   (1 << 5)  /* Enable auxiliary time stamp trigger 1. */
++#define TS_SDP0_SEL_TT0  (0 << 6)  /* Target time 0 is output on SDP0. */
++#define TS_SDP0_SEL_TT1  (1 << 6)  /* Target time 1 is output on SDP0. */
++#define TS_SDP0_SEL_FC0  (2 << 6)  /* Freq clock  0 is output on SDP0. */
++#define TS_SDP0_SEL_FC1  (3 << 6)  /* Freq clock  1 is output on SDP0. */
++#define TS_SDP0_EN       (1 << 8)  /* SDP0 is assigned to Tsync. */
++#define TS_SDP1_SEL_TT0  (0 << 9)  /* Target time 0 is output on SDP1. */
++#define TS_SDP1_SEL_TT1  (1 << 9)  /* Target time 1 is output on SDP1. */
++#define TS_SDP1_SEL_FC0  (2 << 9)  /* Freq clock  0 is output on SDP1. */
++#define TS_SDP1_SEL_FC1  (3 << 9)  /* Freq clock  1 is output on SDP1. */
++#define TS_SDP1_EN       (1 << 11) /* SDP1 is assigned to Tsync. */
++#define TS_SDP2_SEL_TT0  (0 << 12) /* Target time 0 is output on SDP2. */
++#define TS_SDP2_SEL_TT1  (1 << 12) /* Target time 1 is output on SDP2. */
++#define TS_SDP2_SEL_FC0  (2 << 12) /* Freq clock  0 is output on SDP2. */
++#define TS_SDP2_SEL_FC1  (3 << 12) /* Freq clock  1 is output on SDP2. */
++#define TS_SDP2_EN       (1 << 14) /* SDP2 is assigned to Tsync. */
++#define TS_SDP3_SEL_TT0  (0 << 15) /* Target time 0 is output on SDP3. */
++#define TS_SDP3_SEL_TT1  (1 << 15) /* Target time 1 is output on SDP3. */
++#define TS_SDP3_SEL_FC0  (2 << 15) /* Freq clock  0 is output on SDP3. */
++#define TS_SDP3_SEL_FC1  (3 << 15) /* Freq clock  1 is output on SDP3. */
++#define TS_SDP3_EN       (1 << 17) /* SDP3 is assigned to Tsync. */
  
-@@ -647,9 +663,8 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- 		/* prevent any other reads prior to eop_desc */
- 		read_barrier_depends();
+ #define E1000_MDICNFG_EXT_MDIO    0x80000000      /* MDI ext/int destination */
+ #define E1000_MDICNFG_COM_MDIO    0x40000000      /* MDI shared w/ lan 0 */
+diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
+index abdd935..e9c5fdd 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_regs.h
++++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
+@@ -40,6 +40,7 @@
+ #define E1000_FCT      0x00030  /* Flow Control Type - RW */
+ #define E1000_CONNSW   0x00034  /* Copper/Fiber switch control - RW */
+ #define E1000_VET      0x00038  /* VLAN Ether Type - RW */
++#define E1000_TSSDP    0x0003C  /* Time Sync SDP Configuration Register - RW */
+ #define E1000_ICR      0x000C0  /* Interrupt Cause Read - R/clr */
+ #define E1000_ITR      0x000C4  /* Interrupt Throttling Rate - RW */
+ #define E1000_ICS      0x000C8  /* Interrupt Cause Set - WO */
+@@ -101,6 +102,14 @@
+ #define E1000_SYSTIMH    0x0B604 /* System time register High - RO */
+ #define E1000_TIMINCA    0x0B608 /* Increment attributes register - RW */
+ #define E1000_TSAUXC     0x0B640 /* Timesync Auxiliary Control register */
++#define E1000_TRGTTIML0  0x0B644 /* Target Time Register 0 Low  - RW */
++#define E1000_TRGTTIMH0  0x0B648 /* Target Time Register 0 High - RW */
++#define E1000_TRGTTIML1  0x0B64C /* Target Time Register 1 Low  - RW */
++#define E1000_TRGTTIMH1  0x0B650 /* Target Time Register 1 High - RW */
++#define E1000_AUXSTMPL0  0x0B65C /* Auxiliary Time Stamp 0 Register Low  - RO */
++#define E1000_AUXSTMPH0  0x0B660 /* Auxiliary Time Stamp 0 Register High - RO */
++#define E1000_AUXSTMPL1  0x0B664 /* Auxiliary Time Stamp 1 Register Low  - RO */
++#define E1000_AUXSTMPH1  0x0B668 /* Auxiliary Time Stamp 1 Register High - RO */
+ #define E1000_SYSTIMR    0x0B6F8 /* System time register Residue */
+ #define E1000_TSICR      0x0B66C /* Interrupt Cause Register */
+ #define E1000_TSIM       0x0B674 /* Interrupt Mask Register */
+diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
+index 9c9c141..a894551a 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ptp.c
++++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
+@@ -799,7 +799,7 @@ void igb_ptp_init(struct igb_adapter *adapter)
  
--		/* if the descriptor isn't done, no work yet to do */
--		if (!(eop_desc->cmd_type_offset_bsz &
--		      cpu_to_le64(I40E_TX_DESC_DTYPE_DESC_DONE)))
-+		/* we have caught up to head, no work left to do */
-+		if (tx_head == tx_desc)
- 			break;
- 
- 		/* clear next_to_watch to prevent false hangs */
-@@ -905,6 +920,10 @@ int i40e_setup_tx_descriptors(struct i40e_ring *tx_ring)
- 
- 	/* round up to nearest 4K */
- 	tx_ring->size = tx_ring->count * sizeof(struct i40e_tx_desc);
-+	/* add u32 for head writeback, align after this takes care of
-+	 * guaranteeing this is at least one cache line in size
-+	 */
-+	tx_ring->size += sizeof(u32);
- 	tx_ring->size = ALIGN(tx_ring->size, 4096);
- 	tx_ring->desc = dma_alloc_coherent(dev, tx_ring->size,
- 					   &tx_ring->dma, GFP_KERNEL);
-@@ -2042,9 +2061,23 @@ static void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 		tx_bi = &tx_ring->tx_bi[i];
+ 	/* Initialize the time sync interrupts for devices that support it. */
+ 	if (hw->mac.type >= e1000_82580) {
+-		wr32(E1000_TSIM, E1000_TSIM_TXTS);
++		wr32(E1000_TSIM, TSYNC_INTERRUPTS);
+ 		wr32(E1000_IMS, E1000_IMS_TS);
  	}
  
--	tx_desc->cmd_type_offset_bsz =
--		build_ctob(td_cmd, td_offset, size, td_tag) |
--		cpu_to_le64((u64)I40E_TXD_CMD << I40E_TXD_QW1_CMD_SHIFT);
-+	/* Place RS bit on last descriptor of any packet that spans across the
-+	 * 4th descriptor (WB_STRIDE aka 0x3) in a 64B cacheline.
-+	 */
-+#define WB_STRIDE 0x3
-+	if (((i & WB_STRIDE) != WB_STRIDE) &&
-+	    (first <= &tx_ring->tx_bi[i]) &&
-+	    (first >= &tx_ring->tx_bi[i & ~WB_STRIDE])) {
-+		tx_desc->cmd_type_offset_bsz =
-+			build_ctob(td_cmd, td_offset, size, td_tag) |
-+			cpu_to_le64((u64)I40E_TX_DESC_CMD_EOP <<
-+					 I40E_TXD_QW1_CMD_SHIFT);
-+	} else {
-+		tx_desc->cmd_type_offset_bsz =
-+			build_ctob(td_cmd, td_offset, size, td_tag) |
-+			cpu_to_le64((u64)I40E_TXD_CMD <<
-+					 I40E_TXD_QW1_CMD_SHIFT);
-+	}
- 
- 	netdev_tx_sent_queue(netdev_get_tx_queue(tx_ring->netdev,
- 						 tx_ring->queue_index),
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index f018238..46fc2c6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -230,6 +230,9 @@ static int i40e_config_vsi_tx_queue(struct i40e_vf *vf, u16 vsi_idx,
- 	tx_ctx.qlen = info->ring_len;
- 	tx_ctx.rdylist = le16_to_cpu(pf->vsi[vsi_idx]->info.qs_handle[0]);
- 	tx_ctx.rdylist_act = 0;
-+	tx_ctx.head_wb_ena = 1;
-+	tx_ctx.head_wb_addr = info->dma_ring_addr +
-+			      (info->ring_len * sizeof(struct i40e_tx_desc));
- 
- 	/* clear the context in the HMC */
- 	ret = i40e_clear_lan_tx_queue_context(hw, pf_queue_id);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index b1d87c6..d4d9842 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -170,6 +170,19 @@ static bool i40e_check_tx_hang(struct i40e_ring *tx_ring)
- }
- 
- /**
-+ * i40e_get_head - Retrieve head from head writeback
-+ * @tx_ring:  tx ring to fetch head of
-+ *
-+ * Returns value of Tx ring head based on value stored
-+ * in head write-back location
-+ **/
-+static inline u32 i40e_get_head(struct i40e_ring *tx_ring)
-+{
-+	void *head = (struct i40e_tx_desc *)tx_ring->desc + tx_ring->count;
-+	return le32_to_cpu(*(volatile __le32 *)head);
-+}
-+
-+/**
-  * i40e_clean_tx_irq - Reclaim resources after transmit completes
-  * @tx_ring:  tx ring to clean
-  * @budget:   how many cleans we're allowed
-@@ -180,6 +193,7 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- {
- 	u16 i = tx_ring->next_to_clean;
- 	struct i40e_tx_buffer *tx_buf;
-+	struct i40e_tx_desc *tx_head;
- 	struct i40e_tx_desc *tx_desc;
- 	unsigned int total_packets = 0;
- 	unsigned int total_bytes = 0;
-@@ -188,6 +202,8 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- 	tx_desc = I40E_TX_DESC(tx_ring, i);
- 	i -= tx_ring->count;
- 
-+	tx_head = I40E_TX_DESC(tx_ring, i40e_get_head(tx_ring));
-+
- 	do {
- 		struct i40e_tx_desc *eop_desc = tx_buf->next_to_watch;
- 
-@@ -198,9 +214,8 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- 		/* prevent any other reads prior to eop_desc */
- 		read_barrier_depends();
- 
--		/* if the descriptor isn't done, no work yet to do */
--		if (!(eop_desc->cmd_type_offset_bsz &
--		      cpu_to_le64(I40E_TX_DESC_DTYPE_DESC_DONE)))
-+		/* we have caught up to head, no work left to do */
-+		if (tx_head == tx_desc)
- 			break;
- 
- 		/* clear next_to_watch to prevent false hangs */
-@@ -432,6 +447,10 @@ int i40evf_setup_tx_descriptors(struct i40e_ring *tx_ring)
- 
- 	/* round up to nearest 4K */
- 	tx_ring->size = tx_ring->count * sizeof(struct i40e_tx_desc);
-+	/* add u32 for head writeback, align after this takes care of
-+	 * guaranteeing this is at least one cache line in size
-+	 */
-+	tx_ring->size += sizeof(u32);
- 	tx_ring->size = ALIGN(tx_ring->size, 4096);
- 	tx_ring->desc = dma_alloc_coherent(dev, tx_ring->size,
- 					   &tx_ring->dma, GFP_KERNEL);
-@@ -1377,9 +1396,23 @@ static void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 		tx_bi = &tx_ring->tx_bi[i];
- 	}
- 
--	tx_desc->cmd_type_offset_bsz =
--		build_ctob(td_cmd, td_offset, size, td_tag) |
--		cpu_to_le64((u64)I40E_TXD_CMD << I40E_TXD_QW1_CMD_SHIFT);
-+	/* Place RS bit on last descriptor of any packet that spans across the
-+	 * 4th descriptor (WB_STRIDE aka 0x3) in a 64B cacheline.
-+	 */
-+#define WB_STRIDE 0x3
-+	if (((i & WB_STRIDE) != WB_STRIDE) &&
-+	    (first <= &tx_ring->tx_bi[i]) &&
-+	    (first >= &tx_ring->tx_bi[i & ~WB_STRIDE])) {
-+		tx_desc->cmd_type_offset_bsz =
-+			build_ctob(td_cmd, td_offset, size, td_tag) |
-+			cpu_to_le64((u64)I40E_TX_DESC_CMD_EOP <<
-+					 I40E_TXD_QW1_CMD_SHIFT);
-+	} else {
-+		tx_desc->cmd_type_offset_bsz =
-+			build_ctob(td_cmd, td_offset, size, td_tag) |
-+			cpu_to_le64((u64)I40E_TXD_CMD <<
-+					 I40E_TXD_QW1_CMD_SHIFT);
-+	}
- 
- 	netdev_tx_sent_queue(netdev_get_tx_queue(tx_ring->netdev,
- 						 tx_ring->queue_index),
+@@ -877,7 +877,7 @@ void igb_ptp_reset(struct igb_adapter *adapter)
+ 	case e1000_i211:
+ 		/* Enable the timer functions and interrupts. */
+ 		wr32(E1000_TSAUXC, 0x0);
+-		wr32(E1000_TSIM, E1000_TSIM_TXTS);
++		wr32(E1000_TSIM, TSYNC_INTERRUPTS);
+ 		wr32(E1000_IMS, E1000_IMS_TS);
+ 		break;
+ 	default:
 -- 
 1.8.3.1
