@@ -1,29 +1,72 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v4 1/4] net: add name_assign_type netdev attribute
-Date: Mon, 17 Mar 2014 15:28:41 -0400 (EDT)
-Message-ID: <20140317.152841.481757410112656879.davem@davemloft.net>
-References: <1394990490-1076-2-git-send-email-dh.herrmann@gmail.com>
-	<1395079295-1325-1-git-send-email-dh.herrmann@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, teg-B22kvLQNl6c@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org
-To: dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1395079295-1325-1-git-send-email-dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: David Herrmann <dh.herrmann@gmail.com>
+Subject: [PATCH v4 0/4] Provide netdev naming-policy via sysfs
+Date: Mon, 17 Mar 2014 20:42:34 +0100
+Message-ID: <1395085358-1171-1-git-send-email-dh.herrmann@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Tom Gundersen <teg@jklm.no>,
+	Johannes berg <johannes@sipsolutions.net>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Herrmann <dh.herrmann@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi
 
-When you post new versions of patches, you should post the entire series
-again.
+This is v4 of the netdev naming-policy series. You can find v1 here:
+  http://thread.gmane.org/gmane.linux.kernel/1657015
+Changes since v1:
+  - fix mac80211 core to set NET_NAME_ENUM for wlan%d kernel-provided names
+  - acked-by udev developers
+  - avoid padding after name_assign_type in "struct net_device" (David Laight)
+  - move API constants to uapi header (Ben Hutchings)
 
-This way it is unambiguous what patches go which which others.
 
-Thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This series implements a new sysfs attribute for netdevs called
+"name_assign_type". It provides an integer that describes where an interface
+name comes from. See Patch #1 for a description of this attribute. It is
+modelled after the existing "addr_assign_type" attribute.
+
+The main use-case is to allow udev to skip applying reliable ifnames to virtual
+devices. For instance, if wifi-P2P devices are created, wpas already provides a
+suitable naming-policy and udev shouldn't touch these devices. Same is true for
+other virtual devices.
+The idea is that if a device-name was provided by user-space, we should always
+prefer fixing this naming-policy instead of making udev rename the device. For
+kernel provided names that's hardly possible, though. Providing the
+naming-policy source via sysfs is thus a simple way to see whether renames are
+needed.
+
+Additionally, this field allows to detect whether a netdev has been manually
+renamed, which is quite useful for debugging and during crash-recovery.
+Furthermore, it fixes real udev bugs if a netdev is already renamed in the
+initrd and udev only runs in the real root. Detecting renames avoids overwriting
+custom user provided names.
+
+Thanks
+David
+
+David Herrmann (4):
+  net: add name_assign_type netdev attribute
+  mac80211: set NET_NAME_USER for user-space created ifs
+  ath6kl: set NET_NAME_USER for P2P ifs
+  brcmfmac: set NET_NAME_USER for P2P ifs
+
+ drivers/net/wireless/ath/ath6kl/cfg80211.c    | 5 ++++-
+ drivers/net/wireless/ath/ath6kl/cfg80211.h    | 1 +
+ drivers/net/wireless/ath/ath6kl/core.c        | 4 ++--
+ drivers/net/wireless/brcm80211/brcmfmac/p2p.c | 1 +
+ include/linux/netdevice.h                     | 2 ++
+ include/uapi/linux/netdevice.h                | 4 ++++
+ net/core/dev.c                                | 7 +++++++
+ net/core/net-sysfs.c                          | 2 ++
+ net/core/rtnetlink.c                          | 2 ++
+ net/mac80211/cfg.c                            | 2 +-
+ net/mac80211/ieee80211_i.h                    | 1 +
+ net/mac80211/iface.c                          | 2 ++
+ net/mac80211/main.c                           | 2 +-
+ 13 files changed, 30 insertions(+), 5 deletions(-)
+
+-- 
+1.9.0
