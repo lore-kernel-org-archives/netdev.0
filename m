@@ -1,73 +1,93 @@
 From: Byungho An <bh74.an@samsung.com>
-Subject: [PATCH V3 0/8] add new Samsung SXGBE driver
-Date: Mon, 17 Mar 2014 13:43:34 -0700
-Message-ID: <00bc01cf4221$9239f6e0$b6ade4a0$@samsung.com>
+Subject: [PATCH V3 1/8] sxgbe: Add device-tree binding support document
+Date: Mon, 17 Mar 2014 13:43:37 -0700
+Message-ID: <00c001cf4221$96e667f0$c4b337d0$@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, ilho215.lee@samsung.com
-To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+Cc: davem@davemloft.net, siva.kallam@samsung.com,
+	vipul.pandya@samsung.com, ks.giri@samsung.com,
+	ilho215.lee@samsung.com
+To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
+	devicetree@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout2.samsung.com ([203.254.224.25]:58218 "EHLO
+	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751229AbaCQUnu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 16:43:50 -0400
 Content-language: en-us
-Sender: linux-samsung-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Siva Reddy <siva.kallam@samsung.com>
 
-This is 3rd posting for SAMSUNG SXGBE driver.
+This patch adds binding document for SXGBE ethernet driver via device-tree.
 
-Changes since v1:
-- changed name of driver to SXGbE as per Ben's comment
-- squashed Joe's neatening for many stuff in original patches
+Signed-off-by: Siva Reddy Kallam <siva.kallam@samsung.com>
+Signed-off-by: Byungho An <bh74.an@samsung.com>
+---
+ .../devicetree/bindings/net/samsung-sxgbe.txt      |   53 ++++++++++++++++++++
+ 1 file changed, 53 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/samsung-sxgbe.txt
 
-Changes since v2:
-- updated and split binding document as per Mark's comment
-- clean up codes as per Joe's comment
-- removed unused fields and clean up codes as per Francois's comment
-- removed module parameters as per Dave's comment
-- moved driver directory to samsung/sxgbe/
-
-Byungho An (1):
-      MAINTAINERS: add maintainer for Samsung sxgbe driver
-
-Girish K S (2):
-      net: sxgbe: add EEE(Energy Efficient Ethernet) for Samsung sxgbe
-      net: sxgbe: add WOL(Wakeup-On-Lan)support for Samsung sxgbe
-
-Siva Reddy (2):
-      sxgbe: Add device-tree binding support document
-      net: sxgbe: add basic framework for Samsung 10Gb ethernet driver
-
-Vipul Pandya (3):
-      net: sxgbe: add TSO support for Samsung sxgbe
-      net: sxgbe: add Checksum offload support for Samsung sxgbe
-      net: sxgbe: add ethtool related functions support Samsung sxgbe
-
- .../devicetree/bindings/net/samsung-sxgbe.txt      |   53 +
- MAINTAINERS                                        |    9 +
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/samsung/Kconfig               |   20 +
- drivers/net/ethernet/samsung/Makefile              |    5 +
- drivers/net/ethernet/samsung/sxgbe/Kconfig         |    9 +
- drivers/net/ethernet/samsung/sxgbe/Makefile        |    4 +
- drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h  |  552 +++++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c    |  290 +++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.c    |  515 +++++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h    |  298 +++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c     |  387 ++++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h     |   51 +
- drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c |  633 ++++++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c    | 2392 ++++++++++++++++++++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_mdio.c    |  274 +++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c     |  282 +++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.h     |  108 +
- .../net/ethernet/samsung/sxgbe/sxgbe_platform.c    |  267 +++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h     |  491 ++++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.c    |   92 +
- drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.h    |   38 +
- include/linux/sxgbe_platform.h                     |   54 +
- 24 files changed, 6826 insertions(+)
-
-Thanks,
-Byungho An
+diff --git a/Documentation/devicetree/bindings/net/samsung-sxgbe.txt b/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
+new file mode 100644
+index 0000000..ca27947
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
+@@ -0,0 +1,53 @@
++* Samsung 10G Ethernet driver (SXGBE)
++
++Required properties:
++- compatible: Should be "samsung,sxgbe-v2.0a"
++- reg: Address and length of the register set for the device
++- interrupt-parent: Should be the phandle for the interrupt controller
++  that services interrupts for this device
++- interrupts: Should contain the SXGBE interrupts
++  These interrupts are ordered by fixed and follows variable
++  trasmit DMA interrupts, receive DMA interrupts and lpi interrupt.
++  index 0 - this is fixed common interrupt of SXGBE and it is always
++  available.
++  index 1 to 25 - 8 variable trasmit interrupts, variable 16 receive interrupts
++  and 1 optional lpi interrupt.
++- phy-mode: String, operation mode of the PHY interface.
++  Supported values are: "xaui", "gmii".
++- samsung,pbl: Integer, Programmable Burst Length.
++  Supported values are 1, 2, 4, 8, 16, or 32.
++- samsung,fixed-burst: Boolean, Program the DMA to use the fixed burst mode
++- samsung,burst-map: Integer, Program the possible bursts supported by sxgbe
++  This is an interger and represents allowable DMA bursts when fixed burst.
++  Allowable range is 0x00-0x3F. This field is valid only when fixed burst is
++  enabled, otherwise ignored.
++- samsung,adv-addr-mode: Boolean, Program the DMA to use Enhanced address mode.
++- samsung,force_thresh_dma_mode: Boolean, Force DMA to use the threshold mode
++  for both tx and rx
++- samsung,force_sf_dma_mode: Boolean, Force DMA to use the Store and Forward
++  mode for both tx and rx. This flag is ignored if force_thresh_dma_mode is set.
++- samsung,phy-addr: Integer, Address of the PHY attached with SXGBE.
++
++Optional properties:
++- mac-address: 6 bytes, mac address
++
++Example:
++
++	aliases {
++		ethernet0 = <&sxgbe0>;
++	};
++
++	sxgbe0: ethernet@1a040000 {
++		compatible = "samsung,sxgbe-v2.0a";
++		reg = <0 0x1a040000 0 0x10000>;
++		interrupt-parent = <&gic>;
++		interrupts = <0 209 4>, <0 185 4>, <0 186 4>, <0 187 4>,
++			     <0 188 4>, <0 189 4>, <0 190 4>, <0 191 4>,
++			     <0 192 4>, <0 193 4>, <0 194 4>, <0 195 4>,
++			     <0 196 4>, <0 197 4>, <0 198 4>, <0 199 4>,
++			     <0 200 4>, <0 201 4>, <0 202 4>, <0 203 4>,
++			     <0 204 4>, <0 205 4>, <0 206 4>, <0 207 4>,
++			     <0 208 4>, <0 210 4>;
++		mac-address = [000000000000]; /* Filled in by U-Boot */
++		phy-mode = "xaui";
++	};
+-- 
+1.7.10.4
