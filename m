@@ -1,107 +1,95 @@
-From: Andres Bertens <abertensu@yahoo.com>
-Subject: Fwd: Fwd: Linux 3.4.83 update: wireless card (iwlwifi) stop working
-Date: Mon, 17 Mar 2014 15:33:11 -0300
-Message-ID: <53273FE7.4050301@yahoo.com>
-References: <53273A0B.7070108@yahoo.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [net-next 03/16] i40evf: Support RSS option in ethtool
+Date: Mon, 17 Mar 2014 18:53:31 +0000
+Message-ID: <1395082411.22343.4.camel@deadeye.wl.decadent.org.uk>
+References: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1395060316-16897-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: johannes.berg@intel.com
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-ic5Z9dsXvFNbLpzlzNtE"
+Cc: davem@davemloft.net, Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Catherine Sullivan <catherine.sullivan@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm6-vm4.bullet.mail.ne1.yahoo.com ([98.138.91.166]:39502 "EHLO
-	nm6-vm4.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756833AbaCQSif (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 14:38:35 -0400
-In-Reply-To: <53273A0B.7070108@yahoo.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:49658 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750706AbaCQSxl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 14:53:41 -0400
+In-Reply-To: <1395060316-16897-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-As I was told, perhaps you are a better destination for this finding.
+--=-ic5Z9dsXvFNbLpzlzNtE
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Regards,
-Andres Bertens
+On Mon, 2014-03-17 at 05:45 -0700, Jeff Kirsher wrote:
+> From: Mitch Williams <mitch.a.williams@intel.com>
+>=20
+> Add support for viewing and modifying RSS hash options and RSS hash
+> look-up table programming through ethtool. Because the lookup table is
+> so small for the VFs (only 16 registers), we don't bother to maintain a
+> shadow table in memory, we just read and write the registers directly.
+[...]
+> +static int i40evf_get_rss_hash_opts(struct i40evf_adapter *adapter,
+> +				    struct ethtool_rxnfc *cmd)
+> +{
+> +	cmd->data =3D 0;
+> +
+> +	/* Report default options for RSS on i40e */
 
+But you're allowing them to be changed from the defaults, so this is
+wrong.
 
--------- Original Message --------
-Subject: Linux 3.4.83 update: wireless card (iwlwifi) stop working
-Date: Wed, 12 Mar 2014 14:46:14 -0300
-From: Andres Bertens <abertensu@yahoo.com>
-To: linux-kernel@vger.kernel.org
+[...]
+> +static int i40evf_set_rxfh_indir(struct net_device *netdev, const u32 *i=
+ndir)
+> +{
+> +	struct i40evf_adapter *adapter =3D netdev_priv(netdev);
+> +	struct i40e_hw *hw =3D &adapter->hw;
+> +	u32 hlut_val;
+> +	int i, j;
+> +
+> +	/* Verify user input. */
+> +	for (i =3D 0; i < (I40E_VFQF_HLUT_MAX_INDEX + 1) * 4; i++) {
+> +		if (indir[i] >=3D adapter->vsi_res->num_queue_pairs)
+> +			return -EINVAL;
+> +	}
+[...]
 
-Hi,
+ethtool_set_rxfh_indir() does this validation so you don't have to.
+(This wasn't true originally so you'll need to keep it in compatibility
+code for your OOT driver.)
 
-I updated today to 3.4.83 kernel and my wireless card stop working (log
-says: iwlwifi 0000:03:00.0: Unable to initialize device).
+Ben.
 
-My laptop is a Lenovo Thinkpad X230, with an Intel 6205 AGN card.
+--=20
+Ben Hutchings
+I'm always amazed by the number of people who take up solipsism because
+they heard someone else explain it. - E*Borg on alt.fan.pratchett
 
-Reverting patch
-     Johannes Berg <johannes.berg@intel.com>
-        iwlwifi: always copy first 16 bytes of commands
-makes it work again.
+--=-ic5Z9dsXvFNbLpzlzNtE
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-Regards,
-Andres Bertens
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-PS
-If of any interest, here are the related logs:
+iQIVAwUAUydEq+e/yOyVhhEJAQqs4RAAzPlZianAo6V6Pv/ygecVZ0OmOdf+FgTX
+gomTjgvyq3NlfRymRVbdaN1vmNoPkTt41P0UboURj7JMRnKYAfH1HNv8apSFJogE
+2o4jqtobdx4UIr4ZY3a++3HIu7DqgRQqPKCLjEEFLvQVxlX2/sAu84qxiEEdFvW8
+AhiTuH6wOjj3ozMRC7RrbHjukQ1kgapAsbQQkrh6Lhx29YCOAVJbg338ZcMhl/zM
+ZTSzrn7vfiCLpgYRPvFMaMAcBI+O/AO0NPgCgc3FPs2uvgdUtdJQ1+YB8XUJTv+L
+wpXX96ypF6QZQnJ4dgVQwpYJ0fo2VvSuB1l7ERQC7QUpVI21ilsUXLxHKzTysX+O
+A8zygAnZDtJnJnTWoeXjWxEDteopO939rL4s5zhOGb2GrC0x51qy65n/dxvJpz4o
+2Eq47oMmWVcuK2aAx2HukYxJgWCuhRWOdRFJcSO8tijl11DTYw0/ojUJB1AZuL8q
+GJ8yjWFuD6O9hWp+EZo0qNvxIS4u6TjHKPKC6a7D7V6R/2GeAfdwZLsZ0oXpwOrr
+j9Xd4LZ6AOudJy76PXtX1elBG+GWBeK+iRW5Zq3oEUasCUIQBhVnwIvKVSkrt17V
+04LONKOH7sxT/lpxOry5fnmfDIu2D6Q4TrErOHNEYVJiKliXLSz0k8iUkGAG0p8h
+CM5GJLTPr/w=
+=1lLQ
+-----END PGP SIGNATURE-----
 
-Linux mintaka 3.4.83-smp #1 SMP Wed Mar 12 13:10:44 CLST 2014 x86_64
-x86_64 x86_64 GNU/Linux
-
-Linux-3.4.83, device not working:
---------------------------------
-iwlwifi 0000:03:00.0: pci_resource_len = 0x00002000
-iwlwifi 0000:03:00.0: pci_resource_base = ffffc90006618000
-iwlwifi 0000:03:00.0: HW Revision ID = 0x34
-iwlwifi 0000:03:00.0: irq 42 for MSI/MSI-X
-iwlwifi 0000:03:00.0: loaded firmware version 18.168.6.1
-iwlwifi 0000:03:00.0: CONFIG_IWLWIFI_DEBUG disabled
-iwlwifi 0000:03:00.0: CONFIG_IWLWIFI_DEBUGFS disabled
-iwlwifi 0000:03:00.0: CONFIG_IWLWIFI_DEVICE_TRACING disabled
-iwlwifi 0000:03:00.0: CONFIG_IWLWIFI_DEVICE_TESTMODE disabled
-iwlwifi 0000:03:00.0: CONFIG_IWLWIFI_P2P disabled
-iwlwifi 0000:03:00.0: Detected Intel(R) Centrino(R) Advanced-N 6205 AGN,
-REV=0xB0
-iwlwifi 0000:03:00.0: L1 Enabled; Disabling L0S
-iwlwifi 0000:03:00.0: device EEPROM VER=0x715, CALIB=0x6
-iwlwifi 0000:03:00.0: Device SKU: 0x1F0
-iwlwifi 0000:03:00.0: Valid Tx ant: 0x3, Valid Rx ant: 0x3
-iwlwifi 0000:03:00.0: Tunable channels: 13 802.11bg, 24 802.11a channels
-iwlwifi 0000:03:00.0: L1 Enabled; Disabling L0S
-iwlwifi 0000:03:00.0: Radio type=0x1-0x2-0x0
-iwlwifi 0000:03:00.0: Error sending CALIBRATION_CFG_CMD: time out after
-2000ms.
-iwlwifi 0000:03:00.0: Current CMD queue read_ptr 2 write_ptr 3
-iwlwifi 0000:03:00.0: Failing on timeout while stopping DMA channel 7
-[0x077f0001]
-iwlwifi 0000:03:00.0: Failed to run INIT ucode: -110
-iwlwifi 0000:03:00.0: Unable to initialize device.
-
-
-Linux-3.4.83, patch remove, device working:
--------------------------------------------
-iwlwifi 0000:03:00.0: pci_resource_len = 0x00002000
-iwlwifi 0000:03:00.0: pci_resource_base = ffffc9000672c000
-iwlwifi 0000:03:00.0: HW Revision ID = 0x34
-iwlwifi 0000:03:00.0: irq 42 for MSI/MSI-X
-iwlwifi 0000:03:00.0: loaded firmware version 18.168.6.1
-iwlwifi 0000:03:00.0: CONFIG_IWLWIFI_DEBUG disabled
-iwlwifi 0000:03:00.0: CONFIG_IWLWIFI_DEBUGFS disabled
-iwlwifi 0000:03:00.0: CONFIG_IWLWIFI_DEVICE_TRACING disabled
-iwlwifi 0000:03:00.0: CONFIG_IWLWIFI_DEVICE_TESTMODE disabled
-iwlwifi 0000:03:00.0: CONFIG_IWLWIFI_P2P disabled
-iwlwifi 0000:03:00.0: Detected Intel(R) Centrino(R) Advanced-N 6205 AGN,
-REV=0xB0
-iwlwifi 0000:03:00.0: L1 Enabled; Disabling L0S
-iwlwifi 0000:03:00.0: device EEPROM VER=0x715, CALIB=0x6
-iwlwifi 0000:03:00.0: Device SKU: 0x1F0
-iwlwifi 0000:03:00.0: Valid Tx ant: 0x3, Valid Rx ant: 0x3
-iwlwifi 0000:03:00.0: Tunable channels: 13 802.11bg, 24 802.11a channels
-iwlwifi 0000:03:00.0: L1 Enabled; Disabling L0S
-iwlwifi 0000:03:00.0: Radio type=0x1-0x2-0x0
-iwlwifi 0000:03:00.0: L1 Enabled; Disabling L0S
-iwlwifi 0000:03:00.0: Radio type=0x1-0x2-0x0
+--=-ic5Z9dsXvFNbLpzlzNtE--
