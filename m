@@ -1,114 +1,75 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/16] e1000e: Fix Hardware Unit Hang
-Date: Mon, 17 Mar 2014 05:45:11 -0700
-Message-ID: <1395060316-16897-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/16] i40evf: correctly program RSS HLUT table
+Date: Mon, 17 Mar 2014 05:45:02 -0700
+Message-ID: <1395060316-16897-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Bruce Allan <bruce.w.allan@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:33804 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756543AbaCQMpY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Mar 2014 08:45:24 -0400
+	id S1756283AbaCQMpV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Mar 2014 08:45:21 -0400
 In-Reply-To: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ertman <davidx.m.ertman@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-The check for pending Tx work when link is lost was mistakenly moved to be
-done only when link is first detected to be lost.  It turns out there is a
-small window of opportunity for additional Tx work to get queued up shortly
-after link is dropped.
+The HLUT programming loop in in i40evf_configure_rss was a) overly-
+complicated, and b) just plain broken. Most of the entries ended up being
+not written at all, so most of the flows ended up at queue zero.
 
-Move the check back to the place it was before in the watchdog task.  Put in
-additional debug information for other reset paths and a final catch-all for
-false hangs in the scheduled function that prints out the hardware hang
-message.
+Refactor the HLUT programming loop to simply walk through the registers
+and write four values to each one, incrementing through the number of
+available queues.
 
-Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Change-ID: I75766179bc67e4e997187794f3144e28c83fd00d
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 32 +++++++++++++++++++++---------
- 1 file changed, 23 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 3f044e7..ecd8043 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1090,8 +1090,14 @@ static void e1000_print_hw_hang(struct work_struct *work)
- 		adapter->tx_hang_recheck = true;
- 		return;
- 	}
--	/* Real hang detected */
- 	adapter->tx_hang_recheck = false;
-+
-+	if (er32(TDH(0)) == er32(TDT(0))) {
-+		e_dbg("false hang detected, ignoring\n");
-+		return;
-+	}
-+
-+	/* Real hang detected */
- 	netif_stop_queue(netdev);
- 
- 	e1e_rphy(hw, MII_BMSR, &phy_status);
-@@ -1121,6 +1127,8 @@ static void e1000_print_hw_hang(struct work_struct *work)
- 	      eop, jiffies, eop_desc->upper.fields.status, er32(STATUS),
- 	      phy_status, phy_1000t_status, phy_ext_status, pci_status);
- 
-+	e1000e_dump(adapter);
-+
- 	/* Suggest workaround for known h/w issue */
- 	if ((hw->mac.type == e1000_pchlan) && (er32(CTRL) & E1000_CTRL_TFCE))
- 		e_err("Try turning off Tx pause (flow control) via ethtool\n");
-@@ -4798,6 +4806,7 @@ static void e1000e_check_82574_phy_workaround(struct e1000_adapter *adapter)
- 
- 	if (adapter->phy_hang_count > 1) {
- 		adapter->phy_hang_count = 0;
-+		e_dbg("PHY appears hung - resetting\n");
- 		schedule_work(&adapter->reset_task);
- 	}
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index d62e27f..7cb0cda 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1414,6 +1414,7 @@ restart_watchdog:
+ 	schedule_work(&adapter->adminq_task);
  }
-@@ -4956,15 +4965,11 @@ static void e1000_watchdog_task(struct work_struct *work)
- 				mod_timer(&adapter->phy_info_timer,
- 					  round_jiffies(jiffies + 2 * HZ));
  
--			/* The link is lost so the controller stops DMA.
--			 * If there is queued Tx work that cannot be done
--			 * or if on an 8000ES2LAN which requires a Rx packet
--			 * buffer work-around on link down event, reset the
--			 * controller to flush the Tx/Rx packet buffers.
--			 * (Do the reset outside of interrupt context).
-+			/* 8000ES2LAN requires a Rx packet buffer work-around
-+			 * on link down event; reset the controller to flush
-+			 * the Rx packet buffer.
- 			 */
--			if ((adapter->flags & FLAG_RX_NEEDS_RESTART) ||
--			    (e1000_desc_unused(tx_ring) + 1 < tx_ring->count))
-+			if (adapter->flags & FLAG_RX_NEEDS_RESTART)
- 				adapter->flags |= FLAG_RESTART_NOW;
- 			else
- 				pm_schedule_suspend(netdev->dev.parent,
-@@ -4987,6 +4992,15 @@ link_up:
- 	adapter->gotc_old = adapter->stats.gotc;
- 	spin_unlock(&adapter->stats64_lock);
++#define NEXT_QUEUE(_j) (++_j >= adapter->vsi_res->num_queue_pairs ? _j = 0 : _j)
+ /**
+  * i40evf_configure_rss - Prepare for RSS if used
+  * @adapter: board private structure
+@@ -1444,15 +1445,13 @@ static void i40evf_configure_rss(struct i40evf_adapter *adapter)
+ 	wr32(hw, I40E_VFQF_HENA(1), (u32)(hena >> 32));
  
-+	/* If the link is lost the controller stops DMA, but
-+	 * if there is queued Tx work it cannot be done.  So
-+	 * reset the controller to flush the Tx packet buffers.
-+	 */
-+	if (!netif_carrier_ok(netdev) &&
-+	    (e1000_desc_unused(tx_ring) + 1 < tx_ring->count))
-+		adapter->flags |= FLAG_RESTART_NOW;
-+
-+	/* If reset is necessary, do it outside of interrupt context. */
- 	if (adapter->flags & FLAG_RESTART_NOW) {
- 		schedule_work(&adapter->reset_task);
- 		/* return immediately since reset is imminent */
+ 	/* Populate the LUT with max no. of queues in round robin fashion */
+-	for (i = 0, j = 0; i < I40E_VFQF_HLUT_MAX_INDEX; i++, j++) {
+-		if (j == adapter->vsi_res->num_queue_pairs)
+-			j = 0;
+-		/* lut = 4-byte sliding window of 4 lut entries */
+-		lut = (lut << 8) | (j &
+-			 ((0x1 << 8) - 1));
+-		/* On i = 3, we have 4 entries in lut; write to the register */
+-		if ((i & 3) == 3)
+-			wr32(hw, I40E_VFQF_HLUT(i >> 2), lut);
++	j = adapter->vsi_res->num_queue_pairs;
++	for (i = 0; i <= I40E_VFQF_HLUT_MAX_INDEX; i++) {
++		lut = NEXT_QUEUE(j);
++		lut |= NEXT_QUEUE(j) << 8;
++		lut |= NEXT_QUEUE(j) << 16;
++		lut |= NEXT_QUEUE(j) << 24;
++		wr32(hw, I40E_VFQF_HLUT(i), lut);
+ 	}
+ 	i40e_flush(hw);
+ }
 -- 
 1.8.3.1
