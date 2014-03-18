@@ -1,166 +1,91 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/3] Documentation: add Device tree bindings for Hisilicon
- hip04 ethernet
-Date: Tue, 18 Mar 2014 10:39:05 -0700
-Message-ID: <CAGVrzcZY4Z6kFRUP54PtaZUAX0+cEmYfnunJQFN8TC66xooLeg@mail.gmail.com>
-References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org> <1395132017-15928-2-git-send-email-zhangfei.gao@linaro.org>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCHv3 net-next] VXLAN: fix nonfunctional neigh_reduce
+Date: Tue, 18 Mar 2014 13:44:07 -0400
+Message-ID: <532885E7.9090602@hp.com>
+References: <201403181620.s2IGKHcW028664@lab1.dls>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Zhangfei Gao <zhangfei.gao@linaro.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David L Stevens <dlstevens@us.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:48700 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751377AbaCRRjq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 13:39:46 -0400
-In-Reply-To: <1395132017-15928-2-git-send-email-zhangfei.gao@linaro.org>
+Received: from g2t1383g.austin.hp.com ([15.217.136.92]:32071 "EHLO
+	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751332AbaCRRoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 13:44:34 -0400
+Received: from g2t2352.austin.hp.com (g2t2352.austin.hp.com [15.217.128.51])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id C82E531EF
+	for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 17:44:24 +0000 (UTC)
+In-Reply-To: <201403181620.s2IGKHcW028664@lab1.dls>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-03-18 1:40 GMT-07:00 Zhangfei Gao <zhangfei.gao@linaro.org>:
-> This patch adds the Device Tree bindings for the Hisilicon hip04
-> Ethernet controller, including 100M / 1000M controller.
->
-> Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
-> ---
->  .../bindings/net/hisilicon-hip04-net.txt           |   74 ++++++++++++++++++++
->  1 file changed, 74 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
->
-> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt b/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
-> new file mode 100644
-> index 0000000..c918f08
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
-> @@ -0,0 +1,74 @@
-> +Hisilicon hip04 Ethernet Controller
+On 03/18/2014 12:20 PM, David L Stevens wrote:
+> 
+> 	The VXLAN neigh_reduce() code is completely non-functional since
+> check-in. Specific errors:
+<snip>
+> 
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index eb59b14..f6ddde9 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -1336,14 +1336,102 @@ out:
+>  }
+>  
+>  #if IS_ENABLED(CONFIG_IPV6)
 > +
-> +* Ethernet controller node
+> +static struct sk_buff *vxlan_na_create(struct sk_buff *request,
+> +	struct neighbour *n, bool isrouter)
+> +{
+> +	struct net_device *dev = request->dev;
+> +	struct sk_buff *reply = NULL;
+
+Don't need this initialization as it's assigned below before using.
+
+> +	struct nd_msg *ns, *na;
+> +	struct ipv6hdr *pip6;
+> +	u8 *daddr;
+> +	int olen = 8; /* opt hdr + ETH_ALEN for target */
+> +	int i, len;
 > +
-> +Required properties:
-> +- compatible: should be "hisilicon,hip04-mac".
-> +- reg: address and length of the register set for the device.
-> +- interrupts: interrupt for the device.
-> +- port: ppe port number connected to the controller: range from 0 to 31.
-> +- speed: 100 (100M) or 1000 (1000M).
-> +- id: should be different and fe should be 0.
+> +	if (dev == NULL)
+> +		return NULL;
 > +
-> +Optional Properties:
-> +- phy-handle : the phandle to a PHY node
+> +	ns = (struct nd_msg *)skb_transport_header(request);
+
+Nit: don't use this until below, can move initialization.
+
+> +	len = LL_RESERVED_SPACE(dev) + sizeof(struct ipv6hdr) +
+> +		sizeof(*na) + olen + dev->needed_tailroom;
+> +	reply = alloc_skb(len, GFP_ATOMIC);
+> +	if (reply == NULL)
+> +		return NULL;
 > +
+> +	reply->protocol = htons(ETH_P_IPV6);
+> +	reply->dev = dev;
+> +	skb_reserve(reply, LL_RESERVED_SPACE(request->dev));
+> +	skb_push(reply, sizeof(struct ethhdr));
+> +	skb_set_mac_header(reply, 0);
 > +
-> +* Ethernet ppe node: control rx & tx fifos of all ethernet controllers
+> +	daddr = eth_hdr(request)->h_source;
+> +	olen = request->len - skb_transport_offset(request) - sizeof(*ns);
+> +	for (i = 0; i < olen-1; i += (ns->opt[i+1]<<3)) {
+> +		if (ns->opt[i] == ND_OPT_SOURCE_LL_ADDR) {
+> +			daddr = ns->opt + i + sizeof(struct nd_opt_hdr);
+> +			break;
+> +		}
+> +	}
 > +
-> +Required properties:
-> +- compatible: should be "hisilicon,hip04-ppebase".
-> +- reg: address and length of the register set for the node.
-> +
-> +
-> +* MDIO bus node:
-> +
-> +Required properties:
-> +
-> +- compatible: "hisilicon,hip04-mdio"
-> +- Inherets from MDIO bus node binding[1]
-> +[1] Documentation/devicetree/bindings/net/phy.txt
-> +
-> +Example:
-> +       mdio {
-> +               compatible = "hisilicon,hip04-mdio";
-> +               reg = <0x28f1000 0x1000>;
-> +               #address-cells = <1>;
-> +               #size-cells = <0>;
-> +
-> +               phy0: ethernet-phy@0 {
-> +                       reg = <0>;
-> +                       marvell,reg-init = <18 0x14 0 0x8001>;
-> +                       device_type = "ethernet-phy";
+> +	/* Ethernet header */
+> +	memcpy(eth_hdr(reply)->h_dest, daddr, ETH_ALEN);
+> +	memcpy(eth_hdr(reply)->h_source, n->ha, ETH_ALEN);
 
-You are missing a compatible string such as
-"ethernet-phy-ieee802.3-c22", please take a look at
-Documentation/devicetree/bindings/net/phy.txt for an example.
+Can use ether_addr_copy() here.
 
-device_type is deprecated and should be removed.
-
-> +               };
-> +
-> +               phy1: ethernet-phy@1 {
-> +                       reg = <1>;
-> +                       marvell,reg-init = <18 0x14 0 0x8001>;
-> +                       device_type = "ethernet-phy";
-> +               };
-> +       };
-> +
-> +       ppebase: ppebase@28c0000 {
-> +               compatible = "hisilicon,hip04-ppebase";
-> +               reg = <0x28c0000 0x10000>;
-
-This should probably look like:
-
-                    #address-cells = <0>;
-                    #size-cells = <0>;
-
-                    eth0_port: port@0 {
-                         reg = <0>;
-                    };
-
-                    eth1_port: port@1f {
-                         reg = <31>;
-                    };
-
-This looks like something similar to mv643xx_eth, you should see
-Documentation/devicetree/bindings/marvell.txt for hints on how to
-model the representation in a similar fashion.
-
-> +       };
-> +
-> +       fe: ethernet@28b0000 {
-> +               compatible = "hisilicon,hip04-mac";
-> +               reg = <0x28b0000 0x10000>;
-> +               interrupts = <0 413 4>;
-> +               port = <31>;
-
-I do not think this is the right way to expose that, port should be
-specialized to e.g: hisilicon,port, or you should use a phandle to the
-"ppebase" node which exposes differents ports as subnodes:
-
-                    hisilicon,port-handle = <&eth0_port>;
-
-> +               speed = <100>;
-
-max-speed is the standard property for this
-
-> +               id = <0>;
-
-id here is a software concept, either you create properly numbered
-aliases for these nodes, and use of_alias_get_id(), or you do not use
-these identifiers at all.
-
-> +       };
-> +
-> +       ge0: ethernet@2800000 {
-> +               compatible = "hisilicon,hip04-mac";
-> +               reg = <0x2800000 0x10000>;
-> +               interrupts = <0 402 4>;
-> +               port = <0>;
-> +               speed = <1000>;
-> +               id = <1>;
-> +               phy-handle = <&phy0>;
-> +       };
-> --
-> 1.7.9.5
->
->
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-
-
-
--- 
-Florian
+-Brian
