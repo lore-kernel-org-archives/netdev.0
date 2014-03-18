@@ -1,41 +1,110 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next] net/i40e: Avoid double setting of NETIF_F_SG for the HW encapsulation feature mask
-Date: Tue, 18 Mar 2014 10:36:45 +0200
-Message-ID: <1395131805-14146-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
+From: Zhangfei Gao <zhangfei.gao@linaro.org>
+Subject: [PATCH 1/3] Documentation: add Device tree bindings for Hisilicon hip04 ethernet
+Date: Tue, 18 Mar 2014 16:40:15 +0800
+Message-ID: <1395132017-15928-2-git-send-email-zhangfei.gao@linaro.org>
+References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, Zhangfei Gao <zhangfei.gao@linaro.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:50181 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754270AbaCRIhL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Mar 2014 04:37:11 -0400
+Received: from mail-pb0-f43.google.com ([209.85.160.43]:62239 "EHLO
+	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753753AbaCRIke (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 04:40:34 -0400
+Received: by mail-pb0-f43.google.com with SMTP id um1so6949835pbc.2
+        for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 01:40:34 -0700 (PDT)
+In-Reply-To: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The networking core does it for the driver during registration time.
+This patch adds the Device Tree bindings for the Hisilicon hip04
+Ethernet controller, including 100M / 1000M controller.
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ .../bindings/net/hisilicon-hip04-net.txt           |   74 ++++++++++++++++++++
+ 1 file changed, 74 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index c66a11e..3daaf20 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -6578,10 +6578,9 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
- 	np = netdev_priv(netdev);
- 	np->vsi = vsi;
- 
--	netdev->hw_enc_features = NETIF_F_IP_CSUM	 |
-+	netdev->hw_enc_features |= NETIF_F_IP_CSUM	 |
- 				  NETIF_F_GSO_UDP_TUNNEL |
--				  NETIF_F_TSO		 |
--				  NETIF_F_SG;
-+				  NETIF_F_TSO;
- 
- 	netdev->features = NETIF_F_SG		       |
- 			   NETIF_F_IP_CSUM	       |
+diff --git a/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt b/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
+new file mode 100644
+index 0000000..c918f08
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
+@@ -0,0 +1,74 @@
++Hisilicon hip04 Ethernet Controller
++
++* Ethernet controller node
++
++Required properties:
++- compatible: should be "hisilicon,hip04-mac".
++- reg: address and length of the register set for the device.
++- interrupts: interrupt for the device.
++- port: ppe port number connected to the controller: range from 0 to 31.
++- speed: 100 (100M) or 1000 (1000M).
++- id: should be different and fe should be 0.
++
++Optional Properties:
++- phy-handle : the phandle to a PHY node
++
++
++* Ethernet ppe node: control rx & tx fifos of all ethernet controllers
++
++Required properties:
++- compatible: should be "hisilicon,hip04-ppebase".
++- reg: address and length of the register set for the node.
++
++
++* MDIO bus node:
++
++Required properties:
++
++- compatible: "hisilicon,hip04-mdio"
++- Inherets from MDIO bus node binding[1]
++[1] Documentation/devicetree/bindings/net/phy.txt
++
++Example:
++	mdio {
++		compatible = "hisilicon,hip04-mdio";
++		reg = <0x28f1000 0x1000>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		phy0: ethernet-phy@0 {
++			reg = <0>;
++			marvell,reg-init = <18 0x14 0 0x8001>;
++			device_type = "ethernet-phy";
++		};
++
++		phy1: ethernet-phy@1 {
++			reg = <1>;
++			marvell,reg-init = <18 0x14 0 0x8001>;
++			device_type = "ethernet-phy";
++		};
++	};
++
++	ppebase: ppebase@28c0000 {
++		compatible = "hisilicon,hip04-ppebase";
++		reg = <0x28c0000 0x10000>;
++	};
++
++	fe: ethernet@28b0000 {
++		compatible = "hisilicon,hip04-mac";
++		reg = <0x28b0000 0x10000>;
++		interrupts = <0 413 4>;
++		port = <31>;
++		speed = <100>;
++		id = <0>;
++	};
++
++	ge0: ethernet@2800000 {
++		compatible = "hisilicon,hip04-mac";
++		reg = <0x2800000 0x10000>;
++		interrupts = <0 402 4>;
++		port = <0>;
++		speed = <1000>;
++		id = <1>;
++		phy-handle = <&phy0>;
++	};
 -- 
-1.7.1
+1.7.9.5
