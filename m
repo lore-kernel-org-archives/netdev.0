@@ -1,289 +1,197 @@
-From: Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Tue, 18 Mar 2014 10:46:16 +0000
-Message-ID: <20140318104616.GT21483@n2100.arm.linux.org.uk>
-References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org> <1395132017-15928-4-git-send-email-zhangfei.gao@linaro.org>
+From: Andrew Bennieston <andrew.bennieston@citrix.com>
+Subject: Re: [PATCH V6 net-next 2/5] xen-netback: Add support for multiple
+ queues
+Date: Tue, 18 Mar 2014 10:48:12 +0000
+Message-ID: <5328246C.6060502@citrix.com>
+References: <1393847269-6981-1-git-send-email-andrew.bennieston@citrix.com>	 <1393847269-6981-3-git-send-email-andrew.bennieston@citrix.com> <1394813004.6442.133.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Zhangfei Gao <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1395132017-15928-4-git-send-email-zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <xen-devel@lists.xenproject.org>, <wei.liu2@citrix.com>,
+	<paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
+	<david.vrabel@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:51918 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754695AbaCRKsO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Mar 2014 06:48:14 -0400
+In-Reply-To: <1394813004.6442.133.camel@kazak.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I was just browsing this patch when I noticed some of these issues - I
-haven't done a full review of this driver, I'm just commenting on the
-things I've spotted.
+On 14/03/14 16:03, Ian Campbell wrote:
+> On Mon, 2014-03-03 at 11:47 +0000, Andrew J. Bennieston wrote:
+>> From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
+>>
+>> Builds on the refactoring of the previous patch to implement multiple
+>> queues between xen-netfront and xen-netback.
+>>
+>> Writes the maximum supported number of queues into XenStore, and reads
+>> the values written by the frontend to determine how many queues to use.
+>
+>>
+>> Ring references and event channels are read from XenStore on a per-queue
+>> basis and rings are connected accordingly.
+>>
+>> Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
+>> Reviewed-by: Paul Durrant <paul.durrant@citrix.com>
+>> ---
+>>   drivers/net/xen-netback/common.h    |    2 +
+>>   drivers/net/xen-netback/interface.c |    7 +++-
+>>   drivers/net/xen-netback/netback.c   |    8 ++++
+>>   drivers/net/xen-netback/xenbus.c    |   76 ++++++++++++++++++++++++++++++-----
+>>   4 files changed, 82 insertions(+), 11 deletions(-)
+>>
+>> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+>> index 4176539..e72bf38 100644
+>> --- a/drivers/net/xen-netback/common.h
+>> +++ b/drivers/net/xen-netback/common.h
+>> @@ -261,4 +261,6 @@ void xenvif_carrier_on(struct xenvif *vif);
+>>
+>>   extern bool separate_tx_rx_irq;
+>>
+>> +extern unsigned int xenvif_max_queues;
+>> +
+>>   #endif /* __XEN_NETBACK__COMMON_H__ */
+>> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+>> index 0297980..3f623b4 100644
+>> --- a/drivers/net/xen-netback/interface.c
+>> +++ b/drivers/net/xen-netback/interface.c
+>> @@ -381,7 +381,12 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+>>   	char name[IFNAMSIZ] = {};
+>>
+>>   	snprintf(name, IFNAMSIZ - 1, "vif%u.%u", domid, handle);
+>> -	dev = alloc_netdev_mq(sizeof(struct xenvif), name, ether_setup, 1);
+>> +	/* Allocate a netdev with the max. supported number of queues.
+>> +	 * When the guest selects the desired number, it will be updated
+>> +	 * via netif_set_real_num_tx_queues().
+>
+> Does this allocate and then waste a load of resources? Or does it free
+> them when you shrink things?
+It allocates a small amount of resource; each struct netdev_queue is 256
+bytes, and there are a few other things allocated at the same time. For
+a xenvif_max_queues of 8, this is allocating 2K of netdev_queue
+structs, plus a few other things; pretty small compared to the struct
+xenvif_queue objects and the arrays contained within!
 
-On Tue, Mar 18, 2014 at 04:40:17PM +0800, Zhangfei Gao wrote:
-> +static int hip04_rx_poll(struct napi_struct *napi, int budget)
-> +{
-> +	struct hip04_priv *priv = container_of(napi,
-> +			      struct hip04_priv, napi);
-> +	struct net_device *ndev = priv->ndev;
-> +	struct sk_buff *skb;
-> +	struct rx_desc *desc;
-> +	unsigned char *buf;
-> +	int rx = 0;
-> +	unsigned int cnt = hip04_recv_cnt(priv);
-> +	unsigned int len, tmp[16];
-> +
-> +	while (cnt) {
-> +		buf = priv->rx_buf[priv->rx_head];
-> +		skb = build_skb(buf, priv->rx_buf_size);
-> +		if (unlikely(!skb))
-> +			net_dbg_ratelimited("build_skb failed\n");
-> +		dma_map_single(&ndev->dev, skb->data,
-> +			RX_BUF_SIZE, DMA_FROM_DEVICE);
+The resources aren't freed when netif_set_real_num_tx_queues() is
+called; that just changes the value of dev->real_num_tx_queues.
 
-This is incorrect.
+> I suppose it is not possible to allocate small and grow or you'd have
+> done so?
+Indeed. This approach is taken by most drivers that support multiple
+queues; they allocate as many as the device has, then use only as many
+as there are online CPUs, or similar. In this case, xenvif_max_queues is
+initialised to num_online_cpus(), but is also exported as a module
+param. so the memory-conscious admin can reduce it further if desired.
 
-buf = buffer alloc()
-/* CPU owns buffer and can read/write it, device does not */
-dev_addr = dma_map_single(dev, buf, ..., DMA_FROM_DEVICE);
-/* Device owns buffer and can write it, CPU does not access it */
-dma_unmap_single(dev, dev_addr, ..., DMA_FROM_DEVICE);
-/* CPU owns buffer again and can read/write it, device does not */
+>
+> Can the host/guest admin change the number of queues on the fly?
 
-Please turn on DMA API debugging in the kernel debug options and verify
-whether your driver causes it to complain (it will.)
+This depends what you mean by 'on the fly'. The host admin can set the
+module parameter in dom0, which will affect guests started after that
+point, or the guest admin can set the module param in the guest. The
+actual number used is always the minimum of the two.
 
-I think you want dma_unmap_single() here.
+It's important to keep in mind the distinction between a netdev_queue
+and a xenvif_queue; a netdev_queue is small, but you have to allocate as
+many as you think you might need, at a point in time too early to be
+able to ask the guest how many it wants to use. A xenvif_queue is large,
+but we only allocate as many as will actually be used.
 
-> +		memcpy(tmp, skb->data, 64);
-> +		endian_change((void *)tmp, 64);
-> +		desc = (struct rx_desc *)tmp;
-> +		len = desc->pkt_len;
+>
+>>   	xen_net_read_rate(dev, &credit_bytes, &credit_usec);
+>>   	read_xenbus_vif_flags(be);
+>>
+>> -	be->vif->num_queues = 1;
+>> +	/* Use the number of queues requested by the frontend */
+>> +	be->vif->num_queues = requested_num_queues;
+>>   	be->vif->queues = vzalloc(be->vif->num_queues *
+>>   			sizeof(struct xenvif_queue));
+>> +	rtnl_lock();
+>> +	netif_set_real_num_tx_queues(be->vif->dev, be->vif->num_queues);
+>> +	rtnl_unlock();
+>
+> I'm always a bit suspicious of this construct -- it makes me thing the
+> call is happening from the wrong context and that the right context
+> would naturally hold the lock already.
 
-This is a rather expensive way to do this.  Presumably the descriptors
-are always big endian?  If so, why not:
+netif_set_real_num_tx_queues() must be called either with this lock
+held, or before the netdev is registered. The netdev is registered early
+so that it can be plugged into a bridge or whatever other network
+configuration has to happen. The point at which we know the correct
+number of tx queues happens in response to the frontend changing
+Xenstore entries, so the rtnl lock is not naturally held here.
+xenvif_carrier_on() and xenvif_carrier_off() also take this lock, but
+they are not the appropriate place to set the number of queues.
 
-		desc = skb->data;
-		len = be16_to_cpu(desc->pkt_len);
+>
+>>
+>>   	for (queue_index = 0; queue_index < be->vif->num_queues; ++queue_index) {
+>>   		queue = &be->vif->queues[queue_index];
+>> @@ -547,29 +575,52 @@ static int connect_rings(struct backend_info *be, struct xenvif_queue *queue)
+>>   	unsigned long tx_ring_ref, rx_ring_ref;
+>>   	unsigned int tx_evtchn, rx_evtchn;
+>>   	int err;
+>> +	char *xspath;
+>> +	size_t xspathsize;
+>> +	const size_t xenstore_path_ext_size = 11; /* sufficient for "/queue-NNN" */
+>> +
+>> +	/* If the frontend requested 1 queue, or we have fallen back
+>> +	 * to single queue due to lack of frontend support for multi-
+>> +	 * queue, expect the remaining XenStore keys in the toplevel
+>> +	 * directory. Otherwise, expect them in a subdirectory called
+>> +	 * queue-N.
+>> +	 */
+>> +	if (queue->vif->num_queues == 1) {
+>> +		xspath = (char *)dev->otherend;
+>
+> Casting away a const is naughty. Either make xspath const or if that
+> isn't possible make it dynamic in all cases with a strcpy in this
+> degenerate case.
+>
 
-?  You may need to lay the struct out differently for this to work so
-the offset which pkt_len accesses is correct.
+Ok, I can change this. I was trying to avoid the strcpy.
 
-Also... do you not have any flags which indicate whether the packet
-received was in error?
+>> +	} else {
+>> +		xspathsize = strlen(dev->otherend) + xenstore_path_ext_size;
+>> +		xspath = kzalloc(xspathsize, GFP_KERNEL);
+>> +		if (!xspath) {
+>> +			xenbus_dev_fatal(dev, -ENOMEM,
+>> +					"reading ring references");
+>> +			return -ENOMEM;
+>> +		}
+>> +		snprintf(xspath, xspathsize, "%s/queue-%u", dev->otherend,
+>> +				 queue->id);
+>> +	}
+>>
+> [...]
+>> @@ -582,10 +633,15 @@ static int connect_rings(struct backend_info *be, struct xenvif_queue *queue)
+>>   				 "mapping shared-frames %lu/%lu port tx %u rx %u",
+>>   				 tx_ring_ref, rx_ring_ref,
+>>   				 tx_evtchn, rx_evtchn);
+>> -		return err;
+>> +		goto err;
+>>   	}
+>>
+>> -	return 0;
+>> +	err = 0;
+>> +err: /* Regular return falls through with err == 0 */
+>> +	if (xspath != dev->otherend)
+>> +		kfree(xspath);
+>
+> Yet another reason to not cast away the const!
 
-> +
-> +		if (len > RX_BUF_SIZE)
-> +			len = RX_BUF_SIZE;
-> +		if (0 == len)
-> +			break;
-> +
-> +		skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN);
-> +		skb_put(skb, len);
-> +		skb->protocol = eth_type_trans(skb, ndev);
-> +		napi_gro_receive(&priv->napi, skb);
-> +
-> +		buf = netdev_alloc_frag(priv->rx_buf_size);
-> +		if (!buf)
-> +			return -ENOMEM;
-> +		priv->rx_buf[priv->rx_head] = buf;
-> +		dma_map_single(&ndev->dev, buf, RX_BUF_SIZE, DMA_TO_DEVICE);
-> +		hip04_set_recv_desc(priv, virt_to_phys(buf));
+You're right; this is a little messy.
 
-No need for virt_to_phys() here - dma_map_single() returns the device
-address.
+Andrew
 
-> +
-> +		priv->rx_head = RX_NEXT(priv->rx_head);
-> +		if (rx++ >= budget)
-> +			break;
-> +
-> +		if (--cnt == 0)
-> +			cnt = hip04_recv_cnt(priv);
-> +	}
-> +
-> +	if (rx < budget) {
-> +		napi_gro_flush(napi, false);
-> +		__napi_complete(napi);
-> +	}
-> +
-> +	/* enable rx interrupt */
-> +	priv->reg_inten |= RCV_INT | RCV_NOBUF;
-> +	writel_relaxed(priv->reg_inten, priv->base + PPE_INTEN);
-
-This doesn't look right - you're supposed to re-enable receive interrupts
-when you receive less than "budget" packets.
-
-> +static irqreturn_t hip04_mac_interrupt(int irq, void *dev_id)
-> +{
-> +	struct net_device *ndev = (struct net_device *) dev_id;
-> +	struct hip04_priv *priv = netdev_priv(ndev);
-> +	u32 ists = readl_relaxed(priv->base + PPE_INTSTS);
-> +	u32 val = DEF_INT_MASK;
-> +
-> +	writel_relaxed(val, priv->base + PPE_RINT);
-> +
-> +	if ((ists & RCV_INT) || (ists & RCV_NOBUF)) {
-
-What you get with this is the compiler generating code to test RCV_INT,
-and then if that's false, code to test RCV_NOBUF.  There's no possibility
-for the compiler to optimise that because it's part of the language spec
-that condition1 || condition2 will always have condition1 evaluated first,
-and condition2 will only be evaluated if condition1 was false.
-
-	if (ists & (RCV_INT | RCV_NOBUF)) {
-
-would more than likely be more efficient here.
-
-> +		if (napi_schedule_prep(&priv->napi)) {
-> +			/* disable rx interrupt */
-> +			priv->reg_inten &= ~(RCV_INT | RCV_NOBUF);
-> +			writel_relaxed(priv->reg_inten, priv->base + PPE_INTEN);
-> +			__napi_schedule(&priv->napi);
-> +		}
-> +	}
-> +
-> +	return IRQ_HANDLED;
-> +}
-> +
-> +static void hip04_tx_reclaim(struct net_device *ndev, bool force)
-> +{
-> +	struct hip04_priv *priv = netdev_priv(ndev);
-> +	unsigned tx_head = priv->tx_head;
-> +	unsigned tx_tail = priv->tx_tail;
-> +	struct tx_desc *desc = priv->td_ring[priv->tx_tail];
-> +
-> +	spin_lock_irq(&priv->txlock);
-
-Do you know for certain that interrupts were (and always will be) definitely
-enabled prior to this point?  If not, you should use spin_lock_irqsave()..
-spin_unlock_irqrestore().
-
-> +	while (tx_tail != tx_head) {
-> +		if (desc->send_addr != 0) {
-> +			if (force)
-> +				desc->send_addr = 0;
-> +			else
-> +				break;
-> +		}
-
-dma_unmap_single(&ndev->dev, dev_addr, skb->len, DMA_TO_DEVICE) ?
-
-It looks like your device zeros the send address when it has finished
-transmitting - if this is true, then you will need to store dev_addr
-separately for each transmit packet.
-
-> +		dev_kfree_skb_irq(priv->tx_skb[tx_tail]);
-> +		priv->tx_skb[tx_tail] = NULL;
-> +		tx_tail = TX_NEXT(tx_tail);
-> +		priv->tx_count--;
-
-No processing of transmit statistics?
-
-> +	}
-> +	priv->tx_tail = tx_tail;
-> +	spin_unlock_irq(&priv->txlock);
-
-If you have freed up any packets, then you should call netif_wake_queue().
-Do you not get any interrupts when a packet is transmitted?
-
-> +}
-> +
-> +static int hip04_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
-> +{
-> +	struct hip04_priv *priv = netdev_priv(ndev);
-> +	struct tx_desc *desc = priv->td_ring[priv->tx_head];
-> +	unsigned int tx_head = priv->tx_head;
-> +	int ret;
-> +
-> +	hip04_tx_reclaim(ndev, false);
-> +
-> +	spin_lock_irq(&priv->txlock);
-
-Same comment here...
-
-> +	if (priv->tx_count++ >= TX_DESC_NUM) {
-> +		net_dbg_ratelimited("no TX space for packet\n");
-> +		netif_stop_queue(ndev);
-> +		ret = NETDEV_TX_BUSY;
-> +		goto out_unlock;
-> +	}
-
-You shouldn't rely on this - you should stop the queue when you put the
-last packet to fill the ring before returning from this function.  When
-you clean the ring in your hip04_tx_reclaim() function, to wake the
-queue.
-
-> +
-> +	priv->tx_skb[tx_head] = skb;
-> +	dma_map_single(&ndev->dev, skb->data, skb->len, DMA_TO_DEVICE);
-> +	memset((void *)desc, 0, sizeof(*desc));
-> +	desc->send_addr = (unsigned int)virt_to_phys(skb->data);
-
-Again, dma_map_single() gives you the device address, there's no need
-to use virt_to_phys(), and there should be no need for a cast here
-either.  Also consider cpu_to_be32() and similar for the other descriptor
-writes.
-
-> +	desc->send_size = skb->len;
-> +	desc->cfg = DESC_DEF_CFG;
-> +	desc->wb_addr = priv->td_phys[tx_head];
-> +	endian_change(desc, 64);
-> +	skb_tx_timestamp(skb);
-> +	hip04_set_xmit_desc(priv, priv->td_phys[tx_head]);
-> +
-> +	priv->tx_head = TX_NEXT(tx_head);
-> +	ret = NETDEV_TX_OK;
-
-As mentioned above, if you have filled the ring, you need to also call
-netif_stop_queue() here.
-
-> +static int hip04_mac_probe(struct platform_device *pdev)
-> +{
-> +	struct device *d = &pdev->dev;
-> +	struct device_node *node = d->of_node;
-> +	struct net_device *ndev;
-> +	struct hip04_priv *priv;
-> +	struct resource *res;
-> +	unsigned int irq, val;
-> +	int ret;
-> +
-> +	ndev = alloc_etherdev(sizeof(struct hip04_priv));
-> +	if (!ndev)
-> +		return -ENOMEM;
-> +
-> +	priv = netdev_priv(ndev);
-> +	priv->ndev = ndev;
-> +	platform_set_drvdata(pdev, ndev);
-> +	spin_lock_init(&priv->txlock);
-> +	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> +	if (!res) {
-> +		ret = -EINVAL;
-> +		goto init_fail;
-> +	}
-> +	ndev->base_addr = res->start;
-> +	priv->base = devm_ioremap_resource(d, res);
-> +	ret = IS_ERR(priv->base);
-> +	if (ret) {
-> +		dev_err(d, "devm_ioremap_resource failed\n");
-> +		goto init_fail;
-> +	}
-
-If you're using devm_ioremap_resource(), you don't need to check the
-resource above.  In any case, returning the value from IS_ERR() from
-this function is not correct.
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	priv->base = devm_ioremap_resource(d, res);
-	if (IS_ERR(priv->base) {
-		ret = PTR_ERR(priv->base);
-		goto init_fail;
-	}
-
-You don't need to fill in ndev->base_addr (many drivers don't.)
-
--- 
-FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
-improving, and getting towards what was expected from it.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>> +
+>> +	return err;
+>>   }
+>>
+>>   static int read_xenbus_vif_flags(struct backend_info *be)
+>
+>
