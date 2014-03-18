@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 01/13] xfrm: rename struct xfrm_filter
-Date: Tue, 18 Mar 2014 08:21:26 +0100
-Message-ID: <1395127298-24083-2-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 02/13] xfrm: Introduce xfrm_input_afinfo to access the the callbacks properly
+Date: Tue, 18 Mar 2014 08:21:27 +0100
+Message-ID: <1395127298-24083-3-git-send-email-steffen.klassert@secunet.com>
 References: <1395127298-24083-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,145 +10,208 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:53255 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:53245 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753409AbaCRHVx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Mar 2014 03:21:53 -0400
+	id S1753013AbaCRHVv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Mar 2014 03:21:51 -0400
 In-Reply-To: <1395127298-24083-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+IPv6 can be build as a module, so we need mechanism to access
+the address family dependent callback functions properly.
+Therefore we introduce xfrm_input_afinfo, similar to that
+what we have for the address family dependent part of
+policies and states.
 
-iproute2 already defines a structure with that name, let's use another one to
-avoid any conflict.
-
-CC: Stephen Hemminger <stephen@networkplumber.org>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/xfrm.h        |    4 ++--
- include/uapi/linux/xfrm.h |    4 ++--
- net/key/af_key.c          |    2 +-
- net/xfrm/xfrm_state.c     |    4 ++--
- net/xfrm/xfrm_user.c      |    8 ++++----
- 5 files changed, 11 insertions(+), 11 deletions(-)
+ include/net/xfrm.h        |   23 +++++++-------
+ net/ipv4/xfrm4_policy.c   |    1 +
+ net/ipv4/xfrm4_protocol.c |   13 +++++++-
+ net/xfrm/xfrm_input.c     |   75 +++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 99 insertions(+), 13 deletions(-)
 
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 8b92528..ce3d96f 100644
+index ce3d96f..af13599 100644
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -121,7 +121,7 @@ struct xfrm_state_walk {
- 	u8			dying;
- 	u8			proto;
- 	u32			seq;
--	struct xfrm_filter	*filter;
-+	struct xfrm_address_filter *filter;
- };
+@@ -349,6 +349,16 @@ int xfrm_state_unregister_afinfo(struct xfrm_state_afinfo *afinfo);
+ struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int family);
+ void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo);
  
- /* Full description of state of transformer. */
-@@ -1423,7 +1423,7 @@ static inline void xfrm_sysctl_fini(struct net *net)
++struct xfrm_input_afinfo {
++	unsigned int		family;
++	struct module		*owner;
++	int			(*callback)(struct sk_buff *skb, u8 protocol,
++					    int err);
++};
++
++int xfrm_input_register_afinfo(struct xfrm_input_afinfo *afinfo);
++int xfrm_input_unregister_afinfo(struct xfrm_input_afinfo *afinfo);
++
+ void xfrm_state_delete_tunnel(struct xfrm_state *x);
+ 
+ struct xfrm_type {
+@@ -1392,6 +1402,7 @@ void xfrm4_init(void);
+ int xfrm_state_init(struct net *net);
+ void xfrm_state_fini(struct net *net);
+ void xfrm4_state_init(void);
++void xfrm4_protocol_init(void);
+ #ifdef CONFIG_XFRM
+ int xfrm6_init(void);
+ void xfrm6_fini(void);
+@@ -1773,18 +1784,6 @@ static inline int xfrm_mark_put(struct sk_buff *skb, const struct xfrm_mark *m)
+ 	return ret;
+ }
+ 
+-static inline int xfrm_rcv_cb(struct sk_buff *skb, unsigned int family,
+-			      u8 protocol, int err)
+-{
+-	switch(family) {
+-#ifdef CONFIG_INET
+-	case AF_INET:
+-		return xfrm4_rcv_cb(skb, protocol, err);
+-#endif
+-	}
+-	return 0;
+-}
+-
+ static inline int xfrm_tunnel_check(struct sk_buff *skb, struct xfrm_state *x,
+ 				    unsigned int family)
+ {
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index e1a6393..6156f68 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -325,6 +325,7 @@ void __init xfrm4_init(void)
+ 
+ 	xfrm4_state_init();
+ 	xfrm4_policy_init();
++	xfrm4_protocol_init();
+ #ifdef CONFIG_SYSCTL
+ 	register_pernet_subsys(&xfrm4_net_ops);
  #endif
- 
- void xfrm_state_walk_init(struct xfrm_state_walk *walk, u8 proto,
--			  struct xfrm_filter *filter);
-+			  struct xfrm_address_filter *filter);
- int xfrm_state_walk(struct net *net, struct xfrm_state_walk *walk,
- 		    int (*func)(struct xfrm_state *, int, void*), void *);
- void xfrm_state_walk_done(struct xfrm_state_walk *walk, struct net *net);
-diff --git a/include/uapi/linux/xfrm.h b/include/uapi/linux/xfrm.h
-index 6550c67..25e5dd9 100644
---- a/include/uapi/linux/xfrm.h
-+++ b/include/uapi/linux/xfrm.h
-@@ -299,7 +299,7 @@ enum xfrm_attr_type_t {
- 	XFRMA_REPLAY_ESN_VAL,	/* struct xfrm_replay_esn */
- 	XFRMA_SA_EXTRA_FLAGS,	/* __u32 */
- 	XFRMA_PROTO,		/* __u8 */
--	XFRMA_FILTER,		/* struct xfrm_filter */
-+	XFRMA_ADDRESS_FILTER,	/* struct xfrm_address_filter */
- 	__XFRMA_MAX
- 
- #define XFRMA_MAX (__XFRMA_MAX - 1)
-@@ -476,7 +476,7 @@ struct xfrm_user_mapping {
- 	__be16				new_sport;
+diff --git a/net/ipv4/xfrm4_protocol.c b/net/ipv4/xfrm4_protocol.c
+index cdc09ef..7f7b243 100644
+--- a/net/ipv4/xfrm4_protocol.c
++++ b/net/ipv4/xfrm4_protocol.c
+@@ -179,6 +179,12 @@ static const struct net_protocol ipcomp4_protocol = {
+ 	.netns_ok	=	1,
  };
  
--struct xfrm_filter {
-+struct xfrm_address_filter {
- 	xfrm_address_t			saddr;
- 	xfrm_address_t			daddr;
- 	__u16				family;
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index a50d979..12651b4 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -1799,7 +1799,7 @@ static void pfkey_dump_sa_done(struct pfkey_sock *pfk)
- static int pfkey_dump(struct sock *sk, struct sk_buff *skb, const struct sadb_msg *hdr, void * const *ext_hdrs)
++static struct xfrm_input_afinfo xfrm4_input_afinfo = {
++	.family		=	AF_INET,
++	.owner		=	THIS_MODULE,
++	.callback	=	xfrm4_rcv_cb,
++};
++
+ static inline const struct net_protocol *netproto(unsigned char protocol)
  {
- 	u8 proto;
--	struct xfrm_filter *filter = NULL;
-+	struct xfrm_address_filter *filter = NULL;
- 	struct pfkey_sock *pfk = pfkey_sk(sk);
+ 	switch (protocol) {
+@@ -199,7 +205,6 @@ int xfrm4_protocol_register(struct xfrm4_protocol *handler,
+ 	struct xfrm4_protocol __rcu **pprev;
+ 	struct xfrm4_protocol *t;
+ 	bool add_netproto = false;
+-
+ 	int ret = -EEXIST;
+ 	int priority = handler->priority;
  
- 	if (pfk->dump.dump != NULL)
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 5339c26..cee850c 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1598,7 +1598,7 @@ unlock:
- EXPORT_SYMBOL(xfrm_alloc_spi);
+@@ -273,3 +278,9 @@ int xfrm4_protocol_deregister(struct xfrm4_protocol *handler,
+ 	return ret;
+ }
+ EXPORT_SYMBOL(xfrm4_protocol_deregister);
++
++void __init xfrm4_protocol_init(void)
++{
++	xfrm_input_register_afinfo(&xfrm4_input_afinfo);
++}
++EXPORT_SYMBOL(xfrm4_protocol_init);
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 4218164..85d1d47 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -16,6 +16,81 @@
  
- static bool __xfrm_state_filter_match(struct xfrm_state *x,
--				      struct xfrm_filter *filter)
-+				      struct xfrm_address_filter *filter)
+ static struct kmem_cache *secpath_cachep __read_mostly;
+ 
++static DEFINE_SPINLOCK(xfrm_input_afinfo_lock);
++static struct xfrm_input_afinfo __rcu *xfrm_input_afinfo[NPROTO];
++
++int xfrm_input_register_afinfo(struct xfrm_input_afinfo *afinfo)
++{
++	int err = 0;
++
++	if (unlikely(afinfo == NULL))
++		return -EINVAL;
++	if (unlikely(afinfo->family >= NPROTO))
++		return -EAFNOSUPPORT;
++	spin_lock_bh(&xfrm_input_afinfo_lock);
++	if (unlikely(xfrm_input_afinfo[afinfo->family] != NULL))
++		err = -ENOBUFS;
++	else
++		rcu_assign_pointer(xfrm_input_afinfo[afinfo->family], afinfo);
++	spin_unlock_bh(&xfrm_input_afinfo_lock);
++	return err;
++}
++EXPORT_SYMBOL(xfrm_input_register_afinfo);
++
++int xfrm_input_unregister_afinfo(struct xfrm_input_afinfo *afinfo)
++{
++	int err = 0;
++
++	if (unlikely(afinfo == NULL))
++		return -EINVAL;
++	if (unlikely(afinfo->family >= NPROTO))
++		return -EAFNOSUPPORT;
++	spin_lock_bh(&xfrm_input_afinfo_lock);
++	if (likely(xfrm_input_afinfo[afinfo->family] != NULL)) {
++		if (unlikely(xfrm_input_afinfo[afinfo->family] != afinfo))
++			err = -EINVAL;
++		else
++			RCU_INIT_POINTER(xfrm_input_afinfo[afinfo->family], NULL);
++	}
++	spin_unlock_bh(&xfrm_input_afinfo_lock);
++	synchronize_rcu();
++	return err;
++}
++EXPORT_SYMBOL(xfrm_input_unregister_afinfo);
++
++static struct xfrm_input_afinfo *xfrm_input_get_afinfo(unsigned int family)
++{
++	struct xfrm_input_afinfo *afinfo;
++
++	if (unlikely(family >= NPROTO))
++		return NULL;
++	rcu_read_lock();
++	afinfo = rcu_dereference(xfrm_input_afinfo[family]);
++	if (unlikely(!afinfo))
++		rcu_read_unlock();
++	return afinfo;
++}
++
++static void xfrm_input_put_afinfo(struct xfrm_input_afinfo *afinfo)
++{
++	rcu_read_unlock();
++}
++
++static int xfrm_rcv_cb(struct sk_buff *skb, unsigned int family, u8 protocol,
++		       int err)
++{
++	int ret;
++	struct xfrm_input_afinfo *afinfo = xfrm_input_get_afinfo(family);
++
++	if (!afinfo)
++		return -EAFNOSUPPORT;
++
++	ret = afinfo->callback(skb, protocol, err);
++	xfrm_input_put_afinfo(afinfo);
++
++	return ret;
++}
++
+ void __secpath_destroy(struct sec_path *sp)
  {
- 	if (filter) {
- 		if ((filter->family == AF_INET ||
-@@ -1657,7 +1657,7 @@ out:
- EXPORT_SYMBOL(xfrm_state_walk);
- 
- void xfrm_state_walk_init(struct xfrm_state_walk *walk, u8 proto,
--			  struct xfrm_filter *filter)
-+			  struct xfrm_address_filter *filter)
- {
- 	INIT_LIST_HEAD(&walk->all);
- 	walk->proto = proto;
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 023e5e7..903725b 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -904,7 +904,7 @@ static int xfrm_dump_sa(struct sk_buff *skb, struct netlink_callback *cb)
- 
- 	if (!cb->args[0]) {
- 		struct nlattr *attrs[XFRMA_MAX+1];
--		struct xfrm_filter *filter = NULL;
-+		struct xfrm_address_filter *filter = NULL;
- 		u8 proto = 0;
- 		int err;
- 
-@@ -915,12 +915,12 @@ static int xfrm_dump_sa(struct sk_buff *skb, struct netlink_callback *cb)
- 		if (err < 0)
- 			return err;
- 
--		if (attrs[XFRMA_FILTER]) {
-+		if (attrs[XFRMA_ADDRESS_FILTER]) {
- 			filter = kmalloc(sizeof(*filter), GFP_KERNEL);
- 			if (filter == NULL)
- 				return -ENOMEM;
- 
--			memcpy(filter, nla_data(attrs[XFRMA_FILTER]),
-+			memcpy(filter, nla_data(attrs[XFRMA_ADDRESS_FILTER]),
- 			       sizeof(*filter));
- 		}
- 
-@@ -2334,7 +2334,7 @@ static const struct nla_policy xfrma_policy[XFRMA_MAX+1] = {
- 	[XFRMA_REPLAY_ESN_VAL]	= { .len = sizeof(struct xfrm_replay_state_esn) },
- 	[XFRMA_SA_EXTRA_FLAGS]	= { .type = NLA_U32 },
- 	[XFRMA_PROTO]		= { .type = NLA_U8 },
--	[XFRMA_FILTER]		= { .len = sizeof(struct xfrm_filter) },
-+	[XFRMA_ADDRESS_FILTER]	= { .len = sizeof(struct xfrm_address_filter) },
- };
- 
- static const struct xfrm_link {
+ 	int i;
 -- 
 1.7.9.5
