@@ -1,182 +1,144 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: RE: [PATCH V4 1/8] sxgbe: Add device-tree binding support document
-Date: Tue, 18 Mar 2014 09:27:46 -0700
-Message-ID: <001101cf42c7$00d99ba0$028cd2e0$@samsung.com>
-References: <00f801cf4275$e7e2a1b0$b7a7e510$@samsung.com>
- <20140318091852.GA8043@e106331-lin.cambridge.arm.com>
+From: Laurent Pinchart <laurent.pinchart-ryLnwIuWjnjg/C1BVhZhaw@public.gmane.org>
+Subject: Re: [PATCH] phy: micrel: add of configuration for LED mode
+Date: Tue, 18 Mar 2014 17:31:50 +0100
+Message-ID: <1585516.mytctYIqWq@avalon>
+References: <1393415280-10227-1-git-send-email-ben.dooks@codethink.co.uk> <4129596.cD1CsNElkT@avalon> <53287270.1020908@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
-	devicetree@vger.kernel.org, davem@davemloft.net,
-	ilho215.lee@samsung.com, siva.kallam@samsung.com,
-	vipul.pandya@samsung.com, ks.giri@samsung.com
-To: 'Mark Rutland' <mark.rutland@arm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:59328 "EHLO
-	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751534AbaCRQ1y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 12:27:54 -0400
-In-reply-to: <20140318091852.GA8043@e106331-lin.cambridge.arm.com>
-Content-language: en-us
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	"linux-kernel-81qHHgoATdFT9dQujB1mzip2UmYkHbXO@public.gmane.org"
+	<linux-kernel-81qHHgoATdFT9dQujB1mzip2UmYkHbXO@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Ben Dooks <ben.dooks-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <53287270.1020908-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Mark Rutland <mark.rutland@arm.com> :
-> Hi,
+On Tuesday 18 March 2014 17:21:04 Ben Dooks wrote:
+> On 18/03/14 17:11, Laurent Pinchart wrote:
+> > On Tuesday 18 March 2014 16:56:06 Laurent Pinchart wrote:
+> >> On Thursday 27 February 2014 10:30:51 Ben Dooks wrote:
+> >>> On 27/02/14 09:15, Mark Rutland wrote:
+> >>>> On Wed, Feb 26, 2014 at 11:48:00AM +0000, Ben Dooks wrote:
+> >>>>> Add support for the led-mode property for the following PHYs
+> >>>>> which have a single LED mode configuration value.
+> >>>>> 
+> >>>>> KSZ8001 and KSZ8041 which both use register 0x1e bits 15,14 and
+> >>>>> KSZ8021, KSZ8031 and KSZ8051 which use register 0x1f bits 5,4
+> >>>>> to control the LED configuration.
+> >>>>> 
+> >>>>> Signed-off-by: Ben Dooks <ben.dooks-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+> >>>>> ---
+> >>>>> 
+> >>>>>   Documentation/devicetree/bindings/net/micrel.txt | 18 +++++++++
+> >>>>>   drivers/net/phy/micrel.c                         | 49
+> >>>>>   ++++++++++++++--
+> >>>>>   2 files changed, 63 insertions(+), 4 deletions(-)
+> >>>>>   create mode 100644 Documentation/devicetree/bindings/net/micrel.txt
+> >>>>> 
+> >>>>> diff --git a/Documentation/devicetree/bindings/net/micrel.txt
+> >>>>> b/Documentation/devicetree/bindings/net/micrel.txt new file mode
+> >>>>> 100644
+> >>>>> index 0000000..98a3e61
+> >>>>> --- /dev/null
+> >>>>> +++ b/Documentation/devicetree/bindings/net/micrel.txt
+> >>>>> @@ -0,0 +1,18 @@
+> >>>>> +Micrel PHY properties.
+> >>>>> +
+> >>>>> +These properties cover the base properties Micrel PHYs.
+> >>>>> +
+> >>>>> +Optional properties:
+> >>>>> +
+> >>>>> + - micrel,led-mode : LED mode value to set for PHYs with configurable
+> >>>>> LEDs.
+> >>>>> +
+> >>>>> +              Configure the LED mode with single value. The list of
+> >>>>> PHYs and
+> >>>>> +	      the bits that are currently supported:
+> >>>>> +
+> >>>>> +	      KSZ8001: register 0x1e, bits 15..14
+> >>>>> +	      KSZ8041: register 0x1e, bits 15..14
+> >>>>> +	      KSZ8021: register 0x1f, bits 5..4
+> >>>>> +	      KSZ8031: register 0x1f, bits 5..4
+> >>>>> +	      KSZ8051: register 0x1f, bits 5..4
+> >>>>> +
+> >>>>> +              See the respective PHY datasheet for the mode values.
+> >>>> 
+> >>>> What do these mean, roughly,, and why can the kernel not decide how to
+> >>>> cnofigure these?
+> >>> 
+> >>> Board specific, in the case of the Lager one of the LEDs is connected
+> >>> to the ethernet mac block to indicate link, however the default mode
+> >>> is not for just "Link" so we have to change it.
+> >>> 
+> >>>> In general we prefer to not place raw register values in the DT, and
+> >>>> I'd
+> >>>> like to know why we'd have to here.
+> >>> 
+> >>> I could copy out stuff from the data-sheet, but I was trying to avoid a
+> >>> copy and paste job.
+> >> 
+> >> I quite agree with Mark here, I would prefer not to list register values
+> >> in
+> >> DT bindings. However, the hardware hardware diversity doesn't help us
+> >> abstracting LED modes.
+> >> 
+> >> The following table summarizes LED usage options.
+> >> 
+> >> Device              Mode LED usage
+> >> -------------------------------------------------------------------------
+> >> --- 8001 (LED[3:0])     00   Collision / Full-Duplex / Speed /
+> >> Link/Activity>> 
+> >>                      01   Activity / Full-Duplex/Collision / Speed / Link
+> >>                      10   Activity / Full-Duplex / 100Mbps Link / 10Mbps
+> >>                      Link
+> >>                      11   Reserved
+> >> 
+> >> 80[23]1 (LED[0])    00   Link/Activity
+> >>                      01   Link
+> >>                      10   Reserved
+> >>                      11   Reserved
+> >> 
+> >> 80[45]1 (LED[1:0])  00   Speed / Link/Activity
+> >>                      01   Activity / Link
+> >>                      10   Reserved
+> >>                      11   Reserved
+> >> 
+> >> While LED mode could be described by LED0 mode using "link-activity" or
+> >> "link" strings for the 80[2345]1 chips, the 8001 makes that slightly more
+> >> complex and shows that future chips might not conform to any scheme we
+> >> come up with now.
+> >> 
+> >> I thus have no strong preference for a string-based mode description over
+> >> using an integer. However, if we keep the integer value, I wouldn't use
+> >> the register value directly, but would instead use the mode field value
+> >> as an integer in the 0-3 range. This would remove knowledge of the PHY
+> >> control register layout from the DT node content, and bring more
+> >> consistency to the values.
+> > 
+> > And I realize that this is what you've done already in the implementation
+> > :-/ I'll send a patch to clarify the DT bindings documentation if you
+> > don't mind, after hearing Mark's opinion on the issue.
 > 
-> As a general note it's helpful for devicetree to be Cc'd on the entire
-series
-> (though the binding document should be a separate patch) as it provides
-useful
-> context for reviewing the binding.
-OK.
+> Do we need strings for what is basically a single-setup post reset which it
+> makes no sense for the user to ever update?
 
-> 
-> On Tue, Mar 18, 2014 at 06:47:13AM +0000, Byungho An wrote:
-> > From: Siva Reddy <siva.kallam@samsung.com>
-> >
-> > This patch adds binding document for SXGBE ethernet driver via
-device-tree.
-> >
-> > Signed-off-by: Siva Reddy Kallam <siva.kallam@samsung.com>
-> > Signed-off-by: Byungho An <bh74.an@samsung.com>
-> > ---
-> >  .../devicetree/bindings/net/samsung-sxgbe.txt      |   53
-> > ++++++++++++++++++++
-> >  1 file changed, 53 insertions(+)
-> >  create mode 100644
-> > Documentation/devicetree/bindings/net/samsung-sxgbe.txt
-> >
-> > diff --git a/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
-> > b/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
-> > new file mode 100644
-> > index 0000000..ca27947
-> > --- /dev/null
-> > +++ b/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
-> > @@ -0,0 +1,53 @@
-> > +* Samsung 10G Ethernet driver (SXGBE)
-> > +
-> > +Required properties:
-> > +- compatible: Should be "samsung,sxgbe-v2.0a"
-> > +- reg: Address and length of the register set for the device
-> > +- interrupt-parent: Should be the phandle for the interrupt
-> > +controller
-> > +  that services interrupts for this device
-> > +- interrupts: Should contain the SXGBE interrupts
-> > +  These interrupts are ordered by fixed and follows variable
-> > +  trasmit DMA interrupts, receive DMA interrupts and lpi interrupt.
-> > +  index 0 - this is fixed common interrupt of SXGBE and it is always
-> > +  available.
-> > +  index 1 to 25 - 8 variable trasmit interrupts, variable 16 receive
-> > interrupts
-> > +  and 1 optional lpi interrupt.
-> > +- phy-mode: String, operation mode of the PHY interface.
-> > +  Supported values are: "xaui", "gmii".
-> > +- samsung,pbl: Integer, Programmable Burst Length.
-> > +  Supported values are 1, 2, 4, 8, 16, or 32.
-> 
-> There's no need to abbreviate to "pbl".
-> 
-> Is this a property of the hardware, or configuration that the kernel will
-program
-> in? If the latter, why can the kernel not choose?
-Yes, this is hardware property
+If it was a standard setting I would have voted to try and standardize the 
+values. As it isn't, we probably don't.
 
-> 
-> > +- samsung,fixed-burst: Boolean, Program the DMA to use the fixed
-> > +burst mode
-> > +- samsung,burst-map: Integer, Program the possible bursts supported
-> > +by sxgbe
-> > +  This is an interger and represents allowable DMA bursts when fixed
-burst.
-> > +  Allowable range is 0x00-0x3F. This field is valid only when fixed
-> > +burst is
-> > +  enabled, otherwise ignored.
-> 
-> If that's the case, why not have just this property and have it imply the
-use of
-> fixed burst mode?
-OK. It will be implemented in next patch set.
+What would you think about defining macros for the LED mode values somewhere 
+in include/dt-bindings/ ?
 
-> 
-> When is it necessary to use fixed burst mode?
-This is the configurable mode of DMA an used internally by hardware to fetch
-data from platform bus
+-- 
+Regards,
 
-> 
-> > +- samsung,adv-addr-mode: Boolean, Program the DMA to use Enhanced
-> > +address
-> > mode.
-> 
-> When would this be selected, and why can the kernel not choose?
-Kernel doesn't have the provision to find out a way to select this. So, need
-to pass from DT
+Laurent Pinchart
 
-> 
-> > +- samsung,force_thresh_dma_mode: Boolean, Force DMA to use the
-> > +threshold mode
-> > +  for both tx and rx
-> 
-> s/_/-/ in property names.
-OK.
-
-> 
-> Likewise, why can the kernel not choose.
-SXGBE h/w registers can't provide information to select this. So, need to pass
-from DT depend on Platform
-
-> 
-> > +- samsung,force_sf_dma_mode: Boolean, Force DMA to use the Store and
-> > +Forward
-> > +  mode for both tx and rx. This flag is ignored if
-> > +force_thresh_dma_mode is
-> > set.
-> 
-> Likewise for both points.
-Same above.
-
-> 
-> > +- samsung,phy-addr: Integer, Address of the PHY attached with SXGBE.
-> 
-> Some of these properties appear to be missing from the example. Are they
-> required or optional?
-Those are optional depend on platform configuration.
-
-> 
-> Thanks,
-> Mark.
-> 
-> > +
-> > +Optional properties:
-> > +- mac-address: 6 bytes, mac address
-> > +
-> > +Example:
-> > +
-> > +	aliases {
-> > +		ethernet0 = <&sxgbe0>;
-> > +	};
-> > +
-> > +	sxgbe0: ethernet@1a040000 {
-> > +		compatible = "samsung,sxgbe-v2.0a";
-> > +		reg = <0 0x1a040000 0 0x10000>;
-> > +		interrupt-parent = <&gic>;
-> > +		interrupts = <0 209 4>, <0 185 4>, <0 186 4>, <0 187 4>,
-> > +			     <0 188 4>, <0 189 4>, <0 190 4>, <0 191 4>,
-> > +			     <0 192 4>, <0 193 4>, <0 194 4>, <0 195 4>,
-> > +			     <0 196 4>, <0 197 4>, <0 198 4>, <0 199 4>,
-> > +			     <0 200 4>, <0 201 4>, <0 202 4>, <0 203 4>,
-> > +			     <0 204 4>, <0 205 4>, <0 206 4>, <0 207 4>,
-> > +			     <0 208 4>, <0 210 4>;
-> > +		mac-address = [000000000000]; /* Filled in by U-Boot */
-> > +		phy-mode = "xaui";
-> > +	};
-> > --
-> > 1.7.10.4
-> >
-> >
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe devicetree"
-> > in the body of a message to majordomo@vger.kernel.org More majordomo
-> > info at  http://vger.kernel.org/majordomo-info.html
-> >
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
