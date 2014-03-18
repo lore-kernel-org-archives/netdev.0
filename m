@@ -1,108 +1,101 @@
-From: Zheng Liu <gnehzuil.liu@gmail.com>
-Subject: Re: What's the status of TCP friends?
-Date: Tue, 18 Mar 2014 11:13:46 +0800
-Message-ID: <20140318031346.GA5142@gmail.com>
-References: <20140316090744.GA14572@gmail.com>
- <1394978619.9668.14.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140317031605.GA22502@gmail.com>
- <20140318012120.GG12291@order.stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2 net-next] net: sched: use no more than one page in struct
+ fw_head
+Date: Mon, 17 Mar 2014 20:20:49 -0700
+Message-ID: <1395112849.9114.17.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140314185917.GA18933@linux.vnet.ibm.com>
+	 <1394826958.9668.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1394985990.9668.26.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140317.223151.719003141867577870.davem@davemloft.net>
+	 <1395111761.9114.11.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>, Li Yu <bingtian.ly@taobao.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Bruce Brutus Curtis <brutus@google.com>,
-	Weiping Pan <panweiping3@gmail.com>, tmorvai@gmail.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: john.fastabend@gmail.com, netdev@vger.kernel.org, tgraf@suug.ch
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:58468 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753112AbaCRDHz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 23:07:55 -0400
-Received: by mail-pa0-f46.google.com with SMTP id kp14so6594472pab.19
-        for <netdev@vger.kernel.org>; Mon, 17 Mar 2014 20:07:55 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140318012120.GG12291@order.stressinduktion.org>
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:34437 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751144AbaCRDUw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 23:20:52 -0400
+Received: by mail-pb0-f53.google.com with SMTP id rp16so6548608pbb.26
+        for <netdev@vger.kernel.org>; Mon, 17 Mar 2014 20:20:51 -0700 (PDT)
+In-Reply-To: <1395111761.9114.11.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Hannes,
+From: Eric Dumazet <edumazet@google.com>
 
-On Tue, Mar 18, 2014 at 02:21:20AM +0100, Hannes Frederic Sowa wrote:
-> On Mon, Mar 17, 2014 at 11:16:05AM +0800, Zheng Liu wrote:
-> > On Sun, Mar 16, 2014 at 07:03:39AM -0700, Eric Dumazet wrote:
-> > > On Sun, 2014-03-16 at 17:07 +0800, Zheng Liu wrote:
-> > > > Hi all,
-> > > > 
-> > > > Until now the TCP friends patch set doesn't be applied.  Now what's the
-> > > > status of TCP friends?  Is it applicable to be merged into upstream
-> > > > kernel?  Any problem that needs to be fixed?  Please let me know if I
-> > > > can help.
-> > > 
-> > > Well, last attempts showed that while the idea sounded cool,
-> > > implementation opened many races and added quite a lot of complexity in
-> > > fast path.
-> > 
-> > Thanks for letting me know the current status of this patch set.
-> > 
-> > > 
-> > > We have AF_UNIX with a lot of problems in it, do we really want to bring
-> > > these AF_UNIX problems to AF_INET ?
-> > 
-> > Please bear with me because I am a newbie.  Out of curiosity, what's the
-> > problem in AF_UNIX?
-> 
-> AFAIK AF_UNIX/SOCK_STREAM is fine.
-> 
-> I currently know about two problems with AF_UNIX datagram modes:
-> 
-> 1) Not correclty handling socket receive buffer limits. SOCK_DGRAM simply
->    relies on the sending window only and socket receive queue is only limited
->    by the number of packets enqueued. A DoS against another UNIX/DGRAM server
->    is possible by not freeing its sending window if the client doesn't simply
->    pick up its packets.
-> 
-> 2) POLLOUT handling seems a bit messed up. This problem was reported by Tamas
->    Morvai. We simply trigger POLLOUT too often thus waking up the sending side
->    unnecessarily.
-> 
-> Patch for 1) was rightfully rejected because it could easily break
-> backwards compatibility.
-> 
-> There were some ideas floating around which I discussed with Tamas but
-> nothing definite for 2), as I got stuck to work on 1) and I am still
-> unsure what side-effects could have the needed removal of the per-packet
-> socket-receive limit, which seems to be needed for solving 2). The total
-> amount of memory in use by AF_UNIX/DGRAM sockets would be limited by
-> the sending buffers and rlimits, but it still seems unwise to do so.
-> 
-> Also solving 2) could make problems regarding backwards-compatibility.
+In commit b4e9b520ca5d ("[NET_SCHED]: Add mask support to fwmark
+classifier") Patrick added an u32 field in fw_head, making it slightly
+bigger than one page.
 
-Thanks for your explanation.
+Lets use 256 slots to make fw_hash() more straight forward, and move
+@mask to the beginning of the structure as we often use a small number
+of skb->mark. @mask and first hash buckets share the same cache line.
 
-> 
-> > > I would rather spend time on AF_UNIX if it doesn't fit your needs right
-> > > now, or consider jumping to KDBUS modern design.
-> > > 
-> > > Using AF_INET for IPC is poor choice.
-> > 
-> > The reason why we use AF_INET for IPC rather than use AF_UNIX is that we
-> > have two applications that need to communicate with each other.  They
-> > could be deployed on the same server or different servers.  So obviously
-> > if we use AF_INET, we just need to indicate a IP address in config file.
-> > That sounds rational and maintainable for our operation team.
-> 
-> As soon as we are allowed to silently drop packets in AF_UNIX/DGRAM some
-> problems would vanish, too. ;)
+This brings back the memory usage to less than 4000 bytes, and permits
+John to add a rcu_head at the end of the structure later without any
+worry.
 
-That sounds great!  But it might not satisfy our requirement.  If we use
-AF_UNIX our program will not be deployed on two servers.  Meanwhile
-AF_INET has been applied in our program to communicate with other
-clients.  So DGRAM seems that it is not a good idea.  Now our program
-needs a IPC mechansim that can commnucate between two servers and
-provide a high performance when two processes are run on the same
-server.  That is the reason why I am interested in TCP friends.  :)
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Thomas Graf <tgraf@suug.ch>
+Cc: John Fastabend <john.fastabend@gmail.com>
+---
+ net/sched/cls_fw.c |   33 +++++++--------------------------
+ 1 file changed, 7 insertions(+), 26 deletions(-)
 
-Regards,
-                                                - Zheng
+diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
+index a366537f82c6..63a3ce75c02e 100644
+--- a/net/sched/cls_fw.c
++++ b/net/sched/cls_fw.c
+@@ -29,11 +29,11 @@
+ #include <net/act_api.h>
+ #include <net/pkt_cls.h>
+ 
+-#define HTSIZE (PAGE_SIZE/sizeof(struct fw_filter *))
++#define HTSIZE 256
+ 
+ struct fw_head {
+-	struct fw_filter *ht[HTSIZE];
+-	u32 mask;
++	u32			mask;
++	struct fw_filter	*ht[HTSIZE];
+ };
+ 
+ struct fw_filter {
+@@ -46,30 +46,11 @@ struct fw_filter {
+ 	struct tcf_exts		exts;
+ };
+ 
+-static inline int fw_hash(u32 handle)
++static u32 fw_hash(u32 handle)
+ {
+-	if (HTSIZE == 4096)
+-		return ((handle >> 24) & 0xFFF) ^
+-		       ((handle >> 12) & 0xFFF) ^
+-		       (handle & 0xFFF);
+-	else if (HTSIZE == 2048)
+-		return ((handle >> 22) & 0x7FF) ^
+-		       ((handle >> 11) & 0x7FF) ^
+-		       (handle & 0x7FF);
+-	else if (HTSIZE == 1024)
+-		return ((handle >> 20) & 0x3FF) ^
+-		       ((handle >> 10) & 0x3FF) ^
+-		       (handle & 0x3FF);
+-	else if (HTSIZE == 512)
+-		return (handle >> 27) ^
+-		       ((handle >> 18) & 0x1FF) ^
+-		       ((handle >> 9) & 0x1FF) ^
+-		       (handle & 0x1FF);
+-	else if (HTSIZE == 256) {
+-		u8 *t = (u8 *) &handle;
+-		return t[0] ^ t[1] ^ t[2] ^ t[3];
+-	} else
+-		return handle & (HTSIZE - 1);
++	handle ^= (handle >> 16);
++	handle ^= (handle >> 8);
++	return handle % HTSIZE;
+ }
+ 
+ static int fw_classify(struct sk_buff *skb, const struct tcf_proto *tp,
