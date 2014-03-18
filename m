@@ -1,229 +1,129 @@
-From: David L Stevens <dlstevens@us.ibm.com>
-Subject: [PATCHv3 net-next] VXLAN: fix nonfunctional neigh_reduce
-Date: Tue, 18 Mar 2014 12:20:17 -0400
-Message-ID: <201403181620.s2IGKHcW028664@lab1.dls>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Cong Wang <amwang@redhat.com>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: Re: [PATCH] phy: micrel: add of configuration for LED mode
+Date: Tue, 18 Mar 2014 17:21:04 +0100
+Message-ID: <53287270.1020908@codethink.co.uk>
+References: <1393415280-10227-1-git-send-email-ben.dooks@codethink.co.uk> <530F13DB.90009@codethink.co.uk> <6677304.0KbXKA76PZ@avalon> <4129596.cD1CsNElkT@avalon>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>,
+	"linux-kernel@lists.codethink.co.uk"
+	<linux-kernel@lists.codethink.co.uk>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
+To: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:54974 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756478AbaCRQUb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 12:20:31 -0400
-Received: from /spool/local
-	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Tue, 18 Mar 2014 10:20:30 -0600
-Received: from b03cxnp08028.gho.boulder.ibm.com (b03cxnp08028.gho.boulder.ibm.com [9.17.130.20])
-	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 88A6719D8040
-	for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 10:20:24 -0600 (MDT)
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by b03cxnp08028.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2IGKRLk51904514
-	for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 17:20:27 +0100
-Received: from d03av01.boulder.ibm.com (localhost [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s2IGKRnC021937
-	for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 10:20:27 -0600
+Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:54987 "EHLO
+	ducie-dc1.codethink.co.uk" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753745AbaCRQVL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 12:21:11 -0400
+In-Reply-To: <4129596.cD1CsNElkT@avalon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 18/03/14 17:11, Laurent Pinchart wrote:
+> Hi Ben,
+>
+> On Tuesday 18 March 2014 16:56:06 Laurent Pinchart wrote:
+>> On Thursday 27 February 2014 10:30:51 Ben Dooks wrote:
+>>> On 27/02/14 09:15, Mark Rutland wrote:
+>>>> On Wed, Feb 26, 2014 at 11:48:00AM +0000, Ben Dooks wrote:
+>>>>> Add support for the led-mode property for the following PHYs
+>>>>> which have a single LED mode configuration value.
+>>>>>
+>>>>> KSZ8001 and KSZ8041 which both use register 0x1e bits 15,14 and
+>>>>> KSZ8021, KSZ8031 and KSZ8051 which use register 0x1f bits 5,4
+>>>>> to control the LED configuration.
+>>>>>
+>>>>> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+>>>>> ---
+>>>>>
+>>>>>   Documentation/devicetree/bindings/net/micrel.txt | 18 +++++++++
+>>>>>   drivers/net/phy/micrel.c                         | 49 ++++++++++++++--
+>>>>>   2 files changed, 63 insertions(+), 4 deletions(-)
+>>>>>   create mode 100644 Documentation/devicetree/bindings/net/micrel.txt
+>>>>>
+>>>>> diff --git a/Documentation/devicetree/bindings/net/micrel.txt
+>>>>> b/Documentation/devicetree/bindings/net/micrel.txt new file mode 100644
+>>>>> index 0000000..98a3e61
+>>>>> --- /dev/null
+>>>>> +++ b/Documentation/devicetree/bindings/net/micrel.txt
+>>>>> @@ -0,0 +1,18 @@
+>>>>> +Micrel PHY properties.
+>>>>> +
+>>>>> +These properties cover the base properties Micrel PHYs.
+>>>>> +
+>>>>> +Optional properties:
+>>>>> +
+>>>>> + - micrel,led-mode : LED mode value to set for PHYs with configurable
+>>>>> LEDs.
+>>>>> +
+>>>>> +              Configure the LED mode with single value. The list of
+>>>>> PHYs and
+>>>>> +	      the bits that are currently supported:
+>>>>> +
+>>>>> +	      KSZ8001: register 0x1e, bits 15..14
+>>>>> +	      KSZ8041: register 0x1e, bits 15..14
+>>>>> +	      KSZ8021: register 0x1f, bits 5..4
+>>>>> +	      KSZ8031: register 0x1f, bits 5..4
+>>>>> +	      KSZ8051: register 0x1f, bits 5..4
+>>>>> +
+>>>>> +              See the respective PHY datasheet for the mode values.
+>>>>
+>>>> What do these mean, roughly,, and why can the kernel not decide how to
+>>>> cnofigure these?
+>>>
+>>> Board specific, in the case of the Lager one of the LEDs is connected
+>>> to the ethernet mac block to indicate link, however the default mode
+>>> is not for just "Link" so we have to change it.
+>>>
+>>>> In general we prefer to not place raw register values in the DT, and I'd
+>>>> like to know why we'd have to here.
+>>>
+>>> I could copy out stuff from the data-sheet, but I was trying to avoid a
+>>> copy and paste job.
+>>
+>> I quite agree with Mark here, I would prefer not to list register values in
+>> DT bindings. However, the hardware hardware diversity doesn't help us
+>> abstracting LED modes.
+>>
+>> The following table summarizes LED usage options.
+>>
+>> Device              Mode LED usage
+>> ----------------------------------------------------------------------------
+>> 8001 (LED[3:0])     00   Collision / Full-Duplex / Speed / Link/Activity
+>>                      01   Activity / Full-Duplex/Collision / Speed / Link
+>>                      10   Activity / Full-Duplex / 100Mbps Link / 10Mbps Link
+>>                      11   Reserved
+>> 80[23]1 (LED[0])    00   Link/Activity
+>>                      01   Link
+>>                      10   Reserved
+>>                      11   Reserved
+>> 80[45]1 (LED[1:0])  00   Speed / Link/Activity
+>>                      01   Activity / Link
+>>                      10   Reserved
+>>                      11   Reserved
+>>
+>> While LED mode could be described by LED0 mode using "link-activity" or
+>> "link" strings for the 80[2345]1 chips, the 8001 makes that slightly more
+>> complex and shows that future chips might not conform to any scheme we come
+>> up with now.
+>>
+>> I thus have no strong preference for a string-based mode description over
+>> using an integer. However, if we keep the integer value, I wouldn't use the
+>> register value directly, but would instead use the mode field value as an
+>> integer in the 0-3 range. This would remove knowledge of the PHY control
+>> register layout from the DT node content, and bring more consistency to the
+>> values.
+>
+> And I realize that this is what you've done already in the implementation :-/
+> I'll send a patch to clarify the DT bindings documentation if you don't mind,
+> after hearing Mark's opinion on the issue.
 
-	The VXLAN neigh_reduce() code is completely non-functional since
-check-in. Specific errors:
+Do we need strings for what is basically a single-setup post reset
+which it makes no sense for the user to ever update?
 
-1) The original code drops all packets with a multicast destination address,
-	even though neighbor solicitations are sent to the solicited-node
-	address, a multicast address. The code after this check was never run.
-2) The neighbor table lookup used the IPv6 header destination, which is the
-	solicited node address, rather than the target address from the
-	neighbor solicitation. So neighbor lookups would always fail if it
-	got this far. Also for L3MISSes.
-3) The code calls ndisc_send_na(), which does a send on the tunnel device.
-	The context for neigh_reduce() is the transmit path, vxlan_xmit(),
-	where the host or a bridge-attached neighbor is trying to transmit
-	a neighbor solicitation. To respond to it, the tunnel endpoint needs
-	to do a *receive* of the appropriate neighbor advertisement. Doing a
-	send, would only try to send the advertisement, encapsulated, to the
-	remote destinations in the fdb -- hosts that definitely did not do the
-	corresponding solicitation.
-4) The code uses the tunnel endpoint IPv6 forwarding flag to determine the
-	isrouter flag in the advertisement. This has nothing to do with whether
-	or not the target is a router, and generally won't be set since the
-	tunnel endpoint is bridging, not routing, traffic.
-
-	The patch below creates a proxy neighbor advertisement to respond to
-neighbor solicitions as intended, providing proper IPv6 support for neighbor
-reduction.
-
-Changes since v2:
-
-- code cleanup suggested by Stephen Hemminger and Daniel Baluta
-
-Changes since v1:
-
-- reworked code to be structurally similar to arp_reduce() per Dave Miller
-
-Signed-Off-By: David L Stevens <dlstevens@us.ibm.com>
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index eb59b14..f6ddde9 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1336,14 +1336,102 @@ out:
- }
- 
- #if IS_ENABLED(CONFIG_IPV6)
-+
-+static struct sk_buff *vxlan_na_create(struct sk_buff *request,
-+	struct neighbour *n, bool isrouter)
-+{
-+	struct net_device *dev = request->dev;
-+	struct sk_buff *reply = NULL;
-+	struct nd_msg *ns, *na;
-+	struct ipv6hdr *pip6;
-+	u8 *daddr;
-+	int olen = 8; /* opt hdr + ETH_ALEN for target */
-+	int i, len;
-+
-+	if (dev == NULL)
-+		return NULL;
-+
-+	ns = (struct nd_msg *)skb_transport_header(request);
-+
-+	len = LL_RESERVED_SPACE(dev) + sizeof(struct ipv6hdr) +
-+		sizeof(*na) + olen + dev->needed_tailroom;
-+	reply = alloc_skb(len, GFP_ATOMIC);
-+	if (reply == NULL)
-+		return NULL;
-+
-+	reply->protocol = htons(ETH_P_IPV6);
-+	reply->dev = dev;
-+	skb_reserve(reply, LL_RESERVED_SPACE(request->dev));
-+	skb_push(reply, sizeof(struct ethhdr));
-+	skb_set_mac_header(reply, 0);
-+
-+	daddr = eth_hdr(request)->h_source;
-+	olen = request->len - skb_transport_offset(request) - sizeof(*ns);
-+	for (i = 0; i < olen-1; i += (ns->opt[i+1]<<3)) {
-+		if (ns->opt[i] == ND_OPT_SOURCE_LL_ADDR) {
-+			daddr = ns->opt + i + sizeof(struct nd_opt_hdr);
-+			break;
-+		}
-+	}
-+
-+	/* Ethernet header */
-+	memcpy(eth_hdr(reply)->h_dest, daddr, ETH_ALEN);
-+	memcpy(eth_hdr(reply)->h_source, n->ha, ETH_ALEN);
-+	eth_hdr(reply)->h_proto = htons(ETH_P_IPV6);
-+	reply->protocol = htons(ETH_P_IPV6);
-+
-+	skb_pull(reply, sizeof(struct ethhdr));
-+	skb_set_network_header(reply, 0);
-+	skb_put(reply, sizeof(struct ipv6hdr));
-+
-+	/* IPv6 header */
-+
-+	pip6 = ipv6_hdr(reply);
-+	memset(pip6, 0, sizeof(struct ipv6hdr));
-+	pip6->version = 6;
-+	pip6->priority = ipv6_hdr(request)->priority;
-+	pip6->nexthdr = IPPROTO_ICMPV6;
-+	pip6->hop_limit = 255;
-+	pip6->daddr = ipv6_hdr(request)->saddr;
-+	pip6->saddr = *(struct in6_addr *)n->primary_key;
-+
-+	skb_pull(reply, sizeof(struct ipv6hdr));
-+	skb_set_transport_header(reply, 0);
-+
-+	olen = 8; /* ND_OPT_TARGET_LL_ADDR */
-+	na = (struct nd_msg *)skb_put(reply, sizeof(*na) + olen);
-+
-+	/* Neighbor Advertisement */
-+	memset(na, 0, sizeof(*na)+olen);
-+	na->icmph.icmp6_type = NDISC_NEIGHBOUR_ADVERTISEMENT;
-+	na->icmph.icmp6_router = isrouter;
-+	na->icmph.icmp6_override = 1;
-+	na->icmph.icmp6_solicited = 1;
-+	na->target = ns->target;
-+	memcpy(&na->opt[2], n->ha, ETH_ALEN);
-+	na->opt[0] = ND_OPT_TARGET_LL_ADDR;
-+	na->opt[1] = 1; /* 8 bytes */
-+
-+	na->icmph.icmp6_cksum = csum_ipv6_magic(&pip6->saddr,
-+		&pip6->daddr, sizeof(*na)+olen, IPPROTO_ICMPV6, 
-+		csum_partial(na, sizeof(*na)+olen, 0));
-+
-+	pip6->payload_len = htons(sizeof(*na)+olen);
-+
-+	skb_push(reply, sizeof(struct ipv6hdr));
-+
-+	reply->ip_summed = CHECKSUM_UNNECESSARY;
-+
-+	return reply;
-+}
-+
- static int neigh_reduce(struct net_device *dev, struct sk_buff *skb)
- {
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
--	struct neighbour *n;
--	union vxlan_addr ipa;
-+	struct nd_msg *msg;
- 	const struct ipv6hdr *iphdr;
- 	const struct in6_addr *saddr, *daddr;
--	struct nd_msg *msg;
-+	struct neighbour *n;
- 	struct inet6_dev *in6_dev = NULL;
- 
- 	in6_dev = __in6_dev_get(dev);
-@@ -1357,8 +1445,7 @@ static int neigh_reduce(struct net_device *dev, struct sk_buff *skb)
- 	saddr = &iphdr->saddr;
- 	daddr = &iphdr->daddr;
- 
--	if (ipv6_addr_loopback(daddr) ||
--	    ipv6_addr_is_multicast(daddr))
-+	if (ipv6_addr_loopback(daddr))
- 		goto out;
- 
- 	msg = (struct nd_msg *)skb_transport_header(skb);
-@@ -1366,10 +1453,11 @@ static int neigh_reduce(struct net_device *dev, struct sk_buff *skb)
- 	    msg->icmph.icmp6_type != NDISC_NEIGHBOUR_SOLICITATION)
- 		goto out;
- 
--	n = neigh_lookup(ipv6_stub->nd_tbl, daddr, dev);
-+	n = neigh_lookup(ipv6_stub->nd_tbl, &msg->target, dev);
- 
- 	if (n) {
- 		struct vxlan_fdb *f;
-+		struct sk_buff *reply;
- 
- 		if (!(n->nud_state & NUD_CONNECTED)) {
- 			neigh_release(n);
-@@ -1383,13 +1471,23 @@ static int neigh_reduce(struct net_device *dev, struct sk_buff *skb)
- 			goto out;
- 		}
- 
--		ipv6_stub->ndisc_send_na(dev, n, saddr, &msg->target,
--					 !!in6_dev->cnf.forwarding,
--					 true, false, false);
-+		reply = vxlan_na_create(skb, n,
-+					!!(f ? f->flags & NTF_ROUTER : 0));
-+
- 		neigh_release(n);
-+
-+		if (reply == NULL)
-+			goto out;
-+
-+		if (netif_rx_ni(reply) == NET_RX_DROP)
-+			dev->stats.rx_dropped++;
-+
- 	} else if (vxlan->flags & VXLAN_F_L3MISS) {
--		ipa.sin6.sin6_addr = *daddr;
--		ipa.sa.sa_family = AF_INET6;
-+		union vxlan_addr ipa = {
-+			.sin6.sin6_addr = msg->target,
-+			.sa.sa_family = AF_INET6,
-+		};
-+
- 		vxlan_ip_miss(dev, &ipa);
- 	}
- 
+-- 
+Ben Dooks				http://www.codethink.co.uk/
+Senior Engineer				Codethink - Providing Genius
