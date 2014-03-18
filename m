@@ -1,430 +1,242 @@
 From: Byungho An <bh74.an@samsung.com>
-Subject: [PATCH V4 6/8] net: sxgbe: add WOL(Wakeup-On-Lan)support for Samsung
+Subject: [PATCH V4 5/8] net: sxgbe: add Checksum offload support for Samsung
  sxgbe
 Date: Mon, 17 Mar 2014 23:47:18 -0700
-Message-ID: <00fb01cf4275$eaab3790$c001a6b0$@samsung.com>
+Message-ID: <00fc01cf4275$eba045f0$c2e0d1d0$@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, ks.giri@samsung.com, ilho215.lee@samsung.com
+Cc: davem@davemloft.net, vipul.pandya@samsung.com,
+	ilho215.lee@samsung.com
 To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout3.samsung.com ([203.254.224.33]:48712 "EHLO
+	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753424AbaCRGrm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 02:47:42 -0400
 Content-language: en-us
-Sender: linux-samsung-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Girish K S <ks.giri@samsung.com>
+From: Vipul Pandya <vipul.pandya@samsung.com>
 
-This patch adds support for wake up on magic frame arrival.
-Also remote wake up on all other packets (unicast, multicast broadcast) is
-supported.
+This patch adds TX and RX checksum offload support.
 
-Signed-off-by: Girish K S <ks.giri@samsung.com>
+Signed-off-by: Vipul Pandya <vipul.pandya@samsung.com>
 Neatening-by: Joe Perches <joe@perches.com>
 Signed-off-by: Byungho An <bh74.an@samsung.com>
 ---
- drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h  |   15 +++++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c    |   29 ++++++++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c |   47 +++++++++++++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c    |   71
-++++++++++++++++++++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c     |   43 +++++++++++-
- drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.h     |    4 ++
- .../net/ethernet/samsung/sxgbe/sxgbe_platform.c    |    4 ++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h     |    3 +
- 8 files changed, 215 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h |    5 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c   |   20 +++++++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h   |    6 +--
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c   |   46
+++++++++++++++++-----
+ 4 files changed, 63 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
 b/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
-index 22db49f..d94e8d9 100644
+index ddf8756..22db49f 100644
 --- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
 +++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
-@@ -121,9 +121,18 @@ struct sxgbe_mtl_ops;
- #define RX_ENTRY_LPI_MODE	0x40
- #define RX_EXIT_LPI_MODE	0x80
- 
-+/* PMT mode bits */
-+#define PMT_PWRDWN		BIT(0)
-+#define PMT_MGPKT_EN		BIT(1)
-+#define PMT_RWKPKT_EN		BIT(2)
-+#define PMT_GUCAST_EN		BIT(9)
+@@ -337,6 +337,10 @@ struct sxgbe_core_ops {
+ 	void (*set_eee_timer)(void __iomem *ioaddr, const int ls,
+ 			      const int tw);
+ 	void (*set_eee_pls)(void __iomem *ioaddr, const int link);
 +
- /* EEE-LPI Interrupt status flag */
- #define LPI_INT_STATUS		BIT(5)
- 
-+/* PMT Interrupt status */
-+#define PMT_INT_STATUS		BIT(4)
-+
- /* EEE-LPI Default timer values */
- #define LPI_LINK_STATUS_TIMER	0x3E8
- #define LPI_MAC_WAIT_TIMER	0x00
-@@ -225,6 +234,7 @@ struct sxgbe_extra_stats {
- 	unsigned long rx_desc_access_err;
- 	unsigned long rx_buffer_access_err;
- 	unsigned long rx_data_transfer_err;
-+	unsigned long pmt_irq_event_n;
- 
- 	/* EEE-LPI stats */
- 	unsigned long tx_lpi_entry_n;
-@@ -489,6 +499,11 @@ struct sxgbe_priv_data {
- 	int eee_enabled;
- 	int eee_active;
- 	int tx_lpi_timer;
-+
-+	/* PM-WOL specific members */
-+	int wolopts;
-+	int wolenabled;
-+	int wol_irq;
++	/* Enable disable checksum offload operations */
++	void (*enable_rx_csum)(void __iomem *ioaddr);
++	void (*disable_rx_csum)(void __iomem *ioaddr);
  };
  
- /* Function prototypes */
+ const struct sxgbe_core_ops *sxgbe_get_core_ops(void);
+@@ -448,6 +452,7 @@ struct sxgbe_priv_data {
+ 	struct sxgbe_ops *hw;/* sxgbe specific ops */
+ 	int no_csum_insertion;
+ 	int irq;
++	int rxcsum_insertion;
+ 	spinlock_t stats_lock;
+ 
+ 	struct phy_device *phydev;
 diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c
 b/drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c
-index 5885fd6..334d196 100644
+index bf93b16..5885fd6 100644
 --- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c
 +++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c
-@@ -78,12 +78,41 @@ static int sxgbe_core_host_irq_status(void __iomem
-*ioaddr,
- 	if (unlikely(irq_status & LPI_INT_STATUS))
- 		status |= sxgbe_get_lpi_status(ioaddr, irq_status);
- 
-+	if (unlikely(irq_status & PMT_INT_STATUS)) {
-+		/* clear the PMT bits 5 and 6 by reading the PMT status reg */
-+		readl(ioaddr + SXGBE_CORE_PMT_CTL_STATUS_REG);
-+		x->pmt_irq_event_n++;
-+	}
-+
- 	return status;
+@@ -217,6 +217,24 @@ static void  sxgbe_set_eee_timer(void __iomem *ioaddr,
+ 	writel(value, ioaddr + SXGBE_CORE_LPI_TIMER_CTRL);
  }
  
- /* Set power management mode (e.g. magic frame) */
- static void sxgbe_core_pmt(void __iomem *ioaddr, unsigned long mode)
- {
-+	unsigned int pmt = 0;
-+
-+	if (mode & WAKE_MAGIC) {
-+		pr_debug("WOL Magic frame\n");
-+		pmt |= PMT_MGPKT_EN;
-+	}
-+	if (mode & WAKE_UCAST) {
-+		pr_debug("WOL on global unicast\n");
-+		pmt |= PMT_GUCAST_EN;
-+	}
-+	if (mode & (WAKE_MCAST | WAKE_BCAST)) {
-+		pr_debug("WOL on any other packet\n");
-+		pmt |= PMT_RWKPKT_EN;
-+	}
-+
-+	writel(pmt, ioaddr + SXGBE_CORE_PMT_CTL_STATUS_REG);
-+
-+	/* Enable power down bit if any of the requested mode is enabled */
-+	if (pmt) {
-+		writel(SXGBE_RX_ENABLE, ioaddr + SXGBE_CORE_RX_CONFIG_REG);
-+		pmt |= PMT_PWRDWN;
-+		writel(pmt, ioaddr + SXGBE_CORE_PMT_CTL_STATUS_REG);
-+	}
- }
- 
- /* Set/Get Unicast MAC addresses */
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
-b/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
-index 9083300..89b1450 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
-@@ -12,6 +12,7 @@
- 
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- 
-+#include <linux/interrupt.h>
- #include <linux/kernel.h>
- #include <linux/netdevice.h>
- #include <linux/phy.h>
-@@ -37,6 +38,7 @@ static const struct sxgbe_stats sxgbe_gstrings_stats[] = {
- 	SXGBE_STAT(rx_lpi_entry_n),
- 	SXGBE_STAT(rx_lpi_exit_n),
- 	SXGBE_STAT(eee_wakeup_error_n),
-+	SXGBE_STAT(pmt_irq_event_n),
- };
- #define SXGBE_STATS_LEN ARRAY_SIZE(sxgbe_gstrings_stats)
- 
-@@ -80,9 +82,54 @@ static int sxgbe_ethtool_set_eee(struct net_device *dev,
- 	return phy_ethtool_set_eee(priv->phydev, edata);
- }
- 
-+static void sxgbe_get_wol(struct net_device *dev, struct ethtool_wolinfo
-*wol)
-+{
-+	struct sxgbe_priv_data *priv = netdev_priv(dev);
-+
-+	wol->wolopts = 0;
-+	if (!device_can_wakeup(priv->device)) {
-+		dev_err(priv->device, "cannot wakeup device\n");
-+		return;
-+	}
-+
-+	if (priv->hw_cap.pmt_magic_frame)
-+		wol->supported |= WAKE_MAGIC;
-+
-+	if (priv->hw_cap.pmt_remote_wake_up)
-+		wol->supported |= (WAKE_UCAST | WAKE_MCAST | WAKE_BCAST);
-+
-+	wol->wolopts = priv->wolopts;
-+}
-+
-+static int sxgbe_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-+{
-+	struct sxgbe_priv_data *priv = netdev_priv(dev);
-+
-+	if (wol->wolopts & (WAKE_PHY | WAKE_ARP | WAKE_MAGICSECURE))
-+		return -EOPNOTSUPP;
-+
-+	if (!device_can_wakeup(priv->device))
-+		return -EOPNOTSUPP;
-+
-+	if (wol->wolopts) {
-+		netdev_info(dev, "wakeup enable\n");
-+		device_set_wakeup_enable(priv->device, true);
-+		enable_irq_wake(priv->wol_irq);
-+	} else {
-+		device_set_wakeup_enable(priv->device, false);
-+		disable_irq_wake(priv->wol_irq);
-+	}
-+
-+	priv->wolopts = wol->wolopts;
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops sxgbe_ethtool_ops = {
- 	.get_eee = sxgbe_ethtool_get_eee,
- 	.set_eee = sxgbe_ethtool_set_eee,
-+	.get_wol = sxgbe_get_wol,
-+	.set_wol = sxgbe_set_wol,
- };
- 
- void sxgbe_set_ethtool_ops(struct net_device *netdev)
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-index 13bdb54..d0e2769 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-@@ -1089,6 +1089,18 @@ static int sxgbe_open(struct net_device *dev)
- 		goto init_error;
- 	}
- 
-+	/* Request the Wake IRQ in case of another line is used for WoL */
-+	if (priv->wol_irq != dev->irq) {
-+		ret = devm_request_irq(priv->device, priv->wol_irq,
-+				       sxgbe_common_interrupt, IRQF_SHARED,
-+				       dev->name, dev);
-+		if (unlikely(ret < 0)) {
-+			netdev_err(dev, "%s: ERROR: allocating the WoL IRQ %d
-(%d)\n",
-+				   __func__, priv->wol_irq, ret);
-+			goto init_error;
-+		}
-+	}
-+
- 	/* If the LPI irq is different from the mac irq
- 	 * register a dedicated handler
- 	 */
-@@ -2058,6 +2070,27 @@ static int sxgbe_hw_init(struct sxgbe_priv_data * const
-priv)
- 	return 0;
- }
- 
-+static void sxgbe_set_pmt_capabilities(struct sxgbe_priv_data *priv)
++static void sxgbe_enable_rx_csum(void __iomem *ioaddr)
 +{
 +	u32 ctrl;
 +
-+	priv->wolopts = 0;
-+
-+	ctrl = readl(priv->ioaddr + SXGBE_CORE_PMT_CTL_STATUS_REG);
-+	/* Enable maagic packet reception */
-+	if (priv->hw_cap.pmt_magic_frame) {
-+		priv->wolopts |= WAKE_MAGIC;
-+		ctrl |= PMT_MGPKT_EN;
-+	}
-+	if (priv->hw_cap.pmt_remote_wake_up) {
-+		priv->wolopts |= WAKE_UCAST | WAKE_MCAST | WAKE_BCAST;
-+		ctrl |= (PMT_RWKPKT_EN | PMT_GUCAST_EN);
-+	}
-+	writel(ctrl, priv->ioaddr + SXGBE_CORE_PMT_CTL_STATUS_REG);
-+
-+	device_init_wakeup(priv->device, true);
++	ctrl = readl(ioaddr + SXGBE_CORE_RX_CONFIG_REG);
++	ctrl |= SXGBE_RX_CSUMOFFLOAD_ENABLE;
++	writel(ctrl, ioaddr + SXGBE_CORE_RX_CONFIG_REG);
 +}
 +
- /**
-  * sxgbe_dvr_probe
-  * @device: device pointer
-@@ -2180,6 +2213,7 @@ struct sxgbe_priv_data *sxgbe_dvr_probe(struct device
-*device,
- 		goto error_mdio_register;
++static void sxgbe_disable_rx_csum(void __iomem *ioaddr)
++{
++	u32 ctrl;
++
++	ctrl = readl(ioaddr + SXGBE_CORE_RX_CONFIG_REG);
++	ctrl &= ~SXGBE_RX_CSUMOFFLOAD_ENABLE;
++	writel(ctrl, ioaddr + SXGBE_CORE_RX_CONFIG_REG);
++}
++
+ const struct sxgbe_core_ops core_ops = {
+ 	.core_init = sxgbe_core_init,
+ 	.dump_regs = sxgbe_core_dump_regs,
+@@ -233,6 +251,8 @@ const struct sxgbe_core_ops core_ops = {
+ 	.reset_eee_mode = sxgbe_reset_eee_mode,
+ 	.set_eee_timer = sxgbe_set_eee_timer,
+ 	.set_eee_pls = sxgbe_set_eee_pls,
++	.enable_rx_csum = sxgbe_enable_rx_csum,
++	.disable_rx_csum = sxgbe_disable_rx_csum,
+ };
+ 
+ const struct sxgbe_core_ops *sxgbe_get_core_ops(void)
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
+b/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
+index 547edf3..3c0b5a8 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
+@@ -113,7 +113,7 @@ struct sxgbe_rx_norm_desc {
+ 			/* WB RDES3 */
+ 			u32 pkt_len:14;
+ 			u32 rdes3_reserved:1;
+-			u32 err_summary:15;
++			u32 err_summary:1;
+ 			u32 err_l2_type:4;
+ 			u32 layer34_pkt_type:4;
+ 			u32 no_coagulation_pkt:1;
+@@ -273,8 +273,8 @@ struct sxgbe_desc_ops {
+ 	int (*get_rx_ld_status)(struct sxgbe_rx_norm_desc *p);
+ 
+ 	/* Return the reception status looking at the RDES1 */
+-	void (*rx_wbstatus)(struct sxgbe_rx_norm_desc *p,
+-				struct sxgbe_extra_stats *x);
++	int (*rx_wbstatus)(struct sxgbe_rx_norm_desc *p,
++			   struct sxgbe_extra_stats *x, int *checksum);
+ 
+ 	/* Get own bit */
+ 	int (*get_rx_ctxt_owner)(struct sxgbe_rx_ctxt_desc *p);
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+index 5490cf4..13bdb54 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+@@ -1257,6 +1257,7 @@ void sxgbe_tso_prepare(struct sxgbe_priv_data *priv,
+ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	unsigned int entry, frag_num;
++	int cksum_flag = 0;
+ 	struct netdev_queue *dev_txq;
+ 	unsigned txq_index = skb_get_queue_mapping(skb);
+ 	struct sxgbe_priv_data *priv = netdev_priv(dev);
+@@ -1328,7 +1329,7 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb,
+struct net_device *dev)
+ 					   __func__);
+ 
+ 			priv->hw->desc->prepare_tx_desc(tx_desc, 1,
+no_pagedlen,
+-							no_pagedlen);
++							no_pagedlen,
+cksum_flag);
+ 		}
  	}
  
-+	sxgbe_set_pmt_capabilities(priv);
- 	sxgbe_check_ether_addr(priv);
+@@ -1346,7 +1347,7 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb,
+struct net_device *dev)
  
- 	return priv;
-@@ -2230,11 +2264,48 @@ int sxgbe_dvr_remove(struct net_device *ndev)
- #ifdef CONFIG_PM
- int sxgbe_suspend(struct net_device *ndev)
- {
-+	struct sxgbe_priv_data *priv = netdev_priv(ndev);
-+	struct netdev_hw_addr *ha;
-+	int queue_num = 0, reg = 0;
-+
-+	/* Disable TX and wait till all frames flushed out */
-+	priv->hw->mac->enable_tx(priv->ioaddr, false);
-+	sxgbe_tx_all_clean(priv);
-+	SXGBE_FOR_EACH_QUEUE(SXGBE_TX_QUEUES, queue_num)
-+		priv->hw->mtl->mtl_flush_txqueue(priv->ioaddr, queue_num);
-+
-+	/* Disable RX and wait till all frames read into memory */
-+	priv->hw->mac->enable_rx(priv->ioaddr, false);
-+	SXGBE_FOR_EACH_QUEUE(SXGBE_RX_QUEUES, queue_num)
-+		priv->hw->mtl->mtl_readout_rxqueue(priv->ioaddr, queue_num);
-+
-+	/* Enable Power down mode by programming the PMT regs */
-+	if (device_may_wakeup(priv->device)) {
-+		priv->hw->mac->pmt(priv->ioaddr, priv->wolopts);
-+	} else {
-+		netdev_for_each_uc_addr(ha, ndev)
-+			priv->hw->mac->set_umac_addr(priv->ioaddr, ha->addr,
-+						     reg++);
-+		/* Disable clock in case of PWM is off */
-+		clk_disable_unprepare(priv->sxgbe_clk);
-+	}
-+
- 	return 0;
- }
+ 		/* prepare the descriptor */
+ 		priv->hw->desc->prepare_tx_desc(tx_desc, 0, len,
+-						len);
++						len, cksum_flag);
+ 		/* memory barrier to flush descriptor */
+ 		wmb();
  
- int sxgbe_resume(struct net_device *ndev)
- {
-+	struct sxgbe_priv_data *priv = netdev_priv(ndev);
-+
-+	if (device_may_wakeup(priv->device))
-+		priv->hw->mac->pmt(priv->ioaddr, 0);
-+	else
-+		/* enable the clk prevously disabled */
-+		clk_prepare_enable(priv->sxgbe_clk);
-+
-+	priv->hw->mac->enable_rx(priv->ioaddr, true);
-+	priv->hw->mac->enable_tx(priv->ioaddr, true);
-+
- 	return 0;
- }
+@@ -1467,6 +1468,8 @@ static int sxgbe_rx(struct sxgbe_priv_data *priv, int
+limit)
+ 	unsigned int entry = priv->rxq[qnum]->cur_rx;
+ 	unsigned int next_entry = 0;
+ 	unsigned int count = 0;
++	int checksum;
++	int status;
  
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c
-b/drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c
-index d3ec6eb..6f6202c 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c
-@@ -174,6 +174,45 @@ static void sxgbe_mtl_fup_disable(void __iomem *ioaddr,
-int queue_num)
- 	writel(reg_val, ioaddr + SXGBE_MTL_RXQ_OPMODE_REG(queue_num));
- }
+ 	while (count < limit) {
+ 		struct sxgbe_rx_norm_desc *p;
+@@ -1483,7 +1486,18 @@ static int sxgbe_rx(struct sxgbe_priv_data *priv, int
+limit)
+ 		next_entry = (++priv->rxq[qnum]->cur_rx) % rxsize;
+ 		prefetch(priv->rxq[qnum]->dma_rx + next_entry);
  
-+static int sxgbe_mtl_flush_txqueue(void __iomem *ioaddr, int queue_num)
-+{
-+	unsigned long timeout;
-+	u32 reg_val;
-+
-+	timeout = jiffies + msecs_to_jiffies(5);
-+
-+	reg_val = readl(ioaddr + SXGBE_MTL_TXQ_OPMODE_REG(queue_num));
-+	while ((reg_val &
-+		(SXGBE_MTL_TXQ_EMPTY_STAT | SXGBE_MTL_TXQ_WRITE_STAT))) {
-+		if (time_after(jiffies, timeout)) {
-+			pr_err("cannot flush tx queue - timeout\n");
-+			return -ETIMEDOUT;
+-		/*TO DO read the status of the incoming frame */
++		/* Read the status of the incoming frame and also get checksum
++		 * value based on whether it is enabled in SXGBE hardware or
++		 * not.
++		 */
++		status = priv->hw->desc->rx_wbstatus(p, &priv->xstats,
++						     &checksum);
++		if (unlikely(status < 0)) {
++			entry = next_entry;
++			continue;
 +		}
-+		reg_val = readl(ioaddr + SXGBE_MTL_TXQ_OPMODE_REG(queue_num));
-+	}
-+
-+	return 0;
-+}
-+
-+static int sxgbe_mtl_readout_rxqueue(void __iomem *ioaddr, int queue_num)
-+{
-+	unsigned long timeout;
-+	u32 reg_val;
-+
-+	timeout = jiffies + msecs_to_jiffies(5);
-+
-+	reg_val = readl(ioaddr + SXGBE_MTL_TXQ_OPMODE_REG(queue_num));
-+	while ((reg_val &
-+		(SXGBE_MTL_TXQ_EMPTY_STAT | SXGBE_MTL_TXQ_WRITE_STAT))) {
-+		if (time_after(jiffies, timeout)) {
-+			pr_err("cannot flush tx queue - timeout\n");
-+			return -ETIMEDOUT;
++		if (unlikely(!priv->rxcsum_insertion))
++			checksum = CHECKSUM_NONE;
+ 
+ 		skb = priv->rxq[qnum]->rx_skbuff[entry];
+ 
+@@ -1497,7 +1511,11 @@ static int sxgbe_rx(struct sxgbe_priv_data *priv, int
+limit)
+ 
+ 		skb_put(skb, frame_len);
+ 
+-		netif_receive_skb(skb);
++		skb->ip_summed = checksum;
++		if (checksum == CHECKSUM_NONE)
++			netif_receive_skb(skb);
++		else
++			napi_gro_receive(&priv->napi, skb);
+ 
+ 		entry = next_entry;
+ 	}
+@@ -1743,15 +1761,15 @@ static int sxgbe_set_features(struct net_device *dev,
+ {
+ 	struct sxgbe_priv_data *priv = netdev_priv(dev);
+ 	netdev_features_t changed = dev->features ^ features;
+-	u32 ctrl;
+ 
+ 	if (changed & NETIF_F_RXCSUM) {
+-		ctrl = readl(priv->ioaddr + SXGBE_CORE_RX_CONFIG_REG);
+-		if (features & NETIF_F_RXCSUM)
+-			ctrl |= SXGBE_RX_CSUMOFFLOAD_ENABLE;
+-		else
+-			ctrl &= ~SXGBE_RX_CSUMOFFLOAD_ENABLE;
+-		writel(ctrl, priv->ioaddr + SXGBE_CORE_RX_CONFIG_REG);
++		if (features & NETIF_F_RXCSUM) {
++			priv->hw->mac->enable_rx_csum(priv->ioaddr);
++			priv->rxcsum_insertion = true;
++		} else {
++			priv->hw->mac->disable_rx_csum(priv->ioaddr);
++			priv->rxcsum_insertion = false;
 +		}
-+		reg_val = readl(ioaddr + SXGBE_MTL_TXQ_OPMODE_REG(queue_num));
+ 	}
+ 
+ 	return 0;
+@@ -2114,6 +2132,12 @@ struct sxgbe_priv_data *sxgbe_dvr_probe(struct device
+*device,
+ 		}
+ 	}
+ 
++	/* Enable Rx checksum offload */
++	if (priv->hw_cap.rx_csum_offload) {
++		priv->hw->mac->enable_rx_csum(priv->ioaddr);
++		priv->rxcsum_insertion = true;
 +	}
 +
-+	return 0;
-+}
- 
- static void sxgbe_set_tx_mtl_mode(void __iomem *ioaddr, int queue_num,
- 				  int tx_mode)
-@@ -243,7 +282,9 @@ static const struct sxgbe_mtl_ops mtl_ops = {
- 	.mtl_fep_enable = sxgbe_mtl_fep_enable,
- 	.mtl_fep_disable = sxgbe_mtl_fep_disable,
- 	.mtl_fup_enable = sxgbe_mtl_fup_enable,
--	.mtl_fup_disable = sxgbe_mtl_fup_disable
-+	.mtl_fup_disable = sxgbe_mtl_fup_disable,
-+	.mtl_flush_txqueue = sxgbe_mtl_flush_txqueue,
-+	.mtl_readout_rxqueue = sxgbe_mtl_readout_rxqueue
- };
- 
- const struct sxgbe_mtl_ops *sxgbe_get_mtl_ops(void)
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.h
-b/drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.h
-index 7e4810c..b2f3f10 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.h
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.h
-@@ -97,6 +97,10 @@ struct sxgbe_mtl_ops {
- 	void (*mtl_fup_enable)(void __iomem *ioaddr, int queue_num);
- 
- 	void (*mtl_fup_disable)(void __iomem *ioaddr, int queue_num);
-+
-+	int (*mtl_flush_txqueue)(void __iomem *ioaddr, int queue_num);
-+
-+	int (*mtl_readout_rxqueue)(void __iomem *ioaddr, int queue_num);
- };
- 
- const struct sxgbe_mtl_ops *sxgbe_get_mtl_ops(void);
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
-b/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
-index d1ffff5..797aa8a 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
-@@ -165,6 +165,10 @@ static int sxgbe_platform_probe(struct platform_device
-*pdev)
- 	if (priv->lpi_irq == -ENXIO)
- 		priv->lpi_irq = priv->dev->irq;
- 
-+	priv->wol_irq = irq_of_parse_and_map(dev->of_node, loop++);
-+	if (priv->wol_irq == -ENXIO)
-+		priv->wol_irq = priv->dev->irq;
-+
- 	platform_set_drvdata(pdev, priv->dev);
- 
- 	pr_debug("platform driver registration completed\n");
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h
-b/drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h
-index 85a7b31..bd85923 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h
-@@ -257,6 +257,9 @@
- #define SXGBE_MTL_SFMODE		BIT(1)
- #define SXGBE_MTL_FIFO_LSHIFT		16
- #define SXGBE_MTL_ENABLE_QUEUE		0x00000008
-+#define SXGBE_MTL_TXQ_EMPTY_STAT	BIT(4)
-+#define SXGBE_MTL_TXQ_WRITE_STAT	BIT(3)
-+
- #define SXGBE_MTL_TXQ_UNDERFLOW_REG(qnum)			\
- 	(SXGBE_MTL_TC_TXBASE_REG + (qnum * 0x80) + 0x04)
- #define SXGBE_MTL_TXQ_DEBUG_REG(qnum)				\
+ 	/* Rx Watchdog is available, enable depend on platform data */
+ 	if (!priv->plat->riwt_off) {
+ 		priv->use_riwt = 1;
 -- 
 1.7.10.4
