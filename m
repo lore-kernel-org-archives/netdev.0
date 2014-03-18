@@ -1,57 +1,44 @@
-From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Subject: Re: [PATCH] micrel: fix masking off LED bits
-Date: Wed, 19 Mar 2014 00:27:41 +0100
-Message-ID: <1643301.laIYkMizQV@avalon>
-References: <201403190258.16812.sergei.shtylyov@cogentembedded.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 1/9] rcu: Replace rcu_assign_pointer(x, NULL) with
+ RCU_INIT_POINTER(x, NULL) in drivers/net/ethernet/broadcom/bnx2.c
+Date: Tue, 18 Mar 2014 16:28:44 -0700
+Message-ID: <20140318232844.GA4420@linux.vnet.ibm.com>
+References: <cover.1395182132.git.monamagarwal123@gmail.com>
+ <1965df1cea51fc4c08e563554739fb74bbcaf58e.1395182132.git.monamagarwal123@gmail.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	ben.dooks@codethink.co.uk
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <201403190258.16812.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	eddie.wai@broadcom.com
+To: Monam Agarwal <monamagarwal123@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1965df1cea51fc4c08e563554739fb74bbcaf58e.1395182132.git.monamagarwal123@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sergei,
+On Wed, Mar 19, 2014 at 04:10:42AM +0530, Monam Agarwal wrote:
+> Signed-off-by: Monam Agarwal <monamagarwal123@gmail.com>
 
-Thank you for the patch.
-
-On Wednesday 19 March 2014 02:58:16 Sergei Shtylyov wrote:
-> Commit 20d8435a1cff (phy: micrel: add of configuration for LED mode) made
-> the obvious mistake when masking off  the LED mode bits: forgot to do a
-> logical NOT to the mask with which it ANDs the register value, so that
-> unrelated bits are cleared instead.
-> 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
-Good catch.
-
-Acked-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 
 > ---
-> This patch is against DaveM's 'net-next.git' repo.
-> 
->  drivers/net/phy/micrel.c |    2 +-
+>  drivers/net/ethernet/broadcom/bnx2.c |    2 +-
 >  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> Index: net-next/drivers/net/phy/micrel.c
-> ===================================================================
-> --- net-next.orig/drivers/net/phy/micrel.c
-> +++ net-next/drivers/net/phy/micrel.c
-> @@ -167,7 +167,7 @@ static int kszphy_setup_led(struct phy_d
->  	if (temp < 0)
->  		return temp;
+> diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+> index 965c723..5eab730 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2.c
+> @@ -409,7 +409,7 @@ static int bnx2_unregister_cnic(struct net_device *dev)
+>  	mutex_lock(&bp->cnic_lock);
+>  	cp->drv_state = 0;
+>  	bnapi->cnic_present = 0;
+> -	rcu_assign_pointer(bp->cnic_ops, NULL);
+> +	RCU_INIT_POINTER(bp->cnic_ops, NULL);
+>  	mutex_unlock(&bp->cnic_lock);
+>  	synchronize_rcu();
+>  	return 0;
+> -- 
+> 1.7.9.5
 > 
-> -	temp &= 3 << shift;
-> +	temp &= ~(3 << shift);
->  	temp |= val << shift;
->  	rc = phy_write(phydev, reg, temp);
-
-
--- 
-Regards,
-
-Laurent Pinchart
-
