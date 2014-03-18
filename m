@@ -1,104 +1,72 @@
-From: Heiner Kallweit <heiner.kallweit@web.de>
-Subject: [PATCH net] ipv6: If a public address is deleted then also delete
- all temporary addresses still referring to it
-Date: Tue, 18 Mar 2014 21:46:40 +0100
-Message-ID: <5328B0B0.7070305@web.de>
+From: Grant Grundler <grundler@google.com>
+Subject: Re: usbnet: driver_info->stop required to stop USB interrupts?
+Date: Tue, 18 Mar 2014 13:51:52 -0700
+Message-ID: <CANEJEGuaVPNZKFiXY9CywFuqghgiQqV_sii7TE3STCNvXLQ3pQ@mail.gmail.com>
+References: <CANEJEGsvqkT_H4i+UZpBaWMYmgXHmpD8SZ4tU1OHzLd8gyznow@mail.gmail.com>
+	<CANEJEGv03ohVwoS0Pd1Z3az9k-C=dTzG4qE1SBL6Um97QC1Ehw@mail.gmail.com>
+	<CAODwPW_t9COeg0LWfkiqXC_yTbSNhUHX-8T95KRZHfOTSiZK1Q@mail.gmail.com>
+	<1394529263.16128.6.camel@linux-fkkt.site>
+	<CAODwPW8rQptt+jnfZ+KjpuOOpKi9ktb-y2kCYGZJo_ava1ktjg@mail.gmail.com>
+	<CAODwPW-CqigMBvwZtb+KLY5XbT+LDssPpvDZj86ej183DMiPkQ@mail.gmail.com>
+	<1395093343.3961.2.camel@linux-fkkt.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Julius Werner <jwerner@chromium.org>,
+	netdev <netdev@vger.kernel.org>, Freddy Xin <freddy@asix.com.tw>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	Allan Chou <allan@asix.com.tw>
+To: Oliver Neukum <oneukum@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.17.11]:54476 "EHLO mout.web.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757821AbaCRUrB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Mar 2014 16:47:01 -0400
-Received: from [192.168.178.101] ([84.153.195.113]) by smtp.web.de (mrweb002)
- with ESMTPSA (Nemesis) id 0MaJgG-1WfUQl4AgK-00JqaQ for
- <netdev@vger.kernel.org>; Tue, 18 Mar 2014 21:47:00 +0100
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:55679 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757723AbaCRUwE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 16:52:04 -0400
+Received: by mail-ie0-f173.google.com with SMTP id rl12so7885387iec.32
+        for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 13:52:04 -0700 (PDT)
+In-Reply-To: <1395093343.3961.2.camel@linux-fkkt.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If a public address is deleted by an external trigger (e.g. via inet6_rtm_deladdr) then temporary
-addresses still referring to it may remain. Happened here when the WiFi link broke and netifd
-deleted the public address. Once the link was back and prefix_rcv created new public addresses
-ipv6_create_tempaddr complained that the temporary address already existed.
-IMHO no temporary address should live longer than its parent, especially because ifpub of the
-temporary address still points to the then deleted public address otherwise.
+On Mon, Mar 17, 2014 at 2:55 PM, Oliver Neukum <oneukum@suse.de> wrote:
+> I am hping for the reporter of the original bug to test it.
 
-Therefore delete all related temporary addresses before a public address is deleted in inet6_addr_del
-which is called by inet6_rtm_del.
+Oliver,
+on a haswell system running ChromeOS-3.8 kernel, this patch as-is
+resulted in a "Bad Spinlock Magic" error and subsequent pagefault.
+I believe the sequence was:
+   usbnet_open -> tasklet_schedule(dev->bh) -> usbnet_bh -> wake_up
+(&dev->wait) -> panic
 
-Also ensure in ipv6_del_addr that no temporary address lives longer than its parent.
-However in addrconf_verify it might not be predetermined in which order a public address and the related
-temporary address are deleted if they expire at the same time. Not sure about that ..
+I tried adding the following change on top of your patch but believe
+the plumbing still isn't quite correct since the USB device (eth0) is
+reporting a link but no TX or RX of traffic:
+ @@ -805,6 +807,9 @@ int usbnet_open (struct net_device *net)
+                goto done;
+        }
 
-Signed-off-by: Heiner Kallweit <heiner.kallweit@web.de>
----
- net/ipv6/addrconf.c | 31 +++++++++++++++++++++++++++++++
- 1 file changed, 31 insertions(+)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 344e972..e5fd81d 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -126,6 +126,7 @@ static void ipv6_regen_rndid(unsigned long data);
- 
- static int ipv6_generate_eui64(u8 *eui, struct net_device *dev);
- static int ipv6_count_addresses(struct inet6_dev *idev);
-+static void ipv6_del_addr(struct inet6_ifaddr *ifp);
- 
- /*
-  *	Configured unicast address hash table
-@@ -308,6 +309,31 @@ err_ip:
- 	return -ENOMEM;
- }
- 
-+/* delete all temporary addresses referring to ifp
-+   returns true if there have been addresses to be deleted */
-+static int ifa_del_tempaddrs(struct inet6_ifaddr *ifp)
-+{
-+        struct inet6_dev *idev = ifp->idev;
-+        struct inet6_ifaddr *ift;
-+        int deleted = 0;
++       /* usbnet_bh() expects the spinlock to be initialized. */
++       init_waitqueue_head(&dev->wait);
 +
-+        if(!(ifp->flags & IFA_F_MANAGETEMPADDR))
-+                return 0;
-+restart:
-+        read_lock_bh(&idev->lock);
-+        list_for_each_entry(ift, &idev->tempaddr_list, tmp_list) {
-+                if (ifp != ift->ifpub)
-+                        continue;
-+                in6_ifa_hold(ift);
-+                read_unlock_bh(&idev->lock);
-+                deleted = 1;
-+                ipv6_del_addr(ift);
-+                goto restart;
-+        }
-+        read_unlock_bh(&idev->lock);
-+        return deleted;
-+}
-+
- static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
- {
- 	struct inet6_dev *ndev;
-@@ -990,6 +1016,10 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
- 	enum cleanup_prefix_rt_t action = CLEANUP_PREFIX_RT_NOP;
- 	unsigned long expires;
- 
-+	/* there should be no temporary address still referring to ifp */
-+        if(ifa_del_tempaddrs(ifp))
-+                pr_info("%s: stale temporary address(es) deleted\n", __func__);
-+
- 	spin_lock_bh(&ifp->state_lock);
- 	state = ifp->state;
- 	ifp->state = INET6_IFADDR_STATE_DEAD;
-@@ -2506,6 +2536,7 @@ static int inet6_addr_del(struct net *net, int ifindex, const struct in6_addr *p
- 			in6_ifa_hold(ifp);
- 			read_unlock_bh(&idev->lock);
- 
-+			ifa_del_tempaddrs(ifp);
- 			ipv6_del_addr(ifp);
- 			return 0;
- 		}
--- 
-1.9.0.258.g00eda23.dirty
+        /* hard_mtu or rx_urb_size may change in reset() */
+        usbnet_update_max_qlen(dev);
+
+I suspect this hunk of your patch is now causing different problems at
+init time:
+@@ -1438,10 +1440,8 @@ static void usbnet_bh (unsigned long param)
+        clear_bit(EVENT_RX_KILL, &dev->flags);
+
+        // waiting for all pending urbs to complete?
+-       if (dev->wait) {
+-               if ((dev->txq.qlen + dev->rxq.qlen + dev->done.qlen) == 0) {
+-                       wake_up (dev->wait);
+-               }
++       if ((dev->txq.qlen + dev->rxq.qlen + dev->done.qlen) == 0) {
++               wake_up (&dev->wait);
+
+        // or are we maybe short a few urbs?
+        } else if (netif_running (dev->net) &&
+
+Please advise on what you'd like me to try next.
+
+cheers,
+grant
