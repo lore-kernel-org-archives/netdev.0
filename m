@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] VXLAN: fix potential NULL dereference in
- arp_reduce()
-Date: Tue, 18 Mar 2014 16:10:09 -0400 (EDT)
-Message-ID: <20140318.161009.1598213938948294397.davem@davemloft.net>
-References: <201403181632.s2IGWTjT003613@lab1.dls>
+Subject: Re: [PATCH 1/2] ATHEROS-ATL1E: Convert iounmap to pci_iounmap
+Date: Tue, 18 Mar 2014 16:13:20 -0400 (EDT)
+Message-ID: <20140318.161320.2140829838583694961.davem@davemloft.net>
+References: <1395159085-11691-1-git-send-email-peter.senna@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: dlstevens@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55301 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932348AbaCRUKL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 16:10:11 -0400
-In-Reply-To: <201403181632.s2IGWTjT003613@lab1.dls>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jcliburn@gmail.com, chris.snook@gmail.com,
+	hannes@stressinduktion.org, nhorman@tuxdriver.com, kaber@trash.net,
+	sd@queasysnail.net, PeterHuewe@gmx.de, andrea.merello@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: peter.senna@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395159085-11691-1-git-send-email-peter.senna@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David L Stevens <dlstevens@us.ibm.com>
-Date: Tue, 18 Mar 2014 12:32:29 -0400
+From: Peter Senna Tschudin <peter.senna@gmail.com>
+Date: Tue, 18 Mar 2014 17:11:24 +0100
 
-> 	This patch fixes a NULL pointer dereference in the event of an
-> skb allocation failure in arp_reduce().
-> 
-> Signed-Off-By: David L Stevens <dlstevens@us.ibm.com>
+> Use pci_iounmap instead of iounmap when the virtual mapping was done
+> with pci_iomap. A simplified version of the semantic patch that finds this
+> issue is as follows: (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
 
 Applied, thanks.
-
-Please refer to subsystems in your Subject lines using lowercase
-letters, as is the convention these days.  I've fixed it up this
-time.
-
-Thanks.
