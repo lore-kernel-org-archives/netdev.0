@@ -1,32 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: cdc_ncm: respect operator preferred MTU
- reported by MBIM
-Date: Mon, 17 Mar 2014 21:41:48 -0400 (EDT)
-Message-ID: <20140317.214148.2254695408331774828.davem@davemloft.net>
-References: <CAC5Y2nN_w46FczgitbPjmXtk7q3rHpTxLddx0_GtStfzNXerXQ@mail.gmail.com>
-	<87d2hkldmx.fsf@nemi.mork.no>
-	<CAC5Y2nMdPM8w3=dgd2as5z8huL1XLPjon8wSmR-2e3=JGWtCpA@mail.gmail.com>
+Subject: Re: [PATCH] Notify userspace about bridge learning MAC on
+	new port
+Date: Mon, 17 Mar 2014 21:50:05 -0400 (EDT)
+Message-ID: <20140317.215005.1881170250001094391.davem@davemloft.net>
+References: <1394630096-14239-1-git-send-email-michael-dev@fami-braun.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bjorn@mork.no, linux-kernel@vger.kernel.org,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	oliver@neukum.org, gregkh@linuxfoundation.org,
-	gsuarez@smithmicro.com
-To: benchan@chromium.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAC5Y2nMdPM8w3=dgd2as5z8huL1XLPjon8wSmR-2e3=JGWtCpA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: michael-dev@fami-braun.de
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1394630096-14239-1-git-send-email-michael-dev@fami-braun.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Chan <benchan@chromium.org>
-Date: Mon, 17 Mar 2014 17:46:27 -0700
+From: Michael Braun <michael-dev@fami-braun.de>
+Date: Wed, 12 Mar 2014 14:14:56 +0100
 
-> Thanks again for the review and tip. I've submitted patch v2 to
-> address the le16_to_cpu conversion.
+> Currently, the userspace is informed about the port the MAC is learned on a
+> bridge and about the bridge removing the MAC from its forwarding table, but not
+> when the MAC is learned on a different port.
+> This is inconsistent and makes it difficult for applications to keep track
+> of all MACs learned by a bridge on a subset of its ports.
+> 
+> Signed-off-by: Michael Braun <michael-dev@fami-braun.de>
+> Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-When you update a patch from a series, you should repost the entire
-patch set, rather than just the patch which changes.
+Please use a proper subsystem prefix in your Subject lines, for
+example:
 
-This avoids any and all ambiguity of which patches go with which
-others.
+"Subject: [PATCH] bridge: Notify userspace about learning MAC on new port"
+
+Would have been more appropriate here.
+
+Stephen, can you review the substance of this patch please?
