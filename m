@@ -1,54 +1,127 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 6/6] net: Free skbs from irqs when possible.
-Date: Tue, 18 Mar 2014 15:52:37 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E02DB@AcuExch.aculab.com>
-References: <20140314.225923.61318448733570839.davem@davemloft.net>
- <87k3bwqgf7.fsf@xmission.com> <877g7wqg8e.fsf_-_@xmission.com>
- <20140317.154916.2276987764507311378.davem@davemloft.net>
- <87iorcgh5d.fsf_-_@xmission.com> <87fvmgf2c7.fsf_-_@xmission.com>
- <1395149407.22343.8.camel@deadeye.wl.decadent.org.uk>
- <87lhw7inzg.fsf@nemi.mork.no>
- <1395156229.9114.35.camel@edumazet-glaptop2.roam.corp.google.com>
- <2c96faab-4293-4e7f-b8e0-4997af745fbf@email.android.com>
+From: Laurent Pinchart <laurent.pinchart-ryLnwIuWjnjg/C1BVhZhaw@public.gmane.org>
+Subject: Re: [PATCH] phy: micrel: add of configuration for LED mode
+Date: Tue, 18 Mar 2014 16:56:06 +0100
+Message-ID: <6677304.0KbXKA76PZ@avalon>
+References: <1393415280-10227-1-git-send-email-ben.dooks@codethink.co.uk> <20140227091505.GA6945@e106331-lin.cambridge.arm.com> <530F13DB.90009@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-	"mpm@selenic.com" <mpm@selenic.com>,
-	"satyam.sharma@gmail.com" <satyam.sharma@gmail.com>
-To: =?utf-8?B?J0Jqw7hybiBNb3JrJw==?= <bjorn@mork.no>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:34608 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750836AbaCRPxz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Mar 2014 11:53:55 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 24038-03 for <netdev@vger.kernel.org>;
- Tue, 18 Mar 2014 15:53:52 +0000 (GMT)
-In-Reply-To: <2c96faab-4293-4e7f-b8e0-4997af745fbf@email.android.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	"linux-kernel-81qHHgoATdFT9dQujB1mzip2UmYkHbXO@public.gmane.org"
+	<linux-kernel-81qHHgoATdFT9dQujB1mzip2UmYkHbXO@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Ben Dooks <ben.dooks-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <530F13DB.90009-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQmrDuHJuIE1vcmsNCi4uLg0KPiA+VHJ5IGZvbGxvd2luZyBjb2RlLCBhbmQgeW91J2xs
-IGdldCBhIGNvbXBpbGF0aW9uIGVycm9yLg0KPiA+DQo+ID51bnNpZ25lZCBpbnQgY2FuX3RoaXNf
-Zmx5KHN0cnVjdCBza19idWZmICpza2IpDQo+ID57DQo+ID4JcmV0dXJuIElTX0VOQUJMRUQoQ09O
-RklHX05PV0FZX1NJUikgPyBza2ItPnVua25vd25fZmllbGQgOiAwOw0KPiA+fQ0KPiANCj4gRG9o
-LiBPZiBjb3Vyc2UuIFRoYW5rcyBmb3Igc3Bvb24gZmVlZGluZyBtZSB0aGF0Lg0KDQpPZiBjb3Vy
-c2UsIGNvbmZpZ19lbmFibGVkKGZvbykgY291bGQgYmUgaW1wbGVtZW50ZWQgYXMNCmNvbmZpZ19l
-bmFibGVkXyhmb28sIDEsIDApDQpBbGxvd2luZyB5b3UgdG8gZGVmaW5lIGFuZCB0ZXN0Og0KCUlT
-X0VOQUJMRURfUShDT05GSUdfTk9XQVlfU0lSLCBza2ItPnVua25vd25fZmllbGQsIDApDQoNCkFs
-dGhvdWdoIHlvdSdkIHByb2JhYmx5IG5lZWQgdG8gcGFzdGUgdGhlIGV4cGFuc2lvbnMgb2YgYm90
-aCAnZm9vJw0KJ2Zvb19NT0RVTEUnIG9udG8gX19BUkdfUExBQ0VIT0xERVJfIHRvIGF2b2lkIHRo
-ZSB8fC4NCg0KTW9yZSB1c2VmdWwgbWlnaHQgYmUgSUZfRU5BQkxFRChmb28sIHgpIHdoaWNoIGV4
-cGFuZHMgdG8gZWl0aGVyDQp4IG9yIG5vdGhpbmcgYXQgYWxsLg0KVGhlIHlvdSBjb3VsZCBjb25k
-aXRpb25hbGx5IGdlbmVyYXRlIHRoZSBjaHVua3Mgb2YgZm9ybWF0IHN0YXRlbWVudA0KYXMgd2Vs
-bCBhcyB0aGUgcGFyYW1ldGVyIGxpc3QuDQoNCk9UT0ggeW91IG1pZ2h0IHdhbnQgcmVhZGFibGUg
-Y29kZSENCg0KCURhdmlkDQoNCg==
+Hi Ben,
+
+A bit of a late reply, I had missed this patch, sorry.
+
+On Thursday 27 February 2014 10:30:51 Ben Dooks wrote:
+> On 27/02/14 09:15, Mark Rutland wrote:
+> > On Wed, Feb 26, 2014 at 11:48:00AM +0000, Ben Dooks wrote:
+> >> Add support for the led-mode property for the following PHYs
+> >> which have a single LED mode configuration value.
+> >> 
+> >> KSZ8001 and KSZ8041 which both use register 0x1e bits 15,14 and
+> >> KSZ8021, KSZ8031 and KSZ8051 which use register 0x1f bits 5,4
+> >> to control the LED configuration.
+> >> 
+> >> Signed-off-by: Ben Dooks <ben.dooks-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+> >> ---
+> >> 
+> >>  Documentation/devicetree/bindings/net/micrel.txt | 18 +++++++++
+> >>  drivers/net/phy/micrel.c                         | 49 ++++++++++++++++--
+> >>  2 files changed, 63 insertions(+), 4 deletions(-)
+> >>  create mode 100644 Documentation/devicetree/bindings/net/micrel.txt
+> >> 
+> >> diff --git a/Documentation/devicetree/bindings/net/micrel.txt
+> >> b/Documentation/devicetree/bindings/net/micrel.txt new file mode 100644
+> >> index 0000000..98a3e61
+> >> --- /dev/null
+> >> +++ b/Documentation/devicetree/bindings/net/micrel.txt
+> >> @@ -0,0 +1,18 @@
+> >> +Micrel PHY properties.
+> >> +
+> >> +These properties cover the base properties Micrel PHYs.
+> >> +
+> >> +Optional properties:
+> >> +
+> >> + - micrel,led-mode : LED mode value to set for PHYs with configurable
+> >> LEDs.
+> >> +
+> >> +              Configure the LED mode with single value. The list of PHYs
+> >> and
+> >> +	      the bits that are currently supported:
+> >> +
+> >> +	      KSZ8001: register 0x1e, bits 15..14
+> >> +	      KSZ8041: register 0x1e, bits 15..14
+> >> +	      KSZ8021: register 0x1f, bits 5..4
+> >> +	      KSZ8031: register 0x1f, bits 5..4
+> >> +	      KSZ8051: register 0x1f, bits 5..4
+> >> +
+> >> +              See the respective PHY datasheet for the mode values.
+> > 
+> > What do these mean, roughly,, and why can the kernel not decide how to
+> > cnofigure these?
+> 
+> Board specific, in the case of the Lager one of the LEDs is connected
+> to the ethernet mac block to indicate link, however the default mode
+> is not for just "Link" so we have to change it.
+> 
+> > In general we prefer to not place raw register values in the DT, and I'd
+> > like to know why we'd have to here.
+> 
+> I could copy out stuff from the data-sheet, but I was trying to avoid a
+> copy and paste job.
+
+I quite agree with Mark here, I would prefer not to list register values in DT 
+bindings. However, the hardware hardware diversity doesn't help us abstracting 
+LED modes.
+
+The following table summarizes LED usage options.
+
+Device              Mode   LED usage
+-----------------------------------------------------------------------------
+8001 (LED[3:0])     00     Collision / Full-Duplex / Speed / Link/Activity
+                    01     Activity / Full-Duplex/Collision / Speed / Link
+                    10     Activity / Full-Duplex / 100Mbps Link / 10Mbps Link
+                    11     Reserved
+80[23]1 (LED[0])    00     Link/Activity
+                    01     Link
+                    10     Reserved
+                    11     Reserved
+80[45]1 (LED[1:0])  00     Speed / Link/Activity
+                    01     Activity / Link
+                    10     Reserved
+                    11     Reserved
+
+While LED mode could be described by LED0 mode using "link-activity" or "link" 
+strings for the 80[2345]1 chips, the 8001 makes that slightly more complex and 
+shows that future chips might not conform to any scheme we come up with now.
+
+I thus have no strong preference for a string-based mode description over 
+using an integer. However, if we keep the integer value, I wouldn't use the 
+register value directly, but would instead use the mode field value as an 
+integer in the 0-3 range. This would remove knowledge of the PHY control 
+register layout from the DT node content, and bring more consistency to the 
+values.
+
+Mark, what's your opinion on this ? I know that David has already applied the 
+patch to his tree, but we can still fix this before v3.16. I can submit a 
+patch.
+
+-- 
+Regards,
+
+Laurent Pinchart
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
