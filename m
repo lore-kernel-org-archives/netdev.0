@@ -1,46 +1,22 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH v2 net-next] net: sched: use no more than one page in
- struct fw_head
-Date: Tue, 18 Mar 2014 09:19:42 +0000
-Message-ID: <20140318091942.GE8956@casper.infradead.org>
-References: <20140314185917.GA18933@linux.vnet.ibm.com>
- <1394826958.9668.4.camel@edumazet-glaptop2.roam.corp.google.com>
- <1394985990.9668.26.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140317.223151.719003141867577870.davem@davemloft.net>
- <1395111761.9114.11.camel@edumazet-glaptop2.roam.corp.google.com>
- <1395112849.9114.17.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH -next] netfilter: connlimit: fix UP build
+Date: Tue, 18 Mar 2014 10:20:51 +0100
+Message-ID: <20140318092051.GA14417@localhost>
+References: <53275dbf./J0nBeffRcN62Ddt%fengguang.wu@intel.com>
+ <1395091670-28238-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, john.fastabend@gmail.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:44971 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752343AbaCRJTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 05:19:43 -0400
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1395112849.9114.17.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1395091670-28238-1-git-send-email-fw@strlen.de>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/17/14 at 08:20pm, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On Mon, Mar 17, 2014 at 10:27:50PM +0100, Florian Westphal wrote:
+> cannot use ARRAY_SIZE() if spinlock_t is empty struct.
 > 
-> In commit b4e9b520ca5d ("[NET_SCHED]: Add mask support to fwmark
-> classifier") Patrick added an u32 field in fw_head, making it slightly
-> bigger than one page.
-> 
-> Lets use 256 slots to make fw_hash() more straight forward, and move
-> @mask to the beginning of the structure as we often use a small number
-> of skb->mark. @mask and first hash buckets share the same cache line.
-> 
-> This brings back the memory usage to less than 4000 bytes, and permits
-> John to add a rcu_head at the end of the structure later without any
-> worry.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Thomas Graf <tgraf@suug.ch>
-> Cc: John Fastabend <john.fastabend@gmail.com>
+> Fixes: 1442e7507dd597 ("netfilter: connlimit: use keyed locks")
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+Applied, thanks.
