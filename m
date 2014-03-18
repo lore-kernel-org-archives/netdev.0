@@ -1,125 +1,87 @@
-From: "GOOGLE Gewinnbenachrichtigung!!!" <gogle.promuk@live.com>
-Subject: GOOGLE Gewinnbenachrichtigung!!!
-Date: Tue, 18 Mar 2014 12:49:28 -0000
-Message-ID: <8cfd07608f330cb32ce6e501ae479f7d.squirrel@23.96.39.92>
-Reply-To: gogle.eurolotto@gmail.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 6/6] net: Free skbs from irqs when possible.
+Date: Tue, 18 Mar 2014 06:22:36 -0700
+Message-ID: <1395148956.9114.31.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140314.225923.61318448733570839.davem@davemloft.net>
+	 <87k3bwqgf7.fsf@xmission.com> <877g7wqg8e.fsf_-_@xmission.com>
+	 <20140317.154916.2276987764507311378.davem@davemloft.net>
+	 <87iorcgh5d.fsf_-_@xmission.com> <87fvmgf2c7.fsf_-_@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
+	netdev@vger.kernel.org, xiyou.wangcong@gmail.com, mpm@selenic.com,
+	satyam.sharma@gmail.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [23.96.39.92] ([23.96.39.92]:1160 "EHLO mail.kopa.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753690AbaCRNPA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Mar 2014 09:15:00 -0400
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:56776 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754161AbaCRNWj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 09:22:39 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y10so7011657pdj.8
+        for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 06:22:38 -0700 (PDT)
+In-Reply-To: <87fvmgf2c7.fsf_-_@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-GOOGLE INTERNATIONALE F=F6rderung-GEWINNZUTEILUNG
-           GOOGLE  F=F6rderung
+On Mon, 2014-03-17 at 23:27 -0700, Eric W. Biederman wrote:
+> Add a test skb_irq_freeable to report when it is safe to free a skb
+> from irq context.
+> 
+> It is not safe to free an skb from irq context when:
+> - The skb has a destructor as some skb destructors call local_bh_disable
+>   or spin_lock_bh.
+> - There is xfrm state as __xfrm_state_destroy calls spin_lock_bh.
+> - There is netfilter conntrack state as destroy_conntrack calls
+>   spin_lock_bh.
+> - If there is a refcounted dst entry on the skb, as __dst_free
+>   calls spin_lock_bh.
+> - If there is a frag_list, which could be a list of any skbs.
+> Otherwise it appears safe to free a skb from interrupt context.
+> 
+> - Update the warning in skb_releae_head_state to warn about freeing
+>   skb's in the wrong context.
+> 
+> - Update __dev_kfree_skb_irq to free all skbs that it can immediately
+> 
+> - Kill zap_completion_queue because there is no point going through
+>   a queue of packets that are not safe to free and looking for packets
+>   that are safe to free.
+> 
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> ---
+>  include/linux/skbuff.h |   13 +++++++++++++
+>  net/core/dev.c         |   14 +++++++++-----
+>  net/core/netpoll.c     |   32 --------------------------------
+>  net/core/skbuff.c      |   13 ++++++++++---
+>  4 files changed, 32 insertions(+), 40 deletions(-)
+> 
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 03db95ab8a8c..53f72b53fd47 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -2833,6 +2833,19 @@ static inline void skb_init_secmark(struct sk_buff *skb)
+>  { }
+>  #endif
+>  
+> +static inline bool skb_irq_freeable(struct sk_buff *skb)
+> +{
+> +	return !skb->destructor &&
+> +#if IS_ENABLED(CONFIG_XFRM)
+> +		!skb->sp &&
+> +#endif
+> +#if IS_ENABLED(CONFIG_NF_CONNTRACK)
+> +		!skb->nfct &&
+> +#endif
+> +		(!skb->_skb_refdst || (skb->_skb_refdst & SKB_DST_NOREF)) &&
+> +		!skb_has_frag_list(skb);
+> +}
+> +
 
-GOOGLE Einarbeitung=A9
-UROPA INTERLOTTO/EUROMILLINEN LOTTO BONUS-PROGRAMM
-BEL-GRAVE HOUSE, 76 BUCKINGHAM PALACE ROAD,
-LONDON SW1W 9TQ, UNITED KINGDOM.OFFICE;
-VOM SCHREIBTISCH VON VICE PRESIDENT INTERNATIONAL
-PROMOTION/PREISVERLEIHUNG AKTENZEICHEN: ANA/BCL654560010/ESP.
-OFFIZIELLE GEWINNBENACHRITIGUNG.
-DATUM: 18/03/2014.
+It would be a serious bug having (skb->_skb_refdst & SKB_DST_NOREF) at
+this point. dst would be RCU protected, but this can not be true as the
+packet was queued in TX ring buffer for a possibly long period. And even
+before reaching the driver, skb might have been queued in qdisc layer
+and escape rcu protection section anyway.
 
-ACHTUNG! DER BEG=DCNSTIGTE,
-
-GOOGLE Gewinnbenachrichtigung!!!
-
-Wir freuen uns,Ihnen noch einmal gratulieren zu dieser Notiz, die Teil
-unserer gl=FCcklichen Gewinner ausgew=E4hlt diesem Jahr. Diese Aktion w=
-urde im
-Anschluss an die aktive Nutzung des Google-Suchmaschine und im
-Google-Hilfsdienste anzukurbeln. Daher machen wir mit Ihren Preis zu
-gewinnen glauben, werden Sie weiterhin aktiv zu sein und Schirmherrscha=
-ft
-f=FCr dieses Unternehmen. Google ist heute der weltweit f=FChrende
-Suchmaschine weltweit und in dem Bestreben, sicherzustellen, dass sie d=
-ie
-am weitesten verbreitete Suchmaschinen bleibt, ein Online-E-Mail
-Stimmabgabe aus wurde am 13/03/2014 ohne Ihr Wissen ausgef=FChrt wurde
-offiziell freigegeben am 18/03/2014. Wir m=F6chten Ihnen f=F6rmlich mit=
-teilen,
-dass Ihre E-Mail-Adresse zu einem Pauschalbetrag von:(=80450,000,00)(VI=
-ER
-HUNDERT UND F=DCNFZIG TAUSEND Euro.)Die summe ergibt sich einer
-gewinnausschuttung von.(=8018,000,000:00)(ACHTZEHN MILLIONEN EURO.)Die =
-summe
-wurde durch 40 gewinnern aus der gleichen kategorie geteilt.HERZLICHEN
-GLUCKWUNSCH!!! befestigt war
-
-Wir m=F6chten Ihnen mitteilen, dass Sie erfolgreich den Anforderungen, =
-den
-gesetzlichen Auflagen, =DCberpr=FCfungen und unsere zufriedenstellenden
-Bericht Test f=FCr alle unsere Online-Gewinner durchgef=FChrt weitergeg=
-eben.
-Eine gewinnende Scheck wird in Ihrem Namen von Google F=F6rderpreis Tea=
-m
-erteilt werden, und auch eine Bescheinigung =FCber die Auszeichnung
-Anspr=FCche werden an der Seite Ihrer gewinnenden Scheck zugesandt.
-
-Dies sind Ihre Auszeichnung Details.
-Security Code Nummer: GU/N/3642375G
-Ticket Nr.: GU/K/699/33/2014
-Gewinnzahlen: UK/877/798/2014
-
-Erforderliche Angaben von Ihnen Teil unserer vorsorglich  zu verdoppeln
-behaupten und ungerechtfertigten Missbrauch von diesem  Programm  zu
-vermeiden. Um Ihren Preis gewonnen, bitte, sind die Mittel unserer
-ausl=E4ndischen  Transfer Manager Mr. Audrew C. Nielsen korrekt, Pr=FCf=
-ung und
-Genehmigung  gef=FCllt
-
-        Bitte vollst=E4ndige =DCberpr=FCfung und Mittel freizugeben For=
-m
-
-(1) Ihr vollst=E4ndiger Name ...............................
-(2) Kontakt-Adresse ........................................
-(3) Tel. Zahlen ...............................................
-(4) Mobile ......................................................
-(5) Nationalit=E4t / Land .....................................
-(6) Beruf .......................................................
-(7) Sex /Geschlecht........................................
-(8) Alter ........................................................
-(9) jemals gewonnen eine Online-Lotterie? .............
-(10) Mode von Preisgeld nach Hause: Courier Lieferung oder Bank=FCberwe=
-isung
-=2E.........
-Die oben genannten Anforderungen sind erforderlich.
-
-Gl=FCckw=FCnsche noch einmal.
-
-    Mode des Geldpreises Transfer
-(1) =DCberweisung / Courier Lieferung Ihrer Certified Winning Scheck Na=
-me
-und andere Dokumente, um sicherzustellen, Sie gewinnen. Wir empfehlen,
-dass Ihr ausw=E4rtige Transfer Manager, Mr. Audrew C. Nielsen mit seine=
-r
-privaten E-Mail unten, um unn=F6tige Verz=F6gerungen und Komplikationen=
-:
-***********************************************
-AUSLANDSFORDERUNGEN MANAGER
-Dr. Mrs. ROSALINE CHARLES
-GOOGLE Sicherheitsabteilung [London]
-
-Kontakt E-Mail: gogle.eurolotto@gmail.com
-                Google-Verwaltung@linuxmail.org
-                Google-Verwaltung@planetmail.net
-***********************************************
-Security Code Nummer: GU/N/3642375G
-Ticket Nr.: GU/K/699/33/2014
-Gewinnzahlen: UK/877/798/2014
-***********************************************
-Herzlichen Gl=FCckwunsch noch einmal von Mitgliedern und Personal der
-Lotterie Bord.
-
-Herzlichst,
-Mr. larry Page.
-Chief Executive Officer (C.E.O)
-GOOGLE zonale Koordinator
-LONDON, UNITED KINGDOM.
+Thats why we use skb_dst_force() from __dev_xmit_skb()
