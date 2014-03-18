@@ -1,7 +1,8 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: pull request (net): ipsec 2014-03-18
-Date: Tue, 18 Mar 2014 08:43:01 +0100
-Message-ID: <1395128583-26274-1-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 1/2] net: af_key: fix sleeping under rcu
+Date: Tue, 18 Mar 2014 08:43:02 +0100
+Message-ID: <1395128583-26274-2-git-send-email-steffen.klassert@secunet.com>
+References: <1395128583-26274-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
@@ -9,51 +10,87 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:54072 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:54077 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751279AbaCRHnP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Mar 2014 03:43:15 -0400
+	id S1752322AbaCRHnQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Mar 2014 03:43:16 -0400
+In-Reply-To: <1395128583-26274-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1) Fix a sleep in atomic when pfkey_sadb2xfrm_user_sec_ctx()
-   is called from pfkey_compile_policy().
-   Fix from Nikolay Aleksandrov.
+From: Nikolay Aleksandrov <nikolay@redhat.com>
 
-2) security_xfrm_policy_alloc() can be called in process and atomic
-   context. Add an argument to let the callers choose the appropriate
-   way. Fix from Nikolay Aleksandrov.
+There's a kmalloc with GFP_KERNEL in a helper
+(pfkey_sadb2xfrm_user_sec_ctx) used in pfkey_compile_policy which is
+called under rcu_read_lock. Adjust pfkey_sadb2xfrm_user_sec_ctx to have
+a gfp argument and adjust the users.
 
-Please pull or let me know if there are problems.
+CC: Dave Jones <davej@redhat.com>
+CC: Steffen Klassert <steffen.klassert@secunet.com>
+CC: Fan Du <fan.du@windriver.com>
+CC: David S. Miller <davem@davemloft.net>
 
-Thanks!
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/key/af_key.c |   13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-The following changes since commit a8d9bc2e9f5d1c5a25e33cec096d2a1652d3fd52:
-
-  bnx2: Fix shutdown sequence (2014-03-09 19:02:27 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec.git master
-
-for you to fetch changes up to 52a4c6404f91f2d2c5592ee6365a8418c4565f53:
-
-  selinux: add gfp argument to security_xfrm_policy_alloc and fix callers (2014-03-10 08:30:02 +0100)
-
-----------------------------------------------------------------
-Nikolay Aleksandrov (2):
-      net: af_key: fix sleeping under rcu
-      selinux: add gfp argument to security_xfrm_policy_alloc and fix callers
-
- include/linux/security.h            |   10 +++++++---
- net/key/af_key.c                    |   19 ++++++++++---------
- net/xfrm/xfrm_user.c                |    6 +++---
- security/capability.c               |    3 ++-
- security/security.c                 |    6 ++++--
- security/selinux/hooks.c            |   13 +++++++------
- security/selinux/include/security.h |    2 +-
- security/selinux/include/xfrm.h     |    3 ++-
- security/selinux/selinuxfs.c        |   28 ++++++++++++++++++----------
- security/selinux/ss/services.c      |    6 ++++--
- security/selinux/xfrm.c             |   14 ++++++++------
- 11 files changed, 66 insertions(+), 44 deletions(-)
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 1a04c13..1526023 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -433,12 +433,13 @@ static inline int verify_sec_ctx_len(const void *p)
+ 	return 0;
+ }
+ 
+-static inline struct xfrm_user_sec_ctx *pfkey_sadb2xfrm_user_sec_ctx(const struct sadb_x_sec_ctx *sec_ctx)
++static inline struct xfrm_user_sec_ctx *pfkey_sadb2xfrm_user_sec_ctx(const struct sadb_x_sec_ctx *sec_ctx,
++								     gfp_t gfp)
+ {
+ 	struct xfrm_user_sec_ctx *uctx = NULL;
+ 	int ctx_size = sec_ctx->sadb_x_ctx_len;
+ 
+-	uctx = kmalloc((sizeof(*uctx)+ctx_size), GFP_KERNEL);
++	uctx = kmalloc((sizeof(*uctx)+ctx_size), gfp);
+ 
+ 	if (!uctx)
+ 		return NULL;
+@@ -1124,7 +1125,7 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct net *net,
+ 
+ 	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
+ 	if (sec_ctx != NULL) {
+-		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
++		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
+ 
+ 		if (!uctx)
+ 			goto out;
+@@ -2231,7 +2232,7 @@ static int pfkey_spdadd(struct sock *sk, struct sk_buff *skb, const struct sadb_
+ 
+ 	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
+ 	if (sec_ctx != NULL) {
+-		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
++		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
+ 
+ 		if (!uctx) {
+ 			err = -ENOBUFS;
+@@ -2335,7 +2336,7 @@ static int pfkey_spddelete(struct sock *sk, struct sk_buff *skb, const struct sa
+ 
+ 	sec_ctx = ext_hdrs[SADB_X_EXT_SEC_CTX - 1];
+ 	if (sec_ctx != NULL) {
+-		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
++		struct xfrm_user_sec_ctx *uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_KERNEL);
+ 
+ 		if (!uctx)
+ 			return -ENOMEM;
+@@ -3239,7 +3240,7 @@ static struct xfrm_policy *pfkey_compile_policy(struct sock *sk, int opt,
+ 		}
+ 		if ((*dir = verify_sec_ctx_len(p)))
+ 			goto out;
+-		uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx);
++		uctx = pfkey_sadb2xfrm_user_sec_ctx(sec_ctx, GFP_ATOMIC);
+ 		*dir = security_xfrm_policy_alloc(&xp->security, uctx);
+ 		kfree(uctx);
+ 
+-- 
+1.7.9.5
