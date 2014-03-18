@@ -1,87 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
 Subject: Re: [PATCH 6/6] net: Free skbs from irqs when possible.
-Date: Tue, 18 Mar 2014 06:22:36 -0700
-Message-ID: <1395148956.9114.31.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Tue, 18 Mar 2014 13:30:07 +0000
+Message-ID: <1395149407.22343.8.camel@deadeye.wl.decadent.org.uk>
 References: <20140314.225923.61318448733570839.davem@davemloft.net>
 	 <87k3bwqgf7.fsf@xmission.com> <877g7wqg8e.fsf_-_@xmission.com>
 	 <20140317.154916.2276987764507311378.davem@davemloft.net>
 	 <87iorcgh5d.fsf_-_@xmission.com> <87fvmgf2c7.fsf_-_@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-xuY7SdJjaVDfan7nwVE9"
 Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	netdev@vger.kernel.org, xiyou.wangcong@gmail.com, mpm@selenic.com,
-	satyam.sharma@gmail.com
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
 To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:56776 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754161AbaCRNWj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 09:22:39 -0400
-Received: by mail-pd0-f177.google.com with SMTP id y10so7011657pdj.8
-        for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 06:22:38 -0700 (PDT)
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52093 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754380AbaCRNaW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 09:30:22 -0400
 In-Reply-To: <87fvmgf2c7.fsf_-_@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+
+--=-xuY7SdJjaVDfan7nwVE9
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
 On Mon, 2014-03-17 at 23:27 -0700, Eric W. Biederman wrote:
-> Add a test skb_irq_freeable to report when it is safe to free a skb
-> from irq context.
-> 
-> It is not safe to free an skb from irq context when:
-> - The skb has a destructor as some skb destructors call local_bh_disable
->   or spin_lock_bh.
-> - There is xfrm state as __xfrm_state_destroy calls spin_lock_bh.
-> - There is netfilter conntrack state as destroy_conntrack calls
->   spin_lock_bh.
-> - If there is a refcounted dst entry on the skb, as __dst_free
->   calls spin_lock_bh.
-> - If there is a frag_list, which could be a list of any skbs.
-> Otherwise it appears safe to free a skb from interrupt context.
-> 
-> - Update the warning in skb_releae_head_state to warn about freeing
->   skb's in the wrong context.
-> 
-> - Update __dev_kfree_skb_irq to free all skbs that it can immediately
-> 
-> - Kill zap_completion_queue because there is no point going through
->   a queue of packets that are not safe to free and looking for packets
->   that are safe to free.
-> 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
->  include/linux/skbuff.h |   13 +++++++++++++
->  net/core/dev.c         |   14 +++++++++-----
->  net/core/netpoll.c     |   32 --------------------------------
->  net/core/skbuff.c      |   13 ++++++++++---
->  4 files changed, 32 insertions(+), 40 deletions(-)
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 03db95ab8a8c..53f72b53fd47 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -2833,6 +2833,19 @@ static inline void skb_init_secmark(struct sk_buff *skb)
->  { }
->  #endif
->  
-> +static inline bool skb_irq_freeable(struct sk_buff *skb)
-> +{
-> +	return !skb->destructor &&
-> +#if IS_ENABLED(CONFIG_XFRM)
-> +		!skb->sp &&
-> +#endif
-> +#if IS_ENABLED(CONFIG_NF_CONNTRACK)
-> +		!skb->nfct &&
-> +#endif
-> +		(!skb->_skb_refdst || (skb->_skb_refdst & SKB_DST_NOREF)) &&
-> +		!skb_has_frag_list(skb);
-> +}
-> +
+[...]
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -554,14 +554,21 @@ static void kfree_skbmem(struct sk_buff *skb)
+> =20
+>  static void skb_release_head_state(struct sk_buff *skb)
+>  {
+> +	WARN_ONCE(in_irq() && !skb_irq_freeable(skb),
+> +		  "%s called from irq! sp %d nfct %d frag_list %d %pF dst %lx",
+> +		  __func__,
+> +		  IS_ENABLED(CONFIG_XFRM) ? !!skb->sp : 0,
+> +		  IS_ENABLED(CONFIG_NF_CONNTRACK) ? !!skb->nfct : 0,
+[...]
 
-It would be a serious bug having (skb->_skb_refdst & SKB_DST_NOREF) at
-this point. dst would be RCU protected, but this can not be true as the
-packet was queued in TX ring buffer for a possibly long period. And even
-before reaching the driver, skb might have been queued in qdisc layer
-and escape rcu protection section anyway.
+This is a syntax error if CONFIG_XFRM or CONFIG_NF_CONNTRACK is
+disabled; you have to use #ifdef's.
 
-Thats why we use skb_dst_force() from __dev_xmit_skb()
+Ben.
+
+--=20
+Ben Hutchings
+Experience is directly proportional to the value of equipment destroyed.
+                                                         - Carolyn Scheppne=
+r
+
+--=-xuY7SdJjaVDfan7nwVE9
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAUyhKX+e/yOyVhhEJAQpS7hAAxZmRwKHABQf8gc2GfNN244VVUZgDTLFw
+RB9MQ/NYsJpnR8JLQMzARBHwZJWSkSu4L8hx+Jz9dOiQFRIv41p7vpasYzmNF5ml
+U4V9GWfwbi1x7ZNEtgdcvz3ttqHny2zrkqfD4cQgX1X29co8Xu2yYmZmOJYhv7zE
+or5yCmxAfgxPpAEW7s0jZtfm5pJap10XfZnqFlN09gRY/i+ScnFI+KsoxGGh0FDd
+nFI579mvapjBGEuUmYFjKZ218PgETML2haf6xxmR0peAm3GDCZixrT3dk0UfXmkA
+4hXKblwvdLDnvMnYK2HmYy8IYPOaB2lDbEV61m3biifVuxbh9gHgJj6XRdlptRBt
+SKIE5lnK6kNuPFTWek5Z1dQlAf09MfKutLBda1jBmnZFXilaFJjzRcQ/S5bcCxb2
+Bjzo1L62BenHID4tzgkmJguIDCKPL/Qkv43dVdv+keJesa2DWnil9ktJ+idVVvE5
+Qkr4y9fPftkRSdro7OEeodtLViMI+916CRKwbqM1IGo63cJ/p4sRD4JPofNQdE8/
+23iGYDrll6Ms0S+m3vuFTNVJs4vtF6KAfBI2Mk879NbYDX0bAapfF7jLFCHbrvtl
+fHUjmXVhEFm6C/fNkGN1qe9j9Yr+UBhLjaBmZ29WibD3G2hd3rp6s4K2yUvAzL5b
+RIsO9D8b4nM=
+=xLoI
+-----END PGP SIGNATURE-----
+
+--=-xuY7SdJjaVDfan7nwVE9--
