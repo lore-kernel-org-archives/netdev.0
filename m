@@ -1,53 +1,104 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH 2/3] bridge: trigger a bridge calculation upon
-	port changes
-Date: Tue, 18 Mar 2014 13:46:49 -0700
-Message-ID: <CAHA+R7MRVyjAN7w_qPxSxkrjo939bNEc3Ej+O3yH-oWj4gGJxw@mail.gmail.com>
-References: <1394680527-28970-1-git-send-email-mcgrof@do-not-panic.com>
-	<1394680527-28970-3-git-send-email-mcgrof@do-not-panic.com>
-	<CAHA+R7Pf6rM5h1uGiqrru5LkN9C7Nm7V42cucHSOV1s7_+F7Gw@mail.gmail.com>
-	<20140315013940.GA28801@wotan.suse.de>
+From: Heiner Kallweit <heiner.kallweit@web.de>
+Subject: [PATCH net] ipv6: If a public address is deleted then also delete
+ all temporary addresses still referring to it
+Date: Tue, 18 Mar 2014 21:46:40 +0100
+Message-ID: <5328B0B0.7070305@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: kvm@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	xen-devel@lists.xenproject.org
-To: "Luis R. Rodriguez" <mcgrof@suse.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140315013940.GA28801@wotan.suse.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.web.de ([212.227.17.11]:54476 "EHLO mout.web.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757821AbaCRUrB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Mar 2014 16:47:01 -0400
+Received: from [192.168.178.101] ([84.153.195.113]) by smtp.web.de (mrweb002)
+ with ESMTPSA (Nemesis) id 0MaJgG-1WfUQl4AgK-00JqaQ for
+ <netdev@vger.kernel.org>; Tue, 18 Mar 2014 21:47:00 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 14, 2014 at 6:39 PM, Luis R. Rodriguez <mcgrof@suse.com> wrote:
-> On Thu, Mar 13, 2014 at 11:26:25AM -0700, Cong Wang wrote:
->> On Wed, Mar 12, 2014 at 8:15 PM, Luis R. Rodriguez
->> <mcgrof@do-not-panic.com> wrote:
->> >                         spin_unlock_bh(&p->br->lock);
->> > +                       if (changed)
->> > +                               call_netdevice_notifiers(NETDEV_CHANGEADDR,
->> > +                                                        p->br->dev);
->> > +                       netdev_update_features(p->br->dev);
->>
->> I think this is supposed to be in netdev event handler of br->dev
->> instead of here.
->
-> Do you mean netdev_update_features() ? I mimic'd what was being done on
-> br_del_if() given that root blocking is doing something similar. If
-> we need to change something for the above then I suppose it means we need
-> to change br_del_if() too. Let me know if you see any reason for something
-> else.
->
+If a public address is deleted by an external trigger (e.g. via inet6_rtm_deladdr) then temporary
+addresses still referring to it may remain. Happened here when the WiFi link broke and netifd
+deleted the public address. Once the link was back and prefix_rcv created new public addresses
+ipv6_create_tempaddr complained that the temporary address already existed.
+IMHO no temporary address should live longer than its parent, especially because ifpub of the
+temporary address still points to the then deleted public address otherwise.
 
-Yeah, for me it looks like it's better to call netdev_update_features()
-in the event handler of br->dev, rather than where calling
-call_netdevice_notifiers(..., br->dev);.
+Therefore delete all related temporary addresses before a public address is deleted in inet6_addr_del
+which is called by inet6_rtm_del.
+
+Also ensure in ipv6_del_addr that no temporary address lives longer than its parent.
+However in addrconf_verify it might not be predetermined in which order a public address and the related
+temporary address are deleted if they expire at the same time. Not sure about that ..
+
+Signed-off-by: Heiner Kallweit <heiner.kallweit@web.de>
+---
+ net/ipv6/addrconf.c | 31 +++++++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 344e972..e5fd81d 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -126,6 +126,7 @@ static void ipv6_regen_rndid(unsigned long data);
+ 
+ static int ipv6_generate_eui64(u8 *eui, struct net_device *dev);
+ static int ipv6_count_addresses(struct inet6_dev *idev);
++static void ipv6_del_addr(struct inet6_ifaddr *ifp);
+ 
+ /*
+  *	Configured unicast address hash table
+@@ -308,6 +309,31 @@ err_ip:
+ 	return -ENOMEM;
+ }
+ 
++/* delete all temporary addresses referring to ifp
++   returns true if there have been addresses to be deleted */
++static int ifa_del_tempaddrs(struct inet6_ifaddr *ifp)
++{
++        struct inet6_dev *idev = ifp->idev;
++        struct inet6_ifaddr *ift;
++        int deleted = 0;
++
++        if(!(ifp->flags & IFA_F_MANAGETEMPADDR))
++                return 0;
++restart:
++        read_lock_bh(&idev->lock);
++        list_for_each_entry(ift, &idev->tempaddr_list, tmp_list) {
++                if (ifp != ift->ifpub)
++                        continue;
++                in6_ifa_hold(ift);
++                read_unlock_bh(&idev->lock);
++                deleted = 1;
++                ipv6_del_addr(ift);
++                goto restart;
++        }
++        read_unlock_bh(&idev->lock);
++        return deleted;
++}
++
+ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
+ {
+ 	struct inet6_dev *ndev;
+@@ -990,6 +1016,10 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
+ 	enum cleanup_prefix_rt_t action = CLEANUP_PREFIX_RT_NOP;
+ 	unsigned long expires;
+ 
++	/* there should be no temporary address still referring to ifp */
++        if(ifa_del_tempaddrs(ifp))
++                pr_info("%s: stale temporary address(es) deleted\n", __func__);
++
+ 	spin_lock_bh(&ifp->state_lock);
+ 	state = ifp->state;
+ 	ifp->state = INET6_IFADDR_STATE_DEAD;
+@@ -2506,6 +2536,7 @@ static int inet6_addr_del(struct net *net, int ifindex, const struct in6_addr *p
+ 			in6_ifa_hold(ifp);
+ 			read_unlock_bh(&idev->lock);
+ 
++			ifa_del_tempaddrs(ifp);
+ 			ipv6_del_addr(ifp);
+ 			return 0;
+ 		}
+-- 
+1.9.0.258.g00eda23.dirty
