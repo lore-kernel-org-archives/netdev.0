@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
-Subject: [patch 08/12] can: c_can: Makethe code readable
+Subject: [patch 07/12] can: c_can: Provide protection in the xmit path
 Date: Tue, 18 Mar 2014 17:19:12 -0000
-Message-ID: <20140318171127.430027680@linutronix.de>
+Message-ID: <20140318171127.306582080@linutronix.de>
 References: <20140318171007.528610837@linutronix.de>
 Cc: Wolfgang Grandegger <wg@grandegger.com>,
 	Marc Kleine-Budde <mkl@pengutronix.de>,
@@ -9,164 +9,89 @@ Cc: Wolfgang Grandegger <wg@grandegger.com>,
 	Benedikt Spranger <b.spranger@linutronix.de>,
 	linux-can@vger.kernel.org, netdev@vger.kernel.org
 To: LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline; filename=can-c-can-make-code-readable.patch
-Sender: linux-can-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline; filename=can-c_can-fix-xmit.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If every other line contains line breaks, that's a clear sign for
-indentation level madness. Split out the inner loop and move the code
-to a separate function. gcc creates slightly worse code for that, but
-we'll fix that in the next step.
+The network core does not serialize the access to the hardware. The
+xmit related code lets the following happen:
+
+CPU0 	     	       CPU1
+interrupt()
+ do_poll()		
+   c_can_do_tx()
+    Fiddle with HW and	xmit()
+    internal data	  Fiddle with HW and
+    	     		  internal data	
+
+due the complete lack of serialization.
+
+Add proper locking.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- drivers/net/can/c_can/c_can.c |  107 +++++++++++++++++++++---------------------
- 1 file changed, 56 insertions(+), 51 deletions(-)
+ drivers/net/can/c_can/c_can.c |    9 ++++++++-
+ drivers/net/can/c_can/c_can.h |    1 +
+ 2 files changed, 9 insertions(+), 1 deletion(-)
 
 Index: linux/drivers/net/can/c_can/c_can.c
 ===================================================================
 --- linux.orig/drivers/net/can/c_can/c_can.c
 +++ linux/drivers/net/can/c_can/c_can.c
-@@ -840,6 +840,52 @@ static u32 c_can_adjust_pending(u32 pend
- 	return pend & ~((1 << lasts) - 1);
- }
+@@ -549,6 +549,7 @@ static netdev_tx_t c_can_start_xmit(stru
+ 	if (can_dropped_invalid_skb(dev, skb))
+ 		return NETDEV_TX_OK;
  
-+static int c_can_read_objects(struct net_device *dev, struct c_can_priv *priv,
-+			      u32 pend, int quota)
-+{
-+	u32 pkts = 0, ctrl, obj;
-+
-+	while ((obj = ffs(pend)) && quota > 0) {
-+		pend &= ~BIT(obj - 1);
-+
-+		c_can_object_get(dev, IF_RX, obj, IF_COMM_ALL &	~IF_COMM_TXRQST);
-+		ctrl = priv->read_reg(priv, C_CAN_IFACE(MSGCTRL_REG, IF_RX));
-+
-+		if (ctrl & IF_MCONT_MSGLST) {
-+			int n = c_can_handle_lost_msg_obj(dev, IF_RX, obj, ctrl);
-+
-+			pkts += n;
-+			quota -= n;
-+			continue;
-+		}
-+
-+		/*
-+		 * This really should not happen, but this covers some
-+		 * odd HW behaviour. Do not remove that unless you
-+		 * want to brick your machine.
-+		 */
-+		if (!(ctrl & IF_MCONT_NEWDAT))
-+			continue;
-+
-+		/* read the data from the message object */
-+		c_can_read_msg_object(dev, IF_RX, ctrl);
-+
-+		if (obj < C_CAN_MSG_RX_LOW_LAST)
-+			c_can_mark_rx_msg_obj(dev, IF_RX, ctrl, obj);
-+		else if (obj > C_CAN_MSG_RX_LOW_LAST)
-+			/* activate this msg obj */
-+			c_can_activate_rx_msg_obj(dev, IF_RX, ctrl, obj);
-+		else if (obj == C_CAN_MSG_RX_LOW_LAST)
-+			/* activate all lower message objects */
-+			c_can_activate_all_lower_rx_msg_obj(dev, IF_RX, ctrl);
-+
-+		pkts++;
-+		quota--;
-+	} while ((obj = ffs(pend)) && quota > 0);
-+
-+	return pkts;
-+}
-+
- /*
-  * theory of operation:
-  *
-@@ -864,10 +910,8 @@ static u32 c_can_adjust_pending(u32 pend
-  */
- static int c_can_do_rx_poll(struct net_device *dev, int quota)
- {
--	u32 num_rx_pkts = 0;
--	unsigned int msg_obj, msg_ctrl_save;
++	spin_lock_bh(&priv->xmit_lock);
+ 	msg_obj_no = get_tx_next_msg_obj(priv);
+ 
+ 	/* prepare message object for transmission */
+@@ -563,6 +564,7 @@ static netdev_tx_t c_can_start_xmit(stru
+ 	if (c_can_is_next_tx_obj_busy(priv, get_tx_next_msg_obj(priv)) ||
+ 			(priv->tx_next & C_CAN_NEXT_MSG_OBJ_MASK) == 0)
+ 		netif_stop_queue(dev);
++	spin_unlock_bh(&priv->xmit_lock);
+ 
+ 	return NETDEV_TX_OK;
+ }
+@@ -778,7 +780,9 @@ static void c_can_do_tx(struct net_devic
  	struct c_can_priv *priv = netdev_priv(dev);
--	u32 val, pend = 0;
-+	u32 pkts = 0, pend = 0, toread, n;
+ 	struct net_device_stats *stats = &dev->stats;
  
- 	/*
- 	 * It is faster to read only one 16bit register. This is only possible
-@@ -877,65 +921,26 @@ static int c_can_do_rx_poll(struct net_d
- 			"Implementation does not support more message objects than 16");
- 
- 	while (quota > 0) {
--
- 		if (!pend) {
- 			pend = priv->read_reg(priv, C_CAN_INTPND1_REG);
- 			if (!pend)
--				return num_rx_pkts;
-+				break;
- 			/*
- 			 * If the pending field has a gap, handle the
- 			 * bits above the gap first.
- 			 */
--			val = c_can_adjust_pending(pend);
-+			toread = c_can_adjust_pending(pend);
- 		} else {
--			val = pend;
-+			toread = pend;
- 		}
- 		/* Remove the bits from pend */
--		pend &= ~val;
--
--		while ((msg_obj = ffs(val)) && quota > 0) {
--			val &= ~BIT(msg_obj - 1);
--
--			c_can_object_get(dev, IF_RX, msg_obj, IF_COMM_ALL &
--					~IF_COMM_TXRQST);
--			msg_ctrl_save = priv->read_reg(priv,
--					C_CAN_IFACE(MSGCTRL_REG, IF_RX));
--
--			if (msg_ctrl_save & IF_MCONT_MSGLST) {
--				int n;
--
--				n = c_can_handle_lost_msg_obj(dev, IF_RX,
--							      msg_obj,
--							      msg_ctrl_save);
--				num_rx_pkts += n;
--				quota -=n;
--				continue;
--			}
--
--			if (!(msg_ctrl_save & IF_MCONT_NEWDAT))
--				continue;
--
--			/* read the data from the message object */
--			c_can_read_msg_object(dev, IF_RX, msg_ctrl_save);
--
--			if (msg_obj < C_CAN_MSG_RX_LOW_LAST)
--				c_can_mark_rx_msg_obj(dev, IF_RX,
--						msg_ctrl_save, msg_obj);
--			else if (msg_obj > C_CAN_MSG_RX_LOW_LAST)
--				/* activate this msg obj */
--				c_can_activate_rx_msg_obj(dev, IF_RX,
--						msg_ctrl_save, msg_obj);
--			else if (msg_obj == C_CAN_MSG_RX_LOW_LAST)
--				/* activate all lower message objects */
--				c_can_activate_all_lower_rx_msg_obj(dev,
--						IF_RX, msg_ctrl_save);
--
--			num_rx_pkts++;
--			quota--;
--		}
-+		pend &= ~toread;
-+		/* Read the objects */
-+		n = c_can_read_objects(dev, priv, toread, quota);
-+		pkts += n;
-+		quota -= n;
- 	}
--
--	return num_rx_pkts;
-+	return pkts;
+-	for (/* nix */; (priv->tx_next - priv->tx_echo) > 0; priv->tx_echo++) {
++	spin_lock_bh(&priv->xmit_lock);
++
++	for (; (priv->tx_next - priv->tx_echo) > 0; priv->tx_echo++) {
+ 		msg_obj_no = get_tx_echo_msg_obj(priv);
+ 		val = c_can_read_reg32(priv, C_CAN_TXRQST1_REG);
+ 		if (!(val & (1 << (msg_obj_no - 1)))) {
+@@ -800,6 +804,8 @@ static void c_can_do_tx(struct net_devic
+ 	if (((priv->tx_next & C_CAN_NEXT_MSG_OBJ_MASK) != 0) ||
+ 			((priv->tx_echo & C_CAN_NEXT_MSG_OBJ_MASK) == 0))
+ 		netif_wake_queue(dev);
++
++	spin_unlock_bh(&priv->xmit_lock);
  }
  
- static inline int c_can_has_and_handle_berr(struct c_can_priv *priv)
-
-
+ /*
+@@ -1250,6 +1256,7 @@ struct net_device *alloc_c_can_dev(void)
+ 		return NULL;
+ 
+ 	priv = netdev_priv(dev);
++	spin_lock_init(&priv->xmit_lock);
+ 	netif_napi_add(dev, &priv->napi, c_can_poll, C_CAN_NAPI_WEIGHT);
+ 
+ 	priv->dev = dev;
+Index: linux/drivers/net/can/c_can/c_can.h
+===================================================================
+--- linux.orig/drivers/net/can/c_can/c_can.h
++++ linux/drivers/net/can/c_can/c_can.h
+@@ -156,6 +156,7 @@ struct c_can_priv {
+ 	struct napi_struct napi;
+ 	struct net_device *dev;
+ 	struct device *device;
++	spinlock_t xmit_lock;
+ 	int tx_object;
+ 	int current_status;
+ 	int last_status;
