@@ -1,144 +1,46 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [PATCH V4 1/8] sxgbe: Add device-tree binding support document
-Date: Tue, 18 Mar 2014 09:18:53 +0000
-Message-ID: <20140318091852.GA8043@e106331-lin.cambridge.arm.com>
-References: <00f801cf4275$e7e2a1b0$b7a7e510$@samsung.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH v2 net-next] net: sched: use no more than one page in
+ struct fw_head
+Date: Tue, 18 Mar 2014 09:19:42 +0000
+Message-ID: <20140318091942.GE8956@casper.infradead.org>
+References: <20140314185917.GA18933@linux.vnet.ibm.com>
+ <1394826958.9668.4.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1394985990.9668.26.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140317.223151.719003141867577870.davem@davemloft.net>
+ <1395111761.9114.11.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1395112849.9114.17.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-samsung-soc@vger.kernel.org"
-	<linux-samsung-soc@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"ilho215.lee@samsung.com" <ilho215.lee@samsung.com>,
-	"siva.kallam@samsung.com" <siva.kallam@samsung.com>,
-	"vipul.pandya@samsung.com" <vipul.pandya@samsung.com>,
-	"ks.giri@samsung.com" <ks.giri@samsung.com>
-To: Byungho An <bh74.an@samsung.com>
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, john.fastabend@gmail.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:44971 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752343AbaCRJTn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 05:19:43 -0400
 Content-Disposition: inline
-In-Reply-To: <00f801cf4275$e7e2a1b0$b7a7e510$@samsung.com>
-Sender: linux-samsung-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1395112849.9114.17.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-As a general note it's helpful for devicetree to be Cc'd on the entire
-series (though the binding document should be a separate patch) as it
-provides useful context for reviewing the binding.
-
-On Tue, Mar 18, 2014 at 06:47:13AM +0000, Byungho An wrote:
-> From: Siva Reddy <siva.kallam@samsung.com>
+On 03/17/14 at 08:20pm, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> This patch adds binding document for SXGBE ethernet driver via device-tree.
+> In commit b4e9b520ca5d ("[NET_SCHED]: Add mask support to fwmark
+> classifier") Patrick added an u32 field in fw_head, making it slightly
+> bigger than one page.
 > 
-> Signed-off-by: Siva Reddy Kallam <siva.kallam@samsung.com>
-> Signed-off-by: Byungho An <bh74.an@samsung.com>
-> ---
->  .../devicetree/bindings/net/samsung-sxgbe.txt      |   53
-> ++++++++++++++++++++
->  1 file changed, 53 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/samsung-sxgbe.txt
+> Lets use 256 slots to make fw_hash() more straight forward, and move
+> @mask to the beginning of the structure as we often use a small number
+> of skb->mark. @mask and first hash buckets share the same cache line.
 > 
-> diff --git a/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
-> b/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
-> new file mode 100644
-> index 0000000..ca27947
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
-> @@ -0,0 +1,53 @@
-> +* Samsung 10G Ethernet driver (SXGBE)
-> +
-> +Required properties:
-> +- compatible: Should be "samsung,sxgbe-v2.0a"
-> +- reg: Address and length of the register set for the device
-> +- interrupt-parent: Should be the phandle for the interrupt controller
-> +  that services interrupts for this device
-> +- interrupts: Should contain the SXGBE interrupts
-> +  These interrupts are ordered by fixed and follows variable
-> +  trasmit DMA interrupts, receive DMA interrupts and lpi interrupt.
-> +  index 0 - this is fixed common interrupt of SXGBE and it is always
-> +  available.
-> +  index 1 to 25 - 8 variable trasmit interrupts, variable 16 receive
-> interrupts
-> +  and 1 optional lpi interrupt.
-> +- phy-mode: String, operation mode of the PHY interface.
-> +  Supported values are: "xaui", "gmii".
-> +- samsung,pbl: Integer, Programmable Burst Length.
-> +  Supported values are 1, 2, 4, 8, 16, or 32.
-
-There's no need to abbreviate to "pbl".
-
-Is this a property of the hardware, or configuration that the kernel
-will program in? If the latter, why can the kernel not choose?
-
-> +- samsung,fixed-burst: Boolean, Program the DMA to use the fixed burst mode
-> +- samsung,burst-map: Integer, Program the possible bursts supported by sxgbe
-> +  This is an interger and represents allowable DMA bursts when fixed burst.
-> +  Allowable range is 0x00-0x3F. This field is valid only when fixed burst is
-> +  enabled, otherwise ignored.
-
-If that's the case, why not have just this property and have it imply
-the use of fixed burst mode?
-
-When is it necessary to use fixed burst mode?
-
-> +- samsung,adv-addr-mode: Boolean, Program the DMA to use Enhanced address
-> mode.
-
-When would this be selected, and why can the kernel not choose?
-
-> +- samsung,force_thresh_dma_mode: Boolean, Force DMA to use the threshold mode
-> +  for both tx and rx
-
-s/_/-/ in property names.
-
-Likewise, why can the kernel not choose.
-
-> +- samsung,force_sf_dma_mode: Boolean, Force DMA to use the Store and Forward
-> +  mode for both tx and rx. This flag is ignored if force_thresh_dma_mode is
-> set.
-
-Likewise for both points.
-
-> +- samsung,phy-addr: Integer, Address of the PHY attached with SXGBE.
-
-Some of these properties appear to be missing from the example. Are they
-required or optional?
-
-Thanks,
-Mark.
-
-> +
-> +Optional properties:
-> +- mac-address: 6 bytes, mac address
-> +
-> +Example:
-> +
-> +	aliases {
-> +		ethernet0 = <&sxgbe0>;
-> +	};
-> +
-> +	sxgbe0: ethernet@1a040000 {
-> +		compatible = "samsung,sxgbe-v2.0a";
-> +		reg = <0 0x1a040000 0 0x10000>;
-> +		interrupt-parent = <&gic>;
-> +		interrupts = <0 209 4>, <0 185 4>, <0 186 4>, <0 187 4>,
-> +			     <0 188 4>, <0 189 4>, <0 190 4>, <0 191 4>,
-> +			     <0 192 4>, <0 193 4>, <0 194 4>, <0 195 4>,
-> +			     <0 196 4>, <0 197 4>, <0 198 4>, <0 199 4>,
-> +			     <0 200 4>, <0 201 4>, <0 202 4>, <0 203 4>,
-> +			     <0 204 4>, <0 205 4>, <0 206 4>, <0 207 4>,
-> +			     <0 208 4>, <0 210 4>;
-> +		mac-address = [000000000000]; /* Filled in by U-Boot */
-> +		phy-mode = "xaui";
-> +	};
-> -- 
-> 1.7.10.4
+> This brings back the memory usage to less than 4000 bytes, and permits
+> John to add a rcu_head at the end of the structure later without any
+> worry.
 > 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe devicetree" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Thomas Graf <tgraf@suug.ch>
+> Cc: John Fastabend <john.fastabend@gmail.com>
+
+Acked-by: Thomas Graf <tgraf@suug.ch>
