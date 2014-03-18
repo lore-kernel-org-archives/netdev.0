@@ -1,59 +1,64 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 6/6] net: Free skbs from irqs when possible.
-Date: Tue, 18 Mar 2014 15:24:19 +0100
-Message-ID: <87lhw7inzg.fsf@nemi.mork.no>
-References: <20140314.225923.61318448733570839.davem@davemloft.net>
-	<87k3bwqgf7.fsf@xmission.com> <877g7wqg8e.fsf_-_@xmission.com>
-	<20140317.154916.2276987764507311378.davem@davemloft.net>
-	<87iorcgh5d.fsf_-_@xmission.com> <87fvmgf2c7.fsf_-_@xmission.com>
-	<1395149407.22343.8.camel@deadeye.wl.decadent.org.uk>
+From: Behan Webster <behanw@converseincode.com>
+Subject: Re: [PATCH v2] net: netfilter: LLVMLinux: vlais-netfilter
+Date: Tue, 18 Mar 2014 07:47:21 -0700
+Message-ID: <53285C79.2060907@converseincode.com>
+References: <022D9517-4804-47BB-B789-CCF25F25C1ED@me.com> <1395123121-27053-1-git-send-email-behanw@converseincode.com> <063D6719AE5E284EB5DD2968C1650D6D0F6E0065@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:51459 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755705AbaCROYr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 10:24:47 -0400
-In-Reply-To: <1395149407.22343.8.camel@deadeye.wl.decadent.org.uk> (Ben
-	Hutchings's message of "Tue, 18 Mar 2014 13:30:07 +0000")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "pablo@netfilter.org" <pablo@netfilter.org>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"kadlec@blackhole.kfki.hu" <kadlec@blackhole.kfki.hu>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netfilter@vger.kernel.org" <netfilter@vger.kernel.org>,
+	"coreteam@netfilter.org" <coreteam@netfilter.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"dwmw2@infradead.org" <dwmw2@infradead.org>,
+	"pageexec@freemail.hu" <pageexec@freemail.hu>,
+	Mark Charlebois <charlebm@gmail.com>,
+	=?UTF-8?B?Vmluw61jaXVzIFRpbnRp?= <viniciustinti@gmail.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6E0065@AcuExch.aculab.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ben Hutchings <ben@decadent.org.uk> writes:
-> On Mon, 2014-03-17 at 23:27 -0700, Eric W. Biederman wrote:
-> [...]
->> --- a/net/core/skbuff.c
->> +++ b/net/core/skbuff.c
->> @@ -554,14 +554,21 @@ static void kfree_skbmem(struct sk_buff *skb)
->> =20
->>  static void skb_release_head_state(struct sk_buff *skb)
->>  {
->> +	WARN_ONCE(in_irq() && !skb_irq_freeable(skb),
->> +		  "%s called from irq! sp %d nfct %d frag_list %d %pF dst %lx",
->> +		  __func__,
->> +		  IS_ENABLED(CONFIG_XFRM) ? !!skb->sp : 0,
->> +		  IS_ENABLED(CONFIG_NF_CONNTRACK) ? !!skb->nfct : 0,
-> [...]
->
-> This is a syntax error if CONFIG_XFRM or CONFIG_NF_CONNTRACK is
-> disabled; you have to use #ifdef's.
+On 03/18/14 02:41, David Laight wrote:
+> From:  behanw@converseincode.com
+>> From: Mark Charlebois <charlebm@gmail.com>
+>>
+>> Replaced non-standard C use of Variable Length Arrays In Structs (VLAIS) in
+>> xt_repldata.h with a C99 compliant flexible array member and then calculated
+>> offsets to the other struct members. These other members aren't referenced by
+>> name in this code, however this patch maintains the same memory layout and
+>> padding as was previously accomplished using VLAIS.
+>>
+>> Had the original structure been ordered differently, with the entries VLA at
+>> the end, then it could have been a flexible member, and this patch would have
+>> been a lot simpler. However since the data stored in this structure is
+>> ultimately exported to userspace, the order of this structure can't be changed.
+> Why not just remove the last element and allocate space for it after the
+> structure?
+Because that would still be employing VLAIS to solve the problem. The 
+last element may be a zero-length array (a flexible member), not a VLA. 
+Sadly both the last 2 elements in the struct need to be manually 
+calculated, which is what we've done.
 
-Are you sure?  I thought one of the ideas behind these macros was that
-they would always evaluate to 0 or 1.  The docs says:
+> That would reduce the complexity of the patch and the unreadability
+> of the new code.
+No one is claiming this patch is more readable, merely that it is C99 
+compliant (though strictly speaking this patch is C89, C99 and C11 
+compliant). We tried to use macros to make it more readable in previous 
+patches. The consensus was that macros were bad.
 
- * IS_ENABLED(CONFIG_FOO) evaluates to 1 if CONFIG_FOO is set to 'y' or=
- 'm',
- * 0 otherwise.
+> I realise that the alignment of type##_error is 'tricky' to determine.
+That is what makes it "unreadable". :(
 
+Behan
 
-See include/linux/kconfig.h for the macro magic making this
-happen. Looks like fun figuring that out.
+-- 
+Behan Webster
+behanw@converseincode.com
 
-
-Bj=C3=B8rn
