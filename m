@@ -1,44 +1,45 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net] VXLAN: fix potential NULL dereference in arp_reduce()
-Date: Tue, 18 Mar 2014 09:53:09 -0700
-Message-ID: <CAHA+R7O+Njk2vbfEg+RfrRJ=x1JdXTheZQwhu4PpU47Bgk2CHQ@mail.gmail.com>
-References: <201403181632.s2IGWTjT003613@lab1.dls>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created with no
+ group
+Date: Tue, 18 Mar 2014 10:55:16 -0600
+Message-ID: <OFEB1030F8.C147FA77-ON87257C9F.005CF370-87257C9F.005CF375@us.ibm.com>
+References: <1395055050-20874-1-git-send-email-mike.rapoport@ravellosystems.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev <netdev@vger.kernel.org>
-To: David L Stevens <dlstevens@us.ibm.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Mike Rapoport <mike.rapoport@ravellosystems.com>,
+	netdev@vger.kernel.org
+To: Mike Rapoport <mike.rapoport@ravellosystems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:49170 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753933AbaCRQxL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 12:53:11 -0400
-Received: by mail-lb0-f171.google.com with SMTP id w7so4949704lbi.2
-        for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 09:53:10 -0700 (PDT)
-In-Reply-To: <201403181632.s2IGWTjT003613@lab1.dls>
+Received: from e39.co.us.ibm.com ([32.97.110.160]:45295 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753830AbaCRQzW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 12:55:22 -0400
+Received: from /spool/local
+	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Tue, 18 Mar 2014 10:55:22 -0600
+Received: from b03cxnp08028.gho.boulder.ibm.com (b03cxnp08028.gho.boulder.ibm.com [9.17.130.20])
+	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id BCFD319D8041
+	for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 10:55:15 -0600 (MDT)
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by b03cxnp08028.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2IGtIH644302344
+	for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 17:55:18 +0100
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s2IGtICh030963
+	for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 10:55:18 -0600
+In-Reply-To: <1395055050-20874-1-git-send-email-mike.rapoport@ravellosystems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 18, 2014 at 9:32 AM, David L Stevens <dlstevens@us.ibm.com> wrote:
->
->         This patch fixes a NULL pointer dereference in the event of an
-> skb allocation failure in arp_reduce().
->
-> Signed-Off-By: David L Stevens <dlstevens@us.ibm.com>
->
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index eb59b14..570792c 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -1315,6 +1315,9 @@ static int arp_reduce(struct net_device *dev, struct sk_buff *skb)
->
->                 neigh_release(n);
->
-> +               if (reply == NULL)
-> +                       goto out;
-> +
 
-Nit: move it right after arp_create(). Otherwise:
+Wouldn't it be better to:
 
-Acked-by: Cong Wang <cwang@twopensource.com>
+1) make sure all of vxlan_dev is initialized before use,
+=A0 =A0 =A0 especially default_dst
+2) change the v6 code to check for AF_INET6 too, and do
+=A0 =A0 =A0 nothing if not set. If not set by the admin, the family of
+=A0 =A0 =A0 default_dst would then be AF_UNSPEC and not match.
+
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0+-DLS
