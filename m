@@ -1,49 +1,73 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH 0/3] add hisilicon hip04 ethernet driver
-Date: Tue, 18 Mar 2014 18:27:29 +0800
-Message-ID: <53281F91.2030201@huawei.com>
-References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: usbnet OOM handling - possible CPU starvation?
+Date: Tue, 18 Mar 2014 10:29:50 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E00AE@AcuExch.aculab.com>
+References: <87ppljketj.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- devicetree@vger.kernel.org
-To: Zhangfei Gao <zhangfei.gao@linaro.org>, "David S. Miller"
- <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: =?utf-8?B?J0Jqw7hybiBNb3JrJw==?= <bjorn@mork.no>,
+	Oliver Neukum <oneukum@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:54983 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753984AbaCRKbI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Mar 2014 06:31:08 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 01173-10 for <netdev@vger.kernel.org>;
+ Tue, 18 Mar 2014 10:31:04 +0000 (GMT)
+In-Reply-To: <87ppljketj.fsf@nemi.mork.no>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2014/3/18 16:40, Zhangfei Gao wrote:
-> Zhangfei Gao (3):
->   Documentation: add Device tree bindings for Hisilicon hip04 ethernet
->   net: hisilicon: new hip04 MDIO driver
->   net: hisilicon: new hip04 ethernet driver
-> 
->  .../bindings/net/hisilicon-hip04-net.txt           |   74 ++
->  drivers/net/ethernet/Kconfig                       |    1 +
->  drivers/net/ethernet/Makefile                      |    1 +
->  drivers/net/ethernet/hisilicon/Kconfig             |   31 +
->  drivers/net/ethernet/hisilicon/Makefile            |    5 +
->  drivers/net/ethernet/hisilicon/hip04_eth.c         |  717 ++++++++++++++++++++
->  drivers/net/ethernet/hisilicon/hip04_mdio.c        |  190 ++++++
->  7 files changed, 1019 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
->  create mode 100644 drivers/net/ethernet/hisilicon/Kconfig
->  create mode 100644 drivers/net/ethernet/hisilicon/Makefile
->  create mode 100644 drivers/net/ethernet/hisilicon/hip04_eth.c
->  create mode 100644 drivers/net/ethernet/hisilicon/hip04_mdio.c
-> 
-
-Great work, thanks for upstream the driver.
-
-Reviewed-by: Ding Tianhong <dingtianhong@huawei.com>
+RnJvbTogQmrDuHJuIE1vcmsNCj4gSGVsbG8gT2xpdmVyICYgb3RoZXIgY2x1ZWZ1bCBndXJ1cyEN
+Cj4gDQo+IEkgc3RhcnRlZCBsb29raW5nIGF0IGhvdyB0byBpbXByb3ZlIHRoZSBPT00gaGFuZGxp
+bmcgaW4gdXNibmV0LCBidXQgaGF2ZQ0KPiB0byBhZG1pdCB0aGF0IHRoaXMgaXMgd2F5IG92ZXIg
+bXkgaGVhZC4gSSBkb24ndCB0aGluayBJIGRhcmUgdG91Y2hpbmcNCj4gaXQuLi4NCj4gDQo+IEkn
+dmUgc2VlbiBhIGZldyByZXBvcnRzIGNsZWFybHkgc2hvd2luZyB0aGF0IHdlIGRvIGhhdmUgYSBw
+cm9ibGVtLiBPbmUNCj4gZXhhbXBsZSBpcyBoZXJlOiBodHRwOi8vZm9ydW1zLndoaXJscG9vbC5u
+ZXQuYXUvZm9ydW0tcmVwbGllcy5jZm0/dD0yMjA3MDM4JnA9NTcjcjExMjINCj4gDQo+IEFsdGhv
+dWdoIGFsbCB0aGUgcmVwb3J0cyBJJ3ZlIHNlZW4gYXJlIGZyb20gdXNlcnMgb2YgY2RjX25jbSwg
+SSBkb24ndA0KPiB0aGluayB0aGlzIHByb2JsZW0gaXMgc3BlY2lmaWMgdG8gYW55IHBhcnRpY3Vh
+bGFyIG1pbmlkcml2ZXIuIEJ1dCBpdCBpcw0KPiBvZiBjb3Vyc2UgZWFzaWVyIHRvIHRyaWdnZXIg
+aXQgdXNpbmcgYSBtaW5pZHJpdmVyIHdpdGggKHRvbz8pICBsYXJnZQ0KPiBidWZmZXJzLCBsaWtl
+IHRoZSBjZGNfbmNtIG1pbmlkcml2ZXIgZmFtaWx5Lg0KPiANCj4gVG8gcmVjYWxsOiBUaGUgTkNN
+IGFuZCBNQklNIHByb3RvY29scyBhZ2dyZWdhdGUgcGFja2V0cyBiZWZvcmUNCj4gdHJhbnNpc3Np
+b24gb3ZlciB0aGUgVVNCIGxpbmssIHJlcXVpcmluZyBVU0IgYnVmZmVycyB3aXRoIG11bHRpcGxl
+DQo+IGV0aGVybmV0L0lQIHBhY2tldHMuICBDb21tb24gY29kZSB1c2VkIGJ5IGJvdGggY2RjX21i
+aW0gYW5kIGNkY19uY20NCj4gY3VycmVudGx5IGNhcCB0aGUgYnVmZmVycyBhdCAzMjc2OCBieXRl
+cyAoaGFyZCBjb2RlZCBsaW1pdCksIHdoaWNoIGlzDQo+IHN0aWxsIHRvbyBoaWdoIGZvciBzb21l
+IGVtYmVkZGVkIGhvc3RzLiAgVGhpcyByZXN1bHRzIGluIGZhaWx1cmVzIHRvDQo+IGFsbG9jYXRl
+IGJ1ZmZlcnMgaW4gcnhfc3VibWl0IChmbGFncyA9PSBHRlBfQVRPTUlDIHdoZW4gaXQgaXMgY2Fs
+bGVkDQo+IGZyb20gdGhlIFVSQiBjYWxsYmFjayk6DQoNCkkgdGhpbmsgdGhhdCBzb21lIG9mIHRo
+ZXNlIGRyaXZlcnMgbmVlZCB0byB1c2UgYSBzbGlnaHRseSBkaWZmZXJlbnQNCmJ1ZmZlciBzY2hl
+bWUgdG8gdGhlIG9uZSB0aGF0IHVzYm5ldCBjdXJyZW50bHkgc3VwcG9ydHMuDQoNCkluIG1hbnkg
+Y2FzZXMgdGhlIHVzYiBoYXJkd2FyZSB3aWxsIGFnZ3JlZ2F0ZSBtYW55IHJlY2VpdmUgZnJhbWVz
+IGludG8NCmEgc2luZ2xlIFVTQiBidWxrIHBhY2tldCwgYW5kIGFsc28gc3VwcG9ydHMgdGhlIGRy
+aXZlciBhZ2dyZWdhdGluZyBtdWx0aXBsZQ0KdHJhbnNtaXQgZnJhbWVzLg0KTm90IGFsbCB0aGUg
+c3R1YiBkcml2ZXJzIGFnZ3JlZ2F0ZSB0cmFuc21pdCBwYWNrZXRzLg0KDQpJdCByZWFsbHkgZG9l
+c24ndCBtYWtlIG11Y2ggc2Vuc2UgKHRvIG1lKSB0byB0cmFuc21pdCBhbmQgcmVjZWl2ZQ0KYWdn
+cmVnYXRlZCBwYWNrZXRzIGZyb20gZHluYW1pY2FsbHkgYWxsb2NhdGVkIHNrYi4NCkknZCBoYXZl
+IHRob3VnaHQgaXQgbXVjaCBiZXR0ZXIgdG8gY29weSB0aGUgZXRoZXJuZXQgZnJhbWVzIHRvL2Zy
+b20NCnByZS1hbGxvY2F0ZWQgYnVmZmVycy4NClllcywgeW91IHRha2UgdGhlIGNvc3Qgb2YgYSBk
+YXRhIGNvcHksIGJ1dCBmb3IgVVNCMiB0aGUgZGF0YSByYXRlDQppc24ndCB0aGF0IGhpZ2gsIGFu
+ZCBVU0IzIG91Z2h0IHRvIGJlIGFibGUgdG8gZG8gc2NhdHRlci1nYXRoZXINCnRyYW5zbWl0ICh3
+aGVuIHhoY2kgaXMgZml4ZWQpLg0KDQpUaGUgdHJhbnNtaXQgc2lkZSBjb3VsZCBoYXZlIDIgYnVm
+ZmVycywgYW5kIGF0IG1vc3Qgb25lIGFjdGl2ZSB1cmIuDQpTbyBtZXJnZXMgdW50aWwgdGhlIHBy
+ZXZpb3VzIHR4IGZpbmlzaGVzIChvciAzIGJ1ZmZlcnMgYW5kIHR3bw0KYWN0aXZlIHR4KS4NCg0K
+VGhlIHJ4IHNpZGUgbmVlZHMgYSBmZXcgYnVmZmVycyB0aGF0IGFyZSBtdWx0aXBsZXMgb2YgdGhl
+IHVzYg0KdHJhbnNmZXIgc2l6ZSAtIHNvIHRoYXQgbG9uZyB1c2IgYnVsayBkYXRhIHBhY2tldHMg
+Y2FuIGVuZCB1cA0KaW4gbXVsdGlwbGUgdXJiLCBhbmQgdGhlbiBnZXQgbWVyZ2VkIGludG8gYSBz
+aW5nbGUgc2tiIGNvcnJlY3RseQ0Kc2l6ZWQgZm9yIHRoZSBldGhlcm5ldCBmcmFtZS4NCkZvciBV
+U0IyIG1heWJlIHlvdSBjb3VsZCB1c2UgMTUzNiBieXRlIHNrYiAtIGJ1dCBJIGV4cGVjdCB0aGF0
+DQp5b3Ugc3RpbGwgd2FudCB0byBjb3B5IHNob3J0IGZyYW1lcy4NCg0KQXQgdGhlIG1vbWVudCBz
+b21lIGRyaXZlciBhbGxvY2F0ZSB2ZXJ5IGxhcmdlIHJ4IHNrYiAtIGFuZCB0aGVuDQpsaWUgYWJv
+dXQgdGhlaXIgdHJ1ZXNpemUuDQpJZiBhbnkgZGV2aWNlcyBhY3R1YWxseSBkbyByZWNlaXZlIHNl
+Z21lbnQgb2ZmbG9hZCAodGhlIGF4ODgxNzkNCmRvZXMgVFNPLCBkb24ndCBrbm93IGFib3V0IHRo
+ZSByeCBzaWRlKSwgdGhlbiB1c2luZyBsYXJnZSBza2INCmZvciB0aGUgcnggc2lkZSBqdXN0IGlu
+IGNhc2UgdGhleSBhcmUgdmVyeSBsb25nIHBhY2tldHMgd2hlbg0KdGhleSBjYW4gYmUgcGFzc2Vk
+IGRpcmVjdGx5IHVwIHRoZSBzdGFjay4NCg0KCURhdmlkDQoNCg==
