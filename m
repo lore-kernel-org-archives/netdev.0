@@ -1,64 +1,38 @@
-From: Behan Webster <behanw@converseincode.com>
-Subject: Re: [PATCH v2] net: netfilter: LLVMLinux: vlais-netfilter
-Date: Tue, 18 Mar 2014 07:47:21 -0700
-Message-ID: <53285C79.2060907@converseincode.com>
-References: <022D9517-4804-47BB-B789-CCF25F25C1ED@me.com> <1395123121-27053-1-git-send-email-behanw@converseincode.com> <063D6719AE5E284EB5DD2968C1650D6D0F6E0065@AcuExch.aculab.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created with
+ no group
+Date: Tue, 18 Mar 2014 17:10:38 +0200
+Message-ID: <CAJZOPZLN0SmB7xcLXWOnC2GoDfGhJ5N-T1zA4S4Pg+ikqyFnig@mail.gmail.com>
+References: <1395055050-20874-1-git-send-email-mike.rapoport@ravellosystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "pablo@netfilter.org" <pablo@netfilter.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"kadlec@blackhole.kfki.hu" <kadlec@blackhole.kfki.hu>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netfilter@vger.kernel.org" <netfilter@vger.kernel.org>,
-	"coreteam@netfilter.org" <coreteam@netfilter.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"dwmw2@infradead.org" <dwmw2@infradead.org>,
-	"pageexec@freemail.hu" <pageexec@freemail.hu>,
-	Mark Charlebois <charlebm@gmail.com>,
-	=?UTF-8?B?Vmluw61jaXVzIFRpbnRp?= <viniciustinti@gmail.com>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6E0065@AcuExch.aculab.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:52114 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932191AbaCRPKj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 11:10:39 -0400
+Received: by mail-pd0-f176.google.com with SMTP id r10so7227397pdi.35
+        for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 08:10:38 -0700 (PDT)
+In-Reply-To: <1395055050-20874-1-git-send-email-mike.rapoport@ravellosystems.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/18/14 02:41, David Laight wrote:
-> From:  behanw@converseincode.com
->> From: Mark Charlebois <charlebm@gmail.com>
->>
->> Replaced non-standard C use of Variable Length Arrays In Structs (VLAIS) in
->> xt_repldata.h with a C99 compliant flexible array member and then calculated
->> offsets to the other struct members. These other members aren't referenced by
->> name in this code, however this patch maintains the same memory layout and
->> padding as was previously accomplished using VLAIS.
->>
->> Had the original structure been ordered differently, with the entries VLA at
->> the end, then it could have been a flexible member, and this patch would have
->> been a lot simpler. However since the data stored in this structure is
->> ultimately exported to userspace, the order of this structure can't be changed.
-> Why not just remove the last element and allocate space for it after the
-> structure?
-Because that would still be employing VLAIS to solve the problem. The 
-last element may be a zero-length array (a flexible member), not a VLA. 
-Sadly both the last 2 elements in the struct need to be manually 
-calculated, which is what we've done.
+On Mon, Mar 17, 2014 at 1:17 PM, Mike Rapoport
+<mike.rapoport@ravellosystems.com> wrote:
+> If the vxlan interface is created without group definition, there is a
+> panic on the first packet reception:
+>
+> $ ip link add dev vxlan0 type vxlan id 1
+> $ ip addr add dev vxlan0 10.0.0.1/24
+> $ ip link set up dev vxlan0
+>
+>   BUG: unable to handle kernel paging request at 0000000100000103
+>   IP: [<ffffffff8143435b>] ipv6_rcv+0xfa/0x399
 
-> That would reduce the complexity of the patch and the unreadability
-> of the new code.
-No one is claiming this patch is more readable, merely that it is C99 
-compliant (though strictly speaking this patch is C89, C99 and C11 
-compliant). We tried to use macros to make it more readable in previous 
-patches. The consensus was that macros were bad.
+Hi Mike,
 
-> I realise that the alignment of type##_error is 'tricky' to determine.
-That is what makes it "unreadable". :(
+So this bug/fix is for 3.14 and also earlier kernels?
 
-Behan
-
--- 
-Behan Webster
-behanw@converseincode.com
-
+Or.
