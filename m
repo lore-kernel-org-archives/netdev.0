@@ -1,50 +1,73 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 6/6] net: Free skbs from irqs when possible.
-Date: Tue, 18 Mar 2014 10:53:01 -0700
-Message-ID: <87fvmf75s2.fsf@xmission.com>
-References: <20140314.225923.61318448733570839.davem@davemloft.net>
-	<87k3bwqgf7.fsf@xmission.com> <877g7wqg8e.fsf_-_@xmission.com>
-	<20140317.154916.2276987764507311378.davem@davemloft.net>
-	<87iorcgh5d.fsf_-_@xmission.com> <87fvmgf2c7.fsf_-_@xmission.com>
-	<1395149407.22343.8.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
-To: Ben Hutchings <ben@decadent.org.uk>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH net-next v2 2/3] bonding: support QinQ for bond arp interval
+Date: Tue, 18 Mar 2014 10:59:58 -0700
+Message-ID: <7072.1395165598@death.nxdomain>
+References: <1395139433-19576-1-git-send-email-dingtianhong@huawei.com> <1395139433-19576-3-git-send-email-dingtianhong@huawei.com> <20140318120558.GA6430@redhat.com>
+Cc: Ding Tianhong <dingtianhong@huawei.com>, andy@greyhouse.net,
+	kaber@trash.net, davem@davemloft.net, netdev@vger.kernel.org
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:53213 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757289AbaCRRxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 13:53:08 -0400
-In-Reply-To: <1395149407.22343.8.camel@deadeye.wl.decadent.org.uk> (Ben
-	Hutchings's message of "Tue, 18 Mar 2014 13:30:07 +0000")
+Received: from e39.co.us.ibm.com ([32.97.110.160]:42236 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756647AbaCRSAF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 14:00:05 -0400
+Received: from /spool/local
+	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Tue, 18 Mar 2014 12:00:05 -0600
+Received: from b03cxnp07028.gho.boulder.ibm.com (b03cxnp07028.gho.boulder.ibm.com [9.17.130.15])
+	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 8F51719D8042
+	for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 11:59:59 -0600 (MDT)
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by b03cxnp07028.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2IHxKxQ7602666
+	for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 18:59:20 +0100
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id s2II3a2u016428
+	for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 12:03:37 -0600
+In-reply-to: <20140318120558.GA6430@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings <ben@decadent.org.uk> writes:
+Veaceslav Falico <vfalico@redhat.com> wrote:
 
-> On Mon, 2014-03-17 at 23:27 -0700, Eric W. Biederman wrote:
-> [...]
->> --- a/net/core/skbuff.c
->> +++ b/net/core/skbuff.c
->> @@ -554,14 +554,21 @@ static void kfree_skbmem(struct sk_buff *skb)
->>  
->>  static void skb_release_head_state(struct sk_buff *skb)
->>  {
->> +	WARN_ONCE(in_irq() && !skb_irq_freeable(skb),
->> +		  "%s called from irq! sp %d nfct %d frag_list %d %pF dst %lx",
->> +		  __func__,
->> +		  IS_ENABLED(CONFIG_XFRM) ? !!skb->sp : 0,
->> +		  IS_ENABLED(CONFIG_NF_CONNTRACK) ? !!skb->nfct : 0,
-> [...]
+>On Tue, Mar 18, 2014 at 06:43:52PM +0800, Ding Tianhong wrote:
+>...snip...
+>>-	if (vlan_id) {
+>>-		skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vlan_id);
+>>+	if (outer->vlan_id) {
+>>+		if (inner->vlan_id) {
+>>+			pr_debug("inner tag: proto %X vid %X\n",
+>>+				 ntohs(inner->vlan_proto), inner->vlan_id);
+>>+			skb = __vlan_put_tag(skb, inner->vlan_proto, inner->vlan_id);
+>>+			if (!skb) {
+>>+				pr_err("failed to insert inner VLAN tag\n");
+>>+				return;
+>>+			}
+>>+		}
+>>+
+>>+		pr_debug("outer reg: proto %X vid %X\n",
+>>+			 ntohs(outer->vlan_proto), outer->vlan_id);
+>>+		skb = vlan_put_tag(skb, outer->vlan_proto, outer->vlan_id);
 >
-> This is a syntax error if CONFIG_XFRM or CONFIG_NF_CONNTRACK is
-> disabled; you have to use #ifdef's.
+>If I read correctly then the inner->vlan_proto will always be ETH_P_8021AD,
+>whilst the outer will also always be ETH_P_8021Q. So I think it'd be a lot
+>easier (and more readable) to just pass 2 vlan ids, and set those protos
+>statically - that will save you from adding that new function to vlan core,
+>fro madding a new struct that you've added here and make it several lines
+>less.
 
-Doh!
+	Do you mean that the outer will always be 8021AD and the inner
+8021Q?  The inner/outer terminology is making my brain hurt, since the
+ip commands to configure them look backwards to me.  I think of it as
+the outer tag is the first one sequentially in the ethernet header, and
+the inner tag is second in the header.
 
-That if nothing else definitely calls for a respin of this patch.
+	Anyway, in the past, I've seen configurations with 802.1q VLANs
+nested such that the inner and outer tags were both 802.1q 0x8100
+ethertype, so I'm not sure that hard-coding these is necessarily a good
+idea.
 
-Eric
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
