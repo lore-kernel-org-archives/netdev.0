@@ -1,37 +1,46 @@
 From: Monam Agarwal <monamagarwal123@gmail.com>
-Subject: [PATCH] rcu: Replace rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x, NULL) in drivers/input/input.c
-Date: Wed, 19 Mar 2014 03:30:29 +0530
-Message-ID: <1395180029-18471-1-git-send-email-monamagarwal123@gmail.com>
+Subject: [PATCH] rcu: Replace rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x, NULL)
+Date: Wed, 19 Mar 2014 03:32:30 +0530
+Message-ID: <1395180150-18548-1-git-send-email-monamagarwal123@gmail.com>
 Cc: linux-kernel@vger.kernel.org, eddie.wai@broadcom.com,
 	paulmck@linux.vnet.ibm.com
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:60791 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751543AbaCRWBj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 18:01:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch replaces rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x, NULL) in drivers/input/input.c
+This patch replaces rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x, NULL) in drivers/infiniband/hw/qib/qib_qp.c
 
 Signed-off-by: Monam Agarwal <monamagarwal123@gmail.com>
 ---
- drivers/input/input.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/infiniband/hw/qib/qib_qp.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/input/input.c b/drivers/input/input.c
-index da38d97..41b5c82 100644
---- a/drivers/input/input.c
-+++ b/drivers/input/input.c
-@@ -463,7 +463,7 @@ static void __input_release_device(struct input_handle *handle)
- 	struct input_dev *dev = handle->dev;
+diff --git a/drivers/infiniband/hw/qib/qib_qp.c b/drivers/infiniband/hw/qib/qib_qp.c
+index 7e7e16f..1f5f04c 100644
+--- a/drivers/infiniband/hw/qib/qib_qp.c
++++ b/drivers/infiniband/hw/qib/qib_qp.c
+@@ -252,10 +252,10 @@ static void remove_qp(struct qib_ibdev *dev, struct qib_qp *qp)
  
- 	if (dev->grab == handle) {
--		rcu_assign_pointer(dev->grab, NULL);
-+		RCU_INIT_POINTER(dev->grab, NULL);
- 		/* Make sure input_pass_event() notices that grab is gone */
- 		synchronize_rcu();
+ 	if (ibp->qp0 == qp) {
+ 		atomic_dec(&qp->refcount);
+-		rcu_assign_pointer(ibp->qp0, NULL);
++		RCU_INIT_POINTER(ibp->qp0, NULL);
+ 	} else if (ibp->qp1 == qp) {
+ 		atomic_dec(&qp->refcount);
+-		rcu_assign_pointer(ibp->qp1, NULL);
++		RCU_INIT_POINTER(ibp->qp1, NULL);
+ 	} else {
+ 		struct qib_qp *q, **qpp;
  
+@@ -303,7 +303,7 @@ unsigned qib_free_all_qps(struct qib_devdata *dd)
+ 	spin_lock_irqsave(&dev->qpt_lock, flags);
+ 	for (n = 0; n < dev->qp_table_size; n++) {
+ 		qp = dev->qp_table[n];
+-		rcu_assign_pointer(dev->qp_table[n], NULL);
++		RCU_INIT_POINTER(dev->qp_table[n], NULL);
+ 
+ 		for (; qp; qp = qp->next)
+ 			qp_inuse++;
 -- 
 1.7.9.5
