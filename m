@@ -1,35 +1,40 @@
-From: Monam Agarwal <monamagarwal123@gmail.com>
-Subject: [PATCH 9/9] rcu: Replace rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x, NULL)
-Date: Wed, 19 Mar 2014 04:21:42 +0530
-Message-ID: <666ece766920de01a9de6b79aa7eb3ace3f9c3a3.1395182132.git.monamagarwal123@gmail.com>
-References: <559d2e263bf280dff5c56c68de08a7ea747cc5c2.1395182132.git.monamagarwal123@gmail.com>
-Cc: linux-kernel@vger.kernel.org, eddie.wai@broadcom.com,
-	paulmck@linux.vnet.ibm.com
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] micrel: fix masking off LED bits
+Date: Wed, 19 Mar 2014 02:58:16 +0300
+Message-ID: <201403190258.16812.sergei.shtylyov@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-sh@vger.kernel.org, ben.dooks@codethink.co.uk
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <559d2e263bf280dff5c56c68de08a7ea747cc5c2.1395182132.git.monamagarwal123@gmail.com>
-In-Reply-To: <cover.1395182132.git.monamagarwal123@gmail.com>
-References: <cover.1395182132.git.monamagarwal123@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Monam Agarwal <monamagarwal123@gmail.com>
+Commit 20d8435a1cff (phy: micrel: add of configuration for LED mode) made the
+obvious mistake when masking off  the LED mode bits: forgot to do a logical NOT
+to the mask with which it ANDs the register value, so that unrelated bits are
+cleared instead.
+
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
 ---
- drivers/vhost/test.c |    2 +-
+This patch is against DaveM's 'net-next.git' repo.
+
+ drivers/net/phy/micrel.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/vhost/test.c b/drivers/vhost/test.c
-index fc9a1d7..82b3744 100644
---- a/drivers/vhost/test.c
-+++ b/drivers/vhost/test.c
-@@ -128,7 +128,7 @@ static void *vhost_test_stop_vq(struct vhost_test *n,
- 	mutex_lock(&vq->mutex);
- 	private = rcu_dereference_protected(vq->private_data,
- 					 lockdep_is_held(&vq->mutex));
--	rcu_assign_pointer(vq->private_data, NULL);
-+	RCU_INIT_POINTER(vq->private_data, NULL);
- 	mutex_unlock(&vq->mutex);
- 	return private;
- }
--- 
-1.7.9.5
+Index: net-next/drivers/net/phy/micrel.c
+===================================================================
+--- net-next.orig/drivers/net/phy/micrel.c
++++ net-next/drivers/net/phy/micrel.c
+@@ -167,7 +167,7 @@ static int kszphy_setup_led(struct phy_d
+ 	if (temp < 0)
+ 		return temp;
+ 
+-	temp &= 3 << shift;
++	temp &= ~(3 << shift);
+ 	temp |= val << shift;
+ 	rc = phy_write(phydev, reg, temp);
+ 
