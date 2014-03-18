@@ -1,60 +1,125 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net : Remove unnecessary assignments
-Date: Tue, 18 Mar 2014 10:03:26 -0700
-Message-ID: <1395162206.2812.56.camel@joe-AO722>
-References: <53287010.8000703@gmail.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6E0472@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: 'Balakumaran Kannan' <kumaran.4353@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0153.hostedemail.com ([216.40.44.153]:34626 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752135AbaCRRDk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 13:03:40 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6E0472@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: [patch 04/12] can: c_can: Fix buffer ordering for real
+Date: Tue, 18 Mar 2014 17:19:10 -0000
+Message-ID: <20140318171126.962446866@linutronix.de>
+References: <20140318171007.528610837@linutronix.de>
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Markus Pargmann <mpa@pengutronix.de>,
+	Benedikt Spranger <b.spranger@linutronix.de>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline; filename=can-c-can-fix-buffer-handling.patch
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-03-18 at 16:22 +0000, David Laight wrote:
-> From: Behalf Of Balakumaran Kannan
-> > Remove unnecessary assignments
-> > 
-> > Signed-off-by: Balakumaran Kannan <kumaran.4353@gmail.com>
-> > ---
-> > Some unnecessary assignments has been removed from devinet_ioctl function.
-> > The 'ret' variable is set in multiple places, but used only based on if
-> > conditions. So keeping the assignment inside if will be a better.
-> ...
-> 
-> These all seem to be this transform:
-> > -	ret = -ENODEV;
-> >  	dev = __dev_get_by_name(net, ifr.ifr_name);
-> > -	if (!dev)
-> > +	if (!dev) {
-> > +		ret = -ENODEV;
-> >  		goto done;
-> > +	}
-> 
-> I bet that if you look at the generated code you'll find
-> that the compiler generates the same code for both forms
-> and is likely to generate the equivalent of:
-> 	dev = __dev_get_by_name(net, ifr.ifr_name);
-> 	ret = -ENODEV;
-> 	if (!dev)
-> 		goto done;
-> 
-> So this is just a matter of style.
+The buffer handling of c_can has been broken forever. That leads to
+message reordering:
 
-Yabut it's Linus' preferred style.
-http://lkml.org/lkml/2008/12/16/383
+ksoftirqd/0-3     [000] ..s.    79.123776: c_can_poll: rx_poll: val: 00007fff
+ksoftirqd/0-3     [000] ..s.    79.124101: c_can_poll: rx_poll: val: 00008001
 
-(but not mine, I prefer what's done by the patch)
+What happens is:
+
+CPU				HW
+				queue new packet into obj 16 (0-15 are busy)
+read obj 1-15			
+return because pending is 0
+				set pending obj 16 -> pending reg 8000
+				queue new packet into obj 1 
+				set pending obj 1 -> pending reg 8001
+
+So the current algorithmus reads the newest message first, which
+violates the ordering rules of CAN.
+
+Add proper handling of that situation by analyzing the contents of the
+pending register for gaps.
+
+This does NOT fix the message object corruption which can lead to
+interrupt storms. Thats addressed in the next patches.
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+---
+ drivers/net/can/c_can/c_can.c |   52 ++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 50 insertions(+), 2 deletions(-)
+
+Index: linux/drivers/net/can/c_can/c_can.c
+===================================================================
+--- linux.orig/drivers/net/can/c_can/c_can.c
++++ linux/drivers/net/can/c_can/c_can.c
+@@ -808,6 +808,38 @@ static void c_can_do_tx(struct net_devic
+ }
+ 
+ /*
++ * If we have a gap in the pending bits, that means we either
++ * raced with the hardware or failed to readout all upper
++ * objects in the last run due to quota limit.
++ */
++static u32 c_can_adjust_pending(u32 pend)
++{
++	u32 weight, lasts;
++
++	if (pend == RECEIVE_OBJECT_BITS)
++		return pend;
++
++	/*
++	 * If the last set bit is larger than the number of pending
++	 * bits we have a gap.
++	 */
++	weight = hweight32(pend);
++	lasts = fls(pend);
++
++	/* If the bits are linear, nothing to do */
++	if (lasts == weight)
++		return pend;
++
++	/*
++	 * Find the first set bit after the gap. We walk backwards
++	 * from the last set bit.
++	 */
++	for (lasts--; pend & (1 << (lasts - 1)); lasts--);
++
++	return pend & ~((1 << lasts) - 1);
++}
++
++/*
+  * theory of operation:
+  *
+  * c_can core saves a received CAN message into the first free message
+@@ -834,7 +866,7 @@ static int c_can_do_rx_poll(struct net_d
+ 	u32 num_rx_pkts = 0;
+ 	unsigned int msg_obj, msg_ctrl_save;
+ 	struct c_can_priv *priv = netdev_priv(dev);
+-	u16 val;
++	u32 val, pend = 0;
+ 
+ 	/*
+ 	 * It is faster to read only one 16bit register. This is only possible
+@@ -843,7 +875,23 @@ static int c_can_do_rx_poll(struct net_d
+ 	BUILD_BUG_ON_MSG(C_CAN_MSG_OBJ_RX_LAST > 16,
+ 			"Implementation does not support more message objects than 16");
+ 
+-	while (quota > 0 && (val = priv->read_reg(priv, C_CAN_INTPND1_REG))) {
++	while (quota > 0) {
++
++		if (!pend) {
++			pend = priv->read_reg(priv, C_CAN_INTPND1_REG);
++			if (!pend)
++				return num_rx_pkts;
++			/*
++			 * If the pending field has a gap, handle the
++			 * bits above the gap first.
++			 */
++			val = c_can_adjust_pending(pend);
++		} else {
++			val = pend;
++		}
++		/* Remove the bits from pend */
++		pend &= ~val;
++
+ 		while ((msg_obj = ffs(val)) && quota > 0) {
+ 			val &= ~BIT(msg_obj - 1);
+ 
+
+
