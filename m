@@ -1,72 +1,59 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the final tree (net-next
- tree related)
-Date: Tue, 18 Mar 2014 18:27:52 +1100
-Message-ID: <20140318182752.ed10b8c685f31839f84a1ece@canb.auug.org.au>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: pull request (net): ipsec 2014-03-18
+Date: Tue, 18 Mar 2014 08:43:01 +0100
+Message-ID: <1395128583-26274-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Tue__18_Mar_2014_18_27_52_+1100__FTBvsVX+ur1_Ghr"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:54072 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751279AbaCRHnP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Mar 2014 03:43:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__18_Mar_2014_18_27_52_+1100__FTBvsVX+ur1_Ghr
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+1) Fix a sleep in atomic when pfkey_sadb2xfrm_user_sec_ctx()
+   is called from pfkey_compile_policy().
+   Fix from Nikolay Aleksandrov.
 
-Hi all,
+2) security_xfrm_policy_alloc() can be called in process and atomic
+   context. Add an argument to let the callers choose the appropriate
+   way. Fix from Nikolay Aleksandrov.
 
-After merging the final tree, today's linux-next build (powerpc
-allyesconfig) failed like this:
+Please pull or let me know if there are problems.
 
-net/netfilter/nft_hash.c: In function 'nft_hash_tbl_free':
-net/netfilter/nft_hash.c:79:3: error: implicit declaration of function 'vfr=
-ee' [-Werror=3Dimplicit-function-declaration]
-   vfree(tbl);
-   ^
-net/netfilter/nft_hash.c: In function 'nft_hash_tbl_alloc':
-net/netfilter/nft_hash.c:92:3: error: implicit declaration of function 'vza=
-lloc' [-Werror=3Dimplicit-function-declaration]
-   tbl =3D vzalloc(size);
-   ^
-net/netfilter/nft_hash.c:92:7: warning: assignment makes pointer from integ=
-er without a cast [enabled by default]
-   tbl =3D vzalloc(size);
-       ^
+Thanks!
 
-Caused by commit ce6eb0d7c8ec ("netfilter: nft_hash: bug fixes and
-resizing") from the net-next tree.  See Rule 1 in
-Documentation/SubmitChecklist.
+The following changes since commit a8d9bc2e9f5d1c5a25e33cec096d2a1652d3fd52:
 
-I have reverted that commit for today.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+  bnx2: Fix shutdown sequence (2014-03-09 19:02:27 -0400)
 
---Signature=_Tue__18_Mar_2014_18_27_52_+1100__FTBvsVX+ur1_Ghr
-Content-Type: application/pgp-signature
+are available in the git repository at:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
+  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec.git master
 
-iQIcBAEBCAAGBQJTJ/V8AAoJEMDTa8Ir7ZwVvS8P/ijEttj29F+BP9/NN6zbZCxb
-NEmtZk9JFlmFsL4JSnidSuCfqys8oZvjXrd1FQ2xbMtGwhIHyovluE8IQ6TJrXVw
-wL26ObjNQJLv3+8iNxD3bVBMMf+OmzZW9xLtu03ThNyN/6nFQi2/cm3aVP5YdZQo
-WnOgR2SPRMj2Xd0Gd/9rQ+9THvL2eTQpWJkuY83Ud51H+Mbb5EdzYOFQsRXigpfn
-8MNj2/1vp/Usm2DZOyd2Ri7kv4Jlpwm6LYmF7w1k0bH1JJSU8cejEJqnpqozC+ar
-RNjNAsGETHdY4Ussf4YLch2N0H+3eukjqOoesjIEpIM1z2RuADHN577YhV6d/jCB
-uM5uozub2KUgn7bN+gDbwMLgC9BPIouG9b0LfB/l0HgNb0LoY50czqTvA7rgfNuQ
-z+mh2Hl+Vk37FRdLJ/xGdoxwCcpJGVhzVUwFwU17XfkISfg4R1p/uV5kTFWRSraw
-RFXA/4LKExL2ILxpXCdGgUzCTlWrg4oIpG9QleCp9NoSs2Xc9IxulyfpQl7TOO2S
-6/1V4+pZfqZnLniVc7w3n9et5+Tf2vL+kCM+KRpfY8nnJOaiZya1j6HWjxcksOaH
-I2BgLITEfxeKOlb3kvJ2/N7Qz/PzDNvIQ/TisM+t3xCU/EOrL9Xt0/s42sa28l0K
-pbXxDbHcMaAx/EZ8f9cq
-=xGFF
------END PGP SIGNATURE-----
+for you to fetch changes up to 52a4c6404f91f2d2c5592ee6365a8418c4565f53:
 
---Signature=_Tue__18_Mar_2014_18_27_52_+1100__FTBvsVX+ur1_Ghr--
+  selinux: add gfp argument to security_xfrm_policy_alloc and fix callers (2014-03-10 08:30:02 +0100)
+
+----------------------------------------------------------------
+Nikolay Aleksandrov (2):
+      net: af_key: fix sleeping under rcu
+      selinux: add gfp argument to security_xfrm_policy_alloc and fix callers
+
+ include/linux/security.h            |   10 +++++++---
+ net/key/af_key.c                    |   19 ++++++++++---------
+ net/xfrm/xfrm_user.c                |    6 +++---
+ security/capability.c               |    3 ++-
+ security/security.c                 |    6 ++++--
+ security/selinux/hooks.c            |   13 +++++++------
+ security/selinux/include/security.h |    2 +-
+ security/selinux/include/xfrm.h     |    3 ++-
+ security/selinux/selinuxfs.c        |   28 ++++++++++++++++++----------
+ security/selinux/ss/services.c      |    6 ++++--
+ security/selinux/xfrm.c             |   14 ++++++++------
+ 11 files changed, 66 insertions(+), 44 deletions(-)
