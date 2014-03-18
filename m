@@ -1,89 +1,90 @@
-From: Ben Chan <benchan@chromium.org>
-Subject: Re: [PATCH 2/2] net: cdc_ncm: respect operator preferred MTU reported
- by MBIM
-Date: Mon, 17 Mar 2014 17:46:27 -0700
-Message-ID: <CAC5Y2nMdPM8w3=dgd2as5z8huL1XLPjon8wSmR-2e3=JGWtCpA@mail.gmail.com>
-References: <1394952550-9308-1-git-send-email-benchan@chromium.org>
- <1394952550-9308-2-git-send-email-benchan@chromium.org> <87ob15maa6.fsf@nemi.mork.no>
- <CAC5Y2nN_w46FczgitbPjmXtk7q3rHpTxLddx0_GtStfzNXerXQ@mail.gmail.com> <87d2hkldmx.fsf@nemi.mork.no>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: What's the status of TCP friends?
+Date: Tue, 18 Mar 2014 02:21:20 +0100
+Message-ID: <20140318012120.GG12291@order.stressinduktion.org>
+References: <20140316090744.GA14572@gmail.com> <1394978619.9668.14.camel@edumazet-glaptop2.roam.corp.google.com> <20140317031605.GA22502@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Greg Suarez <gsuarez@smithmicro.com>
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87d2hkldmx.fsf@nemi.mork.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>, Li Yu <bingtian.ly@taobao.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Bruce Brutus Curtis <brutus@google.com>,
+	Weiping Pan <panweiping3@gmail.com>, tmorvai@gmail.com
+To: Zheng Liu <gnehzuil.liu@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:42314 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751180AbaCRBVW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Mar 2014 21:21:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20140317031605.GA22502@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 17, 2014 at 2:27 PM, Bj=F8rn Mork <bjorn@mork.no> wrote:
+On Mon, Mar 17, 2014 at 11:16:05AM +0800, Zheng Liu wrote:
+> On Sun, Mar 16, 2014 at 07:03:39AM -0700, Eric Dumazet wrote:
+> > On Sun, 2014-03-16 at 17:07 +0800, Zheng Liu wrote:
+> > > Hi all,
+> > > 
+> > > Until now the TCP friends patch set doesn't be applied.  Now what's the
+> > > status of TCP friends?  Is it applicable to be merged into upstream
+> > > kernel?  Any problem that needs to be fixed?  Please let me know if I
+> > > can help.
+> > 
+> > Well, last attempts showed that while the idea sounded cool,
+> > implementation opened many races and added quite a lot of complexity in
+> > fast path.
+> 
+> Thanks for letting me know the current status of this patch set.
+> 
+> > 
+> > We have AF_UNIX with a lot of problems in it, do we really want to bring
+> > these AF_UNIX problems to AF_INET ?
+> 
+> Please bear with me because I am a newbie.  Out of curiosity, what's the
+> problem in AF_UNIX?
 
->
-> This sounds all reasonable to me. Thanks for taking the time to expla=
-in
-> it in such detail. I did know that some vendors set wMaxSegmentSize t=
-oo
-> low, but had no idea that vendors were using the extended descriptor
-> instead of MBIM_CID_IP_CONFIGURATION.
->
-> If so, then yes, it does make sense for the driver to base the defaul=
-t
-> MTU on this descriptor.
+AFAIK AF_UNIX/SOCK_STREAM is fine.
 
-Hopefully, subsequent MBIM specifications would further clarify and
-simplify things a bit, but it's gonna be a slow process as we all know
-:-/
+I currently know about two problems with AF_UNIX datagram modes:
 
->
->>> wMTU access needs le16_to_cpu.
->>
->> Good catch. I will fix it in patch v2.
->
-> Tip: I found this because my test script/makefile includes
-> "C=3D1 CF=3D-D__CHECK_ENDIAN__"
->
-> I find that very useful when dealing with USB on a little endian syst=
-em,
-> like most of us have.  It's all too easy to miss a conversion otherwi=
-se.
->
+1) Not correclty handling socket receive buffer limits. SOCK_DGRAM simply
+   relies on the sending window only and socket receive queue is only limited
+   by the number of packets enqueued. A DoS against another UNIX/DGRAM server
+   is possible by not freeing its sending window if the client doesn't simply
+   pick up its packets.
 
-Thanks again for the review and tip. I've submitted patch v2 to
-address the le16_to_cpu conversion.
+2) POLLOUT handling seems a bit messed up. This problem was reported by Tamas
+   Morvai. We simply trigger POLLOUT too often thus waking up the sending side
+   unnecessarily.
 
+Patch for 1) was rightfully rejected because it could easily break
+backwards compatibility.
 
->>> Could we move this final MTU correction from cdc_ncm_setup to
->>> cdc_ncm_bind_common to avoid bloating the device struct with anothe=
-r
->>> descriptor pointer we don=E6t really need to keep around?
->>>
->>> I know we look into descriptors in cdc_ncm_setup, because we have t=
-o,
->>> but ideally I would have loved to see cdc_ncm_setup dealing with *j=
-ust*
->>> the NCM/MBIM specific control setup messages and cdc_ncm_bind_commo=
-n
->>> dealing with all the functional descriptors.  That seems most logic=
- to
->>> me (but is of course only my personal opinion and nothing else - I =
-do
->>> not know what the original cdc_ncm author intended)
->>>
->>
->> I understand the argument against the extra descriptor pointer. But =
-I
->> think it's better to keep the mtu related code together so that one
->> can easily see how MTU is determined when trying to change or refact=
-or
->> the code. I haven't looked into what cdc_ncm_setup was originally
->> intended for. If we'd like to avoid adding an extra pointer in
->> cdc_ncm_ctx, we could have cdc_ncm_bind passing a locally scoped
->> context to cdc_ncm_setup.
->
-> No, the extra pointer doesn't matter much. Just keep it as it is.
->
->
-> Bj=F8rn
+There were some ideas floating around which I discussed with Tamas but
+nothing definite for 2), as I got stuck to work on 1) and I am still
+unsure what side-effects could have the needed removal of the per-packet
+socket-receive limit, which seems to be needed for solving 2). The total
+amount of memory in use by AF_UNIX/DGRAM sockets would be limited by
+the sending buffers and rlimits, but it still seems unwise to do so.
+
+Also solving 2) could make problems regarding backwards-compatibility.
+
+> > I would rather spend time on AF_UNIX if it doesn't fit your needs right
+> > now, or consider jumping to KDBUS modern design.
+> > 
+> > Using AF_INET for IPC is poor choice.
+> 
+> The reason why we use AF_INET for IPC rather than use AF_UNIX is that we
+> have two applications that need to communicate with each other.  They
+> could be deployed on the same server or different servers.  So obviously
+> if we use AF_INET, we just need to indicate a IP address in config file.
+> That sounds rational and maintainable for our operation team.
+
+As soon as we are allowed to silently drop packets in AF_UNIX/DGRAM some
+problems would vanish, too. ;)
+
+Greetings,
+
+  Hannes
