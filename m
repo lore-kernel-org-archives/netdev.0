@@ -1,102 +1,62 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next] i40evf: Rename i40e_ptype_lookup i40evf_ptype_lookup
-Date: Tue, 18 Mar 2014 00:26:50 -0700
-Message-ID: <1395127610-3290-3-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Eric W Biederman <ebiederm@xmission.com>, netdev@vger.kernel.org,
+Subject: [net-next] e1000e: fix the build error when PM is disabled
+Date: Tue, 18 Mar 2014 00:26:49 -0700
+Message-ID: <1395127610-3290-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Kevin Hao <haokexin@gmail.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:23596 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:43006 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753462AbaCRH07 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753013AbaCRH07 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 18 Mar 2014 03:26:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric W Biederman <ebiederm@xmission.com>
+From: Kevin Hao <haokexin@gmail.com>
 
-When compiling the i40e and the i40evf driver into the same kernel I get:
-LD      drivers/net/ethernet/intel/built-in.o
-drivers/net/ethernet/intel/i40evf/built-in.o:(.data+0x300): multiple definition of `i40e_ptype_lookup'
-drivers/net/ethernet/intel/i40e/built-in.o:(.data+0x780): first defined here
-make[3]: *** [drivers/net/ethernet/intel/built-in.o] Error 1
-make[2]: *** [drivers/net/ethernet/intel] Error 2
-make[1]: *** [drivers/net/ethernet/] Error 2
-make: *** [sub-make] Error 2
-
-Fix this by renaming the i40evf version of this structure from
-i40e_ptype_lookup to i40evf_ptype_lookup.
-
-This build failure was introduced in:
-  commit 206812b5fccb808d1194344eaa942f68f59b2630
-  Author: Jesse Brandeburg <jesse.brandeburg@intel.com>
-  i40e/i40evf: i40e implementation for skb_set_hash
-
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>
-Signed-off-by: Eric W Biederman <ebiederm@xmission.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+The commit 2800209994f8 (e1000e: Refactor PM flows) changed the
+SET_SYSTEM_SLEEP_PM_OPS to open-coded assignment, but forgot to
+protect them with CONFIG_PM_SLEEP. Then cause the following build
+error when PM is disabled:
+drivers/net/ethernet/intel/e1000e/netdev.c:7079:13:
+error: 'e1000e_pm_suspend' undeclared here (not in a function)
+  .suspend = e1000e_pm_suspend,
+             ^
+drivers/net/ethernet/intel/e1000e/netdev.c:7080:13:
+error: 'e1000e_pm_resume' undeclared here (not in a function)
+  .resume  = e1000e_pm_resume,
+             ^
+drivers/net/ethernet/intel/e1000e/netdev.c:7082:11:
+error: 'e1000e_pm_thaw' undeclared here (not in a function)
+  .thaw  = e1000e_pm_thaw,
+           ^
+Signed-off-by: Kevin Hao <haokexin@gmail.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40e_common.c    | 8 ++++----
- drivers/net/ethernet/intel/i40evf/i40e_prototype.h | 4 ++--
- 2 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-index 78618af..c688a0f 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-@@ -160,7 +160,7 @@ i40e_status i40evf_aq_queue_shutdown(struct i40e_hw *hw,
- }
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 3f044e7..eafad41 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -7076,12 +7076,14 @@ static DEFINE_PCI_DEVICE_TABLE(e1000_pci_tbl) = {
+ MODULE_DEVICE_TABLE(pci, e1000_pci_tbl);
  
- 
--/* The i40e_ptype_lookup table is used to convert from the 8-bit ptype in the
-+/* The i40evf_ptype_lookup table is used to convert from the 8-bit ptype in the
-  * hardware to a bit-field that can be used by SW to more easily determine the
-  * packet type.
-  *
-@@ -173,10 +173,10 @@ i40e_status i40evf_aq_queue_shutdown(struct i40e_hw *hw,
-  *
-  * Typical work flow:
-  *
-- * IF NOT i40e_ptype_lookup[ptype].known
-+ * IF NOT i40evf_ptype_lookup[ptype].known
-  * THEN
-  *      Packet is unknown
-- * ELSE IF i40e_ptype_lookup[ptype].outer_ip == I40E_RX_PTYPE_OUTER_IP
-+ * ELSE IF i40evf_ptype_lookup[ptype].outer_ip == I40E_RX_PTYPE_OUTER_IP
-  *      Use the rest of the fields to look at the tunnels, inner protocols, etc
-  * ELSE
-  *      Use the enum i40e_rx_l2_ptype to decode the packet type
-@@ -205,7 +205,7 @@ i40e_status i40evf_aq_queue_shutdown(struct i40e_hw *hw,
- #define I40E_RX_PTYPE_INNER_PROT_TS	I40E_RX_PTYPE_INNER_PROT_TIMESYNC
- 
- /* Lookup table mapping the HW PTYPE to the bit field for decoding */
--struct i40e_rx_ptype_decoded i40e_ptype_lookup[] = {
-+struct i40e_rx_ptype_decoded i40evf_ptype_lookup[] = {
- 	/* L2 Packet types */
- 	I40E_PTT_UNUSED_ENTRY(0),
- 	I40E_PTT(1,  L2, NONE, NOF, NONE, NONE, NOF, NONE, PAY2),
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_prototype.h b/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
-index 33c9905..862fcdf 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
-@@ -63,11 +63,11 @@ i40e_status i40evf_aq_queue_shutdown(struct i40e_hw *hw,
- 
- i40e_status i40e_set_mac_type(struct i40e_hw *hw);
- 
--extern struct i40e_rx_ptype_decoded i40e_ptype_lookup[];
-+extern struct i40e_rx_ptype_decoded i40evf_ptype_lookup[];
- 
- static inline struct i40e_rx_ptype_decoded decode_rx_desc_ptype(u8 ptype)
- {
--	return  i40e_ptype_lookup[ptype];
-+	return  i40evf_ptype_lookup[ptype];
- }
- 
- /* prototype for functions used for SW locks */
+ static const struct dev_pm_ops e1000_pm_ops = {
++#ifdef CONFIG_PM_SLEEP
+ 	.suspend	= e1000e_pm_suspend,
+ 	.resume		= e1000e_pm_resume,
+ 	.freeze		= e1000e_pm_freeze,
+ 	.thaw		= e1000e_pm_thaw,
+ 	.poweroff	= e1000e_pm_suspend,
+ 	.restore	= e1000e_pm_resume,
++#endif
+ 	SET_RUNTIME_PM_OPS(e1000e_pm_runtime_suspend, e1000e_pm_runtime_resume,
+ 			   e1000e_pm_runtime_idle)
+ };
 -- 
 1.8.3.1
