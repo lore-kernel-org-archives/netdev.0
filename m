@@ -1,41 +1,193 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [patch 02/12] can: c_can: Fix hardware raminit function
-Date: Tue, 18 Mar 2014 23:15:56 +0100 (CET)
-Message-ID: <alpine.DEB.2.02.1403182313110.18573@ionos.tec.linutronix.de>
-References: <20140318171007.528610837@linutronix.de> <20140318171126.720944558@linutronix.de> <532892BC.7080406@pengutronix.de>
+From: Byungho An <bh74.an@samsung.com>
+Subject: RE: [PATCH V5 2/8] net: sxgbe: add basic framework for Samsung 10Gb
+ ethernet driver
+Date: Tue, 18 Mar 2014 15:16:14 -0700
+Message-ID: <004201cf42f7$af473af0$0dd5b0d0$@samsung.com>
+References: <002801cf42d6$a27317c0$e7594740$@samsung.com>
+ <CAGVrzcYgONroZULGKhiigPT8yqLDufbzgR4+q7_tdNEqgWDKkA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Markus Pargmann <mpa@pengutronix.de>,
-	Benedikt Spranger <b.spranger@linutronix.de>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <532892BC.7080406@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: 'netdev' <netdev@vger.kernel.org>,
+	linux-samsung-soc@vger.kernel.org, devicetree@vger.kernel.org,
+	'David Miller' <davem@davemloft.net>,
+	"'siva.kallam'" <siva.kallam@samsung.com>,
+	"'ks.giri'" <ks.giri@samsung.com>,
+	"'ilho215.lee'" <ilho215.lee@samsung.com>,
+	"'vipul.pandya'" <vipul.pandya@samsung.com>
+To: 'Florian Fainelli' <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout1.samsung.com ([203.254.224.24]:16865 "EHLO
+	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758193AbaCRWQX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 18:16:23 -0400
+In-reply-to: <CAGVrzcYgONroZULGKhiigPT8yqLDufbzgR4+q7_tdNEqgWDKkA@mail.gmail.com>
+Content-language: en-us
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 18 Mar 2014, Marc Kleine-Budde wrote:
-> On 03/18/2014 06:19 PM, Thomas Gleixner wrote:
-> > +static void c_can_hw_raminit_wait(const struct c_can_priv *priv, u32 mask,
-> > +				  u32 val)
-> > +{
-> > +	/* We look only at the bits of our instance. */
-> > +	val &= mask;
-> > +	while ((readl(priv->raminit_ctrlreg) & mask) != val)
-> > +		udelay(1);
+Florian Fainelli <f.fainelli@gmail.com> wrote:
+> 2014-03-18 11:19 GMT-07:00 Byungho An <bh74.an@samsung.com>:
+> > From: Siva Reddy <siva.kallam@samsung.com>
+> >
+> > This patch adds support for Samsung 10Gb ethernet driver(sxgbe).
+> >
+> > - sxgbe core initialization
+> > - Tx and Rx support
+> > - MDIO support
+> > - ISRs for Tx and Rx
+> > - ifconfig support to driver
 > 
-> Do we have to add a timeout here, or is it "safe" to have a potential
-> endless loop here? As you have probably tortured the hardware and driver
-> a lot (or have been tortured by them), I assume you would have added a
-> timeout check if you had seen a lockup here.
+> Too many files to review at once, the diffstat was around 5000+ lines!
+> You should split this into logical parts, or just submit the basic bits for now and
+> add the features later.
+Yes. but I think it is one logically, after this patch there won't be much code at once.
 
-I haven't seen any failure on that. We could add a timeout for
-paranoia reasons. I'm quite sure that the raminit works as advertised
-when we do it the right way. The only way to wreckage it so far is by
-not waiting for it to complete.
+> 
+> [snip]
+> 
+> > +       ret = register_netdev(ndev);
+> > +       if (ret) {
+> > +               pr_err("%s: ERROR %i registering the device\n", __func__, ret);
+> > +               goto error_netdev_register;
+> > +       }
+> > +
+> > +       priv->sxgbe_clk = clk_get(priv->device, SXGBE_RESOURCE_NAME);
+> > +       if (IS_ERR(priv->sxgbe_clk)) {
+> > +               netdev_warn(ndev, "%s: warning: cannot get CSR clock\n",
+> > +                           __func__);
+> > +               goto error_clk_get;
+> > +       }
+> 
+> This is racy, after register_netdev() is called, the network stack is free to use
+> the interface, which means that as much as possible needs to be initialized
+> before you call it, including clocks, and MDIO.
+> 
+> > +
+> > +       /* If a specific clk_csr value is passed from the platform
+> > +        * this means that the CSR Clock Range selection cannot be
+> > +        * changed at run-time and it is fixed. Viceversa the driver'll try to
+> > +        * set the MDC clock dynamically according to the csr actual
+> > +        * clock input.
+> > +        */
+> > +       if (!priv->plat->clk_csr)
+> > +               sxgbe_clk_csr_set(priv);
+> > +       else
+> > +               priv->clk_csr = priv->plat->clk_csr;
+> > +
+> > +       /* MDIO bus Registration */
+> > +       ret = sxgbe_mdio_register(ndev);
+> > +       if (ret < 0) {
+> > +               netdev_dbg(ndev, "%s: MDIO bus (id: %d) registration failed\n",
+> > +                          __func__, priv->plat->bus_id);
+> > +               goto error_mdio_register;
+> > +       }
+> 
+> Don't do this, register your MDIO bus before calling register_netdev().
+OK.
 
-Thanks,
+> 
+> > +
+> > +       sxgbe_check_ether_addr(priv);
+> > +
+> > +       return priv;
+> > +
+> > +error_mdio_register:
+> > +       clk_put(priv->sxgbe_clk);
+> > +error_clk_get:
+> > +       unregister_netdev(ndev);
+> > +error_netdev_register:
+> > +       netif_napi_del(&priv->napi);
+> > +error_free_netdev:
+> > +       free_netdev(ndev);
+> > +
+> > +       return NULL;
+> > +}
+> > +
+> > +/**
+> > + * sxgbe_dvr_remove
+> > + * @ndev: net device pointer
+> > + * Description: this function resets the TX/RX processes, disables
+> > +the MAC RX/TX
+> > + * changes the link status, releases the DMA descriptor rings.
+> > + */
+> > +int sxgbe_dvr_remove(struct net_device *ndev) {
+> > +       struct sxgbe_priv_data *priv = netdev_priv(ndev);
+> > +
+> > +       netdev_info(ndev, "%s: removing driver\n", __func__);
+> > +
+> > +       priv->hw->dma->stop_rx(priv->ioaddr, SXGBE_RX_QUEUES);
+> > +       priv->hw->dma->stop_tx(priv->ioaddr, SXGBE_TX_QUEUES);
+> > +
+> > +       priv->hw->mac->enable_tx(priv->ioaddr, false);
+> > +       priv->hw->mac->enable_rx(priv->ioaddr, false);
+> > +
+> > +       netif_napi_del(&priv->napi);
+> > +
+> > +       sxgbe_mdio_unregister(ndev);
+> > +
+> > +       netif_carrier_off(ndev);
+> 
+> This is not required, both the PHY library and the network stack will do that for
+> you.
+You mean netif_napi_del and netif_carrier_off? or all of sxgbe_dvr_remove function?
+I think dma/mac control are needed.
 
-	tglx
+> 
+> [snip]
+> 
+> > +       /* register with kernel subsystem */
+> > +       err = mdiobus_register(mdio_bus);
+> > +       if (err != 0) {
+> > +               netdev_err(ndev, "mdiobus register failed\n");
+> > +               goto mdiobus_err;
+> > +       }
+> > +
+> > +       for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++) {
+> > +               struct phy_device *phy = mdio_bus->phy_map[phy_addr];
+> > +               if (phy) {
+> > +                       char irq_num[4];
+> > +                       char *irq_str;
+> > +                       /* If an IRQ was provided to be assigned after
+> > +                        * the bus probe, do it here.
+> > +                        */
+> > +                       if ((mdio_data->irqs == NULL) &&
+> > +                           (mdio_data->probed_phy_irq > 0)) {
+> > +                               irqlist[phy_addr] = mdio_data->probed_phy_irq;
+> > +                               phy->irq = mdio_data->probed_phy_irq;
+> > +                       }
+> > +
+> > +                       /* If we're  going to bind the MAC to this PHY bus,
+> > +                        * and no PHY number was provided to the MAC,
+> > +                        * use the one probed here.
+> > +                        */
+> > +                       if (priv->plat->phy_addr == -1)
+> > +                               priv->plat->phy_addr = phy_addr;
+> > +
+> > +                       act = (priv->plat->phy_addr == phy_addr);
+> > +                       switch (phy->irq) {
+> > +                       case PHY_POLL:
+> > +                               irq_str = "POLL";
+> > +                               break;
+> > +                       case PHY_IGNORE_INTERRUPT:
+> > +                               irq_str = "IGNORE";
+> > +                               break;
+> > +                       default:
+> > +                               sprintf(irq_num, "%d", phy->irq);
+> > +                               irq_str = irq_num;
+> > +                               break;
+> > +                       }
+> > +                       netdev_info(ndev, "PHY ID %08x at %d IRQ %s (%s)%s\n",
+> > +                                   phy->phy_id, phy_addr, irq_str,
+> > +                                   dev_name(&phy->dev), act ? " active" : "");
+> > +                       phy_found = 1;
+> > +               }
+> 
+> This is clunky, and you are duplicating what of_mdiobus_register() will do for
+> you, but since you are not using the standard Ethernet PHY device tree node,
+> you could not use that code. So please use the standard Ethernet PHY device
+> tree node such that you can remove that code and leverage it instead.
+I'll consider it. but I think after this patch set.
+
+> --
+> Florian
