@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ieee802154: properly unshare skbs in
- ieee802154 *_rcv functions
-Date: Tue, 18 Mar 2014 16:02:30 -0400 (EDT)
-Message-ID: <20140318.160230.2183096530710923639.davem@davemloft.net>
-References: <1395070888-1130-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Subject: Re: [PATCH net-next 0/3] cnic bug fixes for net-next
+Date: Tue, 18 Mar 2014 16:03:58 -0400 (EDT)
+Message-ID: <20140318.160358.2154994158564465755.davem@davemloft.net>
+References: <1395112748-21965-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
-To: phoebe.buckheister@itwm.fraunhofer.de
+Cc: netdev@vger.kernel.org, eddie.wai@broadcom.com
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55243 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55255 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756656AbaCRUCc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 16:02:32 -0400
-In-Reply-To: <1395070888-1130-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+	with ESMTP id S1756841AbaCRUEA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 16:04:00 -0400
+In-Reply-To: <1395112748-21965-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-Date: Mon, 17 Mar 2014 16:41:28 +0100
+From: Michael Chan <mchan@broadcom.com>
+Date: Mon, 17 Mar 2014 19:19:05 -0800
 
-> ieee802154 sockets do not properly unshare received skbs, which leads to
-> panics (at least) when they are used in conjunction with 6lowpan, so
-> run skb_share_check on received skbs.
-> 6lowpan also contains a use-after-free, which is trivially fixed by
-> replacing the inlined skb_share_check with the explicit call.
-> 
-> Signed-off-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+> Michael Chan (3):
+>   cnic: Use proper ulp_ops for per device operations.
+>   cnic,bnx2i,bnx2fc: Fix inconsistent use of page size
+>   cnic: Update version to 2.5.20 and copyright year.
 
-Applied, thank you.
+Series applied, thanks.
