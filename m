@@ -1,116 +1,102 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next] igb: remove references to long gone command line parameters
-Date: Tue, 18 Mar 2014 00:26:48 -0700
-Message-ID: <1395127610-3290-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Fernando Luis Vazquez Cao <fernando_b1@lab.ntt.co.jp>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>,
+Subject: [net-next] i40evf: Rename i40e_ptype_lookup i40evf_ptype_lookup
+Date: Tue, 18 Mar 2014 00:26:50 -0700
+Message-ID: <1395127610-3290-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Eric W Biederman <ebiederm@xmission.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:43006 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:23596 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752534AbaCRH06 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Mar 2014 03:26:58 -0400
+	id S1753462AbaCRH07 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Mar 2014 03:26:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fernando Luis Vazquez Cao <fernando_b1@lab.ntt.co.jp>
+From: Eric W Biederman <ebiederm@xmission.com>
 
-Command line parameters QueuePairs, Node, EEE, DMAC and InterruptThrottleRate
-do not exist these days. Remove all references to them in the Documentation
-folder and update code comments.
+When compiling the i40e and the i40evf driver into the same kernel I get:
+LD      drivers/net/ethernet/intel/built-in.o
+drivers/net/ethernet/intel/i40evf/built-in.o:(.data+0x300): multiple definition of `i40e_ptype_lookup'
+drivers/net/ethernet/intel/i40e/built-in.o:(.data+0x780): first defined here
+make[3]: *** [drivers/net/ethernet/intel/built-in.o] Error 1
+make[2]: *** [drivers/net/ethernet/intel] Error 2
+make[1]: *** [drivers/net/ethernet/] Error 2
+make: *** [sub-make] Error 2
 
-Signed-off-by: Fernando Luis Vazquez Cao <fernando@oss.ntt.co.jp>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Fix this by renaming the i40evf version of this structure from
+i40e_ptype_lookup to i40evf_ptype_lookup.
+
+This build failure was introduced in:
+  commit 206812b5fccb808d1194344eaa942f68f59b2630
+  Author: Jesse Brandeburg <jesse.brandeburg@intel.com>
+  i40e/i40evf: i40e implementation for skb_set_hash
+
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>
+Signed-off-by: Eric W Biederman <ebiederm@xmission.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- Documentation/networking/igb.txt          | 48 -------------------------------
- drivers/net/ethernet/intel/igb/igb_main.c |  6 ++--
- 2 files changed, 2 insertions(+), 52 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40e_common.c    | 8 ++++----
+ drivers/net/ethernet/intel/i40evf/i40e_prototype.h | 4 ++--
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/Documentation/networking/igb.txt b/Documentation/networking/igb.txt
-index 4ebbd65..43d3549 100644
---- a/Documentation/networking/igb.txt
-+++ b/Documentation/networking/igb.txt
-@@ -36,54 +36,6 @@ Default Value: 0
- This parameter adds support for SR-IOV.  It causes the driver to spawn up to
- max_vfs worth of virtual function.
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+index 78618af..c688a0f 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+@@ -160,7 +160,7 @@ i40e_status i40evf_aq_queue_shutdown(struct i40e_hw *hw,
+ }
  
--QueuePairs
------------
--Valid Range:  0-1
--Default Value:  1 (TX and RX will be paired onto one interrupt vector)
--
--If set to 0, when MSI-X is enabled, the TX and RX will attempt to occupy
--separate vectors.
--
--This option can be overridden to 1 if there are not sufficient interrupts
--available.  This can occur if any combination of RSS, VMDQ, and max_vfs
--results in more than 4 queues being used.
--
--Node
------
--Valid Range:   0-n
--Default Value: -1 (off)
--
--  0 - n: where n is the number of the NUMA node that should be used to
--         allocate memory for this adapter port.
--  -1: uses the driver default of allocating memory on whichever processor is
--      running insmod/modprobe.
--
--  The Node parameter will allow you to pick which NUMA node you want to have
--  the adapter allocate memory from.  All driver structures, in-memory queues,
--  and receive buffers will be allocated on the node specified.  This parameter
--  is only useful when interrupt affinity is specified, otherwise some portion
--  of the time the interrupt could run on a different core than the memory is
--  allocated on, causing slower memory access and impacting throughput, CPU, or
--  both.
--
--EEE
-----
--Valid Range:  0-1
--Default Value: 1 (enabled)
--
--  A link between two EEE-compliant devices will result in periodic bursts of
--  data followed by long periods where in the link is in an idle state. This Low
--  Power Idle (LPI) state is supported in both 1Gbps and 100Mbps link speeds.
--  NOTE: EEE support requires autonegotiation.
--
--DMAC
------
--Valid Range: 0-1
--Default Value: 1 (enabled)
--  Enables or disables DMA Coalescing feature.
--
--
--
- Additional Configurations
- =========================
  
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index d6b1152..ac06492 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -4347,8 +4347,7 @@ enum latency_range {
-  *  were determined based on theoretical maximum wire speed and testing
-  *  data, in order to minimize response time while increasing bulk
-  *  throughput.
-- *  This functionality is controlled by the InterruptThrottleRate module
-- *  parameter (see igb_param.c)
-+ *  This functionality is controlled by ethtool's coalescing settings.
-  *  NOTE:  This function is called only when operating in a multiqueue
-  *         receive environment.
-  **/
-@@ -4422,8 +4421,7 @@ clear_counts:
-  *  based on theoretical maximum wire speed and thresholds were set based
-  *  on testing data as well as attempting to minimize response time
-  *  while increasing bulk throughput.
-- *  this functionality is controlled by the InterruptThrottleRate module
-- *  parameter (see igb_param.c)
-+ *  This functionality is controlled by ethtool's coalescing settings.
-  *  NOTE:  These calculations are only valid when operating in a single-
-  *         queue environment.
-  **/
+-/* The i40e_ptype_lookup table is used to convert from the 8-bit ptype in the
++/* The i40evf_ptype_lookup table is used to convert from the 8-bit ptype in the
+  * hardware to a bit-field that can be used by SW to more easily determine the
+  * packet type.
+  *
+@@ -173,10 +173,10 @@ i40e_status i40evf_aq_queue_shutdown(struct i40e_hw *hw,
+  *
+  * Typical work flow:
+  *
+- * IF NOT i40e_ptype_lookup[ptype].known
++ * IF NOT i40evf_ptype_lookup[ptype].known
+  * THEN
+  *      Packet is unknown
+- * ELSE IF i40e_ptype_lookup[ptype].outer_ip == I40E_RX_PTYPE_OUTER_IP
++ * ELSE IF i40evf_ptype_lookup[ptype].outer_ip == I40E_RX_PTYPE_OUTER_IP
+  *      Use the rest of the fields to look at the tunnels, inner protocols, etc
+  * ELSE
+  *      Use the enum i40e_rx_l2_ptype to decode the packet type
+@@ -205,7 +205,7 @@ i40e_status i40evf_aq_queue_shutdown(struct i40e_hw *hw,
+ #define I40E_RX_PTYPE_INNER_PROT_TS	I40E_RX_PTYPE_INNER_PROT_TIMESYNC
+ 
+ /* Lookup table mapping the HW PTYPE to the bit field for decoding */
+-struct i40e_rx_ptype_decoded i40e_ptype_lookup[] = {
++struct i40e_rx_ptype_decoded i40evf_ptype_lookup[] = {
+ 	/* L2 Packet types */
+ 	I40E_PTT_UNUSED_ENTRY(0),
+ 	I40E_PTT(1,  L2, NONE, NOF, NONE, NONE, NOF, NONE, PAY2),
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_prototype.h b/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
+index 33c9905..862fcdf 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
+@@ -63,11 +63,11 @@ i40e_status i40evf_aq_queue_shutdown(struct i40e_hw *hw,
+ 
+ i40e_status i40e_set_mac_type(struct i40e_hw *hw);
+ 
+-extern struct i40e_rx_ptype_decoded i40e_ptype_lookup[];
++extern struct i40e_rx_ptype_decoded i40evf_ptype_lookup[];
+ 
+ static inline struct i40e_rx_ptype_decoded decode_rx_desc_ptype(u8 ptype)
+ {
+-	return  i40e_ptype_lookup[ptype];
++	return  i40evf_ptype_lookup[ptype];
+ }
+ 
+ /* prototype for functions used for SW locks */
 -- 
 1.8.3.1
