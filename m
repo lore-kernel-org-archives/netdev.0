@@ -1,47 +1,85 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next v2 2/3] bonding: support QinQ for bond arp
- interval
-Date: Tue, 18 Mar 2014 13:05:58 +0100
-Message-ID: <20140318120558.GA6430@redhat.com>
-References: <1395139433-19576-1-git-send-email-dingtianhong@huawei.com>
- <1395139433-19576-3-git-send-email-dingtianhong@huawei.com>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: [PATCH 1/3] Documentation: add Device tree bindings for
+ Hisilicon hip04 ethernet
+Date: Tue, 18 Mar 2014 12:34:51 +0000
+Message-ID: <20140318123451.GA2941@e106331-lin.cambridge.arm.com>
+References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
+ <1395132017-15928-2-git-send-email-zhangfei.gao@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: fubar@us.ibm.com, andy@greyhouse.net, kaber@trash.net,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Zhangfei Gao <zhangfei.gao@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1747 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754145AbaCRMGY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Mar 2014 08:06:24 -0400
+Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:42696 "EHLO
+	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754659AbaCRMfW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 08:35:22 -0400
 Content-Disposition: inline
-In-Reply-To: <1395139433-19576-3-git-send-email-dingtianhong@huawei.com>
+In-Reply-To: <1395132017-15928-2-git-send-email-zhangfei.gao@linaro.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 18, 2014 at 06:43:52PM +0800, Ding Tianhong wrote:
-...snip...
->-	if (vlan_id) {
->-		skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vlan_id);
->+	if (outer->vlan_id) {
->+		if (inner->vlan_id) {
->+			pr_debug("inner tag: proto %X vid %X\n",
->+				 ntohs(inner->vlan_proto), inner->vlan_id);
->+			skb = __vlan_put_tag(skb, inner->vlan_proto, inner->vlan_id);
->+			if (!skb) {
->+				pr_err("failed to insert inner VLAN tag\n");
->+				return;
->+			}
->+		}
->+
->+		pr_debug("outer reg: proto %X vid %X\n",
->+			 ntohs(outer->vlan_proto), outer->vlan_id);
->+		skb = vlan_put_tag(skb, outer->vlan_proto, outer->vlan_id);
+On Tue, Mar 18, 2014 at 08:40:15AM +0000, Zhangfei Gao wrote:
+> This patch adds the Device Tree bindings for the Hisilicon hip04
+> Ethernet controller, including 100M / 1000M controller.
+> 
+> Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
+> ---
+>  .../bindings/net/hisilicon-hip04-net.txt           |   74 ++++++++++++++++++++
+>  1 file changed, 74 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt b/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
+> new file mode 100644
+> index 0000000..c918f08
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
+> @@ -0,0 +1,74 @@
+> +Hisilicon hip04 Ethernet Controller
+> +
+> +* Ethernet controller node
+> +
+> +Required properties:
+> +- compatible: should be "hisilicon,hip04-mac".
+> +- reg: address and length of the register set for the device.
+> +- interrupts: interrupt for the device.
+> +- port: ppe port number connected to the controller: range from 0 to 31.
 
-If I read correctly then the inner->vlan_proto will always be ETH_P_8021AD,
-whilst the outer will also always be ETH_P_8021Q. So I think it'd be a lot
-easier (and more readable) to just pass 2 vlan ids, and set those protos
-statically - that will save you from adding that new function to vlan core,
-fro madding a new struct that you've added here and make it several lines
-less.
+ppe?
+
+Will there ever be more than one ppe? If so, describing the linkage to
+the ppe with a phandle + args approach is preferable.
+
+> +- speed: 100 (100M) or 1000 (1000M).
+
+Can you not query this from the hardware?
+
+> +- id: should be different and fe should be 0.
+
+This description is useless.
+
+What is this for, and why does this need to be in the dt? What is "fe"?
+
+> +
+> +Optional Properties:
+> +- phy-handle : the phandle to a PHY node
+> +
+> +
+> +* Ethernet ppe node: control rx & tx fifos of all ethernet controllers
+> +
+> +Required properties:
+> +- compatible: should be "hisilicon,hip04-ppebase".
+
+Why "ppebase" rather than "ppe"?
+
+> +- reg: address and length of the register set for the node.
+
+s/node/device/
+
+Cheers,
+Mark.
