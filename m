@@ -1,41 +1,80 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: hv_netvsc calls RTM_NEWLINK with eth%d
-Date: Tue, 18 Mar 2014 19:23:42 +0000
-Message-ID: <2b804c0c102e471ebb6a933995f7dba6@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <20140318185218.GA28692@aepfle.de>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next v2 2/3] bonding: support QinQ for bond arp
+ interval
+Date: Tue, 18 Mar 2014 20:27:42 +0100
+Message-ID: <20140318192742.GB6430@redhat.com>
+References: <1395139433-19576-1-git-send-email-dingtianhong@huawei.com>
+ <1395139433-19576-3-git-send-email-dingtianhong@huawei.com>
+ <20140318120558.GA6430@redhat.com>
+ <7072.1395165598@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Olaf Hering <olaf@aepfle.de>, KY Srinivasan <kys@microsoft.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Ding Tianhong <dingtianhong@huawei.com>, andy@greyhouse.net,
+	kaber@trash.net, davem@davemloft.net, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na01-sn2-obe.ptr.o365filtering.com ([157.55.158.29]:22778 "EHLO
-	na01-sn2-obe.outbound.o365filtering.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757702AbaCRTXw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 15:23:52 -0400
-In-Reply-To: <20140318185218.GA28692@aepfle.de>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:22721 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757861AbaCRT2A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Mar 2014 15:28:00 -0400
+Content-Disposition: inline
+In-Reply-To: <7072.1395165598@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT2xhZiBIZXJpbmcgW21h
-aWx0bzpvbGFmQGFlcGZsZS5kZV0NCj4gU2VudDogVHVlc2RheSwgTWFyY2ggMTgsIDIwMTQgMjo1
-MiBQTQ0KPiBUbzogSGFpeWFuZyBaaGFuZzsgS1kgU3Jpbml2YXNhbg0KPiBDYzogbmV0ZGV2QHZn
-ZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBodl9uZXR2c2MgY2FsbHMgUlRNX05FV0xJTksgd2l0
-aCBldGglZA0KPiANCj4gDQo+IEZvciBzb21lIHJlYXNvbiAnbW9kcHJvYmUgLXIgaHZfbmV0dnNj
-O21vZHByb2JlIGh2X25ldHZzYycgY2F1c2VzIGENCj4gUlRNX05FV0xJTksgbWVzc2FnZSB3aXRo
-IGlmbmFtZSAiZXRoJWQiLiBUaGlzIGNvbmZ1c2VzIGFwcGxpY2F0aW9ucw0KPiByZWFjdGluZyB0
-byBSVE1fTkVXTElOSyBtZXNzYWdlcy4gQXQgdGhlIHRpbWUgdGhleSBhY3R1YWxseSBnZXQgdG8N
-Cj4gcHJvY2Vzc2luZyB0aGUgbWVzc2FnZSBldGglZCBpcyBhbHJlYWR5IHJlbmFtZWQgdG8gZXRo
-MCAoSSB0aGluaykuDQo+IA0KPiBJIGFkZGVkIGxvdHMgb2YgZGVidWcgdG8gdHJhY2UgUlRNX05F
-V0xJTksgY2FsbHMsIGFuZCBpdCB0dXJuZWQgb3V0IHRoYXQNCj4gdGhlIGV2ZW50IGlzIGlzc3Vl
-ZCBiZWZvcmUgcmVnaXN0ZXJfbmV0ZGV2aWNlIGNhbGxzIGRldl9nZXRfdmFsaWRfbmFtZS4NCj4g
-DQo+IElzIHRoZXJlIGEgY2hhbmNlIHRvIHJlYXJyYW5nZSB0aGUgY2FsbHMgaW4gbmV0dnNjX3By
-b2JlLCBzbyB0aGF0DQo+IFJUTV9ORVdMSU5LIG1lc3NhZ2VzIHdpdGggaWZuYW1lICJldGglZCIg
-ZG8gbm90IGhhcHBlbiBhbnltb3JlPw0KDQpZZXMsIGFuZCBhY3R1YWxseSBJIGhhdmUgYWxyZWFk
-eSBhZGRlZCBhIGNvbmRpdGlvbiBpbiBuZXR2c2NfbGlua3N0YXR1c19jYWxsYmFjaygpLA0Kc28g
-dGhhdCBuZXRkZXZfbm90aWZ5X3BlZXJzKCkgd29uJ3QgYmUgY2FsbGVkIGJlZm9yZSBuZXRkZXZp
-Y2UgaXMgcmVnaXN0ZXJlZC4NCg0KVGhlIGNvbW1pdDoNCmh0dHA6Ly9naXQua2VybmVsLm9yZy9j
-Z2l0L2xpbnV4L2tlcm5lbC9naXQvbmV4dC9saW51eC1uZXh0LmdpdC9jb21taXQvZHJpdmVycy9u
-ZXQvaHlwZXJ2P2lkPTg5MWRlNzRkNjkzYmI0ZmVmZTJlZmNjNjQzMmE0YTlhOWJlZTU2MWUNCg0K
-VGhhbmtzLA0KLSBIYWl5YW5nDQoNCg==
+On Tue, Mar 18, 2014 at 10:59:58AM -0700, Jay Vosburgh wrote:
+>Veaceslav Falico <vfalico@redhat.com> wrote:
+>
+>>On Tue, Mar 18, 2014 at 06:43:52PM +0800, Ding Tianhong wrote:
+>>...snip...
+>>>-	if (vlan_id) {
+>>>-		skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vlan_id);
+>>>+	if (outer->vlan_id) {
+>>>+		if (inner->vlan_id) {
+>>>+			pr_debug("inner tag: proto %X vid %X\n",
+>>>+				 ntohs(inner->vlan_proto), inner->vlan_id);
+>>>+			skb = __vlan_put_tag(skb, inner->vlan_proto, inner->vlan_id);
+>>>+			if (!skb) {
+>>>+				pr_err("failed to insert inner VLAN tag\n");
+>>>+				return;
+>>>+			}
+>>>+		}
+>>>+
+>>>+		pr_debug("outer reg: proto %X vid %X\n",
+>>>+			 ntohs(outer->vlan_proto), outer->vlan_id);
+>>>+		skb = vlan_put_tag(skb, outer->vlan_proto, outer->vlan_id);
+>>
+>>If I read correctly then the inner->vlan_proto will always be ETH_P_8021AD,
+>>whilst the outer will also always be ETH_P_8021Q. So I think it'd be a lot
+>>easier (and more readable) to just pass 2 vlan ids, and set those protos
+>>statically - that will save you from adding that new function to vlan core,
+>>fro madding a new struct that you've added here and make it several lines
+>>less.
+>
+>	Do you mean that the outer will always be 8021AD and the inner
+>8021Q?  The inner/outer terminology is making my brain hurt, since the
+>ip commands to configure them look backwards to me.  I think of it as
+>the outer tag is the first one sequentially in the ethernet header, and
+>the inner tag is second in the header.
+
+Yep, like that. You're right, the outer is the first, the inner is the
+second. I always thought about vlans as some type of "encapsulation", with
+vlan over vlan over packet meaning "packet encapsulated in an vlan,
+encapsulated in a vlan", so the outer and inner vlans make sense for me :).
+Though I understand this example isn't technically completely correct.
+
+>
+>	Anyway, in the past, I've seen configurations with 802.1q VLANs
+>nested such that the inner and outer tags were both 802.1q 0x8100
+>ethertype, so I'm not sure that hard-coding these is necessarily a good
+>idea.
+
+Yeah, you're right, seems like there are a lot of non-IEEE hacks out there,
+so it's definitely better to use the proto specified by the user.
+
+>
+>	-J
+>
+>---
+>	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>
