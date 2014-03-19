@@ -1,68 +1,158 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2a RESEND 2/2] of_mdio: Allow the DT to specify the phy
- ID and avoid autoprobing
-Date: Thu, 20 Mar 2014 02:53:19 +0300
-Message-ID: <532A2DEF.9040101@cogentembedded.com>
-References: <1394658311-17769-1-git-send-email-jgunthorpe@obsidianresearch.com> <1394658311-17769-2-git-send-email-jgunthorpe@obsidianresearch.com> <CAL_Jsq+qdbiwXErkZv1zZ9rphYY9NP6zHmmjw313tMvGeSTODg@mail.gmail.com> <20140319221404.GA1154@obsidianresearch.com> <532A262B.803@cogentembedded.com> <20140319223633.GC1154@obsidianresearch.com>
+From: Dimitrios Michailidis <dm@chelsio.com>
+Subject: RE: [PATCH] cxgb4: fix probe when already with invalid parameters
+Date: Wed, 19 Mar 2014 22:54:22 +0000
+Message-ID: <CBA48B605613B640864883107238931C10D4A6@nice.asicdesigners.com>
+References: <1395254994-12011-1-git-send-email-cascardo@linux.vnet.ibm.com>
+ <CBA48B605613B640864883107238931C10D383@nice.asicdesigners.com>
+ <20140319215714.GA19326@oc0268524204.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Rob Herring <robherring2@gmail.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Casey Leedom <leedom@chelsio.com>
+To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:55713 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753760AbaCSWxZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 18:53:25 -0400
-Received: by mail-la0-f51.google.com with SMTP id pv20so13049lab.38
-        for <netdev@vger.kernel.org>; Wed, 19 Mar 2014 15:53:23 -0700 (PDT)
-In-Reply-To: <20140319223633.GC1154@obsidianresearch.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:12215 "EHLO
+	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932140AbaCSWy0 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Mar 2014 18:54:26 -0400
+In-Reply-To: <20140319215714.GA19326@oc0268524204.ibm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/20/2014 01:36 AM, Jason Gunthorpe wrote:
+Thadeu Lima de Souza Cascardo wrote:
+> On Wed, Mar 19, 2014 at 09:38:49PM +0000, Dimitrios Michailidis wrote:
+> > Thadeu Lima de Souza Cascardo wrote:
+> > > Since commit 636f9d371f70f22961fd598fe18380057518ca31 ("cxgb4: Add
+> > > support for T4 configuration file"), we have problems when probing the
+> > > device, and finding out it's already initialized, but does not have
+> > > valid buffer sizes setup.
+> > >
+> > > This may happen with kexec without shutdown, or bad firmware or
+> > > bootloader.
+> > >
+> > > The usual symptom is that probe fails:
+> > >
+> > > [    2.605494] cxgb4 0000:50:00.4: Coming up as MASTER: Adapter already
+> > > initialized
+> > > [    2.605511] cxgb4 0000:50:00.4: bad SGE FL page buffer sizes [0, 0]
+> > > [    2.625629] cxgb4: probe of 0000:50:00.4 failed with error -22
+> > >
+> > > The solution is to treat the adapter as not initialized in case the
+> > > parameters are invalid.
+> >
+> > The patch doesn't look right to me.  Besides reinitializing the device when it
+> finds
+> > disagreeable settings it disregards that this PF may not be in charge of the
+> device.
+> > If the controlling PF (what the code calls master) selects values this PF doesn't
+> like
+> > with the patch it will elevate itself to master and install its own preferences.
+> >
+> > Also not right of course is that FW is claiming the device is initialized when
+> clearly it isn't.
+> > Can you tell me which FW version is involved here and what steps got the
+> device in this state?
+> >
+> 
+> We are trying to netboot, so it's possibly a problem on the Open
+> Firmware driver that makes it not send FW BYE before handling the CPU to
+> the bootloader. I could easily reproduce a similar situation by removing
+> the call to t4_fw_bye during the driver remove path, and reloading the
+> driver without commit 940d9d34a5467c2e2574866eb009d4cb61e27299
+> ("cxgb4:
+> allow large buffer size to have page size").
+> 
+> The firmware I am using is:
+> firmware-version: 1.9.23.0, TP 0.1.9.1
 
->>>>     The preferred multi-line comment style is:
+Thanks for the info.
 
->>>> /*
->>>>   * bla
->>>>   * bla
->>>>   */
+> How about the change below?
 
->>> Sergei, the entire file use the 'net' multi-line commenting style, and
->>> I have maintined that consistency with the new code.
+The problem with this one is once FW decides the device is initialized and ready for use
+it can let in secondary PFs.  They'll get unhappy when you reset the device under them to
+change the settings.  Here FW has put this PF in charge but also asked it not to change anything
+while the device isn't really fully initialized.
 
->>     No, you haven't followed the networking style. It is:
 
->> /* bla
->>   * bla
->>   */
-
->> while your comment used:
-
->> /* bla
->>   * bla */
-
-> Oh Ok - but the latter is the used by the majority of pre-existing
-> comments..
-
-> I thought the convention on stuff like this was to stick with the
-> existing style?
-
-    Hardly so when there's preferred one, described in CodingStyle.
-
-> Do you think it is worth a v4? If so, which style is appropriate?
-> There is one other pre-existing comment that uses net.
-
-    Well, use the net style then. I don't see significant difference between 
-it and the "default" preferred style.
-
-> Regards,
-> Jason
-
-WBR, Sergei
+> If that's OK, I'll send a v2.
+> 
+> Cascardo.
+> 
+> 
+> > > Signed-off-by: Thadeu Lima de Souza Cascardo
+> <cascardo@linux.vnet.ibm.com>
+> > > ---
+> > >  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   34 +++++++++++++----
+> -----
+> > >  1 files changed, 20 insertions(+), 14 deletions(-)
+> > >
+> > > diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> > > b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> > > index 34e2488..d0638f9 100644
+> > > --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> > > +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> > > @@ -5237,13 +5237,27 @@ static int adap_init0(struct adapter *adap)
+> > >  	 * master initialization), note that we're living with existing
+> > >  	 * adapter parameters.  Otherwise, it's time to try initializing the
+> > >  	 * adapter ...
+> > > +	 *
+> > > +	 * If we're living with non-hard-coded parameters (either from a
+> > > +	 * Firmware Configuration File or values programmed by a different PF
+> > > +	 * Driver), give the SGE code a chance to pull in anything that it
+> > > +	 * needs ...  Note that this must be called after we retrieve our VPD
+> > > +	 * parameters in order to know how to convert core ticks to seconds.
+> > >  	 */
+> > >  	if (state == DEV_STATE_INIT) {
+> > >  		dev_info(adap->pdev_dev, "Coming up as %s: "\
+> > >  			 "Adapter already initialized\n",
+> > >  			 adap->flags & MASTER_PF ? "MASTER" : "SLAVE");
+> > >  		adap->flags |= USING_SOFT_PARAMS;
+> > > -	} else {
+> > > +		ret = t4_sge_init(adap);
+> > > +		if (ret == -EINVAL) {
+> 
+> -		if (ret == -EINVAL) {
+> +		if (ret == -EINVAL && adap->flags & MASTER_PF) {
+> 
+> > > +			adap->flags &= ~USING_SOFT_PARAMS;
+> > > +			state = DEV_STATE_UNINIT;
+> > > +		} else if (ret < 0) {
+> > > +			goto bye;
+> > > +		}
+> > > +	}
+> > > +	if (state != DEV_STATE_INIT) {
+> > >  		dev_info(adap->pdev_dev, "Coming up as MASTER: "\
+> > >  			 "Initializing adapter\n");
+> > >
+> > > @@ -5300,19 +5314,11 @@ static int adap_init0(struct adapter *adap)
+> > >  				-ret);
+> > >  			goto bye;
+> > >  		}
+> > > -	}
+> > > -
+> > > -	/*
+> > > -	 * If we're living with non-hard-coded parameters (either from a
+> > > -	 * Firmware Configuration File or values programmed by a different PF
+> > > -	 * Driver), give the SGE code a chance to pull in anything that it
+> > > -	 * needs ...  Note that this must be called after we retrieve our VPD
+> > > -	 * parameters in order to know how to convert core ticks to seconds.
+> > > -	 */
+> > > -	if (adap->flags & USING_SOFT_PARAMS) {
+> > > -		ret = t4_sge_init(adap);
+> > > -		if (ret < 0)
+> > > -			goto bye;
+> > > +		if (adap->flags & USING_SOFT_PARAMS) {
+> > > +			ret = t4_sge_init(adap);
+> > > +			if (ret < 0)
+> > > +				goto bye;
+> > > +		}
+> > >  	}
+> > >
+> > >  	if (is_bypass_device(adap->pdev->device))
+> > > --
+> > > 1.7.1
+> >
