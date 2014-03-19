@@ -1,47 +1,80 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] ipv6: fix RTNL assert fail in DAD
-Date: Tue, 18 Mar 2014 23:58:11 -0700
-Message-ID: <20140318235811.0d8f230a@nehalam.linuxnetplumber.net>
-References: <20140317161853.2e880469@nehalam.linuxnetplumber.net>
-	<20140318002908.GF12291@order.stressinduktion.org>
-	<20140318175406.78339ffe@nehalam.linuxnetplumber.net>
-	<20140319.001736.730011705431992209.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Alexey Perevalov <a.perevalov@samsung.com>
+Subject: [PATCH] netfilter: x_tables: allow to use cgroup match for LOCAL_IN nf
+ hooks
+Date: Wed, 19 Mar 2014 10:58:42 +0400
+Message-ID: <1395212322-12508-1-git-send-email-a.perevalov@samsung.com>
+Cc: dborkman@redhat.com, kyungmin.park@samsung.com,
+	john.stultz@linaro.org, pablo@netfilter.org, edumazet@google.com,
+	a.perevalov@samsung.com
+To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:64755 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752555AbaCSG6P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 02:58:15 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rq2so8437515pbb.19
-        for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 23:58:15 -0700 (PDT)
-In-Reply-To: <20140319.001736.730011705431992209.davem@davemloft.net>
+Received: from mailout1.w1.samsung.com ([210.118.77.11]:60126 "EHLO
+	mailout1.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752349AbaCSG7Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 02:59:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 19 Mar 2014 00:17:36 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+This simple modification allows iptables to work with INPUT chain
+in combination with cgroup module. It could be useful for counting
+ingress traffic per cgroup with nfacct netfilter module. There
+were no problems to count the egress traffic that way formerly.
 
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Tue, 18 Mar 2014 17:54:06 -0700
-> 
-> > On Tue, 18 Mar 2014 01:29:08 +0100
-> > Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> > 
-> >> I wonder if we should put the whole ipv6_ifa_notify infrastructure in a
-> >> workqueue? I don't like that either and it could add subtile races.
-> > 
-> > That is option, might be some call chains that already have rtnl_lock held.
-> 
-> There are TAHI ipv6 conformance tests that expect state changes to be
-> precisely synchronous.
-> 
-> And frankly it's pretty reasonable to send two packets back to back,
-> one which causes the state change and one which tests if the state
-> change happened, and expect that to work.
+It's possible to get classified sk_buff after PREROUTING, due to
+socket lookup being done in early_demux (tcp_v4_early_demux). Also
+it works for udp as well.
 
-It is more the timer based state changes that are problematic because
-they aren't acquire RTNL.
+Trivial usage example, assuming we're in the same shell every step
+and we have enough permissions:
+
+1) Classic net_cls cgroup initialization:
+
+  mkdir /sys/fs/cgroup/net_cls
+  mount -t cgroup -o net_cls net_cls /sys/fs/cgroup/net_cls
+
+2) Set up cgroup for interesting application:
+
+  mkdir /sys/fs/cgroup/net_cls/wget
+  echo 1 > /sys/fs/cgroup/net_cls/wget/net_cls.classid
+  echo $BASHPID > /sys/fs/cgroup/net_cls/wget/cgroup.procs
+
+3) Create kernel counters:
+
+  nfacct add wget-cgroup-in
+  iptables -A INPUT -m cgroup ! --cgroup 1 -m nfacct --nfacct-name wget-cgroup-in
+
+  nfacct add wget-cgroup-out
+  iptables -A OUTPUT -m cgroup ! --cgroup 1 -m nfacct --nfacct-name wget-cgroup-out
+
+4) Network usage:
+
+  wget https://www.kernel.org/pub/linux/kernel/v3.x/testing/linux-3.14-rc6.tar.xz
+
+5) Check results:
+
+  nfacct list
+
+Cgroup approach is being used for the DataUsage (counting & blocking
+traffic) feature for Samsung's modification of the Tizen OS.
+
+Signed-off-by: Alexey Perevalov <a.perevalov@samsung.com>
+---
+ net/netfilter/xt_cgroup.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/netfilter/xt_cgroup.c b/net/netfilter/xt_cgroup.c
+index 9a8e77e7..f4e8330 100644
+--- a/net/netfilter/xt_cgroup.c
++++ b/net/netfilter/xt_cgroup.c
+@@ -54,7 +54,8 @@ static struct xt_match cgroup_mt_reg __read_mostly = {
+ 	.matchsize  = sizeof(struct xt_cgroup_info),
+ 	.me         = THIS_MODULE,
+ 	.hooks      = (1 << NF_INET_LOCAL_OUT) |
+-		      (1 << NF_INET_POST_ROUTING),
++		      (1 << NF_INET_POST_ROUTING) |
++		      (1 << NF_INET_LOCAL_IN),
+ };
+ 
+ static int __init cgroup_mt_init(void)
+-- 
+1.8.3.2
