@@ -1,148 +1,134 @@
-From: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v2] core, nfqueue,
-	openvswitch: Orphan frags in skb_zerocopy and handle errors
-Date: Wed, 19 Mar 2014 21:07:29 +0000
-Message-ID: <1395263249-16450-1-git-send-email-zoltan.kiss@citrix.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v7 9/9] xen-netback: Aggregate TX unmap operations
+Date: Wed, 19 Mar 2014 21:16:05 +0000
+Message-ID: <532A0915.5090006@citrix.com>
+References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com> <1394142511-14827-10-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Miklos Szeredi <mszeredi-AlSwsSmVLrQ@public.gmane.org>,
- kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
- Jan Beulich <JBeulich-IBi9RG/b67k@public.gmane.org>, Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
- Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
- Jozsef Kadlecsik <kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org>, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org,
- Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
- Paul Durrant <Paul.Durrant-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>,
+	Paul Durrant <Paul.Durrant@citrix.com>
+To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:52383 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754104AbaCSVQI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Mar 2014 17:16:08 -0400
+In-Reply-To: <1394142511-14827-10-git-send-email-zoltan.kiss@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-skb_zerocopy can copy elements of the frags array between skbs, but it doesn't
-orphan them. Also, it doesn't handle errors, so this patch takes care of that
-as well.
+Hi,
 
-Signed-off-by: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
----
-v2: orphan the frags right before touching the frags
+I'm thinking about revoking this patch: it's value is pretty small, but 
+it causes performance regression on Win7 guests. And probably it is not 
+the best solution for this problem. It might be the delay it takes the 
+dealloc thread to be scheduled is enough.
+What do you think?
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 03db95a..35c4e85 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2508,8 +2508,8 @@ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
- 		    unsigned int flags);
- void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to);
- unsigned int skb_zerocopy_headlen(const struct sk_buff *from);
--void skb_zerocopy(struct sk_buff *to, const struct sk_buff *from,
--		  int len, int hlen);
-+int skb_zerocopy(struct sk_buff *to, const struct sk_buff *from,
-+		 int len, int hlen);
- void skb_split(struct sk_buff *skb, struct sk_buff *skb1, const u32 len);
- int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen);
- void skb_scrub_packet(struct sk_buff *skb, bool xnet);
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 3f14c63..5cc99b1 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2127,25 +2127,31 @@ EXPORT_SYMBOL_GPL(skb_zerocopy_headlen);
-  *
-  *	The `hlen` as calculated by skb_zerocopy_headlen() specifies the
-  *	headroom in the `to` buffer.
-+ *
-+ *	Return value:
-+ *	0: everything is OK
-+ *	-ENOMEM: couldn't orphan frags of from due to lack of memory
-+ *	-EFAULT: skb_copy_bits() found some problem with geometry
-  */
--void
-+int
- skb_zerocopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
- {
- 	int i, j = 0;
- 	int plen = 0; /* length of skb->head fragment */
-+	int ret;
- 	struct page *page;
- 	unsigned int offset;
- 
- 	BUG_ON(!from->head_frag && !hlen);
- 
- 	/* dont bother with small payloads */
--	if (len <= skb_tailroom(to)) {
--		skb_copy_bits(from, 0, skb_put(to, len), len);
--		return;
--	}
-+	if (len <= skb_tailroom(to))
-+		return skb_copy_bits(from, 0, skb_put(to, len), len);
- 
- 	if (hlen) {
--		skb_copy_bits(from, 0, skb_put(to, hlen), hlen);
-+		ret = skb_copy_bits(from, 0, skb_put(to, hlen), hlen);
-+		if (unlikely(ret))
-+			return ret;
- 		len -= hlen;
- 	} else {
- 		plen = min_t(int, skb_headlen(from), len);
-@@ -2163,6 +2169,11 @@ skb_zerocopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
- 	to->len += len + plen;
- 	to->data_len += len + plen;
- 
-+	if (unlikely(skb_orphan_frags(to, GFP_ATOMIC))) {
-+		skb_tx_error(to);
-+		return -ENOMEM;
-+	}
-+
- 	for (i = 0; i < skb_shinfo(from)->nr_frags; i++) {
- 		if (!len)
- 			break;
-@@ -2173,6 +2184,8 @@ skb_zerocopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
- 		j++;
- 	}
- 	skb_shinfo(to)->nr_frags = j;
-+
-+	return 0;
- }
- EXPORT_SYMBOL_GPL(skb_zerocopy);
- 
-diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index f072fe8..ea02d16 100644
---- a/net/netfilter/nfnetlink_queue_core.c
-+++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -488,7 +488,8 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
- 		nla->nla_type = NFQA_PAYLOAD;
- 		nla->nla_len = nla_attr_size(data_len);
- 
--		skb_zerocopy(skb, entskb, data_len, hlen);
-+		if (skb_zerocopy(skb, entskb, data_len, hlen))
-+			goto nla_put_failure;
- 	}
- 
- 	nlh->nlmsg_len = skb->len;
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index c53fe0c..9a9f668 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -464,7 +464,9 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 	}
- 	nla->nla_len = nla_attr_size(skb->len);
- 
--	skb_zerocopy(user_skb, skb, skb->len, hlen);
-+	err = skb_zerocopy(user_skb, skb, skb->len, hlen);
-+	if (err)
-+		goto out;
- 
- 	/* Pad OVS_PACKET_ATTR_PACKET if linear copy was performed */
- 	if (!(dp->user_features & OVS_DP_F_UNALIGNED)) {
+Zoli
+
+On 06/03/14 21:48, Zoltan Kiss wrote:
+> Unmapping causes TLB flushing, therefore we should make it in the largest
+> possible batches. However we shouldn't starve the guest for too long. So if
+> the guest has space for at least two big packets and we don't have at least a
+> quarter ring to unmap, delay it for at most 1 milisec.
+>
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> ---
+> v4:
+> - use bool for tx_dealloc_work_todo
+>
+> v6:
+> - rebase tx_dealloc_work_todo due to missing ;
+>
+> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+> index d1cd8ce..95498c8 100644
+> --- a/drivers/net/xen-netback/common.h
+> +++ b/drivers/net/xen-netback/common.h
+> @@ -118,6 +118,8 @@ struct xenvif {
+>   	u16 dealloc_ring[MAX_PENDING_REQS];
+>   	struct task_struct *dealloc_task;
+>   	wait_queue_head_t dealloc_wq;
+> +	struct timer_list dealloc_delay;
+> +	bool dealloc_delay_timed_out;
+>
+>   	/* Use kthread for guest RX */
+>   	struct task_struct *task;
+> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+> index 40aa500..f925af5 100644
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -407,6 +407,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+>   			  .desc = i };
+>   		vif->grant_tx_handle[i] = NETBACK_INVALID_HANDLE;
+>   	}
+> +	init_timer(&vif->dealloc_delay);
+>
+>   	/*
+>   	 * Initialise a dummy MAC address. We choose the numerically
+> @@ -557,6 +558,7 @@ void xenvif_disconnect(struct xenvif *vif)
+>   	}
+>
+>   	if (vif->dealloc_task) {
+> +		del_timer_sync(&vif->dealloc_delay);
+>   		kthread_stop(vif->dealloc_task);
+>   		vif->dealloc_task = NULL;
+>   	}
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index bb65c7c..c098276 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -135,6 +135,11 @@ static inline pending_ring_idx_t nr_pending_reqs(struct xenvif *vif)
+>   		vif->pending_prod + vif->pending_cons;
+>   }
+>
+> +static inline pending_ring_idx_t nr_free_slots(struct xen_netif_tx_back_ring *ring)
+> +{
+> +	return ring->nr_ents -	(ring->sring->req_prod - ring->rsp_prod_pvt);
+> +}
+> +
+>   bool xenvif_rx_ring_slots_available(struct xenvif *vif, int needed)
+>   {
+>   	RING_IDX prod, cons;
+> @@ -1932,9 +1937,36 @@ static inline int tx_work_todo(struct xenvif *vif)
+>   	return 0;
+>   }
+>
+> +static void xenvif_dealloc_delay(unsigned long data)
+> +{
+> +	struct xenvif *vif = (struct xenvif *)data;
+> +
+> +	vif->dealloc_delay_timed_out = true;
+> +	wake_up(&vif->dealloc_wq);
+> +}
+> +
+>   static inline bool tx_dealloc_work_todo(struct xenvif *vif)
+>   {
+> -	return vif->dealloc_cons != vif->dealloc_prod;
+> +	if (vif->dealloc_cons != vif->dealloc_prod) {
+> +		if ((nr_free_slots(&vif->tx) > 2 * XEN_NETBK_LEGACY_SLOTS_MAX) &&
+> +		    (vif->dealloc_prod - vif->dealloc_cons < MAX_PENDING_REQS / 4) &&
+> +		    !vif->dealloc_delay_timed_out) {
+> +			if (!timer_pending(&vif->dealloc_delay)) {
+> +				vif->dealloc_delay.function =
+> +					xenvif_dealloc_delay;
+> +				vif->dealloc_delay.data = (unsigned long)vif;
+> +				mod_timer(&vif->dealloc_delay,
+> +					  jiffies + msecs_to_jiffies(1));
+> +
+> +			}
+> +			return false;
+> +		}
+> +		del_timer_sync(&vif->dealloc_delay);
+> +		vif->dealloc_delay_timed_out = false;
+> +		return true;
+> +	}
+> +
+> +	return false;
+>   }
+>
+>   void xenvif_unmap_frontend_rings(struct xenvif *vif)
+>
