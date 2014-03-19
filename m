@@ -1,61 +1,61 @@
-From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created with
- no group
-Date: Wed, 19 Mar 2014 21:52:31 +0200
-Message-ID: <CAF1J0HPT3u05uu6uLYDDu7cV11Ku6AHVooSLLAoaYj6wVtfemA@mail.gmail.com>
-References: <1395055050-20874-1-git-send-email-mike.rapoport@ravellosystems.com>
-	<OFEB1030F8.C147FA77-ON87257C9F.005CF370-87257C9F.005CF375@us.ibm.com>
-	<CAF1J0HOTLvyaWdmYLGLPn9AJLR6rQr4fk8EVFSzv5sckLuBwvw@mail.gmail.com>
-	<20140319.154649.1043650085697557640.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5 net-next 0/2] patchset: Support for configurable RSS
+ hash key
+Date: Wed, 19 Mar 2014 15:59:30 -0400 (EDT)
+Message-ID: <20140319.155930.1805664690676428310.davem@davemloft.net>
+References: <193620ac-855b-4c2a-b9ab-962b2edfbfa2@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: VenkatKumar.Duvvuru@Emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f43.google.com ([209.85.219.43]:53540 "EHLO
-	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753978AbaCSTwc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 15:52:32 -0400
-Received: by mail-oa0-f43.google.com with SMTP id eb12so3616769oac.30
-        for <netdev@vger.kernel.org>; Wed, 19 Mar 2014 12:52:32 -0700 (PDT)
-In-Reply-To: <20140319.154649.1043650085697557640.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38330 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753065AbaCST7c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 15:59:32 -0400
+In-Reply-To: <193620ac-855b-4c2a-b9ab-962b2edfbfa2@CMEXHTCAS2.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 19, 2014 at 9:46 PM, David Miller <davem@davemloft.net> wrote:
-> From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-> Date: Wed, 19 Mar 2014 09:14:46 +0200
->
->> On Tue, Mar 18, 2014 at 10:55:16AM -0600, David Stevens wrote:
->>>
->>> Wouldn't it be better to:
->>>
->>> 1) make sure all of vxlan_dev is initialized before use,
->>> especially default_dst
->>> 2) change the v6 code to check for AF_INET6 too, and do
->>> nothing if not set. If not set by the admin, the family of
->>> default_dst would then be AF_UNSPEC and not match.
->>
->> The family of default dst is implicitly initailized to AF_UNSPEC because
->> if kzalloc :)
->>
->> I agree that explicit check for AF_INET6 is much better than fallthrough
->> with simple 'else' clause and I can send a patch that makes the checks
->> for IPv6 as well as default_dst initialization explicit
->>
->> However, for the particular case in vxlan_rcv, checking the packet
->> version seems to me semantically more correct than comparing default_dst
->> protocol family with AF_INET or AF_INET6.
->
-> The way I read things, we would receive packets unconditionally in the
-> pre-ipv6-support code.  So we have to keep doing so.
->
-> Therefore we either have to check the SKB protocol or pass an explicit
-> protocol as an argument to vs->rcv(...).
+From: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
+Date: Mon, 17 Mar 2014 18:01:33 +0530
 
-Well, the patch I've sent checks for ip_hdr(skb) protocol version...
+> NIC drivers that support RSS use either a hard-coded value or a random value for
+> the RSS hash key. Irrespective of the type of the key used, the user would want
+> to change the hash key if he/she is not satisfied with the effectiveness of the
+> default hash-key in spreading the incoming flows evenly across the RSS queues.
+> 
+> This patch set adds support for configuring the RSS hash-key via the ethtool
+> interface using -X option.
 
--- 
-Sincerely yours,
-Mike.
+I apologize, but I really dislike this.  For several reasons.
+
+First, why aren't we adding _just_ a RSS hash changing interface?
+
+We already have an interface for changing the indirection table,
+there is absolutely not need to add a second interface that supports
+both indirection table _plus_ hash modifications.
+
+And combining these two is what leads to this hard to audit, ugly,
+data structure layout.
+
+There's the indirection table at some offset, then the key at some
+other offset.  This makes it impossible to impose type checking
+of any kind on both objects.
+
+And the data structure is furthermore named in a way that suggests
+it's just for doing things with the RSS hash.
+
+Just add:
+
+struct ethtool_rxfh {
+	__u32	cmd;
+	__u32	key_size;
+	__u32	key[0];
+};
+
+And that's it.
+
+To change the indirection table, call "ETHTOOL_SRXFH".  To set the
+RSS flow hash, call "ETHTOOL_SRSSH".
