@@ -1,63 +1,29 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH net-next] atheros/atlx: use SET_ETHTOOL_OPS directly
-Date: Wed, 19 Mar 2014 17:39:15 +0800
-Message-ID: <532965C3.6090706@huawei.com>
+From: ratheesh kannoth <ratheesh.ksz@gmail.com>
+Subject: openvswitch question
+Date: Wed, 19 Mar 2014 15:14:06 +0530
+Message-ID: <CAGZFCEHSVpH8XN4n3A3xhVtYNqp4kn3PM7aXWRCxKFSkQVfABQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <jcliburn@gmail.com>,
-	<chris.snook@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:15257 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932191AbaCSJje (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 05:39:34 -0400
+Received: from mail-yh0-f45.google.com ([209.85.213.45]:56357 "EHLO
+	mail-yh0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758904AbaCSJoH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 05:44:07 -0400
+Received: by mail-yh0-f45.google.com with SMTP id a41so8231945yho.18
+        for <netdev@vger.kernel.org>; Wed, 19 Mar 2014 02:44:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As commit a6e28b34205b("staging/et131x: use SET_ETHTOOL_OPS
-directly"), using a wrapper around SET_ETHTOOL_OPS macro is
-not actually required, remove and use SET_ETHTOOL_OPS directly.
+Hi list,
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- drivers/net/ethernet/atheros/atlx/atl2.c | 9 +--------
- 1 file changed, 1 insertion(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/atheros/atlx/atl2.c b/drivers/net/ethernet/atheros/atlx/atl2.c
-index 265ce1b..9262521 100644
---- a/drivers/net/ethernet/atheros/atlx/atl2.c
-+++ b/drivers/net/ethernet/atheros/atlx/atl2.c
-@@ -71,8 +71,6 @@ static DEFINE_PCI_DEVICE_TABLE(atl2_pci_tbl) = {
- };
- MODULE_DEVICE_TABLE(pci, atl2_pci_tbl);
- 
--static void atl2_set_ethtool_ops(struct net_device *netdev);
--
- static void atl2_check_options(struct atl2_adapter *adapter);
- 
- /**
-@@ -1397,7 +1395,7 @@ static int atl2_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	atl2_setup_pcicmd(pdev);
- 
- 	netdev->netdev_ops = &atl2_netdev_ops;
--	atl2_set_ethtool_ops(netdev);
-+	SET_ETHTOOL_OPS(netdev, &atl2_ethtool_ops);
- 	netdev->watchdog_timeo = 5 * HZ;
- 	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
- 
-@@ -2105,11 +2103,6 @@ static const struct ethtool_ops atl2_ethtool_ops = {
- 	.set_eeprom		= atl2_set_eeprom,
- };
- 
--static void atl2_set_ethtool_ops(struct net_device *netdev)
--{
--	SET_ETHTOOL_OPS(netdev, &atl2_ethtool_ops);
--}
--
- #define LBYTESWAP(a)  ((((a) & 0x00ff00ff) << 8) | \
- 	(((a) & 0xff00ff00) >> 8))
- #define LONGSWAP(a)   ((LBYTESWAP(a) << 16) | (LBYTESWAP(a) >> 16))
--- 
-1.7.12
+openvswitch internal devices are not real nic. So some routine should
+receive the packet  for this interface. Who is receiving packet for
+this internal device.
+I could find a question similar floating without any answer
+http://comments.gmane.org/gmane.network.openvswitch.devel/19402
+
+Any clue is really appreciated .
+
+-Ratheesh
