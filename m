@@ -1,65 +1,42 @@
-From: Joe Perches <joe@perches.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-next] ieee802154: fix variable declaration and
  initializer
-Date: Tue, 18 Mar 2014 22:11:25 -0700
-Message-ID: <1395205885.8649.35.camel@joe-AO722>
+Date: Tue, 18 Mar 2014 22:13:06 -0700
+Message-ID: <1395205986.9114.57.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1395199198-14310-1-git-send-email-sakiwit@gmail.com>
 	 <1395199941.9114.47.camel@edumazet-glaptop2.roam.corp.google.com>
 	 <1395200557.8649.20.camel@joe-AO722>
 	 <1395203754.9114.54.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140319045634.GB1448@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jean Sacren <sakiwit@gmail.com>,
+Cc: Joe Perches <joe@perches.com>,
 	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
 	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
 	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
 	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Jean Sacren <sakiwit@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0238.hostedemail.com ([216.40.44.238]:54502 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750779AbaCSFL2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 01:11:28 -0400
-In-Reply-To: <1395203754.9114.54.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:34785 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751349AbaCSFNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 01:13:07 -0400
+Received: by mail-pb0-f49.google.com with SMTP id jt11so8331830pbb.36
+        for <netdev@vger.kernel.org>; Tue, 18 Mar 2014 22:13:07 -0700 (PDT)
+In-Reply-To: <20140319045634.GB1448@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-03-18 at 21:35 -0700, Eric Dumazet wrote:
-> On Tue, 2014-03-18 at 20:42 -0700, Joe Perches wrote:
-> > On Tue, 2014-03-18 at 20:32 -0700, Eric Dumazet wrote:
-> > > On Tue, 2014-03-18 at 21:19 -0600, Jean Sacren wrote:
-> > > 
-> > > > 2) Fix the initializer by deleting the double logical negation
-> > > >    operators as they don't serve any purpose.
-> > > > 
-> > > ...
-> > > >  
-> > > >  static int phy_set_lbt(struct wpan_phy *phy, struct genl_info *info)
-> > > >  {
-> > > > -	u8 on = !!nla_get_u8(info->attrs[IEEE802154_ATTR_LBT_ENABLED]);
-> > > 
-> > > You do realize !!(a) is not equivalent to (a) ?
-> > 
-> > It is when the type it's assigned to also changes
-> > from u8 to bool.
-> 
-> I was referring to the changelog, obviously, see how I carefully
-> copy/pasted the relevant part ?
+On Tue, 2014-03-18 at 22:56 -0600, Jean Sacren wrote:
+> Stating it is a "fix" is not a false statement at all. !! falsely
+> changes the value to be int TWICE for nothing! Are you still not
+> convinced?
 
-No, that's not obvious at all actually.
+I think you are mistaken.
 
-I would have used "Change the type to bool and remove
-the now unnecessary !!" in the changelog to link Jean's
-points 1 and 2, but your statement and the code and
-commit log changes proposed by Jean don't match.
+X = !!(a) makes sure X is 0 or 1.
 
-The type _did_ change as described in point 1.
+Its a valid and useful construct.
 
-> Stating it is a 'fix' is quite a false statement, I see no fix at all,
-> maybe a cleanup, but I am not really convinced.
-
-Perhaps "fix" is a more flexible word than you imagine.
-Perhaps this a code style "fix" without logic change.
-
-<shrug>  I'm very ambivalent about it too.
+There is no _bug_ here.
