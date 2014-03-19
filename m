@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: linux-next: build failure after merge of the final tree
  (net-next tree related)
-Date: Tue, 18 Mar 2014 23:11:29 -0400 (EDT)
-Message-ID: <20140318.231129.458845509074325949.davem@davemloft.net>
-References: <20140317212100.9b57a2237439427be566ede7@canb.auug.org.au>
+Date: Tue, 18 Mar 2014 23:13:56 -0400 (EDT)
+Message-ID: <20140318.231356.794206182931803937.davem@davemloft.net>
+References: <20140318182752.ed10b8c685f31839f84a1ece@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jesse.brandeburg@intel.com
+	linux-kernel@vger.kernel.org, kaber@trash.net
 To: sfr@canb.auug.org.au
 Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20140317212100.9b57a2237439427be566ede7@canb.auug.org.au>
+In-Reply-To: <20140318182752.ed10b8c685f31839f84a1ece@canb.auug.org.au>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 17 Mar 2014 21:21:00 +1100
+Date: Tue, 18 Mar 2014 18:27:52 +1100
 
 > After merging the final tree, today's linux-next build (powerpc
 > allyesconfig) failed like this:
 > 
-> drivers/net/ethernet/intel/i40evf/built-in.o:(.data+0x1868): multiple definition of `i40e_ptype_lookup'
-> drivers/net/ethernet/intel/i40e/built-in.o:(.data+0x3f58): first defined here
-> 
-> Caused by commit 206812b5fccb ("i40e/i40evf: i40e implementation for
-> skb_set_hash") from the net-next tree.
-> 
-> I applied this patch for today (there is probably a better way):
-> 
-> From 6964d39f8436eade2cdb0c5236734c579b8b0897 Mon Sep 17 00:00:00 2001
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Mon, 17 Mar 2014 21:18:48 +1100
-> Subject: [PATCH] i40e/i40evf: i40e implementation for skb_set_hash fix
-> 
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> net/netfilter/nft_hash.c: In function 'nft_hash_tbl_free':
+> net/netfilter/nft_hash.c:79:3: error: implicit declaration of function 'vfree' [-Werror=implicit-function-declaration]
 
-Jeff Kirsher gave me a patch today that fixes this, thanks Stephen.
+I've applied the patch below to fix this, thanks.
+
+> Caused by commit ce6eb0d7c8ec ("netfilter: nft_hash: bug fixes and
+> resizing") from the net-next tree.  See Rule 1 in
+> Documentation/SubmitChecklist.
+
+This slips through a lot, and would happen less often if core x86
+headers didn't bring in vmalloc.h :-)
