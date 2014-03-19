@@ -1,59 +1,48 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 09/15] i40e/i40evf: Bump build versions
-Date: Tue, 18 Mar 2014 20:42:07 -0700
-Message-ID: <1395200533-16908-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 08/15] i40e: potential array underflow in i40e_vc_process_vf_msg()
+Date: Tue, 18 Mar 2014 20:42:06 -0700
+Message-ID: <1395200533-16908-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395200533-16908-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Dan Carpenter <dan.carpenter@oracle.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:18793 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:58703 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933750AbaCSDmU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Mar 2014 23:42:20 -0400
+	id S933747AbaCSDmT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Mar 2014 23:42:19 -0400
 In-Reply-To: <1395200533-16908-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
 
-Bump to version 0.3.36 for i40e and 0.9.16 for i40evf.
+If "vf_id" is smaller than hw->func_caps.vf_base_id then it leads to
+an array underflow of the pf->vf[] array.  This is unlikely to happen
+unless the hardware is bad, but it's a small change and it silences a
+static checker warning.
 
-Change-ID: I7b4ff97b32d2825181803c03c316381a7608a618
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Fixes: 7efa84b7abc1 ('i40e: support VFs on PFs other than 0')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 95433d4..1133542 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -38,7 +38,7 @@ static const char i40e_driver_string[] =
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 46fc2c6..f0dc71b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1774,7 +1774,7 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
+ 			   u32 v_retval, u8 *msg, u16 msglen)
+ {
+ 	struct i40e_hw *hw = &pf->hw;
+-	int local_vf_id = vf_id - hw->func_caps.vf_base_id;
++	unsigned int local_vf_id = vf_id - hw->func_caps.vf_base_id;
+ 	struct i40e_vf *vf;
+ 	int ret;
  
- #define DRV_VERSION_MAJOR 0
- #define DRV_VERSION_MINOR 3
--#define DRV_VERSION_BUILD 34
-+#define DRV_VERSION_BUILD 36
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 963387c..21934bf 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -31,7 +31,7 @@ char i40evf_driver_name[] = "i40evf";
- static const char i40evf_driver_string[] =
- 	"Intel(R) XL710 X710 Virtual Function Network Driver";
- 
--#define DRV_VERSION "0.9.14"
-+#define DRV_VERSION "0.9.16"
- const char i40evf_driver_version[] = DRV_VERSION;
- static const char i40evf_copyright[] =
- 	"Copyright (c) 2013 - 2014 Intel Corporation.";
 -- 
 1.8.3.1
