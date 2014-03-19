@@ -1,89 +1,61 @@
-From: Ben Chan <benchan@chromium.org>
-Subject: [PATCH net-next v4 2/2] net: cdc_ncm: respect operator preferred MTU reported by MBIM
-Date: Wed, 19 Mar 2014 14:00:06 -0700
-Message-ID: <1395262806-19237-3-git-send-email-benchan@chromium.org>
-References: <1395262806-19237-1-git-send-email-benchan@chromium.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
-	Greg Suarez <gsuarez@smithmicro.com>
-To: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, Oliver Neukum <oliver@neukum.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1395262806-19237-1-git-send-email-benchan@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] tcp: syncookies: do not use getnstimeofday()
+Date: Wed, 19 Mar 2014 14:06:21 -0700
+Message-ID: <1395263181.9114.69.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1379709176-1625-1-git-send-email-fw@strlen.de>
+	 <1395261524.9114.60.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:53571 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752771AbaCSVGV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 17:06:21 -0400
+Received: by mail-pa0-f48.google.com with SMTP id hz1so9490414pad.7
+        for <netdev@vger.kernel.org>; Wed, 19 Mar 2014 14:06:20 -0700 (PDT)
+In-Reply-To: <1395261524.9114.60.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-According to "Universal Serial Bus Communications Class Subclass
-Specification for Mobile Broadband Interface Model, Revision 1.0,
-Errata-1" published by USB-IF, the wMTU field of the MBIM extended
-functional descriptor indicates the operator preferred MTU for IP data
-streams.
+From: Eric Dumazet <edumazet@google.com>
 
-This patch modifies cdc_ncm_setup to ensure that the MTU value set on
-the usbnet device does not exceed the operator preferred MTU indicated
-by wMTU if the MBIM device exposes a MBIM extended functional
-descriptor.
+While it is true that getnstimeofday() uses about 40 cycles if TSC
+is available, it can use 1600 cycles if hpet is the clocksource.
 
-Signed-off-by: Ben Chan <benchan@chromium.org>
+Switch to local_clock(). This one consumes 26 cycles and is not
+impacted by a date/time change.
+
+Fixes: 8c27bd75f04f ("tcp: syncookies: reduce cookie lifetime to 128 seconds")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Florian Westphal <fw@strlen.de>
 ---
- drivers/net/usb/cdc_ncm.c   | 17 +++++++++++++++++
- include/linux/usb/cdc_ncm.h |  1 +
- 2 files changed, 18 insertions(+)
+ include/net/tcp.h |    7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index dbff290..e8711a8 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -74,6 +74,7 @@ static int cdc_ncm_setup(struct usbnet *dev)
- 	u8 iface_no;
- 	int err;
- 	int eth_hlen;
-+	u16 mbim_mtu;
- 	u16 ntb_fmt_supported;
- 	__le16 max_datagram_size;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index bb253b9b2f06..b7e524bb297e 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -484,16 +484,15 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+  * This counter is used both as a hash input and partially encoded into
+  * the cookie value.  A cookie is only validated further if the delta
+  * between the current counter value and the encoded one is less than this,
+- * i.e. a sent cookie is valid only at most for 128 seconds (or less if
++ * i.e. a sent cookie is valid only at most for 2*68 seconds (or less if
+  * the counter advances immediately after a cookie is generated).
+  */
+ #define MAX_SYNCOOKIE_AGE 2
  
-@@ -261,6 +262,14 @@ out:
- 	/* set MTU to max supported by the device if necessary */
- 	if (dev->net->mtu > ctx->max_datagram_size - eth_hlen)
- 		dev->net->mtu = ctx->max_datagram_size - eth_hlen;
-+
-+	/* do not exceed operater preferred MTU */
-+	if (ctx->mbim_extended_desc) {
-+		mbim_mtu = le16_to_cpu(ctx->mbim_extended_desc->wMTU);
-+		if (mbim_mtu != 0 && mbim_mtu < dev->net->mtu)
-+			dev->net->mtu = mbim_mtu;
-+	}
-+
- 	return 0;
+ static inline u32 tcp_cookie_time(void)
+ {
+-	struct timespec now;
+-	getnstimeofday(&now);
+-	return now.tv_sec >> 6; /* 64 seconds granularity */
++	/* 2^36 nsec = ~68.7 sec */
++	return local_clock() >> 36;
  }
  
-@@ -399,6 +408,14 @@ int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_
- 			ctx->mbim_desc = (const struct usb_cdc_mbim_desc *)buf;
- 			break;
- 
-+		case USB_CDC_MBIM_EXTENDED_TYPE:
-+			if (buf[0] < sizeof(*(ctx->mbim_extended_desc)))
-+				break;
-+
-+			ctx->mbim_extended_desc =
-+				(const struct usb_cdc_mbim_extended_desc *)buf;
-+			break;
-+
- 		default:
- 			break;
- 		}
-diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
-index c3fa807..bdf05fb 100644
---- a/include/linux/usb/cdc_ncm.h
-+++ b/include/linux/usb/cdc_ncm.h
-@@ -93,6 +93,7 @@ struct cdc_ncm_ctx {
- 
- 	const struct usb_cdc_ncm_desc *func_desc;
- 	const struct usb_cdc_mbim_desc *mbim_desc;
-+	const struct usb_cdc_mbim_extended_desc *mbim_extended_desc;
- 	const struct usb_cdc_ether_desc *ether_desc;
- 
- 	struct usb_interface *control;
--- 
-1.9.0.279.gdc9e3eb
+ u32 __cookie_v4_init_sequence(const struct iphdr *iph, const struct tcphdr *th,
