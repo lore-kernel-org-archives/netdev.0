@@ -1,59 +1,68 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] ipv6: fix RTNL assert fail in DAD
-Date: Wed, 19 Mar 2014 23:44:42 +0100
-Message-ID: <20140319224442.GJ12291@order.stressinduktion.org>
-References: <20140318175406.78339ffe@nehalam.linuxnetplumber.net> <20140319.001736.730011705431992209.davem@davemloft.net> <20140318235811.0d8f230a@nehalam.linuxnetplumber.net> <20140319.135319.2039055704156238608.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2a RESEND 2/2] of_mdio: Allow the DT to specify the phy
+ ID and avoid autoprobing
+Date: Thu, 20 Mar 2014 02:53:19 +0300
+Message-ID: <532A2DEF.9040101@cogentembedded.com>
+References: <1394658311-17769-1-git-send-email-jgunthorpe@obsidianresearch.com> <1394658311-17769-2-git-send-email-jgunthorpe@obsidianresearch.com> <CAL_Jsq+qdbiwXErkZv1zZ9rphYY9NP6zHmmjw313tMvGeSTODg@mail.gmail.com> <20140319221404.GA1154@obsidianresearch.com> <532A262B.803@cogentembedded.com> <20140319223633.GC1154@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Rob Herring <robherring2@gmail.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:47352 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755609AbaCSWon (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 18:44:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20140319.135319.2039055704156238608.davem@davemloft.net>
+Received: from mail-la0-f51.google.com ([209.85.215.51]:55713 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753760AbaCSWxZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 18:53:25 -0400
+Received: by mail-la0-f51.google.com with SMTP id pv20so13049lab.38
+        for <netdev@vger.kernel.org>; Wed, 19 Mar 2014 15:53:23 -0700 (PDT)
+In-Reply-To: <20140319223633.GC1154@obsidianresearch.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 19, 2014 at 01:53:19PM -0400, David Miller wrote:
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Tue, 18 Mar 2014 23:58:11 -0700
-> 
-> > On Wed, 19 Mar 2014 00:17:36 -0400 (EDT)
-> > David Miller <davem@davemloft.net> wrote:
-> > 
-> >> From: Stephen Hemminger <stephen@networkplumber.org>
-> >> Date: Tue, 18 Mar 2014 17:54:06 -0700
-> >> 
-> >> > On Tue, 18 Mar 2014 01:29:08 +0100
-> >> > Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> >> > 
-> >> >> I wonder if we should put the whole ipv6_ifa_notify infrastructure in a
-> >> >> workqueue? I don't like that either and it could add subtile races.
-> >> > 
-> >> > That is option, might be some call chains that already have rtnl_lock held.
-> >> 
-> >> There are TAHI ipv6 conformance tests that expect state changes to be
-> >> precisely synchronous.
+On 03/20/2014 01:36 AM, Jason Gunthorpe wrote:
 
-Exactly, I was afraid of those things (not exactly of TAHI breakage but of
-real packet loss in case of late workqueue scheduling).
+>>>>     The preferred multi-line comment style is:
 
-> >> And frankly it's pretty reasonable to send two packets back to back,
-> >> one which causes the state change and one which tests if the state
-> >> change happened, and expect that to work.
-> > 
-> > It is more the timer based state changes that are problematic because
-> > they aren't acquire RTNL.
-> 
-> Ok, the timer stuff could run from a workqueue just fine.
+>>>> /*
+>>>>   * bla
+>>>>   * bla
+>>>>   */
 
-We have no-timer invocations, too, like addrconf_prefix_rcv. In that case the
-whole handling of the router advertisment should get deferred into the
-workqueue.
+>>> Sergei, the entire file use the 'net' multi-line commenting style, and
+>>> I have maintined that consistency with the new code.
 
-Bye,
+>>     No, you haven't followed the networking style. It is:
 
-  Hannes
+>> /* bla
+>>   * bla
+>>   */
+
+>> while your comment used:
+
+>> /* bla
+>>   * bla */
+
+> Oh Ok - but the latter is the used by the majority of pre-existing
+> comments..
+
+> I thought the convention on stuff like this was to stick with the
+> existing style?
+
+    Hardly so when there's preferred one, described in CodingStyle.
+
+> Do you think it is worth a v4? If so, which style is appropriate?
+> There is one other pre-existing comment that uses net.
+
+    Well, use the net style then. I don't see significant difference between 
+it and the "default" preferred style.
+
+> Regards,
+> Jason
+
+WBR, Sergei
