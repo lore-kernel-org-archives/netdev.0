@@ -1,60 +1,122 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [patch 02/12] can: c_can: Fix hardware raminit function
-Date: Wed, 19 Mar 2014 10:22:27 +0100 (CET)
-Message-ID: <alpine.DEB.2.02.1403191016280.18573@ionos.tec.linutronix.de>
-References: <20140318171007.528610837@linutronix.de> <20140318171126.720944558@linutronix.de> <532892BC.7080406@pengutronix.de> <alpine.DEB.2.02.1403182313110.18573@ionos.tec.linutronix.de> <53293B31.2060406@hartkopp.net>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH v2 net-next] bonding: ratelimit pr_warn()s in 802.3ad mode
+Date: Wed, 19 Mar 2014 10:23:00 +0100
+Message-ID: <20140319092300.GA17378@redhat.com>
+References: <1394988903-19099-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Markus Pargmann <mpa@pengutronix.de>,
-	Benedikt Spranger <b.spranger@linutronix.de>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53293B31.2060406@hartkopp.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52479 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758262AbaCSJXI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Mar 2014 05:23:08 -0400
+Content-Disposition: inline
+In-Reply-To: <1394988903-19099-1-git-send-email-vfalico@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 19 Mar 2014, Oliver Hartkopp wrote:
-> On 18.03.2014 23:15, Thomas Gleixner wrote:
-> > On Tue, 18 Mar 2014, Marc Kleine-Budde wrote:
-> >> On 03/18/2014 06:19 PM, Thomas Gleixner wrote:
-> >>> +static void c_can_hw_raminit_wait(const struct c_can_priv *priv, u32 mask,
-> >>> +				  u32 val)
-> >>> +{
-> >>> +	/* We look only at the bits of our instance. */
-> >>> +	val &= mask;
-> >>> +	while ((readl(priv->raminit_ctrlreg) & mask) != val)
-> >>> +		udelay(1);
-> >>
-> >> Do we have to add a timeout here, or is it "safe" to have a potential
-> >> endless loop here? As you have probably tortured the hardware and driver
-> >> a lot (or have been tortured by them), I assume you would have added a
-> >> timeout check if you had seen a lockup here.
-> > 
-> > I haven't seen any failure on that. We could add a timeout for
-> > paranoia reasons. I'm quite sure that the raminit works as advertised
-> > when we do it the right way. The only way to wreckage it so far is by
-> > not waiting for it to complete.
-> 
-> As long as it is 100% guaranteed that we
-> 
-> 1. really work on a valid C_CAN core
-> 2. this CAN controller can not be unplugged
-> 
-> not adding a timeout would be ok.
+On Sun, Mar 16, 2014 at 05:55:03PM +0100, Veaceslav Falico wrote:
+>Only ratelimit the ones that might spam, omiting the ones from
+>enslave/deslave.
+>
+>CC: Jay Vosburgh <fubar@us.ibm.com>
+>CC: Andy Gospodarek <andy@greyhouse.net>
+>Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 
-The raminit port is a D_CAN specific thing. But yeah, adding a timeout
-wouldn't hurt at all.
+(sorry for the noise)
 
-Though the driver is incomplete anyway as not all D_CAN incarnations
-use the raminit port. There is another way to do that via the CFR
-register, which is not implemented in the driver.
+David, I've seen that this patch was applied to the tree - but either my
+mail broke, or did you stop sending notifications on accepted patches?
 
-It seems the chip integrator can chose between raminit port and CFR.
+Thanks a lot, and sorry again for bugging.
 
-Thanks,
-
-	tglx
+>---
+> drivers/net/bonding/bond_3ad.c | 34 +++++++++++++++++-----------------
+> 1 file changed, 17 insertions(+), 17 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+>index dee2a84..b667a51 100644
+>--- a/drivers/net/bonding/bond_3ad.c
+>+++ b/drivers/net/bonding/bond_3ad.c
+>@@ -1284,11 +1284,11 @@ static void ad_port_selection_logic(struct port *port)
+> 			/* meaning: the port was related to an aggregator
+> 			 * but was not on the aggregator port list
+> 			 */
+>-			pr_warn("%s: Warning: Port %d (on %s) was related to aggregator %d but was not on its port list\n",
+>-				port->slave->bond->dev->name,
+>-				port->actor_port_number,
+>-				port->slave->dev->name,
+>-				port->aggregator->aggregator_identifier);
+>+			pr_warn_ratelimited("%s: Warning: Port %d (on %s) was related to aggregator %d but was not on its port list\n",
+>+					    port->slave->bond->dev->name,
+>+					    port->actor_port_number,
+>+					    port->slave->dev->name,
+>+					    port->aggregator->aggregator_identifier);
+> 		}
+> 	}
+> 	/* search on all aggregators for a suitable aggregator for this port */
+>@@ -1445,9 +1445,9 @@ static struct aggregator *ad_agg_selection_test(struct aggregator *best,
+> 		break;
+>
+> 	default:
+>-		pr_warn("%s: Impossible agg select mode %d\n",
+>-			curr->slave->bond->dev->name,
+>-			__get_agg_selection_mode(curr->lag_ports));
+>+		pr_warn_ratelimited("%s: Impossible agg select mode %d\n",
+>+				    curr->slave->bond->dev->name,
+>+				    __get_agg_selection_mode(curr->lag_ports));
+> 		break;
+> 	}
+>
+>@@ -1560,9 +1560,9 @@ static void ad_agg_selection_logic(struct aggregator *agg)
+>
+> 		/* check if any partner replys */
+> 		if (best->is_individual) {
+>-			pr_warn("%s: Warning: No 802.3ad response from the link partner for any adapters in the bond\n",
+>-				best->slave ?
+>-				best->slave->bond->dev->name : "NULL");
+>+			pr_warn_ratelimited("%s: Warning: No 802.3ad response from the link partner for any adapters in the bond\n",
+>+					    best->slave ?
+>+					    best->slave->bond->dev->name : "NULL");
+> 		}
+>
+> 		best->is_active = 1;
+>@@ -2081,8 +2081,8 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+> 		/* select the active aggregator for the bond */
+> 		if (port) {
+> 			if (!port->slave) {
+>-				pr_warn("%s: Warning: bond's first port is uninitialized\n",
+>-					bond->dev->name);
+>+				pr_warn_ratelimited("%s: Warning: bond's first port is uninitialized\n",
+>+						    bond->dev->name);
+> 				goto re_arm;
+> 			}
+>
+>@@ -2096,8 +2096,8 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+> 	bond_for_each_slave_rcu(bond, slave, iter) {
+> 		port = &(SLAVE_AD_INFO(slave).port);
+> 		if (!port->slave) {
+>-			pr_warn("%s: Warning: Found an uninitialized port\n",
+>-				bond->dev->name);
+>+			pr_warn_ratelimited("%s: Warning: Found an uninitialized port\n",
+>+					    bond->dev->name);
+> 			goto re_arm;
+> 		}
+>
+>@@ -2158,8 +2158,8 @@ static int bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave,
+> 		port = &(SLAVE_AD_INFO(slave).port);
+>
+> 		if (!port->slave) {
+>-			pr_warn("%s: Warning: port of slave %s is uninitialized\n",
+>-				slave->dev->name, slave->bond->dev->name);
+>+			pr_warn_ratelimited("%s: Warning: port of slave %s is uninitialized\n",
+>+					    slave->dev->name, slave->bond->dev->name);
+> 			return ret;
+> 		}
+>
+>-- 
+>1.8.4
+>
