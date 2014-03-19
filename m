@@ -1,203 +1,58 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 3/5] net/mlx4: Add utils for N-Port VFs
-Date: Wed, 19 Mar 2014 18:11:51 +0200
-Message-ID: <1395245513-8139-4-git-send-email-ogerlitz@mellanox.com>
-References: <1395245513-8139-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 0/5] mlx4: Add support for single port VFs
+Date: Wed, 19 Mar 2014 18:11:48 +0200
+Message-ID: <1395245513-8139-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, roland@kernel.org,
 	jackm@dev.mellanox.co.il, amirv@mellanox.com, matanb@mellanox.com,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:37106 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:40582 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933980AbaCSQMT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Mar 2014 12:12:19 -0400
-In-Reply-To: <1395245513-8139-1-git-send-email-ogerlitz@mellanox.com>
+	id S932602AbaCSQMS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Mar 2014 12:12:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matan Barak <matanb@mellanox.com>
+Hi Dave, Roland
 
-This patch adds the following utils:
-1. Convert slave_id -> VF
-2. Get the active ports by slave_id
-3. Convert slave's port to real port
-4. Get the slave's port from real port
-5. Get all slaves that uses the i'th real port
-6. Get all slaves that uses the i'th real port exclusively
+The mlx4 Firmware && driver expose both ports of the device through one PCI function.
 
-Signed-off-by: Matan Barak <matanb@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/cmd.c  |  106 +++++++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/mlx4.h |    2 +
- include/linux/mlx4/device.h               |   27 +++++++
- 3 files changed, 135 insertions(+), 0 deletions(-)
+This can be non-optimal under virtualization schemes where the admin 
+would like the VF to expose one interface to the VM, etc.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 2b0b45e..59a1b27 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -2234,6 +2234,112 @@ static int mlx4_get_slave_indx(struct mlx4_dev *dev, int vf)
- 	return vf+1;
- }
- 
-+int mlx4_get_vf_indx(struct mlx4_dev *dev, int slave)
-+{
-+	if (slave < 1 || slave > dev->num_vfs) {
-+		mlx4_err(dev,
-+			 "Bad slave number:%d (number of activated slaves: %lu)\n",
-+			 slave, dev->num_slaves);
-+		return -EINVAL;
-+	}
-+	return slave - 1;
-+}
-+
-+struct mlx4_active_ports mlx4_get_active_ports(struct mlx4_dev *dev, int slave)
-+{
-+	struct mlx4_active_ports actv_ports;
-+	int vf;
-+
-+	bitmap_zero(actv_ports.ports, MLX4_MAX_PORTS);
-+
-+	if (slave == 0) {
-+		bitmap_fill(actv_ports.ports, dev->caps.num_ports);
-+		return actv_ports;
-+	}
-+
-+	vf = mlx4_get_vf_indx(dev, slave);
-+	if (vf < 0)
-+		return actv_ports;
-+
-+	bitmap_set(actv_ports.ports, dev->dev_vfs[vf].min_port - 1,
-+		   min((int)dev->dev_vfs[mlx4_get_vf_indx(dev, slave)].n_ports,
-+		   dev->caps.num_ports));
-+
-+	return actv_ports;
-+}
-+EXPORT_SYMBOL_GPL(mlx4_get_active_ports);
-+
-+int mlx4_slave_convert_port(struct mlx4_dev *dev, int slave, int port)
-+{
-+	unsigned n;
-+	struct mlx4_active_ports actv_ports = mlx4_get_active_ports(dev, slave);
-+	unsigned m = bitmap_weight(actv_ports.ports, dev->caps.num_ports);
-+
-+	if (port <= 0 || port > m)
-+		return -EINVAL;
-+
-+	n = find_first_bit(actv_ports.ports, dev->caps.num_ports);
-+	if (port <= n)
-+		port = n + 1;
-+
-+	return port;
-+}
-+EXPORT_SYMBOL_GPL(mlx4_slave_convert_port);
-+
-+int mlx4_phys_to_slave_port(struct mlx4_dev *dev, int slave, int port)
-+{
-+	struct mlx4_active_ports actv_ports = mlx4_get_active_ports(dev, slave);
-+	if (test_bit(port - 1, actv_ports.ports))
-+		return port -
-+			find_first_bit(actv_ports.ports, dev->caps.num_ports);
-+
-+	return -1;
-+}
-+EXPORT_SYMBOL_GPL(mlx4_phys_to_slave_port);
-+
-+struct mlx4_slaves_pport mlx4_phys_to_slaves_pport(struct mlx4_dev *dev,
-+						   int port)
-+{
-+	unsigned i;
-+	struct mlx4_slaves_pport slaves_pport;
-+
-+	bitmap_zero(slaves_pport.slaves, MLX4_MFUNC_MAX);
-+
-+	if (port <= 0 || port > dev->caps.num_ports)
-+		return slaves_pport;
-+
-+	for (i = 0; i < dev->num_vfs + 1; i++) {
-+		struct mlx4_active_ports actv_ports =
-+			mlx4_get_active_ports(dev, i);
-+		if (test_bit(port - 1, actv_ports.ports))
-+			set_bit(i, slaves_pport.slaves);
-+	}
-+
-+	return slaves_pport;
-+}
-+EXPORT_SYMBOL_GPL(mlx4_phys_to_slaves_pport);
-+
-+struct mlx4_slaves_pport mlx4_phys_to_slaves_pport_actv(
-+		struct mlx4_dev *dev,
-+		const struct mlx4_active_ports *crit_ports)
-+{
-+	unsigned i;
-+	struct mlx4_slaves_pport slaves_pport;
-+
-+	bitmap_zero(slaves_pport.slaves, MLX4_MFUNC_MAX);
-+
-+	for (i = 0; i < dev->num_vfs + 1; i++) {
-+		struct mlx4_active_ports actv_ports =
-+			mlx4_get_active_ports(dev, i);
-+		if (bitmap_equal(crit_ports->ports, actv_ports.ports,
-+				 dev->caps.num_ports))
-+			set_bit(i, slaves_pport.slaves);
-+	}
-+
-+	return slaves_pport;
-+}
-+EXPORT_SYMBOL_GPL(mlx4_phys_to_slaves_pport_actv);
-+
- int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u64 mac)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 6ba38c9..fe8715e 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -1289,5 +1289,7 @@ void mlx4_init_quotas(struct mlx4_dev *dev);
- 
- int mlx4_get_slave_num_gids(struct mlx4_dev *dev, int slave);
- int mlx4_get_base_gid_ix(struct mlx4_dev *dev, int slave);
-+/* Returns the VF index of slave */
-+int mlx4_get_vf_indx(struct mlx4_dev *dev, int slave);
- 
- #endif /* MLX4_H */
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index b3044f3..122c7ca 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -1204,4 +1204,31 @@ int mlx4_FLOW_STEERING_IB_UC_QP_RANGE(struct mlx4_dev *dev, u32 min_range_qpn,
- 
- cycle_t mlx4_read_clock(struct mlx4_dev *dev);
- 
-+struct mlx4_active_ports {
-+	DECLARE_BITMAP(ports, MLX4_MAX_PORTS);
-+};
-+/* Returns a bitmap of the physical ports which are assigned to slave */
-+struct mlx4_active_ports mlx4_get_active_ports(struct mlx4_dev *dev, int slave);
-+
-+/* Returns the physical port that represents the virtual port of the slave, */
-+/* or a value < 0 in case of an error. If a slave has 2 ports, the identity */
-+/* mapping is returned.							    */
-+int mlx4_slave_convert_port(struct mlx4_dev *dev, int slave, int port);
-+
-+struct mlx4_slaves_pport {
-+	DECLARE_BITMAP(slaves, MLX4_MFUNC_MAX);
-+};
-+/* Returns a bitmap of all slaves that are assigned to port. */
-+struct mlx4_slaves_pport mlx4_phys_to_slaves_pport(struct mlx4_dev *dev,
-+						   int port);
-+
-+/* Returns a bitmap of all slaves that are assigned exactly to all the */
-+/* the ports that are set in crit_ports.			       */
-+struct mlx4_slaves_pport mlx4_phys_to_slaves_pport_actv(
-+		struct mlx4_dev *dev,
-+		const struct mlx4_active_ports *crit_ports);
-+
-+/* Returns the slave's virtual port that represents the physical port. */
-+int mlx4_phys_to_slave_port(struct mlx4_dev *dev, int slave, int port);
-+
- #endif /* MLX4_DEVICE_H */
--- 
-1.7.1
+This series from Matan Barak adds support for single ported VFs. 
+
+Since all the VF interaction with the firmware passes through the PF
+ driver, we can emulate to the VF they have one port, and further create 
+a set of the VFs which act on port1 of the device and another set which 
+acts on port2.
+
+Series done against net-next commit 3ab428a "netfilter: Add missing 
+vmalloc.h include to nft_hash.c"
+
+Roland, we send this through netdev, but if you have comments, will love
+to hear them.
+
+Or.
+
+Matan Barak (5):
+  IB/mlx4_ib: Adapt code to use caps.num_ports instead of a constant
+  net/mlx4: Add data structures to support N-Ports per VF
+  net/mlx4: Add utils for N-Port VFs
+  net/mlx4: Adapt code for N-Port VF
+  net/mlx4: Adapt num_vfs/probed_vf params for single port VF
+
+ drivers/infiniband/hw/mlx4/mad.c                   |   29 ++--
+ drivers/infiniband/hw/mlx4/main.c                  |   23 ++-
+ drivers/infiniband/hw/mlx4/sysfs.c                 |    5 +
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           |  129 ++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/eq.c            |   48 +++++--
+ drivers/net/ethernet/mellanox/mlx4/fw.c            |   62 +++++++-
+ drivers/net/ethernet/mellanox/mlx4/main.c          |  148 ++++++++++++++----
+ drivers/net/ethernet/mellanox/mlx4/mcg.c           |    5 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    5 +-
+ drivers/net/ethernet/mellanox/mlx4/port.c          |  158 +++++++++++++++++---
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  143 ++++++++++++++++---
+ include/linux/mlx4/device.h                        |   35 +++++
+ 12 files changed, 676 insertions(+), 114 deletions(-)
