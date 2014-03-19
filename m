@@ -1,61 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 net-next 0/2] patchset: Support for configurable RSS
- hash key
-Date: Wed, 19 Mar 2014 15:59:30 -0400 (EDT)
-Message-ID: <20140319.155930.1805664690676428310.davem@davemloft.net>
-References: <193620ac-855b-4c2a-b9ab-962b2edfbfa2@CMEXHTCAS2.ad.emulex.com>
+Subject: Re: [PATCH 2/2] net: cdc_ncm: respect operator preferred MTU
+ reported by MBIM
+Date: Wed, 19 Mar 2014 16:04:25 -0400 (EDT)
+Message-ID: <20140319.160425.2139869352245055503.davem@davemloft.net>
+References: <CAC5Y2nMdPM8w3=dgd2as5z8huL1XLPjon8wSmR-2e3=JGWtCpA@mail.gmail.com>
+	<20140317.214148.2254695408331774828.davem@davemloft.net>
+	<CAC5Y2nNiTX4Qo9H6R2hh3PkVAfgK3tzuq4BtoOqeCq=aa0XUtg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: VenkatKumar.Duvvuru@Emulex.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38330 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753065AbaCST7c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 15:59:32 -0400
-In-Reply-To: <193620ac-855b-4c2a-b9ab-962b2edfbfa2@CMEXHTCAS2.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bjorn@mork.no, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	oliver@neukum.org, gregkh@linuxfoundation.org,
+	gsuarez@smithmicro.com
+To: benchan@chromium.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAC5Y2nNiTX4Qo9H6R2hh3PkVAfgK3tzuq4BtoOqeCq=aa0XUtg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
-Date: Mon, 17 Mar 2014 18:01:33 +0530
+From: Ben Chan <benchan@chromium.org>
+Date: Mon, 17 Mar 2014 21:00:06 -0700
 
-> NIC drivers that support RSS use either a hard-coded value or a random value for
-> the RSS hash key. Irrespective of the type of the key used, the user would want
-> to change the hash key if he/she is not satisfied with the effectiveness of the
-> default hash-key in spreading the incoming flows evenly across the RSS queues.
+> On Mon, Mar 17, 2014 at 6:41 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Ben Chan <benchan@chromium.org>
+>> Date: Mon, 17 Mar 2014 17:46:27 -0700
+>>
+>>> Thanks again for the review and tip. I've submitted patch v2 to
+>>> address the le16_to_cpu conversion.
+>>
+>> When you update a patch from a series, you should repost the entire
+>> patch set, rather than just the patch which changes.
+>>
+>> This avoids any and all ambiguity of which patches go with which
+>> others.
 > 
-> This patch set adds support for configuring the RSS hash-key via the ethtool
-> interface using -X option.
+> Thanks for pointing that out. I've submitted the whole patch set as v3
+> (bumped the revision to avoid confusion).
 
-I apologize, but I really dislike this.  For several reasons.
+I hate to ask for a repost, but:
 
-First, why aren't we adding _just_ a RSS hash changing interface?
+1) Please put Greg KH's ACK into patch #1, patchwork doesn't carry ACKs
+   from one submission to the next, as it shouldn't.
 
-We already have an interface for changing the indirection table,
-there is absolutely not need to add a second interface that supports
-both indirection table _plus_ hash modifications.
+2) Please give a leading "[PATCH 0/2] ..." posting explaining at a high
+   level what this series is doing.
 
-And combining these two is what leads to this hard to audit, ugly,
-data structure layout.
-
-There's the indirection table at some offset, then the key at some
-other offset.  This makes it impossible to impose type checking
-of any kind on both objects.
-
-And the data structure is furthermore named in a way that suggests
-it's just for doing things with the RSS hash.
-
-Just add:
-
-struct ethtool_rxfh {
-	__u32	cmd;
-	__u32	key_size;
-	__u32	key[0];
-};
-
-And that's it.
-
-To change the indirection table, call "ETHTOOL_SRXFH".  To set the
-RSS flow hash, call "ETHTOOL_SRSSH".
+Also, make it explicit what tree you want me to apply this too, and if
+the changes are relevant for -stable.
