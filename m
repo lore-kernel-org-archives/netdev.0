@@ -1,47 +1,129 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next] ieee802154: fix variable
- declaration and initializer
-Date: Tue, 18 Mar 2014 20:32:21 -0700
-Message-ID: <1395199941.9114.47.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1395199198-14310-1-git-send-email-sakiwit@gmail.com>
+From: behanw@converseincode.com
+Subject: [PATCH v3] mac80211: LLVMLinux: Remove VLAIS usage from mac80211
+Date: Tue, 18 Mar 2014 20:32:13 -0700
+Message-ID: <1395199933-4686-1-git-send-email-behanw@converseincode.com>
+References: <CABikg9x+Z95bHcDc6iu5hBvRNO-ibM8-34_qA+OA_FjB52SPMw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	Phoebe
-To: Jean Sacren <sakiwit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1395199198-14310-1-git-send-email-sakiwit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
+	dwmw2@infradead.org, pageexec@freemail.hu,
+	=?UTF-8?q?Jan-Simon=20M=C3=B6ller?= <dl9pf@gmx.de>,
+	Behan Webster <behanw@converseincode.com>,
+	=?UTF-8?q?Vin=C3=ADcius=20Tinti?= <viniciustinti@gmail.com>,
+	Mark Charlebois <charlebm@gmail.com>
+To: linville@tuxdriver.com, johannes@sipsolutions.net,
+	davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CABikg9x+Z95bHcDc6iu5hBvRNO-ibM8-34_qA+OA_FjB52SPMw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-03-18 at 21:19 -0600, Jean Sacren wrote:
+=46rom: Jan-Simon M=C3=B6ller <dl9pf@gmx.de>
 
-> 2) Fix the initializer by deleting the double logical negation
->    operators as they don't serve any purpose.
-> 
-...
->  
->  static int phy_set_lbt(struct wpan_phy *phy, struct genl_info *info)
->  {
-> -	u8 on = !!nla_get_u8(info->attrs[IEEE802154_ATTR_LBT_ENABLED]);
+Replaced the use of a Variable Length Array In Struct (VLAIS) with a C9=
+9
+compliant equivalent. This is the original VLAIS struct.
 
-You do realize !!(a) is not equivalent to (a) ?
+struct {
+	struct aead_request     req;
+	u8                      priv[crypto_aead_reqsize(tfm)];
+} aead_req;
 
+This patch instead allocates the appropriate amount of memory using an =
+char
+array.
 
+The new code can be compiled with both gcc and clang.
 
+Signed-off-by: Jan-Simon M=C3=B6ller <dl9pf@gmx.de>
+Signed-off-by: Behan Webster <behanw@converseincode.com>
+Signed-off-by: Vin=C3=ADcius Tinti <viniciustinti@gmail.com>
+Signed-off-by: Mark Charlebois <charlebm@gmail.com>
+---
+ net/mac80211/aes_ccm.c | 40 ++++++++++++++++++++++------------------
+ 1 file changed, 22 insertions(+), 18 deletions(-)
 
-
-------------------------------------------------------------------------------
-Learn Graph Databases - Download FREE O'Reilly Book
-"Graph Databases" is the definitive new guide to graph databases and their
-applications. Written by three acclaimed leaders in the field,
-this first edition is now available. Download your free book today!
-http://p.sf.net/sfu/13534_NeoTech
+diff --git a/net/mac80211/aes_ccm.c b/net/mac80211/aes_ccm.c
+index 7c7df47..20521f9 100644
+--- a/net/mac80211/aes_ccm.c
++++ b/net/mac80211/aes_ccm.c
+@@ -23,12 +23,14 @@ void ieee80211_aes_ccm_encrypt(struct crypto_aead *=
+tfm, u8 *b_0, u8 *aad,
+ 			       u8 *data, size_t data_len, u8 *mic)
+ {
+ 	struct scatterlist assoc, pt, ct[2];
+-	struct {
+-		struct aead_request	req;
+-		u8			priv[crypto_aead_reqsize(tfm)];
+-	} aead_req;
+=20
+-	memset(&aead_req, 0, sizeof(aead_req));
++	char aead_req_data[sizeof(struct aead_request) +
++		crypto_aead_reqsize(tfm)]
++		__aligned(__alignof__(struct aead_request));
++
++	struct aead_request *aead_req =3D (void *) aead_req_data;
++
++	memset(aead_req, 0, sizeof(aead_req_data));
+=20
+ 	sg_init_one(&pt, data, data_len);
+ 	sg_init_one(&assoc, &aad[2], be16_to_cpup((__be16 *)aad));
+@@ -36,23 +38,25 @@ void ieee80211_aes_ccm_encrypt(struct crypto_aead *=
+tfm, u8 *b_0, u8 *aad,
+ 	sg_set_buf(&ct[0], data, data_len);
+ 	sg_set_buf(&ct[1], mic, IEEE80211_CCMP_MIC_LEN);
+=20
+-	aead_request_set_tfm(&aead_req.req, tfm);
+-	aead_request_set_assoc(&aead_req.req, &assoc, assoc.length);
+-	aead_request_set_crypt(&aead_req.req, &pt, ct, data_len, b_0);
++	aead_request_set_tfm(aead_req, tfm);
++	aead_request_set_assoc(aead_req, &assoc, assoc.length);
++	aead_request_set_crypt(aead_req, &pt, ct, data_len, b_0);
+=20
+-	crypto_aead_encrypt(&aead_req.req);
++	crypto_aead_encrypt(aead_req);
+ }
+=20
+ int ieee80211_aes_ccm_decrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aa=
+d,
+ 			      u8 *data, size_t data_len, u8 *mic)
+ {
+ 	struct scatterlist assoc, pt, ct[2];
+-	struct {
+-		struct aead_request	req;
+-		u8			priv[crypto_aead_reqsize(tfm)];
+-	} aead_req;
+=20
+-	memset(&aead_req, 0, sizeof(aead_req));
++	char aead_req_data[sizeof(struct aead_request) +
++				crypto_aead_reqsize(tfm) +
++				CRYPTO_MINALIGN] CRYPTO_MINALIGN_ATTR;
++
++	struct aead_request *aead_req =3D (void *) aead_req_data;
++
++	memset(aead_req, 0, sizeof(aead_req_data));
+=20
+ 	sg_init_one(&pt, data, data_len);
+ 	sg_init_one(&assoc, &aad[2], be16_to_cpup((__be16 *)aad));
+@@ -60,12 +64,12 @@ int ieee80211_aes_ccm_decrypt(struct crypto_aead *t=
+fm, u8 *b_0, u8 *aad,
+ 	sg_set_buf(&ct[0], data, data_len);
+ 	sg_set_buf(&ct[1], mic, IEEE80211_CCMP_MIC_LEN);
+=20
+-	aead_request_set_tfm(&aead_req.req, tfm);
+-	aead_request_set_assoc(&aead_req.req, &assoc, assoc.length);
+-	aead_request_set_crypt(&aead_req.req, ct, &pt,
++	aead_request_set_tfm(aead_req, tfm);
++	aead_request_set_assoc(aead_req, &assoc, assoc.length);
++	aead_request_set_crypt(aead_req, ct, &pt,
+ 			       data_len + IEEE80211_CCMP_MIC_LEN, b_0);
+=20
+-	return crypto_aead_decrypt(&aead_req.req);
++	return crypto_aead_decrypt(aead_req);
+ }
+=20
+ struct crypto_aead *ieee80211_aes_key_setup_encrypt(const u8 key[])
+--=20
+1.8.3.2
