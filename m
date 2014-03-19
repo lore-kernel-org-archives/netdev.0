@@ -1,56 +1,83 @@
-From: =?ISO-8859-1?Q?Emilio_L=F3pez?= <emilio@elopez.com.ar>
-Subject: Re: stmmac-socfpga breakage in arm-soc
-Date: Wed, 19 Mar 2014 13:47:38 -0300
-Message-ID: <5329CA2A.8030309@elopez.com.ar>
-References: <201403191333.01095.arnd@arndb.de> <4337501.shzGE38xmF@wuerfel> <5329AAE1.7030705@gmail.com> <29079107.ja9Hu9mMY0@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dinh Nguyen <dinh.linux@gmail.com>,
-	Srinivas Kandagatla <srinivas.kandagatla@st.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Hans de Goede <hdegoede@redhat.com>, arm@kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Dinh Nguyen <dinguyen@altera.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <29079107.ja9Hu9mMY0@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net 2/3] ipmr: fix mfc notification flags
+Date: Wed, 19 Mar 2014 17:47:50 +0100
+Message-ID: <1395247671-9356-2-git-send-email-nicolas.dichtel@6wind.com>
+References: <1395247671-9356-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Thomas Graf <tgraf@suug.ch>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:56155 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965141AbaCSQsr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 12:48:47 -0400
+In-Reply-To: <1395247671-9356-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Arnd,
+Commit 8cd3ac9f9b7b ("ipmr: advertise new mfc entries via rtnl") reuses the
+function ipmr_fill_mroute() to notify mfc events.
+But this function was used only for dump and thus was always setting the
+flag NLM_F_MULTI, which is wrong in case of a single notification.
 
-El 19/03/14 11:58, Arnd Bergmann escribi=F3:
-(snip)
-> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Docum=
-entation/devicetree/bindings/net/stmmac.txt
-> index 5748351..19d5648 100644
-> --- a/Documentation/devicetree/bindings/net/stmmac.txt
-> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
-> @@ -31,6 +31,10 @@ Optional properties:
->   - reset-names: Should contain the reset signal name "stmmaceth", if=
- a
->   	reset phandle is given
->   - max-frame-size: See ethernet.txt file in the same directory
-> +- clocks: If present, the first clock should be the GMAC main clock,
-> +  further clocks may be specified in derived bindings
-> +- clock-names: One name for each entry in the clocks property, the
-> +  first one should be "stmmaceth".
->
->   Examples:
->
-> @@ -43,4 +47,6 @@ Examples:
->   		mac-address =3D [000000000000]; /* Filled in by U-Boot */
->   		max-frame-size =3D <3800>;
->   		phy-mode =3D "gmii";
-> +		clocks =3D <&clock>;
-> +		clock-names =3D "stmmaceth">
+Libraries like libnl will wait forever for NLMSG_DONE.
 
-There's a small typo there on the ;
+CC: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/ipv4/ipmr.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
 
-Cheers,
-
-Emilio
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index b9b3472975ba..28863570dd60 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -2255,13 +2255,14 @@ int ipmr_get_route(struct net *net, struct sk_buff *skb,
+ }
+ 
+ static int ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb,
+-			    u32 portid, u32 seq, struct mfc_cache *c, int cmd)
++			    u32 portid, u32 seq, struct mfc_cache *c, int cmd,
++			    int flags)
+ {
+ 	struct nlmsghdr *nlh;
+ 	struct rtmsg *rtm;
+ 	int err;
+ 
+-	nlh = nlmsg_put(skb, portid, seq, cmd, sizeof(*rtm), NLM_F_MULTI);
++	nlh = nlmsg_put(skb, portid, seq, cmd, sizeof(*rtm), flags);
+ 	if (nlh == NULL)
+ 		return -EMSGSIZE;
+ 
+@@ -2329,7 +2330,7 @@ static void mroute_netlink_event(struct mr_table *mrt, struct mfc_cache *mfc,
+ 	if (skb == NULL)
+ 		goto errout;
+ 
+-	err = ipmr_fill_mroute(mrt, skb, 0, 0, mfc, cmd);
++	err = ipmr_fill_mroute(mrt, skb, 0, 0, mfc, cmd, 0);
+ 	if (err < 0)
+ 		goto errout;
+ 
+@@ -2368,7 +2369,8 @@ static int ipmr_rtm_dumproute(struct sk_buff *skb, struct netlink_callback *cb)
+ 				if (ipmr_fill_mroute(mrt, skb,
+ 						     NETLINK_CB(cb->skb).portid,
+ 						     cb->nlh->nlmsg_seq,
+-						     mfc, RTM_NEWROUTE) < 0)
++						     mfc, RTM_NEWROUTE,
++						     NLM_F_MULTI) < 0)
+ 					goto done;
+ next_entry:
+ 				e++;
+@@ -2382,7 +2384,8 @@ next_entry:
+ 			if (ipmr_fill_mroute(mrt, skb,
+ 					     NETLINK_CB(cb->skb).portid,
+ 					     cb->nlh->nlmsg_seq,
+-					     mfc, RTM_NEWROUTE) < 0) {
++					     mfc, RTM_NEWROUTE,
++					     NLM_F_MULTI) < 0) {
+ 				spin_unlock_bh(&mfc_unres_lock);
+ 				goto done;
+ 			}
+-- 
+1.8.5.4
