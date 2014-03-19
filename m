@@ -1,81 +1,192 @@
-From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created with
- no group
-Date: Wed, 19 Mar 2014 16:32:17 +0200
-Message-ID: <CAF1J0HPtQqpaqZ82yPoKFSYpP42HfOGu_X7uz3_61X2b+bYAjQ@mail.gmail.com>
-References: <1395055050-20874-1-git-send-email-mike.rapoport@ravellosystems.com>
-	<OFEB1030F8.C147FA77-ON87257C9F.005CF370-87257C9F.005CF375@us.ibm.com>
-	<CAF1J0HOTLvyaWdmYLGLPn9AJLR6rQr4fk8EVFSzv5sckLuBwvw@mail.gmail.com>
-	<OF55200AFE.3F917127-ON87257CA0.004DA877-87257CA0.004DA87C@us.ibm.com>
+From: Dinh Nguyen <dinh.linux@gmail.com>
+Subject: Re: stmmac-socfpga breakage in arm-soc
+Date: Wed, 19 Mar 2014 09:34:09 -0500
+Message-ID: <5329AAE1.7030705@gmail.com>
+References: <201403191333.01095.arnd@arndb.de> <53299CA8.607@gmail.com>
+ <4337501.shzGE38xmF@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>
-To: David Stevens <dlstevens@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f171.google.com ([209.85.214.171]:37988 "EHLO
-	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933739AbaCSOcS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 10:32:18 -0400
-Received: by mail-ob0-f171.google.com with SMTP id wn1so8241715obc.30
-        for <netdev@vger.kernel.org>; Wed, 19 Mar 2014 07:32:17 -0700 (PDT)
-In-Reply-To: <OF55200AFE.3F917127-ON87257CA0.004DA877-87257CA0.004DA87C@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: Srinivas Kandagatla <srinivas.kandagatla@st.com>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Hans de Goede <hdegoede@redhat.com>,
+ arm@kernel.org, linux-arm-kernel@lists.infradead.org,
+ Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+ "David S. Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@altera.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <4337501.shzGE38xmF@wuerfel>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 19, 2014 at 4:08 PM, David Stevens <dlstevens@us.ibm.com> wrote:
->
->
-> -----Mike Rapoport <mike.rapoport@ravellosystems.com> wrote: -----
->
->>To: David Stevens/Beaverton/IBM@IBMUS
->>From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-> ,,,
->>However, for the particular case in vxlan_rcv, checking the packet
->>version seems to me semantically more correct than comparing
->>default_dst
->>protocol family with AF_INET or AF_INET6.
->
-> No, that's saying that the sender should determine whether
-> you are using IPv4 or IPv6, but when the localhost is the
-> sender, it'll only be using one of those.
->
-> If the default_dst is an IPv4 group address, ordinary VXLAN
-> wouldn't interoperate with IPv6 because the group is not an IPv6
-> group, but with your patch, it'll still receive and accept IPv6-encapsulated
-> packets. It just wouldn't send any, if all the fdb entries are also v4.
+Hi Arnd,
 
-I'm not really familiar with v4 and v6 interoperability, but the
-vxlan_socket_create will create v6 socket only if IPv6 is explicitly
-requested.
-Would it be possible to receive IPv6-encapsulated packets from IPv4 socket?
-
-> I think neither the receive packets nor the default_dst, which may
-> not be set, is the right way to determine this. vxlan_dev->saddr
-> makes more sense, but it, too, doesn't have to be set.
+On 03/19/2014 09:05 AM, Arnd Bergmann wrote:
+> On Wednesday 19 March 2014 08:33:28 Dinh Nguyen wrote:
+>> On 03/19/2014 07:33 AM, Arnd Bergmann wrote:
+>>>
+>>> * Replaced the parent/child DT nodes with a combined node
+>>> * Renamed the device node from 'ethernet0' to 'ethernet'
+>>>     as the standard name.
+>>> * Removed interrupt-names and clock-names properties that
+>>>     are not documented in the binding and not used.
+>>> * Added a new DWMAC_SOCFPGA Kconfig symbol to control
+>>>     compilation of this driver
+>>
+>> The v1 of this patch had this had this Kconfig symbol and is
+>> similar to your proposed fix.
+>>
+>> http://marc.info/?l=linux-netdev&m=139167062725242&w=2
 >
-> I'd suggest:
-> 1) if vxlan_dev->saddr is set, use that. Any packets sent should use
->           this saddr, if set, so that determines the underlay address family
->           and so also what IP version you'll receive.
-> 2) if vxlan_dev->saddr is not set, and default_dst is a multicast group,
->           use that address family. For ordinary VXLAN, the group is used
->           by all participants so it can't mix v4 and v6. Also, if saddr is set
->           and default_dst is a multicast group, the address family should
->           match.
-> 3) if neither of those is set, then it isn't ordinary VXLAN, but rather a
->          custom configuration. In that case, we should allow both, by
->          default, at least. fdb entries can use both v4 and v6, so we
->          should receive both.
+> I don't understand. So you got parts of it right at first, but then
+> changed it in a different way from what Peppe asked you to do?
 >
-> We could also (or instead) add flags to explicitly allow or disallow v4 and/or v6,
-> and then, of course, enforce those flag settings for saddr, default_dst
-> and fdb entries, too.
+>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> index 8fb32a8..46aef510 100644
+>>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> @@ -38,6 +38,9 @@ static const struct of_device_id stmmac_dt_ids[] = {
+>>>    	{ .compatible = "st,stih416-dwmac", .data = &sti_gmac_data},
+>>>    	{ .compatible = "st,stid127-dwmac", .data = &sti_gmac_data},
+>>>    #endif
+>>> +#ifdef CONFIG_DWMAC_SOCFPGA
+>>> +	{ .compatible = "altr,socfpga-stmmac", .data = &socfpga_gmac_data },
+>>> +#endif
+>>>    	/* SoC specific glue layers should come before generic bindings */
+>>>    	{ .compatible = "st,spear600-gmac"},
+>>>    	{ .compatible = "snps,dwmac-3.610"},
+>>
+>>
+>> If it's okay with you Arnd, can I take this patch and add on top of it
+>> as it is also breaking dtb builds:
+>>
+>> Error: arch/arm/boot/dts/socfpga_arria5_socdk.dts:51.2-3 label or path,
+>> 'ethernet1', not found
+>> FATAL ERROR: Syntax error parsing input tree
+>> Error: arch/arm/boot/dts/socfpga_cyclone5_socdk.dts:44.2-3 label or
+>> path, 'ethernet1', not found
+>> FATAL ERROR: Syntax error parsing input tree
+>> make[1]: *** [arch/arm/boot/dts/socfpga_arria5_socdk.dtb] Error 1
+>> make[1]: *** Waiting for unfinished jobs....
+>> make[1]: *** [arch/arm/boot/dts/socfpga_cyclone5_socdk.dtb] Error 1
+>> Error: arch/arm/boot/dts/socfpga_cyclone5_sockit.dts:44.2-3 label or
+>> path, 'ethernet1', not found
+>> FATAL ERROR: Syntax error parsing input tree
+>> make[1]: *** [arch/arm/boot/dts/socfpga_cyclone5_sockit.dtb] Error 1
+>> Error: arch/arm/boot/dts/socfpga_vt.dts:92.2-3 label or path,
+>> 'ethernet0', not found
 >
->                                                                   +-DLS
+> I have found the same problems and fixed it up locally already with
+> the additional change below.
+>
+> 	Arnd
+>
+>
+> diff --git a/arch/arm/boot/dts/socfpga_arria5_socdk.dts b/arch/arm/boot/dts/socfpga_arria5_socdk.dts
+> index 2d6b38b..a87ee1c 100644
+> --- a/arch/arm/boot/dts/socfpga_arria5_socdk.dts
+> +++ b/arch/arm/boot/dts/socfpga_arria5_socdk.dts
+> @@ -46,11 +46,8 @@
+>   	};
+>   };
+>
+> -&ethernet1 {
+> -	status = "okay";
+> -};
+> -
+>   &gmac1 {
+> +	status = "okay";
+>   	phy-mode = "rgmii";
+>
+>   	rxd0-skew-ps = <0>;
+> diff --git a/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts b/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
+> index 26c63a0..ae16d97 100644
+> --- a/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
+> +++ b/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
+> @@ -39,11 +39,8 @@
+>   	};
+>   };
+>
+> -&ethernet1 {
+> -	status = "okay";
+> -};
+> -
+>   &gmac1 {
+> +	status = "okay";
+>   	phy-mode = "rgmii";
+>
+>   	rxd0-skew-ps = <0>;
+> diff --git a/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts b/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts
+> index 469bb5c..b79e2a2 100644
+> --- a/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts
+> +++ b/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts
+> @@ -39,11 +39,8 @@
+>   	};
+>   };
+>
+> -&ethernet1 {
+> -	status = "okay";
+> -};
+> -
+>   &gmac1 {
+> +	status = "okay";
+>   	phy-mode = "rgmii";
+>
+>   	rxd0-skew-ps = <0>;
+> diff --git a/arch/arm/boot/dts/socfpga_vt.dts b/arch/arm/boot/dts/socfpga_vt.dts
+> index 91f6ccf..0f33f2f 100644
+> --- a/arch/arm/boot/dts/socfpga_vt.dts
+> +++ b/arch/arm/boot/dts/socfpga_vt.dts
+> @@ -87,10 +87,7 @@
+>   	};
+>   };
+>
+> -&ethernet0 {
+> -        status = "okay";
+> -};
+> -
+>   &gmac0 {
+> +        status = "okay";
+>   	phy-mode = "gmii";
+>   };
 >
 
+I found that you also need this:
 
 
--- 
-Sincerely yours,
-Mike.
+diff --git a/arch/arm/boot/dts/socfpga.dtsi 
+b/arch/arm/boot/dts/socfpga.dtsi
+index 5f1e256..953801c 100644
+--- a/arch/arm/boot/dts/socfpga.dtsi
++++ b/arch/arm/boot/dts/socfpga.dtsi
+@@ -456,8 +456,10 @@
+                         altr,sysmgr-syscon = <&sysmgr 0x60>;
+                         reg = <0xff700000 0x2000>;
+                         interrupts = <0 115 4>;
++                       interrupt-names = "macirq";
+                         mac-address = [00 00 00 00 00 00];/* Filled in 
+by U-Boot */
+                         clocks = <&emac0_clk>;
++                       clock-names = "stmmaceth";
+                 };
+
+                 gmac1: ethernet@ff702000 {
+@@ -466,8 +468,10 @@
+                         altr,sysmgr-syscon = <&sysmgr 0x60>;
+                         reg = <0xff702000 0x2000>;
+                         interrupts = <0 120 4>;
++                       interrupt-names = "macirq";
+                         mac-address = [00 00 00 00 00 00];/* Filled in 
+by U-Boot */
+                         clocks = <&emac1_clk>;
++                       clock-names = "stmmaceth";
+                 };
+
+                 L2: l2-cache@fffef000 {
