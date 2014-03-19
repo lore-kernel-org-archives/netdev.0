@@ -1,57 +1,39 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 1/3] bridge: preserve random init MAC address
-Date: Tue, 18 Mar 2014 20:10:56 -0700
-Message-ID: <20140318201056.7b876394@nehalam.linuxnetplumber.net>
-References: <1394680527-28970-1-git-send-email-mcgrof@do-not-panic.com>
-	<1394680527-28970-2-git-send-email-mcgrof@do-not-panic.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the final tree
+ (net-next tree related)
+Date: Tue, 18 Mar 2014 23:11:29 -0400 (EDT)
+Message-ID: <20140318.231129.458845509074325949.davem@davemloft.net>
+References: <20140317212100.9b57a2237439427be566ede7@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, mcgrof@suse.com,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	xen-devel@lists.xenproject.org
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1394680527-28970-2-git-send-email-mcgrof@do-not-panic.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jesse.brandeburg@intel.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20140317212100.9b57a2237439427be566ede7@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 12 Mar 2014 20:15:25 -0700
-"Luis R. Rodriguez" <mcgrof@do-not-panic.com> wrote:
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Mon, 17 Mar 2014 21:21:00 +1100
 
-> As it is now if you add create a bridge it gets started
-> with a random MAC address and if you then add a net_device
-> as a slave but later kick it out you end up with a zero
-> MAC address. Instead preserve the original random MAC
-> address and use it.
+> After merging the final tree, today's linux-next build (powerpc
+> allyesconfig) failed like this:
+> 
+> drivers/net/ethernet/intel/i40evf/built-in.o:(.data+0x1868): multiple definition of `i40e_ptype_lookup'
+> drivers/net/ethernet/intel/i40e/built-in.o:(.data+0x3f58): first defined here
+> 
+> Caused by commit 206812b5fccb ("i40e/i40evf: i40e implementation for
+> skb_set_hash") from the net-next tree.
+> 
+> I applied this patch for today (there is probably a better way):
+> 
+> From 6964d39f8436eade2cdb0c5236734c579b8b0897 Mon Sep 17 00:00:00 2001
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Mon, 17 Mar 2014 21:18:48 +1100
+> Subject: [PATCH] i40e/i40evf: i40e implementation for skb_set_hash fix
+> 
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 
-What is supposed to happen is that the recalculate chooses
-the lowest MAC address of the slaves. If there are no slaves
-it might as well just calculate a new random value. There is
-not great merit in preserving the original defunct address.
-
-Or something like this that just keeps the old value.
-The bridge is in a meaningless state when there are no ports,
-and when the first port is added back it will be used as the
-new bridge id.
-
---- a/net/bridge/br_stp_if.c	2014-02-12 08:21:56.733857356 -0800
-+++ b/net/bridge/br_stp_if.c	2014-03-18 20:09:09.334388826 -0700
-@@ -235,6 +235,9 @@ bool br_stp_recalculate_bridge_id(struct
- 			addr = p->dev->dev_addr;
- 
- 	}
-+
-+	if (addr == br_mac_zero)
-+		return false;  /* keep original address */
- 
- 	if (ether_addr_equal(br->bridge_id.addr, addr))
- 		return false;	/* no change */
+Jeff Kirsher gave me a patch today that fixes this, thanks Stephen.
