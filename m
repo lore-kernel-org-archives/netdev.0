@@ -1,104 +1,44 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: RE: [PATCH V6 3/8] net: sxgbe: add TSO support for Samsung sxgbe
-Date: Wed, 19 Mar 2014 11:29:40 -0700
-Message-ID: <00aa01cf43a1$32ec0d00$98c42700$@samsung.com>
-References: <006701cf4334$af6d9af0$0e48d0d0$@samsung.com>
- <CAJ3bTp6BSD5qCJEVJX36Xd=-oX6oDkmTXA2NK42g7zUj6dJgjA@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] micrel: fix masking off LED bits
+Date: Wed, 19 Mar 2014 22:35:30 +0300
+Message-ID: <5329F182.6090206@cogentembedded.com>
+References: <201403190258.16812.sergei.shtylyov@cogentembedded.com> <53295171.3020700@codethink.co.uk> <CAGVrzcZd6rx0dbAdtqk3pbjuTVr4vwFqsRJxgc+dTQ0imnY57Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: 'netdev' <netdev@vger.kernel.org>,
-	linux-samsung-soc@vger.kernel.org, devicetree@vger.kernel.org,
-	'David Miller' <davem@davemloft.net>,
-	"'ks.giri'" <ks.giri@samsung.com>,
-	"'siva.kallam'" <siva.kallam@samsung.com>,
-	"'vipul.pandya'" <vipul.pandya@samsung.com>,
-	"'ilho215.lee'" <ilho215.lee@samsung.com>
-To: 'Rayagond Kokatanur' <rayagond@vayavyalabs.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Ben Dooks <ben.dooks@codethink.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.samsung.com ([203.254.224.25]:21921 "EHLO
-	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753371AbaCSS3s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 14:29:48 -0400
-In-reply-to: <CAJ3bTp6BSD5qCJEVJX36Xd=-oX6oDkmTXA2NK42g7zUj6dJgjA@mail.gmail.com>
-Content-language: en-us
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:52196 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751911AbaCSSfe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 14:35:34 -0400
+Received: by mail-lb0-f182.google.com with SMTP id n15so6365949lbi.27
+        for <netdev@vger.kernel.org>; Wed, 19 Mar 2014 11:35:32 -0700 (PDT)
+In-Reply-To: <CAGVrzcZd6rx0dbAdtqk3pbjuTVr4vwFqsRJxgc+dTQ0imnY57Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rayagond Kokatanur <rayagond@vayavyalabs.com> wrote:
-> On Wed, Mar 19, 2014 at 11:02 AM, Byungho An <bh74.an@samsung.com> wrote:
-[snip]
-> >
-> >         /* save the skb address */
-> >         tqueue->tx_skbuff[entry] = skb;
-> >
-> >         if (!is_jumbo) {
-> > -               tx_desc->tdes01 = dma_map_single(priv->device, skb->data,
-> > -                                                  no_pagedlen,
-DMA_TO_DEVICE);
-> > -               if (dma_mapping_error(priv->device, tx_desc->tdes01))
-> > -                       pr_err("%s: TX dma mapping failed!!\n", __func__);
-> > -
-> > -               priv->hw->desc->prepare_tx_desc(tx_desc, 1, no_pagedlen,
-> > -                                               no_pagedlen);
-> > +               if (likely(skb_is_gso(skb))) {
-> > +                       /* TSO support */
-> > +                       mss = skb_shinfo(skb)->gso_size;
-> > +
-> > + priv->hw->desc->tx_ctxt_desc_set_mss(ctxt_desc, mss);
-> 
-> No need to issue context descriptor for every TSO packets. Program context
-descriptor only if MSS value is value is changed compared
-> to previous TSO packet MSS value. By this way we can reduce the one extra
-descriptor fetch by device and improve the performance.
-OK. This will be applied in the  next post.
+Hello.
 
-[snip]
-> > @@ -1893,7 +1943,9 @@ struct sxgbe_priv_data *sxgbe_dvr_probe(struct
-> > device *device,
-> >
-> >         ndev->netdev_ops = &sxgbe_netdev_ops;
-> >
-> > -       ndev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM;
-> > +       ndev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM |
-NETIF_F_IPV6_CSUM |
-> > +               NETIF_F_RXCSUM | NETIF_F_TSO | NETIF_F_TSO6 |
-> > +               NETIF_F_GRO;
-> 
-> Enable TSO only if HW supports, hence we have to check for HW
-feature/capability registers here also.
-OK. Thanks
+On 03/19/2014 07:21 PM, Florian Fainelli wrote:
 
-> 
-> >         ndev->features |= ndev->hw_features | NETIF_F_HIGHDMA;
-> >         ndev->watchdog_timeo = msecs_to_jiffies(TX_TIMEO);
-> >
-> > @@ -1905,6 +1957,13 @@ struct sxgbe_priv_data *sxgbe_dvr_probe(struct
-device *device,
-> >         if (flow_ctrl)
-> >                 priv->flow_ctrl = SXGBE_FLOW_AUTO;      /* RX/TX pause on
-*/
-> >
-> > +       /* Enable TCP segmentation offload for all DMA channels */
-> > +       if (priv->hw_cap.tcpseg_offload) {
-> > +               SXGBE_FOR_EACH_QUEUE(SXGBE_TX_QUEUES, queue_num) {
-> > +                       priv->hw->dma->enable_tso(priv->ioaddr,
-queue_num);
-> > +               }
-> > +       }
-> > +
-> >         /* Rx Watchdog is available, enable depend on platform data */
-> >         if (!priv->plat->riwt_off) {
-> >                 priv->use_riwt = 1;
-> > --
-> > 1.7.10.4
-> >
-> >
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org More majordomo info
-> > at  http://vger.kernel.org/majordomo-info.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the
-body of a message to majordomo@vger.kernel.org More
-> majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>> Commit 20d8435a1cff (phy: micrel: add of configuration for LED mode) made
+>>> the
+>>> obvious mistake when masking off  the LED mode bits: forgot to do a
+>>> logical NOT
+>>> to the mask with which it ANDs the register value, so that unrelated bits
+>>> are
+>>> cleared instead.
+
+>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+>> Acked-by: Ben Dooks <ben.dooks@codethink.co.uk>
+
+> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+
+    Oh, sorry for not CCing you -- I forgot that phylib is now maintained.
+
+WBR, Sergei
