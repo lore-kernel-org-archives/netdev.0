@@ -1,55 +1,108 @@
-From: Grant Grundler <grundler-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: Re: usbnet: driver_info->stop required to stop USB interrupts?
-Date: Tue, 18 Mar 2014 18:40:39 -0700
-Message-ID: <CANEJEGscbVF3gRLNtTAcRSpHGVm1iDDKEeBscXcwj2-YdkiDXA@mail.gmail.com>
-References: <CANEJEGsvqkT_H4i+UZpBaWMYmgXHmpD8SZ4tU1OHzLd8gyznow@mail.gmail.com>
-	<CANEJEGv03ohVwoS0Pd1Z3az9k-C=dTzG4qE1SBL6Um97QC1Ehw@mail.gmail.com>
-	<CAODwPW_t9COeg0LWfkiqXC_yTbSNhUHX-8T95KRZHfOTSiZK1Q@mail.gmail.com>
-	<1394529263.16128.6.camel@linux-fkkt.site>
-	<CAODwPW8rQptt+jnfZ+KjpuOOpKi9ktb-y2kCYGZJo_ava1ktjg@mail.gmail.com>
-	<CAODwPW-CqigMBvwZtb+KLY5XbT+LDssPpvDZj86ej183DMiPkQ@mail.gmail.com>
-	<1395093343.3961.2.camel@linux-fkkt.site>
-	<CANEJEGuaVPNZKFiXY9CywFuqghgiQqV_sii7TE3STCNvXLQ3pQ@mail.gmail.com>
-	<CAODwPW-E-3HcXCGEmp9JpW6hU-Xt-FHwBtqeSSTDGaRPqO49Sw@mail.gmail.com>
+From: behanw@converseincode.com
+Subject: [PATCH v3] net: netfilter: LLVMLinux: vlais-netfilter
+Date: Tue, 18 Mar 2014 18:50:41 -0700
+Message-ID: <1395193841-2886-1-git-send-email-behanw@converseincode.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D0F6E0286@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Allan Chou <allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-To: Julius Werner <jwerner-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAODwPW-E-3HcXCGEmp9JpW6hU-Xt-FHwBtqeSSTDGaRPqO49Sw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
+	dwmw2@infradead.org, pageexec@freemail.hu, David.Laight@ACULAB.COM,
+	Mark Charlebois <charlebm@gmail.com>,
+	Behan Webster <behanw@converseincode.com>,
+	=?UTF-8?q?Vin=C3=ADcius=20Tinti?= <viniciustinti@gmail.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6E0286@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 18, 2014 at 6:09 PM, Julius Werner <jwerner-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
-> I think a better place for this would be in usbnet_probe() (together
-> with all the other dev->xxx initialization).
+=46rom: Mark Charlebois <charlebm@gmail.com>
 
-Definitely better.
+Replaced non-standard C use of Variable Length Arrays In Structs (VLAIS=
+) in
+xt_repldata.h with a C99 compliant flexible array member and then calcu=
+lated
+offsets to the other struct members. These other members aren't referen=
+ced by
+name in this code, however this patch maintains the same memory layout =
+and
+padding as was previously accomplished using VLAIS.
 
-@@ -1536,6 +1536,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb
-        dev->driver_name = name;
-        dev->msg_enable = netif_msg_init (msg_level, NETIF_MSG_DRV
-                                | NETIF_MSG_PROBE | NETIF_MSG_LINK);
-+       init_waitqueue_head(&dev->wait);
-        skb_queue_head_init (&dev->rxq);
-        skb_queue_head_init (&dev->txq);
-        skb_queue_head_init (&dev->done);
+Had the original structure been ordered differently, with the entries V=
+LA at
+the end, then it could have been a flexible member, and this patch woul=
+d have
+been a lot simpler. However since the data stored in this structure is
+ultimately exported to userspace, the order of this structure can't be =
+changed.
 
+This patch makes no attempt to change the existing behavior, merely the=
+ way in
+which the current layout is accomplished using standard C99 constructs.=
+ As such
+the code can now be compiled with either gcc or clang.
 
-> I'm not quite sure how
-> that could cause the transfer problems you are seeing, but at least
-> you will no longer initialize the waitqueue multiple times on multiple
-> usbnet_open (which is probably a bad idea).
+Author: Mark Charlebois <charlebm@gmail.com>
+Signed-off-by: Mark Charlebois <charlebm@gmail.com>
+Signed-off-by: Behan Webster <behanw@converseincode.com>
+Signed-off-by: Vin=C3=ADcius Tinti <viniciustinti@gmail.com>
+---
+ net/netfilter/xt_repldata.h | 27 ++++++++++++++++++++++-----
+ 1 file changed, 22 insertions(+), 5 deletions(-)
 
-Yeah, I agree. I don't expect usbnet_open would get called multiple
-times but I'll try the above anyway.
-
-thanks,
-grant
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/netfilter/xt_repldata.h b/net/netfilter/xt_repldata.h
+index 6efe4e5..343599e 100644
+--- a/net/netfilter/xt_repldata.h
++++ b/net/netfilter/xt_repldata.h
+@@ -5,23 +5,40 @@
+  * they serve as the hanging-off data accessed through repl.data[].
+  */
+=20
++/* tbl has the following structure equivalent, but is C99 compliant:
++ * struct {
++ *	struct type##_replace repl;
++ *	struct type##_standard entries[nhooks];
++ *	struct type##_error term;
++ * } *tbl;
++ */
++
+ #define xt_alloc_initial_table(type, typ2) ({ \
+ 	unsigned int hook_mask =3D info->valid_hooks; \
+ 	unsigned int nhooks =3D hweight32(hook_mask); \
+ 	unsigned int bytes =3D 0, hooknum =3D 0, i =3D 0; \
+ 	struct { \
+ 		struct type##_replace repl; \
+-		struct type##_standard entries[nhooks]; \
+-		struct type##_error term; \
+-	} *tbl =3D kzalloc(sizeof(*tbl), GFP_KERNEL); \
++		struct type##_standard entries[]; \
++	} *tbl; \
++	struct type##_error *term; \
++	size_t entries_end =3D offsetof(typeof(*tbl), \
++		entries[nhooks-1]) + sizeof(tbl->entries[0]); \
++	size_t term_offset =3D (entries_end + __alignof__(*term) - 1) \
++		& ~(__alignof__(*term) - 1); \
++	size_t term_end =3D term_offset + sizeof(*term); \
++	size_t tbl_sz =3D (term_end + __alignof__(tbl->repl) - 1) \
++		& ~(__alignof__(tbl->repl) - 1); \
++	tbl =3D kzalloc(tbl_sz, GFP_KERNEL); \
+ 	if (tbl =3D=3D NULL) \
+ 		return NULL; \
++	term =3D (struct type##_error *)&(((char *)tbl)[term_offset]); \
+ 	strncpy(tbl->repl.name, info->name, sizeof(tbl->repl.name)); \
+-	tbl->term =3D (struct type##_error)typ2##_ERROR_INIT;  \
++	*term =3D (struct type##_error)typ2##_ERROR_INIT;  \
+ 	tbl->repl.valid_hooks =3D hook_mask; \
+ 	tbl->repl.num_entries =3D nhooks + 1; \
+ 	tbl->repl.size =3D nhooks * sizeof(struct type##_standard) + \
+-	                 sizeof(struct type##_error); \
++			 sizeof(struct type##_error); \
+ 	for (; hook_mask !=3D 0; hook_mask >>=3D 1, ++hooknum) { \
+ 		if (!(hook_mask & 1)) \
+ 			continue; \
+--=20
+1.8.3.2
