@@ -1,45 +1,20 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next v2 2/3] bonding: support QinQ for bond arp interval
-Date: Wed, 19 Mar 2014 19:16:51 +0800
-Message-ID: <53297CA3.9030005@huawei.com>
-References: <1395139433-19576-1-git-send-email-dingtianhong@huawei.com> <1395139433-19576-3-git-send-email-dingtianhong@huawei.com> <20140318120558.GA6430@redhat.com> <7072.1395165598@death.nxdomain> <20140318192742.GB6430@redhat.com> <5328F2F5.6010304@huawei.com> <20140319053958.GA1242@redhat.com>
+From: Santander Finance <finance01@finance545.onmicrosoft.com>
+Subject: Money Lenders / Loan Assistance
+Date: Wed, 19 Mar 2014 12:19:24 +0100
+Message-ID: <d74ade02-257f-4f11-8413-6795157d6feb__34211.5031359301$1395227988$gmane$org@AMSPR06MB054.eurprd06.prod.outlook.com>
+Reply-To: <asloan01.loan@aol.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>, <andy@greyhouse.net>,
-	<kaber@trash.net>, <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Veaceslav Falico <vfalico@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <finance01@finance545.onmicrosoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:10458 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758087AbaCSLRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 07:17:22 -0400
-In-Reply-To: <20140319053958.GA1242@redhat.com>
+Received: from emea01-am1-obe.ptr.protection.outlook.com ([157.56.112.245]:27843
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758087AbaCSLTc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 07:19:32 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/3/19 13:39, Veaceslav Falico wrote:
-> On Wed, Mar 19, 2014 at 09:29:25AM +0800, Ding Tianhong wrote:
-> ...snip...
->> The QinQ didn't mean that the first(outer) tag must be 802.1ad, and the second(inner) tag must be 802.1q,
-> 
-> Do you have a quote for that from the standard? What I know and read
-> everywhere is that the standard specifies the outer s-tag to always be
-> 0x88A8.
-> 
-> The other thing is that we don't live in an ideal world and there are a
-> lot of non-standard implementations out there, which might use 0x8100,
-> 0x9100, 0x9200, 0x9300... for the outer s-tag, that's why using the
-> user-provided proto is better.
-> 
-> 
-
-Sorry for feedback so late, I'm too busy these days.
-
-Agree, as far as I know, The original "QinQ" means "802.1Q in 802.1Q", but in practical applications,
-the network operators could set the out tag to 0x9100, 0x8100 ... as they wished in the switch, this is no
-limit, but in linux kernel the vlan only support 802.1ad and 801.1q, so we can only make choices in these values, 
-so here I think let the user to decide the real proto is more reasonbale.
-
-Regards
-Ding
+We offer all purpose loan at 3% interest rate. Contact Us for more details by Email:santafinance4@gmail.com
