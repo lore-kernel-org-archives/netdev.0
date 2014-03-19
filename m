@@ -1,92 +1,71 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 13/15] ixgbe: add ixgbe_write_pci_cfg_word with ixgbe_removed check
-Date: Tue, 18 Mar 2014 20:42:11 -0700
-Message-ID: <1395200533-16908-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 11/15] e1000e: Fix Explicitly set Transmit Control Register
+Date: Tue, 18 Mar 2014 20:42:09 -0700
+Message-ID: <1395200533-16908-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395200533-16908-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Todd Fujinaka <todd.fujinaka@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:23825 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:36728 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933768AbaCSDmW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S933733AbaCSDmW (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 18 Mar 2014 23:42:22 -0400
 In-Reply-To: <1395200533-16908-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: David Ertman <davidx.m.ertman@intel.com>
 
-Inline with the current use for ixgbe_read_pci_cfg_word, create a
-similar function for writing PCI config, which checks whether the
-adapter has been removed first, if Live Error Recovery has been enabled.
+This patch causes the TCTL to be explicitly set to fix a problem with
+poor network performance (throughput) on certain silicon when configured
+for 100M HDX performance.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Cc: Todd Fujinaka <todd.fujinaka@intel.com>
+Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
+Acked-by: Bruce W. Allan <bruce.w.allan@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  | 6 +-----
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h | 1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 9 +++++++++
- 3 files changed, 11 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index f8ebe58..7fe2254 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -58,7 +58,6 @@ static s32 ixgbe_read_i2c_eeprom_82598(struct ixgbe_hw *hw, u8 byte_offset,
-  **/
- static void ixgbe_set_pcie_completion_timeout(struct ixgbe_hw *hw)
- {
--	struct ixgbe_adapter *adapter = hw->back;
- 	u32 gcr = IXGBE_READ_REG(hw, IXGBE_GCR);
- 	u16 pcie_devctl2;
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index d577723..6bd1832 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -2898,7 +2898,7 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct e1000_ring *tx_ring = adapter->tx_ring;
+ 	u64 tdba;
+-	u32 tdlen, tarc;
++	u32 tdlen, tctl, tarc;
  
-@@ -84,11 +83,8 @@ static void ixgbe_set_pcie_completion_timeout(struct ixgbe_hw *hw)
- 	 * 16ms to 55ms
- 	 */
- 	pcie_devctl2 = ixgbe_read_pci_cfg_word(hw, IXGBE_PCI_DEVICE_CONTROL2);
--	if (ixgbe_removed(hw->hw_addr))
--		return;
- 	pcie_devctl2 |= IXGBE_PCI_DEVICE_CONTROL2_16ms;
--	pci_write_config_word(adapter->pdev,
--	                      IXGBE_PCI_DEVICE_CONTROL2, pcie_devctl2);
-+	ixgbe_write_pci_cfg_word(hw, IXGBE_PCI_DEVICE_CONTROL2, pcie_devctl2);
- out:
- 	/* disable completion timeout resend */
- 	gcr &= ~IXGBE_GCR_CMPL_TMOUT_RESEND;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index d1d67ba..afa1cda 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -133,6 +133,7 @@ s32 ixgbe_init_thermal_sensor_thresh_generic(struct ixgbe_hw *hw);
- #define IXGBE_FAILED_READ_CFG_WORD 0xffffU
+ 	/* Setup the HW Tx Head and Tail descriptor pointers */
+ 	tdba = tx_ring->dma;
+@@ -2935,6 +2935,12 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
+ 	/* erratum work around: set txdctl the same for both queues */
+ 	ew32(TXDCTL(1), er32(TXDCTL(0)));
  
- u16 ixgbe_read_pci_cfg_word(struct ixgbe_hw *hw, u32 reg);
-+void ixgbe_write_pci_cfg_word(struct ixgbe_hw *hw, u32 reg, u16 value);
++	/* Program the Transmit Control Register */
++	tctl = er32(TCTL);
++	tctl &= ~E1000_TCTL_CT;
++	tctl |= E1000_TCTL_PSP | E1000_TCTL_RTLC |
++		(E1000_COLLISION_THRESHOLD << E1000_CT_SHIFT);
++
+ 	if (adapter->flags & FLAG_TARC_SPEED_MODE_BIT) {
+ 		tarc = er32(TARC(0));
+ 		/* set the speed mode bit, we'll clear it if we're not at
+@@ -2965,6 +2971,8 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
+ 	/* enable Report Status bit */
+ 	adapter->txd_cmd |= E1000_TXD_CMD_RS;
  
- static inline bool ixgbe_removed(void __iomem *addr)
- {
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 18cd8ca..c773d6c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -361,6 +361,15 @@ static u32 ixgbe_read_pci_cfg_dword(struct ixgbe_hw *hw, u32 reg)
++	ew32(TCTL, tctl);
++
+ 	hw->mac.ops.config_collision_dist(hw);
  }
- #endif /* CONFIG_PCI_IOV */
  
-+void ixgbe_write_pci_cfg_word(struct ixgbe_hw *hw, u32 reg, u16 value)
-+{
-+	struct ixgbe_adapter *adapter = hw->back;
-+
-+	if (ixgbe_removed(hw->hw_addr))
-+		return;
-+	pci_write_config_word(adapter->pdev, reg, value);
-+}
-+
- static void ixgbe_service_event_complete(struct ixgbe_adapter *adapter)
- {
- 	BUG_ON(!test_bit(__IXGBE_SERVICE_SCHED, &adapter->state));
 -- 
 1.8.3.1
