@@ -1,140 +1,114 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 05/15] i40e: Refactor and cleanup i40e_open(), adding i40e_vsi_open()
-Date: Tue, 18 Mar 2014 20:42:03 -0700
-Message-ID: <1395200533-16908-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 10/15] e1000e: Fix Hardware Unit Hang
+Date: Tue, 18 Mar 2014 20:42:08 -0700
+Message-ID: <1395200533-16908-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395200533-16908-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Elizabeth Kappler <elizabeth.m.kappler@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
+Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:58703 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:36728 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933733AbaCSDmS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Mar 2014 23:42:18 -0400
+	id S933753AbaCSDmV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Mar 2014 23:42:21 -0400
 In-Reply-To: <1395200533-16908-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Elizabeth Kappler <elizabeth.m.kappler@intel.com>
+From: David Ertman <davidx.m.ertman@intel.com>
 
-This patch cleans up and moves a portion of i40e_open to i40e_vsi_open,
-in order to have a shorter vsi_open function that does only that.
+The check for pending Tx work when link is lost was mistakenly moved to be
+done only when link is first detected to be lost.  It turns out there is a
+small window of opportunity for additional Tx work to get queued up shortly
+after link is dropped.
 
-Change-ID: I1c418dda94dcfc0eb7d4386a70c330692ef5ecc9
-Signed-off-by: Elizabeth Kappler <elizabeth.m.kappler@intel.com>
-Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Move the check back to the place it was before in the watchdog task.  Put in
+additional debug information for other reset paths and a final catch-all for
+false hangs in the scheduled function that prints out the hardware hang
+message.
+
+Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  3 ++-
- drivers/net/ethernet/intel/i40e/i40e_main.c | 40 +++++++++++++++++++++++------
- 2 files changed, 34 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 32 +++++++++++++++++++++---------
+ 1 file changed, 23 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index ac04112..33cd8b6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -208,7 +208,7 @@ struct i40e_pf {
- 	bool fc_autoneg_status;
- 
- 	u16 eeprom_version;
--	u16 num_vmdq_vsis;         /* num vmdq pools this pf has set up */
-+	u16 num_vmdq_vsis;         /* num vmdq vsis this pf has set up */
- 	u16 num_vmdq_qps;          /* num queue pairs per vmdq pool */
- 	u16 num_vmdq_msix;         /* num queue vectors per vmdq pool */
- 	u16 num_req_vfs;           /* num vfs requested for this vf */
-@@ -597,6 +597,7 @@ void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector);
- void i40e_irq_dynamic_disable_icr0(struct i40e_pf *pf);
- void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf);
- int i40e_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd);
-+int i40e_vsi_open(struct i40e_vsi *vsi);
- void i40e_vlan_stripping_disable(struct i40e_vsi *vsi);
- int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid);
- int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 5015dad..661cd42 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -4235,7 +4235,6 @@ static int i40e_open(struct net_device *netdev)
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = np->vsi;
- 	struct i40e_pf *pf = vsi->back;
--	char int_name[IFNAMSIZ];
- 	int err;
- 
- 	/* disallow open during test */
-@@ -4244,6 +4243,31 @@ static int i40e_open(struct net_device *netdev)
- 
- 	netif_carrier_off(netdev);
- 
-+	err = i40e_vsi_open(vsi);
-+	if (err)
-+		return err;
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index eafad41..d577723 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1090,8 +1090,14 @@ static void e1000_print_hw_hang(struct work_struct *work)
+ 		adapter->tx_hang_recheck = true;
+ 		return;
+ 	}
+-	/* Real hang detected */
+ 	adapter->tx_hang_recheck = false;
 +
-+#ifdef CONFIG_I40E_VXLAN
-+	vxlan_get_rx_port(netdev);
-+#endif
-+
-+	return 0;
-+}
-+
-+/**
-+ * i40e_vsi_open -
-+ * @vsi: the VSI to open
-+ *
-+ * Finish initialization of the VSI.
-+ *
-+ * Returns 0 on success, negative value on failure
-+ **/
-+int i40e_vsi_open(struct i40e_vsi *vsi)
-+{
-+	struct i40e_pf *pf = vsi->back;
-+	char int_name[IFNAMSIZ];
-+	int err;
-+
- 	/* allocate descriptors */
- 	err = i40e_vsi_setup_tx_resources(vsi);
- 	if (err)
-@@ -4256,18 +4280,22 @@ static int i40e_open(struct net_device *netdev)
- 	if (err)
- 		goto err_setup_rx;
- 
-+	if (!vsi->netdev) {
-+		err = EINVAL;
-+		goto err_setup_rx;
++	if (er32(TDH(0)) == er32(TDT(0))) {
++		e_dbg("false hang detected, ignoring\n");
++		return;
 +	}
- 	snprintf(int_name, sizeof(int_name) - 1, "%s-%s",
--		 dev_driver_string(&pf->pdev->dev), netdev->name);
-+		 dev_driver_string(&pf->pdev->dev), vsi->netdev->name);
- 	err = i40e_vsi_request_irq(vsi, int_name);
- 	if (err)
- 		goto err_setup_rx;
++
++	/* Real hang detected */
+ 	netif_stop_queue(netdev);
  
- 	/* Notify the stack of the actual queue counts. */
--	err = netif_set_real_num_tx_queues(netdev, vsi->num_queue_pairs);
-+	err = netif_set_real_num_tx_queues(vsi->netdev, vsi->num_queue_pairs);
- 	if (err)
- 		goto err_set_queues;
+ 	e1e_rphy(hw, MII_BMSR, &phy_status);
+@@ -1121,6 +1127,8 @@ static void e1000_print_hw_hang(struct work_struct *work)
+ 	      eop, jiffies, eop_desc->upper.fields.status, er32(STATUS),
+ 	      phy_status, phy_1000t_status, phy_ext_status, pci_status);
  
--	err = netif_set_real_num_rx_queues(netdev, vsi->num_queue_pairs);
-+	err = netif_set_real_num_rx_queues(vsi->netdev, vsi->num_queue_pairs);
- 	if (err)
- 		goto err_set_queues;
++	e1000e_dump(adapter);
++
+ 	/* Suggest workaround for known h/w issue */
+ 	if ((hw->mac.type == e1000_pchlan) && (er32(CTRL) & E1000_CTRL_TFCE))
+ 		e_err("Try turning off Tx pause (flow control) via ethtool\n");
+@@ -4798,6 +4806,7 @@ static void e1000e_check_82574_phy_workaround(struct e1000_adapter *adapter)
  
-@@ -4275,10 +4303,6 @@ static int i40e_open(struct net_device *netdev)
- 	if (err)
- 		goto err_up_complete;
+ 	if (adapter->phy_hang_count > 1) {
+ 		adapter->phy_hang_count = 0;
++		e_dbg("PHY appears hung - resetting\n");
+ 		schedule_work(&adapter->reset_task);
+ 	}
+ }
+@@ -4956,15 +4965,11 @@ static void e1000_watchdog_task(struct work_struct *work)
+ 				mod_timer(&adapter->phy_info_timer,
+ 					  round_jiffies(jiffies + 2 * HZ));
  
--#ifdef CONFIG_I40E_VXLAN
--	vxlan_get_rx_port(netdev);
--#endif
--
- 	return 0;
+-			/* The link is lost so the controller stops DMA.
+-			 * If there is queued Tx work that cannot be done
+-			 * or if on an 8000ES2LAN which requires a Rx packet
+-			 * buffer work-around on link down event, reset the
+-			 * controller to flush the Tx/Rx packet buffers.
+-			 * (Do the reset outside of interrupt context).
++			/* 8000ES2LAN requires a Rx packet buffer work-around
++			 * on link down event; reset the controller to flush
++			 * the Rx packet buffer.
+ 			 */
+-			if ((adapter->flags & FLAG_RX_NEEDS_RESTART) ||
+-			    (e1000_desc_unused(tx_ring) + 1 < tx_ring->count))
++			if (adapter->flags & FLAG_RX_NEEDS_RESTART)
+ 				adapter->flags |= FLAG_RESTART_NOW;
+ 			else
+ 				pm_schedule_suspend(netdev->dev.parent,
+@@ -4987,6 +4992,15 @@ link_up:
+ 	adapter->gotc_old = adapter->stats.gotc;
+ 	spin_unlock(&adapter->stats64_lock);
  
- err_up_complete:
++	/* If the link is lost the controller stops DMA, but
++	 * if there is queued Tx work it cannot be done.  So
++	 * reset the controller to flush the Tx packet buffers.
++	 */
++	if (!netif_carrier_ok(netdev) &&
++	    (e1000_desc_unused(tx_ring) + 1 < tx_ring->count))
++		adapter->flags |= FLAG_RESTART_NOW;
++
++	/* If reset is necessary, do it outside of interrupt context. */
+ 	if (adapter->flags & FLAG_RESTART_NOW) {
+ 		schedule_work(&adapter->reset_task);
+ 		/* return immediately since reset is imminent */
 -- 
 1.8.3.1
