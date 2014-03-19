@@ -1,59 +1,165 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v3] mac80211: LLVMLinux: Remove VLAIS usage from mac80211
-Date: Wed, 19 Mar 2014 14:09:57 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E11D1@AcuExch.aculab.com>
-References: <CABikg9x+Z95bHcDc6iu5hBvRNO-ibM8-34_qA+OA_FjB52SPMw@mail.gmail.com>
- <1395199933-4686-1-git-send-email-behanw@converseincode.com>
+From: Dinh Nguyen <dinh.linux@gmail.com>
+Subject: Re: stmmac-socfpga breakage in arm-soc
+Date: Wed, 19 Mar 2014 09:20:17 -0500
+Message-ID: <5329A7A1.20606@gmail.com>
+References: <201403191333.01095.arnd@arndb.de> <53299CA8.607@gmail.com> <4337501.shzGE38xmF@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
-	"dwmw2@infradead.org" <dwmw2@infradead.org>,
-	"pageexec@freemail.hu" <pageexec@freemail.hu>,
-	=?utf-8?B?SmFuLVNpbW9uIE3DtmxsZXI=?= <dl9pf@gmx.de>,
-	=?utf-8?B?Vmluw61jaXVzIFRpbnRp?= <viniciustinti@gmail.com>,
-	Mark Charlebois <charlebm@gmail.com>
-To: "'behanw@converseincode.com'" <behanw@converseincode.com>,
-	"linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dinh Nguyen <dinguyen@altera.com>,
+	Srinivas Kandagatla <srinivas.kandagatla@st.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hans de Goede <hdegoede@redhat.com>, arm@kernel.org,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1395199933-4686-1-git-send-email-behanw@converseincode.com>
-Content-Language: en-US
+In-Reply-To: <4337501.shzGE38xmF@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogYmVoYW53QGNvbnZlcnNlaW5jb2RlLmNvbQ0KPiBSZXBsYWNlZCB0aGUgdXNlIG9mIGEg
-VmFyaWFibGUgTGVuZ3RoIEFycmF5IEluIFN0cnVjdCAoVkxBSVMpIHdpdGggYSBDOTkNCj4gY29t
-cGxpYW50IGVxdWl2YWxlbnQuIFRoaXMgaXMgdGhlIG9yaWdpbmFsIFZMQUlTIHN0cnVjdC4NCj4g
-DQo+IHN0cnVjdCB7DQo+IAlzdHJ1Y3QgYWVhZF9yZXF1ZXN0ICAgICByZXE7DQo+IAl1OCAgICAg
-ICAgICAgICAgICAgICAgICBwcml2W2NyeXB0b19hZWFkX3JlcXNpemUodGZtKV07DQo+IH0gYWVh
-ZF9yZXE7DQo+IA0KPiBUaGlzIHBhdGNoIGluc3RlYWQgYWxsb2NhdGVzIHRoZSBhcHByb3ByaWF0
-ZSBhbW91bnQgb2YgbWVtb3J5IHVzaW5nIGFuIGNoYXINCj4gYXJyYXkuDQo+IA0KPiBUaGUgbmV3
-IGNvZGUgY2FuIGJlIGNvbXBpbGVkIHdpdGggYm90aCBnY2MgYW5kIGNsYW5nLg0KPiANCj4gU2ln
-bmVkLW9mZi1ieTogSmFuLVNpbW9uIE1sbGVyIDxkbDlwZkBnbXguZGU+DQo+IFNpZ25lZC1vZmYt
-Ynk6IEJlaGFuIFdlYnN0ZXIgPGJlaGFud0Bjb252ZXJzZWluY29kZS5jb20+DQo+IFNpZ25lZC1v
-ZmYtYnk6IFZpbmNpdXMgVGludGkgPHZpbmljaXVzdGludGlAZ21haWwuY29tPg0KPiBTaWduZWQt
-b2ZmLWJ5OiBNYXJrIENoYXJsZWJvaXMgPGNoYXJsZWJtQGdtYWlsLmNvbT4NCj4gLS0tDQo+ICBu
-ZXQvbWFjODAyMTEvYWVzX2NjbS5jIHwgNDAgKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLS0t
-LS0tLS0tLS0tLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDIyIGluc2VydGlvbnMoKyksIDE4IGRlbGV0
-aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL25ldC9tYWM4MDIxMS9hZXNfY2NtLmMgYi9uZXQv
-bWFjODAyMTEvYWVzX2NjbS5jDQo+IGluZGV4IDdjN2RmNDcuLjIwNTIxZjkgMTAwNjQ0DQo+IC0t
-LSBhL25ldC9tYWM4MDIxMS9hZXNfY2NtLmMNCj4gKysrIGIvbmV0L21hYzgwMjExL2Flc19jY20u
-Yw0KPiBAQCAtMjMsMTIgKzIzLDE0IEBAIHZvaWQgaWVlZTgwMjExX2Flc19jY21fZW5jcnlwdChz
-dHJ1Y3QgY3J5cHRvX2FlYWQgKnRmbSwgdTggKmJfMCwgdTggKmFhZCwNCj4gIAkJCSAgICAgICB1
-OCAqZGF0YSwgc2l6ZV90IGRhdGFfbGVuLCB1OCAqbWljKQ0KPiAgew0KPiAgCXN0cnVjdCBzY2F0
-dGVybGlzdCBhc3NvYywgcHQsIGN0WzJdOw0KPiAtCXN0cnVjdCB7DQo+IC0JCXN0cnVjdCBhZWFk
-X3JlcXVlc3QJcmVxOw0KPiAtCQl1OAkJCXByaXZbY3J5cHRvX2FlYWRfcmVxc2l6ZSh0Zm0pXTsN
-Cj4gLQl9IGFlYWRfcmVxOw0KPiANCj4gLQltZW1zZXQoJmFlYWRfcmVxLCAwLCBzaXplb2YoYWVh
-ZF9yZXEpKTsNCj4gKwljaGFyIGFlYWRfcmVxX2RhdGFbc2l6ZW9mKHN0cnVjdCBhZWFkX3JlcXVl
-c3QpICsNCj4gKwkJY3J5cHRvX2FlYWRfcmVxc2l6ZSh0Zm0pXQ0KPiArCQlfX2FsaWduZWQoX19h
-bGlnbm9mX18oc3RydWN0IGFlYWRfcmVxdWVzdCkpOw0KPiArDQo+ICsJc3RydWN0IGFlYWRfcmVx
-dWVzdCAqYWVhZF9yZXEgPSAodm9pZCAqKSBhZWFkX3JlcV9kYXRhOw0KPiArDQo+ICsJbWVtc2V0
-KGFlYWRfcmVxLCAwLCBzaXplb2YoYWVhZF9yZXFfZGF0YSkpOw0KDQpJdCBzZWVtcyB0byBtZSB0
-aGF0IHRoZSB1bmRlcmx5aW5nIGZ1bmN0aW9uKHMpIG91Z2h0IHRvIGJlIGNoYW5nZWQgc28gdGhh
-dA0KdGhpcyBpc24ndCBuZWVkZWQuDQpQYXNzaW5nIGFuIGV4dHJhIHBhcmFtZXRlciB3b3VsZCBw
-cm9iYWJseSBjb3N0IHZlcnkgbGl0dGxlLg0KDQoJRGF2aWQNCg==
+
+
+On 03/19/2014 09:05 AM, Arnd Bergmann wrote:
+> On Wednesday 19 March 2014 08:33:28 Dinh Nguyen wrote:
+>> On 03/19/2014 07:33 AM, Arnd Bergmann wrote:
+>>>
+>>> * Replaced the parent/child DT nodes with a combined node
+>>> * Renamed the device node from 'ethernet0' to 'ethernet'
+>>>     as the standard name.
+>>> * Removed interrupt-names and clock-names properties that
+>>>     are not documented in the binding and not used.
+>>> * Added a new DWMAC_SOCFPGA Kconfig symbol to control
+>>>     compilation of this driver
+>>
+>> The v1 of this patch had this had this Kconfig symbol and is
+>> similar to your proposed fix.
+>>
+>> http://marc.info/?l=linux-netdev&m=139167062725242&w=2
+>
+> I don't understand. So you got parts of it right at first, but then
+> changed it in a different way from what Peppe asked you to do?
+>
+
+Peppe asked me to remove DWMAC_SOCFPGA Koption and take the dwmac-sti.c
+file as an example, which I did. The original patch for dwmac-sti.c had 
+just a CONFIG_ARCH_STI Kconfig option and not CONFIG_DWMAC_STI.
+
+http://marc.info/?l=linux-netdev&m=138426461307138&w=2
+
+I'm sorry I did not follow the later versions of dwmac-sti.c.
+
+>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> index 8fb32a8..46aef510 100644
+>>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> @@ -38,6 +38,9 @@ static const struct of_device_id stmmac_dt_ids[] = {
+>>>    	{ .compatible = "st,stih416-dwmac", .data = &sti_gmac_data},
+>>>    	{ .compatible = "st,stid127-dwmac", .data = &sti_gmac_data},
+>>>    #endif
+>>> +#ifdef CONFIG_DWMAC_SOCFPGA
+>>> +	{ .compatible = "altr,socfpga-stmmac", .data = &socfpga_gmac_data },
+>>> +#endif
+>>>    	/* SoC specific glue layers should come before generic bindings */
+>>>    	{ .compatible = "st,spear600-gmac"},
+>>>    	{ .compatible = "snps,dwmac-3.610"},
+>>
+>>
+>> If it's okay with you Arnd, can I take this patch and add on top of it
+>> as it is also breaking dtb builds:
+>>
+>> Error: arch/arm/boot/dts/socfpga_arria5_socdk.dts:51.2-3 label or path,
+>> 'ethernet1', not found
+>> FATAL ERROR: Syntax error parsing input tree
+>> Error: arch/arm/boot/dts/socfpga_cyclone5_socdk.dts:44.2-3 label or
+>> path, 'ethernet1', not found
+>> FATAL ERROR: Syntax error parsing input tree
+>> make[1]: *** [arch/arm/boot/dts/socfpga_arria5_socdk.dtb] Error 1
+>> make[1]: *** Waiting for unfinished jobs....
+>> make[1]: *** [arch/arm/boot/dts/socfpga_cyclone5_socdk.dtb] Error 1
+>> Error: arch/arm/boot/dts/socfpga_cyclone5_sockit.dts:44.2-3 label or
+>> path, 'ethernet1', not found
+>> FATAL ERROR: Syntax error parsing input tree
+>> make[1]: *** [arch/arm/boot/dts/socfpga_cyclone5_sockit.dtb] Error 1
+>> Error: arch/arm/boot/dts/socfpga_vt.dts:92.2-3 label or path,
+>> 'ethernet0', not found
+>
+> I have found the same problems and fixed it up locally already with
+> the additional change below.
+>
+
+Thanks,
+Dinh
+
+> 	Arnd
+>
+>
+> diff --git a/arch/arm/boot/dts/socfpga_arria5_socdk.dts b/arch/arm/boot/dts/socfpga_arria5_socdk.dts
+> index 2d6b38b..a87ee1c 100644
+> --- a/arch/arm/boot/dts/socfpga_arria5_socdk.dts
+> +++ b/arch/arm/boot/dts/socfpga_arria5_socdk.dts
+> @@ -46,11 +46,8 @@
+>   	};
+>   };
+>
+> -&ethernet1 {
+> -	status = "okay";
+> -};
+> -
+>   &gmac1 {
+> +	status = "okay";
+>   	phy-mode = "rgmii";
+>
+>   	rxd0-skew-ps = <0>;
+> diff --git a/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts b/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
+> index 26c63a0..ae16d97 100644
+> --- a/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
+> +++ b/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
+> @@ -39,11 +39,8 @@
+>   	};
+>   };
+>
+> -&ethernet1 {
+> -	status = "okay";
+> -};
+> -
+>   &gmac1 {
+> +	status = "okay";
+>   	phy-mode = "rgmii";
+>
+>   	rxd0-skew-ps = <0>;
+> diff --git a/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts b/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts
+> index 469bb5c..b79e2a2 100644
+> --- a/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts
+> +++ b/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts
+> @@ -39,11 +39,8 @@
+>   	};
+>   };
+>
+> -&ethernet1 {
+> -	status = "okay";
+> -};
+> -
+>   &gmac1 {
+> +	status = "okay";
+>   	phy-mode = "rgmii";
+>
+>   	rxd0-skew-ps = <0>;
+> diff --git a/arch/arm/boot/dts/socfpga_vt.dts b/arch/arm/boot/dts/socfpga_vt.dts
+> index 91f6ccf..0f33f2f 100644
+> --- a/arch/arm/boot/dts/socfpga_vt.dts
+> +++ b/arch/arm/boot/dts/socfpga_vt.dts
+> @@ -87,10 +87,7 @@
+>   	};
+>   };
+>
+> -&ethernet0 {
+> -        status = "okay";
+> -};
+> -
+>   &gmac0 {
+> +        status = "okay";
+>   	phy-mode = "gmii";
+>   };
+>
