@@ -1,242 +1,57 @@
-From: =?gb2312?B?U2hhcm9uINGpwtc=?= <ganglin@njs.cn>
-Subject: (unknown)
-Date: Thu, 20 Mar 2014 05:29:06 +0800
-Message-ID: <002004532056$81810432$33818713@wlpyjaszq>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next,v3] hyperv: Add support for virtual Receive
+ Side Scaling (vRSS)
+Date: Wed, 19 Mar 2014 21:36:24 +0000
+Message-ID: <96538481deb64ee0a7fd511bedfa1d55@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <1395180922-2776-1-git-send-email-haiyangz@microsoft.com>
+ <20140319.164005.1815461875771862691.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <gao@tecnomagnete.com.cn>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [220.189.219.66] ([220.189.219.66]:49984 "HELO njs.cn"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751468AbaCSVeX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Mar 2014 17:34:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-                                         =A1=B6 =CE=A2 =D3=AA =CF=FA =CA=
-=B5 =D5=BD =A1=B7
-
------------------------------------------------------------------------=
---------------------------
-                                           =A1=BE=D6=F7=BD=B2=A3=BA=C2=ED=
-=BC=D1=B1=F2=A1=BF
-
------------------------------------------------------------------------=
---------------------------
-  =B1=A8=C3=FB=CF=EA=C7=E9 >
-
-=A1=BE=C5=E0=D1=B5=CA=B1=BC=E4=A1=BF2014=C4=EA3=D4=C221=C9=CF=BA=A3=A1=A2=
-3=D4=C222=B1=B1=BE=A9=A1=A23=D4=C229=C9=EE=DB=DA
-
-=A1=BE=C5=E0=D1=B5=B6=D4=CF=F3=A1=BF=C6=F3=D2=B5=B5=C4=BE=AD=D3=AA=D5=DF=
-=A1=A2=D3=AA=CF=FA=B8=BA=D4=F0=C8=CB=A1=A2=CD=F8=C2=E7=D3=AA=CF=FA=C8=CB=
-=D4=B1=A1=A2=C6=F3=D2=B5=D3=AA=CF=FA=B2=DF=C2=D4=D6=C6=B6=A8=D5=DF=BC=B0=
-=CB=F9=D3=D0=D3=AA=CF=FA=C8=CB=D4=B1=A1=A3
-
-=A1=BE=CA=DA=BF=CE=B7=BD=CA=BD=A1=BF=BD=B2=CA=A6=BD=B2=CA=DA + =CA=D3=C6=
-=B5=D1=DD=D2=EF + =B0=B8=C0=FD=D1=D0=CC=D6 +=BD=C7=C9=AB=B0=E7=D1=DD + =
-=BD=B2=CA=A6=B5=E3=C6=C0 + =C2=E4=B5=D8=B9=A4=BE=DF=A1=A3
-
-=A1=BE=C5=E0=D1=B5=B7=D1=D3=C3=A1=BF3200/=C1=BD=C8=CB=A3=AC=B5=A5=B6=C0=
-=D2=BB=C8=CB=CA=D5=B7=D11980=D4=AA=A3=A8=BA=AC=D7=CA=C1=CF=B7=D1=A1=A2=CE=
-=E7=B2=CD=A1=A2=B2=E8=B5=E3=A1=A2=BD=CC=B2=C4=A3=A9
-
-          =D4=F9=CB=CD=A3=BA
-
-           =BC=DB=D6=B51800=D4=AA=B5=C4=CE=A2=CD=F8=D5=BE=A3=AC=CF=DE=C7=
-=B030=C3=FB=B1=A8=C3=FB=D1=A7=D4=B1=A1=A3
-
-           =CE=A2=D0=C5=D3=AA=CF=FA=CF=B5=CD=B340=B6=E0=BF=EE=B9=AB=D6=DA=
-=C6=BD=CC=A8=BD=D3=BF=DA=A3=AC=BA=AC=B4=F3=D7=AA=C5=CC=A1=A2=B9=CE=B9=CE=
-=BF=A8=A1=A2=D3=C5=BB=DD=C8=AF=B5=C8=CA=B5=D3=C3=D3=AA=CF=FA=B9=A6=C4=DC=
-=A1=A3
-
-=A1=BE=B3=D0=B0=EC=B5=A5=CE=BB=A1=BF=D3=EE=BD=DC=C6=F3=B9=DC
-
-=A1=BE=B1=A8=C3=FB=C8=C8=CF=DF=A1=BF=C9=EE=DB=DA=A3=BA0755-6128 2360   =
-=C9=CF=BA=A3=A3=BA021-5160 2030    =B1=B1=BE=A9=A3=BA010-5166 9310
-
- =D4=DA=CF=DFQQ=A3=BA511 798 337       =20
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140319.164005.1815461875771862691.davem@davemloft.net>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
 
-=A1=BE=BF=CE=B3=CC=B1=B3=BE=B0=A1=BF
 
------------------------------------------------------------------------=
---------------------------
-10=C4=EA=C7=B0=A3=AC=BB=A5=C1=AA=CD=F8=C0=B4=C1=CB=A3=AC=D3=D0=C8=CB=D2=
-=F2=B4=CB=B3=C9=CE=AA=C9=CC=D2=B5=BE=DE=CD=B7=A3=BB
-5=C4=EA=C7=B0=A3=AC=CC=D4=B1=A6=C0=B4=C1=CB=A3=AC=D3=D0=C8=CB=D2=F2=B4=CB=
-=CA=B5=CF=D6=A1=B0=B2=DD=B8=F9=B4=B4=D2=B5=A1=B1=A3=BB
-3=C4=EA=C7=B0=A3=AC=CE=A2=B2=A9=C0=B4=C1=CB=A3=AC=D3=D0=C8=CB=D2=F2=B4=CB=
-=CA=B5=CF=D6=B2=C6=B8=BB=A1=B0=BA=CB=C1=D1=B1=E4=A1=B1=A3=BB
-=B6=F8=BD=F1=CC=EC=A3=AC=CE=A2=D0=C5=C0=B4=C1=CB=A3=AC=CE=A2=D3=AA=CF=FA=
-=C0=B4=C1=CB=A1=AD=A1=AD
+> -----Original Message-----
+> > +
+> > +
+> > +/* ndis_recv_scale_cap/cap_flag */
+> 
+> One empty line is sufficient, we don't need two of them here.
 
-7=CC=EC=C1=AC=CB=F8=BE=C6=B5=EA=CD=A8=B9=FD=CE=A2=D0=C5=D3=AA=CF=FA=A3=AC=
-=D2=BB=B8=F6=D4=C2=C4=DA=A3=AC=BB=E1=D4=B1=B4=D330=CD=F2=BC=B8=BA=CE=CA=
-=BD=D4=F6=D6=C1120=CD=F2=A3=A1
-=D0=A1=C3=D7=CA=D6=BB=FA=CD=A8=B9=FD=CE=A2=D0=C5=D3=AA=CF=FA=A3=AC=D4=DA=
-=B6=CC=B6=CC3=B8=F6=D4=C2=C4=DA=CE=FC=D2=FD=B7=DB=CB=BF105=CD=F2=A3=AC=CD=
-=F8=C9=CF=B6=A9=B5=A5=B1=A9=D4=F615=B1=B6=A3=A1
-=D0=C7=B0=CD=BF=CB=CD=A8=B9=FD=CE=A2=D0=C5=D3=AA=CF=FA,=D4=DA=C8=FD=D6=DC=
-=C4=DA=A3=AC=BD=F6=A1=B0=B1=F9=D2=A1=C7=DF=CB=AC=A1=B1=D2=BB=CF=EE=B2=FA=
-=C6=B7=CF=FA=CA=DB=B6=EE=BE=CD=CD=BB=C6=C6750=CD=F2=A3=A1
-=A1=B090=BA=F3=A1=B1=B4=F3=D1=A7=C9=FA=CD=A8=B9=FD=CE=A2=D0=C5=D3=AA=CF=
-=FA=C2=F4=CB=AE=B9=FB=A3=AC=D2=BB=C3=BB=B5=EA=C6=CC=A3=AC=B6=FE=C3=BB=D4=
-=B1=B9=A4=C7=E9=BF=F6=CF=C2=A3=AC=CA=B5=CF=D6=D4=C2=C8=EB8=CD=F2=B5=C4=C6=
-=E6=BC=A3=A3=A1
-=CE=A2=D0=C5=C0=B4=C1=CB=A3=AC=A1=B0=CE=A2=A1=B1=BB=FA=D2=B2=BE=CD=C0=B4=
-=C1=CB=A3=AC=C4=E3=D6=AA=B5=C0=D5=E2=D2=E2=CE=B6=D7=C5=CA=B2=C3=B4=A3=A1=
-=A3=A1
-=CE=B4=C0=B4=CA=AE=C4=EA=A3=AC=CA=C7=D6=D0=B9=FA=C9=CC=D2=B5=C1=EC=D3=F2=
-=B4=F3=B9=E6=C4=A3=B4=F2=BD=D9=B5=C4=CA=B1=B4=FA=A3=AC=CB=F9=D3=D0=BB=B9=
-=D4=DA=B2=C9=D3=C3=B4=AB=CD=B3=D4=CB=D3=AA=C4=A3=CA=BD=B5=C4=C6=F3=D2=B5=
-=B5=C4=A1=B0=C1=B8=B2=D6=A1=B1
-=B6=BC=D3=D0=BF=C9=C4=DC=D4=E2=D3=F6=B4=F2=BD=D9=A3=AC=B6=F8=C4=C7=D0=A9=
-=CA=CA=D3=A6=C1=CB=A1=B0=CE=A2=A1=B1=BB=FA=A3=AC=D7=A5=D7=A1=C1=CB=A1=B0=
-=CE=A2=A1=B1=BB=FA=B5=C4=C6=F3=D2=B5=BD=AB=CA=C7=D5=E2=B8=F6=CA=B1=B4=FA=
-=D7=EE=B4=F3=B5=C4=D3=AE=BC=D2=A3=AC=D0=A1=C3=D7=D3=AE=C1=CB=A3=AC
-=D0=C7=B0=CD=BF=CB=D3=AE=C1=CB=A1=AD=A1=AD
+I will fix this and other formats you pointed out below, also check the whole patch 
+for similar issues.
 
-=B2=CE=BC=D3=A1=B6=CE=A2=D0=C5=D3=AA=CF=FA=B4=D3=C8=EB=C3=C5=B5=BD=CA=B5=
-=D5=BD=A1=B7=A3=AC=CF=C2=D2=BB=B8=F6=D3=AE=BC=D2=A3=AC=BE=CD=CA=C7=C4=E3=
-=A3=A1
+> > -	net = alloc_etherdev(sizeof(struct net_device_context));
+> > +	net = alloc_etherdev_mq(sizeof(struct net_device_context),
+> > +				num_online_cpus());
+> >  	if (!net)
+> >  		return -ENOMEM;
+> >
+> 
+> num_online_cpus() can change, will your driver accomodate this?
 
-=A1=BE=BF=CE=B3=CC=CA=D5=D2=E6=A1=BF
+HyperV currently doesn't support hot-add/remove cpu, so this is constant for 
+this driver.
 
------------------------------------------------------------------------=
---------------------------
- 1.=C8=AB=C3=E6=CF=B5=CD=B3=D1=A7=CF=B0=CE=A2=D0=C5=D3=AA=CF=FA=C1=BD=B4=
-=F3=C6=BD=CC=A8=A3=AC=C6=D5=BC=B0=CA=FD10=D6=D6=CA=B5=B2=D9=BC=BC=C7=C9=
-=A3=BB=20
- 2.=D6=AA=CF=FE=CE=A2=D0=C5=D3=AA=CF=FA=B6=A8=CE=BB=A1=A2=B2=DF=BB=AE=A1=
-=A2=D4=CB=D3=AA=A1=A2=CD=C6=B9=E3=A1=A2=B3=C9 =BD=BB5=B4=F3=C4=A3=BF=E9=
-=D6=C2=CA=A4=BE=F7=C7=CF=A3=BB=20
- 3.=D1=A7=BB=E1=C9=F8=CD=B8=CE=A2=D0=C5=C5=F3=D3=D1=C8=A6=D7=D3=A3=AC=B0=
-=D1=CE=D5=C7=BF=C8=F5=B9=D8=CF=B5=A3=AC=CA=B5 =CF=D6=BF=DA=B1=AE=D3=AA=CF=
-=FA=BC=B0=BD=A8=C1=A2=D7=AA=BD=E9=C9=DC=CF=B5=CD=B3=A3=BB=20
- 4.=D5=C6=CE=D5=D4=CB=D3=AA=B2=E3=C3=E66=B4=F3=B9=A6=C4=DC=CA=B5=B2=D9=CF=
-=B8=BD=DA=A3=AC=BD=E2=B4=F0=CF=DF =C9=CF=A1=A2=CF=DF=CF=C2=BB=EE=B6=AF=B2=
-=DF=BB=AE=D7=A2=D2=E2=CA=C2=CF=EE=A1=A3=20
- 5.=BB=F1=B5=C3=CE=A2=D0=C5=D3=AA=CF=FA=C2=E4=B5=D8=B4=EE=BD=A8=CD=C5=B6=
-=D3=D2=BB=CF=B5=C1=D0=BD=A8=D2=E9=A3=AC=B0=FC=C0=A8=BC=A8=D0=A7=BF=BC=BA=
-=CB=D3=EB=D0=A7=B9=FB=B7=D6=CE=F6=A1=A3=20
- 6.=C1=CB=BD=E2=CE=A2=D0=C5=B7=A2=D5=B9=C7=F7=CA=C6=D2=D4=BC=B0=C6=F3=D2=
-=B5=D2=C6=B6=AF=BB=A5=C1=AA=CD=F8=D3=AA=CF=FA=C7=F7=CA=C6=A3=AC=C9=D9=D7=
-=DF=CD=E4=C2=B7=C8=A1=B5=C3=B3=C9=D0=A7=A1=A3
-
-
-=A1=BE=BD=B2=CA=A6=BD=E9=C9=DC=A1=BF =A1=BE=C2=ED=BC=D1=B1=F2=A1=BF
-
------------------------------------------------------------------------=
---------------------------
- =CE=A2=D0=C5=CA=B5=D5=BD=D3=A6=D3=C3=D7=A8=BC=D2=A1=A2=CD=F8=C2=E7=D3=AA=
-=CF=FA=CA=B5=D5=BD=D7=A8=BC=D2=A1=A3
-
-=A1=BE=BD=CC=D3=FD=B1=B3=BE=B0=A1=BF
-
-    =C9=CF=BA=A3=BD=BB=CD=A8=B4=F3=D1=A7EMBA=D7=DC=B2=C3=B0=E0=B5=BC=CA=
-=A6=A3=BB=D6=D0=D1=EB=C8=CB=C3=F1=B9=E3=B2=A5=B5=E7=CC=A8
-    =BE=AD=BC=C3=D6=AE=C9=F9=CA=B1=C6=C0=BC=CE=B1=F6=A3=BB=D6=D0=CC=D8=A1=
-=B6=CE=A2=D0=C5=BD=E2=C2=EB=A1=B7=D7=A8=BC=D2=A3=BB=A1=B6=CE=A2=D0=C5=B1=
-=A6=B5=E4=A1=B7=D7=F7=D5=DF=A3=BB=B4=B4=D0=C2=B9=A4=B3=A1=B6=E0=B1=B4=CD=
-=F8=B4=EF=C8=CB=BD=B2=CA=A6=A3=BB=C2=ED=C0=CF=CA=A6
-=CA=C7=B6=E0=BC=D2=D6=AA=C3=FB=CD=F8=D5=BE=B5=C4=D7=A8=C0=B8=D7=F7=BC=D2=
-=A3=AC=C8=E7=A3=BAChinaz=D5=BE=B3=A4=D6=AE=BC=D2=A3=ACDonews=D0=C2=C8=F1=
-=D7=F7=BC=D2=A1=A2=CB=D9=CD=BE=CD=F8=A1=A2=B0=AC=C8=F0=CD=F8=A1=A2=D2=D7=
-=B9=DB=CD=F8=A1=A2=D2=DA=B0=EE=B6=AF
-=C1=A6=CD=F8=BA=CD=D7=EE=BF=C6=BC=BC=CD=F8=B5=C8=A1=A3=CE=A2=D0=C5=D3=AA=
-=CF=FA=C1=EC=D3=F2=D7=A8=D2=B5=C5=C5=C3=FB=C7=B0=CB=C4*=C2=ED=C0=CF=CA=A6=
-=D3=B5=D3=D09=C4=EA=B5=C4=BB=A5=C1=AA=CD=F8=D0=D0=D2=B5=C5=E0=D1=B5=BE=AD=
-=D1=E9=A3=AC=CF=C8=BA=F3=B4=D3=CA=C2=D0=C5=CF=A2=D7=C9
-=D1=AF=BC=B0=B9=E3=B8=E6=B4=AB=C3=BD=B9=A4=D7=F7=A1=A3=CE=A2=B2=A9=D3=AA=
-=CF=FA=C1=EC=D3=F2=CA=D7=B4=CE=CC=E1=B3=F6=A1=B0=C3=F0=CD=F6=C2=DB=A1=B1=
-=A1=A3=D7=EE=D4=E7=C9=E6=D7=E3=D1=D0=BE=BF=CE=A2=D0=C5=D3=AA=CF=FA=A3=AC=
-=CE=A2=D0=C5=D3=AA=CF=FA=CA=B5=D5=BD=B0=E0=CD=F8=C2=E7=C5=E0
-=D1=B5=BF=AA=B4=B4=D5=DF=A3=AC=A1=B0=CE=A2=D0=C5=D3=AA=CF=FA=C1=F9=B2=BD=
-=CB=BC=CE=AC=B7=A8=A1=B1=BD=B2=CA=A6=A1=A3=B3=A4=C6=DA=B5=A3=C8=CE=D2=B5=
-=C4=DA=B6=E0=BC=D2=D6=AA=C3=FBIT=C3=C5=BB=A7=D5=BE=B5=E3=D0=B4=CA=D6=A1=
-=A3=C6=E4=B8=F6=C8=CB=B2=A9=BF=CD=D4=DA=D2=B5=C4=DA=D3=B5
-=D3=D0=B1=C8=BD=CF=B8=DF=B5=C4=D6=AA=C3=FB=B6=C8=A3=AC=D2=D1=B1=BB=CD=F8=
-=D5=BE=D4=CB=D3=AA=B5=C8=D7=A8=D2=B5=CA=E9=BC=AE=CA=D5=C2=BC=CD=C6=BC=F6=
-=A1=A3=C5=E0=D1=B5=D1=A7=D4=B1=CA=FD=D2=D4=CD=F2=BC=C6=A3=AC=C2=ED=C0=CF=
-=CA=A6=D3=C9=D3=DA=B3=A4=C6=DA=C7=D7=C3=DC=BD=D3=B4=A5=CD=F8
-=C2=E7=D3=AA=CF=FA=D2=BB=CF=DF=A3=AC=D2=F2=B4=CB=A3=AC=BD=B2=BD=E2=B7=E7=
-=B8=F1=C9=FA=B6=AF=A1=A2=CC=F9=BD=FC=CA=B5=BC=CA=A3=AC=B8=FC=D2=D7=D2=FD=
-=C6=F0=D1=A7=D4=B1=B9=B2=C3=F9=A3=A1=CA=C7=D7=EE=D4=E7=B5=C4=CE=A2=D0=C5=
-=D3=AA=CF=FA=D1=D0=BE=BF=BC=B0=CA=B5=BC=F9=D5=DF=A3=AC=D4=DA
-=CE=A2=D0=C5=D3=AA=CF=FA=C1=EC=D3=F2=BE=DF=D3=D0=CD=EA=C9=C6=CF=B5=CD=B3=
-=B5=C4=D1=D0=BE=BF=B3=C9=B9=FB=A1=A3
-
-=A1=BE=BF=CE=B3=CC=B4=F3=B8=D9=A1=BF
-
------------------------------------------------------------------------=
---------------------------
-=D2=BB=A1=A2=CE=A2=D0=C5=D3=AA=CF=FA=B8=C5=C4=EE=C6=AA
-1=A1=A2=D2=C6=B6=AF=B5=E7=D7=D3=C9=CC=CE=F1=B4=F8=C0=B4=C1=CB=CA=B2=C3=B4=
-=BB=FA=BB=E1=A3=BF
-2=A1=A2=B3=A3=BC=FB=B5=C4=D2=C6=B6=AF=BB=A5=C1=AA=CD=F8=C9=CC=D2=B5=C4=A3=
-=CA=BD=D3=D0=C4=C4=D0=A9=A3=BF
-3=A1=A2=CE=A2=D0=C5=B5=C4=B7=A2=D5=B9=C0=FA=CA=B7=BC=B0=C6=E4=C9=CC=D2=B5=
-=C4=A3=CA=BD=A1=A3=CE=A2=D0=C5=D3=AA=CF=FA=D3=EB=C9=E7=BD=BB=CD=F8=C2=E7=
-=D3=D0=CA=B2=C3=B4=B9=D8=CF=B5=A3=BF
-4=A1=A2=C6=F3=D2=B5=CE=AA=CA=B2=C3=B4=D2=AA=D7=F6=CE=A2=D0=C5=D3=AA=CF=FA=
-=A3=BF=CE=A2=D0=C5=D3=AA=CF=FA=C4=DC=B8=F8=C6=F3=D2=B5=B4=F8=C0=B4=CA=B2=
-=C3=B4=A3=BF
-
-=B6=FE=A1=A2=CE=A2=D0=C5=D3=AA=CF=FA=C8=EB=C3=C5=C6=AA
-1=A1=A2=CE=A2=D0=C5=CA=D6=BB=FA=B0=E6=A1=A2=CD=F8=D2=B3=B0=E6=A1=A2=B9=AB=
-=D6=DA=C6=BD=CC=A8=BD=E9=C9=DC=A3=BB
-2=A1=A2=CE=A2=D0=C5=CA=D6=BB=FA=B0=E6=CA=B5=B2=D9=BC=BC=C7=C9=BD=E2=C3=DC=
-=A1=A2=B5=E7=C4=D4=C4=A3=C4=E2=CA=D6=BB=FA=B0=E6=BC=BC=CA=F5=BD=E9=C9=DC=
-=A3=BB
-3=A1=A2=CE=A2=D0=C5=CD=F8=D2=B3=B0=E6=CA=B5=B2=D9=BC=BC=C7=C9=BD=E9=C9=DC=
-=A3=A8=C5=FA=C1=BF=CE=A2=C8=BA=BC=D3=BA=C3=D3=D1=BC=BC=C7=C9=A3=A9=A3=BB
-4=A1=A2=CE=A2=D0=C5=B9=AB=D6=DA=C6=BD=CC=A8=B4=EE=BD=A8=C8=AB=C3=E6=CF=B5=
-=CD=B3=BD=E9=C9=DC=A3=A8=BF=C6=D1=A7=D5=FD=C8=B7=CA=B9=D3=C3=CE=A2=D0=C5=
-=B9=AB=D6=DA=D5=CA=BA=C5=A3=A9=A3=BB
-5=A1=A2=CE=A2=D0=C59=B4=F3=B8=A8=D6=FA=D3=AA=CF=FA=C8=ED=BC=FE=CA=D7=B6=
-=C8=CE=DE=B1=A3=C1=F4=C8=AB=B9=AB=BF=AA=A3=BB
-
-=C8=FD=A1=A2=CE=A2=D0=C5=D3=AA=CF=FA=BD=F8=BD=D7=C6=AA
-1=A1=A2=CE=A2=D0=C5=D2=C6=B6=AF=B5=E7=D7=D3=C9=CC=CE=F1=CF=B5=CD=B3=B4=EE=
-=BD=A8=D6=B8=C4=CF=A3=BB
-2=A1=A2=CE=A2=D0=C5O2O=B5=E7=D7=D3=C9=CC=CE=F1=CF=B5=CD=B3=B4=EE=BD=A8=D6=
-=B8=C4=CF=A3=BB
-3=A1=A2=CE=A2=D0=C5=BF=CD=B7=FE=CF=B5=CD=B3=A3=A8CRM=A3=A9=B4=EE=BD=A8=D6=
-=B8=C4=CF=A3=BB
-4=A1=A2=CE=A2=D0=C5=D7=D4=CD=C6=B9=E3=CF=B5=CD=B3=B4=EE=BD=A8=D6=B8=C4=CF=
-=A3=BB
-5=A1=A2=CE=A2=D0=C5=D3=AA=CF=FA=CB=C4=B2=BD=CB=BC=CE=AC=B7=A8=A3=BA=B6=A8=
-=CE=BB+=B2=DF=BB=AE+=D4=CB=D3=AA+=D7=AA=BB=AF =CB=C4=B4=F3=C4=A3=BF=E9=CF=
-=B5=CD=B3=BD=E2=CE=F6=A3=BB
-   5.1.1 =C6=F3=D2=B5=CE=A2=D0=C5=D4=CB=D3=AA=CD=C5=B6=D3=BD=A8=C9=E8=B2=
-=DF=C2=D4=A3=BB      =20
-   5.1.2 =C6=F3=D2=B5=CE=A2=D0=C5=B9=AB=D6=DA=D5=CA=BA=C5=C4=DA=C8=DD=B2=
-=DF=BB=AE=B2=DF=C2=D4=A3=BB
-   5.1.3 =C6=F3=D2=B5=CE=A2=D0=C5=B9=AB=D6=DA=D5=CA=BA=C5=BB=EE=B6=AF=B2=
-=DF=BB=AE=B2=DF=C2=D4=A3=BB  =20
-   5.1.4 =C6=F3=D2=B5=CE=A2=D0=C5=B9=AB=D6=DA=D5=CA=BA=C5=BF=CD=B7=FE=B2=
-=DF=C2=D4=A3=BB
-   5.1.5 =C6=F3=D2=B5=CE=A2=D0=C5=B9=AB=D6=DA=D5=CA=BA=C5=CD=C6=B9=E3=B2=
-=DF=C2=D4=A3=BB
-6=A1=A2=CE=A2=D0=C5=B8=F6=C8=CB=D5=CA=BA=C5=D3=AA=CF=FA=A1=A2=B9=AB=D6=DA=
-=D5=CA=BA=C5=D3=AA=CF=FA=B8=A8=D6=FA=CA=D6=B6=CE=D1=D3=C9=EC=CD=C6=BC=F6=
-=A3=A8=D2=D7=D0=C5=A1=A2=CE=A2=C3=D7=A1=A2=C0=B4=CD=F9=B6=E0=C6=BD=CC=A8=
-=D3=AA=CF=FA=CD=C6=B9=E3=A3=A9=A3=BB
-
-=CB=C4=A1=A2=CE=A2=D0=C5=D3=AA=CF=FA=C2=E4=B5=D8=C6=AA
-1=A1=A2=CE=A2=D0=C5=B8=F6=C8=CB=D5=CA=BA=C5=C5=F3=D3=D1=C8=A6=CF=FA=CA=DB=
-=CA=B5=B2=D9=BC=BC=C7=C9=D6=B8=C4=CF=A3=BB
-2=A1=A2=CE=A2=D0=C5=B9=AB=D6=DA=D5=CA=BA=C5=C2=E4=B5=D8=B2=DF=C2=D4=A3=A8=
-=B6=E0=D0=D0=D2=B5=A3=A9=A3=BB
-3=A1=A2=CE=A2=D0=C5=C6=F3=D2=B5=D3=A6=D3=C3=BE=AD=B5=E4=B0=B8=C0=FD=B7=D6=
-=CF=ED=A3=A8=B6=E0=D0=D0=D2=B5=A3=A9=A3=BB
-4=A1=A2=CE=A2=D0=C5=D7=D4=C3=BD=CC=E5=C6=B7=C5=C6=B4=F2=D4=EC=C8=FD=B2=BF=
-=C7=FA=A3=BB
-5=A1=A2=CE=A2=D0=C5=D7=D4=C3=BD=CC=E5=C6=B7=C5=C6=BE=AD=B5=E4=B0=B8=C0=FD=
-=B7=D6=CF=ED=A3=BB
-
------------------------------------------------------------------------=
---------------------------
+Thanks,
+- Haiyang
