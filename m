@@ -1,71 +1,59 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] rsi: Add pr_fmt,__printf, fix format & arg mismatch
-Date: Tue, 18 Mar 2014 17:59:47 -0700
-Message-ID: <1395190787.8649.5.camel@joe-AO722>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH 1/3] bridge: preserve random init MAC address
+Date: Wed, 19 Mar 2014 10:04:37 +0900
+Message-ID: <5328ED25.1040900@lab.ntt.co.jp>
+References: <1394680527-28970-1-git-send-email-mcgrof@do-not-panic.com>
+	<1394680527-28970-2-git-send-email-mcgrof@do-not-panic.com>
+	<5328E802.3030901@lab.ntt.co.jp>
+	<CAB=NE6X2eZFLWBN1acf=d75T_K2YM_OK3oaXEPu-hwpUJEmwkg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Fariya Fatima <fariyaf@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0067.hostedemail.com ([216.40.44.67]:36390 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1758746AbaCSA7u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 20:59:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	xen-devel@lists.xenproject.org
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAB=NE6X2eZFLWBN1acf=d75T_K2YM_OK3oaXEPu-hwpUJEmwkg@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Emit a prefix for the rsi_dbg messages.
+(2014/03/19 9:50), Luis R. Rodriguez wrote:
+> On Tue, Mar 18, 2014 at 5:42 PM, Toshiaki Makita
+> <makita.toshiaki@lab.ntt.co.jp> wrote:
+>> nit,
+>> If the last detached port happens to have the same addr as
+>> random_init_addr, this seems to call br_stp_change_bridge_id() even
+>> though bridge_id is not changed.
+> 
+> Ah good point.
+> 
+>> Shouldn't the assignment of random_init_addr be done before the check of
+>> "no change"?
+> 
+> Good question, should we even allow two ports to have the same MAC
+> address or should we complain and refuse to add it? If so that should
+> mean we should also have to monitor any manual address changes or
+> events for address changes on the ports.
 
-Fix the format and argument mismatch and add
-__printf(2, 3) to try to avoid more.
+This was recently discussed by Stephen and me.
+I'm thinking it should be allowed.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/wireless/rsi/rsi_91x_main.c | 2 ++
- drivers/net/wireless/rsi/rsi_91x_mgmt.c | 3 ++-
- drivers/net/wireless/rsi/rsi_main.h     | 2 +-
- 3 files changed, 5 insertions(+), 2 deletions(-)
+http://marc.info/?l=linux-netdev&m=139182743919257&w=2
 
-diff --git a/drivers/net/wireless/rsi/rsi_91x_main.c b/drivers/net/wireless/rsi/rsi_91x_main.c
-index 7367be4..8810862 100644
---- a/drivers/net/wireless/rsi/rsi_91x_main.c
-+++ b/drivers/net/wireless/rsi/rsi_91x_main.c
-@@ -14,6 +14,8 @@
-  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/module.h>
- #include <linux/firmware.h>
- #include "rsi_mgmt.h"
-diff --git a/drivers/net/wireless/rsi/rsi_91x_mgmt.c b/drivers/net/wireless/rsi/rsi_91x_mgmt.c
-index f09c72e..ef37d4b 100644
---- a/drivers/net/wireless/rsi/rsi_91x_mgmt.c
-+++ b/drivers/net/wireless/rsi/rsi_91x_mgmt.c
-@@ -393,7 +393,8 @@ static int rsi_mgmt_pkt_to_core(struct rsi_common *common,
- 
- 		msg_len -= pad_bytes;
- 		if ((msg_len <= 0) || (!msg)) {
--			rsi_dbg(MGMT_RX_ZONE, "Invalid rx msg of len = %d\n",
-+			rsi_dbg(MGMT_RX_ZONE,
-+				"%s: Invalid rx msg of len = %d\n",
- 				__func__, msg_len);
- 			return -EINVAL;
- 		}
-diff --git a/drivers/net/wireless/rsi/rsi_main.h b/drivers/net/wireless/rsi/rsi_main.h
-index e97e6ad..2cb73e7 100644
---- a/drivers/net/wireless/rsi/rsi_main.h
-+++ b/drivers/net/wireless/rsi/rsi_main.h
-@@ -40,7 +40,7 @@
- #define FSM_MAC_INIT_DONE               6
- 
- extern u32 rsi_zone_enabled;
--extern void rsi_dbg(u32 zone, const char *fmt, ...);
-+extern __printf(2, 3) void rsi_dbg(u32 zone, const char *fmt, ...);
- 
- #define RSI_MAX_VIFS                    1
- #define NUM_EDCA_QUEUES                 4
+Toshiaki Makita
+
+> 
+> Stephen?
+> 
+>   Luis
