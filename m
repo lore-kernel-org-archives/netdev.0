@@ -1,118 +1,66 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 00/15][pull request] Intel Wired LAN Driver Updates
-Date: Tue, 18 Mar 2014 20:41:58 -0700
-Message-ID: <1395200533-16908-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next v2 07/15] i40e/i40evf: reduce context descriptors
+Date: Tue, 18 Mar 2014 20:42:05 -0700
+Message-ID: <1395200533-16908-8-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1395200533-16908-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:38141 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:18793 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933563AbaCSDmP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Mar 2014 23:42:15 -0400
+	id S933563AbaCSDmT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Mar 2014 23:42:19 -0400
+In-Reply-To: <1395200533-16908-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e, i40evf, e1000e, ixgbe and ixgbevf.
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Mitch adds support for the VF link state ndo which allows the PF driver
-to control the virtual link state of the VF devices.  Added
-support for viewing and modifying RSS hash options and RSS hash look-up
-table programming through ethtool for i40evf.  Fixed complaint about
-the use of min() where min_t() should be used in i40evf.
+We don't need context descriptors for every packet, only tso
+or timesync.  This fixes a bug in the driver where it would
+always add a context even if all the passed in values
+to the context descriptor function were 0/default values.
 
-Anjali adds support for ethtool -k option for NTUPLE control for i40e.
+Change-ID: I0101d2b893380707b5c2de61aab3e16d4310e9a1
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 3 ++-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-Elizabeth cleans up and refactors i40e_open() to separate out the VSI
-code into its own i40e_vsi_open().
-
-Jesse enables the hardware feature head write back to avoid updating the
-descriptor ring by marking each descriptor with a DD bit and instead
-writes a memory location with an update to where the driver should clean
-up to in i40e and i40evf.  Reduces context descriptors for i40e/i40evf
-since we do not need context descriptors for every packet, only for
-TSO or timesync.
-
-Dan Carpenter fixes a potential array underflow in i40e_vc_process_vf_msg().
-
-Dave fixes an e1000e hardware unit hang where the check for pending Tx work
-when link is lost was mistakenly moved to be done only when link is first
-detected to be lost.  Fixed a problem with poor network performance on
-certain silicon in e1000e when configured for 100M HDX performance.
-
-Carolyn adds register defines needed for time sync functions and the code
-to call the updated defines.
-
-Jacob adds the ixgbe function for writing PCI config word and checks
-whether the adapter has been removed first.
-
-Mark adds the bit __IXGBEVF_REMOVING to indicate that the module is being
-removed because the __IXGBEVF_DOWN bit had been overloaded for this
-purpose, but leads to trouble.  ixgbevf_down function can now prevent
-multiple executions by doing test_and_set_bit on __IXGBEVF_DOWN.
-
-v2:
-- dropped patch Mitch's patch "i40evf: correctly program RSS HLUT table"
-  based on feedback from Ben Hutchings so that Mitch can re-work the
-  patch solution
-
-The following are changes since commit 8cfad496c4257441710735ccef622f3829870164:
-  ieee802154: properly unshare skbs in ieee802154 *_rcv functions
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Anjali Singhai Jain (1):
-  i40e: Patch to enable Ethtool/netdev feature flag for NTUPLE control
-
-Carolyn Wyborny (1):
-  igb: Add register defines needed for time sync functions
-
-Catherine Sullivan (1):
-  i40e/i40evf: Bump build versions
-
-Dan Carpenter (1):
-  i40e: potential array underflow in i40e_vc_process_vf_msg()
-
-David Ertman (2):
-  e1000e: Fix Hardware Unit Hang
-  e1000e: Fix Explicitly set Transmit Control Register
-
-Elizabeth Kappler (1):
-  i40e: Refactor and cleanup i40e_open(), adding i40e_vsi_open()
-
-Jacob Keller (1):
-  ixgbe: add ixgbe_write_pci_cfg_word with ixgbe_removed check
-
-Jesse Brandeburg (2):
-  i40e/i40evf: enable hardware feature head write back
-  i40e/i40evf: reduce context descriptors
-
-Mark Rustad (2):
-  ixgbevf: Indicate removal state explicitly
-  ixgbevf: Protect ixgbevf_down with __IXGBEVF_DOWN bit
-
-Mitch Williams (3):
-  i40e: support VF link state ndo
-  i40evf: correctly program RSS HLUT table
-  i40evf: use min_t
-
- drivers/net/ethernet/intel/e1000e/netdev.c         | 42 +++++++---
- drivers/net/ethernet/intel/i40e/i40e.h             |  4 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 89 ++++++++++++++++++---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 48 ++++++++++--
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 91 ++++++++++++++++++++--
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  4 +
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 48 ++++++++++--
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 23 +++---
- drivers/net/ethernet/intel/igb/e1000_defines.h     | 70 ++++++++++++++++-
- drivers/net/ethernet/intel/igb/e1000_regs.h        |  9 +++
- drivers/net/ethernet/intel/igb/igb_ptp.c           |  4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     |  6 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h    |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  9 +++
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h       |  5 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  | 18 +++--
- 16 files changed, 400 insertions(+), 71 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 9892a69..752e680 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1950,7 +1950,8 @@ static void i40e_create_tx_ctx(struct i40e_ring *tx_ring,
+ 	struct i40e_tx_context_desc *context_desc;
+ 	int i = tx_ring->next_to_use;
+ 
+-	if (!cd_type_cmd_tso_mss && !cd_tunneling && !cd_l2tag2)
++	if ((cd_type_cmd_tso_mss == I40E_TX_DESC_DTYPE_CONTEXT) &&
++	    !cd_tunneling && !cd_l2tag2)
+ 		return;
+ 
+ 	/* grab the next descriptor */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index d4d9842..18f174d 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1285,7 +1285,8 @@ static void i40e_create_tx_ctx(struct i40e_ring *tx_ring,
+ 	struct i40e_tx_context_desc *context_desc;
+ 	int i = tx_ring->next_to_use;
+ 
+-	if (!cd_type_cmd_tso_mss && !cd_tunneling && !cd_l2tag2)
++	if ((cd_type_cmd_tso_mss == I40E_TX_DESC_DTYPE_CONTEXT) &&
++	    !cd_tunneling && !cd_l2tag2)
+ 		return;
+ 
+ 	/* grab the next descriptor */
 -- 
 1.8.3.1
