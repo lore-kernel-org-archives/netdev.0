@@ -1,13 +1,11 @@
 From: Daniel Baluta <dbaluta@ixiacom.com>
 Subject: [PATCH] net: remove empty lines from tcp_syn_flood_action
-Date: Wed, 19 Mar 2014 15:58:25 +0200
-Message-ID: <1395237505-20550-2-git-send-email-dbaluta@ixiacom.com>
-References: <1395237505-20550-1-git-send-email-dbaluta@ixiacom.com>
+Date: Wed, 19 Mar 2014 15:58:24 +0200
+Message-ID: <1395237505-20550-1-git-send-email-dbaluta@ixiacom.com>
 Cc: dbaluta@ixiacom.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1395237505-20550-1-git-send-email-dbaluta@ixiacom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
