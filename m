@@ -1,80 +1,74 @@
-From: Alexey Perevalov <a.perevalov@samsung.com>
-Subject: [PATCH] netfilter: x_tables: allow to use cgroup match for LOCAL_IN nf
- hooks
-Date: Wed, 19 Mar 2014 10:58:42 +0400
-Message-ID: <1395212322-12508-1-git-send-email-a.perevalov@samsung.com>
-Cc: dborkman@redhat.com, kyungmin.park@samsung.com,
-	john.stultz@linaro.org, pablo@netfilter.org, edumazet@google.com,
-	a.perevalov@samsung.com
-To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created with
+ no group
+Date: Wed, 19 Mar 2014 08:56:49 +0200
+Message-ID: <CAF1J0HPsadLPbwxEJuvqAY9bGNYx46r2xS8XQbF0qtz_oqMoow@mail.gmail.com>
+References: <1395055050-20874-1-git-send-email-mike.rapoport@ravellosystems.com>
+	<CAJZOPZLN0SmB7xcLXWOnC2GoDfGhJ5N-T1zA4S4Pg+ikqyFnig@mail.gmail.com>
+	<CAF1J0HNOSKvRpjxN9+fs25mVDqo9wh==c-ZuS1i7CaWAnrCEgA@mail.gmail.com>
+	<20140318.232027.1528407849060824608.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Or Gerlitz <or.gerlitz@gmail.com>, netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.w1.samsung.com ([210.118.77.11]:60126 "EHLO
-	mailout1.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752349AbaCSG7Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 02:59:25 -0400
+Received: from mail-qg0-f44.google.com ([209.85.192.44]:44132 "EHLO
+	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756228AbaCSHDs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 03:03:48 -0400
+Received: by mail-qg0-f44.google.com with SMTP id a108so24529910qge.3
+        for <netdev@vger.kernel.org>; Wed, 19 Mar 2014 00:03:47 -0700 (PDT)
+In-Reply-To: <20140318.232027.1528407849060824608.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This simple modification allows iptables to work with INPUT chain
-in combination with cgroup module. It could be useful for counting
-ingress traffic per cgroup with nfacct netfilter module. There
-were no problems to count the egress traffic that way formerly.
+On Tue, Mar 18, 2014 at 11:20:27PM -0400, David Miller wrote:
+> From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+> Date: Tue, 18 Mar 2014 17:51:23 +0200
+>
+> > On Tue, Mar 18, 2014 at 5:10 PM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
+> >> On Mon, Mar 17, 2014 at 1:17 PM, Mike Rapoport
+> >> <mike.rapoport@ravellosystems.com> wrote:
+> >>> If the vxlan interface is created without group definition, there is a
+> >>> panic on the first packet reception:
+> >>>
+> >>> $ ip link add dev vxlan0 type vxlan id 1
+> >>> $ ip addr add dev vxlan0 10.0.0.1/24
+> >>> $ ip link set up dev vxlan0
+> >>>
+> >>>   BUG: unable to handle kernel paging request at 0000000100000103
+> >>>   IP: [<ffffffff8143435b>] ipv6_rcv+0xfa/0x399
+> >>
+> >> Hi Mike,
+> >>
+> >> So this bug/fix is for 3.14 and also earlier kernels?
+> >
+> > I think the bug was introduced by addition of ipv6 to vxlan, which was
+> > merged in 3.12.
+>
+> How did this code behave before ipv6 support was added?
 
-It's possible to get classified sk_buff after PREROUTING, due to
-socket lookup being done in early_demux (tcp_v4_early_demux). Also
-it works for udp as well.
+With IPv4 only the outer IP header was just ip_hdr(skb).
+The relevantange from ipv6 support patch is this:
 
-Trivial usage example, assuming we're in the same shell every step
-and we have enough permissions:
+@@ -917,9 +1053,20 @@ static void vxlan_rcv(struct vxlan_sock *vs,
+                goto drop;
 
-1) Classic net_cls cgroup initialization:
+        /* Re-examine inner Ethernet packet */
+-       oip = ip_hdr(skb);
++       if (remote_ip->sa.sa_family == AF_INET) {
++               oip = ip_hdr(skb);
++               saddr.sin.sin_addr.s_addr = oip->saddr;
++               saddr.sa.sa_family = AF_INET;
++#if IS_ENABLED(CONFIG_IPV6)
++       } else {
++               oip6 = ipv6_hdr(skb);
++               saddr.sin6.sin6_addr = oip6->saddr;
++               saddr.sa.sa_family = AF_INET6;
++#endif
++       }
++
 
-  mkdir /sys/fs/cgroup/net_cls
-  mount -t cgroup -o net_cls net_cls /sys/fs/cgroup/net_cls
-
-2) Set up cgroup for interesting application:
-
-  mkdir /sys/fs/cgroup/net_cls/wget
-  echo 1 > /sys/fs/cgroup/net_cls/wget/net_cls.classid
-  echo $BASHPID > /sys/fs/cgroup/net_cls/wget/cgroup.procs
-
-3) Create kernel counters:
-
-  nfacct add wget-cgroup-in
-  iptables -A INPUT -m cgroup ! --cgroup 1 -m nfacct --nfacct-name wget-cgroup-in
-
-  nfacct add wget-cgroup-out
-  iptables -A OUTPUT -m cgroup ! --cgroup 1 -m nfacct --nfacct-name wget-cgroup-out
-
-4) Network usage:
-
-  wget https://www.kernel.org/pub/linux/kernel/v3.x/testing/linux-3.14-rc6.tar.xz
-
-5) Check results:
-
-  nfacct list
-
-Cgroup approach is being used for the DataUsage (counting & blocking
-traffic) feature for Samsung's modification of the Tizen OS.
-
-Signed-off-by: Alexey Perevalov <a.perevalov@samsung.com>
----
- net/netfilter/xt_cgroup.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/netfilter/xt_cgroup.c b/net/netfilter/xt_cgroup.c
-index 9a8e77e7..f4e8330 100644
---- a/net/netfilter/xt_cgroup.c
-+++ b/net/netfilter/xt_cgroup.c
-@@ -54,7 +54,8 @@ static struct xt_match cgroup_mt_reg __read_mostly = {
- 	.matchsize  = sizeof(struct xt_cgroup_info),
- 	.me         = THIS_MODULE,
- 	.hooks      = (1 << NF_INET_LOCAL_OUT) |
--		      (1 << NF_INET_POST_ROUTING),
-+		      (1 << NF_INET_POST_ROUTING) |
-+		      (1 << NF_INET_LOCAL_IN),
- };
- 
- static int __init cgroup_mt_init(void)
--- 
-1.8.3.2
+--
+Sincerely yours,
+Mike.
