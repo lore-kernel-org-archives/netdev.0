@@ -1,108 +1,57 @@
-From: behanw@converseincode.com
-Subject: [PATCH v3] net: netfilter: LLVMLinux: vlais-netfilter
-Date: Tue, 18 Mar 2014 18:50:41 -0700
-Message-ID: <1395193841-2886-1-git-send-email-behanw@converseincode.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D0F6E0286@AcuExch.aculab.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 1/3] bridge: preserve random init MAC address
+Date: Tue, 18 Mar 2014 20:10:56 -0700
+Message-ID: <20140318201056.7b876394@nehalam.linuxnetplumber.net>
+References: <1394680527-28970-1-git-send-email-mcgrof@do-not-panic.com>
+	<1394680527-28970-2-git-send-email-mcgrof@do-not-panic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
-	dwmw2@infradead.org, pageexec@freemail.hu, David.Laight@ACULAB.COM,
-	Mark Charlebois <charlebm@gmail.com>,
-	Behan Webster <behanw@converseincode.com>,
-	=?UTF-8?q?Vin=C3=ADcius=20Tinti?= <viniciustinti@gmail.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6E0286@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, mcgrof@suse.com,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	xen-devel@lists.xenproject.org
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1394680527-28970-2-git-send-email-mcgrof@do-not-panic.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Mark Charlebois <charlebm@gmail.com>
+On Wed, 12 Mar 2014 20:15:25 -0700
+"Luis R. Rodriguez" <mcgrof@do-not-panic.com> wrote:
 
-Replaced non-standard C use of Variable Length Arrays In Structs (VLAIS=
-) in
-xt_repldata.h with a C99 compliant flexible array member and then calcu=
-lated
-offsets to the other struct members. These other members aren't referen=
-ced by
-name in this code, however this patch maintains the same memory layout =
-and
-padding as was previously accomplished using VLAIS.
+> As it is now if you add create a bridge it gets started
+> with a random MAC address and if you then add a net_device
+> as a slave but later kick it out you end up with a zero
+> MAC address. Instead preserve the original random MAC
+> address and use it.
 
-Had the original structure been ordered differently, with the entries V=
-LA at
-the end, then it could have been a flexible member, and this patch woul=
-d have
-been a lot simpler. However since the data stored in this structure is
-ultimately exported to userspace, the order of this structure can't be =
-changed.
+What is supposed to happen is that the recalculate chooses
+the lowest MAC address of the slaves. If there are no slaves
+it might as well just calculate a new random value. There is
+not great merit in preserving the original defunct address.
 
-This patch makes no attempt to change the existing behavior, merely the=
- way in
-which the current layout is accomplished using standard C99 constructs.=
- As such
-the code can now be compiled with either gcc or clang.
+Or something like this that just keeps the old value.
+The bridge is in a meaningless state when there are no ports,
+and when the first port is added back it will be used as the
+new bridge id.
 
-Author: Mark Charlebois <charlebm@gmail.com>
-Signed-off-by: Mark Charlebois <charlebm@gmail.com>
-Signed-off-by: Behan Webster <behanw@converseincode.com>
-Signed-off-by: Vin=C3=ADcius Tinti <viniciustinti@gmail.com>
----
- net/netfilter/xt_repldata.h | 27 ++++++++++++++++++++++-----
- 1 file changed, 22 insertions(+), 5 deletions(-)
-
-diff --git a/net/netfilter/xt_repldata.h b/net/netfilter/xt_repldata.h
-index 6efe4e5..343599e 100644
---- a/net/netfilter/xt_repldata.h
-+++ b/net/netfilter/xt_repldata.h
-@@ -5,23 +5,40 @@
-  * they serve as the hanging-off data accessed through repl.data[].
-  */
-=20
-+/* tbl has the following structure equivalent, but is C99 compliant:
-+ * struct {
-+ *	struct type##_replace repl;
-+ *	struct type##_standard entries[nhooks];
-+ *	struct type##_error term;
-+ * } *tbl;
-+ */
+--- a/net/bridge/br_stp_if.c	2014-02-12 08:21:56.733857356 -0800
++++ b/net/bridge/br_stp_if.c	2014-03-18 20:09:09.334388826 -0700
+@@ -235,6 +235,9 @@ bool br_stp_recalculate_bridge_id(struct
+ 			addr = p->dev->dev_addr;
+ 
+ 	}
 +
- #define xt_alloc_initial_table(type, typ2) ({ \
- 	unsigned int hook_mask =3D info->valid_hooks; \
- 	unsigned int nhooks =3D hweight32(hook_mask); \
- 	unsigned int bytes =3D 0, hooknum =3D 0, i =3D 0; \
- 	struct { \
- 		struct type##_replace repl; \
--		struct type##_standard entries[nhooks]; \
--		struct type##_error term; \
--	} *tbl =3D kzalloc(sizeof(*tbl), GFP_KERNEL); \
-+		struct type##_standard entries[]; \
-+	} *tbl; \
-+	struct type##_error *term; \
-+	size_t entries_end =3D offsetof(typeof(*tbl), \
-+		entries[nhooks-1]) + sizeof(tbl->entries[0]); \
-+	size_t term_offset =3D (entries_end + __alignof__(*term) - 1) \
-+		& ~(__alignof__(*term) - 1); \
-+	size_t term_end =3D term_offset + sizeof(*term); \
-+	size_t tbl_sz =3D (term_end + __alignof__(tbl->repl) - 1) \
-+		& ~(__alignof__(tbl->repl) - 1); \
-+	tbl =3D kzalloc(tbl_sz, GFP_KERNEL); \
- 	if (tbl =3D=3D NULL) \
- 		return NULL; \
-+	term =3D (struct type##_error *)&(((char *)tbl)[term_offset]); \
- 	strncpy(tbl->repl.name, info->name, sizeof(tbl->repl.name)); \
--	tbl->term =3D (struct type##_error)typ2##_ERROR_INIT;  \
-+	*term =3D (struct type##_error)typ2##_ERROR_INIT;  \
- 	tbl->repl.valid_hooks =3D hook_mask; \
- 	tbl->repl.num_entries =3D nhooks + 1; \
- 	tbl->repl.size =3D nhooks * sizeof(struct type##_standard) + \
--	                 sizeof(struct type##_error); \
-+			 sizeof(struct type##_error); \
- 	for (; hook_mask !=3D 0; hook_mask >>=3D 1, ++hooknum) { \
- 		if (!(hook_mask & 1)) \
- 			continue; \
---=20
-1.8.3.2
++	if (addr == br_mac_zero)
++		return false;  /* keep original address */
+ 
+ 	if (ether_addr_equal(br->bridge_id.addr, addr))
+ 		return false;	/* no change */
