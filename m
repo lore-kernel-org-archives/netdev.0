@@ -1,59 +1,91 @@
-From: Ben Chan <benchan@chromium.org>
-Subject: [PATCH net-next v4 1/2] USB: cdc: add MBIM extended functional descriptor structure
-Date: Wed, 19 Mar 2014 14:00:05 -0700
-Message-ID: <1395262806-19237-2-git-send-email-benchan@chromium.org>
-References: <1395262806-19237-1-git-send-email-benchan@chromium.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
-	Greg Suarez <gsuarez@smithmicro.com>
-To: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, Oliver Neukum <oliver@neukum.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1395262806-19237-1-git-send-email-benchan@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH net-next,v3] hyperv: Add support for virtual Receive
+ Side Scaling (vRSS)
+Date: Thu, 20 Mar 2014 08:00:10 +1100
+Message-ID: <20140320080010.77e27d5d7086a57d39f79e6d@canb.auug.org.au>
+References: <1395180922-2776-1-git-send-email-haiyangz@microsoft.com>
+ <20140319.164005.1815461875771862691.davem@davemloft.net>
+ <532A1275.2020208@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============5003989740609375182=="
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
+ David Miller <davem@davemloft.net>, haiyangz@microsoft.com
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <532A1275.2020208@cogentembedded.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the MBIM extended functional descriptor structure
-defined in "Universal Serial Bus Communications Class Subclass
-Specification for Mobile Broadband Interface Model, Revision 1.0,
-Errata-1" published by USB-IF.
+--===============5003989740609375182==
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__20_Mar_2014_08_00_10_+1100_QDRBkewNJOGf8hMP"
 
-Signed-off-by: Ben Chan <benchan@chromium.org>
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- include/uapi/linux/usb/cdc.h | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+--Signature=_Thu__20_Mar_2014_08_00_10_+1100_QDRBkewNJOGf8hMP
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/include/uapi/linux/usb/cdc.h b/include/uapi/linux/usb/cdc.h
-index f35aa0a..b6a9cdd 100644
---- a/include/uapi/linux/usb/cdc.h
-+++ b/include/uapi/linux/usb/cdc.h
-@@ -56,6 +56,7 @@
- #define USB_CDC_OBEX_TYPE		0x15
- #define USB_CDC_NCM_TYPE		0x1a
- #define USB_CDC_MBIM_TYPE		0x1b
-+#define USB_CDC_MBIM_EXTENDED_TYPE	0x1c
- 
- /* "Header Functional Descriptor" from CDC spec  5.2.3.1 */
- struct usb_cdc_header_desc {
-@@ -205,6 +206,17 @@ struct usb_cdc_mbim_desc {
- 	__u8    bmNetworkCapabilities;
- } __attribute__ ((packed));
- 
-+/* "MBIM Extended Functional Descriptor" from CDC MBIM spec 1.0 errata-1 */
-+struct usb_cdc_mbim_extended_desc {
-+	__u8	bLength;
-+	__u8	bDescriptorType;
-+	__u8	bDescriptorSubType;
-+
-+	__le16	bcdMBIMExtendedVersion;
-+	__u8	bMaxOutstandingCommandMessages;
-+	__le16	wMTU;
-+} __attribute__ ((packed));
-+
- /*-------------------------------------------------------------------------*/
- 
- /*
--- 
-1.9.0.279.gdc9e3eb
+On Thu, 20 Mar 2014 00:56:05 +0300 Sergei Shtylyov <sergei.shtylyov@cogente=
+mbedded.com> wrote:
+>
+> On 03/19/2014 11:40 PM, David Miller wrote:
+>=20
+> >> +extern u8 netvsc_hash_key[];
+>=20
+> > We no longer use extern in header file function declarations.
+>=20
+>     Wait, this is a variable declaration. :-)
+
+And the need for the extern on variable declarations was one reason I
+gave for not removing it from the function declarations (consistency is
+good :-)).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Thu__20_Mar_2014_08_00_10_+1100_QDRBkewNJOGf8hMP
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTKgVfAAoJEMDTa8Ir7ZwVbuQP/13NLiZY8wm0HgwWS9g5BGG4
+hmATXGx9PAB4PATreeLeEORES0BDyrxTGXwv9hgFrPPtxyAJO4VmGQnnbztis4RS
+GSeZId3e476jFW3VuzXnok4nWyWIGPtkKRUjS9mYYJ3PfgKcG9s9yMy0SpvWUlwf
+WpV8vRWYbRTIv+HCw3buq2T9nFzATLTDh3qhuhqvZ2WQU+Sxs7y/fx4nKrurPEkn
+aL8PwHElJEB4g3qdNsFzW2CXQ8O0M+tK3frDY11c7+JdBAUtf8u3S8yU3rZunSKM
+WYbmlGPKo2GFKs43Sxf1Kiy54voqNwqp5qDBru6A9PxOFj3SOOxAgaPv542txvZ/
+oJuhYaY4d5fY/RpG0ZMAUOaY4fa9FTM9HXHxVuslJ6Dt1rsVIrumUD7eb84m+jCm
+GhCWdo9N/ohHZsQMZz/Bv+kxNTSkmNAwAsW0oJmtwe4jixK6VZZoib2M+2wPetDb
+ndrR7OlsJ2qHxrnG6QF9o5BsJqMUwwmrkIiCm4zJTS4cGTv19yU/PL68xKA8ZAYt
+o60+3uASE4DHMfd7kE/ca3N0MlGV4cP9Aw3CKoGDsn5SINyvWYeWqg5Dq0pDSNtU
+cB8B5HPCMTmsvGpf0PFdJWLMNgByPU1xrnsEjaCaVBGnj64wr8UpEDfzzJxkNVV4
+0xq0k1V39rV9qPU2xsM6
+=khds
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__20_Mar_2014_08_00_10_+1100_QDRBkewNJOGf8hMP--
+
+--===============5003989740609375182==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+devel mailing list
+devel@linuxdriverproject.org
+http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
+
+--===============5003989740609375182==--
