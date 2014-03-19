@@ -1,212 +1,90 @@
 From: Byungho An <bh74.an@samsung.com>
-Subject: RE: [PATCH V5 2/8] net: sxgbe: add basic framework for Samsung 10Gb
- ethernet driver
-Date: Tue, 18 Mar 2014 22:22:26 -0700
-Message-ID: <006001cf4333$39c1a9a0$ad44fce0$@samsung.com>
-References: <002801cf42d6$a27317c0$e7594740$@samsung.com>
- <CAGVrzcYgONroZULGKhiigPT8yqLDufbzgR4+q7_tdNEqgWDKkA@mail.gmail.com>
- <004201cf42f7$af473af0$0dd5b0d0$@samsung.com>
- <CAGVrzcYcbhqh7N-AdBG4xv+nGgH+iAwqwRZRccDELokwJcshSw@mail.gmail.com>
+Subject: [PATCH V6 0/8] add new Samsung SXGBE driver
+Date: Tue, 18 Mar 2014 22:32:32 -0700
+Message-ID: <006101cf4334$a4613c70$ed23b550$@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: 'netdev' <netdev@vger.kernel.org>,
-	linux-samsung-soc@vger.kernel.org, devicetree@vger.kernel.org,
-	'David Miller' <davem@davemloft.net>,
-	"'siva.kallam'" <siva.kallam@samsung.com>,
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: 'David Miller' <davem@davemloft.net>,
 	"'ks.giri'" <ks.giri@samsung.com>,
-	"'ilho215.lee'" <ilho215.lee@samsung.com>,
-	"'vipul.pandya'" <vipul.pandya@samsung.com>
-To: 'Florian Fainelli' <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout3.samsung.com ([203.254.224.33]:16708 "EHLO
-	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932087AbaCSFWf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 01:22:35 -0400
-In-reply-to: <CAGVrzcYcbhqh7N-AdBG4xv+nGgH+iAwqwRZRccDELokwJcshSw@mail.gmail.com>
+	"'siva.kallam'" <siva.kallam@samsung.com>,
+	"'vipul.pandya'" <vipul.pandya@samsung.com>,
+	"'ilho215.lee'" <ilho215.lee@samsung.com>
+To: 'netdev' <netdev@vger.kernel.org>,
+	linux-samsung-soc@vger.kernel.org, devicetree@vger.kernel.org
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
 Content-language: en-us
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-samsung-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Florian Fainelli <f.fainelli@gmail.com>  wrote :
-> 2014-03-18 15:16 GMT-07:00 Byungho An <bh74.an@samsung.com>:
-> > Florian Fainelli <f.fainelli@gmail.com> wrote:
-> >> 2014-03-18 11:19 GMT-07:00 Byungho An <bh74.an@samsung.com>:
-> >> > From: Siva Reddy <siva.kallam@samsung.com>
-> >> >
-> >> > This patch adds support for Samsung 10Gb ethernet driver(sxgbe).
-> >> >
-> >> > - sxgbe core initialization
-> >> > - Tx and Rx support
-> >> > - MDIO support
-> >> > - ISRs for Tx and Rx
-> >> > - ifconfig support to driver
-> >>
-> >> Too many files to review at once, the diffstat was around 5000+ lines!
-> >> You should split this into logical parts, or just submit the basic
-> >> bits for now and add the features later.
-> > Yes. but I think it is one logically, after this patch there won't be much code at once.
-> 
-> Since you are adding multiple objects to the Makefile at once, you could very well split the patches to reflect that and submit one
-> object as a separate patch. Also, sometimes, even if the driver is feature complete, it helps submitting the basic support first, and
-> then start adding new features to it progressively.
-But it is basic framework itself.
-Since this #2 patch contains changes that are required for its basic functionality, it is not easy to split.
+Hi all,
 
-> 
-> >
-> >>
-> >> [snip]
-> >>
-> >> > +       ret = register_netdev(ndev);
-> >> > +       if (ret) {
-> >> > +               pr_err("%s: ERROR %i registering the device\n", __func__, ret);
-> >> > +               goto error_netdev_register;
-> >> > +       }
-> >> > +
-> >> > +       priv->sxgbe_clk = clk_get(priv->device, SXGBE_RESOURCE_NAME);
-> >> > +       if (IS_ERR(priv->sxgbe_clk)) {
-> >> > +               netdev_warn(ndev, "%s: warning: cannot get CSR clock\n",
-> >> > +                           __func__);
-> >> > +               goto error_clk_get;
-> >> > +       }
-> >>
-> >> This is racy, after register_netdev() is called, the network stack is
-> >> free to use the interface, which means that as much as possible needs
-> >> to be initialized before you call it, including clocks, and MDIO.
-> >>
-> >> > +
-> >> > +       /* If a specific clk_csr value is passed from the platform
-> >> > +        * this means that the CSR Clock Range selection cannot be
-> >> > +        * changed at run-time and it is fixed. Viceversa the driver'll try to
-> >> > +        * set the MDC clock dynamically according to the csr actual
-> >> > +        * clock input.
-> >> > +        */
-> >> > +       if (!priv->plat->clk_csr)
-> >> > +               sxgbe_clk_csr_set(priv);
-> >> > +       else
-> >> > +               priv->clk_csr = priv->plat->clk_csr;
-> >> > +
-> >> > +       /* MDIO bus Registration */
-> >> > +       ret = sxgbe_mdio_register(ndev);
-> >> > +       if (ret < 0) {
-> >> > +               netdev_dbg(ndev, "%s: MDIO bus (id: %d) registration failed\n",
-> >> > +                          __func__, priv->plat->bus_id);
-> >> > +               goto error_mdio_register;
-> >> > +       }
-> >>
-> >> Don't do this, register your MDIO bus before calling register_netdev().
-> > OK.
-> >
-> >>
-> >> > +
-> >> > +       sxgbe_check_ether_addr(priv);
-> >> > +
-> >> > +       return priv;
-> >> > +
-> >> > +error_mdio_register:
-> >> > +       clk_put(priv->sxgbe_clk);
-> >> > +error_clk_get:
-> >> > +       unregister_netdev(ndev);
-> >> > +error_netdev_register:
-> >> > +       netif_napi_del(&priv->napi);
-> >> > +error_free_netdev:
-> >> > +       free_netdev(ndev);
-> >> > +
-> >> > +       return NULL;
-> >> > +}
-> >> > +
-> >> > +/**
-> >> > + * sxgbe_dvr_remove
-> >> > + * @ndev: net device pointer
-> >> > + * Description: this function resets the TX/RX processes, disables
-> >> > +the MAC RX/TX
-> >> > + * changes the link status, releases the DMA descriptor rings.
-> >> > + */
-> >> > +int sxgbe_dvr_remove(struct net_device *ndev) {
-> >> > +       struct sxgbe_priv_data *priv = netdev_priv(ndev);
-> >> > +
-> >> > +       netdev_info(ndev, "%s: removing driver\n", __func__);
-> >> > +
-> >> > +       priv->hw->dma->stop_rx(priv->ioaddr, SXGBE_RX_QUEUES);
-> >> > +       priv->hw->dma->stop_tx(priv->ioaddr, SXGBE_TX_QUEUES);
-> >> > +
-> >> > +       priv->hw->mac->enable_tx(priv->ioaddr, false);
-> >> > +       priv->hw->mac->enable_rx(priv->ioaddr, false);
-> >> > +
-> >> > +       netif_napi_del(&priv->napi);
-> >> > +
-> >> > +       sxgbe_mdio_unregister(ndev);
-> >> > +
-> >> > +       netif_carrier_off(ndev);
-> >>
-> >> This is not required, both the PHY library and the network stack will
-> >> do that for you.
-> > You mean netif_napi_del and netif_carrier_off? or all of sxgbe_dvr_remove function?
-> > I think dma/mac control are needed.
-> 
-> I mean netif_carrier_off() is not required, everything else is.
-> 
-> >
-> >>
-> >> [snip]
-> >>
-> >> > +       /* register with kernel subsystem */
-> >> > +       err = mdiobus_register(mdio_bus);
-> >> > +       if (err != 0) {
-> >> > +               netdev_err(ndev, "mdiobus register failed\n");
-> >> > +               goto mdiobus_err;
-> >> > +       }
-> >> > +
-> >> > +       for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++) {
-> >> > +               struct phy_device *phy = mdio_bus->phy_map[phy_addr];
-> >> > +               if (phy) {
-> >> > +                       char irq_num[4];
-> >> > +                       char *irq_str;
-> >> > +                       /* If an IRQ was provided to be assigned after
-> >> > +                        * the bus probe, do it here.
-> >> > +                        */
-> >> > +                       if ((mdio_data->irqs == NULL) &&
-> >> > +                           (mdio_data->probed_phy_irq > 0)) {
-> >> > +                               irqlist[phy_addr] = mdio_data->probed_phy_irq;
-> >> > +                               phy->irq = mdio_data->probed_phy_irq;
-> >> > +                       }
-> >> > +
-> >> > +                       /* If we're  going to bind the MAC to this PHY bus,
-> >> > +                        * and no PHY number was provided to the MAC,
-> >> > +                        * use the one probed here.
-> >> > +                        */
-> >> > +                       if (priv->plat->phy_addr == -1)
-> >> > +                               priv->plat->phy_addr = phy_addr;
-> >> > +
-> >> > +                       act = (priv->plat->phy_addr == phy_addr);
-> >> > +                       switch (phy->irq) {
-> >> > +                       case PHY_POLL:
-> >> > +                               irq_str = "POLL";
-> >> > +                               break;
-> >> > +                       case PHY_IGNORE_INTERRUPT:
-> >> > +                               irq_str = "IGNORE";
-> >> > +                               break;
-> >> > +                       default:
-> >> > +                               sprintf(irq_num, "%d", phy->irq);
-> >> > +                               irq_str = irq_num;
-> >> > +                               break;
-> >> > +                       }
-> >> > +                       netdev_info(ndev, "PHY ID %08x at %d IRQ %s (%s)%s\n",
-> >> > +                                   phy->phy_id, phy_addr, irq_str,
-> >> > +                                   dev_name(&phy->dev), act ? " active" : "");
-> >> > +                       phy_found = 1;
-> >> > +               }
-> >>
-> >> This is clunky, and you are duplicating what of_mdiobus_register()
-> >> will do for you, but since you are not using the standard Ethernet
-> >> PHY device tree node, you could not use that code. So please use the
-> >> standard Ethernet PHY device tree node such that you can remove that code and leverage it instead.
-> > I'll consider it. but I think after this patch set.
-> 
-> Humm, I would rather you do this know this will eliminate all this code in your driver which duplicates an existing function in the kernel.
-> --
-> Florian
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More
-> majordomo info at  http://vger.kernel.org/majordomo-info.html
+This is 6th posting for SAMSUNG SXGBE driver.
+
+Changes since v1:
+- changed name of driver to SXGbE as per Ben's comment
+- squashed Joe's neatening for many stuff in original patches
+
+Changes since v2:
+- updated and split binding document as per Mark's comment
+- clean up codes as per Joe's comment
+- removed unused fields and clean up codes as per Francois's comment
+- removed module parameters as per Dave's comment
+- moved driver directory to samsung/sxgbe/
+
+Changes since v3:
+- fixed Missing a blank line after declarations as per Dave's comment
+- clean up codes as per Joe's comment
+- removed reference of net_device.{irq, base_addr}
+
+Changes since v4:
+- updated binding document and DT related function as per Mark's comment
+
+Changes since v5:
+- updated binding document and DT related function as per Florian's comment
+- fixed typo and shortened code as per Joe's comment
+
+Byungho An (1):
+      MAINTAINERS: add maintainer for Samsung sxgbe driver
+
+Girish K S (2):
+      net: sxgbe: add EEE(Energy Efficient Ethernet) for Samsung sxgbe
+      net: sxgbe: add WOL(Wakeup-On-Lan)support for Samsung sxgbe
+
+Siva Reddy (2):
+      sxgbe: Add device-tree binding support document
+      net: sxgbe: add basic framework for Samsung 10Gb ethernet driver
+
+Vipul Pandya (3):
+      net: sxgbe: add TSO support for Samsung sxgbe
+      net: sxgbe: add Checksum offload support for Samsung sxgbe
+      net: sxgbe: add ethtool related functions support Samsung sxgbe
+
+ .../devicetree/bindings/net/samsung-sxgbe.txt      |   58 +
+ MAINTAINERS                                        |    9 +
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/samsung/Kconfig               |   20 +
+ drivers/net/ethernet/samsung/Makefile              |    5 +
+ drivers/net/ethernet/samsung/sxgbe/Kconfig         |    9 +
+ drivers/net/ethernet/samsung/sxgbe/Makefile        |    4 +
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h  |  553 +++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c    |  290 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.c    |  515 +++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h    |  298 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c     |  387 ++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h     |   51 +
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c |  634 ++++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c    | 2378 ++++++++++++++++++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_mdio.c    |  271 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c     |  293 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.h     |  108 +
+ .../net/ethernet/samsung/sxgbe/sxgbe_platform.c    |  266 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h     |  491 ++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.c    |   92 +
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.h    |   38 +
+ include/linux/sxgbe_platform.h                     |   54 +
+ 24 files changed, 6826 insertions(+)
+
+Thanks,
+Byungho An
