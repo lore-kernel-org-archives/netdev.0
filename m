@@ -1,148 +1,89 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: stmmac-socfpga breakage in arm-soc
-Date: Wed, 19 Mar 2014 15:05:57 +0100
-Message-ID: <4337501.shzGE38xmF@wuerfel>
-References: <201403191333.01095.arnd@arndb.de> <53299CA8.607@gmail.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created with no
+ group
+Date: Wed, 19 Mar 2014 08:08:14 -0600
+Message-ID: <OF55200AFE.3F917127-ON87257CA0.004DA877-87257CA0.004DA87C@us.ibm.com>
+References: <CAF1J0HOTLvyaWdmYLGLPn9AJLR6rQr4fk8EVFSzv5sckLuBwvw@mail.gmail.com>,
+	<1395055050-20874-1-git-send-email-mike.rapoport@ravellosystems.com>	<OFEB1030F8.C147FA77-ON87257C9F.005CF370-87257C9F.005CF375@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Dinh Nguyen <dinguyen@altera.com>,
-	Srinivas Kandagatla <srinivas.kandagatla@st.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Hans de Goede <hdegoede@redhat.com>, arm@kernel.org,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Dinh Nguyen <dinh.linux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53299CA8.607@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Wednesday 19 March 2014 08:33:28 Dinh Nguyen wrote:
-> On 03/19/2014 07:33 AM, Arnd Bergmann wrote:
-> >
-> > * Replaced the parent/child DT nodes with a combined node
-> > * Renamed the device node from 'ethernet0' to 'ethernet'
-> >    as the standard name.
-> > * Removed interrupt-names and clock-names properties that
-> >    are not documented in the binding and not used.
-> > * Added a new DWMAC_SOCFPGA Kconfig symbol to control
-> >    compilation of this driver
-> 
-> The v1 of this patch had this had this Kconfig symbol and is
-> similar to your proposed fix.
-> 
-> http://marc.info/?l=linux-netdev&m=139167062725242&w=2
-
-I don't understand. So you got parts of it right at first, but then
-changed it in a different way from what Peppe asked you to do?
-
-> > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> > index 8fb32a8..46aef510 100644
-> > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> > @@ -38,6 +38,9 @@ static const struct of_device_id stmmac_dt_ids[] = {
-> >   	{ .compatible = "st,stih416-dwmac", .data = &sti_gmac_data},
-> >   	{ .compatible = "st,stid127-dwmac", .data = &sti_gmac_data},
-> >   #endif
-> > +#ifdef CONFIG_DWMAC_SOCFPGA
-> > +	{ .compatible = "altr,socfpga-stmmac", .data = &socfpga_gmac_data },
-> > +#endif
-> >   	/* SoC specific glue layers should come before generic bindings */
-> >   	{ .compatible = "st,spear600-gmac"},
-> >   	{ .compatible = "snps,dwmac-3.610"},
-> 
-> 
-> If it's okay with you Arnd, can I take this patch and add on top of it 
-> as it is also breaking dtb builds:
-> 
-> Error: arch/arm/boot/dts/socfpga_arria5_socdk.dts:51.2-3 label or path, 
-> 'ethernet1', not found
-> FATAL ERROR: Syntax error parsing input tree
-> Error: arch/arm/boot/dts/socfpga_cyclone5_socdk.dts:44.2-3 label or 
-> path, 'ethernet1', not found
-> FATAL ERROR: Syntax error parsing input tree
-> make[1]: *** [arch/arm/boot/dts/socfpga_arria5_socdk.dtb] Error 1
-> make[1]: *** Waiting for unfinished jobs....
-> make[1]: *** [arch/arm/boot/dts/socfpga_cyclone5_socdk.dtb] Error 1
-> Error: arch/arm/boot/dts/socfpga_cyclone5_sockit.dts:44.2-3 label or 
-> path, 'ethernet1', not found
-> FATAL ERROR: Syntax error parsing input tree
-> make[1]: *** [arch/arm/boot/dts/socfpga_cyclone5_sockit.dtb] Error 1
-> Error: arch/arm/boot/dts/socfpga_vt.dts:92.2-3 label or path, 
-> 'ethernet0', not found
-
-I have found the same problems and fixed it up locally already with
-the additional change below.
-
-	Arnd
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:58385 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964992AbaCSOIR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 10:08:17 -0400
+Received: from /spool/local
+	by e34.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Wed, 19 Mar 2014 08:08:17 -0600
+Received: from b03cxnp08026.gho.boulder.ibm.com (b03cxnp08026.gho.boulder.ibm.com [9.17.130.18])
+	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 2027D19D8040
+	for <netdev@vger.kernel.org>; Wed, 19 Mar 2014 08:08:12 -0600 (MDT)
+Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
+	by b03cxnp08026.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2JE7g0a58130520
+	for <netdev@vger.kernel.org>; Wed, 19 Mar 2014 15:07:42 +0100
+Received: from d03av05.boulder.ibm.com (localhost [127.0.0.1])
+	by d03av05.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s2JE8EA4005437
+	for <netdev@vger.kernel.org>; Wed, 19 Mar 2014 08:08:14 -0600
+In-Reply-To: <CAF1J0HOTLvyaWdmYLGLPn9AJLR6rQr4fk8EVFSzv5sckLuBwvw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-diff --git a/arch/arm/boot/dts/socfpga_arria5_socdk.dts b/arch/arm/boot/dts/socfpga_arria5_socdk.dts
-index 2d6b38b..a87ee1c 100644
---- a/arch/arm/boot/dts/socfpga_arria5_socdk.dts
-+++ b/arch/arm/boot/dts/socfpga_arria5_socdk.dts
-@@ -46,11 +46,8 @@
- 	};
- };
- 
--&ethernet1 {
--	status = "okay";
--};
--
- &gmac1 {
-+	status = "okay";
- 	phy-mode = "rgmii";
- 
- 	rxd0-skew-ps = <0>;
-diff --git a/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts b/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
-index 26c63a0..ae16d97 100644
---- a/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
-+++ b/arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
-@@ -39,11 +39,8 @@
- 	};
- };
- 
--&ethernet1 {
--	status = "okay";
--};
--
- &gmac1 {
-+	status = "okay";
- 	phy-mode = "rgmii";
- 
- 	rxd0-skew-ps = <0>;
-diff --git a/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts b/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts
-index 469bb5c..b79e2a2 100644
---- a/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts
-+++ b/arch/arm/boot/dts/socfpga_cyclone5_sockit.dts
-@@ -39,11 +39,8 @@
- 	};
- };
- 
--&ethernet1 {
--	status = "okay";
--};
--
- &gmac1 {
-+	status = "okay";
- 	phy-mode = "rgmii";
- 
- 	rxd0-skew-ps = <0>;
-diff --git a/arch/arm/boot/dts/socfpga_vt.dts b/arch/arm/boot/dts/socfpga_vt.dts
-index 91f6ccf..0f33f2f 100644
---- a/arch/arm/boot/dts/socfpga_vt.dts
-+++ b/arch/arm/boot/dts/socfpga_vt.dts
-@@ -87,10 +87,7 @@
- 	};
- };
- 
--&ethernet0 {
--        status = "okay";
--};
--
- &gmac0 {
-+        status = "okay";
- 	phy-mode = "gmii";
- };
+
+-----Mike Rapoport <mike.rapoport@ravellosystems.com> wrote: -----
+
+>To: David Stevens/Beaverton/IBM@IBMUS
+>From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+,,,
+>However, for the particular case in vxlan_rcv, checking the packet
+>version seems to me semantically more correct than comparing
+>default_dst
+>protocol family with AF_INET or AF_INET6.
+
+No, that's saying that the sender should determine whether
+you are using IPv4 or IPv6, but when the localhost is the
+sender, it'll only be using one of those.
+
+If the default_dst is an IPv4 group address, ordinary VXLAN
+wouldn't interoperate with IPv6 because the group is not an IPv6
+group, but with your patch, it'll still receive and accept IPv6-encapsu=
+lated
+packets. It just wouldn't send any, if all the fdb entries are also v4.
+
+I think neither the receive packets nor the default_dst, which may
+not be set, is the right way to determine this. vxlan_dev->saddr
+makes more sense, but it, too, doesn't have to be set.
+
+I'd suggest:
+1) if vxlan_dev->saddr is set, use that. Any packets sent should use
+=A0 =A0 =A0 =A0 =A0 this saddr, if set, so that determines the underlay=
+ address family
+=A0 =A0 =A0 =A0 =A0 and so also what IP version you'll receive.
+2) if vxlan_dev->saddr is not set, and default_dst is a multicast group=
+,
+=A0 =A0 =A0 =A0 =A0 use that address family. For ordinary VXLAN, the gr=
+oup is used
+=A0 =A0 =A0 =A0 =A0 by all participants so it can't mix v4 and v6. Also=
+, if saddr is set
+=A0 =A0 =A0 =A0 =A0 and default_dst is a multicast group, the address f=
+amily should
+=A0 =A0 =A0 =A0 =A0 match.
+3) if neither of those is set, then it isn't ordinary VXLAN, but rather=
+ a
+=A0 =A0 =A0 =A0 =A0custom configuration. In that case, we should allow =
+both, by
+=A0 =A0 =A0 =A0 =A0default, at least. fdb entries can use both v4 and v=
+6, so we
+=A0 =A0 =A0 =A0 =A0should receive both.
+
+We could also (or instead) add flags to explicitly allow or disallow v4=
+ and/or v6,
+and then, of course, enforce those flag settings for saddr, default_dst
+and fdb entries, too.
+
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 +-DLS
