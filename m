@@ -1,62 +1,90 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [PATCH 1/3] bridge: preserve random init MAC address
-Date: Tue, 18 Mar 2014 18:10:05 -0700
-Message-ID: <CAB=NE6VL8LCGa5aqm8qpgwHywwvVb8gjNQFKic_Dq9zdg-8hDQ@mail.gmail.com>
-References: <1394680527-28970-1-git-send-email-mcgrof@do-not-panic.com>
-	<1394680527-28970-2-git-send-email-mcgrof@do-not-panic.com>
-	<5328E802.3030901@lab.ntt.co.jp>
-	<CAB=NE6X2eZFLWBN1acf=d75T_K2YM_OK3oaXEPu-hwpUJEmwkg@mail.gmail.com>
-	<5328ED25.1040900@lab.ntt.co.jp>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next v2 2/3] bonding: support QinQ for bond arp interval
+Date: Wed, 19 Mar 2014 09:29:25 +0800
+Message-ID: <5328F2F5.6010304@huawei.com>
+References: <1395139433-19576-1-git-send-email-dingtianhong@huawei.com> <1395139433-19576-3-git-send-email-dingtianhong@huawei.com> <20140318120558.GA6430@redhat.com> <7072.1395165598@death.nxdomain> <20140318192742.GB6430@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: kvm@vger.kernel.org, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	xen-devel@lists.xenproject.org
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <5328ED25.1040900@lab.ntt.co.jp>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <andy@greyhouse.net>, <kaber@trash.net>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:4716 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757980AbaCSBby (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Mar 2014 21:31:54 -0400
+In-Reply-To: <20140318192742.GB6430@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 18, 2014 at 6:04 PM, Toshiaki Makita
-<makita.toshiaki@lab.ntt.co.jp> wrote:
-> (2014/03/19 9:50), Luis R. Rodriguez wrote:
->> On Tue, Mar 18, 2014 at 5:42 PM, Toshiaki Makita
->> <makita.toshiaki@lab.ntt.co.jp> wrote:
->>> nit,
->>> If the last detached port happens to have the same addr as
->>> random_init_addr, this seems to call br_stp_change_bridge_id() even
->>> though bridge_id is not changed.
+On 2014/3/19 3:27, Veaceslav Falico wrote:
+> On Tue, Mar 18, 2014 at 10:59:58AM -0700, Jay Vosburgh wrote:
+>> Veaceslav Falico <vfalico@redhat.com> wrote:
 >>
->> Ah good point.
+>>> On Tue, Mar 18, 2014 at 06:43:52PM +0800, Ding Tianhong wrote:
+>>> ...snip...
+>>>> -    if (vlan_id) {
+>>>> -        skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vlan_id);
+>>>> +    if (outer->vlan_id) {
+>>>> +        if (inner->vlan_id) {
+>>>> +            pr_debug("inner tag: proto %X vid %X\n",
+>>>> +                 ntohs(inner->vlan_proto), inner->vlan_id);
+>>>> +            skb = __vlan_put_tag(skb, inner->vlan_proto, inner->vlan_id);
+>>>> +            if (!skb) {
+>>>> +                pr_err("failed to insert inner VLAN tag\n");
+>>>> +                return;
+>>>> +            }
+>>>> +        }
+>>>> +
+>>>> +        pr_debug("outer reg: proto %X vid %X\n",
+>>>> +             ntohs(outer->vlan_proto), outer->vlan_id);
+>>>> +        skb = vlan_put_tag(skb, outer->vlan_proto, outer->vlan_id);
+>>>
+>>> If I read correctly then the inner->vlan_proto will always be ETH_P_8021AD,
+>>> whilst the outer will also always be ETH_P_8021Q. So I think it'd be a lot
+>>> easier (and more readable) to just pass 2 vlan ids, and set those protos
+>>> statically - that will save you from adding that new function to vlan core,
+>>> fro madding a new struct that you've added here and make it several lines
+>>> less.
 >>
->>> Shouldn't the assignment of random_init_addr be done before the check of
->>> "no change"?
+>>     Do you mean that the outer will always be 8021AD and the inner
+>> 8021Q?  The inner/outer terminology is making my brain hurt, since the
+>> ip commands to configure them look backwards to me.  I think of it as
+>> the outer tag is the first one sequentially in the ethernet header, and
+>> the inner tag is second in the header.
+> 
+> Yep, like that. You're right, the outer is the first, the inner is the
+> second. I always thought about vlans as some type of "encapsulation", with
+> vlan over vlan over packet meaning "packet encapsulated in an vlan,
+> encapsulated in a vlan", so the outer and inner vlans make sense for me :).
+> Though I understand this example isn't technically completely correct.
+> 
 >>
->> Good question, should we even allow two ports to have the same MAC
->> address or should we complain and refuse to add it? If so that should
->> mean we should also have to monitor any manual address changes or
->> events for address changes on the ports.
->
-> This was recently discussed by Stephen and me.
-> I'm thinking it should be allowed.
->
-> http://marc.info/?l=linux-netdev&m=139182743919257&w=2
+>>     Anyway, in the past, I've seen configurations with 802.1q VLANs
+>> nested such that the inner and outer tags were both 802.1q 0x8100
+>> ethertype, so I'm not sure that hard-coding these is necessarily a good
+>> idea.
+> 
+> Yeah, you're right, seems like there are a lot of non-IEEE hacks out there,
+> so it's definitely better to use the proto specified by the user.
+> 
+>>
+>>     -J
+>>
 
-Great now that that's sorted out though I still think calling
-br_stp_change_bridge_id() is right just as calling the update features
-as the device is different. It could however be confusing when this
-situation is run and folks might report odd bugs unless we could tell
-them apart clearly. Thoughts?
+Hi, Sorry for feedback so late.
 
-  Luis
+The QinQ didn't mean that the first(outer) tag must be 802.1ad, and the second(inner) tag must be 802.1q,
+some switch even use the double 802.1q to support QinQ, so I think it is not better to set the protos statically.
+
+Regards:
+Ding
+
+>> ---
+>>     -Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>>
+> 
+> .
+> 
