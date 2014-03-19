@@ -1,26 +1,60 @@
-From: Romeo Cane <romeo.cane.ext@coriant.com>
-Subject: ethernet/freescale/gianfar.c broken on 3.10.x for TSEC
-Date: Wed, 19 Mar 2014 13:32:59 +0000
-Message-ID: <20140319133215.GA19172@rcane-VirtualBox>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH v3] mac80211: LLVMLinux: Remove VLAIS usage from mac80211
+Date: Wed, 19 Mar 2014 14:51:53 +0100
+Message-ID: <1395237113.4142.5.camel@jlt4.sipsolutions.net>
+References: <CABikg9x+Z95bHcDc6iu5hBvRNO-ibM8-34_qA+OA_FjB52SPMw@mail.gmail.com>
+	 <1395199933-4686-1-git-send-email-behanw@converseincode.com>
+	 (sfid-20140319_043225_892297_337F53BC)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1lp0013.outbound.protection.outlook.com ([213.199.154.13]:42239
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932721AbaCSNsM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Mar 2014 09:48:12 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, davem@davemloft.net,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
+	dwmw2@infradead.org, pageexec@freemail.hu,
+	Jan-Simon =?ISO-8859-1?Q?M=F6ller?= <dl9pf@gmx.de>,
+	=?ISO-8859-1?Q?Vin=EDcius?= Tinti <viniciustinti@gmail.com>,
+	Mark Charlebois <charlebm@gmail.com>
+To: behanw@converseincode.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395199933-4686-1-git-send-email-behanw@converseincode.com> (sfid-20140319_043225_892297_337F53BC)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+I'm confused.
 
-the 3.10.x stable tree contains a bug in the Gianfar code that prevents the driver to work on old TSEC devices.
-A patch for this issue has already been posted here and went upstream in 3.11 with commit 5eaedf31319d5f80eaaee1eec8dd18c0b452f0d1.
-Since 3.10 has been selected for long term support and still contains the bug, I think it's worth considering to hand off this patch to Greg for backporting.
+On Tue, 2014-03-18 at 20:32 -0700, behanw@converseincode.com wrote:
 
-Thanks,
-Romeo
+
+>  	struct scatterlist assoc, pt, ct[2];
+> -	struct {
+> -		struct aead_request	req;
+> -		u8			priv[crypto_aead_reqsize(tfm)];
+> -	} aead_req;
+>  
+> -	memset(&aead_req, 0, sizeof(aead_req));
+> +	char aead_req_data[sizeof(struct aead_request) +
+> +		crypto_aead_reqsize(tfm)]
+> +		__aligned(__alignof__(struct aead_request));
+
+This looks fine, though I'd argue the blank lines before/after it
+shouldn't be there, and the indentation should be a bit different, but I
+was willing to clean that up.
+
+>  int ieee80211_aes_ccm_decrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad,
+>  			      u8 *data, size_t data_len, u8 *mic)
+>  {
+>  	struct scatterlist assoc, pt, ct[2];
+> -	struct {
+> -		struct aead_request	req;
+> -		u8			priv[crypto_aead_reqsize(tfm)];
+> -	} aead_req;
+>  
+> -	memset(&aead_req, 0, sizeof(aead_req));
+> +	char aead_req_data[sizeof(struct aead_request) +
+> +				crypto_aead_reqsize(tfm) +
+> +				CRYPTO_MINALIGN] CRYPTO_MINALIGN_ATTR;
+
+But why does the second instance use a completely different size/align?
+
+johannes
