@@ -1,83 +1,70 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net 3/3] ip6mr: fix mfc notification flags
-Date: Wed, 19 Mar 2014 17:47:51 +0100
-Message-ID: <1395247671-9356-3-git-send-email-nicolas.dichtel@6wind.com>
-References: <1395247671-9356-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Thomas Graf <tgraf@suug.ch>
-To: davem@davemloft.net
+Subject: [PATCH v2 iproute2 -next 2/2] ipxfrm: allow to setup filter when dumping SA
+Date: Wed, 19 Mar 2014 17:52:08 +0100
+Message-ID: <1395247928-9954-2-git-send-email-nicolas.dichtel@6wind.com>
+References: <1395247928-9954-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:56156 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:56169 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965221AbaCSQs5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 12:48:57 -0400
-In-Reply-To: <1395247671-9356-1-git-send-email-nicolas.dichtel@6wind.com>
+	with ESMTP id S932602AbaCSQwO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 12:52:14 -0400
+In-Reply-To: <1395247928-9954-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 812e44dd1829 ("ip6mr: advertise new mfc entries via rtnl") reuses the
-function ip6mr_fill_mroute() to notify mfc events.
-But this function was used only for dump and thus was always setting the
-flag NLM_F_MULTI, which is wrong in case of a single notification.
+It's now possible to filter SA directly into the kernel by specifying
+XFRMA_PROTO and/or XFRMA_ADDRESS_FILTER.
 
-Libraries like libnl will wait forever for NLMSG_DONE.
-
-CC: Thomas Graf <tgraf@suug.ch>
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- net/ipv6/ip6mr.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 0eb4038a4d63..8737400af0a0 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -2349,13 +2349,14 @@ int ip6mr_get_route(struct net *net,
- }
+Note that this patch is intended to work with net-next.
+
+ ip/xfrm_state.c | 30 +++++++++++++++++++++++++++++-
+ 1 file changed, 29 insertions(+), 1 deletion(-)
+
+diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
+index 140a4503b799..8295223f8118 100644
+--- a/ip/xfrm_state.c
++++ b/ip/xfrm_state.c
+@@ -1136,7 +1136,35 @@ static int xfrm_state_list_or_deleteall(int argc, char **argv, int deleteall)
+ 		}
  
- static int ip6mr_fill_mroute(struct mr6_table *mrt, struct sk_buff *skb,
--			     u32 portid, u32 seq, struct mfc6_cache *c, int cmd)
-+			     u32 portid, u32 seq, struct mfc6_cache *c, int cmd,
-+			     int flags)
- {
- 	struct nlmsghdr *nlh;
- 	struct rtmsg *rtm;
- 	int err;
- 
--	nlh = nlmsg_put(skb, portid, seq, cmd, sizeof(*rtm), NLM_F_MULTI);
-+	nlh = nlmsg_put(skb, portid, seq, cmd, sizeof(*rtm), flags);
- 	if (nlh == NULL)
- 		return -EMSGSIZE;
- 
-@@ -2423,7 +2424,7 @@ static void mr6_netlink_event(struct mr6_table *mrt, struct mfc6_cache *mfc,
- 	if (skb == NULL)
- 		goto errout;
- 
--	err = ip6mr_fill_mroute(mrt, skb, 0, 0, mfc, cmd);
-+	err = ip6mr_fill_mroute(mrt, skb, 0, 0, mfc, cmd, 0);
- 	if (err < 0)
- 		goto errout;
- 
-@@ -2462,7 +2463,8 @@ static int ip6mr_rtm_dumproute(struct sk_buff *skb, struct netlink_callback *cb)
- 				if (ip6mr_fill_mroute(mrt, skb,
- 						      NETLINK_CB(cb->skb).portid,
- 						      cb->nlh->nlmsg_seq,
--						      mfc, RTM_NEWROUTE) < 0)
-+						      mfc, RTM_NEWROUTE,
-+						      NLM_F_MULTI) < 0)
- 					goto done;
- next_entry:
- 				e++;
-@@ -2476,7 +2478,8 @@ next_entry:
- 			if (ip6mr_fill_mroute(mrt, skb,
- 					      NETLINK_CB(cb->skb).portid,
- 					      cb->nlh->nlmsg_seq,
--					      mfc, RTM_NEWROUTE) < 0) {
-+					      mfc, RTM_NEWROUTE,
-+					      NLM_F_MULTI) < 0) {
- 				spin_unlock_bh(&mfc_unres_lock);
- 				goto done;
- 			}
+ 	} else {
+-		if (rtnl_wilddump_request(&rth, preferred_family, XFRM_MSG_GETSA) < 0) {
++		struct xfrm_address_filter addrfilter;
++		struct {
++			struct nlmsghdr n;
++			char buf[NLMSG_BUF_SIZE];
++		} req;
++
++		memset(&addrfilter, 0, sizeof(addrfilter));
++		addrfilter.family = filter.xsinfo.family;
++		memcpy(&addrfilter.saddr, &filter.xsinfo.saddr,
++		       sizeof(xfrm_address_t));
++		addrfilter.splen = filter.id_src_mask;
++		memcpy(&addrfilter.daddr, &filter.xsinfo.id.daddr,
++		       sizeof(xfrm_address_t));
++		addrfilter.dplen = filter.id_dst_mask;
++
++		memset(&req, 0, sizeof(req));
++		req.n.nlmsg_len = NLMSG_HDRLEN;
++		req.n.nlmsg_flags = NLM_F_DUMP | NLM_F_REQUEST;
++		req.n.nlmsg_type = XFRM_MSG_GETSA;
++		req.n.nlmsg_pid = 0;
++		req.n.nlmsg_seq = rth.dump = ++rth.seq;
++
++		if (filter.xsinfo.id.proto)
++			addattr8(&req.n, sizeof(req), XFRMA_PROTO,
++				 filter.xsinfo.id.proto);
++		addattr_l(&req.n, sizeof(req), XFRMA_ADDRESS_FILTER,
++			  &addrfilter, sizeof(addrfilter));
++
++		if (rtnl_send(&rth, (void *)&req, req.n.nlmsg_len) < 0) {
+ 			perror("Cannot send dump request");
+ 			exit(1);
+ 		}
 -- 
 1.8.5.4
