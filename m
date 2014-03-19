@@ -1,71 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv5 net-next] VXLAN: fix nonfunctional neigh_reduce
-Date: Wed, 19 Mar 2014 16:20:53 -0400 (EDT)
-Message-ID: <20140319.162053.1175830729987006835.davem@davemloft.net>
-References: <201403182009.s2IK9Ias021320@lab1.dls>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] ipv6: If a public address is deleted then also delete all temporary addresses still referring to it
+Date: Wed, 19 Mar 2014 21:21:23 +0100
+Message-ID: <20140319202123.GH12291@order.stressinduktion.org>
+References: <5328B0B0.7070305@web.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, amwang@redhat.com, netdev@vger.kernel.org
-To: dlstevens@us.ibm.com
+Content-Type: text/plain; charset=utf-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Heiner Kallweit <heiner.kallweit@web.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38623 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753665AbaCSUUz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 16:20:55 -0400
-In-Reply-To: <201403182009.s2IK9Ias021320@lab1.dls>
+Received: from order.stressinduktion.org ([87.106.68.36]:46996 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753665AbaCSUVZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 16:21:25 -0400
+Content-Disposition: inline
+In-Reply-To: <5328B0B0.7070305@web.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David L Stevens <dlstevens@us.ibm.com>
-Date: Tue, 18 Mar 2014 16:09:18 -0400
+On Tue, Mar 18, 2014 at 09:46:40PM +0100, Heiner Kallweit wrote:
+> If a public address is deleted by an external trigger (e.g. via inet6_rtm_deladdr) then temporary
+> addresses still referring to it may remain. Happened here when the WiFi link broke and netifd
+> deleted the public address. Once the link was back and prefix_rcv created new public addresses
+> ipv6_create_tempaddr complained that the temporary address already existed.
 
-> +	if (dev == NULL)
-> +		return NULL;
-> +
-> +
-> +	len = LL_RESERVED_SPACE(dev) + sizeof(struct ipv6hdr) +
-> +		sizeof(*na) + olen + dev->needed_tailroom;
+Which error was it specifically?
 
-No need to have two empty lines here, one is sufficient.
+> IMHO no temporary address should live longer than its parent, especially because ifpub of the
+> temporary address still points to the then deleted public address otherwise.
 
-> +	olen = request->len - skb_transport_offset(request) - sizeof(*ns);
+Reference counting will take care of that.
 
-This overrides unconditionally, and in all cases, the assignment made
-in the declaration of the 'olen' variable.  Therefore the variable
-declaration should not have an initializer.  Please remove it.
+> Therefore delete all related temporary addresses before a public address is deleted in inet6_addr_del
+> which is called by inet6_rtm_del.
 
- ...
-> +	for (i = 0; i < olen-1; i += (ns->opt[i+1]<<3)) {
-> +		if (ns->opt[i] == ND_OPT_SOURCE_LL_ADDR) {
-> +			daddr = ns->opt + i + sizeof(struct nd_opt_hdr);
-> +			break;
-> +		}
-> +	}
+I am a bit concerend with backward compatibility here.
 
-It's a real shame that we can't reuse ndisc_opt_addr_space(),
-ndisc_parse_options(), etc. for this stuff.
+> Also ensure in ipv6_del_addr that no temporary address lives longer than its parent.
 
-> +	olen = 8; /* ND_OPT_TARGET_LL_ADDR */
+I currently don't see a problem with that.
 
-I guess this is what the variable declaration assignment was
-meant to be used for.
+Greetings,
 
-This is also ndisc_opt_addr_space(dev).
-
-> +	na->opt[1] = 1; /* 8 bytes */
-
-This is perhaps more clearly expressed as "opt >> 3".
-> @@ -1357,8 +1446,7 @@ static int neigh_reduce(struct net_device *dev, struct sk_buff *skb)
->  	saddr = &iphdr->saddr;
->  	daddr = &iphdr->daddr;
->  
-> -	if (ipv6_addr_loopback(daddr) ||
-> -	    ipv6_addr_is_multicast(daddr))
-> +	if (ipv6_addr_loopback(daddr))
->  		goto out;
->  
->  	msg = (struct nd_msg *)skb_transport_header(skb);
-
-Note that the ipv6 stack input path checks to make sure that the
-msg->target is not multicast.  Just something I noticed.
+  Hannes
