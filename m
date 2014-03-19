@@ -1,71 +1,118 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 11/15] e1000e: Fix Explicitly set Transmit Control Register
-Date: Tue, 18 Mar 2014 20:42:09 -0700
-Message-ID: <1395200533-16908-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 14/15] ixgbevf: Indicate removal state explicitly
+Date: Tue, 18 Mar 2014 20:42:12 -0700
+Message-ID: <1395200533-16908-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395200533-16908-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Todd Fujinaka <todd.fujinaka@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:36728 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933733AbaCSDmW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Mar 2014 23:42:22 -0400
+	id S933770AbaCSDmX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Mar 2014 23:42:23 -0400
 In-Reply-To: <1395200533-16908-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ertman <davidx.m.ertman@intel.com>
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-This patch causes the TCTL to be explicitly set to fix a problem with
-poor network performance (throughput) on certain silicon when configured
-for 100M HDX performance.
+Add a bit, __IXGBEVF_REMOVING, to indicate that the module is being
+removed. The __IXGBEVF_DOWN bit had been overloaded for this purpose,
+but that leads to trouble. A few places now check both __IXGBEVF_DOWN
+and __IXGBEVF_REMOVING.
 
-Cc: Todd Fujinaka <todd.fujinaka@intel.com>
-Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
-Acked-by: Bruce W. Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  5 +++--
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 14 +++++++++-----
+ 2 files changed, 12 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index d577723..6bd1832 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -2898,7 +2898,7 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct e1000_ring *tx_ring = adapter->tx_ring;
- 	u64 tdba;
--	u32 tdlen, tarc;
-+	u32 tdlen, tctl, tarc;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index 5482932..08fb88a 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
  
- 	/* Setup the HW Tx Head and Tail descriptor pointers */
- 	tdba = tx_ring->dma;
-@@ -2935,6 +2935,12 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	/* erratum work around: set txdctl the same for both queues */
- 	ew32(TXDCTL(1), er32(TXDCTL(0)));
+   Intel 82599 Virtual Function driver
+-  Copyright(c) 1999 - 2012 Intel Corporation.
++  Copyright(c) 1999 - 2014 Intel Corporation.
  
-+	/* Program the Transmit Control Register */
-+	tctl = er32(TCTL);
-+	tctl &= ~E1000_TCTL_CT;
-+	tctl |= E1000_TCTL_PSP | E1000_TCTL_RTLC |
-+		(E1000_COLLISION_THRESHOLD << E1000_CT_SHIFT);
-+
- 	if (adapter->flags & FLAG_TARC_SPEED_MODE_BIT) {
- 		tarc = er32(TARC(0));
- 		/* set the speed mode bit, we'll clear it if we're not at
-@@ -2965,6 +2971,8 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	/* enable Report Status bit */
- 	adapter->txd_cmd |= E1000_TXD_CMD_RS;
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+@@ -412,7 +412,8 @@ struct ixgbevf_adapter {
+ enum ixbgevf_state_t {
+ 	__IXGBEVF_TESTING,
+ 	__IXGBEVF_RESETTING,
+-	__IXGBEVF_DOWN
++	__IXGBEVF_DOWN,
++	__IXGBEVF_REMOVING,
+ };
  
-+	ew32(TCTL, tctl);
-+
- 	hw->mac.ops.config_collision_dist(hw);
- }
+ struct ixgbevf_cb {
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 8581079..940d924 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   Intel 82599 Virtual Function driver
+-  Copyright(c) 1999 - 2012 Intel Corporation.
++  Copyright(c) 1999 - 2014 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+@@ -608,7 +608,8 @@ static int ixgbevf_poll(struct napi_struct *napi, int budget)
+ 	napi_complete(napi);
+ 	if (adapter->rx_itr_setting & 1)
+ 		ixgbevf_set_itr(q_vector);
+-	if (!test_bit(__IXGBEVF_DOWN, &adapter->state))
++	if (!test_bit(__IXGBEVF_DOWN, &adapter->state) &&
++	    !test_bit(__IXGBEVF_REMOVING, &adapter->state))
+ 		ixgbevf_irq_enable_queues(adapter,
+ 					  1 << q_vector->v_idx);
+ 
+@@ -833,7 +834,8 @@ static irqreturn_t ixgbevf_msix_other(int irq, void *data)
+ 
+ 	hw->mac.get_link_status = 1;
+ 
+-	if (!test_bit(__IXGBEVF_DOWN, &adapter->state))
++	if (!test_bit(__IXGBEVF_DOWN, &adapter->state) &&
++	    !test_bit(__IXGBEVF_REMOVING, &adapter->state))
+ 		mod_timer(&adapter->watchdog_timer, jiffies);
+ 
+ 	IXGBE_WRITE_REG(hw, IXGBE_VTEIMS, adapter->eims_other);
+@@ -2329,6 +2331,7 @@ static void ixgbevf_reset_task(struct work_struct *work)
+ 
+ 	/* If we're already down or resetting, just bail */
+ 	if (test_bit(__IXGBEVF_DOWN, &adapter->state) ||
++	    test_bit(__IXGBEVF_REMOVING, &adapter->state) ||
+ 	    test_bit(__IXGBEVF_RESETTING, &adapter->state))
+ 		return;
+ 
+@@ -2413,7 +2416,8 @@ static void ixgbevf_watchdog_task(struct work_struct *work)
+ 
+ pf_has_reset:
+ 	/* Reset the timer */
+-	if (!test_bit(__IXGBEVF_DOWN, &adapter->state))
++	if (!test_bit(__IXGBEVF_DOWN, &adapter->state) &&
++	    !test_bit(__IXGBEVF_REMOVING, &adapter->state))
+ 		mod_timer(&adapter->watchdog_timer,
+ 			  round_jiffies(jiffies + (2 * HZ)));
+ 
+@@ -3563,7 +3567,7 @@ static void ixgbevf_remove(struct pci_dev *pdev)
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+ 
+-	set_bit(__IXGBEVF_DOWN, &adapter->state);
++	set_bit(__IXGBEVF_REMOVING, &adapter->state);
+ 
+ 	del_timer_sync(&adapter->watchdog_timer);
  
 -- 
 1.8.3.1
