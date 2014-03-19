@@ -1,58 +1,55 @@
 From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH v2a RESEND 2/2] of_mdio: Allow the DT to specify the phy
- ID and avoid autoprobing
-Date: Wed, 19 Mar 2014 16:14:04 -0600
-Message-ID: <20140319221404.GA1154@obsidianresearch.com>
-References: <1394658311-17769-1-git-send-email-jgunthorpe@obsidianresearch.com>
- <1394658311-17769-2-git-send-email-jgunthorpe@obsidianresearch.com>
- <CAL_Jsq+qdbiwXErkZv1zZ9rphYY9NP6zHmmjw313tMvGeSTODg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Subject: [PATCH v2a 1/2] dt: Document a compatible entry for MDIO ethernet Phys
+Date: Wed, 19 Mar 2014 16:15:23 -0600
+Message-ID: <1395267324-5788-1-git-send-email-jgunthorpe@obsidianresearch.com>
 Cc: Rob Herring <robh+dt@kernel.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Rob Herring <robherring2@gmail.com>
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAL_Jsq+qdbiwXErkZv1zZ9rphYY9NP6zHmmjw313tMvGeSTODg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 12, 2014 at 04:35:54PM -0500, Rob Herring wrote:
+This describes a compatible entry of the form:
+  ethernet-phy-idAAAA,BBBB
+Which is modelled after the PCI structured compatible entry
+(pciVVVV,DDDD.SSSS.ssss.RR)
 
-> > Florian, do you know what path to mainline a this patch should take?
-> 
-> Via David's net tree.
+If present the OF core will be able to use this information to
+directly create the correct phy without auto probing the bus.
 
-Thanks
+Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Acked-by: Rob Herring <robh@kernel.org>
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ Documentation/devicetree/bindings/net/phy.txt | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-> > +       cp = of_get_property(device, "compatible", &cplen);
-> > +       if (cp == NULL)
-> > +               return -EINVAL;
-> > +       while (cplen > 0) {
-> 
-> This can all be:
-> 
->   of_property_for_each_string(device, "compatible", prop, cp)
+- Resend for net-next
 
-Done
-
-On Thu, Mar 13, 2014 at 01:46:18AM +0300, Sergei Shtylyov wrote:
->    The preferred multi-line comment style is:
-> 
-> /*
->  * bla
->  * bla
->  */
-> 
-
-Sergei, the entire file use the 'net' multi-line commenting style, and
-I have maintined that consistency with the new code.
-
-v3 on its way.
-
-Regards,
-Jason
+diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
+index 58307d0..5b8c589 100644
+--- a/Documentation/devicetree/bindings/net/phy.txt
++++ b/Documentation/devicetree/bindings/net/phy.txt
+@@ -21,10 +21,18 @@ Optional Properties:
+   elements.
+ - max-speed: Maximum PHY supported speed (10, 100, 1000...)
+ 
++  If the phy's identifier is known then the list may contain an entry
++  of the form: "ethernet-phy-idAAAA.BBBB" where
++     AAAA - The value of the 16 bit Phy Identifier 1 register as
++            4 hex digits. This is the chip vendor OUI bits 3:18
++     BBBB - The value of the 16 bit Phy Identifier 2 register as
++            4 hex digits. This is the chip vendor OUI bits 19:24,
++            followed by 10 bits of a vendor specific ID.
++
+ Example:
+ 
+ ethernet-phy@0 {
+-	compatible = "ethernet-phy-ieee802.3-c22";
++	compatible = "ethernet-phy-id0141.0e90", "ethernet-phy-ieee802.3-c22";
+ 	interrupt-parent = <40000>;
+ 	interrupts = <35 1>;
+ 	reg = <0>;
+-- 
+1.8.1.2
