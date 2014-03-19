@@ -1,93 +1,45 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v3] net: netfilter: LLVMLinux: vlais-netfilter
-Date: Wed, 19 Mar 2014 09:52:40 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E0F8D@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D0F6E0286@AcuExch.aculab.com>
- <1395193841-2886-1-git-send-email-behanw@converseincode.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next v2 2/3] bonding: support QinQ for bond arp interval
+Date: Wed, 19 Mar 2014 19:16:51 +0800
+Message-ID: <53297CA3.9030005@huawei.com>
+References: <1395139433-19576-1-git-send-email-dingtianhong@huawei.com> <1395139433-19576-3-git-send-email-dingtianhong@huawei.com> <20140318120558.GA6430@redhat.com> <7072.1395165598@death.nxdomain> <20140318192742.GB6430@redhat.com> <5328F2F5.6010304@huawei.com> <20140319053958.GA1242@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "pablo@netfilter.org" <pablo@netfilter.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"kadlec@blackhole.kfki.hu" <kadlec@blackhole.kfki.hu>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netfilter@vger.kernel.org" <netfilter@vger.kernel.org>,
-	"coreteam@netfilter.org" <coreteam@netfilter.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
-	"dwmw2@infradead.org" <dwmw2@infradead.org>,
-	"pageexec@freemail.hu" <pageexec@freemail.hu>,
-	Mark Charlebois <charlebm@gmail.com>,
-	=?utf-8?B?Vmluw61jaXVzIFRpbnRp?= <viniciustinti@gmail.com>
-To: "'behanw@converseincode.com'" <behanw@converseincode.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1395193841-2886-1-git-send-email-behanw@converseincode.com>
-Content-Language: en-US
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>, <andy@greyhouse.net>,
+	<kaber@trash.net>, <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Veaceslav Falico <vfalico@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:10458 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758087AbaCSLRW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 07:17:22 -0400
+In-Reply-To: <20140319053958.GA1242@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogYmVoYW53QGNvbnZlcnNlaW5jb2RlLmNvbSANCj4gRnJvbTogTWFyayBDaGFybGVib2lz
-IDxjaGFybGVibUBnbWFpbC5jb20+DQo+IA0KPiBSZXBsYWNlZCBub24tc3RhbmRhcmQgQyB1c2Ug
-b2YgVmFyaWFibGUgTGVuZ3RoIEFycmF5cyBJbiBTdHJ1Y3RzIChWTEFJUykgaW4NCj4geHRfcmVw
-bGRhdGEuaCB3aXRoIGEgQzk5IGNvbXBsaWFudCBmbGV4aWJsZSBhcnJheSBtZW1iZXIgYW5kIHRo
-ZW4gY2FsY3VsYXRlZA0KPiBvZmZzZXRzIHRvIHRoZSBvdGhlciBzdHJ1Y3QgbWVtYmVycy4gVGhl
-c2Ugb3RoZXIgbWVtYmVycyBhcmVuJ3QgcmVmZXJlbmNlZCBieQ0KPiBuYW1lIGluIHRoaXMgY29k
-ZSwgaG93ZXZlciB0aGlzIHBhdGNoIG1haW50YWlucyB0aGUgc2FtZSBtZW1vcnkgbGF5b3V0IGFu
-ZA0KPiBwYWRkaW5nIGFzIHdhcyBwcmV2aW91c2x5IGFjY29tcGxpc2hlZCB1c2luZyBWTEFJUy4N
-Cj4gDQo+IEhhZCB0aGUgb3JpZ2luYWwgc3RydWN0dXJlIGJlZW4gb3JkZXJlZCBkaWZmZXJlbnRs
-eSwgd2l0aCB0aGUgZW50cmllcyBWTEEgYXQNCj4gdGhlIGVuZCwgdGhlbiBpdCBjb3VsZCBoYXZl
-IGJlZW4gYSBmbGV4aWJsZSBtZW1iZXIsIGFuZCB0aGlzIHBhdGNoIHdvdWxkIGhhdmUNCj4gYmVl
-biBhIGxvdCBzaW1wbGVyLiBIb3dldmVyIHNpbmNlIHRoZSBkYXRhIHN0b3JlZCBpbiB0aGlzIHN0
-cnVjdHVyZSBpcw0KPiB1bHRpbWF0ZWx5IGV4cG9ydGVkIHRvIHVzZXJzcGFjZSwgdGhlIG9yZGVy
-IG9mIHRoaXMgc3RydWN0dXJlIGNhbid0IGJlIGNoYW5nZWQuDQo+IA0KPiBUaGlzIHBhdGNoIG1h
-a2VzIG5vIGF0dGVtcHQgdG8gY2hhbmdlIHRoZSBleGlzdGluZyBiZWhhdmlvciwgbWVyZWx5IHRo
-ZSB3YXkgaW4NCj4gd2hpY2ggdGhlIGN1cnJlbnQgbGF5b3V0IGlzIGFjY29tcGxpc2hlZCB1c2lu
-ZyBzdGFuZGFyZCBDOTkgY29uc3RydWN0cy4gQXMgc3VjaA0KPiB0aGUgY29kZSBjYW4gbm93IGJl
-IGNvbXBpbGVkIHdpdGggZWl0aGVyIGdjYyBvciBjbGFuZy4NCj4gDQo+IEF1dGhvcjogTWFyayBD
-aGFybGVib2lzIDxjaGFybGVibUBnbWFpbC5jb20+DQo+IFNpZ25lZC1vZmYtYnk6IE1hcmsgQ2hh
-cmxlYm9pcyA8Y2hhcmxlYm1AZ21haWwuY29tPg0KPiBTaWduZWQtb2ZmLWJ5OiBCZWhhbiBXZWJz
-dGVyIDxiZWhhbndAY29udmVyc2VpbmNvZGUuY29tPg0KPiBTaWduZWQtb2ZmLWJ5OiBWaW7DrWNp
-dXMgVGludGkgPHZpbmljaXVzdGludGlAZ21haWwuY29tPg0KPiAtLS0NCj4gIG5ldC9uZXRmaWx0
-ZXIveHRfcmVwbGRhdGEuaCB8IDI3ICsrKysrKysrKysrKysrKysrKysrKystLS0tLQ0KPiAgMSBm
-aWxlIGNoYW5nZWQsIDIyIGluc2VydGlvbnMoKyksIDUgZGVsZXRpb25zKC0pDQo+IA0KPiBkaWZm
-IC0tZ2l0IGEvbmV0L25ldGZpbHRlci94dF9yZXBsZGF0YS5oIGIvbmV0L25ldGZpbHRlci94dF9y
-ZXBsZGF0YS5oDQo+IGluZGV4IDZlZmU0ZTUuLjM0MzU5OWUgMTAwNjQ0DQo+IC0tLSBhL25ldC9u
-ZXRmaWx0ZXIveHRfcmVwbGRhdGEuaA0KPiArKysgYi9uZXQvbmV0ZmlsdGVyL3h0X3JlcGxkYXRh
-LmgNCj4gQEAgLTUsMjMgKzUsNDAgQEANCj4gICAqIHRoZXkgc2VydmUgYXMgdGhlIGhhbmdpbmct
-b2ZmIGRhdGEgYWNjZXNzZWQgdGhyb3VnaCByZXBsLmRhdGFbXS4NCj4gICAqLw0KPiANCj4gKy8q
-IHRibCBoYXMgdGhlIGZvbGxvd2luZyBzdHJ1Y3R1cmUgZXF1aXZhbGVudCwgYnV0IGlzIEM5OSBj
-b21wbGlhbnQ6DQo+ICsgKiBzdHJ1Y3Qgew0KPiArICoJc3RydWN0IHR5cGUjI19yZXBsYWNlIHJl
-cGw7DQo+ICsgKglzdHJ1Y3QgdHlwZSMjX3N0YW5kYXJkIGVudHJpZXNbbmhvb2tzXTsNCj4gKyAq
-CXN0cnVjdCB0eXBlIyNfZXJyb3IgdGVybTsNCj4gKyAqIH0gKnRibDsNCj4gKyAqLw0KPiArDQo+
-ICAjZGVmaW5lIHh0X2FsbG9jX2luaXRpYWxfdGFibGUodHlwZSwgdHlwMikgKHsgXA0KPiAgCXVu
-c2lnbmVkIGludCBob29rX21hc2sgPSBpbmZvLT52YWxpZF9ob29rczsgXA0KPiAgCXVuc2lnbmVk
-IGludCBuaG9va3MgPSBod2VpZ2h0MzIoaG9va19tYXNrKTsgXA0KPiAgCXVuc2lnbmVkIGludCBi
-eXRlcyA9IDAsIGhvb2tudW0gPSAwLCBpID0gMDsgXA0KPiAgCXN0cnVjdCB7IFwNCj4gIAkJc3Ry
-dWN0IHR5cGUjI19yZXBsYWNlIHJlcGw7IFwNCj4gLQkJc3RydWN0IHR5cGUjI19zdGFuZGFyZCBl
-bnRyaWVzW25ob29rc107IFwNCj4gLQkJc3RydWN0IHR5cGUjI19lcnJvciB0ZXJtOyBcDQo+IC0J
-fSAqdGJsID0ga3phbGxvYyhzaXplb2YoKnRibCksIEdGUF9LRVJORUwpOyBcDQo+ICsJCXN0cnVj
-dCB0eXBlIyNfc3RhbmRhcmQgZW50cmllc1tdOyBcDQo+ICsJfSAqdGJsOyBcDQo+ICsJc3RydWN0
-IHR5cGUjI19lcnJvciAqdGVybTsgXA0KPiArCXNpemVfdCBlbnRyaWVzX2VuZCA9IG9mZnNldG9m
-KHR5cGVvZigqdGJsKSwgXA0KPiArCQllbnRyaWVzW25ob29rcy0xXSkgKyBzaXplb2YodGJsLT5l
-bnRyaWVzWzBdKTsgXA0KDQpJcyB0aGUgY29tcGlsZXIgY29tcGxhaW5pbmcgYWJvdXQ6DQoJb2Zm
-c2V0b2YodHlwZW9mKCp0YmwpLCBlbnRyaWVzW25ob29rc10pDQpJZiBpdCBkb2VzIGl0IGlzIGEg
-UElUQS4NCg0KPiArCXNpemVfdCB0ZXJtX29mZnNldCA9IChlbnRyaWVzX2VuZCArIF9fYWxpZ25v
-Zl9fKCp0ZXJtKSAtIDEpIFwNCj4gKwkJJiB+KF9fYWxpZ25vZl9fKCp0ZXJtKSAtIDEpOyBcDQoN
-CllvdSd2ZSBub3QgdGVzdGVkIHRoaXMgLSB0aGUgKCkgYXJlIGluIHRoZSB3cm9uZyBwbGFjZXMu
-DQoNCj4gKwlzaXplX3QgdGVybV9lbmQgPSB0ZXJtX29mZnNldCArIHNpemVvZigqdGVybSk7IFwN
-Cj4gKwlzaXplX3QgdGJsX3N6ID0gKHRlcm1fZW5kICsgX19hbGlnbm9mX18odGJsLT5yZXBsKSAt
-IDEpIFwNCj4gKwkJJiB+KF9fYWxpZ25vZl9fKHRibC0+cmVwbCkgLSAxKTsgXA0KPiArCXRibCA9
-IGt6YWxsb2ModGJsX3N6LCBHRlBfS0VSTkVMKTsgXA0KDQpUaGUgbnVtYmVyIG9mIHRlbXBvcmFy
-eSB2YXJpYWJsZXMgbWFrZSB0aGUgYWJvdmUgaGFyZCB0byByZWFkLg0KSSdtIG5vdCBhdCBhbGwg
-c3VyZSB5b3UgbmVlZCB0byB3b3JyeSBhYm91dCB0aGUgdHJhaWxpbmcgYWxpZ25tZW50Lg0KSXQg
-cmF0aGVyIGRlcGVuZHMgb24gaG93IHRoZSBmaW5hbCBkYXRhIGlzIHVzZWQuDQpJZiB0aGUgY29t
-YmluZWQgYnVmZmVyIGlzIGNvcGllZCB0byB1c2Vyc3BhY2UgeW91IG1heSBub3QNCmJlIGNvcHlp
-bmcgYWxsIG9mIHRoZSByZXF1aXJlZCBkYXRhLg0KSXQgbWlnaHQgYmUgZWFzaWVyIHRvIGNhbGwg
-Y29weXRvdXNlcigpIHR3aWNlLg0KDQo+ICAJaWYgKHRibCA9PSBOVUxMKSBcDQo+ICAJCXJldHVy
-biBOVUxMOyBcDQo+ICsJdGVybSA9IChzdHJ1Y3QgdHlwZSMjX2Vycm9yICopJigoKGNoYXIgKil0
-YmwpW3Rlcm1fb2Zmc2V0XSk7IFwNCj4gIAlzdHJuY3B5KHRibC0+cmVwbC5uYW1lLCBpbmZvLT5u
-YW1lLCBzaXplb2YodGJsLT5yZXBsLm5hbWUpKTsgXA0KPiAtCXRibC0+dGVybSA9IChzdHJ1Y3Qg
-dHlwZSMjX2Vycm9yKXR5cDIjI19FUlJPUl9JTklUOyAgXA0KPiArCSp0ZXJtID0gKHN0cnVjdCB0
-eXBlIyNfZXJyb3IpdHlwMiMjX0VSUk9SX0lOSVQ7ICBcDQoNCglEYXZpZA0KDQo=
+On 2014/3/19 13:39, Veaceslav Falico wrote:
+> On Wed, Mar 19, 2014 at 09:29:25AM +0800, Ding Tianhong wrote:
+> ...snip...
+>> The QinQ didn't mean that the first(outer) tag must be 802.1ad, and the second(inner) tag must be 802.1q,
+> 
+> Do you have a quote for that from the standard? What I know and read
+> everywhere is that the standard specifies the outer s-tag to always be
+> 0x88A8.
+> 
+> The other thing is that we don't live in an ideal world and there are a
+> lot of non-standard implementations out there, which might use 0x8100,
+> 0x9100, 0x9200, 0x9300... for the outer s-tag, that's why using the
+> user-provided proto is better.
+> 
+> 
+
+Sorry for feedback so late, I'm too busy these days.
+
+Agree, as far as I know, The original "QinQ" means "802.1Q in 802.1Q", but in practical applications,
+the network operators could set the out tag to 0x9100, 0x8100 ... as they wished in the switch, this is no
+limit, but in linux kernel the vlan only support 802.1ad and 801.1q, so we can only make choices in these values, 
+so here I think let the user to decide the real proto is more reasonbale.
+
+Regards
+Ding
