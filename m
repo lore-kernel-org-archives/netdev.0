@@ -1,64 +1,63 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] netfilter: x_tables: allow to use cgroup match for LOCAL_IN
- nf hooks
-Date: Wed, 19 Mar 2014 10:35:15 +0100
-Message-ID: <532964D3.4070002@redhat.com>
-References: <1395212322-12508-1-git-send-email-a.perevalov@samsung.com>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: [PATCH net-next] atheros/atlx: use SET_ETHTOOL_OPS directly
+Date: Wed, 19 Mar 2014 17:39:15 +0800
+Message-ID: <532965C3.6090706@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	kyungmin.park@samsung.com, john.stultz@linaro.org,
-	pablo@netfilter.org, edumazet@google.com
-To: Alexey Perevalov <a.perevalov@samsung.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1395212322-12508-1-git-send-email-a.perevalov@samsung.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <jcliburn@gmail.com>,
+	<chris.snook@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:15257 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932191AbaCSJje (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 05:39:34 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/19/2014 07:58 AM, Alexey Perevalov wrote:
-> This simple modification allows iptables to work with INPUT chain
-> in combination with cgroup module. It could be useful for counting
-> ingress traffic per cgroup with nfacct netfilter module. There
-> were no problems to count the egress traffic that way formerly.
->
-> It's possible to get classified sk_buff after PREROUTING, due to
-> socket lookup being done in early_demux (tcp_v4_early_demux). Also
-> it works for udp as well.
->
-> Trivial usage example, assuming we're in the same shell every step
-> and we have enough permissions:
->
-> 1) Classic net_cls cgroup initialization:
->
->    mkdir /sys/fs/cgroup/net_cls
->    mount -t cgroup -o net_cls net_cls /sys/fs/cgroup/net_cls
->
-> 2) Set up cgroup for interesting application:
->
->    mkdir /sys/fs/cgroup/net_cls/wget
->    echo 1 > /sys/fs/cgroup/net_cls/wget/net_cls.classid
->    echo $BASHPID > /sys/fs/cgroup/net_cls/wget/cgroup.procs
->
-> 3) Create kernel counters:
->
->    nfacct add wget-cgroup-in
->    iptables -A INPUT -m cgroup ! --cgroup 1 -m nfacct --nfacct-name wget-cgroup-in
->
->    nfacct add wget-cgroup-out
->    iptables -A OUTPUT -m cgroup ! --cgroup 1 -m nfacct --nfacct-name wget-cgroup-out
->
-> 4) Network usage:
->
->    wget https://www.kernel.org/pub/linux/kernel/v3.x/testing/linux-3.14-rc6.tar.xz
->
-> 5) Check results:
->
->    nfacct list
->
-> Cgroup approach is being used for the DataUsage (counting & blocking
-> traffic) feature for Samsung's modification of the Tizen OS.
->
-> Signed-off-by: Alexey Perevalov <a.perevalov@samsung.com>
+As commit a6e28b34205b("staging/et131x: use SET_ETHTOOL_OPS
+directly"), using a wrapper around SET_ETHTOOL_OPS macro is
+not actually required, remove and use SET_ETHTOOL_OPS directly.
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+---
+ drivers/net/ethernet/atheros/atlx/atl2.c | 9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/atheros/atlx/atl2.c b/drivers/net/ethernet/atheros/atlx/atl2.c
+index 265ce1b..9262521 100644
+--- a/drivers/net/ethernet/atheros/atlx/atl2.c
++++ b/drivers/net/ethernet/atheros/atlx/atl2.c
+@@ -71,8 +71,6 @@ static DEFINE_PCI_DEVICE_TABLE(atl2_pci_tbl) = {
+ };
+ MODULE_DEVICE_TABLE(pci, atl2_pci_tbl);
+ 
+-static void atl2_set_ethtool_ops(struct net_device *netdev);
+-
+ static void atl2_check_options(struct atl2_adapter *adapter);
+ 
+ /**
+@@ -1397,7 +1395,7 @@ static int atl2_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	atl2_setup_pcicmd(pdev);
+ 
+ 	netdev->netdev_ops = &atl2_netdev_ops;
+-	atl2_set_ethtool_ops(netdev);
++	SET_ETHTOOL_OPS(netdev, &atl2_ethtool_ops);
+ 	netdev->watchdog_timeo = 5 * HZ;
+ 	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
+ 
+@@ -2105,11 +2103,6 @@ static const struct ethtool_ops atl2_ethtool_ops = {
+ 	.set_eeprom		= atl2_set_eeprom,
+ };
+ 
+-static void atl2_set_ethtool_ops(struct net_device *netdev)
+-{
+-	SET_ETHTOOL_OPS(netdev, &atl2_ethtool_ops);
+-}
+-
+ #define LBYTESWAP(a)  ((((a) & 0x00ff00ff) << 8) | \
+ 	(((a) & 0xff00ff00) >> 8))
+ #define LONGSWAP(a)   ((LBYTESWAP(a) << 16) | (LBYTESWAP(a) >> 16))
+-- 
+1.7.12
