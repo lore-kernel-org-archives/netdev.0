@@ -1,72 +1,240 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 1/5] IB/mlx4_ib: Adapt code to use caps.num_ports instead of a constant
-Date: Wed, 19 Mar 2014 18:11:49 +0200
-Message-ID: <1395245513-8139-2-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 2/5] net/mlx4: Add data structures to support N-Ports per VF
+Date: Wed, 19 Mar 2014 18:11:50 +0200
+Message-ID: <1395245513-8139-3-git-send-email-ogerlitz@mellanox.com>
 References: <1395245513-8139-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, roland@kernel.org,
 	jackm@dev.mellanox.co.il, amirv@mellanox.com, matanb@mellanox.com,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:37107 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:40600 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933939AbaCSQMS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Mar 2014 12:12:18 -0400
+	id S965524AbaCSQMW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Mar 2014 12:12:22 -0400
 In-Reply-To: <1395245513-8139-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Matan Barak <matanb@mellanox.com>
 
-Some code in the mlx4 IB driver stack assumed MLX4_MAX_PORTS ports.
-
-Instead, we should only loop until the number of actual ports in i
-the device, which is stored in dev->caps.num_ports.
+Adds the required data structures to support VFs with N (1 or 2)
+ports instead of always using the number of physical ports.
 
 Signed-off-by: Matan Barak <matanb@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/infiniband/hw/mlx4/main.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/main.c |  109 ++++++++++++++++++++++------
+ include/linux/mlx4/device.h               |    7 ++
+ 2 files changed, 92 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
-index 1d1750e..2ff428b 100644
---- a/drivers/infiniband/hw/mlx4/main.c
-+++ b/drivers/infiniband/hw/mlx4/main.c
-@@ -1546,7 +1546,7 @@ static int mlx4_ib_addr_event(int event, struct net_device *event_netdev,
- 	iboe = &ibdev->iboe;
- 	spin_lock(&iboe->lock);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index abd0b1d..e1a5585 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -2193,6 +2193,10 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
+ 	struct mlx4_dev *dev;
+ 	int err;
+ 	int port;
++	int nvfs[MLX4_MAX_PORTS + 1], prb_vf[MLX4_MAX_PORTS + 1];
++	unsigned total_vfs = 0;
++	int sriov_initialized = 0;
++	unsigned int i;
  
--	for (port = 1; port <= MLX4_MAX_PORTS; ++port)
-+	for (port = 1; port <= ibdev->dev->caps.num_ports; ++port)
- 		if ((netif_is_bond_master(real_dev) &&
- 		     (real_dev == iboe->masters[port - 1])) ||
- 		     (!netif_is_bond_master(real_dev) &&
-@@ -1569,14 +1569,14 @@ static u8 mlx4_ib_get_dev_port(struct net_device *dev,
+ 	pr_info(DRV_NAME ": Initializing %s\n", pci_name(pdev));
  
- 	iboe = &ibdev->iboe;
+@@ -2207,17 +2211,39 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
+ 	 * per port, we must limit the number of VFs to 63 (since their are
+ 	 * 128 MACs)
+ 	 */
+-	if (num_vfs >= MLX4_MAX_NUM_VF) {
++	for (i = 0; i < sizeof(nvfs)/sizeof(nvfs[0]);
++	     total_vfs += nvfs[i], i++) {
++		nvfs[i] = i == MLX4_MAX_PORTS ? num_vfs : 0;
++		if (nvfs[i] < 0) {
++			dev_err(&pdev->dev, "num_vfs module parameter cannot be negative\n");
++			return -EINVAL;
++		}
++	}
++	for (i = 0; i < sizeof(prb_vf)/sizeof(prb_vf[0]); i++) {
++		prb_vf[i] = i == MLX4_MAX_PORTS ? probe_vf : 0;
++		if (prb_vf[i] < 0 || prb_vf[i] > nvfs[i]) {
++			dev_err(&pdev->dev, "probe_vf module parameter cannot be negative or greater than num_vfs\n");
++			return -EINVAL;
++		}
++	}
++	if (total_vfs >= MLX4_MAX_NUM_VF) {
+ 		dev_err(&pdev->dev,
+ 			"Requested more VF's (%d) than allowed (%d)\n",
+-			num_vfs, MLX4_MAX_NUM_VF - 1);
++			total_vfs, MLX4_MAX_NUM_VF - 1);
+ 		return -EINVAL;
+ 	}
  
--	for (port = 1; port <= MLX4_MAX_PORTS; ++port)
-+	for (port = 1; port <= ibdev->dev->caps.num_ports; ++port)
- 		if ((netif_is_bond_master(real_dev) &&
- 		     (real_dev == iboe->masters[port - 1])) ||
- 		     (!netif_is_bond_master(real_dev) &&
- 		     (real_dev == iboe->netdevs[port - 1])))
- 			break;
+-	if (num_vfs < 0) {
+-		pr_err("num_vfs module parameter cannot be negative\n");
+-		return -EINVAL;
++	for (i = 0; i < MLX4_MAX_PORTS; i++) {
++		if (nvfs[i] + nvfs[2] >= MLX4_MAX_NUM_VF_P_PORT) {
++			dev_err(&pdev->dev,
++				"Requested more VF's (%d) for port (%d) than allowed (%d)\n",
++				nvfs[i] + nvfs[2], i + 1,
++				MLX4_MAX_NUM_VF_P_PORT - 1);
++			return -EINVAL;
++		}
+ 	}
++
++
+ 	/*
+ 	 * Check for BARs.
+ 	 */
+@@ -2292,11 +2318,23 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
+ 	if (pci_dev_data & MLX4_PCI_DEV_IS_VF) {
+ 		/* When acting as pf, we normally skip vfs unless explicitly
+ 		 * requested to probe them. */
+-		if (num_vfs && extended_func_num(pdev) > probe_vf) {
+-			mlx4_warn(dev, "Skipping virtual function:%d\n",
+-						extended_func_num(pdev));
+-			err = -ENODEV;
+-			goto err_free_dev;
++		if (total_vfs) {
++			unsigned vfs_offset = 0;
++			for (i = 0; i < sizeof(nvfs)/sizeof(nvfs[0]) &&
++			     vfs_offset + nvfs[i] < extended_func_num(pdev);
++			     vfs_offset += nvfs[i], i++)
++				;
++			if (i == sizeof(nvfs)/sizeof(nvfs[0])) {
++				err = -ENODEV;
++				goto err_free_dev;
++			}
++			if ((extended_func_num(pdev) - vfs_offset)
++			    > prb_vf[i]) {
++				mlx4_warn(dev, "Skipping virtual function:%d\n",
++					  extended_func_num(pdev));
++				err = -ENODEV;
++				goto err_free_dev;
++			}
+ 		}
+ 		mlx4_warn(dev, "Detected virtual function - running in slave mode\n");
+ 		dev->flags |= MLX4_FLAG_SLAVE;
+@@ -2316,22 +2354,30 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
+ 			}
+ 		}
  
--	if ((port == 0) || (port > MLX4_MAX_PORTS))
-+	if ((port == 0) || (port > ibdev->dev->caps.num_ports))
- 		return 0;
- 	else
- 		return port;
-@@ -1626,7 +1626,7 @@ static void mlx4_ib_get_dev_addr(struct net_device *dev,
- 	union ib_gid gid;
+-		if (num_vfs) {
+-			mlx4_warn(dev, "Enabling SR-IOV with %d VFs\n", num_vfs);
+-
+-			atomic_inc(&pf_loading);
+-			err = pci_enable_sriov(pdev, num_vfs);
+-			atomic_dec(&pf_loading);
+-
+-			if (err) {
+-				mlx4_err(dev, "Failed to enable SR-IOV, continuing without SR-IOV (err = %d).\n",
+-					 err);
++		if (total_vfs) {
++			mlx4_warn(dev, "Enabling SR-IOV with %d VFs\n",
++				  total_vfs);
++			dev->dev_vfs = kzalloc(
++					total_vfs * sizeof(*dev->dev_vfs),
++					GFP_KERNEL);
++			if (NULL == dev->dev_vfs) {
++				mlx4_err(dev, "Failed to allocate memory for VFs\n");
+ 				err = 0;
+ 			} else {
+-				mlx4_warn(dev, "Running in master mode\n");
+-				dev->flags |= MLX4_FLAG_SRIOV |
+-					      MLX4_FLAG_MASTER;
+-				dev->num_vfs = num_vfs;
++				atomic_inc(&pf_loading);
++				err = pci_enable_sriov(pdev, total_vfs);
++				atomic_dec(&pf_loading);
++				if (err) {
++					mlx4_err(dev, "Failed to enable SR-IOV, continuing without SR-IOV (err = %d).\n",
++						 err);
++					err = 0;
++				} else {
++					mlx4_warn(dev, "Running in master mode\n");
++					dev->flags |= MLX4_FLAG_SRIOV |
++						      MLX4_FLAG_MASTER;
++					dev->num_vfs = total_vfs;
++					sriov_initialized = 1;
++				}
+ 			}
+ 		}
  
+@@ -2396,12 +2442,24 @@ slave_start:
+ 	/* In master functions, the communication channel must be initialized
+ 	 * after obtaining its address from fw */
+ 	if (mlx4_is_master(dev)) {
++		unsigned sum = 0;
+ 		err = mlx4_multi_func_init(dev);
+ 		if (err) {
+ 			mlx4_err(dev, "Failed to init master mfunc"
+ 				 "interface, aborting.\n");
+ 			goto err_close;
+ 		}
++		if (sriov_initialized) {
++			for (i = 0; i < sizeof(nvfs)/sizeof(nvfs[0]); i++) {
++				unsigned j;
++				for (j = 0; j < nvfs[i]; ++sum, ++j) {
++					dev->dev_vfs[sum].min_port =
++						i < 2 ? i + 1 : 1;
++					dev->dev_vfs[sum].n_ports = i < 2 ? 1 :
++						dev->caps.num_ports;
++				}
++			}
++		}
+ 	}
  
--	if ((port == 0) || (port > MLX4_MAX_PORTS))
-+	if ((port == 0) || (port > ibdev->dev->caps.num_ports))
- 		return;
+ 	err = mlx4_alloc_eq_table(dev);
+@@ -2509,6 +2567,8 @@ err_rel_own:
+ 	if (!mlx4_is_slave(dev))
+ 		mlx4_free_ownership(dev);
  
- 	/* IPv4 gids */
++	kfree(priv->dev.dev_vfs);
++
+ err_free_dev:
+ 	kfree(priv);
+ 
+@@ -2595,6 +2655,7 @@ static void mlx4_remove_one(struct pci_dev *pdev)
+ 		kfree(dev->caps.qp0_proxy);
+ 		kfree(dev->caps.qp1_tunnel);
+ 		kfree(dev->caps.qp1_proxy);
++		kfree(dev->dev_vfs);
+ 
+ 		kfree(priv);
+ 		pci_release_regions(pdev);
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index f211b51..b3044f3 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -84,6 +84,7 @@ enum {
+ enum {
+ 	MLX4_MAX_NUM_PF		= 16,
+ 	MLX4_MAX_NUM_VF		= 64,
++	MLX4_MAX_NUM_VF_P_PORT  = 64,
+ 	MLX4_MFUNC_MAX		= 80,
+ 	MLX4_MAX_EQ_NUM		= 1024,
+ 	MLX4_MFUNC_EQ_NUM	= 4,
+@@ -664,6 +665,11 @@ struct mlx4_quotas {
+ 	int xrcd;
+ };
+ 
++struct mlx4_vf_dev {
++	u8			min_port;
++	u8			n_ports;
++};
++
+ struct mlx4_dev {
+ 	struct pci_dev	       *pdev;
+ 	unsigned long		flags;
+@@ -679,6 +685,7 @@ struct mlx4_dev {
+ 	int			oper_log_mgm_entry_size;
+ 	u64			regid_promisc_array[MLX4_MAX_PORTS + 1];
+ 	u64			regid_allmulti_array[MLX4_MAX_PORTS + 1];
++	struct mlx4_vf_dev     *dev_vfs;
+ };
+ 
+ struct mlx4_eqe {
 -- 
 1.7.1
