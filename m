@@ -1,89 +1,83 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: Re: [PATCH v2.55] datapath: Add basic MPLS support to
- kernel
-Date: Thu, 20 Mar 2014 13:25:45 +0900
-Message-ID: <20140320042543.GA14980@verge.net.au>
-References: <1394781160-8331-1-git-send-email-horms@verge.net.au>
+From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Subject: RE: [PATCH v5] can: xilinx CAN controller support.
+Date: Thu, 20 Mar 2014 04:41:56 +0000
+Message-ID: <45bec219-6349-4bcf-be8a-7ee1dfd1bcb9@TX2EHSMHS014.ehs.local>
+References: <5254bfec-c6fd-4681-a34d-706d51e60fbb@VA3EHSMHS004.ehs.local>
+ <531DD2C4.5060109@pengutronix.de>
+ <f1e2f08f-05fc-40d3-8437-4c6817d631cb@AM1EHSMHS010.ehs.local>
+ <531F0636.4050608@pengutronix.de> <53203088.2070605@monstr.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1394781160-8331-1-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	Michal Simek <michals@xilinx.com>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	"fengguang.wu@intel.com" <fengguang.wu@intel.com>
+To: "monstr@monstr.eu" <monstr@monstr.eu>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <53203088.2070605@monstr.eu>
+Content-Language: en-US
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 14, 2014 at 04:12:39PM +0900, Simon Horman wrote:
-> Hi Pravin, Hi Jesse, Hi All,
-> 
-> I have updated this patch so that:
-> 
-> * The datapath rejects push MPLS actions in the presence of VLAN tags.
-> 
->   I have done this by white-listing the following:
->   - ETH_P_IP (0x0800)
->   - ETH_P_ARP (0x0806)
->   - ETH_P_RARP (0x0835)
->   - ETH_P_IPV6 (0x86DD)
+SGkgTWFyYywNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNaWNoYWwg
+U2ltZWsgW21haWx0bzptb25zdHJAbW9uc3RyLmV1XQ0KPiBTZW50OiBXZWRuZXNkYXksIE1hcmNo
+IDEyLCAyMDE0IDM6MzIgUE0NCj4gVG86IE1hcmMgS2xlaW5lLUJ1ZGRlDQo+IENjOiBBcHBhbmEg
+RHVyZ2EgS2VkYXJlc3dhcmEgUmFvOyBsaW51eC1jYW5Admdlci5rZXJuZWwub3JnOw0KPiBuZXRk
+ZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmc7
+IGxpbnV4LQ0KPiBrZXJuZWxAdmdlci5rZXJuZWwub3JnOyBkZXZpY2V0cmVlQHZnZXIua2VybmVs
+Lm9yZzsgcm9iaCtkdEBrZXJuZWwub3JnOw0KPiBncmFudC5saWtlbHlAbGluYXJvLm9yZzsgTWlj
+aGFsIFNpbWVrOyB3Z0BncmFuZGVnZ2VyLmNvbTsNCj4gZmVuZ2d1YW5nLnd1QGludGVsLmNvbQ0K
+PiBTdWJqZWN0OiBSZTogW1BBVENIIHY1XSBjYW46IHhpbGlueCBDQU4gY29udHJvbGxlciBzdXBw
+b3J0Lg0KPg0KPiBPbiAwMy8xMS8yMDE0IDAxOjQ4IFBNLCBNYXJjIEtsZWluZS1CdWRkZSB3cm90
+ZToNCj4gPiBPbiAwMy8xMS8yMDE0IDAxOjM0IFBNLCBBcHBhbmEgRHVyZ2EgS2VkYXJlc3dhcmEg
+UmFvIHdyb3RlOg0KPiA+DQo+ID4+Pj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2Nhbi9LY29u
+ZmlnIGIvZHJpdmVycy9uZXQvY2FuL0tjb25maWcNCj4gPj4+PiBpbmRleA0KPiA+Pj4+IDllN2Q5
+NWQuLmIxODAyMzkgMTAwNjQ0DQo+ID4+Pj4gLS0tIGEvZHJpdmVycy9uZXQvY2FuL0tjb25maWcN
+Cj4gPj4+PiArKysgYi9kcml2ZXJzL25ldC9jYW4vS2NvbmZpZw0KPiA+Pj4+IEBAIC0xMjUsNiAr
+MTI1LDEzIEBAIGNvbmZpZyBDQU5fR1JDQU4NCj4gPj4+PiAgICAgICBlbmRpYW4gc3ludGhlc2Vz
+IG9mIHRoZSBjb3JlcyB3b3VsZCBuZWVkIHNvbWUgbW9kaWZpY2F0aW9ucyBvbg0KPiA+Pj4+ICAg
+ICAgIHRoZSBoYXJkd2FyZSBsZXZlbCB0byB3b3JrLg0KPiA+Pj4+DQo+ID4+Pj4gK2NvbmZpZyBD
+QU5fWElMSU5YQ0FODQo+ID4+Pj4gKyAgIHRyaXN0YXRlICJYaWxpbnggQ0FOIg0KPiA+Pj4+ICsg
+ICBkZXBlbmRzIG9uIEFSQ0hfWllOUSB8fCBNSUNST0JMQVpFDQo+ID4+Pg0KPiA+Pj4gSXMgWnlu
+cSBtdWx0aWFyY2ggYWxyZWFkeT8NCj4gPj4gRGlzY3Vzc2lvbnMgYXJlIGdvaW5nIG9uIHRoaXMN
+Cj4gPj4gU28gdGhlIGZpbmFsIHRoaW5nIHRoYXQgRmVuZ2d1YW5nICggZmVuZ2d1YW5nLnd1QGlu
+dGVsLmNvbSkgUHJvcG9zZWQNCj4gPj4gaXMNCj4gPj4gICAgICAgICBjb25maWcgQ0FOX1hJTElO
+WA0KPiA+PiAgICAgICAgIHRyaXN0YXRlICJYaWxpbnggQ0FOIg0KPiA+PiAgICAgICAgIGRlcGVu
+ZHMgb24gQVJDSF9aWU5RIHx8IE1JQ1JPQkxBWkUgfHwgQ09NUElMRV9URVNUDQo+ID4+ICAgICAg
+ICAgZGVwZW5kcyBvbiBDT01NT05fQ0xLICYmIEhBU19NTUlPICAjIHdoYXRldmVyIHlvdSBuZWVk
+IGZvcg0KPiA+PiBvdGhlciBhcmNoaXRlY3R1cmVzDQo+ID4NCj4gPj4gQXJlIHlvdSBPayBmb3Ig
+dGhpcz8NCj4gPg0KPiA+IFlvdSBoYXZlIHRvIGZpbGwgdGhlIDJuZCBkZXBlbmRzIG9uIHdpdGgg
+c29tZSBzYW5lIHZhbHVlcywgdGhvdWdoLg0KPg0KPiBUaGlzIHNob3VsZCBiZSB0aGF0IG9uZQ0K
+PiBjb25maWcgQ0FOX1hJTElOWA0KPiAgICAgICAgICB0cmlzdGF0ZSAiWGlsaW54IENBTiINCj4g
+ICAgICAgICAgZGVwZW5kcyBvbiBBUkNIX1pZTlEgfHwgTUlDUk9CTEFaRSB8fCBDT01QSUxFX1RF
+U1QNCj4gICAgICAgICAgZGVwZW5kcyBvbiBDT01NT05fQ0xLICYmIEhBU19JT01FTQ0KPg0KPg0K
+PiBJcyB0aGVyZSBhbnkgZHJpdmVyIHdoaWNoIGlzIGluIENBTiB3aGljaCBub3QgdXNlIE1NSU8g
+YWNjZXNzZXM/DQo+IElmIG5vdCwgbWF5YmUgd2Ugc2hvdWxkIGp1c3QgYWRkIGRlcGVuZGVuY3kg
+dG8NCg0KDQoNCkNhbiB5b3UgcGxlYXNlIGNvbW1lbnQgb24gdGhpcz8NCkkgaGFkIHVwZGF0ZSBk
+cml2ZXIgd2l0aCBhbGwgdGhlIG90aGVyIGNvbW1lbnRzIEkgaGFkIGEgbGl0dGxlIGNvbmZ1c2lv
+biByZWdhcmRpbmcNCldoaWNoIEtjb25maWcgb3B0aW9ucyBJIG5lZWQgdG8gdXNlLg0KDQpSZWdh
+cmRzLA0KS2VkYXIuDQoNCg0KPiBUaGFua3MsDQo+IE1pY2hhbA0KPg0KPg0KPg0KPiAtLQ0KPiBN
+aWNoYWwgU2ltZWssIEluZy4gKE0uRW5nKSwgT3BlblBHUCAtPiBLZXlJRDogRkUzRDFGOTENCj4g
+dzogd3d3Lm1vbnN0ci5ldSBwOiArNDItMC03MjE4NDI4NTQNCj4gTWFpbnRhaW5lciBvZiBMaW51
+eCBrZXJuZWwgLSBNaWNyb2JsYXplIGNwdSAtIGh0dHA6Ly93d3cubW9uc3RyLmV1L2ZkdC8NCj4g
+TWFpbnRhaW5lciBvZiBMaW51eCBrZXJuZWwgLSBYaWxpbnggWnlucSBBUk0gYXJjaGl0ZWN0dXJl
+IE1pY3JvYmxhemUgVS0NCj4gQk9PVCBjdXN0b2RpYW4gYW5kIHJlc3BvbnNpYmxlIGZvciB1LWJv
+b3QgYXJtIHp5bnEgcGxhdGZvcm0NCj4NCg0KDQoNClRoaXMgZW1haWwgYW5kIGFueSBhdHRhY2ht
+ZW50cyBhcmUgaW50ZW5kZWQgZm9yIHRoZSBzb2xlIHVzZSBvZiB0aGUgbmFtZWQgcmVjaXBpZW50
+KHMpIGFuZCBjb250YWluKHMpIGNvbmZpZGVudGlhbCBpbmZvcm1hdGlvbiB0aGF0IG1heSBiZSBw
+cm9wcmlldGFyeSwgcHJpdmlsZWdlZCBvciBjb3B5cmlnaHRlZCB1bmRlciBhcHBsaWNhYmxlIGxh
+dy4gSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVkIHJlY2lwaWVudCwgZG8gbm90IHJlYWQsIGNv
+cHksIG9yIGZvcndhcmQgdGhpcyBlbWFpbCBtZXNzYWdlIG9yIGFueSBhdHRhY2htZW50cy4gRGVs
+ZXRlIHRoaXMgZW1haWwgbWVzc2FnZSBhbmQgYW55IGF0dGFjaG1lbnRzIGltbWVkaWF0ZWx5Lg0K
+DQoKCg==
 
-I realised this morning that at the very least the
-MPLS ethertypes should be added to this list.
 
-I plan to repost the patch accordingly.
-But this change shouldn't affect any review of the rest
-of the patch.
-
-> 
->   Previously it was done by blacklisting the following:
->   - ETH_P_8021Q (0x8100)
->   - ETH_P_8021AD (0x88A8)
->   - ETH_P_QINQ1 (0x0x9100)
->   - ETH_P_QINQ2 (0x0x9200)
->   - ETH_P_QINQ3 (0x0x9300)
-> 
->   Although the whitelist probably wants to be expanded
->   it seems to me to be a more conservative and safer
->   way to guard against unknown tag ordering.
-> 
-> to aid review this patch is available in git at:
-> https://github.com/horms/openvswitch devel/mpls-v2.55
-> 
-> Simon Horman (1):
->   datapath: Add basic MPLS support to kernel
-> 
->  OPENFLOW-1.1+                                   |   4 -
->  datapath/Modules.mk                             |   1 +
->  datapath/actions.c                              | 119 +++++++++-
->  datapath/datapath.c                             |   4 +-
->  datapath/flow.c                                 |  29 +++
->  datapath/flow.h                                 |  17 +-
->  datapath/flow_netlink.c                         | 297 ++++++++++++++++++++++--
->  datapath/flow_netlink.h                         |   2 +-
->  datapath/linux/compat/gso.c                     |  70 +++++-
->  datapath/linux/compat/gso.h                     |  41 +++-
->  datapath/linux/compat/include/linux/netdevice.h |   6 +-
->  datapath/linux/compat/netdevice.c               |  10 +-
->  datapath/mpls.h                                 |  15 ++
->  include/linux/openvswitch.h                     |   7 +-
->  14 files changed, 567 insertions(+), 55 deletions(-)
->  create mode 100644 datapath/mpls.h
-> 
-> -- 
-> 1.8.5.2
-> 
-> _______________________________________________
-> dev mailing list
-> dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-> http://openvswitch.org/mailman/listinfo/dev
-> 
