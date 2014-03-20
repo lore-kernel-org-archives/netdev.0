@@ -1,136 +1,61 @@
-From: Zhangfei Gao <zhangfei.gao@gmail.com>
-Subject: Re: [PATCH 1/3] Documentation: add Device tree bindings for Hisilicon
- hip04 ethernet
-Date: Thu, 20 Mar 2014 19:29:28 +0800
-Message-ID: <CAMj5Bki27+uO9tafp1fF7K8vfE8=F-01zRdU7BAtmF7-D7H0XA@mail.gmail.com>
-References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
-	<1395132017-15928-2-git-send-email-zhangfei.gao@linaro.org>
-	<CAGVrzcZY4Z6kFRUP54PtaZUAX0+cEmYfnunJQFN8TC66xooLeg@mail.gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
+ of switch chip datapath
+Date: Thu, 20 Mar 2014 07:49:07 -0400
+Message-ID: <532AD5B3.6020205@mojatatu.com>
+References: <1395243232-32630-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Zhangfei Gao <zhangfei.gao@linaro.org>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f45.google.com ([74.125.83.45]:43633 "EHLO
-	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755261AbaCTL3a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 07:29:30 -0400
-In-Reply-To: <CAGVrzcZY4Z6kFRUP54PtaZUAX0+cEmYfnunJQFN8TC66xooLeg@mail.gmail.com>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:40435 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757281AbaCTLtT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 07:49:19 -0400
+Received: by mail-ig0-f169.google.com with SMTP id h18so16969416igc.0
+        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 04:49:19 -0700 (PDT)
+In-Reply-To: <1395243232-32630-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Florian
+Hi Jiri,
 
-On Wed, Mar 19, 2014 at 1:39 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> 2014-03-18 1:40 GMT-07:00 Zhangfei Gao <zhangfei.gao@linaro.org>:
+On 03/19/14 11:33, Jiri Pirko wrote:
+> This is just an early draft, RFC. I wanted to post this early to get the
+> feedback as soon as possible.
+>
+> The basic idea is to introduce a generic infractructure to support various
+> switch chips in kernel. Also the idea is to benefit of currently existing
+> Open vSwitch userspace infrastructure.
+>
 
->> +Example:
->> +       mdio {
->> +               compatible = "hisilicon,hip04-mdio";
->> +               reg = <0x28f1000 0x1000>;
->> +               #address-cells = <1>;
->> +               #size-cells = <0>;
->> +
->> +               phy0: ethernet-phy@0 {
->> +                       reg = <0>;
->> +                       marvell,reg-init = <18 0x14 0 0x8001>;
->> +                       device_type = "ethernet-phy";
->
-> You are missing a compatible string such as
-> "ethernet-phy-ieee802.3-c22", please take a look at
-> Documentation/devicetree/bindings/net/phy.txt for an example.
->
-> device_type is deprecated and should be removed.
 
-Thanks for the info, will update.
+I think the abstraction should be a netdev and to be specific the
+bridge - not openvswitch. Our current tools like ifconfig, iproute2,
+bridge etc should continue to work.
+In my experience, it is sufficient to model a switch after the linux
+bridge at the basic level if the starting point is
+L2 (which is the lowest common denominator).
+And then you add capabilities that different chips expose.
+Not every chip can do vxlan, flows etc. And we already know how
+to abstract those out.
+My  experience on top of broadcom chips is the approach i described
+works rather well.
 
->
->> +               };
->> +
->> +               phy1: ethernet-phy@1 {
->> +                       reg = <1>;
->> +                       marvell,reg-init = <18 0x14 0 0x8001>;
->> +                       device_type = "ethernet-phy";
->> +               };
->> +       };
->> +
->> +       ppebase: ppebase@28c0000 {
->> +               compatible = "hisilicon,hip04-ppebase";
->> +               reg = <0x28c0000 0x10000>;
->
-> This should probably look like:
->
->                     #address-cells = <0>;
->                     #size-cells = <0>;
->
->                     eth0_port: port@0 {
->                          reg = <0>;
->                     };
->
->                     eth1_port: port@1f {
->                          reg = <31>;
->                     };
->
-> This looks like something similar to mv643xx_eth, you should see
-> Documentation/devicetree/bindings/marvell.txt for hints on how to
-> model the representation in a similar fashion.
+Additionally, note:
+We do have L2 devices that offload in the kernel
+(refer to DSA, posting earlier from the openwrt guys, and
+the intel devices which do VDMQ etc). I am now counting we have 5
+different approaches if we add yours.
 
-Perfect, this looks more professional, just like the phy description.
-
-The ppe is common device with 2048 channels shared by all the
-controllers, only if channels are not overlapped.
-Two inputs required,
-One is port number, currently use reg=<>,
-The other is start channel, I used id before.
-Each controller use start channel as RX_DESC_NUM * priv->id.
-Do you think still use id from of_alias_get_id(), or add another
-property like start_chan etc.
-                        eth0_port: port@1f {
-                                reg = <31>;
-                                start-chan = <0>;
-                        };
-
-                        eth1_port: port@0 {
-                                reg = <0>;
-                                start-chan = <1>;
-                        };
-
->
->> +       };
->> +
->> +       fe: ethernet@28b0000 {
->> +               compatible = "hisilicon,hip04-mac";
->> +               reg = <0x28b0000 0x10000>;
->> +               interrupts = <0 413 4>;
->> +               port = <31>;
->
-> I do not think this is the right way to expose that, port should be
-> specialized to e.g: hisilicon,port, or you should use a phandle to the
-> "ppebase" node which exposes differents ports as subnodes:
->
->                     hisilicon,port-handle = <&eth0_port>;
-OK, perfect.
-
->
->> +               speed = <100>;
->
-> max-speed is the standard property for this
-The speed can be removed now, and the info can be get from phy-mode = "sgmii"
-
->
->> +               id = <0>;
->
-> id here is a software concept, either you create properly numbered
-> aliases for these nodes, and use of_alias_get_id(), or you do not use
-> these identifiers at all.
-
-Still not not sure whether use of_alias_get_id() or add property in
-the eth_port subnode.
-The id is used for specify the start channel.
-
-Thanks
+cheers,
+jamal
