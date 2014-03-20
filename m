@@ -1,61 +1,91 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
- of switch chip datapath
-Date: Thu, 20 Mar 2014 07:49:07 -0400
-Message-ID: <532AD5B3.6020205@mojatatu.com>
-References: <1395243232-32630-1-git-send-email-jiri@resnulli.us>
+From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Subject: Re: [PATCH] [PATCH v2] sh_eth: ensure pm_runtime cannot suspend the device during init
+Date: Thu, 20 Mar 2014 12:55:29 +0100
+Message-ID: <1651225.dIHP4GJALN@avalon>
+References: <1395308007-13956-1-git-send-email-ben.dooks@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:40435 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757281AbaCTLtT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 07:49:19 -0400
-Received: by mail-ig0-f169.google.com with SMTP id h18so16969416igc.0
-        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 04:49:19 -0700 (PDT)
-In-Reply-To: <1395243232-32630-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-kernel@lists.codethink.co.uk, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org, davem@davemloft.net,
+	sergei.shtylyov@cogentembedded.com,
+	laurent.pinchart+renesas@ideasonboard.com
+To: Ben Dooks <ben.dooks@codethink.co.uk>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1395308007-13956-1-git-send-email-ben.dooks@codethink.co.uk>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Jiri,
+Hi Ben,
 
-On 03/19/14 11:33, Jiri Pirko wrote:
-> This is just an early draft, RFC. I wanted to post this early to get the
-> feedback as soon as possible.
->
-> The basic idea is to introduce a generic infractructure to support various
-> switch chips in kernel. Also the idea is to benefit of currently existing
-> Open vSwitch userspace infrastructure.
->
+Thank you for the patch.
 
+On Thursday 20 March 2014 10:33:27 Ben Dooks wrote:
+> The pm_rumtime work queue is causing the device to be suspended during
+> initialisation, thus the initialisation may not be able to access registers
+> properly. As the code is called from a work queue, it is possible that this
+> is not seen from certain configurations/builds due to the asynchronos
+> nature of the code.
+> 
+> Another issue has also been found where the network device registration
+> calls back into the driver thus causing further pm_runtime calls that
+> also caused issues with the MDIO bus code.
+> 
+> Use pm_runtime_get_sync() and pm_runtime_put() to ensure that the
+> pm system does not suspend it during the probe() call and remove the
+> now unnecessary pm_runtime_resume() call.
+> 
+> This fixes the external abort that can cause /sbin/init or other such
+> init processed to die.
+> 
+> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+> Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> 
+> ---
+> Cc: sergei.shtylyov@cogentembedded.com
+> Cc: laurent.pinchart+renesas@ideasonboard.com
+> cc: netdev@vger.kernel.org
+> 
+> Note, Laurent this should probably be applied before your
+> current series as it may require changes to the exit sequence.
+> 
+> Fixes from v1:
+> 	- use pm_runtime_put() over pm_runtime_put_sync() as
+> 	  we do not need to guaranteed the device has powered
+>           off after probe.
+> ---
+>  drivers/net/ethernet/renesas/sh_eth.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c
+> b/drivers/net/ethernet/renesas/sh_eth.c index 4f76b5e..955e422 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -2869,7 +2869,7 @@ static int sh_eth_drv_probe(struct platform_device
+> *pdev) spin_lock_init(&mdp->lock);
+>  	mdp->pdev = pdev;
+>  	pm_runtime_enable(&pdev->dev);
+> -	pm_runtime_resume(&pdev->dev);
+> +	pm_runtime_get_sync(&pdev->dev);
+> 
+>  	if (pdev->dev.of_node)
+>  		pd = sh_eth_parse_dt(&pdev->dev);
+> @@ -2961,6 +2961,7 @@ static int sh_eth_drv_probe(struct platform_device
+> *pdev) pr_info("Base address at 0x%x, %pM, IRQ %d.\n",
+>  		(u32)ndev->base_addr, ndev->dev_addr, ndev->irq);
+> 
+> +	pm_runtime_put(&pdev->dev);
+>  	platform_set_drvdata(pdev, ndev);
+> 
+>  	return ret;
 
-I think the abstraction should be a netdev and to be specific the
-bridge - not openvswitch. Our current tools like ifconfig, iproute2,
-bridge etc should continue to work.
-In my experience, it is sufficient to model a switch after the linux
-bridge at the basic level if the starting point is
-L2 (which is the lowest common denominator).
-And then you add capabilities that different chips expose.
-Not every chip can do vxlan, flows etc. And we already know how
-to abstract those out.
-My  experience on top of broadcom chips is the approach i described
-works rather well.
+Don't you also need a pm_runtime_put() call in the error path at the end of 
+the probe function ? I've had a quick look at the device core and there 
+doesn't seem to be any automatic runtime PM cleanup performed when probe fails 
+(I might have missed it though, so please double-check).
 
-Additionally, note:
-We do have L2 devices that offload in the kernel
-(refer to DSA, posting earlier from the openwrt guys, and
-the intel devices which do VDMQ etc). I am now counting we have 5
-different approaches if we add yours.
+-- 
+Regards,
 
-cheers,
-jamal
+Laurent Pinchart
+
