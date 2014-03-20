@@ -1,35 +1,62 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next v7 9/9] xen-netback: Aggregate TX unmap
- operations
-Date: Thu, 20 Mar 2014 10:48:55 +0000
-Message-ID: <20140320104855.GA16285@zion.uk.xensource.com>
-References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>
- <1394142511-14827-10-git-send-email-zoltan.kiss@citrix.com>
- <532A0915.5090006@citrix.com>
+From: Zhangfei Gao <zhangfei.gao@gmail.com>
+Subject: Re: [PATCH 2/3] net: hisilicon: new hip04 MDIO driver
+Date: Thu, 20 Mar 2014 18:53:50 +0800
+Message-ID: <CAMj5Bkjm3G=K=fqas6VG5NXroofWijN_sc7XGLzT5jVehwTd0Q@mail.gmail.com>
+References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
+	<1395132017-15928-3-git-send-email-zhangfei.gao@linaro.org>
+	<CAGVrzcY4SBKFfTvjB0TTvgpAOwCt30C6LjYf9e9E4ciMDVmp-w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>,
-	Paul Durrant <Paul.Durrant@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <532A0915.5090006@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Zhangfei Gao <zhangfei.gao@linaro.org>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:33526 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750743AbaCTKxw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 06:53:52 -0400
+In-Reply-To: <CAGVrzcY4SBKFfTvjB0TTvgpAOwCt30C6LjYf9e9E4ciMDVmp-w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 19, 2014 at 09:16:05PM +0000, Zoltan Kiss wrote:
-> Hi,
-> 
-> I'm thinking about revoking this patch: it's value is pretty small,
-> but it causes performance regression on Win7 guests. And probably it
-> is not the best solution for this problem. It might be the delay it
-> takes the dealloc thread to be scheduled is enough.
-> What do you think?
-> 
+Dear Florian
 
-Can you elaborate? What makes Win7 so special? What's performance
-impact to other guests?
+On Wed, Mar 19, 2014 at 1:28 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> 2014-03-18 1:40 GMT-07:00 Zhangfei Gao <zhangfei.gao@linaro.org>:
 
-Wei.
+>> +static int hip04_mdio_reset(struct mii_bus *bus)
+>> +{
+>> +       int temp, err, i;
+>> +
+>> +       for (i = 0; i < 2; i++) {
+>> +               hip04_mdio_write(bus, i, 22, 0);
+>> +               temp = hip04_mdio_read(bus, i, MII_BMCR);
+>> +               temp |= BMCR_RESET;
+>> +               err = hip04_mdio_write(bus, i, MII_BMCR, temp);
+>> +               if (err < 0)
+>> +                       return err;
+>> +       }
+>> +
+>> +       mdelay(500);
+>
+> This does not look correct, you should iterate over all possible PHYs:
+> PHY_MAX_ADDR instead of hardcoding the loop to 2.
+
+OK, got it.
+Use 2 is since only have 2 phy in the board, will use PHY_MAX_ADDR instead.
+>
+> I think we might want to remove the mdio bus reset callback in general
+> as the PHY library should already take care of software resetting the
+> PHY to put it in a sane state, as well as waiting for the appropriate
+> delay before using, unlike here, where you do not poll for BMCR_RESET
+> to be cleared by the PHY.
+>
+Do you mean will move BMCR_RESET to common code, that's would be great.
+The mdio_reset is added here to get phy_id, otherwise the phy_id can
+not be read as well as detection.
+
+Thanks
