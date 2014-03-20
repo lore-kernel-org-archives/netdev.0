@@ -1,121 +1,140 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 04/15] i40e: Patch to enable Ethtool/netdev feature flag for NTUPLE control
-Date: Wed, 19 Mar 2014 20:29:54 -0700
-Message-ID: <1395286205-9676-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 05/15] i40e: Refactor and cleanup i40e_open(), adding i40e_vsi_open()
+Date: Wed, 19 Mar 2014 20:29:55 -0700
+Message-ID: <1395286205-9676-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395286205-9676-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+Cc: Elizabeth Kappler <elizabeth.m.kappler@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
 	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:20420 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753375AbaCTDaU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Mar 2014 23:30:20 -0400
+	id S1753733AbaCTDaY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Mar 2014 23:30:24 -0400
 In-Reply-To: <1395286205-9676-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Elizabeth Kappler <elizabeth.m.kappler@intel.com>
 
-This enables option '-k/-K' in ethtool for NTUPLE control.
-NTUPLE control requires a reset, to take effect. When the feature is
-turned off, the SW list of stored FD SB filters gets cleaned up.
+This patch cleans up and moves a portion of i40e_open to i40e_vsi_open,
+in order to have a shorter vsi_open function that does only that.
 
-Change-ID: I9d564b67a10d4afa11de3b320d601c3d2e6edc1f
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-ID: I1c418dda94dcfc0eb7d4386a70c330692ef5ecc9
+Signed-off-by: Elizabeth Kappler <elizabeth.m.kappler@intel.com>
+Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c | 41 +++++++++++++++++++++++++++++
- 2 files changed, 42 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e.h      |  3 ++-
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 40 +++++++++++++++++++++++------
+ 2 files changed, 34 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index bd1b469..ac04112 100644
+index ac04112..33cd8b6 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e.h
 +++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -558,6 +558,7 @@ int i40e_add_del_fdir(struct i40e_vsi *vsi,
- 		      struct i40e_fdir_filter *input, bool add);
- void i40e_fdir_check_and_reenable(struct i40e_pf *pf);
- int i40e_get_current_fd_count(struct i40e_pf *pf);
-+bool i40e_set_ntuple(struct i40e_pf *pf, netdev_features_t features);
- void i40e_set_ethtool_ops(struct net_device *netdev);
- struct i40e_mac_filter *i40e_add_filter(struct i40e_vsi *vsi,
- 					u8 *macaddr, s16 vlan,
+@@ -208,7 +208,7 @@ struct i40e_pf {
+ 	bool fc_autoneg_status;
+ 
+ 	u16 eeprom_version;
+-	u16 num_vmdq_vsis;         /* num vmdq pools this pf has set up */
++	u16 num_vmdq_vsis;         /* num vmdq vsis this pf has set up */
+ 	u16 num_vmdq_qps;          /* num queue pairs per vmdq pool */
+ 	u16 num_vmdq_msix;         /* num queue vectors per vmdq pool */
+ 	u16 num_req_vfs;           /* num vfs requested for this vf */
+@@ -597,6 +597,7 @@ void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector);
+ void i40e_irq_dynamic_disable_icr0(struct i40e_pf *pf);
+ void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf);
+ int i40e_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd);
++int i40e_vsi_open(struct i40e_vsi *vsi);
+ void i40e_vlan_stripping_disable(struct i40e_vsi *vsi);
+ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid);
+ int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid);
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 9c4f53e..5015dad 100644
+index 5015dad..661cd42 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -6409,6 +6409,39 @@ sw_init_done:
- }
+@@ -4235,7 +4235,6 @@ static int i40e_open(struct net_device *netdev)
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_vsi *vsi = np->vsi;
+ 	struct i40e_pf *pf = vsi->back;
+-	char int_name[IFNAMSIZ];
+ 	int err;
  
- /**
-+ * i40e_set_ntuple - set the ntuple feature flag and take action
-+ * @pf: board private structure to initialize
-+ * @features: the feature set that the stack is suggesting
-+ *
-+ * returns a bool to indicate if reset needs to happen
-+ **/
-+bool i40e_set_ntuple(struct i40e_pf *pf, netdev_features_t features)
-+{
-+	bool need_reset = false;
+ 	/* disallow open during test */
+@@ -4244,6 +4243,31 @@ static int i40e_open(struct net_device *netdev)
+ 
+ 	netif_carrier_off(netdev);
+ 
++	err = i40e_vsi_open(vsi);
++	if (err)
++		return err;
 +
-+	/* Check if Flow Director n-tuple support was enabled or disabled.  If
-+	 * the state changed, we need to reset.
-+	 */
-+	if (features & NETIF_F_NTUPLE) {
-+		/* Enable filters and mark for reset */
-+		if (!(pf->flags & I40E_FLAG_FD_SB_ENABLED))
-+			need_reset = true;
-+		pf->flags |= I40E_FLAG_FD_SB_ENABLED;
-+	} else {
-+		/* turn off filters, mark for reset and clear SW filter list */
-+		if (pf->flags & I40E_FLAG_FD_SB_ENABLED) {
-+			need_reset = true;
-+			i40e_fdir_filter_exit(pf);
-+		}
-+		pf->flags &= ~I40E_FLAG_FD_SB_ENABLED;
-+		/* if ATR was disabled it can be re-enabled. */
-+		if (!(pf->flags & I40E_FLAG_FD_ATR_ENABLED))
-+			pf->flags |= I40E_FLAG_FD_ATR_ENABLED;
-+	}
-+	return need_reset;
++#ifdef CONFIG_I40E_VXLAN
++	vxlan_get_rx_port(netdev);
++#endif
++
++	return 0;
 +}
 +
 +/**
-  * i40e_set_features - set the netdev feature flags
-  * @netdev: ptr to the netdev being adjusted
-  * @features: the feature set that the stack is suggesting
-@@ -6418,12 +6451,19 @@ static int i40e_set_features(struct net_device *netdev,
- {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = np->vsi;
++ * i40e_vsi_open -
++ * @vsi: the VSI to open
++ *
++ * Finish initialization of the VSI.
++ *
++ * Returns 0 on success, negative value on failure
++ **/
++int i40e_vsi_open(struct i40e_vsi *vsi)
++{
 +	struct i40e_pf *pf = vsi->back;
-+	bool need_reset;
- 
- 	if (features & NETIF_F_HW_VLAN_CTAG_RX)
- 		i40e_vlan_stripping_enable(vsi);
- 	else
- 		i40e_vlan_stripping_disable(vsi);
- 
-+	need_reset = i40e_set_ntuple(pf, features);
++	char int_name[IFNAMSIZ];
++	int err;
 +
-+	if (need_reset)
-+		i40e_do_reset(pf, (1 << __I40E_PF_RESET_REQUESTED));
-+
+ 	/* allocate descriptors */
+ 	err = i40e_vsi_setup_tx_resources(vsi);
+ 	if (err)
+@@ -4256,18 +4280,22 @@ static int i40e_open(struct net_device *netdev)
+ 	if (err)
+ 		goto err_setup_rx;
+ 
++	if (!vsi->netdev) {
++		err = EINVAL;
++		goto err_setup_rx;
++	}
+ 	snprintf(int_name, sizeof(int_name) - 1, "%s-%s",
+-		 dev_driver_string(&pf->pdev->dev), netdev->name);
++		 dev_driver_string(&pf->pdev->dev), vsi->netdev->name);
+ 	err = i40e_vsi_request_irq(vsi, int_name);
+ 	if (err)
+ 		goto err_setup_rx;
+ 
+ 	/* Notify the stack of the actual queue counts. */
+-	err = netif_set_real_num_tx_queues(netdev, vsi->num_queue_pairs);
++	err = netif_set_real_num_tx_queues(vsi->netdev, vsi->num_queue_pairs);
+ 	if (err)
+ 		goto err_set_queues;
+ 
+-	err = netif_set_real_num_rx_queues(netdev, vsi->num_queue_pairs);
++	err = netif_set_real_num_rx_queues(vsi->netdev, vsi->num_queue_pairs);
+ 	if (err)
+ 		goto err_set_queues;
+ 
+@@ -4275,10 +4303,6 @@ static int i40e_open(struct net_device *netdev)
+ 	if (err)
+ 		goto err_up_complete;
+ 
+-#ifdef CONFIG_I40E_VXLAN
+-	vxlan_get_rx_port(netdev);
+-#endif
+-
  	return 0;
- }
  
-@@ -6595,6 +6635,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
- 			   NETIF_F_TSO		       |
- 			   NETIF_F_TSO6		       |
- 			   NETIF_F_RXCSUM	       |
-+			   NETIF_F_NTUPLE	       |
- 			   NETIF_F_RXHASH	       |
- 			   0;
- 
+ err_up_complete:
 -- 
 1.8.3.1
