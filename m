@@ -1,96 +1,129 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/15] ixgbe: fix ixgbe_setup_mac_link_82599 autoc variables
-Date: Thu, 20 Mar 2014 01:33:00 -0700
-Message-ID: <1395304385-6874-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/15] ixgbe: fix errors related to protected AUTOC calls
+Date: Thu, 20 Mar 2014 01:32:57 -0700
+Message-ID: <1395304385-6874-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Arun Sharma <asharma@fb.com>,
+	Emil Tantilov <emil.s.tantilov@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:8080 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755853AbaCTIdx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Mar 2014 04:33:53 -0400
+	id S1755487AbaCTIdu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Mar 2014 04:33:50 -0400
 In-Reply-To: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-This patch fixes flow control autonegotiation for KR/KX/K4 interfaces.
-When setting up MAC link, the cached autoc value and current autoc value
-were being incorrectly used to determine whether link reset is required.
-This resulted in the driver ignoring and discarding flow control
-negotiation changes that occur since the caching happened, as well as
-when the mac was being setup.
-
-This patch also splits the assignments for the 3 autoc variables into
-their own block, and adds a comment explaining what each one means, in
-order to help keep logic more straightforward while reading the code.
+Found several incorrect conditionals after calling the prot_autoc_*
+functions. Likewise we weren't always freeing the FWSW semaphore after
+grabbing it.   This would lead to DA cables being unable to link along with
+possible other errors.
 
 CC: Arun Sharma <asharma@fb.com>
-Reported-by: Sourav Chatterjee <sourav.chatterjee@intel.com>
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+CC: Emil Tantilov <emil.s.tantilov@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 22 ++++++++++++----------
- 1 file changed, 12 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  | 10 ++++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 10 +++++-----
+ 2 files changed, 11 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index ef808bc..e0fe8e8 100644
+index 3bc9b67..572cce4 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -1031,15 +1031,19 @@ static s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
- 				      ixgbe_link_speed speed,
- 				      bool autoneg_wait_to_complete)
- {
-+	bool autoneg = false;
- 	s32 status = 0;
--	u32 autoc, pma_pmd_1g, link_mode, start_autoc;
-+	u32 pma_pmd_1g, link_mode, links_reg, i;
- 	u32 autoc2 = IXGBE_READ_REG(hw, IXGBE_AUTOC2);
--	u32 orig_autoc = 0;
- 	u32 pma_pmd_10g_serial = autoc2 & IXGBE_AUTOC2_10G_SERIAL_PMA_PMD_MASK;
--	u32 links_reg;
--	u32 i;
- 	ixgbe_link_speed link_capabilities = IXGBE_LINK_SPEED_UNKNOWN;
--	bool autoneg = false;
+@@ -210,7 +210,7 @@ static s32 prot_autoc_read_82599(struct ixgbe_hw *hw, bool *locked,
+ 	if (ixgbe_verify_lesm_fw_enabled_82599(hw)) {
+ 		ret_val = hw->mac.ops.acquire_swfw_sync(hw,
+ 					IXGBE_GSSR_MAC_CSR_SM);
+-		if (!ret_val)
++		if (ret_val)
+ 			return IXGBE_ERR_SWFW_SYNC;
+ 
+ 		*locked = true;
+@@ -245,8 +245,10 @@ static s32 prot_autoc_write_82599(struct ixgbe_hw *hw, u32 autoc, bool locked)
+ 	if (!locked && ixgbe_verify_lesm_fw_enabled_82599(hw)) {
+ 		ret_val = hw->mac.ops.acquire_swfw_sync(hw,
+ 					IXGBE_GSSR_MAC_CSR_SM);
+-		if (!ret_val)
++		if (ret_val)
+ 			return IXGBE_ERR_SWFW_SYNC;
 +
-+	/* holds the value of AUTOC register at this current point in time */
-+	u32 current_autoc = IXGBE_READ_REG(hw, IXGBE_AUTOC);
-+	/* holds the cached value of AUTOC register */
-+	u32 orig_autoc = 0;
-+	/* temporary variable used for comparison purposes */
-+	u32 autoc = current_autoc;
- 
- 	/* Check to see if speed passed in is supported. */
- 	status = hw->mac.ops.get_link_capabilities(hw, &link_capabilities,
-@@ -1056,12 +1060,10 @@ static s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
- 
- 	/* Use stored value (EEPROM defaults) of AUTOC to find KR/KX4 support*/
- 	if (hw->mac.orig_link_settings_stored)
--		autoc = hw->mac.orig_autoc;
-+		orig_autoc = hw->mac.orig_autoc;
- 	else
--		autoc = IXGBE_READ_REG(hw, IXGBE_AUTOC);
-+		orig_autoc = autoc;
- 
--	orig_autoc = autoc;
--	start_autoc = IXGBE_READ_REG(hw, IXGBE_AUTOC);
- 	link_mode = autoc & IXGBE_AUTOC_LMS_MASK;
- 	pma_pmd_1g = autoc & IXGBE_AUTOC_1G_PMA_PMD_MASK;
- 
-@@ -1101,7 +1103,7 @@ static s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
- 		}
++		locked = true;
  	}
  
--	if (autoc != start_autoc) {
-+	if (autoc != current_autoc) {
+ 	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc);
+@@ -1094,7 +1096,7 @@ static s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
+ 	if (autoc != start_autoc) {
  		/* Restart link */
  		status = hw->mac.ops.prot_autoc_write(hw, autoc, false);
- 		if (status)
+-		if (!status)
++		if (status)
+ 			goto out;
+ 
+ 		/* Only poll for autoneg to complete if specified to do so */
+@@ -1277,7 +1279,7 @@ mac_reset_top:
+ 			status = hw->mac.ops.prot_autoc_write(hw,
+ 							hw->mac.orig_autoc,
+ 							false);
+-			if (!status)
++			if (status)
+ 				goto reset_hw_out;
+ 		}
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 6149c65..38ca240 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -143,7 +143,7 @@ static s32 ixgbe_setup_fc(struct ixgbe_hw *hw)
+ 	case ixgbe_media_type_backplane:
+ 		/* some MAC's need RMW protection on AUTOC */
+ 		ret_val = hw->mac.ops.prot_autoc_read(hw, &locked, &reg_bp);
+-		if (!ret_val)
++		if (ret_val)
+ 			goto out;
+ 
+ 		/* only backplane uses autoc so fall though */
+@@ -2723,14 +2723,14 @@ s32 ixgbe_blink_led_start_generic(struct ixgbe_hw *hw, u32 index)
+ 
+ 	if (!link_up) {
+ 		ret_val = hw->mac.ops.prot_autoc_read(hw, &locked, &autoc_reg);
+-		if (!ret_val)
++		if (ret_val)
+ 			goto out;
+ 
+ 		autoc_reg |= IXGBE_AUTOC_AN_RESTART;
+ 		autoc_reg |= IXGBE_AUTOC_FLU;
+ 
+ 		ret_val = hw->mac.ops.prot_autoc_write(hw, autoc_reg, locked);
+-		if (!ret_val)
++		if (ret_val)
+ 			goto out;
+ 
+ 		IXGBE_WRITE_FLUSH(hw);
+@@ -2760,14 +2760,14 @@ s32 ixgbe_blink_led_stop_generic(struct ixgbe_hw *hw, u32 index)
+ 	bool locked = false;
+ 
+ 	ret_val = hw->mac.ops.prot_autoc_read(hw, &locked, &autoc_reg);
+-	if (!ret_val)
++	if (ret_val)
+ 		goto out;
+ 
+ 	autoc_reg &= ~IXGBE_AUTOC_FLU;
+ 	autoc_reg |= IXGBE_AUTOC_AN_RESTART;
+ 
+ 	ret_val = hw->mac.ops.prot_autoc_write(hw, autoc_reg, locked);
+-	if (!ret_val)
++	if (ret_val)
+ 		goto out;
+ 
+ 	led_reg &= ~IXGBE_LED_MODE_MASK(index);
 -- 
 1.8.3.1
