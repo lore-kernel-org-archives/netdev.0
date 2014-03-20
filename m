@@ -1,118 +1,84 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 14/15] ixgbevf: Indicate removal state explicitly
-Date: Wed, 19 Mar 2014 20:30:04 -0700
-Message-ID: <1395286205-9676-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 02/15] i40evf: correctly program RSS HLUT table
+Date: Wed, 19 Mar 2014 20:29:52 -0700
+Message-ID: <1395286205-9676-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395286205-9676-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:40723 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:20420 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754033AbaCTDa2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Mar 2014 23:30:28 -0400
+	id S1753375AbaCTDaR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Mar 2014 23:30:17 -0400
 In-Reply-To: <1395286205-9676-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Add a bit, __IXGBEVF_REMOVING, to indicate that the module is being
-removed. The __IXGBEVF_DOWN bit had been overloaded for this purpose,
-but that leads to trouble. A few places now check both __IXGBEVF_DOWN
-and __IXGBEVF_REMOVING.
+The HLUT programming loop in in i40evf_configure_rss was a) overly-
+complicated, and b) just plain broken. Most of the entries ended up being
+not written at all, so most of the flows ended up at queue zero.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Refactor the HLUT programming loop to simply walk through the registers
+and write four values to each one, incrementing through the number of
+available queues.
+
+Change-ID: I75766179bc67e4e997187794f3144e28c83fd00d
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  5 +++--
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 14 +++++++++-----
- 2 files changed, 12 insertions(+), 7 deletions(-)
+v3:
+- change macro to a function to get the next queue
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-index 5482932..08fb88a 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 23 ++++++++++++++---------
+ 1 file changed, 14 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index d62e27f..ffda565 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1414,6 +1414,13 @@ restart_watchdog:
+ 	schedule_work(&adapter->adminq_task);
+ }
  
-   Intel 82599 Virtual Function driver
--  Copyright(c) 1999 - 2012 Intel Corporation.
-+  Copyright(c) 1999 - 2014 Intel Corporation.
++static int next_queue(struct i40evf_adapter *adapter, int j)
++{
++	j += 1;
++
++	return j >= adapter->vsi_res->num_queue_pairs ? 0 : j;
++}
++
+ /**
+  * i40evf_configure_rss - Prepare for RSS if used
+  * @adapter: board private structure
+@@ -1444,15 +1451,13 @@ static void i40evf_configure_rss(struct i40evf_adapter *adapter)
+ 	wr32(hw, I40E_VFQF_HENA(1), (u32)(hena >> 32));
  
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -412,7 +412,8 @@ struct ixgbevf_adapter {
- enum ixbgevf_state_t {
- 	__IXGBEVF_TESTING,
- 	__IXGBEVF_RESETTING,
--	__IXGBEVF_DOWN
-+	__IXGBEVF_DOWN,
-+	__IXGBEVF_REMOVING,
- };
- 
- struct ixgbevf_cb {
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 8581079..940d924 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 82599 Virtual Function driver
--  Copyright(c) 1999 - 2012 Intel Corporation.
-+  Copyright(c) 1999 - 2014 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -608,7 +608,8 @@ static int ixgbevf_poll(struct napi_struct *napi, int budget)
- 	napi_complete(napi);
- 	if (adapter->rx_itr_setting & 1)
- 		ixgbevf_set_itr(q_vector);
--	if (!test_bit(__IXGBEVF_DOWN, &adapter->state))
-+	if (!test_bit(__IXGBEVF_DOWN, &adapter->state) &&
-+	    !test_bit(__IXGBEVF_REMOVING, &adapter->state))
- 		ixgbevf_irq_enable_queues(adapter,
- 					  1 << q_vector->v_idx);
- 
-@@ -833,7 +834,8 @@ static irqreturn_t ixgbevf_msix_other(int irq, void *data)
- 
- 	hw->mac.get_link_status = 1;
- 
--	if (!test_bit(__IXGBEVF_DOWN, &adapter->state))
-+	if (!test_bit(__IXGBEVF_DOWN, &adapter->state) &&
-+	    !test_bit(__IXGBEVF_REMOVING, &adapter->state))
- 		mod_timer(&adapter->watchdog_timer, jiffies);
- 
- 	IXGBE_WRITE_REG(hw, IXGBE_VTEIMS, adapter->eims_other);
-@@ -2329,6 +2331,7 @@ static void ixgbevf_reset_task(struct work_struct *work)
- 
- 	/* If we're already down or resetting, just bail */
- 	if (test_bit(__IXGBEVF_DOWN, &adapter->state) ||
-+	    test_bit(__IXGBEVF_REMOVING, &adapter->state) ||
- 	    test_bit(__IXGBEVF_RESETTING, &adapter->state))
- 		return;
- 
-@@ -2413,7 +2416,8 @@ static void ixgbevf_watchdog_task(struct work_struct *work)
- 
- pf_has_reset:
- 	/* Reset the timer */
--	if (!test_bit(__IXGBEVF_DOWN, &adapter->state))
-+	if (!test_bit(__IXGBEVF_DOWN, &adapter->state) &&
-+	    !test_bit(__IXGBEVF_REMOVING, &adapter->state))
- 		mod_timer(&adapter->watchdog_timer,
- 			  round_jiffies(jiffies + (2 * HZ)));
- 
-@@ -3563,7 +3567,7 @@ static void ixgbevf_remove(struct pci_dev *pdev)
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
- 
--	set_bit(__IXGBEVF_DOWN, &adapter->state);
-+	set_bit(__IXGBEVF_REMOVING, &adapter->state);
- 
- 	del_timer_sync(&adapter->watchdog_timer);
- 
+ 	/* Populate the LUT with max no. of queues in round robin fashion */
+-	for (i = 0, j = 0; i < I40E_VFQF_HLUT_MAX_INDEX; i++, j++) {
+-		if (j == adapter->vsi_res->num_queue_pairs)
+-			j = 0;
+-		/* lut = 4-byte sliding window of 4 lut entries */
+-		lut = (lut << 8) | (j &
+-			 ((0x1 << 8) - 1));
+-		/* On i = 3, we have 4 entries in lut; write to the register */
+-		if ((i & 3) == 3)
+-			wr32(hw, I40E_VFQF_HLUT(i >> 2), lut);
++	j = adapter->vsi_res->num_queue_pairs;
++	for (i = 0; i <= I40E_VFQF_HLUT_MAX_INDEX; i++) {
++		lut = next_queue(adapter, j);
++		lut |= next_queue(adapter, j) << 8;
++		lut |= next_queue(adapter, j) << 16;
++		lut |= next_queue(adapter, j) << 24;
++		wr32(hw, I40E_VFQF_HLUT(i), lut);
+ 	}
+ 	i40e_flush(hw);
+ }
 -- 
 1.8.3.1
