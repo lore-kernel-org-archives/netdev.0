@@ -1,18 +1,17 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 06/15] i40e/i40evf: enable hardware feature head write back
-Date: Wed, 19 Mar 2014 20:29:56 -0700
-Message-ID: <1395286205-9676-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 07/15] i40e/i40evf: reduce context descriptors
+Date: Wed, 19 Mar 2014 20:29:57 -0700
+Message-ID: <1395286205-9676-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395286205-9676-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Mitch Williams <mitch.a.williams@intel.com>,
 	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:40723 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:20420 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753771AbaCTDaZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753858AbaCTDaZ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 19 Mar 2014 23:30:25 -0400
 In-Reply-To: <1395286205-9676-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,240 +19,48 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-The hardware supports a feature to avoid updating the descriptor
-ring by marking each descriptor with a DD bit, and instead
-writes a memory location with an update to where the driver
-should clean up to.  Enable this feature.
+We don't need context descriptors for every packet, only tso
+or timesync.  This fixes a bug in the driver where it would
+always add a context even if all the passed in values
+to the context descriptor function were 0/default values.
 
-Change-ID: I5da4e0681f0b581a6401c950a81808792267fe57
+Change-ID: I0101d2b893380707b5c2de61aab3e16d4310e9a1
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
-v3:
-- added blank lines between variable declarations and code
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 3 ++-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  5 +++
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 46 +++++++++++++++++++---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  3 ++
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 46 +++++++++++++++++++---
- 4 files changed, 88 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 661cd42..95433d4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2181,6 +2181,11 @@ static int i40e_configure_tx_ring(struct i40e_ring *ring)
- 	tx_ctx.fd_ena = !!(vsi->back->flags & (I40E_FLAG_FD_SB_ENABLED |
- 					       I40E_FLAG_FD_ATR_ENABLED));
- 	tx_ctx.timesync_ena = !!(vsi->back->flags & I40E_FLAG_PTP);
-+	/* FDIR VSI tx ring can still use RS bit and writebacks */
-+	if (vsi->type != I40E_VSI_FDIR)
-+		tx_ctx.head_wb_ena = 1;
-+	tx_ctx.head_wb_addr = ring->dma +
-+			      (ring->count * sizeof(struct i40e_tx_desc));
- 
- 	/* As part of VSI creation/update, FW allocates certain
- 	 * Tx arbitration queue sets for each TC enabled for
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 88666ad..079c6b2 100644
+index 079c6b2..851f653 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -619,6 +619,20 @@ static bool i40e_check_tx_hang(struct i40e_ring *tx_ring)
- }
+@@ -1951,7 +1951,8 @@ static void i40e_create_tx_ctx(struct i40e_ring *tx_ring,
+ 	struct i40e_tx_context_desc *context_desc;
+ 	int i = tx_ring->next_to_use;
  
- /**
-+ * i40e_get_head - Retrieve head from head writeback
-+ * @tx_ring:  tx ring to fetch head of
-+ *
-+ * Returns value of Tx ring head based on value stored
-+ * in head write-back location
-+ **/
-+static inline u32 i40e_get_head(struct i40e_ring *tx_ring)
-+{
-+	void *head = (struct i40e_tx_desc *)tx_ring->desc + tx_ring->count;
-+
-+	return le32_to_cpu(*(volatile __le32 *)head);
-+}
-+
-+/**
-  * i40e_clean_tx_irq - Reclaim resources after transmit completes
-  * @tx_ring:  tx ring to clean
-  * @budget:   how many cleans we're allowed
-@@ -629,6 +643,7 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- {
- 	u16 i = tx_ring->next_to_clean;
- 	struct i40e_tx_buffer *tx_buf;
-+	struct i40e_tx_desc *tx_head;
- 	struct i40e_tx_desc *tx_desc;
- 	unsigned int total_packets = 0;
- 	unsigned int total_bytes = 0;
-@@ -637,6 +652,8 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- 	tx_desc = I40E_TX_DESC(tx_ring, i);
- 	i -= tx_ring->count;
+-	if (!cd_type_cmd_tso_mss && !cd_tunneling && !cd_l2tag2)
++	if ((cd_type_cmd_tso_mss == I40E_TX_DESC_DTYPE_CONTEXT) &&
++	    !cd_tunneling && !cd_l2tag2)
+ 		return;
  
-+	tx_head = I40E_TX_DESC(tx_ring, i40e_get_head(tx_ring));
-+
- 	do {
- 		struct i40e_tx_desc *eop_desc = tx_buf->next_to_watch;
- 
-@@ -647,9 +664,8 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- 		/* prevent any other reads prior to eop_desc */
- 		read_barrier_depends();
- 
--		/* if the descriptor isn't done, no work yet to do */
--		if (!(eop_desc->cmd_type_offset_bsz &
--		      cpu_to_le64(I40E_TX_DESC_DTYPE_DESC_DONE)))
-+		/* we have caught up to head, no work left to do */
-+		if (tx_head == tx_desc)
- 			break;
- 
- 		/* clear next_to_watch to prevent false hangs */
-@@ -905,6 +921,10 @@ int i40e_setup_tx_descriptors(struct i40e_ring *tx_ring)
- 
- 	/* round up to nearest 4K */
- 	tx_ring->size = tx_ring->count * sizeof(struct i40e_tx_desc);
-+	/* add u32 for head writeback, align after this takes care of
-+	 * guaranteeing this is at least one cache line in size
-+	 */
-+	tx_ring->size += sizeof(u32);
- 	tx_ring->size = ALIGN(tx_ring->size, 4096);
- 	tx_ring->desc = dma_alloc_coherent(dev, tx_ring->size,
- 					   &tx_ring->dma, GFP_KERNEL);
-@@ -2042,9 +2062,23 @@ static void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 		tx_bi = &tx_ring->tx_bi[i];
- 	}
- 
--	tx_desc->cmd_type_offset_bsz =
--		build_ctob(td_cmd, td_offset, size, td_tag) |
--		cpu_to_le64((u64)I40E_TXD_CMD << I40E_TXD_QW1_CMD_SHIFT);
-+	/* Place RS bit on last descriptor of any packet that spans across the
-+	 * 4th descriptor (WB_STRIDE aka 0x3) in a 64B cacheline.
-+	 */
-+#define WB_STRIDE 0x3
-+	if (((i & WB_STRIDE) != WB_STRIDE) &&
-+	    (first <= &tx_ring->tx_bi[i]) &&
-+	    (first >= &tx_ring->tx_bi[i & ~WB_STRIDE])) {
-+		tx_desc->cmd_type_offset_bsz =
-+			build_ctob(td_cmd, td_offset, size, td_tag) |
-+			cpu_to_le64((u64)I40E_TX_DESC_CMD_EOP <<
-+					 I40E_TXD_QW1_CMD_SHIFT);
-+	} else {
-+		tx_desc->cmd_type_offset_bsz =
-+			build_ctob(td_cmd, td_offset, size, td_tag) |
-+			cpu_to_le64((u64)I40E_TXD_CMD <<
-+					 I40E_TXD_QW1_CMD_SHIFT);
-+	}
- 
- 	netdev_tx_sent_queue(netdev_get_tx_queue(tx_ring->netdev,
- 						 tx_ring->queue_index),
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 2086a62..b2da079 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -230,6 +230,9 @@ static int i40e_config_vsi_tx_queue(struct i40e_vf *vf, u16 vsi_idx,
- 	tx_ctx.qlen = info->ring_len;
- 	tx_ctx.rdylist = le16_to_cpu(pf->vsi[vsi_idx]->info.qs_handle[0]);
- 	tx_ctx.rdylist_act = 0;
-+	tx_ctx.head_wb_ena = 1;
-+	tx_ctx.head_wb_addr = info->dma_ring_addr +
-+			      (info->ring_len * sizeof(struct i40e_tx_desc));
- 
- 	/* clear the context in the HMC */
- 	ret = i40e_clear_lan_tx_queue_context(hw, pf_queue_id);
+ 	/* grab the next descriptor */
 diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index b1d87c6..626c08a 100644
+index 626c08a..53be5f4 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -170,6 +170,20 @@ static bool i40e_check_tx_hang(struct i40e_ring *tx_ring)
- }
+@@ -1286,7 +1286,8 @@ static void i40e_create_tx_ctx(struct i40e_ring *tx_ring,
+ 	struct i40e_tx_context_desc *context_desc;
+ 	int i = tx_ring->next_to_use;
  
- /**
-+ * i40e_get_head - Retrieve head from head writeback
-+ * @tx_ring:  tx ring to fetch head of
-+ *
-+ * Returns value of Tx ring head based on value stored
-+ * in head write-back location
-+ **/
-+static inline u32 i40e_get_head(struct i40e_ring *tx_ring)
-+{
-+	void *head = (struct i40e_tx_desc *)tx_ring->desc + tx_ring->count;
-+
-+	return le32_to_cpu(*(volatile __le32 *)head);
-+}
-+
-+/**
-  * i40e_clean_tx_irq - Reclaim resources after transmit completes
-  * @tx_ring:  tx ring to clean
-  * @budget:   how many cleans we're allowed
-@@ -180,6 +194,7 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- {
- 	u16 i = tx_ring->next_to_clean;
- 	struct i40e_tx_buffer *tx_buf;
-+	struct i40e_tx_desc *tx_head;
- 	struct i40e_tx_desc *tx_desc;
- 	unsigned int total_packets = 0;
- 	unsigned int total_bytes = 0;
-@@ -188,6 +203,8 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- 	tx_desc = I40E_TX_DESC(tx_ring, i);
- 	i -= tx_ring->count;
+-	if (!cd_type_cmd_tso_mss && !cd_tunneling && !cd_l2tag2)
++	if ((cd_type_cmd_tso_mss == I40E_TX_DESC_DTYPE_CONTEXT) &&
++	    !cd_tunneling && !cd_l2tag2)
+ 		return;
  
-+	tx_head = I40E_TX_DESC(tx_ring, i40e_get_head(tx_ring));
-+
- 	do {
- 		struct i40e_tx_desc *eop_desc = tx_buf->next_to_watch;
- 
-@@ -198,9 +215,8 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- 		/* prevent any other reads prior to eop_desc */
- 		read_barrier_depends();
- 
--		/* if the descriptor isn't done, no work yet to do */
--		if (!(eop_desc->cmd_type_offset_bsz &
--		      cpu_to_le64(I40E_TX_DESC_DTYPE_DESC_DONE)))
-+		/* we have caught up to head, no work left to do */
-+		if (tx_head == tx_desc)
- 			break;
- 
- 		/* clear next_to_watch to prevent false hangs */
-@@ -432,6 +448,10 @@ int i40evf_setup_tx_descriptors(struct i40e_ring *tx_ring)
- 
- 	/* round up to nearest 4K */
- 	tx_ring->size = tx_ring->count * sizeof(struct i40e_tx_desc);
-+	/* add u32 for head writeback, align after this takes care of
-+	 * guaranteeing this is at least one cache line in size
-+	 */
-+	tx_ring->size += sizeof(u32);
- 	tx_ring->size = ALIGN(tx_ring->size, 4096);
- 	tx_ring->desc = dma_alloc_coherent(dev, tx_ring->size,
- 					   &tx_ring->dma, GFP_KERNEL);
-@@ -1377,9 +1397,23 @@ static void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 		tx_bi = &tx_ring->tx_bi[i];
- 	}
- 
--	tx_desc->cmd_type_offset_bsz =
--		build_ctob(td_cmd, td_offset, size, td_tag) |
--		cpu_to_le64((u64)I40E_TXD_CMD << I40E_TXD_QW1_CMD_SHIFT);
-+	/* Place RS bit on last descriptor of any packet that spans across the
-+	 * 4th descriptor (WB_STRIDE aka 0x3) in a 64B cacheline.
-+	 */
-+#define WB_STRIDE 0x3
-+	if (((i & WB_STRIDE) != WB_STRIDE) &&
-+	    (first <= &tx_ring->tx_bi[i]) &&
-+	    (first >= &tx_ring->tx_bi[i & ~WB_STRIDE])) {
-+		tx_desc->cmd_type_offset_bsz =
-+			build_ctob(td_cmd, td_offset, size, td_tag) |
-+			cpu_to_le64((u64)I40E_TX_DESC_CMD_EOP <<
-+					 I40E_TXD_QW1_CMD_SHIFT);
-+	} else {
-+		tx_desc->cmd_type_offset_bsz =
-+			build_ctob(td_cmd, td_offset, size, td_tag) |
-+			cpu_to_le64((u64)I40E_TXD_CMD <<
-+					 I40E_TXD_QW1_CMD_SHIFT);
-+	}
- 
- 	netdev_tx_sent_queue(netdev_get_tx_queue(tx_ring->netdev,
- 						 tx_ring->queue_index),
+ 	/* grab the next descriptor */
 -- 
 1.8.3.1
