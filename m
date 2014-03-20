@@ -1,9 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/15] ixgbe: enable tx queues after link up
-Date: Thu, 20 Mar 2014 01:33:05 -0700
-Message-ID: <1395304385-6874-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/15] ixgbe: use ixgbe_read_pci_cfg_word
+Date: Thu, 20 Mar 2014 01:33:02 -0700
+Message-ID: <1395304385-6874-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Arun Sharma <asharma@fb.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
@@ -11,91 +11,70 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:8080 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756028AbaCTId6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Mar 2014 04:33:58 -0400
+	id S1755915AbaCTId4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Mar 2014 04:33:56 -0400
 In-Reply-To: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-This patch moves the call to enable Tx queues after the link is established.
-Previously there was a chance for aggressive start_ndo_xmit() callers to
-sneak packets between enabling the Tx queues and the link coming up.
+This patch replaces some direct uses of pci_read_config_word with the
+protected ixgbe_read_pci_cfg_word function, which checks for whether the
+adapter is removed when LER is enabled. We shouldn't use the
+pci_read_config_word calls directly because of these checks.
 
-In addition it replaces netif_tx_start_all_queues() with
-netif_tx_wake_all_queues() to allow for flushing of the qdisc.
+This patch also cleans up an unnecessary save of a pointer to the mac
+object, as our standard style is to just use the hw pointer.
 
 CC: Arun Sharma <asharma@fb.com>
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 32 ++++++++++++++-------------
- 1 file changed, 17 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 354771f..9e5a366 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -4655,8 +4655,6 @@ static void ixgbe_setup_gpie(struct ixgbe_adapter *adapter)
- static void ixgbe_up_complete(struct ixgbe_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 7a9d874..911b711 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -646,20 +646,17 @@ enum ixgbe_bus_speed ixgbe_convert_bus_speed(u16 link_status)
+  **/
+ s32 ixgbe_get_bus_info_generic(struct ixgbe_hw *hw)
  {
- 	struct ixgbe_hw *hw = &adapter->hw;
--	struct net_device *upper;
--	struct list_head *iter;
- 	int err;
- 	u32 ctrl_ext;
+-	struct ixgbe_adapter *adapter = hw->back;
+-	struct ixgbe_mac_info *mac = &hw->mac;
+ 	u16 link_status;
  
-@@ -4698,19 +4696,6 @@ static void ixgbe_up_complete(struct ixgbe_adapter *adapter)
- 			e_crit(drv, "Fan has stopped, replace the adapter\n");
- 	}
+ 	hw->bus.type = ixgbe_bus_type_pci_express;
  
--	/* enable transmits */
--	netif_tx_start_all_queues(adapter->netdev);
--
--	/* enable any upper devices */
--	netdev_for_each_all_upper_dev_rcu(adapter->netdev, upper, iter) {
--		if (netif_is_macvlan(upper)) {
--			struct macvlan_dev *vlan = netdev_priv(upper);
--
--			if (vlan->fwd_priv)
--				netif_tx_start_all_queues(upper);
--		}
--	}
--
- 	/* bring the link up in the watchdog, this could race with our first
- 	 * link up interrupt but shouldn't be a problem */
- 	adapter->flags |= IXGBE_FLAG_NEED_LINK_UPDATE;
-@@ -6082,6 +6067,8 @@ static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
+ 	/* Get the negotiated link width and speed from PCI config space */
+-	pci_read_config_word(adapter->pdev, IXGBE_PCI_LINK_STATUS,
+-	                     &link_status);
++	link_status = ixgbe_read_pci_cfg_word(hw, IXGBE_PCI_LINK_STATUS);
+ 
+ 	hw->bus.width = ixgbe_convert_bus_width(link_status);
+ 	hw->bus.speed = ixgbe_convert_bus_speed(link_status);
+ 
+-	mac->ops.set_lan_id(hw);
++	hw->mac.ops.set_lan_id(hw);
+ 
+ 	return 0;
+ }
+@@ -2437,12 +2434,10 @@ out:
+  **/
+ static u32 ixgbe_pcie_timeout_poll(struct ixgbe_hw *hw)
  {
- 	struct net_device *netdev = adapter->netdev;
- 	struct ixgbe_hw *hw = &adapter->hw;
-+	struct net_device *upper;
-+	struct list_head *iter;
- 	u32 link_speed = adapter->link_speed;
- 	bool flow_rx, flow_tx;
+-	struct ixgbe_adapter *adapter = hw->back;
+ 	s16 devctl2;
+ 	u32 pollcnt;
  
-@@ -6133,6 +6120,21 @@ static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
- 	netif_carrier_on(netdev);
- 	ixgbe_check_vf_rate_limit(adapter);
+-	pci_read_config_word(adapter->pdev, IXGBE_PCI_DEVICE_CONTROL2,
+-			     &devctl2);
++	devctl2 = ixgbe_read_pci_cfg_word(hw, IXGBE_PCI_DEVICE_CONTROL2);
+ 	devctl2 &= IXGBE_PCIDEVCTRL2_TIMEO_MASK;
  
-+	/* enable transmits */
-+	netif_tx_wake_all_queues(adapter->netdev);
-+
-+	/* enable any upper devices */
-+	rtnl_lock();
-+	netdev_for_each_all_upper_dev_rcu(adapter->netdev, upper, iter) {
-+		if (netif_is_macvlan(upper)) {
-+			struct macvlan_dev *vlan = netdev_priv(upper);
-+
-+			if (vlan->fwd_priv)
-+				netif_tx_wake_all_queues(upper);
-+		}
-+	}
-+	rtnl_unlock();
-+
- 	/* update the default user priority for VFs */
- 	ixgbe_update_default_up(adapter);
- 
+ 	switch (devctl2) {
 -- 
 1.8.3.1
