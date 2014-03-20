@@ -1,36 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] sh_eth: Fix the race between open and MDIO bus
- registration
-Date: Thu, 20 Mar 2014 17:22:41 -0400 (EDT)
-Message-ID: <20140320.172241.930093531135287233.davem@davemloft.net>
-References: <1395324035-22918-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	sergei.shtylyov@cogentembedded.com, ben.dooks@codethink.co.uk
-To: laurent.pinchart+renesas@ideasonboard.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52060 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760094AbaCTVWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 17:22:44 -0400
-In-Reply-To: <1395324035-22918-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH net-next v3 6/9] dp83640: correct the periodic output frequency
+Date: Thu, 20 Mar 2014 22:21:57 +0100
+Message-ID: <f235b9f42a25c713739ae58c37cb4ad260ab5bad.1395350113.git.richardcochran@gmail.com>
+References: <cover.1395350105.git.richardcochran@gmail.com>
+Cc: <linux-kernel@vger.kernel.org>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Christian Riesch <christian.riesch@omicron.at>,
+	David Miller <davem@davemloft.net>,
+	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
+	<stefan.sorensen@spectralink.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1395350105.git.richardcochran@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
-Date: Thu, 20 Mar 2014 15:00:30 +0100
+The phyter driver incorrectly feeds the value of the period into what
+is in fact a pulse width register, resulting in the actual period
+being twice the dialed value. This patch fixes the issue and renames a
+variable to make the code at bit more clear.
 
-> This patch series fixes the race condition that exists in the sh_eth driver
-> between network device open and MDIO bus registration. The actual fix is in
-> patch 4/5, with previous patches preparing the driver and patch 5/5 cleaning
-> up an unrelated issue.
-> 
-> I've based the idea on Sergei's attempt to fix the problem and can successfully
-> boot the Koelsch board over NFS with this series. I might have missed other
-> issues though, hence the RFC status.
-> 
-> The patches are based on top of the latest net-next master branch.
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+---
+ drivers/net/phy/dp83640.c |   11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-Series applied to net-next, thanks.
+diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
+index d6c1061..9e26555 100644
+--- a/drivers/net/phy/dp83640.c
++++ b/drivers/net/phy/dp83640.c
+@@ -271,7 +271,7 @@ static void periodic_output(struct dp83640_clock *clock,
+ {
+ 	struct dp83640_private *dp83640 = clock->chosen;
+ 	struct phy_device *phydev = dp83640->phydev;
+-	u32 sec, nsec, period;
++	u32 sec, nsec, pwidth;
+ 	u16 gpio, ptp_trig, trigger, val;
+ 
+ 	gpio = on ? gpio_tab[PEROUT_GPIO] : 0;
+@@ -296,8 +296,9 @@ static void periodic_output(struct dp83640_clock *clock,
+ 
+ 	sec = clkreq->perout.start.sec;
+ 	nsec = clkreq->perout.start.nsec;
+-	period = clkreq->perout.period.sec * 1000000000UL;
+-	period += clkreq->perout.period.nsec;
++	pwidth = clkreq->perout.period.sec * 1000000000UL;
++	pwidth += clkreq->perout.period.nsec;
++	pwidth /= 2;
+ 
+ 	mutex_lock(&clock->extreg_lock);
+ 
+@@ -310,8 +311,8 @@ static void periodic_output(struct dp83640_clock *clock,
+ 	ext_write(0, phydev, PAGE4, PTP_TDR, nsec >> 16);      /* ns[31:16] */
+ 	ext_write(0, phydev, PAGE4, PTP_TDR, sec & 0xffff);    /* sec[15:0] */
+ 	ext_write(0, phydev, PAGE4, PTP_TDR, sec >> 16);       /* sec[31:16] */
+-	ext_write(0, phydev, PAGE4, PTP_TDR, period & 0xffff); /* ns[15:0] */
+-	ext_write(0, phydev, PAGE4, PTP_TDR, period >> 16);    /* ns[31:16] */
++	ext_write(0, phydev, PAGE4, PTP_TDR, pwidth & 0xffff); /* ns[15:0] */
++	ext_write(0, phydev, PAGE4, PTP_TDR, pwidth >> 16);    /* ns[31:16] */
+ 
+ 	/*enable trigger*/
+ 	val &= ~TRIG_LOAD;
+-- 
+1.7.10.4
