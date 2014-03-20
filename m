@@ -1,13 +1,12 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net 1/4] ovs: fix dp check in
-	ovs_dp_reset_user_features
-Date: Thu, 20 Mar 2014 11:09:11 -0700
-Message-ID: <1395338954-26206-2-git-send-email-jesse@nicira.com>
+Subject: [PATCH net 3/4] openvswitch: Fix race.
+Date: Thu, 20 Mar 2014 11:09:13 -0700
+Message-ID: <1395338954-26206-4-git-send-email-jesse@nicira.com>
 References: <1395338954-26206-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 In-Reply-To: <1395338954-26206-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
@@ -22,33 +21,37 @@ Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+From: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-This fixes crash when userspace does "ovs-dpctl add-dp dev" where dev is
-existing non-dp netdevice.
+ovs_vport_cmd_dump() did rcu_read_lock() only after getting the
+datapath, which could have been deleted in between.  Resolved by
+taking rcu_read_lock() before the get_dp() call.
 
-Introduced by:
-commit 44da5ae5fbea4686f667dc854e5ea16814e44c59
-"openvswitch: Drop user features if old user space attempted to create datapath"
-
-Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/datapath.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/openvswitch/datapath.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
 diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index e9a48ba..e42340d 100644
+index e42340d..8601b32 100644
 --- a/net/openvswitch/datapath.c
 +++ b/net/openvswitch/datapath.c
-@@ -1174,7 +1174,7 @@ static void ovs_dp_reset_user_features(struct sk_buff *skb, struct genl_info *in
- 	struct datapath *dp;
+@@ -1762,11 +1762,12 @@ static int ovs_vport_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 	int bucket = cb->args[0], skip = cb->args[1];
+ 	int i, j = 0;
  
- 	dp = lookup_datapath(sock_net(skb->sk), info->userhdr, info->attrs);
++	rcu_read_lock();
+ 	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
 -	if (!dp)
-+	if (IS_ERR(dp))
- 		return;
++	if (!dp) {
++		rcu_read_unlock();
+ 		return -ENODEV;
+-
+-	rcu_read_lock();
++	}
+ 	for (i = bucket; i < DP_VPORT_HASH_BUCKETS; i++) {
+ 		struct vport *vport;
  
- 	WARN(dp->user_features, "Dropping previously announced user features\n");
 -- 
 1.8.3.2
