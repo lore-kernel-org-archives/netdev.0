@@ -1,90 +1,79 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: i217-LM boot wreckage
-Date: Thu, 20 Mar 2014 13:58:45 +0100 (CET)
-Message-ID: <alpine.DEB.2.02.1403201332400.18573@ionos.tec.linutronix.de>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next RFC 1/4] openvswitch: split flow structures into
+ ovs specific and generic ones
+Date: Thu, 20 Mar 2014 13:04:26 +0000
+Message-ID: <20140320130426.GF16640@casper.infradead.org>
+References: <1395243232-32630-1-git-send-email-jiri@resnulli.us>
+ <1395243232-32630-2-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: todd.fujinaka@intel.com, e1000-devel@lists.sourceforge.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:41573 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754924AbaCTM6g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 08:58:36 -0400
+Received: from casper.infradead.org ([85.118.1.10]:36554 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755261AbaCTNEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 09:04:30 -0400
+Content-Disposition: inline
+In-Reply-To: <1395243232-32630-2-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On a Lenovo ThinkCentre M93z I have the following issue:
+On 03/19/14 at 04:33pm, Jiri Pirko wrote:
+> After this, flow related structures can be used in other code.
 
-When the network cable is not connected at power on time and plugged
-in later, then the driver does not receive any packets. The DHCP TX
-packets are received by the DHCP server, but the answer gets lost in
-the 217-LM.
+LGTM. Definitely makes sense to share flow definition
+between OVS and a possible HW switch API.
 
-If I plug the network cable before power on, the chip works perfectly
-fine.
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> +	/* Ethernet+IPv4 specific members. */
+> +	unsigned char       ar_sha[ETH_ALEN];	/* sender hardware address  */
+> +	unsigned char       ar_sip[4];		/* sender IP address        */
+> +	unsigned char       ar_tha[ETH_ALEN];	/* target hardware address  */
+> +	unsigned char       ar_tip[4];		/* target IP address        */
+> +} __packed;
+>  
+> -struct sw_flow_mask {
+> +struct ovs_flow_mask {
+>  	int ref_count;
+>  	struct rcu_head rcu;
 
-I'm running latest mainline. ethtool -i output is:
+Perhaps move rcu_head to the end if you are touching it anyway.
 
-driver: e1000e
-version: 2.3.2-k
-firmware-version: 0.12-4
-bus-info: 0000:00:19:0
-supports-statistics: yes
-supports-test: yes
-supports-eeprom-access: yes
-supports-register-dump: yes
-supports-priv-flags: no
+>  	struct list_head list;
+> -	struct sw_flow_key_range range;
+> -	struct sw_flow_key key;
+> +	struct sw_flow_mask mask;
+>  };
+>  
+> -struct sw_flow_match {
+> +struct ovs_flow_match {
+>  	struct sw_flow_key *key;
+>  	struct sw_flow_key_range range;
+>  	struct sw_flow_mask *mask;
+> @@ -163,36 +106,20 @@ struct sw_flow_stats {
+>  	};
+>  };
+>  
+> -struct sw_flow {
+> +struct ovs_flow {
+>  	struct rcu_head rcu;
 
-ethtool -S shows all counters 0 except tx_packets, tx_bytes and
-tx_multicast in the bad case
+Same here.
 
-lspci for the device:
-
-00:19.0 Ethernet controller: Intel Corporation Ethernet Connection I217-LM (rev 04)
-	Subsystem: Lenovo Device 309b
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
-	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
-	Latency: 0
-	Interrupt: pin A routed to IRQ 42
-	Region 0: Memory at f7f00000 (32-bit, non-prefetchable) [size=128K]
-	Region 1: Memory at f7f3d000 (32-bit, non-prefetchable) [size=4K]
-	Region 2: I/O ports at f080 [size=32]
-	Capabilities: [c8] Power Management version 2
-		Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
-		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=1 PME-
-	Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
-		Address: 00000000fee0f00c  Data: 4182
-	Capabilities: [e0] PCI Advanced Features
-		AFCap: TP+ FLR+
-		AFCtrl: FLR-
-		AFStatus: TP-
-	Kernel driver in use: e1000e
-
-The output is identical for the good and the bad case except for the
-MSI interrupt number, but thats related to the init ordering and not a
-functional issue. The bios does not give out the MSI irq numbers.
-
-[    1.885503] e1000e: Intel(R) PRO/1000 Network Driver - 2.3.2-k
-[    1.885506] e1000e: Copyright(c) 1999 - 2013 Intel Corporation.
-[    1.888762] e1000e 0000:00:19.0: Interrupt Throttling Rate (ints/sec) set to dynamic conservative mode
-[    1.888781] e1000e 0000:00:19.0: irq 43 for MSI/MSI-X
-[    2.062745] e1000e 0000:00:19.0 eth0: registered PHC clock
-[    2.062748] e1000e 0000:00:19.0 eth0: (PCI Express:2.5GT/s:Width x1) fc:4d:d4:41:a9:aa
-[    2.062750] e1000e 0000:00:19.0 eth0: Intel(R) PRO/1000 Network Connection
-[    2.062795] e1000e 0000:00:19.0 eth0: MAC: 11, PHY: 12, PBA No: FFFFFF-0FF
-[   14.709709] e1000e 0000:00:19.0: irq 43 for MSI/MSI-X
-[   14.813686] e1000e 0000:00:19.0: irq 43 for MSI/MSI-X
-[   18.364687] e1000e: eth1 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: None
-
-dmesg is identical as well.
-
-So it looks like the BIOS is setting something up, when the cable is
-plugged at power on time, which is not visible through our debug
-output.
-
-Anything else you want me to try?
-
-Thanks,
-
-	tglx
+>  	struct hlist_node hash_node[2];
+>  	u32 hash;
+>  
+> -	struct sw_flow_key key;
+> -	struct sw_flow_key unmasked_key;
+> -	struct sw_flow_mask *mask;
+> +	struct sw_flow flow;
+>  	struct sw_flow_actions __rcu *sf_acts;
+>  	struct sw_flow_stats stats;
+>  };
