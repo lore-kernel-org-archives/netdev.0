@@ -1,47 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 1/9] ptp: introduce programmable pins.
-Date: Thu, 20 Mar 2014 17:13:39 -0400 (EDT)
-Message-ID: <20140320.171339.838529247165735046.davem@davemloft.net>
-References: <5faff8ea096044a48e4edcc6391844f8d428383f.1394975663.git.richardcochran@gmail.com>
-	<20140317.212534.579591104509436501.davem@davemloft.net>
-	<20140320204307.GA4931@netboy>
+From: Grant Grundler <grundler@google.com>
+Subject: Re: usbnet: driver_info->stop required to stop USB interrupts?
+Date: Thu, 20 Mar 2014 14:19:54 -0700
+Message-ID: <CANEJEGues6qVUEpWR5ggejg7dmS1PqzOHvZeWdxGJSnJh6c8Tw@mail.gmail.com>
+References: <CANEJEGsvqkT_H4i+UZpBaWMYmgXHmpD8SZ4tU1OHzLd8gyznow@mail.gmail.com>
+	<CANEJEGv03ohVwoS0Pd1Z3az9k-C=dTzG4qE1SBL6Um97QC1Ehw@mail.gmail.com>
+	<CAODwPW_t9COeg0LWfkiqXC_yTbSNhUHX-8T95KRZHfOTSiZK1Q@mail.gmail.com>
+	<1394529263.16128.6.camel@linux-fkkt.site>
+	<CAODwPW8rQptt+jnfZ+KjpuOOpKi9ktb-y2kCYGZJo_ava1ktjg@mail.gmail.com>
+	<CAODwPW-CqigMBvwZtb+KLY5XbT+LDssPpvDZj86ej183DMiPkQ@mail.gmail.com>
+	<1395093343.3961.2.camel@linux-fkkt.site>
+	<CANEJEGuaVPNZKFiXY9CywFuqghgiQqV_sii7TE3STCNvXLQ3pQ@mail.gmail.com>
+	<CAODwPW-E-3HcXCGEmp9JpW6hU-Xt-FHwBtqeSSTDGaRPqO49Sw@mail.gmail.com>
+	<CANEJEGscbVF3gRLNtTAcRSpHGVm1iDDKEeBscXcwj2-YdkiDXA@mail.gmail.com>
+	<CANEJEGtZF30=bqkErvi1CFZLbk=PJ-p_gKf9eBGU7sWwJcrefg@mail.gmail.com>
+	<1395299705.5432.12.camel@linux-fkkt.site>
+	<CANEJEGu3j4a6LOiyD-Qbs5nX4wc4spWQB3ZukmEa1J6VPUg+=g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ben@decadent.org.uk, christian.riesch@omicron.at,
-	stefan.sorensen@spectralink.com
-To: richardcochran@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, Freddy Xin <freddy@asix.com.tw>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	Allan Chou <allan@asix.com.tw>,
+	Julius Werner <jwerner@chromium.org>
+To: Oliver Neukum <oneukum@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51920 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759503AbaCTVNm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 17:13:42 -0400
-In-Reply-To: <20140320204307.GA4931@netboy>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:41803 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758959AbaCTVTz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 17:19:55 -0400
+Received: by mail-ob0-f176.google.com with SMTP id wp18so1569903obc.7
+        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 14:19:54 -0700 (PDT)
+In-Reply-To: <CANEJEGu3j4a6LOiyD-Qbs5nX4wc4spWQB3ZukmEa1J6VPUg+=g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Thu, 20 Mar 2014 21:43:08 +0100
+On Thu, Mar 20, 2014 at 9:35 AM, Grant Grundler <grundler@google.com> wrote:
+> On Thu, Mar 20, 2014 at 12:15 AM, Oliver Neukum <oneukum@suse.de> wrote:
+> ...
+>> I have an idea. Could you test this patch?
+> ...
+>> -       if (dev->wait) {
+> ..
+>> +       if (waitqueue_active(&dev->wait)) {
+>
+> Yes - building new image now (and transfer to USB and boot from USB).
+> Should know in an hour or so (doing other things in parallel).
 
-> On Mon, Mar 17, 2014 at 09:25:34PM -0400, David Miller wrote:
->> 
->> This locking seems unnecessarily complex to me.  You should be able to
->> do the stateless sanity checks, take the mutex, then do all of the
->> rest of the operations until the end of the function before
->> dropping the lock.
->> 
->> So just take the lock once over the operations that need it.
-> 
-> The idea was to avoid holding the mutex when invoking the driver
-> callbacks (.verify and .enable). Mostly this is my paranoia that some
-> bad driver will call back into the core via ptp_set_pinfunc().
+Sorry...took a bit longer since my previous test method (bash
+/tmp/reload_asix) was abusing a security exploit that is now
+fixed...so had to move my script into a RO executable file system:
 
-During my review, I checked all the implementations of said methods
-and they all universally adjust software state and return.
+for i in `seq 10000`; do echo -n "RELOAD $i  " ; ssh $T
+"/bin/reload_asix eth0 1000_full" ; J=$? ; if [ $J -eq 255 ] ; then
+echo; " SSH timeout" ; break ; fi ; ssh $T "cat
+/var/log/reload-asix.out" ; if [ $J -ne 0 ] ; then echo "  ERROR $J" ;
+fi ; sleep 3 ; done | tee ~/reload-AX88178-leon-192.168.1.100-06.out
 
-> But you are right that the result is overly complex. I'll make the
-> callers of ptp_set_pinfunc hold the mutex, and so the set path will
-> look just like the get path.
+This is running now and things look happy so far. :) This will take
+more than 30h to complete.
 
-Thanks.
+So please add:
+  "Tested-by: Grant Grundler <grundler@chromium.org>"
+
+> Can you please explain why we need to check if the waitqueue is active?
+
+and add a comment that answers the above question.
+
+thanks!
+grant
