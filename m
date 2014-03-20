@@ -1,73 +1,53 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: [PATCH] [PATCH v2] sh_eth: ensure pm_runtime cannot suspend the device during init
-Date: Thu, 20 Mar 2014 10:33:27 +0100
-Message-ID: <1395308007-13956-1-git-send-email-ben.dooks@codethink.co.uk>
-Cc: linux-sh@vger.kernel.org, davem@davemloft.net,
-	Ben Dooks <ben.dooks@codethink.co.uk>,
-	sergei.shtylyov@cogentembedded.com,
-	laurent.pinchart+renesas@ideasonboard.com
-To: linux-kernel@lists.codethink.co.uk, netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH] bonding: Inactive slaves should keep inactive flag's
+ value to 1.
+Date: Thu, 20 Mar 2014 17:36:12 +0800
+Message-ID: <532AB68C.1040003@huawei.com>
+References: <1395305504-29973-1-git-send-email-zheng.x.li@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <davem@davemloft.net>,
+	<joe.jin@oracle.com>
+To: Zheng Li <zheng.x.li@oracle.com>, <netdev@vger.kernel.org>,
+	<fubar@us.ibm.com>, <andy@greyhouse.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395305504-29973-1-git-send-email-zheng.x.li@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The pm_rumtime work queue is causing the device to be suspended during
-initialisation, thus the initialisation may not be able to access registers
-properly. As the code is called from a work queue, it is possible that this
-is not seen from certain configurations/builds due to the asynchronos
-nature of the code.
+On 2014/3/20 16:51, Zheng Li wrote:
+> Except bond mode 1, in other bond modes, inactive slaves should keep inactive flag to
+> 1 to refuse to receive broadcast packets. Now, active slave send broadcast packets
+> (for example ARP requests) which will arrive inactive slaves on same host from switch,
+> but inactive slave's inactive flag is zero that cause bridge receive the broadcast
+> packets to produce a wrong entry in forward table. Typical situation is domu send some
+> ARP request which go out from dom0 bond's active slave, then the ARP broadcast request
+> packets go back to inactive slave from switch, because the inactive slave's inactive
+> flag is zero, kernel will receive the packets and pass them to bridge, that cause dom0's
+> bridge map domu's MAC address to port of bond, bridge should map domu's MAC to port of vif.
+> 
+> Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
+> ---
+>  drivers/net/bonding/bond_main.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index e5628fc..2f73f18 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -3063,7 +3063,7 @@ static int bond_open(struct net_device *bond_dev)
+>  				bond_set_slave_inactive_flags(slave,
+>  							      BOND_SLAVE_NOTIFY_NOW);
+>  			} else {
+> -				bond_set_slave_active_flags(slave,
+> +				bond_set_slave_state(slave, BOND_STATE_ACTIVE,
+>  							    BOND_SLAVE_NOTIFY_NOW);
 
-Another issue has also been found where the network device registration
-calls back into the driver thus causing further pm_runtime calls that
-also caused issues with the MDIO bus code.
+This patch could be applied?
 
-Use pm_runtime_get_sync() and pm_runtime_put() to ensure that the
-pm system does not suspend it during the probe() call and remove the
-now unnecessary pm_runtime_resume() call.
+Ding
 
-This fixes the external abort that can cause /sbin/init or other such
-init processed to die.
-
-Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
-Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
-
----
-Cc: sergei.shtylyov@cogentembedded.com
-Cc: laurent.pinchart+renesas@ideasonboard.com
-cc: netdev@vger.kernel.org
-
-Note, Laurent this should probably be applied before your
-current series as it may require changes to the exit sequence.
-
-Fixes from v1:
-	- use pm_runtime_put() over pm_runtime_put_sync() as
-	  we do not need to guaranteed the device has powered
-          off after probe.
----
- drivers/net/ethernet/renesas/sh_eth.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 4f76b5e..955e422 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2869,7 +2869,7 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
- 	spin_lock_init(&mdp->lock);
- 	mdp->pdev = pdev;
- 	pm_runtime_enable(&pdev->dev);
--	pm_runtime_resume(&pdev->dev);
-+	pm_runtime_get_sync(&pdev->dev);
- 
- 	if (pdev->dev.of_node)
- 		pd = sh_eth_parse_dt(&pdev->dev);
-@@ -2961,6 +2961,7 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
- 	pr_info("Base address at 0x%x, %pM, IRQ %d.\n",
- 		(u32)ndev->base_addr, ndev->dev_addr, ndev->irq);
- 
-+	pm_runtime_put(&pdev->dev);
- 	platform_set_drvdata(pdev, ndev);
- 
- 	return ret;
--- 
-1.9.0
-
+>  			}
+>  		}
+> 
