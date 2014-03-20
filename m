@@ -1,51 +1,136 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next v7 9/9] xen-netback: Aggregate TX unmap
- operations
-Date: Thu, 20 Mar 2014 11:14:51 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0292550@AMSPEX01CL01.citrite.net>
-References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>
- <1394142511-14827-10-git-send-email-zoltan.kiss@citrix.com>
- <532A0915.5090006@citrix.com> <20140320104855.GA16285@zion.uk.xensource.com>
+From: Zhangfei Gao <zhangfei.gao@gmail.com>
+Subject: Re: [PATCH 1/3] Documentation: add Device tree bindings for Hisilicon
+ hip04 ethernet
+Date: Thu, 20 Mar 2014 19:29:28 +0800
+Message-ID: <CAMj5Bki27+uO9tafp1fF7K8vfE8=F-01zRdU7BAtmF7-D7H0XA@mail.gmail.com>
+References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
+	<1395132017-15928-2-git-send-email-zhangfei.gao@linaro.org>
+	<CAGVrzcZY4Z6kFRUP54PtaZUAX0+cEmYfnunJQFN8TC66xooLeg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Jonathan Davies" <Jonathan.Davies@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>, Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140320104855.GA16285@zion.uk.xensource.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Zhangfei Gao <zhangfei.gao@linaro.org>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f45.google.com ([74.125.83.45]:43633 "EHLO
+	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755261AbaCTL3a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 07:29:30 -0400
+In-Reply-To: <CAGVrzcZY4Z6kFRUP54PtaZUAX0+cEmYfnunJQFN8TC66xooLeg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Wei Liu [mailto:wei.liu2@citrix.com]
-> Sent: 20 March 2014 10:49
-> To: Zoltan Kiss
-> Cc: Ian Campbell; Wei Liu; xen-devel@lists.xenproject.org;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Jonathan Davies;
-> Paul Durrant
-> Subject: Re: [PATCH net-next v7 9/9] xen-netback: Aggregate TX unmap
-> operations
-> 
-> On Wed, Mar 19, 2014 at 09:16:05PM +0000, Zoltan Kiss wrote:
-> > Hi,
-> >
-> > I'm thinking about revoking this patch: it's value is pretty small,
-> > but it causes performance regression on Win7 guests. And probably it
-> > is not the best solution for this problem. It might be the delay it
-> > takes the dealloc thread to be scheduled is enough.
-> > What do you think?
-> >
-> 
-> Can you elaborate? What makes Win7 so special? What's performance
-> impact to other guests?
-> 
+Dear Florian
 
-It won't be Win7 specifically I expect. It will likely by any version of Windows, or any other OS that limits the TXs-in-flight so aggressively. Basically you need to TX-complete reasonably frequently otherwise your throughput drops off a lot. IIRC at Solarflare we found every ~500us to be just about frequent enough for hitting 10G.
+On Wed, Mar 19, 2014 at 1:39 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> 2014-03-18 1:40 GMT-07:00 Zhangfei Gao <zhangfei.gao@linaro.org>:
 
-  Paul
+>> +Example:
+>> +       mdio {
+>> +               compatible = "hisilicon,hip04-mdio";
+>> +               reg = <0x28f1000 0x1000>;
+>> +               #address-cells = <1>;
+>> +               #size-cells = <0>;
+>> +
+>> +               phy0: ethernet-phy@0 {
+>> +                       reg = <0>;
+>> +                       marvell,reg-init = <18 0x14 0 0x8001>;
+>> +                       device_type = "ethernet-phy";
+>
+> You are missing a compatible string such as
+> "ethernet-phy-ieee802.3-c22", please take a look at
+> Documentation/devicetree/bindings/net/phy.txt for an example.
+>
+> device_type is deprecated and should be removed.
+
+Thanks for the info, will update.
+
+>
+>> +               };
+>> +
+>> +               phy1: ethernet-phy@1 {
+>> +                       reg = <1>;
+>> +                       marvell,reg-init = <18 0x14 0 0x8001>;
+>> +                       device_type = "ethernet-phy";
+>> +               };
+>> +       };
+>> +
+>> +       ppebase: ppebase@28c0000 {
+>> +               compatible = "hisilicon,hip04-ppebase";
+>> +               reg = <0x28c0000 0x10000>;
+>
+> This should probably look like:
+>
+>                     #address-cells = <0>;
+>                     #size-cells = <0>;
+>
+>                     eth0_port: port@0 {
+>                          reg = <0>;
+>                     };
+>
+>                     eth1_port: port@1f {
+>                          reg = <31>;
+>                     };
+>
+> This looks like something similar to mv643xx_eth, you should see
+> Documentation/devicetree/bindings/marvell.txt for hints on how to
+> model the representation in a similar fashion.
+
+Perfect, this looks more professional, just like the phy description.
+
+The ppe is common device with 2048 channels shared by all the
+controllers, only if channels are not overlapped.
+Two inputs required,
+One is port number, currently use reg=<>,
+The other is start channel, I used id before.
+Each controller use start channel as RX_DESC_NUM * priv->id.
+Do you think still use id from of_alias_get_id(), or add another
+property like start_chan etc.
+                        eth0_port: port@1f {
+                                reg = <31>;
+                                start-chan = <0>;
+                        };
+
+                        eth1_port: port@0 {
+                                reg = <0>;
+                                start-chan = <1>;
+                        };
+
+>
+>> +       };
+>> +
+>> +       fe: ethernet@28b0000 {
+>> +               compatible = "hisilicon,hip04-mac";
+>> +               reg = <0x28b0000 0x10000>;
+>> +               interrupts = <0 413 4>;
+>> +               port = <31>;
+>
+> I do not think this is the right way to expose that, port should be
+> specialized to e.g: hisilicon,port, or you should use a phandle to the
+> "ppebase" node which exposes differents ports as subnodes:
+>
+>                     hisilicon,port-handle = <&eth0_port>;
+OK, perfect.
+
+>
+>> +               speed = <100>;
+>
+> max-speed is the standard property for this
+The speed can be removed now, and the info can be get from phy-mode = "sgmii"
+
+>
+>> +               id = <0>;
+>
+> id here is a software concept, either you create properly numbered
+> aliases for these nodes, and use of_alias_get_id(), or you do not use
+> these identifiers at all.
+
+Still not not sure whether use of_alias_get_id() or add property in
+the eth_port subnode.
+The id is used for specify the start channel.
+
+Thanks
