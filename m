@@ -1,40 +1,63 @@
 From: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
-Subject: [PATCH 0/5] sh_eth: Fix the race between open and MDIO bus registration
-Date: Thu, 20 Mar 2014 15:00:30 +0100
-Message-ID: <1395324035-22918-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
+Subject: [PATCH 1/5] sh_eth: Use the platform device for memory allocation
+Date: Thu, 20 Mar 2014 15:00:31 +0100
+Message-ID: <1395324035-22918-2-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
+References: <1395324035-22918-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
 Cc: linux-sh@vger.kernel.org,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	Ben Dooks <ben.dooks@codethink.co.uk>
 To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perceval.ideasonboard.com ([95.142.166.194]:33927 "EHLO
+	perceval.ideasonboard.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755769AbaCTN6v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 09:58:51 -0400
+In-Reply-To: <1395324035-22918-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Memory allocated for the MDIO bus with the devm_kzalloc() API is
+associated with the network device. While this will cause memory to be
+freed at the right time, it doesn't allow allocating memory before the
+network device is initialized.
 
-This patch series fixes the race condition that exists in the sh_eth driver
-between network device open and MDIO bus registration. The actual fix is in
-patch 4/5, with previous patches preparing the driver and patch 5/5 cleaning
-up an unrelated issue.
+Replace the network device with the parent platform device for memory
+allocation to remove that dependency. This also improves consistency
+with the other devm_* calls in the driver that all use the platform
+device.
 
-I've based the idea on Sergei's attempt to fix the problem and can successfully
-boot the Koelsch board over NFS with this series. I might have missed other
-issues though, hence the RFC status.
+Signed-off-by: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ drivers/net/ethernet/renesas/sh_eth.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-The patches are based on top of the latest net-next master branch.
-
-Laurent Pinchart (5):
-  sh_eth: Use the platform device for memory allocation
-  sh_eth: Use the platform device as the MDIO bus parent
-  sh_eth: Simplify MDIO bus initialization and release
-  sh_eth: Register MDIO bus before registering the network device
-  sh_eth: Remove goto statements that jump straight to a return
-
- drivers/net/ethernet/renesas/sh_eth.c | 85 +++++++++++++----------------------
- 1 file changed, 31 insertions(+), 54 deletions(-)
-
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index efaca6d..f669e2a 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -2606,10 +2606,10 @@ static int sh_mdio_init(struct net_device *ndev, int id,
+ 	int ret, i;
+ 	struct bb_info *bitbang;
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
++	struct device *dev = &mdp->pdev->dev;
+ 
+ 	/* create bit control struct for PHY */
+-	bitbang = devm_kzalloc(&ndev->dev, sizeof(struct bb_info),
+-			       GFP_KERNEL);
++	bitbang = devm_kzalloc(dev, sizeof(struct bb_info), GFP_KERNEL);
+ 	if (!bitbang) {
+ 		ret = -ENOMEM;
+ 		goto out;
+@@ -2638,8 +2638,7 @@ static int sh_mdio_init(struct net_device *ndev, int id,
+ 		 mdp->pdev->name, id);
+ 
+ 	/* PHY IRQ */
+-	mdp->mii_bus->irq = devm_kzalloc(&ndev->dev,
+-					 sizeof(int) * PHY_MAX_ADDR,
++	mdp->mii_bus->irq = devm_kzalloc(dev, sizeof(int) * PHY_MAX_ADDR,
+ 					 GFP_KERNEL);
+ 	if (!mdp->mii_bus->irq) {
+ 		ret = -ENOMEM;
 -- 
-Regards,
-
-Laurent Pinchart
-
+1.8.3.2
