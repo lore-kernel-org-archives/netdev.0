@@ -1,64 +1,62 @@
-From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
-Subject: RE: [PATCH v5 net-next 0/2] patchset: Support for configurable RSS
- hash key
-Date: Thu, 20 Mar 2014 12:02:11 +0000
-Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C8968A5@CMEXMB1.ad.emulex.com>
-References: <193620ac-855b-4c2a-b9ab-962b2edfbfa2@CMEXHTCAS2.ad.emulex.com>
- <20140319.155930.1805664690676428310.davem@davemloft.net>
+From: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2] core, nfqueue,
+ openvswitch: Orphan frags in skb_zerocopy and handle errors
+Date: Thu, 20 Mar 2014 13:33:20 +0100
+Message-ID: <532AE010.9050903@redhat.com>
+References: <1395263249-16450-1-git-send-email-zoltan.kiss@citrix.com>
+ <532ADC33.5040607@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Ben Hutchings (ben@decadent.org.uk)" <ben@decadent.org.uk>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:15032 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750916AbaCTMCN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 08:02:13 -0400
-In-Reply-To: <20140319.155930.1805664690676428310.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Miklos Szeredi <mszeredi-AlSwsSmVLrQ@public.gmane.org>,
+ kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+ Jan Beulich <JBeulich-IBi9RG/b67k@public.gmane.org>, Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+ Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+ Jozsef Kadlecsik <kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org>, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org,
+ Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
+ Paul Durrant <Paul.Durrant-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
+ pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <532ADC33.5040607-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-> > NIC drivers that support RSS use either a hard-coded value or a random
-> > value for the RSS hash key. Irrespective of the type of the key used,
-> > the user would want to change the hash key if he/she is not satisfied
-> > with the effectiveness of the default hash-key in spreading the incoming flows
-> evenly across the RSS queues.
-> >
-> > This patch set adds support for configuring the RSS hash-key via the
-> > ethtool interface using -X option.
-> 
-> I apologize, but I really dislike this.  For several reasons.
-> 
-> First, why aren't we adding _just_ a RSS hash changing interface?
-> 
-> We already have an interface for changing the indirection table, there is
-> absolutely not need to add a second interface that supports both indirection
-> table _plus_ hash modifications.
-> 
-> And combining these two is what leads to this hard to audit, ugly, data structure
-> layout.
-> 
-> There's the indirection table at some offset, then the key at some other offset.
-> This makes it impossible to impose type checking of any kind on both objects.
-> 
-> And the data structure is furthermore named in a way that suggests it's just for
-> doing things with the RSS hash.
-> 
-> Just add:
-> 
-> struct ethtool_rxfh {
-> 	__u32	cmd;
-> 	__u32	key_size;
-> 	__u32	key[0];
-> };
-> 
-> And that's it.
-> 
-> To change the indirection table, call "ETHTOOL_SRXFH".  To set the RSS flow
-> hash, call "ETHTOOL_SRSSH".
+On 03/20/2014 01:16 PM, Thomas Graf wrote:
+> On 03/19/2014 10:07 PM, Zoltan Kiss wrote:
+>> skb_zerocopy can copy elements of the frags array between skbs, but it
+>> doesn't
+>> orphan them. Also, it doesn't handle errors, so this patch takes care
+>> of that
+>> as well.
+>>
+>> Signed-off-by: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+>
+> Acked-by: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-My original patch was exactly the way you suggested.
-It went through many changes later with the intention of combining both indirection and hash key setting into one option as both are related to rss configuration.
+I take this back ;)
+
+>> ---
+>> +    if (unlikely(skb_orphan_frags(to, GFP_ATOMIC))) {
+>> +        skb_tx_error(to);
+>> +        return -ENOMEM;
+>> +    }
+
+Just noticed that you orphan the Netlink skb frags which do not
+exist yet instead of the source skb frags.
+
+> Did you consider calling skb_tx_error() for Netlink message
+> allocation failures for the upcall as well? That memory pressure
+> is currently not reported back.
