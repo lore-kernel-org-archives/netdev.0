@@ -1,20 +1,35 @@
-From: <finance07@finance694.onmicrosoft.com>
-Subject: Loan / Credit Offer
-Date: Thu, 20 Mar 2014 15:38:35 +0100
-Message-ID: <8f971334-d439-41bc-a2e3-46f71a9aaaf8@DB4PR01MB272.eurprd01.prod.exchangelabs.com>
-Reply-To: <santafinance@aol.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <finance07@finance694.onmicrosoft.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from emea01-am1-obe.ptr.protection.outlook.com ([157.56.112.245]:60250
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932953AbaCTOip convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 10:38:45 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Monam Agarwal <monamagarwal123@gmail.com>
+Subject: [PATCH 1/9] net/ethernet: Replace rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x, NULL) in drivers/net/ethernet/broadcom/bnx2.c
+Date: Thu, 20 Mar 2014 20:08:19 +0530
+Message-ID: <1965df1cea51fc4c08e563554739fb74bbcaf58e.1395324808.git.monamagarwal123@gmail.com>
+References: <cover.1395324808.git.monamagarwal123@gmail.com>
+Cc: linux-kernel@vger.kernel.org, eddie.wai@broadcom.com,
+	paulmck@linux.vnet.ibm.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1395324808.git.monamagarwal123@gmail.com>
+In-Reply-To: <cover.1395324808.git.monamagarwal123@gmail.com>
+References: <cover.1395324808.git.monamagarwal123@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We offer all purpose loan at 3% interest rate. Contact Us for more details by Email:santanderfinancegroup@gmail.com
+Signed-off-by: Monam Agarwal <monamagarwal123@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bnx2.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index 965c723..5eab730 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -409,7 +409,7 @@ static int bnx2_unregister_cnic(struct net_device *dev)
+ 	mutex_lock(&bp->cnic_lock);
+ 	cp->drv_state = 0;
+ 	bnapi->cnic_present = 0;
+-	rcu_assign_pointer(bp->cnic_ops, NULL);
++	RCU_INIT_POINTER(bp->cnic_ops, NULL);
+ 	mutex_unlock(&bp->cnic_lock);
+ 	synchronize_rcu();
+ 	return 0;
+-- 
+1.7.9.5
