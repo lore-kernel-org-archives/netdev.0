@@ -1,53 +1,60 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH] bonding: Inactive slaves should keep inactive flag's
- value to 1.
-Date: Thu, 20 Mar 2014 17:36:12 +0800
-Message-ID: <532AB68C.1040003@huawei.com>
-References: <1395305504-29973-1-git-send-email-zheng.x.li@oracle.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH net-next 2/2] bonding: support QinQ for bond arp interval
+Date: Thu, 20 Mar 2014 10:40:40 +0100
+Message-ID: <20140320094040.GB28839@unicorn.suse.cz>
+References: <1395057975-19084-1-git-send-email-dingtianhong@huawei.com>
+ <1395057975-19084-3-git-send-email-dingtianhong@huawei.com>
+ <21958.1395078364@death.nxdomain>
+ <20140320082414.GA28839@unicorn.suse.cz>
+ <532AB503.6020004@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <davem@davemloft.net>,
-	<joe.jin@oracle.com>
-To: Zheng Li <zheng.x.li@oracle.com>, <netdev@vger.kernel.org>,
-	<fubar@us.ibm.com>, <andy@greyhouse.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1395305504-29973-1-git-send-email-zheng.x.li@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <fubar@us.ibm.com>, vfalico@redhat.com,
+	andy@greyhouse.net, kaber@trash.net, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:46866 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758376AbaCTJkm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Mar 2014 05:40:42 -0400
+Content-Disposition: inline
+In-Reply-To: <532AB503.6020004@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2014/3/20 16:51, Zheng Li wrote:
-> Except bond mode 1, in other bond modes, inactive slaves should keep inactive flag to
-> 1 to refuse to receive broadcast packets. Now, active slave send broadcast packets
-> (for example ARP requests) which will arrive inactive slaves on same host from switch,
-> but inactive slave's inactive flag is zero that cause bridge receive the broadcast
-> packets to produce a wrong entry in forward table. Typical situation is domu send some
-> ARP request which go out from dom0 bond's active slave, then the ARP broadcast request
-> packets go back to inactive slave from switch, because the inactive slave's inactive
-> flag is zero, kernel will receive the packets and pass them to bridge, that cause dom0's
-> bridge map domu's MAC address to port of bond, bridge should map domu's MAC to port of vif.
+On Thu, Mar 20, 2014 at 05:29:39PM +0800, Ding Tianhong wrote:
+> On 2014/3/20 16:24, Michal Kubecek wrote:
+> > On Mon, Mar 17, 2014 at 10:46:04AM -0700, Jay Vosburgh wrote:
+> >> Ding Tianhong <dingtianhong@huawei.com> wrote:
+> >>>
+> >>> ip link add link bond0  bond0.20 type vlan proto 802.1ad id 20
+> >>> ip link add link bond0.20  bond0.20.200 type vlan proto 802.1q id 200
+> >>
+> >> 	Is this nesting backwards?  The way I read it (and the way I
+> >> recall that VLANs nest), "bond0.20" is the "regular" VLAN, i.e., if we
+> >> just have bond0.20 it would be a standard 802.1q (ethertype 0x8100)
+> >> VLAN.  Adding the second VLAN, .200 in this example, would be the second
+> >> (outer) tag, and would be the 802.1ad (ethertype 0x88a8) tag.
+> >>
+> >> 	In other words, adding a VLAN to an already existing VLAN makes
+> >> the newly added VLAN the "outer" and the already existing VLAN the
+> >> "inner."  Am I confused?
+> > 
+> > I don't think so. My understanding is that when sending a packet to
+> > a vlan device, it is tagged (according to its "proto") and passed to its
+> > underlying device.
+> > 
+> > So in the case above, sending a packet to bond0.20.200 would add an
+> > 802.1q tag and pass the result to bond0.20 which would add an 802.1ad
+> > tag and pass the result to bond0. Which is the way it should work.
 > 
-> Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
-> ---
->  drivers/net/bonding/bond_main.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index e5628fc..2f73f18 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -3063,7 +3063,7 @@ static int bond_open(struct net_device *bond_dev)
->  				bond_set_slave_inactive_flags(slave,
->  							      BOND_SLAVE_NOTIFY_NOW);
->  			} else {
-> -				bond_set_slave_active_flags(slave,
-> +				bond_set_slave_state(slave, BOND_STATE_ACTIVE,
->  							    BOND_SLAVE_NOTIFY_NOW);
+> I agree with your analysis of QinQ for vlan in common usage, but I think you miss
+> something for how the arp interval works, the bonding need to create a new
+> arp request with vlan tag to confirm that the slave should be active or unactive,  
+> the skb could not be passed to bond0.20.200, we have to build QinQ skb ourselves.
 
-This patch could be applied?
+My comment referred only to the way stacked interfaces are set up in the
+quoted example, not to the original issue.
 
-Ding
-
->  			}
->  		}
-> 
+                                                         Michal Kubecek
