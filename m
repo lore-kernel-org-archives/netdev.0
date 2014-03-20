@@ -1,86 +1,146 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: [PATCH net-next] ixgbe: stop PTP before suspending
-Date: Thu, 20 Mar 2014 20:14:32 +0100
-Message-ID: <1395342872-13496-1-git-send-email-kubakici@wp.pl>
-Cc: Jakub Kicinski <kubakici@wp.pl>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.wp.pl ([212.77.101.10]:55721 "EHLO mx3.wp.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756651AbaCTTO7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Mar 2014 15:14:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: [PATCH net-next] xen-netback: Follow-up patch for grant mapping series
+Date: Thu, 20 Mar 2014 19:32:41 +0000
+Message-ID: <1395343961-4744-2-git-send-email-zoltan.kiss@citrix.com>
+References: <1395343961-4744-1-git-send-email-zoltan.kiss@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>
+To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395343961-4744-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Resume path calls .open but suspend path cannot call .stop because
-fdirs should not be freed and control over hardware should not be
-released until WoL is configured.  To avoid having to duplicate all
-changes made in .stop on suspend path split out part of .stop that
-is relevant during suspend and call it from .stop and during suspend.
+Ian made some late comments about the grant mapping series, I incorporated the
+outcomes into this patch. Additional comments, refactoring etc.
 
-This fixes ixgbe_ptp_stop() not being called on suspend and helps
-to avoid similar bugs in the future.
-
-Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
+Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 27 ++++++++++++++-------------
- 1 file changed, 14 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 5029aa9..92bda78 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -5530,6 +5530,17 @@ err_setup_tx:
- 	return err;
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 6837bfc..fa19538 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -576,15 +576,15 @@ void xenvif_disconnect(struct xenvif *vif)
+ void xenvif_free(struct xenvif *vif)
+ {
+ 	int i, unmap_timeout = 0;
+-	/* Here we want to avoid timeout messages if an skb can be legitimatly
+-	 * stucked somewhere else. Realisticly this could be an another vif's
++	/* Here we want to avoid timeout messages if an skb can be legitimately
++	 * stuck somewhere else. Realistically this could be an another vif's
+ 	 * internal or QDisc queue. That another vif also has this
+ 	 * rx_drain_timeout_msecs timeout, but the timer only ditches the
+ 	 * internal queue. After that, the QDisc queue can put in worst case
+ 	 * XEN_NETIF_RX_RING_SIZE / MAX_SKB_FRAGS skbs into that another vif's
+ 	 * internal queue, so we need several rounds of such timeouts until we
+ 	 * can be sure that no another vif should have skb's from us. We are
+-	 * not sending more skb's, so newly stucked packets are not interesting
++	 * not sending more skb's, so newly stuck packets are not interesting
+ 	 * for us here.
+ 	 */
+ 	unsigned int worst_case_skb_lifetime = (rx_drain_timeout_msecs/1000) *
+@@ -599,6 +599,13 @@ void xenvif_free(struct xenvif *vif)
+ 				netdev_err(vif->dev,
+ 					   "Page still granted! Index: %x\n",
+ 					   i);
++			/* If there are still unmapped pages, reset the loop to
++			 * start mchecking again. We shouldn't exit here until
++			 * dealloc thread and NAPI instance release all the
++			 * pages. If a kernel bug cause the skbs stall
++			 * somewhere, the interface couldn't be brought down
++			 * properly.
++			 */
+ 			i = -1;
+ 		}
+ 	}
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 1c336f6..0e46184b 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -56,7 +56,7 @@ bool separate_tx_rx_irq = 1;
+ module_param(separate_tx_rx_irq, bool, 0644);
+ 
+ /* When guest ring is filled up, qdisc queues the packets for us, but we have
+- * to timeout them, otherwise other guests' packets can get stucked there
++ * to timeout them, otherwise other guests' packets can get stuck there
+  */
+ unsigned int rx_drain_timeout_msecs = 10000;
+ module_param(rx_drain_timeout_msecs, uint, 0444);
+@@ -99,6 +99,9 @@ static inline unsigned long idx_to_kaddr(struct xenvif *vif,
+ 	return (unsigned long)pfn_to_kaddr(idx_to_pfn(vif, idx));
  }
  
-+static void ixgbe_close_suspend(struct ixgbe_adapter *adapter)
-+{
-+	ixgbe_ptp_stop(adapter);
++#define callback_param(vif, pending_idx) \
++	(vif->pending_tx_info[pending_idx].callback_struct)
 +
-+	ixgbe_down(adapter);
-+	ixgbe_free_irq(adapter);
-+
-+	ixgbe_free_all_tx_resources(adapter);
-+	ixgbe_free_all_rx_resources(adapter);
-+}
-+
- /**
-  * ixgbe_close - Disables a network interface
-  * @netdev: network interface device structure
-@@ -5545,16 +5556,10 @@ static int ixgbe_close(struct net_device *netdev)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ /* Find the containing VIF's structure from a pointer in pending_tx_info array
+  */
+ static inline struct xenvif* ubuf_to_vif(struct ubuf_info *ubuf)
+@@ -1025,12 +1028,12 @@ static void xenvif_fill_frags(struct xenvif *vif, struct sk_buff *skb)
+ 		/* If this is not the first frag, chain it to the previous*/
+ 		if (unlikely(prev_pending_idx == INVALID_PENDING_IDX))
+ 			skb_shinfo(skb)->destructor_arg =
+-				&vif->pending_tx_info[pending_idx].callback_struct;
++				&callback_param(vif, pending_idx);
+ 		else if (likely(pending_idx != prev_pending_idx))
+-			vif->pending_tx_info[prev_pending_idx].callback_struct.ctx =
+-				&(vif->pending_tx_info[pending_idx].callback_struct);
++			callback_param(vif, prev_pending_idx).ctx =
++				&callback_param(vif, pending_idx);
  
--	ixgbe_ptp_stop(adapter);
--
--	ixgbe_down(adapter);
--	ixgbe_free_irq(adapter);
-+	ixgbe_close_suspend(adapter);
+-		vif->pending_tx_info[pending_idx].callback_struct.ctx = NULL;
++		callback_param(vif, pending_idx).ctx = NULL;
+ 		prev_pending_idx = pending_idx;
  
- 	ixgbe_fdir_filter_exit(adapter);
+ 		txp = &vif->pending_tx_info[pending_idx].req;
+@@ -1400,13 +1403,13 @@ static int xenvif_tx_submit(struct xenvif *vif)
+ 		memcpy(skb->data,
+ 		       (void *)(idx_to_kaddr(vif, pending_idx)|txp->offset),
+ 		       data_len);
+-		vif->pending_tx_info[pending_idx].callback_struct.ctx = NULL;
++		callback_param(vif, pending_idx).ctx = NULL;
+ 		if (data_len < txp->size) {
+ 			/* Append the packet payload as a fragment. */
+ 			txp->offset += data_len;
+ 			txp->size -= data_len;
+ 			skb_shinfo(skb)->destructor_arg =
+-				&vif->pending_tx_info[pending_idx].callback_struct;
++				&callback_param(vif, pending_idx);
+ 		} else {
+ 			/* Schedule a response immediately. */
+ 			xenvif_idx_unmap(vif, pending_idx);
+@@ -1550,7 +1553,6 @@ static inline void xenvif_tx_dealloc_action(struct xenvif *vif)
+ 					    idx_to_kaddr(vif, pending_idx),
+ 					    GNTMAP_host_map,
+ 					    vif->grant_tx_handle[pending_idx]);
+-			/* Btw. already unmapped? */
+ 			xenvif_grant_handle_reset(vif, pending_idx);
+ 			++gop;
+ 		}
+@@ -1683,12 +1685,20 @@ void xenvif_idx_unmap(struct xenvif *vif, u16 pending_idx)
+ 			    idx_to_kaddr(vif, pending_idx),
+ 			    GNTMAP_host_map,
+ 			    vif->grant_tx_handle[pending_idx]);
+-	/* Btw. already unmapped? */
+ 	xenvif_grant_handle_reset(vif, pending_idx);
  
--	ixgbe_free_all_tx_resources(adapter);
--	ixgbe_free_all_rx_resources(adapter);
--
- 	ixgbe_release_hw_control(adapter);
+ 	ret = gnttab_unmap_refs(&tx_unmap_op, NULL,
+ 				&vif->mmap_pages[pending_idx], 1);
+-	BUG_ON(ret);
++	if (ret) {
++		netdev_err(vif->dev,
++			   "Unmap fail: ret: %d pending_idx: %d host_addr: %llx handle: %x status: %d\n",
++			   ret,
++			   pending_idx,
++			   tx_unmap_op.host_addr,
++			   tx_unmap_op.handle,
++			   tx_unmap_op.status);
++		BUG();
++	}
  
- 	return 0;
-@@ -5619,12 +5624,8 @@ static int __ixgbe_shutdown(struct pci_dev *pdev, bool *enable_wake)
- 	netif_device_detach(netdev);
- 
- 	rtnl_lock();
--	if (netif_running(netdev)) {
--		ixgbe_down(adapter);
--		ixgbe_free_irq(adapter);
--		ixgbe_free_all_tx_resources(adapter);
--		ixgbe_free_all_rx_resources(adapter);
--	}
-+	if (netif_running(netdev))
-+		ixgbe_close_suspend(adapter);
- 	rtnl_unlock();
- 
- 	ixgbe_clear_interrupt_scheme(adapter);
--- 
-1.8.5.3
+ 	xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_OKAY);
+ }
