@@ -1,34 +1,36 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net 3/3] ip6mr: fix mfc notification flags
-Date: Thu, 20 Mar 2014 07:39:50 +0000
-Message-ID: <20140320073950.GE16640@casper.infradead.org>
-References: <1395247671-9356-1-git-send-email-nicolas.dichtel@6wind.com>
- <1395247671-9356-3-git-send-email-nicolas.dichtel@6wind.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v3 0/3] bonding: support QinQ for bond arp interval
+Date: Thu, 20 Mar 2014 16:15:32 +0800
+Message-ID: <1395303335-10088-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <fubar@us.ibm.com>, <vfalico@redhat.com>, <andy@greyhouse.net>,
+	<joe@perches.com>, <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:57012 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751779AbaCTHju (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 03:39:50 -0400
-Content-Disposition: inline
-In-Reply-To: <1395247671-9356-3-git-send-email-nicolas.dichtel@6wind.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:13895 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754341AbaCTIRP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 04:17:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/19/14 at 05:47pm, Nicolas Dichtel wrote:
-> Commit 812e44dd1829 ("ip6mr: advertise new mfc entries via rtnl") reuses the
-> function ip6mr_fill_mroute() to notify mfc events.
-> But this function was used only for dump and thus was always setting the
-> flag NLM_F_MULTI, which is wrong in case of a single notification.
-> 
-> Libraries like libnl will wait forever for NLMSG_DONE.
-> 
-> CC: Thomas Graf <tgraf@suug.ch>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+v1->v2: remvoe the comment "TODO: QinQ?".
+	convert pr_xxx() to pr_xxx_ratelimited() for arp interval.
 
-LGTM
+v2->v3: remove the unnecessary log for arp interval and add net ratelimit to
+	avoid spam log.
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+Ding Tianhong (3):
+  vlan: make a new function vlan_dev_vlan_proto() and export
+  bonding: support QinQ for bond arp interval
+  bonding: add net_ratelimt to avoid spam in arp interval
+
+ drivers/net/bonding/bond_main.c | 80 +++++++++++++++++++++++++++--------------
+ drivers/net/bonding/bonding.h   |  5 +++
+ include/linux/if_vlan.h         |  7 ++++
+ net/8021q/vlan_core.c           |  6 ++++
+ 4 files changed, 72 insertions(+), 26 deletions(-)
+
+-- 
+1.8.0
