@@ -1,50 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [RFC] csum experts, csum_replace2() is too expensive
-Date: Thu, 20 Mar 2014 11:49:01 -0700
-Message-ID: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"H.K. Jerry Chu" <hkchu@google.com>,
-	Michael Dalton <mwdalton@google.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: [PATCH net-next] ixgbe: stop PTP before suspending
+Date: Thu, 20 Mar 2014 20:14:32 +0100
+Message-ID: <1395342872-13496-1-git-send-email-kubakici@wp.pl>
+Cc: Jakub Kicinski <kubakici@wp.pl>, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33424 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964846AbaCTStD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 14:49:03 -0400
-Received: by mail-pa0-f51.google.com with SMTP id kq14so1342945pab.10
-        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 11:49:02 -0700 (PDT)
+Received: from mx3.wp.pl ([212.77.101.10]:55721 "EHLO mx3.wp.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756651AbaCTTO7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Mar 2014 15:14:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-csum_replace2() uses about 29 cycles, while a plain ip_send_check() is
-way faster (16 cycles)
+Resume path calls .open but suspend path cannot call .stop because
+fdirs should not be freed and control over hardware should not be
+released until WoL is configured.  To avoid having to duplicate all
+changes made in .stop on suspend path split out part of .stop that
+is relevant during suspend and call it from .stop and during suspend.
 
-csum_partial() is not really meant for doing checksums over 8 bytes !
+This fixes ixgbe_ptp_stop() not being called on suspend and helps
+to avoid similar bugs in the future.
 
-Any idea how to make the thing really fast as intended ?
+Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 27 ++++++++++++++-------------
+ 1 file changed, 14 insertions(+), 13 deletions(-)
 
-I saw csum_partial() consuming 1% of cpu cycles in a GRO workload, that
-is insane...
-
-Following patch might be the fastest thing ?
-
-(At this point we already have validated IP checksum)
-
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 8c54870db792..86c924c16f3c 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1434,8 +1434,8 @@ static int inet_gro_complete(struct sk_buff *skb, int nhoff)
- 	int proto = iph->protocol;
- 	int err = -ENOSYS;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 5029aa9..92bda78 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -5530,6 +5530,17 @@ err_setup_tx:
+ 	return err;
+ }
  
--	csum_replace2(&iph->check, iph->tot_len, newlen);
- 	iph->tot_len = newlen;
-+	ip_send_check(&iph);
++static void ixgbe_close_suspend(struct ixgbe_adapter *adapter)
++{
++	ixgbe_ptp_stop(adapter);
++
++	ixgbe_down(adapter);
++	ixgbe_free_irq(adapter);
++
++	ixgbe_free_all_tx_resources(adapter);
++	ixgbe_free_all_rx_resources(adapter);
++}
++
+ /**
+  * ixgbe_close - Disables a network interface
+  * @netdev: network interface device structure
+@@ -5545,16 +5556,10 @@ static int ixgbe_close(struct net_device *netdev)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
  
- 	rcu_read_lock();
- 	ops = rcu_dereference(inet_offloads[proto]);
+-	ixgbe_ptp_stop(adapter);
+-
+-	ixgbe_down(adapter);
+-	ixgbe_free_irq(adapter);
++	ixgbe_close_suspend(adapter);
+ 
+ 	ixgbe_fdir_filter_exit(adapter);
+ 
+-	ixgbe_free_all_tx_resources(adapter);
+-	ixgbe_free_all_rx_resources(adapter);
+-
+ 	ixgbe_release_hw_control(adapter);
+ 
+ 	return 0;
+@@ -5619,12 +5624,8 @@ static int __ixgbe_shutdown(struct pci_dev *pdev, bool *enable_wake)
+ 	netif_device_detach(netdev);
+ 
+ 	rtnl_lock();
+-	if (netif_running(netdev)) {
+-		ixgbe_down(adapter);
+-		ixgbe_free_irq(adapter);
+-		ixgbe_free_all_tx_resources(adapter);
+-		ixgbe_free_all_rx_resources(adapter);
+-	}
++	if (netif_running(netdev))
++		ixgbe_close_suspend(adapter);
+ 	rtnl_unlock();
+ 
+ 	ixgbe_clear_interrupt_scheme(adapter);
+-- 
+1.8.5.3
