@@ -1,44 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created
- with no group
-Date: Wed, 19 Mar 2014 23:40:08 -0400 (EDT)
-Message-ID: <20140319.234008.1455466461924213265.davem@davemloft.net>
-References: <OFEB1030F8.C147FA77-ON87257C9F.005CF370-87257C9F.005CF375@us.ibm.com>
-	<CAF1J0HOTLvyaWdmYLGLPn9AJLR6rQr4fk8EVFSzv5sckLuBwvw@mail.gmail.com>
-	<OFA5522ACE.EF0D1366-ON87257CA0.00707184-87257CA0.00707189@us.ibm.com>
+Subject: Re: [PATCH net-next,v3] hyperv: Add support for virtual Receive
+ Side Scaling (vRSS)
+Date: Wed, 19 Mar 2014 23:41:46 -0400 (EDT)
+Message-ID: <20140319.234146.1635130348995174527.davem@davemloft.net>
+References: <1395180922-2776-1-git-send-email-haiyangz@microsoft.com>
+ <20140319.164005.1815461875771862691.davem@davemloft.net>
+ <532A1275.2020208@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: mike.rapoport@ravellosystems.com, netdev@vger.kernel.org
-To: dlstevens@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41713 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750742AbaCTDkM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 23:40:12 -0400
-In-Reply-To: <OFA5522ACE.EF0D1366-ON87257CA0.00707184-87257CA0.00707189@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
+ haiyangz@microsoft.com
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <532A1275.2020208@cogentembedded.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-From: David Stevens <dlstevens@us.ibm.com>
-Date: Wed, 19 Mar 2014 14:28:11 -0600
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Thu, 20 Mar 2014 00:56:05 +0300
 
+> Hello.
 > 
+> On 03/19/2014 11:40 PM, David Miller wrote:
 > 
-> -----David Miller <davem@davemloft.net> wrote: -----
+>>> +extern u8 netvsc_hash_key[];
 > 
->>The way I read things, we would receive packets unconditionally in
->>the
->>pre-ipv6-support code. So we have to keep doing so.
+>> We no longer use extern in header file function declarations.
 > 
-> I never tried it, but as there are IP-version-specific processing (the
-> whole reason we need to check to support both), I'd expect
-> that before the v6 support patch, v6-encapsulated packets would have
-> been dropped, or at least mishandled. We accepted all v4 packets,
-> because v4 is all that was supported.
+>    Wait, this is a variable declaration. :-)
 
-I'm not suggesting to mix protocols, I'm suggesting that the IPV4
-path continues to accept all IPV4 packets.
-
-And we know exactly what protocol it is because the vs->rcv() caller
-is going to be ipv4 or ipv6 specific code.
+My bad :)
