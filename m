@@ -1,60 +1,120 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH net-next 2/2] bonding: support QinQ for bond arp interval
-Date: Thu, 20 Mar 2014 10:40:40 +0100
-Message-ID: <20140320094040.GB28839@unicorn.suse.cz>
-References: <1395057975-19084-1-git-send-email-dingtianhong@huawei.com>
- <1395057975-19084-3-git-send-email-dingtianhong@huawei.com>
- <21958.1395078364@death.nxdomain>
- <20140320082414.GA28839@unicorn.suse.cz>
- <532AB503.6020004@huawei.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [net-next 13/15] ixgbe: clean up
+ ixgbe_atr_compute_perfect_hash_82599
+Date: Thu, 20 Mar 2014 09:44:58 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E224D@AcuExch.aculab.com>
+References: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1395304385-6874-14-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <fubar@us.ibm.com>, vfalico@redhat.com,
-	andy@greyhouse.net, kaber@trash.net, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Jacob Keller <jacob.e.keller@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	Arun Sharma <asharma@fb.com>
+To: 'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:46866 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758376AbaCTJkm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Mar 2014 05:40:42 -0400
-Content-Disposition: inline
-In-Reply-To: <532AB503.6020004@huawei.com>
+Received: from mx0.aculab.com ([213.249.233.131]:57022 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S933594AbaCTJqX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 05:46:23 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 03367-02 for <netdev@vger.kernel.org>;
+ Thu, 20 Mar 2014 09:46:18 +0000 (GMT)
+In-Reply-To: <1395304385-6874-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 20, 2014 at 05:29:39PM +0800, Ding Tianhong wrote:
-> On 2014/3/20 16:24, Michal Kubecek wrote:
-> > On Mon, Mar 17, 2014 at 10:46:04AM -0700, Jay Vosburgh wrote:
-> >> Ding Tianhong <dingtianhong@huawei.com> wrote:
-> >>>
-> >>> ip link add link bond0  bond0.20 type vlan proto 802.1ad id 20
-> >>> ip link add link bond0.20  bond0.20.200 type vlan proto 802.1q id 200
-> >>
-> >> 	Is this nesting backwards?  The way I read it (and the way I
-> >> recall that VLANs nest), "bond0.20" is the "regular" VLAN, i.e., if we
-> >> just have bond0.20 it would be a standard 802.1q (ethertype 0x8100)
-> >> VLAN.  Adding the second VLAN, .200 in this example, would be the second
-> >> (outer) tag, and would be the 802.1ad (ethertype 0x88a8) tag.
-> >>
-> >> 	In other words, adding a VLAN to an already existing VLAN makes
-> >> the newly added VLAN the "outer" and the already existing VLAN the
-> >> "inner."  Am I confused?
-> > 
-> > I don't think so. My understanding is that when sending a packet to
-> > a vlan device, it is tagged (according to its "proto") and passed to its
-> > underlying device.
-> > 
-> > So in the case above, sending a packet to bond0.20.200 would add an
-> > 802.1q tag and pass the result to bond0.20 which would add an 802.1ad
-> > tag and pass the result to bond0. Which is the way it should work.
+From: Jeff Kirsher
+> From: Jacob Keller <jacob.e.keller@intel.com>
 > 
-> I agree with your analysis of QinQ for vlan in common usage, but I think you miss
-> something for how the arp interval works, the bonding need to create a new
-> arp request with vlan tag to confirm that the slave should be active or unactive,  
-> the skb could not be passed to bond0.20.200, we have to build QinQ skb ourselves.
+> Rather than assign several parameters in a row, we should use a for
+> loop, which reduces code size.
 
-My comment referred only to the way stacked interfaces are set up in the
-quoted example, not to the original issue.
+And probably increases execution time.
+Especially for the first two blocks.
 
-                                                         Michal Kubecek
+...
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+> b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+> index bdac7bd..34ab2fc 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+> @@ -1597,35 +1597,20 @@ void ixgbe_atr_compute_perfect_hash_82599(union ixgbe_atr_input *input,
+>  {
+> 
+>  	u32 hi_hash_dword, lo_hash_dword, flow_vm_vlan;
+> -	u32 bucket_hash = 0;
+> +	u32 bucket_hash = 0, hi_dword = 0;
+> +	int i;
+> 
+>  	/* Apply masks to input data */
+> -	input->dword_stream[0]  &= input_mask->dword_stream[0];
+> -	input->dword_stream[1]  &= input_mask->dword_stream[1];
+> -	input->dword_stream[2]  &= input_mask->dword_stream[2];
+> -	input->dword_stream[3]  &= input_mask->dword_stream[3];
+> -	input->dword_stream[4]  &= input_mask->dword_stream[4];
+> -	input->dword_stream[5]  &= input_mask->dword_stream[5];
+> -	input->dword_stream[6]  &= input_mask->dword_stream[6];
+> -	input->dword_stream[7]  &= input_mask->dword_stream[7];
+> -	input->dword_stream[8]  &= input_mask->dword_stream[8];
+> -	input->dword_stream[9]  &= input_mask->dword_stream[9];
+> -	input->dword_stream[10] &= input_mask->dword_stream[10];
+> +	for (i = 0; i <= 10; i++)
+> +		input->dword_stream[i] &= input_mask->dword_stream[i];
+> 
+>  	/* record the flow_vm_vlan bits as they are a key part to the hash */
+>  	flow_vm_vlan = ntohl(input->dword_stream[0]);
+> 
+>  	/* generate common hash dword */
+> -	hi_hash_dword = ntohl(input->dword_stream[1] ^
+> -				    input->dword_stream[2] ^
+> -				    input->dword_stream[3] ^
+> -				    input->dword_stream[4] ^
+> -				    input->dword_stream[5] ^
+> -				    input->dword_stream[6] ^
+> -				    input->dword_stream[7] ^
+> -				    input->dword_stream[8] ^
+> -				    input->dword_stream[9] ^
+> -				    input->dword_stream[10]);
+> +	for (i = 1; i <= 10; i++)
+> +		hi_dword ^= input->dword_stream[i];
+> +	hi_hash_dword = ntohl(hi_dword);
+
+If has to be worth doing these ^= at the same time as the & with the mask.
+Especially if the compiler can't assume that 'input' and 'input_mask'
+don't overlap - which forces some strong sequencing on the instructions.
+
+>  	/* low dword is word swapped version of common */
+>  	lo_hash_dword = (hi_hash_dword >> 16) | (hi_hash_dword << 16);
+> @@ -1644,21 +1629,8 @@ void ixgbe_atr_compute_perfect_hash_82599(union ixgbe_atr_input *input,
+>  	lo_hash_dword ^= flow_vm_vlan ^ (flow_vm_vlan << 16);
+> 
+>  	/* Process remaining 30 bit of the key */
+> -	IXGBE_COMPUTE_BKT_HASH_ITERATION(1);
+> -	IXGBE_COMPUTE_BKT_HASH_ITERATION(2);
+> -	IXGBE_COMPUTE_BKT_HASH_ITERATION(3);
+> -	IXGBE_COMPUTE_BKT_HASH_ITERATION(4);
+> -	IXGBE_COMPUTE_BKT_HASH_ITERATION(5);
+> -	IXGBE_COMPUTE_BKT_HASH_ITERATION(6);
+> -	IXGBE_COMPUTE_BKT_HASH_ITERATION(7);
+> -	IXGBE_COMPUTE_BKT_HASH_ITERATION(8);
+> -	IXGBE_COMPUTE_BKT_HASH_ITERATION(9);
+> -	IXGBE_COMPUTE_BKT_HASH_ITERATION(10);
+> -	IXGBE_COMPUTE_BKT_HASH_ITERATION(11);
+> -	IXGBE_COMPUTE_BKT_HASH_ITERATION(12);
+> -	IXGBE_COMPUTE_BKT_HASH_ITERATION(13);
+> -	IXGBE_COMPUTE_BKT_HASH_ITERATION(14);
+> -	IXGBE_COMPUTE_BKT_HASH_ITERATION(15);
+> +	for (i = 1; i <= 15; i++)
+> +		IXGBE_COMPUTE_BKT_HASH_ITERATION(i);
+> 
+>  	/*
+>  	 * Limit hash to 13 bits since max bucket count is 8K.
+> --
+
+	David
