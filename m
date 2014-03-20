@@ -1,159 +1,96 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/15] ixgbe: Stop cacheing if the MNG FW enabled
-Date: Thu, 20 Mar 2014 01:33:04 -0700
-Message-ID: <1395304385-6874-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/15] ixgbe: fix ixgbe_setup_mac_link_82599 autoc variables
+Date: Thu, 20 Mar 2014 01:33:00 -0700
+Message-ID: <1395304385-6874-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Arun Sharma <asharma@fb.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:8065 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:8080 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756012AbaCTId6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Mar 2014 04:33:58 -0400
+	id S1755853AbaCTIdx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Mar 2014 04:33:53 -0400
 In-Reply-To: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-We use to cache whether the MNG FW was enabled, how since this isn't
-static we really need to verify with each check.  This patch makes that
-change.
+This patch fixes flow control autonegotiation for KR/KX/K4 interfaces.
+When setting up MAC link, the cached autoc value and current autoc value
+were being incorrectly used to determine whether link reset is required.
+This resulted in the driver ignoring and discarding flow control
+negotiation changes that occur since the caching happened, as well as
+when the mac was being setup.
+
+This patch also splits the assignments for the 3 autoc variables into
+their own block, and adds a comment explaining what each one means, in
+order to help keep logic more straightforward while reading the code.
 
 CC: Arun Sharma <asharma@fb.com>
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Reported-by: Sourav Chatterjee <sourav.chatterjee@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  | 1 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  | 7 +++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h | 1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 6 +-----
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   | 2 --
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   | 1 -
- 6 files changed, 5 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 22 ++++++++++++----------
+ 1 file changed, 12 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index 7fe2254..4c78ea8 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -1315,7 +1315,6 @@ static struct ixgbe_mac_operations mac_ops_82598 = {
- 	.release_swfw_sync      = &ixgbe_release_swfw_sync,
- 	.get_thermal_sensor_data = NULL,
- 	.init_thermal_sensor_thresh = NULL,
--	.mng_fw_enabled		= NULL,
- 	.prot_autoc_read	= &prot_autoc_read_generic,
- 	.prot_autoc_write	= &prot_autoc_write_generic,
- };
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index 34ab2fc..f32b3dd 100644
+index ef808bc..e0fe8e8 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -67,7 +67,7 @@ static s32 ixgbe_write_i2c_byte_82599(struct ixgbe_hw *hw, u8 byte_offset,
- static s32 ixgbe_reset_pipeline_82599(struct ixgbe_hw *hw);
- static bool ixgbe_verify_lesm_fw_enabled_82599(struct ixgbe_hw *hw);
- 
--static bool ixgbe_mng_enabled(struct ixgbe_hw *hw)
-+bool ixgbe_mng_enabled(struct ixgbe_hw *hw)
+@@ -1031,15 +1031,19 @@ static s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
+ 				      ixgbe_link_speed speed,
+ 				      bool autoneg_wait_to_complete)
  {
- 	u32 fwsm, manc, factps;
++	bool autoneg = false;
+ 	s32 status = 0;
+-	u32 autoc, pma_pmd_1g, link_mode, start_autoc;
++	u32 pma_pmd_1g, link_mode, links_reg, i;
+ 	u32 autoc2 = IXGBE_READ_REG(hw, IXGBE_AUTOC2);
+-	u32 orig_autoc = 0;
+ 	u32 pma_pmd_10g_serial = autoc2 & IXGBE_AUTOC2_10G_SERIAL_PMA_PMD_MASK;
+-	u32 links_reg;
+-	u32 i;
+ 	ixgbe_link_speed link_capabilities = IXGBE_LINK_SPEED_UNKNOWN;
+-	bool autoneg = false;
++
++	/* holds the value of AUTOC register at this current point in time */
++	u32 current_autoc = IXGBE_READ_REG(hw, IXGBE_AUTOC);
++	/* holds the cached value of AUTOC register */
++	u32 orig_autoc = 0;
++	/* temporary variable used for comparison purposes */
++	u32 autoc = current_autoc;
  
-@@ -94,7 +94,7 @@ static void ixgbe_init_mac_link_ops_82599(struct ixgbe_hw *hw)
- 	 * and MNG not enabled
- 	 */
- 	if ((mac->ops.get_media_type(hw) == ixgbe_media_type_fiber) &&
--	    !hw->mng_fw_enabled) {
-+	    !ixgbe_mng_enabled(hw)) {
- 		mac->ops.disable_tx_laser =
- 		                       &ixgbe_disable_tx_laser_multispeed_fiber;
- 		mac->ops.enable_tx_laser =
-@@ -1206,7 +1206,7 @@ mac_reset_top:
- 		 * Likewise if we support WoL we don't want change the
- 		 * LMS state either.
- 		 */
--		if ((hw->phy.multispeed_fiber && hw->mng_fw_enabled) ||
-+		if ((hw->phy.multispeed_fiber && ixgbe_mng_enabled(hw)) ||
- 		    hw->wol_enabled)
- 			hw->mac.orig_autoc =
- 				(hw->mac.orig_autoc & ~IXGBE_AUTOC_LMS_MASK) |
-@@ -2500,7 +2500,6 @@ static struct ixgbe_mac_operations mac_ops_82599 = {
- 	.release_swfw_sync      = &ixgbe_release_swfw_sync,
- 	.get_thermal_sensor_data = &ixgbe_get_thermal_sensor_data_generic,
- 	.init_thermal_sensor_thresh = &ixgbe_init_thermal_sensor_thresh_generic,
--	.mng_fw_enabled		= &ixgbe_mng_enabled,
- 	.prot_autoc_read	= &prot_autoc_read_82599,
- 	.prot_autoc_write	= &prot_autoc_write_82599,
- };
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index afa1cda..f12c40f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -111,6 +111,7 @@ s32 ixgbe_get_device_caps_generic(struct ixgbe_hw *hw, u16 *device_caps);
- s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
- 				 u8 build, u8 ver);
- void ixgbe_clear_tx_pending(struct ixgbe_hw *hw);
-+bool ixgbe_mng_enabled(struct ixgbe_hw *hw);
+ 	/* Check to see if speed passed in is supported. */
+ 	status = hw->mac.ops.get_link_capabilities(hw, &link_capabilities,
+@@ -1056,12 +1060,10 @@ static s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
  
- void ixgbe_set_rxpba_generic(struct ixgbe_hw *hw, int num_pb,
- 			     u32 headroom, int strategy);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 02271f6..354771f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8038,10 +8038,6 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (err)
- 		goto err_sw_init;
+ 	/* Use stored value (EEPROM defaults) of AUTOC to find KR/KX4 support*/
+ 	if (hw->mac.orig_link_settings_stored)
+-		autoc = hw->mac.orig_autoc;
++		orig_autoc = hw->mac.orig_autoc;
+ 	else
+-		autoc = IXGBE_READ_REG(hw, IXGBE_AUTOC);
++		orig_autoc = autoc;
  
--	/* Cache if MNG FW is up so we don't have to read the REG later */
--	if (hw->mac.ops.mng_fw_enabled)
--		hw->mng_fw_enabled = hw->mac.ops.mng_fw_enabled(hw);
--
- 	/* Make it possible the adapter to be woken up via WOL */
- 	switch (adapter->hw.mac.type) {
- 	case ixgbe_mac_82599EB:
-@@ -8292,7 +8288,7 @@ skip_sriov:
- 	ixgbe_dbg_adapter_init(adapter);
+-	orig_autoc = autoc;
+-	start_autoc = IXGBE_READ_REG(hw, IXGBE_AUTOC);
+ 	link_mode = autoc & IXGBE_AUTOC_LMS_MASK;
+ 	pma_pmd_1g = autoc & IXGBE_AUTOC_1G_PMA_PMD_MASK;
  
- 	/* Need link setup for MNG FW, else wait for IXGBE_UP */
--	if (hw->mng_fw_enabled && hw->mac.ops.setup_link)
-+	if (ixgbe_mng_enabled(hw) && hw->mac.ops.setup_link)
- 		hw->mac.ops.setup_link(hw,
- 			IXGBE_LINK_SPEED_10GB_FULL | IXGBE_LINK_SPEED_1GB_FULL,
- 			true);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index b5408eb..8a6ff24 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -2921,7 +2921,6 @@ struct ixgbe_mac_operations {
- 	s32 (*set_fw_drv_ver)(struct ixgbe_hw *, u8, u8, u8, u8);
- 	s32 (*get_thermal_sensor_data)(struct ixgbe_hw *);
- 	s32 (*init_thermal_sensor_thresh)(struct ixgbe_hw *hw);
--	bool (*mng_fw_enabled)(struct ixgbe_hw *hw);
- };
+@@ -1101,7 +1103,7 @@ static s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
+ 		}
+ 	}
  
- struct ixgbe_phy_operations {
-@@ -3052,7 +3051,6 @@ struct ixgbe_hw {
- 	bool				adapter_stopped;
- 	bool				force_full_reset;
- 	bool				allow_unsupported_sfp;
--	bool				mng_fw_enabled;
- 	bool				wol_enabled;
- };
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index 2e0e5ec..188a597 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -855,7 +855,6 @@ static struct ixgbe_mac_operations mac_ops_X540 = {
- 	.enable_rx_buff		= &ixgbe_enable_rx_buff_generic,
- 	.get_thermal_sensor_data = NULL,
- 	.init_thermal_sensor_thresh = NULL,
--	.mng_fw_enabled		= NULL,
- 	.prot_autoc_read	= &prot_autoc_read_generic,
- 	.prot_autoc_write	= &prot_autoc_write_generic,
- };
+-	if (autoc != start_autoc) {
++	if (autoc != current_autoc) {
+ 		/* Restart link */
+ 		status = hw->mac.ops.prot_autoc_write(hw, autoc, false);
+ 		if (status)
 -- 
 1.8.3.1
