@@ -1,7 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next v3 0/9] ptp: dynamic pin control
-Date: Thu, 20 Mar 2014 22:21:51 +0100
-Message-ID: <cover.1395350105.git.richardcochran@gmail.com>
+Subject: [PATCH net-next v3 3/9] ptp: expose the programmable pins via sysfs
+Date: Thu, 20 Mar 2014 22:21:54 +0100
+Message-ID: <48949941433ee0ce66aa45cc8e6b06102d0cf78e.1395350113.git.richardcochran@gmail.com>
+References: <cover.1395350105.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>,
 	Ben Hutchings <ben@decadent.org.uk>,
 	Christian Riesch <christian.riesch@omicron.at>,
@@ -10,77 +11,229 @@ Cc: <linux-kernel@vger.kernel.org>,
 	<stefan.sorensen@spectralink.com>
 To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1395350105.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch series introduces a way of changing the auxiliary PTP
-Hardware Clock functions (periodic output signals and time stamping
-external signals) at run time. In the past on the netdev list, we have
-discussed other ways to handle this, such as module parameters and
-ethtool. This series implements a new PHC ioctl because that is the
-most natural way. Users already activate the auxiliary functions via
-the ioctls. The sysfs interface has also been expanded so that the pin
-configuration can be programmed using shell scripts.
+This patch adds the sysfs hooks needed in order to get and set the
+programmable pin settings.
 
-The first patch adds the new ioctls. The PHC subsystem does most of
-the work of maintaining the function-to-pin mapping. Drivers will only
-need to allocate and initialize a pin configuration table and also
-provide a new method that validates a particular assignment.
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+---
+ Documentation/ABI/testing/sysfs-ptp |   20 ++++++
+ drivers/ptp/ptp_private.h           |    3 +
+ drivers/ptp/ptp_sysfs.c             |  115 +++++++++++++++++++++++++++++++++++
+ 3 files changed, 138 insertions(+)
 
-Patches 5 and 6 just clean up a couple of issues in the phyter driver,
-and the remaining patches actually hook the phyter's pins into the new
-system.
-
-Comments and questions are most welcome.
-
-Thanks,
-Richard
-
-* ChangeLog
-** V3
-   - simplify locking in the set pin logic
-** V2
-   - fix bug in sysfs code on init error path
-   - rename ptp_setpin() to ptp_set_pinfunc()
-   - rename .setpin() to .verify() in the driver interface
-   - simplify ptp_find_pin() logic
-   - use correct test when checking whether the pin with the
-     calibration function is being reprogrammed
-
-Richard Cochran (9):
-  ptp: introduce programmable pins.
-  ptp: add the pin GET/SETFUNC ioctls to the testptp program.
-  ptp: expose the programmable pins via sysfs
-  ptp: drivers: set the number of programmable pins.
-  dp83640: trivial fixes
-  dp83640: correct the periodic output frequency
-  dp83640: implement programmable pin functions.
-  dp83640: let external input pins from the module parameters be
-    defaults.
-  dp83640: let the periodic pin from the module parameter be a default.
-
- Documentation/ABI/testing/sysfs-ptp              |   20 ++++
- Documentation/ptp/testptp.c                      |   58 +++++++++-
- drivers/net/ethernet/adi/bfin_mac.c              |    1 +
- drivers/net/ethernet/broadcom/tg3.c              |    1 +
- drivers/net/ethernet/freescale/fec_ptp.c         |    1 +
- drivers/net/ethernet/freescale/gianfar_ptp.c     |    1 +
- drivers/net/ethernet/intel/e1000e/ptp.c          |    1 +
- drivers/net/ethernet/mellanox/mlx4/en_clock.c    |    1 +
- drivers/net/ethernet/sfc/ptp.c                   |    1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c |    1 +
- drivers/net/ethernet/ti/cpts.c                   |    1 +
- drivers/net/ethernet/tile/tilegx.c               |    1 +
- drivers/net/phy/dp83640.c                        |   93 +++++++++++++---
- drivers/ptp/ptp_chardev.c                        |  128 +++++++++++++++++++++-
- drivers/ptp/ptp_clock.c                          |   23 ++++
- drivers/ptp/ptp_ixp46x.c                         |    1 +
- drivers/ptp/ptp_pch.c                            |    1 +
- drivers/ptp/ptp_private.h                        |    8 ++
- drivers/ptp/ptp_sysfs.c                          |  115 +++++++++++++++++++
- include/linux/ptp_clock_kernel.h                 |   33 ++++++
- include/uapi/linux/ptp_clock.h                   |   39 ++++++-
- 21 files changed, 509 insertions(+), 20 deletions(-)
-
+diff --git a/Documentation/ABI/testing/sysfs-ptp b/Documentation/ABI/testing/sysfs-ptp
+index 05aeedf..44806a6 100644
+--- a/Documentation/ABI/testing/sysfs-ptp
++++ b/Documentation/ABI/testing/sysfs-ptp
+@@ -54,6 +54,26 @@ Description:
+ 		This file contains the number of programmable periodic
+ 		output channels offered by the PTP hardware clock.
+ 
++What:		/sys/class/ptp/ptpN/n_pins
++Date:		March 2014
++Contact:	Richard Cochran <richardcochran@gmail.com>
++Description:
++		This file contains the number of programmable pins
++		offered by the PTP hardware clock.
++
++What:		/sys/class/ptp/ptpN/pins
++Date:		March 2014
++Contact:	Richard Cochran <richardcochran@gmail.com>
++Description:
++		This directory contains one file for each programmable
++		pin offered by the PTP hardware clock. The file name
++		is the hardware dependent pin name. Reading from this
++		file produces two numbers, the assigned function (see
++		the PTP_PF_ enumeration values in linux/ptp_clock.h)
++		and the channel number. The function and channel
++		assignment may be changed by two writing numbers into
++		the file.
++
+ What:		/sys/class/ptp/ptpN/pps_avaiable
+ Date:		September 2010
+ Contact:	Richard Cochran <richardcochran@gmail.com>
+diff --git a/drivers/ptp/ptp_private.h b/drivers/ptp/ptp_private.h
+index b114a84..9c5d414 100644
+--- a/drivers/ptp/ptp_private.h
++++ b/drivers/ptp/ptp_private.h
+@@ -51,6 +51,9 @@ struct ptp_clock {
+ 	struct mutex pincfg_mux; /* protect concurrent info->pin_config access */
+ 	wait_queue_head_t tsev_wq;
+ 	int defunct; /* tells readers to go away when clock is being removed */
++	struct device_attribute *pin_dev_attr;
++	struct attribute **pin_attr;
++	struct attribute_group pin_attr_group;
+ };
+ 
+ /*
+diff --git a/drivers/ptp/ptp_sysfs.c b/drivers/ptp/ptp_sysfs.c
+index 13ec531..302e626 100644
+--- a/drivers/ptp/ptp_sysfs.c
++++ b/drivers/ptp/ptp_sysfs.c
+@@ -18,6 +18,7 @@
+  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+  */
+ #include <linux/capability.h>
++#include <linux/slab.h>
+ 
+ #include "ptp_private.h"
+ 
+@@ -42,6 +43,7 @@ PTP_SHOW_INT(max_adjustment, max_adj);
+ PTP_SHOW_INT(n_alarms, n_alarm);
+ PTP_SHOW_INT(n_external_timestamps, n_ext_ts);
+ PTP_SHOW_INT(n_periodic_outputs, n_per_out);
++PTP_SHOW_INT(n_programmable_pins, n_pins);
+ PTP_SHOW_INT(pps_available, pps);
+ 
+ static struct attribute *ptp_attrs[] = {
+@@ -50,6 +52,7 @@ static struct attribute *ptp_attrs[] = {
+ 	&dev_attr_n_alarms.attr,
+ 	&dev_attr_n_external_timestamps.attr,
+ 	&dev_attr_n_periodic_outputs.attr,
++	&dev_attr_n_programmable_pins.attr,
+ 	&dev_attr_pps_available.attr,
+ 	NULL,
+ };
+@@ -175,6 +178,63 @@ out:
+ 	return err;
+ }
+ 
++static int ptp_pin_name2index(struct ptp_clock *ptp, const char *name)
++{
++	int i;
++	for (i = 0; i < ptp->info->n_pins; i++) {
++		if (!strcmp(ptp->info->pin_config[i].name, name))
++			return i;
++	}
++	return -1;
++}
++
++static ssize_t ptp_pin_show(struct device *dev, struct device_attribute *attr,
++			    char *page)
++{
++	struct ptp_clock *ptp = dev_get_drvdata(dev);
++	unsigned int func, chan;
++	int index;
++
++	index = ptp_pin_name2index(ptp, attr->attr.name);
++	if (index < 0)
++		return -EINVAL;
++
++	if (mutex_lock_interruptible(&ptp->pincfg_mux))
++		return -ERESTARTSYS;
++
++	func = ptp->info->pin_config[index].func;
++	chan = ptp->info->pin_config[index].chan;
++
++	mutex_unlock(&ptp->pincfg_mux);
++
++	return snprintf(page, PAGE_SIZE, "%u %u\n", func, chan);
++}
++
++static ssize_t ptp_pin_store(struct device *dev, struct device_attribute *attr,
++			     const char *buf, size_t count)
++{
++	struct ptp_clock *ptp = dev_get_drvdata(dev);
++	unsigned int func, chan;
++	int cnt, err, index;
++
++	cnt = sscanf(buf, "%u %u", &func, &chan);
++	if (cnt != 2)
++		return -EINVAL;
++
++	index = ptp_pin_name2index(ptp, attr->attr.name);
++	if (index < 0)
++		return -EINVAL;
++
++	if (mutex_lock_interruptible(&ptp->pincfg_mux))
++		return -ERESTARTSYS;
++	err = ptp_set_pinfunc(ptp, index, func, chan);
++	mutex_unlock(&ptp->pincfg_mux);
++	if (err)
++		return err;
++
++	return count;
++}
++
+ static DEVICE_ATTR(extts_enable, 0220, NULL, extts_enable_store);
+ static DEVICE_ATTR(fifo,         0444, extts_fifo_show, NULL);
+ static DEVICE_ATTR(period,       0220, NULL, period_store);
+@@ -195,9 +255,56 @@ int ptp_cleanup_sysfs(struct ptp_clock *ptp)
+ 	if (info->pps)
+ 		device_remove_file(dev, &dev_attr_pps_enable);
+ 
++	if (info->n_pins) {
++		sysfs_remove_group(&dev->kobj, &ptp->pin_attr_group);
++		kfree(ptp->pin_attr);
++		kfree(ptp->pin_dev_attr);
++	}
+ 	return 0;
+ }
+ 
++static int ptp_populate_pins(struct ptp_clock *ptp)
++{
++	struct device *dev = ptp->dev;
++	struct ptp_clock_info *info = ptp->info;
++	int err = -ENOMEM, i, n_pins = info->n_pins;
++
++	ptp->pin_dev_attr = kzalloc(n_pins * sizeof(*ptp->pin_dev_attr),
++				    GFP_KERNEL);
++	if (!ptp->pin_dev_attr)
++		goto no_dev_attr;
++
++	ptp->pin_attr = kzalloc((1 + n_pins) * sizeof(struct attribute *),
++				GFP_KERNEL);
++	if (!ptp->pin_attr)
++		goto no_pin_attr;
++
++	for (i = 0; i < n_pins; i++) {
++		struct device_attribute *da = &ptp->pin_dev_attr[i];
++		sysfs_attr_init(&da->attr);
++		da->attr.name = info->pin_config[i].name;
++		da->attr.mode = 0644;
++		da->show = ptp_pin_show;
++		da->store = ptp_pin_store;
++		ptp->pin_attr[i] = &da->attr;
++	}
++
++	ptp->pin_attr_group.name = "pins";
++	ptp->pin_attr_group.attrs = ptp->pin_attr;
++
++	err = sysfs_create_group(&dev->kobj, &ptp->pin_attr_group);
++	if (err)
++		goto no_group;
++	return 0;
++
++no_group:
++	kfree(ptp->pin_attr);
++no_pin_attr:
++	kfree(ptp->pin_dev_attr);
++no_dev_attr:
++	return err;
++}
++
+ int ptp_populate_sysfs(struct ptp_clock *ptp)
+ {
+ 	struct device *dev = ptp->dev;
+@@ -222,7 +329,15 @@ int ptp_populate_sysfs(struct ptp_clock *ptp)
+ 		if (err)
+ 			goto out4;
+ 	}
++	if (info->n_pins) {
++		err = ptp_populate_pins(ptp);
++		if (err)
++			goto out5;
++	}
+ 	return 0;
++out5:
++	if (info->pps)
++		device_remove_file(dev, &dev_attr_pps_enable);
+ out4:
+ 	if (info->n_per_out)
+ 		device_remove_file(dev, &dev_attr_period);
 -- 
 1.7.10.4
