@@ -1,41 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] tcp: syncookies: do not use getnstimeofday()
-Date: Thu, 20 Mar 2014 13:07:39 -0700
-Message-ID: <1395346059.9114.95.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1395261524.9114.60.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1395263181.9114.69.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1395288141.9114.82.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140320.153645.1726836204043973392.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] gianfar: Fix P1010 config regression (SQ
+ polling)
+Date: Thu, 20 Mar 2014 16:09:44 -0400 (EDT)
+Message-ID: <20140320.160944.268619450160968028.davem@davemloft.net>
+References: <1395236379-16116-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: claudiu.manoil@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:40452 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757901AbaCTUHl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 16:07:41 -0400
-Received: by mail-pd0-f173.google.com with SMTP id z10so1384002pdj.4
-        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 13:07:41 -0700 (PDT)
-In-Reply-To: <20140320.153645.1726836204043973392.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51004 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759323AbaCTUJq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 16:09:46 -0400
+In-Reply-To: <1395236379-16116-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-03-20 at 15:36 -0400, David Miller wrote:
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Date: Wed, 19 Mar 2014 15:39:39 +0200
 
-> This applies cleanly to net-next, but with this Fixes: tag I sort of
-> suspect you are targetting this at net instead?
+> The P1010 device tree restricts the number of
+> supported interrupt groups to 1, although the eth
+> controller can support 2 interrupt groups and the
+> driver assumes the Multi-Group mode ("fsl,etsec2" model).
 > 
-> Please be explicit as to what the target tree is when submitting
-> patches in the future.
+> So, in this case the assumption that the Multi-Group
+> mode (MQ_MG_MODE) devices always support 2 interrupt
+> groups is false.  To fix this, a check for the actual
+> number of interrupt groups enabled in the board's
+> device tree has been added in gfar_probe for the
+> "fsl,etsec2" devices.
+> 
+> Without this fix, P1010 based boards claim support for
+> 2 Tx queues to the net stack but only one is actually
+> allocated, leading to NULL access in xmit.  This issue
+> was introduced by enabling Single-Queue polling for
+> the P1010 devices.
+> 
+> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 
-Well, I've always tagged net-next patches with net-next, and used no tag
-for fixes.
+Please repost this, referencing the specific commit that introduced
+the regression.  Either inline in the commit message, or using
+the standard "Fixes: " tag right before your signoff.
 
-If you want me to add net tag, I am totally fine.
-
-So yes, this was a fix for net tree, but there is no hurry if you
-applied to net-next its also fine.
-
-Thanks
+Thank you.
