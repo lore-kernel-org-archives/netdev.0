@@ -1,26 +1,34 @@
-From: "Skye Loan Finance Limited" <lieslv@gwisa.com>
-Subject: Get Online Loan
-Date: Wed, 19 Feb 2014 15:11:08 -0500
-Message-ID: <20140218214106.0150E326F7@serverelintec.it>
-Reply-To: kye-loan-finance@slf-online.com
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH 0/9] Replace rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x,NULL)
+Date: Thu, 20 Mar 2014 15:58:52 +0100
+Message-ID: <532B022C.8010505@broadcom.com>
+References: <cover.1395324808.git.monamagarwal123@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: lieslv@gwisa.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host27-145-static.87-94-b.business.telecomitalia.it ([94.87.145.27]:33083
-	"EHLO serverelintec.it" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933508AbaCTOyX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 10:54:23 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <eddie.wai@broadcom.com>,
+	<paulmck@linux.vnet.ibm.com>
+To: Monam Agarwal <monamagarwal123@gmail.com>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1395324808.git.monamagarwal123@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-You are welcome to Skye Loan Finance Limited is an independent financial institution. 
-We have built up an excellent reputation over the years in
-providing various types of loans to thousands of our customers.
-We Offer guaranteed loan services of any amount to citizens and non-citizens at 3% interest rate per year. At Skye Loan Finance Limited, we offer easy personal loans, commercial/business loan, car loan,leasing/equipment finance, debt consolidation loan, home loan, for all citizens and non-citizens with either a good or bad credit history. If you are interested in our above loan offer, let Skye Loan Finance Limited, assist you today...
+On 20/03/14 15:37, Monam Agarwal wrote:
+> This patchset uses following coccinelle script to replace
+> rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x,NULL)
+>
+> @@
+> expression E;
+> @@
+> - rcu_assign_pointer(
+> + RCU_INIT_POINTER(
+> E, NULL)
 
-Mrs Tina Weeks
-E-mail:skye-loan-finance@slf-online.com or
-      customercareskyeloanfinance@gmail.com
+I am not very familiar with rcu functionality nor coccinelle, but it 
+looks too generic. I would think only NULL assignments during 
+initialization should use RCU_INIT_POINTER(). The first patch in the 
+series does it in a function called unregister_...(). Is it really ok to 
+do there?
+
+Gr. AvS
