@@ -1,108 +1,101 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Thu, 20 Mar 2014 10:21:10 -0700
-Message-ID: <CAGVrzcbqQGGYb2Wkkekei7ivGd2XOnE+5GthLUv6_nD_oicrSQ@mail.gmail.com>
-References: <1395243232-32630-1-git-send-email-jiri@resnulli.us>
- <532AD5B3.6020205@mojatatu.com> <20140320124021.GA2946@minipsycho.orion>
+From: Byungho An <bh74.an@samsung.com>
+Subject: [PATCH V8 0/7] add new Samsung SXGBE driver
+Date: Thu, 20 Mar 2014 10:25:54 -0700
+Message-ID: <012c01cf4461$75af8f70$610eae50$@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: 'David Miller' <davem@davemloft.net>,
+	'GIRISH K S' <ks.giri@samsung.com>,
+	'SIVAREDDY KALLAM' <siva.kallam@samsung.com>,
+	'Vipul Chandrakant' <vipul.pandya@samsung.com>,
+	'Ilho Lee' <ilho215.lee@samsung.com>
+To: 'netdev' <netdev@vger.kernel.org>,
+	linux-samsung-soc@vger.kernel.org, devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:58408 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751685AbaCTRVv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 13:21:51 -0400
-Received: by mail-pd0-f171.google.com with SMTP id r10so1202512pdi.30
-        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 10:21:50 -0700 (PDT)
-In-Reply-To: <20140320124021.GA2946@minipsycho.orion>
+Received: from mailout3.samsung.com ([203.254.224.33]:53620 "EHLO
+	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758738AbaCTR0E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 13:26:04 -0400
+Content-language: en-us
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-03-20 5:40 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
-> Thu, Mar 20, 2014 at 12:49:07PM CET, jhs@mojatatu.com wrote:
->>Hi Jiri,
->>
->>On 03/19/14 11:33, Jiri Pirko wrote:
->>>This is just an early draft, RFC. I wanted to post this early to get the
->>>feedback as soon as possible.
->>>
->>>The basic idea is to introduce a generic infractructure to support various
->>>switch chips in kernel. Also the idea is to benefit of currently existing
->>>Open vSwitch userspace infrastructure.
->>>
->>
->>
->>I think the abstraction should be a netdev and to be specific the
->>bridge - not openvswitch. Our current tools like ifconfig, iproute2,
->>bridge etc should continue to work.
->
-> That is exactly the case. Nothing is specific to OVS. OVS is just a one
-> method to access the switchdev api.
->
-> Abstraction is netdev. One netdev per each switch port and one netdev as
-> a master on the top of that representing the switch itself.
->
->
->>In my experience, it is sufficient to model a switch after the linux
->>bridge at the basic level if the starting point is
->>L2 (which is the lowest common denominator).
->>And then you add capabilities that different chips expose.
->>Not every chip can do vxlan, flows etc. And we already know how
->>to abstract those out.
->>My  experience on top of broadcom chips is the approach i described
->>works rather well.
->>
->>Additionally, note:
->>We do have L2 devices that offload in the kernel
->>(refer to DSA, posting earlier from the openwrt guys, and
->>the intel devices which do VDMQ etc). I am now counting we have 5
->>different approaches if we add yours.
->
-> I think that the problem is that each solution serves different purpose.
-> For example DSA is for switches connected as a PHY to a MAC. That is
-> completely different case to what my switchdev API is trying to handle.
+Hi all,
 
-I agree with Jamal here, we should try to find a solution that fits
-most users here, it seems to me like there are 3 switches categories:
+This is 8th posting for SAMSUNG SXGBE driver.
 
-- entreprise built-in switches in NICs that support VF/PF
-- embedded/entreprise switches that support tagging (Marvell eDSA/DSA,
-Broadcom tags)
-- embedded switches that only support 802.1q VLANs
+Changes since v1:
+- changed name of driver to SXGbE as per Ben's comment
+- squashed Joe's neatening for many stuff in original patches
 
-The first category is more flow-oriented than control-oriented,
-whereas the last two are more "event and control" oriented where you
-usually have a system where the switch will be configured not to flood
-the CPU port if possible, but when it does, this is to perform
-specific configuration (address learning, port protection, snooping,
-authorization...).
+Changes since v2:
+- updated and split binding document as per Mark's comment
+- clean up codes as per Joe's comment
+- removed unused fields and clean up codes as per Francois's comment
+- removed module parameters as per Dave's comment
+- moved driver directory to samsung/sxgbe/
 
-DSA is not designed specifically for switches which are connected to a
-MAC and appear as a regular PHY, this is how it first started, but
-nothing prevents you from using DSA with a switch that is e.g: memory
-mapped into your CPU register space, MDIO is just the transport for
-the control part.
+Changes since v3:
+- fixed Missing a blank line after declarations as per Dave's comment
+- clean up codes as per Joe's comment
+- removed reference of net_device.{irq, base_addr} as per Francois's comment
 
-For instance, if my switches support a N-bytes tag that will give me a
-reason code for receiving this frame, and a bitmap representing the
-originating port, how would you imagine this fitting into the
-openvswitch/switchdev model, aside from the netdev per-port? Do you
-think we could easily migrate existing DSA users to
-openvswitch/switchdev by handling the custom switch tag?
--- 
-Florian
+Changes since v4:
+- updated binding document and DT related function as per Mark's comment
+
+Changes since v5:
+- updated binding document and DT related function as per Florian's comment
+- fixed typo and shortened code as per Joe's comment
+
+Changes since v6:
+- updated TSO related functions as per Rayagond's comment
+- updated binding document as per Mark's comment
+- removed WoL patch from this patch set
+
+Changes since v7:
+- updated TSO related functions as per Rayagond's comment
+
+Byungho An (1):
+      MAINTAINERS: add maintainer for Samsung sxgbe driver
+
+Girish K S (1):
+      net: sxgbe: add EEE(Energy Efficient Ethernet) for Samsung sxgbe
+
+Siva Reddy (2):
+      sxgbe: Add device-tree binding support document
+      net: sxgbe: add basic framework for Samsung 10Gb ethernet driver
+
+Vipul Pandya (3):
+      net: sxgbe: add TSO support for Samsung sxgbe
+      net: sxgbe: add Checksum offload support for Samsung sxgbe
+      net: sxgbe: add ethtool related functions support Samsung sxgbe
+
+ .../devicetree/bindings/net/samsung-sxgbe.txt      |   60 +
+ MAINTAINERS                                        |    9 +
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/samsung/Kconfig               |   20 +
+ drivers/net/ethernet/samsung/Makefile              |    5 +
+ drivers/net/ethernet/samsung/sxgbe/Kconfig         |    9 +
+ drivers/net/ethernet/samsung/sxgbe/Makefile        |    4 +
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h  |  539 +++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c    |  261 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.c    |  515 +++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h    |  298 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c     |  387 ++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h     |   51 +
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c |  588 +++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c    | 2316 ++++++++++++++++++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_mdio.c    |  271 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c     |  252 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.h     |  104 +
+ .../net/ethernet/samsung/sxgbe/sxgbe_platform.c    |  262 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h     |  488 +++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.c    |   92 +
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.h    |   38 +
+ include/linux/sxgbe_platform.h                     |   54 +
+ 24 files changed, 6625 insertions(+)
+
+Thanks,
+Byungho An
