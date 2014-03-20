@@ -1,91 +1,64 @@
-From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Subject: Re: [PATCH] [PATCH v2] sh_eth: ensure pm_runtime cannot suspend the device during init
-Date: Thu, 20 Mar 2014 12:55:29 +0100
-Message-ID: <1651225.dIHP4GJALN@avalon>
-References: <1395308007-13956-1-git-send-email-ben.dooks@codethink.co.uk>
+From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Subject: RE: [PATCH v5 net-next 0/2] patchset: Support for configurable RSS
+ hash key
+Date: Thu, 20 Mar 2014 12:02:11 +0000
+Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C8968A5@CMEXMB1.ad.emulex.com>
+References: <193620ac-855b-4c2a-b9ab-962b2edfbfa2@CMEXHTCAS2.ad.emulex.com>
+ <20140319.155930.1805664690676428310.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-kernel@lists.codethink.co.uk, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org, davem@davemloft.net,
-	sergei.shtylyov@cogentembedded.com,
-	laurent.pinchart+renesas@ideasonboard.com
-To: Ben Dooks <ben.dooks@codethink.co.uk>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1395308007-13956-1-git-send-email-ben.dooks@codethink.co.uk>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Ben Hutchings (ben@decadent.org.uk)" <ben@decadent.org.uk>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:15032 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750916AbaCTMCN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 08:02:13 -0400
+In-Reply-To: <20140319.155930.1805664690676428310.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Ben,
+> > NIC drivers that support RSS use either a hard-coded value or a random
+> > value for the RSS hash key. Irrespective of the type of the key used,
+> > the user would want to change the hash key if he/she is not satisfied
+> > with the effectiveness of the default hash-key in spreading the incoming flows
+> evenly across the RSS queues.
+> >
+> > This patch set adds support for configuring the RSS hash-key via the
+> > ethtool interface using -X option.
+> 
+> I apologize, but I really dislike this.  For several reasons.
+> 
+> First, why aren't we adding _just_ a RSS hash changing interface?
+> 
+> We already have an interface for changing the indirection table, there is
+> absolutely not need to add a second interface that supports both indirection
+> table _plus_ hash modifications.
+> 
+> And combining these two is what leads to this hard to audit, ugly, data structure
+> layout.
+> 
+> There's the indirection table at some offset, then the key at some other offset.
+> This makes it impossible to impose type checking of any kind on both objects.
+> 
+> And the data structure is furthermore named in a way that suggests it's just for
+> doing things with the RSS hash.
+> 
+> Just add:
+> 
+> struct ethtool_rxfh {
+> 	__u32	cmd;
+> 	__u32	key_size;
+> 	__u32	key[0];
+> };
+> 
+> And that's it.
+> 
+> To change the indirection table, call "ETHTOOL_SRXFH".  To set the RSS flow
+> hash, call "ETHTOOL_SRSSH".
 
-Thank you for the patch.
-
-On Thursday 20 March 2014 10:33:27 Ben Dooks wrote:
-> The pm_rumtime work queue is causing the device to be suspended during
-> initialisation, thus the initialisation may not be able to access registers
-> properly. As the code is called from a work queue, it is possible that this
-> is not seen from certain configurations/builds due to the asynchronos
-> nature of the code.
-> 
-> Another issue has also been found where the network device registration
-> calls back into the driver thus causing further pm_runtime calls that
-> also caused issues with the MDIO bus code.
-> 
-> Use pm_runtime_get_sync() and pm_runtime_put() to ensure that the
-> pm system does not suspend it during the probe() call and remove the
-> now unnecessary pm_runtime_resume() call.
-> 
-> This fixes the external abort that can cause /sbin/init or other such
-> init processed to die.
-> 
-> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
-> Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> 
-> ---
-> Cc: sergei.shtylyov@cogentembedded.com
-> Cc: laurent.pinchart+renesas@ideasonboard.com
-> cc: netdev@vger.kernel.org
-> 
-> Note, Laurent this should probably be applied before your
-> current series as it may require changes to the exit sequence.
-> 
-> Fixes from v1:
-> 	- use pm_runtime_put() over pm_runtime_put_sync() as
-> 	  we do not need to guaranteed the device has powered
->           off after probe.
-> ---
->  drivers/net/ethernet/renesas/sh_eth.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c
-> b/drivers/net/ethernet/renesas/sh_eth.c index 4f76b5e..955e422 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -2869,7 +2869,7 @@ static int sh_eth_drv_probe(struct platform_device
-> *pdev) spin_lock_init(&mdp->lock);
->  	mdp->pdev = pdev;
->  	pm_runtime_enable(&pdev->dev);
-> -	pm_runtime_resume(&pdev->dev);
-> +	pm_runtime_get_sync(&pdev->dev);
-> 
->  	if (pdev->dev.of_node)
->  		pd = sh_eth_parse_dt(&pdev->dev);
-> @@ -2961,6 +2961,7 @@ static int sh_eth_drv_probe(struct platform_device
-> *pdev) pr_info("Base address at 0x%x, %pM, IRQ %d.\n",
->  		(u32)ndev->base_addr, ndev->dev_addr, ndev->irq);
-> 
-> +	pm_runtime_put(&pdev->dev);
->  	platform_set_drvdata(pdev, ndev);
-> 
->  	return ret;
-
-Don't you also need a pm_runtime_put() call in the error path at the end of 
-the probe function ? I've had a quick look at the device core and there 
-doesn't seem to be any automatic runtime PM cleanup performed when probe fails 
-(I might have missed it though, so please double-check).
-
--- 
-Regards,
-
-Laurent Pinchart
-
+My original patch was exactly the way you suggested.
+It went through many changes later with the intention of combining both indirection and hash key setting into one option as both are related to rss configuration.
