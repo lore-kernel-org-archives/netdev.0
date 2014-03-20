@@ -1,62 +1,67 @@
-From: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v2] core, nfqueue,
- openvswitch: Orphan frags in skb_zerocopy and handle errors
-Date: Thu, 20 Mar 2014 13:33:20 +0100
-Message-ID: <532AE010.9050903@redhat.com>
-References: <1395263249-16450-1-git-send-email-zoltan.kiss@citrix.com>
- <532ADC33.5040607@redhat.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next v7 9/9] xen-netback: Aggregate TX unmap
+ operations
+Date: Thu, 20 Mar 2014 12:38:39 +0000
+Message-ID: <20140320123839.GK16807@zion.uk.xensource.com>
+References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>
+ <1394142511-14827-10-git-send-email-zoltan.kiss@citrix.com>
+ <532A0915.5090006@citrix.com>
+ <20140320104855.GA16285@zion.uk.xensource.com>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD0292550@AMSPEX01CL01.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Miklos Szeredi <mszeredi-AlSwsSmVLrQ@public.gmane.org>,
- kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
- Jan Beulich <JBeulich-IBi9RG/b67k@public.gmane.org>, Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
- Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
- Jozsef Kadlecsik <kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org>, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org,
- Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
- Paul Durrant <Paul.Durrant-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
- pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <532ADC33.5040607-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Jonathan Davies <Jonathan.Davies@citrix.com>
+To: Paul Durrant <Paul.Durrant@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD0292550@AMSPEX01CL01.citrite.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/20/2014 01:16 PM, Thomas Graf wrote:
-> On 03/19/2014 10:07 PM, Zoltan Kiss wrote:
->> skb_zerocopy can copy elements of the frags array between skbs, but it
->> doesn't
->> orphan them. Also, it doesn't handle errors, so this patch takes care
->> of that
->> as well.
->>
->> Signed-off-by: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
->
-> Acked-by: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+On Thu, Mar 20, 2014 at 11:14:51AM +0000, Paul Durrant wrote:
+> > -----Original Message-----
+> > From: Wei Liu [mailto:wei.liu2@citrix.com]
+> > Sent: 20 March 2014 10:49
+> > To: Zoltan Kiss
+> > Cc: Ian Campbell; Wei Liu; xen-devel@lists.xenproject.org;
+> > netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Jonathan Davies;
+> > Paul Durrant
+> > Subject: Re: [PATCH net-next v7 9/9] xen-netback: Aggregate TX unmap
+> > operations
+> > 
+> > On Wed, Mar 19, 2014 at 09:16:05PM +0000, Zoltan Kiss wrote:
+> > > Hi,
+> > >
+> > > I'm thinking about revoking this patch: it's value is pretty small,
+> > > but it causes performance regression on Win7 guests. And probably it
+> > > is not the best solution for this problem. It might be the delay it
+> > > takes the dealloc thread to be scheduled is enough.
+> > > What do you think?
+> > >
+> > 
+> > Can you elaborate? What makes Win7 so special? What's performance
+> > impact to other guests?
+> > 
+> 
+> It won't be Win7 specifically I expect. It will likely by any version
+> of Windows, or any other OS that limits the TXs-in-flight so
+> aggressively. Basically you need to TX-complete reasonably frequently
+> otherwise your throughput drops off a lot. IIRC at Solarflare we found
+> every ~500us to be just about frequent enough for hitting 10G.
 
-I take this back ;)
+Thanks for the explanation.
 
->> ---
->> +    if (unlikely(skb_orphan_frags(to, GFP_ATOMIC))) {
->> +        skb_tx_error(to);
->> +        return -ENOMEM;
->> +    }
+Reverting this change basically means when to flush TLB is at sole
+discretion of Linux kernel scheduler. I don't oppose to that. But it
+would be better to provide some numbers.
 
-Just noticed that you orphan the Netlink skb frags which do not
-exist yet instead of the source skb frags.
+Wei.
 
-> Did you consider calling skb_tx_error() for Netlink message
-> allocation failures for the upcall as well? That memory pressure
-> is currently not reported back.
+> 
+>   Paul
