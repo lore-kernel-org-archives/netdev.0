@@ -1,62 +1,73 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 2/2] bonding: support QinQ for bond arp interval
-Date: Thu, 20 Mar 2014 17:29:39 +0800
-Message-ID: <532AB503.6020004@huawei.com>
-References: <1395057975-19084-1-git-send-email-dingtianhong@huawei.com> <1395057975-19084-3-git-send-email-dingtianhong@huawei.com> <21958.1395078364@death.nxdomain> <20140320082414.GA28839@unicorn.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <vfalico@redhat.com>, <andy@greyhouse.net>, <kaber@trash.net>,
-	<davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Michal Kubecek <mkubecek@suse.cz>, Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:17614 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751290AbaCTJaY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 05:30:24 -0400
-In-Reply-To: <20140320082414.GA28839@unicorn.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: [PATCH] [PATCH v2] sh_eth: ensure pm_runtime cannot suspend the device during init
+Date: Thu, 20 Mar 2014 10:33:27 +0100
+Message-ID: <1395308007-13956-1-git-send-email-ben.dooks@codethink.co.uk>
+Cc: linux-sh@vger.kernel.org, davem@davemloft.net,
+	Ben Dooks <ben.dooks@codethink.co.uk>,
+	sergei.shtylyov@cogentembedded.com,
+	laurent.pinchart+renesas@ideasonboard.com
+To: linux-kernel@lists.codethink.co.uk, netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/3/20 16:24, Michal Kubecek wrote:
-> On Mon, Mar 17, 2014 at 10:46:04AM -0700, Jay Vosburgh wrote:
->> Ding Tianhong <dingtianhong@huawei.com> wrote:
->>>
->>> ip link add link bond0  bond0.20 type vlan proto 802.1ad id 20
->>> ip link add link bond0.20  bond0.20.200 type vlan proto 802.1q id 200
->>
->> 	Is this nesting backwards?  The way I read it (and the way I
->> recall that VLANs nest), "bond0.20" is the "regular" VLAN, i.e., if we
->> just have bond0.20 it would be a standard 802.1q (ethertype 0x8100)
->> VLAN.  Adding the second VLAN, .200 in this example, would be the second
->> (outer) tag, and would be the 802.1ad (ethertype 0x88a8) tag.
->>
->> 	In other words, adding a VLAN to an already existing VLAN makes
->> the newly added VLAN the "outer" and the already existing VLAN the
->> "inner."  Am I confused?
-> 
-> I don't think so. My understanding is that when sending a packet to
-> a vlan device, it is tagged (according to its "proto") and passed to its
-> underlying device.
-> 
-> So in the case above, sending a packet to bond0.20.200 would add an
-> 802.1q tag and pass the result to bond0.20 which would add an 802.1ad
-> tag and pass the result to bond0. Which is the way it should work.
-> 
->                                                        Michal Kubecek
+The pm_rumtime work queue is causing the device to be suspended during
+initialisation, thus the initialisation may not be able to access registers
+properly. As the code is called from a work queue, it is possible that this
+is not seen from certain configurations/builds due to the asynchronos
+nature of the code.
 
-Hi Michal:
+Another issue has also been found where the network device registration
+calls back into the driver thus causing further pm_runtime calls that
+also caused issues with the MDIO bus code.
 
-I agree with your analysis of QinQ for vlan in common usage, but I think you miss
-something for how the arp interval works, the bonding need to create a new
-arp request with vlan tag to confirm that the slave should be active or unactive,  
-the skb could not be passed to bond0.20.200, we have to build QinQ skb ourselves.
+Use pm_runtime_get_sync() and pm_runtime_put() to ensure that the
+pm system does not suspend it during the probe() call and remove the
+now unnecessary pm_runtime_resume() call.
 
-Ding
+This fixes the external abort that can cause /sbin/init or other such
+init processed to die.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
+
+---
+Cc: sergei.shtylyov@cogentembedded.com
+Cc: laurent.pinchart+renesas@ideasonboard.com
+cc: netdev@vger.kernel.org
+
+Note, Laurent this should probably be applied before your
+current series as it may require changes to the exit sequence.
+
+Fixes from v1:
+	- use pm_runtime_put() over pm_runtime_put_sync() as
+	  we do not need to guaranteed the device has powered
+          off after probe.
+---
+ drivers/net/ethernet/renesas/sh_eth.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 4f76b5e..955e422 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -2869,7 +2869,7 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	spin_lock_init(&mdp->lock);
+ 	mdp->pdev = pdev;
+ 	pm_runtime_enable(&pdev->dev);
+-	pm_runtime_resume(&pdev->dev);
++	pm_runtime_get_sync(&pdev->dev);
+ 
+ 	if (pdev->dev.of_node)
+ 		pd = sh_eth_parse_dt(&pdev->dev);
+@@ -2961,6 +2961,7 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	pr_info("Base address at 0x%x, %pM, IRQ %d.\n",
+ 		(u32)ndev->base_addr, ndev->dev_addr, ndev->irq);
+ 
++	pm_runtime_put(&pdev->dev);
+ 	platform_set_drvdata(pdev, ndev);
+ 
+ 	return ret;
+-- 
+1.9.0
+
