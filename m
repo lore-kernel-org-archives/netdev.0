@@ -1,116 +1,67 @@
-From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Subject: Re: [PATCH v3] sh_eth: ensure pm_runtime cannot suspend the device during init
-Date: Thu, 20 Mar 2014 19:01:31 +0100
-Message-ID: <3894339.LtO9XLDneL@avalon>
-References: <1395336877-12402-1-git-send-email-ben.dooks@codethink.co.uk>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 2/3] net: hisilicon: new hip04 MDIO driver
+Date: Thu, 20 Mar 2014 10:59:57 -0700
+Message-ID: <CAGVrzcZ4K2gvQ8f=uMTf4+jm29e3FQXL-a-wc9xgumyHpH6+UA@mail.gmail.com>
+References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
+ <1395132017-15928-3-git-send-email-zhangfei.gao@linaro.org>
+ <CAGVrzcY4SBKFfTvjB0TTvgpAOwCt30C6LjYf9e9E4ciMDVmp-w@mail.gmail.com> <CAMj5Bkjm3G=K=fqas6VG5NXroofWijN_sc7XGLzT5jVehwTd0Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-kernel@lists.codethink.co.uk, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org, davem@davemloft.net,
-	sergei.shtylyov@cogentembedded.com
-To: Ben Dooks <ben.dooks@codethink.co.uk>
+Content-Type: text/plain; charset=UTF-8
+Cc: Zhangfei Gao <zhangfei.gao@linaro.org>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Zhangfei Gao <zhangfei.gao@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perceval.ideasonboard.com ([95.142.166.194]:35191 "EHLO
-	perceval.ideasonboard.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933009AbaCTR7n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 13:59:43 -0400
-In-Reply-To: <1395336877-12402-1-git-send-email-ben.dooks@codethink.co.uk>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:49189 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933251AbaCTSAj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 14:00:39 -0400
+In-Reply-To: <CAMj5Bkjm3G=K=fqas6VG5NXroofWijN_sc7XGLzT5jVehwTd0Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ben,
+2014-03-20 3:53 GMT-07:00 Zhangfei Gao <zhangfei.gao@gmail.com>:
+> Dear Florian
+>
+> On Wed, Mar 19, 2014 at 1:28 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>> 2014-03-18 1:40 GMT-07:00 Zhangfei Gao <zhangfei.gao@linaro.org>:
+>
+>>> +static int hip04_mdio_reset(struct mii_bus *bus)
+>>> +{
+>>> +       int temp, err, i;
+>>> +
+>>> +       for (i = 0; i < 2; i++) {
+>>> +               hip04_mdio_write(bus, i, 22, 0);
+>>> +               temp = hip04_mdio_read(bus, i, MII_BMCR);
+>>> +               temp |= BMCR_RESET;
+>>> +               err = hip04_mdio_write(bus, i, MII_BMCR, temp);
+>>> +               if (err < 0)
+>>> +                       return err;
+>>> +       }
+>>> +
+>>> +       mdelay(500);
+>>
+>> This does not look correct, you should iterate over all possible PHYs:
+>> PHY_MAX_ADDR instead of hardcoding the loop to 2.
+>
+> OK, got it.
+> Use 2 is since only have 2 phy in the board, will use PHY_MAX_ADDR instead.
+>>
+>> I think we might want to remove the mdio bus reset callback in general
+>> as the PHY library should already take care of software resetting the
+>> PHY to put it in a sane state, as well as waiting for the appropriate
+>> delay before using, unlike here, where you do not poll for BMCR_RESET
+>> to be cleared by the PHY.
+>>
+> Do you mean will move BMCR_RESET to common code, that's would be great.
+> The mdio_reset is added here to get phy_id, otherwise the phy_id can
+> not be read as well as detection.
 
-Thank you for the patch.
-
-On Thursday 20 March 2014 18:34:37 Ben Dooks wrote:
-> The pm_rumtime work queue is causing the device to be suspended during
-> initialisation, thus the initialisation may not be able to access registers
-> properly. As the code is called from a work queue, it is possible that this
-> is not seen from certain configurations/builds due to the asynchronos
-> nature of the code.
-> 
-> Another issue has also been found where the network device registration
-> calls back into the driver thus causing further pm_runtime calls that
-> also caused issues with the MDIO bus code.
-> 
-> Use pm_runtime_get_sync() and pm_runtime_put() to ensure that the
-> pm system does not suspend it during the probe() call and remove the
-> now unnecessary pm_runtime_resume() call.
-> 
-> This fixes the external abort that can cause /sbin/init or other such
-> init processed to die.
-> 
-> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
-> Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> 
-> ---
-> Cc: sergei.shtylyov@cogentembedded.com
-> Cc: laurent.pinchart+renesas@ideasonboard.com
-> cc: netdev@vger.kernel.org
-> 
-> Note, Laurent this should probably be applied before your
-> current series as it may require changes to the exit sequence.
-
-Would you like me to include the patch in that series when I'll send a pull 
-request ?
-
-> Fixes from v1:
-> 	- use pm_runtime_put() over pm_runtime_put_sync() as
-> 	  we do not need to guaranteed the device has powered
->           off after probe.
-> 
-> Fixed from v2:
-> 	- call pm_runtime_put() in error path
-> ---
->  drivers/net/ethernet/renesas/sh_eth.c | 7 +++++--
->  1 file changed, 5 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c
-> b/drivers/net/ethernet/renesas/sh_eth.c index 4f76b5e..610da51 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -2841,6 +2841,9 @@ static int sh_eth_drv_probe(struct platform_device
-> *pdev) goto out;
->  	}
-> 
-> +	pm_runtime_enable(&pdev->dev);
-> +	pm_runtime_get_sync(&pdev->dev);
-> +
->  	/* The sh Ether-specific entries in the device structure. */
->  	ndev->base_addr = res->start;
->  	devno = pdev->id;
-> @@ -2868,8 +2871,6 @@ static int sh_eth_drv_probe(struct platform_device
-> *pdev)
-> 
->  	spin_lock_init(&mdp->lock);
->  	mdp->pdev = pdev;
-> -	pm_runtime_enable(&pdev->dev);
-> -	pm_runtime_resume(&pdev->dev);
-> 
->  	if (pdev->dev.of_node)
->  		pd = sh_eth_parse_dt(&pdev->dev);
-> @@ -2961,6 +2962,7 @@ static int sh_eth_drv_probe(struct platform_device
-> *pdev) pr_info("Base address at 0x%x, %pM, IRQ %d.\n",
->  		(u32)ndev->base_addr, ndev->dev_addr, ndev->irq);
-> 
-> +	pm_runtime_put(&pdev->dev);
->  	platform_set_drvdata(pdev, ndev);
-> 
->  	return ret;
-> @@ -2976,6 +2978,7 @@ out_release:
->  	if (ndev)
->  		free_netdev(ndev);
-> 
-> +	pm_runtime_put(&pdev->dev);
-
-Do we also need a pm_runtime_disable() here ?
-
->  out:
->  	return ret;
->  }
-
+Oh I see, thanks for mentioning that, this is not properly covered
+here today as we need to get the PHY id before we assign it a
+phy_device structure, let me cook a patch for this.
 -- 
-Regards,
-
-Laurent Pinchart
+Florian
