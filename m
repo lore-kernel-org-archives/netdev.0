@@ -1,93 +1,88 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 20 Mar 2014 01:32:50 -0700
-Message-ID: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, emil.s.tantilov@intel.com,
-	asharma@fb.com, donald.c.skidmore@intel.com
+Subject: [net-next 03/15] igb: Convert uses of __constant_<foo> to <foo>
+Date: Thu, 20 Mar 2014 01:32:53 -0700
+Message-ID: <1395304385-6874-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:8065 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755456AbaCTIdq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Mar 2014 04:33:46 -0400
+	id S1755499AbaCTIds (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Mar 2014 04:33:48 -0400
+In-Reply-To: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to e100, igb, igbvf, ixgbe and ixgbevf.
+From: Joe Perches <joe@perches.com>
 
-Stefan adds a igb patch to enable the ability strip VLAN header information
-for packets bound for a VM on i350 hardware.
+The use of __constant_<foo> has been unnecessary for quite awhile now.
 
-Joe Perches provides patches for e100, igb, igbvf, ixgbe and ixgbevf to
-convert the use of __constant_<foo> to just <foo> to align with the rest
-of the kernel.
+Make these uses consistent with the rest of the kernel.
 
-Don provides two fixes for ixgbe, first resolves a link issue with DA
-cables where we were not always freeing the firmware/software semaphore
-after grabbing it.  Second stops caching whether the management firmware
-was enabled, however since this is not static, we really need to verify
-with each check.
+Signed-off-by: Joe Perches <joe@perches.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/igb_main.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-Jacob provides six fixes/cleanups for ixgbe, most notably, correct
-the stop_mac_link_on d3() to check the Core Clock Disable bit before
-stopping link and to fully check to see if manage firmware is running or
-could be enabled before bringing down the link.  Fix flow control
-auto-negation for KR/KX/K4 interfaces, since setting up MAC link, the
-cached autoc value and current autoc value were being incorrectly used to
-determine whether link reset is required.
-
-Emil provides a fix for ixgbe where there was a chance for aggressive
-start_ndo_zmit() callers to sneak packets between enabling the Tx queues
-and the link coming up.  To resolve this, move the call to enable Tx
-queues to after the link is established.
-
-The following are changes since commit a9baf10aafe7001501189099df4b91f90739e182:
-  qeth: Fix IP version detection for VLAN traffic
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Don Skidmore (2):
-  ixgbe: fix errors related to protected AUTOC calls
-  ixgbe: Stop cacheing if the MNG FW enabled
-
-Emil Tantilov (1):
-  ixgbe: enable tx queues after link up
-
-Jacob Keller (6):
-  ixgbe: check Core Clock Disable bit
-  ixgbe: fix ixgbe_stop_mac_link_on_d3_82599 to check mng correctly
-  ixgbe: fix ixgbe_setup_mac_link_82599 autoc variables
-  ixgbe: remove unused media type
-  ixgbe: use ixgbe_read_pci_cfg_word
-  ixgbe: clean up ixgbe_atr_compute_perfect_hash_82599
-
-Joe Perches (5):
-  e100: Convert uses of __constant_<foo> to <foo>
-  igb: Convert uses of __constant_<foo> to <foo>
-  igbvf: Convert uses of __constant_<foo> to <foo>
-  ixgbe: Convert uses of __constant_<foo> to <foo>
-  ixgbevf: Convert uses of __constant_<foo> to <foo>
-
-Stefan Assmann (1):
-  igb: enable VLAN stripping for VMs with i350
-
- drivers/net/ethernet/intel/e100.c                 |   4 +-
- drivers/net/ethernet/intel/igb/e1000_82575.h      |   4 +
- drivers/net/ethernet/intel/igb/e1000_regs.h       |   1 +
- drivers/net/ethernet/intel/igb/igb_main.c         |  19 ++-
- drivers/net/ethernet/intel/igbvf/netdev.c         |   4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c    |   1 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c    | 170 +++++-----------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c   |  24 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h   |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c     |   8 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  68 +++++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h      |   4 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |   6 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c     |   1 -
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   4 +-
- 15 files changed, 113 insertions(+), 206 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 313e1a8..17feea0 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -4592,7 +4592,7 @@ static int igb_tso(struct igb_ring *tx_ring,
+ 	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
+ 	type_tucmd = E1000_ADVTXD_TUCMD_L4T_TCP;
+ 
+-	if (first->protocol == __constant_htons(ETH_P_IP)) {
++	if (first->protocol == htons(ETH_P_IP)) {
+ 		struct iphdr *iph = ip_hdr(skb);
+ 		iph->tot_len = 0;
+ 		iph->check = 0;
+@@ -4648,12 +4648,12 @@ static void igb_tx_csum(struct igb_ring *tx_ring, struct igb_tx_buffer *first)
+ 	} else {
+ 		u8 l4_hdr = 0;
+ 		switch (first->protocol) {
+-		case __constant_htons(ETH_P_IP):
++		case htons(ETH_P_IP):
+ 			vlan_macip_lens |= skb_network_header_len(skb);
+ 			type_tucmd |= E1000_ADVTXD_TUCMD_IPV4;
+ 			l4_hdr = ip_hdr(skb)->protocol;
+ 			break;
+-		case __constant_htons(ETH_P_IPV6):
++		case htons(ETH_P_IPV6):
+ 			vlan_macip_lens |= skb_network_header_len(skb);
+ 			l4_hdr = ipv6_hdr(skb)->nexthdr;
+ 			break;
+@@ -6738,7 +6738,7 @@ static unsigned int igb_get_headlen(unsigned char *data,
+ 	hdr.network += ETH_HLEN;
+ 
+ 	/* handle any vlan tag if present */
+-	if (protocol == __constant_htons(ETH_P_8021Q)) {
++	if (protocol == htons(ETH_P_8021Q)) {
+ 		if ((hdr.network - data) > (max_len - VLAN_HLEN))
+ 			return max_len;
+ 
+@@ -6747,7 +6747,7 @@ static unsigned int igb_get_headlen(unsigned char *data,
+ 	}
+ 
+ 	/* handle L3 protocols */
+-	if (protocol == __constant_htons(ETH_P_IP)) {
++	if (protocol == htons(ETH_P_IP)) {
+ 		if ((hdr.network - data) > (max_len - sizeof(struct iphdr)))
+ 			return max_len;
+ 
+@@ -6761,7 +6761,7 @@ static unsigned int igb_get_headlen(unsigned char *data,
+ 		/* record next protocol if header is present */
+ 		if (!(hdr.ipv4->frag_off & htons(IP_OFFSET)))
+ 			nexthdr = hdr.ipv4->protocol;
+-	} else if (protocol == __constant_htons(ETH_P_IPV6)) {
++	} else if (protocol == htons(ETH_P_IPV6)) {
+ 		if ((hdr.network - data) > (max_len - sizeof(struct ipv6hdr)))
+ 			return max_len;
+ 
 -- 
 1.8.3.1
