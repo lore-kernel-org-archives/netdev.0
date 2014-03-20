@@ -1,36 +1,62 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH v2] tcp: syncookies: do not use getnstimeofday()
-Date: Thu, 20 Mar 2014 09:45:27 +0100
-Message-ID: <20140320084527.GB5080@breakpoint.cc>
-References: <1379709176-1625-1-git-send-email-fw@strlen.de>
- <1395261524.9114.60.camel@edumazet-glaptop2.roam.corp.google.com>
- <1395263181.9114.69.camel@edumazet-glaptop2.roam.corp.google.com>
- <1395288141.9114.82.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next 2/2] bonding: support QinQ for bond arp interval
+Date: Thu, 20 Mar 2014 17:29:39 +0800
+Message-ID: <532AB503.6020004@huawei.com>
+References: <1395057975-19084-1-git-send-email-dingtianhong@huawei.com> <1395057975-19084-3-git-send-email-dingtianhong@huawei.com> <21958.1395078364@death.nxdomain> <20140320082414.GA28839@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <vfalico@redhat.com>, <andy@greyhouse.net>, <kaber@trash.net>,
+	<davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Michal Kubecek <mkubecek@suse.cz>, Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:38082 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752962AbaCTIp2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 04:45:28 -0400
-Content-Disposition: inline
-In-Reply-To: <1395288141.9114.82.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:17614 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751290AbaCTJaY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 05:30:24 -0400
+In-Reply-To: <20140320082414.GA28839@unicorn.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On 2014/3/20 16:24, Michal Kubecek wrote:
+> On Mon, Mar 17, 2014 at 10:46:04AM -0700, Jay Vosburgh wrote:
+>> Ding Tianhong <dingtianhong@huawei.com> wrote:
+>>>
+>>> ip link add link bond0  bond0.20 type vlan proto 802.1ad id 20
+>>> ip link add link bond0.20  bond0.20.200 type vlan proto 802.1q id 200
+>>
+>> 	Is this nesting backwards?  The way I read it (and the way I
+>> recall that VLANs nest), "bond0.20" is the "regular" VLAN, i.e., if we
+>> just have bond0.20 it would be a standard 802.1q (ethertype 0x8100)
+>> VLAN.  Adding the second VLAN, .200 in this example, would be the second
+>> (outer) tag, and would be the 802.1ad (ethertype 0x88a8) tag.
+>>
+>> 	In other words, adding a VLAN to an already existing VLAN makes
+>> the newly added VLAN the "outer" and the already existing VLAN the
+>> "inner."  Am I confused?
 > 
-> While it is true that getnstimeofday() uses about 40 cycles if TSC
-> is available, it can use 1600 cycles if hpet is the clocksource.
+> I don't think so. My understanding is that when sending a packet to
+> a vlan device, it is tagged (according to its "proto") and passed to its
+> underlying device.
 > 
-> Switch to get_jiffies_64(), as this is more than enough, and
-> go back to 60 seconds periods.
+> So in the case above, sending a packet to bond0.20.200 would add an
+> 802.1q tag and pass the result to bond0.20 which would add an 802.1ad
+> tag and pass the result to bond0. Which is the way it should work.
 > 
-> Fixes: 8c27bd75f04f ("tcp: syncookies: reduce cookie lifetime to 128 seconds")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Florian Westphal <fw@strlen.de>
+>                                                        Michal Kubecek
 
-Acked-by: Florian Westphal <fw@strlen.de>
+Hi Michal:
+
+I agree with your analysis of QinQ for vlan in common usage, but I think you miss
+something for how the arp interval works, the bonding need to create a new
+arp request with vlan tag to confirm that the slave should be active or unactive,  
+the skb could not be passed to bond0.20.200, we have to build QinQ skb ourselves.
+
+Ding
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
