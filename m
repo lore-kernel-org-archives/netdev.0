@@ -1,44 +1,40 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: [PATCH net-next 2/2] ieee802154: dgram: cleanup set of broadcast panid
-Date: Thu, 20 Mar 2014 14:57:03 +0100
-Message-ID: <1395323823-20970-2-git-send-email-alex.aring@gmail.com>
-References: <1395323823-20970-1-git-send-email-alex.aring@gmail.com>
-Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, phoebe.buckheister@itwm.fraunhofer.de,
-	jlu@pengutronix.de, Alexander Aring <alex.aring@gmail.com>
-To: alex.bluesman.smirnov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f51.google.com ([74.125.83.51]:43661 "EHLO
-	mail-ee0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752103AbaCTN5U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 09:57:20 -0400
-Received: by mail-ee0-f51.google.com with SMTP id c13so700554eek.10
-        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 06:57:19 -0700 (PDT)
-In-Reply-To: <1395323823-20970-1-git-send-email-alex.aring@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
+Subject: [PATCH 0/5] sh_eth: Fix the race between open and MDIO bus registration
+Date: Thu, 20 Mar 2014 15:00:30 +0100
+Message-ID: <1395324035-22918-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
+Cc: linux-sh@vger.kernel.org,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Ben Dooks <ben.dooks@codethink.co.uk>
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch is only a cleanup to use the right define for a panid field.
-The broadcast address and panid broadcast is still the same value.
+Hello,
 
-Signed-off-by: Alexander Aring <alex.aring@gmail.com>
-Cc: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
----
- net/ieee802154/dgram.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+This patch series fixes the race condition that exists in the sh_eth driver
+between network device open and MDIO bus registration. The actual fix is in
+patch 4/5, with previous patches preparing the driver and patch 5/5 cleaning
+up an unrelated issue.
 
-diff --git a/net/ieee802154/dgram.c b/net/ieee802154/dgram.c
-index 6d251a3..786437b 100644
---- a/net/ieee802154/dgram.c
-+++ b/net/ieee802154/dgram.c
-@@ -74,7 +74,7 @@ static int dgram_init(struct sock *sk)
- 	struct dgram_sock *ro = dgram_sk(sk);
- 
- 	ro->dst_addr.mode = IEEE802154_ADDR_LONG;
--	ro->dst_addr.pan_id = cpu_to_le16(IEEE802154_ADDR_BROADCAST);
-+	ro->dst_addr.pan_id = cpu_to_le16(IEEE802154_PANID_BROADCAST);
- 	ro->want_ack = 1;
- 	memset(&ro->dst_addr.extended_addr, 0xff, IEEE802154_ADDR_LEN);
- 	return 0;
+I've based the idea on Sergei's attempt to fix the problem and can successfully
+boot the Koelsch board over NFS with this series. I might have missed other
+issues though, hence the RFC status.
+
+The patches are based on top of the latest net-next master branch.
+
+Laurent Pinchart (5):
+  sh_eth: Use the platform device for memory allocation
+  sh_eth: Use the platform device as the MDIO bus parent
+  sh_eth: Simplify MDIO bus initialization and release
+  sh_eth: Register MDIO bus before registering the network device
+  sh_eth: Remove goto statements that jump straight to a return
+
+ drivers/net/ethernet/renesas/sh_eth.c | 85 +++++++++++++----------------------
+ 1 file changed, 31 insertions(+), 54 deletions(-)
+
 -- 
-1.9.0
+Regards,
+
+Laurent Pinchart
+
