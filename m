@@ -1,59 +1,57 @@
-From: Grant Grundler <grundler@google.com>
-Subject: Re: usbnet: driver_info->stop required to stop USB interrupts?
-Date: Thu, 20 Mar 2014 09:35:23 -0700
-Message-ID: <CANEJEGu3j4a6LOiyD-Qbs5nX4wc4spWQB3ZukmEa1J6VPUg+=g@mail.gmail.com>
-References: <CANEJEGsvqkT_H4i+UZpBaWMYmgXHmpD8SZ4tU1OHzLd8gyznow@mail.gmail.com>
-	<CANEJEGv03ohVwoS0Pd1Z3az9k-C=dTzG4qE1SBL6Um97QC1Ehw@mail.gmail.com>
-	<CAODwPW_t9COeg0LWfkiqXC_yTbSNhUHX-8T95KRZHfOTSiZK1Q@mail.gmail.com>
-	<1394529263.16128.6.camel@linux-fkkt.site>
-	<CAODwPW8rQptt+jnfZ+KjpuOOpKi9ktb-y2kCYGZJo_ava1ktjg@mail.gmail.com>
-	<CAODwPW-CqigMBvwZtb+KLY5XbT+LDssPpvDZj86ej183DMiPkQ@mail.gmail.com>
-	<1395093343.3961.2.camel@linux-fkkt.site>
-	<CANEJEGuaVPNZKFiXY9CywFuqghgiQqV_sii7TE3STCNvXLQ3pQ@mail.gmail.com>
-	<CAODwPW-E-3HcXCGEmp9JpW6hU-Xt-FHwBtqeSSTDGaRPqO49Sw@mail.gmail.com>
-	<CANEJEGscbVF3gRLNtTAcRSpHGVm1iDDKEeBscXcwj2-YdkiDXA@mail.gmail.com>
-	<CANEJEGtZF30=bqkErvi1CFZLbk=PJ-p_gKf9eBGU7sWwJcrefg@mail.gmail.com>
-	<1395299705.5432.12.camel@linux-fkkt.site>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: openvswitch question
+Date: Thu, 20 Mar 2014 09:29:25 -0700
+Message-ID: <CAEP_g=_EpSn6hufAuX6ZD2fRykCbS+pmRhLZAupaebpfnk0Q3A@mail.gmail.com>
+References: <CAGZFCEHSVpH8XN4n3A3xhVtYNqp4kn3PM7aXWRCxKFSkQVfABQ@mail.gmail.com>
+ <CAEP_g=8=BxsXe7PNPAvyEVCDFLCRrskEPVf1ts6Aoo4-eRtQug@mail.gmail.com> <CACP96tRY6frA9gfxZCMucKjd3zdCFMUgqKQtTB8umPmqYeRkYw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, Freddy Xin <freddy@asix.com.tw>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	Allan Chou <allan@asix.com.tw>,
-	Julius Werner <jwerner@chromium.org>
-To: Oliver Neukum <oneukum@suse.de>
+Cc: ratheesh kannoth <ratheesh.ksz@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: sowmini varadhan <sowmini05@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f53.google.com ([209.85.219.53]:57605 "EHLO
-	mail-oa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751599AbaCTQfY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 12:35:24 -0400
-Received: by mail-oa0-f53.google.com with SMTP id j17so1204413oag.12
-        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 09:35:23 -0700 (PDT)
-In-Reply-To: <1395299705.5432.12.camel@linux-fkkt.site>
+Received: from na6sys009bog036.obsmtp.com ([74.125.150.110]:43323 "HELO
+	na6sys009bog036.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757244AbaCTQgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 12:36:42 -0400
+Received: by mail-ig0-f170.google.com with SMTP id uq10so17643378igb.1
+        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 09:36:38 -0700 (PDT)
+In-Reply-To: <CACP96tRY6frA9gfxZCMucKjd3zdCFMUgqKQtTB8umPmqYeRkYw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 20, 2014 at 12:15 AM, Oliver Neukum <oneukum@suse.de> wrote:
-...
-> I have an idea. Could you test this patch?
-...
-> -       if (dev->wait) {
-..
-> +       if (waitqueue_active(&dev->wait)) {
+On Thu, Mar 20, 2014 at 3:26 AM, sowmini varadhan <sowmini05@gmail.com> wrote:
+> On Wed, Mar 19, 2014 at 9:36 PM, Jesse Gross <jesse@nicira.com> wrote:
+> evel/19402
+>>
+>> From the perspective of the network stack, there is no difference
+>> between Open vSwitch internal devices and real NICs so the entry
+>> points into the stack are the same.
+>
+> However, the internal vswitch ports like patch-tun and patch-int
+> are not standard net_devices, so they cannot, e.g.,  be tcpdump'ed,
+> correct?
 
-Yes - building new image now (and transfer to USB and boot from USB).
-Should know in an hour or so (doing other things in parallel).
+Patch ports exist only in userspace in order to avoid multiple
+redundant lookups, so, yes, they cannot be tcpdumped.
 
-I was sure the problem is in usbnet_bh() since that's the only code
-change I'm actually exercising (so far). The way I was reading the
-code, we might see extra wake_up calls...but there is clearly more
-going on.
+> FWIW, I've already raised an issue with tcpdump/ovswitch mirroring
+>  in the openstack-dev list, but repeat
+> it here, in the hope that someone can shed some light on what
+> I need to make this work. I'm using a ubuntu 13.10 qemu-kvm
+> where I'm running openvswitch 1.10.2.
+>
+> " I'm following the instructions at
+>   http://docs.openstack.org/trunk/openstack-ops/content/network_troubleshooting.html
+>
+>   to set up patch-tun mirrors, but running tcpdump on the "snooper0"
+>   produces inconsistent results- sometimes, I'm able to get a copy
+>   of the packet (e.g., the syn packet for ssh below) but not others
+>   (the tcpdump session did not show any more packets, for example).
+>
+>   Why is this?
 
-Can you please explain why we need to check if the waitqueue is active?
-
-This patch should also add a comment to hint why waitqueue_active()
-must be called.
-Why? Several experienced people looked at the code and didn't see the
-problem including the original author of the patch.
-
-thanks,
-grant
+Mirroring should work. You would have to look at the packets entering
+the switch and then trying to look at the flows (using ovs-dpctl
+dump-flows and ovs-appctl ofproto/trace) to figure out what is
+different.
