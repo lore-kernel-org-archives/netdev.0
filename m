@@ -1,43 +1,51 @@
-From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Subject: [PATCH iproute2] bridge: fix reporting of IPv6 addresses
-Date: Thu, 20 Mar 2014 13:06:10 +0200
-Message-ID: <1395313570-12545-1-git-send-email-mike.rapoport@ravellosystems.com>
-Cc: netdev@vger.kernel.org,
-	Mike Rapoport <mike.rapoport@ravellosystems.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f49.google.com ([74.125.83.49]:62030 "EHLO
-	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754940AbaCTLGR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 07:06:17 -0400
-Received: by mail-ee0-f49.google.com with SMTP id c41so519537eek.8
-        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 04:06:16 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net-next v7 9/9] xen-netback: Aggregate TX unmap
+ operations
+Date: Thu, 20 Mar 2014 11:14:51 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0292550@AMSPEX01CL01.citrite.net>
+References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com>
+ <1394142511-14827-10-git-send-email-zoltan.kiss@citrix.com>
+ <532A0915.5090006@citrix.com> <20140320104855.GA16285@zion.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Jonathan Davies" <Jonathan.Davies@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>, Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140320104855.GA16285@zion.uk.xensource.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
----
- bridge/fdb.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+> -----Original Message-----
+> From: Wei Liu [mailto:wei.liu2@citrix.com]
+> Sent: 20 March 2014 10:49
+> To: Zoltan Kiss
+> Cc: Ian Campbell; Wei Liu; xen-devel@lists.xenproject.org;
+> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Jonathan Davies;
+> Paul Durrant
+> Subject: Re: [PATCH net-next v7 9/9] xen-netback: Aggregate TX unmap
+> operations
+> 
+> On Wed, Mar 19, 2014 at 09:16:05PM +0000, Zoltan Kiss wrote:
+> > Hi,
+> >
+> > I'm thinking about revoking this patch: it's value is pretty small,
+> > but it causes performance regression on Win7 guests. And probably it
+> > is not the best solution for this problem. It might be the delay it
+> > takes the dealloc thread to be scheduled is enough.
+> > What do you think?
+> >
+> 
+> Can you elaborate? What makes Win7 so special? What's performance
+> impact to other guests?
+> 
 
-diff --git a/bridge/fdb.c b/bridge/fdb.c
-index e2e53f1..9b720e3 100644
---- a/bridge/fdb.c
-+++ b/bridge/fdb.c
-@@ -103,8 +103,13 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 
- 	if (tb[NDA_DST]) {
- 		SPRINT_BUF(abuf);
-+		int family = AF_INET;
-+
-+		if (RTA_PAYLOAD(tb[NDA_DST]) == sizeof(struct in6_addr))
-+			family = AF_INET6;
-+
- 		fprintf(fp, "dst %s ",
--			format_host(AF_INET,
-+			format_host(family,
- 				    RTA_PAYLOAD(tb[NDA_DST]),
- 				    RTA_DATA(tb[NDA_DST]),
- 				    abuf, sizeof(abuf)));
--- 
-1.8.1.5
+It won't be Win7 specifically I expect. It will likely by any version of Windows, or any other OS that limits the TXs-in-flight so aggressively. Basically you need to TX-complete reasonably frequently otherwise your throughput drops off a lot. IIRC at Solarflare we found every ~500us to be just about frequent enough for hitting 10G.
+
+  Paul
