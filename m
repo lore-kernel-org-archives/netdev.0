@@ -1,140 +1,92 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 05/15] i40e: Refactor and cleanup i40e_open(), adding i40e_vsi_open()
-Date: Wed, 19 Mar 2014 20:29:55 -0700
-Message-ID: <1395286205-9676-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 13/15] ixgbe: add ixgbe_write_pci_cfg_word with ixgbe_removed check
+Date: Wed, 19 Mar 2014 20:30:03 -0700
+Message-ID: <1395286205-9676-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395286205-9676-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Elizabeth Kappler <elizabeth.m.kappler@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:20420 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753733AbaCTDaY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Mar 2014 23:30:24 -0400
+	id S1753974AbaCTDa1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Mar 2014 23:30:27 -0400
 In-Reply-To: <1395286205-9676-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Elizabeth Kappler <elizabeth.m.kappler@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-This patch cleans up and moves a portion of i40e_open to i40e_vsi_open,
-in order to have a shorter vsi_open function that does only that.
+Inline with the current use for ixgbe_read_pci_cfg_word, create a
+similar function for writing PCI config, which checks whether the
+adapter has been removed first, if Live Error Recovery has been enabled.
 
-Change-ID: I1c418dda94dcfc0eb7d4386a70c330692ef5ecc9
-Signed-off-by: Elizabeth Kappler <elizabeth.m.kappler@intel.com>
-Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  3 ++-
- drivers/net/ethernet/intel/i40e/i40e_main.c | 40 +++++++++++++++++++++++------
- 2 files changed, 34 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  | 6 +-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h | 1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 9 +++++++++
+ 3 files changed, 11 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index ac04112..33cd8b6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -208,7 +208,7 @@ struct i40e_pf {
- 	bool fc_autoneg_status;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index f8ebe58..7fe2254 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -58,7 +58,6 @@ static s32 ixgbe_read_i2c_eeprom_82598(struct ixgbe_hw *hw, u8 byte_offset,
+  **/
+ static void ixgbe_set_pcie_completion_timeout(struct ixgbe_hw *hw)
+ {
+-	struct ixgbe_adapter *adapter = hw->back;
+ 	u32 gcr = IXGBE_READ_REG(hw, IXGBE_GCR);
+ 	u16 pcie_devctl2;
  
- 	u16 eeprom_version;
--	u16 num_vmdq_vsis;         /* num vmdq pools this pf has set up */
-+	u16 num_vmdq_vsis;         /* num vmdq vsis this pf has set up */
- 	u16 num_vmdq_qps;          /* num queue pairs per vmdq pool */
- 	u16 num_vmdq_msix;         /* num queue vectors per vmdq pool */
- 	u16 num_req_vfs;           /* num vfs requested for this vf */
-@@ -597,6 +597,7 @@ void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector);
- void i40e_irq_dynamic_disable_icr0(struct i40e_pf *pf);
- void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf);
- int i40e_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd);
-+int i40e_vsi_open(struct i40e_vsi *vsi);
- void i40e_vlan_stripping_disable(struct i40e_vsi *vsi);
- int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid);
- int i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 5015dad..661cd42 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -4235,7 +4235,6 @@ static int i40e_open(struct net_device *netdev)
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = np->vsi;
- 	struct i40e_pf *pf = vsi->back;
--	char int_name[IFNAMSIZ];
- 	int err;
+@@ -84,11 +83,8 @@ static void ixgbe_set_pcie_completion_timeout(struct ixgbe_hw *hw)
+ 	 * 16ms to 55ms
+ 	 */
+ 	pcie_devctl2 = ixgbe_read_pci_cfg_word(hw, IXGBE_PCI_DEVICE_CONTROL2);
+-	if (ixgbe_removed(hw->hw_addr))
+-		return;
+ 	pcie_devctl2 |= IXGBE_PCI_DEVICE_CONTROL2_16ms;
+-	pci_write_config_word(adapter->pdev,
+-	                      IXGBE_PCI_DEVICE_CONTROL2, pcie_devctl2);
++	ixgbe_write_pci_cfg_word(hw, IXGBE_PCI_DEVICE_CONTROL2, pcie_devctl2);
+ out:
+ 	/* disable completion timeout resend */
+ 	gcr &= ~IXGBE_GCR_CMPL_TMOUT_RESEND;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index d1d67ba..afa1cda 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -133,6 +133,7 @@ s32 ixgbe_init_thermal_sensor_thresh_generic(struct ixgbe_hw *hw);
+ #define IXGBE_FAILED_READ_CFG_WORD 0xffffU
  
- 	/* disallow open during test */
-@@ -4244,6 +4243,31 @@ static int i40e_open(struct net_device *netdev)
+ u16 ixgbe_read_pci_cfg_word(struct ixgbe_hw *hw, u32 reg);
++void ixgbe_write_pci_cfg_word(struct ixgbe_hw *hw, u32 reg, u16 value);
  
- 	netif_carrier_off(netdev);
+ static inline bool ixgbe_removed(void __iomem *addr)
+ {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 18cd8ca..c773d6c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -361,6 +361,15 @@ static u32 ixgbe_read_pci_cfg_dword(struct ixgbe_hw *hw, u32 reg)
+ }
+ #endif /* CONFIG_PCI_IOV */
  
-+	err = i40e_vsi_open(vsi);
-+	if (err)
-+		return err;
++void ixgbe_write_pci_cfg_word(struct ixgbe_hw *hw, u32 reg, u16 value)
++{
++	struct ixgbe_adapter *adapter = hw->back;
 +
-+#ifdef CONFIG_I40E_VXLAN
-+	vxlan_get_rx_port(netdev);
-+#endif
-+
-+	return 0;
++	if (ixgbe_removed(hw->hw_addr))
++		return;
++	pci_write_config_word(adapter->pdev, reg, value);
 +}
 +
-+/**
-+ * i40e_vsi_open -
-+ * @vsi: the VSI to open
-+ *
-+ * Finish initialization of the VSI.
-+ *
-+ * Returns 0 on success, negative value on failure
-+ **/
-+int i40e_vsi_open(struct i40e_vsi *vsi)
-+{
-+	struct i40e_pf *pf = vsi->back;
-+	char int_name[IFNAMSIZ];
-+	int err;
-+
- 	/* allocate descriptors */
- 	err = i40e_vsi_setup_tx_resources(vsi);
- 	if (err)
-@@ -4256,18 +4280,22 @@ static int i40e_open(struct net_device *netdev)
- 	if (err)
- 		goto err_setup_rx;
- 
-+	if (!vsi->netdev) {
-+		err = EINVAL;
-+		goto err_setup_rx;
-+	}
- 	snprintf(int_name, sizeof(int_name) - 1, "%s-%s",
--		 dev_driver_string(&pf->pdev->dev), netdev->name);
-+		 dev_driver_string(&pf->pdev->dev), vsi->netdev->name);
- 	err = i40e_vsi_request_irq(vsi, int_name);
- 	if (err)
- 		goto err_setup_rx;
- 
- 	/* Notify the stack of the actual queue counts. */
--	err = netif_set_real_num_tx_queues(netdev, vsi->num_queue_pairs);
-+	err = netif_set_real_num_tx_queues(vsi->netdev, vsi->num_queue_pairs);
- 	if (err)
- 		goto err_set_queues;
- 
--	err = netif_set_real_num_rx_queues(netdev, vsi->num_queue_pairs);
-+	err = netif_set_real_num_rx_queues(vsi->netdev, vsi->num_queue_pairs);
- 	if (err)
- 		goto err_set_queues;
- 
-@@ -4275,10 +4303,6 @@ static int i40e_open(struct net_device *netdev)
- 	if (err)
- 		goto err_up_complete;
- 
--#ifdef CONFIG_I40E_VXLAN
--	vxlan_get_rx_port(netdev);
--#endif
--
- 	return 0;
- 
- err_up_complete:
+ static void ixgbe_service_event_complete(struct ixgbe_adapter *adapter)
+ {
+ 	BUG_ON(!test_bit(__IXGBE_SERVICE_SCHED, &adapter->state));
 -- 
 1.8.3.1
