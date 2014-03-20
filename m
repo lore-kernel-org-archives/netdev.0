@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next v3 5/9] dp83640: trivial fixes
-Date: Thu, 20 Mar 2014 22:21:56 +0100
-Message-ID: <880b3d42ed128501863528e4acac85fe652b5259.1395350113.git.richardcochran@gmail.com>
+Subject: [PATCH net-next v3 8/9] dp83640: let external input pins from the module parameters be defaults.
+Date: Thu, 20 Mar 2014 22:21:59 +0100
+Message-ID: <d93688e0dd8b0bd78d7688b1bd59ac6fbc7bd3ac.1395350114.git.richardcochran@gmail.com>
 References: <cover.1395350105.git.richardcochran@gmail.com>
 Cc: <linux-kernel@vger.kernel.org>,
 	Ben Hutchings <ben@decadent.org.uk>,
@@ -15,46 +15,29 @@ In-Reply-To: <cover.1395350105.git.richardcochran@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch cleans up the input checking code on the external time stamp
-function by using an unsigned rather than a signed channel index.
-
-Also, this patch corrects the author's email address. When this macro
-was last changed, the top level domain part of the email address was
-left behind.
+This patch changes the driver to use the new pin configuration method when
+programming the external time stamp input signals.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/phy/dp83640.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/phy/dp83640.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index 98e7cbf..d6c1061 100644
+index 43b583b..93db564 100644
 --- a/drivers/net/phy/dp83640.c
 +++ b/drivers/net/phy/dp83640.c
-@@ -424,13 +424,13 @@ static int ptp_dp83640_enable(struct ptp_clock_info *ptp,
- 	struct dp83640_clock *clock =
- 		container_of(ptp, struct dp83640_clock, caps);
- 	struct phy_device *phydev = clock->chosen->phydev;
--	int index;
-+	unsigned int index;
- 	u16 evnt, event_num, gpio_num;
- 
- 	switch (rq->type) {
- 	case PTP_CLK_REQ_EXTTS:
- 		index = rq->extts.index;
--		if (index < 0 || index >= N_EXT_TS)
-+		if (index >= N_EXT_TS)
- 			return -EINVAL;
+@@ -468,7 +468,10 @@ static int ptp_dp83640_enable(struct ptp_clock_info *ptp,
  		event_num = EXT_EVENT + index;
  		evnt = EVNT_WR | (event_num & EVNT_SEL_MASK) << EVNT_SEL_SHIFT;
-@@ -1363,7 +1363,7 @@ static void __exit dp83640_exit(void)
- }
- 
- MODULE_DESCRIPTION("National Semiconductor DP83640 PHY driver");
--MODULE_AUTHOR("Richard Cochran <richardcochran@gmail.at>");
-+MODULE_AUTHOR("Richard Cochran <richardcochran@gmail.com>");
- MODULE_LICENSE("GPL");
- 
- module_init(dp83640_init);
+ 		if (on) {
+-			gpio_num = gpio_tab[EXTTS0_GPIO + index];
++			gpio_num = 1 + ptp_find_pin(clock->ptp_clock,
++						    PTP_PF_EXTTS, index);
++			if (gpio_num < 1)
++				return -EINVAL;
+ 			evnt |= (gpio_num & EVNT_GPIO_MASK) << EVNT_GPIO_SHIFT;
+ 			if (rq->extts.flags & PTP_FALLING_EDGE)
+ 				evnt |= EVNT_FALL;
 -- 
 1.7.10.4
