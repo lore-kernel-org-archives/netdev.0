@@ -1,48 +1,114 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 08/15] i40e: potential array underflow in i40e_vc_process_vf_msg()
-Date: Wed, 19 Mar 2014 20:29:58 -0700
-Message-ID: <1395286205-9676-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 10/15] e1000e: Fix Hardware Unit Hang
+Date: Wed, 19 Mar 2014 20:30:00 -0700
+Message-ID: <1395286205-9676-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395286205-9676-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Dan Carpenter <dan.carpenter@oracle.com>, netdev@vger.kernel.org,
+Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:35396 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:20420 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753897AbaCTDa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753900AbaCTDa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 19 Mar 2014 23:30:26 -0400
 In-Reply-To: <1395286205-9676-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
+From: David Ertman <davidx.m.ertman@intel.com>
 
-If "vf_id" is smaller than hw->func_caps.vf_base_id then it leads to
-an array underflow of the pf->vf[] array.  This is unlikely to happen
-unless the hardware is bad, but it's a small change and it silences a
-static checker warning.
+The check for pending Tx work when link is lost was mistakenly moved to be
+done only when link is first detected to be lost.  It turns out there is a
+small window of opportunity for additional Tx work to get queued up shortly
+after link is dropped.
 
-Fixes: 7efa84b7abc1 ('i40e: support VFs on PFs other than 0')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Move the check back to the place it was before in the watchdog task.  Put in
+additional debug information for other reset paths and a final catch-all for
+false hangs in the scheduled function that prints out the hardware hang
+message.
+
+Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 32 +++++++++++++++++++++---------
+ 1 file changed, 23 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index b2da079..02c11a7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1774,7 +1774,7 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
- 			   u32 v_retval, u8 *msg, u16 msglen)
- {
- 	struct i40e_hw *hw = &pf->hw;
--	int local_vf_id = vf_id - hw->func_caps.vf_base_id;
-+	unsigned int local_vf_id = vf_id - hw->func_caps.vf_base_id;
- 	struct i40e_vf *vf;
- 	int ret;
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index eafad41..d577723 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1090,8 +1090,14 @@ static void e1000_print_hw_hang(struct work_struct *work)
+ 		adapter->tx_hang_recheck = true;
+ 		return;
+ 	}
+-	/* Real hang detected */
+ 	adapter->tx_hang_recheck = false;
++
++	if (er32(TDH(0)) == er32(TDT(0))) {
++		e_dbg("false hang detected, ignoring\n");
++		return;
++	}
++
++	/* Real hang detected */
+ 	netif_stop_queue(netdev);
  
+ 	e1e_rphy(hw, MII_BMSR, &phy_status);
+@@ -1121,6 +1127,8 @@ static void e1000_print_hw_hang(struct work_struct *work)
+ 	      eop, jiffies, eop_desc->upper.fields.status, er32(STATUS),
+ 	      phy_status, phy_1000t_status, phy_ext_status, pci_status);
+ 
++	e1000e_dump(adapter);
++
+ 	/* Suggest workaround for known h/w issue */
+ 	if ((hw->mac.type == e1000_pchlan) && (er32(CTRL) & E1000_CTRL_TFCE))
+ 		e_err("Try turning off Tx pause (flow control) via ethtool\n");
+@@ -4798,6 +4806,7 @@ static void e1000e_check_82574_phy_workaround(struct e1000_adapter *adapter)
+ 
+ 	if (adapter->phy_hang_count > 1) {
+ 		adapter->phy_hang_count = 0;
++		e_dbg("PHY appears hung - resetting\n");
+ 		schedule_work(&adapter->reset_task);
+ 	}
+ }
+@@ -4956,15 +4965,11 @@ static void e1000_watchdog_task(struct work_struct *work)
+ 				mod_timer(&adapter->phy_info_timer,
+ 					  round_jiffies(jiffies + 2 * HZ));
+ 
+-			/* The link is lost so the controller stops DMA.
+-			 * If there is queued Tx work that cannot be done
+-			 * or if on an 8000ES2LAN which requires a Rx packet
+-			 * buffer work-around on link down event, reset the
+-			 * controller to flush the Tx/Rx packet buffers.
+-			 * (Do the reset outside of interrupt context).
++			/* 8000ES2LAN requires a Rx packet buffer work-around
++			 * on link down event; reset the controller to flush
++			 * the Rx packet buffer.
+ 			 */
+-			if ((adapter->flags & FLAG_RX_NEEDS_RESTART) ||
+-			    (e1000_desc_unused(tx_ring) + 1 < tx_ring->count))
++			if (adapter->flags & FLAG_RX_NEEDS_RESTART)
+ 				adapter->flags |= FLAG_RESTART_NOW;
+ 			else
+ 				pm_schedule_suspend(netdev->dev.parent,
+@@ -4987,6 +4992,15 @@ link_up:
+ 	adapter->gotc_old = adapter->stats.gotc;
+ 	spin_unlock(&adapter->stats64_lock);
+ 
++	/* If the link is lost the controller stops DMA, but
++	 * if there is queued Tx work it cannot be done.  So
++	 * reset the controller to flush the Tx packet buffers.
++	 */
++	if (!netif_carrier_ok(netdev) &&
++	    (e1000_desc_unused(tx_ring) + 1 < tx_ring->count))
++		adapter->flags |= FLAG_RESTART_NOW;
++
++	/* If reset is necessary, do it outside of interrupt context. */
+ 	if (adapter->flags & FLAG_RESTART_NOW) {
+ 		schedule_work(&adapter->reset_task);
+ 		/* return immediately since reset is imminent */
 -- 
 1.8.3.1
