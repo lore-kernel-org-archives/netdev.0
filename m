@@ -1,102 +1,94 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: [PATCH V8 1/7] sxgbe: Add device-tree binding support document
-Date: Thu, 20 Mar 2014 10:25:59 -0700
-Message-ID: <012e01cf4461$79852880$6c8f7980$@samsung.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: 'David Miller' <davem@davemloft.net>,
-	'GIRISH K S' <ks.giri@samsung.com>,
-	'SIVAREDDY KALLAM' <siva.kallam@samsung.com>,
-	'Vipul Chandrakant' <vipul.pandya@samsung.com>,
-	'Ilho Lee' <ilho215.lee@samsung.com>
-To: 'netdev' <netdev@vger.kernel.org>,
-	linux-samsung-soc@vger.kernel.org, devicetree@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:39020 "EHLO
-	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759358AbaCTR0L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 13:26:11 -0400
-Content-language: en-us
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: [PATCH v3] sh_eth: ensure pm_runtime cannot suspend the device during init
+Date: Thu, 20 Mar 2014 18:34:37 +0100
+Message-ID: <1395336877-12402-1-git-send-email-ben.dooks@codethink.co.uk>
+Cc: linux-sh@vger.kernel.org, davem@davemloft.net,
+	Ben Dooks <ben.dooks@codethink.co.uk>,
+	sergei.shtylyov@cogentembedded.com,
+	laurent.pinchart+renesas@ideasonboard.com
+To: linux-kernel@lists.codethink.co.uk, netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Siva Reddy <siva.kallam@samsung.com>
+The pm_rumtime work queue is causing the device to be suspended during
+initialisation, thus the initialisation may not be able to access registers
+properly. As the code is called from a work queue, it is possible that this
+is not seen from certain configurations/builds due to the asynchronos
+nature of the code.
 
-This patch adds binding document for SXGBE ethernet driver via device-tree.
+Another issue has also been found where the network device registration
+calls back into the driver thus causing further pm_runtime calls that
+also caused issues with the MDIO bus code.
 
-Signed-off-by: Siva Reddy Kallam <siva.kallam@samsung.com>
-Signed-off-by: Byungho An <bh74.an@samsung.com>
+Use pm_runtime_get_sync() and pm_runtime_put() to ensure that the
+pm system does not suspend it during the probe() call and remove the
+now unnecessary pm_runtime_resume() call.
+
+This fixes the external abort that can cause /sbin/init or other such
+init processed to die.
+
+Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
+
 ---
- .../devicetree/bindings/net/samsung-sxgbe.txt      |   60 ++++++++++++++++++++
- 1 file changed, 60 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/samsung-sxgbe.txt
+Cc: sergei.shtylyov@cogentembedded.com
+Cc: laurent.pinchart+renesas@ideasonboard.com
+cc: netdev@vger.kernel.org
 
-diff --git a/Documentation/devicetree/bindings/net/samsung-sxgbe.txt b/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
-new file mode 100644
-index 0000000..231acf8
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
-@@ -0,0 +1,60 @@
-+* Samsung 10G Ethernet driver (SXGBE)
+Note, Laurent this should probably be applied before your
+current series as it may require changes to the exit sequence.
+
+Fixes from v1:
+	- use pm_runtime_put() over pm_runtime_put_sync() as
+	  we do not need to guaranteed the device has powered
+          off after probe.
+
+Fixed from v2:
+	- call pm_runtime_put() in error path
+---
+ drivers/net/ethernet/renesas/sh_eth.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 4f76b5e..610da51 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -2841,6 +2841,9 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 		goto out;
+ 	}
+ 
++	pm_runtime_enable(&pdev->dev);
++	pm_runtime_get_sync(&pdev->dev);
 +
-+Required properties:
-+- compatible: Should be "samsung,sxgbe-v2.0a"
-+- reg: Address and length of the register set for the device
-+- interrupt-parent: Should be the phandle for the interrupt controller
-+  that services interrupts for this device
-+- interrupts: Should contain the SXGBE interrupts
-+  These interrupts are ordered by fixed and follows variable
-+  trasmit DMA interrupts, receive DMA interrupts and lpi interrupt.
-+  index 0 - this is fixed common interrupt of SXGBE and it is always
-+  available.
-+  index 1 to 25 - 8 variable trasmit interrupts, variable 16 receive interrupts
-+  and 1 optional lpi interrupt.
-+- phy-mode: String, operation mode of the PHY interface.
-+  Supported values are: "sgmii", "xgmii".
-+- samsung,pbl: Integer, Programmable Burst Length.
-+  Supported values are 1, 2, 4, 8, 16, or 32.
-+- samsung,burst-map: Integer, Program the possible bursts supported by sxgbe
-+  This is an interger and represents allowable DMA bursts when fixed burst.
-+  Allowable range is 0x01-0x3F. When this field is set fixed burst is enabled.
-+  When fixed length is needed for burst mode, it can be set within allowable
-+  range.
-+- samsung,adv-addr-mode: Boolean, Program the DMA to use Enhanced address mode.
-+  When enhanced address mode is needed, it can be set.
-+- samsung,force-thresh-dma-mode: Boolean, Force DMA to use the threshold mode
-+  for both tx and rx.
-+- samsung,force-sf-dma-mode: Boolean, Force DMA to use the Store and Forward
-+  mode for both tx and rx. This flag is ignored if force-thresh-dma-mode is set.
-+
-+Optional properties:
-+- mac-address: 6 bytes, mac address
-+- max-frame-size: Maximum Transfer Unit (IEEE defined MTU), rather
-+		  than the maximum frame size.
-+
-+Example:
-+
-+	aliases {
-+		ethernet0 = <&sxgbe0>;
-+	};
-+
-+	sxgbe0: ethernet@1a040000 {
-+		compatible = "samsung,sxgbe-v2.0a";
-+		reg = <0 0x1a040000 0 0x10000>;
-+		interrupt-parent = <&gic>;
-+		interrupts = <0 209 4>, <0 185 4>, <0 186 4>, <0 187 4>,
-+			     <0 188 4>, <0 189 4>, <0 190 4>, <0 191 4>,
-+			     <0 192 4>, <0 193 4>, <0 194 4>, <0 195 4>,
-+			     <0 196 4>, <0 197 4>, <0 198 4>, <0 199 4>,
-+			     <0 200 4>, <0 201 4>, <0 202 4>, <0 203 4>,
-+			     <0 204 4>, <0 205 4>, <0 206 4>, <0 207 4>,
-+			     <0 208 4>, <0 210 4>;
-+		samsung,pbl = <0x08>
-+		samsung,burst-map = <0x20>
-+		samsung,adv-addr-mode = "true"
-+		samsung,force-sf-dma-mode = "true"
-+		mac-address = [ 00 11 22 33 44 55 ]; /* Filled in by U-Boot */
-+		max-frame-size = <9000>;
-+		phy-mode = "xgmii";
-+	};
+ 	/* The sh Ether-specific entries in the device structure. */
+ 	ndev->base_addr = res->start;
+ 	devno = pdev->id;
+@@ -2868,8 +2871,6 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 
+ 	spin_lock_init(&mdp->lock);
+ 	mdp->pdev = pdev;
+-	pm_runtime_enable(&pdev->dev);
+-	pm_runtime_resume(&pdev->dev);
+ 
+ 	if (pdev->dev.of_node)
+ 		pd = sh_eth_parse_dt(&pdev->dev);
+@@ -2961,6 +2962,7 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	pr_info("Base address at 0x%x, %pM, IRQ %d.\n",
+ 		(u32)ndev->base_addr, ndev->dev_addr, ndev->irq);
+ 
++	pm_runtime_put(&pdev->dev);
+ 	platform_set_drvdata(pdev, ndev);
+ 
+ 	return ret;
+@@ -2976,6 +2978,7 @@ out_release:
+ 	if (ndev)
+ 		free_netdev(ndev);
+ 
++	pm_runtime_put(&pdev->dev);
+ out:
+ 	return ret;
+ }
 -- 
-1.7.10.4
+1.9.0
+
