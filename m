@@ -1,94 +1,41 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: [PATCH v3] sh_eth: ensure pm_runtime cannot suspend the device during init
-Date: Thu, 20 Mar 2014 18:34:37 +0100
-Message-ID: <1395336877-12402-1-git-send-email-ben.dooks@codethink.co.uk>
-Cc: linux-sh@vger.kernel.org, davem@davemloft.net,
-	Ben Dooks <ben.dooks@codethink.co.uk>,
-	sergei.shtylyov@cogentembedded.com,
-	laurent.pinchart+renesas@ideasonboard.com
-To: linux-kernel@lists.codethink.co.uk, netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] micrel: fix masking off LED bits
+Date: Thu, 20 Mar 2014 21:44:05 +0300
+Message-ID: <532B36F5.20605@cogentembedded.com>
+References: <201403190258.16812.sergei.shtylyov@cogentembedded.com> <20140319.174205.1425627653050633421.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	ben.dooks@codethink.co.uk
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:41565 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751925AbaCTRoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 13:44:11 -0400
+Received: by mail-lb0-f176.google.com with SMTP id 10so870142lbg.35
+        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 10:44:10 -0700 (PDT)
+In-Reply-To: <20140319.174205.1425627653050633421.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The pm_rumtime work queue is causing the device to be suspended during
-initialisation, thus the initialisation may not be able to access registers
-properly. As the code is called from a work queue, it is possible that this
-is not seen from certain configurations/builds due to the asynchronos
-nature of the code.
+Hello.
 
-Another issue has also been found where the network device registration
-calls back into the driver thus causing further pm_runtime calls that
-also caused issues with the MDIO bus code.
+On 03/20/2014 12:42 AM, David Miller wrote:
 
-Use pm_runtime_get_sync() and pm_runtime_put() to ensure that the
-pm system does not suspend it during the probe() call and remove the
-now unnecessary pm_runtime_resume() call.
+>> Commit 20d8435a1cff (phy: micrel: add of configuration for LED mode) made the
+>> obvious mistake when masking off  the LED mode bits: forgot to do a logical NOT
+>> to the mask with which it ANDs the register value, so that unrelated bits are
+>> cleared instead.
 
-This fixes the external abort that can cause /sbin/init or other such
-init processed to die.
+    I'm seeing now that I hadn't finished editing the changelog before 
+submitting -- the verbs have inconsistent times. So much for my haste... :-)
 
-Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
-Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
----
-Cc: sergei.shtylyov@cogentembedded.com
-Cc: laurent.pinchart+renesas@ideasonboard.com
-cc: netdev@vger.kernel.org
+> Applied to net-next, thanks.
 
-Note, Laurent this should probably be applied before your
-current series as it may require changes to the exit sequence.
+    Thanks.
 
-Fixes from v1:
-	- use pm_runtime_put() over pm_runtime_put_sync() as
-	  we do not need to guaranteed the device has powered
-          off after probe.
-
-Fixed from v2:
-	- call pm_runtime_put() in error path
----
- drivers/net/ethernet/renesas/sh_eth.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 4f76b5e..610da51 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2841,6 +2841,9 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
- 		goto out;
- 	}
- 
-+	pm_runtime_enable(&pdev->dev);
-+	pm_runtime_get_sync(&pdev->dev);
-+
- 	/* The sh Ether-specific entries in the device structure. */
- 	ndev->base_addr = res->start;
- 	devno = pdev->id;
-@@ -2868,8 +2871,6 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
- 
- 	spin_lock_init(&mdp->lock);
- 	mdp->pdev = pdev;
--	pm_runtime_enable(&pdev->dev);
--	pm_runtime_resume(&pdev->dev);
- 
- 	if (pdev->dev.of_node)
- 		pd = sh_eth_parse_dt(&pdev->dev);
-@@ -2961,6 +2962,7 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
- 	pr_info("Base address at 0x%x, %pM, IRQ %d.\n",
- 		(u32)ndev->base_addr, ndev->dev_addr, ndev->irq);
- 
-+	pm_runtime_put(&pdev->dev);
- 	platform_set_drvdata(pdev, ndev);
- 
- 	return ret;
-@@ -2976,6 +2978,7 @@ out_release:
- 	if (ndev)
- 		free_netdev(ndev);
- 
-+	pm_runtime_put(&pdev->dev);
- out:
- 	return ret;
- }
--- 
-1.9.0
-
+WBR, Sergei
