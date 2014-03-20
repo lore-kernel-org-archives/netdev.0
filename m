@@ -1,57 +1,48 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 15/15] ixgbevf: Protect ixgbevf_down with __IXGBEVF_DOWN bit
-Date: Wed, 19 Mar 2014 20:30:05 -0700
-Message-ID: <1395286205-9676-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 08/15] i40e: potential array underflow in i40e_vc_process_vf_msg()
+Date: Wed, 19 Mar 2014 20:29:58 -0700
+Message-ID: <1395286205-9676-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395286205-9676-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+Cc: Dan Carpenter <dan.carpenter@oracle.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:35396 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753900AbaCTDa3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Mar 2014 23:30:29 -0400
+	id S1753897AbaCTDa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Mar 2014 23:30:26 -0400
 In-Reply-To: <1395286205-9676-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
 
-The ixgbevf_down function can now prevent multiple executions by
-doing test_and_set_bit on __IXGBEVF_DOWN. This did not work before
-introduction of the __IXGBEVF_REMOVING bit, because of overloading
-of __IXGBEVF_DOWN. Also add smp_mb__before_clear_bit call before
-clearing the __IXGBEVF_DOWN bit.
+If "vf_id" is smaller than hw->func_caps.vf_base_id then it leads to
+an array underflow of the pf->vf[] array.  This is unlikely to happen
+unless the hardware is bad, but it's a small change and it silences a
+static checker warning.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Fixes: 7efa84b7abc1 ('i40e: support VFs on PFs other than 0')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 940d924..a2cba53 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1620,6 +1620,7 @@ static void ixgbevf_up_complete(struct ixgbevf_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index b2da079..02c11a7 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1774,7 +1774,7 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
+ 			   u32 v_retval, u8 *msg, u16 msglen)
+ {
+ 	struct i40e_hw *hw = &pf->hw;
+-	int local_vf_id = vf_id - hw->func_caps.vf_base_id;
++	unsigned int local_vf_id = vf_id - hw->func_caps.vf_base_id;
+ 	struct i40e_vf *vf;
+ 	int ret;
  
- 	spin_unlock_bh(&adapter->mbx_lock);
- 
-+	smp_mb__before_clear_bit();
- 	clear_bit(__IXGBEVF_DOWN, &adapter->state);
- 	ixgbevf_napi_enable_all(adapter);
- 
-@@ -1744,7 +1745,8 @@ void ixgbevf_down(struct ixgbevf_adapter *adapter)
- 	int i;
- 
- 	/* signal that we are down to the interrupt handler */
--	set_bit(__IXGBEVF_DOWN, &adapter->state);
-+	if (test_and_set_bit(__IXGBEVF_DOWN, &adapter->state))
-+		return; /* do nothing if already down */
- 
- 	/* disable all enabled rx queues */
- 	for (i = 0; i < adapter->num_rx_queues; i++)
 -- 
 1.8.3.1
