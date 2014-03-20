@@ -1,100 +1,89 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [net-next 13/15] ixgbe: clean up
- ixgbe_atr_compute_perfect_hash_82599
-Date: Thu, 20 Mar 2014 15:08:41 +0000
-Message-ID: <1395328121.4968.19.camel@jekeller-desk1.amr.corp.intel.com>
-References: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1395304385-6874-14-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6E224D@AcuExch.aculab.com>
+From: "Ertman, DavidX M" <davidx.m.ertman@intel.com>
+Subject: RE: [E1000-devel] i217-LM boot wreckage
+Date: Thu, 20 Mar 2014 15:12:48 +0000
+Message-ID: <2B0E3F215D1AB84DA946C8BEE234CCC9370CEFE3@ORSMSX101.amr.corp.intel.com>
+References: <alpine.DEB.2.02.1403201332400.18573@ionos.tec.linutronix.de>
+ <alpine.DEB.2.02.1403201431580.18573@ionos.tec.linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	Arun Sharma <asharma@fb.com>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Thomas Gleixner <tglx@linutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:51901 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:6804 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755487AbaCTPLe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Mar 2014 11:11:34 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6E224D@AcuExch.aculab.com>
+	id S1757056AbaCTPPa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 11:15:30 -0400
+In-Reply-To: <alpine.DEB.2.02.1403201431580.18573@ionos.tec.linutronix.de>
 Content-Language: en-US
-Content-ID: <AA1CCE6BF0D31B48ADF67A0C6ECE1803@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCAyMDE0LTAzLTIwIGF0IDA5OjQ0ICswMDAwLCBEYXZpZCBMYWlnaHQgd3JvdGU6DQo+
-IEZyb206IEplZmYgS2lyc2hlcg0KPiA+IEZyb206IEphY29iIEtlbGxlciA8amFjb2IuZS5rZWxs
-ZXJAaW50ZWwuY29tPg0KPiA+IA0KPiA+IFJhdGhlciB0aGFuIGFzc2lnbiBzZXZlcmFsIHBhcmFt
-ZXRlcnMgaW4gYSByb3csIHdlIHNob3VsZCB1c2UgYSBmb3INCj4gPiBsb29wLCB3aGljaCByZWR1
-Y2VzIGNvZGUgc2l6ZS4NCj4gDQo+IEFuZCBwcm9iYWJseSBpbmNyZWFzZXMgZXhlY3V0aW9uIHRp
-bWUuDQo+IEVzcGVjaWFsbHkgZm9yIHRoZSBmaXJzdCB0d28gYmxvY2tzLg0KDQpQcm9iYWJseSwg
-YnV0IEkgZG9uJ3QgYmVsaWV2ZSB0aGlzIGlzIGluIHRoZSBob3QgcGF0aC4NCg0KPiANCj4gLi4u
-DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2Jl
-XzgyNTk5LmMNCj4gPiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlXzgy
-NTk5LmMNCj4gPiBpbmRleCBiZGFjN2JkLi4zNGFiMmZjIDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlXzgyNTk5LmMNCj4gPiArKysgYi9kcml2
-ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV84MjU5OS5jDQo+ID4gQEAgLTE1OTcs
-MzUgKzE1OTcsMjAgQEAgdm9pZCBpeGdiZV9hdHJfY29tcHV0ZV9wZXJmZWN0X2hhc2hfODI1OTko
-dW5pb24gaXhnYmVfYXRyX2lucHV0ICppbnB1dCwNCj4gPiAgew0KPiA+IA0KPiA+ICAJdTMyIGhp
-X2hhc2hfZHdvcmQsIGxvX2hhc2hfZHdvcmQsIGZsb3dfdm1fdmxhbjsNCj4gPiAtCXUzMiBidWNr
-ZXRfaGFzaCA9IDA7DQo+ID4gKwl1MzIgYnVja2V0X2hhc2ggPSAwLCBoaV9kd29yZCA9IDA7DQo+
-ID4gKwlpbnQgaTsNCj4gPiANCj4gPiAgCS8qIEFwcGx5IG1hc2tzIHRvIGlucHV0IGRhdGEgKi8N
-Cj4gPiAtCWlucHV0LT5kd29yZF9zdHJlYW1bMF0gICY9IGlucHV0X21hc2stPmR3b3JkX3N0cmVh
-bVswXTsNCj4gPiAtCWlucHV0LT5kd29yZF9zdHJlYW1bMV0gICY9IGlucHV0X21hc2stPmR3b3Jk
-X3N0cmVhbVsxXTsNCj4gPiAtCWlucHV0LT5kd29yZF9zdHJlYW1bMl0gICY9IGlucHV0X21hc2st
-PmR3b3JkX3N0cmVhbVsyXTsNCj4gPiAtCWlucHV0LT5kd29yZF9zdHJlYW1bM10gICY9IGlucHV0
-X21hc2stPmR3b3JkX3N0cmVhbVszXTsNCj4gPiAtCWlucHV0LT5kd29yZF9zdHJlYW1bNF0gICY9
-IGlucHV0X21hc2stPmR3b3JkX3N0cmVhbVs0XTsNCj4gPiAtCWlucHV0LT5kd29yZF9zdHJlYW1b
-NV0gICY9IGlucHV0X21hc2stPmR3b3JkX3N0cmVhbVs1XTsNCj4gPiAtCWlucHV0LT5kd29yZF9z
-dHJlYW1bNl0gICY9IGlucHV0X21hc2stPmR3b3JkX3N0cmVhbVs2XTsNCj4gPiAtCWlucHV0LT5k
-d29yZF9zdHJlYW1bN10gICY9IGlucHV0X21hc2stPmR3b3JkX3N0cmVhbVs3XTsNCj4gPiAtCWlu
-cHV0LT5kd29yZF9zdHJlYW1bOF0gICY9IGlucHV0X21hc2stPmR3b3JkX3N0cmVhbVs4XTsNCj4g
-PiAtCWlucHV0LT5kd29yZF9zdHJlYW1bOV0gICY9IGlucHV0X21hc2stPmR3b3JkX3N0cmVhbVs5
-XTsNCj4gPiAtCWlucHV0LT5kd29yZF9zdHJlYW1bMTBdICY9IGlucHV0X21hc2stPmR3b3JkX3N0
-cmVhbVsxMF07DQo+ID4gKwlmb3IgKGkgPSAwOyBpIDw9IDEwOyBpKyspDQo+ID4gKwkJaW5wdXQt
-PmR3b3JkX3N0cmVhbVtpXSAmPSBpbnB1dF9tYXNrLT5kd29yZF9zdHJlYW1baV07DQo+ID4gDQo+
-ID4gIAkvKiByZWNvcmQgdGhlIGZsb3dfdm1fdmxhbiBiaXRzIGFzIHRoZXkgYXJlIGEga2V5IHBh
-cnQgdG8gdGhlIGhhc2ggKi8NCj4gPiAgCWZsb3dfdm1fdmxhbiA9IG50b2hsKGlucHV0LT5kd29y
-ZF9zdHJlYW1bMF0pOw0KPiA+IA0KPiA+ICAJLyogZ2VuZXJhdGUgY29tbW9uIGhhc2ggZHdvcmQg
-Ki8NCj4gPiAtCWhpX2hhc2hfZHdvcmQgPSBudG9obChpbnB1dC0+ZHdvcmRfc3RyZWFtWzFdIF4N
-Cj4gPiAtCQkJCSAgICBpbnB1dC0+ZHdvcmRfc3RyZWFtWzJdIF4NCj4gPiAtCQkJCSAgICBpbnB1
-dC0+ZHdvcmRfc3RyZWFtWzNdIF4NCj4gPiAtCQkJCSAgICBpbnB1dC0+ZHdvcmRfc3RyZWFtWzRd
-IF4NCj4gPiAtCQkJCSAgICBpbnB1dC0+ZHdvcmRfc3RyZWFtWzVdIF4NCj4gPiAtCQkJCSAgICBp
-bnB1dC0+ZHdvcmRfc3RyZWFtWzZdIF4NCj4gPiAtCQkJCSAgICBpbnB1dC0+ZHdvcmRfc3RyZWFt
-WzddIF4NCj4gPiAtCQkJCSAgICBpbnB1dC0+ZHdvcmRfc3RyZWFtWzhdIF4NCj4gPiAtCQkJCSAg
-ICBpbnB1dC0+ZHdvcmRfc3RyZWFtWzldIF4NCj4gPiAtCQkJCSAgICBpbnB1dC0+ZHdvcmRfc3Ry
-ZWFtWzEwXSk7DQo+ID4gKwlmb3IgKGkgPSAxOyBpIDw9IDEwOyBpKyspDQo+ID4gKwkJaGlfZHdv
-cmQgXj0gaW5wdXQtPmR3b3JkX3N0cmVhbVtpXTsNCj4gPiArCWhpX2hhc2hfZHdvcmQgPSBudG9o
-bChoaV9kd29yZCk7DQo+IA0KPiBJZiBoYXMgdG8gYmUgd29ydGggZG9pbmcgdGhlc2UgXj0gYXQg
-dGhlIHNhbWUgdGltZSBhcyB0aGUgJiB3aXRoIHRoZSBtYXNrLg0KPiBFc3BlY2lhbGx5IGlmIHRo
-ZSBjb21waWxlciBjYW4ndCBhc3N1bWUgdGhhdCAnaW5wdXQnIGFuZCAnaW5wdXRfbWFzaycNCj4g
-ZG9uJ3Qgb3ZlcmxhcCAtIHdoaWNoIGZvcmNlcyBzb21lIHN0cm9uZyBzZXF1ZW5jaW5nIG9uIHRo
-ZSBpbnN0cnVjdGlvbnMuDQoNCkknbSBndWVzc2luZyB5b3UgbWVhbiBzb21ldGhpbmcgbGlrZToN
-Cg0KaGlfZHdvcmQgXj0gKGlucHV0LT5kd29yZF9zdHJlYW1baV0gJiBpbnB1dF9tYXNrLT5kd29y
-ZF9zdHJlYW1baV0pPw0KDQpUaGFua3MsDQpKYWtlDQoNCj4gDQo+ID4gIAkvKiBsb3cgZHdvcmQg
-aXMgd29yZCBzd2FwcGVkIHZlcnNpb24gb2YgY29tbW9uICovDQo+ID4gIAlsb19oYXNoX2R3b3Jk
-ID0gKGhpX2hhc2hfZHdvcmQgPj4gMTYpIHwgKGhpX2hhc2hfZHdvcmQgPDwgMTYpOw0KPiA+IEBA
-IC0xNjQ0LDIxICsxNjI5LDggQEAgdm9pZCBpeGdiZV9hdHJfY29tcHV0ZV9wZXJmZWN0X2hhc2hf
-ODI1OTkodW5pb24gaXhnYmVfYXRyX2lucHV0ICppbnB1dCwNCj4gPiAgCWxvX2hhc2hfZHdvcmQg
-Xj0gZmxvd192bV92bGFuIF4gKGZsb3dfdm1fdmxhbiA8PCAxNik7DQo+ID4gDQo+ID4gIAkvKiBQ
-cm9jZXNzIHJlbWFpbmluZyAzMCBiaXQgb2YgdGhlIGtleSAqLw0KPiA+IC0JSVhHQkVfQ09NUFVU
-RV9CS1RfSEFTSF9JVEVSQVRJT04oMSk7DQo+ID4gLQlJWEdCRV9DT01QVVRFX0JLVF9IQVNIX0lU
-RVJBVElPTigyKTsNCj4gPiAtCUlYR0JFX0NPTVBVVEVfQktUX0hBU0hfSVRFUkFUSU9OKDMpOw0K
-PiA+IC0JSVhHQkVfQ09NUFVURV9CS1RfSEFTSF9JVEVSQVRJT04oNCk7DQo+ID4gLQlJWEdCRV9D
-T01QVVRFX0JLVF9IQVNIX0lURVJBVElPTig1KTsNCj4gPiAtCUlYR0JFX0NPTVBVVEVfQktUX0hB
-U0hfSVRFUkFUSU9OKDYpOw0KPiA+IC0JSVhHQkVfQ09NUFVURV9CS1RfSEFTSF9JVEVSQVRJT04o
-Nyk7DQo+ID4gLQlJWEdCRV9DT01QVVRFX0JLVF9IQVNIX0lURVJBVElPTig4KTsNCj4gPiAtCUlY
-R0JFX0NPTVBVVEVfQktUX0hBU0hfSVRFUkFUSU9OKDkpOw0KPiA+IC0JSVhHQkVfQ09NUFVURV9C
-S1RfSEFTSF9JVEVSQVRJT04oMTApOw0KPiA+IC0JSVhHQkVfQ09NUFVURV9CS1RfSEFTSF9JVEVS
-QVRJT04oMTEpOw0KPiA+IC0JSVhHQkVfQ09NUFVURV9CS1RfSEFTSF9JVEVSQVRJT04oMTIpOw0K
-PiA+IC0JSVhHQkVfQ09NUFVURV9CS1RfSEFTSF9JVEVSQVRJT04oMTMpOw0KPiA+IC0JSVhHQkVf
-Q09NUFVURV9CS1RfSEFTSF9JVEVSQVRJT04oMTQpOw0KPiA+IC0JSVhHQkVfQ09NUFVURV9CS1Rf
-SEFTSF9JVEVSQVRJT04oMTUpOw0KPiA+ICsJZm9yIChpID0gMTsgaSA8PSAxNTsgaSsrKQ0KPiA+
-ICsJCUlYR0JFX0NPTVBVVEVfQktUX0hBU0hfSVRFUkFUSU9OKGkpOw0KPiA+IA0KPiA+ICAJLyoN
-Cj4gPiAgCSAqIExpbWl0IGhhc2ggdG8gMTMgYml0cyBzaW5jZSBtYXggYnVja2V0IGNvdW50IGlz
-IDhLLg0KPiA+IC0tDQo+IA0KPiAJRGF2aWQNCj4gDQo+IA0KPiANCg0KDQo=
+Hello Thomas,
+
+Could you provide the exact kernel version and kernel config you are using?
+Do you have Runtime Power Management enabled?
+Have you tried the latest driver from sourceforge.net (3.0.4.1)?
+
+>From your lspci output it looks like you have a Management Engine enabled platform.   Do you know what version of ME is loaded?  Have you checked to see that you are on the latest BIOS/NVM image (looks like a new one was released on March 11th for the M93z)?
+
+Thanks
+
+-----Original Message-----
+From: Thomas Gleixner [mailto:tglx@linutronix.de] 
+Sent: Thursday, March 20, 2014 6:45 AM
+To: netdev@vger.kernel.org
+Cc: e1000-devel@lists.sourceforge.net
+Subject: Re: [E1000-devel] i217-LM boot wreckage
+
+On Thu, 20 Mar 2014, Thomas Gleixner wrote:
+> So it looks like the BIOS is setting something up, when the cable is 
+> plugged at power on time, which is not visible through our debug 
+> output.
+
+Some more info:
+
+I prevented e1000e from being autoloaded and booted with the cable unplugged.
+
+T1:
+  Plug cable 
+  modprobe e1000e	-> Works
+
+T2:
+  modprobe e1000e
+  plug cable		-> Works not
+
+  rmmod e1000e
+  modprobe e1000e	-> works not
+
+  unplug cable
+  rmmod e1000e
+  modprobe e1000e	-> works
+
+  rmmod e1000e
+  unplug cable     
+  modprobe e1000e
+  plug cable		-> Works not
+
+  rmmod e1000e
+  unplug cable     
+  plug cable
+  modprobe e1000e	-> Works not
+
+So if the module is loaded w/o the cable plugged it does not work. If I unplug before unloading the module and then plug in before loading the module again it works again.
+
+Thanks,
+
+	tglx
+
+
+------------------------------------------------------------------------------
+Learn Graph Databases - Download FREE O'Reilly Book "Graph Databases" is the definitive new guide to graph databases and their applications. Written by three acclaimed leaders in the field, this first edition is now available. Download your free book today!
+http://p.sf.net/sfu/13534_NeoTech
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
