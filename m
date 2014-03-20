@@ -1,65 +1,47 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created with no
- group
-Date: Thu, 20 Mar 2014 14:47:25 -0600
-Message-ID: <OFA209BE80.4610C3E5-ON87257CA1.00723468-87257CA1.0072346C@us.ibm.com>
-References: <20140320.160229.857536522237793124.davem@davemloft.net>,
-	<1395055050-20874-1-git-send-email-mike.rapoport@ravellosystems.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4 0/2] adjust MTU as indicated by MBIM
+ extended functional descriptor
+Date: Thu, 20 Mar 2014 16:58:25 -0400 (EDT)
+Message-ID: <20140320.165825.2258647784698720017.davem@davemloft.net>
+References: <1395262806-19237-1-git-send-email-benchan@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mike.rapoport@ravellosystems.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:51152 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932328AbaCTUra convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 16:47:30 -0400
-Received: from /spool/local
-	by e35.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Thu, 20 Mar 2014 14:47:30 -0600
-Received: from b03cxnp07028.gho.boulder.ibm.com (b03cxnp07028.gho.boulder.ibm.com [9.17.130.15])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id A31D33E40026
-	for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 14:47:27 -0600 (MDT)
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by b03cxnp07028.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2KKkjpk3997972
-	for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 21:46:45 +0100
-Received: from d03av02.boulder.ibm.com (localhost [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s2KKlQcA010262
-	for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 14:47:27 -0600
-In-Reply-To: <20140320.160229.857536522237793124.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, oliver@neukum.org,
+	gregkh@linuxfoundation.org, bjorn@mork.no, gsuarez@smithmicro.com
+To: benchan@chromium.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395262806-19237-1-git-send-email-benchan@chromium.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+=46rom: Ben Chan <benchan@chromium.org>
+Date: Wed, 19 Mar 2014 14:00:04 -0700
 
+> The MBIM extended functional descriptor, defined in "Universal Serial=
+ Bus
+> Communications Class Subclass Specification for Mobile Broadband Inte=
+rface
+> Model, Revision 1.0, Errata-1" by USB-IF, indicates the operator pref=
+erred MTU
+> value via a wMTU field.
+>=20
+> This patch set ensures that the initial MTU value set by cdc_ncm on a=
+ MBIM net
+> device does not exceed the wMTU value, provided the MBIM device expos=
+es a MBIM
+> extended functional descriptor.
+>=20
+> * Changelog
+> v2: Fixed a le16_to_cpu conversion issue in patch 2/2 pointed out by
+>     Bj=F8rn Mork <bjorn@mork.no>
+> v3: No code changes. Resubmitted to include patch 1/2 as suggested by
+>     David Miller <davem@davemloft.net>
+> v4: No code changes. Resubmitted as suggested by David Miller:
+>     - Added a summary of the patch set
+>     - Carried the ACK from Greg Kroah-Hartman <gregkh@linuxfoundation=
+=2Eorg>
+>     - Added a specified the tree (net-next) to apply the patch set to
 
->From: David Miller=20
-
->Any objections to this? I think it maintains the pre-ipv6-support
->behavior. I know there may be some concerns about supporting
->multiple
->families on the same socket, but I'm not so sure the code is able to
->support that right now anyways.
-
-I'm ok with the idea of determining the AF from the socket -- mixed
-support, if useful, can be added later. But the patch needs to then
-check and drop packets encapsulated with the wrong address family.
-
-And it still shouldn't assume !v4 means v6.
-
-[apologies for spacing; doing this from a web browser...]
-So, I think we need something like:
-
-=A0 =A0 =A0if (vs->family =3D=3D AF_INET && skb->protocol =3D=3D ntohs(=
-ETH_P_IP)) {
-=A0 =A0 =A0 =A0 ....
-=A0 =A0 =A0} else if (vs->family =3D=3D AF_INET6 && skb->protocol =3D=3D=
- ntohs(ETH_P_IPV6)) {
-=A0 =A0 =A0 =A0 ...
-=A0 =A0 =A0} else
-=A0 =A0 =A0 =A0 =A0 =A0goto drop
-
-
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 +-DLS
+Series applied to net-next, thanks Ben.
