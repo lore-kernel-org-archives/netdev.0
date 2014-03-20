@@ -1,42 +1,41 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v3] core, nfqueue,
- openvswitch: Orphan frags in skb_zerocopy and handle errors
-Date: Thu, 20 Mar 2014 17:27:05 -0400 (EDT)
-Message-ID: <20140320.172705.8391298175812938.davem@davemloft.net>
-References: <1395331354-23659-1-git-send-email-zoltan.kiss@citrix.com>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [PATCH net-next 1/2] af_ieee802154: fix check on broadcast
+ address
+Date: Thu, 20 Mar 2014 22:41:06 +0100
+Message-ID: <20140320214105.GA1531@x61s.Speedport_W_921V_1_24_000>
+References: <1395323823-20970-1-git-send-email-alex.aring@gmail.com>
+ <20140320.172030.1849954665582219336.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mszeredi-AlSwsSmVLrQ@public.gmane.org, kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, JBeulich-IBi9RG/b67k@public.gmane.org,
- therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
- kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
- jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, Paul.Durrant-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
-To: zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1395331354-23659-1-git-send-email-zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	phoebe.buckheister@itwm.fraunhofer.de, jlu@pengutronix.de
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:37692 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760148AbaCTV2M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 17:28:12 -0400
+Received: by mail-ee0-f46.google.com with SMTP id t10so1137887eei.19
+        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 14:28:11 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140320.172030.1849954665582219336.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Date: Thu, 20 Mar 2014 16:02:34 +0000
+Hi David,
 
-> skb_zerocopy can copy elements of the frags array between skbs, but it doesn't
-> orphan them. Also, it doesn't handle errors, so this patch takes care of that
-> as well, and modify the callers accordingly. skb_tx_error() is also added to
-> the callers so they will signal the failed delivery towards the creator of the
-> skb.
+On Thu, Mar 20, 2014 at 05:20:30PM -0400, David Miller wrote:
+> From: Alexander Aring <alex.aring@gmail.com>
+> Date: Thu, 20 Mar 2014 14:57:02 +0100
 > 
-> Signed-off-by: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+> > This patch fixes an issue which was introduced by commit
+> > (b70ab2e87f17176d18f67ef331064441a032b5f3).
+> 
+> The canonical way to refer to commits is:
+> 
+> $SHA1_ID ("Commit message header line.")
 
-I'll wait for Thomas to review this new version before applying.
+ok, thanks. I will do it right next time. Sorry.
+
+- Alex
