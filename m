@@ -1,71 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 11/15] e1000e: Fix Explicitly set Transmit Control Register
-Date: Wed, 19 Mar 2014 20:30:01 -0700
-Message-ID: <1395286205-9676-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 15/15] ixgbevf: Protect ixgbevf_down with __IXGBEVF_DOWN bit
+Date: Wed, 19 Mar 2014 20:30:05 -0700
+Message-ID: <1395286205-9676-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395286205-9676-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Todd Fujinaka <todd.fujinaka@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:40723 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:35396 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753933AbaCTDa1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Mar 2014 23:30:27 -0400
+	id S1753900AbaCTDa3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Mar 2014 23:30:29 -0400
 In-Reply-To: <1395286205-9676-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ertman <davidx.m.ertman@intel.com>
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-This patch causes the TCTL to be explicitly set to fix a problem with
-poor network performance (throughput) on certain silicon when configured
-for 100M HDX performance.
+The ixgbevf_down function can now prevent multiple executions by
+doing test_and_set_bit on __IXGBEVF_DOWN. This did not work before
+introduction of the __IXGBEVF_REMOVING bit, because of overloading
+of __IXGBEVF_DOWN. Also add smp_mb__before_clear_bit call before
+clearing the __IXGBEVF_DOWN bit.
 
-Cc: Todd Fujinaka <todd.fujinaka@intel.com>
-Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
-Acked-by: Bruce W. Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index d577723..6bd1832 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -2898,7 +2898,7 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	struct e1000_hw *hw = &adapter->hw;
- 	struct e1000_ring *tx_ring = adapter->tx_ring;
- 	u64 tdba;
--	u32 tdlen, tarc;
-+	u32 tdlen, tctl, tarc;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 940d924..a2cba53 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1620,6 +1620,7 @@ static void ixgbevf_up_complete(struct ixgbevf_adapter *adapter)
  
- 	/* Setup the HW Tx Head and Tail descriptor pointers */
- 	tdba = tx_ring->dma;
-@@ -2935,6 +2935,12 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	/* erratum work around: set txdctl the same for both queues */
- 	ew32(TXDCTL(1), er32(TXDCTL(0)));
+ 	spin_unlock_bh(&adapter->mbx_lock);
  
-+	/* Program the Transmit Control Register */
-+	tctl = er32(TCTL);
-+	tctl &= ~E1000_TCTL_CT;
-+	tctl |= E1000_TCTL_PSP | E1000_TCTL_RTLC |
-+		(E1000_COLLISION_THRESHOLD << E1000_CT_SHIFT);
-+
- 	if (adapter->flags & FLAG_TARC_SPEED_MODE_BIT) {
- 		tarc = er32(TARC(0));
- 		/* set the speed mode bit, we'll clear it if we're not at
-@@ -2965,6 +2971,8 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	/* enable Report Status bit */
- 	adapter->txd_cmd |= E1000_TXD_CMD_RS;
++	smp_mb__before_clear_bit();
+ 	clear_bit(__IXGBEVF_DOWN, &adapter->state);
+ 	ixgbevf_napi_enable_all(adapter);
  
-+	ew32(TCTL, tctl);
-+
- 	hw->mac.ops.config_collision_dist(hw);
- }
+@@ -1744,7 +1745,8 @@ void ixgbevf_down(struct ixgbevf_adapter *adapter)
+ 	int i;
  
+ 	/* signal that we are down to the interrupt handler */
+-	set_bit(__IXGBEVF_DOWN, &adapter->state);
++	if (test_and_set_bit(__IXGBEVF_DOWN, &adapter->state))
++		return; /* do nothing if already down */
+ 
+ 	/* disable all enabled rx queues */
+ 	for (i = 0; i < adapter->num_rx_queues; i++)
 -- 
 1.8.3.1
