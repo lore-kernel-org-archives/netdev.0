@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/15] ixgbe: remove unused media type
-Date: Thu, 20 Mar 2014 01:33:01 -0700
-Message-ID: <1395304385-6874-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/15] ixgbe: clean up ixgbe_atr_compute_perfect_hash_82599
+Date: Thu, 20 Mar 2014 01:33:03 -0700
+Message-ID: <1395304385-6874-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -9,185 +9,97 @@ Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:8065 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:8075 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755560AbaCTIdz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Mar 2014 04:33:55 -0400
+	id S1755935AbaCTId4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Mar 2014 04:33:56 -0400
 In-Reply-To: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-This patch reverts the addition of the fiber_fixed type, which ended up
-never being used. We don't have plans to support this type going
-forward, and there is no reason to keep an unused type around polluting
-the code.
+Rather than assign several parameters in a row, we should use a for
+loop, which reduces code size.
 
-Reverts: 4e8e1bca6e2 ("ixgbe: add new media type")
 CC: Arun Sharma <asharma@fb.com>
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  | 73 -------------------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  3 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h    |  4 --
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |  1 -
- 4 files changed, 81 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 46 +++++---------------------
+ 1 file changed, 9 insertions(+), 37 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index e0fe8e8..bdac7bd 100644
+index bdac7bd..34ab2fc 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -664,75 +664,6 @@ static void ixgbe_flap_tx_laser_multispeed_fiber(struct ixgbe_hw *hw)
- }
+@@ -1597,35 +1597,20 @@ void ixgbe_atr_compute_perfect_hash_82599(union ixgbe_atr_input *input,
+ {
  
- /**
-- *  ixgbe_set_fiber_fixed_speed - Set module link speed for fixed fiber
-- *  @hw: pointer to hardware structure
-- *  @speed: link speed to set
-- *
-- *  We set the module speed differently for fixed fiber.  For other
-- *  multi-speed devices we don't have an error value so here if we
-- *  detect an error we just log it and exit.
-- */
--static void ixgbe_set_fiber_fixed_speed(struct ixgbe_hw *hw,
--					ixgbe_link_speed speed)
--{
--	s32 status;
--	u8 rs, eeprom_data;
--
--	switch (speed) {
--	case IXGBE_LINK_SPEED_10GB_FULL:
--		/* one bit mask same as setting on */
--		rs = IXGBE_SFF_SOFT_RS_SELECT_10G;
--		break;
--	case IXGBE_LINK_SPEED_1GB_FULL:
--		rs = IXGBE_SFF_SOFT_RS_SELECT_1G;
--		break;
--	default:
--		hw_dbg(hw, "Invalid fixed module speed\n");
--		return;
--	}
--
--	/* Set RS0 */
--	status = hw->phy.ops.read_i2c_byte(hw, IXGBE_SFF_SFF_8472_OSCB,
--					   IXGBE_I2C_EEPROM_DEV_ADDR2,
--					   &eeprom_data);
--	if (status) {
--		hw_dbg(hw, "Failed to read Rx Rate Select RS0\n");
--		goto out;
--	}
--
--	eeprom_data = (eeprom_data & ~IXGBE_SFF_SOFT_RS_SELECT_MASK) | rs;
--
--	status = hw->phy.ops.write_i2c_byte(hw, IXGBE_SFF_SFF_8472_OSCB,
--					    IXGBE_I2C_EEPROM_DEV_ADDR2,
--					    eeprom_data);
--	if (status) {
--		hw_dbg(hw, "Failed to write Rx Rate Select RS0\n");
--		goto out;
--	}
--
--	/* Set RS1 */
--	status = hw->phy.ops.read_i2c_byte(hw, IXGBE_SFF_SFF_8472_ESCB,
--					   IXGBE_I2C_EEPROM_DEV_ADDR2,
--					   &eeprom_data);
--	if (status) {
--		hw_dbg(hw, "Failed to read Rx Rate Select RS1\n");
--		goto out;
--	}
--
--	eeprom_data = (eeprom_data & ~IXGBE_SFF_SOFT_RS_SELECT_MASK) & rs;
--
--	status = hw->phy.ops.write_i2c_byte(hw, IXGBE_SFF_SFF_8472_ESCB,
--					    IXGBE_I2C_EEPROM_DEV_ADDR2,
--					    eeprom_data);
--	if (status) {
--		hw_dbg(hw, "Failed to write Rx Rate Select RS1\n");
--		goto out;
--	}
--out:
--	return;
--}
--
--/**
-  *  ixgbe_setup_mac_link_multispeed_fiber - Set MAC link speed
-  *  @hw: pointer to hardware structure
-  *  @speed: new link speed
-@@ -842,10 +773,6 @@ static s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
+ 	u32 hi_hash_dword, lo_hash_dword, flow_vm_vlan;
+-	u32 bucket_hash = 0;
++	u32 bucket_hash = 0, hi_dword = 0;
++	int i;
  
- 		/* Set the module link speed */
- 		switch (hw->phy.media_type) {
--		case ixgbe_media_type_fiber_fixed:
--			ixgbe_set_fiber_fixed_speed(hw,
--						IXGBE_LINK_SPEED_1GB_FULL);
--			break;
- 		case ixgbe_media_type_fiber:
- 			esdp_reg &= ~IXGBE_ESDP_SDP5;
- 			esdp_reg |= IXGBE_ESDP_SDP5_DIR;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 38ca240..7a9d874 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -73,7 +73,6 @@ bool ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
- 	bool link_up;
+ 	/* Apply masks to input data */
+-	input->dword_stream[0]  &= input_mask->dword_stream[0];
+-	input->dword_stream[1]  &= input_mask->dword_stream[1];
+-	input->dword_stream[2]  &= input_mask->dword_stream[2];
+-	input->dword_stream[3]  &= input_mask->dword_stream[3];
+-	input->dword_stream[4]  &= input_mask->dword_stream[4];
+-	input->dword_stream[5]  &= input_mask->dword_stream[5];
+-	input->dword_stream[6]  &= input_mask->dword_stream[6];
+-	input->dword_stream[7]  &= input_mask->dword_stream[7];
+-	input->dword_stream[8]  &= input_mask->dword_stream[8];
+-	input->dword_stream[9]  &= input_mask->dword_stream[9];
+-	input->dword_stream[10] &= input_mask->dword_stream[10];
++	for (i = 0; i <= 10; i++)
++		input->dword_stream[i] &= input_mask->dword_stream[i];
  
- 	switch (hw->phy.media_type) {
--	case ixgbe_media_type_fiber_fixed:
- 	case ixgbe_media_type_fiber:
- 		hw->mac.ops.check_link(hw, &speed, &link_up, false);
- 		/* if link is down, assume supported */
-@@ -147,7 +146,6 @@ static s32 ixgbe_setup_fc(struct ixgbe_hw *hw)
- 			goto out;
+ 	/* record the flow_vm_vlan bits as they are a key part to the hash */
+ 	flow_vm_vlan = ntohl(input->dword_stream[0]);
  
- 		/* only backplane uses autoc so fall though */
--	case ixgbe_media_type_fiber_fixed:
- 	case ixgbe_media_type_fiber:
- 		reg = IXGBE_READ_REG(hw, IXGBE_PCS1GANA);
+ 	/* generate common hash dword */
+-	hi_hash_dword = ntohl(input->dword_stream[1] ^
+-				    input->dword_stream[2] ^
+-				    input->dword_stream[3] ^
+-				    input->dword_stream[4] ^
+-				    input->dword_stream[5] ^
+-				    input->dword_stream[6] ^
+-				    input->dword_stream[7] ^
+-				    input->dword_stream[8] ^
+-				    input->dword_stream[9] ^
+-				    input->dword_stream[10]);
++	for (i = 1; i <= 10; i++)
++		hi_dword ^= input->dword_stream[i];
++	hi_hash_dword = ntohl(hi_dword);
  
-@@ -2398,7 +2396,6 @@ void ixgbe_fc_autoneg(struct ixgbe_hw *hw)
+ 	/* low dword is word swapped version of common */
+ 	lo_hash_dword = (hi_hash_dword >> 16) | (hi_hash_dword << 16);
+@@ -1644,21 +1629,8 @@ void ixgbe_atr_compute_perfect_hash_82599(union ixgbe_atr_input *input,
+ 	lo_hash_dword ^= flow_vm_vlan ^ (flow_vm_vlan << 16);
  
- 	switch (hw->phy.media_type) {
- 	/* Autoneg flow control on fiber adapters */
--	case ixgbe_media_type_fiber_fixed:
- 	case ixgbe_media_type_fiber:
- 		if (speed == IXGBE_LINK_SPEED_1GB_FULL)
- 			ret_val = ixgbe_fc_autoneg_fiber(hw);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-index 478eca9..4a456c9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-@@ -66,9 +66,6 @@
- #define IXGBE_SFF_1GBASET_CAPABLE		0x8
- #define IXGBE_SFF_10GBASESR_CAPABLE		0x10
- #define IXGBE_SFF_10GBASELR_CAPABLE		0x20
--#define IXGBE_SFF_SOFT_RS_SELECT_MASK		0x8
--#define IXGBE_SFF_SOFT_RS_SELECT_10G		0x8
--#define IXGBE_SFF_SOFT_RS_SELECT_1G		0x0
- #define IXGBE_SFF_ADDRESSING_MODE		0x4
- #define IXGBE_SFF_QSFP_DA_ACTIVE_CABLE		0x1
- #define IXGBE_SFF_QSFP_DA_PASSIVE_CABLE		0x8
-@@ -80,7 +77,6 @@
- #define IXGBE_I2C_EEPROM_STATUS_PASS		0x1
- #define IXGBE_I2C_EEPROM_STATUS_FAIL		0x2
- #define IXGBE_I2C_EEPROM_STATUS_IN_PROGRESS	0x3
--
- /* Flow control defines */
- #define IXGBE_TAF_SYM_PAUSE                  0x400
- #define IXGBE_TAF_ASM_PAUSE                  0x800
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 5b0c730..b5408eb 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -2664,7 +2664,6 @@ enum ixgbe_sfp_type {
- enum ixgbe_media_type {
- 	ixgbe_media_type_unknown = 0,
- 	ixgbe_media_type_fiber,
--	ixgbe_media_type_fiber_fixed,
- 	ixgbe_media_type_fiber_qsfp,
- 	ixgbe_media_type_fiber_lco,
- 	ixgbe_media_type_copper,
+ 	/* Process remaining 30 bit of the key */
+-	IXGBE_COMPUTE_BKT_HASH_ITERATION(1);
+-	IXGBE_COMPUTE_BKT_HASH_ITERATION(2);
+-	IXGBE_COMPUTE_BKT_HASH_ITERATION(3);
+-	IXGBE_COMPUTE_BKT_HASH_ITERATION(4);
+-	IXGBE_COMPUTE_BKT_HASH_ITERATION(5);
+-	IXGBE_COMPUTE_BKT_HASH_ITERATION(6);
+-	IXGBE_COMPUTE_BKT_HASH_ITERATION(7);
+-	IXGBE_COMPUTE_BKT_HASH_ITERATION(8);
+-	IXGBE_COMPUTE_BKT_HASH_ITERATION(9);
+-	IXGBE_COMPUTE_BKT_HASH_ITERATION(10);
+-	IXGBE_COMPUTE_BKT_HASH_ITERATION(11);
+-	IXGBE_COMPUTE_BKT_HASH_ITERATION(12);
+-	IXGBE_COMPUTE_BKT_HASH_ITERATION(13);
+-	IXGBE_COMPUTE_BKT_HASH_ITERATION(14);
+-	IXGBE_COMPUTE_BKT_HASH_ITERATION(15);
++	for (i = 1; i <= 15; i++)
++		IXGBE_COMPUTE_BKT_HASH_ITERATION(i);
+ 
+ 	/*
+ 	 * Limit hash to 13 bits since max bucket count is 8K.
 -- 
 1.8.3.1
