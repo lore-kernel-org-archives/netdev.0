@@ -1,76 +1,45 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next v7 9/9] xen-netback: Aggregate TX unmap operations
-Date: Thu, 20 Mar 2014 16:11:12 +0000
-Message-ID: <532B1320.1070607@citrix.com>
-References: <1394142511-14827-1-git-send-email-zoltan.kiss@citrix.com> <1394142511-14827-10-git-send-email-zoltan.kiss@citrix.com> <532A0915.5090006@citrix.com> <20140320104855.GA16285@zion.uk.xensource.com> <9AAE0902D5BC7E449B7C8E4E778ABCD0292550@AMSPEX01CL01.citrite.net> <20140320123839.GK16807@zion.uk.xensource.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH v2a 1/2] dt: Document a compatible entry for MDIO
+ ethernet Phys
+Date: Thu, 20 Mar 2014 10:19:24 -0600
+Message-ID: <20140320161924.GA8855@obsidianresearch.com>
+References: <1395267324-5788-1-git-send-email-jgunthorpe@obsidianresearch.com>
+ <532AA634.5090707@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Jonathan Davies <Jonathan.Davies@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>,
-	Paul Durrant <Paul.Durrant@citrix.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Rob Herring <robh+dt@kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Ben Dooks <ben.dooks@codethink.co.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140320123839.GK16807@zion.uk.xensource.com>
+Content-Disposition: inline
+In-Reply-To: <532AA634.5090707@codethink.co.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 20/03/14 12:38, Wei Liu wrote:
-> On Thu, Mar 20, 2014 at 11:14:51AM +0000, Paul Durrant wrote:
->>> -----Original Message-----
->>> From: Wei Liu [mailto:wei.liu2@citrix.com]
->>> Sent: 20 March 2014 10:49
->>> To: Zoltan Kiss
->>> Cc: Ian Campbell; Wei Liu; xen-devel@lists.xenproject.org;
->>> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Jonathan Davies;
->>> Paul Durrant
->>> Subject: Re: [PATCH net-next v7 9/9] xen-netback: Aggregate TX unmap
->>> operations
->>>
->>> On Wed, Mar 19, 2014 at 09:16:05PM +0000, Zoltan Kiss wrote:
->>>> Hi,
->>>>
->>>> I'm thinking about revoking this patch: it's value is pretty small,
->>>> but it causes performance regression on Win7 guests. And probably it
->>>> is not the best solution for this problem. It might be the delay it
->>>> takes the dealloc thread to be scheduled is enough.
->>>> What do you think?
->>>>
->>>
->>> Can you elaborate? What makes Win7 so special? What's performance
->>> impact to other guests?
->>>
->>
->> It won't be Win7 specifically I expect. It will likely by any version
->> of Windows, or any other OS that limits the TXs-in-flight so
->> aggressively. Basically you need to TX-complete reasonably frequently
->> otherwise your throughput drops off a lot. IIRC at Solarflare we found
->> every ~500us to be just about frequent enough for hitting 10G.
->
-> Thanks for the explanation.
->
-> Reverting this change basically means when to flush TLB is at sole
-> discretion of Linux kernel scheduler. I don't oppose to that. But it
-> would be better to provide some numbers.
+On Thu, Mar 20, 2014 at 09:26:28AM +0100, Ben Dooks wrote:
 
-My comparisons with iperf haven't showed any significant difference. 
-I've measured Win7 and upstream Linux guest.
-There was a misunderstanding that reverting this patch would stop 
-batching of unmap. There would be still batching as when the callback 
-wakes the dealloc thread, by the time it happens other callbacks still 
-can place work on the dealloc ring, even while the thread started to 
-process them. And that could happen independently from the TX operations 
-in the NAPI instance, which is an another good feature of having a 
-dealloc thread.
+> >+  If the phy's identifier is known then the list may contain an entry
+> >+  of the form: "ethernet-phy-idAAAA.BBBB" where
+> >+     AAAA - The value of the 16 bit Phy Identifier 1 register as
+> >+            4 hex digits. This is the chip vendor OUI bits 3:18
+> >+     BBBB - The value of the 16 bit Phy Identifier 2 register as
+> >+            4 hex digits. This is the chip vendor OUI bits 19:24,
+> >+            followed by 10 bits of a vendor specific ID.
+> >+
+> 
+> How about having "ethernet-phy" and adding a single property in the
+> PHY node saying phy-id = <AAAABBBB>, which would be much easier to
+> parse.
 
-I've discussed this in person with Paul and Ian as well, they are happy 
-with the reverting. So David, can you please revert e9275f5e2d 
-"xen-netback: Aggregate TX unmap operations"?
+That option was discussed (and my first patch was this way)..
 
-Regards,
+However, using the compatible string is consistent with other OF
+schemes, such as PCI which uses compatible strings like pciVVVV,DDDD
+pciclass,CCSS and so on.
 
-Zoli
+It does make a fair amount sense because the purpose of compatible is
+to identify the device.
+
+Jason
