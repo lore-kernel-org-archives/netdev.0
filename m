@@ -1,13 +1,13 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net 2/4] openvswitch: Read tcp flags only then the
-	tranport header is present.
-Date: Thu, 20 Mar 2014 11:09:12 -0700
-Message-ID: <1395338954-26206-3-git-send-email-jesse@nicira.com>
+Subject: [PATCH net 1/4] ovs: fix dp check in
+	ovs_dp_reset_user_features
+Date: Thu, 20 Mar 2014 11:09:11 -0700
+Message-ID: <1395338954-26206-2-git-send-email-jesse@nicira.com>
 References: <1395338954-26206-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
 To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 In-Reply-To: <1395338954-26206-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
@@ -22,27 +22,33 @@ Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
 
-Only the first IP fragment can have a TCP header, check for this.
+This fixes crash when userspace does "ovs-dpctl add-dp dev" where dev is
+existing non-dp netdevice.
 
-Signed-off-by: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Introduced by:
+commit 44da5ae5fbea4686f667dc854e5ea16814e44c59
+"openvswitch: Drop user features if old user space attempted to create datapath"
+
+Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/flow.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/openvswitch/datapath.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 16f4b46..d71e60f 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -73,6 +73,7 @@ void ovs_flow_stats_update(struct sw_flow *flow, struct sk_buff *skb)
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index e9a48ba..e42340d 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -1174,7 +1174,7 @@ static void ovs_dp_reset_user_features(struct sk_buff *skb, struct genl_info *in
+ 	struct datapath *dp;
  
- 	if ((flow->key.eth.type == htons(ETH_P_IP) ||
- 	     flow->key.eth.type == htons(ETH_P_IPV6)) &&
-+	    flow->key.ip.frag != OVS_FRAG_TYPE_LATER &&
- 	    flow->key.ip.proto == IPPROTO_TCP &&
- 	    likely(skb->len >= skb_transport_offset(skb) + sizeof(struct tcphdr))) {
- 		tcp_flags = TCP_FLAGS_BE16(tcp_hdr(skb));
+ 	dp = lookup_datapath(sock_net(skb->sk), info->userhdr, info->attrs);
+-	if (!dp)
++	if (IS_ERR(dp))
+ 		return;
+ 
+ 	WARN(dp->user_features, "Dropping previously announced user features\n");
 -- 
 1.8.3.2
