@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netlink: fix setsockopt in mmap examples in
- documentation
-Date: Thu, 20 Mar 2014 14:12:11 -0400 (EDT)
-Message-ID: <20140320.141211.792568096239010423.davem@davemloft.net>
-References: <20140319215420.49a6408d@nehalam.linuxnetplumber.net>
+Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
+Date: Thu, 20 Mar 2014 14:20:07 -0400 (EDT)
+Message-ID: <20140320.142007.221398892640657975.davem@davemloft.net>
+References: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: shemming@brocade.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	emil.s.tantilov@intel.com, asharma@fb.com,
+	donald.c.skidmore@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50113 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50180 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751271AbaCTSMS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 14:12:18 -0400
-In-Reply-To: <20140319215420.49a6408d@nehalam.linuxnetplumber.net>
+	with ESMTP id S1755533AbaCTSUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 14:20:11 -0400
+In-Reply-To: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemming@brocade.com>
-Date: Wed, 19 Mar 2014 21:54:20 -0700
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 20 Mar 2014 01:32:50 -0700
 
-> The documentation for how to use netlink mmap interface is incorrect.
-> The calls to setsockopt() require an additional argument.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> This series contains updates to e100, igb, igbvf, ixgbe and ixgbevf.
+ ...
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-Applied, thanks Stephen.
+Pulled, thanks Jeff.
