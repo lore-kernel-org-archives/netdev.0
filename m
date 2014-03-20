@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v3 2/3] bonding: support QinQ for bond arp interval
-Date: Thu, 20 Mar 2014 16:15:34 +0800
-Message-ID: <1395303335-10088-3-git-send-email-dingtianhong@huawei.com>
+Subject: [PATCH net-next v3 3/3] bonding: add net_ratelimt to avoid spam in arp interval
+Date: Thu, 20 Mar 2014 16:15:35 +0800
+Message-ID: <1395303335-10088-4-git-send-email-dingtianhong@huawei.com>
 References: <1395303335-10088-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,201 +9,107 @@ Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
 To: <fubar@us.ibm.com>, <vfalico@redhat.com>, <andy@greyhouse.net>,
 	<joe@perches.com>, <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [119.145.14.66] ([119.145.14.66]:31647 "EHLO
+Received: from [119.145.14.66] ([119.145.14.66]:31659 "EHLO
 	szxga03-in.huawei.com" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1754731AbaCTIRX (ORCPT
+	with ESMTP id S1754736AbaCTIRX (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 04:17:23 -0400
 In-Reply-To: <1395303335-10088-1-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond send arp request to indicate that the slave is active, and if the bond dev
-is a vlan dev, it will set the vlan tag in skb to notice the vlan group, but the
-bond could only send a skb with 802.1q proto, not support for QinQ.
+Remove the unnecessary log and add net_ratelimit to the others, in order to
+avoid spam the log.
 
-So add outer tag for lower vlan tag and inner tag for upper vlan tag to support QinQ,
-The new skb will be consist of two vlan tag just like this:
-
-dst mac | src mac | outer vlan tag | inner vlan tag | data | .....
-
-If We don't need QinQ, the inner vlan tag could be set to 0 and use outer vlan tag
- as a normal vlan group.
-
-Using "ip link" to configure the bond for QinQ and add test log:
-
-ip link add link bond0  bond0.20 type vlan proto 802.1ad id 20
-ip link add link bond0.20  bond0.20.200 type vlan proto 802.1q id 200
-
-ifconfig bond0.20 11.11.20.36/24
-ifconfig bond0.20.200 11.11.200.36/24
-
-echo +11.11.200.37 > /sys/class/net/bond0/bonding/arp_ip_target
-
-90:e2:ba:07:4a:5c (oui Unknown) > Broadcast, ethertype 802.1Q-QinQ (0x88a8),length 50: vlan 20, p 0,ethertype 802.1Q, vlan 200, p 0, ethertype ARP, Ethernet (len 6), IPv4 (len 4), Request who-has 11.11.200.37 tell 11.11.200.36, length 28
-
-90:e2:ba:06:f9:86 (oui Unknown) > 90:e2:ba:07:4a:5c (oui Unknown), ethertype 802.1Q-QinQ (0x88a8), length 50: vlan 20, p 0, ethertype 802.1Q, vlan 200, p 0, ethertype ARP, Ethernet (len 6), IPv4 (len 4), Reply 11.11.200.37 is-at 90:e2:ba:06:f9:86 (oui Unknown), length 28
-
-v1->v2: remove the comment "TODO: QinQ?".
-
+Cc: Joe Perches <joe@perches.com>
 Cc: Jay Vosburgh <fubar@us.ibm.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>
 Cc: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bond_main.c | 63 +++++++++++++++++++++++++++++------------
- drivers/net/bonding/bonding.h   |  5 ++++
- 2 files changed, 50 insertions(+), 18 deletions(-)
+ drivers/net/bonding/bond_main.c | 33 +++++++++++++++++----------------
+ 1 file changed, 17 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index e717db3..6758c2d 100644
+index 6758c2d..9b678fb 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -2124,12 +2124,15 @@ static bool bond_has_this_ip(struct bonding *bond, __be32 ip)
-  * switches in VLAN mode (especially if ports are configured as
-  * "native" to a VLAN) might not pass non-tagged frames.
-  */
--static void bond_arp_send(struct net_device *slave_dev, int arp_op, __be32 dest_ip, __be32 src_ip, unsigned short vlan_id)
-+static void bond_arp_send(struct net_device *slave_dev, int arp_op,
-+			  __be32 dest_ip, __be32 src_ip,
-+			  struct bond_vlan_tag *inner,
-+			  struct bond_vlan_tag *outer)
+@@ -2131,32 +2131,33 @@ static void bond_arp_send(struct net_device *slave_dev, int arp_op,
  {
  	struct sk_buff *skb;
  
--	pr_debug("arp %d on slave %s: dst %pI4 src %pI4 vid %d\n",
--		 arp_op, slave_dev->name, &dest_ip, &src_ip, vlan_id);
-+	pr_debug("arp %d on slave %s: dst %pI4 src %pI4\n",
-+		 arp_op, slave_dev->name, &dest_ip, &src_ip);
+-	pr_debug("arp %d on slave %s: dst %pI4 src %pI4\n",
+-		 arp_op, slave_dev->name, &dest_ip, &src_ip);
++	net_dbg_ratelimited("arp %d on slave %s: dst %pI4 src %pI4\n",
++			    arp_op, slave_dev->name, &dest_ip, &src_ip);
  
  	skb = arp_create(arp_op, ETH_P_ARP, dest_ip, slave_dev, src_ip,
  			 NULL, slave_dev->dev_addr, NULL);
-@@ -2138,10 +2141,22 @@ static void bond_arp_send(struct net_device *slave_dev, int arp_op, __be32 dest_
- 		pr_err("ARP packet allocation failed\n");
+ 
+ 	if (!skb) {
+-		pr_err("ARP packet allocation failed\n");
++		pr_err_ratelimited("ARP packet allocation failed\n");
  		return;
  	}
--	if (vlan_id) {
--		skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vlan_id);
-+	if (outer->vlan_id) {
-+		if (inner->vlan_id) {
-+			pr_debug("inner tag: proto %X vid %X\n",
-+				 ntohs(inner->vlan_proto), inner->vlan_id);
-+			skb = __vlan_put_tag(skb, inner->vlan_proto, inner->vlan_id);
-+			if (!skb) {
-+				pr_err("failed to insert inner VLAN tag\n");
-+				return;
-+			}
-+		}
-+
-+		pr_debug("outer reg: proto %X vid %X\n",
-+			 ntohs(outer->vlan_proto), outer->vlan_id);
-+		skb = vlan_put_tag(skb, outer->vlan_proto, outer->vlan_id);
+ 	if (outer->vlan_id) {
+ 		if (inner->vlan_id) {
+-			pr_debug("inner tag: proto %X vid %X\n",
+-				 ntohs(inner->vlan_proto), inner->vlan_id);
++			net_dbg_ratelimited("inner tag: proto %X vid %X\n",
++					    ntohs(inner->vlan_proto),
++					    inner->vlan_id);
+ 			skb = __vlan_put_tag(skb, inner->vlan_proto, inner->vlan_id);
+ 			if (!skb) {
+-				pr_err("failed to insert inner VLAN tag\n");
++				net_err_ratelimited("failed to insert inner VLAN tag\n");
+ 				return;
+ 			}
+ 		}
+ 
+-		pr_debug("outer reg: proto %X vid %X\n",
+-			 ntohs(outer->vlan_proto), outer->vlan_id);
++		net_dbg_ratelimited("outer reg: proto %X vid %X\n",
++				     ntohs(outer->vlan_proto), outer->vlan_id);
+ 		skb = vlan_put_tag(skb, outer->vlan_proto, outer->vlan_id);
  		if (!skb) {
--			pr_err("failed to insert VLAN tag\n");
-+			pr_err("failed to insert outer VLAN tag\n");
+-			pr_err("failed to insert outer VLAN tag\n");
++			net_err_ratelimited("failed to insert outer VLAN tag\n");
  			return;
  		}
  	}
-@@ -2154,11 +2169,16 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 	struct net_device *upper, *vlan_upper;
- 	struct list_head *iter, *vlan_iter;
- 	struct rtable *rt;
-+	struct bond_vlan_tag inner, outer;
- 	__be32 *targets = bond->params.arp_targets, addr;
--	int i, vlan_id;
-+	int i;
+@@ -2174,7 +2175,6 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+ 	int i;
  
  	for (i = 0; i < BOND_MAX_ARP_TARGETS && targets[i]; i++) {
- 		pr_debug("basa: target %pI4\n", &targets[i]);
-+		inner.vlan_proto = 0;
-+		inner.vlan_id = 0;
-+		outer.vlan_proto = 0;
-+		outer.vlan_id = 0;
- 
- 		/* Find out through which dev should the packet go */
- 		rt = ip_route_output(dev_net(bond->dev), targets[i], 0,
-@@ -2170,12 +2190,10 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 			if (bond->params.arp_validate && net_ratelimit())
- 				pr_warn("%s: no route to arp_ip_target %pI4 and arp_validate is set\n",
- 					bond->dev->name, &targets[i]);
--			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i], 0, 0);
-+			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i], 0, &inner, &outer);
+-		pr_debug("basa: target %pI4\n", &targets[i]);
+ 		inner.vlan_proto = 0;
+ 		inner.vlan_id = 0;
+ 		outer.vlan_proto = 0;
+@@ -2187,9 +2187,10 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+ 			/* there's no route to target - try to send arp
+ 			 * probe to generate any traffic (arp_validate=0)
+ 			 */
+-			if (bond->params.arp_validate && net_ratelimit())
+-				pr_warn("%s: no route to arp_ip_target %pI4 and arp_validate is set\n",
+-					bond->dev->name, &targets[i]);
++			if (bond->params.arp_validate)
++				net_dbg_ratelimited("%s: no route to arp_ip_target %pI4 and arp_validate is set\n",
++						    bond->dev->name,
++						    &targets[i]);
+ 			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i], 0, &inner, &outer);
  			continue;
  		}
+@@ -2246,9 +2247,9 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+ 		rcu_read_unlock();
  
--		vlan_id = 0;
--
- 		/* bond device itself */
- 		if (rt->dst.dev == bond->dev)
- 			goto found;
-@@ -2185,17 +2203,30 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 		 * found we verify its upper dev list, searching for the
- 		 * rt->dst.dev. If found we save the tag of the vlan and
- 		 * proceed to send the packet.
--		 *
--		 * TODO: QinQ?
- 		 */
- 		netdev_for_each_all_upper_dev_rcu(bond->dev, vlan_upper,
- 						  vlan_iter) {
- 			if (!is_vlan_dev(vlan_upper))
- 				continue;
-+
-+			if (vlan_upper == rt->dst.dev) {
-+				outer.vlan_proto = vlan_dev_vlan_proto(vlan_upper);
-+				outer.vlan_id = vlan_dev_vlan_id(vlan_upper);
-+				rcu_read_unlock();
-+				goto found;
-+			}
- 			netdev_for_each_all_upper_dev_rcu(vlan_upper, upper,
- 							  iter) {
- 				if (upper == rt->dst.dev) {
--					vlan_id = vlan_dev_vlan_id(vlan_upper);
-+					/* If the upper dev is a vlan dev too,
-+					 *  set the vlan tag to inner tag.
-+					 */
-+					if (is_vlan_dev(upper)) {
-+						inner.vlan_proto = vlan_dev_vlan_proto(upper);
-+						inner.vlan_id = vlan_dev_vlan_id(upper);
-+					}
-+					outer.vlan_proto = vlan_dev_vlan_proto(vlan_upper);
-+					outer.vlan_id = vlan_dev_vlan_id(vlan_upper);
- 					rcu_read_unlock();
- 					goto found;
- 				}
-@@ -2208,10 +2239,6 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 		 */
- 		netdev_for_each_all_upper_dev_rcu(bond->dev, upper, iter) {
- 			if (upper == rt->dst.dev) {
--				/* if it's a vlan - get its VID */
--				if (is_vlan_dev(upper))
--					vlan_id = vlan_dev_vlan_id(upper);
--
- 				rcu_read_unlock();
- 				goto found;
- 			}
-@@ -2230,7 +2257,7 @@ found:
- 		addr = bond_confirm_addr(rt->dst.dev, targets[i], 0);
+ 		/* Not our device - skip */
+-		pr_debug("%s: no path to arp_ip_target %pI4 via rt.dev %s\n",
+-			 bond->dev->name, &targets[i],
+-			 rt->dst.dev ? rt->dst.dev->name : "NULL");
++		net_dbg_ratelimited("%s: no path to arp_ip_target %pI4 via rt.dev %s\n",
++				    bond->dev->name, &targets[i],
++				    rt->dst.dev ? rt->dst.dev->name : "NULL");
+ 
  		ip_rt_put(rt);
- 		bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
--			      addr, vlan_id);
-+			      addr, &inner, &outer);
- 	}
- }
- 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 0896f1d..b8bdd0a 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -266,6 +266,11 @@ struct bonding {
- #define bond_slave_get_rtnl(dev) \
- 	((struct slave *) rtnl_dereference(dev->rx_handler_data))
- 
-+struct bond_vlan_tag {
-+	__be16		vlan_proto;
-+	unsigned short	vlan_id;
-+};
-+
- /**
-  * Returns NULL if the net_device does not belong to any of the bond's slaves
-  *
+ 		continue;
 -- 
 1.8.0
