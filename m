@@ -1,7 +1,8 @@
 From: Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH V8 3/7] net: sxgbe: add TSO support for Samsung sxgbe
-Date: Thu, 20 Mar 2014 10:26:06 -0700
-Message-ID: <013001cf4461$7ca6dae0$75f490a0$@samsung.com>
+Subject: [PATCH V8 6/7] net: sxgbe: add ethtool related functions support
+ Samsung sxgbe
+Date: Thu, 20 Mar 2014 10:26:11 -0700
+Message-ID: <013101cf4461$7de04540$79a0cfc0$@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -19,260 +20,671 @@ List-Id: netdev.vger.kernel.org
 
 From: Vipul Pandya <vipul.pandya-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 
-Enable TSO during initialization for each DMA channels
+This patch adds ethtool related functions.
 
 Signed-off-by: Vipul Pandya <vipul.pandya-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 Neatening-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 Signed-off-by: Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 ---
- drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h |    1 +
- drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h   |   17 +++--
- drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c    |   10 +++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h    |    2 +
- drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c   |   84 +++++++++++++++++++--
- 5 files changed, 101 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h  |   25 +-
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c |  509 +++++++++++++++++++-
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c    |    8 +-
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h     |    6 +
+ 4 files changed, 537 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
-index 587b691..f8ba7e4 100644
+index f06d439..ef7dc80 100644
 --- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
 +++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
-@@ -327,6 +327,7 @@ struct sxgbe_tx_queue {
- 	u32 tx_coal_frames;
- 	u32 tx_coal_timer;
- 	int hwts_tx_en;
-+	u16 prev_mss;
- 	u8 queue_no;
- };
+@@ -42,8 +42,12 @@ struct sxgbe_mtl_ops;
+ #define SXGBE_RX_QUEUES   16
  
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
-index 41844d4..547edf3 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
-@@ -167,8 +167,9 @@ struct sxgbe_desc_ops {
- 	void (*init_tx_desc)(struct sxgbe_tx_norm_desc *p);
+ /* Max/Min RI Watchdog Timer count value */
+-#define SXGBE_MAX_DMA_RIWT	0xff
+-#define SXGBE_MIN_DMA_RIWT	0x20
++/* Calculated based how much time does it take to fill 256KB Rx memory
++ * at 10Gb speed at 156MHz clock rate and considered little less then
++ * the actual value.
++ */
++#define SXGBE_MAX_DMA_RIWT	0x70
++#define SXGBE_MIN_DMA_RIWT	0x01
  
- 	/* Invoked by the xmit function to prepare the tx descriptor */
--	void (*tx_enable_tse)(struct sxgbe_tx_norm_desc *p, u8 is_tse,
--				u32 hdr_len, u32 payload_len);
-+	void (*tx_desc_enable_tse)(struct sxgbe_tx_norm_desc *p, u8 is_tse,
-+				   u32 total_hdr_len, u32 tcp_hdr_len,
-+				   u32 tcp_payload_len);
+ /* Tx coalesce parameters */
+ #define SXGBE_COAL_TX_TIMER	40000
+@@ -194,6 +198,20 @@ enum dma_irq_status {
+ #define SXGBE_FOR_EACH_QUEUE(max_queues, queue_num)			\
+ 	for (queue_num = 0; queue_num < max_queues; queue_num++)
  
- 	/* Assign buffer lengths for descriptor */
- 	void (*prepare_tx_desc)(struct sxgbe_tx_norm_desc *p, u8 is_fd,
-@@ -207,20 +208,26 @@ struct sxgbe_desc_ops {
- 	int (*get_tx_timestamp_status)(struct sxgbe_tx_norm_desc *p);
- 
- 	/* TX Context Descripto Specific */
--	void (*init_tx_ctxt_desc)(struct sxgbe_tx_ctxt_desc *p);
-+	void (*tx_ctxt_desc_set_ctxt)(struct sxgbe_tx_ctxt_desc *p);
- 
- 	/* Set the owner of the TX context descriptor */
--	void (*set_tx_ctxt_owner)(struct sxgbe_tx_ctxt_desc *p);
-+	void (*tx_ctxt_desc_set_owner)(struct sxgbe_tx_ctxt_desc *p);
- 
- 	/* Get the owner of the TX context descriptor */
- 	int (*get_tx_ctxt_owner)(struct sxgbe_tx_ctxt_desc *p);
- 
- 	/* Set TX mss */
--	void (*tx_ctxt_desc_setmss)(struct sxgbe_tx_ctxt_desc *p, int mss);
-+	void (*tx_ctxt_desc_set_mss)(struct sxgbe_tx_ctxt_desc *p, u16 mss);
- 
- 	/* Set TX mss */
- 	int (*tx_ctxt_desc_get_mss)(struct sxgbe_tx_ctxt_desc *p);
- 
-+	/* Set TX tcmssv */
-+	void (*tx_ctxt_desc_set_tcmssv)(struct sxgbe_tx_ctxt_desc *p);
++#define DRV_VERSION "1.0.0"
 +
-+	/* Reset TX ostc */
-+	void (*tx_ctxt_desc_reset_ostc)(struct sxgbe_tx_ctxt_desc *p);
++#define SXGBE_MAX_RX_CHANNELS	16
++#define SXGBE_MAX_TX_CHANNELS	16
 +
- 	/* Set IVLAN information */
- 	void (*tx_ctxt_desc_set_ivlantag)(struct sxgbe_tx_ctxt_desc *p,
- 					  int is_ivlanvalid, int ivlan_tag,
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
-index 1e68ef3..1edc451 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
-@@ -354,6 +354,15 @@ static void sxgbe_dma_rx_watchdog(void __iomem *ioaddr, u32 riwt)
- 	}
++#define START_MAC_REG_OFFSET	0x0000
++#define MAX_MAC_REG_OFFSET	0x0DFC
++#define START_MTL_REG_OFFSET	0x1000
++#define MAX_MTL_REG_OFFSET	0x18FC
++#define START_DMA_REG_OFFSET	0x3000
++#define MAX_DMA_REG_OFFSET	0x38FC
++
++#define REG_SPACE_SIZE		0x2000
++
+ /* sxgbe statistics counters */
+ struct sxgbe_extra_stats {
+ 	/* TX/RX IRQ events */
+@@ -479,6 +497,7 @@ struct sxgbe_priv_data {
+ 	/* advanced time stamp support */
+ 	u32 adv_ts;
+ 	int use_riwt;
++	struct ptp_clock *ptp_clock;
+ 
+ 	/* tc control */
+ 	int tx_tc;
+@@ -515,4 +534,6 @@ const struct sxgbe_mtl_ops *sxgbe_get_mtl_ops(void);
+ void sxgbe_disable_eee_mode(struct sxgbe_priv_data * const priv);
+ bool sxgbe_eee_init(struct sxgbe_priv_data * const priv);
+ 
++int sxgbe_set_flow_ctrl(struct sxgbe_priv_data *priv, int rx, int tx);
++
+ #endif /* __SXGBE_COMMON_H__ */
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
+index 9083300..471bc89 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
+@@ -12,11 +12,17 @@
+ 
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 
++#include <linux/clk.h>
++#include <linux/interrupt.h>
+ #include <linux/kernel.h>
+ #include <linux/netdevice.h>
++#include <linux/net_tstamp.h>
+ #include <linux/phy.h>
++#include <linux/ptp_clock_kernel.h>
+ 
+ #include "sxgbe_common.h"
++#include "sxgbe_reg.h"
++#include "sxgbe_dma.h"
+ 
+ struct sxgbe_stats {
+ 	char stat_string[ETH_GSTRING_LEN];
+@@ -32,16 +38,105 @@ struct sxgbe_stats {
  }
  
-+static void sxgbe_enable_tso(void __iomem *ioaddr, u8 chan_num)
-+{
-+	u32 ctrl;
+ static const struct sxgbe_stats sxgbe_gstrings_stats[] = {
++	/* TX/RX IRQ events */
++	SXGBE_STAT(tx_process_stopped_irq),
++	SXGBE_STAT(tx_ctxt_desc_err),
++	SXGBE_STAT(tx_threshold),
++	SXGBE_STAT(rx_threshold),
++	SXGBE_STAT(tx_pkt_n),
++	SXGBE_STAT(rx_pkt_n),
++	SXGBE_STAT(normal_irq_n),
++	SXGBE_STAT(tx_normal_irq_n),
++	SXGBE_STAT(rx_normal_irq_n),
++	SXGBE_STAT(napi_poll),
++	SXGBE_STAT(tx_clean),
++	SXGBE_STAT(tx_reset_ic_bit),
++	SXGBE_STAT(rx_process_stopped_irq),
++	SXGBE_STAT(rx_underflow_irq),
 +
-+	ctrl = readl(ioaddr + SXGBE_DMA_CHA_TXCTL_REG(chan_num));
-+	ctrl |= SXGBE_DMA_CHA_TXCTL_TSE_ENABLE;
-+	writel(ctrl, ioaddr + SXGBE_DMA_CHA_TXCTL_REG(chan_num));
++	/* Bus access errors */
++	SXGBE_STAT(fatal_bus_error_irq),
++	SXGBE_STAT(tx_read_transfer_err),
++	SXGBE_STAT(tx_write_transfer_err),
++	SXGBE_STAT(tx_desc_access_err),
++	SXGBE_STAT(tx_buffer_access_err),
++	SXGBE_STAT(tx_data_transfer_err),
++	SXGBE_STAT(rx_read_transfer_err),
++	SXGBE_STAT(rx_write_transfer_err),
++	SXGBE_STAT(rx_desc_access_err),
++	SXGBE_STAT(rx_buffer_access_err),
++	SXGBE_STAT(rx_data_transfer_err),
++
++	/* EEE-LPI stats */
+ 	SXGBE_STAT(tx_lpi_entry_n),
+ 	SXGBE_STAT(tx_lpi_exit_n),
+ 	SXGBE_STAT(rx_lpi_entry_n),
+ 	SXGBE_STAT(rx_lpi_exit_n),
+ 	SXGBE_STAT(eee_wakeup_error_n),
++
++	/* RX specific */
++	/* L2 error */
++	SXGBE_STAT(rx_code_gmii_err),
++	SXGBE_STAT(rx_watchdog_err),
++	SXGBE_STAT(rx_crc_err),
++	SXGBE_STAT(rx_gaint_pkt_err),
++	SXGBE_STAT(ip_hdr_err),
++	SXGBE_STAT(ip_payload_err),
++	SXGBE_STAT(overflow_error),
++
++	/* L2 Pkt type */
++	SXGBE_STAT(len_pkt),
++	SXGBE_STAT(mac_ctl_pkt),
++	SXGBE_STAT(dcb_ctl_pkt),
++	SXGBE_STAT(arp_pkt),
++	SXGBE_STAT(oam_pkt),
++	SXGBE_STAT(untag_okt),
++	SXGBE_STAT(other_pkt),
++	SXGBE_STAT(svlan_tag_pkt),
++	SXGBE_STAT(cvlan_tag_pkt),
++	SXGBE_STAT(dvlan_ocvlan_icvlan_pkt),
++	SXGBE_STAT(dvlan_osvlan_isvlan_pkt),
++	SXGBE_STAT(dvlan_osvlan_icvlan_pkt),
++	SXGBE_STAT(dvan_ocvlan_icvlan_pkt),
++
++	/* L3/L4 Pkt type */
++	SXGBE_STAT(not_ip_pkt),
++	SXGBE_STAT(ip4_tcp_pkt),
++	SXGBE_STAT(ip4_udp_pkt),
++	SXGBE_STAT(ip4_icmp_pkt),
++	SXGBE_STAT(ip4_unknown_pkt),
++	SXGBE_STAT(ip6_tcp_pkt),
++	SXGBE_STAT(ip6_udp_pkt),
++	SXGBE_STAT(ip6_icmp_pkt),
++	SXGBE_STAT(ip6_unknown_pkt),
++
++	/* Filter specific */
++	SXGBE_STAT(vlan_filter_match),
++	SXGBE_STAT(sa_filter_fail),
++	SXGBE_STAT(da_filter_fail),
++	SXGBE_STAT(hash_filter_pass),
++	SXGBE_STAT(l3_filter_match),
++	SXGBE_STAT(l4_filter_match),
++
++	/* RX context specific */
++	SXGBE_STAT(timestamp_dropped),
++	SXGBE_STAT(rx_msg_type_no_ptp),
++	SXGBE_STAT(rx_ptp_type_sync),
++	SXGBE_STAT(rx_ptp_type_follow_up),
++	SXGBE_STAT(rx_ptp_type_delay_req),
++	SXGBE_STAT(rx_ptp_type_delay_resp),
++	SXGBE_STAT(rx_ptp_type_pdelay_req),
++	SXGBE_STAT(rx_ptp_type_pdelay_resp),
++	SXGBE_STAT(rx_ptp_type_pdelay_follow_up),
++	SXGBE_STAT(rx_ptp_announce),
++	SXGBE_STAT(rx_ptp_mgmt),
++	SXGBE_STAT(rx_ptp_signal),
++	SXGBE_STAT(rx_ptp_resv_msg_type),
+ };
+ #define SXGBE_STATS_LEN ARRAY_SIZE(sxgbe_gstrings_stats)
+ 
+-static int sxgbe_ethtool_get_eee(struct net_device *dev,
+-				 struct ethtool_eee *edata)
++static int sxgbe_get_eee(struct net_device *dev,
++			 struct ethtool_eee *edata)
+ {
+ 	struct sxgbe_priv_data *priv = netdev_priv(dev);
+ 
+@@ -55,8 +150,8 @@ static int sxgbe_ethtool_get_eee(struct net_device *dev,
+ 	return phy_ethtool_get_eee(priv->phydev, edata);
+ }
+ 
+-static int sxgbe_ethtool_set_eee(struct net_device *dev,
+-				 struct ethtool_eee *edata)
++static int sxgbe_set_eee(struct net_device *dev,
++			 struct ethtool_eee *edata)
+ {
+ 	struct sxgbe_priv_data *priv = netdev_priv(dev);
+ 
+@@ -80,9 +175,411 @@ static int sxgbe_ethtool_set_eee(struct net_device *dev,
+ 	return phy_ethtool_set_eee(priv->phydev, edata);
+ }
+ 
++static void sxgbe_getdrvinfo(struct net_device *dev,
++			     struct ethtool_drvinfo *info)
++{
++	strlcpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
++	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
 +}
 +
- static const struct sxgbe_dma_ops sxgbe_dma_ops = {
- 	.init = sxgbe_dma_init,
- 	.cha_init = sxgbe_dma_channel_init,
-@@ -369,6 +378,7 @@ static const struct sxgbe_dma_ops sxgbe_dma_ops = {
- 	.tx_dma_int_status = sxgbe_tx_dma_int_status,
- 	.rx_dma_int_status = sxgbe_rx_dma_int_status,
- 	.rx_watchdog = sxgbe_dma_rx_watchdog,
-+	.enable_tso = sxgbe_enable_tso,
++static int sxgbe_getsettings(struct net_device *dev,
++			     struct ethtool_cmd *cmd)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++
++	if (priv->phydev)
++		return phy_ethtool_gset(priv->phydev, cmd);
++
++	return -ENODEV;
++}
++
++static int sxgbe_setsettings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++
++	if (priv->phydev)
++		return phy_ethtool_sset(priv->phydev, cmd);
++
++	return -ENODEV;
++}
++
++static u32 sxgbe_getmsglevel(struct net_device *dev)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++	return priv->msg_enable;
++}
++
++static void sxgbe_setmsglevel(struct net_device *dev, u32 level)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++	priv->msg_enable = level;
++}
++
++static int sxgbe_get_ts_info(struct net_device *dev,
++			     struct ethtool_ts_info *info)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++
++	if (!priv->hw_cap.atime_stamp)
++		return ethtool_op_get_ts_info(dev, info);
++
++	info->so_timestamping = (SOF_TIMESTAMPING_TX_SOFTWARE |
++				 SOF_TIMESTAMPING_RX_SOFTWARE |
++				 SOF_TIMESTAMPING_SOFTWARE |
++				 SOF_TIMESTAMPING_TX_HARDWARE |
++				 SOF_TIMESTAMPING_RX_HARDWARE |
++				 SOF_TIMESTAMPING_RAW_HARDWARE);
++
++	if (priv->ptp_clock)
++		info->phc_index = ptp_clock_index(priv->ptp_clock);
++
++	info->tx_types = ((1 << HWTSTAMP_TX_OFF) |
++			  (1 << HWTSTAMP_TX_ON) |
++			  (1 << HWTSTAMP_TX_ONESTEP_SYNC));
++
++	info->rx_filters = ((1 << HWTSTAMP_FILTER_NONE) |
++			    (1 << HWTSTAMP_FILTER_PTP_V1_L4_EVENT) |
++			    (1 << HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
++			    (1 << HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ) |
++			    (1 << HWTSTAMP_FILTER_PTP_V2_L4_EVENT) |
++			    (1 << HWTSTAMP_FILTER_PTP_V2_L4_SYNC) |
++			    (1 << HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ) |
++			    (1 << HWTSTAMP_FILTER_PTP_V2_L2_EVENT) |
++			    (1 << HWTSTAMP_FILTER_PTP_V2_L2_SYNC) |
++			    (1 << HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ) |
++			    (1 << HWTSTAMP_FILTER_PTP_V2_EVENT) |
++			    (1 << HWTSTAMP_FILTER_PTP_V2_SYNC) |
++			    (1 << HWTSTAMP_FILTER_PTP_V2_DELAY_REQ) |
++			    (1 << HWTSTAMP_FILTER_ALL));
++	return 0;
++}
++
++int sxgbe_set_flow_ctrl(struct sxgbe_priv_data *priv, int rx, int tx)
++{
++	return 0;
++}
++
++static void sxgbe_get_pauseparam(struct net_device *netdev,
++				 struct ethtool_pauseparam *pause)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(netdev);
++
++	pause->rx_pause = priv->rx_pause;
++	pause->tx_pause = priv->tx_pause;
++}
++
++static int sxgbe_set_pauseparam(struct net_device *netdev,
++				struct ethtool_pauseparam *pause)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(netdev);
++
++	if (pause->autoneg)
++		return -EINVAL;
++
++	return sxgbe_set_flow_ctrl(priv, pause->rx_pause, pause->tx_pause);
++}
++
++
++
++static void sxgbe_get_strings(struct net_device *dev, u32 stringset, u8 *data)
++{
++	int i;
++	u8 *p = data;
++
++	switch (stringset) {
++	case ETH_SS_STATS:
++		for (i = 0; i < SXGBE_STATS_LEN; i++) {
++			memcpy(p, sxgbe_gstrings_stats[i].stat_string,
++			       ETH_GSTRING_LEN);
++			p += ETH_GSTRING_LEN;
++		}
++		break;
++	default:
++		WARN_ON(1);
++		break;
++	}
++}
++
++static int sxgbe_get_sset_count(struct net_device *netdev, int sset)
++{
++	int len;
++
++	switch (sset) {
++	case ETH_SS_STATS:
++		len = SXGBE_STATS_LEN;
++		return len;
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static void sxgbe_get_ethtool_stats(struct net_device *dev,
++				    struct ethtool_stats *dummy, u64 *data)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++	int i, j = 0;
++	char *p;
++
++	if (priv->eee_enabled) {
++		int val = phy_get_eee_err(priv->phydev);
++
++		if (val)
++			priv->xstats.eee_wakeup_error_n = val;
++	}
++
++	for (i = 0; i < SXGBE_STATS_LEN; i++) {
++		p = (char *)priv + sxgbe_gstrings_stats[i].stat_offset;
++		data[j++] = (sxgbe_gstrings_stats[i].sizeof_stat == sizeof(u64))
++			? (*(u64 *)p) : (*(u32 *)p);
++	}
++}
++
++static void sxgbe_get_channels(struct net_device *dev,
++			       struct ethtool_channels *channel)
++{
++	channel->max_rx = SXGBE_MAX_RX_CHANNELS;
++	channel->max_tx = SXGBE_MAX_TX_CHANNELS;
++	channel->rx_count = SXGBE_RX_QUEUES;
++	channel->tx_count = SXGBE_TX_QUEUES;
++}
++
++static u32 sxgbe_riwt2usec(u32 riwt, struct sxgbe_priv_data *priv)
++{
++	unsigned long clk = clk_get_rate(priv->sxgbe_clk);
++
++	if (!clk)
++		return 0;
++
++	return (riwt * 256) / (clk / 1000000);
++}
++
++static u32 sxgbe_usec2riwt(u32 usec, struct sxgbe_priv_data *priv)
++{
++	unsigned long clk = clk_get_rate(priv->sxgbe_clk);
++
++	if (!clk)
++		return 0;
++
++	return (usec * (clk / 1000000)) / 256;
++}
++
++static int sxgbe_get_coalesce(struct net_device *dev,
++			      struct ethtool_coalesce *ec)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++
++	if (priv->use_riwt)
++		ec->rx_coalesce_usecs = sxgbe_riwt2usec(priv->rx_riwt, priv);
++
++	return 0;
++}
++
++static int sxgbe_set_coalesce(struct net_device *dev,
++			      struct ethtool_coalesce *ec)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++	unsigned int rx_riwt;
++
++	rx_riwt = sxgbe_usec2riwt(ec->rx_coalesce_usecs, priv);
++
++	if ((rx_riwt > SXGBE_MAX_DMA_RIWT) || (rx_riwt < SXGBE_MIN_DMA_RIWT))
++		return -EINVAL;
++	else if (!priv->use_riwt)
++		return -EOPNOTSUPP;
++
++	priv->rx_riwt = rx_riwt;
++	priv->hw->dma->rx_watchdog(priv->ioaddr, priv->rx_riwt);
++
++	return 0;
++}
++
++static int sxgbe_get_rss_hash_opts(struct sxgbe_priv_data *priv,
++				   struct ethtool_rxnfc *cmd)
++{
++	cmd->data = 0;
++
++	/* Report default options for RSS on sxgbe */
++	switch (cmd->flow_type) {
++	case TCP_V4_FLOW:
++	case UDP_V4_FLOW:
++		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++	case SCTP_V4_FLOW:
++	case AH_ESP_V4_FLOW:
++	case AH_V4_FLOW:
++	case ESP_V4_FLOW:
++	case IPV4_FLOW:
++		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
++		break;
++	case TCP_V6_FLOW:
++	case UDP_V6_FLOW:
++		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++	case SCTP_V6_FLOW:
++	case AH_ESP_V6_FLOW:
++	case AH_V6_FLOW:
++	case ESP_V6_FLOW:
++	case IPV6_FLOW:
++		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int sxgbe_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
++			   u32 *rule_locs)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++	int ret = -EOPNOTSUPP;
++
++	switch (cmd->cmd) {
++	case ETHTOOL_GRXFH:
++		ret = sxgbe_get_rss_hash_opts(priv, cmd);
++		break;
++	default:
++		break;
++	}
++
++	return ret;
++}
++
++static int sxgbe_set_rss_hash_opt(struct sxgbe_priv_data *priv,
++				  struct ethtool_rxnfc *cmd)
++{
++	u32 reg_val = 0;
++
++	/* RSS does not support anything other than hashing
++	 * to queues on src and dst IPs and ports
++	 */
++	if (cmd->data & ~(RXH_IP_SRC | RXH_IP_DST |
++			  RXH_L4_B_0_1 | RXH_L4_B_2_3))
++		return -EINVAL;
++
++	switch (cmd->flow_type) {
++	case TCP_V4_FLOW:
++	case TCP_V6_FLOW:
++		if (!(cmd->data & RXH_IP_SRC) ||
++		    !(cmd->data & RXH_IP_DST) ||
++		    !(cmd->data & RXH_L4_B_0_1) ||
++		    !(cmd->data & RXH_L4_B_2_3))
++			return -EINVAL;
++		reg_val = SXGBE_CORE_RSS_CTL_TCP4TE;
++		break;
++	case UDP_V4_FLOW:
++	case UDP_V6_FLOW:
++		if (!(cmd->data & RXH_IP_SRC) ||
++		    !(cmd->data & RXH_IP_DST) ||
++		    !(cmd->data & RXH_L4_B_0_1) ||
++		    !(cmd->data & RXH_L4_B_2_3))
++			return -EINVAL;
++		reg_val = SXGBE_CORE_RSS_CTL_UDP4TE;
++		break;
++	case SCTP_V4_FLOW:
++	case AH_ESP_V4_FLOW:
++	case AH_V4_FLOW:
++	case ESP_V4_FLOW:
++	case AH_ESP_V6_FLOW:
++	case AH_V6_FLOW:
++	case ESP_V6_FLOW:
++	case SCTP_V6_FLOW:
++	case IPV4_FLOW:
++	case IPV6_FLOW:
++		if (!(cmd->data & RXH_IP_SRC) ||
++		    !(cmd->data & RXH_IP_DST) ||
++		    (cmd->data & RXH_L4_B_0_1) ||
++		    (cmd->data & RXH_L4_B_2_3))
++			return -EINVAL;
++		reg_val = SXGBE_CORE_RSS_CTL_IP2TE;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	/* Read SXGBE RSS control register and update */
++	reg_val |= readl(priv->ioaddr + SXGBE_CORE_RSS_CTL_REG);
++	writel(reg_val, priv->ioaddr + SXGBE_CORE_RSS_CTL_REG);
++	readl(priv->ioaddr + SXGBE_CORE_RSS_CTL_REG);
++
++	return 0;
++}
++
++static int sxgbe_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++	int ret = -EOPNOTSUPP;
++
++	switch (cmd->cmd) {
++	case ETHTOOL_SRXFH:
++		ret = sxgbe_set_rss_hash_opt(priv, cmd);
++		break;
++	default:
++		break;
++	}
++
++	return ret;
++}
++
++static void sxgbe_get_regs(struct net_device *dev,
++			   struct ethtool_regs *regs, void *space)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++	u32 *reg_space = (u32 *)space;
++	int reg_offset;
++	int reg_ix = 0;
++	void __iomem *ioaddr = priv->ioaddr;
++
++	memset(reg_space, 0x0, REG_SPACE_SIZE);
++
++	/* MAC registers */
++	for (reg_offset = START_MAC_REG_OFFSET;
++	     reg_offset <= MAX_MAC_REG_OFFSET; reg_offset += 4) {
++		reg_space[reg_ix] = readl(ioaddr + reg_offset);
++		reg_ix++;
++	}
++
++	/* MTL registers */
++	for (reg_offset = START_MTL_REG_OFFSET;
++	     reg_offset <= MAX_MTL_REG_OFFSET; reg_offset += 4) {
++		reg_space[reg_ix] = readl(ioaddr + reg_offset);
++		reg_ix++;
++	}
++
++	/* DMA registers */
++	for (reg_offset = START_DMA_REG_OFFSET;
++	     reg_offset <= MAX_DMA_REG_OFFSET; reg_offset += 4) {
++		reg_space[reg_ix] = readl(ioaddr + reg_offset);
++		reg_ix++;
++	}
++}
++
++static int sxgbe_get_regs_len(struct net_device *dev)
++{
++	return REG_SPACE_SIZE;
++}
++
+ static const struct ethtool_ops sxgbe_ethtool_ops = {
+-	.get_eee = sxgbe_ethtool_get_eee,
+-	.set_eee = sxgbe_ethtool_set_eee,
++	.get_drvinfo = sxgbe_getdrvinfo,
++	.get_settings = sxgbe_getsettings,
++	.set_settings = sxgbe_setsettings,
++	.get_msglevel = sxgbe_getmsglevel,
++	.set_msglevel = sxgbe_setmsglevel,
++	.get_link = ethtool_op_get_link,
++	.get_ts_info = sxgbe_get_ts_info,
++	.get_pauseparam = sxgbe_get_pauseparam,
++	.set_pauseparam = sxgbe_set_pauseparam,
++	.get_strings = sxgbe_get_strings,
++	.get_ethtool_stats = sxgbe_get_ethtool_stats,
++	.get_sset_count = sxgbe_get_sset_count,
++	.get_channels = sxgbe_get_channels,
++	.get_coalesce = sxgbe_get_coalesce,
++	.set_coalesce = sxgbe_set_coalesce,
++	.get_rxnfc = sxgbe_get_rxnfc,
++	.set_rxnfc = sxgbe_set_rxnfc,
++	.get_regs = sxgbe_get_regs,
++	.get_regs_len = sxgbe_get_regs_len,
++	.get_eee = sxgbe_get_eee,
++	.set_eee = sxgbe_set_eee,
  };
  
- const struct sxgbe_dma_ops *sxgbe_get_dma_ops(void)
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h
-index 50c8054..6c070ac 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h
-@@ -42,6 +42,8 @@ struct sxgbe_dma_ops {
- 				 struct sxgbe_extra_stats *x);
- 	/* Program the HW RX Watchdog */
- 	void (*rx_watchdog)(void __iomem *ioaddr, u32 riwt);
-+	/* Enable TSO for each DMA channel */
-+	void (*enable_tso)(void __iomem *ioaddr, u8 chan_num);
- };
- 
- const struct sxgbe_dma_ops *sxgbe_get_dma_ops(void);
+ void sxgbe_set_ethtool_ops(struct net_device *netdev)
 diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-index 1714fd7..a49591e 100644
+index b845322..d50c377 100644
 --- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
 +++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-@@ -1099,6 +1099,28 @@ static int sxgbe_release(struct net_device *dev)
- 	return 0;
- }
+@@ -2129,9 +2129,6 @@ struct sxgbe_priv_data *sxgbe_dvr_probe(struct device *device,
  
-+/* Prepare first Tx descriptor for doing TSO operation */
-+void sxgbe_tso_prepare(struct sxgbe_priv_data *priv,
-+		       struct sxgbe_tx_norm_desc *first_desc,
-+		       struct sk_buff *skb)
-+{
-+	unsigned int total_hdr_len, tcp_hdr_len;
-+
-+	/* Write first Tx descriptor with appropriate value */
-+	tcp_hdr_len = tcp_hdrlen(skb);
-+	total_hdr_len = skb_transport_offset(skb) + tcp_hdr_len;
-+
-+	first_desc->tdes01 = dma_map_single(priv->device, skb->data,
-+					    total_hdr_len, DMA_TO_DEVICE);
-+	if (dma_mapping_error(priv->device, first_desc->tdes01))
-+		pr_err("%s: TX dma mapping failed!!\n", __func__);
-+
-+	first_desc->tdes23.tx_rd_des23.first_desc = 1;
-+	priv->hw->desc->tx_desc_enable_tse(first_desc, 1, total_hdr_len,
-+					   tcp_hdr_len,
-+					   skb->len - total_hdr_len);
-+}
-+
- /**
-  *  sxgbe_xmit: Tx entry point of the driver
-  *  @skb : the socket buffer
-@@ -1116,13 +1138,24 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
- 	unsigned int tx_rsize = priv->dma_tx_size;
- 	struct sxgbe_tx_queue *tqueue = priv->txq[txq_index];
- 	struct sxgbe_tx_norm_desc *tx_desc, *first_desc;
-+	struct sxgbe_tx_ctxt_desc *ctxt_desc = NULL;
- 	int nr_frags = skb_shinfo(skb)->nr_frags;
- 	int no_pagedlen = skb_headlen(skb);
- 	int is_jumbo = 0;
-+	u16 cur_mss = skb_shinfo(skb)->gso_size;
-+	u32 ctxt_desc_req = 0;
+ 	priv->msg_enable = netif_msg_init(debug, default_msg_level);
  
- 	/* get the TX queue handle */
- 	dev_txq = netdev_get_tx_queue(dev, txq_index);
- 
-+	if (unlikely(skb_is_gso(skb) && tqueue->prev_mss != cur_mss))
-+		ctxt_desc_req = 1;
-+
-+	if (unlikely(vlan_tx_tag_present(skb) ||
-+		     ((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
-+		      tqueue->hwts_tx_en)))
-+		ctxt_desc_req = 1;
-+
- 	/* get the spinlock */
- 	spin_lock(&tqueue->tx_lock);
- 
-@@ -1141,18 +1174,43 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
- 	tx_desc = tqueue->dma_tx + entry;
- 
- 	first_desc = tx_desc;
-+	if (ctxt_desc_req)
-+		ctxt_desc = (struct sxgbe_tx_ctxt_desc *)first_desc;
- 
- 	/* save the skb address */
- 	tqueue->tx_skbuff[entry] = skb;
- 
- 	if (!is_jumbo) {
--		tx_desc->tdes01 = dma_map_single(priv->device, skb->data,
--						   no_pagedlen, DMA_TO_DEVICE);
--		if (dma_mapping_error(priv->device, tx_desc->tdes01))
--			pr_err("%s: TX dma mapping failed!!\n", __func__);
+-	if (flow_ctrl)
+-		priv->flow_ctrl = SXGBE_FLOW_AUTO;	/* RX/TX pause on */
 -
--		priv->hw->desc->prepare_tx_desc(tx_desc, 1, no_pagedlen,
--						no_pagedlen);
-+		if (likely(skb_is_gso(skb))) {
-+			/* TSO support */
-+			if (unlikely(tqueue->prev_mss != cur_mss)) {
-+				priv->hw->desc->tx_ctxt_desc_set_mss(
-+						ctxt_desc, cur_mss);
-+				priv->hw->desc->tx_ctxt_desc_set_tcmssv(
-+						ctxt_desc);
-+				priv->hw->desc->tx_ctxt_desc_reset_ostc(
-+						ctxt_desc);
-+				priv->hw->desc->tx_ctxt_desc_set_ctxt(
-+						ctxt_desc);
-+				priv->hw->desc->tx_ctxt_desc_set_owner(
-+						ctxt_desc);
-+
-+				entry = (++tqueue->cur_tx) % tx_rsize;
-+				first_desc = tqueue->dma_tx + entry;
-+
-+				tqueue->prev_mss = cur_mss;
-+			}
-+			sxgbe_tso_prepare(priv, first_desc, skb);
-+		} else {
-+			tx_desc->tdes01 = dma_map_single(priv->device,
-+							 skb->data, no_pagedlen, DMA_TO_DEVICE);
-+			if (dma_mapping_error(priv->device, tx_desc->tdes01))
-+				netdev_err(dev, "%s: TX dma mapping failed!!\n",
-+					   __func__);
-+
-+			priv->hw->desc->prepare_tx_desc(tx_desc, 1, no_pagedlen,
-+							no_pagedlen);
-+		}
+ 	/* Enable TCP segmentation offload for all DMA channels */
+ 	if (priv->hw_cap.tcpseg_offload) {
+ 		SXGBE_FOR_EACH_QUEUE(SXGBE_TX_QUEUES, queue_num) {
+@@ -2145,6 +2142,11 @@ struct sxgbe_priv_data *sxgbe_dvr_probe(struct device *device,
+ 		priv->rxcsum_insertion = true;
  	}
  
- 	for (frag_num = 0; frag_num < nr_frags; frag_num++) {
-@@ -1859,6 +1917,7 @@ struct sxgbe_priv_data *sxgbe_dvr_probe(struct device *device,
- 	int ret = 0;
- 	struct net_device *ndev = NULL;
- 	struct sxgbe_priv_data *priv;
-+	u8 queue_num;
- 
- 	ndev = alloc_etherdev_mqs(sizeof(struct sxgbe_priv_data),
- 				  SXGBE_TX_QUEUES, SXGBE_RX_QUEUES);
-@@ -1893,7 +1952,9 @@ struct sxgbe_priv_data *sxgbe_dvr_probe(struct device *device,
- 
- 	ndev->netdev_ops = &sxgbe_netdev_ops;
- 
--	ndev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM;
-+	ndev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-+		NETIF_F_RXCSUM | NETIF_F_TSO | NETIF_F_TSO6 |
-+		NETIF_F_GRO;
- 	ndev->features |= ndev->hw_features | NETIF_F_HIGHDMA;
- 	ndev->watchdog_timeo = msecs_to_jiffies(TX_TIMEO);
- 
-@@ -1905,6 +1966,13 @@ struct sxgbe_priv_data *sxgbe_dvr_probe(struct device *device,
- 	if (flow_ctrl)
- 		priv->flow_ctrl = SXGBE_FLOW_AUTO;	/* RX/TX pause on */
- 
-+	/* Enable TCP segmentation offload for all DMA channels */
-+	if (priv->hw_cap.tcpseg_offload) {
-+		SXGBE_FOR_EACH_QUEUE(SXGBE_TX_QUEUES, queue_num) {
-+			priv->hw->dma->enable_tso(priv->ioaddr, queue_num);
-+		}
-+	}
++	/* Initialise pause frame settings */
++	priv->rx_pause = 1;
++	priv->tx_pause = 1;
++	sxgbe_set_flow_ctrl(priv, priv->rx_pause, priv->tx_pause);
 +
  	/* Rx Watchdog is available, enable depend on platform data */
  	if (!priv->plat->riwt_off) {
  		priv->use_riwt = 1;
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h
+index 85a7b31..5a89acb 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h
+@@ -195,6 +195,12 @@
+ #define SXGBE_CORE_RSS_ADD_REG		0x0C88
+ #define SXGBE_CORE_RSS_DATA_REG		0x0C8C
+ 
++/* RSS control register bits */
++#define SXGBE_CORE_RSS_CTL_UDP4TE	BIT(3)
++#define SXGBE_CORE_RSS_CTL_TCP4TE	BIT(2)
++#define SXGBE_CORE_RSS_CTL_IP2TE	BIT(1)
++#define SXGBE_CORE_RSS_CTL_RSSE		BIT(0)
++
+ /* IEEE 1588 registers */
+ #define SXGBE_CORE_TSTAMP_CTL_REG	0x0D00
+ #define SXGBE_CORE_SUBSEC_INC_REG	0x0D04
 -- 
 1.7.10.4
 
