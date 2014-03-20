@@ -1,7 +1,8 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net 3/4] openvswitch: Fix race.
-Date: Thu, 20 Mar 2014 11:09:13 -0700
-Message-ID: <1395338954-26206-4-git-send-email-jesse@nicira.com>
+Subject: [PATCH net 4/4] openvswitch: Correctly report flow used
+	times for first 5 minutes after boot.
+Date: Thu, 20 Mar 2014 11:09:14 -0700
+Message-ID: <1395338954-26206-5-git-send-email-jesse@nicira.com>
 References: <1395338954-26206-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,37 +22,41 @@ Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+From: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-ovs_vport_cmd_dump() did rcu_read_lock() only after getting the
-datapath, which could have been deleted in between.  Resolved by
-taking rcu_read_lock() before the get_dp() call.
+The kernel starts out its "jiffies" timer as 5 minutes below zero, as
+shown in include/linux/jiffies.h:
 
-Signed-off-by: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+  /*
+   * Have the 32 bit jiffies value wrap 5 minutes after boot
+   * so jiffies wrap bugs show up earlier.
+   */
+  #define INITIAL_JIFFIES ((unsigned long)(unsigned int) (-300*HZ))
+
+The loop in ovs_flow_stats_get() starts out with 'used' set to 0, then
+takes any "later" time.  This means that for the first five minutes after
+boot, flows will always be reported as never used, since 0 is greater than
+any time already seen.
+
+Signed-off-by: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Acked-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/datapath.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ net/openvswitch/flow.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index e42340d..8601b32 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -1762,11 +1762,12 @@ static int ovs_vport_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	int bucket = cb->args[0], skip = cb->args[1];
- 	int i, j = 0;
- 
-+	rcu_read_lock();
- 	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
--	if (!dp)
-+	if (!dp) {
-+		rcu_read_unlock();
- 		return -ENODEV;
--
--	rcu_read_lock();
-+	}
- 	for (i = bucket; i < DP_VPORT_HASH_BUCKETS; i++) {
- 		struct vport *vport;
- 
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index d71e60f..dda451f 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -92,7 +92,7 @@ static void stats_read(struct flow_stats *stats,
+ 		       unsigned long *used, __be16 *tcp_flags)
+ {
+ 	spin_lock(&stats->lock);
+-	if (time_after(stats->used, *used))
++	if (!*used || time_after(stats->used, *used))
+ 		*used = stats->used;
+ 	*tcp_flags |= stats->tcp_flags;
+ 	ovs_stats->n_packets += stats->packet_count;
 -- 
 1.8.3.2
