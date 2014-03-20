@@ -1,87 +1,191 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/15] igb: enable VLAN stripping for VMs with i350
-Date: Thu, 20 Mar 2014 01:32:51 -0700
-Message-ID: <1395304385-6874-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/15] ixgbe: Convert uses of __constant_<foo> to <foo>
+Date: Thu, 20 Mar 2014 01:32:55 -0700
+Message-ID: <1395304385-6874-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Stefan Assmann <sassmann@kpanic.de>, netdev@vger.kernel.org,
+Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:8080 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:8075 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755533AbaCTIds (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755541AbaCTIds (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 20 Mar 2014 04:33:48 -0400
 In-Reply-To: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Assmann <sassmann@kpanic.de>
+From: Joe Perches <joe@perches.com>
 
-For i350 VLAN stripping for VMs is not enabled in the VMOLR register but in
-the DVMOLR register. Making the changes accordingly. It's not necessary to
-unset the E1000_VMOLR_STRVLAN bit on i350 as the hardware will simply ignore
-it.
+The use of __constant_<foo> has been unnecessary for quite awhile now.
 
-Without this change if a VLAN is configured for a VF assigned to a guest
-via (i.e.)
-ip link set p1p1 vf 0 vlan 10
-the VLAN tag will not be stripped from packets going into the VM. Which they
-should be because the VM itself is not aware of the VLAN at all.
+Make these uses consistent with the rest of the kernel.
 
-Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Joe Perches <joe@perches.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_82575.h | 4 ++++
- drivers/net/ethernet/intel/igb/e1000_regs.h  | 1 +
- drivers/net/ethernet/intel/igb/igb_main.c    | 7 +++++++
- 3 files changed, 12 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |  8 +++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 30 +++++++++++++--------------
+ 2 files changed, 19 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.h b/drivers/net/ethernet/intel/igb/e1000_82575.h
-index 2a721a1..09d78be 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.h
-@@ -230,6 +230,10 @@ struct e1000_adv_tx_context_desc {
- #define E1000_VMOLR_STRVLAN    0x40000000 /* Vlan stripping enable */
- #define E1000_VMOLR_STRCRC     0x80000000 /* CRC stripping enable */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+index 39557e3..25a3dfe 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+@@ -408,13 +408,13 @@ int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
  
-+#define E1000_DVMOLR_HIDEVLAN  0x20000000 /* Hide vlan enable */
-+#define E1000_DVMOLR_STRVLAN   0x40000000 /* Vlan stripping enable */
-+#define E1000_DVMOLR_STRCRC    0x80000000 /* CRC stripping enable */
-+
- #define E1000_VLVF_ARRAY_SIZE     32
- #define E1000_VLVF_VLANID_MASK    0x00000FFF
- #define E1000_VLVF_POOLSEL_SHIFT  12
-diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
-index e9c5fdd..d0f14be 100644
---- a/drivers/net/ethernet/intel/igb/e1000_regs.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
-@@ -357,6 +357,7 @@
- #define E1000_P2VMAILBOX(_n)   (0x00C00 + (4 * (_n)))
- #define E1000_VMBMEM(_n)       (0x00800 + (64 * (_n)))
- #define E1000_VMOLR(_n)        (0x05AD0 + (4 * (_n)))
-+#define E1000_DVMOLR(_n)       (0x0C038 + (64 * (_n)))
- #define E1000_VLVF(_n)         (0x05D00 + (4 * (_n))) /* VLAN Virtual Machine
-                                                        * Filter - RW */
- #define E1000_VMVIR(_n)        (0x03700 + (4 * (_n)))
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index ac06492..313e1a8 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3542,6 +3542,13 @@ static inline void igb_set_vmolr(struct igb_adapter *adapter,
+ 	switch (ixgbe_test_staterr(rx_desc, IXGBE_RXDADV_STAT_FCSTAT)) {
+ 	/* return 0 to bypass going to ULD for DDPed data */
+-	case __constant_cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_DDP):
++	case cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_DDP):
+ 		/* update length of DDPed data */
+ 		ddp->len = le32_to_cpu(rx_desc->wb.lower.hi_dword.rss);
+ 		rc = 0;
+ 		break;
+ 	/* unmap the sg list when FCPRSP is received */
+-	case __constant_cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_FCPRSP):
++	case cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_FCPRSP):
+ 		dma_unmap_sg(&adapter->pdev->dev, ddp->sgl,
+ 			     ddp->sgc, DMA_FROM_DEVICE);
+ 		ddp->err = ddp_err;
+@@ -422,14 +422,14 @@ int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
+ 		ddp->sgc = 0;
+ 		/* fall through */
+ 	/* if DDP length is present pass it through to ULD */
+-	case __constant_cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_NODDP):
++	case cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_NODDP):
+ 		/* update length of DDPed data */
+ 		ddp->len = le32_to_cpu(rx_desc->wb.lower.hi_dword.rss);
+ 		if (ddp->len)
+ 			rc = ddp->len;
+ 		break;
+ 	/* no match will return as an error */
+-	case __constant_cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_NOMTCH):
++	case cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_NOMTCH):
+ 	default:
+ 		break;
+ 	}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index c773d6c..02271f6 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1539,7 +1539,7 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
+ 	hdr.network += ETH_HLEN;
  
- 	vmolr = rd32(E1000_VMOLR(vfn));
- 	vmolr |= E1000_VMOLR_STRVLAN; /* Strip vlan tags */
-+	if (hw->mac.type == e1000_i350) {
-+		u32 dvmolr;
-+
-+		dvmolr = rd32(E1000_DVMOLR(vfn));
-+		dvmolr |= E1000_DVMOLR_STRVLAN;
-+		wr32(E1000_DVMOLR(vfn), dvmolr);
-+	}
- 	if (aupe)
- 		vmolr |= E1000_VMOLR_AUPE; /* Accept untagged packets */
+ 	/* handle any vlan tag if present */
+-	if (protocol == __constant_htons(ETH_P_8021Q)) {
++	if (protocol == htons(ETH_P_8021Q)) {
+ 		if ((hdr.network - data) > (max_len - VLAN_HLEN))
+ 			return max_len;
+ 
+@@ -1548,7 +1548,7 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
+ 	}
+ 
+ 	/* handle L3 protocols */
+-	if (protocol == __constant_htons(ETH_P_IP)) {
++	if (protocol == htons(ETH_P_IP)) {
+ 		if ((hdr.network - data) > (max_len - sizeof(struct iphdr)))
+ 			return max_len;
+ 
+@@ -1562,7 +1562,7 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
+ 		/* record next protocol if header is present */
+ 		if (!(hdr.ipv4->frag_off & htons(IP_OFFSET)))
+ 			nexthdr = hdr.ipv4->protocol;
+-	} else if (protocol == __constant_htons(ETH_P_IPV6)) {
++	} else if (protocol == htons(ETH_P_IPV6)) {
+ 		if ((hdr.network - data) > (max_len - sizeof(struct ipv6hdr)))
+ 			return max_len;
+ 
+@@ -1570,7 +1570,7 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
+ 		nexthdr = hdr.ipv6->nexthdr;
+ 		hlen = sizeof(struct ipv6hdr);
+ #ifdef IXGBE_FCOE
+-	} else if (protocol == __constant_htons(ETH_P_FCOE)) {
++	} else if (protocol == htons(ETH_P_FCOE)) {
+ 		if ((hdr.network - data) > (max_len - FCOE_HEADER_LEN))
+ 			return max_len;
+ 		hlen = FCOE_HEADER_LEN;
+@@ -6520,7 +6520,7 @@ static int ixgbe_tso(struct ixgbe_ring *tx_ring,
+ 	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
+ 	type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_TCP;
+ 
+-	if (first->protocol == __constant_htons(ETH_P_IP)) {
++	if (first->protocol == htons(ETH_P_IP)) {
+ 		struct iphdr *iph = ip_hdr(skb);
+ 		iph->tot_len = 0;
+ 		iph->check = 0;
+@@ -6580,12 +6580,12 @@ static void ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
+ 	} else {
+ 		u8 l4_hdr = 0;
+ 		switch (first->protocol) {
+-		case __constant_htons(ETH_P_IP):
++		case htons(ETH_P_IP):
+ 			vlan_macip_lens |= skb_network_header_len(skb);
+ 			type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
+ 			l4_hdr = ip_hdr(skb)->protocol;
+ 			break;
+-		case __constant_htons(ETH_P_IPV6):
++		case htons(ETH_P_IPV6):
+ 			vlan_macip_lens |= skb_network_header_len(skb);
+ 			l4_hdr = ipv6_hdr(skb)->nexthdr;
+ 			break;
+@@ -6860,9 +6860,9 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
+ 	hdr.network = skb_network_header(first->skb);
+ 
+ 	/* Currently only IPv4/IPv6 with TCP is supported */
+-	if ((first->protocol != __constant_htons(ETH_P_IPV6) ||
++	if ((first->protocol != htons(ETH_P_IPV6) ||
+ 	     hdr.ipv6->nexthdr != IPPROTO_TCP) &&
+-	    (first->protocol != __constant_htons(ETH_P_IP) ||
++	    (first->protocol != htons(ETH_P_IP) ||
+ 	     hdr.ipv4->protocol != IPPROTO_TCP))
+ 		return;
+ 
+@@ -6895,12 +6895,12 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
+ 	 * and write the value to source port portion of compressed dword
+ 	 */
+ 	if (first->tx_flags & (IXGBE_TX_FLAGS_SW_VLAN | IXGBE_TX_FLAGS_HW_VLAN))
+-		common.port.src ^= th->dest ^ __constant_htons(ETH_P_8021Q);
++		common.port.src ^= th->dest ^ htons(ETH_P_8021Q);
  	else
+ 		common.port.src ^= th->dest ^ first->protocol;
+ 	common.port.dst ^= th->source;
+ 
+-	if (first->protocol == __constant_htons(ETH_P_IP)) {
++	if (first->protocol == htons(ETH_P_IP)) {
+ 		input.formatted.flow_type = IXGBE_ATR_FLOW_TYPE_TCPV4;
+ 		common.ip ^= hdr.ipv4->saddr ^ hdr.ipv4->daddr;
+ 	} else {
+@@ -6966,8 +6966,8 @@ static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb,
+ 	 * or FIP and we have FCoE enabled on the adapter
+ 	 */
+ 	switch (vlan_get_protocol(skb)) {
+-	case __constant_htons(ETH_P_FCOE):
+-	case __constant_htons(ETH_P_FIP):
++	case htons(ETH_P_FCOE):
++	case htons(ETH_P_FIP):
+ 		adapter = netdev_priv(dev);
+ 
+ 		if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)
+@@ -7028,7 +7028,7 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
+ 		tx_flags |= vlan_tx_tag_get(skb) << IXGBE_TX_FLAGS_VLAN_SHIFT;
+ 		tx_flags |= IXGBE_TX_FLAGS_HW_VLAN;
+ 	/* else if it is a SW VLAN check the next protocol and store the tag */
+-	} else if (protocol == __constant_htons(ETH_P_8021Q)) {
++	} else if (protocol == htons(ETH_P_8021Q)) {
+ 		struct vlan_hdr *vhdr, _vhdr;
+ 		vhdr = skb_header_pointer(skb, ETH_HLEN, sizeof(_vhdr), &_vhdr);
+ 		if (!vhdr)
+@@ -7087,7 +7087,7 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
+ 
+ #ifdef IXGBE_FCOE
+ 	/* setup tx offload for FCoE */
+-	if ((protocol == __constant_htons(ETH_P_FCOE)) &&
++	if ((protocol == htons(ETH_P_FCOE)) &&
+ 	    (tx_ring->netdev->features & (NETIF_F_FSO | NETIF_F_FCOE_CRC))) {
+ 		tso = ixgbe_fso(tx_ring, first, &hdr_len);
+ 		if (tso < 0)
 -- 
 1.8.3.1
