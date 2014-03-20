@@ -1,34 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 3/3] ip6mr: fix mfc notification flags
-Date: Thu, 20 Mar 2014 16:25:15 -0400 (EDT)
-Message-ID: <20140320.162515.1111571567873898786.davem@davemloft.net>
-References: <1395247671-9356-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1395247671-9356-3-git-send-email-nicolas.dichtel@6wind.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [GIT net] Open vSwitch
+Date: Thu, 20 Mar 2014 11:09:10 -0700
+Message-ID: <1395338954-26206-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51154 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759591AbaCTUZR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 16:25:17 -0400
-In-Reply-To: <1395247671-9356-3-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Wed, 19 Mar 2014 17:47:51 +0100
+Four small fixes for net/3.14. I realize that these are late in the cycle - just got back from vacation.
 
-> Commit 812e44dd1829 ("ip6mr: advertise new mfc entries via rtnl") reuses the
-> function ip6mr_fill_mroute() to notify mfc events.
-> But this function was used only for dump and thus was always setting the
-> flag NLM_F_MULTI, which is wrong in case of a single notification.
-> 
-> Libraries like libnl will wait forever for NLMSG_DONE.
-> 
-> CC: Thomas Graf <tgraf@suug.ch>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+The following changes since commit c14e0953ca51dbcb8d1ac92acbdcff23d0caa158:
 
-Applied.
+  openvswitch: Suppress error messages on megaflow updates (2014-02-04 22:32:38 -0800)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch.git fixes
+
+for you to fetch changes up to f9b8c4c8baded129535d82d74df8e87a7a369f54:
+
+  openvswitch: Correctly report flow used times for first 5 minutes after boot. (2014-03-20 10:45:21 -0700)
+
+----------------------------------------------------------------
+Ben Pfaff (1):
+      openvswitch: Correctly report flow used times for first 5 minutes after boot.
+
+Jarno Rajahalme (2):
+      openvswitch: Read tcp flags only then the tranport header is present.
+      openvswitch: Fix race.
+
+Jiri Pirko (1):
+      ovs: fix dp check in ovs_dp_reset_user_features
+
+ net/openvswitch/datapath.c | 9 +++++----
+ net/openvswitch/flow.c     | 3 ++-
+ 2 files changed, 7 insertions(+), 5 deletions(-)
