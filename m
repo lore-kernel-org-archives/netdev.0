@@ -1,45 +1,51 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH v2a 1/2] dt: Document a compatible entry for MDIO
- ethernet Phys
-Date: Thu, 20 Mar 2014 10:19:24 -0600
-Message-ID: <20140320161924.GA8855@obsidianresearch.com>
-References: <1395267324-5788-1-git-send-email-jgunthorpe@obsidianresearch.com>
- <532AA634.5090707@codethink.co.uk>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH 0/9] Replace rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x,NULL)
+Date: Thu, 20 Mar 2014 17:26:07 +0100
+Message-ID: <532B169F.9030707@broadcom.com>
+References: <cover.1395324808.git.monamagarwal123@gmail.com> <532B022C.8010505@broadcom.com> <20140320150601.GK4405@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Rob Herring <robh+dt@kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Ben Dooks <ben.dooks@codethink.co.uk>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Monam Agarwal <monamagarwal123@gmail.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<eddie.wai@broadcom.com>
+To: <paulmck@linux.vnet.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <532AA634.5090707@codethink.co.uk>
+In-Reply-To: <20140320150601.GK4405@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 20, 2014 at 09:26:28AM +0100, Ben Dooks wrote:
+On 03/20/14 16:06, Paul E. McKenney wrote:
+> On Thu, Mar 20, 2014 at 03:58:52PM +0100, Arend van Spriel wrote:
+>> On 20/03/14 15:37, Monam Agarwal wrote:
+>>> This patchset uses following coccinelle script to replace
+>>> rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x,NULL)
+>>>
+>>> @@
+>>> expression E;
+>>> @@
+>>> - rcu_assign_pointer(
+>>> + RCU_INIT_POINTER(
+>>> E, NULL)
+>>
+>> I am not very familiar with rcu functionality nor coccinelle, but it
+>> looks too generic. I would think only NULL assignments during
+>> initialization should use RCU_INIT_POINTER(). The first patch in the
+>> series does it in a function called unregister_...(). Is it really
+>> ok to do there?
+>
+> Hello, Arend,
+>
+> The thing that rcu_assign_pointer() is doing is ensuring that the
+> initialization of a structure is carried out before storing a pointer
+> to that structure.  In the case of the NULL pointer, there is no
+> structure to initialize, so nothing need be ordered.
+>
+> So, yes, rcu_assign_pointer(p, NULL) can always safely be converted to
+> RCU_INIT_POINTER(p, NULL).  ;-)
 
-> >+  If the phy's identifier is known then the list may contain an entry
-> >+  of the form: "ethernet-phy-idAAAA.BBBB" where
-> >+     AAAA - The value of the 16 bit Phy Identifier 1 register as
-> >+            4 hex digits. This is the chip vendor OUI bits 3:18
-> >+     BBBB - The value of the 16 bit Phy Identifier 2 register as
-> >+            4 hex digits. This is the chip vendor OUI bits 19:24,
-> >+            followed by 10 bits of a vendor specific ID.
-> >+
-> 
-> How about having "ethernet-phy" and adding a single property in the
-> PHY node saying phy-id = <AAAABBBB>, which would be much easier to
-> parse.
+And so I learned something today. Thanks, Paul. I really should pick up 
+reading rcu material again. It ended up in a dusty corner upstairs.
 
-That option was discussed (and my first patch was this way)..
-
-However, using the compatible string is consistent with other OF
-schemes, such as PCI which uses compatible strings like pciVVVV,DDDD
-pciclass,CCSS and so on.
-
-It does make a fair amount sense because the purpose of compatible is
-to identify the device.
-
-Jason
+Thanks,
+Arend
