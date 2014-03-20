@@ -1,31 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] tcp: syncookies: do not use getnstimeofday()
-Date: Thu, 20 Mar 2014 13:37:41 -0700
-Message-ID: <1395347861.9114.96.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1395288141.9114.82.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140320.153645.1726836204043973392.davem@davemloft.net>
-	 <1395346059.9114.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140320.161619.826791792330039198.davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next v2 1/9] ptp: introduce programmable pins.
+Date: Thu, 20 Mar 2014 21:43:08 +0100
+Message-ID: <20140320204307.GA4931@netboy>
+References: <cover.1394975663.git.richardcochran@gmail.com>
+ <5faff8ea096044a48e4edcc6391844f8d428383f.1394975663.git.richardcochran@gmail.com>
+ <20140317.212534.579591104509436501.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ben@decadent.org.uk, christian.riesch@omicron.at,
+	stefan.sorensen@spectralink.com
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:58976 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759898AbaCTUhn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 16:37:43 -0400
-Received: by mail-pa0-f41.google.com with SMTP id fa1so1472930pad.0
-        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 13:37:42 -0700 (PDT)
-In-Reply-To: <20140320.161619.826791792330039198.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140317.212534.579591104509436501.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-03-20 at 16:16 -0400, David Miller wrote:
-> The confusion came mostly because it applied perfectly to net-next, but
-> with fuzz to plain net. :)
+On Mon, Mar 17, 2014 at 09:25:34PM -0400, David Miller wrote:
+> 
+> This locking seems unnecessarily complex to me.  You should be able to
+> do the stateless sanity checks, take the mutex, then do all of the
+> rest of the operations until the end of the function before
+> dropping the lock.
+> 
+> So just take the lock once over the operations that need it.
 
-My bad, you are totally right, I forgot to double check.
+The idea was to avoid holding the mutex when invoking the driver
+callbacks (.verify and .enable). Mostly this is my paranoia that some
+bad driver will call back into the core via ptp_set_pinfunc().
 
-Sorry for the confusion.
+But you are right that the result is overly complex. I'll make the
+callers of ptp_set_pinfunc hold the mutex, and so the set path will
+look just like the get path.
+
+Thanks,
+Richard
