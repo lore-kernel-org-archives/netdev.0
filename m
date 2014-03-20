@@ -1,52 +1,60 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] ixgbevf: Convert uses of __constant_<foo> to <foo>
-Date: Thu, 20 Mar 2014 01:32:56 -0700
-Message-ID: <1395304385-6874-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/15] ixgbe: fix ixgbe_stop_mac_link_on_d3_82599 to check mng correctly
+Date: Thu, 20 Mar 2014 01:32:59 -0700
+Message-ID: <1395304385-6874-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Arun Sharma <asharma@fb.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:8075 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:8065 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755740AbaCTIdv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Mar 2014 04:33:51 -0400
+	id S1755776AbaCTIdw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Mar 2014 04:33:52 -0400
 In-Reply-To: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-The use of __constant_<foo> has been unnecessary for quite awhile now.
+Previously, we did a full check to see if MNG FW was running. Instead,
+we should only check to see whether it could be enabled. Since it may
+become active while down, we don't want to bring the link down.
 
-Make these uses consistent with the rest of the kernel.
-
-Signed-off-by: Joe Perches <joe@perches.com>
+CC: Arun Sharma <asharma@fb.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index a2cba53..592d8a6 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -2857,12 +2857,12 @@ static void ixgbevf_tx_csum(struct ixgbevf_ring *tx_ring,
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 		u8 l4_hdr = 0;
- 		switch (skb->protocol) {
--		case __constant_htons(ETH_P_IP):
-+		case htons(ETH_P_IP):
- 			vlan_macip_lens |= skb_network_header_len(skb);
- 			type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
- 			l4_hdr = ip_hdr(skb)->protocol;
- 			break;
--		case __constant_htons(ETH_P_IPV6):
-+		case htons(ETH_P_IPV6):
- 			vlan_macip_lens |= skb_network_header_len(skb);
- 			l4_hdr = ipv6_hdr(skb)->nexthdr;
- 			break;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index fcba1d9..ef808bc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -517,12 +517,16 @@ out:
+  **/
+ static void ixgbe_stop_mac_link_on_d3_82599(struct ixgbe_hw *hw)
+ {
+-	u32 autoc2_reg;
++	u32 autoc2_reg, fwsm;
+ 	u16 ee_ctrl_2 = 0;
+ 
+ 	hw->eeprom.ops.read(hw, IXGBE_EEPROM_CTRL_2, &ee_ctrl_2);
+ 
+-	if (!hw->mng_fw_enabled && !hw->wol_enabled &&
++	/* Check to see if MNG FW could be enabled */
++	fwsm = IXGBE_READ_REG(hw, IXGBE_FWSM);
++
++	if (((fwsm & IXGBE_FWSM_MODE_MASK) != IXGBE_FWSM_FW_MODE_PT) &&
++	    !hw->wol_enabled &&
+ 	    ee_ctrl_2 & IXGBE_EEPROM_CCD_BIT) {
+ 		autoc2_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC2);
+ 		autoc2_reg |= IXGBE_AUTOC2_LINK_DISABLE_ON_D3_MASK;
 -- 
 1.8.3.1
