@@ -1,87 +1,85 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Accelerated RFS steering the same flow repeatedly on sfc?
-Date: Thu, 20 Mar 2014 12:44:15 -0700
-Message-ID: <CALCETrX2jmweMXzTvnfMdPkdMkLSr9JujtwO0w8ju=7r+mPhPQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created
+ with no group
+Date: Thu, 20 Mar 2014 16:02:29 -0400 (EDT)
+Message-ID: <20140320.160229.857536522237793124.davem@davemloft.net>
+References: <1395055050-20874-1-git-send-email-mike.rapoport@ravellosystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Network Development <netdev@vger.kernel.org>,
-	Paul Emberson <pemberson@solarflare.com>,
-	Tom Herbert <therbert@google.com>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: mike.rapoport@ravellosystems.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f180.google.com ([209.85.220.180]:47506 "EHLO
-	mail-vc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757263AbaCTTog (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 15:44:36 -0400
-Received: by mail-vc0-f180.google.com with SMTP id lf12so1564040vcb.11
-        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 12:44:36 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:50967 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751271AbaCTUCb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 16:02:31 -0400
+In-Reply-To: <1395055050-20874-1-git-send-email-mike.rapoport@ravellosystems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a snipped from my kernel log:
+From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Date: Mon, 17 Mar 2014 13:17:30 +0200
 
-[info] sfc 0000:05:00.1 p3p2: steering TCP
-169.33.100.144:15986:208.92.147.76:60517 to queue 28 [flow 399 filter
-3187] SUBSYSTEM=pci DEVICE=+pci:0000:05:00.1
-[info] sfc 0000:05:00.1 p3p2: steering TCP
-159.95.26.109:23042:208.92.147.76:44811 to queue 28 [flow 21 filter
-5781] SUBSYSTEM=pci DEVICE=+pci:0000:05:00.1
-[info] sfc 0000:05:00.1 p3p2: steering TCP
-169.33.100.144:15986:208.92.147.76:60517 to queue 28 [flow 130 filter
-3187] SUBSYSTEM=pci DEVICE=+pci:0000:05:00.1
-[info] sfc 0000:05:00.1 p3p2: steering TCP
-199.29.245.125:11097:10.253.8.22:47709 to queue 28 [flow 477 filter
-1497] SUBSYSTEM=pci DEVICE=+pci:0000:05:00.1
-[info] sfc 0000:05:00.1 p3p2: steering TCP
-199.29.245.125:11097:10.253.8.22:47709 to queue 30 [flow 272 filter
-1497] SUBSYSTEM=pci DEVICE=+pci:0000:05:00.1
-[info] sfc 0000:05:00.1 p3p2: steering TCP
-169.33.100.144:15986:208.92.147.76:60517 to queue 28 [flow 399 filter
-3187] SUBSYSTEM=pci DEVICE=+pci:0000:05:00.1
-[info] sfc 0000:05:00.1 p3p2: steering TCP
-199.29.245.125:11097:10.253.8.22:47709 to queue 30 [flow 272 filter
-1497] SUBSYSTEM=pci DEVICE=+pci:0000:05:00.1
-[info] sfc 0000:05:00.1 p3p2: steering TCP
-169.33.100.144:15986:208.92.147.76:60517 to queue 28 [flow 399 filter
-3187] SUBSYSTEM=pci DEVICE=+pci:0000:05:00.1
-[info] sfc 0000:05:00.1 p3p2: steering TCP
-169.33.100.144:15986:208.92.147.76:60517 to queue 28 [flow 399 filter
-3187] SUBSYSTEM=pci DEVICE=+pci:0000:05:00.1
-[info] sfc 0000:05:00.1 p3p2: steering TCP
-169.33.100.144:15986:208.92.147.76:60517 to queue 28 [flow 399 filter
-3187] SUBSYSTEM=pci DEVICE=+pci:0000:05:00.1
-[info] sfc 0000:05:00.1 p3p2: steering TCP
-169.33.100.144:15986:208.92.147.76:60517 to queue 28 [flow 400 filter
-3187] SUBSYSTEM=pci DEVICE=+pci:0000:05:00.1
-[info] sfc 0000:05:00.1 p3p2: steering TCP
-169.33.100.144:15986:208.92.147.76:60517 to queue 28 [flow 399 filter
-3187] SUBSYSTEM=pci DEVICE=+pci:0000:05:00.1
+> If the vxlan interface is created without group definition, there is a
+> panic on the first packet reception:
+ ...
+> The crash occurs because vxlan_rcv decides on protocol version of outer
+> packed using vxlan->default_dst.remote_ip.sa.sa_family field which is
+> not initialized if no multicast group was specified at interface
+> creation time. This causes vxlan driver to always assume that outer
+> packet is IPv6.
+> 
+> Using IP protocol version from skb instead of default destination
+> address family fixes the problem.
+> 
+> Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
 
-Sorry about the formatting.  This snippet is less than one second long.
+Thinking some more, I'd like to propose an alternate version of this fix.
 
-It seems rather odd:
+Any objections to this?  I think it maintains the pre-ipv6-support
+behavior.  I know there may be some concerns about supporting multiple
+families on the same socket, but I'm not so sure the code is able to
+support that right now anyways.
 
-1. The same flow is being steered over and over.  This means that
-set_rps_cpu is being called repeatedly, I think.
-
-2. The same flow doesn't have the same flow_id (i.e. rxhash) every time.
-
-The rxhash setting on my interface doesn't seem to matter.
-
-This is Linux 3.13 running the latest OpenOnload driver.  I can try
-the stock driver if needed next week.
-
-The data is coming in on a vlan, in case that matters.
-
-The OpenOnload driver is missing this fix:
-
-commit c7cb38af79c1e71a72d398f39296f1e27779b778
-Author: Tom Herbert <therbert@google.com>
-Date:   Tue Dec 17 23:31:50 2013 -0800
-
-    net: sfc calls skb_set_hash
-
-
--- 
-Andy Lutomirski
-AMA Capital Management, LLC
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index a7eb3f2..3a23623 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1206,7 +1206,7 @@ static void vxlan_rcv(struct vxlan_sock *vs,
+ 		goto drop;
+ 
+ 	/* Re-examine inner Ethernet packet */
+-	if (remote_ip->sa.sa_family == AF_INET) {
++	if (vs->family == AF_INET) {
+ 		oip = ip_hdr(skb);
+ 		saddr.sin.sin_addr.s_addr = oip->saddr;
+ 		saddr.sa.sa_family = AF_INET;
+@@ -2409,10 +2409,13 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
+ 
+ 	INIT_WORK(&vs->del_work, vxlan_del_work);
+ 
+-	if (ipv6)
++	if (ipv6) {
++		vs->family = AF_INET6;
+ 		sock = create_v6_sock(net, port);
+-	else
++	} else {
++		vs->family = AF_INET;
+ 		sock = create_v4_sock(net, port);
++	}
+ 	if (IS_ERR(sock)) {
+ 		kfree(vs);
+ 		return ERR_CAST(sock);
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index 5deef1a..6f00731 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -16,6 +16,7 @@ struct vxlan_sock {
+ 	struct hlist_node hlist;
+ 	vxlan_rcv_t	 *rcv;
+ 	void		 *data;
++	__u16		  family;
+ 	struct work_struct del_work;
+ 	struct socket	 *sock;
+ 	struct rcu_head	  rcu;
