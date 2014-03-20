@@ -1,114 +1,118 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 10/15] e1000e: Fix Hardware Unit Hang
-Date: Wed, 19 Mar 2014 20:30:00 -0700
-Message-ID: <1395286205-9676-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v3 14/15] ixgbevf: Indicate removal state explicitly
+Date: Wed, 19 Mar 2014 20:30:04 -0700
+Message-ID: <1395286205-9676-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395286205-9676-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:20420 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:40723 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753900AbaCTDa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Mar 2014 23:30:26 -0400
+	id S1754033AbaCTDa2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Mar 2014 23:30:28 -0400
 In-Reply-To: <1395286205-9676-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ertman <davidx.m.ertman@intel.com>
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-The check for pending Tx work when link is lost was mistakenly moved to be
-done only when link is first detected to be lost.  It turns out there is a
-small window of opportunity for additional Tx work to get queued up shortly
-after link is dropped.
+Add a bit, __IXGBEVF_REMOVING, to indicate that the module is being
+removed. The __IXGBEVF_DOWN bit had been overloaded for this purpose,
+but that leads to trouble. A few places now check both __IXGBEVF_DOWN
+and __IXGBEVF_REMOVING.
 
-Move the check back to the place it was before in the watchdog task.  Put in
-additional debug information for other reset paths and a final catch-all for
-false hangs in the scheduled function that prints out the hardware hang
-message.
-
-Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 32 +++++++++++++++++++++---------
- 1 file changed, 23 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  5 +++--
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 14 +++++++++-----
+ 2 files changed, 12 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index eafad41..d577723 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1090,8 +1090,14 @@ static void e1000_print_hw_hang(struct work_struct *work)
- 		adapter->tx_hang_recheck = true;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index 5482932..08fb88a 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   Intel 82599 Virtual Function driver
+-  Copyright(c) 1999 - 2012 Intel Corporation.
++  Copyright(c) 1999 - 2014 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+@@ -412,7 +412,8 @@ struct ixgbevf_adapter {
+ enum ixbgevf_state_t {
+ 	__IXGBEVF_TESTING,
+ 	__IXGBEVF_RESETTING,
+-	__IXGBEVF_DOWN
++	__IXGBEVF_DOWN,
++	__IXGBEVF_REMOVING,
+ };
+ 
+ struct ixgbevf_cb {
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 8581079..940d924 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   Intel 82599 Virtual Function driver
+-  Copyright(c) 1999 - 2012 Intel Corporation.
++  Copyright(c) 1999 - 2014 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+@@ -608,7 +608,8 @@ static int ixgbevf_poll(struct napi_struct *napi, int budget)
+ 	napi_complete(napi);
+ 	if (adapter->rx_itr_setting & 1)
+ 		ixgbevf_set_itr(q_vector);
+-	if (!test_bit(__IXGBEVF_DOWN, &adapter->state))
++	if (!test_bit(__IXGBEVF_DOWN, &adapter->state) &&
++	    !test_bit(__IXGBEVF_REMOVING, &adapter->state))
+ 		ixgbevf_irq_enable_queues(adapter,
+ 					  1 << q_vector->v_idx);
+ 
+@@ -833,7 +834,8 @@ static irqreturn_t ixgbevf_msix_other(int irq, void *data)
+ 
+ 	hw->mac.get_link_status = 1;
+ 
+-	if (!test_bit(__IXGBEVF_DOWN, &adapter->state))
++	if (!test_bit(__IXGBEVF_DOWN, &adapter->state) &&
++	    !test_bit(__IXGBEVF_REMOVING, &adapter->state))
+ 		mod_timer(&adapter->watchdog_timer, jiffies);
+ 
+ 	IXGBE_WRITE_REG(hw, IXGBE_VTEIMS, adapter->eims_other);
+@@ -2329,6 +2331,7 @@ static void ixgbevf_reset_task(struct work_struct *work)
+ 
+ 	/* If we're already down or resetting, just bail */
+ 	if (test_bit(__IXGBEVF_DOWN, &adapter->state) ||
++	    test_bit(__IXGBEVF_REMOVING, &adapter->state) ||
+ 	    test_bit(__IXGBEVF_RESETTING, &adapter->state))
  		return;
- 	}
--	/* Real hang detected */
- 	adapter->tx_hang_recheck = false;
-+
-+	if (er32(TDH(0)) == er32(TDT(0))) {
-+		e_dbg("false hang detected, ignoring\n");
-+		return;
-+	}
-+
-+	/* Real hang detected */
- 	netif_stop_queue(netdev);
  
- 	e1e_rphy(hw, MII_BMSR, &phy_status);
-@@ -1121,6 +1127,8 @@ static void e1000_print_hw_hang(struct work_struct *work)
- 	      eop, jiffies, eop_desc->upper.fields.status, er32(STATUS),
- 	      phy_status, phy_1000t_status, phy_ext_status, pci_status);
+@@ -2413,7 +2416,8 @@ static void ixgbevf_watchdog_task(struct work_struct *work)
  
-+	e1000e_dump(adapter);
-+
- 	/* Suggest workaround for known h/w issue */
- 	if ((hw->mac.type == e1000_pchlan) && (er32(CTRL) & E1000_CTRL_TFCE))
- 		e_err("Try turning off Tx pause (flow control) via ethtool\n");
-@@ -4798,6 +4806,7 @@ static void e1000e_check_82574_phy_workaround(struct e1000_adapter *adapter)
+ pf_has_reset:
+ 	/* Reset the timer */
+-	if (!test_bit(__IXGBEVF_DOWN, &adapter->state))
++	if (!test_bit(__IXGBEVF_DOWN, &adapter->state) &&
++	    !test_bit(__IXGBEVF_REMOVING, &adapter->state))
+ 		mod_timer(&adapter->watchdog_timer,
+ 			  round_jiffies(jiffies + (2 * HZ)));
  
- 	if (adapter->phy_hang_count > 1) {
- 		adapter->phy_hang_count = 0;
-+		e_dbg("PHY appears hung - resetting\n");
- 		schedule_work(&adapter->reset_task);
- 	}
- }
-@@ -4956,15 +4965,11 @@ static void e1000_watchdog_task(struct work_struct *work)
- 				mod_timer(&adapter->phy_info_timer,
- 					  round_jiffies(jiffies + 2 * HZ));
+@@ -3563,7 +3567,7 @@ static void ixgbevf_remove(struct pci_dev *pdev)
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
  
--			/* The link is lost so the controller stops DMA.
--			 * If there is queued Tx work that cannot be done
--			 * or if on an 8000ES2LAN which requires a Rx packet
--			 * buffer work-around on link down event, reset the
--			 * controller to flush the Tx/Rx packet buffers.
--			 * (Do the reset outside of interrupt context).
-+			/* 8000ES2LAN requires a Rx packet buffer work-around
-+			 * on link down event; reset the controller to flush
-+			 * the Rx packet buffer.
- 			 */
--			if ((adapter->flags & FLAG_RX_NEEDS_RESTART) ||
--			    (e1000_desc_unused(tx_ring) + 1 < tx_ring->count))
-+			if (adapter->flags & FLAG_RX_NEEDS_RESTART)
- 				adapter->flags |= FLAG_RESTART_NOW;
- 			else
- 				pm_schedule_suspend(netdev->dev.parent,
-@@ -4987,6 +4992,15 @@ link_up:
- 	adapter->gotc_old = adapter->stats.gotc;
- 	spin_unlock(&adapter->stats64_lock);
+-	set_bit(__IXGBEVF_DOWN, &adapter->state);
++	set_bit(__IXGBEVF_REMOVING, &adapter->state);
  
-+	/* If the link is lost the controller stops DMA, but
-+	 * if there is queued Tx work it cannot be done.  So
-+	 * reset the controller to flush the Tx packet buffers.
-+	 */
-+	if (!netif_carrier_ok(netdev) &&
-+	    (e1000_desc_unused(tx_ring) + 1 < tx_ring->count))
-+		adapter->flags |= FLAG_RESTART_NOW;
-+
-+	/* If reset is necessary, do it outside of interrupt context. */
- 	if (adapter->flags & FLAG_RESTART_NOW) {
- 		schedule_work(&adapter->reset_task);
- 		/* return immediately since reset is imminent */
+ 	del_timer_sync(&adapter->watchdog_timer);
+ 
 -- 
 1.8.3.1
