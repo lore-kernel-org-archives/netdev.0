@@ -1,89 +1,61 @@
-From: "Ertman, DavidX M" <davidx.m.ertman@intel.com>
-Subject: RE: [E1000-devel] i217-LM boot wreckage
-Date: Thu, 20 Mar 2014 15:12:48 +0000
-Message-ID: <2B0E3F215D1AB84DA946C8BEE234CCC9370CEFE3@ORSMSX101.amr.corp.intel.com>
-References: <alpine.DEB.2.02.1403201332400.18573@ionos.tec.linutronix.de>
- <alpine.DEB.2.02.1403201431580.18573@ionos.tec.linutronix.de>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 3/5] sh_eth: Simplify MDIO bus initialization and release
+Date: Thu, 20 Mar 2014 19:31:13 +0400
+Message-ID: <532B09C1.5030201@cogentembedded.com>
+References: <1395324035-22918-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com> <1395324035-22918-4-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Thomas Gleixner <tglx@linutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:6804 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757056AbaCTPPa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 11:15:30 -0400
-In-Reply-To: <alpine.DEB.2.02.1403201431580.18573@ionos.tec.linutronix.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-sh@vger.kernel.org, Ben Dooks <ben.dooks@codethink.co.uk>
+To: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>,
+	netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1395324035-22918-4-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Thomas,
+On 20-03-2014 18:00, Laurent Pinchart wrote:
 
-Could you provide the exact kernel version and kernel config you are using?
-Do you have Runtime Power Management enabled?
-Have you tried the latest driver from sourceforge.net (3.0.4.1)?
+> The network device passed to the sh_mdio_init and sh_mdio_release
+> functions is only used to access the sh_eth_private instance. Pass it
+> directly to those functions.
 
->From your lspci output it looks like you have a Management Engine enabled platform.   Do you know what version of ME is loaded?  Have you checked to see that you are on the latest BIOS/NVM image (looks like a new one was released on March 11th for the M93z)?
+    The changelog is incomplete now. You added significant changes but forgot 
+to document them.
 
-Thanks
+> Signed-off-by: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
+> Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> ---
+>   drivers/net/ethernet/renesas/sh_eth.c | 30 +++++++++++-------------------
+>   1 file changed, 11 insertions(+), 19 deletions(-)
 
------Original Message-----
-From: Thomas Gleixner [mailto:tglx@linutronix.de] 
-Sent: Thursday, March 20, 2014 6:45 AM
-To: netdev@vger.kernel.org
-Cc: e1000-devel@lists.sourceforge.net
-Subject: Re: [E1000-devel] i217-LM boot wreckage
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index 443f14f..e9224f2 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -2583,29 +2583,24 @@ static void sh_eth_tsu_init(struct sh_eth_private *mdp)
+[...]
+> -static int sh_mdio_init(struct net_device *ndev, int id,
+> +static int sh_mdio_init(struct sh_eth_private *mdp,
+>   			struct sh_eth_plat_data *pd)
+>   {
+>   	int ret, i;
+>   	struct bb_info *bitbang;
+> -	struct sh_eth_private *mdp = netdev_priv(ndev);
+> +	struct platform_device *pdev = mdp->pdev;
+>   	struct device *dev = &mdp->pdev->dev;
 
-On Thu, 20 Mar 2014, Thomas Gleixner wrote:
-> So it looks like the BIOS is setting something up, when the cable is 
-> plugged at power on time, which is not visible through our debug 
-> output.
+	struct device *dev = &pdev->dev;
 
-Some more info:
+> @@ -2635,7 +2630,7 @@ static int sh_mdio_init(struct net_device *ndev, int id,
+>   	mdp->mii_bus->name = "sh_mii";
+>   	mdp->mii_bus->parent = dev;
+>   	snprintf(mdp->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
+> -		 mdp->pdev->name, id);
+> +		 pdev->name, pdev->id);
+>
+>   	/* PHY IRQ */
+>   	mdp->mii_bus->irq = devm_kzalloc(dev, sizeof(int) * PHY_MAX_ADDR,
 
-I prevented e1000e from being autoloaded and booted with the cable unplugged.
+WBR, Sergei
 
-T1:
-  Plug cable 
-  modprobe e1000e	-> Works
-
-T2:
-  modprobe e1000e
-  plug cable		-> Works not
-
-  rmmod e1000e
-  modprobe e1000e	-> works not
-
-  unplug cable
-  rmmod e1000e
-  modprobe e1000e	-> works
-
-  rmmod e1000e
-  unplug cable     
-  modprobe e1000e
-  plug cable		-> Works not
-
-  rmmod e1000e
-  unplug cable     
-  plug cable
-  modprobe e1000e	-> Works not
-
-So if the module is loaded w/o the cable plugged it does not work. If I unplug before unloading the module and then plug in before loading the module again it works again.
-
-Thanks,
-
-	tglx
-
-
-------------------------------------------------------------------------------
-Learn Graph Databases - Download FREE O'Reilly Book "Graph Databases" is the definitive new guide to graph databases and their applications. Written by three acclaimed leaders in the field, this first edition is now available. Download your free book today!
-http://p.sf.net/sfu/13534_NeoTech
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
