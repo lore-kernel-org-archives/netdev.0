@@ -1,52 +1,67 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/15] igbvf: Convert uses of __constant_<foo> to <foo>
-Date: Thu, 20 Mar 2014 01:32:54 -0700
-Message-ID: <1395304385-6874-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/15] ixgbe: check Core Clock Disable bit
+Date: Thu, 20 Mar 2014 01:32:58 -0700
+Message-ID: <1395304385-6874-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Arun Sharma <asharma@fb.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:8065 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:8075 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755456AbaCTIdt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Mar 2014 04:33:49 -0400
+	id S1755864AbaCTIdy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Mar 2014 04:33:54 -0400
 In-Reply-To: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-The use of __constant_<foo> has been unnecessary for quite awhile now.
+This patch corrects the stop_mac_link_on_d3 function in ixgbe_82599 by
+checking the Core Clock Disable bit before stopping link.
 
-Make these uses consistent with the rest of the kernel.
-
-Signed-off-by: Joe Perches <joe@perches.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+CC: Arun Sharma <asharma@fb.com>
+Reported-by: Chris Pavlas <chris.pavlas@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igbvf/netdev.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 6 +++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  | 3 +++
+ 2 files changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
-index e2c6d80..b7ab03a 100644
---- a/drivers/net/ethernet/intel/igbvf/netdev.c
-+++ b/drivers/net/ethernet/intel/igbvf/netdev.c
-@@ -2014,12 +2014,12 @@ static inline bool igbvf_tx_csum(struct igbvf_adapter *adapter,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index 572cce4..fcba1d9 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -518,8 +518,12 @@ out:
+ static void ixgbe_stop_mac_link_on_d3_82599(struct ixgbe_hw *hw)
+ {
+ 	u32 autoc2_reg;
++	u16 ee_ctrl_2 = 0;
  
- 		if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 			switch (skb->protocol) {
--			case __constant_htons(ETH_P_IP):
-+			case htons(ETH_P_IP):
- 				tu_cmd |= E1000_ADVTXD_TUCMD_IPV4;
- 				if (ip_hdr(skb)->protocol == IPPROTO_TCP)
- 					tu_cmd |= E1000_ADVTXD_TUCMD_L4T_TCP;
- 				break;
--			case __constant_htons(ETH_P_IPV6):
-+			case htons(ETH_P_IPV6):
- 				if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
- 					tu_cmd |= E1000_ADVTXD_TUCMD_L4T_TCP;
- 				break;
+-	if (!hw->mng_fw_enabled && !hw->wol_enabled) {
++	hw->eeprom.ops.read(hw, IXGBE_EEPROM_CTRL_2, &ee_ctrl_2);
++
++	if (!hw->mng_fw_enabled && !hw->wol_enabled &&
++	    ee_ctrl_2 & IXGBE_EEPROM_CCD_BIT) {
+ 		autoc2_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC2);
+ 		autoc2_reg |= IXGBE_AUTOC2_LINK_DISABLE_ON_D3_MASK;
+ 		IXGBE_WRITE_REG(hw, IXGBE_AUTOC2, autoc2_reg);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 69271bc..5b0c730 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -1793,6 +1793,9 @@ enum {
+ #define IXGBE_EEPROM_RD_BUFFER_MAX_COUNT 512 /* EEPROM words # read in burst */
+ #define IXGBE_EEPROM_WR_BUFFER_MAX_COUNT 256 /* EEPROM words # wr in burst */
+ 
++#define IXGBE_EEPROM_CTRL_2	1 /* EEPROM CTRL word 2 */
++#define IXGBE_EEPROM_CCD_BIT	2 /* EEPROM Core Clock Disable bit */
++
+ #ifndef IXGBE_EEPROM_GRANT_ATTEMPTS
+ #define IXGBE_EEPROM_GRANT_ATTEMPTS 1000 /* EEPROM # attempts to gain grant */
+ #endif
 -- 
 1.8.3.1
