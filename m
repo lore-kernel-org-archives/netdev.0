@@ -1,105 +1,159 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/15] ixgbe: clean up ixgbe_atr_compute_perfect_hash_82599
-Date: Thu, 20 Mar 2014 01:33:03 -0700
-Message-ID: <1395304385-6874-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/15] ixgbe: Stop cacheing if the MNG FW enabled
+Date: Thu, 20 Mar 2014 01:33:04 -0700
+Message-ID: <1395304385-6874-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Arun Sharma <asharma@fb.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:8075 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:8065 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755935AbaCTId4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Mar 2014 04:33:56 -0400
+	id S1756012AbaCTId6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Mar 2014 04:33:58 -0400
 In-Reply-To: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Rather than assign several parameters in a row, we should use a for
-loop, which reduces code size.
+We use to cache whether the MNG FW was enabled, how since this isn't
+static we really need to verify with each check.  This patch makes that
+change.
 
 CC: Arun Sharma <asharma@fb.com>
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 46 +++++---------------------
- 1 file changed, 9 insertions(+), 37 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  | 1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  | 7 +++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h | 1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 6 +-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   | 2 --
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   | 1 -
+ 6 files changed, 5 insertions(+), 13 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index 7fe2254..4c78ea8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -1315,7 +1315,6 @@ static struct ixgbe_mac_operations mac_ops_82598 = {
+ 	.release_swfw_sync      = &ixgbe_release_swfw_sync,
+ 	.get_thermal_sensor_data = NULL,
+ 	.init_thermal_sensor_thresh = NULL,
+-	.mng_fw_enabled		= NULL,
+ 	.prot_autoc_read	= &prot_autoc_read_generic,
+ 	.prot_autoc_write	= &prot_autoc_write_generic,
+ };
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index bdac7bd..34ab2fc 100644
+index 34ab2fc..f32b3dd 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -1597,35 +1597,20 @@ void ixgbe_atr_compute_perfect_hash_82599(union ixgbe_atr_input *input,
+@@ -67,7 +67,7 @@ static s32 ixgbe_write_i2c_byte_82599(struct ixgbe_hw *hw, u8 byte_offset,
+ static s32 ixgbe_reset_pipeline_82599(struct ixgbe_hw *hw);
+ static bool ixgbe_verify_lesm_fw_enabled_82599(struct ixgbe_hw *hw);
+ 
+-static bool ixgbe_mng_enabled(struct ixgbe_hw *hw)
++bool ixgbe_mng_enabled(struct ixgbe_hw *hw)
  {
+ 	u32 fwsm, manc, factps;
  
- 	u32 hi_hash_dword, lo_hash_dword, flow_vm_vlan;
--	u32 bucket_hash = 0;
-+	u32 bucket_hash = 0, hi_dword = 0;
-+	int i;
+@@ -94,7 +94,7 @@ static void ixgbe_init_mac_link_ops_82599(struct ixgbe_hw *hw)
+ 	 * and MNG not enabled
+ 	 */
+ 	if ((mac->ops.get_media_type(hw) == ixgbe_media_type_fiber) &&
+-	    !hw->mng_fw_enabled) {
++	    !ixgbe_mng_enabled(hw)) {
+ 		mac->ops.disable_tx_laser =
+ 		                       &ixgbe_disable_tx_laser_multispeed_fiber;
+ 		mac->ops.enable_tx_laser =
+@@ -1206,7 +1206,7 @@ mac_reset_top:
+ 		 * Likewise if we support WoL we don't want change the
+ 		 * LMS state either.
+ 		 */
+-		if ((hw->phy.multispeed_fiber && hw->mng_fw_enabled) ||
++		if ((hw->phy.multispeed_fiber && ixgbe_mng_enabled(hw)) ||
+ 		    hw->wol_enabled)
+ 			hw->mac.orig_autoc =
+ 				(hw->mac.orig_autoc & ~IXGBE_AUTOC_LMS_MASK) |
+@@ -2500,7 +2500,6 @@ static struct ixgbe_mac_operations mac_ops_82599 = {
+ 	.release_swfw_sync      = &ixgbe_release_swfw_sync,
+ 	.get_thermal_sensor_data = &ixgbe_get_thermal_sensor_data_generic,
+ 	.init_thermal_sensor_thresh = &ixgbe_init_thermal_sensor_thresh_generic,
+-	.mng_fw_enabled		= &ixgbe_mng_enabled,
+ 	.prot_autoc_read	= &prot_autoc_read_82599,
+ 	.prot_autoc_write	= &prot_autoc_write_82599,
+ };
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index afa1cda..f12c40f 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -111,6 +111,7 @@ s32 ixgbe_get_device_caps_generic(struct ixgbe_hw *hw, u16 *device_caps);
+ s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
+ 				 u8 build, u8 ver);
+ void ixgbe_clear_tx_pending(struct ixgbe_hw *hw);
++bool ixgbe_mng_enabled(struct ixgbe_hw *hw);
  
- 	/* Apply masks to input data */
--	input->dword_stream[0]  &= input_mask->dword_stream[0];
--	input->dword_stream[1]  &= input_mask->dword_stream[1];
--	input->dword_stream[2]  &= input_mask->dword_stream[2];
--	input->dword_stream[3]  &= input_mask->dword_stream[3];
--	input->dword_stream[4]  &= input_mask->dword_stream[4];
--	input->dword_stream[5]  &= input_mask->dword_stream[5];
--	input->dword_stream[6]  &= input_mask->dword_stream[6];
--	input->dword_stream[7]  &= input_mask->dword_stream[7];
--	input->dword_stream[8]  &= input_mask->dword_stream[8];
--	input->dword_stream[9]  &= input_mask->dword_stream[9];
--	input->dword_stream[10] &= input_mask->dword_stream[10];
-+	for (i = 0; i <= 10; i++)
-+		input->dword_stream[i] &= input_mask->dword_stream[i];
+ void ixgbe_set_rxpba_generic(struct ixgbe_hw *hw, int num_pb,
+ 			     u32 headroom, int strategy);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 02271f6..354771f 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -8038,10 +8038,6 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (err)
+ 		goto err_sw_init;
  
- 	/* record the flow_vm_vlan bits as they are a key part to the hash */
- 	flow_vm_vlan = ntohl(input->dword_stream[0]);
+-	/* Cache if MNG FW is up so we don't have to read the REG later */
+-	if (hw->mac.ops.mng_fw_enabled)
+-		hw->mng_fw_enabled = hw->mac.ops.mng_fw_enabled(hw);
+-
+ 	/* Make it possible the adapter to be woken up via WOL */
+ 	switch (adapter->hw.mac.type) {
+ 	case ixgbe_mac_82599EB:
+@@ -8292,7 +8288,7 @@ skip_sriov:
+ 	ixgbe_dbg_adapter_init(adapter);
  
- 	/* generate common hash dword */
--	hi_hash_dword = ntohl(input->dword_stream[1] ^
--				    input->dword_stream[2] ^
--				    input->dword_stream[3] ^
--				    input->dword_stream[4] ^
--				    input->dword_stream[5] ^
--				    input->dword_stream[6] ^
--				    input->dword_stream[7] ^
--				    input->dword_stream[8] ^
--				    input->dword_stream[9] ^
--				    input->dword_stream[10]);
-+	for (i = 1; i <= 10; i++)
-+		hi_dword ^= input->dword_stream[i];
-+	hi_hash_dword = ntohl(hi_dword);
+ 	/* Need link setup for MNG FW, else wait for IXGBE_UP */
+-	if (hw->mng_fw_enabled && hw->mac.ops.setup_link)
++	if (ixgbe_mng_enabled(hw) && hw->mac.ops.setup_link)
+ 		hw->mac.ops.setup_link(hw,
+ 			IXGBE_LINK_SPEED_10GB_FULL | IXGBE_LINK_SPEED_1GB_FULL,
+ 			true);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index b5408eb..8a6ff24 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -2921,7 +2921,6 @@ struct ixgbe_mac_operations {
+ 	s32 (*set_fw_drv_ver)(struct ixgbe_hw *, u8, u8, u8, u8);
+ 	s32 (*get_thermal_sensor_data)(struct ixgbe_hw *);
+ 	s32 (*init_thermal_sensor_thresh)(struct ixgbe_hw *hw);
+-	bool (*mng_fw_enabled)(struct ixgbe_hw *hw);
+ };
  
- 	/* low dword is word swapped version of common */
- 	lo_hash_dword = (hi_hash_dword >> 16) | (hi_hash_dword << 16);
-@@ -1644,21 +1629,8 @@ void ixgbe_atr_compute_perfect_hash_82599(union ixgbe_atr_input *input,
- 	lo_hash_dword ^= flow_vm_vlan ^ (flow_vm_vlan << 16);
+ struct ixgbe_phy_operations {
+@@ -3052,7 +3051,6 @@ struct ixgbe_hw {
+ 	bool				adapter_stopped;
+ 	bool				force_full_reset;
+ 	bool				allow_unsupported_sfp;
+-	bool				mng_fw_enabled;
+ 	bool				wol_enabled;
+ };
  
- 	/* Process remaining 30 bit of the key */
--	IXGBE_COMPUTE_BKT_HASH_ITERATION(1);
--	IXGBE_COMPUTE_BKT_HASH_ITERATION(2);
--	IXGBE_COMPUTE_BKT_HASH_ITERATION(3);
--	IXGBE_COMPUTE_BKT_HASH_ITERATION(4);
--	IXGBE_COMPUTE_BKT_HASH_ITERATION(5);
--	IXGBE_COMPUTE_BKT_HASH_ITERATION(6);
--	IXGBE_COMPUTE_BKT_HASH_ITERATION(7);
--	IXGBE_COMPUTE_BKT_HASH_ITERATION(8);
--	IXGBE_COMPUTE_BKT_HASH_ITERATION(9);
--	IXGBE_COMPUTE_BKT_HASH_ITERATION(10);
--	IXGBE_COMPUTE_BKT_HASH_ITERATION(11);
--	IXGBE_COMPUTE_BKT_HASH_ITERATION(12);
--	IXGBE_COMPUTE_BKT_HASH_ITERATION(13);
--	IXGBE_COMPUTE_BKT_HASH_ITERATION(14);
--	IXGBE_COMPUTE_BKT_HASH_ITERATION(15);
-+	for (i = 1; i <= 15; i++)
-+		IXGBE_COMPUTE_BKT_HASH_ITERATION(i);
- 
- 	/*
- 	 * Limit hash to 13 bits since max bucket count is 8K.
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+index 2e0e5ec..188a597 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+@@ -855,7 +855,6 @@ static struct ixgbe_mac_operations mac_ops_X540 = {
+ 	.enable_rx_buff		= &ixgbe_enable_rx_buff_generic,
+ 	.get_thermal_sensor_data = NULL,
+ 	.init_thermal_sensor_thresh = NULL,
+-	.mng_fw_enabled		= NULL,
+ 	.prot_autoc_read	= &prot_autoc_read_generic,
+ 	.prot_autoc_write	= &prot_autoc_write_generic,
+ };
 -- 
 1.8.3.1
