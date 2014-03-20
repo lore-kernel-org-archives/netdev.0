@@ -1,67 +1,101 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/15] ixgbe: check Core Clock Disable bit
-Date: Thu, 20 Mar 2014 01:32:58 -0700
-Message-ID: <1395304385-6874-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/15] ixgbe: enable tx queues after link up
+Date: Thu, 20 Mar 2014 01:33:05 -0700
+Message-ID: <1395304385-6874-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Arun Sharma <asharma@fb.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:8075 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:8080 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755864AbaCTIdy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Mar 2014 04:33:54 -0400
+	id S1756028AbaCTId6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Mar 2014 04:33:58 -0400
 In-Reply-To: <1395304385-6874-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This patch corrects the stop_mac_link_on_d3 function in ixgbe_82599 by
-checking the Core Clock Disable bit before stopping link.
+This patch moves the call to enable Tx queues after the link is established.
+Previously there was a chance for aggressive start_ndo_xmit() callers to
+sneak packets between enabling the Tx queues and the link coming up.
+
+In addition it replaces netif_tx_start_all_queues() with
+netif_tx_wake_all_queues() to allow for flushing of the qdisc.
 
 CC: Arun Sharma <asharma@fb.com>
-Reported-by: Chris Pavlas <chris.pavlas@intel.com>
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 6 +++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  | 3 +++
- 2 files changed, 8 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 32 ++++++++++++++-------------
+ 1 file changed, 17 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index 572cce4..fcba1d9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -518,8 +518,12 @@ out:
- static void ixgbe_stop_mac_link_on_d3_82599(struct ixgbe_hw *hw)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 354771f..9e5a366 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4655,8 +4655,6 @@ static void ixgbe_setup_gpie(struct ixgbe_adapter *adapter)
+ static void ixgbe_up_complete(struct ixgbe_adapter *adapter)
  {
- 	u32 autoc2_reg;
-+	u16 ee_ctrl_2 = 0;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	struct net_device *upper;
+-	struct list_head *iter;
+ 	int err;
+ 	u32 ctrl_ext;
  
--	if (!hw->mng_fw_enabled && !hw->wol_enabled) {
-+	hw->eeprom.ops.read(hw, IXGBE_EEPROM_CTRL_2, &ee_ctrl_2);
-+
-+	if (!hw->mng_fw_enabled && !hw->wol_enabled &&
-+	    ee_ctrl_2 & IXGBE_EEPROM_CCD_BIT) {
- 		autoc2_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC2);
- 		autoc2_reg |= IXGBE_AUTOC2_LINK_DISABLE_ON_D3_MASK;
- 		IXGBE_WRITE_REG(hw, IXGBE_AUTOC2, autoc2_reg);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 69271bc..5b0c730 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -1793,6 +1793,9 @@ enum {
- #define IXGBE_EEPROM_RD_BUFFER_MAX_COUNT 512 /* EEPROM words # read in burst */
- #define IXGBE_EEPROM_WR_BUFFER_MAX_COUNT 256 /* EEPROM words # wr in burst */
+@@ -4698,19 +4696,6 @@ static void ixgbe_up_complete(struct ixgbe_adapter *adapter)
+ 			e_crit(drv, "Fan has stopped, replace the adapter\n");
+ 	}
  
-+#define IXGBE_EEPROM_CTRL_2	1 /* EEPROM CTRL word 2 */
-+#define IXGBE_EEPROM_CCD_BIT	2 /* EEPROM Core Clock Disable bit */
+-	/* enable transmits */
+-	netif_tx_start_all_queues(adapter->netdev);
+-
+-	/* enable any upper devices */
+-	netdev_for_each_all_upper_dev_rcu(adapter->netdev, upper, iter) {
+-		if (netif_is_macvlan(upper)) {
+-			struct macvlan_dev *vlan = netdev_priv(upper);
+-
+-			if (vlan->fwd_priv)
+-				netif_tx_start_all_queues(upper);
+-		}
+-	}
+-
+ 	/* bring the link up in the watchdog, this could race with our first
+ 	 * link up interrupt but shouldn't be a problem */
+ 	adapter->flags |= IXGBE_FLAG_NEED_LINK_UPDATE;
+@@ -6082,6 +6067,8 @@ static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
+ 	struct ixgbe_hw *hw = &adapter->hw;
++	struct net_device *upper;
++	struct list_head *iter;
+ 	u32 link_speed = adapter->link_speed;
+ 	bool flow_rx, flow_tx;
+ 
+@@ -6133,6 +6120,21 @@ static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
+ 	netif_carrier_on(netdev);
+ 	ixgbe_check_vf_rate_limit(adapter);
+ 
++	/* enable transmits */
++	netif_tx_wake_all_queues(adapter->netdev);
 +
- #ifndef IXGBE_EEPROM_GRANT_ATTEMPTS
- #define IXGBE_EEPROM_GRANT_ATTEMPTS 1000 /* EEPROM # attempts to gain grant */
- #endif
++	/* enable any upper devices */
++	rtnl_lock();
++	netdev_for_each_all_upper_dev_rcu(adapter->netdev, upper, iter) {
++		if (netif_is_macvlan(upper)) {
++			struct macvlan_dev *vlan = netdev_priv(upper);
++
++			if (vlan->fwd_priv)
++				netif_tx_wake_all_queues(upper);
++		}
++	}
++	rtnl_unlock();
++
+ 	/* update the default user priority for VFs */
+ 	ixgbe_update_default_up(adapter);
+ 
 -- 
 1.8.3.1
