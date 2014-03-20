@@ -1,34 +1,75 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: openvswitch question
-Date: Wed, 19 Mar 2014 18:36:38 -0700
-Message-ID: <CAEP_g=8=BxsXe7PNPAvyEVCDFLCRrskEPVf1ts6Aoo4-eRtQug@mail.gmail.com>
-References: <CAGZFCEHSVpH8XN4n3A3xhVtYNqp4kn3PM7aXWRCxKFSkQVfABQ@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: set accept_ra_rt_info_max_plen to 128 by default
+Date: Thu, 20 Mar 2014 03:02:38 +0100
+Message-ID: <20140320020238.GK12291@order.stressinduktion.org>
+References: <20140319172210.GA29745@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: ratheesh kannoth <ratheesh.ksz@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog108.obsmtp.com ([74.125.149.199]:45327 "HELO
-	na3sys009aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751481AbaCTBg7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 21:36:59 -0400
-Received: by mail-ie0-f179.google.com with SMTP id lx4so171950iec.24
-        for <netdev@vger.kernel.org>; Wed, 19 Mar 2014 18:36:58 -0700 (PDT)
-In-Reply-To: <CAGZFCEHSVpH8XN4n3A3xhVtYNqp4kn3PM7aXWRCxKFSkQVfABQ@mail.gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:47661 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750733AbaCTCCj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 22:02:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20140319172210.GA29745@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 19, 2014 at 2:44 AM, ratheesh kannoth
-<ratheesh.ksz@gmail.com> wrote:
-> Hi list,
->
->
-> openvswitch internal devices are not real nic. So some routine should
-> receive the packet  for this interface. Who is receiving packet for
-> this internal device.
-> I could find a question similar floating without any answer
-> http://comments.gmane.org/gmane.network.openvswitch.devel/19402
+On Wed, Mar 19, 2014 at 06:22:10PM +0100, Jiri Bohac wrote:
+> I have been looking for the reason behind the default of
+> accept_ra_rt_info_max_plen being 0. No luck.
+> 
+> The feature has been introduced by 09c884d4 ([IPV6]: ROUTE: Add
+> accept_ra_rt_info_max_plen sysctl).
+> 
+> The only relevant discussion I found was
+> http://markmail.org/message/5m34bfzhox6y5lcf
+> with no explanation.
+> 
+> I imagine that the motivation for setting
+> accept_ra_rt_info_max_plen to 0 would be security concerns.
+> 
+> However, RFC 4191, section "6. Security Consideration", concludes
+> that the new features don't increase the risks already present:
+> 
+> 	A malicious node could send Router Advertisement messages, specifying
+> 	a High Default Router Preference or carrying specific routes, with
+> 	the effect of pulling traffic away from legitimate routers.  However,
+> 	a malicious node could easily achieve this same effect in other ways.
+> 
+> 	For example, it could fabricate Router Advertisement messages with a
+> 	zero Router Lifetime from the other routers, causing hosts to stop
+> 	using the other routes.  By advertising a specific prefix, this
+> 	attack could be carried out in a less noticeable way.  However, this
+> 	attack has no significant incremental impact on Internet
+> 	infrastructure security.
+> 
+> Sounds reasonable to me.
+> 
+> Also, RFC 6434 has been published since, and under 5.3. it says:
+> 
+> 	Small Office/Home Office (SOHO) deployments supported by routers
+> 	adhering to [RFC6204] use RFC 4191 to advertise routes to certain
+> 	local destinations.  Consequently, nodes that will be deployed in
+> 	SOHO environments SHOULD implement RFC 4191.
+> 
 
->From the perspective of the network stack, there is no difference
-between Open vSwitch internal devices and real NICs so the entry
-points into the stack are the same.
+My concern with the kernel adding arbitrary length prefix routes to
+the routing table is, that this could enable attacks on VPN software
+by advertising smaller prefixes thus still leaving basic connectivity
+intact but rerouting VPN internal traffic around the VPN tunnel because
+of the more specific lookup.
+
+Sure, this also is a problem for DHCP/IPv4 setups, but that is a concern
+of userspace. ;)
+
+I am totally fine with your reasoning and don't know what the initial
+motivation for the default setting was, but I am a bit hesitant about
+this change.
+
+Greetings,
+
+  Hannes
