@@ -1,126 +1,44 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v3 00/15][pull request] Intel Wired LAN Driver Updates
-Date: Wed, 19 Mar 2014 20:29:50 -0700
-Message-ID: <1395286205-9676-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created
+ with no group
+Date: Wed, 19 Mar 2014 23:40:08 -0400 (EDT)
+Message-ID: <20140319.234008.1455466461924213265.davem@davemloft.net>
+References: <OFEB1030F8.C147FA77-ON87257C9F.005CF370-87257C9F.005CF375@us.ibm.com>
+	<CAF1J0HOTLvyaWdmYLGLPn9AJLR6rQr4fk8EVFSzv5sckLuBwvw@mail.gmail.com>
+	<OFA5522ACE.EF0D1366-ON87257CA0.00707184-87257CA0.00707189@us.ibm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mike.rapoport@ravellosystems.com, netdev@vger.kernel.org
+To: dlstevens@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:11069 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751481AbaCTDaN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Mar 2014 23:30:13 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:41713 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750742AbaCTDkM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Mar 2014 23:40:12 -0400
+In-Reply-To: <OFA5522ACE.EF0D1366-ON87257CA0.00707184-87257CA0.00707189@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e, i40evf, e1000e, ixgbe and ixgbevf.
+From: David Stevens <dlstevens@us.ibm.com>
+Date: Wed, 19 Mar 2014 14:28:11 -0600
 
-Mitch adds support for the VF link state ndo which allows the PF driver
-to control the virtual link state of the VF devices.  Added
-support for viewing and modifying RSS hash options and RSS hash look-up
-table programming through ethtool for i40evf.  Fixed complaint about
-the use of min() where min_t() should be used in i40evf.
+> 
+> 
+> -----David Miller <davem@davemloft.net> wrote: -----
+> 
+>>The way I read things, we would receive packets unconditionally in
+>>the
+>>pre-ipv6-support code. So we have to keep doing so.
+> 
+> I never tried it, but as there are IP-version-specific processing (the
+> whole reason we need to check to support both), I'd expect
+> that before the v6 support patch, v6-encapsulated packets would have
+> been dropped, or at least mishandled. We accepted all v4 packets,
+> because v4 is all that was supported.
 
-Anjali adds support for ethtool -k option for NTUPLE control for i40e.
+I'm not suggesting to mix protocols, I'm suggesting that the IPV4
+path continues to accept all IPV4 packets.
 
-Elizabeth cleans up and refactors i40e_open() to separate out the VSI
-code into its own i40e_vsi_open().
-
-Jesse enables the hardware feature head write back to avoid updating the
-descriptor ring by marking each descriptor with a DD bit and instead
-writes a memory location with an update to where the driver should clean
-up to in i40e and i40evf.  Reduces context descriptors for i40e/i40evf
-since we do not need context descriptors for every packet, only for
-TSO or timesync.
-
-Dan Carpenter fixes a potential array underflow in i40e_vc_process_vf_msg().
-
-Dave fixes an e1000e hardware unit hang where the check for pending Tx work
-when link is lost was mistakenly moved to be done only when link is first
-detected to be lost.  Fixed a problem with poor network performance on
-certain silicon in e1000e when configured for 100M HDX performance.
-
-Carolyn adds register defines needed for time sync functions and the code
-to call the updated defines.
-
-Jacob adds the ixgbe function for writing PCI config word and checks
-whether the adapter has been removed first.
-
-Mark adds the bit __IXGBEVF_REMOVING to indicate that the module is being
-removed because the __IXGBEVF_DOWN bit had been overloaded for this
-purpose, but leads to trouble.  ixgbevf_down function can now prevent
-multiple executions by doing test_and_set_bit on __IXGBEVF_DOWN.
-
-v2:
-- dropped patch Mitch's patch "i40evf: Support RSS option in ethtool"
-  based on feedback from Ben Hutchings so that Mitch can re-work the
-  patch solution
-
-v3:
-- removed unnecessary parenthesis in patch 1 based on feedback from David
-  Miller
-- changed a macro to get the next queue to a function in patch 2 based on
-  feedback from David Miller
-- added blank lines after variable declaration and code in two functions
-  in patch 6 based on feedback from David Miller
-
-The following are changes since commit 3ab428a4c5ad929f93f9742d2a222ae33c242c3d:
-  netfilter: Add missing vmalloc.h include to nft_hash.c
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Anjali Singhai Jain (1):
-  i40e: Patch to enable Ethtool/netdev feature flag for NTUPLE control
-
-Carolyn Wyborny (1):
-  igb: Add register defines needed for time sync functions
-
-Catherine Sullivan (1):
-  i40e/i40evf: Bump build versions
-
-Dan Carpenter (1):
-  i40e: potential array underflow in i40e_vc_process_vf_msg()
-
-David Ertman (2):
-  e1000e: Fix Hardware Unit Hang
-  e1000e: Fix Explicitly set Transmit Control Register
-
-Elizabeth Kappler (1):
-  i40e: Refactor and cleanup i40e_open(), adding i40e_vsi_open()
-
-Jacob Keller (1):
-  ixgbe: add ixgbe_write_pci_cfg_word with ixgbe_removed check
-
-Jesse Brandeburg (2):
-  i40e/i40evf: enable hardware feature head write back
-  i40e/i40evf: reduce context descriptors
-
-Mark Rustad (2):
-  ixgbevf: Indicate removal state explicitly
-  ixgbevf: Protect ixgbevf_down with __IXGBEVF_DOWN bit
-
-Mitch Williams (3):
-  i40e: support VF link state ndo
-  i40evf: correctly program RSS HLUT table
-  i40evf: use min_t
-
- drivers/net/ethernet/intel/e1000e/netdev.c         | 42 +++++++---
- drivers/net/ethernet/intel/i40e/i40e.h             |  4 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 89 ++++++++++++++++++---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 49 ++++++++++--
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 91 ++++++++++++++++++++--
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  4 +
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 49 ++++++++++--
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 29 ++++---
- drivers/net/ethernet/intel/igb/e1000_defines.h     | 70 ++++++++++++++++-
- drivers/net/ethernet/intel/igb/e1000_regs.h        |  9 +++
- drivers/net/ethernet/intel/igb/igb_ptp.c           |  4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     |  6 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h    |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  9 +++
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h       |  5 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  | 18 +++--
- 16 files changed, 408 insertions(+), 71 deletions(-)
-
--- 
-1.8.3.1
+And we know exactly what protocol it is because the vs->rcv() caller
+is going to be ipv4 or ipv6 specific code.
