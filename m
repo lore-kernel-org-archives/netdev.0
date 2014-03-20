@@ -1,62 +1,43 @@
-From: Zhangfei Gao <zhangfei.gao@gmail.com>
-Subject: Re: [PATCH 2/3] net: hisilicon: new hip04 MDIO driver
-Date: Thu, 20 Mar 2014 18:53:50 +0800
-Message-ID: <CAMj5Bkjm3G=K=fqas6VG5NXroofWijN_sc7XGLzT5jVehwTd0Q@mail.gmail.com>
-References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
-	<1395132017-15928-3-git-send-email-zhangfei.gao@linaro.org>
-	<CAGVrzcY4SBKFfTvjB0TTvgpAOwCt30C6LjYf9e9E4ciMDVmp-w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Zhangfei Gao <zhangfei.gao@linaro.org>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Subject: [PATCH iproute2] bridge: fix reporting of IPv6 addresses
+Date: Thu, 20 Mar 2014 13:06:10 +0200
+Message-ID: <1395313570-12545-1-git-send-email-mike.rapoport@ravellosystems.com>
+Cc: netdev@vger.kernel.org,
+	Mike Rapoport <mike.rapoport@ravellosystems.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:33526 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750743AbaCTKxw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 06:53:52 -0400
-In-Reply-To: <CAGVrzcY4SBKFfTvjB0TTvgpAOwCt30C6LjYf9e9E4ciMDVmp-w@mail.gmail.com>
+Received: from mail-ee0-f49.google.com ([74.125.83.49]:62030 "EHLO
+	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754940AbaCTLGR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 07:06:17 -0400
+Received: by mail-ee0-f49.google.com with SMTP id c41so519537eek.8
+        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 04:06:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Florian
+Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
+---
+ bridge/fdb.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-On Wed, Mar 19, 2014 at 1:28 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> 2014-03-18 1:40 GMT-07:00 Zhangfei Gao <zhangfei.gao@linaro.org>:
-
->> +static int hip04_mdio_reset(struct mii_bus *bus)
->> +{
->> +       int temp, err, i;
->> +
->> +       for (i = 0; i < 2; i++) {
->> +               hip04_mdio_write(bus, i, 22, 0);
->> +               temp = hip04_mdio_read(bus, i, MII_BMCR);
->> +               temp |= BMCR_RESET;
->> +               err = hip04_mdio_write(bus, i, MII_BMCR, temp);
->> +               if (err < 0)
->> +                       return err;
->> +       }
->> +
->> +       mdelay(500);
->
-> This does not look correct, you should iterate over all possible PHYs:
-> PHY_MAX_ADDR instead of hardcoding the loop to 2.
-
-OK, got it.
-Use 2 is since only have 2 phy in the board, will use PHY_MAX_ADDR instead.
->
-> I think we might want to remove the mdio bus reset callback in general
-> as the PHY library should already take care of software resetting the
-> PHY to put it in a sane state, as well as waiting for the appropriate
-> delay before using, unlike here, where you do not poll for BMCR_RESET
-> to be cleared by the PHY.
->
-Do you mean will move BMCR_RESET to common code, that's would be great.
-The mdio_reset is added here to get phy_id, otherwise the phy_id can
-not be read as well as detection.
-
-Thanks
+diff --git a/bridge/fdb.c b/bridge/fdb.c
+index e2e53f1..9b720e3 100644
+--- a/bridge/fdb.c
++++ b/bridge/fdb.c
+@@ -103,8 +103,13 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 
+ 	if (tb[NDA_DST]) {
+ 		SPRINT_BUF(abuf);
++		int family = AF_INET;
++
++		if (RTA_PAYLOAD(tb[NDA_DST]) == sizeof(struct in6_addr))
++			family = AF_INET6;
++
+ 		fprintf(fp, "dst %s ",
+-			format_host(AF_INET,
++			format_host(family,
+ 				    RTA_PAYLOAD(tb[NDA_DST]),
+ 				    RTA_DATA(tb[NDA_DST]),
+ 				    abuf, sizeof(abuf)));
+-- 
+1.8.1.5
