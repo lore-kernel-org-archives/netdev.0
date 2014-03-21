@@ -1,60 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] csum experts, csum_replace2() is too expensive
-Date: Fri, 21 Mar 2014 06:56:35 -0700
-Message-ID: <1395410195.6441.6.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <87a9cknwk4.fsf@tassilo.jf.intel.com>
-	 <1395406250.9114.142.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1395408778.6441.2.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1395409625.6441.4.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Christopher Covington <cov@codeaurora.org>
+Subject: Re: [CRIU] [PATCH 3/3] tcp: add ability to restore a fin packet
+Date: Fri, 21 Mar 2014 10:04:07 -0400
+Message-ID: <532C46D7.9050403@codeaurora.org>
+References: <1395408781-8145-1-git-send-email-avagin@openvz.org> <1395408781-8145-4-git-send-email-avagin@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "H. Peter Anvin" <hpa@zytor.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"H.K. Jerry Chu" <hkchu@google.com>,
-	Michael Dalton <mwdalton@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andi Kleen <andi@firstfloor.org>
+Cc: linux-kernel@vger.kernel.org,
+	Pavel Emelyanov <xemul@parallels.com>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org, James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@trash.net>, criu@openvz.org,
+	Eric Dumazet <edumazet@google.com>,
+	Cyrill Gorcunov <gorcunov@openvz.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>
+To: Andrey Vagin <avagin@openvz.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1395409625.6441.4.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <1395408781-8145-4-git-send-email-avagin@openvz.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-03-21 at 06:47 -0700, Eric Dumazet wrote:
-
-> Another idea would be to move the ip_fast_csum() call at the end of
-> inet_gro_complete()
+On 03/21/2014 09:33 AM, Andrey Vagin wrote:
+> It's required for restoring sockets in closing states:
+> TCP_FIN_WAIT{1,2}, TCP_WAIT_STOP, TCP_CLOSING, TCP_LAST_ACK.
 > 
-> I'll try this :
+> A fin packet is restored by sending a control message (ancillary data).
+> In which queue a packet is restored depends on a value of
+> tp->repair_queue.
 > 
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index 8c54870db792..0ca8f350a532 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1434,8 +1434,8 @@ static int inet_gro_complete(struct sk_buff *skb, int nhoff)
->         int proto = iph->protocol;
->         int err = -ENOSYS;
->  
-> -       csum_replace2(&iph->check, iph->tot_len, newlen);
->         iph->tot_len = newlen;
-> +       iph->check = 0;
->  
->         rcu_read_lock();
->         ops = rcu_dereference(inet_offloads[proto]);
-> @@ -1447,6 +1447,7 @@ static int inet_gro_complete(struct sk_buff *skb, int nhoff)
->          * inet_gro_receive().
->          */
->         err = ops->callbacks.gro_complete(skb, nhoff + sizeof(*iph));
-> +       iph->check = ip_fast_csum((u8 *)iph, 5);
->  
->  out_unlock:
->         rcu_read_unlock();
-> 
+> This interface is choosen, because we are goint to use sendmsg for
 
-This doesn't help... same stall.
+Nit: chosen, going
 
-Looks like the best way is to use some 16 bit loads in ip_fast_csum()
-for the ihl=5 case.
+> --- a/include/uapi/linux/tcp.h
+> +++ b/include/uapi/linux/tcp.h
+> @@ -199,4 +199,7 @@ struct tcp_md5sig {
+>  	__u8	tcpm_key[TCP_MD5SIG_MAXKEYLEN];		/* key (binary) */
+>  };
+>  
+> +/* Conntroll message types to repair tcp connections */
+
+Nit: Control
+
+Christopher
+
+-- 
+Employee of Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
+hosted by the Linux Foundation.
