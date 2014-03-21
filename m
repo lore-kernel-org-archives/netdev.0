@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] atheros/atlx: use SET_ETHTOOL_OPS directly
-Date: Fri, 21 Mar 2014 15:37:28 -0400 (EDT)
-Message-ID: <20140321.153728.2286772826815673026.davem@davemloft.net>
-References: <532965C3.6090706@huawei.com>
-	<532B9AF3.8080301@huawei.com>
+Subject: Re: [PATCH][net-next] ipv4: remove ip_rt_dump from route.c
+Date: Fri, 21 Mar 2014 15:38:44 -0400 (EDT)
+Message-ID: <20140321.153844.1012685520499183330.davem@davemloft.net>
+References: <1395372790-11056-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jcliburn@gmail.com, chris.snook@gmail.com, netdev@vger.kernel.org
-To: wangweidong1@huawei.com
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35343 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35355 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751289AbaCUTha (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 15:37:30 -0400
-In-Reply-To: <532B9AF3.8080301@huawei.com>
+	with ESMTP id S1750785AbaCUTiq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 15:38:46 -0400
+In-Reply-To: <1395372790-11056-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wang Weidong <wangweidong1@huawei.com>
-Date: Fri, 21 Mar 2014 09:50:43 +0800
+From: roy.qing.li@gmail.com
+Date: Fri, 21 Mar 2014 11:33:10 +0800
 
-> As commit a6e28b34205b("staging/et131x: use SET_ETHTOOL_OPS
-> directly"), using a wrapper around SET_ETHTOOL_OPS macro is
-> not actually required, remove and use SET_ETHTOOL_OPS directly.
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+> ip_rt_dump do nothing after IPv4 route caches removal, so we can remove it.
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-Applied.
+Applied, thanks.
