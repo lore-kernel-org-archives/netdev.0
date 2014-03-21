@@ -1,152 +1,187 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH] bonding: Inactive slaves should keep inactive flag's
- value to 1.
-Date: Fri, 21 Mar 2014 16:41:52 +0800
-Message-ID: <532BFB50.7060601@huawei.com>
-References: <1395305504-29973-1-git-send-email-zheng.x.li@oracle.com> <3119.1395334953@death.nxdomain> <532BA648.6060600@oracle.com>
+From: Markus Pargmann <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH] net: micrel : ks8851-ml: add vdd-supply support
+Date: Fri, 21 Mar 2014 09:51:58 +0100
+Message-ID: <20140321085158.GB30910@pengutronix.de>
+References: <1395384768-8461-1-git-send-email-nm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <andy@greyhouse.net>,
-	<linux-kernel@vger.kernel.org>, <davem@davemloft.net>,
-	<joe.jin@oracle.com>
-To: "zheng.li" <zheng.x.li@oracle.com>, Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <532BA648.6060600@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="NDin8bjvE/0mNLFQ"
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Nishanth Menon <nm-l0cyMroinI0@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1395384768-8461-1-git-send-email-nm-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 2014/3/21 10:39, zheng.li wrote:
-> =E4=BA=8E 2014=E5=B9=B403=E6=9C=8821=E6=97=A5 01:02, Jay Vosburgh =E5=
-=86=99=E9=81=93:
->> Zheng Li <zheng.x.li@oracle.com> wrote:
->>
->>> Except bond mode 1, in other bond modes, inactive slaves should kee=
-p
->>> inactive flag to 1 to refuse to receive broadcast packets. Now, act=
-ive
->>> slave send broadcast packets (for example ARP requests) which will
->>> arrive inactive slaves on same host from switch, but inactive slave=
-'s
->>> inactive flag is zero that cause bridge receive the broadcast packe=
-ts
->>> to produce a wrong entry in forward table. Typical situation is dom=
-u
->>> send some ARP request which go out from dom0 bond's active slave, t=
-hen
->>> the ARP broadcast request packets go back to inactive slave from
->>> switch, because the inactive slave's inactive flag is zero, kernel =
-will
->>> receive the packets and pass them to bridge, that cause dom0's brid=
-ge
->>> map domu's MAC address to port of bond, bridge should map domu's MA=
-C to
->>> port of vif.
->>
->> 	I suspect this will break LACP (802.3ad) and Etherchannel
->> (balance-xor, balance-rr) modes, as those modes can receive broadcas=
-t or
->> multicast on any slave.  In those cases, the switch knows about the
->> aggregation, and will only send the broadcast / multicast to one of =
-the
->> ports, but the port selected is not always the same one.
->>
->> 	In which mode are you having trouble?
->>
->> 	-J
+
+--NDin8bjvE/0mNLFQ
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi,
+
+On Fri, Mar 21, 2014 at 01:52:48AM -0500, Nishanth Menon wrote:
+> Few platforms use external regulator to keep the ethernet MAC supplied.
+> So, request and enable the regulator for driver functionality.
 >=20
-> Except bond mode 1, in other modes (major test in mode 6, and test al=
-l
-> other mode,  except mode 1, all other modes has the bug), the bridge
-> make a wrong entry which map guest MAC to the port of bond, it should
-> map guest MAC to the port of vif.
+> Fixes: 66fda75f47dc (regulator: core: Replace direct ops->disable usage)
+> Reported-by: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+> Suggested-by: Markus Pargmann <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> Signed-off-by: Nishanth Menon <nm-l0cyMroinI0@public.gmane.org>
+> ---
 >=20
-> Env description: dom0's bridge contains bond1 and vif ports, bond1 as
-> port 1 , vif as port 2, bond1 has two slaves which connect a switch.
-> when from guest ping others ,the arp broadcast request will go out fr=
-om
-> bond1's active slave, and then go back to itself inactive slave from
-> switch , in function of bond_should_deliver_exact_match will return
-> false by inactive is zero, return false will cause bridge receive the
-> arp request packets whose original is from guest through vif that let
-> bridge consider the SRC MAC of guest is from bond1 by analyzing the a=
-rp
-> broadcast packets, then make a wrong forward entry "MAC of guest, fro=
-m
-> port 1 (bond1)" , the correct entry should be "MAC of guest , from po=
-rt
-> 2 (vif)".
+> This fixes a regression in SDP4430 platform as reported by Russel here:
+> http://marc.info/?t=3D139509918200014&r=3D1&w=3D2
 >=20
+> Patch is based on [v3.14-rc7] tag, if it is too late to submit, I can rep=
+ost
+> rebased to git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.g=
+it
 >=20
-> bond_should_deliver_exact_match(struct sk_buff *skb,
-> 					    struct slave *slave,
-> 					    struct bonding *bond)
-> {
-> 	if (bond_is_slave_inactive(slave)) {
-> 		if (bond->params.mode =3D=3D BOND_MODE_ALB &&
-> 		    skb->pkt_type !=3D PACKET_BROADCAST &&
-> 		    skb->pkt_type !=3D PACKET_MULTICAST)
-> 			return false;
-> 		return true;
-> 	}
-> 	return false;
-> }
+>  .../devicetree/bindings/net/micrel-ks8851.txt      |    1 +
+>  drivers/net/ethernet/micrel/ks8851.c               |   30 ++++++++++++++=
++++++-
+>  2 files changed, 30 insertions(+), 1 deletion(-)
 >=20
-> Thanks,
-> Zheng Li
+> diff --git a/Documentation/devicetree/bindings/net/micrel-ks8851.txt b/Do=
+cumentation/devicetree/bindings/net/micrel-ks8851.txt
+> index 11ace3c..4fc3927 100644
+> --- a/Documentation/devicetree/bindings/net/micrel-ks8851.txt
+> +++ b/Documentation/devicetree/bindings/net/micrel-ks8851.txt
+> @@ -7,3 +7,4 @@ Required properties:
+> =20
+>  Optional properties:
+>  - local-mac-address : Ethernet mac address to use
+> +- vdd-supply:	supply for Ethernet mac
+> diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/=
+micrel/ks8851.c
+> index 727b546a..e0c92e0 100644
+> --- a/drivers/net/ethernet/micrel/ks8851.c
+> +++ b/drivers/net/ethernet/micrel/ks8851.c
+> @@ -23,6 +23,7 @@
+>  #include <linux/crc32.h>
+>  #include <linux/mii.h>
+>  #include <linux/eeprom_93cx6.h>
+> +#include <linux/regulator/consumer.h>
+> =20
+>  #include <linux/spi/spi.h>
+> =20
+> @@ -83,6 +84,7 @@ union ks8851_tx_hdr {
+>   * @rc_rxqcr: Cached copy of KS_RXQCR.
+>   * @eeprom_size: Companion eeprom size in Bytes, 0 if no eeprom
+>   * @eeprom: 93CX6 EEPROM state for accessing on-board EEPROM.
+> + * @vdd_reg:	Optional regulator supplying the chip
+>   *
+>   * The @lock ensures that the chip is protected when certain operations =
+are
+>   * in progress. When the read or write packet transfer is in progress, m=
+ost
+> @@ -130,6 +132,7 @@ struct ks8851_net {
+>  	struct spi_transfer	spi_xfer2[2];
+> =20
+>  	struct eeprom_93cx6	eeprom;
+> +	struct regulator	*vdd_reg;
+>  };
+> =20
+>  static int msg_enable;
+> @@ -1414,6 +1417,21 @@ static int ks8851_probe(struct spi_device *spi)
+>  	ks->spidev =3D spi;
+>  	ks->tx_space =3D 6144;
+> =20
+> +	ks->vdd_reg =3D regulator_get_optional(&spi->dev, "vdd");
+
+You could use devm_regulator_get_optional here and remove the
+regulator_put.
+
+Regards,
+
+Markus
+
+> +	if (IS_ERR(ks->vdd_reg)) {
+> +		ret =3D PTR_ERR(ks->vdd_reg);
+> +		if (ret =3D=3D -EPROBE_DEFER)
+> +			goto err_reg;
+> +	} else {
+> +		ret =3D regulator_enable(ks->vdd_reg);
+> +		if (ret) {
+> +			dev_err(&spi->dev, "regulator enable fail: %d\n",
+> +				ret);
+> +			goto err_reg_en;
+> +		}
+> +	}
+> +
+> +
+>  	mutex_init(&ks->lock);
+>  	spin_lock_init(&ks->statelock);
+> =20
+> @@ -1508,8 +1526,14 @@ static int ks8851_probe(struct spi_device *spi)
+>  err_netdev:
+>  	free_irq(ndev->irq, ks);
+> =20
+> -err_id:
+>  err_irq:
+> +err_id:
+> +	if (!IS_ERR(ks->vdd_reg))
+> +		regulator_disable(ks->vdd_reg);
+> +err_reg_en:
+> +	if (!IS_ERR(ks->vdd_reg))
+> +		regulator_put(ks->vdd_reg);
+> +err_reg:
+>  	free_netdev(ndev);
+>  	return ret;
+>  }
+> @@ -1523,6 +1547,10 @@ static int ks8851_remove(struct spi_device *spi)
+> =20
+>  	unregister_netdev(priv->netdev);
+>  	free_irq(spi->irq, priv);
+> +	if (!IS_ERR(priv->vdd_reg)) {
+> +		regulator_disable(priv->vdd_reg);
+> +		regulator_put(priv->vdd_reg);
+> +	}
+>  	free_netdev(priv->netdev);
+> =20
+>  	return 0;
+> --=20
+> 1.7.9.5
+>=20
 >=20
 
+--=20
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
 
-I know the problems of yours, but you can't fix the problem by the foll=
-ow way, it will break
-the original mode such as 802.3ad, if you want to fix the problem, I th=
-ink you need a better
-solution.
+--NDin8bjvE/0mNLFQ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-Ding
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
->=20
->>
->>>
->>> Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
->>> ---
->>> drivers/net/bonding/bond_main.c |    2 +-
->>> 1 files changed, 1 insertions(+), 1 deletions(-)
->>>
->>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/=
-bond_main.c
->>> index e5628fc..2f73f18 100644
->>> --- a/drivers/net/bonding/bond_main.c
->>> +++ b/drivers/net/bonding/bond_main.c
->>> @@ -3063,7 +3063,7 @@ static int bond_open(struct net_device *bond_=
-dev)
->>> 				bond_set_slave_inactive_flags(slave,
->>> 							      BOND_SLAVE_NOTIFY_NOW);
->>> 			} else {
->>> -				bond_set_slave_active_flags(slave,
->>> +				bond_set_slave_state(slave, BOND_STATE_ACTIVE,
->>> 							    BOND_SLAVE_NOTIFY_NOW);
->>> 			}
->>> 		}
->>> --=20
->>> 1.7.6.5
->>>
->>
->> ---
->> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->>
->=20
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
-> .
->=20
+iQIcBAEBAgAGBQJTK/2uAAoJEEpcgKtcEGQQix4QAKr4rSOgvX4LrZlnvGGD8JY7
+p7nUIfs6GiRcjNN1GMOlYSnboEWh/CS1VITMWwRS6Xq2XL4MYf+sKwBCYFbZfH7o
+TLKWpG6gXe8EA4UXxZ/m3fzQLsuTt1OvxLJdjI+Y5dxnYA2UdtPx/nXrMP+vqAaD
+25lhWQ7R01Z/WaLp1i1UN3SZKu8RIPX4glLVHM4BpEhfHa4SKUhtVGAR570IXh2+
+Iu1K7cEPRhuhQLWWlzefwOC9yj/H4+2EtUB4CT20HU/V4/uNTxy3FvKAivn+uFyR
+u5ayShPnMHIiAh9uR/E65FMpLkxmb0EtYrhKHTX0pH7XTKMFVcQSCiImNLnyBpNx
+/u+SKSAPubw1kJzUXdbF/ud10glZxUQ5cOOoViwZIv0In+VloAFfq1CBLl22rmh2
+aWhpbg18UXnlhvjWfpLcxThg4zoFtbEmDWwdQ0CC9/4dkKFIhb2aK/R5cpc68+HW
+8kunMFN0Fw5F7ARScSlWop/f4NRzGdXN2HTSFCUSpomg0pFhvkuGxM/WSKjOWWtn
+Jf7305eWYy47v/VRDaSUgPsvaO4U8G42dHh8TAIe2oHKNe93nn1xK3IzWg3qvii6
+oYwP+ww4Pi/wWxIenltWI6rXTQlNmvGhsinIQXCIW5+RzaI0+yuuxq3OUgNS+Mtn
+5JbXNhXs/EbjPL3B1J91
+=n/HU
+-----END PGP SIGNATURE-----
+
+--NDin8bjvE/0mNLFQ--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
