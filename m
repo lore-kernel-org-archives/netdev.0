@@ -1,86 +1,72 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next 2/4] net: use skb_get_hash in tx queue selection
-Date: Fri, 21 Mar 2014 12:24:38 -0700
-Message-ID: <CA+mtBx9mV1rBxD3Uc=T1T80dsWZ5p25GNKuRNBmT_DwDYwL4sw@mail.gmail.com>
-References: <alpine.DEB.2.02.1403201701500.7187@tomh.mtv.corp.google.com>
-	<1395365518.9114.116.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5 net-next 0/2] patchset: Support for configurable RSS
+ hash key
+Date: Fri, 21 Mar 2014 15:28:36 -0400 (EDT)
+Message-ID: <20140321.152836.1010161671166010422.davem@davemloft.net>
+References: <193620ac-855b-4c2a-b9ab-962b2edfbfa2@CMEXHTCAS2.ad.emulex.com>
+	<20140319.155930.1805664690676428310.davem@davemloft.net>
+	<1395412393.2770.48.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: VenkatKumar.Duvvuru@Emulex.com, netdev@vger.kernel.org
+To: ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:46143 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750733AbaCUTYj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 15:24:39 -0400
-Received: by mail-ig0-f171.google.com with SMTP id hl1so2280650igb.4
-        for <netdev@vger.kernel.org>; Fri, 21 Mar 2014 12:24:38 -0700 (PDT)
-In-Reply-To: <1395365518.9114.116.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35286 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751164AbaCUT2i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 15:28:38 -0400
+In-Reply-To: <1395412393.2770.48.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 20, 2014 at 6:31 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2014-03-20 at 17:09 -0700, Tom Herbert wrote:
->> __skb_get_hash tries to get the skb->hash from a connected socket
->> associated with an skb. __skb_tx_hash and get_xps_queue just call
->> skb_get_hash().
->>
->> Signed-off-by: Tom Herbert <therbert@google.com>
->> ---
->>  include/linux/netdevice.h |  2 +-
->>  include/linux/skbuff.h    |  2 +-
->>  net/core/flow_dissector.c | 22 +++++++++-------------
->>  3 files changed, 11 insertions(+), 15 deletions(-)
->>
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index 4b6d12c..a1fa2e4 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -2481,7 +2481,7 @@ static inline int netif_set_xps_queue(struct net_device *dev,
->>   * as a distribution range limit for the returned value.
->>   */
->>  static inline u16 skb_tx_hash(const struct net_device *dev,
->> -                           const struct sk_buff *skb)
->> +                           struct sk_buff *skb)
->>  {
->>       return __skb_tx_hash(dev, skb, dev->real_num_tx_queues);
->>  }
->> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
->> index aa2c22c..f392b74 100644
->> --- a/include/linux/skbuff.h
->> +++ b/include/linux/skbuff.h
->> @@ -2863,7 +2863,7 @@ static inline bool skb_rx_queue_recorded(const struct sk_buff *skb)
->>       return skb->queue_mapping != 0;
->>  }
->>
->> -u16 __skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb,
->> +u16 __skb_tx_hash(const struct net_device *dev, struct sk_buff *skb,
->>                 unsigned int num_tx_queues);
->>
->>  static inline struct sec_path *skb_sec_path(struct sk_buff *skb)
->> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
->> index 107ed12..432d35a 100644
->> --- a/net/core/flow_dissector.c
->> +++ b/net/core/flow_dissector.c
->> @@ -212,6 +212,12 @@ void __skb_get_hash(struct sk_buff *skb)
->>       struct flow_keys keys;
->>       u32 hash;
->>
->> +     if (skb->sk && skb->sk->sk_hash) {
->> +             skb->hash = skb->sk->sk_hash;
->> +             skb->l4_hash = 1;
->> +             return;
->> +     }
->
-> Wouldn't it be faster to simply set skb->hash in providers (TCP, UDP),
-> to that we do not add this test here ?
->
-Excellent idea. We should be able to eliminate all occurrences of "if
-(skb->sk && skb->sk->sk_hash)" in the stack!
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Fri, 21 Mar 2014 14:33:13 +0000
 
-> After packet has been a while in a qdisc, access to skb->sk_hash will
-> likely trigger a cache line miss.
->
->
->
+> On Wed, 2014-03-19 at 15:59 -0400, David Miller wrote:
+>> From: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
+>> Date: Mon, 17 Mar 2014 18:01:33 +0530
+>> 
+>> > NIC drivers that support RSS use either a hard-coded value or a random value for
+>> > the RSS hash key. Irrespective of the type of the key used, the user would want
+>> > to change the hash key if he/she is not satisfied with the effectiveness of the
+>> > default hash-key in spreading the incoming flows evenly across the RSS queues.
+>> > 
+>> > This patch set adds support for configuring the RSS hash-key via the ethtool
+>> > interface using -X option.
+>> 
+>> I apologize, but I really dislike this.  For several reasons.
+>> 
+>> First, why aren't we adding _just_ a RSS hash changing interface?
+>>
+>> We already have an interface for changing the indirection table,
+>> there is absolutely not need to add a second interface that supports
+>> both indirection table _plus_ hash modifications.
+> 
+> That's what I asked for, because I see the hash key and indirection
+> table as being a single logical object (RSS context).
+> 
+>> And combining these two is what leads to this hard to audit, ugly,
+>> data structure layout.
+>> 
+>> There's the indirection table at some offset, then the key at some
+>> other offset.  This makes it impossible to impose type checking
+>> of any kind on both objects.
+> [...]
+> 
+> Which is why I previously suggested making the ethtool core find the two
+> arrays and pass those into the driver operations.  We do that for other
+> ethtool operations that use even a single variable-length array.
+
+Sure, we could hide the dirt in the generic ethtool code and pass
+separated out pointers to the drivers.
+
+But you have to recognize that the dirt will still exist in userspace
+when it calls this stuff.
+
+Nothing stops ethtool from providing a combined operation on the
+command line, but that doesn't mean we necessarily have to have
+a single kernel interface doing both thing.
+
+I really still think that adding just a new key operation is the way
+to go.
