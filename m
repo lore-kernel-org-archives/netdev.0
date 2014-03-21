@@ -1,59 +1,91 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next,v4] hyperv: Add support for virtual Receive
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next,v4] hyperv: Add support for virtual Receive
  Side Scaling (vRSS)
-Date: Fri, 21 Mar 2014 14:55:01 -0400 (EDT)
-Message-ID: <20140321.145501.2003616654661701935.davem@davemloft.net>
+Date: Fri, 21 Mar 2014 19:12:43 +0000
+Message-ID: <84837c9e73f24bcd8f652a24f616ff1e@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
 References: <1395354521-12632-1-git-send-email-haiyangz@microsoft.com>
- <20140321.144957.550032279989990583.davem@davemloft.net>
+	<20140321.144957.550032279989990583.davem@davemloft.net>
+ <20140321.145501.2003616654661701935.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso8859-7"
-Content-Transfer-Encoding: base64
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140321.144957.550032279989990583.davem@davemloft.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Type: text/plain; charset=iso-8859-7
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	KY Srinivasan <kys@microsoft.com>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"driverdev-devel@linuxdriverproject.org"
+	<driverdev-devel@linuxdriverproject.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140321.145501.2003616654661701935.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogRnJpLCAyMSBN
-YXIgMjAxNCAxNDo0OTo1NyAtMDQwMCAoRURUKQ0KDQo+IEZyb206IEhhaXlhbmcgWmhhbmcgPGhh
-aXlhbmd6QG1pY3Jvc29mdC5jb20+DQo+IERhdGU6IFRodSwgMjAgTWFyIDIwMTQgMTU6Mjg6NDEg
-LTA3MDANCj4gDQo+PiBUaGlzIGZlYXR1cmUgYWxsb3dzIG11bHRpcGxlIGNoYW5uZWxzIHRvIGJl
-IHVzZWQgYnkgZWFjaCB2aXJ0dWFsIE5JQy4NCj4+IEl0IGlzIGF2YWlsYWJsZSBvbiBIeXBlci1W
-IGhvc3QgMjAxMiBSMi4NCj4+IA0KPj4gU2lnbmVkLW9mZi1ieTogSGFpeWFuZyBaaGFuZyA8aGFp
-eWFuZ3pAbWljcm9zb2Z0LmNvbT4NCj4+IFJldmlld2VkLWJ5OiBLLiBZLiBTcmluaXZhc2FuIDxr
-eXNAbWljcm9zb2Z0LmNvbT4NCj4gDQo+IEFwcGxpZWQsIHRoYW5rcy4NCg0KQWN0dWFsbHkgSSBo
-YWQgdG8gcmV2ZXJ0LCB0aGlzIGRvZXNuJ3QgZXZlbiBjb21waWxlLg0KDQpkcml2ZXJzL25ldC9o
-eXBlcnYvbmV0dnNjLmM6IEluIGZ1bmN0aW9uIKFuZXR2c2NfY2hhbm5lbF9jYqI6DQpkcml2ZXJz
-L25ldC9oeXBlcnYvbmV0dnNjLmM6ODkxOjI6IGVycm9yOiBpbXBsaWNpdCBkZWNsYXJhdGlvbiBv
-ZiBmdW5jdGlvbiChZ2V0X3Blcl9jaGFubmVsX3N0YXRloiBbLVdlcnJvcj1pbXBsaWNpdC1mdW5j
-dGlvbi1kZWNsYXJhdGlvbl0NCmRyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2MuYzo4OTE6OTogd2Fy
-bmluZzogYXNzaWdubWVudCBtYWtlcyBwb2ludGVyIGZyb20gaW50ZWdlciB3aXRob3V0IGEgY2Fz
-dCBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzYy5jOiBJbiBm
-dW5jdGlvbiChbmV0dnNjX2RldmljZV9hZGSiOg0KZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzYy5j
-Ojk5ODoyOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24goXNldF9wZXJf
-Y2hhbm5lbF9zdGF0ZaIgWy1XZXJyb3I9aW1wbGljaXQtZnVuY3Rpb24tZGVjbGFyYXRpb25dDQpj
-YzE6IHNvbWUgd2FybmluZ3MgYmVpbmcgdHJlYXRlZCBhcyBlcnJvcnMNCm1ha2VbM106ICoqKiBb
-ZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzYy5vXSBFcnJvciAxDQptYWtlWzNdOiAqKiogV2FpdGlu
-ZyBmb3IgdW5maW5pc2hlZCBqb2JzLi4uLg0KZHJpdmVycy9uZXQvaHlwZXJ2L3JuZGlzX2ZpbHRl
-ci5jOiBJbiBmdW5jdGlvbiChbmV0dnNjX3NjX29wZW6iOg0KZHJpdmVycy9uZXQvaHlwZXJ2L3Ju
-ZGlzX2ZpbHRlci5jOjk4ODoyOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rp
-b24goXNldF9wZXJfY2hhbm5lbF9zdGF0ZaIgWy1XZXJyb3I9aW1wbGljaXQtZnVuY3Rpb24tZGVj
-bGFyYXRpb25dDQpjYzE6IHNvbWUgd2FybmluZ3MgYmVpbmcgdHJlYXRlZCBhcyBlcnJvcnMNCm1h
-a2VbM106ICoqKiBbZHJpdmVycy9uZXQvaHlwZXJ2L3JuZGlzX2ZpbHRlci5vXSBFcnJvciAxDQpt
-YWtlWzJdOiAqKiogW2RyaXZlcnMvbmV0L2h5cGVydl0gRXJyb3IgMg0KbWFrZVsyXTogKioqIFdh
-aXRpbmcgZm9yIHVuZmluaXNoZWQgam9icy4uLi4NCm1ha2VbMV06ICoqKiBbZHJpdmVycy9uZXRd
-IEVycm9yIDINCm1ha2VbMV06ICoqKiBXYWl0aW5nIGZvciB1bmZpbmlzaGVkIGpvYnMuLi4uDQpt
-YWtlOiAqKiogW2RyaXZlcnNdIEVycm9yIDINCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fCmRldmVsIG1haWxpbmcgbGlzdApkZXZlbEBsaW51eGRyaXZlcnBy
-b2plY3Qub3JnCmh0dHA6Ly9kcml2ZXJkZXYubGludXhkcml2ZXJwcm9qZWN0Lm9yZy9tYWlsbWFu
-L2xpc3RpbmZvL2RyaXZlcmRldi1kZXZlbAo=
+
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Friday, March 21, 2014 2:55 PM
+> To: Haiyang Zhang
+> Cc: netdev@vger.kernel.org; KY Srinivasan; olaf@aepfle.de;
+> jasowang@redhat.com; linux-kernel@vger.kernel.org; driverdev-
+> devel@linuxdriverproject.org
+> Subject: Re: [PATCH net-next,v4] hyperv: Add support for virtual Rece=
+ive
+> Side Scaling (vRSS)
+>=20
+> From: David Miller <davem@davemloft.net>
+> Date: Fri, 21 Mar 2014 14:49:57 -0400 (EDT)
+>=20
+> > From: Haiyang Zhang <haiyangz@microsoft.com>
+> > Date: Thu, 20 Mar 2014 15:28:41 -0700
+> >
+> >> This feature allows multiple channels to be used by each virtual N=
+IC.
+> >> It is available on Hyper-V host 2012 R2.
+> >>
+> >> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> >> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> >
+> > Applied, thanks.
+>=20
+> Actually I had to revert, this doesn't even compile.
+>=20
+> drivers/net/hyperv/netvsc.c: In function =A1netvsc_channel_cb=A2:
+> drivers/net/hyperv/netvsc.c:891:2: error: implicit declaration of
+> function =A1get_per_channel_state=A2 [-Werror=3Dimplicit-function-dec=
+laration]
+> drivers/net/hyperv/netvsc.c:891:9: warning: assignment makes pointer
+> from integer without a cast [enabled by default]
+> drivers/net/hyperv/netvsc.c: In function =A1netvsc_device_add=A2:
+> drivers/net/hyperv/netvsc.c:998:2: error: implicit declaration of
+> function =A1set_per_channel_state=A2 [-Werror=3Dimplicit-function-dec=
+laration]
+> cc1: some warnings being treated as errors
+> make[3]: *** [drivers/net/hyperv/netvsc.o] Error 1
+> make[3]: *** Waiting for unfinished jobs....
+> drivers/net/hyperv/rndis_filter.c: In function =A1netvsc_sc_open=A2:
+> drivers/net/hyperv/rndis_filter.c:988:2: error: implicit declaration =
+of
+> function =A1set_per_channel_state=A2 [-Werror=3Dimplicit-function-dec=
+laration]
+> cc1: some warnings being treated as errors
+> make[3]: *** [drivers/net/hyperv/rndis_filter.o] Error 1
+> make[2]: *** [drivers/net/hyperv] Error 2
+> make[2]: *** Waiting for unfinished jobs....
+> make[1]: *** [drivers/net] Error 2
+> make[1]: *** Waiting for unfinished jobs....
+> make: *** [drivers] Error 2
+
+The per channel state variable and functions are defined by this patch,
+which has been applied on 2/07:
+Drivers: hv: vmbus: Support per-channel driver state
+http://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/commit/=
+?id=3D8a7206a89f85c8439561b0eff85bb9440a2e97a9
+
+Could it be merged into net-next tree?
+
+Thanks,
+- Haiyang
