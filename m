@@ -1,191 +1,126 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 9/9] doc: filter: extend BPF documentation to document new internals
-Date: Fri, 21 Mar 2014 13:20:18 +0100
-Message-ID: <1395404418-25376-10-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next 4/9] net: ptp: use sk_unattached_filter_create() for BPF
+Date: Fri, 21 Mar 2014 13:20:13 +0100
+Message-ID: <1395404418-25376-5-git-send-email-dborkman@redhat.com>
 References: <1395404418-25376-1-git-send-email-dborkman@redhat.com>
-Cc: ast@plumgrid.com, netdev@vger.kernel.org
+Cc: ast@plumgrid.com, netdev@vger.kernel.org,
+	Richard Cochran <richard.cochran@omicron.at>,
+	Jiri Benc <jbenc@redhat.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49660 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:9904 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760506AbaCUMUx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Mar 2014 08:20:53 -0400
+	id S1760506AbaCUMU4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Mar 2014 08:20:56 -0400
 In-Reply-To: <1395404418-25376-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
+This patch migrates an open-coded sk_run_filter() implementation with
+proper use of the BPF API, that is, sk_unattached_filter_create(). This
+migration is needed, as we will be internally transforming the filter
+to a different representation, and therefore needs to be decoupled.
 
-Further extend the current BPF documentation to document new BPF
-engine internals. Joint work with Daniel Borkmann.
+It is okay to do so as skb_timestamping_init() is called during
+initialization of the network stack in core initcall via sock_init().
+This would effectively also allow for PTP filters to be jit compiled if
+bpf_jit_enable is set.
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+For better readability, there are also some newlines introduced, also
+ptp_classify.h is only in kernel space.
+
+Joint work with Alexei Starovoitov.
+
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Cc: Richard Cochran <richard.cochran@omicron.at>
+Cc: Jiri Benc <jbenc@redhat.com>
 ---
- Documentation/networking/filter.txt | 147 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 147 insertions(+)
+ include/linux/ptp_classify.h |  4 ----
+ net/core/timestamping.c      | 21 ++++++++++++++-------
+ 2 files changed, 14 insertions(+), 11 deletions(-)
 
-diff --git a/Documentation/networking/filter.txt b/Documentation/networking/filter.txt
-index a06b48d..13a58d5 100644
---- a/Documentation/networking/filter.txt
-+++ b/Documentation/networking/filter.txt
-@@ -546,6 +546,152 @@ ffffffffa0069c8f + <x>:
- For BPF JIT developers, bpf_jit_disasm, bpf_asm and bpf_dbg provides a useful
- toolchain for developing and testing the kernel's JIT compiler.
+diff --git a/include/linux/ptp_classify.h b/include/linux/ptp_classify.h
+index 1dc420b..3decfa4 100644
+--- a/include/linux/ptp_classify.h
++++ b/include/linux/ptp_classify.h
+@@ -27,11 +27,7 @@
+ #include <linux/if_vlan.h>
+ #include <linux/ip.h>
+ #include <linux/filter.h>
+-#ifdef __KERNEL__
+ #include <linux/in.h>
+-#else
+-#include <netinet/in.h>
+-#endif
  
-+BPF kernel internals
-+--------------------
-+Internally for its interpreter the kernel uses a different BPF instruction
-+set format with similar underlying principles from the BPF described in
-+previous paragraphs. However, the instruction set format is modeled closer
-+to the underlying architecture instruction set so that a better performance
-+can be achieved (more details later).
-+
-+It is designed to be JITed with one to one mapping, which can also open up
-+the possibility for GCC/LLVM compilers to generate optimized BPF code through
-+a BPF backend that performs almost as fast as natively compiled code.
-+
-+The new instruction set was originally designed with the possible goal in
-+mind to write programs in "restricted C" and compile into BPF with a optional
-+GCC/LLVM backend, so that it can just-in-time map to modern 64-bit CPUs with
-+minimal performance overhead over two steps, that is, C -> BPF -> native code.
-+
-+Currently, the new format is being used for running user BPF programs, which
-+includes seccomp BPF, classic socket filters, cls_bpf traffic classifier,
-+team driver's classifier for its load-balancing mode, netfilter's xt_bpf
-+extension, PTP dissector/classifier, and much more. They are all internally
-+converted by the kernel into the new instruction set representation and run
-+in the extended interpreter. For in-kernel handlers, this all works
-+transparently by using sk_unattached_filter_create() for setting up the
-+filter, resp. sk_unattached_filter_destroy() for destroying it. The macro
-+SK_RUN_FILTER(filter, ctx) transparently invokes the right BPF function to
-+run the filter. 'filter' is a pointer to struct sk_filter that we got from
-+sk_unattached_filter_create(), and 'ctx' the given context (e.g. skb pointer).
-+
-+Currently, for JITing, the user BPF format is being used and current BPF JIT
-+compilers reused whenever possible. In other words, we do not (yet!) perform
-+a JIT compilation in new the layout, however, future work will successively
-+migrate traditional JIT compilers into the new instruction format as well, so
-+that they will profit from the very same benefits. So, when speaking about
-+JIT in the following, a JIT compiler (TBD) for the new instruction format is
-+meant in this context.
-+
-+The internal format extends BPF in the following way:
-+
-+- Number of registers increase from 2 to 10:
-+
-+  The old format had two registers A and X, and a hidden frame pointer. The
-+  new layout extends this to be 10 internal registers and a read-only frame
-+  pointer. Since 64-bit CPUs are passing arguments to functions via registers
-+  the number of args from BPF program to in-kernel function is restricted
-+  to 5 and one register is used to accept return value from an in-kernel
-+  function. Natively, x86_64 passes first 6 arguments in registers, aarch64/
-+  sparcv9/mips64 have 7 - 8 registers for arguments; x86_64 has 6 callee saved
-+  registers, and aarch64/sparcv9/mips64 have 11 or more callee saved registers.
-+
-+  Therefore, BPF calling convention is defined as:
-+
-+    * R0	- return value from in-kernel function
-+    * R1 - R5	- arguments from BPF program to in-kernel function
-+    * R6 - R9	- callee saved registers that in-kernel function will preserve
-+    * R10	- read-only frame pointer to access stack
-+
-+  Thus, all BPF registers map one to one to HW registers on x86_64, aarch64,
-+  etc, and BPF calling convention maps directly to ABIs used by the kernel on
-+  64-bit architectures.
-+
-+  On 32-bit architectures JIT may map programs that use only 32-bit arithmetic
-+  and may let more complex programs to be interpreted.
-+
-+  R0 - R5 are scratch registers and BPF program needs spill/fill them if
-+  necessary across calls. Note that there is only one BPF program (== one BPF
-+  main routine) and it cannot call other BPF functions, it can only call
-+  predefined in-kernel functions, though.
-+
-+- Register width increases from 32-bit to 64-bit:
-+
-+  Still, the semantics of the original 32-bit ALU operations are preserved
-+  via 32-bit subregisters. All BPF registers are 64-bit with 32-bit lower
-+  subregisters that zero-extend into 64-bit if they are being written to.
-+  That behavior maps directly to x86_64 and arm64 subregister definition, but
-+  makes other JITs more difficult.
-+
-+  32-bit architectures run 64-bit internal BPF programs via interpreter.
-+  Their JITs may convert BPF programs that only use 32-bit subregisters into
-+  native instruction set and let the rest being interpreted.
-+
-+  Operation is 64-bit, because on 64-bit architectures, pointers are also
-+  64-bit wide, and we want to pass 64-bit values in/out of kernel functions,
-+  so 32-bit BPF registers would otherwise require to define register-pair
-+  ABI, thus, there won't be able to use a direct BPF register to HW register
-+  mapping and JIT would need to do combine/split/move operations for every
-+  register in and out of the function, which is complex, bug prone and slow.
-+  Another reason is the use of atomic 64-bit counters.
-+
-+- Conditional jt/jf targets replaced with jt/fall-through, and forward/backward
-+  jumps now possible:
-+
-+  While the original design has constructs such as "if (cond) jump_true;
-+  else jump_false;", they are being replaced into alternative constructs like
-+  "if (cond) jump_true; /* else fall-through */".
-+
-+  The new BPF format may also allow jumps forward and backwards for two
-+  reasons: i) to reduce branch mis-predict penalty, the compiler moves cold
-+  basic blocks out of the fall-through path, and ii) to reduce code duplication
-+  that would be hard to avoid if only jump forward was available.
-+
-+- Adds signed > and >= insns
-+
-+- 16 4-byte stack slots for register spill-fill replaced with up to 512 bytes
-+  of multi-use stack space
-+
-+- Introduces bpf_call insn and register passing convention for zero overhead
-+  calls from/to other kernel functions:
-+
-+  After a kernel function call, R1 - R5 are reset to unreadable and R0 has a
-+  return type of the function. Since R6 - R9 are callee saved, their state is
-+  preserved across the call.
-+
-+- Adds arithmetic right shift insn
-+
-+- Adds swab insns for 32/64-bit
-+
-+  The new BPF format doesn't have pre-defined endianness not to favor one
-+  architecture vs another. Therefore, bswap insn is available. Original BPF
-+  doesn't have such insn and does bswap as part of sk_load_word call which is
-+  often unnecessary, if we want to compare a value with a constant.
-+
-+- Adds atomic_add insn
-+
-+- Old tax/txa insns are replaced with 'mov dst,src' insn
-+
-+Also in the new design, BPF is limited to 4096 insns, which means that any
-+program will terminate quickly and will only call a fixed number of kernel
-+functions. Original BPF and the new format are two operand instructions,
-+which helps to do one-to-one mapping between BPF insn and x86 insn during JIT.
-+
-+The input context pointer for invoking the interpreter function is generic,
-+its content is defined by a specific use case. For seccomp register R1 points
-+to seccomp_data, for converted BPF filters R1 points to a skb.
-+
-+A program, that is translated internally consists of the following elements:
-+
-+  op:16, jt:8, jf:8, k:32    ==>    op:8, a_reg:4, x_reg:4, off:16, imm:32
-+
-+Just like the original BPF, the new format runs within a controlled environment,
-+is deterministic and the kernel can easily prove that. The safety of the program
-+can be determined in two steps: first step does depth-first-search to disallow
-+loops and other CFG validation; second step starts from the first insn and
-+descends all possible paths. It simulates execution of every insn and observes
-+the state change of registers and stack.
-+
- Misc
- ----
+ #define PTP_CLASS_NONE  0x00 /* not a PTP event message */
+ #define PTP_CLASS_V1    0x01 /* protocol version 1 */
+diff --git a/net/core/timestamping.c b/net/core/timestamping.c
+index 661b5a4..837485d 100644
+--- a/net/core/timestamping.c
++++ b/net/core/timestamping.c
+@@ -23,16 +23,13 @@
+ #include <linux/skbuff.h>
+ #include <linux/export.h>
  
-@@ -561,3 +707,4 @@ the underlying architecture.
+-static struct sock_filter ptp_filter[] = {
+-	PTP_FILTER
+-};
++static struct sk_filter *ptp_insns __read_mostly;
  
- Jay Schulist <jschlst@samba.org>
- Daniel Borkmann <dborkman@redhat.com>
-+Alexei Starovoitov <ast@plumgrid.com>
+ static unsigned int classify(const struct sk_buff *skb)
+ {
+-	if (likely(skb->dev &&
+-		   skb->dev->phydev &&
++	if (likely(skb->dev && skb->dev->phydev &&
+ 		   skb->dev->phydev->drv))
+-		return sk_run_filter(skb, ptp_filter);
++		return SK_RUN_FILTER(ptp_insns, skb);
+ 	else
+ 		return PTP_CLASS_NONE;
+ }
+@@ -60,11 +57,13 @@ void skb_clone_tx_timestamp(struct sk_buff *skb)
+ 		if (likely(phydev->drv->txtstamp)) {
+ 			if (!atomic_inc_not_zero(&sk->sk_refcnt))
+ 				return;
++
+ 			clone = skb_clone(skb, GFP_ATOMIC);
+ 			if (!clone) {
+ 				sock_put(sk);
+ 				return;
+ 			}
++
+ 			clone->sk = sk;
+ 			phydev->drv->txtstamp(phydev, clone, type);
+ 		}
+@@ -89,12 +88,15 @@ void skb_complete_tx_timestamp(struct sk_buff *skb,
+ 	}
+ 
+ 	*skb_hwtstamps(skb) = *hwtstamps;
++
+ 	serr = SKB_EXT_ERR(skb);
+ 	memset(serr, 0, sizeof(*serr));
+ 	serr->ee.ee_errno = ENOMSG;
+ 	serr->ee.ee_origin = SO_EE_ORIGIN_TIMESTAMPING;
+ 	skb->sk = NULL;
++
+ 	err = sock_queue_err_skb(sk, skb);
++
+ 	sock_put(sk);
+ 	if (err)
+ 		kfree_skb(skb);
+@@ -135,5 +137,10 @@ EXPORT_SYMBOL_GPL(skb_defer_rx_timestamp);
+ 
+ void __init skb_timestamping_init(void)
+ {
+-	BUG_ON(sk_chk_filter(ptp_filter, ARRAY_SIZE(ptp_filter)));
++	struct sock_filter ptp_filter[] = { PTP_FILTER };
++	struct sock_fprog ptp_prog = {
++		.len = ARRAY_SIZE(ptp_filter), .filter = ptp_filter,
++	};
++
++	BUG_ON(sk_unattached_filter_create(&ptp_insns, &ptp_prog));
+ }
 -- 
 1.7.11.7
