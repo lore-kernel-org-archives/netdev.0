@@ -1,69 +1,85 @@
-From: Zhangfei Gao <zhangfei.gao@gmail.com>
-Subject: Re: [PATCH 1/3] Documentation: add Device tree bindings for Hisilicon
- hip04 ethernet
-Date: Fri, 21 Mar 2014 21:04:00 +0800
-Message-ID: <CAMj5BkjqXow9ckfg_Z+U-TnK151px3fYP3ME8=R=Dt6+qTiUiQ@mail.gmail.com>
-References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
-	<1395132017-15928-2-git-send-email-zhangfei.gao@linaro.org>
-	<53284138.9030809@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Zhangfei Gao <zhangfei.gao@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 0/9] BPF updates
+Date: Fri, 21 Mar 2014 13:20:09 +0100
+Message-ID: <1395404418-25376-1-git-send-email-dborkman@redhat.com>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:44450 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760098AbaCUNEC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 09:04:02 -0400
-In-Reply-To: <53284138.9030809@cogentembedded.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38032 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760098AbaCUNEo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Mar 2014 09:04:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Sergei
+We sat down and have heavily reworked the whole previous patchset
+from v10 [1] to address all comments/concerns. This patchset therefore
+*replaces* the internal BPF interpreter with the new layout as
+discussed in [1], and migrates some exotic callers to properly use the
+BPF API for a transparent upgrade. All other callers that already use
+the BPF API in a way it should be used, need no further changes to run
+the new internals. We also removed the sysctl knob entirely, and do not
+expose any structure to userland, so that implementation details only
+reside in kernel space. Since we are replacing the interpreter we had
+to migrate seccomp in one patch along with the interpreter to not break
+anything. When attaching a new filter, the flow can be described as
+following: i) test if jit compiler is enabled and can compile the user
+BPF, ii) if so, then go for it, iii) if not, then transparently migrate
+the filter into the new representation, and run it in the interpreter.
+Also, we have scratched the jit flag from the len attribute and made it
+as initial patch in this series as Pablo has suggested in the last
+feedback, thanks. For details, please refer to the patches themself.
 
-Thanks for the kind suggestion, will update.
+We did extensive testing of BPF and seccomp on the new interpreter
+itself and also on the user ABIs and could not find any issues; new
+performance numbers as posted in patch 8 are also still the same.
 
-On Tue, Mar 18, 2014 at 8:51 PM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
+Please find more details in the patches themselves.
 
->> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
->> b/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
->> new file mode 100644
->> index 0000000..c918f08
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
->> @@ -0,0 +1,74 @@
->> +Hisilicon hip04 Ethernet Controller
->> +
->> +* Ethernet controller node
->> +
->> +Required properties:
->> +- compatible: should be "hisilicon,hip04-mac".
->> +- reg: address and length of the register set for the device.
->> +- interrupts: interrupt for the device.
->> +- port: ppe port number connected to the controller: range from 0 to 31.
->> +- speed: 100 (100M) or 1000 (1000M).
->
->
->    There's standard "max-speed" property for that, see
-> Documentation/devicetree/bindings/net/ethernet.txt in the 'net-next.git'
-> repo.
->
->
->> +Optional Properties:
->> +- phy-handle : the phandle to a PHY node
->
->
->    Please refer instead to the above mentioned file for this standard
-> property -- it is already described there. See other binding files as the
-> example.
+For all the previous history from v1 to v10, see [1]. We have decided
+to drop the v11 as we have pedantically reworked the set, but of course,
+included all previous feedback.
 
-Yes, Documentation/devicetree/bindings/net/ethernet.txt has defined
-many useful node.
-Will refer it directly.
+Rebased to latest net-next.
 
-Thanks
+Thanks !
+
+  [1] http://thread.gmane.org/gmane.linux.kernel/1665858
+
+Alexei Starovoitov (2):
+  net: filter: rework/optimize internal BPF interpreter's instruction set
+  doc: filter: extend BPF documentation to document new internals
+
+Daniel Borkmann (7):
+  net: filter: add jited flag to indicate jit compiled filters
+  net: filter: keep original BPF program around
+  net: filter: move filter accounting to filter core
+  net: ptp: use sk_unattached_filter_create() for BPF
+  net: ptp: do not reimplement PTP/BPF classifier
+  net: ppp: use sk_unattached_filter api
+  net: isdn: use sk_unattached_filter api
+
+ Documentation/networking/filter.txt                |  147 ++
+ arch/arm/net/bpf_jit_32.c                          |    3 +-
+ arch/powerpc/net/bpf_jit_comp.c                    |    3 +-
+ arch/s390/net/bpf_jit_comp.c                       |    5 +-
+ arch/sparc/net/bpf_jit_comp.c                      |    3 +-
+ arch/x86/net/bpf_jit_comp.c                        |    3 +-
+ drivers/isdn/i4l/isdn_ppp.c                        |   61 +-
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |   11 +-
+ drivers/net/ethernet/ti/cpts.c                     |   10 +-
+ drivers/net/ethernet/xscale/ixp4xx_eth.c           |   11 +-
+ drivers/net/ppp/ppp_generic.c                      |   60 +-
+ include/linux/filter.h                             |  110 +-
+ include/linux/isdn_ppp.h                           |    5 +-
+ include/linux/ptp_classify.h                       |   14 +-
+ include/linux/seccomp.h                            |    1 -
+ include/net/sock.h                                 |   27 -
+ kernel/seccomp.c                                   |  119 +-
+ net/core/filter.c                                  | 1523 ++++++++++++++++----
+ net/core/sock_diag.c                               |   23 +-
+ net/core/timestamping.c                            |   27 +-
+ 20 files changed, 1630 insertions(+), 536 deletions(-)
+
+-- 
+1.7.11.7
