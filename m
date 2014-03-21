@@ -1,87 +1,166 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH v5] sh_eth: ensure pm_runtime cannot suspend the device
- during init
-Date: Fri, 21 Mar 2014 13:14:59 +0100
-Message-ID: <CAMuHMdXkdrDKPcFmrBMovh4TWv2CwHUJ14YUhgKYLvwvw_rMhQ@mail.gmail.com>
-References: <1395400154-25710-1-git-send-email-ben.dooks@codethink.co.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel@lists.codethink.co.uk,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
-To: Ben Dooks <ben.dooks@codethink.co.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:35858 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934009AbaCUMPA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 08:15:00 -0400
-In-Reply-To: <1395400154-25710-1-git-send-email-ben.dooks@codethink.co.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 6/9] net: ppp: use sk_unattached_filter api
+Date: Fri, 21 Mar 2014 13:20:15 +0100
+Message-ID: <1395404418-25376-7-git-send-email-dborkman@redhat.com>
+References: <1395404418-25376-1-git-send-email-dborkman@redhat.com>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org,
+	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <1395404418-25376-1-git-send-email-dborkman@redhat.com>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Ben,
+For the ppp driver, there are currently two open-coded BPF filters in use,
+that is, pass_filter and active_filter. Migrate both to make proper use
+of sk_unattached_filter_{create,destroy} API so that the actual BPF code
+is decoupled from direct access, and filters can be jited as a side-effect
+by the internal filter compiler.
 
-On Fri, Mar 21, 2014 at 12:09 PM, Ben Dooks <ben.dooks@codethink.co.uk> wrote:
-> The pm_rumtime work queue is causing the device to be suspended during
-> initialisation, thus the initialisation may not be able to access registers
-> properly. As the code is called from a work queue, it is possible that this
-> is not seen from certain configurations/builds due to the asynchronos
-> nature of the code.
->
-> Another issue has also been found where the network device registration
-> calls back into the driver thus causing further pm_runtime calls that
-> also caused issues with the MDIO bus code. This has now been checked
-> and is the only place the MDIO can be called without the device open.
->
-> Use pm_runtime_get_sync() and pm_runtime_put() to ensure that the
-> pm system does not suspend it during the probe() call and remove the
-> now unnecessary pm_runtime_resume() call. Also add a call in the error
-> path to call pm_runtime_disable().
->
-> This fixes the external abort that can cause /sbin/init or other such
-> init processed to die.
->
-> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
-> Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Joint work with Alexei Starovoitov.
 
-Thanks, still works!
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: linux-ppp@vger.kernel.org
+---
+ drivers/net/ppp/ppp_generic.c | 60 +++++++++++++++++++++++++++++--------------
+ 1 file changed, 41 insertions(+), 19 deletions(-)
 
-> ---
-> Cc: sergei.shtylyov@cogentembedded.com
-> Cc: laurent.pinchart+renesas@ideasonboard.com
-> cc: netdev@vger.kernel.org
->
-> Note, Laurent this should probably be applied before your
-> current series as it may require changes to the exit sequence.
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index 72ff14b..e3923eb 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -143,9 +143,8 @@ struct ppp {
+ 	struct sk_buff_head mrq;	/* MP: receive reconstruction queue */
+ #endif /* CONFIG_PPP_MULTILINK */
+ #ifdef CONFIG_PPP_FILTER
+-	struct sock_filter *pass_filter;	/* filter for packets to pass */
+-	struct sock_filter *active_filter;/* filter for pkts to reset idle */
+-	unsigned pass_len, active_len;
++	struct sk_filter *pass_filter;	/* filter for packets to pass */
++	struct sk_filter *active_filter;/* filter for pkts to reset idle */
+ #endif /* CONFIG_PPP_FILTER */
+ 	struct net	*ppp_net;	/* the net we belong to */
+ 	struct ppp_link_stats stats64;	/* 64 bit network stats */
+@@ -755,28 +754,42 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+ 	case PPPIOCSPASS:
+ 	{
+ 		struct sock_filter *code;
++
+ 		err = get_filter(argp, &code);
+ 		if (err >= 0) {
++			struct sock_fprog fprog = {
++				.len = err,
++				.filter = code,
++			};
++
+ 			ppp_lock(ppp);
+-			kfree(ppp->pass_filter);
+-			ppp->pass_filter = code;
+-			ppp->pass_len = err;
++			if (ppp->pass_filter)
++				sk_unattached_filter_destroy(ppp->pass_filter);
++			err = sk_unattached_filter_create(&ppp->pass_filter,
++							  &fprog);
++			kfree(code);
+ 			ppp_unlock(ppp);
+-			err = 0;
+ 		}
+ 		break;
+ 	}
+ 	case PPPIOCSACTIVE:
+ 	{
+ 		struct sock_filter *code;
++
+ 		err = get_filter(argp, &code);
+ 		if (err >= 0) {
++			struct sock_fprog fprog = {
++				.len = err,
++				.filter = code,
++			};
++
+ 			ppp_lock(ppp);
+-			kfree(ppp->active_filter);
+-			ppp->active_filter = code;
+-			ppp->active_len = err;
++			if (ppp->active_filter)
++				sk_unattached_filter_destroy(ppp->active_filter);
++			err = sk_unattached_filter_create(&ppp->active_filter,
++							  &fprog);
++			kfree(code);
+ 			ppp_unlock(ppp);
+-			err = 0;
+ 		}
+ 		break;
+ 	}
+@@ -1184,7 +1197,7 @@ ppp_send_frame(struct ppp *ppp, struct sk_buff *skb)
+ 		   a four-byte PPP header on each packet */
+ 		*skb_push(skb, 2) = 1;
+ 		if (ppp->pass_filter &&
+-		    sk_run_filter(skb, ppp->pass_filter) == 0) {
++		    SK_RUN_FILTER(ppp->pass_filter, skb) == 0) {
+ 			if (ppp->debug & 1)
+ 				netdev_printk(KERN_DEBUG, ppp->dev,
+ 					      "PPP: outbound frame "
+@@ -1194,7 +1207,7 @@ ppp_send_frame(struct ppp *ppp, struct sk_buff *skb)
+ 		}
+ 		/* if this packet passes the active filter, record the time */
+ 		if (!(ppp->active_filter &&
+-		      sk_run_filter(skb, ppp->active_filter) == 0))
++		      SK_RUN_FILTER(ppp->active_filter, skb) == 0))
+ 			ppp->last_xmit = jiffies;
+ 		skb_pull(skb, 2);
+ #else
+@@ -1818,7 +1831,7 @@ ppp_receive_nonmp_frame(struct ppp *ppp, struct sk_buff *skb)
+ 
+ 			*skb_push(skb, 2) = 0;
+ 			if (ppp->pass_filter &&
+-			    sk_run_filter(skb, ppp->pass_filter) == 0) {
++			    SK_RUN_FILTER(ppp->pass_filter, skb) == 0) {
+ 				if (ppp->debug & 1)
+ 					netdev_printk(KERN_DEBUG, ppp->dev,
+ 						      "PPP: inbound frame "
+@@ -1827,7 +1840,7 @@ ppp_receive_nonmp_frame(struct ppp *ppp, struct sk_buff *skb)
+ 				return;
+ 			}
+ 			if (!(ppp->active_filter &&
+-			      sk_run_filter(skb, ppp->active_filter) == 0))
++			      SK_RUN_FILTER(ppp->active_filter, skb) == 0))
+ 				ppp->last_recv = jiffies;
+ 			__skb_pull(skb, 2);
+ 		} else
+@@ -2672,6 +2685,10 @@ ppp_create_interface(struct net *net, int unit, int *retp)
+ 	ppp->minseq = -1;
+ 	skb_queue_head_init(&ppp->mrq);
+ #endif /* CONFIG_PPP_MULTILINK */
++#ifdef CONFIG_PPP_FILTER
++	ppp->pass_filter = NULL;
++	ppp->active_filter = NULL;
++#endif /* CONFIG_PPP_FILTER */
+ 
+ 	/*
+ 	 * drum roll: don't forget to set
+@@ -2802,10 +2819,15 @@ static void ppp_destroy_interface(struct ppp *ppp)
+ 	skb_queue_purge(&ppp->mrq);
+ #endif /* CONFIG_PPP_MULTILINK */
+ #ifdef CONFIG_PPP_FILTER
+-	kfree(ppp->pass_filter);
+-	ppp->pass_filter = NULL;
+-	kfree(ppp->active_filter);
+-	ppp->active_filter = NULL;
++	if (ppp->pass_filter) {
++		sk_unattached_filter_destroy(ppp->pass_filter);
++		ppp->pass_filter = NULL;
++	}
++
++	if (ppp->active_filter) {
++		sk_unattached_filter_destroy(ppp->active_filter);
++		ppp->active_filter = NULL;
++	}
+ #endif /* CONFIG_PPP_FILTER */
+ 
+ 	kfree_skb(ppp->xmit_pending);
+-- 
+1.7.11.7
 
-I guess this should read:
-
-" Fixed from v4:
-          - rebased on top of netdev-next"
-
-?
-
-> Fixes from v1:
->         - use pm_runtime_put() over pm_runtime_put_sync() as
->           we do not need to guaranteed the device has powered
->           off after probe.
->
-> Fixed from v2:
->         - call pm_runtime_put() in error path
->
-> Fixed from v3:
->         - call pm_runtime_disable() in error path
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
