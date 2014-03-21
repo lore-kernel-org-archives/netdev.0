@@ -1,124 +1,74 @@
-From: Nishanth Menon <nm@ti.com>
-Subject: [PATCH] net: micrel : ks8851-ml: add vdd-supply support
-Date: Fri, 21 Mar 2014 01:52:48 -0500
-Message-ID: <1395384768-8461-1-git-send-email-nm@ti.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH net-next v2] gianfar: Fix P1010 config regression (SQ polling)
+Date: Fri, 21 Mar 2014 09:33:17 +0200
+Message-ID: <1395387197-25086-1-git-send-email-claudiu.manoil@freescale.com>
+References: <20140320.160944.268619450160968028.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Russell King <rmk+kernel@arm.linux.org.uk>,
-	Markus Pargmann <mpa@pengutronix.de>,
-	Tony Lindgren <tony@atomide.com>, <devicetree@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, Nishanth Menon <nm@ti.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [207.46.163.27] ([207.46.163.27]:37226 "EHLO
+	co9outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S932713AbaCUHhE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 03:37:04 -0400
+In-Reply-To: <20140320.160944.268619450160968028.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Few platforms use external regulator to keep the ethernet MAC supplied.
-So, request and enable the regulator for driver functionality.
+The P1010 device tree restricts the number of
+supported interrupt groups to 1, although the eth
+controller can support 2 interrupt groups and the
+driver assumes the Multi-Group mode ("fsl,etsec2" model).
 
-Fixes: 66fda75f47dc (regulator: core: Replace direct ops->disable usage)
-Reported-by: Russell King <rmk+kernel@arm.linux.org.uk>
-Suggested-by: Markus Pargmann <mpa@pengutronix.de>
-Signed-off-by: Nishanth Menon <nm@ti.com>
+So, in this case the assumption that the Multi-Group
+mode (MQ_MG_MODE) devices always support 2 interrupt
+groups is false.  To fix this, a check for the actual
+number of interrupt groups enabled in the board's
+device tree has been added in gfar_probe for the
+"fsl,etsec2" devices.
+
+Without this fix, P1010 based boards claim support for
+2 Tx queues to the net stack but only one is actually
+allocated, leading to NULL access in xmit.  This issue
+was introduced by enabling Single-Queue polling for
+the P1010 devices.
+(71ff9e3 gianfar: Use Single-Queue polling for
+"fsl,etsec2")
+
+Fixes: 71ff9e3df7e1c5d3293af6b595309124e8c97412
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 ---
+v2: added id of fixed commit to msg log
 
-This fixes a regression in SDP4430 platform as reported by Russel here:
-http://marc.info/?t=139509918200014&r=1&w=2
+ drivers/net/ethernet/freescale/gianfar.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
 
-Patch is based on [v3.14-rc7] tag, if it is too late to submit, I can repost
-rebased to git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
-
- .../devicetree/bindings/net/micrel-ks8851.txt      |    1 +
- drivers/net/ethernet/micrel/ks8851.c               |   30 +++++++++++++++++++-
- 2 files changed, 30 insertions(+), 1 deletion(-)
-
-diff --git a/Documentation/devicetree/bindings/net/micrel-ks8851.txt b/Documentation/devicetree/bindings/net/micrel-ks8851.txt
-index 11ace3c..4fc3927 100644
---- a/Documentation/devicetree/bindings/net/micrel-ks8851.txt
-+++ b/Documentation/devicetree/bindings/net/micrel-ks8851.txt
-@@ -7,3 +7,4 @@ Required properties:
- 
- Optional properties:
- - local-mac-address : Ethernet mac address to use
-+- vdd-supply:	supply for Ethernet mac
-diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
-index 727b546a..e0c92e0 100644
---- a/drivers/net/ethernet/micrel/ks8851.c
-+++ b/drivers/net/ethernet/micrel/ks8851.c
-@@ -23,6 +23,7 @@
- #include <linux/crc32.h>
- #include <linux/mii.h>
- #include <linux/eeprom_93cx6.h>
-+#include <linux/regulator/consumer.h>
- 
- #include <linux/spi/spi.h>
- 
-@@ -83,6 +84,7 @@ union ks8851_tx_hdr {
-  * @rc_rxqcr: Cached copy of KS_RXQCR.
-  * @eeprom_size: Companion eeprom size in Bytes, 0 if no eeprom
-  * @eeprom: 93CX6 EEPROM state for accessing on-board EEPROM.
-+ * @vdd_reg:	Optional regulator supplying the chip
-  *
-  * The @lock ensures that the chip is protected when certain operations are
-  * in progress. When the read or write packet transfer is in progress, most
-@@ -130,6 +132,7 @@ struct ks8851_net {
- 	struct spi_transfer	spi_xfer2[2];
- 
- 	struct eeprom_93cx6	eeprom;
-+	struct regulator	*vdd_reg;
- };
- 
- static int msg_enable;
-@@ -1414,6 +1417,21 @@ static int ks8851_probe(struct spi_device *spi)
- 	ks->spidev = spi;
- 	ks->tx_space = 6144;
- 
-+	ks->vdd_reg = regulator_get_optional(&spi->dev, "vdd");
-+	if (IS_ERR(ks->vdd_reg)) {
-+		ret = PTR_ERR(ks->vdd_reg);
-+		if (ret == -EPROBE_DEFER)
-+			goto err_reg;
-+	} else {
-+		ret = regulator_enable(ks->vdd_reg);
-+		if (ret) {
-+			dev_err(&spi->dev, "regulator enable fail: %d\n",
-+				ret);
-+			goto err_reg_en;
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 6e12f93..9125d9a 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -754,9 +754,19 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
+ 		num_tx_qs = 1;
+ 		num_rx_qs = 1;
+ 	} else { /* MQ_MG_MODE */
++		/* get the actual number of supported groups */
++		unsigned int num_grps = of_get_available_child_count(np);
++
++		if (num_grps == 0 || num_grps > MAXGROUPS) {
++			dev_err(&ofdev->dev, "Invalid # of int groups(%d)\n",
++				num_grps);
++			pr_err("Cannot do alloc_etherdev, aborting\n");
++			return -EINVAL;
 +		}
-+	}
 +
-+
- 	mutex_init(&ks->lock);
- 	spin_lock_init(&ks->statelock);
- 
-@@ -1508,8 +1526,14 @@ static int ks8851_probe(struct spi_device *spi)
- err_netdev:
- 	free_irq(ndev->irq, ks);
- 
--err_id:
- err_irq:
-+err_id:
-+	if (!IS_ERR(ks->vdd_reg))
-+		regulator_disable(ks->vdd_reg);
-+err_reg_en:
-+	if (!IS_ERR(ks->vdd_reg))
-+		regulator_put(ks->vdd_reg);
-+err_reg:
- 	free_netdev(ndev);
- 	return ret;
- }
-@@ -1523,6 +1547,10 @@ static int ks8851_remove(struct spi_device *spi)
- 
- 	unregister_netdev(priv->netdev);
- 	free_irq(spi->irq, priv);
-+	if (!IS_ERR(priv->vdd_reg)) {
-+		regulator_disable(priv->vdd_reg);
-+		regulator_put(priv->vdd_reg);
-+	}
- 	free_netdev(priv->netdev);
- 
- 	return 0;
+ 		if (poll_mode == GFAR_SQ_POLLING) {
+-			num_tx_qs = 2; /* one txq per int group */
+-			num_rx_qs = 2; /* one rxq per int group */
++			num_tx_qs = num_grps; /* one txq per int group */
++			num_rx_qs = num_grps; /* one rxq per int group */
+ 		} else { /* GFAR_MQ_POLLING */
+ 			num_tx_qs = tx_queues ? *tx_queues : 1;
+ 			num_rx_qs = rx_queues ? *rx_queues : 1;
 -- 
-1.7.9.5
-
+1.7.11.7
