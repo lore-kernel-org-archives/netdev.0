@@ -1,7 +1,7 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net-next 2/3] qlcnic: Add VXLAN Rx offload support
-Date: Fri, 21 Mar 2014 04:41:17 -0400
-Message-ID: <1395391278-19653-3-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net-next 3/3] qlcnic: Update version to 5.3.57
+Date: Fri, 21 Mar 2014 04:41:18 -0400
+Message-ID: <1395391278-19653-4-git-send-email-shahed.shaikh@qlogic.com>
 References: <1395391278-19653-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,353 +9,35 @@ Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
 	Shahed Shaikh <shahed.shaikh@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:4768 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:65506 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751488AbaCUJRs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 05:17:48 -0400
+	by vger.kernel.org with ESMTP id S1759944AbaCUJRt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 05:17:49 -0400
 In-Reply-To: <1395391278-19653-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-This patch adds Rx checksum offload support for VXLAN.
-Implements .ndo_{add|del}_vxlan_port netdev ops.
-Adapter supports only one VXLAN port, so program adapter with
-very first UDP port which VXLAN driver is listening to.
-
 Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        | 11 +++
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |  3 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |  3 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  | 87 ++++++++++++++++++++++
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |  2 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |  1 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     | 13 ++++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   | 38 ++++++++++
- 8 files changed, 156 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 5c48263..59255fb 100644
+index 59255fb..b9039b5 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -535,6 +535,7 @@ struct qlcnic_hardware_context {
- 	u8 extend_lb_time;
- 	u8 phys_port_id[ETH_ALEN];
- 	u8 lb_mode;
-+	u16 vxlan_port;
- };
+@@ -38,8 +38,8 @@
  
- struct qlcnic_adapter_stats {
-@@ -551,6 +552,7 @@ struct qlcnic_adapter_stats {
- 	u64  lso_frames;
- 	u64  encap_lso_frames;
- 	u64  encap_tx_csummed;
-+	u64  encap_rx_csummed;
- 	u64  xmit_on;
- 	u64  xmit_off;
- 	u64  skb_alloc_failure;
-@@ -912,6 +914,7 @@ struct qlcnic_mac_vlan_list {
- #define QLCNIC_FW_CAPABILITY_2_BEACON		BIT_7
- #define QLCNIC_FW_CAPABILITY_2_PER_PORT_ESWITCH_CFG	BIT_9
- 
-+#define QLCNIC_83XX_FW_CAPAB_ENCAP_RX_OFFLOAD	BIT_0
- #define QLCNIC_83XX_FW_CAPAB_ENCAP_TX_OFFLOAD	BIT_1
- #define QLCNIC_83XX_FW_CAPAB_ENCAP_CKO_OFFLOAD	BIT_4
- 
-@@ -1008,6 +1011,8 @@ struct qlcnic_ipaddr {
- #define QLCNIC_APP_CHANGED_FLAGS	0x20000
- #define QLCNIC_HAS_PHYS_PORT_ID		0x40000
- #define QLCNIC_TSS_RSS			0x80000
-+#define QLCNIC_ADD_VXLAN_PORT		0x100000
-+#define QLCNIC_DEL_VXLAN_PORT		0x200000
- 
- #define QLCNIC_IS_MSI_FAMILY(adapter) \
- 	((adapter)->flags & (QLCNIC_MSI_ENABLED | QLCNIC_MSIX_ENABLED))
-@@ -1828,6 +1833,12 @@ static inline bool qlcnic_encap_tx_offload(struct qlcnic_adapter *adapter)
- 	       QLCNIC_83XX_FW_CAPAB_ENCAP_TX_OFFLOAD;
- }
- 
-+static inline bool qlcnic_encap_rx_offload(struct qlcnic_adapter *adapter)
-+{
-+	return adapter->ahw->extra_capability[0] &
-+	       QLCNIC_83XX_FW_CAPAB_ENCAP_RX_OFFLOAD;
-+}
-+
- static inline int qlcnic_start_firmware(struct qlcnic_adapter *adapter)
- {
- 	return adapter->nic_ops->start_firmware(adapter);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 3b83fbd..b7cffb4 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -77,7 +77,7 @@ static const struct qlcnic_mailbox_metadata qlcnic_83xx_mbx_tbl[] = {
- 	{QLCNIC_CMD_GET_PORT_CONFIG, 2, 2},
- 	{QLCNIC_CMD_GET_LINK_STATUS, 2, 4},
- 	{QLCNIC_CMD_IDC_ACK, 5, 1},
--	{QLCNIC_CMD_INIT_NIC_FUNC, 2, 1},
-+	{QLCNIC_CMD_INIT_NIC_FUNC, 3, 1},
- 	{QLCNIC_CMD_STOP_NIC_FUNC, 2, 1},
- 	{QLCNIC_CMD_SET_LED_CONFIG, 5, 1},
- 	{QLCNIC_CMD_GET_LED_CONFIG, 1, 5},
-@@ -87,6 +87,7 @@ static const struct qlcnic_mailbox_metadata qlcnic_83xx_mbx_tbl[] = {
- 	{QLCNIC_CMD_BC_EVENT_SETUP, 2, 1},
- 	{QLCNIC_CMD_DCB_QUERY_CAP, 1, 2},
- 	{QLCNIC_CMD_DCB_QUERY_PARAM, 1, 50},
-+	{QLCNIC_CMD_SET_INGRESS_ENCAP, 2, 1},
- };
- 
- const u32 qlcnic_83xx_ext_reg_tbl[] = {
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-index 81c1889..88d809c 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-@@ -528,8 +528,9 @@ enum qlc_83xx_ext_regs {
- };
- 
- /* Initialize/Stop NIC command bit definitions */
--#define QLC_REGISTER_DCB_AEN		BIT_1
- #define QLC_REGISTER_LB_IDC		BIT_0
-+#define QLC_REGISTER_DCB_AEN		BIT_1
-+#define QLC_83XX_MULTI_TENANCY_INFO	BIT_29
- #define QLC_INIT_FW_RESOURCES		BIT_31
- 
- /* 83xx funcitons */
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-index 90a2dda..ec399b7 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-@@ -1020,10 +1020,97 @@ static int qlcnic_83xx_idc_check_state_validity(struct qlcnic_adapter *adapter,
- 	return 0;
- }
- 
-+#define QLC_83XX_ENCAP_TYPE_VXLAN	BIT_1
-+#define QLC_83XX_MATCH_ENCAP_ID		BIT_2
-+#define QLC_83XX_SET_VXLAN_UDP_DPORT	BIT_3
-+#define QLC_83XX_VXLAN_UDP_DPORT(PORT)	((PORT & 0xffff) << 16)
-+
-+#define QLCNIC_ENABLE_INGRESS_ENCAP_PARSING 1
-+#define QLCNIC_DISABLE_INGRESS_ENCAP_PARSING 0
-+
-+static int qlcnic_set_vxlan_port(struct qlcnic_adapter *adapter)
-+{
-+	u16 port = adapter->ahw->vxlan_port;
-+	struct qlcnic_cmd_args cmd;
-+	int ret = 0;
-+
-+	memset(&cmd, 0, sizeof(cmd));
-+
-+	ret = qlcnic_alloc_mbx_args(&cmd, adapter,
-+				    QLCNIC_CMD_INIT_NIC_FUNC);
-+	if (ret)
-+		return ret;
-+
-+	cmd.req.arg[1] = QLC_83XX_MULTI_TENANCY_INFO;
-+	cmd.req.arg[2] = QLC_83XX_ENCAP_TYPE_VXLAN |
-+			 QLC_83XX_SET_VXLAN_UDP_DPORT |
-+			 QLC_83XX_VXLAN_UDP_DPORT(port);
-+
-+	ret = qlcnic_issue_cmd(adapter, &cmd);
-+	if (ret)
-+		netdev_err(adapter->netdev,
-+			   "Failed to set VXLAN port %d in adapter\n",
-+			   port);
-+
-+	qlcnic_free_mbx_args(&cmd);
-+
-+	return ret;
-+}
-+
-+static int qlcnic_set_vxlan_parsing(struct qlcnic_adapter *adapter,
-+				    bool state)
-+{
-+	u16 vxlan_port = adapter->ahw->vxlan_port;
-+	struct qlcnic_cmd_args cmd;
-+	int ret = 0;
-+
-+	memset(&cmd, 0, sizeof(cmd));
-+
-+	ret = qlcnic_alloc_mbx_args(&cmd, adapter,
-+				    QLCNIC_CMD_SET_INGRESS_ENCAP);
-+	if (ret)
-+		return ret;
-+
-+	cmd.req.arg[1] = state ? QLCNIC_ENABLE_INGRESS_ENCAP_PARSING :
-+				 QLCNIC_DISABLE_INGRESS_ENCAP_PARSING;
-+
-+	ret = qlcnic_issue_cmd(adapter, &cmd);
-+	if (ret)
-+		netdev_err(adapter->netdev,
-+			   "Failed to %s VXLAN parsing for port %d\n",
-+			   state ? "enable" : "disable", vxlan_port);
-+	else
-+		netdev_info(adapter->netdev,
-+			    "%s VXLAN parsing for port %d\n",
-+			    state ? "Enabled" : "Disabled", vxlan_port);
-+
-+	qlcnic_free_mbx_args(&cmd);
-+
-+	return ret;
-+}
-+
- static void qlcnic_83xx_periodic_tasks(struct qlcnic_adapter *adapter)
- {
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+
- 	if (adapter->fhash.fnum)
- 		qlcnic_prune_lb_filters(adapter);
-+
-+	if (adapter->flags & QLCNIC_ADD_VXLAN_PORT) {
-+		if (qlcnic_set_vxlan_port(adapter))
-+			return;
-+
-+		if (qlcnic_set_vxlan_parsing(adapter, true))
-+			return;
-+
-+		adapter->flags &= ~QLCNIC_ADD_VXLAN_PORT;
-+	} else if (adapter->flags & QLCNIC_DEL_VXLAN_PORT) {
-+		if (qlcnic_set_vxlan_parsing(adapter, false))
-+			return;
-+
-+		ahw->vxlan_port = 0;
-+		adapter->flags &= ~QLCNIC_DEL_VXLAN_PORT;
-+	}
- }
- 
- /**
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index dfc25f7..5bacf52 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -51,6 +51,8 @@ static const struct qlcnic_stats qlcnic_gstrings_stats[] = {
- 	 QLC_OFF(stats.encap_lso_frames)},
- 	{"encap_tx_csummed", QLC_SIZEOF(stats.encap_tx_csummed),
- 	 QLC_OFF(stats.encap_tx_csummed)},
-+	{"encap_rx_csummed", QLC_SIZEOF(stats.encap_rx_csummed),
-+	 QLC_OFF(stats.encap_rx_csummed)},
- 	{"skb_alloc_failure", QLC_SIZEOF(stats.skb_alloc_failure),
- 	 QLC_OFF(stats.skb_alloc_failure)},
- 	{"mac_filter_limit_overrun", QLC_SIZEOF(stats.mac_filter_limit_overrun),
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-index 576b301..cbe2399 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-@@ -98,6 +98,7 @@ enum qlcnic_regs {
- #define QLCNIC_CMD_GET_LINK_EVENT		0x48
- #define QLCNIC_CMD_CONFIGURE_MAC_RX_MODE	0x49
- #define QLCNIC_CMD_CONFIGURE_HW_LRO		0x4A
-+#define QLCNIC_CMD_SET_INGRESS_ENCAP		0x4E
- #define QLCNIC_CMD_INIT_NIC_FUNC		0x60
- #define QLCNIC_CMD_STOP_NIC_FUNC		0x61
- #define QLCNIC_CMD_IDC_ACK			0x63
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-index 7252af9..173b3d1 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -1703,6 +1703,13 @@ static inline int qlcnic_83xx_is_lb_pkt(u64 sts_data, int lro_pkt)
- 		return (sts_data & QLC_83XX_NORMAL_LB_PKT) ? 1 : 0;
- }
- 
-+#define QLCNIC_ENCAP_LENGTH_MASK	0x7f
-+
-+static inline u8 qlcnic_encap_length(u64 sts_data)
-+{
-+	return sts_data & QLCNIC_ENCAP_LENGTH_MASK;
-+}
-+
- static struct qlcnic_rx_buffer *
- qlcnic_83xx_process_rcv(struct qlcnic_adapter *adapter,
- 			struct qlcnic_host_sds_ring *sds_ring,
-@@ -1753,6 +1760,12 @@ qlcnic_83xx_process_rcv(struct qlcnic_adapter *adapter,
- 
- 	skb->protocol = eth_type_trans(skb, netdev);
- 
-+	if (qlcnic_encap_length(sts_data[1]) &&
-+	    skb->ip_summed == CHECKSUM_UNNECESSARY) {
-+		skb->encapsulation = 1;
-+		adapter->stats.encap_rx_csummed++;
-+	}
-+
- 	if (vid != 0xffff)
- 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vid);
- 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 6655bf4..79be451 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -21,6 +21,7 @@
- #include <linux/aer.h>
- #include <linux/log2.h>
- #include <linux/pci.h>
-+#include <net/vxlan.h>
- 
- MODULE_DESCRIPTION("QLogic 1/10 GbE Converged/Intelligent Ethernet Driver");
- MODULE_LICENSE("GPL");
-@@ -461,6 +462,35 @@ static int qlcnic_get_phys_port_id(struct net_device *netdev,
- 	return 0;
- }
- 
-+static void qlcnic_add_vxlan_port(struct net_device *netdev,
-+				  sa_family_t sa_family, __be16 port)
-+{
-+	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+
-+	/* Adapter supports only one VXLAN port. Use very first port
-+	 * for enabling offload
-+	 */
-+	if (!qlcnic_encap_rx_offload(adapter) || ahw->vxlan_port)
-+		return;
-+
-+	ahw->vxlan_port = ntohs(port);
-+	adapter->flags |= QLCNIC_ADD_VXLAN_PORT;
-+}
-+
-+static void qlcnic_del_vxlan_port(struct net_device *netdev,
-+				  sa_family_t sa_family, __be16 port)
-+{
-+	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+
-+	if (!qlcnic_encap_rx_offload(adapter) || !ahw->vxlan_port ||
-+	    (ahw->vxlan_port != ntohs(port)))
-+		return;
-+
-+	adapter->flags |= QLCNIC_DEL_VXLAN_PORT;
-+}
-+
- static const struct net_device_ops qlcnic_netdev_ops = {
- 	.ndo_open	   = qlcnic_open,
- 	.ndo_stop	   = qlcnic_close,
-@@ -479,6 +509,8 @@ static const struct net_device_ops qlcnic_netdev_ops = {
- 	.ndo_fdb_del		= qlcnic_fdb_del,
- 	.ndo_fdb_dump		= qlcnic_fdb_dump,
- 	.ndo_get_phys_port_id	= qlcnic_get_phys_port_id,
-+	.ndo_add_vxlan_port	= qlcnic_add_vxlan_port,
-+	.ndo_del_vxlan_port	= qlcnic_del_vxlan_port,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller = qlcnic_poll_controller,
- #endif
-@@ -1943,6 +1975,9 @@ qlcnic_attach(struct qlcnic_adapter *adapter)
- 
- 	qlcnic_create_sysfs_entries(adapter);
- 
-+	if (qlcnic_encap_rx_offload(adapter))
-+		vxlan_get_rx_port(netdev);
-+
- 	adapter->is_up = QLCNIC_ADAPTER_UP_MAGIC;
- 	return 0;
- 
-@@ -2215,6 +2250,9 @@ qlcnic_setup_netdev(struct qlcnic_adapter *adapter, struct net_device *netdev,
- 					  NETIF_F_TSO6;
- 	}
- 
-+	if (qlcnic_encap_rx_offload(adapter))
-+		netdev->hw_enc_features |= NETIF_F_RXCSUM;
-+
- 	netdev->hw_features = netdev->features;
- 	netdev->priv_flags |= IFF_UNICAST_FLT;
- 	netdev->irq = adapter->msix_entries[0].vector;
+ #define _QLCNIC_LINUX_MAJOR 5
+ #define _QLCNIC_LINUX_MINOR 3
+-#define _QLCNIC_LINUX_SUBVERSION 56
+-#define QLCNIC_LINUX_VERSIONID  "5.3.56"
++#define _QLCNIC_LINUX_SUBVERSION 57
++#define QLCNIC_LINUX_VERSIONID  "5.3.57"
+ #define QLCNIC_DRV_IDC_VER  0x01
+ #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
+ 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
 -- 
 1.8.3.1
