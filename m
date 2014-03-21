@@ -1,52 +1,131 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH RFC V2 1/4] vhost: introduce queue_index for tracing
-Date: Fri, 21 Mar 2014 17:41:50 +0800
-Message-ID: <1395394913-19548-2-git-send-email-jasowang@redhat.com>
-References: <1395394913-19548-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
-To: mst@redhat.com, kvm@vger.kernel.org, virtio-dev@lists.oasis-open.org,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <virtio-dev-return-467-gcvd-virtio-dev=m.gmane.org@lists.oasis-open.org>
-Sender: <virtio-dev@lists.oasis-open.org>
-List-Post: <mailto:virtio-dev@lists.oasis-open.org>
-List-Help: <mailto:virtio-dev-help@lists.oasis-open.org>
-List-Unsubscribe: <mailto:virtio-dev-unsubscribe@lists.oasis-open.org>
-List-Subscribe: <mailto:virtio-dev-subscribe@lists.oasis-open.org>
-In-Reply-To: <1395394913-19548-1-git-send-email-jasowang@redhat.com>
+From: Nishanth Menon <nm@ti.com>
+Subject: [RESEND PATCH V2] net: micrel : ks8851-ml: add vdd-supply support
+Date: Fri, 21 Mar 2014 04:41:33 -0500
+Message-ID: <1395394893-32139-1-git-send-email-nm@ti.com>
+References: <20140321085158.GB30910@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Nishanth Menon <nm@ti.com>, devicetree@vger.kernel.org,
+ Tony Lindgren <tony@atomide.com>, netdev@vger.kernel.org,
+ Markus Pargmann <mpa@pengutronix.de>,
+ Russell King <rmk+kernel@arm.linux.org.uk>, linux-omap@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20140321085158.GB30910@pengutronix.de>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/vhost/net.c   | 1 +
- drivers/vhost/vhost.h | 3 +++
- 2 files changed, 4 insertions(+)
+Few platforms use external regulator to keep the ethernet MAC supplied.
+So, request and enable the regulator for driver functionality.
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index a0fa5de..85d666c 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -708,6 +708,7 @@ static int vhost_net_open(struct inode *inode, struct file *f)
- 		n->vqs[i].done_idx = 0;
- 		n->vqs[i].vhost_hlen = 0;
- 		n->vqs[i].sock_hlen = 0;
-+		n->vqs[i].vq.queue_index = i;
- 	}
- 	vhost_dev_init(dev, vqs, VHOST_NET_VQ_MAX);
+Fixes: 66fda75f47dc (regulator: core: Replace direct ops->disable usage)
+Reported-by: Russell King <rmk+kernel@arm.linux.org.uk>
+Suggested-by: Markus Pargmann <mpa@pengutronix.de>
+Signed-off-by: Nishanth Menon <nm@ti.com>
+---
+This fixes a regression in SDP4430 platform as reported by Russell here:
+http://marc.info/?t=139509918200014&r=1&w=2
+
+Patch is based on [v3.14-rc7] tag, if it is too late to submit, I can repost
+rebased to git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
+
+Changes in v2(resend): based on Marcus's comment, switched to managed regulator
+	get, however retained the enable/disable as balanced.
+v1:  https://patchwork.kernel.org/patch/3871401/
+
+ .../devicetree/bindings/net/micrel-ks8851.txt      |    1 +
+ drivers/net/ethernet/micrel/ks8851.c               |   24 +++++++++++++++++++-
+ 2 files changed, 24 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/net/micrel-ks8851.txt b/Documentation/devicetree/bindings/net/micrel-ks8851.txt
+index 11ace3c..4fc3927 100644
+--- a/Documentation/devicetree/bindings/net/micrel-ks8851.txt
++++ b/Documentation/devicetree/bindings/net/micrel-ks8851.txt
+@@ -7,3 +7,4 @@ Required properties:
  
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index 35eeb2a..6e36416 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -96,6 +96,9 @@ struct vhost_virtqueue {
- 	/* Last used index value we have signalled on */
- 	bool signalled_used_valid;
+ Optional properties:
+ - local-mac-address : Ethernet mac address to use
++- vdd-supply:	supply for Ethernet mac
+diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+index 727b546a..674a58a 100644
+--- a/drivers/net/ethernet/micrel/ks8851.c
++++ b/drivers/net/ethernet/micrel/ks8851.c
+@@ -23,6 +23,7 @@
+ #include <linux/crc32.h>
+ #include <linux/mii.h>
+ #include <linux/eeprom_93cx6.h>
++#include <linux/regulator/consumer.h>
  
-+	/* Queue index used for tracing */
-+	u16 queue_index;
+ #include <linux/spi/spi.h>
+ 
+@@ -83,6 +84,7 @@ union ks8851_tx_hdr {
+  * @rc_rxqcr: Cached copy of KS_RXQCR.
+  * @eeprom_size: Companion eeprom size in Bytes, 0 if no eeprom
+  * @eeprom: 93CX6 EEPROM state for accessing on-board EEPROM.
++ * @vdd_reg:	Optional regulator supplying the chip
+  *
+  * The @lock ensures that the chip is protected when certain operations are
+  * in progress. When the read or write packet transfer is in progress, most
+@@ -130,6 +132,7 @@ struct ks8851_net {
+ 	struct spi_transfer	spi_xfer2[2];
+ 
+ 	struct eeprom_93cx6	eeprom;
++	struct regulator	*vdd_reg;
+ };
+ 
+ static int msg_enable;
+@@ -1414,6 +1417,20 @@ static int ks8851_probe(struct spi_device *spi)
+ 	ks->spidev = spi;
+ 	ks->tx_space = 6144;
+ 
++	ks->vdd_reg = devm_regulator_get_optional(&spi->dev, "vdd");
++	if (IS_ERR(ks->vdd_reg)) {
++		ret = PTR_ERR(ks->vdd_reg);
++		if (ret == -EPROBE_DEFER)
++			goto err_reg;
++	} else {
++		ret = regulator_enable(ks->vdd_reg);
++		if (ret) {
++			dev_err(&spi->dev, "regulator enable fail: %d\n",
++				ret);
++			goto err_reg;
++		}
++	}
 +
- 	/* Log writes to used structure. */
- 	bool log_used;
- 	u64 log_addr;
+ 	mutex_init(&ks->lock);
+ 	spin_lock_init(&ks->statelock);
+ 
+@@ -1508,8 +1525,11 @@ static int ks8851_probe(struct spi_device *spi)
+ err_netdev:
+ 	free_irq(ndev->irq, ks);
+ 
+-err_id:
+ err_irq:
++err_id:
++	if (!IS_ERR(ks->vdd_reg))
++		regulator_disable(ks->vdd_reg);
++err_reg:
+ 	free_netdev(ndev);
+ 	return ret;
+ }
+@@ -1523,6 +1543,8 @@ static int ks8851_remove(struct spi_device *spi)
+ 
+ 	unregister_netdev(priv->netdev);
+ 	free_irq(spi->irq, priv);
++	if (!IS_ERR(priv->vdd_reg))
++		regulator_disable(priv->vdd_reg);
+ 	free_netdev(priv->netdev);
+ 
+ 	return 0;
 -- 
-1.8.3.2
+1.7.9.5
