@@ -1,103 +1,54 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: [PATCH v5] sh_eth: ensure pm_runtime cannot suspend the device during init
-Date: Fri, 21 Mar 2014 12:09:14 +0100
-Message-ID: <1395400154-25710-1-git-send-email-ben.dooks@codethink.co.uk>
-Cc: linux-sh@vger.kernel.org, davem@davemloft.net,
-	Ben Dooks <ben.dooks@codethink.co.uk>,
-	sergei.shtylyov@cogentembedded.com,
-	laurent.pinchart+renesas@ideasonboard.com
-To: linux-kernel@lists.codethink.co.uk, netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] smsc911x: Change clock warning message to debug level
+Date: Fri, 21 Mar 2014 15:09:36 +0300
+Message-ID: <532C2C00.4080901@cogentembedded.com>
+References: <1395238926-16126-1-git-send-email-fabio.estevam@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Fabio Estevam <fabio.estevam@freescale.com>,
+	steve.glendinning@shawell.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:37438 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965324AbaCULJr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 07:09:47 -0400
+Received: by mail-lb0-f175.google.com with SMTP id w7so1510712lbi.20
+        for <netdev@vger.kernel.org>; Fri, 21 Mar 2014 04:09:46 -0700 (PDT)
+In-Reply-To: <1395238926-16126-1-git-send-email-fabio.estevam@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The pm_rumtime work queue is causing the device to be suspended during
-initialisation, thus the initialisation may not be able to access registers
-properly. As the code is called from a work queue, it is possible that this
-is not seen from certain configurations/builds due to the asynchronos
-nature of the code.
+Hello.
 
-Another issue has also been found where the network device registration
-calls back into the driver thus causing further pm_runtime calls that
-also caused issues with the MDIO bus code. This has now been checked
-and is the only place the MDIO can be called without the device open.
+On 03/19/2014 05:22 PM, Fabio Estevam wrote:
 
-Use pm_runtime_get_sync() and pm_runtime_put() to ensure that the
-pm system does not suspend it during the probe() call and remove the
-now unnecessary pm_runtime_resume() call. Also add a call in the error
-path to call pm_runtime_disable().
+> Since passing the clock is not mandatory, change the warning message to debug,
+> so that we avoid getting the following clock failure message on every boot:
 
-This fixes the external abort that can cause /sbin/init or other such
-init processed to die.
+> smsc911x: Driver version 2008-10-21
+> smsc911x smsc911x (unregistered net_device): couldn't get clock -2
+> libphy: smsc911x-mdio: probed
 
-Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
-Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+> ---
+>   drivers/net/ethernet/smsc/smsc911x.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
 
----
-Cc: sergei.shtylyov@cogentembedded.com
-Cc: laurent.pinchart+renesas@ideasonboard.com
-cc: netdev@vger.kernel.org
+> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+> index 6382b7c..95e2b9a 100644
+> --- a/drivers/net/ethernet/smsc/smsc911x.c
+> +++ b/drivers/net/ethernet/smsc/smsc911x.c
+> @@ -439,7 +439,7 @@ static int smsc911x_request_resources(struct platform_device *pdev)
+>   	/* Request clock */
+>   	pdata->clk = clk_get(&pdev->dev, NULL);
+>   	if (IS_ERR(pdata->clk))
+> -		netdev_warn(ndev, "couldn't get clock %li\n", PTR_ERR(pdata->clk));
+> +		netdev_dbg(ndev, "couldn't get clock %li\n", PTR_ERR(pdata->clk));
 
-Note, Laurent this should probably be applied before your
-current series as it may require changes to the exit sequence.
+    Looks like using netdev_dbg() is premature at  this point (see that 
+"unregistered net_device"), so I'd replace netdev_*(ndev, ...) with 
+dev_*(&pdev->dev, ...)
 
-Fixes from v1:
-	- use pm_runtime_put() over pm_runtime_put_sync() as
-	  we do not need to guaranteed the device has powered
-          off after probe.
-
-Fixed from v2:
-	- call pm_runtime_put() in error path
-
-Fixed from v3:
-	- call pm_runtime_disable() in error path
-
-Conflicts:
-	drivers/net/ethernet/renesas/sh_eth.c
----
- drivers/net/ethernet/renesas/sh_eth.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index e4bff18..6a9509c 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2772,6 +2772,9 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
- 	if (!ndev)
- 		return -ENOMEM;
- 
-+	pm_runtime_enable(&pdev->dev);
-+	pm_runtime_get_sync(&pdev->dev);
-+
- 	/* The sh Ether-specific entries in the device structure. */
- 	ndev->base_addr = res->start;
- 	devno = pdev->id;
-@@ -2799,8 +2802,6 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
- 
- 	spin_lock_init(&mdp->lock);
- 	mdp->pdev = pdev;
--	pm_runtime_enable(&pdev->dev);
--	pm_runtime_resume(&pdev->dev);
- 
- 	if (pdev->dev.of_node)
- 		pd = sh_eth_parse_dt(&pdev->dev);
-@@ -2898,6 +2899,7 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
- 	netdev_info(ndev, "Base address at 0x%x, %pM, IRQ %d.\n",
- 		    (u32)ndev->base_addr, ndev->dev_addr, ndev->irq);
- 
-+	pm_runtime_put(&pdev->dev);
- 	platform_set_drvdata(pdev, ndev);
- 
- 	return ret;
-@@ -2911,6 +2913,8 @@ out_release:
- 	if (ndev)
- 		free_netdev(ndev);
- 
-+	pm_runtime_put(&pdev->dev);
-+	pm_runtime_disable(&pdev->dev);
- 	return ret;
- }
- 
--- 
-1.9.0
-
+WBR, Sergei
