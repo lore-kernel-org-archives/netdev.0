@@ -1,66 +1,32 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next] ixgbe: stop PTP before suspending
-Date: Thu, 20 Mar 2014 18:36:37 -0700
-Message-ID: <1395365797.2050.48.camel@jtkirshe-mobl>
-References: <1395342872-13496-1-git-send-email-kubakici@wp.pl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/4] net: use skb_get_hash in tx queue selection
+Date: Thu, 20 Mar 2014 18:37:58 -0700
+Message-ID: <1395365878.9114.117.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.DEB.2.02.1403201701500.7187@tomh.mtv.corp.google.com>
+	 <1395365518.9114.116.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Nqkkkpp60DYIhXgcBmvp"
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:55179 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760401AbaCUBgi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Mar 2014 21:36:38 -0400
-In-Reply-To: <1395342872-13496-1-git-send-email-kubakici@wp.pl>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:57030 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933875AbaCUBia (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 21:38:30 -0400
+Received: by mail-pd0-f169.google.com with SMTP id fp1so1685426pdb.14
+        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 18:38:29 -0700 (PDT)
+In-Reply-To: <1395365518.9114.116.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2014-03-20 at 18:31 -0700, Eric Dumazet wrote:
 
---=-Nqkkkpp60DYIhXgcBmvp
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> Wouldn't it be faster to simply set skb->hash in providers (TCP, UDP),
+> to that we do not add this test here ?
+> 
+> After packet has been a while in a qdisc, access to skb->sk_hash will
+> likely trigger a cache line miss.
 
-On Thu, 2014-03-20 at 20:14 +0100, Jakub Kicinski wrote:
-> Resume path calls .open but suspend path cannot call .stop because
-> fdirs should not be freed and control over hardware should not be
-> released until WoL is configured.  To avoid having to duplicate all
-> changes made in .stop on suspend path split out part of .stop that
-> is relevant during suspend and call it from .stop and during suspend.
->=20
-> This fixes ixgbe_ptp_stop() not being called on suspend and helps
-> to avoid similar bugs in the future.
->=20
-> Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 27
-> ++++++++++++++-------------
->  1 file changed, 14 insertions(+), 13 deletions(-)
-
-Thanks Jakub, I will add this to my queue.
-
---=-Nqkkkpp60DYIhXgcBmvp
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAABCgAGBQJTK5elAAoJEOVv75VaS+3Om2MP/387nGR7OEfLgRMIxNVjZ+AN
-NN9UAfctQxUYJp4/rrD9D8b/E5lr6Pf3kSUsInkPwgDvAxNrzbbvONssfk2D6fVp
-uu3IOw/fScg0t+jkl79R+Xm/HwaURGO4f9QEpaIq0pLP8TNw/tF/fu7SrHPNUID+
-J+XN0g/U1hvsVJJfEAZ+NdFchN9HYCgJ1T0vzt9CPhSvLaoF0YWSXX9Kt8HE5LG6
-9/spulPywiKqzrchVHfVMR+87PpbTcX4UzDa43IYA8bfJfopX5LWE2xMFybflUrZ
-DUOB3vmrpbaPvB3AwCoikPEqoEUtId7+cj6y0CT2iM24Yxfgx4qLalH1s69vAot/
-RryOpxVFxzVSoVzAWg8teeBTpg5B2uQeHmMuoCHRwJEdWrF9q5X0Awl8TNpZ27ai
-GcsE8a+7IvPzQa6xXWln0K3wcMMAlPPjctn4KqiwmQHAMmuKDcw4iLro1Vxmxy+5
-rd4pqsq3dMLvv/cXqZ63d1NUMFtZ7ZzP36oIM1z0bLV3SVjTTwHdtNpyzxtTb+28
-CtC6R/93wrtIzv5vrS0se6SzJebbMAyFRz+0ukWjY2M66KiQt4dnsqjq/ZnylbHM
-LQRo63xHVyX0fdwuSUXmfUIHn8zvVDT+AzLonpWD8IgO56qizEQDr79CucAdWIZU
-vBIFcIQYuk3DaLn1oC+m
-=EUjM
------END PGP SIGNATURE-----
-
---=-Nqkkkpp60DYIhXgcBmvp--
+I meant access to skb->sk->sk_hash will likely trigger a cache line
+miss.
