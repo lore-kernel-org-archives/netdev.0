@@ -1,34 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] csum experts, csum_replace2() is too expensive
-Date: Fri, 21 Mar 2014 11:30:17 -0700
-Message-ID: <1395426617.9117.0.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140321.140730.1007660405690890605.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next,v4] hyperv: Add support for virtual Receive
+ Side Scaling (vRSS)
+Date: Fri, 21 Mar 2014 14:49:57 -0400 (EDT)
+Message-ID: <20140321.144957.550032279989990583.davem@davemloft.net>
+References: <1395354521-12632-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, herbert@gondor.apana.org.au, hkchu@google.com,
-	mwdalton@google.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:43399 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750748AbaCUSa2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 14:30:28 -0400
-Received: by mail-pa0-f52.google.com with SMTP id rd3so2746895pab.39
-        for <netdev@vger.kernel.org>; Fri, 21 Mar 2014 11:30:28 -0700 (PDT)
-In-Reply-To: <20140321.140730.1007660405690890605.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1395354521-12632-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-03-21 at 14:07 -0400, David Miller wrote:
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Thu, 20 Mar 2014 15:28:41 -0700
 
-> Yeah the csum_replace*() are extremely suboptimal.
+> This feature allows multiple channels to be used by each virtual NIC.
+> It is available on Hyper-V host 2012 R2.
 > 
-> We should be able to cons up something cheap like the trick that
-> ip_decrease_ttl() uses.
-> 
-> https://tools.ietf.org/html/rfc1624
-> https://tools.ietf.org/html/rfc1141
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Thanks for the pointers, I'll cook a patch.
+Applied, thanks.
