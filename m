@@ -1,150 +1,87 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/16] ixgbevf: Use static inlines instead of macros
-Date: Fri, 21 Mar 2014 05:09:56 -0700
-Message-ID: <1395403806-29302-7-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1395403806-29302-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH v5] sh_eth: ensure pm_runtime cannot suspend the device
+ during init
+Date: Fri, 21 Mar 2014 13:14:59 +0100
+Message-ID: <CAMuHMdXkdrDKPcFmrBMovh4TWv2CwHUJ14YUhgKYLvwvw_rMhQ@mail.gmail.com>
+References: <1395400154-25710-1-git-send-email-ben.dooks@codethink.co.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel@lists.codethink.co.uk,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
+To: Ben Dooks <ben.dooks@codethink.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:15182 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965494AbaCUMKN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Mar 2014 08:10:13 -0400
-In-Reply-To: <1395403806-29302-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:35858 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934009AbaCUMPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 08:15:00 -0400
+In-Reply-To: <1395400154-25710-1-git-send-email-ben.dooks@codethink.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+Hi Ben,
 
-Kernel coding standard prefers static inline functions instead
-of macros, so use them for register accessors. This is to prepare
-for adding LER, Live Error Recovery, checks to those accessors.
+On Fri, Mar 21, 2014 at 12:09 PM, Ben Dooks <ben.dooks@codethink.co.uk> wrote:
+> The pm_rumtime work queue is causing the device to be suspended during
+> initialisation, thus the initialisation may not be able to access registers
+> properly. As the code is called from a work queue, it is possible that this
+> is not seen from certain configurations/builds due to the asynchronos
+> nature of the code.
+>
+> Another issue has also been found where the network device registration
+> calls back into the driver thus causing further pm_runtime calls that
+> also caused issues with the MDIO bus code. This has now been checked
+> and is the only place the MDIO can be called without the device open.
+>
+> Use pm_runtime_get_sync() and pm_runtime_put() to ensure that the
+> pm system does not suspend it during the probe() call and remove the
+> now unnecessary pm_runtime_resume() call. Also add a call in the error
+> path to call pm_runtime_disable().
+>
+> This fixes the external abort that can cause /sbin/init or other such
+> init processed to die.
+>
+> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+> Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  5 ++++
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  4 ++--
- drivers/net/ethernet/intel/ixgbevf/regs.h         | 12 +---------
- drivers/net/ethernet/intel/ixgbevf/vf.h           | 28 ++++++++++++++++++++++-
- 4 files changed, 35 insertions(+), 14 deletions(-)
+Thanks, still works!
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-index 08fb88a..d4b1f50 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-@@ -315,6 +315,11 @@ static inline u16 ixgbevf_desc_unused(struct ixgbevf_ring *ring)
- 	return ((ntc > ntu) ? 0 : ring->count) + ntc - ntu - 1;
- }
- 
-+static inline void ixgbevf_write_tail(struct ixgbevf_ring *ring, u32 value)
-+{
-+	writel(value, ring->tail);
-+}
-+
- #define IXGBEVF_RX_DESC(R, i)	    \
- 	(&(((union ixgbe_adv_rx_desc *)((R)->desc))[i]))
- #define IXGBEVF_TX_DESC(R, i)	    \
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 592d8a6..74df8bf 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -111,7 +111,7 @@ static inline void ixgbevf_release_rx_desc(struct ixgbevf_ring *rx_ring,
- 	 * such as IA-64).
- 	 */
- 	wmb();
--	writel(val, rx_ring->tail);
-+	ixgbevf_write_tail(rx_ring, val);
- }
- 
- /**
-@@ -3060,7 +3060,7 @@ static void ixgbevf_tx_map(struct ixgbevf_ring *tx_ring,
- 	tx_ring->next_to_use = i;
- 
- 	/* notify HW of packet */
--	writel(i, tx_ring->tail);
-+	ixgbevf_write_tail(tx_ring, i);
- 
- 	return;
- dma_error:
-diff --git a/drivers/net/ethernet/intel/ixgbevf/regs.h b/drivers/net/ethernet/intel/ixgbevf/regs.h
-index debd8c0..09dd8f6 100644
---- a/drivers/net/ethernet/intel/ixgbevf/regs.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/regs.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 82599 Virtual Function driver
--  Copyright(c) 1999 - 2012 Intel Corporation.
-+  Copyright(c) 1999 - 2014 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -70,16 +70,6 @@
- #define IXGBE_VFGOTC_MSB       0x02024
- #define IXGBE_VFMPRC           0x01034
- 
--#define IXGBE_WRITE_REG(a, reg, value) writel((value), ((a)->hw_addr + (reg)))
--
--#define IXGBE_READ_REG(a, reg) readl((a)->hw_addr + (reg))
--
--#define IXGBE_WRITE_REG_ARRAY(a, reg, offset, value) ( \
--    writel((value), ((a)->hw_addr + (reg) + ((offset) << 2))))
--
--#define IXGBE_READ_REG_ARRAY(a, reg, offset) ( \
--    readl((a)->hw_addr + (reg) + ((offset) << 2)))
--
- #define IXGBE_WRITE_FLUSH(a) (IXGBE_READ_REG(a, IXGBE_VFSTATUS))
- 
- #endif /* _IXGBEVF_REGS_H_ */
-diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
-index 7b1f502..8ebed72 100644
---- a/drivers/net/ethernet/intel/ixgbevf/vf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 82599 Virtual Function driver
--  Copyright(c) 1999 - 2012 Intel Corporation.
-+  Copyright(c) 1999 - 2014 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -172,6 +172,32 @@ struct ixgbevf_info {
- 	const struct ixgbe_mac_operations *mac_ops;
- };
- 
-+static inline void ixgbe_write_reg(struct ixgbe_hw *hw, u32 reg, u32 value)
-+{
-+	writel(value, hw->hw_addr + reg);
-+}
-+#define IXGBE_WRITE_REG(h, r, v) ixgbe_write_reg(h, r, v)
-+
-+static inline u32 ixgbe_read_reg(struct ixgbe_hw *hw, u32 reg)
-+{
-+	return readl(hw->hw_addr + reg);
-+}
-+#define IXGBE_READ_REG(h, r) ixgbe_read_reg(h, r)
-+
-+static inline void ixgbe_write_reg_array(struct ixgbe_hw *hw, u32 reg,
-+					  u32 offset, u32 value)
-+{
-+	ixgbe_write_reg(hw, reg + (offset << 2), value);
-+}
-+#define IXGBE_WRITE_REG_ARRAY(h, r, o, v) ixgbe_write_reg_array(h, r, o, v)
-+
-+static inline u32 ixgbe_read_reg_array(struct ixgbe_hw *hw, u32 reg,
-+					u32 offset)
-+{
-+	return ixgbe_read_reg(hw, reg + (offset << 2));
-+}
-+#define IXGBE_READ_REG_ARRAY(h, r, o) ixgbe_read_reg_array(h, r, o)
-+
- void ixgbevf_rlpml_set_vf(struct ixgbe_hw *hw, u16 max_size);
- int ixgbevf_negotiate_api_version(struct ixgbe_hw *hw, int api);
- int ixgbevf_get_queues(struct ixgbe_hw *hw, unsigned int *num_tcs,
--- 
-1.8.3.1
+> ---
+> Cc: sergei.shtylyov@cogentembedded.com
+> Cc: laurent.pinchart+renesas@ideasonboard.com
+> cc: netdev@vger.kernel.org
+>
+> Note, Laurent this should probably be applied before your
+> current series as it may require changes to the exit sequence.
+
+I guess this should read:
+
+" Fixed from v4:
+          - rebased on top of netdev-next"
+
+?
+
+> Fixes from v1:
+>         - use pm_runtime_put() over pm_runtime_put_sync() as
+>           we do not need to guaranteed the device has powered
+>           off after probe.
+>
+> Fixed from v2:
+>         - call pm_runtime_put() in error path
+>
+> Fixed from v3:
+>         - call pm_runtime_disable() in error path
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
