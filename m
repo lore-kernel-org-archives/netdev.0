@@ -1,109 +1,121 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 16/16] igb: Unset IGB_FLAG_HAS_MSIX-flag when falling back to msi-only
-Date: Fri, 21 Mar 2014 05:10:06 -0700
-Message-ID: <1395403806-29302-17-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/16] i40e/i40evf: Add EEE LPI stats
+Date: Fri, 21 Mar 2014 05:09:51 -0700
+Message-ID: <1395403806-29302-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395403806-29302-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Christoph Paasch <christoph.paasch@uclouvain.be>,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Kevin Scott <kevin.c.scott@intel.com>,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:20076 "EHLO mga11.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:45856 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965463AbaCUMKQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Mar 2014 08:10:16 -0400
+	id S965463AbaCUMKM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Mar 2014 08:10:12 -0400
 In-Reply-To: <1395403806-29302-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Prior to cd14ef54d25 (igb: Change to use statically allocated array for
-MSIx entries), having msix_entries different from NULL was an indicator
-that MSIX is enabled.
-In igb_set_interrupt_capabiliy we may fall back to MSI-only. Prior to
-the above patch msix_entries was set to NULL by
-igb_reset_interrupt_capability.
+Add 4 new stats to keep track of EEE LPI (Low Power Idle) state.
 
-However, now we are checking the flag for IGB_FLAG_HAS_MSIX and so the
-stack gets completly confused:
-
-[   42.659791] ------------[ cut here ]------------
-[   42.715032] WARNING: CPU: 7 PID: 0 at net/sched/sch_generic.c:264 dev_watchdog+0x15c/0x1fb()
-[   42.848263] NETDEV WATCHDOG: eth0 (igb): transmit queue 0 timed out
-[   42.923253] Modules linked in:
-[   42.959875] CPU: 7 PID: 0 Comm: swapper/7 Not tainted 3.14.0-rc2-mptcp #437
-[   43.043184] Hardware name: HP ProLiant DL165 G7, BIOS O37 01/26/2011
-[   43.119215]  0000000000000108 ffff88023fdc3da8 ffffffff81487847 0000000000000108
-[   43.208165]  ffff88023fdc3df8 ffff88023fdc3de8 ffffffff81034e7d ffff88023fdc3dd8
-[   43.297120]  ffffffff813fff10 ffff880236018000 ffff880236b178c0 0000000000000008
-[   43.386071] Call Trace:
-[   43.415303]  <IRQ>  [<ffffffff81487847>] dump_stack+0x49/0x62
-[   43.484174]  [<ffffffff81034e7d>] warn_slowpath_common+0x77/0x91
-[   43.556049]  [<ffffffff813fff10>] ? dev_watchdog+0x15c/0x1fb
-[   43.623759]  [<ffffffff81034f2b>] warn_slowpath_fmt+0x41/0x43
-[   43.692511]  [<ffffffff813fff10>] dev_watchdog+0x15c/0x1fb
-[   43.758141]  [<ffffffff813ffdb4>] ? __netdev_watchdog_up+0x64/0x64
-[   43.832091]  [<ffffffff8103cd04>] call_timer_fn+0x17/0x6f
-[   43.896682]  [<ffffffff8103cebe>] run_timer_softirq+0x162/0x1a2
-[   43.967511]  [<ffffffff81038520>] __do_softirq+0xcd/0x1cc
-[   44.032104]  [<ffffffff81038689>] irq_exit+0x3a/0x48
-[   44.091492]  [<ffffffff81026d43>] smp_apic_timer_interrupt+0x43/0x50
-[   44.167525]  [<ffffffff8148c24a>] apic_timer_interrupt+0x6a/0x70
-[   44.239392]  <EOI>  [<ffffffff8100992c>] ? default_idle+0x6/0x8
-[   44.310343]  [<ffffffff81009b31>] arch_cpu_idle+0x13/0x18
-[   44.374934]  [<ffffffff81066126>] cpu_startup_entry+0xa7/0x101
-[   44.444724]  [<ffffffff81025660>] start_secondary+0x1b2/0x1b7
-[   44.513472] ---[ end trace a5a075fd4e7f854f ]---
-[   44.568753] igb 0000:04:00.0 eth0: Reset adapter
-[   46.206945] random: nonblocking pool is initialized
-[   46.465670] irq 44: nobody cared (try booting with the "irqpoll" option)
-[   46.545862] CPU: 7 PID: 0 Comm: swapper/7 Tainted: G        W    3.14.0-rc2-mptcp #437
-[   46.640610] Hardware name: HP ProLiant DL165 G7, BIOS O37 01/26/2011
-[   46.716641]  ffff8802363f8c84 ffff88023fdc3e38 ffffffff81487847 00000000a03cdb6d
-[   46.805598]  ffff8802363f8c00 ffff88023fdc3e68 ffffffff81068489 0000007f81825400
-[   46.894539]  ffff8802363f8c00 0000000000000000 0000000000000000 ffff88023fdc3ea8
-[   46.983484] Call Trace:
-[   47.012714]  <IRQ>  [<ffffffff81487847>] dump_stack+0x49/0x62
-[   47.081585]  [<ffffffff81068489>] __report_bad_irq+0x35/0xc1
-[   47.149295]  [<ffffffff81068683>] note_interrupt+0x16e/0x1ea
-[   47.217006]  [<ffffffff8106679e>] handle_irq_event_percpu+0x116/0x12e
-[   47.294075]  [<ffffffff810667e9>] handle_irq_event+0x33/0x4f
-[   47.361787]  [<ffffffff81068c95>] handle_fasteoi_irq+0x83/0xd1
-[   47.431577]  [<ffffffff81003d5b>] handle_irq+0x1f/0x28
-[   47.493047]  [<ffffffff81003567>] do_IRQ+0x4e/0xd4
-[   47.550358]  [<ffffffff8148b06a>] common_interrupt+0x6a/0x6a
-[   47.618066]  <EOI>  [<ffffffff8100992c>] ? default_idle+0x6/0x8
-[   47.689016]  [<ffffffff81009b31>] arch_cpu_idle+0x13/0x18
-[   47.753605]  [<ffffffff81066126>] cpu_startup_entry+0xa7/0x101
-[   47.823397]  [<ffffffff81025660>] start_secondary+0x1b2/0x1b7
-[   47.892146] handlers:
-[   47.919301] [<ffffffff812fbd7d>] igb_intr
-
-So, this patch unsets the flag to indicate that we are not using MSIX.
-This patch does exactly this: Unsetting the flag when falling back to MSI.
-
-Fixes: cd14ef54d25b (igb: Change to use statically allocated array for MSIx entries)
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Change-ID: Id6316619bb0559789770288b694a54d17f8fac5c
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Kevin Scott <kevin.c.scott@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  5 +++++
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 15 +++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_type.h    |  5 +++++
+ drivers/net/ethernet/intel/i40evf/i40e_type.h  |  5 +++++
+ 4 files changed, 30 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 6acf787..cd20409 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1149,6 +1149,7 @@ static void igb_set_interrupt_capability(struct igb_adapter *adapter, bool msix)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 6049e63..28da412 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -114,6 +114,11 @@ static struct i40e_stats i40e_gstrings_stats[] = {
+ 	I40E_PF_STAT("VF_admin_queue_requests", vf_aq_requests),
+ 	I40E_PF_STAT("tx_hwtstamp_timeouts", tx_hwtstamp_timeouts),
+ 	I40E_PF_STAT("rx_hwtstamp_cleared", rx_hwtstamp_cleared),
++	/* LPI stats */
++	I40E_PF_STAT("tx_lpi_status", stats.tx_lpi_status),
++	I40E_PF_STAT("rx_lpi_status", stats.rx_lpi_status),
++	I40E_PF_STAT("tx_lpi_count", stats.tx_lpi_count),
++	I40E_PF_STAT("rx_lpi_count", stats.rx_lpi_count),
+ };
  
- 	/* If we can't do MSI-X, try MSI */
- msi_only:
-+	adapter->flags &= ~IGB_FLAG_HAS_MSIX;
- #ifdef CONFIG_PCI_IOV
- 	/* disable SR-IOV for non MSI-X configurations */
- 	if (adapter->vf_data) {
+ #define I40E_QUEUE_STATS_LEN(n) \
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 1133542..a1f3369 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -740,6 +740,7 @@ void i40e_update_stats(struct i40e_vsi *vsi)
+ 	u32 rx_page, rx_buf;
+ 	u64 rx_p, rx_b;
+ 	u64 tx_p, tx_b;
++	u32 val;
+ 	int i;
+ 	u16 q;
+ 
+@@ -972,6 +973,20 @@ void i40e_update_stats(struct i40e_vsi *vsi)
+ 		i40e_stat_update32(hw, I40E_GLPRT_RJC(hw->port),
+ 				   pf->stat_offsets_loaded,
+ 				   &osd->rx_jabber, &nsd->rx_jabber);
++
++		val = rd32(hw, I40E_PRTPM_EEE_STAT);
++		nsd->tx_lpi_status =
++			       (val & I40E_PRTPM_EEE_STAT_TX_LPI_STATUS_MASK) >>
++				I40E_PRTPM_EEE_STAT_TX_LPI_STATUS_SHIFT;
++		nsd->rx_lpi_status =
++			       (val & I40E_PRTPM_EEE_STAT_RX_LPI_STATUS_MASK) >>
++				I40E_PRTPM_EEE_STAT_RX_LPI_STATUS_SHIFT;
++		i40e_stat_update32(hw, I40E_PRTPM_TLPIC,
++				   pf->stat_offsets_loaded,
++				   &osd->tx_lpi_count, &nsd->tx_lpi_count);
++		i40e_stat_update32(hw, I40E_PRTPM_RLPIC,
++				   pf->stat_offsets_loaded,
++				   &osd->rx_lpi_count, &nsd->rx_lpi_count);
+ 	}
+ 
+ 	pf->stat_offsets_loaded = true;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 5c902f4..d2f0b95 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -1014,6 +1014,11 @@ struct i40e_hw_port_stats {
+ 	u64 tx_size_big;		/* ptc9522 */
+ 	u64 mac_short_packet_dropped;	/* mspdc */
+ 	u64 checksum_error;		/* xec */
++	/* EEE LPI */
++	bool tx_lpi_status;
++	bool rx_lpi_status;
++	u64 tx_lpi_count;		/* etlpic */
++	u64 rx_lpi_count;		/* erlpic */
+ };
+ 
+ /* Checksum and Shadow RAM pointers */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index 7189d6f..efe73ad 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -1020,6 +1020,11 @@ struct i40e_hw_port_stats {
+ 	u64 tx_size_big;		/* ptc9522 */
+ 	u64 mac_short_packet_dropped;	/* mspdc */
+ 	u64 checksum_error;		/* xec */
++	/* EEE LPI */
++	bool tx_lpi_status;
++	bool rx_lpi_status;
++	u64 tx_lpi_count;		/* etlpic */
++	u64 rx_lpi_count;		/* erlpic */
+ };
+ 
+ /* Checksum and Shadow RAM pointers */
 -- 
 1.8.3.1
