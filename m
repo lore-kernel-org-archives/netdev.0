@@ -1,131 +1,306 @@
-From: Nishanth Menon <nm@ti.com>
-Subject: [RESEND PATCH V2] net: micrel : ks8851-ml: add vdd-supply support
-Date: Fri, 21 Mar 2014 04:41:33 -0500
-Message-ID: <1395394893-32139-1-git-send-email-nm@ti.com>
-References: <20140321085158.GB30910@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Nishanth Menon <nm@ti.com>, devicetree@vger.kernel.org,
- Tony Lindgren <tony@atomide.com>, netdev@vger.kernel.org,
- Markus Pargmann <mpa@pengutronix.de>,
- Russell King <rmk+kernel@arm.linux.org.uk>, linux-omap@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20140321085158.GB30910@pengutronix.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH RFC V2 2/4] vhost: basic tracepoints
+Date: Fri, 21 Mar 2014 17:41:51 +0800
+Message-ID: <1395394913-19548-3-git-send-email-jasowang@redhat.com>
+References: <1395394913-19548-1-git-send-email-jasowang@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>
+To: mst@redhat.com, kvm@vger.kernel.org, virtio-dev@lists.oasis-open.org,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <virtio-dev-return-468-gcvd-virtio-dev=m.gmane.org@lists.oasis-open.org>
+Sender: <virtio-dev@lists.oasis-open.org>
+List-Post: <mailto:virtio-dev@lists.oasis-open.org>
+List-Help: <mailto:virtio-dev-help@lists.oasis-open.org>
+List-Unsubscribe: <mailto:virtio-dev-unsubscribe@lists.oasis-open.org>
+List-Subscribe: <mailto:virtio-dev-subscribe@lists.oasis-open.org>
+In-Reply-To: <1395394913-19548-1-git-send-email-jasowang@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-Few platforms use external regulator to keep the ethernet MAC supplied.
-So, request and enable the regulator for driver functionality.
+To help for the performance optimizations and debugging, this patch tracepoints
+for vhost. Two kinds of activities were traced: virtio and vhost work
+queuing/wakeup.
 
-Fixes: 66fda75f47dc (regulator: core: Replace direct ops->disable usage)
-Reported-by: Russell King <rmk+kernel@arm.linux.org.uk>
-Suggested-by: Markus Pargmann <mpa@pengutronix.de>
-Signed-off-by: Nishanth Menon <nm@ti.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
-This fixes a regression in SDP4430 platform as reported by Russell here:
-http://marc.info/?t=139509918200014&r=1&w=2
+ drivers/vhost/net.c   |   1 +
+ drivers/vhost/trace.h | 175 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/vhost/vhost.c |  14 +++-
+ 3 files changed, 189 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/vhost/trace.h
 
-Patch is based on [v3.14-rc7] tag, if it is too late to submit, I can repost
-rebased to git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
-
-Changes in v2(resend): based on Marcus's comment, switched to managed regulator
-	get, however retained the enable/disable as balanced.
-v1:  https://patchwork.kernel.org/patch/3871401/
-
- .../devicetree/bindings/net/micrel-ks8851.txt      |    1 +
- drivers/net/ethernet/micrel/ks8851.c               |   24 +++++++++++++++++++-
- 2 files changed, 24 insertions(+), 1 deletion(-)
-
-diff --git a/Documentation/devicetree/bindings/net/micrel-ks8851.txt b/Documentation/devicetree/bindings/net/micrel-ks8851.txt
-index 11ace3c..4fc3927 100644
---- a/Documentation/devicetree/bindings/net/micrel-ks8851.txt
-+++ b/Documentation/devicetree/bindings/net/micrel-ks8851.txt
-@@ -7,3 +7,4 @@ Required properties:
- 
- Optional properties:
- - local-mac-address : Ethernet mac address to use
-+- vdd-supply:	supply for Ethernet mac
-diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
-index 727b546a..674a58a 100644
---- a/drivers/net/ethernet/micrel/ks8851.c
-+++ b/drivers/net/ethernet/micrel/ks8851.c
-@@ -23,6 +23,7 @@
- #include <linux/crc32.h>
- #include <linux/mii.h>
- #include <linux/eeprom_93cx6.h>
-+#include <linux/regulator/consumer.h>
- 
- #include <linux/spi/spi.h>
- 
-@@ -83,6 +84,7 @@ union ks8851_tx_hdr {
-  * @rc_rxqcr: Cached copy of KS_RXQCR.
-  * @eeprom_size: Companion eeprom size in Bytes, 0 if no eeprom
-  * @eeprom: 93CX6 EEPROM state for accessing on-board EEPROM.
-+ * @vdd_reg:	Optional regulator supplying the chip
-  *
-  * The @lock ensures that the chip is protected when certain operations are
-  * in progress. When the read or write packet transfer is in progress, most
-@@ -130,6 +132,7 @@ struct ks8851_net {
- 	struct spi_transfer	spi_xfer2[2];
- 
- 	struct eeprom_93cx6	eeprom;
-+	struct regulator	*vdd_reg;
- };
- 
- static int msg_enable;
-@@ -1414,6 +1417,20 @@ static int ks8851_probe(struct spi_device *spi)
- 	ks->spidev = spi;
- 	ks->tx_space = 6144;
- 
-+	ks->vdd_reg = devm_regulator_get_optional(&spi->dev, "vdd");
-+	if (IS_ERR(ks->vdd_reg)) {
-+		ret = PTR_ERR(ks->vdd_reg);
-+		if (ret == -EPROBE_DEFER)
-+			goto err_reg;
-+	} else {
-+		ret = regulator_enable(ks->vdd_reg);
-+		if (ret) {
-+			dev_err(&spi->dev, "regulator enable fail: %d\n",
-+				ret);
-+			goto err_reg;
-+		}
-+	}
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 85d666c..7353204 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -1,3 +1,4 @@
 +
- 	mutex_init(&ks->lock);
- 	spin_lock_init(&ks->statelock);
+ /* Copyright (C) 2009 Red Hat, Inc.
+  * Author: Michael S. Tsirkin <mst@redhat.com>
+  *
+diff --git a/drivers/vhost/trace.h b/drivers/vhost/trace.h
+new file mode 100644
+index 0000000..e380942
+--- /dev/null
++++ b/drivers/vhost/trace.h
+@@ -0,0 +1,175 @@
++#if !defined(_TRACE_VHOST_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_VHOST_H
++
++#include <linux/tracepoint.h>
++#include "vhost.h"
++
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM vhost
++
++/*
++ * Tracepoint for updating used flag.
++ */
++TRACE_EVENT(vhost_virtio_update_used_flags,
++	TP_PROTO(struct vhost_virtqueue *vq),
++	TP_ARGS(vq),
++
++	TP_STRUCT__entry(
++		__field(struct vhost_virtqueue *, vq)
++                __field(u16, queue_index)
++		__field(u16, used_flags)
++	),
++
++	TP_fast_assign(
++		__entry->vq = vq;
++                __entry->queue_index = vq->queue_index;
++		__entry->used_flags = vq->used_flags;
++	),
++
++	TP_printk("vhost update used flag %x to vq %d notify %s",
++		  __entry->used_flags, __entry->queue_index,
++		  (__entry->used_flags & VRING_USED_F_NO_NOTIFY) ?
++		  "disabled" : "enabled")
++);
++
++/*
++ * Tracepoint for updating avail event.
++ */
++TRACE_EVENT(vhost_virtio_update_avail_event,
++	TP_PROTO(struct vhost_virtqueue *vq),
++	TP_ARGS(vq),
++
++	TP_STRUCT__entry(
++		__field(struct vhost_virtqueue *, vq)
++		__field(u16, queue_index)
++		__field(u16, avail_idx)
++	),
++
++	TP_fast_assign(
++		__entry->vq = vq;
++		__entry->queue_index = vq->queue_index;
++		__entry->avail_idx = vq->avail_idx;
++	),
++
++	TP_printk("vhost update avail event %u(%u) for vq %d",
++		  __entry->avail_idx, __entry->avail_idx %
++		  __entry->vq->num, __entry->queue_index)
++);
++
++/*
++ * Tracepoint for updating used index.
++ */
++TRACE_EVENT(vhost_virtio_update_used_idx,
++	TP_PROTO(struct vhost_virtqueue *vq),
++	TP_ARGS(vq),
++
++	TP_STRUCT__entry(
++		__field(struct vhost_virtqueue *, vq)
++		__field(u16, queue_index)
++		__field(u16, used_idx)
++	),
++
++	TP_fast_assign(
++		__entry->vq = vq;
++		__entry->queue_index = vq->queue_index;
++		__entry->used_idx = vq->last_used_idx;
++	),
++
++	TP_printk("vhost update used index %u(%u) for vq %d",
++		  __entry->used_idx, __entry->used_idx %
++		  __entry->vq->num, __entry->queue_index)
++);
++
++/*
++ * Tracepoint for processing descriptor.
++ */
++TRACE_EVENT(vhost_virtio_get_vq_desc,
++	TP_PROTO(struct vhost_virtqueue *vq, unsigned int index,
++		 unsigned out, unsigned int in),
++	TP_ARGS(vq, index, out, in),
++
++	TP_STRUCT__entry(
++		__field(struct vhost_virtqueue *, vq)
++		__field(u16, queue_index)
++		__field(unsigned int, head)
++		__field(unsigned int, out)
++		__field(unsigned int, in)
++                __field(u16, last_avail_idx)
++	),
++
++	TP_fast_assign(
++		__entry->vq = vq;
++		__entry->queue_index = vq->queue_index;
++		__entry->head = index;
++		__entry->out = out;
++		__entry->in = in;
++                __entry->last_avail_idx = vq->last_avail_idx;
++	),
++
++	TP_printk("vhost get vq %d desc last avail index %u(%u), "
++                  "head %u out %u in %u",
++		  __entry->queue_index,
++		  __entry->last_avail_idx,
++                  __entry->last_avail_idx % __entry->vq->num,
++                  __entry->head, __entry->out, __entry->in)
++);
++
++/*
++ * Tracepoint for signal guest.
++ */
++TRACE_EVENT(vhost_virtio_signal,
++	TP_PROTO(struct vhost_virtqueue *vq),
++	TP_ARGS(vq),
++
++	TP_STRUCT__entry(
++		__field(u16, queue_index)
++	),
++
++	TP_fast_assign(
++		__entry->queue_index = vq->queue_index;
++	),
++
++	TP_printk("vhost signal vq %d", __entry->queue_index)
++);
++
++DECLARE_EVENT_CLASS(vhost_work_template,
++	TP_PROTO(struct vhost_work *work),
++	TP_ARGS(work),
++
++	TP_STRUCT__entry(
++		__field(void *, function)
++	),
++
++	TP_fast_assign(
++		__entry->function = work->fn;
++	),
++
++        TP_printk("%pf", __entry->function)
++);
++
++DEFINE_EVENT(vhost_work_template, vhost_work_queue_wakeup,
++	TP_PROTO(struct vhost_work *work),
++	TP_ARGS(work));
++
++DEFINE_EVENT(vhost_work_template, vhost_work_queue_coalesce,
++	TP_PROTO(struct vhost_work *work),
++	TP_ARGS(work));
++
++DEFINE_EVENT(vhost_work_template, vhost_poll_start,
++	TP_PROTO(struct vhost_work *work),
++	TP_ARGS(work));
++
++DEFINE_EVENT(vhost_work_template, vhost_poll_stop,
++	TP_PROTO(struct vhost_work *work),
++	TP_ARGS(work));
++
++#endif /* _TRACE_VHOST_H */
++
++#undef TRACE_INCLUDE_PATH
++#define TRACE_INCLUDE_PATH ../../drivers/vhost
++#undef TRACE_INCLUDE_FILE
++#define TRACE_INCLUDE_FILE trace
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>
++
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 78987e4..7cf3d6e 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -28,6 +28,8 @@
+ #include <linux/module.h>
  
-@@ -1508,8 +1525,11 @@ static int ks8851_probe(struct spi_device *spi)
- err_netdev:
- 	free_irq(ndev->irq, ks);
+ #include "vhost.h"
++#define CREATE_TRACE_POINTS
++#include "trace.h"
  
--err_id:
- err_irq:
-+err_id:
-+	if (!IS_ERR(ks->vdd_reg))
-+		regulator_disable(ks->vdd_reg);
-+err_reg:
- 	free_netdev(ndev);
- 	return ret;
+ enum {
+ 	VHOST_MEMORY_MAX_NREGIONS = 64,
+@@ -45,6 +47,7 @@ static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
+ 	poll = container_of(pt, struct vhost_poll, table);
+ 	poll->wqh = wqh;
+ 	add_wait_queue(wqh, &poll->wait);
++	trace_vhost_poll_start(&poll->work);
  }
-@@ -1523,6 +1543,8 @@ static int ks8851_remove(struct spi_device *spi)
  
- 	unregister_netdev(priv->netdev);
- 	free_irq(spi->irq, priv);
-+	if (!IS_ERR(priv->vdd_reg))
-+		regulator_disable(priv->vdd_reg);
- 	free_netdev(priv->netdev);
+ static int vhost_poll_wakeup(wait_queue_t *wait, unsigned mode, int sync,
+@@ -114,6 +117,7 @@ void vhost_poll_stop(struct vhost_poll *poll)
+ 		remove_wait_queue(poll->wqh, &poll->wait);
+ 		poll->wqh = NULL;
+ 	}
++	trace_vhost_poll_stop(&poll->work);
+ }
+ EXPORT_SYMBOL_GPL(vhost_poll_stop);
  
+@@ -163,8 +167,10 @@ void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work)
+ 		work->queue_seq++;
+ 		spin_unlock_irqrestore(&dev->work_lock, flags);
+ 		wake_up_process(dev->worker);
++		trace_vhost_work_queue_wakeup(work);
+ 	} else {
+ 		spin_unlock_irqrestore(&dev->work_lock, flags);
++		trace_vhost_work_queue_coalesce(work);
+ 	}
+ }
+ EXPORT_SYMBOL_GPL(vhost_work_queue);
+@@ -1008,6 +1014,7 @@ static int vhost_update_used_flags(struct vhost_virtqueue *vq)
+ 		if (vq->log_ctx)
+ 			eventfd_signal(vq->log_ctx, 1);
+ 	}
++	trace_vhost_virtio_update_used_flags(vq);
  	return 0;
+ }
+ 
+@@ -1027,6 +1034,7 @@ static int vhost_update_avail_event(struct vhost_virtqueue *vq, u16 avail_event)
+ 		if (vq->log_ctx)
+ 			eventfd_signal(vq->log_ctx, 1);
+ 	}
++	trace_vhost_virtio_update_avail_event(vq);
+ 	return 0;
+ }
+ 
+@@ -1311,6 +1319,7 @@ int vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+ 		}
+ 	} while ((i = next_desc(&desc)) != -1);
+ 
++	trace_vhost_virtio_get_vq_desc(vq, head, *out_num, *in_num);
+ 	/* On success, increment avail index. */
+ 	vq->last_avail_idx++;
+ 
+@@ -1405,6 +1414,7 @@ int vhost_add_used_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
+ 		vq_err(vq, "Failed to increment used idx");
+ 		return -EFAULT;
+ 	}
++	trace_vhost_virtio_update_used_idx(vq);
+ 	if (unlikely(vq->log_used)) {
+ 		/* Log used index update. */
+ 		log_write(vq->log_base,
+@@ -1457,8 +1467,10 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ void vhost_signal(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ {
+ 	/* Signal the Guest tell them we used something up. */
+-	if (vq->call_ctx && vhost_notify(dev, vq))
++	if (vq->call_ctx && vhost_notify(dev, vq)) {
+ 		eventfd_signal(vq->call_ctx, 1);
++		trace_vhost_virtio_signal(vq);
++	}
+ }
+ EXPORT_SYMBOL_GPL(vhost_signal);
+ 
 -- 
-1.7.9.5
+1.8.3.2
