@@ -1,78 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/4] net: use skb_get_hash in tx queue selection
-Date: Thu, 20 Mar 2014 18:31:58 -0700
-Message-ID: <1395365518.9114.116.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.02.1403201701500.7187@tomh.mtv.corp.google.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] ixgbe: stop PTP before suspending
+Date: Thu, 20 Mar 2014 18:36:37 -0700
+Message-ID: <1395365797.2050.48.camel@jtkirshe-mobl>
+References: <1395342872-13496-1-git-send-email-kubakici@wp.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Nqkkkpp60DYIhXgcBmvp"
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: Jakub Kicinski <kubakici@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:61651 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965511AbaCUBcB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Mar 2014 21:32:01 -0400
-Received: by mail-pd0-f169.google.com with SMTP id fp1so1679854pdb.14
-        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 18:32:01 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.02.1403201701500.7187@tomh.mtv.corp.google.com>
+Received: from mga09.intel.com ([134.134.136.24]:55179 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760401AbaCUBgi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Mar 2014 21:36:38 -0400
+In-Reply-To: <1395342872-13496-1-git-send-email-kubakici@wp.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-03-20 at 17:09 -0700, Tom Herbert wrote:
-> __skb_get_hash tries to get the skb->hash from a connected socket
-> associated with an skb. __skb_tx_hash and get_xps_queue just call
-> skb_get_hash().
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
+
+--=-Nqkkkpp60DYIhXgcBmvp
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2014-03-20 at 20:14 +0100, Jakub Kicinski wrote:
+> Resume path calls .open but suspend path cannot call .stop because
+> fdirs should not be freed and control over hardware should not be
+> released until WoL is configured.  To avoid having to duplicate all
+> changes made in .stop on suspend path split out part of .stop that
+> is relevant during suspend and call it from .stop and during suspend.
+>=20
+> This fixes ixgbe_ptp_stop() not being called on suspend and helps
+> to avoid similar bugs in the future.
+>=20
+> Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
 > ---
->  include/linux/netdevice.h |  2 +-
->  include/linux/skbuff.h    |  2 +-
->  net/core/flow_dissector.c | 22 +++++++++-------------
->  3 files changed, 11 insertions(+), 15 deletions(-)
-> 
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 4b6d12c..a1fa2e4 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -2481,7 +2481,7 @@ static inline int netif_set_xps_queue(struct net_device *dev,
->   * as a distribution range limit for the returned value.
->   */
->  static inline u16 skb_tx_hash(const struct net_device *dev,
-> -			      const struct sk_buff *skb)
-> +			      struct sk_buff *skb)
->  {
->  	return __skb_tx_hash(dev, skb, dev->real_num_tx_queues);
->  }
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index aa2c22c..f392b74 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -2863,7 +2863,7 @@ static inline bool skb_rx_queue_recorded(const struct sk_buff *skb)
->  	return skb->queue_mapping != 0;
->  }
->  
-> -u16 __skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb,
-> +u16 __skb_tx_hash(const struct net_device *dev, struct sk_buff *skb,
->  		  unsigned int num_tx_queues);
->  
->  static inline struct sec_path *skb_sec_path(struct sk_buff *skb)
-> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-> index 107ed12..432d35a 100644
-> --- a/net/core/flow_dissector.c
-> +++ b/net/core/flow_dissector.c
-> @@ -212,6 +212,12 @@ void __skb_get_hash(struct sk_buff *skb)
->  	struct flow_keys keys;
->  	u32 hash;
->  
-> +	if (skb->sk && skb->sk->sk_hash) {
-> +		skb->hash = skb->sk->sk_hash;
-> +		skb->l4_hash = 1;
-> +		return;
-> +	}
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 27
+> ++++++++++++++-------------
+>  1 file changed, 14 insertions(+), 13 deletions(-)
 
-Wouldn't it be faster to simply set skb->hash in providers (TCP, UDP),
-to that we do not add this test here ?
+Thanks Jakub, I will add this to my queue.
 
-After packet has been a while in a qdisc, access to skb->sk_hash will
-likely trigger a cache line miss.
+--=-Nqkkkpp60DYIhXgcBmvp
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAABCgAGBQJTK5elAAoJEOVv75VaS+3Om2MP/387nGR7OEfLgRMIxNVjZ+AN
+NN9UAfctQxUYJp4/rrD9D8b/E5lr6Pf3kSUsInkPwgDvAxNrzbbvONssfk2D6fVp
+uu3IOw/fScg0t+jkl79R+Xm/HwaURGO4f9QEpaIq0pLP8TNw/tF/fu7SrHPNUID+
+J+XN0g/U1hvsVJJfEAZ+NdFchN9HYCgJ1T0vzt9CPhSvLaoF0YWSXX9Kt8HE5LG6
+9/spulPywiKqzrchVHfVMR+87PpbTcX4UzDa43IYA8bfJfopX5LWE2xMFybflUrZ
+DUOB3vmrpbaPvB3AwCoikPEqoEUtId7+cj6y0CT2iM24Yxfgx4qLalH1s69vAot/
+RryOpxVFxzVSoVzAWg8teeBTpg5B2uQeHmMuoCHRwJEdWrF9q5X0Awl8TNpZ27ai
+GcsE8a+7IvPzQa6xXWln0K3wcMMAlPPjctn4KqiwmQHAMmuKDcw4iLro1Vxmxy+5
+rd4pqsq3dMLvv/cXqZ63d1NUMFtZ7ZzP36oIM1z0bLV3SVjTTwHdtNpyzxtTb+28
+CtC6R/93wrtIzv5vrS0se6SzJebbMAyFRz+0ukWjY2M66KiQt4dnsqjq/ZnylbHM
+LQRo63xHVyX0fdwuSUXmfUIHn8zvVDT+AzLonpWD8IgO56qizEQDr79CucAdWIZU
+vBIFcIQYuk3DaLn1oC+m
+=EUjM
+-----END PGP SIGNATURE-----
+
+--=-Nqkkkpp60DYIhXgcBmvp--
