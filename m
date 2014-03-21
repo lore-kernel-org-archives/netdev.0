@@ -1,51 +1,37 @@
-From: Christopher Covington <cov@codeaurora.org>
-Subject: Re: [CRIU] [PATCH 3/3] tcp: add ability to restore a fin packet
-Date: Fri, 21 Mar 2014 10:04:07 -0400
-Message-ID: <532C46D7.9050403@codeaurora.org>
-References: <1395408781-8145-1-git-send-email-avagin@openvz.org> <1395408781-8145-4-git-send-email-avagin@openvz.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [RFC] csum experts, csum_replace2() is too expensive
+Date: Fri, 21 Mar 2014 14:14:23 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E557E@AcuExch.aculab.com>
+References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <87a9cknwk4.fsf@tassilo.jf.intel.com>
+ <1395406250.9114.142.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org, James Morris <jmorris@namei.org>,
-	Patrick McHardy <kaber@trash.net>, criu@openvz.org,
-	Eric Dumazet <edumazet@google.com>,
-	Cyrill Gorcunov <gorcunov@openvz.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>
-To: Andrey Vagin <avagin@openvz.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Patrick McHardy <kaber@trash.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"H.K. Jerry Chu" <hkchu@google.com>,
+	"Michael Dalton" <mwdalton@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	"H. Peter Anvin" <hpa@zytor.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1395408781-8145-4-git-send-email-avagin@openvz.org>
+In-Reply-To: <1395406250.9114.142.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/21/2014 09:33 AM, Andrey Vagin wrote:
-> It's required for restoring sockets in closing states:
-> TCP_FIN_WAIT{1,2}, TCP_WAIT_STOP, TCP_CLOSING, TCP_LAST_ACK.
-> 
-> A fin packet is restored by sending a control message (ancillary data).
-> In which queue a packet is restored depends on a value of
-> tp->repair_queue.
-> 
-> This interface is choosen, because we are goint to use sendmsg for
-
-Nit: chosen, going
-
-> --- a/include/uapi/linux/tcp.h
-> +++ b/include/uapi/linux/tcp.h
-> @@ -199,4 +199,7 @@ struct tcp_md5sig {
->  	__u8	tcpm_key[TCP_MD5SIG_MAXKEYLEN];		/* key (binary) */
->  };
->  
-> +/* Conntroll message types to repair tcp connections */
-
-Nit: Control
-
-Christopher
-
--- 
-Employee of Qualcomm Innovation Center, Inc.
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
-hosted by the Linux Foundation.
+RnJvbTogRXJpYyBEdW1hemV0DQo+IE9uIFRodSwgMjAxNC0wMy0yMCBhdCAxODo1NiAtMDcwMCwg
+QW5kaSBLbGVlbiB3cm90ZToNCj4gPiBFcmljIER1bWF6ZXQgPGVyaWMuZHVtYXpldEBnbWFpbC5j
+b20+IHdyaXRlczoNCj4gPiA+DQo+ID4gPiBJIHNhdyBjc3VtX3BhcnRpYWwoKSBjb25zdW1pbmcg
+MSUgb2YgY3B1IGN5Y2xlcyBpbiBhIEdSTyB3b3JrbG9hZCwgdGhhdA0KPiA+ID4gaXMgaW5zYW5l
+Li4uDQo+ID4NCj4gPg0KPiA+IENvdWxkbid0IGl0IGp1c3QgYmUgdGhlIGNhY2hlIG1pc3M/DQo+
+IA0KPiBPciB0aGUgZmFjdCB0aGF0IHdlIG1peCAxNiBiaXQgc3RvcmVzIGFuZCAzMmJpdCBsb2Fk
+cyA/DQo+IA0KPiBCVFcsIGFueSBpZGVhIHdoeSBpcF9mYXN0X2NzdW0oKSBvbiB4ODYgY29udGFp
+bnMgYSAibWVtb3J5IiBjb25zdHJhaW50ID8NCg0KVGhlIGNvcnJlY3QgY29uc3RyYWludCB3b3Vs
+ZCBiZSBvbmUgdGhhdCB0b2xkIGdjYyB0aGF0IGl0DQphY2Nlc3NlcyB0aGUgMjAgYnl0ZXMgZnJv
+bSB0aGUgc291cmNlIHBvaW50ZXIuDQoNCldpdGhvdXQgaXQgZ2NjIHdvbid0IG5lY2Vzc2FyaWx5
+IHdyaXRlIG91dCB0aGUgdmFsdWVzIGJlZm9yZQ0KdGhlIGFzbSBpbnN0cnVjdGlvbnMgZXhlY3V0
+ZS4NCg0KCURhdmlkDQoNCg==
