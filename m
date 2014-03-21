@@ -1,38 +1,42 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [net-next PATCH 2/2] be2net: csum, tso and rss steering offload
- support for VxLAN
-Date: Fri, 21 Mar 2014 06:21:13 +0000
-Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C2A412C5C@CMEXMB1.ad.emulex.com>
-References: <1395312011-899-1-git-send-email-sathya.perla@emulex.com>
- <1395312011-899-3-git-send-email-sathya.perla@emulex.com>
- <262CB373A6D1F14F9B81E82F74F77D5A46F7E199@avmb2.qlogic.org>
+From: ratheesh kannoth <ratheesh.ksz@gmail.com>
+Subject: Re: alloc_skb from huge memory
+Date: Fri, 21 Mar 2014 12:06:19 +0530
+Message-ID: <CAGZFCEHG60UQLzV=tkVO44aZSZdXCG=xh26aY3r1E6h_wBMNyA@mail.gmail.com>
+References: <CAGZFCEHFBbHdc6ju2nh_smA++V4y4e_+LbLeaKVzRQtHwthGAg@mail.gmail.com>
+	<1395378886.9114.124.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:13172 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750987AbaCUGVR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 02:21:17 -0400
-In-Reply-To: <262CB373A6D1F14F9B81E82F74F77D5A46F7E199@avmb2.qlogic.org>
-Content-Language: en-US
+Received: from mail-yk0-f173.google.com ([209.85.160.173]:33850 "EHLO
+	mail-yk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755671AbaCUGgU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 02:36:20 -0400
+Received: by mail-yk0-f173.google.com with SMTP id 10so5169180ykt.4
+        for <netdev@vger.kernel.org>; Thu, 20 Mar 2014 23:36:19 -0700 (PDT)
+In-Reply-To: <1395378886.9114.124.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Shahed Shaikh [mailto:shahed.shaikh@qlogic.com]
-> >
-> > This patch mainly implements the add/del_vxlan_port() methods by invoking
-> > the needed FW cmds for supporting VxLAN offloads for Skyhawk-R.
-> >
-> > Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
-> ..
-> > +	if (skyhawk_chip(adapter)) {
-> > +		netdev->hw_enc_features = NETIF_F_SG |
-> 
-> NETIF_F_SG is already added for hw_enc_feature in  register_netdevice() by stack.
-> 
+On Fri, Mar 21, 2014 at 10:44 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2014-03-21 at 10:21 +0530, ratheesh kannoth wrote:
+>> alloc_skb  does allocation from slub.   memory  slab could be
+>> kmalloc_1024 or kmalloc_512  (  And there is no  skb slab. i could not
+>> find in  /proc/slabinfo ).
+>>
+>> Is there any way  to allocate  skb from huge memory or    pre allocated pages ?
+>
+> What would be the usage ?
+>
+> In the kernel, almost all memory is mapped to huge pages anyway.
+>
+> $ tail -3 /proc/meminfo
+> DirectMap4k:        4096 kB
+> DirectMap2M:     2084864 kB
+> DirectMap1G:    266338304 kB
+>
 
-Ha, I'll fix this up...thanks!
+my bad. it is huge pages( what i meant is huge pages; not huge memory ).
+
+I would like to mmap  and use.
