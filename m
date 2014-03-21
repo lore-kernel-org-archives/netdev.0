@@ -1,432 +1,183 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH RFC V2 4/4] tools: virtio: add a top-like utility for displaying vhost satistics
-Date: Fri, 21 Mar 2014 17:41:53 +0800
-Message-ID: <1395394913-19548-5-git-send-email-jasowang@redhat.com>
-References: <1395394913-19548-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
-To: mst@redhat.com, kvm@vger.kernel.org, virtio-dev@lists.oasis-open.org,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <virtio-dev-return-470-gcvd-virtio-dev=m.gmane.org@lists.oasis-open.org>
-Sender: <virtio-dev@lists.oasis-open.org>
-List-Post: <mailto:virtio-dev@lists.oasis-open.org>
-List-Help: <mailto:virtio-dev-help@lists.oasis-open.org>
-List-Unsubscribe: <mailto:virtio-dev-unsubscribe@lists.oasis-open.org>
-List-Subscribe: <mailto:virtio-dev-subscribe@lists.oasis-open.org>
-In-Reply-To: <1395394913-19548-1-git-send-email-jasowang@redhat.com>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: [PATCH V4 1/8] sxgbe: Add device-tree binding support document
+Date: Fri, 21 Mar 2014 09:44:32 +0000
+Message-ID: <20140321094432.GI23372@e106331-lin.cambridge.arm.com>
+References: <00f801cf4275$e7e2a1b0$b7a7e510$@samsung.com>
+ <20140318091852.GA8043@e106331-lin.cambridge.arm.com>
+ <001101cf42c7$00d99ba0$028cd2e0$@samsung.com>
+ <20140319150402.GC9188@e106331-lin.cambridge.arm.com>
+ <00cd01cf43c3$2b086d50$811947f0$@samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-samsung-soc@vger.kernel.org"
+	<linux-samsung-soc@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"ilho215.lee@samsung.com" <ilho215.lee@samsung.com>,
+	"siva.kallam@samsung.com" <siva.kallam@samsung.com>,
+	"vipul.pandya@samsung.com" <vipul.pandya@samsung.com>,
+	"ks.giri@samsung.com" <ks.giri@samsung.com>
+To: Byungho An <bh74.an@samsung.com>
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <00cd01cf43c3$2b086d50$811947f0$@samsung.com>
+Sender: linux-samsung-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds simple python to display vhost satistics of vhost, the codes
-were based on kvm_stat script from qemu. As work function has been recored,
-filters could be used to distinguish which kinds of work are being executed or
-queued:
+On Wed, Mar 19, 2014 at 10:32:48PM +0000, Byungho An wrote:
+> Mark Rutland <mark.rutland@arm.com> :
+> > On Tue, Mar 18, 2014 at 04:27:46PM +0000, Byungho An wrote:
+> > > Mark Rutland <mark.rutland@arm.com> :
+> > > > Hi,
+> > > >
+> > > > As a general note it's helpful for devicetree to be Cc'd on the
+> > > > entire
+> > > series
+> > > > (though the binding document should be a separate patch) as it
+> > > > provides
+> > > useful
+> > > > context for reviewing the binding.
+> > > OK.
+> > >
+> > > >
+> > > > On Tue, Mar 18, 2014 at 06:47:13AM +0000, Byungho An wrote:
+> > > > > From: Siva Reddy <siva.kallam@samsung.com>
+> > > > >
+> > > > > This patch adds binding document for SXGBE ethernet driver via
+> > > device-tree.
+> > > > >
+> > > > > Signed-off-by: Siva Reddy Kallam <siva.kallam@samsung.com>
+> > > > > Signed-off-by: Byungho An <bh74.an@samsung.com>
+> > > > > ---
+> > > > >  .../devicetree/bindings/net/samsung-sxgbe.txt      |   53
+> > > > > ++++++++++++++++++++
+> > > > >  1 file changed, 53 insertions(+)
+> > > > >  create mode 100644
+> > > > > Documentation/devicetree/bindings/net/samsung-sxgbe.txt
+> > > > >
+> > > > > diff --git
+> > > > > a/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
+> > > > > b/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
+> > > > > new file mode 100644
+> > > > > index 0000000..ca27947
+> > > > > --- /dev/null
+> > > > > +++ b/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
+> > > > > @@ -0,0 +1,53 @@
+> > > > > +* Samsung 10G Ethernet driver (SXGBE)
+> > > > > +
+> > > > > +Required properties:
+> > > > > +- compatible: Should be "samsung,sxgbe-v2.0a"
+> > > > > +- reg: Address and length of the register set for the device
+> > > > > +- interrupt-parent: Should be the phandle for the interrupt
+> > > > > +controller
+> > > > > +  that services interrupts for this device
+> > > > > +- interrupts: Should contain the SXGBE interrupts
+> > > > > +  These interrupts are ordered by fixed and follows variable
+> > > > > +  trasmit DMA interrupts, receive DMA interrupts and lpi interrupt.
+> > > > > +  index 0 - this is fixed common interrupt of SXGBE and it is
+> > > > > +always
+> > > > > +  available.
+> > > > > +  index 1 to 25 - 8 variable trasmit interrupts, variable 16
+> > > > > +receive
+> > > > > interrupts
+> > > > > +  and 1 optional lpi interrupt.
+> > > > > +- phy-mode: String, operation mode of the PHY interface.
+> > > > > +  Supported values are: "xaui", "gmii".
+> > > > > +- samsung,pbl: Integer, Programmable Burst Length.
+> > > > > +  Supported values are 1, 2, 4, 8, 16, or 32.
+> > > >
+> > > > There's no need to abbreviate to "pbl".
+> > > >
+> > > > Is this a property of the hardware, or configuration that the kernel
+> > > > will
+> > > program
+> > > > in? If the latter, why can the kernel not choose?
+> > > Yes, this is hardware property
+> > 
+> > Ok.
+> > 
+> > >
+> > > >
+> > > > > +- samsung,fixed-burst: Boolean, Program the DMA to use the fixed
+> > > > > +burst mode
+> > > > > +- samsung,burst-map: Integer, Program the possible bursts
+> > > > > +supported by sxgbe
+> > > > > +  This is an interger and represents allowable DMA bursts when
+> > > > > +fixed
+> > > burst.
+> > > > > +  Allowable range is 0x00-0x3F. This field is valid only when
+> > > > > +fixed burst is
+> > > > > +  enabled, otherwise ignored.
+> > > >
+> > > > If that's the case, why not have just this property and have it
+> > > > imply the
+> > > use of
+> > > > fixed burst mode?
+> > > OK. It will be implemented in next patch set.
+> > >
+> > > >
+> > > > When is it necessary to use fixed burst mode?
+> > > This is the configurable mode of DMA an used internally by hardware to
+> > > fetch data from platform bus
+> > 
+> > Sure, but that doesn't describe when it is necessary. Is this the way the
+> DMA
+> > was configured at integration time, or the way the kernel should configure
+> it?
+> It is needed when fixed length of burst is needed. 
+> if it is not configured, the length of burst will be variable(not fixed).
+> Anyway, I'll add description more for it.
 
-vhost statistics
+And when is it necessary to have a fixed length of burst?
 
- vhost_virtio_update_used_idx               1215215       0
- vhost_virtio_get_vq_desc                   1215215       0
- vhost_work_queue_wakeup                     986808       0
- vhost_virtio_signal                         811601       0
- vhost_net_tx                                611457       0
- vhost_net_rx                                603758       0
- vhost_net_tx(datacopy)                      601903       0
- vhost_work_queue_wakeup(rx_net)             565081       0
- vhost_virtio_signal(rx)                     461603       0
- vhost_work_queue_wakeup(tx_kick)            421718       0
- vhost_virtio_update_avail_event             417346       0
- vhost_virtio_signal(tx)                     349998       0
- vhost_work_queue_coalesce                    39384       0
- vhost_work_queue_coalesce(rx_net)            38677       0
- vhost_net_tx(zerocopy)                        9554       0
- vhost_work_queue_coalesce(tx_kick)             707       0
- vhost_work_queue_wakeup(rx_kick)                 9       0
+Is this a property of the system, or the conenction of the system to
+another?
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- tools/virtio/vhost_stat | 375 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 375 insertions(+)
- create mode 100755 tools/virtio/vhost_stat
+> 
+> > 
+> > If the latter, is it absolutely necessary for correctness to use fixed-burst
+> mode?
+> > Or is it just always sensible to use it if available? 
+> It is not absolutely necessary, as I mentioned above.
 
-diff --git a/tools/virtio/vhost_stat b/tools/virtio/vhost_stat
-new file mode 100755
-index 0000000..398fd4a
---- /dev/null
-+++ b/tools/virtio/vhost_stat
-@@ -0,0 +1,375 @@
-+#!/usr/bin/python
-+#
-+# top-like utility for displaying vhost statistics
-+#
-+# Copyright 2012 Red Hat, Inc.
-+#
-+# Modified from kvm_stat from qemu
-+#
-+# This work is licensed under the terms of the GNU GPL, version 2.  See
-+# the COPYING file in the top-level directory.
-+
-+import curses
-+import sys, os, time, optparse
-+
-+work_types = {
-+    "handle_rx_kick" : "rx_kick",
-+    "handle_tx_kick" : "tx_kick",
-+    "handle_rx_net" : "rx_net",
-+    "handle_tx_net" : "tx_net",
-+    "vhost_attach_cgroups_work": "cg_attach"
-+    }
-+
-+addr = {}
-+
-+kallsyms = file("/proc/kallsyms").readlines()
-+for kallsym in kallsyms:
-+    entry = kallsym.split()
-+    if entry[2] in work_types.keys():
-+        addr["0x%s" % entry[0]] = work_types[entry[2]]
-+
-+copy_modes = {
-+    1 : 'zerocopy',
-+    0 : 'datacopy',
-+}
-+
-+vqs = {
-+    1 : 'rx',
-+    0 : 'tx',
-+}
-+
-+filters = {
-+    'vhost_work_queue_wakeup': ('function', addr),
-+    'vhost_work_queue_coalesce' : ('function', addr),
-+    'vhost_poll_start' : ('function', addr),
-+    'vhost_poll_stop' : ('function', addr),
-+    'vhost_net_tx' : ('zerocopy', copy_modes),
-+    'vhost_virtio_signal' : ('queue_index', vqs),
-+}
-+
-+def invert(d):
-+    return dict((x[1], x[0]) for x in d.iteritems())
-+
-+for f in filters:
-+    filters[f] = (filters[f][0], invert(filters[f][1]))
-+
-+import ctypes, struct, array
-+
-+libc = ctypes.CDLL('libc.so.6')
-+syscall = libc.syscall
-+class perf_event_attr(ctypes.Structure):
-+    _fields_ = [('type', ctypes.c_uint32),
-+                ('size', ctypes.c_uint32),
-+                ('config', ctypes.c_uint64),
-+                ('sample_freq', ctypes.c_uint64),
-+                ('sample_type', ctypes.c_uint64),
-+                ('read_format', ctypes.c_uint64),
-+                ('flags', ctypes.c_uint64),
-+                ('wakeup_events', ctypes.c_uint32),
-+                ('bp_type', ctypes.c_uint32),
-+                ('bp_addr', ctypes.c_uint64),
-+                ('bp_len', ctypes.c_uint64),
-+                ]
-+def _perf_event_open(attr, pid, cpu, group_fd, flags):
-+    return syscall(298, ctypes.pointer(attr), ctypes.c_int(pid),
-+                   ctypes.c_int(cpu), ctypes.c_int(group_fd),
-+                   ctypes.c_long(flags))
-+
-+PERF_TYPE_HARDWARE              = 0
-+PERF_TYPE_SOFTWARE              = 1
-+PERF_TYPE_TRACEPOINT            = 2
-+PERF_TYPE_HW_CACHE              = 3
-+PERF_TYPE_RAW                   = 4
-+PERF_TYPE_BREAKPOINT            = 5
-+
-+PERF_SAMPLE_IP                  = 1 << 0
-+PERF_SAMPLE_TID                 = 1 << 1
-+PERF_SAMPLE_TIME                = 1 << 2
-+PERF_SAMPLE_ADDR                = 1 << 3
-+PERF_SAMPLE_READ                = 1 << 4
-+PERF_SAMPLE_CALLCHAIN           = 1 << 5
-+PERF_SAMPLE_ID                  = 1 << 6
-+PERF_SAMPLE_CPU                 = 1 << 7
-+PERF_SAMPLE_PERIOD              = 1 << 8
-+PERF_SAMPLE_STREAM_ID           = 1 << 9
-+PERF_SAMPLE_RAW                 = 1 << 10
-+
-+PERF_FORMAT_TOTAL_TIME_ENABLED  = 1 << 0
-+PERF_FORMAT_TOTAL_TIME_RUNNING  = 1 << 1
-+PERF_FORMAT_ID                  = 1 << 2
-+PERF_FORMAT_GROUP               = 1 << 3
-+
-+import re
-+
-+sys_tracing = '/sys/kernel/debug/tracing'
-+
-+class Group(object):
-+    def __init__(self, cpu):
-+        self.events = []
-+        self.group_leader = None
-+        self.cpu = cpu
-+    def add_event(self, name, event_set, tracepoint, filter = None):
-+        self.events.append(Event(group = self,
-+                                 name = name, event_set = event_set,
-+                                 tracepoint = tracepoint, filter = filter))
-+        if len(self.events) == 1:
-+            self.file = os.fdopen(self.events[0].fd)
-+    def read(self):
-+        bytes = 8 * (1 + len(self.events))
-+        fmt = 'xxxxxxxx' + 'q' * len(self.events)
-+        return dict(zip([event.name for event in self.events],
-+                        struct.unpack(fmt, self.file.read(bytes))))
-+
-+class Event(object):
-+    def __init__(self, group, name, event_set, tracepoint, filter = None):
-+        self.name = name
-+        attr = perf_event_attr()
-+        attr.type = PERF_TYPE_TRACEPOINT
-+        attr.size = ctypes.sizeof(attr)
-+        id_path = os.path.join(sys_tracing, 'events', event_set,
-+                               tracepoint, 'id')
-+        id = int(file(id_path).read())
-+        attr.config = id
-+        attr.sample_type = (PERF_SAMPLE_RAW
-+                            | PERF_SAMPLE_TIME
-+                            | PERF_SAMPLE_CPU)
-+        attr.sample_period = 1
-+        attr.read_format = PERF_FORMAT_GROUP
-+        group_leader = -1
-+        if group.events:
-+            group_leader = group.events[0].fd
-+        fd = _perf_event_open(attr, -1, group.cpu, group_leader, 0)
-+        if fd == -1:
-+            raise Exception('perf_event_open failed')
-+        if filter:
-+            import fcntl
-+            fcntl.ioctl(fd, 0x40082406, filter)
-+        self.fd = fd
-+    def enable(self):
-+        import fcntl
-+        fcntl.ioctl(self.fd, 0x00002400, 0)
-+    def disable(self):
-+        import fcntl
-+        fcntl.ioctl(self.fd, 0x00002401, 0)
-+
-+class TracepointProvider(object):
-+    def __init__(self, event_set):
-+        path = os.path.join(sys_tracing, 'events', event_set)
-+        self.event_set = event_set
-+        fields = [f
-+                  for f in os.listdir(path)
-+                  if os.path.isdir(os.path.join(path, f))]
-+        extra = []
-+        for f in fields:
-+            if f in filters:
-+                subfield, values = filters[f]
-+                for name, number in values.iteritems():
-+                    # kvm_exit(MMIO)
-+                    extra.append(f + '(' + name + ')')
-+        fields += extra
-+        self._setup(fields)
-+        self.select(fields)
-+    def fields(self):
-+        return self._fields
-+    def _setup(self, _fields):
-+        self._fields = _fields
-+        cpure = r'cpu([0-9]+)'
-+        self.cpus = [int(re.match(cpure, x).group(1))
-+                     for x in os.listdir('/sys/devices/system/cpu')
-+                     if re.match(cpure, x)]
-+        import resource
-+        nfiles = len(self.cpus) * 1000
-+        resource.setrlimit(resource.RLIMIT_NOFILE, (nfiles, nfiles))
-+        events = []
-+        self.group_leaders = []
-+        for cpu in self.cpus:
-+            group = Group(cpu)
-+            for name in _fields:
-+                tracepoint = name
-+                filter = None
-+                # for field like kvm_exit(MMIO)
-+                m = re.match(r'(.*)\((.*)\)', name)
-+                if m:
-+                    tracepoint, sub = m.groups()
-+                    filter = '%s==%s\0' % (filters[tracepoint][0],
-+                                           filters[tracepoint][1][sub])
-+                event = group.add_event(name, event_set = self.event_set,
-+                                        tracepoint = tracepoint,
-+                                        filter = filter)
-+            self.group_leaders.append(group)
-+    def select(self, fields):
-+        for group in self.group_leaders:
-+            for event in group.events:
-+                if event.name in fields:
-+                    event.enable()
-+                else:
-+                    event.disable()
-+    def read(self):
-+        from collections import defaultdict
-+        ret = defaultdict(int)
-+        for group in self.group_leaders:
-+            for name, val in group.read().iteritems():
-+                ret[name] += val
-+        return ret
-+
-+class Stats:
-+    def __init__(self, providers, fields = None):
-+        self.providers = providers
-+        self.fields_filter = fields
-+        self._update()
-+    def _update(self):
-+        def wanted(key):
-+            import re
-+            if not self.fields_filter:
-+                return True
-+            return re.match(self.fields_filter, key) is not None
-+        self.values = {}
-+        for provider in self.providers:
-+            for key in provider.fields():
-+                if wanted(key):
-+                    self.values[key] = None
-+            provider.select(self.values.keys())
-+    def set_fields_filter(self, fields_filter):
-+        self.fields_filter = fields_filter
-+        self._update()
-+    def get(self):
-+        for provider in self.providers:
-+            new = provider.read()
-+            for key in provider.fields():
-+                oldval = self.values.get(key, (0, 0))
-+                newval = new[key]
-+                newdelta = None
-+                if oldval is not None:
-+                    newdelta = newval - oldval[0]
-+                self.values[key] = (newval, newdelta)
-+        return self.values
-+
-+if not os.access('/sys/kernel/debug', os.F_OK):
-+    print 'Please enable CONFIG_DEBUG_FS in your kernel'
-+    sys.exit(1)
-+if not os.access('/sys/module/vhost_net', os.F_OK):
-+    print 'Please make sure vhost_net module are loaded'
-+    sys.exit(1)
-+
-+label_width = 40
-+number_width = 10
-+
-+def tui(screen, stats):
-+    curses.use_default_colors()
-+    curses.noecho()
-+    drilldown = False
-+    fields_filter = stats.fields_filter
-+    def update_drilldown():
-+        if not fields_filter:
-+            if drilldown:
-+                stats.set_fields_filter(None)
-+            else:
-+                stats.set_fields_filter(r'^[^\(]*$')
-+    update_drilldown()
-+    def refresh(sleeptime):
-+        screen.erase()
-+        screen.addstr(0, 0, 'vhost statistics')
-+        row = 2
-+        s = stats.get()
-+        def sortkey(x):
-+            if s[x][1]:
-+                return (-s[x][1], -s[x][0])
-+            else:
-+                return (0, -s[x][0])
-+        for key in sorted(s.keys(), key = sortkey):
-+            if row >= screen.getmaxyx()[0]:
-+                break
-+            values = s[key]
-+            if not values[0] and not values[1]:
-+                break
-+            col = 1
-+            screen.addstr(row, col, key)
-+            col += label_width
-+            screen.addstr(row, col, '%10d' % (values[0],))
-+            col += number_width
-+            if values[1] is not None:
-+                screen.addstr(row, col, '%8d' % (values[1] / sleeptime,))
-+            row += 1
-+        screen.refresh()
-+
-+    sleeptime = 0.25
-+    while True:
-+        refresh(sleeptime)
-+        curses.halfdelay(int(sleeptime * 10))
-+        sleeptime = 3
-+        try:
-+            c = screen.getkey()
-+            if c == 'x':
-+                drilldown = not drilldown
-+                update_drilldown()
-+            if c == 'q':
-+                break
-+        except KeyboardInterrupt:
-+            break
-+        except curses.error:
-+            continue
-+
-+def batch(stats):
-+    s = stats.get()
-+    time.sleep(1)
-+    s = stats.get()
-+    for key in sorted(s.keys()):
-+        values = s[key]
-+        print '%-22s%10d%10d' % (key, values[0], values[1])
-+
-+def log(stats):
-+    keys = sorted(stats.get().iterkeys())
-+    def banner():
-+        for k in keys:
-+            print '%10s' % k[0:9],
-+        print
-+    def statline():
-+        s = stats.get()
-+        for k in keys:
-+            print ' %9d' % s[k][1],
-+        print
-+    line = 0
-+    banner_repeat = 20
-+    while True:
-+        time.sleep(1)
-+        if line % banner_repeat == 0:
-+            banner()
-+        statline()
-+        line += 1
-+
-+options = optparse.OptionParser()
-+options.add_option('-1', '--once', '--batch',
-+                   action = 'store_true',
-+                   default = False,
-+                   dest = 'once',
-+                   help = 'run in batch mode for one second',
-+                   )
-+options.add_option('-l', '--log',
-+                   action = 'store_true',
-+                   default = False,
-+                   dest = 'log',
-+                   help = 'run in logging mode (like vmstat)',
-+                   )
-+options.add_option('-f', '--fields',
-+                   action = 'store',
-+                   default = None,
-+                   dest = 'fields',
-+                   help = 'fields to display (regex)',
-+                   )
-+(options, args) = options.parse_args(sys.argv)
-+
-+try:
-+    provider = [TracepointProvider('vhost'), TracepointProvider('vhost_net')]
-+except:
-+    print "Could not initialize tracepoint"
-+    sys.exit(1)
-+
-+stats = Stats(provider, fields = options.fields)
-+
-+if options.log:
-+    log(stats)
-+elif not options.once:
-+    import curses.wrapper
-+    curses.wrapper(tui, stats)
-+else:
-+    batch(stats)
--- 
-1.8.3.2
+The description above does not make this clear.
+
+> 
+> > 
+> > What does the driver do if fixed burst mode is not available? Would this
+> work in
+> > the presence of fixed-burt mode?
+> Fixed burst mode is always available so driver doesn't need to care about it.
+> 
+> > 
+> > I'm not arguing to remove these properties. I'd just like to understand if
+> all
+> > you're describing is the presence of a feature or that the use of the
+> feature is
+> > absolutely necessary for correctness.
+> OK
+> 
+> > 
+> > I'm perfectly happy for Linux to always decide to use these features if
+> available.
+> > 
+> > >
+> > > >
+> > > > > +- samsung,adv-addr-mode: Boolean, Program the DMA to use Enhanced
+> > > > > +address
+> > > > > mode.
+> > > >
+> > > > When would this be selected, and why can the kernel not choose?
+> > > Kernel doesn't have the provision to find out a way to select this.
+> > > So, need to pass from DT
+> > 
+> > Likewise, it is always absolutely necessary, or just always sensible to use
+> > enhanced address mode if present?
+> Not always necessary. When extended address mode is needed, it can be set in
+> the DT.
+
+When is this needed?
+
+Cheers,
+Mark.
