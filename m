@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/3] Altera TSE: Correct two typos in original
- submission
-Date: Fri, 21 Mar 2014 15:37:17 -0400 (EDT)
-Message-ID: <20140321.153717.1314273215132347774.davem@davemloft.net>
-References: <1395366197-9781-1-git-send-email-vbridgers2013@gmail.com>
-	<1395366197-9781-4-git-send-email-vbridgers2013@gmail.com>
+Subject: Re: [PATCH net-next v2] atheros/atlx: use SET_ETHTOOL_OPS directly
+Date: Fri, 21 Mar 2014 15:37:28 -0400 (EDT)
+Message-ID: <20140321.153728.2286772826815673026.davem@davemloft.net>
+References: <532965C3.6090706@huawei.com>
+	<532B9AF3.8080301@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: vbridgers2013@gmail.com
+Cc: jcliburn@gmail.com, chris.snook@gmail.com, netdev@vger.kernel.org
+To: wangweidong1@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35340 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35343 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751289AbaCUThT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 15:37:19 -0400
-In-Reply-To: <1395366197-9781-4-git-send-email-vbridgers2013@gmail.com>
+	with ESMTP id S1751289AbaCUTha (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 15:37:30 -0400
+In-Reply-To: <532B9AF3.8080301@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Date: Thu, 20 Mar 2014 20:43:17 -0500
+From: Wang Weidong <wangweidong1@huawei.com>
+Date: Fri, 21 Mar 2014 09:50:43 +0800
 
-> This patch addresses two typos in the original driver submission. One derived
-> from a cut & paste error, and another is a misspelling.
+> As commit a6e28b34205b("staging/et131x: use SET_ETHTOOL_OPS
+> directly"), using a wrapper around SET_ETHTOOL_OPS macro is
+> not actually required, remove and use SET_ETHTOOL_OPS directly.
 > 
-> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 
 Applied.
