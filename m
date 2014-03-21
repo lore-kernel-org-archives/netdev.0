@@ -1,190 +1,52 @@
-From: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v4] core, nfqueue,
-	openvswitch: Orphan frags in skb_zerocopy and handle errors
-Date: Fri, 21 Mar 2014 10:31:34 +0000
-Message-ID: <1395397894-9493-1-git-send-email-zoltan.kiss@citrix.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] bonding: Inactive slaves should keep inactive flag's
+ value to 1.
+Date: Fri, 21 Mar 2014 14:34:23 +0300
+Message-ID: <532C23BF.4040208@cogentembedded.com>
+References: <1395305504-29973-1-git-send-email-zheng.x.li@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Miklos Szeredi <mszeredi-AlSwsSmVLrQ@public.gmane.org>,
- kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
- Jan Beulich <JBeulich-IBi9RG/b67k@public.gmane.org>, Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
- Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
- Jozsef Kadlecsik <kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org>, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org,
- Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
- Paul Durrant <Paul.Durrant-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	joe.jin@oracle.com
+To: Zheng Li <zheng.x.li@oracle.com>, netdev@vger.kernel.org,
+	fubar@us.ibm.com, andy@greyhouse.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395305504-29973-1-git-send-email-zheng.x.li@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-skb_zerocopy can copy elements of the frags array between skbs, but it doesn't
-orphan them. Also, it doesn't handle errors, so this patch takes care of that
-as well, and modify the callers accordingly. skb_tx_error() is also added to
-the callers so they will signal the failed delivery towards the creator of the
-skb.
+Hello.
 
-Signed-off-by: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
----
-v2: orphan the frags right before touching the frags
+On 03/20/2014 11:51 AM, Zheng Li wrote:
 
-v3:
-- orphan 'from' instead of 'to'
-- call skb_tx_error() in the callers if something went wrong
+> Except bond mode 1, in other bond modes, inactive slaves should keep inactive flag to
+> 1 to refuse to receive broadcast packets. Now, active slave send broadcast packets
+> (for example ARP requests) which will arrive inactive slaves on same host from switch,
+> but inactive slave's inactive flag is zero that cause bridge receive the broadcast
+> packets to produce a wrong entry in forward table. Typical situation is domu send some
+> ARP request which go out from dom0 bond's active slave, then the ARP broadcast request
+> packets go back to inactive slave from switch, because the inactive slave's inactive
+> flag is zero, kernel will receive the packets and pass them to bridge, that cause dom0's
+> bridge map domu's MAC address to port of bond, bridge should map domu's MAC to port of vif.
 
-v4: correctly use error path in queue_userspace_packet
+> Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
+> ---
+>   drivers/net/bonding/bond_main.c |    2 +-
+>   1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 03db95a..35c4e85 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2508,8 +2508,8 @@ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
- 		    unsigned int flags);
- void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to);
- unsigned int skb_zerocopy_headlen(const struct sk_buff *from);
--void skb_zerocopy(struct sk_buff *to, const struct sk_buff *from,
--		  int len, int hlen);
-+int skb_zerocopy(struct sk_buff *to, const struct sk_buff *from,
-+		 int len, int hlen);
- void skb_split(struct sk_buff *skb, struct sk_buff *skb1, const u32 len);
- int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen);
- void skb_scrub_packet(struct sk_buff *skb, bool xnet);
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 3f14c63..4cf0ee5 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2127,25 +2127,31 @@ EXPORT_SYMBOL_GPL(skb_zerocopy_headlen);
-  *
-  *	The `hlen` as calculated by skb_zerocopy_headlen() specifies the
-  *	headroom in the `to` buffer.
-+ *
-+ *	Return value:
-+ *	0: everything is OK
-+ *	-ENOMEM: couldn't orphan frags of @from due to lack of memory
-+ *	-EFAULT: skb_copy_bits() found some problem with skb geometry
-  */
--void
-+int
- skb_zerocopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
- {
- 	int i, j = 0;
- 	int plen = 0; /* length of skb->head fragment */
-+	int ret;
- 	struct page *page;
- 	unsigned int offset;
- 
- 	BUG_ON(!from->head_frag && !hlen);
- 
- 	/* dont bother with small payloads */
--	if (len <= skb_tailroom(to)) {
--		skb_copy_bits(from, 0, skb_put(to, len), len);
--		return;
--	}
-+	if (len <= skb_tailroom(to))
-+		return skb_copy_bits(from, 0, skb_put(to, len), len);
- 
- 	if (hlen) {
--		skb_copy_bits(from, 0, skb_put(to, hlen), hlen);
-+		ret = skb_copy_bits(from, 0, skb_put(to, hlen), hlen);
-+		if (unlikely(ret))
-+			return ret;
- 		len -= hlen;
- 	} else {
- 		plen = min_t(int, skb_headlen(from), len);
-@@ -2163,6 +2169,11 @@ skb_zerocopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
- 	to->len += len + plen;
- 	to->data_len += len + plen;
- 
-+	if (unlikely(skb_orphan_frags(from, GFP_ATOMIC))) {
-+		skb_tx_error(from);
-+		return -ENOMEM;
-+	}
-+
- 	for (i = 0; i < skb_shinfo(from)->nr_frags; i++) {
- 		if (!len)
- 			break;
-@@ -2173,6 +2184,8 @@ skb_zerocopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
- 		j++;
- 	}
- 	skb_shinfo(to)->nr_frags = j;
-+
-+	return 0;
- }
- EXPORT_SYMBOL_GPL(skb_zerocopy);
- 
-diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index f072fe8..108120f 100644
---- a/net/netfilter/nfnetlink_queue_core.c
-+++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -354,13 +354,16 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
- 
- 	skb = nfnetlink_alloc_skb(net, size, queue->peer_portid,
- 				  GFP_ATOMIC);
--	if (!skb)
-+	if (!skb) {
-+		skb_tx_error(entskb);
- 		return NULL;
-+	}
- 
- 	nlh = nlmsg_put(skb, 0, 0,
- 			NFNL_SUBSYS_QUEUE << 8 | NFQNL_MSG_PACKET,
- 			sizeof(struct nfgenmsg), 0);
- 	if (!nlh) {
-+		skb_tx_error(entskb);
- 		kfree_skb(skb);
- 		return NULL;
- 	}
-@@ -488,13 +491,15 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
- 		nla->nla_type = NFQA_PAYLOAD;
- 		nla->nla_len = nla_attr_size(data_len);
- 
--		skb_zerocopy(skb, entskb, data_len, hlen);
-+		if (skb_zerocopy(skb, entskb, data_len, hlen))
-+			goto nla_put_failure;
- 	}
- 
- 	nlh->nlmsg_len = skb->len;
- 	return skb;
- 
- nla_put_failure:
-+	skb_tx_error(entskb);
- 	kfree_skb(skb);
- 	net_err_ratelimited("nf_queue: error creating packet message\n");
- 	return NULL;
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index c53fe0c..9230223 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -464,7 +464,9 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 	}
- 	nla->nla_len = nla_attr_size(skb->len);
- 
--	skb_zerocopy(user_skb, skb, skb->len, hlen);
-+	err = skb_zerocopy(user_skb, skb, skb->len, hlen);
-+	if (err)
-+		goto out;
- 
- 	/* Pad OVS_PACKET_ATTR_PACKET if linear copy was performed */
- 	if (!(dp->user_features & OVS_DP_F_UNALIGNED)) {
-@@ -478,6 +480,8 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 
- 	err = genlmsg_unicast(ovs_dp_get_net(dp), user_skb, upcall_info->portid);
- out:
-+	if (err)
-+		skb_tx_error(skb);
- 	kfree_skb(nskb);
- 	return err;
- }
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index e5628fc..2f73f18 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -3063,7 +3063,7 @@ static int bond_open(struct net_device *bond_dev)
+>   				bond_set_slave_inactive_flags(slave,
+>   							      BOND_SLAVE_NOTIFY_NOW);
+>   			} else {
+> -				bond_set_slave_active_flags(slave,
+> +				bond_set_slave_state(slave, BOND_STATE_ACTIVE,
+>   							    BOND_SLAVE_NOTIFY_NOW);
+
+    Now you have to re-indent this line to start right under 'state'.
+
+WBR, Sergei
