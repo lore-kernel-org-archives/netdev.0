@@ -1,85 +1,48 @@
-From: Zhangfei Gao <zhangfei.gao@gmail.com>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Fri, 21 Mar 2014 15:56:04 +0800
-Message-ID: <CAMj5BkgAv-6fBvf73mXULPF+Cw3VqWfPhi0YRR6WyUS75uD4yw@mail.gmail.com>
-References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
- <201403201531.20416.arnd@arndb.de>
- <CAMj5BkgMuw-O7b7KnVgZ9gmTGDv=OhCxvAYBu+wZy=j6m8Anmg@mail.gmail.com>
- <4951263.YfedV5kHCP@wuerfel>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next v3 4/9] ptp: drivers: set the number of
+ programmable pins.
+Date: Fri, 21 Mar 2014 01:02:06 -0700
+Message-ID: <CAL3LdT6aZYiyebbN_e0LkPP8jQpO=5d=OCb9i2cKcdej6jPYcA@mail.gmail.com>
+References: <cover.1395350105.git.richardcochran@gmail.com>
+	<daae779db6ec1b3177c88024216f37d88fd59cd9.1395350113.git.richardcochran@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Zhangfei Gao <zhangfei.gao@linaro.org>, netdev <netdev@vger.kernel.org>,
- "David S. Miller" <davem@davemloft.net>,
- linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
- "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <4951263.YfedV5kHCP@wuerfel>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Christian Riesch <christian.riesch@omicron.at>,
+	David Miller <davem@davemloft.net>,
+	=?UTF-8?Q?Stefan_S=C3=B8rensen?= <stefan.sorensen@spectralink.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <daae779db6ec1b3177c88024216f37d88fd59cd9.1395350113.git.richardcochran@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear Arnd
-
-On Fri, Mar 21, 2014 at 3:37 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-
->> >> >> +static int hip04_alloc_ring(struct net_device *ndev, struct device *d)
->> >> >> +{
->> >> >> +     struct hip04_priv *priv = netdev_priv(ndev);
->> >> >> +     int i;
->> >> >> +
->> >> >> +     priv->rx_buf_size = RX_BUF_SIZE +
->> >> >> +                         SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
->> >> >> +
->> >> >> +     priv->desc_pool = dma_pool_create(DRV_NAME, d, sizeof(struct tx_desc),
->> >> >> +                             SKB_DATA_ALIGN(sizeof(struct tx_desc)), 0);
->> >> >> +     if (!priv->desc_pool)
->> >> >> +             return -ENOMEM;
->> >> >> +
->> >> >> +     for (i = 0; i < TX_DESC_NUM; i++) {
->> >> >> +             priv->td_ring[i] = dma_pool_alloc(priv->desc_pool,
->> >> >> +                                     GFP_ATOMIC, &priv->td_phys[i]);
->> >> >> +             if (!priv->td_ring[i])
->> >> >> +                     return -ENOMEM;
->> >> >> +     }
->> >> >
->> >> > Why do you create a dma pool here, when you do all the allocations upfront?
->> >> >
->> >> > It looks to me like you could simply turn the td_ring array of pointers
->> >> > to tx descriptors into a an array of tx descriptors (no pointers) and allocate
->> >> > that one using dma_alloc_coherent.
->> >>
->> >> dma pool used here mainly because of alignment,
->> >> the desc has requirement of SKB_DATA_ALIGN,
->> >> so use the simplest way
->> >>         priv->desc_pool = dma_pool_create(DRV_NAME, d, sizeof(struct tx_desc),
->> >>                                 SKB_DATA_ALIGN(sizeof(struct tx_desc)), 0);
->> >
->> > dma_alloc_coherent() will actually give you PAGE_SIZE alignment, so that's
->> > still easier.
->> However since the alignment requirement, it can not simply use desc[i]
->> to get each desc.
->> desc = dma_alloc_coherent(d, size, &phys, GFP_KERNEL);
->> desc[i] is not what we want.
->> So still prefer using dma_pool_alloc here.
+On Thu, Mar 20, 2014 at 2:21 PM, Richard Cochran
+<richardcochran@gmail.com> wrote:
+> This patch updates the many PTP Hardware Clock drivers with the
+> newly introduced field that advertises the number of programmable
+> pins. Some of these devices do have programmable pins, but the
+> implementation will have to wait for follow on patches.
 >
-> Ah, I see what you mean: struct tx_desc is actually smaller than the
-> required alignment. You can fix that by marking the structure
-> "____cacheline_aligned".
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+> ---
+>  drivers/net/ethernet/adi/bfin_mac.c              |    1 +
+>  drivers/net/ethernet/broadcom/tg3.c              |    1 +
+>  drivers/net/ethernet/freescale/fec_ptp.c         |    1 +
+>  drivers/net/ethernet/freescale/gianfar_ptp.c     |    1 +
+>  drivers/net/ethernet/intel/e1000e/ptp.c          |    1 +
+>  drivers/net/ethernet/mellanox/mlx4/en_clock.c    |    1 +
+>  drivers/net/ethernet/sfc/ptp.c                   |    1 +
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c |    1 +
+>  drivers/net/ethernet/ti/cpts.c                   |    1 +
+>  drivers/net/ethernet/tile/tilegx.c               |    1 +
+>  drivers/ptp/ptp_ixp46x.c                         |    1 +
+>  drivers/ptp/ptp_pch.c                            |    1 +
+>  12 files changed, 12 insertions(+)
 >
 
-Yes, after recheck the method carefully, it works with __aligned(0x40).
-"____cacheline_aligned" is much better.
-The desc can be get with either table or pointer.
+For the e1000e change...
 
-Will update accordingly, it is simpler.
-
-Thanks
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
