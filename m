@@ -1,43 +1,48 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] htb: Move direct_qlen code part to
- htb_parse_opt().
-Date: Fri, 21 Mar 2014 14:20:50 -0700
-Message-ID: <20140321142050.48124da9@nehalam.linuxnetplumber.net>
-References: <20140308221003.72fed9349831ff54a9cb83dc@gmail.com>
+Subject: Re: [PATCH] iproute: Show default type, table, proto and scope of
+ route
+Date: Fri, 21 Mar 2014 14:22:38 -0700
+Message-ID: <20140321142238.0a81d1e3@nehalam.linuxnetplumber.net>
+References: <1394596013-25090-1-git-send-email-yamato@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Masatake YAMATO <yamato@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:61152 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750710AbaCUVUx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 17:20:53 -0400
-Received: by mail-pb0-f49.google.com with SMTP id jt11so2888759pbb.8
-        for <netdev@vger.kernel.org>; Fri, 21 Mar 2014 14:20:53 -0700 (PDT)
-In-Reply-To: <20140308221003.72fed9349831ff54a9cb83dc@gmail.com>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:59981 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751085AbaCUVWl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 17:22:41 -0400
+Received: by mail-pd0-f182.google.com with SMTP id y10so2820635pdj.41
+        for <netdev@vger.kernel.org>; Fri, 21 Mar 2014 14:22:41 -0700 (PDT)
+In-Reply-To: <1394596013-25090-1-git-send-email-yamato@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 8 Mar 2014 22:10:03 +0900
-Hiroaki SHIMODA <shimoda.hiroaki@gmail.com> wrote:
+On Wed, 12 Mar 2014 12:46:53 +0900
+Masatake YAMATO <yamato@redhat.com> wrote:
 
-> The direct_qlen command option is used with qdisc operation.
-> It happened to be implemented in htb_parse_class_opt() which is called
-> with class operation.
+> In "ip route show" output unicast type, main table, boot protocol and
+> universe scope are hidden as default labels.
 > 
-> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
-> When I read the commit b43f3318280a ("htb: add support for direct_qlen attribute")
-> I supposed to direct_qlen option is for htb leaf qdisc. But
-> TCA_HTB_DIRECT_QLEN is parsed in htb_init() and also according
-> to the command help of htb, I thought direct_qlen was accidentally
-> implemented in htb_parse_class_opt().
-> Sorry if I miss something.
+> Sometimes it is helpful to show the hidden label for people not enough
+> familiar with routing subsystem to map the output of "ip route show" and
+> kernel source code.
 > 
->  tc/q_htb.c | 18 +++++++++---------
->  1 file changed, 9 insertions(+), 9 deletions(-)
+> With this patch "ip route show" with -d option shows the default labels.
+> 
+> Example of difference of output with -d option:
+> 
+>     $ ./ip/ip -4   route show table all dev virbr1
+>     ...
+>     192.168.121.0/28  proto kernel  scope link  src 192.168.121.1
+>     ...
+>     $ ./ip/ip -4 -d  route show table all dev virbr1
+>     ...
+>     unicast 192.168.121.0/28  table main  proto kernel  scope link  src 192.168.121.1
+>     ...
+> 
+> Signed-off-by: Masatake YAMATO <yamato@redhat.com>
 
-Applied
+Looks good, applied
