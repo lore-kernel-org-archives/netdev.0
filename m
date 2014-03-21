@@ -1,105 +1,173 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/16] igb: add register rd/wr for surprise removal
-Date: Fri, 21 Mar 2014 05:10:02 -0700
-Message-ID: <1395403806-29302-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/16] ixgbevf: Check register reads for adapter removal
+Date: Fri, 21 Mar 2014 05:09:58 -0700
+Message-ID: <1395403806-29302-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395403806-29302-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: "Fujinaka, Todd" <todd.fujinaka@intel.com>, netdev@vger.kernel.org,
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:15182 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:15007 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965524AbaCUMKO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Mar 2014 08:10:14 -0400
+	id S965500AbaCUMKN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Mar 2014 08:10:13 -0400
 In-Reply-To: <1395403806-29302-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Fujinaka, Todd" <todd.fujinaka@intel.com>
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-Add initial register rd/wr for surprise removal (LER).
+Check all register reads for adapter removal by checking the status
+register after any register read that returns 0xFFFFFFFF. Since the
+status register will never return 0xFFFFFFFF unless the adapter is
+removed, such a value from a status register read confirms the
+removal. Since this patch adds so much to ixgbe_read_reg, stop
+inlining it, to reduce driver bloat.
 
-Signed-off-by: Todd Fujinaka <todd.fujinaka@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_regs.h | 21 ++++++++++++++++++---
- drivers/net/ethernet/intel/igb/igb_main.c   | 22 ++++++++++++++++++++++
- 2 files changed, 40 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  1 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 51 +++++++++++++++++++++--
+ drivers/net/ethernet/intel/ixgbevf/vf.h           |  9 ++--
+ 3 files changed, 53 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
-index d0f14be..bdb246e 100644
---- a/drivers/net/ethernet/intel/igb/e1000_regs.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
-@@ -362,12 +362,25 @@
-                                                        * Filter - RW */
- #define E1000_VMVIR(_n)        (0x03700 + (4 * (_n)))
- 
--#define wr32(reg, value) (writel(value, hw->hw_addr + reg))
--#define rd32(reg) (readl(hw->hw_addr + reg))
-+struct e1000_hw;
-+
-+u32 igb_rd32(struct e1000_hw *hw, u32 reg);
-+
-+/* write operations, indexed using DWORDS */
-+#define wr32(reg, val) \
-+do { \
-+	u8 __iomem *hw_addr = ACCESS_ONCE((hw)->hw_addr); \
-+	if (!E1000_REMOVED(hw_addr)) \
-+		writel((val), &hw_addr[(reg)]); \
-+} while (0)
-+
-+#define rd32(reg) (igb_rd32(hw, reg))
-+
- #define wrfl() ((void)rd32(E1000_STATUS))
- 
- #define array_wr32(reg, offset, value) \
--	(writel(value, hw->hw_addr + reg + ((offset) << 2)))
-+	wr32((reg) + ((offset) << 2), (value))
-+
- #define array_rd32(reg, offset) \
- 	(readl(hw->hw_addr + reg + ((offset) << 2)))
- 
-@@ -406,4 +419,6 @@
- #define E1000_INVM_DATA_REG(_n)	(0x12120 + 4*(_n))
- #define E1000_INVM_SIZE		64 /* Number of INVM Data Registers */
- 
-+#define E1000_REMOVED(h) unlikely(!(h))
-+
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index d4b1f50..a08bd7c 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -406,6 +406,7 @@ struct ixgbevf_adapter {
+ 	u64 bp_tx_missed;
  #endif
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index f623e6c..e8b4f7b 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -751,6 +751,28 @@ static void igb_cache_ring_register(struct igb_adapter *adapter)
- 	}
- }
  
-+u32 igb_rd32(struct e1000_hw *hw, u32 reg)
++	u8 __iomem *io_addr; /* Mainly for iounmap use */
+ 	u32 link_speed;
+ 	bool link_up;
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 74df8bf..37c4ebe 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -99,6 +99,48 @@ static void ixgbevf_queue_reset_subtask(struct ixgbevf_adapter *adapter);
+ static void ixgbevf_set_itr(struct ixgbevf_q_vector *q_vector);
+ static void ixgbevf_free_all_rx_resources(struct ixgbevf_adapter *adapter);
+ 
++static void ixgbevf_remove_adapter(struct ixgbe_hw *hw)
 +{
-+	struct igb_adapter *igb = container_of(hw, struct igb_adapter, hw);
-+	u8 __iomem *hw_addr = ACCESS_ONCE(hw->hw_addr);
-+	u32 value = 0;
++	struct ixgbevf_adapter *adapter = hw->back;
 +
-+	if (E1000_REMOVED(hw_addr))
-+		return ~value;
++	if (!hw->hw_addr)
++		return;
++	hw->hw_addr = NULL;
++	dev_err(&adapter->pdev->dev, "Adapter removed\n");
++}
 +
-+	value = readl(&hw_addr[reg]);
++static void ixgbevf_check_remove(struct ixgbe_hw *hw, u32 reg)
++{
++	u32 value;
 +
-+	/* reads should not return all F's */
-+	if (!(~value) && (!reg || !(~readl(hw_addr)))) {
-+		struct net_device *netdev = igb->netdev;
-+		hw->hw_addr = NULL;
-+		netif_device_detach(netdev);
-+		netdev_err(netdev, "PCIe link lost, device now detached\n");
++	/* The following check not only optimizes a bit by not
++	 * performing a read on the status register when the
++	 * register just read was a status register read that
++	 * returned IXGBE_FAILED_READ_REG. It also blocks any
++	 * potential recursion.
++	 */
++	if (reg == IXGBE_VFSTATUS) {
++		ixgbevf_remove_adapter(hw);
++		return;
 +	}
++	value = ixgbe_read_reg(hw, IXGBE_VFSTATUS);
++	if (value == IXGBE_FAILED_READ_REG)
++		ixgbevf_remove_adapter(hw);
++}
 +
++u32 ixgbe_read_reg(struct ixgbe_hw *hw, u32 reg)
++{
++	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
++	u32 value;
++
++	if (IXGBE_REMOVED(reg_addr))
++		return IXGBE_FAILED_READ_REG;
++	value = readl(reg_addr + reg);
++	if (unlikely(value == IXGBE_FAILED_READ_REG))
++		ixgbevf_check_remove(hw, reg);
 +	return value;
 +}
 +
- /**
-  *  igb_write_ivar - configure ivar for given MSI-X vector
-  *  @hw: pointer to the HW structure
+ static inline void ixgbevf_release_rx_desc(struct ixgbevf_ring *rx_ring,
+ 					   u32 val)
+ {
+@@ -1139,7 +1181,7 @@ static void ixgbevf_configure_tx_ring(struct ixgbevf_adapter *adapter,
+ 	/* reset head and tail pointers */
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFTDH(reg_idx), 0);
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFTDT(reg_idx), 0);
+-	ring->tail = hw->hw_addr + IXGBE_VFTDT(reg_idx);
++	ring->tail = adapter->io_addr + IXGBE_VFTDT(reg_idx);
+ 
+ 	/* reset ntu and ntc to place SW in sync with hardwdare */
+ 	ring->next_to_clean = 0;
+@@ -1318,7 +1360,7 @@ static void ixgbevf_configure_rx_ring(struct ixgbevf_adapter *adapter,
+ 	/* reset head and tail pointers */
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFRDH(reg_idx), 0);
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFRDT(reg_idx), 0);
+-	ring->tail = hw->hw_addr + IXGBE_VFRDT(reg_idx);
++	ring->tail = adapter->io_addr + IXGBE_VFRDT(reg_idx);
+ 
+ 	/* reset ntu and ntc to place SW in sync with hardwdare */
+ 	ring->next_to_clean = 0;
+@@ -3459,6 +3501,7 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	hw->hw_addr = ioremap(pci_resource_start(pdev, 0),
+ 			      pci_resource_len(pdev, 0));
++	adapter->io_addr = hw->hw_addr;
+ 	if (!hw->hw_addr) {
+ 		err = -EIO;
+ 		goto err_ioremap;
+@@ -3544,7 +3587,7 @@ err_register:
+ 	ixgbevf_clear_interrupt_scheme(adapter);
+ err_sw_init:
+ 	ixgbevf_reset_interrupt_capability(adapter);
+-	iounmap(hw->hw_addr);
++	iounmap(adapter->io_addr);
+ err_ioremap:
+ 	free_netdev(netdev);
+ err_alloc_etherdev:
+@@ -3582,7 +3625,7 @@ static void ixgbevf_remove(struct pci_dev *pdev)
+ 	ixgbevf_clear_interrupt_scheme(adapter);
+ 	ixgbevf_reset_interrupt_capability(adapter);
+ 
+-	iounmap(adapter->hw.hw_addr);
++	iounmap(adapter->io_addr);
+ 	pci_release_regions(pdev);
+ 
+ 	hw_dbg(&adapter->hw, "Remove complete\n");
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
+index 8ebed72..7cb1a52 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
+@@ -172,16 +172,17 @@ struct ixgbevf_info {
+ 	const struct ixgbe_mac_operations *mac_ops;
+ };
+ 
++#define IXGBE_FAILED_READ_REG 0xffffffffU
++
++#define IXGBE_REMOVED(a) unlikely(!(a))
++
+ static inline void ixgbe_write_reg(struct ixgbe_hw *hw, u32 reg, u32 value)
+ {
+ 	writel(value, hw->hw_addr + reg);
+ }
+ #define IXGBE_WRITE_REG(h, r, v) ixgbe_write_reg(h, r, v)
+ 
+-static inline u32 ixgbe_read_reg(struct ixgbe_hw *hw, u32 reg)
+-{
+-	return readl(hw->hw_addr + reg);
+-}
++u32 ixgbe_read_reg(struct ixgbe_hw *hw, u32 reg);
+ #define IXGBE_READ_REG(h, r) ixgbe_read_reg(h, r)
+ 
+ static inline void ixgbe_write_reg_array(struct ixgbe_hw *hw, u32 reg,
 -- 
 1.8.3.1
