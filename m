@@ -1,302 +1,110 @@
-From: Zhangfei Gao <zhangfei.gao@linaro.org>
-Subject: [PATCH 2/3] net: hisilicon: new hip04 MDIO driver
-Date: Fri, 21 Mar 2014 23:09:29 +0800
-Message-ID: <1395414570-25515-3-git-send-email-zhangfei.gao@linaro.org>
-References: <1395414570-25515-1-git-send-email-zhangfei.gao@linaro.org>
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, Zhangfei Gao <zhangfei.gao@linaro.org>
-To: "David S. Miller" <davem@davemloft.net>, linux@arm.linux.org.uk,
-	arnd@arndb.de, f.fainelli@gmail.com, mark.rutland@arm.com,
-	sergei.shtylyov@cogentembedded.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:58953 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760539AbaCUPKN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 11:10:13 -0400
-Received: by mail-ie0-f175.google.com with SMTP id to1so2473364ieb.6
-        for <netdev@vger.kernel.org>; Fri, 21 Mar 2014 08:10:13 -0700 (PDT)
-In-Reply-To: <1395414570-25515-1-git-send-email-zhangfei.gao@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Ertman, DavidX M" <davidx.m.ertman@intel.com>
+Subject: Re: i217-LM boot wreckage
+Date: Fri, 21 Mar 2014 15:09:04 +0000
+Message-ID: <2B0E3F215D1AB84DA946C8BEE234CCC9370CF4AB@ORSMSX101.amr.corp.intel.com>
+References: <alpine.DEB.2.02.1403201332400.18573@ionos.tec.linutronix.de>
+	<alpine.DEB.2.02.1403201431580.18573@ionos.tec.linutronix.de>
+	<2B0E3F215D1AB84DA946C8BEE234CCC9370CEFE3@ORSMSX101.amr.corp.intel.com>
+	<alpine.DEB.2.02.1403201724500.18573@ionos.tec.linutronix.de>
+	<alpine.DEB.2.02.1403211534040.18573@ionos.tec.linutronix.de>
+	<alpine.DEB.2.02.1403211551030.18573@ionos.tec.linutronix.de>
+	<D38E8E86660E514AB505863C19C9287C73F87D2B@ORSMSX102.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Ronciak, John" <john.ronciak@intel.com>, Thomas Gleixner
+	<tglx@linutronix.de>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <D38E8E86660E514AB505863C19C9287C73F87D2B@ORSMSX102.amr.corp.intel.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Hisilicon hip04 platform mdio driver
-Reuse Marvell phy drivers/net/phy/marvell.c
+This has been reproduced here.  I am touching base with the person who reproduced it and will be addressing this as a high priority.
 
-Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
----
- drivers/net/ethernet/Kconfig                |    1 +
- drivers/net/ethernet/Makefile               |    1 +
- drivers/net/ethernet/hisilicon/Kconfig      |   31 +++++
- drivers/net/ethernet/hisilicon/Makefile     |    5 +
- drivers/net/ethernet/hisilicon/hip04_mdio.c |  186 +++++++++++++++++++++++++++
- 5 files changed, 224 insertions(+)
- create mode 100644 drivers/net/ethernet/hisilicon/Kconfig
- create mode 100644 drivers/net/ethernet/hisilicon/Makefile
- create mode 100644 drivers/net/ethernet/hisilicon/hip04_mdio.c
+Thanks for finding this.
 
-diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 506b024..1c8dc3d 100644
---- a/drivers/net/ethernet/Kconfig
-+++ b/drivers/net/ethernet/Kconfig
-@@ -54,6 +54,7 @@ source "drivers/net/ethernet/neterion/Kconfig"
- source "drivers/net/ethernet/faraday/Kconfig"
- source "drivers/net/ethernet/freescale/Kconfig"
- source "drivers/net/ethernet/fujitsu/Kconfig"
-+source "drivers/net/ethernet/hisilicon/Kconfig"
- source "drivers/net/ethernet/hp/Kconfig"
- source "drivers/net/ethernet/ibm/Kconfig"
- source "drivers/net/ethernet/intel/Kconfig"
-diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index c0b8789..da1a435 100644
---- a/drivers/net/ethernet/Makefile
-+++ b/drivers/net/ethernet/Makefile
-@@ -29,6 +29,7 @@ obj-$(CONFIG_NET_VENDOR_EXAR) += neterion/
- obj-$(CONFIG_NET_VENDOR_FARADAY) += faraday/
- obj-$(CONFIG_NET_VENDOR_FREESCALE) += freescale/
- obj-$(CONFIG_NET_VENDOR_FUJITSU) += fujitsu/
-+obj-$(CONFIG_NET_VENDOR_HISILICON) += hisilicon/
- obj-$(CONFIG_NET_VENDOR_HP) += hp/
- obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
- obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
-diff --git a/drivers/net/ethernet/hisilicon/Kconfig b/drivers/net/ethernet/hisilicon/Kconfig
-new file mode 100644
-index 0000000..4b1c065
---- /dev/null
-+++ b/drivers/net/ethernet/hisilicon/Kconfig
-@@ -0,0 +1,31 @@
-+#
-+# HISILICON device configuration
-+#
-+
-+config NET_VENDOR_HISILICON
-+	bool "Hisilicon devices"
-+	default y
-+	depends on ARM
-+	---help---
-+	  If you have a network (Ethernet) card belonging to this class, say Y
-+	  and read the Ethernet-HOWTO, available from
-+	  <http://www.tldp.org/docs.html#howto>.
-+
-+	  Note that the answer to this question doesn't directly affect the
-+	  kernel: saying N will just cause the configurator to skip all
-+	  the questions about MOXA ART devices. If you say Y, you will be asked
-+	  for your specific card in the following questions.
-+
-+if NET_VENDOR_HISILICON
-+
-+config HIP04_ETH
-+	tristate "HISILICON P04 Ethernet support"
-+	select NET_CORE
-+	select PHYLIB
-+	select MARVELL_PHY
-+	---help---
-+	  If you wish to compile a kernel for a hardware with hisilicon p04 SoC and
-+	  want to use the internal ethernet then you should answer Y to this.
-+
-+
-+endif # NET_VENDOR_HISILICON
-diff --git a/drivers/net/ethernet/hisilicon/Makefile b/drivers/net/ethernet/hisilicon/Makefile
-new file mode 100644
-index 0000000..1d6eb6e
---- /dev/null
-+++ b/drivers/net/ethernet/hisilicon/Makefile
-@@ -0,0 +1,5 @@
-+#
-+# Makefile for the HISILICON network device drivers.
-+#
-+
-+obj-$(CONFIG_HIP04_ETH) += hip04_mdio.o
-diff --git a/drivers/net/ethernet/hisilicon/hip04_mdio.c b/drivers/net/ethernet/hisilicon/hip04_mdio.c
-new file mode 100644
-index 0000000..e4f67ca
---- /dev/null
-+++ b/drivers/net/ethernet/hisilicon/hip04_mdio.c
-@@ -0,0 +1,186 @@
-+
-+/* Copyright (c) 2014 Linaro Ltd.
-+ * Copyright (c) 2014 Hisilicon Limited.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/platform_device.h>
-+#include <linux/io.h>
-+#include <linux/of_mdio.h>
-+#include <linux/delay.h>
-+
-+#define MDIO_CMD_REG		0x0
-+#define MDIO_ADDR_REG		0x4
-+#define MDIO_WDATA_REG		0x8
-+#define MDIO_RDATA_REG		0xc
-+#define MDIO_STA_REG		0x10
-+
-+#define MDIO_START		BIT(14)
-+#define MDIO_R_VALID		BIT(1)
-+#define MDIO_READ	        (BIT(12) | BIT(11) | MDIO_START)
-+#define MDIO_WRITE	        (BIT(12) | BIT(10) | MDIO_START)
-+
-+struct hip04_mdio_priv {
-+	void __iomem *base;
-+};
-+
-+#define WAIT_TIMEOUT 10
-+static int hip04_mdio_wait_ready(struct mii_bus *bus)
-+{
-+	struct hip04_mdio_priv *priv = bus->priv;
-+	int i;
-+
-+	for (i = 0; readl_relaxed(priv->base + MDIO_CMD_REG) & MDIO_START; i++) {
-+		if (i == WAIT_TIMEOUT)
-+			return -ETIMEDOUT;
-+		msleep(20);
-+	}
-+
-+	return 0;
-+}
-+
-+static int hip04_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
-+{
-+	struct hip04_mdio_priv *priv = bus->priv;
-+	u32 val;
-+	int ret;
-+
-+	ret = hip04_mdio_wait_ready(bus);
-+	if (ret < 0)
-+		goto out;
-+
-+	val = regnum | (mii_id << 5) | MDIO_READ;
-+	writel_relaxed(val, priv->base + MDIO_CMD_REG);
-+
-+	ret = hip04_mdio_wait_ready(bus);
-+	if (ret < 0)
-+		goto out;
-+
-+	val = readl_relaxed(priv->base + MDIO_STA_REG);
-+	if (val & MDIO_R_VALID) {
-+		dev_err(bus->parent, "SMI bus read not valid\n");
-+		ret = -ENODEV;
-+		goto out;
-+	}
-+
-+	val = readl_relaxed(priv->base + MDIO_RDATA_REG);
-+	ret = val & 0xFFFF;
-+out:
-+	return ret;
-+}
-+
-+static int hip04_mdio_write(struct mii_bus *bus, int mii_id,
-+			    int regnum, u16 value)
-+{
-+	struct hip04_mdio_priv *priv = bus->priv;
-+	u32 val;
-+	int ret;
-+
-+	ret = hip04_mdio_wait_ready(bus);
-+	if (ret < 0)
-+		goto out;
-+
-+	writel_relaxed(value, priv->base + MDIO_WDATA_REG);
-+	val = regnum | (mii_id << 5) | MDIO_WRITE;
-+	writel_relaxed(val, priv->base + MDIO_CMD_REG);
-+out:
-+	return ret;
-+}
-+
-+
-+static int hip04_mdio_reset(struct mii_bus *bus)
-+{
-+	int temp, err, i;
-+
-+	for (i = 0; i < PHY_MAX_ADDR; i++) {
-+		hip04_mdio_write(bus, i, 22, 0);
-+		temp = hip04_mdio_read(bus, i, MII_BMCR);
-+		temp |= BMCR_RESET;
-+		err = hip04_mdio_write(bus, i, MII_BMCR, temp);
-+		if (err < 0)
-+			return err;
-+	}
-+
-+	mdelay(500);
-+	return 0;
-+}
-+
-+static int hip04_mdio_probe(struct platform_device *pdev)
-+{
-+	struct resource *r;
-+	struct mii_bus *bus;
-+	struct hip04_mdio_priv *priv;
-+	int ret;
-+
-+	bus = mdiobus_alloc_size(sizeof(struct hip04_mdio_priv));
-+	if (!bus) {
-+		dev_err(&pdev->dev, "Cannot allocate MDIO bus\n");
-+		return -ENOMEM;
-+	}
-+
-+	bus->name = "hip04_mdio_bus";
-+	bus->read = hip04_mdio_read;
-+	bus->write = hip04_mdio_write;
-+	bus->reset = hip04_mdio_reset;
-+	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-mii", dev_name(&pdev->dev));
-+	bus->parent = &pdev->dev;
-+	priv = bus->priv;
-+
-+	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	priv->base = devm_ioremap_resource(&pdev->dev, r);
-+	if (IS_ERR(priv->base)) {
-+		ret = PTR_ERR(priv->base);
-+		goto out_mdio;
-+	}
-+
-+	ret = of_mdiobus_register(bus, pdev->dev.of_node);
-+	if (ret < 0) {
-+		dev_err(&pdev->dev, "Cannot register MDIO bus (%d)\n", ret);
-+		goto out_mdio;
-+	}
-+
-+	platform_set_drvdata(pdev, bus);
-+
-+	return 0;
-+
-+out_mdio:
-+	mdiobus_free(bus);
-+	return ret;
-+}
-+
-+static int hip04_mdio_remove(struct platform_device *pdev)
-+{
-+	struct mii_bus *bus = platform_get_drvdata(pdev);
-+
-+	mdiobus_unregister(bus);
-+	mdiobus_free(bus);
-+
-+	return 0;
-+}
-+
-+static const struct of_device_id hip04_mdio_match[] = {
-+	{ .compatible = "hisilicon,hip04-mdio" },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(of, hip04_mdio_match);
-+
-+static struct platform_driver hip04_mdio_driver = {
-+	.probe = hip04_mdio_probe,
-+	.remove = hip04_mdio_remove,
-+	.driver = {
-+		.name = "hip04-mdio",
-+		.owner = THIS_MODULE,
-+		.of_match_table = hip04_mdio_match,
-+	},
-+};
-+
-+module_platform_driver(hip04_mdio_driver);
-+
-+MODULE_DESCRIPTION("HISILICON P04 MDIO interface driver");
-+MODULE_LICENSE("GPL v2");
-+MODULE_ALIAS("platform:hip04-mdio");
--- 
-1.7.9.5
+Dave Ertman
+
+-----Original Message-----
+From: Ronciak, John 
+Sent: Friday, March 21, 2014 8:08 AM
+To: Thomas Gleixner; Ertman, DavidX M
+Cc: e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org
+Subject: RE: [E1000-devel] i217-LM boot wreckage
+
+> -----Original Message-----
+> From: Thomas Gleixner [mailto:tglx@linutronix.de]
+> Sent: Friday, March 21, 2014 7:52 AM
+> To: Ertman, DavidX M
+> Cc: e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org
+> Subject: Re: [E1000-devel] i217-LM boot wreckage
+> 
+> On Fri, 21 Mar 2014, Thomas Gleixner wrote:
+> > On Thu, 20 Mar 2014, Thomas Gleixner wrote:
+> > > On Thu, 20 Mar 2014, Ertman, DavidX M wrote:
+> > > > Hello Thomas,
+> > > >
+> > > > Could you provide the exact kernel version and kernel config you
+> are using?
+> > >
+> > > 3.14-rc7. config attached
+> > >
+> > > > Do you have Runtime Power Management enabled?
+> > >
+> > > According to .config yes
+> > >
+> > > > Have you tried the latest driver from sourceforge.net (3.0.4.1)?
+> > >
+> > > Nope, why should I?
+> >
+> > Now I got desperate enough to do. Doesnt work either.
+> >
+> > > > From your lspci output it looks like you have a Management 
+> > > > Engine enabled platform.  Do you know what version of ME is loaded?
+> Have
+> > >
+> > > 9.0.2.1345
+> > >
+> > > Disabling ME in the BIOS does not help.
+> > >
+> > > > you checked to see that you are on the latest BIOS/NVM image 
+> > > > (looks like a new one was released on March 11th for the M93z)?
+> > >
+> > > Yep. Latest BIOS does not help either.
+> >
+> > Just for extended fun: The Thinkpad L440 has the same issue.
+> 
+> Some more data. 3.12 does not work at all, 3.13 has the same behaviour 
+> as 3.14.-rc7
+Thomas,
+
+What does "does not work at all" mean? How is it broken?  Please supply some details.
+
+Thanks.  We are looking into what's going on here but we don't have a lot of laptops around to test with.  That's slowing us down a bit.
+
+Cheers,
+John
+
+
+
+------------------------------------------------------------------------------
+Learn Graph Databases - Download FREE O'Reilly Book
+"Graph Databases" is the definitive new guide to graph databases and their
+applications. Written by three acclaimed leaders in the field,
+this first edition is now available. Download your free book today!
+http://p.sf.net/sfu/13534_NeoTech
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
