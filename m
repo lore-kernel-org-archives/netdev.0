@@ -1,133 +1,178 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] csum experts, csum_replace2() is too expensive
-Date: Fri, 21 Mar 2014 05:50:50 -0700
-Message-ID: <1395406250.9114.142.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <87a9cknwk4.fsf@tassilo.jf.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"H.K. Jerry Chu" <hkchu@google.com>,
-	Michael Dalton <mwdalton@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andi Kleen <andi@firstfloor.org>, "H. Peter Anvin" <hpa@zytor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87a9cknwk4.fsf@tassilo.jf.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 3/9] net: filter: move filter accounting to filter core
+Date: Fri, 21 Mar 2014 13:20:12 +0100
+Message-ID: <1395404418-25376-4-git-send-email-dborkman@redhat.com>
+References: <1395404418-25376-1-git-send-email-dborkman@redhat.com>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org,
+	Pavel Emelyanov <xemul@parallels.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35449 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965450AbaCUMxI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Mar 2014 08:53:08 -0400
+In-Reply-To: <1395404418-25376-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-03-20 at 18:56 -0700, Andi Kleen wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
-> >
-> > I saw csum_partial() consuming 1% of cpu cycles in a GRO workload, that
-> > is insane...
-> 
-> 
-> Couldn't it just be the cache miss?
+This patch basically does two things, i) removes the extern keyword
+from the include/linux/filter.h file to be more consistent with the
+rest of Joe's changes, and ii) moves filter accounting into the filter
+core framework.
 
-Or the fact that we mix 16 bit stores and 32bit loads ?
+Filter accounting mainly done through sk_filter_{un,}charge() take
+care of the case when sockets are being cloned through sk_clone_lock()
+so that removal of the filter on one socket won't result in eviction
+as it's still referenced by the other.
 
-iph->tot_len = newlen;
-iph->check = 0;
-iph->check = ip_fast_csum(iph, 5);
+These functions actually belong to net/core/filter.c and not
+include/net/sock.h as we want to keep all that in a central place.
+It's also not in fast-path so uninlining them is fine and even allows
+us to get rd of sk_filter_release_rcu()'s EXPORT_SYMBOL and a forward
+declaration.
 
--> following perf annotation :
+Joint work with Alexei Starovoitov.
 
-         :      ffffffff81538e70 <inet_gro_complete>:
-    0.49 :      ffffffff81538e70:       callq  ffffffff81578c80 <__entry_text_start>
-    0.49 :      ffffffff81538e75:       push   %rbp
-    1.46 :      ffffffff81538e76:       movzwl 0x60(%rdi),%edx
-    0.00 :      ffffffff81538e7a:       movslq %esi,%rax
-    0.00 :      ffffffff81538e7d:       add    0xc8(%rdi),%rax
-    1.46 :      ffffffff81538e84:       mov    %rsp,%rbp
-    0.00 :      ffffffff81538e87:       sub    %esi,%edx
-    0.00 :      ffffffff81538e89:       rol    $0x8,%dx
-    0.00 :      ffffffff81538e8d:       movzbl 0x9(%rax),%ecx
-    0.98 :      ffffffff81538e91:       mov    %dx,0x2(%rax)     iph->tot_len = newlen;
-    0.49 :      ffffffff81538e95:       xor    %edx,%edx
-    0.00 :      ffffffff81538e97:       mov    %dx,0xa(%rax)     iph->check = 0;
-    0.00 :      ffffffff81538e9b:       mov    (%rax),%edx       // 32bit load  -> stall 
-   86.34 :      ffffffff81538e9d:       add    0x4(%rax),%edx
-    0.49 :      ffffffff81538ea0:       adc    0x8(%rax),%edx
-    0.49 :      ffffffff81538ea3:       adc    0xc(%rax),%edx
-    0.98 :      ffffffff81538ea6:       adc    0x10(%rax),%edx
-    0.49 :      ffffffff81538ea9:       adc    $0x0,%edx
-    0.00 :      ffffffff81538eac:       mov    %edx,%r8d
-    0.49 :      ffffffff81538eaf:       xor    %dx,%dx
-    0.00 :      ffffffff81538eb2:       shl    $0x10,%r8d
-    0.98 :      ffffffff81538eb6:       add    %r8d,%edx
-    0.98 :      ffffffff81538eb9:       adc    $0xffff,%edx
-    0.98 :      ffffffff81538ebf:       not    %edx
-    0.00 :      ffffffff81538ec1:       shr    $0x10,%edx
-    0.49 :      ffffffff81538ec4:       mov    %dx,0xa(%rax)
-    0.00 :      ffffffff81538ec8:       movslq %ecx,%rax
-    0.00 :      ffffffff81538ecb:       mov    -0x7e734f40(,%rax,8),%rax
-    0.00 :      ffffffff81538ed3:       test   %rax,%rax
-    0.00 :      ffffffff81538ed6:       je     ffffffff81538ef0 <inet_gro_complete+0x80>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Cc: Pavel Emelyanov <xemul@parallels.com>
+---
+ include/linux/filter.h | 30 +++++++++++++++++-------------
+ include/net/sock.h     | 27 ---------------------------
+ net/core/filter.c      | 27 +++++++++++++++++++++++++--
+ 3 files changed, 42 insertions(+), 42 deletions(-)
 
-BTW, any idea why ip_fast_csum() on x86 contains a "memory" constraint ?
-It looks like a barrier() would be more appropriate.
-
-Following patch seems to help, but the stall seems to be the fact that
-we write on iph->check (16bits) before doing the checksum using 32bit
-loads.
-
-Note that we could share same ip_fast_csum() implementation between x86
-32/64 bits...
-
-diff --git a/arch/x86/include/asm/checksum_64.h b/arch/x86/include/asm/checksum_64.h
-index e6fd8a026c7b..a81cc3a5facc 100644
---- a/arch/x86/include/asm/checksum_64.h
-+++ b/arch/x86/include/asm/checksum_64.h
-@@ -46,6 +46,24 @@ static inline __sum16 ip_fast_csum(const void *iph, unsigned int ihl)
- {
- 	unsigned int sum;
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 93a9792..9bde3ed 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -50,28 +50,32 @@ static inline unsigned int sk_filter_size(unsigned int proglen)
+ #define sk_filter_proglen(fprog)			\
+ 		(fprog->len * sizeof(fprog->filter[0]))
  
-+	/*
-+	 * Callers might clear iph->check before calling us, make sure
-+	 * compiler wont mess things...
-+	 */
-+	barrier();
+-extern int sk_filter(struct sock *sk, struct sk_buff *skb);
+-extern unsigned int sk_run_filter(const struct sk_buff *skb,
+-				  const struct sock_filter *filter);
++int sk_filter(struct sock *sk, struct sk_buff *skb);
++unsigned int sk_run_filter(const struct sk_buff *skb,
++			   const struct sock_filter *filter);
+ 
+-extern int sk_unattached_filter_create(struct sk_filter **pfp,
+-				       struct sock_fprog *fprog);
+-extern void sk_unattached_filter_destroy(struct sk_filter *fp);
++int sk_unattached_filter_create(struct sk_filter **pfp,
++				struct sock_fprog *fprog);
++void sk_unattached_filter_destroy(struct sk_filter *fp);
+ 
+-extern int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
+-extern int sk_detach_filter(struct sock *sk);
++int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
++int sk_detach_filter(struct sock *sk);
+ 
+-extern int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
+-extern int sk_get_filter(struct sock *sk, struct sock_filter __user *filter, unsigned len);
+-extern void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to);
++int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
++int sk_get_filter(struct sock *sk, struct sock_filter __user *filter,
++		  unsigned int len);
++void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to);
 +
-+	if (__builtin_constant_p(ihl) && ihl == 5) {
-+		asm("  movl (%[iph]), %[sum]\n"
-+		    "  addl 4(%[iph]), %[sum]\n"
-+		    "  adcl 8(%[iph]), %[sum]\n"
-+		    "  adcl 12(%[iph]), %[sum]\n"
-+		    "  adcl 16(%[iph]), %[sum]\n"
-+		    "  adcl $0, %[sum]\n"
-+		    : [sum] "=r" (sum)
-+		    : [iph] "r" (iph)
-+		    );
-+		return csum_fold(sum);
-+	}
- 	asm("  movl (%1), %0\n"
- 	    "  subl $4, %2\n"
- 	    "  jbe 2f\n"
-@@ -68,7 +86,7 @@ static inline __sum16 ip_fast_csum(const void *iph, unsigned int ihl)
- 	   will assume they contain their original values. */
- 	    : "=r" (sum), "=r" (iph), "=r" (ihl)
- 	    : "1" (iph), "2" (ihl)
--	    : "memory");
-+	    );
- 	return (__force __sum16)sum;
++void sk_filter_charge(struct sock *sk, struct sk_filter *fp);
++void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp);
+ 
+ #ifdef CONFIG_BPF_JIT
+ #include <stdarg.h>
+ #include <linux/linkage.h>
+ #include <linux/printk.h>
+ 
+-extern void bpf_jit_compile(struct sk_filter *fp);
+-extern void bpf_jit_free(struct sk_filter *fp);
++void bpf_jit_compile(struct sk_filter *fp);
++void bpf_jit_free(struct sk_filter *fp);
+ 
+ static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
+ 				u32 pass, void *image)
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 625e65b..696227c 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1621,33 +1621,6 @@ void sk_common_release(struct sock *sk);
+ /* Initialise core socket variables */
+ void sock_init_data(struct socket *sock, struct sock *sk);
+ 
+-void sk_filter_release_rcu(struct rcu_head *rcu);
+-
+-/**
+- *	sk_filter_release - release a socket filter
+- *	@fp: filter to remove
+- *
+- *	Remove a filter from a socket and release its resources.
+- */
+-
+-static inline void sk_filter_release(struct sk_filter *fp)
+-{
+-	if (atomic_dec_and_test(&fp->refcnt))
+-		call_rcu(&fp->rcu, sk_filter_release_rcu);
+-}
+-
+-static inline void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
+-{
+-	atomic_sub(sk_filter_size(fp->len), &sk->sk_omem_alloc);
+-	sk_filter_release(fp);
+-}
+-
+-static inline void sk_filter_charge(struct sock *sk, struct sk_filter *fp)
+-{
+-	atomic_inc(&fp->refcnt);
+-	atomic_add(sk_filter_size(fp->len), &sk->sk_omem_alloc);
+-}
+-
+ /*
+  * Socket reference counting postulates.
+  *
+diff --git a/net/core/filter.c b/net/core/filter.c
+index f19c078..976edc6 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -664,14 +664,37 @@ static void sk_release_orig_filter(struct sk_filter *fp)
+  * 	sk_filter_release_rcu - Release a socket filter by rcu_head
+  *	@rcu: rcu_head that contains the sk_filter to free
+  */
+-void sk_filter_release_rcu(struct rcu_head *rcu)
++static void sk_filter_release_rcu(struct rcu_head *rcu)
+ {
+ 	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
+ 
+ 	sk_release_orig_filter(fp);
+ 	bpf_jit_free(fp);
  }
+-EXPORT_SYMBOL(sk_filter_release_rcu);
++
++/**
++ *	sk_filter_release - release a socket filter
++ *	@fp: filter to remove
++ *
++ *	Remove a filter from a socket and release its resources.
++ */
++static void sk_filter_release(struct sk_filter *fp)
++{
++	if (atomic_dec_and_test(&fp->refcnt))
++		call_rcu(&fp->rcu, sk_filter_release_rcu);
++}
++
++void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
++{
++	atomic_sub(sk_filter_size(fp->len), &sk->sk_omem_alloc);
++	sk_filter_release(fp);
++}
++
++void sk_filter_charge(struct sock *sk, struct sk_filter *fp)
++{
++	atomic_inc(&fp->refcnt);
++	atomic_add(sk_filter_size(fp->len), &sk->sk_omem_alloc);
++}
  
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 8c54870db792..90aa562dfbf5 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1434,8 +1434,9 @@ static int inet_gro_complete(struct sk_buff *skb, int nhoff)
- 	int proto = iph->protocol;
- 	int err = -ENOSYS;
- 
--	csum_replace2(&iph->check, iph->tot_len, newlen);
- 	iph->tot_len = newlen;
-+	iph->check = 0;
-+	iph->check = ip_fast_csum((u8 *)iph, 5);
- 
- 	rcu_read_lock();
- 	ops = rcu_dereference(inet_offloads[proto]);
+ static int __sk_prepare_filter(struct sk_filter *fp)
+ {
+-- 
+1.7.11.7
