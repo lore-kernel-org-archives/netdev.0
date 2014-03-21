@@ -1,48 +1,57 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next v3 4/9] ptp: drivers: set the number of
- programmable pins.
-Date: Fri, 21 Mar 2014 01:02:06 -0700
-Message-ID: <CAL3LdT6aZYiyebbN_e0LkPP8jQpO=5d=OCb9i2cKcdej6jPYcA@mail.gmail.com>
-References: <cover.1395350105.git.richardcochran@gmail.com>
-	<daae779db6ec1b3177c88024216f37d88fd59cd9.1395350113.git.richardcochran@gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net] virtio-net: don't free skb immediately on kick failure
+Date: Fri, 21 Mar 2014 16:30:01 +0800
+Message-ID: <1395390601-13177-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Christian Riesch <christian.riesch@omicron.at>,
-	David Miller <davem@davemloft.net>,
-	=?UTF-8?Q?Stefan_S=C3=B8rensen?= <stefan.sorensen@spectralink.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <daae779db6ec1b3177c88024216f37d88fd59cd9.1395350113.git.richardcochran@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: rusty@rustcorp.com.au, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 20, 2014 at 2:21 PM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> This patch updates the many PTP Hardware Clock drivers with the
-> newly introduced field that advertises the number of programmable
-> pins. Some of these devices do have programmable pins, but the
-> implementation will have to wait for follow on patches.
->
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
-> ---
->  drivers/net/ethernet/adi/bfin_mac.c              |    1 +
->  drivers/net/ethernet/broadcom/tg3.c              |    1 +
->  drivers/net/ethernet/freescale/fec_ptp.c         |    1 +
->  drivers/net/ethernet/freescale/gianfar_ptp.c     |    1 +
->  drivers/net/ethernet/intel/e1000e/ptp.c          |    1 +
->  drivers/net/ethernet/mellanox/mlx4/en_clock.c    |    1 +
->  drivers/net/ethernet/sfc/ptp.c                   |    1 +
->  drivers/net/ethernet/stmicro/stmmac/stmmac_ptp.c |    1 +
->  drivers/net/ethernet/ti/cpts.c                   |    1 +
->  drivers/net/ethernet/tile/tilegx.c               |    1 +
->  drivers/ptp/ptp_ixp46x.c                         |    1 +
->  drivers/ptp/ptp_pch.c                            |    1 +
->  12 files changed, 12 insertions(+)
->
+We free the skb immediately on kick failure during xmit without detaching it
+from the virtqueue. This may lead double free for the skb during
+free_unused_bufs(). This patch fixes this by not freeing it on kick failure and
+let it to be freed through free_unused_bufs().
 
-For the e1000e change...
+Fixes 67975901183799af8e93ec60e322f9e2a1940b9b
+("virtio_net: verify if virtqueue_kick() succeeded").
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Cc: Heinz Graalfs <graalfs@linux.vnet.ibm.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/virtio_net.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 5632a99..d833d38 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -882,8 +882,10 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		if (net_ratelimit())
+ 			dev_warn(&dev->dev,
+ 				 "Unexpected TXQ (%d) queue failure: %d\n", qnum, err);
+-		dev->stats.tx_dropped++;
+-		kfree_skb(skb);
++		if (err) {
++			dev->stats.tx_dropped++;
++			kfree_skb(skb);
++		}
+ 		return NETDEV_TX_OK;
+ 	}
+ 
+-- 
+1.8.3.2
