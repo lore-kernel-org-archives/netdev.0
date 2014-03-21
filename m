@@ -1,55 +1,59 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: i217-LM boot wreckage
-Date: Fri, 21 Mar 2014 16:57:38 +0100 (CET)
-Message-ID: <alpine.DEB.2.02.1403211657110.18573@ionos.tec.linutronix.de>
-References: <alpine.DEB.2.02.1403201332400.18573@ionos.tec.linutronix.de>
-	<alpine.DEB.2.02.1403201431580.18573@ionos.tec.linutronix.de>
-	<2B0E3F215D1AB84DA946C8BEE234CCC9370CEFE3@ORSMSX101.amr.corp.intel.com>
-	<alpine.DEB.2.02.1403201724500.18573@ionos.tec.linutronix.de>
-	<alpine.DEB.2.02.1403211534040.18573@ionos.tec.linutronix.de>
-	<alpine.DEB.2.02.1403211551030.18573@ionos.tec.linutronix.de>
-	<D38E8E86660E514AB505863C19C9287C73F87D2B@ORSMSX102.amr.corp.intel.com>
-	<2B0E3F215D1AB84DA946C8BEE234CCC9370CF4AB@ORSMSX101.amr.corp.intel.com>
+From: Grant Grundler <grundler@google.com>
+Subject: Re: usbnet: driver_info->stop required to stop USB interrupts?
+Date: Fri, 21 Mar 2014 09:18:58 -0700
+Message-ID: <CANEJEGu3dB5Hc=Zjrf4jMuzHGqOuJem2k3Y0YorFF98EGV7hiA@mail.gmail.com>
+References: <CANEJEGsvqkT_H4i+UZpBaWMYmgXHmpD8SZ4tU1OHzLd8gyznow@mail.gmail.com>
+	<CANEJEGv03ohVwoS0Pd1Z3az9k-C=dTzG4qE1SBL6Um97QC1Ehw@mail.gmail.com>
+	<CAODwPW_t9COeg0LWfkiqXC_yTbSNhUHX-8T95KRZHfOTSiZK1Q@mail.gmail.com>
+	<1394529263.16128.6.camel@linux-fkkt.site>
+	<CAODwPW8rQptt+jnfZ+KjpuOOpKi9ktb-y2kCYGZJo_ava1ktjg@mail.gmail.com>
+	<CAODwPW-CqigMBvwZtb+KLY5XbT+LDssPpvDZj86ej183DMiPkQ@mail.gmail.com>
+	<1395093343.3961.2.camel@linux-fkkt.site>
+	<CANEJEGuaVPNZKFiXY9CywFuqghgiQqV_sii7TE3STCNvXLQ3pQ@mail.gmail.com>
+	<CAODwPW-E-3HcXCGEmp9JpW6hU-Xt-FHwBtqeSSTDGaRPqO49Sw@mail.gmail.com>
+	<CANEJEGscbVF3gRLNtTAcRSpHGVm1iDDKEeBscXcwj2-YdkiDXA@mail.gmail.com>
+	<CANEJEGtZF30=bqkErvi1CFZLbk=PJ-p_gKf9eBGU7sWwJcrefg@mail.gmail.com>
+	<1395299705.5432.12.camel@linux-fkkt.site>
+	<CANEJEGu3j4a6LOiyD-Qbs5nX4wc4spWQB3ZukmEa1J6VPUg+=g@mail.gmail.com>
+	<CANEJEGues6qVUEpWR5ggejg7dmS1PqzOHvZeWdxGJSnJh6c8Tw@mail.gmail.com>
+	<1395390825.5171.3.camel@linux-fkkt.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Ronciak,
-	John" <john.ronciak@intel.com>
-To: "Ertman, DavidX M" <davidx.m.ertman@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <2B0E3F215D1AB84DA946C8BEE234CCC9370CF4AB@ORSMSX101.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, Freddy Xin <freddy@asix.com.tw>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	Allan Chou <allan@asix.com.tw>,
+	Julius Werner <jwerner@chromium.org>
+To: Oliver Neukum <oneukum@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f45.google.com ([209.85.219.45]:55435 "EHLO
+	mail-oa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753369AbaCUQS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 12:18:58 -0400
+Received: by mail-oa0-f45.google.com with SMTP id eb12so2458657oac.32
+        for <netdev@vger.kernel.org>; Fri, 21 Mar 2014 09:18:58 -0700 (PDT)
+In-Reply-To: <1395390825.5171.3.camel@linux-fkkt.site>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 21 Mar 2014, Ertman, DavidX M wrote:
+On Fri, Mar 21, 2014 at 1:33 AM, Oliver Neukum <oneukum@suse.de> wrote:
+...
+> Very well. Thorough testing is good. I'll wait for the result. Could
+> you notify me of the final outcome?
 
-> This has been reproduced here.  I am touching base with the person
-> who reproduced it and will be addressing this as a high priority.
+Ceratinly. Bad news is I had to restart my workstation that was
+driving the test due to completely different issue (loopbacks hung -
+known bug). reload_asix ran about 2000 iterations with no problems on
+AX88178 part.
+It's running again now on the same target machine.
 
-Cool!
+> And, Julius, I owe you an apology. The check is necessary.
 
-> Thanks for finding this.
+++oliver
 
-Thanks for caring!
+Sorry to harp on this more, but I still think a comment is warranted:
+  e.g. "Don't resend packets during shutdown of this USB net device."
 
-       tglx
+And instead of naming the queue "wait", call the field "shutdown queue".
 
-------------------------------------------------------------------------------
-Learn Graph Databases - Download FREE O'Reilly Book
-"Graph Databases" is the definitive new guide to graph databases and their
-applications. Written by three acclaimed leaders in the field,
-this first edition is now available. Download your free book today!
-http://p.sf.net/sfu/13534_NeoTech
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+cheers,
+grant
