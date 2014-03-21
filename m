@@ -1,68 +1,78 @@
-From: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v3] core, nfqueue,
- openvswitch: Orphan frags in skb_zerocopy and handle errors
-Date: Fri, 21 Mar 2014 10:35:13 +0000
-Message-ID: <532C15E1.4070501@citrix.com>
-References: <1395331354-23659-1-git-send-email-zoltan.kiss@citrix.com>
- <532B6A3D.1060600@redhat.com>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: Re: [PATCH] sh_eth: pm_runtime should not need null operations
+Date: Fri, 21 Mar 2014 11:57:23 +0100
+Message-ID: <532C1B13.7000805@codethink.co.uk>
+References: <1395396913-24354-1-git-send-email-ben.dooks@codethink.co.uk> <CAMuHMdWO-kNdWT_AxzAmCTrx3NerWpTG+auFNZTcL5hsbN+++A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Miklos Szeredi <mszeredi-AlSwsSmVLrQ@public.gmane.org>,
- kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
- Jan Beulich <JBeulich-IBi9RG/b67k@public.gmane.org>, Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
- Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
- Jozsef Kadlecsik <kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org>, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org,
- Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
- Paul Durrant <Paul.Durrant-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
- <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <532B6A3D.1060600-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Cc: linux-kernel@lists.codethink.co.uk,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdWO-kNdWT_AxzAmCTrx3NerWpTG+auFNZTcL5hsbN+++A@mail.gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 20/03/14 22:22, Thomas Graf wrote:
-> On 03/20/2014 05:02 PM, Zoltan Kiss wrote:
->> --- a/net/openvswitch/datapath.c
->> +++ b/net/openvswitch/datapath.c
->> @@ -464,7 +464,9 @@ static int queue_userspace_packet(struct datapath
->> *dp, struct sk_buff *skb,
->>       }
->>       nla->nla_len = nla_attr_size(skb->len);
->>
->> -    skb_zerocopy(user_skb, skb, skb->len, hlen);
->> +    err = skb_zerocopy(user_skb, skb, skb->len, hlen);
->> +    if (err)
->> +        goto out;
->>
->>       /* Pad OVS_PACKET_ATTR_PACKET if linear copy was performed */
->>       if (!(dp->user_features & OVS_DP_F_UNALIGNED)) {
->> @@ -478,6 +480,7 @@ static int queue_userspace_packet(struct datapath
->> *dp, struct sk_buff *skb,
->>
->>       err = genlmsg_unicast(ovs_dp_get_net(dp), user_skb,
->> upcall_info->portid);
->>   out:
->> +    skb_tx_error(skb);
+On 21/03/14 11:30, Geert Uytterhoeven wrote:
+> Hi Ben,
 >
-> Really sorry to bug you again. We'll get this right ;-)
+> On Fri, Mar 21, 2014 at 11:15 AM, Ben Dooks <ben.dooks@codethink.co.uk> wrote:
+>> The driver has a no-op for the pm_runtime callbacks but
+>> the pm_runtime core should correctly ignore drivers without
+>> any pm_rumtime callback ops.
 >
-> Patch looks great except for this call to skb_tx_error() which is now
-> done in the error *and* success path. Make the call conditional on
-> if (err) and we're good.
-Ah, sorry, I'm really sloppy with this patch. I've sent a fixed one.
+> The pm_runtime core doesn't ignore non-existing runtime_{suspend,resume}
+> callbacks, it turns them into a failure withv -ENOSYS.
+> Only non-existing runtime_idle callbacks are ignored.
 
-Zoli
+I've added Rafael Wysocki as he may be able to add better
+feedback to this issue.
+
+[snip rpm_susend code block]
+
+I got very confused here. The clock_ops sets dev->pm_domain
+which over-rides the use of the dev->driver->pm entry as the
+primary pm for the device. The code above the bit you snipped
+does a ladder looking for the pm_runtime entry it calls and
+would stop at finding dev->pm_domain as so:
+
+from drivers/base/power/runtime.c:
+     495         if (dev->pm_domain)
+     496                 callback = dev->pm_domain->ops.runtime_suspend;
+  ...
+     502                 callback = dev->bus->pm->runtime_suspend;
+     503         else
+     504                 callback = NULL;
+
+
+So for drivers on shmobile with drivers/sh/pm_runtime.c enabled
+we would never call the drivers' entry as the ops that this code
+introduces just calls the pm_clk calls and does not send the
+events on.
+
+If we send the events on, then we would use pm_generic_runtime_suspend()
+to send it. This call treats the lack of runtime_pm driver entry as a
+do nothing and return 0 which means in this case the code in sh_eth
+is not necessary to have any pm_runtime functions.
+
+This means depending on if we have a pm_domain in the path we get
+different treatment of NULL runtime pm ops pointer. I am not sure
+how to handle this, as IIRC a number of other drivers for Renesas
+currently assume that the NULL case is going to be fine for them.
+
+Changing pm_generic_runtime_suspend() to return ENOSYS would end
+up breaking davinci and probably a number of other platforms.
+
+So questions:
+
+- Should rpm_suspend() ignore the lack of pm_runtime operations?
+- Do we need to add a generic `ignore pm runtime callback`
+- Are any other shmobile drivers similarly affected?
+
+-- 
+Ben Dooks				http://www.codethink.co.uk/
+Senior Engineer				Codethink - Providing Genius
