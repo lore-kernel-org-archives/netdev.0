@@ -1,59 +1,175 @@
-From: Grant Grundler <grundler@google.com>
-Subject: Re: usbnet: driver_info->stop required to stop USB interrupts?
-Date: Fri, 21 Mar 2014 09:18:58 -0700
-Message-ID: <CANEJEGu3dB5Hc=Zjrf4jMuzHGqOuJem2k3Y0YorFF98EGV7hiA@mail.gmail.com>
-References: <CANEJEGsvqkT_H4i+UZpBaWMYmgXHmpD8SZ4tU1OHzLd8gyznow@mail.gmail.com>
-	<CANEJEGv03ohVwoS0Pd1Z3az9k-C=dTzG4qE1SBL6Um97QC1Ehw@mail.gmail.com>
-	<CAODwPW_t9COeg0LWfkiqXC_yTbSNhUHX-8T95KRZHfOTSiZK1Q@mail.gmail.com>
-	<1394529263.16128.6.camel@linux-fkkt.site>
-	<CAODwPW8rQptt+jnfZ+KjpuOOpKi9ktb-y2kCYGZJo_ava1ktjg@mail.gmail.com>
-	<CAODwPW-CqigMBvwZtb+KLY5XbT+LDssPpvDZj86ej183DMiPkQ@mail.gmail.com>
-	<1395093343.3961.2.camel@linux-fkkt.site>
-	<CANEJEGuaVPNZKFiXY9CywFuqghgiQqV_sii7TE3STCNvXLQ3pQ@mail.gmail.com>
-	<CAODwPW-E-3HcXCGEmp9JpW6hU-Xt-FHwBtqeSSTDGaRPqO49Sw@mail.gmail.com>
-	<CANEJEGscbVF3gRLNtTAcRSpHGVm1iDDKEeBscXcwj2-YdkiDXA@mail.gmail.com>
-	<CANEJEGtZF30=bqkErvi1CFZLbk=PJ-p_gKf9eBGU7sWwJcrefg@mail.gmail.com>
-	<1395299705.5432.12.camel@linux-fkkt.site>
-	<CANEJEGu3j4a6LOiyD-Qbs5nX4wc4spWQB3ZukmEa1J6VPUg+=g@mail.gmail.com>
-	<CANEJEGues6qVUEpWR5ggejg7dmS1PqzOHvZeWdxGJSnJh6c8Tw@mail.gmail.com>
-	<1395390825.5171.3.camel@linux-fkkt.site>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, Freddy Xin <freddy@asix.com.tw>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	Allan Chou <allan@asix.com.tw>,
-	Julius Werner <jwerner@chromium.org>
-To: Oliver Neukum <oneukum@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f45.google.com ([209.85.219.45]:55435 "EHLO
-	mail-oa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753369AbaCUQS6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 12:18:58 -0400
-Received: by mail-oa0-f45.google.com with SMTP id eb12so2458657oac.32
-        for <netdev@vger.kernel.org>; Fri, 21 Mar 2014 09:18:58 -0700 (PDT)
-In-Reply-To: <1395390825.5171.3.camel@linux-fkkt.site>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: [PATCH] netlink: have netlink per-protocol bind function return an error code.
+Date: Fri, 21 Mar 2014 12:39:11 -0400
+Message-ID: <1239812af16a5c746772913ef68d3570383f2e50.1395419169.git.rgb@redhat.com>
+Cc: Richard Guy Briggs <rgb@redhat.com>, eparis@redhat.com,
+	sgrubb@redhat.com, hadi@mojatatu.com, davem@davemloft.net
+To: linux-audit@redhat.com, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 21, 2014 at 1:33 AM, Oliver Neukum <oneukum@suse.de> wrote:
-...
-> Very well. Thorough testing is good. I'll wait for the result. Could
-> you notify me of the final outcome?
+Have the netlink per-protocol optional bind function return an int error code
+rather than void to signal a failure.
 
-Ceratinly. Bad news is I had to restart my workstation that was
-driving the test due to completely different issue (loopbacks hung -
-known bug). reload_asix ran about 2000 iterations with no problems on
-AX88178 part.
-It's running again now on the same target machine.
+This will enable netlink protocols to perform extra checks including
+capabilities and permissions verifications when updating memberships in
+multicast groups.
 
-> And, Julius, I owe you an apology. The check is necessary.
+In netlink_bind() and netlink_setsockopt() the call to the per-protocol bind
+function was moved above the multicast group update to prevent any access to
+the multicast socket groups before checking with the per-protocol bind
+function.  This will enable the per-protocol bind function to be used to check
+permissions which could be denied before making them available, and to avoid
+the messy job of undoing the addition should the per-protocol bind function
+fail.
 
-++oliver
+The netfilter subsystem seems to be the only one currently using the
+per-protocol bind function.
 
-Sorry to harp on this more, but I still think a comment is warranted:
-  e.g. "Don't resend packets during shutdown of this USB net device."
+Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
+---
+In particular, the audit subsystem (NETLINK_AUDIT protocol) could benefit by
+being able to check specific capabilities for each multicast group before
+granting membership to the requesting socket.  Currently, all NETLINK_AUDIT
+sockets must have the capability CAP_NET_ADMIN.  No other capabilities are
+required to join a multicast group.  This capability is too broad allowing
+access to this socket by many applications that must not have access to this
+information.  It is proposed to add capability CAP_AUDIT_READ to allow this
+access while dropping the exessively broad capability CAP_NET_ADMIN.
 
-And instead of naming the queue "wait", call the field "shutdown queue".
+There has also been some interest expressed by IETF ForCES folk.
+---
+ include/linux/netlink.h   |    2 +-
+ net/netfilter/nfnetlink.c |    3 ++-
+ net/netlink/af_netlink.c  |   30 +++++++++++++++++-------------
+ net/netlink/af_netlink.h  |    4 ++--
+ 4 files changed, 22 insertions(+), 17 deletions(-)
 
-cheers,
-grant
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index 7a6c396..4402653 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -45,7 +45,7 @@ struct netlink_kernel_cfg {
+ 	unsigned int	flags;
+ 	void		(*input)(struct sk_buff *skb);
+ 	struct mutex	*cb_mutex;
+-	void		(*bind)(int group);
++	int		(*bind)(int group);
+ 	bool		(*compare)(struct net *net, struct sock *sk);
+ };
+ 
+diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+index 75619f9..10a4cf5 100644
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@ -392,7 +392,7 @@ static void nfnetlink_rcv(struct sk_buff *skb)
+ }
+ 
+ #ifdef CONFIG_MODULES
+-static void nfnetlink_bind(int group)
++static int nfnetlink_bind(int group)
+ {
+ 	const struct nfnetlink_subsystem *ss;
+ 	int type = nfnl_group2type[group];
+@@ -403,6 +403,7 @@ static void nfnetlink_bind(int group)
+ 	if (!ss) {
+ 		request_module("nfnetlink-subsys-%d", type);
+ 	}
++	return 0;
+ }
+ #endif
+ 
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index bca50b9..4224dc5 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1198,7 +1198,7 @@ static int netlink_create(struct net *net, struct socket *sock, int protocol,
+ 	struct module *module = NULL;
+ 	struct mutex *cb_mutex;
+ 	struct netlink_sock *nlk;
+-	void (*bind)(int group);
++	int (*bind)(int group);
+ 	int err = 0;
+ 
+ 	sock->state = SS_UNCONNECTED;
+@@ -1441,6 +1441,17 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+ 	if (!nladdr->nl_groups && (nlk->groups == NULL || !(u32)nlk->groups[0]))
+ 		return 0;
+ 
++	if (nlk->netlink_bind && nladdr->nl_groups) {
++		int i;
++
++		for (i = 0; i < nlk->ngroups; i++)
++			if (test_bit(i, (long unsigned int *)&nladdr->nl_groups)) {
++				err = nlk->netlink_bind(i);
++				if (err)
++					return err;
++			}
++	}
++
+ 	netlink_table_grab();
+ 	netlink_update_subscriptions(sk, nlk->subscriptions +
+ 					 hweight32(nladdr->nl_groups) -
+@@ -1449,15 +1460,6 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+ 	netlink_update_listeners(sk);
+ 	netlink_table_ungrab();
+ 
+-	if (nlk->netlink_bind && nlk->groups[0]) {
+-		int i;
+-
+-		for (i=0; i<nlk->ngroups; i++) {
+-			if (test_bit(i, nlk->groups))
+-				nlk->netlink_bind(i);
+-		}
+-	}
+-
+ 	return 0;
+ }
+ 
+@@ -2095,14 +2097,16 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
+ 			return err;
+ 		if (!val || val - 1 >= nlk->ngroups)
+ 			return -EINVAL;
++		if (nlk->netlink_bind) {
++			err = nlk->netlink_bind(val);
++			if (err)
++				return err;
++		}
+ 		netlink_table_grab();
+ 		netlink_update_socket_mc(nlk, val,
+ 					 optname == NETLINK_ADD_MEMBERSHIP);
+ 		netlink_table_ungrab();
+ 
+-		if (nlk->netlink_bind)
+-			nlk->netlink_bind(val);
+-
+ 		err = 0;
+ 		break;
+ 	}
+diff --git a/net/netlink/af_netlink.h b/net/netlink/af_netlink.h
+index acbd774..0edb8d5 100644
+--- a/net/netlink/af_netlink.h
++++ b/net/netlink/af_netlink.h
+@@ -37,7 +37,7 @@ struct netlink_sock {
+ 	struct mutex		*cb_mutex;
+ 	struct mutex		cb_def_mutex;
+ 	void			(*netlink_rcv)(struct sk_buff *skb);
+-	void			(*netlink_bind)(int group);
++	int			(*netlink_bind)(int group);
+ 	struct module		*module;
+ #ifdef CONFIG_NETLINK_MMAP
+ 	struct mutex		pg_vec_lock;
+@@ -73,7 +73,7 @@ struct netlink_table {
+ 	unsigned int		groups;
+ 	struct mutex		*cb_mutex;
+ 	struct module		*module;
+-	void			(*bind)(int group);
++	int			(*bind)(int group);
+ 	bool			(*compare)(struct net *net, struct sock *sock);
+ 	int			registered;
+ };
+-- 
+1.7.1
+
