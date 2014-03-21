@@ -1,91 +1,68 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Fri, 21 Mar 2014 16:27:26 +0100
-Message-ID: <4230433.d0bAGX3bJV@wuerfel>
-References: <1395414570-25515-1-git-send-email-zhangfei.gao@linaro.org>
- <1395414570-25515-4-git-send-email-zhangfei.gao@linaro.org>
+From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created with
+ no group
+Date: Fri, 21 Mar 2014 17:31:55 +0200
+Message-ID: <CAF1J0HPTV+XHORSLy3H-6-tBx91F0+L7UhnZd7YsGZCSEQad2Q@mail.gmail.com>
+References: <1395055050-20874-1-git-send-email-mike.rapoport@ravellosystems.com>
+	<20140320.160229.857536522237793124.davem@davemloft.net>
+	<OFA209BE80.4610C3E5-ON87257CA1.00723468-87257CA1.0072346C@us.ibm.com>
+	<CAF1J0HPE9L1Z4xst9ap_Z8nQ9k-N-UAbW7yre0S-wvQF5+NznA@mail.gmail.com>
+	<OFD0C40ED9.015A05DD-ON87257CA2.003E72F3-87257CA2.003E7300@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mark.rutland@arm.com, devicetree@vger.kernel.org, f.fainelli@gmail.com,
- linux@arm.linux.org.uk, sergei.shtylyov@cogentembedded.com,
- netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
- linux-arm-kernel@lists.infradead.org
-To: Zhangfei Gao <zhangfei.gao@linaro.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1395414570-25515-4-git-send-email-zhangfei.gao@linaro.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: David Stevens <dlstevens@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f52.google.com ([209.85.219.52]:61623 "EHLO
+	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751488AbaCUPb4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 11:31:56 -0400
+Received: by mail-oa0-f52.google.com with SMTP id l6so2702171oag.11
+        for <netdev@vger.kernel.org>; Fri, 21 Mar 2014 08:31:56 -0700 (PDT)
+In-Reply-To: <OFD0C40ED9.015A05DD-ON87257CA2.003E72F3-87257CA2.003E7300@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 21 March 2014 23:09:30 Zhangfei Gao wrote:
+On Fri, Mar 21, 2014 at 1:22 PM, David Stevens <dlstevens@us.ibm.com> wrote:
+>
+> -----Mike Rapoport <mike.rapoport@ravellosystems.com> wrote: -----
+>
+> Mike, ip_hdr() here is the outer packet, so it's got to be a UDP packet--
+> we just don't know if it's UDP/IP or UDP/IPv6 when it is bound to INADDR_ANY,
+> since both can be delivered. It could use version in this case, because
+> both possible protocols have version in the same place, but I think it's
+> more correct to use the MAC layer protocol rather than relying on the
+> fact that IPv4 and IPv6 have "version" in the same spot. "It could be ARP"
+> would be the argument for NOT using the version in places where it really
+> could be ARP, even though that isn't the case here.
+>
+> vxlan_rcv() is only called for VXLAN encapsulated packets sent to the bound
+> UDP port.
+>
+> So, if "vs->family" holds the one we want to support, we can't just blindly
+> assume the received packet is IPv4, for example, and start accessing
+> IPv4 fields, because it could be an IPv6 packet. We have to check the
+> packet type too. And if it's not the one we bound to, drop it.
+>
+> That's what the code snippet I outlined is trying to do.
+>
 
-> +
-> +static void __iomem *ppebase;
+David,
 
-Any reason why you still have this, rather than using a separate
-driver for it as we discussed? If you have comments that you still
-plan to address, please mention those in the introductory mail,
-so you don't get the same review comments multiple times.
+I've tried your snippet with IPv4 and I've got all ARP replies
+dropped. And if I enable IPv6 I still get crushes in ipv6_rcv.
+It seems to me that at the time vxlan_rcv gets outer IP header, the
+SKB contains mixed information of outer and inner packets.
+I'll continue to look into it.
 
 
-> +static void hip04_tx_reclaim(struct net_device *ndev, bool force)
-> +{
-> +	struct hip04_priv *priv = netdev_priv(ndev);
-> +	unsigned tx_head = priv->tx_head;
-> +	unsigned tx_tail = priv->tx_tail;
-> +	struct tx_desc *desc = &priv->tx_desc[priv->tx_tail];
-> +
-> +	while (tx_tail != tx_head) {
-> +		if (desc->send_addr != 0) {
-> +			if (force)
-> +				desc->send_addr = 0;
-> +			else
-> +				break;
-> +		}
-> +		if (priv->tx_phys[tx_tail]) {
-> +			dma_unmap_single(&ndev->dev, priv->tx_phys[tx_tail],
-> +				priv->tx_skb[tx_tail]->len, DMA_TO_DEVICE);
-> +			priv->tx_phys[tx_tail] = 0;
-> +		}
-> +		dev_kfree_skb_irq(priv->tx_skb[tx_tail]);
-> +		priv->tx_skb[tx_tail] = NULL;
-> +		tx_tail = TX_NEXT(tx_tail);
-> +		priv->tx_count--;
-> +	}
-> +	priv->tx_tail = tx_tail;
-> +}
+                                          +-DLS
+>
+>
+>
 
-You call this function from start_xmit(), which may be too early, causing the
-dma_unmap_single() and dev_kfree_skb_irq() functions to be called while the
-device is still accessing the data. This is bad.
 
-You have to ensure that you only ever clean up tx buffers that have been
-successfully transmitted. Also, you should use an interrupt to notify you
-of this in case there is no further xmit packet. Otherwise you may have
-a user space program waiting indefinitely for a single packet to get sent
-on a socket.
 
-It's ok to also call the cleanup from start_xmit, but calling it from the
-poll() function or another appropriate place is required.
-
-> +	priv->id = of_alias_get_id(node, "ethernet");
-> +	if (priv->id < 0) {
-> +		dev_warn(d, "no ethernet alias\n");
-> +		ret = -EINVAL;
-> +		goto init_fail;
-> +	}
-
-Apparently you try to rely on the alias to refer to a specific piece
-of hardware, which is not correct. The alias is meant to be selectable
-to match e.g. the numbering written on the external connector, which
-is totally independent of the internal hardware.
-
-	Arnd
+-- 
+Sincerely yours,
+Mike.
