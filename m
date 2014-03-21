@@ -1,27 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/3] rtnetlink: fix fdb notification flags
-Date: Fri, 21 Mar 2014 14:27:36 -0400 (EDT)
-Message-ID: <20140321.142736.284147033128184656.davem@davemloft.net>
-References: <1395247671-9356-1-git-send-email-nicolas.dichtel@6wind.com>
-	<20140320.162503.536482270990113339.davem@davemloft.net>
-	<532C03EC.1060902@6wind.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] csum experts, csum_replace2() is too expensive
+Date: Fri, 21 Mar 2014 11:30:17 -0700
+Message-ID: <1395426617.9117.0.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140321.140730.1007660405690890605.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch
-To: nicolas.dichtel@6wind.com
+Cc: kaber@trash.net, herbert@gondor.apana.org.au, hkchu@google.com,
+	mwdalton@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34787 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750749AbaCUS1j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 14:27:39 -0400
-In-Reply-To: <532C03EC.1060902@6wind.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:43399 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750748AbaCUSa2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 14:30:28 -0400
+Received: by mail-pa0-f52.google.com with SMTP id rd3so2746895pab.39
+        for <netdev@vger.kernel.org>; Fri, 21 Mar 2014 11:30:28 -0700 (PDT)
+In-Reply-To: <20140321.140730.1007660405690890605.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Fri, 21 Mar 2014 10:18:36 +0100
+On Fri, 2014-03-21 at 14:07 -0400, David Miller wrote:
 
-> David, do you plan to queue this serie in stable branch?
+> Yeah the csum_replace*() are extremely suboptimal.
+> 
+> We should be able to cons up something cheap like the trick that
+> ip_decrease_ttl() uses.
+> 
+> https://tools.ietf.org/html/rfc1624
+> https://tools.ietf.org/html/rfc1141
 
-I've added it to the queue now, thanks.
+Thanks for the pointers, I'll cook a patch.
