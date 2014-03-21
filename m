@@ -1,54 +1,52 @@
-From: Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH V10 7/7] MAINTAINERS: add maintainer for Samsung sxgbe driver
-Date: Fri, 21 Mar 2014 11:06:55 -0700
-Message-ID: <005d01cf4530$590cedc0$0b26c940$@samsung.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] csum experts, csum_replace2() is too expensive
+Date: Fri, 21 Mar 2014 14:07:30 -0400 (EDT)
+Message-ID: <20140321.140730.1007660405690890605.davem@davemloft.net>
+References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: 'David Miller' <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	'GIRISH K S' <ks.giri-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	'SIVAREDDY KALLAM' <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	'Vipul Chandrakant' <vipul.pandya-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	'Ilho Lee' <ilho215.lee-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-language: en-us
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: kaber@trash.net, herbert@gondor.apana.org.au, hkchu@google.com,
+	mwdalton@google.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34640 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750934AbaCUSHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 14:07:36 -0400
+In-Reply-To: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 20 Mar 2014 11:49:01 -0700
 
-Signed-off-by: Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
----
- MAINTAINERS |    9 +++++++++
- 1 file changed, 9 insertions(+)
+> csum_replace2() uses about 29 cycles, while a plain ip_send_check() is
+> way faster (16 cycles)
+> 
+> csum_partial() is not really meant for doing checksums over 8 bytes !
+> 
+> Any idea how to make the thing really fast as intended ?
+> 
+> I saw csum_partial() consuming 1% of cpu cycles in a GRO workload, that
+> is insane...
+> 
+> Following patch might be the fastest thing ?
+> 
+> (At this point we already have validated IP checksum)
+ ...
+> @@ -1434,8 +1434,8 @@ static int inet_gro_complete(struct sk_buff *skb, int nhoff)
+>  	int proto = iph->protocol;
+>  	int err = -ENOSYS;
+>  
+> -	csum_replace2(&iph->check, iph->tot_len, newlen);
+>  	iph->tot_len = newlen;
+> +	ip_send_check(&iph);
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index b7befe7..aeb81f2 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -7536,6 +7536,15 @@ S:	Supported
- L:	linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (moderated for non-subscribers)
- F:	drivers/clk/samsung/
- 
-+SAMSUNG SXGBE DRIVERS
-+M:	Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-+M:	Girish K S <ks.giri-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-+M:	Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-+M:	Vipul Pandya <vipul.pandya-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-+S:	Supported
-+L:	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-+F:	drivers/net/ethernet/samsung/sxgbe/
-+
- SERIAL DRIVERS
- M:	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
- L:	linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
--- 
-1.7.10.4
+Yeah the csum_replace*() are extremely suboptimal.
 
+We should be able to cons up something cheap like the trick that
+ip_decrease_ttl() uses.
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+https://tools.ietf.org/html/rfc1624
+https://tools.ietf.org/html/rfc1141
