@@ -1,69 +1,32 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH v4 iproute2 -next 2/2] ipxfrm: allow to setup filter when dumping SA
-Date: Fri, 21 Mar 2014 11:02:43 +0100
-Message-ID: <1395396163-11692-2-git-send-email-nicolas.dichtel@6wind.com>
-References: <20140320103901.6e57049a@nehalam.linuxnetplumber.net>
- <1395396163-11692-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: shemminger@vyatta.com
+From: <BusinessProposal24@fundstransferbankofT228.onmicrosoft.com>
+Subject: BUSINESS PROPOSAL OF $44.5MILLION.USD.
+Date: Fri, 21 Mar 2014 05:54:37 -0400
+Message-ID: <73293399-1c03-4425-b9a3-2ab55cb36b58__191.679123281752$1395396659$gmane$org@HKNPR04MB211.apcprd04.prod.outlook.com>
+Reply-To: <mrchingkwok091@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients
+	<BusinessProposal24@fundstransferbankofT228.onmicrosoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:60057 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965139AbaCUKCs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 06:02:48 -0400
-In-Reply-To: <1395396163-11692-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-am1hn0245.outbound.protection.outlook.com ([157.56.112.245]:7809
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1760355AbaCUKKk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 06:10:40 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's now possible to filter SA directly into the kernel by specifying
-XFRMA_PROTO and/or XFRMA_ADDRESS_FILTER.
-
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
-Note that this patch is intended to work with net-next.
-
-v4: use C99 initializers for all structure
-
-v3: use C99 initializers
-
- ip/xfrm_state.c | 25 ++++++++++++++++++++++++-
- 1 file changed, 24 insertions(+), 1 deletion(-)
-
-diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
-index 140a4503b799..fe7708e533f3 100644
---- a/ip/xfrm_state.c
-+++ b/ip/xfrm_state.c
-@@ -1136,7 +1136,30 @@ static int xfrm_state_list_or_deleteall(int argc, char **argv, int deleteall)
- 		}
+Hello, It is understandable that you might be a little bit apprehensive
+ because you do not know me but I have a lucrative business proposal of mutual interest to share with you.
+ I got your reference in my search for someone who suits my propose business relationship.
+ I am Mr.ching Kwok bank officer with the International bank of Taipei.
+ I will need you to assist me in executing a business project from Taiwan to your country.It involves the transfer of money. Everything concerning this transaction shall be legally done without hitch.
+Once the funds have been successfully transferred into your account, we shall share in the ratio to be agreed by both of us.Contact me for further details.I shall furnish you with more information about this operation
+immediately I receive a positive response from you. You Contact me for more details
  
- 	} else {
--		if (rtnl_wilddump_request(&rth, preferred_family, XFRM_MSG_GETSA) < 0) {
-+		struct xfrm_address_filter addrfilter = {
-+			.saddr = filter.xsinfo.saddr,
-+			.daddr = filter.xsinfo.id.daddr,
-+			.family = filter.xsinfo.family,
-+			.splen = filter.id_src_mask,
-+			.dplen = filter.id_dst_mask,
-+		};
-+		struct {
-+			struct nlmsghdr n;
-+			char buf[NLMSG_BUF_SIZE];
-+		} req = {
-+			.n.nlmsg_len = NLMSG_HDRLEN,
-+			.n.nlmsg_flags = NLM_F_DUMP | NLM_F_REQUEST,
-+			.n.nlmsg_type = XFRM_MSG_GETSA,
-+			.n.nlmsg_seq = rth.dump = ++rth.seq,
-+		};
-+
-+		if (filter.xsinfo.id.proto)
-+			addattr8(&req.n, sizeof(req), XFRMA_PROTO,
-+				 filter.xsinfo.id.proto);
-+		addattr_l(&req.n, sizeof(req), XFRMA_ADDRESS_FILTER,
-+			  &addrfilter, sizeof(addrfilter));
-+
-+		if (rtnl_send(&rth, (void *)&req, req.n.nlmsg_len) < 0) {
- 			perror("Cannot send dump request");
- 			exit(1);
- 		}
--- 
-1.8.5.4
+    Email: mrchingkwok091@gmail.com
+ 
+    Kind Regards,
+    Mr.ching Kwok
