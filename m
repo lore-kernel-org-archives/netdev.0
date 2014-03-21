@@ -1,175 +1,181 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 7/9] net: isdn: use sk_unattached_filter api
-Date: Fri, 21 Mar 2014 13:20:16 +0100
-Message-ID: <1395404418-25376-8-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next 1/9] net: filter: add jited flag to indicate jit compiled filters
+Date: Fri, 21 Mar 2014 13:20:10 +0100
+Message-ID: <1395404418-25376-2-git-send-email-dborkman@redhat.com>
 References: <1395404418-25376-1-git-send-email-dborkman@redhat.com>
 Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	Karsten Keil <isdn@linux-pingi.de>,
-	isdn4linux@listserv.isdn4linux.de
+	Pablo Neira Ayuso <pablo@netfilter.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37424 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:34335 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760682AbaCUMUx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Mar 2014 08:20:53 -0400
+	id S1760681AbaCUMnf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Mar 2014 08:43:35 -0400
 In-Reply-To: <1395404418-25376-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Similarly as in ppp, we need to migrate the ISDN/PPP code to make use
-of the sk_unattached_filter api in order to decouple having direct
-filter structure access. By using sk_unattached_filter_{create,destroy},
-we can allow for the possibility to jit compile filters for faster
-filter verdicts as well.
+This patch adds a jited flag into sk_filter struct in order to indicate
+whether a filter is currently jited or not. The size of sk_filter is
+not being expanded as the 32 bit 'len' member allows upper bits to be
+reused since a filter can currently only grow as large as BPF_MAXINSNS.
+
+Therefore, there's enough room also for other in future needed flags to
+reuse 'len' field if necessary. The jited flag also allows for having
+alternative interpreter functions running as currently, we can only
+detect jit compiled filters by testing fp->bpf_func to not equal the
+address of sk_run_filter().
 
 Joint work with Alexei Starovoitov.
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-Cc: Karsten Keil <isdn@linux-pingi.de>
-Cc: isdn4linux@listserv.isdn4linux.de
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- drivers/isdn/i4l/isdn_ppp.c | 61 ++++++++++++++++++++++++++++++---------------
- include/linux/isdn_ppp.h    |  5 ++--
- 2 files changed, 43 insertions(+), 23 deletions(-)
+ arch/arm/net/bpf_jit_32.c       | 3 ++-
+ arch/powerpc/net/bpf_jit_comp.c | 3 ++-
+ arch/s390/net/bpf_jit_comp.c    | 5 ++++-
+ arch/sparc/net/bpf_jit_comp.c   | 3 ++-
+ arch/x86/net/bpf_jit_comp.c     | 3 ++-
+ include/linux/filter.h          | 3 ++-
+ net/core/filter.c               | 1 +
+ 7 files changed, 15 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/isdn/i4l/isdn_ppp.c b/drivers/isdn/i4l/isdn_ppp.c
-index 38ceac5..a5da511 100644
---- a/drivers/isdn/i4l/isdn_ppp.c
-+++ b/drivers/isdn/i4l/isdn_ppp.c
-@@ -378,10 +378,15 @@ isdn_ppp_release(int min, struct file *file)
- 	is->slcomp = NULL;
- #endif
- #ifdef CONFIG_IPPP_FILTER
--	kfree(is->pass_filter);
--	is->pass_filter = NULL;
--	kfree(is->active_filter);
--	is->active_filter = NULL;
-+	if (is->pass_filter) {
-+		sk_unattached_filter_destroy(is->pass_filter);
-+		is->pass_filter = NULL;
-+	}
-+
-+	if (is->active_filter) {
-+		sk_unattached_filter_destroy(is->active_filter);
-+		is->active_filter = NULL;
-+	}
- #endif
+diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
+index 271b5e9..e72ff51 100644
+--- a/arch/arm/net/bpf_jit_32.c
++++ b/arch/arm/net/bpf_jit_32.c
+@@ -925,6 +925,7 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 		bpf_jit_dump(fp->len, alloc_size, 2, ctx.target);
  
- /* TODO: if this was the previous master: link the stuff to the new master */
-@@ -629,25 +634,41 @@ isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
- #ifdef CONFIG_IPPP_FILTER
- 	case PPPIOCSPASS:
- 	{
-+		struct sock_fprog fprog;
- 		struct sock_filter *code;
--		int len = get_filter(argp, &code);
-+		int err, len = get_filter(argp, &code);
-+
- 		if (len < 0)
- 			return len;
--		kfree(is->pass_filter);
--		is->pass_filter = code;
--		is->pass_len = len;
--		break;
-+
-+		fprog.len = len;
-+		fprog.filter = code;
-+
-+		if (is->pass_filter)
-+			sk_unattached_filter_destroy(is->pass_filter);
-+		err = sk_unattached_filter_create(&is->pass_filter, &fprog);
-+		kfree(code);
-+
-+		return err;
- 	}
- 	case PPPIOCSACTIVE:
- 	{
-+		struct sock_fprog fprog;
- 		struct sock_filter *code;
--		int len = get_filter(argp, &code);
-+		int err, len = get_filter(argp, &code);
-+
- 		if (len < 0)
- 			return len;
--		kfree(is->active_filter);
--		is->active_filter = code;
--		is->active_len = len;
--		break;
-+
-+		fprog.len = len;
-+		fprog.filter = code;
-+
-+		if (is->active_filter)
-+			sk_unattached_filter_destroy(is->active_filter);
-+		err = sk_unattached_filter_create(&is->active_filter, &fprog);
-+		kfree(code);
-+
-+		return err;
- 	}
- #endif /* CONFIG_IPPP_FILTER */
- 	default:
-@@ -1147,14 +1168,14 @@ isdn_ppp_push_higher(isdn_net_dev *net_dev, isdn_net_local *lp, struct sk_buff *
- 	}
+ 	fp->bpf_func = (void *)ctx.target;
++	fp->jited = 1;
+ out:
+ 	kfree(ctx.offsets);
+ 	return;
+@@ -932,7 +933,7 @@ out:
  
- 	if (is->pass_filter
--	    && sk_run_filter(skb, is->pass_filter) == 0) {
-+	    && SK_RUN_FILTER(is->pass_filter, skb) == 0) {
- 		if (is->debug & 0x2)
- 			printk(KERN_DEBUG "IPPP: inbound frame filtered.\n");
- 		kfree_skb(skb);
- 		return;
+ void bpf_jit_free(struct sk_filter *fp)
+ {
+-	if (fp->bpf_func != sk_run_filter)
++	if (fp->jited)
+ 		module_free(NULL, fp->bpf_func);
+ 	kfree(fp);
+ }
+diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+index 555034f..c0c5fcb 100644
+--- a/arch/powerpc/net/bpf_jit_comp.c
++++ b/arch/powerpc/net/bpf_jit_comp.c
+@@ -689,6 +689,7 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 		((u64 *)image)[0] = (u64)code_base;
+ 		((u64 *)image)[1] = local_paca->kernel_toc;
+ 		fp->bpf_func = (void *)image;
++		fp->jited = 1;
  	}
- 	if (!(is->active_filter
--	      && sk_run_filter(skb, is->active_filter) == 0)) {
-+	      && SK_RUN_FILTER(is->active_filter, skb) == 0)) {
- 		if (is->debug & 0x2)
- 			printk(KERN_DEBUG "IPPP: link-active filter: resetting huptimer.\n");
- 		lp->huptimer = 0;
-@@ -1293,14 +1314,14 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	}
+ out:
+ 	kfree(addrs);
+@@ -697,7 +698,7 @@ out:
  
- 	if (ipt->pass_filter
--	    && sk_run_filter(skb, ipt->pass_filter) == 0) {
-+	    && SK_RUN_FILTER(ipt->pass_filter, skb) == 0) {
- 		if (ipt->debug & 0x4)
- 			printk(KERN_DEBUG "IPPP: outbound frame filtered.\n");
- 		kfree_skb(skb);
- 		goto unlock;
+ void bpf_jit_free(struct sk_filter *fp)
+ {
+-	if (fp->bpf_func != sk_run_filter)
++	if (fp->jited)
+ 		module_free(NULL, fp->bpf_func);
+ 	kfree(fp);
+ }
+diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
+index 708d60e..dd2d9b3 100644
+--- a/arch/s390/net/bpf_jit_comp.c
++++ b/arch/s390/net/bpf_jit_comp.c
+@@ -877,6 +877,7 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 	if (jit.start) {
+ 		set_memory_ro((unsigned long)header, header->pages);
+ 		fp->bpf_func = (void *) jit.start;
++		fp->jited = 1;
  	}
- 	if (!(ipt->active_filter
--	      && sk_run_filter(skb, ipt->active_filter) == 0)) {
-+	      && SK_RUN_FILTER(ipt->active_filter, skb) == 0)) {
- 		if (ipt->debug & 0x4)
- 			printk(KERN_DEBUG "IPPP: link-active filter: resetting huptimer.\n");
- 		lp->huptimer = 0;
-@@ -1490,9 +1511,9 @@ int isdn_ppp_autodial_filter(struct sk_buff *skb, isdn_net_local *lp)
+ out:
+ 	kfree(addrs);
+@@ -887,10 +888,12 @@ void bpf_jit_free(struct sk_filter *fp)
+ 	unsigned long addr = (unsigned long)fp->bpf_func & PAGE_MASK;
+ 	struct bpf_binary_header *header = (void *)addr;
+ 
+-	if (fp->bpf_func == sk_run_filter)
++	if (!fp->jited)
+ 		goto free_filter;
++
+ 	set_memory_rw(addr, header->pages);
+ 	module_free(NULL, header);
++
+ free_filter:
+ 	kfree(fp);
+ }
+diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
+index 01fe994..8c01be6 100644
+--- a/arch/sparc/net/bpf_jit_comp.c
++++ b/arch/sparc/net/bpf_jit_comp.c
+@@ -809,6 +809,7 @@ cond_branch:			f_offset = addrs[i + filter[i].jf];
+ 	if (image) {
+ 		bpf_flush_icache(image, image + proglen);
+ 		fp->bpf_func = (void *)image;
++		fp->jited = 1;
  	}
+ out:
+ 	kfree(addrs);
+@@ -817,7 +818,7 @@ out:
  
- 	drop |= is->pass_filter
--		&& sk_run_filter(skb, is->pass_filter) == 0;
-+		&& SK_RUN_FILTER(is->pass_filter, skb) == 0;
- 	drop |= is->active_filter
--		&& sk_run_filter(skb, is->active_filter) == 0;
-+		&& SK_RUN_FILTER(is->active_filter, skb) == 0;
+ void bpf_jit_free(struct sk_filter *fp)
+ {
+-	if (fp->bpf_func != sk_run_filter)
++	if (fp->jited)
+ 		module_free(NULL, fp->bpf_func);
+ 	kfree(fp);
+ }
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index 4ed75dd..7fa182c 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -772,6 +772,7 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
+ 		bpf_flush_icache(header, image + proglen);
+ 		set_memory_ro((unsigned long)header, header->pages);
+ 		fp->bpf_func = (void *)image;
++		fp->jited = 1;
+ 	}
+ out:
+ 	kfree(addrs);
+@@ -791,7 +792,7 @@ static void bpf_jit_free_deferred(struct work_struct *work)
  
- 	skb_push(skb, IPPP_MAX_HEADER - 4);
- 	return drop;
-diff --git a/include/linux/isdn_ppp.h b/include/linux/isdn_ppp.h
-index d5f62bc..8e10f57 100644
---- a/include/linux/isdn_ppp.h
-+++ b/include/linux/isdn_ppp.h
-@@ -180,9 +180,8 @@ struct ippp_struct {
-   struct slcompress *slcomp;
- #endif
- #ifdef CONFIG_IPPP_FILTER
--  struct sock_filter *pass_filter;	/* filter for packets to pass */
--  struct sock_filter *active_filter;	/* filter for pkts to reset idle */
--  unsigned pass_len, active_len;
-+  struct sk_filter *pass_filter;   /* filter for packets to pass */
-+  struct sk_filter *active_filter; /* filter for pkts to reset idle */
- #endif
-   unsigned long debug;
-   struct isdn_ppp_compressor *compressor,*decompressor;
+ void bpf_jit_free(struct sk_filter *fp)
+ {
+-	if (fp->bpf_func != sk_run_filter) {
++	if (fp->jited) {
+ 		INIT_WORK(&fp->work, bpf_jit_free_deferred);
+ 		schedule_work(&fp->work);
+ 	} else {
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index e568c8e..e65e230 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -25,7 +25,8 @@ struct sock;
+ struct sk_filter
+ {
+ 	atomic_t		refcnt;
+-	unsigned int         	len;	/* Number of filter blocks */
++	u32			jited:1,	/* Is our filter JIT'ed? */
++				len:31;		/* Number of filter blocks */
+ 	struct rcu_head		rcu;
+ 	unsigned int		(*bpf_func)(const struct sk_buff *skb,
+ 					    const struct sock_filter *filter);
+diff --git a/net/core/filter.c b/net/core/filter.c
+index ad30d62..2874cc8 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -646,6 +646,7 @@ static int __sk_prepare_filter(struct sk_filter *fp)
+ 	int err;
+ 
+ 	fp->bpf_func = sk_run_filter;
++	fp->jited = 0;
+ 
+ 	err = sk_chk_filter(fp->insns, fp->len);
+ 	if (err)
 -- 
 1.7.11.7
