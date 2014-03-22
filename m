@@ -1,158 +1,151 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Sat, 22 Mar 2014 10:48:52 +0100
-Message-ID: <20140322094852.GB2844@minipsycho.orion>
-References: <1395243232-32630-1-git-send-email-jiri@resnulli.us>
- <532AD5B3.6020205@mojatatu.com>
- <20140320124021.GA2946@minipsycho.orion>
- <CAGVrzcbqQGGYb2Wkkekei7ivGd2XOnE+5GthLUv6_nD_oicrSQ@mail.gmail.com>
- <532C2AC4.7080303@mojatatu.com>
+From: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH V10 2/7] net: sxgbe: add basic framework for Samsung 10Gb
+ ethernet driver
+Date: Sat, 22 Mar 2014 11:29:07 +0100
+Message-ID: <20140322102907.GA12121@electric-eye.fr.zoreil.com>
+References: <005b01cf4530$56a1ba20$03e52e60$@samsung.com>
+ <20140321235526.GA7727@electric-eye.fr.zoreil.com>
+ <007a01cf4586$58a02c20$09e08460$@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f50.google.com ([74.125.83.50]:41144 "EHLO
-	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750964AbaCVJs4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Mar 2014 05:48:56 -0400
-Received: by mail-ee0-f50.google.com with SMTP id c13so2650447eek.9
-        for <netdev@vger.kernel.org>; Sat, 22 Mar 2014 02:48:54 -0700 (PDT)
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "'David Miller'" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"'GIRISH K S'" <ks.giri-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+	"'SIVAREDDY KALLAM'" <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+	"'Vipul Chandrakant'" <vipul.pandya-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+	"'Ilho Lee'" <ilho215.lee-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+To: Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <532C2AC4.7080303@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <007a01cf4586$58a02c20$09e08460$@samsung.com>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Fri, Mar 21, 2014 at 01:04:20PM CET, jhs@mojatatu.com wrote:
->On 03/20/14 13:21, Florian Fainelli wrote:
->>2014-03-20 5:40 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
->>>Thu, Mar 20, 2014 at 12:49:07PM CET, jhs@mojatatu.com wrote:
->>>>Hi Jiri,
->>>>
->
->>>>
->>>>I think the abstraction should be a netdev and to be specific the
->>>>bridge - not openvswitch. Our current tools like ifconfig, iproute2,
->>>>bridge etc should continue to work.
->>>
->>>That is exactly the case. Nothing is specific to OVS. OVS is just a one
->>>method to access the switchdev api.
->>>
->>>Abstraction is netdev. One netdev per each switch port and one netdev as
->>>a master on the top of that representing the switch itself.
->>>
->
->Ok, so that is what a bridge is.
->
->>>I think that the problem is that each solution serves different purpose.
->>>For example DSA is for switches connected as a PHY to a MAC. That is
->>>completely different case to what my switchdev API is trying to handle.
->>
->>I agree with Jamal here, we should try to find a solution that fits
->>most users here,
->
->Indeed. We have too many splinters already and each has its own way
->of being addressed. [Did you know MacVLAN is now also a L2 device that
->does bridging and a crap load of other things? A long way off from
->what the original intent was.]
->
->I think we are saying the same thing, but:
->This means need for a consistent interface and abstraction.
->My favorite abstraction in the kernel that i consider to be immortal
->is the netdev. I can have a netdev that is implemented as a physical
->ethernet port or as a tuntap or as a tunnel etc. They mostly use the
->same abstraction with small differences depending on the type, f.e
->a tuntap  with uid, gid etc is mostly no different than my laptop
->realtek ethernet port. I can control any of those the same way I
->control a CAN device on a vehicle with iproute2 and the same way i
->control  a dummy device, ifb, veth, etc.
->In otherwords, how packet processing happens (whether the netdev is
->used to toast bread) or what tables or constructs a specific kind of
->netdev needs (to slice bread) is only relevant to the implementation.
->From user space i dont need to have 15 different APIs to manage/control
->things (ok, there is ethtool - but that is just one more interface; but
->we have matured enough such that if you try to use /proc or /sysfs
->people will yell at you).
+Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org> :
+[...]
+> > Nit: you may consider reorganizing the variables in an inverted xmas tree
+> > fashion at some point.
+> Does it look better? No problem.
 
-Hmm. This got me thinking about netdev and switches well and perhaps the
-switchdev api could be mostly implemented by couple of more ndos and
-feature flags. That way we could stick to your immortal netdev :)
+Marginally if not more. Consider it a guideline to avoid unusual or ugly
+layout.
 
+[...]
+> > > +		       priv->ioaddr + SXGBE_MDIO_CLAUSE22_PORT_REG);
+> > > +		/* set mdio address register */
+> > > +		reg_val = (phyaddr << 16) | (phyreg & 0x1F);
+> > > +		writel(reg_val, priv->ioaddr + mii_addr);
+> > > +
+> > > +		/* set mdio control/data register */
+> > > +		reg_val = ((SXGBE_SMA_READ_CMD << 16) |
+> > SXGBE_SMA_SKIP_ADDRFRM |
+> > > +			   ((priv->clk_csr & 0x7) << 19) | SXGBE_MII_BUSY);
+> > > +		writel(reg_val, priv->ioaddr + mii_data);
+> > > +	}
+> > 
+> > The whole 'if (phyreg & MII_ADDR_C45) { ... } else { ... }' chunk is shared
+> with
+> > sxgbe_mdio_write(..., phydata = 0). Factor out ?
+> Not exactly same.
 
->
->In my view: that (immortal) device for L2/bridging is the bridge or
->maybe a more barebone version of the bridge (since it has gained a
->little more weight in recent times).
+Almost :o)
 
-Well, I do not think that bridge is ideal abstraction for modern switch
-chips. Bridge is very limited.
+static void sxgbe_mdio_ctrl_data(struct spgbe_priv_data *sp, u32 cmd,
+				 u16 phydata)
+{
+	u32 reg = phydata;
 
-But I don't necessary think it is needed to "mask" as a bride or mimic a
-bridge in any way. DSA does not do that either.
+	reg |= (cmd << 16) | SXGBE_SMA_SKIP_ADDRFRM |
+	       ((sp->clk_csr & 0x7) << 19) | SXGBE_MII_BUSY;
+	writel(reg, sp->ioaddr + sp->hw->mii.data);
+}
 
-switchdev tries to provide an API. Who takes it and use it is up to us.
-OVS, bridge or whatever.
+static void sxgbe_mdio_c45(struct spgbe_priv_data *sp, u32 cmd, int phyaddr,
+			   int phyreg, u16 phydata)
+{
+	u32 reg;
 
->
->>it seems to me like there are 3 switches categories:
->>
->>- entreprise built-in switches in NICs that support VF/PF
->>- embedded/entreprise switches that support tagging (Marvell eDSA/DSA,
->>Broadcom tags)
->>- embedded switches that only support 802.1q VLANs
->>
->
->I had started documenting this stuff to provide some context for an
->abstraction, but i had too many pre-emptions, so the document is not
->complete. Both John and Vlad had provided inputs to shape it. I
->could post it and take patches to it.
+	/* set mdio address register */
+	reg = ((phyreg >> 16) & 0x1f) << 21;
+	reg |= (phyaddr << 16) | (phyreg & 0xffff);
+	writel(reg, sp->ioaddr + sp->hw->mii.addr);
 
-Sure, send us a link please.
+	sxgbe_mdio_ctrl_data(sp, cmd, phydata);
+}
 
+static int sxgbe_mdio_c22(struct spgbe_priv_data *sp, u32 cmd, int phyaddr,
+			  int phyreg, u16 phydata)
+{
+	u32 reg
 
->
->>The first category is more flow-oriented than control-oriented,
->>whereas the last two are more "event and control" oriented where you
->>usually have a system where the switch will be configured not to flood
->>the CPU port if possible, but when it does, this is to perform
->>specific configuration (address learning, port protection, snooping,
->>authorization...).
->>
->>
->>DSA is not designed specifically for switches which are connected to a
->>MAC and appear as a regular PHY, this is how it first started, but
->>nothing prevents you from using DSA with a switch that is e.g: memory
->>mapped into your CPU register space, MDIO is just the transport for
->>the control part.
->
->Your view is more detail oriented than mine. My focus is to more from
->a control/management abstraction level. From that perspective this
->is a healthy discussion - thank you.
->
->>For instance, if my switches support a N-bytes tag that will give me a
->>reason code for receiving this frame, and a bitmap representing the
->>originating port, how would you imagine this fitting into the
->>openvswitch/switchdev model, aside from the netdev per-port? Do you
->>think we could easily migrate existing DSA users to
->>openvswitch/switchdev by handling the custom switch tag?
->>
->
->I dont think so. I think we need to have this discussion to come
->up with a reasonable conclusion.
->
->cheers,
->jamal
+	writel(1 << phyaddr, ioaddr + SXGBE_MDIO_CLAUSE22_PORT_REG);
+
+	/* set mdio address register */
+	reg = (phyaddr << 16) | (phyreg & 0x1f);
+	writel(reg, sp->ioaddr + sp->hw->mii.addr);
+
+	sxgbe_mdio_ctrl_data(sp, cmd, phydata);
+}
+
+static int spgbe_mdio_access(struct spgbe_priv_data *sp, u32 cmd, int phyaddr,
+			     int phyreg, u16 phydata)
+{
+	const struct mii_regs *mii = &sp->hw->mii;
+	int rc;
+
+	rc = spgbe_mdio_busy_wait(sp->ioaddr, mii->data);
+	if (rc < 0)
+		return rc;
+
+	if (phyreg & MII_ADDR_C45) {
+		spgbe_mdio_c45(sp, cmd, phyaddr, phyreg, phydata);
+	} else {
+		 /* Ports 0-3 only support C22. */
+		if (phyaddr >= 4)
+			return -ENODEV;
+
+		spgbe_mdio_c22(sp, cmd, phyaddr, phyreg, phydata);
+	}
+
+	return spgbe_mdio_busy_wait(sp->ioaddr, mii->data);
+}
+
+static int sxgbe_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
+{
+	struct net_device *ndev = bus->priv;
+	struct sxgbe_priv_data *priv = netdev_priv(ndev);
+	int rc;
+
+	rc = sxgbe_mdio_access(priv, SXGBE_SMA_READ_CMD, phyaddr, phyreg, 0);
+	if (rc < 0)
+		return rc;
+
+	return readl(priv->ioaddr + priv->hw->mii.data) & 0xffff;
+}
+
+static int sxgbe_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
+			    u16 phydata)
+{
+	struct net_device *ndev = bus->priv;
+	struct sxgbe_priv_data *priv = netdev_priv(ndev);
+
+	return sxgbe_mdio_access(priv, SXGBE_SMA_WRITE_CMD, phyaddr, phyreg,
+				 phydata);
+}
+
+It fixes an unchecked sxgbe_mdio_busy_wait in sxgbe_mdio_write btw.
+
+sxgbe_mdio_read and sxgbe_mdio_write are mostly the same. Their core is
+imho worth sharing. You're of course free to rewrite or used the code above
+as fits your needs.
+
+sxgbe_priv_data should probably be sxgbe_priv, sxgbe or sx. It's everywhere
+and it's a first class type in the code. It's exceedingly litterate whereas
+common drivers choose to be more lean.
+
+-- 
+Ueimor
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
