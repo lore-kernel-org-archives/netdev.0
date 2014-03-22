@@ -1,12 +1,10 @@
 From: Byungho An <bh74.an@samsung.com>
-Subject: RE: [PATCH V10 2/7] net: sxgbe: add basic framework for Samsung 10Gb
+Subject: RE: [PATCH V11 2/7] net: sxgbe: add basic framework for Samsung 10Gb
  ethernet driver
-Date: Sat, 22 Mar 2014 13:56:50 -0700
-Message-ID: <008601cf4611$4172e1b0$c458a510$@samsung.com>
-References: <005b01cf4530$56a1ba20$03e52e60$@samsung.com>
- <20140321235526.GA7727@electric-eye.fr.zoreil.com>
- <007a01cf4586$58a02c20$09e08460$@samsung.com>
- <20140322102907.GA12121@electric-eye.fr.zoreil.com>
+Date: Sat, 22 Mar 2014 14:12:58 -0700
+Message-ID: <008701cf4613$82660240$873206c0$@samsung.com>
+References: <007f01cf4597$50abac40$f20304c0$@samsung.com>
+ <20140322114557.GA14955@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -18,141 +16,102 @@ Cc: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
 	'Ilho Lee' <ilho215.lee@samsung.com>
 To: 'Francois Romieu' <romieu@fr.zoreil.com>
 Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-In-reply-to: <20140322102907.GA12121@electric-eye.fr.zoreil.com>
+In-reply-to: <20140322114557.GA14955@electric-eye.fr.zoreil.com>
 Content-language: en-us
 Sender: linux-samsung-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Francois Romieu <romieu@fr.zoreil.com> wrote:
+Francois Romieu <romieu@fr.zoreil.com> wrote :
 > Byungho An <bh74.an@samsung.com> :
 > [...]
-> > > Nit: you may consider reorganizing the variables in an inverted xmas
-> > > tree fashion at some point.
-> > Does it look better? No problem.
+> > +static int sxgbe_init_rx_buffers(struct net_device *dev,
+> > +				 struct sxgbe_rx_norm_desc *p, int i,
+> > +				 unsigned int dma_buf_sz,
+> > +				 struct sxgbe_rx_queue *rx_ring)
+> > +{
+> > +	struct sxgbe_priv_data *priv = netdev_priv(dev);
+> > +	struct sk_buff *skb;
+> > +
+> > +	skb = __netdev_alloc_skb(dev, dma_buf_sz, GFP_KERNEL);
+> > +	if (!skb)
+> > +		return -ENOMEM;
+> > +
+> > +	skb_reserve(skb, NET_IP_ALIGN);
 > 
-> Marginally if not more. Consider it a guideline to avoid unusual or ugly
-layout.
-OK. I'll consider it.
+> __netdev_alloc_skb_ip_align
+OK.
 
 > 
 > [...]
-> > > > +		       priv->ioaddr + SXGBE_MDIO_CLAUSE22_PORT_REG);
-> > > > +		/* set mdio address register */
-> > > > +		reg_val = (phyaddr << 16) | (phyreg & 0x1F);
-> > > > +		writel(reg_val, priv->ioaddr + mii_addr);
-> > > > +
-> > > > +		/* set mdio control/data register */
-> > > > +		reg_val = ((SXGBE_SMA_READ_CMD << 16) |
-> > > SXGBE_SMA_SKIP_ADDRFRM |
-> > > > +			   ((priv->clk_csr & 0x7) << 19) |
-SXGBE_MII_BUSY);
-> > > > +		writel(reg_val, priv->ioaddr + mii_data);
-> > > > +	}
-> > >
-> > > The whole 'if (phyreg & MII_ADDR_C45) { ... } else { ... }' chunk is
-> > > shared
-> > with
-> > > sxgbe_mdio_write(..., phydata = 0). Factor out ?
-> > Not exactly same.
+> > +static int sxgbe_platform_probe(struct platform_device *pdev) {
+> [...]
+> > +	priv = sxgbe_drv_probe(&(pdev->dev), plat_dat, addr);
+> > +	if (!priv) {
+> > +		pr_err("%s: main driver probe failed\n", __func__);
+> > +		return -ENODEV;
+> > +	}
+> > +
+> > +	/* Get MAC address if available (DT) */
+> > +	if (mac)
+> > +		ether_addr_copy(priv->dev->dev_addr, mac);
+> > +
+> > +	/* Get the SXGBE common INT information */
+> > +	priv->irq  = platform_get_irq(pdev, loop++);
+> > +	if (priv->irq <= 0) {
+> > +		dev_err(dev, "sxgbe common irq parsing failed\n");
+> > +		sxgbe_drv_remove(ndev);
+> > +		return -EINVAL;
+> > +	}
+> > +
+> > +	/* Get the TX/RX IRQ numbers */
+> > +	for (i = 0, chan = 0; i < SXGBE_TX_QUEUES; i++) {
+> > +		priv->txq[i]->irq_no = irq_of_parse_and_map(node, chan++);
+> > +		if (priv->txq[i]->irq_no <= 0) {
+> > +			dev_err(dev, "sxgbe tx irq parsing failed\n");
+> > +			return -EINVAL;
+> > +		}
+> > +	}
+> > +
+> > +	for (i = 0; i < SXGBE_RX_QUEUES; i++) {
+> > +		priv->rxq[i]->irq_no = irq_of_parse_and_map(node, chan++);
+> > +		if (priv->rxq[i]->irq_no <= 0) {
+> > +			dev_err(dev, "sxgbe rx irq parsing failed\n");
+> > +			return -EINVAL;
+> > +		}
+> > +	}
 > 
-> Almost :o)
+> The error path should use sxgbe_drv_remove.
 > 
-> static void sxgbe_mdio_ctrl_data(struct spgbe_priv_data *sp, u32 cmd,
-> 				 u16 phydata)
-> {
-> 	u32 reg = phydata;
-> 
-> 	reg |= (cmd << 16) | SXGBE_SMA_SKIP_ADDRFRM |
-> 	       ((sp->clk_csr & 0x7) << 19) | SXGBE_MII_BUSY;
-> 	writel(reg, sp->ioaddr + sp->hw->mii.data); }
-> 
-> static void sxgbe_mdio_c45(struct spgbe_priv_data *sp, u32 cmd, int phyaddr,
-> 			   int phyreg, u16 phydata)
-> {
-> 	u32 reg;
-> 
-> 	/* set mdio address register */
-> 	reg = ((phyreg >> 16) & 0x1f) << 21;
-> 	reg |= (phyaddr << 16) | (phyreg & 0xffff);
-> 	writel(reg, sp->ioaddr + sp->hw->mii.addr);
-> 
-> 	sxgbe_mdio_ctrl_data(sp, cmd, phydata); }
-> 
-> static int sxgbe_mdio_c22(struct spgbe_priv_data *sp, u32 cmd, int phyaddr,
-> 			  int phyreg, u16 phydata)
-> {
-> 	u32 reg
-> 
-> 	writel(1 << phyaddr, ioaddr + SXGBE_MDIO_CLAUSE22_PORT_REG);
-> 
-> 	/* set mdio address register */
-> 	reg = (phyaddr << 16) | (phyreg & 0x1f);
-> 	writel(reg, sp->ioaddr + sp->hw->mii.addr);
-> 
-> 	sxgbe_mdio_ctrl_data(sp, cmd, phydata); }
-> 
-> static int spgbe_mdio_access(struct spgbe_priv_data *sp, u32 cmd, int
-phyaddr,
-> 			     int phyreg, u16 phydata)
-> {
-> 	const struct mii_regs *mii = &sp->hw->mii;
-> 	int rc;
-> 
-> 	rc = spgbe_mdio_busy_wait(sp->ioaddr, mii->data);
-> 	if (rc < 0)
-> 		return rc;
-> 
-> 	if (phyreg & MII_ADDR_C45) {
-> 		spgbe_mdio_c45(sp, cmd, phyaddr, phyreg, phydata);
-> 	} else {
-> 		 /* Ports 0-3 only support C22. */
-> 		if (phyaddr >= 4)
-> 			return -ENODEV;
-> 
-> 		spgbe_mdio_c22(sp, cmd, phyaddr, phyreg, phydata);
-> 	}
-> 
-> 	return spgbe_mdio_busy_wait(sp->ioaddr, mii->data); }
-> 
-> static int sxgbe_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg) {
-> 	struct net_device *ndev = bus->priv;
-> 	struct sxgbe_priv_data *priv = netdev_priv(ndev);
-> 	int rc;
-> 
-> 	rc = sxgbe_mdio_access(priv, SXGBE_SMA_READ_CMD, phyaddr,
-> phyreg, 0);
-> 	if (rc < 0)
-> 		return rc;
-> 
-> 	return readl(priv->ioaddr + priv->hw->mii.data) & 0xffff; }
-> 
-> static int sxgbe_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
-> 			    u16 phydata)
-> {
-> 	struct net_device *ndev = bus->priv;
-> 	struct sxgbe_priv_data *priv = netdev_priv(ndev);
-> 
-> 	return sxgbe_mdio_access(priv, SXGBE_SMA_WRITE_CMD, phyaddr,
-> phyreg,
-> 				 phydata);
-> }
-> 
-> It fixes an unchecked sxgbe_mdio_busy_wait in sxgbe_mdio_write btw.
-> 
-> sxgbe_mdio_read and sxgbe_mdio_write are mostly the same. Their core is
-> imho worth sharing. You're of course free to rewrite or used the code above
-as
-> fits your needs.
-OK.
+> It should use irq_dispose_mapping as well to unwind irq_create_mapping
+> (called by irq_of_parse_and_map).
+OK
 
 > 
-> sxgbe_priv_data should probably be sxgbe_priv, sxgbe or sx. It's everywhere
-> and it's a first class type in the code. It's exceedingly litterate whereas
-common
-> drivers choose to be more lean.
+> [...]
+> > +int sxgbe_xpcs_init(struct net_device *ndev) {
+> > +	u32 value;
+> > +
+> > +	value = sxgbe_xpcs_read(ndev, SR_PCS_MMD_CONTROL1);
+> > +	/* 10G XAUI mode */
+> > +	sxgbe_xpcs_write(ndev, SR_PCS_CONTROL2, XPCS_TYPE_SEL_X);
+> > +	sxgbe_xpcs_write(ndev, VR_PCS_MMD_XAUI_MODE_CONTROL,
+> XPCS_XAUI_MODE);
+> > +	sxgbe_xpcs_write(ndev, VR_PCS_MMD_XAUI_MODE_CONTROL,
+> value | BIT(13));
+> > +	sxgbe_xpcs_write(ndev, SR_PCS_MMD_CONTROL1, value | BIT(11));
+> > +
+> > +	do {
+> > +		value = sxgbe_xpcs_read(ndev,
+> VR_PCS_MMD_DIGITAL_STATUS);
+> > +
+> > +	} while ((value & XPCS_QSEQ_STATE_MPLLOFF) ==
+> > +XPCS_QSEQ_STATE_STABLE);
+> 
+> Excess empty line.
 OK.
 
+Thanks
 > 
 > --
 > Ueimor
