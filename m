@@ -1,8 +1,8 @@
 From: Vince Bridgers <vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: [PATCH V11 2/7] net: sxgbe: add basic framework for Samsung 10Gb
  ethernet driver
-Date: Sat, 22 Mar 2014 14:39:57 -0500
-Message-ID: <CAOwfj2O=c7YmcxwCLb1EDsu5j=PG7C_5LTrqrcSkpaTOQp-_Yg@mail.gmail.com>
+Date: Sat, 22 Mar 2014 14:50:59 -0500
+Message-ID: <CAOwfj2Oc=ocNcRUfmDcEm-8VOyrQVKAZ-f+M+5pL2fQ_BYvxPw@mail.gmail.com>
 References: <007f01cf4597$50abac40$f20304c0$@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -677,6 +677,13 @@ On Sat, Mar 22, 2014 at 1:23 AM, Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@publ
 > +        * set if needed
 > +        */
 > +       regval |= SXGBE_RX_JUMBPKT_ENABLE | SXGBE_RX_ACS_ENABLE;
+
+You might not want to unconditionally enable jumbo frames. You parse
+an MTU from the device tree, why not conditionally enabled jumbo
+frames based on the MTU size? See Peppe's stmicro stmmac driver for an
+example (since the controllers both come from Synopsys and are
+similar)
+
 > +       writel(regval, ioaddr + SXGBE_CORE_RX_CONFIG_REG);
 > +}
 > +
@@ -2357,10 +2364,6 @@ On Sat, Mar 22, 2014 at 1:23 AM, Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@publ
 > +               return -ENOMEM;
 > +
 > +       skb_reserve(skb, NET_IP_ALIGN);
-
-Considering using netdev_alloc_skb_ip_align here as well. Looks like
-it was changed in refill, but not here
-
 > +
 > +       rx_ring->rx_skbuff[i] = skb;
 > +       rx_ring->rx_skbuff_dma[i] = dma_map_single(priv->device, skb->data,
@@ -5739,6 +5742,11 @@ it was changed in refill, but not here
 > +#endif /* __SXGBE_PLATFORM_H__ */
 > --
 > 1.7.10.4
+
+All the best,
+
+Vince
+
 >
 >
 > --
