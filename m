@@ -1,34 +1,28 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
+From: Vince Bridgers <vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: [PATCH V11 2/7] net: sxgbe: add basic framework for Samsung 10Gb
  ethernet driver
-Date: Sat, 22 Mar 2014 14:01:39 -0500
-Message-ID: <CAOwfj2PyvspY7iZjUibYRW6AgYB821BRWGdOXFwQvK7iTvivNw@mail.gmail.com>
+Date: Sat, 22 Mar 2014 14:39:57 -0500
+Message-ID: <CAOwfj2O=c7YmcxwCLb1EDsu5j=PG7C_5LTrqrcSkpaTOQp-_Yg@mail.gmail.com>
 References: <007f01cf4597$50abac40$f20304c0$@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-samsung-soc@vger.kernel.org,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	GIRISH K S <ks.giri@samsung.com>,
-	SIVAREDDY KALLAM <siva.kallam@samsung.com>,
-	Vipul Chandrakant <vipul.pandya@samsung.com>,
-	Ilho Lee <ilho215.lee@samsung.com>,
-	Jay Bhat <j.bhat@samsung.com>
-To: Byungho An <bh74.an@samsung.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:35612 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750971AbaCVTBm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Mar 2014 15:01:42 -0400
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	GIRISH K S <ks.giri-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+	SIVAREDDY KALLAM <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+	Vipul Chandrakant <vipul.pandya-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+	Ilho Lee <ilho215.lee-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+	Jay Bhat <j.bhat-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+To: Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 In-Reply-To: <007f01cf4597$50abac40$f20304c0$@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-See comments inline
-
-On Sat, Mar 22, 2014 at 1:23 AM, Byungho An <bh74.an@samsung.com> wrote:
-> From: Siva Reddy <siva.kallam@samsung.com>
+On Sat, Mar 22, 2014 at 1:23 AM, Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org> wrote:
+> From: Siva Reddy <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 >
 > This patch adds support for Samsung 10Gb ethernet driver(sxgbe).
 >
@@ -38,11 +32,11 @@ On Sat, Mar 22, 2014 at 1:23 AM, Byungho An <bh74.an@samsung.com> wrote:
 > - ISRs for Tx and Rx
 > - ifconfig support to driver
 >
-> Signed-off-by: Siva Reddy Kallam <siva.kallam@samsung.com>
-> Signed-off-by: Vipul Pandya <vipul.pandya@samsung.com>
-> Signed-off-by: Girish K S <ks.giri@samsung.com>
-> Neatening-by: Joe Perches <joe@perches.com>
-> Signed-off-by: Byungho An <bh74.an@samsung.com>
+> Signed-off-by: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+> Signed-off-by: Vipul Pandya <vipul.pandya-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+> Signed-off-by: Girish K S <ks.giri-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+> Neatening-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+> Signed-off-by: Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 > ---
 >  drivers/net/ethernet/Kconfig                       |    1 +
 >  drivers/net/ethernet/Makefile                      |    1 +
@@ -181,7 +175,7 @@ On Sat, Mar 22, 2014 at 1:23 AM, Byungho An <bh74.an@samsung.com> wrote:
 > + * Copyright (C) 2013 Samsung Electronics Co., Ltd.
 > + *             http://www.samsung.com
 > + *
-> + * Author: Siva Reddy Kallam <siva.kallam@samsung.com>
+> + * Author: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 > + *
 > + * This program is free software; you can redistribute it and/or modify
 > + * it under the terms of the GNU General Public License version 2 as
@@ -646,7 +640,7 @@ On Sat, Mar 22, 2014 at 1:23 AM, Byungho An <bh74.an@samsung.com> wrote:
 > + * Copyright (C) 2013 Samsung Electronics Co., Ltd.
 > + *             http://www.samsung.com
 > + *
-> + * Author: Siva Reddy Kallam <siva.kallam@samsung.com>
+> + * Author: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 > + *
 > + * This program is free software; you can redistribute it and/or modify
 > + * it under the terms of the GNU General Public License version 2 as
@@ -810,7 +804,7 @@ On Sat, Mar 22, 2014 at 1:23 AM, Byungho An <bh74.an@samsung.com> wrote:
 > + * Copyright (C) 2013 Samsung Electronics Co., Ltd.
 > + *             http://www.samsung.com
 > + *
-> + * Author: Siva Reddy Kallam <siva.kallam@samsung.com>
+> + * Author: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 > + *
 > + * This program is free software; you can redistribute it and/or modify
 > + * it under the terms of the GNU General Public License version 2 as
@@ -1331,7 +1325,7 @@ On Sat, Mar 22, 2014 at 1:23 AM, Byungho An <bh74.an@samsung.com> wrote:
 > + * Copyright (C) 2013 Samsung Electronics Co., Ltd.
 > + *             http://www.samsung.com
 > + *
-> + * Author: Siva Reddy Kallam <siva.kallam@samsung.com>
+> + * Author: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 > + *
 > + * This program is free software; you can redistribute it and/or modify
 > + * it under the terms of the GNU General Public License version 2 as
@@ -1628,7 +1622,7 @@ On Sat, Mar 22, 2014 at 1:23 AM, Byungho An <bh74.an@samsung.com> wrote:
 > + * Copyright (C) 2013 Samsung Electronics Co., Ltd.
 > + *             http://www.samsung.com
 > + *
-> + * Author: Siva Reddy Kallam <siva.kallam@samsung.com>
+> + * Author: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 > + *
 > + * This program is free software; you can redistribute it and/or modify
 > + * it under the terms of the GNU General Public License version 2 as
@@ -1714,11 +1708,6 @@ On Sat, Mar 22, 2014 at 1:23 AM, Byungho An <bh74.an@samsung.com> wrote:
 > +              ioaddr + SXGBE_DMA_CHA_RXDESC_HADD_REG(cha_num));
 > +       writel(dma_rx & 0xFFFFFFFF,
 > +              ioaddr + SXGBE_DMA_CHA_RXDESC_LADD_REG(cha_num));
-
-use upper_32_bits and lower_32_bits for extracting the upper/lower
-32-bit portions of a phys addrs. See
-https://www.kernel.org/doc/htmldocs/device-drivers/API-upper-32-bits.html.
-
 > +
 > +       /* program tail pointers */
 > +       /* assumption: upper 32 bits are constant and
@@ -2011,7 +2000,7 @@ https://www.kernel.org/doc/htmldocs/device-drivers/API-upper-32-bits.html.
 > + * Copyright (C) 2013 Samsung Electronics Co., Ltd.
 > + *             http://www.samsung.com
 > + *
-> + * Author: Siva Reddy Kallam <siva.kallam@samsung.com>
+> + * Author: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 > + *
 > + * This program is free software; you can redistribute it and/or modify
 > + * it under the terms of the GNU General Public License version 2 as
@@ -2065,7 +2054,7 @@ https://www.kernel.org/doc/htmldocs/device-drivers/API-upper-32-bits.html.
 > + * Copyright (C) 2013 Samsung Electronics Co., Ltd.
 > + *             http://www.samsung.com
 > + *
-> + * Author: Siva Reddy Kallam <siva.kallam@samsung.com>
+> + * Author: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 > + *
 > + * This program is free software; you can redistribute it and/or modify
 > + * it under the terms of the GNU General Public License version 2 as
@@ -2115,7 +2104,7 @@ https://www.kernel.org/doc/htmldocs/device-drivers/API-upper-32-bits.html.
 > + * Copyright (C) 2013 Samsung Electronics Co., Ltd.
 > + *             http://www.samsung.com
 > + *
-> + * Author: Siva Reddy Kallam <siva.kallam@samsung.com>
+> + * Author: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 > + *
 > + * This program is free software; you can redistribute it and/or modify
 > + * it under the terms of the GNU General Public License version 2 as
@@ -2368,6 +2357,10 @@ https://www.kernel.org/doc/htmldocs/device-drivers/API-upper-32-bits.html.
 > +               return -ENOMEM;
 > +
 > +       skb_reserve(skb, NET_IP_ALIGN);
+
+Considering using netdev_alloc_skb_ip_align here as well. Looks like
+it was changed in refill, but not here
+
 > +
 > +       rx_ring->rx_skbuff[i] = skb;
 > +       rx_ring->rx_skbuff_dma[i] = dma_map_single(priv->device, skb->data,
@@ -3265,13 +3258,6 @@ https://www.kernel.org/doc/htmldocs/device-drivers/API-upper-32-bits.html.
 > +
 > +               priv->hw->desc->prepare_tx_desc(tx_desc, 1, no_pagedlen,
 > +                                               no_pagedlen);
-
-you're prototype is void (*prepare_tx_desc)(struct sxgbe_tx_norm_desc
-*p, u8 is_fd, int buf1_len, int pkt_len, int cksum) defined in
-sxgbe_desc.h, but you're usage is different? Am I missing something
-here? I found this when I tried to download this first patch and
-compile it independent of the application of the entire series.
-
 > +       }
 > +
 > +       for (frag_num = 0; frag_num < nr_frags; frag_num++) {
@@ -3289,13 +3275,6 @@ compile it independent of the application of the entire series.
 > +               /* prepare the descriptor */
 > +               priv->hw->desc->prepare_tx_desc(tx_desc, 0, len,
 > +                                               len);
-
-you're prototype is void (*prepare_tx_desc)(struct sxgbe_tx_norm_desc
-*p, u8 is_fd, int buf1_len, int pkt_len, int cksum) defined in
-sxgbe_desc.h, but you're usage is different? Am I missing something
-here? I found this when I tried to download this first patch and
-compile it independent of the application of the entire series.
-
 > +               /* memory barrier to flush descriptor */
 > +               wmb();
 > +
@@ -4177,10 +4156,10 @@ compile it independent of the application of the entire series.
 > +
 > +MODULE_PARM_DESC(debug, "Message Level (-1: default, 0: no output, 16: all)");
 > +
-> +MODULE_AUTHOR("Siva Reddy Kallam <siva.kallam@samsung.com>");
-> +MODULE_AUTHOR("ByungHo An <bh74.an@samsung.com>");
-> +MODULE_AUTHOR("Girish K S <ks.giri@samsung.com>");
-> +MODULE_AUTHOR("Vipul Pandya <vipul.pandya@samsung.com>");
+> +MODULE_AUTHOR("Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>");
+> +MODULE_AUTHOR("ByungHo An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>");
+> +MODULE_AUTHOR("Girish K S <ks.giri-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>");
+> +MODULE_AUTHOR("Vipul Pandya <vipul.pandya-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>");
 > +
 > +MODULE_LICENSE("GPL");
 > diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_mdio.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_mdio.c
@@ -4194,7 +4173,7 @@ compile it independent of the application of the entire series.
 > + * Copyright (C) 2013 Samsung Electronics Co., Ltd.
 > + *             http://www.samsung.com
 > + *
-> + * Author: Siva Reddy Kallam <siva.kallam@samsung.com>
+> + * Author: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 > + *
 > + * This program is free software; you can redistribute it and/or modify
 > + * it under the terms of the GNU General Public License version 2 as
@@ -4466,7 +4445,7 @@ compile it independent of the application of the entire series.
 > + * Copyright (C) 2013 Samsung Electronics Co., Ltd.
 > + *             http://www.samsung.com
 > + *
-> + * Author: Siva Reddy Kallam <siva.kallam@samsung.com>
+> + * Author: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 > + *
 > + * This program is free software; you can redistribute it and/or modify
 > + * it under the terms of the GNU General Public License version 2 as
@@ -4726,7 +4705,7 @@ compile it independent of the application of the entire series.
 > + * Copyright (C) 2013 Samsung Electronics Co., Ltd.
 > + *             http://www.samsung.com
 > + *
-> + * Author: Siva Reddy Kallam <siva.kallam@samsung.com>
+> + * Author: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 > + *
 > + * This program is free software; you can redistribute it and/or modify
 > + * it under the terms of the GNU General Public License version 2 as
@@ -4836,7 +4815,7 @@ compile it independent of the application of the entire series.
 > + * Copyright (C) 2013 Samsung Electronics Co., Ltd.
 > + *             http://www.samsung.com
 > + *
-> + * Author: Siva Reddy Kallam <siva.kallam@samsung.com>
+> + * Author: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 > + *
 > + * This program is free software; you can redistribute it and/or modify
 > + * it under the terms of the GNU General Public License version 2 as
@@ -5084,7 +5063,7 @@ compile it independent of the application of the entire series.
 > + * Copyright (C) 2013 Samsung Electronics Co., Ltd.
 > + *             http://www.samsung.com
 > + *
-> + * Author: Siva Reddy Kallam <siva.kallam@samsung.com>
+> + * Author: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 > + *
 > + * This program is free software; you can redistribute it and/or modify
 > + * it under the terms of the GNU General Public License version 2 as
@@ -5567,7 +5546,7 @@ compile it independent of the application of the entire series.
 > + * Copyright (C) 2013 Samsung Electronics Co., Ltd.
 > + *             http://www.samsung.com
 > + *
-> + * Author: Siva Reddy Kallam <siva.kallam@samsung.com>
+> + * Author: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 > + *
 > + * This program is free software; you can redistribute it and/or modify
 > + * it under the terms of the GNU General Public License version 2 as
@@ -5665,7 +5644,7 @@ compile it independent of the application of the entire series.
 > + * Copyright (C) 2013 Samsung Electronics Co., Ltd.
 > + *             http://www.samsung.com
 > + *
-> + * Author: Byungho An <bh74.an@samsung.com>
+> + * Author: Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 > + *
 > + * This program is free software; you can redistribute it and/or modify
 > + * it under the terms of the GNU General Public License version 2 as
@@ -5710,7 +5689,7 @@ compile it independent of the application of the entire series.
 > + * Copyright (C) 2013 Samsung Electronics Co., Ltd.
 > + *             http://www.samsung.com
 > + *
-> + * Author: Siva Reddy Kallam <siva.kallam@samsung.com>
+> + * Author: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 > + *
 > + * This program is free software; you can redistribute it and/or modify
 > + * it under the terms of the GNU General Public License version 2 as
@@ -5760,14 +5739,13 @@ compile it independent of the application of the entire series.
 > +#endif /* __SXGBE_PLATFORM_H__ */
 > --
 > 1.7.10.4
-
-Have you tried applying this series to this point and compiling? Since
-the prepare_tx_desc usage and prototype are different, I'm not so sure
-the series applied up to this patch will successfully compile.
-
 >
 >
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
