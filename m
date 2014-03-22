@@ -1,111 +1,96 @@
-From: zhangfei <zhangfei.gao@linaro.org>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Sat, 22 Mar 2014 09:18:35 +0800
-Message-ID: <532CE4EB.6010305@linaro.org>
-References: <1395414570-25515-1-git-send-email-zhangfei.gao@linaro.org> <1395414570-25515-4-git-send-email-zhangfei.gao@linaro.org> <4230433.d0bAGX3bJV@wuerfel>
+From: Alon Nafta <alon@privatecore.com>
+Subject: Re: [PATCH 1/4 V2] Ethernet drivers in 3.14-rc3 kernel: fix 3 buffer
+ overflows triggered by hardware devices
+Date: Fri, 21 Mar 2014 18:51:43 -0700
+Message-ID: <CAKPWWNHc8q-evx7TaTWX5SObd3iVm6YpFmepajRHgXmVgC713g@mail.gmail.com>
+References: <CAKPWWNHxTaTRLrAV2_u--cq+jUkqWAoA56qJnassaxhgcVL+yA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, linux@arm.linux.org.uk,
-	f.fainelli@gmail.com, mark.rutland@arm.com,
-	sergei.shtylyov@cogentembedded.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Grant Grundler <grantgrundler@gmail.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:34059 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752067AbaCVBT0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 21:19:26 -0400
-Received: by mail-pa0-f46.google.com with SMTP id kp14so3082218pab.19
-        for <netdev@vger.kernel.org>; Fri, 21 Mar 2014 18:19:26 -0700 (PDT)
-In-Reply-To: <4230433.d0bAGX3bJV@wuerfel>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:41732 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750785AbaCVBvo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Mar 2014 21:51:44 -0400
+Received: by mail-la0-f50.google.com with SMTP id y1so2253529lam.9
+        for <netdev@vger.kernel.org>; Fri, 21 Mar 2014 18:51:43 -0700 (PDT)
+In-Reply-To: <CAKPWWNHxTaTRLrAV2_u--cq+jUkqWAoA56qJnassaxhgcVL+yA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Arnd
+Hi,
 
-On 03/21/2014 11:27 PM, Arnd Bergmann wrote:
-> On Friday 21 March 2014 23:09:30 Zhangfei Gao wrote:
->
->> +
->> +static void __iomem *ppebase;
->
-> Any reason why you still have this, rather than using a separate
-> driver for it as we discussed? If you have comments that you still
-> plan to address, please mention those in the introductory mail,
-> so you don't get the same review comments multiple times.
+Has anyone looked at this patch?
 
-Sorry for my bad understanding.
-I thought you agreed to use this.
-Will check your earlier comments more carefully.
+Thanks,
+Alon
 
+On Mon, Feb 24, 2014 at 10:11 AM, Alon Nafta <alon@privatecore.com> wrote:
+> From: Alon Nafta <alon@privatecore.com>
 >
+> Linux Kernel 3.14 contains multiple overflow conditions that are triggered
+> as hardware inputs are not properly validated when parsing Ethernet packets.
+> This may allow a local attacker to cause an overflow, resulting in a denial
+> of service or potentially allowing the execution of arbitrary code.
 >
->> +static void hip04_tx_reclaim(struct net_device *ndev, bool force)
->> +{
->> +	struct hip04_priv *priv = netdev_priv(ndev);
->> +	unsigned tx_head = priv->tx_head;
->> +	unsigned tx_tail = priv->tx_tail;
->> +	struct tx_desc *desc = &priv->tx_desc[priv->tx_tail];
->> +
->> +	while (tx_tail != tx_head) {
->> +		if (desc->send_addr != 0) {
->> +			if (force)
->> +				desc->send_addr = 0;
->> +			else
->> +				break;
->> +		}
->> +		if (priv->tx_phys[tx_tail]) {
->> +			dma_unmap_single(&ndev->dev, priv->tx_phys[tx_tail],
->> +				priv->tx_skb[tx_tail]->len, DMA_TO_DEVICE);
->> +			priv->tx_phys[tx_tail] = 0;
->> +		}
->> +		dev_kfree_skb_irq(priv->tx_skb[tx_tail]);
->> +		priv->tx_skb[tx_tail] = NULL;
->> +		tx_tail = TX_NEXT(tx_tail);
->> +		priv->tx_count--;
->> +	}
->> +	priv->tx_tail = tx_tail;
->> +}
+> The programmatic error resides in the use of an integer type to describe
+> packet lengths, without proper validation to disallow negative values. In
+> all three (3) bugs this patch fixes, a value of 0x30000 of the hardware
+> signal, named status, will result in a value of 0xffffffff for pkt_len, and
+> an allocation of a socket buffer with size of 0x1. This results in an
+> overflow when data is copied into that buffer.
 >
-> You call this function from start_xmit(), which may be too early, causing the
-> dma_unmap_single() and dev_kfree_skb_irq() functions to be called while the
-> device is still accessing the data. This is bad.
-
-There is a protection.
-Only after xmit done, desc->send_addr = 0, which is cleared by hardware.
-
+> Signed-off-by: Alon Nafta <alon@privatecore.com>
+> Reviewed-by: Grant Grundler <grantgrundler@gmail.com>
+> ---
+> diff -uprN -X linux-3.14-rc3/Documentation/dontdiff
+> linux-3.14-rc3-orig/drivers/net/ethernet/dec/tulip/de4x5.c
+> linux-3.14-rc3/drivers/net/ethernet/dec/tulip/de4x5.c
+> --- linux-3.14-rc3-orig/drivers/net/ethernet/dec/tulip/de4x5.c 2014-02-20
+> 17:59:14.704084300 -0800
+> +++ linux-3.14-rc3/drivers/net/ethernet/dec/tulip/de4x5.c 2014-02-20
+> 18:23:08.987749400 -0800
+> @@ -1635,8 +1635,8 @@ de4x5_rx(struct net_device *dev)
+>   if (status & RD_OF)           lp->pktStats.rx_overflow++;
+>       } else {                          /* A valid frame received */
+>   struct sk_buff *skb;
+> - short pkt_len = (short)(le32_to_cpu(lp->rx_ring[entry].status)
+> -                             >> 16) - 4;
+> + short pkt_len = (short)((le32_to_cpu(lp->rx_ring[entry].status)
+> +                             >> 16) - 4) & 0x7fff;
 >
-> You have to ensure that you only ever clean up tx buffers that have been
-> successfully transmitted. Also, you should use an interrupt to notify you
-> of this in case there is no further xmit packet. Otherwise you may have
-> a user space program waiting indefinitely for a single packet to get sent
-> on a socket.
+>   if ((skb = de4x5_alloc_rx_buff(dev, entry, pkt_len)) == NULL) {
+>       printk("%s: Insufficient memory; nuking packet.\n",
+> diff -uprN -X linux-3.14-rc3/Documentation/dontdiff
+> linux-3.14-rc3-orig/drivers/net/ethernet/dec/tulip/winbond-840.c
+> linux-3.14-rc3/drivers/net/ethernet/dec/tulip/winbond-840.c
+> --- linux-3.14-rc3-orig/drivers/net/ethernet/dec/tulip/winbond-840.c
+> 2014-02-20 17:59:14.757666100 -0800
+> +++ linux-3.14-rc3/drivers/net/ethernet/dec/tulip/winbond-840.c 2014-02-20
+> 18:22:19.419612200 -0800
+> @@ -1218,7 +1218,7 @@ static int netdev_rx(struct net_device *
+>   } else {
+>   struct sk_buff *skb;
+>   /* Omit the four octet CRC from the length. */
+> - int pkt_len = ((status >> 16) & 0x7ff) - 4;
+> + int pkt_len = ((status >> 16) - 4) & 0x7ff;
 >
-> It's ok to also call the cleanup from start_xmit, but calling it from the
-> poll() function or another appropriate place is required.
-
-There is no transmit done interrupt, so relying on every xmit to reclaim 
-finished buffer.
-I thought it would be enough, since there are TX_DESC_NUM descs.
-It is a good idea also put reclaim in poll, then will add spin lock etc.
-
+>  #ifndef final_version
+>   if (debug > 4)
+> diff -uprN -X linux-3.14-rc3/Documentation/dontdiff
+> linux-3.14-rc3-orig/drivers/net/ethernet/smsc/epic100.c
+> linux-3.14-rc3/drivers/net/ethernet/smsc/epic100.c
+> --- linux-3.14-rc3-orig/drivers/net/ethernet/smsc/epic100.c 2014-02-20
+> 17:59:17.844045500 -0800
+> +++ linux-3.14-rc3/drivers/net/ethernet/smsc/epic100.c 2014-02-20
+> 18:21:13.196237400 -0800
+> @@ -1172,7 +1172,7 @@ static int epic_rx(struct net_device *de
+>   } else {
+>   /* Malloc up new buffer, compatible with net-2e. */
+>   /* Omit the four octet CRC from the length. */
+> - short pkt_len = (status >> 16) - 4;
+> + short pkt_len = ((status >> 16) - 4) & 0x7fff;
+>   struct sk_buff *skb;
 >
->> +	priv->id = of_alias_get_id(node, "ethernet");
->> +	if (priv->id < 0) {
->> +		dev_warn(d, "no ethernet alias\n");
->> +		ret = -EINVAL;
->> +		goto init_fail;
->> +	}
->
-> Apparently you try to rely on the alias to refer to a specific piece
-> of hardware, which is not correct. The alias is meant to be selectable
-> to match e.g. the numbering written on the external connector, which
-> is totally independent of the internal hardware.
-
-Thanks for clarifying alisa.
-The id will be used for start channel in ppe, RX_DESC_NUM * priv->id;
-Is it suitable directly use id in the dts, or other name such as start-chan?
-
-Thanks
+>   if (pkt_len > PKT_BUF_SZ - 4) {
