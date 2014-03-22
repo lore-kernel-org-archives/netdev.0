@@ -1,8 +1,7 @@
 From: Byungho An <bh74.an@samsung.com>
-Subject: [PATCH V11 4/7] net: sxgbe: add EEE(Energy Efficient Ethernet) for
- Samsung sxgbe
+Subject: [PATCH V11 3/7] net: sxgbe: add TSO support for Samsung sxgbe
 Date: Fri, 21 Mar 2014 23:23:48 -0700
-Message-ID: <007d01cf4597$4dda15b0$e98e4110$@samsung.com>
+Message-ID: <007e01cf4597$4f536f40$edfa4dc0$@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -13,603 +12,266 @@ Cc: 'David Miller' <davem@davemloft.net>,
 	'Ilho Lee' <ilho215.lee@samsung.com>
 To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
 	devicetree@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:14911 "EHLO
-	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751315AbaCVGYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Mar 2014 02:24:00 -0400
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
 Content-language: en-us
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-samsung-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Girish K S <ks.giri@samsung.com>
+From: Vipul Pandya <vipul.pandya@samsung.com>
 
-Added support for the EEE(Energy Efficient Ethernet) in 10G ethernet driver.
+Enable TSO during initialization for each DMA channels
 
-Signed-off-by: Girish K S <ks.giri@samsung.com>
+Signed-off-by: Vipul Pandya <vipul.pandya@samsung.com>
 Neatening-by: Joe Perches <joe@perches.com>
 Signed-off-by: Byungho An <bh74.an@samsung.com>
 ---
- drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h  |   53 +++++++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c    |   86 +++++++++-
- drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c |   47 ++++++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c    |  165 +++++++++++++++++++-
- .../net/ethernet/samsung/sxgbe/sxgbe_platform.c    |    4 +
- drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h     |    5 +
- 6 files changed, 358 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h |    1 +
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h   |   17 +++--
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c    |   10 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h    |    2 +
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c   |   84 +++++++++++++++++++--
+ 5 files changed, 101 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
-index ec5271d..58e1ace 100644
+index 3e36ae1..ec5271d 100644
 --- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
 +++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
-@@ -115,6 +115,33 @@ struct sxgbe_mtl_ops;
- #define RX_PTP_SIGNAL		0x0A
- #define RX_PTP_RESV_MSG		0x0F
- 
-+/* EEE-LPI mode  flags*/
-+#define TX_ENTRY_LPI_MODE	0x10
-+#define TX_EXIT_LPI_MODE	0x20
-+#define RX_ENTRY_LPI_MODE	0x40
-+#define RX_EXIT_LPI_MODE	0x80
-+
-+/* EEE-LPI Interrupt status flag */
-+#define LPI_INT_STATUS		BIT(5)
-+
-+/* EEE-LPI Default timer values */
-+#define LPI_LINK_STATUS_TIMER	0x3E8
-+#define LPI_MAC_WAIT_TIMER	0x00
-+
-+/* EEE-LPI Control and status definitions */
-+#define LPI_CTRL_STATUS_TXA	BIT(19)
-+#define LPI_CTRL_STATUS_PLSDIS	BIT(18)
-+#define LPI_CTRL_STATUS_PLS	BIT(17)
-+#define LPI_CTRL_STATUS_LPIEN	BIT(16)
-+#define LPI_CTRL_STATUS_TXRSTP	BIT(11)
-+#define LPI_CTRL_STATUS_RXRSTP	BIT(10)
-+#define LPI_CTRL_STATUS_RLPIST	BIT(9)
-+#define LPI_CTRL_STATUS_TLPIST	BIT(8)
-+#define LPI_CTRL_STATUS_RLPIEX	BIT(3)
-+#define LPI_CTRL_STATUS_RLPIEN	BIT(2)
-+#define LPI_CTRL_STATUS_TLPIEX	BIT(1)
-+#define LPI_CTRL_STATUS_TLPIEN	BIT(0)
-+
- enum dma_irq_status {
- 	tx_hard_error	= BIT(0),
- 	tx_bump_tc	= BIT(1),
-@@ -199,6 +226,13 @@ struct sxgbe_extra_stats {
- 	unsigned long rx_buffer_access_err;
- 	unsigned long rx_data_transfer_err;
- 
-+	/* EEE-LPI stats */
-+	unsigned long tx_lpi_entry_n;
-+	unsigned long tx_lpi_exit_n;
-+	unsigned long rx_lpi_entry_n;
-+	unsigned long rx_lpi_exit_n;
-+	unsigned long eee_wakeup_error_n;
-+
- 	/* RX specific */
- 	/* L2 error */
- 	unsigned long rx_code_gmii_err;
-@@ -296,6 +330,13 @@ struct sxgbe_core_ops {
- 				       unsigned char feature_index);
- 	/* adjust SXGBE speed */
- 	void (*set_speed)(void __iomem *ioaddr, unsigned char speed);
-+
-+	/* EEE-LPI specific operations */
-+	void (*set_eee_mode)(void __iomem *ioaddr);
-+	void (*reset_eee_mode)(void __iomem *ioaddr);
-+	void (*set_eee_timer)(void __iomem *ioaddr, const int ls,
-+			      const int tw);
-+	void (*set_eee_pls)(void __iomem *ioaddr, const int link);
+@@ -327,6 +327,7 @@ struct sxgbe_tx_queue {
+ 	u32 tx_coal_frames;
+ 	u32 tx_coal_timer;
+ 	int hwts_tx_en;
++	u16 prev_mss;
+ 	u8 queue_no;
  };
  
- const struct sxgbe_core_ops *sxgbe_get_core_ops(void);
-@@ -352,6 +393,8 @@ struct sxgbe_hw_features {
- 	/* IEEE 1588-2008 */
- 	unsigned int atime_stamp;
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
+index 4f5bb86..e553687 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
+@@ -167,8 +167,9 @@ struct sxgbe_desc_ops {
+ 	void (*init_tx_desc)(struct sxgbe_tx_norm_desc *p);
  
-+	unsigned int eee;
+ 	/* Invoked by the xmit function to prepare the tx descriptor */
+-	void (*tx_enable_tse)(struct sxgbe_tx_norm_desc *p, u8 is_tse,
+-			      u32 hdr_len, u32 payload_len);
++	void (*tx_desc_enable_tse)(struct sxgbe_tx_norm_desc *p, u8 is_tse,
++				   u32 total_hdr_len, u32 tcp_hdr_len,
++				   u32 tcp_payload_len);
+ 
+ 	/* Assign buffer lengths for descriptor */
+ 	void (*prepare_tx_desc)(struct sxgbe_tx_norm_desc *p, u8 is_fd,
+@@ -207,20 +208,26 @@ struct sxgbe_desc_ops {
+ 	int (*get_tx_timestamp_status)(struct sxgbe_tx_norm_desc *p);
+ 
+ 	/* TX Context Descripto Specific */
+-	void (*init_tx_ctxt_desc)(struct sxgbe_tx_ctxt_desc *p);
++	void (*tx_ctxt_desc_set_ctxt)(struct sxgbe_tx_ctxt_desc *p);
+ 
+ 	/* Set the owner of the TX context descriptor */
+-	void (*set_tx_ctxt_owner)(struct sxgbe_tx_ctxt_desc *p);
++	void (*tx_ctxt_desc_set_owner)(struct sxgbe_tx_ctxt_desc *p);
+ 
+ 	/* Get the owner of the TX context descriptor */
+ 	int (*get_tx_ctxt_owner)(struct sxgbe_tx_ctxt_desc *p);
+ 
+ 	/* Set TX mss */
+-	void (*tx_ctxt_desc_setmss)(struct sxgbe_tx_ctxt_desc *p, int mss);
++	void (*tx_ctxt_desc_set_mss)(struct sxgbe_tx_ctxt_desc *p, u16 mss);
+ 
+ 	/* Set TX mss */
+ 	int (*tx_ctxt_desc_get_mss)(struct sxgbe_tx_ctxt_desc *p);
+ 
++	/* Set TX tcmssv */
++	void (*tx_ctxt_desc_set_tcmssv)(struct sxgbe_tx_ctxt_desc *p);
 +
- 	unsigned int tx_csum_offload;
- 	unsigned int rx_csum_offload;
- 	unsigned int multi_macaddr;
-@@ -435,6 +478,13 @@ struct sxgbe_priv_data {
- 	/* tc control */
- 	int tx_tc;
- 	int rx_tc;
-+	/* EEE-LPI specific members */
-+	struct timer_list eee_ctrl_timer;
-+	bool tx_path_in_lpi_mode;
-+	int lpi_irq;
-+	int eee_enabled;
-+	int eee_active;
-+	int tx_lpi_timer;
- };
- 
- /* Function prototypes */
-@@ -457,4 +507,7 @@ int sxgbe_restore(struct net_device *ndev);
- 
- const struct sxgbe_mtl_ops *sxgbe_get_mtl_ops(void);
- 
-+void sxgbe_disable_eee_mode(struct sxgbe_priv_data * const priv);
-+bool sxgbe_eee_init(struct sxgbe_priv_data * const priv);
++	/* Reset TX ostc */
++	void (*tx_ctxt_desc_reset_ostc)(struct sxgbe_tx_ctxt_desc *p);
 +
- #endif /* __SXGBE_COMMON_H__ */
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c
-index 4ad31bb..0164790 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c
-@@ -48,11 +48,38 @@ static void sxgbe_core_dump_regs(void __iomem *ioaddr)
- {
+ 	/* Set IVLAN information */
+ 	void (*tx_ctxt_desc_set_ivlantag)(struct sxgbe_tx_ctxt_desc *p,
+ 					  int is_ivlanvalid, int ivlan_tag,
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
+index ad82ad0..16e39d5 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
+@@ -349,6 +349,15 @@ static void sxgbe_dma_rx_watchdog(void __iomem *ioaddr, u32 riwt)
+ 	}
  }
  
-+static int sxgbe_get_lpi_status(void __iomem *ioaddr, const u32 irq_status)
-+{
-+	int status = 0;
-+	int lpi_status;
-+
-+	/* Reading this register shall clear all the LPI status bits */
-+	lpi_status = readl(ioaddr + SXGBE_CORE_LPI_CTRL_STATUS);
-+
-+	if (lpi_status & LPI_CTRL_STATUS_TLPIEN)
-+		status |= TX_ENTRY_LPI_MODE;
-+	if (lpi_status & LPI_CTRL_STATUS_TLPIEX)
-+		status |= TX_EXIT_LPI_MODE;
-+	if (lpi_status & LPI_CTRL_STATUS_RLPIEN)
-+		status |= RX_ENTRY_LPI_MODE;
-+	if (lpi_status & LPI_CTRL_STATUS_RLPIEX)
-+		status |= RX_EXIT_LPI_MODE;
-+
-+	return status;
-+}
-+
- /* Handle extra events on specific interrupts hw dependent */
- static int sxgbe_core_host_irq_status(void __iomem *ioaddr,
- 				      struct sxgbe_extra_stats *x)
- {
--	return 0;
-+	int irq_status, status = 0;
-+
-+	irq_status = readl(ioaddr + SXGBE_CORE_INT_STATUS_REG);
-+
-+	if (unlikely(irq_status & LPI_INT_STATUS))
-+		status |= sxgbe_get_lpi_status(ioaddr, irq_status);
-+
-+	return status;
- }
- 
- /* Set power management mode (e.g. magic frame) */
-@@ -138,6 +165,59 @@ static void sxgbe_core_set_speed(void __iomem *ioaddr, unsigned char speed)
- 	writel(tx_cfg, ioaddr + SXGBE_CORE_TX_CONFIG_REG);
- }
- 
-+static void  sxgbe_set_eee_mode(void __iomem *ioaddr)
++static void sxgbe_enable_tso(void __iomem *ioaddr, u8 chan_num)
 +{
 +	u32 ctrl;
 +
-+	/* Enable the LPI mode for transmit path with Tx automate bit set.
-+	 * When Tx Automate bit is set, MAC internally handles the entry
-+	 * to LPI mode after all outstanding and pending packets are
-+	 * transmitted.
-+	 */
-+	ctrl = readl(ioaddr + SXGBE_CORE_LPI_CTRL_STATUS);
-+	ctrl |= LPI_CTRL_STATUS_LPIEN | LPI_CTRL_STATUS_TXA;
-+	writel(ctrl, ioaddr + SXGBE_CORE_LPI_CTRL_STATUS);
++	ctrl = readl(ioaddr + SXGBE_DMA_CHA_TXCTL_REG(chan_num));
++	ctrl |= SXGBE_DMA_CHA_TXCTL_TSE_ENABLE;
++	writel(ctrl, ioaddr + SXGBE_DMA_CHA_TXCTL_REG(chan_num));
 +}
 +
-+static void  sxgbe_reset_eee_mode(void __iomem *ioaddr)
-+{
-+	u32 ctrl;
-+
-+	ctrl = readl(ioaddr + SXGBE_CORE_LPI_CTRL_STATUS);
-+	ctrl &= ~(LPI_CTRL_STATUS_LPIEN | LPI_CTRL_STATUS_TXA);
-+	writel(ctrl, ioaddr + SXGBE_CORE_LPI_CTRL_STATUS);
-+}
-+
-+static void  sxgbe_set_eee_pls(void __iomem *ioaddr, const int link)
-+{
-+	u32 ctrl;
-+
-+	ctrl = readl(ioaddr + SXGBE_CORE_LPI_CTRL_STATUS);
-+
-+	/* If the PHY link status is UP then set PLS */
-+	if (link)
-+		ctrl |= LPI_CTRL_STATUS_PLS;
-+	else
-+		ctrl &= ~LPI_CTRL_STATUS_PLS;
-+
-+	writel(ctrl, ioaddr + SXGBE_CORE_LPI_CTRL_STATUS);
-+}
-+
-+static void  sxgbe_set_eee_timer(void __iomem *ioaddr,
-+				 const int ls, const int tw)
-+{
-+	int value = ((tw & 0xffff)) | ((ls & 0x7ff) << 16);
-+
-+	/* Program the timers in the LPI timer control register:
-+	 * LS: minimum time (ms) for which the link
-+	 *  status from PHY should be ok before transmitting
-+	 *  the LPI pattern.
-+	 * TW: minimum time (us) for which the core waits
-+	 *  after it has stopped transmitting the LPI pattern.
-+	 */
-+	writel(value, ioaddr + SXGBE_CORE_LPI_TIMER_CTRL);
-+}
-+
- const struct sxgbe_core_ops core_ops = {
- 	.core_init		= sxgbe_core_init,
- 	.dump_regs		= sxgbe_core_dump_regs,
-@@ -150,6 +230,10 @@ const struct sxgbe_core_ops core_ops = {
- 	.get_controller_version	= sxgbe_get_controller_version,
- 	.get_hw_feature		= sxgbe_get_hw_feature,
- 	.set_speed		= sxgbe_core_set_speed,
-+	.set_eee_mode		= sxgbe_set_eee_mode,
-+	.reset_eee_mode		= sxgbe_reset_eee_mode,
-+	.set_eee_timer		= sxgbe_set_eee_timer,
-+	.set_eee_pls		= sxgbe_set_eee_pls,
+ static const struct sxgbe_dma_ops sxgbe_dma_ops = {
+ 	.init				= sxgbe_dma_init,
+ 	.cha_init			= sxgbe_dma_channel_init,
+@@ -364,6 +373,7 @@ static const struct sxgbe_dma_ops sxgbe_dma_ops = {
+ 	.tx_dma_int_status		= sxgbe_tx_dma_int_status,
+ 	.rx_dma_int_status		= sxgbe_rx_dma_int_status,
+ 	.rx_watchdog			= sxgbe_dma_rx_watchdog,
++	.enable_tso			= sxgbe_enable_tso,
  };
  
- const struct sxgbe_core_ops *sxgbe_get_core_ops(void)
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
-index 1dce2b2..9083300 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
-@@ -32,10 +32,57 @@ struct sxgbe_stats {
- }
- 
- static const struct sxgbe_stats sxgbe_gstrings_stats[] = {
-+	SXGBE_STAT(tx_lpi_entry_n),
-+	SXGBE_STAT(tx_lpi_exit_n),
-+	SXGBE_STAT(rx_lpi_entry_n),
-+	SXGBE_STAT(rx_lpi_exit_n),
-+	SXGBE_STAT(eee_wakeup_error_n),
- };
- #define SXGBE_STATS_LEN ARRAY_SIZE(sxgbe_gstrings_stats)
- 
-+static int sxgbe_ethtool_get_eee(struct net_device *dev,
-+				 struct ethtool_eee *edata)
-+{
-+	struct sxgbe_priv_data *priv = netdev_priv(dev);
-+
-+	if (!priv->hw_cap.eee)
-+		return -EOPNOTSUPP;
-+
-+	edata->eee_enabled = priv->eee_enabled;
-+	edata->eee_active = priv->eee_active;
-+	edata->tx_lpi_timer = priv->tx_lpi_timer;
-+
-+	return phy_ethtool_get_eee(priv->phydev, edata);
-+}
-+
-+static int sxgbe_ethtool_set_eee(struct net_device *dev,
-+				 struct ethtool_eee *edata)
-+{
-+	struct sxgbe_priv_data *priv = netdev_priv(dev);
-+
-+	priv->eee_enabled = edata->eee_enabled;
-+
-+	if (!priv->eee_enabled) {
-+		sxgbe_disable_eee_mode(priv);
-+	} else {
-+		/* We are asking for enabling the EEE but it is safe
-+		 * to verify all by invoking the eee_init function.
-+		 * In case of failure it will return an error.
-+		 */
-+		priv->eee_enabled = sxgbe_eee_init(priv);
-+		if (!priv->eee_enabled)
-+			return -EOPNOTSUPP;
-+
-+		/* Do not change tx_lpi_timer in case of failure */
-+		priv->tx_lpi_timer = edata->tx_lpi_timer;
-+	}
-+
-+	return phy_ethtool_set_eee(priv->phydev, edata);
-+}
-+
- static const struct ethtool_ops sxgbe_ethtool_ops = {
-+	.get_eee = sxgbe_ethtool_get_eee,
-+	.set_eee = sxgbe_ethtool_set_eee,
+ const struct sxgbe_dma_ops *sxgbe_get_dma_ops(void)
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h
+index bbf167e..1607b54 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h
+@@ -41,6 +41,8 @@ struct sxgbe_dma_ops {
+ 				 struct sxgbe_extra_stats *x);
+ 	/* Program the HW RX Watchdog */
+ 	void (*rx_watchdog)(void __iomem *ioaddr, u32 riwt);
++	/* Enable TSO for each DMA channel */
++	void (*enable_tso)(void __iomem *ioaddr, u8 chan_num);
  };
  
- void sxgbe_set_ethtool_ops(struct net_device *netdev)
+ const struct sxgbe_dma_ops *sxgbe_get_dma_ops(void);
 diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-index 7b03dc0..b4b7689 100644
+index 6f8206f..7b03dc0 100644
 --- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
 +++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-@@ -56,6 +56,9 @@
- #define SXGBE_DEFAULT_LPI_TIMER	1000
- 
- static int debug = -1;
-+static int eee_timer = SXGBE_DEFAULT_LPI_TIMER;
-+
-+module_param(eee_timer, int, S_IRUGO | S_IWUSR);
- 
- module_param(debug, int, S_IRUGO | S_IWUSR);
- static const u32 default_msg_level = (NETIF_MSG_DRV | NETIF_MSG_PROBE |
-@@ -68,6 +71,97 @@ static irqreturn_t sxgbe_rx_interrupt(int irq, void *dev_id);
- 
- #define SXGBE_COAL_TIMER(x) (jiffies + usecs_to_jiffies(x))
- 
-+#define SXGBE_LPI_TIMER(x) (jiffies + msecs_to_jiffies(x))
-+
-+/**
-+ * sxgbe_verify_args - verify the driver parameters.
-+ * Description: it verifies if some wrong parameter is passed to the driver.
-+ * Note that wrong parameters are replaced with the default values.
-+ */
-+static void sxgbe_verify_args(void)
-+{
-+	if (unlikely(eee_timer < 0))
-+		eee_timer = SXGBE_DEFAULT_LPI_TIMER;
-+}
-+
-+static void sxgbe_enable_eee_mode(const struct sxgbe_priv_data *priv)
-+{
-+	/* Check and enter in LPI mode */
-+	if (!priv->tx_path_in_lpi_mode)
-+		priv->hw->mac->set_eee_mode(priv->ioaddr);
-+}
-+
-+void sxgbe_disable_eee_mode(struct sxgbe_priv_data * const priv)
-+{
-+	/* Exit and disable EEE in case of we are are in LPI state. */
-+	priv->hw->mac->reset_eee_mode(priv->ioaddr);
-+	del_timer_sync(&priv->eee_ctrl_timer);
-+	priv->tx_path_in_lpi_mode = false;
-+}
-+
-+/**
-+ * sxgbe_eee_ctrl_timer
-+ * @arg : data hook
-+ * Description:
-+ *  If there is no data transfer and if we are not in LPI state,
-+ *  then MAC Transmitter can be moved to LPI state.
-+ */
-+static void sxgbe_eee_ctrl_timer(unsigned long arg)
-+{
-+	struct sxgbe_priv_data *priv = (struct sxgbe_priv_data *)arg;
-+
-+	sxgbe_enable_eee_mode(priv);
-+	mod_timer(&priv->eee_ctrl_timer, SXGBE_LPI_TIMER(eee_timer));
-+}
-+
-+/**
-+ * sxgbe_eee_init
-+ * @priv: private device pointer
-+ * Description:
-+ *  If the EEE support has been enabled while configuring the driver,
-+ *  if the GMAC actually supports the EEE (from the HW cap reg) and the
-+ *  phy can also manage EEE, so enable the LPI state and start the timer
-+ *  to verify if the tx path can enter in LPI state.
-+ */
-+bool sxgbe_eee_init(struct sxgbe_priv_data * const priv)
-+{
-+	bool ret = false;
-+
-+	/* MAC core supports the EEE feature. */
-+	if (priv->hw_cap.eee) {
-+		/* Check if the PHY supports EEE */
-+		if (phy_init_eee(priv->phydev, 1))
-+			return false;
-+
-+		priv->eee_active = 1;
-+		init_timer(&priv->eee_ctrl_timer);
-+		priv->eee_ctrl_timer.function = sxgbe_eee_ctrl_timer;
-+		priv->eee_ctrl_timer.data = (unsigned long)priv;
-+		priv->eee_ctrl_timer.expires = SXGBE_LPI_TIMER(eee_timer);
-+		add_timer(&priv->eee_ctrl_timer);
-+
-+		priv->hw->mac->set_eee_timer(priv->ioaddr,
-+					     SXGBE_DEFAULT_LPI_TIMER,
-+					     priv->tx_lpi_timer);
-+
-+		pr_info("Energy-Efficient Ethernet initialized\n");
-+
-+		ret = true;
-+	}
-+
-+	return ret;
-+}
-+
-+static void sxgbe_eee_adjust(const struct sxgbe_priv_data *priv)
-+{
-+	/* When the EEE has been already initialised we have to
-+	 * modify the PLS bit in the LPI ctrl & status reg according
-+	 * to the PHY link status. For this reason.
-+	 */
-+	if (priv->eee_enabled)
-+		priv->hw->mac->set_eee_pls(priv->ioaddr, priv->phydev->link);
-+}
-+
- /**
-  * sxgbe_clk_csr_set - dynamically set the MDC clock
-  * @priv: driver private structure
-@@ -157,6 +251,9 @@ static void sxgbe_adjust_link(struct net_device *dev)
- 
- 	if (new_state & netif_msg_link(priv))
- 		phy_print_status(phydev);
-+
-+	/* Alter the MAC settings for EEE */
-+	sxgbe_eee_adjust(priv);
+@@ -1099,6 +1099,28 @@ static int sxgbe_release(struct net_device *dev)
+ 	return 0;
  }
  
++/* Prepare first Tx descriptor for doing TSO operation */
++void sxgbe_tso_prepare(struct sxgbe_priv_data *priv,
++		       struct sxgbe_tx_norm_desc *first_desc,
++		       struct sk_buff *skb)
++{
++	unsigned int total_hdr_len, tcp_hdr_len;
++
++	/* Write first Tx descriptor with appropriate value */
++	tcp_hdr_len = tcp_hdrlen(skb);
++	total_hdr_len = skb_transport_offset(skb) + tcp_hdr_len;
++
++	first_desc->tdes01 = dma_map_single(priv->device, skb->data,
++					    total_hdr_len, DMA_TO_DEVICE);
++	if (dma_mapping_error(priv->device, first_desc->tdes01))
++		pr_err("%s: TX dma mapping failed!!\n", __func__);
++
++	first_desc->tdes23.tx_rd_des23.first_desc = 1;
++	priv->hw->desc->tx_desc_enable_tse(first_desc, 1, total_hdr_len,
++					   tcp_hdr_len,
++					   skb->len - total_hdr_len);
++}
++
  /**
-@@ -679,7 +776,7 @@ static void sxgbe_tx_queue_clean(struct sxgbe_tx_queue *tqueue)
-  * @priv: driver private structure
-  * Description: it reclaims resources after transmission completes.
-  */
--static void sxgbe_tx_all_clean(struct sxgbe_priv_data *priv)
-+static void sxgbe_tx_all_clean(struct sxgbe_priv_data * const priv)
- {
- 	u8 queue_num;
+  *  sxgbe_xmit: Tx entry point of the driver
+  *  @skb : the socket buffer
+@@ -1116,13 +1138,24 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	unsigned int tx_rsize = priv->dma_tx_size;
+ 	struct sxgbe_tx_queue *tqueue = priv->txq[txq_index];
+ 	struct sxgbe_tx_norm_desc *tx_desc, *first_desc;
++	struct sxgbe_tx_ctxt_desc *ctxt_desc = NULL;
+ 	int nr_frags = skb_shinfo(skb)->nr_frags;
+ 	int no_pagedlen = skb_headlen(skb);
+ 	int is_jumbo = 0;
++	u16 cur_mss = skb_shinfo(skb)->gso_size;
++	u32 ctxt_desc_req = 0;
  
-@@ -688,6 +785,11 @@ static void sxgbe_tx_all_clean(struct sxgbe_priv_data *priv)
+ 	/* get the TX queue handle */
+ 	dev_txq = netdev_get_tx_queue(dev, txq_index);
  
- 		sxgbe_tx_queue_clean(tqueue);
- 	}
++	if (unlikely(skb_is_gso(skb) && tqueue->prev_mss != cur_mss))
++		ctxt_desc_req = 1;
 +
-+	if ((priv->eee_enabled) && (!priv->tx_path_in_lpi_mode)) {
-+		sxgbe_enable_eee_mode(priv);
-+		mod_timer(&priv->eee_ctrl_timer, SXGBE_LPI_TIMER(eee_timer));
-+	}
- }
- 
- /**
-@@ -769,6 +871,7 @@ static int sxgbe_get_hw_features(struct sxgbe_priv_data * const priv)
- 		features->multi_macaddr = SXGBE_HW_FEAT_MACADDR_COUNT(rval);
- 		features->tstamp_srcselect = SXGBE_HW_FEAT_TSTMAP_SRC(rval);
- 		features->sa_vlan_insert = SXGBE_HW_FEAT_SRCADDR_VLAN(rval);
-+		features->eee = SXGBE_HW_FEAT_EEE(rval);
- 	}
- 
- 	/* Read First Capability Register CAP[1] */
-@@ -986,6 +1089,20 @@ static int sxgbe_open(struct net_device *dev)
- 		goto init_error;
- 	}
- 
-+	/* If the LPI irq is different from the mac irq
-+	 * register a dedicated handler
-+	 */
-+	if (priv->lpi_irq != dev->irq) {
-+		ret = devm_request_irq(priv->device, priv->lpi_irq,
-+				       sxgbe_common_interrupt,
-+				       IRQF_SHARED, dev->name, dev);
-+		if (unlikely(ret < 0)) {
-+			netdev_err(dev, "%s: ERROR: allocating the LPI IRQ %d (%d)\n",
-+				   __func__, priv->lpi_irq, ret);
-+			goto init_error;
-+		}
-+	}
++	if (unlikely(vlan_tx_tag_present(skb) ||
++		     ((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
++		      tqueue->hwts_tx_en)))
++		ctxt_desc_req = 1;
 +
- 	/* Request TX DMA irq lines */
- 	SXGBE_FOR_EACH_QUEUE(SXGBE_TX_QUEUES, queue_num) {
- 		ret = devm_request_irq(priv->device,
-@@ -1041,6 +1158,9 @@ static int sxgbe_open(struct net_device *dev)
- 		priv->hw->dma->rx_watchdog(priv->ioaddr, SXGBE_MAX_DMA_RIWT);
- 	}
- 
-+	priv->tx_lpi_timer = SXGBE_DEFAULT_LPI_TIMER;
-+	priv->eee_enabled = sxgbe_eee_init(priv);
-+
- 	napi_enable(&priv->napi);
- 	netif_start_queue(dev);
- 
-@@ -1066,6 +1186,9 @@ static int sxgbe_release(struct net_device *dev)
- {
- 	struct sxgbe_priv_data *priv = netdev_priv(dev);
- 
-+	if (priv->eee_enabled)
-+		del_timer_sync(&priv->eee_ctrl_timer);
-+
- 	/* Stop and disconnect the PHY */
- 	if (priv->phydev) {
- 		phy_stop(priv->phydev);
-@@ -1159,6 +1282,9 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
  	/* get the spinlock */
  	spin_lock(&tqueue->tx_lock);
  
-+	if (priv->tx_path_in_lpi_mode)
-+		sxgbe_disable_eee_mode(priv);
-+
- 	if (unlikely(sxgbe_tx_avail(tqueue, tx_rsize) < nr_frags + 1)) {
- 		if (!netif_tx_queue_stopped(dev_txq)) {
- 			netif_tx_stop_queue(dev_txq);
-@@ -1441,6 +1567,25 @@ static void sxgbe_tx_timeout(struct net_device *dev)
-  */
- static irqreturn_t sxgbe_common_interrupt(int irq, void *dev_id)
- {
-+	struct net_device *netdev = (struct net_device *)dev_id;
-+	struct sxgbe_priv_data *priv = netdev_priv(netdev);
-+	int status;
-+
-+	status = priv->hw->mac->host_irq_status(priv->ioaddr, &priv->xstats);
-+	/* For LPI we need to save the tx status */
-+	if (status & TX_ENTRY_LPI_MODE) {
-+		priv->xstats.tx_lpi_entry_n++;
-+		priv->tx_path_in_lpi_mode = true;
-+	}
-+	if (status & TX_EXIT_LPI_MODE) {
-+		priv->xstats.tx_lpi_exit_n++;
-+		priv->tx_path_in_lpi_mode = false;
-+	}
-+	if (status & RX_ENTRY_LPI_MODE)
-+		priv->xstats.rx_lpi_entry_n++;
-+	if (status & RX_EXIT_LPI_MODE)
-+		priv->xstats.rx_lpi_exit_n++;
-+
- 	return IRQ_HANDLED;
- }
+@@ -1141,18 +1174,43 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	tx_desc = tqueue->dma_tx + entry;
  
-@@ -1936,6 +2081,9 @@ struct sxgbe_priv_data *sxgbe_drv_probe(struct device *device,
- 	priv->plat = plat_dat;
- 	priv->ioaddr = addr;
+ 	first_desc = tx_desc;
++	if (ctxt_desc_req)
++		ctxt_desc = (struct sxgbe_tx_ctxt_desc *)first_desc;
  
-+	/* Verify driver arguments */
-+	sxgbe_verify_args();
-+
- 	/* Init MAC and get the capabilities */
- 	sxgbe_hw_init(priv);
+ 	/* save the skb address */
+ 	tqueue->tx_skbuff[entry] = skb;
  
-@@ -2107,7 +2255,21 @@ module_exit(sxgbe_exit);
- #ifndef MODULE
- static int __init sxgbe_cmdline_opt(char *str)
- {
-+	char *opt;
+ 	if (!is_jumbo) {
+-		tx_desc->tdes01 = dma_map_single(priv->device, skb->data,
+-						   no_pagedlen, DMA_TO_DEVICE);
+-		if (dma_mapping_error(priv->device, tx_desc->tdes01))
+-			pr_err("%s: TX dma mapping failed!!\n", __func__);
+-
+-		priv->hw->desc->prepare_tx_desc(tx_desc, 1, no_pagedlen,
+-						no_pagedlen);
++		if (likely(skb_is_gso(skb))) {
++			/* TSO support */
++			if (unlikely(tqueue->prev_mss != cur_mss)) {
++				priv->hw->desc->tx_ctxt_desc_set_mss(
++						ctxt_desc, cur_mss);
++				priv->hw->desc->tx_ctxt_desc_set_tcmssv(
++						ctxt_desc);
++				priv->hw->desc->tx_ctxt_desc_reset_ostc(
++						ctxt_desc);
++				priv->hw->desc->tx_ctxt_desc_set_ctxt(
++						ctxt_desc);
++				priv->hw->desc->tx_ctxt_desc_set_owner(
++						ctxt_desc);
 +
-+	if (!str || !*str)
-+		return -EINVAL;
-+	while ((opt = strsep(&str, ",")) != NULL) {
-+		if (!strncmp(opt, "eee_timer:", 6)) {
-+			if (kstrtoint(opt + 10, 0, &eee_timer))
-+				goto err;
++				entry = (++tqueue->cur_tx) % tx_rsize;
++				first_desc = tqueue->dma_tx + entry;
++
++				tqueue->prev_mss = cur_mss;
++			}
++			sxgbe_tso_prepare(priv, first_desc, skb);
++		} else {
++			tx_desc->tdes01 = dma_map_single(priv->device,
++							 skb->data, no_pagedlen, DMA_TO_DEVICE);
++			if (dma_mapping_error(priv->device, tx_desc->tdes01))
++				netdev_err(dev, "%s: TX dma mapping failed!!\n",
++					   __func__);
++
++			priv->hw->desc->prepare_tx_desc(tx_desc, 1, no_pagedlen,
++							no_pagedlen);
 +		}
-+	}
- 	return 0;
-+
-+err:
-+	pr_err("%s: ERROR broken module parameter conversion\n", __func__);
-+	return -EINVAL;
- }
- 
- __setup("sxgbeeth=", sxgbe_cmdline_opt);
-@@ -2118,6 +2280,7 @@ __setup("sxgbeeth=", sxgbe_cmdline_opt);
- MODULE_DESCRIPTION("SAMSUNG 10G/2.5G/1G Ethernet PLATFORM driver");
- 
- MODULE_PARM_DESC(debug, "Message Level (-1: default, 0: no output, 16: all)");
-+MODULE_PARM_DESC(eee_timer, "EEE-LPI Default LS timer value");
- 
- MODULE_AUTHOR("Siva Reddy Kallam <siva.kallam@samsung.com>");
- MODULE_AUTHOR("ByungHo An <bh74.an@samsung.com>");
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
-index 95e0977..3b58459 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
-@@ -147,6 +147,10 @@ static int sxgbe_platform_probe(struct platform_device *pdev)
- 		}
  	}
  
-+	priv->lpi_irq = platform_get_irq(pdev, loop++);
-+	if (priv->lpi_irq == -ENXIO)
-+		priv->lpi_irq = priv->dev->irq;
-+
- 	platform_set_drvdata(pdev, priv->dev);
+ 	for (frag_num = 0; frag_num < nr_frags; frag_num++) {
+@@ -1861,6 +1919,7 @@ struct sxgbe_priv_data *sxgbe_drv_probe(struct device *device,
+ 	struct sxgbe_priv_data *priv;
+ 	struct net_device *ndev;
+ 	int ret;
++	u8 queue_num;
  
- 	pr_debug("platform driver registration completed\n");
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h
-index d1cd9ac..85a7b31 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h
-@@ -25,6 +25,11 @@
- #define SXGBE_CORE_HASH_TABLE_REG5	0x0024
- #define SXGBE_CORE_HASH_TABLE_REG6	0x0028
- #define SXGBE_CORE_HASH_TABLE_REG7	0x002C
+ 	ndev = alloc_etherdev_mqs(sizeof(struct sxgbe_priv_data),
+ 				  SXGBE_TX_QUEUES, SXGBE_RX_QUEUES);
+@@ -1891,7 +1950,9 @@ struct sxgbe_priv_data *sxgbe_drv_probe(struct device *device,
+ 
+ 	ndev->netdev_ops = &sxgbe_netdev_ops;
+ 
+-	ndev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM;
++	ndev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
++		NETIF_F_RXCSUM | NETIF_F_TSO | NETIF_F_TSO6 |
++		NETIF_F_GRO;
+ 	ndev->features |= ndev->hw_features | NETIF_F_HIGHDMA;
+ 	ndev->watchdog_timeo = msecs_to_jiffies(TX_TIMEO);
+ 
+@@ -1903,6 +1964,13 @@ struct sxgbe_priv_data *sxgbe_drv_probe(struct device *device,
+ 	if (flow_ctrl)
+ 		priv->flow_ctrl = SXGBE_FLOW_AUTO;	/* RX/TX pause on */
+ 
++	/* Enable TCP segmentation offload for all DMA channels */
++	if (priv->hw_cap.tcpseg_offload) {
++		SXGBE_FOR_EACH_QUEUE(SXGBE_TX_QUEUES, queue_num) {
++			priv->hw->dma->enable_tso(priv->ioaddr, queue_num);
++		}
++	}
 +
-+/* EEE-LPI Registers */
-+#define SXGBE_CORE_LPI_CTRL_STATUS	0x00D0
-+#define SXGBE_CORE_LPI_TIMER_CTRL	0x00D4
-+
- /* VLAN Specific Registers */
- #define SXGBE_CORE_VLAN_TAG_REG		0x0050
- #define SXGBE_CORE_VLAN_HASHTAB_REG	0x0058
+ 	/* Rx Watchdog is available, enable depend on platform data */
+ 	if (!priv->plat->riwt_off) {
+ 		priv->use_riwt = 1;
 -- 
 1.7.10.4
