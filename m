@@ -1,556 +1,233 @@
 From: Byungho An <bh74.an@samsung.com>
-Subject: RE: [PATCH V10 2/7] net: sxgbe: add basic framework for Samsung 10Gb
- ethernet driver
-Date: Fri, 21 Mar 2014 21:22:29 -0700
-Message-ID: <007a01cf4586$58a02c20$09e08460$@samsung.com>
-References: <005b01cf4530$56a1ba20$03e52e60$@samsung.com>
- <20140321235526.GA7727@electric-eye.fr.zoreil.com>
+Subject: [PATCH V11 5/7] net: sxgbe: add Checksum offload support for Samsung
+ sxgbe
+Date: Fri, 21 Mar 2014 23:23:48 -0700
+Message-ID: <007c01cf4597$4a3d8e00$deb8aa00$@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
-	devicetree@vger.kernel.org, 'David Miller' <davem@davemloft.net>,
+Cc: 'David Miller' <davem@davemloft.net>,
 	'GIRISH K S' <ks.giri@samsung.com>,
 	'SIVAREDDY KALLAM' <siva.kallam@samsung.com>,
 	'Vipul Chandrakant' <vipul.pandya@samsung.com>,
 	'Ilho Lee' <ilho215.lee@samsung.com>
-To: 'Francois Romieu' <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
+	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:39649 "EHLO
-	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750741AbaCVEWh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Mar 2014 00:22:37 -0400
-In-reply-to: <20140321235526.GA7727@electric-eye.fr.zoreil.com>
+Received: from mailout3.samsung.com ([203.254.224.33]:26723 "EHLO
+	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751294AbaCVGXx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Mar 2014 02:23:53 -0400
 Content-language: en-us
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu <romieu@fr.zoreil.com> :
-> Byungho An <bh74.an@samsung.com> :
-> [...]
-> > +static int sxgbe_hw_init(struct sxgbe_priv_data * const priv) {
-> 
-> 	struct sxgbe_ops *hw = priv->hw;
-> 
-> > +	u32 ctrl_ids;
-> [...]
-> > +struct sxgbe_priv_data *sxgbe_dvr_probe(struct device *device,
-> 
-> nit: s/dvr/drv/ ?
-Yes, it is tiriva. but drv is looks better.
+From: Vipul Pandya <vipul.pandya@samsung.com>
 
-> 
-> (several occurences in the driver)
-> 
-> > +					struct sxgbe_plat_data *plat_dat,
-> > +					void __iomem *addr)
-> > +{
-> > +	int ret = 0;
-> 
-> Useless init.
-> 
-OK
+This patch adds TX and RX checksum offload support.
 
-> > +	struct net_device *ndev = NULL;
-> 
-> Useless init.
-OK
+Signed-off-by: Vipul Pandya <vipul.pandya@samsung.com>
+Neatening-by: Joe Perches <joe@perches.com>
+Signed-off-by: Byungho An <bh74.an@samsung.com>
+---
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h |    5 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c   |   20 +++++++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h   |    6 +--
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c   |   46 ++++++++++++++++-----
+ 4 files changed, 63 insertions(+), 14 deletions(-)
 
-> 
-> > +	struct sxgbe_priv_data *priv;
-> 
-> Nit: you may consider reorganizing the variables in an inverted xmas tree
-> fashion at some point.
-Does it look better? No problem.
-
-> 
-> > +
-> > +	ndev = alloc_etherdev_mqs(sizeof(struct sxgbe_priv_data),
-> > +				  SXGBE_TX_QUEUES, SXGBE_RX_QUEUES);
-> > +	if (!ndev)
-> > +		return NULL;
-> > +
-> > +	SET_NETDEV_DEV(ndev, device);
-> > +
-> > +	priv = netdev_priv(ndev);
-> > +	priv->device = device;
-> > +	priv->dev = ndev;
-> > +
-> > +	ether_setup(ndev);
-> 
-> Useless.
-> 
-> (see alloc_etherdev_mqs vs alloc_netdev_mqs)
-OK, removal.
-
-> 
-> > +
-> > +	sxgbe_set_ethtool_ops(ndev);
-> > +	priv->plat = plat_dat;
-> > +	priv->ioaddr = addr;
-> > +
-> > +	/* Init MAC and get the capabilities */
-> > +	ret = sxgbe_hw_init(priv);
-> 
-> sxgbe_hw_init can't fail. It should return void.
-OK
-
-> 
-> [...]
-> > +	/* MDIO bus Registration */
-> > +	ret = sxgbe_mdio_register(ndev);
-> > +	if (ret < 0) {
-> > +		netdev_dbg(ndev, "%s: MDIO bus (id: %d) registration
-> failed\n",
-> > +			   __func__, priv->plat->bus_id);
-> > +		goto error_mdio_register;
-> > +	}
-> > +
-> > +	ret = register_netdev(ndev);
-> > +	if (ret) {
-> > +		pr_err("%s: ERROR %i registering the device\n", __func__,
-ret);
-> > +		goto error_netdev_register;
-> 
-> sxgbe_mdio_register is left unbalanced in the error path.
-> 
-> I am more used to 'goto what_should_be_done' style than 'goto
-> where_it_comes_from' (both require to check if the label are correctly
-ordered
-> in the unwind path though).
-I think it seems that current style has no problem.
-
-> 
-> > +	}
-> > +
-> > +	sxgbe_check_ether_addr(priv);
-> > +
-> > +	return priv;
-> > +
-> > +error_mdio_register:
-> > +	clk_put(priv->sxgbe_clk);
-> > +error_clk_get:
-> > +	unregister_netdev(ndev);
-> 
-> There's no failure point past register_netdev: unregister_netdev can't be
-> needed.
-OK
-
-> 
-> > +error_netdev_register:
-> > +	netif_napi_del(&priv->napi);
-> > +error_free_netdev:
-> > +	free_netdev(ndev);
-> > +
-> > +	return NULL;
-> 
-> Nit: you may use ERR_PTR and always return 'priv'. The caller could thus
-> propagate the error code.
-I'll consider it, not for this patch set.
-
-> 
-> > +}
-> > +
-> > +/**
-> > + * sxgbe_dvr_remove
-> > + * @ndev: net device pointer
-> > + * Description: this function resets the TX/RX processes, disables
-> > +the MAC RX/TX
-> > + * changes the link status, releases the DMA descriptor rings.
-> > + */
-> > +int sxgbe_dvr_remove(struct net_device *ndev) {
-> > +	struct sxgbe_priv_data *priv = netdev_priv(ndev);
-> 
-> 	struct sxgbe_ops *hw = priv->hw;
-> 
-> > +
-> > +	netdev_info(ndev, "%s: removing driver\n", __func__);
-> > +
-> > +	priv->hw->dma->stop_rx(priv->ioaddr, SXGBE_RX_QUEUES);
-> > +	priv->hw->dma->stop_tx(priv->ioaddr, SXGBE_TX_QUEUES);
-> > +
-> > +	priv->hw->mac->enable_tx(priv->ioaddr, false);
-> > +	priv->hw->mac->enable_rx(priv->ioaddr, false);
-> [...]
-> > +static int sxgbe_mdio_read(struct mii_bus *bus, int phyaddr, int
-> > +phyreg) {
-> > +	struct net_device *ndev = bus->priv;
-> > +	struct sxgbe_priv_data *priv = netdev_priv(ndev);
-> > +	u32 devaddr, reg_val;
-> 
-> Excess scope for devaddr.
-> 
-> > +	u32 mii_addr = priv->hw->mii.addr;
-> > +	u32 mii_data = priv->hw->mii.data;
-> 
-> const ?
-Those can be const
-
-> 
-> > +
-> > +	/* check for busy wait */
-> 
-> Useless comment. Pure noise for the reviewer / maintainer.
-Really?
-
-> 
-> > +	if (sxgbe_mdio_busy_wait(priv->ioaddr, mii_data))
-> > +		return -EBUSY;
-> 
-> sxgbe_mdio_busy_wait already returns -EBUSY when it fails. Please use it.
-OK
-
-> 
-> > +
-> > +	if (phyreg & MII_ADDR_C45) {
-> > +		devaddr = (phyreg >> 16) & 0x1F;
-> > +		/* set mdio address register */
-> > +		reg_val = (phyaddr << 16) | (devaddr << 21) | (phyreg &
-> 0xFFFF);
-> > +		writel(reg_val, priv->ioaddr + mii_addr);
-> > +
-> > +		/* set mdio control/data register */
-> > +		reg_val = ((SXGBE_SMA_READ_CMD << 16) |
-> SXGBE_SMA_SKIP_ADDRFRM |
-> > +			   ((priv->clk_csr & 0x7) << 19) | SXGBE_MII_BUSY);
-> 
-> Excess parenthesis:
-OK.
-
-> 		reg_val = (SXGBE_SMA_READ_CMD << 16) |
-> SXGBE_SMA_SKIP_ADDRFRM |
-> 			  ((priv->clk_csr & 0x7) << 19) | SXGBE_MII_BUSY;
-> 
-> > +		writel(reg_val, priv->ioaddr + mii_data);
-> > +	} else {
-> > +		/* configure the port for C22
-> > +		 * ports 0-3 only supports C22
-> > +		 */
-> > +		if (phyaddr >= 4)
-> > +			return -ENODEV;
-> > +		writel((1 << phyaddr),
-> 
-> Excess parenthesis.
-OK
-
-> 
-> > +		       priv->ioaddr + SXGBE_MDIO_CLAUSE22_PORT_REG);
-> > +		/* set mdio address register */
-> > +		reg_val = (phyaddr << 16) | (phyreg & 0x1F);
-> > +		writel(reg_val, priv->ioaddr + mii_addr);
-> > +
-> > +		/* set mdio control/data register */
-> > +		reg_val = ((SXGBE_SMA_READ_CMD << 16) |
-> SXGBE_SMA_SKIP_ADDRFRM |
-> > +			   ((priv->clk_csr & 0x7) << 19) | SXGBE_MII_BUSY);
-> > +		writel(reg_val, priv->ioaddr + mii_data);
-> > +	}
-> 
-> The whole 'if (phyreg & MII_ADDR_C45) { ... } else { ... }' chunk is shared
-with
-> sxgbe_mdio_write(..., phydata = 0). Factor out ?
-Not exactly same.
-
-> 
-> > +
-> > +	/* wait till operation succeds */
-> > +	if (sxgbe_mdio_busy_wait(priv->ioaddr, mii_data))
-> > +		return -EBUSY;
-> > +
-> > +	/* read and return the data from mmi Data register */
-> > +	reg_val = readl(priv->ioaddr + mii_data) & 0xFFFF;
-> > +	return reg_val;
-> 
-> 	return readl(priv->ioaddr + mii_data) & 0xffff;
-> 
-> Then reduce scope of reg_val.
-> 
-> > +}
-> > +/**
-> > + * sxgbe_mdio_write
-> > + * @bus: points to the mii_bus structure
-> > + * @phyaddr: address of phy port
-> > + * @phyreg: address of phy registers
-> > + * @phydata: data to be written into phy register
-> > + * Description: this function is used for C45 and C22 MDIO write  */
-> > +static int sxgbe_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
-> > +			    u16 phydata)
-> > +{
-> 
-> See sxgbe_mdio_read for comments.
-OK
-
-> 
-> [...]
-> > +	if (sxgbe_mdio_busy_wait(priv->ioaddr, mii_data))
-> > +		return -EBUSY;
-> > +
-> > +	return 0;
-> 
-> 	return sxgbe_mdio_busy_wait(priv->ioaddr, mii_data);
-> 
-> > +}
-> > +
-> > +int sxgbe_mdio_register(struct net_device *ndev) {
-> > +	int err, phy_addr, act;
-> 
-> Excess scope for act.
-OK
-
-> 
-> > +	int *irqlist;
-> > +	u8 phy_found = 0;
-> > +	struct mii_bus *mdio_bus;
-> > +	struct sxgbe_priv_data *priv = netdev_priv(ndev);
-> > +	struct sxgbe_mdio_bus_data *mdio_data = priv->plat-
-> >mdio_bus_data;
-> > +
-> > +	/* allocate the new mdio bus */
-> > +	mdio_bus = mdiobus_alloc();
-> > +	if (!mdio_bus) {
-> > +		netdev_err(ndev, "%s: mii bus allocation failed\n", __func__);
-> > +		return -ENOMEM;
-> > +	}
-> > +
-> > +	if (mdio_data->irqs)
-> > +		irqlist = mdio_data->irqs;
-> > +	else
-> > +		irqlist = priv->mii_irq;
-> > +
-> > +	/* assign mii bus fields */
-> > +	mdio_bus->name = "samsxgbe";
-> > +	mdio_bus->read = &sxgbe_mdio_read;
-> > +	mdio_bus->write = &sxgbe_mdio_write;
-> > +	snprintf(mdio_bus->id, MII_BUS_ID_SIZE, "%s-%x",
-> > +		 mdio_bus->name, priv->plat->bus_id);
-> > +	mdio_bus->priv = ndev;
-> > +	mdio_bus->phy_mask = mdio_data->phy_mask;
-> > +	mdio_bus->parent = priv->device;
-> > +
-> > +	/* register with kernel subsystem */
-> > +	err = mdiobus_register(mdio_bus);
-> > +	if (err != 0) {
-> > +		netdev_err(ndev, "mdiobus register failed\n");
-> > +		goto mdiobus_err;
-> > +	}
-> > +
-> > +	for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++) {
-> > +		struct phy_device *phy = mdio_bus->phy_map[phy_addr];
-> > +		if (phy) {
-> 
-> Missing empty line after the declaration.
-OK
-
-> 
-> [...]
-> > +			phy_found = 1;
-> > +		}
-> > +	}
-> > +
-> > +	if (!phy_found) {
-> > +		netdev_err(ndev, "PHY not found\n");
-> > +		mdiobus_unregister(mdio_bus);
-> > +		mdiobus_free(mdio_bus);
-> > +		return -ENODEV;
-> 
-> You may remove phy_found, use "err" instead and gotoize on top of
-> mdiobus_err.
-OK
-
-> 
-> > +	}
-> > +
-> > +	priv->mii = mdio_bus;
-> > +
-> > +	return 0;
-> > +
-> > +mdiobus_err:
-> > +	mdiobus_free(mdio_bus);
-> > +	return err;
-> > +}
-> [...]
-> > +static void sxgbe_mtl_set_txfifosize(void __iomem *ioaddr, int queue_num,
-> > +				     int queue_fifo)
-> > +{
-> > +	u32 fifo_bits, reg_val;
-> > +	/* 0 means 256 bytes */
-> > +	fifo_bits = (queue_fifo / SXGBE_MTL_TX_FIFO_DIV)-1;
-> 
-> - Missing empty line after declaration.
-> - ')-1' -> ') - 1'
-OK
-
-> 
-> > +	reg_val = readl(ioaddr +
-> SXGBE_MTL_TXQ_OPMODE_REG(queue_num));
-> > +	reg_val |= (fifo_bits << SXGBE_MTL_FIFO_LSHIFT);
-> > +	writel(reg_val, ioaddr +
-> SXGBE_MTL_TXQ_OPMODE_REG(queue_num));
-> > +}
-> > +
-> > +static void sxgbe_mtl_set_rxfifosize(void __iomem *ioaddr, int queue_num,
-> > +				     int queue_fifo)
-> > +{
-> > +	u32 fifo_bits, reg_val;
-> > +	/* 0 means 256 bytes */
-> > +	fifo_bits = (queue_fifo / SXGBE_MTL_RX_FIFO_DIV)-1;
-> 
-> Missing empty line after declaration.
-OK
-
-> 
-> [...]
-> > +static const struct sxgbe_mtl_ops mtl_ops = {
-> > +	.mtl_set_txfifosize = sxgbe_mtl_set_txfifosize,
-> > +	.mtl_set_rxfifosize = sxgbe_mtl_set_rxfifosize,
-> > +	.mtl_enable_txqueue = sxgbe_mtl_enable_txqueue,
-> > +	.mtl_disable_txqueue = sxgbe_mtl_disable_txqueue,
-> > +	.mtl_dynamic_dma_rxqueue = sxgbe_mtl_dma_dm_rxqueue,
-> > +	.set_tx_mtl_mode = sxgbe_set_tx_mtl_mode,
-> > +	.set_rx_mtl_mode = sxgbe_set_rx_mtl_mode,
-> > +	.mtl_init = sxgbe_mtl_init,
-> > +	.mtl_fc_active = sxgbe_mtl_fc_active,
-> > +	.mtl_fc_deactive = sxgbe_mtl_fc_deactive,
-> > +	.mtl_fc_enable = sxgbe_mtl_fc_enable,
-> > +	.mtl_fep_enable = sxgbe_mtl_fep_enable,
-> > +	.mtl_fep_disable = sxgbe_mtl_fep_disable,
-> > +	.mtl_fup_enable = sxgbe_mtl_fup_enable,
-> > +	.mtl_fup_disable = sxgbe_mtl_fup_disable
-> 
-> Please use tabs before "=".
-OK
-
-> 
-> [...]
-> > +static int sxgbe_platform_probe(struct platform_device *pdev) {
-> > +	int ret = 0;
-> > +	int loop = 0;
-> > +	int index1, index2;
-> > +	struct resource *res;
-> > +	struct device *dev = &pdev->dev;
-> > +	void __iomem *addr = NULL;
-> 
-> Useless init.
-OK
-
-> 
-> [...]
-> > +	priv = sxgbe_dvr_probe(&(pdev->dev), plat_dat, addr);
-> > +	if (!priv) {
-> > +		pr_err("%s: main driver probe failed\n", __func__);
-> > +		return -ENODEV;
-> > +	}
-> > +
-> > +	/* Get MAC address if available (DT) */
-> > +	if (mac)
-> > +		ether_addr_copy(priv->dev->dev_addr, mac);
-> > +
-> > +	/* Get the SXGBE common INT information */
-> > +	priv->irq  = platform_get_irq(pdev, loop++);
-> > +	if (priv->irq <= 0) {
-> > +		dev_err(dev, "sxgbe common irq parsing failed\n");
-> > +		return -EINVAL;
-> 
-> No sxgbe_dvr_remove ?
-> 
-> > +	}
-> > +
-> > +	/* Get the TX/RX IRQ numbers */
-> > +	for (index1 = 0, index2 = 0 ; loop < total_dma_channels; loop++) {
-> > +		if (loop < SXGBE_TX_QUEUES) {
-> > +			(priv->txq[index1])->irq_no  =
-> > +				irq_of_parse_and_map(dev->of_node, loop);
-> > +			if ((priv->txq[index1++])->irq_no <= 0) {
-> > +				dev_err(dev, "sxgbe tx irq parsing failed\n");
-> > +				return -EINVAL;
-> > +			}
-> > +		} else {
-> > +			(priv->rxq[index2])->irq_no  =
-> > +				irq_of_parse_and_map(dev->of_node, loop);
-> > +			if ((priv->rxq[index2++])->irq_no <= 0) {
-> > +				dev_err(dev, "sxgbe rx irq parsing failed\n");
-> > +				return -EINVAL;
-> > +			}
-> > +		}
-> > +	}
-> 
-> (yucky)
-> 
-> 	struct device_node *node = dev->of_node;
-> 
-> 	for (i = 0, chan = 0; i < SXGBE_TX_QUEUES; i++) {
-> 		priv->txq[i]->irq_no = irq_of_parse_and_map(node, chan++);
-> 		if (priv->txq[i]->irq_no <= 0) {
-> 			dev_err(dev, "sxgbe tx irq parsing failed\n");
-> 			return -EINVAL;
-> 		}
-> 	}
-> 
-> 	for (i = 0; i < SXGBE_RX_QUEUES; i++) {
-> 		priv->rxq[i]->irq_no = irq_of_parse_and_map(node, chan++);
-> 		if (priv->rxq[i]->irq_no <= 0) {
-> 			dev_err(dev, "sxgbe rx irq parsing failed\n");
-> 			return -EINVAL;
-> 		}
-> 	}
-> 
-> It should imho use irq_dispose_mapping in the error path (and balance in
-> sxgbe_platform_remove as well).
-OK.
-
-> 
-> > +
-> > +	platform_set_drvdata(pdev, priv->dev);
-> > +
-> > +	pr_debug("platform driver registration completed\n");
-> > +
-> > +	return 0;
-> > +}
-> > +
-> > +/**
-> > + * sxgbe_platform_remove
-> > + * @pdev: platform device pointer
-> > + * Description: this function calls the main to free the net
-> > +resources
-> > + * and calls the platforms hook and release the resources (e.g. mem).
-> > + */
-> > +static int sxgbe_platform_remove(struct platform_device *pdev) {
-> > +	struct net_device *ndev = platform_get_drvdata(pdev);
-> > +	int ret = sxgbe_dvr_remove(ndev);
-> 
-> Declaration, empty line.
-> 
-> [...]
-> > +int sxgbe_platform_freeze(struct device *dev) {
-> > +	int ret;
-> > +	struct net_device *ndev = dev_get_drvdata(dev);
-> > +
-> > +	ret = sxgbe_freeze(ndev);
-> > +
-> > +	return ret;
-> 
-> Is 'ret' really needed ?
-OK
-
-> 
-> [...]
-> > +static const struct dev_pm_ops sxgbe_platform_pm_ops = {
-> > +	.suspend = sxgbe_platform_suspend,
-> > +	.resume = sxgbe_platform_resume,
-> > +	.freeze = sxgbe_platform_freeze,
-> > +	.thaw = sxgbe_platform_restore,
-> > +	.restore = sxgbe_platform_restore,
-> 
-> Please use tabs before '=' to line things up.
-OK
-
-> 
-> /megotobed
-> 
-> --
-> Ueimor
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the
-body of
-> a message to majordomo@vger.kernel.org More majordomo info at
-> http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
+index 58e1ace..36a72a3 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
+@@ -337,6 +337,10 @@ struct sxgbe_core_ops {
+ 	void (*set_eee_timer)(void __iomem *ioaddr, const int ls,
+ 			      const int tw);
+ 	void (*set_eee_pls)(void __iomem *ioaddr, const int link);
++
++	/* Enable disable checksum offload operations */
++	void (*enable_rx_csum)(void __iomem *ioaddr);
++	void (*disable_rx_csum)(void __iomem *ioaddr);
+ };
+ 
+ const struct sxgbe_core_ops *sxgbe_get_core_ops(void);
+@@ -449,6 +453,7 @@ struct sxgbe_priv_data {
+ 	struct sxgbe_ops *hw;	/* sxgbe specific ops */
+ 	int no_csum_insertion;
+ 	int irq;
++	int rxcsum_insertion;
+ 	spinlock_t stats_lock;	/* lock for tx/rx statatics */
+ 
+ 	struct phy_device *phydev;
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c
+index 0164790..66d4a74 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c
+@@ -218,6 +218,24 @@ static void  sxgbe_set_eee_timer(void __iomem *ioaddr,
+ 	writel(value, ioaddr + SXGBE_CORE_LPI_TIMER_CTRL);
+ }
+ 
++static void sxgbe_enable_rx_csum(void __iomem *ioaddr)
++{
++	u32 ctrl;
++
++	ctrl = readl(ioaddr + SXGBE_CORE_RX_CONFIG_REG);
++	ctrl |= SXGBE_RX_CSUMOFFLOAD_ENABLE;
++	writel(ctrl, ioaddr + SXGBE_CORE_RX_CONFIG_REG);
++}
++
++static void sxgbe_disable_rx_csum(void __iomem *ioaddr)
++{
++	u32 ctrl;
++
++	ctrl = readl(ioaddr + SXGBE_CORE_RX_CONFIG_REG);
++	ctrl &= ~SXGBE_RX_CSUMOFFLOAD_ENABLE;
++	writel(ctrl, ioaddr + SXGBE_CORE_RX_CONFIG_REG);
++}
++
+ const struct sxgbe_core_ops core_ops = {
+ 	.core_init		= sxgbe_core_init,
+ 	.dump_regs		= sxgbe_core_dump_regs,
+@@ -234,6 +252,8 @@ const struct sxgbe_core_ops core_ops = {
+ 	.reset_eee_mode		= sxgbe_reset_eee_mode,
+ 	.set_eee_timer		= sxgbe_set_eee_timer,
+ 	.set_eee_pls		= sxgbe_set_eee_pls,
++	.enable_rx_csum		= sxgbe_enable_rx_csum,
++	.disable_rx_csum	= sxgbe_disable_rx_csum,
+ };
+ 
+ const struct sxgbe_core_ops *sxgbe_get_core_ops(void)
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
+index e553687..838cb9f 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
+@@ -113,7 +113,7 @@ struct sxgbe_rx_norm_desc {
+ 			/* WB RDES3 */
+ 			u32 pkt_len:14;
+ 			u32 rdes3_reserved:1;
+-			u32 err_summary:15;
++			u32 err_summary:1;
+ 			u32 err_l2_type:4;
+ 			u32 layer34_pkt_type:4;
+ 			u32 no_coagulation_pkt:1;
+@@ -273,8 +273,8 @@ struct sxgbe_desc_ops {
+ 	int (*get_rx_ld_status)(struct sxgbe_rx_norm_desc *p);
+ 
+ 	/* Return the reception status looking at the RDES1 */
+-	void (*rx_wbstatus)(struct sxgbe_rx_norm_desc *p,
+-				struct sxgbe_extra_stats *x);
++	int (*rx_wbstatus)(struct sxgbe_rx_norm_desc *p,
++			   struct sxgbe_extra_stats *x, int *checksum);
+ 
+ 	/* Get own bit */
+ 	int (*get_rx_ctxt_owner)(struct sxgbe_rx_ctxt_desc *p);
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+index b4b7689..1a8cee4 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+@@ -1255,6 +1255,7 @@ void sxgbe_tso_prepare(struct sxgbe_priv_data *priv,
+ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	unsigned int entry, frag_num;
++	int cksum_flag = 0;
+ 	struct netdev_queue *dev_txq;
+ 	unsigned txq_index = skb_get_queue_mapping(skb);
+ 	struct sxgbe_priv_data *priv = netdev_priv(dev);
+@@ -1335,7 +1336,7 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ 					   __func__);
+ 
+ 			priv->hw->desc->prepare_tx_desc(tx_desc, 1, no_pagedlen,
+-							no_pagedlen);
++							no_pagedlen, cksum_flag);
+ 		}
+ 	}
+ 
+@@ -1353,7 +1354,7 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 		/* prepare the descriptor */
+ 		priv->hw->desc->prepare_tx_desc(tx_desc, 0, len,
+-						len);
++						len, cksum_flag);
+ 		/* memory barrier to flush descriptor */
+ 		wmb();
+ 
+@@ -1474,6 +1475,8 @@ static int sxgbe_rx(struct sxgbe_priv_data *priv, int limit)
+ 	unsigned int entry = priv->rxq[qnum]->cur_rx;
+ 	unsigned int next_entry = 0;
+ 	unsigned int count = 0;
++	int checksum;
++	int status;
+ 
+ 	while (count < limit) {
+ 		struct sxgbe_rx_norm_desc *p;
+@@ -1490,7 +1493,18 @@ static int sxgbe_rx(struct sxgbe_priv_data *priv, int limit)
+ 		next_entry = (++priv->rxq[qnum]->cur_rx) % rxsize;
+ 		prefetch(priv->rxq[qnum]->dma_rx + next_entry);
+ 
+-		/*TO DO read the status of the incoming frame */
++		/* Read the status of the incoming frame and also get checksum
++		 * value based on whether it is enabled in SXGBE hardware or
++		 * not.
++		 */
++		status = priv->hw->desc->rx_wbstatus(p, &priv->xstats,
++						     &checksum);
++		if (unlikely(status < 0)) {
++			entry = next_entry;
++			continue;
++		}
++		if (unlikely(!priv->rxcsum_insertion))
++			checksum = CHECKSUM_NONE;
+ 
+ 		skb = priv->rxq[qnum]->rx_skbuff[entry];
+ 
+@@ -1504,7 +1518,11 @@ static int sxgbe_rx(struct sxgbe_priv_data *priv, int limit)
+ 
+ 		skb_put(skb, frame_len);
+ 
+-		netif_receive_skb(skb);
++		skb->ip_summed = checksum;
++		if (checksum == CHECKSUM_NONE)
++			netif_receive_skb(skb);
++		else
++			napi_gro_receive(&priv->napi, skb);
+ 
+ 		entry = next_entry;
+ 	}
+@@ -1751,15 +1769,15 @@ static int sxgbe_set_features(struct net_device *dev,
+ {
+ 	struct sxgbe_priv_data *priv = netdev_priv(dev);
+ 	netdev_features_t changed = dev->features ^ features;
+-	u32 ctrl;
+ 
+ 	if (changed & NETIF_F_RXCSUM) {
+-		ctrl = readl(priv->ioaddr + SXGBE_CORE_RX_CONFIG_REG);
+-		if (features & NETIF_F_RXCSUM)
+-			ctrl |= SXGBE_RX_CSUMOFFLOAD_ENABLE;
+-		else
+-			ctrl &= ~SXGBE_RX_CSUMOFFLOAD_ENABLE;
+-		writel(ctrl, priv->ioaddr + SXGBE_CORE_RX_CONFIG_REG);
++		if (features & NETIF_F_RXCSUM) {
++			priv->hw->mac->enable_rx_csum(priv->ioaddr);
++			priv->rxcsum_insertion = true;
++		} else {
++			priv->hw->mac->disable_rx_csum(priv->ioaddr);
++			priv->rxcsum_insertion = false;
++		}
+ 	}
+ 
+ 	return 0;
+@@ -2119,6 +2137,12 @@ struct sxgbe_priv_data *sxgbe_drv_probe(struct device *device,
+ 		}
+ 	}
+ 
++	/* Enable Rx checksum offload */
++	if (priv->hw_cap.rx_csum_offload) {
++		priv->hw->mac->enable_rx_csum(priv->ioaddr);
++		priv->rxcsum_insertion = true;
++	}
++
+ 	/* Rx Watchdog is available, enable depend on platform data */
+ 	if (!priv->plat->riwt_off) {
+ 		priv->use_riwt = 1;
+-- 
+1.7.10.4
