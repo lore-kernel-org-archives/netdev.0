@@ -1,56 +1,69 @@
 From: Byungho An <bh74.an@samsung.com>
 Subject: RE: [PATCH V11 2/7] net: sxgbe: add basic framework for Samsung 10Gb
  ethernet driver
-Date: Sat, 22 Mar 2014 15:23:41 -0700
-Message-ID: <008901cf461d$63cbf2e0$2b63d8a0$@samsung.com>
+Date: Sat, 22 Mar 2014 16:15:18 -0700
+Message-ID: <008a01cf4624$997e1e20$cc7a5a60$@samsung.com>
 References: <007f01cf4597$50abac40$f20304c0$@samsung.com>
- <CAOwfj2O=c7YmcxwCLb1EDsu5j=PG7C_5LTrqrcSkpaTOQp-_Yg@mail.gmail.com>
+ <532D9032.1040209@gmail.com> <008801cf4619$7b443cb0$71ccb610$@samsung.com>
+ <532E07CA.5020404@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
-	devicetree@vger.kernel.org, 'David Miller' <davem@davemloft.net>,
+Cc: 'David Miller' <davem@davemloft.net>,
 	'GIRISH K S' <ks.giri@samsung.com>,
 	'SIVAREDDY KALLAM' <siva.kallam@samsung.com>,
 	'Vipul Chandrakant' <vipul.pandya@samsung.com>,
-	'Ilho Lee' <ilho215.lee@samsung.com>,
-	'Jay Bhat' <j.bhat@samsung.com>
-To: 'Vince Bridgers' <vbridgers2013@gmail.com>
+	'Ilho Lee' <ilho215.lee@samsung.com>
+To: 'Tomasz Figa' <tomasz.figa@gmail.com>, netdev@vger.kernel.org,
+	linux-samsung-soc@vger.kernel.org, devicetree@vger.kernel.org
 Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-In-reply-to: <CAOwfj2O=c7YmcxwCLb1EDsu5j=PG7C_5LTrqrcSkpaTOQp-_Yg@mail.gmail.com>
+In-reply-to: <532E07CA.5020404@gmail.com>
 Content-language: en-us
 Sender: linux-samsung-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Vince Bridgers <vbridgers2013@gmail.com> :
-> On Sat, Mar 22, 2014 at 1:23 AM, Byungho An <bh74.an@samsung.com> wrote:
-> > From: Siva Reddy <siva.kallam@samsung.com>
+Tomasz Figa <tomasz.figa@gmail.com> :
+> On 22.03.2014 22:55, Byungho An wrote:
 > >
-> > This patch adds support for Samsung 10Gb ethernet driver(sxgbe).
-> >
-
-[snip]
-
-> > +static int sxgbe_init_rx_buffers(struct net_device *dev,
-> > +                                struct sxgbe_rx_norm_desc *p, int i,
-> > +                                unsigned int dma_buf_sz,
-> > +                                struct sxgbe_rx_queue *rx_ring)
-> > +{
-> > +       struct sxgbe_priv_data *priv = netdev_priv(dev);
-> > +       struct sk_buff *skb;
-> > +
-> > +       skb = __netdev_alloc_skb(dev, dma_buf_sz, GFP_KERNEL);
-> > +       if (!skb)
-> > +               return -ENOMEM;
-> > +
-> > +       skb_reserve(skb, NET_IP_ALIGN);
+> > Tomasz Figa <tomasz.figa@gmail.com> :
 > 
-> Considering using netdev_alloc_skb_ip_align here as well. Looks like
-> it was changed in refill, but not here
-OK. Thanks
+> [snip]
+> 
+> >>> +	if (priv->irq <= 0) {
+> >>> +		dev_err(dev, "sxgbe common irq parsing failed\n");
+> >>> +		sxgbe_drv_remove(ndev);
+> >>> +		return -EINVAL;
+> >>> +	}
+> >>> +
+> >>> +	/* Get the TX/RX IRQ numbers */
+> >>> +	for (i = 0, chan = 0; i < SXGBE_TX_QUEUES; i++) {
+> >>> +		priv->txq[i]->irq_no = irq_of_parse_and_map(node, chan++);
+> >>
+> >> Hmm, this call looks suspicious. The "chan" variable starts here as 0
+> >> and so
+> > the
+> >> first call to irq_of_parse_and_map() will end up with parsing the
+> >> first
+> > (zeroth)
+> >> entry of "interrupts" property, which would be the same as returned
+> >> by platform_get_irq(..., 0) above. Maybe this was the point where the
+> "loop"
+> >> variable should be used?
+> > OK. it will be chan instead of loop.
+> > thanks I missed.
+> >
+> >>
+> >> Anyway, why you couldn't simply use platform_get_irq() here as well?
+> > I'll change platform_get_irq to irq_of_parse_and_map because latter
+> > can support PCI and nonPCI
+> 
+> Hmm, since this function is for probing only platform devices, I don't see
+how
+> this code could be used for PCI. For platform devices
+> platform_get_irq() is preferred.
+Those things will be added after this serise.
 
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> Best regards,
+> Tomasz
