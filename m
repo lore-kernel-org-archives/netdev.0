@@ -1,52 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] drivers/net: Use RCU_INIT_POINTER(x, NULL) in tun.c
-Date: Sun, 23 Mar 2014 12:54:17 -0700
-Message-ID: <1395604457.9117.21.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1395599552-7486-1-git-send-email-monamagarwal123@gmail.com>
-	 <20140323194113.GA13633@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Monam Agarwal <monamagarwal123@gmail.com>, davem@davemloft.net,
-	jasowang@redhat.com, xemul@parallels.com, wuzhy@linux.vnet.ibm.com,
-	therbert@google.com, yamato@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, paulmck@linux.vnet.ibm.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140323194113.GA13633@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jean Sacren <sakiwit@gmail.com>
+Subject: [PATCH net-next] i40e: i40evf: fix error checking path
+Date: Sun, 23 Mar 2014 14:26:58 -0600
+Message-ID: <1395606418-22964-1-git-send-email-sakiwit@gmail.com>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Mitch Williams <mitch.a.williams@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:58122 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933AbaCWUaU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2014 16:30:20 -0400
+Received: by mail-pd0-f173.google.com with SMTP id z10so4466539pdj.32
+        for <netdev@vger.kernel.org>; Sun, 23 Mar 2014 13:30:20 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-03-23 at 21:41 +0200, Michael S. Tsirkin wrote:
+The commit 6494294f277fd ("i40e/i40evf: Use
+dma_set_mask_and_coherent") uses dma_set_mask_and_coherent() to
+replace dma_set_coherent_mask() for the benefit of return error.
+The conversion brings some confusion in error checking as whether
+against DMA_BIT_MASK(64) or DMA_BIT_MASK(32). For one, if error is
+zero, the check will be against DMA_BIT_MASK(64) twice. Fix this
+error checking by binding the check to the pertinent one.
 
-> The rcu_assign_pointer() ensures that the initialization of a structure       
-> is carried out before storing a pointer to that structure. 
-> In the case of the NULL pointer, there is no structure to initialize,
-> so we can safely drop smp_wmb in this case.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> --
-> 
-> Lightly tested.
-> v is evaluated twice here but that should be ok since this
-> only happens when v is a constant, so evaluating it should
-> have no side effects.
-> Paul, what do you think?
-> 
-> diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
-> index 72bf3a0..d33c9ec 100644
-> --- a/include/linux/rcupdate.h
-> +++ b/include/linux/rcupdate.h
-> @@ -587,7 +587,8 @@ static inline void rcu_preempt_sleep_check(void)
->   */
->  #define rcu_assign_pointer(p, v) \
->  	do { \
-> -		smp_wmb(); \
-> +		if (!__builtin_constant_p(v) || (v)) \
-> +			smp_wmb(); \
->  		ACCESS_ONCE(p) = RCU_INITIALIZER(v); \
->  	} while (0)
->  
+Signed-off-by: Jean Sacren <sakiwit@gmail.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 11 ++++++-----
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 11 ++++++-----
+ 2 files changed, 12 insertions(+), 10 deletions(-)
 
-Yeah, I suggest you read d322f45ceed525daa changelog ;)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 113354214517..37b2f55ea43b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -8041,12 +8041,13 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	/* set up for high or low dma */
+ 	err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+-	if (err)
+-		err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+ 	if (err) {
+-		dev_err(&pdev->dev,
+-			"DMA configuration failed: 0x%x\n", err);
+-		goto err_dma;
++		err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
++		if (err) {
++			dev_err(&pdev->dev,
++				"DMA configuration failed: 0x%x\n", err);
++			goto err_dma;
++		}
+ 	}
+ 
+ 	/* set up pci connections */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index d381bcc4ea9f..fdf9edf97ff1 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -2188,12 +2188,13 @@ static int i40evf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		return err;
+ 
+ 	err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+-	if (err)
+-		err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+ 	if (err) {
+-		dev_err(&pdev->dev,
+-			"DMA configuration failed: 0x%x\n", err);
+-		goto err_dma;
++		err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
++		if (err) {
++			dev_err(&pdev->dev,
++				"DMA configuration failed: 0x%x\n", err);
++			goto err_dma;
++		}
+ 	}
+ 
+ 	err = pci_request_regions(pdev, i40evf_driver_name);
