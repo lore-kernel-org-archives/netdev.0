@@ -1,7 +1,7 @@
 From: Monam Agarwal <monamagarwal123@gmail.com>
-Subject: [PATCH] net/mac80211: Use RCU_INIT_POINTER(x, NULL) in scan.c
-Date: Mon, 24 Mar 2014 00:50:22 +0530
-Message-ID: <1395602422-14534-1-git-send-email-monamagarwal123@gmail.com>
+Subject: [PATCH] net/mac80211: Use RCU_INIT_POINTER(x, NULL) in util.c
+Date: Mon, 24 Mar 2014 00:51:43 +0530
+Message-ID: <1395602503-14958-1-git-send-email-monamagarwal123@gmail.com>
 To: linville@tuxdriver.com, johannes@sipsolutions.net,
 	davem@davemloft.net, linux-wireless@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
@@ -18,57 +18,21 @@ So, rcu_assign_pointer(p, NULL) can be safely converted to RCU_INIT_POINTER(p, N
 
 Signed-off-by: Monam Agarwal <monamagarwal123@gmail.com>
 ---
- net/mac80211/scan.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ net/mac80211/util.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/mac80211/scan.c b/net/mac80211/scan.c
-index 836f500..f9f078b 100644
---- a/net/mac80211/scan.c
-+++ b/net/mac80211/scan.c
-@@ -309,7 +309,7 @@ static void __ieee80211_scan_completed(struct ieee80211_hw *hw, bool aborted)
- 	if (local->scan_req != local->int_scan_req)
- 		cfg80211_scan_done(local->scan_req, aborted);
- 	local->scan_req = NULL;
--	rcu_assign_pointer(local->scan_sdata, NULL);
-+	RCU_INIT_POINTER(local->scan_sdata, NULL);
- 
- 	local->scanning = 0;
- 	local->scan_chandef.chan = NULL;
-@@ -559,7 +559,7 @@ static int __ieee80211_start_scan(struct ieee80211_sub_if_data *sdata,
- 		ieee80211_recalc_idle(local);
- 
- 		local->scan_req = NULL;
--		rcu_assign_pointer(local->scan_sdata, NULL);
-+		RCU_INIT_POINTER(local->scan_sdata, NULL);
- 	}
- 
- 	return rc;
-@@ -773,7 +773,7 @@ void ieee80211_scan_work(struct work_struct *work)
- 		int rc;
- 
- 		local->scan_req = NULL;
--		rcu_assign_pointer(local->scan_sdata, NULL);
-+		RCU_INIT_POINTER(local->scan_sdata, NULL);
- 
- 		rc = __ieee80211_start_scan(sdata, req);
- 		if (rc) {
-@@ -1014,7 +1014,7 @@ out_free:
- 
- 	if (ret) {
- 		/* Clean in case of failure after HW restart or upon resume. */
--		rcu_assign_pointer(local->sched_scan_sdata, NULL);
-+		RCU_INIT_POINTER(local->sched_scan_sdata, NULL);
- 		local->sched_scan_req = NULL;
- 	}
- 
-@@ -1087,7 +1087,7 @@ void ieee80211_sched_scan_stopped_work(struct work_struct *work)
- 		return;
- 	}
- 
--	rcu_assign_pointer(local->sched_scan_sdata, NULL);
-+	RCU_INIT_POINTER(local->sched_scan_sdata, NULL);
- 
- 	/* If sched scan was aborted by the driver. */
- 	local->sched_scan_req = NULL;
+diff --git a/net/mac80211/util.c b/net/mac80211/util.c
+index 275c94f..7601657 100644
+--- a/net/mac80211/util.c
++++ b/net/mac80211/util.c
+@@ -1546,7 +1546,7 @@ int ieee80211_reconfig(struct ieee80211_local *local)
+ 		WARN_ON(local->resuming);
+ 		res = drv_add_interface(local, sdata);
+ 		if (WARN_ON(res)) {
+-			rcu_assign_pointer(local->monitor_sdata, NULL);
++			RCU_INIT_POINTER(local->monitor_sdata, NULL);
+ 			synchronize_net();
+ 			kfree(sdata);
+ 		}
 -- 
 1.7.9.5
