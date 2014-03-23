@@ -1,17 +1,13 @@
 From: Monam Agarwal <monamagarwal123@gmail.com>
-Subject: [PATCH] net/mac80211: Use RCU_INIT_POINTER(x, NULL) in chan.c
-Date: Mon, 24 Mar 2014 00:44:47 +0530
-Message-ID: <1395602087-13123-1-git-send-email-monamagarwal123@gmail.com>
+Subject: [PATCH] net/mac80211: Use RCU_INIT_POINTER(x, NULL) in debugfs.c
+Date: Mon, 24 Mar 2014 00:45:59 +0530
+Message-ID: <1395602159-13427-1-git-send-email-monamagarwal123@gmail.com>
 To: linville@tuxdriver.com, johannes@sipsolutions.net,
 	davem@davemloft.net, linux-wireless@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:64359 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751276AbaCWTPr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2014 15:15:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 This patch replaces rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x, NULL)
 
@@ -22,21 +18,21 @@ So, rcu_assign_pointer(p, NULL) can be safely converted to RCU_INIT_POINTER(p, N
 
 Signed-off-by: Monam Agarwal <monamagarwal123@gmail.com>
 ---
- net/mac80211/chan.c |    2 +-
+ net/mac80211/debugfs.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/mac80211/chan.c b/net/mac80211/chan.c
-index bd1fd8e..b297bd3 100644
---- a/net/mac80211/chan.c
-+++ b/net/mac80211/chan.c
-@@ -392,7 +392,7 @@ static void ieee80211_unassign_vif_chanctx(struct ieee80211_sub_if_data *sdata,
- 	lockdep_assert_held(&local->chanctx_mtx);
- 
- 	ctx->refcount--;
--	rcu_assign_pointer(sdata->vif.chanctx_conf, NULL);
-+	RCU_INIT_POINTER(sdata->vif.chanctx_conf, NULL);
- 
- 	sdata->vif.bss_conf.idle = true;
- 
+diff --git a/net/mac80211/debugfs.c b/net/mac80211/debugfs.c
+index fa16e54..0e963bc 100644
+--- a/net/mac80211/debugfs.c
++++ b/net/mac80211/debugfs.c
+@@ -128,7 +128,7 @@ static ssize_t sta_tx_latency_stat_write(struct file *file,
+ 	if (!strcmp(buf, TX_LATENCY_DISABLED)) {
+ 		if (!tx_latency)
+ 			goto unlock;
+-		rcu_assign_pointer(local->tx_latency, NULL);
++		RCU_INIT_POINTER(local->tx_latency, NULL);
+ 		synchronize_rcu();
+ 		kfree(tx_latency);
+ 		goto unlock;
 -- 
 1.7.9.5
