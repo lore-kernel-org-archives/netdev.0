@@ -1,9 +1,9 @@
 From: Monam Agarwal <monamagarwal123@gmail.com>
-Subject: [PATCH] net/core: Use RCU_INIT_POINTER(x, NULL) in netpoll.c
-Date: Mon, 24 Mar 2014 00:42:46 +0530
-Message-ID: <1395601966-12490-1-git-send-email-monamagarwal123@gmail.com>
-To: davem@davemloft.net, ebiederm@xmission.com, nhorman@tuxdriver.com,
-	cwang@twopensource.com, kaber@trash.net, antonio@meshcoding.com,
+Subject: [PATCH] net/mac80211: Use RCU_INIT_POINTER(x, NULL) in cfg.c
+Date: Mon, 24 Mar 2014 00:43:48 +0530
+Message-ID: <1395602028-12863-1-git-send-email-monamagarwal123@gmail.com>
+To: linville@tuxdriver.com, johannes@sipsolutions.net,
+	davem@davemloft.net, linux-wireless@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -18,21 +18,21 @@ So, rcu_assign_pointer(p, NULL) can be safely converted to RCU_INIT_POINTER(p, N
 
 Signed-off-by: Monam Agarwal <monamagarwal123@gmail.com>
 ---
- net/core/netpoll.c |    2 +-
+ net/mac80211/cfg.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 7291dde..41c4e9c 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -809,7 +809,7 @@ void __netpoll_cleanup(struct netpoll *np)
- 		if (ops->ndo_netpoll_cleanup)
- 			ops->ndo_netpoll_cleanup(np->dev);
+diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
+index 1acb291..e92aeea 100644
+--- a/net/mac80211/cfg.c
++++ b/net/mac80211/cfg.c
+@@ -1566,7 +1566,7 @@ static int ieee80211_change_station(struct wiphy *wiphy,
  
--		rcu_assign_pointer(np->dev->npinfo, NULL);
-+		RCU_INIT_POINTER(np->dev->npinfo, NULL);
- 		call_rcu_bh(&npinfo->rcu, rcu_cleanup_netpoll_info);
- 	}
- }
+ 		if (sta->sdata->vif.type == NL80211_IFTYPE_AP_VLAN &&
+ 		    sta->sdata->u.vlan.sta) {
+-			rcu_assign_pointer(sta->sdata->u.vlan.sta, NULL);
++			RCU_INIT_POINTER(sta->sdata->u.vlan.sta, NULL);
+ 			prev_4addr = true;
+ 		}
+ 
 -- 
 1.7.9.5
