@@ -1,328 +1,523 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 1/5] bnx2x: Support mng. request for driver version
-Date: Sun, 23 Mar 2014 18:12:23 +0200
-Message-ID: <1395591147-26350-2-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 2/5] bnx2x: Create workqueue for IOV related tasks
+Date: Sun, 23 Mar 2014 18:12:24 +0200
+Message-ID: <1395591147-26350-3-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1395591147-26350-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:22768 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752284AbaCWQNi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2014 12:13:38 -0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:37495 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752284AbaCWQNo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2014 12:13:44 -0400
 In-Reply-To: <1395591147-26350-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds support in a new management feature which needs the driver versions
-(bnx2x, bnx2fc and bnx2i) loaded for each interface.
+The bnx2x sriov mechanisms were done in the bnx2x slowpath workitem which
+runs on the bnx2x's workqueue; This workitem is also responsible for the bottom
+half of interrupt handling in the driver, and specifically it also receives
+FW notifications of ramrod completions, allowing other flows to progress.
+
+The original design of the sriov reltaed-flows was based on the notion such
+flows must not sleep, since their context is the slowpath workitem.
+Otherwise, we might reach timeouts - those flows may wait for ramrod completion
+that will never arrive as the workitem wlll not be re-scheduled until that same
+flow will be over.
+
+In more recent time bnx2x started supporting features in which the VF interface
+can be configured by the tools accessing the PF on the hypervisor.
+This support created possible races on the VF-PF lock (which is taken either
+when the PF is handling a VF message or when the PF is doing some slowpath work
+on behalf of the VF) which may cause timeouts on the VF side and lags on the PF
+side.
+
+This patch changes the scheme - it creates a new workqueue for sriov related
+tasks and moves all handling currently done in the slowpath task into the the
+new workqueue.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |   7 ++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |   7 ++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h  |  29 ++++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 121 ++++++++++++++++++++++-
- 4 files changed, 163 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |  15 +++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  29 +++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |  41 +++++++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |  37 +++++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  | 103 +++++++++++++---------
+ 5 files changed, 147 insertions(+), 78 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 7221609..f33fab6 100644
+index f33fab6..8e35dba 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1413,6 +1413,7 @@ enum sp_rtnl_flag {
- 	BNX2X_SP_RTNL_RX_MODE,
- 	BNX2X_SP_RTNL_HYPERVISOR_VLAN,
- 	BNX2X_SP_RTNL_TX_STOP,
-+	BNX2X_SP_RTNL_GET_DRV_VERSION,
+@@ -1155,10 +1155,6 @@ struct bnx2x_port {
+ 			(offsetof(struct bnx2x_eth_stats, stat_name) / 4)
+ 
+ /* slow path */
+-
+-/* slow path work-queue */
+-extern struct workqueue_struct *bnx2x_wq;
+-
+ #define BNX2X_MAX_NUM_OF_VFS	64
+ #define BNX2X_VF_CID_WND	4 /* log num of queues per VF. HW config. */
+ #define BNX2X_CIDS_PER_VF	(1 << BNX2X_VF_CID_WND)
+@@ -1416,6 +1412,12 @@ enum sp_rtnl_flag {
+ 	BNX2X_SP_RTNL_GET_DRV_VERSION,
  };
  
- struct bnx2x_prev_path_list {
-@@ -1703,6 +1704,10 @@ struct bnx2x {
- 	struct bnx2x_slowpath	*slowpath;
- 	dma_addr_t		slowpath_mapping;
- 
-+	/* Mechanism protecting the drv_info_to_mcp */
-+	struct mutex		drv_info_mutex;
-+	bool			drv_info_mng_owner;
-+
- 	/* Total number of FW statistics requests */
- 	u8			fw_stats_num;
- 
-@@ -2535,6 +2540,8 @@ enum {
- 
- void bnx2x_set_local_cmng(struct bnx2x *bp);
- 
-+void bnx2x_update_mng_version(struct bnx2x *bp);
-+
- #define MCPR_SCRATCH_BASE(bp) \
- 	(CHIP_IS_E1x(bp) ? MCP_REG_MCPR_SCRATCH : MCP_A_REG_MCPR_SCRATCH)
- 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 117b5c7..24dc319 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -2802,6 +2802,9 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
- 	if (CNIC_ENABLED(bp))
- 		bnx2x_load_cnic(bp);
- 
-+	if (IS_PF(bp))
-+		bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_GET_DRV_VERSION, 0);
-+
- 	if (IS_PF(bp) && SHMEM2_HAS(bp, drv_capabilities_flag)) {
- 		/* mark driver is loaded in shmem2 */
- 		u32 val;
-@@ -3028,6 +3031,10 @@ int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode, bool keep_link)
- 	bp->state = BNX2X_STATE_CLOSED;
- 	bp->cnic_loaded = false;
- 
-+	/* Clear driver version indication in shmem */
-+	if (IS_PF(bp))
-+		bnx2x_update_mng_version(bp);
-+
- 	/* Check if there are pending parity attentions. If there are - set
- 	 * RECOVERY_IN_PROGRESS.
- 	 */
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-index 46e2f18..5ba8af5 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-@@ -2003,6 +2003,23 @@ struct shmem_lfa {
- 	#define SHMEM_LFA_DONT_CLEAR_STAT		(1<<24)
- };
- 
-+/* Used to support NSCI get OS driver version
-+ * on driver load the version value will be set
-+ * on driver unload driver value of 0x0 will be set.
-+ */
-+struct os_drv_ver {
-+#define DRV_VER_NOT_LOADED			0
-+
-+	/* personalties order is important */
-+#define DRV_PERS_ETHERNET			0
-+#define DRV_PERS_ISCSI				1
-+#define DRV_PERS_FCOE				2
-+
-+	/* shmem2 struct is constant can't add more personalties here */
-+#define MAX_DRV_PERS				3
-+	u32 versions[MAX_DRV_PERS];
++enum bnx2x_iov_flag {
++	BNX2X_IOV_HANDLE_VF_MSG,
++	BNX2X_IOV_CONT_VFOP,
++	BNX2X_IOV_HANDLE_FLR,
 +};
 +
- struct ncsi_oem_fcoe_features {
- 	u32 fcoe_features1;
- 	#define FCOE_FEATURES1_IOS_PER_CONNECTION_MASK          0x0000FFFF
-@@ -2217,6 +2234,18 @@ struct shmem2_region {
- 	u32 reserved4;				/* Offset 0x150 */
- 	u32 link_attr_sync[PORT_MAX];		/* Offset 0x154 */
- 	#define LINK_ATTR_SYNC_KR2_ENABLE	(1<<0)
-+
-+	u32 reserved5[2];
-+	u32 reserved6[PORT_MAX];
-+
-+	/* driver version for each personality */
-+	struct os_drv_ver func_os_drv_ver[E2_FUNC_MAX]; /* Offset 0x16c */
-+
-+	/* Flag to the driver that PF's drv_info_host_addr buffer was read  */
-+	u32 mfw_drv_indication;
-+
-+	/* We use indication for each PF (0..3) */
-+#define MFW_DRV_IND_READ_DONE_OFFSET(_pf_) (1 << (_pf_))
- };
+ struct bnx2x_prev_path_list {
+ 	struct list_head list;
+ 	u8 bus;
+@@ -1614,6 +1616,8 @@ struct bnx2x {
+ 	int			mrrs;
  
+ 	struct delayed_work	sp_task;
++	struct delayed_work	iov_task;
++
+ 	atomic_t		interrupt_occurred;
+ 	struct delayed_work	sp_rtnl_task;
  
+@@ -1897,6 +1901,9 @@ struct bnx2x {
+ 	/* operation indication for the sp_rtnl task */
+ 	unsigned long				sp_rtnl_state;
+ 
++	/* Indication of the IOV tasks */
++	unsigned long				iov_task_state;
++
+ 	/* DCBX Negotiation results */
+ 	struct dcbx_features			dcbx_local_feat;
+ 	u32					dcbx_error;
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 5e74599..faef7b1 100644
+index faef7b1..b5c7f77 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -3482,10 +3482,15 @@ static void bnx2x_handle_eee_event(struct bnx2x *bp)
- 	bnx2x_fw_command(bp, DRV_MSG_CODE_EEE_RESULTS_ACK, 0);
+@@ -120,7 +120,8 @@ static int debug;
+ module_param(debug, int, S_IRUGO);
+ MODULE_PARM_DESC(debug, " Default debug msglevel");
+ 
+-struct workqueue_struct *bnx2x_wq;
++static struct workqueue_struct *bnx2x_wq;
++struct workqueue_struct *bnx2x_iov_wq;
+ 
+ struct bnx2x_mac_vals {
+ 	u32 xmac_addr;
+@@ -1857,7 +1858,7 @@ void bnx2x_sp_event(struct bnx2x_fastpath *fp, union eth_rx_cqe *rr_cqe)
+ 		return;
+ #endif
+ 	/* SRIOV: reschedule any 'in_progress' operations */
+-	bnx2x_iov_sp_event(bp, cid, true);
++	bnx2x_iov_sp_event(bp, cid);
+ 
+ 	smp_mb__before_atomic_inc();
+ 	atomic_inc(&bp->cq_spq_left);
+@@ -4160,7 +4161,8 @@ static void bnx2x_attn_int_deasserted3(struct bnx2x *bp, u32 attn)
+ 				bnx2x_handle_drv_info_req(bp);
+ 
+ 			if (val & DRV_STATUS_VF_DISABLED)
+-				bnx2x_vf_handle_flr_event(bp);
++				bnx2x_schedule_iov_task(bp,
++							BNX2X_IOV_HANDLE_FLR);
+ 
+ 			if ((bp->port.pmf == 0) && (val & DRV_STATUS_PMF))
+ 				bnx2x_pmf_update(bp);
+@@ -5351,8 +5353,8 @@ static void bnx2x_eq_int(struct bnx2x *bp)
+ 		/* handle eq element */
+ 		switch (opcode) {
+ 		case EVENT_RING_OPCODE_VF_PF_CHANNEL:
+-			DP(BNX2X_MSG_IOV, "vf pf channel element on eq\n");
+-			bnx2x_vf_mbx(bp, &elem->message.data.vf_pf_event);
++			bnx2x_vf_mbx_schedule(bp,
++					      &elem->message.data.vf_pf_event);
+ 			continue;
+ 
+ 		case EVENT_RING_OPCODE_STAT_QUERY:
+@@ -5567,13 +5569,6 @@ static void bnx2x_sp_task(struct work_struct *work)
+ 			     le16_to_cpu(bp->def_att_idx), IGU_INT_ENABLE, 1);
+ 	}
+ 
+-	/* must be called after the EQ processing (since eq leads to sriov
+-	 * ramrod completion flows).
+-	 * This flow may have been scheduled by the arrival of a ramrod
+-	 * completion, or by the sriov code rescheduling itself.
+-	 */
+-	bnx2x_iov_sp_task(bp);
+-
+ 	/* afex - poll to check if VIFSET_ACK should be sent to MFW */
+ 	if (test_and_clear_bit(BNX2X_AFEX_PENDING_VIFSET_MCP_ACK,
+ 			       &bp->sp_state)) {
+@@ -8990,6 +8985,7 @@ static int bnx2x_func_wait_started(struct bnx2x *bp)
+ 		synchronize_irq(bp->pdev->irq);
+ 
+ 	flush_workqueue(bnx2x_wq);
++	flush_workqueue(bnx2x_iov_wq);
+ 
+ 	while (bnx2x_func_get_state(bp, &bp->func_obj) !=
+ 				BNX2X_F_STATE_STARTED && tout--)
+@@ -11877,6 +11873,7 @@ static int bnx2x_init_bp(struct bnx2x *bp)
+ 	INIT_DELAYED_WORK(&bp->sp_task, bnx2x_sp_task);
+ 	INIT_DELAYED_WORK(&bp->sp_rtnl_task, bnx2x_sp_rtnl_task);
+ 	INIT_DELAYED_WORK(&bp->period_task, bnx2x_period_task);
++	INIT_DELAYED_WORK(&bp->iov_task, bnx2x_iov_task);
+ 	if (IS_PF(bp)) {
+ 		rc = bnx2x_get_hwinfo(bp);
+ 		if (rc)
+@@ -13499,11 +13496,18 @@ static int __init bnx2x_init(void)
+ 		pr_err("Cannot create workqueue\n");
+ 		return -ENOMEM;
+ 	}
++	bnx2x_iov_wq = create_singlethread_workqueue("bnx2x_iov");
++	if (!bnx2x_iov_wq) {
++		pr_err("Cannot create iov workqueue\n");
++		destroy_workqueue(bnx2x_wq);
++		return -ENOMEM;
++	}
+ 
+ 	ret = pci_register_driver(&bnx2x_pci_driver);
+ 	if (ret) {
+ 		pr_err("Cannot register driver\n");
+ 		destroy_workqueue(bnx2x_wq);
++		destroy_workqueue(bnx2x_iov_wq);
+ 	}
+ 	return ret;
  }
+@@ -13515,6 +13519,7 @@ static void __exit bnx2x_cleanup(void)
+ 	pci_unregister_driver(&bnx2x_pci_driver);
  
-+#define BNX2X_UPDATE_DRV_INFO_IND_LENGTH	(20)
-+#define BNX2X_UPDATE_DRV_INFO_IND_COUNT		(25)
-+
- static void bnx2x_handle_drv_info_req(struct bnx2x *bp)
- {
- 	enum drv_info_opcode op_code;
- 	u32 drv_info_ctl = SHMEM2_RD(bp, drv_info_control);
-+	bool release = false;
-+	int wait;
+ 	destroy_workqueue(bnx2x_wq);
++	destroy_workqueue(bnx2x_iov_wq);
  
- 	/* if drv_info version supported by MFW doesn't match - send NACK */
- 	if ((drv_info_ctl & DRV_INFO_CONTROL_VER_MASK) != DRV_INFO_CUR_VER) {
-@@ -3496,6 +3501,9 @@ static void bnx2x_handle_drv_info_req(struct bnx2x *bp)
- 	op_code = (drv_info_ctl & DRV_INFO_CONTROL_OP_CODE_MASK) >>
- 		  DRV_INFO_CONTROL_OP_CODE_SHIFT;
- 
-+	/* Must prevent other flows from accessing drv_info_to_mcp */
-+	mutex_lock(&bp->drv_info_mutex);
-+
- 	memset(&bp->slowpath->drv_info_to_mcp, 0,
- 	       sizeof(union drv_info_to_mcp));
- 
-@@ -3512,7 +3520,7 @@ static void bnx2x_handle_drv_info_req(struct bnx2x *bp)
- 	default:
- 		/* if op code isn't supported - send NACK */
- 		bnx2x_fw_command(bp, DRV_MSG_CODE_DRV_INFO_NACK, 0);
--		return;
-+		goto out;
+ 	/* Free globally allocated resources */
+ 	list_for_each_safe(pos, q, &bnx2x_prev_list) {
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index 61e6f60..8e2b191 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -2042,6 +2042,9 @@ int bnx2x_iov_init_one(struct bnx2x *bp, int int_mode_param,
+ 		goto failed;
  	}
  
- 	/* if we got drv_info attn from MFW then these fields are defined in
-@@ -3524,6 +3532,106 @@ static void bnx2x_handle_drv_info_req(struct bnx2x *bp)
- 		U64_HI(bnx2x_sp_mapping(bp, drv_info_to_mcp)));
- 
- 	bnx2x_fw_command(bp, DRV_MSG_CODE_DRV_INFO_ACK, 0);
-+
-+	/* Since possible management wants both this and get_driver_version
-+	 * need to wait until management notifies us it finished utilizing
-+	 * the buffer.
-+	 */
-+	if (!SHMEM2_HAS(bp, mfw_drv_indication)) {
-+		DP(BNX2X_MSG_MCP, "Management does not support indication\n");
-+	} else if (!bp->drv_info_mng_owner) {
-+		u32 bit = MFW_DRV_IND_READ_DONE_OFFSET((BP_ABS_FUNC(bp) >> 1));
-+
-+		for (wait = 0; wait < BNX2X_UPDATE_DRV_INFO_IND_COUNT; wait++) {
-+			u32 indication = SHMEM2_RD(bp, mfw_drv_indication);
-+
-+			/* Management is done; need to clear indication */
-+			if (indication & bit) {
-+				SHMEM2_WR(bp, mfw_drv_indication,
-+					  indication & ~bit);
-+				release = true;
-+				break;
-+			}
-+
-+			msleep(BNX2X_UPDATE_DRV_INFO_IND_LENGTH);
-+		}
-+	}
-+	if (!release) {
-+		DP(BNX2X_MSG_MCP, "Management did not release indication\n");
-+		bp->drv_info_mng_owner = true;
-+	}
-+
-+out:
-+	mutex_unlock(&bp->drv_info_mutex);
-+}
-+
-+static u32 bnx2x_update_mng_version_utility(u8 *version, bool bnx2x_format)
-+{
-+	u8 vals[4];
-+	int i = 0;
-+
-+	if (bnx2x_format) {
-+		i = sscanf(version, "1.%c%hhd.%hhd.%hhd",
-+			   &vals[0], &vals[1], &vals[2], &vals[3]);
-+		if (i > 0)
-+			vals[0] -= '0';
-+	} else {
-+		i = sscanf(version, "%hhd.%hhd.%hhd.%hhd",
-+			   &vals[0], &vals[1], &vals[2], &vals[3]);
-+	}
-+
-+	while (i < 4)
-+		vals[i++] = 0;
-+
-+	return (vals[0] << 24) | (vals[1] << 16) | (vals[2] << 8) | vals[3];
-+}
-+
-+void bnx2x_update_mng_version(struct bnx2x *bp)
-+{
-+	u32 iscsiver = DRV_VER_NOT_LOADED;
-+	u32 fcoever = DRV_VER_NOT_LOADED;
-+	u32 ethver = DRV_VER_NOT_LOADED;
-+	int idx = BP_FW_MB_IDX(bp);
-+	u8 *version;
-+
-+	if (!SHMEM2_HAS(bp, func_os_drv_ver))
-+		return;
-+
-+	mutex_lock(&bp->drv_info_mutex);
-+	/* Must not proceed when `bnx2x_handle_drv_info_req' is feasible */
-+	if (bp->drv_info_mng_owner)
-+		goto out;
-+
-+	if (bp->state != BNX2X_STATE_OPEN)
-+		goto out;
-+
-+	/* Parse ethernet driver version */
-+	ethver = bnx2x_update_mng_version_utility(DRV_MODULE_VERSION, true);
-+	if (!CNIC_LOADED(bp))
-+		goto out;
-+
-+	/* Try getting storage driver version via cnic */
-+	memset(&bp->slowpath->drv_info_to_mcp, 0,
-+	       sizeof(union drv_info_to_mcp));
-+	bnx2x_drv_info_iscsi_stat(bp);
-+	version = bp->slowpath->drv_info_to_mcp.iscsi_stat.version;
-+	iscsiver = bnx2x_update_mng_version_utility(version, false);
-+
-+	memset(&bp->slowpath->drv_info_to_mcp, 0,
-+	       sizeof(union drv_info_to_mcp));
-+	bnx2x_drv_info_fcoe_stat(bp);
-+	version = bp->slowpath->drv_info_to_mcp.fcoe_stat.version;
-+	fcoever = bnx2x_update_mng_version_utility(version, false);
-+
-+out:
-+	SHMEM2_WR(bp, func_os_drv_ver[idx].versions[DRV_PERS_ETHERNET], ethver);
-+	SHMEM2_WR(bp, func_os_drv_ver[idx].versions[DRV_PERS_ISCSI], iscsiver);
-+	SHMEM2_WR(bp, func_os_drv_ver[idx].versions[DRV_PERS_FCOE], fcoever);
-+
-+	mutex_unlock(&bp->drv_info_mutex);
-+
-+	DP(BNX2X_MSG_MCP, "Setting driver version: ETH [%08x] iSCSI [%08x] FCoE [%08x]\n",
-+	   ethver, iscsiver, fcoever);
- }
- 
- static void bnx2x_dcc_event(struct bnx2x *bp, u32 dcc_event)
-@@ -9807,6 +9915,10 @@ sp_rtnl_not_reset:
- 		bnx2x_dcbx_resume_hw_tx(bp);
- 	}
- 
-+	if (test_and_clear_bit(BNX2X_SP_RTNL_GET_DRV_VERSION,
-+			       &bp->sp_rtnl_state))
-+		bnx2x_update_mng_version(bp);
-+
- 	/* work which needs rtnl lock not-taken (as it takes the lock itself and
- 	 * can be called from other contexts as well)
- 	 */
-@@ -11757,6 +11869,8 @@ static int bnx2x_init_bp(struct bnx2x *bp)
- 
- 	mutex_init(&bp->port.phy_mutex);
- 	mutex_init(&bp->fw_mb_mutex);
-+	mutex_init(&bp->drv_info_mutex);
-+	bp->drv_info_mng_owner = false;
- 	spin_lock_init(&bp->stats_lock);
- 	sema_init(&bp->stats_sema, 1);
- 
-@@ -13794,6 +13908,7 @@ static int bnx2x_drv_ctl(struct net_device *dev, struct drv_ctl_info *ctl)
- 				REG_WR(bp, scratch_offset + i,
- 				       *(host_addr + i/4));
- 		}
-+		bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_GET_DRV_VERSION, 0);
- 		break;
- 	}
- 
-@@ -13811,6 +13926,7 @@ static int bnx2x_drv_ctl(struct net_device *dev, struct drv_ctl_info *ctl)
- 				cap &= ~DRV_FLAGS_CAPABILITIES_LOADED_FCOE;
- 			SHMEM2_WR(bp, drv_capabilities_flag[idx], cap);
- 		}
-+		bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_GET_DRV_VERSION, 0);
- 		break;
- 	}
- 
-@@ -13916,6 +14032,9 @@ static int bnx2x_register_cnic(struct net_device *dev, struct cnic_ops *ops,
- 
- 	rcu_assign_pointer(bp->cnic_ops, ops);
- 
-+	/* Schedule driver to read CNIC driver versions */
-+	bnx2x_schedule_sp_rtnl(bp, BNX2X_SP_RTNL_GET_DRV_VERSION, 0);
++	/* Prepare the VFs event synchronization mechanism */
++	mutex_init(&bp->vfdb->event_mutex);
 +
  	return 0;
+ failed:
+ 	DP(BNX2X_MSG_IOV, "Failed err=%d\n", err);
+@@ -2469,7 +2472,7 @@ get_vf:
+ 		return 0;
+ 	}
+ 	/* SRIOV: reschedule any 'in_progress' operations */
+-	bnx2x_iov_sp_event(bp, cid, false);
++	bnx2x_iov_sp_event(bp, cid);
+ 
+ 	return 0;
+ }
+@@ -2506,7 +2509,7 @@ void bnx2x_iov_set_queue_sp_obj(struct bnx2x *bp, int vf_cid,
+ 	}
  }
  
+-void bnx2x_iov_sp_event(struct bnx2x *bp, int vf_cid, bool queue_work)
++void bnx2x_iov_sp_event(struct bnx2x *bp, int vf_cid)
+ {
+ 	struct bnx2x_virtf *vf;
+ 
+@@ -2518,8 +2521,7 @@ void bnx2x_iov_sp_event(struct bnx2x *bp, int vf_cid, bool queue_work)
+ 	if (vf) {
+ 		/* set in_progress flag */
+ 		atomic_set(&vf->op_in_progress, 1);
+-		if (queue_work)
+-			queue_delayed_work(bnx2x_wq, &bp->sp_task, 0);
++		bnx2x_schedule_iov_task(bp, BNX2X_IOV_CONT_VFOP);
+ 	}
+ }
+ 
+@@ -2604,7 +2606,7 @@ void bnx2x_iov_adjust_stats_req(struct bnx2x *bp)
+ 	bp->fw_stats_req->hdr.cmd_num = bp->fw_stats_num + stats_count;
+ }
+ 
+-void bnx2x_iov_sp_task(struct bnx2x *bp)
++void bnx2x_iov_vfop_cont(struct bnx2x *bp)
+ {
+ 	int i;
+ 
+@@ -3875,3 +3877,32 @@ void bnx2x_iov_channel_down(struct bnx2x *bp)
+ 		bnx2x_post_vf_bulletin(bp, vf_idx);
+ 	}
+ }
++
++void bnx2x_iov_task(struct work_struct *work)
++{
++	struct bnx2x *bp = container_of(work, struct bnx2x, iov_task.work);
++
++	if (!netif_running(bp->dev))
++		return;
++
++	if (test_and_clear_bit(BNX2X_IOV_HANDLE_FLR,
++			       &bp->iov_task_state))
++		bnx2x_vf_handle_flr_event(bp);
++
++	if (test_and_clear_bit(BNX2X_IOV_CONT_VFOP,
++			       &bp->iov_task_state))
++		bnx2x_iov_vfop_cont(bp);
++
++	if (test_and_clear_bit(BNX2X_IOV_HANDLE_VF_MSG,
++			       &bp->iov_task_state))
++		bnx2x_vf_mbx(bp);
++}
++
++void bnx2x_schedule_iov_task(struct bnx2x *bp, enum bnx2x_iov_flag flag)
++{
++	smp_mb__before_clear_bit();
++	set_bit(flag, &bp->iov_task_state);
++	smp_mb__after_clear_bit();
++	DP(BNX2X_MSG_IOV, "Scheduling iov task [Flag: %d]\n", flag);
++	queue_delayed_work(bnx2x_iov_wq, &bp->iov_task, 0);
++}
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+index b1dc751..87f7c97 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+@@ -30,6 +30,8 @@ enum sample_bulletin_result {
+ 
+ #ifdef CONFIG_BNX2X_SRIOV
+ 
++extern struct workqueue_struct *bnx2x_iov_wq;
++
+ /* The bnx2x device structure holds vfdb structure described below.
+  * The VF array is indexed by the relative vfid.
+  */
+@@ -346,11 +348,6 @@ struct bnx2x_vf_mbx {
+ 	u32 vf_addr_hi;
+ 
+ 	struct vfpf_first_tlv first_tlv;	/* saved VF request header */
+-
+-	u8 flags;
+-#define VF_MSG_INPROCESS	0x1	/* failsafe - the FW should prevent
+-					 * more then one pending msg
+-					 */
+ };
+ 
+ struct bnx2x_vf_sp {
+@@ -427,6 +424,10 @@ struct bnx2x_vfdb {
+ 	/* the number of msix vectors belonging to this PF designated for VFs */
+ 	u16 vf_sbs_pool;
+ 	u16 first_vf_igu_entry;
++
++	/* sp_rtnl synchronization */
++	struct mutex			event_mutex;
++	u64				event_occur;
+ };
+ 
+ /* queue access */
+@@ -476,13 +477,14 @@ void bnx2x_iov_init_dq(struct bnx2x *bp);
+ void bnx2x_iov_init_dmae(struct bnx2x *bp);
+ void bnx2x_iov_set_queue_sp_obj(struct bnx2x *bp, int vf_cid,
+ 				struct bnx2x_queue_sp_obj **q_obj);
+-void bnx2x_iov_sp_event(struct bnx2x *bp, int vf_cid, bool queue_work);
++void bnx2x_iov_sp_event(struct bnx2x *bp, int vf_cid);
+ int bnx2x_iov_eq_sp_event(struct bnx2x *bp, union event_ring_elem *elem);
+ void bnx2x_iov_adjust_stats_req(struct bnx2x *bp);
+ void bnx2x_iov_storm_stats_update(struct bnx2x *bp);
+-void bnx2x_iov_sp_task(struct bnx2x *bp);
+ /* global vf mailbox routines */
+-void bnx2x_vf_mbx(struct bnx2x *bp, struct vf_pf_event_data *vfpf_event);
++void bnx2x_vf_mbx(struct bnx2x *bp);
++void bnx2x_vf_mbx_schedule(struct bnx2x *bp,
++			   struct vf_pf_event_data *vfpf_event);
+ void bnx2x_vf_enable_mbx(struct bnx2x *bp, u8 abs_vfid);
+ 
+ /* CORE VF API */
+@@ -520,7 +522,8 @@ enum {
+ 		else {							\
+ 			DP(BNX2X_MSG_IOV, "no ramrod. Scheduling\n");	\
+ 			atomic_set(&vf->op_in_progress, 1);		\
+-			queue_delayed_work(bnx2x_wq, &bp->sp_task, 0);  \
++			bnx2x_schedule_iov_task(bp,			\
++						BNX2X_IOV_CONT_VFOP);	\
+ 			return;						\
+ 		}							\
+ 	} while (0)
+@@ -785,18 +788,21 @@ void bnx2x_pf_set_vfs_vlan(struct bnx2x *bp);
+ int bnx2x_sriov_configure(struct pci_dev *dev, int num_vfs);
+ void bnx2x_iov_channel_down(struct bnx2x *bp);
+ 
++void bnx2x_iov_task(struct work_struct *work);
++
++void bnx2x_schedule_iov_task(struct bnx2x *bp, enum bnx2x_iov_flag flag);
++
+ #else /* CONFIG_BNX2X_SRIOV */
+ 
+ static inline void bnx2x_iov_set_queue_sp_obj(struct bnx2x *bp, int vf_cid,
+ 				struct bnx2x_queue_sp_obj **q_obj) {}
+-static inline void bnx2x_iov_sp_event(struct bnx2x *bp, int vf_cid,
+-				      bool queue_work) {}
++static inline void bnx2x_iov_sp_event(struct bnx2x *bp, int vf_cid) {}
+ static inline void bnx2x_vf_handle_flr_event(struct bnx2x *bp) {}
+ static inline int bnx2x_iov_eq_sp_event(struct bnx2x *bp,
+ 					union event_ring_elem *elem) {return 1; }
+-static inline void bnx2x_iov_sp_task(struct bnx2x *bp) {}
+-static inline void bnx2x_vf_mbx(struct bnx2x *bp,
+-				struct vf_pf_event_data *vfpf_event) {}
++static inline void bnx2x_vf_mbx(struct bnx2x *bp) {}
++static inline void bnx2x_vf_mbx_schedule(struct bnx2x *bp,
++					 struct vf_pf_event_data *vfpf_event) {}
+ static inline int bnx2x_iov_init_ilt(struct bnx2x *bp, u16 line) {return line; }
+ static inline void bnx2x_iov_init_dq(struct bnx2x *bp) {}
+ static inline int bnx2x_iov_alloc_mem(struct bnx2x *bp) {return 0; }
+@@ -843,5 +849,8 @@ static inline void bnx2x_pf_set_vfs_vlan(struct bnx2x *bp) {}
+ static inline int bnx2x_sriov_configure(struct pci_dev *dev, int num_vfs) {return 0; }
+ static inline void bnx2x_iov_channel_down(struct bnx2x *bp) {}
+ 
++static inline void bnx2x_iov_task(struct work_struct *work) {}
++void bnx2x_schedule_iov_task(struct bnx2x *bp, enum bnx2x_iov_flag flag) {}
++
+ #endif /* CONFIG_BNX2X_SRIOV */
+ #endif /* bnx2x_sriov.h */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+index 1117ed7..63c9565 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+@@ -1089,9 +1089,6 @@ static void bnx2x_vf_mbx_resp_send_msg(struct bnx2x *bp,
+ 	storm_memset_vf_mbx_ack(bp, vf->abs_vfid);
+ 	mmiowb();
+ 
+-	/* initiate dmae to send the response */
+-	mbx->flags &= ~VF_MSG_INPROCESS;
+-
+ 	/* copy the response header including status-done field,
+ 	 * must be last dmae, must be after FW is acked
+ 	 */
+@@ -2059,13 +2056,10 @@ static void bnx2x_vf_mbx_request(struct bnx2x *bp, struct bnx2x_virtf *vf,
+ 	}
+ }
+ 
+-/* handle new vf-pf message */
+-void bnx2x_vf_mbx(struct bnx2x *bp, struct vf_pf_event_data *vfpf_event)
++void bnx2x_vf_mbx_schedule(struct bnx2x *bp,
++			   struct vf_pf_event_data *vfpf_event)
+ {
+-	struct bnx2x_virtf *vf;
+-	struct bnx2x_vf_mbx *mbx;
+ 	u8 vf_idx;
+-	int rc;
+ 
+ 	DP(BNX2X_MSG_IOV,
+ 	   "vf pf event received: vfid %d, address_hi %x, address lo %x",
+@@ -2077,50 +2071,73 @@ void bnx2x_vf_mbx(struct bnx2x *bp, struct vf_pf_event_data *vfpf_event)
+ 	    BNX2X_NR_VIRTFN(bp)) {
+ 		BNX2X_ERR("Illegal vf_id %d max allowed: %d\n",
+ 			  vfpf_event->vf_id, BNX2X_NR_VIRTFN(bp));
+-		goto mbx_done;
++		return;
+ 	}
++
+ 	vf_idx = bnx2x_vf_idx_by_abs_fid(bp, vfpf_event->vf_id);
+-	mbx = BP_VF_MBX(bp, vf_idx);
+ 
+-	/* verify an event is not currently being processed -
+-	 * debug failsafe only
+-	 */
+-	if (mbx->flags & VF_MSG_INPROCESS) {
+-		BNX2X_ERR("Previous message is still being processed, vf_id %d\n",
+-			  vfpf_event->vf_id);
+-		goto mbx_done;
+-	}
+-	vf = BP_VF(bp, vf_idx);
++	/* Update VFDB with current message and schedule its handling */
++	mutex_lock(&BP_VFDB(bp)->event_mutex);
++	BP_VF_MBX(bp, vf_idx)->vf_addr_hi = vfpf_event->msg_addr_hi;
++	BP_VF_MBX(bp, vf_idx)->vf_addr_lo = vfpf_event->msg_addr_lo;
++	BP_VFDB(bp)->event_occur |= (1ULL << vf_idx);
++	mutex_unlock(&BP_VFDB(bp)->event_mutex);
+ 
+-	/* save the VF message address */
+-	mbx->vf_addr_hi = vfpf_event->msg_addr_hi;
+-	mbx->vf_addr_lo = vfpf_event->msg_addr_lo;
+-	DP(BNX2X_MSG_IOV, "mailbox vf address hi 0x%x, lo 0x%x, offset 0x%x\n",
+-	   mbx->vf_addr_hi, mbx->vf_addr_lo, mbx->first_tlv.resp_msg_offset);
++	bnx2x_schedule_iov_task(bp, BNX2X_IOV_HANDLE_VF_MSG);
++}
+ 
+-	/* dmae to get the VF request */
+-	rc = bnx2x_copy32_vf_dmae(bp, true, mbx->msg_mapping, vf->abs_vfid,
+-				  mbx->vf_addr_hi, mbx->vf_addr_lo,
+-				  sizeof(union vfpf_tlvs)/4);
+-	if (rc) {
+-		BNX2X_ERR("Failed to copy request VF %d\n", vf->abs_vfid);
+-		goto mbx_error;
+-	}
++/* handle new vf-pf messages */
++void bnx2x_vf_mbx(struct bnx2x *bp)
++{
++	struct bnx2x_vfdb *vfdb = BP_VFDB(bp);
++	u64 events;
++	u8 vf_idx;
++	int rc;
+ 
+-	/* process the VF message header */
+-	mbx->first_tlv = mbx->msg->req.first_tlv;
++	if (!vfdb)
++		return;
+ 
+-	/* Clean response buffer to refrain from falsely seeing chains */
+-	memset(&mbx->msg->resp, 0, sizeof(union pfvf_tlvs));
++	mutex_lock(&vfdb->event_mutex);
++	events = vfdb->event_occur;
++	vfdb->event_occur = 0;
++	mutex_unlock(&vfdb->event_mutex);
+ 
+-	/* dispatch the request (will prepare the response) */
+-	bnx2x_vf_mbx_request(bp, vf, mbx);
+-	goto mbx_done;
++	for_each_vf(bp, vf_idx) {
++		struct bnx2x_vf_mbx *mbx = BP_VF_MBX(bp, vf_idx);
++		struct bnx2x_virtf *vf = BP_VF(bp, vf_idx);
+ 
+-mbx_error:
+-	bnx2x_vf_release(bp, vf, false); /* non blocking */
+-mbx_done:
+-	return;
++		/* Handle VFs which have pending events */
++		if (!(events & (1ULL << vf_idx)))
++			continue;
++
++		DP(BNX2X_MSG_IOV,
++		   "Handling vf pf event vfid %d, address: [%x:%x], resp_offset 0x%x\n",
++		   vf_idx, mbx->vf_addr_hi, mbx->vf_addr_lo,
++		   mbx->first_tlv.resp_msg_offset);
++
++		/* dmae to get the VF request */
++		rc = bnx2x_copy32_vf_dmae(bp, true, mbx->msg_mapping,
++					  vf->abs_vfid, mbx->vf_addr_hi,
++					  mbx->vf_addr_lo,
++					  sizeof(union vfpf_tlvs)/4);
++		if (rc) {
++			BNX2X_ERR("Failed to copy request VF %d\n",
++				  vf->abs_vfid);
++			bnx2x_vf_release(bp, vf, false); /* non blocking */
++			return;
++		}
++
++		/* process the VF message header */
++		mbx->first_tlv = mbx->msg->req.first_tlv;
++
++		/* Clean response buffer to refrain from falsely
++		 * seeing chains.
++		 */
++		memset(&mbx->msg->resp, 0, sizeof(union pfvf_tlvs));
++
++		/* dispatch the request (will prepare the response) */
++		bnx2x_vf_mbx_request(bp, vf, mbx);
++	}
+ }
+ 
+ /* propagate local bulletin board to vf */
 -- 
 1.8.1.227.g44fe835
