@@ -1,40 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] net: tcp_ipv6 policy route issue
-Date: Sun, 23 Mar 2014 00:45:35 -0400 (EDT)
-Message-ID: <20140323.004535.1122322865637645199.davem@davemloft.net>
-References: <1395546460-8332-1-git-send-email-wangyufen@huawei.com>
-	<1395546460-8332-2-git-send-email-wangyufen@huawei.com>
+Subject: Re: [PATCH] netlink: have netlink per-protocol bind function
+ return an error code.
+Date: Sun, 23 Mar 2014 00:50:10 -0400 (EDT)
+Message-ID: <20140323.005010.1898428719601246326.davem@davemloft.net>
+References: <1239812af16a5c746772913ef68d3570383f2e50.1395419169.git.rgb@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: wangyufen@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50342 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750798AbaCWEpj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2014 00:45:39 -0400
-In-Reply-To: <1395546460-8332-2-git-send-email-wangyufen@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-audit@redhat.com, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	eparis@redhat.com, sgrubb@redhat.com, hadi@mojatatu.com
+To: rgb@redhat.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1239812af16a5c746772913ef68d3570383f2e50.1395419169.git.rgb@redhat.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wangyufen <wangyufen@huawei.com>
-Date: Sun, 23 Mar 2014 11:47:40 +0800
+From: Richard Guy Briggs <rgb@redhat.com>
+Date: Fri, 21 Mar 2014 12:39:11 -0400
 
-> From: Wang Yufen <wangyufen@huawei.com>
-> 
->     The issue raises when adding policy route,specify a particular
->     NIC as oif. The policy route did not take effect.
->     The reason is that fl6.oif is not set and route map failed.
-> 
->     From the tcp_v6_send_response function:
->     If the binding address is linklocal, fl6.oif is set,
->     but not for global address.
+> @@ -1441,6 +1441,17 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+>  	if (!nladdr->nl_groups && (nlk->groups == NULL || !(u32)nlk->groups[0]))
+>  		return 0;
+>  
+> +	if (nlk->netlink_bind && nladdr->nl_groups) {
+> +		int i;
+> +
+> +		for (i = 0; i < nlk->ngroups; i++)
+> +			if (test_bit(i, (long unsigned int *)&nladdr->nl_groups)) {
+> +				err = nlk->netlink_bind(i);
+> +				if (err)
+> +					return err;
+> +			}
+> +	}
+> +
 
-Please do not indent your commit log message text like this,
-make the text start at the first column just like your Signoff
-and From: line.
+You can't just leave a partially set of completed bindings in place.
 
-Please place a space after punction such as "," characters.
+It's not valid to leave half-baked state like this.
 
-> Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+If you return an error, all of the binding state changes must be
+completely undone.
+
+If you can't find a way to do this cleanly, you'll need to find
+a way for the audit code to not return an error.
