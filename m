@@ -1,44 +1,27 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: [patch 08/16] atm: idt77105: Use del_timer_sync() in exit path
-Date: Sun, 23 Mar 2014 15:09:28 -0000
-Message-ID: <20140323150753.433572795@linutronix.de>
-References: <20140323150557.288925975@linutronix.de>
-Cc: Julia Lawall <Julia.Lawall@lip6.fr>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Chas Williams <chas@cmf.nrl.navy.mil>,
-	atm <linux-atm-general@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>
-To: LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline; filename=atm-idt77x-use-del-timer-sync.patch
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 0/5] bnx2x: SR-IOV patch series
+Date: Sun, 23 Mar 2014 18:12:22 +0200
+Message-ID: <1395591147-26350-1-git-send-email-Yuval.Mintz@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <Ariel.Elior@qlogic.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:43344 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751699AbaCWQNW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2014 12:13:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The module is about to go away. Make sure everything is stopped safely
-before we pull the plug.
+Hi Dave,
 
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Cc: Chas Williams <chas@cmf.nrl.navy.mil>
-Cc: atm <linux-atm-general@lists.sourceforge.net>
-Cc: netdev <netdev@vger.kernel.org>
----
- drivers/atm/idt77105.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+(With the exception of the first patch) This series contains IOV-related
+patches, where the main changes are related to the driver's IOV-support
+backbone - it adds a new workqueue for IOV related tasks and removes the vfop
+mechanism from the driver.
 
-Index: tip/drivers/atm/idt77105.c
-===================================================================
---- tip.orig/drivers/atm/idt77105.c
-+++ tip/drivers/atm/idt77105.c
-@@ -368,9 +368,9 @@ EXPORT_SYMBOL(idt77105_init);
- 
- static void __exit idt77105_exit(void)
- {
--        /* turn off timers */
--        del_timer(&stats_timer);
--        del_timer(&restart_timer);
-+	/* turn off timers */
-+	del_timer_sync(&stats_timer);
-+	del_timer_sync(&restart_timer);
- }
- 
- module_exit(idt77105_exit);
+Please consider applying this series to `net-next'.
+
+Thanks,
+Yuval Mintz
