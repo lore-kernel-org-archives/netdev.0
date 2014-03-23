@@ -1,44 +1,37 @@
-From: "Fiser, Sarah A." <Sarah.Fiser@ocps.net>
-Subject: (unknown)
-Date: Sun, 23 Mar 2014 09:49:36 -0400
-Message-ID: <F8AE4495191DB04F89F04041411774DD1984A2C36E@AELMAIL03.ocps.k12.fl.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0008d101.pphosted.com ([67.231.152.32]:1489 "EHLO
-	mx0b-0008d101.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752291AbaCWRNH convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Mar 2014 13:13:07 -0400
-Subject: 
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Monam Agarwal <monamagarwal123@gmail.com>
+Subject: [PATCH] drivers/net: Use RCU_INIT_POINTER(x, NULL) in bonding/bond_options.c
+Date: Mon, 24 Mar 2014 00:00:17 +0530
+Message-ID: <1395599417-7041-1-git-send-email-monamagarwal123@gmail.com>
+To: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+This patch replaces rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x, NULL)
 
-=46ast and urgent funding for you, if interested, contact us via: bevlo=
-anservicess@webadicta.org<mailto:bevloanservicess@webadicta.org>
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-schnelle und dringende Finanzierung f=FCr Sie, bei Interesse, kontaktie=
-ren Sie uns per E-Mail: bevloanservicess@webadicta.org<mailto:bevloanse=
-rvicess@webadicta.org>
+The rcu_assign_pointer() ensures that the initialization of a structure       
+is carried out before storing a pointer to that structure. 
+And in the case of the NULL pointer, there is no structure to initialize. 
+So, rcu_assign_pointer(p, NULL) can be safely converted to RCU_INIT_POINTER(p, NULL)
 
-________________________________
-The information contained in this e-mail message is intended solely for
-the recipient(s) and may contain privileged information. Tampering with
-or altering the contents of this message is prohibited. This informatio=
-n
-is the same as any written document and may be subject to all rules
-governing public information according to Florida Statutes. Any message
-that falls under Chapter 119 shall not be altered in a manner that
-misrepresents the activities of Orange County Public Schools.
+Signed-off-by: Monam Agarwal <monamagarwal123@gmail.com>
+---
+ drivers/net/bonding/bond_options.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-[References: Florida State Constitution I.24, Florida State Statutes
-Chapter 119, and OCPS Management Directive A-9.] If you have received
-this message in error, or are not the named recipient notify the sender
-and delete this message from your computer.
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index 6e6b093..724e30f 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -712,7 +712,7 @@ static int bond_option_active_slave_set(struct bonding *bond,
+ 	/* check to see if we are clearing active */
+ 	if (!slave_dev) {
+ 		pr_info("%s: Clearing current active slave\n", bond->dev->name);
+-		rcu_assign_pointer(bond->curr_active_slave, NULL);
++		RCU_INIT_POINTER(bond->curr_active_slave, NULL);
+ 		bond_select_active_slave(bond);
+ 	} else {
+ 		struct slave *old_active = bond->curr_active_slave;
+-- 
+1.7.9.5
