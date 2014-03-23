@@ -1,17 +1,13 @@
 From: Monam Agarwal <monamagarwal123@gmail.com>
-Subject: [PATCH] net/bridge: Use RCU_INIT_POINTER(x, NULL) in br_vlan.c
-Date: Mon, 24 Mar 2014 00:41:13 +0530
-Message-ID: <1395601873-12447-1-git-send-email-monamagarwal123@gmail.com>
-To: stephen@networkplumber.org, davem@davemloft.net,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:47891 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751066AbaCWTMN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2014 15:12:13 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH] net/core: Use RCU_INIT_POINTER(x, NULL) in netpoll.c
+Date: Mon, 24 Mar 2014 00:42:46 +0530
+Message-ID: <1395601966-12490-1-git-send-email-monamagarwal123@gmail.com>
+To: davem@davemloft.net, ebiederm@xmission.com, nhorman@tuxdriver.com,
+	cwang@twopensource.com, kaber@trash.net, antonio@meshcoding.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 This patch replaces rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x, NULL)
 
@@ -22,36 +18,21 @@ So, rcu_assign_pointer(p, NULL) can be safely converted to RCU_INIT_POINTER(p, N
 
 Signed-off-by: Monam Agarwal <monamagarwal123@gmail.com>
 ---
- net/bridge/br_vlan.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/core/netpoll.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 8249ca7..5d5b101 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -99,9 +99,9 @@ static int __vlan_del(struct net_port_vlans *v, u16 vid)
- 	v->num_vlans--;
- 	if (bitmap_empty(v->vlan_bitmap, VLAN_N_VID)) {
- 		if (v->port_idx)
--			rcu_assign_pointer(v->parent.port->vlan_info, NULL);
-+			RCU_INIT_POINTER(v->parent.port->vlan_info, NULL);
- 		else
--			rcu_assign_pointer(v->parent.br->vlan_info, NULL);
-+			RCU_INIT_POINTER(v->parent.br->vlan_info, NULL);
- 		kfree_rcu(v, rcu);
- 	}
- 	return 0;
-@@ -113,9 +113,9 @@ static void __vlan_flush(struct net_port_vlans *v)
- 	v->pvid = 0;
- 	bitmap_zero(v->vlan_bitmap, VLAN_N_VID);
- 	if (v->port_idx)
--		rcu_assign_pointer(v->parent.port->vlan_info, NULL);
-+		RCU_INIT_POINTER(v->parent.port->vlan_info, NULL);
- 	else
--		rcu_assign_pointer(v->parent.br->vlan_info, NULL);
-+		RCU_INIT_POINTER(v->parent.br->vlan_info, NULL);
- 	kfree_rcu(v, rcu);
- }
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 7291dde..41c4e9c 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -809,7 +809,7 @@ void __netpoll_cleanup(struct netpoll *np)
+ 		if (ops->ndo_netpoll_cleanup)
+ 			ops->ndo_netpoll_cleanup(np->dev);
  
+-		rcu_assign_pointer(np->dev->npinfo, NULL);
++		RCU_INIT_POINTER(np->dev->npinfo, NULL);
+ 		call_rcu_bh(&npinfo->rcu, rcu_cleanup_netpoll_info);
+ 	}
+ }
 -- 
 1.7.9.5
