@@ -1,7 +1,7 @@
 From: Monam Agarwal <monamagarwal123@gmail.com>
-Subject: [PATCH] net/mac80211: Use RCU_INIT_POINTER(x, NULL) in debugfs.c
-Date: Mon, 24 Mar 2014 00:45:59 +0530
-Message-ID: <1395602159-13427-1-git-send-email-monamagarwal123@gmail.com>
+Subject: [PATCH] net/mac80211: Use RCU_INIT_POINTER(x, NULL) in ibss.c
+Date: Mon, 24 Mar 2014 00:47:02 +0530
+Message-ID: <1395602222-13677-1-git-send-email-monamagarwal123@gmail.com>
 To: linville@tuxdriver.com, johannes@sipsolutions.net,
 	davem@davemloft.net, linux-wireless@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
@@ -18,21 +18,21 @@ So, rcu_assign_pointer(p, NULL) can be safely converted to RCU_INIT_POINTER(p, N
 
 Signed-off-by: Monam Agarwal <monamagarwal123@gmail.com>
 ---
- net/mac80211/debugfs.c |    2 +-
+ net/mac80211/ibss.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/mac80211/debugfs.c b/net/mac80211/debugfs.c
-index fa16e54..0e963bc 100644
---- a/net/mac80211/debugfs.c
-+++ b/net/mac80211/debugfs.c
-@@ -128,7 +128,7 @@ static ssize_t sta_tx_latency_stat_write(struct file *file,
- 	if (!strcmp(buf, TX_LATENCY_DISABLED)) {
- 		if (!tx_latency)
- 			goto unlock;
--		rcu_assign_pointer(local->tx_latency, NULL);
-+		RCU_INIT_POINTER(local->tx_latency, NULL);
- 		synchronize_rcu();
- 		kfree(tx_latency);
- 		goto unlock;
+diff --git a/net/mac80211/ibss.c b/net/mac80211/ibss.c
+index e458ca0..cb262c4 100644
+--- a/net/mac80211/ibss.c
++++ b/net/mac80211/ibss.c
+@@ -253,7 +253,7 @@ static void __ieee80211_sta_join_ibss(struct ieee80211_sub_if_data *sdata,
+ 
+ 	presp = rcu_dereference_protected(ifibss->presp,
+ 					  lockdep_is_held(&sdata->wdev.mtx));
+-	rcu_assign_pointer(ifibss->presp, NULL);
++	RCU_INIT_POINTER(ifibss->presp, NULL);
+ 	if (presp)
+ 		kfree_rcu(presp, rcu_head);
+ 
 -- 
 1.7.9.5
