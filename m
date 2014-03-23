@@ -1,125 +1,73 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: [net-next 16/16] igb: Unset IGB_FLAG_HAS_MSIX-flag when falling
- back to msi-only
-Date: Sun, 23 Mar 2014 15:32:15 +0100
-Message-ID: <20140323143215.GD5028@cpaasch-mac>
-References: <1395403806-29302-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <3ed2b36cb601493fae970917602ab6d1@UCL-MBX03.OASIS.UCLOUVAIN.BE>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created with
+ no group
+Date: Sun, 23 Mar 2014 16:43:52 +0200
+Message-ID: <CAJZOPZL9h0q3iiN7Q2jJWW+uEs0EpNaWqVMqQMyL+-5QGxGWPg@mail.gmail.com>
+References: <1395055050-20874-1-git-send-email-mike.rapoport@ravellosystems.com>
+	<20140320.160229.857536522237793124.davem@davemloft.net>
+	<OFA209BE80.4610C3E5-ON87257CA1.00723468-87257CA1.0072346C@us.ibm.com>
+	<CAF1J0HPE9L1Z4xst9ap_Z8nQ9k-N-UAbW7yre0S-wvQF5+NznA@mail.gmail.com>
+	<OFD0C40ED9.015A05DD-ON87257CA2.003E72F3-87257CA2.003E7300@us.ibm.com>
+	<CAF1J0HOd9D1t4hxjMe7Muad71o_pgKQsn3jLxqR5ZFPpj2_Nrw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Mike Rapoport <mike.rapoport@ravellosystems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:59223 "EHLO
-	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752206AbaCWOcW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2014 10:32:22 -0400
-Content-Disposition: inline
-In-Reply-To: <3ed2b36cb601493fae970917602ab6d1@UCL-MBX03.OASIS.UCLOUVAIN.BE>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:33089 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751681AbaCWOnx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2014 10:43:53 -0400
+Received: by mail-pb0-f41.google.com with SMTP id jt11so4396328pbb.28
+        for <netdev@vger.kernel.org>; Sun, 23 Mar 2014 07:43:52 -0700 (PDT)
+In-Reply-To: <CAF1J0HOd9D1t4hxjMe7Muad71o_pgKQsn3jLxqR5ZFPpj2_Nrw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 21/03/14 - 12:10:06, Jeff Kirsher wrote:
-> From: Christoph Paasch <christoph.paasch@uclouvain.be>
-> 
-> Prior to cd14ef54d25 (igb: Change to use statically allocated array for
-> MSIx entries), having msix_entries different from NULL was an indicator
-> that MSIX is enabled.
-> In igb_set_interrupt_capabiliy we may fall back to MSI-only. Prior to
-> the above patch msix_entries was set to NULL by
-> igb_reset_interrupt_capability.
-> 
-> However, now we are checking the flag for IGB_FLAG_HAS_MSIX and so the
-> stack gets completly confused:
-> 
-> [   42.659791] ------------[ cut here ]------------
-> [   42.715032] WARNING: CPU: 7 PID: 0 at net/sched/sch_generic.c:264 dev_watchdog+0x15c/0x1fb()
-> [   42.848263] NETDEV WATCHDOG: eth0 (igb): transmit queue 0 timed out
-> [   42.923253] Modules linked in:
-> [   42.959875] CPU: 7 PID: 0 Comm: swapper/7 Not tainted 3.14.0-rc2-mptcp #437
-> [   43.043184] Hardware name: HP ProLiant DL165 G7, BIOS O37 01/26/2011
-> [   43.119215]  0000000000000108 ffff88023fdc3da8 ffffffff81487847 0000000000000108
-> [   43.208165]  ffff88023fdc3df8 ffff88023fdc3de8 ffffffff81034e7d ffff88023fdc3dd8
-> [   43.297120]  ffffffff813fff10 ffff880236018000 ffff880236b178c0 0000000000000008
-> [   43.386071] Call Trace:
-> [   43.415303]  <IRQ>  [<ffffffff81487847>] dump_stack+0x49/0x62
-> [   43.484174]  [<ffffffff81034e7d>] warn_slowpath_common+0x77/0x91
-> [   43.556049]  [<ffffffff813fff10>] ? dev_watchdog+0x15c/0x1fb
-> [   43.623759]  [<ffffffff81034f2b>] warn_slowpath_fmt+0x41/0x43
-> [   43.692511]  [<ffffffff813fff10>] dev_watchdog+0x15c/0x1fb
-> [   43.758141]  [<ffffffff813ffdb4>] ? __netdev_watchdog_up+0x64/0x64
-> [   43.832091]  [<ffffffff8103cd04>] call_timer_fn+0x17/0x6f
-> [   43.896682]  [<ffffffff8103cebe>] run_timer_softirq+0x162/0x1a2
-> [   43.967511]  [<ffffffff81038520>] __do_softirq+0xcd/0x1cc
-> [   44.032104]  [<ffffffff81038689>] irq_exit+0x3a/0x48
-> [   44.091492]  [<ffffffff81026d43>] smp_apic_timer_interrupt+0x43/0x50
-> [   44.167525]  [<ffffffff8148c24a>] apic_timer_interrupt+0x6a/0x70
-> [   44.239392]  <EOI>  [<ffffffff8100992c>] ? default_idle+0x6/0x8
-> [   44.310343]  [<ffffffff81009b31>] arch_cpu_idle+0x13/0x18
-> [   44.374934]  [<ffffffff81066126>] cpu_startup_entry+0xa7/0x101
-> [   44.444724]  [<ffffffff81025660>] start_secondary+0x1b2/0x1b7
-> [   44.513472] ---[ end trace a5a075fd4e7f854f ]---
-> [   44.568753] igb 0000:04:00.0 eth0: Reset adapter
-> [   46.206945] random: nonblocking pool is initialized
-> [   46.465670] irq 44: nobody cared (try booting with the "irqpoll" option)
-> [   46.545862] CPU: 7 PID: 0 Comm: swapper/7 Tainted: G        W    3.14.0-rc2-mptcp #437
-> [   46.640610] Hardware name: HP ProLiant DL165 G7, BIOS O37 01/26/2011
-> [   46.716641]  ffff8802363f8c84 ffff88023fdc3e38 ffffffff81487847 00000000a03cdb6d
-> [   46.805598]  ffff8802363f8c00 ffff88023fdc3e68 ffffffff81068489 0000007f81825400
-> [   46.894539]  ffff8802363f8c00 0000000000000000 0000000000000000 ffff88023fdc3ea8
-> [   46.983484] Call Trace:
-> [   47.012714]  <IRQ>  [<ffffffff81487847>] dump_stack+0x49/0x62
-> [   47.081585]  [<ffffffff81068489>] __report_bad_irq+0x35/0xc1
-> [   47.149295]  [<ffffffff81068683>] note_interrupt+0x16e/0x1ea
-> [   47.217006]  [<ffffffff8106679e>] handle_irq_event_percpu+0x116/0x12e
-> [   47.294075]  [<ffffffff810667e9>] handle_irq_event+0x33/0x4f
-> [   47.361787]  [<ffffffff81068c95>] handle_fasteoi_irq+0x83/0xd1
-> [   47.431577]  [<ffffffff81003d5b>] handle_irq+0x1f/0x28
-> [   47.493047]  [<ffffffff81003567>] do_IRQ+0x4e/0xd4
-> [   47.550358]  [<ffffffff8148b06a>] common_interrupt+0x6a/0x6a
-> [   47.618066]  <EOI>  [<ffffffff8100992c>] ? default_idle+0x6/0x8
-> [   47.689016]  [<ffffffff81009b31>] arch_cpu_idle+0x13/0x18
-> [   47.753605]  [<ffffffff81066126>] cpu_startup_entry+0xa7/0x101
-> [   47.823397]  [<ffffffff81025660>] start_secondary+0x1b2/0x1b7
-> [   47.892146] handlers:
-> [   47.919301] [<ffffffff812fbd7d>] igb_intr
-> 
-> So, this patch unsets the flag to indicate that we are not using MSIX.
-> This patch does exactly this: Unsetting the flag when falling back to MSI.
-> 
-> Fixes: cd14ef54d25b (igb: Change to use statically allocated array for MSIx entries)
-> Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
-> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+On Sun, Mar 23, 2014 at 11:27 AM, Mike Rapoport
+<mike.rapoport@ravellosystems.com> wrote:
 
-Same here - cd14ef54d25b is part of 3.14-rc1. I think it should go into net
-instead of net-next.
+> I believe I've groked what's going on in vxlan_udp_encap_recv and
+> vxlan_rcv. There are actually two unrelated problems:
+>
+> 1) When the vxlan is configured with IPv4 group it crashes when it
+> starts to receive IPv6 IGMP packets encapsulated into IPv4 vxlan
+> packets. This happens because when ipv6_rcv handles the inner packet,
+> the skb->dst still refernces outer IPv4 info. The very old vxlan code
+> had skb_dst_drop call in vxlan_udp_encap_recv, which was removed when
+> vxlan was refactored to use iptunnel_pull_header (commit
+> 7ce04758279514ca1d8ebfe322508a4a430fe2c8: "vxlan: Restructure vxlan
+> receive"). The iptunnel_pull_header called skb_dst_drop until recent
+> commit 10ddceb22bab11dab10ba645c7df2e4a8e7a5db5 ("ip_tunnel:multicast
+> process cause panic due to skb->_skb_refdst NULL pointer").
+> The simplest fix, I think, would be to restore call to skb_dst_drop in
+> vxlan_udp_encap_recv.
 
+Yep, following Mike's suggestion, adding the below call allows things to work,
+where trying vxlan without OVS, e.g using
 
-Cheers,
-Christoph
+$ ip link add vxlan42 type vxlan id 42 group 239.0.0.42 ttl 10 dev ethN
 
-> ---
->  drivers/net/ethernet/intel/igb/igb_main.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-> index 6acf787..cd20409 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -1149,6 +1149,7 @@ static void igb_set_interrupt_capability(struct igb_adapter *adapter, bool msix)
->  
->  	/* If we can't do MSI-X, try MSI */
->  msi_only:
-> +	adapter->flags &= ~IGB_FLAG_HAS_MSIX;
->  #ifdef CONFIG_PCI_IOV
->  	/* disable SR-IOV for non MSI-X configurations */
->  	if (adapter->vf_data) {
-> -- 
-> 1.8.3.1
-> 
+$ ifconfig vxlan42 192.168.42.54/24 up
+
+over the net tree with 3.14-rc6 and beyond crashes instantly on node A
+when node B is
+taken up and starts sending, so commit 10ddceb22b indeed introduced a
+regression.
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index a7eb3f2..22d7484 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1150,6 +1150,8 @@ static int vxlan_udp_encap_recv(struct sock *sk,
+struct sk_buff *skb)
+        if (iptunnel_pull_header(skb, VXLAN_HLEN, htons(ETH_P_TEB)))
+                goto drop;
+
++       skb_dst_drop(skb);
++
+        port = inet_sk(sk)->inet_sport;
+
+        vs = rcu_dereference_sk_user_data(sk);
