@@ -1,7 +1,7 @@
 From: Monam Agarwal <monamagarwal123@gmail.com>
-Subject: [PATCH] net/mac80211: Use RCU_INIT_POINTER(x, NULL) in mesh.c
-Date: Mon, 24 Mar 2014 00:49:13 +0530
-Message-ID: <1395602353-14254-1-git-send-email-monamagarwal123@gmail.com>
+Subject: [PATCH] net/mac80211: Use RCU_INIT_POINTER(x, NULL) in scan.c
+Date: Mon, 24 Mar 2014 00:50:22 +0530
+Message-ID: <1395602422-14534-1-git-send-email-monamagarwal123@gmail.com>
 To: linville@tuxdriver.com, johannes@sipsolutions.net,
 	davem@davemloft.net, linux-wireless@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
@@ -18,39 +18,57 @@ So, rcu_assign_pointer(p, NULL) can be safely converted to RCU_INIT_POINTER(p, N
 
 Signed-off-by: Monam Agarwal <monamagarwal123@gmail.com>
 ---
- net/mac80211/mesh.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/mac80211/scan.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/net/mac80211/mesh.c b/net/mac80211/mesh.c
-index f70e9cd..387f61c 100644
---- a/net/mac80211/mesh.c
-+++ b/net/mac80211/mesh.c
-@@ -829,7 +829,7 @@ void ieee80211_stop_mesh(struct ieee80211_sub_if_data *sdata)
- 	ieee80211_bss_info_change_notify(sdata, BSS_CHANGED_BEACON_ENABLED);
- 	bcn = rcu_dereference_protected(ifmsh->beacon,
- 					lockdep_is_held(&sdata->wdev.mtx));
--	rcu_assign_pointer(ifmsh->beacon, NULL);
-+	RCU_INIT_POINTER(ifmsh->beacon, NULL);
- 	kfree_rcu(bcn, rcu_head);
+diff --git a/net/mac80211/scan.c b/net/mac80211/scan.c
+index 836f500..f9f078b 100644
+--- a/net/mac80211/scan.c
++++ b/net/mac80211/scan.c
+@@ -309,7 +309,7 @@ static void __ieee80211_scan_completed(struct ieee80211_hw *hw, bool aborted)
+ 	if (local->scan_req != local->int_scan_req)
+ 		cfg80211_scan_done(local->scan_req, aborted);
+ 	local->scan_req = NULL;
+-	rcu_assign_pointer(local->scan_sdata, NULL);
++	RCU_INIT_POINTER(local->scan_sdata, NULL);
  
- 	/* flush STAs and mpaths on this iface */
-@@ -1068,7 +1068,7 @@ int ieee80211_mesh_finish_csa(struct ieee80211_sub_if_data *sdata)
+ 	local->scanning = 0;
+ 	local->scan_chandef.chan = NULL;
+@@ -559,7 +559,7 @@ static int __ieee80211_start_scan(struct ieee80211_sub_if_data *sdata,
+ 		ieee80211_recalc_idle(local);
  
- 	/* Remove the CSA and MCSP elements from the beacon */
- 	tmp_csa_settings = rcu_dereference(ifmsh->csa);
--	rcu_assign_pointer(ifmsh->csa, NULL);
-+	RCU_INIT_POINTER(ifmsh->csa, NULL);
- 	if (tmp_csa_settings)
- 		kfree_rcu(tmp_csa_settings, rcu_head);
- 	ret = ieee80211_mesh_rebuild_beacon(sdata);
-@@ -1102,7 +1102,7 @@ int ieee80211_mesh_csa_beacon(struct ieee80211_sub_if_data *sdata,
- 	ret = ieee80211_mesh_rebuild_beacon(sdata);
- 	if (ret) {
- 		tmp_csa_settings = rcu_dereference(ifmsh->csa);
--		rcu_assign_pointer(ifmsh->csa, NULL);
-+		RCU_INIT_POINTER(ifmsh->csa, NULL);
- 		kfree_rcu(tmp_csa_settings, rcu_head);
- 		return ret;
+ 		local->scan_req = NULL;
+-		rcu_assign_pointer(local->scan_sdata, NULL);
++		RCU_INIT_POINTER(local->scan_sdata, NULL);
  	}
+ 
+ 	return rc;
+@@ -773,7 +773,7 @@ void ieee80211_scan_work(struct work_struct *work)
+ 		int rc;
+ 
+ 		local->scan_req = NULL;
+-		rcu_assign_pointer(local->scan_sdata, NULL);
++		RCU_INIT_POINTER(local->scan_sdata, NULL);
+ 
+ 		rc = __ieee80211_start_scan(sdata, req);
+ 		if (rc) {
+@@ -1014,7 +1014,7 @@ out_free:
+ 
+ 	if (ret) {
+ 		/* Clean in case of failure after HW restart or upon resume. */
+-		rcu_assign_pointer(local->sched_scan_sdata, NULL);
++		RCU_INIT_POINTER(local->sched_scan_sdata, NULL);
+ 		local->sched_scan_req = NULL;
+ 	}
+ 
+@@ -1087,7 +1087,7 @@ void ieee80211_sched_scan_stopped_work(struct work_struct *work)
+ 		return;
+ 	}
+ 
+-	rcu_assign_pointer(local->sched_scan_sdata, NULL);
++	RCU_INIT_POINTER(local->sched_scan_sdata, NULL);
+ 
+ 	/* If sched scan was aborted by the driver. */
+ 	local->sched_scan_req = NULL;
 -- 
 1.7.9.5
