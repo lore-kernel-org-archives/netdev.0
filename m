@@ -1,13 +1,14 @@
-From: Monam Agarwal <monamagarwal123@gmail.com>
-Subject: [PATCH] drivers/net: Use RCU_INIT_POINTER(x, NULL) in tun.c
-Date: Mon, 24 Mar 2014 00:02:32 +0530
-Message-ID: <1395599552-7486-1-git-send-email-monamagarwal123@gmail.com>
-To: davem@davemloft.net, jasowang@redhat.com, mst@redhat.com,
-	xemul@parallels.com, wuzhy@linux.vnet.ibm.com, therbert@google.com,
-	yamato@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Monam Agarwal <monamagarwal123-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] drivers/net/wireless: Use RCU_INIT_POINTER(x, NULL) in iwlwifi/mvm/sta.c
+Date: Mon, 24 Mar 2014 00:05:56 +0530
+Message-ID: <1395599756-7861-1-git-send-email-monamagarwal123@gmail.com>
+To: johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, eliad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org,
+	eytan.lifshitz-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, eyal-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org, Max.Stepanov-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 This patch replaces rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x, NULL)
@@ -17,47 +18,55 @@ is carried out before storing a pointer to that structure.
 And in the case of the NULL pointer, there is no structure to initialize. 
 So, rcu_assign_pointer(p, NULL) can be safely converted to RCU_INIT_POINTER(p, NULL)
 
-Signed-off-by: Monam Agarwal <monamagarwal123@gmail.com>
+Signed-off-by: Monam Agarwal <monamagarwal123-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/tun.c |    8 ++++----
+ drivers/net/wireless/iwlwifi/mvm/sta.c |    8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 26f8635..ee328ba 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -452,7 +452,7 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
- 
- 		--tun->numqueues;
- 		if (clean) {
--			rcu_assign_pointer(tfile->tun, NULL);
-+			RCU_INIT_POINTER(tfile->tun, NULL);
- 			sock_put(&tfile->sk);
- 		} else
- 			tun_disable_queue(tun, tfile);
-@@ -499,12 +499,12 @@ static void tun_detach_all(struct net_device *dev)
- 		tfile = rtnl_dereference(tun->tfiles[i]);
- 		BUG_ON(!tfile);
- 		wake_up_all(&tfile->wq.wait);
--		rcu_assign_pointer(tfile->tun, NULL);
-+		RCU_INIT_POINTER(tfile->tun, NULL);
- 		--tun->numqueues;
+diff --git a/drivers/net/wireless/iwlwifi/mvm/sta.c b/drivers/net/wireless/iwlwifi/mvm/sta.c
+index 2677d1c..b793775 100644
+--- a/drivers/net/wireless/iwlwifi/mvm/sta.c
++++ b/drivers/net/wireless/iwlwifi/mvm/sta.c
+@@ -498,7 +498,7 @@ void iwl_mvm_sta_drained_wk(struct work_struct *wk)
+ 				sta_id);
+ 			continue;
+ 		}
+-		rcu_assign_pointer(mvm->fw_id_to_mac_id[sta_id], NULL);
++		RCU_INIT_POINTER(mvm->fw_id_to_mac_id[sta_id], NULL);
+ 		clear_bit(sta_id, mvm->sta_drained);
  	}
- 	list_for_each_entry(tfile, &tun->disabled, next) {
- 		wake_up_all(&tfile->wq.wait);
--		rcu_assign_pointer(tfile->tun, NULL);
-+		RCU_INIT_POINTER(tfile->tun, NULL);
- 	}
- 	BUG_ON(tun->numqueues != 0);
  
-@@ -2194,7 +2194,7 @@ static int tun_chr_open(struct inode *inode, struct file * file)
- 					    &tun_proto);
- 	if (!tfile)
- 		return -ENOMEM;
--	rcu_assign_pointer(tfile->tun, NULL);
-+	RCU_INIT_POINTER(tfile->tun, NULL);
- 	tfile->net = get_net(current->nsproxy->net_ns);
- 	tfile->flags = 0;
- 	tfile->ifindex = 0;
+@@ -557,7 +557,7 @@ int iwl_mvm_rm_sta(struct iwl_mvm *mvm,
+ 	} else {
+ 		spin_unlock_bh(&mvm_sta->lock);
+ 		ret = iwl_mvm_rm_sta_common(mvm, mvm_sta->sta_id);
+-		rcu_assign_pointer(mvm->fw_id_to_mac_id[mvm_sta->sta_id], NULL);
++		RCU_INIT_POINTER(mvm->fw_id_to_mac_id[mvm_sta->sta_id], NULL);
+ 	}
+ 
+ 	return ret;
+@@ -571,7 +571,7 @@ int iwl_mvm_rm_sta_id(struct iwl_mvm *mvm,
+ 
+ 	lockdep_assert_held(&mvm->mutex);
+ 
+-	rcu_assign_pointer(mvm->fw_id_to_mac_id[sta_id], NULL);
++	RCU_INIT_POINTER(mvm->fw_id_to_mac_id[sta_id], NULL);
+ 	return ret;
+ }
+ 
+@@ -593,7 +593,7 @@ int iwl_mvm_allocate_int_sta(struct iwl_mvm *mvm, struct iwl_mvm_int_sta *sta,
+ 
+ void iwl_mvm_dealloc_int_sta(struct iwl_mvm *mvm, struct iwl_mvm_int_sta *sta)
+ {
+-	rcu_assign_pointer(mvm->fw_id_to_mac_id[sta->sta_id], NULL);
++	RCU_INIT_POINTER(mvm->fw_id_to_mac_id[sta->sta_id], NULL);
+ 	memset(sta, 0, sizeof(struct iwl_mvm_int_sta));
+ 	sta->sta_id = IWL_MVM_STATION_COUNT;
+ }
 -- 
 1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
