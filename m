@@ -1,78 +1,79 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] virtio-net: don't free skb immediately on kick failure
-Date: Sun, 23 Mar 2014 13:27:19 +0200
-Message-ID: <20140323112719.GE6989@redhat.com>
-References: <1395390601-13177-1-git-send-email-jasowang@redhat.com>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: [net-next 15/16] igb: Fix Null-pointer dereference in
+ igb_reset_q_vector
+Date: Sun, 23 Mar 2014 15:31:25 +0100
+Message-ID: <20140323143125.GC5028@cpaasch-mac>
+References: <1395403806-29302-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <0082c389c1d6488cb5cf473ff1bc26e2@UCL-MBX03.OASIS.UCLOUVAIN.BE>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:44371 "EHLO
+	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752291AbaCWObb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2014 10:31:31 -0400
 Content-Disposition: inline
-In-Reply-To: <1395390601-13177-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <0082c389c1d6488cb5cf473ff1bc26e2@UCL-MBX03.OASIS.UCLOUVAIN.BE>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 21, 2014 at 04:30:01PM +0800, Jason Wang wrote:
-> We free the skb immediately on kick failure during xmit without detaching it
-> from the virtqueue. This may lead double free for the skb during
-> free_unused_bufs(). This patch fixes this by not freeing it on kick failure and
-> let it to be freed through free_unused_bufs().
+On 21/03/14 - 12:10:05, Jeff Kirsher wrote:
+> From: Christoph Paasch <christoph.paasch@uclouvain.be>
 > 
-> Fixes 67975901183799af8e93ec60e322f9e2a1940b9b
-> ("virtio_net: verify if virtqueue_kick() succeeded").
-
-It's not even obvious we want to increment fifo errors
-counter.
-So basically we want to ignore these errors.
-In that case how about just reverting this chunk
-of the patch?
-
-Seems cleaner than adding more code.
-
-The chunk filling in RX also seems inappropriate:
-it will cause RX work to be requeued which isn't what
-we wanted.
-
-Also, what happens with virtnet_send_command?
-
-Looks like that patch is completely wrong.
-
+> When igb_set_interrupt_capability() calls
+> igb_reset_interrupt_capability() (e.g., because CONFIG_PCI_MSI is unset),
+> num_q_vectors has been set but no vector has yet been allocated.
 > 
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Cc: Heinz Graalfs <graalfs@linux.vnet.ibm.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> igb_reset_interrupt_capability() will then call igb_reset_q_vector,
+> which assumes that the vector is allocated. As this is not the case, we
+> are accessing a NULL-pointer.
+> 
+> This patch fixes it by checking that q_vector is indeed different from
+> NULL.
+> 
+> Fixes: 02ef6e1d0b0023 (igb: Fix queue allocation method to accommodate changing during runtime)
+> Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
+> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+
+Hello Jeff,
+
+shouldn't this one rather be for 'net' instead of 'net-next'? Because
+02ef6e1d0b0023 is part of 3.14-rc1.
+
+
+Cheers,
+Christoph
+
+
 > ---
->  drivers/net/virtio_net.c | 6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
+>  drivers/net/ethernet/intel/igb/igb_main.c | 6 ++++++
+>  1 file changed, 6 insertions(+)
 > 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 5632a99..d833d38 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -882,8 +882,10 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
->  		if (net_ratelimit())
->  			dev_warn(&dev->dev,
->  				 "Unexpected TXQ (%d) queue failure: %d\n", qnum, err);
-> -		dev->stats.tx_dropped++;
-> -		kfree_skb(skb);
-> +		if (err) {
-> +			dev->stats.tx_dropped++;
-> +			kfree_skb(skb);
-> +		}
->  		return NETDEV_TX_OK;
->  	}
+> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+> index e8b4f7b..6acf787 100644
+> --- a/drivers/net/ethernet/intel/igb/igb_main.c
+> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
+> @@ -1035,6 +1035,12 @@ static void igb_reset_q_vector(struct igb_adapter *adapter, int v_idx)
+>  {
+>  	struct igb_q_vector *q_vector = adapter->q_vector[v_idx];
+>  
+> +	/* Coming from igb_set_interrupt_capability, the vectors are not yet
+> +	 * allocated. So, q_vector is NULL so we should stop here.
+> +	 */
+> +	if (!q_vector)
+> +		return;
+> +
+>  	if (q_vector->tx.ring)
+>  		adapter->tx_ring[q_vector->tx.ring->queue_index] = NULL;
 >  
 > -- 
-> 1.8.3.2
+> 1.8.3.1
+> 
