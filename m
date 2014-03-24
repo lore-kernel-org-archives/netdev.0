@@ -1,86 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: optimize csum_replace2()
-Date: Sun, 23 Mar 2014 19:51:36 -0700
-Message-ID: <1395629496.9117.47.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140321.140730.1007660405690890605.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, hkchu@google.com, mwdalton@google.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: roy.qing.li@gmail.com
+Subject: [PATCH][net-next] ipv4: remove ipv4_ifdown_dst from route.c
+Date: Mon, 24 Mar 2014 11:03:10 +0800
+Message-ID: <1395630190-12586-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:34846 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751011AbaCXCvj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2014 22:51:39 -0400
-Received: by mail-ie0-f179.google.com with SMTP id lx4so4965876iec.10
-        for <netdev@vger.kernel.org>; Sun, 23 Mar 2014 19:51:39 -0700 (PDT)
-In-Reply-To: <20140321.140730.1007660405690890605.davem@davemloft.net>
+Received: from mail-pb0-f43.google.com ([209.85.160.43]:40219 "EHLO
+	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750878AbaCXDDL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2014 23:03:11 -0400
+Received: by mail-pb0-f43.google.com with SMTP id um1so4814287pbc.16
+        for <netdev@vger.kernel.org>; Sun, 23 Mar 2014 20:03:11 -0700 (PDT)
+Received: from localhost ([1.202.252.122])
+        by mx.google.com with ESMTPSA id q7sm30059452pbc.20.2014.03.23.20.03.06
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Sun, 23 Mar 2014 20:03:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Li RongQing <roy.qing.li@gmail.com> 
 
-When changing one 16bit value by another in IP header, we can adjust the
-IP checksum by doing a simple operation described in RFC 1624,
-as reminded by David.
+ipv4_ifdown_dst does nothing after IPv4 route caches removal,
+so we can remove it.
 
-csum_partial() is a complex function on x86_64, not really suited
-for small number of checksummed bytes.
-
-I spotted csum_partial() being in the top 20 most consuming
-functions (more than 1 %) in a GRO workload, which was rather
-unexpected.
-
-The caller was inet_gro_complete() doing a csum_replace2() when
-building the new IP header for the GRO packet.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 ---
- include/net/checksum.h |   23 +++++++++++++++++++++--
- 1 file changed, 21 insertions(+), 2 deletions(-)
+ net/ipv4/route.c |    6 ------
+ 1 file changed, 6 deletions(-)
 
-diff --git a/include/net/checksum.h b/include/net/checksum.h
-index 37a0e24adbe7..a28f4e0f6251 100644
---- a/include/net/checksum.h
-+++ b/include/net/checksum.h
-@@ -69,6 +69,19 @@ static inline __wsum csum_sub(__wsum csum, __wsum addend)
- 	return csum_add(csum, ~addend);
- }
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 11e4384..57527ee 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -139,11 +139,6 @@ static void		 ip_do_redirect(struct dst_entry *dst, struct sock *sk,
+ 					struct sk_buff *skb);
+ static void		ipv4_dst_destroy(struct dst_entry *dst);
  
-+static inline __sum16 csum16_add(__sum16 csum, __be16 addend)
-+{
-+	u16 res = (__force u16)csum;
-+
-+	res += (__force u16)addend;
-+	return (__force __sum16)(res + (res < (__force u16)addend));
-+}
-+
-+static inline __sum16 csum16_sub(__sum16 csum, __be16 addend)
-+{
-+	return csum16_add(csum, ~addend);
-+}
-+
- static inline __wsum
- csum_block_add(__wsum csum, __wsum csum2, int offset)
+-static void ipv4_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+-			    int how)
+-{
+-}
+-
+ static u32 *ipv4_cow_metrics(struct dst_entry *dst, unsigned long old)
  {
-@@ -112,9 +125,15 @@ static inline void csum_replace4(__sum16 *sum, __be32 from, __be32 to)
- 	*sum = csum_fold(csum_partial(diff, sizeof(diff), ~csum_unfold(*sum)));
- }
- 
--static inline void csum_replace2(__sum16 *sum, __be16 from, __be16 to)
-+/* Implements RFC 1624 (Incremental Internet Checksum)
-+ * 3. Discussion states :
-+ *     HC' = ~(~HC + ~m + m')
-+ *  m : old value of a 16bit field
-+ *  m' : new value of a 16bit field
-+ */
-+static inline void csum_replace2(__sum16 *sum, __be16 old, __be16 new)
- {
--	csum_replace4(sum, (__force __be32)from, (__force __be32)to);
-+	*sum = ~csum16_add(csum16_sub(~(*sum), old), new);
- }
- 
- struct sk_buff;
+ 	WARN_ON(1);
+@@ -162,7 +157,6 @@ static struct dst_ops ipv4_dst_ops = {
+ 	.mtu =			ipv4_mtu,
+ 	.cow_metrics =		ipv4_cow_metrics,
+ 	.destroy =		ipv4_dst_destroy,
+-	.ifdown =		ipv4_dst_ifdown,
+ 	.negative_advice =	ipv4_negative_advice,
+ 	.link_failure =		ipv4_link_failure,
+ 	.update_pmtu =		ip_rt_update_pmtu,
+-- 
+1.7.10.4
