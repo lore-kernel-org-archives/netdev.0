@@ -1,64 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [RFC] csum experts, csum_replace2() is too expensive
-Date: Mon, 24 Mar 2014 07:13:42 -0700
-Message-ID: <1395670422.12610.34.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <87a9cknwk4.fsf@tassilo.jf.intel.com>
-	 <1395406250.9114.142.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140321.145229.1026128975151125729.davem@davemloft.net>
-	 <1395629410.9117.46.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6E77A4@AcuExch.aculab.com>
-	 <1395667063.12610.24.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"andi@firstfloor.org" <andi@firstfloor.org>,
-	"hpa@zytor.com" <hpa@zytor.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"hkchu@google.com" <hkchu@google.com>,
-	"mwdalton@google.com" <mwdalton@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1395667063.12610.24.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Zhangfei Gao <zhangfei.gao@linaro.org>
+Subject: [PATCH v3 0/3] add hisilicon hip04 ethernet driver
+Date: Mon, 24 Mar 2014 22:14:53 +0800
+Message-ID: <1395670496-17381-1-git-send-email-zhangfei.gao@linaro.org>
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, Zhangfei Gao <zhangfei.gao@linaro.org>
+To: davem@davemloft.net, linux@arm.linux.org.uk, arnd@arndb.de,
+	f.fainelli@gmail.com, sergei.shtylyov@cogentembedded.com,
+	mark.rutland@arm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:56686 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752249AbaCXOPF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 10:15:05 -0400
+Received: by mail-pa0-f48.google.com with SMTP id hz1so5502745pad.21
+        for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 07:15:05 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-03-24 at 06:17 -0700, Eric Dumazet wrote:
-> On Mon, 2014-03-24 at 10:30 +0000, David Laight wrote:
+v3:
+Suggest from Arnd, use syscon & regmap_write/read to replace static void __iomem *ppebase.
+Modify hisilicon-hip04-net.txt accrordingly to suggestion from Florian and Sergei.
 
-> > ip_fast_csum() either needs an explicit "m" constraint for the actual
-> > buffer (and target) bytes, or the stronger "memory" constraint.
-> > The 'volatile' is then not needed.
+v2:
+Got many suggestions from Russell, Arnd, Florian, Mark and Sergei
+Remove memcpy, use dma_map/unmap_single, use dma_alloc_coherent rather than dma_pool, etc.
+Refer property in ethernet.txt, change ppe description, etc.
 
-I am testing the following :
+Zhangfei Gao (3):
+  Documentation: add Device tree bindings for Hisilicon hip04 ethernet
+  net: hisilicon: new hip04 MDIO driver
+  net: hisilicon: new hip04 ethernet driver
 
-diff --git a/arch/x86/include/asm/checksum_64.h b/arch/x86/include/asm/checksum_64.h
-index e6fd8a026c7b..89d7fa8837b5 100644
---- a/arch/x86/include/asm/checksum_64.h
-+++ b/arch/x86/include/asm/checksum_64.h
-@@ -45,6 +45,9 @@ static inline __sum16 csum_fold(__wsum sum)
- static inline __sum16 ip_fast_csum(const void *iph, unsigned int ihl)
- {
- 	unsigned int sum;
-+	struct full_ip_header {
-+		unsigned int w[ihl];
-+	};
- 
- 	asm("  movl (%1), %0\n"
- 	    "  subl $4, %2\n"
-@@ -67,8 +70,9 @@ static inline __sum16 ip_fast_csum(const void *iph, unsigned int ihl)
- 	   are modified, we must also specify them as outputs, or gcc
- 	   will assume they contain their original values. */
- 	    : "=r" (sum), "=r" (iph), "=r" (ihl)
--	    : "1" (iph), "2" (ihl)
--	    : "memory");
-+	    : "1" (iph), "2" (ihl),
-+	      "m" (*(struct full_ip_header *) iph)
-+	);
- 	return (__force __sum16)sum;
- }
- 
+ .../bindings/net/hisilicon-hip04-net.txt           |  110 +++
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/hisilicon/Kconfig             |   32 +
+ drivers/net/ethernet/hisilicon/Makefile            |    5 +
+ drivers/net/ethernet/hisilicon/hip04_eth.c         |  728 ++++++++++++++++++++
+ drivers/net/ethernet/hisilicon/hip04_mdio.c        |  186 +++++
+ 7 files changed, 1063 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
+ create mode 100644 drivers/net/ethernet/hisilicon/Kconfig
+ create mode 100644 drivers/net/ethernet/hisilicon/Makefile
+ create mode 100644 drivers/net/ethernet/hisilicon/hip04_eth.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hip04_mdio.c
+
+-- 
+1.7.9.5
