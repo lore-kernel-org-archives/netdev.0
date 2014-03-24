@@ -1,36 +1,50 @@
-From: Li RongQing <roy.qing.li@gmail.com>
-Subject: Re: [PATCH][net-next] ipv4: remove ip_rt_dump from route.c
-Date: Mon, 24 Mar 2014 13:22:50 +0800
-Message-ID: <CAJFZqHxT2MxtmKsRG=AQ-fX4XS18zvLizGcQL_dPLRgCn=bodA@mail.gmail.com>
-References: <1395372790-11056-1-git-send-email-roy.qing.li@gmail.com>
-	<20140321.153844.1012685520499183330.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] drivers/net: Use RCU_INIT_POINTER(x, NULL) in tun.c
+Date: Sun, 23 Mar 2014 22:25:27 -0700
+Message-ID: <1395638727.9117.55.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1395599552-7486-1-git-send-email-monamagarwal123@gmail.com>
+	 <20140323194113.GA13633@redhat.com>
+	 <1395604457.9117.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140323213349.GA8832@redhat.com>
+	 <20140323221256.GG4405@linux.vnet.ibm.com>
+	 <20140324050939.GB8832@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f52.google.com ([209.85.216.52]:59373 "EHLO
-	mail-qa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750760AbaCXFWv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 01:22:51 -0400
-Received: by mail-qa0-f52.google.com with SMTP id m5so4823202qaj.39
-        for <netdev@vger.kernel.org>; Sun, 23 Mar 2014 22:22:50 -0700 (PDT)
-In-Reply-To: <20140321.153844.1012685520499183330.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Monam Agarwal <monamagarwal123@gmail.com>, davem@davemloft.net,
+	jasowang@redhat.com, xemul@parallels.com, wuzhy@linux.vnet.ibm.com,
+	therbert@google.com, yamato@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140324050939.GB8832@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 22, 2014 at 3:38 AM, David Miller <davem@davemloft.net> wrote:
-> From: roy.qing.li@gmail.com
-> Date: Fri, 21 Mar 2014 11:33:10 +0800
->
->> From: Li RongQing <roy.qing.li@gmail.com>
->>
->> ip_rt_dump do nothing after IPv4 route caches removal, so we can remove it.
->>
->> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
->
-> Applied, thanks.
+On Mon, 2014-03-24 at 07:09 +0200, Michael S. Tsirkin wrote:
 
-Seems this patch was lost, I did not see it in net-next
+> Seems an incredibly strict requirement for something that just
+> silences a warning.
+> What exactly should I test?
+> I intended to just verify this produces same code as before
+> d322f45ceed525daa under a recent gcc.
 
--Roy
+Thats because many rcu_assign_pointer(X, NULL) were already converted to
+RCU_INIT_POINTER(X, NULL)
+
+Quite frankly I don't know why you bother at all.
+
+Adding back the lazy test in rcu_assign_pointer() doesn't help to make
+the API cleaner and easier to understand.
+
+People are usually using RCU API without really understanding
+all the issues. They tend to add superfluous barriers because they feel
+better. 
+
+Having separate RCU_INIT_POINTER() and rcu_assign_pointer() serve as
+better documentation of the code, I find it more easier to immediately
+check what is going on while reviewing stuff.
+
+Presumably, checkpatch.pl could be augmented to suggest to use
+RCU_INIT_POINTER(X, NULL) instead of rcu_assign_pointer(X, NULL)
