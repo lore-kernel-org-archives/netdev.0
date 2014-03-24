@@ -1,7 +1,8 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v2 1/3] xen-netback: Stop using xenvif_tx_pending_slots_available
-Date: Mon, 24 Mar 2014 12:48:02 +0000
-Message-ID: <1395665284-8911-1-git-send-email-zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v2 3/3] xen-netback: Follow-up patch for grant mapping series
+Date: Mon, 24 Mar 2014 12:48:04 +0000
+Message-ID: <1395665284-8911-3-git-send-email-zoltan.kiss@citrix.com>
+References: <1395665284-8911-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
@@ -9,99 +10,94 @@ Cc: <paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
 	Zoltan Kiss <zoltan.kiss@citrix.com>
 To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
 	<xen-devel@lists.xenproject.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:39005 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753156AbaCXMsS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Mar 2014 08:48:18 -0400
+In-Reply-To: <1395665284-8911-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since the early days TX stops if there isn't enough free pending slots to
-consume a maximum sized (slot-wise) packet. Probably the reason for that is to
-avoid the case when we don't have enough free pending slot in the ring to finish
-the packet. But if we make sure that the pending ring has the same size as the
-shared ring, that shouldn't really happen. The frontend can only post packets
-which fit the to the free space of the shared ring. If it doesn't, the frontend
-has to stop, as it can only increase the req_prod when the whole packet fits
-onto the ring.
-This patch avoid using this checking, makes sure the 2 ring has the same size,
-and remove a checking from the callback. As now we don't stop the NAPI instance
-on this condition, we don't have to wake it up if we free pending slots up.
+Ian made some late comments about the grant mapping series, I incorporated the
+functional outcomes into this patch:
+
+- use callback_param macro to shorten access to pending_tx_info in
+  xenvif_fill_frags() and xenvif_tx_submit()
+- print an error message in xenvif_idx_unmap() before panic
 
 Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 ---
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index bef37be..a800a8e 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -81,7 +81,7 @@ struct xenvif_rx_meta {
- 
- #define MAX_BUFFER_OFFSET PAGE_SIZE
- 
--#define MAX_PENDING_REQS 256
-+#define MAX_PENDING_REQS XEN_NETIF_TX_RING_SIZE
- 
- /* It's possible for an skb to have a maximal number of frags
-  * but still be less than MAX_BUFFER_OFFSET in size. Thus the
-@@ -253,12 +253,6 @@ static inline pending_ring_idx_t nr_pending_reqs(struct xenvif *vif)
- 		vif->pending_prod + vif->pending_cons;
- }
- 
--static inline bool xenvif_tx_pending_slots_available(struct xenvif *vif)
--{
--	return nr_pending_reqs(vif) + XEN_NETBK_LEGACY_SLOTS_MAX
--		< MAX_PENDING_REQS;
--}
--
- /* Callback from stack when TX packet can be released */
- void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success);
- 
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 83a71ac..7bb7734 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -88,8 +88,7 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
- 		local_irq_save(flags);
- 
- 		RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, more_to_do);
--		if (!(more_to_do &&
--		      xenvif_tx_pending_slots_available(vif)))
-+		if (!more_to_do)
- 			__napi_complete(napi);
- 
- 		local_irq_restore(flags);
+v2:
+- expand commit message and split this into 2 patch
+- fix typos
+
 diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index bc94320..5df8d63 100644
+index f5c440b..0efa32d 100644
 --- a/drivers/net/xen-netback/netback.c
 +++ b/drivers/net/xen-netback/netback.c
-@@ -1175,8 +1175,7 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
- 	struct sk_buff *skb;
- 	int ret;
+@@ -99,6 +99,9 @@ static inline unsigned long idx_to_kaddr(struct xenvif *vif,
+ 	return (unsigned long)pfn_to_kaddr(idx_to_pfn(vif, idx));
+ }
  
--	while (xenvif_tx_pending_slots_available(vif) &&
--	       (skb_queue_len(&vif->tx_queue) < budget)) {
-+	while (skb_queue_len(&vif->tx_queue) < budget) {
- 		struct xen_netif_tx_request txreq;
- 		struct xen_netif_tx_request txfrags[XEN_NETBK_LEGACY_SLOTS_MAX];
- 		struct xen_netif_extra_info extras[XEN_NETIF_EXTRA_TYPE_MAX-1];
-@@ -1516,13 +1515,6 @@ void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success)
- 	wake_up(&vif->dealloc_wq);
- 	spin_unlock_irqrestore(&vif->callback_lock, flags);
++#define callback_param(vif, pending_idx) \
++	(vif->pending_tx_info[pending_idx].callback_struct)
++
+ /* Find the containing VIF's structure from a pointer in pending_tx_info array
+  */
+ static inline struct xenvif* ubuf_to_vif(struct ubuf_info *ubuf)
+@@ -1020,12 +1023,12 @@ static void xenvif_fill_frags(struct xenvif *vif, struct sk_buff *skb)
+ 		/* If this is not the first frag, chain it to the previous*/
+ 		if (unlikely(prev_pending_idx == INVALID_PENDING_IDX))
+ 			skb_shinfo(skb)->destructor_arg =
+-				&vif->pending_tx_info[pending_idx].callback_struct;
++				&callback_param(vif, pending_idx);
+ 		else if (likely(pending_idx != prev_pending_idx))
+-			vif->pending_tx_info[prev_pending_idx].callback_struct.ctx =
+-				&(vif->pending_tx_info[pending_idx].callback_struct);
++			callback_param(vif, prev_pending_idx).ctx =
++				&callback_param(vif, pending_idx);
  
--	if (RING_HAS_UNCONSUMED_REQUESTS(&vif->tx) &&
--	    xenvif_tx_pending_slots_available(vif)) {
--		local_bh_disable();
--		napi_schedule(&vif->napi);
--		local_bh_enable();
--	}
--
- 	if (likely(zerocopy_success))
- 		vif->tx_zerocopy_success++;
- 	else
-@@ -1714,8 +1706,7 @@ static inline int rx_work_todo(struct xenvif *vif)
- static inline int tx_work_todo(struct xenvif *vif)
- {
+-		vif->pending_tx_info[pending_idx].callback_struct.ctx = NULL;
++		callback_param(vif, pending_idx).ctx = NULL;
+ 		prev_pending_idx = pending_idx;
  
--	if (likely(RING_HAS_UNCONSUMED_REQUESTS(&vif->tx)) &&
--	    xenvif_tx_pending_slots_available(vif))
-+	if (likely(RING_HAS_UNCONSUMED_REQUESTS(&vif->tx)))
- 		return 1;
+ 		txp = &vif->pending_tx_info[pending_idx].req;
+@@ -1395,13 +1398,13 @@ static int xenvif_tx_submit(struct xenvif *vif)
+ 		memcpy(skb->data,
+ 		       (void *)(idx_to_kaddr(vif, pending_idx)|txp->offset),
+ 		       data_len);
+-		vif->pending_tx_info[pending_idx].callback_struct.ctx = NULL;
++		callback_param(vif, pending_idx).ctx = NULL;
+ 		if (data_len < txp->size) {
+ 			/* Append the packet payload as a fragment. */
+ 			txp->offset += data_len;
+ 			txp->size -= data_len;
+ 			skb_shinfo(skb)->destructor_arg =
+-				&vif->pending_tx_info[pending_idx].callback_struct;
++				&callback_param(vif, pending_idx);
+ 		} else {
+ 			/* Schedule a response immediately. */
+ 			xenvif_idx_unmap(vif, pending_idx);
+@@ -1678,12 +1680,20 @@ void xenvif_idx_unmap(struct xenvif *vif, u16 pending_idx)
+ 			    idx_to_kaddr(vif, pending_idx),
+ 			    GNTMAP_host_map,
+ 			    vif->grant_tx_handle[pending_idx]);
+ 	xenvif_grant_handle_reset(vif, pending_idx);
  
- 	return 0;
+ 	ret = gnttab_unmap_refs(&tx_unmap_op, NULL,
+ 				&vif->mmap_pages[pending_idx], 1);
+-	BUG_ON(ret);
++	if (ret) {
++		netdev_err(vif->dev,
++			   "Unmap fail: ret: %d pending_idx: %d host_addr: %llx handle: %x status: %d\n",
++			   ret,
++			   pending_idx,
++			   tx_unmap_op.host_addr,
++			   tx_unmap_op.handle,
++			   tx_unmap_op.status);
++		BUG();
++	}
+ 
+ 	xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_OKAY);
+ }
