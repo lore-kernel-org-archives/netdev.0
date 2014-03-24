@@ -1,106 +1,45 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net] xen-netback: disable rogue vif in kthread
- context
-Date: Mon, 24 Mar 2014 12:49:11 +0000
-Message-ID: <533029C7.1080006@citrix.com>
-References: <1395663214-14133-1-git-send-email-wei.liu2@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] drivers/net: Use RCU_INIT_POINTER(x, NULL) in tun.c
+Date: Mon, 24 Mar 2014 05:53:58 -0700
+Message-ID: <1395665638.12610.9.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1395599552-7486-1-git-send-email-monamagarwal123@gmail.com>
+	 <20140323194113.GA13633@redhat.com>
+	 <1395604457.9117.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140323213349.GA8832@redhat.com>
+	 <20140323221256.GG4405@linux.vnet.ibm.com>
+	 <20140324050939.GB8832@redhat.com>
+	 <1395638727.9117.55.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140324062225.GA22338@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
-	<paul.durrant@citrix.com>, <edwin@etorok.net>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	<zoltan.kiss@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:10341 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753275AbaCXMtV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Mar 2014 08:49:21 -0400
-In-Reply-To: <1395663214-14133-1-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Monam Agarwal <monamagarwal123@gmail.com>, davem@davemloft.net,
+	jasowang@redhat.com, xemul@parallels.com, wuzhy@linux.vnet.ibm.com,
+	therbert@google.com, yamato@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140324062225.GA22338@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 24/03/14 12:13, Wei Liu wrote:
-> When netback discovers frontend is sending malformed packet it will
-> disables the interface which serves that frontend.
-> 
-> However disabling a network interface involving taking a mutex which
-> cannot be done in softirq context, so we need to defer this process to
-> kthread context.
-> 
-> This patch does the following:
-> 1. introduce a flag to indicate the interface is disabled.
-> 2. check that flag in TX path, don't do any work if it's true.
-> 3. check that flag in RX path, turn off that interface if it's true.
-> 
-> The reason to disable it in RX path is because RX uses kthread. After
-> this change the behavior of netback is still consistent -- it won't do
-> any TX work for a rogue frontend, and the interface will be eventually
-> turned off.
-> 
-> Also change a "continue" to "break" after xenvif_fatal_tx_err, as it
-> doesn't make sense to continue processing packets if frontend is rogue.
-[...]
-> --- a/drivers/net/xen-netback/interface.c
-> +++ b/drivers/net/xen-netback/interface.c
-> @@ -62,6 +62,13 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
->  	struct xenvif *vif = container_of(napi, struct xenvif, napi);
->  	int work_done;
->  
-> +	/* This vif is rogue, we pretend we've used up all budget to
-> +	 * deschedule it from NAPI. But this interface will be turned
-> +	 * off in thread context later.
-> +	 */
-> +	if (unlikely(vif->disabled))
-> +		return budget;
+On Mon, 2014-03-24 at 08:22 +0200, Michael S. Tsirkin wrote:
 
-Shouldn't you call __napi_complete() and return 0?  Returning budget
-will make NAPI poll repeatedly (since you're pretending to do work).
+> What happens if someone then changes that NULL to something else?
+> Things will start to break in subtle way, won't they?
 
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index 438d0c0..94e7261 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -655,7 +655,7 @@ static void xenvif_tx_err(struct xenvif *vif,
->  static void xenvif_fatal_tx_err(struct xenvif *vif)
->  {
->  	netdev_err(vif->dev, "fatal error; disabling device\n");
-> -	xenvif_carrier_off(vif);
-> +	vif->disabled = true;
+Sure. As anything else can break when/if using wrong API or in any
+change. Particularly in RCU protected code. Even a kzalloc() can be
+buggy.
 
-Do you need to wake the thread here?
+Note that smp_wmb() is hardly expensive in all these paths,
+so thats why I do not care anymore asking guys using RCU_INIT_POINTER(x,
+NULL) instead of rcu_assign_pointer() as I used to.
 
-> @@ -1549,6 +1549,16 @@ int xenvif_kthread(void *data)
->  		wait_event_interruptible(vif->wq,
->  					 rx_work_todo(vif) ||
->  					 kthread_should_stop());
+When doing tree wide change (like in commit 2cfa5a0471fef43), I usually
+not do a dumb one, I take the time to read the code and check it for
+defects.
 
-                                         || vif->disabled ?
-
-> +
-> +		/* This frontend is found to be rogue, disable it in
-> +		 * kthread context. Currently this is only set when
-> +		 * netback finds out frontend sends malformed packet,
-> +		 * but we cannot disable the interface in softirq
-> +		 * context so we defer it here.
-> +		 */
-> +		if (unlikely(vif->disabled) && netif_carrier_ok(vif->dev))
-> +			xenvif_carrier_off(vif);
-> +
->  		if (kthread_should_stop())
->  			break;
->  
-
-As an aside, since I happened to be looking at xenvif_poll(), disabling
-local irqs to avoid problems with concurrent events looks unsafe as the
-event may occur on another VCPU.
-
-   __napi_complete(napi);
-   RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, more_to_do);
-   if (more_to_do)
-       napi_schedule(napi);
-
-Would work I think.
-
-David
+I do not remember what kind of compiler warnings we had 3 years ago,
+But I do not want to spend more cycles on this subject...
