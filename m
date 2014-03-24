@@ -1,19 +1,19 @@
 From: Fabio Estevam <fabio.estevam@freescale.com>
 Subject: [PATCH 2/2] smsc911x: No need to print driver version
-Date: Mon, 24 Mar 2014 12:57:26 -0300
-Message-ID: <1395676646-14178-2-git-send-email-fabio.estevam@freescale.com>
-References: <1395676646-14178-1-git-send-email-fabio.estevam@freescale.com>
+Date: Mon, 24 Mar 2014 12:34:24 -0300
+Message-ID: <1395675264-13851-2-git-send-email-fabio.estevam@freescale.com>
+References: <1395675264-13851-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <steve.glendinning@shawell.net>, <netdev@vger.kernel.org>,
 	Fabio Estevam <fabio.estevam@freescale.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:6602
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751240AbaCXP5p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 11:57:45 -0400
-In-Reply-To: <1395676646-14178-1-git-send-email-fabio.estevam@freescale.com>
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:50066 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750999AbaCXQGY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 12:06:24 -0400
+In-Reply-To: <1395675264-13851-1-git-send-email-fabio.estevam@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
