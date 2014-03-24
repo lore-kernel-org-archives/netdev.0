@@ -1,34 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: gre: Fix null pointer dereference in
- gre_cisco_err()
-Date: Mon, 24 Mar 2014 15:14:17 -0400 (EDT)
-Message-ID: <20140324.151417.474668383309974516.davem@davemloft.net>
-References: <1395646471-637-1-git-send-email-asuka.com@163.com>
+Subject: Re: [PATCH net] ip_tunnel: Fix dst ref-count.
+Date: Mon, 24 Mar 2014 15:24:12 -0400 (EDT)
+Message-ID: <20140324.152412.1501867662024898167.davem@davemloft.net>
+References: <1395637596-28064-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xeb@mail.ru, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: asuka.com@163.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1395646471-637-1-git-send-email-asuka.com@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, lucien.xin@gmail.com
+To: pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43492 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753776AbaCXTYO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 15:24:14 -0400
+In-Reply-To: <1395637596-28064-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wei Zhang <asuka.com@163.com>
-Date: Mon, 24 Mar 2014 15:34:31 +0800
+From: Pravin <pshelar@nicira.com>
+Date: Sun, 23 Mar 2014 22:06:36 -0700
 
-> When use the gre vport, openvswitch register a gre_cisco_protocol but
-> does not supply a err_handler with it. The gre_cisco_err() call the
-> err_handler without existence check, cause the kernel crash.
+> Commit 10ddceb22ba (ip_tunnel:multicast process cause panic due
+> to skb->_skb_refdst NULL pointer) removed dst-drop call from
+> ip-tunnel-recv.
 > 
-> This patch base on v3.14-rc7. But the bug affect all kernel newer than
-> 3.11!
+> Following commit reintroduce dst-drop and fix the original bug by
+> checking loopback packet before releasing dst.
+> Original bug: https://bugzilla.kernel.org/show_bug.cgi?id=70681
 > 
-> Signed-off-by: Wei Zhang <asuka.com@163.com>
+> CC: Xin Long <lucien.xin@gmail.com>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-Rather, openvswitch should provide an appropriate ->err_handler() that
-returns PACKET_RCVD or PACKET_REJECT.
+I don't understand why only the GRE tunnel implementation needs the
+check, whereas ipip and sit seem to have the same code associated
+paths.
 
-I'm not applying this patch.
+Plus I think this is incredibly sloppy, making the implementations
+have to attend to this detail.  Why the heck do we have a common
+piece of infrastructure if we end up with all of this duplicated
+code anyways?
+
+Put this check somewhere common, so that we are guaranteed that the
+issue is really fixed for all tunnel types, no matter what.
+
+Thanks.
