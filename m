@@ -1,46 +1,49 @@
-From: Alon Nafta <alon@privatecore.com>
-Subject: Re: [PATCH 1/4 V2] Ethernet drivers in 3.14-rc3 kernel: fix 3 buffer
- overflows triggered by hardware devices
-Date: Mon, 24 Mar 2014 10:35:37 -0700
-Message-ID: <CAKPWWNF982P7PtuoySy6ncU1mCNFm2RBMEDKr3-QKoCKU-6AMw@mail.gmail.com>
-References: <CAKPWWNHc8q-evx7TaTWX5SObd3iVm6YpFmepajRHgXmVgC713g@mail.gmail.com>
-	<063D6719AE5E284EB5DD2968C1650D6D0F6E77C0@AcuExch.aculab.com>
-	<CAKPWWNFZc8v04-GM5Ttoa-CW_zhNmfMCYO2Q-Yh-75qitSUpiA@mail.gmail.com>
-	<20140324.131733.723749970605014851.davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Mon, 24 Mar 2014 10:35:49 -0700
+Message-ID: <CAGVrzcb0=5qUwEPM-9LeMBU1gFL1UaZF5rzi0NXGPjMUfPDeLA@mail.gmail.com>
+References: <1395670496-17381-1-git-send-email-zhangfei.gao@linaro.org>
+ <1395670496-17381-4-git-send-email-zhangfei.gao@linaro.org>
+ <CAGVrzcaY257MAjjmkXDi_fD5TxSanmx9Jpvx-yg7vT3-GUjz3A@mail.gmail.com> <4644970.WiIKNXNpdP@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Laight <David.Laight@aculab.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Mark Rutland <mark.rutland@arm.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Russell King <linux@arm.linux.org.uk>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	netdev <netdev@vger.kernel.org>,
-	Grant Grundler <grantgrundler@gmail.com>
-To: David Miller <davem@davemloft.net>
+	Zhangfei Gao <zhangfei.gao@linaro.org>,
+	David Miller <davem@davemloft.net>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f49.google.com ([209.85.215.49]:36875 "EHLO
-	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753709AbaCXRfj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 13:35:39 -0400
-Received: by mail-la0-f49.google.com with SMTP id mc6so3836169lab.22
-        for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 10:35:38 -0700 (PDT)
-In-Reply-To: <20140324.131733.723749970605014851.davem@davemloft.net>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:61376 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753633AbaCXRga (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 13:36:30 -0400
+In-Reply-To: <4644970.WiIKNXNpdP@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
-
-I'm separating between HW misbehavior, and driver bugs than can lead
-to code execution. Similar checks for this exact field are well
-protected in other drivers, including the most common ones.
-
-Moreover, a system can be protected from malicious HW, and in fact
-doesn't have to trust HW at all (except for the CPU obviously).
-
-On Mon, Mar 24, 2014 at 10:17 AM, David Miller <davem@davemloft.net> wrote:
-> From: Alon Nafta <alon@privatecore.com>
-> Date: Mon, 24 Mar 2014 09:41:21 -0700
+2014-03-24 10:23 GMT-07:00 Arnd Bergmann <arnd@arndb.de>:
+> On Monday 24 March 2014 09:32:17 Florian Fainelli wrote:
+>> > +       priv->tx_skb[tx_head] = skb;
+>> > +       priv->tx_phys[tx_head] = phys;
+>> > +       desc->send_addr = cpu_to_be32(phys);
+>> > +       desc->send_size = cpu_to_be16(skb->len);
+>> > +       desc->cfg = cpu_to_be32(DESC_DEF_CFG);
+>> > +       phys = priv->tx_desc_dma + tx_head * sizeof(struct tx_desc);
+>> > +       desc->wb_addr = cpu_to_be32(phys);
+>>
+>> Don't we need a barrier here to ensure that all stores are completed
+>> before we hand this descriptor address to hip40_set_xmit_desc() which
+>> should make DMA start processing it?
 >
->> In regards to your comment about hardware-induced problems, from a
->> holistic point of view, IMHO any buffer overflow should get fixed.
->
-> I completely disagree with you.
->
-> If we had to accomodate every possible arbitrary mis-behavior of
-> hardware, the drivers would be so bloated as to be nearly unusable.
+> I would think the writel() in set_xmit_desc() implies the barrier.
+
+Right, which means that this should be properly documented to make
+sure that this simplification is well understood and produces the
+expected result.
+-- 
+Florian
