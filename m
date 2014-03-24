@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4 V2] Ethernet drivers in 3.14-rc3 kernel: fix 3
- buffer overflows triggered by hardware devices
-Date: Mon, 24 Mar 2014 13:17:33 -0400 (EDT)
-Message-ID: <20140324.131733.723749970605014851.davem@davemloft.net>
-References: <CAKPWWNHc8q-evx7TaTWX5SObd3iVm6YpFmepajRHgXmVgC713g@mail.gmail.com>
-	<063D6719AE5E284EB5DD2968C1650D6D0F6E77C0@AcuExch.aculab.com>
-	<CAKPWWNFZc8v04-GM5Ttoa-CW_zhNmfMCYO2Q-Yh-75qitSUpiA@mail.gmail.com>
+Subject: Re: [PATCH v4 0/4] Provide netdev naming-policy via sysfs
+Date: Mon, 24 Mar 2014 13:18:49 -0400 (EDT)
+Message-ID: <20140324.131849.697596967930728210.davem@davemloft.net>
+References: <CANq1E4Rb=gqmo+9xGnuC9N2gWb2TqOskaMDhFU9wn28z+HZa4g@mail.gmail.com>
+	<20140324.125206.1610725978627489761.davem@davemloft.net>
+	<CANq1E4R0vPySvitEvW=nu_dhpGAVL1cXbV=xBqvU7JZS_A90WA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David.Laight@aculab.com, netdev@vger.kernel.org,
-	grantgrundler@gmail.com
-To: alon@privatecore.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42394 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752200AbaCXRRi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 13:17:38 -0400
-In-Reply-To: <CAKPWWNFZc8v04-GM5Ttoa-CW_zhNmfMCYO2Q-Yh-75qitSUpiA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, teg@jklm.no, johannes@sipsolutions.net,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
+To: dh.herrmann@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANq1E4R0vPySvitEvW=nu_dhpGAVL1cXbV=xBqvU7JZS_A90WA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alon Nafta <alon@privatecore.com>
-Date: Mon, 24 Mar 2014 09:41:21 -0700
+From: David Herrmann <dh.herrmann@gmail.com>
+Date: Mon, 24 Mar 2014 17:56:28 +0100
 
-> In regards to your comment about hardware-induced problems, from a
-> holistic point of view, IMHO any buffer overflow should get fixed.
+> v4 includes all suggested fixes or what are you referring to in particular?
 
-I completely disagree with you.
+If your patch series is in "Changes Requested" state in patchwork,
+which this one is, you must repost it.
 
-If we had to accomodate every possible arbitrary mis-behavior of
-hardware, the drivers would be so bloated as to be nearly unusable.
+You can check this yourself and therefore you won't have to ask me
+these kinds of things.  That's what patchwork is for, to decrease my
+workload.
