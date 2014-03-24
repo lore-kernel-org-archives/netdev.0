@@ -1,48 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] gianfar: Fix P1010 config regression (SQ
- polling)
-Date: Mon, 24 Mar 2014 00:41:16 -0400 (EDT)
-Message-ID: <20140324.004116.527168313404769449.davem@davemloft.net>
-References: <20140320.160944.268619450160968028.davem@davemloft.net>
-	<1395387197-25086-1-git-send-email-claudiu.manoil@freescale.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: claudiu.manoil@freescale.com
+From: Wei Yang <weiyang@linux.vnet.ibm.com>
+Subject: [PATCH] net/mlx4_core: pass pci_dev_data to __mlx4_init_one
+Date: Mon, 24 Mar 2014 12:42:51 +0800
+Message-ID: <1395636171-17347-1-git-send-email-weiyang@linux.vnet.ibm.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Wei Yang <weiyang@linux.vnet.ibm.com>
+To: amirv@mellanox.com, jackm@dev.mellanox.co.il, ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36465 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750753AbaCXElR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 00:41:17 -0400
-In-Reply-To: <1395387197-25086-1-git-send-email-claudiu.manoil@freescale.com>
+Received: from e23smtp02.au.ibm.com ([202.81.31.144]:56727 "EHLO
+	e23smtp02.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750794AbaCXEnF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 00:43:05 -0400
+Received: from /spool/local
+	by e23smtp02.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
+	Mon, 24 Mar 2014 14:43:02 +1000
+Received: from d23relay03.au.ibm.com (d23relay03.au.ibm.com [9.190.235.21])
+	by d23dlp03.au.ibm.com (Postfix) with ESMTP id B44DE357805C
+	for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 15:42:59 +1100 (EST)
+Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
+	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2O4gj8t66060420
+	for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 15:42:45 +1100
+Received: from d23av02.au.ibm.com (localhost [127.0.0.1])
+	by d23av02.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s2O4gwBS025601
+	for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 15:42:58 +1100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Date: Fri, 21 Mar 2014 09:33:17 +0200
+The second parameter of __mlx4_init_one() is used to identify whether the
+pci_dev is a PF or VF. Currently, when it is invoked in mlx4_pci_slot_reset()
+this information is missed.
 
-> The P1010 device tree restricts the number of
-> supported interrupt groups to 1, although the eth
-> controller can support 2 interrupt groups and the
-> driver assumes the Multi-Group mode ("fsl,etsec2" model).
-> 
-> So, in this case the assumption that the Multi-Group
-> mode (MQ_MG_MODE) devices always support 2 interrupt
-> groups is false.  To fix this, a check for the actual
-> number of interrupt groups enabled in the board's
-> device tree has been added in gfar_probe for the
-> "fsl,etsec2" devices.
-> 
-> Without this fix, P1010 based boards claim support for
-> 2 Tx queues to the net stack but only one is actually
-> allocated, leading to NULL access in xmit.  This issue
-> was introduced by enabling Single-Queue polling for
-> the P1010 devices.
-> (71ff9e3 gianfar: Use Single-Queue polling for
-> "fsl,etsec2")
-> 
-> Fixes: 71ff9e3df7e1c5d3293af6b595309124e8c97412
-> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+This patch passes the pci_dev_data to __mlx4_init_one().
 
-Applied, thanks.
+Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c |    8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index d711158..9ffce06 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -2670,7 +2670,13 @@ static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
+ 
+ static pci_ers_result_t mlx4_pci_slot_reset(struct pci_dev *pdev)
+ {
+-	int ret = __mlx4_init_one(pdev, 0);
++	int ret;
++	struct mlx4_dev	 *dev  = pci_get_drvdata(pdev);
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	int               pci_dev_data;
++
++	pci_dev_data = priv->pci_dev_data;
++	ret = __mlx4_init_one(pdev, pci_dev_data);
+ 
+ 	return ret ? PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_RECOVERED;
+ }
+-- 
+1.7.9.5
