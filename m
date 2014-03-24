@@ -1,48 +1,59 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] net/core: Use RCU_INIT_POINTER(x, NULL) in netpoll.c
-Date: Mon, 24 Mar 2014 09:49:28 -0400
-Message-ID: <20140324134928.GD19368@hmsreliant.think-freely.org>
-References: <1395601966-12490-1-git-send-email-monamagarwal123@gmail.com>
- <20140324111144.GA19368@hmsreliant.think-freely.org>
- <1395666875.12610.21.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: [PATCH] netlink: simplify nfnetlink_bind
+Date: Mon, 24 Mar 2014 09:56:07 -0400
+Message-ID: <20140324135607.GB28666@madcap2.tricolour.ca>
+References: <d9a410952c6b88e5855d36f91c06d466d2ce9bed.1395418617.git.rgb@redhat.com>
+ <20140324111044.GC5074@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Monam Agarwal <monamagarwal123@gmail.com>, davem@davemloft.net,
-	ebiederm@xmission.com, cwang@twopensource.com, kaber@trash.net,
-	antonio@meshcoding.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: linux-audit@redhat.com, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	eparis@redhat.com, sgrubb@redhat.com, hadi@mojatatu.com,
+	davem@davemloft.net
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1395666875.12610.21.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20140324111044.GC5074@localhost>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 24, 2014 at 06:14:35AM -0700, Eric Dumazet wrote:
-> On Mon, 2014-03-24 at 07:11 -0400, Neil Horman wrote:
-> > On Mon, Mar 24, 2014 at 12:42:46AM +0530, Monam Agarwal wrote:
-> > > This patch replaces rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x, NULL)
-> > > 
-> > > The rcu_assign_pointer() ensures that the initialization of a structure       
-> > > is carried out before storing a pointer to that structure. 
-> > > And in the case of the NULL pointer, there is no structure to initialize. 
-> > > So, rcu_assign_pointer(p, NULL) can be safely converted to RCU_INIT_POINTER(p, NULL)
-> > > 
-> > > Signed-off-by: Monam Agarwal <monamagarwal123@gmail.com>
-> > No, I don't think this is right. __netpoll_cleanup can be called in parallel
-> > with bottom half access to dev->npinfo.  rcu_assign pointer is safe against
-> > those accesses, but RCU_INIT_POINTER is not.
+On 14/03/24, Pablo Neira Ayuso wrote:
+> On Fri, Mar 21, 2014 at 12:44:09PM -0400, Richard Guy Briggs wrote:
+> > Remove duplicity and simplify code flow by moving the rcu_read_unlock() above
+> > the condition and let the flow control exit naturally at the end of the
+> > function.
+> > 
+> > Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
+> > ---
+> >  net/netfilter/nfnetlink.c |    4 +---
+> >  1 files changed, 1 insertions(+), 3 deletions(-)
+> > 
+> > diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+> > index 046aa13..75619f9 100644
+> > --- a/net/netfilter/nfnetlink.c
+> > +++ b/net/netfilter/nfnetlink.c
+> > @@ -399,12 +399,10 @@ static void nfnetlink_bind(int group)
+> >  
+> >  	rcu_read_lock();
+> >  	ss = nfnetlink_get_subsys(type);
+> > +	rcu_read_unlock();
+> >  	if (!ss) {
+> > -		rcu_read_unlock();
+> >  		request_module("nfnetlink-subsys-%d", type);
+> > -		return;
+> >  	}
+> > -	rcu_read_unlock();
 > 
-> Wow, it is always safe for NULL value.
-> 
+> Applied with minor glitch. Removed the brackets in that if branch.
 
-Ok, After reading Paul's explination of what this is doing:
-http://mid.gmane.org/20140320150601.GK4405@linux.vnet.ibm.com
+Good point!  Thanks.
 
-This makes a bit more sense to me, and I see that its safe, but I'm still not
-sure that I like it, just from a readability standpoint.  Making the conversion
-removes a memory barrier and the use of a volatile variable, but this isn't a
-hot path, and the use of rcu_assign_pointer seems more readable to me as its
-balanced with the rcu_assign_pointer in __netpoll_setup.  Doesn't seem worth the
-tradeoff to me.
-Neil
+> Thanks
+
+- RGB
+
+--
+Richard Guy Briggs <rbriggs@redhat.com>
+Senior Software Engineer, Kernel Security, AMER ENG Base Operating Systems, Red Hat
+Remote, Ottawa, Canada
+Voice: +1.647.777.2635, Internal: (81) 32635, Alt: +1.613.693.0684x3545
