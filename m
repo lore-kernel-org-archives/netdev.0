@@ -1,59 +1,45 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH net] xen-netback: disable rogue vif in kthread context
-Date: Mon, 24 Mar 2014 12:22:04 +0000
-Message-ID: <1395663724.6294.18.camel@kazak.uk.xensource.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net] xen-netback: disable rogue vif in kthread context
+Date: Mon, 24 Mar 2014 12:33:18 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E784F@AcuExch.aculab.com>
 References: <1395663214-14133-1-git-send-email-wei.liu2@citrix.com>
+ <1395663724.6294.18.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
-	<paul.durrant@citrix.com>, <zoltan.kiss@citrix.com>,
-	<edwin@etorok.net>
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"paul.durrant@citrix.com" <paul.durrant@citrix.com>,
+	"zoltan.kiss@citrix.com" <zoltan.kiss@citrix.com>,
+	"edwin@etorok.net" <edwin@etorok.net>
+To: 'Ian Campbell' <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:4728 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752923AbaCXMWf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Mar 2014 08:22:35 -0400
-In-Reply-To: <1395663214-14133-1-git-send-email-wei.liu2@citrix.com>
+Received: from mx0.aculab.com ([213.249.233.131]:59529 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752622AbaCXMd4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Mar 2014 08:33:56 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 09013-06 for <netdev@vger.kernel.org>;
+ Mon, 24 Mar 2014 12:33:53 +0000 (GMT)
+In-Reply-To: <1395663724.6294.18.camel@kazak.uk.xensource.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-03-24 at 12:13 +0000, Wei Liu wrote:
-> When netback discovers frontend is sending malformed packet it will
-> disables the interface which serves that frontend.
->=20
-> However disabling a network interface involving taking a mutex which
-> cannot be done in softirq context, so we need to defer this process t=
-o
-> kthread context.
->=20
-> This patch does the following:
-> 1. introduce a flag to indicate the interface is disabled.
-> 2. check that flag in TX path, don't do any work if it's true.
-> 3. check that flag in RX path, turn off that interface if it's true.
->=20
-> The reason to disable it in RX path is because RX uses kthread. After
-> this change the behavior of netback is still consistent -- it won't d=
-o
-> any TX work for a rogue frontend, and the interface will be eventuall=
-y
-> turned off.
->=20
-> Also change a "continue" to "break" after xenvif_fatal_tx_err, as it
-> doesn't make sense to continue processing packets if frontend is rogu=
-e.
->=20
-> This is a fix for XSA-90.
->=20
-> Reported-by: T=C3=B6r=C3=B6k Edwin <edwin@etorok.net>
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
-
-> +		if (unlikely(vif->disabled) && netif_carrier_ok(vif->dev))
-
-Perhaps consider extending the scope of the unlikely over the entire
-expression? (not that I expect it will matter much)
-
-Ian.
+RnJvbTogSWFuIENhbXBiZWxsDQouLi4NCj4gPiArCQlpZiAodW5saWtlbHkodmlmLT5kaXNhYmxl
+ZCkgJiYgbmV0aWZfY2Fycmllcl9vayh2aWYtPmRldikpDQo+IA0KPiBQZXJoYXBzIGNvbnNpZGVy
+IGV4dGVuZGluZyB0aGUgc2NvcGUgb2YgdGhlIHVubGlrZWx5IG92ZXIgdGhlIGVudGlyZQ0KPiBl
+eHByZXNzaW9uPyAobm90IHRoYXQgSSBleHBlY3QgaXQgd2lsbCBtYXR0ZXIgbXVjaCkNCg0KQSBs
+b3Qgb2YgdGhlc2UgJ3VubGlrZWx5JyBhcmUgYXMgbXVjaCBhIGhpbnQgdG8gdGhlIHBlcnNvbg0K
+cmVhZGluZyB0aGUgY29kZSB0aGFuIHRvIHRoZSBjb21waWxlciENCg0KSSBmb3VuZCAod2l0aCBh
+IG11Y2ggb2xkZXIgZ2NjKSB0aGF0IGFuIG92ZXJhbGwgJ3VubGlrZWx5JyBkaWRuJ3QNCmhhdmUg
+dGhlIHNhbWUgZWZmZWN0IGFzIG9uZSBvbiBlYWNoIHBhcnQuDQpJIGFsc28gZm91bmQgdGhhdCBn
+Y2MgaWdub3JlZCAndW5saWtlbHknIGlmIHRoZSAnZWxzZScgYnJhbmNoIGlzIGVtcHR5Lg0KDQon
+aWYgKHVubGlrZWx5KC4uLikpIGNvbnRpbnVlJyBnZW5lcmF0ZWQgYSBiYWNrd2FyZHMgKHByZWRp
+Y3RlZCB0cnVlKQ0KY29uZGl0aW9uYWwgYnJhbmNoLiBJIGFkZGVkIGFuIGFzbSgiY29tbWVudCAi
+ICMjIF9fTElORV9fKSBiZWZvcmUNCnRoZSBjb250aW51ZSB0byBmb3JjZSBhIGZvcndhcmRzIGNv
+bmRpdGlvbiBicmFuY2ggdG8gYW4gdW5jb25kaXRpb25hbA0KYnJhbmNoIHRvIHRoZSBsb29wIHRv
+cC4NCihZZXMgLSBJIGRpZCBjYXJlIGFib3V0IGV2ZXJ5IGNsb2NrIGluIHRoYXQgY29kZS4pDQoN
+CglEYXZpZA0KDQo=
