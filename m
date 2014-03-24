@@ -1,41 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 4/9] net: ptp: use
- sk_unattached_filter_create() for BPF
-Date: Mon, 24 Mar 2014 18:39:52 -0400 (EDT)
-Message-ID: <20140324.183952.668431875118859796.davem@davemloft.net>
-References: <1395404418-25376-1-git-send-email-dborkman@redhat.com>
-	<1395404418-25376-5-git-send-email-dborkman@redhat.com>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: Re: [PATCH 1/3] tcp: allow to enable repair mode for sockets in any
+ state
+Date: Tue, 25 Mar 2014 02:47:12 +0400
+Message-ID: <5330B5F0.1090905@parallels.com>
+References: <1395408781-8145-1-git-send-email-avagin@openvz.org> <1395408781-8145-2-git-send-email-avagin@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	richard.cochran@omicron.at, jbenc@redhat.com
-To: dborkman@redhat.com
+Cc: <linux-kernel@vger.kernel.org>, <criu@openvz.org>,
+	<netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Cyrill Gorcunov <gorcunov@openvz.org>
+To: Andrey Vagin <avagin@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45606 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751131AbaCXWjy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 18:39:54 -0400
-In-Reply-To: <1395404418-25376-5-git-send-email-dborkman@redhat.com>
+Received: from relay.parallels.com ([195.214.232.42]:37854 "EHLO
+	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751232AbaCXWrj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 18:47:39 -0400
+In-Reply-To: <1395408781-8145-2-git-send-email-avagin@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Fri, 21 Mar 2014 13:20:13 +0100
-
-> @@ -135,5 +137,10 @@ EXPORT_SYMBOL_GPL(skb_defer_rx_timestamp);
->  
->  void __init skb_timestamping_init(void)
+> @@ -2375,7 +2378,7 @@ void tcp_sock_destruct(struct sock *sk)
+>  static inline bool tcp_can_repair_sock(const struct sock *sk)
 >  {
-> -	BUG_ON(sk_chk_filter(ptp_filter, ARRAY_SIZE(ptp_filter)));
-> +	struct sock_filter ptp_filter[] = { PTP_FILTER };
+>  	return ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN) &&
+> -		((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_ESTABLISHED));
+> +		(sk->sk_state != TCP_LISTEN);
 
-Perhaps you want this to be static or static const?  Why copy
-PTP_FILTER onto the stack at run time?
+This set only covers states that may happen after ESTABLISHED, so
+I would still exclude others (e.g. syn-sent) from the white list.
 
-> +	struct sock_fprog ptp_prog = {
-> +		.len = ARRAY_SIZE(ptp_filter), .filter = ptp_filter,
-> +	};
-> +
-> +	BUG_ON(sk_unattached_filter_create(&ptp_insns, &ptp_prog));
 >  }
+>  
+>  static int tcp_repair_options_est(struct tcp_sock *tp,
+> 
+
+Thanks,
+Pavel
