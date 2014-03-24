@@ -1,91 +1,123 @@
-From: "wei zhang" <asuka.com@163.com>
-Subject: Re:[PATCH] ipv4: gre: Fix null pointer dereference in
- gre_cisco_err()
-Date: Mon, 24 Mar 2014 15:49:53 +0800 (CST)
-Message-ID: <3f46e558.12f9f.144f3113038.Coremail.asuka.com@163.com>
-References: <1395646471-637-1-git-send-email-asuka.com@163.com>
+From: Zhangfei Gao <zhangfei.gao@gmail.com>
+Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Mon, 24 Mar 2014 16:17:42 +0800
+Message-ID: <CAMj5Bkgc2ChK48QmqEEMEmxdF6iGZxMX0kVUqGFd8jYhEWCvOA@mail.gmail.com>
+References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
+	<4611515.XyVGvsaLcW@wuerfel>
+	<CAMj5Bkiaw=BT_EUdjthPjgk_pp0z44yPjh4_AfHXqiJLUiDe=g@mail.gmail.com>
+	<201403201531.20416.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: xeb@mail.ru, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Wei Zhang" <asuka.com@163.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1395646471-637-1-git-send-email-asuka.com@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Zhangfei Gao <zhangfei.gao@linaro.org>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f44.google.com ([74.125.83.44]:35140 "EHLO
+	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750936AbaCXIRn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 04:17:43 -0400
+In-Reply-To: <201403201531.20416.arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhlIGNyYXNoIGlzIG9jY3VyIG9uIENlbnRvcyA2LjQsIHdoZW4gd2UgdXNlIGdyZSB2cG9ydCBv
-ZiBvcGVudnN3aXRjaCEKCjwxPkJVRzogdW5hYmxlIHRvIGhhbmRsZSBrZXJuZWwgTlVMTCBwb2lu
-dGVyIGRlcmVmZXJlbmNlIGF0IChudWxsKQo8MT5JUDogWzwobnVsbCk+XSAobnVsbCkKPDQ+UEdE
-IGMyOTEwYjA2NyBQVUQgYzI5MjdkMDY3IFBNRCAwwqAKPDQ+T29wczogMDAxMCBbIzFdIFNNUMKg
-Cjw0Pmxhc3Qgc3lzZnMgZmlsZTogL3N5cy9kZXZpY2VzL3ZpcnR1YWwvbmV0L2dyZXRhcDAvZmxh
-Z3MKPDQ+Q1BVIDIwwqAKPDQ+TW9kdWxlcyBsaW5rZWQgaW46IGlwX2dyZSBpcF90dW5uZWwgeHRf
-Y29ubnRyYWNrIGFjdF9wb2xpY2UgY2xzX2Jhc2ljIHNjaF9pbmdyZXNzIHZldGggaXB0X1JFRElS
-RUNUIGlwbWlfZGV2aW50ZiBpcHY2IG9wZW52c3dpdGNoIHZ4bGFuIGlwdGFibGVfZmlsdGVyIGlw
-dGFibGVfbmF0IG5mX25hdCBuZl9jb25udHJhY2tfaXB2NCBuZl9jb25udHJhY2sgbmZfZGVmcmFn
-X2lwdjQgaXB0YWJsZV9tYW5nbGUgaXB0YWJsZV9yYXcgaXB0YWJsZV9zZWN1cml0eSBpcF90YWJs
-ZXMgcG93ZXJfbWV0ZXIgc2cgZGNkYmFzIG1pY3JvY29kZSBzYl9lZGFjIGVkYWNfY29yZSBpVENP
-X3dkdCBpVENPX3ZlbmRvcl9zdXBwb3J0IHNocGNocCB0ZzMgZXh0NCBqYmQyIG1iY2FjaGUgc2Rf
-bW9kIGNyY190MTBkaWYgYWhjaSB3bWkgbWVnYXJhaWRfc2FzIGRtX21pcnJvciBkbV9yZWdpb25f
-aGFzaCBkbV9sb2cgZG1fbW9kIFtsYXN0IHVubG9hZGVkOiBzcGVlZHN0ZXBfbGliXQo8ND4KPDQ+
-UGlkOiAyMzU4LCBjb21tOiBvdnMtdnN3aXRjaGQgTm90IHRhaW50ZWQgMi42LjMyLTM1OC4xMjMu
-Mi5vcGVuc3RhY2suZWw2Lng4Nl82NCAjMSBEZWxsIEluYy4gUG93ZXJFZGdlIFI2MjAvMEQyRDVG
-Cjw0PlJJUDogMDAxMDpbPDAwMDAwMDAwMDAwMDAwMDA+XSDCoFs8KG51bGwpPl0gKG51bGwpCjw0
-PlJTUDogMDAxODpmZmZmODgwMDUzNzQzYzcwIMKgRUZMQUdTOiAwMDAxMDI4Mgo8ND5SQVg6IGZm
-ZmZmZmZmYTAxY2JlMjAgUkJYOiBmZmZmODgwYmRhNDZlY2MwIFJDWDogMDAwMDAwMDAwMDAwMDAw
-MAo8ND5SRFg6IGZmZmY4ODAwNTM3NDNjNzggUlNJOiAwMDAwMDAwMDAwMDAwMDAwIFJESTogZmZm
-Zjg4MGJkYTQ2ZWNjMAo8ND5SQlA6IGZmZmY4ODAwNTM3NDNjYTggUjA4OiAwMDAwMDAwMDU2MTdm
-NzcyIFIwOTogMDAwMDAwMDAwMDAwMDAwMAo8ND5SMTA6IDAwMDAwMDAwMDAwMDAwMDAgUjExOiAw
-MDAwMDAwMDAwMDAwMDAwIFIxMjogZmZmZjg4MDA1Mzc0M2M3OAo8ND5SMTM6IDAwMDAwMDAwMDAw
-MDAwMDAgUjE0OiBmZmZmODgwYmU1YTViMjQ0IFIxNTogMDAwMDAwMDAwMDAwMDAwMAo8ND5GUzog
-wqAwMDAwN2ZlNWQ1ZjgzN2MwKDAwMDApIEdTOmZmZmY4ODAwNTM3NDAwMDAoMDAwMCkga25sR1M6
-MDAwMDAwMDAwMDAwMDAwMAo8ND5DUzogwqAwMDEwIERTOiAwMDAwIEVTOiAwMDAwIENSMDogMDAw
-MDAwMDA4MDA1MDAzMwo8ND5DUjI6IDAwMDAwMDAwMDAwMDAwMDAgQ1IzOiAwMDAwMDAwYzJhODA0
-MDAwIENSNDogMDAwMDAwMDAwMDA0MDdlMAo8ND5EUjA6IDAwMDAwMDAwMDAwMDAwMDAgRFIxOiAw
-MDAwMDAwMDAwMDAwMDAwIERSMjogMDAwMDAwMDAwMDAwMDAwMAo8ND5EUjM6IDAwMDAwMDAwMDAw
-MDAwMDAgRFI2OiAwMDAwMDAwMGZmZmYwZmYwIERSNzogMDAwMDAwMDAwMDAwMDQwMAo8ND5Qcm9j
-ZXNzIG92cy12c3dpdGNoZCAocGlkOiAyMzU4LCB0aHJlYWRpbmZvIGZmZmY4ODBjMjg0ZTAwMDAs
-IHRhc2sgZmZmZjg4MGMyOGQxZjUwMCkKPDQ+U3RhY2s6Cjw0PiBmZmZmZmZmZjgxNGM2ZTYxIDAw
-MDAwMDAwYWJhNzMwMDAgMDAwMDAwMDAwMDAwMDAwMCBmZmZmODgwMDUzNzQzY2M4Cjw0PjxkPiAw
-MDAwMDAwMDAwMDAwMDJmIGZmZmY4ODBiZGE0NmVjYzAgZmZmZjg4MTgwMGRlYjIwMCBmZmZmODgw
-MDUzNzQzY2I4Cjw0PjxkPiBmZmZmZmZmZjgxNGM2NzZiIGZmZmY4ODAwNTM3NDNjZjggZmZmZmZm
-ZmY4MTRhZmE5MSBmZmZmODgwMDUzNzQzY2U4Cjw0PkNhbGwgVHJhY2U6Cjw0PiA8SVJRPsKgCjw0
-PiBbPGZmZmZmZmZmODE0YzZlNjE+XSA/IGdyZV9jaXNjb19lcnIrMHg3MS8weDgwCjw0PiBbPGZm
-ZmZmZmZmODE0YzY3NmI+XSBncmVfZXJyKzB4NGIvMHg1MAo8ND4gWzxmZmZmZmZmZjgxNGFmYTkx
-Pl0gaWNtcF91bnJlYWNoKzB4MTQxLzB4MmUwCjw0PiBbPGZmZmZmZmZmODE0YjAyZTA+XSBpY21w
-X3JjdisweDI5MC8weDMzMAo8ND4gWzxmZmZmZmZmZjgxNGE4YzcxPl0gPyByYXdfbG9jYWxfZGVs
-aXZlcisweDIyMS8weDI1MAo8ND4gWzxmZmZmZmZmZjgxNDgyMjJkPl0gaXBfbG9jYWxfZGVsaXZl
-cl9maW5pc2grMHhkZC8weDJkMAo8ND4gWzxmZmZmZmZmZjgxNDgyNGI4Pl0gaXBfbG9jYWxfZGVs
-aXZlcisweDk4LzB4YTAKPDQ+IFs8ZmZmZmZmZmY4MTQ4MTk3ZD5dIGlwX3Jjdl9maW5pc2grMHgx
-MmQvMHg0NDAKPDQ+IFs8ZmZmZmZmZmY4MTQ4MWYwNT5dIGlwX3JjdisweDI3NS8weDM1MAo8ND4g
-WzxmZmZmZmZmZmEwMWNhNTAzPl0gPyBvdnNfbmV0ZGV2X2ZyYW1lX2hvb2srMHhiMy8weDExMCBb
-b3BlbnZzd2l0Y2hdCjw0PiBbPGZmZmZmZmZmODE0NDllNmI+XSBfX25ldGlmX3JlY2VpdmVfc2ti
-KzB4NGFiLzB4NzUwCjw0PiBbPGZmZmZmZmZmODE0NGExYWE+XSBwcm9jZXNzX2JhY2tsb2crMHg5
-YS8weDEwMAo8ND4gWzxmZmZmZmZmZjgxNDRmNDgzPl0gbmV0X3J4X2FjdGlvbisweDEwMy8weDJm
-MAo8ND4gWzxmZmZmZmZmZjgxMDc3MGIxPl0gX19kb19zb2Z0aXJxKzB4YzEvMHgxZTAKPDQ+IFs8
-ZmZmZmZmZmY4MTAwYzFjYz5dID8gY2FsbF9zb2Z0aXJxKzB4MWMvMHgzMAo8ND4gWzxmZmZmZmZm
-ZjgxMDBjMWNjPl0gY2FsbF9zb2Z0aXJxKzB4MWMvMHgzMAo8ND4gPEVPST7CoAo8ND4gWzxmZmZm
-ZmZmZjgxMDBkZTA1Pl0gPyBkb19zb2Z0aXJxKzB4NjUvMHhhMAo8ND4gWzxmZmZmZmZmZjgxMDc2
-ZjNhPl0gbG9jYWxfYmhfZW5hYmxlKzB4OWEvMHhiMAo8ND4gWzxmZmZmZmZmZmEwMWMzYjljPl0g
-b3ZzX3BhY2tldF9jbWRfZXhlY3V0ZSsweDIwYy8weDI0MCBbb3BlbnZzd2l0Y2hdCjw0PiBbPGZm
-ZmZmZmZmODE0NzYwMTM+XSBnZW5sX3Jjdl9tc2crMHgyMDMvMHgyNTAKPDQ+IFs8ZmZmZmZmZmY4
-MTQ3NWUxMD5dID8gZ2VubF9yY3ZfbXNnKzB4MC8weDI1MAo8ND4gWzxmZmZmZmZmZjgxNDc0Y2E5
-Pl0gbmV0bGlua19yY3Zfc2tiKzB4YTkvMHhkMAo8ND4gWzxmZmZmZmZmZjgxNDc1ZGY1Pl0gZ2Vu
-bF9yY3YrMHgyNS8weDQwCjw0PiBbPGZmZmZmZmZmODE0NzQ4ZGI+XSBuZXRsaW5rX3VuaWNhc3Qr
-MHgyZGIvMHgzMjAKPDQ+IFs8ZmZmZmZmZmY4MTQ3NTM1MD5dIG5ldGxpbmtfc2VuZG1zZysweDJj
-MC8weDNkMAo8ND4gWzxmZmZmZmZmZjgxNDM2YjMzPl0gc29ja19zZW5kbXNnKzB4MTIzLzB4MTUw
-Cjw0PiBbPGZmZmZmZmZmODE0Mzg3ZTM+XSA/IHNvY2tfcmVjdm1zZysweDEzMy8weDE2MAo8ND4g
-WzxmZmZmZmZmZjgxMDk2ZGEwPl0gPyBhdXRvcmVtb3ZlX3dha2VfZnVuY3Rpb24rMHgwLzB4NDAK
-PDQ+IFs8ZmZmZmZmZmY4MTE5N2FmMD5dID8gcG9sbHdha2UrMHgwLzB4NjAKPDQ+IFs8ZmZmZmZm
-ZmY4MTE5N2FmMD5dID8gcG9sbHdha2UrMHgwLzB4NjAKPDQ+IFs8ZmZmZmZmZmY4MTE4YzY4Nz5d
-ID8gcGlwZV9yZWFkKzB4MmE3LzB4NGUwCjw0PiBbPGZmZmZmZmZmODExOTdhZjA+XSA/IHBvbGx3
-YWtlKzB4MC8weDYwCjw0PiBbPGZmZmZmZmZmODE0MzgzMjY+XSBfX3N5c19zZW5kbXNnKzB4NDA2
-LzB4NDIwCjw0PiBbPGZmZmZmZmZmODExYzdjNTQ+XSA/IGVwX3NjYW5fcmVhZHlfbGlzdCsweDE5
-NC8weDFhMAo8ND4gWzxmZmZmZmZmZjgxMWM3ZGFlPl0gPyBlcF9wb2xsKzB4MTJlLzB4MzMwCjw0
-PiBbPGZmZmZmZmZmODEyMWNiMjY+XSA/IHNlY3VyaXR5X2ZpbGVfcGVybWlzc2lvbisweDE2LzB4
-MjAKPDQ+IFs8ZmZmZmZmZmY4MTQzODU0OT5dIHN5c19zZW5kbXNnKzB4NDkvMHg5MAo8ND4gWzxm
-ZmZmZmZmZjgxMDBiMDcyPl0gc3lzdGVtX2NhbGxfZmFzdHBhdGgrMHgxNi8weDFiCjw0PkNvZGU6
-IMKgQmFkIFJJUCB2YWx1ZS4KPDE+UklQIMKgWzwobnVsbCk+XSAobnVsbCkKPDQ+IFJTUCA8ZmZm
-Zjg4MDA1Mzc0M2M3MD4KPDQ+Q1IyOiAwMDAwMDAwMDAwMDAwMDAw
+Dear Arnd
+
+On Thu, Mar 20, 2014 at 10:31 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> On Thursday 20 March 2014, Zhangfei Gao wrote:
+>> On Tue, Mar 18, 2014 at 7:25 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+>> > On Tuesday 18 March 2014 16:40:17 Zhangfei Gao wrote:
+>> >
+>> >> +
+>> >> +static void __iomem *ppebase;
+>> >
+>> > The global 'ppebase' seems hacky. Isn't that a SoC-specific register area, while
+>> > the rest of the driver is reusable across SoCs?
+>> >
+>> > What does 'ppe' stand for?
+>> >
+>> > What if there are multiple instances of this, which each have their own ppebase?
+>>
+>> In this specific platform,
+>> ppe is the only module controlling all the fifos for all the net controller.
+>> And each controller connect to specific port.
+>> ppe has 2048 channels, sharing by all the controller, only if not overlapped.
+>>
+>> So the static ppebase is required, which I don't like too.
+>> Two inputs required, one is port, which is connect to the controller.
+>> The other is start channel, currently I use id, and start channel is
+>> RX_DESC_NUM * priv->id;  /* start_addr */
+>
+> Ok, thanks for the explanation!
+>
+I thought you are fine with "static void __iomem *ppebase" here.
+
+>> >
+>> >> +     if (!ppebase) {
+>> >> +             struct device_node *n;
+>> >> +
+>> >> +             n = of_find_compatible_node(NULL, NULL, "hisilicon,hip04-ppebase");
+>> >> +             if (!n) {
+>> >> +                     ret = -EINVAL;
+>> >> +                     netdev_err(ndev, "not find hisilicon,ppebase\n");
+>> >> +                     goto init_fail;
+>> >> +             }
+>> >> +             ppebase = of_iomap(n, 0);
+>> >> +     }
+>> >
+>> > How about using syscon_regmap_lookup_by_phandle() here? That way, you can have
+>> > a more generic abstraction of the ppe, and stick the port and id in there as
+>> > well, e.g.
+>> >
+>> >         ppe-syscon = <&hip04ppe 1 4>; // ppe, port, id
+
+Even if using syscon_regmap_lookup_by_phandle, there still have static
+struct regmap, since three controllers
+share one regmap.
+
+> It's probably a little simpler to avoid the sub-nodes and instead do
+>
+>>               ppe: ppe@28c0000 {
+>>                         compatible = "hisilicon,hip04-ppe";
+>>                         reg = <0x28c0000 0x10000>;
+>>                         #address-cells = <1>;
+>>                         #size-cells = <0>;
+>>                 };
+>>                 fe: ethernet@28b0000 {
+>>                         compatible = "hisilicon,hip04-mac";
+>>                         reg = <0x28b0000 0x10000>;
+>>                         interrupts = <0 413 4>;
+>>                         phy-mode = "mii";
+>>                         port-handle = <&ppe 31>;
+>>                 };
+>
+> In the code, I would create a simple ppe driver that exports
+> a few functions. you need. In the ethernet driver probe() function,
+> you should get a handle to the ppe using
+>
+>         /* look up "port-handle" property of the current device, find ppe and port */
+>         struct hip04_ppe *ppe = hip04_ppe_get(dev->of_node);
+>         if (IS_ERR(ppe))
+>                 return PTR_ERR(ptr); /* this handles -EPROBE_DEFER */
+>
+> and then in other code you can just do
+>
+>         hip04_ppe_set_foo(priv->ppe, foo_config);
+>
+> This is a somewhat more high-level abstraction that syscon, which
+> just gives you a 'struct regmap' structure for doing register-level
+> configuration like you have today.
+>
+
+Do you mean create one additional file like ppe.c with some exported
+function to remove the static ppebase?
+Since the ppe is specifically bounded with ethernet, and does not used
+anywhere else,
+the exported function may not be used anywhere else.
+Is it make it more complicated since there are probe, remove etc.
+
+So I may still prefer using "static void __iomem *ppebase", as it is simpler.
+
+Thanks
