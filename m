@@ -1,30 +1,64 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH net-next] Revert "xen-netback: Aggregate TX unmap
- operations"
-Date: Mon, 24 Mar 2014 09:26:47 +0000
-Message-ID: <1395653207.19365.1.camel@kazak.uk.xensource.com>
-References: <1395422584-16213-1-git-send-email-zoltan.kiss@citrix.com>
+From: Wei Yang <weiyang@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net/mlx4_core: pass pci_dev_data to __mlx4_init_one
+Date: Mon, 24 Mar 2014 17:41:22 +0800
+Message-ID: <20140324094122.GA19065@richard>
+References: <1395636171-17347-1-git-send-email-weiyang@linux.vnet.ibm.com>
+ <CAJZOPZLM+fRBqA_rkgiUO5FCd1YtzsCKN3=denHW6Tx7OHN6RQ@mail.gmail.com>
+Reply-To: Wei Yang <weiyang@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1395422584-16213-1-git-send-email-zoltan.kiss@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Wei Yang <weiyang@linux.vnet.ibm.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e28smtp08.in.ibm.com ([122.248.162.8]:37546 "EHLO
+	e28smtp08.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752241AbaCXJln (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 05:41:43 -0400
+Received: from /spool/local
+	by e28smtp08.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
+	Mon, 24 Mar 2014 15:11:40 +0530
+Received: from d28relay04.in.ibm.com (d28relay04.in.ibm.com [9.184.220.61])
+	by d28dlp02.in.ibm.com (Postfix) with ESMTP id 9B42E394005A
+	for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 15:11:36 +0530 (IST)
+Received: from d28av01.in.ibm.com (d28av01.in.ibm.com [9.184.220.63])
+	by d28relay04.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2O9fTDg51249302
+	for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 15:11:30 +0530
+Received: from d28av01.in.ibm.com (localhost [127.0.0.1])
+	by d28av01.in.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s2O9fNZ6005259
+	for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 15:11:24 +0530
+Content-Disposition: inline
+In-Reply-To: <CAJZOPZLM+fRBqA_rkgiUO5FCd1YtzsCKN3=denHW6Tx7OHN6RQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-03-21 at 17:23 +0000, Zoltan Kiss wrote:
-> This reverts commit e9275f5e2df1b2098a8cc405d87b88b9affd73e6. This commit is the
-> last in the netback grant mapping series, and it tries to do more aggressive
-> aggreagtion of unmap operations. However practical use showed almost no
-> positive effect, whilst with certain frontends it causes significant performance
-> regression.
+On Mon, Mar 24, 2014 at 08:40:42AM +0200, Or Gerlitz wrote:
+>On Mon, Mar 24, 2014 at 6:42 AM, Wei Yang <weiyang@linux.vnet.ibm.com> wrote:
+>>
+>> The second parameter of __mlx4_init_one() is used to identify whether the
+>> pci_dev is a PF or VF. Currently, when it is invoked in mlx4_pci_slot_reset()
+>> this information is missed.
+>
+>
+>This patch isn't fixing something in 3.14, right? if this is the case
+>I assume it's for net-next, please put a "net" or "net-next"
+>indication (next-time)
+>
+>Or.
+>
 
-That's a shame -- do you have any insight into why?
+Or,
 
-> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+Thanks for your suggestion. I will pay attention next time. :-)
 
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
+BTW, do you like the fix?
+
+
+-- 
+Richard Yang
+Help you, Help me
