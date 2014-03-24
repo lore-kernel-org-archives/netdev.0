@@ -1,116 +1,107 @@
-From: Christian Riesch <christian.riesch@omicron.at>
-Subject: [PATCH v2 1/2] net: davinci_emac: Replace devm_request_irq with request_irq
-Date: Mon, 24 Mar 2014 13:46:26 +0100
-Message-ID: <5117e3e7-6d30-4460-ac24-609d82a3d10d@mary.at.omicron.at>
-References: <1395665187-24650-1-git-send-email-christian.riesch@omicron.at>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v2 1/3] xen-netback: Stop using xenvif_tx_pending_slots_available
+Date: Mon, 24 Mar 2014 12:48:02 +0000
+Message-ID: <1395665284-8911-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Prabhakar Lad <prabhakar.csengg@gmail.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	David Miller <davem@davemloft.net>,
-	Grygorii Strashko <grygorii.strashko@ti.com>,
-	Jon Ringle <jon@ringle.org>,
-	<davinci-linux-open-source@linux.davincidsp.com>,
-	Christian Riesch <christian.riesch@omicron.at>,
-	<stable@vger.kernel.org>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.omicron.at ([212.183.10.25]:41760 "EHLO ns.omicron.at"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753156AbaCXMsC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Mar 2014 08:48:02 -0400
-In-Reply-To: <1395665187-24650-1-git-send-email-christian.riesch@omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>
+To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In commit 6892b41d9701283085b655c6086fb57a5d63fa47
+Since the early days TX stops if there isn't enough free pending slots to
+consume a maximum sized (slot-wise) packet. Probably the reason for that is to
+avoid the case when we don't have enough free pending slot in the ring to finish
+the packet. But if we make sure that the pending ring has the same size as the
+shared ring, that shouldn't really happen. The frontend can only post packets
+which fit the to the free space of the shared ring. If it doesn't, the frontend
+has to stop, as it can only increase the req_prod when the whole packet fits
+onto the ring.
+This patch avoid using this checking, makes sure the 2 ring has the same size,
+and remove a checking from the callback. As now we don't stop the NAPI instance
+on this condition, we don't have to wake it up if we free pending slots up.
 
-Author: Lad, Prabhakar <prabhakar.csengg@gmail.com>
-Date:   Tue Jun 25 21:24:51 2013 +0530
-net: davinci: emac: Convert to devm_* api
-
-the call of request_irq is replaced by devm_request_irq and the call
-of free_irq is removed. But since interrupts are requested in
-emac_dev_open, doing ifconfig up/down on the board requests the
-interrupts again each time, causing devm_request_irq to fail. The
-interface is dead until the device is rebooted.
-
-This patch reverts said commit partially: It changes the driver back
-to use request_irq instead of devm_request_irq, puts free_irq back in
-place, but keeps the remaining changes of the original patch.
-
-Reported-by: Jon Ringle <jon@ringle.org>
-Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
-Cc: Lad, Prabhakar <prabhakar.csengg@gmail.com>
-Cc: <stable@vger.kernel.org>
+Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 ---
- drivers/net/ethernet/ti/davinci_emac.c |   25 +++++++++++++++++++++----
- 1 file changed, 21 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index cd9b164..2514304 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -1532,7 +1532,7 @@ static int emac_dev_open(struct net_device *ndev)
- 	struct device *emac_dev = &ndev->dev;
- 	u32 cnt;
- 	struct resource *res;
--	int ret;
-+	int q, m, ret;
- 	int i = 0;
- 	int k = 0;
- 	struct emac_priv *priv = netdev_priv(ndev);
-@@ -1567,8 +1567,7 @@ static int emac_dev_open(struct net_device *ndev)
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index bef37be..a800a8e 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -81,7 +81,7 @@ struct xenvif_rx_meta {
  
- 	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k))) {
- 		for (i = res->start; i <= res->end; i++) {
--			if (devm_request_irq(&priv->pdev->dev, i, emac_irq,
--					     0, ndev->name, ndev))
-+			if (request_irq(i, emac_irq, 0, ndev->name, ndev))
- 				goto rollback;
- 		}
- 		k++;
-@@ -1641,7 +1640,15 @@ static int emac_dev_open(struct net_device *ndev)
+ #define MAX_BUFFER_OFFSET PAGE_SIZE
  
- rollback:
+-#define MAX_PENDING_REQS 256
++#define MAX_PENDING_REQS XEN_NETIF_TX_RING_SIZE
  
--	dev_err(emac_dev, "DaVinci EMAC: devm_request_irq() failed");
-+	dev_err(emac_dev, "DaVinci EMAC: request_irq() failed");
-+
-+	for (q = k; k >= 0; k--) {
-+		for (m = i; m >= res->start; m--)
-+			free_irq(m, ndev);
-+		res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k-1);
-+		m = res->end;
-+	}
-+
- 	ret = -EBUSY;
- err:
- 	pm_runtime_put(&priv->pdev->dev);
-@@ -1659,6 +1666,9 @@ err:
-  */
- static int emac_dev_stop(struct net_device *ndev)
+ /* It's possible for an skb to have a maximal number of frags
+  * but still be less than MAX_BUFFER_OFFSET in size. Thus the
+@@ -253,12 +253,6 @@ static inline pending_ring_idx_t nr_pending_reqs(struct xenvif *vif)
+ 		vif->pending_prod + vif->pending_cons;
+ }
+ 
+-static inline bool xenvif_tx_pending_slots_available(struct xenvif *vif)
+-{
+-	return nr_pending_reqs(vif) + XEN_NETBK_LEGACY_SLOTS_MAX
+-		< MAX_PENDING_REQS;
+-}
+-
+ /* Callback from stack when TX packet can be released */
+ void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success);
+ 
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 83a71ac..7bb7734 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -88,8 +88,7 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
+ 		local_irq_save(flags);
+ 
+ 		RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, more_to_do);
+-		if (!(more_to_do &&
+-		      xenvif_tx_pending_slots_available(vif)))
++		if (!more_to_do)
+ 			__napi_complete(napi);
+ 
+ 		local_irq_restore(flags);
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index bc94320..5df8d63 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1175,8 +1175,7 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
+ 	struct sk_buff *skb;
+ 	int ret;
+ 
+-	while (xenvif_tx_pending_slots_available(vif) &&
+-	       (skb_queue_len(&vif->tx_queue) < budget)) {
++	while (skb_queue_len(&vif->tx_queue) < budget) {
+ 		struct xen_netif_tx_request txreq;
+ 		struct xen_netif_tx_request txfrags[XEN_NETBK_LEGACY_SLOTS_MAX];
+ 		struct xen_netif_extra_info extras[XEN_NETIF_EXTRA_TYPE_MAX-1];
+@@ -1516,13 +1515,6 @@ void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success)
+ 	wake_up(&vif->dealloc_wq);
+ 	spin_unlock_irqrestore(&vif->callback_lock, flags);
+ 
+-	if (RING_HAS_UNCONSUMED_REQUESTS(&vif->tx) &&
+-	    xenvif_tx_pending_slots_available(vif)) {
+-		local_bh_disable();
+-		napi_schedule(&vif->napi);
+-		local_bh_enable();
+-	}
+-
+ 	if (likely(zerocopy_success))
+ 		vif->tx_zerocopy_success++;
+ 	else
+@@ -1714,8 +1706,7 @@ static inline int rx_work_todo(struct xenvif *vif)
+ static inline int tx_work_todo(struct xenvif *vif)
  {
-+	struct resource *res;
-+	int i = 0;
-+	int irq_num;
- 	struct emac_priv *priv = netdev_priv(ndev);
- 	struct device *emac_dev = &ndev->dev;
  
-@@ -1674,6 +1684,13 @@ static int emac_dev_stop(struct net_device *ndev)
- 	if (priv->phydev)
- 		phy_disconnect(priv->phydev);
+-	if (likely(RING_HAS_UNCONSUMED_REQUESTS(&vif->tx)) &&
+-	    xenvif_tx_pending_slots_available(vif))
++	if (likely(RING_HAS_UNCONSUMED_REQUESTS(&vif->tx)))
+ 		return 1;
  
-+	/* Free IRQ */
-+	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, i))) {
-+		for (irq_num = res->start; irq_num <= res->end; irq_num++)
-+			free_irq(irq_num, priv->ndev);
-+		i++;
-+	}
-+
- 	if (netif_msg_drv(priv))
- 		dev_notice(emac_dev, "DaVinci EMAC: %s stopped\n", ndev->name);
- 
--- 
-1.7.9.5
+ 	return 0;
