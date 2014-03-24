@@ -1,87 +1,73 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net] virtio-net: don't free skb immediately on kick failure
-Date: Mon, 24 Mar 2014 13:31:57 +0800
-Message-ID: <532FC34D.3040604@redhat.com>
-References: <1395390601-13177-1-git-send-email-jasowang@redhat.com>
-	<20140323112719.GE6989@redhat.com>
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Subject: [RFC v2 0/1]: Add minimum bandwidth support in IP tool.
+Date: Mon, 24 Mar 2014 00:57:52 -0400
+Message-ID: <1395637073-29794-1-git-send-email-sucheta.chakraborty@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140323112719.GE6989@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <Dept-HSGLinuxNICDev@qlogic.com>, <ben@decadent.org.uk>,
+	<gregory.v.rose@intel.com>, <linux-net-drivers@solarflare.com>,
+	<Ariel.Elior@qlogic.com>, <amirv@mellanox.com>, <mkubecek@suse.cz>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:51089 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750794AbaCXFek (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 01:34:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/23/2014 07:27 PM, Michael S. Tsirkin wrote:
-> On Fri, Mar 21, 2014 at 04:30:01PM +0800, Jason Wang wrote:
->> We free the skb immediately on kick failure during xmit without detaching it
->> from the virtqueue. This may lead double free for the skb during
->> free_unused_bufs(). This patch fixes this by not freeing it on kick failure and
->> let it to be freed through free_unused_bufs().
->>
->> Fixes 67975901183799af8e93ec60e322f9e2a1940b9b
->> ("virtio_net: verify if virtqueue_kick() succeeded").
-> It's not even obvious we want to increment fifo errors
-> counter.
-> So basically we want to ignore these errors.
-> In that case how about just reverting this chunk
-> of the patch?
+Today IP tool allows configuring only maximum bandwidth.
+Likewise minimum bandwidth can also be configured for a VF. It puts
+lower limit on the VF bandwidth. VF is guaranteed to have a bandwidth
+of at least this value.
 
-Sure, I think it's safe to do this.
-> Seems cleaner than adding more code.
->
-> The chunk filling in RX also seems inappropriate:
-> it will cause RX work to be requeued which isn't what
-> we wanted.
+With this change, user can alter minimum bandwidth rate.
 
-True, we can also ignore the error here.
->
-> Also, what happens with virtnet_send_command?
+This patch series has 1 combined patch that adds required support in kernel
+and qlcnic driver changes for minimum bandwidth support.
 
-Looks ok, if vq is broken it will return error to the caller or jump out
-of the busy loop.
-> Looks like that patch is completely wrong.
->
->> Cc: Rusty Russell <rusty@rustcorp.com.au>
->> Cc: Michael S. Tsirkin <mst@redhat.com>
->> Cc: Heinz Graalfs <graalfs@linux.vnet.ibm.com>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->> ---
->>  drivers/net/virtio_net.c | 6 ++++--
->>  1 file changed, 4 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->> index 5632a99..d833d38 100644
->> --- a/drivers/net/virtio_net.c
->> +++ b/drivers/net/virtio_net.c
->> @@ -882,8 +882,10 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
->>  		if (net_ratelimit())
->>  			dev_warn(&dev->dev,
->>  				 "Unexpected TXQ (%d) queue failure: %d\n", qnum, err);
->> -		dev->stats.tx_dropped++;
->> -		kfree_skb(skb);
->> +		if (err) {
->> +			dev->stats.tx_dropped++;
->> +			kfree_skb(skb);
->> +		}
->>  		return NETDEV_TX_OK;
->>  	}
->>  
->> -- 
->> 1.8.3.2
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+This change also requires changes in IP tool. I am sending that patch
+separately.
+
+Changes in v2 per suggestions from Ben Hutchings and Michal Kubecek:
+
+   net patch:
+        o Fixed enum index for IFLA_VF_RATE
+        o ndo_set_vf_rate replaces ndo_set_vf_tx_rate. Drivers that currently implement
+          ndo_set_vf_tx_rate is converted to implement ndo_set_vf_rate instead.
+        o If only IFLA_VF_TX_RATE is specified, the core should get the current minimum
+          before calling ndo_set_vf_rate.
+        o IFLA_VF_RATE should override if both IFLA_VF_RATE and IFLA_VF_TX_RATE are specified.
+        o Combined qlcnic patch to add support for minimum bandwidth with net patch
+
+
+Please comment.
+
+Thanks,
+Sucheta.
+
+Sucheta Chakraborty (1):
+  net: Add support to configure SR-IOV VF minimum and maximum Tx
+    rate through ip tool.
+
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c  |  3 +-
+ drivers/net/ethernet/emulex/benet/be_main.c        | 23 ++++++----
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  2 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  6 ++-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  3 +-
+ drivers/net/ethernet/intel/igb/igb_main.c          | 20 +++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     | 13 ++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h     |  3 +-
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           | 11 +++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |  1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |  2 +-
+ .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |  1 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   | 52 +++++++++++++++------
+ drivers/net/ethernet/sfc/siena_sriov.c             |  3 +-
+ include/linux/if_link.h                            |  3 +-
+ include/linux/netdevice.h                          |  8 ++--
+ include/uapi/linux/if_link.h                       |  9 +++-
+ net/core/rtnetlink.c                               | 53 +++++++++++++++++++---
+ 20 files changed, 159 insertions(+), 61 deletions(-)
