@@ -1,123 +1,72 @@
-From: Wangyufen <wangyufen@huawei.com>
-Subject: [PATCH net-next v3 1/2] net: tcp_ipv6 do some cleanup
-Date: Mon, 24 Mar 2014 14:25:21 +0800
-Message-ID: <1395642322-9404-1-git-send-email-wangyufen@huawei.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH] net/mlx4_core: pass pci_dev_data to __mlx4_init_one
+Date: Mon, 24 Mar 2014 08:40:42 +0200
+Message-ID: <CAJZOPZLM+fRBqA_rkgiUO5FCd1YtzsCKN3=denHW6Tx7OHN6RQ@mail.gmail.com>
+References: <1395636171-17347-1-git-send-email-weiyang@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Wang Yufen <wangyufen@huawei.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Amir Vadai <amirv@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Wei Yang <weiyang@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:20373 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751368AbaCXGaq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 02:30:46 -0400
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:49794 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750794AbaCXGkn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 02:40:43 -0400
+Received: by mail-pb0-f54.google.com with SMTP id ma3so5003980pbc.41
+        for <netdev@vger.kernel.org>; Sun, 23 Mar 2014 23:40:42 -0700 (PDT)
+In-Reply-To: <1395636171-17347-1-git-send-email-weiyang@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wang Yufen <wangyufen@huawei.com>
+On Mon, Mar 24, 2014 at 6:42 AM, Wei Yang <weiyang@linux.vnet.ibm.com> wrote:
+>
+> The second parameter of __mlx4_init_one() is used to identify whether the
+> pci_dev is a PF or VF. Currently, when it is invoked in mlx4_pci_slot_reset()
+> this information is missed.
 
 
-Signed-off-by: Wang Yufen <wangyufen@huawei.com>
----
- net/ipv6/tcp_ipv6.c | 22 ++++++++++------------
- 1 file changed, 10 insertions(+), 12 deletions(-)
+This patch isn't fixing something in 3.14, right? if this is the case
+I assume it's for net-next, please put a "net" or "net-next"
+indication (next-time)
 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 3277680..f6f38fe 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -39,7 +39,7 @@
- #include <linux/ipsec.h>
- #include <linux/times.h>
- #include <linux/slab.h>
--
-+#include <linux/uaccess.h>
- #include <linux/ipv6.h>
- #include <linux/icmpv6.h>
- #include <linux/random.h>
-@@ -65,8 +65,6 @@
- #include <net/tcp_memcontrol.h>
- #include <net/busy_poll.h>
- 
--#include <asm/uaccess.h>
--
- #include <linux/proc_fs.h>
- #include <linux/seq_file.h>
- 
-@@ -532,7 +530,7 @@ static struct tcp_md5sig_key *tcp_v6_reqsk_md5_lookup(struct sock *sk,
- 	return tcp_v6_md5_do_lookup(sk, &inet_rsk(req)->ir_v6_rmt_addr);
- }
- 
--static int tcp_v6_parse_md5_keys (struct sock *sk, char __user *optval,
-+static int tcp_v6_parse_md5_keys(struct sock *sk, char __user *optval,
- 				  int optlen)
- {
- 	struct tcp_md5sig cmd;
-@@ -717,7 +715,7 @@ struct request_sock_ops tcp6_request_sock_ops __read_mostly = {
- 	.send_ack	=	tcp_v6_reqsk_send_ack,
- 	.destructor	=	tcp_v6_reqsk_destructor,
- 	.send_reset	=	tcp_v6_send_reset,
--	.syn_ack_timeout = 	tcp_syn_ack_timeout,
-+	.syn_ack_timeout =	tcp_syn_ack_timeout,
- };
- 
- #ifdef CONFIG_TCP_MD5SIG
-@@ -1261,7 +1259,8 @@ static struct sock *tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 
- #ifdef CONFIG_TCP_MD5SIG
- 	/* Copy over the MD5 key from the original socket */
--	if ((key = tcp_v6_md5_do_lookup(sk, &newsk->sk_v6_daddr)) != NULL) {
-+	key = tcp_v6_md5_do_lookup(sk, &newsk->sk_v6_daddr);
-+	if (key != NULL) {
- 		/* We're using one, so create a matching key
- 		 * on the newsk structure. If we fail to get
- 		 * memory, then we end up not copying the key
-@@ -1305,9 +1304,8 @@ static __sum16 tcp_v6_checksum_init(struct sk_buff *skb)
- 					      &ipv6_hdr(skb)->saddr,
- 					      &ipv6_hdr(skb)->daddr, 0));
- 
--	if (skb->len <= 76) {
-+	if (skb->len <= 76)
- 		return __skb_checksum_complete(skb);
--	}
- 	return 0;
- }
- 
-@@ -1337,7 +1335,7 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
- 		return tcp_v4_do_rcv(sk, skb);
- 
- #ifdef CONFIG_TCP_MD5SIG
--	if (tcp_v6_inbound_md5_hash (sk, skb))
-+	if (tcp_v6_inbound_md5_hash(sk, skb))
- 		goto discard;
- #endif
- 
-@@ -1604,7 +1602,8 @@ do_time_wait:
- 		break;
- 	case TCP_TW_RST:
- 		goto no_tcp_socket;
--	case TCP_TW_SUCCESS:;
-+	case TCP_TW_SUCCESS:
-+		;
- 	}
- 	goto discard_it;
- }
-@@ -1649,7 +1648,7 @@ static void tcp_v6_early_demux(struct sk_buff *skb)
- static struct timewait_sock_ops tcp6_timewait_sock_ops = {
- 	.twsk_obj_size	= sizeof(struct tcp6_timewait_sock),
- 	.twsk_unique	= tcp_twsk_unique,
--	.twsk_destructor= tcp_twsk_destructor,
-+	.twsk_destructor = tcp_twsk_destructor,
- };
- 
- static const struct inet_connection_sock_af_ops ipv6_specific = {
-@@ -1683,7 +1682,6 @@ static const struct tcp_sock_af_ops tcp_sock_ipv6_specific = {
- /*
-  *	TCP over IPv4 via INET6 API
-  */
--
- static const struct inet_connection_sock_af_ops ipv6_mapped = {
- 	.queue_xmit	   = ip_queue_xmit,
- 	.send_check	   = tcp_v4_send_check,
--- 
-1.7.12
+Or.
+
+>
+>
+> This patch passes the pci_dev_data to __mlx4_init_one().
+>
+> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/main.c |    8 +++++++-
+>  1 file changed, 7 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+> index d711158..9ffce06 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+> @@ -2670,7 +2670,13 @@ static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
+>
+>  static pci_ers_result_t mlx4_pci_slot_reset(struct pci_dev *pdev)
+>  {
+> -       int ret = __mlx4_init_one(pdev, 0);
+> +       int ret;
+> +       struct mlx4_dev  *dev  = pci_get_drvdata(pdev);
+> +       struct mlx4_priv *priv = mlx4_priv(dev);
+> +       int               pci_dev_data;
+> +
+> +       pci_dev_data = priv->pci_dev_data;
+> +       ret = __mlx4_init_one(pdev, pci_dev_data);
+>
+>         return ret ? PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_RECOVERED;
+>  }
+> --
+> 1.7.9.5
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
