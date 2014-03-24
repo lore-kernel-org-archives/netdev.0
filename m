@@ -1,46 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ip_tunnel: Fix dst ref-count.
-Date: Mon, 24 Mar 2014 15:24:12 -0400 (EDT)
-Message-ID: <20140324.152412.1501867662024898167.davem@davemloft.net>
-References: <1395637596-28064-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH] bonding: Inactive slaves should keep inactive flag's
+ value to 1.
+Date: Mon, 24 Mar 2014 15:25:00 -0400 (EDT)
+Message-ID: <20140324.152500.1609063361875346905.davem@davemloft.net>
+References: <532BA648.6060600@oracle.com>
+	<13028.1395423785@death.nxdomain>
+	<532FF476.9060008@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lucien.xin@gmail.com
-To: pshelar@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43492 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753776AbaCXTYO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 15:24:14 -0400
-In-Reply-To: <1395637596-28064-1-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: fubar@us.ibm.com, netdev@vger.kernel.org, andy@greyhouse.net,
+	linux-kernel@vger.kernel.org, joe.jin@oracle.com
+To: zheng.x.li@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <532FF476.9060008@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pravin <pshelar@nicira.com>
-Date: Sun, 23 Mar 2014 22:06:36 -0700
+From: "zheng.li" <zheng.x.li@oracle.com>
+Date: Mon, 24 Mar 2014 17:01:42 +0800
 
-> Commit 10ddceb22ba (ip_tunnel:multicast process cause panic due
-> to skb->_skb_refdst NULL pointer) removed dst-drop call from
-> ip-tunnel-recv.
-> 
-> Following commit reintroduce dst-drop and fix the original bug by
-> checking loopback packet before releasing dst.
-> Original bug: https://bugzilla.kernel.org/show_bug.cgi?id=70681
-> 
-> CC: Xin Long <lucien.xin@gmail.com>
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> Recreate patch again as below, please check.
 
-I don't understand why only the GRE tunnel implementation needs the
-check, whereas ipip and sit seem to have the same code associated
-paths.
-
-Plus I think this is incredibly sloppy, making the implementations
-have to attend to this detail.  Why the heck do we have a common
-piece of infrastructure if we end up with all of this duplicated
-code anyways?
-
-Put this check somewhere common, so that we are guaranteed that the
-issue is really fixed for all tunnel types, no matter what.
-
-Thanks.
+Your patch has been severely corrupted by your email client, and is
+thus unusable by anyone.
