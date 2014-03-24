@@ -1,43 +1,140 @@
-From: Adam Lee <adam.lee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH] rtlwifi: add MSI interrupts support
-Date: Mon, 24 Mar 2014 19:49:23 +0800
-Message-ID: <20140324114923.GA3650@adam-laptop>
-References: <1395640841-14477-1-git-send-email-adam.lee@canonical.com>
- <1395660884-15042-1-git-send-email-adam.lee@canonical.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [PATCH net] xen-netback: disable rogue vif in kthread context
+Date: Mon, 24 Mar 2014 12:13:34 +0000
+Message-ID: <1395663214-14133-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1395660884-15042-1-git-send-email-adam.lee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <paul.durrant@citrix.com>, <zoltan.kiss@citrix.com>,
+	<edwin@etorok.net>, Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>
+To: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:30165 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752395AbaCXMNl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Mar 2014 08:13:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 24, 2014 at 07:34:44PM +0800, Adam Lee wrote:
-> Add MSI interrupts support, enable it when msi_support flag is true,
-> also could fallback to pin-based interrupts mode if MSI mode fails.
-> 
-> Signed-off-by: Adam Lee <adam.lee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> ---
->  drivers/net/wireless/rtlwifi/pci.c | 63 ++++++++++++++++++++++++++++++++++++--
->  1 file changed, 61 insertions(+), 2 deletions(-)
+When netback discovers frontend is sending malformed packet it will
+disables the interface which serves that frontend.
 
-This is the base of "[PATCH] rtlwifi: rtl8188ee: enable MSI interrupts
-support" in thread. We met this issue[1] while enabling some HP
-notebooks, whose wifi hardware modules can't get AP scan results with
-pin-based interrupts.
+However disabling a network interface involving taking a mutex which
+cannot be done in softirq context, so we need to defer this process to
+kthread context.
 
-Submitting these two patches ahead of RealTek's schedule so we can fix
-it sooner for non-preload distro users.
+This patch does the following:
+1. introduce a flag to indicate the interface is disabled.
+2. check that flag in TX path, don't do any work if it's true.
+3. check that flag in RX path, turn off that interface if it's true.
 
-[1] https://bugs.launchpad.net/bugs/1296591
+The reason to disable it in RX path is because RX uses kthread. After
+this change the behavior of netback is still consistent -- it won't do
+any TX work for a rogue frontend, and the interface will be eventually
+turned off.
 
--- 
-Adam Lee
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Also change a "continue" to "break" after xenvif_fatal_tx_err, as it
+doesn't make sense to continue processing packets if frontend is rogue.
+
+This is a fix for XSA-90.
+
+Reported-by: T=C3=B6r=C3=B6k Edwin <edwin@etorok.net>
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+---
+ drivers/net/xen-netback/common.h    |    5 +++++
+ drivers/net/xen-netback/interface.c |    9 +++++++++
+ drivers/net/xen-netback/netback.c   |   14 ++++++++++++--
+ 3 files changed, 26 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback=
+/common.h
+index ae413a2..4bf5b33 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -113,6 +113,11 @@ struct xenvif {
+ 	domid_t          domid;
+ 	unsigned int     handle;
+=20
++	/* Is this interface disabled? True when backend discovers
++	 * frontend is rogue.
++	 */
++	bool disabled;
++
+ 	/* Use NAPI for guest TX */
+ 	struct napi_struct napi;
+ 	/* When feature-split-event-channels =3D 0, tx_irq =3D rx_irq. */
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netb=
+ack/interface.c
+index 301cc03..234f1c8 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -62,6 +62,13 @@ static int xenvif_poll(struct napi_struct *napi, int=
+ budget)
+ 	struct xenvif *vif =3D container_of(napi, struct xenvif, napi);
+ 	int work_done;
+=20
++	/* This vif is rogue, we pretend we've used up all budget to
++	 * deschedule it from NAPI. But this interface will be turned
++	 * off in thread context later.
++	 */
++	if (unlikely(vif->disabled))
++		return budget;
++
+ 	work_done =3D xenvif_tx_action(vif, budget);
+=20
+ 	if (work_done < budget) {
+@@ -321,6 +328,8 @@ struct xenvif *xenvif_alloc(struct device *parent, =
+domid_t domid,
+ 	vif->ip_csum =3D 1;
+ 	vif->dev =3D dev;
+=20
++	vif->disabled =3D false;
++
+ 	vif->credit_bytes =3D vif->remaining_credit =3D ~0UL;
+ 	vif->credit_usec  =3D 0UL;
+ 	init_timer(&vif->credit_timeout);
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netbac=
+k/netback.c
+index 438d0c0..94e7261 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -655,7 +655,7 @@ static void xenvif_tx_err(struct xenvif *vif,
+ static void xenvif_fatal_tx_err(struct xenvif *vif)
+ {
+ 	netdev_err(vif->dev, "fatal error; disabling device\n");
+-	xenvif_carrier_off(vif);
++	vif->disabled =3D true;
+ }
+=20
+ static int xenvif_count_requests(struct xenvif *vif,
+@@ -1126,7 +1126,7 @@ static unsigned xenvif_tx_build_gops(struct xenvi=
+f *vif, int budget)
+ 				   vif->tx.sring->req_prod, vif->tx.req_cons,
+ 				   XEN_NETIF_TX_RING_SIZE);
+ 			xenvif_fatal_tx_err(vif);
+-			continue;
++			break;
+ 		}
+=20
+ 		work_to_do =3D RING_HAS_UNCONSUMED_REQUESTS(&vif->tx);
+@@ -1549,6 +1549,16 @@ int xenvif_kthread(void *data)
+ 		wait_event_interruptible(vif->wq,
+ 					 rx_work_todo(vif) ||
+ 					 kthread_should_stop());
++
++		/* This frontend is found to be rogue, disable it in
++		 * kthread context. Currently this is only set when
++		 * netback finds out frontend sends malformed packet,
++		 * but we cannot disable the interface in softirq
++		 * context so we defer it here.
++		 */
++		if (unlikely(vif->disabled) && netif_carrier_ok(vif->dev))
++			xenvif_carrier_off(vif);
++
+ 		if (kthread_should_stop())
+ 			break;
+=20
+--=20
+1.7.10.4
