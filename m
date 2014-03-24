@@ -1,119 +1,95 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH net-next] net: optimize csum_replace2()
-Date: Mon, 24 Mar 2014 06:25:27 -0700
-Message-ID: <1395667527.12610.32.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140321.140730.1007660405690890605.davem@davemloft.net>
-	 <1395629496.9117.47.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6E778C@AcuExch.aculab.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] drivers/net: Use RCU_INIT_POINTER(x, NULL) in tun.c
+Date: Mon, 24 Mar 2014 06:38:32 -0700
+Message-ID: <20140324133831.GK4405@linux.vnet.ibm.com>
+References: <1395599552-7486-1-git-send-email-monamagarwal123@gmail.com>
+ <20140323194113.GA13633@redhat.com>
+ <1395604457.9117.21.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140323213349.GA8832@redhat.com>
+ <20140323221256.GG4405@linux.vnet.ibm.com>
+ <20140324050939.GB8832@redhat.com>
+ <1395638727.9117.55.camel@edumazet-glaptop2.roam.corp.google.com>
+ <532FF124.1030209@cn.fujitsu.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"hkchu@google.com" <hkchu@google.com>,
-	"mwdalton@google.com" <mwdalton@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:58522 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752902AbaCXNZ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 09:25:29 -0400
-Received: by mail-pd0-f182.google.com with SMTP id y10so5337905pdj.13
-        for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 06:25:28 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6E778C@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Monam Agarwal <monamagarwal123@gmail.com>, davem@davemloft.net,
+	jasowang@redhat.com, xemul@parallels.com, wuzhy@linux.vnet.ibm.com,
+	therbert@google.com, yamato@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Lai Jiangshan <laijs@cn.fujitsu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <532FF124.1030209@cn.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-03-24 at 10:22 +0000, David Laight wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On Mon, Mar 24, 2014 at 04:47:32PM +0800, Lai Jiangshan wrote:
+> On 03/24/2014 01:25 PM, Eric Dumazet wrote:
+> > On Mon, 2014-03-24 at 07:09 +0200, Michael S. Tsirkin wrote:
 > > 
-> > When changing one 16bit value by another in IP header, we can adjust the
-> > IP checksum by doing a simple operation described in RFC 1624,
-> > as reminded by David.
+> >> Seems an incredibly strict requirement for something that just
+> >> silences a warning.
+> >> What exactly should I test?
+> >> I intended to just verify this produces same code as before
+> >> d322f45ceed525daa under a recent gcc.
 > > 
-> > csum_partial() is a complex function on x86_64, not really suited
-> > for small number of checksummed bytes.
+> > Thats because many rcu_assign_pointer(X, NULL) were already converted to
+> > RCU_INIT_POINTER(X, NULL)
 > > 
-> > I spotted csum_partial() being in the top 20 most consuming
-> > functions (more than 1 %) in a GRO workload, which was rather
-> > unexpected.
+> > Quite frankly I don't know why you bother at all.
 > > 
-> > The caller was inet_gro_complete() doing a csum_replace2() when
-> > building the new IP header for the GRO packet.
+> > Adding back the lazy test in rcu_assign_pointer() doesn't help to make
+> > the API cleaner and easier to understand.
 > > 
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > ---
-> >  include/net/checksum.h |   23 +++++++++++++++++++++--
-> >  1 file changed, 21 insertions(+), 2 deletions(-)
+> > People are usually using RCU API without really understanding
+> > all the issues. They tend to add superfluous barriers because they feel
+> > better. 
 > > 
-> > diff --git a/include/net/checksum.h b/include/net/checksum.h
-> > index 37a0e24adbe7..a28f4e0f6251 100644
-> > --- a/include/net/checksum.h
-> > +++ b/include/net/checksum.h
-> > @@ -69,6 +69,19 @@ static inline __wsum csum_sub(__wsum csum, __wsum addend)
-> >  	return csum_add(csum, ~addend);
-> >  }
+> > Having separate RCU_INIT_POINTER() and rcu_assign_pointer() serve as
+> > better documentation of the code, I find it more easier to immediately
+> > check what is going on while reviewing stuff.
 > > 
-> > +static inline __sum16 csum16_add(__sum16 csum, __be16 addend)
-> > +{
-> > +	u16 res = (__force u16)csum;
+> > Presumably, checkpatch.pl could be augmented to suggest to use
+> > RCU_INIT_POINTER(X, NULL) instead of rcu_assign_pointer(X, NULL)
 > 
-> Shouldn't that be u32 ?
-
-Why ? We compute 16bit checksums here.
-
 > 
-> > +	res += (__force u16)addend;
-> > +	return (__force __sum16)(res + (res < (__force u16)addend));
+> I prefer rcu_assign_pointer(X, NULL) than RCU_INIT_POINTER(X, NULL),
+> NULL should not be a special pointer value to the users of RCU.
+> 
+> the RCU implements should hide the difference if RCU implements
+> differentiate the values for optimization.
+> 
+> RCU_INIT_POINTER() sounds as an initialization-stage API. If we need
+> something different for NULL pointer, I prefer
+> rcu_assign_*null*_pointer().
 
-Note how carry is propagated, and how we return 16 bit anyway.
+Let's keep what we have for a year or so, and then see how things look at
+that point.  A really easy Coccinelle script will make the needed changes,
+so we aren't losing anything by waiting.  And who knows, perhaps someone
+will come up with a clever idea in that time.
 
-Using u32 would force to use a fold, which is more expensive.
+> rcu_assign_pointer(X, NULL) implies compiler barrier(), but
+> RCU_INIT_POINTER(X, NULL) doesn't.
 
-> > +}
-> > +
-> > +static inline __sum16 csum16_sub(__sum16 csum, __be16 addend)
-> > +{
-> > +	return csum16_add(csum, ~addend);
-> > +}
-> > +
-> >  static inline __wsum
-> >  csum_block_add(__wsum csum, __wsum csum2, int offset)
-> >  {
-> > @@ -112,9 +125,15 @@ static inline void csum_replace4(__sum16 *sum, __be32 from, __be32 to)
-> >  	*sum = csum_fold(csum_partial(diff, sizeof(diff), ~csum_unfold(*sum)));
-> >  }
+Good point!  I don't believe that the current docbook mentions this,
+will fix.  And you are right, this is a good argument for maintaining
+a separate API for NULL-pointer assignment rather than making
+rcu_assign_pointer() sometimes do the smp_wmb() and sometimes not.
+With the current approach, you can count on rcu_assign_pointer()
+always implying a memory barrier.
+
+Also, one thing I forgot earlier, rcu_assign_pointer() now uses
+smp_store_release() rather than smp_wmb().
+
+							Thanx, Paul
+
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > Please read the FAQ at  http://www.tux.org/lkml/
 > > 
-> > -static inline void csum_replace2(__sum16 *sum, __be16 from, __be16 to)
-> > +/* Implements RFC 1624 (Incremental Internet Checksum)
-> > + * 3. Discussion states :
-> > + *     HC' = ~(~HC + ~m + m')
-> > + *  m : old value of a 16bit field
-> > + *  m' : new value of a 16bit field
-> > + */
-> > +static inline void csum_replace2(__sum16 *sum, __be16 old, __be16 new)
-> >  {
-> > -	csum_replace4(sum, (__force __be32)from, (__force __be32)to);
-> > +	*sum = ~csum16_add(csum16_sub(~(*sum), old), new);
-> >  }
 > 
-> It might be clearer to just say:
-> 	*sum = ~csum16_add(csum16_add(~*sum, ~old), new));
-> or even:
-> 	*sum = ~csum16_add(csum16_add(*sum ^ 0xffff, old ^ 0xffff), new));
-> which might remove some mask instructions - especially if all the
-> intermediate values are left larger than 16 bits.
-
-We have csum_add() and csum_sub(), I added csum16_add() and
-csum16_sub(), for analogy and completeness.
-
-For linux guys, its quite common stuff to use csum_sub(x, y) instead of
-csum_add(c, ~y).
-
-You can use whatever code matching your taste.
-
-RFC 1624 mentions ~m, not m ^ 0xffff
-
-But again if you prefer m ^ 0xffff, thats up to you ;)
