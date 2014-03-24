@@ -1,93 +1,105 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] virtio-net: don't free skb immediately on kick failure
-Date: Mon, 24 Mar 2014 08:27:24 +0200
-Message-ID: <20140324062724.GB22338@redhat.com>
-References: <1395390601-13177-1-git-send-email-jasowang@redhat.com>
-	<20140323112719.GE6989@redhat.com> <532FC34D.3040604@redhat.com>
+From: Wangyufen <wangyufen@huawei.com>
+Subject: [PATCH net-next v3 2/2] net: tcp_ipv6 policy route issue
+Date: Mon, 24 Mar 2014 14:25:22 +0800
+Message-ID: <1395642322-9404-2-git-send-email-wangyufen@huawei.com>
+References: <1395642322-9404-1-git-send-email-wangyufen@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <532FC34D.3040604@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Wang Yufen <wangyufen@huawei.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:38017 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751447AbaCXG2I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 02:28:08 -0400
+In-Reply-To: <1395642322-9404-1-git-send-email-wangyufen@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 24, 2014 at 01:31:57PM +0800, Jason Wang wrote:
-> On 03/23/2014 07:27 PM, Michael S. Tsirkin wrote:
-> > On Fri, Mar 21, 2014 at 04:30:01PM +0800, Jason Wang wrote:
-> >> We free the skb immediately on kick failure during xmit without detaching it
-> >> from the virtqueue. This may lead double free for the skb during
-> >> free_unused_bufs(). This patch fixes this by not freeing it on kick failure and
-> >> let it to be freed through free_unused_bufs().
-> >>
-> >> Fixes 67975901183799af8e93ec60e322f9e2a1940b9b
-> >> ("virtio_net: verify if virtqueue_kick() succeeded").
-> > It's not even obvious we want to increment fifo errors
-> > counter.
-> > So basically we want to ignore these errors.
-> > In that case how about just reverting this chunk
-> > of the patch?
-> 
-> Sure, I think it's safe to do this.
-> > Seems cleaner than adding more code.
-> >
-> > The chunk filling in RX also seems inappropriate:
-> > it will cause RX work to be requeued which isn't what
-> > we wanted.
-> 
-> True, we can also ignore the error here.
+From: Wang Yufen <wangyufen@huawei.com>
 
-So let's do that - just revert most of that commit
-except the bit that breaks out of look when we submit commands.
+The issue raises when adding policy route, specify a particular
+NIC as oif, the policy route did not take effect. The reason is
+that fl6.oif is not set and route map failed. From the 
+tcp_v6_send_response function, if the binding address is linklocal,
+fl6.oif is set, but not for global address.
 
-> >
-> > Also, what happens with virtnet_send_command?
-> 
-> Looks ok, if vq is broken it will return error to the caller or jump out
-> of the busy loop.
-> > Looks like that patch is completely wrong.
-> >
-> >> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> >> Cc: Michael S. Tsirkin <mst@redhat.com>
-> >> Cc: Heinz Graalfs <graalfs@linux.vnet.ibm.com>
-> >> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> >> ---
-> >>  drivers/net/virtio_net.c | 6 ++++--
-> >>  1 file changed, 4 insertions(+), 2 deletions(-)
-> >>
-> >> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> >> index 5632a99..d833d38 100644
-> >> --- a/drivers/net/virtio_net.c
-> >> +++ b/drivers/net/virtio_net.c
-> >> @@ -882,8 +882,10 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
-> >>  		if (net_ratelimit())
-> >>  			dev_warn(&dev->dev,
-> >>  				 "Unexpected TXQ (%d) queue failure: %d\n", qnum, err);
-> >> -		dev->stats.tx_dropped++;
-> >> -		kfree_skb(skb);
-> >> +		if (err) {
-> >> +			dev->stats.tx_dropped++;
-> >> +			kfree_skb(skb);
-> >> +		}
-> >>  		return NETDEV_TX_OK;
-> >>  	}
-> >>  
-> >> -- 
-> >> 1.8.3.2
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > Please read the FAQ at  http://www.tux.org/lkml/
+Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+---
+ net/ipv6/tcp_ipv6.c | 16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index f6f38fe..066f36f 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -726,7 +726,7 @@ static const struct tcp_request_sock_ops tcp_request_sock_ipv6_ops = {
+ #endif
+ 
+ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
+-				 u32 tsval, u32 tsecr,
++				 u32 tsval, u32 tsecr, int oif,
+ 				 struct tcp_md5sig_key *key, int rst, u8 tclass,
+ 				 u32 label)
+ {
+@@ -802,6 +802,8 @@ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
+ 		fl6.flowi6_oif = inet6_iif(skb);
+ 	fl6.fl6_dport = t1->dest;
+ 	fl6.fl6_sport = t1->source;
++	if (fl6.flowi6_oif == 0)
++		fl6.flowi6_oif = oif;
+ 	security_skb_classify_flow(skb, flowi6_to_flowi(&fl6));
+ 
+ 	/* Pass a socket to ip6_dst_lookup either it is for RST
+@@ -833,6 +835,7 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
+ 	int genhash;
+ 	struct sock *sk1 = NULL;
+ #endif
++	int oif;
+ 
+ 	if (th->rst)
+ 		return;
+@@ -876,7 +879,8 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
+ 		ack_seq = ntohl(th->seq) + th->syn + th->fin + skb->len -
+ 			  (th->doff << 2);
+ 
+-	tcp_v6_send_response(skb, seq, ack_seq, 0, 0, 0, key, 1, 0, 0);
++	oif = sk ? sk->sk_bound_dev_if : 0;
++	tcp_v6_send_response(skb, seq, ack_seq, 0, 0, 0, oif, key, 1, 0, 0);
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+ release_sk1:
+@@ -888,11 +892,11 @@ release_sk1:
+ }
+ 
+ static void tcp_v6_send_ack(struct sk_buff *skb, u32 seq, u32 ack,
+-			    u32 win, u32 tsval, u32 tsecr,
++			    u32 win, u32 tsval, u32 tsecr, int oif,
+ 			    struct tcp_md5sig_key *key, u8 tclass,
+ 			    u32 label)
+ {
+-	tcp_v6_send_response(skb, seq, ack, win, tsval, tsecr, key, 0, tclass,
++	tcp_v6_send_response(skb, seq, ack, win, tsval, tsecr, oif, key, 0, tclass,
+ 			     label);
+ }
+ 
+@@ -904,7 +908,7 @@ static void tcp_v6_timewait_ack(struct sock *sk, struct sk_buff *skb)
+ 	tcp_v6_send_ack(skb, tcptw->tw_snd_nxt, tcptw->tw_rcv_nxt,
+ 			tcptw->tw_rcv_wnd >> tw->tw_rcv_wscale,
+ 			tcp_time_stamp + tcptw->tw_ts_offset,
+-			tcptw->tw_ts_recent, tcp_twsk_md5_key(tcptw),
++			tcptw->tw_ts_recent, tw->tw_bound_dev_if, tcp_twsk_md5_key(tcptw),
+ 			tw->tw_tclass, (tw->tw_flowlabel << 12));
+ 
+ 	inet_twsk_put(tw);
+@@ -914,7 +918,7 @@ static void tcp_v6_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
+ 				  struct request_sock *req)
+ {
+ 	tcp_v6_send_ack(skb, tcp_rsk(req)->snt_isn + 1, tcp_rsk(req)->rcv_isn + 1,
+-			req->rcv_wnd, tcp_time_stamp, req->ts_recent,
++			req->rcv_wnd, tcp_time_stamp, req->ts_recent, sk->sk_bound_dev_if,
+ 			tcp_v6_md5_do_lookup(sk, &ipv6_hdr(skb)->daddr),
+ 			0, 0);
+ }
+-- 
+1.7.12
