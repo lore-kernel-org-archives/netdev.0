@@ -1,105 +1,64 @@
-From: Wangyufen <wangyufen@huawei.com>
-Subject: [PATCH net-next v2 2/2] net: tcp_ipv6 policy route issue
-Date: Mon, 24 Mar 2014 09:36:01 +0800
-Message-ID: <1395624961-10128-2-git-send-email-wangyufen@huawei.com>
-References: <1395624961-10128-1-git-send-email-wangyufen@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] csum experts, csum_replace2() is too expensive
+Date: Sun, 23 Mar 2014 19:50:10 -0700
+Message-ID: <1395629410.9117.46.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <87a9cknwk4.fsf@tassilo.jf.intel.com>
+	 <1395406250.9114.142.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140321.145229.1026128975151125729.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Wang Yufen <wangyufen@huawei.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:51252 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751035AbaCXBgo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2014 21:36:44 -0400
-In-Reply-To: <1395624961-10128-1-git-send-email-wangyufen@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: andi@firstfloor.org, hpa@zytor.com, kaber@trash.net,
+	herbert@gondor.apana.org.au, hkchu@google.com, mwdalton@google.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140321.145229.1026128975151125729.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wang Yufen <wangyufen@huawei.com>
+On Fri, 2014-03-21 at 14:52 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 21 Mar 2014 05:50:50 -0700
+> 
+> > It looks like a barrier() would be more appropriate.
+> 
+> barrier() == __asm__ __volatile__(:::"memory")
 
-The issue raises when adding policy route,specify a particular
-NIC as oif. The policy route did not take effect.The reason is
-that fl6.oif is not set and route map failed. From the 
-tcp_v6_send_response function,if the binding address is linklocal,
-fl6.oif is set,but not for global address.
+Indeed, but now you mention it, ip_fast_csum() do not uses volatile
+keyword on x86_64, and has no "m" constraint either.
 
-Signed-off-by: Wang Yufen <wangyufen@huawei.com>
----
- net/ipv6/tcp_ipv6.c | 16 ++++++++++------
- 1 file changed, 10 insertions(+), 6 deletions(-)
+This means that for the following hypothetical networking code :
 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index f6f38fe..066f36f 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -726,7 +726,7 @@ static const struct tcp_request_sock_ops tcp_request_sock_ipv6_ops = {
- #endif
- 
- static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
--				 u32 tsval, u32 tsecr,
-+				 u32 tsval, u32 tsecr, int oif,
- 				 struct tcp_md5sig_key *key, int rst, u8 tclass,
- 				 u32 label)
+void foobar(struct iphdr *iph, __be16 newlen, __be16 newid)
+{
+        iph->tot_len = newlen;
+        iph->check = 0;
+        iph->check = ip_fast_csum((u8 *)iph, 5);
+
+        pr_err("%p\n", iph);
+
+        iph->id = newid;
+        iph->check = 0;
+        iph->check = ip_fast_csum((u8 *)iph, 5);
+}
+
+
+ip_fast_csum() is done _once_ only.
+
+Following patch seems needed. Thats one another call for x86 code factorization ...
+
+diff --git a/arch/x86/include/asm/checksum_64.h b/arch/x86/include/asm/checksum_64.h
+index e6fd8a026c7b..c67778544880 100644
+--- a/arch/x86/include/asm/checksum_64.h
++++ b/arch/x86/include/asm/checksum_64.h
+@@ -46,7 +46,7 @@ static inline __sum16 ip_fast_csum(const void *iph, unsigned int ihl)
  {
-@@ -802,6 +802,8 @@ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
- 		fl6.flowi6_oif = inet6_iif(skb);
- 	fl6.fl6_dport = t1->dest;
- 	fl6.fl6_sport = t1->source;
-+	if (fl6.flowi6_oif == 0)
-+		fl6.flowi6_oif = oif;
- 	security_skb_classify_flow(skb, flowi6_to_flowi(&fl6));
+ 	unsigned int sum;
  
- 	/* Pass a socket to ip6_dst_lookup either it is for RST
-@@ -833,6 +835,7 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
- 	int genhash;
- 	struct sock *sk1 = NULL;
- #endif
-+	int oif;
- 
- 	if (th->rst)
- 		return;
-@@ -876,7 +879,8 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
- 		ack_seq = ntohl(th->seq) + th->syn + th->fin + skb->len -
- 			  (th->doff << 2);
- 
--	tcp_v6_send_response(skb, seq, ack_seq, 0, 0, 0, key, 1, 0, 0);
-+	oif = sk ? sk->sk_bound_dev_if : 0;
-+	tcp_v6_send_response(skb, seq, ack_seq, 0, 0, 0, oif, key, 1, 0, 0);
- 
- #ifdef CONFIG_TCP_MD5SIG
- release_sk1:
-@@ -888,11 +892,11 @@ release_sk1:
- }
- 
- static void tcp_v6_send_ack(struct sk_buff *skb, u32 seq, u32 ack,
--			    u32 win, u32 tsval, u32 tsecr,
-+			    u32 win, u32 tsval, u32 tsecr, int oif,
- 			    struct tcp_md5sig_key *key, u8 tclass,
- 			    u32 label)
- {
--	tcp_v6_send_response(skb, seq, ack, win, tsval, tsecr, key, 0, tclass,
-+	tcp_v6_send_response(skb, seq, ack, win, tsval, tsecr, oif, key, 0, tclass,
- 			     label);
- }
- 
-@@ -904,7 +908,7 @@ static void tcp_v6_timewait_ack(struct sock *sk, struct sk_buff *skb)
- 	tcp_v6_send_ack(skb, tcptw->tw_snd_nxt, tcptw->tw_rcv_nxt,
- 			tcptw->tw_rcv_wnd >> tw->tw_rcv_wscale,
- 			tcp_time_stamp + tcptw->tw_ts_offset,
--			tcptw->tw_ts_recent, tcp_twsk_md5_key(tcptw),
-+			tcptw->tw_ts_recent, tw->tw_bound_dev_if, tcp_twsk_md5_key(tcptw),
- 			tw->tw_tclass, (tw->tw_flowlabel << 12));
- 
- 	inet_twsk_put(tw);
-@@ -914,7 +918,7 @@ static void tcp_v6_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
- 				  struct request_sock *req)
- {
- 	tcp_v6_send_ack(skb, tcp_rsk(req)->snt_isn + 1, tcp_rsk(req)->rcv_isn + 1,
--			req->rcv_wnd, tcp_time_stamp, req->ts_recent,
-+			req->rcv_wnd, tcp_time_stamp, req->ts_recent, sk->sk_bound_dev_if,
- 			tcp_v6_md5_do_lookup(sk, &ipv6_hdr(skb)->daddr),
- 			0, 0);
- }
--- 
-1.7.12
+-	asm("  movl (%1), %0\n"
++	asm volatile("  movl (%1), %0\n"
+ 	    "  subl $4, %2\n"
+ 	    "  jbe 2f\n"
+ 	    "  addl 4(%1), %0\n"
