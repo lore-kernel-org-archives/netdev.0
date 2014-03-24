@@ -1,367 +1,285 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next v2 1/2] be2net: add FW cmds needed for VxLAN offloads
-Date: Mon, 24 Mar 2014 11:30:26 +0530
-Message-ID: <1395640827-23142-2-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next v2 2/2] be2net: csum, tso and rss steering offload support for VxLAN
+Date: Mon, 24 Mar 2014 11:30:27 +0530
+Message-ID: <1395640827-23142-3-git-send-email-sathya.perla@emulex.com>
 References: <1395640827-23142-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:9992 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750805AbaCXF4f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 01:56:35 -0400
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:50656 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750938AbaCXF4h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 01:56:37 -0400
 In-Reply-To: <1395640827-23142-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for the FW cmds needed for VxLAN offloads
-on Skyhawk-R:
-1) The VxLAN UDP port needs to be configured via the port-desc of
-   SET_PROFILE_CONFIG_v1 cmd.
-   This patch re-factors the be_set_profile_config() code (used so far
-   only for setting VF QoS) to be used to set any type of descriptor.
-2) The MANAGE_IFACE_FILTERS cmds is needed to convert a normal interface
-   into a tunnel interface. This allows for RSS to work even on the inner
-   TCP/UDP headers of VxLAN traffic.
+This patch mainly implements the add/del_vxlan_port() methods by invoking
+the needed FW cmds for supporting VxLAN offloads for Skyhawk-R.
 
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c |  135 ++++++++++++++++++++-------
- drivers/net/ethernet/emulex/benet/be_cmds.h |   69 ++++++++++----
- drivers/net/ethernet/emulex/benet/be_main.c |    8 +-
- 3 files changed, 154 insertions(+), 58 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h      |    7 +-
+ drivers/net/ethernet/emulex/benet/be_hw.h   |    3 +-
+ drivers/net/ethernet/emulex/benet/be_main.c |  122 +++++++++++++++++++++++++--
+ 3 files changed, 123 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index cf5afe7..d1ec15a 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -3503,14 +3503,11 @@ err:
- 	return status;
- }
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index a587c8a..8ccaa25 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -296,6 +296,7 @@ struct be_rx_compl_info {
+ 	u8 qnq;
+ 	u8 pkt_type;
+ 	u8 ip_frag;
++	u8 tunneled;
+ };
  
--/* Currently only Lancer uses this command and it supports version 0 only
-- * Uses sync mcc
-- */
--int be_cmd_set_profile_config(struct be_adapter *adapter, u32 bps,
--			      u8 domain)
-+int be_cmd_set_profile_config(struct be_adapter *adapter, void *desc,
-+			      int size, u8 version, u8 domain)
- {
--	struct be_mcc_wrb *wrb;
- 	struct be_cmd_req_set_profile_config *req;
-+	struct be_mcc_wrb *wrb;
- 	int status;
+ struct be_rx_obj {
+@@ -371,10 +372,11 @@ enum vf_state {
+ #define BE_FLAGS_WORKER_SCHEDULED		(1 << 3)
+ #define BE_FLAGS_VLAN_PROMISC			(1 << 4)
+ #define BE_FLAGS_NAPI_ENABLED			(1 << 9)
+-#define BE_UC_PMAC_COUNT		30
+-#define BE_VF_UC_PMAC_COUNT		2
+ #define BE_FLAGS_QNQ_ASYNC_EVT_RCVD		(1 << 11)
++#define BE_FLAGS_VXLAN_OFFLOADS			(1 << 12)
  
- 	spin_lock_bh(&adapter->mcc_lock);
-@@ -3522,44 +3519,116 @@ int be_cmd_set_profile_config(struct be_adapter *adapter, u32 bps,
- 	}
++#define BE_UC_PMAC_COUNT			30
++#define BE_VF_UC_PMAC_COUNT			2
+ /* Ethtool set_dump flags */
+ #define LANCER_INITIATE_FW_DUMP			0x1
  
- 	req = embedded_payload(wrb);
--
- 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
- 			       OPCODE_COMMON_SET_PROFILE_CONFIG, sizeof(*req),
- 			       wrb, NULL);
-+	req->hdr.version = version;
- 	req->hdr.domain = domain;
- 	req->desc_count = cpu_to_le32(1);
--	req->nic_desc.hdr.desc_type = NIC_RESOURCE_DESC_TYPE_V0;
--	req->nic_desc.hdr.desc_len = RESOURCE_DESC_SIZE_V0;
--	req->nic_desc.flags = (1 << QUN) | (1 << IMM) | (1 << NOSV);
--	req->nic_desc.pf_num = adapter->pf_number;
--	req->nic_desc.vf_num = domain;
--
--	/* Mark fields invalid */
--	req->nic_desc.unicast_mac_count = 0xFFFF;
--	req->nic_desc.mcc_count = 0xFFFF;
--	req->nic_desc.vlan_count = 0xFFFF;
--	req->nic_desc.mcast_mac_count = 0xFFFF;
--	req->nic_desc.txq_count = 0xFFFF;
--	req->nic_desc.rq_count = 0xFFFF;
--	req->nic_desc.rssq_count = 0xFFFF;
--	req->nic_desc.lro_count = 0xFFFF;
--	req->nic_desc.cq_count = 0xFFFF;
--	req->nic_desc.toe_conn_count = 0xFFFF;
--	req->nic_desc.eq_count = 0xFFFF;
--	req->nic_desc.link_param = 0xFF;
--	req->nic_desc.bw_min = 0xFFFFFFFF;
--	req->nic_desc.acpi_params = 0xFF;
--	req->nic_desc.wol_param = 0x0F;
--
--	/* Change BW */
--	req->nic_desc.bw_min = cpu_to_le32(bps);
--	req->nic_desc.bw_max = cpu_to_le32(bps);
-+	memcpy(req->desc, desc, size);
-+
- 	status = be_mcc_notify_wait(adapter);
- err:
- 	spin_unlock_bh(&adapter->mcc_lock);
- 	return status;
- }
- 
-+/* Mark all fields invalid */
-+void be_reset_nic_desc(struct be_nic_res_desc *nic)
-+{
-+	memset(nic, 0, sizeof(*nic));
-+	nic->unicast_mac_count = 0xFFFF;
-+	nic->mcc_count = 0xFFFF;
-+	nic->vlan_count = 0xFFFF;
-+	nic->mcast_mac_count = 0xFFFF;
-+	nic->txq_count = 0xFFFF;
-+	nic->rq_count = 0xFFFF;
-+	nic->rssq_count = 0xFFFF;
-+	nic->lro_count = 0xFFFF;
-+	nic->cq_count = 0xFFFF;
-+	nic->toe_conn_count = 0xFFFF;
-+	nic->eq_count = 0xFFFF;
-+	nic->link_param = 0xFF;
-+	nic->acpi_params = 0xFF;
-+	nic->wol_param = 0x0F;
-+	nic->bw_min = 0xFFFFFFFF;
-+	nic->bw_max = 0xFFFFFFFF;
-+}
-+
-+int be_cmd_config_qos(struct be_adapter *adapter, u32 bps, u8 domain)
-+{
-+	if (lancer_chip(adapter)) {
-+		struct be_nic_res_desc nic_desc;
-+
-+		be_reset_nic_desc(&nic_desc);
-+		nic_desc.hdr.desc_type = NIC_RESOURCE_DESC_TYPE_V0;
-+		nic_desc.hdr.desc_len = RESOURCE_DESC_SIZE_V0;
-+		nic_desc.flags = (1 << QUN_SHIFT) | (1 << IMM_SHIFT) |
-+					(1 << NOSV_SHIFT);
-+		nic_desc.pf_num = adapter->pf_number;
-+		nic_desc.vf_num = domain;
-+		nic_desc.bw_max = cpu_to_le32(bps);
-+
-+		return be_cmd_set_profile_config(adapter, &nic_desc,
-+						 RESOURCE_DESC_SIZE_V0,
-+						 0, domain);
-+	} else {
-+		return be_cmd_set_qos(adapter, bps, domain);
-+	}
-+}
-+
-+int be_cmd_manage_iface(struct be_adapter *adapter, u32 iface, u8 op)
-+{
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_manage_iface_filters *req;
-+	int status;
-+
-+	if (iface == 0xFFFFFFFF)
-+		return -1;
-+
-+	spin_lock_bh(&adapter->mcc_lock);
-+
-+	wrb = wrb_from_mccq(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
-+	}
-+	req = embedded_payload(wrb);
-+
-+	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
-+			       OPCODE_COMMON_MANAGE_IFACE_FILTERS, sizeof(*req),
-+			       wrb, NULL);
-+	req->op = op;
-+	req->target_iface_id = cpu_to_le32(iface);
-+
-+	status = be_mcc_notify_wait(adapter);
-+err:
-+	spin_unlock_bh(&adapter->mcc_lock);
-+	return status;
-+}
-+
-+int be_cmd_set_vxlan_port(struct be_adapter *adapter, __be16 port)
-+{
-+	struct be_port_res_desc port_desc;
-+
-+	memset(&port_desc, 0, sizeof(port_desc));
-+	port_desc.hdr.desc_type = PORT_RESOURCE_DESC_TYPE_V1;
-+	port_desc.hdr.desc_len = RESOURCE_DESC_SIZE_V1;
-+	port_desc.flags = (1 << IMM_SHIFT) | (1 << NOSV_SHIFT);
-+	port_desc.link_num = adapter->hba_port_num;
-+	if (port) {
-+		port_desc.nv_flags = NV_TYPE_VXLAN | (1 << SOCVID_SHIFT) |
-+					(1 << RCVID_SHIFT);
-+		port_desc.nv_port = swab16(port);
-+	} else {
-+		port_desc.nv_flags = NV_TYPE_DISABLED;
-+		port_desc.nv_port = 0;
-+	}
-+
-+	return be_cmd_set_profile_config(adapter, &port_desc,
-+					 RESOURCE_DESC_SIZE_V1, 1, 0);
-+}
-+
- int be_cmd_get_if_id(struct be_adapter *adapter, struct be_vf_cfg *vf_cfg,
- 		     int vf_num)
- {
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index fda3e88..b60e4d5 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -222,6 +222,7 @@ struct be_mcc_mailbox {
- #define OPCODE_COMMON_GET_FN_PRIVILEGES			170
- #define OPCODE_COMMON_READ_OBJECT			171
- #define OPCODE_COMMON_WRITE_OBJECT			172
-+#define OPCODE_COMMON_MANAGE_IFACE_FILTERS		193
- #define OPCODE_COMMON_GET_IFACE_LIST			194
- #define OPCODE_COMMON_ENABLE_DISABLE_VF			196
- 
-@@ -1824,18 +1825,33 @@ struct be_cmd_req_set_ext_fat_caps {
- #define PORT_RESOURCE_DESC_TYPE_V1		0x55
- #define MAX_RESOURCE_DESC			264
- 
--/* QOS unit number */
--#define QUN					4
--/* Immediate */
--#define IMM					6
--/* No save */
--#define NOSV					7
-+#define IMM_SHIFT				6	/* Immediate */
-+#define NOSV_SHIFT				7	/* No save */
- 
- struct be_res_desc_hdr {
- 	u8 desc_type;
- 	u8 desc_len;
+@@ -494,6 +496,7 @@ struct be_adapter {
+ 	u32 sli_family;
+ 	u8 hba_port_num;
+ 	u16 pvid;
++	__be16 vxlan_port;
+ 	struct phy_info phy;
+ 	u8 wol_cap;
+ 	bool wol_en;
+diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
+index 28ac8dd..3bd1985 100644
+--- a/drivers/net/ethernet/emulex/benet/be_hw.h
++++ b/drivers/net/ethernet/emulex/benet/be_hw.h
+@@ -407,7 +407,8 @@ struct amap_eth_rx_compl_v1 {
+ 	u8 vntagp;		/* dword 2 */
+ 	u8 header_len[8];	/* dword 2 */
+ 	u8 header_split[2];	/* dword 2 */
+-	u8 rsvd1[13];		/* dword 2 */
++	u8 rsvd1[12];		/* dword 2 */
++	u8 tunneled;
+ 	u8 valid;		/* dword 2 */
+ 	u8 rsshash[32];		/* dword 3 */
  } __packed;
- 
-+struct be_port_res_desc {
-+	struct be_res_desc_hdr hdr;
-+	u8 rsvd0;
-+	u8 flags;
-+	u8 link_num;
-+	u8 mc_type;
-+	u16 rsvd1;
-+
-+#define NV_TYPE_MASK				0x3	/* bits 0-1 */
-+#define NV_TYPE_DISABLED			1
-+#define NV_TYPE_VXLAN				3
-+#define SOCVID_SHIFT				2	/* Strip outer vlan */
-+#define RCVID_SHIFT				4	/* Report vlan */
-+	u8 nv_flags;
-+	u8 rsvd2;
-+	__le16 nv_port;					/* vxlan/gre port */
-+	u32 rsvd3[19];
-+} __packed;
-+
- struct be_pcie_res_desc {
- 	struct be_res_desc_hdr hdr;
- 	u8 rsvd0;
-@@ -1856,6 +1872,8 @@ struct be_pcie_res_desc {
- struct be_nic_res_desc {
- 	struct be_res_desc_hdr hdr;
- 	u8 rsvd1;
-+
-+#define QUN_SHIFT				4 /* QoS is in absolute units */
- 	u8 flags;
- 	u8 vf_num;
- 	u8 rsvd2;
-@@ -1896,16 +1914,6 @@ enum mc_type {
- 	vNIC2 = 0x07
- };
- 
--struct be_port_res_desc {
--	struct be_res_desc_hdr hdr;
--	u8 rsvd0;
--	u8 flags;
--	u8 rsvd1;
--	u8 mc_type;
--	u16 rsvd2;
--	u32 rsvd3[20];
--} __packed;
--
- /* Is BE in a multi-channel mode */
- static inline bool be_is_mc(struct be_adapter *adapter)
- {
-@@ -1940,7 +1948,7 @@ struct be_cmd_req_set_profile_config {
- 	struct be_cmd_req_hdr hdr;
- 	u32 rsvd;
- 	u32 desc_count;
--	struct be_nic_res_desc nic_desc;
-+	u8 desc[RESOURCE_DESC_SIZE_V1];
- };
- 
- struct be_cmd_resp_set_profile_config {
-@@ -1999,6 +2007,26 @@ struct be_cmd_req_set_ll_link {
- 	u32 link_config; /* Bit 0: UP_DOWN, Bit 9: PLINK */
- };
- 
-+/************** Manage IFACE Filters *******************/
-+#define OP_CONVERT_NORMAL_TO_TUNNEL		0
-+#define OP_CONVERT_TUNNEL_TO_NORMAL		1
-+
-+struct be_cmd_req_manage_iface_filters {
-+	struct be_cmd_req_hdr hdr;
-+	u8  op;
-+	u8  rsvd0;
-+	u8  flags;
-+	u8  rsvd1;
-+	u32 tunnel_iface_id;
-+	u32 target_iface_id;
-+	u8  mac[6];
-+	u16 vlan_tag;
-+	u32 tenant_id;
-+	u32 filter_id;
-+	u32 cap_flags;
-+	u32 cap_control_flags;
-+} __packed;
-+
- int be_pci_fnum_get(struct be_adapter *adapter);
- int be_fw_wait_ready(struct be_adapter *adapter);
- int be_cmd_mac_addr_query(struct be_adapter *adapter, u8 *mac_addr,
-@@ -2073,7 +2101,7 @@ int be_cmd_get_seeprom_data(struct be_adapter *adapter,
- int be_cmd_set_loopback(struct be_adapter *adapter, u8 port_num,
- 			u8 loopback_type, u8 enable);
- int be_cmd_get_phy_info(struct be_adapter *adapter);
--int be_cmd_set_qos(struct be_adapter *adapter, u32 bps, u32 domain);
-+int be_cmd_config_qos(struct be_adapter *adapter, u32 bps, u8 domain);
- void be_detect_error(struct be_adapter *adapter);
- int be_cmd_get_die_temperature(struct be_adapter *adapter);
- int be_cmd_get_cntl_attributes(struct be_adapter *adapter);
-@@ -2114,7 +2142,8 @@ int be_cmd_get_func_config(struct be_adapter *adapter,
- 			   struct be_resources *res);
- int be_cmd_get_profile_config(struct be_adapter *adapter,
- 			      struct be_resources *res, u8 domain);
--int be_cmd_set_profile_config(struct be_adapter *adapter, u32 bps, u8 domain);
-+int be_cmd_set_profile_config(struct be_adapter *adapter, void *desc,
-+			      int size, u8 version, u8 domain);
- int be_cmd_get_active_profile(struct be_adapter *adapter, u16 *profile);
- int be_cmd_get_if_id(struct be_adapter *adapter, struct be_vf_cfg *vf_cfg,
- 		     int vf_num);
-@@ -2122,3 +2151,5 @@ int be_cmd_enable_vf(struct be_adapter *adapter, u8 domain);
- int be_cmd_intr_set(struct be_adapter *adapter, bool intr_enable);
- int be_cmd_set_logical_link_config(struct be_adapter *adapter,
- 					  int link_state, u8 domain);
-+int be_cmd_set_vxlan_port(struct be_adapter *adapter, __be16 port);
-+int be_cmd_manage_iface(struct be_adapter *adapter, u32 iface, u8 op);
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index a61f967..8790e54 100644
+index 8790e54..66f8bfe 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1346,11 +1346,7 @@ static int be_set_vf_tx_rate(struct net_device *netdev,
- 		return -EINVAL;
+@@ -23,6 +23,7 @@
+ #include <linux/aer.h>
+ #include <linux/if_bridge.h>
+ #include <net/busy_poll.h>
++#include <net/vxlan.h>
+ 
+ MODULE_VERSION(DRV_VER);
+ MODULE_DEVICE_TABLE(pci, be_dev_ids);
+@@ -718,10 +719,23 @@ static inline u16 be_get_tx_vlan_tag(struct be_adapter *adapter,
+ 	return vlan_tag;
+ }
+ 
++/* Used only for IP tunnel packets */
++static u16 skb_inner_ip_proto(struct sk_buff *skb)
++{
++	return (inner_ip_hdr(skb)->version == 4) ?
++		inner_ip_hdr(skb)->protocol : inner_ipv6_hdr(skb)->nexthdr;
++}
++
++static u16 skb_ip_proto(struct sk_buff *skb)
++{
++	return (ip_hdr(skb)->version == 4) ?
++		ip_hdr(skb)->protocol : ipv6_hdr(skb)->nexthdr;
++}
++
+ static void wrb_fill_hdr(struct be_adapter *adapter, struct be_eth_hdr_wrb *hdr,
+ 		struct sk_buff *skb, u32 wrb_cnt, u32 len, bool skip_hw_vlan)
+ {
+-	u16 vlan_tag;
++	u16 vlan_tag, proto;
+ 
+ 	memset(hdr, 0, sizeof(*hdr));
+ 
+@@ -734,9 +748,15 @@ static void wrb_fill_hdr(struct be_adapter *adapter, struct be_eth_hdr_wrb *hdr,
+ 		if (skb_is_gso_v6(skb) && !lancer_chip(adapter))
+ 			AMAP_SET_BITS(struct amap_eth_hdr_wrb, lso6, hdr, 1);
+ 	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-		if (is_tcp_pkt(skb))
++		if (skb->encapsulation) {
++			AMAP_SET_BITS(struct amap_eth_hdr_wrb, ipcs, hdr, 1);
++			proto = skb_inner_ip_proto(skb);
++		} else {
++			proto = skb_ip_proto(skb);
++		}
++		if (proto == IPPROTO_TCP)
+ 			AMAP_SET_BITS(struct amap_eth_hdr_wrb, tcpcs, hdr, 1);
+-		else if (is_udp_pkt(skb))
++		else if (proto == IPPROTO_UDP)
+ 			AMAP_SET_BITS(struct amap_eth_hdr_wrb, udpcs, hdr, 1);
  	}
  
--	if (lancer_chip(adapter))
--		status = be_cmd_set_profile_config(adapter, rate / 10, vf + 1);
--	else
--		status = be_cmd_set_qos(adapter, rate / 10, vf + 1);
--
-+	status = be_cmd_config_qos(adapter, rate / 10, vf + 1);
- 	if (status)
- 		dev_err(&adapter->pdev->dev,
- 				"tx rate %d on VF %d failed\n", rate, vf);
-@@ -3124,7 +3120,7 @@ static int be_vf_setup(struct be_adapter *adapter)
- 		 * Allow full available bandwidth
- 		 */
- 		if (BE3_chip(adapter) && !old_vfs)
--			be_cmd_set_qos(adapter, 1000, vf+1);
-+			be_cmd_config_qos(adapter, 1000, vf + 1);
+@@ -1467,9 +1487,10 @@ static void be_rx_stats_update(struct be_rx_obj *rxo,
+ static inline bool csum_passed(struct be_rx_compl_info *rxcp)
+ {
+ 	/* L4 checksum is not reliable for non TCP/UDP packets.
+-	 * Also ignore ipcksm for ipv6 pkts */
++	 * Also ignore ipcksm for ipv6 pkts
++	 */
+ 	return (rxcp->tcpf || rxcp->udpf) && rxcp->l4_csum &&
+-				(rxcp->ip_csum || rxcp->ipv6);
++		(rxcp->ip_csum || rxcp->ipv6) && !rxcp->err;
+ }
  
- 		status = be_cmd_link_status_query(adapter, &lnk_speed,
- 						  NULL, vf + 1);
+ static struct be_rx_page_info *get_rx_page_info(struct be_rx_obj *rxo)
+@@ -1612,6 +1633,8 @@ static void be_rx_compl_process(struct be_rx_obj *rxo, struct napi_struct *napi,
+ 	skb_record_rx_queue(skb, rxo - &adapter->rx_obj[0]);
+ 	if (netdev->features & NETIF_F_RXHASH)
+ 		skb_set_hash(skb, rxcp->rss_hash, PKT_HASH_TYPE_L3);
++
++	skb->encapsulation = rxcp->tunneled;
+ 	skb_mark_napi_id(skb, napi);
+ 
+ 	if (rxcp->vlanf)
+@@ -1668,6 +1691,8 @@ static void be_rx_compl_process_gro(struct be_rx_obj *rxo,
+ 	skb_record_rx_queue(skb, rxo - &adapter->rx_obj[0]);
+ 	if (adapter->netdev->features & NETIF_F_RXHASH)
+ 		skb_set_hash(skb, rxcp->rss_hash, PKT_HASH_TYPE_L3);
++
++	skb->encapsulation = rxcp->tunneled;
+ 	skb_mark_napi_id(skb, napi);
+ 
+ 	if (rxcp->vlanf)
+@@ -1704,6 +1729,8 @@ static void be_parse_rx_compl_v1(struct be_eth_rx_compl *compl,
+ 					       compl);
+ 	}
+ 	rxcp->port = AMAP_GET_BITS(struct amap_eth_rx_compl_v1, port, compl);
++	rxcp->tunneled =
++		AMAP_GET_BITS(struct amap_eth_rx_compl_v1, tunneled, compl);
+ }
+ 
+ static void be_parse_rx_compl_v0(struct be_eth_rx_compl *compl,
+@@ -2834,6 +2861,9 @@ static int be_open(struct net_device *netdev)
+ 
+ 	netif_tx_start_all_queues(netdev);
+ 	be_roce_dev_open(adapter);
++
++	if (skyhawk_chip(adapter))
++		vxlan_get_rx_port(netdev);
+ 	return 0;
+ err:
+ 	be_close(adapter->netdev);
+@@ -4120,6 +4150,78 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+ 				       BRIDGE_MODE_VEPA : BRIDGE_MODE_VEB);
+ }
+ 
++static void be_disable_vxlan_offloads(struct be_adapter *adapter)
++{
++	if (adapter->flags & BE_FLAGS_VXLAN_OFFLOADS)
++		be_cmd_manage_iface(adapter, adapter->if_handle,
++				    OP_CONVERT_TUNNEL_TO_NORMAL);
++
++	if (adapter->vxlan_port)
++		be_cmd_set_vxlan_port(adapter, 0);
++
++	adapter->flags &= ~BE_FLAGS_VXLAN_OFFLOADS;
++	adapter->vxlan_port = 0;
++}
++
++static void be_add_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
++			      __be16 port)
++{
++	struct be_adapter *adapter = netdev_priv(netdev);
++	struct device *dev = &adapter->pdev->dev;
++	int status;
++
++	if (lancer_chip(adapter) || BEx_chip(adapter))
++		return;
++
++	if (adapter->flags & BE_FLAGS_VXLAN_OFFLOADS) {
++		dev_warn(dev, "Cannot add UDP port %d for VxLAN offloads\n",
++			 be16_to_cpu(port));
++		dev_info(dev,
++			 "Only one UDP port supported for VxLAN offloads\n");
++		return;
++	}
++
++	status = be_cmd_manage_iface(adapter, adapter->if_handle,
++				     OP_CONVERT_NORMAL_TO_TUNNEL);
++	if (status) {
++		dev_warn(dev, "Failed to convert normal interface to tunnel\n");
++		goto err;
++	}
++
++	status = be_cmd_set_vxlan_port(adapter, port);
++	if (status) {
++		dev_warn(dev, "Failed to add VxLAN port\n");
++		goto err;
++	}
++	adapter->flags |= BE_FLAGS_VXLAN_OFFLOADS;
++	adapter->vxlan_port = port;
++
++	dev_info(dev, "Enabled VxLAN offloads for UDP port %d\n",
++		 be16_to_cpu(port));
++	return;
++err:
++	be_disable_vxlan_offloads(adapter);
++	return;
++}
++
++static void be_del_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
++			      __be16 port)
++{
++	struct be_adapter *adapter = netdev_priv(netdev);
++
++	if (lancer_chip(adapter) || BEx_chip(adapter))
++		return;
++
++	if (adapter->vxlan_port != port)
++		return;
++
++	be_disable_vxlan_offloads(adapter);
++
++	dev_info(&adapter->pdev->dev,
++		 "Disabled VxLAN offloads for UDP port %d\n",
++		 be16_to_cpu(port));
++}
++
+ static const struct net_device_ops be_netdev_ops = {
+ 	.ndo_open		= be_open,
+ 	.ndo_stop		= be_close,
+@@ -4142,14 +4244,22 @@ static const struct net_device_ops be_netdev_ops = {
+ 	.ndo_bridge_setlink	= be_ndo_bridge_setlink,
+ 	.ndo_bridge_getlink	= be_ndo_bridge_getlink,
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+-	.ndo_busy_poll		= be_busy_poll
++	.ndo_busy_poll		= be_busy_poll,
+ #endif
++	.ndo_add_vxlan_port	= be_add_vxlan_port,
++	.ndo_del_vxlan_port	= be_del_vxlan_port,
+ };
+ 
+ static void be_netdev_init(struct net_device *netdev)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+ 
++	if (skyhawk_chip(adapter)) {
++		netdev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
++					   NETIF_F_TSO | NETIF_F_TSO6 |
++					   NETIF_F_GSO_UDP_TUNNEL;
++		netdev->hw_features |= NETIF_F_GSO_UDP_TUNNEL;
++	}
+ 	netdev->hw_features |= NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO6 |
+ 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_RXCSUM |
+ 		NETIF_F_HW_VLAN_CTAG_TX;
 -- 
 1.7.1
