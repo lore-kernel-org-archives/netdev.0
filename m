@@ -1,104 +1,108 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH net-next] net: optimize csum_replace2()
-Date: Mon, 24 Mar 2014 08:14:47 -0700
-Message-ID: <1395674087.12610.44.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140321.140730.1007660405690890605.davem@davemloft.net>
-	 <1395629496.9117.47.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6E778C@AcuExch.aculab.com>
-	 <1395667527.12610.32.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6E7939@AcuExch.aculab.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Mon, 24 Mar 2014 16:18:01 +0100
+Message-ID: <13743364.WZtdi2BZb3@wuerfel>
+References: <1395670496-17381-1-git-send-email-zhangfei.gao@linaro.org> <1395670496-17381-4-git-send-email-zhangfei.gao@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"hkchu@google.com" <hkchu@google.com>,
-	"mwdalton@google.com" <mwdalton@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:52114 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753639AbaCXPOz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 11:14:55 -0400
-Received: by mail-pd0-f172.google.com with SMTP id p10so5455193pdj.17
-        for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 08:14:55 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6E7939@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Zhangfei Gao <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1395670496-17381-4-git-send-email-zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-03-24 at 14:38 +0000, David Laight wrote:
-> But C only has 32bit maths, so all the 16bit values keep
-> need masking.
-> 
-> > But again if you prefer m ^ 0xffff, thats up to you ;)
-> 
-> On ppc I get much better code for (retyped):
-> static inline u32 csum_add(u32 c, u32 a)
-> {
-> 	c += a'
-> 	return (c + (c >> 16)) & 0xffff;
-> }
-> void csum_repl(u16 *c16, u16 o16, u16 n)
-> {
-> 	u32 c = *c16, o = o16;
-> 	*c16 = csum_add(csum_add(c ^ 0xffff, o ^ 0xffff), n);
-> }
-> 13 instructions and no branches against 21 instructions
-> and 2 branches.
-> The same is probably true of arm.
-> For amd64 (where the compiler can do a 16bit compare)
-> my version is one instruction longer.
-> I've not tried to guess at the actual cycle counts!
-> 
-> 	David
+On Monday 24 March 2014 22:14:56 Zhangfei Gao wrote:
 
-Code I provided uses no conditional branch on x86.
+> +
+> +static void hip04_tx_reclaim(struct net_device *ndev, bool force)
+> +{
+> +	struct hip04_priv *priv = netdev_priv(ndev);
+> +	unsigned tx_head = priv->tx_head;
+> +	unsigned tx_tail = priv->tx_tail;
+> +	struct tx_desc *desc = &priv->tx_desc[priv->tx_tail];
+> +
+> +	while (tx_tail != tx_head) {
+> +		if (desc->send_addr != 0) {
+> +			if (force)
+> +				desc->send_addr = 0;
+> +			else
+> +				break;
+> +		}
+> +		if (priv->tx_phys[tx_tail]) {
+> +			dma_unmap_single(&ndev->dev, priv->tx_phys[tx_tail],
+> +				priv->tx_skb[tx_tail]->len, DMA_TO_DEVICE);
+> +			priv->tx_phys[tx_tail] = 0;
+> +		}
+> +		dev_kfree_skb_irq(priv->tx_skb[tx_tail]);
+> +		priv->tx_skb[tx_tail] = NULL;
+> +		tx_tail = TX_NEXT(tx_tail);
+> +		priv->tx_count--;
+> +	}
+> +	priv->tx_tail = tx_tail;
+> +}
 
-It sounds you could provide helper to arm, if you really care of this
-path. I find surprising you did not comment on my prior mails on this
-subject and you suddenly seem to care now the patch is merged.
+I think you still need to find a solution to ensure that the tx reclaim is
+called eventually through a method other than start_xmit.
 
-We for example have the following helper in x86 :
+> +
+> +	priv->map = syscon_regmap_lookup_by_compatible("hisilicon,hip04-ppe");
+> +	if (IS_ERR(priv->map)) {
+> +		dev_warn(d, "no hisilicon,hip04-ppe\n");
+> +		ret = PTR_ERR(priv->map);
+> +		goto init_fail;
+> +	}
+> +
+> +	n = of_parse_phandle(node, "port-handle", 0);
+> +	if (n) {
+> +		ret = of_property_read_u32(n, "reg", &priv->port);
+> +		if (ret) {
+> +			dev_warn(d, "no reg info\n");
+> +			goto init_fail;
+> +		}
+> +
+> +		ret = of_property_read_u32(n, "channel", &priv->chan);
+> +		if (ret) {
+> +			dev_warn(d, "no channel info\n");
+> +			goto init_fail;
+> +		}
+> +	} else {
+> +		dev_warn(d, "no port-handle\n");
+> +		ret = -EINVAL;
+> +		goto init_fail;
+> +	}
 
-static inline unsigned add32_with_carry(unsigned a, unsigned b)
-{
-        asm("addl %2,%0\n\t"
-            "adcl $0,%0"
-            : "=r" (a)
-            : "0" (a), "r" (b));
-        return a;
-}
+Doing the lookup by "compatible" string doesn't really help you
+at solve the problem of single-instance ppe at all, because that
+function will only ever look at the first one. Use
+syscon_regmap_lookup_by_phandle instead and pass the phandle
+you get from the "port-handle" property.
 
-But these days, gcc seems to do a pretty good job without these helpers.
+Also, since you decided to treat the ppe as a dump regmap, I would
+recommend moving the 'reg' and 'channel' properties into arguments
+of the port-handle link, and retting rid of the child nodes of
+the ppe, like:
 
-Yes we could save 4 instructions, but I doubt it is worth the pain of
-adding arch helpers. I certainly wont do it.
++       ppe: ppe@28c0000 {
++               compatible = "hisilicon,hip04-ppe", "syscon";
++               reg = <0x28c0000 0x10000>;
++       };
++
++       fe: ethernet@28b0000 {
++               compatible = "hisilicon,hip04-mac";
++               reg = <0x28b0000 0x10000>;
++               interrupts = <0 413 4>;
++               phy-mode = "mii";
++               port-handle = <&ppe 0xf1 0>;
++       };
 
-0000000000000030 <inet_gro_complete>:
-      30:	55                   	push   %rbp
-      31:	48 63 c6             	movslq %esi,%rax
-      34:	48 03 87 d0 00 00 00 	add    0xd0(%rdi),%rax
-      3b:	48 89 e5             	mov    %rsp,%rbp
-      3e:	8b 57 68             	mov    0x68(%rdi),%edx
-      41:	44 0f b7 40 02       	movzwl 0x2(%rax),%r8d
-      46:	0f b7 48 0a          	movzwl 0xa(%rax),%ecx
-      4a:	66 29 f2             	sub    %si,%dx
-      4d:	66 c1 c2 08          	rol    $0x8,%dx
-      51:	44 0f b6 48 09       	movzbl 0x9(%rax),%r9d
-      56:	66 89 50 02          	mov    %dx,0x2(%rax)
-      5a:	41 f7 d0             	not    %r8d
-      5d:	f7 d1                	not    %ecx
-      5f:	66 44 01 c1          	add    %r8w,%cx
-      63:	41 0f 92 c0          	setb   %r8b
-      67:	45 0f b6 c0          	movzbl %r8b,%r8d
-      6b:	44 01 c1             	add    %r8d,%ecx
-      6e:	66 01 d1             	add    %dx,%cx
-      71:	41 0f 92 c0          	setb   %r8b
-      75:	45 0f b6 c0          	movzbl %r8b,%r8d
-      79:	44 01 c1             	add    %r8d,%ecx
-      7c:	f7 d1                	not    %ecx
-      7e:	66 89 48 0a          	mov    %cx,0xa(%rax)
-      82:	49 63 c1             	movslq %r9d,%rax
-      85:	48 8b 04 c5 00 00 00 	mov    0x0(,%rax,8),%rax
+
+	Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
