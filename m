@@ -1,108 +1,62 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Mon, 24 Mar 2014 16:18:01 +0100
-Message-ID: <13743364.WZtdi2BZb3@wuerfel>
-References: <1395670496-17381-1-git-send-email-zhangfei.gao@linaro.org> <1395670496-17381-4-git-send-email-zhangfei.gao@linaro.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] net: optimize csum_replace2()
+Date: Mon, 24 Mar 2014 15:52:20 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E7A13@AcuExch.aculab.com>
+References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140321.140730.1007660405690890605.davem@davemloft.net>
+	 <1395629496.9117.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D0F6E778C@AcuExch.aculab.com>
+	 <1395667527.12610.32.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D0F6E7939@AcuExch.aculab.com>
+ <1395674087.12610.44.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Zhangfei Gao <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1395670496-17381-4-git-send-email-zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"hkchu@google.com" <hkchu@google.com>,
+	"mwdalton@google.com" <mwdalton@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:35286 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750909AbaCXPw5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Mar 2014 11:52:57 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 19293-09 for <netdev@vger.kernel.org>;
+ Mon, 24 Mar 2014 15:52:54 +0000 (GMT)
+In-Reply-To: <1395674087.12610.44.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 24 March 2014 22:14:56 Zhangfei Gao wrote:
-
-> +
-> +static void hip04_tx_reclaim(struct net_device *ndev, bool force)
-> +{
-> +	struct hip04_priv *priv = netdev_priv(ndev);
-> +	unsigned tx_head = priv->tx_head;
-> +	unsigned tx_tail = priv->tx_tail;
-> +	struct tx_desc *desc = &priv->tx_desc[priv->tx_tail];
-> +
-> +	while (tx_tail != tx_head) {
-> +		if (desc->send_addr != 0) {
-> +			if (force)
-> +				desc->send_addr = 0;
-> +			else
-> +				break;
-> +		}
-> +		if (priv->tx_phys[tx_tail]) {
-> +			dma_unmap_single(&ndev->dev, priv->tx_phys[tx_tail],
-> +				priv->tx_skb[tx_tail]->len, DMA_TO_DEVICE);
-> +			priv->tx_phys[tx_tail] = 0;
-> +		}
-> +		dev_kfree_skb_irq(priv->tx_skb[tx_tail]);
-> +		priv->tx_skb[tx_tail] = NULL;
-> +		tx_tail = TX_NEXT(tx_tail);
-> +		priv->tx_count--;
-> +	}
-> +	priv->tx_tail = tx_tail;
-> +}
-
-I think you still need to find a solution to ensure that the tx reclaim is
-called eventually through a method other than start_xmit.
-
-> +
-> +	priv->map = syscon_regmap_lookup_by_compatible("hisilicon,hip04-ppe");
-> +	if (IS_ERR(priv->map)) {
-> +		dev_warn(d, "no hisilicon,hip04-ppe\n");
-> +		ret = PTR_ERR(priv->map);
-> +		goto init_fail;
-> +	}
-> +
-> +	n = of_parse_phandle(node, "port-handle", 0);
-> +	if (n) {
-> +		ret = of_property_read_u32(n, "reg", &priv->port);
-> +		if (ret) {
-> +			dev_warn(d, "no reg info\n");
-> +			goto init_fail;
-> +		}
-> +
-> +		ret = of_property_read_u32(n, "channel", &priv->chan);
-> +		if (ret) {
-> +			dev_warn(d, "no channel info\n");
-> +			goto init_fail;
-> +		}
-> +	} else {
-> +		dev_warn(d, "no port-handle\n");
-> +		ret = -EINVAL;
-> +		goto init_fail;
-> +	}
-
-Doing the lookup by "compatible" string doesn't really help you
-at solve the problem of single-instance ppe at all, because that
-function will only ever look at the first one. Use
-syscon_regmap_lookup_by_phandle instead and pass the phandle
-you get from the "port-handle" property.
-
-Also, since you decided to treat the ppe as a dump regmap, I would
-recommend moving the 'reg' and 'channel' properties into arguments
-of the port-handle link, and retting rid of the child nodes of
-the ppe, like:
-
-+       ppe: ppe@28c0000 {
-+               compatible = "hisilicon,hip04-ppe", "syscon";
-+               reg = <0x28c0000 0x10000>;
-+       };
-+
-+       fe: ethernet@28b0000 {
-+               compatible = "hisilicon,hip04-mac";
-+               reg = <0x28b0000 0x10000>;
-+               interrupts = <0 413 4>;
-+               phy-mode = "mii";
-+               port-handle = <&ppe 0xf1 0>;
-+       };
-
-
-	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+RnJvbTogRXJpYyBEdW1hemV0DQouLi4NCj4gQ29kZSBJIHByb3ZpZGVkIHVzZXMgbm8gY29uZGl0
+aW9uYWwgYnJhbmNoIG9uIHg4Ni4NCg0KQWxsIHRoZSB3b3JsZCBpc24ndCB4ODYuLi4NClRoZSBz
+cGFyYywgcHBjIGFuZCBhcm0gcGVvcGxlIG1pZ2h0IHdhbnQgdG8gY29uc2lkZXIgb3B0aW1pc2lu
+Zw0KdGhpcyBjb2RlIGZ1cnRoZXIuDQoNCj4gSXQgc291bmRzIHlvdSBjb3VsZCBwcm92aWRlIGhl
+bHBlciB0byBhcm0sIGlmIHlvdSByZWFsbHkgY2FyZSBvZiB0aGlzDQo+IHBhdGguIEkgZmluZCBz
+dXJwcmlzaW5nIHlvdSBkaWQgbm90IGNvbW1lbnQgb24gbXkgcHJpb3IgbWFpbHMgb24gdGhpcw0K
+PiBzdWJqZWN0IGFuZCB5b3Ugc3VkZGVubHkgc2VlbSB0byBjYXJlIG5vdyB0aGUgcGF0Y2ggaXMg
+bWVyZ2VkLg0KDQpJIGRvbid0IHJlbWVtYmVyIHNlZWluZyB0aGlzIHBhcnRpY3VsYXIgcGF0Y2gg
+YmVmb3JlIHRvZGF5Lg0KTGFzdCB3ZWVrIHlvdSB3ZXJlIHN0aWxsIHNvcnRpbmcgb3V0IHRoZSBz
+dGFsbCBjYXVzZWQgYnkNCnRoZSAxNmJpdCB3cml0ZSAtPiAzMmJpdCBsb2FkIGluIHRoZSBleGlz
+dGluZyBjb2RlLg0KDQpJbiBhbnkgY2FzZSB5b3VyIGNoYW5nZSBpcyBjbGVhcmx5IGEgc2lnbmlm
+aWNhbnQgaW1wcm92ZW1lbnQgb24NCndoYXQgd2FzIHRoZXJlIGJlZm9yZS4NCg0KPiBXZSBmb3Ig
+ZXhhbXBsZSBoYXZlIHRoZSBmb2xsb3dpbmcgaGVscGVyIGluIHg4NiA6DQo+IA0KPiBzdGF0aWMg
+aW5saW5lIHVuc2lnbmVkIGFkZDMyX3dpdGhfY2FycnkodW5zaWduZWQgYSwgdW5zaWduZWQgYikN
+Cj4gew0KPiAgICAgICAgIGFzbSgiYWRkbCAlMiwlMFxuXHQiDQo+ICAgICAgICAgICAgICJhZGNs
+ICQwLCUwIg0KPiAgICAgICAgICAgICA6ICI9ciIgKGEpDQo+ICAgICAgICAgICAgIDogIjAiIChh
+KSwgInIiIChiKSk7DQo+ICAgICAgICAgcmV0dXJuIGE7DQo+IH0NCj4gDQo+IEJ1dCB0aGVzZSBk
+YXlzLCBnY2Mgc2VlbXMgdG8gZG8gYSBwcmV0dHkgZ29vZCBqb2Igd2l0aG91dCB0aGVzZSBoZWxw
+ZXJzLg0KDQpJbmRlZWQuDQoNCldoaWxlIHg4NiBjYW4gZG8gMTZiaXQgbWF0aHMsIG1vc3QgY3B1
+cyBjYW4ndCAtIHNvIHRoZSBnZW5lcmF0ZWQNCmNvZGUgZm9yICdzaG9ydCcgKGFuZCAnY2hhcicp
+IG1hdGhzIG11c3QgbWFzayB3aXRoIDB4ZmZmZiAob3IgMHhmZikNCmV2ZXJ5IHRpbWUgYSB2YWx1
+ZSBpcyB3cml0dGVuIHRvIGEgbG9jYWwgKGllIHJlZ2lzdGVyKSB2YXJpYWJsZS4NCkluIGdlbmVy
+YWwgeW91IGdldCBiZXR0ZXIgY29kZSBieSB1c2luZyBsb2NhbCB2YXJpYWJsZXMgdGhhdA0KYXJl
+IHRoZSBzYW1lIHNpemUgYXMgbWFjaGluZSByZWdpc3RlcnMuDQpUaGlzIGFsc28gYXBwbGllcyB0
+byBmdW5jdGlvbiBhcmd1bWVudHMgYW5kIHJldHVybiB0eXBlcy4NCg0KSSdtIG5vdCBzdXJlIGhv
+dyBtdWNoIGRpZmZlcmVuY2UgaXQgd291bGQgbWFrZSBvdmVyYWxsLg0KSXQgcmF0aGVyIGRlcGVu
+ZHMgb24gd2hldGhlciBhbnl0aGluZyBhcHBlYXJzIGluIGEgdmVyeQ0KaG90IHBhdGguIE9UT0gg
+YSBsb3Qgb2YgbWFsbCBjaGFuZ2VzIGNhbiBhZGQgdG9nZXRoZXIuDQoNCglEYXZpZA0KDQo=
