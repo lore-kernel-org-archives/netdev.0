@@ -1,77 +1,143 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created with
- no group
-Date: Sun, 23 Mar 2014 22:09:33 -0700
-Message-ID: <CALnjE+r9kXBjpDdm07pbo6NSd37sgJzn9S8d7KZ188Zdmoc6Ng@mail.gmail.com>
-References: <1395055050-20874-1-git-send-email-mike.rapoport@ravellosystems.com>
-	<20140320.160229.857536522237793124.davem@davemloft.net>
-	<OFA209BE80.4610C3E5-ON87257CA1.00723468-87257CA1.0072346C@us.ibm.com>
-	<CAF1J0HPE9L1Z4xst9ap_Z8nQ9k-N-UAbW7yre0S-wvQF5+NznA@mail.gmail.com>
-	<OFD0C40ED9.015A05DD-ON87257CA2.003E72F3-87257CA2.003E7300@us.ibm.com>
-	<CAF1J0HOd9D1t4hxjMe7Muad71o_pgKQsn3jLxqR5ZFPpj2_Nrw@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] drivers/net: Use RCU_INIT_POINTER(x, NULL) in tun.c
+Date: Mon, 24 Mar 2014 07:09:39 +0200
+Message-ID: <20140324050939.GB8832@redhat.com>
+References: <1395599552-7486-1-git-send-email-monamagarwal123@gmail.com>
+ <20140323194113.GA13633@redhat.com>
+ <1395604457.9117.21.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140323213349.GA8832@redhat.com>
+ <20140323221256.GG4405@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog124.obsmtp.com ([74.125.149.151]:34357 "HELO
-	na3sys009aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750760AbaCXFJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 01:09:34 -0400
-Received: by mail-ve0-f178.google.com with SMTP id jw12so5105223veb.37
-        for <netdev@vger.kernel.org>; Sun, 23 Mar 2014 22:09:34 -0700 (PDT)
-In-Reply-To: <CAF1J0HOd9D1t4hxjMe7Muad71o_pgKQsn3jLxqR5ZFPpj2_Nrw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Monam Agarwal <monamagarwal123@gmail.com>, davem@davemloft.net,
+	jasowang@redhat.com, xemul@parallels.com, wuzhy@linux.vnet.ibm.com,
+	therbert@google.com, yamato@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140323221256.GG4405@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 23, 2014 at 2:27 AM, Mike Rapoport
-<mike.rapoport@ravellosystems.com> wrote:
-> On Fri, Mar 21, 2014 at 05:22:06AM -0600, David Stevens wrote:
->> -----Mike Rapoport <mike.rapoport@ravellosystems.com> wrote: -----
->>
->> >Checking skb->protocol will drop ARP requests. What about using
->> >ip_hdr(skb)->version?
->>
->> Mike, ip_hdr() here is the outer packet, so it's got to be a UDP packet--
->> we just don't know if it's UDP/IP or UDP/IPv6 when it is bound to INADDR_ANY,
->> since both can be delivered. It could use version in this case, because
->> both possible protocols have version in the same place, but I think it's
->> more correct to use the MAC layer protocol rather than relying on the
->> fact that IPv4 and IPv6 have "version" in the same spot. "It could be ARP"
->> would be the argument for NOT using the version in places where it really
->> could be ARP, even though that isn't the case here.
->>
->> vxlan_rcv() is only called for VXLAN encapsulated packets sent to the bound
->> UDP port.
->>
->> So, if "vs->family" holds the one we want to support, we can't just blindly
->> assume the received packet is IPv4, for example, and start accessing
->> IPv4 fields, because it could be an IPv6 packet. We have to check the
->> packet type too. And if it's not the one we bound to, drop it.
->>
->> That's what the code snippet I outlined is trying to do.
->>
->>                                          +-DLS
->>
->
-> I beleive I've groked what's going on in vxlan_udp_encap_recv and
-> vxlan_rcv. There are actually two unrelated problems:
->
-> 1) When the vxlan is configured with IPv4 group it crashes when it
-> starts to receive IPv6 IGMP packets encapsulated into IPv4 vxlan
-> packets. This happens because when ipv6_rcv handles the inner packet,
-> the skb->dst still refernces outer IPv4 info. The very old vxlan code
-> had skb_dst_drop call in vxlan_udp_encap_recv, which was removed when
-> vxlan was refactored to use iptunnel_pull_header (commit
-> 7ce04758279514ca1d8ebfe322508a4a430fe2c8: "vxlan: Restructure vxlan
-> receive"). The iptunnel_pull_header called skb_dst_drop until recent
-> commit 10ddceb22bab11dab10ba645c7df2e4a8e7a5db5 ("ip_tunnel:multicast
-> process cause panic due to skb->_skb_refdst NULL pointer").
-> The simplest fix, I think, would be to restore call to skb_dst_drop in
-> vxlan_udp_encap_recv.
->
-iptunnel_pull() is used in multiple tunnel implementation, therefore
-we need drop dst in that function.
-I send out fix : http://marc.info/?l=linux-netdev&m=139563761515707
+On Sun, Mar 23, 2014 at 03:12:56PM -0700, Paul E. McKenney wrote:
+> On Sun, Mar 23, 2014 at 11:33:49PM +0200, Michael S. Tsirkin wrote:
+> > On Sun, Mar 23, 2014 at 12:54:17PM -0700, Eric Dumazet wrote:
+> > > On Sun, 2014-03-23 at 21:41 +0200, Michael S. Tsirkin wrote:
+> > > 
+> > > > The rcu_assign_pointer() ensures that the initialization of a structure       
+> > > > is carried out before storing a pointer to that structure. 
+> > > > In the case of the NULL pointer, there is no structure to initialize,
+> > > > so we can safely drop smp_wmb in this case.
+> > > > 
+> > > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > > > 
+> > > > --
+> > > > 
+> > > > Lightly tested.
+> > > > v is evaluated twice here but that should be ok since this
+> > > > only happens when v is a constant, so evaluating it should
+> > > > have no side effects.
+> > > > Paul, what do you think?
+> > > > 
+> > > > diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
+> > > > index 72bf3a0..d33c9ec 100644
+> > > > --- a/include/linux/rcupdate.h
+> > > > +++ b/include/linux/rcupdate.h
+> > > > @@ -587,7 +587,8 @@ static inline void rcu_preempt_sleep_check(void)
+> > > >   */
+> > > >  #define rcu_assign_pointer(p, v) \
+> > > >  	do { \
+> > > > -		smp_wmb(); \
+> > > > +		if (!__builtin_constant_p(v) || (v)) \
+> > > > +			smp_wmb(); \
+> > > >  		ACCESS_ONCE(p) = RCU_INITIALIZER(v); \
+> > > >  	} while (0)
+> > > >  
+> > > 
+> > > Yeah, I suggest you read d322f45ceed525daa changelog ;)
+> > > 
+> > 
+> > Oh I see. It does not seem hard to silence that warning though.
+> > See below.
+> 
+> This would at the very least need to be tested under a wide variety
+> of compilers.
+
+Seems an incredibly strict requirement for something that just
+silences a warning.
+What exactly should I test?
+I intended to just verify this produces same code as before
+d322f45ceed525daa under a recent gcc.
+
+>  And we need to keep 
+> 
+> > Alternatively apply these patches everywhere though it does
+> > look like too much work for too little gain to me.
+> > 
+> > -->
+> > 
+> > rcu: optimize rcu_assign_pointer with NULL
+> > 
+> > The rcu_assign_pointer() dropped __builtin_constant_p check to
+> > avoid a compiler warning, but we can actually work around it without
+> > adding code.
+> > 
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > 
+> > ---
+> > 
+> > Untested, too late here, sorry.
+> > 
+> > 
+> > diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
+> > index 72bf3a0..9111d40 100644
+> > --- a/include/linux/rcupdate.h
+> > +++ b/include/linux/rcupdate.h
+> > @@ -585,9 +585,14 @@ static inline void rcu_preempt_sleep_check(void)
+> >   * please be careful when making changes to rcu_assign_pointer() and the
+> >   * other macros that it invokes.
+> >   */
+> > +/* The convoluted __builtin_constant_p logic is here to prevent
+> > + * gcc from emitting a warning when passed a pointer to a variable.
+> > + */
+> >  #define rcu_assign_pointer(p, v) \
+> >  	do { \
+> > -		smp_wmb(); \
+> > +		if (!__builtin_constant_p(v) || \
+> > +		    (__builtin_constant_p(v) ? (v) : NULL)) \
+> 
+> You lost me on this one.  If "v" is not a built-in constant, we want
+> the smp_wmb(), right?
+
+If "v" is not a built-in constant, then !__builtin_constant_p(v)
+is true so (__builtin_constant_p(v) ? (v) : NULL))
+is never evaluated.
+
+Basically if (
+
+	1.   !A ||
+	2.   A ? B : C
+
+If A  is false, only 1 is evaluated and the expression evaluates to true
+If A  is true, then 2 evaluates to B.
+C is never evaluated.
+
+Makes sense? Did I miss anything?
+
+But the effect as far as I can tell is that instead of converting v to
+integer type we convert an expression involving v, so even though it's
+able to figure out the value, gcc understands it's not a typo
+and does not warn.
+
+
+	
+
+> 							Thanx, Paul
+> 
+> > +			smp_wmb(); \
+> >  		ACCESS_ONCE(p) = RCU_INITIALIZER(v); \
+> >  	} while (0)
+> > 
+> > 
