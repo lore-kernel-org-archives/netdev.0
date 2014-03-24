@@ -1,98 +1,114 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net] xen-netback: disable rogue vif in kthread
- context
-Date: Mon, 24 Mar 2014 13:17:47 +0000
-Message-ID: <5330307B.8050304@citrix.com>
-References: <1395663214-14133-1-git-send-email-wei.liu2@citrix.com> <533029C7.1080006@citrix.com>
+From: Zhangfei Gao <zhangfei.gao@gmail.com>
+Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Mon, 24 Mar 2014 21:23:39 +0800
+Message-ID: <CAMj5Bkje6gwXENTV7yZGH8qxyMwxsdms4frxF_q38TG=sncshw@mail.gmail.com>
+References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
+	<201403201531.20416.arnd@arndb.de>
+	<CAMj5Bkgc2ChK48QmqEEMEmxdF6iGZxMX0kVUqGFd8jYhEWCvOA@mail.gmail.com>
+	<5755212.stImUCLDZi@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
-	<paul.durrant@citrix.com>, <edwin@etorok.net>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: David Vrabel <david.vrabel@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+	Zhangfei Gao <zhangfei.gao@linaro.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:16286 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752938AbaCXNRu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 09:17:50 -0400
-In-Reply-To: <533029C7.1080006@citrix.com>
+Received: from mail-ee0-f45.google.com ([74.125.83.45]:48741 "EHLO
+	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753120AbaCXNXk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 09:23:40 -0400
+In-Reply-To: <5755212.stImUCLDZi@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 24/03/14 12:49, David Vrabel wrote:
-> On 24/03/14 12:13, Wei Liu wrote:
->> --- a/drivers/net/xen-netback/interface.c
->> +++ b/drivers/net/xen-netback/interface.c
->> @@ -62,6 +62,13 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
->>   	struct xenvif *vif = container_of(napi, struct xenvif, napi);
->>   	int work_done;
+On Mon, Mar 24, 2014 at 6:02 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> On Monday 24 March 2014 16:17:42 Zhangfei Gao wrote:
+>> On Thu, Mar 20, 2014 at 10:31 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+>> >> >
+>> >> >> +     if (!ppebase) {
+>> >> >> +             struct device_node *n;
+>> >> >> +
+>> >> >> +             n = of_find_compatible_node(NULL, NULL, "hisilicon,hip04-ppebase");
+>> >> >> +             if (!n) {
+>> >> >> +                     ret = -EINVAL;
+>> >> >> +                     netdev_err(ndev, "not find hisilicon,ppebase\n");
+>> >> >> +                     goto init_fail;
+>> >> >> +             }
+>> >> >> +             ppebase = of_iomap(n, 0);
+>> >> >> +     }
+>> >> >
+>> >> > How about using syscon_regmap_lookup_by_phandle() here? That way, you can have
+>> >> > a more generic abstraction of the ppe, and stick the port and id in there as
+>> >> > well, e.g.
+>> >> >
+>> >> >         ppe-syscon = <&hip04ppe 1 4>; // ppe, port, id
 >>
->> +	/* This vif is rogue, we pretend we've used up all budget to
->> +	 * deschedule it from NAPI. But this interface will be turned
->> +	 * off in thread context later.
->> +	 */
->> +	if (unlikely(vif->disabled))
->> +		return budget;
+>> Even if using syscon_regmap_lookup_by_phandle, there still have static
+>> struct regmap, since three controllers
+>> share one regmap.
 >
-> Shouldn't you call __napi_complete() and return 0?  Returning budget
-> will make NAPI poll repeatedly (since you're pretending to do work).
-The comment in net_rx_action:
-
-		/* Drivers must not modify the NAPI state if they
-		 * consume the entire weight.  In such cases this code
-		 * still "owns" the NAPI instance and therefore can
-		 * move the instance around on the list at-will.
-		 */
-
-
-
+> The regmap is then owned by the syscon driver, while each controller takes
+> a reference to the regmap that it can store in its own private data
+> structure. However, as we discussed using a ppe driver sounds nicer than
+> regmap.
 >
->> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
->> index 438d0c0..94e7261 100644
->> --- a/drivers/net/xen-netback/netback.c
->> +++ b/drivers/net/xen-netback/netback.c
->> @@ -655,7 +655,7 @@ static void xenvif_tx_err(struct xenvif *vif,
->>   static void xenvif_fatal_tx_err(struct xenvif *vif)
->>   {
->>   	netdev_err(vif->dev, "fatal error; disabling device\n");
->> -	xenvif_carrier_off(vif);
->> +	vif->disabled = true;
->
-> Do you need to wake the thread here?
->
->> @@ -1549,6 +1549,16 @@ int xenvif_kthread(void *data)
->>   		wait_event_interruptible(vif->wq,
->>   					 rx_work_todo(vif) ||
->>   					 kthread_should_stop());
->
->                                           || vif->disabled ?
->
->> +
->> +		/* This frontend is found to be rogue, disable it in
->> +		 * kthread context. Currently this is only set when
->> +		 * netback finds out frontend sends malformed packet,
->> +		 * but we cannot disable the interface in softirq
->> +		 * context so we defer it here.
->> +		 */
->> +		if (unlikely(vif->disabled) && netif_carrier_ok(vif->dev))
->> +			xenvif_carrier_off(vif);
->> +
->>   		if (kthread_should_stop())
->>   			break;
+>> > It's probably a little simpler to avoid the sub-nodes and instead do
+>> >
+>> >>               ppe: ppe@28c0000 {
+>> >>                         compatible = "hisilicon,hip04-ppe";
+>> >>                         reg = <0x28c0000 0x10000>;
+>> >>                         #address-cells = <1>;
+>> >>                         #size-cells = <0>;
+>> >>                 };
+>> >>                 fe: ethernet@28b0000 {
+>> >>                         compatible = "hisilicon,hip04-mac";
+>> >>                         reg = <0x28b0000 0x10000>;
+>> >>                         interrupts = <0 413 4>;
+>> >>                         phy-mode = "mii";
+>> >>                         port-handle = <&ppe 31>;
+>> >>                 };
+>> >
+>> > In the code, I would create a simple ppe driver that exports
+>> > a few functions. you need. In the ethernet driver probe() function,
+>> > you should get a handle to the ppe using
+>> >
+>> >         /* look up "port-handle" property of the current device, find ppe and port */
+>> >         struct hip04_ppe *ppe = hip04_ppe_get(dev->of_node);
+>> >         if (IS_ERR(ppe))
+>> >                 return PTR_ERR(ptr); /* this handles -EPROBE_DEFER */
+>> >
+>> > and then in other code you can just do
+>> >
+>> >         hip04_ppe_set_foo(priv->ppe, foo_config);
+>> >
+>> > This is a somewhat more high-level abstraction that syscon, which
+>> > just gives you a 'struct regmap' structure for doing register-level
+>> > configuration like you have today.
+>> >
 >>
+>> Do you mean create one additional file like ppe.c with some exported
+>> function to remove the static ppebase?
 >
-> As an aside, since I happened to be looking at xenvif_poll(), disabling
-> local irqs to avoid problems with concurrent events looks unsafe as the
-> event may occur on another VCPU.
+> It doesn't have to be a separate file, as long as you register a
+> separate platform_driver for the ppe.
 >
->     __napi_complete(napi);
->     RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, more_to_do);
->     if (more_to_do)
->         napi_schedule(napi);
+>> Since the ppe is specifically bounded with ethernet, and does not used
+>> anywhere else,
+>> the exported function may not be used anywhere else.
+>> Is it make it more complicated since there are probe, remove etc.
+>>
+>> So I may still prefer using "static void __iomem *ppebase", as it is simpler.
 >
-> Would work I think.
+> The trouble is that the driver should not rely on being only there
+> for a single instance, that's not how we write drivers.
 >
-> David
+> I'm fine with either a syscon instance (which would be simpler) or a
+> separate ppe driver as part of the hip04-mac driver (which would be
+> a nicer abstraction).
 >
+
+Understand now.
+Will update with syscon, as it is simpler.
+Thanks for your patience.
