@@ -1,45 +1,62 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net] xen-netback: disable rogue vif in kthread context
-Date: Mon, 24 Mar 2014 12:33:18 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E784F@AcuExch.aculab.com>
-References: <1395663214-14133-1-git-send-email-wei.liu2@citrix.com>
- <1395663724.6294.18.camel@kazak.uk.xensource.com>
+From: Christian Riesch <christian.riesch-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+Subject: [PATCH v2 0/2] net: davinci_emac: Fix interrupt requests and error
+	handling
+Date: Mon, 24 Mar 2014 13:46:25 +0100
+Message-ID: <ffba6fa2-5a11-41b0-a310-12250e104405@mary.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"paul.durrant@citrix.com" <paul.durrant@citrix.com>,
-	"zoltan.kiss@citrix.com" <zoltan.kiss@citrix.com>,
-	"edwin@etorok.net" <edwin@etorok.net>
-To: 'Ian Campbell' <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:59529 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752622AbaCXMd4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Mar 2014 08:33:56 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 09013-06 for <netdev@vger.kernel.org>;
- Mon, 24 Mar 2014 12:33:53 +0000 (GMT)
-In-Reply-To: <1395663724.6294.18.camel@kazak.uk.xensource.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
+        <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
+        Florian Fainelli
+	<f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Jon Ringle <jon-7zJyie9iPacdnm+yROfE0A@public.gmane.org>,
+        David Miller
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
+List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
+List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
+Sender: <davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+Errors-To: davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogSWFuIENhbXBiZWxsDQouLi4NCj4gPiArCQlpZiAodW5saWtlbHkodmlmLT5kaXNhYmxl
-ZCkgJiYgbmV0aWZfY2Fycmllcl9vayh2aWYtPmRldikpDQo+IA0KPiBQZXJoYXBzIGNvbnNpZGVy
-IGV4dGVuZGluZyB0aGUgc2NvcGUgb2YgdGhlIHVubGlrZWx5IG92ZXIgdGhlIGVudGlyZQ0KPiBl
-eHByZXNzaW9uPyAobm90IHRoYXQgSSBleHBlY3QgaXQgd2lsbCBtYXR0ZXIgbXVjaCkNCg0KQSBs
-b3Qgb2YgdGhlc2UgJ3VubGlrZWx5JyBhcmUgYXMgbXVjaCBhIGhpbnQgdG8gdGhlIHBlcnNvbg0K
-cmVhZGluZyB0aGUgY29kZSB0aGFuIHRvIHRoZSBjb21waWxlciENCg0KSSBmb3VuZCAod2l0aCBh
-IG11Y2ggb2xkZXIgZ2NjKSB0aGF0IGFuIG92ZXJhbGwgJ3VubGlrZWx5JyBkaWRuJ3QNCmhhdmUg
-dGhlIHNhbWUgZWZmZWN0IGFzIG9uZSBvbiBlYWNoIHBhcnQuDQpJIGFsc28gZm91bmQgdGhhdCBn
-Y2MgaWdub3JlZCAndW5saWtlbHknIGlmIHRoZSAnZWxzZScgYnJhbmNoIGlzIGVtcHR5Lg0KDQon
-aWYgKHVubGlrZWx5KC4uLikpIGNvbnRpbnVlJyBnZW5lcmF0ZWQgYSBiYWNrd2FyZHMgKHByZWRp
-Y3RlZCB0cnVlKQ0KY29uZGl0aW9uYWwgYnJhbmNoLiBJIGFkZGVkIGFuIGFzbSgiY29tbWVudCAi
-ICMjIF9fTElORV9fKSBiZWZvcmUNCnRoZSBjb250aW51ZSB0byBmb3JjZSBhIGZvcndhcmRzIGNv
-bmRpdGlvbiBicmFuY2ggdG8gYW4gdW5jb25kaXRpb25hbA0KYnJhbmNoIHRvIHRoZSBsb29wIHRv
-cC4NCihZZXMgLSBJIGRpZCBjYXJlIGFib3V0IGV2ZXJ5IGNsb2NrIGluIHRoYXQgY29kZS4pDQoN
-CglEYXZpZA0KDQo=
+Hi,
+
+since commit 6892b41d9701283085b655c6086fb57a5d63fa47 (Linux 3.11) the
+davinci_emac driver is broken. After doing ifconfig down, ifconfig up,
+requesting the interrupts for the driver fails. The interface remains dead
+until the board is rebooted.
+
+The first patch in this patchset reverts commit
+6892b41d9701283085b655c6086fb57a5d63fa47 partially and makes the driver
+useable again.
+
+During the work on the first patch, a number of bugs in the error handling
+of the driver's ndo_open code were found. The second patch fixes these bugs.
+
+I believe the first patch meets the rules for stable kernels, I therefore added
+the stable tag to this patch. The second patch is just cleanup, the code
+that is fixed by this patch is only executed in case of an error.
+
+Best regards,
+Christian
+
+Changes for v2:
+- Added a longer commit message to the second patch, explaining the problems
+  more detailed.
+
+Christian Riesch (2):
+  net: davinci_emac: Replace devm_request_irq with request_irq
+  net: davinci_emac: Fix rollback of emac_dev_open()
+
+ drivers/net/ethernet/ti/davinci_cpdma.c |    4 +--
+ drivers/net/ethernet/ti/davinci_emac.c  |   53 ++++++++++++++++++++++++-------
+ 2 files changed, 44 insertions(+), 13 deletions(-)
+
+-- 
+1.7.9.5
