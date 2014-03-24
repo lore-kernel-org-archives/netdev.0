@@ -1,83 +1,93 @@
-From: Rob Herring <robherring2@gmail.com>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Mon, 24 Mar 2014 09:17:31 -0500
-Message-ID: <CAL_JsqLfH7Er-s5wjA5JGE4+-SGtTOvYTyQ=cYk+1ekHo39Crg@mail.gmail.com>
-References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
-	<1395132017-15928-4-git-send-email-zhangfei.gao@linaro.org>
-	<20140318104616.GT21483@n2100.arm.linux.org.uk>
-	<CAMj5BkiCXVZZPS-VyVxejCY0aiGD_HQjUdWd-FKD_ER_y_0wxQ@mail.gmail.com>
+From: Simon =?UTF-8?B?S8OlZ3N0csO2bQ==?= <simon.kagstrom@netinsight.net>
+Subject: [PATCH RFC] ixp4xx_eth: Allow setting the MDIO bus name in platform
+ data
+Date: Mon, 24 Mar 2014 15:17:29 +0100
+Message-ID: <20140324151729.1b8e3bb5@marrow.netinsight.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Zhangfei Gao <zhangfei.gao@linaro.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-	netdev <netdev@vger.kernel.org>
-To: Zhangfei Gao <zhangfei.gao@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f177.google.com ([209.85.220.177]:52635 "EHLO
-	mail-vc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752754AbaCXORc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 10:17:32 -0400
-In-Reply-To: <CAMj5BkiCXVZZPS-VyVxejCY0aiGD_HQjUdWd-FKD_ER_y_0wxQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: "linux-arm-kernel@lists.infradead.org"
+ <linux-arm-kernel@lists.infradead.org>, Arnd Bergmann <arnd@arndb.de>,
+ <arm@kernel.org>, Russell King - ARM Linux <linux@arm.linux.org.uk>,
+ khc@pm.waw.pl, <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 20, 2014 at 4:51 AM, Zhangfei Gao <zhangfei.gao@gmail.com> wrote:
-> Dear Russell
->
-> Thanks for sparing time and giving so many perfect suggestion, really helpful.
->
-> On Tue, Mar 18, 2014 at 6:46 PM, Russell King - ARM Linux
-> <linux@arm.linux.org.uk> wrote:
->> I was just browsing this patch when I noticed some of these issues - I
->> haven't done a full review of this driver, I'm just commenting on the
->> things I've spotted.
+Allows using e.g., a fixed MDIO bus with the ixp4xx_eth driver.
+Example:
 
-[snip]
+  static struct eth_plat_info board_plat_eth_internal[] = {
+	{
+		.mdio_bus_id	= "fixed-0",
+		.phy		= 31,
+		.rxq		= 4,
+		.txreadyq	= 21,
+		.hwaddr		= {0x02, 0x00, 0x00, 0x00, 0x00, 0x00},
+	}
+  };
 
->>> +             dma_map_single(&ndev->dev, skb->data,
->>> +                     RX_BUF_SIZE, DMA_FROM_DEVICE);
->>
->> This is incorrect.
->>
->> buf = buffer alloc()
->> /* CPU owns buffer and can read/write it, device does not */
->> dev_addr = dma_map_single(dev, buf, ..., DMA_FROM_DEVICE);
->> /* Device owns buffer and can write it, CPU does not access it */
->> dma_unmap_single(dev, dev_addr, ..., DMA_FROM_DEVICE);
->> /* CPU owns buffer again and can read/write it, device does not */
->>
->> Please turn on DMA API debugging in the kernel debug options and verify
->> whether your driver causes it to complain (it will.)
->
-> Yes, you are right.
-> After change to dma_map/unmap_single, however, still get warning like
-> "DMA-API: device driver failed to check map error", not sure whether
-> it can be ignored?
+  static struct platform_device board_eth_internal = {
+	.name			= "ixp4xx_eth",
+	.id			= IXP4XX_ETH_NPEC,
+	.dev.platform_data	= board_plat_eth_internal,
+  };
 
-If it could be ignored, there would be no warning. So yes you should
-check the error. I guess correct error handling would be throwing away
-the packet.
+Signed-off-by: Simon Kagstrom <simon.kagstrom@netinsight.net>
+---
+I'm unsure if this is the correct way of doing it for the legacy ixp4xx
+platform. It seems most boards which use the fixed PHYs are DT-based			
+PPC ones.
 
+ arch/arm/mach-ixp4xx/include/mach/platform.h |    1 +
+ drivers/net/ethernet/xscale/ixp4xx_eth.c     |    7 ++++++-
+ 2 files changed, 7 insertions(+), 1 deletion(-)
 
->>> +             dma_map_single(&ndev->dev, buf, RX_BUF_SIZE, DMA_TO_DEVICE);
->>> +             hip04_set_recv_desc(priv, virt_to_phys(buf));
->>
->> No need for virt_to_phys() here - dma_map_single() returns the device
->> address.
-> Got it.
-> Use virt_to_phys since find same result come out, it should be
-> different for iommu case.
->
-> In fact, the hardware can help to do the cache flushing, the function
-> still not be enabled now.
-> Then dma_map/unmap_single may be ignored.
-
-If you don't need cache flushing, you should setup different
-dma_map_ops for the device such as arm_coherent_dma_ops. The driver
-should always have the dma_map calls. See highbank and mvebu for
-examples.
-
-Rob
+diff --git a/arch/arm/mach-ixp4xx/include/mach/platform.h b/arch/arm/mach-ixp4xx/include/mach/platform.h
+index 75c4c65..c6114b9 100644
+--- a/arch/arm/mach-ixp4xx/include/mach/platform.h
++++ b/arch/arm/mach-ixp4xx/include/mach/platform.h
+@@ -97,6 +97,7 @@ struct ixp4xx_pata_data {
+ 
+ /* Information about built-in Ethernet MAC interfaces */
+ struct eth_plat_info {
++	const char *mdio_bus_id; /* MDIO bus name. NULL is the ixp4xx_eth bus */
+ 	u8 phy;		/* MII PHY ID, 0 - 31 */
+ 	u8 rxq;		/* configurable, currently 0 - 31 only */
+ 	u8 txreadyq;
+diff --git a/drivers/net/ethernet/xscale/ixp4xx_eth.c b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+index e540e51..31fe055 100644
+--- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
++++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+@@ -1410,6 +1410,7 @@ static int eth_init_one(struct platform_device *pdev)
+ 	struct net_device *dev;
+ 	struct eth_plat_info *plat = dev_get_platdata(&pdev->dev);
+ 	u32 regs_phys;
++	const char *mdio_bus_id;
+ 	char phy_id[MII_BUS_ID_SIZE + 3];
+ 	int err;
+ 
+@@ -1477,8 +1478,12 @@ static int eth_init_one(struct platform_device *pdev)
+ 	__raw_writel(DEFAULT_CORE_CNTRL, &port->regs->core_control);
+ 	udelay(50);
+ 
++	mdio_bus_id = mdio_bus->id;
++	if (plat->mdio_bus_id)
++		mdio_bus_id = plat->mdio_bus_id;
++
+ 	snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT,
+-		mdio_bus->id, plat->phy);
++		mdio_bus_id, plat->phy);
+ 	port->phydev = phy_connect(dev, phy_id, &ixp4xx_adjust_link,
+ 				   PHY_INTERFACE_MODE_MII);
+ 	if (IS_ERR(port->phydev)) {
+-- 
+1.7.9.6
