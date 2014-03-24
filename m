@@ -1,85 +1,37 @@
-From: David Herrmann <dh.herrmann@gmail.com>
-Subject: Re: [PATCH v4 0/4] Provide netdev naming-policy via sysfs
-Date: Mon, 24 Mar 2014 09:59:18 +0100
-Message-ID: <CANq1E4Rb=gqmo+9xGnuC9N2gWb2TqOskaMDhFU9wn28z+HZa4g@mail.gmail.com>
-References: <1395085358-1171-1-git-send-email-dh.herrmann@gmail.com>
+From: srinivas kandagatla <srinivas.kandagatla@st.com>
+Subject: Re: stmmac-socfpga breakage in arm-soc
+Date: Mon, 24 Mar 2014 09:15:39 +0000
+Message-ID: <532FF7BB.5020003@st.com>
+References: <201403191333.01095.arnd@arndb.de> <4337501.shzGE38xmF@wuerfel>
+ <5329A7A1.20606@gmail.com> <4171731.dt8xNWCpb2@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>, Tom Gundersen <teg@jklm.no>,
-	Johannes berg <johannes@sipsolutions.net>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	David Herrmann <dh.herrmann@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1395085358-1171-1-git-send-email-dh.herrmann@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Hans de Goede <hdegoede@redhat.com>,
+ arm@kernel.org, linux-arm-kernel@lists.infradead.org,
+ Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+ "David S.  Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@altera.com>
+To: Arnd Bergmann <arnd@arndb.de>, Dinh Nguyen <dinh.linux@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <4171731.dt8xNWCpb2@wuerfel>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave
+On 19/03/14 15:07, Arnd Bergmann wrote:
+> Ok, so the two of you basically moved in opposite directions where
+> Srinivas started out with the method you ended up with and vice versa.
+Yes thats correct, While adding dwmac-sunxi.c we decided to go with
+callback methods given its flexibility for calling at runtime(example:
+when link speed changes).
 
-Any comments on this?
 
-Thanks
-David
-
-On Mon, Mar 17, 2014 at 8:42 PM, David Herrmann <dh.herrmann@gmail.com> wrote:
-> Hi
->
-> This is v4 of the netdev naming-policy series. You can find v1 here:
->   http://thread.gmane.org/gmane.linux.kernel/1657015
-> Changes since v1:
->   - fix mac80211 core to set NET_NAME_ENUM for wlan%d kernel-provided names
->   - acked-by udev developers
->   - avoid padding after name_assign_type in "struct net_device" (David Laight)
->   - move API constants to uapi header (Ben Hutchings)
->
->
-> This series implements a new sysfs attribute for netdevs called
-> "name_assign_type". It provides an integer that describes where an interface
-> name comes from. See Patch #1 for a description of this attribute. It is
-> modelled after the existing "addr_assign_type" attribute.
->
-> The main use-case is to allow udev to skip applying reliable ifnames to virtual
-> devices. For instance, if wifi-P2P devices are created, wpas already provides a
-> suitable naming-policy and udev shouldn't touch these devices. Same is true for
-> other virtual devices.
-> The idea is that if a device-name was provided by user-space, we should always
-> prefer fixing this naming-policy instead of making udev rename the device. For
-> kernel provided names that's hardly possible, though. Providing the
-> naming-policy source via sysfs is thus a simple way to see whether renames are
-> needed.
->
-> Additionally, this field allows to detect whether a netdev has been manually
-> renamed, which is quite useful for debugging and during crash-recovery.
-> Furthermore, it fixes real udev bugs if a netdev is already renamed in the
-> initrd and udev only runs in the real root. Detecting renames avoids overwriting
-> custom user provided names.
->
-> Thanks
-> David
->
-> David Herrmann (4):
->   net: add name_assign_type netdev attribute
->   mac80211: set NET_NAME_USER for user-space created ifs
->   ath6kl: set NET_NAME_USER for P2P ifs
->   brcmfmac: set NET_NAME_USER for P2P ifs
->
->  drivers/net/wireless/ath/ath6kl/cfg80211.c    | 5 ++++-
->  drivers/net/wireless/ath/ath6kl/cfg80211.h    | 1 +
->  drivers/net/wireless/ath/ath6kl/core.c        | 4 ++--
->  drivers/net/wireless/brcm80211/brcmfmac/p2p.c | 1 +
->  include/linux/netdevice.h                     | 2 ++
->  include/uapi/linux/netdevice.h                | 4 ++++
->  net/core/dev.c                                | 7 +++++++
->  net/core/net-sysfs.c                          | 2 ++
->  net/core/rtnetlink.c                          | 2 ++
->  net/mac80211/cfg.c                            | 2 +-
->  net/mac80211/ieee80211_i.h                    | 1 +
->  net/mac80211/iface.c                          | 2 ++
->  net/mac80211/main.c                           | 2 +-
->  13 files changed, 30 insertions(+), 5 deletions(-)
->
-> --
-> 1.9.0
->
+--srini
