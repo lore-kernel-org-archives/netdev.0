@@ -1,37 +1,30 @@
-From: srinivas kandagatla <srinivas.kandagatla@st.com>
-Subject: Re: stmmac-socfpga breakage in arm-soc
-Date: Mon, 24 Mar 2014 09:15:39 +0000
-Message-ID: <532FF7BB.5020003@st.com>
-References: <201403191333.01095.arnd@arndb.de> <4337501.shzGE38xmF@wuerfel>
- <5329A7A1.20606@gmail.com> <4171731.dt8xNWCpb2@wuerfel>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH net-next] Revert "xen-netback: Aggregate TX unmap
+ operations"
+Date: Mon, 24 Mar 2014 09:26:47 +0000
+Message-ID: <1395653207.19365.1.camel@kazak.uk.xensource.com>
+References: <1395422584-16213-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, Hans de Goede <hdegoede@redhat.com>,
- arm@kernel.org, linux-arm-kernel@lists.infradead.org,
- Giuseppe Cavallaro <peppe.cavallaro@st.com>,
- "David S.  Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@altera.com>
-To: Arnd Bergmann <arnd@arndb.de>, Dinh Nguyen <dinh.linux@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <4171731.dt8xNWCpb2@wuerfel>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395422584-16213-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 19/03/14 15:07, Arnd Bergmann wrote:
-> Ok, so the two of you basically moved in opposite directions where
-> Srinivas started out with the method you ended up with and vice versa.
-Yes thats correct, While adding dwmac-sunxi.c we decided to go with
-callback methods given its flexibility for calling at runtime(example:
-when link speed changes).
+On Fri, 2014-03-21 at 17:23 +0000, Zoltan Kiss wrote:
+> This reverts commit e9275f5e2df1b2098a8cc405d87b88b9affd73e6. This commit is the
+> last in the netback grant mapping series, and it tries to do more aggressive
+> aggreagtion of unmap operations. However practical use showed almost no
+> positive effect, whilst with certain frontends it causes significant performance
+> regression.
 
+That's a shame -- do you have any insight into why?
 
---srini
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+
+Acked-by: Ian Campbell <ian.campbell@citrix.com>
