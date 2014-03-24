@@ -1,64 +1,86 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] csum experts, csum_replace2() is too expensive
-Date: Sun, 23 Mar 2014 19:50:10 -0700
-Message-ID: <1395629410.9117.46.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: [PATCH net-next] net: optimize csum_replace2()
+Date: Sun, 23 Mar 2014 19:51:36 -0700
+Message-ID: <1395629496.9117.47.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <87a9cknwk4.fsf@tassilo.jf.intel.com>
-	 <1395406250.9114.142.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140321.145229.1026128975151125729.davem@davemloft.net>
+	 <20140321.140730.1007660405690890605.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, hpa@zytor.com, kaber@trash.net,
-	herbert@gondor.apana.org.au, hkchu@google.com, mwdalton@google.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, hkchu@google.com, mwdalton@google.com,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140321.145229.1026128975151125729.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:34846 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751011AbaCXCvj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2014 22:51:39 -0400
+Received: by mail-ie0-f179.google.com with SMTP id lx4so4965876iec.10
+        for <netdev@vger.kernel.org>; Sun, 23 Mar 2014 19:51:39 -0700 (PDT)
+In-Reply-To: <20140321.140730.1007660405690890605.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-03-21 at 14:52 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 21 Mar 2014 05:50:50 -0700
-> 
-> > It looks like a barrier() would be more appropriate.
-> 
-> barrier() == __asm__ __volatile__(:::"memory")
+From: Eric Dumazet <edumazet@google.com>
 
-Indeed, but now you mention it, ip_fast_csum() do not uses volatile
-keyword on x86_64, and has no "m" constraint either.
+When changing one 16bit value by another in IP header, we can adjust the
+IP checksum by doing a simple operation described in RFC 1624,
+as reminded by David.
 
-This means that for the following hypothetical networking code :
+csum_partial() is a complex function on x86_64, not really suited
+for small number of checksummed bytes.
 
-void foobar(struct iphdr *iph, __be16 newlen, __be16 newid)
-{
-        iph->tot_len = newlen;
-        iph->check = 0;
-        iph->check = ip_fast_csum((u8 *)iph, 5);
+I spotted csum_partial() being in the top 20 most consuming
+functions (more than 1 %) in a GRO workload, which was rather
+unexpected.
 
-        pr_err("%p\n", iph);
+The caller was inet_gro_complete() doing a csum_replace2() when
+building the new IP header for the GRO packet.
 
-        iph->id = newid;
-        iph->check = 0;
-        iph->check = ip_fast_csum((u8 *)iph, 5);
-}
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/checksum.h |   23 +++++++++++++++++++++--
+ 1 file changed, 21 insertions(+), 2 deletions(-)
 
-
-ip_fast_csum() is done _once_ only.
-
-Following patch seems needed. Thats one another call for x86 code factorization ...
-
-diff --git a/arch/x86/include/asm/checksum_64.h b/arch/x86/include/asm/checksum_64.h
-index e6fd8a026c7b..c67778544880 100644
---- a/arch/x86/include/asm/checksum_64.h
-+++ b/arch/x86/include/asm/checksum_64.h
-@@ -46,7 +46,7 @@ static inline __sum16 ip_fast_csum(const void *iph, unsigned int ihl)
- {
- 	unsigned int sum;
+diff --git a/include/net/checksum.h b/include/net/checksum.h
+index 37a0e24adbe7..a28f4e0f6251 100644
+--- a/include/net/checksum.h
++++ b/include/net/checksum.h
+@@ -69,6 +69,19 @@ static inline __wsum csum_sub(__wsum csum, __wsum addend)
+ 	return csum_add(csum, ~addend);
+ }
  
--	asm("  movl (%1), %0\n"
-+	asm volatile("  movl (%1), %0\n"
- 	    "  subl $4, %2\n"
- 	    "  jbe 2f\n"
- 	    "  addl 4(%1), %0\n"
++static inline __sum16 csum16_add(__sum16 csum, __be16 addend)
++{
++	u16 res = (__force u16)csum;
++
++	res += (__force u16)addend;
++	return (__force __sum16)(res + (res < (__force u16)addend));
++}
++
++static inline __sum16 csum16_sub(__sum16 csum, __be16 addend)
++{
++	return csum16_add(csum, ~addend);
++}
++
+ static inline __wsum
+ csum_block_add(__wsum csum, __wsum csum2, int offset)
+ {
+@@ -112,9 +125,15 @@ static inline void csum_replace4(__sum16 *sum, __be32 from, __be32 to)
+ 	*sum = csum_fold(csum_partial(diff, sizeof(diff), ~csum_unfold(*sum)));
+ }
+ 
+-static inline void csum_replace2(__sum16 *sum, __be16 from, __be16 to)
++/* Implements RFC 1624 (Incremental Internet Checksum)
++ * 3. Discussion states :
++ *     HC' = ~(~HC + ~m + m')
++ *  m : old value of a 16bit field
++ *  m' : new value of a 16bit field
++ */
++static inline void csum_replace2(__sum16 *sum, __be16 old, __be16 new)
+ {
+-	csum_replace4(sum, (__force __be32)from, (__force __be32)to);
++	*sum = ~csum16_add(csum16_sub(~(*sum), old), new);
+ }
+ 
+ struct sk_buff;
