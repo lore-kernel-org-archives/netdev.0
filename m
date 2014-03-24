@@ -1,53 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6] vxlan: fix nonfunctional neigh_reduce()
-Date: Mon, 24 Mar 2014 15:35:42 -0400 (EDT)
-Message-ID: <20140324.153542.98521112335550166.davem@davemloft.net>
-References: <201403241439.s2OEdwi0002321@xl.dls>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net] ip_tunnel: Fix dst ref-count.
+Date: Mon, 24 Mar 2014 12:36:41 -0700
+Message-ID: <CALnjE+rzAs4Wr=pmozyPAr=T3QHE=-8qRBf-U_fHMDqeWAE+GA@mail.gmail.com>
+References: <1395637596-28064-1-git-send-email-pshelar@nicira.com>
+	<20140324.152412.1501867662024898167.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, amwang@redhat.com, netdev@vger.kernel.org
-To: dlstevens@us.ibm.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>, lucien xin <lucien.xin@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43623 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754177AbaCXTfp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 15:35:45 -0400
-In-Reply-To: <201403241439.s2OEdwi0002321@xl.dls>
+Received: from na3sys009aog108.obsmtp.com ([74.125.149.199]:45524 "HELO
+	na3sys009aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754319AbaCXTgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 15:36:42 -0400
+Received: by mail-ve0-f174.google.com with SMTP id oz11so6110126veb.19
+        for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 12:36:41 -0700 (PDT)
+In-Reply-To: <20140324.152412.1501867662024898167.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David L Stevens <dlstevens@us.ibm.com>
-Date: Mon, 24 Mar 2014 10:39:58 -0400
+On Mon, Mar 24, 2014 at 12:24 PM, David Miller <davem@davemloft.net> wrote:
+> From: Pravin <pshelar@nicira.com>
+> Date: Sun, 23 Mar 2014 22:06:36 -0700
+>
+>> Commit 10ddceb22ba (ip_tunnel:multicast process cause panic due
+>> to skb->_skb_refdst NULL pointer) removed dst-drop call from
+>> ip-tunnel-recv.
+>>
+>> Following commit reintroduce dst-drop and fix the original bug by
+>> checking loopback packet before releasing dst.
+>> Original bug: https://bugzilla.kernel.org/show_bug.cgi?id=70681
+>>
+>> CC: Xin Long <lucien.xin@gmail.com>
+>> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+>
+> I don't understand why only the GRE tunnel implementation needs the
+> check, whereas ipip and sit seem to have the same code associated
+> paths.
+>
+Multicast support is for GRE. The code is always been protected by
+CONFIG_NET_IPGRE_BROADCAST. So I do not understand how this applies to
+other tunnel protocol. Can you point me to the code you are worried
+about?
 
-> 
-> 	The VXLAN neigh_reduce() code is completely non-functional since
-> check-in. Specific errors:
-> 
-> 1) The original code drops all packets with a multicast destination address,
-> 	even though neighbor solicitations are sent to the solicited-node
-> 	address, a multicast address. The code after this check was never run.
-> 2) The neighbor table lookup used the IPv6 header destination, which is the
-> 	solicited node address, rather than the target address from the
-> 	neighbor solicitation. So neighbor lookups would always fail if it
-> 	got this far. Also for L3MISSes.
-> 3) The code calls ndisc_send_na(), which does a send on the tunnel device.
-> 	The context for neigh_reduce() is the transmit path, vxlan_xmit(),
-> 	where the host or a bridge-attached neighbor is trying to transmit
-> 	a neighbor solicitation. To respond to it, the tunnel endpoint needs
-> 	to do a *receive* of the appropriate neighbor advertisement. Doing a
-> 	send, would only try to send the advertisement, encapsulated, to the
-> 	remote destinations in the fdb -- hosts that definitely did not do the
-> 	corresponding solicitation.
-> 4) The code uses the tunnel endpoint IPv6 forwarding flag to determine the
-> 	isrouter flag in the advertisement. This has nothing to do with whether
-> 	or not the target is a router, and generally won't be set since the
-> 	tunnel endpoint is bridging, not routing, traffic.
-> 
-> 	The patch below creates a proxy neighbor advertisement to respond to
-> neighbor solicitions as intended, providing proper IPv6 support for neighbor
-> reduction.
-> 
-> Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
-
-Applied and queued up for -stable, thanks David.
+> Plus I think this is incredibly sloppy, making the implementations
+> have to attend to this detail.  Why the heck do we have a common
+> piece of infrastructure if we end up with all of this duplicated
+> code anyways?
+>
+> Put this check somewhere common, so that we are guaranteed that the
+> issue is really fixed for all tunnel types, no matter what.
+>
+> Thanks.
