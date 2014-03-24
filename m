@@ -1,74 +1,41 @@
 From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] net: optimize csum_replace2()
-Date: Mon, 24 Mar 2014 10:22:53 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E778C@AcuExch.aculab.com>
+Subject: RE: [RFC] csum experts, csum_replace2() is too expensive
+Date: Mon, 24 Mar 2014 10:30:19 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E77A4@AcuExch.aculab.com>
 References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140321.140730.1007660405690890605.davem@davemloft.net>
- <1395629496.9117.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <87a9cknwk4.fsf@tassilo.jf.intel.com>
+	 <1395406250.9114.142.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140321.145229.1026128975151125729.davem@davemloft.net>
+ <1395629410.9117.46.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+Cc: "andi@firstfloor.org" <andi@firstfloor.org>,
+	"hpa@zytor.com" <hpa@zytor.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
 	"hkchu@google.com" <hkchu@google.com>,
 	"mwdalton@google.com" <mwdalton@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
 	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:55040 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750998AbaCXKXa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Mar 2014 06:23:30 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 02631-08 for <netdev@vger.kernel.org>;
- Mon, 24 Mar 2014 10:23:28 +0000 (GMT)
-In-Reply-To: <1395629496.9117.47.camel@edumazet-glaptop2.roam.corp.google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395629410.9117.46.camel@edumazet-glaptop2.roam.corp.google.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRXJpYyBEdW1hemV0IDxlZHVtYXpldEBnb29nbGUuY29tPg0KPiANCj4gV2hlbiBjaGFu
-Z2luZyBvbmUgMTZiaXQgdmFsdWUgYnkgYW5vdGhlciBpbiBJUCBoZWFkZXIsIHdlIGNhbiBhZGp1
-c3QgdGhlDQo+IElQIGNoZWNrc3VtIGJ5IGRvaW5nIGEgc2ltcGxlIG9wZXJhdGlvbiBkZXNjcmli
-ZWQgaW4gUkZDIDE2MjQsDQo+IGFzIHJlbWluZGVkIGJ5IERhdmlkLg0KPiANCj4gY3N1bV9wYXJ0
-aWFsKCkgaXMgYSBjb21wbGV4IGZ1bmN0aW9uIG9uIHg4Nl82NCwgbm90IHJlYWxseSBzdWl0ZWQN
-Cj4gZm9yIHNtYWxsIG51bWJlciBvZiBjaGVja3N1bW1lZCBieXRlcy4NCj4gDQo+IEkgc3BvdHRl
-ZCBjc3VtX3BhcnRpYWwoKSBiZWluZyBpbiB0aGUgdG9wIDIwIG1vc3QgY29uc3VtaW5nDQo+IGZ1
-bmN0aW9ucyAobW9yZSB0aGFuIDEgJSkgaW4gYSBHUk8gd29ya2xvYWQsIHdoaWNoIHdhcyByYXRo
-ZXINCj4gdW5leHBlY3RlZC4NCj4gDQo+IFRoZSBjYWxsZXIgd2FzIGluZXRfZ3JvX2NvbXBsZXRl
-KCkgZG9pbmcgYSBjc3VtX3JlcGxhY2UyKCkgd2hlbg0KPiBidWlsZGluZyB0aGUgbmV3IElQIGhl
-YWRlciBmb3IgdGhlIEdSTyBwYWNrZXQuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBFcmljIER1bWF6
-ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQo+IC0tLQ0KPiAgaW5jbHVkZS9uZXQvY2hlY2tzdW0u
-aCB8ICAgMjMgKysrKysrKysrKysrKysrKysrKysrLS0NCj4gIDEgZmlsZSBjaGFuZ2VkLCAyMSBp
-bnNlcnRpb25zKCspLCAyIGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUv
-bmV0L2NoZWNrc3VtLmggYi9pbmNsdWRlL25ldC9jaGVja3N1bS5oDQo+IGluZGV4IDM3YTBlMjRh
-ZGJlNy4uYTI4ZjRlMGY2MjUxIDEwMDY0NA0KPiAtLS0gYS9pbmNsdWRlL25ldC9jaGVja3N1bS5o
-DQo+ICsrKyBiL2luY2x1ZGUvbmV0L2NoZWNrc3VtLmgNCj4gQEAgLTY5LDYgKzY5LDE5IEBAIHN0
-YXRpYyBpbmxpbmUgX193c3VtIGNzdW1fc3ViKF9fd3N1bSBjc3VtLCBfX3dzdW0gYWRkZW5kKQ0K
-PiAgCXJldHVybiBjc3VtX2FkZChjc3VtLCB+YWRkZW5kKTsNCj4gIH0NCj4gDQo+ICtzdGF0aWMg
-aW5saW5lIF9fc3VtMTYgY3N1bTE2X2FkZChfX3N1bTE2IGNzdW0sIF9fYmUxNiBhZGRlbmQpDQo+
-ICt7DQo+ICsJdTE2IHJlcyA9IChfX2ZvcmNlIHUxNiljc3VtOw0KDQpTaG91bGRuJ3QgdGhhdCBi
-ZSB1MzIgPw0KDQo+ICsJcmVzICs9IChfX2ZvcmNlIHUxNilhZGRlbmQ7DQo+ICsJcmV0dXJuIChf
-X2ZvcmNlIF9fc3VtMTYpKHJlcyArIChyZXMgPCAoX19mb3JjZSB1MTYpYWRkZW5kKSk7DQo+ICt9
-DQo+ICsNCj4gK3N0YXRpYyBpbmxpbmUgX19zdW0xNiBjc3VtMTZfc3ViKF9fc3VtMTYgY3N1bSwg
-X19iZTE2IGFkZGVuZCkNCj4gK3sNCj4gKwlyZXR1cm4gY3N1bTE2X2FkZChjc3VtLCB+YWRkZW5k
-KTsNCj4gK30NCj4gKw0KPiAgc3RhdGljIGlubGluZSBfX3dzdW0NCj4gIGNzdW1fYmxvY2tfYWRk
-KF9fd3N1bSBjc3VtLCBfX3dzdW0gY3N1bTIsIGludCBvZmZzZXQpDQo+ICB7DQo+IEBAIC0xMTIs
-OSArMTI1LDE1IEBAIHN0YXRpYyBpbmxpbmUgdm9pZCBjc3VtX3JlcGxhY2U0KF9fc3VtMTYgKnN1
-bSwgX19iZTMyIGZyb20sIF9fYmUzMiB0bykNCj4gIAkqc3VtID0gY3N1bV9mb2xkKGNzdW1fcGFy
-dGlhbChkaWZmLCBzaXplb2YoZGlmZiksIH5jc3VtX3VuZm9sZCgqc3VtKSkpOw0KPiAgfQ0KPiAN
-Cj4gLXN0YXRpYyBpbmxpbmUgdm9pZCBjc3VtX3JlcGxhY2UyKF9fc3VtMTYgKnN1bSwgX19iZTE2
-IGZyb20sIF9fYmUxNiB0bykNCj4gKy8qIEltcGxlbWVudHMgUkZDIDE2MjQgKEluY3JlbWVudGFs
-IEludGVybmV0IENoZWNrc3VtKQ0KPiArICogMy4gRGlzY3Vzc2lvbiBzdGF0ZXMgOg0KPiArICog
-ICAgIEhDJyA9IH4ofkhDICsgfm0gKyBtJykNCj4gKyAqICBtIDogb2xkIHZhbHVlIG9mIGEgMTZi
-aXQgZmllbGQNCj4gKyAqICBtJyA6IG5ldyB2YWx1ZSBvZiBhIDE2Yml0IGZpZWxkDQo+ICsgKi8N
-Cj4gK3N0YXRpYyBpbmxpbmUgdm9pZCBjc3VtX3JlcGxhY2UyKF9fc3VtMTYgKnN1bSwgX19iZTE2
-IG9sZCwgX19iZTE2IG5ldykNCj4gIHsNCj4gLQljc3VtX3JlcGxhY2U0KHN1bSwgKF9fZm9yY2Ug
-X19iZTMyKWZyb20sIChfX2ZvcmNlIF9fYmUzMil0byk7DQo+ICsJKnN1bSA9IH5jc3VtMTZfYWRk
-KGNzdW0xNl9zdWIofigqc3VtKSwgb2xkKSwgbmV3KTsNCj4gIH0NCg0KSXQgbWlnaHQgYmUgY2xl
-YXJlciB0byBqdXN0IHNheToNCgkqc3VtID0gfmNzdW0xNl9hZGQoY3N1bTE2X2FkZCh+KnN1bSwg
-fm9sZCksIG5ldykpOw0Kb3IgZXZlbjoNCgkqc3VtID0gfmNzdW0xNl9hZGQoY3N1bTE2X2FkZCgq
-c3VtIF4gMHhmZmZmLCBvbGQgXiAweGZmZmYpLCBuZXcpKTsNCndoaWNoIG1pZ2h0IHJlbW92ZSBz
-b21lIG1hc2sgaW5zdHJ1Y3Rpb25zIC0gZXNwZWNpYWxseSBpZiBhbGwgdGhlDQppbnRlcm1lZGlh
-dGUgdmFsdWVzIGFyZSBsZWZ0IGxhcmdlciB0aGFuIDE2IGJpdHMuDQoNCglEYXZpZA0KDQoNCg0K
+RnJvbTogRXJpYyBEdW1hemV0DQo+IE9uIEZyaSwgMjAxNC0wMy0yMSBhdCAxNDo1MiAtMDQwMCwg
+RGF2aWQgTWlsbGVyIHdyb3RlOg0KPiA+IEZyb206IEVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0
+QGdtYWlsLmNvbT4NCj4gPiBEYXRlOiBGcmksIDIxIE1hciAyMDE0IDA1OjUwOjUwIC0wNzAwDQo+
+ID4NCj4gPiA+IEl0IGxvb2tzIGxpa2UgYSBiYXJyaWVyKCkgd291bGQgYmUgbW9yZSBhcHByb3By
+aWF0ZS4NCj4gPg0KPiA+IGJhcnJpZXIoKSA9PSBfX2FzbV9fIF9fdm9sYXRpbGVfXyg6OjoibWVt
+b3J5IikNCj4gDQo+IEluZGVlZCwgYnV0IG5vdyB5b3UgbWVudGlvbiBpdCwgaXBfZmFzdF9jc3Vt
+KCkgZG8gbm90IHVzZXMgdm9sYXRpbGUNCj4ga2V5d29yZCBvbiB4ODZfNjQsIGFuZCBoYXMgbm8g
+Im0iIGNvbnN0cmFpbnQgZWl0aGVyLg0KDQpBZGRpbmcgJ3ZvbGF0aWxlJyBpc24ndCBzdWZmaWNp
+ZW50IHRvIGZvcmNlIGdjYyB0byB3cml0ZSBkYXRhDQppbnRvIHRoZSBhcmVhIGJlaW5nIGNoZWNr
+c3VtbWVkLg0KaXBfZmFzdF9jc3VtKCkgZWl0aGVyIG5lZWRzIGFuIGV4cGxpY2l0ICJtIiBjb25z
+dHJhaW50IGZvciB0aGUgYWN0dWFsDQpidWZmZXIgKGFuZCB0YXJnZXQpIGJ5dGVzLCBvciB0aGUg
+c3Ryb25nZXIgIm1lbW9yeSIgY29uc3RyYWludC4NClRoZSAndm9sYXRpbGUnIGlzIHRoZW4gbm90
+IG5lZWRlZC4NCg0KCURhdmlkDQoNCg==
