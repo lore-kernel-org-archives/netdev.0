@@ -1,123 +1,70 @@
-From: Zhangfei Gao <zhangfei.gao@gmail.com>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Mon, 24 Mar 2014 16:17:42 +0800
-Message-ID: <CAMj5Bkgc2ChK48QmqEEMEmxdF6iGZxMX0kVUqGFd8jYhEWCvOA@mail.gmail.com>
-References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
-	<4611515.XyVGvsaLcW@wuerfel>
-	<CAMj5Bkiaw=BT_EUdjthPjgk_pp0z44yPjh4_AfHXqiJLUiDe=g@mail.gmail.com>
-	<201403201531.20416.arnd@arndb.de>
+From: Lai Jiangshan <laijs@cn.fujitsu.com>
+Subject: Re: [PATCH] drivers/net: Use RCU_INIT_POINTER(x, NULL) in tun.c
+Date: Mon, 24 Mar 2014 16:47:32 +0800
+Message-ID: <532FF124.1030209@cn.fujitsu.com>
+References: <1395599552-7486-1-git-send-email-monamagarwal123@gmail.com>	 <20140323194113.GA13633@redhat.com>	 <1395604457.9117.21.camel@edumazet-glaptop2.roam.corp.google.com>	 <20140323213349.GA8832@redhat.com>	 <20140323221256.GG4405@linux.vnet.ibm.com>	 <20140324050939.GB8832@redhat.com> <1395638727.9117.55.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Zhangfei Gao <zhangfei.gao@linaro.org>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f44.google.com ([74.125.83.44]:35140 "EHLO
-	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750936AbaCXIRn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 04:17:43 -0400
-In-Reply-To: <201403201531.20416.arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Monam Agarwal <monamagarwal123@gmail.com>, davem@davemloft.net,
+	jasowang@redhat.com, xemul@parallels.com, wuzhy@linux.vnet.ibm.com,
+	therbert@google.com, yamato@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395638727.9117.55.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Arnd
+On 03/24/2014 01:25 PM, Eric Dumazet wrote:
+> On Mon, 2014-03-24 at 07:09 +0200, Michael S. Tsirkin wrote:
+> 
+>> Seems an incredibly strict requirement for something that just
+>> silences a warning.
+>> What exactly should I test?
+>> I intended to just verify this produces same code as before
+>> d322f45ceed525daa under a recent gcc.
+> 
+> Thats because many rcu_assign_pointer(X, NULL) were already converted to
+> RCU_INIT_POINTER(X, NULL)
+> 
+> Quite frankly I don't know why you bother at all.
+> 
+> Adding back the lazy test in rcu_assign_pointer() doesn't help to make
+> the API cleaner and easier to understand.
+> 
+> People are usually using RCU API without really understanding
+> all the issues. They tend to add superfluous barriers because they feel
+> better. 
+> 
+> Having separate RCU_INIT_POINTER() and rcu_assign_pointer() serve as
+> better documentation of the code, I find it more easier to immediately
+> check what is going on while reviewing stuff.
+> 
+> Presumably, checkpatch.pl could be augmented to suggest to use
+> RCU_INIT_POINTER(X, NULL) instead of rcu_assign_pointer(X, NULL)
 
-On Thu, Mar 20, 2014 at 10:31 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> On Thursday 20 March 2014, Zhangfei Gao wrote:
->> On Tue, Mar 18, 2014 at 7:25 PM, Arnd Bergmann <arnd@arndb.de> wrote:
->> > On Tuesday 18 March 2014 16:40:17 Zhangfei Gao wrote:
->> >
->> >> +
->> >> +static void __iomem *ppebase;
->> >
->> > The global 'ppebase' seems hacky. Isn't that a SoC-specific register area, while
->> > the rest of the driver is reusable across SoCs?
->> >
->> > What does 'ppe' stand for?
->> >
->> > What if there are multiple instances of this, which each have their own ppebase?
->>
->> In this specific platform,
->> ppe is the only module controlling all the fifos for all the net controller.
->> And each controller connect to specific port.
->> ppe has 2048 channels, sharing by all the controller, only if not overlapped.
->>
->> So the static ppebase is required, which I don't like too.
->> Two inputs required, one is port, which is connect to the controller.
->> The other is start channel, currently I use id, and start channel is
->> RX_DESC_NUM * priv->id;  /* start_addr */
->
-> Ok, thanks for the explanation!
->
-I thought you are fine with "static void __iomem *ppebase" here.
 
->> >
->> >> +     if (!ppebase) {
->> >> +             struct device_node *n;
->> >> +
->> >> +             n = of_find_compatible_node(NULL, NULL, "hisilicon,hip04-ppebase");
->> >> +             if (!n) {
->> >> +                     ret = -EINVAL;
->> >> +                     netdev_err(ndev, "not find hisilicon,ppebase\n");
->> >> +                     goto init_fail;
->> >> +             }
->> >> +             ppebase = of_iomap(n, 0);
->> >> +     }
->> >
->> > How about using syscon_regmap_lookup_by_phandle() here? That way, you can have
->> > a more generic abstraction of the ppe, and stick the port and id in there as
->> > well, e.g.
->> >
->> >         ppe-syscon = <&hip04ppe 1 4>; // ppe, port, id
+I prefer rcu_assign_pointer(X, NULL) than RCU_INIT_POINTER(X, NULL),
+NULL should not be a special pointer value to the users of RCU.
 
-Even if using syscon_regmap_lookup_by_phandle, there still have static
-struct regmap, since three controllers
-share one regmap.
+the RCU implements should hide the difference if RCU implements
+differentiate the values for optimization.
 
-> It's probably a little simpler to avoid the sub-nodes and instead do
->
->>               ppe: ppe@28c0000 {
->>                         compatible = "hisilicon,hip04-ppe";
->>                         reg = <0x28c0000 0x10000>;
->>                         #address-cells = <1>;
->>                         #size-cells = <0>;
->>                 };
->>                 fe: ethernet@28b0000 {
->>                         compatible = "hisilicon,hip04-mac";
->>                         reg = <0x28b0000 0x10000>;
->>                         interrupts = <0 413 4>;
->>                         phy-mode = "mii";
->>                         port-handle = <&ppe 31>;
->>                 };
->
-> In the code, I would create a simple ppe driver that exports
-> a few functions. you need. In the ethernet driver probe() function,
-> you should get a handle to the ppe using
->
->         /* look up "port-handle" property of the current device, find ppe and port */
->         struct hip04_ppe *ppe = hip04_ppe_get(dev->of_node);
->         if (IS_ERR(ppe))
->                 return PTR_ERR(ptr); /* this handles -EPROBE_DEFER */
->
-> and then in other code you can just do
->
->         hip04_ppe_set_foo(priv->ppe, foo_config);
->
-> This is a somewhat more high-level abstraction that syscon, which
-> just gives you a 'struct regmap' structure for doing register-level
-> configuration like you have today.
->
+RCU_INIT_POINTER() sounds as an initialization-stage API. If we need
+something different for NULL pointer, I prefer
+rcu_assign_*null*_pointer().
 
-Do you mean create one additional file like ppe.c with some exported
-function to remove the static ppebase?
-Since the ppe is specifically bounded with ethernet, and does not used
-anywhere else,
-the exported function may not be used anywhere else.
-Is it make it more complicated since there are probe, remove etc.
+rcu_assign_pointer(X, NULL) implies compiler barrier(), but
+RCU_INIT_POINTER(X, NULL) doesn't.
 
-So I may still prefer using "static void __iomem *ppebase", as it is simpler.
-
-Thanks
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+> 
