@@ -1,114 +1,119 @@
-From: Zhangfei Gao <zhangfei.gao@gmail.com>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Mon, 24 Mar 2014 21:23:39 +0800
-Message-ID: <CAMj5Bkje6gwXENTV7yZGH8qxyMwxsdms4frxF_q38TG=sncshw@mail.gmail.com>
-References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
-	<201403201531.20416.arnd@arndb.de>
-	<CAMj5Bkgc2ChK48QmqEEMEmxdF6iGZxMX0kVUqGFd8jYhEWCvOA@mail.gmail.com>
-	<5755212.stImUCLDZi@wuerfel>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH net-next] net: optimize csum_replace2()
+Date: Mon, 24 Mar 2014 06:25:27 -0700
+Message-ID: <1395667527.12610.32.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140321.140730.1007660405690890605.davem@davemloft.net>
+	 <1395629496.9117.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D0F6E778C@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-	Zhangfei Gao <zhangfei.gao@linaro.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"hkchu@google.com" <hkchu@google.com>,
+	"mwdalton@google.com" <mwdalton@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f45.google.com ([74.125.83.45]:48741 "EHLO
-	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753120AbaCXNXk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 09:23:40 -0400
-In-Reply-To: <5755212.stImUCLDZi@wuerfel>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:58522 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752902AbaCXNZ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 09:25:29 -0400
+Received: by mail-pd0-f182.google.com with SMTP id y10so5337905pdj.13
+        for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 06:25:28 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6E778C@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 24, 2014 at 6:02 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> On Monday 24 March 2014 16:17:42 Zhangfei Gao wrote:
->> On Thu, Mar 20, 2014 at 10:31 PM, Arnd Bergmann <arnd@arndb.de> wrote:
->> >> >
->> >> >> +     if (!ppebase) {
->> >> >> +             struct device_node *n;
->> >> >> +
->> >> >> +             n = of_find_compatible_node(NULL, NULL, "hisilicon,hip04-ppebase");
->> >> >> +             if (!n) {
->> >> >> +                     ret = -EINVAL;
->> >> >> +                     netdev_err(ndev, "not find hisilicon,ppebase\n");
->> >> >> +                     goto init_fail;
->> >> >> +             }
->> >> >> +             ppebase = of_iomap(n, 0);
->> >> >> +     }
->> >> >
->> >> > How about using syscon_regmap_lookup_by_phandle() here? That way, you can have
->> >> > a more generic abstraction of the ppe, and stick the port and id in there as
->> >> > well, e.g.
->> >> >
->> >> >         ppe-syscon = <&hip04ppe 1 4>; // ppe, port, id
->>
->> Even if using syscon_regmap_lookup_by_phandle, there still have static
->> struct regmap, since three controllers
->> share one regmap.
->
-> The regmap is then owned by the syscon driver, while each controller takes
-> a reference to the regmap that it can store in its own private data
-> structure. However, as we discussed using a ppe driver sounds nicer than
-> regmap.
->
->> > It's probably a little simpler to avoid the sub-nodes and instead do
->> >
->> >>               ppe: ppe@28c0000 {
->> >>                         compatible = "hisilicon,hip04-ppe";
->> >>                         reg = <0x28c0000 0x10000>;
->> >>                         #address-cells = <1>;
->> >>                         #size-cells = <0>;
->> >>                 };
->> >>                 fe: ethernet@28b0000 {
->> >>                         compatible = "hisilicon,hip04-mac";
->> >>                         reg = <0x28b0000 0x10000>;
->> >>                         interrupts = <0 413 4>;
->> >>                         phy-mode = "mii";
->> >>                         port-handle = <&ppe 31>;
->> >>                 };
->> >
->> > In the code, I would create a simple ppe driver that exports
->> > a few functions. you need. In the ethernet driver probe() function,
->> > you should get a handle to the ppe using
->> >
->> >         /* look up "port-handle" property of the current device, find ppe and port */
->> >         struct hip04_ppe *ppe = hip04_ppe_get(dev->of_node);
->> >         if (IS_ERR(ppe))
->> >                 return PTR_ERR(ptr); /* this handles -EPROBE_DEFER */
->> >
->> > and then in other code you can just do
->> >
->> >         hip04_ppe_set_foo(priv->ppe, foo_config);
->> >
->> > This is a somewhat more high-level abstraction that syscon, which
->> > just gives you a 'struct regmap' structure for doing register-level
->> > configuration like you have today.
->> >
->>
->> Do you mean create one additional file like ppe.c with some exported
->> function to remove the static ppebase?
->
-> It doesn't have to be a separate file, as long as you register a
-> separate platform_driver for the ppe.
->
->> Since the ppe is specifically bounded with ethernet, and does not used
->> anywhere else,
->> the exported function may not be used anywhere else.
->> Is it make it more complicated since there are probe, remove etc.
->>
->> So I may still prefer using "static void __iomem *ppebase", as it is simpler.
->
-> The trouble is that the driver should not rely on being only there
-> for a single instance, that's not how we write drivers.
->
-> I'm fine with either a syscon instance (which would be simpler) or a
-> separate ppe driver as part of the hip04-mac driver (which would be
-> a nicer abstraction).
->
+On Mon, 2014-03-24 at 10:22 +0000, David Laight wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> > 
+> > When changing one 16bit value by another in IP header, we can adjust the
+> > IP checksum by doing a simple operation described in RFC 1624,
+> > as reminded by David.
+> > 
+> > csum_partial() is a complex function on x86_64, not really suited
+> > for small number of checksummed bytes.
+> > 
+> > I spotted csum_partial() being in the top 20 most consuming
+> > functions (more than 1 %) in a GRO workload, which was rather
+> > unexpected.
+> > 
+> > The caller was inet_gro_complete() doing a csum_replace2() when
+> > building the new IP header for the GRO packet.
+> > 
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > ---
+> >  include/net/checksum.h |   23 +++++++++++++++++++++--
+> >  1 file changed, 21 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/include/net/checksum.h b/include/net/checksum.h
+> > index 37a0e24adbe7..a28f4e0f6251 100644
+> > --- a/include/net/checksum.h
+> > +++ b/include/net/checksum.h
+> > @@ -69,6 +69,19 @@ static inline __wsum csum_sub(__wsum csum, __wsum addend)
+> >  	return csum_add(csum, ~addend);
+> >  }
+> > 
+> > +static inline __sum16 csum16_add(__sum16 csum, __be16 addend)
+> > +{
+> > +	u16 res = (__force u16)csum;
+> 
+> Shouldn't that be u32 ?
 
-Understand now.
-Will update with syscon, as it is simpler.
-Thanks for your patience.
+Why ? We compute 16bit checksums here.
+
+> 
+> > +	res += (__force u16)addend;
+> > +	return (__force __sum16)(res + (res < (__force u16)addend));
+
+Note how carry is propagated, and how we return 16 bit anyway.
+
+Using u32 would force to use a fold, which is more expensive.
+
+> > +}
+> > +
+> > +static inline __sum16 csum16_sub(__sum16 csum, __be16 addend)
+> > +{
+> > +	return csum16_add(csum, ~addend);
+> > +}
+> > +
+> >  static inline __wsum
+> >  csum_block_add(__wsum csum, __wsum csum2, int offset)
+> >  {
+> > @@ -112,9 +125,15 @@ static inline void csum_replace4(__sum16 *sum, __be32 from, __be32 to)
+> >  	*sum = csum_fold(csum_partial(diff, sizeof(diff), ~csum_unfold(*sum)));
+> >  }
+> > 
+> > -static inline void csum_replace2(__sum16 *sum, __be16 from, __be16 to)
+> > +/* Implements RFC 1624 (Incremental Internet Checksum)
+> > + * 3. Discussion states :
+> > + *     HC' = ~(~HC + ~m + m')
+> > + *  m : old value of a 16bit field
+> > + *  m' : new value of a 16bit field
+> > + */
+> > +static inline void csum_replace2(__sum16 *sum, __be16 old, __be16 new)
+> >  {
+> > -	csum_replace4(sum, (__force __be32)from, (__force __be32)to);
+> > +	*sum = ~csum16_add(csum16_sub(~(*sum), old), new);
+> >  }
+> 
+> It might be clearer to just say:
+> 	*sum = ~csum16_add(csum16_add(~*sum, ~old), new));
+> or even:
+> 	*sum = ~csum16_add(csum16_add(*sum ^ 0xffff, old ^ 0xffff), new));
+> which might remove some mask instructions - especially if all the
+> intermediate values are left larger than 16 bits.
+
+We have csum_add() and csum_sub(), I added csum16_add() and
+csum16_sub(), for analogy and completeness.
+
+For linux guys, its quite common stuff to use csum_sub(x, y) instead of
+csum_add(c, ~y).
+
+You can use whatever code matching your taste.
+
+RFC 1624 mentions ~m, not m ^ 0xffff
+
+But again if you prefer m ^ 0xffff, thats up to you ;)
