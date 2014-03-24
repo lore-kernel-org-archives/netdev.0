@@ -1,11 +1,10 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next 5/7] carl9170: Remove casts of pointer to same type
-Date: Mon, 24 Mar 2014 13:15:38 -0700
-Message-ID: <e378d1df6fe2f8113407fcd496bd5612a878f809.1395692043.git.joe@perches.com>
+Subject: [PATCH net-next 4/7] qlcnic: Remove casts of pointer to same type
+Date: Mon, 24 Mar 2014 13:15:37 -0700
+Message-ID: <ac82455e9d2f0487a3f96c44a41b5557fd09af95.1395692043.git.joe@perches.com>
 References: <cover.1395692043.git.joe@perches.com>
-Cc: Christian Lamparter <chunkeey@googlemail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Dept-HSGLinuxNICDev@qlogic.com, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1395692043.git.joe@perches.com>
@@ -28,21 +27,21 @@ T *foo;
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/wireless/ath/carl9170/rx.c | 2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/ath/carl9170/rx.c b/drivers/net/wireless/ath/carl9170/rx.c
-index 536bc46a..924135b 100644
---- a/drivers/net/wireless/ath/carl9170/rx.c
-+++ b/drivers/net/wireless/ath/carl9170/rx.c
-@@ -572,7 +572,7 @@ static void carl9170_ps_beacon(struct ar9170 *ar, void *data, unsigned int len)
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+index ec399b7..2d91975 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+@@ -1388,7 +1388,7 @@ static int qlcnic_83xx_copy_fw_file(struct qlcnic_adapter *adapter)
+ 	addr = (u64)dest;
  
- static void carl9170_ba_check(struct ar9170 *ar, void *data, unsigned int len)
- {
--	struct ieee80211_bar *bar = (void *) data;
-+	struct ieee80211_bar *bar = data;
- 	struct carl9170_bar_list_entry *entry;
- 	unsigned int queue;
- 
+ 	ret = qlcnic_83xx_ms_mem_write128(adapter, addr,
+-					  (u32 *)p_cache, size / 16);
++					  p_cache, size / 16);
+ 	if (ret) {
+ 		dev_err(&adapter->pdev->dev, "MS memory write failed\n");
+ 		release_firmware(fw);
 -- 
 1.8.1.2.459.gbcd45b4.dirty
