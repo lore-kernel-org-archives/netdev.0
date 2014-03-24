@@ -1,40 +1,55 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
+From: Florian Fainelli <f.fainelli@gmail.com>
 Subject: Re: [PATCH RFC] ixp4xx_eth: Allow setting the MDIO bus name in
  platform data
-Date: Mon, 24 Mar 2014 21:34:38 +0100
-Message-ID: <m3r45r72u9.fsf@intrepid.localdomain>
-References: <20140324151729.1b8e3bb5@marrow.netinsight.se>
+Date: Mon, 24 Mar 2014 13:42:29 -0700
+Message-ID: <CAGVrzcaJ5LKE_HAvsmbnFxYsLbNwi9h9UYrz60AQ3z4DOZKwYw@mail.gmail.com>
+References: <20140324151729.1b8e3bb5@marrow.netinsight.se> <m3r45r72u9.fsf@intrepid.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
- Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org, arm@kernel.org,
- davem@davemloft.net,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: Simon =?utf-8?B?S8OlZ3N0csO2bQ==?= <simon.kagstrom@netinsight.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20140324151729.1b8e3bb5@marrow.netinsight.se> ("Simon
- =?utf-8?B?S8OlZ3N0csO2bSIncw==?= message of "Mon, 24 Mar 2014 15:17:29
- +0100")
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?U2ltb24gS8OlZ3N0csO2bQ==?=
+	<simon.kagstrom@netinsight.net>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Arnd Bergmann <arnd@arndb.de>, netdev <netdev@vger.kernel.org>,
+	"arm@kernel.org" <arm@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Krzysztof Halasa <khc@pm.waw.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:59368 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753862AbaCXUnK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 16:43:10 -0400
+Received: by mail-pb0-f54.google.com with SMTP id ma3so6021060pbc.27
+        for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 13:43:09 -0700 (PDT)
+In-Reply-To: <m3r45r72u9.fsf@intrepid.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-U2ltb24gS8OlZ3N0csO2bSA8c2ltb24ua2Fnc3Ryb21AbmV0aW5zaWdodC5uZXQ+IHdyaXRlczoK
-Cj4gQWxsb3dzIHVzaW5nIGUuZy4sIGEgZml4ZWQgTURJTyBidXMgd2l0aCB0aGUgaXhwNHh4X2V0
-aCBkcml2ZXIuCj4gRXhhbXBsZToKPgo+ICAgc3RhdGljIHN0cnVjdCBldGhfcGxhdF9pbmZvIGJv
-YXJkX3BsYXRfZXRoX2ludGVybmFsW10gPSB7Cj4gCXsKPiAJCS5tZGlvX2J1c19pZAk9ICJmaXhl
-ZC0wIiwKPiAJCS5waHkJCT0gMzEsCj4gCQkucnhxCQk9IDQsCj4gCQkudHhyZWFkeXEJPSAyMSwK
-PiAJCS5od2FkZHIJCT0gezB4MDIsIDB4MDAsIDB4MDAsIDB4MDAsIDB4MDAsIDB4MDB9LAo+IAl9
-Cj4gICB9OwoKV2h5IGRvIHdlIG5lZWQgaXQ/IEknbSBub3Qgc3VyZSBJIGtub3cgd2hhdCBjb25z
-dGl0dXRlcyBhICJmaXhlZCBNRElPCmJ1cyIuCi0tIApLcnp5c3p0b2YgSGFsYXNhCgpfX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpsaW51eC1hcm0ta2VybmVs
-IG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKaHR0cDov
-L2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0aW5mby9saW51eC1hcm0ta2VybmVsCg==
+2014-03-24 13:34 GMT-07:00 Krzysztof Halasa <khc@pm.waw.pl>:
+> Simon K=C3=A5gstr=C3=B6m <simon.kagstrom@netinsight.net> writes:
+>
+>> Allows using e.g., a fixed MDIO bus with the ixp4xx_eth driver.
+>> Example:
+>>
+>>   static struct eth_plat_info board_plat_eth_internal[] =3D {
+>>       {
+>>               .mdio_bus_id    =3D "fixed-0",
+>>               .phy            =3D 31,
+>>               .rxq            =3D 4,
+>>               .txreadyq       =3D 21,
+>>               .hwaddr         =3D {0x02, 0x00, 0x00, 0x00, 0x00, 0x0=
+0},
+>>       }
+>>   };
+>
+> Why do we need it? I'm not sure I know what constitutes a "fixed MDIO
+> bus".
+
+This is a software emulation MDIO bus for when your Ethernet MAC is
+connected to a PHY which does not appear on the MDIO bus. This is
+typically used to provide the Ethernet driver with a link that is
+always seen as UP, when you cannot directly query it via MDIO/MDC.
+--=20
+=46lorian
