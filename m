@@ -1,108 +1,74 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Mon, 24 Mar 2014 11:02:28 +0100
-Message-ID: <5755212.stImUCLDZi@wuerfel>
-References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org> <201403201531.20416.arnd@arndb.de> <CAMj5Bkgc2ChK48QmqEEMEmxdF6iGZxMX0kVUqGFd8jYhEWCvOA@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] net: optimize csum_replace2()
+Date: Mon, 24 Mar 2014 10:22:53 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E778C@AcuExch.aculab.com>
+References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140321.140730.1007660405690890605.davem@davemloft.net>
+ <1395629496.9117.47.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Zhangfei Gao <zhangfei.gao@gmail.com>,
-	Zhangfei Gao <zhangfei.gao@linaro.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"hkchu@google.com" <hkchu@google.com>,
+	"mwdalton@google.com" <mwdalton@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.24]:52496 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752088AbaCXKCy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 06:02:54 -0400
-In-Reply-To: <CAMj5Bkgc2ChK48QmqEEMEmxdF6iGZxMX0kVUqGFd8jYhEWCvOA@mail.gmail.com>
+Received: from mx0.aculab.com ([213.249.233.131]:55040 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750998AbaCXKXa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Mar 2014 06:23:30 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 02631-08 for <netdev@vger.kernel.org>;
+ Mon, 24 Mar 2014 10:23:28 +0000 (GMT)
+In-Reply-To: <1395629496.9117.47.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 24 March 2014 16:17:42 Zhangfei Gao wrote:
-> On Thu, Mar 20, 2014 at 10:31 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> >> >
-> >> >> +     if (!ppebase) {
-> >> >> +             struct device_node *n;
-> >> >> +
-> >> >> +             n = of_find_compatible_node(NULL, NULL, "hisilicon,hip04-ppebase");
-> >> >> +             if (!n) {
-> >> >> +                     ret = -EINVAL;
-> >> >> +                     netdev_err(ndev, "not find hisilicon,ppebase\n");
-> >> >> +                     goto init_fail;
-> >> >> +             }
-> >> >> +             ppebase = of_iomap(n, 0);
-> >> >> +     }
-> >> >
-> >> > How about using syscon_regmap_lookup_by_phandle() here? That way, you can have
-> >> > a more generic abstraction of the ppe, and stick the port and id in there as
-> >> > well, e.g.
-> >> >
-> >> >         ppe-syscon = <&hip04ppe 1 4>; // ppe, port, id
-> 
-> Even if using syscon_regmap_lookup_by_phandle, there still have static
-> struct regmap, since three controllers
-> share one regmap.
-
-The regmap is then owned by the syscon driver, while each controller takes
-a reference to the regmap that it can store in its own private data
-structure. However, as we discussed using a ppe driver sounds nicer than
-regmap.
-
-> > It's probably a little simpler to avoid the sub-nodes and instead do
-> >
-> >>               ppe: ppe@28c0000 {
-> >>                         compatible = "hisilicon,hip04-ppe";
-> >>                         reg = <0x28c0000 0x10000>;
-> >>                         #address-cells = <1>;
-> >>                         #size-cells = <0>;
-> >>                 };
-> >>                 fe: ethernet@28b0000 {
-> >>                         compatible = "hisilicon,hip04-mac";
-> >>                         reg = <0x28b0000 0x10000>;
-> >>                         interrupts = <0 413 4>;
-> >>                         phy-mode = "mii";
-> >>                         port-handle = <&ppe 31>;
-> >>                 };
-> >
-> > In the code, I would create a simple ppe driver that exports
-> > a few functions. you need. In the ethernet driver probe() function,
-> > you should get a handle to the ppe using
-> >
-> >         /* look up "port-handle" property of the current device, find ppe and port */
-> >         struct hip04_ppe *ppe = hip04_ppe_get(dev->of_node);
-> >         if (IS_ERR(ppe))
-> >                 return PTR_ERR(ptr); /* this handles -EPROBE_DEFER */
-> >
-> > and then in other code you can just do
-> >
-> >         hip04_ppe_set_foo(priv->ppe, foo_config);
-> >
-> > This is a somewhat more high-level abstraction that syscon, which
-> > just gives you a 'struct regmap' structure for doing register-level
-> > configuration like you have today.
-> >
-> 
-> Do you mean create one additional file like ppe.c with some exported
-> function to remove the static ppebase?
-
-It doesn't have to be a separate file, as long as you register a
-separate platform_driver for the ppe.
-
-> Since the ppe is specifically bounded with ethernet, and does not used
-> anywhere else,
-> the exported function may not be used anywhere else.
-> Is it make it more complicated since there are probe, remove etc.
-> 
-> So I may still prefer using "static void __iomem *ppebase", as it is simpler.
-
-The trouble is that the driver should not rely on being only there
-for a single instance, that's not how we write drivers.
-
-I'm fine with either a syscon instance (which would be simpler) or a
-separate ppe driver as part of the hip04-mac driver (which would be
-a nicer abstraction).
-
-	Arnd
+RnJvbTogRXJpYyBEdW1hemV0IDxlZHVtYXpldEBnb29nbGUuY29tPg0KPiANCj4gV2hlbiBjaGFu
+Z2luZyBvbmUgMTZiaXQgdmFsdWUgYnkgYW5vdGhlciBpbiBJUCBoZWFkZXIsIHdlIGNhbiBhZGp1
+c3QgdGhlDQo+IElQIGNoZWNrc3VtIGJ5IGRvaW5nIGEgc2ltcGxlIG9wZXJhdGlvbiBkZXNjcmli
+ZWQgaW4gUkZDIDE2MjQsDQo+IGFzIHJlbWluZGVkIGJ5IERhdmlkLg0KPiANCj4gY3N1bV9wYXJ0
+aWFsKCkgaXMgYSBjb21wbGV4IGZ1bmN0aW9uIG9uIHg4Nl82NCwgbm90IHJlYWxseSBzdWl0ZWQN
+Cj4gZm9yIHNtYWxsIG51bWJlciBvZiBjaGVja3N1bW1lZCBieXRlcy4NCj4gDQo+IEkgc3BvdHRl
+ZCBjc3VtX3BhcnRpYWwoKSBiZWluZyBpbiB0aGUgdG9wIDIwIG1vc3QgY29uc3VtaW5nDQo+IGZ1
+bmN0aW9ucyAobW9yZSB0aGFuIDEgJSkgaW4gYSBHUk8gd29ya2xvYWQsIHdoaWNoIHdhcyByYXRo
+ZXINCj4gdW5leHBlY3RlZC4NCj4gDQo+IFRoZSBjYWxsZXIgd2FzIGluZXRfZ3JvX2NvbXBsZXRl
+KCkgZG9pbmcgYSBjc3VtX3JlcGxhY2UyKCkgd2hlbg0KPiBidWlsZGluZyB0aGUgbmV3IElQIGhl
+YWRlciBmb3IgdGhlIEdSTyBwYWNrZXQuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBFcmljIER1bWF6
+ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQo+IC0tLQ0KPiAgaW5jbHVkZS9uZXQvY2hlY2tzdW0u
+aCB8ICAgMjMgKysrKysrKysrKysrKysrKysrKysrLS0NCj4gIDEgZmlsZSBjaGFuZ2VkLCAyMSBp
+bnNlcnRpb25zKCspLCAyIGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUv
+bmV0L2NoZWNrc3VtLmggYi9pbmNsdWRlL25ldC9jaGVja3N1bS5oDQo+IGluZGV4IDM3YTBlMjRh
+ZGJlNy4uYTI4ZjRlMGY2MjUxIDEwMDY0NA0KPiAtLS0gYS9pbmNsdWRlL25ldC9jaGVja3N1bS5o
+DQo+ICsrKyBiL2luY2x1ZGUvbmV0L2NoZWNrc3VtLmgNCj4gQEAgLTY5LDYgKzY5LDE5IEBAIHN0
+YXRpYyBpbmxpbmUgX193c3VtIGNzdW1fc3ViKF9fd3N1bSBjc3VtLCBfX3dzdW0gYWRkZW5kKQ0K
+PiAgCXJldHVybiBjc3VtX2FkZChjc3VtLCB+YWRkZW5kKTsNCj4gIH0NCj4gDQo+ICtzdGF0aWMg
+aW5saW5lIF9fc3VtMTYgY3N1bTE2X2FkZChfX3N1bTE2IGNzdW0sIF9fYmUxNiBhZGRlbmQpDQo+
+ICt7DQo+ICsJdTE2IHJlcyA9IChfX2ZvcmNlIHUxNiljc3VtOw0KDQpTaG91bGRuJ3QgdGhhdCBi
+ZSB1MzIgPw0KDQo+ICsJcmVzICs9IChfX2ZvcmNlIHUxNilhZGRlbmQ7DQo+ICsJcmV0dXJuIChf
+X2ZvcmNlIF9fc3VtMTYpKHJlcyArIChyZXMgPCAoX19mb3JjZSB1MTYpYWRkZW5kKSk7DQo+ICt9
+DQo+ICsNCj4gK3N0YXRpYyBpbmxpbmUgX19zdW0xNiBjc3VtMTZfc3ViKF9fc3VtMTYgY3N1bSwg
+X19iZTE2IGFkZGVuZCkNCj4gK3sNCj4gKwlyZXR1cm4gY3N1bTE2X2FkZChjc3VtLCB+YWRkZW5k
+KTsNCj4gK30NCj4gKw0KPiAgc3RhdGljIGlubGluZSBfX3dzdW0NCj4gIGNzdW1fYmxvY2tfYWRk
+KF9fd3N1bSBjc3VtLCBfX3dzdW0gY3N1bTIsIGludCBvZmZzZXQpDQo+ICB7DQo+IEBAIC0xMTIs
+OSArMTI1LDE1IEBAIHN0YXRpYyBpbmxpbmUgdm9pZCBjc3VtX3JlcGxhY2U0KF9fc3VtMTYgKnN1
+bSwgX19iZTMyIGZyb20sIF9fYmUzMiB0bykNCj4gIAkqc3VtID0gY3N1bV9mb2xkKGNzdW1fcGFy
+dGlhbChkaWZmLCBzaXplb2YoZGlmZiksIH5jc3VtX3VuZm9sZCgqc3VtKSkpOw0KPiAgfQ0KPiAN
+Cj4gLXN0YXRpYyBpbmxpbmUgdm9pZCBjc3VtX3JlcGxhY2UyKF9fc3VtMTYgKnN1bSwgX19iZTE2
+IGZyb20sIF9fYmUxNiB0bykNCj4gKy8qIEltcGxlbWVudHMgUkZDIDE2MjQgKEluY3JlbWVudGFs
+IEludGVybmV0IENoZWNrc3VtKQ0KPiArICogMy4gRGlzY3Vzc2lvbiBzdGF0ZXMgOg0KPiArICog
+ICAgIEhDJyA9IH4ofkhDICsgfm0gKyBtJykNCj4gKyAqICBtIDogb2xkIHZhbHVlIG9mIGEgMTZi
+aXQgZmllbGQNCj4gKyAqICBtJyA6IG5ldyB2YWx1ZSBvZiBhIDE2Yml0IGZpZWxkDQo+ICsgKi8N
+Cj4gK3N0YXRpYyBpbmxpbmUgdm9pZCBjc3VtX3JlcGxhY2UyKF9fc3VtMTYgKnN1bSwgX19iZTE2
+IG9sZCwgX19iZTE2IG5ldykNCj4gIHsNCj4gLQljc3VtX3JlcGxhY2U0KHN1bSwgKF9fZm9yY2Ug
+X19iZTMyKWZyb20sIChfX2ZvcmNlIF9fYmUzMil0byk7DQo+ICsJKnN1bSA9IH5jc3VtMTZfYWRk
+KGNzdW0xNl9zdWIofigqc3VtKSwgb2xkKSwgbmV3KTsNCj4gIH0NCg0KSXQgbWlnaHQgYmUgY2xl
+YXJlciB0byBqdXN0IHNheToNCgkqc3VtID0gfmNzdW0xNl9hZGQoY3N1bTE2X2FkZCh+KnN1bSwg
+fm9sZCksIG5ldykpOw0Kb3IgZXZlbjoNCgkqc3VtID0gfmNzdW0xNl9hZGQoY3N1bTE2X2FkZCgq
+c3VtIF4gMHhmZmZmLCBvbGQgXiAweGZmZmYpLCBuZXcpKTsNCndoaWNoIG1pZ2h0IHJlbW92ZSBz
+b21lIG1hc2sgaW5zdHJ1Y3Rpb25zIC0gZXNwZWNpYWxseSBpZiBhbGwgdGhlDQppbnRlcm1lZGlh
+dGUgdmFsdWVzIGFyZSBsZWZ0IGxhcmdlciB0aGFuIDE2IGJpdHMuDQoNCglEYXZpZA0KDQoNCg0K
