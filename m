@@ -1,46 +1,53 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netlink: simplify nfnetlink_bind
-Date: Mon, 24 Mar 2014 12:10:44 +0100
-Message-ID: <20140324111044.GC5074@localhost>
-References: <d9a410952c6b88e5855d36f91c06d466d2ce9bed.1395418617.git.rgb@redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] net/core: Use RCU_INIT_POINTER(x, NULL) in netpoll.c
+Date: Mon, 24 Mar 2014 07:11:44 -0400
+Message-ID: <20140324111144.GA19368@hmsreliant.think-freely.org>
+References: <1395601966-12490-1-git-send-email-monamagarwal123@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-audit@redhat.com, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	eparis@redhat.com, sgrubb@redhat.com, hadi@mojatatu.com,
-	davem@davemloft.net
-To: Richard Guy Briggs <rgb@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: davem@davemloft.net, ebiederm@xmission.com, cwang@twopensource.com,
+	kaber@trash.net, antonio@meshcoding.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Monam Agarwal <monamagarwal123@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <d9a410952c6b88e5855d36f91c06d466d2ce9bed.1395418617.git.rgb@redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+In-Reply-To: <1395601966-12490-1-git-send-email-monamagarwal123@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 21, 2014 at 12:44:09PM -0400, Richard Guy Briggs wrote:
-> Remove duplicity and simplify code flow by moving the rcu_read_unlock() above
-> the condition and let the flow control exit naturally at the end of the
-> function.
+On Mon, Mar 24, 2014 at 12:42:46AM +0530, Monam Agarwal wrote:
+> This patch replaces rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x, NULL)
 > 
-> Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
-> ---
->  net/netfilter/nfnetlink.c |    4 +---
->  1 files changed, 1 insertions(+), 3 deletions(-)
+> The rcu_assign_pointer() ensures that the initialization of a structure       
+> is carried out before storing a pointer to that structure. 
+> And in the case of the NULL pointer, there is no structure to initialize. 
+> So, rcu_assign_pointer(p, NULL) can be safely converted to RCU_INIT_POINTER(p, NULL)
 > 
-> diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
-> index 046aa13..75619f9 100644
-> --- a/net/netfilter/nfnetlink.c
-> +++ b/net/netfilter/nfnetlink.c
-> @@ -399,12 +399,10 @@ static void nfnetlink_bind(int group)
->  
->  	rcu_read_lock();
->  	ss = nfnetlink_get_subsys(type);
-> +	rcu_read_unlock();
->  	if (!ss) {
-> -		rcu_read_unlock();
->  		request_module("nfnetlink-subsys-%d", type);
-> -		return;
->  	}
-> -	rcu_read_unlock();
+> Signed-off-by: Monam Agarwal <monamagarwal123@gmail.com>
+No, I don't think this is right. __netpoll_cleanup can be called in parallel
+with bottom half access to dev->npinfo.  rcu_assign pointer is safe against
+those accesses, but RCU_INIT_POINTER is not.
 
-Applied with minor glitch. Removed the brackets in that if branch.
-Thanks
+Neil
+
+> ---
+>  net/core/netpoll.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> index 7291dde..41c4e9c 100644
+> --- a/net/core/netpoll.c
+> +++ b/net/core/netpoll.c
+> @@ -809,7 +809,7 @@ void __netpoll_cleanup(struct netpoll *np)
+>  		if (ops->ndo_netpoll_cleanup)
+>  			ops->ndo_netpoll_cleanup(np->dev);
+>  
+> -		rcu_assign_pointer(np->dev->npinfo, NULL);
+> +		RCU_INIT_POINTER(np->dev->npinfo, NULL);
+>  		call_rcu_bh(&npinfo->rcu, rcu_cleanup_netpoll_info);
+>  	}
+>  }
+> -- 
+> 1.7.9.5
+> 
+> 
