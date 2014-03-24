@@ -1,81 +1,108 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Subject: Re: [PATCH] netlink: have netlink per-protocol bind function return
- an error code.
-Date: Mon, 24 Mar 2014 10:38:43 -0400
-Message-ID: <20140324143843.GC28666@madcap2.tricolour.ca>
-References: <1239812af16a5c746772913ef68d3570383f2e50.1395419169.git.rgb@redhat.com>
- <20140323.005010.1898428719601246326.davem@davemloft.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] net: optimize csum_replace2()
+Date: Mon, 24 Mar 2014 14:38:35 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E7939@AcuExch.aculab.com>
+References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140321.140730.1007660405690890605.davem@davemloft.net>
+	 <1395629496.9117.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D0F6E778C@AcuExch.aculab.com>
+ <1395667527.12610.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-audit@redhat.com, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	eparis@redhat.com, sgrubb@redhat.com, hadi@mojatatu.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140323.005010.1898428719601246326.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"hkchu@google.com" <hkchu@google.com>,
+	"mwdalton@google.com" <mwdalton@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:33654 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752322AbaCXOjO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Mar 2014 10:39:14 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 04787-04 for <netdev@vger.kernel.org>;
+ Mon, 24 Mar 2014 14:39:10 +0000 (GMT)
+In-Reply-To: <1395667527.12610.32.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 14/03/23, David Miller wrote:
-> From: Richard Guy Briggs <rgb@redhat.com>
-> Date: Fri, 21 Mar 2014 12:39:11 -0400
-> 
-> > @@ -1441,6 +1441,17 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
-> >  	if (!nladdr->nl_groups && (nlk->groups == NULL || !(u32)nlk->groups[0]))
-> >  		return 0;
-> >  
-> > +	if (nlk->netlink_bind && nladdr->nl_groups) {
-> > +		int i;
-> > +
-> > +		for (i = 0; i < nlk->ngroups; i++)
-> > +			if (test_bit(i, (long unsigned int *)&nladdr->nl_groups)) {
-> > +				err = nlk->netlink_bind(i);
-> > +				if (err)
-> > +					return err;
-> > +			}
-> > +	}
-> > +
-> 
-> You can't just leave a partially set of completed bindings in place.
-
-In the general case, I agree.
-
-> It's not valid to leave half-baked state like this.
-
-In the one existing case (netfilter), it adds a module that is never
-unloaded.  (refcounts are bumped up and down, but I don't see an
-auto-reap based on cleared multicast group subscriptions.)  For that
-matter, netlink_realloc_groups() isn't reversed on error either.
-
-In the proposed case (audit) it is only a permissions check, so there is
-nothing to undo.
-
-So, I was being lazy looking at the existing situation.
-
-> If you return an error, all of the binding state changes must be
-> completely undone.
-
-Is it time to add a ".unbind = netlink_unbind" to struct proto_ops
-netlink_ops?  (I am only half serious here...)
-
-> If you can't find a way to do this cleanly, you'll need to find
-> a way for the audit code to not return an error.
-
-Fair enough.  I'll go back and look at updating subscriptions and
-listeners first and undoing those actions if the bind fails.  In the
-case of netlink_setsockopt() it is just one to undo, which is easy.
-netlink_bind() is a bit more complex, but doable.
-
-The whole purpose here was to add a way for each protocol to be able to
-add its own permissions check and signal a way for netlink to refuse the
-subscription if the userspace process doesn't have the required
-permissions, so not returning an error defeats that whole purpose.
-
-- RGB
-
---
-Richard Guy Briggs <rbriggs@redhat.com>
-Senior Software Engineer, Kernel Security, AMER ENG Base Operating Systems, Red Hat
-Remote, Ottawa, Canada
-Voice: +1.647.777.2635, Internal: (81) 32635, Alt: +1.613.693.0684x3545
+RnJvbTogRXJpYyBEdW1hemV0IA0KPiBPbiBNb24sIDIwMTQtMDMtMjQgYXQgMTA6MjIgKzAwMDAs
+IERhdmlkIExhaWdodCB3cm90ZToNCj4gPiBGcm9tOiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdv
+b2dsZS5jb20+DQo+ID4gPg0KPiA+ID4gV2hlbiBjaGFuZ2luZyBvbmUgMTZiaXQgdmFsdWUgYnkg
+YW5vdGhlciBpbiBJUCBoZWFkZXIsIHdlIGNhbiBhZGp1c3QgdGhlDQo+ID4gPiBJUCBjaGVja3N1
+bSBieSBkb2luZyBhIHNpbXBsZSBvcGVyYXRpb24gZGVzY3JpYmVkIGluIFJGQyAxNjI0LA0KPiA+
+ID4gYXMgcmVtaW5kZWQgYnkgRGF2aWQuDQo+ID4gPg0KPiA+ID4gY3N1bV9wYXJ0aWFsKCkgaXMg
+YSBjb21wbGV4IGZ1bmN0aW9uIG9uIHg4Nl82NCwgbm90IHJlYWxseSBzdWl0ZWQNCj4gPiA+IGZv
+ciBzbWFsbCBudW1iZXIgb2YgY2hlY2tzdW1tZWQgYnl0ZXMuDQo+ID4gPg0KPiA+ID4gSSBzcG90
+dGVkIGNzdW1fcGFydGlhbCgpIGJlaW5nIGluIHRoZSB0b3AgMjAgbW9zdCBjb25zdW1pbmcNCj4g
+PiA+IGZ1bmN0aW9ucyAobW9yZSB0aGFuIDEgJSkgaW4gYSBHUk8gd29ya2xvYWQsIHdoaWNoIHdh
+cyByYXRoZXINCj4gPiA+IHVuZXhwZWN0ZWQuDQo+ID4gPg0KPiA+ID4gVGhlIGNhbGxlciB3YXMg
+aW5ldF9ncm9fY29tcGxldGUoKSBkb2luZyBhIGNzdW1fcmVwbGFjZTIoKSB3aGVuDQo+ID4gPiBi
+dWlsZGluZyB0aGUgbmV3IElQIGhlYWRlciBmb3IgdGhlIEdSTyBwYWNrZXQuDQo+ID4gPg0KPiA+
+ID4gU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0IDxlZHVtYXpldEBnb29nbGUuY29tPg0KPiA+
+ID4gLS0tDQo+ID4gPiAgaW5jbHVkZS9uZXQvY2hlY2tzdW0uaCB8ICAgMjMgKysrKysrKysrKysr
+KysrKysrKysrLS0NCj4gPiA+ICAxIGZpbGUgY2hhbmdlZCwgMjEgaW5zZXJ0aW9ucygrKSwgMiBk
+ZWxldGlvbnMoLSkNCj4gPiA+DQo+ID4gPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQvY2hlY2tz
+dW0uaCBiL2luY2x1ZGUvbmV0L2NoZWNrc3VtLmgNCj4gPiA+IGluZGV4IDM3YTBlMjRhZGJlNy4u
+YTI4ZjRlMGY2MjUxIDEwMDY0NA0KPiA+ID4gLS0tIGEvaW5jbHVkZS9uZXQvY2hlY2tzdW0uaA0K
+PiA+ID4gKysrIGIvaW5jbHVkZS9uZXQvY2hlY2tzdW0uaA0KPiA+ID4gQEAgLTY5LDYgKzY5LDE5
+IEBAIHN0YXRpYyBpbmxpbmUgX193c3VtIGNzdW1fc3ViKF9fd3N1bSBjc3VtLCBfX3dzdW0gYWRk
+ZW5kKQ0KPiA+ID4gIAlyZXR1cm4gY3N1bV9hZGQoY3N1bSwgfmFkZGVuZCk7DQo+ID4gPiAgfQ0K
+PiA+ID4NCj4gPiA+ICtzdGF0aWMgaW5saW5lIF9fc3VtMTYgY3N1bTE2X2FkZChfX3N1bTE2IGNz
+dW0sIF9fYmUxNiBhZGRlbmQpDQo+ID4gPiArew0KPiA+ID4gKwl1MTYgcmVzID0gKF9fZm9yY2Ug
+dTE2KWNzdW07DQo+ID4NCj4gPiBTaG91bGRuJ3QgdGhhdCBiZSB1MzIgPw0KPiANCj4gV2h5ID8g
+V2UgY29tcHV0ZSAxNmJpdCBjaGVja3N1bXMgaGVyZS4NCj4gDQo+ID4NCj4gPiA+ICsJcmVzICs9
+IChfX2ZvcmNlIHUxNilhZGRlbmQ7DQo+ID4gPiArCXJldHVybiAoX19mb3JjZSBfX3N1bTE2KShy
+ZXMgKyAocmVzIDwgKF9fZm9yY2UgdTE2KWFkZGVuZCkpOw0KPiANCj4gTm90ZSBob3cgY2Fycnkg
+aXMgcHJvcGFnYXRlZCwgYW5kIGhvdyB3ZSByZXR1cm4gMTYgYml0IGFueXdheS4NCg0KTm90IGVu
+b3VnaCBjb2ZmZWUgLSBteSBicmFpbiBkaWRuJ3QgcGFyc2UgdGhhdCBjb3JyZWN0bHkgYXQgYWxs
+IDotKA0KDQo+IFVzaW5nIHUzMiB3b3VsZCBmb3JjZSB0byB1c2UgYSBmb2xkLCB3aGljaCBpcyBt
+b3JlIGV4cGVuc2l2ZS4NCg0KVHJ5IGNvbXBpbGluZyBmb3Igc29tZXRoaW5nIG90aGVyIHRoYW4g
+eDg2L2FtZDY0DQooaWUgc29tZXRoaW5nIHdpdGhvdXQgMTZiaXQgYXJpdGhtZXRpYykuDQpUaGUg
+cHBjIGNvbXBpbGVyIEkgaGF2ZSAobm90IHRoZSBsYXRlc3QoIGdlbmVyYXRlcyAzIG1hc2tzIHdp
+dGggMHhmZmZmIGFuZA0KYSBjb25kaXRpb25hbCBicmFuY2ggZm9yIHRoZSBhYm92ZSBmdW5jdGlv
+biAod2l0aG91dCB0aGUgaW5saW5lKS4NCg0KPiA+ID4gK30NCj4gPiA+ICsNCj4gPiA+ICtzdGF0
+aWMgaW5saW5lIF9fc3VtMTYgY3N1bTE2X3N1YihfX3N1bTE2IGNzdW0sIF9fYmUxNiBhZGRlbmQp
+DQo+ID4gPiArew0KPiA+ID4gKwlyZXR1cm4gY3N1bTE2X2FkZChjc3VtLCB+YWRkZW5kKTsNCj4g
+PiA+ICt9DQo+ID4gPiArDQo+ID4gPiAgc3RhdGljIGlubGluZSBfX3dzdW0NCj4gPiA+ICBjc3Vt
+X2Jsb2NrX2FkZChfX3dzdW0gY3N1bSwgX193c3VtIGNzdW0yLCBpbnQgb2Zmc2V0KQ0KPiA+ID4g
+IHsNCj4gPiA+IEBAIC0xMTIsOSArMTI1LDE1IEBAIHN0YXRpYyBpbmxpbmUgdm9pZCBjc3VtX3Jl
+cGxhY2U0KF9fc3VtMTYgKnN1bSwgX19iZTMyIGZyb20sIF9fYmUzMiB0bykNCj4gPiA+ICAJKnN1
+bSA9IGNzdW1fZm9sZChjc3VtX3BhcnRpYWwoZGlmZiwgc2l6ZW9mKGRpZmYpLCB+Y3N1bV91bmZv
+bGQoKnN1bSkpKTsNCj4gPiA+ICB9DQo+ID4gPg0KPiA+ID4gLXN0YXRpYyBpbmxpbmUgdm9pZCBj
+c3VtX3JlcGxhY2UyKF9fc3VtMTYgKnN1bSwgX19iZTE2IGZyb20sIF9fYmUxNiB0bykNCj4gPiA+
+ICsvKiBJbXBsZW1lbnRzIFJGQyAxNjI0IChJbmNyZW1lbnRhbCBJbnRlcm5ldCBDaGVja3N1bSkN
+Cj4gPiA+ICsgKiAzLiBEaXNjdXNzaW9uIHN0YXRlcyA6DQo+ID4gPiArICogICAgIEhDJyA9IH4o
+fkhDICsgfm0gKyBtJykNCj4gPiA+ICsgKiAgbSA6IG9sZCB2YWx1ZSBvZiBhIDE2Yml0IGZpZWxk
+DQo+ID4gPiArICogIG0nIDogbmV3IHZhbHVlIG9mIGEgMTZiaXQgZmllbGQNCj4gPiA+ICsgKi8N
+Cj4gPiA+ICtzdGF0aWMgaW5saW5lIHZvaWQgY3N1bV9yZXBsYWNlMihfX3N1bTE2ICpzdW0sIF9f
+YmUxNiBvbGQsIF9fYmUxNiBuZXcpDQo+ID4gPiAgew0KPiA+ID4gLQljc3VtX3JlcGxhY2U0KHN1
+bSwgKF9fZm9yY2UgX19iZTMyKWZyb20sIChfX2ZvcmNlIF9fYmUzMil0byk7DQo+ID4gPiArCSpz
+dW0gPSB+Y3N1bTE2X2FkZChjc3VtMTZfc3ViKH4oKnN1bSksIG9sZCksIG5ldyk7DQo+ID4gPiAg
+fQ0KPiA+DQo+ID4gSXQgbWlnaHQgYmUgY2xlYXJlciB0byBqdXN0IHNheToNCj4gPiAJKnN1bSA9
+IH5jc3VtMTZfYWRkKGNzdW0xNl9hZGQofipzdW0sIH5vbGQpLCBuZXcpKTsNCj4gPiBvciBldmVu
+Og0KPiA+IAkqc3VtID0gfmNzdW0xNl9hZGQoY3N1bTE2X2FkZCgqc3VtIF4gMHhmZmZmLCBvbGQg
+XiAweGZmZmYpLCBuZXcpKTsNCj4gPiB3aGljaCBtaWdodCByZW1vdmUgc29tZSBtYXNrIGluc3Ry
+dWN0aW9ucyAtIGVzcGVjaWFsbHkgaWYgYWxsIHRoZQ0KPiA+IGludGVybWVkaWF0ZSB2YWx1ZXMg
+YXJlIGxlZnQgbGFyZ2VyIHRoYW4gMTYgYml0cy4NCj4gDQo+IFdlIGhhdmUgY3N1bV9hZGQoKSBh
+bmQgY3N1bV9zdWIoKSwgSSBhZGRlZCBjc3VtMTZfYWRkKCkgYW5kDQo+IGNzdW0xNl9zdWIoKSwg
+Zm9yIGFuYWxvZ3kgYW5kIGNvbXBsZXRlbmVzcy4NCj4gDQo+IEZvciBsaW51eCBndXlzLCBpdHMg
+cXVpdGUgY29tbW9uIHN0dWZmIHRvIHVzZSBjc3VtX3N1Yih4LCB5KSBpbnN0ZWFkIG9mDQo+IGNz
+dW1fYWRkKGMsIH55KS4NCj4gDQo+IFlvdSBjYW4gdXNlIHdoYXRldmVyIGNvZGUgbWF0Y2hpbmcg
+eW91ciB0YXN0ZS4NCj4gDQo+IFJGQyAxNjI0IG1lbnRpb25zIH5tLCBub3QgbSBeIDB4ZmZmZg0K
+DQpCdXQgQyBvbmx5IGhhcyAzMmJpdCBtYXRocywgc28gYWxsIHRoZSAxNmJpdCB2YWx1ZXMga2Vl
+cA0KbmVlZCBtYXNraW5nLg0KDQo+IEJ1dCBhZ2FpbiBpZiB5b3UgcHJlZmVyIG0gXiAweGZmZmYs
+IHRoYXRzIHVwIHRvIHlvdSA7KQ0KDQpPbiBwcGMgSSBnZXQgbXVjaCBiZXR0ZXIgY29kZSBmb3Ig
+KHJldHlwZWQpOg0Kc3RhdGljIGlubGluZSB1MzIgY3N1bV9hZGQodTMyIGMsIHUzMiBhKQ0Kew0K
+CWMgKz0gYScNCglyZXR1cm4gKGMgKyAoYyA+PiAxNikpICYgMHhmZmZmOw0KfQ0Kdm9pZCBjc3Vt
+X3JlcGwodTE2ICpjMTYsIHUxNiBvMTYsIHUxNiBuKQ0Kew0KCXUzMiBjID0gKmMxNiwgbyA9IG8x
+NjsNCgkqYzE2ID0gY3N1bV9hZGQoY3N1bV9hZGQoYyBeIDB4ZmZmZiwgbyBeIDB4ZmZmZiksIG4p
+Ow0KfQ0KMTMgaW5zdHJ1Y3Rpb25zIGFuZCBubyBicmFuY2hlcyBhZ2FpbnN0IDIxIGluc3RydWN0
+aW9ucw0KYW5kIDIgYnJhbmNoZXMuDQpUaGUgc2FtZSBpcyBwcm9iYWJseSB0cnVlIG9mIGFybS4N
+CkZvciBhbWQ2NCAod2hlcmUgdGhlIGNvbXBpbGVyIGNhbiBkbyBhIDE2Yml0IGNvbXBhcmUpDQpt
+eSB2ZXJzaW9uIGlzIG9uZSBpbnN0cnVjdGlvbiBsb25nZXIuDQpJJ3ZlIG5vdCB0cmllZCB0byBn
+dWVzcyBhdCB0aGUgYWN0dWFsIGN5Y2xlIGNvdW50cyENCg0KCURhdmlkDQoNCg==
