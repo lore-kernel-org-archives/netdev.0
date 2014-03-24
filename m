@@ -1,108 +1,246 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] net: optimize csum_replace2()
-Date: Mon, 24 Mar 2014 14:38:35 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E7939@AcuExch.aculab.com>
-References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140321.140730.1007660405690890605.davem@davemloft.net>
-	 <1395629496.9117.47.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6E778C@AcuExch.aculab.com>
- <1395667527.12610.32.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"hkchu@google.com" <hkchu@google.com>,
-	"mwdalton@google.com" <mwdalton@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>
+From: David L Stevens <dlstevens@us.ibm.com>
+Subject: [PATCH v6] vxlan: fix nonfunctional neigh_reduce()
+Date: Mon, 24 Mar 2014 10:39:58 -0400
+Message-ID: <201403241439.s2OEdwi0002321@xl.dls>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33654 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752322AbaCXOjO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Mar 2014 10:39:14 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 04787-04 for <netdev@vger.kernel.org>;
- Mon, 24 Mar 2014 14:39:10 +0000 (GMT)
-In-Reply-To: <1395667527.12610.32.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from e8.ny.us.ibm.com ([32.97.182.138]:51108 "EHLO e8.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752322AbaCXOkH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Mar 2014 10:40:07 -0400
+Received: from /spool/local
+	by e8.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Mon, 24 Mar 2014 10:40:06 -0400
+Received: from b01cxnp22036.gho.pok.ibm.com (b01cxnp22036.gho.pok.ibm.com [9.57.198.26])
+	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id 095AAC9004A
+	for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 10:39:58 -0400 (EDT)
+Received: from d01av05.pok.ibm.com (d01av05.pok.ibm.com [9.56.224.195])
+	by b01cxnp22036.gho.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2OEe1kK8192394
+	for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 14:40:01 GMT
+Received: from d01av05.pok.ibm.com (localhost [127.0.0.1])
+	by d01av05.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s2OEe13b022844
+	for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 10:40:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0IA0KPiBPbiBNb24sIDIwMTQtMDMtMjQgYXQgMTA6MjIgKzAwMDAs
-IERhdmlkIExhaWdodCB3cm90ZToNCj4gPiBGcm9tOiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdv
-b2dsZS5jb20+DQo+ID4gPg0KPiA+ID4gV2hlbiBjaGFuZ2luZyBvbmUgMTZiaXQgdmFsdWUgYnkg
-YW5vdGhlciBpbiBJUCBoZWFkZXIsIHdlIGNhbiBhZGp1c3QgdGhlDQo+ID4gPiBJUCBjaGVja3N1
-bSBieSBkb2luZyBhIHNpbXBsZSBvcGVyYXRpb24gZGVzY3JpYmVkIGluIFJGQyAxNjI0LA0KPiA+
-ID4gYXMgcmVtaW5kZWQgYnkgRGF2aWQuDQo+ID4gPg0KPiA+ID4gY3N1bV9wYXJ0aWFsKCkgaXMg
-YSBjb21wbGV4IGZ1bmN0aW9uIG9uIHg4Nl82NCwgbm90IHJlYWxseSBzdWl0ZWQNCj4gPiA+IGZv
-ciBzbWFsbCBudW1iZXIgb2YgY2hlY2tzdW1tZWQgYnl0ZXMuDQo+ID4gPg0KPiA+ID4gSSBzcG90
-dGVkIGNzdW1fcGFydGlhbCgpIGJlaW5nIGluIHRoZSB0b3AgMjAgbW9zdCBjb25zdW1pbmcNCj4g
-PiA+IGZ1bmN0aW9ucyAobW9yZSB0aGFuIDEgJSkgaW4gYSBHUk8gd29ya2xvYWQsIHdoaWNoIHdh
-cyByYXRoZXINCj4gPiA+IHVuZXhwZWN0ZWQuDQo+ID4gPg0KPiA+ID4gVGhlIGNhbGxlciB3YXMg
-aW5ldF9ncm9fY29tcGxldGUoKSBkb2luZyBhIGNzdW1fcmVwbGFjZTIoKSB3aGVuDQo+ID4gPiBi
-dWlsZGluZyB0aGUgbmV3IElQIGhlYWRlciBmb3IgdGhlIEdSTyBwYWNrZXQuDQo+ID4gPg0KPiA+
-ID4gU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0IDxlZHVtYXpldEBnb29nbGUuY29tPg0KPiA+
-ID4gLS0tDQo+ID4gPiAgaW5jbHVkZS9uZXQvY2hlY2tzdW0uaCB8ICAgMjMgKysrKysrKysrKysr
-KysrKysrKysrLS0NCj4gPiA+ICAxIGZpbGUgY2hhbmdlZCwgMjEgaW5zZXJ0aW9ucygrKSwgMiBk
-ZWxldGlvbnMoLSkNCj4gPiA+DQo+ID4gPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQvY2hlY2tz
-dW0uaCBiL2luY2x1ZGUvbmV0L2NoZWNrc3VtLmgNCj4gPiA+IGluZGV4IDM3YTBlMjRhZGJlNy4u
-YTI4ZjRlMGY2MjUxIDEwMDY0NA0KPiA+ID4gLS0tIGEvaW5jbHVkZS9uZXQvY2hlY2tzdW0uaA0K
-PiA+ID4gKysrIGIvaW5jbHVkZS9uZXQvY2hlY2tzdW0uaA0KPiA+ID4gQEAgLTY5LDYgKzY5LDE5
-IEBAIHN0YXRpYyBpbmxpbmUgX193c3VtIGNzdW1fc3ViKF9fd3N1bSBjc3VtLCBfX3dzdW0gYWRk
-ZW5kKQ0KPiA+ID4gIAlyZXR1cm4gY3N1bV9hZGQoY3N1bSwgfmFkZGVuZCk7DQo+ID4gPiAgfQ0K
-PiA+ID4NCj4gPiA+ICtzdGF0aWMgaW5saW5lIF9fc3VtMTYgY3N1bTE2X2FkZChfX3N1bTE2IGNz
-dW0sIF9fYmUxNiBhZGRlbmQpDQo+ID4gPiArew0KPiA+ID4gKwl1MTYgcmVzID0gKF9fZm9yY2Ug
-dTE2KWNzdW07DQo+ID4NCj4gPiBTaG91bGRuJ3QgdGhhdCBiZSB1MzIgPw0KPiANCj4gV2h5ID8g
-V2UgY29tcHV0ZSAxNmJpdCBjaGVja3N1bXMgaGVyZS4NCj4gDQo+ID4NCj4gPiA+ICsJcmVzICs9
-IChfX2ZvcmNlIHUxNilhZGRlbmQ7DQo+ID4gPiArCXJldHVybiAoX19mb3JjZSBfX3N1bTE2KShy
-ZXMgKyAocmVzIDwgKF9fZm9yY2UgdTE2KWFkZGVuZCkpOw0KPiANCj4gTm90ZSBob3cgY2Fycnkg
-aXMgcHJvcGFnYXRlZCwgYW5kIGhvdyB3ZSByZXR1cm4gMTYgYml0IGFueXdheS4NCg0KTm90IGVu
-b3VnaCBjb2ZmZWUgLSBteSBicmFpbiBkaWRuJ3QgcGFyc2UgdGhhdCBjb3JyZWN0bHkgYXQgYWxs
-IDotKA0KDQo+IFVzaW5nIHUzMiB3b3VsZCBmb3JjZSB0byB1c2UgYSBmb2xkLCB3aGljaCBpcyBt
-b3JlIGV4cGVuc2l2ZS4NCg0KVHJ5IGNvbXBpbGluZyBmb3Igc29tZXRoaW5nIG90aGVyIHRoYW4g
-eDg2L2FtZDY0DQooaWUgc29tZXRoaW5nIHdpdGhvdXQgMTZiaXQgYXJpdGhtZXRpYykuDQpUaGUg
-cHBjIGNvbXBpbGVyIEkgaGF2ZSAobm90IHRoZSBsYXRlc3QoIGdlbmVyYXRlcyAzIG1hc2tzIHdp
-dGggMHhmZmZmIGFuZA0KYSBjb25kaXRpb25hbCBicmFuY2ggZm9yIHRoZSBhYm92ZSBmdW5jdGlv
-biAod2l0aG91dCB0aGUgaW5saW5lKS4NCg0KPiA+ID4gK30NCj4gPiA+ICsNCj4gPiA+ICtzdGF0
-aWMgaW5saW5lIF9fc3VtMTYgY3N1bTE2X3N1YihfX3N1bTE2IGNzdW0sIF9fYmUxNiBhZGRlbmQp
-DQo+ID4gPiArew0KPiA+ID4gKwlyZXR1cm4gY3N1bTE2X2FkZChjc3VtLCB+YWRkZW5kKTsNCj4g
-PiA+ICt9DQo+ID4gPiArDQo+ID4gPiAgc3RhdGljIGlubGluZSBfX3dzdW0NCj4gPiA+ICBjc3Vt
-X2Jsb2NrX2FkZChfX3dzdW0gY3N1bSwgX193c3VtIGNzdW0yLCBpbnQgb2Zmc2V0KQ0KPiA+ID4g
-IHsNCj4gPiA+IEBAIC0xMTIsOSArMTI1LDE1IEBAIHN0YXRpYyBpbmxpbmUgdm9pZCBjc3VtX3Jl
-cGxhY2U0KF9fc3VtMTYgKnN1bSwgX19iZTMyIGZyb20sIF9fYmUzMiB0bykNCj4gPiA+ICAJKnN1
-bSA9IGNzdW1fZm9sZChjc3VtX3BhcnRpYWwoZGlmZiwgc2l6ZW9mKGRpZmYpLCB+Y3N1bV91bmZv
-bGQoKnN1bSkpKTsNCj4gPiA+ICB9DQo+ID4gPg0KPiA+ID4gLXN0YXRpYyBpbmxpbmUgdm9pZCBj
-c3VtX3JlcGxhY2UyKF9fc3VtMTYgKnN1bSwgX19iZTE2IGZyb20sIF9fYmUxNiB0bykNCj4gPiA+
-ICsvKiBJbXBsZW1lbnRzIFJGQyAxNjI0IChJbmNyZW1lbnRhbCBJbnRlcm5ldCBDaGVja3N1bSkN
-Cj4gPiA+ICsgKiAzLiBEaXNjdXNzaW9uIHN0YXRlcyA6DQo+ID4gPiArICogICAgIEhDJyA9IH4o
-fkhDICsgfm0gKyBtJykNCj4gPiA+ICsgKiAgbSA6IG9sZCB2YWx1ZSBvZiBhIDE2Yml0IGZpZWxk
-DQo+ID4gPiArICogIG0nIDogbmV3IHZhbHVlIG9mIGEgMTZiaXQgZmllbGQNCj4gPiA+ICsgKi8N
-Cj4gPiA+ICtzdGF0aWMgaW5saW5lIHZvaWQgY3N1bV9yZXBsYWNlMihfX3N1bTE2ICpzdW0sIF9f
-YmUxNiBvbGQsIF9fYmUxNiBuZXcpDQo+ID4gPiAgew0KPiA+ID4gLQljc3VtX3JlcGxhY2U0KHN1
-bSwgKF9fZm9yY2UgX19iZTMyKWZyb20sIChfX2ZvcmNlIF9fYmUzMil0byk7DQo+ID4gPiArCSpz
-dW0gPSB+Y3N1bTE2X2FkZChjc3VtMTZfc3ViKH4oKnN1bSksIG9sZCksIG5ldyk7DQo+ID4gPiAg
-fQ0KPiA+DQo+ID4gSXQgbWlnaHQgYmUgY2xlYXJlciB0byBqdXN0IHNheToNCj4gPiAJKnN1bSA9
-IH5jc3VtMTZfYWRkKGNzdW0xNl9hZGQofipzdW0sIH5vbGQpLCBuZXcpKTsNCj4gPiBvciBldmVu
-Og0KPiA+IAkqc3VtID0gfmNzdW0xNl9hZGQoY3N1bTE2X2FkZCgqc3VtIF4gMHhmZmZmLCBvbGQg
-XiAweGZmZmYpLCBuZXcpKTsNCj4gPiB3aGljaCBtaWdodCByZW1vdmUgc29tZSBtYXNrIGluc3Ry
-dWN0aW9ucyAtIGVzcGVjaWFsbHkgaWYgYWxsIHRoZQ0KPiA+IGludGVybWVkaWF0ZSB2YWx1ZXMg
-YXJlIGxlZnQgbGFyZ2VyIHRoYW4gMTYgYml0cy4NCj4gDQo+IFdlIGhhdmUgY3N1bV9hZGQoKSBh
-bmQgY3N1bV9zdWIoKSwgSSBhZGRlZCBjc3VtMTZfYWRkKCkgYW5kDQo+IGNzdW0xNl9zdWIoKSwg
-Zm9yIGFuYWxvZ3kgYW5kIGNvbXBsZXRlbmVzcy4NCj4gDQo+IEZvciBsaW51eCBndXlzLCBpdHMg
-cXVpdGUgY29tbW9uIHN0dWZmIHRvIHVzZSBjc3VtX3N1Yih4LCB5KSBpbnN0ZWFkIG9mDQo+IGNz
-dW1fYWRkKGMsIH55KS4NCj4gDQo+IFlvdSBjYW4gdXNlIHdoYXRldmVyIGNvZGUgbWF0Y2hpbmcg
-eW91ciB0YXN0ZS4NCj4gDQo+IFJGQyAxNjI0IG1lbnRpb25zIH5tLCBub3QgbSBeIDB4ZmZmZg0K
-DQpCdXQgQyBvbmx5IGhhcyAzMmJpdCBtYXRocywgc28gYWxsIHRoZSAxNmJpdCB2YWx1ZXMga2Vl
-cA0KbmVlZCBtYXNraW5nLg0KDQo+IEJ1dCBhZ2FpbiBpZiB5b3UgcHJlZmVyIG0gXiAweGZmZmYs
-IHRoYXRzIHVwIHRvIHlvdSA7KQ0KDQpPbiBwcGMgSSBnZXQgbXVjaCBiZXR0ZXIgY29kZSBmb3Ig
-KHJldHlwZWQpOg0Kc3RhdGljIGlubGluZSB1MzIgY3N1bV9hZGQodTMyIGMsIHUzMiBhKQ0Kew0K
-CWMgKz0gYScNCglyZXR1cm4gKGMgKyAoYyA+PiAxNikpICYgMHhmZmZmOw0KfQ0Kdm9pZCBjc3Vt
-X3JlcGwodTE2ICpjMTYsIHUxNiBvMTYsIHUxNiBuKQ0Kew0KCXUzMiBjID0gKmMxNiwgbyA9IG8x
-NjsNCgkqYzE2ID0gY3N1bV9hZGQoY3N1bV9hZGQoYyBeIDB4ZmZmZiwgbyBeIDB4ZmZmZiksIG4p
-Ow0KfQ0KMTMgaW5zdHJ1Y3Rpb25zIGFuZCBubyBicmFuY2hlcyBhZ2FpbnN0IDIxIGluc3RydWN0
-aW9ucw0KYW5kIDIgYnJhbmNoZXMuDQpUaGUgc2FtZSBpcyBwcm9iYWJseSB0cnVlIG9mIGFybS4N
-CkZvciBhbWQ2NCAod2hlcmUgdGhlIGNvbXBpbGVyIGNhbiBkbyBhIDE2Yml0IGNvbXBhcmUpDQpt
-eSB2ZXJzaW9uIGlzIG9uZSBpbnN0cnVjdGlvbiBsb25nZXIuDQpJJ3ZlIG5vdCB0cmllZCB0byBn
-dWVzcyBhdCB0aGUgYWN0dWFsIGN5Y2xlIGNvdW50cyENCg0KCURhdmlkDQoNCg==
+
+	The VXLAN neigh_reduce() code is completely non-functional since
+check-in. Specific errors:
+
+1) The original code drops all packets with a multicast destination address,
+	even though neighbor solicitations are sent to the solicited-node
+	address, a multicast address. The code after this check was never run.
+2) The neighbor table lookup used the IPv6 header destination, which is the
+	solicited node address, rather than the target address from the
+	neighbor solicitation. So neighbor lookups would always fail if it
+	got this far. Also for L3MISSes.
+3) The code calls ndisc_send_na(), which does a send on the tunnel device.
+	The context for neigh_reduce() is the transmit path, vxlan_xmit(),
+	where the host or a bridge-attached neighbor is trying to transmit
+	a neighbor solicitation. To respond to it, the tunnel endpoint needs
+	to do a *receive* of the appropriate neighbor advertisement. Doing a
+	send, would only try to send the advertisement, encapsulated, to the
+	remote destinations in the fdb -- hosts that definitely did not do the
+	corresponding solicitation.
+4) The code uses the tunnel endpoint IPv6 forwarding flag to determine the
+	isrouter flag in the advertisement. This has nothing to do with whether
+	or not the target is a router, and generally won't be set since the
+	tunnel endpoint is bridging, not routing, traffic.
+
+	The patch below creates a proxy neighbor advertisement to respond to
+neighbor solicitions as intended, providing proper IPv6 support for neighbor
+reduction.
+
+Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
+---
+
+Notes:
+    Changes since v5:
+    	-code cleanups per David Miller
+    	-added multicast check on target
+    	-split variable olen into na_olen and ns_olen
+    Changes since v4:
+    	-checkpatch cleanup suggested by Stephen Hemminger
+    Changes since v3:
+    	- code cleanup suggested by Brian Haley
+    Changes since v2:
+    	- code cleanup suggested by Stephen Hemminger and Daniel Baluta
+    Changes since v1:
+    	- reworked code to be structurally similar to arp_reduce()
+
+ drivers/net/vxlan.c | 127 ++++++++++++++++++++++++++++++++++++++++++++++------
+ 1 file changed, 113 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index eb59b14..30d2eec 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1336,15 +1336,103 @@ out:
+ }
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
++
++static struct sk_buff *vxlan_na_create(struct sk_buff *request,
++	struct neighbour *n, bool isrouter)
++{
++	struct net_device *dev = request->dev;
++	struct sk_buff *reply;
++	struct nd_msg *ns, *na;
++	struct ipv6hdr *pip6;
++	u8 *daddr;
++	int na_olen = 8; /* opt hdr + ETH_ALEN for target */
++	int ns_olen;
++	int i, len;
++
++	if (dev == NULL)
++		return NULL;
++
++	len = LL_RESERVED_SPACE(dev) + sizeof(struct ipv6hdr) +
++		sizeof(*na) + na_olen + dev->needed_tailroom;
++	reply = alloc_skb(len, GFP_ATOMIC);
++	if (reply == NULL)
++		return NULL;
++
++	reply->protocol = htons(ETH_P_IPV6);
++	reply->dev = dev;
++	skb_reserve(reply, LL_RESERVED_SPACE(request->dev));
++	skb_push(reply, sizeof(struct ethhdr));
++	skb_set_mac_header(reply, 0);
++
++	ns = (struct nd_msg *)skb_transport_header(request);
++
++	daddr = eth_hdr(request)->h_source;
++	ns_olen = request->len - skb_transport_offset(request) - sizeof(*ns);
++	for (i = 0; i < ns_olen-1; i += (ns->opt[i+1]<<3)) {
++		if (ns->opt[i] == ND_OPT_SOURCE_LL_ADDR) {
++			daddr = ns->opt + i + sizeof(struct nd_opt_hdr);
++			break;
++		}
++	}
++
++	/* Ethernet header */
++	ether_addr_copy(eth_hdr(reply)->h_dest, daddr);
++	ether_addr_copy(eth_hdr(reply)->h_source, n->ha);
++	eth_hdr(reply)->h_proto = htons(ETH_P_IPV6);
++	reply->protocol = htons(ETH_P_IPV6);
++
++	skb_pull(reply, sizeof(struct ethhdr));
++	skb_set_network_header(reply, 0);
++	skb_put(reply, sizeof(struct ipv6hdr));
++
++	/* IPv6 header */
++
++	pip6 = ipv6_hdr(reply);
++	memset(pip6, 0, sizeof(struct ipv6hdr));
++	pip6->version = 6;
++	pip6->priority = ipv6_hdr(request)->priority;
++	pip6->nexthdr = IPPROTO_ICMPV6;
++	pip6->hop_limit = 255;
++	pip6->daddr = ipv6_hdr(request)->saddr;
++	pip6->saddr = *(struct in6_addr *)n->primary_key;
++
++	skb_pull(reply, sizeof(struct ipv6hdr));
++	skb_set_transport_header(reply, 0);
++
++	na = (struct nd_msg *)skb_put(reply, sizeof(*na) + na_olen);
++
++	/* Neighbor Advertisement */
++	memset(na, 0, sizeof(*na)+na_olen);
++	na->icmph.icmp6_type = NDISC_NEIGHBOUR_ADVERTISEMENT;
++	na->icmph.icmp6_router = isrouter;
++	na->icmph.icmp6_override = 1;
++	na->icmph.icmp6_solicited = 1;
++	na->target = ns->target;
++	ether_addr_copy(&na->opt[2], n->ha);
++	na->opt[0] = ND_OPT_TARGET_LL_ADDR;
++	na->opt[1] = na_olen >> 3;
++
++	na->icmph.icmp6_cksum = csum_ipv6_magic(&pip6->saddr,
++		&pip6->daddr, sizeof(*na)+na_olen, IPPROTO_ICMPV6,
++		csum_partial(na, sizeof(*na)+na_olen, 0));
++
++	pip6->payload_len = htons(sizeof(*na)+na_olen);
++
++	skb_push(reply, sizeof(struct ipv6hdr));
++
++	reply->ip_summed = CHECKSUM_UNNECESSARY;
++
++	return reply;
++}
++
+ static int neigh_reduce(struct net_device *dev, struct sk_buff *skb)
+ {
+ 	struct vxlan_dev *vxlan = netdev_priv(dev);
+-	struct neighbour *n;
+-	union vxlan_addr ipa;
++	struct nd_msg *msg;
+ 	const struct ipv6hdr *iphdr;
+ 	const struct in6_addr *saddr, *daddr;
+-	struct nd_msg *msg;
+-	struct inet6_dev *in6_dev = NULL;
++	struct neighbour *n;
++	struct inet6_dev *in6_dev;
+ 
+ 	in6_dev = __in6_dev_get(dev);
+ 	if (!in6_dev)
+@@ -1357,19 +1445,20 @@ static int neigh_reduce(struct net_device *dev, struct sk_buff *skb)
+ 	saddr = &iphdr->saddr;
+ 	daddr = &iphdr->daddr;
+ 
+-	if (ipv6_addr_loopback(daddr) ||
+-	    ipv6_addr_is_multicast(daddr))
+-		goto out;
+-
+ 	msg = (struct nd_msg *)skb_transport_header(skb);
+ 	if (msg->icmph.icmp6_code != 0 ||
+ 	    msg->icmph.icmp6_type != NDISC_NEIGHBOUR_SOLICITATION)
+ 		goto out;
+ 
+-	n = neigh_lookup(ipv6_stub->nd_tbl, daddr, dev);
++	if (ipv6_addr_loopback(daddr) ||
++	    ipv6_addr_is_multicast(&msg->target))
++		goto out;
++
++	n = neigh_lookup(ipv6_stub->nd_tbl, &msg->target, dev);
+ 
+ 	if (n) {
+ 		struct vxlan_fdb *f;
++		struct sk_buff *reply;
+ 
+ 		if (!(n->nud_state & NUD_CONNECTED)) {
+ 			neigh_release(n);
+@@ -1383,13 +1472,23 @@ static int neigh_reduce(struct net_device *dev, struct sk_buff *skb)
+ 			goto out;
+ 		}
+ 
+-		ipv6_stub->ndisc_send_na(dev, n, saddr, &msg->target,
+-					 !!in6_dev->cnf.forwarding,
+-					 true, false, false);
++		reply = vxlan_na_create(skb, n,
++					!!(f ? f->flags & NTF_ROUTER : 0));
++
+ 		neigh_release(n);
++
++		if (reply == NULL)
++			goto out;
++
++		if (netif_rx_ni(reply) == NET_RX_DROP)
++			dev->stats.rx_dropped++;
++
+ 	} else if (vxlan->flags & VXLAN_F_L3MISS) {
+-		ipa.sin6.sin6_addr = *daddr;
+-		ipa.sa.sa_family = AF_INET6;
++		union vxlan_addr ipa = {
++			.sin6.sin6_addr = msg->target,
++			.sa.sa_family = AF_INET6,
++		};
++
+ 		vxlan_ip_miss(dev, &ipa);
+ 	}
+ 
+-- 
+1.8.5.3
