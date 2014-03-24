@@ -1,119 +1,85 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] drivers/net: Use RCU_INIT_POINTER(x, NULL) in tun.c
-Date: Mon, 24 Mar 2014 10:57:21 +0200
-Message-ID: <20140324085721.GA23093@redhat.com>
-References: <1395599552-7486-1-git-send-email-monamagarwal123@gmail.com>
- <20140323194113.GA13633@redhat.com>
- <1395604457.9117.21.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140323213349.GA8832@redhat.com>
- <20140323221256.GG4405@linux.vnet.ibm.com>
- <20140324050939.GB8832@redhat.com>
- <1395638727.9117.55.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140324062225.GA22338@redhat.com>
+From: David Herrmann <dh.herrmann@gmail.com>
+Subject: Re: [PATCH v4 0/4] Provide netdev naming-policy via sysfs
+Date: Mon, 24 Mar 2014 09:59:18 +0100
+Message-ID: <CANq1E4Rb=gqmo+9xGnuC9N2gWb2TqOskaMDhFU9wn28z+HZa4g@mail.gmail.com>
+References: <1395085358-1171-1-git-send-email-dh.herrmann@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Monam Agarwal <monamagarwal123@gmail.com>, davem@davemloft.net,
-	jasowang@redhat.com, xemul@parallels.com, wuzhy@linux.vnet.ibm.com,
-	therbert@google.com, yamato@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>, Tom Gundersen <teg@jklm.no>,
+	Johannes berg <johannes@sipsolutions.net>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	David Herrmann <dh.herrmann@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140324062225.GA22338@redhat.com>
+In-Reply-To: <1395085358-1171-1-git-send-email-dh.herrmann@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 24, 2014 at 08:22:25AM +0200, Michael S. Tsirkin wrote:
-> On Sun, Mar 23, 2014 at 10:25:27PM -0700, Eric Dumazet wrote:
-> > On Mon, 2014-03-24 at 07:09 +0200, Michael S. Tsirkin wrote:
-> > 
-> > > Seems an incredibly strict requirement for something that just
-> > > silences a warning.
-> > > What exactly should I test?
-> > > I intended to just verify this produces same code as before
-> > > d322f45ceed525daa under a recent gcc.
-> > 
-> > Thats because many rcu_assign_pointer(X, NULL) were already converted to
-> > RCU_INIT_POINTER(X, NULL)
-> > 
-> > Quite frankly I don't know why you bother at all.
-> > 
-> > Adding back the lazy test in rcu_assign_pointer() doesn't help to make
-> > the API cleaner and easier to understand.
-> > 
-> > People are usually using RCU API without really understanding
-> > all the issues. They tend to add superfluous barriers because they feel
-> > better. 
-> 
-> Cute.  This is exactly what d322f45ceed525daa did actually -
-> made the barrier unconditional even when not needed.
-> 
-> > Having separate RCU_INIT_POINTER() and rcu_assign_pointer() serve as
-> > better documentation of the code, I find it more easier to immediately
-> > check what is going on while reviewing stuff.
-> > 
-> > Presumably, checkpatch.pl could be augmented to suggest to use
-> > RCU_INIT_POINTER(X, NULL) instead of rcu_assign_pointer(X, NULL)
-> > 
-> > 
-> 
-> 
-> What happens if someone then changes that NULL to something else?
-> Things will start to break in subtle way, won't they?
-> 
-> To me RCU_INIT_POINTER seems to say "safe to use when initializing
-> pointer field when no one can access the structure".
-> The patch that started it all changed a path that clearly
-> does not satisfy this: it is mutating a field not initializing
-> it before use. After looking at the implementation, it does
-> seem safe.  So if some people actually like this API, I don't mind.
-> A matter of taste I guess.
-> 
-> If someone still wants to make rcu_assign_pointer more optimal, without
-> a warning, I see a cleaner way to do this now, below.
-> Lightly tested - if someone sees value in this but requires more testing, let me know,
-> if no one responds I'll just drop the whole thing.
-> 
-> --->
-> 
-> rcu: optimize rcu_assign_pointer with NULL
-> 
-> The rcu_assign_pointer() dropped __builtin_constant_p check to
-> avoid a compiler warning, but we can actually work around it
-> using an inline wrapper, without adding code.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> ---
-> 
-> diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
-> index 72bf3a0..0d45b6d 100644
-> --- a/include/linux/rcupdate.h
-> +++ b/include/linux/rcupdate.h
-> @@ -585,9 +585,18 @@ static inline void rcu_preempt_sleep_check(void)
->   * please be careful when making changes to rcu_assign_pointer() and the
->   * other macros that it invokes.
->   */
-> +/* The inline wrapper is here to prevent gcc from emitting a warning when
-> + * passed a pointer to a variable.
-> + */
-> +static inline _rcu_safe_smp_wmb_unless_null(const void *v)
+Hi Dave
 
-doh should be static inline void
+Any comments on this?
 
+Thanks
+David
 
-anyway, I'll go away now
-
-> +{
-> +	if (!__builtin_constant_p(v) || ((v) != NULL))
-> +		smp_wmb();
-> +}
-> +
->  #define rcu_assign_pointer(p, v) \
->  	do { \
-> -		smp_wmb(); \
-> +		_rcu_safe_smp_wmb_unless_null((__force const void *)(v)); \
->  		ACCESS_ONCE(p) = RCU_INITIALIZER(v); \
->  	} while (0)
->  
+On Mon, Mar 17, 2014 at 8:42 PM, David Herrmann <dh.herrmann@gmail.com> wrote:
+> Hi
+>
+> This is v4 of the netdev naming-policy series. You can find v1 here:
+>   http://thread.gmane.org/gmane.linux.kernel/1657015
+> Changes since v1:
+>   - fix mac80211 core to set NET_NAME_ENUM for wlan%d kernel-provided names
+>   - acked-by udev developers
+>   - avoid padding after name_assign_type in "struct net_device" (David Laight)
+>   - move API constants to uapi header (Ben Hutchings)
+>
+>
+> This series implements a new sysfs attribute for netdevs called
+> "name_assign_type". It provides an integer that describes where an interface
+> name comes from. See Patch #1 for a description of this attribute. It is
+> modelled after the existing "addr_assign_type" attribute.
+>
+> The main use-case is to allow udev to skip applying reliable ifnames to virtual
+> devices. For instance, if wifi-P2P devices are created, wpas already provides a
+> suitable naming-policy and udev shouldn't touch these devices. Same is true for
+> other virtual devices.
+> The idea is that if a device-name was provided by user-space, we should always
+> prefer fixing this naming-policy instead of making udev rename the device. For
+> kernel provided names that's hardly possible, though. Providing the
+> naming-policy source via sysfs is thus a simple way to see whether renames are
+> needed.
+>
+> Additionally, this field allows to detect whether a netdev has been manually
+> renamed, which is quite useful for debugging and during crash-recovery.
+> Furthermore, it fixes real udev bugs if a netdev is already renamed in the
+> initrd and udev only runs in the real root. Detecting renames avoids overwriting
+> custom user provided names.
+>
+> Thanks
+> David
+>
+> David Herrmann (4):
+>   net: add name_assign_type netdev attribute
+>   mac80211: set NET_NAME_USER for user-space created ifs
+>   ath6kl: set NET_NAME_USER for P2P ifs
+>   brcmfmac: set NET_NAME_USER for P2P ifs
+>
+>  drivers/net/wireless/ath/ath6kl/cfg80211.c    | 5 ++++-
+>  drivers/net/wireless/ath/ath6kl/cfg80211.h    | 1 +
+>  drivers/net/wireless/ath/ath6kl/core.c        | 4 ++--
+>  drivers/net/wireless/brcm80211/brcmfmac/p2p.c | 1 +
+>  include/linux/netdevice.h                     | 2 ++
+>  include/uapi/linux/netdevice.h                | 4 ++++
+>  net/core/dev.c                                | 7 +++++++
+>  net/core/net-sysfs.c                          | 2 ++
+>  net/core/rtnetlink.c                          | 2 ++
+>  net/mac80211/cfg.c                            | 2 +-
+>  net/mac80211/ieee80211_i.h                    | 1 +
+>  net/mac80211/iface.c                          | 2 ++
+>  net/mac80211/main.c                           | 2 +-
+>  13 files changed, 30 insertions(+), 5 deletions(-)
+>
+> --
+> 1.9.0
+>
