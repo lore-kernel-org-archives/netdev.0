@@ -1,64 +1,108 @@
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Subject: Re: [PATCH] net/mlx4_core: pass pci_dev_data to __mlx4_init_one
-Date: Mon, 24 Mar 2014 17:41:22 +0800
-Message-ID: <20140324094122.GA19065@richard>
-References: <1395636171-17347-1-git-send-email-weiyang@linux.vnet.ibm.com>
- <CAJZOPZLM+fRBqA_rkgiUO5FCd1YtzsCKN3=denHW6Tx7OHN6RQ@mail.gmail.com>
-Reply-To: Wei Yang <weiyang@linux.vnet.ibm.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Mon, 24 Mar 2014 11:02:28 +0100
+Message-ID: <5755212.stImUCLDZi@wuerfel>
+References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org> <201403201531.20416.arnd@arndb.de> <CAMj5Bkgc2ChK48QmqEEMEmxdF6iGZxMX0kVUqGFd8jYhEWCvOA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wei Yang <weiyang@linux.vnet.ibm.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Zhangfei Gao <zhangfei.gao@gmail.com>,
+	Zhangfei Gao <zhangfei.gao@linaro.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp08.in.ibm.com ([122.248.162.8]:37546 "EHLO
-	e28smtp08.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752241AbaCXJln (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 05:41:43 -0400
-Received: from /spool/local
-	by e28smtp08.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
-	Mon, 24 Mar 2014 15:11:40 +0530
-Received: from d28relay04.in.ibm.com (d28relay04.in.ibm.com [9.184.220.61])
-	by d28dlp02.in.ibm.com (Postfix) with ESMTP id 9B42E394005A
-	for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 15:11:36 +0530 (IST)
-Received: from d28av01.in.ibm.com (d28av01.in.ibm.com [9.184.220.63])
-	by d28relay04.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2O9fTDg51249302
-	for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 15:11:30 +0530
-Received: from d28av01.in.ibm.com (localhost [127.0.0.1])
-	by d28av01.in.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s2O9fNZ6005259
-	for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 15:11:24 +0530
-Content-Disposition: inline
-In-Reply-To: <CAJZOPZLM+fRBqA_rkgiUO5FCd1YtzsCKN3=denHW6Tx7OHN6RQ@mail.gmail.com>
+Received: from moutng.kundenserver.de ([212.227.17.24]:52496 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088AbaCXKCy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 06:02:54 -0400
+In-Reply-To: <CAMj5Bkgc2ChK48QmqEEMEmxdF6iGZxMX0kVUqGFd8jYhEWCvOA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 24, 2014 at 08:40:42AM +0200, Or Gerlitz wrote:
->On Mon, Mar 24, 2014 at 6:42 AM, Wei Yang <weiyang@linux.vnet.ibm.com> wrote:
->>
->> The second parameter of __mlx4_init_one() is used to identify whether the
->> pci_dev is a PF or VF. Currently, when it is invoked in mlx4_pci_slot_reset()
->> this information is missed.
->
->
->This patch isn't fixing something in 3.14, right? if this is the case
->I assume it's for net-next, please put a "net" or "net-next"
->indication (next-time)
->
->Or.
->
+On Monday 24 March 2014 16:17:42 Zhangfei Gao wrote:
+> On Thu, Mar 20, 2014 at 10:31 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> >> >
+> >> >> +     if (!ppebase) {
+> >> >> +             struct device_node *n;
+> >> >> +
+> >> >> +             n = of_find_compatible_node(NULL, NULL, "hisilicon,hip04-ppebase");
+> >> >> +             if (!n) {
+> >> >> +                     ret = -EINVAL;
+> >> >> +                     netdev_err(ndev, "not find hisilicon,ppebase\n");
+> >> >> +                     goto init_fail;
+> >> >> +             }
+> >> >> +             ppebase = of_iomap(n, 0);
+> >> >> +     }
+> >> >
+> >> > How about using syscon_regmap_lookup_by_phandle() here? That way, you can have
+> >> > a more generic abstraction of the ppe, and stick the port and id in there as
+> >> > well, e.g.
+> >> >
+> >> >         ppe-syscon = <&hip04ppe 1 4>; // ppe, port, id
+> 
+> Even if using syscon_regmap_lookup_by_phandle, there still have static
+> struct regmap, since three controllers
+> share one regmap.
 
-Or,
+The regmap is then owned by the syscon driver, while each controller takes
+a reference to the regmap that it can store in its own private data
+structure. However, as we discussed using a ppe driver sounds nicer than
+regmap.
 
-Thanks for your suggestion. I will pay attention next time. :-)
+> > It's probably a little simpler to avoid the sub-nodes and instead do
+> >
+> >>               ppe: ppe@28c0000 {
+> >>                         compatible = "hisilicon,hip04-ppe";
+> >>                         reg = <0x28c0000 0x10000>;
+> >>                         #address-cells = <1>;
+> >>                         #size-cells = <0>;
+> >>                 };
+> >>                 fe: ethernet@28b0000 {
+> >>                         compatible = "hisilicon,hip04-mac";
+> >>                         reg = <0x28b0000 0x10000>;
+> >>                         interrupts = <0 413 4>;
+> >>                         phy-mode = "mii";
+> >>                         port-handle = <&ppe 31>;
+> >>                 };
+> >
+> > In the code, I would create a simple ppe driver that exports
+> > a few functions. you need. In the ethernet driver probe() function,
+> > you should get a handle to the ppe using
+> >
+> >         /* look up "port-handle" property of the current device, find ppe and port */
+> >         struct hip04_ppe *ppe = hip04_ppe_get(dev->of_node);
+> >         if (IS_ERR(ppe))
+> >                 return PTR_ERR(ptr); /* this handles -EPROBE_DEFER */
+> >
+> > and then in other code you can just do
+> >
+> >         hip04_ppe_set_foo(priv->ppe, foo_config);
+> >
+> > This is a somewhat more high-level abstraction that syscon, which
+> > just gives you a 'struct regmap' structure for doing register-level
+> > configuration like you have today.
+> >
+> 
+> Do you mean create one additional file like ppe.c with some exported
+> function to remove the static ppebase?
 
-BTW, do you like the fix?
+It doesn't have to be a separate file, as long as you register a
+separate platform_driver for the ppe.
 
+> Since the ppe is specifically bounded with ethernet, and does not used
+> anywhere else,
+> the exported function may not be used anywhere else.
+> Is it make it more complicated since there are probe, remove etc.
+> 
+> So I may still prefer using "static void __iomem *ppebase", as it is simpler.
 
--- 
-Richard Yang
-Help you, Help me
+The trouble is that the driver should not rely on being only there
+for a single instance, that's not how we write drivers.
+
+I'm fine with either a syscon instance (which would be simpler) or a
+separate ppe driver as part of the hip04-mac driver (which would be
+a nicer abstraction).
+
+	Arnd
