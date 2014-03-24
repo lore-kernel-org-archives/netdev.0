@@ -1,93 +1,81 @@
-From: Simon =?UTF-8?B?S8OlZ3N0csO2bQ==?= <simon.kagstrom@netinsight.net>
-Subject: [PATCH RFC] ixp4xx_eth: Allow setting the MDIO bus name in platform
- data
-Date: Mon, 24 Mar 2014 15:17:29 +0100
-Message-ID: <20140324151729.1b8e3bb5@marrow.netinsight.se>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: [PATCH] netlink: have netlink per-protocol bind function return
+ an error code.
+Date: Mon, 24 Mar 2014 10:38:43 -0400
+Message-ID: <20140324143843.GC28666@madcap2.tricolour.ca>
+References: <1239812af16a5c746772913ef68d3570383f2e50.1395419169.git.rgb@redhat.com>
+ <20140323.005010.1898428719601246326.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "linux-arm-kernel@lists.infradead.org"
- <linux-arm-kernel@lists.infradead.org>, Arnd Bergmann <arnd@arndb.de>,
- <arm@kernel.org>, Russell King - ARM Linux <linux@arm.linux.org.uk>,
- khc@pm.waw.pl, <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-audit@redhat.com, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	eparis@redhat.com, sgrubb@redhat.com, hadi@mojatatu.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140323.005010.1898428719601246326.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allows using e.g., a fixed MDIO bus with the ixp4xx_eth driver.
-Example:
+On 14/03/23, David Miller wrote:
+> From: Richard Guy Briggs <rgb@redhat.com>
+> Date: Fri, 21 Mar 2014 12:39:11 -0400
+> 
+> > @@ -1441,6 +1441,17 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+> >  	if (!nladdr->nl_groups && (nlk->groups == NULL || !(u32)nlk->groups[0]))
+> >  		return 0;
+> >  
+> > +	if (nlk->netlink_bind && nladdr->nl_groups) {
+> > +		int i;
+> > +
+> > +		for (i = 0; i < nlk->ngroups; i++)
+> > +			if (test_bit(i, (long unsigned int *)&nladdr->nl_groups)) {
+> > +				err = nlk->netlink_bind(i);
+> > +				if (err)
+> > +					return err;
+> > +			}
+> > +	}
+> > +
+> 
+> You can't just leave a partially set of completed bindings in place.
 
-  static struct eth_plat_info board_plat_eth_internal[] = {
-	{
-		.mdio_bus_id	= "fixed-0",
-		.phy		= 31,
-		.rxq		= 4,
-		.txreadyq	= 21,
-		.hwaddr		= {0x02, 0x00, 0x00, 0x00, 0x00, 0x00},
-	}
-  };
+In the general case, I agree.
 
-  static struct platform_device board_eth_internal = {
-	.name			= "ixp4xx_eth",
-	.id			= IXP4XX_ETH_NPEC,
-	.dev.platform_data	= board_plat_eth_internal,
-  };
+> It's not valid to leave half-baked state like this.
 
-Signed-off-by: Simon Kagstrom <simon.kagstrom@netinsight.net>
----
-I'm unsure if this is the correct way of doing it for the legacy ixp4xx
-platform. It seems most boards which use the fixed PHYs are DT-based			
-PPC ones.
+In the one existing case (netfilter), it adds a module that is never
+unloaded.  (refcounts are bumped up and down, but I don't see an
+auto-reap based on cleared multicast group subscriptions.)  For that
+matter, netlink_realloc_groups() isn't reversed on error either.
 
- arch/arm/mach-ixp4xx/include/mach/platform.h |    1 +
- drivers/net/ethernet/xscale/ixp4xx_eth.c     |    7 ++++++-
- 2 files changed, 7 insertions(+), 1 deletion(-)
+In the proposed case (audit) it is only a permissions check, so there is
+nothing to undo.
 
-diff --git a/arch/arm/mach-ixp4xx/include/mach/platform.h b/arch/arm/mach-ixp4xx/include/mach/platform.h
-index 75c4c65..c6114b9 100644
---- a/arch/arm/mach-ixp4xx/include/mach/platform.h
-+++ b/arch/arm/mach-ixp4xx/include/mach/platform.h
-@@ -97,6 +97,7 @@ struct ixp4xx_pata_data {
- 
- /* Information about built-in Ethernet MAC interfaces */
- struct eth_plat_info {
-+	const char *mdio_bus_id; /* MDIO bus name. NULL is the ixp4xx_eth bus */
- 	u8 phy;		/* MII PHY ID, 0 - 31 */
- 	u8 rxq;		/* configurable, currently 0 - 31 only */
- 	u8 txreadyq;
-diff --git a/drivers/net/ethernet/xscale/ixp4xx_eth.c b/drivers/net/ethernet/xscale/ixp4xx_eth.c
-index e540e51..31fe055 100644
---- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
-+++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
-@@ -1410,6 +1410,7 @@ static int eth_init_one(struct platform_device *pdev)
- 	struct net_device *dev;
- 	struct eth_plat_info *plat = dev_get_platdata(&pdev->dev);
- 	u32 regs_phys;
-+	const char *mdio_bus_id;
- 	char phy_id[MII_BUS_ID_SIZE + 3];
- 	int err;
- 
-@@ -1477,8 +1478,12 @@ static int eth_init_one(struct platform_device *pdev)
- 	__raw_writel(DEFAULT_CORE_CNTRL, &port->regs->core_control);
- 	udelay(50);
- 
-+	mdio_bus_id = mdio_bus->id;
-+	if (plat->mdio_bus_id)
-+		mdio_bus_id = plat->mdio_bus_id;
-+
- 	snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT,
--		mdio_bus->id, plat->phy);
-+		mdio_bus_id, plat->phy);
- 	port->phydev = phy_connect(dev, phy_id, &ixp4xx_adjust_link,
- 				   PHY_INTERFACE_MODE_MII);
- 	if (IS_ERR(port->phydev)) {
--- 
-1.7.9.6
+So, I was being lazy looking at the existing situation.
+
+> If you return an error, all of the binding state changes must be
+> completely undone.
+
+Is it time to add a ".unbind = netlink_unbind" to struct proto_ops
+netlink_ops?  (I am only half serious here...)
+
+> If you can't find a way to do this cleanly, you'll need to find
+> a way for the audit code to not return an error.
+
+Fair enough.  I'll go back and look at updating subscriptions and
+listeners first and undoing those actions if the bind fails.  In the
+case of netlink_setsockopt() it is just one to undo, which is easy.
+netlink_bind() is a bit more complex, but doable.
+
+The whole purpose here was to add a way for each protocol to be able to
+add its own permissions check and signal a way for netlink to refuse the
+subscription if the userspace process doesn't have the required
+permissions, so not returning an error defeats that whole purpose.
+
+- RGB
+
+--
+Richard Guy Briggs <rbriggs@redhat.com>
+Senior Software Engineer, Kernel Security, AMER ENG Base Operating Systems, Red Hat
+Remote, Ottawa, Canada
+Voice: +1.647.777.2635, Internal: (81) 32635, Alt: +1.613.693.0684x3545
