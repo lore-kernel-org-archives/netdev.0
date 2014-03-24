@@ -1,49 +1,59 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Mon, 24 Mar 2014 10:35:49 -0700
-Message-ID: <CAGVrzcb0=5qUwEPM-9LeMBU1gFL1UaZF5rzi0NXGPjMUfPDeLA@mail.gmail.com>
-References: <1395670496-17381-1-git-send-email-zhangfei.gao@linaro.org>
- <1395670496-17381-4-git-send-email-zhangfei.gao@linaro.org>
- <CAGVrzcaY257MAjjmkXDi_fD5TxSanmx9Jpvx-yg7vT3-GUjz3A@mail.gmail.com> <4644970.WiIKNXNpdP@wuerfel>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next] chelsio: Remove addressof casts to same type
+Date: Mon, 24 Mar 2014 10:45:12 -0700
+Message-ID: <1395683112.13968.59.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Mark Rutland <mark.rutland@arm.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Russell King <linux@arm.linux.org.uk>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zhangfei Gao <zhangfei.gao@linaro.org>,
-	David Miller <davem@davemloft.net>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:61376 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753633AbaCXRga (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 13:36:30 -0400
-In-Reply-To: <4644970.WiIKNXNpdP@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Dimitris Michailidis <dm@chelsio.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2014-03-24 10:23 GMT-07:00 Arnd Bergmann <arnd@arndb.de>:
-> On Monday 24 March 2014 09:32:17 Florian Fainelli wrote:
->> > +       priv->tx_skb[tx_head] = skb;
->> > +       priv->tx_phys[tx_head] = phys;
->> > +       desc->send_addr = cpu_to_be32(phys);
->> > +       desc->send_size = cpu_to_be16(skb->len);
->> > +       desc->cfg = cpu_to_be32(DESC_DEF_CFG);
->> > +       phys = priv->tx_desc_dma + tx_head * sizeof(struct tx_desc);
->> > +       desc->wb_addr = cpu_to_be32(phys);
->>
->> Don't we need a barrier here to ensure that all stores are completed
->> before we hand this descriptor address to hip40_set_xmit_desc() which
->> should make DMA start processing it?
->
-> I would think the writel() in set_xmit_desc() implies the barrier.
+Using addressof then casting to the original type is pointless,
+so remove these unnecessary casts.
 
-Right, which means that this should be properly documented to make
-sure that this simplification is well understood and produces the
-expected result.
--- 
-Florian
+Done via coccinelle script:
+
+$ cat typecast.cocci 
+@@
+type T;
+T foo;
+@@
+
+-	(T *)&foo
++	&foo
+
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index cc04d09..a7a41e0 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -3220,8 +3220,8 @@ static int cxgb4_clip_get(const struct net_device *dev,
+ 	c.op_to_write = htonl(FW_CMD_OP(FW_CLIP_CMD) |
+ 			FW_CMD_REQUEST | FW_CMD_WRITE);
+ 	c.alloc_to_len16 = htonl(F_FW_CLIP_CMD_ALLOC | FW_LEN16(c));
+-	*(__be64 *)&c.ip_hi = *(__be64 *)(lip->s6_addr);
+-	*(__be64 *)&c.ip_lo = *(__be64 *)(lip->s6_addr + 8);
++	c.ip_hi = *(__be64 *)(lip->s6_addr);
++	c.ip_lo = *(__be64 *)(lip->s6_addr + 8);
+ 	return t4_wr_mbox_meat(adap, adap->mbox, &c, sizeof(c), &c, false);
+ }
+ 
+@@ -3236,8 +3236,8 @@ static int cxgb4_clip_release(const struct net_device *dev,
+ 	c.op_to_write = htonl(FW_CMD_OP(FW_CLIP_CMD) |
+ 			FW_CMD_REQUEST | FW_CMD_READ);
+ 	c.alloc_to_len16 = htonl(F_FW_CLIP_CMD_FREE | FW_LEN16(c));
+-	*(__be64 *)&c.ip_hi = *(__be64 *)(lip->s6_addr);
+-	*(__be64 *)&c.ip_lo = *(__be64 *)(lip->s6_addr + 8);
++	c.ip_hi = *(__be64 *)(lip->s6_addr);
++	c.ip_lo = *(__be64 *)(lip->s6_addr + 8);
+ 	return t4_wr_mbox_meat(adap, adap->mbox, &c, sizeof(c), &c, false);
+ }
+ 
