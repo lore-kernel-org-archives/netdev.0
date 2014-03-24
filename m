@@ -1,55 +1,58 @@
-From: Weiping Pan <panweiping3@gmail.com>
-Subject: [PATCH net] tcp: delete unused parameter in tcp_nagle_check()
-Date: Mon, 24 Mar 2014 14:49:34 +0800
-Message-ID: <4609be8bb5dacb54d14e1b1f5dc8264b85c7c8d3.1395630957.git.panweiping3@gmail.com>
-Cc: edumazet@google.com
-To: netdev@vger.kernel.org
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH net-next v2 2/2] be2net: csum, tso and rss steering
+ offload support for VxLAN
+Date: Mon, 24 Mar 2014 08:52:07 +0200
+Message-ID: <CAJZOPZJ9zOBwnqH5XpdonYawu_Mu0A+hD0r4-TRMT5DSsHx=zQ@mail.gmail.com>
+References: <1395640827-23142-1-git-send-email-sathya.perla@emulex.com>
+	<1395640827-23142-3-git-send-email-sathya.perla@emulex.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Sathya Perla <sathya.perla@emulex.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22928 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750827AbaCXGtk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Mar 2014 02:49:40 -0400
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:42138 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752420AbaCXGwH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 02:52:07 -0400
+Received: by mail-pb0-f54.google.com with SMTP id ma3so5015210pbc.41
+        for <netdev@vger.kernel.org>; Sun, 23 Mar 2014 23:52:07 -0700 (PDT)
+In-Reply-To: <1395640827-23142-3-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After commit d4589926d7a9 (tcp: refine TSO splits), tcp_nagle_check() does
-not use parameter mss_now anymore.
+On Mon, Mar 24, 2014 at 8:00 AM, Sathya Perla <sathya.perla@emulex.com> wrote:
+> This patch mainly implements the add/del_vxlan_port() methods by invoking
+> the needed FW cmds for supporting VxLAN offloads for Skyhawk-R.
 
-Signed-off-by: Weiping Pan <panweiping3@gmail.com>
----
- net/ipv4/tcp_output.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+[...]
+> +static void be_add_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
+> +                             __be16 port)
+> +{
+> +       struct be_adapter *adapter = netdev_priv(netdev);
+> +       struct device *dev = &adapter->pdev->dev;
+> +       int status;
+> +
+> +       if (lancer_chip(adapter) || BEx_chip(adapter))
+> +               return;
+> +
+> +       if (adapter->flags & BE_FLAGS_VXLAN_OFFLOADS) {
+> +               dev_warn(dev, "Cannot add UDP port %d for VxLAN offloads\n",
+> +                        be16_to_cpu(port));
+> +               dev_info(dev,
+> +                        "Only one UDP port supported for VxLAN offloads\n");
+> +               return;
+> +       }
+> +
+> +       status = be_cmd_manage_iface(adapter, adapter->if_handle,
+> +                                    OP_CONVERT_NORMAL_TO_TUNNEL);
+> +       if (status) {
+> +               dev_warn(dev, "Failed to convert normal interface to tunnel\n");
+> +               goto err;
+> +       }
+> +
+> +       status = be_cmd_set_vxlan_port(adapter, port);
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 17a11e6..fbf4403 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1426,7 +1426,7 @@ static void tcp_minshall_update(struct tcp_sock *tp, unsigned int mss_now,
-  *    With Minshall's modification: all sent small packets are ACKed.
-  */
- static bool tcp_nagle_check(bool partial, const struct tcp_sock *tp,
--			    unsigned int mss_now, int nonagle)
-+			    int nonagle)
- {
- 	return partial &&
- 		((nonagle & TCP_NAGLE_CORK) ||
-@@ -1458,7 +1458,7 @@ static unsigned int tcp_mss_split_point(const struct sock *sk,
- 	 * to include this last segment in this skb.
- 	 * Otherwise, we'll split the skb at last MSS boundary
- 	 */
--	if (tcp_nagle_check(partial != 0, tp, mss_now, nonagle))
-+	if (tcp_nagle_check(partial != 0, tp, nonagle))
- 		return needed - partial;
- 
- 	return needed;
-@@ -1521,7 +1521,7 @@ static inline bool tcp_nagle_test(const struct tcp_sock *tp, const struct sk_buf
- 	if (tcp_urg_mode(tp) || (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN))
- 		return true;
- 
--	if (!tcp_nagle_check(skb->len < cur_mss, tp, cur_mss, nonagle))
-+	if (!tcp_nagle_check(skb->len < cur_mss, tp, nonagle))
- 		return true;
- 
- 	return false;
--- 
-1.7.4
+so the flow be_cmd_set_vxlan_port --> be_cmd_set_profile_config goes
+to sleep, right? well, it's wrong doing it from  here since the ndo is
+called from the vxlan driver under spinlock, you should easily get a
+nice stack trace if you test your code with spinlock/atomic debugging
