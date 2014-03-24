@@ -1,60 +1,39 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH net-next v2 1/2] be2net: add FW cmds needed for VxLAN
- offloads
-Date: Mon, 24 Mar 2014 07:49:59 +0000
-Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C2A41633E@CMEXMB1.ad.emulex.com>
-References: <1395640827-23142-1-git-send-email-sathya.perla@emulex.com>
-	<1395640827-23142-2-git-send-email-sathya.perla@emulex.com>
- <CAJZOPZJj-aPskQfDAFiUE6Oa5J71EyUX6UabGOCkGhKTyLkyBA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:37150 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751496AbaCXHuA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 03:50:00 -0400
-In-Reply-To: <CAJZOPZJj-aPskQfDAFiUE6Oa5J71EyUX6UabGOCkGhKTyLkyBA@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wei Zhang <asuka.com@163.com>
+Subject: [PATCH] ipv4: gre: Fix null pointer dereference in gre_cisco_err()
+Date: Mon, 24 Mar 2014 15:34:31 +0800
+Message-ID: <1395646471-637-1-git-send-email-asuka.com@163.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Wei Zhang <asuka.com@163.com>
+To: xeb@mail.ru, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Or Gerlitz [mailto:or.gerlitz@gmail.com]
-> 
-> On Mon, Mar 24, 2014 at 8:00 AM, Sathya Perla <sathya.perla@emulex.com> >
-> 
-> +void be_reset_nic_desc(struct be_nic_res_desc *nic)
-> > +{
-> > +       memset(nic, 0, sizeof(*nic));
-> > +       nic->unicast_mac_count = 0xFFFF;
-> > +       nic->mcc_count = 0xFFFF;
-> > +       nic->vlan_count = 0xFFFF;
-> > +       nic->mcast_mac_count = 0xFFFF;
-> > +       nic->txq_count = 0xFFFF;
-> > +       nic->rq_count = 0xFFFF;
-> > +       nic->rssq_count = 0xFFFF;
-> > +       nic->lro_count = 0xFFFF;
-> > +       nic->cq_count = 0xFFFF;
-> > +       nic->toe_conn_count = 0xFFFF;
-> > +       nic->eq_count = 0xFFFF;
-> > +       nic->link_param = 0xFF;
-> > +       nic->acpi_params = 0xFF;
-> > +       nic->wol_param = 0x0F;
-> > +       nic->bw_min = 0xFFFFFFFF;
-> > +       nic->bw_max = 0xFFFFFFFF;
-> 
-> maybe some sort of memset can do as well?
+When use the gre vport, openvswitch register a gre_cisco_protocol but
+does not supply a err_handler with it. The gre_cisco_err() call the
+err_handler without existence check, cause the kernel crash.
 
-This is old code that I just wrapped-up in a routine as a part of this patch, to help
-with re-factoring of be_cmd_set_profile_config() needed for vxlan setting.
-I'd like to take up any cleanup of this code as a part of a separate patch and not this patch-set.
+This patch base on v3.14-rc7. But the bug affect all kernel newer than
+3.11!
 
-Also, if you observe the be_nic_res_desc{} struct, the fields that require
-re-setting with 0xFFFF (count fields and params that are to remain unchanged)
-are all not contiguous. So, just memset-ing a region of memory doesn't necessarily work here.
+Signed-off-by: Wei Zhang <asuka.com@163.com>
+---
+ net/ipv4/gre_demux.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-thanks,
--Sathya
+diff --git a/net/ipv4/gre_demux.c b/net/ipv4/gre_demux.c
+index 1863422..56b0d67 100644
+--- a/net/ipv4/gre_demux.c
++++ b/net/ipv4/gre_demux.c
+@@ -250,7 +250,7 @@ static void gre_cisco_err(struct sk_buff *skb, u32 info)
+ 		struct gre_cisco_protocol *proto;
+ 
+ 		proto = rcu_dereference(gre_cisco_proto_list[i]);
+-		if (!proto)
++		if (!proto || !proto->err_handler)
+ 			continue;
+ 
+ 		if (proto->err_handler(skb, info, &tpi) == PACKET_RCVD)
+-- 
+1.7.1
