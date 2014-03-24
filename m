@@ -1,111 +1,43 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] drivers/net: Use RCU_INIT_POINTER(x, NULL) in tun.c
-Date: Sun, 23 Mar 2014 15:12:56 -0700
-Message-ID: <20140323221256.GG4405@linux.vnet.ibm.com>
-References: <1395599552-7486-1-git-send-email-monamagarwal123@gmail.com>
- <20140323194113.GA13633@redhat.com>
- <1395604457.9117.21.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140323213349.GA8832@redhat.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: wangyufen <wangyufen@huawei.com>
+Subject: Re: [PATCH net-next 2/2] net: tcp_ipv6 policy route issue
+Date: Mon, 24 Mar 2014 09:15:51 +0800
+Message-ID: <532F8747.4050005@huawei.com>
+References: <1395546460-8332-1-git-send-email-wangyufen@huawei.com> <1395546460-8332-2-git-send-email-wangyufen@huawei.com> <20140323.004535.1122322865637645199.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Monam Agarwal <monamagarwal123@gmail.com>, davem@davemloft.net,
-	jasowang@redhat.com, xemul@parallels.com, wuzhy@linux.vnet.ibm.com,
-	therbert@google.com, yamato@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140323213349.GA8832@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:48787 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751348AbaCXBQU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Mar 2014 21:16:20 -0400
+In-Reply-To: <20140323.004535.1122322865637645199.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 23, 2014 at 11:33:49PM +0200, Michael S. Tsirkin wrote:
-> On Sun, Mar 23, 2014 at 12:54:17PM -0700, Eric Dumazet wrote:
-> > On Sun, 2014-03-23 at 21:41 +0200, Michael S. Tsirkin wrote:
-> > 
-> > > The rcu_assign_pointer() ensures that the initialization of a structure       
-> > > is carried out before storing a pointer to that structure. 
-> > > In the case of the NULL pointer, there is no structure to initialize,
-> > > so we can safely drop smp_wmb in this case.
-> > > 
-> > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > > 
-> > > --
-> > > 
-> > > Lightly tested.
-> > > v is evaluated twice here but that should be ok since this
-> > > only happens when v is a constant, so evaluating it should
-> > > have no side effects.
-> > > Paul, what do you think?
-> > > 
-> > > diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
-> > > index 72bf3a0..d33c9ec 100644
-> > > --- a/include/linux/rcupdate.h
-> > > +++ b/include/linux/rcupdate.h
-> > > @@ -587,7 +587,8 @@ static inline void rcu_preempt_sleep_check(void)
-> > >   */
-> > >  #define rcu_assign_pointer(p, v) \
-> > >  	do { \
-> > > -		smp_wmb(); \
-> > > +		if (!__builtin_constant_p(v) || (v)) \
-> > > +			smp_wmb(); \
-> > >  		ACCESS_ONCE(p) = RCU_INITIALIZER(v); \
-> > >  	} while (0)
-> > >  
-> > 
-> > Yeah, I suggest you read d322f45ceed525daa changelog ;)
-> > 
+On 2014/3/23 12:45, David Miller wrote:
+> From: Wangyufen <wangyufen@huawei.com>
+> Date: Sun, 23 Mar 2014 11:47:40 +0800
 > 
-> Oh I see. It does not seem hard to silence that warning though.
-> See below.
-
-This would at the very least need to be tested under a wide variety
-of compilers.  And we need to keep 
-
-> Alternatively apply these patches everywhere though it does
-> look like too much work for too little gain to me.
+>> From: Wang Yufen <wangyufen@huawei.com>
+>>
+>>     The issue raises when adding policy route,specify a particular
+>>     NIC as oif. The policy route did not take effect.
+>>     The reason is that fl6.oif is not set and route map failed.
+>>
+>>     From the tcp_v6_send_response function:
+>>     If the binding address is linklocal, fl6.oif is set,
+>>     but not for global address.
 > 
-> -->
+> Please do not indent your commit log message text like this,
+> make the text start at the first column just like your Signoff
+> and From: line.
 > 
-> rcu: optimize rcu_assign_pointer with NULL
+> Please place a space after punction such as "," characters.
 > 
-> The rcu_assign_pointer() dropped __builtin_constant_p check to
-> avoid a compiler warning, but we can actually work around it without
-> adding code.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> ---
-> 
-> Untested, too late here, sorry.
+>> Signed-off-by: Wang Yufen <wangyufen@huawei.com>
 > 
 > 
-> diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
-> index 72bf3a0..9111d40 100644
-> --- a/include/linux/rcupdate.h
-> +++ b/include/linux/rcupdate.h
-> @@ -585,9 +585,14 @@ static inline void rcu_preempt_sleep_check(void)
->   * please be careful when making changes to rcu_assign_pointer() and the
->   * other macros that it invokes.
->   */
-> +/* The convoluted __builtin_constant_p logic is here to prevent
-> + * gcc from emitting a warning when passed a pointer to a variable.
-> + */
->  #define rcu_assign_pointer(p, v) \
->  	do { \
-> -		smp_wmb(); \
-> +		if (!__builtin_constant_p(v) || \
-> +		    (__builtin_constant_p(v) ? (v) : NULL)) \
-
-You lost me on this one.  If "v" is not a built-in constant, we want
-the smp_wmb(), right?
-
-							Thanx, Paul
-
-> +			smp_wmb(); \
->  		ACCESS_ONCE(p) = RCU_INITIALIZER(v); \
->  	} while (0)
-> 
-> 
+Thanks, I'll send v2 later.
