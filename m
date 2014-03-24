@@ -1,95 +1,48 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] drivers/net: Use RCU_INIT_POINTER(x, NULL) in tun.c
-Date: Mon, 24 Mar 2014 06:38:32 -0700
-Message-ID: <20140324133831.GK4405@linux.vnet.ibm.com>
-References: <1395599552-7486-1-git-send-email-monamagarwal123@gmail.com>
- <20140323194113.GA13633@redhat.com>
- <1395604457.9117.21.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140323213349.GA8832@redhat.com>
- <20140323221256.GG4405@linux.vnet.ibm.com>
- <20140324050939.GB8832@redhat.com>
- <1395638727.9117.55.camel@edumazet-glaptop2.roam.corp.google.com>
- <532FF124.1030209@cn.fujitsu.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] net/core: Use RCU_INIT_POINTER(x, NULL) in netpoll.c
+Date: Mon, 24 Mar 2014 09:49:28 -0400
+Message-ID: <20140324134928.GD19368@hmsreliant.think-freely.org>
+References: <1395601966-12490-1-git-send-email-monamagarwal123@gmail.com>
+ <20140324111144.GA19368@hmsreliant.think-freely.org>
+ <1395666875.12610.21.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Monam Agarwal <monamagarwal123@gmail.com>, davem@davemloft.net,
-	jasowang@redhat.com, xemul@parallels.com, wuzhy@linux.vnet.ibm.com,
-	therbert@google.com, yamato@redhat.com, netdev@vger.kernel.org,
+Cc: Monam Agarwal <monamagarwal123@gmail.com>, davem@davemloft.net,
+	ebiederm@xmission.com, cwang@twopensource.com, kaber@trash.net,
+	antonio@meshcoding.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Lai Jiangshan <laijs@cn.fujitsu.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <532FF124.1030209@cn.fujitsu.com>
+In-Reply-To: <1395666875.12610.21.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 24, 2014 at 04:47:32PM +0800, Lai Jiangshan wrote:
-> On 03/24/2014 01:25 PM, Eric Dumazet wrote:
-> > On Mon, 2014-03-24 at 07:09 +0200, Michael S. Tsirkin wrote:
-> > 
-> >> Seems an incredibly strict requirement for something that just
-> >> silences a warning.
-> >> What exactly should I test?
-> >> I intended to just verify this produces same code as before
-> >> d322f45ceed525daa under a recent gcc.
-> > 
-> > Thats because many rcu_assign_pointer(X, NULL) were already converted to
-> > RCU_INIT_POINTER(X, NULL)
-> > 
-> > Quite frankly I don't know why you bother at all.
-> > 
-> > Adding back the lazy test in rcu_assign_pointer() doesn't help to make
-> > the API cleaner and easier to understand.
-> > 
-> > People are usually using RCU API without really understanding
-> > all the issues. They tend to add superfluous barriers because they feel
-> > better. 
-> > 
-> > Having separate RCU_INIT_POINTER() and rcu_assign_pointer() serve as
-> > better documentation of the code, I find it more easier to immediately
-> > check what is going on while reviewing stuff.
-> > 
-> > Presumably, checkpatch.pl could be augmented to suggest to use
-> > RCU_INIT_POINTER(X, NULL) instead of rcu_assign_pointer(X, NULL)
+On Mon, Mar 24, 2014 at 06:14:35AM -0700, Eric Dumazet wrote:
+> On Mon, 2014-03-24 at 07:11 -0400, Neil Horman wrote:
+> > On Mon, Mar 24, 2014 at 12:42:46AM +0530, Monam Agarwal wrote:
+> > > This patch replaces rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x, NULL)
+> > > 
+> > > The rcu_assign_pointer() ensures that the initialization of a structure       
+> > > is carried out before storing a pointer to that structure. 
+> > > And in the case of the NULL pointer, there is no structure to initialize. 
+> > > So, rcu_assign_pointer(p, NULL) can be safely converted to RCU_INIT_POINTER(p, NULL)
+> > > 
+> > > Signed-off-by: Monam Agarwal <monamagarwal123@gmail.com>
+> > No, I don't think this is right. __netpoll_cleanup can be called in parallel
+> > with bottom half access to dev->npinfo.  rcu_assign pointer is safe against
+> > those accesses, but RCU_INIT_POINTER is not.
 > 
+> Wow, it is always safe for NULL value.
 > 
-> I prefer rcu_assign_pointer(X, NULL) than RCU_INIT_POINTER(X, NULL),
-> NULL should not be a special pointer value to the users of RCU.
-> 
-> the RCU implements should hide the difference if RCU implements
-> differentiate the values for optimization.
-> 
-> RCU_INIT_POINTER() sounds as an initialization-stage API. If we need
-> something different for NULL pointer, I prefer
-> rcu_assign_*null*_pointer().
 
-Let's keep what we have for a year or so, and then see how things look at
-that point.  A really easy Coccinelle script will make the needed changes,
-so we aren't losing anything by waiting.  And who knows, perhaps someone
-will come up with a clever idea in that time.
+Ok, After reading Paul's explination of what this is doing:
+http://mid.gmane.org/20140320150601.GK4405@linux.vnet.ibm.com
 
-> rcu_assign_pointer(X, NULL) implies compiler barrier(), but
-> RCU_INIT_POINTER(X, NULL) doesn't.
-
-Good point!  I don't believe that the current docbook mentions this,
-will fix.  And you are right, this is a good argument for maintaining
-a separate API for NULL-pointer assignment rather than making
-rcu_assign_pointer() sometimes do the smp_wmb() and sometimes not.
-With the current approach, you can count on rcu_assign_pointer()
-always implying a memory barrier.
-
-Also, one thing I forgot earlier, rcu_assign_pointer() now uses
-smp_store_release() rather than smp_wmb().
-
-							Thanx, Paul
-
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > Please read the FAQ at  http://www.tux.org/lkml/
-> > 
-> 
+This makes a bit more sense to me, and I see that its safe, but I'm still not
+sure that I like it, just from a readability standpoint.  Making the conversion
+removes a memory barrier and the use of a volatile variable, but this isn't a
+hot path, and the use of rcu_assign_pointer seems more readable to me as its
+balanced with the rcu_assign_pointer in __netpoll_setup.  Doesn't seem worth the
+tradeoff to me.
+Neil
