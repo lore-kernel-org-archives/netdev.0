@@ -1,62 +1,151 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] net: optimize csum_replace2()
-Date: Mon, 24 Mar 2014 15:52:20 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E7A13@AcuExch.aculab.com>
-References: <1395341341.9114.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140321.140730.1007660405690890605.davem@davemloft.net>
-	 <1395629496.9117.47.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6E778C@AcuExch.aculab.com>
-	 <1395667527.12610.32.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6E7939@AcuExch.aculab.com>
- <1395674087.12610.44.camel@edumazet-glaptop2.roam.corp.google.com>
+From: <erik.hugne@ericsson.com>
+Subject: [PATCH net] tipc: fix spinlock recursion bug for failed subscriptions
+Date: Mon, 24 Mar 2014 16:56:38 +0100
+Message-ID: <1395676598-14928-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"hkchu@google.com" <hkchu@google.com>,
-	"mwdalton@google.com" <mwdalton@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <ying.xue@windriver.com>, <paul.gortmaker@windriver.com>,
+	<richard.alpe@ericsson.com>, Erik Hugne <erik.hugne@ericsson.com>
+To: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
+	<jon.maloy@ericsson.com>, <maloy@donjonn.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:35286 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750909AbaCXPw5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Mar 2014 11:52:57 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 19293-09 for <netdev@vger.kernel.org>;
- Mon, 24 Mar 2014 15:52:54 +0000 (GMT)
-In-Reply-To: <1395674087.12610.44.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mailgw1.ericsson.se ([193.180.251.45]:62517 "EHLO
+	mailgw1.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752521AbaCXP4B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 11:56:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0DQouLi4NCj4gQ29kZSBJIHByb3ZpZGVkIHVzZXMgbm8gY29uZGl0
-aW9uYWwgYnJhbmNoIG9uIHg4Ni4NCg0KQWxsIHRoZSB3b3JsZCBpc24ndCB4ODYuLi4NClRoZSBz
-cGFyYywgcHBjIGFuZCBhcm0gcGVvcGxlIG1pZ2h0IHdhbnQgdG8gY29uc2lkZXIgb3B0aW1pc2lu
-Zw0KdGhpcyBjb2RlIGZ1cnRoZXIuDQoNCj4gSXQgc291bmRzIHlvdSBjb3VsZCBwcm92aWRlIGhl
-bHBlciB0byBhcm0sIGlmIHlvdSByZWFsbHkgY2FyZSBvZiB0aGlzDQo+IHBhdGguIEkgZmluZCBz
-dXJwcmlzaW5nIHlvdSBkaWQgbm90IGNvbW1lbnQgb24gbXkgcHJpb3IgbWFpbHMgb24gdGhpcw0K
-PiBzdWJqZWN0IGFuZCB5b3Ugc3VkZGVubHkgc2VlbSB0byBjYXJlIG5vdyB0aGUgcGF0Y2ggaXMg
-bWVyZ2VkLg0KDQpJIGRvbid0IHJlbWVtYmVyIHNlZWluZyB0aGlzIHBhcnRpY3VsYXIgcGF0Y2gg
-YmVmb3JlIHRvZGF5Lg0KTGFzdCB3ZWVrIHlvdSB3ZXJlIHN0aWxsIHNvcnRpbmcgb3V0IHRoZSBz
-dGFsbCBjYXVzZWQgYnkNCnRoZSAxNmJpdCB3cml0ZSAtPiAzMmJpdCBsb2FkIGluIHRoZSBleGlz
-dGluZyBjb2RlLg0KDQpJbiBhbnkgY2FzZSB5b3VyIGNoYW5nZSBpcyBjbGVhcmx5IGEgc2lnbmlm
-aWNhbnQgaW1wcm92ZW1lbnQgb24NCndoYXQgd2FzIHRoZXJlIGJlZm9yZS4NCg0KPiBXZSBmb3Ig
-ZXhhbXBsZSBoYXZlIHRoZSBmb2xsb3dpbmcgaGVscGVyIGluIHg4NiA6DQo+IA0KPiBzdGF0aWMg
-aW5saW5lIHVuc2lnbmVkIGFkZDMyX3dpdGhfY2FycnkodW5zaWduZWQgYSwgdW5zaWduZWQgYikN
-Cj4gew0KPiAgICAgICAgIGFzbSgiYWRkbCAlMiwlMFxuXHQiDQo+ICAgICAgICAgICAgICJhZGNs
-ICQwLCUwIg0KPiAgICAgICAgICAgICA6ICI9ciIgKGEpDQo+ICAgICAgICAgICAgIDogIjAiIChh
-KSwgInIiIChiKSk7DQo+ICAgICAgICAgcmV0dXJuIGE7DQo+IH0NCj4gDQo+IEJ1dCB0aGVzZSBk
-YXlzLCBnY2Mgc2VlbXMgdG8gZG8gYSBwcmV0dHkgZ29vZCBqb2Igd2l0aG91dCB0aGVzZSBoZWxw
-ZXJzLg0KDQpJbmRlZWQuDQoNCldoaWxlIHg4NiBjYW4gZG8gMTZiaXQgbWF0aHMsIG1vc3QgY3B1
-cyBjYW4ndCAtIHNvIHRoZSBnZW5lcmF0ZWQNCmNvZGUgZm9yICdzaG9ydCcgKGFuZCAnY2hhcicp
-IG1hdGhzIG11c3QgbWFzayB3aXRoIDB4ZmZmZiAob3IgMHhmZikNCmV2ZXJ5IHRpbWUgYSB2YWx1
-ZSBpcyB3cml0dGVuIHRvIGEgbG9jYWwgKGllIHJlZ2lzdGVyKSB2YXJpYWJsZS4NCkluIGdlbmVy
-YWwgeW91IGdldCBiZXR0ZXIgY29kZSBieSB1c2luZyBsb2NhbCB2YXJpYWJsZXMgdGhhdA0KYXJl
-IHRoZSBzYW1lIHNpemUgYXMgbWFjaGluZSByZWdpc3RlcnMuDQpUaGlzIGFsc28gYXBwbGllcyB0
-byBmdW5jdGlvbiBhcmd1bWVudHMgYW5kIHJldHVybiB0eXBlcy4NCg0KSSdtIG5vdCBzdXJlIGhv
-dyBtdWNoIGRpZmZlcmVuY2UgaXQgd291bGQgbWFrZSBvdmVyYWxsLg0KSXQgcmF0aGVyIGRlcGVu
-ZHMgb24gd2hldGhlciBhbnl0aGluZyBhcHBlYXJzIGluIGEgdmVyeQ0KaG90IHBhdGguIE9UT0gg
-YSBsb3Qgb2YgbWFsbCBjaGFuZ2VzIGNhbiBhZGQgdG9nZXRoZXIuDQoNCglEYXZpZA0KDQo=
+From: Erik Hugne <erik.hugne@ericsson.com>
+
+If a topology event subscription fails for any reason, such as out
+of memory, max number reached or because we received an invalid
+request the correct behavior is to terminate the subscribers
+connection to the topology server. This is currently broken and
+produces the following oops:
+
+[27.953662] tipc: Subscription rejected, illegal request
+[27.955329] BUG: spinlock recursion on CPU#1, kworker/u4:0/6
+[27.957066]  lock: 0xffff88003c67f408, .magic: dead4ead, .owner: kworker/u4:0/6, .owner_cpu: 1
+[27.958054] CPU: 1 PID: 6 Comm: kworker/u4:0 Not tainted 3.14.0-rc6+ #5
+[27.960230] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[27.960874] Workqueue: tipc_rcv tipc_recv_work [tipc]
+[27.961430]  ffff88003c67f408 ffff88003de27c18 ffffffff815c0207 ffff88003de1c050
+[27.962292]  ffff88003de27c38 ffffffff815beec5 ffff88003c67f408 ffffffff817f0a8a
+[27.963152]  ffff88003de27c58 ffffffff815beeeb ffff88003c67f408 ffffffffa0013520
+[27.964023] Call Trace:
+[27.964292]  [<ffffffff815c0207>] dump_stack+0x45/0x56
+[27.964874]  [<ffffffff815beec5>] spin_dump+0x8c/0x91
+[27.965420]  [<ffffffff815beeeb>] spin_bug+0x21/0x26
+[27.965995]  [<ffffffff81083df6>] do_raw_spin_lock+0x116/0x140
+[27.966631]  [<ffffffff815c6215>] _raw_spin_lock_bh+0x15/0x20
+[27.967256]  [<ffffffffa0008540>] subscr_conn_shutdown_event+0x20/0xa0 [tipc]
+[27.968051]  [<ffffffffa000fde4>] tipc_close_conn+0xa4/0xb0 [tipc]
+[27.968722]  [<ffffffffa00101ba>] tipc_conn_terminate+0x1a/0x30 [tipc]
+[27.969436]  [<ffffffffa00089a2>] subscr_conn_msg_event+0x1f2/0x2f0 [tipc]
+[27.970209]  [<ffffffffa0010000>] tipc_receive_from_sock+0x90/0xf0 [tipc]
+[27.970972]  [<ffffffffa000fa79>] tipc_recv_work+0x29/0x50 [tipc]
+[27.971633]  [<ffffffff8105dbf5>] process_one_work+0x165/0x3e0
+[27.972267]  [<ffffffff8105e869>] worker_thread+0x119/0x3a0
+[27.972896]  [<ffffffff8105e750>] ? manage_workers.isra.25+0x2a0/0x2a0
+[27.973622]  [<ffffffff810648af>] kthread+0xdf/0x100
+[27.974168]  [<ffffffff810647d0>] ? kthread_create_on_node+0x1a0/0x1a0
+[27.974893]  [<ffffffff815ce13c>] ret_from_fork+0x7c/0xb0
+[27.975466]  [<ffffffff810647d0>] ? kthread_create_on_node+0x1a0/0x1a0
+
+The recursion occurs when subscr_terminate tries to grab the
+subscriber lock, which is already taken by subscr_conn_msg_event.
+We fix this by checking if the request to establish a new
+subscription was successful, and if not we initiate termination of
+the subscriber after we have released the subscriber lock.
+
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/subscr.c | 29 +++++++++++++++--------------
+ 1 file changed, 15 insertions(+), 14 deletions(-)
+
+diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
+index 11c9ae0..6424372 100644
+--- a/net/tipc/subscr.c
++++ b/net/tipc/subscr.c
+@@ -263,9 +263,9 @@ static void subscr_cancel(struct tipc_subscr *s,
+  *
+  * Called with subscriber lock held.
+  */
+-static struct tipc_subscription *subscr_subscribe(struct tipc_subscr *s,
+-					     struct tipc_subscriber *subscriber)
+-{
++static int subscr_subscribe(struct tipc_subscr *s,
++			    struct tipc_subscriber *subscriber,
++			    struct tipc_subscription **sub_p) {
+ 	struct tipc_subscription *sub;
+ 	int swap;
+ 
+@@ -276,23 +276,21 @@ static struct tipc_subscription *subscr_subscribe(struct tipc_subscr *s,
+ 	if (s->filter & htohl(TIPC_SUB_CANCEL, swap)) {
+ 		s->filter &= ~htohl(TIPC_SUB_CANCEL, swap);
+ 		subscr_cancel(s, subscriber);
+-		return NULL;
++		return 0;
+ 	}
+ 
+ 	/* Refuse subscription if global limit exceeded */
+ 	if (atomic_read(&subscription_count) >= TIPC_MAX_SUBSCRIPTIONS) {
+ 		pr_warn("Subscription rejected, limit reached (%u)\n",
+ 			TIPC_MAX_SUBSCRIPTIONS);
+-		subscr_terminate(subscriber);
+-		return NULL;
++		return -EINVAL;
+ 	}
+ 
+ 	/* Allocate subscription object */
+ 	sub = kmalloc(sizeof(*sub), GFP_ATOMIC);
+ 	if (!sub) {
+ 		pr_warn("Subscription rejected, no memory\n");
+-		subscr_terminate(subscriber);
+-		return NULL;
++		return -ENOMEM;
+ 	}
+ 
+ 	/* Initialize subscription object */
+@@ -306,8 +304,7 @@ static struct tipc_subscription *subscr_subscribe(struct tipc_subscr *s,
+ 	    (sub->seq.lower > sub->seq.upper)) {
+ 		pr_warn("Subscription rejected, illegal request\n");
+ 		kfree(sub);
+-		subscr_terminate(subscriber);
+-		return NULL;
++		return -EINVAL;
+ 	}
+ 	INIT_LIST_HEAD(&sub->nameseq_list);
+ 	list_add(&sub->subscription_list, &subscriber->subscription_list);
+@@ -320,8 +317,8 @@ static struct tipc_subscription *subscr_subscribe(struct tipc_subscr *s,
+ 			     (Handler)subscr_timeout, (unsigned long)sub);
+ 		k_start_timer(&sub->timer, sub->timeout);
+ 	}
+-
+-	return sub;
++	*sub_p = sub;
++	return 0;
+ }
+ 
+ /* Handle one termination request for the subscriber */
+@@ -335,10 +332,14 @@ static void subscr_conn_msg_event(int conid, struct sockaddr_tipc *addr,
+ 				  void *usr_data, void *buf, size_t len)
+ {
+ 	struct tipc_subscriber *subscriber = usr_data;
+-	struct tipc_subscription *sub;
++	struct tipc_subscription *sub = NULL;
+ 
+ 	spin_lock_bh(&subscriber->lock);
+-	sub = subscr_subscribe((struct tipc_subscr *)buf, subscriber);
++	if (subscr_subscribe((struct tipc_subscr *)buf, subscriber, &sub) < 0) {
++		spin_unlock_bh(&subscriber->lock);
++		subscr_terminate(subscriber);
++		return;
++	}
+ 	if (sub)
+ 		tipc_nametbl_subscribe(sub);
+ 	spin_unlock_bh(&subscriber->lock);
+-- 
+1.8.3.2
