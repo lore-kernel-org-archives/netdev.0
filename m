@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][net-next] ipv4: remove ipv4_ifdown_dst from route.c
-Date: Mon, 24 Mar 2014 00:21:07 -0400 (EDT)
-Message-ID: <20140324.002107.1372538865435150194.davem@davemloft.net>
-References: <1395630190-12586-1-git-send-email-roy.qing.li@gmail.com>
+Subject: Re: [PATCH] net: micrel : ks8851-ml: add vdd-supply support
+Date: Mon, 24 Mar 2014 00:37:58 -0400 (EDT)
+Message-ID: <20140324.003758.1244022408748408267.davem@davemloft.net>
+References: <1395384768-8461-1-git-send-email-nm@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+Cc: rmk+kernel@arm.linux.org.uk, mpa@pengutronix.de, tony@atomide.com,
+	devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	linux-omap@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: nm@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36327 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36413 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751177AbaCXEVI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 00:21:08 -0400
-In-Reply-To: <1395630190-12586-1-git-send-email-roy.qing.li@gmail.com>
+	with ESMTP id S1750790AbaCXEiA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 00:38:00 -0400
+In-Reply-To: <1395384768-8461-1-git-send-email-nm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roy.qing.li@gmail.com
-Date: Mon, 24 Mar 2014 11:03:10 +0800
+From: Nishanth Menon <nm@ti.com>
+Date: Fri, 21 Mar 2014 01:52:48 -0500
 
-> From: Li RongQing <roy.qing.li@gmail.com> 
+> Few platforms use external regulator to keep the ethernet MAC supplied.
+> So, request and enable the regulator for driver functionality.
 > 
-> ipv4_ifdown_dst does nothing after IPv4 route caches removal,
-> so we can remove it.
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> Fixes: 66fda75f47dc (regulator: core: Replace direct ops->disable usage)
+> Reported-by: Russell King <rmk+kernel@arm.linux.org.uk>
+> Suggested-by: Markus Pargmann <mpa@pengutronix.de>
+> Signed-off-by: Nishanth Menon <nm@ti.com>
 
-Applied, thank you.
+Applied, thanks.
