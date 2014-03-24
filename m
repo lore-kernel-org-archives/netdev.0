@@ -1,14 +1,14 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 15/16] igb: Fix Null-pointer dereference in
- igb_reset_q_vector
-Date: Mon, 24 Mar 2014 13:49:30 -0700
-Message-ID: <1395694170.2899.15.camel@jtkirshe-mobl.jf.intel.com>
+Subject: Re: [net-next 16/16] igb: Unset IGB_FLAG_HAS_MSIX-flag when falling
+ back to msi-only
+Date: Mon, 24 Mar 2014 13:51:09 -0700
+Message-ID: <1395694269.2899.17.camel@jtkirshe-mobl.jf.intel.com>
 References: <1395403806-29302-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <0082c389c1d6488cb5cf473ff1bc26e2@UCL-MBX03.OASIS.UCLOUVAIN.BE>
-	 <20140323143125.GC5028@cpaasch-mac>
+	 <3ed2b36cb601493fae970917602ab6d1@UCL-MBX03.OASIS.UCLOUVAIN.BE>
+	 <20140323143215.GD5028@cpaasch-mac>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-zfmYoBDH+wWf1rWN4Hio"
+	protocol="application/pgp-signature"; boundary="=-T0NExLIYhJoXxdR93abJ"
 Cc: "davem@davemloft.net" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"gospo@redhat.com" <gospo@redhat.com>,
@@ -16,59 +16,124 @@ Cc: "davem@davemloft.net" <davem@davemloft.net>,
 	Carolyn Wyborny <carolyn.wyborny@intel.com>
 To: Christoph Paasch <christoph.paasch@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:38430 "EHLO mga09.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:32499 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754065AbaCXUte (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Mar 2014 16:49:34 -0400
-In-Reply-To: <20140323143125.GC5028@cpaasch-mac>
+	id S1753639AbaCXUvL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Mar 2014 16:51:11 -0400
+In-Reply-To: <20140323143215.GD5028@cpaasch-mac>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-zfmYoBDH+wWf1rWN4Hio
+--=-T0NExLIYhJoXxdR93abJ
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Sun, 2014-03-23 at 15:31 +0100, Christoph Paasch wrote:
-> On 21/03/14 - 12:10:05, Jeff Kirsher wrote:
+On Sun, 2014-03-23 at 15:32 +0100, Christoph Paasch wrote:
+> On 21/03/14 - 12:10:06, Jeff Kirsher wrote:
 > > From: Christoph Paasch <christoph.paasch@uclouvain.be>
 > >=20
-> > When igb_set_interrupt_capability() calls
-> > igb_reset_interrupt_capability() (e.g., because CONFIG_PCI_MSI is
-> unset),
-> > num_q_vectors has been set but no vector has yet been allocated.
+> > Prior to cd14ef54d25 (igb: Change to use statically allocated array
+> for
+> > MSIx entries), having msix_entries different from NULL was an
+> indicator
+> > that MSIX is enabled.
+> > In igb_set_interrupt_capabiliy we may fall back to MSI-only. Prior
+> to
+> > the above patch msix_entries was set to NULL by
+> > igb_reset_interrupt_capability.
 > >=20
-> > igb_reset_interrupt_capability() will then call igb_reset_q_vector,
-> > which assumes that the vector is allocated. As this is not the case,
-> we
-> > are accessing a NULL-pointer.
+> > However, now we are checking the flag for IGB_FLAG_HAS_MSIX and so
+> the
+> > stack gets completly confused:
 > >=20
-> > This patch fixes it by checking that q_vector is indeed different
-> from
-> > NULL.
+> > [   42.659791] ------------[ cut here ]------------
+> > [   42.715032] WARNING: CPU: 7 PID: 0 at net/sched/sch_generic.c:264
+> dev_watchdog+0x15c/0x1fb()
+> > [   42.848263] NETDEV WATCHDOG: eth0 (igb): transmit queue 0 timed
+> out
+> > [   42.923253] Modules linked in:
+> > [   42.959875] CPU: 7 PID: 0 Comm: swapper/7 Not tainted
+> 3.14.0-rc2-mptcp #437
+> > [   43.043184] Hardware name: HP ProLiant DL165 G7, BIOS O37
+> 01/26/2011
+> > [   43.119215]  0000000000000108 ffff88023fdc3da8 ffffffff81487847
+> 0000000000000108
+> > [   43.208165]  ffff88023fdc3df8 ffff88023fdc3de8 ffffffff81034e7d
+> ffff88023fdc3dd8
+> > [   43.297120]  ffffffff813fff10 ffff880236018000 ffff880236b178c0
+> 0000000000000008
+> > [   43.386071] Call Trace:
+> > [   43.415303]  <IRQ>  [<ffffffff81487847>] dump_stack+0x49/0x62
+> > [   43.484174]  [<ffffffff81034e7d>] warn_slowpath_common+0x77/0x91
+> > [   43.556049]  [<ffffffff813fff10>] ? dev_watchdog+0x15c/0x1fb
+> > [   43.623759]  [<ffffffff81034f2b>] warn_slowpath_fmt+0x41/0x43
+> > [   43.692511]  [<ffffffff813fff10>] dev_watchdog+0x15c/0x1fb
+> > [   43.758141]  [<ffffffff813ffdb4>] ? __netdev_watchdog_up
+> +0x64/0x64
+> > [   43.832091]  [<ffffffff8103cd04>] call_timer_fn+0x17/0x6f
+> > [   43.896682]  [<ffffffff8103cebe>] run_timer_softirq+0x162/0x1a2
+> > [   43.967511]  [<ffffffff81038520>] __do_softirq+0xcd/0x1cc
+> > [   44.032104]  [<ffffffff81038689>] irq_exit+0x3a/0x48
+> > [   44.091492]  [<ffffffff81026d43>] smp_apic_timer_interrupt
+> +0x43/0x50
+> > [   44.167525]  [<ffffffff8148c24a>] apic_timer_interrupt+0x6a/0x70
+> > [   44.239392]  <EOI>  [<ffffffff8100992c>] ? default_idle+0x6/0x8
+> > [   44.310343]  [<ffffffff81009b31>] arch_cpu_idle+0x13/0x18
+> > [   44.374934]  [<ffffffff81066126>] cpu_startup_entry+0xa7/0x101
+> > [   44.444724]  [<ffffffff81025660>] start_secondary+0x1b2/0x1b7
+> > [   44.513472] ---[ end trace a5a075fd4e7f854f ]---
+> > [   44.568753] igb 0000:04:00.0 eth0: Reset adapter
+> > [   46.206945] random: nonblocking pool is initialized
+> > [   46.465670] irq 44: nobody cared (try booting with the "irqpoll"
+> option)
+> > [   46.545862] CPU: 7 PID: 0 Comm: swapper/7 Tainted: G        W
+> 3.14.0-rc2-mptcp #437
+> > [   46.640610] Hardware name: HP ProLiant DL165 G7, BIOS O37
+> 01/26/2011
+> > [   46.716641]  ffff8802363f8c84 ffff88023fdc3e38 ffffffff81487847
+> 00000000a03cdb6d
+> > [   46.805598]  ffff8802363f8c00 ffff88023fdc3e68 ffffffff81068489
+> 0000007f81825400
+> > [   46.894539]  ffff8802363f8c00 0000000000000000 0000000000000000
+> ffff88023fdc3ea8
+> > [   46.983484] Call Trace:
+> > [   47.012714]  <IRQ>  [<ffffffff81487847>] dump_stack+0x49/0x62
+> > [   47.081585]  [<ffffffff81068489>] __report_bad_irq+0x35/0xc1
+> > [   47.149295]  [<ffffffff81068683>] note_interrupt+0x16e/0x1ea
+> > [   47.217006]  [<ffffffff8106679e>] handle_irq_event_percpu
+> +0x116/0x12e
+> > [   47.294075]  [<ffffffff810667e9>] handle_irq_event+0x33/0x4f
+> > [   47.361787]  [<ffffffff81068c95>] handle_fasteoi_irq+0x83/0xd1
+> > [   47.431577]  [<ffffffff81003d5b>] handle_irq+0x1f/0x28
+> > [   47.493047]  [<ffffffff81003567>] do_IRQ+0x4e/0xd4
+> > [   47.550358]  [<ffffffff8148b06a>] common_interrupt+0x6a/0x6a
+> > [   47.618066]  <EOI>  [<ffffffff8100992c>] ? default_idle+0x6/0x8
+> > [   47.689016]  [<ffffffff81009b31>] arch_cpu_idle+0x13/0x18
+> > [   47.753605]  [<ffffffff81066126>] cpu_startup_entry+0xa7/0x101
+> > [   47.823397]  [<ffffffff81025660>] start_secondary+0x1b2/0x1b7
+> > [   47.892146] handlers:
+> > [   47.919301] [<ffffffff812fbd7d>] igb_intr
 > >=20
-> > Fixes: 02ef6e1d0b0023 (igb: Fix queue allocation method to
-> accommodate changing during runtime)
+> > So, this patch unsets the flag to indicate that we are not using
+> MSIX.
+> > This patch does exactly this: Unsetting the flag when falling back
+> to MSI.
+> >=20
+> > Fixes: cd14ef54d25b (igb: Change to use statically allocated array
+> for MSIx entries)
 > > Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
 > > Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
 > > Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 >=20
-> Hello Jeff,
->=20
-> shouldn't this one rather be for 'net' instead of 'net-next'? Because
-> 02ef6e1d0b0023 is part of 3.14-rc1.
+> Same here - cd14ef54d25b is part of 3.14-rc1. I think it should go
+> into net
+> instead of net-next.
 
-Yes, but being that it is late in the -rcX cycle and 3.14 is expected to
-be released anytime now, it was not prudent to try and push this in
-right before the window closes.  It is better to have -stable pick this
-up once Linus releases 3.14.  Same goes for your other patch.
+See my response to your inquiry on your other patch (15/16).
 
-So once Linus releases 3.14 and Linus merges in Dave's net-next tree for
-3.15, I will notify the stable maintainers that your 2 patches need to
-be picked up for 3.14.x stable trees.
-
---=-zfmYoBDH+wWf1rWN4Hio
+--=-T0NExLIYhJoXxdR93abJ
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -76,19 +141,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIcBAABCgAGBQJTMJpaAAoJEOVv75VaS+3OzWgP/it37weIqbk9yxB1C6fuBeis
-+lUNdjR/qQN3rB+HEd7nVupZlbc5pZWnY2X2mUn1z0MEPUTJaNnaE4UReXj0gCIM
-EsJfrLZCt+qqprLd3ImE5O/hSlKRZhBwzklOZ5eU+fG5xY+xw/idHYb1qvmaRPHj
-g+wdDLNkbE3+hiEGM/ulhp2kFJ9ImG5M+74kB/N8GjQUXFXMgOhmQji1bIgkSGFm
-mp+Qzkj+/s7QLPsWielV30ZvtvT9QKbQsQPAJiFtW9Ywnz9NKG6BEwn0SBHShz9M
-41eM4rJLZ5tklyLNM26VEqL3v09zlpmYpFWz7SqecxrS2Gaa4uWu2q61pkMrb+Ql
-TAGwht5TAtjVIe6lo/LyE/ACdIbpKsbbaqvLA39ASuoBE6gIYjLWA7iY/pkolony
-vMCig2ScdZIuza3oiWXQeCBZs5U7fUCco9JNaqDw7MUpr/uStyyfCxQaqbVMiCr8
-qAaq8prsyQZwA6/f7ZUZYBMkeKQ8PdX2Y21IWRrYARiGRoYKBhu39qH+iSY6H19o
-HmSLly6FhbRBXXgsTe6Y6i93fTuveWWuqT2cD5gcBpU3L01h0tGGpGIx0cbBa0wW
-E/egNFM/msAOyTsv3bkrYTm0poC7JVqp3r2FT2F6e+FdDcLQbBYTfJa+KjTbo4cV
-Zi0HGNgHNa7It+AbpXSE
-=6aJS
+iQIcBAABCgAGBQJTMJq9AAoJEOVv75VaS+3OcXIP/3NxAuqI/sBFNspOnaWZ18ps
+tg+ZY2pi47tmy3f/3W3pdhD44aa4XCM0eYwKR2hTltWDpUF6hQw+xtW4VgPZYsM/
+Gqvkf027MCYsHFElNjX1IWa1PAiJsIC+bAJSdMc0mCPmbnOJxQHVvqNFgqLbh5MY
+XIc37GUSAhKmZ5/iZ/vtxUvIfT/zZCxY55Qw2NpVE5lKqPqcEZaCFD44vSwFW4lu
+TevHVJXO7A7VBtjBqnbzRRrIIOYWRqilFIAVvGLrA88yV9nxFXkoSRPG5xIx4afT
+efcnRFW0yac66EbCt4jYd2PQOQ2HddUCqUsE6fnmwYUSqp3jUwUAsQ39lEy3shG9
+9fJAOdP+1pg1EbKjmOICg3hjVOJDiViCz8p5QbYOJOUynsoiccx4AzwpGbmhqdKA
+SWshPKqfgkk81pvbjcqQqORRhgy+HwbmLTbViRH1ibNFMY4YrqffPFriIub+HP+W
+8hkundr2Nr+BN3stfxg+iXtgm8cqt/X9hHCT97DH90fvsXamh0y9gfMcPIeGJFTl
+PWrZjz9AvlxXwZ9pvi6oe3tpFQjJrGD3Lyin+Efhj4fFjyKuwepC7x4hNMdtI0Eo
+hMmh0N1QlIGbw704vrIOC/Z5Y4YUwS3RaMHzCUsqmhOKfcJFA8YkshVw8vH62nhI
+LsTEpv27abhTC2f4sr9U
+=aQA1
 -----END PGP SIGNATURE-----
 
---=-zfmYoBDH+wWf1rWN4Hio--
+--=-T0NExLIYhJoXxdR93abJ--
