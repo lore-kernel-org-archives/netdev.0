@@ -1,79 +1,46 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Tue, 25 Mar 2014 21:19:45 +0000
-Message-ID: <20140325211945.GC15723@casper.infradead.org>
-References: <532AD5B3.6020205@mojatatu.com>
- <20140320124021.GA2946@minipsycho.orion>
- <CAGVrzcbqQGGYb2Wkkekei7ivGd2XOnE+5GthLUv6_nD_oicrSQ@mail.gmail.com>
- <532C2AC4.7080303@mojatatu.com>
- <20140322094852.GB2844@minipsycho.orion>
- <5330BAB7.3040501@mojatatu.com>
- <20140325173927.GE8102@hmsreliant.think-freely.org>
- <20140325180009.GB15723@casper.infradead.org>
- <20140325193533.GF8102@hmsreliant.think-freely.org>
- <5331ED86.7020704@mojatatu.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net] ipv6: move DAD and addrconf_verify processing to
+ workqueue
+Date: Tue, 25 Mar 2014 14:20:04 -0700
+Message-ID: <20140325142004.7507d310@samsung-9>
+References: <20140317161853.2e880469@nehalam.linuxnetplumber.net>
+	<20140323020351.GA3984@order.stressinduktion.org>
+	<20140325080301.GA22086@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@tuxdriver.com>, Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, andy@greyhouse.net,
-	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
-	pshelar@nicira.com, azhou@nicira.com,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:57007 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751901AbaCYVTv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 17:19:51 -0400
-Content-Disposition: inline
-In-Reply-To: <5331ED86.7020704@mojatatu.com>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:64375 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751901AbaCYVUJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 17:20:09 -0400
+Received: by mail-pd0-f180.google.com with SMTP id v10so973378pde.39
+        for <netdev@vger.kernel.org>; Tue, 25 Mar 2014 14:20:08 -0700 (PDT)
+In-Reply-To: <20140325080301.GA22086@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/25/14 at 04:56pm, Jamal Hadi Salim wrote:
-> On 03/25/14 15:35, Neil Horman wrote:
-> >1) ip link show:
-> >em1
-> >sw1
-> >
-> >2) ip link show sw1
-> >sw1
-> >
-> >3) ip link show -p sw1
-> >sw1p0
-> >sw1p1
-> >sw1p2...
-> >
-> >
-> >The idea is to augment user space to allow the visibiliy of ports through the
-> >switch device, not directly, but using the same existing mechanisms.  We can
-> >reuse all the existing infrastruture, but with this model, control must pass
-> >through the switch device driver, allowing it to taylor available features by
-> >passing the netlink request on to the appropriate netdevice, or sending back an
-> >error itself.
-> >
-> 
-> I think i am with you mostly - just not on the visibility of a "master"
-> device.
-> Expose the ports. Users create bridges bonds and if the hardware is
-> capable it does the hard work to ensure consistency. No change in tools.
+On Tue, 25 Mar 2014 09:03:01 +0100
+Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
 
-Exactly. This is what I meant as well. No change in tools.
+>  
+> -static void addrconf_verify(unsigned long foo)
+> +static void addrconf_verify_rtnl(void)
+>  {
+>  	unsigned long now, next, next_sec, next_sched;
+>  	struct inet6_ifaddr *ifp;
+>  	int i;
+>  
+> +	ASSERT_RTNL();
+> +
+>  	rcu_read_lock_bh();
+>  	spin_lock(&addrconf_verify_lock);
 
-It's not just about changing ip link. We have tons of existing
-applications out there using Netlink and they will expect all ports
-visible if they issue RTM_GETLINK with NLM_F_DUMP.
+Since RTNL is now held in addrconf_verify(), is addrconf_verify_lock is not needed.
 
-What speaks against exposing it by default? To me, the model should
-not differ from a multi port NIC which we also expose all ports with
-any indirection.
+Since RTNL is held, rcu is not needed either.
+
+Also, I would skip the wrapper (addrconf_verify_rtnl) and just
+put it all in addrconf_verify_work
