@@ -1,56 +1,63 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: Re: [PATCH] net: mvneta: use devm_ioremap_resource() instead of
- of_iomap()
-Date: Tue, 25 Mar 2014 20:34:24 -0300
-Message-ID: <20140325233424.GA14158@arch.cereza>
-References: <1395790015-20929-1-git-send-email-thomas.petazzoni@free-electrons.com>
+From: <dinguyen-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 0/3] Fix stmmac-socfpga allmodconfig breakage in arm-soc
+Date: Tue, 25 Mar 2014 18:34:39 -0500
+Message-ID: <1395790482-3957-1-git-send-email-dinguyen@altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:50261 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753126AbaCYXeq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 19:34:46 -0400
-Content-Disposition: inline
-In-Reply-To: <1395790015-20929-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <arm-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	<robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Dinh Nguyen <dinguyen-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
+To: <dinh.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <arnd-r2nGTMty4D4@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mar 26, Thomas Petazzoni wrote:
-[..]
-> @@ -2774,6 +2775,7 @@ static void mvneta_port_power_up(struct mvneta_=
-port *pp, int phy_mode)
->  static int mvneta_probe(struct platform_device *pdev)
->  {
->  	const struct mbus_dram_target_info *dram_target_info;
-> +	struct resource *res;
->  	struct device_node *dn =3D pdev->dev.of_node;
->  	struct device_node *phy_node;
->  	u32 phy_addr;
-> @@ -2838,9 +2840,15 @@ static int mvneta_probe(struct platform_device=
- *pdev)
-> =20
->  	clk_prepare_enable(pp->clk);
-> =20
-> -	pp->base =3D of_iomap(dn, 0);
-> +	res =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> +	if (!res) {
-> +		err =3D -ENODEV;
-> +		goto err_clk;
-> +	}
-> +
-> +	pp->base =3D devm_ioremap_resource(&pdev->dev, res);
+From: Dinh Nguyen <dinguyen-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
 
-When you use devm_ioremap_resource, you don't need to have error handli=
-ng
-in platform_get_resource. Take a look at the comment at lib/devres.c.
---=20
-Ezequiel Garc=EDa, Free Electrons
-Embedded Linux, Kernel and Android Engineering
-http://free-electrons.com
+Hi,
+
+These 3 patches are based on Arnd's patch to fix the allmodconfig for the
+dwmac-socfpga implementation. I just broke the patch out into drivers,
+dts, and dts documentation.
+
+The original patch is here:
+http://lists.infradead.org/pipermail/linux-arm-kernel/2014-March/241518.html
+
+Arnd mentioned that he was thinking about just removing the dwmac-socfpga
+and send out the new verion to the netdev tree, but I haven't seen it. So
+just in case this solution might work, here are the patches.
+
+These patches are based on arm-soc/for-next.
+
+Thanks,
+
+Dinh Nguyen (3):
+  net: stmmac: improve binding and fix build
+  dts: socfpga: Fix ethernet entries for the stmmac
+  dts: documentation: Update documentation for the stmmac ethernet
+    controller
+
+ .../devicetree/bindings/net/socfpga-dwmac.txt      |   38 ++++------
+ Documentation/devicetree/bindings/net/stmmac.txt   |    6 ++
+ arch/arm/boot/dts/socfpga.dtsi                     |   51 +++++---------
+ arch/arm/boot/dts/socfpga_arria5_socdk.dts         |    5 +-
+ arch/arm/boot/dts/socfpga_cyclone5_socdk.dts       |    5 +-
+ arch/arm/boot/dts/socfpga_cyclone5_sockit.dts      |    5 +-
+ arch/arm/boot/dts/socfpga_vt.dts                   |    5 +-
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |   10 +++
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |    2 +-
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    |   73 +++-----------------
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    1 +
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    3 +
+ 12 files changed, 67 insertions(+), 137 deletions(-)
+
+-- 
+1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
