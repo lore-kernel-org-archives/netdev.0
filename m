@@ -1,56 +1,50 @@
-From: Adam Lee <adam.lee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH] rtlwifi: add MSI interrupts support
-Date: Tue, 25 Mar 2014 17:13:21 +0800
-Message-ID: <20140325091321.GA9241@adam-laptop>
-References: <1395640841-14477-1-git-send-email-adam.lee@canonical.com>
- <1395660884-15042-1-git-send-email-adam.lee@canonical.com>
- <53304BBE.6040403@lwfinger.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 1/4 V2] Ethernet drivers in 3.14-rc3 kernel: fix 3
+ buffer overflows triggered by hardware devices
+Date: Tue, 25 Mar 2014 09:37:12 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E8463@AcuExch.aculab.com>
+References: <CAKPWWNFZc8v04-GM5Ttoa-CW_zhNmfMCYO2Q-Yh-75qitSUpiA@mail.gmail.com>
+	<20140324.131733.723749970605014851.davem@davemloft.net>
+	<CAKPWWNF982P7PtuoySy6ncU1mCNFm2RBMEDKr3-QKoCKU-6AMw@mail.gmail.com>
+	<20140324.143512.68893694230434555.davem@davemloft.net>
+	<1395697861.2832.84.camel@deadeye.wl.decadent.org.uk>
+ <CAKPWWNFhqP==HfQC6aV=OFs6Ud6bBDa9hpCrvih8BxDUDo87JA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <53304BBE.6040403-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Grant Grundler" <grantgrundler@gmail.com>
+To: 'Alon Nafta' <alon@privatecore.com>,
+	Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:47554 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751074AbaCYJhx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 05:37:53 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 03316-02 for <netdev@vger.kernel.org>;
+ Tue, 25 Mar 2014 09:37:51 +0000 (GMT)
+In-Reply-To: <CAKPWWNFhqP==HfQC6aV=OFs6Ud6bBDa9hpCrvih8BxDUDo87JA@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 24, 2014 at 10:14:06AM -0500, Larry Finger wrote:
-> On 03/24/2014 06:34 AM, Adam Lee wrote:
-> >Add MSI interrupts support, enable it when msi_support flag is true,
-> >also could fallback to pin-based interrupts mode if MSI mode fails.
-> >
-> >Signed-off-by: Adam Lee <adam.lee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> 
-> Your first patch turns on MSI support unconditionally. That implies that
-> there are no harmful effects for attempting to use MSI on a box where it is
-> not needed, and/or not implemented. If that is the case, then the
-> msi_support bool should be eliminated, your first patch dropped, and this
-> one revised appropriately. Driver rtl8723be added this bool, but never uses
-> it. Once that driver reaches mainline, a patch can be prepared to remove the
-> variable.
+From: Alon Nafta 
+> I don't think they should be trusted at all, at least not to a point
+> where it's feasible for them to execute code on your system.
+> USB drivers, filesystem drivers, peripheral drivers - they're all on
+> the same boat, obviously having different levels of severity depending
+> on driver popularity.
 
-Hi, Larry
+On a large number of systems any PCI or PCIe hardware has the
+ability to read and write any system physical addresses.
+Not only does this mean that 'dodgy' hardware can change the
+kernel code, but also any attempt to restrict the memory that
+the driver itself can access is likely to be circumventable.
 
-Just confirmed with RealTek wireless engineer, their policy is:
+Yes, you can raise the barrier, but there will always be low
+points on it.
 
-> Case 1: if the platform supports both MSI and Pin-based, our driver will use MSI.
-> Case 2: if the platform supports MSI only, our driver will use MSI.
-> Case 3: if the platform supports Pin-Based only, out driver will use Pin-Based.
-
-I think it's safe enough to apply the first "rtlwifi: rtl8188ee: enable
-MSI interrupts support" patch also, and the msi_support bool should not
-be eliminated(at least for now) in case some wifi modules don't support
-MSI well.
-
-Thanks.
-
--- 
-Adam Lee
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	David
