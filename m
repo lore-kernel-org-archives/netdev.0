@@ -1,101 +1,70 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v3 3/3] xen-netback: Functional follow-up patch for grant mapping series
-Date: Mon, 24 Mar 2014 23:59:51 +0000
-Message-ID: <1395705591-23976-3-git-send-email-zoltan.kiss@citrix.com>
-References: <1395705591-23976-1-git-send-email-zoltan.kiss@citrix.com>
+From: Wei Liu <liuw@liuw.name>
+Subject: Re: [Xen-devel] [PATCH net] xen-netback: disable rogue vif in kthread context
+Date: Tue, 25 Mar 2014 00:44:41 +0000
+Message-ID: <CAOsiSVWtsx7XiyF8Z+jN7vPzmXG+aAXq3xQsvW3dDDiZ5Hc24A@mail.gmail.com>
+References: <1395663214-14133-1-git-send-email-wei.liu2@citrix.com> <20140324.152945.1082990562317636743.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>
-To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1395705591-23976-1-git-send-email-zoltan.kiss@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	edwin@etorok.net,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	Paul Durrant <paul.durrant@citrix.com>, zoltan.kiss@citrix.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:41833 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751838AbaCYApN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 20:45:13 -0400
+Received: by mail-wi0-f179.google.com with SMTP id f8so110255wiw.12
+        for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 17:45:11 -0700 (PDT)
+In-Reply-To: <20140324.152945.1082990562317636743.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ian made some late comments about the grant mapping series, I incorporated the
-functional outcomes into this patch:
+On Mon, Mar 24, 2014 at 7:29 PM, David Miller <davem@davemloft.net> wrote:
+> From: Wei Liu <wei.liu2@citrix.com>
+> Date: Mon, 24 Mar 2014 12:13:34 +0000
+>
+>> @@ -62,6 +62,13 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
+>>       struct xenvif *vif = container_of(napi, struct xenvif, napi);
+>>       int work_done;
+>>
+>> +     /* This vif is rogue, we pretend we've used up all budget to
+>> +      * deschedule it from NAPI. But this interface will be turned
+>> +      * off in thread context later.
+>> +      */
+>> +     if (unlikely(vif->disabled))
+>> +             return budget;
+>> +
+>
+> As mentioned by others, this makes NAPI poll forever.
+>
+> The following comment was referenced:
+>
+>                 /* Drivers must not modify the NAPI state if they
+>                  * consume the entire weight.  In such cases this code
+>                  * still "owns" the NAPI instance and therefore can
+>                  * move the instance around on the list at-will.
+>                  */
+>                 if (unlikely(work == weight)) {
+>
+> WHICH MEANS, if you return that you used the full budget, the NAPI instance
+> is still owned by the core.
+>
+> Why?  Becuase if you used the entire budget, it's going to put you back onto
+> the polling list and invoke you again some time soon.
+>
+> If the interface is disabled, you should return zero from the poll and do a
+> NAPI completion.
+>
 
-- use callback_param macro to shorten access to pending_tx_info in
-  xenvif_fill_frags() and xenvif_tx_submit()
-- print an error message in xenvif_idx_unmap() before panic
+Yes, you're right. I made a mistake in using the budget the other way around.
 
-Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
----
-v2:
-- expand commit message and split this into 2 patch
-- fix typos
+Wei.
 
-v3: change the subject
-
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index f5c440b..0efa32d 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -99,6 +99,9 @@ static inline unsigned long idx_to_kaddr(struct xenvif *vif,
- 	return (unsigned long)pfn_to_kaddr(idx_to_pfn(vif, idx));
- }
- 
-+#define callback_param(vif, pending_idx) \
-+	(vif->pending_tx_info[pending_idx].callback_struct)
-+
- /* Find the containing VIF's structure from a pointer in pending_tx_info array
-  */
- static inline struct xenvif* ubuf_to_vif(struct ubuf_info *ubuf)
-@@ -1020,12 +1023,12 @@ static void xenvif_fill_frags(struct xenvif *vif, struct sk_buff *skb)
- 		/* If this is not the first frag, chain it to the previous*/
- 		if (unlikely(prev_pending_idx == INVALID_PENDING_IDX))
- 			skb_shinfo(skb)->destructor_arg =
--				&vif->pending_tx_info[pending_idx].callback_struct;
-+				&callback_param(vif, pending_idx);
- 		else if (likely(pending_idx != prev_pending_idx))
--			vif->pending_tx_info[prev_pending_idx].callback_struct.ctx =
--				&(vif->pending_tx_info[pending_idx].callback_struct);
-+			callback_param(vif, prev_pending_idx).ctx =
-+				&callback_param(vif, pending_idx);
- 
--		vif->pending_tx_info[pending_idx].callback_struct.ctx = NULL;
-+		callback_param(vif, pending_idx).ctx = NULL;
- 		prev_pending_idx = pending_idx;
- 
- 		txp = &vif->pending_tx_info[pending_idx].req;
-@@ -1395,13 +1398,13 @@ static int xenvif_tx_submit(struct xenvif *vif)
- 		memcpy(skb->data,
- 		       (void *)(idx_to_kaddr(vif, pending_idx)|txp->offset),
- 		       data_len);
--		vif->pending_tx_info[pending_idx].callback_struct.ctx = NULL;
-+		callback_param(vif, pending_idx).ctx = NULL;
- 		if (data_len < txp->size) {
- 			/* Append the packet payload as a fragment. */
- 			txp->offset += data_len;
- 			txp->size -= data_len;
- 			skb_shinfo(skb)->destructor_arg =
--				&vif->pending_tx_info[pending_idx].callback_struct;
-+				&callback_param(vif, pending_idx);
- 		} else {
- 			/* Schedule a response immediately. */
- 			xenvif_idx_unmap(vif, pending_idx);
-@@ -1678,11 +1680,20 @@ void xenvif_idx_unmap(struct xenvif *vif, u16 pending_idx)
- 			    idx_to_kaddr(vif, pending_idx),
- 			    GNTMAP_host_map,
- 			    vif->grant_tx_handle[pending_idx]);
- 	xenvif_grant_handle_reset(vif, pending_idx);
- 
- 	ret = gnttab_unmap_refs(&tx_unmap_op, NULL,
- 				&vif->mmap_pages[pending_idx], 1);
--	BUG_ON(ret);
-+	if (ret) {
-+		netdev_err(vif->dev,
-+			   "Unmap fail: ret: %d pending_idx: %d host_addr: %llx handle: %x status: %d\n",
-+			   ret,
-+			   pending_idx,
-+			   tx_unmap_op.host_addr,
-+			   tx_unmap_op.handle,
-+			   tx_unmap_op.status);
-+		BUG();
-+	}
- 
- 	xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_OKAY);
- }
+> _______________________________________________
+> Xen-devel mailing list
+> Xen-devel@lists.xen.org
+> http://lists.xen.org/xen-devel
