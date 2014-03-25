@@ -1,178 +1,166 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v2 3/9] net: filter: move filter accounting to filter core
-Date: Tue, 25 Mar 2014 13:10:51 +0100
-Message-ID: <1395749457-16178-4-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next v2 6/9] net: ppp: use sk_unattached_filter api
+Date: Tue, 25 Mar 2014 13:10:54 +0100
+Message-ID: <1395749457-16178-7-git-send-email-dborkman@redhat.com>
 References: <1395749457-16178-1-git-send-email-dborkman@redhat.com>
 Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	Pavel Emelyanov <xemul@parallels.com>
+	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30129 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752862AbaCYMLT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2014 08:11:19 -0400
+Return-path: <linux-ppp-owner@vger.kernel.org>
 In-Reply-To: <1395749457-16178-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch basically does two things, i) removes the extern keyword
-from the include/linux/filter.h file to be more consistent with the
-rest of Joe's changes, and ii) moves filter accounting into the filter
-core framework.
-
-Filter accounting mainly done through sk_filter_{un,}charge() take
-care of the case when sockets are being cloned through sk_clone_lock()
-so that removal of the filter on one socket won't result in eviction
-as it's still referenced by the other.
-
-These functions actually belong to net/core/filter.c and not
-include/net/sock.h as we want to keep all that in a central place.
-It's also not in fast-path so uninlining them is fine and even allows
-us to get rd of sk_filter_release_rcu()'s EXPORT_SYMBOL and a forward
-declaration.
+For the ppp driver, there are currently two open-coded BPF filters in use,
+that is, pass_filter and active_filter. Migrate both to make proper use
+of sk_unattached_filter_{create,destroy} API so that the actual BPF code
+is decoupled from direct access, and filters can be jited as a side-effect
+by the internal filter compiler.
 
 Joint work with Alexei Starovoitov.
 
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-Cc: Pavel Emelyanov <xemul@parallels.com>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: linux-ppp@vger.kernel.org
 ---
- include/linux/filter.h | 30 +++++++++++++++++-------------
- include/net/sock.h     | 27 ---------------------------
- net/core/filter.c      | 27 +++++++++++++++++++++++++--
- 3 files changed, 42 insertions(+), 42 deletions(-)
+ drivers/net/ppp/ppp_generic.c | 60 +++++++++++++++++++++++++++++--------------
+ 1 file changed, 41 insertions(+), 19 deletions(-)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 93a9792..9bde3ed 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -50,28 +50,32 @@ static inline unsigned int sk_filter_size(unsigned int proglen)
- #define sk_filter_proglen(fprog)			\
- 		(fprog->len * sizeof(fprog->filter[0]))
- 
--extern int sk_filter(struct sock *sk, struct sk_buff *skb);
--extern unsigned int sk_run_filter(const struct sk_buff *skb,
--				  const struct sock_filter *filter);
-+int sk_filter(struct sock *sk, struct sk_buff *skb);
-+unsigned int sk_run_filter(const struct sk_buff *skb,
-+			   const struct sock_filter *filter);
- 
--extern int sk_unattached_filter_create(struct sk_filter **pfp,
--				       struct sock_fprog *fprog);
--extern void sk_unattached_filter_destroy(struct sk_filter *fp);
-+int sk_unattached_filter_create(struct sk_filter **pfp,
-+				struct sock_fprog *fprog);
-+void sk_unattached_filter_destroy(struct sk_filter *fp);
- 
--extern int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
--extern int sk_detach_filter(struct sock *sk);
-+int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
-+int sk_detach_filter(struct sock *sk);
- 
--extern int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
--extern int sk_get_filter(struct sock *sk, struct sock_filter __user *filter, unsigned len);
--extern void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to);
-+int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
-+int sk_get_filter(struct sock *sk, struct sock_filter __user *filter,
-+		  unsigned int len);
-+void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to);
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index 72ff14b..e3923eb 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -143,9 +143,8 @@ struct ppp {
+ 	struct sk_buff_head mrq;	/* MP: receive reconstruction queue */
+ #endif /* CONFIG_PPP_MULTILINK */
+ #ifdef CONFIG_PPP_FILTER
+-	struct sock_filter *pass_filter;	/* filter for packets to pass */
+-	struct sock_filter *active_filter;/* filter for pkts to reset idle */
+-	unsigned pass_len, active_len;
++	struct sk_filter *pass_filter;	/* filter for packets to pass */
++	struct sk_filter *active_filter;/* filter for pkts to reset idle */
+ #endif /* CONFIG_PPP_FILTER */
+ 	struct net	*ppp_net;	/* the net we belong to */
+ 	struct ppp_link_stats stats64;	/* 64 bit network stats */
+@@ -755,28 +754,42 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+ 	case PPPIOCSPASS:
+ 	{
+ 		struct sock_filter *code;
 +
-+void sk_filter_charge(struct sock *sk, struct sk_filter *fp);
-+void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp);
- 
- #ifdef CONFIG_BPF_JIT
- #include <stdarg.h>
- #include <linux/linkage.h>
- #include <linux/printk.h>
- 
--extern void bpf_jit_compile(struct sk_filter *fp);
--extern void bpf_jit_free(struct sk_filter *fp);
-+void bpf_jit_compile(struct sk_filter *fp);
-+void bpf_jit_free(struct sk_filter *fp);
- 
- static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
- 				u32 pass, void *image)
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 625e65b..696227c 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1621,33 +1621,6 @@ void sk_common_release(struct sock *sk);
- /* Initialise core socket variables */
- void sock_init_data(struct socket *sock, struct sock *sk);
- 
--void sk_filter_release_rcu(struct rcu_head *rcu);
--
--/**
-- *	sk_filter_release - release a socket filter
-- *	@fp: filter to remove
-- *
-- *	Remove a filter from a socket and release its resources.
-- */
--
--static inline void sk_filter_release(struct sk_filter *fp)
--{
--	if (atomic_dec_and_test(&fp->refcnt))
--		call_rcu(&fp->rcu, sk_filter_release_rcu);
--}
--
--static inline void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
--{
--	atomic_sub(sk_filter_size(fp->len), &sk->sk_omem_alloc);
--	sk_filter_release(fp);
--}
--
--static inline void sk_filter_charge(struct sock *sk, struct sk_filter *fp)
--{
--	atomic_inc(&fp->refcnt);
--	atomic_add(sk_filter_size(fp->len), &sk->sk_omem_alloc);
--}
--
- /*
-  * Socket reference counting postulates.
-  *
-diff --git a/net/core/filter.c b/net/core/filter.c
-index f19c078..976edc6 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -664,14 +664,37 @@ static void sk_release_orig_filter(struct sk_filter *fp)
-  * 	sk_filter_release_rcu - Release a socket filter by rcu_head
-  *	@rcu: rcu_head that contains the sk_filter to free
-  */
--void sk_filter_release_rcu(struct rcu_head *rcu)
-+static void sk_filter_release_rcu(struct rcu_head *rcu)
- {
- 	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
- 
- 	sk_release_orig_filter(fp);
- 	bpf_jit_free(fp);
- }
--EXPORT_SYMBOL(sk_filter_release_rcu);
+ 		err = get_filter(argp, &code);
+ 		if (err >= 0) {
++			struct sock_fprog fprog = {
++				.len = err,
++				.filter = code,
++			};
 +
-+/**
-+ *	sk_filter_release - release a socket filter
-+ *	@fp: filter to remove
-+ *
-+ *	Remove a filter from a socket and release its resources.
-+ */
-+static void sk_filter_release(struct sk_filter *fp)
-+{
-+	if (atomic_dec_and_test(&fp->refcnt))
-+		call_rcu(&fp->rcu, sk_filter_release_rcu);
-+}
+ 			ppp_lock(ppp);
+-			kfree(ppp->pass_filter);
+-			ppp->pass_filter = code;
+-			ppp->pass_len = err;
++			if (ppp->pass_filter)
++				sk_unattached_filter_destroy(ppp->pass_filter);
++			err = sk_unattached_filter_create(&ppp->pass_filter,
++							  &fprog);
++			kfree(code);
+ 			ppp_unlock(ppp);
+-			err = 0;
+ 		}
+ 		break;
+ 	}
+ 	case PPPIOCSACTIVE:
+ 	{
+ 		struct sock_filter *code;
 +
-+void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
-+{
-+	atomic_sub(sk_filter_size(fp->len), &sk->sk_omem_alloc);
-+	sk_filter_release(fp);
-+}
+ 		err = get_filter(argp, &code);
+ 		if (err >= 0) {
++			struct sock_fprog fprog = {
++				.len = err,
++				.filter = code,
++			};
 +
-+void sk_filter_charge(struct sock *sk, struct sk_filter *fp)
-+{
-+	atomic_inc(&fp->refcnt);
-+	atomic_add(sk_filter_size(fp->len), &sk->sk_omem_alloc);
-+}
+ 			ppp_lock(ppp);
+-			kfree(ppp->active_filter);
+-			ppp->active_filter = code;
+-			ppp->active_len = err;
++			if (ppp->active_filter)
++				sk_unattached_filter_destroy(ppp->active_filter);
++			err = sk_unattached_filter_create(&ppp->active_filter,
++							  &fprog);
++			kfree(code);
+ 			ppp_unlock(ppp);
+-			err = 0;
+ 		}
+ 		break;
+ 	}
+@@ -1184,7 +1197,7 @@ ppp_send_frame(struct ppp *ppp, struct sk_buff *skb)
+ 		   a four-byte PPP header on each packet */
+ 		*skb_push(skb, 2) = 1;
+ 		if (ppp->pass_filter &&
+-		    sk_run_filter(skb, ppp->pass_filter) == 0) {
++		    SK_RUN_FILTER(ppp->pass_filter, skb) == 0) {
+ 			if (ppp->debug & 1)
+ 				netdev_printk(KERN_DEBUG, ppp->dev,
+ 					      "PPP: outbound frame "
+@@ -1194,7 +1207,7 @@ ppp_send_frame(struct ppp *ppp, struct sk_buff *skb)
+ 		}
+ 		/* if this packet passes the active filter, record the time */
+ 		if (!(ppp->active_filter &&
+-		      sk_run_filter(skb, ppp->active_filter) == 0))
++		      SK_RUN_FILTER(ppp->active_filter, skb) == 0))
+ 			ppp->last_xmit = jiffies;
+ 		skb_pull(skb, 2);
+ #else
+@@ -1818,7 +1831,7 @@ ppp_receive_nonmp_frame(struct ppp *ppp, struct sk_buff *skb)
  
- static int __sk_prepare_filter(struct sk_filter *fp)
- {
+ 			*skb_push(skb, 2) = 0;
+ 			if (ppp->pass_filter &&
+-			    sk_run_filter(skb, ppp->pass_filter) == 0) {
++			    SK_RUN_FILTER(ppp->pass_filter, skb) == 0) {
+ 				if (ppp->debug & 1)
+ 					netdev_printk(KERN_DEBUG, ppp->dev,
+ 						      "PPP: inbound frame "
+@@ -1827,7 +1840,7 @@ ppp_receive_nonmp_frame(struct ppp *ppp, struct sk_buff *skb)
+ 				return;
+ 			}
+ 			if (!(ppp->active_filter &&
+-			      sk_run_filter(skb, ppp->active_filter) == 0))
++			      SK_RUN_FILTER(ppp->active_filter, skb) == 0))
+ 				ppp->last_recv = jiffies;
+ 			__skb_pull(skb, 2);
+ 		} else
+@@ -2672,6 +2685,10 @@ ppp_create_interface(struct net *net, int unit, int *retp)
+ 	ppp->minseq = -1;
+ 	skb_queue_head_init(&ppp->mrq);
+ #endif /* CONFIG_PPP_MULTILINK */
++#ifdef CONFIG_PPP_FILTER
++	ppp->pass_filter = NULL;
++	ppp->active_filter = NULL;
++#endif /* CONFIG_PPP_FILTER */
+ 
+ 	/*
+ 	 * drum roll: don't forget to set
+@@ -2802,10 +2819,15 @@ static void ppp_destroy_interface(struct ppp *ppp)
+ 	skb_queue_purge(&ppp->mrq);
+ #endif /* CONFIG_PPP_MULTILINK */
+ #ifdef CONFIG_PPP_FILTER
+-	kfree(ppp->pass_filter);
+-	ppp->pass_filter = NULL;
+-	kfree(ppp->active_filter);
+-	ppp->active_filter = NULL;
++	if (ppp->pass_filter) {
++		sk_unattached_filter_destroy(ppp->pass_filter);
++		ppp->pass_filter = NULL;
++	}
++
++	if (ppp->active_filter) {
++		sk_unattached_filter_destroy(ppp->active_filter);
++		ppp->active_filter = NULL;
++	}
+ #endif /* CONFIG_PPP_FILTER */
+ 
+ 	kfree_skb(ppp->xmit_pending);
 -- 
 1.7.11.7
+
