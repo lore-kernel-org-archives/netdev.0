@@ -1,56 +1,100 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: TCP being hoodwinked into spurious retransmissions by lack of
- timestamps?
-Date: Tue, 25 Mar 2014 10:39:47 -0700
-Message-ID: <5331BF63.6070106@hp.com>
-References: <53151E55.9000503@hp.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
+ switch chip datapath
+Date: Tue, 25 Mar 2014 13:39:27 -0400
+Message-ID: <20140325173927.GE8102@hmsreliant.think-freely.org>
+References: <1395243232-32630-1-git-send-email-jiri@resnulli.us>
+ <532AD5B3.6020205@mojatatu.com>
+ <20140320124021.GA2946@minipsycho.orion>
+ <CAGVrzcbqQGGYb2Wkkekei7ivGd2XOnE+5GthLUv6_nD_oicrSQ@mail.gmail.com>
+ <532C2AC4.7080303@mojatatu.com>
+ <20140322094852.GB2844@minipsycho.orion>
+ <5330BAB7.3040501@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3425.houston.hp.com ([15.201.208.53]:22892 "EHLO
-	g4t3425.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755864AbaCYRjs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 13:39:48 -0400
-Received: from g9t2301.houston.hp.com (g9t2301.houston.hp.com [16.216.185.78])
-	by g4t3425.houston.hp.com (Postfix) with ESMTP id 0ECC51DD
-	for <netdev@vger.kernel.org>; Tue, 25 Mar 2014 17:39:47 +0000 (UTC)
-Received: from [16.103.148.51] (tardy.usa.hp.com [16.103.148.51])
-	by g9t2301.houston.hp.com (Postfix) with ESMTP id BD199139
-	for <netdev@vger.kernel.org>; Tue, 25 Mar 2014 17:39:47 +0000 (UTC)
-In-Reply-To: <53151E55.9000503@hp.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57743 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755266AbaCYRkH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 13:40:07 -0400
+Content-Disposition: inline
+In-Reply-To: <5330BAB7.3040501@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/03/2014 04:29 PM, Rick Jones wrote:
-> I've been looking at some packet traces of an application looking to
-> upload a Large Quantity (tm) of data to a server across the Big Bad
-> Internet (tm).  They've been Linux senders, and the destination while
-> supporting SACK and window scaling does not support TCP timestamps. (TCP
-> timestamp support was requested of the supplier of said server many many
-> months ago now.)
->
-> This destination system has been issuing RSTs at seemingly random points
-> in the middle of a large fraction of the attempted transfers.  In
-> looking at the traces, they all seem to be variations on the theme of
-> what is shown by:
->
-> ftp://netperf.org/retrans_question/for_netdev.png
->
-> which is a passing of ftp://netperf.org/retrans_question/for_netdev.pcap
-> through tcptrace -nG and zoomed-in to the end.  I've seen this with a
-> 3.2.0 kernel as the sender, have reports of it happening with whatever
-> is in Fedora Core 20, and the traces above are from a 3.11.0 kernel as
-> the sender.
->
-> The large quantity of (likely) unnecessary retransmissions shouldn't be
-> triggering a RST by the receiver, but the failures consistently show
-> that and I was wondering if the (spurious) retransmissions were perhaps
-> "encouraged" (so to speak) by the lack of TCP Timestamps.
+On Mon, Mar 24, 2014 at 07:07:35PM -0400, Jamal Hadi Salim wrote:
+> On 03/22/14 05:48, Jiri Pirko wrote:
+> >Fri, Mar 21, 2014 at 01:04:20PM CET, jhs@mojatatu.com wrote:
+> 
+> >Hmm. This got me thinking about netdev and switches well and perhaps the
+> >switchdev api could be mostly implemented by couple of more ndos and
+> >feature flags. That way we could stick to your immortal netdev :)
+> >
+> >
+> 
+> Perhaps ;->
+> 
+> >>
+> >>In my view: that (immortal) device for L2/bridging is the bridge or
+> >>maybe a more barebone version of the bridge (since it has gained a
+> >>little more weight in recent times).
+> >
+> >Well, I do not think that bridge is ideal abstraction for modern switch
+> >chips. Bridge is very limited.
+> >
+> 
+> True - but i was more thinking of being inclusive of the smaller
+> devices. They are mostly L2 only and in very limited scope. And thats
+> probably 95% of the population. The things you are talking about
+> are very high end and they can do more. Florian's taxanomy was useful.
+> 
+> >But I don't necessary think it is needed to "mask" as a bride or mimic a
+> >bridge in any way. DSA does not do that either.
+No, but it would be really nice if these smaller devices could take advantage of
+this infrastructure.  Looking at it, I don't see why thats not possible.  The
+big trick (as we've discussed in the past), is using a net_device structure to
+take advantage of all the features that net_devices offer while not enabling the
+device specific features that some hardware doesn't allow.
 
-I have learned why the receiving TCP has reset the connection.  It would 
-seem that stack has a heuristic whereby if it receives more than 255 
-retransmissions in a window it will abort the connection.
+For instance the broadcom chips that live in many wireless routers would be well
+served by the model jiri has here as far as Media level interface control is
+concerned (i.e. ifup/down/speed/duplex/etc), but its a bit lacking in that
+net_devices are assumed to support L3 protocol configuration (i.e. they can have
+ip addresses assigned to them), which you can't IIRC do on these chips.
 
-rick jones
+Would it be worth considering a private interface model?  That is to say:
+
+1) Ports on a switch chip are accessed using net_device structures, but
+registered to a private list contained within the switch device, rather than to
+the net namespaces device list.
+
+2) Access to the switch ports via user space is done through the master switch
+interface with additional netlink attributes specifying the port on the switch
+to access (or not to access the master switch device directly)
+
+
+Such a model I think might fit well with Jiri's code here and provide greater
+flexibility for a wider range of devices.  It would of course require
+augmentation for user space, but the changes would be additive, so I think they
+would be reasonable.  This would also allow the switch device to have a hook in
+the control path to block or allow features that the hardware may or may not
+support while still being able to use the existing net_device infrastructure to
+support these operations as they are normally carried out.
+
+Best
+Neil
