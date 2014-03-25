@@ -1,36 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 7/9] net: isdn: use sk_unattached_filter api
-Date: Tue, 25 Mar 2014 19:08:06 -0400 (EDT)
-Message-ID: <20140325.190806.874901064522999616.davem@davemloft.net>
-References: <1395749457-16178-1-git-send-email-dborkman@redhat.com>
-	<1395749457-16178-8-git-send-email-dborkman@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, netdev@vger.kernel.org, isdn@linux-pingi.de,
-	isdn4linux@listserv.isdn4linux.de
-To: dborkman@redhat.com
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCH 1/2] net: mvneta: rename MVNETA_GMAC2_PSC_ENABLE to MVNETA_GMAC2_PCS_ENABLE
+Date: Wed, 26 Mar 2014 00:25:41 +0100
+Message-ID: <1395789942-20764-2-git-send-email-thomas.petazzoni@free-electrons.com>
+References: <1395789942-20764-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Cc: Gregory Clement <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Steve McIntyre <steve@einval.com>,
+	linux-arm-kernel@lists.infradead.org, stable@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60670 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751849AbaCYXII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 19:08:08 -0400
-In-Reply-To: <1395749457-16178-8-git-send-email-dborkman@redhat.com>
+Received: from top.free-electrons.com ([176.31.233.9]:50169 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751886AbaCYXZt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 19:25:49 -0400
+In-Reply-To: <1395789942-20764-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Tue, 25 Mar 2014 13:10:55 +0100
+Bit 3 of the MVNETA_GMAC_CTRL_2 is actually used to enable the PCS,
+not the PSC: there was a typo in the name of the define, which this
+commit fixes.
 
-> Similarly as in ppp, we need to migrate the ISDN/PPP code to make use
-> of the sk_unattached_filter api in order to decouple having direct
-> filter structure access. By using sk_unattached_filter_{create,destroy},
-> we can allow for the possibility to jit compile filters for faster
-> filter verdicts as well.
-> 
-> Joint work with Alexei Starovoitov.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Cc: stable@vger.kernel.org
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+This patch is needed for a followup commit that fixes using the mvneta
+driver as a module in RGMII configurations.
 
-Hehe, this finally got squeezed out of the mail server.
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index f418f4f..d6b04d0 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -161,7 +161,7 @@
+ #define      MVNETA_GMAC_MAX_RX_SIZE_MASK        0x7ffc
+ #define      MVNETA_GMAC0_PORT_ENABLE            BIT(0)
+ #define MVNETA_GMAC_CTRL_2                       0x2c08
+-#define      MVNETA_GMAC2_PSC_ENABLE             BIT(3)
++#define      MVNETA_GMAC2_PCS_ENABLE             BIT(3)
+ #define      MVNETA_GMAC2_PORT_RGMII             BIT(4)
+ #define      MVNETA_GMAC2_PORT_RESET             BIT(6)
+ #define MVNETA_GMAC_STATUS                       0x2c10
+@@ -733,7 +733,7 @@ static void mvneta_port_sgmii_config(struct mvneta_port *pp)
+ 	u32 val;
+ 
+ 	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
+-	val |= MVNETA_GMAC2_PSC_ENABLE;
++	val |= MVNETA_GMAC2_PCS_ENABLE;
+ 	mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
+ 
+ 	mvreg_write(pp, MVNETA_SGMII_SERDES_CFG, MVNETA_SGMII_SERDES_PROTO);
+-- 
+1.8.3.2
