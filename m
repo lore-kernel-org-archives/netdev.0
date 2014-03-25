@@ -1,37 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 13/54] macb: Call dev_kfree_skb_any instead of kfree_skb.
-Date: Tue, 25 Mar 2014 06:21:46 -0700
-Message-ID: <1395753706.12610.122.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <87y4zyhlar.fsf_-_@x220.int.ebiederm.org>
-	 <1395727540-12148-1-git-send-email-ebiederm@xmission.com>
-	 <1395727540-12148-13-git-send-email-ebiederm@xmission.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net V2] xen-netback: disable rogue vif in
+ kthread context
+Date: Tue, 25 Mar 2014 13:38:34 +0000
+Message-ID: <20140325133834.GE31766@zion.uk.xensource.com>
+References: <1395750051-15932-1-git-send-email-wei.liu2@citrix.com>
+ <53317ECA.4040406@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
+	<xen-devel@lists.xen.org>, Ian Campbell <ian.campbell@citrix.com>,
+	<edwin@etorok.net>, <paul.durrant@citrix.com>,
+	<zoltan.kiss@citrix.com>
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:33691 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752397AbaCYNVt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 09:21:49 -0400
-Received: by mail-pd0-f169.google.com with SMTP id fp1so431662pdb.0
-        for <netdev@vger.kernel.org>; Tue, 25 Mar 2014 06:21:48 -0700 (PDT)
-In-Reply-To: <1395727540-12148-13-git-send-email-ebiederm@xmission.com>
+Received: from smtp.citrix.com ([66.165.176.89]:38324 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751539AbaCYNjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Mar 2014 09:39:09 -0400
+Content-Disposition: inline
+In-Reply-To: <53317ECA.4040406@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-03-24 at 23:04 -0700, Eric W. Biederman wrote:
-> From: "Eric W. Biederman" <ebiederm@xmission.com>
+On Tue, Mar 25, 2014 at 01:04:10PM +0000, David Vrabel wrote:
+> On 25/03/14 12:20, Wei Liu wrote:
+> > When netback discovers frontend is sending malformed packet it will
+> > disables the interface which serves that frontend.
+> > 
+> > However disabling a network interface involving taking a mutex which
+> > cannot be done in softirq context, so we need to defer this process to
+> > kthread context.
+> > 
+> > This patch does the following:
+> > 1. introduce a flag to indicate the interface is disabled.
+> > 2. check that flag in TX path, don't do any work if it's true.
+> > 3. check that flag in RX path, turn off that interface if it's true.
+> > 
+> > The reason to disable it in RX path is because RX uses kthread. After
+> > this change the behavior of netback is still consistent -- it won't do
+> > any TX work for a rogue frontend, and the interface will be eventually
+> > turned off.
+> [...]
+> > --- a/drivers/net/xen-netback/interface.c
+> > +++ b/drivers/net/xen-netback/interface.c
+> > @@ -61,12 +61,23 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
+> >  {
+> >  	struct xenvif *vif = container_of(napi, struct xenvif, napi);
+> >  	int work_done;
+> > +	unsigned long flags;
+> > +
+> > +	/* This vif is rogue, we pretend we've there is nothing to do
+> > +	 * for this vif to deschedule it from NAPI. But this interface
+> > +	 * will be turned off in thread context later.
+> > +	 */
+> > +	if (unlikely(vif->disabled)) {
+> > +		local_irq_save(flags);
+> > +		__napi_complete(napi);
+> > +		local_irq_restore(flags);
 > 
-> Replace kfree_skb with dev_kfree_skb_any in macb_start_xmit that can
-> be called in hard irq and other contexts.
+> Why isn't this napi_complete(napi) (which uses local_irq_save/restore()
+> internally)?
 > 
-> macb_start_xmit only frees skbs when dropping them so
-> dev_kfree_skb_any is used.
-> 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+The difference between napi_complete and __napi_complete is that
+napi_complete will not descheduled this instance if it's being served on
+another CPU.
+
+Wei.
+
+> David
