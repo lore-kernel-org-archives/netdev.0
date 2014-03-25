@@ -1,62 +1,56 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net V2] xen-netback: disable rogue vif in
- kthread context
-Date: Tue, 25 Mar 2014 13:04:10 +0000
-Message-ID: <53317ECA.4040406@citrix.com>
-References: <1395750051-15932-1-git-send-email-wei.liu2@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 03/54] 3c59x: Call dev_consume_skb_any instead of
+ dev_kfree_skb.
+Date: Tue, 25 Mar 2014 06:04:19 -0700
+Message-ID: <1395752659.12610.110.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <87y4zyhlar.fsf_-_@x220.int.ebiederm.org>
+	 <1395727540-12148-1-git-send-email-ebiederm@xmission.com>
+	 <1395727540-12148-3-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
-	Ian Campbell <ian.campbell@citrix.com>, <edwin@etorok.net>,
-	<paul.durrant@citrix.com>, <david.vrabel@citrix.com>,
-	<zoltan.kiss@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:4890 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751854AbaCYNEM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2014 09:04:12 -0400
-In-Reply-To: <1395750051-15932-1-git-send-email-wei.liu2@citrix.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:61558 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753091AbaCYNEV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 09:04:21 -0400
+Received: by mail-pa0-f48.google.com with SMTP id hz1so422356pad.7
+        for <netdev@vger.kernel.org>; Tue, 25 Mar 2014 06:04:21 -0700 (PDT)
+In-Reply-To: <1395727540-12148-3-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25/03/14 12:20, Wei Liu wrote:
-> When netback discovers frontend is sending malformed packet it will
-> disables the interface which serves that frontend.
+On Mon, 2014-03-24 at 23:04 -0700, Eric W. Biederman wrote:
+> From: "Eric W. Biederman" <ebiederm@xmission.com>
 > 
-> However disabling a network interface involving taking a mutex which
-> cannot be done in softirq context, so we need to defer this process to
-> kthread context.
+> Replace dev_kfree_skb with dev_consume_skb_any in vortex_start_xmit
+> as it can be called in hard irq and other contexts.
 > 
-> This patch does the following:
-> 1. introduce a flag to indicate the interface is disabled.
-> 2. check that flag in TX path, don't do any work if it's true.
-> 3. check that flag in RX path, turn off that interface if it's true.
+> dev_consume_skb_any is used when vortext_start_xmit directly consumes
+> the packet instead of dmaing it to the device.
 > 
-> The reason to disable it in RX path is because RX uses kthread. After
-> this change the behavior of netback is still consistent -- it won't do
-> any TX work for a rogue frontend, and the interface will be eventually
-> turned off.
-[...]
-> --- a/drivers/net/xen-netback/interface.c
-> +++ b/drivers/net/xen-netback/interface.c
-> @@ -61,12 +61,23 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
->  {
->  	struct xenvif *vif = container_of(napi, struct xenvif, napi);
->  	int work_done;
-> +	unsigned long flags;
-> +
-> +	/* This vif is rogue, we pretend we've there is nothing to do
-> +	 * for this vif to deschedule it from NAPI. But this interface
-> +	 * will be turned off in thread context later.
-> +	 */
-> +	if (unlikely(vif->disabled)) {
-> +		local_irq_save(flags);
-> +		__napi_complete(napi);
-> +		local_irq_restore(flags);
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> ---
+>  drivers/net/ethernet/3com/3c59x.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
+> index 238ccea965c8..61477b8e8d24 100644
+> --- a/drivers/net/ethernet/3com/3c59x.c
+> +++ b/drivers/net/ethernet/3com/3c59x.c
+> @@ -2086,7 +2086,7 @@ vortex_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  		/* ... and the packet rounded to a doubleword. */
+>  		skb_tx_timestamp(skb);
+>  		iowrite32_rep(ioaddr + TX_FIFO, skb->data, (skb->len + 3) >> 2);
+> -		dev_kfree_skb (skb);
+> +		dev_consume_skb_any (skb);
+>  		if (ioread16(ioaddr + TxFree) > 1536) {
+>  			netif_start_queue (dev);	/* AKPM: redundant? */
+>  		} else {
 
-Why isn't this napi_complete(napi) (which uses local_irq_save/restore()
-internally)?
+remove the extra space ?
 
-David
+Acked-by: Eric Dumazet <edumazet@google.com>
