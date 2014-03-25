@@ -1,65 +1,44 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC 0/2] pm,net: Introduce QoS requests per CPU
-Date: Tue, 25 Mar 2014 08:14:07 -0700
-Message-ID: <1395760447.12610.132.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1395753505-13180-1-git-send-email-amirv@mellanox.com>
+Subject: Re: [PATCH 14/54] xgmac: Call dev_kfree/consume_skb_any instead of
+ dev_kfree_skb.
+Date: Tue, 25 Mar 2014 08:16:25 -0700
+Message-ID: <1395760585.12610.133.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <87y4zyhlar.fsf_-_@x220.int.ebiederm.org>
+	 <1395727540-12148-1-git-send-email-ebiederm@xmission.com>
+	 <1395727540-12148-14-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, linux-pm@vger.kernel.org,
-	netdev@vger.kernel.org, Pavel Machek <pavel@ucw.cz>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Len Brown <len.brown@intel.com>, yuvali@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>, idos@mellanox.com
-To: Amir Vadai <amirv@mellanox.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <1395753505-13180-1-git-send-email-amirv@mellanox.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f51.google.com ([209.85.219.51]:33084 "EHLO
+	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752581AbaCYPQo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 11:16:44 -0400
+Received: by mail-oa0-f51.google.com with SMTP id i4so753343oah.10
+        for <netdev@vger.kernel.org>; Tue, 25 Mar 2014 08:16:43 -0700 (PDT)
+In-Reply-To: <1395727540-12148-14-git-send-email-ebiederm@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-03-25 at 15:18 +0200, Amir Vadai wrote:
+On Mon, 2014-03-24 at 23:05 -0700, Eric W. Biederman wrote:
+> From: "Eric W. Biederman" <ebiederm@xmission.com>
+> 
+> Replace dev_kfree_skb with dev_consume_skb_any in xgmac_tx_complete
+> that can be called in hard irq and other contexts.
+> 
+> Replace dev_kfree_skb with dev_kfree_skb_any in xgmac_xmit that can
+> be called in hard irq and other contexts.
+> 
+> dev_consume_skb_any is used in xgamc_tx_complete as skbs that reach
+> there have been successfully transmitted, dev_kfree_skby_any is used
+> in xgmac_xmit as skbs that are freed there are being dropped.
+> 
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> ---
+>  drivers/net/ethernet/calxeda/xgmac.c |    6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
 
-> The current pm_qos implementation has a problem. During a short pause in a high
-> bandwidth traffic, the kernel can lower the c-state to preserve energy.
-> When the pause ends, and the traffic resumes, the NIC hardware buffers may be
-> overflowed before the CPU starts to process the traffic due to the CPU wake-up
-> latency.
-
-This is the point I never understood with mlx4
-
-RX ring buffers should allow NIC to buffer quite a large amount of
-incoming frames. But apparently we miss frames, even in a single TCP
-flow. I really cant understand why, as sender in my case do not have
-more than 90 packets in flight (cwnd is limited to 90)
-
-# ethtool -S eth0 | grep error
-     rx_errors: 268
-     tx_errors: 0
-     rx_length_errors: 0
-     rx_over_errors: 40
-     rx_crc_errors: 0
-     rx_frame_errors: 0
-     rx_fifo_errors: 40
-     rx_missed_errors: 40
-     tx_aborted_errors: 0
-     tx_carrier_errors: 0
-     tx_fifo_errors: 0
-     tx_heartbeat_errors: 0
-     tx_window_errors: 0
-# ethtool -g eth0
-Ring parameters for eth0:
-Pre-set maximums:
-RX:		8192
-RX Mini:	0
-RX Jumbo:	0
-TX:		8192
-Current hardware settings:
-RX:		4096
-RX Mini:	0
-RX Jumbo:	0
-TX:		4096
-
-
-
-
+Acked-by: Eric Dumazet <edumazet@google.com>
