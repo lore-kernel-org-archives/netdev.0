@@ -1,126 +1,178 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v2 4/9] net: ptp: use sk_unattached_filter_create() for BPF
-Date: Tue, 25 Mar 2014 13:10:52 +0100
-Message-ID: <1395749457-16178-5-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next v2 3/9] net: filter: move filter accounting to filter core
+Date: Tue, 25 Mar 2014 13:10:51 +0100
+Message-ID: <1395749457-16178-4-git-send-email-dborkman@redhat.com>
 References: <1395749457-16178-1-git-send-email-dborkman@redhat.com>
 Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	Richard Cochran <richard.cochran@omicron.at>,
-	Jiri Benc <jbenc@redhat.com>
+	Pavel Emelyanov <xemul@parallels.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24497 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:30129 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752748AbaCYMLT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752862AbaCYMLT (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 25 Mar 2014 08:11:19 -0400
 In-Reply-To: <1395749457-16178-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch migrates an open-coded sk_run_filter() implementation with
-proper use of the BPF API, that is, sk_unattached_filter_create(). This
-migration is needed, as we will be internally transforming the filter
-to a different representation, and therefore needs to be decoupled.
+This patch basically does two things, i) removes the extern keyword
+from the include/linux/filter.h file to be more consistent with the
+rest of Joe's changes, and ii) moves filter accounting into the filter
+core framework.
 
-It is okay to do so as skb_timestamping_init() is called during
-initialization of the network stack in core initcall via sock_init().
-This would effectively also allow for PTP filters to be jit compiled if
-bpf_jit_enable is set.
+Filter accounting mainly done through sk_filter_{un,}charge() take
+care of the case when sockets are being cloned through sk_clone_lock()
+so that removal of the filter on one socket won't result in eviction
+as it's still referenced by the other.
 
-For better readability, there are also some newlines introduced, also
-ptp_classify.h is only in kernel space.
+These functions actually belong to net/core/filter.c and not
+include/net/sock.h as we want to keep all that in a central place.
+It's also not in fast-path so uninlining them is fine and even allows
+us to get rd of sk_filter_release_rcu()'s EXPORT_SYMBOL and a forward
+declaration.
 
 Joint work with Alexei Starovoitov.
 
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-Cc: Richard Cochran <richard.cochran@omicron.at>
-Cc: Jiri Benc <jbenc@redhat.com>
+Cc: Pavel Emelyanov <xemul@parallels.com>
 ---
- include/linux/ptp_classify.h |  4 ----
- net/core/timestamping.c      | 21 ++++++++++++++-------
- 2 files changed, 14 insertions(+), 11 deletions(-)
+ include/linux/filter.h | 30 +++++++++++++++++-------------
+ include/net/sock.h     | 27 ---------------------------
+ net/core/filter.c      | 27 +++++++++++++++++++++++++--
+ 3 files changed, 42 insertions(+), 42 deletions(-)
 
-diff --git a/include/linux/ptp_classify.h b/include/linux/ptp_classify.h
-index 1dc420b..3decfa4 100644
---- a/include/linux/ptp_classify.h
-+++ b/include/linux/ptp_classify.h
-@@ -27,11 +27,7 @@
- #include <linux/if_vlan.h>
- #include <linux/ip.h>
- #include <linux/filter.h>
--#ifdef __KERNEL__
- #include <linux/in.h>
--#else
--#include <netinet/in.h>
--#endif
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 93a9792..9bde3ed 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -50,28 +50,32 @@ static inline unsigned int sk_filter_size(unsigned int proglen)
+ #define sk_filter_proglen(fprog)			\
+ 		(fprog->len * sizeof(fprog->filter[0]))
  
- #define PTP_CLASS_NONE  0x00 /* not a PTP event message */
- #define PTP_CLASS_V1    0x01 /* protocol version 1 */
-diff --git a/net/core/timestamping.c b/net/core/timestamping.c
-index 661b5a4..e43d56a 100644
---- a/net/core/timestamping.c
-+++ b/net/core/timestamping.c
-@@ -23,16 +23,13 @@
- #include <linux/skbuff.h>
- #include <linux/export.h>
+-extern int sk_filter(struct sock *sk, struct sk_buff *skb);
+-extern unsigned int sk_run_filter(const struct sk_buff *skb,
+-				  const struct sock_filter *filter);
++int sk_filter(struct sock *sk, struct sk_buff *skb);
++unsigned int sk_run_filter(const struct sk_buff *skb,
++			   const struct sock_filter *filter);
  
--static struct sock_filter ptp_filter[] = {
--	PTP_FILTER
--};
-+static struct sk_filter *ptp_insns __read_mostly;
+-extern int sk_unattached_filter_create(struct sk_filter **pfp,
+-				       struct sock_fprog *fprog);
+-extern void sk_unattached_filter_destroy(struct sk_filter *fp);
++int sk_unattached_filter_create(struct sk_filter **pfp,
++				struct sock_fprog *fprog);
++void sk_unattached_filter_destroy(struct sk_filter *fp);
  
- static unsigned int classify(const struct sk_buff *skb)
+-extern int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
+-extern int sk_detach_filter(struct sock *sk);
++int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
++int sk_detach_filter(struct sock *sk);
+ 
+-extern int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
+-extern int sk_get_filter(struct sock *sk, struct sock_filter __user *filter, unsigned len);
+-extern void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to);
++int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
++int sk_get_filter(struct sock *sk, struct sock_filter __user *filter,
++		  unsigned int len);
++void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to);
++
++void sk_filter_charge(struct sock *sk, struct sk_filter *fp);
++void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp);
+ 
+ #ifdef CONFIG_BPF_JIT
+ #include <stdarg.h>
+ #include <linux/linkage.h>
+ #include <linux/printk.h>
+ 
+-extern void bpf_jit_compile(struct sk_filter *fp);
+-extern void bpf_jit_free(struct sk_filter *fp);
++void bpf_jit_compile(struct sk_filter *fp);
++void bpf_jit_free(struct sk_filter *fp);
+ 
+ static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
+ 				u32 pass, void *image)
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 625e65b..696227c 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1621,33 +1621,6 @@ void sk_common_release(struct sock *sk);
+ /* Initialise core socket variables */
+ void sock_init_data(struct socket *sock, struct sock *sk);
+ 
+-void sk_filter_release_rcu(struct rcu_head *rcu);
+-
+-/**
+- *	sk_filter_release - release a socket filter
+- *	@fp: filter to remove
+- *
+- *	Remove a filter from a socket and release its resources.
+- */
+-
+-static inline void sk_filter_release(struct sk_filter *fp)
+-{
+-	if (atomic_dec_and_test(&fp->refcnt))
+-		call_rcu(&fp->rcu, sk_filter_release_rcu);
+-}
+-
+-static inline void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
+-{
+-	atomic_sub(sk_filter_size(fp->len), &sk->sk_omem_alloc);
+-	sk_filter_release(fp);
+-}
+-
+-static inline void sk_filter_charge(struct sock *sk, struct sk_filter *fp)
+-{
+-	atomic_inc(&fp->refcnt);
+-	atomic_add(sk_filter_size(fp->len), &sk->sk_omem_alloc);
+-}
+-
+ /*
+  * Socket reference counting postulates.
+  *
+diff --git a/net/core/filter.c b/net/core/filter.c
+index f19c078..976edc6 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -664,14 +664,37 @@ static void sk_release_orig_filter(struct sk_filter *fp)
+  * 	sk_filter_release_rcu - Release a socket filter by rcu_head
+  *	@rcu: rcu_head that contains the sk_filter to free
+  */
+-void sk_filter_release_rcu(struct rcu_head *rcu)
++static void sk_filter_release_rcu(struct rcu_head *rcu)
  {
--	if (likely(skb->dev &&
--		   skb->dev->phydev &&
-+	if (likely(skb->dev && skb->dev->phydev &&
- 		   skb->dev->phydev->drv))
--		return sk_run_filter(skb, ptp_filter);
-+		return SK_RUN_FILTER(ptp_insns, skb);
- 	else
- 		return PTP_CLASS_NONE;
+ 	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
+ 
+ 	sk_release_orig_filter(fp);
+ 	bpf_jit_free(fp);
  }
-@@ -60,11 +57,13 @@ void skb_clone_tx_timestamp(struct sk_buff *skb)
- 		if (likely(phydev->drv->txtstamp)) {
- 			if (!atomic_inc_not_zero(&sk->sk_refcnt))
- 				return;
+-EXPORT_SYMBOL(sk_filter_release_rcu);
 +
- 			clone = skb_clone(skb, GFP_ATOMIC);
- 			if (!clone) {
- 				sock_put(sk);
- 				return;
- 			}
++/**
++ *	sk_filter_release - release a socket filter
++ *	@fp: filter to remove
++ *
++ *	Remove a filter from a socket and release its resources.
++ */
++static void sk_filter_release(struct sk_filter *fp)
++{
++	if (atomic_dec_and_test(&fp->refcnt))
++		call_rcu(&fp->rcu, sk_filter_release_rcu);
++}
 +
- 			clone->sk = sk;
- 			phydev->drv->txtstamp(phydev, clone, type);
- 		}
-@@ -89,12 +88,15 @@ void skb_complete_tx_timestamp(struct sk_buff *skb,
- 	}
++void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
++{
++	atomic_sub(sk_filter_size(fp->len), &sk->sk_omem_alloc);
++	sk_filter_release(fp);
++}
++
++void sk_filter_charge(struct sock *sk, struct sk_filter *fp)
++{
++	atomic_inc(&fp->refcnt);
++	atomic_add(sk_filter_size(fp->len), &sk->sk_omem_alloc);
++}
  
- 	*skb_hwtstamps(skb) = *hwtstamps;
-+
- 	serr = SKB_EXT_ERR(skb);
- 	memset(serr, 0, sizeof(*serr));
- 	serr->ee.ee_errno = ENOMSG;
- 	serr->ee.ee_origin = SO_EE_ORIGIN_TIMESTAMPING;
- 	skb->sk = NULL;
-+
- 	err = sock_queue_err_skb(sk, skb);
-+
- 	sock_put(sk);
- 	if (err)
- 		kfree_skb(skb);
-@@ -135,5 +137,10 @@ EXPORT_SYMBOL_GPL(skb_defer_rx_timestamp);
- 
- void __init skb_timestamping_init(void)
+ static int __sk_prepare_filter(struct sk_filter *fp)
  {
--	BUG_ON(sk_chk_filter(ptp_filter, ARRAY_SIZE(ptp_filter)));
-+	static struct sock_filter ptp_filter[] = { PTP_FILTER };
-+	struct sock_fprog ptp_prog = {
-+		.len = ARRAY_SIZE(ptp_filter), .filter = ptp_filter,
-+	};
-+
-+	BUG_ON(sk_unattached_filter_create(&ptp_insns, &ptp_prog));
- }
 -- 
 1.7.11.7
