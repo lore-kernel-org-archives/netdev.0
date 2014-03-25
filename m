@@ -1,56 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 03/54] 3c59x: Call dev_consume_skb_any instead of
- dev_kfree_skb.
-Date: Tue, 25 Mar 2014 06:04:19 -0700
-Message-ID: <1395752659.12610.110.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <87y4zyhlar.fsf_-_@x220.int.ebiederm.org>
-	 <1395727540-12148-1-git-send-email-ebiederm@xmission.com>
-	 <1395727540-12148-3-git-send-email-ebiederm@xmission.com>
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
+Subject: Re: Multicast packets being lost (3.10 stable)
+Date: Tue, 25 Mar 2014 14:06:07 +0100
+Message-ID: <20140325125231.GW6008@Linus-Debian>
+References: <20140324094107.2cfbf103@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:61558 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753091AbaCYNEV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 09:04:21 -0400
-Received: by mail-pa0-f48.google.com with SMTP id hz1so422356pad.7
-        for <netdev@vger.kernel.org>; Tue, 25 Mar 2014 06:04:21 -0700 (PDT)
-In-Reply-To: <1395727540-12148-3-git-send-email-ebiederm@xmission.com>
+Received: from mout.web.de ([212.227.15.14]:61273 "EHLO mout.web.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751886AbaCYNGN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Mar 2014 09:06:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20140324094107.2cfbf103@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-03-24 at 23:04 -0700, Eric W. Biederman wrote:
-> From: "Eric W. Biederman" <ebiederm@xmission.com>
-> 
-> Replace dev_kfree_skb with dev_consume_skb_any in vortex_start_xmit
-> as it can be called in hard irq and other contexts.
-> 
-> dev_consume_skb_any is used when vortext_start_xmit directly consumes
-> the packet instead of dmaing it to the device.
-> 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
->  drivers/net/ethernet/3com/3c59x.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
-> index 238ccea965c8..61477b8e8d24 100644
-> --- a/drivers/net/ethernet/3com/3c59x.c
-> +++ b/drivers/net/ethernet/3com/3c59x.c
-> @@ -2086,7 +2086,7 @@ vortex_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  		/* ... and the packet rounded to a doubleword. */
->  		skb_tx_timestamp(skb);
->  		iowrite32_rep(ioaddr + TX_FIFO, skb->data, (skb->len + 3) >> 2);
-> -		dev_kfree_skb (skb);
-> +		dev_consume_skb_any (skb);
->  		if (ioread16(ioaddr + TxFree) > 1536) {
->  			netif_start_queue (dev);	/* AKPM: redundant? */
->  		} else {
+That commit is supposed to be a fix and seems to be a easily
+cherry-pickable on top of 3.10. So I think it's suitable for
+stable
 
-remove the extra space ?
+There are two follow-up commit for this particular patch that I'm aware
+of: "bridge: separate querier and query timer into IGMP/IPv4
+and MLD/IPv6 ones" (cc0fdd80). That's just an optimization
+and can be ignored for stable.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+The second one is "bridge: don't try to update timers in case of
+broken MLD queries" (248ba8ec0). Which is a direct fix for
+b00589af3 and should therefore go into stable, too, if b00589af3
+goes into stable.
+
+Cheers, Linus
+
+
+On Mon, Mar 24, 2014 at 09:41:07AM -0700, Stephen Hemminger wrote:
+> We are seeing multicast snooping related issues.
+> Is there some reason this commit never went into stable (3.10)
+>=20
+> commit b00589af3b04736376f24625ab0b394642e89e29
+> Author: Linus L=C3=BCssing <linus.luessing@web.de>
+> Date:   Thu Aug 1 01:06:20 2013 +0200
+>=20
+>     bridge: disable snooping if there is no querier
+>    =20
+>     If there is no querier on a link then we won't get periodic repor=
+ts and
+>     therefore won't be able to learn about multicast listeners behind=
+ ports,
+>     potentially leading to lost multicast packets, especially for mul=
+ticast
+>     listeners that joined before the creation of the bridge.
+>    =20
+>     These lost multicast packets can appear since c5c23260594
+>     ("bridge: Add multicast_querier toggle and disable queries by def=
+ault")
+>     in particular.
+>    =20
+>     With this patch we are flooding multicast packets if our querier =
+is
+>     disabled and if we didn't detect any other querier.
+>    =20
+>     A grace period of the Maximum Response Delay of the querier is ad=
+ded to
+>     give multicast responses enough time to arrive and to be learned =
+from
+>     before disabling the flooding behaviour again.
+>    =20
+>     Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
