@@ -1,37 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH] xen-netback: Proper printf format for ptrdiff_t is 't'.
-Date: Tue, 25 Mar 2014 19:03:30 -0400 (EDT)
-Message-ID: <20140325.190330.1170650394087694357.davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 7/9] net: isdn: use sk_unattached_filter api
+Date: Tue, 25 Mar 2014 19:08:06 -0400 (EDT)
+Message-ID: <20140325.190806.874901064522999616.davem@davemloft.net>
+References: <1395749457-16178-1-git-send-email-dborkman@redhat.com>
+	<1395749457-16178-8-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: wei.liu2@citrix.com, netdev@vger.kernel.org
-To: ian.campbell@citrix.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@plumgrid.com, netdev@vger.kernel.org, isdn@linux-pingi.de,
+	isdn4linux@listserv.isdn4linux.de
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60628 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60670 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754319AbaCYXDb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 19:03:31 -0400
+	with ESMTP id S1751849AbaCYXII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 19:08:08 -0400
+In-Reply-To: <1395749457-16178-8-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpUaGlzIGZpeGVzOg0KDQpkcml2ZXJzL25ldC94ZW4tbmV0YmFjay9uZXRiYWNrLmM6IEluIGZ1
-bmN0aW9uIKF4ZW52aWZfdHhfZGVhbGxvY19hY3Rpb26iOg0KZHJpdmVycy9uZXQveGVuLW5ldGJh
-Y2svbmV0YmFjay5jOjE1NzM6ODogd2FybmluZzogZm9ybWF0IKEleKIgZXhwZWN0cyBhcmd1bWVu
-dCBvZiB0eXBlIKF1bnNpZ25lZCBpbnSiLCBidXQgYXJndW1lbnQgMyBoYXMgdHlwZSChbG9uZyBp
-bnSiIFstV2Zvcm1hdD1dDQoNClNpZ25lZC1vZmYtYnk6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1A
-ZGF2ZW1sb2Z0Lm5ldD4NCi0tLQ0KDQpDb21taXR0ZWQgdG8gbmV0LW5leHQsIHRoaXMgaGFzIGJl
-ZW4gYnVnZ2luZyBtZSBmb3Igd2Vla3MuDQoNCiBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay9uZXRi
-YWNrLmMgfCAyICstDQogMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9u
-KC0pDQoNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9uZXRiYWNrLmMgYi9k
-cml2ZXJzL25ldC94ZW4tbmV0YmFjay9uZXRiYWNrLmMNCmluZGV4IDFmNTk1ZTUuLjFlNDYyODcg
-MTAwNjQ0DQotLS0gYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9uZXRiYWNrLmMNCisrKyBiL2Ry
-aXZlcnMvbmV0L3hlbi1uZXRiYWNrL25ldGJhY2suYw0KQEAgLTE1NjksNyArMTU2OSw3IEBAIHN0
-YXRpYyBpbmxpbmUgdm9pZCB4ZW52aWZfdHhfZGVhbGxvY19hY3Rpb24oc3RydWN0IHhlbnZpZiAq
-dmlmKQ0KIAkJCQkJdmlmLT5wYWdlc190b191bm1hcCwNCiAJCQkJCWdvcCAtIHZpZi0+dHhfdW5t
-YXBfb3BzKTsNCiAJCWlmIChyZXQpIHsNCi0JCQluZXRkZXZfZXJyKHZpZi0+ZGV2LCAiVW5tYXAg
-ZmFpbDogbnJfb3BzICV4IHJldCAlZFxuIiwNCisJCQluZXRkZXZfZXJyKHZpZi0+ZGV2LCAiVW5t
-YXAgZmFpbDogbnJfb3BzICV0eCByZXQgJWRcbiIsDQogCQkJCSAgIGdvcCAtIHZpZi0+dHhfdW5t
-YXBfb3BzLCByZXQpOw0KIAkJCWZvciAoaSA9IDA7IGkgPCBnb3AgLSB2aWYtPnR4X3VubWFwX29w
-czsgKytpKSB7DQogCQkJCWlmIChnb3BbaV0uc3RhdHVzICE9IEdOVFNUX29rYXkpDQotLSANCjEu
-OC41LjMNCg0K
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Tue, 25 Mar 2014 13:10:55 +0100
+
+> Similarly as in ppp, we need to migrate the ISDN/PPP code to make use
+> of the sk_unattached_filter api in order to decouple having direct
+> filter structure access. By using sk_unattached_filter_{create,destroy},
+> we can allow for the possibility to jit compile filters for faster
+> filter verdicts as well.
+> 
+> Joint work with Alexei Starovoitov.
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+
+Hehe, this finally got squeezed out of the mail server.
