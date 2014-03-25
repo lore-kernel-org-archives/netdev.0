@@ -1,51 +1,83 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Tue, 25 Mar 2014 18:57:21 +0100
-Message-ID: <4392030.XayIa35sfH@wuerfel>
-References: <1395670496-17381-1-git-send-email-zhangfei.gao@linaro.org>
- <21873900.AIOr1ryy37@wuerfel>
- <CAGVrzcZNM2gUHqq2m2jcaqs-AoWKo_DszYu5ozs2vTR6kFY0kA@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
+ switch chip datapath
+Date: Tue, 25 Mar 2014 18:00:09 +0000
+Message-ID: <20140325180009.GB15723@casper.infradead.org>
+References: <1395243232-32630-1-git-send-email-jiri@resnulli.us>
+ <532AD5B3.6020205@mojatatu.com>
+ <20140320124021.GA2946@minipsycho.orion>
+ <CAGVrzcbqQGGYb2Wkkekei7ivGd2XOnE+5GthLUv6_nD_oicrSQ@mail.gmail.com>
+ <532C2AC4.7080303@mojatatu.com>
+ <20140322094852.GB2844@minipsycho.orion>
+ <5330BAB7.3040501@mojatatu.com>
+ <20140325173927.GE8102@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>,
- "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
- Russell King - ARM Linux <linux@arm.linux.org.uk>,
- Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
- netdev <netdev@vger.kernel.org>, Zhangfei Gao <zhangfei.gao@gmail.com>,
- Zhangfei Gao <zhangfei.gao@linaro.org>,
- "David S. Miller" <davem@davemloft.net>,
- linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <CAGVrzcZNM2gUHqq2m2jcaqs-AoWKo_DszYu5ozs2vTR6kFY0kA@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, andy@greyhouse.net,
+	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
+	pshelar@nicira.com, azhou@nicira.com,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:45815 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756451AbaCYSAO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 14:00:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20140325173927.GE8102@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 25 March 2014 10:16:28 Florian Fainelli wrote:
+On 03/25/14 at 01:39pm, Neil Horman wrote:
+> No, but it would be really nice if these smaller devices could take advantage of
+> this infrastructure.  Looking at it, I don't see why thats not possible.  The
+> big trick (as we've discussed in the past), is using a net_device structure to
+> take advantage of all the features that net_devices offer while not enabling the
+> device specific features that some hardware doesn't allow.
 > 
-> Ok, well that's really unfortunate, to achieve the best of everything,
-> the workaround should probably look like:
+> For instance the broadcom chips that live in many wireless routers would be well
+> served by the model jiri has here as far as Media level interface control is
+> concerned (i.e. ifup/down/speed/duplex/etc), but its a bit lacking in that
+> net_devices are assumed to support L3 protocol configuration (i.e. they can have
+> ip addresses assigned to them), which you can't IIRC do on these chips.
+
+How about a new device flag indicating pure L2 mode? Any L3 address
+configuration would fail with EAFNOSUPP.
+
+> Would it be worth considering a private interface model?  That is to say:
 > 
-> - keep reclaiming TX buffers in ndo_start_xmit() in case you push more
-> packets to the NICs than your timer can free
-> - reclaim TX buffers in NAPI poll() context for "symetrical" workloads
-> where e.g: TCP ACKs received allow you to complete TX buffers
-> - have a timer like you suggest which should help with transmit only
-> workloads at a slow rate
+> 1) Ports on a switch chip are accessed using net_device structures, but
+> registered to a private list contained within the switch device, rather than to
+> the net namespaces device list.
 
-Yes, that is what I was thinking, but with orphaning the tx skbs,
-we can probably be a little smarter. Note that in order to check
-the state of the queue, we have to do a read from uncached memory,
-since the hardware also doesn't support cache coherent DMA.
-We don't want to do that too often.
+> 2) Access to the switch ports via user space is done through the master switch
+> interface with additional netlink attributes specifying the port on the switch
+> to access (or not to access the master switch device directly)
 
-	Arnd
+> Such a model I think might fit well with Jiri's code here and provide greater
+> flexibility for a wider range of devices.  It would of course require
+> augmentation for user space, but the changes would be additive, so I think they
+> would be reasonable.  This would also allow the switch device to have a hook in
+> the control path to block or allow features that the hardware may or may not
+> support while still being able to use the existing net_device infrastructure to
+> support these operations as they are normally carried out.
+
+I believe this would defeat the main advantage of reusing net_device
+model which is compatibility with the well established standard toolset.
+
+In an ideal world, we represent what is possible using the existing
+net_device model.
+
+On top of that, like for VFs, we provide extended nested attributes or
+alternate control paths such as via OVS that provide the additional
+flexibility and control required by the more advanced devices.
