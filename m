@@ -1,105 +1,68 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: on kernel 2.6.34.15, vlan and raw packets can not be received with
- gfar-enet nic
-Date: Tue, 25 Mar 2014 13:08:30 +0800
-Message-ID: <53310F4E.4080104@gmail.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: RE: [PATCH net-next 4/7] qlcnic: Remove casts of pointer to same
+ type
+Date: Tue, 25 Mar 2014 05:50:38 +0000
+Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F809CB@avmb2.qlogic.org>
+References: <cover.1395692043.git.joe@perches.com>
+ <ac82455e9d2f0487a3f96c44a41b5557fd09af95.1395692043.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: sandeep.kumar@freescale.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, "Tao, Yue" <Yue.Tao@windriver.com>,
-	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
-	guang.yang@windriver.com, zhuyj <zyjzyj2000@gmail.com>,
-	joe@perches.com, festevam@gmail.com, linuxppc-dev@lists.ozlabs.org,
-	richardcochran@gmail.com, clarocq@gmail.com,
-	yongjun_wei@trendmicro.com.cn
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f52.google.com ([209.85.213.52]:64877 "EHLO
-	mail-yh0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750830AbaCYFIu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 01:08:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>, netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ac82455e9d2f0487a3f96c44a41b5557fd09af95.1395692043.git.joe@perches.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi, Sandeep Gopalpet
+> -----Original Message-----
+> From: Joe Perches [mailto:joe@perches.com]
+> Sent: Tuesday, March 25, 2014 1:46 AM
+> To: netdev
+> Cc: Shahed Shaikh; Dept-HSG Linux NIC Dev; linux-kernel
+> Subject: [PATCH net-next 4/7] qlcnic: Remove casts of pointer to same type
+> 
+> Casting a pointer to a pointer of the same type is pointless, so remove these
+> unnecessary casts.
+> 
+> Done via coccinelle script:
+> 
+> $ cat typecast_2.cocci
+> @@
+> type T;
+> T *foo;
+> @@
+> 
+> -	(T *)foo
+> +	foo
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-I am a developer. Now I confronted an interesting phenomena. When I used 
-linux kernel 2.6.34.15 on freescale-p2020, I can not receive raw and 
-vlan packets on gfar-enet nic. But with e1000e nic, we can make vlan and 
-raw packets work well. I looked into the source code and find that maybe 
-it is related with hardware insert and remove vlan head. But I have no 
-the specifications of gfar-enet nic. Would you like to give some 
-document or some guides?
+Acked-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-Thanks a lot.
-Zhu Yanjun
-
-The steps are as below.
-
-1. I boot two freescale-p2020 boards with linux kernel 2.6.34.15, then I 
-connected 2 gfar-enet nic cards with a direct network line;
-
-2. On board 1, I checked the driver of eth0
-
-ethtool -i eth0
-
-driver: gfar-enet
-version: 1.3
-firmware-version: N/A
-bus-info: N/A
-
-On board 2, I checked the driver of eth1
-
-ethtool -i eth1
-
-driver: gfar-enet
-version: 1.3
-firmware-version: N/A
-bus-info: N/A
-
-3. Then I configure the ip address on the above 2 nic cards.
-
-On board 1,
-
-ifconfig eth0 192.168.1.13/24 up
-
-On board 2,
-
-ifconfig eth1 192.168.1.196/24 up
-
-4. We can access the other board on one board.
-For example, on board 1, we can ping board 2.
-
-root@p2020rdb:/root> ping 192.168.1.196
-PING 192.168.1.196 (192.168.1.196) 56(84) bytes of data.
-64 bytes from 192.168.1.196: icmp_req=1 ttl=64 time=2.92 ms
-64 bytes from 192.168.1.196: icmp_req=2 ttl=64 time=0.096 ms
-
-5. We configure vlan on these 2 boards.
-On board 1,
-
-modprobe 8021q
-vconfig add eth0 4091
-ifconfig eth0.4091 10.1.1.13/24 up
-
-On board 2,
-
-modprobe 8021q
-vconfig add eth1 4091
-ifconfig eth1.4091 10.1.1.196/24 up
-
-6. We can access the other board on one board through vlan.
-For example, on board 1, we can ping board 2 through vlan nic.
-
-root@p2020rdb:/root> ping 10.1.1.196
-PING 10.1.1.196 (10.1.1.196) 56(84) bytes of data.
-64 bytes from 10.1.1.196: icmp_req=1 ttl=64 time=2.92 ms
-64 bytes from 10.1.1.196: icmp_req=2 ttl=64 time=0.096 ms
-
-But we can not access the other board on one board through raw nic.
-For example, on board, we can not ping board 2.
-
-root@p2020rdb:/root> ping 192.168.1.196
- From 192.168.1.196 icmp_seq=1 Destination Host Unreachable
- From 192.168.1.196 icmp_seq=2 Destination Host Unreachable
- From 192.168.1.196 icmp_seq=3 Destination Host Unreachable
+Thanks,
+Shahed
+> ---
+>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+> b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+> index ec399b7..2d91975 100644
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+> @@ -1388,7 +1388,7 @@ static int qlcnic_83xx_copy_fw_file(struct
+> qlcnic_adapter *adapter)
+>  	addr = (u64)dest;
+> 
+>  	ret = qlcnic_83xx_ms_mem_write128(adapter, addr,
+> -					  (u32 *)p_cache, size / 16);
+> +					  p_cache, size / 16);
+>  	if (ret) {
+>  		dev_err(&adapter->pdev->dev, "MS memory write
+> failed\n");
+>  		release_firmware(fw);
+> --
+> 1.8.1.2.459.gbcd45b4.dirty
