@@ -1,145 +1,97 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH 2/2] net: mvneta: fix usage as a module on RGMII configurations
-Date: Wed, 26 Mar 2014 00:25:42 +0100
-Message-ID: <1395789942-20764-3-git-send-email-thomas.petazzoni@free-electrons.com>
-References: <1395789942-20764-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH] net: mvneta: use devm_ioremap_resource() instead of of_iomap()
+Date: Wed, 26 Mar 2014 00:26:55 +0100
+Message-ID: <1395790015-20929-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Gregory Clement <gregory.clement@free-electrons.com>,
 	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
 	Lior Amsalem <alior@marvell.com>,
-	Steve McIntyre <steve@einval.com>,
-	linux-arm-kernel@lists.infradead.org, stable@vger.kernel.org
+	linux-arm-kernel@lists.infradead.org
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:50179 "EHLO
+Received: from top.free-electrons.com ([176.31.233.9]:50190 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754894AbaCYX0C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 19:26:02 -0400
-In-Reply-To: <1395789942-20764-1-git-send-email-thomas.petazzoni@free-electrons.com>
+	with ESMTP id S1751624AbaCYX04 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 19:26:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 5445eaf309ff ('mvneta: Try to fix mvneta when compiled as
-module') fixed the mvneta driver to make it work properly when loaded
-as a module in SGMII configuration, which was tested successful by the
-author on the Armada XP OpenBlocks AX3, which uses SGMII.
+The mvneta driver currently uses of_iomap(), which has two drawbacks:
+it doesn't request the resource, and it isn't devm-style so some error
+handling is needed.
 
-However, it turns out that the Armada XP GP, which uses RGMII, is
-affected by a similar problem: its SERDES configuration is lost when
-mvneta is loaded as a module, because this configuration is set by the
-bootloader, and then lost because the clock is gated by the clock
-framework until the mvneta driver is loaded again and the clock is
-re-enabled.
+This commit switches to use devm_ioremap_resource() instead, which
+automatically requests the resource (so the I/O registers region shows
+up properly in /proc/iomem), and also is devm-style, which allows to
+get rid of some error handling to unmap the I/O registers region.
 
-However, it turns out that for the RGMII case, setting the SERDES
-configuration is not sufficient: the PCS enable bit in the
-MVNETA_GMAC_CTRL_2 register must also be set, like in the SGMII
-configuration.
-
-Therefore, this commit reworks the SGMII/RGMII initialization: the
-only difference between the two now is a different SERDES
-configuration, all the rest is identical.
-
-In detail, to achieve this, the commit:
-
- * Renames MVNETA_SGMII_SERDES_CFG to MVNETA_SERDES_CFG because it is
-   not specific to SGMII, but also used on RGMII configurations.
-
- * Adds a MVNETA_RGMII_SERDES_PROTO definition, that must be used as
-   the MVNETA_SERDES_CFG value in RGMII configurations.
-
- * Removes the mvneta_gmac_rgmii_set() and mvneta_port_sgmii_config()
-   functions, and instead directly do the SGMII/RGMII configuration in
-   mvneta_port_up(), from where those functions where called. It is
-   worth mentioning that mvneta_gmac_rgmii_set() had an 'enable'
-   parameter that was always passed as '1', so it was pretty useless.
-
- * Reworks the mvneta_port_up() function to set the MVNETA_SERDES_CFG
-   register to the appropriate value depending on the RGMII vs. SGMII
-   configuration. It also unconditionally set the PCS_ENABLE bit (was
-   already done for SGMII, but is now also needed for RGMII), and sets
-   the PORT_RGMII bit (which was already done for both SGMII and
-   RGMII).
-
-This commit was successfully tested with mvneta compiled as a module,
-on both the OpenBlocks AX3 (SGMII configuration) and the Armada XP GP
-(RGMII configuration).
-
-Reported-by: Steve McIntyre <steve@einval.com>
-Cc: stable@vger.kernel.org # 3.11.x: 5445eaf309ff mvneta: Try to fix mvneta when compiled as module
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 41 +++++++----------------------------
- 1 file changed, 8 insertions(+), 33 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index d6b04d0..c9c2faa 100644
+index f418f4f..e21a931 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -88,8 +88,9 @@
- #define      MVNETA_TX_IN_PRGRS                  BIT(1)
- #define      MVNETA_TX_FIFO_EMPTY                BIT(8)
- #define MVNETA_RX_MIN_FRAME_SIZE                 0x247c
--#define MVNETA_SGMII_SERDES_CFG			 0x24A0
-+#define MVNETA_SERDES_CFG			 0x24A0
- #define      MVNETA_SGMII_SERDES_PROTO		 0x0cc7
-+#define      MVNETA_RGMII_SERDES_PROTO		 0x0667
- #define MVNETA_TYPE_PRIO                         0x24bc
- #define      MVNETA_FORCE_UNI                    BIT(21)
- #define MVNETA_TXQ_CMD_1                         0x24e4
-@@ -710,35 +711,6 @@ static void mvneta_rxq_bm_disable(struct mvneta_port *pp,
- 	mvreg_write(pp, MVNETA_RXQ_CONFIG_REG(rxq->id), val);
- }
- 
--
--
--/* Sets the RGMII Enable bit (RGMIIEn) in port MAC control register */
--static void mvneta_gmac_rgmii_set(struct mvneta_port *pp, int enable)
--{
--	u32  val;
--
--	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
--
--	if (enable)
--		val |= MVNETA_GMAC2_PORT_RGMII;
--	else
--		val &= ~MVNETA_GMAC2_PORT_RGMII;
--
--	mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
--}
--
--/* Config SGMII port */
--static void mvneta_port_sgmii_config(struct mvneta_port *pp)
--{
--	u32 val;
--
--	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
--	val |= MVNETA_GMAC2_PCS_ENABLE;
--	mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
--
--	mvreg_write(pp, MVNETA_SGMII_SERDES_CFG, MVNETA_SGMII_SERDES_PROTO);
--}
--
- /* Start the Ethernet port RX and TX activity */
- static void mvneta_port_up(struct mvneta_port *pp)
+@@ -22,6 +22,7 @@
+ #include <linux/interrupt.h>
+ #include <net/ip.h>
+ #include <net/ipv6.h>
++#include <linux/io.h>
+ #include <linux/of.h>
+ #include <linux/of_irq.h>
+ #include <linux/of_mdio.h>
+@@ -2774,6 +2775,7 @@ static void mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
+ static int mvneta_probe(struct platform_device *pdev)
  {
-@@ -2756,12 +2728,15 @@ static void mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
- 	mvreg_write(pp, MVNETA_UNIT_INTR_CAUSE, 0);
+ 	const struct mbus_dram_target_info *dram_target_info;
++	struct resource *res;
+ 	struct device_node *dn = pdev->dev.of_node;
+ 	struct device_node *phy_node;
+ 	u32 phy_addr;
+@@ -2838,9 +2840,15 @@ static int mvneta_probe(struct platform_device *pdev)
  
- 	if (phy_mode == PHY_INTERFACE_MODE_SGMII)
--		mvneta_port_sgmii_config(pp);
-+		mvreg_write(pp, MVNETA_SERDES_CFG, MVNETA_SGMII_SERDES_PROTO);
-+	else
-+		mvreg_write(pp, MVNETA_SERDES_CFG, MVNETA_RGMII_SERDES_PROTO);
+ 	clk_prepare_enable(pp->clk);
  
--	mvneta_gmac_rgmii_set(pp, 1);
-+	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
+-	pp->base = of_iomap(dn, 0);
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!res) {
++		err = -ENODEV;
++		goto err_clk;
++	}
 +
-+	val |= MVNETA_GMAC2_PCS_ENABLE | MVNETA_GMAC2_PORT_RGMII;
++	pp->base = devm_ioremap_resource(&pdev->dev, res);
+ 	if (pp->base == NULL) {
+-		err = -ENOMEM;
++		err = PTR_ERR(pp->base);
+ 		goto err_clk;
+ 	}
  
- 	/* Cancel Port Reset */
--	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
- 	val &= ~MVNETA_GMAC2_PORT_RESET;
- 	mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
+@@ -2848,7 +2856,7 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	pp->stats = alloc_percpu(struct mvneta_pcpu_stats);
+ 	if (!pp->stats) {
+ 		err = -ENOMEM;
+-		goto err_unmap;
++		goto err_clk;
+ 	}
+ 
+ 	for_each_possible_cpu(cpu) {
+@@ -2913,8 +2921,6 @@ err_deinit:
+ 	mvneta_deinit(pp);
+ err_free_stats:
+ 	free_percpu(pp->stats);
+-err_unmap:
+-	iounmap(pp->base);
+ err_clk:
+ 	clk_disable_unprepare(pp->clk);
+ err_free_irq:
+@@ -2934,7 +2940,6 @@ static int mvneta_remove(struct platform_device *pdev)
+ 	mvneta_deinit(pp);
+ 	clk_disable_unprepare(pp->clk);
+ 	free_percpu(pp->stats);
+-	iounmap(pp->base);
+ 	irq_dispose_mapping(dev->irq);
+ 	free_netdev(dev);
  
 -- 
 1.8.3.2
