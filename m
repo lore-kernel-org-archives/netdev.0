@@ -1,48 +1,69 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: [PATCH V14 7/7] MAINTAINERS: add maintainer for Samsung sxgbe driver
-Date: Tue, 25 Mar 2014 12:11:07 -0700
-Message-ID: <01b301cf485d$fa88c720$ef9a5560$@samsung.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] ipv6: do not overwrite inetpeer metrics prematurely
+Date: Tue, 25 Mar 2014 20:11:55 +0100
+Message-ID: <20140325191155.GB22086@order.stressinduktion.org>
+References: <20140310.010313.703650662340510015.davem@davemloft.net> <20140310081533.GA27052@unicorn.suse.cz> <20140310120016.GH5493@order.stressinduktion.org> <20140310.223841.953940361609160158.davem@davemloft.net> <20140311095309.GA3287@unicorn.suse.cz> <20140311150814.GB3287@unicorn.suse.cz> <20140311153931.GC3287@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: 'David Miller' <davem@davemloft.net>,
-	'GIRISH K S' <ks.giri@samsung.com>,
-	'SIVAREDDY KALLAM' <siva.kallam@samsung.com>,
-	'Vipul Chandrakant' <vipul.pandya@samsung.com>,
-	'Ilho Lee' <ilho215.lee@samsung.com>
-To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
-	devicetree@vger.kernel.org
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-Content-language: en-us
-Sender: linux-samsung-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:59118 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754471AbaCYTL5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 15:11:57 -0400
+Content-Disposition: inline
+In-Reply-To: <20140311153931.GC3287@unicorn.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Byungho An <bh74.an@samsung.com>
+Hi Michal,
 
-Signed-off-by: Byungho An <bh74.an@samsung.com>
----
- MAINTAINERS |    9 +++++++++
- 1 file changed, 9 insertions(+)
+On Tue, Mar 11, 2014 at 04:39:31PM +0100, Michal Kubecek wrote:
+> On Tue, Mar 11, 2014 at 04:08:14PM +0100, Michal Kubecek wrote:
+> > > 
+> > > I also believe the function should return immediately if mx is null so
+> > > that we don't call dst_metrics_write_ptr() if no metrics are to be set
+> > > for the new route.
+> > 
+> > Not so easy... :-( This would cause a problem if a host route is changed
+> > twice in this way:
+> > 
+> >   ip route add fec0::1 dev eth0 rto_min 1000
+> >   ip route change fec0::1 dev eth0
+> >   ip route change fec0::1 dev eth0 hoplimit 10
+> > 
+> > First route has metrics in its inetpeer. This inetpeer is then inherited
+> > by the second route but the metrics in it are not used as its dst_entry
+> > points to the read-only default. But when it is replaced by the third
+> > version, it inherits the inetpeer and it is not cleaned up by
+> > ip6_cow_metrics() because it is not new.
+> > 
+> > What I ended up with is below. It uses the metrics in inetpeer if there
+> > is one even if the new host metric doesn't have any metrics to set (in
+> > which case it clears them first). I tested various scenarios and the
+> > results were correct.
+> 
+> This doesn't cover all cases either:
+> 
+>   ip route add fec0::1 dev eth0 rto_min 1000
+>   ip route delete fec0::1
+>   ip route add fec0::1 dev eth0
+>   ip route change fec0::1 dev eth0 hoplimit 10
+> 
+> This way the inetpeer with rto_min 1000 persists until the fourth
+> command but neither third nor fourth see old dst_entry with writeable
+> metrics.
+> 
+> I think changing the condition for copying in ip6_cow_metrics() would
+> do the trick but I better stop now and look at it again later with
+> a fresh mind.
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index b7befe7..aeb81f2 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -7536,6 +7536,15 @@ S:	Supported
- L:	linux-samsung-soc@vger.kernel.org (moderated for non-subscribers)
- F:	drivers/clk/samsung/
- 
-+SAMSUNG SXGBE DRIVERS
-+M:	Byungho An <bh74.an@samsung.com>
-+M:	Girish K S <ks.giri@samsung.com>
-+M:	Siva Reddy Kallam <siva.kallam@samsung.com>
-+M:	Vipul Pandya <vipul.pandya@samsung.com>
-+S:	Supported
-+L:	netdev@vger.kernel.org
-+F:	drivers/net/ethernet/samsung/sxgbe/
-+
- SERIAL DRIVERS
- M:	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
- L:	linux-serial@vger.kernel.org
--- 
-1.7.10.4
+Do you need some help regarding this patch so that it may be included in
+net-next before it gets closed?
+
+Thanks,
+
+  Hannes
