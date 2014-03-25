@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 29/54] jme: Call dev_kfree_skb_any instead of dev_kfree_skb.
-Date: Mon, 24 Mar 2014 23:05:15 -0700
-Message-ID: <1395727540-12148-29-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 45/54] spider_net: Call dev_consume_skb_any instead of dev_kfree_skb.
+Date: Mon, 24 Mar 2014 23:05:31 -0700
+Message-ID: <1395727540-12148-45-git-send-email-ebiederm@xmission.com>
 References: <87y4zyhlar.fsf_-_@x220.int.ebiederm.org>
  <1395727540-12148-1-git-send-email-ebiederm@xmission.com>
 Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
@@ -9,9 +9,9 @@ Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:58467 "EHLO
+Received: from out02.mta.xmission.com ([166.70.13.232]:58461 "EHLO
 	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752203AbaCYGLb (ORCPT
+	with ESMTP id S1752141AbaCYGLb (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 02:11:31 -0400
 In-Reply-To: <1395727540-12148-1-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,27 +19,32 @@ List-ID: <netdev.vger.kernel.org>
 
 From: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Replace dev_kfree_skb with dev_kfree_skb_any in jme_expand_header that
-can be called in hard irq and other contexts, on the failure
-path where the skb is dropped.
+Replace dev_kfree_skb with dev_consume_skb_any in
+spider_net_release_tx_chain which can be called in hard irq and other
+contexts.
+
+dev_consume_skb_any was choosen as it preserves the current
+dev_kfree_skb semantics (dev_kfree_skb is consume_skb) and
+is because it is correct most of the time as most packets
+will have been successfully transmitted not dropeed.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- drivers/net/ethernet/jme.c |    2 +-
+ drivers/net/ethernet/toshiba/spider_net.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
-index f5685c0d0579..14ff8d64257d 100644
---- a/drivers/net/ethernet/jme.c
-+++ b/drivers/net/ethernet/jme.c
-@@ -2059,7 +2059,7 @@ jme_expand_header(struct jme_adapter *jme, struct sk_buff *skb)
- 	if (unlikely(skb_shinfo(skb)->gso_size &&
- 			skb_header_cloned(skb) &&
- 			pskb_expand_head(skb, 0, 0, GFP_ATOMIC))) {
--		dev_kfree_skb(skb);
-+		dev_kfree_skb_any(skb);
- 		return -1;
+diff --git a/drivers/net/ethernet/toshiba/spider_net.c b/drivers/net/ethernet/toshiba/spider_net.c
+index 3f4a32e39d27..0282d0161859 100644
+--- a/drivers/net/ethernet/toshiba/spider_net.c
++++ b/drivers/net/ethernet/toshiba/spider_net.c
+@@ -860,7 +860,7 @@ spider_net_release_tx_chain(struct spider_net_card *card, int brutal)
+ 		if (skb) {
+ 			pci_unmap_single(card->pdev, buf_addr, skb->len,
+ 					PCI_DMA_TODEVICE);
+-			dev_kfree_skb(skb);
++			dev_consume_skb_any(skb);
+ 		}
  	}
- 
+ 	return 0;
 -- 
 1.7.10.4
