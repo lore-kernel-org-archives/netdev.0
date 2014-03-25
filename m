@@ -1,59 +1,107 @@
-From: Maksim Lin <maks@manichord.com>
-Subject: Re: i217-LM boot wreckage
-Date: Tue, 25 Mar 2014 13:41:37 +1100
-Message-ID: <CA+ZDVGN5g3frxBoG1PLU4ZUEXGcTFOqMfgFrHWLCAiXBy3AXbA@mail.gmail.com>
+From: Wangyufen <wangyufen@huawei.com>
+Subject: [PATCH net-next 1/3] ipv6: fix checkpatch errors comments and space
+Date: Tue, 25 Mar 2014 10:44:51 +0800
+Message-ID: <1395715493-5312-2-git-send-email-wangyufen@huawei.com>
+References: <1395715493-5312-1-git-send-email-wangyufen@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: Wang Yufen <wangyufen@huawei.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f171.google.com ([209.85.220.171]:50097 "EHLO
-	mail-vc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750972AbaCYCli (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 22:41:38 -0400
-Received: by mail-vc0-f171.google.com with SMTP id lg15so6784667vcb.2
-        for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 19:41:37 -0700 (PDT)
+Received: from szxga03-in.huawei.com ([119.145.14.66]:40388 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750972AbaCYCpL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 22:45:11 -0400
+In-Reply-To: <1395715493-5312-1-git-send-email-wangyufen@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 21 Mar 2014, Ertman, DavidX M wrote:
+From: Wang Yufen <wangyufen@huawei.com>
 
-> I have discovered the cause of this issue.  It is related to the
-> change in the application of a Si errata workaround.
->
-> I will be working on grok'ing the total impact of this issue and
-> writing up the patch over the weekend and will have something pushed
-> into our internal queue early next week.
+WARNING: please, no space before tabs
+WARNING: please, no spaces at the start of a line
+ERROR: spaces required around that ':' (ctx:VxW)
+ERROR: spaces required around that '>' (ctx:VxV)
+ERROR: spaces required around that '>=' (ctx:VxV)
 
-Hi,
+Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+---
+ net/ipv6/ip6_fib.c | 26 ++++++++++++--------------
+ 1 file changed, 12 insertions(+), 14 deletions(-)
 
-Not sure if its helpful to have another report, but I'm pretty sure I
-am seeing the same thing on my Dell Latitude 7440 running 3.14.0-rc7
-but with a slightly different card:
-
-$ ethtool -i eth0
-driver: e1000e
-version: 2.3.2-k
-firmware-version: 0.6-3
-bus-info: 0000:00:19.0
-supports-statistics: yes
-supports-test: yes
-supports-eeprom-access: yes
-supports-register-dump: yes
-
-and from lspci -v:
-
-00:19.0 Ethernet controller: Intel Corporation Ethernet Connection
-I218-LM (rev 04)
-    Subsystem: Dell Device 05cb
-    Flags: bus master, fast devsel, latency 0, IRQ 59
-    Memory at f7e00000 (32-bit, non-prefetchable) [size=128K]
-    Memory at f7e3c000 (32-bit, non-prefetchable) [size=4K]
-    I/O ports at f080 [size=32]
-    Capabilities: <access denied>
-    Kernel driver in use: e1000e
-    Kernel modules: e1000e
-
-I can try testing patches if it helps too.
-
-thanks,
-Maks.
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 075602f..c626a0f 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -9,14 +9,12 @@
+  *      modify it under the terms of the GNU General Public License
+  *      as published by the Free Software Foundation; either version
+  *      2 of the License, or (at your option) any later version.
+- */
+-
+-/*
+- * 	Changes:
+- * 	Yuji SEKIYA @USAGI:	Support default route on router node;
+- * 				remove ip6_null_entry from the top of
+- * 				routing table.
+- * 	Ville Nuorvala:		Fixed routing subtrees.
++ *
++ *	Changes:
++ *	Yuji SEKIYA @USAGI:	Support default route on router node;
++ *				remove ip6_null_entry from the top of
++ *				routing table.
++ *	Ville Nuorvala:		Fixed routing subtrees.
+  */
+ 
+ #define pr_fmt(fmt) "IPv6: " fmt
+@@ -138,7 +136,7 @@ static __inline__ __be32 addr_bit_set(const void *token, int fn_bit)
+ 	const __be32 *addr = token;
+ 	/*
+ 	 * Here,
+-	 * 	1 << ((~fn_bit ^ BITOP_BE32_SWIZZLE) & 0x1f)
++	 *	1 << ((~fn_bit ^ BITOP_BE32_SWIZZLE) & 0x1f)
+ 	 * is optimized version of
+ 	 *	htonl(1 << ((~fn_bit)&0x1F))
+ 	 * See include/asm-generic/bitops/le.h.
+@@ -485,7 +483,7 @@ static struct fib6_node *fib6_add_1(struct fib6_node *root,
+ 		fn->fn_sernum = sernum;
+ 		dir = addr_bit_set(addr, fn->fn_bit);
+ 		pn = fn;
+-		fn = dir ? fn->right: fn->left;
++		fn = dir ? fn->right : fn->left;
+ 	} while (fn);
+ 
+ 	if (!allow_create) {
+@@ -1213,10 +1211,10 @@ static struct fib6_node *fib6_repair_tree(struct net *net,
+ 					w->node = child;
+ 					if (children&2) {
+ 						RT6_TRACE("W %p adjusted by delnode 2, s=%d\n", w, w->state);
+-						w->state = w->state>=FWS_R ? FWS_U : FWS_INIT;
++						w->state = w->state >= FWS_R ? FWS_U : FWS_INIT;
+ 					} else {
+ 						RT6_TRACE("W %p adjusted by delnode 2, s=%d\n", w, w->state);
+-						w->state = w->state>=FWS_C ? FWS_U : FWS_INIT;
++						w->state = w->state >= FWS_C ? FWS_U : FWS_INIT;
+ 					}
+ 				}
+ 			}
+@@ -1314,7 +1312,7 @@ int fib6_del(struct rt6_info *rt, struct nl_info *info)
+ 	struct rt6_info **rtp;
+ 
+ #if RT6_DEBUG >= 2
+-	if (rt->dst.obsolete>0) {
++	if (rt->dst.obsolete > 0) {
+ 		WARN_ON(fn != NULL);
+ 		return -ENOENT;
+ 	}
+@@ -1707,7 +1705,7 @@ out_rt6_stats:
+ 	kfree(net->ipv6.rt6_stats);
+ out_timer:
+ 	return -ENOMEM;
+- }
++}
+ 
+ static void fib6_net_exit(struct net *net)
+ {
+-- 
+1.7.12
