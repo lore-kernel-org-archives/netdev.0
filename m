@@ -1,40 +1,93 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 31/54] skge: Call dev_kfree/consume_skb_any instead of
- dev_kfree_skb.
-Date: Tue, 25 Mar 2014 08:47:33 -0700
-Message-ID: <1395762453.12610.152.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <87y4zyhlar.fsf_-_@x220.int.ebiederm.org>
-	 <1395727540-12148-1-git-send-email-ebiederm@xmission.com>
-	 <1395727540-12148-31-git-send-email-ebiederm@xmission.com>
+From: Byungho An <bh74.an@samsung.com>
+Subject: RE: [PATCH V13 2/7] net: sxgbe: add basic framework for Samsung 10Gb
+ ethernet driver
+Date: Tue, 25 Mar 2014 09:09:18 -0700
+Message-ID: <019901cf4844$956a9580$c03fc080$@samsung.com>
+References: <00a001cf46d8$f4c38bd0$de4aa370$@samsung.com>
+ <20140324234505.GA22059@electric-eye.fr.zoreil.com>
+ <015b01cf47d7$8a8e5c40$9fab14c0$@samsung.com>
+ <20140325070543.GA26998@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
+	devicetree@vger.kernel.org, 'David Miller' <davem@davemloft.net>,
+	'GIRISH K S' <ks.giri@samsung.com>,
+	'SIVAREDDY KALLAM' <siva.kallam@samsung.com>,
+	'Vipul Chandrakant' <vipul.pandya@samsung.com>,
+	'Ilho Lee' <ilho215.lee@samsung.com>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:42451 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752607AbaCYPrw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 11:47:52 -0400
-Received: by mail-pd0-f171.google.com with SMTP id r10so603672pdi.16
-        for <netdev@vger.kernel.org>; Tue, 25 Mar 2014 08:47:51 -0700 (PDT)
-In-Reply-To: <1395727540-12148-31-git-send-email-ebiederm@xmission.com>
+Received: from mailout3.samsung.com ([203.254.224.33]:52851 "EHLO
+	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752511AbaCYQJ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 12:09:26 -0400
+In-reply-to: <20140325070543.GA26998@electric-eye.fr.zoreil.com>
+Content-language: en-us
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-03-24 at 23:05 -0700, Eric W. Biederman wrote:
-> From: "Eric W. Biederman" <ebiederm@xmission.com>
+Francois Romieu <romieu@fr.zoreil.com>:
+> Byungho An <bh74.an@samsung.com> :
+> [...]
+> > How about below ?
 > 
-> Replace dev_kfree_skb with dev_kfree_skb_any skge_xmit_free that can
-> be called in hard irq and other contexts, on the path that
-> handles dropped packets.
+> The for loops should be unrolled.
 > 
-> Replace dev_kfree_skb with dev_consume_skb_any in skge_tx_done that can
-> be called in hard irq and other contexts, on the path that handles
-> successfully transmitted skbs.
+> (style: no need to join before branching)
 > 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+> I must go to work, so you'll have to fill the dots in the code below:
+> 
+>         priv = sxgbe_drv_probe(&(pdev->dev), plat_dat, addr);
+>         if (!priv) {
+>                 pr_err("%s: main driver probe failed\n", __func__);
+>                 goto err_something;
+>         }
+> 
+>         /* Get the SXGBE common INT information */
+>         priv->irq  = irq_of_parse_and_map(node, 0);
+>         if (priv->irq <= 0) {
+>                 dev_err(dev, "sxgbe common irq parsing failed\n");
+>                 goto err_drv_remove;
+>         }
+> 
+>         /* Get the TX/RX IRQ numbers */
+>         for (i = 0, chan = 1; i < SXGBE_TX_QUEUES; i++) {
+>                 priv->txq[i]->irq_no = irq_of_parse_and_map(node, chan++);
+>                 if (priv->txq[i]->irq_no <= 0) {
+>                         dev_err(dev, "sxgbe tx irq parsing failed\n");
+>                         goto err_tx_irq_unmap;
+>                 }
+>         }
+> 
+>         for (i = 0; i < SXGBE_RX_QUEUES; i++) {
+>                 priv->rxq[i]->irq_no = irq_of_parse_and_map(node, chan++);
+>                 if (priv->rxq[i]->irq_no <= 0) {
+>                         dev_err(dev, "sxgbe rx irq parsing failed\n");
+>                         goto err_rx_irq_unmap;
+>                 }
+>         }
+> 
+>         platform_set_drvdata(pdev, priv->dev);
+> 
+>         pr_debug("platform driver registration completed\n");
+> 
+>         return 0;
+> 
+> err_rx_irq_unmap:
+> 	/* TODO: check that 'i' isn't unsigned. */
+> 	while (i--)
+> 		irq_dispose_mapping(priv->rx[i]->irq_no);
+> 	i = SXGBE_TX_QUEUES;
+> err_tx_irq_unmap:
+> 	while (i--)
+> 		irq_dispose_mapping(priv->tx[i]->irq_no);
+> 	irq_dispose_mapping(priv->irq);
+> err_drv_remove:
+>         sxgbe_drv_remove(ndev);
+> err_something:
+> 	...
+> 
+OK, thanks
+> --
+> Ueimor
