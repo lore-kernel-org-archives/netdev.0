@@ -1,61 +1,76 @@
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Subject: [PATCH net-next] net/mlx4_core: pass pci_device_id.driver_data to __mlx4_init_one during reset
-Date: Tue, 25 Mar 2014 22:10:19 +0800
-Message-ID: <1395756620-7719-1-git-send-email-weiyang@linux.vnet.ibm.com>
-Cc: Wei Yang <weiyang@linux.vnet.ibm.com>
-To: ogerlitz@mellanox.com, jackm@dev.mellanox.co.il,
-	netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Dynamic number of TCP listeners and SO_REUSEPORT
+Date: Tue, 25 Mar 2014 07:35:23 -0700
+Message-ID: <1395758123.12610.128.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAKQ1sVMzoVG9rBAR7fUOTp4eXxUWXLMhcYt-SHyKec=9_vLB-w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>
+To: Yann Ylavic <ylavic.dev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp05.au.ibm.com ([202.81.31.147]:57455 "EHLO
-	e23smtp05.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752394AbaCYOUl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 10:20:41 -0400
-Received: from /spool/local
-	by e23smtp05.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
-	Wed, 26 Mar 2014 00:10:34 +1000
-Received: from d23relay05.au.ibm.com (d23relay05.au.ibm.com [9.190.235.152])
-	by d23dlp01.au.ibm.com (Postfix) with ESMTP id 3D4262CE803F
-	for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 01:10:33 +1100 (EST)
-Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
-	by d23relay05.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2PDo5QP54329344
-	for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 00:50:06 +1100
-Received: from d23av04.au.ibm.com (localhost [127.0.0.1])
-	by d23av04.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s2PEAWG0013593
-	for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 01:10:32 +1100
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:44660 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752090AbaCYOfZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 10:35:25 -0400
+Received: by mail-pa0-f50.google.com with SMTP id kq14so522033pab.37
+        for <netdev@vger.kernel.org>; Tue, 25 Mar 2014 07:35:24 -0700 (PDT)
+In-Reply-To: <CAKQ1sVMzoVG9rBAR7fUOTp4eXxUWXLMhcYt-SHyKec=9_vLB-w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The second parameter of __mlx4_init_one() is used to identify whether the
-pci_dev is a PF or VF. Currently, when it is invoked in mlx4_pci_slot_reset()
-this information is missed.
+On Tue, 2014-03-25 at 14:41 +0100, Yann Ylavic wrote:
+> Hi,
+> 
+> while trying to modify some server's code to take advantage of the new
+> SO_REUSEPORT option (introduced in 3.9), I'm currently facing the
+> problem described in the original commit message
+> (https://lwn.net/Articles/542738/) :
+> 
+> "The TCP implementation has a problem in that the request sockets for a
+> listener are attached to a listener socket.  If a SYN is received, a
+> listener socket is chosen and request structure is created (SYN-RECV
+> state).  If the subsequent ack in 3WHS does not match the same port
+> by so_reusport, the connection state is not found (reset) and the
+> request structure is orphaned.  This scenario would occur when the
+> number of listener sockets bound to a port changes (new ones are
+> added, or old ones closed).  We are looking for a solution to this,
+> maybe allow multiple sockets to share the same request table..."
+> 
+> If the number of listening processes is (forcibly) made constant,
+> things work well and performances are really improved compared to not
+> using the option (accept mutex, odd scheduling...).
+> However this is not the model used by the server, and recycling
+> processes is also part of its scalability.
+> 
+> My tests are with the latest 3.13, but I could not find any reference
+> for this issue on the list since the original commit...
+> 
+> Is this something still being worked on, planned, or already fixed in
+> the latest kernel versions?
+> 
+> Thanks for your answers/pointers.
 
-This patch match the pci_dev with mlx4_pci_table and passes the
-pci_device_id.driver_data to __mlx4_init_one() in mlx4_pci_slot_reset().
+CC Neal
 
-Tested with Mellanox ConnectX-3.
+We are currently working on this issue.
 
-Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
----
- drivers/net/ethernet/mellanox/mlx4/main.c |    6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+Two mains parts :
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index d711158..b083808 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -2670,7 +2670,11 @@ static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
- 
- static pci_ers_result_t mlx4_pci_slot_reset(struct pci_dev *pdev)
- {
--	int ret = __mlx4_init_one(pdev, 0);
-+	const struct pci_device_id*  id;
-+	int ret;
-+
-+	id = pci_match_id(mlx4_pci_table, pdev);
-+	ret = __mlx4_init_one(pdev, id->driver_data);
- 
- 	return ret ? PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_RECOVERED;
- }
--- 
-1.7.9.5
+1) short term, can be backported
+
+Idea would be to record cpu used by a thread doing an accept(), and
+slightly change SO_REUSEPORT selection to check the current cpu
+(servicing SYN packet) and the cpu used by the thread.
+
+This would work well only if user threads are cpu bound, or you accept
+that the 3rd packet (of the 3WHS) might reach a different LISTENer.
+
+2) Medium term
+
+ I am working on a TCP LISTEN refactoring. In this work, the selection
+of the socket to deliver the new child socket is done at the time we
+create the full socket, not the request sock. This removes the
+constraints and allow full parallelism.
+
+Stay tuned ;)
