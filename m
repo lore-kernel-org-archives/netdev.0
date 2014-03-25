@@ -1,75 +1,61 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: [PATCH] xen-netback: fix race between napi_complete() and interrupt handler
-Date: Tue, 25 Mar 2014 14:08:25 +0000
-Message-ID: <1395756505-21573-1-git-send-email-david.vrabel@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <xen-devel@lists.xenproject.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: <netdev@vger.kernel.org>
+From: Wei Yang <weiyang@linux.vnet.ibm.com>
+Subject: [PATCH net-next] net/mlx4_core: pass pci_device_id.driver_data to __mlx4_init_one during reset
+Date: Tue, 25 Mar 2014 22:10:19 +0800
+Message-ID: <1395756620-7719-1-git-send-email-weiyang@linux.vnet.ibm.com>
+Cc: Wei Yang <weiyang@linux.vnet.ibm.com>
+To: ogerlitz@mellanox.com, jackm@dev.mellanox.co.il,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:15232 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752581AbaCYOKA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 10:10:00 -0400
+Received: from e23smtp05.au.ibm.com ([202.81.31.147]:57455 "EHLO
+	e23smtp05.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752394AbaCYOUl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 10:20:41 -0400
+Received: from /spool/local
+	by e23smtp05.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
+	Wed, 26 Mar 2014 00:10:34 +1000
+Received: from d23relay05.au.ibm.com (d23relay05.au.ibm.com [9.190.235.152])
+	by d23dlp01.au.ibm.com (Postfix) with ESMTP id 3D4262CE803F
+	for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 01:10:33 +1100 (EST)
+Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
+	by d23relay05.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2PDo5QP54329344
+	for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 00:50:06 +1100
+Received: from d23av04.au.ibm.com (localhost [127.0.0.1])
+	by d23av04.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s2PEAWG0013593
+	for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 01:10:32 +1100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the NAPI budget was not all used, xenvif_poll() would call
-napi_complete() /after/ enabling the interrupt.  This resulted in a
-race between the napi_complete() and the napi_schedule() in the
-interrupt handler.  The use of local_irq_save/restore() avoided by
-race iff the handler is running on the same CPU but not if it was
-running on a different CPU.
+The second parameter of __mlx4_init_one() is used to identify whether the
+pci_dev is a PF or VF. Currently, when it is invoked in mlx4_pci_slot_reset()
+this information is missed.
 
-Fix this properly by calling napi_complete() before reenabling
-interrupts (in the xenvif_check_rx_xenvif() call).
+This patch match the pci_dev with mlx4_pci_table and passes the
+pci_device_id.driver_data to __mlx4_init_one() in mlx4_pci_slot_reset().
 
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+Tested with Mellanox ConnectX-3.
+
+Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
 ---
- drivers/net/xen-netback/interface.c |   28 ++--------------------------
- 1 files changed, 2 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/main.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 7669d49..ee322d9 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -65,32 +65,8 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
- 	work_done = xenvif_tx_action(vif, budget);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index d711158..b083808 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -2670,7 +2670,11 @@ static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
  
- 	if (work_done < budget) {
--		int more_to_do = 0;
--		unsigned long flags;
--
--		/* It is necessary to disable IRQ before calling
--		 * RING_HAS_UNCONSUMED_REQUESTS. Otherwise we might
--		 * lose event from the frontend.
--		 *
--		 * Consider:
--		 *   RING_HAS_UNCONSUMED_REQUESTS
--		 *   <frontend generates event to trigger napi_schedule>
--		 *   __napi_complete
--		 *
--		 * This handler is still in scheduled state so the
--		 * event has no effect at all. After __napi_complete
--		 * this handler is descheduled and cannot get
--		 * scheduled again. We lose event in this case and the ring
--		 * will be completely stalled.
--		 */
--
--		local_irq_save(flags);
--
--		RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, more_to_do);
--		if (!more_to_do)
--			__napi_complete(napi);
--
--		local_irq_restore(flags);
-+		napi_complete(napi);
-+		xenvif_check_rx_xenvif(vif);
- 	}
+ static pci_ers_result_t mlx4_pci_slot_reset(struct pci_dev *pdev)
+ {
+-	int ret = __mlx4_init_one(pdev, 0);
++	const struct pci_device_id*  id;
++	int ret;
++
++	id = pci_match_id(mlx4_pci_table, pdev);
++	ret = __mlx4_init_one(pdev, id->driver_data);
  
- 	return work_done;
+ 	return ret ? PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_RECOVERED;
+ }
 -- 
-1.7.2.5
+1.7.9.5
