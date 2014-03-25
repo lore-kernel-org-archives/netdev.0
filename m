@@ -1,36 +1,53 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v3 0/3] bonding: support QinQ for bond arp interval
-Date: Tue, 25 Mar 2014 11:21:34 +0800
-Message-ID: <1395717697-11876-1-git-send-email-dingtianhong@huawei.com>
+Subject: Re: [PATCH] bonding: Inactive slaves should keep inactive flag's
+ value to 1 in tlb and alb mode.
+Date: Tue, 25 Mar 2014 11:42:44 +0800
+Message-ID: <5330FB34.4090005@huawei.com>
+References: <1395716407-31601-1-git-send-email-zheng.x.li@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <fubar@us.ibm.com>, <vfalico@redhat.com>, <andy@greyhouse.net>,
-	<joe@perches.com>, <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:46723 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751076AbaCYDX5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 23:23:57 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <davem@davemloft.net>,
+	<joe.jin@oracle.com>
+To: Zheng Li <zheng.x.li@oracle.com>, <netdev@vger.kernel.org>,
+	<fubar@us.ibm.com>, <andy@greyhouse.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395716407-31601-1-git-send-email-zheng.x.li@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-v1->v2: remvoe the comment "TODO: QinQ?".
-	convert pr_xxx() to pr_xxx_ratelimited() for arp interval.
+On 2014/3/25 11:00, Zheng Li wrote:
+> In bond mode tlb and alb, inactive slaves should keep inactive flag to
+> 1 to refuse to receive broadcast packets. Now, active slave send broadcast packets
+> (for example ARP requests) which will arrive inactive slaves on same host from switch,
+> but inactive slave's inactive flag is zero that cause bridge receive the broadcast
+> packets to produce a wrong entry in forward table. Typical situation is domu send some
+> ARP request which go out from dom0 bond's active slave, then the ARP broadcast request
+> packets go back to inactive slave from switch, because the inactive slave's inactive
+> flag is zero, kernel will receive the packets and pass them to bridge, that cause dom0's
+> bridge map domu's MAC address to port of bond, bridge should map domu's MAC to port of vif.
+> 
+> Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
+> ---
+>  drivers/net/bonding/bond_main.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index e5628fc..8761df6 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -3062,7 +3062,7 @@ static int bond_open(struct net_device *bond_dev)
+>  				&& (slave != bond->curr_active_slave)) {
+>  				bond_set_slave_inactive_flags(slave,
+>  							      BOND_SLAVE_NOTIFY_NOW);
+> -			} else {
+> +			} else if (!bond_is_lb(bond)) {
+>  				bond_set_slave_active_flags(slave,
+>  							    BOND_SLAVE_NOTIFY_NOW);
+>  			}
+> 
+I think you did not fix the problem completely, the state monitor will change the status for the slaves
+and the inactive slave still could receive the broadcast.
 
-v2->v3: remove the unnecessary log for arp interval and add net ratelimit to
-	avoid spam log.
-
-Ding Tianhong (3):
-  vlan: make a new function vlan_dev_vlan_proto() and export
-  bonding: support QinQ for bond arp interval
-  bonding: add net_ratelimt to avoid spam in arp interval
-
- drivers/net/bonding/bond_main.c | 80 +++++++++++++++++++++++++++--------------
- drivers/net/bonding/bonding.h   |  5 +++
- include/linux/if_vlan.h         |  7 ++++
- net/8021q/vlan_core.c           |  6 ++++
- 4 files changed, 72 insertions(+), 26 deletions(-)
-
--- 
-1.8.0
+Regards
+Ding
