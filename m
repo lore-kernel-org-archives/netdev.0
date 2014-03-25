@@ -1,81 +1,96 @@
-From: "zheng.li" <zheng.x.li@oracle.com>
-Subject: Re: [PATCH] bonding: Inactive slaves should keep inactive flag's
- value to 1 in tlb and alb mode.
-Date: Tue, 25 Mar 2014 16:36:39 +0800
-Message-ID: <53314017.8040104@oracle.com>
-References: <1395716407-31601-1-git-send-email-zheng.x.li@oracle.com> <5330FB34.4090005@huawei.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next 3/3] bonding: add ratelimit for bond_arp_rcv()
+Date: Tue, 25 Mar 2014 16:17:41 +0800
+Message-ID: <53313BA5.10008@huawei.com>
+References: <1395731037-4812-1-git-send-email-dingtianhong@huawei.com> <1395731037-4812-4-git-send-email-dingtianhong@huawei.com> <20140325073455.GB1476@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	joe.jin@oracle.com
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5330FB34.4090005@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <fubar@us.ibm.com>, <andy@greyhouse.net>, <joe@perches.com>,
+	<kaber@trash.net>, <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Veaceslav Falico <vfalico@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:37289 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751886AbaCYIfW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 04:35:22 -0400
+In-Reply-To: <20140325073455.GB1476@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2014=E5=B9=B403=E6=9C=8825=E6=97=A5 11:42, Ding Tianhong =E5=86=
-=99=E9=81=93:
-> On 2014/3/25 11:00, Zheng Li wrote:
->> In bond mode tlb and alb, inactive slaves should keep inactive flag =
-to
->> 1 to refuse to receive broadcast packets. Now, active slave send bro=
-adcast packets
->> (for example ARP requests) which will arrive inactive slaves on same=
- host from switch,
->> but inactive slave's inactive flag is zero that cause bridge receive=
- the broadcast
->> packets to produce a wrong entry in forward table. Typical situation=
- is domu send some
->> ARP request which go out from dom0 bond's active slave, then the ARP=
- broadcast request
->> packets go back to inactive slave from switch, because the inactive =
-slave's inactive
->> flag is zero, kernel will receive the packets and pass them to bridg=
-e, that cause dom0's
->> bridge map domu's MAC address to port of bond, bridge should map dom=
-u's MAC to port of vif.
+On 2014/3/25 15:34, Veaceslav Falico wrote:
+> On Tue, Mar 25, 2014 at 03:03:57PM +0800, Ding Tianhong wrote:
+>> Add ratelimit to avoid spam when processing the arp package.
+> 
+> You've ratelimited here only debug statements. As with the another
+> patchset, I think that it's a bad idea for debugging - if the user turns
+> debugging on he wants to see all messages, and otherwise he won't ever see
+> any.
+> 
+
+more clear, thanks.
+
+Ding
+
 >>
->> Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 >> ---
->>  drivers/net/bonding/bond_main.c |    2 +-
->>  1 files changed, 1 insertions(+), 1 deletions(-)
+>> drivers/net/bonding/bond_main.c | 19 +++++++++++--------
+>> 1 file changed, 11 insertions(+), 8 deletions(-)
 >>
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/b=
-ond_main.c
->> index e5628fc..8761df6 100644
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index 9e8b888..7328a3f 100644
 >> --- a/drivers/net/bonding/bond_main.c
 >> +++ b/drivers/net/bonding/bond_main.c
->> @@ -3062,7 +3062,7 @@ static int bond_open(struct net_device *bond_d=
-ev)
->>  				&& (slave !=3D bond->curr_active_slave)) {
->>  				bond_set_slave_inactive_flags(slave,
->>  							      BOND_SLAVE_NOTIFY_NOW);
->> -			} else {
->> +			} else if (!bond_is_lb(bond)) {
->>  				bond_set_slave_active_flags(slave,
->>  							    BOND_SLAVE_NOTIFY_NOW);
->>  			}
+>> @@ -2239,13 +2239,15 @@ static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32
+>>     int i;
 >>
-> I think you did not fix the problem completely, the state monitor wil=
-l change the status for the slaves
-> and the inactive slave still could receive the broadcast.
-
-Had tested, it can fix the issue, verified by our QA.
-Default set slave of bond as inactive when add a slave to bond, when
-link UP, just set one slave as current active slave and clear its
-inactive flag, the inactive slave's inactive flag will keep the value o=
-f 1.
-
-
->=20
-> Regards
-> Ding
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
+>>     if (!sip || !bond_has_this_ip(bond, tip)) {
+>> -        pr_debug("bva: sip %pI4 tip %pI4 not found\n", &sip, &tip);
+>> +        pr_debug_ratelimited("bva: sip %pI4 tip %pI4 not found\n",
+>> +                     &sip, &tip);
+>>         return;
+>>     }
+>>
+>>     i = bond_get_targets_ip(bond->params.arp_targets, sip);
+>>     if (i == -1) {
+>> -        pr_debug("bva: sip %pI4 not found in targets\n", &sip);
+>> +        pr_debug_ratelimited("bva: sip %pI4 not found in targets\n",
+>> +                     &sip);
+>>         return;
+>>     }
+>>     slave->last_rx = jiffies;
+>> @@ -2272,8 +2274,8 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+>>
+>>     alen = arp_hdr_len(bond->dev);
+>>
+>> -    pr_debug("bond_arp_rcv: bond %s skb->dev %s\n",
+>> -         bond->dev->name, skb->dev->name);
+>> +    pr_debug_ratelimited("bond_arp_rcv: bond %s skb->dev %s\n",
+>> +                 bond->dev->name, skb->dev->name);
+>>
+>>     if (alen > skb_headlen(skb)) {
+>>         arp = kmalloc(alen, GFP_ATOMIC);
+>> @@ -2297,10 +2299,11 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+>>     arp_ptr += 4 + bond->dev->addr_len;
+>>     memcpy(&tip, arp_ptr, 4);
+>>
+>> -    pr_debug("bond_arp_rcv: %s %s/%d av %d sv %d sip %pI4 tip %pI4\n",
+>> -         bond->dev->name, slave->dev->name, bond_slave_state(slave),
+>> -         bond->params.arp_validate, slave_do_arp_validate(bond, slave),
+>> -         &sip, &tip);
+>> +    pr_debug_ratelimited("bond_arp_rcv: %s %s/%d av %d sv %d sip %pI4 tip %pI4\n",
+>> +                 bond->dev->name, slave->dev->name,
+>> +                 bond_slave_state(slave),
+>> +                 bond->params.arp_validate,
+>> +                 slave_do_arp_validate(bond, slave), &sip, &tip);
+>>
+>>     curr_active_slave = rcu_dereference(bond->curr_active_slave);
+>>
+>> -- 
+>> 1.8.0
+>>
+>>
+> 
+> .
+> 
