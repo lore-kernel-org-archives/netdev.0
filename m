@@ -1,8 +1,8 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: tgraf <tgraf@suug.ch>
 Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
  switch chip datapath
-Date: Tue, 25 Mar 2014 21:26:32 +0000
-Message-ID: <20140325212632.GD15723@casper.infradead.org>
+Date: Tue, 25 Mar 2014 21:39:58 +0000
+Message-ID: <20140325213958.GE15723@casper.infradead.org>
 References: <532AD5B3.6020205@mojatatu.com>
  <20140320124021.GA2946@minipsycho.orion>
  <CAGVrzcbqQGGYb2Wkkekei7ivGd2XOnE+5GthLUv6_nD_oicrSQ@mail.gmail.com>
@@ -10,16 +10,15 @@ References: <532AD5B3.6020205@mojatatu.com>
  <20140322094852.GB2844@minipsycho.orion>
  <5330BAB7.3040501@mojatatu.com>
  <20140325173927.GE8102@hmsreliant.think-freely.org>
- <20140325180009.GB15723@casper.infradead.org>
- <20140325193533.GF8102@hmsreliant.think-freely.org>
- <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com>
+ <CAGVrzcacuU=RsnBOQh2-u+AjsMvznUYWFJru86w09+Vpdta2KQ@mail.gmail.com>
+ <20140325194018.GG8102@hmsreliant.think-freely.org>
+ <CAGVrzca3g8GMgoO8ptzmvCLusTJRzb9C0Duh+bXUrQPtB4LyaQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Neil Horman <nhorman@tuxdriver.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
 	Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>, andy <andy@greyhouse.net>,
 	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
 	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
 	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
@@ -29,37 +28,61 @@ Cc: Neil Horman <nhorman@tuxdriver.com>,
 	John Fastabend <john.r.fastabend@intel.com>,
 	Eric Dumazet <edumazet@google.com>,
 	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Felix Fietkau <nbd@openwrt.org>
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:34712 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:42253 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751537AbaCYV0d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 17:26:33 -0400
+	with ESMTP id S1751407AbaCYVkA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 17:40:00 -0400
 Content-Disposition: inline
-In-Reply-To: <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com>
+In-Reply-To: <CAGVrzca3g8GMgoO8ptzmvCLusTJRzb9C0Duh+bXUrQPtB4LyaQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/25/14 at 01:11pm, Florian Fainelli wrote:
-> 2014-03-25 12:35 GMT-07:00 Neil Horman <nhorman@tuxdriver.com>:
-> > On Tue, Mar 25, 2014 at 06:00:09PM +0000, Thomas Graf wrote:
-> >> On top of that, like for VFs, we provide extended nested attributes or
-> >> alternate control paths such as via OVS that provide the additional
-> >> flexibility and control required by the more advanced devices.
-> > I'm sorry, I don't understand the relevance here.  Are you suggesting that to
-> > make this modification, we would need to augment more than a single set of
-> > netlink control paths?
+On 03/25/14 at 01:00pm, Florian Fainelli wrote:
+> 2014-03-25 12:40 GMT-07:00 Neil Horman <nhorman@tuxdriver.com>:
+> > On Tue, Mar 25, 2014 at 11:33:22AM -0700, Florian Fainelli wrote:
+> >> 2014-03-25 10:39 GMT-07:00 Neil Horman <nhorman@tuxdriver.com>:
+> >> > 1) Ports on a switch chip are accessed using net_device structures, but
+> >> > registered to a private list contained within the switch device, rather than to
+> >> > the net namespaces device list.
+> >>
+> >> I think this would be a good model for simple embedded switches that
+> >> only support 802.1q VLANs for instance, since we won't be able to get
+> >> any actual data to be sent/received to any per-port netdevice, those
+> >> per-port netdevices would only be effective for control at the L2
+> >> level.
+> >>
+> >> For switches that do support tags, I think we do want per-port
+> >> netdevices to appear in the regular netdevices namespace as those
+> >> might be able to get actual data sent to/received from by using these
+> >> tags, at least momentarily until a higher-level entity decides
+> >> otherwise (e.g: by bridging, disabling interfaces...).
+> >>
+> > Well, perhaps thats the answer then  - Augment the model to allow for the
+> > registration of net_devices to private lists within a switch device, but don't
+> > require it.  If a given chip supports the assignment of L3 data by the cpu, the
+> > use of iptables etc, let the switch driver do so, its not like we can't do that
+> > already, but for the smaller devices, keeping them tightly controled via the
+> > switch driver in such a way that user space can only access them with permission
+> > from the switch driver.
+> >
+> > Does that seem reasonable?
 > 
-> Not sure if I got this right, but there might be additional control
-> knobs required for specific Ethernet switch features that do not map
-> nicely, if at all with existing interfaces provided by ip/tc,
-> ethtool... although I guess one would say, well, then go add these
-> APIs instead of creating "extended" ones?
+> Sure that looks good, the switch driver will know what L2/L3 features
+> it has, and the higher levels will know how to utilize that
+> information to construct the net_devices stacking and namespacing.
 
-Exactly. Some of the logic and configuration structure will not
-fit the existing model and is too switch specific to justify
-extending the generic link model. It also seems likely that some
-knobs will be switch specific. Not an issue as long as they are
-tunneled through the standard API and any effort is undertaken
-to generalize where it makes sense.
+
+I think all it takes is to correctly apply the existing separation
+which is already available but not applied right now.
+
+We already have the L2/L3 separation in place:
+
+net_device vs in_device/inet6_dev/....
+
+A pure L2 device that will never do L3 on the CPU would only
+need to set a flag which we check before allocating a in_device
+and therefore prevent from all the L3 configs to be exposed.
