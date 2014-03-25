@@ -1,56 +1,39 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next,v4] hyperv: Add support for virtual Receive
- Side Scaling (vRSS)
-Date: Tue, 25 Mar 2014 20:37:43 +0000
-Message-ID: <216cd74854414cfc9b338cab41a3d1a0@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <1395434633-16771-1-git-send-email-haiyangz@microsoft.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 37/54] sc92031: Call dev_consume_skb_any instead of
+ dev_kfree_skb.
+Date: Tue, 25 Mar 2014 13:39:13 -0700
+Message-ID: <1395779953.12610.167.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <87y4zyhlar.fsf_-_@x220.int.ebiederm.org>
+	 <1395727540-12148-1-git-send-email-ebiederm@xmission.com>
+	 <1395727540-12148-37-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: KY Srinivasan <kys@microsoft.com>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"driverdev-devel@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>
-To: Haiyang Zhang <haiyangz@microsoft.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na01-by1-obe.ptr.o365filtering.com ([64.4.22.87]:2154 "EHLO
-	na01-by1-obe.outbound.o365filtering.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755121AbaCYUid convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2014 16:38:33 -0400
-In-Reply-To: <1395434633-16771-1-git-send-email-haiyangz@microsoft.com>
-Content-Language: en-US
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:57852 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752825AbaCYUjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 16:39:15 -0400
+Received: by mail-pb0-f47.google.com with SMTP id up15so963843pbc.6
+        for <netdev@vger.kernel.org>; Tue, 25 Mar 2014 13:39:14 -0700 (PDT)
+In-Reply-To: <1395727540-12148-37-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-> -----Original Message-----
-> From: Haiyang Zhang [mailto:haiyangz@microsoft.com]
-> Sent: Friday, March 21, 2014 4:44 PM
-> To: davem@davemloft.net; netdev@vger.kernel.org
-> Cc: Haiyang Zhang; KY Srinivasan; olaf@aepfle.de; jasowang@redhat.com;
-> linux-kernel@vger.kernel.org; driverdev-devel@linuxdriverproject.org
-> Subject: [PATCH net-next,v4] hyperv: Add support for virtual Receive
-> Side Scaling (vRSS)
+On Mon, 2014-03-24 at 23:05 -0700, Eric W. Biederman wrote:
+> From: "Eric W. Biederman" <ebiederm@xmission.com>
 > 
-> This feature allows multiple channels to be used by each virtual NIC.
-> It is available on Hyper-V host 2012 R2.
+> Replace dev_kfree_skb with dev_consume_skb_any in sc92031_start_xmit
+> that can be called in hard irq and other contexts.
 > 
-> (It depends on this commit:
-> Drivers: hv: vmbus: Support per-channel driver state
-> http://git.kernel.org/cgit/linux/kernel/git/next/linux-
-> next.git/commit/?id=8a7206a89f85c8439561b0eff85bb9440a2e97a9
-> )
+> Using dev_consume_skb_any preserves the current semantics (as
+> dev_kfree_skb is just consume_skb) and since packet drops
+> are rare is usually accurate.
+> 
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> ---
 
-Hi Dave,
-
-Do we know when the dependency (commit: 8a7206a89f) will be merged
-into net-next tree?
-
-Thanks,
-- Haiyang
+Acked-by: Eric Dumazet <edumazet@google.com>
