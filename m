@@ -1,218 +1,96 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: [PATCH V14 5/7] net: sxgbe: add Checksum offload support for Samsung
- sxgbe
-Date: Tue, 25 Mar 2014 12:11:02 -0700
-Message-ID: <01b201cf485d$f9317480$eb945d80$@samsung.com>
+From: Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH V14 1/7] sxgbe: Add device-tree binding support document
+Date: Tue, 25 Mar 2014 12:10:51 -0700
+Message-ID: <01ad01cf485d$f1894fa0$d49beee0$@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: 'David Miller' <davem@davemloft.net>,
-	'GIRISH K S' <ks.giri@samsung.com>,
-	'SIVAREDDY KALLAM' <siva.kallam@samsung.com>,
-	'Vipul Chandrakant' <vipul.pandya@samsung.com>,
-	'Ilho Lee' <ilho215.lee@samsung.com>
-To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
-	devicetree@vger.kernel.org
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+Cc: 'David Miller' <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	'GIRISH K S' <ks.giri-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+	'SIVAREDDY KALLAM' <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+	'Vipul Chandrakant' <vipul.pandya-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+	'Ilho Lee' <ilho215.lee-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-language: en-us
-Sender: linux-samsung-soc-owner@vger.kernel.org
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Vipul Pandya <vipul.pandya@samsung.com>
+From: Siva Reddy <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 
-This patch adds TX and RX checksum offload support.
+This patch adds binding document for SXGBE ethernet driver via device-tree.
 
-Signed-off-by: Vipul Pandya <vipul.pandya@samsung.com>
-Neatening-by: Joe Perches <joe@perches.com>
-Signed-off-by: Byungho An <bh74.an@samsung.com>
+Signed-off-by: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 ---
- drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h |    5 +++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c   |   20 +++++++++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h   |    2 +-
- drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c   |   46 ++++++++++++++++-----
- 4 files changed, 61 insertions(+), 12 deletions(-)
+ .../devicetree/bindings/net/samsung-sxgbe.txt      |   52 ++++++++++++++++++++
+ 1 file changed, 52 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/samsung-sxgbe.txt
 
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
-index 7293c4c..4893cfd 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
-@@ -340,6 +340,10 @@ struct sxgbe_core_ops {
- 	void (*set_eee_timer)(void __iomem *ioaddr, const int ls,
- 			      const int tw);
- 	void (*set_eee_pls)(void __iomem *ioaddr, const int link);
+diff --git a/Documentation/devicetree/bindings/net/samsung-sxgbe.txt b/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
+new file mode 100644
+index 0000000..989f6c9
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
+@@ -0,0 +1,52 @@
++* Samsung 10G Ethernet driver (SXGBE)
 +
-+	/* Enable disable checksum offload operations */
-+	void (*enable_rx_csum)(void __iomem *ioaddr);
-+	void (*disable_rx_csum)(void __iomem *ioaddr);
- };
- 
- const struct sxgbe_core_ops *sxgbe_get_core_ops(void);
-@@ -452,6 +456,7 @@ struct sxgbe_priv_data {
- 	struct sxgbe_ops *hw;	/* sxgbe specific ops */
- 	int no_csum_insertion;
- 	int irq;
-+	int rxcsum_insertion;
- 	spinlock_t stats_lock;	/* lock for tx/rx statatics */
- 
- 	struct phy_device *phydev;
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c
-index 0164790..66d4a74 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c
-@@ -218,6 +218,24 @@ static void  sxgbe_set_eee_timer(void __iomem *ioaddr,
- 	writel(value, ioaddr + SXGBE_CORE_LPI_TIMER_CTRL);
- }
- 
-+static void sxgbe_enable_rx_csum(void __iomem *ioaddr)
-+{
-+	u32 ctrl;
++Required properties:
++- compatible: Should be "samsung,sxgbe-v2.0a"
++- reg: Address and length of the register set for the device
++- interrupt-parent: Should be the phandle for the interrupt controller
++  that services interrupts for this device
++- interrupts: Should contain the SXGBE interrupts
++  These interrupts are ordered by fixed and follows variable
++  trasmit DMA interrupts, receive DMA interrupts and lpi interrupt.
++  index 0 - this is fixed common interrupt of SXGBE and it is always
++  available.
++  index 1 to 25 - 8 variable trasmit interrupts, variable 16 receive interrupts
++  and 1 optional lpi interrupt.
++- phy-mode: String, operation mode of the PHY interface.
++  Supported values are: "sgmii", "xgmii".
++- samsung,pbl: Integer, Programmable Burst Length.
++  Supported values are 1, 2, 4, 8, 16, or 32.
++- samsung,burst-map: Integer, Program the possible bursts supported by sxgbe
++  This is an interger and represents allowable DMA bursts when fixed burst.
++  Allowable range is 0x01-0x3F. When this field is set fixed burst is enabled.
++  When fixed length is needed for burst mode, it can be set within allowable
++  range.
 +
-+	ctrl = readl(ioaddr + SXGBE_CORE_RX_CONFIG_REG);
-+	ctrl |= SXGBE_RX_CSUMOFFLOAD_ENABLE;
-+	writel(ctrl, ioaddr + SXGBE_CORE_RX_CONFIG_REG);
-+}
++Optional properties:
++- mac-address: 6 bytes, mac address
++- max-frame-size: Maximum Transfer Unit (IEEE defined MTU), rather
++		  than the maximum frame size.
 +
-+static void sxgbe_disable_rx_csum(void __iomem *ioaddr)
-+{
-+	u32 ctrl;
++Example:
 +
-+	ctrl = readl(ioaddr + SXGBE_CORE_RX_CONFIG_REG);
-+	ctrl &= ~SXGBE_RX_CSUMOFFLOAD_ENABLE;
-+	writel(ctrl, ioaddr + SXGBE_CORE_RX_CONFIG_REG);
-+}
++	aliases {
++		ethernet0 = <&sxgbe0>;
++	};
 +
- const struct sxgbe_core_ops core_ops = {
- 	.core_init		= sxgbe_core_init,
- 	.dump_regs		= sxgbe_core_dump_regs,
-@@ -234,6 +252,8 @@ const struct sxgbe_core_ops core_ops = {
- 	.reset_eee_mode		= sxgbe_reset_eee_mode,
- 	.set_eee_timer		= sxgbe_set_eee_timer,
- 	.set_eee_pls		= sxgbe_set_eee_pls,
-+	.enable_rx_csum		= sxgbe_enable_rx_csum,
-+	.disable_rx_csum	= sxgbe_disable_rx_csum,
- };
- 
- const struct sxgbe_core_ops *sxgbe_get_core_ops(void)
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
-index 6d44b9f..838cb9f 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
-@@ -113,7 +113,7 @@ struct sxgbe_rx_norm_desc {
- 			/* WB RDES3 */
- 			u32 pkt_len:14;
- 			u32 rdes3_reserved:1;
--			u32 err_summary:15;
-+			u32 err_summary:1;
- 			u32 err_l2_type:4;
- 			u32 layer34_pkt_type:4;
- 			u32 no_coagulation_pkt:1;
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-index dc0249b..96b4b2c 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-@@ -1252,6 +1252,7 @@ void sxgbe_tso_prepare(struct sxgbe_priv_data *priv,
- static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	unsigned int entry, frag_num;
-+	int cksum_flag = 0;
- 	struct netdev_queue *dev_txq;
- 	unsigned txq_index = skb_get_queue_mapping(skb);
- 	struct sxgbe_priv_data *priv = netdev_priv(dev);
-@@ -1332,7 +1333,7 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
- 					   __func__);
- 
- 			priv->hw->desc->prepare_tx_desc(tx_desc, 1, no_pagedlen,
--							no_pagedlen, 0);
-+							no_pagedlen, cksum_flag);
- 		}
- 	}
- 
-@@ -1350,7 +1351,7 @@ static netdev_tx_t sxgbe_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 		/* prepare the descriptor */
- 		priv->hw->desc->prepare_tx_desc(tx_desc, 0, len,
--						len, 0);
-+						len, cksum_flag);
- 		/* memory barrier to flush descriptor */
- 		wmb();
- 
-@@ -1471,6 +1472,8 @@ static int sxgbe_rx(struct sxgbe_priv_data *priv, int limit)
- 	unsigned int entry = priv->rxq[qnum]->cur_rx;
- 	unsigned int next_entry = 0;
- 	unsigned int count = 0;
-+	int checksum;
-+	int status;
- 
- 	while (count < limit) {
- 		struct sxgbe_rx_norm_desc *p;
-@@ -1487,7 +1490,18 @@ static int sxgbe_rx(struct sxgbe_priv_data *priv, int limit)
- 		next_entry = (++priv->rxq[qnum]->cur_rx) % rxsize;
- 		prefetch(priv->rxq[qnum]->dma_rx + next_entry);
- 
--		/*TO DO read the status of the incoming frame */
-+		/* Read the status of the incoming frame and also get checksum
-+		 * value based on whether it is enabled in SXGBE hardware or
-+		 * not.
-+		 */
-+		status = priv->hw->desc->rx_wbstatus(p, &priv->xstats,
-+						     &checksum);
-+		if (unlikely(status < 0)) {
-+			entry = next_entry;
-+			continue;
-+		}
-+		if (unlikely(!priv->rxcsum_insertion))
-+			checksum = CHECKSUM_NONE;
- 
- 		skb = priv->rxq[qnum]->rx_skbuff[entry];
- 
-@@ -1501,7 +1515,11 @@ static int sxgbe_rx(struct sxgbe_priv_data *priv, int limit)
- 
- 		skb_put(skb, frame_len);
- 
--		netif_receive_skb(skb);
-+		skb->ip_summed = checksum;
-+		if (checksum == CHECKSUM_NONE)
-+			netif_receive_skb(skb);
-+		else
-+			napi_gro_receive(&priv->napi, skb);
- 
- 		entry = next_entry;
- 	}
-@@ -1748,15 +1766,15 @@ static int sxgbe_set_features(struct net_device *dev,
- {
- 	struct sxgbe_priv_data *priv = netdev_priv(dev);
- 	netdev_features_t changed = dev->features ^ features;
--	u32 ctrl;
- 
- 	if (changed & NETIF_F_RXCSUM) {
--		ctrl = readl(priv->ioaddr + SXGBE_CORE_RX_CONFIG_REG);
--		if (features & NETIF_F_RXCSUM)
--			ctrl |= SXGBE_RX_CSUMOFFLOAD_ENABLE;
--		else
--			ctrl &= ~SXGBE_RX_CSUMOFFLOAD_ENABLE;
--		writel(ctrl, priv->ioaddr + SXGBE_CORE_RX_CONFIG_REG);
-+		if (features & NETIF_F_RXCSUM) {
-+			priv->hw->mac->enable_rx_csum(priv->ioaddr);
-+			priv->rxcsum_insertion = true;
-+		} else {
-+			priv->hw->mac->disable_rx_csum(priv->ioaddr);
-+			priv->rxcsum_insertion = false;
-+		}
- 	}
- 
- 	return 0;
-@@ -2115,6 +2133,12 @@ struct sxgbe_priv_data *sxgbe_drv_probe(struct device *device,
- 		}
- 	}
- 
-+	/* Enable Rx checksum offload */
-+	if (priv->hw_cap.rx_csum_offload) {
-+		priv->hw->mac->enable_rx_csum(priv->ioaddr);
-+		priv->rxcsum_insertion = true;
-+	}
-+
- 	/* Rx Watchdog is available, enable depend on platform data */
- 	if (!priv->plat->riwt_off) {
- 		priv->use_riwt = 1;
++	sxgbe0: ethernet@1a040000 {
++		compatible = "samsung,sxgbe-v2.0a";
++		reg = <0 0x1a040000 0 0x10000>;
++		interrupt-parent = <&gic>;
++		interrupts = <0 209 4>, <0 185 4>, <0 186 4>, <0 187 4>,
++			     <0 188 4>, <0 189 4>, <0 190 4>, <0 191 4>,
++			     <0 192 4>, <0 193 4>, <0 194 4>, <0 195 4>,
++			     <0 196 4>, <0 197 4>, <0 198 4>, <0 199 4>,
++			     <0 200 4>, <0 201 4>, <0 202 4>, <0 203 4>,
++			     <0 204 4>, <0 205 4>, <0 206 4>, <0 207 4>,
++			     <0 208 4>, <0 210 4>;
++		samsung,pbl = <0x08>
++		samsung,burst-map = <0x20>
++		mac-address = [ 00 11 22 33 44 55 ]; /* Filled in by U-Boot */
++		max-frame-size = <9000>;
++		phy-mode = "xgmii";
++	};
 -- 
 1.7.10.4
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
