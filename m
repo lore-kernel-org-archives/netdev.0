@@ -1,81 +1,83 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v4 3/3] bonding: add net_ratelimt to avoid spam in arp interval
-Date: Tue, 25 Mar 2014 17:44:44 +0800
-Message-ID: <1395740684-12224-4-git-send-email-dingtianhong@huawei.com>
-References: <1395740684-12224-1-git-send-email-dingtianhong@huawei.com>
+From: Markus Pargmann <mpa@pengutronix.de>
+Subject: Re: [PATCH] net: micrel : ks8851-ml: add vdd-supply support
+Date: Tue, 25 Mar 2014 11:06:32 +0100
+Message-ID: <20140325100632.GB14810@pengutronix.de>
+References: <1395384768-8461-1-git-send-email-nm@ti.com>
+ <20140324.003758.1244022408748408267.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <fubar@us.ibm.com>, <vfalico@redhat.com>, <andy@greyhouse.net>,
-	<joe@perches.com>, <kaber@trash.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="oLBj+sq0vYjzfsbl"
+Cc: nm@ti.com, rmk+kernel@arm.linux.org.uk, tony@atomide.com,
+	devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	linux-omap@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:44761 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752600AbaCYJrk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 05:47:40 -0400
-In-Reply-To: <1395740684-12224-1-git-send-email-dingtianhong@huawei.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:36106 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751194AbaCYKGz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 06:06:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20140324.003758.1244022408748408267.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove the unnecessary log and add net_ratelimit to the others, in order to
-avoid spam the log.
 
-Cc: Joe Perches <joe@perches.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>
-Cc: Veaceslav Falico <vfalico@redhat.com>
-Cc: Andy Gospodarek <andy@greyhouse.net>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/bonding/bond_main.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+--oLBj+sq0vYjzfsbl
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 6758c2d..e2b3721 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2138,16 +2138,17 @@ static void bond_arp_send(struct net_device *slave_dev, int arp_op,
- 			 NULL, slave_dev->dev_addr, NULL);
- 
- 	if (!skb) {
--		pr_err("ARP packet allocation failed\n");
-+		net_err_ratelimited("ARP packet allocation failed\n");
- 		return;
- 	}
- 	if (outer->vlan_id) {
- 		if (inner->vlan_id) {
- 			pr_debug("inner tag: proto %X vid %X\n",
- 				 ntohs(inner->vlan_proto), inner->vlan_id);
--			skb = __vlan_put_tag(skb, inner->vlan_proto, inner->vlan_id);
-+			skb = __vlan_put_tag(skb, inner->vlan_proto,
-+					     inner->vlan_id);
- 			if (!skb) {
--				pr_err("failed to insert inner VLAN tag\n");
-+				net_err_ratelimited("failed to insert inner VLAN tag\n");
- 				return;
- 			}
- 		}
-@@ -2156,7 +2157,7 @@ static void bond_arp_send(struct net_device *slave_dev, int arp_op,
- 			 ntohs(outer->vlan_proto), outer->vlan_id);
- 		skb = vlan_put_tag(skb, outer->vlan_proto, outer->vlan_id);
- 		if (!skb) {
--			pr_err("failed to insert outer VLAN tag\n");
-+			net_err_ratelimited("failed to insert outer VLAN tag\n");
- 			return;
- 		}
- 	}
-@@ -2187,9 +2188,10 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 			/* there's no route to target - try to send arp
- 			 * probe to generate any traffic (arp_validate=0)
- 			 */
--			if (bond->params.arp_validate && net_ratelimit())
--				pr_warn("%s: no route to arp_ip_target %pI4 and arp_validate is set\n",
--					bond->dev->name, &targets[i]);
-+			if (bond->params.arp_validate)
-+				net_warn_ratelimited("%s: no route to arp_ip_target %pI4 and arp_validate is set\n",
-+						     bond->dev->name,
-+						     &targets[i]);
- 			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i], 0, &inner, &outer);
- 			continue;
- 		}
--- 
-1.8.0
+Hi,
+
+On Mon, Mar 24, 2014 at 12:37:58AM -0400, David Miller wrote:
+> From: Nishanth Menon <nm@ti.com>
+> Date: Fri, 21 Mar 2014 01:52:48 -0500
+>=20
+> > Few platforms use external regulator to keep the ethernet MAC supplied.
+> > So, request and enable the regulator for driver functionality.
+> >=20
+> > Fixes: 66fda75f47dc (regulator: core: Replace direct ops->disable usage)
+> > Reported-by: Russell King <rmk+kernel@arm.linux.org.uk>
+> > Suggested-by: Markus Pargmann <mpa@pengutronix.de>
+> > Signed-off-by: Nishanth Menon <nm@ti.com>
+>=20
+> Applied, thanks.
+>=20
+
+The two regulator patches for enable and disable are going into the
+stable trees so this should also be submitted to stable for 3.10 to
+3.13.
+
+Regards,
+
+Markus
+
+--=20
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+
+--oLBj+sq0vYjzfsbl
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBAgAGBQJTMVUoAAoJEEpcgKtcEGQQu7wP/jIk0DjopMZx9a08M3howGoy
+qvIvJ6acs8og+jtbWC9LNCm9e3/vS88Ai52H1L3GZTvVQhCbssGkDXSzHclyvIDV
+DvJw/pRDNhUe7ByUOhObQzixtZ9ACPbyxWTSoyOz3y/YBQi752uut3KBjCFMXiRV
+t2Y3RdtcWDyEXupqSXWAjZ8SjlAD/0lzvOKXPxWVuGtlu+Wz0O2WwN7Oq5aldMt2
+QyLDyCt4uPKXtuHgCGfzlK9fDizfDlvZRHauPWkxLoPTNbJQz8QEubviW3bh0YbH
+EwOFlUcMbKxYhjAnVbv+hUAFckaByFZZy8WMBJD/oZzFpBpwagqJNkOC4LBcUvLN
+VMfFGsHeHMK0QDPWpcf9TMTfMXuTN3PT9OP0Gtjqy2BCpURI1yWQtzck0CYM4nD7
+Sq2YxUKevBAFZp23fLfNkqz5O+AxuNWmHigA3gtCGrGf4+V8Ml+bh4LxO15mfI/k
+kKJQrDlVqsmIbeX0e9waOD08Dv8/ZsZRiB9nlDXXr7RmrqauUGEQrjKniY/QvAtc
+RmAdZC4EC6gIjHBk2hfs/Ky/B2f1/wnhpCDQtVPQQYOR4Jfztw5t6zmmP0MaCIbM
+rbBLdEY+wPmptCM5mPGOr1JbQSz+P5kCspP3clYBQEhi1FJyCJoYo7pXcC2PIhs5
+4r2F5BHdt43vZLCClh01
+=1zLw
+-----END PGP SIGNATURE-----
+
+--oLBj+sq0vYjzfsbl--
