@@ -1,100 +1,52 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Tue, 25 Mar 2014 13:39:27 -0400
-Message-ID: <20140325173927.GE8102@hmsreliant.think-freely.org>
-References: <1395243232-32630-1-git-send-email-jiri@resnulli.us>
- <532AD5B3.6020205@mojatatu.com>
- <20140320124021.GA2946@minipsycho.orion>
- <CAGVrzcbqQGGYb2Wkkekei7ivGd2XOnE+5GthLUv6_nD_oicrSQ@mail.gmail.com>
- <532C2AC4.7080303@mojatatu.com>
- <20140322094852.GB2844@minipsycho.orion>
- <5330BAB7.3040501@mojatatu.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Tue, 25 Mar 2014 18:54:28 +0100
+Message-ID: <7101996.LQrASEuksF@wuerfel>
+References: <1395670496-17381-1-git-send-email-zhangfei.gao@linaro.org> <21873900.AIOr1ryy37@wuerfel> <1395768102.12610.159.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Zhangfei Gao <zhangfei.gao@gmail.com>,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+	Mark Rutland <mark.rutland@arm.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+	Zhangfei Gao <zhangfei.gao@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:57743 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755266AbaCYRkH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 13:40:07 -0400
-Content-Disposition: inline
-In-Reply-To: <5330BAB7.3040501@mojatatu.com>
+Received: from moutng.kundenserver.de ([212.227.17.10]:55281 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756168AbaCYRyd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 13:54:33 -0400
+In-Reply-To: <1395768102.12610.159.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 24, 2014 at 07:07:35PM -0400, Jamal Hadi Salim wrote:
-> On 03/22/14 05:48, Jiri Pirko wrote:
-> >Fri, Mar 21, 2014 at 01:04:20PM CET, jhs@mojatatu.com wrote:
-> 
-> >Hmm. This got me thinking about netdev and switches well and perhaps the
-> >switchdev api could be mostly implemented by couple of more ndos and
-> >feature flags. That way we could stick to your immortal netdev :)
+On Tuesday 25 March 2014 10:21:42 Eric Dumazet wrote:
+> On Tue, 2014-03-25 at 18:05 +0100, Arnd Bergmann wrote:
+> > On Tuesday 25 March 2014 10:00:30 Florian Fainelli wrote:
 > >
-> >
+> > > Using a timer to ensure completion of TX packets is a trick that
+> > > worked in the past, but now that the networking stack got smarter,
+> > > this might artificially increase the processing time of packets in the
+> > > transmit path, and this will defeat features like TCP small queues
+> > > etc.. as could be seen with the mvneta driver [1]. The best way really
+> > > is to rely on TX completion interrupts when those exist as they cannot
+> > > lie about the hardware status (in theory) and they should provide the
+> > > fastest way to complete TX packets.
+> > 
+> > By as Zhangfei Gao pointed out, this hardware does not have a working
+> > TX completion interrupt. Using timers to do this has always just been
+> > a workaround for broken hardware IMHO.
 > 
-> Perhaps ;->
-> 
-> >>
-> >>In my view: that (immortal) device for L2/bridging is the bridge or
-> >>maybe a more barebone version of the bridge (since it has gained a
-> >>little more weight in recent times).
-> >
-> >Well, I do not think that bridge is ideal abstraction for modern switch
-> >chips. Bridge is very limited.
-> >
-> 
-> True - but i was more thinking of being inclusive of the smaller
-> devices. They are mostly L2 only and in very limited scope. And thats
-> probably 95% of the population. The things you are talking about
-> are very high end and they can do more. Florian's taxanomy was useful.
-> 
-> >But I don't necessary think it is needed to "mask" as a bride or mimic a
-> >bridge in any way. DSA does not do that either.
-No, but it would be really nice if these smaller devices could take advantage of
-this infrastructure.  Looking at it, I don't see why thats not possible.  The
-big trick (as we've discussed in the past), is using a net_device structure to
-take advantage of all the features that net_devices offer while not enabling the
-device specific features that some hardware doesn't allow.
+> For this kind of drivers, calling skb_orphan() from ndo_start_xmit() is
+> mandatory.
 
-For instance the broadcom chips that live in many wireless routers would be well
-served by the model jiri has here as far as Media level interface control is
-concerned (i.e. ifup/down/speed/duplex/etc), but its a bit lacking in that
-net_devices are assumed to support L3 protocol configuration (i.e. they can have
-ip addresses assigned to them), which you can't IIRC do on these chips.
+Cool, thanks for the information, I was wondering already if there was
+a way to deal with hardware like this.
 
-Would it be worth considering a private interface model?  That is to say:
-
-1) Ports on a switch chip are accessed using net_device structures, but
-registered to a private list contained within the switch device, rather than to
-the net namespaces device list.
-
-2) Access to the switch ports via user space is done through the master switch
-interface with additional netlink attributes specifying the port on the switch
-to access (or not to access the master switch device directly)
-
-
-Such a model I think might fit well with Jiri's code here and provide greater
-flexibility for a wider range of devices.  It would of course require
-augmentation for user space, but the changes would be additive, so I think they
-would be reasonable.  This would also allow the switch device to have a hook in
-the control path to block or allow features that the hardware may or may not
-support while still being able to use the existing net_device infrastructure to
-support these operations as they are normally carried out.
-
-Best
-Neil
+	Arnd
