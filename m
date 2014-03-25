@@ -1,58 +1,59 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Tue, 25 Mar 2014 13:04:47 +1100
-Message-ID: <20140325130447.e38f4242c03090fd48eae340@canb.auug.org.au>
+From: Maksim Lin <maks@manichord.com>
+Subject: Re: i217-LM boot wreckage
+Date: Tue, 25 Mar 2014 13:41:37 +1100
+Message-ID: <CA+ZDVGN5g3frxBoG1PLU4ZUEXGcTFOqMfgFrHWLCAiXBy3AXbA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Tue__25_Mar_2014_13_04_47_+1100_q5Yz5lBu0t/4cwzT"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Li RongQing <roy.qing.li@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f171.google.com ([209.85.220.171]:50097 "EHLO
+	mail-vc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750972AbaCYCli (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Mar 2014 22:41:38 -0400
+Received: by mail-vc0-f171.google.com with SMTP id lg15so6784667vcb.2
+        for <netdev@vger.kernel.org>; Mon, 24 Mar 2014 19:41:37 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__25_Mar_2014_13_04_47_+1100_q5Yz5lBu0t/4cwzT
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Fri, 21 Mar 2014, Ertman, DavidX M wrote:
 
-Hi all,
+> I have discovered the cause of this issue.  It is related to the
+> change in the application of a Si errata workaround.
+>
+> I will be working on grok'ing the total impact of this issue and
+> writing up the patch over the weekend and will have something pushed
+> into our internal queue early next week.
 
-Today's linux-next merge of the net-next tree got a conflict in
-net/core/netpoll.c between commit c27f0872a344 ("netpoll: fix the skb
-check in pkt_is_ns") from the net tree and commit 9c62a68d1311 ("netpoll:
-Remove dead packet receive code (CONFIG_NETPOLL_TRAP)") from the net-next
-tree.
+Hi,
 
-I fixed it up (the latter removes the code fixed by the former, so I did
-that) and can carry the fix as necessary (no action is required).
+Not sure if its helpful to have another report, but I'm pretty sure I
+am seeing the same thing on my Dell Latitude 7440 running 3.14.0-rc7
+but with a slightly different card:
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+$ ethtool -i eth0
+driver: e1000e
+version: 2.3.2-k
+firmware-version: 0.6-3
+bus-info: 0000:00:19.0
+supports-statistics: yes
+supports-test: yes
+supports-eeprom-access: yes
+supports-register-dump: yes
 
---Signature=_Tue__25_Mar_2014_13_04_47_+1100_q5Yz5lBu0t/4cwzT
-Content-Type: application/pgp-signature
+and from lspci -v:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
+00:19.0 Ethernet controller: Intel Corporation Ethernet Connection
+I218-LM (rev 04)
+    Subsystem: Dell Device 05cb
+    Flags: bus master, fast devsel, latency 0, IRQ 59
+    Memory at f7e00000 (32-bit, non-prefetchable) [size=128K]
+    Memory at f7e3c000 (32-bit, non-prefetchable) [size=4K]
+    I/O ports at f080 [size=32]
+    Capabilities: <access denied>
+    Kernel driver in use: e1000e
+    Kernel modules: e1000e
 
-iQIcBAEBCAAGBQJTMORGAAoJEMDTa8Ir7ZwVotYP/RQ/etjEXxXCbXOlSgp55ENy
-M4VOBwdGomaZA4n8Kz4fX2XrI7CLLT/vW0xWaVt+8GMeSXLFQXu6sgK63o7pTDL+
-oXgbt8AOyVc7qDs0ApwIZWI3jOJO5oGZpNBEvT/zXqwOcJsnJKrEa70CWnKEM1CM
-p1OBXJsy0w+3kczOZiMZ2mf6c7dwrRbSwFVEeWeWaVs6oCCpQ85AP85p9pFVMft3
-5ie7pl3nH/hs5FY1i/6ssaUb6DNE/HYCRkueVh3t4mZ2HJt+iQz0n1ubM3fmyD6F
-E8yp1GA9Zpch4zmDRLJ8L9ZPaRS60lY4E0avAzoMuO1IrszzYGX9pIFp2Fb+A0UM
-Dy+i8hPdjiLLwu2ZfMvoRxb2pXfLD32061VrIP0z+/j6wGm86bFsefrbaZ9y4tQ+
-K4L4Eh66yQPzVkxzfXYe2HAsXUT3kFek799eu5PZqGjiGgkubQ+ypqMnh3nEHRSV
-QPI0M8Uj/LVHZU8eTj3GVmDJ6glNMGjTEsAHXVOyPnPNKgfW0kVq/GYFWw6oEkP4
-U9HYHL0LDeDJiRsogZPUkm7PnyUFLf59o2JcjC5OvoF8im+FOsMKrrgXHaUiuwHa
-91XlreOQ0mHBAaQvM6YxYLuTvxfFVdcGiUb0Fb9TjeqIyA2oTIZADw04YAeW/hZV
-MM1+rBqav0bon/Y1UaQm
-=gQcs
------END PGP SIGNATURE-----
+I can try testing patches if it helps too.
 
---Signature=_Tue__25_Mar_2014_13_04_47_+1100_q5Yz5lBu0t/4cwzT--
+thanks,
+Maks.
