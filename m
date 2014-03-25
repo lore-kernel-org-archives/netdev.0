@@ -1,96 +1,125 @@
-From: Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH V14 1/7] sxgbe: Add device-tree binding support document
-Date: Tue, 25 Mar 2014 12:10:51 -0700
-Message-ID: <01ad01cf485d$f1894fa0$d49beee0$@samsung.com>
+From: Byungho An <bh74.an@samsung.com>
+Subject: [PATCH V14 0/7] add new Samsung SXGBE driver
+Date: Tue, 25 Mar 2014 12:10:47 -0700
+Message-ID: <01ac01cf485d$f0370610$d0a51230$@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: 'David Miller' <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	'GIRISH K S' <ks.giri-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	'SIVAREDDY KALLAM' <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	'Vipul Chandrakant' <vipul.pandya-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	'Ilho Lee' <ilho215.lee-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: 'David Miller' <davem@davemloft.net>,
+	'GIRISH K S' <ks.giri@samsung.com>,
+	'SIVAREDDY KALLAM' <siva.kallam@samsung.com>,
+	'Vipul Chandrakant' <vipul.pandya@samsung.com>,
+	'Ilho Lee' <ilho215.lee@samsung.com>
+To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
+	devicetree@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout4.samsung.com ([203.254.224.34]:47631 "EHLO
+	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754299AbaCYTK4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 15:10:56 -0400
 Content-language: en-us
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Siva Reddy <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+Hi all,
 
-This patch adds binding document for SXGBE ethernet driver via device-tree.
+This is 14th posting for SAMSUNG SXGBE driver.
 
-Signed-off-by: Siva Reddy Kallam <siva.kallam-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Signed-off-by: Byungho An <bh74.an-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
----
- .../devicetree/bindings/net/samsung-sxgbe.txt      |   52 ++++++++++++++++++++
- 1 file changed, 52 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/samsung-sxgbe.txt
+Changes since v1:
+- changed name of driver to SXGbE as per Ben's comment
+- squashed Joe's neatening for many stuff in original patches
 
-diff --git a/Documentation/devicetree/bindings/net/samsung-sxgbe.txt b/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
-new file mode 100644
-index 0000000..989f6c9
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/samsung-sxgbe.txt
-@@ -0,0 +1,52 @@
-+* Samsung 10G Ethernet driver (SXGBE)
-+
-+Required properties:
-+- compatible: Should be "samsung,sxgbe-v2.0a"
-+- reg: Address and length of the register set for the device
-+- interrupt-parent: Should be the phandle for the interrupt controller
-+  that services interrupts for this device
-+- interrupts: Should contain the SXGBE interrupts
-+  These interrupts are ordered by fixed and follows variable
-+  trasmit DMA interrupts, receive DMA interrupts and lpi interrupt.
-+  index 0 - this is fixed common interrupt of SXGBE and it is always
-+  available.
-+  index 1 to 25 - 8 variable trasmit interrupts, variable 16 receive interrupts
-+  and 1 optional lpi interrupt.
-+- phy-mode: String, operation mode of the PHY interface.
-+  Supported values are: "sgmii", "xgmii".
-+- samsung,pbl: Integer, Programmable Burst Length.
-+  Supported values are 1, 2, 4, 8, 16, or 32.
-+- samsung,burst-map: Integer, Program the possible bursts supported by sxgbe
-+  This is an interger and represents allowable DMA bursts when fixed burst.
-+  Allowable range is 0x01-0x3F. When this field is set fixed burst is enabled.
-+  When fixed length is needed for burst mode, it can be set within allowable
-+  range.
-+
-+Optional properties:
-+- mac-address: 6 bytes, mac address
-+- max-frame-size: Maximum Transfer Unit (IEEE defined MTU), rather
-+		  than the maximum frame size.
-+
-+Example:
-+
-+	aliases {
-+		ethernet0 = <&sxgbe0>;
-+	};
-+
-+	sxgbe0: ethernet@1a040000 {
-+		compatible = "samsung,sxgbe-v2.0a";
-+		reg = <0 0x1a040000 0 0x10000>;
-+		interrupt-parent = <&gic>;
-+		interrupts = <0 209 4>, <0 185 4>, <0 186 4>, <0 187 4>,
-+			     <0 188 4>, <0 189 4>, <0 190 4>, <0 191 4>,
-+			     <0 192 4>, <0 193 4>, <0 194 4>, <0 195 4>,
-+			     <0 196 4>, <0 197 4>, <0 198 4>, <0 199 4>,
-+			     <0 200 4>, <0 201 4>, <0 202 4>, <0 203 4>,
-+			     <0 204 4>, <0 205 4>, <0 206 4>, <0 207 4>,
-+			     <0 208 4>, <0 210 4>;
-+		samsung,pbl = <0x08>
-+		samsung,burst-map = <0x20>
-+		mac-address = [ 00 11 22 33 44 55 ]; /* Filled in by U-Boot */
-+		max-frame-size = <9000>;
-+		phy-mode = "xgmii";
-+	};
--- 
-1.7.10.4
+Changes since v2:
+- updated and split binding document as per Mark's comment
+- clean up codes as per Joe's comment
+- removed unused fields and clean up codes as per Francois's comment
+- removed module parameters as per Dave's comment
+- moved driver directory to samsung/sxgbe/
 
+Changes since v3:
+- fixed Missing a blank line after declarations as per Dave's comment
+- clean up codes as per Joe's comment
+- removed reference of net_device.{irq, base_addr} as per Francois's comment
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Changes since v4:
+- updated binding document and DT related function as per Mark's comment
+
+Changes since v5:
+- updated binding document and DT related function as per Florian's comment
+- fixed typo and shortened code as per Joe's comment
+
+Changes since v6:
+- updated TSO related functions as per Rayagond's comment
+- updated binding document as per Mark's comment
+- removed WoL patch from this patch set
+
+Changes since v7:
+- updated TSO related functions as per Rayagond's comment
+
+Changes since v8:
+- removed select and depends statement from vendor sub-section as per 
+  Dave's comment
+
+Changes since v9:
+- removed adv-add-map, force-sf-dma-modei and force-thresh-dma-mode from 
+  binding documnet as per Mark's comment
+
+Changes since v10:
+- clean up codes as per Francois's comment
+
+Changes since v11:
+- clean up mdio_read/write codes as per Francois's comment
+- changed irq acquisition error path as per Francois's comment
+- updated mdio and platform related codes as per Tomasz'comment
+- clean up dma related codes as per Vince's comment
+
+Changes since v12:
+- fixed typo
+
+Changes since v13:
+- clean up error path codes for irqs as per Francois's comment
+- removed unsupported functions for ehttoolirq as per Ben's comment
+
+Byungho An (1):
+      MAINTAINERS: add maintainer for Samsung sxgbe driver
+
+Girish K S (1):
+      net: sxgbe: add EEE(Energy Efficient Ethernet) for Samsung sxgbe
+
+Siva Reddy (2):
+      sxgbe: Add device-tree binding support document
+      net: sxgbe: add basic framework for Samsung 10Gb ethernet driver
+
+Vipul Pandya (3):
+      net: sxgbe: add TSO support for Samsung sxgbe
+      net: sxgbe: add Checksum offload support for Samsung sxgbe
+      net: sxgbe: add ethtool related functions support Samsung sxgbe
+
+ .../devicetree/bindings/net/samsung-sxgbe.txt      |   52 +
+ MAINTAINERS                                        |    9 +
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/samsung/Kconfig               |   16 +
+ drivers/net/ethernet/samsung/Makefile              |    5 +
+ drivers/net/ethernet/samsung/sxgbe/Kconfig         |    9 +
+ drivers/net/ethernet/samsung/sxgbe/Makefile        |    4 +
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h  |  538 +++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_core.c    |  262 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.c    |  515 +++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h    |  298 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c     |  382 ++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h     |   50 +
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c |  524 +++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c    | 2310 ++++++++++++++++++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_mdio.c    |  251 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.c     |  254 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_mtl.h     |  104 +
+ .../net/ethernet/samsung/sxgbe/sxgbe_platform.c    |  259 +++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h     |  488 +++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.c    |   91 +
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_xpcs.h    |   38 +
+ include/linux/sxgbe_platform.h                     |   54 +
+ 24 files changed, 6515 insertions(+)
+
+Thanks,
+Byungho An
