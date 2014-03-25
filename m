@@ -1,72 +1,68 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Tue, 25 Mar 2014 10:21:42 -0700
-Message-ID: <1395768102.12610.159.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1395670496-17381-1-git-send-email-zhangfei.gao@linaro.org>
- <17142825.cN9DfpvuLc@wuerfel>
- <CAGVrzcbNbc1fyq1cuox8SVZHq1ADNah3CfyXSR--4ZWkf2EtTw@mail.gmail.com>
- <21873900.AIOr1ryy37@wuerfel>
+Subject: Re: [PATCH 1/4 V2] Ethernet drivers in 3.14-rc3 kernel: fix 3
+ buffer overflows triggered by hardware devices
+Date: Tue, 25 Mar 2014 10:26:21 -0700
+Message-ID: <1395768381.12610.162.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAKPWWNFZc8v04-GM5Ttoa-CW_zhNmfMCYO2Q-Yh-75qitSUpiA@mail.gmail.com>
+	 <20140324.131733.723749970605014851.davem@davemloft.net>
+	 <CAKPWWNF982P7PtuoySy6ncU1mCNFm2RBMEDKr3-QKoCKU-6AMw@mail.gmail.com>
+	 <20140324.143512.68893694230434555.davem@davemloft.net>
+	 <1395697861.2832.84.camel@deadeye.wl.decadent.org.uk>
+	 <CAKPWWNFhqP==HfQC6aV=OFs6Ud6bBDa9hpCrvih8BxDUDo87JA@mail.gmail.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D0F6E8463@AcuExch.aculab.com>
+	 <CAP6odjh5qgh2dcURHrQ6ERn6a4TfCgBXPm3eJmw2ZsAKyzEzvQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>,
- "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
- Florian Fainelli <f.fainelli@gmail.com>,
- Russell King - ARM Linux <linux@arm.linux.org.uk>,
- Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
- netdev <netdev@vger.kernel.org>, Zhangfei Gao <zhangfei.gao@gmail.com>,
- Zhangfei Gao <zhangfei.gao@linaro.org>,
- "David S. Miller" <davem@davemloft.net>,
- linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <21873900.AIOr1ryy37@wuerfel>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: David Laight <David.Laight@aculab.com>,
+	Alon Nafta <alon@privatecore.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Grant Grundler <grantgrundler@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:64363 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754711AbaCYR0W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 13:26:22 -0400
+Received: by mail-pd0-f178.google.com with SMTP id x10so719052pdj.37
+        for <netdev@vger.kernel.org>; Tue, 25 Mar 2014 10:26:22 -0700 (PDT)
+In-Reply-To: <CAP6odjh5qgh2dcURHrQ6ERn6a4TfCgBXPm3eJmw2ZsAKyzEzvQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-03-25 at 18:05 +0100, Arnd Bergmann wrote:
-> On Tuesday 25 March 2014 10:00:30 Florian Fainelli wrote:
-> > 2014-03-25 1:12 GMT-07:00 Arnd Bergmann <arnd@arndb.de>:
-> > > On Tuesday 25 March 2014 12:06:31 Zhangfei Gao wrote:
-> > >> Dear Arnd
-> > >>
-> > >> On Mon, Mar 24, 2014 at 11:18 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> > >> > On Monday 24 March 2014 22:14:56 Zhangfei Gao wrote:
-> > >> >
-...
-> > >> > I think you still need to find a solution to ensure that the tx reclaim is
-> > >> > called eventually through a method other than start_xmit.
-> > >>
-> > >> In the iperf stress test, if move reclaim to poll, there is some
-> > >> error, sometimes sending zero packets.
-> > >> While keep reclaim in the xmit to reclaim transmitted packets looks
-> > >> stable in the test,
-> > >> There TX_DESC_NUM desc can be used.
-> > >
-> > > What I meant is that you need a correct implementation, presumably
-> > > you added a bug when you moved the function to poll(), and also you
-> > > forgot to add a timer.
-> > 
-> > Using a timer to ensure completion of TX packets is a trick that
-> > worked in the past, but now that the networking stack got smarter,
-> > this might artificially increase the processing time of packets in the
-> > transmit path, and this will defeat features like TCP small queues
-> > etc.. as could be seen with the mvneta driver [1]. The best way really
-> > is to rely on TX completion interrupts when those exist as they cannot
-> > lie about the hardware status (in theory) and they should provide the
-> > fastest way to complete TX packets.
+On Tue, 2014-03-25 at 09:19 -0700, Grant Grundler wrote:
+> On Tue, Mar 25, 2014 at 2:37 AM, David Laight <David.Laight@aculab.com> wrote:
+> > From: Alon Nafta
+> >> I don't think they should be trusted at all, at least not to a point
+> >> where it's feasible for them to execute code on your system.
+> >> USB drivers, filesystem drivers, peripheral drivers - they're all on
+> >> the same boat, obviously having different levels of severity depending
+> >> on driver popularity.
+> >
+> > On a large number of systems any PCI or PCIe hardware has the
+> > ability to read and write any system physical addresses.
+> > Not only does this mean that 'dodgy' hardware can change the
+> > kernel code, but also any attempt to restrict the memory that
+> > the driver itself can access is likely to be circumventable.
+> >
+> > Yes, you can raise the barrier, but there will always be low
+> > points on it.
 > 
-> By as Zhangfei Gao pointed out, this hardware does not have a working
-> TX completion interrupt. Using timers to do this has always just been
-> a workaround for broken hardware IMHO.
+> David, Alon,
+> your points are valid but getting a bit philosophical for me.
+> 
+> The original patch was trying to address *abuse* of the tulip chip and
+> it's not clear to me that's really feasible.  I think this patch is
+> "safe" in the sense it enforces correct behavior and AFAICT adds no
+> additional CPU cost.
 
-For this kind of drivers, calling skb_orphan() from ndo_start_xmit() is
-mandatory.
+BTW this reminds me :
+
+ http://lkml.iu.edu//hypermail/linux/kernel/1003.3/02073.html
+
+Some hardware have some flaws, not because its malicious but plainly
+buggy, and its reasonable to take some basic checks on common 'mistakes'
+
+Checking that the NIC doesn't pretend to receive a bigger frame than the
+expected maximum seems reasonable.
