@@ -1,65 +1,100 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next 00/54][pull request] Using dev_kfree/consume_skb_any
- for functions called in multiple contexts
-Date: Tue, 25 Mar 2014 13:49:51 -0700
-Message-ID: <1395780591.12610.185.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <87a9cxf7mp.fsf_-_@xmission.com>
-	 <20140311.124907.1180556684992271103.davem@davemloft.net>
-	 <87wqg0cy9d.fsf@xmission.com>
-	 <20140311.160931.1395978386605601765.davem@davemloft.net>
-	 <87r468bfqj.fsf_-_@xmission.com> <87y4zyhlar.fsf_-_@x220.int.ebiederm.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
+ of switch chip datapath
+Date: Tue, 25 Mar 2014 16:56:38 -0400
+Message-ID: <5331ED86.7020704@mojatatu.com>
+References: <1395243232-32630-1-git-send-email-jiri@resnulli.us> <532AD5B3.6020205@mojatatu.com> <20140320124021.GA2946@minipsycho.orion> <CAGVrzcbqQGGYb2Wkkekei7ivGd2XOnE+5GthLUv6_nD_oicrSQ@mail.gmail.com> <532C2AC4.7080303@mojatatu.com> <20140322094852.GB2844@minipsycho.orion> <5330BAB7.3040501@mojatatu.com> <20140325173927.GE8102@hmsreliant.think-freely.org> <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, andy@greyhouse.net,
+	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
+	pshelar@nicira.com, azhou@nicira.com,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>
+To: Neil Horman <nhorman@tuxdriver.com>, Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:53746 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755227AbaCYUtx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 16:49:53 -0400
-Received: by mail-pd0-f175.google.com with SMTP id x10so942941pdj.6
-        for <netdev@vger.kernel.org>; Tue, 25 Mar 2014 13:49:53 -0700 (PDT)
-In-Reply-To: <87y4zyhlar.fsf_-_@x220.int.ebiederm.org>
+Received: from mail-qa0-f51.google.com ([209.85.216.51]:57594 "EHLO
+	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754122AbaCYU4o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 16:56:44 -0400
+Received: by mail-qa0-f51.google.com with SMTP id j7so1262308qaq.10
+        for <netdev@vger.kernel.org>; Tue, 25 Mar 2014 13:56:43 -0700 (PDT)
+In-Reply-To: <20140325193533.GF8102@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-03-24 at 22:58 -0700, Eric W. Biederman wrote:
-> These changes are a result of walking through the network drivers
-> supporting netpoll and verifying the code paths that netpoll can cause
-> to be called in hard irq context use an appropriate flavor of
-> kfree_skb.  Either dev_kfree_skb_any or dev_consume_skb_any.
-> 
-> Since my last pass at this I have become aware of the small differences
-> between dev_kfree_skb_any and dev_consume_skb_any.
-> net/core/drop_monitor.c reports the dev_kfree_skb_any as a drop and
-> while being quite about the second.  With the weird twist that
-> dev_kfree_skb is unintuitively consume_skb.
-> 
-> As netpoll now calls the napi poll function with budget == 0, pieces of
-> a drivers the napi poll function that don't run when budget == 0 have
-> been ignored.
-> 
-> The most interesting change is to the atl1c which tried unsuccesfully to
-> tell one of it's functions which context it is called in so that it
-> could call dev_kfree_skb_irq or dev_kfree_skb as appropriate.  I have
-> just removed the extra parameter and called dev_consume_skb_any.
-> 
-> At 54 separate changes I will post each change as a separate patch (so
-> they can be reviewed) but for general sanity sake I have gathered them
-> all into a git branch for easy acces.
-> 
-> David when you are satisified with these changes please pull:
-> 
->     git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/net-next.git master
-> 
-> Hopefully this will allow me to forget this class of error when dealing
-> with netpoll.
+On 03/25/14 15:35, Neil Horman wrote:
+> On Tue, Mar 25, 2014 at 06:00:09PM +0000, Thomas Graf wrote:
+
+>> How about a new device flag indicating pure L2 mode? Any L3 address
+>> configuration would fail with EAFNOSUPP.
+>>
+> Yeah, we've discussed that before, and it seems like a good idea, though I'm not
+> sure that its flexible enough.  It clearly prevents L3 operations on devices
+> that can only do L2, which is great, but that may not be sufficient for some
+> devices.  For example, what if you wanted to use ebtables on an L2 port where
+> the hardware can't mirror the actions of a given table rule?  Do we need to
+> expand out those capabilities?
+
+There are two capability approaches.
+a) you do things and let the kernel reject
+b) You discover the capabilities and do something more interesting.
+We already do this kind of stuff in user tools today (simple example
+is name->ifindex mapping querying).
+
+What is missing is ability to store richer capabilities which are not
+just boolean in nature.
 
 
-Perfect, thanks Eric.
 
-(the minor issues can be addressed later in a single followup)
+>
+> Maybe I'm not being clear. I'm not suggesting that we abandon the use of a
+> net_device to do any of this work, only that we add a layer of indirection to
+> get to it.  By Augmenting the existing network device stack to allow
+> registration of net_devices to arbitrary lists, rather than to a fixes
+> per-net-namespace global device list, we can operate net_devices that are only
+> visible within the scope of a given switch fabric.  User space still works the
+> same way, it just requires the specification of additional information when
+> speaking to ports on a switch device that may not be directly accessible via the
+> cpu.  For example, if a systems has a directly connected nic (em1), and a switch
+> fabric with a master bridge port (sw1), and 10 external ports (sw1pX), we could
+> access them all from user space via ip link show.  for example:
+>
+> 1) ip link show:
+> em1
+> sw1
+>
+> 2) ip link show sw1
+> sw1
+>
+> 3) ip link show -p sw1
+> sw1p0
+> sw1p1
+> sw1p2...
+>
+>
+> The idea is to augment user space to allow the visibiliy of ports through the
+> switch device, not directly, but using the same existing mechanisms.  We can
+> reuse all the existing infrastruture, but with this model, control must pass
+> through the switch device driver, allowing it to taylor available features by
+> passing the netlink request on to the appropriate netdevice, or sending back an
+> error itself.
+>
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+I think i am with you mostly - just not on the visibility of a "master"
+device.
+Expose the ports. Users create bridges bonds and if the hardware is
+capable it does the hard work to ensure consistency. No change in tools.
+
+cheers,
+jamal
