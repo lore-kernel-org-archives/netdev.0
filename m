@@ -1,38 +1,56 @@
-From: "wei zhang" <asuka.com@163.com>
-Subject: Re: [PATCH] ipv4: gre: Fix null pointer dereference in
- gre_cisco_err()
-Date: Tue, 25 Mar 2014 16:56:20 +0800 (CST)
-Message-ID: <232812eb.b291.144f87462d4.Coremail.asuka.com@163.com>
-References: <1395646471-637-1-git-send-email-asuka.com@163.com>
- <20140324.151417.474668383309974516.davem@davemloft.net>
+From: Adam Lee <adam.lee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH] rtlwifi: add MSI interrupts support
+Date: Tue, 25 Mar 2014 17:13:21 +0800
+Message-ID: <20140325091321.GA9241@adam-laptop>
+References: <1395640841-14477-1-git-send-email-adam.lee@canonical.com>
+ <1395660884-15042-1-git-send-email-adam.lee@canonical.com>
+ <53304BBE.6040403@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: xeb@mail.ru, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m13-127.163.com ([220.181.13.127]:37380 "EHLO m13-127.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750830AbaCYJNQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Mar 2014 05:13:16 -0400
-In-Reply-To: <20140324.151417.474668383309974516.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <53304BBE.6040403-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-QXTCoDIwMTQtMDMtMjXCoDAzOjE0OjE3LCJEYXZpZMKgTWlsbGVyIsKgPGRhdmVtQGRhdmVtbG9m
-dC5uZXQ+wqB3cm90ZToKPkZyb206wqBXZWnCoFpoYW5nwqA8YXN1a2EuY29tQDE2My5jb20+Cj5E
-YXRlOsKgTW9uLMKgMjTCoE1hcsKgMjAxNMKgMTU6MzQ6MzHCoCswODAwCj4KPj7CoFdoZW7CoHVz
-ZcKgdGhlwqBncmXCoHZwb3J0LMKgb3BlbnZzd2l0Y2jCoHJlZ2lzdGVywqBhwqBncmVfY2lzY29f
-cHJvdG9jb2zCoGJ1dAo+PsKgZG9lc8Kgbm90wqBzdXBwbHnCoGHCoGVycl9oYW5kbGVywqB3aXRo
-wqBpdC7CoFRoZcKgZ3JlX2Npc2NvX2VycigpwqBjYWxswqB0aGUKPj7CoGVycl9oYW5kbGVywqB3
-aXRob3V0wqBleGlzdGVuY2XCoGNoZWNrLMKgY2F1c2XCoHRoZcKga2VybmVswqBjcmFzaC4KPj7C
-oAo+PsKgVGhpc8KgcGF0Y2jCoGJhc2XCoG9uwqB2My4xNC1yYzcuwqBCdXTCoHRoZcKgYnVnwqBh
-ZmZlY3TCoGFsbMKga2VybmVswqBuZXdlcsKgdGhhbgo+PsKgMy4xMSEKPj7CoAo+PsKgU2lnbmVk
-LW9mZi1ieTrCoFdlacKgWmhhbmfCoDxhc3VrYS5jb21AMTYzLmNvbT4KPgo+UmF0aGVyLMKgb3Bl
-bnZzd2l0Y2jCoHNob3VsZMKgcHJvdmlkZcKgYW7CoGFwcHJvcHJpYXRlwqAtPmVycl9oYW5kbGVy
-KCnCoHRoYXQKPnJldHVybnPCoFBBQ0tFVF9SQ1ZEwqBvcsKgUEFDS0VUX1JFSkVDVC4KClRoYW5r
-IHlvdSBmb3IgeW91ciBleHBsYW5hdGlvbiwgSSBtaXN1bmRlcnN0YW5kIGl0IC4KSSdtIHZlcnkg
-c29ycnkgYWJvdXQgdGhpcyBib3RoZXJpbmchCgo+Cj5JJ23CoG5vdMKgYXBwbHlpbmfCoHRoaXPC
-oHBhdGNoLg==
+On Mon, Mar 24, 2014 at 10:14:06AM -0500, Larry Finger wrote:
+> On 03/24/2014 06:34 AM, Adam Lee wrote:
+> >Add MSI interrupts support, enable it when msi_support flag is true,
+> >also could fallback to pin-based interrupts mode if MSI mode fails.
+> >
+> >Signed-off-by: Adam Lee <adam.lee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> 
+> Your first patch turns on MSI support unconditionally. That implies that
+> there are no harmful effects for attempting to use MSI on a box where it is
+> not needed, and/or not implemented. If that is the case, then the
+> msi_support bool should be eliminated, your first patch dropped, and this
+> one revised appropriately. Driver rtl8723be added this bool, but never uses
+> it. Once that driver reaches mainline, a patch can be prepared to remove the
+> variable.
+
+Hi, Larry
+
+Just confirmed with RealTek wireless engineer, their policy is:
+
+> Case 1: if the platform supports both MSI and Pin-based, our driver will use MSI.
+> Case 2: if the platform supports MSI only, our driver will use MSI.
+> Case 3: if the platform supports Pin-Based only, out driver will use Pin-Based.
+
+I think it's safe enough to apply the first "rtlwifi: rtl8188ee: enable
+MSI interrupts support" patch also, and the msi_support bool should not
+be eliminated(at least for now) in case some wifi modules don't support
+MSI well.
+
+Thanks.
+
+-- 
+Adam Lee
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
