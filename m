@@ -1,43 +1,31 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 2/2] bonding: ratelimit pr_err() for bond xmit broadcast
-Date: Tue, 25 Mar 2014 17:00:10 +0800
-Message-ID: <1395738010-12212-3-git-send-email-dingtianhong@huawei.com>
-References: <1395738010-12212-1-git-send-email-dingtianhong@huawei.com>
+Subject: [PATCH net-next v2 0/2] bonding: slight optimization and avoid spam for bond xmit path
+Date: Tue, 25 Mar 2014 17:00:08 +0800
+Message-ID: <1395738010-12212-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
 To: <fubar@us.ibm.com>, <vfalico@redhat.com>, <andy@greyhouse.net>,
 	<joe@perches.com>, <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:16036 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752472AbaCYJGJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 05:06:09 -0400
-In-Reply-To: <1395738010-12212-1-git-send-email-dingtianhong@huawei.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:17318 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751457AbaCYJIQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 05:08:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It may spam if the system is out of the memory, add ratelimit for it.
+v1->v2: Add ratelimit for debugging is not a good idea, it will miss some message
+	if the user turns the debugging on, so remove the patch 3.
+	use net_err_ratelimited instead of pr_err_ratelimited and use __func__ instead of
+	bond_xmit_broadcast().
 
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/bonding/bond_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Ding Tianhong (2):
+  bonding: slight optimization for bond xmit path
+  bonding: ratelimit pr_err() for bond xmit broadcast
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index ee17c24..52c4c77 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3656,8 +3656,8 @@ static int bond_xmit_broadcast(struct sk_buff *skb, struct net_device *bond_dev)
- 			struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
- 
- 			if (!skb2) {
--				pr_err("%s: Error: bond_xmit_broadcast(): skb_clone() failed\n",
--				       bond_dev->name);
-+				net_err_ratelimited("%s: Error: %s: skb_clone() failed\n",
-+						    bond_dev->name, __func__);
- 				continue;
- 			}
- 			/* bond_dev_queue_xmit always returns 0 */
+ drivers/net/bonding/bond_main.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
 -- 
 1.8.0
