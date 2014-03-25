@@ -1,90 +1,66 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Tue, 25 Mar 2014 18:05:33 +0100
-Message-ID: <21873900.AIOr1ryy37@wuerfel>
-References: <1395670496-17381-1-git-send-email-zhangfei.gao@linaro.org> <17142825.cN9DfpvuLc@wuerfel> <CAGVrzcbNbc1fyq1cuox8SVZHq1ADNah3CfyXSR--4ZWkf2EtTw@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 1/4 V2] Ethernet drivers in 3.14-rc3 kernel: fix 3
+ buffer overflows triggered by hardware devices
+Date: Tue, 25 Mar 2014 17:05:00 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E8C3C@AcuExch.aculab.com>
+References: <CAKPWWNFZc8v04-GM5Ttoa-CW_zhNmfMCYO2Q-Yh-75qitSUpiA@mail.gmail.com>
+	<20140324.131733.723749970605014851.davem@davemloft.net>
+	<CAKPWWNF982P7PtuoySy6ncU1mCNFm2RBMEDKr3-QKoCKU-6AMw@mail.gmail.com>
+	<20140324.143512.68893694230434555.davem@davemloft.net>
+	<1395697861.2832.84.camel@deadeye.wl.decadent.org.uk>
+	<CAKPWWNFhqP==HfQC6aV=OFs6Ud6bBDa9hpCrvih8BxDUDo87JA@mail.gmail.com>
+	<063D6719AE5E284EB5DD2968C1650D6D0F6E8463@AcuExch.aculab.com>
+ <CAKPWWNGQ9f+X3HxQx=cWdQVW4M9VQbPJ7gm68OzKn_wu=tmmSA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Zhangfei Gao <zhangfei.gao@gmail.com>,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-	Mark Rutland <mark.rutland@arm.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+	David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
-	Zhangfei Gao <zhangfei.gao@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Florian Fainelli <f.fainelli@gmail.com>
+	Grant Grundler <grantgrundler@gmail.com>
+To: 'Alon Nafta' <alon@privatecore.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.130]:57735 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753799AbaCYRFk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 13:05:40 -0400
-In-Reply-To: <CAGVrzcbNbc1fyq1cuox8SVZHq1ADNah3CfyXSR--4ZWkf2EtTw@mail.gmail.com>
+Received: from mx0.aculab.com ([213.249.233.131]:57178 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753799AbaCYRFp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 13:05:45 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 20716-03 for <netdev@vger.kernel.org>;
+ Tue, 25 Mar 2014 17:05:37 +0000 (GMT)
+In-Reply-To: <CAKPWWNGQ9f+X3HxQx=cWdQVW4M9VQbPJ7gm68OzKn_wu=tmmSA@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 25 March 2014 10:00:30 Florian Fainelli wrote:
-> 2014-03-25 1:12 GMT-07:00 Arnd Bergmann <arnd@arndb.de>:
-> > On Tuesday 25 March 2014 12:06:31 Zhangfei Gao wrote:
-> >> Dear Arnd
-> >>
-> >> On Mon, Mar 24, 2014 at 11:18 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> >> > On Monday 24 March 2014 22:14:56 Zhangfei Gao wrote:
-> >> >
-> >> >> +
-> >> >> +static void hip04_tx_reclaim(struct net_device *ndev, bool force)
-> >> >> +{
-> >> >> +     struct hip04_priv *priv = netdev_priv(ndev);
-> >> >> +     unsigned tx_head = priv->tx_head;
-> >> >> +     unsigned tx_tail = priv->tx_tail;
-> >> >> +     struct tx_desc *desc = &priv->tx_desc[priv->tx_tail];
-> >> >> +
-> >> >> +     while (tx_tail != tx_head) {
-> >> >> +             if (desc->send_addr != 0) {
-> >> >> +                     if (force)
-> >> >> +                             desc->send_addr = 0;
-> >> >> +                     else
-> >> >> +                             break;
-> >> >> +             }
-> >> >> +             if (priv->tx_phys[tx_tail]) {
-> >> >> +                     dma_unmap_single(&ndev->dev, priv->tx_phys[tx_tail],
-> >> >> +                             priv->tx_skb[tx_tail]->len, DMA_TO_DEVICE);
-> >> >> +                     priv->tx_phys[tx_tail] = 0;
-> >> >> +             }
-> >> >> +             dev_kfree_skb_irq(priv->tx_skb[tx_tail]);
-> >> >> +             priv->tx_skb[tx_tail] = NULL;
-> >> >> +             tx_tail = TX_NEXT(tx_tail);
-> >> >> +             priv->tx_count--;
-> >> >> +     }
-> >> >> +     priv->tx_tail = tx_tail;
-> >> >> +}
-> >> >
-> >> > I think you still need to find a solution to ensure that the tx reclaim is
-> >> > called eventually through a method other than start_xmit.
-> >>
-> >> In the iperf stress test, if move reclaim to poll, there is some
-> >> error, sometimes sending zero packets.
-> >> While keep reclaim in the xmit to reclaim transmitted packets looks
-> >> stable in the test,
-> >> There TX_DESC_NUM desc can be used.
-> >
-> > What I meant is that you need a correct implementation, presumably
-> > you added a bug when you moved the function to poll(), and also you
-> > forgot to add a timer.
+From: Alon Nafta 
+> Hi David,
 > 
-> Using a timer to ensure completion of TX packets is a trick that
-> worked in the past, but now that the networking stack got smarter,
-> this might artificially increase the processing time of packets in the
-> transmit path, and this will defeat features like TCP small queues
-> etc.. as could be seen with the mvneta driver [1]. The best way really
-> is to rely on TX completion interrupts when those exist as they cannot
-> lie about the hardware status (in theory) and they should provide the
-> fastest way to complete TX packets.
+> Are you referring to (older) systems without IOMMU? Since IOMMU and
+> VT-d (for Intel) exactly solve that security problem.
 
-By as Zhangfei Gao pointed out, this hardware does not have a working
-TX completion interrupt. Using timers to do this has always just been
-a workaround for broken hardware IMHO.
+Yes - I don't know the details of the x86 IOMMU.
 
-	Arnd
+	David
+ 
+> On Tue, Mar 25, 2014 at 2:37 AM, David Laight <David.Laight@aculab.com> wrote:
+> > From: Alon Nafta
+> >> I don't think they should be trusted at all, at least not to a point
+> >> where it's feasible for them to execute code on your system.
+> >> USB drivers, filesystem drivers, peripheral drivers - they're all on
+> >> the same boat, obviously having different levels of severity depending
+> >> on driver popularity.
+> >
+> > On a large number of systems any PCI or PCIe hardware has the
+> > ability to read and write any system physical addresses.
+> > Not only does this mean that 'dodgy' hardware can change the
+> > kernel code, but also any attempt to restrict the memory that
+> > the driver itself can access is likely to be circumventable.
+> >
+> > Yes, you can raise the barrier, but there will always be low
+> > points on it.
+> >
+> >         David
+> >
+> >
+> >
