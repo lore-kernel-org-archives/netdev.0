@@ -1,83 +1,87 @@
-From: Markus Pargmann <mpa@pengutronix.de>
-Subject: Re: [PATCH] net: micrel : ks8851-ml: add vdd-supply support
-Date: Tue, 25 Mar 2014 11:06:32 +0100
-Message-ID: <20140325100632.GB14810@pengutronix.de>
-References: <1395384768-8461-1-git-send-email-nm@ti.com>
- <20140324.003758.1244022408748408267.davem@davemloft.net>
+From: Christian Riesch <christian.riesch@omicron.at>
+Subject: [PATCH net-next 1/2] ptp: Add a command line option in testptp to set a specific PTP time
+Date: Tue, 25 Mar 2014 12:24:05 +0100
+Message-ID: <ddbf764c-52f4-4e0e-a309-cba66740d668@mary.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="oLBj+sq0vYjzfsbl"
-Cc: nm@ti.com, rmk+kernel@arm.linux.org.uk, tony@atomide.com,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	linux-omap@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	Manfred Rudigier <manfred.rudigier@omicron.at>,
+	Christian Riesch <christian.riesch@omicron.at>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:36106 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751194AbaCYKGz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 06:06:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20140324.003758.1244022408748408267.davem@davemloft.net>
+Received: from ns.omicron.at ([212.183.10.25]:52892 "EHLO ns.omicron.at"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751194AbaCYLYc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Mar 2014 07:24:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Manfred Rudigier <manfred.rudigier@omicron.at>
 
---oLBj+sq0vYjzfsbl
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Manfred Rudigier <manfred.rudigier@omicron.at>
+Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
+---
+ Documentation/ptp/testptp.c |   20 ++++++++++++++++++--
+ 1 file changed, 18 insertions(+), 2 deletions(-)
 
-Hi,
-
-On Mon, Mar 24, 2014 at 12:37:58AM -0400, David Miller wrote:
-> From: Nishanth Menon <nm@ti.com>
-> Date: Fri, 21 Mar 2014 01:52:48 -0500
->=20
-> > Few platforms use external regulator to keep the ethernet MAC supplied.
-> > So, request and enable the regulator for driver functionality.
-> >=20
-> > Fixes: 66fda75f47dc (regulator: core: Replace direct ops->disable usage)
-> > Reported-by: Russell King <rmk+kernel@arm.linux.org.uk>
-> > Suggested-by: Markus Pargmann <mpa@pengutronix.de>
-> > Signed-off-by: Nishanth Menon <nm@ti.com>
->=20
-> Applied, thanks.
->=20
-
-The two regulator patches for enable and disable are going into the
-stable trees so this should also be submitted to stable for 3.10 to
-3.13.
-
-Regards,
-
-Markus
-
---=20
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
-
---oLBj+sq0vYjzfsbl
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBAgAGBQJTMVUoAAoJEEpcgKtcEGQQu7wP/jIk0DjopMZx9a08M3howGoy
-qvIvJ6acs8og+jtbWC9LNCm9e3/vS88Ai52H1L3GZTvVQhCbssGkDXSzHclyvIDV
-DvJw/pRDNhUe7ByUOhObQzixtZ9ACPbyxWTSoyOz3y/YBQi752uut3KBjCFMXiRV
-t2Y3RdtcWDyEXupqSXWAjZ8SjlAD/0lzvOKXPxWVuGtlu+Wz0O2WwN7Oq5aldMt2
-QyLDyCt4uPKXtuHgCGfzlK9fDizfDlvZRHauPWkxLoPTNbJQz8QEubviW3bh0YbH
-EwOFlUcMbKxYhjAnVbv+hUAFckaByFZZy8WMBJD/oZzFpBpwagqJNkOC4LBcUvLN
-VMfFGsHeHMK0QDPWpcf9TMTfMXuTN3PT9OP0Gtjqy2BCpURI1yWQtzck0CYM4nD7
-Sq2YxUKevBAFZp23fLfNkqz5O+AxuNWmHigA3gtCGrGf4+V8Ml+bh4LxO15mfI/k
-kKJQrDlVqsmIbeX0e9waOD08Dv8/ZsZRiB9nlDXXr7RmrqauUGEQrjKniY/QvAtc
-RmAdZC4EC6gIjHBk2hfs/Ky/B2f1/wnhpCDQtVPQQYOR4Jfztw5t6zmmP0MaCIbM
-rbBLdEY+wPmptCM5mPGOr1JbQSz+P5kCspP3clYBQEhi1FJyCJoYo7pXcC2PIhs5
-4r2F5BHdt43vZLCClh01
-=1zLw
------END PGP SIGNATURE-----
-
---oLBj+sq0vYjzfsbl--
+diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
+index e9eaee6..13bddd5 100644
+--- a/Documentation/ptp/testptp.c
++++ b/Documentation/ptp/testptp.c
+@@ -131,7 +131,8 @@ static void usage(char *progname)
+ 		" -P val     enable or disable (val=1|0) the system clock PPS\n"
+ 		" -s         set the ptp clock time from the system time\n"
+ 		" -S         set the system time from the ptp clock time\n"
+-		" -t val     shift the ptp clock time by 'val' seconds\n",
++		" -t val     shift the ptp clock time by 'val' seconds\n"
++		" -T val     set the ptp clock time to 'val' seconds\n",
+ 		progname);
+ }
+ 
+@@ -172,6 +173,7 @@ int main(int argc, char *argv[])
+ 	int perout = -1;
+ 	int pin_index = -1, pin_func;
+ 	int pps = -1;
++	int seconds = 0;
+ 	int settime = 0;
+ 
+ 	int64_t t1, t2, tp;
+@@ -179,7 +181,7 @@ int main(int argc, char *argv[])
+ 
+ 	progname = strrchr(argv[0], '/');
+ 	progname = progname ? 1+progname : argv[0];
+-	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghi:k:lL:p:P:sSt:v"))) {
++	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghi:k:lL:p:P:sSt:T:v"))) {
+ 		switch (c) {
+ 		case 'a':
+ 			oneshot = atoi(optarg);
+@@ -234,6 +236,10 @@ int main(int argc, char *argv[])
+ 		case 't':
+ 			adjtime = atoi(optarg);
+ 			break;
++		case 'T':
++			settime = 3;
++			seconds = atoi(optarg);
++			break;
+ 		case 'h':
+ 			usage(progname);
+ 			return 0;
+@@ -326,6 +332,16 @@ int main(int argc, char *argv[])
+ 		}
+ 	}
+ 
++	if (settime == 3) {
++		ts.tv_sec = seconds;
++		ts.tv_nsec = 0;
++		if (clock_settime(clkid, &ts)) {
++			perror("clock_settime");
++		} else {
++			puts("set time okay");
++		}
++	}
++
+ 	if (extts) {
+ 		memset(&extts_request, 0, sizeof(extts_request));
+ 		extts_request.index = index;
+-- 
+1.7.9.5
