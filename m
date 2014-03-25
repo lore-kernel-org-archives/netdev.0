@@ -1,140 +1,580 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Tue, 25 Mar 2014 11:33:22 -0700
-Message-ID: <CAGVrzcacuU=RsnBOQh2-u+AjsMvznUYWFJru86w09+Vpdta2KQ@mail.gmail.com>
-References: <1395243232-32630-1-git-send-email-jiri@resnulli.us>
- <532AD5B3.6020205@mojatatu.com> <20140320124021.GA2946@minipsycho.orion>
- <CAGVrzcbqQGGYb2Wkkekei7ivGd2XOnE+5GthLUv6_nD_oicrSQ@mail.gmail.com>
- <532C2AC4.7080303@mojatatu.com> <20140322094852.GB2844@minipsycho.orion>
- <5330BAB7.3040501@mojatatu.com> <20140325173927.GE8102@hmsreliant.think-freely.org>
+From: Byungho An <bh74.an@samsung.com>
+Subject: [PATCH V14 6/7] net: sxgbe: add ethtool related functions support
+ Samsung sxgbe
+Date: Tue, 25 Mar 2014 12:11:02 -0700
+Message-ID: <01b101cf485d$f7be5c80$e73b1580$@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, andy <andy@greyhouse.net>,
-	tgraf <tgraf@suug.ch>, dborkman <dborkman@redhat.com>,
-	ogerlitz <ogerlitz@mellanox.com>, jesse <jesse@nicira.com>,
-	pshelar <pshelar@nicira.com>, azhou <azhou@nicira.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Felix Fietkau <nbd@openwrt.org>
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: 'David Miller' <davem@davemloft.net>,
+	'GIRISH K S' <ks.giri@samsung.com>,
+	'SIVAREDDY KALLAM' <siva.kallam@samsung.com>,
+	'Vipul Chandrakant' <vipul.pandya@samsung.com>,
+	'Ilho Lee' <ilho215.lee@samsung.com>
+To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
+	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:33571 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752206AbaCYSeD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 14:34:03 -0400
-Received: by mail-pd0-f182.google.com with SMTP id y10so798314pdj.13
-        for <netdev@vger.kernel.org>; Tue, 25 Mar 2014 11:34:02 -0700 (PDT)
-In-Reply-To: <20140325173927.GE8102@hmsreliant.think-freely.org>
+Received: from mailout2.samsung.com ([203.254.224.25]:41873 "EHLO
+	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754402AbaCYTLN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 15:11:13 -0400
+Content-language: en-us
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-03-25 10:39 GMT-07:00 Neil Horman <nhorman@tuxdriver.com>:
-> On Mon, Mar 24, 2014 at 07:07:35PM -0400, Jamal Hadi Salim wrote:
->> On 03/22/14 05:48, Jiri Pirko wrote:
->> >Fri, Mar 21, 2014 at 01:04:20PM CET, jhs@mojatatu.com wrote:
->>
->> >Hmm. This got me thinking about netdev and switches well and perhaps the
->> >switchdev api could be mostly implemented by couple of more ndos and
->> >feature flags. That way we could stick to your immortal netdev :)
->> >
->> >
->>
->> Perhaps ;->
->>
->> >>
->> >>In my view: that (immortal) device for L2/bridging is the bridge or
->> >>maybe a more barebone version of the bridge (since it has gained a
->> >>little more weight in recent times).
->> >
->> >Well, I do not think that bridge is ideal abstraction for modern switch
->> >chips. Bridge is very limited.
->> >
->>
->> True - but i was more thinking of being inclusive of the smaller
->> devices. They are mostly L2 only and in very limited scope. And thats
->> probably 95% of the population. The things you are talking about
->> are very high end and they can do more. Florian's taxanomy was useful.
->>
->> >But I don't necessary think it is needed to "mask" as a bride or mimic a
->> >bridge in any way. DSA does not do that either.
-> No, but it would be really nice if these smaller devices could take advantage of
-> this infrastructure.  Looking at it, I don't see why thats not possible.  The
-> big trick (as we've discussed in the past), is using a net_device structure to
-> take advantage of all the features that net_devices offer while not enabling the
-> device specific features that some hardware doesn't allow.
->
-> For instance the broadcom chips that live in many wireless routers would be well
-> served by the model jiri has here as far as Media level interface control is
-> concerned (i.e. ifup/down/speed/duplex/etc), but its a bit lacking in that
-> net_devices are assumed to support L3 protocol configuration (i.e. they can have
-> ip addresses assigned to them), which you can't IIRC do on these chips.
+From: Vipul Pandya <vipul.pandya@samsung.com>
 
-In fact, some switches could have valid L3 configurations, what you
-usually do is have the switch be configured such that it selectively
-inserts Broadcom tags for a given set of physical ports, such that
-your CPU port (In-band Management port in Broadcom terminology), gets
-flooded with such packets, and can dispatch those packets to the
-per-port netdevices. Then you can take any decisions based on those
-received packets, such as bridging this per-port netdevice with
-another one for instance, or any switch topology change.
+This patch adds ethtool related functions.
 
->
-> Would it be worth considering a private interface model?  That is to say:
->
-> 1) Ports on a switch chip are accessed using net_device structures, but
-> registered to a private list contained within the switch device, rather than to
-> the net namespaces device list.
+Signed-off-by: Vipul Pandya <vipul.pandya@samsung.com>
+Neatening-by: Joe Perches <joe@perches.com>
+Signed-off-by: Byungho An <bh74.an@samsung.com>
+---
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h  |   16 +-
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c |  433 ++++++++++++++++++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c    |    4 +
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h     |    6 +
+ 4 files changed, 458 insertions(+), 1 deletion(-)
 
-I think this would be a good model for simple embedded switches that
-only support 802.1q VLANs for instance, since we won't be able to get
-any actual data to be sent/received to any per-port netdevice, those
-per-port netdevices would only be effective for control at the L2
-level.
-
-For switches that do support tags, I think we do want per-port
-netdevices to appear in the regular netdevices namespace as those
-might be able to get actual data sent to/received from by using these
-tags, at least momentarily until a higher-level entity decides
-otherwise (e.g: by bridging, disabling interfaces...).
-
->
-> 2) Access to the switch ports via user space is done through the master switch
-> interface with additional netlink attributes specifying the port on the switch
-> to access (or not to access the master switch device directly)
-
-OpenWrt's swconfig model was to use the CPU Ethernet interface as the
-master device for accessing the switch, although it did not use
-RTNETLINK, but a separate Genl family, I think this is a good model.
-
-One thing that was easy with OpenWrt's swconfig model was to promote
-what started as a switch specific feature into something that could
-become a generic operation that all switch drivers could implement. It
-was also very easy to add custom switch driver features without
-bloating the switch configuration API.
-
->
->
-> Such a model I think might fit well with Jiri's code here and provide greater
-> flexibility for a wider range of devices.  It would of course require
-> augmentation for user space, but the changes would be additive, so I think they
-> would be reasonable.  This would also allow the switch device to have a hook in
-> the control path to block or allow features that the hardware may or may not
-> support while still being able to use the existing net_device infrastructure to
-> support these operations as they are normally carried out.
-
-Sounds good. There might be a bunch of new NETIF_F_* flags to add to
-help advertising switch-specific features such as: hardware/software
-switch tag insertion, support for classification, support for
-influencing switch queueing etc... but this does not have to be
-available from day 1.
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
+index 4893cfd..6203c7d 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_common.h
+@@ -197,6 +197,20 @@ enum dma_irq_status {
+ #define SXGBE_FOR_EACH_QUEUE(max_queues, queue_num)			\
+ 	for (queue_num = 0; queue_num < max_queues; queue_num++)
+ 
++#define DRV_VERSION "1.0.0"
++
++#define SXGBE_MAX_RX_CHANNELS	16
++#define SXGBE_MAX_TX_CHANNELS	16
++
++#define START_MAC_REG_OFFSET	0x0000
++#define MAX_MAC_REG_OFFSET	0x0DFC
++#define START_MTL_REG_OFFSET	0x1000
++#define MAX_MTL_REG_OFFSET	0x18FC
++#define START_DMA_REG_OFFSET	0x3000
++#define MAX_DMA_REG_OFFSET	0x38FC
++
++#define REG_SPACE_SIZE		0x2000
++
+ /* sxgbe statistics counters */
+ struct sxgbe_extra_stats {
+ 	/* TX/RX IRQ events */
+@@ -482,6 +496,7 @@ struct sxgbe_priv_data {
+ 	/* advanced time stamp support */
+ 	u32 adv_ts;
+ 	int use_riwt;
++	struct ptp_clock *ptp_clock;
+ 
+ 	/* tc control */
+ 	int tx_tc;
+@@ -517,5 +532,4 @@ const struct sxgbe_mtl_ops *sxgbe_get_mtl_ops(void);
+ 
+ void sxgbe_disable_eee_mode(struct sxgbe_priv_data * const priv);
+ bool sxgbe_eee_init(struct sxgbe_priv_data * const priv);
+-
+ #endif /* __SXGBE_COMMON_H__ */
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
+index ca95f1d..0415fa5 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
+@@ -12,11 +12,17 @@
+ 
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 
++#include <linux/clk.h>
++#include <linux/interrupt.h>
+ #include <linux/kernel.h>
+ #include <linux/netdevice.h>
++#include <linux/net_tstamp.h>
+ #include <linux/phy.h>
++#include <linux/ptp_clock_kernel.h>
+ 
+ #include "sxgbe_common.h"
++#include "sxgbe_reg.h"
++#include "sxgbe_dma.h"
+ 
+ struct sxgbe_stats {
+ 	char stat_string[ETH_GSTRING_LEN];
+@@ -32,11 +38,100 @@ struct sxgbe_stats {
+ }
+ 
+ static const struct sxgbe_stats sxgbe_gstrings_stats[] = {
++	/* TX/RX IRQ events */
++	SXGBE_STAT(tx_process_stopped_irq),
++	SXGBE_STAT(tx_ctxt_desc_err),
++	SXGBE_STAT(tx_threshold),
++	SXGBE_STAT(rx_threshold),
++	SXGBE_STAT(tx_pkt_n),
++	SXGBE_STAT(rx_pkt_n),
++	SXGBE_STAT(normal_irq_n),
++	SXGBE_STAT(tx_normal_irq_n),
++	SXGBE_STAT(rx_normal_irq_n),
++	SXGBE_STAT(napi_poll),
++	SXGBE_STAT(tx_clean),
++	SXGBE_STAT(tx_reset_ic_bit),
++	SXGBE_STAT(rx_process_stopped_irq),
++	SXGBE_STAT(rx_underflow_irq),
++
++	/* Bus access errors */
++	SXGBE_STAT(fatal_bus_error_irq),
++	SXGBE_STAT(tx_read_transfer_err),
++	SXGBE_STAT(tx_write_transfer_err),
++	SXGBE_STAT(tx_desc_access_err),
++	SXGBE_STAT(tx_buffer_access_err),
++	SXGBE_STAT(tx_data_transfer_err),
++	SXGBE_STAT(rx_read_transfer_err),
++	SXGBE_STAT(rx_write_transfer_err),
++	SXGBE_STAT(rx_desc_access_err),
++	SXGBE_STAT(rx_buffer_access_err),
++	SXGBE_STAT(rx_data_transfer_err),
++
++	/* EEE-LPI stats */
+ 	SXGBE_STAT(tx_lpi_entry_n),
+ 	SXGBE_STAT(tx_lpi_exit_n),
+ 	SXGBE_STAT(rx_lpi_entry_n),
+ 	SXGBE_STAT(rx_lpi_exit_n),
+ 	SXGBE_STAT(eee_wakeup_error_n),
++
++	/* RX specific */
++	/* L2 error */
++	SXGBE_STAT(rx_code_gmii_err),
++	SXGBE_STAT(rx_watchdog_err),
++	SXGBE_STAT(rx_crc_err),
++	SXGBE_STAT(rx_gaint_pkt_err),
++	SXGBE_STAT(ip_hdr_err),
++	SXGBE_STAT(ip_payload_err),
++	SXGBE_STAT(overflow_error),
++
++	/* L2 Pkt type */
++	SXGBE_STAT(len_pkt),
++	SXGBE_STAT(mac_ctl_pkt),
++	SXGBE_STAT(dcb_ctl_pkt),
++	SXGBE_STAT(arp_pkt),
++	SXGBE_STAT(oam_pkt),
++	SXGBE_STAT(untag_okt),
++	SXGBE_STAT(other_pkt),
++	SXGBE_STAT(svlan_tag_pkt),
++	SXGBE_STAT(cvlan_tag_pkt),
++	SXGBE_STAT(dvlan_ocvlan_icvlan_pkt),
++	SXGBE_STAT(dvlan_osvlan_isvlan_pkt),
++	SXGBE_STAT(dvlan_osvlan_icvlan_pkt),
++	SXGBE_STAT(dvan_ocvlan_icvlan_pkt),
++
++	/* L3/L4 Pkt type */
++	SXGBE_STAT(not_ip_pkt),
++	SXGBE_STAT(ip4_tcp_pkt),
++	SXGBE_STAT(ip4_udp_pkt),
++	SXGBE_STAT(ip4_icmp_pkt),
++	SXGBE_STAT(ip4_unknown_pkt),
++	SXGBE_STAT(ip6_tcp_pkt),
++	SXGBE_STAT(ip6_udp_pkt),
++	SXGBE_STAT(ip6_icmp_pkt),
++	SXGBE_STAT(ip6_unknown_pkt),
++
++	/* Filter specific */
++	SXGBE_STAT(vlan_filter_match),
++	SXGBE_STAT(sa_filter_fail),
++	SXGBE_STAT(da_filter_fail),
++	SXGBE_STAT(hash_filter_pass),
++	SXGBE_STAT(l3_filter_match),
++	SXGBE_STAT(l4_filter_match),
++
++	/* RX context specific */
++	SXGBE_STAT(timestamp_dropped),
++	SXGBE_STAT(rx_msg_type_no_ptp),
++	SXGBE_STAT(rx_ptp_type_sync),
++	SXGBE_STAT(rx_ptp_type_follow_up),
++	SXGBE_STAT(rx_ptp_type_delay_req),
++	SXGBE_STAT(rx_ptp_type_delay_resp),
++	SXGBE_STAT(rx_ptp_type_pdelay_req),
++	SXGBE_STAT(rx_ptp_type_pdelay_resp),
++	SXGBE_STAT(rx_ptp_type_pdelay_follow_up),
++	SXGBE_STAT(rx_ptp_announce),
++	SXGBE_STAT(rx_ptp_mgmt),
++	SXGBE_STAT(rx_ptp_signal),
++	SXGBE_STAT(rx_ptp_resv_msg_type),
+ };
+ #define SXGBE_STATS_LEN ARRAY_SIZE(sxgbe_gstrings_stats)
+ 
+@@ -80,7 +175,345 @@ static int sxgbe_set_eee(struct net_device *dev,
+ 	return phy_ethtool_set_eee(priv->phydev, edata);
+ }
+ 
++static void sxgbe_getdrvinfo(struct net_device *dev,
++			     struct ethtool_drvinfo *info)
++{
++	strlcpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
++	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
++}
++
++static int sxgbe_getsettings(struct net_device *dev,
++			     struct ethtool_cmd *cmd)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++
++	if (priv->phydev)
++		return phy_ethtool_gset(priv->phydev, cmd);
++
++	return -EOPNOTSUPP;
++}
++
++static int sxgbe_setsettings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++
++	if (priv->phydev)
++		return phy_ethtool_sset(priv->phydev, cmd);
++
++	return -EOPNOTSUPP;
++}
++
++static u32 sxgbe_getmsglevel(struct net_device *dev)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++	return priv->msg_enable;
++}
++
++static void sxgbe_setmsglevel(struct net_device *dev, u32 level)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++	priv->msg_enable = level;
++}
++
++static void sxgbe_get_strings(struct net_device *dev, u32 stringset, u8 *data)
++{
++	int i;
++	u8 *p = data;
++
++	switch (stringset) {
++	case ETH_SS_STATS:
++		for (i = 0; i < SXGBE_STATS_LEN; i++) {
++			memcpy(p, sxgbe_gstrings_stats[i].stat_string,
++			       ETH_GSTRING_LEN);
++			p += ETH_GSTRING_LEN;
++		}
++		break;
++	default:
++		WARN_ON(1);
++		break;
++	}
++}
++
++static int sxgbe_get_sset_count(struct net_device *netdev, int sset)
++{
++	int len;
++
++	switch (sset) {
++	case ETH_SS_STATS:
++		len = SXGBE_STATS_LEN;
++		return len;
++	default:
++		return -EINVAL;
++	}
++}
++
++static void sxgbe_get_ethtool_stats(struct net_device *dev,
++				    struct ethtool_stats *dummy, u64 *data)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++	int i;
++	char *p;
++
++	if (priv->eee_enabled) {
++		int val = phy_get_eee_err(priv->phydev);
++
++		if (val)
++			priv->xstats.eee_wakeup_error_n = val;
++	}
++
++	for (i = 0; i < SXGBE_STATS_LEN; i++) {
++		p = (char *)priv + sxgbe_gstrings_stats[i].stat_offset;
++		data[i] = (sxgbe_gstrings_stats[i].sizeof_stat == sizeof(u64))
++			? (*(u64 *)p) : (*(u32 *)p);
++	}
++}
++
++static void sxgbe_get_channels(struct net_device *dev,
++			       struct ethtool_channels *channel)
++{
++	channel->max_rx = SXGBE_MAX_RX_CHANNELS;
++	channel->max_tx = SXGBE_MAX_TX_CHANNELS;
++	channel->rx_count = SXGBE_RX_QUEUES;
++	channel->tx_count = SXGBE_TX_QUEUES;
++}
++
++static u32 sxgbe_riwt2usec(u32 riwt, struct sxgbe_priv_data *priv)
++{
++	unsigned long clk = clk_get_rate(priv->sxgbe_clk);
++
++	if (!clk)
++		return 0;
++
++	return (riwt * 256) / (clk / 1000000);
++}
++
++static u32 sxgbe_usec2riwt(u32 usec, struct sxgbe_priv_data *priv)
++{
++	unsigned long clk = clk_get_rate(priv->sxgbe_clk);
++
++	if (!clk)
++		return 0;
++
++	return (usec * (clk / 1000000)) / 256;
++}
++
++static int sxgbe_get_coalesce(struct net_device *dev,
++			      struct ethtool_coalesce *ec)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++
++	if (priv->use_riwt)
++		ec->rx_coalesce_usecs = sxgbe_riwt2usec(priv->rx_riwt, priv);
++
++	return 0;
++}
++
++static int sxgbe_set_coalesce(struct net_device *dev,
++			      struct ethtool_coalesce *ec)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++	unsigned int rx_riwt;
++
++	if (!ec->rx_coalesce_usecs)
++		return -EINVAL;
++
++	rx_riwt = sxgbe_usec2riwt(ec->rx_coalesce_usecs, priv);
++
++	if ((rx_riwt > SXGBE_MAX_DMA_RIWT) || (rx_riwt < SXGBE_MIN_DMA_RIWT))
++		return -EINVAL;
++	else if (!priv->use_riwt)
++		return -EOPNOTSUPP;
++
++	priv->rx_riwt = rx_riwt;
++	priv->hw->dma->rx_watchdog(priv->ioaddr, priv->rx_riwt);
++
++	return 0;
++}
++
++static int sxgbe_get_rss_hash_opts(struct sxgbe_priv_data *priv,
++				   struct ethtool_rxnfc *cmd)
++{
++	cmd->data = 0;
++
++	/* Report default options for RSS on sxgbe */
++	switch (cmd->flow_type) {
++	case TCP_V4_FLOW:
++	case UDP_V4_FLOW:
++		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++	case SCTP_V4_FLOW:
++	case AH_ESP_V4_FLOW:
++	case AH_V4_FLOW:
++	case ESP_V4_FLOW:
++	case IPV4_FLOW:
++		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
++		break;
++	case TCP_V6_FLOW:
++	case UDP_V6_FLOW:
++		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++	case SCTP_V6_FLOW:
++	case AH_ESP_V6_FLOW:
++	case AH_V6_FLOW:
++	case ESP_V6_FLOW:
++	case IPV6_FLOW:
++		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int sxgbe_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
++			   u32 *rule_locs)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++	int ret = -EOPNOTSUPP;
++
++	switch (cmd->cmd) {
++	case ETHTOOL_GRXFH:
++		ret = sxgbe_get_rss_hash_opts(priv, cmd);
++		break;
++	default:
++		break;
++	}
++
++	return ret;
++}
++
++static int sxgbe_set_rss_hash_opt(struct sxgbe_priv_data *priv,
++				  struct ethtool_rxnfc *cmd)
++{
++	u32 reg_val = 0;
++
++	/* RSS does not support anything other than hashing
++	 * to queues on src and dst IPs and ports
++	 */
++	if (cmd->data & ~(RXH_IP_SRC | RXH_IP_DST |
++			  RXH_L4_B_0_1 | RXH_L4_B_2_3))
++		return -EINVAL;
++
++	switch (cmd->flow_type) {
++	case TCP_V4_FLOW:
++	case TCP_V6_FLOW:
++		if (!(cmd->data & RXH_IP_SRC) ||
++		    !(cmd->data & RXH_IP_DST) ||
++		    !(cmd->data & RXH_L4_B_0_1) ||
++		    !(cmd->data & RXH_L4_B_2_3))
++			return -EINVAL;
++		reg_val = SXGBE_CORE_RSS_CTL_TCP4TE;
++		break;
++	case UDP_V4_FLOW:
++	case UDP_V6_FLOW:
++		if (!(cmd->data & RXH_IP_SRC) ||
++		    !(cmd->data & RXH_IP_DST) ||
++		    !(cmd->data & RXH_L4_B_0_1) ||
++		    !(cmd->data & RXH_L4_B_2_3))
++			return -EINVAL;
++		reg_val = SXGBE_CORE_RSS_CTL_UDP4TE;
++		break;
++	case SCTP_V4_FLOW:
++	case AH_ESP_V4_FLOW:
++	case AH_V4_FLOW:
++	case ESP_V4_FLOW:
++	case AH_ESP_V6_FLOW:
++	case AH_V6_FLOW:
++	case ESP_V6_FLOW:
++	case SCTP_V6_FLOW:
++	case IPV4_FLOW:
++	case IPV6_FLOW:
++		if (!(cmd->data & RXH_IP_SRC) ||
++		    !(cmd->data & RXH_IP_DST) ||
++		    (cmd->data & RXH_L4_B_0_1) ||
++		    (cmd->data & RXH_L4_B_2_3))
++			return -EINVAL;
++		reg_val = SXGBE_CORE_RSS_CTL_IP2TE;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	/* Read SXGBE RSS control register and update */
++	reg_val |= readl(priv->ioaddr + SXGBE_CORE_RSS_CTL_REG);
++	writel(reg_val, priv->ioaddr + SXGBE_CORE_RSS_CTL_REG);
++	readl(priv->ioaddr + SXGBE_CORE_RSS_CTL_REG);
++
++	return 0;
++}
++
++static int sxgbe_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++	int ret = -EOPNOTSUPP;
++
++	switch (cmd->cmd) {
++	case ETHTOOL_SRXFH:
++		ret = sxgbe_set_rss_hash_opt(priv, cmd);
++		break;
++	default:
++		break;
++	}
++
++	return ret;
++}
++
++static void sxgbe_get_regs(struct net_device *dev,
++			   struct ethtool_regs *regs, void *space)
++{
++	struct sxgbe_priv_data *priv = netdev_priv(dev);
++	u32 *reg_space = (u32 *)space;
++	int reg_offset;
++	int reg_ix = 0;
++	void __iomem *ioaddr = priv->ioaddr;
++
++	memset(reg_space, 0x0, REG_SPACE_SIZE);
++
++	/* MAC registers */
++	for (reg_offset = START_MAC_REG_OFFSET;
++	     reg_offset <= MAX_MAC_REG_OFFSET; reg_offset += 4) {
++		reg_space[reg_ix] = readl(ioaddr + reg_offset);
++		reg_ix++;
++	}
++
++	/* MTL registers */
++	for (reg_offset = START_MTL_REG_OFFSET;
++	     reg_offset <= MAX_MTL_REG_OFFSET; reg_offset += 4) {
++		reg_space[reg_ix] = readl(ioaddr + reg_offset);
++		reg_ix++;
++	}
++
++	/* DMA registers */
++	for (reg_offset = START_DMA_REG_OFFSET;
++	     reg_offset <= MAX_DMA_REG_OFFSET; reg_offset += 4) {
++		reg_space[reg_ix] = readl(ioaddr + reg_offset);
++		reg_ix++;
++	}
++
++	BUG_ON(reg_ix * 4 > REG_SPACE_SIZE);
++}
++
++static int sxgbe_get_regs_len(struct net_device *dev)
++{
++	return REG_SPACE_SIZE;
++}
++
+ static const struct ethtool_ops sxgbe_ethtool_ops = {
++	.get_drvinfo = sxgbe_getdrvinfo,
++	.get_settings = sxgbe_getsettings,
++	.set_settings = sxgbe_setsettings,
++	.get_msglevel = sxgbe_getmsglevel,
++	.set_msglevel = sxgbe_setmsglevel,
++	.get_link = ethtool_op_get_link,
++	.get_strings = sxgbe_get_strings,
++	.get_ethtool_stats = sxgbe_get_ethtool_stats,
++	.get_sset_count = sxgbe_get_sset_count,
++	.get_channels = sxgbe_get_channels,
++	.get_coalesce = sxgbe_get_coalesce,
++	.set_coalesce = sxgbe_set_coalesce,
++	.get_rxnfc = sxgbe_get_rxnfc,
++	.set_rxnfc = sxgbe_set_rxnfc,
++	.get_regs = sxgbe_get_regs,
++	.get_regs_len = sxgbe_get_regs_len,
+ 	.get_eee = sxgbe_get_eee,
+ 	.set_eee = sxgbe_set_eee,
+ };
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+index 96b4b2c..1869d4c6 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+@@ -2139,6 +2139,10 @@ struct sxgbe_priv_data *sxgbe_drv_probe(struct device *device,
+ 		priv->rxcsum_insertion = true;
+ 	}
+ 
++	/* Initialise pause frame settings */
++	priv->rx_pause = 1;
++	priv->tx_pause = 1;
++
+ 	/* Rx Watchdog is available, enable depend on platform data */
+ 	if (!priv->plat->riwt_off) {
+ 		priv->use_riwt = 1;
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h
+index 85a7b31..5a89acb 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_reg.h
+@@ -195,6 +195,12 @@
+ #define SXGBE_CORE_RSS_ADD_REG		0x0C88
+ #define SXGBE_CORE_RSS_DATA_REG		0x0C8C
+ 
++/* RSS control register bits */
++#define SXGBE_CORE_RSS_CTL_UDP4TE	BIT(3)
++#define SXGBE_CORE_RSS_CTL_TCP4TE	BIT(2)
++#define SXGBE_CORE_RSS_CTL_IP2TE	BIT(1)
++#define SXGBE_CORE_RSS_CTL_RSSE		BIT(0)
++
+ /* IEEE 1588 registers */
+ #define SXGBE_CORE_TSTAMP_CTL_REG	0x0D00
+ #define SXGBE_CORE_SUBSEC_INC_REG	0x0D04
 -- 
-Florian
+1.7.10.4
