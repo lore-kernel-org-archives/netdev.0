@@ -1,39 +1,42 @@
-From: "H. Peter Anvin" <hpa@linux.intel.com>
-Subject: Re: [PATCH net-next v2 8/9] net: filter: rework/optimize internal
- BPF interpreter's instruction set
-Date: Tue, 25 Mar 2014 17:24:27 -0700
-Message-ID: <53321E3B.8080709@linux.intel.com>
-References: <1395749457-16178-1-git-send-email-dborkman@redhat.com>	<1395749457-16178-9-git-send-email-dborkman@redhat.com> <20140325.201712.1651156258234145348.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next,v4] hyperv: Add support for virtual Receive
+ Side Scaling (vRSS)
+Date: Tue, 25 Mar 2014 20:43:43 -0400 (EDT)
+Message-ID: <20140325.204343.991901655152875043.davem@davemloft.net>
+References: <1395434633-16771-1-git-send-email-haiyangz@microsoft.com>
+ <216cd74854414cfc9b338cab41a3d1a0@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, netdev@vger.kernel.org, hagen@jauu.net,
-	keescook@chromium.org, pmoore@redhat.com, mingo@kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, dborkman@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140325.201712.1651156258234145348.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <216cd74854414cfc9b338cab41a3d1a0@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On 03/25/2014 05:17 PM, David Miller wrote:
-> From: Daniel Borkmann <dborkman@redhat.com>
-> Date: Tue, 25 Mar 2014 13:10:56 +0100
-> 
->>   - Conditional jt/jf targets replaced with jt/fall-through,
->>     and forward/backward jumps now possible as well
-> 
-> Ummm... does anyone even remember why backwards jumps were not allowed
-> in the original BPF?
-> 
-> It's to guarentee forward progress in the filter.
-> 
-> Allowing branching backward would allow endless loops.
-> 
-> Please remove this feature.
-> 
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Tue, 25 Mar 2014 20:37:43 +0000
 
-If you allow loops, it greatly increases the expressibility of the
-language, but we would really need another control to limit CPU usage.
+> Do we know when the dependency (commit: 8a7206a89f) will be merged
+> into net-next tree?
 
-	-hpa
+You're really not very patient, to say the least.
+
+It's done now and I'm working to integrate your patch.
+
+That patch has been in under review state in patchwork, which means
+that I will get to it at some point, so you don't need to worry about
+it any more than any other patch you might submit.
+
+The whole reason patchwork exists is so that people don't have to
+ask.
