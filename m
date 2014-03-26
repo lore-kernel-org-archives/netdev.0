@@ -1,153 +1,40 @@
-From: oliver@neukum.org
-Subject: [PATCH] usbnet: include wait queue head in device structure
-Date: Wed, 26 Mar 2014 14:32:51 +0100
-Message-ID: <1395840771-1852-1-git-send-email-oliver@neukum.org>
-Cc: Oliver Neukum <oneukum@suse.de>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v2 3/3] ipv6: fix checkpatch errors of foo
+Date: Wed, 26 Mar 2014 17:45:26 +0400
+Message-ID: <5332D9F6.6030405@cogentembedded.com>
+References: <1395801446-8700-1-git-send-email-wangyufen@huawei.com> <1395801446-8700-4-git-send-email-wangyufen@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Wangyufen <wangyufen@huawei.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out002.kontent.com ([81.88.40.216]:54612 "EHLO
-	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754339AbaCZNcz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 09:32:55 -0400
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:38094 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754159AbaCZNp2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 09:45:28 -0400
+Received: by mail-lb0-f178.google.com with SMTP id s7so1479213lbd.23
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 06:45:27 -0700 (PDT)
+In-Reply-To: <1395801446-8700-4-git-send-email-wangyufen@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Neukum <oneukum@suse.de>
+Hello.
 
-This fixes a race which happens by freeing an object on the stack.
-Quoting Julius:
-> The issue is
-> that it calls usbnet_terminate_urbs() before that, which temporarily
-> installs a waitqueue in dev->wait in order to be able to wait on the
-> tasklet to run and finish up some queues. The waiting itself looks
-> okay, but the access to 'dev->wait' is totally unprotected and can
-> race arbitrarily. I think in this case usbnet_bh() managed to succeed
-> it's dev->wait check just before usbnet_terminate_urbs() sets it back
-> to NULL. The latter then finishes and the waitqueue_t structure on its
-> stack gets overwritten by other functions halfway through the
-> wake_up() call in usbnet_bh().
+On 26-03-2014 6:37, Wangyufen wrote:
 
-The fix is to just not allocate the data structure on the stack.
-As dev->wait is abused as a flag it also takes a runtime PM change
-to fix this bug.
+> From: Wang Yufen <wangyufen@huawei.com>
 
-Signed-off-by: Oliver Neukum <oneukum@suse.de>
-Reported-by: Grant Grundler <grundler@google.com>
-Tested-by: Grant Grundler <grundler@google.com>
----
- drivers/net/usb/usbnet.c   | 33 +++++++++++++++++++--------------
- include/linux/usb/usbnet.h |  2 +-
- 2 files changed, 20 insertions(+), 15 deletions(-)
+    Unfortunately, your subject doesn't make much sense (I didn't notice it in 
+the first review).
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index dd10d58..f9e96c4 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -752,14 +752,12 @@ EXPORT_SYMBOL_GPL(usbnet_unlink_rx_urbs);
- // precondition: never called in_interrupt
- static void usbnet_terminate_urbs(struct usbnet *dev)
- {
--	DECLARE_WAIT_QUEUE_HEAD_ONSTACK(unlink_wakeup);
- 	DECLARE_WAITQUEUE(wait, current);
- 	int temp;
- 
- 	/* ensure there are no more active urbs */
--	add_wait_queue(&unlink_wakeup, &wait);
-+	add_wait_queue(&dev->wait, &wait);
- 	set_current_state(TASK_UNINTERRUPTIBLE);
--	dev->wait = &unlink_wakeup;
- 	temp = unlink_urbs(dev, &dev->txq) +
- 		unlink_urbs(dev, &dev->rxq);
- 
-@@ -773,15 +771,14 @@ static void usbnet_terminate_urbs(struct usbnet *dev)
- 				  "waited for %d urb completions\n", temp);
- 	}
- 	set_current_state(TASK_RUNNING);
--	dev->wait = NULL;
--	remove_wait_queue(&unlink_wakeup, &wait);
-+	remove_wait_queue(&dev->wait, &wait);
- }
- 
- int usbnet_stop (struct net_device *net)
- {
- 	struct usbnet		*dev = netdev_priv(net);
- 	struct driver_info	*info = dev->driver_info;
--	int			retval;
-+	int			retval, pm;
- 
- 	clear_bit(EVENT_DEV_OPEN, &dev->flags);
- 	netif_stop_queue (net);
-@@ -791,6 +788,8 @@ int usbnet_stop (struct net_device *net)
- 		   net->stats.rx_packets, net->stats.tx_packets,
- 		   net->stats.rx_errors, net->stats.tx_errors);
- 
-+	/* to not race resume */
-+	pm = usb_autopm_get_interface(dev->intf);
- 	/* allow minidriver to stop correctly (wireless devices to turn off
- 	 * radio etc) */
- 	if (info->stop) {
-@@ -817,6 +816,9 @@ int usbnet_stop (struct net_device *net)
- 	dev->flags = 0;
- 	del_timer_sync (&dev->delay);
- 	tasklet_kill (&dev->bh);
-+	if (!pm)
-+		usb_autopm_put_interface(dev->intf);
-+
- 	if (info->manage_power &&
- 	    !test_and_clear_bit(EVENT_NO_RUNTIME_PM, &dev->flags))
- 		info->manage_power(dev, 0);
-@@ -1437,11 +1439,12 @@ static void usbnet_bh (unsigned long param)
- 	/* restart RX again after disabling due to high error rate */
- 	clear_bit(EVENT_RX_KILL, &dev->flags);
- 
--	// waiting for all pending urbs to complete?
--	if (dev->wait) {
--		if ((dev->txq.qlen + dev->rxq.qlen + dev->done.qlen) == 0) {
--			wake_up (dev->wait);
--		}
-+	/* waiting for all pending urbs to complete?
-+	 * only then can we forgo submitting anew
-+	 */
-+	if (waitqueue_active(&dev->wait)) {
-+		if (dev->txq.qlen + dev->rxq.qlen + dev->done.qlen == 0)
-+			wake_up_all(&dev->wait);
- 
- 	// or are we maybe short a few urbs?
- 	} else if (netif_running (dev->net) &&
-@@ -1580,6 +1583,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
- 	dev->driver_name = name;
- 	dev->msg_enable = netif_msg_init (msg_level, NETIF_MSG_DRV
- 				| NETIF_MSG_PROBE | NETIF_MSG_LINK);
-+	init_waitqueue_head(&dev->wait);
- 	skb_queue_head_init (&dev->rxq);
- 	skb_queue_head_init (&dev->txq);
- 	skb_queue_head_init (&dev->done);
-@@ -1791,9 +1795,10 @@ int usbnet_resume (struct usb_interface *intf)
- 		spin_unlock_irq(&dev->txq.lock);
- 
- 		if (test_bit(EVENT_DEV_OPEN, &dev->flags)) {
--			/* handle remote wakeup ASAP */
--			if (!dev->wait &&
--				netif_device_present(dev->net) &&
-+			/* handle remote wakeup ASAP
-+			 * we cannot race against stop
-+			 */
-+			if (netif_device_present(dev->net) &&
- 				!timer_pending(&dev->delay) &&
- 				!test_bit(EVENT_RX_HALT, &dev->flags))
- 					rx_alloc_submit(dev, GFP_NOIO);
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index e303eef..0662e98 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -30,7 +30,7 @@ struct usbnet {
- 	struct driver_info	*driver_info;
- 	const char		*driver_name;
- 	void			*driver_priv;
--	wait_queue_head_t	*wait;
-+	wait_queue_head_t	wait;
- 	struct mutex		phy_mutex;
- 	unsigned char		suspend_count;
- 	unsigned char		pkt_cnt, pkt_err;
--- 
-1.8.4.5
+> ERROR: "(foo*)" should be "(foo *)"
+> ERROR: "foo * bar" should be "foo *bar"
+
+    Actually, it's the same space issues patch #1 fixes, so it's worth merging 
+them...
+
+> Suggested-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+
+WBR, Sergei
