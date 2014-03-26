@@ -1,29 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 8/9] net: filter: rework/optimize internal
- BPF interpreter's instruction set
-Date: Tue, 25 Mar 2014 20:46:28 -0400 (EDT)
-Message-ID: <20140325.204628.1622839093852736075.davem@davemloft.net>
-References: <1395749457-16178-9-git-send-email-dborkman@redhat.com>
-	<20140325.201712.1651156258234145348.davem@davemloft.net>
-	<53321E3B.8080709@linux.intel.com>
+Subject: Re: [PATCH net-next,v4] hyperv: Add support for virtual Receive
+ Side Scaling (vRSS)
+Date: Tue, 25 Mar 2014 20:47:28 -0400 (EDT)
+Message-ID: <20140325.204728.2281772666453524010.davem@davemloft.net>
+References: <1395434633-16771-1-git-send-email-haiyangz@microsoft.com>
+ <216cd74854414cfc9b338cab41a3d1a0@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <20140325.204343.991901655152875043.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, ast@plumgrid.com, netdev@vger.kernel.org,
-	hagen@jauu.net, keescook@chromium.org, pmoore@redhat.com,
-	mingo@kernel.org, linux-kernel@vger.kernel.org
-To: hpa@linux.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53321E3B.8080709@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140325.204343.991901655152875043.davem@davemloft.net>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-From: "H. Peter Anvin" <hpa@linux.intel.com>
-Date: Tue, 25 Mar 2014 17:24:27 -0700
+From: David Miller <davem@davemloft.net>
+Date: Tue, 25 Mar 2014 20:43:43 -0400 (EDT)
 
-> If you allow loops, it greatly increases the expressibility of the
-> language, but we would really need another control to limit CPU usage.
+> From: Haiyang Zhang <haiyangz@microsoft.com>
+> Date: Tue, 25 Mar 2014 20:37:43 +0000
+> 
+>> Do we know when the dependency (commit: 8a7206a89f) will be merged
+>> into net-next tree?
+> 
+> You're really not very patient, to say the least.
+> 
+> It's done now and I'm working to integrate your patch.
+> 
+> That patch has been in under review state in patchwork, which means
+> that I will get to it at some point, so you don't need to worry about
+> it any more than any other patch you might submit.
+> 
+> The whole reason patchwork exists is so that people don't have to
+> ask.
 
-We don't want super expressibility.
+And actually, this dependency "8a7206a89f" commit doesn't exist
+in the 'net' tree at all.  I just merged Linus's tree into 'net'
+and it doesn't exist there either.
 
-We want an extremely simple, trivial to validate, filtering language.
+So this patch still doesn't compile.
+
+I'm tossing it from patchwork until you sort this out.
