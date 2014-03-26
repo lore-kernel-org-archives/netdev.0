@@ -1,71 +1,40 @@
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-Subject: RE: [RFC v2 1/1] net: Add support to configure SR-IOV VF minimum
- and maximum Tx rate through ip tool.
-Date: Wed, 26 Mar 2014 07:25:29 +0000
-Message-ID: <290BEC245535C3449143D5D84900EEF78CDFF12B@avmb3.qlogic.org>
-References: <1395637073-29794-1-git-send-email-sucheta.chakraborty@qlogic.com>
-	 <1395637073-29794-2-git-send-email-sucheta.chakraborty@qlogic.com>
- <1395687300.2832.37.camel@deadeye.wl.decadent.org.uk>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [RFC v2 1/1] net: Add support to configure SR-IOV VF minimum and maximum Tx rate through ip tool.
+Date: Wed, 26 Mar 2014 08:37:03 +0100
+Message-ID: <2029402.2DirnyqmAY@alaris>
+References: <1395637073-29794-1-git-send-email-sucheta.chakraborty@qlogic.com> <1395637073-29794-2-git-send-email-sucheta.chakraborty@qlogic.com> <1395687300.2832.37.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>,
-	"gregory.v.rose@intel.com" <gregory.v.rose@intel.com>,
-	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	"amirv@mellanox.com" <amirv@mellanox.com>,
-	"mkubecek@suse.cz" <mkubecek@suse.cz>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
+	netdev@vger.kernel.org, Dept-HSGLinuxNICDev@qlogic.com,
+	gregory.v.rose@intel.com, linux-net-drivers@solarflare.com,
+	Ariel.Elior@qlogic.com, amirv@mellanox.com
 To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:35506 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750792AbaCZHZ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 03:25:56 -0400
+Received: from cantor2.suse.de ([195.135.220.15]:37205 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750793AbaCZHhG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2014 03:37:06 -0400
 In-Reply-To: <1395687300.2832.37.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
-dG86YmVuQGRlY2FkZW50Lm9yZy51a10NCj4gU2VudDogVHVlc2RheSwgTWFyY2ggMjUsIDIwMTQg
-MTI6MjUgQU0NCj4gVG86IFN1Y2hldGEgQ2hha3JhYm9ydHkNCj4gQ2M6IG5ldGRldjsgRGVwdC1I
-U0cgTGludXggTklDIERldjsgZ3JlZ29yeS52LnJvc2VAaW50ZWwuY29tOyBsaW51eC0NCj4gbmV0
-LWRyaXZlcnNAc29sYXJmbGFyZS5jb207IEFyaWVsIEVsaW9yOyBhbWlydkBtZWxsYW5veC5jb207
-DQo+IG1rdWJlY2VrQHN1c2UuY3oNCj4gU3ViamVjdDogUmU6IFtSRkMgdjIgMS8xXSBuZXQ6IEFk
-ZCBzdXBwb3J0IHRvIGNvbmZpZ3VyZSBTUi1JT1YgVkYNCj4gbWluaW11bSBhbmQgbWF4aW11bSBU
-eCByYXRlIHRocm91Z2ggaXAgdG9vbC4NCj4gDQo+IE9uIE1vbiwgMjAxNC0wMy0yNCBhdCAwMDo1
-NyAtMDQwMCwgU3VjaGV0YSBDaGFrcmFib3J0eSB3cm90ZToNCj4gWy4uLl0NCj4gPiAtLS0gYS9u
-ZXQvY29yZS9ydG5ldGxpbmsuYw0KPiA+ICsrKyBiL25ldC9jb3JlL3J0bmV0bGluay5jDQo+IFsu
-Li5dDQo+ID4gKwkJY2FzZSBJRkxBX1ZGX1JBVEU6IHsNCj4gPiArCQkJc3RydWN0IGlmbGFfdmZf
-cmF0ZSAqaXZ0Ow0KPiA+ICsJCQlzdHJ1Y3QgaWZsYV92Zl9pbmZvIGl2ZjsNCj4gPiAgCQkJaXZ0
-ID0gbmxhX2RhdGEodmYpOw0KPiA+ICAJCQllcnIgPSAtRU9QTk9UU1VQUDsNCj4gPiAtCQkJaWYg
-KG9wcy0+bmRvX3NldF92Zl90eF9yYXRlKQ0KPiA+IC0JCQkJZXJyID0gb3BzLT5uZG9fc2V0X3Zm
-X3R4X3JhdGUoZGV2LCBpdnQtPnZmLA0KPiA+IC0JCQkJCQkJICAgICAgaXZ0LT5yYXRlKTsNCj4g
-PiArCQkJaWYgKChpdnQtPm1pbl90eF9yYXRlID09IC0xIHx8DQo+ID4gKwkJCSAgICAgaXZ0LT5t
-YXhfdHhfcmF0ZSA9PSAtMSkgJiYNCj4gPiArCQkJICAgIG9wcy0+bmRvX2dldF92Zl9jb25maWcp
-DQo+ID4gKwkJCQllcnIgPSBvcHMtPm5kb19nZXRfdmZfY29uZmlnKGRldiwgaXZ0LT52ZiwNCj4g
-PiArCQkJCQkJCSAgICAgJml2Zik7DQo+ID4gKwkJCWVsc2UNCj4gPiArCQkJCWVyciA9IDA7DQo+
-ID4gKwkJCWlmIChlcnIpDQo+ID4gKwkJCQlicmVhazsNCj4gPiArCQkJaWYgKGl2dC0+bWluX3R4
-X3JhdGUgPT0gLTEpDQo+ID4gKwkJCQlpdnQtPm1pbl90eF9yYXRlID0gaXZmLm1pbl90eF9yYXRl
-Ow0KPiA+ICsJCQlpZiAoaXZ0LT5tYXhfdHhfcmF0ZSA9PSAtMSkNCj4gPiArCQkJCWl2dC0+bWF4
-X3R4X3JhdGUgPSBpdmYubWF4X3R4X3JhdGU7DQo+IFsuLi5dDQo+IA0KPiBUaGlzIGlzIG1vZGlm
-eWluZyB0aGUgdGhlIGNvbnRlbnQgb2YgdGhlIG5ldGxpbmsgc2tiLCB3aGljaCBJIHRoaW5rIGlz
-DQo+IG5vdCBhbGxvd2VkLiAgSSB0aGluayB5b3UgbmVlZCB0byB1c2UgbG9jYWwgdmFyaWFibGVz
-IGZvciB0aGlzIGluc3RlYWQuDQo+IA0KPiBBbHNvLCB0aGlzIHNwZWNpYWwtY2FzaW5nIG9mIC0x
-IGlzbid0IGRvY3VtZW50ZWQgYW55d2hlcmUuICBJcyBpdCBldmVuDQo+IG5lY2Vzc2FyeT8gIElm
-IHVzZXJsYW5kIG5lZWRzIHRvIHNldCBqdXN0IG9uZSBsaW1pdCwgaXQgY2FuIHJlYWQgdGhlDQo+
-IGV4aXN0aW5nIGxpbWl0cyBhbmQgc2V0IGJvdGguDQo+IA0KPiBCZW4uDQo+IA0KPiAtLQ0KPiBC
-ZW4gSHV0Y2hpbmdzDQo+IEV2ZXJ5dGhpbmcgc2hvdWxkIGJlIG1hZGUgYXMgc2ltcGxlIGFzIHBv
-c3NpYmxlLCBidXQgbm90IHNpbXBsZXIuDQo+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgLSBBbGJlcnQNCj4gRWluc3RlaW4NCg0KVGhh
-bmtzIEJlbiBmb3IgeW91ciBmZWVkYmFjay4NCg0KSSBoYXZlIHVzZWQgKC0xKSAgdG8gZGlmZmVy
-ZW50aWF0ZSBpZiB1c2VyIGRvZXMgbm90IHdhbnQgdG8gc2V0IHBhcnRpY3VsYXIgZmllbGQuDQpG
-b3IgZXhhbXBsZTogaW4gY2FzZSBpZiB1c2VyIHNldHMgbWF4X3R4X3JhdGUgYW5kIGRvZXMgbm90
-IHNldCBtaW5fdHhfcmF0ZSwgdGhlbiwgd2Ugc2VuZCBtYXhfdHhfcmF0ZSBhcyBzZXQgYnkgdXNl
-ciBhbmQgbWluX3R4X3JhdGUgYXMgLTEuDQoNCkFyZSB5b3Ugc3VnZ2VzdGluZyB0aGF0IGluIGFi
-b3ZlIHNjZW5hcmlvIGlmIHVzZXIgZG9lcyBub3Qgc2V0IG1pbl90eF9yYXRlLCB0aGVuIHVzZXIg
-c3BhY2Ugc2hvdWxkIGdldCB0aGF0IHZhbHVlIGZyb20gZHJpdmVyIGFuZCBzZW5kIHNhbWUgdmFs
-dWUgdG8gZHJpdmVyIGludGVyZmFjZT8NCg0KQWxzbywgdXNlciBtYXkgd2FudCB0byBzZXQgdmFs
-dWUgMCB3aGljaCBzaG91bGQgYmUgZGlmZmVyZW50aWF0ZWQgZnJvbSBub3Qgc2V0dGluZyBhbnkg
-dmFsdWUuDQoNClRoYW5rcywNClN1Y2hldGEuDQo=
+On Monday 24 of March 2014 18:55:00 Ben Hutchings wrote:
+> 
+> Also, this special-casing of -1 isn't documented anywhere.  Is it even
+> necessary?  If userland needs to set just one limit, it can read the
+> existing limits and set both.
+
+Wouldn't this open a window for a race if one process wanted to change 
+one limit and another process wanted to change the other at the same 
+time? Such scenario doesn't sound very realistic but our customers 
+taught me that things I don't find very realistic tend to be used quite 
+frequently by them.
+
+On the other hand, if changing only one limit is going to be common, it 
+might be more appropriate to add IFLA_VF_TX_MIN_RATE instead and always 
+pass the minimum and maximum rate separately (and pass only one if only 
+one is going to be changed).
+
+                                                         Michal Kubecek
