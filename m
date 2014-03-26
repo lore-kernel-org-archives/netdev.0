@@ -1,100 +1,49 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv2] net: mvneta: use devm_ioremap_resource() instead of of_iomap()
-Date: Wed, 26 Mar 2014 09:30:00 +0100
-Message-ID: <1395822600-30469-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: Gregory Clement <gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: Re: [PATCHv2] net: mvneta: use devm_ioremap_resource() instead of
+ of_iomap()
+Date: Wed, 26 Mar 2014 05:42:11 -0300
+Message-ID: <20140326084211.GA941@arch.cereza>
+References: <1395822600-30469-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Gregory Clement <gregory.clement@free-electrons.com>,
 	Lior Amsalem <alior@marvell.com>,
 	linux-arm-kernel@lists.infradead.org
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:51523 "EHLO
+Received: from top.free-electrons.com ([176.31.233.9]:51595 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750832AbaCZIaD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 04:30:03 -0400
+	with ESMTP id S1751330AbaCZImd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 04:42:33 -0400
+Content-Disposition: inline
+In-Reply-To: <1395822600-30469-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mvneta driver currently uses of_iomap(), which has two drawbacks:
-it doesn't request the resource, and it isn't devm-style so some error
-handling is needed.
+Hi Thomas,
 
-This commit switches to use devm_ioremap_resource() instead, which
-automatically requests the resource (so the I/O registers region shows
-up properly in /proc/iomem), and also is devm-style, which allows to
-get rid of some error handling to unmap the I/O registers region.
+On Mar 26, Thomas Petazzoni wrote:
+> @@ -2838,9 +2840,10 @@ static int mvneta_probe(struct platform_device=
+ *pdev)
+> =20
+>  	clk_prepare_enable(pp->clk);
+> =20
+> -	pp->base =3D of_iomap(dn, 0);
+> +	res =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> +	pp->base =3D devm_ioremap_resource(&pdev->dev, res);
+>  	if (pp->base =3D=3D NULL) {
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
-Changes since v1:
+As per the comment above devm_ioremap_resource() definition, the usage =
+is:
 
- - Remove error handling of platform_get_resource(), since
-   devm_ioremap_resource already checks if the resource is NULL, and
-   properly returns an error in this case. Reported by Ezequiel Garcia.
+	res =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	base =3D devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(base))
+		return PTR_ERR(base);
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvneta.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index f418f4f..fef3631 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -22,6 +22,7 @@
- #include <linux/interrupt.h>
- #include <net/ip.h>
- #include <net/ipv6.h>
-+#include <linux/io.h>
- #include <linux/of.h>
- #include <linux/of_irq.h>
- #include <linux/of_mdio.h>
-@@ -2774,6 +2775,7 @@ static void mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
- static int mvneta_probe(struct platform_device *pdev)
- {
- 	const struct mbus_dram_target_info *dram_target_info;
-+	struct resource *res;
- 	struct device_node *dn = pdev->dev.of_node;
- 	struct device_node *phy_node;
- 	u32 phy_addr;
-@@ -2838,9 +2840,10 @@ static int mvneta_probe(struct platform_device *pdev)
- 
- 	clk_prepare_enable(pp->clk);
- 
--	pp->base = of_iomap(dn, 0);
-+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	pp->base = devm_ioremap_resource(&pdev->dev, res);
- 	if (pp->base == NULL) {
--		err = -ENOMEM;
-+		err = PTR_ERR(pp->base);
- 		goto err_clk;
- 	}
- 
-@@ -2848,7 +2851,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 	pp->stats = alloc_percpu(struct mvneta_pcpu_stats);
- 	if (!pp->stats) {
- 		err = -ENOMEM;
--		goto err_unmap;
-+		goto err_clk;
- 	}
- 
- 	for_each_possible_cpu(cpu) {
-@@ -2913,8 +2916,6 @@ err_deinit:
- 	mvneta_deinit(pp);
- err_free_stats:
- 	free_percpu(pp->stats);
--err_unmap:
--	iounmap(pp->base);
- err_clk:
- 	clk_disable_unprepare(pp->clk);
- err_free_irq:
-@@ -2934,7 +2935,6 @@ static int mvneta_remove(struct platform_device *pdev)
- 	mvneta_deinit(pp);
- 	clk_disable_unprepare(pp->clk);
- 	free_percpu(pp->stats);
--	iounmap(pp->base);
- 	irq_dispose_mapping(dev->irq);
- 	free_netdev(dev);
- 
--- 
-1.8.3.2
+--=20
+Ezequiel Garc=EDa, Free Electrons
+Embedded Linux, Kernel and Android Engineering
+http://free-electrons.com
