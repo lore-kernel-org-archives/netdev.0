@@ -1,68 +1,53 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
- of switch chip datapath
-Date: Wed, 26 Mar 2014 18:53:51 -0400
-Message-ID: <53335A7F.8010801@mojatatu.com>
-References: <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org> <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com> <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com> <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion> <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com> <20140326173536.GJ2869@minipsycho.orion> <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com> <20140326181436.GL2869@minipsycho.orion> <53334BDA.1060608@mojatatu.com> <CAGVrzcaconDBjgSfk0=6px2+6LbrxMkmesgigSa3-9WaK-LiOw@mail.gmail.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH 2/7] atm: replace del_timer by del_timer_sync
+Date: Wed, 26 Mar 2014 23:56:04 +0100 (CET)
+Message-ID: <alpine.DEB.2.02.1403262344060.7710@ionos.tec.linutronix.de>
+References: <1395869625-15209-1-git-send-email-Julia.Lawall@lip6.fr>   <1395869625-15209-3-git-send-email-Julia.Lawall@lip6.fr>  <1395871015.12610.254.camel@edumazet-glaptop2.roam.corp.google.com>  <alpine.DEB.2.02.1403262301171.31401@ionos.tec.linutronix.de>
+ <1395872545.12610.262.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	Felix Fietkau <nbd@openwrt.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:60389 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755876AbaCZWxy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 18:53:54 -0400
-Received: by mail-ie0-f173.google.com with SMTP id rl12so2430353iec.4
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 15:53:54 -0700 (PDT)
-In-Reply-To: <CAGVrzcaconDBjgSfk0=6px2+6LbrxMkmesgigSa3-9WaK-LiOw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Julia Lawall <Julia.Lawall@lip6.fr>,
+	"David S. Miller" <davem@davemloft.net>,
+	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1395872545.12610.262.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/26/14 18:22, Florian Fainelli wrote:
-> 2014-03-26 14:51 GMT-07:00 Jamal Hadi Salim <jhs@mojatatu.com>:
 
->
-> eth0 corresponds to a CPU Ethernet MAC facing e.g: sw1p3 switch port.
-> It is "regular" Ethernet driver connected to the switch without
-> switch-specific logic. The goal is twofold:
->
-> - allow any regular Ethernet driver to be connected to an external
-> switch via e.g: MDIO/MDC or other without specific switch knowledge
-> - represents accurately how the hardware is designed/connected
->
 
-Gah. Sorry - I missed the MII interface.
-In such a case as shown here then, how do you control sw1p0-3?
+On Wed, 26 Mar 2014, Eric Dumazet wrote:
 
-> but maybe, we can simplify and have e.g: sw1p3 and eth0 be the same interface...
+> On Wed, 2014-03-26 at 23:02 +0100, Thomas Gleixner wrote:
+> 
+> > That's why you need del_timer_sync() it waits for the timer handler to
+> > complete and then removes it.
+> 
+> Interesting... So maybe some comment is stale ?
+> 
+> 
+> diff --git a/kernel/timer.c b/kernel/timer.c
+> index accfd241b9e5..c948fa2fc065 100644
+> --- a/kernel/timer.c
+> +++ b/kernel/timer.c
+> @@ -1011,10 +1011,10 @@ EXPORT_SYMBOL(try_to_del_timer_sync);
+>   * the timer it also makes sure the handler has finished executing on other
+>   * CPUs.
+>   *
+> - * Synchronization rules: Callers must prevent restarting of the timer,
+> - * otherwise this function is meaningless. It must not be called from
 
-It sounds to me the CPU side is only a driver for sw1p3.
+We still need to prevent restarting from some other site,
+i.e. interrupt. It's fine if the timer handler itself restarts the
+timer, as del_timer_sync() wait for the handler to finish and then
+delete the timer.
 
->>
->> Note: even the high end chips tend to have the concept of a "cpu port"
->> but my experience is to hide that as part of the switch driver.
+I can't find the reason why it can't call add_timer_on(). We
+lock/unlock the timer base in every try_to_del_timer_sync() loop so we
+detect the base change.
 
-Note: the high end devices "cpu ports" are accessible typically
-via PCIE interfaces for control and some DMA for data activity.
+Thanks,
 
-cheers,
-jamal
+	tglx
