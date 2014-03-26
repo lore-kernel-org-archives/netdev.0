@@ -1,48 +1,64 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next] bnx2x: Fix compilation when CONFIG_BNX2X_SRIOV is not set
-Date: Wed, 26 Mar 2014 09:06:29 +0200
-Message-ID: <1395817589-22890-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Christian Riesch <christian.riesch@omicron.at>
+Subject: [PATCH v2 net-next 2/2] ptp: Fix compiler warnings in the testptp utility
+Date: Wed, 26 Mar 2014 08:16:03 +0100
+Message-ID: <35ec3d13-e8a8-4cf4-b5ce-91c4dbe2ac0b@mary.at.omicron.at>
+References: <1395818163-31672-1-git-send-email-christian.riesch@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	Christian Riesch <christian.riesch@omicron.at>,
+	Dong Zhu <bluezhudong@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:27730 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751291AbaCZHHH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 03:07:07 -0400
+Received: from ns.omicron.at ([212.183.10.25]:57014 "EHLO ns.omicron.at"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752035AbaCZHQt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2014 03:16:49 -0400
+In-Reply-To: <1395818163-31672-1-git-send-email-christian.riesch@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 370d4a26 "bnx2x: Create workqueue for IOV related tasks" breaks bnx2x
-compilation when CONFIG_BNX2X_SRIOV is not set - "multiple definition of
-`bnx2x_schedule_iov_task'".
-
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
+Cc: Dong Zhu <bluezhudong@gmail.com>
 ---
-Hi Dave,
 
-Please accept this to net-next as it fixes our latest submission there.
+Changes for v2:
+- Use PRI64d macro for __s64 in printf
 
-Thanks,
-Yuval
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ Documentation/ptp/testptp.c |   11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-index db73a24..8bf7645 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-@@ -574,7 +574,7 @@ static inline int bnx2x_sriov_configure(struct pci_dev *dev, int num_vfs) {retur
- static inline void bnx2x_iov_channel_down(struct bnx2x *bp) {}
+diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
+index 13bddd5..f1ac2da 100644
+--- a/Documentation/ptp/testptp.c
++++ b/Documentation/ptp/testptp.c
+@@ -19,6 +19,7 @@
+  */
+ #include <errno.h>
+ #include <fcntl.h>
++#include <inttypes.h>
+ #include <math.h>
+ #include <signal.h>
+ #include <stdio.h>
+@@ -496,14 +497,14 @@ int main(int argc, char *argv[])
+ 			interval = t2 - t1;
+ 			offset = (t2 + t1) / 2 - tp;
  
- static inline void bnx2x_iov_task(struct work_struct *work) {}
--void bnx2x_schedule_iov_task(struct bnx2x *bp, enum bnx2x_iov_flag flag) {}
-+static inline void bnx2x_schedule_iov_task(struct bnx2x *bp, enum bnx2x_iov_flag flag) {}
+-			printf("system time: %ld.%ld\n",
++			printf("system time: %" PRId64 ".%u\n",
+ 				(pct+2*i)->sec, (pct+2*i)->nsec);
+-			printf("phc    time: %ld.%ld\n",
++			printf("phc    time: %" PRId64 ".%u\n",
+ 				(pct+2*i+1)->sec, (pct+2*i+1)->nsec);
+-			printf("system time: %ld.%ld\n",
++			printf("system time: %" PRId64 ".%u\n",
+ 				(pct+2*i+2)->sec, (pct+2*i+2)->nsec);
+-			printf("system/phc clock time offset is %ld ns\n"
+-				"system     clock time delay  is %ld ns\n",
++			printf("system/phc clock time offset is %" PRId64 " ns\n"
++			       "system     clock time delay  is %" PRId64 " ns\n",
+ 				offset, interval);
+ 		}
  
- #endif /* CONFIG_BNX2X_SRIOV */
- #endif /* bnx2x_sriov.h */
 -- 
-1.8.1.4
+1.7.9.5
