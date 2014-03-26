@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/15] igb: never generate both software and hardware timestamps
-Date: Wed, 26 Mar 2014 11:03:32 -0700
-Message-ID: <1395857013-7568-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/15] e1000e: add timeout for TX HW time stamping work
+Date: Wed, 26 Mar 2014 11:03:30 -0700
+Message-ID: <1395857013-7568-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395857013-7568-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jakub Kicinski <kubakici@wp.pl>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -10,50 +10,87 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:47346 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755505AbaCZSEd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2014 14:04:33 -0400
+	id S1754178AbaCZSEc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2014 14:04:32 -0400
 In-Reply-To: <1395857013-7568-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jakub Kicinski <kubakici@wp.pl>
 
-skb_tx_timestamp() does not report software time stamp
-if SKBTX_IN_PROGRESS is set. According to timestamping.txt
-software time stamps are a fallback and should not be
-generated if hardware time stamp is provided.
+Hardware may fail to report time stamp e.g.:
+ - when hardware time stamping is not enabled
+ - when time stamp is requested shortly after ifup
 
-Move call to skb_tx_timestamp() after setting
-SKBTX_IN_PROGRESS.
+Timeout time stamp reading work to prevent it from
+scheduling itself indefinitely. Report timeout events
+via system log and device stats.
 
 Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/e1000e/e1000.h   | 2 ++
+ drivers/net/ethernet/intel/e1000e/ethtool.c | 1 +
+ drivers/net/ethernet/intel/e1000e/netdev.c  | 7 +++++++
+ 3 files changed, 10 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index cd20409..1fdffa2 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -4980,8 +4980,6 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 	first->bytecount = skb->len;
- 	first->gso_segs = 1;
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 5325e3e..1471c54 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -262,6 +262,7 @@ struct e1000_adapter {
+ 	u32 tx_head_addr;
+ 	u32 tx_fifo_size;
+ 	u32 tx_dma_failed;
++	u32 tx_hwtstamp_timeouts;
  
--	skb_tx_timestamp(skb);
--
- 	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
- 		struct igb_adapter *adapter = netdev_priv(tx_ring->netdev);
+ 	/* Rx */
+ 	bool (*clean_rx) (struct e1000_ring *ring, int *work_done,
+@@ -334,6 +335,7 @@ struct e1000_adapter {
+ 	struct hwtstamp_config hwtstamp_config;
+ 	struct delayed_work systim_overflow_work;
+ 	struct sk_buff *tx_hwtstamp_skb;
++	unsigned long tx_hwtstamp_start;
+ 	struct work_struct tx_hwtstamp_work;
+ 	spinlock_t systim_lock;	/* protects SYSTIML/H regsters */
+ 	struct cyclecounter cc;
+diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
+index 3c2898d..cad250b 100644
+--- a/drivers/net/ethernet/intel/e1000e/ethtool.c
++++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
+@@ -104,6 +104,7 @@ static const struct e1000_stats e1000_gstrings_stats[] = {
+ 	E1000_STAT("rx_hwtstamp_cleared", rx_hwtstamp_cleared),
+ 	E1000_STAT("uncorr_ecc_errors", uncorr_errors),
+ 	E1000_STAT("corr_ecc_errors", corr_errors),
++	E1000_STAT("tx_hwtstamp_timeouts", tx_hwtstamp_timeouts),
+ };
  
-@@ -4996,6 +4994,8 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 		}
- 	}
- 
-+	skb_tx_timestamp(skb);
-+
- 	if (vlan_tx_tag_present(skb)) {
- 		tx_flags |= IGB_TX_FLAGS_VLAN;
- 		tx_flags |= (vlan_tx_tag_get(skb) << IGB_TX_FLAGS_VLAN_SHIFT);
+ #define E1000_GLOBAL_STATS_LEN	ARRAY_SIZE(e1000_gstrings_stats)
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 6bd1832..b8d252f 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1163,6 +1163,12 @@ static void e1000e_tx_hwtstamp_work(struct work_struct *work)
+ 		skb_tstamp_tx(adapter->tx_hwtstamp_skb, &shhwtstamps);
+ 		dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
+ 		adapter->tx_hwtstamp_skb = NULL;
++	} else if (time_after(jiffies, adapter->tx_hwtstamp_start
++			      + adapter->tx_timeout_factor * HZ)) {
++		dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
++		adapter->tx_hwtstamp_skb = NULL;
++		adapter->tx_hwtstamp_timeouts++;
++		e_warn("clearing Tx timestamp hang");
+ 	} else {
+ 		/* reschedule to check later */
+ 		schedule_work(&adapter->tx_hwtstamp_work);
+@@ -5567,6 +5573,7 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+ 			tx_flags |= E1000_TX_FLAGS_HWTSTAMP;
+ 			adapter->tx_hwtstamp_skb = skb_get(skb);
++			adapter->tx_hwtstamp_start = jiffies;
+ 			schedule_work(&adapter->tx_hwtstamp_work);
+ 		} else {
+ 			skb_tx_timestamp(skb);
 -- 
 1.8.3.1
