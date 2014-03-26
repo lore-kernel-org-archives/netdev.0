@@ -1,92 +1,43 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Wed, 26 Mar 2014 06:55:11 -0400
-Message-ID: <20140326105511.GA31370@hmsreliant.think-freely.org>
-References: <532C2AC4.7080303@mojatatu.com>
- <20140322094852.GB2844@minipsycho.orion>
- <5330BAB7.3040501@mojatatu.com>
- <20140325173927.GE8102@hmsreliant.think-freely.org>
- <20140325180009.GB15723@casper.infradead.org>
- <20140325193533.GF8102@hmsreliant.think-freely.org>
- <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com>
- <20140325212632.GD15723@casper.infradead.org>
- <CAGVrzcZfUuFcr9j=_q1zr_jJE6ZaxxWCs5drsrsbH0hbCSkbcg@mail.gmail.com>
- <20140325215453.GF15723@casper.infradead.org>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next] Revert "xen-netback: Aggregate TX unmap operations"
+Date: Wed, 26 Mar 2014 10:57:02 +0000
+Message-ID: <5332B27E.4040205@citrix.com>
+References: <1395422584-16213-1-git-send-email-zoltan.kiss@citrix.com> <1395653207.19365.1.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:37980 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751330AbaCZKzx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 06:55:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20140325215453.GF15723@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395653207.19365.1.camel@kazak.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 25, 2014 at 09:54:53PM +0000, Thomas Graf wrote:
-> On 03/25/14 at 02:42pm, Florian Fainelli wrote:
-> > 2014-03-25 14:26 GMT-07:00 Thomas Graf <tgraf@suug.ch>:
-> > > On 03/25/14 at 01:11pm, Florian Fainelli wrote:
-> > >> 2014-03-25 12:35 GMT-07:00 Neil Horman <nhorman@tuxdriver.com>:
-> > >> > On Tue, Mar 25, 2014 at 06:00:09PM +0000, Thomas Graf wrote:
-> > >> >> On top of that, like for VFs, we provide extended nested attributes or
-> > >> >> alternate control paths such as via OVS that provide the additional
-> > >> >> flexibility and control required by the more advanced devices.
-> > >> > I'm sorry, I don't understand the relevance here.  Are you suggesting that to
-> > >> > make this modification, we would need to augment more than a single set of
-> > >> > netlink control paths?
-> > >>
-> > >> Not sure if I got this right, but there might be additional control
-> > >> knobs required for specific Ethernet switch features that do not map
-> > >> nicely, if at all with existing interfaces provided by ip/tc,
-> > >> ethtool... although I guess one would say, well, then go add these
-> > >> APIs instead of creating "extended" ones?
-> > >
-> > > Exactly. Some of the logic and configuration structure will not
-> > > fit the existing model and is too switch specific to justify
-> > > extending the generic link model. It also seems likely that some
-> > > knobs will be switch specific. Not an issue as long as they are
-> > > tunneled through the standard API and any effort is undertaken
-> > > to generalize where it makes sense.
-> > 
-> > The question is how you would imagine conveying these switch-specific
-> > features that do not (yet) map into a general feature, shall we go for
-> > a separate netlink family, just like what Felix did in OpenWrt with
-> > swconfig, without much stability from one kernel release to another,
-> > as we migrate what was once a switch specific feature into a general
-> > Ethernet switch feature?
-> 
-> I believe it is essential to transport them as part of the standard
-> Netlink API and have a single channel for all configuration. It also
-> eases message synchronization.
-> 
-> We also want to enforce strict ABI compatibility rules just like
-> for all other Netlink users. As we know, it's not difficult to design
-> the message format in a way to allow for extendability and backwards
-> compatibility.
-> 
+On 24/03/14 09:26, Ian Campbell wrote:
+> On Fri, 2014-03-21 at 17:23 +0000, Zoltan Kiss wrote:
+>> This reverts commit e9275f5e2df1b2098a8cc405d87b88b9affd73e6. This commit is the
+>> last in the netback grant mapping series, and it tries to do more aggressive
+>> aggreagtion of unmap operations. However practical use showed almost no
+>> positive effect, whilst with certain frontends it causes significant performance
+>> regression.
+>
+> That's a shame -- do you have any insight into why?
 
-+1, I'm not sure what the extent of any additional feature set is, for any
-particular piece of hardware, but whatever it is almost certainly needs to be
-baked into the same netlink protocol(s), so as to implicitly enforce ordering of
-configuration.
+It cause performance regression when the guest limits itself to a small 
+amount of outstanding packets. E.g. with iperf on Win7 there are always 
+2 in flight.
+Currently batching happens in this way:
+- the callback can put up to MAX_SKB_FRAGS slots into the dealloc ring 
+before it wakes up the dealloc thread
+- the thread doesn't schedule immediately, of course, so other callbacks 
+can add to the dealloc ring in the meantime
+- and even when the dealloc thread consumes the dealloc ring, the 
+callbacks can put slots onto it
 
-Neil
+And my upcoming patch will avoid TLB flush in a lot of cases. If someone 
+has more time to research a better strategy, that would be good, but I 
+think currently it is a low priority thing.
+
+Zoli
