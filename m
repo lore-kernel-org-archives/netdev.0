@@ -1,35 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next] tcp: tcp_make_synack() minor changes
-Date: Wed, 26 Mar 2014 12:08:47 -0700
-Message-ID: <1395860927.12610.226.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Wed, 26 Mar 2014 15:11:37 -0400 (EDT)
+Message-ID: <20140326.151137.875104354732350232.davem@davemloft.net>
 References: <1395853039.12610.217.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140326.142551.19958322633174107.davem@davemloft.net>
+	<20140326.142551.19958322633174107.davem@davemloft.net>
+	<1395859968.3726.32.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:63874 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753727AbaCZTIt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 15:08:49 -0400
-Received: by mail-pd0-f172.google.com with SMTP id p10so2262432pdj.31
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 12:08:49 -0700 (PDT)
-In-Reply-To: <20140326.142551.19958322633174107.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45901 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751147AbaCZTLk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 15:11:40 -0400
+In-Reply-To: <1395859968.3726.32.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-03-26 at 14:25 -0400, David Miller wrote:
-> Do you know where this "+ 15" comes from? :-)
+From: Joe Perches <joe@perches.com>
+Date: Wed, 26 Mar 2014 11:52:48 -0700
+
+> On Wed, 2014-03-26 at 14:25 -0400, David Miller wrote:
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Wed, 26 Mar 2014 09:57:19 -0700
+>> 
+>> > From: Eric Dumazet <edumazet@google.com>
+>> > 
+>> > There is no need to allocate 15 bytes in excess for a SYNACK packet,
+>> > as it contains no data, only headers.
+>> > 
+>> > SYNACK are always generated in softirq context, and contain a single
+>> > segment, we can use TCP_INC_STATS_BH()
+>> > 
+>> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+>>  ...
+>> > -	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15, 1, GFP_ATOMIC);
+>> > +	skb = sock_wmalloc(sk, MAX_TCP_HEADER, 1, GFP_ATOMIC);
+>> 
+>> Do you know where this "+ 15" comes from? :-)
+>> It is a kind of Linux networking trivia question.
 > 
-> It is a kind of Linux networking trivia question.
+> It's really old, pre v1 days.
+> I presume it was some kind of ethernet minimum packet size padding.
 
-My random guess would be that it is related to a copy/paste
-thing, as some tx paths used to allocate skb with a very precise byte
-count, and they used HH_DATA_ALIGN().
+I'm pretty sure it was to accomodate the hard header cache.
 
-MAX_TCP_HEADER already includes all needed extra room.
-
-Note tcp_connect() also uses this +15, but not tcp_send_ack() or
-tcp_send_active_reset()...
+HH_DATA_MOD is 16
