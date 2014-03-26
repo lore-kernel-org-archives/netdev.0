@@ -1,55 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V2] xen-netback: disable rogue vif in kthread
- context
-Date: Wed, 26 Mar 2014 16:44:47 -0400 (EDT)
-Message-ID: <20140326.164447.416212657407875997.davem@davemloft.net>
-References: <1395750051-15932-1-git-send-email-wei.liu2@citrix.com>
+Subject: Re: [PATCH][v6] netlink: have netlink per-protocol bind function
+ return an error code.
+Date: Wed, 26 Mar 2014 16:46:00 -0400 (EDT)
+Message-ID: <20140326.164600.1051337978560114220.davem@davemloft.net>
+References: <20140324183406.GE28666@madcap2.tricolour.ca>
+	<32971f5def3bebff26650bc088c6f3f21f3c727b.1395751443.git.rgb@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	paul.durrant@citrix.com, zoltan.kiss@citrix.com, edwin@etorok.net,
-	david.vrabel@citrix.com, ian.campbell@citrix.com
-To: wei.liu2@citrix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46941 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753897AbaCZUot convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 16:44:49 -0400
-In-Reply-To: <1395750051-15932-1-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-audit@redhat.com, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	eparis@redhat.com, sgrubb@redhat.com, hadi@mojatatu.com
+To: rgb@redhat.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <32971f5def3bebff26650bc088c6f3f21f3c727b.1395751443.git.rgb@redhat.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Wei Liu <wei.liu2@citrix.com>
-Date: Tue, 25 Mar 2014 12:20:51 +0000
+From: Richard Guy Briggs <rgb@redhat.com>
+Date: Tue, 25 Mar 2014 08:50:56 -0400
 
-> When netback discovers frontend is sending malformed packet it will
-> disables the interface which serves that frontend.
->=20
-> However disabling a network interface involving taking a mutex which
-> cannot be done in softirq context, so we need to defer this process t=
-o
-> kthread context.
->=20
-> This patch does the following:
-> 1. introduce a flag to indicate the interface is disabled.
-> 2. check that flag in TX path, don't do any work if it's true.
-> 3. check that flag in RX path, turn off that interface if it's true.
->=20
-> The reason to disable it in RX path is because RX uses kthread. After
-> this change the behavior of netback is still consistent -- it won't d=
-o
-> any TX work for a rogue frontend, and the interface will be eventuall=
-y
-> turned off.
->=20
-> Also change a "continue" to "break" after xenvif_fatal_tx_err, as it
-> doesn't make sense to continue processing packets if frontend is rogu=
-e.
->=20
-> This is a fix for XSA-90.
->=20
-> Reported-by: T=F6r=F6k Edwin <edwin@etorok.net>
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> @@ -1441,6 +1445,24 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+>  	if (!nladdr->nl_groups && (nlk->groups == NULL || !(u32)nlk->groups[0]))
+>  		return 0;
+>  
+> +	if (nlk->netlink_bind && nladdr->nl_groups) {
+> +		int i;
+> +
+> +		for (i = 0; i < nlk->ngroups; i++)
+ ...
+> +				if (err) {
+> +					int undo;
+> +					if (!nlk->portid)
+> +						netlink_remove(sk);
 
-What is the status of this patch?
+Please put an empty line between local variable declarations and code, just as it
+is a few lines up.
