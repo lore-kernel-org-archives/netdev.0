@@ -1,57 +1,59 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH] net: unix: non blocking recvmsg() should not return -EINTR
-Date: Wed, 26 Mar 2014 13:57:46 +0000
-Message-ID: <87ha6l83l1.fsf@sable.mobileactivedefense.com>
-References: <1395798147.12610.196.camel@edumazet-glaptop2.roam.corp.google.com>
-	<8761n19k0w.fsf@sable.mobileactivedefense.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next resend] net/mlx4_core: pass pci_device_id.driver_data
+ to __mlx4_init_one during reset
+Date: Wed, 26 Mar 2014 18:02:27 +0400
+Message-ID: <5332DDF3.2040703@cogentembedded.com>
+References: <1395828952-11471-1-git-send-email-weiyang@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Wei Yang <weiyang@linux.vnet.ibm.com>, jackm@dev.mellanox.co.il,
+	ogerlitz@mellanox.com, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tiger.mobileactivedefense.com ([217.174.251.109]:46483 "EHLO
-	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753716AbaCZN56 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 09:57:58 -0400
-In-Reply-To: <8761n19k0w.fsf@sable.mobileactivedefense.com> (Rainer Weikusat's
-	message of "Wed, 26 Mar 2014 13:17:18 +0000")
+Received: from mail-la0-f48.google.com ([209.85.215.48]:36090 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755674AbaCZOCa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 10:02:30 -0400
+Received: by mail-la0-f48.google.com with SMTP id gf5so1500198lab.7
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 07:02:29 -0700 (PDT)
+In-Reply-To: <1395828952-11471-1-git-send-email-weiyang@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rainer Weikusat <rw@sable> writes:
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
->> From: Eric Dumazet <edumazet@google.com>
->>
->> Some applications didn't expect recvmsg() on a non blocking socket
->> could return -EINTR. This possibility was added as a side effect
->> of commit b3ca9b02b00704 ("net: fix multithreaded signal handling in
->> unix recv routines").
->>
->> To hit this bug, you need to be a bit unlucky, as the u->readlock
->> mutex is usually held for very small periods.
+Hello.
 
-[...]
+On 26-03-2014 14:15, Wei Yang wrote:
 
-> the function was interrupted before any data was available and it
-> is unknown if the condition supposed to be signalled by EAGAIN had
-> otherwise occurred.
+> [Note: seems my network/mail system got some problem yesterday. Resend it in
+> case it is lost. If you have already got one, please ignore it.]
 
-Further explanation of the difference:
+    Put such remarks under --- tear line in the future, so that David don't 
+have to edit them out when applying.
 
-do
-	rc = recv(...);
-while (rc == -1 && errno == EINTR);
+> The second parameter of __mlx4_init_one() is used to identify whether the
+> pci_dev is a PF or VF. Currently, when it is invoked in mlx4_pci_slot_reset()
+> this information is missed.
 
-is 'usually sensible code' while
+> This patch match the pci_dev with mlx4_pci_table and passes the
+> pci_device_id.driver_data to __mlx4_init_one() in mlx4_pci_slot_reset().
 
-do
-	rc = recv(...);
-while (rc == -1 && errno == EAGAIN);
+> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+> ---
+>   drivers/net/ethernet/mellanox/mlx4/main.c |    6 +++++-
+>   1 file changed, 5 insertions(+), 1 deletion(-)
 
-usually isn't: One is a one-off event not expected to occur again
-'soon', the other implies that "do something else for a while" would be
-advisable. In particular, EAGAIN usually shouldn't happen after 'data is
-available now' was signalled by select/ poll/ $you_name_it and while it
-would be prudent to handle it nevertheless (especially considering that
-Linux doesn't necessarily behave in this way), there are doubtlessly
-applications 'unprepared' for that, too.
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+> index d711158..b083808 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+> @@ -2670,7 +2670,11 @@ static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
+>
+>   static pci_ers_result_t mlx4_pci_slot_reset(struct pci_dev *pdev)
+>   {
+> -	int ret = __mlx4_init_one(pdev, 0);
+> +	const struct pci_device_id*  id;
+
+    * should be close to 'id' and one space is enough. I guess you haven't run 
+your patch thru scripts/checkpatch.pl?
+
+WBR, Sergei
