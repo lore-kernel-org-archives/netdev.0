@@ -1,33 +1,42 @@
-From: SeongJae Park <sj38.park@gmail.com>
-Subject: Re: [PATCH] ixen-netback: fix trivial printf format build warning
-Date: Thu, 27 Mar 2014 03:51:56 +0900
-Message-ID: <CAEjAshoKmsbsUBJ-EzfaXwncNaxtsJCM+p_h92t3SZ+FAHEKsA@mail.gmail.com>
-References: <1395806210-23528-1-git-send-email-sj38.park@gmail.com>
- <1395828547.22808.28.camel@kazak.uk.xensource.com> <CAEjAshoYWeCdVD9mC4f6EQkQkd-dVuk47gGEZ-4ig-uVS938ag@mail.gmail.com>
- <20140326.144613.1346051389108269225.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] tcp: tcp_make_synack() minor changes
+Date: Wed, 26 Mar 2014 11:52:48 -0700
+Message-ID: <1395859968.3726.32.camel@joe-AO722>
+References: <1395853039.12610.217.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140326.142551.19958322633174107.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ian.Campbell@citrix.com, trivial@kernel.org, wei.liu2@citrix.com,
-	xen-devel@lists.xenproject.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140326.144613.1346051389108269225.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0098.hostedemail.com ([216.40.44.98]:47200 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755896AbaCZSww (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 14:52:52 -0400
+In-Reply-To: <20140326.142551.19958322633174107.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 27, 2014 at 3:46 AM, David Miller <davem@davemloft.net> wrote:
-> From: SeongJae Park <sj38.park@gmail.com>
-> Date: Wed, 26 Mar 2014 19:34:21 +0900
->
->> Thank you for let me know kindly :)
->
-> Also your fix wasn't correct.
->
-> You changed the code to use %lx but the type isn't a long.
->
-> It's the difference between two pointers, which is ptrdiff_t.  The
-> proper printf format string for a hexadecimal ptrdiff_t is %tx
+On Wed, 2014-03-26 at 14:25 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 26 Mar 2014 09:57:19 -0700
+> 
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > There is no need to allocate 15 bytes in excess for a SYNACK packet,
+> > as it contains no data, only headers.
+> > 
+> > SYNACK are always generated in softirq context, and contain a single
+> > segment, we can use TCP_INC_STATS_BH()
+> > 
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+>  ...
+> > -	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15, 1, GFP_ATOMIC);
+> > +	skb = sock_wmalloc(sk, MAX_TCP_HEADER, 1, GFP_ATOMIC);
+> 
+> Do you know where this "+ 15" comes from? :-)
+> It is a kind of Linux networking trivia question.
 
-You're right. Thanks for pointing that.
+It's really old, pre v1 days.
+I presume it was some kind of ethernet minimum packet size padding.
