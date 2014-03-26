@@ -1,92 +1,62 @@
-From: Christian Riesch <christian.riesch@omicron.at>
-Subject: [PATCH v2 net-next 1/2] ptp: Add a command line option in testptp to set a specific PTP time
-Date: Wed, 26 Mar 2014 08:16:02 +0100
-Message-ID: <4fe325c5-dad2-4619-8e40-a1d22de83315@mary.at.omicron.at>
+From: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Subject: RE: [RFC 0/2] pm,net: Introduce QoS requests per CPU
+Date: Wed, 26 Mar 2014 07:12:28 +0000
+Message-ID: <953B660C027164448AE903364AC447D2DBE89CEB@MTLDAG01.mtl.com>
+References: <1395753505-13180-1-git-send-email-amirv@mellanox.com>
+	 <1395760447.12610.132.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1395787649.28354.40.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	Manfred Rudigier <manfred.rudigier@omicron.at>,
-	Christian Riesch <christian.riesch@omicron.at>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.omicron.at ([212.183.10.25]:57013 "EHLO ns.omicron.at"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751951AbaCZHQs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2014 03:16:48 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Amir Vadai <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Pavel Machek <pavel@ucw.cz>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Len Brown <len.brown@intel.com>,
+	Yuval Itkin <yuvali@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>
+To: Ben Hutchings <ben@decadent.org.uk>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <1395787649.28354.40.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Manfred Rudigier <manfred.rudigier@omicron.at>
-
-Signed-off-by: Manfred Rudigier <manfred.rudigier@omicron.at>
-Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
-Acked-by: Richard Cochran <richardcochran@gmail.com>
----
-
-Changes for v2:
-- Added Richard's Acked-by
-
- Documentation/ptp/testptp.c |   20 ++++++++++++++++++--
- 1 file changed, 18 insertions(+), 2 deletions(-)
-
-diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
-index e9eaee6..13bddd5 100644
---- a/Documentation/ptp/testptp.c
-+++ b/Documentation/ptp/testptp.c
-@@ -131,7 +131,8 @@ static void usage(char *progname)
- 		" -P val     enable or disable (val=1|0) the system clock PPS\n"
- 		" -s         set the ptp clock time from the system time\n"
- 		" -S         set the system time from the ptp clock time\n"
--		" -t val     shift the ptp clock time by 'val' seconds\n",
-+		" -t val     shift the ptp clock time by 'val' seconds\n"
-+		" -T val     set the ptp clock time to 'val' seconds\n",
- 		progname);
- }
- 
-@@ -172,6 +173,7 @@ int main(int argc, char *argv[])
- 	int perout = -1;
- 	int pin_index = -1, pin_func;
- 	int pps = -1;
-+	int seconds = 0;
- 	int settime = 0;
- 
- 	int64_t t1, t2, tp;
-@@ -179,7 +181,7 @@ int main(int argc, char *argv[])
- 
- 	progname = strrchr(argv[0], '/');
- 	progname = progname ? 1+progname : argv[0];
--	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghi:k:lL:p:P:sSt:v"))) {
-+	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghi:k:lL:p:P:sSt:T:v"))) {
- 		switch (c) {
- 		case 'a':
- 			oneshot = atoi(optarg);
-@@ -234,6 +236,10 @@ int main(int argc, char *argv[])
- 		case 't':
- 			adjtime = atoi(optarg);
- 			break;
-+		case 'T':
-+			settime = 3;
-+			seconds = atoi(optarg);
-+			break;
- 		case 'h':
- 			usage(progname);
- 			return 0;
-@@ -326,6 +332,16 @@ int main(int argc, char *argv[])
- 		}
- 	}
- 
-+	if (settime == 3) {
-+		ts.tv_sec = seconds;
-+		ts.tv_nsec = 0;
-+		if (clock_settime(clkid, &ts)) {
-+			perror("clock_settime");
-+		} else {
-+			puts("set time okay");
-+		}
-+	}
-+
- 	if (extts) {
- 		memset(&extts_request, 0, sizeof(extts_request));
- 		extts_request.index = index;
--- 
-1.7.9.5
+PiA+ID4gVGhlIGN1cnJlbnQgcG1fcW9zIGltcGxlbWVudGF0aW9uIGhhcyBhIHByb2JsZW0uIER1
+cmluZyBhIHNob3J0IHBhdXNlIGluIGEgaGlnaA0KPiA+ID4gYmFuZHdpZHRoIHRyYWZmaWMsIHRo
+ZSBrZXJuZWwgY2FuIGxvd2VyIHRoZSBjLXN0YXRlIHRvIHByZXNlcnZlIGVuZXJneS4NCj4gPiA+
+IFdoZW4gdGhlIHBhdXNlIGVuZHMsIGFuZCB0aGUgdHJhZmZpYyByZXN1bWVzLCB0aGUgTklDIGhh
+cmR3YXJlIGJ1ZmZlcnMgbWF5IGJlDQo+ID4gPiBvdmVyZmxvd2VkIGJlZm9yZSB0aGUgQ1BVIHN0
+YXJ0cyB0byBwcm9jZXNzIHRoZSB0cmFmZmljIGR1ZSB0byB0aGUgQ1BVIHdha2UtdXANCj4gPiA+
+IGxhdGVuY3kuDQo+ID4NCj4gPiBUaGlzIGlzIHRoZSBwb2ludCBJIG5ldmVyIHVuZGVyc3Rvb2Qg
+d2l0aCBtbHg0DQo+ID4NCj4gPiBSWCByaW5nIGJ1ZmZlcnMgc2hvdWxkIGFsbG93IE5JQyB0byBi
+dWZmZXIgcXVpdGUgYSBsYXJnZSBhbW91bnQgb2YNCj4gPiBpbmNvbWluZyBmcmFtZXMuIEJ1dCBh
+cHBhcmVudGx5IHdlIG1pc3MgZnJhbWVzLCBldmVuIGluIGEgc2luZ2xlIFRDUA0KPiA+IGZsb3cu
+IEkgcmVhbGx5IGNhbnQgdW5kZXJzdGFuZCB3aHksIGFzIHNlbmRlciBpbiBteSBjYXNlIGRvIG5v
+dCBoYXZlDQo+ID4gbW9yZSB0aGFuIDkwIHBhY2tldHMgaW4gZmxpZ2h0IChjd25kIGlzIGxpbWl0
+ZWQgdG8gOTApDQo+IFsuLi5dDQo+IA0KPiBUaGUgdGltZSB0YWtlbiBmb3Igc29mdHdhcmUgdG8g
+Y2xlYW4gdGhlIFJYIHJpbmcgaXMgb25seSBoYWxmIHRoZSBzdG9yeS4NCj4gDQo+IEEgRE1BIHdy
+aXRlIHJlcXVpcmVzIGV2ZXJ5IENQVSdzIGNhY2hlIGNvbnRyb2xsZXIgdG8gaW52YWxpZGF0ZSBh
+ZmZlY3RlZA0KPiBjYWNoZSBsaW5lcy4gIEl0IG1heSBhbHNvIHJlcXVpcmUgcmVhZGluZyBmcm9t
+IGNhY2hlLCBpZiB0aGUgd3JpdGUNCj4gY292ZXJzIG9ubHkgcGFydCBvZiBhIGNhY2hlIGxpbmUu
+ICBTbyBhdCBsZWFzdCB0aGUgY2FjaGUgY29udHJvbGxlcnMNCj4gbmVlZCB0byBiZSB3b2tlbiBm
+cm9tIHNsZWVwLCBhbmQgdW50aWwgdGhlbiBhbGwgRE1BIHdyaXRlcyBtdXN0IGJlDQo+IGJ1ZmZl
+cmVkIGluIHNvbWUgY29tYmluYXRpb24gb2YgQ1BVcywgYnJpZGdlcyBhbmQgdGhlIG5ldHdvcmsN
+Cj4gY29udHJvbGxlcidzIFJYIEZJRk9zLiAgSWYgdGhvc2UgYnVmZmVycyBhcmVuJ3QgbG9uZyBl
+bm91Z2ggZm9yIHRoZQ0KPiBkZWxheSwgcGFja2V0cyB3aWxsIGJlIGRyb3BwZWQuICAoRXRoZXJu
+ZXQgZmxvdyBjb250cm9sIG1heSBoZWxwIHdpdGgNCj4gdGhpcywgaWYgZW5hYmxlZC4pDQo+IA0K
+PiBCYWNrIGluIDIwMDcsIGNvbGxlYWd1ZXMgYXQgU29sYXJmbGFyZSBtZWFzdXJlZCBETUEgd3Jp
+dGUgZGVsYXlzIG9mDQo+IGFib3V0IDEwIHVzIHdoZW4gQ1BVcyBoYWQgdG8gYmUgd29rZW4gdXAs
+IHJpc2luZyB0byA0MC01MCB1cyBmb3Igb25lDQo+IGJ1Z2d5IEludGVsIG1vZGVsLiAgVGhpcyBt
+b3RpdmF0ZWQgYSBsYXJnZSBpbmNyZWFzZSB0byBSWCBGSUZPIHNpemUgaW4NCj4gdGhlIFNGQzQw
+MDBCIGFuZCBzdWJzZXF1ZW50IGNvbnRyb2xsZXJzLg0KPiANClRoaXMgaXMgZXhhY3RseSB0aGUg
+c3RvcnkgaGVyZS4NCk5vdCBhbGwgTklDcyBoYXZlIEhXIGJ1ZmZlcnMgd2hpY2ggYXJlIGJpZyBl
+bm91Z2guIEFuZCBmb3IgdGhvc2Ugd2hvIGRvbid0LA0KY2hhbmdpbmcgYy1zdGF0ZXMgd291bGQg
+Y2F1c2UgYSBwYWNrZXQgZHJvcCB3aXRoIGJ1cnN0IHRyYWZmaWMsDQpldmVuIGlmIHRoZSBudW1i
+ZXIgb2YgcGFja2V0cyBpcyBsb3dlciB0aGFuIHRoZSByaW5nIHNpemUuDQpJbmRlZWQsIGZsb3cg
+Y29udHJvbCBjb3VsZCBwcmV2ZW50IHRob3NlIGRyb3BzLCBidXQgaW4gbWFueSBjYXNlcyBpdCBp
+cyBub3QgZW5hYmxlZC4NCg0KWWV2Z2VueSANCg==
