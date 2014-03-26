@@ -1,64 +1,92 @@
 From: Christian Riesch <christian.riesch@omicron.at>
-Subject: [PATCH v2 net-next 2/2] ptp: Fix compiler warnings in the testptp utility
-Date: Wed, 26 Mar 2014 08:16:03 +0100
-Message-ID: <35ec3d13-e8a8-4cf4-b5ce-91c4dbe2ac0b@mary.at.omicron.at>
-References: <1395818163-31672-1-git-send-email-christian.riesch@omicron.at>
+Subject: [PATCH v2 net-next 1/2] ptp: Add a command line option in testptp to set a specific PTP time
+Date: Wed, 26 Mar 2014 08:16:02 +0100
+Message-ID: <4fe325c5-dad2-4619-8e40-a1d22de83315@mary.at.omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Richard Cochran <richardcochran@gmail.com>,
-	Christian Riesch <christian.riesch@omicron.at>,
-	Dong Zhu <bluezhudong@gmail.com>
+	Manfred Rudigier <manfred.rudigier@omicron.at>,
+	Christian Riesch <christian.riesch@omicron.at>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.omicron.at ([212.183.10.25]:57014 "EHLO ns.omicron.at"
+Received: from ns.omicron.at ([212.183.10.25]:57013 "EHLO ns.omicron.at"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752035AbaCZHQt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2014 03:16:49 -0400
-In-Reply-To: <1395818163-31672-1-git-send-email-christian.riesch@omicron.at>
+	id S1751951AbaCZHQs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2014 03:16:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Manfred Rudigier <manfred.rudigier@omicron.at>
+
+Signed-off-by: Manfred Rudigier <manfred.rudigier@omicron.at>
 Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
-Cc: Dong Zhu <bluezhudong@gmail.com>
+Acked-by: Richard Cochran <richardcochran@gmail.com>
 ---
 
 Changes for v2:
-- Use PRI64d macro for __s64 in printf
+- Added Richard's Acked-by
 
- Documentation/ptp/testptp.c |   11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+ Documentation/ptp/testptp.c |   20 ++++++++++++++++++--
+ 1 file changed, 18 insertions(+), 2 deletions(-)
 
 diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
-index 13bddd5..f1ac2da 100644
+index e9eaee6..13bddd5 100644
 --- a/Documentation/ptp/testptp.c
 +++ b/Documentation/ptp/testptp.c
-@@ -19,6 +19,7 @@
-  */
- #include <errno.h>
- #include <fcntl.h>
-+#include <inttypes.h>
- #include <math.h>
- #include <signal.h>
- #include <stdio.h>
-@@ -496,14 +497,14 @@ int main(int argc, char *argv[])
- 			interval = t2 - t1;
- 			offset = (t2 + t1) / 2 - tp;
+@@ -131,7 +131,8 @@ static void usage(char *progname)
+ 		" -P val     enable or disable (val=1|0) the system clock PPS\n"
+ 		" -s         set the ptp clock time from the system time\n"
+ 		" -S         set the system time from the ptp clock time\n"
+-		" -t val     shift the ptp clock time by 'val' seconds\n",
++		" -t val     shift the ptp clock time by 'val' seconds\n"
++		" -T val     set the ptp clock time to 'val' seconds\n",
+ 		progname);
+ }
  
--			printf("system time: %ld.%ld\n",
-+			printf("system time: %" PRId64 ".%u\n",
- 				(pct+2*i)->sec, (pct+2*i)->nsec);
--			printf("phc    time: %ld.%ld\n",
-+			printf("phc    time: %" PRId64 ".%u\n",
- 				(pct+2*i+1)->sec, (pct+2*i+1)->nsec);
--			printf("system time: %ld.%ld\n",
-+			printf("system time: %" PRId64 ".%u\n",
- 				(pct+2*i+2)->sec, (pct+2*i+2)->nsec);
--			printf("system/phc clock time offset is %ld ns\n"
--				"system     clock time delay  is %ld ns\n",
-+			printf("system/phc clock time offset is %" PRId64 " ns\n"
-+			       "system     clock time delay  is %" PRId64 " ns\n",
- 				offset, interval);
+@@ -172,6 +173,7 @@ int main(int argc, char *argv[])
+ 	int perout = -1;
+ 	int pin_index = -1, pin_func;
+ 	int pps = -1;
++	int seconds = 0;
+ 	int settime = 0;
+ 
+ 	int64_t t1, t2, tp;
+@@ -179,7 +181,7 @@ int main(int argc, char *argv[])
+ 
+ 	progname = strrchr(argv[0], '/');
+ 	progname = progname ? 1+progname : argv[0];
+-	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghi:k:lL:p:P:sSt:v"))) {
++	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghi:k:lL:p:P:sSt:T:v"))) {
+ 		switch (c) {
+ 		case 'a':
+ 			oneshot = atoi(optarg);
+@@ -234,6 +236,10 @@ int main(int argc, char *argv[])
+ 		case 't':
+ 			adjtime = atoi(optarg);
+ 			break;
++		case 'T':
++			settime = 3;
++			seconds = atoi(optarg);
++			break;
+ 		case 'h':
+ 			usage(progname);
+ 			return 0;
+@@ -326,6 +332,16 @@ int main(int argc, char *argv[])
  		}
+ 	}
  
++	if (settime == 3) {
++		ts.tv_sec = seconds;
++		ts.tv_nsec = 0;
++		if (clock_settime(clkid, &ts)) {
++			perror("clock_settime");
++		} else {
++			puts("set time okay");
++		}
++	}
++
+ 	if (extts) {
+ 		memset(&extts_request, 0, sizeof(extts_request));
+ 		extts_request.index = index;
 -- 
 1.7.9.5
