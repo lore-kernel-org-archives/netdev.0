@@ -1,46 +1,64 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH net-next v3] ipv6: do not overwrite inetpeer metrics
- prematurely
-Date: Wed, 26 Mar 2014 16:56:06 +0100
-Message-ID: <20140326155606.GC27720@unicorn.suse.cz>
-References: <20140325191155.GB22086@order.stressinduktion.org>
- <20140326154245.10C6CE6E05@unicorn.suse.cz>
- <20140326155047.GG22086@order.stressinduktion.org>
+From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Subject: RE: [PATCH net-next 2/2] cxgb4/iw_cxgb4: Doorbell Drop Avoidance Bug Fixes
+Date: Wed, 26 Mar 2014 10:58:35 -0500
+Message-ID: <007101cf490c$3ec7cb30$bc576190$@opengridcomputing.com>
+References: <1394814128-8815-1-git-send-email-hariprasad@chelsio.com>	 <1394814128-8815-3-git-send-email-hariprasad@chelsio.com> <1395848977.3297.15.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:48128 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751674AbaCZP4H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2014 11:56:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20140326155047.GG22086@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>, <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+	<leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+	<nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: "'Yann Droneaud'" <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1395848977.3297.15.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Content-Language: en-us
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 26, 2014 at 04:50:47PM +0100, Hannes Frederic Sowa wrote:
-> On Wed, Mar 26, 2014 at 04:42:45PM +0100, Michal Kubecek wrote:
-> > diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> > index fba54a4..b6dda6a 100644
-> > --- a/net/ipv6/route.c
-> > +++ b/net/ipv6/route.c
-> > @@ -149,8 +149,10 @@ static u32 *ipv6_cow_metrics(struct dst_entry *dst, unsigned long old)
-> >  		unsigned long prev, new;
-> >  
-> >  		p = peer->metrics;
-> > -		if (inet_metrics_new(peer))
-> > +		if (inet_metrics_new(peer) || (dst->flags | DST_KEEP_METRICS)) {
-> >  			memcpy(p, old_p, sizeof(u32) * RTAX_MAX);
-> > +			dst->flags &= ~DST_KEEP_METRICS;
-> > +		}
+
+
+> > +		uresp.status_page_size = PAGE_SIZE;
+> > +
+> > +		spin_lock(&context->mmap_lock);
+> > +		uresp.status_page_key = context->key;
+> > +		context->key += PAGE_SIZE;
+> > +		spin_unlock(&context->mmap_lock);
+> > +
 > 
-> The (dst->flags | DST_KEEP_METRICS) looks very suspicious. ;)
+> Is it really necessary to spinlock here since context is local to the
+> function ?
+> 
 
-Oops. I already fixed this typo... and then did the submission from a
-different branch. :-(
+You're correct.
 
-                                                       Michal Kubecek
+> 
+> [...]
+> 
+> > diff --git a/drivers/infiniband/hw/cxgb4/user.h b/drivers/infiniband/hw/cxgb4/user.h
+> > index 32b754c..11ccd27 100644
+> > --- a/drivers/infiniband/hw/cxgb4/user.h
+> > +++ b/drivers/infiniband/hw/cxgb4/user.h
+> > @@ -70,4 +70,9 @@ struct c4iw_create_qp_resp {
+> >  	__u32 qid_mask;
+> >  	__u32 flags;
+> >  };
+> > +
+> > +struct c4iw_alloc_ucontext_resp {
+> > +	__u64 status_page_key;
+> > +	__u32 status_page_size;
+> > +};
+> 
+> If this is going to be part of the ABI, mind add an explicit padding to
+> align the structure on 64bits.
+> 
+
+Sounds good.  Can you provide patches for these?
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
