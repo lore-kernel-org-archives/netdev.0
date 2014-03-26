@@ -1,76 +1,66 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH] net: unix: non blocking recvmsg() should not return -EINTR
-Date: Wed, 26 Mar 2014 22:06:49 +0000
-Message-ID: <8761n07gxy.fsf@sable.mobileactivedefense.com>
-References: <87zjkd802t.fsf@sable.mobileactivedefense.com>
-	<1395847524.12610.208.camel@edumazet-glaptop2.roam.corp.google.com>
-	<87y4zw7ngi.fsf@sable.mobileactivedefense.com>
-	<20140326.170514.1793472148242469413.davem@davemloft.net>
-	<87a9cc7j1o.fsf@sable.mobileactivedefense.com>
-	<1395870280.12610.252.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Gerhard Sittig <gsi@denx.de>
+Subject: Re: [PATCH 2/3] dts: socfpga: Fix ethernet entries for the stmmac
+Date: Wed, 26 Mar 2014 23:12:25 +0100
+Message-ID: <20140326221225.GP3998@book.gsilab.sittig.org>
+References: <1395790482-3957-1-git-send-email-dinguyen@altera.com>
+ <1395790482-3957-3-git-send-email-dinguyen@altera.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, David.Laight@ACULAB.COM,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: dinh.linux@gmail.com, arnd@arndb.de, davem@davemloft.net,
+	peppe.cavallaro@st.com, mark.rutland@arm.com,
+	devicetree@vger.kernel.org, pawel.moll@arm.com,
+	srinivas.kandagatla@st.com, netdev@vger.kernel.org,
+	ijc+devicetree@hellion.org.uk, robh+dt@kernel.org, arm@kernel.org,
+	galak@codeaurora.org, linux-arm-kernel@lists.infradead.org
+To: dinguyen@altera.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tiger.mobileactivedefense.com ([217.174.251.109]:52381 "EHLO
-	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754185AbaCZWHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 18:07:03 -0400
-In-Reply-To: <1395870280.12610.252.camel@edumazet-glaptop2.roam.corp.google.com>
-	(Eric Dumazet's message of "Wed, 26 Mar 2014 14:44:40 -0700")
+Received: from mail-out.m-online.net ([212.18.0.10]:49053 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751683AbaCZWMc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 18:12:32 -0400
+Content-Disposition: inline
+In-Reply-To: <1395790482-3957-3-git-send-email-dinguyen@altera.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
-> On Wed, 2014-03-26 at 21:21 +0000, Rainer Weikusat wrote:
->> BTW, here's the program with the O_NONBLOCK read call which blocks until
->> the end of electricity, at least on 3.2.9:
->> 
->> ---------
->> #include <fcntl.h>
->> #include <string.h>
->> #include <sys/socket.h>
->> #include <sys/un.h>
->> 
->> int main(void)
->> {
->>     struct sockaddr_un sun;
->>     int fd;
->> 
->>     fd = socket(AF_UNIX, SOCK_DGRAM, 0);
->>     sun.sun_family = AF_UNIX;
->>     strncpy(sun.sun_path, "/tmp/bla", sizeof(sun.sun_path));
->>     bind(fd, (struct sockaddr *)&sun, sizeof(sun));
->> 
->>     if (fork() == 0) read(fd, &fd, sizeof(fd));
->> 
->>     sleep(1);
->> 
->>     fcntl(fd, F_SETFL, O_NONBLOCK);
->>     read(fd, &fd, sizeof(fd));
->> 
->>     return 0;
->> }
->
-> Sure, O_NONBLOCK is translated into MSG_NOWAIT one time per socket
-> syscall. 
->
-> Once we block, we don't automatically unblock if another thread change
-> the file flag.
+On Tue, 2014-03-25 at 18:34 -0500, dinguyen@altera.com wrote:
+> 
+> -			#size-cells = <1>;
+> -			compatible = "altr,socfpga-stmmac";
+> -			altr,sysmgr-syscon = <&sysmgr 0x60>;
+> +		gmac0: ethernet@ff700000 {
+> +			compatible = "altr,socfpga-stmmac", "snps,dwmac-3.70a", "snps,dwmac";
+>  			status = "disabled";
+> -			ranges;
+> -
+> -			gmac0: gmac0@ff700000 {
+> -				compatible = "snps,dwmac-3.70a", "snps,dwmac";
+> -				reg = <0xff700000 0x2000>;
+> -				interrupts = <0 115 4>;
+> -				interrupt-names = "macirq";
+> -				mac-address = [00 00 00 00 00 00];/* Filled in by U-Boot */
+> -				clocks = <&emac0_clk>;
+> -				clock-names = "stmmaceth";
+> -			};
+> +			altr,sysmgr-syscon = <&sysmgr 0x60>;
+> +			reg = <0xff700000 0x2000>;
+> +			interrupts = <0 115 4>;
+> +			interrupt-names = "macirq";
+> +			mac-address = [00 00 00 00 00 00];/* Filled in by U-Boot */
+> +			clocks = <&emac0_clk>;
+> +			clock-names = "stmmaceth";
+>  		};
 
-That would be a seriously bizarre idea. The thread of execution which
-does the supposed-to-be-non-blocking call shouldn't become blocked for
-an indefinite time. Which means it should not wait indefinitely for a
-thread which - in turn - waits indefinitely for an external event (and
-hence, the original problem should never have existed to begin with as
-there would neither be an opportunity nor a reason to interrupt in the
-non-blocking case).
+not strictly related to this patch, but noticed in bypassing:
 
-BTW, while these are things which are of some interest to me (even of
-some professional interest), I don't exactly get paid for these kind of
-discussions, have some real work to do, and the way people interact on
-LKML is seriously more aggressive then I can stand for a prolonged time,
-so can we please end this discussion here while it - if only for a
-change - hasn't yet degraded into an all out mutual extermination fight?
+is the 'clocks' spec correct?  ISTR that 'emac0_clk' is the PLL
+output, while the gated clock for the EMAC IP block is named
+'emac_0_clk' (note the extra underscore)
+
+
+virtually yours
+Gerhard Sittig
+-- 
+DENX Software Engineering GmbH,     MD: Wolfgang Denk & Detlev Zundel
+HRB 165235 Munich, Office: Kirchenstr. 5, D-82194 Groebenzell, Germany
+Phone: +49-8142-66989-0 Fax: +49-8142-66989-80  Email: office@denx.de
