@@ -1,139 +1,76 @@
-From: Heiner Kallweit <heiner.kallweit@web.de>
-Subject: Re: [PATCH net] ipv6: If a public address is deleted then also delete
- all temporary addresses still referring to it
-Date: Wed, 26 Mar 2014 22:50:06 +0100
-Message-ID: <53334B8E.8000807@web.de>
-References: <5328B0B0.7070305@web.de> <20140319202123.GH12291@order.stressinduktion.org> <532A096C.8030200@web.de> <20140319224121.GI12291@order.stressinduktion.org> <53333829.2000806@web.de>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
+ of switch chip datapath
+Date: Wed, 26 Mar 2014 17:51:22 -0400
+Message-ID: <53334BDA.1060608@mojatatu.com>
+References: <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org> <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com> <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com> <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion> <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com> <20140326173536.GJ2869@minipsycho.orion> <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com> <20140326181436.GL2869@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Jiri Pirko <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.17.11]:58565 "EHLO mout.web.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756094AbaCZVuH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2014 17:50:07 -0400
-In-Reply-To: <53333829.2000806@web.de>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:38886 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751580AbaCZVvZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 17:51:25 -0400
+Received: by mail-ig0-f177.google.com with SMTP id ur14so1079055igb.16
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 14:51:25 -0700 (PDT)
+In-Reply-To: <20140326181436.GL2869@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 26.03.2014 21:27, schrieb Heiner Kallweit:
-> Am 19.03.2014 23:41, schrieb Hannes Frederic Sowa:
->> On Wed, Mar 19, 2014 at 10:17:32PM +0100, Heiner Kallweit wrote:
->>> Am 19.03.2014 21:21, schrieb Hannes Frederic Sowa:
->>>> On Tue, Mar 18, 2014 at 09:46:40PM +0100, Heiner Kallweit wrote:
->>>>> If a public address is deleted by an external trigger (e.g. via inet6_rtm_deladdr) then temporary
->>>>> addresses still referring to it may remain. Happened here when the WiFi link broke and netifd
->>>>> deleted the public address. Once the link was back and prefix_rcv created new public addresses
->>>>> ipv6_create_tempaddr complained that the temporary address already existed.
->>>> Which error was it specifically?
->>>>
->>>>> IMHO no temporary address should live longer than its parent, especially because ifpub of the
->>>>> temporary address still points to the then deleted public address otherwise.
->>>> Reference counting will take care of that.
->>>>
->>>>> Therefore delete all related temporary addresses before a public address is deleted in inet6_addr_del
->>>>> which is called by inet6_rtm_del.
->>>> I am a bit concerend with backward compatibility here.
->>>>
->>>>> Also ensure in ipv6_del_addr that no temporary address lives longer than its parent.
->>>> I currently don't see a problem with that.
->>>>
->>>> Greetings,
->>>>
->>>>   Hannes
->>>>
->>>>
->>> The specific error was "retry temporary address regeneration" caused by ipv6_add_addr returning EEXIST.
->>>
->>> First question is whether it's correct that in case of link loss the public address is deleted but not the temporary addresses.
->>> I don't think it's correct.
->> The kernel doesn't delete any addresses in case of link loss. netifd must
->> have done so. In this case netifd should have flushed all addresses from
->> the prefix.
->>
->> Sure, this is racy and the error therefore looks justified for me.
->>
->>> If it's not correct then the question is who's reponsibility it is to delete temporary addresses if the parent public address is deleted.
->> In my opinion those addresses are simple standalone addresses. The link
->> to the public addresses is just for management purposes and should be
->> hidden from user space.
->>
->> So I would be ok, if we enhance the error case a bit, maybe reparent the
->> old temporary address, drop them and silently generate them anew or only
->> update prefix information from the new received prefix information. This
->> should happen without disturbing TCP connections etc. I think this
->> already works, but I don't know if it is worth the effort.
->>
->>> My solution was to do it in the kernel but this might not be the best / correct approach.
->>> Would you prefer that userspace / netifd take care to also delete the temporary addresses?
->> Yes, I would prefer that.
->>
->>> Last but not least the question is whether the kernel should care in general about the situation that a public address is deleted and orphaned
->>> temporary addresses are left behind.
->> I think that we should think of temporary addresses as stand-alone
->> (IFA_F_MANAGETEMPADDR is a different story).
->>
->> Btw. there was already lots of discussions whether automatically drop addresses
->> of an interface in case of link-loss, you can read the IMHO most relevant here:
->> <http://markmail.org/thread/wcb6f6lcuyfuli7b>
->>
->> Greetings,
->>
->>   Hannes
-> I spent some thoughts on this topic and it seems to me that deleting a temporary address from user space will break TCP connections most of the time
-> as the newly created temporary address will be different from the old one.
-> Setting a temporary address to deprecated is also not possible from user space currently as netlink RTM_NEWADDR doesn't allow to modify the IFA_F_DEPRECATED flag:
->
-> /* We ignore other flags so far. */
-> 	ifa_flags &= IFA_F_NODAD | IFA_F_HOMEADDRESS | IFA_F_MANAGETEMPADDR |
-> 		     IFA_F_NOPREFIXROUTE;
->
-> Having said that your suggestion seems to be the most appropriate way to tackle the issue:
->
-> "So I would be ok, if we enhance the error case a bit, maybe reparent the
-> old temporary address, drop them and silently generate them anew or only
-> update prefix information from the new received prefix information. This
-> should happen without disturbing TCP connections etc. I think this
-> already works, but I don't know if it is worth the effort."
->
-> The following patch works fine for me, I'd appreciate if you could have a look at it.
->
-> Rgds, Heiner
->
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 344e972..7cc3dae 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -2063,8 +2063,23 @@ static void manage_tempaddrs(struct inet6_dev *idev,
->      list_for_each_entry(ift, &idev->tempaddr_list, tmp_list) {
->          int age, max_valid, max_prefered;
->  
-> -        if (ifp != ift->ifpub)
-> -            continue;
-> +        spin_lock(&ift->lock);
-> +        if (ifp != ift->ifpub) {
-> +            /* reparent if orphaned temporary addresses with same prefix is found */
-> +            if(ift->prefix_len == ifp->prefix_len && ipv6_prefix_equal(&ift->addr,&ifp->addr,ift->prefix_len)) {
-> +                in6_ifa_hold(ifp);
-> +                in6_ifa_put(ift->ifpub);
-> +                ift->ifpub = ifp;
-> +                spin_unlock(&ift->lock);
-> +                create = false;
-> +                pr_info("%s: reparent orphaned temporary address\n", __func__);
-> +            } else {
-> +                spin_unlock(&ift->lock);
-> +                continue;
-> +            }
-> +        } else {
-> +            spin_unlock(&ift->lock);
-> +        }
->  
->          /* RFC 4941 section 3.3:
->           * If a received option will extend the lifetime of a public
->
-After further checking it seems like the timer of the reparented temporary address was deleted. When the reparented address expires no new address is generated.
-Have to dig deeper into it ..
+On 03/26/14 14:14, Jiri Pirko wrote:
+> Wed, Mar 26, 2014 at 06:58:32PM CET, f.fainelli@gmail.com wrote:
+>> 2014-03-26 10:35 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
 
-Rgds, Heiner
+
+>> You are right, sw1p0 and sw1p1 were meant to be, say LAN ports in my example.
+>>
+>> I think there is an implicit convention that sw1 represents the
+>> Ethernet switch port connected to the CPU Ethernet MAC, and that it is
+>> always connected, hence there is no need to create a "fake" bridge to
+>> link sw1 to eth0 for instance?
+>
+> I think you are kind of mixing apples and oranges (or I might be I'm not
+> understanding you correctly).
+> This is how I see it, sticking to the names you use in the example:
+>
+>              (sw1) (abstract place-holder netdev)
+>            --------
+>           switch chip                   CPU
+>     -----------------------            ------
+>     sw1p0 sw1p1 sw1p2 sw1p3             eth0
+>       |     |     |     |                |
+>      PHY   PHY   PHY    ------someMII-----
+>
+> You see that eth0 is the CPU part of the "connection" and sw1p3 is the
+> switch part (port representation).
+>
+
+
+Florian - I am sure you explained this before; I just dont remember. Why
+is there need to expose eth0? It seems to me sw1p0-3 are abstracted
+already in the kernel and the "cpu port" is merely a control interface.
+
+Note: even the high end chips tend to have the concept of a "cpu port"
+but my experience is to hide that as part of the switch driver.
+
+cheers,
+jamal
