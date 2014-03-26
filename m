@@ -1,30 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/bridge: Use RCU_INIT_POINTER(x,
-	NULL) in br_vlan.c
-Date: Tue, 25 Mar 2014 21:19:23 -0400 (EDT)
-Message-ID: <20140325.211923.1366926482436380447.davem@davemloft.net>
-References: <1395601873-12447-1-git-send-email-monamagarwal123@gmail.com>
+Subject: Re: [PATCH] drivers/net: Use RCU_INIT_POINTER(x, NULL) in
+ bonding/bond_options.c
+Date: Tue, 25 Mar 2014 21:19:09 -0400 (EDT)
+Message-ID: <20140325.211909.1213660358814903074.davem@davemloft.net>
+References: <1395599417-7041-1-git-send-email-monamagarwal123@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org
+Cc: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: monamagarwal123@gmail.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1395601873-12447-1-git-send-email-monamagarwal123@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395599417-7041-1-git-send-email-monamagarwal123@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Monam Agarwal <monamagarwal123@gmail.com>
-Date: Mon, 24 Mar 2014 00:41:13 +0530
+Date: Mon, 24 Mar 2014 00:00:17 +0530
 
 > This patch replaces rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x, NULL)
 > 
