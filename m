@@ -1,79 +1,108 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/15] i40evf: fix oops in watchdog handler
-Date: Wed, 26 Mar 2014 11:03:20 -0700
-Message-ID: <1395857013-7568-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1395857013-7568-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
+ switch chip datapath
+Date: Wed, 26 Mar 2014 19:03:56 +0100
+Message-ID: <20140326180356.GK2869@minipsycho.orion>
+References: <5330BAB7.3040501@mojatatu.com>
+ <20140325173927.GE8102@hmsreliant.think-freely.org>
+ <20140325180009.GB15723@casper.infradead.org>
+ <20140325193533.GF8102@hmsreliant.think-freely.org>
+ <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com>
+ <5332677F.2090404@cumulusnetworks.com>
+ <5332B1FE.7080102@mojatatu.com>
+ <53330639.8050403@cumulusnetworks.com>
+ <20140326165934.GH2869@minipsycho.orion>
+ <533312A3.5070600@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:63689 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751213AbaCZSEE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2014 14:04:04 -0400
-In-Reply-To: <1395857013-7568-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-ee0-f49.google.com ([74.125.83.49]:60609 "EHLO
+	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbaCZSEA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 14:04:00 -0400
+Received: by mail-ee0-f49.google.com with SMTP id c41so1960668eek.36
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 11:03:59 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <533312A3.5070600@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+Wed, Mar 26, 2014 at 06:47:15PM CET, roopa@cumulusnetworks.com wrote:
+>On 3/26/14, 9:59 AM, Jiri Pirko wrote:
+>>Wed, Mar 26, 2014 at 05:54:17PM CET, roopa@cumulusnetworks.com wrote:
+>>>On 3/26/14, 3:54 AM, Jamal Hadi Salim wrote:
+>>>>On 03/26/14 01:37, Roopa Prabhu wrote:
+>>>>>On 3/25/14, 1:11 PM, Florian Fainelli wrote:
+>>>>>>2014-03-25 12:35 GMT-07:00 Neil Horman <nhorman@tuxdriver.com>:
+>>>>>Sorry about getting on this thread late and possibly in the middle.
+>>>>>Agree on the idea of keeping the ports linked to the master switch dev
+>>>>>(or the 'conduit' to the switch chip) via private list instead of the
+>>>>>master-slave relationship proposed earlier.
+>>>>>By private i mean the netdev->priv linkage to the master switch dev and
+>>>>>not really keeping the ports from being exposed to the user.
+>>>>>
+>>>>>We think its better to keep the switch ports exposed as any other netdev
+>>>>>on linux.
+>>>>>  This approach will make the switch ports look exactly like a nic port
+>>>>>and all tools will continue to work seamlessly. The switch port
+>>>>>operations could internally be forwarded to the switch netdev (sw1 in
+>>>>>the above case).
+>>>>>
+>>>>>example:
+>>>>>$ip link set dev sw1p0 up
+>>>>>$ethtool -S sw1p0
+>>>>>
+>>>>I like the approach. I know the above is a simple version, but i am
+>>>>assuming you also mean i can do things like
+>>>>ip route add ...
+>>>>bridge fdb add ... (and if you like your brctl go ahead)
+>>>>bonding ...
+>>>>
+>>>yes, exactly.  We support this model on our boxes today.
+>>>User can bond switch ports on our box in the exact same way as he/she
+>>>would bond two nic ports.
+>>>Our 'conduit to switch chip' reflects the corresponding lag
+>>>configuration in the switch chip.
+>>>Same goes for bridging, routing, acls.
+>>
+>>So you implement bonding netlink api? Or you hook into bonding driver
+>>itselt? Can you show us the code?
+>We use the netlink API and libnl. In our current model, our switch
+>chip driver listens to netlink notifications and programs the switch
+>chip. The switch chip driver uses libnl caches and libnl netlink apis
+>to reflect the kernel state to switch chip.
 
-The Tx watchdog handler runs in interrupt context, so it would cause an
-oops when sending an admin queue message to request a reset, because the
-admin queue functions use spinlocks.
 
-Instead, set a flag and let the reset task handle sending the request.
+So when you configure for example bonding over 2 ports, you actually use
+bonding driver to do that. And you userspace app listens to
+notifications and programs the switch chip accordingly. Am I close?
 
-Change-ID: I65879470b72963d9c308edfb8f45ac4fbba2c14f
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40evf/i40evf.h      |  1 +
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 10 +++++++---
- 2 files changed, 8 insertions(+), 3 deletions(-)
+How about data? Is this new "bonding" interface able to assign ip to is
+and send/receive packets.
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index ccb43d3..807807d 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -211,6 +211,7 @@ struct i40evf_adapter {
- #define I40EVF_FLAG_NEED_LINK_UPDATE             (u32)(1 << 7)
- #define I40EVF_FLAG_PF_COMMS_FAILED              (u32)(1 << 8)
- #define I40EVF_FLAG_RESET_PENDING                (u32)(1 << 9)
-+#define I40EVF_FLAG_RESET_NEEDED                 (u32)(1 << 10)
- /* duplcates for common code */
- #define I40E_FLAG_FDIR_ATR_ENABLED		 0
- #define I40E_FLAG_DCB_ENABLED			 0
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index d3eafa3..51c84c1 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -169,9 +169,7 @@ static void i40evf_tx_timeout(struct net_device *netdev)
- 	adapter->tx_timeout_count++;
- 	dev_info(&adapter->pdev->dev, "TX timeout detected.\n");
- 	if (!(adapter->flags & I40EVF_FLAG_RESET_PENDING)) {
--		dev_info(&adapter->pdev->dev, "Requesting reset from PF\n");
--		i40evf_request_reset(adapter);
--		adapter->flags |= I40EVF_FLAG_RESET_PENDING;
-+		adapter->flags |= I40EVF_FLAG_RESET_NEEDED;
- 		schedule_work(&adapter->reset_task);
- 	}
- }
-@@ -1484,6 +1482,12 @@ static void i40evf_reset_task(struct work_struct *work)
- 	while (test_and_set_bit(__I40EVF_IN_CRITICAL_TASK,
- 				&adapter->crit_section))
- 		udelay(500);
-+
-+	if (adapter->flags & I40EVF_FLAG_RESET_NEEDED) {
-+		dev_info(&adapter->pdev->dev, "Requesting reset from PF\n");
-+		i40evf_request_reset(adapter);
-+	}
-+
- 	/* poll until we see the reset actually happen */
- 	for (i = 0; i < I40EVF_RESET_WAIT_COUNT; i++) {
- 		rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
--- 
-1.8.3.1
+I'm still not sure I understand your concept. Do you have some
+documentation for it available?
+
+>
+>Thanks,
+>Roopa
+>
+>
