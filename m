@@ -1,71 +1,59 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
- of switch chip datapath
-Date: Wed, 26 Mar 2014 08:58:29 -0400
-Message-ID: <5332CEF5.1030202@mojatatu.com>
-References: <20140320124021.GA2946@minipsycho.orion> <CAGVrzcbqQGGYb2Wkkekei7ivGd2XOnE+5GthLUv6_nD_oicrSQ@mail.gmail.com> <532C2AC4.7080303@mojatatu.com> <20140322094852.GB2844@minipsycho.orion> <5330BAB7.3040501@mojatatu.com> <20140325173927.GE8102@hmsreliant.think-freely.org> <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org> <5331ED86.7020704@mojatatu.com> <20140326111031.GB31370@hmsreliant.think-freely.org> <20140326112903.GG15723@casper.infradead.org>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: Re: powerpc: net: gianfar ethernet broken on linux-3.10.29?
+Date: Wed, 26 Mar 2014 15:02:41 +0200
+Message-ID: <5332CFF1.5080402@freescale.com>
+References: <1385350976.279693.1395775567178.JavaMail.root@mail>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, andy@greyhouse.net,
-	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
-	pshelar@nicira.com, azhou@nicira.com,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>
-To: Thomas Graf <tgraf@suug.ch>, Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Cane, Romeo (EXT-Other PT/Amadora)" <romeo.cane.ext@coriant.com>
+To: =?UTF-8?B?w4ltZXJpYyBWaWdpZXI=?=
+	<emeric.vigier@savoirfairelinux.com>, <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f170.google.com ([209.85.216.170]:41733 "EHLO
-	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750956AbaCZM6d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 08:58:33 -0400
-Received: by mail-qc0-f170.google.com with SMTP id e9so2498867qcy.1
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 05:58:33 -0700 (PDT)
-In-Reply-To: <20140326112903.GG15723@casper.infradead.org>
+Received: from co9ehsobe003.messaging.microsoft.com ([207.46.163.26]:10049
+	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750956AbaCZNC7 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2014 09:02:59 -0400
+In-Reply-To: <1385350976.279693.1395775567178.JavaMail.root@mail>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/26/14 07:29, Thomas Graf wrote:
-> On 03/26/14 at 07:10am, Neil Horman wrote:
->> But by creating net_devices that are registered in the current fashion we
->> implicitly agree to levels of functionality that are assumed to be available and
->> as such are not within the purview of a net_device to reject.  E.g. it is
->> assumed that a netdevice can filter frames using iptables/ebtables, limit
->> traffic using tc, etc.
+On 3/25/2014 9:26 PM, =C3=89meric Vigier wrote:
+> Hi guys,
 >
-> I think this is the point where we disagree. We already have several
-> devices that hook into the rx handler and never have their packets
-> pass through either iptables or ebtables. Better examples of this are
-> macvtap or OVS.
+> I work on a Freescale MPC8347 custom board. I ported u-boot-v2014.01 =
+on it. My config is attached.
+> I ported linux-3.2.52 (long-term). DTS is attached.
 >
-
-I am going to disagree here.
-Where it makes sense to use port handling is when you have port
-layering.
-Really dont need to create another parallel stack just because this
-is to reflect what is in the hardware. There are corner cases, but
-not the ones discussed.
-Use ebtables if that is what the hardware reflects best.
-Use tc when that is the better abstraction (example: for years now I
-have modelled the broadcom acls with tc classifier/actions just fine).
-
-> What should happen is that these devices are given a chance to implement
-> the ACL in their own flow table. If no such facility exists, the rule
-> insertion should fall back to software mode if that is possible (an
-> OF capable switching chip could insert a 'upcall' flow), or as
-> a last resort return an error to indicate EOPNOTSUPP.
+[...]
+>
+> Do you guys see what could be wrong in my config?
+> Or what has changed in linux-3.{4,6,8,10} that could break my etherne=
+t?
+>
+> thanks,
+> Emeric
 >
 
-I would like to specify where the acl rule goes.
-Refer to the bridge port fdb offloading as an example.
+Hi Emeric,
 
-cheers,
-jamal
+Thanks for the detailed logs.
+You may refer to Romeo's issue:
+http://permalink.gmane.org/gmane.linux.network/309587
+
+There's this stable fix for the (older) TSEC controllers:
+commit 5eaedf31319d5f80eaaee1eec8dd18c0b452f0d1
+("gianfar: Add backwards compatible Single Queue mode polling")
+
+that for some reason was not included in kernel 3.10
+(but it was included in kernel 3.11).
+
+Hi David,
+Can we have this gianfar fix included in kernel 3.10 as well?
+Is there anything I can do to help with this?
+
+Thanks and regards,
+Claudiu
