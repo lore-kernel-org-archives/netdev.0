@@ -1,126 +1,153 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH] net: unix: non blocking recvmsg() should not return -EINTR
-Date: Wed, 26 Mar 2014 13:17:18 +0000
-Message-ID: <8761n19k0w.fsf@sable.mobileactivedefense.com>
-References: <1395798147.12610.196.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: oliver@neukum.org
+Subject: [PATCH] usbnet: include wait queue head in device structure
+Date: Wed, 26 Mar 2014 14:32:51 +0100
+Message-ID: <1395840771-1852-1-git-send-email-oliver@neukum.org>
+Cc: Oliver Neukum <oneukum@suse.de>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tiger.mobileactivedefense.com ([217.174.251.109]:45894 "EHLO
-	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754089AbaCZNbK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 09:31:10 -0400
-In-Reply-To: <1395798147.12610.196.camel@edumazet-glaptop2.roam.corp.google.com>
-	(Eric Dumazet's message of "Tue, 25 Mar 2014 18:42:27 -0700")
+Received: from smtp-out002.kontent.com ([81.88.40.216]:54612 "EHLO
+	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754339AbaCZNcz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 09:32:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Some applications didn't expect recvmsg() on a non blocking socket
-> could return -EINTR. This possibility was added as a side effect
-> of commit b3ca9b02b00704 ("net: fix multithreaded signal handling in
-> unix recv routines").
->
-> To hit this bug, you need to be a bit unlucky, as the u->readlock
-> mutex is usually held for very small periods.
+From: Oliver Neukum <oneukum@suse.de>
 
-This would mean that 'some applications' are broken, cf
+This fixes a race which happens by freeing an object on the stack.
+Quoting Julius:
+> The issue is
+> that it calls usbnet_terminate_urbs() before that, which temporarily
+> installs a waitqueue in dev->wait in order to be able to wait on the
+> tasklet to run and finish up some queues. The waiting itself looks
+> okay, but the access to 'dev->wait' is totally unprotected and can
+> race arbitrarily. I think in this case usbnet_bh() managed to succeed
+> it's dev->wait check just before usbnet_terminate_urbs() sets it back
+> to NULL. The latter then finishes and the waitqueue_t structure on its
+> stack gets overwritten by other functions halfway through the
+> wake_up() call in usbnet_bh().
 
-[EAGAIN] or [EWOULDBLOCK]
-    The socket's file descriptor is marked O_NONBLOCK and no data is
-    waiting to be received; or MSG_OOB is set and no out-of-band data is
-    available and either the socket's file descriptor is marked
-    O_NONBLOCK or the socket does not support blocking to await
-    out-of-band data.
+The fix is to just not allocate the data structure on the stack.
+As dev->wait is abused as a flag it also takes a runtime PM change
+to fix this bug.
 
-[EINTR]
-    This function was interrupted by a signal before any data was
-    available.
-    
-http://pubs.opengroup.org/onlinepubs/9699919799/functions/recvmsg.html
+Signed-off-by: Oliver Neukum <oneukum@suse.de>
+Reported-by: Grant Grundler <grundler@google.com>
+Tested-by: Grant Grundler <grundler@google.com>
+---
+ drivers/net/usb/usbnet.c   | 33 +++++++++++++++++++--------------
+ include/linux/usb/usbnet.h |  2 +-
+ 2 files changed, 20 insertions(+), 15 deletions(-)
 
-and
-
- EAGAIN or EWOULDBLOCK
-              The socket is marked nonblocking and the receive operation
-              would block, or a receive timeout had been set and the
-              timeout expired before data was received.
-
- EINTR  The receive was interrupted by delivery of a signal before any
-        data were available; see signal(7).
-
-[3.27 Linux recvmsg(2)]
-
-since the function was interrupted before any data was available and it
-is unknown if the condition supposed to be signalled by EAGAIN had
-otherwise occurred.
-
-A correct 'fix'/ workaround would seem to be using mutex_trylock and
-abort execution immediately with -EAGAIN in case the operation had to
-wait for the lock, although this is inconsistent with the usual
-semantics of 'blocking' which implies that the operation may take an
-indefinite amount of time because it waits for an external event which
-might never occur.
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index dd10d58..f9e96c4 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -752,14 +752,12 @@ EXPORT_SYMBOL_GPL(usbnet_unlink_rx_urbs);
+ // precondition: never called in_interrupt
+ static void usbnet_terminate_urbs(struct usbnet *dev)
+ {
+-	DECLARE_WAIT_QUEUE_HEAD_ONSTACK(unlink_wakeup);
+ 	DECLARE_WAITQUEUE(wait, current);
+ 	int temp;
  
-              
->
-> Fixes: b3ca9b02b00704 ("net: fix multithreaded signal handling in unix recv routines")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-> ---
->  net/unix/af_unix.c |   17 ++++++++++++-----
->  1 file changed, 12 insertions(+), 5 deletions(-)
->
-> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-> index ce6ec6c2f4de..94404f19f9de 100644
-> --- a/net/unix/af_unix.c
-> +++ b/net/unix/af_unix.c
-> @@ -1787,8 +1787,11 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
->  		goto out;
->  
->  	err = mutex_lock_interruptible(&u->readlock);
-> -	if (err) {
-> -		err = sock_intr_errno(sock_rcvtimeo(sk, noblock));
-> +	if (unlikely(err)) {
-> +		/* recvmsg() in non blocking mode is supposed to return -EAGAIN
-> +		 * sk_rcvtimeo is not honored by mutex_lock_interruptible()
-> +		 */
-> +		err = noblock ? -EAGAIN : -ERESTARTSYS;
->  		goto out;
->  	}
->  
-> @@ -1913,6 +1916,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
->  	struct unix_sock *u = unix_sk(sk);
->  	DECLARE_SOCKADDR(struct sockaddr_un *, sunaddr, msg->msg_name);
->  	int copied = 0;
-> +	int noblock = flags & MSG_DONTWAIT;
->  	int check_creds = 0;
->  	int target;
->  	int err = 0;
-> @@ -1928,7 +1932,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
->  		goto out;
->  
->  	target = sock_rcvlowat(sk, flags&MSG_WAITALL, size);
-> -	timeo = sock_rcvtimeo(sk, flags&MSG_DONTWAIT);
-> +	timeo = sock_rcvtimeo(sk, noblock);
->  
->  	/* Lock the socket to prevent queue disordering
->  	 * while sleeps in memcpy_tomsg
-> @@ -1940,8 +1944,11 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
->  	}
->  
->  	err = mutex_lock_interruptible(&u->readlock);
-> -	if (err) {
-> -		err = sock_intr_errno(timeo);
-> +	if (unlikely(err)) {
-> +		/* recvmsg() in non blocking mode is supposed to return -EAGAIN
-> +		 * sk_rcvtimeo is not honored by mutex_lock_interruptible()
-> +		 */
-> +		err = noblock ? -EAGAIN : -ERESTARTSYS;
->  		goto out;
->  	}
->  
+ 	/* ensure there are no more active urbs */
+-	add_wait_queue(&unlink_wakeup, &wait);
++	add_wait_queue(&dev->wait, &wait);
+ 	set_current_state(TASK_UNINTERRUPTIBLE);
+-	dev->wait = &unlink_wakeup;
+ 	temp = unlink_urbs(dev, &dev->txq) +
+ 		unlink_urbs(dev, &dev->rxq);
+ 
+@@ -773,15 +771,14 @@ static void usbnet_terminate_urbs(struct usbnet *dev)
+ 				  "waited for %d urb completions\n", temp);
+ 	}
+ 	set_current_state(TASK_RUNNING);
+-	dev->wait = NULL;
+-	remove_wait_queue(&unlink_wakeup, &wait);
++	remove_wait_queue(&dev->wait, &wait);
+ }
+ 
+ int usbnet_stop (struct net_device *net)
+ {
+ 	struct usbnet		*dev = netdev_priv(net);
+ 	struct driver_info	*info = dev->driver_info;
+-	int			retval;
++	int			retval, pm;
+ 
+ 	clear_bit(EVENT_DEV_OPEN, &dev->flags);
+ 	netif_stop_queue (net);
+@@ -791,6 +788,8 @@ int usbnet_stop (struct net_device *net)
+ 		   net->stats.rx_packets, net->stats.tx_packets,
+ 		   net->stats.rx_errors, net->stats.tx_errors);
+ 
++	/* to not race resume */
++	pm = usb_autopm_get_interface(dev->intf);
+ 	/* allow minidriver to stop correctly (wireless devices to turn off
+ 	 * radio etc) */
+ 	if (info->stop) {
+@@ -817,6 +816,9 @@ int usbnet_stop (struct net_device *net)
+ 	dev->flags = 0;
+ 	del_timer_sync (&dev->delay);
+ 	tasklet_kill (&dev->bh);
++	if (!pm)
++		usb_autopm_put_interface(dev->intf);
++
+ 	if (info->manage_power &&
+ 	    !test_and_clear_bit(EVENT_NO_RUNTIME_PM, &dev->flags))
+ 		info->manage_power(dev, 0);
+@@ -1437,11 +1439,12 @@ static void usbnet_bh (unsigned long param)
+ 	/* restart RX again after disabling due to high error rate */
+ 	clear_bit(EVENT_RX_KILL, &dev->flags);
+ 
+-	// waiting for all pending urbs to complete?
+-	if (dev->wait) {
+-		if ((dev->txq.qlen + dev->rxq.qlen + dev->done.qlen) == 0) {
+-			wake_up (dev->wait);
+-		}
++	/* waiting for all pending urbs to complete?
++	 * only then can we forgo submitting anew
++	 */
++	if (waitqueue_active(&dev->wait)) {
++		if (dev->txq.qlen + dev->rxq.qlen + dev->done.qlen == 0)
++			wake_up_all(&dev->wait);
+ 
+ 	// or are we maybe short a few urbs?
+ 	} else if (netif_running (dev->net) &&
+@@ -1580,6 +1583,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+ 	dev->driver_name = name;
+ 	dev->msg_enable = netif_msg_init (msg_level, NETIF_MSG_DRV
+ 				| NETIF_MSG_PROBE | NETIF_MSG_LINK);
++	init_waitqueue_head(&dev->wait);
+ 	skb_queue_head_init (&dev->rxq);
+ 	skb_queue_head_init (&dev->txq);
+ 	skb_queue_head_init (&dev->done);
+@@ -1791,9 +1795,10 @@ int usbnet_resume (struct usb_interface *intf)
+ 		spin_unlock_irq(&dev->txq.lock);
+ 
+ 		if (test_bit(EVENT_DEV_OPEN, &dev->flags)) {
+-			/* handle remote wakeup ASAP */
+-			if (!dev->wait &&
+-				netif_device_present(dev->net) &&
++			/* handle remote wakeup ASAP
++			 * we cannot race against stop
++			 */
++			if (netif_device_present(dev->net) &&
+ 				!timer_pending(&dev->delay) &&
+ 				!test_bit(EVENT_RX_HALT, &dev->flags))
+ 					rx_alloc_submit(dev, GFP_NOIO);
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index e303eef..0662e98 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -30,7 +30,7 @@ struct usbnet {
+ 	struct driver_info	*driver_info;
+ 	const char		*driver_name;
+ 	void			*driver_priv;
+-	wait_queue_head_t	*wait;
++	wait_queue_head_t	wait;
+ 	struct mutex		phy_mutex;
+ 	unsigned char		suspend_count;
+ 	unsigned char		pkt_cnt, pkt_err;
+-- 
+1.8.4.5
