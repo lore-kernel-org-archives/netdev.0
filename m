@@ -1,59 +1,69 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: powerpc: net: gianfar ethernet broken on linux-3.10.29?
-Date: Wed, 26 Mar 2014 15:02:41 +0200
-Message-ID: <5332CFF1.5080402@freescale.com>
-References: <1385350976.279693.1395775567178.JavaMail.root@mail>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Cane, Romeo (EXT-Other PT/Amadora)" <romeo.cane.ext@coriant.com>
-To: =?UTF-8?B?w4ltZXJpYyBWaWdpZXI=?=
-	<emeric.vigier@savoirfairelinux.com>, <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe003.messaging.microsoft.com ([207.46.163.26]:10049
-	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750956AbaCZNC7 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2014 09:02:59 -0400
-In-Reply-To: <1385350976.279693.1395775567178.JavaMail.root@mail>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Herrmann <dh.herrmann@gmail.com>
+Subject: [PATCH v5 0/4] Provide netdev naming-policy via sysfs
+Date: Wed, 26 Mar 2014 14:05:13 +0100
+Message-ID: <1395839117-20090-1-git-send-email-dh.herrmann@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Tom Gundersen <teg@jklm.no>,
+	Johannes berg <johannes@sipsolutions.net>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Herrmann <dh.herrmann@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/25/2014 9:26 PM, =C3=89meric Vigier wrote:
-> Hi guys,
->
-> I work on a Freescale MPC8347 custom board. I ported u-boot-v2014.01 =
-on it. My config is attached.
-> I ported linux-3.2.52 (long-term). DTS is attached.
->
-[...]
->
-> Do you guys see what could be wrong in my config?
-> Or what has changed in linux-3.{4,6,8,10} that could break my etherne=
-t?
->
-> thanks,
-> Emeric
->
+Hi
 
-Hi Emeric,
+This is v5 of the netdev naming-policy series. You can find v4 here:
+  http://article.gmane.org/gmane.linux.kernel/1668161
+Changes since v4:
+  - none
 
-Thanks for the detailed logs.
-You may refer to Romeo's issue:
-http://permalink.gmane.org/gmane.linux.network/309587
 
-There's this stable fix for the (older) TSEC controllers:
-commit 5eaedf31319d5f80eaaee1eec8dd18c0b452f0d1
-("gianfar: Add backwards compatible Single Queue mode polling")
+This series implements a new sysfs attribute for netdevs called
+"name_assign_type". It provides an integer that describes where an interface
+name comes from. See Patch #1 for a description of this attribute. It is
+modelled after the existing "addr_assign_type" attribute.
 
-that for some reason was not included in kernel 3.10
-(but it was included in kernel 3.11).
+The main use-case is to allow udev to skip applying reliable ifnames to virtual
+devices. For instance, if wifi-P2P devices are created, wpas already provides a
+suitable naming-policy and udev shouldn't touch these devices. Same is true for
+other virtual devices.
+The idea is that if a device-name was provided by user-space, we should always
+prefer fixing this naming-policy instead of making udev rename the device. For
+kernel provided names that's hardly possible, though. Providing the
+naming-policy source via sysfs is thus a simple way to see whether renames are
+needed.
 
-Hi David,
-Can we have this gianfar fix included in kernel 3.10 as well?
-Is there anything I can do to help with this?
+Additionally, this field allows to detect whether a netdev has been manually
+renamed, which is quite useful for debugging and during crash-recovery.
+Furthermore, it fixes real udev bugs if a netdev is already renamed in the
+initrd and udev only runs in the real root. Detecting renames avoids overwriting
+custom user provided names.
 
-Thanks and regards,
-Claudiu
+Thanks
+David
+
+David Herrmann (4):
+  net: add name_assign_type netdev attribute
+  mac80211: set NET_NAME_USER for user-space created ifs
+  ath6kl: set NET_NAME_USER for P2P ifs
+  brcmfmac: set NET_NAME_USER for P2P ifs
+
+ drivers/net/wireless/ath/ath6kl/cfg80211.c    | 5 ++++-
+ drivers/net/wireless/ath/ath6kl/cfg80211.h    | 1 +
+ drivers/net/wireless/ath/ath6kl/core.c        | 4 ++--
+ drivers/net/wireless/brcm80211/brcmfmac/p2p.c | 1 +
+ include/linux/netdevice.h                     | 2 ++
+ include/uapi/linux/netdevice.h                | 4 ++++
+ net/core/dev.c                                | 7 +++++++
+ net/core/net-sysfs.c                          | 2 ++
+ net/core/rtnetlink.c                          | 2 ++
+ net/mac80211/cfg.c                            | 2 +-
+ net/mac80211/ieee80211_i.h                    | 1 +
+ net/mac80211/iface.c                          | 2 ++
+ net/mac80211/main.c                           | 2 +-
+ 13 files changed, 30 insertions(+), 5 deletions(-)
+
+-- 
+1.9.1
