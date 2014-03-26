@@ -1,37 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] core, nfqueue, openvswitch: Orphan frags in
- skb_zerocopy and handle errors
-Date: Wed, 26 Mar 2014 15:59:58 -0400 (EDT)
-Message-ID: <20140326.155958.1928261590856069753.davem@davemloft.net>
-References: <1395397894-9493-1-git-send-email-zoltan.kiss@citrix.com>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: v6 superceded it [was: Re: [PATCH][v5] netlink: have netlink
+ per-protocol bind function return an error code.]
+Date: Wed, 26 Mar 2014 16:09:22 -0400
+Message-ID: <20140326200922.GK28666@madcap2.tricolour.ca>
+References: <20140324183406.GE28666@madcap2.tricolour.ca>
+ <5bf7c2b8ad25b31bb34ae00f5fe6ec7f5d653f4b.1395693533.git.rgb@redhat.com>
+ <20140326.155258.685120737486107362.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jesse@nicira.com, pshelar@nicira.com, tgraf@redhat.com,
-	dev@openvswitch.org, pablo@netfilter.org, kadlec@blackhole.kfki.hu,
-	edumazet@google.com, dborkman@redhat.com, therbert@google.com,
-	jasowang@redhat.com, fw@strlen.de, joe@perches.com,
-	horms@verge.net.au, jiri@resnulli.us, mst@redhat.com,
-	Paul.Durrant@citrix.com, JBeulich@suse.com,
-	herbert@gondor.apana.org.au, mszeredi@suse.cz,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org
-To: zoltan.kiss@citrix.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-audit@redhat.com, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	eparis@redhat.com, sgrubb@redhat.com, hadi@mojatatu.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1395397894-9493-1-git-send-email-zoltan.kiss@citrix.com>
+Content-Disposition: inline
+In-Reply-To: <20140326.155258.685120737486107362.davem@davemloft.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Date: Fri, 21 Mar 2014 10:31:34 +0000
-
-> skb_zerocopy can copy elements of the frags array between skbs, but it doesn't
-> orphan them. Also, it doesn't handle errors, so this patch takes care of that
-> as well, and modify the callers accordingly. skb_tx_error() is also added to
-> the callers so they will signal the failed delivery towards the creator of the
-> skb.
+On 14/03/26, David Miller wrote:
+> From: Richard Guy Briggs <rgb@redhat.com>
+> Date: Mon, 24 Mar 2014 16:59:23 -0400
 > 
-> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> > +				if (err)
+> > +					if (!nlk->portid)
+> > +						netlink_remove(sk);
+> > +					for (int undo = 0; undo < i; undo++)
+> > +						if (nlk->netlink_unbind)
+> > +							nlk->netlink_unbind(undo);
+> > +					return err;
+> 
+> Take a good long stare at that code block for a while.
+> 
+> Looks like you forgot the braces to delineate the code block.
 
-Applied, thanks Zoltan.
+Did you notice all the attempts to send a corrected patch?  v6 finally
+got it right (sent Monday).  Sorry for all the noise.  Serve me right
+for not sitting on my hands before sending the email for a bit while I
+checked it.
+
+> This also means you really haven't tested this patch :-)
+
+It was tested, but the patched code wasn't actually checked in.  It was
+still in my tree.  I ran "git commit --amend" more than once, forgetting
+the "-a", and didn't carefully enough inspect the resulting patch.
+
+> Please also DO NOT declare local variables in a for() statement,
+> this is not c++.
+
+It is above the for now (also in v6).
+
+- RGB
+
+--
+Richard Guy Briggs <rbriggs@redhat.com>
+Senior Software Engineer, Kernel Security, AMER ENG Base Operating Systems, Red Hat
+Remote, Ottawa, Canada
+Voice: +1.647.777.2635, Internal: (81) 32635, Alt: +1.613.693.0684x3545
