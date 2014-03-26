@@ -1,48 +1,106 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/7] atm: replace del_timer by del_timer_sync
-Date: Wed, 26 Mar 2014 15:22:25 -0700
-Message-ID: <1395872545.12610.262.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1395869625-15209-1-git-send-email-Julia.Lawall@lip6.fr>
-	  <1395869625-15209-3-git-send-email-Julia.Lawall@lip6.fr>
-	 <1395871015.12610.254.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.DEB.2.02.1403262301171.31401@ionos.tec.linutronix.de>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
+ switch chip datapath
+Date: Wed, 26 Mar 2014 15:22:51 -0700
+Message-ID: <CAGVrzcaconDBjgSfk0=6px2+6LbrxMkmesgigSa3-9WaK-LiOw@mail.gmail.com>
+References: <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org>
+ <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com>
+ <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com>
+ <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion>
+ <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com>
+ <20140326173536.GJ2869@minipsycho.orion> <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com>
+ <20140326181436.GL2869@minipsycho.orion> <53334BDA.1060608@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Julia Lawall <Julia.Lawall@lip6.fr>,
-	"David S. Miller" <davem@davemloft.net>,
-	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1403262301171.31401@ionos.tec.linutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
+	Felix Fietkau <nbd@openwrt.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:50772 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755627AbaCZWXc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 18:23:32 -0400
+Received: by mail-pa0-f45.google.com with SMTP id kl14so2548175pab.18
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 15:23:32 -0700 (PDT)
+In-Reply-To: <53334BDA.1060608@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-03-26 at 23:02 +0100, Thomas Gleixner wrote:
+2014-03-26 14:51 GMT-07:00 Jamal Hadi Salim <jhs@mojatatu.com>:
+> On 03/26/14 14:14, Jiri Pirko wrote:
+>>
+>> Wed, Mar 26, 2014 at 06:58:32PM CET, f.fainelli@gmail.com wrote:
+>>>
+>>> 2014-03-26 10:35 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
+>
+>
+>
+>>> You are right, sw1p0 and sw1p1 were meant to be, say LAN ports in my
+>>> example.
+>>>
+>>> I think there is an implicit convention that sw1 represents the
+>>> Ethernet switch port connected to the CPU Ethernet MAC, and that it is
+>>> always connected, hence there is no need to create a "fake" bridge to
+>>> link sw1 to eth0 for instance?
+>>
+>>
+>> I think you are kind of mixing apples and oranges (or I might be I'm not
+>> understanding you correctly).
+>> This is how I see it, sticking to the names you use in the example:
+>>
+>>              (sw1) (abstract place-holder netdev)
+>>            --------
+>>           switch chip                   CPU
+>>     -----------------------            ------
+>>     sw1p0 sw1p1 sw1p2 sw1p3             eth0
+>>       |     |     |     |                |
+>>      PHY   PHY   PHY    ------someMII-----
+>>
+>> You see that eth0 is the CPU part of the "connection" and sw1p3 is the
+>> switch part (port representation).
+>>
+>
+>
+> Florian - I am sure you explained this before; I just dont remember. Why
+> is there need to expose eth0? It seems to me sw1p0-3 are abstracted
+> already in the kernel and the "cpu port" is merely a control interface.
 
-> That's why you need del_timer_sync() it waits for the timer handler to
-> complete and then removes it.
+eth0 corresponds to a CPU Ethernet MAC facing e.g: sw1p3 switch port.
+It is "regular" Ethernet driver connected to the switch without
+switch-specific logic. The goal is twofold:
 
-Interesting... So maybe some comment is stale ?
+- allow any regular Ethernet driver to be connected to an external
+switch via e.g: MDIO/MDC or other without specific switch knowledge
+- represents accurately how the hardware is designed/connected
+
+but maybe, we can simplify and have e.g: sw1p3 and eth0 be the same interface...
+
+>
+> Note: even the high end chips tend to have the concept of a "cpu port"
+> but my experience is to hide that as part of the switch driver.
+>
+> cheers,
+> jamal
+>
+>
 
 
-diff --git a/kernel/timer.c b/kernel/timer.c
-index accfd241b9e5..c948fa2fc065 100644
---- a/kernel/timer.c
-+++ b/kernel/timer.c
-@@ -1011,10 +1011,10 @@ EXPORT_SYMBOL(try_to_del_timer_sync);
-  * the timer it also makes sure the handler has finished executing on other
-  * CPUs.
-  *
-- * Synchronization rules: Callers must prevent restarting of the timer,
-- * otherwise this function is meaningless. It must not be called from
-- * interrupt contexts unless the timer is an irqsafe one. The caller must
-- * not hold locks which would prevent completion of the timer's
-+ * Synchronization rules:
-+ * It must not be called from interrupt contexts unless the timer is an
-+ * irqsafe one.
-+ * The caller must not hold locks which would prevent completion of the timer's
-  * handler. The timer's handler must not call add_timer_on(). Upon exit the
-  * timer is not queued and the handler is not running on any CPU.
-  *
+
+-- 
+Florian
