@@ -1,111 +1,71 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Wed, 26 Mar 2014 08:24:26 +0100
-Message-ID: <20140326072426.GC2869@minipsycho.orion>
-References: <1395243232-32630-1-git-send-email-jiri@resnulli.us>
- <532AD5B3.6020205@mojatatu.com>
- <20140320124021.GA2946@minipsycho.orion>
- <CAGVrzcbqQGGYb2Wkkekei7ivGd2XOnE+5GthLUv6_nD_oicrSQ@mail.gmail.com>
- <532C2AC4.7080303@mojatatu.com>
- <20140322094852.GB2844@minipsycho.orion>
- <5330BAB7.3040501@mojatatu.com>
- <20140325173927.GE8102@hmsreliant.think-freely.org>
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Subject: RE: [RFC v2 1/1] net: Add support to configure SR-IOV VF minimum
+ and maximum Tx rate through ip tool.
+Date: Wed, 26 Mar 2014 07:25:29 +0000
+Message-ID: <290BEC245535C3449143D5D84900EEF78CDFF12B@avmb3.qlogic.org>
+References: <1395637073-29794-1-git-send-email-sucheta.chakraborty@qlogic.com>
+	 <1395637073-29794-2-git-send-email-sucheta.chakraborty@qlogic.com>
+ <1395687300.2832.37.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>,
+	"gregory.v.rose@intel.com" <gregory.v.rose@intel.com>,
+	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	"amirv@mellanox.com" <amirv@mellanox.com>,
+	"mkubecek@suse.cz" <mkubecek@suse.cz>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f47.google.com ([74.125.83.47]:50932 "EHLO
-	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232AbaCZHYa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 03:24:30 -0400
-Received: by mail-ee0-f47.google.com with SMTP id b15so1286154eek.34
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 00:24:29 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140325173927.GE8102@hmsreliant.think-freely.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:35506 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750792AbaCZHZ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 03:25:56 -0400
+In-Reply-To: <1395687300.2832.37.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Mar 25, 2014 at 06:39:27PM CET, nhorman@tuxdriver.com wrote:
->On Mon, Mar 24, 2014 at 07:07:35PM -0400, Jamal Hadi Salim wrote:
->> On 03/22/14 05:48, Jiri Pirko wrote:
->> >Fri, Mar 21, 2014 at 01:04:20PM CET, jhs@mojatatu.com wrote:
->> 
->> >Hmm. This got me thinking about netdev and switches well and perhaps the
->> >switchdev api could be mostly implemented by couple of more ndos and
->> >feature flags. That way we could stick to your immortal netdev :)
->> >
->> >
->> 
->> Perhaps ;->
->> 
->> >>
->> >>In my view: that (immortal) device for L2/bridging is the bridge or
->> >>maybe a more barebone version of the bridge (since it has gained a
->> >>little more weight in recent times).
->> >
->> >Well, I do not think that bridge is ideal abstraction for modern switch
->> >chips. Bridge is very limited.
->> >
->> 
->> True - but i was more thinking of being inclusive of the smaller
->> devices. They are mostly L2 only and in very limited scope. And thats
->> probably 95% of the population. The things you are talking about
->> are very high end and they can do more. Florian's taxanomy was useful.
->> 
->> >But I don't necessary think it is needed to "mask" as a bride or mimic a
->> >bridge in any way. DSA does not do that either.
->No, but it would be really nice if these smaller devices could take advantage of
->this infrastructure.  Looking at it, I don't see why thats not possible.  The
->big trick (as we've discussed in the past), is using a net_device structure to
->take advantage of all the features that net_devices offer while not enabling the
->device specific features that some hardware doesn't allow.
->
->For instance the broadcom chips that live in many wireless routers would be well
->served by the model jiri has here as far as Media level interface control is
->concerned (i.e. ifup/down/speed/duplex/etc), but its a bit lacking in that
->net_devices are assumed to support L3 protocol configuration (i.e. they can have
->ip addresses assigned to them), which you can't IIRC do on these chips.
->
->Would it be worth considering a private interface model?  That is to say:
-
-I'm personaly strongly againts this. All netdevices should stay under net
-namespace list. If you break this, I expect many unexpected issues.
-+ There is not really a reason for this breakage.
-
-
->
->1) Ports on a switch chip are accessed using net_device structures, but
->registered to a private list contained within the switch device, rather than to
->the net namespaces device list.
->
->2) Access to the switch ports via user space is done through the master switch
->interface with additional netlink attributes specifying the port on the switch
->to access (or not to access the master switch device directly)
->
->
->Such a model I think might fit well with Jiri's code here and provide greater
->flexibility for a wider range of devices.  It would of course require
->augmentation for user space, but the changes would be additive, so I think they
->would be reasonable.  This would also allow the switch device to have a hook in
->the control path to block or allow features that the hardware may or may not
->support while still being able to use the existing net_device infrastructure to
->support these operations as they are normally carried out.
->
->Best
->Neil
->
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
+dG86YmVuQGRlY2FkZW50Lm9yZy51a10NCj4gU2VudDogVHVlc2RheSwgTWFyY2ggMjUsIDIwMTQg
+MTI6MjUgQU0NCj4gVG86IFN1Y2hldGEgQ2hha3JhYm9ydHkNCj4gQ2M6IG5ldGRldjsgRGVwdC1I
+U0cgTGludXggTklDIERldjsgZ3JlZ29yeS52LnJvc2VAaW50ZWwuY29tOyBsaW51eC0NCj4gbmV0
+LWRyaXZlcnNAc29sYXJmbGFyZS5jb207IEFyaWVsIEVsaW9yOyBhbWlydkBtZWxsYW5veC5jb207
+DQo+IG1rdWJlY2VrQHN1c2UuY3oNCj4gU3ViamVjdDogUmU6IFtSRkMgdjIgMS8xXSBuZXQ6IEFk
+ZCBzdXBwb3J0IHRvIGNvbmZpZ3VyZSBTUi1JT1YgVkYNCj4gbWluaW11bSBhbmQgbWF4aW11bSBU
+eCByYXRlIHRocm91Z2ggaXAgdG9vbC4NCj4gDQo+IE9uIE1vbiwgMjAxNC0wMy0yNCBhdCAwMDo1
+NyAtMDQwMCwgU3VjaGV0YSBDaGFrcmFib3J0eSB3cm90ZToNCj4gWy4uLl0NCj4gPiAtLS0gYS9u
+ZXQvY29yZS9ydG5ldGxpbmsuYw0KPiA+ICsrKyBiL25ldC9jb3JlL3J0bmV0bGluay5jDQo+IFsu
+Li5dDQo+ID4gKwkJY2FzZSBJRkxBX1ZGX1JBVEU6IHsNCj4gPiArCQkJc3RydWN0IGlmbGFfdmZf
+cmF0ZSAqaXZ0Ow0KPiA+ICsJCQlzdHJ1Y3QgaWZsYV92Zl9pbmZvIGl2ZjsNCj4gPiAgCQkJaXZ0
+ID0gbmxhX2RhdGEodmYpOw0KPiA+ICAJCQllcnIgPSAtRU9QTk9UU1VQUDsNCj4gPiAtCQkJaWYg
+KG9wcy0+bmRvX3NldF92Zl90eF9yYXRlKQ0KPiA+IC0JCQkJZXJyID0gb3BzLT5uZG9fc2V0X3Zm
+X3R4X3JhdGUoZGV2LCBpdnQtPnZmLA0KPiA+IC0JCQkJCQkJICAgICAgaXZ0LT5yYXRlKTsNCj4g
+PiArCQkJaWYgKChpdnQtPm1pbl90eF9yYXRlID09IC0xIHx8DQo+ID4gKwkJCSAgICAgaXZ0LT5t
+YXhfdHhfcmF0ZSA9PSAtMSkgJiYNCj4gPiArCQkJICAgIG9wcy0+bmRvX2dldF92Zl9jb25maWcp
+DQo+ID4gKwkJCQllcnIgPSBvcHMtPm5kb19nZXRfdmZfY29uZmlnKGRldiwgaXZ0LT52ZiwNCj4g
+PiArCQkJCQkJCSAgICAgJml2Zik7DQo+ID4gKwkJCWVsc2UNCj4gPiArCQkJCWVyciA9IDA7DQo+
+ID4gKwkJCWlmIChlcnIpDQo+ID4gKwkJCQlicmVhazsNCj4gPiArCQkJaWYgKGl2dC0+bWluX3R4
+X3JhdGUgPT0gLTEpDQo+ID4gKwkJCQlpdnQtPm1pbl90eF9yYXRlID0gaXZmLm1pbl90eF9yYXRl
+Ow0KPiA+ICsJCQlpZiAoaXZ0LT5tYXhfdHhfcmF0ZSA9PSAtMSkNCj4gPiArCQkJCWl2dC0+bWF4
+X3R4X3JhdGUgPSBpdmYubWF4X3R4X3JhdGU7DQo+IFsuLi5dDQo+IA0KPiBUaGlzIGlzIG1vZGlm
+eWluZyB0aGUgdGhlIGNvbnRlbnQgb2YgdGhlIG5ldGxpbmsgc2tiLCB3aGljaCBJIHRoaW5rIGlz
+DQo+IG5vdCBhbGxvd2VkLiAgSSB0aGluayB5b3UgbmVlZCB0byB1c2UgbG9jYWwgdmFyaWFibGVz
+IGZvciB0aGlzIGluc3RlYWQuDQo+IA0KPiBBbHNvLCB0aGlzIHNwZWNpYWwtY2FzaW5nIG9mIC0x
+IGlzbid0IGRvY3VtZW50ZWQgYW55d2hlcmUuICBJcyBpdCBldmVuDQo+IG5lY2Vzc2FyeT8gIElm
+IHVzZXJsYW5kIG5lZWRzIHRvIHNldCBqdXN0IG9uZSBsaW1pdCwgaXQgY2FuIHJlYWQgdGhlDQo+
+IGV4aXN0aW5nIGxpbWl0cyBhbmQgc2V0IGJvdGguDQo+IA0KPiBCZW4uDQo+IA0KPiAtLQ0KPiBC
+ZW4gSHV0Y2hpbmdzDQo+IEV2ZXJ5dGhpbmcgc2hvdWxkIGJlIG1hZGUgYXMgc2ltcGxlIGFzIHBv
+c3NpYmxlLCBidXQgbm90IHNpbXBsZXIuDQo+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgLSBBbGJlcnQNCj4gRWluc3RlaW4NCg0KVGhh
+bmtzIEJlbiBmb3IgeW91ciBmZWVkYmFjay4NCg0KSSBoYXZlIHVzZWQgKC0xKSAgdG8gZGlmZmVy
+ZW50aWF0ZSBpZiB1c2VyIGRvZXMgbm90IHdhbnQgdG8gc2V0IHBhcnRpY3VsYXIgZmllbGQuDQpG
+b3IgZXhhbXBsZTogaW4gY2FzZSBpZiB1c2VyIHNldHMgbWF4X3R4X3JhdGUgYW5kIGRvZXMgbm90
+IHNldCBtaW5fdHhfcmF0ZSwgdGhlbiwgd2Ugc2VuZCBtYXhfdHhfcmF0ZSBhcyBzZXQgYnkgdXNl
+ciBhbmQgbWluX3R4X3JhdGUgYXMgLTEuDQoNCkFyZSB5b3Ugc3VnZ2VzdGluZyB0aGF0IGluIGFi
+b3ZlIHNjZW5hcmlvIGlmIHVzZXIgZG9lcyBub3Qgc2V0IG1pbl90eF9yYXRlLCB0aGVuIHVzZXIg
+c3BhY2Ugc2hvdWxkIGdldCB0aGF0IHZhbHVlIGZyb20gZHJpdmVyIGFuZCBzZW5kIHNhbWUgdmFs
+dWUgdG8gZHJpdmVyIGludGVyZmFjZT8NCg0KQWxzbywgdXNlciBtYXkgd2FudCB0byBzZXQgdmFs
+dWUgMCB3aGljaCBzaG91bGQgYmUgZGlmZmVyZW50aWF0ZWQgZnJvbSBub3Qgc2V0dGluZyBhbnkg
+dmFsdWUuDQoNClRoYW5rcywNClN1Y2hldGEuDQo=
