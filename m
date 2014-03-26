@@ -1,108 +1,103 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Wed, 26 Mar 2014 19:03:56 +0100
-Message-ID: <20140326180356.GK2869@minipsycho.orion>
-References: <5330BAB7.3040501@mojatatu.com>
- <20140325173927.GE8102@hmsreliant.think-freely.org>
- <20140325180009.GB15723@casper.infradead.org>
- <20140325193533.GF8102@hmsreliant.think-freely.org>
- <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com>
- <5332677F.2090404@cumulusnetworks.com>
- <5332B1FE.7080102@mojatatu.com>
- <53330639.8050403@cumulusnetworks.com>
- <20140326165934.GH2869@minipsycho.orion>
- <533312A3.5070600@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/15] i40e: check for netdev before debugfs use
+Date: Wed, 26 Mar 2014 11:03:26 -0700
+Message-ID: <1395857013-7568-9-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1395857013-7568-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f49.google.com ([74.125.83.49]:60609 "EHLO
-	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751213AbaCZSEA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 14:04:00 -0400
-Received: by mail-ee0-f49.google.com with SMTP id c41so1960668eek.36
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 11:03:59 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <533312A3.5070600@cumulusnetworks.com>
+Received: from mga02.intel.com ([134.134.136.20]:63689 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754693AbaCZSEF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2014 14:04:05 -0400
+In-Reply-To: <1395857013-7568-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Mar 26, 2014 at 06:47:15PM CET, roopa@cumulusnetworks.com wrote:
->On 3/26/14, 9:59 AM, Jiri Pirko wrote:
->>Wed, Mar 26, 2014 at 05:54:17PM CET, roopa@cumulusnetworks.com wrote:
->>>On 3/26/14, 3:54 AM, Jamal Hadi Salim wrote:
->>>>On 03/26/14 01:37, Roopa Prabhu wrote:
->>>>>On 3/25/14, 1:11 PM, Florian Fainelli wrote:
->>>>>>2014-03-25 12:35 GMT-07:00 Neil Horman <nhorman@tuxdriver.com>:
->>>>>Sorry about getting on this thread late and possibly in the middle.
->>>>>Agree on the idea of keeping the ports linked to the master switch dev
->>>>>(or the 'conduit' to the switch chip) via private list instead of the
->>>>>master-slave relationship proposed earlier.
->>>>>By private i mean the netdev->priv linkage to the master switch dev and
->>>>>not really keeping the ports from being exposed to the user.
->>>>>
->>>>>We think its better to keep the switch ports exposed as any other netdev
->>>>>on linux.
->>>>>  This approach will make the switch ports look exactly like a nic port
->>>>>and all tools will continue to work seamlessly. The switch port
->>>>>operations could internally be forwarded to the switch netdev (sw1 in
->>>>>the above case).
->>>>>
->>>>>example:
->>>>>$ip link set dev sw1p0 up
->>>>>$ethtool -S sw1p0
->>>>>
->>>>I like the approach. I know the above is a simple version, but i am
->>>>assuming you also mean i can do things like
->>>>ip route add ...
->>>>bridge fdb add ... (and if you like your brctl go ahead)
->>>>bonding ...
->>>>
->>>yes, exactly.  We support this model on our boxes today.
->>>User can bond switch ports on our box in the exact same way as he/she
->>>would bond two nic ports.
->>>Our 'conduit to switch chip' reflects the corresponding lag
->>>configuration in the switch chip.
->>>Same goes for bridging, routing, acls.
->>
->>So you implement bonding netlink api? Or you hook into bonding driver
->>itselt? Can you show us the code?
->We use the netlink API and libnl. In our current model, our switch
->chip driver listens to netlink notifications and programs the switch
->chip. The switch chip driver uses libnl caches and libnl netlink apis
->to reflect the kernel state to switch chip.
+From: Shannon Nelson <shannon.nelson@intel.com>
 
+Make sure the VSI has a netdev before trying to use it
+in the debugfs netdev_ops commands.
 
-So when you configure for example bonding over 2 ports, you actually use
-bonding driver to do that. And you userspace app listens to
-notifications and programs the switch chip accordingly. Am I close?
+Change-ID: I2d744fc0c32b3226534ce2cde171d9675c5440a6
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 35 ++++++++++++++++----------
+ 1 file changed, 22 insertions(+), 13 deletions(-)
 
-How about data? Is this new "bonding" interface able to assign ip to is
-and send/receive packets.
-
-I'm still not sure I understand your concept. Do you have some
-documentation for it available?
-
->
->Thanks,
->Roopa
->
->
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index afd43d7..3c37386 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -2087,9 +2087,13 @@ static ssize_t i40e_dbg_netdev_ops_write(struct file *filp,
+ 		if (!vsi) {
+ 			dev_info(&pf->pdev->dev,
+ 				 "tx_timeout: VSI %d not found\n", vsi_seid);
+-			goto netdev_ops_write_done;
+-		}
+-		if (rtnl_trylock()) {
++		} else if (!vsi->netdev) {
++			dev_info(&pf->pdev->dev, "tx_timeout: no netdev for VSI %d\n",
++				 vsi_seid);
++		} else if (test_bit(__I40E_DOWN, &vsi->state)) {
++			dev_info(&pf->pdev->dev, "tx_timeout: VSI %d not UP\n",
++				 vsi_seid);
++		} else if (rtnl_trylock()) {
+ 			vsi->netdev->netdev_ops->ndo_tx_timeout(vsi->netdev);
+ 			rtnl_unlock();
+ 			dev_info(&pf->pdev->dev, "tx_timeout called\n");
+@@ -2108,9 +2112,10 @@ static ssize_t i40e_dbg_netdev_ops_write(struct file *filp,
+ 		if (!vsi) {
+ 			dev_info(&pf->pdev->dev,
+ 				 "change_mtu: VSI %d not found\n", vsi_seid);
+-			goto netdev_ops_write_done;
+-		}
+-		if (rtnl_trylock()) {
++		} else if (!vsi->netdev) {
++			dev_info(&pf->pdev->dev, "change_mtu: no netdev for VSI %d\n",
++				 vsi_seid);
++		} else if (rtnl_trylock()) {
+ 			vsi->netdev->netdev_ops->ndo_change_mtu(vsi->netdev,
+ 								mtu);
+ 			rtnl_unlock();
+@@ -2129,9 +2134,10 @@ static ssize_t i40e_dbg_netdev_ops_write(struct file *filp,
+ 		if (!vsi) {
+ 			dev_info(&pf->pdev->dev,
+ 				 "set_rx_mode: VSI %d not found\n", vsi_seid);
+-			goto netdev_ops_write_done;
+-		}
+-		if (rtnl_trylock()) {
++		} else if (!vsi->netdev) {
++			dev_info(&pf->pdev->dev, "set_rx_mode: no netdev for VSI %d\n",
++				 vsi_seid);
++		} else if (rtnl_trylock()) {
+ 			vsi->netdev->netdev_ops->ndo_set_rx_mode(vsi->netdev);
+ 			rtnl_unlock();
+ 			dev_info(&pf->pdev->dev, "set_rx_mode called\n");
+@@ -2149,11 +2155,14 @@ static ssize_t i40e_dbg_netdev_ops_write(struct file *filp,
+ 		if (!vsi) {
+ 			dev_info(&pf->pdev->dev, "napi: VSI %d not found\n",
+ 				 vsi_seid);
+-			goto netdev_ops_write_done;
++		} else if (!vsi->netdev) {
++			dev_info(&pf->pdev->dev, "napi: no netdev for VSI %d\n",
++				 vsi_seid);
++		} else {
++			for (i = 0; i < vsi->num_q_vectors; i++)
++				napi_schedule(&vsi->q_vectors[i]->napi);
++			dev_info(&pf->pdev->dev, "napi called\n");
+ 		}
+-		for (i = 0; i < vsi->num_q_vectors; i++)
+-			napi_schedule(&vsi->q_vectors[i]->napi);
+-		dev_info(&pf->pdev->dev, "napi called\n");
+ 	} else {
+ 		dev_info(&pf->pdev->dev, "unknown command '%s'\n",
+ 			 i40e_dbg_netdev_ops_buf);
+-- 
+1.8.3.1
