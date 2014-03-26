@@ -1,150 +1,65 @@
-From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Subject: Re: [patch net-next RFC v2 0/6] introduce infrastructure
- for support of switch chip datapath
-Date: Wed, 26 Mar 2014 17:44:31 -0400
-Message-ID: <53334A3F.6020105@mojatatu.com>
-References: <1395851472-10524-1-git-send-email-jiri@resnulli.us>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: unix: non blocking recvmsg() should not return
+ -EINTR
+Date: Wed, 26 Mar 2014 14:44:40 -0700
+Message-ID: <1395870280.12610.252.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <87zjkd802t.fsf@sable.mobileactivedefense.com>
+	 <1395847524.12610.208.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <87y4zw7ngi.fsf@sable.mobileactivedefense.com>
+	 <20140326.170514.1793472148242469413.davem@davemloft.net>
+	 <87a9cc7j1o.fsf@sable.mobileactivedefense.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
- roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
- dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
- andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1395851472-10524-1-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, David.Laight@ACULAB.COM,
+	netdev@vger.kernel.org
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:40677 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755910AbaCZVom (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 17:44:42 -0400
+Received: by mail-pa0-f44.google.com with SMTP id bj1so2518176pad.17
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 14:44:41 -0700 (PDT)
+In-Reply-To: <87a9cc7j1o.fsf@sable.mobileactivedefense.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jiri,
+On Wed, 2014-03-26 at 21:21 +0000, Rainer Weikusat wrote:
 
-The flow extensions may be distracting - note there are many
-tables (L3, L2, etc) in such chips not just ACLs. And there's likely no
-OneWay(tm) to add a flow. My view is probably to solve or reach an
-agreement on the ports. Then resolve the different tables control/data
-exposure.
-On the switchdev - You are still exposing it; do you expect these
-things to be created from user space? Probably thats one approach, but
-I would suspect the majority would result in the driver itself creating
-these devices after discovering the resources from the control
-interfaces (PCIE etc).
+> BTW, here's the program with the O_NONBLOCK read call which blocks until
+> the end of electricity, at least on 3.2.9:
+> 
+> ---------
+> #include <fcntl.h>
+> #include <string.h>
+> #include <sys/socket.h>
+> #include <sys/un.h>
+> 
+> int main(void)
+> {
+>     struct sockaddr_un sun;
+>     int fd;
+> 
+>     fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+>     sun.sun_family = AF_UNIX;
+>     strncpy(sun.sun_path, "/tmp/bla", sizeof(sun.sun_path));
+>     bind(fd, (struct sockaddr *)&sun, sizeof(sun));
+> 
+>     if (fork() == 0) read(fd, &fd, sizeof(fd));
+> 
+>     sleep(1);
+> 
+>     fcntl(fd, F_SETFL, O_NONBLOCK);
+>     read(fd, &fd, sizeof(fd));
+> 
+>     return 0;
+> }
 
-cheers,
-jamal
+Sure, O_NONBLOCK is translated into MSG_NOWAIT one time per socket
+syscall. 
 
+Once we block, we don't automatically unblock if another thread change
+the file flag.
 
-On 03/26/14 12:31, Jiri Pirko wrote:
-> This is second version of RFC. Here are the main differences from the first one:
-> -There is no special swdev of swport structure. The switch and its ports are
->   now represented only by net_device structures. There are couple of switch-specific
->   ndos added (inserting and removing flows).
->
-> -Regarding the flows, driver marks skb with "missing flow" flag now. That would
->   give indication to a user (OVS datapath of af_packet userspace application).
->   On the opposite direction, skb can be xmitted by a port.
->
-> -dummyswitch module has now rtnetlink iface for easy creation of dummy switches
->   and ports.
->
-> The basic idea is to introduce a generic infractructure to support various
-> switch chips in kernel. Also the idea is to benefit of currently existing
-> Open vSwitch userspace infrastructure.
->
->
-> The first two patches are just minor skb flag and packet_type modifications.
->
->
-> The third patch does a split of structures which are not specific to OVS
-> into more generic ones that can be reused.
->
->
-> The fourth patch introduces the "switchdev" API itself. It should serve as
-> a glue between chip drivers on the one side and the user on the other.
-> That user might be OVS datapath but in future it might be just userspace
-> application interacting via af_packet and Netlink iface.
->
-> The infrastructure is designed to be similar to for example linux bridge.
-> There is one netdevice representing a switch chip and one netdevice per every
-> port. These are bound together in classic slave-master way. The reason
-> to reuse the netdevices for port representation is that userspace can use
-> standard tools to get information about the ports, statistics, tcpdump, etc.
->
-> Note that the netdevices are just representations of the ports in the switch.
-> Therefore **no actual data** goes though, only missed flow skbs and, if drivers
-> supports it, when ETH_P_ALL packet_type is hooked on (tcpdump).
->
->
-> The fifth patch introduces a support for switchdev vports into OVS datapath.
-> After that, userspace would be able to create a switchdev DP for a switch chip,
-> to add switchdev ports to it and to use it in the same way as it would be
-> OVS SW datapath.
->
->
-> The sixth patch adds a dummy switch module. It is just an example of
-> switchdev driver implementation.
->
->
-> Jiri Pirko (6):
->    net: make packet_type->ak_packet_priv generic
->    skbuff: add "missed_flow" flag
->    openvswitch: split flow structures into ovs specific and generic ones
->    net: introduce switchdev API
->    openvswitch: Introduce support for switchdev based datapath
->    net: introduce dummy switch
->
->   drivers/net/Kconfig                        |   7 +
->   drivers/net/Makefile                       |   1 +
->   drivers/net/dummyswitch.c                  | 235 +++++++++++++++++++++++++++++
->   include/linux/filter.h                     |   1 +
->   include/linux/netdevice.h                  |  26 +++-
->   include/linux/skbuff.h                     |  13 ++
->   include/linux/sw_flow.h                    | 105 +++++++++++++
->   include/linux/switchdev.h                  |  30 ++++
->   include/uapi/linux/if_link.h               |   9 ++
->   include/uapi/linux/openvswitch.h           |   4 +
->   net/Kconfig                                |  10 ++
->   net/core/Makefile                          |   1 +
->   net/core/dev.c                             |   4 +-
->   net/core/filter.c                          |   3 +
->   net/core/switchdev.c                       | 172 +++++++++++++++++++++
->   net/openvswitch/Makefile                   |   4 +
->   net/openvswitch/datapath.c                 |  90 +++++++----
->   net/openvswitch/datapath.h                 |  12 +-
->   net/openvswitch/dp_notify.c                |   3 +-
->   net/openvswitch/flow.c                     |  14 +-
->   net/openvswitch/flow.h                     | 123 +++------------
->   net/openvswitch/flow_netlink.c             |  24 +--
->   net/openvswitch/flow_netlink.h             |   4 +-
->   net/openvswitch/flow_table.c               | 100 ++++++------
->   net/openvswitch/flow_table.h               |  18 +--
->   net/openvswitch/vport-gre.c                |   4 +-
->   net/openvswitch/vport-internal_switchdev.c | 179 ++++++++++++++++++++++
->   net/openvswitch/vport-internal_switchdev.h |  28 ++++
->   net/openvswitch/vport-netdev.c             |   4 +-
->   net/openvswitch/vport-switchportdev.c      | 205 +++++++++++++++++++++++++
->   net/openvswitch/vport-switchportdev.h      |  24 +++
->   net/openvswitch/vport-vxlan.c              |   2 +-
->   net/openvswitch/vport.c                    |   6 +-
->   net/openvswitch/vport.h                    |   4 +-
->   net/packet/af_packet.c                     |  22 ++-
->   35 files changed, 1269 insertions(+), 222 deletions(-)
->   create mode 100644 drivers/net/dummyswitch.c
->   create mode 100644 include/linux/sw_flow.h
->   create mode 100644 include/linux/switchdev.h
->   create mode 100644 net/core/switchdev.c
->   create mode 100644 net/openvswitch/vport-internal_switchdev.c
->   create mode 100644 net/openvswitch/vport-internal_switchdev.h
->   create mode 100644 net/openvswitch/vport-switchportdev.c
->   create mode 100644 net/openvswitch/vport-switchportdev.h
->
+grep -n MSG_DONTWAIT net/socket.c
