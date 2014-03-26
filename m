@@ -1,178 +1,181 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v3 3/9] net: filter: move filter accounting to filter core
-Date: Wed, 26 Mar 2014 22:06:04 +0100
-Message-ID: <1395867970-1338-4-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next v3 1/9] net: filter: add jited flag to indicate jit compiled filters
+Date: Wed, 26 Mar 2014 22:06:02 +0100
+Message-ID: <1395867970-1338-2-git-send-email-dborkman@redhat.com>
 References: <1395867970-1338-1-git-send-email-dborkman@redhat.com>
 Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	Pavel Emelyanov <xemul@parallels.com>
+	Pablo Neira Ayuso <pablo@netfilter.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62316 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37249 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755840AbaCZVGU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2014 17:06:20 -0400
+	id S1755669AbaCZVGT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2014 17:06:19 -0400
 In-Reply-To: <1395867970-1338-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch basically does two things, i) removes the extern keyword
-from the include/linux/filter.h file to be more consistent with the
-rest of Joe's changes, and ii) moves filter accounting into the filter
-core framework.
+This patch adds a jited flag into sk_filter struct in order to indicate
+whether a filter is currently jited or not. The size of sk_filter is
+not being expanded as the 32 bit 'len' member allows upper bits to be
+reused since a filter can currently only grow as large as BPF_MAXINSNS.
 
-Filter accounting mainly done through sk_filter_{un,}charge() take
-care of the case when sockets are being cloned through sk_clone_lock()
-so that removal of the filter on one socket won't result in eviction
-as it's still referenced by the other.
-
-These functions actually belong to net/core/filter.c and not
-include/net/sock.h as we want to keep all that in a central place.
-It's also not in fast-path so uninlining them is fine and even allows
-us to get rd of sk_filter_release_rcu()'s EXPORT_SYMBOL and a forward
-declaration.
+Therefore, there's enough room also for other in future needed flags to
+reuse 'len' field if necessary. The jited flag also allows for having
+alternative interpreter functions running as currently, we can only
+detect jit compiled filters by testing fp->bpf_func to not equal the
+address of sk_run_filter().
 
 Joint work with Alexei Starovoitov.
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-Cc: Pavel Emelyanov <xemul@parallels.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/filter.h | 30 +++++++++++++++++-------------
- include/net/sock.h     | 27 ---------------------------
- net/core/filter.c      | 27 +++++++++++++++++++++++++--
- 3 files changed, 42 insertions(+), 42 deletions(-)
+ arch/arm/net/bpf_jit_32.c       | 3 ++-
+ arch/powerpc/net/bpf_jit_comp.c | 3 ++-
+ arch/s390/net/bpf_jit_comp.c    | 5 ++++-
+ arch/sparc/net/bpf_jit_comp.c   | 3 ++-
+ arch/x86/net/bpf_jit_comp.c     | 3 ++-
+ include/linux/filter.h          | 3 ++-
+ net/core/filter.c               | 1 +
+ 7 files changed, 15 insertions(+), 6 deletions(-)
 
+diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
+index 7ddb9c8..6f879c3 100644
+--- a/arch/arm/net/bpf_jit_32.c
++++ b/arch/arm/net/bpf_jit_32.c
+@@ -925,6 +925,7 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 		bpf_jit_dump(fp->len, alloc_size, 2, ctx.target);
+ 
+ 	fp->bpf_func = (void *)ctx.target;
++	fp->jited = 1;
+ out:
+ 	kfree(ctx.offsets);
+ 	return;
+@@ -932,7 +933,7 @@ out:
+ 
+ void bpf_jit_free(struct sk_filter *fp)
+ {
+-	if (fp->bpf_func != sk_run_filter)
++	if (fp->jited)
+ 		module_free(NULL, fp->bpf_func);
+ 	kfree(fp);
+ }
+diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+index 4afad6c..808ce1c 100644
+--- a/arch/powerpc/net/bpf_jit_comp.c
++++ b/arch/powerpc/net/bpf_jit_comp.c
+@@ -689,6 +689,7 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 		((u64 *)image)[0] = (u64)code_base;
+ 		((u64 *)image)[1] = local_paca->kernel_toc;
+ 		fp->bpf_func = (void *)image;
++		fp->jited = 1;
+ 	}
+ out:
+ 	kfree(addrs);
+@@ -697,7 +698,7 @@ out:
+ 
+ void bpf_jit_free(struct sk_filter *fp)
+ {
+-	if (fp->bpf_func != sk_run_filter)
++	if (fp->jited)
+ 		module_free(NULL, fp->bpf_func);
+ 	kfree(fp);
+ }
+diff --git a/arch/s390/net/bpf_jit_comp.c b/arch/s390/net/bpf_jit_comp.c
+index 153f8f2..9c36dc3 100644
+--- a/arch/s390/net/bpf_jit_comp.c
++++ b/arch/s390/net/bpf_jit_comp.c
+@@ -877,6 +877,7 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 	if (jit.start) {
+ 		set_memory_ro((unsigned long)header, header->pages);
+ 		fp->bpf_func = (void *) jit.start;
++		fp->jited = 1;
+ 	}
+ out:
+ 	kfree(addrs);
+@@ -887,10 +888,12 @@ void bpf_jit_free(struct sk_filter *fp)
+ 	unsigned long addr = (unsigned long)fp->bpf_func & PAGE_MASK;
+ 	struct bpf_binary_header *header = (void *)addr;
+ 
+-	if (fp->bpf_func == sk_run_filter)
++	if (!fp->jited)
+ 		goto free_filter;
++
+ 	set_memory_rw(addr, header->pages);
+ 	module_free(NULL, header);
++
+ free_filter:
+ 	kfree(fp);
+ }
+diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
+index d96d2a7..a82c6b2 100644
+--- a/arch/sparc/net/bpf_jit_comp.c
++++ b/arch/sparc/net/bpf_jit_comp.c
+@@ -809,6 +809,7 @@ cond_branch:			f_offset = addrs[i + filter[i].jf];
+ 	if (image) {
+ 		bpf_flush_icache(image, image + proglen);
+ 		fp->bpf_func = (void *)image;
++		fp->jited = 1;
+ 	}
+ out:
+ 	kfree(addrs);
+@@ -817,7 +818,7 @@ out:
+ 
+ void bpf_jit_free(struct sk_filter *fp)
+ {
+-	if (fp->bpf_func != sk_run_filter)
++	if (fp->jited)
+ 		module_free(NULL, fp->bpf_func);
+ 	kfree(fp);
+ }
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index 293c57b..dc01773 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -772,6 +772,7 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
+ 		bpf_flush_icache(header, image + proglen);
+ 		set_memory_ro((unsigned long)header, header->pages);
+ 		fp->bpf_func = (void *)image;
++		fp->jited = 1;
+ 	}
+ out:
+ 	kfree(addrs);
+@@ -791,7 +792,7 @@ static void bpf_jit_free_deferred(struct work_struct *work)
+ 
+ void bpf_jit_free(struct sk_filter *fp)
+ {
+-	if (fp->bpf_func != sk_run_filter) {
++	if (fp->jited) {
+ 		INIT_WORK(&fp->work, bpf_jit_free_deferred);
+ 		schedule_work(&fp->work);
+ 	} else {
 diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 93a9792..9bde3ed 100644
+index e568c8e..e65e230 100644
 --- a/include/linux/filter.h
 +++ b/include/linux/filter.h
-@@ -50,28 +50,32 @@ static inline unsigned int sk_filter_size(unsigned int proglen)
- #define sk_filter_proglen(fprog)			\
- 		(fprog->len * sizeof(fprog->filter[0]))
- 
--extern int sk_filter(struct sock *sk, struct sk_buff *skb);
--extern unsigned int sk_run_filter(const struct sk_buff *skb,
--				  const struct sock_filter *filter);
-+int sk_filter(struct sock *sk, struct sk_buff *skb);
-+unsigned int sk_run_filter(const struct sk_buff *skb,
-+			   const struct sock_filter *filter);
- 
--extern int sk_unattached_filter_create(struct sk_filter **pfp,
--				       struct sock_fprog *fprog);
--extern void sk_unattached_filter_destroy(struct sk_filter *fp);
-+int sk_unattached_filter_create(struct sk_filter **pfp,
-+				struct sock_fprog *fprog);
-+void sk_unattached_filter_destroy(struct sk_filter *fp);
- 
--extern int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
--extern int sk_detach_filter(struct sock *sk);
-+int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
-+int sk_detach_filter(struct sock *sk);
- 
--extern int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
--extern int sk_get_filter(struct sock *sk, struct sock_filter __user *filter, unsigned len);
--extern void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to);
-+int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
-+int sk_get_filter(struct sock *sk, struct sock_filter __user *filter,
-+		  unsigned int len);
-+void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to);
-+
-+void sk_filter_charge(struct sock *sk, struct sk_filter *fp);
-+void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp);
- 
- #ifdef CONFIG_BPF_JIT
- #include <stdarg.h>
- #include <linux/linkage.h>
- #include <linux/printk.h>
- 
--extern void bpf_jit_compile(struct sk_filter *fp);
--extern void bpf_jit_free(struct sk_filter *fp);
-+void bpf_jit_compile(struct sk_filter *fp);
-+void bpf_jit_free(struct sk_filter *fp);
- 
- static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
- 				u32 pass, void *image)
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 8d7c431..06a5668 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1621,33 +1621,6 @@ void sk_common_release(struct sock *sk);
- /* Initialise core socket variables */
- void sock_init_data(struct socket *sock, struct sock *sk);
- 
--void sk_filter_release_rcu(struct rcu_head *rcu);
--
--/**
-- *	sk_filter_release - release a socket filter
-- *	@fp: filter to remove
-- *
-- *	Remove a filter from a socket and release its resources.
-- */
--
--static inline void sk_filter_release(struct sk_filter *fp)
--{
--	if (atomic_dec_and_test(&fp->refcnt))
--		call_rcu(&fp->rcu, sk_filter_release_rcu);
--}
--
--static inline void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
--{
--	atomic_sub(sk_filter_size(fp->len), &sk->sk_omem_alloc);
--	sk_filter_release(fp);
--}
--
--static inline void sk_filter_charge(struct sock *sk, struct sk_filter *fp)
--{
--	atomic_inc(&fp->refcnt);
--	atomic_add(sk_filter_size(fp->len), &sk->sk_omem_alloc);
--}
--
- /*
-  * Socket reference counting postulates.
-  *
+@@ -25,7 +25,8 @@ struct sock;
+ struct sk_filter
+ {
+ 	atomic_t		refcnt;
+-	unsigned int         	len;	/* Number of filter blocks */
++	u32			jited:1,	/* Is our filter JIT'ed? */
++				len:31;		/* Number of filter blocks */
+ 	struct rcu_head		rcu;
+ 	unsigned int		(*bpf_func)(const struct sk_buff *skb,
+ 					    const struct sock_filter *filter);
 diff --git a/net/core/filter.c b/net/core/filter.c
-index 9730e7f..5b3427a 100644
+index 65b7596..bb3c764 100644
 --- a/net/core/filter.c
 +++ b/net/core/filter.c
-@@ -664,14 +664,37 @@ static void sk_release_orig_filter(struct sk_filter *fp)
-  * 	sk_filter_release_rcu - Release a socket filter by rcu_head
-  *	@rcu: rcu_head that contains the sk_filter to free
-  */
--void sk_filter_release_rcu(struct rcu_head *rcu)
-+static void sk_filter_release_rcu(struct rcu_head *rcu)
- {
- 	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
+@@ -646,6 +646,7 @@ static int __sk_prepare_filter(struct sk_filter *fp)
+ 	int err;
  
- 	sk_release_orig_filter(fp);
- 	bpf_jit_free(fp);
- }
--EXPORT_SYMBOL(sk_filter_release_rcu);
-+
-+/**
-+ *	sk_filter_release - release a socket filter
-+ *	@fp: filter to remove
-+ *
-+ *	Remove a filter from a socket and release its resources.
-+ */
-+static void sk_filter_release(struct sk_filter *fp)
-+{
-+	if (atomic_dec_and_test(&fp->refcnt))
-+		call_rcu(&fp->rcu, sk_filter_release_rcu);
-+}
-+
-+void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
-+{
-+	atomic_sub(sk_filter_size(fp->len), &sk->sk_omem_alloc);
-+	sk_filter_release(fp);
-+}
-+
-+void sk_filter_charge(struct sock *sk, struct sk_filter *fp)
-+{
-+	atomic_inc(&fp->refcnt);
-+	atomic_add(sk_filter_size(fp->len), &sk->sk_omem_alloc);
-+}
+ 	fp->bpf_func = sk_run_filter;
++	fp->jited = 0;
  
- static int __sk_prepare_filter(struct sk_filter *fp)
- {
+ 	err = sk_chk_filter(fp->insns, fp->len);
+ 	if (err)
 -- 
 1.7.11.7
