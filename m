@@ -1,27 +1,24 @@
 From: Jiri Pirko <jiri@resnulli.us>
 Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
  switch chip datapath
-Date: Wed, 26 Mar 2014 08:21:48 +0100
-Message-ID: <20140326072148.GB2869@minipsycho.orion>
-References: <20140320124021.GA2946@minipsycho.orion>
+Date: Wed, 26 Mar 2014 08:24:26 +0100
+Message-ID: <20140326072426.GC2869@minipsycho.orion>
+References: <1395243232-32630-1-git-send-email-jiri@resnulli.us>
+ <532AD5B3.6020205@mojatatu.com>
+ <20140320124021.GA2946@minipsycho.orion>
  <CAGVrzcbqQGGYb2Wkkekei7ivGd2XOnE+5GthLUv6_nD_oicrSQ@mail.gmail.com>
  <532C2AC4.7080303@mojatatu.com>
  <20140322094852.GB2844@minipsycho.orion>
  <5330BAB7.3040501@mojatatu.com>
  <20140325173927.GE8102@hmsreliant.think-freely.org>
- <20140325180009.GB15723@casper.infradead.org>
- <20140325193533.GF8102@hmsreliant.think-freely.org>
- <5331ED86.7020704@mojatatu.com>
- <20140325211945.GC15723@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	netdev <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>, andy@greyhouse.net,
-	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
-	pshelar@nicira.com, azhou@nicira.com,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
 	Ben Hutchings <ben@decadent.org.uk>,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
@@ -30,94 +27,85 @@ Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
 	Eric Dumazet <edumazet@google.com>,
 	Scott Feldman <sfeldma@cumulusnetworks.com>,
 	Lennert Buytenhek <buytenh@wantstofly.org>
-To: Thomas Graf <tgraf@suug.ch>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f45.google.com ([74.125.83.45]:37209 "EHLO
-	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751961AbaCZHVw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 03:21:52 -0400
-Received: by mail-ee0-f45.google.com with SMTP id d17so1273685eek.18
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 00:21:51 -0700 (PDT)
+Received: from mail-ee0-f47.google.com ([74.125.83.47]:50932 "EHLO
+	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751232AbaCZHYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 03:24:30 -0400
+Received: by mail-ee0-f47.google.com with SMTP id b15so1286154eek.34
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 00:24:29 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20140325211945.GC15723@casper.infradead.org>
+In-Reply-To: <20140325173927.GE8102@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Mar 25, 2014 at 10:19:45PM CET, tgraf@suug.ch wrote:
->On 03/25/14 at 04:56pm, Jamal Hadi Salim wrote:
->> On 03/25/14 15:35, Neil Horman wrote:
->> >1) ip link show:
->> >em1
->> >sw1
+Tue, Mar 25, 2014 at 06:39:27PM CET, nhorman@tuxdriver.com wrote:
+>On Mon, Mar 24, 2014 at 07:07:35PM -0400, Jamal Hadi Salim wrote:
+>> On 03/22/14 05:48, Jiri Pirko wrote:
+>> >Fri, Mar 21, 2014 at 01:04:20PM CET, jhs@mojatatu.com wrote:
+>> 
+>> >Hmm. This got me thinking about netdev and switches well and perhaps the
+>> >switchdev api could be mostly implemented by couple of more ndos and
+>> >feature flags. That way we could stick to your immortal netdev :)
 >> >
->> >2) ip link show sw1
->> >sw1
->> >
->> >3) ip link show -p sw1
->> >sw1p0
->> >sw1p1
->> >sw1p2...
->> >
->> >
->> >The idea is to augment user space to allow the visibiliy of ports through the
->> >switch device, not directly, but using the same existing mechanisms.  We can
->> >reuse all the existing infrastruture, but with this model, control must pass
->> >through the switch device driver, allowing it to taylor available features by
->> >passing the netlink request on to the appropriate netdevice, or sending back an
->> >error itself.
 >> >
 >> 
->> I think i am with you mostly - just not on the visibility of a "master"
->> device.
->> Expose the ports. Users create bridges bonds and if the hardware is
->> capable it does the hard work to ensure consistency. No change in tools.
+>> Perhaps ;->
+>> 
+>> >>
+>> >>In my view: that (immortal) device for L2/bridging is the bridge or
+>> >>maybe a more barebone version of the bridge (since it has gained a
+>> >>little more weight in recent times).
+>> >
+>> >Well, I do not think that bridge is ideal abstraction for modern switch
+>> >chips. Bridge is very limited.
+>> >
+>> 
+>> True - but i was more thinking of being inclusive of the smaller
+>> devices. They are mostly L2 only and in very limited scope. And thats
+>> probably 95% of the population. The things you are talking about
+>> are very high end and they can do more. Florian's taxanomy was useful.
+>> 
+>> >But I don't necessary think it is needed to "mask" as a bride or mimic a
+>> >bridge in any way. DSA does not do that either.
+>No, but it would be really nice if these smaller devices could take advantage of
+>this infrastructure.  Looking at it, I don't see why thats not possible.  The
+>big trick (as we've discussed in the past), is using a net_device structure to
+>take advantage of all the features that net_devices offer while not enabling the
+>device specific features that some hardware doesn't allow.
+>
+>For instance the broadcom chips that live in many wireless routers would be well
+>served by the model jiri has here as far as Media level interface control is
+>concerned (i.e. ifup/down/speed/duplex/etc), but its a bit lacking in that
+>net_devices are assumed to support L3 protocol configuration (i.e. they can have
+>ip addresses assigned to them), which you can't IIRC do on these chips.
+>
+>Would it be worth considering a private interface model?  That is to say:
 
-Creating bonding of the switch ports does not fit into the picture at
-all. These port netdevices are just a representation of a port. Not
-actual netdevice where the data goes through.
+I'm personaly strongly againts this. All netdevices should stay under net
+namespace list. If you break this, I expect many unexpected issues.
++ There is not really a reason for this breakage.
 
-Please consider the case I gave already to this thread:
-
-        switch chip
-   ------------------------
-    |  |  |  |  |  |   |               CPU
-   p1 p2 ...pn px py  MNGMNT       -----------
-                |  |   |              pcie
-                |  |   |         ---------------
-                |  |   |          |  NIC0 NIC1
-                |  |   ---pcie-----   |   |
-                |  ------someMII-------   |
-                ---------someMII-----------
-
-        NIC0 and NIC1 are ordinary NICs like 8139too for example with no
-        notion they are connected to a switch. They as completely
-        independent on the mngmnt iface.
-
-
-There, actual data is coming through NIC0 and NIC1 which is completely separated
-from the p1...pn,px.px port representations.
-
-And if you understand it this way, it makes perfect sense to have a master device
-for these port representations.
-
-Btw note this model fits into existing DSA as well I believe. The actual DSA
-devices whould act as NIC0, NIC1 and what would be added is the switch
-representation (couple of more netdevices to represent actual HW ports and
-their master)
 
 >
->Exactly. This is what I meant as well. No change in tools.
-
-I agree.
-
+>1) Ports on a switch chip are accessed using net_device structures, but
+>registered to a private list contained within the switch device, rather than to
+>the net namespaces device list.
 >
->It's not just about changing ip link. We have tons of existing
->applications out there using Netlink and they will expect all ports
->visible if they issue RTM_GETLINK with NLM_F_DUMP.
+>2) Access to the switch ports via user space is done through the master switch
+>interface with additional netlink attributes specifying the port on the switch
+>to access (or not to access the master switch device directly)
 >
->What speaks against exposing it by default? To me, the model should
->not differ from a multi port NIC which we also expose all ports with
->any indirection.
-
-Note that you won't get actual data through these ports (visible to
-CPU). That is where it differs from multiport NIC.
+>
+>Such a model I think might fit well with Jiri's code here and provide greater
+>flexibility for a wider range of devices.  It would of course require
+>augmentation for user space, but the changes would be additive, so I think they
+>would be reasonable.  This would also allow the switch device to have a hook in
+>the control path to block or allow features that the hardware may or may not
+>support while still being able to use the existing net_device infrastructure to
+>support these operations as they are normally carried out.
+>
+>Best
+>Neil
+>
