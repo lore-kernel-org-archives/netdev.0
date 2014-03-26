@@ -1,116 +1,94 @@
-From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [patch net-next RFC v2 2/6] skbuff: add "missed_flow"
-	flag
-Date: Wed, 26 Mar 2014 09:59:12 -0700
-Message-ID: <CAADnVQLJdNHx8bM2zy-cw5kKLK1GG3bLR=xZ=89AQA6fie4GxQ@mail.gmail.com>
-References: <1395851472-10524-1-git-send-email-jiri@resnulli.us>
- <1395851472-10524-3-git-send-email-jiri@resnulli.us>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
+ switch chip datapath
+Date: Wed, 26 Mar 2014 17:59:34 +0100
+Message-ID: <20140326165934.GH2869@minipsycho.orion>
+References: <532C2AC4.7080303@mojatatu.com>
+ <20140322094852.GB2844@minipsycho.orion>
+ <5330BAB7.3040501@mojatatu.com>
+ <20140325173927.GE8102@hmsreliant.think-freely.org>
+ <20140325180009.GB15723@casper.infradead.org>
+ <20140325193533.GF8102@hmsreliant.think-freely.org>
+ <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com>
+ <5332677F.2090404@cumulusnetworks.com>
+ <5332B1FE.7080102@mojatatu.com>
+ <53330639.8050403@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
- sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
- john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1395851472-10524-3-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f49.google.com ([74.125.83.49]:53481 "EHLO
+	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755876AbaCZQ7j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 12:59:39 -0400
+Received: by mail-ee0-f49.google.com with SMTP id c41so1863038eek.22
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 09:59:38 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <53330639.8050403@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 26, 2014 at 9:31 AM, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org> wrote:
-> This flag sets incoming switch device in order to let know that the flow
-> which the skb is part of is missed. Listener may react to it
-> appropriately,
->
-> Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-> ---
->  include/linux/filter.h |  1 +
->  include/linux/skbuff.h | 13 +++++++++++++
->  net/core/filter.c      |  3 +++
->  3 files changed, 17 insertions(+)
->
-> diff --git a/include/linux/filter.h b/include/linux/filter.h
-> index e568c8e..38c7c04 100644
-> --- a/include/linux/filter.h
-> +++ b/include/linux/filter.h
-> @@ -154,6 +154,7 @@ enum {
->         BPF_S_ANC_VLAN_TAG,
->         BPF_S_ANC_VLAN_TAG_PRESENT,
->         BPF_S_ANC_PAY_OFFSET,
-> +       BPF_S_ANC_MISSED_FLOW,
+Wed, Mar 26, 2014 at 05:54:17PM CET, roopa@cumulusnetworks.com wrote:
+>On 3/26/14, 3:54 AM, Jamal Hadi Salim wrote:
+>>On 03/26/14 01:37, Roopa Prabhu wrote:
+>>>On 3/25/14, 1:11 PM, Florian Fainelli wrote:
+>>>>2014-03-25 12:35 GMT-07:00 Neil Horman <nhorman@tuxdriver.com>:
+>>
+>>>Sorry about getting on this thread late and possibly in the middle.
+>>>Agree on the idea of keeping the ports linked to the master switch dev
+>>>(or the 'conduit' to the switch chip) via private list instead of the
+>>>master-slave relationship proposed earlier.
+>>>By private i mean the netdev->priv linkage to the master switch dev and
+>>>not really keeping the ports from being exposed to the user.
+>>>
+>>>We think its better to keep the switch ports exposed as any other netdev
+>>>on linux.
+>>>  This approach will make the switch ports look exactly like a nic port
+>>>and all tools will continue to work seamlessly. The switch port
+>>>operations could internally be forwarded to the switch netdev (sw1 in
+>>>the above case).
+>>>
+>>>example:
+>>>$ip link set dev sw1p0 up
+>>>$ethtool -S sw1p0
+>>>
+>>
+>>I like the approach. I know the above is a simple version, but i am
+>>assuming you also mean i can do things like
+>>ip route add ...
+>>bridge fdb add ... (and if you like your brctl go ahead)
+>>bonding ...
+>>
+>yes, exactly.  We support this model on our boxes today.
+>User can bond switch ports on our box in the exact same way as he/she
+>would bond two nic ports.
+>Our 'conduit to switch chip' reflects the corresponding lag
+>configuration in the switch chip.
+>Same goes for bridging, routing, acls.
 
-Interesting use case for bpf...
-looks like it's not connected to userspace.
-Are you trying to extend ovs with switchdev api and bpf at once?
-How do you plan to use this bpf extension?
 
-Thanks
-Alexei
+So you implement bonding netlink api? Or you hook into bonding driver
+itselt? Can you show us the code?
 
->  };
+
+
 >
->  #endif /* __LINUX_FILTER_H__ */
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 03db95a..0100c2f 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -567,6 +567,7 @@ struct sk_buff {
->          * headers if needed
->          */
->         __u8                    encapsulation:1;
-> +       __u8                    missed_flow:1;
->         /* 6/8 bit hole (depending on ndisc_nodetype presence) */
->         kmemcheck_bitfield_end(flags2);
->
-> @@ -2993,5 +2994,17 @@ static inline unsigned int skb_gso_network_seglen(const struct sk_buff *skb)
->                                skb_network_header(skb);
->         return hdr_len + skb_gso_transport_seglen(skb);
->  }
-> +
-> +/**
-> + * skb_mark_missed_flow - marks skb as a part of missed flow
-> + * @skb: buffer
-> + *
-> + * Marks skb as a part of missed flow.
-> + */
-> +static inline void skb_mark_missed_flow(struct sk_buff *skb)
-> +{
-> +       skb->missed_flow = 1;
-> +}
-> +
->  #endif /* __KERNEL__ */
->  #endif /* _LINUX_SKBUFF_H */
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index ad30d62..048f11a 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -350,6 +350,9 @@ load_b:
->                 case BPF_S_ANC_PAY_OFFSET:
->                         A = __skb_get_poff(skb);
->                         continue;
-> +               case BPF_S_ANC_MISSED_FLOW:
-> +                       A = !!skb->missed_flow;
-> +                       continue;
->                 case BPF_S_ANC_NLATTR: {
->                         struct nlattr *nla;
->
-> --
-> 1.8.5.3
->
-> _______________________________________________
-> dev mailing list
-> dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-> http://openvswitch.org/mailman/listinfo/dev
+>Thanks,
+>Roopa
