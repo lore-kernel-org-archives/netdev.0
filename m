@@ -1,49 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ip_tunnel: Fix dst ref-count.
-Date: Wed, 26 Mar 2014 15:19:09 -0400 (EDT)
-Message-ID: <20140326.151909.772278041679801312.davem@davemloft.net>
-References: <1395637596-28064-1-git-send-email-pshelar@nicira.com>
-	<20140324.152412.1501867662024898167.davem@davemloft.net>
-	<CALnjE+rzAs4Wr=pmozyPAr=T3QHE=-8qRBf-U_fHMDqeWAE+GA@mail.gmail.com>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: RE: [net-next 03/16] i40evf: Support RSS option in ethtool
+Date: Wed, 26 Mar 2014 19:21:51 +0000
+Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D65578A60@FMSMSX113.amr.corp.intel.com>
+References: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1395060316-16897-4-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1395082411.22343.4.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lucien.xin@gmail.com
-To: pshelar@nicira.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"Sullivan, Catherine" <catherine.sullivan@intel.com>
+To: Ben Hutchings <ben@decadent.org.uk>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45988 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751217AbaCZTTM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 15:19:12 -0400
-In-Reply-To: <CALnjE+rzAs4Wr=pmozyPAr=T3QHE=-8qRBf-U_fHMDqeWAE+GA@mail.gmail.com>
+Received: from mga11.intel.com ([192.55.52.93]:61036 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751147AbaCZTVy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2014 15:21:54 -0400
+In-Reply-To: <1395082411.22343.4.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin Shelar <pshelar@nicira.com>
-Date: Mon, 24 Mar 2014 12:36:41 -0700
-
-> On Mon, Mar 24, 2014 at 12:24 PM, David Miller <davem@davemloft.net> wrote:
->> From: Pravin <pshelar@nicira.com>
->> Date: Sun, 23 Mar 2014 22:06:36 -0700
->>
->>> Commit 10ddceb22ba (ip_tunnel:multicast process cause panic due
->>> to skb->_skb_refdst NULL pointer) removed dst-drop call from
->>> ip-tunnel-recv.
->>>
->>> Following commit reintroduce dst-drop and fix the original bug by
->>> checking loopback packet before releasing dst.
->>> Original bug: https://bugzilla.kernel.org/show_bug.cgi?id=70681
->>>
->>> CC: Xin Long <lucien.xin@gmail.com>
->>> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
->>
->> I don't understand why only the GRE tunnel implementation needs the
->> check, whereas ipip and sit seem to have the same code associated
->> paths.
->>
-> Multicast support is for GRE. The code is always been protected by
-> CONFIG_NET_IPGRE_BROADCAST. So I do not understand how this applies to
-> other tunnel protocol. Can you point me to the code you are worried
-> about?
-
-Ok, looks good, applied and queued up for -stable thanks!
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
+bWFpbHRvOmJlbkBkZWNhZGVudC5vcmcudWtdDQo+IFNlbnQ6IE1vbmRheSwgTWFyY2ggMTcsIDIw
+MTQgMTE6NTQgQU0NCj4gVG86IEtpcnNoZXIsIEplZmZyZXkgVA0KPiBDYzogZGF2ZW1AZGF2ZW1s
+b2Z0Lm5ldDsgV2lsbGlhbXMsIE1pdGNoIEE7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+IGdv
+c3BvQHJlZGhhdC5jb207IHNhc3NtYW5uQHJlZGhhdC5jb207IFN1bGxpdmFuLCBDYXRoZXJpbmUN
+Cj4gU3ViamVjdDogUmU6IFtuZXQtbmV4dCAwMy8xNl0gaTQwZXZmOiBTdXBwb3J0IFJTUyBvcHRp
+b24gaW4gZXRodG9vbA0KPiANCj4gT24gTW9uLCAyMDE0LTAzLTE3IGF0IDA1OjQ1IC0wNzAwLCBK
+ZWZmIEtpcnNoZXIgd3JvdGU6DQo+ID4gRnJvbTogTWl0Y2ggV2lsbGlhbXMgPG1pdGNoLmEud2ls
+bGlhbXNAaW50ZWwuY29tPg0KPiA+DQo+ID4gQWRkIHN1cHBvcnQgZm9yIHZpZXdpbmcgYW5kIG1v
+ZGlmeWluZyBSU1MgaGFzaCBvcHRpb25zIGFuZCBSU1MgaGFzaA0KPiA+IGxvb2stdXAgdGFibGUg
+cHJvZ3JhbW1pbmcgdGhyb3VnaCBldGh0b29sLiBCZWNhdXNlIHRoZSBsb29rdXAgdGFibGUgaXMN
+Cj4gPiBzbyBzbWFsbCBmb3IgdGhlIFZGcyAob25seSAxNiByZWdpc3RlcnMpLCB3ZSBkb24ndCBi
+b3RoZXIgdG8gbWFpbnRhaW4gYQ0KPiA+IHNoYWRvdyB0YWJsZSBpbiBtZW1vcnksIHdlIGp1c3Qg
+cmVhZCBhbmQgd3JpdGUgdGhlIHJlZ2lzdGVycyBkaXJlY3RseS4NCj4gWy4uLl0NCj4gPiArc3Rh
+dGljIGludCBpNDBldmZfZ2V0X3Jzc19oYXNoX29wdHMoc3RydWN0IGk0MGV2Zl9hZGFwdGVyICph
+ZGFwdGVyLA0KPiA+ICsJCQkJICAgIHN0cnVjdCBldGh0b29sX3J4bmZjICpjbWQpDQo+ID4gK3sN
+Cj4gPiArCWNtZC0+ZGF0YSA9IDA7DQo+ID4gKw0KPiA+ICsJLyogUmVwb3J0IGRlZmF1bHQgb3B0
+aW9ucyBmb3IgUlNTIG9uIGk0MGUgKi8NCj4gDQo+IEJ1dCB5b3UncmUgYWxsb3dpbmcgdGhlbSB0
+byBiZSBjaGFuZ2VkIGZyb20gdGhlIGRlZmF1bHRzLCBzbyB0aGlzIGlzDQo+IHdyb25nLg0KDQpC
+ZW4sIEkndmUgZ290IGEgcXVlc3Rpb24gb24gdGhpcy4gU2hvdWxkIHRoZSBFVEhUT09MX0dSWEZI
+IG9wdGlvbiByZXBvcnQgd2hhdCB0aGUgZHJpdmVyIGFuZCBkZXZpY2UgYXJlIGNhcGFibGUgb2Ys
+IG9yIHNob3VsZCBpdCByZXBvcnQgdGhlIGN1cnJlbnQgY29uZmlndXJhdGlvbj8gDQoNCklmIHRo
+aXMgb3B0aW9uIGlzIHN1cHBvc2VkIHRvIHJlcG9ydCBkZXZpY2UgY2FwYWJpbGl0aWVzLCBob3cg
+Y2FuIHdlIGZpbmQgb3V0IHRoZSBjdXJyZW50IGNvbmZpZ3VyYXRpb24/IEFuZCBpZiBpdCdzIHN1
+cHBvc2VkIHRvIHJlcG9ydCB0aGUgY3VycmVudCBjb25maWd1cmF0aW9uLCB0aGVuIGhvdyBkbyB3
+ZSBmaW5kIG91dCB0aGUgZGV2aWNlIGNhcGFiaWxpdGllcz8NCg0KSSd2ZSBiZWVuIHdhZGluZyB0
+aHJvdWdoIHRoZSBrZXJuZWwgc291cmNlLCBhbmQgSSBzZWUgYm90aC4gU28gSSdtIGNvbmZ1c2Vk
+Lg0KDQpDdXJyZW50bHksIEkgaGF2ZSB0aGUgaTQwZXZmIGRyaXZlciBqdXN0IHJlcG9ydGluZyBj
+YXBhYmlsaXRpZXMsIGJlY2F1c2UgSSBtb3N0bHkgc3dpcGVkIHRoZSBjb2RlIGZyb20gaTQwZSwg
+d2hpY2ggKEkgdGhpbmspIHdhcyBzd2lwZWQgZnJvbSBpeGdiZS4gKE5vdGUgdG8gYW55IGxheXdl
+cnMgcmVhZGluZyB0aGlzOiAic3dpcGVkIiBpcyBhIGV1cGhlbWlzbSBmb3IgImxlZ2FsbHkgY29w
+aWVkIGFuZC9vciBhZGFwdGVkIGluIGNvbXBsaWFuY2Ugd2l0aCBhbGwgYXBwcm9wcmlhdGUgc29m
+dHdhcmUgbGljZW5zZXMuKQ0KDQpXaGF0J3MgeW91ciBpbnRlcnByZXRhdGlvbiBvZiBob3cgdGhp
+cyBzaG91bGQgd29yaz8gSSdtIHJlc3Bpbm5pbmcgdGhpcyBmb3Igc3VibWl0dGFsIHVwc3RyZWFt
+LCBhbmQgbm93J3MgdGhlIHRpbWUgdG8gY2hhbmdlIGl0IGlmIGl0IG5lZWRzIHRvIGJlIGNoYW5n
+ZWQuDQoNClRoYW5rcywNCk1pdGNoDQo=
