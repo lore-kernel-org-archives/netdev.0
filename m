@@ -1,76 +1,67 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
- of switch chip datapath
-Date: Wed, 26 Mar 2014 17:51:22 -0400
-Message-ID: <53334BDA.1060608@mojatatu.com>
-References: <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org> <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com> <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com> <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion> <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com> <20140326173536.GJ2869@minipsycho.orion> <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com> <20140326181436.GL2869@minipsycho.orion>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 0/3] Fix stmmac-socfpga allmodconfig breakage in arm-soc
+Date: Wed, 26 Mar 2014 22:54:40 +0100
+Message-ID: <201403262254.41069.arnd@arndb.de>
+References: <1395790482-3957-1-git-send-email-dinguyen@altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:38886 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751580AbaCZVvZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 17:51:25 -0400
-Received: by mail-ig0-f177.google.com with SMTP id ur14so1079055igb.16
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 14:51:25 -0700 (PDT)
-In-Reply-To: <20140326181436.GL2869@minipsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mark.rutland@arm.com, devicetree@vger.kernel.org, dinh.linux@gmail.com,
+ pawel.moll@arm.com, srinivas.kandagatla@st.com, netdev@vger.kernel.org,
+ ijc+devicetree@hellion.org.uk, robh+dt@kernel.org, arm@kernel.org,
+ galak@codeaurora.org, peppe.cavallaro@st.com, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org
+To: dinguyen@altera.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1395790482-3957-1-git-send-email-dinguyen@altera.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 03/26/14 14:14, Jiri Pirko wrote:
-> Wed, Mar 26, 2014 at 06:58:32PM CET, f.fainelli@gmail.com wrote:
->> 2014-03-26 10:35 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
+On Wednesday 26 March 2014, dinguyen@altera.com wrote:
+> From: Dinh Nguyen <dinguyen@altera.com>
+> 
+> Hi,
+> 
+> These 3 patches are based on Arnd's patch to fix the allmodconfig for the
+> dwmac-socfpga implementation. I just broke the patch out into drivers,
+> dts, and dts documentation.
+> 
+> The original patch is here:
+> http://lists.infradead.org/pipermail/linux-arm-kernel/2014-March/241518.html
+> 
+> Arnd mentioned that he was thinking about just removing the dwmac-socfpga
+> and send out the new verion to the netdev tree, but I haven't seen it. So
+> just in case this solution might work, here are the patches.
+> 
+> These patches are based on arm-soc/for-next.
 
+Hi Dinh,
 
->> You are right, sw1p0 and sw1p1 were meant to be, say LAN ports in my example.
->>
->> I think there is an implicit convention that sw1 represents the
->> Ethernet switch port connected to the CPU Ethernet MAC, and that it is
->> always connected, hence there is no need to create a "fake" bridge to
->> link sw1 to eth0 for instance?
->
-> I think you are kind of mixing apples and oranges (or I might be I'm not
-> understanding you correctly).
-> This is how I see it, sticking to the names you use in the example:
->
->              (sw1) (abstract place-holder netdev)
->            --------
->           switch chip                   CPU
->     -----------------------            ------
->     sw1p0 sw1p1 sw1p2 sw1p3             eth0
->       |     |     |     |                |
->      PHY   PHY   PHY    ------someMII-----
->
-> You see that eth0 is the CPU part of the "connection" and sw1p3 is the
-> switch part (port representation).
->
+Thanks for putting these patches together. The problem I see with these
+is that we have multiple conflicts between my changes and the other
+patches that went into the netdev tree.
 
+Originally, the idea was that David Miller gave his Ack to have
+the patches merged through arm-soc, but I think that was a mistake,
+and they should have been treated like the other patches for
+the same driver, i.e. put the driver and binding changes into
+netdev, and the dt changes into arm-soc.
 
-Florian - I am sure you explained this before; I just dont remember. Why
-is there need to expose eth0? It seems to me sw1p0-3 are abstracted
-already in the kernel and the "cpu port" is merely a control interface.
+If I apply your patches on top of the next/drivers branch, we get
+conflicts for a handful of files, and get Linus to resolve them.
+I tried applying my patch on Sunday, but backed it out because 
+of this.
 
-Note: even the high end chips tend to have the concept of a "cpu port"
-but my experience is to hide that as part of the switch driver.
+My preferred solution at this point would be to revert the driver
+addition in the arm-soc tree and have David put the new version
+in, but I don't know if he still takes patches like that for 3.15.
 
-cheers,
-jamal
+	Arnd
