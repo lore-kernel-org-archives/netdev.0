@@ -1,32 +1,35 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v2 net-next 2/2] ptp: Fix compiler warnings in the
- testptp utility
-Date: Wed, 26 Mar 2014 10:16:37 +0100
-Message-ID: <20140326091636.GA5015@netboy>
-References: <1395818163-31672-1-git-send-email-christian.riesch@omicron.at>
- <35ec3d13-e8a8-4cf4-b5ce-91c4dbe2ac0b@mary.at.omicron.at>
+From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Subject: RE: [PATCH v5 net-next 0/2] patchset: Support for configurable RSS
+ hash key
+Date: Wed, 26 Mar 2014 09:21:01 +0000
+Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C89CCDD@CMEXMB1.ad.emulex.com>
+References: <193620ac-855b-4c2a-b9ab-962b2edfbfa2@CMEXHTCAS2.ad.emulex.com>
+	<20140319.155930.1805664690676428310.davem@davemloft.net>
+	<1395412393.2770.48.camel@deadeye.wl.decadent.org.uk>
+ <20140321.152836.1010161671166010422.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Dong Zhu <bluezhudong@gmail.com>
-To: Christian Riesch <christian.riesch@omicron.at>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f53.google.com ([74.125.83.53]:51590 "EHLO
-	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750911AbaCZJQm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 05:16:42 -0400
-Received: by mail-ee0-f53.google.com with SMTP id b57so1389497eek.12
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 02:16:41 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <35ec3d13-e8a8-4cf4-b5ce-91c4dbe2ac0b@mary.at.omicron.at>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:27124 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751330AbaCZJVE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 05:21:04 -0400
+In-Reply-To: <20140321.152836.1010161671166010422.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 26, 2014 at 08:16:03AM +0100, Christian Riesch wrote:
-> Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
-> Cc: Dong Zhu <bluezhudong@gmail.com>
-> ---
-> 
-> Changes for v2:
-> - Use PRI64d macro for __s64 in printf
+> Nothing stops ethtool from providing a combined operation on the command
+> line, but that doesn't mean we necessarily have to have a single kernel
+> interface doing both thing.
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+Sounds good. We can have a combined operation on the command line and can still have different data structure, command and kernel interface for each of the sub operations.
+
+> I really still think that adding just a new key operation is the way to go.
+
+Ben and David,
+I don't mind going back to the original approach of adding a new hash key operation. Please let me know what you guys think, combined operation or a new operation.
