@@ -1,166 +1,101 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net v3] vlan: Fix lockdep warning when vlan dev handle notification
-Date: Wed, 26 Mar 2014 11:11:53 +0800
-Message-ID: <53324579.8080602@huawei.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next,v4] hyperv: Add support for virtual Receive
+ Side Scaling (vRSS)
+Date: Wed, 26 Mar 2014 03:23:47 +0000
+Message-ID: <a8b374e420be42d883fb782c8f271659@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <1395434633-16771-1-git-send-email-haiyangz@microsoft.com>
+	<216cd74854414cfc9b338cab41a3d1a0@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+	<20140325.204343.991901655152875043.davem@davemloft.net>
+ <20140325.204728.2281772666453524010.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Ben Hutchings <ben@decadent.org.uk>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"Florian Fainelli" <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	KY Srinivasan <kys@microsoft.com>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"driverdev-devel@linuxdriverproject.org"
+	<driverdev-devel@linuxdriverproject.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:10107 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753727AbaCZDNv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 23:13:51 -0400
+Received: from na01-sn2-obe.ptr.o365filtering.com ([157.55.158.30]:43739 "EHLO
+	na01-sn2-obe.outbound.o365filtering.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755307AbaCZDYX convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Mar 2014 23:24:23 -0400
+In-Reply-To: <20140325.204728.2281772666453524010.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When I open the LOCKDEP config and run these steps:
 
-modprobe 8021q
-vconfig add eth2 20
-vconfig add eth2.20 30
-ifconfig eth2 xx.xx.xx.xx
 
-then the Call Trace happened:
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Tuesday, March 25, 2014 8:47 PM
+> To: Haiyang Zhang
+> Cc: netdev@vger.kernel.org; KY Srinivasan; olaf@aepfle.de;
+> jasowang@redhat.com; linux-kernel@vger.kernel.org; driverdev-
+> devel@linuxdriverproject.org
+> Subject: Re: [PATCH net-next,v4] hyperv: Add support for virtual Receive
+> Side Scaling (vRSS)
+> 
+> From: David Miller <davem@davemloft.net>
+> Date: Tue, 25 Mar 2014 20:43:43 -0400 (EDT)
+> 
+> > From: Haiyang Zhang <haiyangz@microsoft.com>
+> > Date: Tue, 25 Mar 2014 20:37:43 +0000
+> >
+> >> Do we know when the dependency (commit: 8a7206a89f) will be merged
+> >> into net-next tree?
+> >
+> > You're really not very patient, to say the least.
+> >
+> > It's done now and I'm working to integrate your patch.
+> >
+> > That patch has been in under review state in patchwork, which means
+> > that I will get to it at some point, so you don't need to worry about
+> > it any more than any other patch you might submit.
+> >
+> > The whole reason patchwork exists is so that people don't have to
+> > ask.
+> 
+> And actually, this dependency "8a7206a89f" commit doesn't exist
+> in the 'net' tree at all.  I just merged Linus's tree into 'net'
+> and it doesn't exist there either.
+> 
+> So this patch still doesn't compile.
+> 
+> I'm tossing it from patchwork until you sort this out.
 
-[32524.386288] =============================================
-[32524.386293] [ INFO: possible recursive locking detected ]
-[32524.386298] 3.14.0-rc2-0.7-default+ #35 Tainted: G           O
-[32524.386302] ---------------------------------------------
-[32524.386306] ifconfig/3103 is trying to acquire lock:
-[32524.386310]  (&vlan_netdev_addr_lock_key/1){+.....}, at: [<ffffffff814275f4>] dev_mc_sync+0x64/0xb0
-[32524.386326]
-[32524.386326] but task is already holding lock:
-[32524.386330]  (&vlan_netdev_addr_lock_key/1){+.....}, at: [<ffffffff8141af83>] dev_set_rx_mode+0x23/0x40
-[32524.386341]
-[32524.386341] other info that might help us debug this:
-[32524.386345]  Possible unsafe locking scenario:
-[32524.386345]
-[32524.386350]        CPU0
-[32524.386352]        ----
-[32524.386354]   lock(&vlan_netdev_addr_lock_key/1);
-[32524.386359]   lock(&vlan_netdev_addr_lock_key/1);
-[32524.386364]
-[32524.386364]  *** DEADLOCK ***
-[32524.386364]
-[32524.386368]  May be due to missing lock nesting notation
-[32524.386368]
-[32524.386373] 2 locks held by ifconfig/3103:
-[32524.386376]  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81431d42>] rtnl_lock+0x12/0x20
-[32524.386387]  #1:  (&vlan_netdev_addr_lock_key/1){+.....}, at: [<ffffffff8141af83>] dev_set_rx_mode+0x23/0x40
-[32524.386398]
-[32524.386398] stack backtrace:
-[32524.386403] CPU: 1 PID: 3103 Comm: ifconfig Tainted: G           O 3.14.0-rc2-0.7-default+ #35
-[32524.386409] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
-[32524.386414]  ffffffff81ffae40 ffff8800d9625ae8 ffffffff814f68a2 ffff8800d9625bc8
-[32524.386421]  ffffffff810a35fb ffff8800d8a8d9d0 00000000d9625b28 ffff8800d8a8e5d0
-[32524.386428]  000003cc00000000 0000000000000002 ffff8800d8a8e5f8 0000000000000000
-[32524.386435] Call Trace:
-[32524.386441]  [<ffffffff814f68a2>] dump_stack+0x6a/0x78
-[32524.386448]  [<ffffffff810a35fb>] __lock_acquire+0x7ab/0x1940
-[32524.386454]  [<ffffffff810a323a>] ? __lock_acquire+0x3ea/0x1940
-[32524.386459]  [<ffffffff810a4874>] lock_acquire+0xe4/0x110
-[32524.386464]  [<ffffffff814275f4>] ? dev_mc_sync+0x64/0xb0
-[32524.386471]  [<ffffffff814fc07a>] _raw_spin_lock_nested+0x2a/0x40
-[32524.386476]  [<ffffffff814275f4>] ? dev_mc_sync+0x64/0xb0
-[32524.386481]  [<ffffffff814275f4>] dev_mc_sync+0x64/0xb0
-[32524.386489]  [<ffffffffa0500cab>] vlan_dev_set_rx_mode+0x2b/0x50 [8021q]
-[32524.386495]  [<ffffffff8141addf>] __dev_set_rx_mode+0x5f/0xb0
-[32524.386500]  [<ffffffff8141af8b>] dev_set_rx_mode+0x2b/0x40
-[32524.386506]  [<ffffffff8141b3cf>] __dev_open+0xef/0x150
-[32524.386511]  [<ffffffff8141b177>] __dev_change_flags+0xa7/0x190
-[32524.386516]  [<ffffffff8141b292>] dev_change_flags+0x32/0x80
-[32524.386524]  [<ffffffff8149ca56>] devinet_ioctl+0x7d6/0x830
-[32524.386532]  [<ffffffff81437b0b>] ? dev_ioctl+0x34b/0x660
-[32524.386540]  [<ffffffff814a05b0>] inet_ioctl+0x80/0xa0
-[32524.386550]  [<ffffffff8140199d>] sock_do_ioctl+0x2d/0x60
-[32524.386558]  [<ffffffff81401a52>] sock_ioctl+0x82/0x2a0
-[32524.386568]  [<ffffffff811a7123>] do_vfs_ioctl+0x93/0x590
-[32524.386578]  [<ffffffff811b2705>] ? rcu_read_lock_held+0x45/0x50
-[32524.386586]  [<ffffffff811b39e5>] ? __fget_light+0x105/0x110
-[32524.386594]  [<ffffffff811a76b1>] SyS_ioctl+0x91/0xb0
-[32524.386604]  [<ffffffff815057e2>] system_call_fastpath+0x16/0x1b
+Dave,
 
-========================================================================
+Thank you for the efforts.
+The commit is in the linux-next tree. You can see it from this link:
+http://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/commit/?id=8a7206a89f85c8439561b0eff85bb9440a2e97a9
+And, here is the commit log:
 
-The reason is that all of the addr_lock_key for vlan dev have the same class,
-so if we change the status for vlan dev, the vlan dev and its real dev will
-hold the same class of addr_lock_key together, so the warning happened.
+author
+K. Y. Srinivasan <kys@microsoft.com> 2014-02-03 20:42:45 (GMT) 
+committer
+Greg Kroah-Hartman <gregkh@linuxfoundation.org> 2014-02-07 23:22:40 (GMT) 
+commit
+8a7206a89f85c8439561b0eff85bb9440a2e97a9 (patch) 
+tree
+61f763919607368481ac128f56416df1f49cd187 
+parent
+011a7c3cc3aa60c7ea6bb49d847e80a299ba7b36 (diff) 
 
-we should distinguish the lock depth for vlan dev and its real dev.
+Drivers: hv: vmbus: Support per-channel driver state
+As we implement Virtual Receive Side Scaling on the networking side
+(the VRSS patches are currently under review), it will be useful to have
+per-channel state that vmbus drivers can manage. Add support for
+managing per-channel state.
 
-v1->v2: Convert the vlan_netdev_addr_lock_key to an array of eight elements, which
-	could support to add 8 vlan id on a same vlan dev, I think it is enough for current
-	scene, because a netdev's name is limited to IFNAMSIZ which could not hold 8 vlan id,
-	and the vlan dev would not meet the same class key with its real dev.
+KY:
+Do you know the original tree this patch was checked into by Greg KH? Or, 
+did Greg checked into linux-next tree directly?
 
-	The new function vlan_dev_get_lockdep_subkey() will return the subkey and make the vlan
-	dev could get a suitable class key.
-
-v2->v3: According David's suggestion, I use the subclass to distinguish the lock key for vlan dev
-	and its real dev, but it make no sense, because the difference for subclass in the
-	lock_class_key doesn't mean that the difference class for lock_key, so I use lock_depth
-	to distinguish the different depth for every vlan dev, the same depth of the vlan dev
-	could have the same lock_class_key, I import the MAX_LOCK_DEPTH from the include/linux/sched.h,
-	I think it is enough here, the lockdep should never exceed that value.
-
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- net/8021q/vlan_dev.c | 27 +++++++++++++++++++++++++--
- 1 file changed, 25 insertions(+), 2 deletions(-)
-
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 4f3e907..6295bf2 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -505,7 +505,7 @@ static void vlan_dev_set_rx_mode(struct net_device *vlan_dev)
-  * separate class since they always nest.
-  */
- static struct lock_class_key vlan_netdev_xmit_lock_key;
--static struct lock_class_key vlan_netdev_addr_lock_key;
-+static struct lock_class_key vlan_netdev_addr_lock_key[MAX_LOCK_DEPTH];
- 
- static void vlan_dev_set_lockdep_one(struct net_device *dev,
- 				     struct netdev_queue *txq,
-@@ -516,10 +516,33 @@ static void vlan_dev_set_lockdep_one(struct net_device *dev,
- 				       *(int *)_subclass);
- }
- 
-+static int vlan_calculate_lockdep_depth(struct net_device *dev)
-+{
-+	int lockdep_depth = 0;
-+	struct net_device *real_dev;
-+
-+	real_dev = vlan_dev_priv(dev)->real_dev;
-+
-+	while(is_vlan_dev(real_dev)) {
-+		lockdep_depth ++;
-+		real_dev = vlan_dev_priv(real_dev)->real_dev;
-+	}
-+
-+	return lockdep_depth;
-+}
-+
- static void vlan_dev_set_lockdep_class(struct net_device *dev, int subclass)
- {
-+	int lock_depth = 0;
-+
-+	lock_depth = vlan_calculate_lockdep_depth(dev);
-+
-+	/* Ran out of static storage for vlan_netdev_addr_lock_key */
-+	if (DEBUG_LOCKS_WARN_ON(lock_depth >= MAX_LOCK_DEPTH))
-+		return;
-+
- 	lockdep_set_class_and_subclass(&dev->addr_list_lock,
--				       &vlan_netdev_addr_lock_key,
-+				       &vlan_netdev_addr_lock_key[lock_depth],
- 				       subclass);
- 	netdev_for_each_tx_queue(dev, vlan_dev_set_lockdep_one, &subclass);
- }
--- 
-1.8.0
+Thanks,
+- Haiyang
