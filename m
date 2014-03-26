@@ -1,84 +1,97 @@
-From: Zhangfei Gao <zhangfei.gao@gmail.com>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Wed, 26 Mar 2014 22:22:35 +0800
-Message-ID: <CAMj5Bkg1_a=tAw1sxOTzSG6eWUHT8QVPXOzx2C+oCyf+dPr7Uw@mail.gmail.com>
-References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
-	<1395132017-15928-4-git-send-email-zhangfei.gao@linaro.org>
-	<20140318104616.GT21483@n2100.arm.linux.org.uk>
-	<CAMj5BkiCXVZZPS-VyVxejCY0aiGD_HQjUdWd-FKD_ER_y_0wxQ@mail.gmail.com>
-	<CAL_JsqLfH7Er-s5wjA5JGE4+-SGtTOvYTyQ=cYk+1ekHo39Crg@mail.gmail.com>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: Re: [PATCH] net: unix: non blocking recvmsg() should not return -EINTR
+Date: Wed, 26 Mar 2014 14:25:13 +0000
+Message-ID: <87a9cd82ba.fsf@sable.mobileactivedefense.com>
+References: <1395798147.12610.196.camel@edumazet-glaptop2.roam.corp.google.com>
+	<8761n19k0w.fsf@sable.mobileactivedefense.com>
+	<1395842972.12610.203.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Zhangfei Gao <zhangfei.gao@linaro.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-	netdev <netdev@vger.kernel.org>
-To: Rob Herring <robherring2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f41.google.com ([74.125.83.41]:43907 "EHLO
-	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754488AbaCZOWg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 10:22:36 -0400
-In-Reply-To: <CAL_JsqLfH7Er-s5wjA5JGE4+-SGtTOvYTyQ=cYk+1ekHo39Crg@mail.gmail.com>
+Received: from tiger.mobileactivedefense.com ([217.174.251.109]:55039 "EHLO
+	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751232AbaCZOZ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 10:25:26 -0400
+In-Reply-To: <1395842972.12610.203.camel@edumazet-glaptop2.roam.corp.google.com>
+	(Eric Dumazet's message of "Wed, 26 Mar 2014 07:09:32 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Rob
-
-On Mon, Mar 24, 2014 at 10:17 PM, Rob Herring <robherring2@gmail.com> wrote:
-
+Eric Dumazet <eric.dumazet@gmail.com> writes:
+> On Wed, 2014-03-26 at 13:17 +0000, Rainer Weikusat wrote:
+>> Eric Dumazet <eric.dumazet@gmail.com> writes:
+>> > From: Eric Dumazet <edumazet@google.com>
+>> >
+>> > Some applications didn't expect recvmsg() on a non blocking socket
+>> > could return -EINTR. This possibility was added as a side effect
+>> > of commit b3ca9b02b00704 ("net: fix multithreaded signal handling in
+>> > unix recv routines").
+>> >
+>> > To hit this bug, you need to be a bit unlucky, as the u->readlock
+>> > mutex is usually held for very small periods.
+>> 
+>> This would mean that 'some applications' are broken, cf
+>> 
+>> [EAGAIN] or [EWOULDBLOCK]
+>>     The socket's file descriptor is marked O_NONBLOCK and no data is
+>>     waiting to be received; or MSG_OOB is set and no out-of-band data is
+>>     available and either the socket's file descriptor is marked
+>>     O_NONBLOCK or the socket does not support blocking to await
+>>     out-of-band data.
+>> 
+>> [EINTR]
+>>     This function was interrupted by a signal before any data was
+>>     available.
+>>     
+>> http://pubs.opengroup.org/onlinepubs/9699919799/functions/recvmsg.html
+>> 
+>> and
+>> 
+>>  EAGAIN or EWOULDBLOCK
+>>               The socket is marked nonblocking and the receive operation
+>>               would block, or a receive timeout had been set and the
+>>               timeout expired before data was received.
+>> 
+>>  EINTR  The receive was interrupted by delivery of a signal before any
+>>         data were available; see signal(7).
+>> 
+>> [3.27 Linux recvmsg(2)]
+>> 
+>> since the function was interrupted before any data was available and it
+>> is unknown if the condition supposed to be signalled by EAGAIN had
+>> otherwise occurred.
+>> 
+>> A correct 'fix'/ workaround would seem to be using mutex_trylock and
+>> abort execution immediately with -EAGAIN in case the operation had to
+>> wait for the lock, although this is inconsistent with the usual
+>> semantics of 'blocking' which implies that the operation may take an
+>> indefinite amount of time because it waits for an external event which
+>> might never occur.
 >
->>>> +             dma_map_single(&ndev->dev, skb->data,
->>>> +                     RX_BUF_SIZE, DMA_FROM_DEVICE);
->>>
->>> This is incorrect.
->>>
->>> buf = buffer alloc()
->>> /* CPU owns buffer and can read/write it, device does not */
->>> dev_addr = dma_map_single(dev, buf, ..., DMA_FROM_DEVICE);
->>> /* Device owns buffer and can write it, CPU does not access it */
->>> dma_unmap_single(dev, dev_addr, ..., DMA_FROM_DEVICE);
->>> /* CPU owns buffer again and can read/write it, device does not */
->>>
->>> Please turn on DMA API debugging in the kernel debug options and verify
->>> whether your driver causes it to complain (it will.)
->>
->> Yes, you are right.
->> After change to dma_map/unmap_single, however, still get warning like
->> "DMA-API: device driver failed to check map error", not sure whether
->> it can be ignored?
+> Before your patch, -EAGAIN was delivered, -EINTR was _never_ delivered.
 >
-> If it could be ignored, there would be no warning. So yes you should
-> check the error. I guess correct error handling would be throwing away
-> the packet.
+> Thats a fact.
 
-The warning is solved via adding dma_mapping_error check after every
-dma_map_single.
+Indeed. Before this change, a signal could silently get lost for reasons
+I outlined in the original mail. This is now no longer the case.
 
+> If you read the manpage, its in this order :
 >
+> When using a nonblocking socket, and no data is available, EAGAIN or
+> EWOULDBLOCK is delivered.
 >
->>>> +             dma_map_single(&ndev->dev, buf, RX_BUF_SIZE, DMA_TO_DEVICE);
->>>> +             hip04_set_recv_desc(priv, virt_to_phys(buf));
->>>
->>> No need for virt_to_phys() here - dma_map_single() returns the device
->>> address.
->> Got it.
->> Use virt_to_phys since find same result come out, it should be
->> different for iommu case.
->>
->> In fact, the hardware can help to do the cache flushing, the function
->> still not be enabled now.
->> Then dma_map/unmap_single may be ignored.
->
-> If you don't need cache flushing, you should setup different
-> dma_map_ops for the device such as arm_coherent_dma_ops. The driver
-> should always have the dma_map calls. See highbank and mvebu for
-> examples.
+> -EINTR is not expected from a non blocking system call. Period.
 
-That would be very helpful, still not sure how to enable this feature.
-Could you help clarify which file.
-Not find highbank and mvebu under drivers/iommu/.
+That's your interpretation of a text which doesn't say so unambigiously
+(actually, it pretty much says the exact opposite) and I think this
+interpretation is not correct for the reasons I gave (in particular,
+that it is unknown if data is available and that EAGAIN implies that it
+is known that data is not available).
 
-Thanks
+This is a somewhat interesting problem from a theoretical standpoint,
+because there is really no totally satisfactory solution, however, I'm
+presently 'over-the-top' buried below a heap of seriously grotty and
+misbehaving Java code. Consequently, I suggest to end this discussion
+here.
