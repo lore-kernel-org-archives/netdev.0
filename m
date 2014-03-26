@@ -1,43 +1,93 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: unix: non blocking recvmsg() should not return
- -EINTR
-Date: Wed, 26 Mar 2014 17:05:14 -0400 (EDT)
-Message-ID: <20140326.170514.1793472148242469413.davem@davemloft.net>
-References: <87zjkd802t.fsf@sable.mobileactivedefense.com>
-	<1395847524.12610.208.camel@edumazet-glaptop2.roam.corp.google.com>
-	<87y4zw7ngi.fsf@sable.mobileactivedefense.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, David.Laight@ACULAB.COM,
-	netdev@vger.kernel.org
-To: rweikusat@mobileactivedefense.com
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next v3 0/9] BPF updates
+Date: Wed, 26 Mar 2014 22:06:01 +0100
+Message-ID: <1395867970-1338-1-git-send-email-dborkman@redhat.com>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47156 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753544AbaCZVFQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 17:05:16 -0400
-In-Reply-To: <87y4zw7ngi.fsf@sable.mobileactivedefense.com>
+Received: from mx1.redhat.com ([209.132.183.28]:49075 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755669AbaCZVGP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2014 17:06:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Date: Wed, 26 Mar 2014 19:46:05 +0000
+We sat down and have heavily reworked the whole previous patchset
+from v10 [1] to address all comments/concerns. This patchset therefore
+*replaces* the internal BPF interpreter with the new layout as
+discussed in [1], and migrates some exotic callers to properly use the
+BPF API for a transparent upgrade. All other callers that already use
+the BPF API in a way it should be used, need no further changes to run
+the new internals. We also removed the sysctl knob entirely, and do not
+expose any structure to userland, so that implementation details only
+reside in kernel space. Since we are replacing the interpreter we had
+to migrate seccomp in one patch along with the interpreter to not break
+anything. When attaching a new filter, the flow can be described as
+following: i) test if jit compiler is enabled and can compile the user
+BPF, ii) if so, then go for it, iii) if not, then transparently migrate
+the filter into the new representation, and run it in the interpreter.
+Also, we have scratched the jit flag from the len attribute and made it
+as initial patch in this series as Pablo has suggested in the last
+feedback, thanks. For details, please refer to the patches themselves.
 
-> As I already wrote, this is a theoretical problem with no really
-> satisfactory solution minus noting that both 'nonblocking sockets' and
-> 'multithreaded kernels' are somewhat alien concepts when considering the
-> system where EINTR originated (AFAIK).
+We did extensive testing of BPF and seccomp on the new interpreter
+itself and also on the user ABIs and could not find any issues; new
+performance numbers as posted in patch 8 are also still the same.
 
-I completely disagree.
+Please find more details in the patches themselves.
 
-EINTR always means that you asked for a blocking operation, and a
-signal arrived meanwhile.
+For all the previous history from v1 to v10, see [1]. We have decided
+to drop the v11 as we have pedantically reworked the set, but of course,
+included all previous feedback.
 
-Once you invert the "blocking" part of that set of conditrions, EINTR
-becomes an impossible event.
+v2 -> v3:
+ - Rebased to latest net-next (i.e. w/ rxhash->hash rename)
+ - Fixed patch 8/9 commit message/doc as suggested by Dave
+ - Rest is unchanged
+v1 -> v2:
+ - Rebased to latest net-next
+ - Added static to ptp_filter as suggested by Dave
+ - Fixed a typo in patch 8's commit message
+ - Rest unchanged
 
-I don't have time to check BSD, but I'm very confident that these are
-the rules codified in their socket syscall layer too.
+Thanks !
 
-I'm going to apply Eric's patch.
+  [1] http://thread.gmane.org/gmane.linux.kernel/1665858
+
+Alexei Starovoitov (2):
+  net: filter: rework/optimize internal BPF interpreter's instruction set
+  doc: filter: extend BPF documentation to document new internals
+
+Daniel Borkmann (7):
+  net: filter: add jited flag to indicate jit compiled filters
+  net: filter: keep original BPF program around
+  net: filter: move filter accounting to filter core
+  net: ptp: use sk_unattached_filter_create() for BPF
+  net: ptp: do not reimplement PTP/BPF classifier
+  net: ppp: use sk_unattached_filter api
+  net: isdn: use sk_unattached_filter api
+
+ Documentation/networking/filter.txt                |  143 ++
+ arch/arm/net/bpf_jit_32.c                          |    3 +-
+ arch/powerpc/net/bpf_jit_comp.c                    |    3 +-
+ arch/s390/net/bpf_jit_comp.c                       |    5 +-
+ arch/sparc/net/bpf_jit_comp.c                      |    3 +-
+ arch/x86/net/bpf_jit_comp.c                        |    3 +-
+ drivers/isdn/i4l/isdn_ppp.c                        |   61 +-
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |   11 +-
+ drivers/net/ethernet/ti/cpts.c                     |   10 +-
+ drivers/net/ethernet/xscale/ixp4xx_eth.c           |   11 +-
+ drivers/net/ppp/ppp_generic.c                      |   60 +-
+ include/linux/filter.h                             |  110 +-
+ include/linux/isdn_ppp.h                           |    5 +-
+ include/linux/ptp_classify.h                       |   14 +-
+ include/linux/seccomp.h                            |    1 -
+ include/net/sock.h                                 |   27 -
+ kernel/seccomp.c                                   |  119 +-
+ net/core/filter.c                                  | 1523 ++++++++++++++++----
+ net/core/sock_diag.c                               |   23 +-
+ net/core/timestamping.c                            |   27 +-
+ 20 files changed, 1626 insertions(+), 536 deletions(-)
+
+-- 
+1.7.11.7
