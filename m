@@ -1,44 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: unix: non blocking recvmsg() should not return
- -EINTR
-Date: Wed, 26 Mar 2014 08:33:50 -0700
-Message-ID: <1395848030.12610.210.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1395798147.12610.196.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D0F6E9790@AcuExch.aculab.com>
-	 <87zjkd802t.fsf@sable.mobileactivedefense.com>
-	 <1395847524.12610.208.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [RFC 1/2] pm: Introduce QoS requests per CPU
+Date: Wed, 26 Mar 2014 17:40:15 +0200
+Message-ID: <5332F4DF.2030106@mellanox.com>
+References: <1395753505-13180-1-git-send-email-amirv@mellanox.com> <1395753505-13180-2-git-send-email-amirv@mellanox.com> <2896374.SoOPVJXu9Q@vostro.rjw.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:58091 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750956AbaCZPdw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 11:33:52 -0400
-Received: by mail-pd0-f181.google.com with SMTP id p10so1998354pdj.26
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 08:33:52 -0700 (PDT)
-In-Reply-To: <1395847524.12610.208.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	<linux-pm@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Pavel Machek <pavel@ucw.cz>, Len Brown <len.brown@intel.com>,
+	<yuvali@mellanox.com>, Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>, <idos@mellanox.com>,
+	<hadarh@mellanox.com>
+To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <2896374.SoOPVJXu9Q@vostro.rjw.lan>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-03-26 at 08:25 -0700, Eric Dumazet wrote:
+[This mail might be double posted due to problems I have with the mail 
+server]
 
-> Look at what we do for AF_INET. We handle this the proper way.
-> 
-> If we are 'interrupted' by a signal while sleeping in lock_sock(),
-> recvmsg() on a non blocking socket, we return -EAGAIN properly, not
-> -EINTR.
-> 
-> Fact that we potentially sleep to get the socket lock is hidden for the
-> user, its an implementation detail of the kernel.
+On 25/03/14 19:44 +0100, Rafael J. Wysocki wrote:
+> On Tuesday, March 25, 2014 03:18:24 PM Amir Vadai wrote:
+> > Extend the current pm_qos_request API - to have pm_qos_request per core.
+> > When a global request is added, it is added under the global plist.
+> > When a core specific request is added, it is added to the core specific
+> > list.
+> > core number is saved in the request and later modify/delete operations
+> > are using it to access the right list.
+> >
+> > When a cpu specific request is added/removed/updated, the target value
+> > of the specific core is recalculated to be the min/max (according to the
+> > constrain type) value of all the global and the cpu specific
+> > constraints.
+> >
+> > If a global request is added/removed/updated, the target values of all
+> > the cpu's are recalculated.
+> >
+> > During initialization, before the cpu specific data structures are
+> > allocated and initialized, only global target value is begin used.
+>
+> I have to review this in detail (which rather won't be possible before
+> the next week), but in principle I don't really like it, because it
+> assumes that its users will know what's going to run on which CPU cores
+> and I'm not sure where that knowledge is going to come from.
+>
 
-And this is done pretty much the same way I did in my patch :
+The network driver can use affinity hint and irq balancer to set the
+affinity of IRQ (and rx ring) to a core. A stream is tied to an rx
+ring by RSS/Flow steering. So, if we have an active flow, we can know
+which CPU will be used.
+The feature could be turned off by default and be used only when the
+driver has all the needed information.
 
-if (signal_pending(current)) {
-    copied = timeo ? sock_intr_errno(timeo) : -EAGAIN;
-    break;
-}
+Thank you for your time,
+Amir
