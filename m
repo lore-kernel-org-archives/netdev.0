@@ -1,62 +1,101 @@
-From: "Ertman, DavidX M" <davidx.m.ertman@intel.com>
-Subject: RE: [E1000-devel] i217-LM boot wreckage
-Date: Wed, 26 Mar 2014 17:42:42 +0000
-Message-ID: <2B0E3F215D1AB84DA946C8BEE234CCC9370D01E4@ORSMSX101.amr.corp.intel.com>
-References: <alpine.DEB.2.02.1403201332400.18573@ionos.tec.linutronix.de>
- <alpine.DEB.2.02.1403201431580.18573@ionos.tec.linutronix.de>
- <2B0E3F215D1AB84DA946C8BEE234CCC9370CEFE3@ORSMSX101.amr.corp.intel.com>
- <alpine.DEB.2.02.1403201724500.18573@ionos.tec.linutronix.de>
- <alpine.DEB.2.02.1403211534040.18573@ionos.tec.linutronix.de>
- <alpine.DEB.2.02.1403211551030.18573@ionos.tec.linutronix.de>
- <D38E8E86660E514AB505863C19C9287C73F87D2B@ORSMSX102.amr.corp.intel.com>
- <2B0E3F215D1AB84DA946C8BEE234CCC9370CF4AB@ORSMSX101.amr.corp.intel.com>
- <alpine.DEB.2.02.1403211657110.18573@ionos.tec.linutronix.de>
- <2B0E3F215D1AB84DA946C8BEE234CCC9370CF6D9@ORSMSX101.amr.corp.intel.com>
- <alpine.DEB.2.02.1403212256540.18573@ionos.tec.linutronix.de>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [Xen-devel] Xen-unstable Linux 3.14-rc3 and 3.13 Network
+ troubles "bisected"
+Date: Wed, 26 Mar 2014 17:46:06 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD029B350@AMSPEX01CL01.citrite.net>
+References: <1744594108.20140318162127@eikelenboom.it>
+ <20140318160412.GB16807@zion.uk.xensource.com>
+ <1701035622.20140318211402@eikelenboom.it>
+ <722971844.20140318221859@eikelenboom.it>
+ <1688396550.20140319001104@eikelenboom.it>
+ <20140319113532.GD16807@zion.uk.xensource.com>
+ <246793256.20140319220752@eikelenboom.it>
+ <20140321164958.GA31766@zion.uk.xensource.com>
+ <1334202265.20140321182727@eikelenboom.it>
+ <1056661597.20140322192834@eikelenboom.it>
+ <20140325151539.GG31766@zion.uk.xensource.com>
+ <79975567.20140325162942@eikelenboom.it>
+ <1972209744.20140326121116@eikelenboom.it>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD029AD94@AMSPEX01CL01.citrite.net>
+ <1715463578.20140326162245@eikelenboom.it>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD029AFC1@AMSPEX01CL01.citrite.net>
+ <799579453.20140326170641@eikelenboom.it>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD029B106@AMSPEX01CL01.citrite.net>
+ <789809468.20140326175352@eikelenboom.it>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD029B277@AMSPEX01CL01.citrite.net>
+ <966386043.20140326183304@eikelenboom.it>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "Ronciak, John" <john.ronciak@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
+Cc: Wei Liu <wei.liu2@citrix.com>, annie li <annie.li@oracle.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Thomas Gleixner <tglx@linutronix.de>
+To: Sander Eikelenboom <linux@eikelenboom.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:41923 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751147AbaCZRoe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 13:44:34 -0400
-In-Reply-To: <alpine.DEB.2.02.1403212256540.18573@ionos.tec.linutronix.de>
+Received: from smtp.eu.citrix.com ([185.25.65.24]:8610 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751906AbaCZRqJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 13:46:09 -0400
+In-Reply-To: <966386043.20140326183304@eikelenboom.it>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just an update.  A patch for this issue was submitted into our internal queue on Monday and is in review/testing.
+Re-send shortened version...
 
-Dave Ertman
-
------Original Message-----
-From: Thomas Gleixner [mailto:tglx@linutronix.de] 
-Sent: Friday, March 21, 2014 3:01 PM
-To: Ertman, DavidX M
-Cc: Ronciak, John; e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org
-Subject: RE: [E1000-devel] i217-LM boot wreckage
-
-On Fri, 21 Mar 2014, Ertman, DavidX M wrote:
-
-> I have discovered the cause of this issue.  It is related to the 
-> change in the application of a Si errata workaround.
+> -----Original Message-----
+> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+> Sent: 26 March 2014 16:54
+> To: Paul Durrant
+> Cc: Wei Liu; annie li; Zoltan Kiss; xen-devel@lists.xen.org; Ian Campbell; linux-
+> kernel; netdev@vger.kernel.org
+> Subject: Re: [Xen-devel] Xen-unstable Linux 3.14-rc3 and 3.13 Network
+> troubles "bisected"
 > 
-> I will be working on grok'ing the total impact of this issue and 
-> writing up the patch over the weekend and will have something pushed 
-> into our internal queue early next week.
+[snip]
+> >>
+> >> - When processing an SKB we end up in "xenvif_gop_frag_copy" while
+> prod
+> >> == cons ... but we still have bytes and size left ..
+> >> - start_new_rx_buffer() has returned true ..
+> >> - so we end up in get_next_rx_buffer
+> >> - this does a RING_GET_REQUEST and ups cons ..
+> >> - and we end up with a bad grant reference.
+> >>
+> >> Sometimes we are saved by the bell .. since additional slots have become
+> >> free (you see cons become > prod in "get_next_rx_buffer" but shortly
+> after
+> >> that prod is increased ..
+> >> just in time to not cause a overrun).
+> >>
+> 
+> > Ah, but hang on... There's a BUG_ON meta_slots_used >
+> max_slots_needed, so if we are overflowing the worst-case calculation then
+> why is that BUG_ON not firing?
+> 
+> You mean:
+>                 sco = (struct skb_cb_overlay *)skb->cb;
+>                 sco->meta_slots_used = xenvif_gop_skb(skb, &npo);
+>                 BUG_ON(sco->meta_slots_used > max_slots_needed);
+> 
+> in "get_next_rx_buffer" ?
+> 
 
-Take your time and don't spoil your weekend!
+That code excerpt is from net_rx_action(),isn't it?
 
-It's not a show stopper, as we know how to work around the issue.
+> I don't know .. at least now it doesn't crash dom0 and therefore not my
+> complete machine and since tcp is recovering from a failed packet  :-)
+> 
 
-If you need testing of some early patch or help with gathering information, let me know. We have 4 reproducer systems handy.
+Well, if the code calculating max_slots_needed were underestimating then the BUG_ON() should fire. If it is not firing in your case then this suggests your problem lies elsewhere, or that meta_slots_used is not equal to the number of ring slots consumed.
 
-Thanks,
+> But probably because "npo->copy_prod++" seems to be used for the frags ..
+> and it isn't added to  npo->meta_prod ?
+> 
 
-	tglx
+meta_slots_used is calculated as the value of meta_prod at return (from xenvif_gop_skb()) minus the value on entry , and if you look back up the code then you can see that meta_prod is incremented every time RING_GET_REQUEST() is evaluated. So, we must be consuming a slot without evaluating RING_GET_REQUEST() and I think that's exactly what's happening... Right at the bottom of xenvif_gop_frag_copy() req_cons is simply incremented in the case of a GSO. So the BUG_ON() is indeed off by one.
+
+  Paul
