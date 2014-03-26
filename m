@@ -1,40 +1,100 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [RFC v2 1/1] net: Add support to configure SR-IOV VF minimum and maximum Tx rate through ip tool.
-Date: Wed, 26 Mar 2014 08:37:03 +0100
-Message-ID: <2029402.2DirnyqmAY@alaris>
-References: <1395637073-29794-1-git-send-email-sucheta.chakraborty@qlogic.com> <1395637073-29794-2-git-send-email-sucheta.chakraborty@qlogic.com> <1395687300.2832.37.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
-	netdev@vger.kernel.org, Dept-HSGLinuxNICDev@qlogic.com,
-	gregory.v.rose@intel.com, linux-net-drivers@solarflare.com,
-	Ariel.Elior@qlogic.com, amirv@mellanox.com
-To: Ben Hutchings <ben@decadent.org.uk>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv2] net: mvneta: use devm_ioremap_resource() instead of of_iomap()
+Date: Wed, 26 Mar 2014 09:30:00 +0100
+Message-ID: <1395822600-30469-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Cc: Gregory Clement <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>,
+	linux-arm-kernel@lists.infradead.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:37205 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750793AbaCZHhG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2014 03:37:06 -0400
-In-Reply-To: <1395687300.2832.37.camel@deadeye.wl.decadent.org.uk>
+Received: from top.free-electrons.com ([176.31.233.9]:51523 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750832AbaCZIaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 04:30:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 24 of March 2014 18:55:00 Ben Hutchings wrote:
-> 
-> Also, this special-casing of -1 isn't documented anywhere.  Is it even
-> necessary?  If userland needs to set just one limit, it can read the
-> existing limits and set both.
+The mvneta driver currently uses of_iomap(), which has two drawbacks:
+it doesn't request the resource, and it isn't devm-style so some error
+handling is needed.
 
-Wouldn't this open a window for a race if one process wanted to change 
-one limit and another process wanted to change the other at the same 
-time? Such scenario doesn't sound very realistic but our customers 
-taught me that things I don't find very realistic tend to be used quite 
-frequently by them.
+This commit switches to use devm_ioremap_resource() instead, which
+automatically requests the resource (so the I/O registers region shows
+up properly in /proc/iomem), and also is devm-style, which allows to
+get rid of some error handling to unmap the I/O registers region.
 
-On the other hand, if changing only one limit is going to be common, it 
-might be more appropriate to add IFLA_VF_TX_MIN_RATE instead and always 
-pass the minimum and maximum rate separately (and pass only one if only 
-one is going to be changed).
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+Changes since v1:
 
-                                                         Michal Kubecek
+ - Remove error handling of platform_get_resource(), since
+   devm_ioremap_resource already checks if the resource is NULL, and
+   properly returns an error in this case. Reported by Ezequiel Garcia.
+
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index f418f4f..fef3631 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -22,6 +22,7 @@
+ #include <linux/interrupt.h>
+ #include <net/ip.h>
+ #include <net/ipv6.h>
++#include <linux/io.h>
+ #include <linux/of.h>
+ #include <linux/of_irq.h>
+ #include <linux/of_mdio.h>
+@@ -2774,6 +2775,7 @@ static void mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
+ static int mvneta_probe(struct platform_device *pdev)
+ {
+ 	const struct mbus_dram_target_info *dram_target_info;
++	struct resource *res;
+ 	struct device_node *dn = pdev->dev.of_node;
+ 	struct device_node *phy_node;
+ 	u32 phy_addr;
+@@ -2838,9 +2840,10 @@ static int mvneta_probe(struct platform_device *pdev)
+ 
+ 	clk_prepare_enable(pp->clk);
+ 
+-	pp->base = of_iomap(dn, 0);
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	pp->base = devm_ioremap_resource(&pdev->dev, res);
+ 	if (pp->base == NULL) {
+-		err = -ENOMEM;
++		err = PTR_ERR(pp->base);
+ 		goto err_clk;
+ 	}
+ 
+@@ -2848,7 +2851,7 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	pp->stats = alloc_percpu(struct mvneta_pcpu_stats);
+ 	if (!pp->stats) {
+ 		err = -ENOMEM;
+-		goto err_unmap;
++		goto err_clk;
+ 	}
+ 
+ 	for_each_possible_cpu(cpu) {
+@@ -2913,8 +2916,6 @@ err_deinit:
+ 	mvneta_deinit(pp);
+ err_free_stats:
+ 	free_percpu(pp->stats);
+-err_unmap:
+-	iounmap(pp->base);
+ err_clk:
+ 	clk_disable_unprepare(pp->clk);
+ err_free_irq:
+@@ -2934,7 +2935,6 @@ static int mvneta_remove(struct platform_device *pdev)
+ 	mvneta_deinit(pp);
+ 	clk_disable_unprepare(pp->clk);
+ 	free_percpu(pp->stats);
+-	iounmap(pp->base);
+ 	irq_dispose_mapping(dev->irq);
+ 	free_netdev(dev);
+ 
+-- 
+1.8.3.2
