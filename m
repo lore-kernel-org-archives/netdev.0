@@ -1,38 +1,48 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v3 2/2] net: tcp_ipv6 policy route issue
-Date: Wed, 26 Mar 2014 08:05:48 +0100
-Message-ID: <20140326070548.GF22086@order.stressinduktion.org>
-References: <1395642322-9404-1-git-send-email-wangyufen@huawei.com> <1395642322-9404-2-git-send-email-wangyufen@huawei.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next] bnx2x: Fix compilation when CONFIG_BNX2X_SRIOV is not set
+Date: Wed, 26 Mar 2014 09:06:29 +0200
+Message-ID: <1395817589-22890-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Wangyufen <wangyufen@huawei.com>
+Content-Type: text/plain
+Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:60143 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751213AbaCZHFu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 03:05:50 -0400
-Content-Disposition: inline
-In-Reply-To: <1395642322-9404-2-git-send-email-wangyufen@huawei.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:27730 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751291AbaCZHHH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 03:07:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 24, 2014 at 02:25:22PM +0800, Wangyufen wrote:
-> From: Wang Yufen <wangyufen@huawei.com>
-> 
-> The issue raises when adding policy route, specify a particular
-> NIC as oif, the policy route did not take effect. The reason is
-> that fl6.oif is not set and route map failed. From the 
-> tcp_v6_send_response function, if the binding address is linklocal,
-> fl6.oif is set, but not for global address.
-> 
-> Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+Commit 370d4a26 "bnx2x: Create workqueue for IOV related tasks" breaks bnx2x
+compilation when CONFIG_BNX2X_SRIOV is not set - "multiple definition of
+`bnx2x_schedule_iov_task'".
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+---
+Hi Dave,
 
-But this looks like a bug to me, so maybe this is something for net
-inclusion.
+Please accept this to net-next as it fixes our latest submission there.
 
 Thanks,
+Yuval
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-  Hannes
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+index db73a24..8bf7645 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+@@ -574,7 +574,7 @@ static inline int bnx2x_sriov_configure(struct pci_dev *dev, int num_vfs) {retur
+ static inline void bnx2x_iov_channel_down(struct bnx2x *bp) {}
+ 
+ static inline void bnx2x_iov_task(struct work_struct *work) {}
+-void bnx2x_schedule_iov_task(struct bnx2x *bp, enum bnx2x_iov_flag flag) {}
++static inline void bnx2x_schedule_iov_task(struct bnx2x *bp, enum bnx2x_iov_flag flag) {}
+ 
+ #endif /* CONFIG_BNX2X_SRIOV */
+ #endif /* bnx2x_sriov.h */
+-- 
+1.8.1.4
