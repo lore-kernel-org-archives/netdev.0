@@ -1,22 +1,19 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
 Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
  switch chip datapath
-Date: Wed, 26 Mar 2014 16:16:04 -0700
-Message-ID: <CAGVrzcZ+y85YQuf=HyPwgXw1daCqEDhVPbo3vm_9VdvDL=gZoA@mail.gmail.com>
-References: <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org>
- <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com>
- <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com>
- <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion>
- <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com>
- <20140326173536.GJ2869@minipsycho.orion> <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com>
- <20140326181436.GL2869@minipsycho.orion> <53334BDA.1060608@mojatatu.com>
- <CAGVrzcaconDBjgSfk0=6px2+6LbrxMkmesgigSa3-9WaK-LiOw@mail.gmail.com> <53335A7F.8010801@mojatatu.com>
+Date: Wed, 26 Mar 2014 16:21:57 -0700
+Message-ID: <CAGVrzcavFLyQC6A_6hqGa-iqXkkTyZK2V7Zq9UiOix1Y0xEK2w@mail.gmail.com>
+References: <5330BAB7.3040501@mojatatu.com> <20140325173927.GE8102@hmsreliant.think-freely.org>
+ <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org>
+ <5331ED86.7020704@mojatatu.com> <20140326111031.GB31370@hmsreliant.think-freely.org>
+ <20140326112903.GG15723@casper.infradead.org> <20140326182122.GC31370@hmsreliant.think-freely.org>
+ <CAGVrzcYNW0Z96mL-MecY=mte=+TcFn8k3eSY4pqi9h0N2jF7hw@mail.gmail.com>
+ <53335838.3060409@mojatatu.com> <20140326231533.GA11773@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
 	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
 	Andy Gospodarek <andy@greyhouse.net>,
 	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
@@ -29,83 +26,50 @@ Cc: Jiri Pirko <jiri@resnulli.us>,
 	Eric Dumazet <edumazet@google.com>,
 	Scott Feldman <sfeldma@cumulusnetworks.com>,
 	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
 	Felix Fietkau <nbd@openwrt.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:36034 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756166AbaCZXQo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 19:16:44 -0400
-Received: by mail-pd0-f171.google.com with SMTP id r10so2517658pdi.2
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 16:16:44 -0700 (PDT)
-In-Reply-To: <53335A7F.8010801@mojatatu.com>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:54600 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755750AbaCZXWj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 19:22:39 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y10so2518413pdj.36
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 16:22:38 -0700 (PDT)
+In-Reply-To: <20140326231533.GA11773@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-03-26 15:53 GMT-07:00 Jamal Hadi Salim <jhs@mojatatu.com>:
-> On 03/26/14 18:22, Florian Fainelli wrote:
->>
->> 2014-03-26 14:51 GMT-07:00 Jamal Hadi Salim <jhs@mojatatu.com>:
+2014-03-26 16:15 GMT-07:00 Thomas Graf <tgraf@suug.ch>:
+> On 03/26/14 at 06:44pm, Jamal Hadi Salim wrote:
+>> OTOH, the owrt view is probably because (If i understood correctly
+>> last time), there are cases where there is no way to even pass packets
+>> and attribute them to the originating switch ports. Infact, in some
+>> cases  there may be no way at all to even pass packets to the kernel.
+>> Did i  understand that part correctly?
+>> I suppose this is eventually all part of that capability discovery.
 >
->
->>
->> eth0 corresponds to a CPU Ethernet MAC facing e.g: sw1p3 switch port.
->> It is "regular" Ethernet driver connected to the switch without
->> switch-specific logic. The goal is twofold:
->>
->> - allow any regular Ethernet driver to be connected to an external
->> switch via e.g: MDIO/MDC or other without specific switch knowledge
->> - represents accurately how the hardware is designed/connected
->>
->
-> Gah. Sorry - I missed the MII interface.
-> In such a case as shown here then, how do you control sw1p0-3?
+> Listening to Florian it sounds like the fact that a separate control
+> path was chosen early on in owrt got rid of the main driver to abstract
+> everything through globally visible net_devices. Reusing existing
+> tools was never an objective.
 
-Most switches expose individual ports as individual PHY addresses
-either on the same MDIO bus the Ethernet MAC is connected to the
-switch, or an internal one which is accessible through a special PHY
-address on the "regular" MDIO bus. Ports 0-3 are accessible
-individually at MDIO addresses 0-3 and the special CPU port has a
-special PHY address e.g: 16 for Marvell, 30 for Broadcom, which
-delivers register access to global and per-port configuration
-registers. For memory-mapped switches, well, you get per-port register
-ranges, so this is much simpler.
-
-ethtool would be the user-interface to talk individually to these
-ports here, and the DSA driver just goes talk to the individual port
-through MDIO to get their port status (right now it regularly polls
-for the port link status/duplex/speed).
+Correct. OpenWrt already has a fairly custom user-space, so it was
+deemed reasonable to have another lightweight, yet custom control
+interfaces for switches. The ability to use an unmodified Ethernet
+driver was also a key goal. The reasons for putting that in the kernel
+versus using e.g: an ioctl(SIOCGMIIREG) based approach in user-space,
+is that it allows for better abstraction between control paths (MDIO,
+I2C, SPI, memory-mapped I/O ...), and preserves the "kernel has
+hardware ownership" paradigm.
 
 >
+> I believe that the question whether a particular port will send
+> packets to the cpu does not matter that much. We'll see both and we'll
+> see various forms of hybrid models with software based learnings paths,
+> slow paths, and deliberate upcalls.
 >
->> but maybe, we can simplify and have e.g: sw1p3 and eth0 be the same
->> interface...
->
->
-> It sounds to me the CPU side is only a driver for sw1p3.
-
-I think what I had in mind when I wrote that part of the mail is some
-special hardware here on which the CPU Ethernet MAC output queues do
-not have a 1:1 mapping to the corresponding switch egress port output
-queues, but I think you are right.
-
->
->
->>>
->>> Note: even the high end chips tend to have the concept of a "cpu port"
->>> but my experience is to hide that as part of the switch driver.
->
->
-> Note: the high end devices "cpu ports" are accessible typically
-> via PCIE interfaces for control and some DMA for data activity.
->
-> cheers,
-> jamal
->
->
-
-
-
+> The simpler the model, the better. If the desire to hide some of the
+> complexity is driven by usability when I believe that hiding should
+> happen in user space.
 -- 
 Florian
