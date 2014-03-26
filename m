@@ -1,69 +1,93 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created
- with no group
-Date: Tue, 25 Mar 2014 20:53:24 -0400 (EDT)
-Message-ID: <20140325.205324.1845346581147557473.davem@davemloft.net>
-References: <OFD0C40ED9.015A05DD-ON87257CA2.003E72F3-87257CA2.003E7300@us.ibm.com>
-	<CAF1J0HOd9D1t4hxjMe7Muad71o_pgKQsn3jLxqR5ZFPpj2_Nrw@mail.gmail.com>
-	<CAJZOPZL9h0q3iiN7Q2jJWW+uEs0EpNaWqVMqQMyL+-5QGxGWPg@mail.gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH] bonding: Inactive slaves should keep inactive flag's
+ value to 1 in tlb and alb mode.
+Date: Wed, 26 Mar 2014 08:53:14 +0800
+Message-ID: <533224FA.6040307@huawei.com>
+References: <1395716407-31601-1-git-send-email-zheng.x.li@oracle.com> <5330FB34.4090005@huawei.com> <53314017.8040104@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mike.rapoport@ravellosystems.com, dlstevens@us.ibm.com,
-	netdev@vger.kernel.org
-To: or.gerlitz@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33193 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752775AbaCZAxZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 20:53:25 -0400
-In-Reply-To: <CAJZOPZL9h0q3iiN7Q2jJWW+uEs0EpNaWqVMqQMyL+-5QGxGWPg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <fubar@us.ibm.com>, <andy@greyhouse.net>,
+	<linux-kernel@vger.kernel.org>, <davem@davemloft.net>,
+	<joe.jin@oracle.com>
+To: "zheng.li" <zheng.x.li@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53314017.8040104@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Date: Sun, 23 Mar 2014 16:43:52 +0200
+On 2014/3/25 16:36, zheng.li wrote:
+> =E4=BA=8E 2014=E5=B9=B403=E6=9C=8825=E6=97=A5 11:42, Ding Tianhong =E5=
+=86=99=E9=81=93:
+>> On 2014/3/25 11:00, Zheng Li wrote:
+>>> In bond mode tlb and alb, inactive slaves should keep inactive flag=
+ to
+>>> 1 to refuse to receive broadcast packets. Now, active slave send br=
+oadcast packets
+>>> (for example ARP requests) which will arrive inactive slaves on sam=
+e host from switch,
+>>> but inactive slave's inactive flag is zero that cause bridge receiv=
+e the broadcast
+>>> packets to produce a wrong entry in forward table. Typical situatio=
+n is domu send some
+>>> ARP request which go out from dom0 bond's active slave, then the AR=
+P broadcast request
+>>> packets go back to inactive slave from switch, because the inactive=
+ slave's inactive
+>>> flag is zero, kernel will receive the packets and pass them to brid=
+ge, that cause dom0's
+>>> bridge map domu's MAC address to port of bond, bridge should map do=
+mu's MAC to port of vif.
+>>>
+>>> Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
+>>> ---
+>>>  drivers/net/bonding/bond_main.c |    2 +-
+>>>  1 files changed, 1 insertions(+), 1 deletions(-)
+>>>
+>>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/=
+bond_main.c
+>>> index e5628fc..8761df6 100644
+>>> --- a/drivers/net/bonding/bond_main.c
+>>> +++ b/drivers/net/bonding/bond_main.c
+>>> @@ -3062,7 +3062,7 @@ static int bond_open(struct net_device *bond_=
+dev)
+>>>  				&& (slave !=3D bond->curr_active_slave)) {
+>>>  				bond_set_slave_inactive_flags(slave,
+>>>  							      BOND_SLAVE_NOTIFY_NOW);
+>>> -			} else {
+>>> +			} else if (!bond_is_lb(bond)) {
+>>>  				bond_set_slave_active_flags(slave,
+>>>  							    BOND_SLAVE_NOTIFY_NOW);
+>>>  			}
+>>>
+>> I think you did not fix the problem completely, the state monitor wi=
+ll change the status for the slaves
+>> and the inactive slave still could receive the broadcast.
+>=20
+> Had tested, it can fix the issue, verified by our QA.
+> Default set slave of bond as inactive when add a slave to bond, when
+> link UP, just set one slave as current active slave and clear its
+> inactive flag, the inactive slave's inactive flag will keep the value=
+ of 1.
+>=20
+>=20
+Ok, I found that in the mii monitor, it will only change the backup sta=
+te, no problem,
+it looks good to me.
 
-> On Sun, Mar 23, 2014 at 11:27 AM, Mike Rapoport
-> <mike.rapoport@ravellosystems.com> wrote:
-> 
->> I believe I've groked what's going on in vxlan_udp_encap_recv and
->> vxlan_rcv. There are actually two unrelated problems:
+Ding
+
 >>
->> 1) When the vxlan is configured with IPv4 group it crashes when it
->> starts to receive IPv6 IGMP packets encapsulated into IPv4 vxlan
->> packets. This happens because when ipv6_rcv handles the inner packet,
->> the skb->dst still refernces outer IPv4 info. The very old vxlan code
->> had skb_dst_drop call in vxlan_udp_encap_recv, which was removed when
->> vxlan was refactored to use iptunnel_pull_header (commit
->> 7ce04758279514ca1d8ebfe322508a4a430fe2c8: "vxlan: Restructure vxlan
->> receive"). The iptunnel_pull_header called skb_dst_drop until recent
->> commit 10ddceb22bab11dab10ba645c7df2e4a8e7a5db5 ("ip_tunnel:multicast
->> process cause panic due to skb->_skb_refdst NULL pointer").
->> The simplest fix, I think, would be to restore call to skb_dst_drop in
->> vxlan_udp_encap_recv.
-> 
-> Yep, following Mike's suggestion, adding the below call allows things to work,
-> where trying vxlan without OVS, e.g using
-> 
-> $ ip link add vxlan42 type vxlan id 42 group 239.0.0.42 ttl 10 dev ethN
-> 
-> $ ifconfig vxlan42 192.168.42.54/24 up
-> 
-> over the net tree with 3.14-rc6 and beyond crashes instantly on node A
-> when node B is
-> taken up and starts sending, so commit 10ddceb22b indeed introduced a
-> regression.
-
-It turns out we are going to partially revert that commit and
-iptunnel_pull_header() will start doing the skb_dst_drop() again.
-
-See:
-
-	http://patchwork.ozlabs.org/patch/332956/
-
-for details.
-
-Will that fix this bug too?
-
-Thanks.
+>> Regards
+>> Ding
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+>=20
+>=20
+>=20
+> .
+>=20
