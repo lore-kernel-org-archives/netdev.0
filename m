@@ -1,59 +1,72 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next resend] net/mlx4_core: pass pci_device_id.driver_data
- to __mlx4_init_one during reset
-Date: Wed, 26 Mar 2014 18:02:27 +0400
-Message-ID: <5332DDF3.2040703@cogentembedded.com>
-References: <1395828952-11471-1-git-send-email-weiyang@linux.vnet.ibm.com>
+From: =?utf-8?Q?=C3=89meric?= Vigier
+	<emeric.vigier@savoirfairelinux.com>
+Subject: Re: powerpc: net: gianfar ethernet broken on linux-3.10.29?
+Date: Wed, 26 Mar 2014 10:04:15 -0400 (EDT)
+Message-ID: <259837795.35930.1395842655728.JavaMail.root@mail>
+References: <5332CFF1.5080402@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Wei Yang <weiyang@linux.vnet.ibm.com>, jackm@dev.mellanox.co.il,
-	ogerlitz@mellanox.com, davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Romeo Cane (EXT-Other PT/Amadora)" <romeo.cane.ext@coriant.com>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Claudiu Manoil <claudiu.manoil@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f48.google.com ([209.85.215.48]:36090 "EHLO
-	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755674AbaCZOCa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 10:02:30 -0400
-Received: by mail-la0-f48.google.com with SMTP id gf5so1500198lab.7
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 07:02:29 -0700 (PDT)
-In-Reply-To: <1395828952-11471-1-git-send-email-weiyang@linux.vnet.ibm.com>
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:59751 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755453AbaCZOER convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 10:04:17 -0400
+In-Reply-To: <5332CFF1.5080402@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+----- Mail original -----
+> On 3/25/2014 9:26 PM, =C3=89meric Vigier wrote:
+> > Hi guys,
+> >
+> > I work on a Freescale MPC8347 custom board. I ported
+> > u-boot-v2014.01 on it. My config is attached.
+> > I ported linux-3.2.52 (long-term). DTS is attached.
+> >
+> [...]
+> >
+> > Do you guys see what could be wrong in my config?
+> > Or what has changed in linux-3.{4,6,8,10} that could break my
+> > ethernet?
+> >
+> > thanks,
+> > Emeric
+> >
+>=20
+> Hi Emeric,
+>=20
+> Thanks for the detailed logs.
+> You may refer to Romeo's issue:
+> http://permalink.gmane.org/gmane.linux.network/309587
 
-On 26-03-2014 14:15, Wei Yang wrote:
+Hi Claudiu,
 
-> [Note: seems my network/mail system got some problem yesterday. Resend it in
-> case it is lost. If you have already got one, please ignore it.]
+This is it. It seems I haven't search enough on the web.
 
-    Put such remarks under --- tear line in the future, so that David don't 
-have to edit them out when applying.
+>=20
+> There's this stable fix for the (older) TSEC controllers:
+> commit 5eaedf31319d5f80eaaee1eec8dd18c0b452f0d1
+> ("gianfar: Add backwards compatible Single Queue mode polling")
 
-> The second parameter of __mlx4_init_one() is used to identify whether the
-> pci_dev is a PF or VF. Currently, when it is invoked in mlx4_pci_slot_reset()
-> this information is missed.
+I cherry-picked it on 3.10.29 and it makes the job!
 
-> This patch match the pci_dev with mlx4_pci_table and passes the
-> pci_device_id.driver_data to __mlx4_init_one() in mlx4_pci_slot_reset().
+>=20
+> that for some reason was not included in kernel 3.10
+> (but it was included in kernel 3.11).
+>=20
+> Hi David,
+> Can we have this gianfar fix included in kernel 3.10 as well?
+> Is there anything I can do to help with this?
 
-> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
-> ---
->   drivers/net/ethernet/mellanox/mlx4/main.c |    6 +++++-
->   1 file changed, 5 insertions(+), 1 deletion(-)
+I second this. Thanks Claudiu!
 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-> index d711158..b083808 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-> @@ -2670,7 +2670,11 @@ static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
+>=20
+> Thanks and regards,
+> Claudiu
+>=20
+>=20
 >
->   static pci_ers_result_t mlx4_pci_slot_reset(struct pci_dev *pdev)
->   {
-> -	int ret = __mlx4_init_one(pdev, 0);
-> +	const struct pci_device_id*  id;
-
-    * should be close to 'id' and one space is enough. I guess you haven't run 
-your patch thru scripts/checkpatch.pl?
-
-WBR, Sergei
