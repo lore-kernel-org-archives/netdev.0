@@ -1,297 +1,323 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net-next v4] ipv6: do not overwrite inetpeer metrics
- prematurely
-Date: Wed, 26 Mar 2014 17:05:03 +0100 (CET)
-Message-ID: <20140326160503.93B6FE6E05@unicorn.suse.cz>
-References: <20140326155047.GG22086@order.stressinduktion.org>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:48445 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754083AbaCZQFF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2014 12:05:05 -0400
-In-Reply-To: <20140326155047.GG22086@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [Xen-devel] Xen-unstable Linux 3.14-rc3 and 3.13 Network troubles "bisected"
+Date: Wed, 26 Mar 2014 17:06:41 +0100
+Message-ID: <799579453.20140326170641@eikelenboom.it>
+References: <1744594108.20140318162127@eikelenboom.it> <20140318160412.GB16807@zion.uk.xensource.com> <1701035622.20140318211402@eikelenboom.it> <722971844.20140318221859@eikelenboom.it> <1688396550.20140319001104@eikelenboom.it> <20140319113532.GD16807@zion.uk.xensource.com> <246793256.20140319220752@eikelenboom.it> <20140321164958.GA31766@zion.uk.xensource.com> <1334202265.20140321182727@eikelenboom.it> <1056661597.20140322192834@eikelenboom.it> <20140325151539.GG31766@zion.uk.xensource.com> <79975567.20140325162942@eikelenboom.it> <1972209744.20140326121116@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029AD94@AMSPEX01CL01.citrite.net> <1715463578.20140326162245@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029AFC1@AMSPEX01CL01.citrite.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>, annie li <annie.li@oracle.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Paul Durrant <Paul.Durrant@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD029AFC1@AMSPEX01CL01.citrite.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If an IPv6 host route with metrics exists, an attempt to add a
-new route for the same target with different metrics fails but
-rewrites the metrics anyway:
 
-12sp0:~ # ip route add fec0::1 dev eth0 rto_min 1000
-12sp0:~ # ip -6 route show
-fe80::/64 dev eth0  proto kernel  metric 256
-fec0::1 dev eth0  metric 1024  rto_min lock 1s
-12sp0:~ # ip route add fec0::1 dev eth0 rto_min 1500
-RTNETLINK answers: File exists
-12sp0:~ # ip -6 route show
-fe80::/64 dev eth0  proto kernel  metric 256
-fec0::1 dev eth0  metric 1024  rto_min lock 1.5s
+Wednesday, March 26, 2014, 4:50:30 PM, you wrote:
 
-This is caused by all IPv6 host routes using the metrics in
-their inetpeer (or the shared default). This also holds for the
-new route created in ip6_route_add() which shares the metrics
-with the already existing route and thus ip6_route_add()
-rewrites the metrics even if the new route ends up not being
-used at all.
+>> -----Original Message-----
+>> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+>> Sent: 26 March 2014 15:23
+>> To: Paul Durrant
+>> Cc: Wei Liu; annie li; Zoltan Kiss; xen-devel@lists.xen.org; Ian Campbell; linux-
+>> kernel; netdev@vger.kernel.org
+>> Subject: Re: [Xen-devel] Xen-unstable Linux 3.14-rc3 and 3.13 Network
+>> troubles "bisected"
+>> 
+>> 
+>> Wednesday, March 26, 2014, 3:44:42 PM, you wrote:
+>> 
+>> >> -----Original Message-----
+>> >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+>> >> Sent: 26 March 2014 11:11
+>> >> To: Paul Durrant
+>> >> Cc: Wei Liu; annie li; Zoltan Kiss; xen-devel@lists.xen.org; Ian Campbell;
+>> linux-
+>> >> kernel; netdev@vger.kernel.org
+>> >> Subject: Re: [Xen-devel] Xen-unstable Linux 3.14-rc3 and 3.13 Network
+>> >> troubles "bisected"
+>> >>
+>> >> Paul,
+>> >>
+>> >> You have been awfully silent for this whole thread while this is a
+>> regression
+>> >> caused by a patch of you
+>> >> (ca2f09f2b2c6c25047cfc545d057c4edfcfe561c as clearly stated much earlier
+>> in
+>> >> this thread).
+>> >>
+>> 
+>> > Sorry, I've been distracted...
+>> 
+>> >> The commit messages states:
+>> >>     "net_rx_action() is the place where we could do with an accurate
+>> >> predicition but,
+>> >>     since that has proven tricky to calculate, a cheap worse-case (but not
+>> too
+>> >> bad)
+>> >>     estimate is all we really need since the only thing we *must* prevent is
+>> >> xenvif_gop_skb()
+>> >>     consuming more slots than are available."
+>> >>
+>> >> Your "worst-case" calculation stated in the commit message is clearly not
+>> the
+>> >> worst case,
+>> >> since it doesn't take calls to "get_next_rx_buffer" into account.
+>> >>
+>> 
+>> > It should be taking into account the behaviour of start_new_rx_buffer(),
+>> which should be true if a slot is full or a frag will overflow the current slot and
+>> doesn't require splitting.
+>> > The code in net_rx_action() makes the assumption that each frag will
+>> require as many slots as its size requires, i.e. it assumes no packing of
+>> multiple frags into a single slot, so it should be a worst case.
+>> > Did I miss something in that logic?
+>> 
+>> Yes.
+>> In "xenvif_gop_skb()" this loop:
+>> 
+>>         for (i = 0; i < nr_frags; i++) {
+>>                 xenvif_gop_frag_copy(vif, skb, npo,
+>>                                      skb_frag_page(&skb_shinfo(skb)->frags[i]),
+>>                                      skb_frag_size(&skb_shinfo(skb)->frags[i]),
+>>                                      skb_shinfo(skb)->frags[i].page_offset,
+>>                                      &head);
+>>         }
+>> 
+>> Is capable of using up (at least) 1 slot more than is anticipated for in
+>> "net_rx_action()"  by this code:
+>> 
+>>                 for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+>>                         unsigned int size;
+>>                         size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
+>>                         max_slots_needed += DIV_ROUND_UP(size, PAGE_SIZE);
+>>                 }
+>> 
+>> And this happens when it calls "get_next_rx_buffer()" from
+>> "xenvif_gop_frag_copy()" where it's breaking down the frag.
+>> 
 
-Another problem is that old metrics in inetpeer can reappear
-unexpectedly for a new route, e.g.
+> The function that determines whether to consume another slot is start_new_rx_buffer() and for each frag I don't see why this would return true more than DIV_ROUND_UP(size, PAGE_SIZE) times.
+> It may be called more times than that since the code in xenvif_gop_frag_copy() must also allow for the offset of the frag but should not return true in all cases.
+> So, I still cannot see why a frag would ever consume more than DIV_ROUND_UP(size, PAGE_SIZE) slots.
 
-12sp0:~ # ip route add fec0::1 dev eth0 rto_min 1000
-12sp0:~ # ip route del fec0::1
-12sp0:~ # ip route add fec0::1 dev eth0
-12sp0:~ # ip route change fec0::1 dev eth0 hoplimit 10
-12sp0:~ # ip -6 route show
-fe80::/64 dev eth0  proto kernel  metric 256
-fec0::1 dev eth0  metric 1024  hoplimit 10 rto_min lock 1s
+Well here a case were a frag is broken down in 2 pieces:
 
-Resolve the first problem by moving the setting of metrics down
-into fib6_add_rt2node() to the point we are sure we are
-inserting the new route into the tree. Second problem is
-addressed by introducing new flag DST_KEEP_METRICS which is set
-for a new host route in ip6_route_add() and makes
-ipv6_cow_metrics() always overwrite the metrics in inetpeer
-(even if they are not "new"); it is reset after that.
+[ 1156.870372] vif vif-7-0 vif7.0: ?!? xenvif_gop_frag_copy Me here 1  npo->meta_prod:39 vif->rx.sring->req_prod:2105867 vif->rx.req_cons:2105867 npo->copy_gref:760  npo->copy_off:4096  MAX_BUFFER_OFFSET:4096 bytes:560 size:560  offset:0 head:1273462060 i:2 vif->rx.sring->req_event:2104275 estimated_slots_needed:4 reserved_slots_left:0
+[ 1156.871971] vif vif-7-0 vif7.0: ?!? xenvif_start_xmit stopping queue !  min_slots_needed:1 min_slots_needed_2:0 min_slots_needed_3:0 vif->rx.sring->req_prod:2105867 vif->rx.req_cons:2105867 vif->rx.sring->req_event:2105868 skb->len:66 skb->data_len:0
+[ 1156.964316] vif vif-7-0 vif7.0: ?!? get_next_rx_buffer before req npo->meta_prod:39 vif->rx.sring->req_prod:2105867 vif->rx.req_cons:2105867 vif->rx.sring->req_event:2105868, reserved_slots_left:0
+[ 1157.001635] vif vif-7-0 vif7.0: ?!? get_next_rx_buffer after req npo->meta_prod:39 vif->rx.sring->req_prod:2105867 vif->rx.req_cons:2105868 req->gref:4325379 req->id:11 vif->rx.sring->req_event:2105868 reserved_slots_left:-1
+[ 1157.039095] vif vif-7-0 vif7.0: ?!? xenvif_gop_frag_copy Me here 2  npo->meta_prod:40 vif->rx.sring->req_prod:2105867 vif->rx.req_cons:2105868 npo->copy_gref:4325379  npo->copy_off:0  MAX_BUFFER_OFFSET:4096 bytes:560 size:560  offset:0 head:1273462060 i:2 vif->rx.sring->req_event:2105868 estimated_slots_needed:4 reserved_slots_left:-1
+[ 1157.095216] vif vif-7-0 vif7.0: ?!? xenvif_gop_frag_copy Me here end npo->meta_prod:40 vif->rx.sring->req_prod:2105867 vif->rx.req_cons:2105868 npo->copy_gref:4325379 npo->copy_off:560  MAX_BUFFER_OFFSET:4096 bytes:560 size:0  offset:560 head:1273462060 i:3 vif->rx.sring->req_event:2105868 gso_gaps:0 estimated_slots_needed:4 reserved_slots_left:-1
+[ 1157.151338] vif vif-7-0 vif7.0: ?!? xenvif_gop_skb Me here 4 after npo->meta_prod:40 old_meta_prod:36 vif->rx.sring->req_prod:2105867 vif->rx.req_cons:2105868 meta->gso_type:1 meta->gso_size:1448 nr_frags:1 req->gref:657 req->id:7 estimated_slots_needed:4 i(frag):0 j(data):1 reserved_slots_left:-1
+[ 1157.188908] vif vif-7-0 vif7.0: ?!? xenvif_gop_skb Me here 5 npo->meta_prod:40 old_meta_prod:36 vif->rx.sring->req_prod:2105867 vif->rx.req_cons:2105868 meta->gso_type:1 meta->gso_size:1448 nr_frags:1 req->gref:657 req->id:7 estimated_slots_needed:4 j(data):1 reserved_slots_left:-1    used in funcstart: 0 + 1 .. used_dataloop:1 .. used_fragloop:3
+[ 1157.244975] vif vif-7-0 vif7.0: ?!? xenvif_rx_action me here 2 ..  vif->rx.sring->req_prod:2105867 vif->rx.req_cons:2105868 sco->meta_slots_used:4 max_upped_gso:1 skb_is_gso(skb):1 max_slots_needed:4 j:6 is_gso:1 nr_frags:1 firstpart:1 secondpart:2 reserved_slots_left:-1
 
-v4: fix a typo making a condition always true (thanks to Hannes
-Frederic Sowa)
+- When processing an SKB we end up in "xenvif_gop_frag_copy" while prod == cons ... but we still have bytes and size left ..
+- start_new_rx_buffer() has returned true ..
+- so we end up in get_next_rx_buffer
+- this does a RING_GET_REQUEST and ups cons ..
+- and we end up with a bad grant reference.
 
-v3: rewritten based on David Miller's idea to move setting the
-metrics (and allocation in non-host case) down to the point we
-already know the route is to be inserted. Also rebased to
-net-next as it is quite late in the cycle.
+Sometimes we are saved by the bell .. since additional slots have become free (you see cons become > prod in "get_next_rx_buffer" but shortly after that prod is increased ..
+just in time to not cause a overrun).
 
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- include/net/dst.h     |  1 +
- include/net/ip6_fib.h |  3 ++-
- net/ipv6/ip6_fib.c    | 47 ++++++++++++++++++++++++++++++++++++++++++++---
- net/ipv6/route.c      | 41 +++++++++--------------------------------
- 4 files changed, 56 insertions(+), 36 deletions(-)
+If you need additional / other info, please cook up a debug patch with what you need.
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index e01a826..8cf6772 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -57,6 +57,7 @@ struct dst_entry {
- #define DST_FAKE_RTABLE		0x0040
- #define DST_XFRM_TUNNEL		0x0080
- #define DST_XFRM_QUEUE		0x0100
-+#define DST_KEEP_METRICS	0x0400
- 
- 	unsigned short		pending_confirm;
- 
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index aca0c27..9bcb220 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -284,7 +284,8 @@ struct fib6_node *fib6_locate(struct fib6_node *root,
- void fib6_clean_all(struct net *net, int (*func)(struct rt6_info *, void *arg),
- 		    void *arg);
- 
--int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info);
-+int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
-+	     struct nlattr *mx, int mx_len);
- 
- int fib6_del(struct rt6_info *rt, struct nl_info *info);
- 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 075602f..4ee487b 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -638,12 +638,41 @@ static inline bool rt6_qualify_for_ecmp(struct rt6_info *rt)
- 	       RTF_GATEWAY;
- }
- 
-+static int fib6_commit_metrics(struct dst_entry *dst,
-+			       struct nlattr *mx, int mx_len)
-+{
-+	struct nlattr *nla;
-+	int remaining;
-+	u32 *mp;
-+
-+	if (dst->flags & DST_HOST) {
-+		mp = dst_metrics_write_ptr(dst);
-+	} else {
-+		mp = kzalloc(sizeof(u32) * RTAX_MAX, GFP_KERNEL);
-+		if (!mp)
-+			return -ENOMEM;
-+		dst_init_metrics(dst, mp, 0);
-+	}
-+
-+	nla_for_each_attr(nla, mx, mx_len, remaining) {
-+		int type = nla_type(nla);
-+
-+		if (type) {
-+			if (type > RTAX_MAX)
-+				return -EINVAL;
-+
-+			mp[type - 1] = nla_get_u32(nla);
-+		}
-+	}
-+	return 0;
-+}
-+
- /*
-  *	Insert routing information in a node.
-  */
- 
- static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
--			    struct nl_info *info)
-+			    struct nl_info *info, struct nlattr *mx, int mx_len)
- {
- 	struct rt6_info *iter = NULL;
- 	struct rt6_info **ins;
-@@ -653,6 +682,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 		   (info->nlh->nlmsg_flags & NLM_F_CREATE));
- 	int found = 0;
- 	bool rt_can_ecmp = rt6_qualify_for_ecmp(rt);
-+	int err;
- 
- 	ins = &fn->leaf;
- 
-@@ -751,6 +781,11 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 			pr_warn("NLM_F_CREATE should be set when creating new route\n");
- 
- add:
-+		if (mx) {
-+			err = fib6_commit_metrics(&rt->dst, mx, mx_len);
-+			if (err)
-+				return err;
-+		}
- 		rt->dst.rt6_next = iter;
- 		*ins = rt;
- 		rt->rt6i_node = fn;
-@@ -770,6 +805,11 @@ add:
- 			pr_warn("NLM_F_REPLACE set, but no existing node found!\n");
- 			return -ENOENT;
- 		}
-+		if (mx) {
-+			err = fib6_commit_metrics(&rt->dst, mx, mx_len);
-+			if (err)
-+				return err;
-+		}
- 		*ins = rt;
- 		rt->rt6i_node = fn;
- 		rt->dst.rt6_next = iter->dst.rt6_next;
-@@ -806,7 +846,8 @@ void fib6_force_start_gc(struct net *net)
-  *	with source addr info in sub-trees
-  */
- 
--int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info)
-+int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
-+	     struct nlattr *mx, int mx_len)
- {
- 	struct fib6_node *fn, *pn = NULL;
- 	int err = -ENOMEM;
-@@ -900,7 +941,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info)
- 	}
- #endif
- 
--	err = fib6_add_rt2node(fn, rt, info);
-+	err = fib6_add_rt2node(fn, rt, info, mx, mx_len);
- 	if (!err) {
- 		fib6_start_gc(info->nl_net, rt);
- 		if (!(rt->rt6i_flags & RTF_CACHE))
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index fba54a4..4e5b19e 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -149,8 +149,10 @@ static u32 *ipv6_cow_metrics(struct dst_entry *dst, unsigned long old)
- 		unsigned long prev, new;
- 
- 		p = peer->metrics;
--		if (inet_metrics_new(peer))
-+		if (inet_metrics_new(peer) || (dst->flags & DST_KEEP_METRICS)) {
- 			memcpy(p, old_p, sizeof(u32) * RTAX_MAX);
-+			dst->flags &= ~DST_KEEP_METRICS;
-+		}
- 
- 		new = (unsigned long) p;
- 		prev = cmpxchg(&dst->_metrics, old, new);
-@@ -857,14 +859,15 @@ EXPORT_SYMBOL(rt6_lookup);
-    be destroyed.
-  */
- 
--static int __ip6_ins_rt(struct rt6_info *rt, struct nl_info *info)
-+static int __ip6_ins_rt(struct rt6_info *rt, struct nl_info *info,
-+			struct nlattr *mx, int mx_len)
- {
- 	int err;
- 	struct fib6_table *table;
- 
- 	table = rt->rt6i_table;
- 	write_lock_bh(&table->tb6_lock);
--	err = fib6_add(&table->tb6_root, rt, info);
-+	err = fib6_add(&table->tb6_root, rt, info, mx, mx_len);
- 	write_unlock_bh(&table->tb6_lock);
- 
- 	return err;
-@@ -875,7 +878,7 @@ int ip6_ins_rt(struct rt6_info *rt)
- 	struct nl_info info = {
- 		.nl_net = dev_net(rt->dst.dev),
- 	};
--	return __ip6_ins_rt(rt, &info);
-+	return __ip6_ins_rt(rt, &info, NULL, 0);
- }
- 
- static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort,
-@@ -1544,16 +1547,8 @@ int ip6_route_add(struct fib6_config *cfg)
- 	ipv6_addr_prefix(&rt->rt6i_dst.addr, &cfg->fc_dst, cfg->fc_dst_len);
- 	rt->rt6i_dst.plen = cfg->fc_dst_len;
- 	if (rt->rt6i_dst.plen == 128)
--	       rt->dst.flags |= DST_HOST;
-+		rt->dst.flags |= DST_HOST | DST_KEEP_METRICS;
- 
--	if (!(rt->dst.flags & DST_HOST) && cfg->fc_mx) {
--		u32 *metrics = kzalloc(sizeof(u32) * RTAX_MAX, GFP_KERNEL);
--		if (!metrics) {
--			err = -ENOMEM;
--			goto out;
--		}
--		dst_init_metrics(&rt->dst, metrics, 0);
--	}
- #ifdef CONFIG_IPV6_SUBTREES
- 	ipv6_addr_prefix(&rt->rt6i_src.addr, &cfg->fc_src, cfg->fc_src_len);
- 	rt->rt6i_src.plen = cfg->fc_src_len;
-@@ -1672,31 +1667,13 @@ int ip6_route_add(struct fib6_config *cfg)
- 	rt->rt6i_flags = cfg->fc_flags;
- 
- install_route:
--	if (cfg->fc_mx) {
--		struct nlattr *nla;
--		int remaining;
--
--		nla_for_each_attr(nla, cfg->fc_mx, cfg->fc_mx_len, remaining) {
--			int type = nla_type(nla);
--
--			if (type) {
--				if (type > RTAX_MAX) {
--					err = -EINVAL;
--					goto out;
--				}
--
--				dst_metric_set(&rt->dst, type, nla_get_u32(nla));
--			}
--		}
--	}
--
- 	rt->dst.dev = dev;
- 	rt->rt6i_idev = idev;
- 	rt->rt6i_table = table;
- 
- 	cfg->fc_nlinfo.nl_net = dev_net(dev);
- 
--	return __ip6_ins_rt(rt, &cfg->fc_nlinfo);
-+	return __ip6_ins_rt(rt, &cfg->fc_nlinfo, cfg->fc_mx, cfg->fc_mx_len);
- 
- out:
- 	if (dev)
--- 
-1.8.1.4
+--
+Sander
+
+
+
+
+
+
+>   Paul
+
+>> Ultimately this results in bad grant reference warnings (and packets marked
+>> as "errors" in the interface statistics).
+>> 
+>> In my case it always seems to be a skb with 1 frag which is broken down in 5
+>> or 6 pieces ..
+>> 
+>> So "get_next_rx_buffer()" is called once .. and i'm overrunning the ring with
+>> 1 slot, but i'm not sure if that's not coincedence
+>> since in the code there seem to be no explicit limitation on how often this
+>> code path is taken. So perhaps it's implicitly limited
+>> since packets and frags can't be arbitrarily large in comparison with the
+>> page_size but that's not something i'm capable of figuring out :-)
+>> 
+>> 
+>> 
+>> >   Paul
+>> 
+>> >> Problem is that a worst case calculation would probably be reverting to
+>> the
+>> >> old calculation,
+>> >> and the problems this patch was trying to solve would reappear, but
+>> >> introducing new regressions
+>> >> isn't very useful either. And since it seems such a tricky and fragile thing to
+>> >> determine, it would
+>> >> probably be best to be split into a distinct function with a comment to
+>> explain
+>> >> the rationale used.
+>> >>
+>> >> Since this doesn't seem to progress very fast .. CC'ed some more folks ..
+>> you
+>> >> never know ..
+>> >>
+>> >> --
+>> >> Sander
+>> >>
+>> >>
+>> >> Tuesday, March 25, 2014, 4:29:42 PM, you wrote:
+>> >>
+>> >>
+>> >> > Tuesday, March 25, 2014, 4:15:39 PM, you wrote:
+>> >>
+>> >> >> On Sat, Mar 22, 2014 at 07:28:34PM +0100, Sander Eikelenboom wrote:
+>> >> >> [...]
+>> >> >>> > Yes there is only one frag .. but it seems to be much larger than
+>> >> PAGE_SIZE .. and xenvif_gop_frag_copy brakes that frag down into
+>> smaller
+>> >> bits .. hence the calculation in xenvif_rx_action determining the slots
+>> needed
+>> >> by doing:
+>> >> >>>
+>> >> >>> >                 for (i = 0; i < nr_frags; i++) {
+>> >> >>> >                         unsigned int size;
+>> >> >>> >                         size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
+>> >> >>> >                         max_slots_needed += DIV_ROUND_UP(size,
+>> PAGE_SIZE);
+>> >> >>> >                 }
+>> >> >>>
+>> >> >>> > But the code in xenvif_gop_frag_copy .. seems to be needing one
+>> >> more slot (from the emperical test) .. and calling "get_next_rx_buffer"
+>> >> seems involved in that ..
+>> >> >>>
+>> >> >>> Hmm looked again .. and it seems this is it .. when your frags are large
+>> >> enough you have the chance of running into this.
+>> >> >>>
+>> >>
+>> >> >> get_next_rx_buffer is guarded by start_new_rx_buffer. Do you see
+>> any
+>> >> >> problem with that implementation?
+>> >> > In general no, but "get_next_rx_buffer" up's cons .. and the calculations
+>> >> done in "xenvif_rx_action" for max_slots_needed to prevent the overrun
+>> >> > don't count in this possibility. So it's not the guarding of
+>> >> "start_new_rx_buffer" that is at fault. It's the ones early in
+>> >> "xenvif_rx_action".
+>> >> > The ones that were changed by Paul's patch from MAX_SKB_FRAGS to a
+>> >> calculated value that should be a "slim fit".
+>> >>
+>> >> > The problem is in determining upfront in "xenvif_rx_action" when and
+>> how
+>> >> often the "get_next_rx_buffer" path will be taken.
+>> >> > Unless there are other non direct restrictions (from a size point of view)
+>> it
+>> >> can be called multiple times per frag per skb.
+>> >>
+>> >> >>> Problem is .. i don't see an easy fix, the "one more slot" of the
+>> empirical
+>> >> test doesn't seem to be the worst case either (i think):
+>> >> >>>
+>> >> >>> - In my case the packets that hit this only have 1 frag, but i could have
+>> >> had more frags.
+>> >> >>>   I also think you can't rule out the possibility of doing the
+>> >> "get_next_rx_buffer" for multiple subsequent frags from one packet,
+>> >> >>>   so in the worst (and perhaps even from a single frag since it's looped
+>> >> over a split of it in what seems PAGE_SIZE pieces.)
+>> >> >>>   - So an exact calculation of how much slots we are going to need for
+>> >> hitting this "get_next_rx_buffer"  upfront in "xenvif_rx_action" seems
+>> >> unfeasible.
+>> >> >>>   - A worst case gamble seems impossible either .. if you take multiple
+>> >> frags * multiple times the "get_next_rx_buffer" ... you would probably be
+>> >> back at just
+>> >> >>>     setting the needed_slots to MAX_SKB_FRAGS.
+>> >> >>>
+>> >> >>> - Other thing would be checking for the available slots before doing
+>> the
+>> >> "get_next_rx_buffer" .. how ever .. we don't account for how many slots
+>> we
+>> >> still need to
+>> >> >>>   just process the remaining frags.
+>> >> >>>
+>> >>
+>> >> >> We've done a worst case estimation for whole SKB (linear area + all
+>> >> >> frags) already, at the very first beginning. That's what
+>> >> >> max_slots_needed is for.
+>> >>
+>> >> >>> - Just remove the whole "get_next_rx_buffer".. just tested it but it
+>> >> seems the "get_next_rx_buffer" is necessary ..  when i make
+>> >> start_new_rx_buffer always return false
+>> >> >>>   i hit the bug below :S
+>> >> >>>
+>> >> >>> So the questions are ... is the "get_next_rx_buffer" part really
+>> necessary
+>> >> ?
+>> >> >>>    - if not, what is the benefit of the "get_next_rx_buffer" and does
+>> that
+>> >> outweigh the additional cost of accounting
+>> >> >>>      of needed_slots for the frags that have yet to be processed ?
+>> >> >>>    - if yes, erhmmm what would be the best acceptable solution ..
+>> >> returning to using MAX_SKB_FRAGS ?
+>> >> >>>
+>> >>
+>> >> >> I think you need to answer several questions first:
+>> >> >> 1. is max_slots_needed actually large enough to cover whole SKB?
+>> >> >         No it's not if, you end up calling "get_next_rx_buffer" one or
+>> multiple
+>> >> times when processing the SKB
+>> >> >         you have the chance of overrunning (or be saved because prod gets
+>> >> upped before you overrun).
+>> >>
+>> >> >> 2. is the test of ring slot availability acurate?
+>> >> >         Seems to be.
+>> >>
+>> >> >> 3. is the number of ring slots consumed larger than
+>> max_slots_needed? (I
+>> >> >>    guess the answer is yes)
+>> >> >         Yes that was the whole point.
+>> >>
+>> >> >> 4. which step in the break-down procedure causes backend to overrun
+>> >> the
+>> >> >>    ring?
+>> >> >         The "get_next_rx_buffer" call .. that is not accounted for (which can
+>> be
+>> >> called
+>> >> >         multiple times per frag (unless some other none obvious size
+>> >> restriction limits this
+>> >> >         to one time per frag or one time per SKB).
+>> >> >         In my errorneous case it is called one time, but it would be nice if
+>> there
+>> >> would be some theoretical proof
+>> >> >         instead of just some emperical test.
+>> >>
+>> >>
+>> >> >> It doesn't matter how many frags your SKB has and how big a frag is. If
+>> >> >> every step is correct then you're fine. The code you're looking at
+>> >> >> (start_new_rx_buffer / get_next_rx_buffer and friend) needs to be
+>> >> >> carefully examined.
+>> >>
+>> >> > Well it seems it only calls "get_next_rx_buffer" in some special cases ..
+>> >> (and that also what i'm seeing because it doesn't happen
+>> >> > continously.
+>> >>
+>> >> > Question is shouldn't this max_needed_slots calc be reverted to what it
+>> >> was before 3.14 and take the time in 3.15 to figure out a
+>> >> > the theoretical max (if it can be calculated upfront) .. or another way to
+>> >> guarantee the code is able to process the whole SKB  ?
+>> >>
+>> >> >> Wei.
+>> >>
+>> >>
+>> >>
+>> >>
+>> 
+>> 
