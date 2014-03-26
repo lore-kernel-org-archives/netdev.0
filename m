@@ -1,109 +1,113 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Wed, 26 Mar 2014 10:29:07 -0700
-Message-ID: <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com>
-References: <532C2AC4.7080303@mojatatu.com> <20140322094852.GB2844@minipsycho.orion>
- <5330BAB7.3040501@mojatatu.com> <20140325173927.GE8102@hmsreliant.think-freely.org>
- <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org>
- <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com>
- <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com>
- <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [Xen-devel] Xen-unstable Linux 3.14-rc3 and 3.13 Network troubles "bisected"
+Date: Wed, 26 Mar 2014 18:33:04 +0100
+Message-ID: <966386043.20140326183304@eikelenboom.it>
+References: <1744594108.20140318162127@eikelenboom.it> <20140318160412.GB16807@zion.uk.xensource.com> <1701035622.20140318211402@eikelenboom.it> <722971844.20140318221859@eikelenboom.it> <1688396550.20140319001104@eikelenboom.it> <20140319113532.GD16807@zion.uk.xensource.com> <246793256.20140319220752@eikelenboom.it> <20140321164958.GA31766@zion.uk.xensource.com> <1334202265.20140321182727@eikelenboom.it> <1056661597.20140322192834@eikelenboom.it> <20140325151539.GG31766@zion.uk.xensource.com> <79975567.20140325162942@eikelenboom.it> <1972209744.20140326121116@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029AD94@AMSPEX01CL01.citrite.net> <1715463578.20140326162245@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029AFC1@AMSPEX01CL01.citrite.net> <799579453.20140326170641@eikelenboom.it>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD029B106@AMSPEX01CL01.citrite.net> <789809468.20140326175352@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029B277@AMSPEX01CL01.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:52929 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754369AbaCZR3s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 13:29:48 -0400
-Received: by mail-pb0-f49.google.com with SMTP id jt11so2204682pbb.8
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 10:29:48 -0700 (PDT)
-In-Reply-To: <20140326165934.GH2869@minipsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>, annie li <annie.li@oracle.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Paul Durrant <Paul.Durrant@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD029B277@AMSPEX01CL01.citrite.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2014-03-26 9:59 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
-> Wed, Mar 26, 2014 at 05:54:17PM CET, roopa@cumulusnetworks.com wrote:
->>On 3/26/14, 3:54 AM, Jamal Hadi Salim wrote:
->>>On 03/26/14 01:37, Roopa Prabhu wrote:
->>>>On 3/25/14, 1:11 PM, Florian Fainelli wrote:
->>>>>2014-03-25 12:35 GMT-07:00 Neil Horman <nhorman@tuxdriver.com>:
->>>
->>>>Sorry about getting on this thread late and possibly in the middle.
->>>>Agree on the idea of keeping the ports linked to the master switch dev
->>>>(or the 'conduit' to the switch chip) via private list instead of the
->>>>master-slave relationship proposed earlier.
->>>>By private i mean the netdev->priv linkage to the master switch dev and
->>>>not really keeping the ports from being exposed to the user.
->>>>
->>>>We think its better to keep the switch ports exposed as any other netdev
->>>>on linux.
->>>>  This approach will make the switch ports look exactly like a nic port
->>>>and all tools will continue to work seamlessly. The switch port
->>>>operations could internally be forwarded to the switch netdev (sw1 in
->>>>the above case).
->>>>
->>>>example:
->>>>$ip link set dev sw1p0 up
->>>>$ethtool -S sw1p0
->>>>
->>>
->>>I like the approach. I know the above is a simple version, but i am
->>>assuming you also mean i can do things like
->>>ip route add ...
->>>bridge fdb add ... (and if you like your brctl go ahead)
->>>bonding ...
->>>
->>yes, exactly.  We support this model on our boxes today.
->>User can bond switch ports on our box in the exact same way as he/she
->>would bond two nic ports.
->>Our 'conduit to switch chip' reflects the corresponding lag
->>configuration in the switch chip.
->>Same goes for bridging, routing, acls.
->
->
-> So you implement bonding netlink api? Or you hook into bonding driver
-> itselt? Can you show us the code?
 
-Before we start talking about bonding, maybe we should make sure that
-we cover some basic hardware switches uses which are to make some
-ports belong to certain VLANs, tagged or untagged?
+Hi Paul,
 
-It seems to me like this would become something like this, assuming P0
-and P1 are two switch ports and 'eth0' is the CPU port, where P0 and
-P1 belong to VLAN1 and CPU belongs to VLAN2:
+Seems your last mail arrived in pretty bad shape (truncated) in my mailbox ..
 
-ip link set dev sw1p0 up
-ip link set dev sw1p1 up
-ip link set dev eth0 up
+--
+Sander
 
-ip link add link eth0 name eth0.2 type vlan id 2
+Wednesday, March 26, 2014, 6:16:49 PM, you wrote:
 
-ip link add link sw1p0 name sw1p0.1 type vlan id 1
-ip link add link sw1p1 name sw1p1.1 type vlan id 1
-
-ip link add sw1.1 type bridge
-ip link set sw1p0.1 master sw1.1
-ip link set sw1p1.1 master sw1.1
-
-Does that fit the model correctly?
--- 
-Florian
+>> -----Original Message-----
+>> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+>> Sent: 26 March 2014 16:54
+>> To: Paul Durrant
+>> Cc: Wei Liu; annie li; Zoltan Kiss; xen-devel@lists.xen.org; Ian Campbell; linux-
+>> kernel; netdev@vger.kernel.org
+>> Subject: Re: [Xen-devel] Xen-unstable Linux 3.14-rc3 and 3.13 Network
+>> troubles "bisected"
+>> 
+>> 
+>> Wednesday, March 26, 2014, 5:25:21 PM, you wrote:
+>> 
+>> >> -----Original Message-----
+>> >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+>> >> Sent: 26 March 2014 16:07
+>> >> To: Paul Durrant
+>> >> Cc: Wei Liu; annie li; Zoltan Kiss; xen-devel@lists.xen.org; Ian Campbell;
+>> linux-
+>> >> kernel; netdev@vger.kernel.org
+>> >> Subject: Re: [Xen-devel] Xen-unstable Linux 3.14-rc3 and 3.13 Network
+>> >> troubles "bisected"
+>> >>
+>> >>
+>> >> Wednesday, March 26, 2014, 4:50:30 PM, you wrote:
+>> >>
+>> >> >> -----Original Message-----
+>> >> >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+>> >> >> Sent: 26 March 2014 15:23
+>> >> >> To: Paul Durrant
+>> >> >> Cc: Wei Liu; annie li; Zoltan Kiss; xen-devel@lists.xen.org; Ian Campbell;
+>> >> linux-
+>> >> >> kernel; netdev@vger.kernel.org
+>> >> >> Subject: Re: [Xen-devel] Xen-unstable Linux 3.14-rc3 and 3.13 Network
+>> >> >> troubles "bisected"
+>> >> >>
+>> >> >>
+>> >> >> Wednesday, March 26, 2014, 3:44:42 PM, you wrote:
+>> >> >>
+>> >> >> >> -----Original Message-----
+>> >> >> >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+>> >> >> >> Sent: 26 March 2014 11:11
+>> >> >> >> To: Paul Durrant
+>> >> >> >> Cc: Wei Liu; annie li; Zoltan Kiss; xen-devel@lists.xen.org; Ian
+>> Campbell;
+>> >> >> linux-
+>> >> >> >> kernel; netdev@vger.kernel.org
+>> >> >> >> Subject: Re: [Xen-devel] Xen-unstable Linux 3.14-rc3 and 3.13
+>> Network
+>> >> >> >> troubles "bisected"
+>> >> >> >>
+>> >> >> >> Paul,
+>> >> >> >>
+>> >> >> >> You have been awfully silent for this whole thread while this is a
+>> >> >> regression
+>> >> >> >> caused by a patch of you
+>> >> >> >> (ca2f09f2b2c6c25047cfc545d057c4edfcfe561c as clearly stated much
+>> >> earlier
+>> >> >> in
+>> >> >> >> this thread).
+>> >> >> >>
+>> >> >>
+>> >> >> > Sorry, I've been distracted...
+>> >> >>
+>> >> >> >> The commit messages states:
+>> >> >> >>     "net_rx_action() is the place where we could do with an accurate
+>> >> >> >> predicition but,
+>> >> >> >>     since that has proven tricky to calculate, a cheap worse-case (but
+>> not
+>> >> >> too
+>> >> >> >> bad)
+>> >> >> >>     estimate is all we really need since the only thing we *must*
+>> prevent
+>> >> is
+>> >> >> >> xenvif_gop_skb()
+>> >> >> >>     consuming more slots than are available."
+>> >> >> >>
+>> >> >> >> Your "worst-case" calculation stated in the commit message is
+>> clearly
+>> >> not
+>> >> >> the
+>> >> >> >> worst case,
+>> >> >> >> since it doesn't take calls to "get_next_rx_buffer" into account
