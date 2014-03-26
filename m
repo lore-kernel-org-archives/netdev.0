@@ -1,56 +1,64 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next 12/12] r8152: modify the tx timeout funcfion
-Date: Wed, 26 Mar 2014 17:54:11 +0800
-Message-ID: <47E2CB72EA2845AD9B81A98B6E3BDF6B@realtek.com.tw>
-References: <1393934464-23675-1-git-send-email-hayeswang@realtek.com><1393934464-23675-13-git-send-email-hayeswang@realtek.com> <CANEJEGvB7K3EQ6hyyweT3MA3kWSMcvAGXNHSTZK=6_z=dHhTfA@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Wed, 26 Mar 2014 09:55:46 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6E9407@AcuExch.aculab.com>
+References: <1395670496-17381-1-git-send-email-zhangfei.gao@linaro.org>
+ <21873900.AIOr1ryy37@wuerfel>
+ <CAGVrzcZNM2gUHqq2m2jcaqs-AoWKo_DszYu5ozs2vTR6kFY0kA@mail.gmail.com>
+ <4392030.XayIa35sfH@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: 'netdev' <netdev@vger.kernel.org>, <nic_swsd@realtek.com>,
-	'LKML' <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>
-To: 'Grant Grundler' <grundler@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANEJEGvB7K3EQ6hyyweT3MA3kWSMcvAGXNHSTZK=6_z=dHhTfA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Zhangfei Gao <zhangfei.gao@gmail.com>,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+	Mark Rutland <mark.rutland@arm.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"Russell King - ARM Linux" <linux@arm.linux.org.uk>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev <netdev@vger.kernel.org>,
+	Zhangfei Gao <zhangfei.gao@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: 'Arnd Bergmann' <arnd@arndb.de>,
+	Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:39614 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750792AbaCZJ4b convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 05:56:31 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 15546-04 for <netdev@vger.kernel.org>;
+ Wed, 26 Mar 2014 09:56:28 +0000 (GMT)
+In-Reply-To: <4392030.XayIa35sfH@wuerfel>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- Grant Grundler [mailto:grundler@google.com] 
-> Sent: Wednesday, March 26, 2014 4:12 AM
-[...]
-> Hayes,
-> I believe this patch was dropped after the series was split.
-> Can you please repost this patch by itself?
+From: Arnd Bergmann
+> On Tuesday 25 March 2014 10:16:28 Florian Fainelli wrote:
+> >
+> > Ok, well that's really unfortunate, to achieve the best of everything,
+> > the workaround should probably look like:
+> >
+> > - keep reclaiming TX buffers in ndo_start_xmit() in case you push more
+> > packets to the NICs than your timer can free
+> > - reclaim TX buffers in NAPI poll() context for "symetrical" workloads
+> > where e.g: TCP ACKs received allow you to complete TX buffers
+> > - have a timer like you suggest which should help with transmit only
+> > workloads at a slow rate
+> 
+> Yes, that is what I was thinking, but with orphaning the tx skbs,
+> we can probably be a little smarter. Note that in order to check
+> the state of the queue, we have to do a read from uncached memory,
+> since the hardware also doesn't support cache coherent DMA.
+> We don't want to do that too often.
 
-There is no problem for current behavior, and I don't get the
-issue of tx timeout, yet. I think the other patches are prior
-to this one, so I plan to deal with this one after the others.
-Besides, maybe I would have different idea for this one then.
-Although reinitialization is more safe, I don't sure if it is
-necessary.
+Possibly you can check for all the pending transmits having
+completed - the most likely case. Instead of checking them
+individually?
 
-> (and fix the "function" typo in the patch header)
+You should limit the number of tx bytes as well as the number
+of tx frames - buffering a ring full of large frames subverts
+some of the algorithms higher up the stack.
 
-oops.
-
-[...]
-> Nit: Could rtl_ops.up() set speed since it appears to be changing the
-> state of the link?
-
-I don't plan to do it. I don't think it is a part of rtl_ops.up().
-Although it alwayes follows rtl_ops.up() now, I think they should
-be separeted because they are for different purposes. The set_speed
-is used to make sure the speed is correct, because you don't know
-what speed it is before the driver is loaded. The other OS may
-change the speed, so the device should have opportunity to change
-the speed to the default when the driver is loaded. Normally, the
-set_speed is not necessary.
-
-> rtl8152_open() uses a remarkably similar code sequence. Is there an
-> opportunity to refactor and  make sure this sequence is consistent?
-> (different patch, not this one)
-
-It is a good question. I would think about it.
- 
-Best Regards,
-Hayes
+	David
