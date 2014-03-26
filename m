@@ -1,56 +1,84 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 3/6] at86rf230: remove
-	irq_type in request_irq
-Date: Wed, 26 Mar 2014 15:11:54 +0100
-Message-ID: <1395843117-16494-4-git-send-email-alex.aring@gmail.com>
-References: <1395843117-16494-1-git-send-email-alex.aring@gmail.com>
+From: Zhangfei Gao <zhangfei.gao@gmail.com>
+Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Wed, 26 Mar 2014 22:22:35 +0800
+Message-ID: <CAMj5Bkg1_a=tAw1sxOTzSG6eWUHT8QVPXOzx2C+oCyf+dPr7Uw@mail.gmail.com>
+References: <1395132017-15928-1-git-send-email-zhangfei.gao@linaro.org>
+	<1395132017-15928-4-git-send-email-zhangfei.gao@linaro.org>
+	<20140318104616.GT21483@n2100.arm.linux.org.uk>
+	<CAMj5BkiCXVZZPS-VyVxejCY0aiGD_HQjUdWd-FKD_ER_y_0wxQ@mail.gmail.com>
+	<CAL_JsqLfH7Er-s5wjA5JGE4+-SGtTOvYTyQ=cYk+1ekHo39Crg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1395843117-16494-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Zhangfei Gao <zhangfei.gao@linaro.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+	netdev <netdev@vger.kernel.org>
+To: Rob Herring <robherring2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f41.google.com ([74.125.83.41]:43907 "EHLO
+	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754488AbaCZOWg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 10:22:36 -0400
+In-Reply-To: <CAL_JsqLfH7Er-s5wjA5JGE4+-SGtTOvYTyQ=cYk+1ekHo39Crg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We don't need to set these values at request_irq. The interrupt line is
-already configured to same value like irq_get_trigger_type returned.
+Dear Rob
 
-Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/ieee802154/at86rf230.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+On Mon, Mar 24, 2014 at 10:17 PM, Rob Herring <robherring2@gmail.com> wrote:
 
-diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index b6aa741..e034376 100644
---- a/drivers/net/ieee802154/at86rf230.c
-+++ b/drivers/net/ieee802154/at86rf230.c
-@@ -1199,8 +1199,7 @@ static int at86rf230_probe(struct spi_device *spi)
- 	if (rc)
- 		goto err_hw_init;
- 
--	rc = request_irq(spi->irq, irq_handler,
--			 IRQF_SHARED | irq_type,
-+	rc = request_irq(spi->irq, irq_handler, IRQF_SHARED,
- 			 dev_name(&spi->dev), lp);
- 	if (rc)
- 		goto err_hw_init;
--- 
-1.9.1
+>
+>>>> +             dma_map_single(&ndev->dev, skb->data,
+>>>> +                     RX_BUF_SIZE, DMA_FROM_DEVICE);
+>>>
+>>> This is incorrect.
+>>>
+>>> buf = buffer alloc()
+>>> /* CPU owns buffer and can read/write it, device does not */
+>>> dev_addr = dma_map_single(dev, buf, ..., DMA_FROM_DEVICE);
+>>> /* Device owns buffer and can write it, CPU does not access it */
+>>> dma_unmap_single(dev, dev_addr, ..., DMA_FROM_DEVICE);
+>>> /* CPU owns buffer again and can read/write it, device does not */
+>>>
+>>> Please turn on DMA API debugging in the kernel debug options and verify
+>>> whether your driver causes it to complain (it will.)
+>>
+>> Yes, you are right.
+>> After change to dma_map/unmap_single, however, still get warning like
+>> "DMA-API: device driver failed to check map error", not sure whether
+>> it can be ignored?
+>
+> If it could be ignored, there would be no warning. So yes you should
+> check the error. I guess correct error handling would be throwing away
+> the packet.
 
+The warning is solved via adding dma_mapping_error check after every
+dma_map_single.
 
-------------------------------------------------------------------------------
-Learn Graph Databases - Download FREE O'Reilly Book
-"Graph Databases" is the definitive new guide to graph databases and their
-applications. Written by three acclaimed leaders in the field,
-this first edition is now available. Download your free book today!
-http://p.sf.net/sfu/13534_NeoTech
+>
+>
+>>>> +             dma_map_single(&ndev->dev, buf, RX_BUF_SIZE, DMA_TO_DEVICE);
+>>>> +             hip04_set_recv_desc(priv, virt_to_phys(buf));
+>>>
+>>> No need for virt_to_phys() here - dma_map_single() returns the device
+>>> address.
+>> Got it.
+>> Use virt_to_phys since find same result come out, it should be
+>> different for iommu case.
+>>
+>> In fact, the hardware can help to do the cache flushing, the function
+>> still not be enabled now.
+>> Then dma_map/unmap_single may be ignored.
+>
+> If you don't need cache flushing, you should setup different
+> dma_map_ops for the device such as arm_coherent_dma_ops. The driver
+> should always have the dma_map calls. See highbank and mvebu for
+> examples.
+
+That would be very helpful, still not sure how to enable this feature.
+Could you help clarify which file.
+Not find highbank and mvebu under drivers/iommu/.
+
+Thanks
