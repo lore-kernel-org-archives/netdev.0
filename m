@@ -1,175 +1,126 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v3 7/9] net: isdn: use sk_unattached_filter api
-Date: Wed, 26 Mar 2014 22:06:08 +0100
-Message-ID: <1395867970-1338-8-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next v3 4/9] net: ptp: use sk_unattached_filter_create() for BPF
+Date: Wed, 26 Mar 2014 22:06:05 +0100
+Message-ID: <1395867970-1338-5-git-send-email-dborkman@redhat.com>
 References: <1395867970-1338-1-git-send-email-dborkman@redhat.com>
 Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	Karsten Keil <isdn@linux-pingi.de>,
-	isdn4linux@listserv.isdn4linux.de
+	Richard Cochran <richard.cochran@omicron.at>,
+	Jiri Benc <jbenc@redhat.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10071 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:55669 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756353AbaCZVGq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2014 17:06:46 -0400
+	id S1756314AbaCZVGh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2014 17:06:37 -0400
 In-Reply-To: <1395867970-1338-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Similarly as in ppp, we need to migrate the ISDN/PPP code to make use
-of the sk_unattached_filter api in order to decouple having direct
-filter structure access. By using sk_unattached_filter_{create,destroy},
-we can allow for the possibility to jit compile filters for faster
-filter verdicts as well.
+This patch migrates an open-coded sk_run_filter() implementation with
+proper use of the BPF API, that is, sk_unattached_filter_create(). This
+migration is needed, as we will be internally transforming the filter
+to a different representation, and therefore needs to be decoupled.
+
+It is okay to do so as skb_timestamping_init() is called during
+initialization of the network stack in core initcall via sock_init().
+This would effectively also allow for PTP filters to be jit compiled if
+bpf_jit_enable is set.
+
+For better readability, there are also some newlines introduced, also
+ptp_classify.h is only in kernel space.
 
 Joint work with Alexei Starovoitov.
 
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-Cc: Karsten Keil <isdn@linux-pingi.de>
-Cc: isdn4linux@listserv.isdn4linux.de
+Cc: Richard Cochran <richard.cochran@omicron.at>
+Cc: Jiri Benc <jbenc@redhat.com>
 ---
- drivers/isdn/i4l/isdn_ppp.c | 61 ++++++++++++++++++++++++++++++---------------
- include/linux/isdn_ppp.h    |  5 ++--
- 2 files changed, 43 insertions(+), 23 deletions(-)
+ include/linux/ptp_classify.h |  4 ----
+ net/core/timestamping.c      | 21 ++++++++++++++-------
+ 2 files changed, 14 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/isdn/i4l/isdn_ppp.c b/drivers/isdn/i4l/isdn_ppp.c
-index 38ceac5..a5da511 100644
---- a/drivers/isdn/i4l/isdn_ppp.c
-+++ b/drivers/isdn/i4l/isdn_ppp.c
-@@ -378,10 +378,15 @@ isdn_ppp_release(int min, struct file *file)
- 	is->slcomp = NULL;
- #endif
- #ifdef CONFIG_IPPP_FILTER
--	kfree(is->pass_filter);
--	is->pass_filter = NULL;
--	kfree(is->active_filter);
--	is->active_filter = NULL;
-+	if (is->pass_filter) {
-+		sk_unattached_filter_destroy(is->pass_filter);
-+		is->pass_filter = NULL;
-+	}
-+
-+	if (is->active_filter) {
-+		sk_unattached_filter_destroy(is->active_filter);
-+		is->active_filter = NULL;
-+	}
- #endif
+diff --git a/include/linux/ptp_classify.h b/include/linux/ptp_classify.h
+index 1dc420b..3decfa4 100644
+--- a/include/linux/ptp_classify.h
++++ b/include/linux/ptp_classify.h
+@@ -27,11 +27,7 @@
+ #include <linux/if_vlan.h>
+ #include <linux/ip.h>
+ #include <linux/filter.h>
+-#ifdef __KERNEL__
+ #include <linux/in.h>
+-#else
+-#include <netinet/in.h>
+-#endif
  
- /* TODO: if this was the previous master: link the stuff to the new master */
-@@ -629,25 +634,41 @@ isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
- #ifdef CONFIG_IPPP_FILTER
- 	case PPPIOCSPASS:
- 	{
-+		struct sock_fprog fprog;
- 		struct sock_filter *code;
--		int len = get_filter(argp, &code);
-+		int err, len = get_filter(argp, &code);
+ #define PTP_CLASS_NONE  0x00 /* not a PTP event message */
+ #define PTP_CLASS_V1    0x01 /* protocol version 1 */
+diff --git a/net/core/timestamping.c b/net/core/timestamping.c
+index 661b5a4..e43d56a 100644
+--- a/net/core/timestamping.c
++++ b/net/core/timestamping.c
+@@ -23,16 +23,13 @@
+ #include <linux/skbuff.h>
+ #include <linux/export.h>
+ 
+-static struct sock_filter ptp_filter[] = {
+-	PTP_FILTER
+-};
++static struct sk_filter *ptp_insns __read_mostly;
+ 
+ static unsigned int classify(const struct sk_buff *skb)
+ {
+-	if (likely(skb->dev &&
+-		   skb->dev->phydev &&
++	if (likely(skb->dev && skb->dev->phydev &&
+ 		   skb->dev->phydev->drv))
+-		return sk_run_filter(skb, ptp_filter);
++		return SK_RUN_FILTER(ptp_insns, skb);
+ 	else
+ 		return PTP_CLASS_NONE;
+ }
+@@ -60,11 +57,13 @@ void skb_clone_tx_timestamp(struct sk_buff *skb)
+ 		if (likely(phydev->drv->txtstamp)) {
+ 			if (!atomic_inc_not_zero(&sk->sk_refcnt))
+ 				return;
 +
- 		if (len < 0)
- 			return len;
--		kfree(is->pass_filter);
--		is->pass_filter = code;
--		is->pass_len = len;
--		break;
+ 			clone = skb_clone(skb, GFP_ATOMIC);
+ 			if (!clone) {
+ 				sock_put(sk);
+ 				return;
+ 			}
 +
-+		fprog.len = len;
-+		fprog.filter = code;
-+
-+		if (is->pass_filter)
-+			sk_unattached_filter_destroy(is->pass_filter);
-+		err = sk_unattached_filter_create(&is->pass_filter, &fprog);
-+		kfree(code);
-+
-+		return err;
- 	}
- 	case PPPIOCSACTIVE:
- 	{
-+		struct sock_fprog fprog;
- 		struct sock_filter *code;
--		int len = get_filter(argp, &code);
-+		int err, len = get_filter(argp, &code);
-+
- 		if (len < 0)
- 			return len;
--		kfree(is->active_filter);
--		is->active_filter = code;
--		is->active_len = len;
--		break;
-+
-+		fprog.len = len;
-+		fprog.filter = code;
-+
-+		if (is->active_filter)
-+			sk_unattached_filter_destroy(is->active_filter);
-+		err = sk_unattached_filter_create(&is->active_filter, &fprog);
-+		kfree(code);
-+
-+		return err;
- 	}
- #endif /* CONFIG_IPPP_FILTER */
- 	default:
-@@ -1147,14 +1168,14 @@ isdn_ppp_push_higher(isdn_net_dev *net_dev, isdn_net_local *lp, struct sk_buff *
+ 			clone->sk = sk;
+ 			phydev->drv->txtstamp(phydev, clone, type);
+ 		}
+@@ -89,12 +88,15 @@ void skb_complete_tx_timestamp(struct sk_buff *skb,
  	}
  
- 	if (is->pass_filter
--	    && sk_run_filter(skb, is->pass_filter) == 0) {
-+	    && SK_RUN_FILTER(is->pass_filter, skb) == 0) {
- 		if (is->debug & 0x2)
- 			printk(KERN_DEBUG "IPPP: inbound frame filtered.\n");
+ 	*skb_hwtstamps(skb) = *hwtstamps;
++
+ 	serr = SKB_EXT_ERR(skb);
+ 	memset(serr, 0, sizeof(*serr));
+ 	serr->ee.ee_errno = ENOMSG;
+ 	serr->ee.ee_origin = SO_EE_ORIGIN_TIMESTAMPING;
+ 	skb->sk = NULL;
++
+ 	err = sock_queue_err_skb(sk, skb);
++
+ 	sock_put(sk);
+ 	if (err)
  		kfree_skb(skb);
- 		return;
- 	}
- 	if (!(is->active_filter
--	      && sk_run_filter(skb, is->active_filter) == 0)) {
-+	      && SK_RUN_FILTER(is->active_filter, skb) == 0)) {
- 		if (is->debug & 0x2)
- 			printk(KERN_DEBUG "IPPP: link-active filter: resetting huptimer.\n");
- 		lp->huptimer = 0;
-@@ -1293,14 +1314,14 @@ isdn_ppp_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	}
+@@ -135,5 +137,10 @@ EXPORT_SYMBOL_GPL(skb_defer_rx_timestamp);
  
- 	if (ipt->pass_filter
--	    && sk_run_filter(skb, ipt->pass_filter) == 0) {
-+	    && SK_RUN_FILTER(ipt->pass_filter, skb) == 0) {
- 		if (ipt->debug & 0x4)
- 			printk(KERN_DEBUG "IPPP: outbound frame filtered.\n");
- 		kfree_skb(skb);
- 		goto unlock;
- 	}
- 	if (!(ipt->active_filter
--	      && sk_run_filter(skb, ipt->active_filter) == 0)) {
-+	      && SK_RUN_FILTER(ipt->active_filter, skb) == 0)) {
- 		if (ipt->debug & 0x4)
- 			printk(KERN_DEBUG "IPPP: link-active filter: resetting huptimer.\n");
- 		lp->huptimer = 0;
-@@ -1490,9 +1511,9 @@ int isdn_ppp_autodial_filter(struct sk_buff *skb, isdn_net_local *lp)
- 	}
- 
- 	drop |= is->pass_filter
--		&& sk_run_filter(skb, is->pass_filter) == 0;
-+		&& SK_RUN_FILTER(is->pass_filter, skb) == 0;
- 	drop |= is->active_filter
--		&& sk_run_filter(skb, is->active_filter) == 0;
-+		&& SK_RUN_FILTER(is->active_filter, skb) == 0;
- 
- 	skb_push(skb, IPPP_MAX_HEADER - 4);
- 	return drop;
-diff --git a/include/linux/isdn_ppp.h b/include/linux/isdn_ppp.h
-index d5f62bc..8e10f57 100644
---- a/include/linux/isdn_ppp.h
-+++ b/include/linux/isdn_ppp.h
-@@ -180,9 +180,8 @@ struct ippp_struct {
-   struct slcompress *slcomp;
- #endif
- #ifdef CONFIG_IPPP_FILTER
--  struct sock_filter *pass_filter;	/* filter for packets to pass */
--  struct sock_filter *active_filter;	/* filter for pkts to reset idle */
--  unsigned pass_len, active_len;
-+  struct sk_filter *pass_filter;   /* filter for packets to pass */
-+  struct sk_filter *active_filter; /* filter for pkts to reset idle */
- #endif
-   unsigned long debug;
-   struct isdn_ppp_compressor *compressor,*decompressor;
+ void __init skb_timestamping_init(void)
+ {
+-	BUG_ON(sk_chk_filter(ptp_filter, ARRAY_SIZE(ptp_filter)));
++	static struct sock_filter ptp_filter[] = { PTP_FILTER };
++	struct sock_fprog ptp_prog = {
++		.len = ARRAY_SIZE(ptp_filter), .filter = ptp_filter,
++	};
++
++	BUG_ON(sk_unattached_filter_create(&ptp_insns, &ptp_prog));
+ }
 -- 
 1.7.11.7
