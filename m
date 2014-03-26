@@ -1,144 +1,151 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: [PATCH net-next 2/6] at86rf230: use irq_get_trigger_type
-Date: Wed, 26 Mar 2014 15:11:53 +0100
-Message-ID: <1395843117-16494-3-git-send-email-alex.aring@gmail.com>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next 5/6] at86rf230: use
+	devm_gpio_request_one
+Date: Wed, 26 Mar 2014 15:11:56 +0100
+Message-ID: <1395843117-16494-6-git-send-email-alex.aring@gmail.com>
 References: <1395843117-16494-1-git-send-email-alex.aring@gmail.com>
-Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	Alexander Aring <alex.aring@gmail.com>
-To: alex.bluesman.smirnov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:64214 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754140AbaCZOMf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 10:12:35 -0400
-In-Reply-To: <1395843117-16494-1-git-send-email-alex.aring@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1395843117-16494-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch removes the platform data for the irq_type. We use instead
-the irq_get_trigger_type function to get these flags which should
-already configured by the interrupt controller.
+This patch replace the gpio_request functions with devm_gpio_request_one
+functions. Then we don't need to take care about freeing gpios.
 
-Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ieee802154/at86rf230.c | 28 ++++++++--------------------
- include/linux/spi/at86rf230.h      | 14 --------------
- 2 files changed, 8 insertions(+), 34 deletions(-)
+ drivers/net/ieee802154/at86rf230.c | 53 +++++++++-----------------------------
+ 1 file changed, 12 insertions(+), 41 deletions(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index df290a5..b6aa741 100644
+index a3f9d91..1044a02 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -23,6 +23,7 @@
- #include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/interrupt.h>
-+#include <linux/irq.h>
- #include <linux/gpio.h>
- #include <linux/delay.h>
- #include <linux/mutex.h>
-@@ -971,8 +972,7 @@ static int at86rf230_irq_polarity(struct at86rf230_local *lp, int pol)
+@@ -1083,27 +1083,17 @@ static int at86rf230_probe(struct spi_device *spi)
+ 	}
  
- static int at86rf230_hw_init(struct at86rf230_local *lp)
- {
--	struct at86rf230_platform_data *pdata = lp->spi->dev.platform_data;
--	int rc, irq_pol;
-+	int rc, irq_pol, irq_type;
- 	u8 status;
- 	u8 csma_seed[2];
+ 	if (gpio_is_valid(pdata->rstn)) {
+-		rc = gpio_request(pdata->rstn, "rstn");
++		rc = devm_gpio_request_one(&spi->dev, pdata->rstn,
++					   GPIOF_OUT_INIT_HIGH, "rstn");
+ 		if (rc)
+ 			return rc;
+ 	}
  
-@@ -984,8 +984,9 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
- 	if (rc)
- 		return rc;
- 
-+	irq_type = irq_get_trigger_type(lp->spi->irq);
- 	/* configure irq polarity, defaults to high active */
--	if (pdata->irq_type & (IRQF_TRIGGER_FALLING | IRQF_TRIGGER_LOW))
-+	if (irq_type & (IRQF_TRIGGER_FALLING | IRQF_TRIGGER_LOW))
- 		irq_pol = IRQ_ACTIVE_LOW;
- 	else
- 		irq_pol = IRQ_ACTIVE_HIGH;
-@@ -1041,7 +1042,6 @@ static struct at86rf230_platform_data *
- at86rf230_get_pdata(struct spi_device *spi)
- {
- 	struct at86rf230_platform_data *pdata;
--	const char *irq_type;
- 
- 	if (!IS_ENABLED(CONFIG_OF) || !spi->dev.of_node)
- 		return spi->dev.platform_data;
-@@ -1053,19 +1053,6 @@ at86rf230_get_pdata(struct spi_device *spi)
- 	pdata->rstn = of_get_named_gpio(spi->dev.of_node, "reset-gpio", 0);
- 	pdata->slp_tr = of_get_named_gpio(spi->dev.of_node, "sleep-gpio", 0);
- 
--	pdata->irq_type = IRQF_TRIGGER_RISING;
--	of_property_read_string(spi->dev.of_node, "irq-type", &irq_type);
--	if (!strcmp(irq_type, "level-high"))
--		pdata->irq_type = IRQF_TRIGGER_HIGH;
--	else if (!strcmp(irq_type, "level-low"))
--		pdata->irq_type = IRQF_TRIGGER_LOW;
--	else if (!strcmp(irq_type, "edge-rising"))
--		pdata->irq_type = IRQF_TRIGGER_RISING;
--	else if (!strcmp(irq_type, "edge-falling"))
--		pdata->irq_type = IRQF_TRIGGER_FALLING;
--	else
--		dev_warn(&spi->dev, "wrong irq-type specified using edge-rising\n");
+ 	if (gpio_is_valid(pdata->slp_tr)) {
+-		rc = gpio_request(pdata->slp_tr, "slp_tr");
++		rc = devm_gpio_request_one(&spi->dev, pdata->slp_tr,
++					   GPIOF_OUT_INIT_LOW, "slp_tr");
+ 		if (rc)
+-			goto err_slp_tr;
+-	}
 -
- 	spi->dev.platform_data = pdata;
- done:
- 	return pdata;
-@@ -1080,7 +1067,7 @@ static int at86rf230_probe(struct spi_device *spi)
- 	u8 part = 0, version = 0, status;
- 	irq_handler_t irq_handler;
- 	work_func_t irq_worker;
--	int rc;
-+	int rc, irq_type;
- 	const char *chip;
- 	struct ieee802154_ops *ops = NULL;
- 
-@@ -1185,7 +1172,8 @@ static int at86rf230_probe(struct spi_device *spi)
- 	dev->extra_tx_headroom = 0;
- 	dev->flags = IEEE802154_HW_OMIT_CKSUM | IEEE802154_HW_AACK;
- 
--	if (pdata->irq_type & (IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING)) {
-+	irq_type = irq_get_trigger_type(spi->irq);
-+	if (irq_type & (IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING)) {
- 		irq_worker = at86rf230_irqwork;
- 		irq_handler = at86rf230_isr;
- 	} else {
-@@ -1212,7 +1200,7 @@ static int at86rf230_probe(struct spi_device *spi)
- 		goto err_hw_init;
- 
- 	rc = request_irq(spi->irq, irq_handler,
--			 IRQF_SHARED | pdata->irq_type,
-+			 IRQF_SHARED | irq_type,
- 			 dev_name(&spi->dev), lp);
- 	if (rc)
- 		goto err_hw_init;
-diff --git a/include/linux/spi/at86rf230.h b/include/linux/spi/at86rf230.h
-index aa327a8..b2b1afb 100644
---- a/include/linux/spi/at86rf230.h
-+++ b/include/linux/spi/at86rf230.h
-@@ -26,20 +26,6 @@ struct at86rf230_platform_data {
- 	int rstn;
- 	int slp_tr;
- 	int dig2;
+-	if (gpio_is_valid(pdata->rstn)) {
+-		rc = gpio_direction_output(pdata->rstn, 1);
+-		if (rc)
+-			goto err_gpio_dir;
+-	}
 -
--	/* Setting the irq_type will configure the driver to request
--	 * the platform irq trigger type according to the given value
--	 * and configure the interrupt polarity of the device to the
--	 * corresponding polarity.
--	 *
--	 * Allowed values are: IRQF_TRIGGER_RISING, IRQF_TRIGGER_FALLING,
--	 *                     IRQF_TRIGGER_HIGH and IRQF_TRIGGER_LOW
--	 *
--	 * Setting it to 0, the driver does not touch the trigger type
--	 * configuration of the interrupt and sets the interrupt polarity
--	 * of the device to high active (the default value).
--	 */
--	int irq_type;
- };
+-	if (gpio_is_valid(pdata->slp_tr)) {
+-		rc = gpio_direction_output(pdata->slp_tr, 0);
+-		if (rc)
+-			goto err_gpio_dir;
++			return rc;
+ 	}
  
- #endif
+ 	/* Reset */
+@@ -1117,13 +1107,12 @@ static int at86rf230_probe(struct spi_device *spi)
+ 
+ 	rc = __at86rf230_detect_device(spi, &man_id, &part, &version);
+ 	if (rc < 0)
+-		goto err_gpio_dir;
++		return rc;
+ 
+ 	if (man_id != 0x001f) {
+ 		dev_err(&spi->dev, "Non-Atmel dev found (MAN_ID %02x %02x)\n",
+ 			man_id >> 8, man_id & 0xFF);
+-		rc = -EINVAL;
+-		goto err_gpio_dir;
++		return -EINVAL;
+ 	}
+ 
+ 	switch (part) {
+@@ -1150,16 +1139,12 @@ static int at86rf230_probe(struct spi_device *spi)
+ 	}
+ 
+ 	dev_info(&spi->dev, "Detected %s chip version %d\n", chip, version);
+-	if (!ops) {
+-		rc = -ENOTSUPP;
+-		goto err_gpio_dir;
+-	}
++	if (!ops)
++		return -ENOTSUPP;
+ 
+ 	dev = ieee802154_alloc_device(sizeof(*lp), ops);
+-	if (!dev) {
+-		rc = -ENOMEM;
+-		goto err_gpio_dir;
+-	}
++	if (!dev)
++		return -ENOMEM;
+ 
+ 	lp = dev->priv;
+ 	lp->dev = dev;
+@@ -1221,33 +1206,19 @@ err_hw_init:
+ 	mutex_destroy(&lp->bmux);
+ 	ieee802154_free_device(lp->dev);
+ 
+-err_gpio_dir:
+-	if (gpio_is_valid(pdata->slp_tr))
+-		gpio_free(pdata->slp_tr);
+-err_slp_tr:
+-	if (gpio_is_valid(pdata->rstn))
+-		gpio_free(pdata->rstn);
+ 	return rc;
+ }
+ 
+ static int at86rf230_remove(struct spi_device *spi)
+ {
+ 	struct at86rf230_local *lp = spi_get_drvdata(spi);
+-	struct at86rf230_platform_data *pdata = spi->dev.platform_data;
+ 
+ 	ieee802154_unregister_device(lp->dev);
+-
+ 	flush_work(&lp->irqwork);
+-
+-	if (gpio_is_valid(pdata->slp_tr))
+-		gpio_free(pdata->slp_tr);
+-	if (gpio_is_valid(pdata->rstn))
+-		gpio_free(pdata->rstn);
+-
+ 	mutex_destroy(&lp->bmux);
+ 	ieee802154_free_device(lp->dev);
+-
+ 	dev_dbg(&spi->dev, "unregistered at86rf230\n");
++
+ 	return 0;
+ }
+ 
 -- 
 1.9.1
+
+
+------------------------------------------------------------------------------
+Learn Graph Databases - Download FREE O'Reilly Book
+"Graph Databases" is the definitive new guide to graph databases and their
+applications. Written by three acclaimed leaders in the field,
+this first edition is now available. Download your free book today!
+http://p.sf.net/sfu/13534_NeoTech
