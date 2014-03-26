@@ -1,30 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] bnx2x: SR-IOV patch series
-Date: Tue, 25 Mar 2014 21:14:19 -0400 (EDT)
-Message-ID: <20140325.211419.1337120944299675542.davem@davemloft.net>
-References: <1395591147-26350-1-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: Re: [PATCH] net/bridge: Use RCU_INIT_POINTER(x,
+	NULL) in br_vlan.c
+Date: Tue, 25 Mar 2014 21:19:23 -0400 (EDT)
+Message-ID: <20140325.211923.1366926482436380447.davem@davemloft.net>
+References: <1395601873-12447-1-git-send-email-monamagarwal123@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
-To: Yuval.Mintz@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33401 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752775AbaCZBOU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 21:14:20 -0400
-In-Reply-To: <1395591147-26350-1-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org
+To: monamagarwal123@gmail.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1395601873-12447-1-git-send-email-monamagarwal123@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Sun, 23 Mar 2014 18:12:22 +0200
+From: Monam Agarwal <monamagarwal123@gmail.com>
+Date: Mon, 24 Mar 2014 00:41:13 +0530
 
-> (With the exception of the first patch) This series contains IOV-related
-> patches, where the main changes are related to the driver's IOV-support
-> backbone - it adds a new workqueue for IOV related tasks and removes the vfop
-> mechanism from the driver.
+> This patch replaces rcu_assign_pointer(x, NULL) with RCU_INIT_POINTER(x, NULL)
 > 
-> Please consider applying this series to `net-next'.
+> The rcu_assign_pointer() ensures that the initialization of a structure       
+> is carried out before storing a pointer to that structure. 
+> And in the case of the NULL pointer, there is no structure to initialize. 
+> So, rcu_assign_pointer(p, NULL) can be safely converted to RCU_INIT_POINTER(p, NULL)
+> 
+> Signed-off-by: Monam Agarwal <monamagarwal123@gmail.com>
 
-Series applied, thanks.
+Applied.
