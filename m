@@ -1,86 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: unix: non blocking recvmsg() should not return -EINTR
-Date: Tue, 25 Mar 2014 18:42:27 -0700
-Message-ID: <1395798147.12610.196.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next v2 8/9] net: filter: rework/optimize internal BPF
+ interpreter's instruction set
+Date: Tue, 25 Mar 2014 18:58:14 -0700
+Message-ID: <CAMEtUuyQs4Jk+zi9_DxFRnoTFGQ8WXn4aPPJ+yp5XxWb6pkmbQ@mail.gmail.com>
+References: <1395749457-16178-9-git-send-email-dborkman@redhat.com>
+	<20140325.201712.1651156258234145348.davem@davemloft.net>
+	<53321E3B.8080709@linux.intel.com>
+	<20140325.204628.1622839093852736075.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: hpa@linux.intel.com, Daniel Borkmann <dborkman@redhat.com>,
+	Network Development <netdev@vger.kernel.org>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Kees Cook <keescook@chromium.org>, pmoore@redhat.com,
+	Ingo Molnar <mingo@kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:54823 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752573AbaCZBma (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 21:42:30 -0400
-Received: by mail-pb0-f51.google.com with SMTP id uo5so1242725pbc.24
-        for <netdev@vger.kernel.org>; Tue, 25 Mar 2014 18:42:29 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140325.204628.1622839093852736075.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Tue, Mar 25, 2014 at 5:46 PM, David Miller <davem@davemloft.net> wrote:
+> From: "H. Peter Anvin" <hpa@linux.intel.com>
+> Date: Tue, 25 Mar 2014 17:24:27 -0700
+>
+>> If you allow loops, it greatly increases the expressibility of the
+>> language, but we would really need another control to limit CPU usage.
+>
+> We don't want super expressibility.
+>
+> We want an extremely simple, trivial to validate, filtering language.
 
-Some applications didn't expect recvmsg() on a non blocking socket
-could return -EINTR. This possibility was added as a side effect
-of commit b3ca9b02b00704 ("net: fix multithreaded signal handling in
-unix recv routines").
+Filtering language is unchanged. It's still the same classic BPF
+and in this patch set all jumps are forward only.
+We didn't touch sk_chk_filter(), so it's allowing forward only jumps.
+Classic bpf and ebpf instruction sets can accommodate both.
+It's bpf verifier (sk_chk_filter) that allows one or the other.
 
-To hit this bug, you need to be a bit unlucky, as the u->readlock
-mutex is usually held for very small periods.
+So I think we can debate backward jumps later when they actually
+will be up for review.
 
-Fixes: b3ca9b02b00704 ("net: fix multithreaded signal handling in unix recv routines")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Rainer Weikusat <rweikusat@mobileactivedefense.com>
----
- net/unix/af_unix.c |   17 ++++++++++++-----
- 1 file changed, 12 insertions(+), 5 deletions(-)
+I think we can allow backward jumps in the future, since it helps
+llvm/gcc to generate more efficient code, reduce code duplication, etc
+Extended bpf verifier is still simple enough and it detects loops
+by doing DAG check.
+See check_cfg() that was part of V1 series.
+The DAG check is from the wikipedia. It's looking for a back-edge.
+If back-edge is present, it means loop is possible, so whole ebpf
+program is thrown out.
+I think even classic BPF requires DAG check,
+since today sk_chk_filter() allows unreachable instructions,
+so attacker can write a bpf program that jumps over junk instructions.
+I cannot imagine how this little hole can be exploited, but I think
+it's safer to close it.
+So we're planning to send patches to close this 10 year old
+hole in the future series.
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index ce6ec6c2f4de..94404f19f9de 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1787,8 +1787,11 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		goto out;
- 
- 	err = mutex_lock_interruptible(&u->readlock);
--	if (err) {
--		err = sock_intr_errno(sock_rcvtimeo(sk, noblock));
-+	if (unlikely(err)) {
-+		/* recvmsg() in non blocking mode is supposed to return -EAGAIN
-+		 * sk_rcvtimeo is not honored by mutex_lock_interruptible()
-+		 */
-+		err = noblock ? -EAGAIN : -ERESTARTSYS;
- 		goto out;
- 	}
- 
-@@ -1913,6 +1916,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	struct unix_sock *u = unix_sk(sk);
- 	DECLARE_SOCKADDR(struct sockaddr_un *, sunaddr, msg->msg_name);
- 	int copied = 0;
-+	int noblock = flags & MSG_DONTWAIT;
- 	int check_creds = 0;
- 	int target;
- 	int err = 0;
-@@ -1928,7 +1932,7 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		goto out;
- 
- 	target = sock_rcvlowat(sk, flags&MSG_WAITALL, size);
--	timeo = sock_rcvtimeo(sk, flags&MSG_DONTWAIT);
-+	timeo = sock_rcvtimeo(sk, noblock);
- 
- 	/* Lock the socket to prevent queue disordering
- 	 * while sleeps in memcpy_tomsg
-@@ -1940,8 +1944,11 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	}
- 
- 	err = mutex_lock_interruptible(&u->readlock);
--	if (err) {
--		err = sock_intr_errno(timeo);
-+	if (unlikely(err)) {
-+		/* recvmsg() in non blocking mode is supposed to return -EAGAIN
-+		 * sk_rcvtimeo is not honored by mutex_lock_interruptible()
-+		 */
-+		err = noblock ? -EAGAIN : -ERESTARTSYS;
- 		goto out;
- 	}
- 
+After extended verifier is reviewed and it still feels wrong, we can
+make it more restrictive and disallow backward jumps, but that
+will complicate llvm/gcc.
+
+Thanks
+Alexei
