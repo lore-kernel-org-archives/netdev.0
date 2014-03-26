@@ -1,101 +1,82 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [Xen-devel] Xen-unstable Linux 3.14-rc3 and 3.13 Network
- troubles "bisected"
-Date: Wed, 26 Mar 2014 17:46:06 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD029B350@AMSPEX01CL01.citrite.net>
-References: <1744594108.20140318162127@eikelenboom.it>
- <20140318160412.GB16807@zion.uk.xensource.com>
- <1701035622.20140318211402@eikelenboom.it>
- <722971844.20140318221859@eikelenboom.it>
- <1688396550.20140319001104@eikelenboom.it>
- <20140319113532.GD16807@zion.uk.xensource.com>
- <246793256.20140319220752@eikelenboom.it>
- <20140321164958.GA31766@zion.uk.xensource.com>
- <1334202265.20140321182727@eikelenboom.it>
- <1056661597.20140322192834@eikelenboom.it>
- <20140325151539.GG31766@zion.uk.xensource.com>
- <79975567.20140325162942@eikelenboom.it>
- <1972209744.20140326121116@eikelenboom.it>
- <9AAE0902D5BC7E449B7C8E4E778ABCD029AD94@AMSPEX01CL01.citrite.net>
- <1715463578.20140326162245@eikelenboom.it>
- <9AAE0902D5BC7E449B7C8E4E778ABCD029AFC1@AMSPEX01CL01.citrite.net>
- <799579453.20140326170641@eikelenboom.it>
- <9AAE0902D5BC7E449B7C8E4E778ABCD029B106@AMSPEX01CL01.citrite.net>
- <789809468.20140326175352@eikelenboom.it>
- <9AAE0902D5BC7E449B7C8E4E778ABCD029B277@AMSPEX01CL01.citrite.net>
- <966386043.20140326183304@eikelenboom.it>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
+ of switch chip datapath
+Date: Wed, 26 Mar 2014 10:47:15 -0700
+Message-ID: <533312A3.5070600@cumulusnetworks.com>
+References: <532C2AC4.7080303@mojatatu.com> <20140322094852.GB2844@minipsycho.orion> <5330BAB7.3040501@mojatatu.com> <20140325173927.GE8102@hmsreliant.think-freely.org> <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org> <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com> <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com> <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Wei Liu <wei.liu2@citrix.com>, annie li <annie.li@oracle.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Sander Eikelenboom <linux@eikelenboom.it>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([185.25.65.24]:8610 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751906AbaCZRqJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 13:46:09 -0400
-In-Reply-To: <966386043.20140326183304@eikelenboom.it>
-Content-Language: en-US
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:36071 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754037AbaCZRr0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 13:47:26 -0400
+In-Reply-To: <20140326165934.GH2869@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Re-send shortened version...
+On 3/26/14, 9:59 AM, Jiri Pirko wrote:
+> Wed, Mar 26, 2014 at 05:54:17PM CET, roopa@cumulusnetworks.com wrote:
+>> On 3/26/14, 3:54 AM, Jamal Hadi Salim wrote:
+>>> On 03/26/14 01:37, Roopa Prabhu wrote:
+>>>> On 3/25/14, 1:11 PM, Florian Fainelli wrote:
+>>>>> 2014-03-25 12:35 GMT-07:00 Neil Horman <nhorman@tuxdriver.com>:
+>>>> Sorry about getting on this thread late and possibly in the middle.
+>>>> Agree on the idea of keeping the ports linked to the master switch dev
+>>>> (or the 'conduit' to the switch chip) via private list instead of the
+>>>> master-slave relationship proposed earlier.
+>>>> By private i mean the netdev->priv linkage to the master switch dev and
+>>>> not really keeping the ports from being exposed to the user.
+>>>>
+>>>> We think its better to keep the switch ports exposed as any other netdev
+>>>> on linux.
+>>>>   This approach will make the switch ports look exactly like a nic port
+>>>> and all tools will continue to work seamlessly. The switch port
+>>>> operations could internally be forwarded to the switch netdev (sw1 in
+>>>> the above case).
+>>>>
+>>>> example:
+>>>> $ip link set dev sw1p0 up
+>>>> $ethtool -S sw1p0
+>>>>
+>>> I like the approach. I know the above is a simple version, but i am
+>>> assuming you also mean i can do things like
+>>> ip route add ...
+>>> bridge fdb add ... (and if you like your brctl go ahead)
+>>> bonding ...
+>>>
+>> yes, exactly.  We support this model on our boxes today.
+>> User can bond switch ports on our box in the exact same way as he/she
+>> would bond two nic ports.
+>> Our 'conduit to switch chip' reflects the corresponding lag
+>> configuration in the switch chip.
+>> Same goes for bridging, routing, acls.
+>
+> So you implement bonding netlink api? Or you hook into bonding driver
+> itselt? Can you show us the code?
+We use the netlink API and libnl. In our current model, our switch chip 
+driver listens to netlink notifications and programs the switch chip. 
+The switch chip driver uses libnl caches and libnl netlink apis to 
+reflect the kernel state to switch chip.
 
-> -----Original Message-----
-> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
-> Sent: 26 March 2014 16:54
-> To: Paul Durrant
-> Cc: Wei Liu; annie li; Zoltan Kiss; xen-devel@lists.xen.org; Ian Campbell; linux-
-> kernel; netdev@vger.kernel.org
-> Subject: Re: [Xen-devel] Xen-unstable Linux 3.14-rc3 and 3.13 Network
-> troubles "bisected"
-> 
-[snip]
-> >>
-> >> - When processing an SKB we end up in "xenvif_gop_frag_copy" while
-> prod
-> >> == cons ... but we still have bytes and size left ..
-> >> - start_new_rx_buffer() has returned true ..
-> >> - so we end up in get_next_rx_buffer
-> >> - this does a RING_GET_REQUEST and ups cons ..
-> >> - and we end up with a bad grant reference.
-> >>
-> >> Sometimes we are saved by the bell .. since additional slots have become
-> >> free (you see cons become > prod in "get_next_rx_buffer" but shortly
-> after
-> >> that prod is increased ..
-> >> just in time to not cause a overrun).
-> >>
-> 
-> > Ah, but hang on... There's a BUG_ON meta_slots_used >
-> max_slots_needed, so if we are overflowing the worst-case calculation then
-> why is that BUG_ON not firing?
-> 
-> You mean:
->                 sco = (struct skb_cb_overlay *)skb->cb;
->                 sco->meta_slots_used = xenvif_gop_skb(skb, &npo);
->                 BUG_ON(sco->meta_slots_used > max_slots_needed);
-> 
-> in "get_next_rx_buffer" ?
-> 
-
-That code excerpt is from net_rx_action(),isn't it?
-
-> I don't know .. at least now it doesn't crash dom0 and therefore not my
-> complete machine and since tcp is recovering from a failed packet  :-)
-> 
-
-Well, if the code calculating max_slots_needed were underestimating then the BUG_ON() should fire. If it is not firing in your case then this suggests your problem lies elsewhere, or that meta_slots_used is not equal to the number of ring slots consumed.
-
-> But probably because "npo->copy_prod++" seems to be used for the frags ..
-> and it isn't added to  npo->meta_prod ?
-> 
-
-meta_slots_used is calculated as the value of meta_prod at return (from xenvif_gop_skb()) minus the value on entry , and if you look back up the code then you can see that meta_prod is incremented every time RING_GET_REQUEST() is evaluated. So, we must be consuming a slot without evaluating RING_GET_REQUEST() and I think that's exactly what's happening... Right at the bottom of xenvif_gop_frag_copy() req_cons is simply incremented in the case of a GSO. So the BUG_ON() is indeed off by one.
-
-  Paul
+Thanks,
+Roopa
