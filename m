@@ -1,49 +1,32 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: Re: [PATCHv2] net: mvneta: use devm_ioremap_resource() instead of
- of_iomap()
-Date: Wed, 26 Mar 2014 05:42:11 -0300
-Message-ID: <20140326084211.GA941@arch.cereza>
-References: <1395822600-30469-1-git-send-email-thomas.petazzoni@free-electrons.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v2 net-next 2/2] ptp: Fix compiler warnings in the
+ testptp utility
+Date: Wed, 26 Mar 2014 10:16:37 +0100
+Message-ID: <20140326091636.GA5015@netboy>
+References: <1395818163-31672-1-git-send-email-christian.riesch@omicron.at>
+ <35ec3d13-e8a8-4cf4-b5ce-91c4dbe2ac0b@mary.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Dong Zhu <bluezhudong@gmail.com>
+To: Christian Riesch <christian.riesch@omicron.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:51595 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751330AbaCZImd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 04:42:33 -0400
+Received: from mail-ee0-f53.google.com ([74.125.83.53]:51590 "EHLO
+	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750911AbaCZJQm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 05:16:42 -0400
+Received: by mail-ee0-f53.google.com with SMTP id b57so1389497eek.12
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 02:16:41 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1395822600-30469-1-git-send-email-thomas.petazzoni@free-electrons.com>
+In-Reply-To: <35ec3d13-e8a8-4cf4-b5ce-91c4dbe2ac0b@mary.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Thomas,
+On Wed, Mar 26, 2014 at 08:16:03AM +0100, Christian Riesch wrote:
+> Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
+> Cc: Dong Zhu <bluezhudong@gmail.com>
+> ---
+> 
+> Changes for v2:
+> - Use PRI64d macro for __s64 in printf
 
-On Mar 26, Thomas Petazzoni wrote:
-> @@ -2838,9 +2840,10 @@ static int mvneta_probe(struct platform_device=
- *pdev)
-> =20
->  	clk_prepare_enable(pp->clk);
-> =20
-> -	pp->base =3D of_iomap(dn, 0);
-> +	res =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> +	pp->base =3D devm_ioremap_resource(&pdev->dev, res);
->  	if (pp->base =3D=3D NULL) {
-
-As per the comment above devm_ioremap_resource() definition, the usage =
-is:
-
-	res =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	base =3D devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(base))
-		return PTR_ERR(base);
-
---=20
-Ezequiel Garc=EDa, Free Electrons
-Embedded Linux, Kernel and Android Engineering
-http://free-electrons.com
+Acked-by: Richard Cochran <richardcochran@gmail.com>
