@@ -1,65 +1,107 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next v2 8/9] net: filter: rework/optimize internal BPF
- interpreter's instruction set
-Date: Tue, 25 Mar 2014 18:58:14 -0700
-Message-ID: <CAMEtUuyQs4Jk+zi9_DxFRnoTFGQ8WXn4aPPJ+yp5XxWb6pkmbQ@mail.gmail.com>
-References: <1395749457-16178-9-git-send-email-dborkman@redhat.com>
-	<20140325.201712.1651156258234145348.davem@davemloft.net>
-	<53321E3B.8080709@linux.intel.com>
-	<20140325.204628.1622839093852736075.davem@davemloft.net>
+From: Wangyufen <wangyufen@huawei.com>
+Subject: [PATCH net-next v2 1/3] ipv6: fix checkpatch errors comments and space
+Date: Wed, 26 Mar 2014 10:37:24 +0800
+Message-ID: <1395801446-8700-2-git-send-email-wangyufen@huawei.com>
+References: <1395801446-8700-1-git-send-email-wangyufen@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: hpa@linux.intel.com, Daniel Borkmann <dborkman@redhat.com>,
-	Network Development <netdev@vger.kernel.org>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Kees Cook <keescook@chromium.org>, pmoore@redhat.com,
-	Ingo Molnar <mingo@kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140325.204628.1622839093852736075.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Wang Yufen <wangyufen@huawei.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:48834 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751314AbaCZChp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Mar 2014 22:37:45 -0400
+In-Reply-To: <1395801446-8700-1-git-send-email-wangyufen@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 25, 2014 at 5:46 PM, David Miller <davem@davemloft.net> wrote:
-> From: "H. Peter Anvin" <hpa@linux.intel.com>
-> Date: Tue, 25 Mar 2014 17:24:27 -0700
->
->> If you allow loops, it greatly increases the expressibility of the
->> language, but we would really need another control to limit CPU usage.
->
-> We don't want super expressibility.
->
-> We want an extremely simple, trivial to validate, filtering language.
+From: Wang Yufen <wangyufen@huawei.com>
 
-Filtering language is unchanged. It's still the same classic BPF
-and in this patch set all jumps are forward only.
-We didn't touch sk_chk_filter(), so it's allowing forward only jumps.
-Classic bpf and ebpf instruction sets can accommodate both.
-It's bpf verifier (sk_chk_filter) that allows one or the other.
+WARNING: please, no space before tabs
+WARNING: please, no spaces at the start of a line
+ERROR: spaces required around that ':' (ctx:VxW)
+ERROR: spaces required around that '>' (ctx:VxV)
+ERROR: spaces required around that '>=' (ctx:VxV)
 
-So I think we can debate backward jumps later when they actually
-will be up for review.
+Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+---
+ net/ipv6/ip6_fib.c | 26 ++++++++++++--------------
+ 1 file changed, 12 insertions(+), 14 deletions(-)
 
-I think we can allow backward jumps in the future, since it helps
-llvm/gcc to generate more efficient code, reduce code duplication, etc
-Extended bpf verifier is still simple enough and it detects loops
-by doing DAG check.
-See check_cfg() that was part of V1 series.
-The DAG check is from the wikipedia. It's looking for a back-edge.
-If back-edge is present, it means loop is possible, so whole ebpf
-program is thrown out.
-I think even classic BPF requires DAG check,
-since today sk_chk_filter() allows unreachable instructions,
-so attacker can write a bpf program that jumps over junk instructions.
-I cannot imagine how this little hole can be exploited, but I think
-it's safer to close it.
-So we're planning to send patches to close this 10 year old
-hole in the future series.
-
-After extended verifier is reviewed and it still feels wrong, we can
-make it more restrictive and disallow backward jumps, but that
-will complicate llvm/gcc.
-
-Thanks
-Alexei
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 075602f..c626a0f 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -9,14 +9,12 @@
+  *      modify it under the terms of the GNU General Public License
+  *      as published by the Free Software Foundation; either version
+  *      2 of the License, or (at your option) any later version.
+- */
+-
+-/*
+- * 	Changes:
+- * 	Yuji SEKIYA @USAGI:	Support default route on router node;
+- * 				remove ip6_null_entry from the top of
+- * 				routing table.
+- * 	Ville Nuorvala:		Fixed routing subtrees.
++ *
++ *	Changes:
++ *	Yuji SEKIYA @USAGI:	Support default route on router node;
++ *				remove ip6_null_entry from the top of
++ *				routing table.
++ *	Ville Nuorvala:		Fixed routing subtrees.
+  */
+ 
+ #define pr_fmt(fmt) "IPv6: " fmt
+@@ -138,7 +136,7 @@ static __inline__ __be32 addr_bit_set(const void *token, int fn_bit)
+ 	const __be32 *addr = token;
+ 	/*
+ 	 * Here,
+-	 * 	1 << ((~fn_bit ^ BITOP_BE32_SWIZZLE) & 0x1f)
++	 *	1 << ((~fn_bit ^ BITOP_BE32_SWIZZLE) & 0x1f)
+ 	 * is optimized version of
+ 	 *	htonl(1 << ((~fn_bit)&0x1F))
+ 	 * See include/asm-generic/bitops/le.h.
+@@ -485,7 +483,7 @@ static struct fib6_node *fib6_add_1(struct fib6_node *root,
+ 		fn->fn_sernum = sernum;
+ 		dir = addr_bit_set(addr, fn->fn_bit);
+ 		pn = fn;
+-		fn = dir ? fn->right: fn->left;
++		fn = dir ? fn->right : fn->left;
+ 	} while (fn);
+ 
+ 	if (!allow_create) {
+@@ -1213,10 +1211,10 @@ static struct fib6_node *fib6_repair_tree(struct net *net,
+ 					w->node = child;
+ 					if (children&2) {
+ 						RT6_TRACE("W %p adjusted by delnode 2, s=%d\n", w, w->state);
+-						w->state = w->state>=FWS_R ? FWS_U : FWS_INIT;
++						w->state = w->state >= FWS_R ? FWS_U : FWS_INIT;
+ 					} else {
+ 						RT6_TRACE("W %p adjusted by delnode 2, s=%d\n", w, w->state);
+-						w->state = w->state>=FWS_C ? FWS_U : FWS_INIT;
++						w->state = w->state >= FWS_C ? FWS_U : FWS_INIT;
+ 					}
+ 				}
+ 			}
+@@ -1314,7 +1312,7 @@ int fib6_del(struct rt6_info *rt, struct nl_info *info)
+ 	struct rt6_info **rtp;
+ 
+ #if RT6_DEBUG >= 2
+-	if (rt->dst.obsolete>0) {
++	if (rt->dst.obsolete > 0) {
+ 		WARN_ON(fn != NULL);
+ 		return -ENOENT;
+ 	}
+@@ -1707,7 +1705,7 @@ out_rt6_stats:
+ 	kfree(net->ipv6.rt6_stats);
+ out_timer:
+ 	return -ENOMEM;
+- }
++}
+ 
+ static void fib6_net_exit(struct net *net)
+ {
+-- 
+1.7.12
