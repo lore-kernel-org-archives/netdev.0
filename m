@@ -1,157 +1,103 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/15] i40e: eeprom integrity check on load and empr
-Date: Wed, 26 Mar 2014 11:03:22 -0700
-Message-ID: <1395857013-7568-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1395857013-7568-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:3602 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754997AbaCZSET (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2014 14:04:19 -0400
-In-Reply-To: <1395857013-7568-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [Xen-devel] Xen-unstable Linux 3.14-rc3 and 3.13 Network troubles "bisected"
+Date: Wed, 26 Mar 2014 19:07:52 +0100
+Message-ID: <1959698732.20140326190752@eikelenboom.it>
+References: <1744594108.20140318162127@eikelenboom.it> <20140318160412.GB16807@zion.uk.xensource.com> <1701035622.20140318211402@eikelenboom.it> <722971844.20140318221859@eikelenboom.it> <1688396550.20140319001104@eikelenboom.it> <20140319113532.GD16807@zion.uk.xensource.com> <246793256.20140319220752@eikelenboom.it> <20140321164958.GA31766@zion.uk.xensource.com> <1334202265.20140321182727@eikelenboom.it> <1056661597.20140322192834@eikelenboom.it> <20140325151539.GG31766@zion.uk.xensource.com> <79975567.20140325162942@eikelenboom.it> <1972209744.20140326121116@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029AD94@AMSPEX01CL01.citrite.net> <1715463578.20140326162245@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029AFC1@AMSPEX01CL01.citrite.net> <799579453.20140326170641@eikelenboom.it>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD029B106@AMSPEX01CL01.citrite.net> <789809468.20140326175352@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029B277@AMSPEX01CL01.citrite.net> <966386043.20140326183304@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029B350@AMSPEX01CL01.citrite.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>, annie li <annie.li@oracle.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Paul Durrant <Paul.Durrant@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD029B350@AMSPEX01CL01.citrite.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shannon Nelson <shannon.nelson@intel.com>
 
-The driver needs to verify the eeprom checksum and firmware crc status bits,
-and shutdown the driver if they fail. This code stops the processing of traffic,
-but doesn't kill the PF netdev so that the NVMUpdate process should still have a
-chance at fixing the image. The eeprom is checked on driver load and after an
-EMP reset, the latter of which should be generated after an NVMUpdate.
+Wednesday, March 26, 2014, 6:46:06 PM, you wrote:
 
-Change-ID: I34deef21d2e16bf5a43c603cf8af27e6a29dc9d2
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c | 50 +++++++++++++++++++++++++----
- 2 files changed, 45 insertions(+), 6 deletions(-)
+> Re-send shortened version...
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 33cd8b6..beb7b43 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -136,6 +136,7 @@ enum i40e_state_t {
- 	__I40E_EMP_RESET_REQUESTED,
- 	__I40E_FILTER_OVERFLOW_PROMISC,
- 	__I40E_SUSPENDED,
-+	__I40E_BAD_EEPROM,
- };
- 
- enum i40e_interrupt_policy {
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 91fd1f1..a1ec793 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -26,6 +26,7 @@
- 
- /* Local includes */
- #include "i40e.h"
-+#include "i40e_diag.h"
- #ifdef CONFIG_I40E_VXLAN
- #include <net/vxlan.h>
- #endif
-@@ -2877,12 +2878,14 @@ static irqreturn_t i40e_intr(int irq, void *data)
- 		val = rd32(hw, I40E_GLGEN_RSTAT);
- 		val = (val & I40E_GLGEN_RSTAT_RESET_TYPE_MASK)
- 		       >> I40E_GLGEN_RSTAT_RESET_TYPE_SHIFT;
--		if (val == I40E_RESET_CORER)
-+		if (val == I40E_RESET_CORER) {
- 			pf->corer_count++;
--		else if (val == I40E_RESET_GLOBR)
-+		} else if (val == I40E_RESET_GLOBR) {
- 			pf->globr_count++;
--		else if (val == I40E_RESET_EMPR)
-+		} else if (val == I40E_RESET_EMPR) {
- 			pf->empr_count++;
-+			set_bit(__I40E_EMP_RESET_REQUESTED, &pf->state);
-+		}
- 	}
- 
- 	if (icr0 & I40E_PFINT_ICR0_HMC_ERR_MASK) {
-@@ -4257,8 +4260,9 @@ static int i40e_open(struct net_device *netdev)
- 	struct i40e_pf *pf = vsi->back;
- 	int err;
- 
--	/* disallow open during test */
--	if (test_bit(__I40E_TESTING, &pf->state))
-+	/* disallow open during test or if eeprom is broken */
-+	if (test_bit(__I40E_TESTING, &pf->state) ||
-+	    test_bit(__I40E_BAD_EEPROM, &pf->state))
- 		return -EBUSY;
- 
- 	netif_carrier_off(netdev);
-@@ -5078,6 +5082,31 @@ static void i40e_clean_adminq_subtask(struct i40e_pf *pf)
- }
- 
- /**
-+ * i40e_verify_eeprom - make sure eeprom is good to use
-+ * @pf: board private structure
-+ **/
-+static void i40e_verify_eeprom(struct i40e_pf *pf)
-+{
-+	int err;
-+
-+	err = i40e_diag_eeprom_test(&pf->hw);
-+	if (err) {
-+		/* retry in case of garbage read */
-+		err = i40e_diag_eeprom_test(&pf->hw);
-+		if (err) {
-+			dev_info(&pf->pdev->dev, "eeprom check failed (%d), Tx/Rx traffic disabled\n",
-+				 err);
-+			set_bit(__I40E_BAD_EEPROM, &pf->state);
-+		}
-+	}
-+
-+	if (!err && test_bit(__I40E_BAD_EEPROM, &pf->state)) {
-+		dev_info(&pf->pdev->dev, "eeprom check passed, Tx/Rx traffic enabled\n");
-+		clear_bit(__I40E_BAD_EEPROM, &pf->state);
-+	}
-+}
-+
-+/**
-  * i40e_reconstitute_veb - rebuild the VEB and anything connected to it
-  * @veb: pointer to the VEB instance
-  *
-@@ -5386,6 +5415,12 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
- 		goto end_core_reset;
- 	}
- 
-+	/* re-verify the eeprom if we just had an EMP reset */
-+	if (test_bit(__I40E_EMP_RESET_REQUESTED, &pf->state)) {
-+		clear_bit(__I40E_EMP_RESET_REQUESTED, &pf->state);
-+		i40e_verify_eeprom(pf);
-+	}
-+
- 	ret = i40e_get_capabilities(pf);
- 	if (ret) {
- 		dev_info(&pf->pdev->dev, "i40e_get_capabilities failed, %d\n",
-@@ -8157,6 +8192,8 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_pf_reset;
- 	}
- 
-+	i40e_verify_eeprom(pf);
-+
- 	i40e_clear_pxe_mode(hw);
- 	err = i40e_get_capabilities(pf);
- 	if (err)
-@@ -8258,7 +8295,8 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	/* prep for VF support */
- 	if ((pf->flags & I40E_FLAG_SRIOV_ENABLED) &&
--	    (pf->flags & I40E_FLAG_MSIX_ENABLED)) {
-+	    (pf->flags & I40E_FLAG_MSIX_ENABLED) &&
-+	    !test_bit(__I40E_BAD_EEPROM, &pf->state)) {
- 		u32 val;
- 
- 		/* disable link interrupts for VFs */
--- 
-1.8.3.1
+>> -----Original Message-----
+>> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+>> Sent: 26 March 2014 16:54
+>> To: Paul Durrant
+>> Cc: Wei Liu; annie li; Zoltan Kiss; xen-devel@lists.xen.org; Ian Campbell; linux-
+>> kernel; netdev@vger.kernel.org
+>> Subject: Re: [Xen-devel] Xen-unstable Linux 3.14-rc3 and 3.13 Network
+>> troubles "bisected"
+>> 
+> [snip]
+>> >>
+>> >> - When processing an SKB we end up in "xenvif_gop_frag_copy" while
+>> prod
+>> >> == cons ... but we still have bytes and size left ..
+>> >> - start_new_rx_buffer() has returned true ..
+>> >> - so we end up in get_next_rx_buffer
+>> >> - this does a RING_GET_REQUEST and ups cons ..
+>> >> - and we end up with a bad grant reference.
+>> >>
+>> >> Sometimes we are saved by the bell .. since additional slots have become
+>> >> free (you see cons become > prod in "get_next_rx_buffer" but shortly
+>> after
+>> >> that prod is increased ..
+>> >> just in time to not cause a overrun).
+>> >>
+>> 
+>> > Ah, but hang on... There's a BUG_ON meta_slots_used >
+>> max_slots_needed, so if we are overflowing the worst-case calculation then
+>> why is that BUG_ON not firing?
+>> 
+>> You mean:
+>>                 sco = (struct skb_cb_overlay *)skb->cb;
+>>                 sco->meta_slots_used = xenvif_gop_skb(skb, &npo);
+>>                 BUG_ON(sco->meta_slots_used > max_slots_needed);
+>> 
+>> in "get_next_rx_buffer" ?
+>> 
+
+> That code excerpt is from net_rx_action(),isn't it?
+
+Yes
+
+>> I don't know .. at least now it doesn't crash dom0 and therefore not my
+>> complete machine and since tcp is recovering from a failed packet  :-)
+>> 
+
+> Well, if the code calculating max_slots_needed were underestimating then the BUG_ON() should fire. If it is not firing in your case then this suggests your problem lies elsewhere, or that meta_slots_used is not equal to the number of ring slots consumed.
+
+It's seem to be the last ..
+
+[ 1157.188908] vif vif-7-0 vif7.0: ?!? xenvif_gop_skb Me here 5 npo->meta_prod:40 old_meta_prod:36 vif->rx.sring->req_prod:2105867 vif->rx.req_cons:2105868 meta->gso_type:1 meta->gso_size:1448 nr_frags:1 req->gref:657 req->id:7 estimated_slots_needed:4 j(data):1 reserved_slots_left:-1    used in funcstart: 0 + 1 .. used_dataloop:1 .. used_fragloop:3
+[ 1157.244975] vif vif-7-0 vif7.0: ?!? xenvif_rx_action me here 2 ..  vif->rx.sring->req_prod:2105867 vif->rx.req_cons:2105868 sco->meta_slots_used:4 max_upped_gso:1 skb_is_gso(skb):1 max_slots_needed:4 j:6 is_gso:1 nr_frags:1 firstpart:1 secondpart:2 reserved_slots_left:-1
+
+net_rx_action() calculated we would need 4 slots .. and sco->meta_slots_used == 4 when we return so it doesn't trigger you BUG_ON ..
+
+The 4 slots we calculated are:
+  1 slot for the data part: DIV_ROUND_UP(offset_in_page(skb->data) + skb_headlen(skb), PAGE_SIZE)
+  2 slots for the single frag in this SKB from: DIV_ROUND_UP(size, PAGE_SIZE)
+  1 slot since GSO
+
+In the debug code i annotated all cons++, and the code uses 1 slot to process the data from the SKB as expected but uses 3 slots in the frag chopping loop.
+And when it reaches the state  were cons > prod it is always in "get_next_rx_buffer".
+
+>> But probably because "npo->copy_prod++" seems to be used for the frags ..
+>> and it isn't added to  npo->meta_prod ?
+>> 
+
+> meta_slots_used is calculated as the value of meta_prod at return (from xenvif_gop_skb()) minus the value on entry ,
+> and if you look back up the code then you can see that meta_prod is incremented every time RING_GET_REQUEST() is evaluated.
+> So, we must be consuming a slot without evaluating RING_GET_REQUEST() and I think that's exactly what's happening...
+> Right at the bottom of xenvif_gop_frag_copy() req_cons is simply incremented in the case of a GSO. So the BUG_ON() is indeed off by one.
+
+That is probably only done on first iteration / frag ?
+Because i don't see my warn there trigger .. but it could be that's because at that moment we still have cons <= prod.
+
+
+>   Paul
