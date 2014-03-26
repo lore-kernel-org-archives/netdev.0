@@ -1,86 +1,120 @@
-From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created with
- no group
-Date: Wed, 26 Mar 2014 19:50:18 +0200
-Message-ID: <20140326175018.GA24065@zed>
-References: <20140326094754.GA19337@zed>
- <OFD0C40ED9.015A05DD-ON87257CA2.003E72F3-87257CA2.003E7300@us.ibm.com>
- <CAF1J0HOd9D1t4hxjMe7Muad71o_pgKQsn3jLxqR5ZFPpj2_Nrw@mail.gmail.com>
- <CAJZOPZL9h0q3iiN7Q2jJWW+uEs0EpNaWqVMqQMyL+-5QGxGWPg@mail.gmail.com>
- <20140325.205324.1845346581147557473.davem@davemloft.net>
- <OF687EFECB.536163E6-ON87257CA7.00513C78-87257CA7.00513C81@us.ibm.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
+ of switch chip datapath
+Date: Wed, 26 Mar 2014 10:57:34 -0700
+Message-ID: <5333150E.2010801@cumulusnetworks.com>
+References: <532C2AC4.7080303@mojatatu.com> <20140322094852.GB2844@minipsycho.orion> <5330BAB7.3040501@mojatatu.com> <20140325173927.GE8102@hmsreliant.think-freely.org> <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org> <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com> <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com> <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion> <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Or Gerlitz <or.gerlitz@gmail.com>
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:38771 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751217AbaCZRuX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 13:50:23 -0400
-Received: by mail-ee0-f48.google.com with SMTP id b57so1921677eek.21
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 10:50:22 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <OF687EFECB.536163E6-ON87257CA7.00513C78-87257CA7.00513C81@us.ibm.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:37241 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751054AbaCZR5p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 13:57:45 -0400
+In-Reply-To: <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 26, 2014 at 08:47:19AM -0600, David Stevens wrote:
-> Mike Rapoport <mike.rapoport@ravellosystems.com> wrote on 03/26/2014 05:47:54 AM:
-> 
-> > 
-> > It fixes the instant crashes occurring when vxlan interface goes up, but
-> > I have other crashes with custom vxlan configuration, e.g. in the
-> > following scenario:
-> > 
-> > Node A:
-> > $ ip link add vxlan1 type vxlan id 1 dev ethA
-> > $ ip addr add dev vxlan1 10.0.0.1/24
-> > $ ip link set up dev vxlan1
-> > $ bridge fdb append 00:00:00:00:00:00 dev vxlan1 dst <ethB IPv4 address>
-> 
-> I thought this MAC address would be an error, but I just noticed that you
-> submitted a patch adding interpretation of the all zeroes MAC address as
-> a default FDB.
-> 
-> That patch, IMO, should've either not gone in, or should've replaced (entirely)
-> the existing default_dst. I think the problems you are seeing are due to having
-> two "defaults".
-> 
-> Since the existing default_dst could be either a multicast group or a specific
-> destination, I don't understand the point of your patch:
->     afbd8bae9c798c5cdbe4439d3a50536b5438247c
-> 
-> except possibly to support it as a list. In that case, at least that patch should've
-> removed default_dst and used the all-zeroes fdb entry instead, including group
-> joins and leaves when it is a multicast IP address.
-> 
-> I certainly don't see the point of having both.
- 
-The idea was to have a list of multiple destinations allow a weird form
-of multicast when infrastructure does not support it.
+On 3/26/14, 10:29 AM, Florian Fainelli wrote:
+> 2014-03-26 9:59 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
+>> Wed, Mar 26, 2014 at 05:54:17PM CET, roopa@cumulusnetworks.com wrote:
+>>> On 3/26/14, 3:54 AM, Jamal Hadi Salim wrote:
+>>>> On 03/26/14 01:37, Roopa Prabhu wrote:
+>>>>> On 3/25/14, 1:11 PM, Florian Fainelli wrote:
+>>>>>> 2014-03-25 12:35 GMT-07:00 Neil Horman <nhorman@tuxdriver.com>:
+>>>>> Sorry about getting on this thread late and possibly in the middle.
+>>>>> Agree on the idea of keeping the ports linked to the master switch dev
+>>>>> (or the 'conduit' to the switch chip) via private list instead of the
+>>>>> master-slave relationship proposed earlier.
+>>>>> By private i mean the netdev->priv linkage to the master switch dev and
+>>>>> not really keeping the ports from being exposed to the user.
+>>>>>
+>>>>> We think its better to keep the switch ports exposed as any other netdev
+>>>>> on linux.
+>>>>>   This approach will make the switch ports look exactly like a nic port
+>>>>> and all tools will continue to work seamlessly. The switch port
+>>>>> operations could internally be forwarded to the switch netdev (sw1 in
+>>>>> the above case).
+>>>>>
+>>>>> example:
+>>>>> $ip link set dev sw1p0 up
+>>>>> $ethtool -S sw1p0
+>>>>>
+>>>> I like the approach. I know the above is a simple version, but i am
+>>>> assuming you also mean i can do things like
+>>>> ip route add ...
+>>>> bridge fdb add ... (and if you like your brctl go ahead)
+>>>> bonding ...
+>>>>
+>>> yes, exactly.  We support this model on our boxes today.
+>>> User can bond switch ports on our box in the exact same way as he/she
+>>> would bond two nic ports.
+>>> Our 'conduit to switch chip' reflects the corresponding lag
+>>> configuration in the switch chip.
+>>> Same goes for bridging, routing, acls.
+>>
+>> So you implement bonding netlink api? Or you hook into bonding driver
+>> itselt? Can you show us the code?
+> Before we start talking about bonding, maybe we should make sure that
+> we cover some basic hardware switches uses which are to make some
+> ports belong to certain VLANs, tagged or untagged?
+>
+> It seems to me like this would become something like this, assuming P0
+> and P1 are two switch ports and 'eth0' is the CPU port, where P0 and
+> P1 belong to VLAN1 and CPU belongs to VLAN2:
+>
+> ip link set dev sw1p0 up
+> ip link set dev sw1p1 up
+> ip link set dev eth0 up
+>
+> ip link add link eth0 name eth0.2 type vlan id 2
+>
+> ip link add link sw1p0 name sw1p0.1 type vlan id 1
+> ip link add link sw1p1 name sw1p1.1 type vlan id 1
+>
+> ip link add sw1.1 type bridge
+> ip link set sw1p0.1 master sw1.1
+> ip link set sw1p1.1 master sw1.1
+>
+> Does that fit the model correctly?
+Not entirely, but close.
+In our current model, there is no netdev for cpu port (or master switch 
+netdev):
 
-I don't remember now why I didn't follow your advice about removing
-default_dst then (1). Maybe I had some thoughts that seemed smart and
-maybe it was just lazines.
-And now I definitely regret :)
+ip link set dev sw1p0 up
+ip link set dev sw1p1 up
 
-The problem is not only duplication of default destinations, but also
-the mis^Wuse of default_dst to distinguish whether IPv4 or IPv6 path
-should be taken because there is no explicit specification of the
-protocol if neither IFLA_VXLAN_GROUP or IFLA_VXLAN_LOCAL defined at
-vxlan_newlink. Moreover, if neither of these attributes is present, the
-custom configuration will always use v4 socket regardles of use of
-default_dst or fdb entry.
+ip link add link sw1p0 name sw1p0.1 type vlan id 1
+ip link add link sw1p1 name sw1p1.1 type vlan id 1
 
->                                                     +-DLS
-> 
+ip link add brvlan1 type bridge
+ip link set swp1p0.1 master brvlan1
+ip link set swp1p1.1 master brvlan1
 
---
-[1] http://thread.gmane.org/gmane.linux.network/270969/focus=271830
+switch driver programs the brvlan1 vlan in the switch asic.
 
---
-Sincerely yours,
-Mike.
+bonding works in the same way.
+
+Thanks,
+Roopa
+
+
+  
