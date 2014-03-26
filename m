@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/15] i40e: Cleanup in FDIR SB ethtool code
-Date: Wed, 26 Mar 2014 11:03:23 -0700
-Message-ID: <1395857013-7568-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/15] i40e: Use DEBUG_FD message level for an FD message
+Date: Wed, 26 Mar 2014 11:03:28 -0700
+Message-ID: <1395857013-7568-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1395857013-7568-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -9,111 +9,42 @@ Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:18894 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:13998 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755445AbaCZSEW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2014 14:04:22 -0400
+	id S1755505AbaCZSE2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2014 14:04:28 -0400
 In-Reply-To: <1395857013-7568-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Function add_del_fdir was used and implemented only for add. So change the name
-and drop a parameter.
+We don't need to print this info unless at FD message level.
 
-Change-ID: Icf2c6c3bbd4fd00cf8d9613a3f6d8c08e0f8e288
+Change-ID: I329efdd8e754a0ea0669ec04d12e03db02e6b76e
 Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 32 +++++++++++---------------
- 1 file changed, 13 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 28da412..0461a72 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -62,8 +62,8 @@ static const struct i40e_stats i40e_gstrings_net_stats[] = {
- 	I40E_NETDEV_STAT(rx_crc_errors),
- };
- 
--static int i40e_add_del_fdir_ethtool(struct i40e_vsi *vsi,
--				     struct ethtool_rxnfc *cmd, bool add);
-+static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
-+				 struct ethtool_rxnfc *cmd);
- 
- /* These PF_STATs might look like duplicates of some NETDEV_STATs,
-  * but they are separate.  This device supports Virtualization, and
-@@ -1470,16 +1470,15 @@ static int i40e_del_fdir_entry(struct i40e_vsi *vsi,
- }
- 
- /**
-- * i40e_add_del_fdir_ethtool - Add/Remove Flow Director filters
-+ * i40e_add_fdir_ethtool - Add/Remove Flow Director filters
-  * @vsi: pointer to the targeted VSI
-  * @cmd: command to get or set RX flow classification rules
-- * @add: true adds a filter, false removes it
-  *
-- * Add/Remove Flow Director filters for a specific flow spec based on their
-- * protocol.  Returns 0 if the filters were successfully added or removed.
-+ * Add Flow Director filters for a specific flow spec based on their
-+ * protocol.  Returns 0 if the filters were successfully added.
-  **/
--static int i40e_add_del_fdir_ethtool(struct i40e_vsi *vsi,
--				     struct ethtool_rxnfc *cmd, bool add)
-+static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
-+				 struct ethtool_rxnfc *cmd)
- {
- 	struct ethtool_rx_flow_spec *fsp;
- 	struct i40e_fdir_filter *input;
-@@ -1494,7 +1493,7 @@ static int i40e_add_del_fdir_ethtool(struct i40e_vsi *vsi,
- 	if (!(pf->flags & I40E_FLAG_FD_SB_ENABLED))
- 		return -EOPNOTSUPP;
- 
--	if (add && (pf->auto_disable_flags & I40E_FLAG_FD_SB_ENABLED))
-+	if (pf->auto_disable_flags & I40E_FLAG_FD_SB_ENABLED)
- 		return -ENOSPC;
- 
- 	fsp = (struct ethtool_rx_flow_spec *)&cmd->fs;
-@@ -1504,7 +1503,7 @@ static int i40e_add_del_fdir_ethtool(struct i40e_vsi *vsi,
- 		return -EINVAL;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index de25a32..a329aac 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -482,8 +482,9 @@ static void i40e_fd_handle_status(struct i40e_ring *rx_ring,
+ 		}
+ 	} else if (error ==
+ 			  (0x1 << I40E_RX_PROG_STATUS_DESC_NO_FD_ENTRY_SHIFT)) {
+-		netdev_info(rx_ring->vsi->netdev, "ntuple filter loc = %d, could not be removed\n",
+-			    rx_desc->wb.qword0.hi_dword.fd_id);
++		if (I40E_DEBUG_FD & pf->hw.debug_mask)
++			dev_info(&pdev->dev, "ntuple filter loc = %d, could not be removed\n",
++				 rx_desc->wb.qword0.hi_dword.fd_id);
  	}
- 
--	if ((fsp->ring_cookie >= vsi->num_queue_pairs) && add)
-+	if (fsp->ring_cookie >= vsi->num_queue_pairs)
- 		return -EINVAL;
- 
- 	input = kzalloc(sizeof(*input), GFP_KERNEL);
-@@ -1528,16 +1527,11 @@ static int i40e_add_del_fdir_ethtool(struct i40e_vsi *vsi,
- 	input->src_ip[0] = fsp->h_u.tcp_ip4_spec.ip4src;
- 	input->dst_ip[0] = fsp->h_u.tcp_ip4_spec.ip4dst;
- 
--	ret = i40e_add_del_fdir(vsi, input, add);
--	if (ret) {
-+	ret = i40e_add_del_fdir(vsi, input, true);
-+	if (ret)
- 		kfree(input);
--		return ret;
--	}
--
--	if (!ret && add)
--		i40e_update_ethtool_fdir_entry(vsi, input, fsp->location, NULL);
- 	else
--		kfree(input);
-+		i40e_update_ethtool_fdir_entry(vsi, input, fsp->location, NULL);
- 
- 	return ret;
  }
-@@ -1561,7 +1555,7 @@ static int i40e_set_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *cmd)
- 		ret = i40e_set_rss_hash_opt(pf, cmd);
- 		break;
- 	case ETHTOOL_SRXCLSRLINS:
--		ret = i40e_add_del_fdir_ethtool(vsi, cmd, true);
-+		ret = i40e_add_fdir_ethtool(vsi, cmd);
- 		break;
- 	case ETHTOOL_SRXCLSRLDEL:
- 		ret = i40e_del_fdir_entry(vsi, cmd);
+ 
 -- 
 1.8.3.1
