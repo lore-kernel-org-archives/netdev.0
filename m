@@ -1,74 +1,80 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Proper suspend/resume flow
-Date: Wed, 26 Mar 2014 11:58:28 +0000
-Message-ID: <20140326115828.GZ7528@n2100.arm.linux.org.uk>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
+ of switch chip datapath
+Date: Wed, 26 Mar 2014 08:19:47 -0400
+Message-ID: <5332C5E3.4000500@mojatatu.com>
+References: <532AD5B3.6020205@mojatatu.com> <20140320124021.GA2946@minipsycho.orion> <CAGVrzcbqQGGYb2Wkkekei7ivGd2XOnE+5GthLUv6_nD_oicrSQ@mail.gmail.com> <532C2AC4.7080303@mojatatu.com> <20140322094852.GB2844@minipsycho.orion> <5330BAB7.3040501@mojatatu.com> <20140325173927.GE8102@hmsreliant.think-freely.org> <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org> <5331ED86.7020704@mojatatu.com> <20140326111031.GB31370@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, andy@greyhouse.net,
+	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
+	pshelar@nicira.com, azhou@nicira.com,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:39301 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751821AbaCZL6q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 07:58:46 -0400
-Received: from n2100.arm.linux.org.uk ([2001:4d48:ad52:3201:214:fdff:fe10:4f86]:59456)
-	by pandora.arm.linux.org.uk with esmtpsa (TLSv1:AES256-SHA:256)
-	(Exim 4.76)
-	(envelope-from <linux@arm.linux.org.uk>)
-	id 1WSmTk-0004Yv-Eh
-	for netdev@vger.kernel.org; Wed, 26 Mar 2014 11:58:44 +0000
-Received: from linux by n2100.arm.linux.org.uk with local (Exim 4.76)
-	(envelope-from <linux@n2100.arm.linux.org.uk>)
-	id 1WSmTV-0003Pr-En
-	for netdev@vger.kernel.org; Wed, 26 Mar 2014 11:58:29 +0000
-Content-Disposition: inline
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:42764 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753743AbaCZMT4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 08:19:56 -0400
+Received: by mail-oa0-f46.google.com with SMTP id i7so2369776oag.5
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 05:19:56 -0700 (PDT)
+In-Reply-To: <20140326111031.GB31370@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've been looking at the Freescale FEC driver recently, and I've noticed
-that it's suspend path looks like this:
+On 03/26/14 07:10, Neil Horman wrote:
+> On Tue, Mar 25, 2014 at 04:56:38PM -0400, Jamal Hadi Salim wrote:
 
-        if (netif_running(ndev)) {
-                netif_device_detach(ndev);
-                fec_stop(ndev);
-        }
+> But by creating net_devices that are registered in the current fashion we
+> implicitly agree to levels of functionality that are assumed to be available and
+> as such are not within the purview of a net_device to reject.  E.g. it is
+> assumed that a netdevice can filter frames using iptables/ebtables, limit
+> traffic using tc, etc.
 
-I believe this to be unsafe, because if the device is active, then we may
-have packets in the transmit ring.  It may be possible for the ring to be
-cleaned between netif_device_detach() and fec_stop(), resulting in a call
-to netif_wake_queue(), which doesn't seem to take account of whether the
-device has been detached.
+More like my response to Roopa: there are things that can be tied to 
+ports and others are not.
+This is where i think we need more discussion - I believe that
+the offload model offered by current bridging is a good starting point
+for things tied to ports. In that setup, something in the netlink header
+says "give me stuff that is in the hardware" or "set this to the fdb
+table in the kernel as well as in the hardware".
+That is the part i like - and that concept, although tied to ports in
+the case of bridging, applies generically.
+Most of these things tend to be in the form of a table abstraction in
+the chip.
+If i add a FIB where the tie to a port is weak (occassionaly the nexthop
+tie may be to a port), I should still be able to use the same method.
+If this request shows up in the kernel, mechanisms are needed to shunt
+it to said driver.
 
-I wondered if this was just limited to the freescale driver, and I found
-a similar pattern in e1000e - __e1000e_shutdown() calls netif_device_detach()
-as the very first thing, before doing anything else.  This seems to be a
-common pattern.  8139cp.c does this, the second call seems to be rather
-redundant:
+> And if a switch fabric is short cutting traffic so that
+> the cpu doesn't see them, those bits of functionality won't work.
 
-        netif_device_detach (dev);
-        netif_stop_queue (dev);
+Separate control from data. What i am refering about is control.
+Datapath and what shows up in the CPU is dependent on what gets set in
+the hardware.
 
-Tulip on the other hand shuts the hardware down and cleans the transmit
-ring first before calling netif_device_detach(), thus ensuring that there
-won't be any transmit completions before this call.  It doesn't stop the
-queue before this, so presumably in a SMP environment, it is possible for
-packets to get queued after the transmit ring has been cleaned.
+> I agree we
+> can likely work around that with richer feature capabilities, but such an
+> infrastructure would both require extensive kernel changes to fully cover the
+> set of existing features at a sufficient granularity, and require user space
+> changes to grok the feature set of a given device.  Not saying its impossibible
+> or even undesireable mind you, just thats its not any less invasive than what
+> I'm proposing.
 
-So, what is the correct approach to suspending a net device?  When should
-netif_device_detach() be called?
+We would need to change some things - but i think it is a small
+evolution (as opposed to a revolution).
 
-I think the right solution for a driver which does all its processing in
-the NAPI poll function would be:
-
-	if (netif_running(ndev)) {
-		napi_disable(napi);
-		netif_device_detach(ndev);
-		disable_hardware();
-	}
-
-and upon resume, the reverse order.  The theory being:
-
-- napi_disable() is to stop the driver processing its rings and possibly
-  waking up the transmit queue(s) after the following netif_device_detach().
-- netif_device_detach() to stop new packets being queued to the device.
-
-Thanks.
+cheers,
+jamal
