@@ -1,84 +1,74 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
- of switch chip datapath
-Date: Wed, 26 Mar 2014 07:31:06 -0400
-Message-ID: <5332BA7A.2060003@mojatatu.com>
-References: <20140320124021.GA2946@minipsycho.orion> <CAGVrzcbqQGGYb2Wkkekei7ivGd2XOnE+5GthLUv6_nD_oicrSQ@mail.gmail.com> <532C2AC4.7080303@mojatatu.com> <20140322094852.GB2844@minipsycho.orion> <5330BAB7.3040501@mojatatu.com> <20140325173927.GE8102@hmsreliant.think-freely.org> <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org> <5331ED86.7020704@mojatatu.com> <20140325211945.GC15723@casper.infradead.org> <20140326072148.GB2869@minipsycho.orion> <5332B365.6050807@mojatatu.com> <5332B4A0.2070505@mojatatu.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Proper suspend/resume flow
+Date: Wed, 26 Mar 2014 11:58:28 +0000
+Message-ID: <20140326115828.GZ7528@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030102000407070004020902"
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, andy@greyhouse.net,
-	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
-	pshelar@nicira.com, azhou@nicira.com,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>
-To: Jiri Pirko <jiri@resnulli.us>, Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f44.google.com ([209.85.219.44]:61868 "EHLO
-	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751614AbaCZLbL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 07:31:11 -0400
-Received: by mail-oa0-f44.google.com with SMTP id n16so2336195oag.3
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 04:31:11 -0700 (PDT)
-In-Reply-To: <5332B4A0.2070505@mojatatu.com>
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:39301 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751821AbaCZL6q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 07:58:46 -0400
+Received: from n2100.arm.linux.org.uk ([2001:4d48:ad52:3201:214:fdff:fe10:4f86]:59456)
+	by pandora.arm.linux.org.uk with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.76)
+	(envelope-from <linux@arm.linux.org.uk>)
+	id 1WSmTk-0004Yv-Eh
+	for netdev@vger.kernel.org; Wed, 26 Mar 2014 11:58:44 +0000
+Received: from linux by n2100.arm.linux.org.uk with local (Exim 4.76)
+	(envelope-from <linux@n2100.arm.linux.org.uk>)
+	id 1WSmTV-0003Pr-En
+	for netdev@vger.kernel.org; Wed, 26 Mar 2014 11:58:29 +0000
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------030102000407070004020902
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+I've been looking at the Freescale FEC driver recently, and I've noticed
+that it's suspend path looks like this:
 
-On 03/26/14 07:06, Jamal Hadi Salim wrote:
+        if (netif_running(ndev)) {
+                netif_device_detach(ndev);
+                fec_stop(ndev);
+        }
 
-> If it cant do bonding and the chip is capable of LAGging, it is simply
-> the wrong approach. I dont think what has been described so far will
-> have a problem doing bonding.
+I believe this to be unsafe, because if the device is active, then we may
+have packets in the transmit ring.  It may be possible for the ring to be
+cleaned between netif_device_detach() and fec_stop(), resulting in a call
+to netif_wake_queue(), which doesn't seem to take account of whether the
+device has been detached.
 
-So here's a half a coffee of ascii for yer to just up the game a little.
-If cant do this when the chip is capable - then IMO it is the wrong 
-interface.
+I wondered if this was just limited to the freescale driver, and I found
+a similar pattern in e1000e - __e1000e_shutdown() calls netif_device_detach()
+as the very first thing, before doing anything else.  This seems to be a
+common pattern.  8139cp.c does this, the second call seems to be rather
+redundant:
 
-cheers,
-jamal
+        netif_device_detach (dev);
+        netif_stop_queue (dev);
 
---------------030102000407070004020902
-Content-Type: text/plain; charset=us-ascii;
- name="x3"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="x3"
+Tulip on the other hand shuts the hardware down and cleans the transmit
+ring first before calling netif_device_detach(), thus ensuring that there
+won't be any transmit completions before this call.  It doesn't stop the
+queue before this, so presumably in a SMP environment, it is possible for
+packets to get queued after the transmit ring has been cleaned.
 
+So, what is the correct approach to suspending a net device?  When should
+netif_device_detach() be called?
 
-   +---------------------+     +---------------------------------------+
-   |       br5           |     |            br100                      |
-   +-+--+----+---+-+----++     +----+------------+------+------------+-+
-     |p0|    |p1 | |eth0|           | bond10     |      |  bond10     |
-     ++-+    +-+-+ +----+           +-+---+-+---++      +-+---+--+--+-+
-      ^        ^                     |   | |   |         |   |  |  |
-      |        |                     |p6 | |p7 |         |p11|  |p8|
-      |        |                     +-+-+ +-+-+         +-+-+  +-++
-      |        |                       ^     ^             ^      ^
-      |        |                       |     |             |      |
-      |        |                       |     |             |      |
-   +--v--------v-----------------------v-----v-------------v------v----+
-   | switch driver (exposes ports and sets bonds/bridges in H/ware)    |
-   +------------+--------------------------------+---------------------+
-                | Switch control/data interfaces |
-                +--------------------------------+
-                                | 
-                         +-------------+
-                         |  Switch HW  |
-                         +-------------+
+I think the right solution for a driver which does all its processing in
+the NAPI poll function would be:
 
+	if (netif_running(ndev)) {
+		napi_disable(napi);
+		netif_device_detach(ndev);
+		disable_hardware();
+	}
 
---------------030102000407070004020902--
+and upon resume, the reverse order.  The theory being:
+
+- napi_disable() is to stop the driver processing its rings and possibly
+  waking up the transmit queue(s) after the following netif_device_detach().
+- netif_device_detach() to stop new packets being queued to the device.
+
+Thanks.
