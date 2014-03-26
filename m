@@ -1,12 +1,18 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of switch chip datapath
-Date: Wed, 26 Mar 2014 19:29:43 +0100
-Message-ID: <20140326182943.GH22086@order.stressinduktion.org>
-References: <20140325193533.GF8102@hmsreliant.think-freely.org> <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com> <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com> <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion> <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com> <20140326173536.GJ2869@minipsycho.orion> <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com> <20140326181436.GL2869@minipsycho.orion>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
+ switch chip datapath
+Date: Wed, 26 Mar 2014 11:30:50 -0700
+Message-ID: <CAGVrzcZNf8AM7v4gswkmA-XiqWSrXt6qt1+sKkkXNMXLy996ig@mail.gmail.com>
+References: <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org>
+ <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com>
+ <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com>
+ <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion>
+ <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com>
+ <20140326173536.GJ2869@minipsycho.orion> <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com>
+ <20140326181436.GL2869@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
 	Neil Horman <nhorman@tuxdriver.com>,
 	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
@@ -25,40 +31,91 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>,
 	Shrijeet Mukherjee <shm@cumulusnetworks.com>
 To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:33261 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751147AbaCZS3p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 14:29:45 -0400
-Content-Disposition: inline
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:36403 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750911AbaCZSbi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 14:31:38 -0400
+Received: by mail-pd0-f172.google.com with SMTP id p10so2222065pdj.31
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 11:31:37 -0700 (PDT)
 In-Reply-To: <20140326181436.GL2869@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 26, 2014 at 07:14:36PM +0100, Jiri Pirko wrote:
-> >You are right, sw1p0 and sw1p1 were meant to be, say LAN ports in my example.
-> >
-> >I think there is an implicit convention that sw1 represents the
-> >Ethernet switch port connected to the CPU Ethernet MAC, and that it is
-> >always connected, hence there is no need to create a "fake" bridge to
-> >link sw1 to eth0 for instance?
-> 
+2014-03-26 11:14 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
+> Wed, Mar 26, 2014 at 06:58:32PM CET, f.fainelli@gmail.com wrote:
+>>2014-03-26 10:35 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
+>>> Wed, Mar 26, 2014 at 06:29:07PM CET, f.fainelli@gmail.com wrote:
+>>>>2014-03-26 9:59 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
+>>>>> Wed, Mar 26, 2014 at 05:54:17PM CET, roopa@cumulusnetworks.com wrote:
+>>>>>>On 3/26/14, 3:54 AM, Jamal Hadi Salim wrote:
+>>>>>>>On 03/26/14 01:37, Roopa Prabhu wrote:
+>>>>>>>>On 3/25/14, 1:11 PM, Florian Fainelli wrote:
+>>>>>>>>>2014-03-25 12:35 GMT-07:00 Neil Horman <nhorman@tuxdriver.com>:
+>>>>>>>
+>>>>>>>>Sorry about getting on this thread late and possibly in the middle.
+>>>>>>>>Agree on the idea of keeping the ports linked to the master switch dev
+>>>>>>>>(or the 'conduit' to the switch chip) via private list instead of the
+>>>>>>>>master-slave relationship proposed earlier.
+>>>>>>>>By private i mean the netdev->priv linkage to the master switch dev and
+>>>>>>>>not really keeping the ports from being exposed to the user.
+>>>>>>>>
+>>>>>>>>We think its better to keep the switch ports exposed as any other netdev
+>>>>>>>>on linux.
+>>>>>>>>  This approach will make the switch ports look exactly like a nic port
+>>>>>>>>and all tools will continue to work seamlessly. The switch port
+>>>>>>>>operations could internally be forwarded to the switch netdev (sw1 in
+>>>>>>>>the above case).
+>>>>>>>>
+>>>>>>>>example:
+>>>>>>>>$ip link set dev sw1p0 up
+>>>>>>>>$ethtool -S sw1p0
+>>>>>>>>
+>>>>>>>
+>>>>>>>I like the approach. I know the above is a simple version, but i am
+>>>>>>>assuming you also mean i can do things like
+>>>>>>>ip route add ...
+>>>>>>>bridge fdb add ... (and if you like your brctl go ahead)
+>>>>>>>bonding ...
+>>>>>>>
+>>>>>>yes, exactly.  We support this model on our boxes today.
+>>>>>>User can bond switch ports on our box in the exact same way as he/she
+>>>>>>would bond two nic ports.
+>>>>>>Our 'conduit to switch chip' reflects the corresponding lag
+>>>>>>configuration in the switch chip.
+>>>>>>Same goes for bridging, routing, acls.
+>>>>>
+>>>>>
+>>>>> So you implement bonding netlink api? Or you hook into bonding driver
+>>>>> itselt? Can you show us the code?
+>>>>
+>>>>Before we start talking about bonding, maybe we should make sure that
+>>>>we cover some basic hardware switches uses which are to make some
+>>>>ports belong to certain VLANs, tagged or untagged?
+>>>>
+>>>>It seems to me like this would become something like this, assuming P0
+>>>>and P1 are two switch ports and 'eth0' is the CPU port, where P0 and
+>>>>P1 belong to VLAN1 and CPU belongs to VLAN2:
+>>>>
+>>>>ip link set dev sw1p0 up
+>>>>ip link set dev sw1p1 up
+>>>>ip link set dev eth0 up
+>>>
+>>>
+>>> I might be mistaken, But I think you are missing a switch port
+>>> representing a connection to eth0 (eth0 being cpu conterpart of it).
+>>> Or is it one of sw1p0 and sw1p1 ?
+>>
+>>You are right, sw1p0 and sw1p1 were meant to be, say LAN ports in my example.
+>>
+>>I think there is an implicit convention that sw1 represents the
+>>Ethernet switch port connected to the CPU Ethernet MAC, and that it is
+>>always connected, hence there is no need to create a "fake" bridge to
+>>link sw1 to eth0 for instance?
+>
 > I think you are kind of mixing apples and oranges (or I might be I'm not
 > understanding you correctly).
-
-I guess the discussion is only about user interface:
-
-In case someone adds a bond on switch ports without knowing the details
-of the kernel and interfaces, the kernel would transparently setup this
-configuration on the switch via the specific driver. iproute bond interface
-stays the same but backend differs.
-
-Actually, I find the idea pretty neat, but the bonding netlink/sysfs
-interface would be required to expose feature information, because
-maybe not every switch supports each (bonding) feature (like l4-hashing)
-and software fallback maybe not possible.
-
 > This is how I see it, sticking to the names you use in the example:
-> 
+>
 >             (sw1) (abstract place-holder netdev)
 >           --------
 >          switch chip                   CPU
@@ -66,24 +123,10 @@ and software fallback maybe not possible.
 >    sw1p0 sw1p1 sw1p2 sw1p3             eth0
 >      |     |     |     |                |
 >     PHY   PHY   PHY    ------someMII-----
-> 
-> You see that eth0 is the CPU part of the "connection" and sw1p3 is the
-> switch part (port representation). 
 >
-> >>>ip link add link eth0 name eth0.2 type vlan id 2
-> >>>
-> >>>ip link add link sw1p0 name sw1p0.1 type vlan id 1
-> >>>ip link add link sw1p1 name sw1p1.1 type vlan id 1
-> >>>
-> >>>ip link add sw1.1 type bridge
-> >>>ip link set sw1p0.1 master sw1.1
-> >>>ip link set sw1p1.1 master sw1.1
-> >>>
-> >>>Does that fit the model correctly?
+> You see that eth0 is the CPU part of the "connection" and sw1p3 is the
+> switch part (port representation).
 
-Why not make every switch a bridge (for the user POV) from the beginning
-and send bridge netlink messages to switchdev then?
-
-Greetings,
-
-  Hannes
+Thanks for clarifying, this is indeed how it should be modelled/represented.
+-- 
+Florian
