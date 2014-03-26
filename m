@@ -1,215 +1,80 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [Xen-devel] Xen-unstable Linux 3.14-rc3 and 3.13 Network
- troubles "bisected"
-Date: Wed, 26 Mar 2014 14:44:42 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD029AD94@AMSPEX01CL01.citrite.net>
-References: <1744594108.20140318162127@eikelenboom.it>
- <20140318160412.GB16807@zion.uk.xensource.com>
- <1701035622.20140318211402@eikelenboom.it>
- <722971844.20140318221859@eikelenboom.it>
- <1688396550.20140319001104@eikelenboom.it>
- <20140319113532.GD16807@zion.uk.xensource.com>
- <246793256.20140319220752@eikelenboom.it>
- <20140321164958.GA31766@zion.uk.xensource.com>
- <1334202265.20140321182727@eikelenboom.it>
- <1056661597.20140322192834@eikelenboom.it>
- <20140325151539.GG31766@zion.uk.xensource.com>
- <79975567.20140325162942@eikelenboom.it>
- <1972209744.20140326121116@eikelenboom.it>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created with no
+ group
+Date: Wed, 26 Mar 2014 08:47:19 -0600
+Message-ID: <OF687EFECB.536163E6-ON87257CA7.00513C78-87257CA7.00513C81@us.ibm.com>
+References: <20140326094754.GA19337@zed>,
+	<OFD0C40ED9.015A05DD-ON87257CA2.003E72F3-87257CA2.003E7300@us.ibm.com> <CAF1J0HOd9D1t4hxjMe7Muad71o_pgKQsn3jLxqR5ZFPpj2_Nrw@mail.gmail.com> <CAJZOPZL9h0q3iiN7Q2jJWW+uEs0EpNaWqVMqQMyL+-5QGxGWPg@mail.gmail.com> <20140325.205324.1845346581147557473.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Wei Liu <wei.liu2@citrix.com>, annie li <annie.li@oracle.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Sander Eikelenboom <linux@eikelenboom.it>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1972209744.20140326121116@eikelenboom.it>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <or.gerlitz@gmail.com>
+To: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e38.co.us.ibm.com ([32.97.110.159]:47650 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754369AbaCZOrZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 10:47:25 -0400
+Received: from /spool/local
+	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Wed, 26 Mar 2014 08:47:24 -0600
+Received: from b03cxnp07029.gho.boulder.ibm.com (b03cxnp07029.gho.boulder.ibm.com [9.17.130.16])
+	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 007EE3E40026
+	for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 08:47:21 -0600 (MDT)
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by b03cxnp07029.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2QCiR1G7143856
+	for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 13:44:27 +0100
+Received: from d03av01.boulder.ibm.com (localhost [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s2QElKEq019943
+	for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 08:47:20 -0600
+In-Reply-To: <20140326094754.GA19337@zed>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
-> Sent: 26 March 2014 11:11
-> To: Paul Durrant
-> Cc: Wei Liu; annie li; Zoltan Kiss; xen-devel@lists.xen.org; Ian Campbell; linux-
-> kernel; netdev@vger.kernel.org
-> Subject: Re: [Xen-devel] Xen-unstable Linux 3.14-rc3 and 3.13 Network
-> troubles "bisected"
-> 
-> Paul,
-> 
-> You have been awfully silent for this whole thread while this is a regression
-> caused by a patch of you
-> (ca2f09f2b2c6c25047cfc545d057c4edfcfe561c as clearly stated much earlier in
-> this thread).
-> 
+Mike Rapoport <mike.rapoport@ravellosystems.com> wrote on 03/26/2014 05=
+:47:54 AM:
 
-Sorry, I've been distracted...
+>=20
+> It fixes the instant crashes occurring when vxlan interface goes up, =
+but
+> I have other crashes with custom vxlan configuration, e.g. in the
+> following scenario:
+>=20
+> Node A:
+> $ ip link add vxlan1 type vxlan id 1 dev ethA
+> $ ip addr add dev vxlan1 10.0.0.1/24
+> $ ip link set up dev vxlan1
+> $ bridge fdb append 00:00:00:00:00:00 dev vxlan1 dst <ethB IPv4 addre=
+ss>
 
-> The commit messages states:
->     "net_rx_action() is the place where we could do with an accurate
-> predicition but,
->     since that has proven tricky to calculate, a cheap worse-case (but not too
-> bad)
->     estimate is all we really need since the only thing we *must* prevent is
-> xenvif_gop_skb()
->     consuming more slots than are available."
-> 
-> Your "worst-case" calculation stated in the commit message is clearly not the
-> worst case,
-> since it doesn't take calls to "get_next_rx_buffer" into account.
-> 
+I thought this MAC address would be an error, but I just noticed that y=
+ou
+submitted a patch adding interpretation of the all zeroes MAC address a=
+s
+a default FDB.
 
-It should be taking into account the behaviour of start_new_rx_buffer(), which should be true if a slot is full or a frag will overflow the current slot and doesn't require splitting. The code in net_rx_action() makes the assumption that each frag will require as many slots as its size requires, i.e. it assumes no packing of multiple frags into a single slot, so it should be a worst case. Did I miss something in that logic?
+That patch, IMO, should've either not gone in, or should've replaced (e=
+ntirely)
+the existing default_dst. I think the problems you are seeing are due t=
+o having
+two "defaults".
 
-  Paul
+Since the existing default_dst could be either a multicast group or a s=
+pecific
+destination, I don't understand the point of your patch:
+=A0=A0=A0 afbd8bae9c798c5cdbe4439d3a50536b5438247c
 
-> Problem is that a worst case calculation would probably be reverting to the
-> old calculation,
-> and the problems this patch was trying to solve would reappear, but
-> introducing new regressions
-> isn't very useful either. And since it seems such a tricky and fragile thing to
-> determine, it would
-> probably be best to be split into a distinct function with a comment to explain
-> the rationale used.
-> 
-> Since this doesn't seem to progress very fast .. CC'ed some more folks .. you
-> never know ..
-> 
-> --
-> Sander
-> 
-> 
-> Tuesday, March 25, 2014, 4:29:42 PM, you wrote:
-> 
-> 
-> > Tuesday, March 25, 2014, 4:15:39 PM, you wrote:
-> 
-> >> On Sat, Mar 22, 2014 at 07:28:34PM +0100, Sander Eikelenboom wrote:
-> >> [...]
-> >>> > Yes there is only one frag .. but it seems to be much larger than
-> PAGE_SIZE .. and xenvif_gop_frag_copy brakes that frag down into smaller
-> bits .. hence the calculation in xenvif_rx_action determining the slots needed
-> by doing:
-> >>>
-> >>> >                 for (i = 0; i < nr_frags; i++) {
-> >>> >                         unsigned int size;
-> >>> >                         size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
-> >>> >                         max_slots_needed += DIV_ROUND_UP(size, PAGE_SIZE);
-> >>> >                 }
-> >>>
-> >>> > But the code in xenvif_gop_frag_copy .. seems to be needing one
-> more slot (from the emperical test) .. and calling "get_next_rx_buffer"
-> seems involved in that ..
-> >>>
-> >>> Hmm looked again .. and it seems this is it .. when your frags are large
-> enough you have the chance of running into this.
-> >>>
-> 
-> >> get_next_rx_buffer is guarded by start_new_rx_buffer. Do you see any
-> >> problem with that implementation?
-> > In general no, but "get_next_rx_buffer" up's cons .. and the calculations
-> done in "xenvif_rx_action" for max_slots_needed to prevent the overrun
-> > don't count in this possibility. So it's not the guarding of
-> "start_new_rx_buffer" that is at fault. It's the ones early in
-> "xenvif_rx_action".
-> > The ones that were changed by Paul's patch from MAX_SKB_FRAGS to a
-> calculated value that should be a "slim fit".
-> 
-> > The problem is in determining upfront in "xenvif_rx_action" when and how
-> often the "get_next_rx_buffer" path will be taken.
-> > Unless there are other non direct restrictions (from a size point of view) it
-> can be called multiple times per frag per skb.
-> 
-> >>> Problem is .. i don't see an easy fix, the "one more slot" of the empirical
-> test doesn't seem to be the worst case either (i think):
-> >>>
-> >>> - In my case the packets that hit this only have 1 frag, but i could have
-> had more frags.
-> >>>   I also think you can't rule out the possibility of doing the
-> "get_next_rx_buffer" for multiple subsequent frags from one packet,
-> >>>   so in the worst (and perhaps even from a single frag since it's looped
-> over a split of it in what seems PAGE_SIZE pieces.)
-> >>>   - So an exact calculation of how much slots we are going to need for
-> hitting this "get_next_rx_buffer"  upfront in "xenvif_rx_action" seems
-> unfeasible.
-> >>>   - A worst case gamble seems impossible either .. if you take multiple
-> frags * multiple times the "get_next_rx_buffer" ... you would probably be
-> back at just
-> >>>     setting the needed_slots to MAX_SKB_FRAGS.
-> >>>
-> >>> - Other thing would be checking for the available slots before doing the
-> "get_next_rx_buffer" .. how ever .. we don't account for how many slots we
-> still need to
-> >>>   just process the remaining frags.
-> >>>
-> 
-> >> We've done a worst case estimation for whole SKB (linear area + all
-> >> frags) already, at the very first beginning. That's what
-> >> max_slots_needed is for.
-> 
-> >>> - Just remove the whole "get_next_rx_buffer".. just tested it but it
-> seems the "get_next_rx_buffer" is necessary ..  when i make
-> start_new_rx_buffer always return false
-> >>>   i hit the bug below :S
-> >>>
-> >>> So the questions are ... is the "get_next_rx_buffer" part really necessary
-> ?
-> >>>    - if not, what is the benefit of the "get_next_rx_buffer" and does that
-> outweigh the additional cost of accounting
-> >>>      of needed_slots for the frags that have yet to be processed ?
-> >>>    - if yes, erhmmm what would be the best acceptable solution ..
-> returning to using MAX_SKB_FRAGS ?
-> >>>
-> 
-> >> I think you need to answer several questions first:
-> >> 1. is max_slots_needed actually large enough to cover whole SKB?
-> >         No it's not if, you end up calling "get_next_rx_buffer" one or multiple
-> times when processing the SKB
-> >         you have the chance of overrunning (or be saved because prod gets
-> upped before you overrun).
-> 
-> >> 2. is the test of ring slot availability acurate?
-> >         Seems to be.
-> 
-> >> 3. is the number of ring slots consumed larger than max_slots_needed? (I
-> >>    guess the answer is yes)
-> >         Yes that was the whole point.
-> 
-> >> 4. which step in the break-down procedure causes backend to overrun
-> the
-> >>    ring?
-> >         The "get_next_rx_buffer" call .. that is not accounted for (which can be
-> called
-> >         multiple times per frag (unless some other none obvious size
-> restriction limits this
-> >         to one time per frag or one time per SKB).
-> >         In my errorneous case it is called one time, but it would be nice if there
-> would be some theoretical proof
-> >         instead of just some emperical test.
-> 
-> 
-> >> It doesn't matter how many frags your SKB has and how big a frag is. If
-> >> every step is correct then you're fine. The code you're looking at
-> >> (start_new_rx_buffer / get_next_rx_buffer and friend) needs to be
-> >> carefully examined.
-> 
-> > Well it seems it only calls "get_next_rx_buffer" in some special cases ..
-> (and that also what i'm seeing because it doesn't happen
-> > continously.
-> 
-> > Question is shouldn't this max_needed_slots calc be reverted to what it
-> was before 3.14 and take the time in 3.15 to figure out a
-> > the theoretical max (if it can be calculated upfront) .. or another way to
-> guarantee the code is able to process the whole SKB  ?
-> 
-> >> Wei.
-> 
-> 
-> 
-> 
+except possibly to support it as a list. In that case, at least that pa=
+tch should've
+removed default_dst and used the all-zeroes fdb entry instead, includin=
+g group
+joins and leaves when it is a multicast IP address.
+
+I certainly don't see the point of having both.
+
+=A0=A0=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=A0=A0=A0=A0=
+ +-DLS
