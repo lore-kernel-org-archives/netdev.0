@@ -1,47 +1,77 @@
-From: SeongJae Park <sj38.park@gmail.com>
-Subject: [PATCH] ixen-netback: fix trivial printf format build warning
-Date: Wed, 26 Mar 2014 12:56:50 +0900
-Message-ID: <1395806210-23528-1-git-send-email-sj38.park@gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net] virtio-net: correct error handling of virtqueue_kick()
+Date: Wed, 26 Mar 2014 13:03:00 +0800
+Message-ID: <1395810180-35169-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: xen-devel@lists.xenproject.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, SeongJae Park <sj38.park@gmail.com>
-To: trivial@kernel.org, ian.campbell@citrix.com, wei.liu2@citrix.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: rusty@rustcorp.com.au, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-=46ix following trivial build warning:
+Current error handling of virtqueue_kick() was wrong in two places:
+- The skb were freed immediately when virtqueue_kick() fail during
+  xmit. This may lead double free since the skb was not detached from
+  the virtqueue.
+- try_fill_recv() returns false when virtqueue_kick() fail. This will
+  lead unnecessary rescheduling of refill work.
 
-drivers/net/xen-netback/netback.c: In function =E2=80=98xenvif_tx_deall=
-oc_action=E2=80=99:
-drivers/net/xen-netback/netback.c:1585:8: warning:
-format =E2=80=98%x=E2=80=99 expects argument of type
- =E2=80=98unsigned int=E2=80=99, but argument 3 has type =E2=80=98long =
-int=E2=80=99 [-Wformat=3D]
-        gop - vif->tx_unmap_ops, ret);
-        ^
+Actually, it's safe to just ignore the kick failure in those two
+places. So this patch fixes this by partially revert commit
+67975901183799af8e93ec60e322f9e2a1940b9b.
 
-Signed-off-by: SeongJae Park <sj38.park@gmail.com>
+Fixes 67975901183799af8e93ec60e322f9e2a1940b9b
+(virtio_net: verify if virtqueue_kick() succeeded).
+
+Cc: Heinz Graalfs <graalfs@linux.vnet.ibm.com>
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/xen-netback/netback.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/virtio_net.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netbac=
-k/netback.c
-index 5a8c4a4..90001b3 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -1574,7 +1574,7 @@ static inline void xenvif_tx_dealloc_action(struc=
-t xenvif *vif)
- 					vif->pages_to_unmap,
- 					gop - vif->tx_unmap_ops);
- 		if (ret) {
--			netdev_err(vif->dev, "Unmap fail: nr_ops %x ret %d\n",
-+			netdev_err(vif->dev, "Unmap fail: nr_ops %lx ret %d\n",
- 				   gop - vif->tx_unmap_ops, ret);
- 			for (i =3D 0; i < gop - vif->tx_unmap_ops; ++i) {
- 				if (gop[i].status !=3D GNTST_okay)
---=20
-1.8.3.2
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 5632a99..841b608 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -671,8 +671,7 @@ static bool try_fill_recv(struct receive_queue *rq, gfp_t gfp)
+ 		if (err)
+ 			break;
+ 	} while (rq->vq->num_free);
+-	if (unlikely(!virtqueue_kick(rq->vq)))
+-		return false;
++	virtqueue_kick(rq->vq);
+ 	return !oom;
+ }
+ 
+@@ -877,7 +876,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	err = xmit_skb(sq, skb);
+ 
+ 	/* This should not happen! */
+-	if (unlikely(err) || unlikely(!virtqueue_kick(sq->vq))) {
++	if (unlikely(err)) {
+ 		dev->stats.tx_fifo_errors++;
+ 		if (net_ratelimit())
+ 			dev_warn(&dev->dev,
+@@ -886,6 +885,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		kfree_skb(skb);
+ 		return NETDEV_TX_OK;
+ 	}
++	virtqueue_kick(sq->vq);
+ 
+ 	/* Don't wait up for transmitted skbs to be freed. */
+ 	skb_orphan(skb);
+-- 
+1.7.1
