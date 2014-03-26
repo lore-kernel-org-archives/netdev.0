@@ -1,75 +1,54 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
- of switch chip datapath
-Date: Wed, 26 Mar 2014 09:54:17 -0700
-Message-ID: <53330639.8050403@cumulusnetworks.com>
-References: <1395243232-32630-1-git-send-email-jiri@resnulli.us> <532AD5B3.6020205@mojatatu.com> <20140320124021.GA2946@minipsycho.orion> <CAGVrzcbqQGGYb2Wkkekei7ivGd2XOnE+5GthLUv6_nD_oicrSQ@mail.gmail.com> <532C2AC4.7080303@mojatatu.com> <20140322094852.GB2844@minipsycho.orion> <5330BAB7.3040501@mojatatu.com> <20140325173927.GE8102@hmsreliant.think-freely.org> <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org> <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com> <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: tcp_make_synack() minor changes
+Date: Wed, 26 Mar 2014 09:57:19 -0700
+Message-ID: <1395853039.12610.217.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:56383 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932121AbaCZQzd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 12:55:33 -0400
-In-Reply-To: <5332B1FE.7080102@mojatatu.com>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:34854 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932095AbaCZQ5V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 12:57:21 -0400
+Received: by mail-pd0-f176.google.com with SMTP id r10so2116667pdi.35
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 09:57:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/26/14, 3:54 AM, Jamal Hadi Salim wrote:
-> On 03/26/14 01:37, Roopa Prabhu wrote:
->> On 3/25/14, 1:11 PM, Florian Fainelli wrote:
->>> 2014-03-25 12:35 GMT-07:00 Neil Horman <nhorman@tuxdriver.com>:
->
->> Sorry about getting on this thread late and possibly in the middle.
->> Agree on the idea of keeping the ports linked to the master switch dev
->> (or the 'conduit' to the switch chip) via private list instead of the
->> master-slave relationship proposed earlier.
->> By private i mean the netdev->priv linkage to the master switch dev and
->> not really keeping the ports from being exposed to the user.
->>
->> We think its better to keep the switch ports exposed as any other netdev
->> on linux.
->>   This approach will make the switch ports look exactly like a nic port
->> and all tools will continue to work seamlessly. The switch port
->> operations could internally be forwarded to the switch netdev (sw1 in
->> the above case).
->>
->> example:
->> $ip link set dev sw1p0 up
->> $ethtool -S sw1p0
->>
->
-> I like the approach. I know the above is a simple version, but i am
-> assuming you also mean i can do things like
-> ip route add ...
-> bridge fdb add ... (and if you like your brctl go ahead)
-> bonding ...
->
-yes, exactly.  We support this model on our boxes today.
-User can bond switch ports on our box in the exact same way as he/she 
-would bond two nic ports.
-Our 'conduit to switch chip' reflects the corresponding lag 
-configuration in the switch chip.
-Same goes for bridging, routing, acls.
+From: Eric Dumazet <edumazet@google.com>
 
-Thanks,
-Roopa
+There is no need to allocate 15 bytes in excess for a SYNACK packet,
+as it contains no data, only headers.
+
+SYNACK are always generated in softirq context, and contain a single
+segment, we can use TCP_INC_STATS_BH()
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_output.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index e0a7b33fe953..3d2124d2cc4a 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2741,7 +2741,7 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 	int tcp_header_size;
+ 	int mss;
+ 
+-	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15, 1, GFP_ATOMIC);
++	skb = sock_wmalloc(sk, MAX_TCP_HEADER, 1, GFP_ATOMIC);
+ 	if (unlikely(!skb)) {
+ 		dst_release(dst);
+ 		return NULL;
+@@ -2811,7 +2811,7 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 	th->window = htons(min(req->rcv_wnd, 65535U));
+ 	tcp_options_write((__be32 *)(th + 1), tp, &opts);
+ 	th->doff = (tcp_header_size >> 2);
+-	TCP_ADD_STATS(sock_net(sk), TCP_MIB_OUTSEGS, tcp_skb_pcount(skb));
++	TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_OUTSEGS);
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+ 	/* Okay, we have all we need - do the md5 hash if needed */
