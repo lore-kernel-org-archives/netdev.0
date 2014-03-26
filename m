@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 5/6] at86rf230: use
-	devm_gpio_request_one
-Date: Wed, 26 Mar 2014 15:11:56 +0100
-Message-ID: <1395843117-16494-6-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH net-next 4/6] at86rf230: use
+	devm_request_irq
+Date: Wed, 26 Mar 2014 15:11:55 +0100
+Message-ID: <1395843117-16494-5-git-send-email-alex.aring@gmail.com>
 References: <1395843117-16494-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,123 +22,55 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch replace the gpio_request functions with devm_gpio_request_one
-functions. Then we don't need to take care about freeing gpios.
+This patch replace request_irq with devm_request_irq. With
+devm_request_irq we don't need to care about freeing the irq.
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ieee802154/at86rf230.c | 53 +++++++++-----------------------------
- 1 file changed, 12 insertions(+), 41 deletions(-)
+ drivers/net/ieee802154/at86rf230.c | 11 ++++-------
+ 1 file changed, 4 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index a3f9d91..1044a02 100644
+index e034376..a3f9d91 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -1083,27 +1083,17 @@ static int at86rf230_probe(struct spi_device *spi)
- 	}
+@@ -1199,24 +1199,22 @@ static int at86rf230_probe(struct spi_device *spi)
+ 	if (rc)
+ 		goto err_hw_init;
  
- 	if (gpio_is_valid(pdata->rstn)) {
--		rc = gpio_request(pdata->rstn, "rstn");
-+		rc = devm_gpio_request_one(&spi->dev, pdata->rstn,
-+					   GPIOF_OUT_INIT_HIGH, "rstn");
- 		if (rc)
- 			return rc;
- 	}
+-	rc = request_irq(spi->irq, irq_handler, IRQF_SHARED,
+-			 dev_name(&spi->dev), lp);
++	rc = devm_request_irq(&spi->dev, spi->irq, irq_handler, IRQF_SHARED,
++			      dev_name(&spi->dev), lp);
+ 	if (rc)
+ 		goto err_hw_init;
  
- 	if (gpio_is_valid(pdata->slp_tr)) {
--		rc = gpio_request(pdata->slp_tr, "slp_tr");
-+		rc = devm_gpio_request_one(&spi->dev, pdata->slp_tr,
-+					   GPIOF_OUT_INIT_LOW, "slp_tr");
- 		if (rc)
--			goto err_slp_tr;
--	}
--
--	if (gpio_is_valid(pdata->rstn)) {
--		rc = gpio_direction_output(pdata->rstn, 1);
--		if (rc)
--			goto err_gpio_dir;
--	}
--
--	if (gpio_is_valid(pdata->slp_tr)) {
--		rc = gpio_direction_output(pdata->slp_tr, 0);
--		if (rc)
--			goto err_gpio_dir;
-+			return rc;
- 	}
+ 	/* Read irq status register to reset irq line */
+ 	rc = at86rf230_read_subreg(lp, RG_IRQ_STATUS, 0xff, 0, &status);
+ 	if (rc)
+-		goto err_irq;
++		goto err_hw_init;
  
- 	/* Reset */
-@@ -1117,13 +1107,12 @@ static int at86rf230_probe(struct spi_device *spi)
+ 	rc = ieee802154_register_device(lp->dev);
+ 	if (rc)
+-		goto err_irq;
++		goto err_hw_init;
  
- 	rc = __at86rf230_detect_device(spi, &man_id, &part, &version);
- 	if (rc < 0)
--		goto err_gpio_dir;
-+		return rc;
- 
- 	if (man_id != 0x001f) {
- 		dev_err(&spi->dev, "Non-Atmel dev found (MAN_ID %02x %02x)\n",
- 			man_id >> 8, man_id & 0xFF);
--		rc = -EINVAL;
--		goto err_gpio_dir;
-+		return -EINVAL;
- 	}
- 
- 	switch (part) {
-@@ -1150,16 +1139,12 @@ static int at86rf230_probe(struct spi_device *spi)
- 	}
- 
- 	dev_info(&spi->dev, "Detected %s chip version %d\n", chip, version);
--	if (!ops) {
--		rc = -ENOTSUPP;
--		goto err_gpio_dir;
--	}
-+	if (!ops)
-+		return -ENOTSUPP;
- 
- 	dev = ieee802154_alloc_device(sizeof(*lp), ops);
--	if (!dev) {
--		rc = -ENOMEM;
--		goto err_gpio_dir;
--	}
-+	if (!dev)
-+		return -ENOMEM;
- 
- 	lp = dev->priv;
- 	lp->dev = dev;
-@@ -1221,33 +1206,19 @@ err_hw_init:
- 	mutex_destroy(&lp->bmux);
- 	ieee802154_free_device(lp->dev);
- 
--err_gpio_dir:
--	if (gpio_is_valid(pdata->slp_tr))
--		gpio_free(pdata->slp_tr);
--err_slp_tr:
--	if (gpio_is_valid(pdata->rstn))
--		gpio_free(pdata->rstn);
  	return rc;
- }
  
- static int at86rf230_remove(struct spi_device *spi)
- {
- 	struct at86rf230_local *lp = spi_get_drvdata(spi);
--	struct at86rf230_platform_data *pdata = spi->dev.platform_data;
+-err_irq:
+-	free_irq(spi->irq, lp);
+ err_hw_init:
+ 	flush_work(&lp->irqwork);
+ 	spi_set_drvdata(spi, NULL);
+@@ -1239,7 +1237,6 @@ static int at86rf230_remove(struct spi_device *spi)
  
  	ieee802154_unregister_device(lp->dev);
--
- 	flush_work(&lp->irqwork);
--
--	if (gpio_is_valid(pdata->slp_tr))
--		gpio_free(pdata->slp_tr);
--	if (gpio_is_valid(pdata->rstn))
--		gpio_free(pdata->rstn);
--
- 	mutex_destroy(&lp->bmux);
- 	ieee802154_free_device(lp->dev);
--
- 	dev_dbg(&spi->dev, "unregistered at86rf230\n");
-+
- 	return 0;
- }
  
+-	free_irq(spi->irq, lp);
+ 	flush_work(&lp->irqwork);
+ 
+ 	if (gpio_is_valid(pdata->slp_tr))
 -- 
 1.9.1
 
