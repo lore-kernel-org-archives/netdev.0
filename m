@@ -1,125 +1,109 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [ovs-dev] [patch net-next RFC v2 2/6] skbuff: add "missed_flow"
- flag
-Date: Wed, 26 Mar 2014 18:25:01 +0100
-Message-ID: <20140326172501.GI2869@minipsycho.orion>
-References: <1395851472-10524-1-git-send-email-jiri@resnulli.us>
- <1395851472-10524-3-git-send-email-jiri@resnulli.us>
- <CAADnVQLJdNHx8bM2zy-cw5kKLK1GG3bLR=xZ=89AQA6fie4GxQ@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
+ switch chip datapath
+Date: Wed, 26 Mar 2014 10:29:07 -0700
+Message-ID: <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com>
+References: <532C2AC4.7080303@mojatatu.com> <20140322094852.GB2844@minipsycho.orion>
+ <5330BAB7.3040501@mojatatu.com> <20140325173927.GE8102@hmsreliant.think-freely.org>
+ <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org>
+ <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com>
+ <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com>
+ <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	john.r.fastabend@intel.com, Eric Dumazet <edumazet@google.com>,
-	andy@greyhouse.net, "dev@openvswitch.org" <dev@openvswitch.org>,
-	f.fainelli@gmail.com, jeffrey.t.kirsher@intel.com,
-	Or Gerlitz <ogerlitz@mellanox.com>, ben@decadent.org.uk,
-	roopa@cumulusnetworks.com, jhs@mojatatu.com,
-	linville@tuxdriver.com, vyasevic@redhat.com, nhorman@tuxdriver.com,
-	sfeldma@cumulusnetworks.com, stephen@networkplumber.org,
-	Daniel Borkmann <dborkman@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f45.google.com ([74.125.83.45]:55521 "EHLO
-	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751213AbaCZRZK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 13:25:10 -0400
-Received: by mail-ee0-f45.google.com with SMTP id d17so1932632eek.32
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 10:25:09 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAADnVQLJdNHx8bM2zy-cw5kKLK1GG3bLR=xZ=89AQA6fie4GxQ@mail.gmail.com>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:52929 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754369AbaCZR3s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 13:29:48 -0400
+Received: by mail-pb0-f49.google.com with SMTP id jt11so2204682pbb.8
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 10:29:48 -0700 (PDT)
+In-Reply-To: <20140326165934.GH2869@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Mar 26, 2014 at 05:59:12PM CET, alexei.starovoitov@gmail.com wrote:
->On Wed, Mar 26, 2014 at 9:31 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> This flag sets incoming switch device in order to let know that the flow
->> which the skb is part of is missed. Listener may react to it
->> appropriately,
->>
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> ---
->>  include/linux/filter.h |  1 +
->>  include/linux/skbuff.h | 13 +++++++++++++
->>  net/core/filter.c      |  3 +++
->>  3 files changed, 17 insertions(+)
->>
->> diff --git a/include/linux/filter.h b/include/linux/filter.h
->> index e568c8e..38c7c04 100644
->> --- a/include/linux/filter.h
->> +++ b/include/linux/filter.h
->> @@ -154,6 +154,7 @@ enum {
->>         BPF_S_ANC_VLAN_TAG,
->>         BPF_S_ANC_VLAN_TAG_PRESENT,
->>         BPF_S_ANC_PAY_OFFSET,
->> +       BPF_S_ANC_MISSED_FLOW,
+2014-03-26 9:59 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
+> Wed, Mar 26, 2014 at 05:54:17PM CET, roopa@cumulusnetworks.com wrote:
+>>On 3/26/14, 3:54 AM, Jamal Hadi Salim wrote:
+>>>On 03/26/14 01:37, Roopa Prabhu wrote:
+>>>>On 3/25/14, 1:11 PM, Florian Fainelli wrote:
+>>>>>2014-03-25 12:35 GMT-07:00 Neil Horman <nhorman@tuxdriver.com>:
+>>>
+>>>>Sorry about getting on this thread late and possibly in the middle.
+>>>>Agree on the idea of keeping the ports linked to the master switch dev
+>>>>(or the 'conduit' to the switch chip) via private list instead of the
+>>>>master-slave relationship proposed earlier.
+>>>>By private i mean the netdev->priv linkage to the master switch dev and
+>>>>not really keeping the ports from being exposed to the user.
+>>>>
+>>>>We think its better to keep the switch ports exposed as any other netdev
+>>>>on linux.
+>>>>  This approach will make the switch ports look exactly like a nic port
+>>>>and all tools will continue to work seamlessly. The switch port
+>>>>operations could internally be forwarded to the switch netdev (sw1 in
+>>>>the above case).
+>>>>
+>>>>example:
+>>>>$ip link set dev sw1p0 up
+>>>>$ethtool -S sw1p0
+>>>>
+>>>
+>>>I like the approach. I know the above is a simple version, but i am
+>>>assuming you also mean i can do things like
+>>>ip route add ...
+>>>bridge fdb add ... (and if you like your brctl go ahead)
+>>>bonding ...
+>>>
+>>yes, exactly.  We support this model on our boxes today.
+>>User can bond switch ports on our box in the exact same way as he/she
+>>would bond two nic ports.
+>>Our 'conduit to switch chip' reflects the corresponding lag
+>>configuration in the switch chip.
+>>Same goes for bridging, routing, acls.
 >
->Interesting use case for bpf...
->looks like it's not connected to userspace.
->Are you trying to extend ovs with switchdev api and bpf at once?
->How do you plan to use this bpf extension?
-
-The motive fot this is to provides a user (userspace app) possibility to
-get all skbs which were "flow-missed". He can adjust the filter so that
-only these can get through.
-
-
-
 >
->Thanks
->Alexei
->
->>  };
->>
->>  #endif /* __LINUX_FILTER_H__ */
->> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
->> index 03db95a..0100c2f 100644
->> --- a/include/linux/skbuff.h
->> +++ b/include/linux/skbuff.h
->> @@ -567,6 +567,7 @@ struct sk_buff {
->>          * headers if needed
->>          */
->>         __u8                    encapsulation:1;
->> +       __u8                    missed_flow:1;
->>         /* 6/8 bit hole (depending on ndisc_nodetype presence) */
->>         kmemcheck_bitfield_end(flags2);
->>
->> @@ -2993,5 +2994,17 @@ static inline unsigned int skb_gso_network_seglen(const struct sk_buff *skb)
->>                                skb_network_header(skb);
->>         return hdr_len + skb_gso_transport_seglen(skb);
->>  }
->> +
->> +/**
->> + * skb_mark_missed_flow - marks skb as a part of missed flow
->> + * @skb: buffer
->> + *
->> + * Marks skb as a part of missed flow.
->> + */
->> +static inline void skb_mark_missed_flow(struct sk_buff *skb)
->> +{
->> +       skb->missed_flow = 1;
->> +}
->> +
->>  #endif /* __KERNEL__ */
->>  #endif /* _LINUX_SKBUFF_H */
->> diff --git a/net/core/filter.c b/net/core/filter.c
->> index ad30d62..048f11a 100644
->> --- a/net/core/filter.c
->> +++ b/net/core/filter.c
->> @@ -350,6 +350,9 @@ load_b:
->>                 case BPF_S_ANC_PAY_OFFSET:
->>                         A = __skb_get_poff(skb);
->>                         continue;
->> +               case BPF_S_ANC_MISSED_FLOW:
->> +                       A = !!skb->missed_flow;
->> +                       continue;
->>                 case BPF_S_ANC_NLATTR: {
->>                         struct nlattr *nla;
->>
->> --
->> 1.8.5.3
->>
->> _______________________________________________
->> dev mailing list
->> dev@openvswitch.org
->> http://openvswitch.org/mailman/listinfo/dev
+> So you implement bonding netlink api? Or you hook into bonding driver
+> itselt? Can you show us the code?
+
+Before we start talking about bonding, maybe we should make sure that
+we cover some basic hardware switches uses which are to make some
+ports belong to certain VLANs, tagged or untagged?
+
+It seems to me like this would become something like this, assuming P0
+and P1 are two switch ports and 'eth0' is the CPU port, where P0 and
+P1 belong to VLAN1 and CPU belongs to VLAN2:
+
+ip link set dev sw1p0 up
+ip link set dev sw1p1 up
+ip link set dev eth0 up
+
+ip link add link eth0 name eth0.2 type vlan id 2
+
+ip link add link sw1p0 name sw1p0.1 type vlan id 1
+ip link add link sw1p1 name sw1p1.1 type vlan id 1
+
+ip link add sw1.1 type bridge
+ip link set sw1p0.1 master sw1.1
+ip link set sw1p1.1 master sw1.1
+
+Does that fit the model correctly?
+-- 
+Florian
