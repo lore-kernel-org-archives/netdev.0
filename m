@@ -1,34 +1,82 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2] random32: avoid attempt to late reseed if in the middle of seeding
-Date: Thu, 27 Mar 2014 07:17:42 +0100
-Message-ID: <20140327061742.GM22086@order.stressinduktion.org>
-References: <1395900095-15254-1-git-send-email-sasha.levin@oracle.com> <1395900095-15254-2-git-send-email-sasha.levin@oracle.com>
+From: Zhao Qiang <B45475@freescale.com>
+Subject: [PATCH] phy/at8031: enable at8031 to work on interrupt mode
+Date: Thu, 27 Mar 2014 14:18:36 +0800
+Message-ID: <1395901116-16034-1-git-send-email-B45475@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tytso@mit.edu, dborkman@redhat.com
-To: Sasha Levin <sasha.levin@oracle.com>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, <davem@davemloft.net>,
+	<mugunthanvnm@ti.com>, <zonque@gmail.com>,
+	<helmut.schaa@googlemail.com>, <R63061@freescale.com>,
+	Zhao Qiang <B45475@freescale.com>
+To: <linuxppc-dev@lists.ozlabs.org>, <netdev@vger.kernel.org>,
+	<B07421@freescale.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1395900095-15254-2-git-send-email-sasha.levin@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 27, 2014 at 02:01:35AM -0400, Sasha Levin wrote:
-> Commit 4af712e8df ("random32: add prandom_reseed_late() and call when
-> nonblocking pool becomes initialized") has added a late reseed stage
-> that happens as soon as the nonblocking pool is marked as initialized.
-> 
-> This fails in the case that the nonblocking pool gets initialized
-> during __prandom_reseed()'s call to get_random_bytes(). In that case
-> we'd double back into __prandom_reseed() in an attempt to do a late
-> reseed - deadlocking on 'lock' early on in the boot process.
-> 
-> Instead, just avoid even waiting to do a reseed if a reseed is already
-> occuring.
-> 
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+The at8031 can work on polling mode and interrupt mode.
+Add ack_interrupt and config intr funcs to enable
+interrupt mode for it.
 
-Thanks for fixing this!
+Signed-off-by: Zhao Qiang <B45475@freescale.com>
+---
+ drivers/net/phy/at803x.c | 30 ++++++++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+index bc71947..d034ef5 100644
+--- a/drivers/net/phy/at803x.c
++++ b/drivers/net/phy/at803x.c
+@@ -27,6 +27,9 @@
+ #define AT803X_MMD_ACCESS_CONTROL		0x0D
+ #define AT803X_MMD_ACCESS_CONTROL_DATA		0x0E
+ #define AT803X_FUNC_DATA			0x4003
++#define AT803X_INER				0x0012
++#define AT803X_INER_INIT			0xec00
++#define AT803X_INSR				0x0013
+ #define AT803X_DEBUG_ADDR			0x1D
+ #define AT803X_DEBUG_DATA			0x1E
+ #define AT803X_DEBUG_SYSTEM_MODE_CTRL		0x05
+@@ -191,6 +194,31 @@ static int at803x_config_init(struct phy_device *phydev)
+ 	return 0;
+ }
+ 
++static int at803x_ack_interrupt(struct phy_device *phydev)
++{
++	int err;
++
++	err = phy_read(phydev, AT803X_INSR);
++
++	return (err < 0) ? err : 0;
++}
++
++static int at803x_config_intr(struct phy_device *phydev)
++{
++	int err;
++	int value;
++
++	value = phy_read(phydev, AT803X_INER);
++
++	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
++		err = phy_write(phydev, AT803X_INER,
++				(value | AT803X_INER_INIT));
++	else
++		err = phy_write(phydev, AT803X_INER, value);
++
++	return err;
++}
++
+ static struct phy_driver at803x_driver[] = {
+ {
+ 	/* ATHEROS 8035 */
+@@ -240,6 +268,8 @@ static struct phy_driver at803x_driver[] = {
+ 	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
++	.ack_interrupt  = &at803x_ack_interrupt,
++	.config_intr    = &at803x_config_intr,
+ 	.driver		= {
+ 		.owner = THIS_MODULE,
+ 	},
+-- 
+1.8.5
