@@ -1,92 +1,90 @@
-From: Andrey Vagin <avagin@openvz.org>
-Subject: [PATCH] netfilter: nf_conntrack: reserve two bytes for nf_ct_ext->len (v2)
-Date: Fri, 28 Mar 2014 00:06:20 +0400
-Message-ID: <1395950780-14792-1-git-send-email-avagin@openvz.org>
-References: <20140327154504.GC31944@macbook.localnet>
-Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org, vvs@parallels.com,
-	Andrey Vagin <avagin@openvz.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <20140327154504.GC31944@macbook.localnet>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: generalize MAX_TCP_HEADER usage
+Date: Thu, 27 Mar 2014 13:19:06 -0700
+Message-ID: <1395951546.12610.317.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:43225 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756679AbaC0UTI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 16:19:08 -0400
+Received: by mail-pb0-f41.google.com with SMTP id jt11so3981483pbb.14
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 13:19:07 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"len" contains sizeof(nf_ct_ext) and size of extensions. In a worst
-case it can contain all extensions. Bellow you can find sizes for all
-types of extensions. Their sum is definitely bigger than 256.
+From: Eric Dumazet <edumazet@google.com>
 
-nf_ct_ext_types[0]->len = 24
-nf_ct_ext_types[1]->len = 32
-nf_ct_ext_types[2]->len = 24
-nf_ct_ext_types[3]->len = 32
-nf_ct_ext_types[4]->len = 152
-nf_ct_ext_types[5]->len = 2
-nf_ct_ext_types[6]->len = 16
-nf_ct_ext_types[7]->len = 8
+There are a lot of call sites in TCP stack assuming maximal size of
+headers is MAX_TCP_HEADER.
 
-I have seen "len" up to 280 and my host has crashes w/o this patch.
+Both IPv6 and IPv4 share same max_header, so we can avoid some picky
+usages in TCP stack and use a constant.
 
-The right way to fix this problem is reducing the size of the ecache
-extension (4) and Florian is going to do this, but these changes will
-be quite large to be appropriate for a stable tree.
+In tcp_xmit_size_goal() for example we do not care if we reserve 100
+extra bytes, this has little/no impact on the max number of segments per
+GSO packet. (Note that sk_stream_alloc_skb() uses MAX_TCP_HEADER
+anyway...)
 
-v2: rearrange the extension so ECACHE comes last. This is required to
-prevent overflow of nf_ct_ext->offset.
+tcp_connect() do not need to allocate 15 bytes more than MAX_TCP_HEADER,
+it is cooking a SYN packet without payload.
 
-Fixes: 5b423f6a40a0 (netfilter: nf_conntrack: fix racy timer handling with reliable)
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Andrey Vagin <avagin@openvz.org>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/netfilter/nf_conntrack_extend.h | 14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
+ net/ipv4/tcp.c        |   12 ++++--------
+ net/ipv4/tcp_output.c |    3 +--
+ 2 files changed, 5 insertions(+), 10 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
-index 956b175..9d41750 100644
---- a/include/net/netfilter/nf_conntrack_extend.h
-+++ b/include/net/netfilter/nf_conntrack_extend.h
-@@ -12,9 +12,6 @@ enum nf_ct_ext_id {
- #endif
- 	NF_CT_EXT_SEQADJ,
- 	NF_CT_EXT_ACCT,
--#ifdef CONFIG_NF_CONNTRACK_EVENTS
--	NF_CT_EXT_ECACHE,
--#endif
- #ifdef CONFIG_NF_CONNTRACK_ZONES
- 	NF_CT_EXT_ZONE,
- #endif
-@@ -30,6 +27,15 @@ enum nf_ct_ext_id {
- #if IS_ENABLED(CONFIG_NETFILTER_SYNPROXY)
- 	NF_CT_EXT_SYNPROXY,
- #endif
-+
-+/*
-+ * The size of the nf_conntrack_ecache struct is about 150 bytes, so
-+ * NF_CT_EXT_ECACHE must be the last one to prevent overflow of
-+ * nf_ct_ext->offset[id]
-+ */
-+#ifdef CONFIG_NF_CONNTRACK_EVENTS
-+	NF_CT_EXT_ECACHE,
-+#endif
- 	NF_CT_EXT_NUM,
- };
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 4bd6d52eeffb..c5a3c0876e80 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -802,10 +802,10 @@ struct sk_buff *sk_stream_alloc_skb(struct sock *sk, int size, gfp_t gfp)
+ 	/* The TCP header must be at least 32-bit aligned.  */
+ 	size = ALIGN(size, 4);
  
-@@ -48,7 +54,7 @@ enum nf_ct_ext_id {
- struct nf_ct_ext {
- 	struct rcu_head rcu;
- 	u8 offset[NF_CT_EXT_NUM];
--	u8 len;
-+	u16 len;
- 	char data[0];
- };
+-	skb = alloc_skb_fclone(size + sk->sk_prot->max_header, gfp);
++	skb = alloc_skb_fclone(size + MAX_TCP_HEADER, gfp);
+ 	if (skb) {
+ 		if (sk_wmem_schedule(sk, skb->truesize)) {
+-			skb_reserve(skb, sk->sk_prot->max_header);
++			skb_reserve(skb, MAX_TCP_HEADER);
+ 			/*
+ 			 * Make sure that we have exactly size bytes
+ 			 * available to the caller, no more, no less.
+@@ -830,12 +830,8 @@ static unsigned int tcp_xmit_size_goal(struct sock *sk, u32 mss_now,
+ 	xmit_size_goal = mss_now;
  
--- 
-1.8.5.3
-
+ 	if (large_allowed && sk_can_gso(sk)) {
+-		u32 gso_size, hlen;
+-
+-		/* Maybe we should/could use sk->sk_prot->max_header here ? */
+-		hlen = inet_csk(sk)->icsk_af_ops->net_header_len +
+-		       inet_csk(sk)->icsk_ext_hdr_len +
+-		       tp->tcp_header_len;
++		const u32 hlen = MAX_TCP_HEADER;
++		u32 gso_size;
+ 
+ 		/* Goal is to send at least one packet per ms,
+ 		 * not one big TSO packet every 100 ms.
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 699fb102e971..b528dea70392 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -3023,11 +3023,10 @@ int tcp_connect(struct sock *sk)
+ 		return 0;
+ 	}
+ 
+-	buff = alloc_skb_fclone(MAX_TCP_HEADER + 15, sk->sk_allocation);
++	buff = alloc_skb_fclone(MAX_TCP_HEADER, sk->sk_allocation);
+ 	if (unlikely(buff == NULL))
+ 		return -ENOBUFS;
+ 
+-	/* Reserve space for headers. */
+ 	skb_reserve(buff, MAX_TCP_HEADER);
+ 
+ 	tcp_init_nondata_skb(buff, tp->write_seq++, TCPHDR_SYN);
