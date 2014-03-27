@@ -1,177 +1,112 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Thu, 27 Mar 2014 09:46:26 -0400
-Message-ID: <20140327134625.GC31168@tuxdriver.com>
-References: <20140325180009.GB15723@casper.infradead.org>
- <20140325193533.GF8102@hmsreliant.think-freely.org>
- <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com>
- <5332677F.2090404@cumulusnetworks.com>
- <5332B1FE.7080102@mojatatu.com>
- <53330639.8050403@cumulusnetworks.com>
- <20140326165934.GH2869@minipsycho.orion>
- <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com>
- <5333150E.2010801@cumulusnetworks.com>
- <CAGVrzcbUss78O6MSrVJ6Nw-7HOda=CppjBkR_zRASNY9kXBR4Q@mail.gmail.com>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause from if statement
+Date: Thu, 27 Mar 2014 15:02:56 +0100
+Message-ID: <68689563.20140327150256@eikelenboom.it>
+References: <1395924973-42904-1-git-send-email-paul.durrant@citrix.com> <1395924973-42904-2-git-send-email-paul.durrant@citrix.com> <289461862.20140327144546@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029C992@AMSPEX01CL01.citrite.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: Paul Durrant <Paul.Durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53292 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755743AbaC0OBE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 10:01:04 -0400
-Content-Disposition: inline
-In-Reply-To: <CAGVrzcbUss78O6MSrVJ6Nw-7HOda=CppjBkR_zRASNY9kXBR4Q@mail.gmail.com>
+Received: from vserver.eikelenboom.it ([84.200.39.61]:60593 "EHLO
+	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755743AbaC0ODC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 10:03:02 -0400
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD029C992@AMSPEX01CL01.citrite.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 26, 2014 at 11:09:43AM -0700, Florian Fainelli wrote:
-> 2014-03-26 10:57 GMT-07:00 Roopa Prabhu <roopa@cumulusnetworks.com>:
-> > On 3/26/14, 10:29 AM, Florian Fainelli wrote:
-> >>
-> >> 2014-03-26 9:59 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
-> >>>
-> >>> Wed, Mar 26, 2014 at 05:54:17PM CET, roopa@cumulusnetworks.com wrote:
-> >>>>
-> >>>> On 3/26/14, 3:54 AM, Jamal Hadi Salim wrote:
-> >>>>>
-> >>>>> On 03/26/14 01:37, Roopa Prabhu wrote:
-> >>>>>>
-> >>>>>> On 3/25/14, 1:11 PM, Florian Fainelli wrote:
-> >>>>>>>
-> >>>>>>> 2014-03-25 12:35 GMT-07:00 Neil Horman <nhorman@tuxdriver.com>:
-> >>>>>>
-> >>>>>> Sorry about getting on this thread late and possibly in the middle.
-> >>>>>> Agree on the idea of keeping the ports linked to the master switch dev
-> >>>>>> (or the 'conduit' to the switch chip) via private list instead of the
-> >>>>>> master-slave relationship proposed earlier.
-> >>>>>> By private i mean the netdev->priv linkage to the master switch dev
-> >>>>>> and
-> >>>>>> not really keeping the ports from being exposed to the user.
-> >>>>>>
-> >>>>>> We think its better to keep the switch ports exposed as any other
-> >>>>>> netdev
-> >>>>>> on linux.
-> >>>>>>   This approach will make the switch ports look exactly like a nic
-> >>>>>> port
-> >>>>>> and all tools will continue to work seamlessly. The switch port
-> >>>>>> operations could internally be forwarded to the switch netdev (sw1 in
-> >>>>>> the above case).
-> >>>>>>
-> >>>>>> example:
-> >>>>>> $ip link set dev sw1p0 up
-> >>>>>> $ethtool -S sw1p0
-> >>>>>>
-> >>>>> I like the approach. I know the above is a simple version, but i am
-> >>>>> assuming you also mean i can do things like
-> >>>>> ip route add ...
-> >>>>> bridge fdb add ... (and if you like your brctl go ahead)
-> >>>>> bonding ...
-> >>>>>
-> >>>> yes, exactly.  We support this model on our boxes today.
-> >>>> User can bond switch ports on our box in the exact same way as he/she
-> >>>> would bond two nic ports.
-> >>>> Our 'conduit to switch chip' reflects the corresponding lag
-> >>>> configuration in the switch chip.
-> >>>> Same goes for bridging, routing, acls.
-> >>>
-> >>>
-> >>> So you implement bonding netlink api? Or you hook into bonding driver
-> >>> itselt? Can you show us the code?
-> >>
-> >> Before we start talking about bonding, maybe we should make sure that
-> >> we cover some basic hardware switches uses which are to make some
-> >> ports belong to certain VLANs, tagged or untagged?
-> >>
-> >> It seems to me like this would become something like this, assuming P0
-> >> and P1 are two switch ports and 'eth0' is the CPU port, where P0 and
-> >> P1 belong to VLAN1 and CPU belongs to VLAN2:
-> >>
-> >> ip link set dev sw1p0 up
-> >> ip link set dev sw1p1 up
-> >> ip link set dev eth0 up
-> >>
-> >> ip link add link eth0 name eth0.2 type vlan id 2
-> >>
-> >> ip link add link sw1p0 name sw1p0.1 type vlan id 1
-> >> ip link add link sw1p1 name sw1p1.1 type vlan id 1
-> >>
-> >> ip link add sw1.1 type bridge
-> >> ip link set sw1p0.1 master sw1.1
-> >> ip link set sw1p1.1 master sw1.1
-> >>
-> >> Does that fit the model correctly?
-> >
-> > Not entirely, but close.
-> > In our current model, there is no netdev for cpu port (or master switch
-> > netdev):
-> 
-> You mean there is no netdev for the switch-side CPU-port facing the
-> CPU Ethernet MAC, right? There is still a netdev for the CPU Ethernet
-> MAC to receive packets destined to it presumably.
-> 
-> I do not think it hurts nor changes anything to introduce a CPU-port
-> netdev, this just gives greater flexibility and this should allow for
-> more complex setups where multiple CPU-ports exist (there are some
-> real devices using this...).
 
-But how is this useful?  It just seems redundant to me.  Also, how
-should we communicate to the user that a given interface on the switch
-is hardwired to a given NIC on the CPU?
- 
-> >
-> >
-> > ip link set dev sw1p0 up
-> > ip link set dev sw1p1 up
-> >
-> > ip link add link sw1p0 name sw1p0.1 type vlan id 1
-> > ip link add link sw1p1 name sw1p1.1 type vlan id 1
-> >
-> > ip link add brvlan1 type bridge
-> > ip link set swp1p0.1 master brvlan1
-> > ip link set swp1p1.1 master brvlan1
-> >
-> > switch driver programs the brvlan1 vlan in the switch asic.
-> >
-> > bonding works in the same way.
-> >
-> > Thanks,
-> > Roopa
-> >
-> >
-> >
-> >
-> >
-> 
-> 
-> 
-> -- 
-> Florian
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Thursday, March 27, 2014, 2:54:46 PM, you wrote:
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+>> -----Original Message-----
+>> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+>> Sent: 27 March 2014 13:46
+>> To: Paul Durrant
+>> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian Campbell; Wei Liu
+>> Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause from if
+>> statement
+>> 
+>> 
+>> Thursday, March 27, 2014, 1:56:11 PM, you wrote:
+>> 
+>> > This patch removes a test in start_new_rx_buffer() that checks whether
+>> > a copy operation is less than MAX_BUFFER_OFFSET in length, since
+>> > MAX_BUFFER_OFFSET is defined to be PAGE_SIZE and the only caller of
+>> > start_new_rx_buffer() already limits copy operations to PAGE_SIZE or less.
+>> 
+>> > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+>> > Cc: Ian Campbell <ian.campbell@citrix.com>
+>> > Cc: Wei Liu <wei.liu2@citrix.com>
+>> > Cc: Sander Eikelenboom <linux@eikelenboom.it>
+>> > ---
+>> 
+>> > v2:
+>> >  - Add BUG_ON() as suggested by Ian Campbell
+>> 
+>> >  drivers/net/xen-netback/netback.c |    4 ++--
+>> >  1 file changed, 2 insertions(+), 2 deletions(-)
+>> 
+>> > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
+>> netback/netback.c
+>> > index 438d0c0..72314c7 100644
+>> > --- a/drivers/net/xen-netback/netback.c
+>> > +++ b/drivers/net/xen-netback/netback.c
+>> > @@ -192,8 +192,8 @@ static bool start_new_rx_buffer(int offset,
+>> unsigned long size, int head)
+>> >          * into multiple copies tend to give large frags their
+>> >          * own buffers as before.
+>> >          */
+>> > -       if ((offset + size > MAX_BUFFER_OFFSET) &&
+>> > -           (size <= MAX_BUFFER_OFFSET) && offset && !head)
+>> > +       BUG_ON(size > MAX_BUFFER_OFFSET);
+>> > +       if ((offset + size > MAX_BUFFER_OFFSET) && offset && !head)
+>> >                 return true;
+>> >
+>> >         return false;
+>> 
+>> Hi Paul,
+>> 
+>> Unfortunately .. no good ..
+>> 
+>> With these patches (v2) applied to 3.14-rc8 it all seems to work well,
+>> until i do my test case .. it still chokes and now effectively permanently stalls
+>> network traffic to that guest.
+>> 
+>> No error messages or anything in either xl dmesg or dmesg on the host .. and
+>> nothing in dmesg in the guest either.
+>> 
+>> But in the guest the TX bytes ifconfig reports for eth0 still increase but RX
+>> bytes does nothing, so it seems only the RX path is effected)
+>> 
+
+> But you're not getting ring overflow, right? So that suggests this series is working and you're now hitting another problem? I don't see how these patches could directly cause the new behaviour you're seeing.
+
+Don't know  .. how ever .. i previously tested:
+        - unconditionally doing "max_slots_needed + 1"  in "net_rx_action()", and that circumvented the problem reliably without causing anything else
+        - reverting the calculation of "max_slots_needed + 1"  in "net_rx_action()" to what it was before :
+                int max = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
+                if (vif->can_sg || vif->gso_mask || vif->gso_prefix_mask)
+                        max += MAX_SKB_FRAGS + 1; /* extra_info + frags */
+
+So that leads me to think it's something caused by this patch set.
+Patch1 could be a candidate .. perhaps that check was needed for some reason .. will see what not applying that one does
+
+--
+Sander
+
+
+>   Paul
+
+>> So it now seems i now have the situation which you described in the commit
+>> message from "ca2f09f2b2c6c25047cfc545d057c4edfcfe561c",
+>> "Without this patch I can trivially stall netback permanently by just doing a
+>> large guest to guest file copy between two Windows Server 2008R2 VMs on a
+>> single host."
+>> 
+>> --
+>> Sander
