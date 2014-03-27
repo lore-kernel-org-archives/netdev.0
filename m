@@ -1,62 +1,45 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [patch net-next RFC v2 0/6] introduce infrastructure
- for support of switch chip datapath
-Date: Thu, 27 Mar 2014 10:03:10 -0400
-Message-ID: <20140327140309.GD31168@tuxdriver.com>
-References: <1395851472-10524-1-git-send-email-jiri@resnulli.us>
- <53334A3F.6020105@mojatatu.com>
- <20140327072107.GC2845@minipsycho.orion>
- <5333FD12.9060404@mojatatu.com>
- <20140327110223.GA1615@casper.infradead.org>
- <533408C0.8000608@mojatatu.com>
- <20140327120012.GA13573@casper.infradead.org>
- <53341A63.3000004@mojatatu.com>
- <20140327125711.GL2845@minipsycho.orion>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: fix get_timewait4_sock() delay computation on 64bit
+Date: Thu, 27 Mar 2014 07:19:19 -0700
+Message-ID: <1395929959.12610.288.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
- dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
- Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20140327125711.GL2845-RDzucLLXGGI88b5SBfVpbw@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:49829 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753951AbaC0OTV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 10:19:21 -0400
+Received: by mail-pd0-f171.google.com with SMTP id r10so3433833pdi.30
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 07:19:20 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 27, 2014 at 01:57:11PM +0100, Jiri Pirko wrote:
-> Thu, Mar 27, 2014 at 01:32:35PM CET, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org wrote:
-> >On 03/27/14 08:00, Thomas Graf wrote:
-> >
-> >>It seems like we reached pretty good consensus on the model. What
-> >>remaining issues do you see with the port model proposed in v2?
-> >>
-> >
-> >Are we really following the same thread?
-> >I dont see any rallying behind Jiri's approach from the
-> >other folks who have their own code and way of approaching things.
-> >I am hoping we dont continue with the split that is there
-> >already.
-> 
-> It is not a split. It is just a completion of a model. Adding missing
-> parts. At least I see it that way.
+From: Eric Dumazet <edumazet@google.com>
 
-I probably wouldn't call it a 'split' either.  But, I agree with
-Jamal that we are nowhere near consensus so far.
+It seems I missed one change in get_timewait4_sock() to compute
+the remaining time before deletion of IPV4 timewait socket.
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+This could result in wrong output in /proc/net/tcp for tm->when field.
+
+Fixes: 96f817fedec4 ("tcp: shrink tcp6_timewait_sock by one cache line")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_ipv4.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 4555244607d0..6379894ec210 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2628,7 +2628,7 @@ static void get_timewait4_sock(const struct inet_timewait_sock *tw,
+ {
+ 	__be32 dest, src;
+ 	__u16 destp, srcp;
+-	long delta = tw->tw_ttd - jiffies;
++	s32 delta = tw->tw_ttd - inet_tw_time_stamp();
+ 
+ 	dest  = tw->tw_daddr;
+ 	src   = tw->tw_rcv_saddr;
