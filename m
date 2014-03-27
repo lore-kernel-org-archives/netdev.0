@@ -1,78 +1,81 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH 0/3] Fix stmmac-socfpga allmodconfig breakage in arm-soc
-Date: Thu, 27 Mar 2014 01:29:40 +0100
-Message-ID: <4983643.yPXNcULbxi@wuerfel>
-References: <1395790482-3957-1-git-send-email-dinguyen@altera.com> <201403262254.41069.arnd@arndb.de> <53336B39.3080209@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Dinh Nguyen <dinh.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, dinguyen-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org,
-	mark.rutland-5wv7dgnIgG8@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	pawel.moll-5wv7dgnIgG8@public.gmane.org, srinivas.kandagatla-qxv4g6HH51o@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org,
-	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, arm-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <53336B39.3080209-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: dummy: make use of multi-queues
+Date: Thu, 27 Mar 2014 01:37:56 +0100
+Message-ID: <1395880676-4472-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59889 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751301AbaC0Ah7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2014 20:37:59 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 26 March 2014 19:05:13 Dinh Nguyen wrote:
-> On 03/26/2014 04:54 PM, Arnd Bergmann wrote:
-> > On Wednesday 26 March 2014, dinguyen-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org wrote:
-> >> From: Dinh Nguyen <dinguyen-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
-> >>
-> >> Hi,
-> >>
-> >> These 3 patches are based on Arnd's patch to fix the allmodconfig for the
-> >> dwmac-socfpga implementation. I just broke the patch out into drivers,
-> >> dts, and dts documentation.
-> >>
-> >> The original patch is here:
-> >> http://lists.infradead.org/pipermail/linux-arm-kernel/2014-March/241518.html
-> >>
-> >> Arnd mentioned that he was thinking about just removing the dwmac-socfpga
-> >> and send out the new verion to the netdev tree, but I haven't seen it. So
-> >> just in case this solution might work, here are the patches.
-> >>
-> >> These patches are based on arm-soc/for-next.
-> >
-> > Hi Dinh,
-> >
-> > Thanks for putting these patches together. The problem I see with these
-> > is that we have multiple conflicts between my changes and the other
-> > patches that went into the netdev tree.
-> >
-> > Originally, the idea was that David Miller gave his Ack to have
-> > the patches merged through arm-soc, but I think that was a mistake,
-> > and they should have been treated like the other patches for
-> > the same driver, i.e. put the driver and binding changes into
-> > netdev, and the dt changes into arm-soc.
-> >
-> > If I apply your patches on top of the next/drivers branch, we get
-> > conflicts for a handful of files, and get Linus to resolve them.
-> > I tried applying my patch on Sunday, but backed it out because
-> > of this.
-> >
-> > My preferred solution at this point would be to revert the driver
-> > addition in the arm-soc tree and have David put the new version
-> > in, but I don't know if he still takes patches like that for 3.15.
-> >
-> 
-> That's fine. Do you mind if I send out a fresh patch based on the netdev 
-> tree? If there is still for 3.15, otherwise, going for 3.16 is fine.
+Quite often it can be useful to just use the dummy device as a blackhole
+sink for skbs, e.g. for packet sockets or pktgen tests. Therefore, make
+use of multiqueues, so that we can simulate for that. trafgen mmap/TX_RING
+example against dummy device with config foo: { fill(0xff, 64) } results
+in the following performance improvements on an ordinary Core i7/2.80GHz
+as we don't need to take a single queue/lock anymore:
 
-Sounds good. I've reverted the two patches (driver addition, and
-binding addition plus dts changes) in arm-soc/next/drivers now.
+Before:
 
-Please submit the updated versions to netdev, but split out the
-dts changes into a patch that we can take through arm-soc.
+ Performance counter stats for 'trafgen -i foo -o du0 -n100000000' (10 runs):
 
-I'll send an Ack when I see your patches.
+   160,975,944,159 instructions:k            #    0.55  insns per cycle          ( +-  0.09% )
+   293,319,390,278 cycles:k                  #    0.000 GHz                      ( +-  0.35% )
+       192,501,104 branch-misses:k                                               ( +-  1.63% )
+               831 context-switches:k                                            ( +-  9.18% )
+                 7 cpu-migrations:k                                              ( +-  7.40% )
+            69,382 cache-misses:k            #    0.010 % of all cache refs      ( +-  2.18% )
+       671,552,021 cache-references:k                                            ( +-  1.29% )
 
-	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+      22.856401569 seconds time elapsed                                          ( +-  0.33% )
+
+After:
+
+ Performance counter stats for 'trafgen -i foo -o du0 -n100000000' (10 runs):
+
+   138,669,108,882 instructions:k            #    0.92  insns per cycle          ( +-  0.02% )
+   151,222,621,155 cycles:k                  #    0.000 GHz                      ( +-  0.11% )
+        57,667,395 branch-misses:k                                               ( +-  6.15% )
+               400 context-switches:k                                            ( +-  2.73% )
+                 6 cpu-migrations:k                                              ( +-  7.51% )
+            67,414 cache-misses:k            #    0.075 % of all cache refs      ( +-  1.64% )
+        90,479,875 cache-references:k                                            ( +-  0.75% )
+
+      12.080331543 seconds time elapsed                                          ( +-  0.13% )
+
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>
+---
+ drivers/net/dummy.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+index 0932ffb..b3f78a9 100644
+--- a/drivers/net/dummy.c
++++ b/drivers/net/dummy.c
+@@ -35,6 +35,7 @@
+ #include <linux/init.h>
+ #include <linux/moduleparam.h>
+ #include <linux/rtnetlink.h>
++#include <linux/cpumask.h>
+ #include <net/rtnetlink.h>
+ #include <linux/u64_stats_sync.h>
+ 
+@@ -162,9 +163,10 @@ MODULE_PARM_DESC(numdummies, "Number of dummy pseudo devices");
+ static int __init dummy_init_one(void)
+ {
+ 	struct net_device *dev_dummy;
++	unsigned int numqueues = min(num_possible_cpus(), 32U);
+ 	int err;
+ 
+-	dev_dummy = alloc_netdev(0, "dummy%d", dummy_setup);
++	dev_dummy = alloc_netdev_mq(0, "dummy%d", dummy_setup, numqueues);
+ 	if (!dev_dummy)
+ 		return -ENOMEM;
+ 
+-- 
+1.7.11.7
