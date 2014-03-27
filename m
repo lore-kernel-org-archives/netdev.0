@@ -1,61 +1,147 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
- of switch chip datapath
-Date: Thu, 27 Mar 2014 17:47:24 -0400
-Message-ID: <53349C6C.6050506@mojatatu.com>
-References: <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion> <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com> <20140326173536.GJ2869@minipsycho.orion> <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com> <20140326181436.GL2869@minipsycho.orion> <53334BDA.1060608@mojatatu.com> <CAGVrzcaconDBjgSfk0=6px2+6LbrxMkmesgigSa3-9WaK-LiOw@mail.gmail.com> <20140327065616.GA2845@minipsycho.orion> <CAHNKnsQYLNfkrC0088g2os30NcSz9HVzkytbK_qFbNfeSWkmFw@mail.gmail.com> <20140327165550.GN2845@minipsycho.orion> <CAHNKnsRrb1ZoV0he0jLjJ3TBRScHcs6XRxiXrscHRJ6X3=VuGQ@mail.gmail.com> <CAGVrzcZ5JpTZFTMkhLOoh8GMWPDitn=gsVkPLv7rpD3fH3kavQ@mail.gmail.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net v2] openvswitch: fix a possible deadlock and lockdep warning
+Date: Thu, 27 Mar 2014 14:51:28 -0700
+Message-ID: <CAEP_g=_-36gC3mceV6tSmgJf1M4+d0tNyH8eymk1zKzvQEv_Qg@mail.gmail.com>
+References: <1395929134-4487-1-git-send-email-fbl@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	Felix Fietkau <nbd@openwrt.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Sergey Ryazanov <ryazanov.s.a@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, openvswitch <dev@openvswitch.org>
+To: Flavio Leitner <fbl@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f48.google.com ([209.85.219.48]:44617 "EHLO
-	mail-oa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755441AbaC0Vr2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 17:47:28 -0400
-Received: by mail-oa0-f48.google.com with SMTP id m1so5081271oag.21
-        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 14:47:27 -0700 (PDT)
-In-Reply-To: <CAGVrzcZ5JpTZFTMkhLOoh8GMWPDitn=gsVkPLv7rpD3fH3kavQ@mail.gmail.com>
+Received: from na6sys009bog006.obsmtp.com ([74.125.150.52]:45947 "HELO
+	na6sys009bog006.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756166AbaC0Vvu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 17:51:50 -0400
+Received: by mail-ie0-f180.google.com with SMTP id as1so4091072iec.39
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 14:51:48 -0700 (PDT)
+In-Reply-To: <1395929134-4487-1-git-send-email-fbl@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/27/14 16:01, Florian Fainelli wrote:
-> 2014-03-27 12:58 GMT-07:00 Sergey Ryazanov <ryazanov.s.a@gmail.com>:
->> 2014-03-27 20:55 GMT+04:00 Jiri Pirko <jiri@resnulli.us>:
-
->> Moreover, we need to know ports of switch chip, what are really wired
->> to the connectors (e.g. five-port switch on the board with only three
->> connectors).
+On Thu, Mar 27, 2014 at 7:05 AM, Flavio Leitner <fbl@redhat.com> wrote:
+> There are two problematic situations.
 >
-> Well, DSA already does all of that for you and has Device Tree
-> bindings too to instantiate per-port net_device, create the switch
-> routing table in case switches are cascaded...
+> A deadlock can happen when is_percpu is false because it can get
+> interrupted while holding the spinlock. Then it executes
+> ovs_flow_stats_update() in softirq context which tries to get
+> the same lock.
 >
+> The second sitation is that when is_percpu is true, the code
+> correctly disables BH but only for the local CPU, so the
+> following can happen when locking the remote CPU without
+> disabling BH:
+>
+>        CPU#0                            CPU#1
+>   ovs_flow_stats_get()
+>    stats_read()
+>  +->spin_lock remote CPU#1        ovs_flow_stats_get()
+>  |  <interrupted>                  stats_read()
+>  |  ...                       +-->  spin_lock remote CPU#0
+>  |                            |     <interrupted>
+>  |  ovs_flow_stats_update()   |     ...
+>  |   spin_lock local CPU#0 <--+     ovs_flow_stats_update()
+>  +---------------------------------- spin_lock local CPU#1
+>
+> This patch disables BH for both cases fixing the deadlocks.
+>
+> =================================
+> [ INFO: inconsistent lock state ]
+> 3.14.0-rc8-00007-g632b06a #1 Tainted: G          I
+> ---------------------------------
+> inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W} usage.
+> swapper/0/0 [HC0[0]:SC1[5]:HE1:SE0] takes:
+> (&(&cpu_stats->lock)->rlock){+.?...}, at: [<ffffffffa05dd8a1>] ovs_flow_stats_update+0x51/0xd0 [openvswitch]
+> {SOFTIRQ-ON-W} state was registered at:
+> [<ffffffff810f973f>] __lock_acquire+0x68f/0x1c40
+> [<ffffffff810fb4e2>] lock_acquire+0xa2/0x1d0
+> [<ffffffff817d8d9e>] _raw_spin_lock+0x3e/0x80
+> [<ffffffffa05dd9e4>] ovs_flow_stats_get+0xc4/0x1e0 [openvswitch]
+> [<ffffffffa05da855>] ovs_flow_cmd_fill_info+0x185/0x360 [openvswitch]
+> [<ffffffffa05daf05>] ovs_flow_cmd_build_info.constprop.27+0x55/0x90 [openvswitch]
+> [<ffffffffa05db41d>] ovs_flow_cmd_new_or_set+0x4dd/0x570 [openvswitch]
+> [<ffffffff816c245d>] genl_family_rcv_msg+0x1cd/0x3f0
+> [<ffffffff816c270e>] genl_rcv_msg+0x8e/0xd0
+> [<ffffffff816c0239>] netlink_rcv_skb+0xa9/0xc0
+> [<ffffffff816c0798>] genl_rcv+0x28/0x40
+> [<ffffffff816bf830>] netlink_unicast+0x100/0x1e0
+> [<ffffffff816bfc57>] netlink_sendmsg+0x347/0x770
+> [<ffffffff81668e9c>] sock_sendmsg+0x9c/0xe0
+> [<ffffffff816692d9>] ___sys_sendmsg+0x3a9/0x3c0
+> [<ffffffff8166a911>] __sys_sendmsg+0x51/0x90
+> [<ffffffff8166a962>] SyS_sendmsg+0x12/0x20
+> [<ffffffff817e3ce9>] system_call_fastpath+0x16/0x1b
+> irq event stamp: 1740726
+> hardirqs last  enabled at (1740726): [<ffffffff8175d5e0>] ip6_finish_output2+0x4f0/0x840
+> hardirqs last disabled at (1740725): [<ffffffff8175d59b>] ip6_finish_output2+0x4ab/0x840
+> softirqs last  enabled at (1740674): [<ffffffff8109be12>] _local_bh_enable+0x22/0x50
+> softirqs last disabled at (1740675): [<ffffffff8109db05>] irq_exit+0xc5/0xd0
+>
+> other info that might help us debug this:
+>  Possible unsafe locking scenario:
+>
+>        CPU0
+>        ----
+>   lock(&(&cpu_stats->lock)->rlock);
+>   <Interrupt>
+>     lock(&(&cpu_stats->lock)->rlock);
+>
+>  *** DEADLOCK ***
+>
+> 5 locks held by swapper/0/0:
+>  #0:  (((&ifa->dad_timer))){+.-...}, at: [<ffffffff810a7155>] call_timer_fn+0x5/0x320
+>  #1:  (rcu_read_lock){.+.+..}, at: [<ffffffff81788a55>] mld_sendpack+0x5/0x4a0
+>  #2:  (rcu_read_lock_bh){.+....}, at: [<ffffffff8175d149>] ip6_finish_output2+0x59/0x840
+>  #3:  (rcu_read_lock_bh){.+....}, at: [<ffffffff8168ba75>] __dev_queue_xmit+0x5/0x9b0
+>  #4:  (rcu_read_lock){.+.+..}, at: [<ffffffffa05e41b5>] internal_dev_xmit+0x5/0x110 [openvswitch]
+>
+> stack backtrace:
+> CPU: 0 PID: 0 Comm: swapper/0 Tainted: G          I  3.14.0-rc8-00007-g632b06a #1
+> Hardware name:                  /DX58SO, BIOS SOX5810J.86A.5599.2012.0529.2218 05/29/2012
+>  0000000000000000 0fcf20709903df0c ffff88042d603808 ffffffff817cfe3c
+>  ffffffff81c134c0 ffff88042d603858 ffffffff817cb6da 0000000000000005
+>  ffffffff00000001 ffff880400000000 0000000000000006 ffffffff81c134c0
+> Call Trace:
+>  <IRQ>  [<ffffffff817cfe3c>] dump_stack+0x4d/0x66
+>  [<ffffffff817cb6da>] print_usage_bug+0x1f4/0x205
+>  [<ffffffff810f7f10>] ? check_usage_backwards+0x180/0x180
+>  [<ffffffff810f8963>] mark_lock+0x223/0x2b0
+>  [<ffffffff810f96d3>] __lock_acquire+0x623/0x1c40
+>  [<ffffffff810f5707>] ? __lock_is_held+0x57/0x80
+>  [<ffffffffa05e26c6>] ? masked_flow_lookup+0x236/0x250 [openvswitch]
+>  [<ffffffff810fb4e2>] lock_acquire+0xa2/0x1d0
+>  [<ffffffffa05dd8a1>] ? ovs_flow_stats_update+0x51/0xd0 [openvswitch]
+>  [<ffffffff817d8d9e>] _raw_spin_lock+0x3e/0x80
+>  [<ffffffffa05dd8a1>] ? ovs_flow_stats_update+0x51/0xd0 [openvswitch]
+>  [<ffffffffa05dd8a1>] ovs_flow_stats_update+0x51/0xd0 [openvswitch]
+>  [<ffffffffa05dcc64>] ovs_dp_process_received_packet+0x84/0x120 [openvswitch]
+>  [<ffffffff810f93f7>] ? __lock_acquire+0x347/0x1c40
+>  [<ffffffffa05e3bea>] ovs_vport_receive+0x2a/0x30 [openvswitch]
+>  [<ffffffffa05e4218>] internal_dev_xmit+0x68/0x110 [openvswitch]
+>  [<ffffffffa05e41b5>] ? internal_dev_xmit+0x5/0x110 [openvswitch]
+>  [<ffffffff8168b4a6>] dev_hard_start_xmit+0x2e6/0x8b0
+>  [<ffffffff8168be87>] __dev_queue_xmit+0x417/0x9b0
+>  [<ffffffff8168ba75>] ? __dev_queue_xmit+0x5/0x9b0
+>  [<ffffffff8175d5e0>] ? ip6_finish_output2+0x4f0/0x840
+>  [<ffffffff8168c430>] dev_queue_xmit+0x10/0x20
+>  [<ffffffff8175d641>] ip6_finish_output2+0x551/0x840
+>  [<ffffffff8176128a>] ? ip6_finish_output+0x9a/0x220
+>  [<ffffffff8176128a>] ip6_finish_output+0x9a/0x220
+>  [<ffffffff8176145f>] ip6_output+0x4f/0x1f0
+>  [<ffffffff81788c29>] mld_sendpack+0x1d9/0x4a0
+>  [<ffffffff817895b8>] mld_send_initial_cr.part.32+0x88/0xa0
+>  [<ffffffff817691b0>] ? addrconf_dad_completed+0x220/0x220
+>  [<ffffffff8178e301>] ipv6_mc_dad_complete+0x31/0x50
+>  [<ffffffff817690d7>] addrconf_dad_completed+0x147/0x220
+>  [<ffffffff817691b0>] ? addrconf_dad_completed+0x220/0x220
+>  [<ffffffff8176934f>] addrconf_dad_timer+0x19f/0x1c0
+>  [<ffffffff810a71e9>] call_timer_fn+0x99/0x320
+>  [<ffffffff810a7155>] ? call_timer_fn+0x5/0x320
+>  [<ffffffff817691b0>] ? addrconf_dad_completed+0x220/0x220
+>  [<ffffffff810a76c4>] run_timer_softirq+0x254/0x3b0
+>  [<ffffffff8109d47d>] __do_softirq+0x12d/0x480
+>
+> Signed-off-by: Flavio Leitner <fbl@redhat.com>
 
-Just to be clear:
-routing here implies how the devices are interconnected (as opposed
-to L3 packet processing).
-Is that generic enough to be usable for different vendors or only
-specific to marvel?
+David, can you apply this directly to the net tree at this point?
 
-cheers,
-jamal
+Acked-by: Jesse Gross <jesse@nicira.com>
