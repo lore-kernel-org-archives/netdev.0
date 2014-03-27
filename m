@@ -1,172 +1,142 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: significant napi_gro_frags() slowdown
-Date: Thu, 27 Mar 2014 17:39:11 +0100
-Message-ID: <5334542F.1050702@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
+ switch chip datapath
+Date: Thu, 27 Mar 2014 09:41:52 -0700
+Message-ID: <CAGVrzcaWQH0aH3HOFdhaX2K3sGkfn4EitWaN+17R1oU4xtudWg@mail.gmail.com>
+References: <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com>
+ <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion>
+ <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com>
+ <20140326173536.GJ2869@minipsycho.orion> <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com>
+ <20140326181436.GL2869@minipsycho.orion> <53334BDA.1060608@mojatatu.com>
+ <CAGVrzcaconDBjgSfk0=6px2+6LbrxMkmesgigSa3-9WaK-LiOw@mail.gmail.com>
+ <20140327065616.GA2845@minipsycho.orion> <CAHNKnsQYLNfkrC0088g2os30NcSz9HVzkytbK_qFbNfeSWkmFw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jerry Chu <hkchu@google.com>, Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
+	Felix Fietkau <nbd@openwrt.org>
+To: Sergey Ryazanov <ryazanov.s.a@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60521 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753304AbaC0QjQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Mar 2014 12:39:16 -0400
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:48438 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754761AbaC0Qmc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 12:42:32 -0400
+Received: by mail-pa0-f46.google.com with SMTP id kp14so3736600pab.33
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 09:42:32 -0700 (PDT)
+In-Reply-To: <CAHNKnsQYLNfkrC0088g2os30NcSz9HVzkytbK_qFbNfeSWkmFw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+2014-03-27 7:10 GMT-07:00 Sergey Ryazanov <ryazanov.s.a@gmail.com>:
+> Hi all,
+>
+> sorry for the intrusion, but let me place my 2 cents.
+>
+> 2014-03-27 10:56 GMT+04:00 Jiri Pirko <jiri@resnulli.us>:
+>> Wed, Mar 26, 2014 at 11:22:51PM CET, f.fainelli@gmail.com wrote:
+>>>2014-03-26 14:51 GMT-07:00 Jamal Hadi Salim <jhs@mojatatu.com>:
+>>>> On 03/26/14 14:14, Jiri Pirko wrote:
+>>>>>
+>>>>> Wed, Mar 26, 2014 at 06:58:32PM CET, f.fainelli@gmail.com wrote:
+>>>>>>
+>>>>>> 2014-03-26 10:35 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
+>>>>
+>>>>
+>>>>
+>>>>>> You are right, sw1p0 and sw1p1 were meant to be, say LAN ports in my
+>>>>>> example.
+>>>>>>
+>>>>>> I think there is an implicit convention that sw1 represents the
+>>>>>> Ethernet switch port connected to the CPU Ethernet MAC, and that it is
+>>>>>> always connected, hence there is no need to create a "fake" bridge to
+>>>>>> link sw1 to eth0 for instance?
+>>>>>
+>>>>>
+>>>>> I think you are kind of mixing apples and oranges (or I might be I'm not
+>>>>> understanding you correctly).
+>>>>> This is how I see it, sticking to the names you use in the example:
+>>>>>
+>>>>>              (sw1) (abstract place-holder netdev)
+>>>>>            --------
+>>>>>           switch chip                   CPU
+>>>>>     -----------------------            ------
+>>>>>     sw1p0 sw1p1 sw1p2 sw1p3             eth0
+>>>>>       |     |     |     |                |
+>>>>>      PHY   PHY   PHY    ------someMII-----
+>>>>>
+>>>>> You see that eth0 is the CPU part of the "connection" and sw1p3 is the
+>>>>> switch part (port representation).
+>>>>>
+>>>>
+>>>>
+>>>> Florian - I am sure you explained this before; I just dont remember. Why
+>>>> is there need to expose eth0? It seems to me sw1p0-3 are abstracted
+>>>> already in the kernel and the "cpu port" is merely a control interface.
+>>>
+>>>eth0 corresponds to a CPU Ethernet MAC facing e.g: sw1p3 switch port.
+>>>It is "regular" Ethernet driver connected to the switch without
+>>>switch-specific logic. The goal is twofold:
+>>>
+>>>- allow any regular Ethernet driver to be connected to an external
+>>>switch via e.g: MDIO/MDC or other without specific switch knowledge
+>>>- represents accurately how the hardware is designed/connected
+>>>
+>>>but maybe, we can simplify and have e.g: sw1p3 and eth0 be the same interface...
+>>
+>> I believe that hawing both sw1p3 and eth0 is the correct way of
+>> modelling this. sw1p3 is instance if switch chip driver representing the
+>> actual port of a switch. eth0 is an instance of some other ordinary NIC
+>> driver (8139too is my favorite :))
+>>
+>> This model allows to draw the exact picture.
+>> Also, when you add the described possibility to use iplink to build
+>> vlans, bridges whatever on the switch ports, it makes perfect sense to
+>> have this model.
+>>
+>> Merging sw1p3 and eth0 would cause a loose of information and confusion.
+>>
+>
+> CPU switch port and switch fabric itself should be configured in
+> consistence with host, in first place I mean a set of VLANs. Also it
+> should be mentioned that some generic knobs such as port rate and
+> duplex mode are meaningless for CPU switch port and a lot of status
+> information (rx/tx counters etc.) duplicates statistics of host
+> interface which is connected to switch port.
 
-I received a report about a performance regression on a simple workload 
-of receiving a single TCP stream using a be2net NIC. Previously the 
-reporter was able to reach more than 9 Gb/s, but now he sees less than 7 
-Gb/s.
+It duplicates the information when things just work fine, consider an
+external switch connected via RGMII to a CPU Ethernet MAC, you might
+want to get statistics from both sides (the switch CPU port and the
+CPU Ethernet MAC) to diagnose why things are not working as expected,
+which unfortunately happens once in a while with RGMII.
 
-On my system the performance loss was not so obvious, but profiling with 
-perf showed significant time spent in copying memory in 
-__pskb_pull_tail(). Here is an example perf histogram from 3.14-rc8:
+If we expose both net_device, we will be able to retrieve statistics
+about from both sides, without resorting to ad-hoc debugging tools,
+but maybe this is not worth the effort.
 
--  14.03%         swapper  [kernel.kallsyms]        [k] memcpy
-    - memcpy
-       - 99.99% __pskb_pull_tail
-          - 46.16% tcp_gro_receive
-               tcp4_gro_receive
-               inet_gro_receive
-               dev_gro_receive
-               napi_gro_frags
-               be_process_rx
-               be_poll
-               net_rx_action
-               __do_softirq
-             + irq_exit
-          - 31.18% napi_gro_frags
-               be_process_rx
-               be_poll
-               net_rx_action
-               __do_softirq
-               irq_exit
-               do_IRQ
-             + ret_from_intr
-          - 22.66% inet_gro_receive
-               dev_gro_receive
-               napi_gro_frags
-               be_process_rx
-               be_poll
-               net_rx_action
-               __do_softirq
-               irq_exit
-               do_IRQ
-             + ret_from_intr
--  13.44%       netserver  [kernel.kallsyms]        [k] 
-copy_user_generic_string
-    - copy_user_generic_string
-    - skb_copy_datagram_iovec
-       + 56.70% skb_copy_datagram_iovec
-       + 32.27% tcp_recvmsg
-       + 11.03% tcp_rcv_established
--   5.64%         swapper  [kernel.kallsyms]        [k] __pskb_pull_tail
-    - __pskb_pull_tail
-       + 48.58% tcp_gro_receive
-       + 24.48% inet_gro_receive
-       + 24.11% napi_gro_frags
-       + 1.28% tcp4_gro_receive
-       + 0.91% be_process_rx
-       + 0.64% dev_gro_receive
-+   5.13%         swapper  [kernel.kallsyms]        [k] skb_copy_bits
-...
+> So there are no reasons
+> to force user to configure this port manually, and automatic
+> configuration of CPU switch port without exporting them as netdev
+> seems as good approach.
 
-Bisection identified this first bad commit:
-
-     commit 299603e8370a93dd5d8e8d800f0dff1ce2c53d36
-     Author: Jerry Chu <hkchu@google.com>
-     Date:   Wed Dec 11 20:53:45 2013 -0800
-
-         net-gro: Prepare GRO stack for the upcoming tunneling support
-
-Before this commit, the GRO code was able to access the received 
-packets' headers quickly via NAPI_GRO_CB(skb)->frag0. After the commit, 
-this optimization no longer applies. napi_frags_skb() will now always 
-pull the Ethernet header from the first frag. Subsequently, the slow 
-paths are being taken in .gro_receive functions, always pulling the 
-other headers with __pskb_pull_tail().
-
-To demonstrate the call chains, let's see the function graph traced by 
-ftrace.
-Before the commit:
-
-  13)               |  napi_gro_frags() {
-  13)   0.038 us    |    skb_gro_reset_offset();
-  13)               |    dev_gro_receive() {
-  13)               |      inet_gro_receive() {
-  13)               |        tcp4_gro_receive() {
-  13)               |          tcp_gro_receive() {
-  13)   0.059 us    |            skb_gro_receive();
-  13)   0.385 us    |          }
-  13)   0.675 us    |        }
-  13)   1.012 us    |      }
-  13)   1.336 us    |    }
-  13)   0.040 us    |    napi_reuse_skb.isra.57();
-  13)   2.235 us    |  }
-
-After the commit:
-
-   7)               |  napi_gro_frags() {
-   7)               |    __pskb_pull_tail() {
-   7)   0.204 us    |      skb_copy_bits();
-   7)   0.551 us    |    }
-   7)   0.046 us    |    eth_type_trans();
-   7)               |    dev_gro_receive() {
-   7)               |      inet_gro_receive() {
-   7)               |        __pskb_pull_tail() {
-   7)   0.095 us    |          skb_copy_bits();
-   7)   0.412 us    |        }
-   7)               |        tcp4_gro_receive() {
-   7)               |          tcp_gro_receive() {
-   7)               |            __pskb_pull_tail() {
-   7)   0.095 us    |              skb_copy_bits();
-   7)   0.410 us    |            }
-   7)               |            __pskb_pull_tail() {
-   7)   0.095 us    |              skb_copy_bits();
-   7)   0.412 us    |            }
-   7)   0.055 us    |            skb_gro_receive();
-   7)   1.771 us    |          }
-   7)   2.077 us    |        }
-   7)   3.078 us    |      }
-   7)   3.403 us    |    }
-   7)   0.043 us    |    napi_reuse_skb.isra.72();
-   7)   5.152 us    |  }
-
-Here are typical times spent in napi_gro_frags(), measured using ftrace 
-and making napi_gro_frags() a leaf function (thus avoiding the tracing 
-overhead in child functions).
-Before the commit:
-
-...
-  12)   0.130 us    |  napi_gro_frags();
-  12)   0.129 us    |  napi_gro_frags();
-  12)   0.132 us    |  napi_gro_frags();
-  12)   0.128 us    |  napi_gro_frags();
-  12)   0.126 us    |  napi_gro_frags();
-  12)   0.129 us    |  napi_gro_frags();
-  12)   1.423 us    |  napi_gro_frags();
-...
-
-After the commit:
-
-...
-  20)   0.812 us    |  napi_gro_frags();
-  20)   0.820 us    |  napi_gro_frags();
-  20)   0.811 us    |  napi_gro_frags();
-  20)   0.812 us    |  napi_gro_frags();
-  20)   0.814 us    |  napi_gro_frags();
-  20)   0.819 us    |  napi_gro_frags();
-  20)   1.526 us    |  napi_gro_frags();
-...
-
-This should affect not just be2net, but all drivers that use 
-napi_gro_frags().
-Any suggestions how to restore the frag0 optimization?
-
-Thanks,
-Michal
+Well, maybe that's the answer, since we know that e.g: sw1p3 is always
+connected to e.g: eth0, we could create an automatic bridge between
+those two, this would keep the netdev exposure to user-space, but an
+user would not have to know about that specific detail to get things
+to work.
+-- 
+Florian
