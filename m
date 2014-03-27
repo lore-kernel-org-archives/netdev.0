@@ -1,8 +1,8 @@
 From: Sander Eikelenboom <linux@eikelenboom.it>
 Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause from if statement
-Date: Thu, 27 Mar 2014 15:02:56 +0100
-Message-ID: <68689563.20140327150256@eikelenboom.it>
-References: <1395924973-42904-1-git-send-email-paul.durrant@citrix.com> <1395924973-42904-2-git-send-email-paul.durrant@citrix.com> <289461862.20140327144546@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029C992@AMSPEX01CL01.citrite.net>
+Date: Thu, 27 Mar 2014 15:05:07 +0100
+Message-ID: <184827204.20140327150507@eikelenboom.it>
+References: <1395924973-42904-1-git-send-email-paul.durrant@citrix.com> <1395924973-42904-2-git-send-email-paul.durrant@citrix.com> <289461862.20140327144546@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029CA38@AMSPEX01CL01.citrite.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,16 +12,16 @@ Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
 	Wei Liu <wei.liu2@citrix.com>
 To: Paul Durrant <Paul.Durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vserver.eikelenboom.it ([84.200.39.61]:60593 "EHLO
+Received: from vserver.eikelenboom.it ([84.200.39.61]:60619 "EHLO
 	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755743AbaC0ODC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 10:03:02 -0400
-In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD029C992@AMSPEX01CL01.citrite.net>
+	with ESMTP id S1754971AbaC0OFK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 10:05:10 -0400
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD029CA38@AMSPEX01CL01.citrite.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Thursday, March 27, 2014, 2:54:46 PM, you wrote:
+Thursday, March 27, 2014, 3:00:14 PM, you wrote:
 
 >> -----Original Message-----
 >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
@@ -83,30 +83,19 @@ Thursday, March 27, 2014, 2:54:46 PM, you wrote:
 >> But in the guest the TX bytes ifconfig reports for eth0 still increase but RX
 >> bytes does nothing, so it seems only the RX path is effected)
 >> 
-
-> But you're not getting ring overflow, right? So that suggests this series is working and you're now hitting another problem? I don't see how these patches could directly cause the new behaviour you're seeing.
-
-Don't know  .. how ever .. i previously tested:
-        - unconditionally doing "max_slots_needed + 1"  in "net_rx_action()", and that circumvented the problem reliably without causing anything else
-        - reverting the calculation of "max_slots_needed + 1"  in "net_rx_action()" to what it was before :
-                int max = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
-                if (vif->can_sg || vif->gso_mask || vif->gso_prefix_mask)
-                        max += MAX_SKB_FRAGS + 1; /* extra_info + frags */
-
-So that leads me to think it's something caused by this patch set.
-Patch1 could be a candidate .. perhaps that check was needed for some reason .. will see what not applying that one does
-
---
-Sander
-
-
->   Paul
-
 >> So it now seems i now have the situation which you described in the commit
 >> message from "ca2f09f2b2c6c25047cfc545d057c4edfcfe561c",
 >> "Without this patch I can trivially stall netback permanently by just doing a
 >> large guest to guest file copy between two Windows Server 2008R2 VMs on a
 >> single host."
 >> 
+
+> Assuming it is similar, then the tx queue should be stalled. It's possible the frontend is not posting enough rx requests into the ring to take the packet. Can you tell if this is happening?
+
+How would i do that ?
+(and it seems unlikely since that case that triggers is .. is swamping the interface with both inbound and outbound traffic)
+
+>   Paul
+
 >> --
 >> Sander
