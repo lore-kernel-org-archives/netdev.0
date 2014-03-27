@@ -1,125 +1,239 @@
-From: Sergey Ryazanov <ryazanov.s.a@gmail.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Thu, 27 Mar 2014 18:10:24 +0400
-Message-ID: <CAHNKnsQYLNfkrC0088g2os30NcSz9HVzkytbK_qFbNfeSWkmFw@mail.gmail.com>
-References: <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com>
- <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion>
- <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com>
- <20140326173536.GJ2869@minipsycho.orion> <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com>
- <20140326181436.GL2869@minipsycho.orion> <53334BDA.1060608@mojatatu.com>
- <CAGVrzcaconDBjgSfk0=6px2+6LbrxMkmesgigSa3-9WaK-LiOw@mail.gmail.com> <20140327065616.GA2845@minipsycho.orion>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: [PATCH v6] can: xilinx CAN controller support
+Date: Thu, 27 Mar 2014 15:14:46 +0100
+Message-ID: <53343256.8020802@monstr.eu>
+References: <5ff46a21-3047-40ff-9221-f08e476f9ce6@VA3EHSMHS030.ehs.local>
+Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="1O1wFkfqdC5vAbhH64RkQeBFEONTGuAPS"
+Cc: wg@grandegger.com, mkl@pengutronix.de, michal.simek@xilinx.com,
+	grant.likely@linaro.org, robh+dt@kernel.org,
+	devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-can@vger.kernel.org,
+	Kedareswara rao Appana <appanad@xilinx.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <5ff46a21-3047-40ff-9221-f08e476f9ce6@VA3EHSMHS030.ehs.local>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--1O1wFkfqdC5vAbhH64RkQeBFEONTGuAPS
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	Felix Fietkau <nbd@openwrt.org>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f169.google.com ([209.85.160.169]:61165 "EHLO
-	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754971AbaC0OKo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 10:10:44 -0400
-Received: by mail-yk0-f169.google.com with SMTP id 142so2325765ykq.14
-        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 07:10:44 -0700 (PDT)
-In-Reply-To: <20140327065616.GA2845@minipsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-Hi all,
+Hi Kedar,
 
-sorry for the intrusion, but let me place my 2 cents.
+On 03/26/2014 06:26 AM, Kedareswara rao Appana wrote:
+> This patch adds xilinx CAN controller support.
+> This driver supports both ZYNQ CANPS and Soft IP
+> AXI CAN controller.
+>=20
+> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
+> ---
+> This patch is rebased on the 3.14 rc8 kernel
+> Chnages for v6:
+> - Updated the driver with review comments.
+> - Used the clock names specified in the IP data sheet.
+> - Updated the devicetree bindings doc as per Rob suggestion.
+> Changes for v5:
+> - Updated the driver with the review comments.
+> - Remove the check for the tx fifo full interrupt condition
+>   form Tx interrupt routine as we are checking it in the _xmit
+>   routine.
+> - Clearing the txok interrupt in the tx interrupt routine for
+>   every Tx can frame.
+> Changes for v4:
+> - Added check for the tx fifo full interrupt condition in
+>   Tx interrupt routine.
+> - Added be iohelper functions.
+> - Moved the clock enable/disable to probe/remove because of
+>   Added big endian support for AXI CAN controller case(reading
+>   a register during probe for that we need to enable clock).
+> Changes for v3:
+> - Updated the driver with the review comments.
+> - Modified the tranmit logic as per Marc suggestion.
+> - Enabling the clock when the interface is up to reduce the
+>   Power consumption.
+> Changes for v2:
+> - Updated with the review comments.
+> - Removed the unnecessary debug prints.
+> - include tx,rx fifo depths in ZYNQ CANPS case also.
+> ---
+>  .../devicetree/bindings/net/can/xilinx_can.txt     |   44 +
+>  drivers/net/can/Kconfig                            |    7 +
+>  drivers/net/can/Makefile                           |    1 +
+>  drivers/net/can/xilinx_can.c                       | 1179 ++++++++++++=
+++++++++
+>  4 files changed, 1231 insertions(+), 0 deletions(-)
+>  create mode 100644 Documentation/devicetree/bindings/net/can/xilinx_ca=
+n.txt
+>  create mode 100644 drivers/net/can/xilinx_can.c
+>=20
+> diff --git a/Documentation/devicetree/bindings/net/can/xilinx_can.txt b=
+/Documentation/devicetree/bindings/net/can/xilinx_can.txt
+> new file mode 100644
+> index 0000000..4646396
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/can/xilinx_can.txt
+> @@ -0,0 +1,44 @@
+> +Xilinx Axi CAN/Zynq CANPS controller Device Tree Bindings
+> +---------------------------------------------------------
+> +
+> +Required properties:
+> +- compatible		: Should be "xlnx,zynq-can-1.00.a" for Zynq CAN
 
-2014-03-27 10:56 GMT+04:00 Jiri Pirko <jiri@resnulli.us>:
-> Wed, Mar 26, 2014 at 11:22:51PM CET, f.fainelli@gmail.com wrote:
->>2014-03-26 14:51 GMT-07:00 Jamal Hadi Salim <jhs@mojatatu.com>:
->>> On 03/26/14 14:14, Jiri Pirko wrote:
->>>>
->>>> Wed, Mar 26, 2014 at 06:58:32PM CET, f.fainelli@gmail.com wrote:
->>>>>
->>>>> 2014-03-26 10:35 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
->>>
->>>
->>>
->>>>> You are right, sw1p0 and sw1p1 were meant to be, say LAN ports in my
->>>>> example.
->>>>>
->>>>> I think there is an implicit convention that sw1 represents the
->>>>> Ethernet switch port connected to the CPU Ethernet MAC, and that it is
->>>>> always connected, hence there is no need to create a "fake" bridge to
->>>>> link sw1 to eth0 for instance?
->>>>
->>>>
->>>> I think you are kind of mixing apples and oranges (or I might be I'm not
->>>> understanding you correctly).
->>>> This is how I see it, sticking to the names you use in the example:
->>>>
->>>>              (sw1) (abstract place-holder netdev)
->>>>            --------
->>>>           switch chip                   CPU
->>>>     -----------------------            ------
->>>>     sw1p0 sw1p1 sw1p2 sw1p3             eth0
->>>>       |     |     |     |                |
->>>>      PHY   PHY   PHY    ------someMII-----
->>>>
->>>> You see that eth0 is the CPU part of the "connection" and sw1p3 is the
->>>> switch part (port representation).
->>>>
->>>
->>>
->>> Florian - I am sure you explained this before; I just dont remember. Why
->>> is there need to expose eth0? It seems to me sw1p0-3 are abstracted
->>> already in the kernel and the "cpu port" is merely a control interface.
->>
->>eth0 corresponds to a CPU Ethernet MAC facing e.g: sw1p3 switch port.
->>It is "regular" Ethernet driver connected to the switch without
->>switch-specific logic. The goal is twofold:
->>
->>- allow any regular Ethernet driver to be connected to an external
->>switch via e.g: MDIO/MDC or other without specific switch knowledge
->>- represents accurately how the hardware is designed/connected
->>
->>but maybe, we can simplify and have e.g: sw1p3 and eth0 be the same interface...
->
-> I believe that hawing both sw1p3 and eth0 is the correct way of
-> modelling this. sw1p3 is instance if switch chip driver representing the
-> actual port of a switch. eth0 is an instance of some other ordinary NIC
-> driver (8139too is my favorite :))
->
-> This model allows to draw the exact picture.
-> Also, when you add the described possibility to use iplink to build
-> vlans, bridges whatever on the switch ports, it makes perfect sense to
-> have this model.
->
-> Merging sw1p3 and eth0 would cause a loose of information and confusion.
->
+We should do one more change and better now than later.
+Please use just "xlnx,zynq-can-1.0" compatible string here.
 
-CPU switch port and switch fabric itself should be configured in
-consistence with host, in first place I mean a set of VLANs. Also it
-should be mentioned that some generic knobs such as port rate and
-duplex mode are meaningless for CPU switch port and a lot of status
-information (rx/tx counters etc.) duplicates statistics of host
-interface which is connected to switch port. So there are no reasons
-to force user to configure this port manually, and automatic
-configuration of CPU switch port without exporting them as netdev
-seems as good approach.
+> +			  controllers and "xlnx,axi-can-1.00.a" for Axi CAN
+> +			  controllers.
+> +- reg			: Physical base address and size of the Axi CAN/Zynq
+> +			  CANPS registers map.
+> +- interrupts		: Property with a value describing the interrupt
+> +			  number.
+> +- interrupt-parent	: Must be core interrupt controller
+> +- clock-names		: List of input clock names - "can_clk", "pclk"
+> +			  (For CANPS), "can_clk" , "s_axi_aclk"(For AXI CAN)
+> +			  (See clock bindings for details).
+> +- clocks		: Clock phandles (see clock bindings for details).
+> +- tx-fifo-depth		: Can Tx fifo depth.
+> +- rx-fifo-depth		: Can Rx fifo depth.
+> +
+> +
+> +Example:
+> +
+> +For Zynq CANPS Dts file:
+> +	zynq_can_0: can@e0008000 {
+> +			compatible =3D "xlnx,zynq-can-1.00.a";
 
--- 
-BR,
-Sergey
+the same here.
+
+> +			clocks =3D <&clkc 19>, <&clkc 36>;
+> +			clock-names =3D "can_clk", "pclk";
+> +			reg =3D <0xe0008000 0x1000>;
+> +			interrupts =3D <0 28 4>;
+> +			interrupt-parent =3D <&intc>;
+> +			tx-fifo-depth =3D <0x40>;
+> +			rx-fifo-depth =3D <0x40>;
+> +		};
+> +For Axi CAN Dts file:
+> +	axi_can_0: axi-can@40000000 {
+> +			compatible =3D "xlnx,axi-can-1.00.a";
+> +			clocks =3D <&clkc 0>;
+> +			clock-names =3D "can_clk","s_axi_aclk" ;
+> +			reg =3D <0x40000000 0x10000>;
+> +			interrupt-parent =3D <&intc>;
+> +			interrupts =3D <0 59 1>;
+> +			tx-fifo-depth =3D <0x40>;
+> +			rx-fifo-depth =3D <0x40>;
+> +		};
+
+I don't know which thread I discussed this with Rob but please send this =
+binding
+separately out of this and copy devicetree@vger.kernel.org for this patch=
+=2E
+They should give us ACK on device-tree binding.
+
+
+> diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
+> index 9e7d95d..9049884 100644
+> --- a/drivers/net/can/Kconfig
+> +++ b/drivers/net/can/Kconfig
+> @@ -125,6 +125,13 @@ config CAN_GRCAN
+>  	  endian syntheses of the cores would need some modifications on
+>  	  the hardware level to work.
+> =20
+> +config CAN_XILINXCAN
+> +	tristate "Xilinx CAN"
+> +	depends on ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST
+> +	depends on COMMON_CLK && HAS_IOMEM
+> +	---help---
+> +	  Xilinx CAN driver. This driver supports both soft AXI CAN IP and
+> +	  Zynq CANPS IP.
+>  source "drivers/net/can/mscan/Kconfig"
+> =20
+>  source "drivers/net/can/sja1000/Kconfig"
+> diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
+> index c744039..0b8e11e 100644
+> --- a/drivers/net/can/Makefile
+> +++ b/drivers/net/can/Makefile
+> @@ -25,5 +25,6 @@ obj-$(CONFIG_CAN_JANZ_ICAN3)	+=3D janz-ican3.o
+>  obj-$(CONFIG_CAN_FLEXCAN)	+=3D flexcan.o
+>  obj-$(CONFIG_PCH_CAN)		+=3D pch_can.o
+>  obj-$(CONFIG_CAN_GRCAN)		+=3D grcan.o
+> +obj-$(CONFIG_CAN_XILINXCAN)	+=3D xilinx_can.o
+> =20
+>  ccflags-$(CONFIG_CAN_DEBUG_DEVICES) :=3D -DDEBUG
+> diff --git a/drivers/net/can/xilinx_can.c b/drivers/net/can/xilinx_can.=
+c
+> new file mode 100644
+> index 0000000..3bb289c
+> --- /dev/null
+> +++ b/drivers/net/can/xilinx_can.c
+> @@ -0,0 +1,1179 @@
+> +/* Xilinx CAN device driver
+> + *
+> + * Copyright (C) 2012 - 2014 Xilinx, Inc.
+> + * Copyright (C) 2009 PetaLogix. All rights reserved.
+> + *
+> + * Description:
+> + * This driver is developed for Axi CAN IP and for Zynq CANPS Controll=
+er.
+> + * This program is free software: you can redistribute it and/or modif=
+y
+> + * it under the terms of the GNU General Public License as published b=
+y
+> + * the Free Software Foundation, either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program.  If not, see <http://www.gnu.org/licenses/=
+>.
+
+Please remove this paragraph. Some testing tools reports this
+as a problematic part.
+
+<snip>
+
+> +/* Match table for OF platform binding */
+> +static struct of_device_id xcan_of_match[] =3D {
+> +	{ .compatible =3D "xlnx,zynq-can-1.00.a", },
+
+And here also xlnx,zynq-can-1.0
+
+Thanks,
+Michal
+
+--=20
+Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
+Maintainer of Linux kernel - Xilinx Zynq ARM architecture
+Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
+
+
+
+--1O1wFkfqdC5vAbhH64RkQeBFEONTGuAPS
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iEYEARECAAYFAlM0MlYACgkQykllyylKDCH9zQCgnIsixyuI2xvQD5kaZb/os8g8
+RzoAn0pWBZzATIe2F2GLy9sl48ralZGq
+=+FL0
+-----END PGP SIGNATURE-----
+
+--1O1wFkfqdC5vAbhH64RkQeBFEONTGuAPS--
