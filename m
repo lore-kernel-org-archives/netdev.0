@@ -1,97 +1,83 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next RFC v2 0/6] introduce infrastructure for support
- of switch chip datapath
-Date: Thu, 27 Mar 2014 09:27:58 -0700
-Message-ID: <CAGVrzcYE9uuD0Gxd5-OND4p5ieikYFchhpBm=ZiK5GaMqiQVyA@mail.gmail.com>
-References: <1395851472-10524-1-git-send-email-jiri@resnulli.us>
- <53334A3F.6020105@mojatatu.com> <20140327072107.GC2845@minipsycho.orion>
- <5333FD12.9060404@mojatatu.com> <20140327110223.GA1615@casper.infradead.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v5] ipv6: do not overwrite inetpeer metrics prematurely
+Date: Thu, 27 Mar 2014 17:30:46 +0100
+Message-ID: <20140327163046.GA11063@order.stressinduktion.org>
+References: <20140327050618.GK22086@order.stressinduktion.org> <20140327120408.03BECE66C2@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com>,
-	dev <dev@openvswitch.org>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=utf-8
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Michal Kubecek <mkubecek@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:50381 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754902AbaC0Q2i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 12:28:38 -0400
-Received: by mail-pd0-f170.google.com with SMTP id v10so3607612pde.1
-        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 09:28:38 -0700 (PDT)
-In-Reply-To: <20140327110223.GA1615@casper.infradead.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:35510 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756806AbaC0Qar (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 12:30:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20140327120408.03BECE66C2@unicorn.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-03-27 4:02 GMT-07:00 Thomas Graf <tgraf@suug.ch>:
-> On 03/27/14 at 06:27am, Jamal Hadi Salim wrote:
->> On 03/27/14 03:21, Jiri Pirko wrote:
->> >Wed, Mar 26, 2014 at 10:44:31PM CET, jhs@mojatatu.com wrote:
->>
->> >Well, I think there are 2 main models to be considered:
->> >1. OSV-like model, where everything is flows and that is the OneWay(tm)
->> >    mode you mentioned :)
->> >2. clasic switch setting-like model where you manually set up vlans,
->> >    lag, whatever.
->> >
->> >The phase one for me is 1. and that is what I'm trying to resolve with
->> >this patchset.
->> >
->> > From what I understand from the discussion, 2. is likely the model you
->> >have in mind.
->> >
->>
->> In my opinion there is no difference when setting the ACL table(s).
->> We are going to need your .ndo for more than flows. Something
->> in the stack is going to have to talk to those .ndo interfaces
->> (I keep bringing up the concept of routing code for example).
->> What i meant by no OneWay is i think it will depend on the
->> chip - some will require more work than other. I do believe it
->> is a longer discussion needed than the port resolving.
->
-> There is definitely need beyond an ndo that is capable of
-> adding flows. You mention routes. Another example would be
-> devices capable of offloading iptables & nft rules.
+On Thu, Mar 27, 2014 at 01:04:08PM +0100, Michal Kubecek wrote:
+> If an IPv6 host route with metrics exists, an attempt to add a
+> new route for the same target with different metrics fails but
+> rewrites the metrics anyway:
+> 
+> 12sp0:~ # ip route add fec0::1 dev eth0 rto_min 1000
+> 12sp0:~ # ip -6 route show
+> fe80::/64 dev eth0  proto kernel  metric 256
+> fec0::1 dev eth0  metric 1024  rto_min lock 1s
+> 12sp0:~ # ip route add fec0::1 dev eth0 rto_min 1500
+> RTNETLINK answers: File exists
+> 12sp0:~ # ip -6 route show
+> fe80::/64 dev eth0  proto kernel  metric 256
+> fec0::1 dev eth0  metric 1024  rto_min lock 1.5s
+> 
+> This is caused by all IPv6 host routes using the metrics in
+> their inetpeer (or the shared default). This also holds for the
+> new route created in ip6_route_add() which shares the metrics
+> with the already existing route and thus ip6_route_add()
+> rewrites the metrics even if the new route ends up not being
+> used at all.
+> 
+> Another problem is that old metrics in inetpeer can reappear
+> unexpectedly for a new route, e.g.
+> 
+> 12sp0:~ # ip route add fec0::1 dev eth0 rto_min 1000
+> 12sp0:~ # ip route del fec0::1
+> 12sp0:~ # ip route add fec0::1 dev eth0
+> 12sp0:~ # ip route change fec0::1 dev eth0 hoplimit 10
+> 12sp0:~ # ip -6 route show
+> fe80::/64 dev eth0  proto kernel  metric 256
+> fec0::1 dev eth0  metric 1024  hoplimit 10 rto_min lock 1s
+> 
+> Resolve the first problem by moving the setting of metrics down
+> into fib6_add_rt2node() to the point we are sure we are
+> inserting the new route into the tree. Second problem is
+> addressed by introducing new flag DST_METRICS_FORCE_OVERWRITE
+> which is set for a new host route in ip6_route_add() and makes
+> ipv6_cow_metrics() always overwrite the metrics in inetpeer
+> (even if they are not "new"); it is reset after that.
+> 
+> v5: use a flag in _metrics member rather than one in flags
+> 
+> v4: fix a typo making a condition always true (thanks to Hannes
+> Frederic Sowa)
+> 
+> v3: rewritten based on David Miller's idea to move setting the
+> metrics (and allocation in non-host case) down to the point we
+> already know the route is to be inserted. Also rebased to
+> net-next as it is quite late in the cycle.
+> 
+> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 
-Those devices usually require (at least for Broadcom) an entity
-identifying the flows and uploading flows offloading rules to the
-hardware. Although I do not think it hurts to keep those in mind to
-come up with the right design, my feeling is that they will require
-more intrusive modifications at the socket, route and forwarding path
-level if we want the Linux kernel to offer a consistent API across
-different hardware variations.
+I like your patch! :)
 
-It is not clear to me at this point whether we want those special
-offloading devices to appear as separate net_device with specific
-flags to advertise their offloading features (NAT, IP routing...) or
-something else?
+Actually I was a bit surprised how easy it turned out.
 
->
-> But wouldn't you want to introduce an additional ndo to
-> cover these?
+Thanks!
 
-I would start with making sure everyone is on the same page regarding
-switches before we start building the conversation on NAT/IP-routing
-offloading, but it is good that you mention it.
-
->
-> What speaks against going with what Jiri proposes and adjust
-> & extend as needed as we go along?
-
-
--- 
-Florian
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
