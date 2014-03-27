@@ -1,63 +1,56 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: Proper suspend/resume flow
-Date: Thu, 27 Mar 2014 12:10:33 +0200
-Message-ID: <5333F919.7080405@freescale.com>
-References: <20140326115828.GZ7528@n2100.arm.linux.org.uk>
+From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+Subject: Re: [patch net-next RFC v2 0/6] introduce infrastructure
+ for support of switch chip datapath
+Date: Thu, 27 Mar 2014 06:27:30 -0400
+Message-ID: <5333FD12.9060404@mojatatu.com>
+References: <1395851472-10524-1-git-send-email-jiri@resnulli.us>
+ <53334A3F.6020105@mojatatu.com> <20140327072107.GC2845@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	<netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe001.messaging.microsoft.com ([65.55.88.11]:4550 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753834AbaC0KKr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 06:10:47 -0400
-In-Reply-To: <20140326115828.GZ7528@n2100.arm.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
+ dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
+ linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+ sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20140327072107.GC2845-RDzucLLXGGI88b5SBfVpbw@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 3/26/2014 1:58 PM, Russell King - ARM Linux wrote:
-> I think the right solution for a driver which does all its processing in
-> the NAPI poll function would be:
+On 03/27/14 03:21, Jiri Pirko wrote:
+> Wed, Mar 26, 2014 at 10:44:31PM CET, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org wrote:
+
+> Well, I think there are 2 main models to be considered:
+> 1. OSV-like model, where everything is flows and that is the OneWay(tm)
+>     mode you mentioned :)
+> 2. clasic switch setting-like model where you manually set up vlans,
+>     lag, whatever.
 >
-> 	if (netif_running(ndev)) {
-> 		napi_disable(napi);
-> 		netif_device_detach(ndev);
-> 		disable_hardware();
-> 	}
+> The phase one for me is 1. and that is what I'm trying to resolve with
+> this patchset.
 >
-> and upon resume, the reverse order.  The theory being:
+>  From what I understand from the discussion, 2. is likely the model you
+> have in mind.
 >
-> - napi_disable() is to stop the driver processing its rings and possibly
->    waking up the transmit queue(s) after the following netif_device_detach().
-> - netif_device_detach() to stop new packets being queued to the device.
 
+In my opinion there is no difference when setting the ACL table(s).
+We are going to need your .ndo for more than flows. Something
+in the stack is going to have to talk to those .ndo interfaces
+(I keep bringing up the concept of routing code for example).
+What i meant by no OneWay is i think it will depend on the
+chip - some will require more work than other. I do believe it
+is a longer discussion needed than the port resolving.
 
-There's a risk to disabling the NAPI before stopping the transmission
-(i.e. stopping the Tx queues).  The net stack might continue to enqueue
-Tx packets and, if the Tx BD rings get full, the driver's start_xmit
-will return TX_BUSY which leads to netdev watchdog triggering Tx
-timeout (and the ndo_tx_timeout hook from the driver will re-enable the
-Tx queues).
-Maybe it's unlikely to get the BD rings full during suspend, but there's
-another case too - BQL (if the driver supports BQL).  BQL needs a
-confirmation for each xmitted byte, and the confirmation comes from
-Tx completion processing from NAPI context (see
-netdev_tx_completed_queue()).  If the confirmation is delayed too much,
-BQL blocks the Tx queues to trigger the same netdev Tx timeout watchdog
-mechanism.
-
-I think there's a more general problem to this: how to properly stop
-the Tx traffic from the driver.  And I think an approach to solve it
-would be to stop the Tx queues (i.e. netif_tx_stop_all_queues()) before
-disabling the NAPI processing, however the driver will need to use a
-special state flag (like "DOWN" or "RESETTING") to prevent waking up
-the Tx queues from NAPI while the Tx traffic is being stopped.
-There are some drivers implementing such "synchronization" flags to
-prevent the Tx congestion mechanism to wake up the Tx queues while the
-device is resetting or brought down.  But there's no generic
-implementation for this (there are differences in implementation from
-driver to driver).
-
-Claudiu
+cheers,
+jamal
