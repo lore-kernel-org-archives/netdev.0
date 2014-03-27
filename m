@@ -1,85 +1,241 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] ipv6: If a public address is deleted then also delete all temporary addresses still referring to it
-Date: Thu, 27 Mar 2014 03:53:03 +0100
-Message-ID: <20140327025303.GJ22086@order.stressinduktion.org>
-References: <5328B0B0.7070305@web.de> <20140319202123.GH12291@order.stressinduktion.org> <532A096C.8030200@web.de> <20140319224121.GI12291@order.stressinduktion.org> <53333829.2000806@web.de> <53334B8E.8000807@web.de>
+From: <dinguyen@altera.com>
+Subject: [PATCH net-next 1/3] net: stmmac: Add SOCFPGA glue driver
+Date: Wed, 26 Mar 2014 22:45:10 -0500
+Message-ID: <1395891912-26855-2-git-send-email-dinguyen@altera.com>
+References: <1395891912-26855-1-git-send-email-dinguyen@altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Heiner Kallweit <heiner.kallweit@web.de>
+Content-Type: text/plain
+Cc: <srinivas.kandagatla@st.com>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <arm@kernel.org>,
+	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<devicetree@vger.kernel.org>, Dinh Nguyen <dinguyen@altera.com>
+To: <dinh.linux@gmail.com>, <arnd@arndb.de>, <davem@davemloft.net>,
+	<peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:34117 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751658AbaC0CxE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 22:53:04 -0400
-Content-Disposition: inline
-In-Reply-To: <53334B8E.8000807@web.de>
+Received: from mail-bn1bon0148.outbound.protection.outlook.com ([157.56.111.148]:33127
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752136AbaC0DsE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2014 23:48:04 -0400
+In-Reply-To: <1395891912-26855-1-git-send-email-dinguyen@altera.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 26, 2014 at 10:50:06PM +0100, Heiner Kallweit wrote:
-> > I spent some thoughts on this topic and it seems to me that deleting a temporary address from user space will break TCP connections most of the time
-> > as the newly created temporary address will be different from the old one.
+From: Dinh Nguyen <dinguyen@altera.com>
 
-Yes, I can confirm that we will generate new rndid and thus will generate a
-new address.
+Like the STi and sunxi series SOCs, Altera's SOCFPGA also needs a glue layer
+on top of the Synopsys gmac IP.
 
-> > Setting a temporary address to deprecated is also not possible from user space currently as netlink RTM_NEWADDR doesn't allow to modify the IFA_F_DEPRECATED flag:
-> >
-> > /* We ignore other flags so far. */
-> > 	ifa_flags &= IFA_F_NODAD | IFA_F_HOMEADDRESS | IFA_F_MANAGETEMPADDR |
-> > 		     IFA_F_NOPREFIXROUTE;
-> >
-> > Having said that your suggestion seems to be the most appropriate way to tackle the issue:
-> >
-> > "So I would be ok, if we enhance the error case a bit, maybe reparent the
-> > old temporary address, drop them and silently generate them anew or only
-> > update prefix information from the new received prefix information. This
-> > should happen without disturbing TCP connections etc. I think this
-> > already works, but I don't know if it is worth the effort."
-> >
-> > The following patch works fine for me, I'd appreciate if you could have a look at it.
-> >
-> > Rgds, Heiner
-> >
-> > diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> > index 344e972..7cc3dae 100644
-> > --- a/net/ipv6/addrconf.c
-> > +++ b/net/ipv6/addrconf.c
-> > @@ -2063,8 +2063,23 @@ static void manage_tempaddrs(struct inet6_dev *idev,
-> >      list_for_each_entry(ift, &idev->tempaddr_list, tmp_list) {
-> >          int age, max_valid, max_prefered;
-> >  
-> > -        if (ifp != ift->ifpub)
-> > -            continue;
-> > +        spin_lock(&ift->lock);
-> > +        if (ifp != ift->ifpub) {
-> > +            /* reparent if orphaned temporary addresses with same prefix is found */
-> > +            if(ift->prefix_len == ifp->prefix_len && ipv6_prefix_equal(&ift->addr,&ifp->addr,ift->prefix_len)) {
-> > +                in6_ifa_hold(ifp);
-> > +                in6_ifa_put(ift->ifpub);
-> > +                ift->ifpub = ifp;
-> > +                spin_unlock(&ift->lock);
-> > +                create = false;
-> > +                pr_info("%s: reparent orphaned temporary address\n", __func__);
-> > +            } else {
-> > +                spin_unlock(&ift->lock);
-> > +                continue;
-> > +            }
-> > +        } else {
-> > +            spin_unlock(&ift->lock);
-> > +        }
-> >  
-> >          /* RFC 4941 section 3.3:
-> >           * If a received option will extend the lifetime of a public
-> >
-> After further checking it seems like the timer of the reparented temporary address was deleted. When the reparented address expires no new address is generated.
-> Have to dig deeper into it ..
+This patch adds the platform driver for the glue layer which configures the IP
+before the generic STMMAC driver takes over.
 
-You need to reset ift->regen_count=0 to avoid that I guess.
+Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |   10 ++
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |    1 +
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    |  130 ++++++++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    3 +
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    3 +
+ 5 files changed, 147 insertions(+)
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
 
-The approach seems reasonable to me.
-
-Thanks,
-
-  Hannes
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+index f2d7c70..2d09c11 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
++++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+@@ -26,6 +26,16 @@ config STMMAC_PLATFORM
+ 
+ 	  If unsure, say N.
+ 
++config DWMAC_SOCFPGA
++	bool "SOCFPGA dwmac support"
++	depends on STMMAC_PLATFORM && MFD_SYSCON && (ARCH_SOCFPGA || COMPILE_TEST)
++	help
++	  Support for ethernet controller on Altera SOCFPGA
++
++	  This selects the Altera SOCFPGA SoC glue layer support
++	  for the stmmac device driver. This driver is used for
++	  arria5 and cyclone5 FPGA SoCs.
++
+ config DWMAC_SUNXI
+ 	bool "Allwinner GMAC support"
+ 	depends on STMMAC_PLATFORM && ARCH_SUNXI
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
+index dcef287..18695eb 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Makefile
++++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
+@@ -3,6 +3,7 @@ stmmac-$(CONFIG_STMMAC_PLATFORM) += stmmac_platform.o
+ stmmac-$(CONFIG_STMMAC_PCI) += stmmac_pci.o
+ stmmac-$(CONFIG_DWMAC_SUNXI) += dwmac-sunxi.o
+ stmmac-$(CONFIG_DWMAC_STI) += dwmac-sti.o
++stmmac-$(CONFIG_DWMAC_SOCFPGA) += dwmac-socfpga.o
+ stmmac-objs:= stmmac_main.o stmmac_ethtool.o stmmac_mdio.o ring_mode.o	\
+ 	      chain_mode.o dwmac_lib.o dwmac1000_core.o  dwmac1000_dma.o \
+ 	      dwmac100_core.o dwmac100_dma.o enh_desc.o  norm_desc.o \
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+new file mode 100644
+index 0000000..246da38
+--- /dev/null
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+@@ -0,0 +1,130 @@
++/* Copyright Altera Corporation (C) 2014. All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, version 2,
++ * as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * Adopted from dwmac-sti.c
++ */
++
++#include <linux/mfd/syscon.h>
++#include <linux/of.h>
++#include <linux/of_net.h>
++#include <linux/phy.h>
++#include <linux/regmap.h>
++#include <linux/stmmac.h>
++
++#define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII 0x0
++#define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RGMII 0x1
++#define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RMII 0x2
++#define SYSMGR_EMACGRP_CTRL_PHYSEL_WIDTH 2
++#define SYSMGR_EMACGRP_CTRL_PHYSEL_MASK 0x00000003
++
++struct socfpga_dwmac {
++	int	interface;
++	u32	reg_offset;
++	u32	reg_shift;
++	struct	device *dev;
++	struct regmap *sys_mgr_base_addr;
++};
++
++static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *dev)
++{
++	struct device_node *np	= dev->of_node;
++	struct regmap *sys_mgr_base_addr;
++	u32 reg_offset, reg_shift;
++	int ret;
++
++	dwmac->interface = of_get_phy_mode(np);
++
++	sys_mgr_base_addr = syscon_regmap_lookup_by_phandle(np, "altr,sysmgr-syscon");
++	if (IS_ERR(sys_mgr_base_addr)) {
++		dev_info(dev, "No sysmgr-syscon node found\n");
++		return PTR_ERR(sys_mgr_base_addr);
++	}
++
++	ret = of_property_read_u32_index(np, "altr,sysmgr-syscon", 1, &reg_offset);
++	if (ret) {
++		dev_info(dev, "Could not read reg_offset from sysmgr-syscon!\n");
++		return -EINVAL;
++	}
++
++	ret = of_property_read_u32_index(np, "altr,sysmgr-syscon", 2, &reg_shift);
++	if (ret) {
++		dev_info(dev, "Could not read reg_shift from sysmgr-syscon!\n");
++		return -EINVAL;
++	}
++
++	dwmac->reg_offset = reg_offset;
++	dwmac->reg_shift = reg_shift;
++	dwmac->sys_mgr_base_addr = sys_mgr_base_addr;
++	dwmac->dev = dev;
++
++	return 0;
++}
++
++static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
++{
++	struct regmap *sys_mgr_base_addr = dwmac->sys_mgr_base_addr;
++	int phymode = dwmac->interface;
++	u32 reg_offset = dwmac->reg_offset;
++	u32 reg_shift = dwmac->reg_shift;
++	u32 ctrl, val;
++
++	switch (phymode) {
++	case PHY_INTERFACE_MODE_RGMII:
++		val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RGMII;
++		break;
++	case PHY_INTERFACE_MODE_MII:
++	case PHY_INTERFACE_MODE_GMII:
++		val = SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII;
++		break;
++	default:
++		dev_err(dwmac->dev, "bad phy mode %d\n", phymode);
++		return -EINVAL;
++	}
++
++	regmap_read(sys_mgr_base_addr, reg_offset, &ctrl);
++	ctrl &= ~(SYSMGR_EMACGRP_CTRL_PHYSEL_MASK << reg_shift);
++	ctrl |= val << reg_shift;
++
++	regmap_write(sys_mgr_base_addr, reg_offset, ctrl);
++	return 0;
++}
++
++static void *socfpga_dwmac_probe(struct platform_device *pdev)
++{
++	struct device		*dev = &pdev->dev;
++	int			ret;
++	struct socfpga_dwmac	*dwmac;
++
++	dwmac = devm_kzalloc(dev, sizeof(*dwmac), GFP_KERNEL);
++	if (!dwmac)
++		return ERR_PTR(-ENOMEM);
++
++	ret = socfpga_dwmac_parse_data(dwmac, dev);
++	if (ret) {
++		dev_err(dev, "Unable to parse OF data\n");
++		return ERR_PTR(ret);
++	}
++
++	ret = socfpga_dwmac_setup(dwmac);
++	if (ret) {
++		dev_err(dev, "couldn't setup SoC glue (%d)\n", ret);
++		return ERR_PTR(ret);
++	}
++
++	return dwmac;
++}
++
++const struct stmmac_of_data socfpga_gmac_data = {
++	.setup = socfpga_dwmac_probe,
++};
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index f9e60d7..ca01035 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -136,6 +136,9 @@ extern const struct stmmac_of_data sun7i_gmac_data;
+ #ifdef CONFIG_DWMAC_STI
+ extern const struct stmmac_of_data sti_gmac_data;
+ #endif
++#ifdef CONFIG_DWMAC_SOCFPGA
++extern const struct stmmac_of_data socfpga_gmac_data;
++#endif
+ extern struct platform_driver stmmac_pltfr_driver;
+ static inline int stmmac_register_platform(void)
+ {
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 8fb32a8..46aef510 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -38,6 +38,9 @@ static const struct of_device_id stmmac_dt_ids[] = {
+ 	{ .compatible = "st,stih416-dwmac", .data = &sti_gmac_data},
+ 	{ .compatible = "st,stid127-dwmac", .data = &sti_gmac_data},
+ #endif
++#ifdef CONFIG_DWMAC_SOCFPGA
++	{ .compatible = "altr,socfpga-stmmac", .data = &socfpga_gmac_data },
++#endif
+ 	/* SoC specific glue layers should come before generic bindings */
+ 	{ .compatible = "st,spear600-gmac"},
+ 	{ .compatible = "snps,dwmac-3.610"},
+-- 
+1.7.9.5
