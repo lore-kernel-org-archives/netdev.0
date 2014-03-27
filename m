@@ -1,63 +1,54 @@
-From: <dinguyen@altera.com>
-Subject: [PATCH net-next 0/3] net: stmmac: Add glue layer for socfpga platform
-Date: Wed, 26 Mar 2014 22:45:09 -0500
-Message-ID: <1395891912-26855-1-git-send-email-dinguyen@altera.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <srinivas.kandagatla@st.com>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <arm@kernel.org>,
-	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<devicetree@vger.kernel.org>, Dinh Nguyen <dinguyen@altera.com>
-To: <dinh.linux@gmail.com>, <arnd@arndb.de>, <davem@davemloft.net>,
-	<peppe.cavallaro@st.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: bcmgenet: set RBUF_SKIP_FCS based on UniMAC CRC forwarding
+Date: Wed, 26 Mar 2014 21:18:39 -0700
+Message-ID: <1395893919-29393-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0148.outbound.protection.outlook.com ([65.55.169.148]:32158
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752984AbaC0DsT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Mar 2014 23:48:19 -0400
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:35514 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752012AbaC0ESm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 00:18:42 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y10so2797792pdj.36
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 21:18:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dinh Nguyen <dinguyen@altera.com>
+When the UniMAC block is configured to forward the CRC as part of the
+Ethernet frame (priv->crc_fwd_en, set by default), enabling the hardware
+RX checksum block unveiled that the dma_rxchk_bit was never set in the
+per-packet status bits (dma_flag in bcmgenet_desc_rx). This would make
+the chksum_ok variable to be never set to 1, and the networking stack
+would have to compute the packet checksums, which takes a substantial
+amount of time.
 
-Hi David,
+In order for the RXCHK block to properly compute the packet checksum in
+hardware, we also need to set the RBUF_SKIP_FCS bit accordingly.
 
-I'm re-submitting the patch series to add the socfpga glue layer for the
-stmmac ethernet driver. My original patch did not build for kernel module,
-and I apologize for not testing against that.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-This patch is also better aligned with the other stmmac glue
-layers(sti and sunxi).
-
-I'd like to take the "net: stmmac: Add SOCFPGA glue driver" patch into your
-tree and the other 2 dts patches through the arm-soc tree.
-
-Thanks,
-
-
-Dinh Nguyen (3):
-  net: stmmac: Add SOCFPGA glue driver
-  dts: socfpga: Add DTS entry for adding the stmmac glue layer for
-    stmmac.
-  dts: stmmac: Document the clocks property in the stmmac base document
-
- .../devicetree/bindings/net/socfpga-dwmac.txt      |   27 ++++
- Documentation/devicetree/bindings/net/stmmac.txt   |    6 +
- arch/arm/boot/dts/socfpga.dtsi                     |    2 +
- arch/arm/boot/dts/socfpga_arria5_socdk.dts         |   21 ++++
- arch/arm/boot/dts/socfpga_cyclone5_socdk.dts       |   14 +++
- arch/arm/boot/dts/socfpga_cyclone5_sockit.dts      |   17 +++
- arch/arm/boot/dts/socfpga_vt.dts                   |    5 +
- drivers/net/ethernet/stmicro/stmmac/Kconfig        |   10 ++
- drivers/net/ethernet/stmicro/stmmac/Makefile       |    1 +
- .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    |  130 ++++++++++++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    3 +
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    3 +
- 12 files changed, 239 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/socfpga-dwmac.txt
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 8f87fe0..adf8acb 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -416,6 +416,15 @@ static int bcmgenet_set_rx_csum(struct net_device *dev,
+ 	else
+ 		rbuf_chk_ctrl &= ~RBUF_RXCHK_EN;
+ 	priv->desc_rxchk_en = rx_csum_en;
++
++	/* If UniMAC forwards CRC, we need to skip over it to get
++	 * a valid CHK bit to be set in the per-packet status word
++	*/
++	if (rx_csum_en && priv->crc_fwd_en)
++		rbuf_chk_ctrl |= RBUF_SKIP_FCS;
++	else
++		rbuf_chk_ctrl &= ~RBUF_SKIP_FCS;
++
+ 	bcmgenet_rbuf_writel(priv, rbuf_chk_ctrl, RBUF_CHK_CTRL);
+ 
+ 	return 0;
 -- 
-1.7.9.5
+1.8.3.2
