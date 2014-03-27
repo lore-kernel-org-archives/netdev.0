@@ -1,204 +1,95 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [patch net-next RFC v2 0/6] introduce infrastructure
- for support of switch chip datapath
-Date: Thu, 27 Mar 2014 08:23:00 +0100
-Message-ID: <20140327072300.GD2845@minipsycho.orion>
-References: <1395851472-10524-1-git-send-email-jiri@resnulli.us>
- <53334A3F.6020105@mojatatu.com>
- <CAGVrzcaOph7=2WfMzTfqtwFkN1fu5uKJAH59aF7mqD4MwL7iOg@mail.gmail.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH net-next v4] ipv6: do not overwrite inetpeer metrics prematurely
+Date: Thu, 27 Mar 2014 08:43:17 +0100
+Message-ID: <1728201.2Lp3R0hfkV@alaris>
+References: <20140326155047.GG22086@order.stressinduktion.org> <20140326160503.93B6FE6E05@unicorn.suse.cz> <20140327050618.GK22086@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>,
- dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
- Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>, Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
- John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, vyasevic <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
- Scott Feldman <sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>, dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAGVrzcaOph7=2WfMzTfqtwFkN1fu5uKJAH59aF7mqD4MwL7iOg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7Bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:58562 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753332AbaC0HnU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Mar 2014 03:43:20 -0400
+In-Reply-To: <20140327050618.GK22086@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wed, Mar 26, 2014 at 10:57:09PM CET, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote:
->2014-03-26 14:44 GMT-07:00 Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>:
->> Jiri,
->>
->> The flow extensions may be distracting - note there are many
->> tables (L3, L2, etc) in such chips not just ACLs. And there's likely no
->> OneWay(tm) to add a flow. My view is probably to solve or reach an
->> agreement on the ports. Then resolve the different tables control/data
->> exposure.
->
->Agreed.
->
->> On the switchdev - You are still exposing it; do you expect these
->> things to be created from user space? Probably thats one approach, but
->> I would suspect the majority would result in the driver itself creating
->> these devices after discovering the resources from the control
->> interfaces (PCIE etc).
->
->It seems to me like, minus the strong MDIO dependency, DSA is probably
->the closest and most ready piece of software we have in the kernel to
->start building Ethernet switch port net_device as it already contains
->pretty much everything we want:
->
->- per-port ethtool operations
->- per-port xmit/rcv handlers
->- existing drivers
->
->The missing bits are roughly:
->
->- adding IFF_SWITCH_PORT flags to the slave net_device created
->- creating the switch master net_device: sw1
->- creating the Switch CPU port net_device: sw1p<N>
+On Thursday 27 of March 2014 06:06:18 Hannes Frederic Sowa wrote:
+> On Wed, Mar 26, 2014 at 05:05:03PM +0100, Michal Kubecek wrote:
+> > diff --git a/include/net/dst.h b/include/net/dst.h
+> > index e01a826..8cf6772 100644
+> > --- a/include/net/dst.h
+> > +++ b/include/net/dst.h
+> > @@ -57,6 +57,7 @@ struct dst_entry {
+> > 
+> >  #define DST_FAKE_RTABLE		0x0040
+> >  #define DST_XFRM_TUNNEL		0x0080
+> >  #define DST_XFRM_QUEUE		0x0100
+> > 
+> > +#define DST_KEEP_METRICS	0x0400
+> 
+> Minor nit: 0x0200
+> 
+> You jumped over one bit.
 
-Yep. DSA should be fairly easy to modify to use switchdev api.
+Oh yes. This is because of DST_NOPEER which is still in net but was
+removed in net-next.
 
->
->>
->> cheers,
->> jamal
->>
->>
->>
->> On 03/26/14 12:31, Jiri Pirko wrote:
->>>
->>> This is second version of RFC. Here are the main differences from the
->>> first one:
->>> -There is no special swdev of swport structure. The switch and its ports
->>> are
->>>   now represented only by net_device structures. There are couple of
->>> switch-specific
->>>   ndos added (inserting and removing flows).
->>>
->>> -Regarding the flows, driver marks skb with "missing flow" flag now. That
->>> would
->>>   give indication to a user (OVS datapath of af_packet userspace
->>> application).
->>>   On the opposite direction, skb can be xmitted by a port.
->>>
->>> -dummyswitch module has now rtnetlink iface for easy creation of dummy
->>> switches
->>>   and ports.
->>>
->>> The basic idea is to introduce a generic infractructure to support various
->>> switch chips in kernel. Also the idea is to benefit of currently existing
->>> Open vSwitch userspace infrastructure.
->>>
->>>
->>> The first two patches are just minor skb flag and packet_type
->>> modifications.
->>>
->>>
->>> The third patch does a split of structures which are not specific to OVS
->>> into more generic ones that can be reused.
->>>
->>>
->>> The fourth patch introduces the "switchdev" API itself. It should serve as
->>> a glue between chip drivers on the one side and the user on the other.
->>> That user might be OVS datapath but in future it might be just userspace
->>> application interacting via af_packet and Netlink iface.
->>>
->>> The infrastructure is designed to be similar to for example linux bridge.
->>> There is one netdevice representing a switch chip and one netdevice per
->>> every
->>> port. These are bound together in classic slave-master way. The reason
->>> to reuse the netdevices for port representation is that userspace can use
->>> standard tools to get information about the ports, statistics, tcpdump,
->>> etc.
->>>
->>> Note that the netdevices are just representations of the ports in the
->>> switch.
->>> Therefore **no actual data** goes though, only missed flow skbs and, if
->>> drivers
->>> supports it, when ETH_P_ALL packet_type is hooked on (tcpdump).
->>>
->>>
->>> The fifth patch introduces a support for switchdev vports into OVS
->>> datapath.
->>> After that, userspace would be able to create a switchdev DP for a switch
->>> chip,
->>> to add switchdev ports to it and to use it in the same way as it would be
->>> OVS SW datapath.
->>>
->>>
->>> The sixth patch adds a dummy switch module. It is just an example of
->>> switchdev driver implementation.
->>>
->>>
->>> Jiri Pirko (6):
->>>    net: make packet_type->ak_packet_priv generic
->>>    skbuff: add "missed_flow" flag
->>>    openvswitch: split flow structures into ovs specific and generic ones
->>>    net: introduce switchdev API
->>>    openvswitch: Introduce support for switchdev based datapath
->>>    net: introduce dummy switch
->>>
->>>   drivers/net/Kconfig                        |   7 +
->>>   drivers/net/Makefile                       |   1 +
->>>   drivers/net/dummyswitch.c                  | 235
->>> +++++++++++++++++++++++++++++
->>>   include/linux/filter.h                     |   1 +
->>>   include/linux/netdevice.h                  |  26 +++-
->>>   include/linux/skbuff.h                     |  13 ++
->>>   include/linux/sw_flow.h                    | 105 +++++++++++++
->>>   include/linux/switchdev.h                  |  30 ++++
->>>   include/uapi/linux/if_link.h               |   9 ++
->>>   include/uapi/linux/openvswitch.h           |   4 +
->>>   net/Kconfig                                |  10 ++
->>>   net/core/Makefile                          |   1 +
->>>   net/core/dev.c                             |   4 +-
->>>   net/core/filter.c                          |   3 +
->>>   net/core/switchdev.c                       | 172 +++++++++++++++++++++
->>>   net/openvswitch/Makefile                   |   4 +
->>>   net/openvswitch/datapath.c                 |  90 +++++++----
->>>   net/openvswitch/datapath.h                 |  12 +-
->>>   net/openvswitch/dp_notify.c                |   3 +-
->>>   net/openvswitch/flow.c                     |  14 +-
->>>   net/openvswitch/flow.h                     | 123 +++------------
->>>   net/openvswitch/flow_netlink.c             |  24 +--
->>>   net/openvswitch/flow_netlink.h             |   4 +-
->>>   net/openvswitch/flow_table.c               | 100 ++++++------
->>>   net/openvswitch/flow_table.h               |  18 +--
->>>   net/openvswitch/vport-gre.c                |   4 +-
->>>   net/openvswitch/vport-internal_switchdev.c | 179 ++++++++++++++++++++++
->>>   net/openvswitch/vport-internal_switchdev.h |  28 ++++
->>>   net/openvswitch/vport-netdev.c             |   4 +-
->>>   net/openvswitch/vport-switchportdev.c      | 205
->>> +++++++++++++++++++++++++
->>>   net/openvswitch/vport-switchportdev.h      |  24 +++
->>>   net/openvswitch/vport-vxlan.c              |   2 +-
->>>   net/openvswitch/vport.c                    |   6 +-
->>>   net/openvswitch/vport.h                    |   4 +-
->>>   net/packet/af_packet.c                     |  22 ++-
->>>   35 files changed, 1269 insertions(+), 222 deletions(-)
->>>   create mode 100644 drivers/net/dummyswitch.c
->>>   create mode 100644 include/linux/sw_flow.h
->>>   create mode 100644 include/linux/switchdev.h
->>>   create mode 100644 net/core/switchdev.c
->>>   create mode 100644 net/openvswitch/vport-internal_switchdev.c
->>>   create mode 100644 net/openvswitch/vport-internal_switchdev.h
->>>   create mode 100644 net/openvswitch/vport-switchportdev.c
->>>   create mode 100644 net/openvswitch/vport-switchportdev.h
->>>
->>
->
->
->
->-- 
->Florian
+> > diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> > index fba54a4..4e5b19e 100644
+> > --- a/net/ipv6/route.c
+> > +++ b/net/ipv6/route.c
+> > @@ -149,8 +149,10 @@ static u32 *ipv6_cow_metrics(struct dst_entry
+> > *dst, unsigned long old)> 
+> >  		unsigned long prev, new;
+> >  		
+> >  		p = peer->metrics;
+> > 
+> > -		if (inet_metrics_new(peer))
+> > +		if (inet_metrics_new(peer) || (dst->flags & DST_KEEP_METRICS)) {
+> > 
+> >  			memcpy(p, old_p, sizeof(u32) * RTAX_MAX);
+> > 
+> > +			dst->flags &= ~DST_KEEP_METRICS;
+> > +		}
+> 
+> I wonder if we can make this more concurrency friendly:
+> 
+> The idea that came to my mind would be to store KEEP_METRICS flag in
+> the metrics pointer and introduce new DST_METRICS_FORCE_OVERWRITE
+> flag like DST_METRICS_READ_ONLY.
+
+I was also considering this as logically the flag belongs here more
+than into the dst_entry flags. For some reason I was afraid it would
+be less efficient but now thinking about it again, I don't see why it
+should be.
+
+> __DST_METRICS_PTR would have to mask it out, too (so would the check
+> in dst_metrics_write_ptr).
+
+I believe the test in dst_metrics_write_ptr() should stay the way it is.
+We want to call cow_metrics() whenever the metrics are read only and
+consider DST_METRICS_FORCE_OVERWRITE only in ipv6_cow_metrics(). But I
+better check again.
+
+> Then cmpxchg would atomically change status of KEEP_METRICS flag, too.
+
+That would be useful. However, I'm more concerned about 
+
+> In fib6_commit_metrics we could then add the flag somehow if dst is
+> DST_HOST and mx != NULL.
+
+IMHO it should do so even if mx is null. Otherwise we could end up with
+a dst using read only defaults but having old metrics hidden in inetpeer
+which would get revived once cow_metrics() is called for any reason.
+
+I'll prepare a patch and test it.
+
+                                                         Michal Kubecek
