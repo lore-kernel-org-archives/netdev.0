@@ -1,42 +1,50 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 00/14] net: remove empty MDIO bus reset functions
-Date: Thu, 27 Mar 2014 10:17:02 -0700
-Message-ID: <CAGVrzcYOow5R9Ymz0vE1yne9UpNtRwS8NhbPBhio_no378vQkQ@mail.gmail.com>
-References: <1395882446-552-1-git-send-email-f.fainelli@gmail.com> <20140327.001934.767098814214449066.davem@davemloft.net>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net v2] openvswitch: fix a possible deadlock and lockdep warning
+Date: Thu, 27 Mar 2014 10:19:23 -0700
+Message-ID: <CALnjE+q41G9KKf_EhTdDvZtX_Xao_WG+KhRZ2fKe0JF8sqjZxw@mail.gmail.com>
+References: <1395929134-4487-1-git-send-email-fbl@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>, openvswitch <dev@openvswitch.org>
+To: Flavio Leitner <fbl@redhat.com>, Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:41213 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754873AbaC0RRm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 13:17:42 -0400
-Received: by mail-pa0-f52.google.com with SMTP id rd3so3766889pab.25
-        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 10:17:42 -0700 (PDT)
-In-Reply-To: <20140327.001934.767098814214449066.davem@davemloft.net>
+Received: from na3sys009aog111.obsmtp.com ([74.125.149.205]:36471 "HELO
+	na3sys009aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755175AbaC0RTZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 13:19:25 -0400
+Received: by mail-ve0-f172.google.com with SMTP id jx11so4501689veb.3
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 10:19:23 -0700 (PDT)
+In-Reply-To: <1395929134-4487-1-git-send-email-fbl@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-03-26 21:19 GMT-07:00 David Miller <davem@davemloft.net>:
-> From: Florian Fainelli <f.fainelli@gmail.com>
-> Date: Wed, 26 Mar 2014 18:07:12 -0700
+On Thu, Mar 27, 2014 at 7:05 AM, Flavio Leitner <fbl@redhat.com> wrote:
+> There are two problematic situations.
 >
->> This patchset removes all empty MDIO bus reset functions that we have in the
->> tree (hopefully all of them). This function is optional for the MDIO bus code in
->> drivers/net/phy/mdio_bus.c::mdiobus_register, the documentation is updated to
->> reflect that.
->>
->> Having less call sites to update will allow us to implement a generic BMCR_RESET
->> based PHY reset for MDIO buses that require to reset their PHYs before their
->> PHY detection succeeds (e.g: HiSilicon hip04 current submission) and provide it
->> as a helper.
+> A deadlock can happen when is_percpu is false because it can get
+> interrupted while holding the spinlock. Then it executes
+> ovs_flow_stats_update() in softirq context which tries to get
+> the same lock.
 >
-> Series applied, thanks.
+> The second sitation is that when is_percpu is true, the code
+> correctly disables BH but only for the local CPU, so the
+> following can happen when locking the remote CPU without
+> disabling BH:
+>
+>        CPU#0                            CPU#1
+>   ovs_flow_stats_get()
+>    stats_read()
+>  +->spin_lock remote CPU#1        ovs_flow_stats_get()
+>  |  <interrupted>                  stats_read()
+>  |  ...                       +-->  spin_lock remote CPU#0
+>  |                            |     <interrupted>
+>  |  ovs_flow_stats_update()   |     ...
+>  |   spin_lock local CPU#0 <--+     ovs_flow_stats_update()
+>  +---------------------------------- spin_lock local CPU#1
+>
+> This patch disables BH for both cases fixing the deadlocks.
 
-Did you apply it locally but did not push it to net-next.git yet? I
-can see the tipc changes you just replied to, but not those patches.
+This bug is already fixed in OVS.
 
-Thanks!
--- 
-Florian
+Jesse,
+Can you send the fix upstream or you waiting for other patches?
