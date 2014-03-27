@@ -1,203 +1,35 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause from if statement
-Date: Thu, 27 Mar 2014 17:46:07 +0100
-Message-ID: <874580615.20140327174607@eikelenboom.it>
-References: <1395924973-42904-1-git-send-email-paul.durrant@citrix.com> <1395924973-42904-2-git-send-email-paul.durrant@citrix.com> <289461862.20140327144546@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029C992@AMSPEX01CL01.citrite.net> <68689563.20140327150256@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029CAA6@AMSPEX01CL01.citrite.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: significant napi_gro_frags() slowdown
+Date: Thu, 27 Mar 2014 09:47:54 -0700
+Message-ID: <1395938874.12610.306.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5334542F.1050702@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-To: Paul Durrant <Paul.Durrant@citrix.com>
+Cc: netdev@vger.kernel.org, Jerry Chu <hkchu@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Michal Schmidt <mschmidt@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vserver.eikelenboom.it ([84.200.39.61]:33468 "EHLO
-	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752124AbaC0QqL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 12:46:11 -0400
-In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD029CAA6@AMSPEX01CL01.citrite.net>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:47304 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753304AbaC0Qr6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 12:47:58 -0400
+Received: by mail-pa0-f45.google.com with SMTP id kl14so3742559pab.4
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 09:47:57 -0700 (PDT)
+In-Reply-To: <5334542F.1050702@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2014-03-27 at 17:39 +0100, Michal Schmidt wrote:
+> Hello,
+> 
+> I received a report about a performance regression on a simple workload 
+> of receiving a single TCP stream using a be2net NIC. Previously the 
+> reporter was able to reach more than 9 Gb/s, but now he sees less than 7 
+> Gb/s.
 
-Thursday, March 27, 2014, 3:09:32 PM, you wrote:
+Yeah, we are aware of this, and we had some discussions, but not yet got
+a fix.
 
->> -----Original Message-----
->> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
->> Sent: 27 March 2014 14:03
->> To: Paul Durrant
->> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian Campbell; Wei Liu
->> Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause from if
->> statement
->> 
->> 
->> Thursday, March 27, 2014, 2:54:46 PM, you wrote:
->> 
->> >> -----Original Message-----
->> >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
->> >> Sent: 27 March 2014 13:46
->> >> To: Paul Durrant
->> >> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian Campbell; Wei
->> Liu
->> >> Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause
->> from if
->> >> statement
->> >>
->> >>
->> >> Thursday, March 27, 2014, 1:56:11 PM, you wrote:
->> >>
->> >> > This patch removes a test in start_new_rx_buffer() that checks whether
->> >> > a copy operation is less than MAX_BUFFER_OFFSET in length, since
->> >> > MAX_BUFFER_OFFSET is defined to be PAGE_SIZE and the only caller of
->> >> > start_new_rx_buffer() already limits copy operations to PAGE_SIZE or
->> less.
->> >>
->> >> > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
->> >> > Cc: Ian Campbell <ian.campbell@citrix.com>
->> >> > Cc: Wei Liu <wei.liu2@citrix.com>
->> >> > Cc: Sander Eikelenboom <linux@eikelenboom.it>
->> >> > ---
->> >>
->> >> > v2:
->> >> >  - Add BUG_ON() as suggested by Ian Campbell
->> >>
->> >> >  drivers/net/xen-netback/netback.c |    4 ++--
->> >> >  1 file changed, 2 insertions(+), 2 deletions(-)
->> >>
->> >> > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
->> >> netback/netback.c
->> >> > index 438d0c0..72314c7 100644
->> >> > --- a/drivers/net/xen-netback/netback.c
->> >> > +++ b/drivers/net/xen-netback/netback.c
->> >> > @@ -192,8 +192,8 @@ static bool start_new_rx_buffer(int offset,
->> >> unsigned long size, int head)
->> >> >          * into multiple copies tend to give large frags their
->> >> >          * own buffers as before.
->> >> >          */
->> >> > -       if ((offset + size > MAX_BUFFER_OFFSET) &&
->> >> > -           (size <= MAX_BUFFER_OFFSET) && offset && !head)
->> >> > +       BUG_ON(size > MAX_BUFFER_OFFSET);
->> >> > +       if ((offset + size > MAX_BUFFER_OFFSET) && offset && !head)
->> >> >                 return true;
->> >> >
->> >> >         return false;
->> >>
->> >> Hi Paul,
->> >>
->> >> Unfortunately .. no good ..
->> >>
->> >> With these patches (v2) applied to 3.14-rc8 it all seems to work well,
->> >> until i do my test case .. it still chokes and now effectively permanently
->> stalls
->> >> network traffic to that guest.
->> >>
->> >> No error messages or anything in either xl dmesg or dmesg on the host ..
->> and
->> >> nothing in dmesg in the guest either.
->> >>
->> >> But in the guest the TX bytes ifconfig reports for eth0 still increase but RX
->> >> bytes does nothing, so it seems only the RX path is effected)
->> >>
->> 
->> > But you're not getting ring overflow, right? So that suggests this series is
->> working and you're now hitting another problem? I don't see how these
->> patches could directly cause the new behaviour you're seeing.
->> 
->> Don't know  .. how ever .. i previously tested:
->>         - unconditionally doing "max_slots_needed + 1"  in "net_rx_action()",
->> and that circumvented the problem reliably without causing anything else
->>         - reverting the calculation of "max_slots_needed + 1"  in
->> "net_rx_action()" to what it was before :
->>                 int max = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
->>                 if (vif->can_sg || vif->gso_mask || vif->gso_prefix_mask)
->>                         max += MAX_SKB_FRAGS + 1; /* extra_info + frags */
->> 
-
-> So, it may be that the worse-case estimate is now too bad. In the case where it's failing for you it would be nice to know what the estimate was. Looking at netfront, we could be in trouble if it ever goes above 64.
-
-With your patches + some extra printk's
-
-Ok you seem to be right ..
-
-[  967.957014] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
-[  968.164711] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
-[  968.310899] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
-[  968.674412] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
-[  968.928398] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
-[  969.105993] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
-[  969.434961] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
-[  969.719368] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
-[  969.729606] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
-[  970.195451] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
-[  970.493106] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
-[  970.581056] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
-[  970.594934] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
-[  970.754355] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
-[  970.991755] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
-[  976.978261] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26 frag:8 size:1460 offset:15478
-[  976.980183] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 31 frag:9 size:313 offset:17398
-[  976.982154] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 32
-[  976.984078] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 27 frag:3 size:1460 offset:25846
-[  976.986466] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 35 frag:4 size:1460 offset:27766
-[  976.988540] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 43 frag:5 size:1460 offset:29686
-[  976.990809] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 44 frag:6 size:1460 offset:118
-[  976.993038] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 45 frag:7 size:1460 offset:2038
-[  976.994966] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 47 frag:8 size:1460 offset:3958
-[  976.996987] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 49 frag:9 size:1460 offset:5878
-[  976.998947] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 52
-[  982.624852] net_ratelimit: 97 callbacks suppressed
-[  982.627279] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  982.637833] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  983.432482] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  983.640017] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  983.642974] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  983.656408] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  983.779142] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  984.644546] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  984.657728] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  985.459147] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  987.668407] net_ratelimit: 8 callbacks suppressed
-[  987.671661] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  987.678483] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  988.671510] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  988.681210] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  989.472372] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  989.685166] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  989.700220] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  990.058987] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  990.192480] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  990.687626] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
-[  992.707878] net_ratelimit: 5 callbacks suppressed
-
-But it's done at 52 instead of 64.
-
-And this worst case is a *lot* larger (and probably needless .. since i previously could do with only one slot extra).
-
-
-
-
->   Paul
-
->> So that leads me to think it's something caused by this patch set.
->> Patch1 could be a candidate .. perhaps that check was needed for some
->> reason .. will see what not applying that one does
->> 
->> --
->> Sander
->> 
->> 
->> >   Paul
->> 
->> >> So it now seems i now have the situation which you described in the
->> commit
->> >> message from "ca2f09f2b2c6c25047cfc545d057c4edfcfe561c",
->> >> "Without this patch I can trivially stall netback permanently by just doing a
->> >> large guest to guest file copy between two Windows Server 2008R2 VMs
->> on a
->> >> single host."
->> >>
->> >> --
->> >> Sander
->> 
->> 
+Are you running a 64 or 32bit kernel BTW ?
