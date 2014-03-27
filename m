@@ -1,124 +1,174 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Thu, 27 Mar 2014 07:56:16 +0100
-Message-ID: <20140327065616.GA2845@minipsycho.orion>
-References: <5332677F.2090404@cumulusnetworks.com>
- <5332B1FE.7080102@mojatatu.com>
- <53330639.8050403@cumulusnetworks.com>
- <20140326165934.GH2869@minipsycho.orion>
- <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com>
- <20140326173536.GJ2869@minipsycho.orion>
- <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com>
- <20140326181436.GL2869@minipsycho.orion>
- <53334BDA.1060608@mojatatu.com>
- <CAGVrzcaconDBjgSfk0=6px2+6LbrxMkmesgigSa3-9WaK-LiOw@mail.gmail.com>
+From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Subject: Re: [patch net-next RFC v2 0/6] introduce infrastructure
+ for support of switch chip datapath
+Date: Thu, 27 Mar 2014 08:21:07 +0100
+Message-ID: <20140327072107.GC2845@minipsycho.orion>
+References: <1395851472-10524-1-git-send-email-jiri@resnulli.us>
+ <53334A3F.6020105@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	Felix Fietkau <nbd@openwrt.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f51.google.com ([74.125.83.51]:65338 "EHLO
-	mail-ee0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750902AbaC0G4W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 02:56:22 -0400
-Received: by mail-ee0-f51.google.com with SMTP id c13so2457374eek.10
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 23:56:20 -0700 (PDT)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
+ dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
+ linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+ sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <CAGVrzcaconDBjgSfk0=6px2+6LbrxMkmesgigSa3-9WaK-LiOw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <53334A3F.6020105-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Wed, Mar 26, 2014 at 11:22:51PM CET, f.fainelli@gmail.com wrote:
->2014-03-26 14:51 GMT-07:00 Jamal Hadi Salim <jhs@mojatatu.com>:
->> On 03/26/14 14:14, Jiri Pirko wrote:
->>>
->>> Wed, Mar 26, 2014 at 06:58:32PM CET, f.fainelli@gmail.com wrote:
->>>>
->>>> 2014-03-26 10:35 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
->>
->>
->>
->>>> You are right, sw1p0 and sw1p1 were meant to be, say LAN ports in my
->>>> example.
->>>>
->>>> I think there is an implicit convention that sw1 represents the
->>>> Ethernet switch port connected to the CPU Ethernet MAC, and that it is
->>>> always connected, hence there is no need to create a "fake" bridge to
->>>> link sw1 to eth0 for instance?
->>>
->>>
->>> I think you are kind of mixing apples and oranges (or I might be I'm not
->>> understanding you correctly).
->>> This is how I see it, sticking to the names you use in the example:
->>>
->>>              (sw1) (abstract place-holder netdev)
->>>            --------
->>>           switch chip                   CPU
->>>     -----------------------            ------
->>>     sw1p0 sw1p1 sw1p2 sw1p3             eth0
->>>       |     |     |     |                |
->>>      PHY   PHY   PHY    ------someMII-----
->>>
->>> You see that eth0 is the CPU part of the "connection" and sw1p3 is the
->>> switch part (port representation).
->>>
->>
->>
->> Florian - I am sure you explained this before; I just dont remember. Why
->> is there need to expose eth0? It seems to me sw1p0-3 are abstracted
->> already in the kernel and the "cpu port" is merely a control interface.
+Wed, Mar 26, 2014 at 10:44:31PM CET, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org wrote:
+>Jiri,
 >
->eth0 corresponds to a CPU Ethernet MAC facing e.g: sw1p3 switch port.
->It is "regular" Ethernet driver connected to the switch without
->switch-specific logic. The goal is twofold:
->
->- allow any regular Ethernet driver to be connected to an external
->switch via e.g: MDIO/MDC or other without specific switch knowledge
->- represents accurately how the hardware is designed/connected
->
->but maybe, we can simplify and have e.g: sw1p3 and eth0 be the same interface...
+>The flow extensions may be distracting - note there are many
+>tables (L3, L2, etc) in such chips not just ACLs. And there's likely no
+>OneWay(tm) to add a flow. My view is probably to solve or reach an
+>agreement on the ports. Then resolve the different tables control/data
+>exposure.
 
-I believe that hawing both sw1p3 and eth0 is the correct way of
-modelling this. sw1p3 is instance if switch chip driver representing the
-actual port of a switch. eth0 is an instance of some other ordinary NIC
-driver (8139too is my favorite :))
+Well, I think there are 2 main models to be considered:
+1. OSV-like model, where everything is flows and that is the OneWay(tm)
+   mode you mentioned :)
+2. clasic switch setting-like model where you manually set up vlans,
+   lag, whatever.
 
-This model allows to draw the exact picture.
-Also, when you add the described possibility to use iplink to build
-vlans, bridges whatever on the switch ports, it makes perfect sense to
-have this model.
+The phase one for me is 1. and that is what I'm trying to resolve with
+this patchset.
 
-Merging sw1p3 and eth0 would cause a loose of information and confusion.
+>From what I understand from the discussion, 2. is likely the model you
+have in mind.
+
+
+
+>On the switchdev - You are still exposing it; do you expect these
+>things to be created from user space? Probably thats one approach, but
+>I would suspect the majority would result in the driver itself creating
+>these devices after discovering the resources from the control
+>interfaces (PCIE etc).
+
+Sorry, I'm not sure I follow you question correctly.
+The driver should create and register the switch and switch ports itself.
+
 
 >
->>
->> Note: even the high end chips tend to have the concept of a "cpu port"
->> but my experience is to hide that as part of the switch driver.
->>
->> cheers,
->> jamal
->>
->>
+>cheers,
+>jamal
 >
 >
+>On 03/26/14 12:31, Jiri Pirko wrote:
+>>This is second version of RFC. Here are the main differences from the first one:
+>>-There is no special swdev of swport structure. The switch and its ports are
+>>  now represented only by net_device structures. There are couple of switch-specific
+>>  ndos added (inserting and removing flows).
+>>
+>>-Regarding the flows, driver marks skb with "missing flow" flag now. That would
+>>  give indication to a user (OVS datapath of af_packet userspace application).
+>>  On the opposite direction, skb can be xmitted by a port.
+>>
+>>-dummyswitch module has now rtnetlink iface for easy creation of dummy switches
+>>  and ports.
+>>
+>>The basic idea is to introduce a generic infractructure to support various
+>>switch chips in kernel. Also the idea is to benefit of currently existing
+>>Open vSwitch userspace infrastructure.
+>>
+>>
+>>The first two patches are just minor skb flag and packet_type modifications.
+>>
+>>
+>>The third patch does a split of structures which are not specific to OVS
+>>into more generic ones that can be reused.
+>>
+>>
+>>The fourth patch introduces the "switchdev" API itself. It should serve as
+>>a glue between chip drivers on the one side and the user on the other.
+>>That user might be OVS datapath but in future it might be just userspace
+>>application interacting via af_packet and Netlink iface.
+>>
+>>The infrastructure is designed to be similar to for example linux bridge.
+>>There is one netdevice representing a switch chip and one netdevice per every
+>>port. These are bound together in classic slave-master way. The reason
+>>to reuse the netdevices for port representation is that userspace can use
+>>standard tools to get information about the ports, statistics, tcpdump, etc.
+>>
+>>Note that the netdevices are just representations of the ports in the switch.
+>>Therefore **no actual data** goes though, only missed flow skbs and, if drivers
+>>supports it, when ETH_P_ALL packet_type is hooked on (tcpdump).
+>>
+>>
+>>The fifth patch introduces a support for switchdev vports into OVS datapath.
+>>After that, userspace would be able to create a switchdev DP for a switch chip,
+>>to add switchdev ports to it and to use it in the same way as it would be
+>>OVS SW datapath.
+>>
+>>
+>>The sixth patch adds a dummy switch module. It is just an example of
+>>switchdev driver implementation.
+>>
+>>
+>>Jiri Pirko (6):
+>>   net: make packet_type->ak_packet_priv generic
+>>   skbuff: add "missed_flow" flag
+>>   openvswitch: split flow structures into ovs specific and generic ones
+>>   net: introduce switchdev API
+>>   openvswitch: Introduce support for switchdev based datapath
+>>   net: introduce dummy switch
+>>
+>>  drivers/net/Kconfig                        |   7 +
+>>  drivers/net/Makefile                       |   1 +
+>>  drivers/net/dummyswitch.c                  | 235 +++++++++++++++++++++++++++++
+>>  include/linux/filter.h                     |   1 +
+>>  include/linux/netdevice.h                  |  26 +++-
+>>  include/linux/skbuff.h                     |  13 ++
+>>  include/linux/sw_flow.h                    | 105 +++++++++++++
+>>  include/linux/switchdev.h                  |  30 ++++
+>>  include/uapi/linux/if_link.h               |   9 ++
+>>  include/uapi/linux/openvswitch.h           |   4 +
+>>  net/Kconfig                                |  10 ++
+>>  net/core/Makefile                          |   1 +
+>>  net/core/dev.c                             |   4 +-
+>>  net/core/filter.c                          |   3 +
+>>  net/core/switchdev.c                       | 172 +++++++++++++++++++++
+>>  net/openvswitch/Makefile                   |   4 +
+>>  net/openvswitch/datapath.c                 |  90 +++++++----
+>>  net/openvswitch/datapath.h                 |  12 +-
+>>  net/openvswitch/dp_notify.c                |   3 +-
+>>  net/openvswitch/flow.c                     |  14 +-
+>>  net/openvswitch/flow.h                     | 123 +++------------
+>>  net/openvswitch/flow_netlink.c             |  24 +--
+>>  net/openvswitch/flow_netlink.h             |   4 +-
+>>  net/openvswitch/flow_table.c               | 100 ++++++------
+>>  net/openvswitch/flow_table.h               |  18 +--
+>>  net/openvswitch/vport-gre.c                |   4 +-
+>>  net/openvswitch/vport-internal_switchdev.c | 179 ++++++++++++++++++++++
+>>  net/openvswitch/vport-internal_switchdev.h |  28 ++++
+>>  net/openvswitch/vport-netdev.c             |   4 +-
+>>  net/openvswitch/vport-switchportdev.c      | 205 +++++++++++++++++++++++++
+>>  net/openvswitch/vport-switchportdev.h      |  24 +++
+>>  net/openvswitch/vport-vxlan.c              |   2 +-
+>>  net/openvswitch/vport.c                    |   6 +-
+>>  net/openvswitch/vport.h                    |   4 +-
+>>  net/packet/af_packet.c                     |  22 ++-
+>>  35 files changed, 1269 insertions(+), 222 deletions(-)
+>>  create mode 100644 drivers/net/dummyswitch.c
+>>  create mode 100644 include/linux/sw_flow.h
+>>  create mode 100644 include/linux/switchdev.h
+>>  create mode 100644 net/core/switchdev.c
+>>  create mode 100644 net/openvswitch/vport-internal_switchdev.c
+>>  create mode 100644 net/openvswitch/vport-internal_switchdev.h
+>>  create mode 100644 net/openvswitch/vport-switchportdev.c
+>>  create mode 100644 net/openvswitch/vport-switchportdev.h
+>>
 >
->-- 
->Florian
