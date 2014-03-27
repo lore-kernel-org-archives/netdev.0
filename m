@@ -1,101 +1,167 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [ovs-dev] [PATCH net v2] openvswitch: fix a possible deadlock and
- lockdep warning
-Date: Thu, 27 Mar 2014 14:18:29 -0700
-Message-ID: <CALnjE+qGTK0KsZ1Q+Uky45VEYk=Eg7gbPs=SwcQyZtTs21wn2A@mail.gmail.com>
-References: <1395929134-4487-1-git-send-email-fbl@redhat.com>
-	<CALnjE+q41G9KKf_EhTdDvZtX_Xao_WG+KhRZ2fKe0JF8sqjZxw@mail.gmail.com>
-	<20140327173344.GK18707@t520.home>
-	<CAEP_g=--TMq8s4JdSTcybXgGM6o8mqrWh1NWGFt2Jy4QQuXjmA@mail.gmail.com>
-	<20140327174434.GD2478@t520.home>
-	<CAEP_g=_Mih_UxHfe4tbgG_iBcep-aeVdDi=nNfXtbGEm41XaXA@mail.gmail.com>
-	<CALnjE+rdBo=hB128cpD_0sZkLEoaVCh3a8Z1HZb28-3hkJ3kEA@mail.gmail.com>
-	<CAEP_g=_qAxU1s2DY43EpMXyJJS9sSAZLfz=OMVbV-rbdWWXy+A@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
+ switch chip datapath
+Date: Thu, 27 Mar 2014 14:20:06 -0700
+Message-ID: <CAGVrzcY=hxAf0eOoDfAAQZS1fNjFWbdY9Nbyuz6kFaOkSSis8w@mail.gmail.com>
+References: <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com>
+ <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion>
+ <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com>
+ <20140326173536.GJ2869@minipsycho.orion> <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com>
+ <20140326181436.GL2869@minipsycho.orion> <53334BDA.1060608@mojatatu.com>
+ <CAGVrzcaconDBjgSfk0=6px2+6LbrxMkmesgigSa3-9WaK-LiOw@mail.gmail.com>
+ <20140327065616.GA2845@minipsycho.orion> <CAHNKnsQYLNfkrC0088g2os30NcSz9HVzkytbK_qFbNfeSWkmFw@mail.gmail.com>
+ <CAGVrzcaWQH0aH3HOFdhaX2K3sGkfn4EitWaN+17R1oU4xtudWg@mail.gmail.com> <CAHNKnsTs6o3bFr241Cj_=muGMgOq3fc9ZNXcBRt3M8+ccTJscA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>, openvswitch <dev@openvswitch.org>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
+	Felix Fietkau <nbd@openwrt.org>
+To: Sergey Ryazanov <ryazanov.s.a@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na6sys009bog032.obsmtp.com ([74.125.150.106]:33005 "HELO
-	na6sys009bog032.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755086AbaC0VSa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 17:18:30 -0400
-Received: by mail-vc0-f170.google.com with SMTP id hu19so4985053vcb.15
-        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 14:18:29 -0700 (PDT)
-In-Reply-To: <CAEP_g=_qAxU1s2DY43EpMXyJJS9sSAZLfz=OMVbV-rbdWWXy+A@mail.gmail.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:35568 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757263AbaC0VUr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 17:20:47 -0400
+Received: by mail-pa0-f45.google.com with SMTP id kl14so4047978pab.4
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 14:20:47 -0700 (PDT)
+In-Reply-To: <CAHNKnsTs6o3bFr241Cj_=muGMgOq3fc9ZNXcBRt3M8+ccTJscA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 27, 2014 at 1:01 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Thu, Mar 27, 2014 at 11:40 AM, Pravin Shelar <pshelar@nicira.com> wrote:
->> On Thu, Mar 27, 2014 at 11:32 AM, Jesse Gross <jesse@nicira.com> wrote:
->>> On Thu, Mar 27, 2014 at 10:44 AM, Flavio Leitner <fbl@redhat.com> wrote:
->>>> On Thu, Mar 27, 2014 at 10:37:32AM -0700, Jesse Gross wrote:
->>>>> On Thu, Mar 27, 2014 at 10:33 AM, Flavio Leitner <fbl@redhat.com> wrote:
->>>>> > On Thu, Mar 27, 2014 at 10:19:23AM -0700, Pravin Shelar wrote:
->>>>> >> On Thu, Mar 27, 2014 at 7:05 AM, Flavio Leitner <fbl@redhat.com> wrote:
->>>>> >> > There are two problematic situations.
->>>>> >> >
->>>>> >> > A deadlock can happen when is_percpu is false because it can get
->>>>> >> > interrupted while holding the spinlock. Then it executes
->>>>> >> > ovs_flow_stats_update() in softirq context which tries to get
->>>>> >> > the same lock.
->>>>> >> >
->>>>> >> > The second sitation is that when is_percpu is true, the code
->>>>> >> > correctly disables BH but only for the local CPU, so the
->>>>> >> > following can happen when locking the remote CPU without
->>>>> >> > disabling BH:
->>>>> >> >
->>>>> >> >        CPU#0                            CPU#1
->>>>> >> >   ovs_flow_stats_get()
->>>>> >> >    stats_read()
->>>>> >> >  +->spin_lock remote CPU#1        ovs_flow_stats_get()
->>>>> >> >  |  <interrupted>                  stats_read()
->>>>> >> >  |  ...                       +-->  spin_lock remote CPU#0
->>>>> >> >  |                            |     <interrupted>
->>>>> >> >  |  ovs_flow_stats_update()   |     ...
->>>>> >> >  |   spin_lock local CPU#0 <--+     ovs_flow_stats_update()
->>>>> >> >  +---------------------------------- spin_lock local CPU#1
->>>>> >> >
->>>>> >> > This patch disables BH for both cases fixing the deadlocks.
->>>>> >>
->>>>> >> This bug is already fixed in OVS.
->>>>> >
->>>>> > Could you point me to the commit? I am not finding anything
->>>>> > recent.
+2014-03-27 13:32 GMT-07:00 Sergey Ryazanov <ryazanov.s.a@gmail.com>:
+> 2014-03-27 20:41 GMT+04:00 Florian Fainelli <f.fainelli@gmail.com>:
+>> 2014-03-27 7:10 GMT-07:00 Sergey Ryazanov <ryazanov.s.a@gmail.com>:
+>>> Hi all,
+>>>
+>>> sorry for the intrusion, but let me place my 2 cents.
+>>>
+>>> 2014-03-27 10:56 GMT+04:00 Jiri Pirko <jiri@resnulli.us>:
+>>>> Wed, Mar 26, 2014 at 11:22:51PM CET, f.fainelli@gmail.com wrote:
+>>>>>2014-03-26 14:51 GMT-07:00 Jamal Hadi Salim <jhs@mojatatu.com>:
+>>>>>> On 03/26/14 14:14, Jiri Pirko wrote:
+>>>>>>>
+>>>>>>> Wed, Mar 26, 2014 at 06:58:32PM CET, f.fainelli@gmail.com wrote:
+>>>>>>>>
+>>>>>>>> 2014-03-26 10:35 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
+>>>>>>
+>>>>>>
+>>>>>>
+>>>>>>>> You are right, sw1p0 and sw1p1 were meant to be, say LAN ports in my
+>>>>>>>> example.
+>>>>>>>>
+>>>>>>>> I think there is an implicit convention that sw1 represents the
+>>>>>>>> Ethernet switch port connected to the CPU Ethernet MAC, and that it is
+>>>>>>>> always connected, hence there is no need to create a "fake" bridge to
+>>>>>>>> link sw1 to eth0 for instance?
+>>>>>>>
+>>>>>>>
+>>>>>>> I think you are kind of mixing apples and oranges (or I might be I'm not
+>>>>>>> understanding you correctly).
+>>>>>>> This is how I see it, sticking to the names you use in the example:
+>>>>>>>
+>>>>>>>              (sw1) (abstract place-holder netdev)
+>>>>>>>            --------
+>>>>>>>           switch chip                   CPU
+>>>>>>>     -----------------------            ------
+>>>>>>>     sw1p0 sw1p1 sw1p2 sw1p3             eth0
+>>>>>>>       |     |     |     |                |
+>>>>>>>      PHY   PHY   PHY    ------someMII-----
+>>>>>>>
+>>>>>>> You see that eth0 is the CPU part of the "connection" and sw1p3 is the
+>>>>>>> switch part (port representation).
+>>>>>>>
+>>>>>>
+>>>>>>
+>>>>>> Florian - I am sure you explained this before; I just dont remember. Why
+>>>>>> is there need to expose eth0? It seems to me sw1p0-3 are abstracted
+>>>>>> already in the kernel and the "cpu port" is merely a control interface.
 >>>>>
->>>>> This is the commit:
+>>>>>eth0 corresponds to a CPU Ethernet MAC facing e.g: sw1p3 switch port.
+>>>>>It is "regular" Ethernet driver connected to the switch without
+>>>>>switch-specific logic. The goal is twofold:
 >>>>>
->>>>> commit 9d73c9cac76ba557fdac4a89c1b7eafe132b85a3
->>>>> Author: Pravin B Shelar <pshelar@nicira.com>
->>>>> Date:   Tue Dec 17 15:43:30 2013 -0800
+>>>>>- allow any regular Ethernet driver to be connected to an external
+>>>>>switch via e.g: MDIO/MDC or other without specific switch knowledge
+>>>>>- represents accurately how the hardware is designed/connected
 >>>>>
->>>>>     datapath: Fix deadlock during stats update.
->>>>>
->>>>> I thought that I had sent it in the most recent batch of changes for
->>>>> net but it looks like I missed it.
+>>>>>but maybe, we can simplify and have e.g: sw1p3 and eth0 be the same interface...
 >>>>
->>>> That commit is incomplete. Look at the scenario #2 which I explain
->>>> why it is needed to disable bh for all cpus and not just local ones.
+>>>> I believe that hawing both sw1p3 and eth0 is the correct way of
+>>>> modelling this. sw1p3 is instance if switch chip driver representing the
+>>>> actual port of a switch. eth0 is an instance of some other ordinary NIC
+>>>> driver (8139too is my favorite :))
+>>>>
+>>>> This model allows to draw the exact picture.
+>>>> Also, when you add the described possibility to use iplink to build
+>>>> vlans, bridges whatever on the switch ports, it makes perfect sense to
+>>>> have this model.
+>>>>
+>>>> Merging sw1p3 and eth0 would cause a loose of information and confusion.
+>>>>
 >>>
->>> OK, I understand the second problem now. OVS master (which I am
->>> currently working to cross-port to net-next) uses a different strategy
->>> that also always disables bottom halves for a different reason. Since
->>> I forgot to send the original patch, maybe we can just apply this one
->>> to net instead and use the new stuff directly everywhere else.
->>>
+>>> CPU switch port and switch fabric itself should be configured in
+>>> consistence with host, in first place I mean a set of VLANs. Also it
+>>> should be mentioned that some generic knobs such as port rate and
+>>> duplex mode are meaningless for CPU switch port and a lot of status
+>>> information (rx/tx counters etc.) duplicates statistics of host
+>>> interface which is connected to switch port.
 >>
->> The ovs patch fixes locking issue.
+>> It duplicates the information when things just work fine, consider an
+>> external switch connected via RGMII to a CPU Ethernet MAC, you might
+>> want to get statistics from both sides (the switch CPU port and the
+>> CPU Ethernet MAC) to diagnose why things are not working as expected,
+>> which unfortunately happens once in a while with RGMII.
 >>
->> local cpu check is optimization for better latency which can be
->> significant on large SMP system. I think we should fix lockdep rather
->> than adding latency for ovs packet processing. But all this is going
->> to change with NUMA stats anyways, so I do not have any problem
->> pushing this new patch.
->
-> I think there is actually a possible deadlock here, not just a lockdep
-> warning. If you look at Flavio's diagram, it's a rather complicated
-> series of events that would be necessary but it seems theoretically
-> possible.
+>> If we expose both net_device, we will be able to retrieve statistics
+>> about from both sides, without resorting to ad-hoc debugging tools,
+>> but maybe this is not worth the effort.
+>>
+> I also thought about this situation. Can we use the debugfs interface
+> for these purposes?
 
-Right, I missed v2 commit msg. This patch is required to fix all deadlock cases.
+Most of the time you are interesting in MIB counters for debugging
+such issues, so ethtool quickly comes handy for this task. Since we
+will provide per-port counters, the CPU port is not different, so
+there are no reason for restricting this.
+
+>
+>>> So there are no reasons
+>>> to force user to configure this port manually, and automatic
+>>> configuration of CPU switch port without exporting them as netdev
+>>> seems as good approach.
+>>
+>> Well, maybe that's the answer, since we know that e.g: sw1p3 is always
+>> connected to e.g: eth0, we could create an automatic bridge between
+>> those two, this would keep the netdev exposure to user-space, but an
+>> user would not have to know about that specific detail to get things
+>> to work.
+>>
+> I would like go further and suggest to consider a netdev that is
+> connected to the CPU switch port, as master. In case when we need to
+> perform some action on whole switch (e.g. dump FIB).
+
+This is what the 'sw1' net_device in Jiri's proposal would do.
+
+> And even name
+> switch ports, using master netdev name as prefix (e.g. eth1p0, eth1p1,
+> ..., eth1pN for ports of switch that is connected via eth1).
+
+I think the port naming using the switch abstract interface (sw1 here)
+is better because ports do belong to the switch.
+-- 
+Florian
