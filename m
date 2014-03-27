@@ -1,126 +1,70 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] packet: respect devices with LLTX flag in direct xmit
-Date: Thu, 27 Mar 2014 16:38:30 +0100
-Message-ID: <1395934710-29182-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4159 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755146AbaC0Pid (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Mar 2014 11:38:33 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter: nf_conntrack: reserve two bytes for
+ nf_ct_ext->len
+Date: Thu, 27 Mar 2014 15:45:05 +0000
+Message-ID: <20140327154504.GC31944@macbook.localnet>
+References: <1395934354-13226-1-git-send-email-avagin@openvz.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, vvs@parallels.com,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>
+To: Andrey Vagin <avagin@openvz.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1395934354-13226-1-git-send-email-avagin@openvz.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Quite often it can be useful to test with dummy or similar
-devices as a blackhole sink for skbs. Such devices are only
-equipped with a single txq, but marked as NETIF_F_LLTX as
-they do not require locking their internal queues on xmit
-(or implement locking themselves). Therefore, rather use
-HARD_TX_{UN,}LOCK API, so that NETIF_F_LLTX will be respected.
+On Thu, Mar 27, 2014 at 07:32:34PM +0400, Andrey Vagin wrote:
+> "len" contains sizeof(nf_ct_ext) and size of extensions. In a worst
+> case it can contain all extensions. Bellow you can find sizes for all
+> types of extensions. Their sum is definitely bigger than 256.
+> 
+> nf_ct_ext_types[0]->len = 24
+> nf_ct_ext_types[1]->len = 32
+> nf_ct_ext_types[2]->len = 24
+> nf_ct_ext_types[3]->len = 32
+> nf_ct_ext_types[4]->len = 152
+> nf_ct_ext_types[5]->len = 2
+> nf_ct_ext_types[6]->len = 16
+> nf_ct_ext_types[7]->len = 8
+> 
+> I have seen "len" up to 280 and my host has crashes w/o this patch.
 
-trafgen mmap/TX_RING example against dummy device with config
-foo: { fill(0xff, 64) } results in the following performance
-improvements for such scenarios on an ordinary Core i7/2.80GHz:
+Very nice catch. I suppose we also need to either increase the size of
+offset[] or rearrange the extension so 4 (ECACHE) comes last.
 
-Before:
-
- Performance counter stats for 'trafgen -i foo -o du0 -n100000000' (10 runs):
-
-   160,975,944,159 instructions:k            #    0.55  insns per cycle          ( +-  0.09% )
-   293,319,390,278 cycles:k                  #    0.000 GHz                      ( +-  0.35% )
-       192,501,104 branch-misses:k                                               ( +-  1.63% )
-               831 context-switches:k                                            ( +-  9.18% )
-                 7 cpu-migrations:k                                              ( +-  7.40% )
-            69,382 cache-misses:k            #    0.010 % of all cache refs      ( +-  2.18% )
-       671,552,021 cache-references:k                                            ( +-  1.29% )
-
-      22.856401569 seconds time elapsed                                          ( +-  0.33% )
-
-After:
-
- Performance counter stats for 'trafgen -i foo -o du0 -n100000000' (10 runs):
-
-   133,788,739,692 instructions:k            #    0.92  insns per cycle          ( +-  0.06% )
-   145,853,213,256 cycles:k                  #    0.000 GHz                      ( +-  0.17% )
-        59,867,100 branch-misses:k                                               ( +-  4.72% )
-               384 context-switches:k                                            ( +-  3.76% )
-                 6 cpu-migrations:k                                              ( +-  6.28% )
-            70,304 cache-misses:k            #    0.077 % of all cache refs      ( +-  1.73% )
-        90,879,408 cache-references:k                                            ( +-  1.35% )
-
-      11.719372413 seconds time elapsed                                          ( +-  0.24% )
-
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>
----
- net/packet/af_packet.c | 40 ++++++++++++++++++++--------------------
- 1 file changed, 20 insertions(+), 20 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 097a354..01039d2 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -243,40 +243,40 @@ static int packet_direct_xmit(struct sk_buff *skb)
- 	const struct net_device_ops *ops = dev->netdev_ops;
- 	netdev_features_t features;
- 	struct netdev_queue *txq;
-+	int ret = NETDEV_TX_BUSY;
- 	u16 queue_map;
--	int ret;
- 
- 	if (unlikely(!netif_running(dev) ||
--		     !netif_carrier_ok(dev))) {
--		kfree_skb(skb);
--		return NET_XMIT_DROP;
--	}
-+		     !netif_carrier_ok(dev)))
-+		goto drop;
- 
- 	features = netif_skb_features(skb);
- 	if (skb_needs_linearize(skb, features) &&
--	    __skb_linearize(skb)) {
--		kfree_skb(skb);
--		return NET_XMIT_DROP;
--	}
-+	    __skb_linearize(skb))
-+		goto drop;
- 
- 	queue_map = skb_get_queue_mapping(skb);
- 	txq = netdev_get_tx_queue(dev, queue_map);
- 
--	__netif_tx_lock_bh(txq);
--	if (unlikely(netif_xmit_frozen_or_stopped(txq))) {
--		ret = NETDEV_TX_BUSY;
--		kfree_skb(skb);
--		goto out;
-+	local_bh_disable();
-+
-+	HARD_TX_LOCK(dev, txq, smp_processor_id());
-+	if (!netif_xmit_frozen_or_stopped(txq)) {
-+		ret = ops->ndo_start_xmit(skb, dev);
-+		if (ret == NETDEV_TX_OK)
-+			txq_trans_update(txq);
- 	}
-+	HARD_TX_UNLOCK(dev, txq);
- 
--	ret = ops->ndo_start_xmit(skb, dev);
--	if (likely(dev_xmit_complete(ret)))
--		txq_trans_update(txq);
--	else
-+	local_bh_enable();
-+
-+	if (!dev_xmit_complete(ret))
- 		kfree_skb(skb);
--out:
--	__netif_tx_unlock_bh(txq);
-+
- 	return ret;
-+drop:
-+	kfree_skb(skb);
-+	return NET_XMIT_DROP;
- }
- 
- static struct net_device *packet_cached_dev_get(struct packet_sock *po)
--- 
-1.7.11.7
+> 
+> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Andrey Vagin <avagin@openvz.org>
+> ---
+>  include/net/netfilter/nf_conntrack_extend.h | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
+> index 956b175..36fd6bf 100644
+> --- a/include/net/netfilter/nf_conntrack_extend.h
+> +++ b/include/net/netfilter/nf_conntrack_extend.h
+> @@ -48,7 +48,7 @@ enum nf_ct_ext_id {
+>  struct nf_ct_ext {
+>  	struct rcu_head rcu;
+>  	u8 offset[NF_CT_EXT_NUM];
+> -	u8 len;
+> +	u16 len;
+>  	char data[0];
+>  };
+>  
+> -- 
+> 1.8.5.3
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
