@@ -1,75 +1,73 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Wed, 26 Mar 2014 16:21:57 -0700
-Message-ID: <CAGVrzcavFLyQC6A_6hqGa-iqXkkTyZK2V7Zq9UiOix1Y0xEK2w@mail.gmail.com>
-References: <5330BAB7.3040501@mojatatu.com> <20140325173927.GE8102@hmsreliant.think-freely.org>
- <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org>
- <5331ED86.7020704@mojatatu.com> <20140326111031.GB31370@hmsreliant.think-freely.org>
- <20140326112903.GG15723@casper.infradead.org> <20140326182122.GC31370@hmsreliant.think-freely.org>
- <CAGVrzcYNW0Z96mL-MecY=mte=+TcFn8k3eSY4pqi9h0N2jF7hw@mail.gmail.com>
- <53335838.3060409@mojatatu.com> <20140326231533.GA11773@casper.infradead.org>
+From: Dinh Nguyen <dinh.linux@gmail.com>
+Subject: Re: [PATCH 0/3] Fix stmmac-socfpga allmodconfig breakage in arm-soc
+Date: Wed, 26 Mar 2014 19:05:13 -0500
+Message-ID: <53336B39.3080209@gmail.com>
+References: <1395790482-3957-1-git-send-email-dinguyen@altera.com> <201403262254.41069.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Felix Fietkau <nbd@openwrt.org>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, peppe.cavallaro@st.com,
+	srinivas.kandagatla@st.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, arm@kernel.org,
+	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	devicetree@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>, dinguyen@altera.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:54600 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755750AbaCZXWj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 19:22:39 -0400
-Received: by mail-pd0-f177.google.com with SMTP id y10so2518413pdj.36
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 16:22:38 -0700 (PDT)
-In-Reply-To: <20140326231533.GA11773@casper.infradead.org>
+Received: from mail-ob0-f182.google.com ([209.85.214.182]:57286 "EHLO
+	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753520AbaC0AFQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 20:05:16 -0400
+In-Reply-To: <201403262254.41069.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-03-26 16:15 GMT-07:00 Thomas Graf <tgraf@suug.ch>:
-> On 03/26/14 at 06:44pm, Jamal Hadi Salim wrote:
->> OTOH, the owrt view is probably because (If i understood correctly
->> last time), there are cases where there is no way to even pass packets
->> and attribute them to the originating switch ports. Infact, in some
->> cases  there may be no way at all to even pass packets to the kernel.
->> Did i  understand that part correctly?
->> I suppose this is eventually all part of that capability discovery.
->
-> Listening to Florian it sounds like the fact that a separate control
-> path was chosen early on in owrt got rid of the main driver to abstract
-> everything through globally visible net_devices. Reusing existing
-> tools was never an objective.
 
-Correct. OpenWrt already has a fairly custom user-space, so it was
-deemed reasonable to have another lightweight, yet custom control
-interfaces for switches. The ability to use an unmodified Ethernet
-driver was also a key goal. The reasons for putting that in the kernel
-versus using e.g: an ioctl(SIOCGMIIREG) based approach in user-space,
-is that it allows for better abstraction between control paths (MDIO,
-I2C, SPI, memory-mapped I/O ...), and preserves the "kernel has
-hardware ownership" paradigm.
 
+On 03/26/2014 04:54 PM, Arnd Bergmann wrote:
+> On Wednesday 26 March 2014, dinguyen@altera.com wrote:
+>> From: Dinh Nguyen <dinguyen@altera.com>
+>>
+>> Hi,
+>>
+>> These 3 patches are based on Arnd's patch to fix the allmodconfig for the
+>> dwmac-socfpga implementation. I just broke the patch out into drivers,
+>> dts, and dts documentation.
+>>
+>> The original patch is here:
+>> http://lists.infradead.org/pipermail/linux-arm-kernel/2014-March/241518.html
+>>
+>> Arnd mentioned that he was thinking about just removing the dwmac-socfpga
+>> and send out the new verion to the netdev tree, but I haven't seen it. So
+>> just in case this solution might work, here are the patches.
+>>
+>> These patches are based on arm-soc/for-next.
 >
-> I believe that the question whether a particular port will send
-> packets to the cpu does not matter that much. We'll see both and we'll
-> see various forms of hybrid models with software based learnings paths,
-> slow paths, and deliberate upcalls.
+> Hi Dinh,
 >
-> The simpler the model, the better. If the desire to hide some of the
-> complexity is driven by usability when I believe that hiding should
-> happen in user space.
--- 
-Florian
+> Thanks for putting these patches together. The problem I see with these
+> is that we have multiple conflicts between my changes and the other
+> patches that went into the netdev tree.
+>
+> Originally, the idea was that David Miller gave his Ack to have
+> the patches merged through arm-soc, but I think that was a mistake,
+> and they should have been treated like the other patches for
+> the same driver, i.e. put the driver and binding changes into
+> netdev, and the dt changes into arm-soc.
+>
+> If I apply your patches on top of the next/drivers branch, we get
+> conflicts for a handful of files, and get Linus to resolve them.
+> I tried applying my patch on Sunday, but backed it out because
+> of this.
+>
+> My preferred solution at this point would be to revert the driver
+> addition in the arm-soc tree and have David put the new version
+> in, but I don't know if he still takes patches like that for 3.15.
+>
+
+That's fine. Do you mind if I send out a fresh patch based on the netdev 
+tree? If there is still for 3.15, otherwise, going for 3.16 is fine.
+
+Dinh
+> 	Arnd
+>
