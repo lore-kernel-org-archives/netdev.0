@@ -1,55 +1,78 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
- of switch chip datapath
-Date: Thu, 27 Mar 2014 17:33:57 -0400
-Message-ID: <53349945.1000303@mojatatu.com>
-References: <5330BAB7.3040501@mojatatu.com> <20140325173927.GE8102@hmsreliant.think-freely.org> <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org> <5331ED86.7020704@mojatatu.com> <20140326111031.GB31370@hmsreliant.think-freely.org> <20140326112903.GG15723@casper.infradead.org> <20140326182122.GC31370@hmsreliant.think-freely.org> <CAGVrzcYNW0Z96mL-MecY=mte=+TcFn8k3eSY4pqi9h0N2jF7hw@mail.gmail.com> <53335838.3060409@mojatatu.com> <20140327152655.GA1358@hmsreliant.think-freely.org>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net 2/2] bridge: Fix handling stacked vlan tags
+Date: Thu, 27 Mar 2014 17:35:24 -0400
+Message-ID: <5334999C.1040608@redhat.com>
+References: <1395924416-12325-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <1395924416-12325-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Felix Fietkau <nbd@openwrt.org>
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	"David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:54853 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756978AbaC0VeI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 17:34:08 -0400
-Received: by mail-ob0-f180.google.com with SMTP id wn1so4965517obc.39
-        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 14:34:08 -0700 (PDT)
-In-Reply-To: <20140327152655.GA1358@hmsreliant.think-freely.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48860 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755441AbaC0Vf3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Mar 2014 17:35:29 -0400
+In-Reply-To: <1395924416-12325-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/27/14 11:26, Neil Horman wrote:
+On 03/27/2014 08:46 AM, Toshiaki Makita wrote:
+> If a bridge with vlan_filtering enabled receives frames with stacked
+> vlan tags, i.e., they have two vlan tags, br_vlan_untag() strips not
+> only the outer tag but also the inner tag.
+> 
+> br_vlan_untag() is called only from br_handle_vlan(), and in this case,
+> it is enough to set skb->vlan_tci to 0 here, because vlan_tci has already
+> been set before calling br_handle_vlan().
+> 
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 
-> You're absolutely correct - I am viewing this from a host based perspective.
-> And I completely understand that offload is good in a middle box environment (I
-> worked for embedded switch companies in a former life).  I'm looking at it from
-> a host perspective because, as we've been discussing the wide range of devices
-> covered here (from the small SOC switches used by owrt to the big enterprise
-> switches), theres this middle ground thats seeing some consolodation here which
-> I think we need to cover as well.  I'm referring to NICS that have an embedded
-> switch in them that can (or soon will) preform lots of these flow based
-> forwarding operations and actions.
+Acked-by: Vlad Yasevich <vyasevic@redhat.com>
 
-Agreed - I think we need to capture those. The challenge there maybe how
-to abstract some of those tables (example in VMDQ) and make it feel
-like a L2 fdb.
+-vlad
 
-cheers,
-jamal
+> ---
+>  net/bridge/br_vlan.c | 18 +-----------------
+>  1 file changed, 1 insertion(+), 17 deletions(-)
+> 
+> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+> index 44f31af..c77eed5 100644
+> --- a/net/bridge/br_vlan.c
+> +++ b/net/bridge/br_vlan.c
+> @@ -119,22 +119,6 @@ static void __vlan_flush(struct net_port_vlans *v)
+>  	kfree_rcu(v, rcu);
+>  }
+>  
+> -/* Strip the tag from the packet.  Will return skb with tci set 0.  */
+> -static struct sk_buff *br_vlan_untag(struct sk_buff *skb)
+> -{
+> -	if (skb->protocol != htons(ETH_P_8021Q)) {
+> -		skb->vlan_tci = 0;
+> -		return skb;
+> -	}
+> -
+> -	skb->vlan_tci = 0;
+> -	skb = vlan_untag(skb);
+> -	if (skb)
+> -		skb->vlan_tci = 0;
+> -
+> -	return skb;
+> -}
+> -
+>  struct sk_buff *br_handle_vlan(struct net_bridge *br,
+>  			       const struct net_port_vlans *pv,
+>  			       struct sk_buff *skb)
+> @@ -150,7 +134,7 @@ struct sk_buff *br_handle_vlan(struct net_bridge *br,
+>  	 */
+>  	br_vlan_get_tag(skb, &vid);
+>  	if (test_bit(vid, pv->untagged_bitmap))
+> -		skb = br_vlan_untag(skb);
+> +		skb->vlan_tci = 0;
+>  
+>  out:
+>  	return skb;
+> 
