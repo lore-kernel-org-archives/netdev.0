@@ -1,31 +1,135 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2x: Fix compilation when
- CONFIG_BNX2X_SRIOV is not set
-Date: Thu, 27 Mar 2014 14:29:28 -0400 (EDT)
-Message-ID: <20140327.142928.214014917230194194.davem@davemloft.net>
-References: <1395817589-22890-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH v2] rtlwifi: add MSI interrupts support
+Date: Thu, 27 Mar 2014 14:15:13 -0400
+Message-ID: <20140327181513.GF31168@tuxdriver.com>
+References: <1395660884-15042-1-git-send-email-adam.lee@canonical.com>
+ <1395715732-9545-1-git-send-email-adam.lee@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
-To: Yuval.Mintz@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56057 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755441AbaC0S3e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 14:29:34 -0400
-In-Reply-To: <1395817589-22890-1-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
+To: Adam Lee <adam.lee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1395715732-9545-1-git-send-email-adam.lee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Wed, 26 Mar 2014 09:06:29 +0200
+I'm confused -- is "rtlwifi: rtl8188ee: enable MSI interrupts support"
+still wanted/needed?
 
-> Commit 370d4a26 "bnx2x: Create workqueue for IOV related tasks" breaks bnx2x
-> compilation when CONFIG_BNX2X_SRIOV is not set - "multiple definition of
-> `bnx2x_schedule_iov_task'".
+John
+
+On Tue, Mar 25, 2014 at 10:48:52AM +0800, Adam Lee wrote:
+> Add MSI interrupts support, enable it when msi_support flag is true,
+> also could fallback to pin-based interrupts mode if MSI mode fails.
 > 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+> Signed-off-by: Adam Lee <adam.lee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+> Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> [3.10+]
+> ---
+>  drivers/net/wireless/rtlwifi/pci.c | 65 ++++++++++++++++++++++++++++++++++++--
+>  1 file changed, 63 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
+> index f26f4ff..155d010 100644
+> --- a/drivers/net/wireless/rtlwifi/pci.c
+> +++ b/drivers/net/wireless/rtlwifi/pci.c
+> @@ -1853,6 +1853,65 @@ static bool _rtl_pci_find_adapter(struct pci_dev *pdev,
+>  	return true;
+>  }
+>  
+> +static int rtl_pci_intr_mode_msi(struct ieee80211_hw *hw)
+> +{
+> +	struct rtl_priv *rtlpriv = rtl_priv(hw);
+> +	struct rtl_pci_priv *pcipriv = rtl_pcipriv(hw);
+> +	struct rtl_pci *rtlpci = rtl_pcidev(pcipriv);
+> +	int ret;
+> +
+> +	ret = pci_enable_msi(rtlpci->pdev);
+> +	if (ret < 0)
+> +		return ret;
+> +
+> +	ret = request_irq(rtlpci->pdev->irq, &_rtl_pci_interrupt,
+> +			  IRQF_SHARED, KBUILD_MODNAME, hw);
+> +	if (ret < 0) {
+> +		pci_disable_msi(rtlpci->pdev);
+> +		return ret;
+> +	}
+> +
+> +	rtlpci->using_msi = true;
+> +
+> +	RT_TRACE(rtlpriv, COMP_INIT|COMP_INTR, DBG_DMESG,
+> +		 "MSI Interrupt Mode!\n");
+> +	return 0;
+> +}
+> +
+> +static int rtl_pci_intr_mode_legacy(struct ieee80211_hw *hw)
+> +{
+> +	struct rtl_priv *rtlpriv = rtl_priv(hw);
+> +	struct rtl_pci_priv *pcipriv = rtl_pcipriv(hw);
+> +	struct rtl_pci *rtlpci = rtl_pcidev(pcipriv);
+> +	int ret;
+> +
+> +	ret = request_irq(rtlpci->pdev->irq, &_rtl_pci_interrupt,
+> +			  IRQF_SHARED, KBUILD_MODNAME, hw);
+> +	if (ret < 0)
+> +		return ret;
+> +
+> +	rtlpci->using_msi = false;
+> +	RT_TRACE(rtlpriv, COMP_INIT|COMP_INTR, DBG_DMESG,
+> +		 "Pin-based Interrupt Mode!\n");
+> +	return 0;
+> +}
+> +
+> +static int rtl_pci_intr_mode_decide(struct ieee80211_hw *hw)
+> +{
+> +	struct rtl_pci_priv *pcipriv = rtl_pcipriv(hw);
+> +	struct rtl_pci *rtlpci = rtl_pcidev(pcipriv);
+> +	int ret;
+> +
+> +	if (rtlpci->msi_support) {
+> +		ret = rtl_pci_intr_mode_msi(hw);
+> +		if (ret < 0)
+> +			ret = rtl_pci_intr_mode_legacy(hw);
+> +	} else {
+> +		ret = rtl_pci_intr_mode_legacy(hw);
+> +	}
+> +	return ret;
+> +}
+> +
+>  int rtl_pci_probe(struct pci_dev *pdev,
+>  			    const struct pci_device_id *id)
+>  {
+> @@ -1995,8 +2054,7 @@ int rtl_pci_probe(struct pci_dev *pdev,
+>  	}
+>  
+>  	rtlpci = rtl_pcidev(pcipriv);
+> -	err = request_irq(rtlpci->pdev->irq, &_rtl_pci_interrupt,
+> -			  IRQF_SHARED, KBUILD_MODNAME, hw);
+> +	err = rtl_pci_intr_mode_decide(hw);
+>  	if (err) {
+>  		RT_TRACE(rtlpriv, COMP_INIT, DBG_DMESG,
+>  			 "%s: failed to register IRQ handler\n",
+> @@ -2064,6 +2122,9 @@ void rtl_pci_disconnect(struct pci_dev *pdev)
+>  		rtlpci->irq_alloc = 0;
+>  	}
+>  
+> +	if (rtlpci->using_msi)
+> +		pci_disable_msi(rtlpci->pdev);
+> +
+>  	list_del(&rtlpriv->list);
+>  	if (rtlpriv->io.pci_mem_start != 0) {
+>  		pci_iounmap(pdev, (void __iomem *)rtlpriv->io.pci_mem_start);
+> -- 
+> 1.9.1
+> 
+> 
 
-Applied, thanks.
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
