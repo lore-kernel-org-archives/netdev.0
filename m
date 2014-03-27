@@ -1,67 +1,75 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH net 3/3] xen-netback: BUG_ON in xenvif_rx_action() not
- catching overflow
-Date: Thu, 27 Mar 2014 12:28:26 +0000
-Message-ID: <1395923306.22909.107.camel@kazak.uk.xensource.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net 2/3] xen-netback: worse-case estimate in
+ xenvif_rx_action is underestimating
+Date: Thu, 27 Mar 2014 12:29:27 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD029C5E2@AMSPEX01CL01.citrite.net>
 References: <1395922988-37702-1-git-send-email-paul.durrant@citrix.com>
-	 <1395922988-37702-4-git-send-email-paul.durrant@citrix.com>
+	 <1395922988-37702-3-git-send-email-paul.durrant@citrix.com>
+ <1395923253.22909.106.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Wei Liu <wei.liu2@citrix.com>,
 	Sander Eikelenboom <linux@eikelenboom.it>
-To: Paul Durrant <paul.durrant@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:44228 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752124AbaC0M2o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Mar 2014 08:28:44 -0400
-In-Reply-To: <1395922988-37702-4-git-send-email-paul.durrant@citrix.com>
+Received: from smtp.eu.citrix.com ([185.25.65.24]:26613 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753926AbaC0M3a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 08:29:30 -0400
+In-Reply-To: <1395923253.22909.106.camel@kazak.uk.xensource.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-03-27 at 12:23 +0000, Paul Durrant wrote:
-> The BUG_ON to catch ring overflow in xenvif_rx_action() makes the assumption
-> that meta_slots_used == ring slots used. This is not the case for GSO
-> packets.
-
-Can you explain why not here please.
-
->  This patch changes the test to actually check ring slots.
-> 
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
-> Cc: Sander Eikelenboom <linux@eikelenboom.it>
-> ---
->  drivers/net/xen-netback/netback.c |    8 +++++++-
->  1 file changed, 7 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index ac35489..ae7351f 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -481,6 +481,8 @@ static void xenvif_rx_action(struct xenvif *vif)
->  
->  	while ((skb = skb_dequeue(&vif->rx_queue)) != NULL) {
->  		RING_IDX max_slots_needed;
-> +		RING_IDX old_req_cons;
-> +		RING_IDX ring_slots_used;
->  		int i;
->  
->  		/* We need a cheap worse case estimate for the number of
-> @@ -520,8 +522,12 @@ static void xenvif_rx_action(struct xenvif *vif)
->  			vif->rx_last_skb_slots = 0;
->  
->  		sco = (struct skb_cb_overlay *)skb->cb;
-> +
-> +		old_req_cons = vif->rx.req_cons;
->  		sco->meta_slots_used = xenvif_gop_skb(skb, &npo);
-> -		BUG_ON(sco->meta_slots_used > max_slots_needed);
-> +		ring_slots_used = vif->rx.req_cons - old_req_cons;
-> +
-> +		BUG_ON(ring_slots_used > max_slots_needed);
->  
->  		__skb_queue_tail(&rxq, skb);
->  	}
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwNCj4gU2Vu
+dDogMjcgTWFyY2ggMjAxNCAxMjoyOA0KPiBUbzogUGF1bCBEdXJyYW50DQo+IENjOiB4ZW4tZGV2
+ZWxAbGlzdHMueGVuLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgV2VpIExpdTsgU2FuZGVy
+DQo+IEVpa2VsZW5ib29tDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0IDIvM10geGVuLW5ldGJh
+Y2s6IHdvcnNlLWNhc2UgZXN0aW1hdGUgaW4NCj4geGVudmlmX3J4X2FjdGlvbiBpcyB1bmRlcmVz
+dGltYXRpbmcNCj4gDQo+IE9uIFRodSwgMjAxNC0wMy0yNyBhdCAxMjoyMyArMDAwMCwgUGF1bCBE
+dXJyYW50IHdyb3RlOg0KPiA+IFRoZSB3b3JzZS1jYXNlIGVzdGltYXRlIGZvciBza2IgcmluZyBz
+bG90IHVzYWdlIGluIHhlbnZpZl9yeF9hY3Rpb24oKQ0KPiA+IGZhaWxzIHRvIHRha2UgZnJhZ21l
+bnQgcGFnZV9vZmZzZXQgaW50byBhY2NvdW50LiBUaGUgcGFnZV9vZmZzZXQgZG9lcywNCj4gPiBo
+b3dldmVyLCBhZmZlY3QgdGhlIG51bWJlciBvZiB0aW1lcyB0aGUgZnJhZ21lbnRhdGlvbiBjb2Rl
+IGNhbGxzDQo+ID4gc3RhcnRfbmV3X3J4X2J1ZmZlcigpIChpLmUuIGNvbnN1bWUgYW5vdGhlciBz
+bG90KSBhbmQgdGhlIHdvcnNlLWNhc2UNCj4gPiBzaG91bGQgYXNzdW1lIHRoYXQgd2lsbCBhbHdh
+eXMgcmV0dXJuIHRydWUuIFRoaXMgcGF0Y2ggYWRkcyB0aGUgcGFnZV9vZmZzZXQNCj4gPiBpbnRv
+IHRoZSBESVZfUk9VTkRfVVAgZm9yIGVhY2ggZnJhZy4NCj4gDQo+IEF0IGxlYXN0IGZvciB0aGUg
+Y29weWluZyBtb2RlIHdhc24ndCB0aGUgaWRlYSB0aGF0IHlvdSB3b3VsZCBjb3B5IHRvIHRoZQ0K
+PiBzdGFydCBvZiB0aGUgcGFnZSwgc28gdGhlIG9mZnNldCB3YXNuJ3QgcmVsZXZhbnQ/IElPVyBp
+cyB0aGUgcmVhbCBpc3N1ZQ0KPiB0aGF0IHN0YXJ0X25ld19yeF9idWZmZXIgaXMvd2FzIHRvbyBh
+Z2dyZXNzaXZlPw0KPiANCj4gTm93IHRoYXQgd2UgZG8gbWFwcGluZyB0aG91Z2ggSSBzdXNwZWN0
+IHRoZSBvZmZzZXQgYmVjb21lcyByZWxldmFudA0KPiBhZ2FpbiBoZXJlIGFuZCB0aGVyZSBpcyBh
+IDE6MSBtYXBwaW5nIGZyb20gc2xvdHMgdG8gZnJhZ3MgYWdhaW4uDQo+IA0KDQpXZSdyZSBhbHdh
+eXMgaW4gY29weWluZyBtb2RlLiBUaGlzIGlzIGd1ZXN0IHJlY2VpdmUgc2lkZSA6LSkNCg0KPiAo
+SSBjb3VsZCBoYXZlIHN3b3JuIERhdmlkIFYgZ290IHJpZCBvZiBhbGwgdGhpcyBwcmVjYWxjdWxh
+dGluZyBzdHVmZi4pDQo+IA0KDQpIZSBkaWQgbW9kaWZ5IGl0LiBJIGdvdCByaWQgb2YgaXQgaW4g
+ZmF2b3VyIG9mIHRoZSBiZXN0LWNhc2UgYW5kIHdvcnNlLWNhc2UgZXN0aW1hdGlvbnMuDQoNCiAg
+UGF1bA0KDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBQYXVsIER1cnJhbnQgPHBhdWwuZHVycmFu
+dEBjaXRyaXguY29tPg0KPiA+IENjOiBJYW4gQ2FtcGJlbGwgPGlhbi5jYW1wYmVsbEBjaXRyaXgu
+Y29tPg0KPiA+IENjOiBXZWkgTGl1IDx3ZWkubGl1MkBjaXRyaXguY29tPg0KPiA+IENjOiBTYW5k
+ZXIgRWlrZWxlbmJvb20gPGxpbnV4QGVpa2VsZW5ib29tLml0Pg0KPiA+IC0tLQ0KPiA+ICBkcml2
+ZXJzL25ldC94ZW4tbmV0YmFjay9uZXRiYWNrLmMgfCAgIDEyICsrKysrKysrKysrLQ0KPiA+ICAx
+IGZpbGUgY2hhbmdlZCwgMTEgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQ0KPiA+DQo+ID4g
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL25ldGJhY2suYyBiL2RyaXZlcnMv
+bmV0L3hlbi0NCj4gbmV0YmFjay9uZXRiYWNrLmMNCj4gPiBpbmRleCBiZWZjNDEzLi5hYzM1NDg5
+IDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL25ldGJhY2suYw0KPiA+
+ICsrKyBiL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL25ldGJhY2suYw0KPiA+IEBAIC00OTIsOCAr
+NDkyLDE4IEBAIHN0YXRpYyB2b2lkIHhlbnZpZl9yeF9hY3Rpb24oc3RydWN0IHhlbnZpZiAqdmlm
+KQ0KPiA+ICAJCQkJCQlQQUdFX1NJWkUpOw0KPiA+ICAJCWZvciAoaSA9IDA7IGkgPCBza2Jfc2hp
+bmZvKHNrYiktPm5yX2ZyYWdzOyBpKyspIHsNCj4gPiAgCQkJdW5zaWduZWQgaW50IHNpemU7DQo+
+ID4gKwkJCXVuc2lnbmVkIGludCBvZmZzZXQ7DQo+ID4gKw0KPiA+ICAJCQlzaXplID0gc2tiX2Zy
+YWdfc2l6ZSgmc2tiX3NoaW5mbyhza2IpLT5mcmFnc1tpXSk7DQo+ID4gLQkJCW1heF9zbG90c19u
+ZWVkZWQgKz0gRElWX1JPVU5EX1VQKHNpemUsDQo+IFBBR0VfU0laRSk7DQo+ID4gKwkJCW9mZnNl
+dCA9IHNrYl9zaGluZm8oc2tiKS0+ZnJhZ3NbaV0ucGFnZV9vZmZzZXQ7DQo+ID4gKw0KPiA+ICsJ
+CQkvKiBGb3IgYSB3b3JzZS1jYXNlIGVzdGltYXRlIHdlIG5lZWQgdG8gZmFjdG9yIGluDQo+ID4g
+KwkJCSAqIHRoZSBmcmFnbWVudCBwYWdlIG9mZnNldCBhcyB0aGlzIHdpbGwgYWZmZWN0IHRoZQ0K
+PiA+ICsJCQkgKiBudW1iZXIgb2YgdGltZXMgeGVudmlmX2dvcF9mcmFnX2NvcHkoKSB3aWxsDQo+
+ID4gKwkJCSAqIGNhbGwgc3RhcnRfbmV3X3J4X2J1ZmZlcigpLg0KPiA+ICsJCQkgKi8NCj4gPiAr
+CQkJbWF4X3Nsb3RzX25lZWRlZCArPSBESVZfUk9VTkRfVVAob2Zmc2V0ICsgc2l6ZSwNCj4gPiAr
+CQkJCQkJCSBQQUdFX1NJWkUpOw0KPiA+ICAJCX0NCj4gPiAgCQlpZiAoc2tiX2lzX2dzbyhza2Ip
+ICYmDQo+ID4gIAkJICAgKHNrYl9zaGluZm8oc2tiKS0+Z3NvX3R5cGUgJiBTS0JfR1NPX1RDUFY0
+IHx8DQo+IA0KDQo=
