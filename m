@@ -1,88 +1,41 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [patch net-next RFC v2 0/6] introduce infrastructure for support
- of switch chip datapath
-Date: Thu, 27 Mar 2014 17:20:48 +0000
-Message-ID: <20140327172048.GC13573@casper.infradead.org>
-References: <1395851472-10524-1-git-send-email-jiri@resnulli.us>
- <53334A3F.6020105@mojatatu.com>
- <20140327072107.GC2845@minipsycho.orion>
- <5333FD12.9060404@mojatatu.com>
- <20140327110223.GA1615@casper.infradead.org>
- <CAGVrzcYE9uuD0Gxd5-OND4p5ieikYFchhpBm=ZiK5GaMqiQVyA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: significant napi_gro_frags() slowdown
+Date: Thu, 27 Mar 2014 10:21:38 -0700
+Message-ID: <1395940898.12610.307.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5334542F.1050702@redhat.com>
+	 <1395938874.12610.306.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <53345A6C.5080008@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jerry Chu <hkchu@google.com>,
 	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com>,
-	dev <dev@openvswitch.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+	"David S. Miller" <davem@davemloft.net>
+To: Michal Schmidt <mschmidt@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:35458 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756775AbaC0RUv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 13:20:51 -0400
-Content-Disposition: inline
-In-Reply-To: <CAGVrzcYE9uuD0Gxd5-OND4p5ieikYFchhpBm=ZiK5GaMqiQVyA@mail.gmail.com>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:51775 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757045AbaC0RVj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 13:21:39 -0400
+Received: by mail-pb0-f51.google.com with SMTP id uo5so3783671pbc.38
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 10:21:39 -0700 (PDT)
+In-Reply-To: <53345A6C.5080008@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/27/14 at 09:27am, Florian Fainelli wrote:
-> 2014-03-27 4:02 GMT-07:00 Thomas Graf <tgraf@suug.ch>:
-> > There is definitely need beyond an ndo that is capable of
-> > adding flows. You mention routes. Another example would be
-> > devices capable of offloading iptables & nft rules.
+On Thu, 2014-03-27 at 18:05 +0100, Michal Schmidt wrote:
+> Dne 27.3.2014 17:47, Eric Dumazet napsal:
+> > On Thu, 2014-03-27 at 17:39 +0100, Michal Schmidt wrote:
+> >> I received a report about a performance regression on a simple workload
+> >> of receiving a single TCP stream using a be2net NIC. Previously the
+> >> reporter was able to reach more than 9 Gb/s, but now he sees less than 7
+> >> Gb/s.
+> >
+> > Yeah, we are aware of this, and we had some discussions, but not yet got
+> > a fix.
+> >
+> > Are you running a 64 or 32bit kernel BTW ?
 > 
-> Those devices usually require (at least for Broadcom) an entity
-> identifying the flows and uploading flows offloading rules to the
-> hardware. Although I do not think it hurts to keep those in mind to
-> come up with the right design, my feeling is that they will require
-> more intrusive modifications at the socket, route and forwarding path
-> level if we want the Linux kernel to offer a consistent API across
-> different hardware variations.
+> Both my reporter and I are running 64bit kernels.
 
-I absolutely agree. This is where the challenging bits start to
-appear ;-) I don't want to speak for Jiri but my understanding is
-that the flow focused approach early on is entirely because it is
-the easiest case to solve. Taking OVS as an example has the
-advantage of already being guarded by OpenFlow abstraction which
-by nature is very device oriented.
-
-> It is not clear to me at this point whether we want those special
-> offloading devices to appear as separate net_device with specific
-> flags to advertise their offloading features (NAT, IP routing...) or
-> something else?
-
-One lesson that could serve as an example which differs from TOE is
-the offloading provided by recent FC HBAs. The device looks like a
-regular SCSI device to the kernel but offers a full DCB engine to
-allow for FCoE. The DCB bits can and must be configured. By not
-representing that engine with a net_device we cannot configure the
-engine through the Netlink interface dcbnl. dcbnl can certainly be
-extended to allow taking a scsi id of some sort instead of a ifindex
-but it's far from ideal.
-
-My take on this is that if it makes sense to use rtnl or ethtool
-to configure these offload engines then let's just go with a
-globally visible net_device and improve our capabilities system.
-
-> > But wouldn't you want to introduce an additional ndo to
-> > cover these?
-> 
-> I would start with making sure everyone is on the same page regarding
-> switches before we start building the conversation on NAT/IP-routing
-> offloading, but it is good that you mention it.
-
-Agreed
+OK I'll cook a patch asap, thanks for the heads up ;) 
