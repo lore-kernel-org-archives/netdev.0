@@ -1,78 +1,46 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 1/2] net: Allow modules to use
-	is_skb_forwardable
-Date: Wed, 26 Mar 2014 20:50:47 -0400
-Message-ID: <533375E7.80403@redhat.com>
-References: <1395849627-15711-1-git-send-email-vyasevic@redhat.com>	<1395849627-15711-3-git-send-email-vyasevic@redhat.com>
-	<20140326143519.72ea3cc6@samsung-9>
+Subject: Re: [PATCH v2 net] vlan: Mask off vlan acceleration features on vlan
+ device.
+Date: Wed, 26 Mar 2014 20:53:12 -0400
+Message-ID: <53337678.9050208@redhat.com>
+References: <1395865521-2318-1-git-send-email-vyasevic@redhat.com> <1395865711-3347-1-git-send-email-vyasevic@redhat.com> <20140326.171038.2150319831233512825.davem@davemloft.net> <20140326211504.GA21393@macbook.localnet>
 Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
-	bridge@lists.linux-foundation.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140326143519.72ea3cc6@samsung-9>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:17859 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753291AbaC0AxR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2014 20:53:17 -0400
+In-Reply-To: <20140326211504.GA21393@macbook.localnet>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/26/2014 05:35 PM, Stephen Hemminger wrote:
-> On Wed, 26 Mar 2014 12:00:26 -0400
-> Vlad Yasevich <vyasevic@redhat.com> wrote:
-> 
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->> ---
->>  include/linux/netdevice.h | 1 +
->>  net/core/dev.c            | 3 ++-
->>  2 files changed, 3 insertions(+), 1 deletion(-)
+On 03/26/2014 05:15 PM, Patrick McHardy wrote:
+> On Wed, Mar 26, 2014 at 05:10:38PM -0400, David Miller wrote:
+>> From: Vlad Yasevich <vyasevic@redhat.com>
+>> Date: Wed, 26 Mar 2014 16:28:31 -0400
 >>
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index e8eeebd..d855794 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -2551,6 +2551,7 @@ int dev_get_phys_port_id(struct net_device *dev,
->>  int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
->>  			struct netdev_queue *txq);
->>  int dev_forward_skb(struct net_device *dev, struct sk_buff *skb);
->> +bool is_skb_forwardable(struct net_device *dev, struct sk_buff *skb);
->>  
->>  extern int		netdev_budget;
->>  
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index b1b0c8d..a98f7fa 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -1645,7 +1645,7 @@ static inline void net_timestamp_set(struct sk_buff *skb)
->>  			__net_timestamp(SKB);		\
->>  	}						\
->>  
->> -static inline bool is_skb_forwardable(struct net_device *dev,
->> +bool is_skb_forwardable(struct net_device *dev,
->>  				      struct sk_buff *skb)
->>  {
->>  	unsigned int len;
->> @@ -1665,6 +1665,7 @@ static inline bool is_skb_forwardable(struct net_device *dev,
->>  
->>  	return false;
->>  }
->> +EXPORT_SYMBOL_GPL(is_skb_forwardable);
->>  
->>  /**
->>   * dev_forward_skb - loopback an skb to another netif
+>>> Some drivers incorrectly assign vlan acceleration features to
+>>> vlan_features thus causing issues for Q-in-Q vlan configurations.
+>>> Prevent this once and for all by masking off acceleration features
+>>> for vlan devices until such time as we support stacked acceleration.
+>>>
+>>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>>
+>> So what if we do have chips that can offload Q-in-Q?  Will we use
+>> a new flag?
 > 
-> This will allow an arbitrary 1522 byte frame to be forwarded.
-> Not sure if this ok.
+> For 802.1ad that was the intention, using the NETIF_F_HW_VLAN_STAG_* flags.
 > 
 
-We already do that for macvlan/veth.
+But we can't really do that as we don't carry multiple vlan_tci in the
+skb.  If the card advertises VLAN_STAG_*, then we'll offload that, but
+CTAG will have to be computed by software.  More infrastructure is
+needed to support nested vlan offloads.
 
 -vlad
