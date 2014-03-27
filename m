@@ -1,250 +1,109 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [PATCH v6] can: xilinx CAN controller support
-Date: Thu, 27 Mar 2014 14:21:38 +0000
-Message-ID: <fcc94d34-fb45-4eba-ac83-427c42472b8c@VA3EHSMHS036.ehs.local>
-References: <5ff46a21-3047-40ff-9221-f08e476f9ce6@VA3EHSMHS030.ehs.local>
- <53343256.8020802@monstr.eu>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next] xen-netback: Grant copy the header instead of
+ map and memcpy
+Date: Thu, 27 Mar 2014 14:26:24 +0000
+Message-ID: <53343510.9040306@citrix.com>
+References: <1395868707-22683-1-git-send-email-zoltan.kiss@citrix.com>	 <1395920136.22909.76.camel@kazak.uk.xensource.com>	 <53341DA8.9010102@citrix.com> <1395924899.22909.120.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "wg@grandegger.com" <wg@grandegger.com>,
-	"mkl@pengutronix.de" <mkl@pengutronix.de>,
-	Michal Simek <michals@xilinx.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: "monstr@monstr.eu" <monstr@monstr.eu>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <53343256.8020802@monstr.eu>
-Content-Language: en-US
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395924899.22909.120.camel@kazak.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Michal,
+On 27/03/14 12:54, Ian Campbell wrote:
+> On Thu, 2014-03-27 at 12:46 +0000, Zoltan Kiss wrote:
+>> On 27/03/14 11:35, Ian Campbell wrote:
+>>> On Wed, 2014-03-26 at 21:18 +0000, Zoltan Kiss wrote:
+>>>> An old inefficiency of the TX path that we are grant mapping the first slot,
+>>>> and then copy the header part to the linear area. Instead, doing a grant copy
+>>>> for that header straight on is more reasonable. Especially because there are
+>>>> ongoing efforts to make Xen avoiding TLB flush after unmap when the page were
+>>>> not touched in Dom0. In the original way the memcpy ruined that.
+>>>> The key changes:
+>>>> - the vif has a tx_copy_ops array again
+>>>> - xenvif_tx_build_gops sets up the grant copy operations
+>>>> - we don't have to figure out whether the header and first frag are on the same
+>>>>     grant mapped page or not
+>>>>
+>>>> Unrelated, but I've made a small refactoring in xenvif_get_extras as well.
+>>>
+>>> Just a few thoughts, not really based on close review of the code.
+>>>
+>>> Do you have any measurements for this series or workloads where it is
+>>> particularly beneficial?
+>> My manual measurements showed that if I also use the Xen patch which
+>> avoids TLB flush when the pages were not touched, I can easily get 9 -
+>> 9.3 Gbps with iperf. But I'll run some more automated tests.
+>
+> I suppose these numbers are related because avoiding the memcpy avoids
+> touching the page?
+Yes
 
+>>> Or (and I confess this is a skanky hack): we overlay tx_copy_ops and
+>>> tx_map_ops in a union, and insert one set of ops from the front and the
+>>> other from the end, taking great care around when and where they meet.
+>> Unfortunately the hypercalls expect an array of _one_ of them, so we
+>> can't put the 2 types into an union unless it's guaranteed that they
+>> have the same size. And they are expected to be
+>
+> (was there more of this last sentence?)
+>
+> I was thinking
+> 	union {
+> 		struct gnt_map maps[NR_...];
+> 		struct gnt_copy copy[NR_...];
+> 	}
+>
+> Then you fill copy from 0..N and maps from M..NR_ and maintain the
+> invariant that
+>           (&maps[M] - &map[s0]) > &copy[N]
+>
+> and pass to the grant ops (&copy[0], N) and (&maps[M], NR_... - M)
+> respectively.
+>
+> Too tricksy perhaps?
 
-> -----Original Message-----
-> From: Michal Simek [mailto:monstr@monstr.eu]
-> Sent: Thursday, March 27, 2014 7:45 PM
-> To: Appana Durga Kedareswara Rao
-> Cc: wg@grandegger.com; mkl@pengutronix.de; Michal Simek;
-> grant.likely@linaro.org; robh+dt@kernel.org; devicetree@vger.kernel.org;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; linux-
-> can@vger.kernel.org; Appana Durga Kedareswara Rao; linux-arm-
-> kernel@lists.infradead.org
-> Subject: Re: [PATCH v6] can: xilinx CAN controller support
+Yeah, this array is 30*256 bytes (7.5 kb) long, per vif, I don't think 
+it worth the fuss.
+
+>>>
+>>>> +		vif->tx_copy_ops[*copy_ops].source.u.ref = txreq.gref;
+>>>> +		vif->tx_copy_ops[*copy_ops].source.domid = vif->domid;
+>>>> +		vif->tx_copy_ops[*copy_ops].source.offset = txreq.offset;
+>>>> +
+>>>> +		vif->tx_copy_ops[*copy_ops].dest.u.gmfn = virt_to_mfn(skb->data);
+>>>> +		vif->tx_copy_ops[*copy_ops].dest.domid = DOMID_SELF;
+>>>> +		vif->tx_copy_ops[*copy_ops].dest.offset = offset_in_page(skb->data);
+>>>> +
+>>>> +		vif->tx_copy_ops[*copy_ops].len = data_len;
+>>>
+>>> Do we want to copy the entire first frag even if it is e.g. a complete
+>>> page?
+>>>
+>>> I'm not sure where the tradeoff lies between doing a grant copy of more
+>>> than necessary and doing a map+memcpy when the map is already required
+>>> for the page frag anyway.
+>> I think we should only grant copy the parts which goes to the linear
+>> part, because we would memcpy it anyway. It's expected that the stack
+>> won't touch anything else while the packet passes through. data_len is
+>> the size of the linear buffer here.
+>>>
+>>> What about the case where the first frag is less than PKT_PROT_LEN? I
+>>> think you still do map+memcpy in that case?
+>> Then data_len will be txreq.size, we allocate the skb for that, and
+>> later on we call __pskb_pull_tail in xenvif_tx_submit to pull up for
+>> that (which is essentially map+memcpy). It's not optimal, but it's like
+>> that since the good old days. I agree it could be optimized, but let's
+>> change it in a different patch!
 >
-> Hi Kedar,
->
-> On 03/26/2014 06:26 AM, Kedareswara rao Appana wrote:
-> > This patch adds xilinx CAN controller support.
-> > This driver supports both ZYNQ CANPS and Soft IP AXI CAN controller.
-> >
-> > Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
-> > ---
-> > This patch is rebased on the 3.14 rc8 kernel Chnages for v6:
-> > - Updated the driver with review comments.
-> > - Used the clock names specified in the IP data sheet.
-> > - Updated the devicetree bindings doc as per Rob suggestion.
-> > Changes for v5:
-> > - Updated the driver with the review comments.
-> > - Remove the check for the tx fifo full interrupt condition
-> >   form Tx interrupt routine as we are checking it in the _xmit
-> >   routine.
-> > - Clearing the txok interrupt in the tx interrupt routine for
-> >   every Tx can frame.
-> > Changes for v4:
-> > - Added check for the tx fifo full interrupt condition in
-> >   Tx interrupt routine.
-> > - Added be iohelper functions.
-> > - Moved the clock enable/disable to probe/remove because of
-> >   Added big endian support for AXI CAN controller case(reading
-> >   a register during probe for that we need to enable clock).
-> > Changes for v3:
-> > - Updated the driver with the review comments.
-> > - Modified the tranmit logic as per Marc suggestion.
-> > - Enabling the clock when the interface is up to reduce the
-> >   Power consumption.
-> > Changes for v2:
-> > - Updated with the review comments.
-> > - Removed the unnecessary debug prints.
-> > - include tx,rx fifo depths in ZYNQ CANPS case also.
-> > ---
-> >  .../devicetree/bindings/net/can/xilinx_can.txt     |   44 +
-> >  drivers/net/can/Kconfig                            |    7 +
-> >  drivers/net/can/Makefile                           |    1 +
-> >  drivers/net/can/xilinx_can.c                       | 1179 ++++++++++++++++++++
-> >  4 files changed, 1231 insertions(+), 0 deletions(-)  create mode
-> > 100644 Documentation/devicetree/bindings/net/can/xilinx_can.txt
-> >  create mode 100644 drivers/net/can/xilinx_can.c
-> >
-> > diff --git a/Documentation/devicetree/bindings/net/can/xilinx_can.txt
-> > b/Documentation/devicetree/bindings/net/can/xilinx_can.txt
-> > new file mode 100644
-> > index 0000000..4646396
-> > --- /dev/null
-> > +++ b/Documentation/devicetree/bindings/net/can/xilinx_can.txt
-> > @@ -0,0 +1,44 @@
-> > +Xilinx Axi CAN/Zynq CANPS controller Device Tree Bindings
-> > +---------------------------------------------------------
-> > +
-> > +Required properties:
-> > +- compatible               : Should be "xlnx,zynq-can-1.00.a" for Zynq
-> CAN
->
-> We should do one more change and better now than later.
-> Please use just "xlnx,zynq-can-1.0" compatible string here.
->
+> OK. Can you clarify the title and/or the commit log to make it obvious
+> that we only copy (some portion of) the first frag and that we still map
+> +memcpy the remainder of PKT_PROT_LEN if the first frag is not large
+> enough.
 Ok
-
-
-
-> > +                     controllers and "xlnx,axi-can-1.00.a" for Axi CAN
-> > +                     controllers.
-> > +- reg                      : Physical base address and size of the Axi CAN/Zynq
-> > +                     CANPS registers map.
-> > +- interrupts               : Property with a value describing the interrupt
-> > +                     number.
-> > +- interrupt-parent : Must be core interrupt controller
-> > +- clock-names              : List of input clock names - "can_clk", "pclk"
-> > +                     (For CANPS), "can_clk" , "s_axi_aclk"(For AXI CAN)
-> > +                     (See clock bindings for details).
-> > +- clocks           : Clock phandles (see clock bindings for details).
-> > +- tx-fifo-depth            : Can Tx fifo depth.
-> > +- rx-fifo-depth            : Can Rx fifo depth.
-> > +
-> > +
-> > +Example:
-> > +
-> > +For Zynq CANPS Dts file:
-> > +   zynq_can_0: can@e0008000 {
-> > +                   compatible = "xlnx,zynq-can-1.00.a";
->
-> the same here.
->
-Ok
-
-> > +                   clocks = <&clkc 19>, <&clkc 36>;
-> > +                   clock-names = "can_clk", "pclk";
-> > +                   reg = <0xe0008000 0x1000>;
-> > +                   interrupts = <0 28 4>;
-> > +                   interrupt-parent = <&intc>;
-> > +                   tx-fifo-depth = <0x40>;
-> > +                   rx-fifo-depth = <0x40>;
-> > +           };
-> > +For Axi CAN Dts file:
-> > +   axi_can_0: axi-can@40000000 {
-> > +                   compatible = "xlnx,axi-can-1.00.a";
-> > +                   clocks = <&clkc 0>;
-> > +                   clock-names = "can_clk","s_axi_aclk" ;
-> > +                   reg = <0x40000000 0x10000>;
-> > +                   interrupt-parent = <&intc>;
-> > +                   interrupts = <0 59 1>;
-> > +                   tx-fifo-depth = <0x40>;
-> > +                   rx-fifo-depth = <0x40>;
-> > +           };
->
-> I don't know which thread I discussed this with Rob but please send this
-> binding separately out of this and copy devicetree@vger.kernel.org for this
-> patch.
-> They should give us ACK on device-tree binding.
->
-Ok
-
->
-> > diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig index
-> > 9e7d95d..9049884 100644
-> > --- a/drivers/net/can/Kconfig
-> > +++ b/drivers/net/can/Kconfig
-> > @@ -125,6 +125,13 @@ config CAN_GRCAN
-> >       endian syntheses of the cores would need some modifications on
-> >       the hardware level to work.
-> >
-> > +config CAN_XILINXCAN
-> > +   tristate "Xilinx CAN"
-> > +   depends on ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST
-> > +   depends on COMMON_CLK && HAS_IOMEM
-> > +   ---help---
-> > +     Xilinx CAN driver. This driver supports both soft AXI CAN IP and
-> > +     Zynq CANPS IP.
-> >  source "drivers/net/can/mscan/Kconfig"
-> >
-> >  source "drivers/net/can/sja1000/Kconfig"
-> > diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile index
-> > c744039..0b8e11e 100644
-> > --- a/drivers/net/can/Makefile
-> > +++ b/drivers/net/can/Makefile
-> > @@ -25,5 +25,6 @@ obj-$(CONFIG_CAN_JANZ_ICAN3)      += janz-
-> ican3.o
-> >  obj-$(CONFIG_CAN_FLEXCAN)  += flexcan.o
-> >  obj-$(CONFIG_PCH_CAN)              += pch_can.o
-> >  obj-$(CONFIG_CAN_GRCAN)            += grcan.o
-> > +obj-$(CONFIG_CAN_XILINXCAN)        += xilinx_can.o
-> >
-> >  ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG diff --git
-> > a/drivers/net/can/xilinx_can.c b/drivers/net/can/xilinx_can.c new file
-> > mode 100644 index 0000000..3bb289c
-> > --- /dev/null
-> > +++ b/drivers/net/can/xilinx_can.c
-> > @@ -0,0 +1,1179 @@
-> > +/* Xilinx CAN device driver
-> > + *
-> > + * Copyright (C) 2012 - 2014 Xilinx, Inc.
-> > + * Copyright (C) 2009 PetaLogix. All rights reserved.
-> > + *
-> > + * Description:
-> > + * This driver is developed for Axi CAN IP and for Zynq CANPS Controller.
-> > + * This program is free software: you can redistribute it and/or
-> > +modify
-> > + * it under the terms of the GNU General Public License as published
-> > +by
-> > + * the Free Software Foundation, either version 2 of the License, or
-> > + * (at your option) any later version.
-> > + *
-> > + * This program is distributed in the hope that it will be useful,
-> > + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> > + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> > + * GNU General Public License for more details.
-> > + *
-> > + * You should have received a copy of the GNU General Public License
-> > + * along with this program.  If not, see <http://www.gnu.org/licenses/>.
->
-> Please remove this paragraph. Some testing tools reports this as a
-> problematic part.
->
-> <snip>
->
-Ok
-
-> > +/* Match table for OF platform binding */ static struct of_device_id
-> > +xcan_of_match[] = {
-> > +   { .compatible = "xlnx,zynq-can-1.00.a", },
->
-> And here also xlnx,zynq-can-1.0
->
-Ok Will change
-
-Regards,
-Kedar.
-
-> Thanks,
-> Michal
->
-> --
-> Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
-> w: www.monstr.eu p: +42-0-721842854
-> Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
-> Maintainer of Linux kernel - Xilinx Zynq ARM architecture Microblaze U-
-> BOOT custodian and responsible for u-boot arm zynq platform
->
-
-
-
-This email and any attachments are intended for the sole use of the named recipient(s) and contain(s) confidential information that may be proprietary, privileged or copyrighted under applicable law. If you are not the intended recipient, do not read, copy, or forward this email message or any attachments. Delete this email message and any attachments immediately.
-
-
