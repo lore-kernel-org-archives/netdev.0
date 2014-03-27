@@ -1,8 +1,8 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 09/10] tipc: use node_list_lock
-	to protect tipc_num_nodes variable
-Date: Thu, 27 Mar 2014 12:54:38 +0800
-Message-ID: <1395896080-7926-10-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 10/10] tipc: use node list lock
+	to protect tipc_num_links variable
+Date: Thu, 27 Mar 2014 12:54:39 +0800
+Message-ID: <1395896080-7926-11-git-send-email-ying.xue@windriver.com>
 References: <1395896080-7926-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,25 +22,71 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-As tipc_node_list is protected by rcu read lock on read side, it's
-unnecessary to hold node_list_lock to protect tipc_node_list in
-tipc_node_get_links(). Instead, node_list_lock should just protects
-tipc_num_nodes in the function.
+Without properly implicit or explicit read memory barrier, it's
+unsafe to read an atomic variable with atomic_read() from another
+thread which is different with the thread of changing the atomic
+variable with atomic_inc() or atomic_dec(). So a stale tipc_num_links
+may be got with atomic_read() in tipc_node_get_links(). If the
+tipc_num_links variable type is converted from atomic to unsigned
+integer and node list lock is used to protect it, the issue would
+be avoided.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/node.c |    7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ net/tipc/node.c |   21 +++++++++++----------
+ 1 file changed, 11 insertions(+), 10 deletions(-)
 
 diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 4f517ff..85405a6 100644
+index 85405a6..1d3a499 100644
 --- a/net/tipc/node.c
 +++ b/net/tipc/node.c
-@@ -352,11 +352,11 @@ struct sk_buff *tipc_node_get_nodes(const void *req_tlv_area, int req_tlv_space)
+@@ -47,10 +47,9 @@ static void node_established_contact(struct tipc_node *n_ptr);
+ static struct hlist_head node_htable[NODE_HTABLE_SIZE];
+ LIST_HEAD(tipc_node_list);
+ static u32 tipc_num_nodes;
++static u32 tipc_num_links;
+ static DEFINE_SPINLOCK(node_list_lock);
+ 
+-static atomic_t tipc_num_links = ATOMIC_INIT(0);
+-
+ /*
+  * A trivial power-of-two bitmask technique is used for speed, since this
+  * operation is done for every incoming TIPC packet. The number of hash table
+@@ -241,7 +240,9 @@ int tipc_node_is_up(struct tipc_node *n_ptr)
+ void tipc_node_attach_link(struct tipc_node *n_ptr, struct tipc_link *l_ptr)
+ {
+ 	n_ptr->links[l_ptr->b_ptr->identity] = l_ptr;
+-	atomic_inc(&tipc_num_links);
++	spin_lock_bh(&node_list_lock);
++	tipc_num_links++;
++	spin_unlock_bh(&node_list_lock);
+ 	n_ptr->link_cnt++;
+ }
+ 
+@@ -253,7 +254,9 @@ void tipc_node_detach_link(struct tipc_node *n_ptr, struct tipc_link *l_ptr)
+ 		if (l_ptr != n_ptr->links[i])
+ 			continue;
+ 		n_ptr->links[i] = NULL;
+-		atomic_dec(&tipc_num_links);
++		spin_lock_bh(&node_list_lock);
++		tipc_num_links--;
++		spin_unlock_bh(&node_list_lock);
+ 		n_ptr->link_cnt--;
+ 	}
+ }
+@@ -393,18 +396,17 @@ struct sk_buff *tipc_node_get_links(const void *req_tlv_area, int req_tlv_space)
+ 
+ 	spin_lock_bh(&node_list_lock);
+ 	/* Get space for all unicast links + broadcast link */
+-	payload_size = TLV_SPACE(sizeof(link_info)) *
+-		(atomic_read(&tipc_num_links) + 1);
++	payload_size = TLV_SPACE((sizeof(link_info)) * (tipc_num_links + 1));
+ 	if (payload_size > 32768u) {
+ 		spin_unlock_bh(&node_list_lock);
  		return tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
- 						   " (too many nodes)");
+ 						   " (too many links)");
  	}
 +	spin_unlock_bh(&node_list_lock);
 +
@@ -51,16 +97,15 @@ index 4f517ff..85405a6 100644
  		return NULL;
 -	}
  
- 	/* Add TLVs for all nodes in scope */
- 	rcu_read_lock();
-@@ -369,7 +369,6 @@ struct sk_buff *tipc_node_get_nodes(const void *req_tlv_area, int req_tlv_space)
- 				    &node_info, sizeof(node_info));
+ 	/* Add TLV for broadcast link */
+ 	link_info.dest = htonl(tipc_cluster_mask(tipc_own_addr));
+@@ -432,6 +434,5 @@ struct sk_buff *tipc_node_get_links(const void *req_tlv_area, int req_tlv_space)
+ 		tipc_node_unlock(n_ptr);
  	}
  	rcu_read_unlock();
 -	spin_unlock_bh(&node_list_lock);
  	return buf;
  }
- 
 -- 
 1.7.9.5
 
