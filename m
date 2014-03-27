@@ -1,107 +1,64 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3] net: mvneta: use devm_ioremap_resource() instead of of_iomap()
-Date: Thu, 27 Mar 2014 11:39:29 +0100
-Message-ID: <1395916769-20475-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: linux-arm-kernel@lists.infradead.org,
-	Lior Amsalem <alior@marvell.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
+ of switch chip datapath
+Date: Thu, 27 Mar 2014 06:39:59 -0400
+Message-ID: <5333FFFF.1050005@mojatatu.com>
+References: <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com> <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion> <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com> <20140326173536.GJ2869@minipsycho.orion> <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com> <20140326181436.GL2869@minipsycho.orion> <53334BDA.1060608@mojatatu.com> <CAGVrzcaconDBjgSfk0=6px2+6LbrxMkmesgigSa3-9WaK-LiOw@mail.gmail.com> <20140327065616.GA2845@minipsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
+	Felix Fietkau <nbd@openwrt.org>
+To: Jiri Pirko <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:57841 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753873AbaC0Kjd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 06:39:33 -0400
+Received: from mail-oa0-f49.google.com ([209.85.219.49]:49426 "EHLO
+	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753873AbaC0KkC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 06:40:02 -0400
+Received: by mail-oa0-f49.google.com with SMTP id h16so4065477oag.8
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 03:40:01 -0700 (PDT)
+In-Reply-To: <20140327065616.GA2845@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mvneta driver currently uses of_iomap(), which has two drawbacks:
-it doesn't request the resource, and it isn't devm-style so some error
-handling is needed.
+On 03/27/14 02:56, Jiri Pirko wrote:
+> Wed, Mar 26, 2014 at 11:22:51PM CET, f.fainelli@gmail.com wrote:
 
-This commit switches to use devm_ioremap_resource() instead, which
-automatically requests the resource (so the I/O registers region shows
-up properly in /proc/iomem), and also is devm-style, which allows to
-get rid of some error handling to unmap the I/O registers region.
+>
+> I believe that hawing both sw1p3 and eth0 is the correct way of
+> modelling this. sw1p3 is instance if switch chip driver representing the
+> actual port of a switch. eth0 is an instance of some other ordinary NIC
+> driver (8139too is my favorite :))
+>
+> This model allows to draw the exact picture.
+> Also, when you add the described possibility to use iplink to build
+> vlans, bridges whatever on the switch ports, it makes perfect sense to
+> have this model.
+>
+> Merging sw1p3 and eth0 would cause a loose of information and confusion.
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
-Changes since v2:
+I think that if eth0 and sw1p3 have different control interfaces i
+agree.
 
- - Properly take into account the fact that devm_ioremap_resource()
-   returns a PTR_ERR type of pointer, so IS_ERR must be used to test
-   the return value.
+Jiri, sorry - didnt respond to your other email on your patch. My
+comment was on newlink() interface - i was wondering about why it was
+there i.e as in allowing user space to create switch ports.
 
-Changes since v1:
-
- - Remove error handling of platform_get_resource(), since
-   devm_ioremap_resource already checks if the resource is NULL, and
-   properly returns an error in this case. Reported by Ezequiel Garcia.
-
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvneta.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index f418f4f..e251ec7 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -22,6 +22,7 @@
- #include <linux/interrupt.h>
- #include <net/ip.h>
- #include <net/ipv6.h>
-+#include <linux/io.h>
- #include <linux/of.h>
- #include <linux/of_irq.h>
- #include <linux/of_mdio.h>
-@@ -2774,6 +2775,7 @@ static void mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
- static int mvneta_probe(struct platform_device *pdev)
- {
- 	const struct mbus_dram_target_info *dram_target_info;
-+	struct resource *res;
- 	struct device_node *dn = pdev->dev.of_node;
- 	struct device_node *phy_node;
- 	u32 phy_addr;
-@@ -2838,9 +2840,10 @@ static int mvneta_probe(struct platform_device *pdev)
- 
- 	clk_prepare_enable(pp->clk);
- 
--	pp->base = of_iomap(dn, 0);
--	if (pp->base == NULL) {
--		err = -ENOMEM;
-+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	pp->base = devm_ioremap_resource(&pdev->dev, res);
-+	if (IS_ERR(pp->base)) {
-+		err = PTR_ERR(pp->base);
- 		goto err_clk;
- 	}
- 
-@@ -2848,7 +2851,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 	pp->stats = alloc_percpu(struct mvneta_pcpu_stats);
- 	if (!pp->stats) {
- 		err = -ENOMEM;
--		goto err_unmap;
-+		goto err_clk;
- 	}
- 
- 	for_each_possible_cpu(cpu) {
-@@ -2913,8 +2916,6 @@ err_deinit:
- 	mvneta_deinit(pp);
- err_free_stats:
- 	free_percpu(pp->stats);
--err_unmap:
--	iounmap(pp->base);
- err_clk:
- 	clk_disable_unprepare(pp->clk);
- err_free_irq:
-@@ -2934,7 +2935,6 @@ static int mvneta_remove(struct platform_device *pdev)
- 	mvneta_deinit(pp);
- 	clk_disable_unprepare(pp->clk);
- 	free_percpu(pp->stats);
--	iounmap(pp->base);
- 	irq_dispose_mapping(dev->irq);
- 	free_netdev(dev);
- 
--- 
-1.8.3.2
+cheers,
+jamal
