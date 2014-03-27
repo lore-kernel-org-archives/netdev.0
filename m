@@ -1,36 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] vlan: Mask off vlan acceleration features on
- vlan device.
-Date: Thu, 27 Mar 2014 15:12:05 -0400 (EDT)
-Message-ID: <20140327.151205.1227455812702138170.davem@davemloft.net>
-References: <1395865521-2318-1-git-send-email-vyasevic@redhat.com>
-	<1395865711-3347-1-git-send-email-vyasevic@redhat.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: linux-next: manual merge of the staging tree with the net-next tree
+Date: Thu, 27 Mar 2014 12:14:13 -0700
+Message-ID: <87ob0rsbcq.fsf@x220.int.ebiederm.org>
+References: <20140327160938.c1a4f9a5df6f93e17b55d3cd@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56804 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757251AbaC0TMH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 15:12:07 -0400
-In-Reply-To: <1395865711-3347-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Greg KH <greg@kroah.com>, David Miller <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Mathieu Maret <mathieu.maret@gmail.com>,
+	Jelena Bjelja <jelena.bjelja.ing@gmail.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20140327160938.c1a4f9a5df6f93e17b55d3cd@canb.auug.org.au>
+	(Stephen Rothwell's message of "Thu, 27 Mar 2014 16:09:38 +1100")
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Wed, 26 Mar 2014 16:28:31 -0400
+Stephen Rothwell <sfr@canb.auug.org.au> writes:
 
-> Some drivers incorrectly assign vlan acceleration features to
-> vlan_features thus causing issues for Q-in-Q vlan configurations.
-> Prevent this once and for all by masking off acceleration features
-> for vlan devices until such time as we support stacked acceleration.
-> 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> Hi Greg,
+>
+> Today's linux-next merge of the staging tree got a conflict in
+> drivers/staging/wlags49_h2/wl_netdev.c between commit 8d4ade284a41
+> ("wlags49_h2: Call dev_kfree/consume_skb_any instead of dev_kfree_skb")
+> from the net-next tree and commit fed3ffd8f7ef ("staging: wlags49_h2:
+> reindent wl_netdev.c") (and maybe others) from the staging tree.
+>
+> I fixed it up (see below) and can carry the fix as necessary (no action
+> is required).
 
-Vlad, I've thought more about this, I'd rather we emit a warning so
-we can fix the drivers.
+That looks like the correct resolution.  Thanks,
 
-If they are setting the flags wrong, we probably want to go take a
-look to see if they are doing anything else related wrong too.
+Eric
