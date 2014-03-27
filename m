@@ -1,70 +1,77 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: nf_conntrack: reserve two bytes for
- nf_ct_ext->len
-Date: Thu, 27 Mar 2014 15:45:05 +0000
-Message-ID: <20140327154504.GC31944@macbook.localnet>
-References: <1395934354-13226-1-git-send-email-avagin@openvz.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: net: add a core netdev->tx_dropped counter
+Date: Thu, 27 Mar 2014 08:45:56 -0700
+Message-ID: <1395935156.12610.295.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, vvs@parallels.com,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
-To: Andrey Vagin <avagin@openvz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1395934354-13226-1-git-send-email-avagin@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:43825 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755179AbaC0Pp6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 11:45:58 -0400
+Received: by mail-pd0-f170.google.com with SMTP id v10so3528412pde.15
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 08:45:57 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 27, 2014 at 07:32:34PM +0400, Andrey Vagin wrote:
-> "len" contains sizeof(nf_ct_ext) and size of extensions. In a worst
-> case it can contain all extensions. Bellow you can find sizes for all
-> types of extensions. Their sum is definitely bigger than 256.
-> 
-> nf_ct_ext_types[0]->len = 24
-> nf_ct_ext_types[1]->len = 32
-> nf_ct_ext_types[2]->len = 24
-> nf_ct_ext_types[3]->len = 32
-> nf_ct_ext_types[4]->len = 152
-> nf_ct_ext_types[5]->len = 2
-> nf_ct_ext_types[6]->len = 16
-> nf_ct_ext_types[7]->len = 8
-> 
-> I have seen "len" up to 280 and my host has crashes w/o this patch.
+From: Eric Dumazet <edumazet@google.com>
 
-Very nice catch. I suppose we also need to either increase the size of
-offset[] or rearrange the extension so 4 (ECACHE) comes last.
+Dropping packets in __dev_queue_xmit() when transmit queue
+is stopped (NIC TX ring buffer full or BQL limit reached) currently
+outputs a syslog message.
 
-> 
-> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Andrey Vagin <avagin@openvz.org>
-> ---
->  include/net/netfilter/nf_conntrack_extend.h | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
-> index 956b175..36fd6bf 100644
-> --- a/include/net/netfilter/nf_conntrack_extend.h
-> +++ b/include/net/netfilter/nf_conntrack_extend.h
-> @@ -48,7 +48,7 @@ enum nf_ct_ext_id {
->  struct nf_ct_ext {
->  	struct rcu_head rcu;
->  	u8 offset[NF_CT_EXT_NUM];
-> -	u8 len;
-> +	u16 len;
->  	char data[0];
->  };
->  
-> -- 
-> 1.8.5.3
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It would be better to get a precise count of such events available in
+netdevice stats so that monitoring tools can have a clue.
+
+This extends the work done in caf586e5f23ce
+("net: add a core netdev->rx_dropped counter")
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+Google-Bug-Id: 11288639
+
+ include/linux/netdevice.h |    7 ++++---
+ net/core/dev.c            |    2 ++
+ 2 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 4b6d12c7b803..159c7e7945f8 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1311,9 +1311,10 @@ struct net_device {
+ 	int			iflink;
+ 
+ 	struct net_device_stats	stats;
+-	atomic_long_t		rx_dropped; /* dropped packets by core network
+-					     * Do not use this in drivers.
+-					     */
++
++	/* dropped packets by core network, Do not use this in drivers */
++	atomic_long_t		rx_dropped;
++	atomic_long_t		tx_dropped;
+ 
+ #ifdef CONFIG_WIRELESS_EXT
+ 	/* List of functions to handle Wireless Extensions (instead of ioctl).
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 48dd323d5918..98ba581b89f0 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2880,6 +2880,7 @@ recursion_alert:
+ 	rc = -ENETDOWN;
+ 	rcu_read_unlock_bh();
+ 
++	atomic_long_inc(&dev->tx_dropped);
+ 	kfree_skb(skb);
+ 	return rc;
+ out:
+@@ -6238,6 +6239,7 @@ struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
+ 		netdev_stats_to_stats64(storage, &dev->stats);
+ 	}
+ 	storage->rx_dropped += atomic_long_read(&dev->rx_dropped);
++	storage->tx_dropped += atomic_long_read(&dev->tx_dropped);
+ 	return storage;
+ }
+ EXPORT_SYMBOL(dev_get_stats);
