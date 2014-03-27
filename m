@@ -1,52 +1,84 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 03/14] macb: remove empty MDIO bus reset function
-Date: Wed, 26 Mar 2014 18:07:15 -0700
-Message-ID: <1395882446-552-4-git-send-email-f.fainelli@gmail.com>
-References: <1395882446-552-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Wei Yang <weiyang@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next resend] net/mlx4_core: pass
+ pci_device_id.driver_data to __mlx4_init_one during reset
+Date: Thu, 27 Mar 2014 09:18:29 +0800
+Message-ID: <20140327011829.GA4559@richard>
+References: <1395828952-11471-1-git-send-email-weiyang@linux.vnet.ibm.com>
+ <5332DDF3.2040703@cogentembedded.com>
+Reply-To: Wei Yang <weiyang@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Wei Yang <weiyang@linux.vnet.ibm.com>, jackm@dev.mellanox.co.il,
+	ogerlitz@mellanox.com, davem@davemloft.net, netdev@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:33359 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753816AbaC0BHq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 21:07:46 -0400
-Received: by mail-pb0-f45.google.com with SMTP id uo5so2699302pbc.18
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 18:07:45 -0700 (PDT)
-In-Reply-To: <1395882446-552-1-git-send-email-f.fainelli@gmail.com>
+Received: from e28smtp04.in.ibm.com ([122.248.162.4]:51984 "EHLO
+	e28smtp04.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751194AbaC0BSk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 21:18:40 -0400
+Received: from /spool/local
+	by e28smtp04.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
+	Thu, 27 Mar 2014 06:48:37 +0530
+Received: from d28relay02.in.ibm.com (d28relay02.in.ibm.com [9.184.220.59])
+	by d28dlp01.in.ibm.com (Postfix) with ESMTP id 082D0E0045
+	for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 06:52:33 +0530 (IST)
+Received: from d28av04.in.ibm.com (d28av04.in.ibm.com [9.184.220.66])
+	by d28relay02.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2R1IGjg197098
+	for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 06:48:17 +0530
+Received: from d28av04.in.ibm.com (localhost [127.0.0.1])
+	by d28av04.in.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s2R1IVrK022131
+	for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 06:48:31 +0530
+Content-Disposition: inline
+In-Reply-To: <5332DDF3.2040703@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-macb_mdio_reset() does nothing useful and is optional for the MDIO bus
-code, so let's just remove it.
+On Wed, Mar 26, 2014 at 06:02:27PM +0400, Sergei Shtylyov wrote:
+>Hello.
+>
+>On 26-03-2014 14:15, Wei Yang wrote:
+>
+>>[Note: seems my network/mail system got some problem yesterday. Resend it in
+>>case it is lost. If you have already got one, please ignore it.]
+>
+>   Put such remarks under --- tear line in the future, so that David
+>don't have to edit them out when applying.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/cadence/macb.c | 6 ------
- 1 file changed, 6 deletions(-)
+Thanks, first time I got this tip. Will do this next time :-)
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 6116887d2880..ca97005e24b4 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -199,11 +199,6 @@ static int macb_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
- 	return 0;
- }
- 
--static int macb_mdio_reset(struct mii_bus *bus)
--{
--	return 0;
--}
--
- /**
-  * macb_set_tx_clk() - Set a clock to a new frequency
-  * @clk		Pointer to the clock to change
-@@ -375,7 +370,6 @@ int macb_mii_init(struct macb *bp)
- 	bp->mii_bus->name = "MACB_mii_bus";
- 	bp->mii_bus->read = &macb_mdio_read;
- 	bp->mii_bus->write = &macb_mdio_write;
--	bp->mii_bus->reset = &macb_mdio_reset;
- 	snprintf(bp->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
- 		bp->pdev->name, bp->pdev->id);
- 	bp->mii_bus->priv = bp;
+>
+>>The second parameter of __mlx4_init_one() is used to identify whether the
+>>pci_dev is a PF or VF. Currently, when it is invoked in mlx4_pci_slot_reset()
+>>this information is missed.
+>
+>>This patch match the pci_dev with mlx4_pci_table and passes the
+>>pci_device_id.driver_data to __mlx4_init_one() in mlx4_pci_slot_reset().
+>
+>>Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+>>---
+>>  drivers/net/ethernet/mellanox/mlx4/main.c |    6 +++++-
+>>  1 file changed, 5 insertions(+), 1 deletion(-)
+>
+>>diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+>>index d711158..b083808 100644
+>>--- a/drivers/net/ethernet/mellanox/mlx4/main.c
+>>+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+>>@@ -2670,7 +2670,11 @@ static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
+>>
+>>  static pci_ers_result_t mlx4_pci_slot_reset(struct pci_dev *pdev)
+>>  {
+>>-	int ret = __mlx4_init_one(pdev, 0);
+>>+	const struct pci_device_id*  id;
+>
+>   * should be close to 'id' and one space is enough. I guess you
+>haven't run your patch thru scripts/checkpatch.pl?
+
+Oops, my bad. Will fix it.
+
+>
+>WBR, Sergei
+
 -- 
-1.8.3.2
+Richard Yang
+Help you, Help me
