@@ -1,142 +1,203 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Thu, 27 Mar 2014 09:41:52 -0700
-Message-ID: <CAGVrzcaWQH0aH3HOFdhaX2K3sGkfn4EitWaN+17R1oU4xtudWg@mail.gmail.com>
-References: <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com>
- <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion>
- <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com>
- <20140326173536.GJ2869@minipsycho.orion> <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com>
- <20140326181436.GL2869@minipsycho.orion> <53334BDA.1060608@mojatatu.com>
- <CAGVrzcaconDBjgSfk0=6px2+6LbrxMkmesgigSa3-9WaK-LiOw@mail.gmail.com>
- <20140327065616.GA2845@minipsycho.orion> <CAHNKnsQYLNfkrC0088g2os30NcSz9HVzkytbK_qFbNfeSWkmFw@mail.gmail.com>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause from if statement
+Date: Thu, 27 Mar 2014 17:46:07 +0100
+Message-ID: <874580615.20140327174607@eikelenboom.it>
+References: <1395924973-42904-1-git-send-email-paul.durrant@citrix.com> <1395924973-42904-2-git-send-email-paul.durrant@citrix.com> <289461862.20140327144546@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029C992@AMSPEX01CL01.citrite.net> <68689563.20140327150256@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029CAA6@AMSPEX01CL01.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	Felix Fietkau <nbd@openwrt.org>
-To: Sergey Ryazanov <ryazanov.s.a@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: Paul Durrant <Paul.Durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:48438 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754761AbaC0Qmc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 12:42:32 -0400
-Received: by mail-pa0-f46.google.com with SMTP id kp14so3736600pab.33
-        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 09:42:32 -0700 (PDT)
-In-Reply-To: <CAHNKnsQYLNfkrC0088g2os30NcSz9HVzkytbK_qFbNfeSWkmFw@mail.gmail.com>
+Received: from vserver.eikelenboom.it ([84.200.39.61]:33468 "EHLO
+	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752124AbaC0QqL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 12:46:11 -0400
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD029CAA6@AMSPEX01CL01.citrite.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-03-27 7:10 GMT-07:00 Sergey Ryazanov <ryazanov.s.a@gmail.com>:
-> Hi all,
->
-> sorry for the intrusion, but let me place my 2 cents.
->
-> 2014-03-27 10:56 GMT+04:00 Jiri Pirko <jiri@resnulli.us>:
->> Wed, Mar 26, 2014 at 11:22:51PM CET, f.fainelli@gmail.com wrote:
->>>2014-03-26 14:51 GMT-07:00 Jamal Hadi Salim <jhs@mojatatu.com>:
->>>> On 03/26/14 14:14, Jiri Pirko wrote:
->>>>>
->>>>> Wed, Mar 26, 2014 at 06:58:32PM CET, f.fainelli@gmail.com wrote:
->>>>>>
->>>>>> 2014-03-26 10:35 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
->>>>
->>>>
->>>>
->>>>>> You are right, sw1p0 and sw1p1 were meant to be, say LAN ports in my
->>>>>> example.
->>>>>>
->>>>>> I think there is an implicit convention that sw1 represents the
->>>>>> Ethernet switch port connected to the CPU Ethernet MAC, and that it is
->>>>>> always connected, hence there is no need to create a "fake" bridge to
->>>>>> link sw1 to eth0 for instance?
->>>>>
->>>>>
->>>>> I think you are kind of mixing apples and oranges (or I might be I'm not
->>>>> understanding you correctly).
->>>>> This is how I see it, sticking to the names you use in the example:
->>>>>
->>>>>              (sw1) (abstract place-holder netdev)
->>>>>            --------
->>>>>           switch chip                   CPU
->>>>>     -----------------------            ------
->>>>>     sw1p0 sw1p1 sw1p2 sw1p3             eth0
->>>>>       |     |     |     |                |
->>>>>      PHY   PHY   PHY    ------someMII-----
->>>>>
->>>>> You see that eth0 is the CPU part of the "connection" and sw1p3 is the
->>>>> switch part (port representation).
->>>>>
->>>>
->>>>
->>>> Florian - I am sure you explained this before; I just dont remember. Why
->>>> is there need to expose eth0? It seems to me sw1p0-3 are abstracted
->>>> already in the kernel and the "cpu port" is merely a control interface.
->>>
->>>eth0 corresponds to a CPU Ethernet MAC facing e.g: sw1p3 switch port.
->>>It is "regular" Ethernet driver connected to the switch without
->>>switch-specific logic. The goal is twofold:
->>>
->>>- allow any regular Ethernet driver to be connected to an external
->>>switch via e.g: MDIO/MDC or other without specific switch knowledge
->>>- represents accurately how the hardware is designed/connected
->>>
->>>but maybe, we can simplify and have e.g: sw1p3 and eth0 be the same interface...
->>
->> I believe that hawing both sw1p3 and eth0 is the correct way of
->> modelling this. sw1p3 is instance if switch chip driver representing the
->> actual port of a switch. eth0 is an instance of some other ordinary NIC
->> driver (8139too is my favorite :))
->>
->> This model allows to draw the exact picture.
->> Also, when you add the described possibility to use iplink to build
->> vlans, bridges whatever on the switch ports, it makes perfect sense to
->> have this model.
->>
->> Merging sw1p3 and eth0 would cause a loose of information and confusion.
->>
->
-> CPU switch port and switch fabric itself should be configured in
-> consistence with host, in first place I mean a set of VLANs. Also it
-> should be mentioned that some generic knobs such as port rate and
-> duplex mode are meaningless for CPU switch port and a lot of status
-> information (rx/tx counters etc.) duplicates statistics of host
-> interface which is connected to switch port.
 
-It duplicates the information when things just work fine, consider an
-external switch connected via RGMII to a CPU Ethernet MAC, you might
-want to get statistics from both sides (the switch CPU port and the
-CPU Ethernet MAC) to diagnose why things are not working as expected,
-which unfortunately happens once in a while with RGMII.
+Thursday, March 27, 2014, 3:09:32 PM, you wrote:
 
-If we expose both net_device, we will be able to retrieve statistics
-about from both sides, without resorting to ad-hoc debugging tools,
-but maybe this is not worth the effort.
+>> -----Original Message-----
+>> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+>> Sent: 27 March 2014 14:03
+>> To: Paul Durrant
+>> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian Campbell; Wei Liu
+>> Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause from if
+>> statement
+>> 
+>> 
+>> Thursday, March 27, 2014, 2:54:46 PM, you wrote:
+>> 
+>> >> -----Original Message-----
+>> >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+>> >> Sent: 27 March 2014 13:46
+>> >> To: Paul Durrant
+>> >> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian Campbell; Wei
+>> Liu
+>> >> Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause
+>> from if
+>> >> statement
+>> >>
+>> >>
+>> >> Thursday, March 27, 2014, 1:56:11 PM, you wrote:
+>> >>
+>> >> > This patch removes a test in start_new_rx_buffer() that checks whether
+>> >> > a copy operation is less than MAX_BUFFER_OFFSET in length, since
+>> >> > MAX_BUFFER_OFFSET is defined to be PAGE_SIZE and the only caller of
+>> >> > start_new_rx_buffer() already limits copy operations to PAGE_SIZE or
+>> less.
+>> >>
+>> >> > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+>> >> > Cc: Ian Campbell <ian.campbell@citrix.com>
+>> >> > Cc: Wei Liu <wei.liu2@citrix.com>
+>> >> > Cc: Sander Eikelenboom <linux@eikelenboom.it>
+>> >> > ---
+>> >>
+>> >> > v2:
+>> >> >  - Add BUG_ON() as suggested by Ian Campbell
+>> >>
+>> >> >  drivers/net/xen-netback/netback.c |    4 ++--
+>> >> >  1 file changed, 2 insertions(+), 2 deletions(-)
+>> >>
+>> >> > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
+>> >> netback/netback.c
+>> >> > index 438d0c0..72314c7 100644
+>> >> > --- a/drivers/net/xen-netback/netback.c
+>> >> > +++ b/drivers/net/xen-netback/netback.c
+>> >> > @@ -192,8 +192,8 @@ static bool start_new_rx_buffer(int offset,
+>> >> unsigned long size, int head)
+>> >> >          * into multiple copies tend to give large frags their
+>> >> >          * own buffers as before.
+>> >> >          */
+>> >> > -       if ((offset + size > MAX_BUFFER_OFFSET) &&
+>> >> > -           (size <= MAX_BUFFER_OFFSET) && offset && !head)
+>> >> > +       BUG_ON(size > MAX_BUFFER_OFFSET);
+>> >> > +       if ((offset + size > MAX_BUFFER_OFFSET) && offset && !head)
+>> >> >                 return true;
+>> >> >
+>> >> >         return false;
+>> >>
+>> >> Hi Paul,
+>> >>
+>> >> Unfortunately .. no good ..
+>> >>
+>> >> With these patches (v2) applied to 3.14-rc8 it all seems to work well,
+>> >> until i do my test case .. it still chokes and now effectively permanently
+>> stalls
+>> >> network traffic to that guest.
+>> >>
+>> >> No error messages or anything in either xl dmesg or dmesg on the host ..
+>> and
+>> >> nothing in dmesg in the guest either.
+>> >>
+>> >> But in the guest the TX bytes ifconfig reports for eth0 still increase but RX
+>> >> bytes does nothing, so it seems only the RX path is effected)
+>> >>
+>> 
+>> > But you're not getting ring overflow, right? So that suggests this series is
+>> working and you're now hitting another problem? I don't see how these
+>> patches could directly cause the new behaviour you're seeing.
+>> 
+>> Don't know  .. how ever .. i previously tested:
+>>         - unconditionally doing "max_slots_needed + 1"  in "net_rx_action()",
+>> and that circumvented the problem reliably without causing anything else
+>>         - reverting the calculation of "max_slots_needed + 1"  in
+>> "net_rx_action()" to what it was before :
+>>                 int max = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
+>>                 if (vif->can_sg || vif->gso_mask || vif->gso_prefix_mask)
+>>                         max += MAX_SKB_FRAGS + 1; /* extra_info + frags */
+>> 
 
-> So there are no reasons
-> to force user to configure this port manually, and automatic
-> configuration of CPU switch port without exporting them as netdev
-> seems as good approach.
+> So, it may be that the worse-case estimate is now too bad. In the case where it's failing for you it would be nice to know what the estimate was. Looking at netfront, we could be in trouble if it ever goes above 64.
 
-Well, maybe that's the answer, since we know that e.g: sw1p3 is always
-connected to e.g: eth0, we could create an automatic bridge between
-those two, this would keep the netdev exposure to user-space, but an
-user would not have to know about that specific detail to get things
-to work.
--- 
-Florian
+With your patches + some extra printk's
+
+Ok you seem to be right ..
+
+[  967.957014] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
+[  968.164711] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
+[  968.310899] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
+[  968.674412] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
+[  968.928398] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
+[  969.105993] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
+[  969.434961] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
+[  969.719368] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
+[  969.729606] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
+[  970.195451] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
+[  970.493106] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
+[  970.581056] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
+[  970.594934] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
+[  970.754355] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
+[  970.991755] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26
+[  976.978261] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 26 frag:8 size:1460 offset:15478
+[  976.980183] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 31 frag:9 size:313 offset:17398
+[  976.982154] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 32
+[  976.984078] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 27 frag:3 size:1460 offset:25846
+[  976.986466] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 35 frag:4 size:1460 offset:27766
+[  976.988540] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 43 frag:5 size:1460 offset:29686
+[  976.990809] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 44 frag:6 size:1460 offset:118
+[  976.993038] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 45 frag:7 size:1460 offset:2038
+[  976.994966] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 47 frag:8 size:1460 offset:3958
+[  976.996987] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 49 frag:9 size:1460 offset:5878
+[  976.998947] vif vif-7-0 vif7.0: ?!?!? xenvif_rx_action Insane numer of slots needed: 52
+[  982.624852] net_ratelimit: 97 callbacks suppressed
+[  982.627279] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  982.637833] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  983.432482] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  983.640017] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  983.642974] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  983.656408] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  983.779142] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  984.644546] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  984.657728] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  985.459147] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  987.668407] net_ratelimit: 8 callbacks suppressed
+[  987.671661] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  987.678483] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  988.671510] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  988.681210] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  989.472372] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  989.685166] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  989.700220] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  990.058987] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  990.192480] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  990.687626] vif vif-7-0 vif7.0: ?!?!? rx_work_todo waiting for rx_last_skb_slots: 52
+[  992.707878] net_ratelimit: 5 callbacks suppressed
+
+But it's done at 52 instead of 64.
+
+And this worst case is a *lot* larger (and probably needless .. since i previously could do with only one slot extra).
+
+
+
+
+>   Paul
+
+>> So that leads me to think it's something caused by this patch set.
+>> Patch1 could be a candidate .. perhaps that check was needed for some
+>> reason .. will see what not applying that one does
+>> 
+>> --
+>> Sander
+>> 
+>> 
+>> >   Paul
+>> 
+>> >> So it now seems i now have the situation which you described in the
+>> commit
+>> >> message from "ca2f09f2b2c6c25047cfc545d057c4edfcfe561c",
+>> >> "Without this patch I can trivially stall netback permanently by just doing a
+>> >> large guest to guest file copy between two Windows Server 2008R2 VMs
+>> on a
+>> >> single host."
+>> >>
+>> >> --
+>> >> Sander
+>> 
+>> 
