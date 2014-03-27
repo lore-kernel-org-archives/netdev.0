@@ -1,40 +1,57 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH] net: unix: non blocking recvmsg() should not return -EINTR
-Date: Thu, 27 Mar 2014 08:49:01 -0400
-Message-ID: <53341E3D.1010803@mojatatu.com>
-References: <1395798147.12610.196.camel@edumazet-glaptop2.roam.corp.google.com>	<063D6719AE5E284EB5DD2968C1650D6D0F6E9790@AcuExch.aculab.com>	<87zjkd802t.fsf@sable.mobileactivedefense.com>	<1395847524.12610.208.camel@edumazet-glaptop2.roam.corp.google.com>	<87y4zw7ngi.fsf@sable.mobileactivedefense.com>	<87ha6k7jt7.fsf@sable.mobileactivedefense.com>	<063D6719AE5E284EB5DD2968C1650D6D0F6EA4FF@AcuExch.aculab.com> <87zjkb7r1q.fsf@sable.mobileactivedefense.com>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [PATCH net 1/3] xen-netback: remove pointless clause from if statement
+Date: Thu, 27 Mar 2014 13:52:18 +0100
+Message-ID: <885249016.20140327135218@eikelenboom.it>
+References: <1395922988-37702-1-git-send-email-paul.durrant@citrix.com> <1395922988-37702-2-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-	David Laight <David.Laight@ACULAB.COM>
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: Paul Durrant <paul.durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:38214 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753781AbaC0MtE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 08:49:04 -0400
-Received: by mail-ie0-f175.google.com with SMTP id to1so3366437ieb.20
-        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 05:49:03 -0700 (PDT)
-In-Reply-To: <87zjkb7r1q.fsf@sable.mobileactivedefense.com>
+Received: from vserver.eikelenboom.it ([84.200.39.61]:60036 "EHLO
+	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752211AbaC0MwW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 08:52:22 -0400
+In-Reply-To: <1395922988-37702-2-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/27/14 08:40, Rainer Weikusat wrote:
-> David Laight <David.Laight@ACULAB.COM> writes:
->
-> I'm find with any behaviour which does not restore the original 'lost
-> wakeup' bug and considering that "it is a standard procedure to harras
-> people who are so careless to contribute bug fixes to Linux until the
-> cow comes home and they'd better be quiet about that!", as Mr Eric
-> "/dev/null" Dumasomething explained, I certainly don't plan to turn this
-> conviction of mine into a proper patch.
 
-I think anything you say past this point nobody is listening.
-You may actually have something of value to say but the passive
-aggressiveness is going to bite your ass.
+Thursday, March 27, 2014, 1:23:06 PM, you wrote:
 
-cheers,
-jamal
+> This patch removes a test in start_new_rx_buffer() that checks whether
+> a copy operation is less than MAX_BUFFER_OFFSET in length, since
+> MAX_BUFFER_OFFSET is defined to be PAGE_SIZE and the only caller of
+> start_new_rx_buffer() already limits copy operations to PAGE_SIZE or less.
+
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> Cc: Ian Campbell <ian.campbell@citrix.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
+> Cc: Sander Eikelenboom <linux@eikelenboom.it>
+> ---
+>  drivers/net/xen-netback/netback.c |    3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index 438d0c0..befc413 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -192,8 +192,7 @@ static bool start_new_rx_buffer(int offset, unsigned long size, int head)
+>          * into multiple copies tend to give large frags their
+>          * own buffers as before.
+>          */
+> -       if ((offset + size > MAX_BUFFER_OFFSET) &&
+> -           (size <= MAX_BUFFER_OFFSET) && offset && !head)
+> +       if ((offset + size > MAX_BUFFER_OFFSET) && offset && !head)
+>                 return true;
+>  
+>         return false;
+
+
+Will put this through the test now ..
+
+--
+Sander
