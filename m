@@ -1,53 +1,42 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH 1/2] cxgb4: Adds device ID for few more Chelsio Adapters
-Date: Thu, 27 Mar 2014 18:17:09 +0530
-Message-ID: <1395924430-17632-2-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH 2/2] cxgb4vf: Adds device Id for few more Chelsio adapters
+Date: Thu, 27 Mar 2014 18:17:10 +0530
+Message-ID: <1395924430-17632-3-git-send-email-hariprasad@chelsio.com>
 References: <1395924430-17632-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, dm@chelsio.com, leedom@chelsio.com,
 	kumaras@chelsio.com, santosh@chelsio.com, nirranjan@chelsio.com,
 	hariprasad@chelsio.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:9829 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:11130 "EHLO
 	stargate.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753943AbaC0Mz2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 08:55:28 -0400
+	by vger.kernel.org with ESMTP id S1753943AbaC0Mzb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 08:55:31 -0400
 In-Reply-To: <1395924430-17632-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index a7a41e0..6fe5891 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -256,6 +256,12 @@ static DEFINE_PCI_DEVICE_TABLE(cxgb4_pci_tbl) = {
- 	CH_DEVICE(0x5013, 4),
- 	CH_DEVICE(0x5014, 4),
- 	CH_DEVICE(0x5015, 4),
-+	CH_DEVICE(0x5080, 4),
-+	CH_DEVICE(0x5081, 4),
-+	CH_DEVICE(0x5082, 4),
-+	CH_DEVICE(0x5083, 4),
-+	CH_DEVICE(0x5084, 4),
-+	CH_DEVICE(0x5085, 4),
- 	CH_DEVICE(0x5401, 4),
- 	CH_DEVICE(0x5402, 4),
- 	CH_DEVICE(0x5403, 4),
-@@ -277,6 +283,12 @@ static DEFINE_PCI_DEVICE_TABLE(cxgb4_pci_tbl) = {
- 	CH_DEVICE(0x5413, 4),
- 	CH_DEVICE(0x5414, 4),
- 	CH_DEVICE(0x5415, 4),
-+	CH_DEVICE(0x5480, 4),
-+	CH_DEVICE(0x5481, 4),
-+	CH_DEVICE(0x5482, 4),
-+	CH_DEVICE(0x5483, 4),
-+	CH_DEVICE(0x5484, 4),
-+	CH_DEVICE(0x5485, 4),
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index 1d0fe9b..5285928 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -2944,6 +2944,14 @@ static DEFINE_PCI_DEVICE_TABLE(cxgb4vf_pci_tbl) = {
+ 	CH_DEVICE(0x5811, 0),   /* T520-lp-cr */
+ 	CH_DEVICE(0x5812, 0),   /* T560-cr */
+ 	CH_DEVICE(0x5813, 0),   /* T580-cr */
++	CH_DEVICE(0x5814, 0),   /* T580-so-cr */
++	CH_DEVICE(0x5815, 0),   /* T502-bt */
++	CH_DEVICE(0x5880, 0),
++	CH_DEVICE(0x5881, 0),
++	CH_DEVICE(0x5882, 0),
++	CH_DEVICE(0x5883, 0),
++	CH_DEVICE(0x5884, 0),
++	CH_DEVICE(0x5885, 0),
  	{ 0, }
  };
  
