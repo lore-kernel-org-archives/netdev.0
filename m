@@ -1,49 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v2 net] vlan: Mask off vlan acceleration features on vlan
- device.
-Date: Thu, 27 Mar 2014 08:14:26 +0000
-Message-ID: <20140327081425.GA2479@macbook.localnet>
-References: <1395865521-2318-1-git-send-email-vyasevic@redhat.com>
- <1395865711-3347-1-git-send-email-vyasevic@redhat.com>
- <20140326.171038.2150319831233512825.davem@davemloft.net>
- <20140326211504.GA21393@macbook.localnet>
- <53337678.9050208@redhat.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v2] random32: avoid attempt to late reseed if in the middle
+ of seeding
+Date: Thu, 27 Mar 2014 09:52:51 +0100
+Message-ID: <5333E6E3.3020907@redhat.com>
+References: <1395900095-15254-1-git-send-email-sasha.levin@oracle.com> <1395900095-15254-2-git-send-email-sasha.levin@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42178 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753781AbaC0IOb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 04:14:31 -0400
-Content-Disposition: inline
-In-Reply-To: <53337678.9050208@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, hannes@stressinduktion.org,
+	tytso@mit.edu
+To: Sasha Levin <sasha.levin@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395900095-15254-2-git-send-email-sasha.levin@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 26, 2014 at 08:53:12PM -0400, Vlad Yasevich wrote:
-> On 03/26/2014 05:15 PM, Patrick McHardy wrote:
-> > On Wed, Mar 26, 2014 at 05:10:38PM -0400, David Miller wrote:
-> >> From: Vlad Yasevich <vyasevic@redhat.com>
-> >> Date: Wed, 26 Mar 2014 16:28:31 -0400
-> >>
-> >>> Some drivers incorrectly assign vlan acceleration features to
-> >>> vlan_features thus causing issues for Q-in-Q vlan configurations.
-> >>> Prevent this once and for all by masking off acceleration features
-> >>> for vlan devices until such time as we support stacked acceleration.
-> >>>
-> >>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> >>
-> >> So what if we do have chips that can offload Q-in-Q?  Will we use
-> >> a new flag?
-> > 
-> > For 802.1ad that was the intention, using the NETIF_F_HW_VLAN_STAG_* flags.
-> > 
-> 
-> But we can't really do that as we don't carry multiple vlan_tci in the
-> skb.  If the card advertises VLAN_STAG_*, then we'll offload that, but
-> CTAG will have to be computed by software.  More infrastructure is
-> needed to support nested vlan offloads.
+On 03/27/2014 07:01 AM, Sasha Levin wrote:
+> Commit 4af712e8df ("random32: add prandom_reseed_late() and call when
+> nonblocking pool becomes initialized") has added a late reseed stage
+> that happens as soon as the nonblocking pool is marked as initialized.
+>
+> This fails in the case that the nonblocking pool gets initialized
+> during __prandom_reseed()'s call to get_random_bytes(). In that case
+> we'd double back into __prandom_reseed() in an attempt to do a late
+> reseed - deadlocking on 'lock' early on in the boot process.
+>
+> Instead, just avoid even waiting to do a reseed if a reseed is already
+> occuring.
+>
+> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 
-True, we'd need more room in the skb to store both tags for Q-in-Q.
+Looks better now, thanks!
+
+Fixes: 4af712e8df99 ("random32: add prandom_reseed_late() and call when nonblocking pool becomes initialized")
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
