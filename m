@@ -1,58 +1,80 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH] net: unix: non blocking recvmsg() should not return -EINTR
-Date: Thu, 27 Mar 2014 13:29:41 +0000
-Message-ID: <878urvpy62.fsf@sable.mobileactivedefense.com>
-References: <1395798147.12610.196.camel@edumazet-glaptop2.roam.corp.google.com>
-	<063D6719AE5E284EB5DD2968C1650D6D0F6E9790@AcuExch.aculab.com>
-	<87zjkd802t.fsf@sable.mobileactivedefense.com>
-	<1395847524.12610.208.camel@edumazet-glaptop2.roam.corp.google.com>
-	<87y4zw7ngi.fsf@sable.mobileactivedefense.com>
-	<87ha6k7jt7.fsf@sable.mobileactivedefense.com>
-	<063D6719AE5E284EB5DD2968C1650D6D0F6EA4FF@AcuExch.aculab.com>
-	<87zjkb7r1q.fsf@sable.mobileactivedefense.com>
-	<063D6719AE5E284EB5DD2968C1650D6D0F6EA7FB@AcuExch.aculab.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
+ switch chip datapath
+Date: Thu, 27 Mar 2014 09:43:07 -0400
+Message-ID: <20140327134307.GB31168@tuxdriver.com>
+References: <532C2AC4.7080303@mojatatu.com>
+ <20140322094852.GB2844@minipsycho.orion>
+ <5330BAB7.3040501@mojatatu.com>
+ <20140325173927.GE8102@hmsreliant.think-freely.org>
+ <20140325180009.GB15723@casper.infradead.org>
+ <20140325193533.GF8102@hmsreliant.think-freely.org>
+ <5331ED86.7020704@mojatatu.com>
+ <20140326111031.GB31370@hmsreliant.think-freely.org>
+ <20140326112903.GG15723@casper.infradead.org>
+ <20140326182122.GC31370@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+Cc: Thomas Graf <tgraf@suug.ch>, Jamal Hadi Salim <jhs@mojatatu.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, andy@greyhouse.net,
+	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
+	pshelar@nicira.com, azhou@nicira.com,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tiger.mobileactivedefense.com ([217.174.251.109]:52313 "EHLO
-	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754638AbaC0N34 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 09:29:56 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6EA7FB@AcuExch.aculab.com>
-	(David Laight's message of "Thu, 27 Mar 2014 12:53:58 +0000")
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:53172 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751469AbaC0Npu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 09:45:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20140326182122.GC31370@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Laight <David.Laight@ACULAB.COM> writes:
-> From: Rainer Weikusat 
->> Considering all of this, the trylock-approach seems best to me. OTOH,
->
-> No - using trylock() is definitely wrong.
-> If there are two messages queued and two processes/threads try to
-> read them, you don't want one of them being given EAGAIN.
+On Wed, Mar 26, 2014 at 02:21:22PM -0400, Neil Horman wrote:
+> On Wed, Mar 26, 2014 at 11:29:03AM +0000, Thomas Graf wrote:
 
-I'd consider this acceptable because a second message could also come in
-at the very moment the 2nd reader gives up. This is the 'next simplest
-approach' after 'returning EAGAIN instead of EINTR' and I think it is a
-little less non-desirable because it avoids the mixed blocking/
-non-blocking problem (presently, I don't see why this shouldn't work,
-ie, a process which inherited a socket ought to be able to switch that
-to non-blocking mode and then call recv without risking to stop
-executing for 'a long time'), and it is still reasonably simple (although
-the problem is likely rather contrived).
+> > What I don't understand at this point is how hiding the ports behind
+> > a master device would buy us anything. We would still need to abstract
+> > the filtering capabilities of the ports at some level and hiding that
+> > behind existing tools seems to most convenient way.
+> > 
+> 
+> If we agree that inconsistent frame reception / stack bypass is acceptable, then
+> hiding the ports buys us nothing.  My only goal with that suggestion was to
+> differentiate ports on a switch device so that the ports were differentiated in
+> such a way as to make it clear that they didn't behave like typical NIC ports
+> that were meant to receive host terminated traffic only.  If the consensus is
+> to allows sparse reception of forwarded traffic at the cpu, then no, its not
+> worthwhile and can be ignored.
 
-Anything beyond that would involve priorising non-blocking readers over
-blocking ones and let them wait uninterruptedly in case the lock is
-presently held by another non-blocking reader. But this would be a whole
-lot more complicated and even waiting for a blocking reader might work
-just fine if a message arrives soon enough. Which then again means "it
-should wait some time uninterruptedly in any case" but how much time?
+I don't like the master device idea.  It just seems likely to cause
+confusion.  But, we may want something to expose some topology
+information to the user.  There could be situations where it is
+releavant to know that two netdevs are part of the same hardware
+device.
 
-The whole issue would neatly "not exist" if only one process could ever
-be executing kernel code at any given time, but since is not the case
-anymore, some kind of 'heuristic solution based on a tradeoff' is
-necessary.
+In the past I've also seen boxes with multiple switch chips tied
+together either through dedicated "stacking" ports or even just with
+ethernet ports directly wired together inside the box.  A variety
+of combinations are possible, each with performance considerations
+that might be relevant to an admin.  It would be good if we could
+help them map-out such relationships.
+
+Maybe the existing bus infrastructure (or something like it) could
+be leveraged?
+
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
