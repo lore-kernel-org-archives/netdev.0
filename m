@@ -1,67 +1,85 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: unix: non blocking recvmsg() should not return
- -EINTR
-Date: Thu, 27 Mar 2014 09:36:30 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6EA4FF@AcuExch.aculab.com>
-References: <1395798147.12610.196.camel@edumazet-glaptop2.roam.corp.google.com>
-	<063D6719AE5E284EB5DD2968C1650D6D0F6E9790@AcuExch.aculab.com>
-	<87zjkd802t.fsf@sable.mobileactivedefense.com>
-	<1395847524.12610.208.camel@edumazet-glaptop2.roam.corp.google.com>
-	<87y4zw7ngi.fsf@sable.mobileactivedefense.com>
- <87ha6k7jt7.fsf@sable.mobileactivedefense.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH net] vhost: fix total length when packets are too short
+Date: Thu, 27 Mar 2014 11:38:41 +0200
+Message-ID: <1395912759-30435-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: 'Rainer Weikusat' <rweikusat@mobileactivedefense.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:60221 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752043AbaC0JhT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 05:37:19 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 07957-07 for <netdev@vger.kernel.org>;
- Thu, 27 Mar 2014 09:37:13 +0000 (GMT)
-In-Reply-To: <87ha6k7jt7.fsf@sable.mobileactivedefense.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: virtio-dev@lists.oasis-open.org, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Rainer Weikusat 
-> Rainer Weikusat <rw@sable> writes:
-> 
-> [...]
-> 
-> > The underlying problem would seem to be that a O_NONBLOCK call might
-> > actually block forever in case a blocking receiver sits on the lock and
-> > no data is ever received.
-> 
-> ... except that this probably cannot happen because O_NONBLOCK is a file
-> status flag and not a file descriptor flag.
-> 
-> NB: I've neither tested nor checked this.
+When mergeable buffers are disabled, and the
+incoming packet is too large for the rx buffer,
+get_rx_bufs returns success.
 
-While dup() gives a second fd referring to the same kernel 'file'
-doing open("/dev/fd/4", ...) traditionally gives you an additional
-'file' referring to the same vnode.
-For real files the file offset is in the 'file' structure, and
-I think the O_NONBLOCK flag is in the same place.
-Which means that is possible (but maybe not that usual or sensible)
-for a process to try a non-blocking read on a socket while another
-process is blocked in the read code.
+This was intentional in order for make recvmsg
+truncate the packet and then handle_rx would
+detect err != sock_len and drop it.
 
-The same would be true for writes, and for writes to a datagram
-socket it might even make sense.
+Unfortunately we pass the original sock_len to
+recvmsg - which means we use parts of iov not fully
+validated.
 
-In any case I expect EAGAIN to mean 'there is no data to read'
-not 'something happened and I didn't bother to look for data'.
+Fix this up by detecting this overrun and doing packet drop
+immediately.
 
-As the code stands (or with the suggested change) if a datagram
-socket has an indefinite supply of data, and several processes
-are doing nonblocking reads, and some are also receiving signals
-then some of the reads will fail with EINTR/EAGAIN/EWOULDBLOCK.
-That doesn't seem right.
+CVE-2014-0055
 
-	David
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+
+Note: this is needed for -stable.
+
+I wonder if this can still make the release.
+
+ drivers/vhost/net.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index a0fa5de..026be58 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -532,6 +532,12 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
+ 	*iovcount = seg;
+ 	if (unlikely(log))
+ 		*log_num = nlogs;
++
++	/* Detect overrun */
++	if (unlikely(datalen > 0)) {
++		r = UIO_MAXIOV + 1;
++		goto err;
++	}
+ 	return headcount;
+ err:
+ 	vhost_discard_vq_desc(vq, headcount);
+@@ -587,6 +593,14 @@ static void handle_rx(struct vhost_net *net)
+ 		/* On error, stop handling until the next kick. */
+ 		if (unlikely(headcount < 0))
+ 			break;
++		/* On overrun, truncate and discard */
++		if (unlikely(headcount > UIO_MAXIOV)) {
++			msg.msg_iovlen = 1;
++			err = sock->ops->recvmsg(NULL, sock, &msg,
++						 1, MSG_DONTWAIT | MSG_TRUNC);
++			pr_debug("Discarded rx packet: len %zd\n", sock_len);
++			continue;
++		}
+ 		/* OK, now we need to know about added descriptors. */
+ 		if (!headcount) {
+ 			if (unlikely(vhost_enable_notify(&net->dev, vq))) {
+-- 
+MST
