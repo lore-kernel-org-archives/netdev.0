@@ -1,76 +1,40 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net 1/2] bridge: Fix inabillity to retrieve vlan tags when tx offload is disabled
-Date: Thu, 27 Mar 2014 21:46:55 +0900
-Message-ID: <1395924416-12325-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: "David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH] net: unix: non blocking recvmsg() should not return -EINTR
+Date: Thu, 27 Mar 2014 08:49:01 -0400
+Message-ID: <53341E3D.1010803@mojatatu.com>
+References: <1395798147.12610.196.camel@edumazet-glaptop2.roam.corp.google.com>	<063D6719AE5E284EB5DD2968C1650D6D0F6E9790@AcuExch.aculab.com>	<87zjkd802t.fsf@sable.mobileactivedefense.com>	<1395847524.12610.208.camel@edumazet-glaptop2.roam.corp.google.com>	<87y4zw7ngi.fsf@sable.mobileactivedefense.com>	<87ha6k7jt7.fsf@sable.mobileactivedefense.com>	<063D6719AE5E284EB5DD2968C1650D6D0F6EA4FF@AcuExch.aculab.com> <87zjkb7r1q.fsf@sable.mobileactivedefense.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+	David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:49601 "EHLO
-	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754893AbaC0MrM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 08:47:12 -0400
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:38214 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753781AbaC0MtE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 08:49:04 -0400
+Received: by mail-ie0-f175.google.com with SMTP id to1so3366437ieb.20
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 05:49:03 -0700 (PDT)
+In-Reply-To: <87zjkb7r1q.fsf@sable.mobileactivedefense.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bridge vlan code (br_vlan_get_tag()) assumes that all frames have vlan_tci
-if they are tagged, but if vlan tx offload is manually disabled on bridge
-device and frames are sent from vlan device on the bridge device, the tags
-are embedded in skb->data and they break this assumption.
-Extract embedded vlan tags and move them to vlan_tci at ingress.
+On 03/27/14 08:40, Rainer Weikusat wrote:
+> David Laight <David.Laight@ACULAB.COM> writes:
+>
+> I'm find with any behaviour which does not restore the original 'lost
+> wakeup' bug and considering that "it is a standard procedure to harras
+> people who are so careless to contribute bug fixes to Linux until the
+> cow comes home and they'd better be quiet about that!", as Mr Eric
+> "/dev/null" Dumasomething explained, I certainly don't plan to turn this
+> conviction of mine into a proper patch.
 
-Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
----
- net/bridge/br_device.c |  6 +++---
- net/bridge/br_vlan.c   | 12 ++++++++++++
- 2 files changed, 15 insertions(+), 3 deletions(-)
+I think anything you say past this point nobody is listening.
+You may actually have something of value to say but the passive
+aggressiveness is going to bite your ass.
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 63f0455..8fe8b71 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -49,14 +49,14 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 	brstats->tx_bytes += skb->len;
- 	u64_stats_update_end(&brstats->syncp);
- 
--	if (!br_allowed_ingress(br, br_get_vlan_info(br), skb, &vid))
--		goto out;
--
- 	BR_INPUT_SKB_CB(skb)->brdev = dev;
- 
- 	skb_reset_mac_header(skb);
- 	skb_pull(skb, ETH_HLEN);
- 
-+	if (!br_allowed_ingress(br, br_get_vlan_info(br), skb, &vid))
-+		goto out;
-+
- 	if (is_broadcast_ether_addr(dest))
- 		br_flood_deliver(br, skb, false);
- 	else if (is_multicast_ether_addr(dest)) {
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 8249ca7..44f31af 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -174,6 +174,18 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
- 	if (!v)
- 		return false;
- 
-+	/* If vlan tx offload is disabled on bridge device and frame was
-+	 * sent from vlan device on the bridge device, it does not have
-+	 * HW accelerated vlan tag.
-+	 */
-+	if (unlikely(!vlan_tx_tag_present(skb) &&
-+		     (skb->protocol == htons(ETH_P_8021Q) ||
-+		      skb->protocol == htons(ETH_P_8021AD)))) {
-+		skb = vlan_untag(skb);
-+		if (unlikely(!skb))
-+			return false;
-+	}
-+
- 	err = br_vlan_get_tag(skb, vid);
- 	if (!*vid) {
- 		u16 pvid = br_get_pvid(v);
--- 
-1.8.1.2
+cheers,
+jamal
