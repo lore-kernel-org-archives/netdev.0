@@ -1,47 +1,173 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] virtio-net: correct error handling of virtqueue_kick()
-Date: Thu, 27 Mar 2014 13:14:11 -0400 (EDT)
-Message-ID: <20140327.131411.1257894502376926151.davem@davemloft.net>
-References: <1395810180-35169-1-git-send-email-jasowang@redhat.com>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause from if statement
+Date: Thu, 27 Mar 2014 18:15:24 +0100
+Message-ID: <636041055.20140327181524@eikelenboom.it>
+References: <1395924973-42904-1-git-send-email-paul.durrant@citrix.com> <1395924973-42904-2-git-send-email-paul.durrant@citrix.com> <289461862.20140327144546@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029C992@AMSPEX01CL01.citrite.net> <68689563.20140327150256@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029CAA6@AMSPEX01CL01.citrite.net> <874580615.20140327174607@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029D28D@AMSPEX01CL01.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: jasowang@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1395810180-35169-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: Paul Durrant <Paul.Durrant@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vserver.eikelenboom.it ([84.200.39.61]:33657 "EHLO
+	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756045AbaC0RP1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 13:15:27 -0400
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD029D28D@AMSPEX01CL01.citrite.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Wed, 26 Mar 2014 13:03:00 +0800
 
-> Current error handling of virtqueue_kick() was wrong in two places:
-> - The skb were freed immediately when virtqueue_kick() fail during
->   xmit. This may lead double free since the skb was not detached from
->   the virtqueue.
-> - try_fill_recv() returns false when virtqueue_kick() fail. This will
->   lead unnecessary rescheduling of refill work.
-> 
-> Actually, it's safe to just ignore the kick failure in those two
-> places. So this patch fixes this by partially revert commit
-> 67975901183799af8e93ec60e322f9e2a1940b9b.
-> 
-> Fixes 67975901183799af8e93ec60e322f9e2a1940b9b
-> (virtio_net: verify if virtqueue_kick() succeeded).
-> 
-> Cc: Heinz Graalfs <graalfs@linux.vnet.ibm.com>
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+Thursday, March 27, 2014, 5:54:05 PM, you wrote:
 
-Applied and queued up for -stable, thanks.
+>> -----Original Message-----
+>> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+>> Sent: 27 March 2014 16:46
+>> To: Paul Durrant
+>> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian Campbell; Wei Liu
+>> Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause from if
+>> statement
+>> 
+>> 
+>> Thursday, March 27, 2014, 3:09:32 PM, you wrote:
+>> 
+>> >> -----Original Message-----
+>> >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+>> >> Sent: 27 March 2014 14:03
+>> >> To: Paul Durrant
+>> >> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian Campbell; Wei
+>> Liu
+>> >> Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause
+>> from if
+>> >> statement
+>> >>
+>> >>
+>> >> Thursday, March 27, 2014, 2:54:46 PM, you wrote:
+>> >>
+>> >> >> -----Original Message-----
+>> >> >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+>> >> >> Sent: 27 March 2014 13:46
+>> >> >> To: Paul Durrant
+>> >> >> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian Campbell;
+>> Wei
+>> >> Liu
+>> >> >> Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause
+>> >> from if
+>> >> >> statement
+>> >> >>
+>> >> >>
+>> >> >> Thursday, March 27, 2014, 1:56:11 PM, you wrote:
+>> >> >>
+>> >> >> > This patch removes a test in start_new_rx_buffer() that checks
+>> whether
+>> >> >> > a copy operation is less than MAX_BUFFER_OFFSET in length, since
+>> >> >> > MAX_BUFFER_OFFSET is defined to be PAGE_SIZE and the only caller
+>> of
+>> >> >> > start_new_rx_buffer() already limits copy operations to PAGE_SIZE
+>> or
+>> >> less.
+>> >> >>
+>> >> >> > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+>> >> >> > Cc: Ian Campbell <ian.campbell@citrix.com>
+>> >> >> > Cc: Wei Liu <wei.liu2@citrix.com>
+>> >> >> > Cc: Sander Eikelenboom <linux@eikelenboom.it>
+>> >> >> > ---
+>> >> >>
+>> >> >> > v2:
+>> >> >> >  - Add BUG_ON() as suggested by Ian Campbell
+>> >> >>
+>> >> >> >  drivers/net/xen-netback/netback.c |    4 ++--
+>> >> >> >  1 file changed, 2 insertions(+), 2 deletions(-)
+>> >> >>
+>> >> >> > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
+>> >> >> netback/netback.c
+>> >> >> > index 438d0c0..72314c7 100644
+>> >> >> > --- a/drivers/net/xen-netback/netback.c
+>> >> >> > +++ b/drivers/net/xen-netback/netback.c
+>> >> >> > @@ -192,8 +192,8 @@ static bool start_new_rx_buffer(int offset,
+>> >> >> unsigned long size, int head)
+>> >> >> >          * into multiple copies tend to give large frags their
+>> >> >> >          * own buffers as before.
+>> >> >> >          */
+>> >> >> > -       if ((offset + size > MAX_BUFFER_OFFSET) &&
+>> >> >> > -           (size <= MAX_BUFFER_OFFSET) && offset && !head)
+>> >> >> > +       BUG_ON(size > MAX_BUFFER_OFFSET);
+>> >> >> > +       if ((offset + size > MAX_BUFFER_OFFSET) && offset && !head)
+>> >> >> >                 return true;
+>> >> >> >
+>> >> >> >         return false;
+>> >> >>
+>> >> >> Hi Paul,
+>> >> >>
+>> >> >> Unfortunately .. no good ..
+>> >> >>
+>> >> >> With these patches (v2) applied to 3.14-rc8 it all seems to work well,
+>> >> >> until i do my test case .. it still chokes and now effectively permanently
+>> >> stalls
+>> >> >> network traffic to that guest.
+>> >> >>
+>> >> >> No error messages or anything in either xl dmesg or dmesg on the host
+>> ..
+>> >> and
+>> >> >> nothing in dmesg in the guest either.
+>> >> >>
+>> >> >> But in the guest the TX bytes ifconfig reports for eth0 still increase but
+>> RX
+>> >> >> bytes does nothing, so it seems only the RX path is effected)
+>> >> >>
+>> >>
+>> >> > But you're not getting ring overflow, right? So that suggests this series is
+>> >> working and you're now hitting another problem? I don't see how these
+>> >> patches could directly cause the new behaviour you're seeing.
+>> >>
+>> >> Don't know  .. how ever .. i previously tested:
+>> >>         - unconditionally doing "max_slots_needed + 1"  in "net_rx_action()",
+>> >> and that circumvented the problem reliably without causing anything else
+>> >>         - reverting the calculation of "max_slots_needed + 1"  in
+>> >> "net_rx_action()" to what it was before :
+>> >>                 int max = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
+>> >>                 if (vif->can_sg || vif->gso_mask || vif->gso_prefix_mask)
+>> >>                         max += MAX_SKB_FRAGS + 1; /* extra_info + frags */
+>> >>
+>> 
+>> > So, it may be that the worse-case estimate is now too bad. In the case
+>> where it's failing for you it would be nice to know what the estimate was
+
+
+> Ok, so we cannot be too pessimistic. In that case I don't see there's a lot of
+> choice but to stick with the existing DIV_ROUND_UP (i.e. don't assume
+> start_new_rx_buffer() returns true every time) and just add the extra 1.
+
+Hrmm i don't like a "magic" 1 bonus slot, there must be some theoretical backing.
+And since the original problem always seemed to occur on a packet with a single large frag, i'm wondering
+if this 1 would actually be correct in other cases.
+
+Well this is what i said earlier on .. it's hard to estimate upfront if "start_new_rx_buffer()" will return true,
+and how many times that is possible per frag .. and if that is possible for only 1 frag or for all frags.
+
+The problem is now replaced from packets with 1 large frag (for which it didn't account properly leading to a too small estimate) .. to packets
+with a large number of (smaller) frags .. leading to a too large over estimation.
+
+So would there be a theoretical maximum how often that path could hit based on a combination of sizes (total size of all frags, nr_frags, size per frag) ?
+- if you hit "start_new_rx_buffer()" == true  in the first frag .. could you hit it in a next frag ?
+- could it be limited due to something like the packet_size / nr_frags / page_size ?
+
+And what was wrong with the previous calculation ?
+                 int max = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
+                 if (vif->can_sg || vif->gso_mask || vif->gso_prefix_mask)
+                         max += MAX_SKB_FRAGS + 1; /* extra_info + frags */
+
+That perhaps also misses some theoretical backing, what if it would have (MAX_SKB_FRAGS - 1) nr_frags, but larger ones that have to be split to
+fit in a slot. Or is the total size of frags a skb can carry limited to MAX_SKB_FRAGS / PAGE_SIZE ? .. than you would expect that MAX_SKB_FRAGS is a upper limit.
+(and you could do the new check maxed by MAX_SKB_FRAGS so it doesn't get to a too large non reachable estimate).
+
+But as a side question .. the whole "get_next_rx_buffer()" path is needed for when a frag could not fit in a slot
+as a whole ?
+
+
+
+--
+Sander
