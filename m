@@ -1,80 +1,66 @@
-From: Madoka Komatsubara <m-komatsubara@ab.jp.nec.com>
-Subject: fail to add 64 VLANs or more when SR-IOV is enabled
-Date: Thu, 27 Mar 2014 09:10:32 +0000
-Message-ID: <9DE5760509B7974286F38D93BF31DD62C7CAA1@BPXM13GP.gisp.nec.co.jp>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next RFC v2 0/6] introduce infrastructure for support
+ of switch chip datapath
+Date: Thu, 27 Mar 2014 11:02:23 +0000
+Message-ID: <20140327110223.GA1615@casper.infradead.org>
+References: <1395851472-10524-1-git-send-email-jiri@resnulli.us>
+ <53334A3F.6020105@mojatatu.com>
+ <20140327072107.GC2845@minipsycho.orion>
+ <5333FD12.9060404@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	Hiroshi Baba <h-baba@ax.jp.nec.com>
-To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Language: ja-JP
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
+	pshelar@nicira.com, azhou@nicira.com, ben@decadent.org.uk,
+	stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
+	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
+	john.r.fastabend@intel.com, edumazet@google.com,
+	sfeldma@cumulusnetworks.com, f.fainelli@gmail.com,
+	roopa@cumulusnetworks.com, linville@tuxdriver.com,
+	dev@openvswitch.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:55412 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755034AbaC0LC1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 07:02:27 -0400
+Content-Disposition: inline
+In-Reply-To: <5333FD12.9060404@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On 03/27/14 at 06:27am, Jamal Hadi Salim wrote:
+> On 03/27/14 03:21, Jiri Pirko wrote:
+> >Wed, Mar 26, 2014 at 10:44:31PM CET, jhs@mojatatu.com wrote:
+> 
+> >Well, I think there are 2 main models to be considered:
+> >1. OSV-like model, where everything is flows and that is the OneWay(tm)
+> >    mode you mentioned :)
+> >2. clasic switch setting-like model where you manually set up vlans,
+> >    lag, whatever.
+> >
+> >The phase one for me is 1. and that is what I'm trying to resolve with
+> >this patchset.
+> >
+> > From what I understand from the discussion, 2. is likely the model you
+> >have in mind.
+> >
+> 
+> In my opinion there is no difference when setting the ACL table(s).
+> We are going to need your .ndo for more than flows. Something
+> in the stack is going to have to talk to those .ndo interfaces
+> (I keep bringing up the concept of routing code for example).
+> What i meant by no OneWay is i think it will depend on the
+> chip - some will require more work than other. I do believe it
+> is a longer discussion needed than the port resolving.
 
+There is definitely need beyond an ndo that is capable of
+adding flows. You mention routes. Another example would be
+devices capable of offloading iptables & nft rules.
 
-We're facing an issue that we cannot add 64 VLANs or more per VF.
-When using SR-IOV, pass through a VF to the KVM guest and a lot of VLANs,
-we could add 63 VLANs using vconfig but we failed to add 64th VLAN.
-We'd like to use many VLANs on the guest with SR-IOV.
-We're using Intel's 82599EB chip with ixgbe and ixgbevf driver.
+But wouldn't you want to introduce an additional ndo to
+cover these?
 
-Has anyone seen the same issue?
-Is there any idea to solve this?
-
-The below instruction is a reproducing method.
-Create hundred VLANs on the guest.
-
-# for i in `seq 100 199`; do vconfig add eth2 $i; ifconfig 192.168.$i.1/24; done
-
-# vconfig add eth2 100
-Added VLAN with VID == 100 to IF -:eth2:-
-
-# vconfig add eth2 101
-Added VLAN with VID == 101 to IF -:eth2:-
-
-# vconfig add eth2 102
-Added VLAN with VID == 102 to IF -:eth2:-
-
-...
-
-# vconfig add eth2 162
-Added VLAN with VID == 162 to IF -:eth2:-
-
-# vconfig add eth2 163
-ERROR: trying to add VLAN #163 to IF -:eth2:-  error: Permission denied
-SIOCSIFADDR: No such device
-eth2.163: unknown interface: No such device
-
-# vconfig add eth2 164
-ERROR: trying to add VLAN #164 to IF -:eth2:-  error: Permission denied
-SIOCSIFADDR: No such device
-eth2.164: unknown interface: No such device
-
-# vconfig add eth2 165
-ERROR: trying to add VLAN #165 to IF -:eth2:-  error: Permission denied
-SIOCSIFADDR: No such device
-eth2.165: unknown interface: No such device
-
-
-thanks,
-Madoka Komatsubara
-
-------------------------------------------------------------------------------
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+What speaks against going with what Jiri proposes and adjust
+& extend as needed as we go along?
