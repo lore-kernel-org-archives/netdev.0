@@ -1,145 +1,32 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause from if statement
-Date: Thu, 27 Mar 2014 15:29:17 +0100
-Message-ID: <675566283.20140327152917@eikelenboom.it>
-References: <1395924973-42904-1-git-send-email-paul.durrant@citrix.com> <1395924973-42904-2-git-send-email-paul.durrant@citrix.com> <289461862.20140327144546@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029C992@AMSPEX01CL01.citrite.net> <68689563.20140327150256@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029CAA6@AMSPEX01CL01.citrite.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-To: Paul Durrant <Paul.Durrant@citrix.com>
+From: clsoto@linux.vnet.ibm.com
+Subject: [Patch 0/3] Hangs with IPoIB when doing PCI error injection
+Date: Thu, 27 Mar 2014 09:28:13 -0500
+Message-ID: <20140327142813.535289178@linux.vnet.ibm.com>
+Cc: brking@linux.vnet.ibm.com
+To: clsoto@linux.vnet.ibm.com, roland@kernel.org, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vserver.eikelenboom.it ([84.200.39.61]:60754 "EHLO
-	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754828AbaC0O3U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 10:29:20 -0400
-In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD029CAA6@AMSPEX01CL01.citrite.net>
+Received: from [32.97.110.57] ([32.97.110.57]:60982 "HELO
+	jupiter1-lp2.austin.ibm.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with SMTP id S1756892AbaC0Ocp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 10:32:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch is to resolve some hangs we are seeing when doing PCI error injection
+to Mellanox Infiniband cards. With this patch we make mlx4 driver send an IB_EVENT_DEVICE_FATAL 
+to the users and added this event to event handlers to avoid these hangs. 
+If IPoIB is in connected mode, then added to cm an event handler and tried to 
+make sure that when it sees the fatal event it does not try to send anymore packet because
+it will not receive any more completions or interrupts. 
 
-Thursday, March 27, 2014, 3:09:32 PM, you wrote:
+ infiniband/core/cm.c               |   43 +++++++++++++++++++++++++++++++++++++
+ infiniband/core/multicast.c        |    1
+ infiniband/core/sa_query.c         |    1
+ infiniband/ulp/ipoib/ipoib_verbs.c |    1
+ net/ethernet/mellanox/mlx4/main.c  |    6 +++++
 
->> -----Original Message-----
->> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
->> Sent: 27 March 2014 14:03
->> To: Paul Durrant
->> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian Campbell; Wei Liu
->> Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause from if
->> statement
->> 
->> 
->> Thursday, March 27, 2014, 2:54:46 PM, you wrote:
->> 
->> >> -----Original Message-----
->> >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
->> >> Sent: 27 March 2014 13:46
->> >> To: Paul Durrant
->> >> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian Campbell; Wei
->> Liu
->> >> Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause
->> from if
->> >> statement
->> >>
->> >>
->> >> Thursday, March 27, 2014, 1:56:11 PM, you wrote:
->> >>
->> >> > This patch removes a test in start_new_rx_buffer() that checks whether
->> >> > a copy operation is less than MAX_BUFFER_OFFSET in length, since
->> >> > MAX_BUFFER_OFFSET is defined to be PAGE_SIZE and the only caller of
->> >> > start_new_rx_buffer() already limits copy operations to PAGE_SIZE or
->> less.
->> >>
->> >> > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
->> >> > Cc: Ian Campbell <ian.campbell@citrix.com>
->> >> > Cc: Wei Liu <wei.liu2@citrix.com>
->> >> > Cc: Sander Eikelenboom <linux@eikelenboom.it>
->> >> > ---
->> >>
->> >> > v2:
->> >> >  - Add BUG_ON() as suggested by Ian Campbell
->> >>
->> >> >  drivers/net/xen-netback/netback.c |    4 ++--
->> >> >  1 file changed, 2 insertions(+), 2 deletions(-)
->> >>
->> >> > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
->> >> netback/netback.c
->> >> > index 438d0c0..72314c7 100644
->> >> > --- a/drivers/net/xen-netback/netback.c
->> >> > +++ b/drivers/net/xen-netback/netback.c
->> >> > @@ -192,8 +192,8 @@ static bool start_new_rx_buffer(int offset,
->> >> unsigned long size, int head)
->> >> >          * into multiple copies tend to give large frags their
->> >> >          * own buffers as before.
->> >> >          */
->> >> > -       if ((offset + size > MAX_BUFFER_OFFSET) &&
->> >> > -           (size <= MAX_BUFFER_OFFSET) && offset && !head)
->> >> > +       BUG_ON(size > MAX_BUFFER_OFFSET);
->> >> > +       if ((offset + size > MAX_BUFFER_OFFSET) && offset && !head)
->> >> >                 return true;
->> >> >
->> >> >         return false;
->> >>
->> >> Hi Paul,
->> >>
->> >> Unfortunately .. no good ..
->> >>
->> >> With these patches (v2) applied to 3.14-rc8 it all seems to work well,
->> >> until i do my test case .. it still chokes and now effectively permanently
->> stalls
->> >> network traffic to that guest.
->> >>
->> >> No error messages or anything in either xl dmesg or dmesg on the host ..
->> and
->> >> nothing in dmesg in the guest either.
->> >>
->> >> But in the guest the TX bytes ifconfig reports for eth0 still increase but RX
->> >> bytes does nothing, so it seems only the RX path is effected)
->> >>
->> 
->> > But you're not getting ring overflow, right? So that suggests this series is
->> working and you're now hitting another problem? I don't see how these
->> patches could directly cause the new behaviour you're seeing.
->> 
->> Don't know  .. how ever .. i previously tested:
->>         - unconditionally doing "max_slots_needed + 1"  in "net_rx_action()",
->> and that circumvented the problem reliably without causing anything else
->>         - reverting the calculation of "max_slots_needed + 1"  in
->> "net_rx_action()" to what it was before :
->>                 int max = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
->>                 if (vif->can_sg || vif->gso_mask || vif->gso_prefix_mask)
->>                         max += MAX_SKB_FRAGS + 1; /* extra_info + frags */
->> 
+Carol Soto
 
-> So, it may be that the worse-case estimate is now too bad. In the case where it's failing for you it would be nice to know what the estimate was. Looking at netfront, we could be in trouble if it ever goes above 64.
-
-It probaly isn't .. from what i previously have seen .. the max was around 13 if i recall correct, but i could put a check on that.
-And since i don't know *why* it fails .. it's hard to put a warn on it.
-
->   Paul
-
->> So that leads me to think it's something caused by this patch set.
->> Patch1 could be a candidate .. perhaps that check was needed for some
->> reason .. will see what not applying that one does
->> 
->> --
->> Sander
->> 
->> 
->> >   Paul
->> 
->> >> So it now seems i now have the situation which you described in the
->> commit
->> >> message from "ca2f09f2b2c6c25047cfc545d057c4edfcfe561c",
->> >> "Without this patch I can trivially stall netback permanently by just doing a
->> >> large guest to guest file copy between two Windows Server 2008R2 VMs
->> on a
->> >> single host."
->> >>
->> >> --
->> >> Sander
->> 
->> 
+-- 
