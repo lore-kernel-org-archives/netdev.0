@@ -1,62 +1,45 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net 3/3] xen-netback: BUG_ON in xenvif_rx_action() not
- catching overflow
-Date: Thu, 27 Mar 2014 12:30:18 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD029C5F4@AMSPEX01CL01.citrite.net>
-References: <1395922988-37702-1-git-send-email-paul.durrant@citrix.com>
-	 <1395922988-37702-4-git-send-email-paul.durrant@citrix.com>
- <1395923306.22909.107.camel@kazak.uk.xensource.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next RFC v2 0/6] introduce infrastructure for support
+ of switch chip datapath
+Date: Thu, 27 Mar 2014 08:32:35 -0400
+Message-ID: <53341A63.3000004@mojatatu.com>
+References: <1395851472-10524-1-git-send-email-jiri@resnulli.us> <53334A3F.6020105@mojatatu.com> <20140327072107.GC2845@minipsycho.orion> <5333FD12.9060404@mojatatu.com> <20140327110223.GA1615@casper.infradead.org> <533408C0.8000608@mojatatu.com> <20140327120012.GA13573@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Sander Eikelenboom <linux@eikelenboom.it>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
+	pshelar@nicira.com, azhou@nicira.com, ben@decadent.org.uk,
+	stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
+	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
+	john.r.fastabend@intel.com, edumazet@google.com,
+	sfeldma@cumulusnetworks.com, f.fainelli@gmail.com,
+	roopa@cumulusnetworks.com, linville@tuxdriver.com,
+	dev@openvswitch.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([185.25.65.24]:33838 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753926AbaC0MaU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 08:30:20 -0400
-In-Reply-To: <1395923306.22909.107.camel@kazak.uk.xensource.com>
-Content-Language: en-US
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:63858 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753926AbaC0Mcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 08:32:43 -0400
+Received: by mail-ie0-f172.google.com with SMTP id as1so3341379iec.31
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 05:32:43 -0700 (PDT)
+In-Reply-To: <20140327120012.GA13573@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwNCj4gU2Vu
-dDogMjcgTWFyY2ggMjAxNCAxMjoyOA0KPiBUbzogUGF1bCBEdXJyYW50DQo+IENjOiB4ZW4tZGV2
-ZWxAbGlzdHMueGVuLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgV2VpIExpdTsgU2FuZGVy
-DQo+IEVpa2VsZW5ib29tDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0IDMvM10geGVuLW5ldGJh
-Y2s6IEJVR19PTiBpbiB4ZW52aWZfcnhfYWN0aW9uKCkNCj4gbm90IGNhdGNoaW5nIG92ZXJmbG93
-DQo+IA0KPiBPbiBUaHUsIDIwMTQtMDMtMjcgYXQgMTI6MjMgKzAwMDAsIFBhdWwgRHVycmFudCB3
-cm90ZToNCj4gPiBUaGUgQlVHX09OIHRvIGNhdGNoIHJpbmcgb3ZlcmZsb3cgaW4geGVudmlmX3J4
-X2FjdGlvbigpIG1ha2VzIHRoZQ0KPiBhc3N1bXB0aW9uDQo+ID4gdGhhdCBtZXRhX3Nsb3RzX3Vz
-ZWQgPT0gcmluZyBzbG90cyB1c2VkLiBUaGlzIGlzIG5vdCB0aGUgY2FzZSBmb3IgR1NPDQo+ID4g
-cGFja2V0cy4NCj4gDQo+IENhbiB5b3UgZXhwbGFpbiB3aHkgbm90IGhlcmUgcGxlYXNlLg0KPg0K
-DQpTdXJlLiBJJ2xsIGFkZCBhbiBleHBsYW5hdGlvbi4NCg0KICBQYXVsDQogDQo+ID4gIFRoaXMg
-cGF0Y2ggY2hhbmdlcyB0aGUgdGVzdCB0byBhY3R1YWxseSBjaGVjayByaW5nIHNsb3RzLg0KPiA+
-DQo+ID4gU2lnbmVkLW9mZi1ieTogUGF1bCBEdXJyYW50IDxwYXVsLmR1cnJhbnRAY2l0cml4LmNv
-bT4NCj4gPiBDYzogSWFuIENhbXBiZWxsIDxpYW4uY2FtcGJlbGxAY2l0cml4LmNvbT4NCj4gPiBD
-YzogV2VpIExpdSA8d2VpLmxpdTJAY2l0cml4LmNvbT4NCj4gPiBDYzogU2FuZGVyIEVpa2VsZW5i
-b29tIDxsaW51eEBlaWtlbGVuYm9vbS5pdD4NCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9uZXQveGVu
-LW5ldGJhY2svbmV0YmFjay5jIHwgICAgOCArKysrKysrLQ0KPiA+ICAxIGZpbGUgY2hhbmdlZCwg
-NyBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvZHJp
-dmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jIGIvZHJpdmVycy9uZXQveGVuLQ0KPiBuZXRi
-YWNrL25ldGJhY2suYw0KPiA+IGluZGV4IGFjMzU0ODkuLmFlNzM1MWYgMTAwNjQ0DQo+ID4gLS0t
-IGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jDQo+ID4gKysrIGIvZHJpdmVycy9u
-ZXQveGVuLW5ldGJhY2svbmV0YmFjay5jDQo+ID4gQEAgLTQ4MSw2ICs0ODEsOCBAQCBzdGF0aWMg
-dm9pZCB4ZW52aWZfcnhfYWN0aW9uKHN0cnVjdCB4ZW52aWYgKnZpZikNCj4gPg0KPiA+ICAJd2hp
-bGUgKChza2IgPSBza2JfZGVxdWV1ZSgmdmlmLT5yeF9xdWV1ZSkpICE9IE5VTEwpIHsNCj4gPiAg
-CQlSSU5HX0lEWCBtYXhfc2xvdHNfbmVlZGVkOw0KPiA+ICsJCVJJTkdfSURYIG9sZF9yZXFfY29u
-czsNCj4gPiArCQlSSU5HX0lEWCByaW5nX3Nsb3RzX3VzZWQ7DQo+ID4gIAkJaW50IGk7DQo+ID4N
-Cj4gPiAgCQkvKiBXZSBuZWVkIGEgY2hlYXAgd29yc2UgY2FzZSBlc3RpbWF0ZSBmb3IgdGhlIG51
-bWJlciBvZg0KPiA+IEBAIC01MjAsOCArNTIyLDEyIEBAIHN0YXRpYyB2b2lkIHhlbnZpZl9yeF9h
-Y3Rpb24oc3RydWN0IHhlbnZpZiAqdmlmKQ0KPiA+ICAJCQl2aWYtPnJ4X2xhc3Rfc2tiX3Nsb3Rz
-ID0gMDsNCj4gPg0KPiA+ICAJCXNjbyA9IChzdHJ1Y3Qgc2tiX2NiX292ZXJsYXkgKilza2ItPmNi
-Ow0KPiA+ICsNCj4gPiArCQlvbGRfcmVxX2NvbnMgPSB2aWYtPnJ4LnJlcV9jb25zOw0KPiA+ICAJ
-CXNjby0+bWV0YV9zbG90c191c2VkID0geGVudmlmX2dvcF9za2Ioc2tiLCAmbnBvKTsNCj4gPiAt
-CQlCVUdfT04oc2NvLT5tZXRhX3Nsb3RzX3VzZWQgPiBtYXhfc2xvdHNfbmVlZGVkKTsNCj4gPiAr
-CQlyaW5nX3Nsb3RzX3VzZWQgPSB2aWYtPnJ4LnJlcV9jb25zIC0gb2xkX3JlcV9jb25zOw0KPiA+
-ICsNCj4gPiArCQlCVUdfT04ocmluZ19zbG90c191c2VkID4gbWF4X3Nsb3RzX25lZWRlZCk7DQo+
-ID4NCj4gPiAgCQlfX3NrYl9xdWV1ZV90YWlsKCZyeHEsIHNrYik7DQo+ID4gIAl9DQo+IA0KDQo=
+On 03/27/14 08:00, Thomas Graf wrote:
+
+> It seems like we reached pretty good consensus on the model. What
+> remaining issues do you see with the port model proposed in v2?
+>
+
+Are we really following the same thread?
+I dont see any rallying behind Jiri's approach from the
+other folks who have their own code and way of approaching things.
+I am hoping we dont continue with the split that is there
+already.
+
+cheers,
+jamal
