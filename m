@@ -1,91 +1,55 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net 1/2] bridge: Fix inabillity to retrieve
- vlan tags when tx offload is disabled
-Date: Thu, 27 Mar 2014 17:33:32 -0400
-Message-ID: <5334992C.20903@redhat.com>
-References: <1395924416-12325-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Reply-To: vyasevic@redhat.com
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
+ of switch chip datapath
+Date: Thu, 27 Mar 2014 17:33:57 -0400
+Message-ID: <53349945.1000303@mojatatu.com>
+References: <5330BAB7.3040501@mojatatu.com> <20140325173927.GE8102@hmsreliant.think-freely.org> <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org> <5331ED86.7020704@mojatatu.com> <20140326111031.GB31370@hmsreliant.think-freely.org> <20140326112903.GG15723@casper.infradead.org> <20140326182122.GC31370@hmsreliant.think-freely.org> <CAGVrzcYNW0Z96mL-MecY=mte=+TcFn8k3eSY4pqi9h0N2jF7hw@mail.gmail.com> <53335838.3060409@mojatatu.com> <20140327152655.GA1358@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	"David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1395924416-12325-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Felix Fietkau <nbd@openwrt.org>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:54853 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756978AbaC0VeI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 17:34:08 -0400
+Received: by mail-ob0-f180.google.com with SMTP id wn1so4965517obc.39
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 14:34:08 -0700 (PDT)
+In-Reply-To: <20140327152655.GA1358@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/27/2014 08:46 AM, Toshiaki Makita wrote:
-> Bridge vlan code (br_vlan_get_tag()) assumes that all frames have vlan_tci
-> if they are tagged, but if vlan tx offload is manually disabled on bridge
-> device and frames are sent from vlan device on the bridge device, the tags
-> are embedded in skb->data and they break this assumption.
-> Extract embedded vlan tags and move them to vlan_tci at ingress.
-> 
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+On 03/27/14 11:26, Neil Horman wrote:
 
-Acked-by: Vlad Yasevich <vyasevic@redhat.com>
+> You're absolutely correct - I am viewing this from a host based perspective.
+> And I completely understand that offload is good in a middle box environment (I
+> worked for embedded switch companies in a former life).  I'm looking at it from
+> a host perspective because, as we've been discussing the wide range of devices
+> covered here (from the small SOC switches used by owrt to the big enterprise
+> switches), theres this middle ground thats seeing some consolodation here which
+> I think we need to cover as well.  I'm referring to NICS that have an embedded
+> switch in them that can (or soon will) preform lots of these flow based
+> forwarding operations and actions.
 
--vlad
+Agreed - I think we need to capture those. The challenge there maybe how
+to abstract some of those tables (example in VMDQ) and make it feel
+like a L2 fdb.
 
-> ---
->  net/bridge/br_device.c |  6 +++---
->  net/bridge/br_vlan.c   | 12 ++++++++++++
->  2 files changed, 15 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-> index 63f0455..8fe8b71 100644
-> --- a/net/bridge/br_device.c
-> +++ b/net/bridge/br_device.c
-> @@ -49,14 +49,14 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
->  	brstats->tx_bytes += skb->len;
->  	u64_stats_update_end(&brstats->syncp);
->  
-> -	if (!br_allowed_ingress(br, br_get_vlan_info(br), skb, &vid))
-> -		goto out;
-> -
->  	BR_INPUT_SKB_CB(skb)->brdev = dev;
->  
->  	skb_reset_mac_header(skb);
->  	skb_pull(skb, ETH_HLEN);
->  
-> +	if (!br_allowed_ingress(br, br_get_vlan_info(br), skb, &vid))
-> +		goto out;
-> +
->  	if (is_broadcast_ether_addr(dest))
->  		br_flood_deliver(br, skb, false);
->  	else if (is_multicast_ether_addr(dest)) {
-> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-> index 8249ca7..44f31af 100644
-> --- a/net/bridge/br_vlan.c
-> +++ b/net/bridge/br_vlan.c
-> @@ -174,6 +174,18 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
->  	if (!v)
->  		return false;
->  
-> +	/* If vlan tx offload is disabled on bridge device and frame was
-> +	 * sent from vlan device on the bridge device, it does not have
-> +	 * HW accelerated vlan tag.
-> +	 */
-> +	if (unlikely(!vlan_tx_tag_present(skb) &&
-> +		     (skb->protocol == htons(ETH_P_8021Q) ||
-> +		      skb->protocol == htons(ETH_P_8021AD)))) {
-> +		skb = vlan_untag(skb);
-> +		if (unlikely(!skb))
-> +			return false;
-> +	}
-> +
->  	err = br_vlan_get_tag(skb, vid);
->  	if (!*vid) {
->  		u16 pvid = br_get_pvid(v);
-> 
+cheers,
+jamal
