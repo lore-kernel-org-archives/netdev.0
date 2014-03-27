@@ -1,8 +1,9 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 00/10] clean up bearer and node
-	layer
-Date: Thu, 27 Mar 2014 12:54:29 +0800
-Message-ID: <1395896080-7926-1-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 03/10] tipc: acquire necessary
+	locks in named_cluster_distribute routine
+Date: Thu, 27 Mar 2014 12:54:32 +0800
+Message-ID: <1395896080-7926-4-git-send-email-ying.xue@windriver.com>
+References: <1395896080-7926-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,6 +11,7 @@ Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
 	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
 To: <davem@davemloft.net>
 Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1395896080-7926-1-git-send-email-ying.xue@windriver.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
@@ -20,75 +22,58 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-This is another commit series which aims at facilitating future
-changes to the locking policy around nodes, links and bearers.
+The 'tipc_node_list' is guarded by tipc_net_lock and 'links' array
+defined in 'tipc_node' structure is protected by node lock as well.
+Without acquiring the two locks in named_cluster_distribute() a fatal
+oops may happen in case that a destroyed link might be got and then
+accessed. Therefore, above mentioned two locks must be held in
+named_cluster_distribute() to prevent the issue from happening
+accidentally.
 
-Currently, the tipc routing hierarchy comprises the structures 'node',
-'link' and 'bearer'. The whole hierarchy is protected by a big
-read/write lock (tipc_net_lock), to ensure that nothing is added or
-removed while any of these structures is being accessed. Obviously
-the locking policy makes node, link and bearer components closely
-bound together so that their relationship becomes extremely complex.
-In the worst case, such locking policy not only has a negative
-influence on performance, but also it's prone to lead to deadlock
-occasionally.
+As 'links' array in node struct must be protected by node lock,
+we have to move the code of selecting an active link from
+tipc_link_xmit() to named_cluster_distribute() and then call
+__tipc_link_xmit() with the selected link to deliver name messages.
 
-In order to decouple the complex relationship between bearer and node
-as well as link, the locking policy is adjusted as follows:
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/name_distr.c |   14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
 
-- Bearer level
-  RTNL lock is used on update side, and RCU is used on read side.
-  Meanwhile, all bearer instances including broadcast bearer are
-  saved into bearer_list array.
-
-- Node and link level
-  All node instances are saved into two tipc_node_list and node_htable
-  lists. The two lists are protected by node_list_lock on write side,
-  and they are guarded with RCU lock on read side. All members in node
-  structure including link instances are protected by node spin lock.
-
-- The relationship between bearer and node
-  When link accesses bearer, it first needs to find the bearer with
-  its bearer identity from the bearer_list array. When bearer accesses
-  node, it can iterate the node_htable hash list with the node address
-  to find the corresponding node.
-
-In the new locking policy, every component has its private locking
-solution and the relationship between bearer and node is very simple,
-that is, they can find each other with node address or bearer identity
-from node_htable hash list or bearer_list array.
-
-But, prior to these changes, we need to do some necessary cleanup and
-code consolidation. This is what we do with this commit series. In a
-later series we will replace net_lock with RTNL as well as RCU lock
-to deploy the new locking policy.
-
-Ying Xue (10):
-  tipc: remove unnecessary checking for node object
-  tipc: obsolete the remote management feature
-  tipc: acquire necessary locks in named_cluster_distribute routine
-  tipc: convert tipc_bearers array to pointer list
-  tipc: remove active flag from tipc_bearer structure
-  tipc: make broadcast bearer store in bearer_list array
-  tipc: rename node create lock to protect node list and hlist
-  tipc: tipc: convert node list and node hlist to RCU lists
-  tipc: use node_list_lock to protect tipc_num_nodes variable
-  tipc: use node list lock to protect tipc_num_links variable
-
- net/tipc/bcast.c      |   13 +++---
- net/tipc/bearer.c     |   49 ++++++++++++++++------
- net/tipc/bearer.h     |    4 +-
- net/tipc/config.c     |  107 ++-----------------------------------------------
- net/tipc/config.h     |    5 ---
- net/tipc/core.c       |    9 -----
- net/tipc/core.h       |    1 -
- net/tipc/link.c       |   20 ++++-----
- net/tipc/name_distr.c |   16 ++++++--
- net/tipc/net.c        |    9 ++---
- net/tipc/node.c       |  107 ++++++++++++++++++++++++-------------------------
- net/tipc/node.h       |    6 ++-
- 12 files changed, 129 insertions(+), 217 deletions(-)
-
+diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
+index 893c49a..c5904d1 100644
+--- a/net/tipc/name_distr.c
++++ b/net/tipc/name_distr.c
+@@ -131,16 +131,24 @@ static void named_cluster_distribute(struct sk_buff *buf)
+ {
+ 	struct sk_buff *buf_copy;
+ 	struct tipc_node *n_ptr;
++	struct tipc_link *l_ptr;
+ 
++	read_lock_bh(&tipc_net_lock);
+ 	list_for_each_entry(n_ptr, &tipc_node_list, list) {
+-		if (tipc_node_active_links(n_ptr)) {
++		spin_lock_bh(&n_ptr->lock);
++		l_ptr = n_ptr->active_links[n_ptr->addr & 1];
++		if (l_ptr) {
+ 			buf_copy = skb_copy(buf, GFP_ATOMIC);
+-			if (!buf_copy)
++			if (!buf_copy) {
++				spin_unlock_bh(&n_ptr->lock);
+ 				break;
++			}
+ 			msg_set_destnode(buf_msg(buf_copy), n_ptr->addr);
+-			tipc_link_xmit(buf_copy, n_ptr->addr, n_ptr->addr);
++			__tipc_link_xmit(l_ptr, buf_copy);
+ 		}
++		spin_unlock_bh(&n_ptr->lock);
+ 	}
++	read_unlock_bh(&tipc_net_lock);
+ 
+ 	kfree_skb(buf);
+ }
 -- 
 1.7.9.5
 
