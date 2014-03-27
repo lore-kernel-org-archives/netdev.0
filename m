@@ -1,40 +1,130 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] net: nlmon: flag nlmon devs with LLTX/SG
-Date: Thu, 27 Mar 2014 16:34:59 +0100
-Message-ID: <1395934499-29092-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
+ of switch chip datapath
+Date: Thu, 27 Mar 2014 08:35:41 -0700
+Message-ID: <5334454D.9050108@cumulusnetworks.com>
+References: <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org> <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com> <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com> <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion> <533312A3.5070600@cumulusnetworks.com> <20140326180356.GK2869@minipsycho.orion> <53334629.5030208@cumulusnetworks.com> <20140326213130.GA32193@minipsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35577 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753943AbaC0PfC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Mar 2014 11:35:02 -0400
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:45593 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754761AbaC0Pfr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 11:35:47 -0400
+In-Reply-To: <20140326213130.GA32193@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As in xmit path we merely update statistics and free the skb, we
-can mark the device with LLTX feature, so that upper layers can
-avoid taking the single txq lock on xmit. While at it, also add
-missing NETIF_F_SG.
+On 3/26/14, 2:31 PM, Jiri Pirko wrote:
+> Wed, Mar 26, 2014 at 10:27:05PM CET, roopa@cumulusnetworks.com wrote:
+>> On 3/26/14, 11:03 AM, Jiri Pirko wrote:
+>>> Wed, Mar 26, 2014 at 06:47:15PM CET, roopa@cumulusnetworks.com wrote:
+>>>> On 3/26/14, 9:59 AM, Jiri Pirko wrote:
+>>>>> Wed, Mar 26, 2014 at 05:54:17PM CET, roopa@cumulusnetworks.com wrote:
+>>>>>> On 3/26/14, 3:54 AM, Jamal Hadi Salim wrote:
+>>>>>>> On 03/26/14 01:37, Roopa Prabhu wrote:
+>>>>>>>> On 3/25/14, 1:11 PM, Florian Fainelli wrote:
+>>>>>>>>> 2014-03-25 12:35 GMT-07:00 Neil Horman <nhorman@tuxdriver.com>:
+>>>>>>>> Sorry about getting on this thread late and possibly in the middle.
+>>>>>>>> Agree on the idea of keeping the ports linked to the master switch dev
+>>>>>>>> (or the 'conduit' to the switch chip) via private list instead of the
+>>>>>>>> master-slave relationship proposed earlier.
+>>>>>>>> By private i mean the netdev->priv linkage to the master switch dev and
+>>>>>>>> not really keeping the ports from being exposed to the user.
+>>>>>>>>
+>>>>>>>> We think its better to keep the switch ports exposed as any other netdev
+>>>>>>>> on linux.
+>>>>>>>>   This approach will make the switch ports look exactly like a nic port
+>>>>>>>> and all tools will continue to work seamlessly. The switch port
+>>>>>>>> operations could internally be forwarded to the switch netdev (sw1 in
+>>>>>>>> the above case).
+>>>>>>>>
+>>>>>>>> example:
+>>>>>>>> $ip link set dev sw1p0 up
+>>>>>>>> $ethtool -S sw1p0
+>>>>>>>>
+>>>>>>> I like the approach. I know the above is a simple version, but i am
+>>>>>>> assuming you also mean i can do things like
+>>>>>>> ip route add ...
+>>>>>>> bridge fdb add ... (and if you like your brctl go ahead)
+>>>>>>> bonding ...
+>>>>>>>
+>>>>>> yes, exactly.  We support this model on our boxes today.
+>>>>>> User can bond switch ports on our box in the exact same way as he/she
+>>>>>> would bond two nic ports.
+>>>>>> Our 'conduit to switch chip' reflects the corresponding lag
+>>>>>> configuration in the switch chip.
+>>>>>> Same goes for bridging, routing, acls.
+>>>>> So you implement bonding netlink api? Or you hook into bonding driver
+>>>>> itselt? Can you show us the code?
+>>>> We use the netlink API and libnl. In our current model, our switch
+>>>> chip driver listens to netlink notifications and programs the switch
+>>>> chip. The switch chip driver uses libnl caches and libnl netlink apis
+>>>> to reflect the kernel state to switch chip.
+>>> So when you configure for example bonding over 2 ports, you actually use
+>>> bonding driver to do that. And you userspace app listens to
+>>> notifications and programs the switch chip accordingly. Am I close?
+>> yes correct.
+>>> How about data? Is this new "bonding" interface able to assign ip to is
+>>> and send/receive packets.
+>> yes
+>>> I'm still not sure I understand your concept. Do you have some
+>>> documentation for it available?
+>>>
+>> I think the only documentation available today in this area is the
+>> user guide and that in-turn points to native linux command manpages
+>> iproute2, sysfs, debian ifupdown etc.
+>> I will see if i can find anything else.
+> I ment the architecture design documentation. linux manpages are not
+> that interesting to me :)
+>
+yes, i get that and thats why i did not include a pointer to our user 
+guide. :).
+Sorry, the easiest thing to find right now was a high level marketing 
+diagram and here you go: 
+http://cumulusnetworks.com/product/architecture/. This is nothing but 
+what i mentioned in my emails.
+ From here the details involve nothing but programming the broadcom 
+asic. This is mostly broadcom details/documentation.
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- drivers/net/nlmon.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+The above is our current working/shipping model.
 
-diff --git a/drivers/net/nlmon.c b/drivers/net/nlmon.c
-index 6929b03..34924df 100644
---- a/drivers/net/nlmon.c
-+++ b/drivers/net/nlmon.c
-@@ -136,7 +136,8 @@ static void nlmon_setup(struct net_device *dev)
- 	dev->ethtool_ops = &nlmon_ethtool_ops;
- 	dev->destructor	= free_netdev;
- 
--	dev->features = NETIF_F_FRAGLIST | NETIF_F_HIGHDMA;
-+	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST |
-+			NETIF_F_HIGHDMA | NETIF_F_LLTX;
- 	dev->flags = IFF_NOARP;
- 
- 	/* That's rather a softlimit here, which, of course,
--- 
-1.7.11.7
+In our second phase of implementation, We wanted to preserve the above 
+user interface model (which people using our boxes are very fond of), 
+but introduce the concept of a switchdev and switchports in the kernel.
+We had a switchdev api in the works ourselves which we were planning to 
+publish on netdev until you beat us to it.
+Our version is similar to yours but it reflects some of the points that 
+i have brought up in my previous emails.
+It probably looks more like your v2 (patch 4/6) without the master/slave 
+link.
+We can share some code in the comming weeks. It does need some cleanup 
+and i am also waiting for scott feldman who is on vacation this week.
+
+I know you are looking for specifics, but we don't have switchdev code 
+to create a bond in switch chip asic yet. But we have been thinking 
+about the details and the current thought there at a high level was, we 
+would add a netdev op which the bonding driver could redirect to the 
+switchdev driver when it has slaves with IFF_SWITCH_PORT set.
+
+Thanks,
+Roopa
