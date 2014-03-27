@@ -1,20 +1,13 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Thu, 27 Mar 2014 14:54:11 -0700
-Message-ID: <CAGVrzcY5rhyu3KC2PQd0X+xdBB1D2yJhhPWntLRNoOhTSfDvoQ@mail.gmail.com>
-References: <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion>
- <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com>
- <20140326173536.GJ2869@minipsycho.orion> <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com>
- <20140326181436.GL2869@minipsycho.orion> <53334BDA.1060608@mojatatu.com>
- <CAGVrzcaconDBjgSfk0=6px2+6LbrxMkmesgigSa3-9WaK-LiOw@mail.gmail.com>
- <20140327065616.GA2845@minipsycho.orion> <CAHNKnsQYLNfkrC0088g2os30NcSz9HVzkytbK_qFbNfeSWkmFw@mail.gmail.com>
- <20140327165550.GN2845@minipsycho.orion> <CAHNKnsRrb1ZoV0he0jLjJ3TBRScHcs6XRxiXrscHRJ6X3=VuGQ@mail.gmail.com>
- <CAGVrzcZ5JpTZFTMkhLOoh8GMWPDitn=gsVkPLv7rpD3fH3kavQ@mail.gmail.com> <53349C6C.6050506@mojatatu.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
+ of switch chip datapath
+Date: Thu, 27 Mar 2014 17:55:19 -0400
+Message-ID: <53349E47.9040407@mojatatu.com>
+References: <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com> <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion> <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com> <20140326173536.GJ2869@minipsycho.orion> <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com> <20140326181436.GL2869@minipsycho.orion> <53334BDA.1060608@mojatatu.com> <CAGVrzcaconDBjgSfk0=6px2+6LbrxMkmesgigSa3-9WaK-LiOw@mail.gmail.com> <20140327065616.GA2845@minipsycho.orion> <CAHNKnsQYLNfkrC0088g2os30NcSz9HVzkytbK_qFbNfeSWkmFw@mail.gmail.com> <CAGVrzcaWQH0aH3HOFdhaX2K3sGkfn4EitWaN+17R1oU4xtudWg@mail.gmail.com> <CAHNKnsTs6o3bFr241Cj_=muGMgOq3fc9ZNXcBRt3M8+ccTJscA@mail.gmail.com> <CAGVrzcY=hxAf0eOoDfAAQZS1fNjFWbdY9Nbyuz6kFaOkSSis8w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sergey Ryazanov <ryazanov.s.a@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>,
 	Roopa Prabhu <roopa@cumulusnetworks.com>,
 	Neil Horman <nhorman@tuxdriver.com>,
 	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
@@ -32,51 +25,50 @@ Cc: Sergey Ryazanov <ryazanov.s.a@gmail.com>,
 	Lennert Buytenhek <buytenh@wantstofly.org>,
 	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
 	Felix Fietkau <nbd@openwrt.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Sergey Ryazanov <ryazanov.s.a@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:51121 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757396AbaC0Vyw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 17:54:52 -0400
-Received: by mail-pb0-f43.google.com with SMTP id um1so4055511pbc.16
-        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 14:54:52 -0700 (PDT)
-In-Reply-To: <53349C6C.6050506@mojatatu.com>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:43113 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756166AbaC0VzW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 17:55:22 -0400
+Received: by mail-ob0-f169.google.com with SMTP id va2so4975240obc.14
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 14:55:22 -0700 (PDT)
+In-Reply-To: <CAGVrzcY=hxAf0eOoDfAAQZS1fNjFWbdY9Nbyuz6kFaOkSSis8w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-03-27 14:47 GMT-07:00 Jamal Hadi Salim <jhs@mojatatu.com>:
-> On 03/27/14 16:01, Florian Fainelli wrote:
->>
->> 2014-03-27 12:58 GMT-07:00 Sergey Ryazanov <ryazanov.s.a@gmail.com>:
->>>
->>> 2014-03-27 20:55 GMT+04:00 Jiri Pirko <jiri@resnulli.us>:
+On 03/27/14 17:20, Florian Fainelli wrote:
+> 2014-03-27 13:32 GMT-07:00 Sergey Ryazanov <ryazanov.s.a@gmail.com>:
+
+>> I would like go further and suggest to consider a netdev that is
+>> connected to the CPU switch port, as master. In case when we need to
+>> perform some action on whole switch (e.g. dump FIB).
 >
+> This is what the 'sw1' net_device in Jiri's proposal would do.
 >
->>> Moreover, we need to know ports of switch chip, what are really wired
->>> to the connectors (e.g. five-port switch on the board with only three
->>> connectors).
->>
->>
->> Well, DSA already does all of that for you and has Device Tree
->> bindings too to instantiate per-port net_device, create the switch
->> routing table in case switches are cascaded...
->>
+>> And even name
+>> switch ports, using master netdev name as prefix (e.g. eth1p0, eth1p1,
+>> ..., eth1pN for ports of switch that is connected via eth1).
 >
-> Just to be clear:
-> routing here implies how the devices are interconnected (as opposed
-> to L3 packet processing).
+> I think the port naming using the switch abstract interface (sw1 here)
+> is better because ports do belong to the switch.
+>
 
-Correct, this is more like chaining here.
 
-> Is that generic enough to be usable for different vendors or only
-> specific to marvel?
+Can we start calling whatever this netdev is something like "control"?
+Or maybe it is "cpu" netdev? Since i am
+comprehending better the need for such a special netdev, i would say:
+if i do a "route add" and it needs to go to the specific switch,
+the FIB entry will find its way to the "control" netdev which will
+invoke device specific interfaces for the ASIC.
+I would go as far as almost claiming - let this interface use netlink
+definitions (we know how fib netlink interfaces look like already); 
+caveat is: there may room  to tone it down.
+Repeat and rinse for everything else we know how to do already
 
-I think it is. There is nothing in-tree that actually uses that
-feature (switch chaining), but all the infrastructure is there to:
+Of course there's a lot of evolution on the core code but thats
+a different discussion.
 
-- represent links between switches, which one is cascaded from which
-one and get a sense of their addressing within the switch tree
-- a function call to get that cascading table to programmed to each switch
-- get all relevant "uplink/downlink" switch ports to be configured appropriately
--- 
-Florian
+cheers,
+jamal
