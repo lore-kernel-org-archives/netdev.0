@@ -1,64 +1,91 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding: Inactive slaves should keep inactive flag's value to 1 in tlb and alb mode.
-Date: Thu, 27 Mar 2014 10:23:03 -0700
-Message-ID: <9725.1395940983@death.nxdomain>
-References: <1395716407-31601-1-git-send-email-zheng.x.li@oracle.com>
-Cc: netdev@vger.kernel.org, andy@greyhouse.net,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	joe.jin@oracle.com
-To: Zheng Li <zheng.x.li@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <1395716407-31601-1-git-send-email-zheng.x.li@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Subject: Re: [patch net-next RFC v2 0/6] introduce infrastructure
+ for support of switch chip datapath
+Date: Thu, 27 Mar 2014 18:26:00 +0100
+Message-ID: <20140327172600.GP2845@minipsycho.orion>
+References: <1395851472-10524-1-git-send-email-jiri@resnulli.us>
+ <53334A3F.6020105@mojatatu.com>
+ <20140327072107.GC2845@minipsycho.orion>
+ <5333FD12.9060404@mojatatu.com>
+ <20140327110223.GA1615@casper.infradead.org>
+ <CAGVrzcYE9uuD0Gxd5-OND4p5ieikYFchhpBm=ZiK5GaMqiQVyA@mail.gmail.com>
+ <20140327172048.GC13573@casper.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+ Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>,
+ dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+ Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>, Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
+ Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+ vyasevic <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+ Scott Feldman <sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>, dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20140327172048.GC13573-FZi0V3Vbi30CUdFEqe4BF2D2FQJk+8+b@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Zheng Li <zheng.x.li@oracle.com> wrote:
-
->In bond mode tlb and alb, inactive slaves should keep inactive flag to
->1 to refuse to receive broadcast packets. Now, active slave send broadcast packets
->(for example ARP requests) which will arrive inactive slaves on same host from switch,
->but inactive slave's inactive flag is zero that cause bridge receive the broadcast
->packets to produce a wrong entry in forward table. Typical situation is domu send some
->ARP request which go out from dom0 bond's active slave, then the ARP broadcast request
->packets go back to inactive slave from switch, because the inactive slave's inactive
->flag is zero, kernel will receive the packets and pass them to bridge, that cause dom0's
->bridge map domu's MAC address to port of bond, bridge should map domu's MAC to port of vif.
-
-	It's probably worth noting that this effect is something that
-happens after the bonding master device is opened with slaves, i.e.,
-it's got a bunch of slaves, and is then set administratively down for
-whatever reason, and is now being set back up, and needs to set the
-active or inactive state of all the slaves.
-
-	It'd also be a little easier to read if it was formatted for 80
-columns.
-
->Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
->---
-> drivers/net/bonding/bond_main.c |    2 +-
-> 1 files changed, 1 insertions(+), 1 deletions(-)
+Thu, Mar 27, 2014 at 06:20:48PM CET, tgraf-G/eBtMaohhA@public.gmane.org wrote:
+>On 03/27/14 at 09:27am, Florian Fainelli wrote:
+>> 2014-03-27 4:02 GMT-07:00 Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>:
+>> > There is definitely need beyond an ndo that is capable of
+>> > adding flows. You mention routes. Another example would be
+>> > devices capable of offloading iptables & nft rules.
+>> 
+>> Those devices usually require (at least for Broadcom) an entity
+>> identifying the flows and uploading flows offloading rules to the
+>> hardware. Although I do not think it hurts to keep those in mind to
+>> come up with the right design, my feeling is that they will require
+>> more intrusive modifications at the socket, route and forwarding path
+>> level if we want the Linux kernel to offer a consistent API across
+>> different hardware variations.
 >
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index e5628fc..8761df6 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -3062,7 +3062,7 @@ static int bond_open(struct net_device *bond_dev)
-> 				&& (slave != bond->curr_active_slave)) {
-> 				bond_set_slave_inactive_flags(slave,
-> 							      BOND_SLAVE_NOTIFY_NOW);
->-			} else {
->+			} else if (!bond_is_lb(bond)) {
-> 				bond_set_slave_active_flags(slave,
-> 							    BOND_SLAVE_NOTIFY_NOW);
+>I absolutely agree. This is where the challenging bits start to
+>appear ;-) I don't want to speak for Jiri but my understanding is
+>that the flow focused approach early on is entirely because it is
+>the easiest case to solve. Taking OVS as an example has the
+>advantage of already being guarded by OpenFlow abstraction which
+>by nature is very device oriented.
 
-	This patch doesn't do anything for the modes that are
-bond_is_lb, i.e., the balance-tlb and -alb modes.  I believe those two
-should be set similarly to active-backup: the curr_active_slave is
-active, other slaves are inactive.  The "inactive" setting for alb is
-special, and means to not pass broadcast or multicast, but let unicast
-through.
+Yep, exactly.
 
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>
+>> It is not clear to me at this point whether we want those special
+>> offloading devices to appear as separate net_device with specific
+>> flags to advertise their offloading features (NAT, IP routing...) or
+>> something else?
+>
+>One lesson that could serve as an example which differs from TOE is
+>the offloading provided by recent FC HBAs. The device looks like a
+>regular SCSI device to the kernel but offers a full DCB engine to
+>allow for FCoE. The DCB bits can and must be configured. By not
+>representing that engine with a net_device we cannot configure the
+>engine through the Netlink interface dcbnl. dcbnl can certainly be
+>extended to allow taking a scsi id of some sort instead of a ifindex
+>but it's far from ideal.
+>
+>My take on this is that if it makes sense to use rtnl or ethtool
+>to configure these offload engines then let's just go with a
+>globally visible net_device and improve our capabilities system.
+>
+>> > But wouldn't you want to introduce an additional ndo to
+>> > cover these?
+>> 
+>> I would start with making sure everyone is on the same page regarding
+>> switches before we start building the conversation on NAT/IP-routing
+>> offloading, but it is good that you mention it.
+>
+>Agreed
