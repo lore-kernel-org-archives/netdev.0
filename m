@@ -1,8 +1,8 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 02/10] tipc: obsolete the remote
-	management feature
-Date: Thu, 27 Mar 2014 12:54:31 +0800
-Message-ID: <1395896080-7926-3-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 04/10] tipc: convert tipc_bearers
+	array to pointer list
+Date: Thu, 27 Mar 2014 12:54:33 +0800
+Message-ID: <1395896080-7926-5-git-send-email-ying.xue@windriver.com>
 References: <1395896080-7926-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,274 +22,168 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Due to the lacking of any credential, it's allowed to accept commands
-requested from remote nodes to query the local node status, which is
-prone to involve potential security risks. Instead, if we login to
-a remote node with ssh command, this approach is not only more safe
-than the remote management feature, but also it can give us more
-permissions like changing the remote node configuration. So it's
-reasonable for us to obsolete the remote management feature now.
+As part of the effort to introduce RCU protection for the bearer
+list, we first need to change it to a list of pointers.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/config.c |  107 ++---------------------------------------------------
- net/tipc/config.h |    5 ---
- net/tipc/core.c   |    9 -----
- net/tipc/core.h   |    1 -
- net/tipc/net.c    |    2 -
- 5 files changed, 3 insertions(+), 121 deletions(-)
+ net/tipc/bcast.c  |    5 ++---
+ net/tipc/bearer.c |   46 +++++++++++++++++++++++++++++++++++-----------
+ net/tipc/bearer.h |    2 +-
+ 3 files changed, 38 insertions(+), 15 deletions(-)
 
-diff --git a/net/tipc/config.c b/net/tipc/config.c
-index e6d7216..4b981c0 100644
---- a/net/tipc/config.c
-+++ b/net/tipc/config.c
-@@ -43,13 +43,11 @@
- #define REPLY_TRUNCATED "<truncated>\n"
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index e0feb7e..b4f8c62 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -668,9 +668,8 @@ void tipc_bcbearer_sort(void)
+ 	memset(bp_temp, 0, sizeof(bcbearer->bpairs_temp));
  
- static DEFINE_MUTEX(config_mutex);
--static struct tipc_server cfgsrv;
+ 	for (b_index = 0; b_index < MAX_BEARERS; b_index++) {
+-		struct tipc_bearer *b = &tipc_bearers[b_index];
+-
+-		if (!b->active || !b->nodes.count)
++		struct tipc_bearer *b = bearer_list[b_index];
++		if (!b || !b->active || !b->nodes.count)
+ 			continue;
  
- static const void *req_tlv_area;	/* request message TLV area */
- static int req_tlv_space;		/* request message TLV area size */
- static int rep_headroom;		/* reply message headroom to use */
+ 		if (!bp_temp[b->priority].primary)
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 7f1f95c..7ff98ef 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -49,7 +49,7 @@ static struct tipc_media * const media_info_array[] = {
+ 	NULL
+ };
  
--
- struct sk_buff *tipc_cfg_reply_alloc(int payload_size)
- {
- 	struct sk_buff *buf;
-@@ -185,18 +183,6 @@ static struct sk_buff *cfg_set_own_addr(void)
- 	return tipc_cfg_reply_none();
- }
+-struct tipc_bearer tipc_bearers[MAX_BEARERS];
++struct tipc_bearer *bearer_list[MAX_BEARERS];
  
--static struct sk_buff *cfg_set_remote_mng(void)
--{
--	u32 value;
--
--	if (!TLV_CHECK(req_tlv_area, req_tlv_space, TIPC_TLV_UNSIGNED))
--		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
--
--	value = ntohl(*(__be32 *)TLV_DATA(req_tlv_area));
--	tipc_remote_management = (value != 0);
--	return tipc_cfg_reply_none();
--}
--
- static struct sk_buff *cfg_set_max_ports(void)
- {
- 	u32 value;
-@@ -247,21 +233,10 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
- 	/* Check command authorization */
- 	if (likely(in_own_node(orig_node))) {
- 		/* command is permitted */
--	} else if (cmd >= 0x8000) {
-+	} else {
- 		rep_tlv_buf = tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
- 							  " (cannot be done remotely)");
+ static void bearer_disable(struct tipc_bearer *b_ptr, bool shutting_down);
+ 
+@@ -177,8 +177,9 @@ struct tipc_bearer *tipc_bearer_find(const char *name)
+ 	struct tipc_bearer *b_ptr;
+ 	u32 i;
+ 
+-	for (i = 0, b_ptr = tipc_bearers; i < MAX_BEARERS; i++, b_ptr++) {
+-		if (b_ptr->active && (!strcmp(b_ptr->name, name)))
++	for (i = 0; i < MAX_BEARERS; i++) {
++		b_ptr = bearer_list[i];
++		if (b_ptr && b_ptr->active && (!strcmp(b_ptr->name, name)))
+ 			return b_ptr;
+ 	}
+ 	return NULL;
+@@ -200,7 +201,9 @@ struct sk_buff *tipc_bearer_get_names(void)
+ 	read_lock_bh(&tipc_net_lock);
+ 	for (i = 0; media_info_array[i] != NULL; i++) {
+ 		for (j = 0; j < MAX_BEARERS; j++) {
+-			b = &tipc_bearers[j];
++			b = bearer_list[j];
++			if (!b)
++				continue;
+ 			if (b->active && (b->media == media_info_array[i])) {
+ 				tipc_cfg_append_tlv(buf, TIPC_TLV_BEARER_NAME,
+ 						    b->name,
+@@ -284,16 +287,17 @@ restart:
+ 	bearer_id = MAX_BEARERS;
+ 	with_this_prio = 1;
+ 	for (i = MAX_BEARERS; i-- != 0; ) {
+-		if (!tipc_bearers[i].active) {
++		b_ptr = bearer_list[i];
++		if (!b_ptr || !b_ptr->active) {
+ 			bearer_id = i;
+ 			continue;
+ 		}
+-		if (!strcmp(name, tipc_bearers[i].name)) {
++		if (!strcmp(name, b_ptr->name)) {
+ 			pr_warn("Bearer <%s> rejected, already enabled\n",
+ 				name);
+ 			goto exit;
+ 		}
+-		if ((tipc_bearers[i].priority == priority) &&
++		if ((b_ptr->priority == priority) &&
+ 		    (++with_this_prio > 2)) {
+ 			if (priority-- == 0) {
+ 				pr_warn("Bearer <%s> rejected, duplicate priority\n",
+@@ -311,7 +315,11 @@ restart:
  		goto exit;
--	} else if (!tipc_remote_management) {
--		rep_tlv_buf = tipc_cfg_reply_error_string(TIPC_CFG_NO_REMOTE);
--		goto exit;
--	} else if (cmd >= 0x4000) {
--		u32 domain = 0;
--
--		if ((tipc_nametbl_translate(TIPC_ZM_SRV, 0, &domain) == 0) ||
--		    (domain != orig_node)) {
--			rep_tlv_buf = tipc_cfg_reply_error_string(TIPC_CFG_NOT_ZONE_MSTR);
--			goto exit;
--		}
  	}
  
- 	/* Call appropriate processing routine */
-@@ -310,18 +285,12 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
- 	case TIPC_CMD_SET_NODE_ADDR:
- 		rep_tlv_buf = cfg_set_own_addr();
- 		break;
--	case TIPC_CMD_SET_REMOTE_MNG:
--		rep_tlv_buf = cfg_set_remote_mng();
--		break;
- 	case TIPC_CMD_SET_MAX_PORTS:
- 		rep_tlv_buf = cfg_set_max_ports();
- 		break;
- 	case TIPC_CMD_SET_NETID:
- 		rep_tlv_buf = cfg_set_netid();
- 		break;
--	case TIPC_CMD_GET_REMOTE_MNG:
--		rep_tlv_buf = tipc_cfg_reply_unsigned(tipc_remote_management);
--		break;
- 	case TIPC_CMD_GET_MAX_PORTS:
- 		rep_tlv_buf = tipc_cfg_reply_unsigned(tipc_max_ports);
- 		break;
-@@ -345,6 +314,8 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
- 	case TIPC_CMD_SET_MAX_PUBL:
- 	case TIPC_CMD_GET_MAX_PUBL:
- 	case TIPC_CMD_SET_LOG_SIZE:
-+	case TIPC_CMD_SET_REMOTE_MNG:
-+	case TIPC_CMD_GET_REMOTE_MNG:
- 	case TIPC_CMD_DUMP_LOG:
- 		rep_tlv_buf = tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
- 							  " (obsolete command)");
-@@ -369,75 +340,3 @@ exit:
- 	mutex_unlock(&config_mutex);
- 	return rep_tlv_buf;
+-	b_ptr = &tipc_bearers[bearer_id];
++	b_ptr = kzalloc(sizeof(*b_ptr), GFP_ATOMIC);
++	if (!b_ptr) {
++		res = -ENOMEM;
++		goto exit;
++	}
+ 	strcpy(b_ptr->name, name);
+ 	b_ptr->media = m_ptr;
+ 	res = m_ptr->enable_media(b_ptr);
+@@ -335,6 +343,9 @@ restart:
+ 			name);
+ 		goto exit;
+ 	}
++
++	bearer_list[bearer_id] = b_ptr;
++
+ 	pr_info("Enabled bearer <%s>, discovery domain %s, priority %u\n",
+ 		name,
+ 		tipc_addr_string_fill(addr_string, disc_domain), priority);
+@@ -362,13 +373,22 @@ static int tipc_reset_bearer(struct tipc_bearer *b_ptr)
+  */
+ static void bearer_disable(struct tipc_bearer *b_ptr, bool shutting_down)
+ {
++	u32 i;
++
+ 	pr_info("Disabling bearer <%s>\n", b_ptr->name);
+ 	b_ptr->media->disable_media(b_ptr);
+ 
+ 	tipc_link_delete_list(b_ptr->identity, shutting_down);
+ 	if (b_ptr->link_req)
+ 		tipc_disc_delete(b_ptr->link_req);
+-	memset(b_ptr, 0, sizeof(struct tipc_bearer));
++
++	for (i = 0; i < MAX_BEARERS; i++) {
++		if (b_ptr == bearer_list[i]) {
++			bearer_list[i] = NULL;
++			break;
++		}
++	}
++	kfree(b_ptr);
  }
--
--static void cfg_conn_msg_event(int conid, struct sockaddr_tipc *addr,
--			       void *usr_data, void *buf, size_t len)
--{
--	struct tipc_cfg_msg_hdr *req_hdr;
--	struct tipc_cfg_msg_hdr *rep_hdr;
--	struct sk_buff *rep_buf;
--
--	/* Validate configuration message header (ignore invalid message) */
--	req_hdr = (struct tipc_cfg_msg_hdr *)buf;
--	if ((len < sizeof(*req_hdr)) ||
--	    (len != TCM_ALIGN(ntohl(req_hdr->tcm_len))) ||
--	    (ntohs(req_hdr->tcm_flags) != TCM_F_REQUEST)) {
--		pr_warn("Invalid configuration message discarded\n");
--		return;
--	}
--
--	/* Generate reply for request (if can't, return request) */
--	rep_buf = tipc_cfg_do_cmd(addr->addr.id.node, ntohs(req_hdr->tcm_type),
--				  buf + sizeof(*req_hdr),
--				  len - sizeof(*req_hdr),
--				  BUF_HEADROOM + MAX_H_SIZE + sizeof(*rep_hdr));
--	if (rep_buf) {
--		skb_push(rep_buf, sizeof(*rep_hdr));
--		rep_hdr = (struct tipc_cfg_msg_hdr *)rep_buf->data;
--		memcpy(rep_hdr, req_hdr, sizeof(*rep_hdr));
--		rep_hdr->tcm_len = htonl(rep_buf->len);
--		rep_hdr->tcm_flags &= htons(~TCM_F_REQUEST);
--		tipc_conn_sendmsg(&cfgsrv, conid, addr, rep_buf->data,
--				  rep_buf->len);
--		kfree_skb(rep_buf);
--	}
--}
--
--static struct sockaddr_tipc cfgsrv_addr __read_mostly = {
--	.family			= AF_TIPC,
--	.addrtype		= TIPC_ADDR_NAMESEQ,
--	.addr.nameseq.type	= TIPC_CFG_SRV,
--	.addr.nameseq.lower	= 0,
--	.addr.nameseq.upper	= 0,
--	.scope			= TIPC_ZONE_SCOPE
--};
--
--static struct tipc_server cfgsrv __read_mostly = {
--	.saddr			= &cfgsrv_addr,
--	.imp			= TIPC_CRITICAL_IMPORTANCE,
--	.type			= SOCK_RDM,
--	.max_rcvbuf_size	= 64 * 1024,
--	.name			= "cfg_server",
--	.tipc_conn_recvmsg	= cfg_conn_msg_event,
--	.tipc_conn_new		= NULL,
--	.tipc_conn_shutdown	= NULL
--};
--
--int tipc_cfg_init(void)
--{
--	return tipc_server_start(&cfgsrv);
--}
--
--void tipc_cfg_reinit(void)
--{
--	tipc_server_stop(&cfgsrv);
--
--	cfgsrv_addr.addr.nameseq.lower = tipc_own_addr;
--	cfgsrv_addr.addr.nameseq.upper = tipc_own_addr;
--	tipc_server_start(&cfgsrv);
--}
--
--void tipc_cfg_stop(void)
--{
--	tipc_server_stop(&cfgsrv);
--}
-diff --git a/net/tipc/config.h b/net/tipc/config.h
-index 1f252f3..47b1bf1 100644
---- a/net/tipc/config.h
-+++ b/net/tipc/config.h
-@@ -64,9 +64,4 @@ static inline struct sk_buff *tipc_cfg_reply_ultra_string(char *string)
- struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd,
- 				const void *req_tlv_area, int req_tlv_space,
- 				int headroom);
--
--int  tipc_cfg_init(void);
--void tipc_cfg_reinit(void);
--void tipc_cfg_stop(void);
--
- #endif
-diff --git a/net/tipc/core.c b/net/tipc/core.c
-index e2491b3..50d5742 100644
---- a/net/tipc/core.c
-+++ b/net/tipc/core.c
-@@ -50,7 +50,6 @@ int tipc_random __read_mostly;
- u32 tipc_own_addr __read_mostly;
- int tipc_max_ports __read_mostly;
- int tipc_net_id __read_mostly;
--int tipc_remote_management __read_mostly;
- int sysctl_tipc_rmem[3] __read_mostly;	/* min/default/max */
  
- /**
-@@ -85,7 +84,6 @@ static void tipc_core_stop(void)
- 	tipc_net_stop();
- 	tipc_bearer_cleanup();
- 	tipc_netlink_stop();
--	tipc_cfg_stop();
- 	tipc_subscr_stop();
- 	tipc_nametbl_stop();
- 	tipc_ref_table_stop();
-@@ -130,18 +128,12 @@ static int tipc_core_start(void)
- 	if (err)
- 		goto out_subscr;
+ int tipc_disable_bearer(const char *name)
+@@ -603,10 +623,14 @@ void tipc_bearer_cleanup(void)
  
--	err = tipc_cfg_init();
--	if (err)
--		goto out_cfg;
--
- 	err = tipc_bearer_setup();
- 	if (err)
- 		goto out_bearer;
+ void tipc_bearer_stop(void)
+ {
++	struct tipc_bearer *b_ptr;
+ 	u32 i;
  
- 	return 0;
- out_bearer:
--	tipc_cfg_stop();
--out_cfg:
- 	tipc_subscr_stop();
- out_subscr:
- 	tipc_unregister_sysctl();
-@@ -166,7 +158,6 @@ static int __init tipc_init(void)
- 	pr_info("Activated (version " TIPC_MOD_VER ")\n");
+ 	for (i = 0; i < MAX_BEARERS; i++) {
+-		if (tipc_bearers[i].active)
+-			bearer_disable(&tipc_bearers[i], true);
++		b_ptr = bearer_list[i];
++		if (b_ptr && b_ptr->active) {
++			bearer_disable(b_ptr, true);
++			bearer_list[i] = NULL;
++		}
+ 	}
+ }
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index 425dd81..f4e72ca 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -150,7 +150,7 @@ struct tipc_bearer_names {
  
- 	tipc_own_addr = 0;
--	tipc_remote_management = 1;
- 	tipc_max_ports = CONFIG_TIPC_PORTS;
- 	tipc_net_id = 4711;
+ struct tipc_link;
  
-diff --git a/net/tipc/core.h b/net/tipc/core.h
-index 4dfe137..8985bbc 100644
---- a/net/tipc/core.h
-+++ b/net/tipc/core.h
-@@ -79,7 +79,6 @@ int tipc_snprintf(char *buf, int len, const char *fmt, ...);
- extern u32 tipc_own_addr __read_mostly;
- extern int tipc_max_ports __read_mostly;
- extern int tipc_net_id __read_mostly;
--extern int tipc_remote_management __read_mostly;
- extern int sysctl_tipc_rmem[3] __read_mostly;
+-extern struct tipc_bearer tipc_bearers[];
++extern struct tipc_bearer *bearer_list[];
  
  /*
-diff --git a/net/tipc/net.c b/net/tipc/net.c
-index 31b606e..bb171c3 100644
---- a/net/tipc/net.c
-+++ b/net/tipc/net.c
-@@ -182,8 +182,6 @@ void tipc_net_start(u32 addr)
- 	tipc_bclink_init();
- 	write_unlock_bh(&tipc_net_lock);
- 
--	tipc_cfg_reinit();
--
- 	pr_info("Started in network mode\n");
- 	pr_info("Own node address %s, network identity %u\n",
- 		tipc_addr_string_fill(addr_string, tipc_own_addr), tipc_net_id);
+  * TIPC routines available to supported media types
 -- 
 1.7.9.5
 
