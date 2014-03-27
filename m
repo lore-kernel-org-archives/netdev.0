@@ -1,52 +1,53 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 06/14] fec: remove empty MDIO bus function
-Date: Wed, 26 Mar 2014 18:07:18 -0700
-Message-ID: <1395882446-552-7-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 07/14] fs_enet: remove empty MDIO bus function
+Date: Wed, 26 Mar 2014 18:07:19 -0700
+Message-ID: <1395882446-552-8-git-send-email-f.fainelli@gmail.com>
 References: <1395882446-552-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:49427 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756510AbaC0BH5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 21:07:57 -0400
-Received: by mail-pd0-f181.google.com with SMTP id p10so2608270pdj.40
-        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 18:07:56 -0700 (PDT)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:42026 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756510AbaC0BIA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Mar 2014 21:08:00 -0400
+Received: by mail-pa0-f48.google.com with SMTP id hz1so2709947pad.7
+        for <netdev@vger.kernel.org>; Wed, 26 Mar 2014 18:07:59 -0700 (PDT)
 In-Reply-To: <1395882446-552-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fec_enet_mdio_reset() does nothing useful and is optional for the MDIO
+fs_enet_fec_mii_reset() does nothing useful and is optional for the MDIO
 bus code, so let's just remove it.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 6 ------
- 1 file changed, 6 deletions(-)
+ drivers/net/ethernet/freescale/fs_enet/mii-fec.c | 7 -------
+ 1 file changed, 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index f9f8a589cdef..e19315eaf2dd 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1255,11 +1255,6 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
- 	return 0;
+diff --git a/drivers/net/ethernet/freescale/fs_enet/mii-fec.c b/drivers/net/ethernet/freescale/fs_enet/mii-fec.c
+index 7e69c983d12a..ebf5d6429a8d 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/mii-fec.c
++++ b/drivers/net/ethernet/freescale/fs_enet/mii-fec.c
+@@ -95,12 +95,6 @@ static int fs_enet_fec_mii_write(struct mii_bus *bus, int phy_id, int location,
+ 
  }
  
--static int fec_enet_mdio_reset(struct mii_bus *bus)
+-static int fs_enet_fec_mii_reset(struct mii_bus *bus)
 -{
+-	/* nothing here - for now */
 -	return 0;
 -}
 -
- static int fec_enet_mii_probe(struct net_device *ndev)
+ static struct of_device_id fs_enet_mdio_fec_match[];
+ static int fs_enet_mdio_probe(struct platform_device *ofdev)
  {
- 	struct fec_enet_private *fep = netdev_priv(ndev);
-@@ -1384,7 +1379,6 @@ static int fec_enet_mii_init(struct platform_device *pdev)
- 	fep->mii_bus->name = "fec_enet_mii_bus";
- 	fep->mii_bus->read = fec_enet_mdio_read;
- 	fep->mii_bus->write = fec_enet_mdio_write;
--	fep->mii_bus->reset = fec_enet_mdio_reset;
- 	snprintf(fep->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
- 		pdev->name, fep->dev_id + 1);
- 	fep->mii_bus->priv = fep;
+@@ -128,7 +122,6 @@ static int fs_enet_mdio_probe(struct platform_device *ofdev)
+ 	new_bus->name = "FEC MII Bus";
+ 	new_bus->read = &fs_enet_fec_mii_read;
+ 	new_bus->write = &fs_enet_fec_mii_write;
+-	new_bus->reset = &fs_enet_fec_mii_reset;
+ 
+ 	ret = of_address_to_resource(ofdev->dev.of_node, 0, &res);
+ 	if (ret)
 -- 
 1.8.3.2
