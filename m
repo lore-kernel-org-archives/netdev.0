@@ -1,54 +1,62 @@
-From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: re: rsi: Add RS9113 wireless driver
-Date: Thu, 27 Mar 2014 18:05:01 +0300
-Message-ID: <20140327150501.GA1633@mwanda>
+From: Peter Fassberg <pf@leissner.se>
+Subject: Activate netns
+Date: Thu, 27 Mar 2014 15:51:37 +0100 (SNT)
+Message-ID: <alpine.BSF.2.00.1403271539380.78113@nic-i.leissner.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Fariya Fatima <fariyaf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: fariyaf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgate.leissner.se ([212.3.1.210]:31784 "EHLO
+	mailgate.leissner.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754594AbaC0PQv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 11:16:51 -0400
+Received: from mailgate.leissner.se (localhost [127.0.0.1])
+	by mailgate.leissner.se (8.14.8/8.14.8) with ESMTP id s2REpgke045455
+	for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 15:51:42 +0100 (CET)
+	(envelope-from pf@leissner.se)
+Received: (from uucp@localhost)
+	by mailgate.leissner.se (8.14.8/8.14.8/Submit) id s2REpfFc045451
+	for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 15:51:41 +0100 (CET)
+	(envelope-from pf@leissner.se)
+Received: from nic-i.leissner.se (localhost [127.0.0.1])
+	by nic-i.leissner.se (8.14.8/8.14.7) with ESMTP id s2REpbwZ044773
+	for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 15:51:37 +0100 (CET)
+	(envelope-from pf@leissner.se)
+Received: from localhost (pf@localhost)
+	by nic-i.leissner.se (8.14.8/8.14.7/Submit) with ESMTP id s2REpbsH044770
+	for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 15:51:37 +0100 (CET)
+	(envelope-from pf@leissner.se)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Fariya Fatima,
 
-The patch dad0d04fa7ba: "rsi: Add RS9113 wireless driver" from Mar
-16, 2014, leads to the following static checker warning:
+Hi!
 
-	drivers/net/wireless/rsi/rsi_91x_mgmt.c:751 rsi_load_bootup_params()
-	warn: signedness bug returning '(-12)'
+I have trouble to activate netns on OpenWrt with kernel 3.8.13.
 
-drivers/net/wireless/rsi/rsi_91x_mgmt.c
-   741  static u8 rsi_load_bootup_params(struct rsi_common *common)
-   742  {
-   743          struct sk_buff *skb;
-   744          struct rsi_boot_params *boot_params;
-   745  
-   746          rsi_dbg(MGMT_TX_ZONE, "%s: Sending boot params frame\n", __func__);
-   747          skb = dev_alloc_skb(sizeof(struct rsi_boot_params));
-   748          if (!skb) {
-   749                  rsi_dbg(ERR_ZONE, "%s: Failed in allocation of skb\n",
-   750                          __func__);
-   751                  return -ENOMEM;
-                               ^^^^^^^
-This doesn't matter because the caller doesn't progate the error code
-anyway.  Please fix that as well.
+I get this:
 
-	ret = rsi_load_bootup_params(...);
-	if (ret)
-		return ret;
+root@ROOter:~# ip netns show
+root@ROOter:~# ip netns add blue
+Failed to create a new network namespace "blue": Invalid argument
+root@ROOter:~# df
+Filesystem           1K-blocks      Used Available Use% Mounted on
+rootfs                   48377     10493     37884  22% /
+/dev/root                48377     10493     37884  22% /
+tmpfs                   257036      2264    254772   1% /tmp
+tmpfs                      512         0       512   0% /dev
+/dev/sda2                 4088      2266      1618  58% /mnt
+/dev/sda1                 4088      2266      1618  58% /mnt
+tmpfs                   257036      2264    254772   1% /tmp/run/netns
+root@ROOter:~# uname -a
+Linux ROOter 3.8.13 #2 Wed Mar 26 21:39:04 CET 2014 i686 GNU/Linux
+root@ROOter:~#
 
-Instead of:
-	if (rsi_load_bootup_params(...))
-		erturn -ENOMEM;
 
-   752          }
+Any hints on what I'm missing?
 
-regards,
-dan carpenter
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+Regards,
+
+// Peter
