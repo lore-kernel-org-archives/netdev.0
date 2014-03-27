@@ -1,51 +1,57 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH net] MAINTAINERS: bonding: change email address
-Date: Thu, 27 Mar 2014 10:33:44 -0700
-Message-ID: <9975.1395941624@death.nxdomain>
-Cc: "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:45144 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753351AbaC0Rds (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 13:33:48 -0400
-Received: from /spool/local
-	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Thu, 27 Mar 2014 11:33:48 -0600
-Received: from b03cxnp08028.gho.boulder.ibm.com (b03cxnp08028.gho.boulder.ibm.com [9.17.130.20])
-	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id 8EEE51FF0043
-	for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 11:33:46 -0600 (MDT)
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by b03cxnp08028.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s2RHXkb438731800
-	for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 18:33:46 +0100
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id s2RHbPfX029898
-	for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 11:37:25 -0600
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net v2] openvswitch: fix a possible deadlock
+ and lockdep warning
+Date: Thu, 27 Mar 2014 14:33:44 -0300
+Message-ID: <20140327173344.GK18707@t520.home>
+References: <1395929134-4487-1-git-send-email-fbl@redhat.com>
+ <CALnjE+q41G9KKf_EhTdDvZtX_Xao_WG+KhRZ2fKe0JF8sqjZxw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: openvswitch <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CALnjE+q41G9KKf_EhTdDvZtX_Xao_WG+KhRZ2fKe0JF8sqjZxw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
+On Thu, Mar 27, 2014 at 10:19:23AM -0700, Pravin Shelar wrote:
+> On Thu, Mar 27, 2014 at 7:05 AM, Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> > There are two problematic situations.
+> >
+> > A deadlock can happen when is_percpu is false because it can get
+> > interrupted while holding the spinlock. Then it executes
+> > ovs_flow_stats_update() in softirq context which tries to get
+> > the same lock.
+> >
+> > The second sitation is that when is_percpu is true, the code
+> > correctly disables BH but only for the local CPU, so the
+> > following can happen when locking the remote CPU without
+> > disabling BH:
+> >
+> >        CPU#0                            CPU#1
+> >   ovs_flow_stats_get()
+> >    stats_read()
+> >  +->spin_lock remote CPU#1        ovs_flow_stats_get()
+> >  |  <interrupted>                  stats_read()
+> >  |  ...                       +-->  spin_lock remote CPU#0
+> >  |                            |     <interrupted>
+> >  |  ovs_flow_stats_update()   |     ...
+> >  |   spin_lock local CPU#0 <--+     ovs_flow_stats_update()
+> >  +---------------------------------- spin_lock local CPU#1
+> >
+> > This patch disables BH for both cases fixing the deadlocks.
+> 
+> This bug is already fixed in OVS.
 
-	Update my email address.
-
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
----
- MAINTAINERS | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 82640e6..b6e0358 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -1832,7 +1832,7 @@ F:	net/bluetooth/
- F:	include/net/bluetooth/
- 
- BONDING DRIVER
--M:	Jay Vosburgh <fubar@us.ibm.com>
-+M:	Jay Vosburgh <j.vosburgh@gmail.com>
- M:	Veaceslav Falico <vfalico@redhat.com>
- M:	Andy Gospodarek <andy@greyhouse.net>
- L:	netdev@vger.kernel.org
--- 
-1.8.5.3
+Could you point me to the commit? I am not finding anything
+recent.
