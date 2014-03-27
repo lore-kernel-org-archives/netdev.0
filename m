@@ -1,42 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v5] core, nfqueue,
- openvswitch: Orphan frags in skb_zerocopy and handle errors
-Date: Thu, 27 Mar 2014 15:29:56 -0400 (EDT)
-Message-ID: <20140327.152956.1528740039185894234.davem@davemloft.net>
-References: <1395873465-22282-1-git-send-email-zoltan.kiss@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/mlx4_core: pass pci_device_id.driver_data to
+ __mlx4_init_one during reset
+Date: Thu, 27 Mar 2014 15:36:12 -0400 (EDT)
+Message-ID: <20140327.153612.643354861874841336.davem@davemloft.net>
+References: <1395883711-23607-1-git-send-email-weiyang@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mszeredi-AlSwsSmVLrQ@public.gmane.org, kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, JBeulich-IBi9RG/b67k@public.gmane.org,
- therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
- kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
- jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, Paul.Durrant-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
-To: zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1395873465-22282-1-git-send-email-zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: jackm@dev.mellanox.co.il, ogerlitz@mellanox.com,
+	netdev@vger.kernel.org
+To: weiyang@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57292 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754902AbaC0TgO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 15:36:14 -0400
+In-Reply-To: <1395883711-23607-1-git-send-email-weiyang@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Date: Wed, 26 Mar 2014 22:37:45 +0000
+From: Wei Yang <weiyang@linux.vnet.ibm.com>
+Date: Thu, 27 Mar 2014 09:28:31 +0800
 
-> skb_zerocopy can copy elements of the frags array between skbs, but it doesn't
-> orphan them. Also, it doesn't handle errors, so this patch takes care of that
-> as well, and modify the callers accordingly. skb_tx_error() is also added to
-> the callers so they will signal the failed delivery towards the creator of the
-> skb.
+> The second parameter of __mlx4_init_one() is used to identify whether the
+> pci_dev is a PF or VF. Currently, when it is invoked in mlx4_pci_slot_reset()
+> this information is missed.
 > 
-> Signed-off-by: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+> This patch match the pci_dev with mlx4_pci_table and passes the
+> pci_device_id.driver_data to __mlx4_init_one() in mlx4_pci_slot_reset().
+> 
+> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
 
-Fingers crossed :-)  Applied, thanks Zoltan.
+Applied, thanks.
