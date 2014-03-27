@@ -1,91 +1,231 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [patch net-next RFC v2 0/6] introduce infrastructure
- for support of switch chip datapath
-Date: Thu, 27 Mar 2014 18:26:00 +0100
-Message-ID: <20140327172600.GP2845@minipsycho.orion>
-References: <1395851472-10524-1-git-send-email-jiri@resnulli.us>
- <53334A3F.6020105@mojatatu.com>
- <20140327072107.GC2845@minipsycho.orion>
- <5333FD12.9060404@mojatatu.com>
- <20140327110223.GA1615@casper.infradead.org>
- <CAGVrzcYE9uuD0Gxd5-OND4p5ieikYFchhpBm=ZiK5GaMqiQVyA@mail.gmail.com>
- <20140327172048.GC13573@casper.infradead.org>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net v2 1/3] xen-netback: remove pointless clause from if
+ statement
+Date: Thu, 27 Mar 2014 17:26:55 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD029D498@AMSPEX01CL01.citrite.net>
+References: <1395924973-42904-1-git-send-email-paul.durrant@citrix.com>
+ <1395924973-42904-2-git-send-email-paul.durrant@citrix.com>
+ <289461862.20140327144546@eikelenboom.it>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD029C992@AMSPEX01CL01.citrite.net>
+ <68689563.20140327150256@eikelenboom.it>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD029CAA6@AMSPEX01CL01.citrite.net>
+ <874580615.20140327174607@eikelenboom.it>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD029D28D@AMSPEX01CL01.citrite.net>
+ <636041055.20140327181524@eikelenboom.it>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>,
- dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
- Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>, Roopa Prabhu <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
- Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
- vyasevic <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
- Scott Feldman <sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>, dborkman <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20140327172048.GC13573-FZi0V3Vbi30CUdFEqe4BF2D2FQJk+8+b@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: Sander Eikelenboom <linux@eikelenboom.it>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.ctxuk.citrix.com ([185.25.65.24]:1362 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756870AbaC0R05 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 13:26:57 -0400
+In-Reply-To: <636041055.20140327181524@eikelenboom.it>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thu, Mar 27, 2014 at 06:20:48PM CET, tgraf-G/eBtMaohhA@public.gmane.org wrote:
->On 03/27/14 at 09:27am, Florian Fainelli wrote:
->> 2014-03-27 4:02 GMT-07:00 Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>:
->> > There is definitely need beyond an ndo that is capable of
->> > adding flows. You mention routes. Another example would be
->> > devices capable of offloading iptables & nft rules.
->> 
->> Those devices usually require (at least for Broadcom) an entity
->> identifying the flows and uploading flows offloading rules to the
->> hardware. Although I do not think it hurts to keep those in mind to
->> come up with the right design, my feeling is that they will require
->> more intrusive modifications at the socket, route and forwarding path
->> level if we want the Linux kernel to offer a consistent API across
->> different hardware variations.
->
->I absolutely agree. This is where the challenging bits start to
->appear ;-) I don't want to speak for Jiri but my understanding is
->that the flow focused approach early on is entirely because it is
->the easiest case to solve. Taking OVS as an example has the
->advantage of already being guarded by OpenFlow abstraction which
->by nature is very device oriented.
+> -----Original Message-----
+> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+> Sent: 27 March 2014 17:15
+> To: Paul Durrant
+> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian Campbell; Wei Liu
+> Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause from if
+> statement
+> 
+> 
+> Thursday, March 27, 2014, 5:54:05 PM, you wrote:
+> 
+> >> -----Original Message-----
+> >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+> >> Sent: 27 March 2014 16:46
+> >> To: Paul Durrant
+> >> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian Campbell; Wei
+> Liu
+> >> Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause
+> from if
+> >> statement
+> >>
+> >>
+> >> Thursday, March 27, 2014, 3:09:32 PM, you wrote:
+> >>
+> >> >> -----Original Message-----
+> >> >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+> >> >> Sent: 27 March 2014 14:03
+> >> >> To: Paul Durrant
+> >> >> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian Campbell;
+> Wei
+> >> Liu
+> >> >> Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause
+> >> from if
+> >> >> statement
+> >> >>
+> >> >>
+> >> >> Thursday, March 27, 2014, 2:54:46 PM, you wrote:
+> >> >>
+> >> >> >> -----Original Message-----
+> >> >> >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+> >> >> >> Sent: 27 March 2014 13:46
+> >> >> >> To: Paul Durrant
+> >> >> >> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian
+> Campbell;
+> >> Wei
+> >> >> Liu
+> >> >> >> Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless
+> clause
+> >> >> from if
+> >> >> >> statement
+> >> >> >>
+> >> >> >>
+> >> >> >> Thursday, March 27, 2014, 1:56:11 PM, you wrote:
+> >> >> >>
+> >> >> >> > This patch removes a test in start_new_rx_buffer() that checks
+> >> whether
+> >> >> >> > a copy operation is less than MAX_BUFFER_OFFSET in length,
+> since
+> >> >> >> > MAX_BUFFER_OFFSET is defined to be PAGE_SIZE and the only
+> caller
+> >> of
+> >> >> >> > start_new_rx_buffer() already limits copy operations to
+> PAGE_SIZE
+> >> or
+> >> >> less.
+> >> >> >>
+> >> >> >> > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> >> >> >> > Cc: Ian Campbell <ian.campbell@citrix.com>
+> >> >> >> > Cc: Wei Liu <wei.liu2@citrix.com>
+> >> >> >> > Cc: Sander Eikelenboom <linux@eikelenboom.it>
+> >> >> >> > ---
+> >> >> >>
+> >> >> >> > v2:
+> >> >> >> >  - Add BUG_ON() as suggested by Ian Campbell
+> >> >> >>
+> >> >> >> >  drivers/net/xen-netback/netback.c |    4 ++--
+> >> >> >> >  1 file changed, 2 insertions(+), 2 deletions(-)
+> >> >> >>
+> >> >> >> > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
+> >> >> >> netback/netback.c
+> >> >> >> > index 438d0c0..72314c7 100644
+> >> >> >> > --- a/drivers/net/xen-netback/netback.c
+> >> >> >> > +++ b/drivers/net/xen-netback/netback.c
+> >> >> >> > @@ -192,8 +192,8 @@ static bool start_new_rx_buffer(int offset,
+> >> >> >> unsigned long size, int head)
+> >> >> >> >          * into multiple copies tend to give large frags their
+> >> >> >> >          * own buffers as before.
+> >> >> >> >          */
+> >> >> >> > -       if ((offset + size > MAX_BUFFER_OFFSET) &&
+> >> >> >> > -           (size <= MAX_BUFFER_OFFSET) && offset && !head)
+> >> >> >> > +       BUG_ON(size > MAX_BUFFER_OFFSET);
+> >> >> >> > +       if ((offset + size > MAX_BUFFER_OFFSET) && offset &&
+> !head)
+> >> >> >> >                 return true;
+> >> >> >> >
+> >> >> >> >         return false;
+> >> >> >>
+> >> >> >> Hi Paul,
+> >> >> >>
+> >> >> >> Unfortunately .. no good ..
+> >> >> >>
+> >> >> >> With these patches (v2) applied to 3.14-rc8 it all seems to work well,
+> >> >> >> until i do my test case .. it still chokes and now effectively
+> permanently
+> >> >> stalls
+> >> >> >> network traffic to that guest.
+> >> >> >>
+> >> >> >> No error messages or anything in either xl dmesg or dmesg on the
+> host
+> >> ..
+> >> >> and
+> >> >> >> nothing in dmesg in the guest either.
+> >> >> >>
+> >> >> >> But in the guest the TX bytes ifconfig reports for eth0 still increase
+> but
+> >> RX
+> >> >> >> bytes does nothing, so it seems only the RX path is effected)
+> >> >> >>
+> >> >>
+> >> >> > But you're not getting ring overflow, right? So that suggests this
+> series is
+> >> >> working and you're now hitting another problem? I don't see how
+> these
+> >> >> patches could directly cause the new behaviour you're seeing.
+> >> >>
+> >> >> Don't know  .. how ever .. i previously tested:
+> >> >>         - unconditionally doing "max_slots_needed + 1"  in
+> "net_rx_action()",
+> >> >> and that circumvented the problem reliably without causing anything
+> else
+> >> >>         - reverting the calculation of "max_slots_needed + 1"  in
+> >> >> "net_rx_action()" to what it was before :
+> >> >>                 int max = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
+> >> >>                 if (vif->can_sg || vif->gso_mask || vif->gso_prefix_mask)
+> >> >>                         max += MAX_SKB_FRAGS + 1; /* extra_info + frags */
+> >> >>
+> >>
+> >> > So, it may be that the worse-case estimate is now too bad. In the case
+> >> where it's failing for you it would be nice to know what the estimate was
+> 
+> 
+> > Ok, so we cannot be too pessimistic. In that case I don't see there's a lot of
+> > choice but to stick with the existing DIV_ROUND_UP (i.e. don't assume
+> > start_new_rx_buffer() returns true every time) and just add the extra 1.
+> 
+> Hrmm i don't like a "magic" 1 bonus slot, there must be some theoretical
+> backing.
 
-Yep, exactly.
+I don't like it either, but theory suggested each frag should take no more space than the original DIV_ROUND_UP and that proved to be wrong, but I cannot figure out why.
 
->
->> It is not clear to me at this point whether we want those special
->> offloading devices to appear as separate net_device with specific
->> flags to advertise their offloading features (NAT, IP routing...) or
->> something else?
->
->One lesson that could serve as an example which differs from TOE is
->the offloading provided by recent FC HBAs. The device looks like a
->regular SCSI device to the kernel but offers a full DCB engine to
->allow for FCoE. The DCB bits can and must be configured. By not
->representing that engine with a net_device we cannot configure the
->engine through the Netlink interface dcbnl. dcbnl can certainly be
->extended to allow taking a scsi id of some sort instead of a ifindex
->but it's far from ideal.
->
->My take on this is that if it makes sense to use rtnl or ethtool
->to configure these offload engines then let's just go with a
->globally visible net_device and improve our capabilities system.
->
->> > But wouldn't you want to introduce an additional ndo to
->> > cover these?
->> 
->> I would start with making sure everyone is on the same page regarding
->> switches before we start building the conversation on NAT/IP-routing
->> offloading, but it is good that you mention it.
->
->Agreed
+> And since the original problem always seemed to occur on a packet with a
+> single large frag, i'm wondering
+> if this 1 would actually be correct in other cases.
+
+That's why I went for an extra 1 per frag... a pessimal slot packing i.e. 2 byte frag may span 2 slots, PAGE_SIZE + 2 bytes may span 3, etc. etc.
+
+> 
+> Well this is what i said earlier on .. it's hard to estimate upfront if
+> "start_new_rx_buffer()" will return true,
+> and how many times that is possible per frag .. and if that is possible for only
+> 1 frag or for all frags.
+> 
+> The problem is now replaced from packets with 1 large frag (for which it
+> didn't account properly leading to a too small estimate) .. to packets
+> with a large number of (smaller) frags .. leading to a too large over
+> estimation.
+> 
+> So would there be a theoretical maximum how often that path could hit
+> based on a combination of sizes (total size of all frags, nr_frags, size per frag)
+> ?
+> - if you hit "start_new_rx_buffer()" == true  in the first frag .. could you hit it
+> in a next frag ?
+> - could it be limited due to something like the packet_size / nr_frags /
+> page_size ?
+> 
+> And what was wrong with the previous calculation ?
+>                  int max = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
+>                  if (vif->can_sg || vif->gso_mask || vif->gso_prefix_mask)
+>                          max += MAX_SKB_FRAGS + 1; /* extra_info + frags */
+> 
+
+This is not safe if frag size can be > PAGE_SIZE.
+
+> That perhaps also misses some theoretical backing, what if it would have
+> (MAX_SKB_FRAGS - 1) nr_frags, but larger ones that have to be split to
+> fit in a slot. Or is the total size of frags a skb can carry limited to
+> MAX_SKB_FRAGS / PAGE_SIZE ? .. than you would expect that
+> MAX_SKB_FRAGS is a upper limit.
+> (and you could do the new check maxed by MAX_SKB_FRAGS so it doesn't
+> get to a too large non reachable estimate).
+> 
+> But as a side question .. the whole "get_next_rx_buffer()" path is needed
+> for when a frag could not fit in a slot
+> as a whole ?
+> 
+
+Perhaps it would be best to take the hit on copy_ops and just tightly pack, so we only start a new slot when the current one is completely full; then actual slots would simply be DIV_ROUND_UP(skb->len, PAGE_SIZE) (+ 1 for the extra if it's a GSO).
+
+  Paul
