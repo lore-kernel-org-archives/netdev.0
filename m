@@ -1,220 +1,45 @@
-From: Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net] openvswitch: fix a possible deadlock and
-	lockdep warning
-Date: Wed, 26 Mar 2014 21:56:12 -0300
-Message-ID: <1395881772-29781-1-git-send-email-fbl@redhat.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH v2 net] vlan: Mask off vlan acceleration features on vlan
+ device.
+Date: Wed, 26 Mar 2014 21:03:47 -0400
+Message-ID: <533378F3.5000607@redhat.com>
+References: <1395865521-2318-1-git-send-email-vyasevic@redhat.com>	<1395865711-3347-1-git-send-email-vyasevic@redhat.com> <20140326.171038.2150319831233512825.davem@davemloft.net>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: openvswitch <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:62613 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754310AbaC0BDw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Mar 2014 21:03:52 -0400
+In-Reply-To: <20140326.171038.2150319831233512825.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There are two problematic situations.
+On 03/26/2014 05:10 PM, David Miller wrote:
+> From: Vlad Yasevich <vyasevic@redhat.com>
+> Date: Wed, 26 Mar 2014 16:28:31 -0400
+> 
+>> Some drivers incorrectly assign vlan acceleration features to
+>> vlan_features thus causing issues for Q-in-Q vlan configurations.
+>> Prevent this once and for all by masking off acceleration features
+>> for vlan devices until such time as we support stacked acceleration.
+>>
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> 
+> So what if we do have chips that can offload Q-in-Q?  Will we use
+> a new flag?
+> 
 
-A deadlock can happen when is_percpu is false because it can get
-interrupted while holding the spinlock. Then it executes
-ovs_flow_stats_update() in softirq context which tries to get
-the same lock.
+If there are chips that can take both the inner and outer tags an put
+both vlan headers on the packet, then we'll need a lot more then just
+a new flag to support that since the skbs will need to carry 2 vlan_tci
+values in that case.
 
-The second sitation is that when is_percpu is true, the code
-correctly disables BH only for the local CPU, but that confuses
-lockdep enough to trigger the warning below.
+With this patch you can still offload the outer tag, whether STAG and
+or CTAG (old Q-in-Q), but the inner tag can't be offloaded.
 
-This patch disables BH for both cases fixing the real deadlock
-and the lockdep warning message.
-
-=================================
-[ INFO: inconsistent lock state ]
-3.14.0-rc8-00007-g632b06a #1 Tainted: G          I
----------------------------------
-inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W} usage.
-swapper/0/0 [HC0[0]:SC1[5]:HE1:SE0] takes:
-(&(&cpu_stats->lock)->rlock){+.?...}, at: [<ffffffffa05dd8a1>] ovs_flow_stats_update+0x51/0xd0 [openvswitch]
-{SOFTIRQ-ON-W} state was registered at:
-[<ffffffff810f973f>] __lock_acquire+0x68f/0x1c40
-[<ffffffff810fb4e2>] lock_acquire+0xa2/0x1d0
-[<ffffffff817d8d9e>] _raw_spin_lock+0x3e/0x80
-[<ffffffffa05dd9e4>] ovs_flow_stats_get+0xc4/0x1e0 [openvswitch]
-[<ffffffffa05da855>] ovs_flow_cmd_fill_info+0x185/0x360 [openvswitch]
-[<ffffffffa05daf05>] ovs_flow_cmd_build_info.constprop.27+0x55/0x90 [openvswitch]
-[<ffffffffa05db41d>] ovs_flow_cmd_new_or_set+0x4dd/0x570 [openvswitch]
-[<ffffffff816c245d>] genl_family_rcv_msg+0x1cd/0x3f0
-[<ffffffff816c270e>] genl_rcv_msg+0x8e/0xd0
-[<ffffffff816c0239>] netlink_rcv_skb+0xa9/0xc0
-[<ffffffff816c0798>] genl_rcv+0x28/0x40
-[<ffffffff816bf830>] netlink_unicast+0x100/0x1e0
-[<ffffffff816bfc57>] netlink_sendmsg+0x347/0x770
-[<ffffffff81668e9c>] sock_sendmsg+0x9c/0xe0
-[<ffffffff816692d9>] ___sys_sendmsg+0x3a9/0x3c0
-[<ffffffff8166a911>] __sys_sendmsg+0x51/0x90
-[<ffffffff8166a962>] SyS_sendmsg+0x12/0x20
-[<ffffffff817e3ce9>] system_call_fastpath+0x16/0x1b
-irq event stamp: 1740726
-hardirqs last  enabled at (1740726): [<ffffffff8175d5e0>] ip6_finish_output2+0x4f0/0x840
-hardirqs last disabled at (1740725): [<ffffffff8175d59b>] ip6_finish_output2+0x4ab/0x840
-softirqs last  enabled at (1740674): [<ffffffff8109be12>] _local_bh_enable+0x22/0x50
-softirqs last disabled at (1740675): [<ffffffff8109db05>] irq_exit+0xc5/0xd0
-
-other info that might help us debug this:
- Possible unsafe locking scenario:
-
-       CPU0
-       ----
-  lock(&(&cpu_stats->lock)->rlock);
-  <Interrupt>
-    lock(&(&cpu_stats->lock)->rlock);
-
- *** DEADLOCK ***
-
-5 locks held by swapper/0/0:
- #0:  (((&ifa->dad_timer))){+.-...}, at: [<ffffffff810a7155>] call_timer_fn+0x5/0x320
- #1:  (rcu_read_lock){.+.+..}, at: [<ffffffff81788a55>] mld_sendpack+0x5/0x4a0
- #2:  (rcu_read_lock_bh){.+....}, at: [<ffffffff8175d149>] ip6_finish_output2+0x59/0x840
- #3:  (rcu_read_lock_bh){.+....}, at: [<ffffffff8168ba75>] __dev_queue_xmit+0x5/0x9b0
- #4:  (rcu_read_lock){.+.+..}, at: [<ffffffffa05e41b5>] internal_dev_xmit+0x5/0x110 [openvswitch]
-
-stack backtrace:
-CPU: 0 PID: 0 Comm: swapper/0 Tainted: G          I  3.14.0-rc8-00007-g632b06a #1
-Hardware name:                  /DX58SO, BIOS SOX5810J.86A.5599.2012.0529.2218 05/29/2012
- 0000000000000000 0fcf20709903df0c ffff88042d603808 ffffffff817cfe3c
- ffffffff81c134c0 ffff88042d603858 ffffffff817cb6da 0000000000000005
- ffffffff00000001 ffff880400000000 0000000000000006 ffffffff81c134c0
-Call Trace:
- <IRQ>  [<ffffffff817cfe3c>] dump_stack+0x4d/0x66
- [<ffffffff817cb6da>] print_usage_bug+0x1f4/0x205
- [<ffffffff810f7f10>] ? check_usage_backwards+0x180/0x180
- [<ffffffff810f8963>] mark_lock+0x223/0x2b0
- [<ffffffff810f96d3>] __lock_acquire+0x623/0x1c40
- [<ffffffff810f5707>] ? __lock_is_held+0x57/0x80
- [<ffffffffa05e26c6>] ? masked_flow_lookup+0x236/0x250 [openvswitch]
- [<ffffffff810fb4e2>] lock_acquire+0xa2/0x1d0
- [<ffffffffa05dd8a1>] ? ovs_flow_stats_update+0x51/0xd0 [openvswitch]
- [<ffffffff817d8d9e>] _raw_spin_lock+0x3e/0x80
- [<ffffffffa05dd8a1>] ? ovs_flow_stats_update+0x51/0xd0 [openvswitch]
- [<ffffffffa05dd8a1>] ovs_flow_stats_update+0x51/0xd0 [openvswitch]
- [<ffffffffa05dcc64>] ovs_dp_process_received_packet+0x84/0x120 [openvswitch]
- [<ffffffff810f93f7>] ? __lock_acquire+0x347/0x1c40
- [<ffffffffa05e3bea>] ovs_vport_receive+0x2a/0x30 [openvswitch]
- [<ffffffffa05e4218>] internal_dev_xmit+0x68/0x110 [openvswitch]
- [<ffffffffa05e41b5>] ? internal_dev_xmit+0x5/0x110 [openvswitch]
- [<ffffffff8168b4a6>] dev_hard_start_xmit+0x2e6/0x8b0
- [<ffffffff8168be87>] __dev_queue_xmit+0x417/0x9b0
- [<ffffffff8168ba75>] ? __dev_queue_xmit+0x5/0x9b0
- [<ffffffff8175d5e0>] ? ip6_finish_output2+0x4f0/0x840
- [<ffffffff8168c430>] dev_queue_xmit+0x10/0x20
- [<ffffffff8175d641>] ip6_finish_output2+0x551/0x840
- [<ffffffff8176128a>] ? ip6_finish_output+0x9a/0x220
- [<ffffffff8176128a>] ip6_finish_output+0x9a/0x220
- [<ffffffff8176145f>] ip6_output+0x4f/0x1f0
- [<ffffffff81788c29>] mld_sendpack+0x1d9/0x4a0
- [<ffffffff817895b8>] mld_send_initial_cr.part.32+0x88/0xa0
- [<ffffffff817691b0>] ? addrconf_dad_completed+0x220/0x220
- [<ffffffff8178e301>] ipv6_mc_dad_complete+0x31/0x50
- [<ffffffff817690d7>] addrconf_dad_completed+0x147/0x220
- [<ffffffff817691b0>] ? addrconf_dad_completed+0x220/0x220
- [<ffffffff8176934f>] addrconf_dad_timer+0x19f/0x1c0
- [<ffffffff810a71e9>] call_timer_fn+0x99/0x320
- [<ffffffff810a7155>] ? call_timer_fn+0x5/0x320
- [<ffffffff817691b0>] ? addrconf_dad_completed+0x220/0x220
- [<ffffffff810a76c4>] run_timer_softirq+0x254/0x3b0
- [<ffffffff8109d47d>] __do_softirq+0x12d/0x480
- [<ffffffff8109db05>] irq_exit+0xc5/0xd0
- [<ffffffff817e5fd8>] do_IRQ+0x58/0xf0
- [<ffffffff817d9db2>] common_interrupt+0x72/0x72
- <EOI>  [<ffffffff8162b594>] ? cpuidle_enter_state+0x54/0xd0
- [<ffffffff8162b6c9>] cpuidle_idle_call+0xb9/0x380
- [<ffffffff8102633e>] arch_cpu_idle+0xe/0x40
- [<ffffffff8110d605>] cpu_startup_entry+0xf5/0x420
- [<ffffffff817bef3d>] rest_init+0x13d/0x150
- [<ffffffff817bee05>] ? rest_init+0x5/0x150
- [<ffffffff81f6b00c>] start_kernel+0x493/0x4b4
- [<ffffffff81f6a982>] ? repair_env_string+0x5c/0x5c
- [<ffffffff81f6a120>] ? early_idt_handlers+0x120/0x120
- [<ffffffff81f6a5ee>] x86_64_start_reservations+0x2a/0x2c
- [<ffffffff81f6a73d>] x86_64_start_kernel+0x14d/0x170
-
-Signed-off-by: Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
----
- net/openvswitch/flow.c | 26 ++++++--------------------
- 1 file changed, 6 insertions(+), 20 deletions(-)
-
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index dda451f..2998989 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -103,30 +103,24 @@ static void stats_read(struct flow_stats *stats,
- void ovs_flow_stats_get(struct sw_flow *flow, struct ovs_flow_stats *ovs_stats,
- 			unsigned long *used, __be16 *tcp_flags)
- {
--	int cpu, cur_cpu;
-+	int cpu;
- 
- 	*used = 0;
- 	*tcp_flags = 0;
- 	memset(ovs_stats, 0, sizeof(*ovs_stats));
- 
-+	local_bh_disable();
- 	if (!flow->stats.is_percpu) {
- 		stats_read(flow->stats.stat, ovs_stats, used, tcp_flags);
- 	} else {
--		cur_cpu = get_cpu();
- 		for_each_possible_cpu(cpu) {
- 			struct flow_stats *stats;
- 
--			if (cpu == cur_cpu)
--				local_bh_disable();
--
- 			stats = per_cpu_ptr(flow->stats.cpu_stats, cpu);
- 			stats_read(stats, ovs_stats, used, tcp_flags);
--
--			if (cpu == cur_cpu)
--				local_bh_enable();
- 		}
--		put_cpu();
- 	}
-+	local_bh_enable();
- }
- 
- static void stats_reset(struct flow_stats *stats)
-@@ -141,25 +135,17 @@ static void stats_reset(struct flow_stats *stats)
- 
- void ovs_flow_stats_clear(struct sw_flow *flow)
- {
--	int cpu, cur_cpu;
-+	int cpu;
- 
-+	local_bh_disable();
- 	if (!flow->stats.is_percpu) {
- 		stats_reset(flow->stats.stat);
- 	} else {
--		cur_cpu = get_cpu();
--
- 		for_each_possible_cpu(cpu) {
--
--			if (cpu == cur_cpu)
--				local_bh_disable();
--
- 			stats_reset(per_cpu_ptr(flow->stats.cpu_stats, cpu));
--
--			if (cpu == cur_cpu)
--				local_bh_enable();
- 		}
--		put_cpu();
- 	}
-+	local_bh_enable();
- }
- 
- static int check_header(struct sk_buff *skb, int len)
--- 
-1.8.5.3
+-vlad
