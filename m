@@ -1,167 +1,116 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Thu, 27 Mar 2014 14:20:06 -0700
-Message-ID: <CAGVrzcY=hxAf0eOoDfAAQZS1fNjFWbdY9Nbyuz6kFaOkSSis8w@mail.gmail.com>
-References: <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com>
- <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion>
- <CAGVrzcbBq2=DG198NnpSWu52+uuundqQ-6QiiuzHF5X_j8fcZw@mail.gmail.com>
- <20140326173536.GJ2869@minipsycho.orion> <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com>
- <20140326181436.GL2869@minipsycho.orion> <53334BDA.1060608@mojatatu.com>
- <CAGVrzcaconDBjgSfk0=6px2+6LbrxMkmesgigSa3-9WaK-LiOw@mail.gmail.com>
- <20140327065616.GA2845@minipsycho.orion> <CAHNKnsQYLNfkrC0088g2os30NcSz9HVzkytbK_qFbNfeSWkmFw@mail.gmail.com>
- <CAGVrzcaWQH0aH3HOFdhaX2K3sGkfn4EitWaN+17R1oU4xtudWg@mail.gmail.com> <CAHNKnsTs6o3bFr241Cj_=muGMgOq3fc9ZNXcBRt3M8+ccTJscA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	Felix Fietkau <nbd@openwrt.org>
-To: Sergey Ryazanov <ryazanov.s.a@gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH v2 net] net: Account for all vlan headers in skb_mac_gso_segment
+Date: Thu, 27 Mar 2014 17:26:18 -0400
+Message-ID: <1395955578-16715-1-git-send-email-vyasevic@redhat.com>
+Cc: eric.dumazet@gmail.com, Vlad Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35568 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757263AbaC0VUr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 17:20:47 -0400
-Received: by mail-pa0-f45.google.com with SMTP id kl14so4047978pab.4
-        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 14:20:47 -0700 (PDT)
-In-Reply-To: <CAHNKnsTs6o3bFr241Cj_=muGMgOq3fc9ZNXcBRt3M8+ccTJscA@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:50297 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755279AbaC0V0Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Mar 2014 17:26:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-03-27 13:32 GMT-07:00 Sergey Ryazanov <ryazanov.s.a@gmail.com>:
-> 2014-03-27 20:41 GMT+04:00 Florian Fainelli <f.fainelli@gmail.com>:
->> 2014-03-27 7:10 GMT-07:00 Sergey Ryazanov <ryazanov.s.a@gmail.com>:
->>> Hi all,
->>>
->>> sorry for the intrusion, but let me place my 2 cents.
->>>
->>> 2014-03-27 10:56 GMT+04:00 Jiri Pirko <jiri@resnulli.us>:
->>>> Wed, Mar 26, 2014 at 11:22:51PM CET, f.fainelli@gmail.com wrote:
->>>>>2014-03-26 14:51 GMT-07:00 Jamal Hadi Salim <jhs@mojatatu.com>:
->>>>>> On 03/26/14 14:14, Jiri Pirko wrote:
->>>>>>>
->>>>>>> Wed, Mar 26, 2014 at 06:58:32PM CET, f.fainelli@gmail.com wrote:
->>>>>>>>
->>>>>>>> 2014-03-26 10:35 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
->>>>>>
->>>>>>
->>>>>>
->>>>>>>> You are right, sw1p0 and sw1p1 were meant to be, say LAN ports in my
->>>>>>>> example.
->>>>>>>>
->>>>>>>> I think there is an implicit convention that sw1 represents the
->>>>>>>> Ethernet switch port connected to the CPU Ethernet MAC, and that it is
->>>>>>>> always connected, hence there is no need to create a "fake" bridge to
->>>>>>>> link sw1 to eth0 for instance?
->>>>>>>
->>>>>>>
->>>>>>> I think you are kind of mixing apples and oranges (or I might be I'm not
->>>>>>> understanding you correctly).
->>>>>>> This is how I see it, sticking to the names you use in the example:
->>>>>>>
->>>>>>>              (sw1) (abstract place-holder netdev)
->>>>>>>            --------
->>>>>>>           switch chip                   CPU
->>>>>>>     -----------------------            ------
->>>>>>>     sw1p0 sw1p1 sw1p2 sw1p3             eth0
->>>>>>>       |     |     |     |                |
->>>>>>>      PHY   PHY   PHY    ------someMII-----
->>>>>>>
->>>>>>> You see that eth0 is the CPU part of the "connection" and sw1p3 is the
->>>>>>> switch part (port representation).
->>>>>>>
->>>>>>
->>>>>>
->>>>>> Florian - I am sure you explained this before; I just dont remember. Why
->>>>>> is there need to expose eth0? It seems to me sw1p0-3 are abstracted
->>>>>> already in the kernel and the "cpu port" is merely a control interface.
->>>>>
->>>>>eth0 corresponds to a CPU Ethernet MAC facing e.g: sw1p3 switch port.
->>>>>It is "regular" Ethernet driver connected to the switch without
->>>>>switch-specific logic. The goal is twofold:
->>>>>
->>>>>- allow any regular Ethernet driver to be connected to an external
->>>>>switch via e.g: MDIO/MDC or other without specific switch knowledge
->>>>>- represents accurately how the hardware is designed/connected
->>>>>
->>>>>but maybe, we can simplify and have e.g: sw1p3 and eth0 be the same interface...
->>>>
->>>> I believe that hawing both sw1p3 and eth0 is the correct way of
->>>> modelling this. sw1p3 is instance if switch chip driver representing the
->>>> actual port of a switch. eth0 is an instance of some other ordinary NIC
->>>> driver (8139too is my favorite :))
->>>>
->>>> This model allows to draw the exact picture.
->>>> Also, when you add the described possibility to use iplink to build
->>>> vlans, bridges whatever on the switch ports, it makes perfect sense to
->>>> have this model.
->>>>
->>>> Merging sw1p3 and eth0 would cause a loose of information and confusion.
->>>>
->>>
->>> CPU switch port and switch fabric itself should be configured in
->>> consistence with host, in first place I mean a set of VLANs. Also it
->>> should be mentioned that some generic knobs such as port rate and
->>> duplex mode are meaningless for CPU switch port and a lot of status
->>> information (rx/tx counters etc.) duplicates statistics of host
->>> interface which is connected to switch port.
->>
->> It duplicates the information when things just work fine, consider an
->> external switch connected via RGMII to a CPU Ethernet MAC, you might
->> want to get statistics from both sides (the switch CPU port and the
->> CPU Ethernet MAC) to diagnose why things are not working as expected,
->> which unfortunately happens once in a while with RGMII.
->>
->> If we expose both net_device, we will be able to retrieve statistics
->> about from both sides, without resorting to ad-hoc debugging tools,
->> but maybe this is not worth the effort.
->>
-> I also thought about this situation. Can we use the debugfs interface
-> for these purposes?
+skb_network_protocol() already accounts for multiple vlan
+headers that may be present in the skb.  However, skb_mac_gso_segment()
+doesn't know anything about it and assumes that skb->mac_len
+is set correctly to skip all mac headers.  That may not
+always be the case.  If we are simply forwarding the packet (via
+bridge or macvtap), all vlan headers may not be accounted for.
 
-Most of the time you are interesting in MIB counters for debugging
-such issues, so ethtool quickly comes handy for this task. Since we
-will provide per-port counters, the CPU port is not different, so
-there are no reason for restricting this.
+A simple solution is to allow skb_network_protocol to return
+the vlan depth it has calculated.  This way skb_mac_gso_segment
+will correctly skip all mac headers.
 
->
->>> So there are no reasons
->>> to force user to configure this port manually, and automatic
->>> configuration of CPU switch port without exporting them as netdev
->>> seems as good approach.
->>
->> Well, maybe that's the answer, since we know that e.g: sw1p3 is always
->> connected to e.g: eth0, we could create an automatic bridge between
->> those two, this would keep the netdev exposure to user-space, but an
->> user would not have to know about that specific detail to get things
->> to work.
->>
-> I would like go further and suggest to consider a netdev that is
-> connected to the CPU switch port, as master. In case when we need to
-> perform some action on whole switch (e.g. dump FIB).
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+Since v1:
+ - Removed conditionals and used dummy variables as suggested by
+   Eric Dumazet.
 
-This is what the 'sw1' net_device in Jiri's proposal would do.
+ include/linux/netdevice.h |  2 +-
+ net/core/dev.c            | 13 +++++++++----
+ net/core/skbuff.c         |  3 ++-
+ 3 files changed, 12 insertions(+), 6 deletions(-)
 
-> And even name
-> switch ports, using master netdev name as prefix (e.g. eth1p0, eth1p1,
-> ..., eth1pN for ports of switch that is connected via eth1).
-
-I think the port naming using the switch abstract interface (sw1 here)
-is better because ports do belong to the switch.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d855794..18b8c1b 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3015,7 +3015,7 @@ struct sk_buff *skb_gso_segment(struct sk_buff *skb, netdev_features_t features)
+ {
+ 	return __skb_gso_segment(skb, features, true);
+ }
+-__be16 skb_network_protocol(struct sk_buff *skb);
++__be16 skb_network_protocol(struct sk_buff *skb, int *depth);
+ 
+ static inline bool can_checksum_protocol(netdev_features_t features,
+ 					 __be16 protocol)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a98f7fa..9708893 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2287,7 +2287,7 @@ out:
+ }
+ EXPORT_SYMBOL(skb_checksum_help);
+ 
+-__be16 skb_network_protocol(struct sk_buff *skb)
++__be16 skb_network_protocol(struct sk_buff *skb, int *depth)
+ {
+ 	__be16 type = skb->protocol;
+ 	int vlan_depth = ETH_HLEN;
+@@ -2314,6 +2314,8 @@ __be16 skb_network_protocol(struct sk_buff *skb)
+ 		vlan_depth += VLAN_HLEN;
+ 	}
+ 
++	*depth = vlan_depth;
++
+ 	return type;
+ }
+ 
+@@ -2327,12 +2329,13 @@ struct sk_buff *skb_mac_gso_segment(struct sk_buff *skb,
+ {
+ 	struct sk_buff *segs = ERR_PTR(-EPROTONOSUPPORT);
+ 	struct packet_offload *ptype;
+-	__be16 type = skb_network_protocol(skb);
++	int vlan_depth = skb->mac_len;
++	__be16 type = skb_network_protocol(skb, &vlan_depth);
+ 
+ 	if (unlikely(!type))
+ 		return ERR_PTR(-EINVAL);
+ 
+-	__skb_pull(skb, skb->mac_len);
++	__skb_pull(skb, vlan_depth);
+ 
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(ptype, &offload_base, list) {
+@@ -2499,8 +2502,10 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
+ 					    const struct net_device *dev,
+ 					    netdev_features_t features)
+ {
++	int tmp;
++
+ 	if (skb->ip_summed != CHECKSUM_NONE &&
+-	    !can_checksum_protocol(features, skb_network_protocol(skb))) {
++	    !can_checksum_protocol(features, skb_network_protocol(skb, &tmp))) {
+ 		features &= ~NETIF_F_ALL_CSUM;
+ 	} else if (illegal_highdma(dev, skb)) {
+ 		features &= ~NETIF_F_SG;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 869c7af..cac38ba 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2866,8 +2866,9 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+ 	int err = -ENOMEM;
+ 	int i = 0;
+ 	int pos;
++	int dummy;
+ 
+-	proto = skb_network_protocol(head_skb);
++	proto = skb_network_protocol(head_skb, &dummy);
+ 	if (unlikely(!proto))
+ 		return ERR_PTR(-EINVAL);
+ 
 -- 
-Florian
+1.8.5.3
