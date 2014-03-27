@@ -1,130 +1,126 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
- of switch chip datapath
-Date: Thu, 27 Mar 2014 08:35:41 -0700
-Message-ID: <5334454D.9050108@cumulusnetworks.com>
-References: <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org> <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com> <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com> <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion> <533312A3.5070600@cumulusnetworks.com> <20140326180356.GK2869@minipsycho.orion> <53334629.5030208@cumulusnetworks.com> <20140326213130.GA32193@minipsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: Jiri Pirko <jiri@resnulli.us>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] packet: respect devices with LLTX flag in direct xmit
+Date: Thu, 27 Mar 2014 16:38:30 +0100
+Message-ID: <1395934710-29182-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:45593 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754761AbaC0Pfr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 11:35:47 -0400
-In-Reply-To: <20140326213130.GA32193@minipsycho.orion>
+Received: from mx1.redhat.com ([209.132.183.28]:4159 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755146AbaC0Pid (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Mar 2014 11:38:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/26/14, 2:31 PM, Jiri Pirko wrote:
-> Wed, Mar 26, 2014 at 10:27:05PM CET, roopa@cumulusnetworks.com wrote:
->> On 3/26/14, 11:03 AM, Jiri Pirko wrote:
->>> Wed, Mar 26, 2014 at 06:47:15PM CET, roopa@cumulusnetworks.com wrote:
->>>> On 3/26/14, 9:59 AM, Jiri Pirko wrote:
->>>>> Wed, Mar 26, 2014 at 05:54:17PM CET, roopa@cumulusnetworks.com wrote:
->>>>>> On 3/26/14, 3:54 AM, Jamal Hadi Salim wrote:
->>>>>>> On 03/26/14 01:37, Roopa Prabhu wrote:
->>>>>>>> On 3/25/14, 1:11 PM, Florian Fainelli wrote:
->>>>>>>>> 2014-03-25 12:35 GMT-07:00 Neil Horman <nhorman@tuxdriver.com>:
->>>>>>>> Sorry about getting on this thread late and possibly in the middle.
->>>>>>>> Agree on the idea of keeping the ports linked to the master switch dev
->>>>>>>> (or the 'conduit' to the switch chip) via private list instead of the
->>>>>>>> master-slave relationship proposed earlier.
->>>>>>>> By private i mean the netdev->priv linkage to the master switch dev and
->>>>>>>> not really keeping the ports from being exposed to the user.
->>>>>>>>
->>>>>>>> We think its better to keep the switch ports exposed as any other netdev
->>>>>>>> on linux.
->>>>>>>>   This approach will make the switch ports look exactly like a nic port
->>>>>>>> and all tools will continue to work seamlessly. The switch port
->>>>>>>> operations could internally be forwarded to the switch netdev (sw1 in
->>>>>>>> the above case).
->>>>>>>>
->>>>>>>> example:
->>>>>>>> $ip link set dev sw1p0 up
->>>>>>>> $ethtool -S sw1p0
->>>>>>>>
->>>>>>> I like the approach. I know the above is a simple version, but i am
->>>>>>> assuming you also mean i can do things like
->>>>>>> ip route add ...
->>>>>>> bridge fdb add ... (and if you like your brctl go ahead)
->>>>>>> bonding ...
->>>>>>>
->>>>>> yes, exactly.  We support this model on our boxes today.
->>>>>> User can bond switch ports on our box in the exact same way as he/she
->>>>>> would bond two nic ports.
->>>>>> Our 'conduit to switch chip' reflects the corresponding lag
->>>>>> configuration in the switch chip.
->>>>>> Same goes for bridging, routing, acls.
->>>>> So you implement bonding netlink api? Or you hook into bonding driver
->>>>> itselt? Can you show us the code?
->>>> We use the netlink API and libnl. In our current model, our switch
->>>> chip driver listens to netlink notifications and programs the switch
->>>> chip. The switch chip driver uses libnl caches and libnl netlink apis
->>>> to reflect the kernel state to switch chip.
->>> So when you configure for example bonding over 2 ports, you actually use
->>> bonding driver to do that. And you userspace app listens to
->>> notifications and programs the switch chip accordingly. Am I close?
->> yes correct.
->>> How about data? Is this new "bonding" interface able to assign ip to is
->>> and send/receive packets.
->> yes
->>> I'm still not sure I understand your concept. Do you have some
->>> documentation for it available?
->>>
->> I think the only documentation available today in this area is the
->> user guide and that in-turn points to native linux command manpages
->> iproute2, sysfs, debian ifupdown etc.
->> I will see if i can find anything else.
-> I ment the architecture design documentation. linux manpages are not
-> that interesting to me :)
->
-yes, i get that and thats why i did not include a pointer to our user 
-guide. :).
-Sorry, the easiest thing to find right now was a high level marketing 
-diagram and here you go: 
-http://cumulusnetworks.com/product/architecture/. This is nothing but 
-what i mentioned in my emails.
- From here the details involve nothing but programming the broadcom 
-asic. This is mostly broadcom details/documentation.
+Quite often it can be useful to test with dummy or similar
+devices as a blackhole sink for skbs. Such devices are only
+equipped with a single txq, but marked as NETIF_F_LLTX as
+they do not require locking their internal queues on xmit
+(or implement locking themselves). Therefore, rather use
+HARD_TX_{UN,}LOCK API, so that NETIF_F_LLTX will be respected.
 
-The above is our current working/shipping model.
+trafgen mmap/TX_RING example against dummy device with config
+foo: { fill(0xff, 64) } results in the following performance
+improvements for such scenarios on an ordinary Core i7/2.80GHz:
 
-In our second phase of implementation, We wanted to preserve the above 
-user interface model (which people using our boxes are very fond of), 
-but introduce the concept of a switchdev and switchports in the kernel.
-We had a switchdev api in the works ourselves which we were planning to 
-publish on netdev until you beat us to it.
-Our version is similar to yours but it reflects some of the points that 
-i have brought up in my previous emails.
-It probably looks more like your v2 (patch 4/6) without the master/slave 
-link.
-We can share some code in the comming weeks. It does need some cleanup 
-and i am also waiting for scott feldman who is on vacation this week.
+Before:
 
-I know you are looking for specifics, but we don't have switchdev code 
-to create a bond in switch chip asic yet. But we have been thinking 
-about the details and the current thought there at a high level was, we 
-would add a netdev op which the bonding driver could redirect to the 
-switchdev driver when it has slaves with IFF_SWITCH_PORT set.
+ Performance counter stats for 'trafgen -i foo -o du0 -n100000000' (10 runs):
 
-Thanks,
-Roopa
+   160,975,944,159 instructions:k            #    0.55  insns per cycle          ( +-  0.09% )
+   293,319,390,278 cycles:k                  #    0.000 GHz                      ( +-  0.35% )
+       192,501,104 branch-misses:k                                               ( +-  1.63% )
+               831 context-switches:k                                            ( +-  9.18% )
+                 7 cpu-migrations:k                                              ( +-  7.40% )
+            69,382 cache-misses:k            #    0.010 % of all cache refs      ( +-  2.18% )
+       671,552,021 cache-references:k                                            ( +-  1.29% )
+
+      22.856401569 seconds time elapsed                                          ( +-  0.33% )
+
+After:
+
+ Performance counter stats for 'trafgen -i foo -o du0 -n100000000' (10 runs):
+
+   133,788,739,692 instructions:k            #    0.92  insns per cycle          ( +-  0.06% )
+   145,853,213,256 cycles:k                  #    0.000 GHz                      ( +-  0.17% )
+        59,867,100 branch-misses:k                                               ( +-  4.72% )
+               384 context-switches:k                                            ( +-  3.76% )
+                 6 cpu-migrations:k                                              ( +-  6.28% )
+            70,304 cache-misses:k            #    0.077 % of all cache refs      ( +-  1.73% )
+        90,879,408 cache-references:k                                            ( +-  1.35% )
+
+      11.719372413 seconds time elapsed                                          ( +-  0.24% )
+
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>
+---
+ net/packet/af_packet.c | 40 ++++++++++++++++++++--------------------
+ 1 file changed, 20 insertions(+), 20 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 097a354..01039d2 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -243,40 +243,40 @@ static int packet_direct_xmit(struct sk_buff *skb)
+ 	const struct net_device_ops *ops = dev->netdev_ops;
+ 	netdev_features_t features;
+ 	struct netdev_queue *txq;
++	int ret = NETDEV_TX_BUSY;
+ 	u16 queue_map;
+-	int ret;
+ 
+ 	if (unlikely(!netif_running(dev) ||
+-		     !netif_carrier_ok(dev))) {
+-		kfree_skb(skb);
+-		return NET_XMIT_DROP;
+-	}
++		     !netif_carrier_ok(dev)))
++		goto drop;
+ 
+ 	features = netif_skb_features(skb);
+ 	if (skb_needs_linearize(skb, features) &&
+-	    __skb_linearize(skb)) {
+-		kfree_skb(skb);
+-		return NET_XMIT_DROP;
+-	}
++	    __skb_linearize(skb))
++		goto drop;
+ 
+ 	queue_map = skb_get_queue_mapping(skb);
+ 	txq = netdev_get_tx_queue(dev, queue_map);
+ 
+-	__netif_tx_lock_bh(txq);
+-	if (unlikely(netif_xmit_frozen_or_stopped(txq))) {
+-		ret = NETDEV_TX_BUSY;
+-		kfree_skb(skb);
+-		goto out;
++	local_bh_disable();
++
++	HARD_TX_LOCK(dev, txq, smp_processor_id());
++	if (!netif_xmit_frozen_or_stopped(txq)) {
++		ret = ops->ndo_start_xmit(skb, dev);
++		if (ret == NETDEV_TX_OK)
++			txq_trans_update(txq);
+ 	}
++	HARD_TX_UNLOCK(dev, txq);
+ 
+-	ret = ops->ndo_start_xmit(skb, dev);
+-	if (likely(dev_xmit_complete(ret)))
+-		txq_trans_update(txq);
+-	else
++	local_bh_enable();
++
++	if (!dev_xmit_complete(ret))
+ 		kfree_skb(skb);
+-out:
+-	__netif_tx_unlock_bh(txq);
++
+ 	return ret;
++drop:
++	kfree_skb(skb);
++	return NET_XMIT_DROP;
+ }
+ 
+ static struct net_device *packet_cached_dev_get(struct packet_sock *po)
+-- 
+1.7.11.7
