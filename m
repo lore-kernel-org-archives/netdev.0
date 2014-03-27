@@ -1,41 +1,59 @@
 From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH] random32: assign to network folks in MAINTAINERS
-Date: Thu, 27 Mar 2014 02:01:34 -0400
-Message-ID: <1395900095-15254-1-git-send-email-sasha.levin@oracle.com>
+Subject: [PATCH v2] random32: avoid attempt to late reseed if in the middle of seeding
+Date: Thu, 27 Mar 2014 02:01:35 -0400
+Message-ID: <1395900095-15254-2-git-send-email-sasha.levin@oracle.com>
+References: <1395900095-15254-1-git-send-email-sasha.levin@oracle.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	hannes@stressinduktion.org, tytso@mit.edu, dborkman@redhat.com,
 	Sasha Levin <sasha.levin@oracle.com>
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:44949 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750949AbaC0GB6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 02:01:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395900095-15254-1-git-send-email-sasha.levin@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-lib/random32.c was split out of the network code and is de-facto
-still maintained by the almighty net/ gods.
+Commit 4af712e8df ("random32: add prandom_reseed_late() and call when
+nonblocking pool becomes initialized") has added a late reseed stage
+that happens as soon as the nonblocking pool is marked as initialized.
 
-Make it a bit more official so that people who aren't aware of
-that know where to send their patches.
+This fails in the case that the nonblocking pool gets initialized
+during __prandom_reseed()'s call to get_random_bytes(). In that case
+we'd double back into __prandom_reseed() in an attempt to do a late
+reseed - deadlocking on 'lock' early on in the boot process.
+
+Instead, just avoid even waiting to do a reseed if a reseed is already
+occuring.
 
 Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 ---
- MAINTAINERS | 1 +
- 1 file changed, 1 insertion(+)
+ lib/random32.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index e1724d5..47fd188 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -6091,6 +6091,7 @@ F:	include/uapi/linux/net.h
- F:	include/uapi/linux/netdevice.h
- F:	tools/net/
- F:	tools/testing/selftests/net/
-+F:	lib/random32.c
+diff --git a/lib/random32.c b/lib/random32.c
+index b33b23e..d67b6a7 100644
+--- a/lib/random32.c
++++ b/lib/random32.c
+@@ -245,8 +245,20 @@ static void __prandom_reseed(bool late)
+ 	static bool latch = false;
+ 	static DEFINE_SPINLOCK(lock);
  
- NETWORKING [IPv4/IPv6]
- M:	"David S. Miller" <davem@davemloft.net>
++	/*
++	 * Asking for random bytes might result in bytes getting
++	 * moved into the nonblocking pool and thus marking it
++	 * as initialized. In this case we would double back into
++	 * this function and attempt to do a late reseed.
++	 * Ignore the pointless attempt to reseed again if we're
++	 * already waiting for bytes when the nonblocking pool
++	 * got initialized.
++	 */
++
+ 	/* only allow initial seeding (late == false) once */
+-	spin_lock_irqsave(&lock, flags);
++	if (!spin_trylock_irqsave(&lock, flags))
++		return; 
++
+ 	if (latch && !late)
+ 		goto out;
+ 
 -- 
 1.8.3.2
