@@ -1,47 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net] net: Account for all vlan headers in
- skb_mac_gso_segment
-Date: Thu, 27 Mar 2014 15:21:30 -0700
-Message-ID: <1395958890.12610.324.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1395955578-16715-1-git-send-email-vyasevic@redhat.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH v2 0/6] netpoll: Cleanups and fixes
+Date: Thu, 27 Mar 2014 15:35:20 -0700
+Message-ID: <87vbuzqnh3.fsf_-_@x220.int.ebiederm.org>
+References: <20140314.225923.61318448733570839.davem@davemloft.net>
+	<87k3bwqgf7.fsf@xmission.com> <877g7wqg8e.fsf_-_@xmission.com>
+	<20140317.154916.2276987764507311378.davem@davemloft.net>
+	<87iorcgh5d.fsf_-_@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain
+Cc: stephen@networkplumber.org, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, xiyou.wangcong@gmail.com, mpm@selenic.com,
+	satyam.sharma@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:40781 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757009AbaC0WVc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 18:21:32 -0400
-Received: by mail-pb0-f49.google.com with SMTP id jt11so4072738pbb.22
-        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 15:21:32 -0700 (PDT)
-In-Reply-To: <1395955578-16715-1-git-send-email-vyasevic@redhat.com>
+Received: from out01.mta.xmission.com ([166.70.13.231]:57061 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756166AbaC0Wfd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 18:35:33 -0400
+In-Reply-To: <87iorcgh5d.fsf_-_@xmission.com> (Eric W. Biederman's message of
+	"Mon, 17 Mar 2014 23:22:38 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-03-27 at 17:26 -0400, Vlad Yasevich wrote:
 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 869c7af..cac38ba 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -2866,8 +2866,9 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
->  	int err = -ENOMEM;
->  	int i = 0;
->  	int pos;
-> +	int dummy;
->  
-> -	proto = skb_network_protocol(head_skb);
-> +	proto = skb_network_protocol(head_skb, &dummy);
->  	if (unlikely(!proto))
->  		return ERR_PTR(-EINVAL);
->  
+This should be a small set of safe cleanups and fixes to netpoll.
 
-I am wondering if '&dummy' could be replaced by &doffset.
+The fixes are vlan headers are now always inserted when needed, and
+napi polling is always avoided when network devices are closed.
 
-We have :
+There are a bunch of little cleanups removing unnecessary code, fixing
+function naming, not taking unnecessary locks and removing general
+silliness.
 
-unsigned int doffset = head_skb->data - skb_mac_header(head_skb);
+Eric W. Biederman (6):
+      netpoll: Remove gfp parameter from __netpoll_setup
+      netpoll: Only call ndo_start_xmit from a single place
+      netpoll: Move rx enable/disable into __dev_close_many
+      netpoll: Rename netpoll_rx_enable/disable to netpoll_poll_disable/enable
+      netpoll: Remove strong unnecessary assumptions about skbs
+      netpoll: Respect NETIF_F_LLTX
 
-It looks like this is the same content than 'dummy', right ?
+ drivers/net/bonding/bond_main.c |  6 +--
+ drivers/net/team/team.c         | 16 ++++----
+ include/linux/netdevice.h       |  8 +++-
+ include/linux/netpoll.h         | 10 ++---
+ net/8021q/vlan_dev.c            |  7 ++--
+ net/bridge/br_device.c          | 15 ++++---
+ net/bridge/br_if.c              |  2 +-
+ net/bridge/br_private.h         |  4 +-
+ net/core/dev.c                  | 17 +++-----
+ net/core/netpoll.c              | 91 +++++++++++++++++++++++------------------
+ 10 files changed, 91 insertions(+), 85 deletions(-)
