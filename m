@@ -1,60 +1,183 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next RFC v2 0/6] introduce infrastructure for support
- of switch chip datapath
-Date: Thu, 27 Mar 2014 07:17:20 -0400
-Message-ID: <533408C0.8000608@mojatatu.com>
-References: <1395851472-10524-1-git-send-email-jiri@resnulli.us> <53334A3F.6020105@mojatatu.com> <20140327072107.GC2845@minipsycho.orion> <5333FD12.9060404@mojatatu.com> <20140327110223.GA1615@casper.infradead.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next RFC v2 4/6] net: introduce switchdev API
+Date: Thu, 27 Mar 2014 11:23:39 +0000
+Message-ID: <20140327112339.GB1615@casper.infradead.org>
+References: <1395851472-10524-1-git-send-email-jiri@resnulli.us>
+ <1395851472-10524-5-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	dborkman@redhat.com, ogerlitz@mellanox.com, jesse@nicira.com,
-	pshelar@nicira.com, azhou@nicira.com, ben@decadent.org.uk,
-	stephen@networkplumber.org, jeffrey.t.kirsher@intel.com,
-	vyasevic@redhat.com, xiyou.wangcong@gmail.com,
-	john.r.fastabend@intel.com, edumazet@google.com,
-	sfeldma@cumulusnetworks.com, f.fainelli@gmail.com,
-	roopa@cumulusnetworks.com, linville@tuxdriver.com,
-	dev@openvswitch.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com,
+	andy@greyhouse.net, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@cumulusnetworks.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, dev@openvswitch.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:62965 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755185AbaC0LRZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 07:17:25 -0400
-Received: by mail-ob0-f170.google.com with SMTP id uz6so4069772obc.1
-        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 04:17:24 -0700 (PDT)
-In-Reply-To: <20140327110223.GA1615@casper.infradead.org>
+Received: from casper.infradead.org ([85.118.1.10]:44773 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754594AbaC0LXm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 07:23:42 -0400
+Content-Disposition: inline
+In-Reply-To: <1395851472-10524-5-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/27/14 07:02, Thomas Graf wrote:
-> On 03/27/14 at 06:27am, Jamal Hadi Salim wrote:
+On 03/26/14 at 05:31pm, Jiri Pirko wrote:
+> switchdev API is designed to allow kernel support for various switch
+> chips.
+> 
+> It is the responsibility of a driver to create netdevice instances which
+> represents every port and for the switch master itself. Driver uses
+> swdev_register and swportdev_register functions to make the core aware
+> of the fact these netdevices are representing switch and switch ports.
 
-> There is definitely need beyond an ndo that is capable of
-> adding flows. You mention routes. Another example would be
-> devices capable of offloading iptables & nft rules.
->
+I like this even more than the previous approach.
 
-nod.
+> 
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-> But wouldn't you want to introduce an additional ndo to
-> cover these?
+> +int __swdev_register(struct net_device *dev)
+> +{
+> +	if (dev->priv_flags & IFF_SWITCH) {
+> +		netdev_err(dev, "Device is already registered as a switch device\n");
+> +		return -EBUSY;
+> +	}
+> +	dev->priv_flags |= IFF_SWITCH;
+> +	netdev_info(dev, "Switch device registered\n");
 
-We could - I just find it distracting at the current thread
-of discussion (the openwrt folks for example dont need any
-or most of that).
+Perhaps include name of device here?
 
-> What speaks against going with what Jiri proposes and adjust
-> & extend as needed as we go along?
->
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL(__swdev_register);
+> +
+> +int swdev_register(struct net_device *dev)
+> +{
+> +	int err;
+> +
+> +	rtnl_lock();
+> +	err = __swdev_register(dev);
+> +	rtnl_unlock();
+> +	return err;
+> +}
+> +EXPORT_SYMBOL(swdev_register);
+> +
+> +void __swdev_unregister(struct net_device *dev)
+> +{
+> +	dev->priv_flags |= IFF_SWITCH;
+> +	netdev_info(dev, "Switch device unregistered\n");
 
-I was hoping we knock these issue one at a time. The noise right
-now is around ports and stacking of ports etc. Which in my
-opinion is an easier topic to handle.
-Jiri's patches on this can always come back in the discussion
-later.
+Same here
 
-cheers,
-jamal
+> +}
+> +EXPORT_SYMBOL(__swdev_unregister);
+> +
+> +void swdev_unregister(struct net_device *dev)
+> +{
+> +	rtnl_lock();
+> +	__swdev_unregister(dev);
+> +	rtnl_unlock();
+> +}
+> +EXPORT_SYMBOL(swdev_unregister);
+> +
+> +
+> +bool swportdev_dev_check(const struct net_device *port_dev)
+> +{
+> +	return port_dev->priv_flags & IFF_SWITCH_PORT;
+> +}
+> +EXPORT_SYMBOL(swportdev_dev_check);
+> +
+> +static rx_handler_result_t swportdev_handle_frame(struct sk_buff **pskb)
+> +{
+> +	struct sk_buff *skb = *pskb;
+> +
+> +	/* We don't care what comes from port device into rx path.
+> +	 * If there's something there, it is destined to ETH_P_ALL
+> +	 * handlers. So just consume it.
+> +	 */
+> +	dev_kfree_skb(skb);
+> +	return RX_HANDLER_CONSUMED;
+> +}
+> +
+> +int __swportdev_register(struct net_device *port_dev, struct net_device *dev)
+> +{
+> +	int err;
+> +
+> +	if (!(dev->priv_flags & IFF_SWITCH)) {
+> +		netdev_err(dev, "Device is not a switch device\n");
+> +		return -EINVAL;
+> +	}
+> +	if (port_dev->priv_flags & IFF_SWITCH_PORT) {
+> +		netdev_err(port_dev, "Device is already registered as a switch port\n");
+> +		return -EBUSY;
+> +	}
+> +	err = netdev_master_upper_dev_link(port_dev, dev);
+> +	if (err) {
+> +		netdev_err(dev, "Device %s failed to set upper link\n",
+> +			   port_dev->name);
+> +		return err;
+> +	}
+> +	err = netdev_rx_handler_register(port_dev, swportdev_handle_frame, NULL);
+> +	if (err) {
+> +		netdev_err(dev, "Device %s failed to register rx_handler\n",
+> +			   port_dev->name);
+> +		goto err_handler_register;
+> +	}
+> +	port_dev->priv_flags |= IFF_SWITCH_PORT;
+> +	netdev_info(port_dev, "Switch port device registered\n");
+
+and here
+
+> +	return 0;
+> +
+> +err_handler_register:
+> +	netdev_upper_dev_unlink(port_dev, dev);
+> +	return err;
+> +}
+> +EXPORT_SYMBOL(__swportdev_register);
+> +
+> +int swportdev_register(struct net_device *port_dev, struct net_device *dev)
+
+Maybe rename dev to switch_dev just to make it clear?
+
+> +{
+> +	int err;
+> +
+> +	rtnl_lock();
+> +	err = __swportdev_register(port_dev, dev);
+> +	rtnl_unlock();
+> +	return err;
+> +}
+> +EXPORT_SYMBOL(swportdev_register);
+> +
+> +void __swportdev_unregister(struct net_device *port_dev)
+> +{
+> +	struct net_device *dev;
+> +
+> +	dev = netdev_master_upper_dev_get(port_dev);
+> +	BUG_ON(!dev);
+> +	port_dev->priv_flags &= ~IFF_SWITCH_PORT;
+> +	netdev_rx_handler_unregister(port_dev);
+> +	netdev_upper_dev_unlink(port_dev, dev);
+> +	netdev_info(port_dev, "Switch port device unregistered\n");
+> +}
+> +EXPORT_SYMBOL(__swportdev_unregister);
+> +
+> +void swportdev_unregister(struct net_device *port_dev)
+> +{
+> +	rtnl_lock();
+> +	__swportdev_unregister(port_dev);
+> +	rtnl_unlock();
+> +}
+> +EXPORT_SYMBOL(swportdev_unregister);
+> +
+> +MODULE_LICENSE("GPL v2");
+> +MODULE_AUTHOR("Jiri Pirko <jiri@resnulli.us>");
+> +MODULE_DESCRIPTION("Switch device API");
+> -- 
+> 1.8.5.3
+> 
