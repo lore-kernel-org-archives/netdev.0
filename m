@@ -1,211 +1,145 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: [PATCH net v2] openvswitch: fix a possible deadlock and lockdep warning
-Date: Thu, 27 Mar 2014 11:05:34 -0300
-Message-ID: <1395929134-4487-1-git-send-email-fbl@redhat.com>
-Cc: openvswitch <dev@openvswitch.org>, Flavio Leitner <fbl@redhat.com>
-To: netdev <netdev@vger.kernel.org>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net v2 1/3] xen-netback: remove pointless clause from if
+ statement
+Date: Thu, 27 Mar 2014 14:09:32 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD029CAA6@AMSPEX01CL01.citrite.net>
+References: <1395924973-42904-1-git-send-email-paul.durrant@citrix.com>
+ <1395924973-42904-2-git-send-email-paul.durrant@citrix.com>
+ <289461862.20140327144546@eikelenboom.it>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD029C992@AMSPEX01CL01.citrite.net>
+ <68689563.20140327150256@eikelenboom.it>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: Sander Eikelenboom <linux@eikelenboom.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1728 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754914AbaC0OFx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Mar 2014 10:05:53 -0400
+Received: from smtp.eu.citrix.com ([185.25.65.24]:25914 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754971AbaC0OJe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 10:09:34 -0400
+In-Reply-To: <68689563.20140327150256@eikelenboom.it>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are two problematic situations.
+> -----Original Message-----
+> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+> Sent: 27 March 2014 14:03
+> To: Paul Durrant
+> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian Campbell; Wei Liu
+> Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause from if
+> statement
+> 
+> 
+> Thursday, March 27, 2014, 2:54:46 PM, you wrote:
+> 
+> >> -----Original Message-----
+> >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+> >> Sent: 27 March 2014 13:46
+> >> To: Paul Durrant
+> >> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Ian Campbell; Wei
+> Liu
+> >> Subject: Re: [PATCH net v2 1/3] xen-netback: remove pointless clause
+> from if
+> >> statement
+> >>
+> >>
+> >> Thursday, March 27, 2014, 1:56:11 PM, you wrote:
+> >>
+> >> > This patch removes a test in start_new_rx_buffer() that checks whether
+> >> > a copy operation is less than MAX_BUFFER_OFFSET in length, since
+> >> > MAX_BUFFER_OFFSET is defined to be PAGE_SIZE and the only caller of
+> >> > start_new_rx_buffer() already limits copy operations to PAGE_SIZE or
+> less.
+> >>
+> >> > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> >> > Cc: Ian Campbell <ian.campbell@citrix.com>
+> >> > Cc: Wei Liu <wei.liu2@citrix.com>
+> >> > Cc: Sander Eikelenboom <linux@eikelenboom.it>
+> >> > ---
+> >>
+> >> > v2:
+> >> >  - Add BUG_ON() as suggested by Ian Campbell
+> >>
+> >> >  drivers/net/xen-netback/netback.c |    4 ++--
+> >> >  1 file changed, 2 insertions(+), 2 deletions(-)
+> >>
+> >> > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
+> >> netback/netback.c
+> >> > index 438d0c0..72314c7 100644
+> >> > --- a/drivers/net/xen-netback/netback.c
+> >> > +++ b/drivers/net/xen-netback/netback.c
+> >> > @@ -192,8 +192,8 @@ static bool start_new_rx_buffer(int offset,
+> >> unsigned long size, int head)
+> >> >          * into multiple copies tend to give large frags their
+> >> >          * own buffers as before.
+> >> >          */
+> >> > -       if ((offset + size > MAX_BUFFER_OFFSET) &&
+> >> > -           (size <= MAX_BUFFER_OFFSET) && offset && !head)
+> >> > +       BUG_ON(size > MAX_BUFFER_OFFSET);
+> >> > +       if ((offset + size > MAX_BUFFER_OFFSET) && offset && !head)
+> >> >                 return true;
+> >> >
+> >> >         return false;
+> >>
+> >> Hi Paul,
+> >>
+> >> Unfortunately .. no good ..
+> >>
+> >> With these patches (v2) applied to 3.14-rc8 it all seems to work well,
+> >> until i do my test case .. it still chokes and now effectively permanently
+> stalls
+> >> network traffic to that guest.
+> >>
+> >> No error messages or anything in either xl dmesg or dmesg on the host ..
+> and
+> >> nothing in dmesg in the guest either.
+> >>
+> >> But in the guest the TX bytes ifconfig reports for eth0 still increase but RX
+> >> bytes does nothing, so it seems only the RX path is effected)
+> >>
+> 
+> > But you're not getting ring overflow, right? So that suggests this series is
+> working and you're now hitting another problem? I don't see how these
+> patches could directly cause the new behaviour you're seeing.
+> 
+> Don't know  .. how ever .. i previously tested:
+>         - unconditionally doing "max_slots_needed + 1"  in "net_rx_action()",
+> and that circumvented the problem reliably without causing anything else
+>         - reverting the calculation of "max_slots_needed + 1"  in
+> "net_rx_action()" to what it was before :
+>                 int max = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
+>                 if (vif->can_sg || vif->gso_mask || vif->gso_prefix_mask)
+>                         max += MAX_SKB_FRAGS + 1; /* extra_info + frags */
+> 
 
-A deadlock can happen when is_percpu is false because it can get
-interrupted while holding the spinlock. Then it executes
-ovs_flow_stats_update() in softirq context which tries to get
-the same lock.
+So, it may be that the worse-case estimate is now too bad. In the case where it's failing for you it would be nice to know what the estimate was. Looking at netfront, we could be in trouble if it ever goes above 64.
 
-The second sitation is that when is_percpu is true, the code
-correctly disables BH but only for the local CPU, so the
-following can happen when locking the remote CPU without
-disabling BH:
+  Paul
 
-       CPU#0                            CPU#1
-  ovs_flow_stats_get()
-   stats_read()
- +->spin_lock remote CPU#1        ovs_flow_stats_get()
- |  <interrupted>                  stats_read()
- |  ...                       +-->  spin_lock remote CPU#0
- |                            |     <interrupted>
- |  ovs_flow_stats_update()   |     ...
- |   spin_lock local CPU#0 <--+     ovs_flow_stats_update()
- +---------------------------------- spin_lock local CPU#1
-
-This patch disables BH for both cases fixing the deadlocks.
-
-=================================
-[ INFO: inconsistent lock state ]
-3.14.0-rc8-00007-g632b06a #1 Tainted: G          I
----------------------------------
-inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W} usage.
-swapper/0/0 [HC0[0]:SC1[5]:HE1:SE0] takes:
-(&(&cpu_stats->lock)->rlock){+.?...}, at: [<ffffffffa05dd8a1>] ovs_flow_stats_update+0x51/0xd0 [openvswitch]
-{SOFTIRQ-ON-W} state was registered at:
-[<ffffffff810f973f>] __lock_acquire+0x68f/0x1c40
-[<ffffffff810fb4e2>] lock_acquire+0xa2/0x1d0
-[<ffffffff817d8d9e>] _raw_spin_lock+0x3e/0x80
-[<ffffffffa05dd9e4>] ovs_flow_stats_get+0xc4/0x1e0 [openvswitch]
-[<ffffffffa05da855>] ovs_flow_cmd_fill_info+0x185/0x360 [openvswitch]
-[<ffffffffa05daf05>] ovs_flow_cmd_build_info.constprop.27+0x55/0x90 [openvswitch]
-[<ffffffffa05db41d>] ovs_flow_cmd_new_or_set+0x4dd/0x570 [openvswitch]
-[<ffffffff816c245d>] genl_family_rcv_msg+0x1cd/0x3f0
-[<ffffffff816c270e>] genl_rcv_msg+0x8e/0xd0
-[<ffffffff816c0239>] netlink_rcv_skb+0xa9/0xc0
-[<ffffffff816c0798>] genl_rcv+0x28/0x40
-[<ffffffff816bf830>] netlink_unicast+0x100/0x1e0
-[<ffffffff816bfc57>] netlink_sendmsg+0x347/0x770
-[<ffffffff81668e9c>] sock_sendmsg+0x9c/0xe0
-[<ffffffff816692d9>] ___sys_sendmsg+0x3a9/0x3c0
-[<ffffffff8166a911>] __sys_sendmsg+0x51/0x90
-[<ffffffff8166a962>] SyS_sendmsg+0x12/0x20
-[<ffffffff817e3ce9>] system_call_fastpath+0x16/0x1b
-irq event stamp: 1740726
-hardirqs last  enabled at (1740726): [<ffffffff8175d5e0>] ip6_finish_output2+0x4f0/0x840
-hardirqs last disabled at (1740725): [<ffffffff8175d59b>] ip6_finish_output2+0x4ab/0x840
-softirqs last  enabled at (1740674): [<ffffffff8109be12>] _local_bh_enable+0x22/0x50
-softirqs last disabled at (1740675): [<ffffffff8109db05>] irq_exit+0xc5/0xd0
-
-other info that might help us debug this:
- Possible unsafe locking scenario:
-
-       CPU0
-       ----
-  lock(&(&cpu_stats->lock)->rlock);
-  <Interrupt>
-    lock(&(&cpu_stats->lock)->rlock);
-
- *** DEADLOCK ***
-
-5 locks held by swapper/0/0:
- #0:  (((&ifa->dad_timer))){+.-...}, at: [<ffffffff810a7155>] call_timer_fn+0x5/0x320
- #1:  (rcu_read_lock){.+.+..}, at: [<ffffffff81788a55>] mld_sendpack+0x5/0x4a0
- #2:  (rcu_read_lock_bh){.+....}, at: [<ffffffff8175d149>] ip6_finish_output2+0x59/0x840
- #3:  (rcu_read_lock_bh){.+....}, at: [<ffffffff8168ba75>] __dev_queue_xmit+0x5/0x9b0
- #4:  (rcu_read_lock){.+.+..}, at: [<ffffffffa05e41b5>] internal_dev_xmit+0x5/0x110 [openvswitch]
-
-stack backtrace:
-CPU: 0 PID: 0 Comm: swapper/0 Tainted: G          I  3.14.0-rc8-00007-g632b06a #1
-Hardware name:                  /DX58SO, BIOS SOX5810J.86A.5599.2012.0529.2218 05/29/2012
- 0000000000000000 0fcf20709903df0c ffff88042d603808 ffffffff817cfe3c
- ffffffff81c134c0 ffff88042d603858 ffffffff817cb6da 0000000000000005
- ffffffff00000001 ffff880400000000 0000000000000006 ffffffff81c134c0
-Call Trace:
- <IRQ>  [<ffffffff817cfe3c>] dump_stack+0x4d/0x66
- [<ffffffff817cb6da>] print_usage_bug+0x1f4/0x205
- [<ffffffff810f7f10>] ? check_usage_backwards+0x180/0x180
- [<ffffffff810f8963>] mark_lock+0x223/0x2b0
- [<ffffffff810f96d3>] __lock_acquire+0x623/0x1c40
- [<ffffffff810f5707>] ? __lock_is_held+0x57/0x80
- [<ffffffffa05e26c6>] ? masked_flow_lookup+0x236/0x250 [openvswitch]
- [<ffffffff810fb4e2>] lock_acquire+0xa2/0x1d0
- [<ffffffffa05dd8a1>] ? ovs_flow_stats_update+0x51/0xd0 [openvswitch]
- [<ffffffff817d8d9e>] _raw_spin_lock+0x3e/0x80
- [<ffffffffa05dd8a1>] ? ovs_flow_stats_update+0x51/0xd0 [openvswitch]
- [<ffffffffa05dd8a1>] ovs_flow_stats_update+0x51/0xd0 [openvswitch]
- [<ffffffffa05dcc64>] ovs_dp_process_received_packet+0x84/0x120 [openvswitch]
- [<ffffffff810f93f7>] ? __lock_acquire+0x347/0x1c40
- [<ffffffffa05e3bea>] ovs_vport_receive+0x2a/0x30 [openvswitch]
- [<ffffffffa05e4218>] internal_dev_xmit+0x68/0x110 [openvswitch]
- [<ffffffffa05e41b5>] ? internal_dev_xmit+0x5/0x110 [openvswitch]
- [<ffffffff8168b4a6>] dev_hard_start_xmit+0x2e6/0x8b0
- [<ffffffff8168be87>] __dev_queue_xmit+0x417/0x9b0
- [<ffffffff8168ba75>] ? __dev_queue_xmit+0x5/0x9b0
- [<ffffffff8175d5e0>] ? ip6_finish_output2+0x4f0/0x840
- [<ffffffff8168c430>] dev_queue_xmit+0x10/0x20
- [<ffffffff8175d641>] ip6_finish_output2+0x551/0x840
- [<ffffffff8176128a>] ? ip6_finish_output+0x9a/0x220
- [<ffffffff8176128a>] ip6_finish_output+0x9a/0x220
- [<ffffffff8176145f>] ip6_output+0x4f/0x1f0
- [<ffffffff81788c29>] mld_sendpack+0x1d9/0x4a0
- [<ffffffff817895b8>] mld_send_initial_cr.part.32+0x88/0xa0
- [<ffffffff817691b0>] ? addrconf_dad_completed+0x220/0x220
- [<ffffffff8178e301>] ipv6_mc_dad_complete+0x31/0x50
- [<ffffffff817690d7>] addrconf_dad_completed+0x147/0x220
- [<ffffffff817691b0>] ? addrconf_dad_completed+0x220/0x220
- [<ffffffff8176934f>] addrconf_dad_timer+0x19f/0x1c0
- [<ffffffff810a71e9>] call_timer_fn+0x99/0x320
- [<ffffffff810a7155>] ? call_timer_fn+0x5/0x320
- [<ffffffff817691b0>] ? addrconf_dad_completed+0x220/0x220
- [<ffffffff810a76c4>] run_timer_softirq+0x254/0x3b0
- [<ffffffff8109d47d>] __do_softirq+0x12d/0x480
-
-Signed-off-by: Flavio Leitner <fbl@redhat.com>
----
- v2: better commit message
-
- net/openvswitch/flow.c | 26 ++++++--------------------
- 1 file changed, 6 insertions(+), 20 deletions(-)
-
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index dda451f..2998989 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -103,30 +103,24 @@ static void stats_read(struct flow_stats *stats,
- void ovs_flow_stats_get(struct sw_flow *flow, struct ovs_flow_stats *ovs_stats,
- 			unsigned long *used, __be16 *tcp_flags)
- {
--	int cpu, cur_cpu;
-+	int cpu;
- 
- 	*used = 0;
- 	*tcp_flags = 0;
- 	memset(ovs_stats, 0, sizeof(*ovs_stats));
- 
-+	local_bh_disable();
- 	if (!flow->stats.is_percpu) {
- 		stats_read(flow->stats.stat, ovs_stats, used, tcp_flags);
- 	} else {
--		cur_cpu = get_cpu();
- 		for_each_possible_cpu(cpu) {
- 			struct flow_stats *stats;
- 
--			if (cpu == cur_cpu)
--				local_bh_disable();
--
- 			stats = per_cpu_ptr(flow->stats.cpu_stats, cpu);
- 			stats_read(stats, ovs_stats, used, tcp_flags);
--
--			if (cpu == cur_cpu)
--				local_bh_enable();
- 		}
--		put_cpu();
- 	}
-+	local_bh_enable();
- }
- 
- static void stats_reset(struct flow_stats *stats)
-@@ -141,25 +135,17 @@ static void stats_reset(struct flow_stats *stats)
- 
- void ovs_flow_stats_clear(struct sw_flow *flow)
- {
--	int cpu, cur_cpu;
-+	int cpu;
- 
-+	local_bh_disable();
- 	if (!flow->stats.is_percpu) {
- 		stats_reset(flow->stats.stat);
- 	} else {
--		cur_cpu = get_cpu();
--
- 		for_each_possible_cpu(cpu) {
--
--			if (cpu == cur_cpu)
--				local_bh_disable();
--
- 			stats_reset(per_cpu_ptr(flow->stats.cpu_stats, cpu));
--
--			if (cpu == cur_cpu)
--				local_bh_enable();
- 		}
--		put_cpu();
- 	}
-+	local_bh_enable();
- }
- 
- static int check_header(struct sk_buff *skb, int len)
--- 
-1.8.5.3
+> So that leads me to think it's something caused by this patch set.
+> Patch1 could be a candidate .. perhaps that check was needed for some
+> reason .. will see what not applying that one does
+> 
+> --
+> Sander
+> 
+> 
+> >   Paul
+> 
+> >> So it now seems i now have the situation which you described in the
+> commit
+> >> message from "ca2f09f2b2c6c25047cfc545d057c4edfcfe561c",
+> >> "Without this patch I can trivially stall netback permanently by just doing a
+> >> large guest to guest file copy between two Windows Server 2008R2 VMs
+> on a
+> >> single host."
+> >>
+> >> --
+> >> Sander
+> 
+> 
