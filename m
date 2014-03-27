@@ -1,239 +1,62 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: [PATCH v6] can: xilinx CAN controller support
-Date: Thu, 27 Mar 2014 15:14:46 +0100
-Message-ID: <53343256.8020802@monstr.eu>
-References: <5ff46a21-3047-40ff-9221-f08e476f9ce6@VA3EHSMHS030.ehs.local>
-Reply-To: monstr@monstr.eu
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [patch net-next RFC v2 0/6] introduce infrastructure
+ for support of switch chip datapath
+Date: Thu, 27 Mar 2014 10:03:10 -0400
+Message-ID: <20140327140309.GD31168@tuxdriver.com>
+References: <1395851472-10524-1-git-send-email-jiri@resnulli.us>
+ <53334A3F.6020105@mojatatu.com>
+ <20140327072107.GC2845@minipsycho.orion>
+ <5333FD12.9060404@mojatatu.com>
+ <20140327110223.GA1615@casper.infradead.org>
+ <533408C0.8000608@mojatatu.com>
+ <20140327120012.GA13573@casper.infradead.org>
+ <53341A63.3000004@mojatatu.com>
+ <20140327125711.GL2845@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="1O1wFkfqdC5vAbhH64RkQeBFEONTGuAPS"
-Cc: wg@grandegger.com, mkl@pengutronix.de, michal.simek@xilinx.com,
-	grant.likely@linaro.org, robh+dt@kernel.org,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-can@vger.kernel.org,
-	Kedareswara rao Appana <appanad@xilinx.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <5ff46a21-3047-40ff-9221-f08e476f9ce6@VA3EHSMHS030.ehs.local>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
+ dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
+ Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>, vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20140327125711.GL2845-RDzucLLXGGI88b5SBfVpbw@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---1O1wFkfqdC5vAbhH64RkQeBFEONTGuAPS
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Thu, Mar 27, 2014 at 01:57:11PM +0100, Jiri Pirko wrote:
+> Thu, Mar 27, 2014 at 01:32:35PM CET, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org wrote:
+> >On 03/27/14 08:00, Thomas Graf wrote:
+> >
+> >>It seems like we reached pretty good consensus on the model. What
+> >>remaining issues do you see with the port model proposed in v2?
+> >>
+> >
+> >Are we really following the same thread?
+> >I dont see any rallying behind Jiri's approach from the
+> >other folks who have their own code and way of approaching things.
+> >I am hoping we dont continue with the split that is there
+> >already.
+> 
+> It is not a split. It is just a completion of a model. Adding missing
+> parts. At least I see it that way.
 
-Hi Kedar,
+I probably wouldn't call it a 'split' either.  But, I agree with
+Jamal that we are nowhere near consensus so far.
 
-On 03/26/2014 06:26 AM, Kedareswara rao Appana wrote:
-> This patch adds xilinx CAN controller support.
-> This driver supports both ZYNQ CANPS and Soft IP
-> AXI CAN controller.
->=20
-> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
-> ---
-> This patch is rebased on the 3.14 rc8 kernel
-> Chnages for v6:
-> - Updated the driver with review comments.
-> - Used the clock names specified in the IP data sheet.
-> - Updated the devicetree bindings doc as per Rob suggestion.
-> Changes for v5:
-> - Updated the driver with the review comments.
-> - Remove the check for the tx fifo full interrupt condition
->   form Tx interrupt routine as we are checking it in the _xmit
->   routine.
-> - Clearing the txok interrupt in the tx interrupt routine for
->   every Tx can frame.
-> Changes for v4:
-> - Added check for the tx fifo full interrupt condition in
->   Tx interrupt routine.
-> - Added be iohelper functions.
-> - Moved the clock enable/disable to probe/remove because of
->   Added big endian support for AXI CAN controller case(reading
->   a register during probe for that we need to enable clock).
-> Changes for v3:
-> - Updated the driver with the review comments.
-> - Modified the tranmit logic as per Marc suggestion.
-> - Enabling the clock when the interface is up to reduce the
->   Power consumption.
-> Changes for v2:
-> - Updated with the review comments.
-> - Removed the unnecessary debug prints.
-> - include tx,rx fifo depths in ZYNQ CANPS case also.
-> ---
->  .../devicetree/bindings/net/can/xilinx_can.txt     |   44 +
->  drivers/net/can/Kconfig                            |    7 +
->  drivers/net/can/Makefile                           |    1 +
->  drivers/net/can/xilinx_can.c                       | 1179 ++++++++++++=
-++++++++
->  4 files changed, 1231 insertions(+), 0 deletions(-)
->  create mode 100644 Documentation/devicetree/bindings/net/can/xilinx_ca=
-n.txt
->  create mode 100644 drivers/net/can/xilinx_can.c
->=20
-> diff --git a/Documentation/devicetree/bindings/net/can/xilinx_can.txt b=
-/Documentation/devicetree/bindings/net/can/xilinx_can.txt
-> new file mode 100644
-> index 0000000..4646396
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/can/xilinx_can.txt
-> @@ -0,0 +1,44 @@
-> +Xilinx Axi CAN/Zynq CANPS controller Device Tree Bindings
-> +---------------------------------------------------------
-> +
-> +Required properties:
-> +- compatible		: Should be "xlnx,zynq-can-1.00.a" for Zynq CAN
-
-We should do one more change and better now than later.
-Please use just "xlnx,zynq-can-1.0" compatible string here.
-
-> +			  controllers and "xlnx,axi-can-1.00.a" for Axi CAN
-> +			  controllers.
-> +- reg			: Physical base address and size of the Axi CAN/Zynq
-> +			  CANPS registers map.
-> +- interrupts		: Property with a value describing the interrupt
-> +			  number.
-> +- interrupt-parent	: Must be core interrupt controller
-> +- clock-names		: List of input clock names - "can_clk", "pclk"
-> +			  (For CANPS), "can_clk" , "s_axi_aclk"(For AXI CAN)
-> +			  (See clock bindings for details).
-> +- clocks		: Clock phandles (see clock bindings for details).
-> +- tx-fifo-depth		: Can Tx fifo depth.
-> +- rx-fifo-depth		: Can Rx fifo depth.
-> +
-> +
-> +Example:
-> +
-> +For Zynq CANPS Dts file:
-> +	zynq_can_0: can@e0008000 {
-> +			compatible =3D "xlnx,zynq-can-1.00.a";
-
-the same here.
-
-> +			clocks =3D <&clkc 19>, <&clkc 36>;
-> +			clock-names =3D "can_clk", "pclk";
-> +			reg =3D <0xe0008000 0x1000>;
-> +			interrupts =3D <0 28 4>;
-> +			interrupt-parent =3D <&intc>;
-> +			tx-fifo-depth =3D <0x40>;
-> +			rx-fifo-depth =3D <0x40>;
-> +		};
-> +For Axi CAN Dts file:
-> +	axi_can_0: axi-can@40000000 {
-> +			compatible =3D "xlnx,axi-can-1.00.a";
-> +			clocks =3D <&clkc 0>;
-> +			clock-names =3D "can_clk","s_axi_aclk" ;
-> +			reg =3D <0x40000000 0x10000>;
-> +			interrupt-parent =3D <&intc>;
-> +			interrupts =3D <0 59 1>;
-> +			tx-fifo-depth =3D <0x40>;
-> +			rx-fifo-depth =3D <0x40>;
-> +		};
-
-I don't know which thread I discussed this with Rob but please send this =
-binding
-separately out of this and copy devicetree@vger.kernel.org for this patch=
-=2E
-They should give us ACK on device-tree binding.
-
-
-> diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
-> index 9e7d95d..9049884 100644
-> --- a/drivers/net/can/Kconfig
-> +++ b/drivers/net/can/Kconfig
-> @@ -125,6 +125,13 @@ config CAN_GRCAN
->  	  endian syntheses of the cores would need some modifications on
->  	  the hardware level to work.
-> =20
-> +config CAN_XILINXCAN
-> +	tristate "Xilinx CAN"
-> +	depends on ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST
-> +	depends on COMMON_CLK && HAS_IOMEM
-> +	---help---
-> +	  Xilinx CAN driver. This driver supports both soft AXI CAN IP and
-> +	  Zynq CANPS IP.
->  source "drivers/net/can/mscan/Kconfig"
-> =20
->  source "drivers/net/can/sja1000/Kconfig"
-> diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
-> index c744039..0b8e11e 100644
-> --- a/drivers/net/can/Makefile
-> +++ b/drivers/net/can/Makefile
-> @@ -25,5 +25,6 @@ obj-$(CONFIG_CAN_JANZ_ICAN3)	+=3D janz-ican3.o
->  obj-$(CONFIG_CAN_FLEXCAN)	+=3D flexcan.o
->  obj-$(CONFIG_PCH_CAN)		+=3D pch_can.o
->  obj-$(CONFIG_CAN_GRCAN)		+=3D grcan.o
-> +obj-$(CONFIG_CAN_XILINXCAN)	+=3D xilinx_can.o
-> =20
->  ccflags-$(CONFIG_CAN_DEBUG_DEVICES) :=3D -DDEBUG
-> diff --git a/drivers/net/can/xilinx_can.c b/drivers/net/can/xilinx_can.=
-c
-> new file mode 100644
-> index 0000000..3bb289c
-> --- /dev/null
-> +++ b/drivers/net/can/xilinx_can.c
-> @@ -0,0 +1,1179 @@
-> +/* Xilinx CAN device driver
-> + *
-> + * Copyright (C) 2012 - 2014 Xilinx, Inc.
-> + * Copyright (C) 2009 PetaLogix. All rights reserved.
-> + *
-> + * Description:
-> + * This driver is developed for Axi CAN IP and for Zynq CANPS Controll=
-er.
-> + * This program is free software: you can redistribute it and/or modif=
-y
-> + * it under the terms of the GNU General Public License as published b=
-y
-> + * the Free Software Foundation, either version 2 of the License, or
-> + * (at your option) any later version.
-> + *
-> + * This program is distributed in the hope that it will be useful,
-> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + *
-> + * You should have received a copy of the GNU General Public License
-> + * along with this program.  If not, see <http://www.gnu.org/licenses/=
->.
-
-Please remove this paragraph. Some testing tools reports this
-as a problematic part.
-
-<snip>
-
-> +/* Match table for OF platform binding */
-> +static struct of_device_id xcan_of_match[] =3D {
-> +	{ .compatible =3D "xlnx,zynq-can-1.00.a", },
-
-And here also xlnx,zynq-can-1.0
-
-Thanks,
-Michal
-
---=20
-Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
-Maintainer of Linux kernel - Xilinx Zynq ARM architecture
-Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
-
-
-
---1O1wFkfqdC5vAbhH64RkQeBFEONTGuAPS
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iEYEARECAAYFAlM0MlYACgkQykllyylKDCH9zQCgnIsixyuI2xvQD5kaZb/os8g8
-RzoAn0pWBZzATIe2F2GLy9sl48ralZGq
-=+FL0
------END PGP SIGNATURE-----
-
---1O1wFkfqdC5vAbhH64RkQeBFEONTGuAPS--
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
