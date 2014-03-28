@@ -1,50 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3] random32: avoid attempt to late reseed if in
- the middle of seeding
-Date: Fri, 28 Mar 2014 16:05:05 -0400 (EDT)
-Message-ID: <20140328.160505.484294950792471809.davem@davemloft.net>
-References: <1396024722-11632-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCHv2 net] vhost: fix total length when packets are too short
+Date: Fri, 28 Mar 2014 16:09:40 -0400 (EDT)
+Message-ID: <20140328.160940.1707102420095481862.davem@davemloft.net>
+References: <20140327100026.GA30715@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
-	sasha.levin@oracle.com
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40387 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751817AbaC1UFH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 16:05:07 -0400
-In-Reply-To: <1396024722-11632-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: virtio-dev@lists.oasis-open.org, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140327100026.GA30715@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Fri, 28 Mar 2014 17:38:42 +0100
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 27 Mar 2014 12:00:26 +0200
 
-> From: Sasha Levin <sasha.levin@oracle.com>
+> When mergeable buffers are disabled, and the
+> incoming packet is too large for the rx buffer,
+> get_rx_bufs returns success.
 > 
-> Commit 4af712e8df ("random32: add prandom_reseed_late() and call when
-> nonblocking pool becomes initialized") has added a late reseed stage
-> that happens as soon as the nonblocking pool is marked as initialized.
+> This was intentional in order for make recvmsg
+> truncate the packet and then handle_rx would
+> detect err != sock_len and drop it.
 > 
-> This fails in the case that the nonblocking pool gets initialized
-> during __prandom_reseed()'s call to get_random_bytes(). In that case
-> we'd double back into __prandom_reseed() in an attempt to do a late
-> reseed - deadlocking on 'lock' early on in the boot process.
+> Unfortunately we pass the original sock_len to
+> recvmsg - which means we use parts of iov not fully
+> validated.
 > 
-> Instead, just avoid even waiting to do a reseed if a reseed is already
-> occuring.
+> Fix this up by detecting this overrun and doing packet drop
+> immediately.
 > 
-> Fixes: 4af712e8df99 ("random32: add prandom_reseed_late() and call when nonblocking pool becomes initialized")
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> CVE-2014-0077
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 > ---
->  Recommended for -stable as well. I'm resending the patch as v2
->  from [1] does not apply to the tree, perhaps some mail client
->  issue ...
 > 
->  [1] http://patchwork.ozlabs.org/patch/334223/
+> Changes from v1:
+> 	Fix CVE# in the commit log.
+> 	Patch is unchanged.
+> 
+> Note: this is needed for -stable.
 
-Applied and queued up for -stable, thanks everyone.
+Applied and queued up for -stable.
+
+> I wonder if this can still make the release.
+
+I will try but no promises.
