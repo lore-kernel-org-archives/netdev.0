@@ -1,26 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 00/14][pull request] Intel Wired LAN Driver
- Updates
-Date: Fri, 28 Mar 2014 14:45:48 -0400 (EDT)
-Message-ID: <20140328.144548.1139749202857106198.davem@davemloft.net>
-References: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next 0/2] tipc: fix handling of NETDEV_CHANGEADDR
+ event
+Date: Fri, 28 Mar 2014 14:46:59 -0400 (EDT)
+Message-ID: <20140328.144659.1159122269415391627.davem@davemloft.net>
+References: <1395999129-31688-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+	jon.maloy@ericsson.com, maloy@donjonn.com, ying.xue@windriver.com,
+	paul.gortmaker@windriver.com, richard.alpe@ericsson.com,
+	aleksandar.igic@dektech.com.au
+To: erik.hugne@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39647 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39660 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751759AbaC1Spv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 14:45:51 -0400
-In-Reply-To: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1751735AbaC1SrD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 14:47:03 -0400
+In-Reply-To: <1395999129-31688-1-git-send-email-erik.hugne@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 28 Mar 2014 07:08:01 -0700
+From: <erik.hugne@ericsson.com>
+Date: Fri, 28 Mar 2014 10:32:07 +0100
 
-> This series contains updates to e1000e, igb, i40e and i40evf
+> Aside from manual reconfiguration of the netdevice hwaddr, this can also
+> be changed automatically for an interface bond in active-backup mode
+> if fail_over_mac is enabled. This patchset fixes the handling of this
+> event in TIPC by properly updating the l2 media address for the bearer,
+> followed by a reinitialization of the node discovery mechanism.
 
-Pulled, thanks a lot Jeff.
+Series applied, thank you.
