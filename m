@@ -1,42 +1,129 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH v2] bridge: Fix crash with vlan filtering and
-	tcpdump
-Date: Fri, 28 Mar 2014 12:33:11 +0900
-Message-ID: <5334ED77.4080601@lab.ntt.co.jp>
-References: <1395971478-10689-1-git-send-email-vyasevic@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org
-To: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1395971478-10689-1-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Adam Lee <adam.lee@canonical.com>
+Subject: [PATCH v3 1/2] rtlwifi: add MSI interrupts mode support
+Date: Fri, 28 Mar 2014 11:36:18 +0800
+Message-ID: <1395977779-16093-1-git-send-email-adam.lee@canonical.com>
+References: <1395715732-9545-1-git-send-email-adam.lee@canonical.com>
+Cc: netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: linux-wireless@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:40567 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757242AbaC1Dgb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 23:36:31 -0400
+Received: by mail-pd0-f173.google.com with SMTP id z10so4261040pdj.32
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 20:36:31 -0700 (PDT)
+In-Reply-To: <1395715732-9545-1-git-send-email-adam.lee@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(2014/03/28 10:51), Vlad Yasevich wrote:
-> When the vlan filtering is enabled on the bridge, but
-> the filter is not configured on the bridge device itself,
-> running tcpdump on the bridge device will result in a
-> an Oops with NULL pointer dereference.  The reason
-> is that br_pass_frame_up() will bypass the vlan
-> check because promisc flag is set.  It will then try
-> to get the table pointer and process the packet based
-> on the table.  Since the table pointer is NULL, we oops.
-> Catch this special condition in br_handle_vlan().
-> 
-> Reported-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+Add MSI interrupts mode support, enable it when submodules' msi_support
+flag is true, also could fallback to pin-based interrupts mode if MSI
+interrupts mode fails.
 
-Thanks,
+RealTek's policy(on modules which work well with MSI interrupts mode) is:
 
-Acked-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> If the platform supports both MSI and pin-based, use MSI.
+> If the platform supports MSI only, use MSI.
+> If the platform supports pin-based only, use pin-based.
+
+Also as RealTek's testing results, RTL8188EE and RTL8723BE work well
+with both MSI mode and pin-based mode fallback.
+
+Signed-off-by: Adam Lee <adam.lee@canonical.com>
+---
+ drivers/net/wireless/rtlwifi/pci.c | 65 ++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 63 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
+index 7d71170..dae5525 100644
+--- a/drivers/net/wireless/rtlwifi/pci.c
++++ b/drivers/net/wireless/rtlwifi/pci.c
+@@ -1853,6 +1853,65 @@ static bool _rtl_pci_find_adapter(struct pci_dev *pdev,
+ 	return true;
+ }
+ 
++static int rtl_pci_intr_mode_msi(struct ieee80211_hw *hw)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_pci_priv *pcipriv = rtl_pcipriv(hw);
++	struct rtl_pci *rtlpci = rtl_pcidev(pcipriv);
++	int ret;
++
++	ret = pci_enable_msi(rtlpci->pdev);
++	if (ret < 0)
++		return ret;
++
++	ret = request_irq(rtlpci->pdev->irq, &_rtl_pci_interrupt,
++			  IRQF_SHARED, KBUILD_MODNAME, hw);
++	if (ret < 0) {
++		pci_disable_msi(rtlpci->pdev);
++		return ret;
++	}
++
++	rtlpci->using_msi = true;
++
++	RT_TRACE(rtlpriv, COMP_INIT|COMP_INTR, DBG_DMESG,
++		 "MSI Interrupt Mode!\n");
++	return 0;
++}
++
++static int rtl_pci_intr_mode_legacy(struct ieee80211_hw *hw)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_pci_priv *pcipriv = rtl_pcipriv(hw);
++	struct rtl_pci *rtlpci = rtl_pcidev(pcipriv);
++	int ret;
++
++	ret = request_irq(rtlpci->pdev->irq, &_rtl_pci_interrupt,
++			  IRQF_SHARED, KBUILD_MODNAME, hw);
++	if (ret < 0)
++		return ret;
++
++	rtlpci->using_msi = false;
++	RT_TRACE(rtlpriv, COMP_INIT|COMP_INTR, DBG_DMESG,
++		 "Pin-based Interrupt Mode!\n");
++	return 0;
++}
++
++static int rtl_pci_intr_mode_decide(struct ieee80211_hw *hw)
++{
++	struct rtl_pci_priv *pcipriv = rtl_pcipriv(hw);
++	struct rtl_pci *rtlpci = rtl_pcidev(pcipriv);
++	int ret;
++
++	if (rtlpci->msi_support) {
++		ret = rtl_pci_intr_mode_msi(hw);
++		if (ret < 0)
++			ret = rtl_pci_intr_mode_legacy(hw);
++	} else {
++		ret = rtl_pci_intr_mode_legacy(hw);
++	}
++	return ret;
++}
++
+ int rtl_pci_probe(struct pci_dev *pdev,
+ 			    const struct pci_device_id *id)
+ {
+@@ -1995,8 +2054,7 @@ int rtl_pci_probe(struct pci_dev *pdev,
+ 	}
+ 
+ 	rtlpci = rtl_pcidev(pcipriv);
+-	err = request_irq(rtlpci->pdev->irq, &_rtl_pci_interrupt,
+-			  IRQF_SHARED, KBUILD_MODNAME, hw);
++	err = rtl_pci_intr_mode_decide(hw);
+ 	if (err) {
+ 		RT_TRACE(rtlpriv, COMP_INIT, DBG_DMESG,
+ 			 "%s: failed to register IRQ handler\n",
+@@ -2064,6 +2122,9 @@ void rtl_pci_disconnect(struct pci_dev *pdev)
+ 		rtlpci->irq_alloc = 0;
+ 	}
+ 
++	if (rtlpci->using_msi)
++		pci_disable_msi(rtlpci->pdev);
++
+ 	list_del(&rtlpriv->list);
+ 	if (rtlpriv->io.pci_mem_start != 0) {
+ 		pci_iounmap(pdev, (void __iomem *)rtlpriv->io.pci_mem_start);
+-- 
+1.9.1
