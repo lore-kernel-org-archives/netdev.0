@@ -1,70 +1,51 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net v3] random32: avoid attempt to late reseed if in the middle of seeding
-Date: Fri, 28 Mar 2014 17:38:42 +0100
-Message-ID: <1396024722-11632-1-git-send-email-dborkman@redhat.com>
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
-	Sasha Levin <sasha.levin@oracle.com>
-To: davem@davemloft.net
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: [RFC] sh_eth: use RNC mode for R8A7790
+Date: Fri, 28 Mar 2014 16:46:25 +0000
+Message-ID: <1396025185-7911-1-git-send-email-ben.dooks@codethink.co.uk>
+Cc: linux-sh@vger.kernel.org, magnus.damm@opensource.se,
+	nobuhiro.iwamatsu.yj@renesas.com,
+	sergei.shtylyov@cogentembedded.com,
+	Ben Dooks <ben.dooks@codethink.co.uk>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26145 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751443AbaC1Qis (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2014 12:38:48 -0400
+Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:36257 "EHLO
+	ducie-dc1.codethink.co.uk" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751759AbaC1Qqc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 12:46:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <sasha.levin@oracle.com>
+The current behaviour of the sh_eth driver is not to use the RNC bit
+for the receive ring. This means that every packet recieved is not only
+generating an IRQ but it also stops the receive ring DMA as well until
+the driver re-enables it after unloading the packet.
 
-Commit 4af712e8df ("random32: add prandom_reseed_late() and call when
-nonblocking pool becomes initialized") has added a late reseed stage
-that happens as soon as the nonblocking pool is marked as initialized.
+This means that a number of the following errors are generated due to
+the receive packet FIFO overflowing due to nowhere to put packets:
 
-This fails in the case that the nonblocking pool gets initialized
-during __prandom_reseed()'s call to get_random_bytes(). In that case
-we'd double back into __prandom_reseed() in an attempt to do a late
-reseed - deadlocking on 'lock' early on in the boot process.
+	net eth0: Receive FIFO Overflow
 
-Instead, just avoid even waiting to do a reseed if a reseed is already
-occuring.
+Setting the RMCR_RNC configuration has so far been tested with an NFS
+root filesystem and the driver has not failed yet. It is not yet known
+why this is not set for R8A779x operation (Feedback on this issue or
+other testing is welcome)
 
-Fixes: 4af712e8df99 ("random32: add prandom_reseed_late() and call when nonblocking pool becomes initialized")
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
 ---
- Recommended for -stable as well. I'm resending the patch as v2
- from [1] does not apply to the tree, perhaps some mail client
- issue ...
+ drivers/net/ethernet/renesas/sh_eth.c | 1 +
+ 1 file changed, 1 insertion(+)
 
- [1] http://patchwork.ozlabs.org/patch/334223/
-
- lib/random32.c | 13 ++++++++++++-
- 1 file changed, 12 insertions(+), 1 deletion(-)
-
-diff --git a/lib/random32.c b/lib/random32.c
-index 1e5b2df..6148967 100644
---- a/lib/random32.c
-+++ b/lib/random32.c
-@@ -244,8 +244,19 @@ static void __prandom_reseed(bool late)
- 	static bool latch = false;
- 	static DEFINE_SPINLOCK(lock);
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 942f1a9..7b02b70 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -467,6 +467,7 @@ static struct sh_eth_cpu_data r8a779x_data = {
+ 	.ecsr_value	= ECSR_PSRTO | ECSR_LCHNG | ECSR_ICD,
+ 	.ecsipr_value	= ECSIPR_PSRTOIP | ECSIPR_LCHNGIP | ECSIPR_ICDIP,
+ 	.eesipr_value	= 0x01ff009f,
++	.rmcr_value	= RMCR_RNC,
  
-+	/* Asking for random bytes might result in bytes getting
-+	 * moved into the nonblocking pool and thus marking it
-+	 * as initialized. In this case we would double back into
-+	 * this function and attempt to do a late reseed.
-+	 * Ignore the pointless attempt to reseed again if we're
-+	 * already waiting for bytes when the nonblocking pool
-+	 * got initialized.
-+	 */
-+
- 	/* only allow initial seeding (late == false) once */
--	spin_lock_irqsave(&lock, flags);
-+	if (!spin_trylock_irqsave(&lock, flags))
-+		return;
-+
- 	if (latch && !late)
- 		goto out;
- 	latch = true;
+ 	.tx_check	= EESR_FTC | EESR_CND | EESR_DLC | EESR_CD | EESR_RTO,
+ 	.eesr_err_check	= EESR_TWB | EESR_TABT | EESR_RABT | EESR_RFE |
 -- 
-1.7.11.7
+1.9.0
