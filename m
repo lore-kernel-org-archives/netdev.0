@@ -1,43 +1,59 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [PATCH 1/7] isdn: replace del_timer by del_timer_sync
-Date: Sat, 29 Mar 2014 00:19:47 +0100
-Message-ID: <53360393.2030108@imap.cc>
-References: <1395869625-15209-1-git-send-email-Julia.Lawall@lip6.fr> <1395869625-15209-2-git-send-email-Julia.Lawall@lip6.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Karsten Keil <isdn@linux-pingi.de>, tglx@linutronix.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Julia Lawall <Julia.Lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1395869625-15209-2-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lucas Stach <dev@lynxeye.de>
+Subject: [PATCH] net: fec: make sure to init MAC address
+Date: Sat, 29 Mar 2014 00:19:24 +0100
+Message-ID: <1396048764-3301-1-git-send-email-dev@lynxeye.de>
+Cc: kernel@pengutronix.de, Lucas Stach <l.stach@pengutronix.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.lynxeye.de ([87.118.118.114]:43898 "EHLO lynxeye.de"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750864AbaC1X2n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2014 19:28:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+From: Lucas Stach <l.stach@pengutronix.de>
 
-Am 26.03.2014 22:33, schrieb Julia Lawall:
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
->=20
-> Use del_timer_sync to ensure that the timer is stopped on all CPUs
-> before the driver exists.
+Though we made sure to acquire a valid MAC for
+the netdevice we never actually programmed it
+into the hardware.
+So if the bootloader did not set the MAC,
+network operation would only work if userspace
+explicitly asked to transfer the MAC to hardware.
 
-Surely you meant "exits"?
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-Regards,
-Tilman
-
-- --=20
-Tilman Schmidt                              E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (MingW32)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iEYEARECAAYFAlM2A5IACgkQQ3+did9BuFtuMACfarliJdOkqLmJJvRqbcM5eCFd
-CWwAn3FuQ+juOeo2EgM8e1JBTjlHhG3o
-=3Da90K
------END PGP SIGNATURE-----
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index e19315eaf2dd..a8958cc12ef3 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1898,10 +1898,11 @@ fec_set_mac_address(struct net_device *ndev, void *p)
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	struct sockaddr *addr = p;
+ 
+-	if (!is_valid_ether_addr(addr->sa_data))
+-		return -EADDRNOTAVAIL;
+-
+-	memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
++	if (p) {
++		if (!is_valid_ether_addr(addr->sa_data))
++			return -EADDRNOTAVAIL;
++		memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
++	}
+ 
+ 	writel(ndev->dev_addr[3] | (ndev->dev_addr[2] << 8) |
+ 		(ndev->dev_addr[1] << 16) | (ndev->dev_addr[0] << 24),
+@@ -2000,6 +2001,8 @@ static int fec_enet_init(struct net_device *ndev)
+ 
+ 	/* Get the Ethernet address */
+ 	fec_get_mac(ndev);
++	/* make sure MAC we just acquired is programmed into the hw */
++	fec_set_mac_address(ndev, NULL);
+ 
+ 	/* init the tx & rx ring size */
+ 	fep->tx_ring_size = TX_RING_SIZE;
+-- 
+1.8.5.3
