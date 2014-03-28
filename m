@@ -1,65 +1,117 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net] bridge: Fix memory leak in br_dev_xmit
-Date: Fri, 28 Mar 2014 15:21:19 +0900
-Message-ID: <1395987680-8151-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: "David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH v1] net-sysfs: expose number of link up/down transitions
+Date: Fri, 28 Mar 2014 07:25:37 +0100
+Message-ID: <20140328062537.GA2805@minipsycho.orion>
+References: <cover.1395980768.git.decot@googlers.com>
+ <cc4b88e880d31d8d71a5c8872a64c9d665cd097e.1395980768.git.decot@googlers.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Weilong Chen <chenweilong@huawei.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Michael Dalton <mwdalton@google.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>, Tejun Heo <tj@kernel.org>
+To: David Decotigny <decot@googlers.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <cc4b88e880d31d8d71a5c8872a64c9d665cd097e.1395980768.git.decot@googlers.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When a frame is rejected by br_allowed_ingress(), the skb is not freed.
+Fri, Mar 28, 2014 at 05:35:00AM CET, decot@googlers.com wrote:
+>Tested:
+>  grep . /sys/class/net/*/count_link_*
+>  + ip link set dev X down/up
+>
+>Signed-off-by: David Decotigny <decot@googlers.com>
+>---
+> include/linux/netdevice.h |  4 ++++
+> net/core/net-sysfs.c      | 18 ++++++++++++++++++
+> net/sched/sch_generic.c   |  2 ++
+> 3 files changed, 24 insertions(+)
+>
+>diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>index 4b6d12c..cf52869 100644
+>--- a/include/linux/netdevice.h
+>+++ b/include/linux/netdevice.h
+>@@ -1315,6 +1315,10 @@ struct net_device {
+> 					     * Do not use this in drivers.
+> 					     */
+> 
+>+	/* Stats to monitor link on/off, flapping */
+>+	atomic_t		count_link_up;
+>+	atomic_t		count_link_down;
+>+
+> #ifdef CONFIG_WIRELESS_EXT
+> 	/* List of functions to handle Wireless Extensions (instead of ioctl).
+> 	 * See <net/iw_handler.h> for details. Jean II */
+>diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+>index daed9a6..a65ac54 100644
+>--- a/net/core/net-sysfs.c
+>+++ b/net/core/net-sysfs.c
+>@@ -253,6 +253,22 @@ static ssize_t operstate_show(struct device *dev,
+> }
+> static DEVICE_ATTR_RO(operstate);
+> 
+>+static ssize_t count_link_up_show(struct device *dev,
+>+				  struct device_attribute *attr, char *buf)
+>+{
+>+	struct net_device *netdev = to_net_dev(dev);
+>+	return sprintf(buf, fmt_dec, atomic_read(&netdev->count_link_up));
+>+}
+>+
+>+static ssize_t count_link_down_show(struct device *dev,
+>+				    struct device_attribute *attr, char *buf)
+>+{
+>+	struct net_device *netdev = to_net_dev(dev);
+>+	return sprintf(buf, fmt_dec, atomic_read(&netdev->count_link_down));
+>+}
+>+static DEVICE_ATTR_RO(count_link_up);
+>+static DEVICE_ATTR_RO(count_link_down);
+>+
 
-Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
----
- net/bridge/br_device.c | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 8fe8b71..b152fb6 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -55,7 +55,7 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 	skb_pull(skb, ETH_HLEN);
- 
- 	if (!br_allowed_ingress(br, br_get_vlan_info(br), skb, &vid))
--		goto out;
-+		goto drop;
- 
- 	if (is_broadcast_ether_addr(dest))
- 		br_flood_deliver(br, skb, false);
-@@ -64,10 +64,8 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 			br_flood_deliver(br, skb, false);
- 			goto out;
- 		}
--		if (br_multicast_rcv(br, NULL, skb, vid)) {
--			kfree_skb(skb);
--			goto out;
--		}
-+		if (br_multicast_rcv(br, NULL, skb, vid))
-+			goto drop;
- 
- 		mdst = br_mdb_get(br, skb, vid);
- 		if ((mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) &&
-@@ -83,6 +81,9 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- out:
- 	rcu_read_unlock();
- 	return NETDEV_TX_OK;
-+drop:
-+	kfree_skb(skb);
-+	goto out;
- }
- 
- static int br_dev_init(struct net_device *dev)
--- 
-1.8.1.2
+If this is exposed in sysfs, this needs to be exposed via RT netlink as
+well.
+
+
+> /* read-write attributes */
+> 
+> static int change_mtu(struct net_device *net, unsigned long new_mtu)
+>@@ -386,6 +402,8 @@ static struct attribute *net_class_attrs[] = {
+> 	&dev_attr_duplex.attr,
+> 	&dev_attr_dormant.attr,
+> 	&dev_attr_operstate.attr,
+>+	&dev_attr_count_link_up.attr,
+>+	&dev_attr_count_link_down.attr,
+> 	&dev_attr_ifalias.attr,
+> 	&dev_attr_carrier.attr,
+> 	&dev_attr_mtu.attr,
+>diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+>index e82e43b..2d06943 100644
+>--- a/net/sched/sch_generic.c
+>+++ b/net/sched/sch_generic.c
+>@@ -310,6 +310,7 @@ void netif_carrier_on(struct net_device *dev)
+> 	if (test_and_clear_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
+> 		if (dev->reg_state == NETREG_UNINITIALIZED)
+> 			return;
+>+		atomic_inc(&dev->count_link_up);
+> 		linkwatch_fire_event(dev);
+> 		if (netif_running(dev))
+> 			__netdev_watchdog_up(dev);
+>@@ -328,6 +329,7 @@ void netif_carrier_off(struct net_device *dev)
+> 	if (!test_and_set_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
+> 		if (dev->reg_state == NETREG_UNINITIALIZED)
+> 			return;
+>+		atomic_inc(&dev->count_link_down);
+> 		linkwatch_fire_event(dev);
+> 	}
+> }
+>-- 
+>1.9.1.423.g4596e3a
+>
