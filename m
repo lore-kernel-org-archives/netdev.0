@@ -1,76 +1,61 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v5 2/3] ipv6: reuse rt6_need_strict
-Date: Fri, 28 Mar 2014 17:40:35 +0400
-Message-ID: <53357BD3.1060105@cogentembedded.com>
-References: <1395998427-7532-1-git-send-email-wangyufen@huawei.com> <1395998427-7532-3-git-send-email-wangyufen@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru
-To: Wangyufen <wangyufen@huawei.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 01/14] i40e: Delete ATR filter on RST
+Date: Fri, 28 Mar 2014 07:08:02 -0700
+Message-ID: <1396015695-25283-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:58769 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751304AbaC1Nkc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 09:40:32 -0400
-Received: by mail-lb0-f179.google.com with SMTP id p9so3757596lbv.10
-        for <netdev@vger.kernel.org>; Fri, 28 Mar 2014 06:40:31 -0700 (PDT)
-In-Reply-To: <1395998427-7532-3-git-send-email-wangyufen@huawei.com>
+Received: from mga11.intel.com ([192.55.52.93]:21084 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751404AbaC1OIR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2014 10:08:17 -0400
+In-Reply-To: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-On 28-03-2014 13:20, Wangyufen wrote:
+We currently delete ATR filter on FIN alone, delete on RST as well.
 
-> From: Wang Yufen <wangyufen@huawei.com>
+Change-ID: Ie7cae5d1046b9d1d4a0d6ef5bdbf41224c3dade6
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-> Move the whole rt6_need_strict as static inline into ip6_route.h,
-> so that it can be reused
-
-> Signed-off-by: Wang Yufen <wangyufen@huawei.com>
-> ---
->   include/net/ip6_route.h | 5 +++++
->   net/ipv6/route.c        | 6 ------
->   2 files changed, 5 insertions(+), 6 deletions(-)
-
-> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-> index 00e3f12..33e8694 100644
-> --- a/include/net/ip6_route.h
-> +++ b/include/net/ip6_route.h
-> @@ -51,6 +51,11 @@ static inline unsigned int rt6_flags2srcprefs(int flags)
->   	return (flags >> 3) & 7;
->   }
->
-> +static inline bool rt6_need_strict(const struct in6_addr *daddr)
-> +{
-> +	return ipv6_addr_type(daddr) &
-> +		IPV6_ADDR_MULTICAST | IPV6_ADDR_LINKLOCAL | IPV6_ADDR_LOOPBACK);
-
-    I don't think removing parens was correct here: & should have more 
-priority than |.
-
-> +}
->
->   void ip6_route_input(struct sk_buff *skb);
->
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index b93ae6a..5015c50 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -374,12 +374,6 @@ static bool rt6_check_expired(const struct rt6_info *rt)
->   	return false;
->   }
->
-> -static bool rt6_need_strict(const struct in6_addr *daddr)
-> -{
-> -	return ipv6_addr_type(daddr) &
-> -		(IPV6_ADDR_MULTICAST | IPV6_ADDR_LINKLOCAL | IPV6_ADDR_LOOPBACK);
-> -}
-> -
->   /* Multipath route selection:
->    *   Hash based function using packet header and flowlabel.
->    * Adapted from fib_info_hashfn()
-
-WBR, Sergei
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 851f653..de25a32 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1624,8 +1624,11 @@ static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 
+ 	tx_ring->atr_count++;
+ 
+-	/* sample on all syn/fin packets or once every atr sample rate */
+-	if (!th->fin && !th->syn && (tx_ring->atr_count < tx_ring->atr_sample_rate))
++	/* sample on all syn/fin/rst packets or once every atr sample rate */
++	if (!th->fin &&
++	    !th->syn &&
++	    !th->rst &&
++	    (tx_ring->atr_count < tx_ring->atr_sample_rate))
+ 		return;
+ 
+ 	tx_ring->atr_count = 0;
+@@ -1649,7 +1652,7 @@ static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 
+ 	dtype_cmd = I40E_TX_DESC_DTYPE_FILTER_PROG;
+ 
+-	dtype_cmd |= th->fin ?
++	dtype_cmd |= (th->fin || th->rst) ?
+ 		     (I40E_FILTER_PROGRAM_DESC_PCMD_REMOVE <<
+ 		      I40E_TXD_FLTR_QW1_PCMD_SHIFT) :
+ 		     (I40E_FILTER_PROGRAM_DESC_PCMD_ADD_UPDATE <<
+-- 
+1.9.0
