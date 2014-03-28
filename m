@@ -1,43 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/3] net: stmmac: Add SOCFPGA glue driver
-Date: Fri, 28 Mar 2014 15:07:06 -0400 (EDT)
-Message-ID: <20140328.150706.1512982620713301379.davem@davemloft.net>
-References: <1395891912-26855-1-git-send-email-dinguyen@altera.com>
-	<1395891912-26855-2-git-send-email-dinguyen@altera.com>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: Re: [PATCH v5] sh_eth: ensure pm_runtime cannot suspend the device
+ during init
+Date: Fri, 28 Mar 2014 19:25:51 +0000
+Message-ID: <5335CCBF.8030606@codethink.co.uk>
+References: <1395400154-25710-1-git-send-email-ben.dooks@codethink.co.uk> <20140328.142606.2032782733436495474.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dinh.linux@gmail.com, arnd@arndb.de, peppe.cavallaro@st.com,
-	srinivas.kandagatla@st.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, arm@kernel.org,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	devicetree@vger.kernel.org
-To: dinguyen@altera.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39862 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751782AbaC1THK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 15:07:10 -0400
-In-Reply-To: <1395891912-26855-2-git-send-email-dinguyen@altera.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@lists.codethink.co.uk, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+	laurent.pinchart+renesas@ideasonboard.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20140328.142606.2032782733436495474.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: <dinguyen@altera.com>
-Date: Wed, 26 Mar 2014 22:45:10 -0500
+On 28/03/14 18:26, David Miller wrote:
+> From: Ben Dooks <ben.dooks@codethink.co.uk>
+> Date: Fri, 21 Mar 2014 12:09:14 +0100
+>
+>> The pm_rumtime work queue is causing the device to be suspended during
+>> initialisation, thus the initialisation may not be able to access registers
+>> properly. As the code is called from a work queue, it is possible that this
+>> is not seen from certain configurations/builds due to the asynchronos
+>> nature of the code.
+>>
+>> Another issue has also been found where the network device registration
+>> calls back into the driver thus causing further pm_runtime calls that
+>> also caused issues with the MDIO bus code. This has now been checked
+>> and is the only place the MDIO can be called without the device open.
+>>
+>> Use pm_runtime_get_sync() and pm_runtime_put() to ensure that the
+>> pm system does not suspend it during the probe() call and remove the
+>> now unnecessary pm_runtime_resume() call. Also add a call in the error
+>> path to call pm_runtime_disable().
+>>
+>> This fixes the external abort that can cause /sbin/init or other such
+>> init processed to die.
+>>
+>> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+>> Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
+>
+> What tree is this against?  It doesn't apply cleanly to 'net'.
 
-> From: Dinh Nguyen <dinguyen@altera.com>
-> 
-> Like the STi and sunxi series SOCs, Altera's SOCFPGA also needs a glue layer
-> on top of the Synopsys gmac IP.
-> 
-> This patch adds the platform driver for the glue layer which configures the IP
-> before the generic STMMAC driver takes over.
-> 
-> Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
+I thought it was against the net next tree, given the number of patches
+that are currently being applied to the sh_eth driver.
 
-Applied, although:
-
-> +	struct device_node *np	= dev->of_node;
-
-I had to fix that TAB between "np" and "=" into a space.
+-- 
+Ben Dooks				http://www.codethink.co.uk/
+Senior Engineer				Codethink - Providing Genius
