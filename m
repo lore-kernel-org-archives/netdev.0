@@ -1,86 +1,36 @@
-From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Subject: Samsung sxgbe driver - Kconfig issue
-Date: Fri, 28 Mar 2014 17:20:25 -0400
-Message-ID: <19617.1396041625@turing-police.cc.vt.edu>
-Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1396041625_2170P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Siva Reddy Kallam <siva.kallam@samsung.com>,
-	Joe Perches <joe@perches.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/2] net: document sysfs entries
+Date: Fri, 28 Mar 2014 14:25:56 -0700
+Message-ID: <1396041958-2471-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lennier.cc.vt.edu ([198.82.162.213]:34316 "EHLO
-	lennier.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752821AbaC1VVL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 17:21:11 -0400
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:45901 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751697AbaC1V0M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 17:26:12 -0400
+Received: by mail-pd0-f172.google.com with SMTP id p10so5392388pdj.3
+        for <netdev@vger.kernel.org>; Fri, 28 Mar 2014 14:26:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1396041625_2170P
-Content-Type: text/plain; charset=us-ascii
+This patchset attempts to document the basic set of sysfs entries that are
+exposed by netdevices in /sys/class/net/<iface>/
 
-commit 1edb9ca69e8a7988900fc0283e10550b5592164d
-Author: Siva Reddy <siva.kallam@samsung.com>
-Date:   Tue Mar 25 12:10:54 2014 -0700
+I did not go before the pre-git era, so the oldest entries are marked with
+the 2.6.12 kernel version and dated of April 2005.
 
-    net: sxgbe: add basic framework for Samsung 10Gb ethernet driver
+Future patches will document the queues/ and statistics/ directories as well.
 
-    This patch adds support for Samsung 10Gb ethernet driver(sxgbe).
+Florian Fainelli (2):
+  net: sysfs: add Documentation entries for basic set of attributes
+  net: export NET_ADDR_* values to user-space API
 
+ Documentation/ABI/testing/sysfs-class-net | 199 ++++++++++++++++++++++++++++++
+ include/linux/netdevice.h                 |   7 --
+ include/uapi/linux/netdevice.h            |   6 +
+ 3 files changed, 205 insertions(+), 7 deletions(-)
+ create mode 100644 Documentation/ABI/testing/sysfs-class-net
 
-This commit added the following in the Kconfig file:
-
-config NET_VENDOR_SAMSUNG
-        bool "Samsung Ethernet device"
-        default y
-        ---help---
-          This is the driver for the SXGBE 10G Ethernet IP block found on Samsung
-          platforms.
-
-Please redo this to match the style of other NET_VENDOR_FOO, and make clear
-that it only selects a submenu.  For instance, drivers/net/ethernet/qlogic/Kconfig
-says:
-
-config NET_VENDOR_QLOGIC
-        bool "QLogic devices"
-        default y
-        depends on PCI
-        ---help---
-          If you have a network (Ethernet) card belonging to this class, say Y
-          and read the Ethernet-HOWTO, available from
-          <http://www.tldp.org/docs.html#howto>.
-
-          Note that the answer to this question doesn't directly affect the
-          kernel: saying N will just cause the configurator to skip all
-          the questions about QLogic cards. If you say Y, you will be asked for
-          your specific card in the following questions.
-
-if NET_VENDOR_QLOGIC
-
-
-
-
---==_Exmh_1396041625_2170P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Exmh version 2.5 07/13/2001
-
-iQIVAwUBUzXnmQdmEQWDXROgAQJnQQ//a+SUvRfAFVCsxBkFI+snoWUVA3W8weIS
-wmemK1eHdYlF8h16YFpV+nh9ZrozEDfygMb7r3RhUtIcYkbt0m7qKTjqCZCYWC9z
-PFhAYQ+no5Lue6uS04tqfYPDZDRI8fpXCDGHwtAxfoVbPoiLB6SZbfleUohTFMiP
-UwFJ/nII5JSyqwcFgUI2ph9UCq9m0i2uYs5YkS49zSfmqGoWtnYG/7D3FkUgvoM8
-R34aSamoDjsl/MflFJadydzWsdrEQbt4uf2/GinPztl5afzfLt1Tf89BXAuRkPoQ
-zF4KHpoIZIotEslkfPdBFSukBs9dvKDjOHO9jRMUUyPOmJi4UxbcUjik5QpfglSy
-Ibfoyvm+ihyrp33Y8sgS+qDfxZUFWFMv3SkjGuYoEOfBRPCCrvW9s5xrCFFV21Qb
-LD5FuJpAhsvIyLJeCqoGrlA0lSQs3Yjtsk2OJYX0HyGF7Th78ezLFrMkYij4KQI0
-YnkB0THWmXsqS2X6jmpfRHRiGdIV2gtBCPbRwpt5HMcsMnB/1KRPu6+ZB+Mi3532
-xku+KA8qXg9uJ13t8MXk9Sa/n/f8HQBUcTS5I4/b/iaynhvgUPeZgRIO6ozQYNeU
-XQqvvA8J3v93QwZcP5X5+poHVuF5ViEG38xJqInVOvV7hy9Dd6PkMptBqW8PPxaQ
-Yf+gjuYLfP0=
-=aoRo
------END PGP SIGNATURE-----
-
---==_Exmh_1396041625_2170P--
+-- 
+1.8.3.2
