@@ -1,157 +1,95 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 04/14] i40e: eeprom integrity check on load and empr
-Date: Fri, 28 Mar 2014 07:08:05 -0700
-Message-ID: <1396015695-25283-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 00/14][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 28 Mar 2014 07:08:01 -0700
+Message-ID: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:21084 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752051AbaC1OIU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2014 10:08:20 -0400
-In-Reply-To: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751227AbaC1OIR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2014 10:08:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+This series contains updates to e1000e, igb, i40e and i40evf
 
-The driver needs to verify the eeprom checksum and firmware crc status bits,
-and shutdown the driver if they fail. This code stops the processing of traffic,
-but doesn't kill the PF netdev so that the NVMUpdate process should still have a
-chance at fixing the image. The eeprom is checked on driver load and after an
-EMP reset, the latter of which should be generated after an NVMUpdate.
+Anjali provides i40e fix to remove the ATR filter on RST as well as FIN
+packets.  Cleans up add_del_fdir() because it was used and implemented
+only for the add, so change the name and drop a parameter.  Adds the
+ability to drop a flow if we wanted to and adds a flow director
+message level to be used for flow director specific messages.
 
-Change-ID: I34deef21d2e16bf5a43c603cf8af27e6a29dc9d2
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c | 50 +++++++++++++++++++++++++----
- 2 files changed, 45 insertions(+), 6 deletions(-)
+Mitch fixes an issue on i40evf where the Tx watchdog handler was causing
+an oops when sending an admin queue message to request a reset because
+the admin queue functions use spinlocks.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 33cd8b6..beb7b43 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -136,6 +136,7 @@ enum i40e_state_t {
- 	__I40E_EMP_RESET_REQUESTED,
- 	__I40E_FILTER_OVERFLOW_PROMISC,
- 	__I40E_SUSPENDED,
-+	__I40E_BAD_EEPROM,
- };
- 
- enum i40e_interrupt_policy {
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 91fd1f1..a1ec793 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -26,6 +26,7 @@
- 
- /* Local includes */
- #include "i40e.h"
-+#include "i40e_diag.h"
- #ifdef CONFIG_I40E_VXLAN
- #include <net/vxlan.h>
- #endif
-@@ -2877,12 +2878,14 @@ static irqreturn_t i40e_intr(int irq, void *data)
- 		val = rd32(hw, I40E_GLGEN_RSTAT);
- 		val = (val & I40E_GLGEN_RSTAT_RESET_TYPE_MASK)
- 		       >> I40E_GLGEN_RSTAT_RESET_TYPE_SHIFT;
--		if (val == I40E_RESET_CORER)
-+		if (val == I40E_RESET_CORER) {
- 			pf->corer_count++;
--		else if (val == I40E_RESET_GLOBR)
-+		} else if (val == I40E_RESET_GLOBR) {
- 			pf->globr_count++;
--		else if (val == I40E_RESET_EMPR)
-+		} else if (val == I40E_RESET_EMPR) {
- 			pf->empr_count++;
-+			set_bit(__I40E_EMP_RESET_REQUESTED, &pf->state);
-+		}
- 	}
- 
- 	if (icr0 & I40E_PFINT_ICR0_HMC_ERR_MASK) {
-@@ -4257,8 +4260,9 @@ static int i40e_open(struct net_device *netdev)
- 	struct i40e_pf *pf = vsi->back;
- 	int err;
- 
--	/* disallow open during test */
--	if (test_bit(__I40E_TESTING, &pf->state))
-+	/* disallow open during test or if eeprom is broken */
-+	if (test_bit(__I40E_TESTING, &pf->state) ||
-+	    test_bit(__I40E_BAD_EEPROM, &pf->state))
- 		return -EBUSY;
- 
- 	netif_carrier_off(netdev);
-@@ -5078,6 +5082,31 @@ static void i40e_clean_adminq_subtask(struct i40e_pf *pf)
- }
- 
- /**
-+ * i40e_verify_eeprom - make sure eeprom is good to use
-+ * @pf: board private structure
-+ **/
-+static void i40e_verify_eeprom(struct i40e_pf *pf)
-+{
-+	int err;
-+
-+	err = i40e_diag_eeprom_test(&pf->hw);
-+	if (err) {
-+		/* retry in case of garbage read */
-+		err = i40e_diag_eeprom_test(&pf->hw);
-+		if (err) {
-+			dev_info(&pf->pdev->dev, "eeprom check failed (%d), Tx/Rx traffic disabled\n",
-+				 err);
-+			set_bit(__I40E_BAD_EEPROM, &pf->state);
-+		}
-+	}
-+
-+	if (!err && test_bit(__I40E_BAD_EEPROM, &pf->state)) {
-+		dev_info(&pf->pdev->dev, "eeprom check passed, Tx/Rx traffic enabled\n");
-+		clear_bit(__I40E_BAD_EEPROM, &pf->state);
-+	}
-+}
-+
-+/**
-  * i40e_reconstitute_veb - rebuild the VEB and anything connected to it
-  * @veb: pointer to the VEB instance
-  *
-@@ -5386,6 +5415,12 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
- 		goto end_core_reset;
- 	}
- 
-+	/* re-verify the eeprom if we just had an EMP reset */
-+	if (test_bit(__I40E_EMP_RESET_REQUESTED, &pf->state)) {
-+		clear_bit(__I40E_EMP_RESET_REQUESTED, &pf->state);
-+		i40e_verify_eeprom(pf);
-+	}
-+
- 	ret = i40e_get_capabilities(pf);
- 	if (ret) {
- 		dev_info(&pf->pdev->dev, "i40e_get_capabilities failed, %d\n",
-@@ -8157,6 +8192,8 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_pf_reset;
- 	}
- 
-+	i40e_verify_eeprom(pf);
-+
- 	i40e_clear_pxe_mode(hw);
- 	err = i40e_get_capabilities(pf);
- 	if (err)
-@@ -8258,7 +8295,8 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	/* prep for VF support */
- 	if ((pf->flags & I40E_FLAG_SRIOV_ENABLED) &&
--	    (pf->flags & I40E_FLAG_MSIX_ENABLED)) {
-+	    (pf->flags & I40E_FLAG_MSIX_ENABLED) &&
-+	    !test_bit(__I40E_BAD_EEPROM, &pf->state)) {
- 		u32 val;
- 
- 		/* disable link interrupts for VFs */
+Greg provides a change to i40e to make the alloc and free queue vector
+calls orthogonal.
+
+Shannon fixes i40e to verify the eeprom checksum and firmware CRC status
+bits, and shutdown the driver if they fail.  This change stops the
+processing of traffic, but does not kill the PF netdev so that the
+NVMUpdate process still has a chance at fixing the image.  Also provides
+a fix to make sure the VSI has a netdev before trying to use it in
+the debugfs netdev_ops commands.
+
+Jakub Kicinski provides patches for e1000e and igb to fix a number issues
+found in the PTP code.
+
+v2:
+- drop patch 11 "i40e: Add a fallback debug flow for the driver" from the
+  series based on feedback from David Miller
+
+The following are changes since commit e1250037de22b99694ebfd37b867a3f591b0dc39:
+  Merge branch 'mdio_reset-next'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Anjali Singhai Jain (5):
+  i40e: Delete ATR filter on RST
+  i40e: Cleanup in FDIR SB ethtool code
+  i40e: Add functionality for FD SB to drop packets
+  i40e/i40evf: Add an FD message level
+  i40e: Use DEBUG_FD message level for an FD message
+
+Greg Rose (1):
+  i40e: Make the alloc and free queue vector calls orthogonal
+
+Jakub Kicinski (4):
+  e1000e: add timeout for TX HW time stamping work
+  e1000e: remove redundant if clause from PTP work
+  igb: never generate both software and hardware timestamps
+  igb: fix race conditions on queuing skb for HW time stamp
+
+Jesse Brandeburg (1):
+  i40evf: remove double space after return
+
+Mitch Williams (1):
+  i40evf: fix oops in watchdog handler
+
+Shannon Nelson (2):
+  i40e: eeprom integrity check on load and empr
+  i40e: check for netdev before debugfs use
+
+ drivers/net/ethernet/intel/e1000e/e1000.h          |  2 +
+ drivers/net/ethernet/intel/e1000e/ethtool.c        |  1 +
+ drivers/net/ethernet/intel/e1000e/netdev.c         | 10 ++--
+ drivers/net/ethernet/intel/i40e/i40e.h             |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c     | 35 +++++++-----
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 39 +++++++-------
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 62 +++++++++++++++++-----
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 14 +++--
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |  1 +
+ drivers/net/ethernet/intel/i40evf/i40e_prototype.h |  2 +-
+ drivers/net/ethernet/intel/i40evf/i40e_type.h      |  1 +
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |  1 +
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 10 ++--
+ drivers/net/ethernet/intel/igb/igb.h               |  3 +-
+ drivers/net/ethernet/intel/igb/igb_main.c          |  7 +--
+ drivers/net/ethernet/intel/igb/igb_ptp.c           |  3 ++
+ 16 files changed, 131 insertions(+), 61 deletions(-)
+
 -- 
 1.9.0
