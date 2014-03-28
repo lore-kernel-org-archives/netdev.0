@@ -1,137 +1,81 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v1] net-sysfs: expose number of link up/down transitions
-Date: Fri, 28 Mar 2014 09:51:03 -0700
-Message-ID: <CAGVrzcZEuTCN0gtQ6pOSgT_3cd3Z8Z4OP2jn0QOD-QHbyPsAiA@mail.gmail.com>
-References: <cover.1395980768.git.decot@googlers.com> <cc4b88e880d31d8d71a5c8872a64c9d665cd097e.1395980768.git.decot@googlers.com>
- <20140328062537.GA2805@minipsycho.orion>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: RE: [net-next 03/16] i40evf: Support RSS option in ethtool
+Date: Fri, 28 Mar 2014 17:05:34 +0000
+Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D65579F65@FMSMSX113.amr.corp.intel.com>
+References: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1395060316-16897-4-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1395082411.22343.4.camel@deadeye.wl.decadent.org.uk>
+	 <AAEA33E297BCAC4B9BB20A7C2DF0AB8D65578A60@FMSMSX113.amr.corp.intel.com>
+ <1395965668.2898.17.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Decotigny <decot@googlers.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Eric Dumazet <edumazet@google.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Weilong Chen <chenweilong@huawei.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Michael Dalton <mwdalton@google.com>,
-	Al Viro <viro@zeniv.linux.org.uk>, Tejun Heo <tj@kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140328062537.GA2805@minipsycho.orion>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"Sullivan, Catherine" <catherine.sullivan@intel.com>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:22536 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751704AbaC1RGF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2014 13:06:05 -0400
+In-Reply-To: <1395965668.2898.17.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-03-27 23:25 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
-> Fri, Mar 28, 2014 at 05:35:00AM CET, decot@googlers.com wrote:
->>Tested:
->>  grep . /sys/class/net/*/count_link_*
->>  + ip link set dev X down/up
->>
->>Signed-off-by: David Decotigny <decot@googlers.com>
->>---
->> include/linux/netdevice.h |  4 ++++
->> net/core/net-sysfs.c      | 18 ++++++++++++++++++
->> net/sched/sch_generic.c   |  2 ++
->> 3 files changed, 24 insertions(+)
->>
->>diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->>index 4b6d12c..cf52869 100644
->>--- a/include/linux/netdevice.h
->>+++ b/include/linux/netdevice.h
->>@@ -1315,6 +1315,10 @@ struct net_device {
->>                                            * Do not use this in drivers.
->>                                            */
->>
->>+      /* Stats to monitor link on/off, flapping */
->>+      atomic_t                count_link_up;
->>+      atomic_t                count_link_down;
->>+
->> #ifdef CONFIG_WIRELESS_EXT
->>       /* List of functions to handle Wireless Extensions (instead of ioctl).
->>        * See <net/iw_handler.h> for details. Jean II */
->>diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
->>index daed9a6..a65ac54 100644
->>--- a/net/core/net-sysfs.c
->>+++ b/net/core/net-sysfs.c
->>@@ -253,6 +253,22 @@ static ssize_t operstate_show(struct device *dev,
->> }
->> static DEVICE_ATTR_RO(operstate);
->>
->>+static ssize_t count_link_up_show(struct device *dev,
->>+                                struct device_attribute *attr, char *buf)
->>+{
->>+      struct net_device *netdev = to_net_dev(dev);
->>+      return sprintf(buf, fmt_dec, atomic_read(&netdev->count_link_up));
->>+}
->>+
->>+static ssize_t count_link_down_show(struct device *dev,
->>+                                  struct device_attribute *attr, char *buf)
->>+{
->>+      struct net_device *netdev = to_net_dev(dev);
->>+      return sprintf(buf, fmt_dec, atomic_read(&netdev->count_link_down));
->>+}
->>+static DEVICE_ATTR_RO(count_link_up);
->>+static DEVICE_ATTR_RO(count_link_down);
->>+
->
->
-> If this is exposed in sysfs, this needs to be exposed via RT netlink as
-> well.
-
-This makes me wonder if this really needs to be a kernel-maintained
-pair of counters. Since this seems to be useful for monitoring e.g:
-servers for link flapping, I would assume that some user-space
-script/program does read these sysfs entries periodically to report a
-healthy link. If that's the case, what prevents the same
-script/program from listening to netlink events and count the link
-UP/DOWN events from there and report that?
-
->
->
->> /* read-write attributes */
->>
->> static int change_mtu(struct net_device *net, unsigned long new_mtu)
->>@@ -386,6 +402,8 @@ static struct attribute *net_class_attrs[] = {
->>       &dev_attr_duplex.attr,
->>       &dev_attr_dormant.attr,
->>       &dev_attr_operstate.attr,
->>+      &dev_attr_count_link_up.attr,
->>+      &dev_attr_count_link_down.attr,
->>       &dev_attr_ifalias.attr,
->>       &dev_attr_carrier.attr,
->>       &dev_attr_mtu.attr,
->>diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
->>index e82e43b..2d06943 100644
->>--- a/net/sched/sch_generic.c
->>+++ b/net/sched/sch_generic.c
->>@@ -310,6 +310,7 @@ void netif_carrier_on(struct net_device *dev)
->>       if (test_and_clear_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
->>               if (dev->reg_state == NETREG_UNINITIALIZED)
->>                       return;
->>+              atomic_inc(&dev->count_link_up);
->>               linkwatch_fire_event(dev);
->>               if (netif_running(dev))
->>                       __netdev_watchdog_up(dev);
->>@@ -328,6 +329,7 @@ void netif_carrier_off(struct net_device *dev)
->>       if (!test_and_set_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
->>               if (dev->reg_state == NETREG_UNINITIALIZED)
->>                       return;
->>+              atomic_inc(&dev->count_link_down);
->>               linkwatch_fire_event(dev);
->>       }
->> }
->>--
->>1.9.1.423.g4596e3a
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
-
--- 
-Florian
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
+bWFpbHRvOmJlbkBkZWNhZGVudC5vcmcudWtdDQo+IFNlbnQ6IFRodXJzZGF5LCBNYXJjaCAyNywg
+MjAxNCA1OjE0IFBNDQo+IFRvOiBXaWxsaWFtcywgTWl0Y2ggQQ0KPiBDYzogS2lyc2hlciwgSmVm
+ZnJleSBUOyBkYXZlbUBkYXZlbWxvZnQubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiBn
+b3Nwb0ByZWRoYXQuY29tOyBzYXNzbWFubkByZWRoYXQuY29tOyBTdWxsaXZhbiwgQ2F0aGVyaW5l
+DQo+IFN1YmplY3Q6IFJlOiBbbmV0LW5leHQgMDMvMTZdIGk0MGV2ZjogU3VwcG9ydCBSU1Mgb3B0
+aW9uIGluIGV0aHRvb2wNCj4gDQo+IE9uIFdlZCwgMjAxNC0wMy0yNiBhdCAxOToyMSArMDAwMCwg
+V2lsbGlhbXMsIE1pdGNoIEEgd3JvdGU6DQo+ID4NCj4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2Fn
+ZS0tLS0tDQo+ID4gPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWlsdG86YmVuQGRlY2FkZW50Lm9y
+Zy51a10NCj4gPiA+IFNlbnQ6IE1vbmRheSwgTWFyY2ggMTcsIDIwMTQgMTE6NTQgQU0NCj4gPiA+
+IFRvOiBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gPiA+IENjOiBkYXZlbUBkYXZlbWxvZnQubmV0OyBX
+aWxsaWFtcywgTWl0Y2ggQTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gPiA+IGdvc3BvQHJl
+ZGhhdC5jb207IHNhc3NtYW5uQHJlZGhhdC5jb207IFN1bGxpdmFuLCBDYXRoZXJpbmUNCj4gPiA+
+IFN1YmplY3Q6IFJlOiBbbmV0LW5leHQgMDMvMTZdIGk0MGV2ZjogU3VwcG9ydCBSU1Mgb3B0aW9u
+IGluIGV0aHRvb2wNCj4gPiA+DQo+ID4gPiBPbiBNb24sIDIwMTQtMDMtMTcgYXQgMDU6NDUgLTA3
+MDAsIEplZmYgS2lyc2hlciB3cm90ZToNCj4gPiA+ID4gRnJvbTogTWl0Y2ggV2lsbGlhbXMgPG1p
+dGNoLmEud2lsbGlhbXNAaW50ZWwuY29tPg0KPiA+ID4gPg0KPiA+ID4gPiBBZGQgc3VwcG9ydCBm
+b3Igdmlld2luZyBhbmQgbW9kaWZ5aW5nIFJTUyBoYXNoIG9wdGlvbnMgYW5kIFJTUyBoYXNoDQo+
+ID4gPiA+IGxvb2stdXAgdGFibGUgcHJvZ3JhbW1pbmcgdGhyb3VnaCBldGh0b29sLiBCZWNhdXNl
+IHRoZSBsb29rdXAgdGFibGUgaXMNCj4gPiA+ID4gc28gc21hbGwgZm9yIHRoZSBWRnMgKG9ubHkg
+MTYgcmVnaXN0ZXJzKSwgd2UgZG9uJ3QgYm90aGVyIHRvIG1haW50YWluDQo+IGENCj4gPiA+ID4g
+c2hhZG93IHRhYmxlIGluIG1lbW9yeSwgd2UganVzdCByZWFkIGFuZCB3cml0ZSB0aGUgcmVnaXN0
+ZXJzIGRpcmVjdGx5Lg0KPiA+ID4gWy4uLl0NCj4gPiA+ID4gK3N0YXRpYyBpbnQgaTQwZXZmX2dl
+dF9yc3NfaGFzaF9vcHRzKHN0cnVjdCBpNDBldmZfYWRhcHRlciAqYWRhcHRlciwNCj4gPiA+ID4g
+KwkJCQkgICAgc3RydWN0IGV0aHRvb2xfcnhuZmMgKmNtZCkNCj4gPiA+ID4gK3sNCj4gPiA+ID4g
+KwljbWQtPmRhdGEgPSAwOw0KPiA+ID4gPiArDQo+ID4gPiA+ICsJLyogUmVwb3J0IGRlZmF1bHQg
+b3B0aW9ucyBmb3IgUlNTIG9uIGk0MGUgKi8NCj4gPiA+DQo+ID4gPiBCdXQgeW91J3JlIGFsbG93
+aW5nIHRoZW0gdG8gYmUgY2hhbmdlZCBmcm9tIHRoZSBkZWZhdWx0cywgc28gdGhpcyBpcw0KPiA+
+ID4gd3JvbmcuDQo+ID4NCj4gPiBCZW4sIEkndmUgZ290IGEgcXVlc3Rpb24gb24gdGhpcy4gU2hv
+dWxkIHRoZSBFVEhUT09MX0dSWEZIIG9wdGlvbg0KPiA+IHJlcG9ydCB3aGF0IHRoZSBkcml2ZXIg
+YW5kIGRldmljZSBhcmUgY2FwYWJsZSBvZiwgb3Igc2hvdWxkIGl0IHJlcG9ydA0KPiA+IHRoZSBj
+dXJyZW50IGNvbmZpZ3VyYXRpb24/DQo+IA0KPiBJdCBzaG91bGQgcmVwb3J0IHRoZSBjdXJyZW50
+IGNvbmZpZ3VyYXRpb24uDQo+IA0KPiA+IElmIHRoaXMgb3B0aW9uIGlzIHN1cHBvc2VkIHRvIHJl
+cG9ydCBkZXZpY2UgY2FwYWJpbGl0aWVzLCBob3cgY2FuIHdlDQo+ID4gZmluZCBvdXQgdGhlIGN1
+cnJlbnQgY29uZmlndXJhdGlvbj8gQW5kIGlmIGl0J3Mgc3VwcG9zZWQgdG8gcmVwb3J0IHRoZQ0K
+PiA+IGN1cnJlbnQgY29uZmlndXJhdGlvbiwgdGhlbiBob3cgZG8gd2UgZmluZCBvdXQgdGhlIGRl
+dmljZQ0KPiA+IGNhcGFiaWxpdGllcz8NCj4gDQo+IFlvdSBjYW4ndCBmaW5kIG91dCB0aGUgZGV2
+aWNlIGNhcGFiaWxpdGllcyBleGNlcHQgYnkgdHJpYWwgYW5kIGVycm9yIChvcg0KPiBkcml2ZXIt
+c3BlY2lmaWMgZG9jdW1lbnRhdGlvbikuICBFdmVuIGlmIEVUSFRPT0xfR1JYRkggZGlkIHRlbGwg
+eW91DQo+IHdoaWNoIGZpZWxkcyAqY291bGQqIGJlIGluY2x1ZGVkIGluIHRoZSBoYXNoLCB0aGUg
+c3RydWN0dXJlIGRvZXNuJ3QgaGF2ZQ0KPiBzcGFjZSB0byB0ZWxsIHlvdSB3aGljaCBzdWJzZXRz
+IGFyZSBzdXBwb3J0ZWQuDQo+IA0KPiA+IEkndmUgYmVlbiB3YWRpbmcgdGhyb3VnaCB0aGUga2Vy
+bmVsIHNvdXJjZSwgYW5kIEkgc2VlIGJvdGguIFNvIEknbQ0KPiA+IGNvbmZ1c2VkLg0KPiBbLi4u
+XQ0KPiANCj4gVGhlIGZpcnN0IGltcGxlbWVudGF0aW9uIHdhcyBpbiBuaXUsIGFuZCBpbiB0aGUg
+YWJzZW5jZSBvZiBhY2NvbXBhbnlpbmcNCj4gZG9jdW1lbnRhdGlvbiB0aGF0IGlzIHdoYXQgSSB0
+b29rIHRvIGRlZmluZSB0aGUgaW50ZXJmYWNlIGFuZCB3aGF0IEkNCj4gYXR0ZW1wdGVkIHRvIGRv
+Y3VtZW50IGluIDxsaW51eC9ldGh0b29sLmg+LiAgSWYgeW91IHRoaW5rIHRoZSBjdXJyZW50DQo+
+IGtlcm5lbC1kb2MgY29tbWVudCBvbiBzdHJ1Y3QgZXRodG9vbF9yeG5mYyBpcyBub3QgY2xlYXIg
+ZW5vdWdoLCBwbGVhc2UNCj4gZG8gc2VuZCBhIHBhdGNoIHRvIGltcHJvdmUgdGhlIHdvcmRpbmcu
+DQo+IA0KDQpUaGFua3MsIEJlbi4gSSdsbCBtYWtlIHN1cmUgdGhhdCB0aGUgaTQwZXZmIGRyaXZl
+ciBkb2VzIHRoZSByaWdodCB0aGluZy4NCg0KLU1pdGNoDQoNCj4gQmVuLg0KPiANCj4gLS0NCj4g
+QmVuIEh1dGNoaW5ncw0KPiA3My40NiUgb2YgYWxsIHN0YXRpc3RpY3MgYXJlIG1hZGUgdXAuDQo=
