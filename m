@@ -1,58 +1,64 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH v2 net] net: Account for all vlan headers in skb_mac_gso_segment
-Date: Thu, 27 Mar 2014 21:05:41 -0400
-Message-ID: <5334CAE5.6020806@redhat.com>
-References: <1395955578-16715-1-git-send-email-vyasevic@redhat.com> <1395958890.12610.324.camel@edumazet-glaptop2.roam.corp.google.com>
-Reply-To: vyasevic@redhat.com
+From: wangyufen <wangyufen@huawei.com>
+Subject: Re: [PATCH net-next v3 2/2] net: tcp_ipv6 policy route issue
+Date: Fri, 28 Mar 2014 09:11:37 +0800
+Message-ID: <5334CC49.7030603@huawei.com>
+References: <1395642322-9404-1-git-send-email-wangyufen@huawei.com> <1395642322-9404-2-git-send-email-wangyufen@huawei.com> <20140326070548.GF22086@order.stressinduktion.org> <53338642.1060405@huawei.com> <20140327053231.GL22086@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40020 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756172AbaC1BFn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Mar 2014 21:05:43 -0400
-In-Reply-To: <1395958890.12610.324.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:48938 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755279AbaC1BLv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 21:11:51 -0400
+In-Reply-To: <20140327053231.GL22086@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/27/2014 06:21 PM, Eric Dumazet wrote:
-> On Thu, 2014-03-27 at 17:26 -0400, Vlad Yasevich wrote:
+On 2014/3/27 13:32, Hannes Frederic Sowa wrote:
+> On Thu, Mar 27, 2014 at 10:00:34AM +0800, wangyufen wrote:
+>> On 2014/3/26 15:05, Hannes Frederic Sowa wrote:
+>>> On Mon, Mar 24, 2014 at 02:25:22PM +0800, Wangyufen wrote:
+>>>> From: Wang Yufen <wangyufen@huawei.com>
+>>>>
+>>>> The issue raises when adding policy route, specify a particular
+>>>> NIC as oif, the policy route did not take effect. The reason is
+>>>> that fl6.oif is not set and route map failed. From the 
+>>>> tcp_v6_send_response function, if the binding address is linklocal,
+>>>> fl6.oif is set, but not for global address.
+>>>>
+>>>> Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+>>>
+>>> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>>>
+>>> But this looks like a bug to me, so maybe this is something for net
+>>> inclusion.
+>> I checked the commit log, I think, changes to ipv6 was incompleted in 
+>> commit 4c67525849e0b7f4bd4fab leded to this issue . 
+>> In tcp_v6_send_response, fl6.oif can't be directly set to iif for global
+>> address, but it should not be 0.
 > 
->> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->> index 869c7af..cac38ba 100644
->> --- a/net/core/skbuff.c
->> +++ b/net/core/skbuff.c
->> @@ -2866,8 +2866,9 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
->>  	int err = -ENOMEM;
->>  	int i = 0;
->>  	int pos;
->> +	int dummy;
->>  
->> -	proto = skb_network_protocol(head_skb);
->> +	proto = skb_network_protocol(head_skb, &dummy);
->>  	if (unlikely(!proto))
->>  		return ERR_PTR(-EINVAL);
->>  
+> Actually, I wonder if
 > 
-> I am wondering if '&dummy' could be replaced by &doffset.
+> if (rt6_need_strict(&fl6.daddr) || !oif)
+> 	fl6.flowi6_oif = inet6_iif(skb);
+> else
+> 	fl6.flowi6_oif = oif;
 > 
-> We have :
+> would be ok, too, and would ensure that errors with no sockets would
+> reach their target with higher probability in case of policy routes.
 > 
-> unsigned int doffset = head_skb->data - skb_mac_header(head_skb);
+That would be better, I'll send v4 later
+> In routing code we don't do strict lookup unless either we have the
+> indication by the socket (if available) or destination address is
+> multicast, linklocal or loopback. Otherwise we only favour flowi6_oif
+> interfaces.
 > 
-> It looks like this is the same content than 'dummy', right ?
+> Bye,
 > 
-
-No, that shouldn't be.  doffset is the offset of data past the
-ip and tcp headers.  Dummy above will usually be the size of mac header
-which at this point is useless to us.   The only time it might
-be useful is if we have more encapsulations inside the tcp/udp
-headers that skb_network_protocol would actually parse
-(may be vlan on top of vxlan, so that vlan tagged frame is put
-inside the UDP payload.  not sure if its possible).  But I think
-this is already handled.
-
--vlad
+>   Hannes
+> 
+> 
+> 
