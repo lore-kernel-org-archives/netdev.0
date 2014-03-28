@@ -1,45 +1,50 @@
-From: Adam Lee <adam.lee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH v3 2/2] rtlwifi: rtl8188ee: enable MSI interrupts mode
-Date: Fri, 28 Mar 2014 11:36:19 +0800
-Message-ID: <1395977779-16093-2-git-send-email-adam.lee@canonical.com>
-References: <1395715732-9545-1-git-send-email-adam.lee@canonical.com>
- <1395977779-16093-1-git-send-email-adam.lee@canonical.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1395977779-16093-1-git-send-email-adam.lee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: ratheesh kannoth <ratheesh.ksz@gmail.com>
+Subject: Re: openvswitch question
+Date: Fri, 28 Mar 2014 09:24:27 +0530
+Message-ID: <CAGZFCEFQ0ptVarxUi9-+uptvMFNnD29DYLLS3JB+Y0mwOsThoA@mail.gmail.com>
+References: <CAGZFCEHSVpH8XN4n3A3xhVtYNqp4kn3PM7aXWRCxKFSkQVfABQ@mail.gmail.com>
+	<CAEP_g=8=BxsXe7PNPAvyEVCDFLCRrskEPVf1ts6Aoo4-eRtQug@mail.gmail.com>
+	<532C0B76.4020108@6wind.com>
+	<CAGZFCEFZgjStq7kH2pfi+X-sjJU69v7zXWey6JztWH1Y-XoXYQ@mail.gmail.com>
+	<53314FDF.2060205@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jesse Gross <jesse@nicira.com>, netdev <netdev@vger.kernel.org>
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f171.google.com ([209.85.160.171]:52689 "EHLO
+	mail-yk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751883AbaC1Dy2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 23:54:28 -0400
+Received: by mail-yk0-f171.google.com with SMTP id q9so3179138ykb.16
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 20:54:27 -0700 (PDT)
+In-Reply-To: <53314FDF.2060205@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some HP notebooks using this rtl8188ee hardware module can't get
-AP scan results with pin-based interrupts mode, enabling MSI interrupts
-mode could fix it.
+On Tue, Mar 25, 2014 at 3:13 PM, Nicolas Dichtel
+<nicolas.dichtel@6wind.com> wrote:
+> Le 21/03/2014 16:15, ratheesh kannoth a =E9crit :
+>
+>> On Fri, Mar 21, 2014 at 3:20 PM, Nicolas Dichtel
+>> <nicolas.dichtel@6wind.com> wrote:
+>>>
+>>> Stop me if I'm wrong, but there may be a difference with netns, the
+>>> netdevice
+>>> can be in a different netns than the ovs port.
 
-As RealTek's testing results, RTL8188EE works well with both MSI mode
-and pin-based mode fallback.
+Nicolas,
 
-Signed-off-by: Adam Lee <adam.lee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
----
- drivers/net/wireless/rtlwifi/rtl8188ee/sw.c | 1 +
- 1 file changed, 1 insertion(+)
+You are absolutely right.  Thanks a lot. This is only available in
+newer version of  openvswitch.
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/sw.c b/drivers/net/wireless/rtlwifi/rtl8188ee/sw.c
-index 347af1e..1b4101b 100644
---- a/drivers/net/wireless/rtlwifi/rtl8188ee/sw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8188ee/sw.c
-@@ -93,6 +93,7 @@ int rtl88e_init_sw_vars(struct ieee80211_hw *hw)
- 	u8 tid;
- 
- 	rtl8188ee_bt_reg_init(hw);
-+	rtlpci->msi_support = true;
- 
- 	rtlpriv->dm.dm_initialgain_enable = 1;
- 	rtlpriv->dm.dm_flag = 0;
--- 
-1.9.1
+I was working in 2.0.0. I could see the internal device ( switch )
+device  using command  "ifconfig".
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yesterday  i git cloned newest version. when i created a new internal
+device ( openvswitch switch ),  ifconfig command doesnot list out the
+device. http://lists.linuxfoundation.org/pipermail/containers/2007-Sept=
+ember/007112.html
+
+-Ratheesh
