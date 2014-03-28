@@ -1,50 +1,61 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 07/14] i40evf: remove double space after return
-Date: Fri, 28 Mar 2014 07:08:08 -0700
-Message-ID: <1396015695-25283-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 09/14] i40e/i40evf: Add an FD message level
+Date: Fri, 28 Mar 2014 07:08:10 -0700
+Message-ID: <1396015695-25283-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Kevin Scott <kevin.c.scott@intel.com>,
 	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:61227 "EHLO mga02.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:17012 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752354AbaC1OI5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2014 10:08:57 -0400
+	id S1752079AbaC1OJL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2014 10:09:11 -0400
 In-Reply-To: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-There were two spaces between return and the value, we only need one.
+To use for Flow Director specific messages.
 
-Change-ID: Iaa42c33f50d8d149cdf1a4c9c1902295bfd991c4
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: I69e39a410aa2661f8fd1ed6af0126fa4c335cb77
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Acked-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Kevin Scott <kevin.c.scott@intel.com>
+Acked-by: Kevin Scott <kevin.c.scott@intel.com>
 Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40e_prototype.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_type.h   | 1 +
+ drivers/net/ethernet/intel/i40evf/i40e_type.h | 1 +
+ 2 files changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_prototype.h b/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
-index 862fcdf..97ab8c2 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
-@@ -67,7 +67,7 @@ extern struct i40e_rx_ptype_decoded i40evf_ptype_lookup[];
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index d2f0b95..71a968f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -91,6 +91,7 @@ enum i40e_debug_mask {
+ 	I40E_DEBUG_FLOW			= 0x00000200,
+ 	I40E_DEBUG_DCB			= 0x00000400,
+ 	I40E_DEBUG_DIAG			= 0x00000800,
++	I40E_DEBUG_FD			= 0x00001000,
  
- static inline struct i40e_rx_ptype_decoded decode_rx_desc_ptype(u8 ptype)
- {
--	return  i40evf_ptype_lookup[ptype];
-+	return i40evf_ptype_lookup[ptype];
- }
+ 	I40E_DEBUG_AQ_MESSAGE		= 0x01000000,
+ 	I40E_DEBUG_AQ_DESCRIPTOR	= 0x02000000,
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index efe73ad..4673b33 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -88,6 +88,7 @@ enum i40e_debug_mask {
+ 	I40E_DEBUG_FLOW			= 0x00000200,
+ 	I40E_DEBUG_DCB			= 0x00000400,
+ 	I40E_DEBUG_DIAG			= 0x00000800,
++	I40E_DEBUG_FD			= 0x00001000,
  
- /* prototype for functions used for SW locks */
+ 	I40E_DEBUG_AQ_MESSAGE		= 0x01000000,
+ 	I40E_DEBUG_AQ_DESCRIPTOR	= 0x02000000,
 -- 
 1.9.0
