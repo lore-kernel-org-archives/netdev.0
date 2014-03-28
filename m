@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/14] i40e: Delete ATR filter on RST
-Date: Fri, 28 Mar 2014 07:08:02 -0700
-Message-ID: <1396015695-25283-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 05/14] i40e: Cleanup in FDIR SB ethtool code
+Date: Fri, 28 Mar 2014 07:08:06 -0700
+Message-ID: <1396015695-25283-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -9,53 +9,111 @@ Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:21084 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:28812 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751404AbaC1OIR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2014 10:08:17 -0400
+	id S1751404AbaC1OIT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2014 10:08:19 -0400
 In-Reply-To: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-We currently delete ATR filter on FIN alone, delete on RST as well.
+Function add_del_fdir was used and implemented only for add. So change the name
+and drop a parameter.
 
-Change-ID: Ie7cae5d1046b9d1d4a0d6ef5bdbf41224c3dade6
+Change-ID: Icf2c6c3bbd4fd00cf8d9613a3f6d8c08e0f8e288
 Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 32 +++++++++++---------------
+ 1 file changed, 13 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 851f653..de25a32 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1624,8 +1624,11 @@ static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 28da412..0461a72 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -62,8 +62,8 @@ static const struct i40e_stats i40e_gstrings_net_stats[] = {
+ 	I40E_NETDEV_STAT(rx_crc_errors),
+ };
  
- 	tx_ring->atr_count++;
+-static int i40e_add_del_fdir_ethtool(struct i40e_vsi *vsi,
+-				     struct ethtool_rxnfc *cmd, bool add);
++static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
++				 struct ethtool_rxnfc *cmd);
  
--	/* sample on all syn/fin packets or once every atr sample rate */
--	if (!th->fin && !th->syn && (tx_ring->atr_count < tx_ring->atr_sample_rate))
-+	/* sample on all syn/fin/rst packets or once every atr sample rate */
-+	if (!th->fin &&
-+	    !th->syn &&
-+	    !th->rst &&
-+	    (tx_ring->atr_count < tx_ring->atr_sample_rate))
- 		return;
+ /* These PF_STATs might look like duplicates of some NETDEV_STATs,
+  * but they are separate.  This device supports Virtualization, and
+@@ -1470,16 +1470,15 @@ static int i40e_del_fdir_entry(struct i40e_vsi *vsi,
+ }
  
- 	tx_ring->atr_count = 0;
-@@ -1649,7 +1652,7 @@ static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ /**
+- * i40e_add_del_fdir_ethtool - Add/Remove Flow Director filters
++ * i40e_add_fdir_ethtool - Add/Remove Flow Director filters
+  * @vsi: pointer to the targeted VSI
+  * @cmd: command to get or set RX flow classification rules
+- * @add: true adds a filter, false removes it
+  *
+- * Add/Remove Flow Director filters for a specific flow spec based on their
+- * protocol.  Returns 0 if the filters were successfully added or removed.
++ * Add Flow Director filters for a specific flow spec based on their
++ * protocol.  Returns 0 if the filters were successfully added.
+  **/
+-static int i40e_add_del_fdir_ethtool(struct i40e_vsi *vsi,
+-				     struct ethtool_rxnfc *cmd, bool add)
++static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
++				 struct ethtool_rxnfc *cmd)
+ {
+ 	struct ethtool_rx_flow_spec *fsp;
+ 	struct i40e_fdir_filter *input;
+@@ -1494,7 +1493,7 @@ static int i40e_add_del_fdir_ethtool(struct i40e_vsi *vsi,
+ 	if (!(pf->flags & I40E_FLAG_FD_SB_ENABLED))
+ 		return -EOPNOTSUPP;
  
- 	dtype_cmd = I40E_TX_DESC_DTYPE_FILTER_PROG;
+-	if (add && (pf->auto_disable_flags & I40E_FLAG_FD_SB_ENABLED))
++	if (pf->auto_disable_flags & I40E_FLAG_FD_SB_ENABLED)
+ 		return -ENOSPC;
  
--	dtype_cmd |= th->fin ?
-+	dtype_cmd |= (th->fin || th->rst) ?
- 		     (I40E_FILTER_PROGRAM_DESC_PCMD_REMOVE <<
- 		      I40E_TXD_FLTR_QW1_PCMD_SHIFT) :
- 		     (I40E_FILTER_PROGRAM_DESC_PCMD_ADD_UPDATE <<
+ 	fsp = (struct ethtool_rx_flow_spec *)&cmd->fs;
+@@ -1504,7 +1503,7 @@ static int i40e_add_del_fdir_ethtool(struct i40e_vsi *vsi,
+ 		return -EINVAL;
+ 	}
+ 
+-	if ((fsp->ring_cookie >= vsi->num_queue_pairs) && add)
++	if (fsp->ring_cookie >= vsi->num_queue_pairs)
+ 		return -EINVAL;
+ 
+ 	input = kzalloc(sizeof(*input), GFP_KERNEL);
+@@ -1528,16 +1527,11 @@ static int i40e_add_del_fdir_ethtool(struct i40e_vsi *vsi,
+ 	input->src_ip[0] = fsp->h_u.tcp_ip4_spec.ip4src;
+ 	input->dst_ip[0] = fsp->h_u.tcp_ip4_spec.ip4dst;
+ 
+-	ret = i40e_add_del_fdir(vsi, input, add);
+-	if (ret) {
++	ret = i40e_add_del_fdir(vsi, input, true);
++	if (ret)
+ 		kfree(input);
+-		return ret;
+-	}
+-
+-	if (!ret && add)
+-		i40e_update_ethtool_fdir_entry(vsi, input, fsp->location, NULL);
+ 	else
+-		kfree(input);
++		i40e_update_ethtool_fdir_entry(vsi, input, fsp->location, NULL);
+ 
+ 	return ret;
+ }
+@@ -1561,7 +1555,7 @@ static int i40e_set_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *cmd)
+ 		ret = i40e_set_rss_hash_opt(pf, cmd);
+ 		break;
+ 	case ETHTOOL_SRXCLSRLINS:
+-		ret = i40e_add_del_fdir_ethtool(vsi, cmd, true);
++		ret = i40e_add_fdir_ethtool(vsi, cmd);
+ 		break;
+ 	case ETHTOOL_SRXCLSRLDEL:
+ 		ret = i40e_del_fdir_entry(vsi, cmd);
 -- 
 1.9.0
