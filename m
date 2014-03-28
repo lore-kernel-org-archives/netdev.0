@@ -1,51 +1,56 @@
-From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH v3 net 1/3] xen-netback: remove pointless clause from if statement
-Date: Fri, 28 Mar 2014 11:39:05 +0000
-Message-ID: <1396006747-9113-2-git-send-email-paul.durrant@citrix.com>
-References: <1396006747-9113-1-git-send-email-paul.durrant@citrix.com>
+From: Madoka Komatsubara <m-komatsubara@ab.jp.nec.com>
+Subject: Unable to receive multicast packet on VF
+Date: Fri, 28 Mar 2014 11:49:05 +0000
+Message-ID: <9DE5760509B7974286F38D93BF31DD62C7D0B8@BPXM13GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Durrant <paul.durrant@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Sander Eikelenboom <linux@eikelenboom.it>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:29606 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751435AbaC1LjM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2014 07:39:12 -0400
-In-Reply-To: <1396006747-9113-1-git-send-email-paul.durrant@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	Hiroshi Baba <h-baba@ax.jp.nec.com>
+To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Language: ja-JP
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-This patch removes a test in start_new_rx_buffer() that checks whether
-a copy operation is less than MAX_BUFFER_OFFSET in length, since
-MAX_BUFFER_OFFSET is defined to be PAGE_SIZE and the only caller of
-start_new_rx_buffer() already limits copy operations to PAGE_SIZE or less.
+Hi all,
 
-Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Sander Eikelenboom <linux@eikelenboom.it>
----
- drivers/net/xen-netback/netback.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 438d0c0..72314c7 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -192,8 +192,8 @@ static bool start_new_rx_buffer(int offset, unsigned long size, int head)
- 	 * into multiple copies tend to give large frags their
- 	 * own buffers as before.
- 	 */
--	if ((offset + size > MAX_BUFFER_OFFSET) &&
--	    (size <= MAX_BUFFER_OFFSET) && offset && !head)
-+	BUG_ON(size > MAX_BUFFER_OFFSET);
-+	if ((offset + size > MAX_BUFFER_OFFSET) && offset && !head)
- 		return true;
- 
- 	return false;
--- 
-1.7.10.4
+We would like to use multicast packet on the guest with Intel 82599EB SR-IOV.
+However, the document says that adding the multicast MAC address to the VF 
+is allowed during PF initialization only. (Please refer to the URL below.)
+It means that we couldn't handle dynamically allocated multicast address.
+
+On the other hand,
+>From the data sheet, 82599EB has Multicast Promiscuous mode.
+We could enable it on PF and all multicast packets are delivered to every VF.
+That doesn't seem good, because each guest has to handle unnecessary packet.
+
+Isn't it good to have a feature to add specific multicast address to VF?
+Does anyone know that issue or the solution?
+
+
+
+<http://www.intel.com/content/dam/www/public/us/en/documents/datasheets/82599-10-gbe-controller-datasheet.pdf>
+ page585
+ section 8.2.3.7.7
+ "This table should be initialized by software before transmit and receive are enabled."
+
+Regards,
+Madoka Komatsubara
+
+------------------------------------------------------------------------------
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
