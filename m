@@ -1,9 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 03/14] i40e: Make the alloc and free queue vector calls orthogonal
-Date: Fri, 28 Mar 2014 07:08:04 -0700
-Message-ID: <1396015695-25283-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 04/14] i40e: eeprom integrity check on load and empr
+Date: Fri, 28 Mar 2014 07:08:05 -0700
+Message-ID: <1396015695-25283-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
@@ -11,83 +11,147 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:21084 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751227AbaC1OIT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2014 10:08:19 -0400
+	id S1752051AbaC1OIU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2014 10:08:20 -0400
 In-Reply-To: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-It's annoying to search for a matching alloc and free set of function calls
-when they don't use the same framework for the name of the functions.  Fix
-that up in the case of alloc and free of vsi queue vectors.
+The driver needs to verify the eeprom checksum and firmware crc status bits,
+and shutdown the driver if they fail. This code stops the processing of traffic,
+but doesn't kill the PF netdev so that the NVMUpdate process should still have a
+chance at fixing the image. The eeprom is checked on driver load and after an
+EMP reset, the latter of which should be generated after an NVMUpdate.
 
-i40e_vsi_free_q*
-i40e_vsi_alloc_q*
-
-Change-ID: I510eb863a0fbe405312bebea55c2846c76285e6d
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Change-ID: I34deef21d2e16bf5a43c603cf8af27e6a29dc9d2
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 50 +++++++++++++++++++++++++----
+ 2 files changed, 45 insertions(+), 6 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 33cd8b6..beb7b43 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -136,6 +136,7 @@ enum i40e_state_t {
+ 	__I40E_EMP_RESET_REQUESTED,
+ 	__I40E_FILTER_OVERFLOW_PROMISC,
+ 	__I40E_SUSPENDED,
++	__I40E_BAD_EEPROM,
+ };
+ 
+ enum i40e_interrupt_policy {
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 28df88e..91fd1f1 100644
+index 91fd1f1..a1ec793 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -6111,13 +6111,13 @@ static int i40e_init_msix(struct i40e_pf *pf)
- }
+@@ -26,6 +26,7 @@
  
- /**
-- * i40e_alloc_q_vector - Allocate memory for a single interrupt vector
-+ * i40e_vsi_alloc_q_vector - Allocate memory for a single interrupt vector
-  * @vsi: the VSI being configured
-  * @v_idx: index of the vector in the vsi struct
-  *
-  * We allocate one q_vector.  If allocation fails we return -ENOMEM.
-  **/
--static int i40e_alloc_q_vector(struct i40e_vsi *vsi, int v_idx)
-+static int i40e_vsi_alloc_q_vector(struct i40e_vsi *vsi, int v_idx)
- {
- 	struct i40e_q_vector *q_vector;
+ /* Local includes */
+ #include "i40e.h"
++#include "i40e_diag.h"
+ #ifdef CONFIG_I40E_VXLAN
+ #include <net/vxlan.h>
+ #endif
+@@ -2877,12 +2878,14 @@ static irqreturn_t i40e_intr(int irq, void *data)
+ 		val = rd32(hw, I40E_GLGEN_RSTAT);
+ 		val = (val & I40E_GLGEN_RSTAT_RESET_TYPE_MASK)
+ 		       >> I40E_GLGEN_RSTAT_RESET_TYPE_SHIFT;
+-		if (val == I40E_RESET_CORER)
++		if (val == I40E_RESET_CORER) {
+ 			pf->corer_count++;
+-		else if (val == I40E_RESET_GLOBR)
++		} else if (val == I40E_RESET_GLOBR) {
+ 			pf->globr_count++;
+-		else if (val == I40E_RESET_EMPR)
++		} else if (val == I40E_RESET_EMPR) {
+ 			pf->empr_count++;
++			set_bit(__I40E_EMP_RESET_REQUESTED, &pf->state);
++		}
+ 	}
  
-@@ -6143,13 +6143,13 @@ static int i40e_alloc_q_vector(struct i40e_vsi *vsi, int v_idx)
- }
- 
- /**
-- * i40e_alloc_q_vectors - Allocate memory for interrupt vectors
-+ * i40e_vsi_alloc_q_vectors - Allocate memory for interrupt vectors
-  * @vsi: the VSI being configured
-  *
-  * We allocate one q_vector per queue interrupt.  If allocation fails we
-  * return -ENOMEM.
-  **/
--static int i40e_alloc_q_vectors(struct i40e_vsi *vsi)
-+static int i40e_vsi_alloc_q_vectors(struct i40e_vsi *vsi)
- {
+ 	if (icr0 & I40E_PFINT_ICR0_HMC_ERR_MASK) {
+@@ -4257,8 +4260,9 @@ static int i40e_open(struct net_device *netdev)
  	struct i40e_pf *pf = vsi->back;
- 	int v_idx, num_q_vectors;
-@@ -6164,7 +6164,7 @@ static int i40e_alloc_q_vectors(struct i40e_vsi *vsi)
- 		return -EINVAL;
+ 	int err;
  
- 	for (v_idx = 0; v_idx < num_q_vectors; v_idx++) {
--		err = i40e_alloc_q_vector(vsi, v_idx);
-+		err = i40e_vsi_alloc_q_vector(vsi, v_idx);
- 		if (err)
- 			goto err_out;
- 	}
-@@ -7020,7 +7020,7 @@ static int i40e_vsi_setup_vectors(struct i40e_vsi *vsi)
- 		return -EEXIST;
+-	/* disallow open during test */
+-	if (test_bit(__I40E_TESTING, &pf->state))
++	/* disallow open during test or if eeprom is broken */
++	if (test_bit(__I40E_TESTING, &pf->state) ||
++	    test_bit(__I40E_BAD_EEPROM, &pf->state))
+ 		return -EBUSY;
+ 
+ 	netif_carrier_off(netdev);
+@@ -5078,6 +5082,31 @@ static void i40e_clean_adminq_subtask(struct i40e_pf *pf)
+ }
+ 
+ /**
++ * i40e_verify_eeprom - make sure eeprom is good to use
++ * @pf: board private structure
++ **/
++static void i40e_verify_eeprom(struct i40e_pf *pf)
++{
++	int err;
++
++	err = i40e_diag_eeprom_test(&pf->hw);
++	if (err) {
++		/* retry in case of garbage read */
++		err = i40e_diag_eeprom_test(&pf->hw);
++		if (err) {
++			dev_info(&pf->pdev->dev, "eeprom check failed (%d), Tx/Rx traffic disabled\n",
++				 err);
++			set_bit(__I40E_BAD_EEPROM, &pf->state);
++		}
++	}
++
++	if (!err && test_bit(__I40E_BAD_EEPROM, &pf->state)) {
++		dev_info(&pf->pdev->dev, "eeprom check passed, Tx/Rx traffic enabled\n");
++		clear_bit(__I40E_BAD_EEPROM, &pf->state);
++	}
++}
++
++/**
+  * i40e_reconstitute_veb - rebuild the VEB and anything connected to it
+  * @veb: pointer to the VEB instance
+  *
+@@ -5386,6 +5415,12 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
+ 		goto end_core_reset;
  	}
  
--	ret = i40e_alloc_q_vectors(vsi);
-+	ret = i40e_vsi_alloc_q_vectors(vsi);
++	/* re-verify the eeprom if we just had an EMP reset */
++	if (test_bit(__I40E_EMP_RESET_REQUESTED, &pf->state)) {
++		clear_bit(__I40E_EMP_RESET_REQUESTED, &pf->state);
++		i40e_verify_eeprom(pf);
++	}
++
+ 	ret = i40e_get_capabilities(pf);
  	if (ret) {
- 		dev_info(&pf->pdev->dev,
- 			 "failed to allocate %d q_vector for VSI %d, ret=%d\n",
+ 		dev_info(&pf->pdev->dev, "i40e_get_capabilities failed, %d\n",
+@@ -8157,6 +8192,8 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_pf_reset;
+ 	}
+ 
++	i40e_verify_eeprom(pf);
++
+ 	i40e_clear_pxe_mode(hw);
+ 	err = i40e_get_capabilities(pf);
+ 	if (err)
+@@ -8258,7 +8295,8 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	/* prep for VF support */
+ 	if ((pf->flags & I40E_FLAG_SRIOV_ENABLED) &&
+-	    (pf->flags & I40E_FLAG_MSIX_ENABLED)) {
++	    (pf->flags & I40E_FLAG_MSIX_ENABLED) &&
++	    !test_bit(__I40E_BAD_EEPROM, &pf->state)) {
+ 		u32 val;
+ 
+ 		/* disable link interrupts for VFs */
 -- 
 1.9.0
