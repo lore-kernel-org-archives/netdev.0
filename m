@@ -1,58 +1,58 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] phy/at8031: enable at8031 to work on interrupt mode
-Date: Fri, 28 Mar 2014 21:09:02 +0300
-Message-ID: <5335BABE.80007@cogentembedded.com>
-References: <1395901116-16034-1-git-send-email-B45475@freescale.com> <53341101.9000404@cogentembedded.com> <0ca1e7910cd247c4aebe4cbd48a633cb@BLUPR03MB341.namprd03.prod.outlook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 3/3] ipv6: fix checkpatch errors of "foo*"
+ and "foo * bar"
+Date: Fri, 28 Mar 2014 13:09:38 -0400 (EDT)
+Message-ID: <20140328.130938.946041549993034332.davem@davemloft.net>
+References: <20140328.014012.963819707045886028.davem@davemloft.net>
+	<1395985645.31134.2.camel@joe-AO722>
+	<53354202.4080108@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"mugunthanvnm@ti.com" <mugunthanvnm@ti.com>,
-	"zonque@gmail.com" <zonque@gmail.com>,
-	"helmut.schaa@googlemail.com" <helmut.schaa@googlemail.com>,
-	Xiaobo Xie <X.Xie@freescale.com>
-To: "qiang.zhao@freescale.com" <qiang.zhao@freescale.com>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Scott Wood <scottwood@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0ca1e7910cd247c4aebe4cbd48a633cb@BLUPR03MB341.namprd03.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: joe@perches.com, netdev@vger.kernel.org
+To: wangyufen@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38367 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752433AbaC1RJl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 13:09:41 -0400
+In-Reply-To: <53354202.4080108@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: wangyufen <wangyufen@huawei.com>
+Date: Fri, 28 Mar 2014 17:33:54 +0800
 
-On 03/28/2014 10:36 AM, qiang.zhao@freescale.com wrote:
-
->>> The at8031 can work on polling mode and interrupt mode.
->>> Add ack_interrupt and config intr funcs to enable interrupt mode for
->>> it.
-
->>> Signed-off-by: Zhao Qiang <B45475@freescale.com>
->>> ---
->>>    drivers/net/phy/at803x.c | 30 ++++++++++++++++++++++++++++++
->>>    1 file changed, 30 insertions(+)
-
->>> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c index
->>> bc71947..d034ef5 100644
->>> --- a/drivers/net/phy/at803x.c
->>> +++ b/drivers/net/phy/at803x.c
->> [...]
->>> @@ -191,6 +194,31 @@ static int at803x_config_init(struct phy_device
->> *phydev)
->>>    	return 0;
->>>    }
+> On 2014/3/28 13:47, Joe Perches wrote:
+>> On Fri, 2014-03-28 at 01:40 -0400, David Miller wrote:
+>>> From: Joe Perches <joe@perches.com>
+>>> Date: Thu, 27 Mar 2014 21:22:01 -0700
 >>>
->>> +static int at803x_ack_interrupt(struct phy_device *phydev) {
->>> +	int err;
->>> +
->>> +	err = phy_read(phydev, AT803X_INSR);
+>>>> On Fri, 2014-03-28 at 12:07 +0800, Wangyufen wrote:
+>>>> []
+>>>>> diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+>>>> []
+>>>>> @@ -143,7 +143,7 @@ static __inline__ __be32 addr_bit_set(const void *token, int fn_bit)
+>>>>>  	       addr[fn_bit >> 5];
+>>>>>  }
+>>>>
+>>>> Perhaps all the __inline__ uses could be changed to inline too.
+>>>
+>>> Or rather, deleted completely, this is a *.c file after all.
+>> 
+>> Maybe right.  There are a lot though just in net/
+>> 
+>> $ git ls-files net | grep "\.c$" | \
+>>   xargs grep -Pw "_{0,2}inline_{0,2}" | wc -l
+>> 1512
+>> 
+>> 
+>> 
+>> 
+>> 
+> 
+> Or change to inline and move the whole function to ip6_fib.h?
 
->>      Could make this an initializer...
-
-> Thank you very much. However I have no idea about "make this an initializer".
-
-	int err = phy_read(phydev, AT803X_INSR);
-
-WBR, Sergei
+No, that is not desirable.  The whole point is to not export the interface
+outside of the *.c file, and to let the compiler make inlining decisions
+since it can see all of the call sites.
