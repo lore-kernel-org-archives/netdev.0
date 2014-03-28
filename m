@@ -1,31 +1,33 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v4 5/9] net: ptp: do not reimplement PTP/BPF classifier
-Date: Fri, 28 Mar 2014 18:58:22 +0100
-Message-ID: <1396029506-16776-6-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next v4 4/9] net: ptp: use sk_unattached_filter_create() for BPF
+Date: Fri, 28 Mar 2014 18:58:21 +0100
+Message-ID: <1396029506-16776-5-git-send-email-dborkman@redhat.com>
 References: <1396029506-16776-1-git-send-email-dborkman@redhat.com>
 Cc: ast@plumgrid.com, netdev@vger.kernel.org,
 	Richard Cochran <richard.cochran@omicron.at>,
 	Jiri Benc <jbenc@redhat.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30998 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:41536 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753983AbaC1R6p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2014 13:58:45 -0400
+	id S1753394AbaC1R6o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2014 13:58:44 -0400
 In-Reply-To: <1396029506-16776-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are currently pch_gbe, cpts, and ixp4xx_eth drivers that open-code
-and reimplement a BPF classifier for the PTP protocol. Since all of them
-effectively do the very same thing and load the very same PTP/BPF filter,
-we can just consolidate that code by introducing ptp_classify_raw() in
-the time-stamping core framework which can be used in drivers.
+This patch migrates an open-coded sk_run_filter() implementation with
+proper use of the BPF API, that is, sk_unattached_filter_create(). This
+migration is needed, as we will be internally transforming the filter
+to a different representation, and therefore needs to be decoupled.
 
-As drivers get initialized after bootstrapping the core networking
-subsystem, they can make use of ptp_insns wrapped through
-ptp_classify_raw(), which allows to simplify and remove PTP classifier
-setup code in drivers.
+It is okay to do so as skb_timestamping_init() is called during
+initialization of the network stack in core initcall via sock_init().
+This would effectively also allow for PTP filters to be jit compiled if
+bpf_jit_enable is set.
+
+For better readability, there are also some newlines introduced, also
+ptp_classify.h is only in kernel space.
 
 Joint work with Alexei Starovoitov.
 
@@ -34,168 +36,91 @@ Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 Cc: Richard Cochran <richard.cochran@omicron.at>
 Cc: Jiri Benc <jbenc@redhat.com>
 ---
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c | 11 +----------
- drivers/net/ethernet/ti/cpts.c                       | 10 +---------
- drivers/net/ethernet/xscale/ixp4xx_eth.c             | 11 +----------
- include/linux/ptp_classify.h                         | 10 ++--------
- net/core/timestamping.c                              |  8 +++++++-
- 5 files changed, 12 insertions(+), 38 deletions(-)
+ include/linux/ptp_classify.h |  4 ----
+ net/core/timestamping.c      | 21 ++++++++++++++-------
+ 2 files changed, 14 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index 464e910..73e6683 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -120,10 +120,6 @@ static void pch_gbe_mdio_write(struct net_device *netdev, int addr, int reg,
- 			       int data);
- static void pch_gbe_set_multi(struct net_device *netdev);
- 
--static struct sock_filter ptp_filter[] = {
--	PTP_FILTER
--};
--
- static int pch_ptp_match(struct sk_buff *skb, u16 uid_hi, u32 uid_lo, u16 seqid)
- {
- 	u8 *data = skb->data;
-@@ -131,7 +127,7 @@ static int pch_ptp_match(struct sk_buff *skb, u16 uid_hi, u32 uid_lo, u16 seqid)
- 	u16 *hi, *id;
- 	u32 lo;
- 
--	if (sk_run_filter(skb, ptp_filter) == PTP_CLASS_NONE)
-+	if (ptp_classify_raw(skb) == PTP_CLASS_NONE)
- 		return 0;
- 
- 	offset = ETH_HLEN + IPV4_HLEN(data) + UDP_HLEN;
-@@ -2635,11 +2631,6 @@ static int pch_gbe_probe(struct pci_dev *pdev,
- 
- 	adapter->ptp_pdev = pci_get_bus_and_slot(adapter->pdev->bus->number,
- 					       PCI_DEVFN(12, 4));
--	if (ptp_filter_init(ptp_filter, ARRAY_SIZE(ptp_filter))) {
--		dev_err(&pdev->dev, "Bad ptp filter\n");
--		ret = -EINVAL;
--		goto err_free_netdev;
--	}
- 
- 	netdev->netdev_ops = &pch_gbe_netdev_ops;
- 	netdev->watchdog_timeo = PCH_GBE_WATCHDOG_PERIOD;
-diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index 372cb19..a3bbf59 100644
---- a/drivers/net/ethernet/ti/cpts.c
-+++ b/drivers/net/ethernet/ti/cpts.c
-@@ -31,10 +31,6 @@
- 
- #ifdef CONFIG_TI_CPTS
- 
--static struct sock_filter ptp_filter[] = {
--	PTP_FILTER
--};
--
- #define cpts_read32(c, r)	__raw_readl(&c->reg->r)
- #define cpts_write32(c, v, r)	__raw_writel(v, &c->reg->r)
- 
-@@ -301,7 +297,7 @@ static u64 cpts_find_ts(struct cpts *cpts, struct sk_buff *skb, int ev_type)
- 	u64 ns = 0;
- 	struct cpts_event *event;
- 	struct list_head *this, *next;
--	unsigned int class = sk_run_filter(skb, ptp_filter);
-+	unsigned int class = ptp_classify_raw(skb);
- 	unsigned long flags;
- 	u16 seqid;
- 	u8 mtype;
-@@ -372,10 +368,6 @@ int cpts_register(struct device *dev, struct cpts *cpts,
- 	int err, i;
- 	unsigned long flags;
- 
--	if (ptp_filter_init(ptp_filter, ARRAY_SIZE(ptp_filter))) {
--		pr_err("cpts: bad ptp filter\n");
--		return -EINVAL;
--	}
- 	cpts->info = cpts_info;
- 	cpts->clock = ptp_clock_register(&cpts->info, dev);
- 	if (IS_ERR(cpts->clock)) {
-diff --git a/drivers/net/ethernet/xscale/ixp4xx_eth.c b/drivers/net/ethernet/xscale/ixp4xx_eth.c
-index 25283f1..f7e0f0f 100644
---- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
-+++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
-@@ -256,10 +256,6 @@ static int ports_open;
- static struct port *npe_port_tab[MAX_NPES];
- static struct dma_pool *dma_pool;
- 
--static struct sock_filter ptp_filter[] = {
--	PTP_FILTER
--};
--
- static int ixp_ptp_match(struct sk_buff *skb, u16 uid_hi, u32 uid_lo, u16 seqid)
- {
- 	u8 *data = skb->data;
-@@ -267,7 +263,7 @@ static int ixp_ptp_match(struct sk_buff *skb, u16 uid_hi, u32 uid_lo, u16 seqid)
- 	u16 *hi, *id;
- 	u32 lo;
- 
--	if (sk_run_filter(skb, ptp_filter) != PTP_CLASS_V1_IPV4)
-+	if (ptp_classify_raw(skb) != PTP_CLASS_V1_IPV4)
- 		return 0;
- 
- 	offset = ETH_HLEN + IPV4_HLEN(data) + UDP_HLEN;
-@@ -1413,11 +1409,6 @@ static int eth_init_one(struct platform_device *pdev)
- 	char phy_id[MII_BUS_ID_SIZE + 3];
- 	int err;
- 
--	if (ptp_filter_init(ptp_filter, ARRAY_SIZE(ptp_filter))) {
--		pr_err("ixp4xx_eth: bad ptp filter\n");
--		return -EINVAL;
--	}
--
- 	if (!(dev = alloc_etherdev(sizeof(struct port))))
- 		return -ENOMEM;
- 
 diff --git a/include/linux/ptp_classify.h b/include/linux/ptp_classify.h
-index 3decfa4..6d3b0a2 100644
+index 1dc420b..3decfa4 100644
 --- a/include/linux/ptp_classify.h
 +++ b/include/linux/ptp_classify.h
-@@ -80,14 +80,6 @@
- #define OP_RETA	(BPF_RET | BPF_A)
- #define OP_RETK	(BPF_RET | BPF_K)
+@@ -27,11 +27,7 @@
+ #include <linux/if_vlan.h>
+ #include <linux/ip.h>
+ #include <linux/filter.h>
+-#ifdef __KERNEL__
+ #include <linux/in.h>
+-#else
+-#include <netinet/in.h>
+-#endif
  
--static inline int ptp_filter_init(struct sock_filter *f, int len)
--{
--	if (OP_LDH == f[0].code)
--		return sk_chk_filter(f, len);
--	else
--		return 0;
--}
--
- #define PTP_FILTER \
- 	{OP_LDH,	0,   0, OFF_ETYPE		}, /*              */ \
- 	{OP_JEQ,	0,  12, ETH_P_IP		}, /* f goto L20   */ \
-@@ -133,4 +125,6 @@ static inline int ptp_filter_init(struct sock_filter *f, int len)
- 	{OP_RETA,	0,   0, 0			}, /*              */ \
- /*L6x*/	{OP_RETK,	0,   0, PTP_CLASS_NONE		},
- 
-+unsigned int ptp_classify_raw(const struct sk_buff *skb);
-+
- #endif
+ #define PTP_CLASS_NONE  0x00 /* not a PTP event message */
+ #define PTP_CLASS_V1    0x01 /* protocol version 1 */
 diff --git a/net/core/timestamping.c b/net/core/timestamping.c
-index e43d56a..9ff26b3 100644
+index 661b5a4..e43d56a 100644
 --- a/net/core/timestamping.c
 +++ b/net/core/timestamping.c
-@@ -25,11 +25,17 @@
+@@ -23,16 +23,13 @@
+ #include <linux/skbuff.h>
+ #include <linux/export.h>
  
- static struct sk_filter *ptp_insns __read_mostly;
+-static struct sock_filter ptp_filter[] = {
+-	PTP_FILTER
+-};
++static struct sk_filter *ptp_insns __read_mostly;
  
-+unsigned int ptp_classify_raw(const struct sk_buff *skb)
-+{
-+	return SK_RUN_FILTER(ptp_insns, skb);
-+}
-+EXPORT_SYMBOL_GPL(ptp_classify_raw);
-+
  static unsigned int classify(const struct sk_buff *skb)
  {
- 	if (likely(skb->dev && skb->dev->phydev &&
+-	if (likely(skb->dev &&
+-		   skb->dev->phydev &&
++	if (likely(skb->dev && skb->dev->phydev &&
  		   skb->dev->phydev->drv))
--		return SK_RUN_FILTER(ptp_insns, skb);
-+		return ptp_classify_raw(skb);
+-		return sk_run_filter(skb, ptp_filter);
++		return SK_RUN_FILTER(ptp_insns, skb);
  	else
  		return PTP_CLASS_NONE;
+ }
+@@ -60,11 +57,13 @@ void skb_clone_tx_timestamp(struct sk_buff *skb)
+ 		if (likely(phydev->drv->txtstamp)) {
+ 			if (!atomic_inc_not_zero(&sk->sk_refcnt))
+ 				return;
++
+ 			clone = skb_clone(skb, GFP_ATOMIC);
+ 			if (!clone) {
+ 				sock_put(sk);
+ 				return;
+ 			}
++
+ 			clone->sk = sk;
+ 			phydev->drv->txtstamp(phydev, clone, type);
+ 		}
+@@ -89,12 +88,15 @@ void skb_complete_tx_timestamp(struct sk_buff *skb,
+ 	}
+ 
+ 	*skb_hwtstamps(skb) = *hwtstamps;
++
+ 	serr = SKB_EXT_ERR(skb);
+ 	memset(serr, 0, sizeof(*serr));
+ 	serr->ee.ee_errno = ENOMSG;
+ 	serr->ee.ee_origin = SO_EE_ORIGIN_TIMESTAMPING;
+ 	skb->sk = NULL;
++
+ 	err = sock_queue_err_skb(sk, skb);
++
+ 	sock_put(sk);
+ 	if (err)
+ 		kfree_skb(skb);
+@@ -135,5 +137,10 @@ EXPORT_SYMBOL_GPL(skb_defer_rx_timestamp);
+ 
+ void __init skb_timestamping_init(void)
+ {
+-	BUG_ON(sk_chk_filter(ptp_filter, ARRAY_SIZE(ptp_filter)));
++	static struct sock_filter ptp_filter[] = { PTP_FILTER };
++	struct sock_fprog ptp_prog = {
++		.len = ARRAY_SIZE(ptp_filter), .filter = ptp_filter,
++	};
++
++	BUG_ON(sk_unattached_filter_create(&ptp_insns, &ptp_prog));
  }
 -- 
 1.7.11.7
