@@ -1,7 +1,8 @@
 From: Byungho An <bh74.an@samsung.com>
-Subject: [PATCH net-next] net: sxgbe: fix potential null dereference
-Date: Fri, 28 Mar 2014 10:57:44 -0700
-Message-ID: <031c01cf4aaf$3a4227a0$aec676e0$@samsung.com>
+Subject: [PATCH net-next] net: sxgbe: fix sparse warnings about static
+ declaration
+Date: Fri, 28 Mar 2014 10:57:36 -0700
+Message-ID: <031b01cf4aaf$35e1b3b0$a1a51b10$@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -18,55 +19,69 @@ List-Id: netdev.vger.kernel.org
 
 From: Byungho An <bh74.an@samsung.com>
 
-This fixes following:
+This fixes followings:
 
-drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c:1828 sxgbe_hw_init()
-error: potential null dereference 'priv->hw'.  (kmalloc returns null)
+sparse warnings: (new ones prefixed by >>)
+
+>> drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c:197:5: 
+sparse: symbol 'sxgbe_platform_freeze' was not declared. Should it be static?
+>> drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c:204:5: 
+sparse: symbol 'sxgbe_platform_restore' was not declared. Should it be static?
+>> drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c:228:24: 
+sparse: symbol 'sxgbe_platform_driver' was not declared. Should it be static?
+
+>> drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c:1795:6: 
+sparse: symbol 'sxgbe_get_ops' was not declared. Should it be static?
 
 Reported-by: kbuild test robot <fengguang.wu@intel.com>
 Signed-off-by: Byungho An <bh74.an@samsung.com>
 ---
- drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c |   10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c     |    2 +-
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c |    6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-index ee1fd3c..a72688e 100644
+index 1869d4c6..ee1fd3c 100644
 --- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
 +++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-@@ -2039,11 +2039,13 @@ static void sxgbe_get_ops(struct sxgbe_ops * const ops_ptr)
-  *  Description: this function checks the HW capability
-  *  (if supported) and sets the driver's features.
-  */
--static void sxgbe_hw_init(struct sxgbe_priv_data * const priv)
-+static int sxgbe_hw_init(struct sxgbe_priv_data * const priv)
+@@ -2013,7 +2013,7 @@ static const struct net_device_ops sxgbe_netdev_ops = {
+ };
+ 
+ /* Get the hardware ops */
+-void sxgbe_get_ops(struct sxgbe_ops * const ops_ptr)
++static void sxgbe_get_ops(struct sxgbe_ops * const ops_ptr)
  {
- 	u32 ctrl_ids;
- 
- 	priv->hw = kmalloc(sizeof(*priv->hw), GFP_KERNEL);
-+	if(!priv->hw)
-+		return -ENOMEM;
- 
- 	/* get the hardware ops */
- 	sxgbe_get_ops(priv->hw);
-@@ -2064,6 +2066,8 @@ static void sxgbe_hw_init(struct sxgbe_priv_data * const priv)
- 
- 	if (priv->hw_cap.rx_csum_offload)
- 		pr_info("RX Checksum offload supported\n");
-+
-+	return 0;
+ 	ops_ptr->mac		= sxgbe_get_core_ops();
+ 	ops_ptr->desc		= sxgbe_get_desc_ops();
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
+index 94c2cd7..b147d46 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
+@@ -200,14 +200,14 @@ static int sxgbe_platform_resume(struct device *dev)
+ 	return sxgbe_resume(ndev);
  }
  
- /**
-@@ -2102,7 +2106,9 @@ struct sxgbe_priv_data *sxgbe_drv_probe(struct device *device,
- 	sxgbe_verify_args();
+-int sxgbe_platform_freeze(struct device *dev)
++static int sxgbe_platform_freeze(struct device *dev)
+ {
+ 	struct net_device *ndev = dev_get_drvdata(dev);
  
- 	/* Init MAC and get the capabilities */
--	sxgbe_hw_init(priv);
-+	ret = sxgbe_hw_init(priv);
-+	if (ret)
-+		goto error_free_netdev;
+ 	return sxgbe_freeze(ndev);
+ }
  
- 	/* allocate memory resources for Descriptor rings */
- 	ret = txring_mem_alloc(priv);
+-int sxgbe_platform_restore(struct device *dev)
++static int sxgbe_platform_restore(struct device *dev)
+ {
+ 	struct net_device *ndev = dev_get_drvdata(dev);
+ 
+@@ -231,7 +231,7 @@ static const struct of_device_id sxgbe_dt_ids[] = {
+ };
+ MODULE_DEVICE_TABLE(of, sxgbe_dt_ids);
+ 
+-struct platform_driver sxgbe_platform_driver = {
++static struct platform_driver sxgbe_platform_driver = {
+ 	.probe	= sxgbe_platform_probe,
+ 	.remove	= sxgbe_platform_remove,
+ 	.driver	= {
 -- 
 1.7.10.4
