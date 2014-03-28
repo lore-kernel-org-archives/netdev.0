@@ -1,47 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] bridge: Fix crash with vlan filtering and
-	tcpdump
-Date: Fri, 28 Mar 2014 17:14:17 -0400 (EDT)
-Message-ID: <20140328.171417.1243496360817986608.davem@davemloft.net>
-References: <1395971478-10689-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [PATCH v5 net-next 0/2] patchset: Support for configurable RSS
+ hash key
+Date: Fri, 28 Mar 2014 17:12:53 -0400 (EDT)
+Message-ID: <20140328.171253.1863144825039621848.davem@davemloft.net>
+References: <BF3270C86E8B1349A26C34E4EC1C44CB2C89CCDD@CMEXMB1.ad.emulex.com>
+	<20140327.145336.1708122219432567015.davem@davemloft.net>
+	<1395970770.2898.54.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: vyasevic@redhat.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1395971478-10689-1-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: VenkatKumar.Duvvuru@Emulex.Com, netdev@vger.kernel.org
+To: ben@decadent.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40971 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753195AbaC1VM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 17:12:56 -0400
+In-Reply-To: <1395970770.2898.54.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Thu, 27 Mar 2014 21:51:18 -0400
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Fri, 28 Mar 2014 01:39:30 +0000
 
-> When the vlan filtering is enabled on the bridge, but
-> the filter is not configured on the bridge device itself,
-> running tcpdump on the bridge device will result in a
-> an Oops with NULL pointer dereference.  The reason
-> is that br_pass_frame_up() will bypass the vlan
-> check because promisc flag is set.  It will then try
-> to get the table pointer and process the packet based
-> on the table.  Since the table pointer is NULL, we oops.
-> Catch this special condition in br_handle_vlan().
-> 
-> Reported-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> ---
-> 
-> * Changed to use kfree_skb() instead of kfree_skb_list() to
->   match the reset of bridge code.
-> * Fix-up {} style.
+> By grouping the key and hash together, with some reserved fields (which
+> the setter should initially require to be equal to zero), it should be
+> possible to fill in support for numbered RSS contexts later without yet
+> another new structure and operations.
 
-Applied, thanks.
+If that is the case, why don't we add from the start a "u32 rss_context;"
+field that has to be set to zero for now?
