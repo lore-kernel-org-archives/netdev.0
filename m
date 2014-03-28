@@ -1,116 +1,171 @@
-From: Yann Droneaud <ydroneaud@opteya.com>
-Subject: Re: [patch] RDMA/cxgb4: info leak in c4iw_alloc_ucontext()
-Date: Fri, 28 Mar 2014 11:27:48 +0100
-Message-ID: <1396002468.3297.63.camel@localhost.localdomain>
-References: <20140328082428.GH25192@mwanda>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [Xen-devel] [PATCH net v2 1/3] xen-netback: remove pointless clause from if statement
+Date: Fri, 28 Mar 2014 11:36:02 +0100
+Message-ID: <1834556657.20140328113602@eikelenboom.it>
+References: <1395924973-42904-1-git-send-email-paul.durrant@citrix.com> <1395924973-42904-2-git-send-email-paul.durrant@citrix.com> <289461862.20140327144546@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029C992@AMSPEX01CL01.citrite.net> <68689563.20140327150256@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029CAA6@AMSPEX01CL01.citrite.net> <874580615.20140327174607@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029D28D@AMSPEX01CL01.citrite.net> <636041055.20140327181524@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029D498@AMSPEX01CL01.citrite.net> <1279623918.20140327193454@eikelenboom.it> <602920213.20140327202235@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029DDEA@AMSPEX01CL01.citrite.net> <1144281350.20140328103919@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029DFE7@AMS
+ PEX01CL01.citrite.net> <1112313727.20140328105942@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029E0ED@AMSPEX01CL01.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Steve Wise <swise@chelsio.com>, Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	linux-rdma@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	roland@purestorage.com, dm@chelsio.com, leedom@chelsio.com,
-	santosh@chelsio.com, kumaras@chelsio.com, nirranjan@chelsio.com,
-	hariprasad@chelsio.com, Steve Wise <swise@opengridcomputing.com>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
+To: Paul Durrant <Paul.Durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:54136 "EHLO smtp6-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751129AbaC1K2I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2014 06:28:08 -0400
-In-Reply-To: <20140328082428.GH25192@mwanda>
+Received: from vserver.eikelenboom.it ([84.200.39.61]:40729 "EHLO
+	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751245AbaC1KgJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 06:36:09 -0400
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD029E0ED@AMSPEX01CL01.citrite.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-Le vendredi 28 mars 2014 =C3=A0 11:24 +0300, Dan Carpenter a =C3=A9crit=
- :
-> The c4iw_alloc_ucontext_resp struct has a 4 byte hole after the last
-> member and we should clear it before passing it to the user.
->=20
-> Fixes: 05eb23893c2c ('cxgb4/iw_cxgb4: Doorbell Drop Avoidance Bug Fix=
-es')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->=20
+Friday, March 28, 2014, 11:12:26 AM, you wrote:
 
-It's not the proper fix for this issue: an explicit padding has to be
-added (and initialized), see "Re: [PATCH net-next 2/2] cxgb4/iw_cxgb4:
-Doorbell Drop Avoidance Bug Fixes"
-http://marc.info/?i=3D1395848977.3297.15.camel@localhost.localdomain
+>> -----Original Message-----
+>> From: netdev-owner@vger.kernel.org [mailto:netdev-
+>> owner@vger.kernel.org] On Behalf Of Sander Eikelenboom
+>> Sent: 28 March 2014 10:00
+>> To: Paul Durrant
+>> Cc: netdev@vger.kernel.org; Wei Liu; Ian Campbell; xen-devel@lists.xen.org
+>> Subject: Re: [Xen-devel] [PATCH net v2 1/3] xen-netback: remove pointless
+>> clause from if statement
+>> 
+>> 
+>> Friday, March 28, 2014, 10:47:20 AM, you wrote:
+>> 
+>> >> -----Original Message-----
+>> >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+>> >> Sent: 28 March 2014 09:39
+>> >> To: Paul Durrant
+>> >> Cc: netdev@vger.kernel.org; Wei Liu; Ian Campbell; xen-
+>> devel@lists.xen.org
+>> >> Subject: Re: [Xen-devel] [PATCH net v2 1/3] xen-netback: remove
+>> pointless
+>> >> clause from if statement
+>> >>
+>> >>
+>> >> Friday, March 28, 2014, 10:30:27 AM, you wrote:
+>> >>
+>> >> >> -----Original Message-----
+>> >> >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+>> >> >> Sent: 27 March 2014 19:23
+>> >> >> To: Paul Durrant
+>> >> >> Cc: netdev@vger.kernel.org; Wei Liu; Ian Campbell; xen-
+>> >> devel@lists.xen.org
+>> >> >> Subject: Re: [Xen-devel] [PATCH net v2 1/3] xen-netback: remove
+>> >> pointless
+>> >> >> clause from if statement
+>> >> >>
+>> >> >>
+>> >> >> Thursday, March 27, 2014, 7:34:54 PM, you wrote:
+>> >> >>
+>> >> >> > <big snip>
+>> >> >>
+>> >> >> >>> >>
+>> >> >> >>> >> > So, it may be that the worse-case estimate is now too bad. In
+>> >> the
+>> >> >> case
+>> >> >> >>> >> where it's failing for you it would be nice to know what the
+>> >> estimate
+>> >> >> was
+>> >> >> >>>
+>> >> >> >>>
+>> >> >> >>> > Ok, so we cannot be too pessimistic. In that case I don't see
+>> there's
+>> >> a
+>> > > The behaviour of the Windows frontend is different to netfront; it tries to
+>> > keep the shared ring as full as possible so the estimate could be as
+>> > pessimistic as you like (as long as it doesn't exceed ring size ;-)) and you'd
+>> > never see the lock-up. For some reason (best known to the originator of
+>> the
+>> > code I suspect) the Linux netfront driver limits the number of requests it
+>> > posts into the shared ring leading to the possibility of lock-up in the case
+>> > where the backend needs more slots than the fontend 'thinks' it should.
+>> > But from what i read the ring size is determined by the frontend .. so that
+>> PV
+>> > driver should be able to guarantee that itself ..
+>> >
+>> 
+>> > The ring size is 256 - that's baked in. The number of pending requests
+>> > available to backend *is* determined by the frontend.
+>> 
+>> Ah ok, does it also reverse that space ?
+>> (if so .. why not use it to allow multiple complete packets to be shoveled in)
+>> 
+>> > Which begs for the question .. was that change of max_slots_needed
+>> > calculation *needed* to prevent the problem you saw on "Windows Server
+>> > 2008R2",
+>> > or was that just changed for correctness ?
+>> >
+>> 
+>> > It was changed for correctness. As I understand it, use of MAX_SKB_FRAGS
+>> is
+>> > incorrect if compound pages are in use as the page size is no longer the slot
+>> > size. It's also wasteful to always wait for space for a maximal packet if the
+>> > packet you have is smaller so the intention of the max estimate was that it
+>> > should be at least the number of slots required but not excessive. I think
+>> > you've proved that making such an estimate is just too hard and since we
+>> don't
+>> > want to fall back to the old dry-run style of slot counting (which meant you
+>> > had two codepaths that *must* arrive at the same number - and they
+>> didn't,
+>> > which is why I was getting the lock-up with Windows guests) I think we
+>> should
+>> > just go with full-packing so that we don't need to estimate.
+>> 
+>> Ok i asked this question since the about to be released 3.14 does now
+>> underestimate and
+>> it causes a regression.
+>> So if that part of your patches is not involved in fixing the stated problem /
+>> regression i think
+>> just that calculation change should be reverted to the MAX_SKB_FRAGS
+>> variant again.
+>> It's more wasteful (as it always has been) but that is better than incorrect and
+>> inducing buffer overrun IMHO.
 
-In its current form, the c4iw_alloc_ucontext_resp structure does not
-require padding on i386, so a 32bits userspace program using this
-structure against a x86_64 kernel will make the kernel do a buffer
-overflow in userspace, likely on stack, as answer of a GET_CONTEXT
-request:
+> But I'm not sure even that is correct. Are you?
 
-#include <infiniband/verbs.h>
-#include <infiniband/kern-abi.h>
+Well i didn't see reports that it wasn't .. so empirical evidence says yes ..
+that's why i asked you a few emails before if you would be able to test the revert of just this calculation with the "windows2k8" test case ..
 
-#define IBV_INIT_CMD_RESP(cmd, size, opcode, out, outsize) \
-do {                                                       \
-    (cmd)->command =3D IB_USER_VERBS_CMD_##opcode;           \
-    (cmd)->in_words  =3D (size) / 4;                         \
-    (cmd)->out_words =3D (outsize) / 4;                      \
-    (cmd)->response  =3D (out);                              \
-} while (0)
+Theoretically ..
+- if we have MAX_SKB_FRAGS worth of FRAGS in an SKB .. is it still possible to have offsets ?
+- if we have less .. do we trade the slot needed for the offset by having less sized frags or less frags ?
+- because the complete packet size is limited and MAX_SKB_FRAGS does already do a worst estimate for that (64k / page_size) + 2, so that gets to needing 18 slots to do a maxed out 1 frag packet.
+  which should be less than the ring size, so the change of stalling also shouldn't be there.
 
-struct c4iw_alloc_ucontext_resp {
-        struct ibv_get_context_resp ibv_resp;
-        __u64 status_page_key;
-        __u32 status_page_size;
-};
+- Perhaps leaving only things like the compound page issue ?
 
-struct ibv_context *alloc_context(struct ibv_device *ibdev,
-                                  int cmd_fd)
-{
-    struct ibv_get_context cmd;
-    struct c4iw_alloc_ucontext_resp resp;
-    ssize_t sret;
-    ...
+So i do think it is safe, and at least it's much more on the safe side then the change in "ca2f09f2b2c6c25047cfc545d057c4edfcfe561c" made it.
 
-    IBV_INIT_CMD_RESP(&cmd, sizeof(cmd),
-                      GET_CONTEXT,
-                      &resp, sizeof(resp));
-    ...
-    sret =3D write(context->cmd_fd,
-                 &cmd,
-                 sizeof(cmd));
+That combined with:
+a) the "Don't introduce new regressions policy"
+b) that this part of the commit wasn't necessary to fix the problem at hand
+c) correctness before trying to be less wasteful
 
-    if (sret !=3D sizeof(cmd)) {
-        int err =3D errno;
-        fprintf(stderr, "GET_CONTEXT failed: %d (%s)\n",
-                err, strerror(err));
-        ...
-    }
-    ...
-}
+I think this together should be a compelling argument to reverting that part of the commit and have the time to work out and test something new for 3.15.
 
-Unfortunately, it's not the only structure which has this problem. I'm
-currently preparing a report on this issue for this driver (cxgb4) and
-another.
 
-> diff --git a/drivers/infiniband/hw/cxgb4/provider.c b/drivers/infinib=
-and/hw/cxgb4/provider.c
-> index e36d2a2..a72aaa7 100644
-> --- a/drivers/infiniband/hw/cxgb4/provider.c
-> +++ b/drivers/infiniband/hw/cxgb4/provider.c
-> @@ -107,7 +107,7 @@ static struct ib_ucontext *c4iw_alloc_ucontext(st=
-ruct ib_device *ibdev,
->  	struct c4iw_ucontext *context;
->  	struct c4iw_dev *rhp =3D to_c4iw_dev(ibdev);
->  	static int warned;
-> -	struct c4iw_alloc_ucontext_resp uresp;
-> +	struct c4iw_alloc_ucontext_resp uresp =3D {};
->  	int ret =3D 0;
->  	struct c4iw_mm_entry *mm =3D NULL;
-> =20
+>> 
+>> That would give time to think, revise and test this for 3.15.
+>> 
+>> BTW: if a slot is always 4k, should it check with PAGE_SIZE then on a lot of
+>> occasions or just with the
+>> hardcoded 4k slot size ? (at the moment you only have x86 dom0 so probably
+>> the page_size==4k is guaranteed that way,
+>> but nevertheless.)
+>> 
 
-Regards.
+> Well, it's 4k because that's the smallest x86 page size and that's what Xen uses in its ABI so I guess the slot size should really be acquired from Xen to be architecture agnostic.
 
---=20
-Yann Droneaud
-OPTEYA
+>   Paul
+
+>> > Paul
+>> 
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
