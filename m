@@ -1,31 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: sxgbe: fix potential null dereference
-Date: Fri, 28 Mar 2014 14:43:06 -0400 (EDT)
-Message-ID: <20140328.144306.57938557700625418.davem@davemloft.net>
-References: <031c01cf4aaf$3a4227a0$aec676e0$@samsung.com>
+Subject: Re: [net-next v2 00/14][pull request] Intel Wired LAN Driver
+ Updates
+Date: Fri, 28 Mar 2014 14:45:48 -0400 (EDT)
+Message-ID: <20140328.144548.1139749202857106198.davem@davemloft.net>
+References: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
-	fengguang.wu@intel.com, ks.giri@samsung.com,
-	siva.kallam@samsung.com, vipul.pandya@samsung.com
-To: bh74.an@samsung.com
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-In-Reply-To: <031c01cf4aaf$3a4227a0$aec676e0$@samsung.com>
-Sender: linux-samsung-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39647 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751759AbaC1Spv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 14:45:51 -0400
+In-Reply-To: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Byungho An <bh74.an@samsung.com>
-Date: Fri, 28 Mar 2014 10:57:44 -0700
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 28 Mar 2014 07:08:01 -0700
 
-> From: Byungho An <bh74.an@samsung.com>
-> 
-> This fixes following:
-> 
-> drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c:1828 sxgbe_hw_init()
-> error: potential null dereference 'priv->hw'.  (kmalloc returns null)
-> 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Byungho An <bh74.an@samsung.com>
+> This series contains updates to e1000e, igb, i40e and i40evf
 
-Applied.
+Pulled, thanks a lot Jeff.
