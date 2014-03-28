@@ -1,47 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net v2] openvswitch: fix a possible deadlock
- and lockdep warning
-Date: Fri, 28 Mar 2014 16:42:42 -0400 (EDT)
-Message-ID: <20140328.164242.318154109747795081.davem@davemloft.net>
-References: <1395929134-4487-1-git-send-email-fbl@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tcp: fix get_timewait4_sock() delay computation on
+ 64bit
+Date: Fri, 28 Mar 2014 16:43:41 -0400 (EDT)
+Message-ID: <20140328.164341.1721397857839483926.davem@davemloft.net>
+References: <1395929959.12610.288.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1395929134-4487-1-git-send-email-fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40699 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751714AbaC1Unn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 16:43:43 -0400
+In-Reply-To: <1395929959.12610.288.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Thu, 27 Mar 2014 11:05:34 -0300
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 27 Mar 2014 07:19:19 -0700
 
-> There are two problematic situations.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> A deadlock can happen when is_percpu is false because it can get
-> interrupted while holding the spinlock. Then it executes
-> ovs_flow_stats_update() in softirq context which tries to get
-> the same lock.
+> It seems I missed one change in get_timewait4_sock() to compute
+> the remaining time before deletion of IPV4 timewait socket.
 > 
-> The second sitation is that when is_percpu is true, the code
-> correctly disables BH but only for the local CPU, so the
-> following can happen when locking the remote CPU without
-> disabling BH:
- ...
-> Signed-off-by: Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> ---
->  v2: better commit message
+> This could result in wrong output in /proc/net/tcp for tm->when field.
+> 
+> Fixes: 96f817fedec4 ("tcp: shrink tcp6_timewait_sock by one cache line")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Ok, I just saw Jesse's request that I apply this directly, so I
-have done so.
-
-Thanks.
+Applied and queued up for -stable, thanks Eric.
