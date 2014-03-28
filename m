@@ -1,8 +1,8 @@
 From: Sander Eikelenboom <linux@eikelenboom.it>
 Subject: Re: [Xen-devel] [PATCH net v2 1/3] xen-netback: remove pointless clause from if statement
-Date: Fri, 28 Mar 2014 10:39:19 +0100
-Message-ID: <1144281350.20140328103919@eikelenboom.it>
-References: <1395924973-42904-1-git-send-email-paul.durrant@citrix.com> <1395924973-42904-2-git-send-email-paul.durrant@citrix.com> <289461862.20140327144546@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029C992@AMSPEX01CL01.citrite.net> <68689563.20140327150256@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029CAA6@AMSPEX01CL01.citrite.net> <874580615.20140327174607@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029D28D@AMSPEX01CL01.citrite.net> <636041055.20140327181524@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029D498@AMSPEX01CL01.citrite.net> <1279623918.20140327193454@eikelenboom.it> <602920213.20140327202235@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029DDEA@AMSPEX01CL01.citrite.net>
+Date: Fri, 28 Mar 2014 10:46:33 +0100
+Message-ID: <1251770884.20140328104633@eikelenboom.it>
+References: <1395924973-42904-1-git-send-email-paul.durrant@citrix.com> <1395924973-42904-2-git-send-email-paul.durrant@citrix.com> <289461862.20140327144546@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029C992@AMSPEX01CL01.citrite.net> <68689563.20140327150256@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029CAA6@AMSPEX01CL01.citrite.net> <874580615.20140327174607@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029D28D@AMSPEX01CL01.citrite.net> <636041055.20140327181524@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029D498@AMSPEX01CL01.citrite.net> <1279623918.20140327193454@eikelenboom.it> <1054504065.20140328015521@eikelenboom.it> <9AAE0902D5BC7E449B7C8E4E778ABCD029DE36@AMSPEX01CL01.citrite.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,20 +12,20 @@ Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
 To: Paul Durrant <Paul.Durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vserver.eikelenboom.it ([84.200.39.61]:40325 "EHLO
+Received: from vserver.eikelenboom.it ([84.200.39.61]:40379 "EHLO
 	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751067AbaC1Jj0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 05:39:26 -0400
-In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD029DDEA@AMSPEX01CL01.citrite.net>
+	with ESMTP id S1750970AbaC1Jqi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 05:46:38 -0400
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD029DE36@AMSPEX01CL01.citrite.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Friday, March 28, 2014, 10:30:27 AM, you wrote:
+Friday, March 28, 2014, 10:36:42 AM, you wrote:
 
 >> -----Original Message-----
 >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
->> Sent: 27 March 2014 19:23
+>> Sent: 28 March 2014 00:55
 >> To: Paul Durrant
 >> Cc: netdev@vger.kernel.org; Wei Liu; Ian Campbell; xen-devel@lists.xen.org
 >> Subject: Re: [Xen-devel] [PATCH net v2 1/3] xen-netback: remove pointless
@@ -130,6 +130,41 @@ Friday, March 28, 2014, 10:30:27 AM, you wrote:
 >> > the ring size, so a packet can always be processed if the ring is finally
 >> emptied.
 >> 
+>> ok .. annotated "xenvif_gop_frag_copy()" to print what it did when we end
+>> up with (vif->rx.req_cons - req_cons_start) > estimatedcost for that frag
+>> where estimatedcost = DIV_ROUND_UP(size, PAGE_SIZE).
+>> 
+>> So the calculation indeed didn't take the offset used into account.
+>> 
+>> vif vif-7-0 vif7.0: ?!?!? xenvif_gop_frag_copy: frag costed more than est. 3>2
+>> | start i:0 size:7120 offset:1424 estimatedcost: 2
+>> begin i:0 size:7120 offset:1424 bytes:308159856 head:1282276652
+>>  d2 d4 d5
+>> begin i:1 size:4448 offset:0 bytes:2672 head:1282276652
+>>  d2 d4 d5
+>> begin i:2 size:352 offset:0 bytes:4096 head:1282276652
+>>  d1 d2 d5
+>> end i:3 size:0 offset:352
+>> 
+>> In the first round we only process 2672 bytes (instead of a full 4096 that could
+>> fit in a slot),
+>> which begs the question if it's actually needed to use the same offset from
+>> the frags in the slots ?
+>> 
+>> And this printk hits quite often for me ..
+
+> The reason for paying attention to the offset is that the grant copy hypercall cannot cross a 4k boundary. (Note that the requirement is that slots are limited to 4k, so the actual page size in the front or backend is irrelevant to the protocol).
+> So, I think the start_new_rx_buffer() logic is there to try to limit the number of grant copy operations  - i.e. the code is supposed  to copy enough to align the source and dest buffers on a 4k boundary and then copy in 4k chunks.
+> I seriously wonder whether it's worth limiting the number of copy ops in this way though as, if we did not do this, we'd have the benefit of knowing exactly how many slots each skb needs.
+
+Well both the original calculation as the pessimistic one seem to be off by a large number of slots (estimated far larger than required in the end) so that can be extremely wastefull.
+The new calculation introduced in ca2f09f2b2c6c25047cfc545d057c4edfcfe561c misses the offset and can be too small.
+
+So clearly it's not easy to estimate something that's not wastefull, so it seems to need a precise calculation. If that could be achieved more easily
+that way i think it will probably be worth it (and simplify things at the same time).
+
+>   Paul
+
 >> 
 >> >>> That perhaps also misses some theoretical backing, what if it would have
 >> >>> (MAX_SKB_FRAGS - 1) nr_frags, but larger ones that have to be split to
@@ -158,35 +193,7 @@ Friday, March 28, 2014, 10:30:27 AM, you wrote:
 >> 
 >> >>  Paul
 >> 
->> Hmm since i now started to dig around a bit more ..
 >> 
->> The ring size seems to be determined by netfront and not by netback ?
->> Couldn't this lead to problems when PAGE_SIZE dom0 != PAGE_SIZE domU
->> (and potentially lead to a overrun and therefore problems on the HOST) ?
 >> 
->> And about the commit message from
->> ca2f09f2b2c6c25047cfc545d057c4edfcfe561c ...
->> Do i understand it correctly that you saw the original problem (stall on large
->> file copy) only on a "Windows Server 2008R2", probably with PV drivers ?
 >> 
-
-> Yes, with PV drivers as you say.
-
->> I don't see why the original calculation wouldn't work, so what kind of
->> packets (nr_frags, frag size and PAGE_SIZE ) caused it ?
 >> 
->> And could you retest if that "Windows Server 2008R2" works with a netback
->> with you latest patch series (pessimistic estimate) plus a cap on
->> max_slots_needed like:
->> 
->> if(max_slots_needed > MAX_SKB_FRAGS + 1){
->>         max_slots_needed = MAX_SKB_FRAGS + 1;
->> }
-
-> The behaviour of the Windows frontend is different to netfront; it tries to keep the shared ring as full as possible so the estimate could be as pessimistic as you like (as long as it doesn't exceed ring size ;-)) and you'd never see the lock-up. For some reason (best known to the originator of the code I suspect) the Linux netfront driver limits the number of requests it posts into the shared ring leading to the possibility of lock-up in the case where the backend needs more slots than the fontend 'thinks' it should.
-But from what i read the ring size is determined by the frontend .. so that PV driver should be able to guarantee that itself ..
-
-Which begs for the question .. was that change of max_slots_needed calculation *needed* to prevent the problem you saw on "Windows Server 2008R2",
-or was that just changed for correctness ?
-
->   Paul
