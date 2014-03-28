@@ -1,70 +1,55 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v2 3/3] ipv6: fix checkpatch errors of "foo*" and "foo * bar"
-Date: Fri, 28 Mar 2014 19:16:57 +0100
-Message-ID: <20140328181657.GE11063@order.stressinduktion.org>
-References: <1395979624-8544-1-git-send-email-wangyufen@huawei.com> <1395979624-8544-4-git-send-email-wangyufen@huawei.com> <1395980521.19009.8.camel@joe-AO722> <20140328.014012.963819707045886028.davem@davemloft.net> <20140328101704.GD11063@order.stressinduktion.org> <063D6719AE5E284EB5DD2968C1650D6D0F6EB756@AcuExch.aculab.com>
+From: David Decotigny <decot@googlers.com>
+Subject: Re: [PATCH v1] net-sysfs: expose number of link up/down transitions
+Date: Fri, 28 Mar 2014 11:19:34 -0700
+Message-ID: <CAG88wWaQyBERFVW0GKPr8Bam0dgtPOxsXDi+bD430YJjyfsXEQ@mail.gmail.com>
+References: <cover.1395980768.git.decot@googlers.com> <cc4b88e880d31d8d71a5c8872a64c9d665cd097e.1395980768.git.decot@googlers.com>
+ <20140328062537.GA2805@minipsycho.orion> <CAGVrzcZEuTCN0gtQ6pOSgT_3cd3Z8Z4OP2jn0QOD-QHbyPsAiA@mail.gmail.com>
+ <1396028776.12610.341.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAGVrzcbVwaEiSn6irSeBwJCk8QsVizNfWO2ZhMxJN8chymo_LQ@mail.gmail.com> <1396030095.12610.343.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>,
-	"joe@perches.com" <joe@perches.com>,
-	"wangyufen@huawei.com" <wangyufen@huawei.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:38003 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751667AbaC1SQ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 14:16:59 -0400
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6EB756@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Weilong Chen <chenweilong@huawei.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Michael Dalton <mwdalton@google.com>,
+	Al Viro <viro@zeniv.linux.org.uk>, Tejun Heo <tj@kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1396030095.12610.343.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 28, 2014 at 10:54:13AM +0000, David Laight wrote:
-> From: Hannes Frederic Sowa
-> > > > Perhaps all the __inline__ uses could be changed to inline too.
-> > >
-> > > Or rather, deleted completely, this is a *.c file after all.
-> 
-> Personally I wouldn't do a blanket removal of 'inline' from .c files.
-> But I will agree that some large functions have been inappropriately
-> marked 'inline'.
+Hi all,
 
-Does inline keyword actually make a difference in case the function is
-static? I guess not (except for function profiling if a prologue should
-get included, thus the change in visibility for tracing).
+Thank you all for your feedback. Indeed, these counters are meant to
+detect link flapping situations, and we prefer to accumulate in the
+kernel rather than doing it in user space based on the count of
+up/down transitions. How about I update the patch with a new
+IFLA_LINK_HEALTH that exposes the 2 counters as a new struct? Or: is
+it safe/recommended for userspace backward-compatibility to append new
+fields to structs like rtnl_link_statsX (I have the impression that
+iproute2 would be ok with it)?
 
-> The complier doesn't always make the right guess.
-> 
-> > Smart-arsing:
-> > 
-> > Removing inline keyword makes the function visible to tracing if
-> > it didn't get inlined. I think this is a nice side-effect because debug
-> > kernels are often compiled with less aggressive inlining options
-> > (readable asm kconfig option).
-> 
-> I want to debug the same binary that will run in production.
-> Dodgy code can be affected by all sorts of compiler options.
-
-I agree. But status quo is that your binaries look very different if
-you have DEBUG_SECTION_MISMATCH or READABLE_ASM defined.
-
-The change in tracing visibility is already the case if you (like
-me) compile your kernel with DEBUG_SECTION_MISMATCH wich enables
-no-inline-functions-called-once, because this option does also not
-respect inline keyword.
-
-> The best one was a problem with the shell deleting the last
-> character of a $(...) substitution.
-> The code ran off the beginning of an on-stack buffer when trimming
-> trailing '\n' and 'found' a '\n' byte lurking in the unwritten
-> stack (this was well down the stack, and had been written much,
-> much earlier).
-> The error was only ever likely on big-endian systems (the msb of
-> a word is less likely to be '\n'.
-
-Heh. :)
-
-Greetings,
-
-  Hannes
+On Fri, Mar 28, 2014 at 11:08 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2014-03-28 at 10:59 -0700, Florian Fainelli wrote:
+>
+>> What I meant is that this sort of information most likely is already
+>> part of some sort of machine health check that runs periodically,
+>> which probably collects gazillions of other metrics. Whether the link
+>> flapping information comes from sysfs or was maintained by a small
+>> script which counts link UP/DOWN events from 'ip monitor link' and
+>> outputs this into a file boils down to the same thing: the information
+>> is available to some degree.
+>
+> Yeah, I am not sure such a daemon runs on my netgear/OpenWrt router ;)
+>
+>
+>
