@@ -1,81 +1,45 @@
-From: Wangyufen <wangyufen@huawei.com>
-Subject: [PATCH net-next v2 2/3] ipv6: fix checkpatch errors of brace and trailing statements
-Date: Fri, 28 Mar 2014 12:07:03 +0800
-Message-ID: <1395979624-8544-3-git-send-email-wangyufen@huawei.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next v2 3/3] ipv6: fix checkpatch errors of "foo*"
+ and "foo * bar"
+Date: Thu, 27 Mar 2014 21:22:01 -0700
+Message-ID: <1395980521.19009.8.camel@joe-AO722>
 References: <1395979624-8544-1-git-send-email-wangyufen@huawei.com>
+	 <1395979624-8544-4-git-send-email-wangyufen@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Wang Yufen <wangyufen@huawei.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Wangyufen <wangyufen@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:46317 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751236AbaC1EJV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 00:09:21 -0400
-In-Reply-To: <1395979624-8544-1-git-send-email-wangyufen@huawei.com>
+Received: from smtprelay0096.hostedemail.com ([216.40.44.96]:60797 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751057AbaC1EWF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 00:22:05 -0400
+In-Reply-To: <1395979624-8544-4-git-send-email-wangyufen@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wang Yufen <wangyufen@huawei.com>
+On Fri, 2014-03-28 at 12:07 +0800, Wangyufen wrote:
+[]
+> diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+[]
+> @@ -143,7 +143,7 @@ static __inline__ __be32 addr_bit_set(const void *token, int fn_bit)
+>  	       addr[fn_bit >> 5];
+>  }
 
-ERROR: open brace '{' following enum go on the same line
-ERROR: open brace '{' following struct go on the same line
-ERROR: trailing statements should be on next line
+Perhaps all the __inline__ uses could be changed to inline too.
 
-Signed-off-by: Wang Yufen <wangyufen@huawei.com>
----
- net/ipv6/ip6_fib.c | 18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
-
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index c626a0f..8cb6949 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -46,8 +46,7 @@
- 
- static struct kmem_cache * fib6_node_kmem __read_mostly;
- 
--enum fib_walk_state_t
--{
-+enum fib_walk_state_t {
- #ifdef CONFIG_IPV6_SUBTREES
- 	FWS_S,
- #endif
-@@ -57,8 +56,7 @@ enum fib_walk_state_t
- 	FWS_U
- };
- 
--struct fib6_cleaner_t
--{
-+struct fib6_cleaner_t {
- 	struct fib6_walker_t w;
- 	struct net *net;
- 	int (*func)(struct rt6_info *, void *arg);
-@@ -1149,8 +1147,10 @@ static struct fib6_node *fib6_repair_tree(struct net *net,
- 
- 		children = 0;
- 		child = NULL;
--		if (fn->right) child = fn->right, children |= 1;
--		if (fn->left) child = fn->left, children |= 2;
-+		if (fn->right)
-+			child = fn->right, children |= 1;
-+		if (fn->left)
-+			child = fn->left, children |= 2;
- 
- 		if (children == 3 || FIB6_SUBTREE(fn)
- #ifdef CONFIG_IPV6_SUBTREES
-@@ -1178,8 +1178,10 @@ static struct fib6_node *fib6_repair_tree(struct net *net,
- 		} else {
- 			WARN_ON(fn->fn_flags & RTN_ROOT);
- #endif
--			if (pn->right == fn) pn->right = child;
--			else if (pn->left == fn) pn->left = child;
-+			if (pn->right == fn)
-+				pn->right = child;
-+			else if (pn->left == fn)
-+				pn->left = child;
- #if RT6_DEBUG >= 2
- 			else
- 				WARN_ON(1);
--- 
-1.7.12
+> -static __inline__ struct fib6_node * node_alloc(void)
+> +static __inline__ struct fib6_node *node_alloc(void)
+>  {
+>  	struct fib6_node *fn;
+>  
+> @@ -152,7 +152,7 @@ static __inline__ struct fib6_node * node_alloc(void)
+>  	return fn;
+>  }
+>  
+> -static __inline__ void node_free(struct fib6_node * fn)
+> +static __inline__ void node_free(struct fib6_node *fn)
+>  {
+>  	kmem_cache_free(fib6_node_kmem, fn);
+>  }
