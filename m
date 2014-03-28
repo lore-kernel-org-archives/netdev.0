@@ -1,50 +1,128 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 10/14] i40e: Use DEBUG_FD message level for an FD message
-Date: Fri, 28 Mar 2014 07:08:11 -0700
-Message-ID: <1396015695-25283-11-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Josh Boyer <jwboyer@fedoraproject.org>
+Subject: [PATCH 3.13.y] nfqueue: Orphan frags in nfqnl_zcopy and handle errors
+Date: Fri, 28 Mar 2014 10:29:14 -0400
+Message-ID: <20140328142914.GB25962@hansolo.jdub.homelinux.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>, Thomas Graf <tgraf@suug.ch>,
+	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:17012 "EHLO mga01.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:63128 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752169AbaC1OJM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2014 10:09:12 -0400
-In-Reply-To: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751227AbaC1O3o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2014 10:29:44 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+Backport of upstream commit 36d5fe6a0007 to 3.13.y
 
-We don't need to print this info unless at FD message level.
+nfqnl_zcopy can copy elements of the frags array between skbs, but it doesn't
+orphan them.  Also, it doesn't handle errors, so this patch takes care of that
+as well, and modify the caller accordingly.  skb_tx_error() is also added to
+the callers so they will signal the failed delivery towards the creator of the
+skb.
 
-Change-ID: I329efdd8e754a0ea0669ec04d12e03db02e6b76e
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Fixes CVE-2014-2568.
+
+Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Josh Boyer <jwboyer@fedoraproject.org>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ net/netfilter/nfnetlink_queue_core.c | 31 ++++++++++++++++++++++---------
+ 1 file changed, 22 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index de25a32..a329aac 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -482,8 +482,9 @@ static void i40e_fd_handle_status(struct i40e_ring *rx_ring,
- 		}
- 	} else if (error ==
- 			  (0x1 << I40E_RX_PROG_STATUS_DESC_NO_FD_ENTRY_SHIFT)) {
--		netdev_info(rx_ring->vsi->netdev, "ntuple filter loc = %d, could not be removed\n",
--			    rx_desc->wb.qword0.hi_dword.fd_id);
-+		if (I40E_DEBUG_FD & pf->hw.debug_mask)
-+			dev_info(&pdev->dev, "ntuple filter loc = %d, could not be removed\n",
-+				 rx_desc->wb.qword0.hi_dword.fd_id);
- 	}
+diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
+index 21258cf..b241654 100644
+--- a/net/netfilter/nfnetlink_queue_core.c
++++ b/net/netfilter/nfnetlink_queue_core.c
+@@ -235,22 +235,23 @@ nfqnl_flush(struct nfqnl_instance *queue, nfqnl_cmpfn cmpfn, unsigned long data)
+ 	spin_unlock_bh(&queue->lock);
  }
  
+-static void
+-nfqnl_zcopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
++static int
++nfqnl_zcopy(struct sk_buff *to, struct sk_buff *from, int len, int hlen)
+ {
+ 	int i, j = 0;
+ 	int plen = 0; /* length of skb->head fragment */
++	int ret;
+ 	struct page *page;
+ 	unsigned int offset;
+ 
+ 	/* dont bother with small payloads */
+-	if (len <= skb_tailroom(to)) {
+-		skb_copy_bits(from, 0, skb_put(to, len), len);
+-		return;
+-	}
++	if (len <= skb_tailroom(to))
++		return skb_copy_bits(from, 0, skb_put(to, len), len);
+ 
+ 	if (hlen) {
+-		skb_copy_bits(from, 0, skb_put(to, hlen), hlen);
++		ret = skb_copy_bits(from, 0, skb_put(to, hlen), hlen);
++		if (unlikely(ret))
++			return ret;
+ 		len -= hlen;
+ 	} else {
+ 		plen = min_t(int, skb_headlen(from), len);
+@@ -268,6 +269,11 @@ nfqnl_zcopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
+ 	to->len += len + plen;
+ 	to->data_len += len + plen;
+ 
++	if (unlikely(skb_orphan_frags(from, GFP_ATOMIC))) {
++		skb_tx_error(from);
++		return -ENOMEM;
++	}
++
+ 	for (i = 0; i < skb_shinfo(from)->nr_frags; i++) {
+ 		if (!len)
+ 			break;
+@@ -278,6 +284,8 @@ nfqnl_zcopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
+ 		j++;
+ 	}
+ 	skb_shinfo(to)->nr_frags = j;
++
++	return 0;
+ }
+ 
+ static int
+@@ -374,13 +382,16 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 
+ 	skb = nfnetlink_alloc_skb(net, size, queue->peer_portid,
+ 				  GFP_ATOMIC);
+-	if (!skb)
++	if (!skb) {
++		skb_tx_error(entskb);
+ 		return NULL;
++	}
+ 
+ 	nlh = nlmsg_put(skb, 0, 0,
+ 			NFNL_SUBSYS_QUEUE << 8 | NFQNL_MSG_PACKET,
+ 			sizeof(struct nfgenmsg), 0);
+ 	if (!nlh) {
++		skb_tx_error(entskb);
+ 		kfree_skb(skb);
+ 		return NULL;
+ 	}
+@@ -504,13 +515,15 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 		nla->nla_type = NFQA_PAYLOAD;
+ 		nla->nla_len = nla_attr_size(data_len);
+ 
+-		nfqnl_zcopy(skb, entskb, data_len, hlen);
++		if (nfqnl_zcopy(skb, entskb, data_len, hlen))
++			goto nla_put_failure;
+ 	}
+ 
+ 	nlh->nlmsg_len = skb->len;
+ 	return skb;
+ 
+ nla_put_failure:
++	skb_tx_error(entskb);
+ 	kfree_skb(skb);
+ 	net_err_ratelimited("nf_queue: error creating packet message\n");
+ 	return NULL;
 -- 
-1.9.0
+1.8.5.3
