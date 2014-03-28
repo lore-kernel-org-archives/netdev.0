@@ -1,178 +1,201 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v4 3/9] net: filter: move filter accounting to filter core
-Date: Fri, 28 Mar 2014 18:58:20 +0100
-Message-ID: <1396029506-16776-4-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next v4 5/9] net: ptp: do not reimplement PTP/BPF classifier
+Date: Fri, 28 Mar 2014 18:58:22 +0100
+Message-ID: <1396029506-16776-6-git-send-email-dborkman@redhat.com>
 References: <1396029506-16776-1-git-send-email-dborkman@redhat.com>
 Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	Pavel Emelyanov <xemul@parallels.com>
+	Richard Cochran <richard.cochran@omicron.at>,
+	Jiri Benc <jbenc@redhat.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23711 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:30998 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754076AbaC1R6q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2014 13:58:46 -0400
+	id S1753983AbaC1R6p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2014 13:58:45 -0400
 In-Reply-To: <1396029506-16776-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch basically does two things, i) removes the extern keyword
-from the include/linux/filter.h file to be more consistent with the
-rest of Joe's changes, and ii) moves filter accounting into the filter
-core framework.
+There are currently pch_gbe, cpts, and ixp4xx_eth drivers that open-code
+and reimplement a BPF classifier for the PTP protocol. Since all of them
+effectively do the very same thing and load the very same PTP/BPF filter,
+we can just consolidate that code by introducing ptp_classify_raw() in
+the time-stamping core framework which can be used in drivers.
 
-Filter accounting mainly done through sk_filter_{un,}charge() take
-care of the case when sockets are being cloned through sk_clone_lock()
-so that removal of the filter on one socket won't result in eviction
-as it's still referenced by the other.
-
-These functions actually belong to net/core/filter.c and not
-include/net/sock.h as we want to keep all that in a central place.
-It's also not in fast-path so uninlining them is fine and even allows
-us to get rd of sk_filter_release_rcu()'s EXPORT_SYMBOL and a forward
-declaration.
+As drivers get initialized after bootstrapping the core networking
+subsystem, they can make use of ptp_insns wrapped through
+ptp_classify_raw(), which allows to simplify and remove PTP classifier
+setup code in drivers.
 
 Joint work with Alexei Starovoitov.
 
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-Cc: Pavel Emelyanov <xemul@parallels.com>
+Cc: Richard Cochran <richard.cochran@omicron.at>
+Cc: Jiri Benc <jbenc@redhat.com>
 ---
- include/linux/filter.h | 30 +++++++++++++++++-------------
- include/net/sock.h     | 27 ---------------------------
- net/core/filter.c      | 27 +++++++++++++++++++++++++--
- 3 files changed, 42 insertions(+), 42 deletions(-)
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c | 11 +----------
+ drivers/net/ethernet/ti/cpts.c                       | 10 +---------
+ drivers/net/ethernet/xscale/ixp4xx_eth.c             | 11 +----------
+ include/linux/ptp_classify.h                         | 10 ++--------
+ net/core/timestamping.c                              |  8 +++++++-
+ 5 files changed, 12 insertions(+), 38 deletions(-)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 93a9792..9bde3ed 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -50,28 +50,32 @@ static inline unsigned int sk_filter_size(unsigned int proglen)
- #define sk_filter_proglen(fprog)			\
- 		(fprog->len * sizeof(fprog->filter[0]))
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index 464e910..73e6683 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -120,10 +120,6 @@ static void pch_gbe_mdio_write(struct net_device *netdev, int addr, int reg,
+ 			       int data);
+ static void pch_gbe_set_multi(struct net_device *netdev);
  
--extern int sk_filter(struct sock *sk, struct sk_buff *skb);
--extern unsigned int sk_run_filter(const struct sk_buff *skb,
--				  const struct sock_filter *filter);
-+int sk_filter(struct sock *sk, struct sk_buff *skb);
-+unsigned int sk_run_filter(const struct sk_buff *skb,
-+			   const struct sock_filter *filter);
- 
--extern int sk_unattached_filter_create(struct sk_filter **pfp,
--				       struct sock_fprog *fprog);
--extern void sk_unattached_filter_destroy(struct sk_filter *fp);
-+int sk_unattached_filter_create(struct sk_filter **pfp,
-+				struct sock_fprog *fprog);
-+void sk_unattached_filter_destroy(struct sk_filter *fp);
- 
--extern int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
--extern int sk_detach_filter(struct sock *sk);
-+int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
-+int sk_detach_filter(struct sock *sk);
- 
--extern int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
--extern int sk_get_filter(struct sock *sk, struct sock_filter __user *filter, unsigned len);
--extern void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to);
-+int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
-+int sk_get_filter(struct sock *sk, struct sock_filter __user *filter,
-+		  unsigned int len);
-+void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to);
-+
-+void sk_filter_charge(struct sock *sk, struct sk_filter *fp);
-+void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp);
- 
- #ifdef CONFIG_BPF_JIT
- #include <stdarg.h>
- #include <linux/linkage.h>
- #include <linux/printk.h>
- 
--extern void bpf_jit_compile(struct sk_filter *fp);
--extern void bpf_jit_free(struct sk_filter *fp);
-+void bpf_jit_compile(struct sk_filter *fp);
-+void bpf_jit_free(struct sk_filter *fp);
- 
- static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
- 				u32 pass, void *image)
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 8d7c431..06a5668 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1621,33 +1621,6 @@ void sk_common_release(struct sock *sk);
- /* Initialise core socket variables */
- void sock_init_data(struct socket *sock, struct sock *sk);
- 
--void sk_filter_release_rcu(struct rcu_head *rcu);
+-static struct sock_filter ptp_filter[] = {
+-	PTP_FILTER
+-};
 -
--/**
-- *	sk_filter_release - release a socket filter
-- *	@fp: filter to remove
-- *
-- *	Remove a filter from a socket and release its resources.
-- */
--
--static inline void sk_filter_release(struct sk_filter *fp)
--{
--	if (atomic_dec_and_test(&fp->refcnt))
--		call_rcu(&fp->rcu, sk_filter_release_rcu);
--}
--
--static inline void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
--{
--	atomic_sub(sk_filter_size(fp->len), &sk->sk_omem_alloc);
--	sk_filter_release(fp);
--}
--
--static inline void sk_filter_charge(struct sock *sk, struct sk_filter *fp)
--{
--	atomic_inc(&fp->refcnt);
--	atomic_add(sk_filter_size(fp->len), &sk->sk_omem_alloc);
--}
--
- /*
-  * Socket reference counting postulates.
-  *
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 9730e7f..5b3427a 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -664,14 +664,37 @@ static void sk_release_orig_filter(struct sk_filter *fp)
-  * 	sk_filter_release_rcu - Release a socket filter by rcu_head
-  *	@rcu: rcu_head that contains the sk_filter to free
-  */
--void sk_filter_release_rcu(struct rcu_head *rcu)
-+static void sk_filter_release_rcu(struct rcu_head *rcu)
+ static int pch_ptp_match(struct sk_buff *skb, u16 uid_hi, u32 uid_lo, u16 seqid)
  {
- 	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
+ 	u8 *data = skb->data;
+@@ -131,7 +127,7 @@ static int pch_ptp_match(struct sk_buff *skb, u16 uid_hi, u32 uid_lo, u16 seqid)
+ 	u16 *hi, *id;
+ 	u32 lo;
  
- 	sk_release_orig_filter(fp);
- 	bpf_jit_free(fp);
+-	if (sk_run_filter(skb, ptp_filter) == PTP_CLASS_NONE)
++	if (ptp_classify_raw(skb) == PTP_CLASS_NONE)
+ 		return 0;
+ 
+ 	offset = ETH_HLEN + IPV4_HLEN(data) + UDP_HLEN;
+@@ -2635,11 +2631,6 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+ 
+ 	adapter->ptp_pdev = pci_get_bus_and_slot(adapter->pdev->bus->number,
+ 					       PCI_DEVFN(12, 4));
+-	if (ptp_filter_init(ptp_filter, ARRAY_SIZE(ptp_filter))) {
+-		dev_err(&pdev->dev, "Bad ptp filter\n");
+-		ret = -EINVAL;
+-		goto err_free_netdev;
+-	}
+ 
+ 	netdev->netdev_ops = &pch_gbe_netdev_ops;
+ 	netdev->watchdog_timeo = PCH_GBE_WATCHDOG_PERIOD;
+diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+index 372cb19..a3bbf59 100644
+--- a/drivers/net/ethernet/ti/cpts.c
++++ b/drivers/net/ethernet/ti/cpts.c
+@@ -31,10 +31,6 @@
+ 
+ #ifdef CONFIG_TI_CPTS
+ 
+-static struct sock_filter ptp_filter[] = {
+-	PTP_FILTER
+-};
+-
+ #define cpts_read32(c, r)	__raw_readl(&c->reg->r)
+ #define cpts_write32(c, v, r)	__raw_writel(v, &c->reg->r)
+ 
+@@ -301,7 +297,7 @@ static u64 cpts_find_ts(struct cpts *cpts, struct sk_buff *skb, int ev_type)
+ 	u64 ns = 0;
+ 	struct cpts_event *event;
+ 	struct list_head *this, *next;
+-	unsigned int class = sk_run_filter(skb, ptp_filter);
++	unsigned int class = ptp_classify_raw(skb);
+ 	unsigned long flags;
+ 	u16 seqid;
+ 	u8 mtype;
+@@ -372,10 +368,6 @@ int cpts_register(struct device *dev, struct cpts *cpts,
+ 	int err, i;
+ 	unsigned long flags;
+ 
+-	if (ptp_filter_init(ptp_filter, ARRAY_SIZE(ptp_filter))) {
+-		pr_err("cpts: bad ptp filter\n");
+-		return -EINVAL;
+-	}
+ 	cpts->info = cpts_info;
+ 	cpts->clock = ptp_clock_register(&cpts->info, dev);
+ 	if (IS_ERR(cpts->clock)) {
+diff --git a/drivers/net/ethernet/xscale/ixp4xx_eth.c b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+index 25283f1..f7e0f0f 100644
+--- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
++++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+@@ -256,10 +256,6 @@ static int ports_open;
+ static struct port *npe_port_tab[MAX_NPES];
+ static struct dma_pool *dma_pool;
+ 
+-static struct sock_filter ptp_filter[] = {
+-	PTP_FILTER
+-};
+-
+ static int ixp_ptp_match(struct sk_buff *skb, u16 uid_hi, u32 uid_lo, u16 seqid)
+ {
+ 	u8 *data = skb->data;
+@@ -267,7 +263,7 @@ static int ixp_ptp_match(struct sk_buff *skb, u16 uid_hi, u32 uid_lo, u16 seqid)
+ 	u16 *hi, *id;
+ 	u32 lo;
+ 
+-	if (sk_run_filter(skb, ptp_filter) != PTP_CLASS_V1_IPV4)
++	if (ptp_classify_raw(skb) != PTP_CLASS_V1_IPV4)
+ 		return 0;
+ 
+ 	offset = ETH_HLEN + IPV4_HLEN(data) + UDP_HLEN;
+@@ -1413,11 +1409,6 @@ static int eth_init_one(struct platform_device *pdev)
+ 	char phy_id[MII_BUS_ID_SIZE + 3];
+ 	int err;
+ 
+-	if (ptp_filter_init(ptp_filter, ARRAY_SIZE(ptp_filter))) {
+-		pr_err("ixp4xx_eth: bad ptp filter\n");
+-		return -EINVAL;
+-	}
+-
+ 	if (!(dev = alloc_etherdev(sizeof(struct port))))
+ 		return -ENOMEM;
+ 
+diff --git a/include/linux/ptp_classify.h b/include/linux/ptp_classify.h
+index 3decfa4..6d3b0a2 100644
+--- a/include/linux/ptp_classify.h
++++ b/include/linux/ptp_classify.h
+@@ -80,14 +80,6 @@
+ #define OP_RETA	(BPF_RET | BPF_A)
+ #define OP_RETK	(BPF_RET | BPF_K)
+ 
+-static inline int ptp_filter_init(struct sock_filter *f, int len)
+-{
+-	if (OP_LDH == f[0].code)
+-		return sk_chk_filter(f, len);
+-	else
+-		return 0;
+-}
+-
+ #define PTP_FILTER \
+ 	{OP_LDH,	0,   0, OFF_ETYPE		}, /*              */ \
+ 	{OP_JEQ,	0,  12, ETH_P_IP		}, /* f goto L20   */ \
+@@ -133,4 +125,6 @@ static inline int ptp_filter_init(struct sock_filter *f, int len)
+ 	{OP_RETA,	0,   0, 0			}, /*              */ \
+ /*L6x*/	{OP_RETK,	0,   0, PTP_CLASS_NONE		},
+ 
++unsigned int ptp_classify_raw(const struct sk_buff *skb);
++
+ #endif
+diff --git a/net/core/timestamping.c b/net/core/timestamping.c
+index e43d56a..9ff26b3 100644
+--- a/net/core/timestamping.c
++++ b/net/core/timestamping.c
+@@ -25,11 +25,17 @@
+ 
+ static struct sk_filter *ptp_insns __read_mostly;
+ 
++unsigned int ptp_classify_raw(const struct sk_buff *skb)
++{
++	return SK_RUN_FILTER(ptp_insns, skb);
++}
++EXPORT_SYMBOL_GPL(ptp_classify_raw);
++
+ static unsigned int classify(const struct sk_buff *skb)
+ {
+ 	if (likely(skb->dev && skb->dev->phydev &&
+ 		   skb->dev->phydev->drv))
+-		return SK_RUN_FILTER(ptp_insns, skb);
++		return ptp_classify_raw(skb);
+ 	else
+ 		return PTP_CLASS_NONE;
  }
--EXPORT_SYMBOL(sk_filter_release_rcu);
-+
-+/**
-+ *	sk_filter_release - release a socket filter
-+ *	@fp: filter to remove
-+ *
-+ *	Remove a filter from a socket and release its resources.
-+ */
-+static void sk_filter_release(struct sk_filter *fp)
-+{
-+	if (atomic_dec_and_test(&fp->refcnt))
-+		call_rcu(&fp->rcu, sk_filter_release_rcu);
-+}
-+
-+void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
-+{
-+	atomic_sub(sk_filter_size(fp->len), &sk->sk_omem_alloc);
-+	sk_filter_release(fp);
-+}
-+
-+void sk_filter_charge(struct sock *sk, struct sk_filter *fp)
-+{
-+	atomic_inc(&fp->refcnt);
-+	atomic_add(sk_filter_size(fp->len), &sk->sk_omem_alloc);
-+}
- 
- static int __sk_prepare_filter(struct sk_filter *fp)
- {
 -- 
 1.7.11.7
