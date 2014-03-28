@@ -1,27 +1,51 @@
 From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net v3 0/3] xen-netback: fix rx slot estimation
-Date: Fri, 28 Mar 2014 11:39:04 +0000
-Message-ID: <1396006747-9113-1-git-send-email-paul.durrant@citrix.com>
+Subject: [PATCH v3 net 1/3] xen-netback: remove pointless clause from if statement
+Date: Fri, 28 Mar 2014 11:39:05 +0000
+Message-ID: <1396006747-9113-2-git-send-email-paul.durrant@citrix.com>
+References: <1396006747-9113-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Sander Eikelenboom <linux@eikelenboom.it>
 To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:64663 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750971AbaC1LjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 07:39:11 -0400
+Received: from smtp.citrix.com ([66.165.176.89]:29606 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751435AbaC1LjM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2014 07:39:12 -0400
+In-Reply-To: <1396006747-9113-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sander Eikelenboom reported an issue with ring overflow in netback in
-3.14-rc3. This turns outo be be because of a bug in the ring slot estimation
-code. This patch series fixes the slot estimation, fixes the BUG_ON() that
-was supposed to catch the issue that Sander ran into and also makes a small
-fix to start_new_rx_buffer().
+This patch removes a test in start_new_rx_buffer() that checks whether
+a copy operation is less than MAX_BUFFER_OFFSET in length, since
+MAX_BUFFER_OFFSET is defined to be PAGE_SIZE and the only caller of
+start_new_rx_buffer() already limits copy operations to PAGE_SIZE or less.
 
-v3:
- - Added a cap of MAX_SKB_FRAGS to estimate in patch #2
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Sander Eikelenboom <linux@eikelenboom.it>
+---
+ drivers/net/xen-netback/netback.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-v2:
- - Added BUG_ON() to patch #1
- - Added more explanation to patch #3
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 438d0c0..72314c7 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -192,8 +192,8 @@ static bool start_new_rx_buffer(int offset, unsigned long size, int head)
+ 	 * into multiple copies tend to give large frags their
+ 	 * own buffers as before.
+ 	 */
+-	if ((offset + size > MAX_BUFFER_OFFSET) &&
+-	    (size <= MAX_BUFFER_OFFSET) && offset && !head)
++	BUG_ON(size > MAX_BUFFER_OFFSET);
++	if ((offset + size > MAX_BUFFER_OFFSET) && offset && !head)
+ 		return true;
+ 
+ 	return false;
+-- 
+1.7.10.4
