@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/2] bridge: Fix handling stacked vlan tags
-Date: Fri, 28 Mar 2014 16:33:42 -0400 (EDT)
-Message-ID: <20140328.163342.1681357800958748572.davem@davemloft.net>
-References: <1395924416-12325-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	<1395924416-12325-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH 0/2] Adds new device ID for Chelsio Adapters
+Date: Fri, 28 Mar 2014 16:35:33 -0400 (EDT)
+Message-ID: <20140328.163533.1489977985935478196.davem@davemloft.net>
+References: <1395924430-17632-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, vyasevic@redhat.com,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: makita.toshiaki@lab.ntt.co.jp
+Cc: netdev@vger.kernel.org, dm@chelsio.com, leedom@chelsio.com,
+	kumaras@chelsio.com, santosh@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40627 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40644 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751714AbaC1Udo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 16:33:44 -0400
-In-Reply-To: <1395924416-12325-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	with ESMTP id S1751714AbaC1Uff (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 16:35:35 -0400
+In-Reply-To: <1395924430-17632-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Date: Thu, 27 Mar 2014 21:46:56 +0900
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Thu, 27 Mar 2014 18:17:08 +0530
 
-> If a bridge with vlan_filtering enabled receives frames with stacked
-> vlan tags, i.e., they have two vlan tags, br_vlan_untag() strips not
-> only the outer tag but also the inner tag.
+> This series adds device ID for a couple of Chelsio Adapters for both
+> cxgb4 and cxgb4vf driver.
 > 
-> br_vlan_untag() is called only from br_handle_vlan(), and in this case,
-> it is enough to set skb->vlan_tci to 0 here, because vlan_tci has already
-> been set before calling br_handle_vlan().
+> The patches series is created against 'net-next' tree.
+> And includes patches on cxgb4 and cxgb4vf driver.
 > 
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> We have included all the maintainers of respective drivers. Kindly review the
+> change and let us know in case of any review comments.
 
-Applied.
+Both applied to net-next, thanks.
