@@ -1,260 +1,70 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [Xen-devel] [PATCH net v2 1/3] xen-netback: remove pointless
- clause from if statement
-Date: Fri, 28 Mar 2014 09:47:20 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD029DFE7@AMSPEX01CL01.citrite.net>
-References: <1395924973-42904-1-git-send-email-paul.durrant@citrix.com>
- <1395924973-42904-2-git-send-email-paul.durrant@citrix.com>
- <289461862.20140327144546@eikelenboom.it>
- <9AAE0902D5BC7E449B7C8E4E778ABCD029C992@AMSPEX01CL01.citrite.net>
- <68689563.20140327150256@eikelenboom.it>
- <9AAE0902D5BC7E449B7C8E4E778ABCD029CAA6@AMSPEX01CL01.citrite.net>
- <874580615.20140327174607@eikelenboom.it>
- <9AAE0902D5BC7E449B7C8E4E778ABCD029D28D@AMSPEX01CL01.citrite.net>
- <636041055.20140327181524@eikelenboom.it>
- <9AAE0902D5BC7E449B7C8E4E778ABCD029D498@AMSPEX01CL01.citrite.net>
- <1279623918.20140327193454@eikelenboom.it>
- <602920213.20140327202235@eikelenboom.it>
- <9AAE0902D5BC7E449B7C8E4E778ABCD029DDEA@AMSPEX01CL01.citrite.net>
- <1144281350.20140328103919@eikelenboom.it>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
-To: Sander Eikelenboom <linux@eikelenboom.it>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([185.25.65.24]:36393 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751035AbaC1JrW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 05:47:22 -0400
-In-Reply-To: <1144281350.20140328103919@eikelenboom.it>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrey Vagin <avagin@openvz.org>
+Subject: [PATCH] netfilter: nf_conntrack: reserve two bytes for nf_ct_ext->len (v3)
+Date: Fri, 28 Mar 2014 13:54:32 +0400
+Message-ID: <1396000472-6130-1-git-send-email-avagin@openvz.org>
+References: <20140328092449.GA20844@paralelels.com>
+Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org, vvs@parallels.com,
+	Andrey Vagin <avagin@openvz.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <20140328092449.GA20844@paralelels.com>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
-> Sent: 28 March 2014 09:39
-> To: Paul Durrant
-> Cc: netdev@vger.kernel.org; Wei Liu; Ian Campbell; xen-devel@lists.xen.org
-> Subject: Re: [Xen-devel] [PATCH net v2 1/3] xen-netback: remove pointless
-> clause from if statement
-> 
-> 
-> Friday, March 28, 2014, 10:30:27 AM, you wrote:
-> 
-> >> -----Original Message-----
-> >> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
-> >> Sent: 27 March 2014 19:23
-> >> To: Paul Durrant
-> >> Cc: netdev@vger.kernel.org; Wei Liu; Ian Campbell; xen-
-> devel@lists.xen.org
-> >> Subject: Re: [Xen-devel] [PATCH net v2 1/3] xen-netback: remove
-> pointless
-> >> clause from if statement
-> >>
-> >>
-> >> Thursday, March 27, 2014, 7:34:54 PM, you wrote:
-> >>
-> >> > <big snip>
-> >>
-> >> >>> >>
-> >> >>> >> > So, it may be that the worse-case estimate is now too bad. In
-> the
-> >> case
-> >> >>> >> where it's failing for you it would be nice to know what the
-> estimate
-> >> was
-> >> >>>
-> >> >>>
-> >> >>> > Ok, so we cannot be too pessimistic. In that case I don't see there's
-> a
-> >> lot
-> >> >>> > of
-> >> >>> > choice but to stick with the existing DIV_ROUND_UP (i.e. don't
-> assume
-> >> >>> > start_new_rx_buffer() returns true every time) and just add the
-> extra
-> >> 1.
-> >> >>>
-> >> >>> Hrmm i don't like a "magic" 1 bonus slot, there must be some
-> theoretical
-> >> >>> backing.
-> >>
-> >> > I don't like it either, but theory suggested each frag should take no more
-> >> > space than the original DIV_ROUND_UP and that proved to be wrong,
-> but I
-> >> cannot
-> >> > figure out why.
-> >>
-> >> >>> And since the original problem always seemed to occur on a packet
-> with
-> >> a
-> >> >>> single large frag, i'm wondering
-> >> >>> if this 1 would actually be correct in other cases.
-> >>
-> >> > That's why I went for an extra 1 per frag... a pessimal slot packing i.e. 2
-> >> > byte frag may span 2 slots, PAGE_SIZE + 2 bytes may span 3, etc. etc.
-> >>
-> >> > In what situation my a 2 byte frag span 2 slots ?
-> >>
-> >> > At least there must be a theoretical cap to the number of slots needed ..
-> >> > - assuming and SKB can contain only 65535 bytes
-> >> > - assuming a slot can take max PAGE_SIZE and frags are slit into
-> PAGE_SIZE
-> >> pieces ..
-> >>
-> >> > - it could only max contain 15 PAGE_SIZE slots if nicely aligned ..
-> >> > - double it ..  and at 30 we wouldn't still be near that 52 estimate and i
-> don't
-> >> know the ring size
-> >> >   but wasn't that 32 ? So if the ring get's fully drained we shouldn't stall
-> >> there.
-> >>
-> >>
-> >> >>> Well this is what i said earlier on .. it's hard to estimate upfront if
-> >> >>> "start_new_rx_buffer()" will return true,
-> >> >>> and how many times that is possible per frag .. and if that is possible
-> for
-> >> >>> only
-> >> >>> 1 frag or for all frags.
-> >> >>>
-> >> >>> The problem is now replaced from packets with 1 large frag (for which
-> it
-> >> >>> didn't account properly leading to a too small estimate) .. to packets
-> >> >>> with a large number of (smaller) frags .. leading to a too large over
-> >> >>> estimation.
-> >> >>>
-> >> >>> So would there be a theoretical maximum how often that path could
-> hit
-> >> >>> based on a combination of sizes (total size of all frags, nr_frags, size
-> per
-> >> >>> frag)
-> >> >>> ?
-> >> >>> - if you hit "start_new_rx_buffer()" == true  in the first frag .. could
-> you
-> >> >>> hit it
-> >> >>> in a next frag ?
-> >> >>> - could it be limited due to something like the packet_size / nr_frags /
-> >> >>> page_size ?
-> >> >>>
-> >> >>> And what was wrong with the previous calculation ?
-> >> >>>                  int max = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
-> >> >>>                  if (vif->can_sg || vif->gso_mask || vif->gso_prefix_mask)
-> >> >>>                          max += MAX_SKB_FRAGS + 1; /* extra_info + frags */
-> >> >>>
-> >>
-> >> >> This is not safe if frag size can be > PAGE_SIZE.
-> >>
-> >> > #define MAX_SKB_FRAGS (65536/PAGE_SIZE + 2)
-> >>
-> >> > So if one of the frags is > PAGE_SIZE ..
-> >> > wouldn't that imply that we have nr_frags < MAX_SKB_FRAGS because
-> we
-> >> are limited by the total packet size ?
-> >> > (so we would spare a slot since we have a frag less .. but spend one
-> more
-> >> because we have a frag that needs 2 slots ?)
-> >>
-> >> > (and that this should even be pessimistic since we didn't substract the
-> >> header etc from the max total packet size ?)
-> >>
-> >>
-> >> > So from what i said early, you could probably do the pessimistic estimate
-> >> (that would help when packets have a small skb->data_len
-> >> > (space occupied by frags)) so the estimate would be less then the old
-> one
-> >> based on MAX_SKB_FRAGS causing the packet to be processed earlier.
-> >> > And CAP it using the old way since a packet should never be able to use
-> >> more slots than that theoretical max_slots (which hopefully is less than
-> >> > the ring size, so a packet can always be processed if the ring is finally
-> >> emptied.
-> >>
-> >>
-> >> >>> That perhaps also misses some theoretical backing, what if it would
-> have
-> >> >>> (MAX_SKB_FRAGS - 1) nr_frags, but larger ones that have to be split
-> to
-> >> >>> fit in a slot. Or is the total size of frags a skb can carry limited to
-> >> >>> MAX_SKB_FRAGS / PAGE_SIZE ? .. than you would expect that
-> >> >>> MAX_SKB_FRAGS is a upper limit.
-> >> >>> (and you could do the new check maxed by MAX_SKB_FRAGS so it
-> >> doesn't
-> >> >>> get to a too large non reachable estimate).
-> >> >>>
-> >> >>> But as a side question .. the whole "get_next_rx_buffer()" path is
-> >> needed
-> >> >>> for when a frag could not fit in a slot
-> >> >>> as a whole ?
-> >>
-> >>
-> >> >> Perhaps it would be best to take the hit on copy_ops and just tightly
-> pack,
-> >> so
-> >> >> we only start a new slot when the current one is completely full; then
-> >> actual
-> >> >> slots would simply be DIV_ROUND_UP(skb->len, PAGE_SIZE) (+ 1 for
-> the
-> >> extra if
-> >> >> it's a GSO).
-> >>
-> >> > Don't know if and how much a performance penalty that would be.
-> >>
-> >> >>  Paul
-> >>
-> >> Hmm since i now started to dig around a bit more ..
-> >>
-> >> The ring size seems to be determined by netfront and not by netback ?
-> >> Couldn't this lead to problems when PAGE_SIZE dom0 != PAGE_SIZE
-> domU
-> >> (and potentially lead to a overrun and therefore problems on the HOST) ?
-> >>
-> >> And about the commit message from
-> >> ca2f09f2b2c6c25047cfc545d057c4edfcfe561c ...
-> >> Do i understand it correctly that you saw the original problem (stall on
-> large
-> >> file copy) only on a "Windows Server 2008R2", probably with PV drivers ?
-> >>
-> 
-> > Yes, with PV drivers as you say.
-> 
-> >> I don't see why the original calculation wouldn't work, so what kind of
-> >> packets (nr_frags, frag size and PAGE_SIZE ) caused it ?
-> >>
-> >> And could you retest if that "Windows Server 2008R2" works with a
-> netback
-> >> with you latest patch series (pessimistic estimate) plus a cap on
-> >> max_slots_needed like:
-> >>
-> >> if(max_slots_needed > MAX_SKB_FRAGS + 1){
-> >>         max_slots_needed = MAX_SKB_FRAGS + 1;
-> >> }
-> 
-> > The behaviour of the Windows frontend is different to netfront; it tries to
-> keep the shared ring as full as possible so the estimate could be as
-> pessimistic as you like (as long as it doesn't exceed ring size ;-)) and you'd
-> never see the lock-up. For some reason (best known to the originator of the
-> code I suspect) the Linux netfront driver limits the number of requests it
-> posts into the shared ring leading to the possibility of lock-up in the case
-> where the backend needs more slots than the fontend 'thinks' it should.
-> But from what i read the ring size is determined by the frontend .. so that PV
-> driver should be able to guarantee that itself ..
-> 
+"len" contains sizeof(nf_ct_ext) and size of extensions. In a worst
+case it can contain all extensions. Bellow you can find sizes for all
+types of extensions. Their sum is definitely bigger than 256.
 
-The ring size is 256 - that's baked in. The number of pending requests available to backend *is* determined by the frontend.
+nf_ct_ext_types[0]->len = 24
+nf_ct_ext_types[1]->len = 32
+nf_ct_ext_types[2]->len = 24
+nf_ct_ext_types[3]->len = 32
+nf_ct_ext_types[4]->len = 152
+nf_ct_ext_types[5]->len = 2
+nf_ct_ext_types[6]->len = 16
+nf_ct_ext_types[7]->len = 8
 
-> Which begs for the question .. was that change of max_slots_needed
-> calculation *needed* to prevent the problem you saw on "Windows Server
-> 2008R2",
-> or was that just changed for correctness ?
-> 
+I have seen "len" up to 280 and my host has crashes w/o this patch.
 
-It was changed for correctness. As I understand it, use of MAX_SKB_FRAGS is incorrect if compound pages are in use as the page size is no longer the slot size. It's also wasteful to always wait for space for a maximal packet if the packet you have is smaller so the intention of the max estimate was that it should be at least the number of slots required but not excessive. I think you've proved that making such an estimate is just too hard and since we don't want to fall back to the old dry-run style of slot counting (which meant you had two codepaths that *must* arrive at the same number - and they didn't, which is why I was getting the lock-up with Windows guests) I think we should just go with full-packing so that we don't need to estimate.
+The right way to fix this problem is reducing the size of the ecache
+extension (4) and Florian is going to do this, but these changes will
+be quite large to be appropriate for a stable tree.
 
-  Paul
+v2: rearrange the extension so ECACHE comes last. This is required to
+prevent overflow of nf_ct_ext->offset.
+v3: The previous attempt of rearranging constants doesn't work here,
+because extensions may be added in a random order.
 
-> >   Paul
-> 
+Fixes: 5b423f6a40a0 (netfilter: nf_conntrack: fix racy timer handling with reliable)
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Andrey Vagin <avagin@openvz.org>
+---
+ include/net/netfilter/nf_conntrack_extend.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
+index 956b175..55d1504 100644
+--- a/include/net/netfilter/nf_conntrack_extend.h
++++ b/include/net/netfilter/nf_conntrack_extend.h
+@@ -47,8 +47,8 @@ enum nf_ct_ext_id {
+ /* Extensions: optional stuff which isn't permanently in struct. */
+ struct nf_ct_ext {
+ 	struct rcu_head rcu;
+-	u8 offset[NF_CT_EXT_NUM];
+-	u8 len;
++	u16 offset[NF_CT_EXT_NUM];
++	u16 len;
+ 	char data[0];
+ };
+ 
+-- 
+1.8.5.3
+
