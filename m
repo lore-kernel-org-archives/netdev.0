@@ -1,46 +1,30 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/3] netpoll: Use skb_irq_freeable to make zap_completion_queue
- safe.
-Date: Fri, 28 Mar 2014 17:17:53 +0400
-Message-ID: <53357681.9050200@cogentembedded.com>
-References: <20140314.225923.61318448733570839.davem@davemloft.net>	<87k3bwqgf7.fsf@xmission.com> <877g7wqg8e.fsf_-_@xmission.com>	<20140317.154916.2276987764507311378.davem@davemloft.net>	<87iorcgh5d.fsf_-_@xmission.com> <87fvmgf2c7.fsf_-_@xmission.com>	<1395149407.22343.8.camel@deadeye.wl.decadent.org.uk>	<87lhw7inzg.fsf@nemi.mork.no>	<1395156229.9114.35.camel@edumazet-glaptop2.roam.corp.google.com>	<2c96faab-4293-4e7f-b8e0-4997af745fbf@email.android.com>	<063D6719AE5E284EB5DD2968C1650D6D0F6E02DB@AcuExch.aculab.com>	<87mwgbkttv.fsf_-_@x220.int.ebiederm.org> <8761mzktj9.fsf_-_@x220.int.ebiederm.org>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [PATCH v2 net] mac802154: stop tx queue before destroy workqueue
+Date: Fri, 28 Mar 2014 14:20:29 +0100
+Message-ID: <20140328132026.GA29114@omega.Speedport_W_921V_1_24_000>
+References: <1395944600-18330-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?=27Bj=F8rn_Mork=27?= <bjorn@mork.no>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-	"mpm@selenic.com" <mpm@selenic.com>,
-	"satyam.sharma@gmail.com" <satyam.sharma@gmail.com>,
-	David Laight <David.Laight@ACULAB.COM>
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: alex.bluesman.smirnov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:34620 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751443AbaC1NRw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 09:17:52 -0400
-Received: by mail-lb0-f178.google.com with SMTP id s7so3614439lbd.23
-        for <netdev@vger.kernel.org>; Fri, 28 Mar 2014 06:17:50 -0700 (PDT)
-In-Reply-To: <8761mzktj9.fsf_-_@x220.int.ebiederm.org>
+Received: from mail-bk0-f50.google.com ([209.85.214.50]:38579 "EHLO
+	mail-bk0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751249AbaC1NUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 09:20:35 -0400
+Received: by mail-bk0-f50.google.com with SMTP id w10so913359bkz.9
+        for <netdev@vger.kernel.org>; Fri, 28 Mar 2014 06:20:34 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1395944600-18330-1-git-send-email-alex.aring@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi David,
 
-On 28-03-2014 5:20, Eric W. Biederman wrote:
+please drop this patch... I having still some issues to unloading the
+at86rf230 driver while transmitting... I don't giving up to fix that issue...
 
-> Replace the test in zap_completion_queu to test when it is safe to
+Sorry, I need some time to understand what's going on there.
 
-    Small typo: it's zap_completion_queue().
-
-> free skbs in hard irq context with skb_irq_freeable ensuring we only
-> free skbs when it is safe, and removing the possibility of subtle
-> problems.
-
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-
-WBR, Sergei
+- Alex
