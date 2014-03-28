@@ -1,105 +1,75 @@
-From: David Decotigny <decot@googlers.com>
-Subject: [PATCH v1] net-sysfs: expose number of link up/down transitions
-Date: Thu, 27 Mar 2014 21:35:00 -0700
-Message-ID: <cc4b88e880d31d8d71a5c8872a64c9d665cd097e.1395980768.git.decot@googlers.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH v1] net-sysfs: expose number of link up/down transitions
+Date: Fri, 28 Mar 2014 16:17:25 +1100
+Message-ID: <20140328161725.e044dd9417cae3020068f350@canb.auug.org.au>
 References: <cover.1395980768.git.decot@googlers.com>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	<cc4b88e880d31d8d71a5c8872a64c9d665cd097e.1395980768.git.decot@googlers.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Fri__28_Mar_2014_16_17_25_+1100_TZFtd7YsdaL53_up"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	Eric Dumazet <edumazet@google.com>,
 	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Weilong Chen <chenweilong@huawei.com>,
 	Jiri Pirko <jiri@resnulli.us>, Amir Vadai <amirv@mellanox.com>,
 	Michael Dalton <mwdalton@google.com>,
-	David Decotigny <decot@googlers.com>,
 	Al Viro <viro@ZenIV.linux.org.uk>, Tejun Heo <tj@kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1395980768.git.decot@googlers.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: David Decotigny <decot@googlers.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:44104 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751069AbaC1FRd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2014 01:17:33 -0400
+In-Reply-To: <cc4b88e880d31d8d71a5c8872a64c9d665cd097e.1395980768.git.decot@googlers.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tested:
-  grep . /sys/class/net/*/count_link_*
-  + ip link set dev X down/up
+--Signature=_Fri__28_Mar_2014_16_17_25_+1100_TZFtd7YsdaL53_up
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: David Decotigny <decot@googlers.com>
----
- include/linux/netdevice.h |  4 ++++
- net/core/net-sysfs.c      | 18 ++++++++++++++++++
- net/sched/sch_generic.c   |  2 ++
- 3 files changed, 24 insertions(+)
+Hi David,
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 4b6d12c..cf52869 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1315,6 +1315,10 @@ struct net_device {
- 					     * Do not use this in drivers.
- 					     */
- 
-+	/* Stats to monitor link on/off, flapping */
-+	atomic_t		count_link_up;
-+	atomic_t		count_link_down;
-+
- #ifdef CONFIG_WIRELESS_EXT
- 	/* List of functions to handle Wireless Extensions (instead of ioctl).
- 	 * See <net/iw_handler.h> for details. Jean II */
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index daed9a6..a65ac54 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -253,6 +253,22 @@ static ssize_t operstate_show(struct device *dev,
- }
- static DEVICE_ATTR_RO(operstate);
- 
-+static ssize_t count_link_up_show(struct device *dev,
-+				  struct device_attribute *attr, char *buf)
-+{
-+	struct net_device *netdev = to_net_dev(dev);
-+	return sprintf(buf, fmt_dec, atomic_read(&netdev->count_link_up));
-+}
-+
-+static ssize_t count_link_down_show(struct device *dev,
-+				    struct device_attribute *attr, char *buf)
-+{
-+	struct net_device *netdev = to_net_dev(dev);
-+	return sprintf(buf, fmt_dec, atomic_read(&netdev->count_link_down));
-+}
-+static DEVICE_ATTR_RO(count_link_up);
-+static DEVICE_ATTR_RO(count_link_down);
-+
- /* read-write attributes */
- 
- static int change_mtu(struct net_device *net, unsigned long new_mtu)
-@@ -386,6 +402,8 @@ static struct attribute *net_class_attrs[] = {
- 	&dev_attr_duplex.attr,
- 	&dev_attr_dormant.attr,
- 	&dev_attr_operstate.attr,
-+	&dev_attr_count_link_up.attr,
-+	&dev_attr_count_link_down.attr,
- 	&dev_attr_ifalias.attr,
- 	&dev_attr_carrier.attr,
- 	&dev_attr_mtu.attr,
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index e82e43b..2d06943 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -310,6 +310,7 @@ void netif_carrier_on(struct net_device *dev)
- 	if (test_and_clear_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
- 		if (dev->reg_state == NETREG_UNINITIALIZED)
- 			return;
-+		atomic_inc(&dev->count_link_up);
- 		linkwatch_fire_event(dev);
- 		if (netif_running(dev))
- 			__netdev_watchdog_up(dev);
-@@ -328,6 +329,7 @@ void netif_carrier_off(struct net_device *dev)
- 	if (!test_and_set_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
- 		if (dev->reg_state == NETREG_UNINITIALIZED)
- 			return;
-+		atomic_inc(&dev->count_link_down);
- 		linkwatch_fire_event(dev);
- 	}
- }
--- 
-1.9.1.423.g4596e3a
+On Thu, 27 Mar 2014 21:35:00 -0700 David Decotigny <decot@googlers.com> wro=
+te:
+>
+> Tested:
+>   grep . /sys/class/net/*/count_link_*
+>   + ip link set dev X down/up
+>=20
+> Signed-off-by: David Decotigny <decot@googlers.com>
+
+It is not a very enlightening commit message.  You should tell us why we
+should add this to the kernel.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Fri__28_Mar_2014_16_17_25_+1100_TZFtd7YsdaL53_up
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTNQXoAAoJEMDTa8Ir7ZwVrGkP/0Sw6YC2nHd10f6E4dfHE146
+2hBS5ZGZqBJMlrbIXBvBO8BobyTGR0CU8AhD8yQeoQOFqC0+bdDbYg3Hb706LNNl
+kmGOtr2pGX01GUOtELU408c+aVBBPvjajaaKgIrexfKKyhIhFC9Ike/TPPShWX5c
+1qHj2+CtqfWK+Ep/3twNXOTpHcpNW3GEO1SOvldwWIRu6iSvcabqzVfCoZe4CRJl
+nFLzuI2TeHEGKjno60K46tFuea9ia3DiQNOPoV8bHz9TmCtn02AAlM2ISSKSj8NB
+SbGD8+3tc5Dgx8tlDZS0Wp0sOf4/+37HgiKNyWWNCdHnsnKN1J3pm4PkumDgNvLb
+Ergv5hOQ6uCnWxbmZdXBk6nV/xtrEAVdh+oPU6l9d1rnsTxYLcjrJTRlpkLT38kD
+uwNOeZZA54IxQLv4rJat78bWr8rEaQh5SQ3cuj4wfp56V0sclsMnDuRTqUiB7TAs
+AxC/1PrxLfZwVfuxCW8F4qEZ7WMXDYOCrjP2urP+NR2tC/1MS5a64JVeXtNLkMM0
+O5TdWqHyYVN9jlMhuT8q+/HOdn2NnGC2DSmvz65rw77pSuh4RHaSBg+snwdfNwmO
+PS/dLhs9dO/el/n8NN5183lh4K2E863iacqPdiFPcaeVgJTUMMxvankQ6YrVirIR
+3TJCVpoaobM5Cuf15kBZ
+=OsAu
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__28_Mar_2014_16_17_25_+1100_TZFtd7YsdaL53_up--
