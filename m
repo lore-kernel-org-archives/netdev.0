@@ -1,80 +1,133 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH v5 net-next 0/2] patchset: Support for configurable RSS
- hash key
-Date: Fri, 28 Mar 2014 01:39:30 +0000
-Message-ID: <1395970770.2898.54.camel@deadeye.wl.decadent.org.uk>
-References: <1395412393.2770.48.camel@deadeye.wl.decadent.org.uk>
-	 <20140321.152836.1010161671166010422.davem@davemloft.net>
-	 <BF3270C86E8B1349A26C34E4EC1C44CB2C89CCDD@CMEXMB1.ad.emulex.com>
-	 <20140327.145336.1708122219432567015.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-VpTiDDk06uSN0Q0vWkIY"
-Cc: VenkatKumar.Duvvuru@Emulex.Com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH v4 net] bridge: use is_skb_forwardable in forward path
+Date: Thu, 27 Mar 2014 21:49:10 -0400
+Message-ID: <1395971350-10559-1-git-send-email-vyasevic@redhat.com>
+Cc: bridge@lists.linux-foundation.org, shemminger@vyatta.com,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:55590 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756738AbaC1BkA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 21:40:00 -0400
-In-Reply-To: <20140327.145336.1708122219432567015.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:11590 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757249AbaC1BtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Mar 2014 21:49:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Use existing function instead of trying to use our own.  This allows
+us to better handle Q-in-Q packets.
 
---=-VpTiDDk06uSN0Q0vWkIY
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+v2: Fix missing hunk in patch 2/2 to make it build.
 
-On Thu, 2014-03-27 at 14:53 -0400, David Miller wrote:
-> From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
-> Date: Wed, 26 Mar 2014 09:21:01 +0000
->=20
-> > I don't mind going back to the original approach of adding a new
-> > hash key operation. Please let me know what you guys think, combined
-> > operation or a new operation.
->=20
-> Unless Ben has a major objection, I would prefer that we just add a
-> new hash key interface.
+v3: Fix indent for is_skb_forwardable
 
-My objection is that there is also the prospect of having multiple RSS
-contexts on a single device.  I think we discussed the usefulness of
-that several years back at a netconf.  And there is now hardware that
-supports it: at least the Solarflare SFC9100 controllers do, and I doubt
-they are unique in this.
+v4: Made is_skb_forwardable inline in netdevice.h and squashed
+    the 2 patches into one since having 2 doesn't make much sense
+    any more.
 
-By grouping the key and hash together, with some reserved fields (which
-the setter should initially require to be equal to zero), it should be
-possible to fill in support for numbered RSS contexts later without yet
-another new structure and operations.
+ include/linux/netdevice.h | 24 ++++++++++++++++++++++++
+ net/bridge/br_forward.c   |  9 ++-------
+ net/core/dev.c            | 21 ---------------------
+ 3 files changed, 26 insertions(+), 28 deletions(-)
 
-Ben.
-
---=20
-Ben Hutchings
-Always try to do things in chronological order;
-it's less confusing that way.
-
---=-VpTiDDk06uSN0Q0vWkIY
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUzTS0ue/yOyVhhEJAQqrYQ//SxTLELGly+5JqE3pJqoG9SyiS5Af1jNV
-CYWBb8KsB+oOjXlrXsHj+E7NP42vdnzZrfJmf9DZur4B7nmx3+Omp/I3T9gIN6qj
-S60bA5byAUUBj3baezKo8sMruLf+99lweSANERb4AtuEIx0mqNAcb4WnCyjb9BTc
-lzQ4rI/N3m449SnH1u/Psc/OdDwCo3K1yoXrXw1inOVNWcxocrtmcdiCoaICgp0G
-M5ipM73JCxqWR7gUu8MGnaTnl5NQutDEKnPu9oPl2P1IprmgTqRpVAqeyHeCcVbO
-3kPL+R0ottzWUIFvG+0nYhqp3kPnJZrtKVW89eCt+9dKJKXBaV1Grkw91SAk+m17
-jfyX3dXznSxQIsPr27f0ALKKuPxxYEfbcvOpHn6WlxbbzjqQc6ldHUMZ3JmNVwGk
-/PhJWaHa9x+c2C/Ix5B84nRXhFm1y7RRv2Lz/R6Ivqlv7kq4dlFtxafi1t6FI30M
-KuGkEZzQUEwg4KIUXqKFRFhqo8Bw9ltA5XM78Pfo7jYa+HSH91HBdFh9tFd70RPf
-kxosJY1OZ5qdDbfISX7qSlC6i2lCB5TSU+Mx46R6QzsUI1Un1D1pl2HsRkKjMLa+
-nsmo53SnqhTDSQRuyd9ktwKbcueIb746PqFYzRindI4DsEemGTgpUTzSUBybjC9p
-HSvHJQhhvEM=
-=TrEy
------END PGP SIGNATURE-----
-
---=-VpTiDDk06uSN0Q0vWkIY--
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e8eeebd..5d07fee 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3146,6 +3146,30 @@ static inline void skb_gso_error_unwind(struct sk_buff *skb, __be16 protocol,
+ 	skb->mac_len = mac_len;
+ }
+ 
++
++#include <linux/if_vlan.h>
++
++static inline bool is_skb_forwardable(struct net_device *dev,
++				      struct sk_buff *skb)
++{
++	unsigned int len;
++
++	if (!(dev->flags & IFF_UP))
++		return false;
++
++	len = dev->mtu + dev->hard_header_len + VLAN_HLEN;
++	if (skb->len <= len)
++		return true;
++
++	/* if TSO is enabled, we don't care about the length as the packet
++	 * could be forwarded without being segmented before
++	 */
++	if (skb_is_gso(skb))
++		return true;
++
++	return false;
++}
++
+ static inline bool netif_is_macvlan(struct net_device *dev)
+ {
+ 	return dev->priv_flags & IFF_MACVLAN;
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index d3409e6..056b67b 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -35,16 +35,11 @@ static inline int should_deliver(const struct net_bridge_port *p,
+ 		p->state == BR_STATE_FORWARDING;
+ }
+ 
+-static inline unsigned int packet_length(const struct sk_buff *skb)
+-{
+-	return skb->len - (skb->protocol == htons(ETH_P_8021Q) ? VLAN_HLEN : 0);
+-}
+-
+ int br_dev_queue_push_xmit(struct sk_buff *skb)
+ {
+ 	/* ip_fragment doesn't copy the MAC header */
+ 	if (nf_bridge_maybe_copy_header(skb) ||
+-	    (packet_length(skb) > skb->dev->mtu && !skb_is_gso(skb))) {
++	    !is_skb_forwardable(skb->dev, skb)) {
+ 		kfree_skb(skb);
+ 	} else {
+ 		skb_push(skb, ETH_HLEN);
+@@ -71,7 +66,7 @@ static void __br_deliver(const struct net_bridge_port *to, struct sk_buff *skb)
+ 	skb->dev = to->dev;
+ 
+ 	if (unlikely(netpoll_tx_running(to->br->dev))) {
+-		if (packet_length(skb) > skb->dev->mtu && !skb_is_gso(skb))
++		if (!is_skb_forwardable(skb->dev, skb))
+ 			kfree_skb(skb);
+ 		else {
+ 			skb_push(skb, ETH_HLEN);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b1b0c8d..3e4a965 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1645,27 +1645,6 @@ static inline void net_timestamp_set(struct sk_buff *skb)
+ 			__net_timestamp(SKB);		\
+ 	}						\
+ 
+-static inline bool is_skb_forwardable(struct net_device *dev,
+-				      struct sk_buff *skb)
+-{
+-	unsigned int len;
+-
+-	if (!(dev->flags & IFF_UP))
+-		return false;
+-
+-	len = dev->mtu + dev->hard_header_len + VLAN_HLEN;
+-	if (skb->len <= len)
+-		return true;
+-
+-	/* if TSO is enabled, we don't care about the length as the packet
+-	 * could be forwarded without being segmented before
+-	 */
+-	if (skb_is_gso(skb))
+-		return true;
+-
+-	return false;
+-}
+-
+ /**
+  * dev_forward_skb - loopback an skb to another netif
+  *
+-- 
+1.8.5.3
