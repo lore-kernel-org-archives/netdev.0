@@ -1,70 +1,56 @@
-From: wangyufen <wangyufen@huawei.com>
-Subject: Re: [PATCH net-next v4 2/3] ipv6: reuse rt6_need_strict
-Date: Fri, 28 Mar 2014 17:04:52 +0800
-Message-ID: <53353B34.1040700@huawei.com>
-References: <1395979303-7668-1-git-send-email-wangyufen@huawei.com> <1395979303-7668-3-git-send-email-wangyufen@huawei.com> <20140328074110.GC11063@order.stressinduktion.org>
+From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created with
+ no group
+Date: Fri, 28 Mar 2014 12:05:56 +0300
+Message-ID: <20140328090556.GA9504@zed>
+References: <20140326094754.GA19337@zed>
+ <OFD0C40ED9.015A05DD-ON87257CA2.003E72F3-87257CA2.003E7300@us.ibm.com>
+ <CAF1J0HOd9D1t4hxjMe7Muad71o_pgKQsn3jLxqR5ZFPpj2_Nrw@mail.gmail.com>
+ <CAJZOPZL9h0q3iiN7Q2jJWW+uEs0EpNaWqVMqQMyL+-5QGxGWPg@mail.gmail.com>
+ <20140325.205324.1845346581147557473.davem@davemloft.net>
+ <OF687EFECB.536163E6-ON87257CA7.00513C78-87257CA7.00513C81@us.ibm.com>
+ <20140326175018.GA24065@zed>
+ <CAHA+R7NY45pgO=5MjXQ_6WOW=32uMsV6vO1T2562VzezZLfUcA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <or.gerlitz@gmail.com>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:19141 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750972AbaC1JF1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 05:05:27 -0400
-In-Reply-To: <20140328074110.GC11063@order.stressinduktion.org>
+Received: from mail-ee0-f42.google.com ([74.125.83.42]:56459 "EHLO
+	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750793AbaC1JGD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 05:06:03 -0400
+Received: by mail-ee0-f42.google.com with SMTP id d17so3827559eek.1
+        for <netdev@vger.kernel.org>; Fri, 28 Mar 2014 02:06:01 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAHA+R7NY45pgO=5MjXQ_6WOW=32uMsV6vO1T2562VzezZLfUcA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/3/28 15:41, Hannes Frederic Sowa wrote:
-> On Fri, Mar 28, 2014 at 12:01:42PM +0800, Wangyufen wrote:
->> From: Wang Yufen <wangyufen@huawei.com>
->>
->> Modify the rt6_need_strict, so that it can be reused
->>
->> Signed-off-by: Wang Yufen <wangyufen@huawei.com>
->> ---
->>  include/net/ip6_route.h | 1 +
->>  net/ipv6/route.c        | 2 +-
->>  2 files changed, 2 insertions(+), 1 deletion(-)
->>
->> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
->> index 00e3f12..d9c316e 100644
->> --- a/include/net/ip6_route.h
->> +++ b/include/net/ip6_route.h
->> @@ -51,6 +51,7 @@ static inline unsigned int rt6_flags2srcprefs(int flags)
->>  	return (flags >> 3) & 7;
->>  }
->>  
->> +bool rt6_need_strict(const struct in6_addr *daddr);
->>  
->>  void ip6_route_input(struct sk_buff *skb);
->>  
->> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->> index fba54a4..f5fdccc 100644
->> --- a/net/ipv6/route.c
->> +++ b/net/ipv6/route.c
->> @@ -373,7 +373,7 @@ static bool rt6_check_expired(const struct rt6_info *rt)
->>  	return false;
->>  }
->>  
->> -static bool rt6_need_strict(const struct in6_addr *daddr)
->> +bool rt6_need_strict(const struct in6_addr *daddr)
->>  {
->>  	return ipv6_addr_type(daddr) &
->>  		(IPV6_ADDR_MULTICAST | IPV6_ADDR_LINKLOCAL | IPV6_ADDR_LOOPBACK);
+On Thu, Mar 27, 2014 at 01:20:25PM -0700, Cong Wang wrote:
+> On Wed, Mar 26, 2014 at 10:50 AM, Mike Rapoport
+> <mike.rapoport@ravellosystems.com> wrote:
+> >
+> > The problem is not only duplication of default destinations, but also
+> > the mis^Wuse of default_dst to distinguish whether IPv4 or IPv6 path
+> > should be taken because there is no explicit specification of the
+> > protocol if neither IFLA_VXLAN_GROUP or IFLA_VXLAN_LOCAL defined at
+> > vxlan_newlink. Moreover, if neither of these attributes is present, the
+> > custom configuration will always use v4 socket regardles of use of
+> > default_dst or fdb entry.
 > 
-> Just a small suggestion:
-> I think we can move the whole function as static inline into the header.
-> 
+> It should default to IPv4 for compatibility reason.
 
-Yes, thanks a lot!
-I'll modify the patch.
+Yes, of course. The problem is that when IPv4 is not explicitly defined
+using GROUP/LOCAL attributes, there are a lot of places that take IPv6
+path.
+So, what I'm proposing is to explicitly set default_dst family to
+AF_INET and override it with AF_INET6 only when IPv6 is explicitly
+requested.
 
-> Thanks,
-> 
->   Hannes
-> 
-> 
-> 
+--
+Sincerely yours,
+Mike.
