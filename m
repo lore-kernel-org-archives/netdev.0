@@ -1,59 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 0/4] Provide netdev naming-policy via sysfs
-Date: Fri, 28 Mar 2014 17:21:07 -0400 (EDT)
-Message-ID: <20140328.172107.16072208664321602.davem@davemloft.net>
-References: <1395839117-20090-1-git-send-email-dh.herrmann@gmail.com>
-	<20140328.145410.1817326821928803131.davem@davemloft.net>
-	<CAG-2HqVJPrTWXtuvDkU6MvfNj0MXfNuBMmdoKWtSd5kToZ3mMQ@mail.gmail.com>
+From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+Subject: Samsung sxgbe driver - Kconfig issue
+Date: Fri, 28 Mar 2014 17:20:25 -0400
+Message-ID: <19617.1396041625@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed; boundary="==_Exmh_1396041625_2170P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: dh.herrmann@gmail.com, netdev@vger.kernel.org,
-	johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: teg@jklm.no
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Siva Reddy Kallam <siva.kallam@samsung.com>,
+	Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41031 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751305AbaC1VVK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 17:21:10 -0400
-In-Reply-To: <CAG-2HqVJPrTWXtuvDkU6MvfNj0MXfNuBMmdoKWtSd5kToZ3mMQ@mail.gmail.com>
+Received: from lennier.cc.vt.edu ([198.82.162.213]:34316 "EHLO
+	lennier.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752821AbaC1VVL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 17:21:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Gundersen <teg@jklm.no>
-Date: Fri, 28 Mar 2014 21:51:53 +0100
+--==_Exmh_1396041625_2170P
+Content-Type: text/plain; charset=us-ascii
 
-> On Fri, Mar 28, 2014 at 7:54 PM, David Miller <davem@davemloft.net> wrote:
->> From: David Herrmann <dh.herrmann@gmail.com>
->> Date: Wed, 26 Mar 2014 14:05:13 +0100
->>
->>> The main use-case is to allow udev to skip applying reliable ifnames to virtual
->>> devices. For instance, if wifi-P2P devices are created, wpas already provides a
->>> suitable naming-policy and udev shouldn't touch these devices. Same is true for
->>> other virtual devices.
->>
->> This makes no sense at all.
->>
->> If udev should avoid applying names to wifi-P2P devices, that policy can
->> be instituted completely inside of udev.  There is no need whatsoever
->> for kernel support.
->>
->> udev can look at the device type, and policies can be defined that key
->> off of that device type, entirely in userspace.
-> 
-> Doing this in userspace sounds really wrong and fragile.
-> 
-> In the case of wifi-P2P we could make it work, but for every type of
-> device that is added to the kernel which is named from userspace, we
-> would have to play catch-up in udev (and even after we do, new kernels
-> on old userspace will never work in the expected way).
+commit 1edb9ca69e8a7988900fc0283e10550b5592164d
+Author: Siva Reddy <siva.kallam@samsung.com>
+Date:   Tue Mar 25 12:10:54 2014 -0700
 
-Chronically we are finding hackish ways for seperate components in
-userspace to coordinate their actions.
+    net: sxgbe: add basic framework for Samsung 10Gb ethernet driver
 
-You're right, doing this for every device type for every single attribute
-that might better.... sucks.
+    This patch adds support for Samsung 10Gb ethernet driver(sxgbe).
 
-What's really needed is generic ways for seperate userspace components
-to coordinate with eachother on issues like this.
+
+This commit added the following in the Kconfig file:
+
+config NET_VENDOR_SAMSUNG
+        bool "Samsung Ethernet device"
+        default y
+        ---help---
+          This is the driver for the SXGBE 10G Ethernet IP block found on Samsung
+          platforms.
+
+Please redo this to match the style of other NET_VENDOR_FOO, and make clear
+that it only selects a submenu.  For instance, drivers/net/ethernet/qlogic/Kconfig
+says:
+
+config NET_VENDOR_QLOGIC
+        bool "QLogic devices"
+        default y
+        depends on PCI
+        ---help---
+          If you have a network (Ethernet) card belonging to this class, say Y
+          and read the Ethernet-HOWTO, available from
+          <http://www.tldp.org/docs.html#howto>.
+
+          Note that the answer to this question doesn't directly affect the
+          kernel: saying N will just cause the configurator to skip all
+          the questions about QLogic cards. If you say Y, you will be asked for
+          your specific card in the following questions.
+
+if NET_VENDOR_QLOGIC
+
+
+
+
+--==_Exmh_1396041625_2170P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Exmh version 2.5 07/13/2001
+
+iQIVAwUBUzXnmQdmEQWDXROgAQJnQQ//a+SUvRfAFVCsxBkFI+snoWUVA3W8weIS
+wmemK1eHdYlF8h16YFpV+nh9ZrozEDfygMb7r3RhUtIcYkbt0m7qKTjqCZCYWC9z
+PFhAYQ+no5Lue6uS04tqfYPDZDRI8fpXCDGHwtAxfoVbPoiLB6SZbfleUohTFMiP
+UwFJ/nII5JSyqwcFgUI2ph9UCq9m0i2uYs5YkS49zSfmqGoWtnYG/7D3FkUgvoM8
+R34aSamoDjsl/MflFJadydzWsdrEQbt4uf2/GinPztl5afzfLt1Tf89BXAuRkPoQ
+zF4KHpoIZIotEslkfPdBFSukBs9dvKDjOHO9jRMUUyPOmJi4UxbcUjik5QpfglSy
+Ibfoyvm+ihyrp33Y8sgS+qDfxZUFWFMv3SkjGuYoEOfBRPCCrvW9s5xrCFFV21Qb
+LD5FuJpAhsvIyLJeCqoGrlA0lSQs3Yjtsk2OJYX0HyGF7Th78ezLFrMkYij4KQI0
+YnkB0THWmXsqS2X6jmpfRHRiGdIV2gtBCPbRwpt5HMcsMnB/1KRPu6+ZB+Mi3532
+xku+KA8qXg9uJ13t8MXk9Sa/n/f8HQBUcTS5I4/b/iaynhvgUPeZgRIO6ozQYNeU
+XQqvvA8J3v93QwZcP5X5+poHVuF5ViEG38xJqInVOvV7hy9Dd6PkMptBqW8PPxaQ
+Yf+gjuYLfP0=
+=aoRo
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1396041625_2170P--
