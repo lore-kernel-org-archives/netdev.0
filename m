@@ -1,63 +1,85 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v4 2/3] ipv6: reuse rt6_need_strict
-Date: Fri, 28 Mar 2014 08:41:10 +0100
-Message-ID: <20140328074110.GC11063@order.stressinduktion.org>
-References: <1395979303-7668-1-git-send-email-wangyufen@huawei.com> <1395979303-7668-3-git-send-email-wangyufen@huawei.com>
+From: Zhao Qiang <B45475@freescale.com>
+Subject: [PATCH v2] phy/at8031: enable at8031 to work on interrupt mode
+Date: Fri, 28 Mar 2014 15:39:41 +0800
+Message-ID: <1395992381-23094-1-git-send-email-B45475@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org, ioe@perches.com,
-	kuznet@ms2.inr.ac.ru
-To: Wangyufen <wangyufen@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:36696 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750955AbaC1HlM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 03:41:12 -0400
-Content-Disposition: inline
-In-Reply-To: <1395979303-7668-3-git-send-email-wangyufen@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, <davem@davemloft.net>,
+	<mugunthanvnm@ti.com>, <zonque@gmail.com>,
+	<helmut.schaa@googlemail.com>, <R63061@freescale.com>,
+	Zhao Qiang <B45475@freescale.com>
+To: <linuxppc-dev@lists.ozlabs.org>, <netdev@vger.kernel.org>,
+	<B07421@freescale.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 28, 2014 at 12:01:42PM +0800, Wangyufen wrote:
-> From: Wang Yufen <wangyufen@huawei.com>
-> 
-> Modify the rt6_need_strict, so that it can be reused
-> 
-> Signed-off-by: Wang Yufen <wangyufen@huawei.com>
-> ---
->  include/net/ip6_route.h | 1 +
->  net/ipv6/route.c        | 2 +-
->  2 files changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-> index 00e3f12..d9c316e 100644
-> --- a/include/net/ip6_route.h
-> +++ b/include/net/ip6_route.h
-> @@ -51,6 +51,7 @@ static inline unsigned int rt6_flags2srcprefs(int flags)
->  	return (flags >> 3) & 7;
->  }
->  
-> +bool rt6_need_strict(const struct in6_addr *daddr);
->  
->  void ip6_route_input(struct sk_buff *skb);
->  
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index fba54a4..f5fdccc 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -373,7 +373,7 @@ static bool rt6_check_expired(const struct rt6_info *rt)
->  	return false;
->  }
->  
-> -static bool rt6_need_strict(const struct in6_addr *daddr)
-> +bool rt6_need_strict(const struct in6_addr *daddr)
->  {
->  	return ipv6_addr_type(daddr) &
->  		(IPV6_ADDR_MULTICAST | IPV6_ADDR_LINKLOCAL | IPV6_ADDR_LOOPBACK);
+The at8031 can work on polling mode and interrupt mode.
+Add ack_interrupt and config intr funcs to enable
+interrupt mode for it.
 
-Just a small suggestion:
-I think we can move the whole function as static inline into the header.
+Signed-off-by: Zhao Qiang <B45475@freescale.com>
+---
+changes for v2:
+	- when interrupt is not enabled, write 0 to interrupt enbale register
+	- delete a inner parens not needed
+ drivers/net/phy/at803x.c | 30 ++++++++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
 
-Thanks,
-
-  Hannes
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+index bc71947..643464d 100644
+--- a/drivers/net/phy/at803x.c
++++ b/drivers/net/phy/at803x.c
+@@ -27,6 +27,9 @@
+ #define AT803X_MMD_ACCESS_CONTROL		0x0D
+ #define AT803X_MMD_ACCESS_CONTROL_DATA		0x0E
+ #define AT803X_FUNC_DATA			0x4003
++#define AT803X_INER				0x0012
++#define AT803X_INER_INIT			0xec00
++#define AT803X_INSR				0x0013
+ #define AT803X_DEBUG_ADDR			0x1D
+ #define AT803X_DEBUG_DATA			0x1E
+ #define AT803X_DEBUG_SYSTEM_MODE_CTRL		0x05
+@@ -191,6 +194,31 @@ static int at803x_config_init(struct phy_device *phydev)
+ 	return 0;
+ }
+ 
++static int at803x_ack_interrupt(struct phy_device *phydev)
++{
++	int err;
++
++	err = phy_read(phydev, AT803X_INSR);
++
++	return (err < 0) ? err : 0;
++}
++
++static int at803x_config_intr(struct phy_device *phydev)
++{
++	int err;
++	int value;
++
++	value = phy_read(phydev, AT803X_INER);
++
++	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
++		err = phy_write(phydev, AT803X_INER,
++				value | AT803X_INER_INIT);
++	else
++		err = phy_write(phydev, AT803X_INER, 0);
++
++	return err;
++}
++
+ static struct phy_driver at803x_driver[] = {
+ {
+ 	/* ATHEROS 8035 */
+@@ -240,6 +268,8 @@ static struct phy_driver at803x_driver[] = {
+ 	.flags		= PHY_HAS_INTERRUPT,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
++	.ack_interrupt  = &at803x_ack_interrupt,
++	.config_intr    = &at803x_config_intr,
+ 	.driver		= {
+ 		.owner = THIS_MODULE,
+ 	},
+-- 
+1.8.5
