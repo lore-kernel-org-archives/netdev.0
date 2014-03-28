@@ -1,42 +1,42 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: Re: [PATCH net 1/4] qlge: Do not propaged vlan tag offloads to vlans
-Date: Fri, 28 Mar 2014 03:32:23 +0000
-Message-ID: <BECD8E8A1B550B48A1BF97C13991F60E46D3C3AD@avmb2.qlogic.org>
-References: <1395972889-32289-1-git-send-email-vyasevic@redhat.com>
- <1395972889-32289-2-git-send-email-vyasevic@redhat.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH v2] bridge: Fix crash with vlan filtering and
+	tcpdump
+Date: Fri, 28 Mar 2014 12:33:11 +0900
+Message-ID: <5334ED77.4080601@lab.ntt.co.jp>
+References: <1395971478-10689-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Ron Mercer <ron.mercer@qlogic.com>
-To: Vlad Yasevich <vyasevic@redhat.com>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:37839 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755681AbaC1Dc1 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Mar 2014 23:32:27 -0400
-In-Reply-To: <1395972889-32289-2-git-send-email-vyasevic@redhat.com>
-Content-Language: en-US
-Content-ID: <6A90A4E7317618439AB3E4433AA415B5@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: bridge@lists.linux-foundation.org
+To: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1395971478-10689-1-git-send-email-vyasevic@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+(2014/03/28 10:51), Vlad Yasevich wrote:
+> When the vlan filtering is enabled on the bridge, but
+> the filter is not configured on the bridge device itself,
+> running tcpdump on the bridge device will result in a
+> an Oops with NULL pointer dereference.  The reason
+> is that br_pass_frame_up() will bypass the vlan
+> check because promisc flag is set.  It will then try
+> to get the table pointer and process the packet based
+> on the table.  Since the table pointer is NULL, we oops.
+> Catch this special condition in br_handle_vlan().
+> 
+> Reported-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> CC: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 
-On 3/27/14 7:14 PM, "Vlad Yasevich" <vyasevic@redhat.com> wrote:
+Thanks,
 
->qlge driver turns off NETIF_F_HW_CTAG_FILTER, but forgets to
->turn off HW_CTAG_TX and HW_CTAG_RX on vlan devices.  With the
->current settings, q-in-q will only generate a single vlan header.
->Remember to mask off CTAG_TX and CTAG_RX features in vlan_features.
->
->CC: Shahed Shaikh <shahed.shaikh@qlogic.com>
->CC: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
->CC: Ron Mercer <ron.mercer@qlogic.com>
->Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->---
-> drivers/net/ethernet/qlogic/qlge/qlge_main.c | 4 +++-
-> 1 file changed, 3 insertions(+), 1 deletion(-)
-
-Acked-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Acked-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
