@@ -1,117 +1,179 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH v1] net-sysfs: expose number of link up/down transitions
-Date: Fri, 28 Mar 2014 07:25:37 +0100
-Message-ID: <20140328062537.GA2805@minipsycho.orion>
-References: <cover.1395980768.git.decot@googlers.com>
- <cc4b88e880d31d8d71a5c8872a64c9d665cd097e.1395980768.git.decot@googlers.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
+ switch chip datapath
+Date: Fri, 28 Mar 2014 07:28:27 +0100
+Message-ID: <20140328062827.GB2805@minipsycho.orion>
+References: <20140326173536.GJ2869@minipsycho.orion>
+ <CAGVrzca84nbsyG3ETvn4nkgpMtYTh_dFDbzCywSdQ9uJjLVOUg@mail.gmail.com>
+ <20140326181436.GL2869@minipsycho.orion>
+ <53334BDA.1060608@mojatatu.com>
+ <CAGVrzcaconDBjgSfk0=6px2+6LbrxMkmesgigSa3-9WaK-LiOw@mail.gmail.com>
+ <20140327065616.GA2845@minipsycho.orion>
+ <CAHNKnsQYLNfkrC0088g2os30NcSz9HVzkytbK_qFbNfeSWkmFw@mail.gmail.com>
+ <CAGVrzcaWQH0aH3HOFdhaX2K3sGkfn4EitWaN+17R1oU4xtudWg@mail.gmail.com>
+ <CAHNKnsTs6o3bFr241Cj_=muGMgOq3fc9ZNXcBRt3M8+ccTJscA@mail.gmail.com>
+ <CAGVrzcY=hxAf0eOoDfAAQZS1fNjFWbdY9Nbyuz6kFaOkSSis8w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+Cc: Sergey Ryazanov <ryazanov.s.a@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
 	Eric Dumazet <edumazet@google.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Weilong Chen <chenweilong@huawei.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Michael Dalton <mwdalton@google.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>, Tejun Heo <tj@kernel.org>
-To: David Decotigny <decot@googlers.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
+	Felix Fietkau <nbd@openwrt.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f52.google.com ([74.125.83.52]:33963 "EHLO
+	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750946AbaC1G2b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 02:28:31 -0400
+Received: by mail-ee0-f52.google.com with SMTP id e49so3619984eek.39
+        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 23:28:30 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <cc4b88e880d31d8d71a5c8872a64c9d665cd097e.1395980768.git.decot@googlers.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CAGVrzcY=hxAf0eOoDfAAQZS1fNjFWbdY9Nbyuz6kFaOkSSis8w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fri, Mar 28, 2014 at 05:35:00AM CET, decot@googlers.com wrote:
->Tested:
->  grep . /sys/class/net/*/count_link_*
->  + ip link set dev X down/up
+Thu, Mar 27, 2014 at 10:20:06PM CET, f.fainelli@gmail.com wrote:
+>2014-03-27 13:32 GMT-07:00 Sergey Ryazanov <ryazanov.s.a@gmail.com>:
+>> 2014-03-27 20:41 GMT+04:00 Florian Fainelli <f.fainelli@gmail.com>:
+>>> 2014-03-27 7:10 GMT-07:00 Sergey Ryazanov <ryazanov.s.a@gmail.com>:
+>>>> Hi all,
+>>>>
+>>>> sorry for the intrusion, but let me place my 2 cents.
+>>>>
+>>>> 2014-03-27 10:56 GMT+04:00 Jiri Pirko <jiri@resnulli.us>:
+>>>>> Wed, Mar 26, 2014 at 11:22:51PM CET, f.fainelli@gmail.com wrote:
+>>>>>>2014-03-26 14:51 GMT-07:00 Jamal Hadi Salim <jhs@mojatatu.com>:
+>>>>>>> On 03/26/14 14:14, Jiri Pirko wrote:
+>>>>>>>>
+>>>>>>>> Wed, Mar 26, 2014 at 06:58:32PM CET, f.fainelli@gmail.com wrote:
+>>>>>>>>>
+>>>>>>>>> 2014-03-26 10:35 GMT-07:00 Jiri Pirko <jiri@resnulli.us>:
+>>>>>>>
+>>>>>>>
+>>>>>>>
+>>>>>>>>> You are right, sw1p0 and sw1p1 were meant to be, say LAN ports in my
+>>>>>>>>> example.
+>>>>>>>>>
+>>>>>>>>> I think there is an implicit convention that sw1 represents the
+>>>>>>>>> Ethernet switch port connected to the CPU Ethernet MAC, and that it is
+>>>>>>>>> always connected, hence there is no need to create a "fake" bridge to
+>>>>>>>>> link sw1 to eth0 for instance?
+>>>>>>>>
+>>>>>>>>
+>>>>>>>> I think you are kind of mixing apples and oranges (or I might be I'm not
+>>>>>>>> understanding you correctly).
+>>>>>>>> This is how I see it, sticking to the names you use in the example:
+>>>>>>>>
+>>>>>>>>              (sw1) (abstract place-holder netdev)
+>>>>>>>>            --------
+>>>>>>>>           switch chip                   CPU
+>>>>>>>>     -----------------------            ------
+>>>>>>>>     sw1p0 sw1p1 sw1p2 sw1p3             eth0
+>>>>>>>>       |     |     |     |                |
+>>>>>>>>      PHY   PHY   PHY    ------someMII-----
+>>>>>>>>
+>>>>>>>> You see that eth0 is the CPU part of the "connection" and sw1p3 is the
+>>>>>>>> switch part (port representation).
+>>>>>>>>
+>>>>>>>
+>>>>>>>
+>>>>>>> Florian - I am sure you explained this before; I just dont remember. Why
+>>>>>>> is there need to expose eth0? It seems to me sw1p0-3 are abstracted
+>>>>>>> already in the kernel and the "cpu port" is merely a control interface.
+>>>>>>
+>>>>>>eth0 corresponds to a CPU Ethernet MAC facing e.g: sw1p3 switch port.
+>>>>>>It is "regular" Ethernet driver connected to the switch without
+>>>>>>switch-specific logic. The goal is twofold:
+>>>>>>
+>>>>>>- allow any regular Ethernet driver to be connected to an external
+>>>>>>switch via e.g: MDIO/MDC or other without specific switch knowledge
+>>>>>>- represents accurately how the hardware is designed/connected
+>>>>>>
+>>>>>>but maybe, we can simplify and have e.g: sw1p3 and eth0 be the same interface...
+>>>>>
+>>>>> I believe that hawing both sw1p3 and eth0 is the correct way of
+>>>>> modelling this. sw1p3 is instance if switch chip driver representing the
+>>>>> actual port of a switch. eth0 is an instance of some other ordinary NIC
+>>>>> driver (8139too is my favorite :))
+>>>>>
+>>>>> This model allows to draw the exact picture.
+>>>>> Also, when you add the described possibility to use iplink to build
+>>>>> vlans, bridges whatever on the switch ports, it makes perfect sense to
+>>>>> have this model.
+>>>>>
+>>>>> Merging sw1p3 and eth0 would cause a loose of information and confusion.
+>>>>>
+>>>>
+>>>> CPU switch port and switch fabric itself should be configured in
+>>>> consistence with host, in first place I mean a set of VLANs. Also it
+>>>> should be mentioned that some generic knobs such as port rate and
+>>>> duplex mode are meaningless for CPU switch port and a lot of status
+>>>> information (rx/tx counters etc.) duplicates statistics of host
+>>>> interface which is connected to switch port.
+>>>
+>>> It duplicates the information when things just work fine, consider an
+>>> external switch connected via RGMII to a CPU Ethernet MAC, you might
+>>> want to get statistics from both sides (the switch CPU port and the
+>>> CPU Ethernet MAC) to diagnose why things are not working as expected,
+>>> which unfortunately happens once in a while with RGMII.
+>>>
+>>> If we expose both net_device, we will be able to retrieve statistics
+>>> about from both sides, without resorting to ad-hoc debugging tools,
+>>> but maybe this is not worth the effort.
+>>>
+>> I also thought about this situation. Can we use the debugfs interface
+>> for these purposes?
 >
->Signed-off-by: David Decotigny <decot@googlers.com>
->---
-> include/linux/netdevice.h |  4 ++++
-> net/core/net-sysfs.c      | 18 ++++++++++++++++++
-> net/sched/sch_generic.c   |  2 ++
-> 3 files changed, 24 insertions(+)
+>Most of the time you are interesting in MIB counters for debugging
+>such issues, so ethtool quickly comes handy for this task. Since we
+>will provide per-port counters, the CPU port is not different, so
+>there are no reason for restricting this.
+
+I agree, no need to provide parallel api.
+
 >
->diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->index 4b6d12c..cf52869 100644
->--- a/include/linux/netdevice.h
->+++ b/include/linux/netdevice.h
->@@ -1315,6 +1315,10 @@ struct net_device {
-> 					     * Do not use this in drivers.
-> 					     */
-> 
->+	/* Stats to monitor link on/off, flapping */
->+	atomic_t		count_link_up;
->+	atomic_t		count_link_down;
->+
-> #ifdef CONFIG_WIRELESS_EXT
-> 	/* List of functions to handle Wireless Extensions (instead of ioctl).
-> 	 * See <net/iw_handler.h> for details. Jean II */
->diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
->index daed9a6..a65ac54 100644
->--- a/net/core/net-sysfs.c
->+++ b/net/core/net-sysfs.c
->@@ -253,6 +253,22 @@ static ssize_t operstate_show(struct device *dev,
-> }
-> static DEVICE_ATTR_RO(operstate);
-> 
->+static ssize_t count_link_up_show(struct device *dev,
->+				  struct device_attribute *attr, char *buf)
->+{
->+	struct net_device *netdev = to_net_dev(dev);
->+	return sprintf(buf, fmt_dec, atomic_read(&netdev->count_link_up));
->+}
->+
->+static ssize_t count_link_down_show(struct device *dev,
->+				    struct device_attribute *attr, char *buf)
->+{
->+	struct net_device *netdev = to_net_dev(dev);
->+	return sprintf(buf, fmt_dec, atomic_read(&netdev->count_link_down));
->+}
->+static DEVICE_ATTR_RO(count_link_up);
->+static DEVICE_ATTR_RO(count_link_down);
->+
+>>
+>>>> So there are no reasons
+>>>> to force user to configure this port manually, and automatic
+>>>> configuration of CPU switch port without exporting them as netdev
+>>>> seems as good approach.
+>>>
+>>> Well, maybe that's the answer, since we know that e.g: sw1p3 is always
+>>> connected to e.g: eth0, we could create an automatic bridge between
+>>> those two, this would keep the netdev exposure to user-space, but an
+>>> user would not have to know about that specific detail to get things
+>>> to work.
+>>>
+>> I would like go further and suggest to consider a netdev that is
+>> connected to the CPU switch port, as master. In case when we need to
+>> perform some action on whole switch (e.g. dump FIB).
+>
+>This is what the 'sw1' net_device in Jiri's proposal would do.
 
+Except, sw1 is not cpu port. It's just a place holder not representing
+any physical port/netdev.
 
-If this is exposed in sysfs, this needs to be exposed via RT netlink as
-well.
-
-
-> /* read-write attributes */
-> 
-> static int change_mtu(struct net_device *net, unsigned long new_mtu)
->@@ -386,6 +402,8 @@ static struct attribute *net_class_attrs[] = {
-> 	&dev_attr_duplex.attr,
-> 	&dev_attr_dormant.attr,
-> 	&dev_attr_operstate.attr,
->+	&dev_attr_count_link_up.attr,
->+	&dev_attr_count_link_down.attr,
-> 	&dev_attr_ifalias.attr,
-> 	&dev_attr_carrier.attr,
-> 	&dev_attr_mtu.attr,
->diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
->index e82e43b..2d06943 100644
->--- a/net/sched/sch_generic.c
->+++ b/net/sched/sch_generic.c
->@@ -310,6 +310,7 @@ void netif_carrier_on(struct net_device *dev)
-> 	if (test_and_clear_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
-> 		if (dev->reg_state == NETREG_UNINITIALIZED)
-> 			return;
->+		atomic_inc(&dev->count_link_up);
-> 		linkwatch_fire_event(dev);
-> 		if (netif_running(dev))
-> 			__netdev_watchdog_up(dev);
->@@ -328,6 +329,7 @@ void netif_carrier_off(struct net_device *dev)
-> 	if (!test_and_set_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
-> 		if (dev->reg_state == NETREG_UNINITIALIZED)
-> 			return;
->+		atomic_inc(&dev->count_link_down);
-> 		linkwatch_fire_event(dev);
-> 	}
-> }
+>
+>> And even name
+>> switch ports, using master netdev name as prefix (e.g. eth1p0, eth1p1,
+>> ..., eth1pN for ports of switch that is connected via eth1).
+>
+>I think the port naming using the switch abstract interface (sw1 here)
+>is better because ports do belong to the switch.
 >-- 
->1.9.1.423.g4596e3a
->
+>Florian
