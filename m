@@ -1,126 +1,96 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v4 4/9] net: ptp: use sk_unattached_filter_create() for BPF
-Date: Fri, 28 Mar 2014 18:58:21 +0100
-Message-ID: <1396029506-16776-5-git-send-email-dborkman@redhat.com>
-References: <1396029506-16776-1-git-send-email-dborkman@redhat.com>
-Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	Richard Cochran <richard.cochran@omicron.at>,
-	Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net-next v4 0/9] BPF updates
+Date: Fri, 28 Mar 2014 18:58:17 +0100
+Message-ID: <1396029506-16776-1-git-send-email-dborkman@redhat.com>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41536 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:42486 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753394AbaC1R6o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2014 13:58:44 -0400
-In-Reply-To: <1396029506-16776-1-git-send-email-dborkman@redhat.com>
+	id S1753230AbaC1R6b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2014 13:58:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch migrates an open-coded sk_run_filter() implementation with
-proper use of the BPF API, that is, sk_unattached_filter_create(). This
-migration is needed, as we will be internally transforming the filter
-to a different representation, and therefore needs to be decoupled.
+We sat down and have heavily reworked the whole previous patchset
+from v10 [1] to address all comments/concerns. This patchset therefore
+*replaces* the internal BPF interpreter with the new layout as
+discussed in [1], and migrates some exotic callers to properly use the
+BPF API for a transparent upgrade. All other callers that already use
+the BPF API in a way it should be used, need no further changes to run
+the new internals. We also removed the sysctl knob entirely, and do not
+expose any structure to userland, so that implementation details only
+reside in kernel space. Since we are replacing the interpreter we had
+to migrate seccomp in one patch along with the interpreter to not break
+anything. When attaching a new filter, the flow can be described as
+following: i) test if jit compiler is enabled and can compile the user
+BPF, ii) if so, then go for it, iii) if not, then transparently migrate
+the filter into the new representation, and run it in the interpreter.
+Also, we have scratched the jit flag from the len attribute and made it
+as initial patch in this series as Pablo has suggested in the last
+feedback, thanks. For details, please refer to the patches themselves.
 
-It is okay to do so as skb_timestamping_init() is called during
-initialization of the network stack in core initcall via sock_init().
-This would effectively also allow for PTP filters to be jit compiled if
-bpf_jit_enable is set.
+We did extensive testing of BPF and seccomp on the new interpreter
+itself and also on the user ABIs and could not find any issues; new
+performance numbers as posted in patch 8 are also still the same.
 
-For better readability, there are also some newlines introduced, also
-ptp_classify.h is only in kernel space.
+Please find more details in the patches themselves.
 
-Joint work with Alexei Starovoitov.
+For all the previous history from v1 to v10, see [1]. We have decided
+to drop the v11 as we have pedantically reworked the set, but of course,
+included all previous feedback.
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-Cc: Richard Cochran <richard.cochran@omicron.at>
-Cc: Jiri Benc <jbenc@redhat.com>
----
- include/linux/ptp_classify.h |  4 ----
- net/core/timestamping.c      | 21 ++++++++++++++-------
- 2 files changed, 14 insertions(+), 11 deletions(-)
+v3 -> v4:
+ - Applied feedback from Dave regarding swap insns
+ - Rebased on net-next
+v2 -> v3:
+ - Rebased to latest net-next (i.e. w/ rxhash->hash rename)
+ - Fixed patch 8/9 commit message/doc as suggested by Dave
+ - Rest is unchanged
+v1 -> v2:
+ - Rebased to latest net-next
+ - Added static to ptp_filter as suggested by Dave
+ - Fixed a typo in patch 8's commit message
+ - Rest unchanged
 
-diff --git a/include/linux/ptp_classify.h b/include/linux/ptp_classify.h
-index 1dc420b..3decfa4 100644
---- a/include/linux/ptp_classify.h
-+++ b/include/linux/ptp_classify.h
-@@ -27,11 +27,7 @@
- #include <linux/if_vlan.h>
- #include <linux/ip.h>
- #include <linux/filter.h>
--#ifdef __KERNEL__
- #include <linux/in.h>
--#else
--#include <netinet/in.h>
--#endif
- 
- #define PTP_CLASS_NONE  0x00 /* not a PTP event message */
- #define PTP_CLASS_V1    0x01 /* protocol version 1 */
-diff --git a/net/core/timestamping.c b/net/core/timestamping.c
-index 661b5a4..e43d56a 100644
---- a/net/core/timestamping.c
-+++ b/net/core/timestamping.c
-@@ -23,16 +23,13 @@
- #include <linux/skbuff.h>
- #include <linux/export.h>
- 
--static struct sock_filter ptp_filter[] = {
--	PTP_FILTER
--};
-+static struct sk_filter *ptp_insns __read_mostly;
- 
- static unsigned int classify(const struct sk_buff *skb)
- {
--	if (likely(skb->dev &&
--		   skb->dev->phydev &&
-+	if (likely(skb->dev && skb->dev->phydev &&
- 		   skb->dev->phydev->drv))
--		return sk_run_filter(skb, ptp_filter);
-+		return SK_RUN_FILTER(ptp_insns, skb);
- 	else
- 		return PTP_CLASS_NONE;
- }
-@@ -60,11 +57,13 @@ void skb_clone_tx_timestamp(struct sk_buff *skb)
- 		if (likely(phydev->drv->txtstamp)) {
- 			if (!atomic_inc_not_zero(&sk->sk_refcnt))
- 				return;
-+
- 			clone = skb_clone(skb, GFP_ATOMIC);
- 			if (!clone) {
- 				sock_put(sk);
- 				return;
- 			}
-+
- 			clone->sk = sk;
- 			phydev->drv->txtstamp(phydev, clone, type);
- 		}
-@@ -89,12 +88,15 @@ void skb_complete_tx_timestamp(struct sk_buff *skb,
- 	}
- 
- 	*skb_hwtstamps(skb) = *hwtstamps;
-+
- 	serr = SKB_EXT_ERR(skb);
- 	memset(serr, 0, sizeof(*serr));
- 	serr->ee.ee_errno = ENOMSG;
- 	serr->ee.ee_origin = SO_EE_ORIGIN_TIMESTAMPING;
- 	skb->sk = NULL;
-+
- 	err = sock_queue_err_skb(sk, skb);
-+
- 	sock_put(sk);
- 	if (err)
- 		kfree_skb(skb);
-@@ -135,5 +137,10 @@ EXPORT_SYMBOL_GPL(skb_defer_rx_timestamp);
- 
- void __init skb_timestamping_init(void)
- {
--	BUG_ON(sk_chk_filter(ptp_filter, ARRAY_SIZE(ptp_filter)));
-+	static struct sock_filter ptp_filter[] = { PTP_FILTER };
-+	struct sock_fprog ptp_prog = {
-+		.len = ARRAY_SIZE(ptp_filter), .filter = ptp_filter,
-+	};
-+
-+	BUG_ON(sk_unattached_filter_create(&ptp_insns, &ptp_prog));
- }
+Thanks !
+
+  [1] http://thread.gmane.org/gmane.linux.kernel/1665858
+
+Alexei Starovoitov (2):
+  net: filter: rework/optimize internal BPF interpreter's instruction set
+  doc: filter: extend BPF documentation to document new internals
+
+Daniel Borkmann (7):
+  net: filter: add jited flag to indicate jit compiled filters
+  net: filter: keep original BPF program around
+  net: filter: move filter accounting to filter core
+  net: ptp: use sk_unattached_filter_create() for BPF
+  net: ptp: do not reimplement PTP/BPF classifier
+  net: ppp: use sk_unattached_filter api
+  net: isdn: use sk_unattached_filter api
+
+ Documentation/networking/filter.txt                |  125 ++
+ arch/arm/net/bpf_jit_32.c                          |    3 +-
+ arch/powerpc/net/bpf_jit_comp.c                    |    3 +-
+ arch/s390/net/bpf_jit_comp.c                       |    5 +-
+ arch/sparc/net/bpf_jit_comp.c                      |    3 +-
+ arch/x86/net/bpf_jit_comp.c                        |    3 +-
+ drivers/isdn/i4l/isdn_ppp.c                        |   61 +-
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |   11 +-
+ drivers/net/ethernet/ti/cpts.c                     |   10 +-
+ drivers/net/ethernet/xscale/ixp4xx_eth.c           |   11 +-
+ drivers/net/ppp/ppp_generic.c                      |   60 +-
+ include/linux/filter.h                             |  118 +-
+ include/linux/isdn_ppp.h                           |    5 +-
+ include/linux/ptp_classify.h                       |   14 +-
+ include/linux/seccomp.h                            |    1 -
+ include/net/sock.h                                 |   27 -
+ kernel/seccomp.c                                   |  119 +-
+ net/core/filter.c                                  | 1565 ++++++++++++++++----
+ net/core/sock_diag.c                               |   23 +-
+ net/core/timestamping.c                            |   27 +-
+ 20 files changed, 1658 insertions(+), 536 deletions(-)
+
 -- 
 1.7.11.7
