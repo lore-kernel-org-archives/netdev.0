@@ -1,35 +1,45 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v5] sh_eth: ensure pm_runtime cannot suspend the device
- during init
-Date: Sat, 29 Mar 2014 00:10:20 +0300
-Message-ID: <5335E53C.6020208@cogentembedded.com>
-References: <1395400154-25710-1-git-send-email-ben.dooks@codethink.co.uk>	<20140328.142606.2032782733436495474.davem@davemloft.net>	<5335CCBF.8030606@codethink.co.uk> <20140328.160024.136488246522581222.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] vhost: validate vhost_get_vq_desc return value
+Date: Fri, 28 Mar 2014 16:11:08 -0400 (EDT)
+Message-ID: <20140328.161108.883291931619730975.davem@davemloft.net>
+References: <1395917517-30937-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@lists.codethink.co.uk, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org, laurent.pinchart+renesas@ideasonboard.com
-To: David Miller <davem@davemloft.net>, ben.dooks@codethink.co.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:59432 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752033AbaC1UKQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 16:10:16 -0400
-Received: by mail-la0-f50.google.com with SMTP id y1so4069356lam.37
-        for <netdev@vger.kernel.org>; Fri, 28 Mar 2014 13:10:15 -0700 (PDT)
-In-Reply-To: <20140328.160024.136488246522581222.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: virtio-dev@lists.oasis-open.org, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1395917517-30937-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 27 Mar 2014 12:53:37 +0200
 
-On 03/28/2014 11:00 PM, David Miller wrote:
+> vhost fails to validate negative error code
+> from vhost_get_vq_desc causing
+> a crash: we are using -EFAULT which is 0xfffffff2
+> as vector size, which exceeds the allocated size.
+> 
+> The code in question was introduced in commit
+> 8dd014adfea6f173c1ef6378f7e5e7924866c923
+>     vhost-net: mergeable buffers support
+> 
+> CVE-2014-0055
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+> 
+> This is needed in -stable.
 
->> I thought it was against the net next tree, given the number of
->> patches that are currently being applied to the sh_eth driver.
-
-> Fair enough, applied to net-next, thanks!
-
-    It probably makes sense to queue this for the stable kernels as well.
-
-WBR, Sergei
+Applied and queued up for -stable, thanks Michael.
