@@ -1,149 +1,72 @@
-From: "zheng.li" <zheng.x.li@oracle.com>
-Subject: Re: [PATCH] bonding: Inactive slaves should keep inactive flag's
- value to 1 in tlb and alb mode.
-Date: Fri, 28 Mar 2014 16:39:24 +0800
-Message-ID: <5335353C.1050409@oracle.com>
-References: <1395716407-31601-1-git-send-email-zheng.x.li@oracle.com> <9725.1395940983@death.nxdomain>
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Subject: Re: [PATCH][net-next] gianfar: Simplify MQ polling to avoid soft
+ lockup
+Date: Fri, 28 Mar 2014 09:34:47 +0100
+Message-ID: <20140328083447.GA4362@breakpoint.cc>
+References: <1381759509-26882-1-git-send-email-claudiu.manoil@freescale.com>
+ <1381761267.3392.49.camel@edumazet-glaptop.roam.corp.google.com>
+ <525C0993.70503@freescale.com>
+ <20140327125303.GA22117@breakpoint.cc>
+ <5335307B.2060503@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, andy@greyhouse.net,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	joe.jin@oracle.com
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <9725.1395940983@death.nxdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Claudiu Manoil <claudiu.manoil@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:43149 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751202AbaC1Ieu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 04:34:50 -0400
+Content-Disposition: inline
+In-Reply-To: <5335307B.2060503@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=D3=DA 2014=C4=EA03=D4=C228=C8=D5 01:23, Jay Vosburgh =D0=B4=B5=C0:
-> Zheng Li <zheng.x.li@oracle.com> wrote:
->=20
->> In bond mode tlb and alb, inactive slaves should keep inactive flag =
-to
->> 1 to refuse to receive broadcast packets. Now, active slave send bro=
-adcast packets
->> (for example ARP requests) which will arrive inactive slaves on same=
- host from switch,
->> but inactive slave's inactive flag is zero that cause bridge receive=
- the broadcast
->> packets to produce a wrong entry in forward table. Typical situation=
- is domu send some
->> ARP request which go out from dom0 bond's active slave, then the ARP=
- broadcast request
->> packets go back to inactive slave from switch, because the inactive =
-slave's inactive
->> flag is zero, kernel will receive the packets and pass them to bridg=
-e, that cause dom0's
->> bridge map domu's MAC address to port of bond, bridge should map dom=
-u's MAC to port of vif.
->=20
-> 	It's probably worth noting that this effect is something that
-> happens after the bonding master device is opened with slaves, i.e.,
-> it's got a bunch of slaves, and is then set administratively down for
-> whatever reason, and is now being set back up, and needs to set the
-> active or inactive state of all the slaves.
+On 2014-03-28 10:19:07 [+0200], Claudiu Manoil wrote:
+> >My problem is that when gfar_start_xmit() is preemted after the
+> >tx_queue->tx_skbuff[tx_queue->skb_curtx] is set but before the DMA is started
+> >then the NAPI-poll never completes because it sees a packet which never
+> >completes because the DMA engine did no start yet and won't.
+> 
+> False, that code section from start_xmit() cannot be preempted, because
+> it has spin_lock_irqsave()/restore() around it (unless you modified
+> your code).  Will check though if on SMP, for some reason,
+> clean_tx_ring() enters with 0 skbs to clean.
 
-I think bond_miimon_commit() funciotn will process this situation,
-case BOND_LINK_UP:
-   if (!bond->curr_active_slave ||
-			    (slave =3D=3D bond->primary_slave))
-				goto do_failover;
+I said on -RT. On mainline it can't be preempted as I said. If for
+some reason you can't get your packet out (on a slow link as you in your
+case) it will return with 0 cleanups.
+This has been broken since c233cf4 ("gianfar: Fix tx napi polling")
+since you drop the return value.
 
-do_failover:
-		bond_select_active_slave(bond);
+> [...]
+> 
+> >To fix properly with something that works on -RT and mainline I suggest
+> >to revert this patch and add the following:
+> 
+> This patch cannot be reverted. (why would you?)
+Because it does not fix a thing it simply duck tapes the issue that a TX
+transfer does not cleanup a thing and you assume that it did something.
+You have budget a reserved for RX cleanup which you do not use up if possible.
+You simple do one loop and leave.
 
->=20
-> 	It'd also be a little easier to read if it was formatted for 80
-> columns.
->=20
->> Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
->> ---
->> drivers/net/bonding/bond_main.c |    2 +-
->> 1 files changed, 1 insertions(+), 1 deletions(-)
->>
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/b=
-ond_main.c
->> index e5628fc..8761df6 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -3062,7 +3062,7 @@ static int bond_open(struct net_device *bond_d=
-ev)
->> 				&& (slave !=3D bond->curr_active_slave)) {
->> 				bond_set_slave_inactive_flags(slave,
->> 							      BOND_SLAVE_NOTIFY_NOW);
->> -			} else {
->> +			} else if (!bond_is_lb(bond)) {
->> 				bond_set_slave_active_flags(slave,
->> 							    BOND_SLAVE_NOTIFY_NOW);
->=20
-> 	This patch doesn't do anything for the modes that are
-> bond_is_lb, i.e., the balance-tlb and -alb modes.  I believe those tw=
-o
-> should be set similarly to active-backup: the curr_active_slave is
-> active, other slaves are inactive.  The "inactive" setting for alb is
-> special, and means to not pass broadcast or multicast, but let unicas=
-t
-> through.
+> This patch fixes the issue from description.  I'm seeing no issues with
+> P1010 now (on any kind of traffic), and the openwrt/tp-link guys also
+> confirmed (on the powerpc list) that this patch addresses the issue on
+> their end.
+Simply because the stall is gone doesn't make it good. As you had no
+idea why.
 
-=46rom dmesg and the source code in kernel, every slave of bond default=
- been set to inactive 1 when slave be added in the bond, and then "Link=
- UP" will comes that let bond choose one as cur_active_salve and change=
- it's inactive value to 0 and other slaves will keep their value of ina=
-ctive to 1, so it doesn't need set inactive again in bong_open by defau=
-lt all salves inactive is 1 when bond add salves.
+> If you encounter problems with the latest driver code, please submit a
+> proper issue description indicating the code base you're using and so
+> on.  Also make sure that the problem you're seeing wasn't already fixed
+> by one of the latest gianfar fixes from net-next:
+> http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git
 
-You can add printk in kernel, will find the flow, my print show the flo=
-w:
-1 step ) bonding: bond1 is being created...
+I pointed out _why_ you saw the stall and the fix involved not to
+endless loop on TX clean up on yet transmitted packages. The removal of
+outer loop was not required. The issue is present since c233cf4 which
+made it in v3.10 into the kernel. 
 
-2 step ) bonding: bond1: Adding slave eth2. // in this stage, every sla=
-ve will be set to inactive 1;
-          zheng debug set inactive eth2 bond bond1=20
-          zheng debug set inactive flag eth2=20
-
-   bonding: bond1: Adding slave eth3.
-            zheng2 set slave inactive eth3
-            zheng debug set inactive eth3 bond bond1=20
-  =20
-3 step ) zheng bonding open=20
-   //in bond_open function, we just need keep the inactive to 1 for alb=
- and tlb, .i.e don't=20
-   clear the inactive is ok, my patch did that.
-
-4 setp)  "LINK UP" will make one slave to cur_active_slave and change i=
-t's inactive to 0, other slaves will keep their original inactive value=
- to 1;
-
-e1000e: eth2 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: None
-
-bonding: bond1: link status up for interface eth2, enabling it in 0 ms.
-
-bonding: bond1: link status definitely up for interface eth2, 1000 Mbps=
- full duplex.
-
-bonding: bond1: making interface eth2 the new active one.
-
-device eth2 entered promiscuous mode
-
-zheng1 set new slave active eth2
-
-zheng debug set active flag eth2=20
-
-bonding: bond1: first active interface up!
-
-Thanks,
-Zheng Li
-
-
-> 	-J
->=20
-> ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
->=20
+Sebastian
