@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 2/3] netpoll: Use skb_irq_freeable to make zap_completion_queue safe.
-Date: Thu, 27 Mar 2014 18:20:58 -0700
-Message-ID: <8761mzktj9.fsf_-_@x220.int.ebiederm.org>
+Subject: [PATCH 3/3] net: Warn when a skb is freed inappropriately in hard irq context.
+Date: Thu, 27 Mar 2014 18:23:22 -0700
+Message-ID: <87vbuzjeut.fsf_-_@x220.int.ebiederm.org>
 References: <20140314.225923.61318448733570839.davem@davemloft.net>
 	<87k3bwqgf7.fsf@xmission.com> <877g7wqg8e.fsf_-_@xmission.com>
 	<20140317.154916.2276987764507311378.davem@davemloft.net>
@@ -25,38 +25,45 @@ Cc: =?utf-8?Q?'Bj=C3=B8rn?= Mork' <bjorn@mork.no>,
 	David Laight <David.Laight@ACULAB.COM>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:43112 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755279AbaC1BVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 21:21:14 -0400
+Received: from out03.mta.xmission.com ([166.70.13.233]:42110 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756819AbaC1BXd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 21:23:33 -0400
 In-Reply-To: <87mwgbkttv.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
 	message of "Thu, 27 Mar 2014 18:14:36 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Replace the test in zap_completion_queu to test when it is safe to
-free skbs in hard irq context with skb_irq_freeable ensuring we only
-free skbs when it is safe, and removing the possibility of subtle
-problems.
+Use skb_irq_freeable to warn on all cases where it is not safe to free a
+skb in hard irq context.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- net/core/netpoll.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/core/skbuff.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index af8dc13d69d6..a0563642c5b5 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -270,7 +270,7 @@ static void zap_completion_queue(void)
- 		while (clist != NULL) {
- 			struct sk_buff *skb = clist;
- 			clist = clist->next;
--			if (skb->destructor) {
-+			if (!skb_irq_freeable(skb)) {
- 				atomic_inc(&skb->users);
- 				dev_kfree_skb_any(skb); /* put this one back */
- 			} else {
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 3f14c638c2b1..aaee52840a7d 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -554,14 +554,14 @@ static void kfree_skbmem(struct sk_buff *skb)
+ 
+ static void skb_release_head_state(struct sk_buff *skb)
+ {
++	WARN_ON(in_irq() && !skb_irq_freeable(skb));
++
+ 	skb_dst_drop(skb);
+ #ifdef CONFIG_XFRM
+ 	secpath_put(skb->sp);
+ #endif
+-	if (skb->destructor) {
+-		WARN_ON(in_irq());
++	if (skb->destructor)
+ 		skb->destructor(skb);
+-	}
+ #if IS_ENABLED(CONFIG_NF_CONNTRACK)
+ 	nf_conntrack_put(skb->nfct);
+ #endif
 -- 
 1.7.10.4
