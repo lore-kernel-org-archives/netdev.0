@@ -1,47 +1,79 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net v2] vlan: Fix lockdep warning when vlan dev handle
- notification
-Date: Fri, 28 Mar 2014 09:13:27 +0800
-Message-ID: <5334CCB7.9040703@huawei.com>
-References: <5321165A.1000208@huawei.com>	<20140314.220253.2108022241165181233.davem@davemloft.net>	<53266735.8050607@huawei.com> <20140327.130604.103963458048959251.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 0/3] netpoll: Freeing skbs in hard irq context
+Date: Thu, 27 Mar 2014 18:14:36 -0700
+Message-ID: <87mwgbkttv.fsf_-_@x220.int.ebiederm.org>
+References: <20140314.225923.61318448733570839.davem@davemloft.net>
+	<87k3bwqgf7.fsf@xmission.com> <877g7wqg8e.fsf_-_@xmission.com>
+	<20140317.154916.2276987764507311378.davem@davemloft.net>
+	<87iorcgh5d.fsf_-_@xmission.com> <87fvmgf2c7.fsf_-_@xmission.com>
+	<1395149407.22343.8.camel@deadeye.wl.decadent.org.uk>
+	<87lhw7inzg.fsf@nemi.mork.no>
+	<1395156229.9114.35.camel@edumazet-glaptop2.roam.corp.google.com>
+	<2c96faab-4293-4e7f-b8e0-4997af745fbf@email.android.com>
+	<063D6719AE5E284EB5DD2968C1650D6D0F6E02DB@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <ben@decadent.org.uk>, <john.r.fastabend@intel.com>,
-	<kaber@trash.net>, <netdev@vger.kernel.org>, <f.fainelli@gmail.com>
+Content-Type: text/plain
+Cc: =?utf-8?Q?'Bj=C3=B8rn?= Mork' <bjorn@mork.no>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	"stephen\@networkplumber.org" <stephen@networkplumber.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xiyou.wangcong\@gmail.com" <xiyou.wangcong@gmail.com>,
+	"mpm\@selenic.com" <mpm@selenic.com>,
+	"satyam.sharma\@gmail.com" <satyam.sharma@gmail.com>,
+	David Laight <David.Laight@ACULAB.COM>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:49963 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757256AbaC1BNy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 21:13:54 -0400
-In-Reply-To: <20140327.130604.103963458048959251.davem@davemloft.net>
+Received: from out02.mta.xmission.com ([166.70.13.232]:42194 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757008AbaC1BOt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 21:14:49 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6E02DB@AcuExch.aculab.com>
+	(David Laight's message of "Tue, 18 Mar 2014 15:52:37 +0000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/3/28 1:06, David Miller wrote:
-> From: Ding Tianhong <dingtianhong@huawei.com>
-> Date: Mon, 17 Mar 2014 11:08:37 +0800
-> 
->> On 2014/3/15 10:02, David Miller wrote:
->>> From: Ding Tianhong <dingtianhong@huawei.com>
->>> Date: Thu, 13 Mar 2014 10:22:18 +0800
->>>
->>>> When I open the LOCKDEP config and run these steps:
->>>
->>> This doesn't work?
->>>
->>
->> It make no sense, I have try it before, the class check only focus on the lock_class_key,
->> not the lockdep_subclass_key.
-> 
-> I think the issue is that not all of the addrlist locking uses _nested() variants,
-> I think if we do that, this will all work.
-> 
-> I do not want to add a huge array of locking keys to fix this, it's a waste of
-> static kernel memory and inelegant.
-> 
-> 
-OK, ready for fix this again with new idea, thanks.
 
-Ding
+In some case such as trigger_all_cpu_backtrace netpoll can wind up
+generating a lot of packets in hard irq context.  My rough estimate is
+perhaps 1500 packets.  That is larger than any driver tx ring, which
+makes netpoll_poll_dev necessary to transmit all of the netconsole
+packets immediately.  Those 1500+ packets can take up a couple megabytes
+of memory if we aren't careful.  On some machines that is enough to
+start depleting the polls GFP_ATOMIC can dig into, so netpoll needs to
+at a minimum to be able to reuse the memory for the skbs it has
+transmitted.
+
+Today this reclamation of transmitted packets happens in
+zap_completetion_queue as dev_kfree_skb_irq places all packets to be
+freed on a completion queue.  netpoll then searches this queue for
+packets it thinks are freeable, and frees them.  Unfortunately
+the current logic netpoll uses to decided a packet is freeable
+is incorrect and thus unsafe :(
+
+The logic netpoll uses to determine if a packet is freeable is to verify
+a skb does not have a destructor.  Which works most of the time.  But in
+pathological cases it can report that is a packet is freeable in hard
+irq context when it is not.
+
+This set of changes adds a function skb_irq_freeable and uses that
+function in zap_completion_queue to remove the bug, and in bowls
+of kfree_skb in skb_release_head_state to warn if we are inappropriate
+freeing a skb.
+
+While I don't expect this will allow anything except skbs sent by
+netpoll to be freed, solving the general problem rather than solving
+this for just packets generated by netpoll seems like a robust way of
+handling this.
+
+Eric W. Biederman (3):
+      net: Add a test to see if a skb is freeable in irq context
+      netpoll: Use skb_irq_freeable to make zap_completion_queue safe.
+      net: Warn when a skb is freed inappropriately in hard irq context.
+
+ include/linux/skbuff.h | 13 +++++++++++++
+ net/core/netpoll.c     |  2 +-
+ net/core/skbuff.c      |  6 +++---
+ 3 files changed, 17 insertions(+), 4 deletions(-)
+
+Eric
