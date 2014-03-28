@@ -1,69 +1,80 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 3/3] net: Warn when a skb is freed inappropriately in hard irq context.
-Date: Thu, 27 Mar 2014 18:23:22 -0700
-Message-ID: <87vbuzjeut.fsf_-_@x220.int.ebiederm.org>
-References: <20140314.225923.61318448733570839.davem@davemloft.net>
-	<87k3bwqgf7.fsf@xmission.com> <877g7wqg8e.fsf_-_@xmission.com>
-	<20140317.154916.2276987764507311378.davem@davemloft.net>
-	<87iorcgh5d.fsf_-_@xmission.com> <87fvmgf2c7.fsf_-_@xmission.com>
-	<1395149407.22343.8.camel@deadeye.wl.decadent.org.uk>
-	<87lhw7inzg.fsf@nemi.mork.no>
-	<1395156229.9114.35.camel@edumazet-glaptop2.roam.corp.google.com>
-	<2c96faab-4293-4e7f-b8e0-4997af745fbf@email.android.com>
-	<063D6719AE5E284EB5DD2968C1650D6D0F6E02DB@AcuExch.aculab.com>
-	<87mwgbkttv.fsf_-_@x220.int.ebiederm.org>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH v5 net-next 0/2] patchset: Support for configurable RSS
+ hash key
+Date: Fri, 28 Mar 2014 01:39:30 +0000
+Message-ID: <1395970770.2898.54.camel@deadeye.wl.decadent.org.uk>
+References: <1395412393.2770.48.camel@deadeye.wl.decadent.org.uk>
+	 <20140321.152836.1010161671166010422.davem@davemloft.net>
+	 <BF3270C86E8B1349A26C34E4EC1C44CB2C89CCDD@CMEXMB1.ad.emulex.com>
+	 <20140327.145336.1708122219432567015.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: =?utf-8?Q?'Bj=C3=B8rn?= Mork' <bjorn@mork.no>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	"stephen\@networkplumber.org" <stephen@networkplumber.org>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xiyou.wangcong\@gmail.com" <xiyou.wangcong@gmail.com>,
-	"mpm\@selenic.com" <mpm@selenic.com>,
-	"satyam.sharma\@gmail.com" <satyam.sharma@gmail.com>,
-	David Laight <David.Laight@ACULAB.COM>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-VpTiDDk06uSN0Q0vWkIY"
+Cc: VenkatKumar.Duvvuru@Emulex.Com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:42110 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756819AbaC1BXd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 21:23:33 -0400
-In-Reply-To: <87mwgbkttv.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
-	message of "Thu, 27 Mar 2014 18:14:36 -0700")
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:55590 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756738AbaC1BkA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 21:40:00 -0400
+In-Reply-To: <20140327.145336.1708122219432567015.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Use skb_irq_freeable to warn on all cases where it is not safe to free a
-skb in hard irq context.
+--=-VpTiDDk06uSN0Q0vWkIY
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- net/core/skbuff.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+On Thu, 2014-03-27 at 14:53 -0400, David Miller wrote:
+> From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+> Date: Wed, 26 Mar 2014 09:21:01 +0000
+>=20
+> > I don't mind going back to the original approach of adding a new
+> > hash key operation. Please let me know what you guys think, combined
+> > operation or a new operation.
+>=20
+> Unless Ben has a major objection, I would prefer that we just add a
+> new hash key interface.
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 3f14c638c2b1..aaee52840a7d 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -554,14 +554,14 @@ static void kfree_skbmem(struct sk_buff *skb)
- 
- static void skb_release_head_state(struct sk_buff *skb)
- {
-+	WARN_ON(in_irq() && !skb_irq_freeable(skb));
-+
- 	skb_dst_drop(skb);
- #ifdef CONFIG_XFRM
- 	secpath_put(skb->sp);
- #endif
--	if (skb->destructor) {
--		WARN_ON(in_irq());
-+	if (skb->destructor)
- 		skb->destructor(skb);
--	}
- #if IS_ENABLED(CONFIG_NF_CONNTRACK)
- 	nf_conntrack_put(skb->nfct);
- #endif
--- 
-1.7.10.4
+My objection is that there is also the prospect of having multiple RSS
+contexts on a single device.  I think we discussed the usefulness of
+that several years back at a netconf.  And there is now hardware that
+supports it: at least the Solarflare SFC9100 controllers do, and I doubt
+they are unique in this.
+
+By grouping the key and hash together, with some reserved fields (which
+the setter should initially require to be equal to zero), it should be
+possible to fill in support for numbered RSS contexts later without yet
+another new structure and operations.
+
+Ben.
+
+--=20
+Ben Hutchings
+Always try to do things in chronological order;
+it's less confusing that way.
+
+--=-VpTiDDk06uSN0Q0vWkIY
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAUzTS0ue/yOyVhhEJAQqrYQ//SxTLELGly+5JqE3pJqoG9SyiS5Af1jNV
+CYWBb8KsB+oOjXlrXsHj+E7NP42vdnzZrfJmf9DZur4B7nmx3+Omp/I3T9gIN6qj
+S60bA5byAUUBj3baezKo8sMruLf+99lweSANERb4AtuEIx0mqNAcb4WnCyjb9BTc
+lzQ4rI/N3m449SnH1u/Psc/OdDwCo3K1yoXrXw1inOVNWcxocrtmcdiCoaICgp0G
+M5ipM73JCxqWR7gUu8MGnaTnl5NQutDEKnPu9oPl2P1IprmgTqRpVAqeyHeCcVbO
+3kPL+R0ottzWUIFvG+0nYhqp3kPnJZrtKVW89eCt+9dKJKXBaV1Grkw91SAk+m17
+jfyX3dXznSxQIsPr27f0ALKKuPxxYEfbcvOpHn6WlxbbzjqQc6ldHUMZ3JmNVwGk
+/PhJWaHa9x+c2C/Ix5B84nRXhFm1y7RRv2Lz/R6Ivqlv7kq4dlFtxafi1t6FI30M
+KuGkEZzQUEwg4KIUXqKFRFhqo8Bw9ltA5XM78Pfo7jYa+HSH91HBdFh9tFd70RPf
+kxosJY1OZ5qdDbfISX7qSlC6i2lCB5TSU+Mx46R6QzsUI1Un1D1pl2HsRkKjMLa+
+nsmo53SnqhTDSQRuyd9ktwKbcueIb746PqFYzRindI4DsEemGTgpUTzSUBybjC9p
+HSvHJQhhvEM=
+=TrEy
+-----END PGP SIGNATURE-----
+
+--=-VpTiDDk06uSN0Q0vWkIY--
