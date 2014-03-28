@@ -1,65 +1,27 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [net-next v2 07/14] i40evf: remove double space after return
-Date: Fri, 28 Mar 2014 22:58:31 +0300
-Message-ID: <CAJZOPZ+NqT8LsJGjtmZGwUANONXphgtm1tZSdoLrRiDyruyJ0Q@mail.gmail.com>
-References: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1396015695-25283-8-git-send-email-jeffrey.t.kirsher@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5] sh_eth: ensure pm_runtime cannot suspend the device
+ during init
+Date: Fri, 28 Mar 2014 16:00:24 -0400 (EDT)
+Message-ID: <20140328.160024.136488246522581222.davem@davemloft.net>
+References: <1395400154-25710-1-git-send-email-ben.dooks@codethink.co.uk>
+	<20140328.142606.2032782733436495474.davem@davemloft.net>
+	<5335CCBF.8030606@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36605 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751435AbaC1T6b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 15:58:31 -0400
-Received: by mail-pa0-f46.google.com with SMTP id kp14so5442270pab.19
-        for <netdev@vger.kernel.org>; Fri, 28 Mar 2014 12:58:31 -0700 (PDT)
-In-Reply-To: <1396015695-25283-8-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@lists.codethink.co.uk, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+	laurent.pinchart+renesas@ideasonboard.com
+To: ben.dooks@codethink.co.uk
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <5335CCBF.8030606@codethink.co.uk>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 28, 2014 at 5:08 PM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
->
-> There were two spaces between return and the value, we only need one.
->
-> Change-ID: Iaa42c33f50d8d149cdf1a4c9c1902295bfd991c4
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Acked-by: Shannon Nelson <shannon.nelson@intel.com>
-> Signed-off-by: Kevin Scott <kevin.c.scott@intel.com>
-> Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-> Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Date: Fri, 28 Mar 2014 19:25:51 +0000
 
-Just out of curiosity, any special reason for four of the maintainers
-to sign on a patch that remove a space?
+> I thought it was against the net next tree, given the number of
+> patches that are currently being applied to the sh_eth driver.
 
->
-> ---
->  drivers/net/ethernet/intel/i40evf/i40e_prototype.h | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/intel/i40evf/i40e_prototype.h b/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
-> index 862fcdf..97ab8c2 100644
-> --- a/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
-> +++ b/drivers/net/ethernet/intel/i40evf/i40e_prototype.h
-> @@ -67,7 +67,7 @@ extern struct i40e_rx_ptype_decoded i40evf_ptype_lookup[];
->
->  static inline struct i40e_rx_ptype_decoded decode_rx_desc_ptype(u8 ptype)
->  {
-> -       return  i40evf_ptype_lookup[ptype];
-> +       return i40evf_ptype_lookup[ptype];
->  }
->
->  /* prototype for functions used for SW locks */
-> --
-> 1.9.0
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Fair enough, applied to net-next, thanks!
