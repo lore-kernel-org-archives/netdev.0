@@ -1,59 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 13/14] igb: never generate both software and hardware timestamps
-Date: Fri, 28 Mar 2014 07:08:14 -0700
-Message-ID: <1396015695-25283-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 10/14] i40e: Use DEBUG_FD message level for an FD message
+Date: Fri, 28 Mar 2014 07:08:11 -0700
+Message-ID: <1396015695-25283-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jakub Kicinski <kubakici@wp.pl>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:17012 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752452AbaC1OJN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2014 10:09:13 -0400
+	id S1752169AbaC1OJM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Mar 2014 10:09:12 -0400
 In-Reply-To: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <kubakici@wp.pl>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-skb_tx_timestamp() does not report software time stamp
-if SKBTX_IN_PROGRESS is set. According to timestamping.txt
-software time stamps are a fallback and should not be
-generated if hardware time stamp is provided.
+We don't need to print this info unless at FD message level.
 
-Move call to skb_tx_timestamp() after setting
-SKBTX_IN_PROGRESS.
-
-Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Change-ID: I329efdd8e754a0ea0669ec04d12e03db02e6b76e
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index cd20409..1fdffa2 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -4980,8 +4980,6 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 	first->bytecount = skb->len;
- 	first->gso_segs = 1;
- 
--	skb_tx_timestamp(skb);
--
- 	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
- 		struct igb_adapter *adapter = netdev_priv(tx_ring->netdev);
- 
-@@ -4996,6 +4994,8 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index de25a32..a329aac 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -482,8 +482,9 @@ static void i40e_fd_handle_status(struct i40e_ring *rx_ring,
  		}
+ 	} else if (error ==
+ 			  (0x1 << I40E_RX_PROG_STATUS_DESC_NO_FD_ENTRY_SHIFT)) {
+-		netdev_info(rx_ring->vsi->netdev, "ntuple filter loc = %d, could not be removed\n",
+-			    rx_desc->wb.qword0.hi_dword.fd_id);
++		if (I40E_DEBUG_FD & pf->hw.debug_mask)
++			dev_info(&pdev->dev, "ntuple filter loc = %d, could not be removed\n",
++				 rx_desc->wb.qword0.hi_dword.fd_id);
  	}
+ }
  
-+	skb_tx_timestamp(skb);
-+
- 	if (vlan_tx_tag_present(skb)) {
- 		tx_flags |= IGB_TX_FLAGS_VLAN;
- 		tx_flags |= (vlan_tx_tag_get(skb) << IGB_TX_FLAGS_VLAN_SHIFT);
 -- 
 1.9.0
