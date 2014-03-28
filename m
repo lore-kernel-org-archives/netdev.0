@@ -1,119 +1,93 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 05/14] i40e: Cleanup in FDIR SB ethtool code
-Date: Fri, 28 Mar 2014 07:08:06 -0700
-Message-ID: <1396015695-25283-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 03/14] i40e: Make the alloc and free queue vector calls orthogonal
+Date: Fri, 28 Mar 2014 07:08:04 -0700
+Message-ID: <1396015695-25283-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:28812 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:21084 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751404AbaC1OIT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751227AbaC1OIT (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 28 Mar 2014 10:08:19 -0400
 In-Reply-To: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-Function add_del_fdir was used and implemented only for add. So change the name
-and drop a parameter.
+It's annoying to search for a matching alloc and free set of function calls
+when they don't use the same framework for the name of the functions.  Fix
+that up in the case of alloc and free of vsi queue vectors.
 
-Change-ID: Icf2c6c3bbd4fd00cf8d9613a3f6d8c08e0f8e288
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+i40e_vsi_free_q*
+i40e_vsi_alloc_q*
+
+Change-ID: I510eb863a0fbe405312bebea55c2846c76285e6d
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 32 +++++++++++---------------
- 1 file changed, 13 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 28da412..0461a72 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -62,8 +62,8 @@ static const struct i40e_stats i40e_gstrings_net_stats[] = {
- 	I40E_NETDEV_STAT(rx_crc_errors),
- };
- 
--static int i40e_add_del_fdir_ethtool(struct i40e_vsi *vsi,
--				     struct ethtool_rxnfc *cmd, bool add);
-+static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
-+				 struct ethtool_rxnfc *cmd);
- 
- /* These PF_STATs might look like duplicates of some NETDEV_STATs,
-  * but they are separate.  This device supports Virtualization, and
-@@ -1470,16 +1470,15 @@ static int i40e_del_fdir_entry(struct i40e_vsi *vsi,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 28df88e..91fd1f1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -6111,13 +6111,13 @@ static int i40e_init_msix(struct i40e_pf *pf)
  }
  
  /**
-- * i40e_add_del_fdir_ethtool - Add/Remove Flow Director filters
-+ * i40e_add_fdir_ethtool - Add/Remove Flow Director filters
-  * @vsi: pointer to the targeted VSI
-  * @cmd: command to get or set RX flow classification rules
-- * @add: true adds a filter, false removes it
+- * i40e_alloc_q_vector - Allocate memory for a single interrupt vector
++ * i40e_vsi_alloc_q_vector - Allocate memory for a single interrupt vector
+  * @vsi: the VSI being configured
+  * @v_idx: index of the vector in the vsi struct
   *
-- * Add/Remove Flow Director filters for a specific flow spec based on their
-- * protocol.  Returns 0 if the filters were successfully added or removed.
-+ * Add Flow Director filters for a specific flow spec based on their
-+ * protocol.  Returns 0 if the filters were successfully added.
+  * We allocate one q_vector.  If allocation fails we return -ENOMEM.
   **/
--static int i40e_add_del_fdir_ethtool(struct i40e_vsi *vsi,
--				     struct ethtool_rxnfc *cmd, bool add)
-+static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
-+				 struct ethtool_rxnfc *cmd)
+-static int i40e_alloc_q_vector(struct i40e_vsi *vsi, int v_idx)
++static int i40e_vsi_alloc_q_vector(struct i40e_vsi *vsi, int v_idx)
  {
- 	struct ethtool_rx_flow_spec *fsp;
- 	struct i40e_fdir_filter *input;
-@@ -1494,7 +1493,7 @@ static int i40e_add_del_fdir_ethtool(struct i40e_vsi *vsi,
- 	if (!(pf->flags & I40E_FLAG_FD_SB_ENABLED))
- 		return -EOPNOTSUPP;
+ 	struct i40e_q_vector *q_vector;
  
--	if (add && (pf->auto_disable_flags & I40E_FLAG_FD_SB_ENABLED))
-+	if (pf->auto_disable_flags & I40E_FLAG_FD_SB_ENABLED)
- 		return -ENOSPC;
+@@ -6143,13 +6143,13 @@ static int i40e_alloc_q_vector(struct i40e_vsi *vsi, int v_idx)
+ }
  
- 	fsp = (struct ethtool_rx_flow_spec *)&cmd->fs;
-@@ -1504,7 +1503,7 @@ static int i40e_add_del_fdir_ethtool(struct i40e_vsi *vsi,
+ /**
+- * i40e_alloc_q_vectors - Allocate memory for interrupt vectors
++ * i40e_vsi_alloc_q_vectors - Allocate memory for interrupt vectors
+  * @vsi: the VSI being configured
+  *
+  * We allocate one q_vector per queue interrupt.  If allocation fails we
+  * return -ENOMEM.
+  **/
+-static int i40e_alloc_q_vectors(struct i40e_vsi *vsi)
++static int i40e_vsi_alloc_q_vectors(struct i40e_vsi *vsi)
+ {
+ 	struct i40e_pf *pf = vsi->back;
+ 	int v_idx, num_q_vectors;
+@@ -6164,7 +6164,7 @@ static int i40e_alloc_q_vectors(struct i40e_vsi *vsi)
  		return -EINVAL;
+ 
+ 	for (v_idx = 0; v_idx < num_q_vectors; v_idx++) {
+-		err = i40e_alloc_q_vector(vsi, v_idx);
++		err = i40e_vsi_alloc_q_vector(vsi, v_idx);
+ 		if (err)
+ 			goto err_out;
+ 	}
+@@ -7020,7 +7020,7 @@ static int i40e_vsi_setup_vectors(struct i40e_vsi *vsi)
+ 		return -EEXIST;
  	}
  
--	if ((fsp->ring_cookie >= vsi->num_queue_pairs) && add)
-+	if (fsp->ring_cookie >= vsi->num_queue_pairs)
- 		return -EINVAL;
- 
- 	input = kzalloc(sizeof(*input), GFP_KERNEL);
-@@ -1528,16 +1527,11 @@ static int i40e_add_del_fdir_ethtool(struct i40e_vsi *vsi,
- 	input->src_ip[0] = fsp->h_u.tcp_ip4_spec.ip4src;
- 	input->dst_ip[0] = fsp->h_u.tcp_ip4_spec.ip4dst;
- 
--	ret = i40e_add_del_fdir(vsi, input, add);
--	if (ret) {
-+	ret = i40e_add_del_fdir(vsi, input, true);
-+	if (ret)
- 		kfree(input);
--		return ret;
--	}
--
--	if (!ret && add)
--		i40e_update_ethtool_fdir_entry(vsi, input, fsp->location, NULL);
- 	else
--		kfree(input);
-+		i40e_update_ethtool_fdir_entry(vsi, input, fsp->location, NULL);
- 
- 	return ret;
- }
-@@ -1561,7 +1555,7 @@ static int i40e_set_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *cmd)
- 		ret = i40e_set_rss_hash_opt(pf, cmd);
- 		break;
- 	case ETHTOOL_SRXCLSRLINS:
--		ret = i40e_add_del_fdir_ethtool(vsi, cmd, true);
-+		ret = i40e_add_fdir_ethtool(vsi, cmd);
- 		break;
- 	case ETHTOOL_SRXCLSRLDEL:
- 		ret = i40e_del_fdir_entry(vsi, cmd);
+-	ret = i40e_alloc_q_vectors(vsi);
++	ret = i40e_vsi_alloc_q_vectors(vsi);
+ 	if (ret) {
+ 		dev_info(&pf->pdev->dev,
+ 			 "failed to allocate %d q_vector for VSI %d, ret=%d\n",
 -- 
 1.9.0
