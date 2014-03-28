@@ -1,52 +1,55 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: Re: [PATCH v5] sh_eth: ensure pm_runtime cannot suspend the device
- during init
-Date: Fri, 28 Mar 2014 19:25:51 +0000
-Message-ID: <5335CCBF.8030606@codethink.co.uk>
-References: <1395400154-25710-1-git-send-email-ben.dooks@codethink.co.uk> <20140328.142606.2032782733436495474.davem@davemloft.net>
+From: David Herrmann <dh.herrmann@gmail.com>
+Subject: Re: [PATCH v5 0/4] Provide netdev naming-policy via sysfs
+Date: Fri, 28 Mar 2014 20:34:47 +0100
+Message-ID: <CANq1E4TxaNnZoqfw5DiifAhk28hVq5HJJMd07ZDFAjdc68nKKg@mail.gmail.com>
+References: <1395839117-20090-1-git-send-email-dh.herrmann@gmail.com>
+	<20140328.145410.1817326821928803131.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@lists.codethink.co.uk, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
-	laurent.pinchart+renesas@ideasonboard.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>, Tom Gundersen <teg@jklm.no>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20140328.142606.2032782733436495474.davem@davemloft.net>
-Sender: linux-sh-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140328.145410.1817326821928803131.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 28/03/14 18:26, David Miller wrote:
-> From: Ben Dooks <ben.dooks@codethink.co.uk>
-> Date: Fri, 21 Mar 2014 12:09:14 +0100
->
->> The pm_rumtime work queue is causing the device to be suspended during
->> initialisation, thus the initialisation may not be able to access registers
->> properly. As the code is called from a work queue, it is possible that this
->> is not seen from certain configurations/builds due to the asynchronos
->> nature of the code.
->>
->> Another issue has also been found where the network device registration
->> calls back into the driver thus causing further pm_runtime calls that
->> also caused issues with the MDIO bus code. This has now been checked
->> and is the only place the MDIO can be called without the device open.
->>
->> Use pm_runtime_get_sync() and pm_runtime_put() to ensure that the
->> pm system does not suspend it during the probe() call and remove the
->> now unnecessary pm_runtime_resume() call. Also add a call in the error
->> path to call pm_runtime_disable().
->>
->> This fixes the external abort that can cause /sbin/init or other such
->> init processed to die.
->>
->> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
->> Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
->
-> What tree is this against?  It doesn't apply cleanly to 'net'.
+Hi
 
-I thought it was against the net next tree, given the number of patches
-that are currently being applied to the sh_eth driver.
+On Fri, Mar 28, 2014 at 7:54 PM, David Miller <davem@davemloft.net> wrote:
+> udev can look at the device type, and policies can be defined that key
+> off of that device type, entirely in userspace.
 
--- 
-Ben Dooks				http://www.codethink.co.uk/
-Senior Engineer				Codethink - Providing Genius
+Regarding wifi-P2P devices, udev can indeed use nl80211 to get the
+exact IF-type. An attribute would be much easier to read out, but I'm
+ok if we don't want to replicate that information.
+
+However, as mentioned in the discussions on v1, there're more
+use-cases than that. Imagine a 3rd party initrd renames a
+network-device early, if udev runs in the main system, we would rename
+the device again. If we could detect the rename via NET_NAME_RENAMED,
+we wouldn't break such setups. The only reason to rename devices in
+udev is to get reliable names. If someone else already renamed a
+device, we always expect them to provide better names than we do, so
+udev should only touch devices that have kernel-enumerated names.
+Of course, this can be fixed by requiring all the initrd developers to
+somehow tag devices as already renamed. But this would replicate
+information that the kernel already has.
+
+Another example are dynamically created devices via RTM_NEWLINK. The
+if-names are provided by user-space and udev should never try to do
+any magic renaming on them (why would we? you can just easily fix the
+code that created the device).
+
+So it turns out, all we want to know is whether an interface-name was
+chosen by the kernel via plain, simple enumeration, or whether it has
+a user-space origin. Only in the former case we want to rename the
+device. The name_assign_type attribute tells us exactly where a name
+comes from and thus avoids maintaining blacklists in user-space that
+skip renaming on such devices. I'm sorry, but I cannot see why such
+blacklists (or whitelists) are preferred over a sysfs attribute.
+
+Thanks
+David
