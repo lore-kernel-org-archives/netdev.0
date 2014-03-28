@@ -1,81 +1,58 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [net-next 03/16] i40evf: Support RSS option in ethtool
-Date: Fri, 28 Mar 2014 17:05:34 +0000
-Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D65579F65@FMSMSX113.amr.corp.intel.com>
-References: <1395060316-16897-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1395060316-16897-4-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1395082411.22343.4.camel@deadeye.wl.decadent.org.uk>
-	 <AAEA33E297BCAC4B9BB20A7C2DF0AB8D65578A60@FMSMSX113.amr.corp.intel.com>
- <1395965668.2898.17.camel@deadeye.wl.decadent.org.uk>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] phy/at8031: enable at8031 to work on interrupt mode
+Date: Fri, 28 Mar 2014 21:09:02 +0300
+Message-ID: <5335BABE.80007@cogentembedded.com>
+References: <1395901116-16034-1-git-send-email-B45475@freescale.com> <53341101.9000404@cogentembedded.com> <0ca1e7910cd247c4aebe4cbd48a633cb@BLUPR03MB341.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"davem@davemloft.net" <davem@davemloft.net>,
+	"mugunthanvnm@ti.com" <mugunthanvnm@ti.com>,
+	"zonque@gmail.com" <zonque@gmail.com>,
+	"helmut.schaa@googlemail.com" <helmut.schaa@googlemail.com>,
+	Xiaobo Xie <X.Xie@freescale.com>
+To: "qiang.zhao@freescale.com" <qiang.zhao@freescale.com>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"Sullivan, Catherine" <catherine.sullivan@intel.com>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:22536 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751704AbaC1RGF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2014 13:06:05 -0400
-In-Reply-To: <1395965668.2898.17.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Scott Wood <scottwood@freescale.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0ca1e7910cd247c4aebe4cbd48a633cb@BLUPR03MB341.namprd03.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJlbkBkZWNhZGVudC5vcmcudWtdDQo+IFNlbnQ6IFRodXJzZGF5LCBNYXJjaCAyNywg
-MjAxNCA1OjE0IFBNDQo+IFRvOiBXaWxsaWFtcywgTWl0Y2ggQQ0KPiBDYzogS2lyc2hlciwgSmVm
-ZnJleSBUOyBkYXZlbUBkYXZlbWxvZnQubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiBn
-b3Nwb0ByZWRoYXQuY29tOyBzYXNzbWFubkByZWRoYXQuY29tOyBTdWxsaXZhbiwgQ2F0aGVyaW5l
-DQo+IFN1YmplY3Q6IFJlOiBbbmV0LW5leHQgMDMvMTZdIGk0MGV2ZjogU3VwcG9ydCBSU1Mgb3B0
-aW9uIGluIGV0aHRvb2wNCj4gDQo+IE9uIFdlZCwgMjAxNC0wMy0yNiBhdCAxOToyMSArMDAwMCwg
-V2lsbGlhbXMsIE1pdGNoIEEgd3JvdGU6DQo+ID4NCj4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2Fn
-ZS0tLS0tDQo+ID4gPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWlsdG86YmVuQGRlY2FkZW50Lm9y
-Zy51a10NCj4gPiA+IFNlbnQ6IE1vbmRheSwgTWFyY2ggMTcsIDIwMTQgMTE6NTQgQU0NCj4gPiA+
-IFRvOiBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gPiA+IENjOiBkYXZlbUBkYXZlbWxvZnQubmV0OyBX
-aWxsaWFtcywgTWl0Y2ggQTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gPiA+IGdvc3BvQHJl
-ZGhhdC5jb207IHNhc3NtYW5uQHJlZGhhdC5jb207IFN1bGxpdmFuLCBDYXRoZXJpbmUNCj4gPiA+
-IFN1YmplY3Q6IFJlOiBbbmV0LW5leHQgMDMvMTZdIGk0MGV2ZjogU3VwcG9ydCBSU1Mgb3B0aW9u
-IGluIGV0aHRvb2wNCj4gPiA+DQo+ID4gPiBPbiBNb24sIDIwMTQtMDMtMTcgYXQgMDU6NDUgLTA3
-MDAsIEplZmYgS2lyc2hlciB3cm90ZToNCj4gPiA+ID4gRnJvbTogTWl0Y2ggV2lsbGlhbXMgPG1p
-dGNoLmEud2lsbGlhbXNAaW50ZWwuY29tPg0KPiA+ID4gPg0KPiA+ID4gPiBBZGQgc3VwcG9ydCBm
-b3Igdmlld2luZyBhbmQgbW9kaWZ5aW5nIFJTUyBoYXNoIG9wdGlvbnMgYW5kIFJTUyBoYXNoDQo+
-ID4gPiA+IGxvb2stdXAgdGFibGUgcHJvZ3JhbW1pbmcgdGhyb3VnaCBldGh0b29sLiBCZWNhdXNl
-IHRoZSBsb29rdXAgdGFibGUgaXMNCj4gPiA+ID4gc28gc21hbGwgZm9yIHRoZSBWRnMgKG9ubHkg
-MTYgcmVnaXN0ZXJzKSwgd2UgZG9uJ3QgYm90aGVyIHRvIG1haW50YWluDQo+IGENCj4gPiA+ID4g
-c2hhZG93IHRhYmxlIGluIG1lbW9yeSwgd2UganVzdCByZWFkIGFuZCB3cml0ZSB0aGUgcmVnaXN0
-ZXJzIGRpcmVjdGx5Lg0KPiA+ID4gWy4uLl0NCj4gPiA+ID4gK3N0YXRpYyBpbnQgaTQwZXZmX2dl
-dF9yc3NfaGFzaF9vcHRzKHN0cnVjdCBpNDBldmZfYWRhcHRlciAqYWRhcHRlciwNCj4gPiA+ID4g
-KwkJCQkgICAgc3RydWN0IGV0aHRvb2xfcnhuZmMgKmNtZCkNCj4gPiA+ID4gK3sNCj4gPiA+ID4g
-KwljbWQtPmRhdGEgPSAwOw0KPiA+ID4gPiArDQo+ID4gPiA+ICsJLyogUmVwb3J0IGRlZmF1bHQg
-b3B0aW9ucyBmb3IgUlNTIG9uIGk0MGUgKi8NCj4gPiA+DQo+ID4gPiBCdXQgeW91J3JlIGFsbG93
-aW5nIHRoZW0gdG8gYmUgY2hhbmdlZCBmcm9tIHRoZSBkZWZhdWx0cywgc28gdGhpcyBpcw0KPiA+
-ID4gd3JvbmcuDQo+ID4NCj4gPiBCZW4sIEkndmUgZ290IGEgcXVlc3Rpb24gb24gdGhpcy4gU2hv
-dWxkIHRoZSBFVEhUT09MX0dSWEZIIG9wdGlvbg0KPiA+IHJlcG9ydCB3aGF0IHRoZSBkcml2ZXIg
-YW5kIGRldmljZSBhcmUgY2FwYWJsZSBvZiwgb3Igc2hvdWxkIGl0IHJlcG9ydA0KPiA+IHRoZSBj
-dXJyZW50IGNvbmZpZ3VyYXRpb24/DQo+IA0KPiBJdCBzaG91bGQgcmVwb3J0IHRoZSBjdXJyZW50
-IGNvbmZpZ3VyYXRpb24uDQo+IA0KPiA+IElmIHRoaXMgb3B0aW9uIGlzIHN1cHBvc2VkIHRvIHJl
-cG9ydCBkZXZpY2UgY2FwYWJpbGl0aWVzLCBob3cgY2FuIHdlDQo+ID4gZmluZCBvdXQgdGhlIGN1
-cnJlbnQgY29uZmlndXJhdGlvbj8gQW5kIGlmIGl0J3Mgc3VwcG9zZWQgdG8gcmVwb3J0IHRoZQ0K
-PiA+IGN1cnJlbnQgY29uZmlndXJhdGlvbiwgdGhlbiBob3cgZG8gd2UgZmluZCBvdXQgdGhlIGRl
-dmljZQ0KPiA+IGNhcGFiaWxpdGllcz8NCj4gDQo+IFlvdSBjYW4ndCBmaW5kIG91dCB0aGUgZGV2
-aWNlIGNhcGFiaWxpdGllcyBleGNlcHQgYnkgdHJpYWwgYW5kIGVycm9yIChvcg0KPiBkcml2ZXIt
-c3BlY2lmaWMgZG9jdW1lbnRhdGlvbikuICBFdmVuIGlmIEVUSFRPT0xfR1JYRkggZGlkIHRlbGwg
-eW91DQo+IHdoaWNoIGZpZWxkcyAqY291bGQqIGJlIGluY2x1ZGVkIGluIHRoZSBoYXNoLCB0aGUg
-c3RydWN0dXJlIGRvZXNuJ3QgaGF2ZQ0KPiBzcGFjZSB0byB0ZWxsIHlvdSB3aGljaCBzdWJzZXRz
-IGFyZSBzdXBwb3J0ZWQuDQo+IA0KPiA+IEkndmUgYmVlbiB3YWRpbmcgdGhyb3VnaCB0aGUga2Vy
-bmVsIHNvdXJjZSwgYW5kIEkgc2VlIGJvdGguIFNvIEknbQ0KPiA+IGNvbmZ1c2VkLg0KPiBbLi4u
-XQ0KPiANCj4gVGhlIGZpcnN0IGltcGxlbWVudGF0aW9uIHdhcyBpbiBuaXUsIGFuZCBpbiB0aGUg
-YWJzZW5jZSBvZiBhY2NvbXBhbnlpbmcNCj4gZG9jdW1lbnRhdGlvbiB0aGF0IGlzIHdoYXQgSSB0
-b29rIHRvIGRlZmluZSB0aGUgaW50ZXJmYWNlIGFuZCB3aGF0IEkNCj4gYXR0ZW1wdGVkIHRvIGRv
-Y3VtZW50IGluIDxsaW51eC9ldGh0b29sLmg+LiAgSWYgeW91IHRoaW5rIHRoZSBjdXJyZW50DQo+
-IGtlcm5lbC1kb2MgY29tbWVudCBvbiBzdHJ1Y3QgZXRodG9vbF9yeG5mYyBpcyBub3QgY2xlYXIg
-ZW5vdWdoLCBwbGVhc2UNCj4gZG8gc2VuZCBhIHBhdGNoIHRvIGltcHJvdmUgdGhlIHdvcmRpbmcu
-DQo+IA0KDQpUaGFua3MsIEJlbi4gSSdsbCBtYWtlIHN1cmUgdGhhdCB0aGUgaTQwZXZmIGRyaXZl
-ciBkb2VzIHRoZSByaWdodCB0aGluZy4NCg0KLU1pdGNoDQoNCj4gQmVuLg0KPiANCj4gLS0NCj4g
-QmVuIEh1dGNoaW5ncw0KPiA3My40NiUgb2YgYWxsIHN0YXRpc3RpY3MgYXJlIG1hZGUgdXAuDQo=
+Hello.
+
+On 03/28/2014 10:36 AM, qiang.zhao@freescale.com wrote:
+
+>>> The at8031 can work on polling mode and interrupt mode.
+>>> Add ack_interrupt and config intr funcs to enable interrupt mode for
+>>> it.
+
+>>> Signed-off-by: Zhao Qiang <B45475@freescale.com>
+>>> ---
+>>>    drivers/net/phy/at803x.c | 30 ++++++++++++++++++++++++++++++
+>>>    1 file changed, 30 insertions(+)
+
+>>> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c index
+>>> bc71947..d034ef5 100644
+>>> --- a/drivers/net/phy/at803x.c
+>>> +++ b/drivers/net/phy/at803x.c
+>> [...]
+>>> @@ -191,6 +194,31 @@ static int at803x_config_init(struct phy_device
+>> *phydev)
+>>>    	return 0;
+>>>    }
+>>>
+>>> +static int at803x_ack_interrupt(struct phy_device *phydev) {
+>>> +	int err;
+>>> +
+>>> +	err = phy_read(phydev, AT803X_INSR);
+
+>>      Could make this an initializer...
+
+> Thank you very much. However I have no idea about "make this an initializer".
+
+	int err = phy_read(phydev, AT803X_INSR);
+
+WBR, Sergei
