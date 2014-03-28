@@ -1,30 +1,44 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCH v2 net] mac802154: stop tx queue before destroy workqueue
-Date: Fri, 28 Mar 2014 14:20:29 +0100
-Message-ID: <20140328132026.GA29114@omega.Speedport_W_921V_1_24_000>
-References: <1395944600-18330-1-git-send-email-alex.aring@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v2 3/3] ipv6: fix checkpatch errors of "foo*"
+ and "foo * bar"
+Date: Fri, 28 Mar 2014 17:30:27 +0400
+Message-ID: <53357973.3010900@cogentembedded.com>
+References: <1395979624-8544-1-git-send-email-wangyufen@huawei.com> <1395979624-8544-4-git-send-email-wangyufen@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Wangyufen <wangyufen@huawei.com>, davem@davemloft.net,
 	netdev@vger.kernel.org
-To: alex.bluesman.smirnov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f50.google.com ([209.85.214.50]:38579 "EHLO
-	mail-bk0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751249AbaC1NUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 09:20:35 -0400
-Received: by mail-bk0-f50.google.com with SMTP id w10so913359bkz.9
-        for <netdev@vger.kernel.org>; Fri, 28 Mar 2014 06:20:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1395944600-18330-1-git-send-email-alex.aring@gmail.com>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:43108 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751311AbaC1NaZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 09:30:25 -0400
+Received: by mail-lb0-f179.google.com with SMTP id p9so3747886lbv.10
+        for <netdev@vger.kernel.org>; Fri, 28 Mar 2014 06:30:23 -0700 (PDT)
+In-Reply-To: <1395979624-8544-4-git-send-email-wangyufen@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Hello.
 
-please drop this patch... I having still some issues to unloading the
-at86rf230 driver while transmitting... I don't giving up to fix that issue...
+On 28-03-2014 8:07, Wangyufen wrote:
 
-Sorry, I need some time to understand what's going on there.
+> From: Wang Yufen <wangyufen@huawei.com>
 
-- Alex
+> ERROR: "(foo*)" should be "(foo *)"
+> ERROR: "foo * bar" should be "foo *bar"
+>
+> Suggested-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+    I didn't really suggest to you to make this patch, I just commented on it.
+You can instead add:
+
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+> Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+> ---
+>   net/ipv6/ip6_fib.c | 30 +++++++++++++++---------------
+>   1 file changed, 15 insertions(+), 15 deletions(-)
+
+WBR, Sergei
