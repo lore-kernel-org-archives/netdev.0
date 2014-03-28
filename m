@@ -1,127 +1,198 @@
-From: Wangyufen <wangyufen@huawei.com>
-Subject: [PATCH net-next v5 1/3] ipv6: tcp_ipv6 do some cleanup
-Date: Fri, 28 Mar 2014 17:20:25 +0800
-Message-ID: <1395998427-7532-2-git-send-email-wangyufen@huawei.com>
-References: <1395998427-7532-1-git-send-email-wangyufen@huawei.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [Xen-devel] [PATCH net v2 1/3] xen-netback: remove pointless
+ clause from if statement
+Date: Fri, 28 Mar 2014 09:30:27 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD029DDEA@AMSPEX01CL01.citrite.net>
+References: <1395924973-42904-1-git-send-email-paul.durrant@citrix.com>
+ <1395924973-42904-2-git-send-email-paul.durrant@citrix.com>
+ <289461862.20140327144546@eikelenboom.it>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD029C992@AMSPEX01CL01.citrite.net>
+ <68689563.20140327150256@eikelenboom.it>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD029CAA6@AMSPEX01CL01.citrite.net>
+ <874580615.20140327174607@eikelenboom.it>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD029D28D@AMSPEX01CL01.citrite.net>
+ <636041055.20140327181524@eikelenboom.it>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD029D498@AMSPEX01CL01.citrite.net>
+ <1279623918.20140327193454@eikelenboom.it>
+ <602920213.20140327202235@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kuznet@ms2.inr.ac.ru>, Wang Yufen <wangyufen@huawei.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
+To: Sander Eikelenboom <linux@eikelenboom.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:22374 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750893AbaC1JVx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 05:21:53 -0400
-In-Reply-To: <1395998427-7532-1-git-send-email-wangyufen@huawei.com>
+Received: from smtp.eu.citrix.com ([185.25.65.24]:53212 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751051AbaC1Ja3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 05:30:29 -0400
+In-Reply-To: <602920213.20140327202235@eikelenboom.it>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wang Yufen <wangyufen@huawei.com>
+> -----Original Message-----
+> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+> Sent: 27 March 2014 19:23
+> To: Paul Durrant
+> Cc: netdev@vger.kernel.org; Wei Liu; Ian Campbell; xen-devel@lists.xen.org
+> Subject: Re: [Xen-devel] [PATCH net v2 1/3] xen-netback: remove pointless
+> clause from if statement
+> 
+> 
+> Thursday, March 27, 2014, 7:34:54 PM, you wrote:
+> 
+> > <big snip>
+> 
+> >>> >>
+> >>> >> > So, it may be that the worse-case estimate is now too bad. In the
+> case
+> >>> >> where it's failing for you it would be nice to know what the estimate
+> was
+> >>>
+> >>>
+> >>> > Ok, so we cannot be too pessimistic. In that case I don't see there's a
+> lot
+> >>> > of
+> >>> > choice but to stick with the existing DIV_ROUND_UP (i.e. don't assume
+> >>> > start_new_rx_buffer() returns true every time) and just add the extra
+> 1.
+> >>>
+> >>> Hrmm i don't like a "magic" 1 bonus slot, there must be some theoretical
+> >>> backing.
+> 
+> > I don't like it either, but theory suggested each frag should take no more
+> > space than the original DIV_ROUND_UP and that proved to be wrong, but I
+> cannot
+> > figure out why.
+> 
+> >>> And since the original problem always seemed to occur on a packet with
+> a
+> >>> single large frag, i'm wondering
+> >>> if this 1 would actually be correct in other cases.
+> 
+> > That's why I went for an extra 1 per frag... a pessimal slot packing i.e. 2
+> > byte frag may span 2 slots, PAGE_SIZE + 2 bytes may span 3, etc. etc.
+> 
+> > In what situation my a 2 byte frag span 2 slots ?
+> 
+> > At least there must be a theoretical cap to the number of slots needed ..
+> > - assuming and SKB can contain only 65535 bytes
+> > - assuming a slot can take max PAGE_SIZE and frags are slit into PAGE_SIZE
+> pieces ..
+> 
+> > - it could only max contain 15 PAGE_SIZE slots if nicely aligned ..
+> > - double it ..  and at 30 we wouldn't still be near that 52 estimate and i don't
+> know the ring size
+> >   but wasn't that 32 ? So if the ring get's fully drained we shouldn't stall
+> there.
+> 
+> 
+> >>> Well this is what i said earlier on .. it's hard to estimate upfront if
+> >>> "start_new_rx_buffer()" will return true,
+> >>> and how many times that is possible per frag .. and if that is possible for
+> >>> only
+> >>> 1 frag or for all frags.
+> >>>
+> >>> The problem is now replaced from packets with 1 large frag (for which it
+> >>> didn't account properly leading to a too small estimate) .. to packets
+> >>> with a large number of (smaller) frags .. leading to a too large over
+> >>> estimation.
+> >>>
+> >>> So would there be a theoretical maximum how often that path could hit
+> >>> based on a combination of sizes (total size of all frags, nr_frags, size per
+> >>> frag)
+> >>> ?
+> >>> - if you hit "start_new_rx_buffer()" == true  in the first frag .. could you
+> >>> hit it
+> >>> in a next frag ?
+> >>> - could it be limited due to something like the packet_size / nr_frags /
+> >>> page_size ?
+> >>>
+> >>> And what was wrong with the previous calculation ?
+> >>>                  int max = DIV_ROUND_UP(vif->dev->mtu, PAGE_SIZE);
+> >>>                  if (vif->can_sg || vif->gso_mask || vif->gso_prefix_mask)
+> >>>                          max += MAX_SKB_FRAGS + 1; /* extra_info + frags */
+> >>>
+> 
+> >> This is not safe if frag size can be > PAGE_SIZE.
+> 
+> > #define MAX_SKB_FRAGS (65536/PAGE_SIZE + 2)
+> 
+> > So if one of the frags is > PAGE_SIZE ..
+> > wouldn't that imply that we have nr_frags < MAX_SKB_FRAGS because we
+> are limited by the total packet size ?
+> > (so we would spare a slot since we have a frag less .. but spend one more
+> because we have a frag that needs 2 slots ?)
+> 
+> > (and that this should even be pessimistic since we didn't substract the
+> header etc from the max total packet size ?)
+> 
+> 
+> > So from what i said early, you could probably do the pessimistic estimate
+> (that would help when packets have a small skb->data_len
+> > (space occupied by frags)) so the estimate would be less then the old one
+> based on MAX_SKB_FRAGS causing the packet to be processed earlier.
+> > And CAP it using the old way since a packet should never be able to use
+> more slots than that theoretical max_slots (which hopefully is less than
+> > the ring size, so a packet can always be processed if the ring is finally
+> emptied.
+> 
+> 
+> >>> That perhaps also misses some theoretical backing, what if it would have
+> >>> (MAX_SKB_FRAGS - 1) nr_frags, but larger ones that have to be split to
+> >>> fit in a slot. Or is the total size of frags a skb can carry limited to
+> >>> MAX_SKB_FRAGS / PAGE_SIZE ? .. than you would expect that
+> >>> MAX_SKB_FRAGS is a upper limit.
+> >>> (and you could do the new check maxed by MAX_SKB_FRAGS so it
+> doesn't
+> >>> get to a too large non reachable estimate).
+> >>>
+> >>> But as a side question .. the whole "get_next_rx_buffer()" path is
+> needed
+> >>> for when a frag could not fit in a slot
+> >>> as a whole ?
+> 
+> 
+> >> Perhaps it would be best to take the hit on copy_ops and just tightly pack,
+> so
+> >> we only start a new slot when the current one is completely full; then
+> actual
+> >> slots would simply be DIV_ROUND_UP(skb->len, PAGE_SIZE) (+ 1 for the
+> extra if
+> >> it's a GSO).
+> 
+> > Don't know if and how much a performance penalty that would be.
+> 
+> >>  Paul
+> 
+> Hmm since i now started to dig around a bit more ..
+> 
+> The ring size seems to be determined by netfront and not by netback ?
+> Couldn't this lead to problems when PAGE_SIZE dom0 != PAGE_SIZE domU
+> (and potentially lead to a overrun and therefore problems on the HOST) ?
+> 
+> And about the commit message from
+> ca2f09f2b2c6c25047cfc545d057c4edfcfe561c ...
+> Do i understand it correctly that you saw the original problem (stall on large
+> file copy) only on a "Windows Server 2008R2", probably with PV drivers ?
+> 
 
+Yes, with PV drivers as you say.
 
-Signed-off-by: Wang Yufen <wangyufen@huawei.com>
----
- net/ipv6/tcp_ipv6.c | 24 +++++++++++-------------
- 1 file changed, 11 insertions(+), 13 deletions(-)
+> I don't see why the original calculation wouldn't work, so what kind of
+> packets (nr_frags, frag size and PAGE_SIZE ) caused it ?
+> 
+> And could you retest if that "Windows Server 2008R2" works with a netback
+> with you latest patch series (pessimistic estimate) plus a cap on
+> max_slots_needed like:
+> 
+> if(max_slots_needed > MAX_SKB_FRAGS + 1){
+>         max_slots_needed = MAX_SKB_FRAGS + 1;
+> }
 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 3277680..10b7c04 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -39,7 +39,7 @@
- #include <linux/ipsec.h>
- #include <linux/times.h>
- #include <linux/slab.h>
--
-+#include <linux/uaccess.h>
- #include <linux/ipv6.h>
- #include <linux/icmpv6.h>
- #include <linux/random.h>
-@@ -65,8 +65,6 @@
- #include <net/tcp_memcontrol.h>
- #include <net/busy_poll.h>
- 
--#include <asm/uaccess.h>
--
- #include <linux/proc_fs.h>
- #include <linux/seq_file.h>
- 
-@@ -532,8 +530,8 @@ static struct tcp_md5sig_key *tcp_v6_reqsk_md5_lookup(struct sock *sk,
- 	return tcp_v6_md5_do_lookup(sk, &inet_rsk(req)->ir_v6_rmt_addr);
- }
- 
--static int tcp_v6_parse_md5_keys (struct sock *sk, char __user *optval,
--				  int optlen)
-+static int tcp_v6_parse_md5_keys(struct sock *sk, char __user *optval,
-+				 int optlen)
- {
- 	struct tcp_md5sig cmd;
- 	struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&cmd.tcpm_addr;
-@@ -717,7 +715,7 @@ struct request_sock_ops tcp6_request_sock_ops __read_mostly = {
- 	.send_ack	=	tcp_v6_reqsk_send_ack,
- 	.destructor	=	tcp_v6_reqsk_destructor,
- 	.send_reset	=	tcp_v6_send_reset,
--	.syn_ack_timeout = 	tcp_syn_ack_timeout,
-+	.syn_ack_timeout =	tcp_syn_ack_timeout,
- };
- 
- #ifdef CONFIG_TCP_MD5SIG
-@@ -1261,7 +1259,8 @@ static struct sock *tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 
- #ifdef CONFIG_TCP_MD5SIG
- 	/* Copy over the MD5 key from the original socket */
--	if ((key = tcp_v6_md5_do_lookup(sk, &newsk->sk_v6_daddr)) != NULL) {
-+	key = tcp_v6_md5_do_lookup(sk, &newsk->sk_v6_daddr);
-+	if (key != NULL) {
- 		/* We're using one, so create a matching key
- 		 * on the newsk structure. If we fail to get
- 		 * memory, then we end up not copying the key
-@@ -1305,9 +1304,8 @@ static __sum16 tcp_v6_checksum_init(struct sk_buff *skb)
- 					      &ipv6_hdr(skb)->saddr,
- 					      &ipv6_hdr(skb)->daddr, 0));
- 
--	if (skb->len <= 76) {
-+	if (skb->len <= 76)
- 		return __skb_checksum_complete(skb);
--	}
- 	return 0;
- }
- 
-@@ -1337,7 +1335,7 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
- 		return tcp_v4_do_rcv(sk, skb);
- 
- #ifdef CONFIG_TCP_MD5SIG
--	if (tcp_v6_inbound_md5_hash (sk, skb))
-+	if (tcp_v6_inbound_md5_hash(sk, skb))
- 		goto discard;
- #endif
- 
-@@ -1604,7 +1602,8 @@ do_time_wait:
- 		break;
- 	case TCP_TW_RST:
- 		goto no_tcp_socket;
--	case TCP_TW_SUCCESS:;
-+	case TCP_TW_SUCCESS:
-+		;
- 	}
- 	goto discard_it;
- }
-@@ -1649,7 +1648,7 @@ static void tcp_v6_early_demux(struct sk_buff *skb)
- static struct timewait_sock_ops tcp6_timewait_sock_ops = {
- 	.twsk_obj_size	= sizeof(struct tcp6_timewait_sock),
- 	.twsk_unique	= tcp_twsk_unique,
--	.twsk_destructor= tcp_twsk_destructor,
-+	.twsk_destructor = tcp_twsk_destructor,
- };
- 
- static const struct inet_connection_sock_af_ops ipv6_specific = {
-@@ -1683,7 +1682,6 @@ static const struct tcp_sock_af_ops tcp_sock_ipv6_specific = {
- /*
-  *	TCP over IPv4 via INET6 API
-  */
--
- static const struct inet_connection_sock_af_ops ipv6_mapped = {
- 	.queue_xmit	   = ip_queue_xmit,
- 	.send_check	   = tcp_v4_send_check,
--- 
-1.7.12
+The behaviour of the Windows frontend is different to netfront; it tries to keep the shared ring as full as possible so the estimate could be as pessimistic as you like (as long as it doesn't exceed ring size ;-)) and you'd never see the lock-up. For some reason (best known to the originator of the code I suspect) the Linux netfront driver limits the number of requests it posts into the shared ring leading to the possibility of lock-up in the case where the backend needs more slots than the fontend 'thinks' it should.
+
+  Paul
