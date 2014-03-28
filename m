@@ -1,71 +1,63 @@
-From: "qiang.zhao@freescale.com" <qiang.zhao@freescale.com>
-Subject: RE: [PATCH] phy/at8031: enable at8031 to work on interrupt mode
-Date: Fri, 28 Mar 2014 07:36:11 +0000
-Message-ID: <0ca1e7910cd247c4aebe4cbd48a633cb@BLUPR03MB341.namprd03.prod.outlook.com>
-References: <1395901116-16034-1-git-send-email-B45475@freescale.com>
- <53341101.9000404@cogentembedded.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v4 2/3] ipv6: reuse rt6_need_strict
+Date: Fri, 28 Mar 2014 08:41:10 +0100
+Message-ID: <20140328074110.GC11063@order.stressinduktion.org>
+References: <1395979303-7668-1-git-send-email-wangyufen@huawei.com> <1395979303-7668-3-git-send-email-wangyufen@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "mugunthanvnm@ti.com" <mugunthanvnm@ti.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "helmut.schaa@googlemail.com" <helmut.schaa@googlemail.com>,
- "zonque@gmail.com" <zonque@gmail.com>,
- "davem@davemloft.net" <davem@davemloft.net>, Xiaobo Xie <X.Xie@freescale.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
- "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>, Scott Wood
- <scottwood@freescale.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <53341101.9000404@cogentembedded.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ioe@perches.com,
+	kuznet@ms2.inr.ac.ru
+To: Wangyufen <wangyufen@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:36696 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750955AbaC1HlM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 03:41:12 -0400
+Content-Disposition: inline
+In-Reply-To: <1395979303-7668-3-git-send-email-wangyufen@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1cnNkYXksIE1hcmNoIDI3LCAyMDE0IDc6NTMgUE0sIFNlcmdlaSBTaHR5bHlvdiB3cm90
-ZToKPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+IEZyb206IFNlcmdlaSBTaHR5bHlvdiBb
-bWFpbHRvOnNlcmdlaS5zaHR5bHlvdkBjb2dlbnRlbWJlZGRlZC5jb21dCj4gU2VudDogVGh1cnNk
-YXksIE1hcmNoIDI3LCAyMDE0IDc6NTMgUE0KPiBUbzogWmhhbyBRaWFuZy1CNDU0NzU7IGxpbnV4
-cHBjLWRldkBsaXN0cy5vemxhYnMub3JnOwo+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IFdvb2Qg
-U2NvdHQtQjA3NDIxCj4gQ2M6IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IGRhdmVtQGRh
-dmVtbG9mdC5uZXQ7Cj4gbXVndW50aGFudm5tQHRpLmNvbTsgem9ucXVlQGdtYWlsLmNvbTsgaGVs
-bXV0LnNjaGFhQGdvb2dsZW1haWwuY29tOyBYaWUKPiBYaWFvYm8tUjYzMDYxCj4gU3ViamVjdDog
-UmU6IFtQQVRDSF0gcGh5L2F0ODAzMTogZW5hYmxlIGF0ODAzMSB0byB3b3JrIG9uIGludGVycnVw
-dCBtb2RlCj4gCj4gSGVsbG8uCj4gCj4gT24gMjctMDMtMjAxNCAxMDoxOCwgWmhhbyBRaWFuZyB3
-cm90ZToKPiAKPiA+IFRoZSBhdDgwMzEgY2FuIHdvcmsgb24gcG9sbGluZyBtb2RlIGFuZCBpbnRl
-cnJ1cHQgbW9kZS4KPiA+IEFkZCBhY2tfaW50ZXJydXB0IGFuZCBjb25maWcgaW50ciBmdW5jcyB0
-byBlbmFibGUgaW50ZXJydXB0IG1vZGUgZm9yCj4gPiBpdC4KPiAKPiA+IFNpZ25lZC1vZmYtYnk6
-IFpoYW8gUWlhbmcgPEI0NTQ3NUBmcmVlc2NhbGUuY29tPgo+ID4gLS0tCj4gPiAgIGRyaXZlcnMv
-bmV0L3BoeS9hdDgwM3guYyB8IDMwICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKwo+ID4g
-ICAxIGZpbGUgY2hhbmdlZCwgMzAgaW5zZXJ0aW9ucygrKQo+IAo+ID4gZGlmZiAtLWdpdCBhL2Ry
-aXZlcnMvbmV0L3BoeS9hdDgwM3guYyBiL2RyaXZlcnMvbmV0L3BoeS9hdDgwM3guYyBpbmRleAo+
-ID4gYmM3MTk0Ny4uZDAzNGVmNSAxMDA2NDQKPiA+IC0tLSBhL2RyaXZlcnMvbmV0L3BoeS9hdDgw
-M3guYwo+ID4gKysrIGIvZHJpdmVycy9uZXQvcGh5L2F0ODAzeC5jCj4gWy4uLl0KPiA+IEBAIC0x
-OTEsNiArMTk0LDMxIEBAIHN0YXRpYyBpbnQgYXQ4MDN4X2NvbmZpZ19pbml0KHN0cnVjdCBwaHlf
-ZGV2aWNlCj4gKnBoeWRldikKPiA+ICAgCXJldHVybiAwOwo+ID4gICB9Cj4gPgo+ID4gK3N0YXRp
-YyBpbnQgYXQ4MDN4X2Fja19pbnRlcnJ1cHQoc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldikgewo+
-ID4gKwlpbnQgZXJyOwo+ID4gKwo+ID4gKwllcnIgPSBwaHlfcmVhZChwaHlkZXYsIEFUODAzWF9J
-TlNSKTsKPiAKPiAgICAgQ291bGQgbWFrZSB0aGlzIGFuIGluaXRpYWxpemVyLi4uCgpUaGFuayB5
-b3UgdmVyeSBtdWNoLiBIb3dldmVyIEkgaGF2ZSBubyBpZGVhIGFib3V0ICJtYWtlIHRoaXMgYW4g
-aW5pdGlhbGl6ZXIiLgoKPiAKPiA+ICsKPiA+ICsJcmV0dXJuIChlcnIgPCAwKSA/IGVyciA6IDA7
-Cj4gPiArfQo+ID4gKwo+ID4gK3N0YXRpYyBpbnQgYXQ4MDN4X2NvbmZpZ19pbnRyKHN0cnVjdCBw
-aHlfZGV2aWNlICpwaHlkZXYpIHsKPiA+ICsJaW50IGVycjsKPiA+ICsJaW50IHZhbHVlOwo+ID4g
-Kwo+ID4gKwl2YWx1ZSA9IHBoeV9yZWFkKHBoeWRldiwgQVQ4MDNYX0lORVIpOwo+ID4gKwo+ID4g
-KwlpZiAocGh5ZGV2LT5pbnRlcnJ1cHRzID09IFBIWV9JTlRFUlJVUFRfRU5BQkxFRCkKPiA+ICsJ
-CWVyciA9IHBoeV93cml0ZShwaHlkZXYsIEFUODAzWF9JTkVSLAo+ID4gKwkJCQkodmFsdWUgfCBB
-VDgwM1hfSU5FUl9JTklUKSk7Cj4gCj4gICAgIElubmVyIHBhcmVucyBub3QgbmVlZGVkLgo+IAo+
-ID4gKwllbHNlCj4gPiArCQllcnIgPSBwaHlfd3JpdGUocGh5ZGV2LCBBVDgwM1hfSU5FUiwgdmFs
-dWUpOwo+IAo+ICAgICBXaHkgYXJlIHlvdSBub3QgY2xlYXJpbmcgdGhlIGJpdHMgaGVyZT8gV2h5
-IHdyaXRlIGJhY2sgd2hhdCBoYXMgYmVlbgo+IHJlYWQgYXQgYWxsPwo+IAo+IFdCUiwgU2VyZ2Vp
-Cj4gCj4gCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpM
-aW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0
-dHBzOi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
+On Fri, Mar 28, 2014 at 12:01:42PM +0800, Wangyufen wrote:
+> From: Wang Yufen <wangyufen@huawei.com>
+> 
+> Modify the rt6_need_strict, so that it can be reused
+> 
+> Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+> ---
+>  include/net/ip6_route.h | 1 +
+>  net/ipv6/route.c        | 2 +-
+>  2 files changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+> index 00e3f12..d9c316e 100644
+> --- a/include/net/ip6_route.h
+> +++ b/include/net/ip6_route.h
+> @@ -51,6 +51,7 @@ static inline unsigned int rt6_flags2srcprefs(int flags)
+>  	return (flags >> 3) & 7;
+>  }
+>  
+> +bool rt6_need_strict(const struct in6_addr *daddr);
+>  
+>  void ip6_route_input(struct sk_buff *skb);
+>  
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index fba54a4..f5fdccc 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -373,7 +373,7 @@ static bool rt6_check_expired(const struct rt6_info *rt)
+>  	return false;
+>  }
+>  
+> -static bool rt6_need_strict(const struct in6_addr *daddr)
+> +bool rt6_need_strict(const struct in6_addr *daddr)
+>  {
+>  	return ipv6_addr_type(daddr) &
+>  		(IPV6_ADDR_MULTICAST | IPV6_ADDR_LINKLOCAL | IPV6_ADDR_LOOPBACK);
+
+Just a small suggestion:
+I think we can move the whole function as static inline into the header.
+
+Thanks,
+
+  Hannes
