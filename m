@@ -1,128 +1,56 @@
-From: Josh Boyer <jwboyer@fedoraproject.org>
-Subject: [PATCH 3.13.y] nfqueue: Orphan frags in nfqnl_zcopy and handle errors
-Date: Fri, 28 Mar 2014 10:29:14 -0400
-Message-ID: <20140328142914.GB25962@hansolo.jdub.homelinux.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>, Thomas Graf <tgraf@suug.ch>,
-	netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Zhangfei Gao <zhangfei.gao@linaro.org>
+Subject: [PATCH v4 0/3] add hisilicon hip04 ethernet driver
+Date: Fri, 28 Mar 2014 23:35:57 +0800
+Message-ID: <1396020960-6170-1-git-send-email-zhangfei.gao@linaro.org>
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, Zhangfei Gao <zhangfei.gao@linaro.org>
+To: davem@davemloft.net, linux@arm.linux.org.uk, arnd@arndb.de,
+	f.fainelli@gmail.com, sergei.shtylyov@cogentembedded.com,
+	mark.rutland@arm.com, David.Laight@ACULAB.COM,
+	eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63128 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751227AbaC1O3o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2014 10:29:44 -0400
-Content-Disposition: inline
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:56019 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752525AbaC1Pgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 11:36:47 -0400
+Received: by mail-pd0-f169.google.com with SMTP id fp1so5013022pdb.0
+        for <netdev@vger.kernel.org>; Fri, 28 Mar 2014 08:36:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Backport of upstream commit 36d5fe6a0007 to 3.13.y
+v4:
+Modify accoringly to the suggetion from Arnd, Florian, Eric, David
+Use of_parse_phandle_with_fixed_args & syscon_node_to_regmap get ppe info
+Add skb_orphan() and tx_timer for reclaim since no tx_finished interrupt
+Update timeout, and move of_phy_connect to probe to reuse open/stop
 
-nfqnl_zcopy can copy elements of the frags array between skbs, but it doesn't
-orphan them.  Also, it doesn't handle errors, so this patch takes care of that
-as well, and modify the caller accordingly.  skb_tx_error() is also added to
-the callers so they will signal the failed delivery towards the creator of the
-skb.
+v3:
+Suggest from Arnd, use syscon & regmap_write/read to replace static void __iomem *ppebase.
+Modify hisilicon-hip04-net.txt accrordingly to suggestion from Florian and Sergei.
 
-Fixes CVE-2014-2568.
+v2:
+Got many suggestions from Russell, Arnd, Florian, Mark and Sergei
+Remove memcpy, use dma_map/unmap_single, use dma_alloc_coherent rather than dma_pool, etc.
+Refer property in ethernet.txt, change ppe description, etc.
 
-Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Josh Boyer <jwboyer@fedoraproject.org>
----
- net/netfilter/nfnetlink_queue_core.c | 31 ++++++++++++++++++++++---------
- 1 file changed, 22 insertions(+), 9 deletions(-)
+Zhangfei Gao (3):
+  Documentation: add Device tree bindings for Hisilicon hip04 ethernet
+  net: hisilicon: new hip04 MDIO driver
+  net: hisilicon: new hip04 ethernet driver
 
-diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index 21258cf..b241654 100644
---- a/net/netfilter/nfnetlink_queue_core.c
-+++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -235,22 +235,23 @@ nfqnl_flush(struct nfqnl_instance *queue, nfqnl_cmpfn cmpfn, unsigned long data)
- 	spin_unlock_bh(&queue->lock);
- }
- 
--static void
--nfqnl_zcopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
-+static int
-+nfqnl_zcopy(struct sk_buff *to, struct sk_buff *from, int len, int hlen)
- {
- 	int i, j = 0;
- 	int plen = 0; /* length of skb->head fragment */
-+	int ret;
- 	struct page *page;
- 	unsigned int offset;
- 
- 	/* dont bother with small payloads */
--	if (len <= skb_tailroom(to)) {
--		skb_copy_bits(from, 0, skb_put(to, len), len);
--		return;
--	}
-+	if (len <= skb_tailroom(to))
-+		return skb_copy_bits(from, 0, skb_put(to, len), len);
- 
- 	if (hlen) {
--		skb_copy_bits(from, 0, skb_put(to, hlen), hlen);
-+		ret = skb_copy_bits(from, 0, skb_put(to, hlen), hlen);
-+		if (unlikely(ret))
-+			return ret;
- 		len -= hlen;
- 	} else {
- 		plen = min_t(int, skb_headlen(from), len);
-@@ -268,6 +269,11 @@ nfqnl_zcopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
- 	to->len += len + plen;
- 	to->data_len += len + plen;
- 
-+	if (unlikely(skb_orphan_frags(from, GFP_ATOMIC))) {
-+		skb_tx_error(from);
-+		return -ENOMEM;
-+	}
-+
- 	for (i = 0; i < skb_shinfo(from)->nr_frags; i++) {
- 		if (!len)
- 			break;
-@@ -278,6 +284,8 @@ nfqnl_zcopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
- 		j++;
- 	}
- 	skb_shinfo(to)->nr_frags = j;
-+
-+	return 0;
- }
- 
- static int
-@@ -374,13 +382,16 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
- 
- 	skb = nfnetlink_alloc_skb(net, size, queue->peer_portid,
- 				  GFP_ATOMIC);
--	if (!skb)
-+	if (!skb) {
-+		skb_tx_error(entskb);
- 		return NULL;
-+	}
- 
- 	nlh = nlmsg_put(skb, 0, 0,
- 			NFNL_SUBSYS_QUEUE << 8 | NFQNL_MSG_PACKET,
- 			sizeof(struct nfgenmsg), 0);
- 	if (!nlh) {
-+		skb_tx_error(entskb);
- 		kfree_skb(skb);
- 		return NULL;
- 	}
-@@ -504,13 +515,15 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
- 		nla->nla_type = NFQA_PAYLOAD;
- 		nla->nla_len = nla_attr_size(data_len);
- 
--		nfqnl_zcopy(skb, entskb, data_len, hlen);
-+		if (nfqnl_zcopy(skb, entskb, data_len, hlen))
-+			goto nla_put_failure;
- 	}
- 
- 	nlh->nlmsg_len = skb->len;
- 	return skb;
- 
- nla_put_failure:
-+	skb_tx_error(entskb);
- 	kfree_skb(skb);
- 	net_err_ratelimited("nf_queue: error creating packet message\n");
- 	return NULL;
+ .../bindings/net/hisilicon-hip04-net.txt           |   88 +++
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/hisilicon/Kconfig             |   32 +
+ drivers/net/ethernet/hisilicon/Makefile            |    5 +
+ drivers/net/ethernet/hisilicon/hip04_eth.c         |  764 ++++++++++++++++++++
+ drivers/net/ethernet/hisilicon/hip04_mdio.c        |  186 +++++
+ 7 files changed, 1077 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
+ create mode 100644 drivers/net/ethernet/hisilicon/Kconfig
+ create mode 100644 drivers/net/ethernet/hisilicon/Makefile
+ create mode 100644 drivers/net/ethernet/hisilicon/hip04_eth.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hip04_mdio.c
+
 -- 
-1.8.5.3
+1.7.9.5
