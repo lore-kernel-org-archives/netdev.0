@@ -1,82 +1,44 @@
-From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
-Subject: Re: [PATCH] net: unix: non blocking recvmsg() should not return -EINTR
-Date: Fri, 28 Mar 2014 20:35:34 +0000
-Message-ID: <87ob0q3vu1.fsf@sable.mobileactivedefense.com>
-References: <87zjkd802t.fsf@sable.mobileactivedefense.com>
-	<1395847524.12610.208.camel@edumazet-glaptop2.roam.corp.google.com>
-	<87y4zw7ngi.fsf@sable.mobileactivedefense.com>
-	<20140326.170514.1793472148242469413.davem@davemloft.net>
-	<87a9cc7j1o.fsf@sable.mobileactivedefense.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net] openvswitch: fix a possible deadlock and
+ lockdep warning
+Date: Fri, 28 Mar 2014 16:36:39 -0400 (EDT)
+Message-ID: <20140328.163639.788185926435545136.davem@davemloft.net>
+References: <1395924836-3182-1-git-send-email-fbl@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, David.Laight@ACULAB.COM,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tiger.mobileactivedefense.com ([217.174.251.109]:52545 "EHLO
-	tiger.mobileactivedefense.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752973AbaC1Ufv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 16:35:51 -0400
-In-Reply-To: <87a9cc7j1o.fsf@sable.mobileactivedefense.com> (Rainer Weikusat's
-	message of "Wed, 26 Mar 2014 21:21:23 +0000")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org
+To: fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1395924836-3182-1-git-send-email-fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Rainer Weikusat <rw@sable> writes:
+From: Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Date: Thu, 27 Mar 2014 09:53:56 -0300
 
-[...]
+> There are two problematic situations.
+> 
+> A deadlock can happen when is_percpu is false because it can get
+> interrupted while holding the spinlock. Then it executes
+> ovs_flow_stats_update() in softirq context which tries to get
+> the same lock.
+> 
+> The second sitation is that when is_percpu is true, the code
+> correctly disables BH only for the local CPU, but that confuses
+> lockdep enough to trigger the warning below.
+> 
+> This patch disables BH for both cases fixing the real deadlock
+> and the lockdep warning message.
+ ...
+> Signed-off-by: Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-> ---------
-> #include <fcntl.h>
-> #include <string.h>
-> #include <sys/socket.h>
-> #include <sys/un.h>
->
-> int main(void)
-> {
->     struct sockaddr_un sun;
->     int fd;
->
->     fd = socket(AF_UNIX, SOCK_DGRAM, 0);
->     sun.sun_family = AF_UNIX;
->     strncpy(sun.sun_path, "/tmp/bla", sizeof(sun.sun_path));
->     bind(fd, (struct sockaddr *)&sun, sizeof(sun));
->
->     if (fork() == 0) read(fd, &fd, sizeof(fd));
->
->     sleep(1);
->
->     fcntl(fd, F_SETFL, O_NONBLOCK);
->     read(fd, &fd, sizeof(fd));
->
->     return 0;
-> }
-> --------
-
-In the interest of fairness, here's a more realistic test case (tested
-on 3.2.9 and 3.2.54):
-
---------------
-#include <fcntl.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-
-int main(void)
-{
-    struct sockaddr_un sun;
-    int fd;
-
-    fd = socket(AF_UNIX, SOCK_DGRAM, 0);
-    sun.sun_family = AF_UNIX;
-    strncpy(sun.sun_path, "/tmp/bla", sizeof(sun.sun_path));
-    bind(fd, (struct sockaddr *)&sun, sizeof(sun));
-
-    if (fork() == 0) recv(fd, &fd, sizeof(fd), 0);
-
-    sleep(1);
-
-    recv(fd, &fd, sizeof(fd), MSG_DONTWAIT);
-
-    return 0;
-}
+I'll let Jesse review and pick this up.
