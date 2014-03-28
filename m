@@ -1,39 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5] sh_eth: ensure pm_runtime cannot suspend the device
- during init
-Date: Fri, 28 Mar 2014 17:18:36 -0400 (EDT)
-Message-ID: <20140328.171836.1899283620390720935.davem@davemloft.net>
-References: <5335CCBF.8030606@codethink.co.uk>
-	<20140328.160024.136488246522581222.davem@davemloft.net>
-	<5335E53C.6020208@cogentembedded.com>
+Subject: Re: [PATCH v5 0/4] Provide netdev naming-policy via sysfs
+Date: Fri, 28 Mar 2014 17:21:07 -0400 (EDT)
+Message-ID: <20140328.172107.16072208664321602.davem@davemloft.net>
+References: <1395839117-20090-1-git-send-email-dh.herrmann@gmail.com>
+	<20140328.145410.1817326821928803131.davem@davemloft.net>
+	<CAG-2HqVJPrTWXtuvDkU6MvfNj0MXfNuBMmdoKWtSd5kToZ3mMQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ben.dooks@codethink.co.uk, linux-kernel@lists.codethink.co.uk,
-	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	laurent.pinchart+renesas@ideasonboard.com
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <5335E53C.6020208@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dh.herrmann@gmail.com, netdev@vger.kernel.org,
+	johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: teg@jklm.no
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41031 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751305AbaC1VVK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 17:21:10 -0400
+In-Reply-To: <CAG-2HqVJPrTWXtuvDkU6MvfNj0MXfNuBMmdoKWtSd5kToZ3mMQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Sat, 29 Mar 2014 00:10:20 +0300
+From: Tom Gundersen <teg@jklm.no>
+Date: Fri, 28 Mar 2014 21:51:53 +0100
 
-> Hello.
+> On Fri, Mar 28, 2014 at 7:54 PM, David Miller <davem@davemloft.net> wrote:
+>> From: David Herrmann <dh.herrmann@gmail.com>
+>> Date: Wed, 26 Mar 2014 14:05:13 +0100
+>>
+>>> The main use-case is to allow udev to skip applying reliable ifnames to virtual
+>>> devices. For instance, if wifi-P2P devices are created, wpas already provides a
+>>> suitable naming-policy and udev shouldn't touch these devices. Same is true for
+>>> other virtual devices.
+>>
+>> This makes no sense at all.
+>>
+>> If udev should avoid applying names to wifi-P2P devices, that policy can
+>> be instituted completely inside of udev.  There is no need whatsoever
+>> for kernel support.
+>>
+>> udev can look at the device type, and policies can be defined that key
+>> off of that device type, entirely in userspace.
 > 
-> On 03/28/2014 11:00 PM, David Miller wrote:
+> Doing this in userspace sounds really wrong and fragile.
 > 
->>> I thought it was against the net next tree, given the number of
->>> patches that are currently being applied to the sh_eth driver.
-> 
->> Fair enough, applied to net-next, thanks!
-> 
->    It probably makes sense to queue this for the stable kernels as well.
+> In the case of wifi-P2P we could make it work, but for every type of
+> device that is added to the kernel which is named from userspace, we
+> would have to play catch-up in udev (and even after we do, new kernels
+> on old userspace will never work in the expected way).
 
-Sorry, that's not how this works.
+Chronically we are finding hackish ways for seperate components in
+userspace to coordinate their actions.
 
-If it's good enough for -stable, meaning that users are activly hitting
-the problem and it's a serious bug, then it's good enough for 'net'
-and should have been submitted against 'net'.
+You're right, doing this for every device type for every single attribute
+that might better.... sucks.
+
+What's really needed is generic ways for seperate userspace components
+to coordinate with eachother on issues like this.
