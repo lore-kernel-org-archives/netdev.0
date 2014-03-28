@@ -1,64 +1,47 @@
-From: wangyufen <wangyufen@huawei.com>
-Subject: Re: [PATCH net-next v3 2/2] net: tcp_ipv6 policy route issue
-Date: Fri, 28 Mar 2014 09:11:37 +0800
-Message-ID: <5334CC49.7030603@huawei.com>
-References: <1395642322-9404-1-git-send-email-wangyufen@huawei.com> <1395642322-9404-2-git-send-email-wangyufen@huawei.com> <20140326070548.GF22086@order.stressinduktion.org> <53338642.1060405@huawei.com> <20140327053231.GL22086@order.stressinduktion.org>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net v2] vlan: Fix lockdep warning when vlan dev handle
+ notification
+Date: Fri, 28 Mar 2014 09:13:27 +0800
+Message-ID: <5334CCB7.9040703@huawei.com>
+References: <5321165A.1000208@huawei.com>	<20140314.220253.2108022241165181233.davem@davemloft.net>	<53266735.8050607@huawei.com> <20140327.130604.103963458048959251.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: <ben@decadent.org.uk>, <john.r.fastabend@intel.com>,
+	<kaber@trash.net>, <netdev@vger.kernel.org>, <f.fainelli@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:48938 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:49963 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755279AbaC1BLv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 21:11:51 -0400
-In-Reply-To: <20140327053231.GL22086@order.stressinduktion.org>
+	with ESMTP id S1757256AbaC1BNy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 21:13:54 -0400
+In-Reply-To: <20140327.130604.103963458048959251.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/3/27 13:32, Hannes Frederic Sowa wrote:
-> On Thu, Mar 27, 2014 at 10:00:34AM +0800, wangyufen wrote:
->> On 2014/3/26 15:05, Hannes Frederic Sowa wrote:
->>> On Mon, Mar 24, 2014 at 02:25:22PM +0800, Wangyufen wrote:
->>>> From: Wang Yufen <wangyufen@huawei.com>
->>>>
->>>> The issue raises when adding policy route, specify a particular
->>>> NIC as oif, the policy route did not take effect. The reason is
->>>> that fl6.oif is not set and route map failed. From the 
->>>> tcp_v6_send_response function, if the binding address is linklocal,
->>>> fl6.oif is set, but not for global address.
->>>>
->>>> Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+On 2014/3/28 1:06, David Miller wrote:
+> From: Ding Tianhong <dingtianhong@huawei.com>
+> Date: Mon, 17 Mar 2014 11:08:37 +0800
+> 
+>> On 2014/3/15 10:02, David Miller wrote:
+>>> From: Ding Tianhong <dingtianhong@huawei.com>
+>>> Date: Thu, 13 Mar 2014 10:22:18 +0800
 >>>
->>> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>>>> When I open the LOCKDEP config and run these steps:
 >>>
->>> But this looks like a bug to me, so maybe this is something for net
->>> inclusion.
->> I checked the commit log, I think, changes to ipv6 was incompleted in 
->> commit 4c67525849e0b7f4bd4fab leded to this issue . 
->> In tcp_v6_send_response, fl6.oif can't be directly set to iif for global
->> address, but it should not be 0.
+>>> This doesn't work?
+>>>
+>>
+>> It make no sense, I have try it before, the class check only focus on the lock_class_key,
+>> not the lockdep_subclass_key.
 > 
-> Actually, I wonder if
+> I think the issue is that not all of the addrlist locking uses _nested() variants,
+> I think if we do that, this will all work.
 > 
-> if (rt6_need_strict(&fl6.daddr) || !oif)
-> 	fl6.flowi6_oif = inet6_iif(skb);
-> else
-> 	fl6.flowi6_oif = oif;
-> 
-> would be ok, too, and would ensure that errors with no sockets would
-> reach their target with higher probability in case of policy routes.
-> 
-That would be better, I'll send v4 later
-> In routing code we don't do strict lookup unless either we have the
-> indication by the socket (if available) or destination address is
-> multicast, linklocal or loopback. Otherwise we only favour flowi6_oif
-> interfaces.
-> 
-> Bye,
-> 
->   Hannes
+> I do not want to add a huge array of locking keys to fix this, it's a waste of
+> static kernel memory and inelegant.
 > 
 > 
-> 
+OK, ready for fix this again with new idea, thanks.
+
+Ding
