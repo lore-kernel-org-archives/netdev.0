@@ -1,37 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/4] Audit all drivers for correct vlan_features.
-Date: Fri, 28 Mar 2014 17:17:35 -0400 (EDT)
-Message-ID: <20140328.171735.920277679887549956.davem@davemloft.net>
-References: <1395972889-32289-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [PATCH v5] sh_eth: ensure pm_runtime cannot suspend the device
+ during init
+Date: Fri, 28 Mar 2014 17:18:36 -0400 (EDT)
+Message-ID: <20140328.171836.1899283620390720935.davem@davemloft.net>
+References: <5335CCBF.8030606@codethink.co.uk>
+	<20140328.160024.136488246522581222.davem@davemloft.net>
+	<5335E53C.6020208@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41000 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751768AbaC1VRi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 17:17:38 -0400
-In-Reply-To: <1395972889-32289-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ben.dooks@codethink.co.uk, linux-kernel@lists.codethink.co.uk,
+	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	laurent.pinchart+renesas@ideasonboard.com
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <5335E53C.6020208@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Thu, 27 Mar 2014 22:14:45 -0400
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Sat, 29 Mar 2014 00:10:20 +0300
 
-> Some drivers set vlan acceleration features in vlan_features.  This causes
-> issues with Q-in-Q/802.1ad configurations.
+> Hello.
 > 
-> Audit all the drivers for correct vlan_features.  Fix broken ones.
-> Add a warning to vlan code to help catch future offenders.
+> On 03/28/2014 11:00 PM, David Miller wrote:
 > 
-> Vlad Yasevich (4):
->   qlge: Do not propaged vlan tag offloads to vlans
->   ifb: Remove vlan acceleration from vlan_features
->   veth: Turn off vlan rx acceleration in vlan_features
->   vlan: Mask off vlan acceleration features on vlan device.
+>>> I thought it was against the net next tree, given the number of
+>>> patches that are currently being applied to the sh_eth driver.
+> 
+>> Fair enough, applied to net-next, thanks!
+> 
+>    It probably makes sense to queue this for the stable kernels as well.
 
-Excellent work, thanks for doing this Vlad!
+Sorry, that's not how this works.
 
-Applied.
+If it's good enough for -stable, meaning that users are activly hitting
+the problem and it's a serious bug, then it's good enough for 'net'
+and should have been submitted against 'net'.
