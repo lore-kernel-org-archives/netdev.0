@@ -1,50 +1,110 @@
-From: ratheesh kannoth <ratheesh.ksz@gmail.com>
-Subject: Re: openvswitch question
-Date: Fri, 28 Mar 2014 09:24:27 +0530
-Message-ID: <CAGZFCEFQ0ptVarxUi9-+uptvMFNnD29DYLLS3JB+Y0mwOsThoA@mail.gmail.com>
-References: <CAGZFCEHSVpH8XN4n3A3xhVtYNqp4kn3PM7aXWRCxKFSkQVfABQ@mail.gmail.com>
-	<CAEP_g=8=BxsXe7PNPAvyEVCDFLCRrskEPVf1ts6Aoo4-eRtQug@mail.gmail.com>
-	<532C0B76.4020108@6wind.com>
-	<CAGZFCEFZgjStq7kH2pfi+X-sjJU69v7zXWey6JztWH1Y-XoXYQ@mail.gmail.com>
-	<53314FDF.2060205@6wind.com>
+From: Wangyufen <wangyufen@huawei.com>
+Subject: [PATCH net-next v4 3/3] ipv6: tcp_ipv6 policy route issue
+Date: Fri, 28 Mar 2014 12:01:43 +0800
+Message-ID: <1395979303-7668-4-git-send-email-wangyufen@huawei.com>
+References: <1395979303-7668-1-git-send-email-wangyufen@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesse Gross <jesse@nicira.com>, netdev <netdev@vger.kernel.org>
-To: nicolas.dichtel@6wind.com
+Content-Type: text/plain
+Cc: <ioe@perches.com>, <kuznet@ms2.inr.ac.ru>,
+	Wang Yufen <wangyufen@huawei.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f171.google.com ([209.85.160.171]:52689 "EHLO
-	mail-yk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751883AbaC1Dy2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Mar 2014 23:54:28 -0400
-Received: by mail-yk0-f171.google.com with SMTP id q9so3179138ykb.16
-        for <netdev@vger.kernel.org>; Thu, 27 Mar 2014 20:54:27 -0700 (PDT)
-In-Reply-To: <53314FDF.2060205@6wind.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:62666 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750959AbaC1EC2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 00:02:28 -0400
+In-Reply-To: <1395979303-7668-1-git-send-email-wangyufen@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 25, 2014 at 3:13 PM, Nicolas Dichtel
-<nicolas.dichtel@6wind.com> wrote:
-> Le 21/03/2014 16:15, ratheesh kannoth a =E9crit :
->
->> On Fri, Mar 21, 2014 at 3:20 PM, Nicolas Dichtel
->> <nicolas.dichtel@6wind.com> wrote:
->>>
->>> Stop me if I'm wrong, but there may be a difference with netns, the
->>> netdevice
->>> can be in a different netns than the ovs port.
+From: Wang Yufen <wangyufen@huawei.com>
 
-Nicolas,
+The issue raises when adding policy route, specify a particular
+NIC as oif, the policy route did not take effect. The reason is
+that fl6.oif is not set and route map failed. From the 
+tcp_v6_send_response function, if the binding address is linklocal,
+fl6.oif is set, but not for global address.
 
-You are absolutely right.  Thanks a lot. This is only available in
-newer version of  openvswitch.
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+---
+ net/ipv6/tcp_ipv6.c | 18 +++++++++++-------
+ 1 file changed, 11 insertions(+), 7 deletions(-)
 
-I was working in 2.0.0. I could see the internal device ( switch )
-device  using command  "ifconfig".
-
-Yesterday  i git cloned newest version. when i created a new internal
-device ( openvswitch switch ),  ifconfig command doesnot list out the
-device. http://lists.linuxfoundation.org/pipermail/containers/2007-Sept=
-ember/007112.html
-
--Ratheesh
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 10b7c04..5ca56ce 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -726,7 +726,7 @@ static const struct tcp_request_sock_ops tcp_request_sock_ipv6_ops = {
+ #endif
+ 
+ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
+-				 u32 tsval, u32 tsecr,
++				 u32 tsval, u32 tsecr, int oif,
+ 				 struct tcp_md5sig_key *key, int rst, u8 tclass,
+ 				 u32 label)
+ {
+@@ -798,8 +798,10 @@ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
+ 	__tcp_v6_send_check(buff, &fl6.saddr, &fl6.daddr);
+ 
+ 	fl6.flowi6_proto = IPPROTO_TCP;
+-	if (ipv6_addr_type(&fl6.daddr) & IPV6_ADDR_LINKLOCAL)
++	if (rt6_need_strict(&fl6.daddr) || !oif)
+ 		fl6.flowi6_oif = inet6_iif(skb);
++	else
++		fl6.flowi6_oif = oif;
+ 	fl6.fl6_dport = t1->dest;
+ 	fl6.fl6_sport = t1->source;
+ 	security_skb_classify_flow(skb, flowi6_to_flowi(&fl6));
+@@ -833,6 +835,7 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
+ 	int genhash;
+ 	struct sock *sk1 = NULL;
+ #endif
++	int oif;
+ 
+ 	if (th->rst)
+ 		return;
+@@ -876,7 +879,8 @@ static void tcp_v6_send_reset(struct sock *sk, struct sk_buff *skb)
+ 		ack_seq = ntohl(th->seq) + th->syn + th->fin + skb->len -
+ 			  (th->doff << 2);
+ 
+-	tcp_v6_send_response(skb, seq, ack_seq, 0, 0, 0, key, 1, 0, 0);
++	oif = sk ? sk->sk_bound_dev_if : 0;
++	tcp_v6_send_response(skb, seq, ack_seq, 0, 0, 0, oif, key, 1, 0, 0);
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+ release_sk1:
+@@ -888,11 +892,11 @@ release_sk1:
+ }
+ 
+ static void tcp_v6_send_ack(struct sk_buff *skb, u32 seq, u32 ack,
+-			    u32 win, u32 tsval, u32 tsecr,
++			    u32 win, u32 tsval, u32 tsecr, int oif,
+ 			    struct tcp_md5sig_key *key, u8 tclass,
+ 			    u32 label)
+ {
+-	tcp_v6_send_response(skb, seq, ack, win, tsval, tsecr, key, 0, tclass,
++	tcp_v6_send_response(skb, seq, ack, win, tsval, tsecr, oif, key, 0, tclass,
+ 			     label);
+ }
+ 
+@@ -904,7 +908,7 @@ static void tcp_v6_timewait_ack(struct sock *sk, struct sk_buff *skb)
+ 	tcp_v6_send_ack(skb, tcptw->tw_snd_nxt, tcptw->tw_rcv_nxt,
+ 			tcptw->tw_rcv_wnd >> tw->tw_rcv_wscale,
+ 			tcp_time_stamp + tcptw->tw_ts_offset,
+-			tcptw->tw_ts_recent, tcp_twsk_md5_key(tcptw),
++			tcptw->tw_ts_recent, tw->tw_bound_dev_if, tcp_twsk_md5_key(tcptw),
+ 			tw->tw_tclass, (tw->tw_flowlabel << 12));
+ 
+ 	inet_twsk_put(tw);
+@@ -914,7 +918,7 @@ static void tcp_v6_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
+ 				  struct request_sock *req)
+ {
+ 	tcp_v6_send_ack(skb, tcp_rsk(req)->snt_isn + 1, tcp_rsk(req)->rcv_isn + 1,
+-			req->rcv_wnd, tcp_time_stamp, req->ts_recent,
++			req->rcv_wnd, tcp_time_stamp, req->ts_recent, sk->sk_bound_dev_if,
+ 			tcp_v6_md5_do_lookup(sk, &ipv6_hdr(skb)->daddr),
+ 			0, 0);
+ }
+-- 
+1.7.12
