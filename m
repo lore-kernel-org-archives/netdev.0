@@ -1,70 +1,72 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: Proper suspend/resume flow
-Date: Sat, 29 Mar 2014 20:19:39 +0000
-Message-ID: <20140329201939.GX7528@n2100.arm.linux.org.uk>
-References: <20140326115828.GZ7528@n2100.arm.linux.org.uk> <1396111046.2898.88.camel@deadeye.wl.decadent.org.uk> <20140329180347.GW7528@n2100.arm.linux.org.uk> <1396123694.2898.93.camel@deadeye.wl.decadent.org.uk>
+From: Dave Jones <davej@redhat.com>
+Subject: new leaks in bridging code.
+Date: Sat, 29 Mar 2014 17:01:02 -0400
+Message-ID: <20140329210102.GA22516@redhat.com>
+References: <533730f2396e8_1c4bb46874192e@209.249.196.67.mail>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>
+Cc: makita.toshiaki@lab.ntt.co.jp
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:42656 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751991AbaC2UUA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 16:20:00 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:62549 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751999AbaC2VBd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Mar 2014 17:01:33 -0400
 Content-Disposition: inline
-In-Reply-To: <1396123694.2898.93.camel@deadeye.wl.decadent.org.uk>
+In-Reply-To: <533730f2396e8_1c4bb46874192e@209.249.196.67.mail>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 29, 2014 at 08:08:14PM +0000, Ben Hutchings wrote:
-> On Sat, 2014-03-29 at 18:03 +0000, Russell King - ARM Linux wrote:
-> [...]
-> > That said, for the case where a network driver does all it's packet
-> > processing in the NAPI poll function, I think calling napi_disable()
-> > is a good way to ensure that the poll function is not running, and
-> > therefore there are can be no netif_wake_queue() calls - or anything
-> > other than the ndo_start_xmit touching the rings or the device.  This
-> > is needed anyway to stop receive packet processing looking at its
-> > ring.
-> > 
-> > So, I've now come to this sequence:
-> > 
-> > suspend()
-> > {
-> > 	if (netif_running()) {
-> > 		napi_disable();
-> > 		netif_tx_lock();
-> > 		netif_device_detach();
-> > 		netif_tx_unlock();
-> > 	}
-> > 	... suspend device ...
-> > }
-> [...]
-> 
-> This is missing netif_stop_queue(), but I assume you do that somewhere
-> after netif_device_detach().  I think this should work.
+yesterdays bridging changes introduced leaks in the exit paths..
 
-Ah, that's covered by netif_device_detach():
+** CID 1194948:  Resource leak  (RESOURCE_LEAK)
+/net/bridge/br_vlan.c: 196 in br_allowed_ingress()
+/net/bridge/br_vlan.c: 218 in br_allowed_ingress()
+/net/bridge/br_vlan.c: 220 in br_allowed_ingress()
 
-        if (test_and_clear_bit(__LINK_STATE_PRESENT, &dev->state) &&
-            netif_running(dev)) {
-                netif_tx_stop_all_queues(dev);
-        }
-
-provided __LINK_STATE_PRESENT was previously set, and the interface
-was running.
-
-netif_tx_stop_all_queues() is:
-
-        for (i = 0; i < dev->num_tx_queues; i++) {
-                struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
-                netif_tx_stop_queue(txq);
-        }
-
-so with the above sequence, we end up stopping all queues under the
-xmit lock.
-
--- 
-FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
-improving, and getting towards what was expected from it.
+*** CID 1194948:  Resource leak  (RESOURCE_LEAK)
+/net/bridge/br_vlan.c: 196 in br_allowed_ingress()
+190     
+191     		/* Frame had a tag with VID 0 or did not have a tag.
+192     		 * See if pvid is set on this port.  That tells us which
+193     		 * vlan untagged or priority-tagged traffic belongs to.
+194     		 */
+195     		if (pvid == VLAN_N_VID)
+>>>     CID 1194948:  Resource leak  (RESOURCE_LEAK)
+>>>     Returning without freeing "skb" leaks the storage that it points to.
+196     			return false;
+197     
+198     		/* PVID is set on this port.  Any untagged or priority-tagged
+199     		 * ingress frame is considered to belong to this vlan.
+200     		 */
+201     		*vid = pvid;
+/net/bridge/br_vlan.c: 218 in br_allowed_ingress()
+212     
+213     		return true;
+214     	}
+215     
+216     	/* Frame had a valid vlan tag.  See if vlan is allowed */
+217     	if (test_bit(*vid, v->vlan_bitmap))
+>>>     CID 1194948:  Resource leak  (RESOURCE_LEAK)
+>>>     Returning without freeing "skb" leaks the storage that it points to.
+218     		return true;
+219     
+220     	return false;
+221     }
+222     
+223     /* Called under RCU. */
+/net/bridge/br_vlan.c: 220 in br_allowed_ingress()
+214     	}
+215     
+216     	/* Frame had a valid vlan tag.  See if vlan is allowed */
+217     	if (test_bit(*vid, v->vlan_bitmap))
+218     		return true;
+219     
+>>>     CID 1194948:  Resource leak  (RESOURCE_LEAK)
+>>>     Returning without freeing "skb" leaks the storage that it points to.
+220     	return false;
+221     }
+222     
+223     /* Called under RCU. */
+224     bool br_allowed_egress(struct net_bridge *br,
+225     		       const struct net_port_vlans *v,
