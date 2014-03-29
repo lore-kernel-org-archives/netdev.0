@@ -1,59 +1,46 @@
-From: Lucas Stach <dev@lynxeye.de>
-Subject: [PATCH] net: fec: make sure to init MAC address
-Date: Sat, 29 Mar 2014 00:19:24 +0100
-Message-ID: <1396048764-3301-1-git-send-email-dev@lynxeye.de>
-Cc: kernel@pengutronix.de, Lucas Stach <l.stach@pengutronix.de>
-To: netdev@vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next 0/3] net: stmmac: Add glue layer for socfpga platform
+Date: Sat, 29 Mar 2014 01:18:06 +0100
+Message-ID: <201403290118.07163.arnd@arndb.de>
+References: <1395891912-26855-1-git-send-email-dinguyen@altera.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: dinh.linux@gmail.com, davem@davemloft.net, peppe.cavallaro@st.com,
+	srinivas.kandagatla@st.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, arm@kernel.org,
+	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	devicetree@vger.kernel.org
+To: dinguyen@altera.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.lynxeye.de ([87.118.118.114]:43898 "EHLO lynxeye.de"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750864AbaC1X2n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Mar 2014 19:28:43 -0400
+Received: from moutng.kundenserver.de ([212.227.126.187]:56684 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751315AbaC2ASY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 20:18:24 -0400
+In-Reply-To: <1395891912-26855-1-git-send-email-dinguyen@altera.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lucas Stach <l.stach@pengutronix.de>
+On Thursday 27 March 2014, dinguyen@altera.com wrote:
+> From: Dinh Nguyen <dinguyen@altera.com>
+> 
+> Hi David,
+> 
+> I'm re-submitting the patch series to add the socfpga glue layer for the
+> stmmac ethernet driver. My original patch did not build for kernel module,
+> and I apologize for not testing against that.
+> 
+> This patch is also better aligned with the other stmmac glue
+> layers(sti and sunxi).
+> 
+> I'd like to take the "net: stmmac: Add SOCFPGA glue driver" patch into your
+> tree and the other 2 dts patches through the arm-soc tree.
 
-Though we made sure to acquire a valid MAC for
-the netdevice we never actually programmed it
-into the hardware.
-So if the bootloader did not set the MAC,
-network operation would only work if userspace
-explicitly asked to transfer the MAC to hardware.
+I've applied patches 2 and 3 to the arm-soc/next/dt branch now.
 
-Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
----
- drivers/net/ethernet/freescale/fec_main.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+Unfortunately there is still one trivial conflict against the net-next tree
+left in the binding document, but I'm not too worried about that.
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index e19315eaf2dd..a8958cc12ef3 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1898,10 +1898,11 @@ fec_set_mac_address(struct net_device *ndev, void *p)
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	struct sockaddr *addr = p;
- 
--	if (!is_valid_ether_addr(addr->sa_data))
--		return -EADDRNOTAVAIL;
--
--	memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
-+	if (p) {
-+		if (!is_valid_ether_addr(addr->sa_data))
-+			return -EADDRNOTAVAIL;
-+		memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
-+	}
- 
- 	writel(ndev->dev_addr[3] | (ndev->dev_addr[2] << 8) |
- 		(ndev->dev_addr[1] << 16) | (ndev->dev_addr[0] << 24),
-@@ -2000,6 +2001,8 @@ static int fec_enet_init(struct net_device *ndev)
- 
- 	/* Get the Ethernet address */
- 	fec_get_mac(ndev);
-+	/* make sure MAC we just acquired is programmed into the hw */
-+	fec_set_mac_address(ndev, NULL);
- 
- 	/* init the tx & rx ring size */
- 	fep->tx_ring_size = TX_RING_SIZE;
--- 
-1.8.5.3
+	Arnd
