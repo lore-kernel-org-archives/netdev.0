@@ -1,111 +1,156 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: Proper suspend/resume flow
-Date: Sat, 29 Mar 2014 16:37:26 +0000
-Message-ID: <1396111046.2898.88.camel@deadeye.wl.decadent.org.uk>
-References: <20140326115828.GZ7528@n2100.arm.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Vf9qYLMeA3FZl8lOnb8t"
-Cc: netdev@vger.kernel.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+From: David Decotigny <decot@googlers.com>
+Subject: [PATCH net-next v2] net-sysfs: expose number of carrier on/off changes
+Date: Sat, 29 Mar 2014 09:48:35 -0700
+Message-ID: <2fd338e34d809af14353a03bc1edd0935f332faf.1396111568.git.decot@googlers.com>
+References: <cover.1396111568.git.decot@googlers.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Weilong Chen <chenweilong@huawei.com>,
+	Jiri Pirko <jiri@resnulli.us>, Amir Vadai <amirv@mellanox.com>,
+	Michael Dalton <mwdalton@google.com>,
+	David Decotigny <decot@googlers.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>, Tejun Heo <tj@kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:60721 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751805AbaC2Qhi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 12:37:38 -0400
-In-Reply-To: <20140326115828.GZ7528@n2100.arm.linux.org.uk>
+Received: from mail-yh0-f74.google.com ([209.85.213.74]:48262 "EHLO
+	mail-yh0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751810AbaC2QyP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 12:54:15 -0400
+Received: by mail-yh0-f74.google.com with SMTP id f10so875829yha.5
+        for <netdev@vger.kernel.org>; Sat, 29 Mar 2014 09:54:15 -0700 (PDT)
+In-Reply-To: <cover.1396111568.git.decot@googlers.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This allows to monitor carrier on/off transitions and detect link
+flapping issues:
+ - new /sys/class/net/X/carrier_changes
+ - new rtnetlink IFLA_CARRIER_CHANGES (getlink)
 
---=-Vf9qYLMeA3FZl8lOnb8t
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Tested:
+  - grep . /sys/class/net/*/carrier_changes
+    + ip link set dev X down/up
+    + plug/unplug cable
+  - updated iproute2: prints IFLA_CARRIER_CHANGES
+  - iproute2 20121211-2 (debian): unchanged behavior
 
-On Wed, 2014-03-26 at 11:58 +0000, Russell King - ARM Linux wrote:
-> I've been looking at the Freescale FEC driver recently, and I've noticed
-> that it's suspend path looks like this:
->=20
->         if (netif_running(ndev)) {
->                 netif_device_detach(ndev);
->                 fec_stop(ndev);
->         }
->=20
-> I believe this to be unsafe, because if the device is active, then we may
-> have packets in the transmit ring.  It may be possible for the ring to be
-> cleaned between netif_device_detach() and fec_stop(), resulting in a call
-> to netif_wake_queue(), which doesn't seem to take account of whether the
-> device has been detached.
->
-> I wondered if this was just limited to the freescale driver, and I found
-> a similar pattern in e1000e - __e1000e_shutdown() calls netif_device_deta=
-ch()
-> as the very first thing, before doing anything else.  This seems to be a
-> common pattern.  8139cp.c does this, the second call seems to be rather
-> redundant:
->=20
->         netif_device_detach (dev);
->         netif_stop_queue (dev);
->=20
-> Tulip on the other hand shuts the hardware down and cleans the transmit
-> ring first before calling netif_device_detach(), thus ensuring that there
-> won't be any transmit completions before this call.  It doesn't stop the
-> queue before this, so presumably in a SMP environment, it is possible for
-> packets to get queued after the transmit ring has been cleaned.
->=20
-> So, what is the correct approach to suspending a net device?  When should
-> netif_device_detach() be called?
-[...]
+Signed-off-by: David Decotigny <decot@googlers.com>
+---
+ include/linux/netdevice.h    |  3 +++
+ include/uapi/linux/if_link.h |  1 +
+ net/core/net-sysfs.c         | 11 +++++++++++
+ net/core/rtnetlink.c         |  6 +++++-
+ net/sched/sch_generic.c      |  2 ++
+ 5 files changed, 22 insertions(+), 1 deletion(-)
 
-My advice here is based on Solarflare's extensive stress-testing of the
-sfc driver control path and the race conditions it uncovered.  It did
-not cover suspend/resume, but it does cover MTU and ring size changes
-which involve the same sort of stop/start while the device is still
-marked as running.
-
-- Given the way the watchdog works, I think netif_device_detach() must
-be called first if you are going to stop TX queues in a control
-operation other than ndo_stop (commits e4abce853849, 29c69a488264).
-
-- The driver must check netif_device_present() before calling
-netif_wake_queue().  Perhaps netif_wake_queue() itself should check
-that, if many drivers need to do it.
-
-- Calls to netif_device_detach() may need to be synchronised with the TX
-scheduler (commits c2f3b8e3a44b, 35205b211c8d).  To support this, the
-function efx_device_detach_sync() maybe should be turned into a general
-netif_device_detach_sync() (and then possibly needs to disable IRQs).
-
-Ben.
-
---=20
-Ben Hutchings
-[W]e found...that it wasn't as easy to get programs right as we had thought=
-.
-... I realized that a large part of my life from then on was going to be sp=
-ent
-in finding mistakes in my own programs. - Maurice Wilkes, 1949
-
---=-Vf9qYLMeA3FZl8lOnb8t
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUzb2xue/yOyVhhEJAQrO6BAAvTDwAJKJYkEBmobBsEFn8pL1dM8saCgb
-+QoJbYPKnG6ryl/zGMeeUF+D+3toNkLmMsP3SFqHeVtmTtXR0jkL/jlduFAamADD
-MW3tbHSngm+u2xwYgGf7blJ38PXmNbYbzwkWvNrGZTD4wh+LIDLsXfvh+jO+2HaR
-4d7wSBvjTL8QtblTVo2FiETy3Q/NZEtL50sI+ChRkJ7O2PaMf/5T5QpO6vt7KQJ1
-YuLlitslNEHNMCNbVn1lDSp/gU2+fSd8lIq5Vz2gvR0ppCJSzaNVzansZ35X5IA1
-Ll961RIJMSED5tTKrLDlAfG0r4+/o/Q88mFFaLq5uL1kWYG9Wp1IoanzRJUeXy1Z
-miNk6NrdgA7g5Qyuy4zfh//Fq4Dn2tdxHFfNMijaDjm2EbiH5fCPcd/Dl7jKBell
-PJRfGGLVswOvae1tquNKXKJ62OKfPv4jNE571sqJVHgaBPCsgHYb2DgLBFdvrclA
-oG4M570eJfBXNrVs8ZuyJKyy/H+XttKXi3XnXUiH7siNvqYIv2d85lLslVIIa/om
-ySlOegCUufS4uj0l/QaHJ3VkFGbEmdAOIGc1pDzWWr74zQ+ke+H2MfgF0bz96zUW
-GFUs/bIhdQrUr0BkbORda2Y95HuCyM2Ai+Xo7JWV01vTJinKdZxdEBXZ/GJKpbTB
-Ua1nw1jjxpM=
-=kG2D
------END PGP SIGNATURE-----
-
---=-Vf9qYLMeA3FZl8lOnb8t--
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 159c7e7..feb60c0 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1316,6 +1316,9 @@ struct net_device {
+ 	atomic_long_t		rx_dropped;
+ 	atomic_long_t		tx_dropped;
+ 
++	/* Stats to monitor carrier on<->off transitions */
++	atomic_t		carrier_changes;
++
+ #ifdef CONFIG_WIRELESS_EXT
+ 	/* List of functions to handle Wireless Extensions (instead of ioctl).
+ 	 * See <net/iw_handler.h> for details. Jean II */
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 16410b6..9a7f7ac 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -144,6 +144,7 @@ enum {
+ 	IFLA_NUM_RX_QUEUES,
+ 	IFLA_CARRIER,
+ 	IFLA_PHYS_PORT_ID,
++	IFLA_CARRIER_CHANGES,
+ 	__IFLA_MAX
+ };
+ 
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index daed9a6..4623962 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -253,6 +253,16 @@ static ssize_t operstate_show(struct device *dev,
+ }
+ static DEVICE_ATTR_RO(operstate);
+ 
++static ssize_t carrier_changes_show(struct device *dev,
++				    struct device_attribute *attr,
++				    char *buf)
++{
++	struct net_device *netdev = to_net_dev(dev);
++	return sprintf(buf, fmt_dec,
++		       atomic_read(&netdev->carrier_changes));
++}
++static DEVICE_ATTR_RO(carrier_changes);
++
+ /* read-write attributes */
+ 
+ static int change_mtu(struct net_device *net, unsigned long new_mtu)
+@@ -386,6 +396,7 @@ static struct attribute *net_class_attrs[] = {
+ 	&dev_attr_duplex.attr,
+ 	&dev_attr_dormant.attr,
+ 	&dev_attr_operstate.attr,
++	&dev_attr_carrier_changes.attr,
+ 	&dev_attr_ifalias.attr,
+ 	&dev_attr_carrier.attr,
+ 	&dev_attr_mtu.attr,
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index e7c6006..d4ff417 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -822,6 +822,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + nla_total_size(4) /* IFLA_NUM_RX_QUEUES */
+ 	       + nla_total_size(1) /* IFLA_OPERSTATE */
+ 	       + nla_total_size(1) /* IFLA_LINKMODE */
++	       + nla_total_size(4) /* IFLA_CARRIER_CHANGES */
+ 	       + nla_total_size(ext_filter_mask
+ 			        & RTEXT_FILTER_VF ? 4 : 0) /* IFLA_NUM_VF */
+ 	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
+@@ -970,7 +971,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	    (dev->qdisc &&
+ 	     nla_put_string(skb, IFLA_QDISC, dev->qdisc->ops->id)) ||
+ 	    (dev->ifalias &&
+-	     nla_put_string(skb, IFLA_IFALIAS, dev->ifalias)))
++	     nla_put_string(skb, IFLA_IFALIAS, dev->ifalias)) ||
++	    nla_put_u32(skb, IFLA_CARRIER_CHANGES,
++			atomic_read(&dev->carrier_changes)))
+ 		goto nla_put_failure;
+ 
+ 	if (1) {
+@@ -1147,6 +1150,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_NUM_TX_QUEUES]	= { .type = NLA_U32 },
+ 	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
+ 	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_PORT_ID_LEN },
++	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
+ };
+ 
+ static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index e82e43b..e1543b0 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -310,6 +310,7 @@ void netif_carrier_on(struct net_device *dev)
+ 	if (test_and_clear_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
+ 		if (dev->reg_state == NETREG_UNINITIALIZED)
+ 			return;
++		atomic_inc(&dev->carrier_changes);
+ 		linkwatch_fire_event(dev);
+ 		if (netif_running(dev))
+ 			__netdev_watchdog_up(dev);
+@@ -328,6 +329,7 @@ void netif_carrier_off(struct net_device *dev)
+ 	if (!test_and_set_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
+ 		if (dev->reg_state == NETREG_UNINITIALIZED)
+ 			return;
++		atomic_inc(&dev->carrier_changes);
+ 		linkwatch_fire_event(dev);
+ 	}
+ }
+-- 
+1.9.1.423.g4596e3a
