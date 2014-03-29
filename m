@@ -1,26 +1,26 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next 12/17] i40evf: remove open-coded skb_cow_head.
-Date: Sat, 29 Mar 2014 12:04:47 -0700
-Message-ID: <1396119887.2287.34.camel@jtkirshe-mobl>
+Subject: Re: [PATCH net-next 06/17] ixgbvf: remove open-coded skb_cow_head.
+Date: Sat, 29 Mar 2014 12:31:15 -0700
+Message-ID: <1396121475.2287.46.camel@jtkirshe-mobl>
 References: <cover.1396090802.git.romieu@fr.zoreil.com>
-	 <eac4f71e579807056106d6d7e645ee0042e0d4f3.1396090802.git.romieu@fr.zoreil.com>
+	 <3c17d6be148052aa3d3dcc31197e833fa5c20b5b.1396090802.git.romieu@fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-d2eF+LHgxGrPkjIsTq5n"
+	protocol="application/pgp-signature"; boundary="=-sOdQ2WD1RhA3mRk8yyXG"
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>
 To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:28681 "EHLO mga11.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:53442 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752554AbaC2TFI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Mar 2014 15:05:08 -0400
-In-Reply-To: <eac4f71e579807056106d6d7e645ee0042e0d4f3.1396090802.git.romieu@fr.zoreil.com>
+	id S1751591AbaC2TbR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Mar 2014 15:31:17 -0400
+In-Reply-To: <3c17d6be148052aa3d3dcc31197e833fa5c20b5b.1396090802.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-d2eF+LHgxGrPkjIsTq5n
+--=-sOdQ2WD1RhA3mRk8yyXG
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
@@ -29,12 +29,13 @@ On Sat, 2014-03-29 at 12:26 +0100, Francois Romieu wrote:
 > Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
 > Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > ---
->  drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 10 ++++------
->  1 file changed, 4 insertions(+), 6 deletions(-)
+>  drivers/net/ethernet/intel/igbvf/netdev.c | 16 +++++++---------
+>  1 file changed, 7 insertions(+), 9 deletions(-)
 
-Thanks Francois, I have added your patch to my queue.
+Just noticed the title should be "igbvf: ..." since there is no ixgbvf.
+Francois, I have fixed up this patch in my queue.
 
---=-d2eF+LHgxGrPkjIsTq5n
+--=-sOdQ2WD1RhA3mRk8yyXG
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -42,19 +43,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2.0.22 (GNU/Linux)
 
-iQIcBAABCgAGBQJTNxlPAAoJEOVv75VaS+3Oo3UQAIbAJGd5t6YNReGOPmGvmS0L
-E1mGo9FdK8WIP/TkMWyyoqCQJa0mcGweLODENJk0peCxW+20vY2eCfjwGEv2AviV
-/bHl4IGv3LYC98w9w6qNI1wnYeBx3h8zbwO8HxzEgUwFrtUHlFIaVrYJeCL6g7oN
-eDHfk1lMOo2EFxk/KVx3gFKoAoOkfDF6ZemdI7IyV4kti0xIIDsYZjjyIMr2NCsE
-ZxKtOypZms2FT8FiE1+AmVUmMrLgtqYLK7cdO5Ia4T+sByYtzPUJ/qjWNr2j5ySF
-cDLgcR9ZakIjIWz1AK3OtxY1qQ2z1n6U7bt/EvhHz+rLTaqtEo/dH8VQKcbnKlRJ
-galWrxbcRY+1xS7P7WlSH8k04IdTX4+0p8zm1ndCdaiGVMwsq82rKDD1oBoq1lHA
-pt7KjrcUzeb5LJmTow6gvHivCr1MmF1ORHk8htCXshGOAZHMq4aTHo60Qk3lu4Iy
-6xF1u1HVuPyYAGZN4lww/NDkWCJr9Pi3B70cbrjklT3LYr3BS7HOfrzyeiu1aJ0d
-GzNQBIKC6otO+sIocBqmOR5m/gd6VuYl1LT29UCKal11hbcGk1/rekjIkCWKytsJ
-slYCAk8z3JH6IiF6fcuFt8ICw01BpgW3f+0E9Ad67y1otmnvVDrhuF5xEB4xY+de
-ylAUuBNpPpjpX+5ssQPz
-=D5jx
+iQIcBAABCgAGBQJTNx+DAAoJEOVv75VaS+3OpNAP/2lBvdlqs0pX8f8ami6zZ0BK
+EFT89NPobT86qAfcvFnW6nx1iDCxus9rSpARev+v3ANURs/NEq8uTt72/JmsJjtS
+Vn9Y/e7IPYrlAhJFLVL+/mgIvhbMENdz2TGERd0hDHz0ElgAaZuvQUQ+5uRk+0dl
+Kv/HXBNgI+VMrZ9+ROnKuJyUwYTLlmy5i5l8iZv8cc2c0+9K+oqAfWK3hmoe+xqZ
+r+ffWWNAkSfSjwWY+TJz2CCHVW1KE1Q8pwi9xCLpTdYkkXTdYpP1rK2bxSLm1ILZ
+XGd0/RKch5r8dlgnNBWzRzlmn0a3YTZNk6eZr1+2N0/2zTyvefMHPLu5/7Doohmj
+XCuWHATY/NBggvtHZwSSbvXD4gkz/+t/S+VtlZyukwI5nuAXDaco500p0nQZ5xzY
+4vasyog+YRK8iXsWpSntyrL0/Um/Wa7J00ElNMSPHL0T1YRrSju+M+5MV13SMxan
+EaTiAa/koHKol4roELwSRgXaye7VJWciulkmQ50Zm+xhrLGbHB/6FWYcRv0SZi8K
+EQabsUlPEca31wUDqIOXvn4I86AjKdlF5j++/isF9v+i2GHgljZKPZ8Dnfd6PmMa
+W6Cy/mTt124t71rD210a4dm7jpwdhG7yJJ74UCBBbIWxaa4sgMV8eH0KCmjoqHFR
+oNJnMYOXzdrh1QSVQCQ8
+=v3ce
 -----END PGP SIGNATURE-----
 
---=-d2eF+LHgxGrPkjIsTq5n--
+--=-sOdQ2WD1RhA3mRk8yyXG--
