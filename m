@@ -1,107 +1,111 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] packet: respect devices with LLTX flag in
- direct xmit
-Date: Sat, 29 Mar 2014 08:02:30 -0700
-Message-ID: <1396105350.21428.6.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1395934710-29182-1-git-send-email-dborkman@redhat.com>
-	 <20140328.165058.1610297081920676758.davem@davemloft.net>
-	 <5335E604.4020105@redhat.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: Proper suspend/resume flow
+Date: Sat, 29 Mar 2014 16:37:26 +0000
+Message-ID: <1396111046.2898.88.camel@deadeye.wl.decadent.org.uk>
+References: <20140326115828.GZ7528@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	brouer@redhat.com
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Vf9qYLMeA3FZl8lOnb8t"
+Cc: netdev@vger.kernel.org
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:44817 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751591AbaC2PCc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 11:02:32 -0400
-Received: by mail-pa0-f48.google.com with SMTP id hz1so6266405pad.21
-        for <netdev@vger.kernel.org>; Sat, 29 Mar 2014 08:02:32 -0700 (PDT)
-In-Reply-To: <5335E604.4020105@redhat.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:60721 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751805AbaC2Qhi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 12:37:38 -0400
+In-Reply-To: <20140326115828.GZ7528@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-03-28 at 22:13 +0100, Daniel Borkmann wrote:
-> On 03/28/2014 09:50 PM, David Miller wrote:
 
-> > The only remaining issue is that Eric seems to suggest that a tx
-> > dropped counter bump should be added.  Please submit that as a
-> > follow-on if my reading of his feedback is accurate.
-> 
-> Yes, will do next week. I think at time of submission we didn't
-> have that yet. :)
+--=-Vf9qYLMeA3FZl8lOnb8t
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-BTW, how direct xmit performs in case of BQL enabled driver ?
+On Wed, 2014-03-26 at 11:58 +0000, Russell King - ARM Linux wrote:
+> I've been looking at the Freescale FEC driver recently, and I've noticed
+> that it's suspend path looks like this:
+>=20
+>         if (netif_running(ndev)) {
+>                 netif_device_detach(ndev);
+>                 fec_stop(ndev);
+>         }
+>=20
+> I believe this to be unsafe, because if the device is active, then we may
+> have packets in the transmit ring.  It may be possible for the ring to be
+> cleaned between netif_device_detach() and fec_stop(), resulting in a call
+> to netif_wake_queue(), which doesn't seem to take account of whether the
+> device has been detached.
+>
+> I wondered if this was just limited to the freescale driver, and I found
+> a similar pattern in e1000e - __e1000e_shutdown() calls netif_device_deta=
+ch()
+> as the very first thing, before doing anything else.  This seems to be a
+> common pattern.  8139cp.c does this, the second call seems to be rather
+> redundant:
+>=20
+>         netif_device_detach (dev);
+>         netif_stop_queue (dev);
+>=20
+> Tulip on the other hand shuts the hardware down and cleans the transmit
+> ring first before calling netif_device_detach(), thus ensuring that there
+> won't be any transmit completions before this call.  It doesn't stop the
+> queue before this, so presumably in a SMP environment, it is possible for
+> packets to get queued after the transmit ring has been cleaned.
+>=20
+> So, what is the correct approach to suspending a net device?  When should
+> netif_device_detach() be called?
+[...]
 
-dummy is nice, but not really representative of real device ;)
+My advice here is based on Solarflare's extensive stress-testing of the
+sfc driver control path and the race conditions it uncovered.  It did
+not cover suspend/resume, but it does cover MTU and ring size changes
+which involve the same sort of stop/start while the device is still
+marked as running.
 
-netif_xmit_frozen_or_stopped() tests (dev_queue->state &
-QUEUE_STATE_ANY_XOFF_OR_FROZEN), so will not fill TX ring.
+- Given the way the watchdog works, I think netif_device_detach() must
+be called first if you are going to stop TX queues in a control
+operation other than ndo_stop (commits e4abce853849, 29c69a488264).
 
-Since you have no queue, I would rather use a test without
-BQL bit (1 << __QUEUE_STATE_STACK_XOFF), so that you can absorb bursts
-into TX ring ...
+- The driver must check netif_device_present() before calling
+netif_wake_queue().  Perhaps netif_wake_queue() itself should check
+that, if many drivers need to do it.
 
- include/linux/netdevice.h |   21 ++++++++++++++++-----
- net/packet/af_packet.c    |    2 +-
- 2 files changed, 17 insertions(+), 6 deletions(-)
+- Calls to netif_device_detach() may need to be synchronised with the TX
+scheduler (commits c2f3b8e3a44b, 35205b211c8d).  To support this, the
+function efx_device_detach_sync() maybe should be turned into a general
+netif_device_detach_sync() (and then possibly needs to disable IRQs).
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 159c7e7945f8..ed71a2cc1f66 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -526,11 +526,15 @@ enum netdev_queue_state_t {
- 	__QUEUE_STATE_DRV_XOFF,
- 	__QUEUE_STATE_STACK_XOFF,
- 	__QUEUE_STATE_FROZEN,
--#define QUEUE_STATE_ANY_XOFF ((1 << __QUEUE_STATE_DRV_XOFF)		| \
--			      (1 << __QUEUE_STATE_STACK_XOFF))
--#define QUEUE_STATE_ANY_XOFF_OR_FROZEN (QUEUE_STATE_ANY_XOFF		| \
--					(1 << __QUEUE_STATE_FROZEN))
- };
-+#define QUEUE_STATE_DRV_XOFF	(1 << __QUEUE_STATE_DRV_XOFF)
-+#define QUEUE_STATE_STACK_XOFF	(1 << __QUEUE_STATE_STACK_XOFF)
-+#define QUEUE_STATE_FROZEN	(1 << __QUEUE_STATE_FROZEN)
-+
-+#define QUEUE_STATE_ANY_XOFF	(QUEUE_STATE_DRV_XOFF | QUEUE_STATE_STACK_XOFF)
-+#define QUEUE_STATE_ANY_XOFF_OR_FROZEN (QUEUE_STATE_ANY_XOFF | \
-+					QUEUE_STATE_FROZEN)
-+
- /*
-  * __QUEUE_STATE_DRV_XOFF is used by drivers to stop the transmit queue.  The
-  * netif_tx_* functions below are used to manipulate this flag.  The
-@@ -2262,11 +2266,18 @@ static inline bool netif_xmit_stopped(const struct netdev_queue *dev_queue)
- 	return dev_queue->state & QUEUE_STATE_ANY_XOFF;
- }
- 
--static inline bool netif_xmit_frozen_or_stopped(const struct netdev_queue *dev_queue)
-+static inline bool
-+netif_xmit_frozen_or_stopped(const struct netdev_queue *dev_queue)
- {
- 	return dev_queue->state & QUEUE_STATE_ANY_XOFF_OR_FROZEN;
- }
- 
-+static inline bool
-+netif_xmit_frozen_or_drv_stopped(const struct netdev_queue *dev_queue)
-+{
-+	return dev_queue->state & (QUEUE_STATE_FROZEN | QUEUE_STATE_DRV_XOFF);
-+}
-+
- static inline void netdev_tx_sent_queue(struct netdev_queue *dev_queue,
- 					unsigned int bytes)
- {
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 01039d2b1695..c8d50690b619 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -261,7 +261,7 @@ static int packet_direct_xmit(struct sk_buff *skb)
- 	local_bh_disable();
- 
- 	HARD_TX_LOCK(dev, txq, smp_processor_id());
--	if (!netif_xmit_frozen_or_stopped(txq)) {
-+	if (!netif_xmit_frozen_or_drv_stopped(txq)) {
- 		ret = ops->ndo_start_xmit(skb, dev);
- 		if (ret == NETDEV_TX_OK)
- 			txq_trans_update(txq);
+Ben.
+
+--=20
+Ben Hutchings
+[W]e found...that it wasn't as easy to get programs right as we had thought=
+.
+... I realized that a large part of my life from then on was going to be sp=
+ent
+in finding mistakes in my own programs. - Maurice Wilkes, 1949
+
+--=-Vf9qYLMeA3FZl8lOnb8t
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAUzb2xue/yOyVhhEJAQrO6BAAvTDwAJKJYkEBmobBsEFn8pL1dM8saCgb
++QoJbYPKnG6ryl/zGMeeUF+D+3toNkLmMsP3SFqHeVtmTtXR0jkL/jlduFAamADD
+MW3tbHSngm+u2xwYgGf7blJ38PXmNbYbzwkWvNrGZTD4wh+LIDLsXfvh+jO+2HaR
+4d7wSBvjTL8QtblTVo2FiETy3Q/NZEtL50sI+ChRkJ7O2PaMf/5T5QpO6vt7KQJ1
+YuLlitslNEHNMCNbVn1lDSp/gU2+fSd8lIq5Vz2gvR0ppCJSzaNVzansZ35X5IA1
+Ll961RIJMSED5tTKrLDlAfG0r4+/o/Q88mFFaLq5uL1kWYG9Wp1IoanzRJUeXy1Z
+miNk6NrdgA7g5Qyuy4zfh//Fq4Dn2tdxHFfNMijaDjm2EbiH5fCPcd/Dl7jKBell
+PJRfGGLVswOvae1tquNKXKJ62OKfPv4jNE571sqJVHgaBPCsgHYb2DgLBFdvrclA
+oG4M570eJfBXNrVs8ZuyJKyy/H+XttKXi3XnXUiH7siNvqYIv2d85lLslVIIa/om
+ySlOegCUufS4uj0l/QaHJ3VkFGbEmdAOIGc1pDzWWr74zQ+ke+H2MfgF0bz96zUW
+GFUs/bIhdQrUr0BkbORda2Y95HuCyM2Ai+Xo7JWV01vTJinKdZxdEBXZ/GJKpbTB
+Ua1nw1jjxpM=
+=kG2D
+-----END PGP SIGNATURE-----
+
+--=-Vf9qYLMeA3FZl8lOnb8t--
