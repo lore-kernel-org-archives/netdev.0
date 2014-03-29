@@ -1,36 +1,115 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 0/6 NEXT]staging: r8723au: Add new driver
-Date: Fri, 28 Mar 2014 22:29:34 -0500
-Message-ID: <53363E1E.6050308@lwfinger.net>
-References: <1396060663-3589-1-git-send-email-Larry.Finger@lwfinger.net> <1396063566.31134.42.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	devel@driverdev.osuosl.org, Jes Sorensen <Jes.Sorensen@redhat.com>
-To: Joe Perches <joe@perches.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH 1/5] bonding: Changed hashing function to just provide hash
+Date: Fri, 28 Mar 2014 22:28:45 -0700
+Message-ID: <1396070925-17511-1-git-send-email-maheshb@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Mahesh Bandewar <maheshb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f50.google.com ([209.85.219.50]:54841 "EHLO
-	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751059AbaC2D3i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 23:29:38 -0400
-Received: by mail-oa0-f50.google.com with SMTP id i7so6953352oag.23
-        for <netdev@vger.kernel.org>; Fri, 28 Mar 2014 20:29:38 -0700 (PDT)
-In-Reply-To: <1396063566.31134.42.camel@joe-AO722>
+Received: from mail-ie0-f201.google.com ([209.85.223.201]:43041 "EHLO
+	mail-ie0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751113AbaC2F3D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 01:29:03 -0400
+Received: by mail-ie0-f201.google.com with SMTP id rd18so1238405iec.2
+        for <netdev@vger.kernel.org>; Fri, 28 Mar 2014 22:29:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/28/2014 10:26 PM, Joe Perches wrote:
-> On Fri, 2014-03-28 at 21:37 -0500, Larry Finger wrote:
->> The Realtek USB device RTL8723AU is found in Lenovo Yoga 13 tablets.
->> A driver for it has been available in a GitHub repo for several months.
-> []
->>   133 files changed, 89878 insertions(+)
->
-> eek.  realtek don't do small or concise.
+Modified the hash function to return just hash separating from the
+modulo operation that can be performed by the caller. This is to
+make way for the tlb mode to use the same hashing policies that
+are used in the 802.3ad and Xor mode.
 
-No, they do not. Those 90 K lines are after Jes and I deleted several thousand 
-lines. Of course, all these USB drivers have a complete MAC stack - they do not 
-do mac80211. :(
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+ drivers/net/bonding/bond_3ad.c  |  3 ++-
+ drivers/net/bonding/bond_main.c | 10 ++++------
+ drivers/net/bonding/bonding.h   |  2 +-
+ 3 files changed, 7 insertions(+), 8 deletions(-)
 
-Larry
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index b667a51ed215..ccf2639e916f 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -30,6 +30,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/if_bonding.h>
+ #include <linux/pkt_sched.h>
++#include <net/sock.h>
+ #include <net/net_namespace.h>
+ #include "bonding.h"
+ #include "bond_3ad.h"
+@@ -2440,7 +2441,7 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+ 		goto err_free;
+ 	}
+ 
+-	slave_agg_no = bond_xmit_hash(bond, skb, slaves_in_agg);
++	slave_agg_no = bond_xmit_hash(bond, skb) % slaves_in_agg;
+ 	first_ok_slave = NULL;
+ 
+ 	bond_for_each_slave_rcu(bond, slave, iter) {
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 5be34b72a048..06024abcffcf 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3015,20 +3015,18 @@ static bool bond_flow_dissect(struct bonding *bond, struct sk_buff *skb,
+  * bond_xmit_hash - generate a hash value based on the xmit policy
+  * @bond: bonding device
+  * @skb: buffer to use for headers
+- * @count: modulo value
+  *
+  * This function will extract the necessary headers from the skb buffer and use
+  * them to generate a hash based on the xmit_policy set in the bonding device
+- * which will be reduced modulo count before returning.
+  */
+-int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb, int count)
++int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb)
+ {
+ 	struct flow_keys flow;
+ 	u32 hash;
+ 
+ 	if (bond->params.xmit_policy == BOND_XMIT_POLICY_LAYER2 ||
+ 	    !bond_flow_dissect(bond, skb, &flow))
+-		return bond_eth_hash(skb) % count;
++		return bond_eth_hash(skb);
+ 
+ 	if (bond->params.xmit_policy == BOND_XMIT_POLICY_LAYER23 ||
+ 	    bond->params.xmit_policy == BOND_XMIT_POLICY_ENCAP23)
+@@ -3039,7 +3037,7 @@ int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb, int count)
+ 	hash ^= (hash >> 16);
+ 	hash ^= (hash >> 8);
+ 
+-	return hash % count;
++	return hash;
+ }
+ 
+ /*-------------------------- Device entry points ----------------------------*/
+@@ -3666,7 +3664,7 @@ static int bond_xmit_xor(struct sk_buff *skb, struct net_device *bond_dev)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 
+-	bond_xmit_slave_id(bond, skb, bond_xmit_hash(bond, skb, bond->slave_cnt));
++	bond_xmit_slave_id(bond, skb, bond_xmit_hash(bond, skb) % bond->slave_cnt);
+ 
+ 	return NETDEV_TX_OK;
+ }
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index b8bdd0acc8f3..f91f5dd219d6 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -499,7 +499,7 @@ int bond_sysfs_slave_add(struct slave *slave);
+ void bond_sysfs_slave_del(struct slave *slave);
+ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev);
+ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev);
+-int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb, int count);
++int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb);
+ void bond_select_active_slave(struct bonding *bond);
+ void bond_change_active_slave(struct bonding *bond, struct slave *new_active);
+ void bond_create_debugfs(void);
+-- 
+1.9.1.423.g4596e3a
