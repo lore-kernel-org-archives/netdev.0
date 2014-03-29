@@ -1,32 +1,35 @@
-From: Sam Patton <sam@enhancedip.org>
-Subject: [ANNOUNCE] Enhanced IP
-Date: Fri, 28 Mar 2014 21:41:59 -0400
-Message-ID: <CABvMDUef6i=aKy8=ZRvs8q6vYQh08d2UfAni-o8Ee=80Gz=ewA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5 0/4] Provide netdev naming-policy via sysfs
+Date: Fri, 28 Mar 2014 21:42:54 -0400 (EDT)
+Message-ID: <20140328.214254.1620280677250220442.davem@davemloft.net>
+References: <CAG-2HqVJPrTWXtuvDkU6MvfNj0MXfNuBMmdoKWtSd5kToZ3mMQ@mail.gmail.com>
+	<20140328.172107.16072208664321602.davem@davemloft.net>
+	<CAG-2HqVQ-MAZgsZAkykvVtbtYgDA3bfJA5rEqpdX5vBqPTjLJg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:45138 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751455AbaC2BmB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 21:42:01 -0400
-Received: by mail-la0-f50.google.com with SMTP id pv20so10924lab.23
-        for <netdev@vger.kernel.org>; Fri, 28 Mar 2014 18:41:59 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dh.herrmann@gmail.com, netdev@vger.kernel.org,
+	johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: teg@jklm.no
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAG-2HqVQ-MAZgsZAkykvVtbtYgDA3bfJA5rEqpdX5vBqPTjLJg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The February edition of IEEE Computer has a paper on Enhanced IP, an
-alternative to Ipv6.  Enhanced IP developers have released a version
-of the software in the form of virtual machines, which are designed to
-be used by other kernel developers. At this point, the project is
-interested in attracting kernel developers who want to write network
-code.  The primary website for Enhanced IP is www.enhancedip,org.
+From: Tom Gundersen <teg@jklm.no>
+Date: Fri, 28 Mar 2014 23:39:57 +0100
 
-Here's the abstract from the paper:
+> You mean coordinate with each other in userspace? If so, I still don't
+> see how this can ever be anything else than fragile. It will depend on
+> each userspace component actually opting in to whatever scheme we
+> devise, and does so correctly.
 
-Enhanced IP (EnIP) offers a solution to the problem of IPv4 address
-depletion without replacing IPv4, as IPv6 does, but by building on top
-of IPv4, maximizing backward compatibility. An experimental EnIP
-deployment between nodes at the University of Maryland and the
-University of Delaware, requiring neither software modification nor
-modification of in-path routers, demonstrates EnIP's potential.
+Isn't that essentially what dbus is?
+
+A way for seperate userland components to coordinate their
+activities?
+
+I just simply don't like all of these ramdom keys getting
+added all over the place to guide udev behavior wrt. some
+other entity.
