@@ -1,156 +1,184 @@
-From: David Decotigny <decot@googlers.com>
-Subject: [PATCH net-next v2] net-sysfs: expose number of carrier on/off changes
-Date: Sat, 29 Mar 2014 09:48:35 -0700
-Message-ID: <2fd338e34d809af14353a03bc1edd0935f332faf.1396111568.git.decot@googlers.com>
-References: <cover.1396111568.git.decot@googlers.com>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Eric Dumazet <edumazet@google.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Weilong Chen <chenweilong@huawei.com>,
-	Jiri Pirko <jiri@resnulli.us>, Amir Vadai <amirv@mellanox.com>,
-	Michael Dalton <mwdalton@google.com>,
-	David Decotigny <decot@googlers.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>, Tejun Heo <tj@kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: Proper suspend/resume flow
+Date: Sat, 29 Mar 2014 18:03:47 +0000
+Message-ID: <20140329180347.GW7528@n2100.arm.linux.org.uk>
+References: <20140326115828.GZ7528@n2100.arm.linux.org.uk> <1396111046.2898.88.camel@deadeye.wl.decadent.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f74.google.com ([209.85.213.74]:48262 "EHLO
-	mail-yh0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751810AbaC2QyP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 12:54:15 -0400
-Received: by mail-yh0-f74.google.com with SMTP id f10so875829yha.5
-        for <netdev@vger.kernel.org>; Sat, 29 Mar 2014 09:54:15 -0700 (PDT)
-In-Reply-To: <cover.1396111568.git.decot@googlers.com>
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:42615 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752257AbaC2SEL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 14:04:11 -0400
+Content-Disposition: inline
+In-Reply-To: <1396111046.2898.88.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This allows to monitor carrier on/off transitions and detect link
-flapping issues:
- - new /sys/class/net/X/carrier_changes
- - new rtnetlink IFLA_CARRIER_CHANGES (getlink)
+On Sat, Mar 29, 2014 at 04:37:26PM +0000, Ben Hutchings wrote:
+> My advice here is based on Solarflare's extensive stress-testing of the
+> sfc driver control path and the race conditions it uncovered.  It did
+> not cover suspend/resume, but it does cover MTU and ring size changes
+> which involve the same sort of stop/start while the device is still
+> marked as running.
 
-Tested:
-  - grep . /sys/class/net/*/carrier_changes
-    + ip link set dev X down/up
-    + plug/unplug cable
-  - updated iproute2: prints IFLA_CARRIER_CHANGES
-  - iproute2 20121211-2 (debian): unchanged behavior
+Thanks for your reply.
 
-Signed-off-by: David Decotigny <decot@googlers.com>
----
- include/linux/netdevice.h    |  3 +++
- include/uapi/linux/if_link.h |  1 +
- net/core/net-sysfs.c         | 11 +++++++++++
- net/core/rtnetlink.c         |  6 +++++-
- net/sched/sch_generic.c      |  2 ++
- 5 files changed, 22 insertions(+), 1 deletion(-)
+> - Given the way the watchdog works, I think netif_device_detach() must
+> be called first if you are going to stop TX queues in a control
+> operation other than ndo_stop (commits e4abce853849, 29c69a488264).
+> 
+> - The driver must check netif_device_present() before calling
+> netif_wake_queue().  Perhaps netif_wake_queue() itself should check
+> that, if many drivers need to do it.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 159c7e7..feb60c0 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1316,6 +1316,9 @@ struct net_device {
- 	atomic_long_t		rx_dropped;
- 	atomic_long_t		tx_dropped;
- 
-+	/* Stats to monitor carrier on<->off transitions */
-+	atomic_t		carrier_changes;
-+
- #ifdef CONFIG_WIRELESS_EXT
- 	/* List of functions to handle Wireless Extensions (instead of ioctl).
- 	 * See <net/iw_handler.h> for details. Jean II */
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 16410b6..9a7f7ac 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -144,6 +144,7 @@ enum {
- 	IFLA_NUM_RX_QUEUES,
- 	IFLA_CARRIER,
- 	IFLA_PHYS_PORT_ID,
-+	IFLA_CARRIER_CHANGES,
- 	__IFLA_MAX
- };
- 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index daed9a6..4623962 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -253,6 +253,16 @@ static ssize_t operstate_show(struct device *dev,
- }
- static DEVICE_ATTR_RO(operstate);
- 
-+static ssize_t carrier_changes_show(struct device *dev,
-+				    struct device_attribute *attr,
-+				    char *buf)
-+{
-+	struct net_device *netdev = to_net_dev(dev);
-+	return sprintf(buf, fmt_dec,
-+		       atomic_read(&netdev->carrier_changes));
-+}
-+static DEVICE_ATTR_RO(carrier_changes);
-+
- /* read-write attributes */
- 
- static int change_mtu(struct net_device *net, unsigned long new_mtu)
-@@ -386,6 +396,7 @@ static struct attribute *net_class_attrs[] = {
- 	&dev_attr_duplex.attr,
- 	&dev_attr_dormant.attr,
- 	&dev_attr_operstate.attr,
-+	&dev_attr_carrier_changes.attr,
- 	&dev_attr_ifalias.attr,
- 	&dev_attr_carrier.attr,
- 	&dev_attr_mtu.attr,
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index e7c6006..d4ff417 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -822,6 +822,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + nla_total_size(4) /* IFLA_NUM_RX_QUEUES */
- 	       + nla_total_size(1) /* IFLA_OPERSTATE */
- 	       + nla_total_size(1) /* IFLA_LINKMODE */
-+	       + nla_total_size(4) /* IFLA_CARRIER_CHANGES */
- 	       + nla_total_size(ext_filter_mask
- 			        & RTEXT_FILTER_VF ? 4 : 0) /* IFLA_NUM_VF */
- 	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
-@@ -970,7 +971,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	    (dev->qdisc &&
- 	     nla_put_string(skb, IFLA_QDISC, dev->qdisc->ops->id)) ||
- 	    (dev->ifalias &&
--	     nla_put_string(skb, IFLA_IFALIAS, dev->ifalias)))
-+	     nla_put_string(skb, IFLA_IFALIAS, dev->ifalias)) ||
-+	    nla_put_u32(skb, IFLA_CARRIER_CHANGES,
-+			atomic_read(&dev->carrier_changes)))
- 		goto nla_put_failure;
- 
- 	if (1) {
-@@ -1147,6 +1150,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_NUM_TX_QUEUES]	= { .type = NLA_U32 },
- 	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
- 	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_PORT_ID_LEN },
-+	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
- };
- 
- static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index e82e43b..e1543b0 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -310,6 +310,7 @@ void netif_carrier_on(struct net_device *dev)
- 	if (test_and_clear_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
- 		if (dev->reg_state == NETREG_UNINITIALIZED)
- 			return;
-+		atomic_inc(&dev->carrier_changes);
- 		linkwatch_fire_event(dev);
- 		if (netif_running(dev))
- 			__netdev_watchdog_up(dev);
-@@ -328,6 +329,7 @@ void netif_carrier_off(struct net_device *dev)
- 	if (!test_and_set_bit(__LINK_STATE_NOCARRIER, &dev->state)) {
- 		if (dev->reg_state == NETREG_UNINITIALIZED)
- 			return;
-+		atomic_inc(&dev->carrier_changes);
- 		linkwatch_fire_event(dev);
- 	}
- }
+I don't think that's sufficient.  Unless I'm missing something, I think
+the situation below is possible:
+
+Thread0					Thread1
+					netif_device_present()
+					- test_bit(__LINK_STATE_PRESENT)
+netif_device_detach
+- test_and_clear_bit(__LINK_STATE_PRESENT)
+- netif_running(dev)
+- netif_tx_stop_all_queues
+  - netif_tx_stop_queue
+    - set_bit(__QUEUE_STATE_DRV_XOFF)
+					netif_wake_queue()
+					- netif_tx_wake_queue()
+					  - test_and_clear_bit(__QUEUE_STATE_DRV_XOFF)
+					    - __netif_schedule()
+					      - test_and_set_bit(__QDISC_STATE_SCHED)
+					        - __netif_reschedule()
+					          - sd->output_queue_tailp = &q->next_sched
+						    - raise_softirq_irqoff(NET_TX_SOFTIRQ)
+					...
+					net_tx_action()
+					qdisc_run()
+					- qdisc_run_begin()
+					- __qdisc_run()
+					  - qdisc_restart()
+					    - sch_direct_xmit()
+					      - netif_xmit_frozen_or_stopped()
+					        - ops->ndo_start_xmit()
+
+In other words, it's possible for the driver's ndo_start_xmit() method
+to be called after netif_device_detach() is called due to a call to
+netif_wake_queue() - even if netif_device_present() is first checked.
+
+> - Calls to netif_device_detach() may need to be synchronised with the TX
+> scheduler (commits c2f3b8e3a44b, 35205b211c8d).  To support this, the
+> function efx_device_detach_sync() maybe should be turned into a general
+> netif_device_detach_sync() (and then possibly needs to disable IRQs).
+
+Given the above (I don't see anything that checks to see whether the
+device is present in the path from netif_wake_queue() through to calling
+the device's ndo_start_xmit() function), I think you're right.  I also
+think "if (netif_device_present()) netif_wake_queue();" needs to also be
+done under the xmit lock, or the same lock which protects the call to
+netif_device_detach() to prevent the above occuring.
+
+However, I have a voice in the back of my mind which sounds like Alan Cox
+saying "don't lock code, lock data" :p
+
+I also think you're right about calling netif_stop_queue() or
+netif_tx_disable() from contexts other than the xmit function or the
+ndo_stop() method.  It's safe in ndo_stop() because netif_running()
+will be false at that point, which disables the watchdog.
+
+Calling it at other moments is potentially dangerous as a watchdog poll
+(which happens every dev->watchdog_timeo) could occur while the queue
+is temporarily disabled, and if it has been more than watchdog_timeo
+after the last packet was queued, we'll get an instant watchdog warning.
+
+That said, for the case where a network driver does all it's packet
+processing in the NAPI poll function, I think calling napi_disable()
+is a good way to ensure that the poll function is not running, and
+therefore there are can be no netif_wake_queue() calls - or anything
+other than the ndo_start_xmit touching the rings or the device.  This
+is needed anyway to stop receive packet processing looking at its
+ring.
+
+So, I've now come to this sequence:
+
+suspend()
+{
+	if (netif_running()) {
+		napi_disable();
+		netif_tx_lock();
+		netif_device_detach();
+		netif_tx_unlock();
+	}
+	... suspend device ...
+}
+
+resume()
+{
+	... resume device ...
+	if (netif_running()) {
+		netif_device_attach();
+		napi_enable();
+	}
+}
+
+as the way to safely suspend packet processing while suspended.  For
+reconfiguration purposes (where hopefully the reconfiguration part
+doesn't need to schedule), I think:
+
+	... prepare for reconfiguration (eg, allocate new rings)
+	napi_disable();
+	netif_tx_lock();
+
+	... reconfigure, swap state, etc ...
+
+	netif_tx_unlock();
+	napi_enable();
+
+is sufficient to temporarily suspend packet processing.
+
+I can see another re-work of my Freescale FEC patchset being required.
+
+I'm also debating about rtnl_lock() in some places where netif_running()
+is checked - it seems to me that checking netif_running() without holding
+the rtnl_lock() is unsafe.  That said, the suspend paths should be single
+threaded, so there should be no chance of the device coming up or down.
+Even so, I see some drivers do use rtnl_lock() in their suspend/resume
+paths.
+
+However, FEC defers the transmit timeout processing to work queue context,
+and doesn't take any locks:
+
+        if (fep->delay_work.timeout) {
+                fep->delay_work.timeout = false;
+                fec_restart(fep->netdev, fep->full_duplex);
+                netif_wake_queue(fep->netdev);
+	}
+
+Internally fec_restart() has:
+
+	if (netif_running(ndev)) {
+		netif_device_detach(ndev);
+		napi_disable(&fep->napi);
+		netif_stop_queue(ndev);
+		netif_tx_lock_bh(ndev);
+	}
+	... restart processing including a udelay() ...
+	if (netif_running(ndev)) {
+		netif_tx_unlock_bh(ndev);
+		netif_wake_queue(ndev);
+		napi_enable(&fep->napi);
+		netif_device_attach(ndev);
+	}
+
+and it means that netif_running() could change state in the middle of
+this sequence.  Putting rtnl_lock() around that stops netif_running()
+changing state, but it feels like a very big sledge hammer.  However,
+with the rest of my changes to this driver, I may be able to get rid
+of that work queue entirely, moving the restart entirely under the
+ndo_tx_timeout() call.
+
 -- 
-1.9.1.423.g4596e3a
+FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
+improving, and getting towards what was expected from it.
