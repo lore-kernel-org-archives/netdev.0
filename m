@@ -1,61 +1,86 @@
-From: Kay Sievers <kay-tD+1rO4QERM@public.gmane.org>
-Subject: Re: [PATCH v5 0/4] Provide netdev naming-policy via sysfs
-Date: Sat, 29 Mar 2014 20:48:47 +0100
-Message-ID: <CAPXgP11ce5zXePU=idVqXRREpXpNTa4HBcvyq_hh1pdiVJme8Q@mail.gmail.com>
-References: <CAG-2HqVQ-MAZgsZAkykvVtbtYgDA3bfJA5rEqpdX5vBqPTjLJg@mail.gmail.com>
- <20140328.214254.1620280677250220442.davem@davemloft.net> <CAG-2HqWQsLPaaHxMFn5Bha0BGKSAVZV9n87KTCsbQ1ewktzZvA@mail.gmail.com>
- <20140329.153737.671362434625537776.davem@davemloft.net>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: Proper suspend/resume flow
+Date: Sat, 29 Mar 2014 20:08:14 +0000
+Message-ID: <1396123694.2898.93.camel@deadeye.wl.decadent.org.uk>
+References: <20140326115828.GZ7528@n2100.arm.linux.org.uk>
+	 <1396111046.2898.88.camel@deadeye.wl.decadent.org.uk>
+	 <20140329180347.GW7528@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tom Gundersen <teg-B22kvLQNl6c@public.gmane.org>,
-	David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140329.153737.671362434625537776.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-jKdAVVJbYQZU4L9uqGzf"
+Cc: netdev@vger.kernel.org
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:32948 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751885AbaC2UIV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 16:08:21 -0400
+In-Reply-To: <20140329180347.GW7528@n2100.arm.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 29, 2014 at 8:37 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> From: Tom Gundersen <teg-B22kvLQNl6c@public.gmane.org>
-> Date: Sat, 29 Mar 2014 10:46:02 +0100
->
->> The issue I see with that is that there are several ways to generate
->> predictable names, and the user may want to chose between them, so
->> this is arguably policy that should not be in the kernel. If you don't
->> think that's a problem, I'd be happy to submit a patch to move all
->> this logic from udev to the kernel, just let me know how you see it.
->
-> Unfortunately, we have already allowed this kind of thing for setting
-> MAC addresses so I guess I'll have to allow your changes to be applied.
->
-> But before I ask you to resubmit, do you have full buy-in from the
-> udev folks for this facility?
 
-Absolutely, it is very useful to have.
+--=-jKdAVVJbYQZU4L9uqGzf
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Today, there is no way for userland to distinguish explicitly
-requested and predictable names provided by tools, from unpredictable
-names composed by the kernel itself by adding an unpredictable
-enumeration number.
+On Sat, 2014-03-29 at 18:03 +0000, Russell King - ARM Linux wrote:
+[...]
+> That said, for the case where a network driver does all it's packet
+> processing in the NAPI poll function, I think calling napi_disable()
+> is a good way to ensure that the poll function is not running, and
+> therefore there are can be no netif_wake_queue() calls - or anything
+> other than the ndo_start_xmit touching the rings or the device.  This
+> is needed anyway to stop receive packet processing looking at its
+> ring.
+>=20
+> So, I've now come to this sequence:
+>=20
+> suspend()
+> {
+> 	if (netif_running()) {
+> 		napi_disable();
+> 		netif_tx_lock();
+> 		netif_device_detach();
+> 		netif_tx_unlock();
+> 	}
+> 	... suspend device ...
+> }
+[...]
 
-It allows us the work around the common problems in general purpose
-Linux, where we have no strong dependencies, not necessarily central
-management, and loose coupling between components.
+This is missing netif_stop_queue(), but I assume you do that somewhere
+after netif_device_detach().  I think this should work.
 
-This information will allow us to apply best-effort or common sense to
-the default udev device name policies, like:
-  - leave the name alone if someone has asked explicitly for that name
-  - leave the name alone if someone else has already renamed it after
-its first creation
+Ben.
 
-So, having that information in /sys would be very welcome from udev's
-point of view.
+--=20
+Ben Hutchings
+[W]e found...that it wasn't as easy to get programs right as we had thought=
+.
+... I realized that a large part of my life from then on was going to be sp=
+ent
+in finding mistakes in my own programs. - Maurice Wilkes, 1949
 
-Thanks,
-Kay
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=-jKdAVVJbYQZU4L9uqGzf
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAUzcoLue/yOyVhhEJAQobbw/9G81NB/PppNw6fD2cHWtKZI7WhcI4KB3K
+AfoGxUaKmZX87+4oqkAoJx+zi73oQCf3yx9dXdflc80GddBDVhrnfVXeT95x7oy0
+d+yHrsH49UpISVVfEYPygiUW/HPwo1XKE7/xFlq5QPxzpJBZaLCoWP1mRrknm5S0
+pvRhHL/lbjHaEaygAI3N6OzIA22ATsbPhdmYGtyWAJmwrnzf2AgxEYRTcRhQlVXg
+T9d+7sIXo0JKp7FRLc1bBjntuchMMDF/ranxjpWIuOvH/72LAKmgIVgz1PRX3Sdo
+yL6u8vIopRUvmJfswdLN8T60ZJ7xTkQZAL5Z0Xd7uL/WEPK+GXRtkdFpiF2ekfhu
+i1dmfrNixm38a7kMWxeB6GycUyFBUxJCB/eG8pG0UhkfXixqiri5t58a/ZyTNFYR
+jG9gllfUj/vw2LXQxMULJkgg1PQrvV7gVrEshvXMC9WAPvDBBsWewuxTFTjwTzxz
+OaLPXXaX250YCgQyshPGlnD5WDm1zxY+JdJ4b42G0QOuCxYZpy7eMV+glap7jSTD
+t0ODsb2mNdRc9I2ie5EOIjWvjCyrSHuOX85ldI97TB7bzXKZ7sY9jBzdGc2YrOtp
+LcOR1sE9waILGAjFCjWN8KrrEbebTG/9Bqm6fk8B03fwSSAoX54lwJsukNvmTj4T
+jGyie87LX5E=
+=sy+4
+-----END PGP SIGNATURE-----
+
+--=-jKdAVVJbYQZU4L9uqGzf--
