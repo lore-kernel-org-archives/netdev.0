@@ -1,7 +1,7 @@
 From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH 4/5] bonding: Added bond_tlb_xmit() for tlb mode.
-Date: Fri, 28 Mar 2014 22:29:07 -0700
-Message-ID: <1396070947-17721-1-git-send-email-maheshb@google.com>
+Subject: [PATCH 2/5] bonding: Reorg bond_alb_xmit code
+Date: Fri, 28 Mar 2014 22:29:01 -0700
+Message-ID: <1396070941-17602-1-git-send-email-maheshb@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Mahesh Bandewar <maheshb@google.com>,
 	Eric Dumazet <edumazet@google.com>,
@@ -11,115 +11,181 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Andy Gospodarek <andy@greyhouse.net>,
 	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f74.google.com ([209.85.160.74]:41100 "EHLO
-	mail-pb0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751591AbaC2F3K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 01:29:10 -0400
-Received: by mail-pb0-f74.google.com with SMTP id md12so763659pbc.3
-        for <netdev@vger.kernel.org>; Fri, 28 Mar 2014 22:29:09 -0700 (PDT)
+Received: from mail-vc0-f201.google.com ([209.85.220.201]:59096 "EHLO
+	mail-vc0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751113AbaC2F7l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 01:59:41 -0400
+Received: by mail-vc0-f201.google.com with SMTP id ik5so827222vcb.0
+        for <netdev@vger.kernel.org>; Fri, 28 Mar 2014 22:59:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Re-organized the xmit function for the lb mode separating tlb xmit
-from the alb mode. This will enable use of the hashing policies
-like 802.3ad mode. Also extended use of xmit-hash-policy to tlb mode.
-
-Now the tlb-mode defaults to BOND_XMIT_POLICY_LAYER2 if the xmit policy
-module parameter is not set (just like 802.3ad, or Xor mode).
+Separating the actual xmit part from the function in a separate
+function that can be used in the tlb_xmit in the next patch. Also
+there is no reason do_tx_balance to be an int so changing it to
+bool type.
 
 Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
- drivers/net/bonding/bond_alb.c     | 25 +++++++++++++++++++++++++
- drivers/net/bonding/bond_alb.h     |  1 +
- drivers/net/bonding/bond_main.c    |  6 ++++--
- drivers/net/bonding/bond_options.c |  2 +-
- 4 files changed, 31 insertions(+), 3 deletions(-)
+ drivers/net/bonding/bond_alb.c | 79 +++++++++++++++++++++++-------------------
+ 1 file changed, 44 insertions(+), 35 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 5cd36016c393..8b7426ce6182 100644
+index 9f69e818b000..5cd36016c393 100644
 --- a/drivers/net/bonding/bond_alb.c
 +++ b/drivers/net/bonding/bond_alb.c
-@@ -1381,6 +1381,31 @@ out:
- 	return NETDEV_TX_OK;
+@@ -1347,6 +1347,40 @@ void bond_alb_deinitialize(struct bonding *bond)
+ 		rlb_deinitialize(bond);
  }
  
-+int bond_tlb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
++static int bond_do_alb_xmit(struct sk_buff *skb, struct bonding *bond,
++		struct slave *tx_slave)
 +{
-+	struct bonding *bond = netdev_priv(bond_dev);
-+	struct ethhdr *eth_data;
-+	struct slave *tx_slave = NULL;
-+	u32 hash_index = 0;
++	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
++	struct ethhdr *eth_data = eth_hdr(skb);
 +
-+	skb_reset_mac_header(skb);
-+	eth_data = eth_hdr(skb);
-+
-+	/* Do not TX balance any multicast or broadcast */
-+	if (!is_multicast_ether_addr(eth_data->h_dest)) {
-+		switch (ntohs(skb->protocol)) {
-+		case ETH_P_IP:
-+		case ETH_P_IPX: /* In case of IPX, it will falback to L2 hash */
-+		case ETH_P_IPV6:
-+			hash_index = bond_xmit_hash(bond, skb);
-+			tx_slave = tlb_choose_channel(bond, hash_index & 0xFF, skb->len);
-+			break;
-+		}
++	if (!tx_slave) {
++		/* unbalanced or unassigned, send through primary */
++		tx_slave = rcu_dereference(bond->curr_active_slave);
++		bond_info->unbalanced_load += skb->len;
 +	}
 +
-+	return bond_do_alb_xmit(skb, bond, tx_slave);
++	if (tx_slave && SLAVE_IS_OK(tx_slave)) {
++		if (tx_slave != rcu_dereference(bond->curr_active_slave)) {
++			ether_addr_copy(eth_data->h_source,
++					tx_slave->dev->dev_addr);
++		}
++
++		bond_dev_queue_xmit(bond, skb, tx_slave->dev);
++		goto out;
++	}
++
++	if (tx_slave) {
++		_lock_tx_hashtbl(bond);
++		__tlb_clear_slave(bond, tx_slave, 0);
++		_unlock_tx_hashtbl(bond);
++	}
++
++	/* no suitable interface, frame not sent */
++	dev_kfree_skb_any(skb);
++out:
++	return NETDEV_TX_OK;
 +}
 +
  int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
  {
  	struct bonding *bond = netdev_priv(bond_dev);
-diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
-index e09dd4bfafff..5fc76c01636c 100644
---- a/drivers/net/bonding/bond_alb.h
-+++ b/drivers/net/bonding/bond_alb.h
-@@ -175,6 +175,7 @@ void bond_alb_deinit_slave(struct bonding *bond, struct slave *slave);
- void bond_alb_handle_link_change(struct bonding *bond, struct slave *slave, char link);
- void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave);
- int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev);
-+int bond_tlb_xmit(struct sk_buff *skb, struct net_device *bond_dev);
- void bond_alb_monitor(struct work_struct *);
- int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr);
- void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id);
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index e4f062ddc23e..23e4073ec798 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3776,8 +3776,9 @@ static netdev_tx_t __bond_start_xmit(struct sk_buff *skb, struct net_device *dev
- 	case BOND_MODE_8023AD:
- 		return bond_3ad_xmit_xor(skb, dev);
- 	case BOND_MODE_ALB:
--	case BOND_MODE_TLB:
- 		return bond_alb_xmit(skb, dev);
-+	case BOND_MODE_TLB:
-+		return bond_tlb_xmit(skb, dev);
- 	default:
- 		/* Should never happen, mode already checked */
- 		pr_err("%s: Error: Unknown bonding mode %d\n",
-@@ -3998,7 +3999,8 @@ static int bond_check_params(struct bond_params *params)
+@@ -1355,7 +1389,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 	struct slave *tx_slave = NULL;
+ 	static const __be32 ip_bcast = htonl(0xffffffff);
+ 	int hash_size = 0;
+-	int do_tx_balance = 1;
++	bool do_tx_balance = true;
+ 	u32 hash_index = 0;
+ 	const u8 *hash_start = NULL;
+ 	struct ipv6hdr *ip6hdr;
+@@ -1370,7 +1404,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 		if (ether_addr_equal_64bits(eth_data->h_dest, mac_bcast) ||
+ 		    (iph->daddr == ip_bcast) ||
+ 		    (iph->protocol == IPPROTO_IGMP)) {
+-			do_tx_balance = 0;
++			do_tx_balance = false;
+ 			break;
+ 		}
+ 		hash_start = (char *)&(iph->daddr);
+@@ -1382,7 +1416,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 		 * that here just in case.
+ 		 */
+ 		if (ether_addr_equal_64bits(eth_data->h_dest, mac_bcast)) {
+-			do_tx_balance = 0;
++			do_tx_balance = false;
+ 			break;
+ 		}
  
- 	if (xmit_hash_policy) {
- 		if ((bond_mode != BOND_MODE_XOR) &&
--		    (bond_mode != BOND_MODE_8023AD)) {
-+		    (bond_mode != BOND_MODE_8023AD) &&
-+		    (bond_mode != BOND_MODE_TLB)) {
- 			pr_info("xmit_hash_policy param is irrelevant in mode %s\n",
- 				bond_mode_name(bond_mode));
- 		} else {
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 724e30fa20b9..dc3893841752 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -199,7 +199,7 @@ static const struct bond_option bond_opts[] = {
- 	[BOND_OPT_XMIT_HASH] = {
- 		.id = BOND_OPT_XMIT_HASH,
- 		.name = "xmit_hash_policy",
--		.desc = "balance-xor and 802.3ad hashing method",
-+		.desc = "balance-xor, 802.3ad, and tlb hashing method",
- 		.values = bond_xmit_hashtype_tbl,
- 		.set = bond_option_xmit_hash_policy_set
- 	},
+@@ -1390,7 +1424,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 		 * broadcasts in IPv4.
+ 		 */
+ 		if (ether_addr_equal_64bits(eth_data->h_dest, mac_v6_allmcast)) {
+-			do_tx_balance = 0;
++			do_tx_balance = false;
+ 			break;
+ 		}
+ 
+@@ -1400,7 +1434,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 		 */
+ 		ip6hdr = ipv6_hdr(skb);
+ 		if (ipv6_addr_any(&ip6hdr->saddr)) {
+-			do_tx_balance = 0;
++			do_tx_balance = false;
+ 			break;
+ 		}
+ 
+@@ -1410,7 +1444,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 	case ETH_P_IPX:
+ 		if (ipx_hdr(skb)->ipx_checksum != IPX_NO_CHECKSUM) {
+ 			/* something is wrong with this packet */
+-			do_tx_balance = 0;
++			do_tx_balance = false;
+ 			break;
+ 		}
+ 
+@@ -1419,7 +1453,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 			 * this family since it has an "ARP" like
+ 			 * mechanism
+ 			 */
+-			do_tx_balance = 0;
++			do_tx_balance = false;
+ 			break;
+ 		}
+ 
+@@ -1427,12 +1461,12 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 		hash_size = ETH_ALEN;
+ 		break;
+ 	case ETH_P_ARP:
+-		do_tx_balance = 0;
++		do_tx_balance = false;
+ 		if (bond_info->rlb_enabled)
+ 			tx_slave = rlb_arp_xmit(skb, bond);
+ 		break;
+ 	default:
+-		do_tx_balance = 0;
++		do_tx_balance = false;
+ 		break;
+ 	}
+ 
+@@ -1441,32 +1475,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 		tx_slave = tlb_choose_channel(bond, hash_index, skb->len);
+ 	}
+ 
+-	if (!tx_slave) {
+-		/* unbalanced or unassigned, send through primary */
+-		tx_slave = rcu_dereference(bond->curr_active_slave);
+-		bond_info->unbalanced_load += skb->len;
+-	}
+-
+-	if (tx_slave && SLAVE_IS_OK(tx_slave)) {
+-		if (tx_slave != rcu_dereference(bond->curr_active_slave)) {
+-			ether_addr_copy(eth_data->h_source,
+-					tx_slave->dev->dev_addr);
+-		}
+-
+-		bond_dev_queue_xmit(bond, skb, tx_slave->dev);
+-		goto out;
+-	}
+-
+-	if (tx_slave) {
+-		_lock_tx_hashtbl(bond);
+-		__tlb_clear_slave(bond, tx_slave, 0);
+-		_unlock_tx_hashtbl(bond);
+-	}
+-
+-	/* no suitable interface, frame not sent */
+-	dev_kfree_skb_any(skb);
+-out:
+-	return NETDEV_TX_OK;
++	return bond_do_alb_xmit(skb, bond, tx_slave);
+ }
+ 
+ void bond_alb_monitor(struct work_struct *work)
 -- 
 1.9.1.423.g4596e3a
