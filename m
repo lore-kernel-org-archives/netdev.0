@@ -1,26 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/17] remove open-coded skb_cow_head.
-Date: Sat, 29 Mar 2014 17:50:44 -0400 (EDT)
-Message-ID: <20140329.175044.690704875682406914.davem@davemloft.net>
-References: <cover.1396090802.git.romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next] tcp: generalize MAX_TCP_HEADER usage
+Date: Sat, 29 Mar 2014 17:56:54 -0400 (EDT)
+Message-ID: <20140329.175654.1000726174039601620.davem@davemloft.net>
+References: <1395951546.12610.317.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50807 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50844 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751898AbaC2Vuq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 17:50:46 -0400
-In-Reply-To: <cover.1396090802.git.romieu@fr.zoreil.com>
+	with ESMTP id S1752007AbaC2V44 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 17:56:56 -0400
+In-Reply-To: <1395951546.12610.317.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sat, 29 Mar 2014 12:26:13 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 27 Mar 2014 13:19:06 -0700
 
-> As per http://marc.info/?l=linux-netdev&m=139440579104701.
+> (Note that sk_stream_alloc_skb() uses MAX_TCP_HEADER anyway...)
 
-All applied outside of the Intel changes Jeff took into his
-tree, thanks.
+But only after your changes.
+
+Please make this clear in the commit message, I had to go check to see
+if there were in fact MAX_TCP_HEADER uses in sk_stream_alloc_skb in
+the current tree.
