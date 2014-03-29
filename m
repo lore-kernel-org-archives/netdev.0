@@ -1,29 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: generalize MAX_TCP_HEADER usage
-Date: Sat, 29 Mar 2014 17:56:54 -0400 (EDT)
-Message-ID: <20140329.175654.1000726174039601620.davem@davemloft.net>
-References: <1395951546.12610.317.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v2 0/6] netpoll: Cleanups and fixes
+Date: Sat, 29 Mar 2014 18:01:03 -0400 (EDT)
+Message-ID: <20140329.180103.485295949876068582.davem@davemloft.net>
+References: <20140317.154916.2276987764507311378.davem@davemloft.net>
+	<87iorcgh5d.fsf_-_@xmission.com>
+	<87vbuzqnh3.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: stephen@networkplumber.org, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, xiyou.wangcong@gmail.com, mpm@selenic.com,
+	satyam.sharma@gmail.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50844 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50880 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752007AbaC2V44 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 17:56:56 -0400
-In-Reply-To: <1395951546.12610.317.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1752063AbaC2WBF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 18:01:05 -0400
+In-Reply-To: <87vbuzqnh3.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 27 Mar 2014 13:19:06 -0700
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Thu, 27 Mar 2014 15:35:20 -0700
 
-> (Note that sk_stream_alloc_skb() uses MAX_TCP_HEADER anyway...)
+> This should be a small set of safe cleanups and fixes to netpoll.
+> 
+> The fixes are vlan headers are now always inserted when needed, and
+> napi polling is always avoided when network devices are closed.
+> 
+> There are a bunch of little cleanups removing unnecessary code, fixing
+> function naming, not taking unnecessary locks and removing general
+> silliness.
 
-But only after your changes.
-
-Please make this clear in the commit message, I had to go check to see
-if there were in fact MAX_TCP_HEADER uses in sk_stream_alloc_skb in
-the current tree.
+Looks good, series applied, thanks Eric.
