@@ -1,46 +1,81 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next 0/3] net: stmmac: Add glue layer for socfpga platform
-Date: Sat, 29 Mar 2014 01:18:06 +0100
-Message-ID: <201403290118.07163.arnd@arndb.de>
-References: <1395891912-26855-1-git-send-email-dinguyen@altera.com>
+From: wangyufen <wangyufen@huawei.com>
+Subject: Re: [PATCH net-next v5 2/3] ipv6: reuse rt6_need_strict
+Date: Sat, 29 Mar 2014 09:25:09 +0800
+Message-ID: <533620F5.6050103@huawei.com>
+References: <1395998427-7532-1-git-send-email-wangyufen@huawei.com> <1395998427-7532-3-git-send-email-wangyufen@huawei.com> <53357BD3.1060105@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: dinh.linux@gmail.com, davem@davemloft.net, peppe.cavallaro@st.com,
-	srinivas.kandagatla@st.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, arm@kernel.org,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	devicetree@vger.kernel.org
-To: dinguyen@altera.com
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<kuznet@ms2.inr.ac.ru>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:56684 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751315AbaC2ASY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 20:18:24 -0400
-In-Reply-To: <1395891912-26855-1-git-send-email-dinguyen@altera.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:42323 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751446AbaC2BZj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Mar 2014 21:25:39 -0400
+In-Reply-To: <53357BD3.1060105@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 27 March 2014, dinguyen@altera.com wrote:
-> From: Dinh Nguyen <dinguyen@altera.com>
+On 2014/3/28 21:40, Sergei Shtylyov wrote:
+> Hello.
 > 
-> Hi David,
+> On 28-03-2014 13:20, Wangyufen wrote:
 > 
-> I'm re-submitting the patch series to add the socfpga glue layer for the
-> stmmac ethernet driver. My original patch did not build for kernel module,
-> and I apologize for not testing against that.
+>> From: Wang Yufen <wangyufen@huawei.com>
 > 
-> This patch is also better aligned with the other stmmac glue
-> layers(sti and sunxi).
+>> Move the whole rt6_need_strict as static inline into ip6_route.h,
+>> so that it can be reused
 > 
-> I'd like to take the "net: stmmac: Add SOCFPGA glue driver" patch into your
-> tree and the other 2 dts patches through the arm-soc tree.
+>> Signed-off-by: Wang Yufen <wangyufen@huawei.com>
+>> ---
+>>   include/net/ip6_route.h | 5 +++++
+>>   net/ipv6/route.c        | 6 ------
+>>   2 files changed, 5 insertions(+), 6 deletions(-)
+> 
+>> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+>> index 00e3f12..33e8694 100644
+>> --- a/include/net/ip6_route.h
+>> +++ b/include/net/ip6_route.h
+>> @@ -51,6 +51,11 @@ static inline unsigned int rt6_flags2srcprefs(int flags)
+>>       return (flags >> 3) & 7;
+>>   }
+>>
+>> +static inline bool rt6_need_strict(const struct in6_addr *daddr)
+>> +{
+>> +    return ipv6_addr_type(daddr) &
+>> +        IPV6_ADDR_MULTICAST | IPV6_ADDR_LINKLOCAL | IPV6_ADDR_LOOPBACK);
+> 
+>    I don't think removing parens was correct here: & should have more priority than |.
 
-I've applied patches 2 and 3 to the arm-soc/next/dt branch now.
+Oh, fogive me for my carelessness, there missed a '('
+sorry for that, and thanks
 
-Unfortunately there is still one trivial conflict against the net-next tree
-left in the binding document, but I'm not too worried about that.
-
-	Arnd
+> 
+>> +}
+>>
+>>   void ip6_route_input(struct sk_buff *skb);
+>>
+>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+>> index b93ae6a..5015c50 100644
+>> --- a/net/ipv6/route.c
+>> +++ b/net/ipv6/route.c
+>> @@ -374,12 +374,6 @@ static bool rt6_check_expired(const struct rt6_info *rt)
+>>       return false;
+>>   }
+>>
+>> -static bool rt6_need_strict(const struct in6_addr *daddr)
+>> -{
+>> -    return ipv6_addr_type(daddr) &
+>> -        (IPV6_ADDR_MULTICAST | IPV6_ADDR_LINKLOCAL | IPV6_ADDR_LOOPBACK);
+>> -}
+>> -
+>>   /* Multipath route selection:
+>>    *   Hash based function using packet header and flowlabel.
+>>    * Adapted from fib_info_hashfn()
+> 
+> WBR, Sergei
+> 
+> 
+> 
