@@ -1,45 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 05/17] ixgb: remove open-coded skb_cow_head.
-Date: Sat, 29 Mar 2014 06:00:19 -0700
-Message-ID: <1396098019.3616.1.camel@joe-AO722>
-References: <cover.1396090802.git.romieu@fr.zoreil.com>
-	 <73d3fb2312cec80d7891f8da2f7089b8c4752f9f.1396090802.git.romieu@fr.zoreil.com>
-	 <1396097224.3122.1.camel@joe-AO722>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v5] sh_eth: ensure pm_runtime cannot suspend the device
+ during init
+Date: Sat, 29 Mar 2014 17:52:07 +0400
+Message-ID: <5336D007.1090709@cogentembedded.com>
+References: <5335CCBF.8030606@codethink.co.uk>	<20140328.160024.136488246522581222.davem@davemloft.net>	<5335E53C.6020208@cogentembedded.com> <20140328.171836.1899283620390720935.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0087.hostedemail.com ([216.40.44.87]:35860 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751562AbaC2NAX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 09:00:23 -0400
-In-Reply-To: <1396097224.3122.1.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ben.dooks@codethink.co.uk, linux-kernel@lists.codethink.co.uk,
+	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	laurent.pinchart+renesas@ideasonboard.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20140328.171836.1899283620390720935.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2014-03-29 at 05:47 -0700, Joe Perches wrote:
-> On Sat, 2014-03-29 at 12:26 +0100, Francois Romieu wrote:
-> > struct ixgb_adapter *adapter, struct sk_buff *skb)
-> >         if (likely(skb_is_gso(skb))) {
-> >                 struct ixgb_buffer *buffer_info;
-> >                 struct iphdr *iph;
-> > +               int err;
-> >  
-> > -               if (skb_header_cloned(skb)) {
-> > -                       err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
-> > -                       if (err)
-> > -                               return err;
-> > -               }
-> > +               err = skb_cow_head(skb, 0);
-> > +               if (err < 0)
-> > +                       return err
-> 
-> It seems in many instances you're adding
-> an unnecessary declaration of err that
-> shadows an already declared err
+Hello.
 
-I take back the many.  This seems to be the only one.
+On 29-03-2014 1:18, David Miller wrote:
+
+>>>> I thought it was against the net next tree, given the number of
+>>>> patches that are currently being applied to the sh_eth driver.
+
+>>> Fair enough, applied to net-next, thanks!
+
+>>     It probably makes sense to queue this for the stable kernels as well.
+
+> Sorry, that's not how this works.
+
+> If it's good enough for -stable, meaning that users are activly hitting
+> the problem and it's a serious bug, then it's good enough for 'net'
+> and should have been submitted against 'net'.
+
+    I thought that at this point only regression fixes are good for 'net'.
+Although, this can be considered a regression too -- since addition of runtime 
+PM support back in 2009.
+
+WBR, Sergei
+
