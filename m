@@ -1,35 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 0/4] Provide netdev naming-policy via sysfs
-Date: Sat, 29 Mar 2014 15:37:37 -0400 (EDT)
-Message-ID: <20140329.153737.671362434625537776.davem@davemloft.net>
-References: <CAG-2HqVQ-MAZgsZAkykvVtbtYgDA3bfJA5rEqpdX5vBqPTjLJg@mail.gmail.com>
-	<20140328.214254.1620280677250220442.davem@davemloft.net>
-	<CAG-2HqWQsLPaaHxMFn5Bha0BGKSAVZV9n87KTCsbQ1ewktzZvA@mail.gmail.com>
+Subject: Re: [PATCH v5] sh_eth: ensure pm_runtime cannot suspend the device
+ during init
+Date: Sat, 29 Mar 2014 15:39:42 -0400 (EDT)
+Message-ID: <20140329.153942.127963096052575502.davem@davemloft.net>
+References: <5335E53C.6020208@cogentembedded.com>
+	<20140328.171836.1899283620390720935.davem@davemloft.net>
+	<5336D007.1090709@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dh.herrmann@gmail.com, netdev@vger.kernel.org,
-	johannes@sipsolutions.net, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: teg@jklm.no
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAG-2HqWQsLPaaHxMFn5Bha0BGKSAVZV9n87KTCsbQ1ewktzZvA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: ben.dooks@codethink.co.uk, linux-kernel@lists.codethink.co.uk,
+	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	laurent.pinchart+renesas@ideasonboard.com
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <5336D007.1090709@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tom Gundersen <teg@jklm.no>
-Date: Sat, 29 Mar 2014 10:46:02 +0100
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Sat, 29 Mar 2014 17:52:07 +0400
 
-> The issue I see with that is that there are several ways to generate
-> predictable names, and the user may want to chose between them, so
-> this is arguably policy that should not be in the kernel. If you don't
-> think that's a problem, I'd be happy to submit a patch to move all
-> this logic from udev to the kernel, just let me know how you see it.
+> Hello.
+> 
+> On 29-03-2014 1:18, David Miller wrote:
+> 
+>>>>> I thought it was against the net next tree, given the number of
+>>>>> patches that are currently being applied to the sh_eth driver.
+> 
+>>>> Fair enough, applied to net-next, thanks!
+> 
+>>>     It probably makes sense to queue this for the stable kernels as well.
+> 
+>> Sorry, that's not how this works.
+> 
+>> If it's good enough for -stable, meaning that users are activly
+>> hitting
+>> the problem and it's a serious bug, then it's good enough for 'net'
+>> and should have been submitted against 'net'.
+> 
+>    I thought that at this point only regression fixes are good for 'net'.
+> Although, this can be considered a regression too -- since addition of
+> runtime PM support back in 2009.
 
-Unfortunately, we have already allowed this kind of thing for setting
-MAC addresses so I guess I'll have to allow your changes to be applied.
-
-But before I ask you to resubmit, do you have full buy-in from the
-udev folks for this facility?
-
-Thanks.
+-stable has more stringent requirements for inclusion than 'net',
+therefore it is never valid for something to go -stable which is
+not in 'net'.
