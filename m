@@ -1,61 +1,38 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH 1/7] isdn: replace del_timer by del_timer_sync
-Date: Sat, 29 Mar 2014 07:28:22 +0100 (CET)
-Message-ID: <alpine.DEB.2.02.1403290728100.2480@localhost6.localdomain6>
-References: <1395869625-15209-1-git-send-email-Julia.Lawall@lip6.fr> <1395869625-15209-2-git-send-email-Julia.Lawall@lip6.fr> <53360393.2030108@imap.cc>
+From: Toshiaki Makita <toshiaki.makita1@gmail.com>
+Subject: Re: [PATCH net] bridge: Fix memory leak in br_dev_xmit
+Date: Sat, 29 Mar 2014 16:40:47 +0900
+Message-ID: <1396078847.1756.1.camel@localhost.localdomain>
+References: <1395987680-8151-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	 <20140328093457.5d25b9a3@samsung-9>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1288733107-1396074505=:2480"
-Cc: Julia Lawall <Julia.Lawall@lip6.fr>,
-	Karsten Keil <isdn@linux-pingi.de>, tglx@linutronix.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Tilman Schmidt <tilman@imap.cc>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53360393.2030108@imap.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org,
+	"David S . Miller" <davem@davemloft.net>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:41625 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750722AbaC2Hkx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 03:40:53 -0400
+Received: by mail-pb0-f46.google.com with SMTP id rq2so5998885pbb.33
+        for <netdev@vger.kernel.org>; Sat, 29 Mar 2014 00:40:53 -0700 (PDT)
+In-Reply-To: <20140328093457.5d25b9a3@samsung-9>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---8323328-1288733107-1396074505=:2480
-Content-Type: TEXT/PLAIN; charset=iso-8859-15
-Content-Transfer-Encoding: 8BIT
-
-
-
-On Sat, 29 Mar 2014, Tilman Schmidt wrote:
-
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA1
+On Fri, 2014-03-28 at 09:34 -0700, Stephen Hemminger wrote:
+> On Fri, 28 Mar 2014 15:21:19 +0900
+> Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp> wrote:
 > 
-> Am 26.03.2014 22:33, schrieb Julia Lawall:
-> > From: Julia Lawall <Julia.Lawall@lip6.fr>
+> > When a frame is rejected by br_allowed_ingress(), the skb is not freed.
 > > 
-> > Use del_timer_sync to ensure that the timer is stopped on all CPUs
-> > before the driver exists.
-> 
-> Surely you meant "exits"?
+...
+> Increment dev->tx_dropped?
 
-Yes.
+OK, I'll rework it.
 
-julia
-
-> 
-> Regards,
-> Tilman
-> 
-> - -- 
-> Tilman Schmidt                              E-Mail: tilman@imap.cc
-> Bonn, Germany
-> Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-> Ungeöffnet mindestens haltbar bis: (siehe Rückseite)
-> -----BEGIN PGP SIGNATURE-----
-> Version: GnuPG v2.0.22 (MingW32)
-> Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-> 
-> iEYEARECAAYFAlM2A5IACgkQQ3+did9BuFtuMACfarliJdOkqLmJJvRqbcM5eCFd
-> CWwAn3FuQ+juOeo2EgM8e1JBTjlHhG3o
-> =a90K
-> -----END PGP SIGNATURE-----
-> 
---8323328-1288733107-1396074505=:2480--
+Thanks,
+Toshiaki Makita
