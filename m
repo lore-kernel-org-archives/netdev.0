@@ -1,56 +1,66 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 00/17] remove open-coded skb_cow_head.
-Date: Sat, 29 Mar 2014 12:26:13 +0100
-Message-ID: <cover.1396090802.git.romieu@fr.zoreil.com>
-Cc: netdev@vger.kernel.org
+Subject: [PATCH net-next 01/17] atl1: remove open-coded skb_cow_head.
+Date: Sat, 29 Mar 2014 12:26:14 +0100
+Message-ID: <820e5094e5f5400abed56c80b2fb2e3ddce85269.1396090802.git.romieu@fr.zoreil.com>
+References: <cover.1396090802.git.romieu@fr.zoreil.com>
+Cc: netdev@vger.kernel.org, Chris Snook <chris.snook@gmail.com>,
+	Jay Cliburn <jcliburn@gmail.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:60836 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:60854 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751587AbaC2L0s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 07:26:48 -0400
+	with ESMTP id S1751587AbaC2L0t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 07:26:49 -0400
+In-Reply-To: <cover.1396090802.git.romieu@fr.zoreil.com>
+In-Reply-To: <cover.1396090802.git.romieu@fr.zoreil.com>
+References: <cover.1396090802.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As per http://marc.info/?l=linux-netdev&m=139440579104701.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Chris Snook <chris.snook@gmail.com>
+Cc: Jay Cliburn <jcliburn@gmail.com>
+---
+ drivers/net/ethernet/atheros/atlx/atl1.c | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
 
-Francois Romieu (17):
-  atl1: remove open-coded skb_cow_head.
-  atl1c: remove open-coded skb_cow_head.
-  atl1e: remove open-coded skb_cow_head.
-  igb: remove open-coded skb_cow_head.
-  ixgb: remove open-coded skb_cow_head.
-  ixgbvf: remove open-coded skb_cow_head.
-  ixgbe: remove open-coded skb_cow_head.
-  ixgbevf: remove open-coded skb_cow_head.
-  e1000: remove open-coded skb_cow_head.
-  e1000e: remove open-coded skb_cow_head.
-  i40e: remove open-coded skb_cow_head.
-  i40evf: remove open-coded skb_cow_head.
-  jme: remove open-coded skb_cow_head.
-  qlge: remove open-coded skb_cow_head.
-  bna: remove open-coded skb_cow_head.
-  tg3: remove open-coded skb_cow_head.
-  wimax/i2400m: remove open-coded skb_cow_head.
-
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c   | 14 +++++++-------
- drivers/net/ethernet/atheros/atl1e/atl1e_main.c   | 14 +++++++-------
- drivers/net/ethernet/atheros/atlx/atl1.c          | 15 +++++++--------
- drivers/net/ethernet/broadcom/tg3.c               |  3 +--
- drivers/net/ethernet/brocade/bna/bnad.c           | 10 ++++------
- drivers/net/ethernet/intel/e1000/e1000_main.c     | 11 +++++------
- drivers/net/ethernet/intel/e1000e/netdev.c        | 10 ++++------
- drivers/net/ethernet/intel/i40e/i40e_txrx.c       | 18 +++++++++---------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c     | 10 ++++------
- drivers/net/ethernet/intel/igb/igb_main.c         |  9 ++++-----
- drivers/net/ethernet/intel/igbvf/netdev.c         | 16 +++++++---------
- drivers/net/ethernet/intel/ixgb/ixgb_main.c       |  9 ++++-----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     | 13 ++++++-------
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  9 ++++-----
- drivers/net/ethernet/jme.c                        | 16 ++--------------
- drivers/net/ethernet/qlogic/qlge/qlge_main.c      |  9 ++++-----
- drivers/net/wimax/i2400m/netdev.c                 |  3 +--
- 17 files changed, 80 insertions(+), 109 deletions(-)
-
+diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
+index 287272d..dfd0e91 100644
+--- a/drivers/net/ethernet/atheros/atlx/atl1.c
++++ b/drivers/net/ethernet/atheros/atlx/atl1.c
+@@ -2118,18 +2118,17 @@ static u16 atl1_tpd_avail(struct atl1_tpd_ring *tpd_ring)
+ }
+ 
+ static int atl1_tso(struct atl1_adapter *adapter, struct sk_buff *skb,
+-	struct tx_packet_desc *ptpd)
++		    struct tx_packet_desc *ptpd)
+ {
+ 	u8 hdr_len, ip_off;
+ 	u32 real_len;
+-	int err;
+ 
+ 	if (skb_shinfo(skb)->gso_size) {
+-		if (skb_header_cloned(skb)) {
+-			err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+-			if (unlikely(err))
+-				return -1;
+-		}
++		int err;
++
++		err = skb_cow_head(skb, 0);
++		if (err < 0)
++			return err;
+ 
+ 		if (skb->protocol == htons(ETH_P_IP)) {
+ 			struct iphdr *iph = ip_hdr(skb);
+@@ -2175,7 +2174,7 @@ static int atl1_tso(struct atl1_adapter *adapter, struct sk_buff *skb,
+ 			return 3;
+ 		}
+ 	}
+-	return false;
++	return 0;
+ }
+ 
+ static int atl1_tx_csum(struct atl1_adapter *adapter, struct sk_buff *skb,
 -- 
 1.9.0
