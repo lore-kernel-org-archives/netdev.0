@@ -1,48 +1,61 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: nf_conntrack: reserve two bytes for
- nf_ct_ext->len (v3)
-Date: Sun, 30 Mar 2014 13:35:04 +0200
-Message-ID: <20140330113504.GA5895@localhost>
-References: <20140328092449.GA20844@paralelels.com>
- <1396000472-6130-1-git-send-email-avagin@openvz.org>
+From: "wei zhang" <asuka.com-9Onoh4P/yGk@public.gmane.org>
+Subject: Re: [PATCH] openvswitch: supply a dummy err_handler of
+ gre_cisco_protocol to prevent kernel crash
+Date: Sun, 30 Mar 2014 20:12:53 +0800 (CST)
+Message-ID: <4fd27e6c.c96a.14512e82018.Coremail.asuka.com@163.com>
+References: <1395957398-24546-1-git-send-email-asuka.com@163.com>
+ <CAEP_g=_qJ1uHKZmZdkUrT+NUkzbRgaHfShZoMbnnCb+LwjOneQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, vvs@parallels.com,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
-To: Andrey Vagin <avagin@openvz.org>
-Return-path: <netfilter-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1396000472-6130-1-git-send-email-avagin@openvz.org>
-Sender: netfilter-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Jesse Gross" <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAEP_g=_qJ1uHKZmZdkUrT+NUkzbRgaHfShZoMbnnCb+LwjOneQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 28, 2014 at 01:54:32PM +0400, Andrey Vagin wrote:
-> "len" contains sizeof(nf_ct_ext) and size of extensions. In a worst
-> case it can contain all extensions. Bellow you can find sizes for all
-> types of extensions. Their sum is definitely bigger than 256.
-> 
-> nf_ct_ext_types[0]->len = 24
-> nf_ct_ext_types[1]->len = 32
-> nf_ct_ext_types[2]->len = 24
-> nf_ct_ext_types[3]->len = 32
-> nf_ct_ext_types[4]->len = 152
-> nf_ct_ext_types[5]->len = 2
-> nf_ct_ext_types[6]->len = 16
-> nf_ct_ext_types[7]->len = 8
-> 
-> I have seen "len" up to 280 and my host has crashes w/o this patch.
-> 
-> The right way to fix this problem is reducing the size of the ecache
-> extension (4) and Florian is going to do this, but these changes will
-> be quite large to be appropriate for a stable tree.
-> 
-> v2: rearrange the extension so ECACHE comes last. This is required to
-> prevent overflow of nf_ct_ext->offset.
-> v3: The previous attempt of rearranging constants doesn't work here,
-> because extensions may be added in a random order.
-
-Applied, thanks.
+QXQgMjAxNC0wMy0yOSAwNjowMjoyNSwiSmVzc2UgR3Jvc3MiIDxqZXNzZUBuaWNpcmEuY29tPiB3
+cm90ZToKCj5JJ20gbm90IHN1cmUgdGhhdCByZWplY3RpbmcgYWxsIElDTVAgcGFja2V0cyBpcyB0
+aGUgY29ycmVjdCB0aGluZyBkbwo+aGVyZSBzaW5jZSBpdCBtZWFucyB0aGF0IHdlIGNvdWxkIHBh
+c3MgdGhlbSBvbnRvIGEgbGF0ZXIgY2FsbGVyIGV2ZW4KPnRob3VnaCB0aGV5IGFyZSBpbnRlbmRl
+ZCBmb3IgdXMuIFdlIHNob3VsZCBwcm9iYWJseSB1c2UgdGhlIHNhbWUgbG9naWMKPmFzIGZvciBy
+ZWNlaXZpbmcgcGFja2V0cyBhbmQganVzdCBkaXNjYXJkIHRoZW0gaGVyZS4KClRoYW5rIHlvdSB2
+ZXJ5IG11Y2ggZm9yIHlvdXIgYWR2aWNlLCBkaWQgeW91IG1lYW4gdGhpcyBsb2dpYz8gwqAKCmRp
+ZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtZ3JlLmMgYi9uZXQvb3BlbnZzd2l0Y2gv
+dnBvcnQtZ3JlLmMKaW5kZXggYTNkNjk1MS4uYzE4M2E1NiAxMDA2NDQKLS0tIGEvbmV0L29wZW52
+c3dpdGNoL3Zwb3J0LWdyZS5jCisrKyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC1ncmUuYwpAQCAt
+MTEwLDYgKzExMCwyMSBAQCBzdGF0aWMgaW50IGdyZV9yY3Yoc3RydWN0IHNrX2J1ZmYgKnNrYiwK
+wqAgwqAgwqAgwqAgcmV0dXJuIFBBQ0tFVF9SQ1ZEOwrCoH0KwqAKKy8qIENhbGxlZCB3aXRoIHJj
+dV9yZWFkX2xvY2sgYW5kIEJIIGRpc2FibGVkLiAqLworc3RhdGljIGludCBncmVfZXJyKHN0cnVj
+dCBza19idWZmICpza2IsIHUzMiBpbmZvLAorIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgY29u
+c3Qgc3RydWN0IHRubF9wdGtfaW5mbyAqdHBpKQoreworIMKgIMKgIMKgIHN0cnVjdCBvdnNfbmV0
+ICpvdnNfbmV0OworIMKgIMKgIMKgIHN0cnVjdCB2cG9ydCAqdnBvcnQ7CisKKyDCoCDCoCDCoCBv
+dnNfbmV0ID0gbmV0X2dlbmVyaWMoZGV2X25ldChza2ItPmRldiksIG92c19uZXRfaWQpOworIMKg
+IMKgIMKgIHZwb3J0ID0gcmN1X2RlcmVmZXJlbmNlKG92c19uZXQtPnZwb3J0X25ldC5ncmVfdnBv
+cnQpOworIMKgIMKgIMKgIGlmICh1bmxpa2VseSghdnBvcnQpKQorIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIHJldHVybiBQQUNLRVRfUkVKRUNUOworIMKgIMKgIMKgIGVsc2UKKyDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCByZXR1cm4gUEFDS0VUX1JDVkQ7Cit9CgpNYXliZSBJIG1pc3VuZGVyc3RhbmQgc29t
+ZXRoaW5nPyBJIHRoaW5rIGlmIHdlIGRpc2NhcmQgYWxsIHBhY2tldCBwYXNzIHRvIHVzCndoZW4g
+d2UgdXNlIGdyZSB2cG9ydCwgbmV3IGdyZV9jaXNjb19wcm90b2NvbCB3aGljaCBoYXMgbG93ZXIg
+cHJpb3JpdHkgY291bGQKbm90IHNlZSB0aGUgcGFja2V0wqBpbnRlbmRlZCB0byBpdC4KCkkgY2hl
+Y2tlZCB0aGUgaW1wbGVtZW50YXRpb24gb2YgdGhlIGlwZ3JlX2VycigpLCB3aGljaCBoYXMgYmUg
+Y2FsbGVkIGJlZm9yZQp0aGUgZXJyX2hhbmRsZXIgb2YgZ3JlIHZwb3J0LiBJdCB1c2UgdGhlwqB0
+aGUgKGxvY2FsIGFkZHJlc3MsIHJlbW90ZSBhZGRyZXNzLCBrZXkpCnRvIGRpc3Rpbmd1aXNoIHRo
+ZSBwYWNrZXQgd2hpY2jCoGlzIHJlYWx5IGludGVuZGVkIHRvIGl0LMKgYWx0aG91Z2ggaXQgY291
+bGQgbm90IAphbHdheXMgZ2V0IHRoZSBrZXkgZnJvbSB0aGUgaWNtcMKgcGFja2V0LiBTaG91bGQg
+d2UgZG8gYXMgdGhlIHNhbWUgYXMgaXQ/CkknbSBub3Qgc3VyZSB0aGlzIGlzIGZlYXNpYmxlLCBh
+bnkgYWR2aWNlIGlzIGFwcHJlY2lhdGUuCgpSZWdhcmRzLApXZWkgWmhhbmcKX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZA
+b3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9k
+ZXYK
