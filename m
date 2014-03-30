@@ -1,39 +1,44 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH v2] rds: prevent dereference of a NULL device in rds_iw_laddr_check
-Date: Sat, 29 Mar 2014 20:39:35 -0400
-Message-ID: <1396139975-5314-1-git-send-email-sasha.levin@oracle.com>
-Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>
-To: chien.yen@oracle.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:46618 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752497AbaC3Ajn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 20:39:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next v2] net-sysfs: expose number of carrier on/off
+ changes
+Date: Sat, 29 Mar 2014 18:36:28 -0700
+Message-ID: <20140329183628.509f1239@nehalam.linuxnetplumber.net>
+References: <cover.1396111568.git.decot@googlers.com>
+	<2fd338e34d809af14353a03bc1edd0935f332faf.1396111568.git.decot@googlers.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Weilong Chen <chenweilong@huawei.com>,
+	Jiri Pirko <jiri@resnulli.us>, Amir Vadai <amirv@mellanox.com>,
+	Michael Dalton <mwdalton@google.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>, Tejun Heo <tj@kernel.org>
+To: David Decotigny <decot@googlers.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2fd338e34d809af14353a03bc1edd0935f332faf.1396111568.git.decot@googlers.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Binding might result in a NULL device which is later dereferenced
-without checking.
+On Sat, 29 Mar 2014 09:48:35 -0700
+David Decotigny <decot@googlers.com> wrote:
 
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
----
- net/rds/iw.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> This allows to monitor carrier on/off transitions and detect link
+> flapping issues:
+>  - new /sys/class/net/X/carrier_changes
+>  - new rtnetlink IFLA_CARRIER_CHANGES (getlink)
+> 
+> Tested:
+>   - grep . /sys/class/net/*/carrier_changes
+>     + ip link set dev X down/up
+>     + plug/unplug cable
+>   - updated iproute2: prints IFLA_CARRIER_CHANGES
+>   - iproute2 20121211-2 (debian): unchanged behavior
+> 
+> Signed-off-by: David Decotigny <decot@googlers.com>
 
-diff --git a/net/rds/iw.c b/net/rds/iw.c
-index 7826d46..0298920 100644
---- a/net/rds/iw.c
-+++ b/net/rds/iw.c
-@@ -239,7 +239,8 @@ static int rds_iw_laddr_check(__be32 addr)
- 	ret = rdma_bind_addr(cm_id, (struct sockaddr *)&sin);
- 	/* due to this, we will claim to support IB devices unless we
- 	   check node_type. */
--	if (ret || cm_id->device->node_type != RDMA_NODE_RNIC)
-+	if (ret || !cm_id->device ||
-+	    cm_id->device->node_type != RDMA_NODE_RNIC)
- 		ret = -EADDRNOTAVAIL;
- 
- 	rdsdebug("addr %pI4 ret %d node type %d\n",
--- 
-1.8.3.2
+Is there a related SNMP MIB variable? should there be?
