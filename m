@@ -1,45 +1,79 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] packet: respect devices with LLTX flag in direct
- xmit
-Date: Sun, 30 Mar 2014 23:52:04 +0200
-Message-ID: <53389204.2010205@redhat.com>
-References: <1395934710-29182-1-git-send-email-dborkman@redhat.com>  <20140328.165058.1610297081920676758.davem@davemloft.net>  <5335E604.4020105@redhat.com> <1396105350.21428.6.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 3.13.y] nfqueue: Orphan frags in nfqnl_zcopy and handle
+ errors
+Date: Mon, 31 Mar 2014 00:56:42 +0100
+Message-ID: <1396223802.1241.33.camel@deadeye.wl.decadent.org.uk>
+References: <20140328142914.GB25962@hansolo.jdub.homelinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	brouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-/7YSqv1imvPG/k/NLRfH"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
+To: Josh Boyer <jwboyer@fedoraproject.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25668 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751897AbaC3VwJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Mar 2014 17:52:09 -0400
-In-Reply-To: <1396105350.21428.6.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:37445 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753880AbaC3X4y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Mar 2014 19:56:54 -0400
+In-Reply-To: <20140328142914.GB25962@hansolo.jdub.homelinux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/29/2014 04:02 PM, Eric Dumazet wrote:
-> On Fri, 2014-03-28 at 22:13 +0100, Daniel Borkmann wrote:
->> On 03/28/2014 09:50 PM, David Miller wrote:
->
->>> The only remaining issue is that Eric seems to suggest that a tx
->>> dropped counter bump should be added.  Please submit that as a
->>> follow-on if my reading of his feedback is accurate.
->>
->> Yes, will do next week. I think at time of submission we didn't
->> have that yet. :)
->
-> BTW, how direct xmit performs in case of BQL enabled driver ?
->
-> dummy is nice, but not really representative of real device ;)
->
-> netif_xmit_frozen_or_stopped() tests (dev_queue->state &
-> QUEUE_STATE_ANY_XOFF_OR_FROZEN), so will not fill TX ring.
->
-> Since you have no queue, I would rather use a test without
-> BQL bit (1 << __QUEUE_STATE_STACK_XOFF), so that you can absorb bursts
-> into TX ring ...
 
-Thanks Eric, I'll look into it on next Tuesday [I was on travel
-whole weekend and will be on Monday].
+--=-/7YSqv1imvPG/k/NLRfH
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, 2014-03-28 at 10:29 -0400, Josh Boyer wrote:
+> Backport of upstream commit 36d5fe6a0007 to 3.13.y
+>=20
+> nfqnl_zcopy can copy elements of the frags array between skbs, but it doe=
+sn't
+> orphan them.  Also, it doesn't handle errors, so this patch takes care of=
+ that
+> as well, and modify the caller accordingly.  skb_tx_error() is also added=
+ to
+> the callers so they will signal the failed delivery towards the creator o=
+f the
+> skb.
+>=20
+> Fixes CVE-2014-2568.
+>=20
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Josh Boyer <jwboyer@fedoraproject.org>
+[...]
+
+FWIW, I applied the same change to Debian's 3.13.7-1, except for leaving
+'from' as pointer-to-const.
+
+Ben.
+
+--=20
+Ben Hutchings
+friends: People who know you well, but like you anyway.
+
+--=-/7YSqv1imvPG/k/NLRfH
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAUzivOue/yOyVhhEJAQr4fw//YTLtiI2yhodiHs+aYyVEm/3eRQt5+VP+
+eKMK7acXdZTBnMoqBbgtrvH3LVKw0iFf2wvLAP5InwFV3w4RCngcTZeqWVomsLyH
+Ilq44q/AjK6YseeA+py3ZvPPZ0ZQCNFryPf4ifqzoAgp9qdBRe6HDH0akq8uOqlh
+x2pdJGCJmfdkCsgNgFyG4MdaLumFvsWvi9+wAV1nBSPSfLoa0UTq3hPJQambcEt7
+YpPBycfp2z8CM51UA/KUv3ORtbaWyDDVSXLWc2iCqA2Sm77GFrZNACWgA0RCzcTx
+jk20rdJ6Xfh9Q2XKehNX9J8lAI5M94Ga39CKpfsjxjVazlrrJf51BCpvKBDW4xhZ
+HJr6x58UAvar5nDdwMChunn94IAnvsJJJOWnInsXPeXkesBkfTtv7QjSlGO2HdIt
+xEnTrR3wGmsqYJdmXTt7hCo34oGJ+z4Vzv2rgZuvkRdDiFVYn8R202zwTzLUNAlu
+5H+CDu0LWOJIM5D0T/nfOUnhqlNX50IzNeEGXDuROm4Z5wFS8xIHLHvYNoLXn8P9
+XGaCn3VvVQxaJ1FTvpE0Q0B8ly7A3OdtL1I0EHpDJGxy2VVBQ8mvHPt30UluWIv1
+QVW5lkJzFip0n0haIQlfaw4b5dlFeDwOHoFO+5NTZ/MZTcbSgr22kX6uUDhRh3tA
+OcT1lYo6rSA=
+=8ICj
+-----END PGP SIGNATURE-----
+
+--=-/7YSqv1imvPG/k/NLRfH--
