@@ -1,41 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: make sure to init MAC address
-Date: Sat, 29 Mar 2014 18:54:29 -0400 (EDT)
-Message-ID: <20140329.185429.613403614921271282.davem@davemloft.net>
-References: <1396048764-3301-1-git-send-email-dev@lynxeye.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
-	l.stach@pengutronix.de
-To: dev@lynxeye.de
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: [PATCH v2] rds: prevent dereference of a NULL device in rds_iw_laddr_check
+Date: Sat, 29 Mar 2014 20:39:35 -0400
+Message-ID: <1396139975-5314-1-git-send-email-sasha.levin@oracle.com>
+Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>
+To: chien.yen@oracle.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51352 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751878AbaC2Wya (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 18:54:30 -0400
-In-Reply-To: <1396048764-3301-1-git-send-email-dev@lynxeye.de>
+Received: from userp1040.oracle.com ([156.151.31.81]:46618 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752497AbaC3Ajn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Mar 2014 20:39:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lucas Stach <dev@lynxeye.de>
-Date: Sat, 29 Mar 2014 00:19:24 +0100
+Binding might result in a NULL device which is later dereferenced
+without checking.
 
-> @@ -1898,10 +1898,11 @@ fec_set_mac_address(struct net_device *ndev, void *p)
->  	struct fec_enet_private *fep = netdev_priv(ndev);
->  	struct sockaddr *addr = p;
->  
-> -	if (!is_valid_ether_addr(addr->sa_data))
-> -		return -EADDRNOTAVAIL;
-> -
-> -	memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
-> +	if (p) {
-> +		if (!is_valid_ether_addr(addr->sa_data))
-> +			return -EADDRNOTAVAIL;
-> +		memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
-> +	}
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+---
+ net/rds/iw.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-This test looks awkward, if we're going to dereference and
-use 'addr', then test 'addr' instead of 'p'.
-
-Thanks.
+diff --git a/net/rds/iw.c b/net/rds/iw.c
+index 7826d46..0298920 100644
+--- a/net/rds/iw.c
++++ b/net/rds/iw.c
+@@ -239,7 +239,8 @@ static int rds_iw_laddr_check(__be32 addr)
+ 	ret = rdma_bind_addr(cm_id, (struct sockaddr *)&sin);
+ 	/* due to this, we will claim to support IB devices unless we
+ 	   check node_type. */
+-	if (ret || cm_id->device->node_type != RDMA_NODE_RNIC)
++	if (ret || !cm_id->device ||
++	    cm_id->device->node_type != RDMA_NODE_RNIC)
+ 		ret = -EADDRNOTAVAIL;
+ 
+ 	rdsdebug("addr %pI4 ret %d node type %d\n",
+-- 
+1.8.3.2
