@@ -1,60 +1,48 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next] net/mlx4: Set proper build dependancy with vxlan
-Date: Sun, 30 Mar 2014 14:28:25 +0300
-Message-ID: <1396178905-3817-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, amirv@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:54340 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752612AbaC3L2e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Mar 2014 07:28:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: nf_conntrack: reserve two bytes for
+ nf_ct_ext->len (v3)
+Date: Sun, 30 Mar 2014 13:35:04 +0200
+Message-ID: <20140330113504.GA5895@localhost>
+References: <20140328092449.GA20844@paralelels.com>
+ <1396000472-6130-1-git-send-email-avagin@openvz.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, vvs@parallels.com,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>
+To: Andrey Vagin <avagin@openvz.org>
+Return-path: <netfilter-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1396000472-6130-1-git-send-email-avagin@openvz.org>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Make sure that vxlan_get_rx_port() is present in the kernel build in a manner
-consistent with mlx4. Otherwise, mlx4 can be made built-in where vxlan as a module
-and the linking phase of the kernel build fails. Add CONFIG_MLX4_EN_VXLAN for that.
+On Fri, Mar 28, 2014 at 01:54:32PM +0400, Andrey Vagin wrote:
+> "len" contains sizeof(nf_ct_ext) and size of extensions. In a worst
+> case it can contain all extensions. Bellow you can find sizes for all
+> types of extensions. Their sum is definitely bigger than 256.
+> 
+> nf_ct_ext_types[0]->len = 24
+> nf_ct_ext_types[1]->len = 32
+> nf_ct_ext_types[2]->len = 24
+> nf_ct_ext_types[3]->len = 32
+> nf_ct_ext_types[4]->len = 152
+> nf_ct_ext_types[5]->len = 2
+> nf_ct_ext_types[6]->len = 16
+> nf_ct_ext_types[7]->len = 8
+> 
+> I have seen "len" up to 280 and my host has crashes w/o this patch.
+> 
+> The right way to fix this problem is reducing the size of the ecache
+> extension (4) and Florian is going to do this, but these changes will
+> be quite large to be appropriate for a stable tree.
+> 
+> v2: rearrange the extension so ECACHE comes last. This is required to
+> prevent overflow of nf_ct_ext->offset.
+> v3: The previous attempt of rearranging constants doesn't work here,
+> because extensions may be added in a random order.
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/Kconfig     |    7 +++++++
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 ++
- 2 files changed, 9 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/Kconfig b/drivers/net/ethernet/mellanox/mlx4/Kconfig
-index 1a6e188..1486ce9 100644
---- a/drivers/net/ethernet/mellanox/mlx4/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlx4/Kconfig
-@@ -23,6 +23,13 @@ config MLX4_EN_DCB
- 
- 	  If unsure, set to Y
- 
-+config MLX4_EN_VXLAN
-+	bool "VXLAN offloads Support"
-+	default y
-+	depends on MLX4_EN && VXLAN && !(MLX4_EN=y && VXLAN=m)
-+	---help---
-+	  Say Y here if you want to use VXLAN offloads in the driver.
-+
- config MLX4_CORE
- 	tristate
- 	depends on PCI
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 82d7eb5..44fa7b0 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1698,8 +1698,10 @@ int mlx4_en_start_port(struct net_device *dev)
- 
- 	mlx4_set_stats_bitmap(mdev->dev, &priv->stats_bitmap);
- 
-+#ifdef CONFIG_MLX4_EN_VXLAN
- 	if (priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_VXLAN_OFFLOADS)
- 		vxlan_get_rx_port(dev);
-+#endif
- 	priv->port_up = true;
- 	netif_tx_start_all_queues(dev);
- 	netif_device_attach(dev);
--- 
-1.7.1
+Applied, thanks.
