@@ -1,68 +1,76 @@
-From: David Decotigny <decot@googlers.com>
-Subject: Re: [PATCH net-next v2] net-sysfs: expose number of carrier on/off changes
-Date: Sun, 30 Mar 2014 08:18:13 -0700
-Message-ID: <CAG88wWYDHpYckgP=U+==_6A9-GLnw7PjiD=g-n7qbKCZbz-x4w@mail.gmail.com>
-References: <cover.1396111568.git.decot@googlers.com> <2fd338e34d809af14353a03bc1edd0935f332faf.1396111568.git.decot@googlers.com>
- <20140329183628.509f1239@nehalam.linuxnetplumber.net> <1396144245.29410.2.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: [PATCH net-next] qlcnic: Fix build failure due to undefined reference to `vxlan_get_rx_port'
+Date: Sun, 30 Mar 2014 10:42:25 -0400
+Message-ID: <1396190545-20241-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Eric Dumazet <edumazet@google.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Weilong Chen <chenweilong@huawei.com>,
-	Jiri Pirko <jiri@resnulli.us>, Amir Vadai <amirv@mellanox.com>,
-	Michael Dalton <mwdalton@google.com>,
-	Al Viro <viro@zeniv.linux.org.uk>, Tejun Heo <tj@kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1396144245.29410.2.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:17465 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752075AbaC3PTL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Mar 2014 11:19:11 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-As Eric mentioned, this is a per-link counter. I am not sure an
-aggregate stat would be as useful.
+Commit 2b3d7b758c687("qlcnic: Add VXLAN Rx offload support") uses
+vxlan_get_rx_port() which caused build failure when VXLAN=m.
 
-As suggested by Florian, I'm planning to add a doc. As far as I can
-tell, I think it goes beyond just documenting this new counter: I
-believe sysfs-class-net needs to be added as a whole.
+This patch fixes the build failure by adding dependency on VXLAN
+in Kconfig of qlcnic module and use vxlan_get_rx_port() accordingly.
 
-Stephen: I have a patch for iproute2, I was planning to send it after
-we're done with this one, unless you want it now. Also, should I
-document this IFLA thing, where would be best?
+Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+---
+Hi David,
 
-On Sat, Mar 29, 2014 at 6:50 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sat, 2014-03-29 at 18:36 -0700, Stephen Hemminger wrote:
->> On Sat, 29 Mar 2014 09:48:35 -0700
->> David Decotigny <decot@googlers.com> wrote:
->>
->> > This allows to monitor carrier on/off transitions and detect link
->> > flapping issues:
->> >  - new /sys/class/net/X/carrier_changes
->> >  - new rtnetlink IFLA_CARRIER_CHANGES (getlink)
->> >
->> > Tested:
->> >   - grep . /sys/class/net/*/carrier_changes
->> >     + ip link set dev X down/up
->> >     + plug/unplug cable
->> >   - updated iproute2: prints IFLA_CARRIER_CHANGES
->> >   - iproute2 20121211-2 (debian): unchanged behavior
->> >
->> > Signed-off-by: David Decotigny <decot@googlers.com>
->>
->> Is there a related SNMP MIB variable? should there be?
->
-> I don't think we have any SNMP MIB variable for devices ?
->
-> It seems "ip link" is the facto standard.
->
-> (BTW we put BusyPollRxPackets in TcpExt group, this was an error IMHO)
->
->
+Please apply this patch to net-next.
+
+Thanks,
+Shahed
+---
+ drivers/net/ethernet/qlogic/Kconfig              |   10 ++++++++++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    2 ++
+ 2 files changed, 12 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/qlogic/Kconfig b/drivers/net/ethernet/qlogic/Kconfig
+index f59e6be..c14bd31 100644
+--- a/drivers/net/ethernet/qlogic/Kconfig
++++ b/drivers/net/ethernet/qlogic/Kconfig
+@@ -56,6 +56,16 @@ config QLCNIC_DCB
+ 	  mode of DCB is supported. PG and PFC values are related only
+ 	  to Tx.
+ 
++config QLCNIC_VXLAN
++	bool "Virtual eXtensible Local Area Network (VXLAN) offload support"
++	default n
++	depends on QLCNIC && VXLAN && !(QLCNIC=y && VXLAN=m)
++	---help---
++	  This enables hardware offload support for VXLAN protocol over QLogic's
++	  84XX series adapters.
++	  Say Y here if you want to enable hardware offload support for
++	  Virtual eXtensible Local Area Network (VXLAN) in the driver.
++
+ config QLGE
+ 	tristate "QLogic QLGE 10Gb Ethernet Driver Support"
+ 	depends on PCI
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 79be451..d341f65 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -1975,8 +1975,10 @@ qlcnic_attach(struct qlcnic_adapter *adapter)
+ 
+ 	qlcnic_create_sysfs_entries(adapter);
+ 
++#ifdef CONFIG_QLCNIC_VXLAN
+ 	if (qlcnic_encap_rx_offload(adapter))
+ 		vxlan_get_rx_port(netdev);
++#endif
+ 
+ 	adapter->is_up = QLCNIC_ADAPTER_UP_MAGIC;
+ 	return 0;
+-- 
+1.5.6
