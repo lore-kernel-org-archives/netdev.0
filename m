@@ -1,70 +1,79 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net] at86rf230: mask irq's before
-	deregister device
-Date: Mon, 31 Mar 2014 03:26:51 +0200
-Message-ID: <1396229211-9146-1-git-send-email-alex.aring@gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the arm-soc tree
+Date: Mon, 31 Mar 2014 13:24:57 +1100
+Message-ID: <20140331132457.2d8d71019a52033bbef5b2c2@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Mon__31_Mar_2014_13_24_57_+1100_koNqZvvbLcL0O6vW"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Dinh Nguyen <dinguyen@altera.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
+	<linux-arm-kernel@lists.infradead.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-While transmit over a at86rf231 device and unloading the module I got:
+--Signature=_Mon__31_Mar_2014_13_24_57_+1100_koNqZvvbLcL0O6vW
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-[   29.643073] WARNING: CPU: 0 PID: 3 at kernel/workqueue.c:1335 __queue_work+0xb4/0x224()
-[   29.651457] Modules linked in: at86rf230(-) autofs4
-[   29.656612] CPU: 0 PID: 3 Comm: ksoftirqd/0 Tainted: G        W    3.14.0-rc6-01602-g902659e-dirty #294
-[   29.666490] [<c00124f0>] (unwind_backtrace) from [<c0010ad0>] (show_stack+0x10/0x14)
-[   29.674628] [<c0010ad0>] (show_stack) from [<c0032c80>] (warn_slowpath_common+0x60/0x80)
-[   29.683116] [<c0032c80>] (warn_slowpath_common) from [<c0032d30>] (warn_slowpath_null+0x18/0x20)
-[   29.692329] [<c0032d30>] (warn_slowpath_null) from [<c0045b08>] (__queue_work+0xb4/0x224)
-[   29.700906] [<c0045b08>] (__queue_work) from [<c0045cc8>] (queue_work_on+0x50/0x78)
-[   29.708944] [<c0045cc8>] (queue_work_on) from [<c05669cc>] (mac802154_tx+0x1e4/0x240)
-[   29.717164] [<c05669cc>] (mac802154_tx) from [<c0471814>] (dev_hard_start_xmit+0x2f0/0x43c)
-[   29.725926] [<c0471814>] (dev_hard_start_xmit) from [<c04878d0>] (sch_direct_xmit+0x64/0x2a0)
-[   29.734867] [<c04878d0>] (sch_direct_xmit) from [<c0487c38>] (__qdisc_run+0x12c/0x18c)
-[   29.743169] [<c0487c38>] (__qdisc_run) from [<c046e1b0>] (net_tx_action+0xe0/0x178)
-[   29.751205] [<c046e1b0>] (net_tx_action) from [<c0036690>] (__do_softirq+0x100/0x264)
-[   29.759420] [<c0036690>] (__do_softirq) from [<c0036818>] (run_ksoftirqd+0x24/0x4c)
-[   29.767453] [<c0036818>] (run_ksoftirqd) from [<c005232c>] (smpboot_thread_fn+0x128/0x13c)
-[   29.776121] [<c005232c>] (smpboot_thread_fn) from [<c004c3fc>] (kthread+0xd0/0xe4)
-[   29.784061] [<c004c3fc>] (kthread) from [<c000da88>] (ret_from_fork+0x14/0x2c)
-[   29.791628] ---[ end trace 3406ff24bd973834 ]---
+Hi all,
 
-The problem is there are still interrupts after deregister ieee802154
-device. This patch mask all interrupts in the at86rf2xx chips before
-deregister the device.
+Today's linux-next merge of the net-next tree got a conflict in
+Documentation/devicetree/bindings/net/stmmac.txt between commit
+50b4af414d41 ("dts: stmmac: Document the clocks property in the stmmac
+base document") from the arm-soc tree and commit e8f08ee0ad86 ("DT: net:
+document Ethernet bindings in one place") from the net-next tree.
 
-Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/ieee802154/at86rf230.c | 2 ++
- 1 file changed, 2 insertions(+)
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
-diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index a30258a..fbb83d1 100644
---- a/drivers/net/ieee802154/at86rf230.c
-+++ b/drivers/net/ieee802154/at86rf230.c
-@@ -997,6 +997,8 @@ static int at86rf230_remove(struct spi_device *spi)
- {
- 	struct at86rf230_local *lp = spi_get_drvdata(spi);
- 
-+	/* mask all at86rf230 irq's */
-+	at86rf230_write_subreg(lp, SR_IRQ_MASK, 0);
- 	ieee802154_unregister_device(lp->dev);
- 
- 	free_irq(spi->irq, lp);
--- 
-1.9.1
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
+diff --cc Documentation/devicetree/bindings/net/stmmac.txt
+index 9a0c1b7bee29,5748351fb9df..000000000000
+--- a/Documentation/devicetree/bindings/net/stmmac.txt
++++ b/Documentation/devicetree/bindings/net/stmmac.txt
+@@@ -31,13 -30,7 +30,11 @@@ Optional properties
+  - resets: Should contain a phandle to the STMMAC reset signal, if any
+  - reset-names: Should contain the reset signal name "stmmaceth", if a
+  	reset phandle is given
+- - max-frame-size:	Maximum Transfer Unit (IEEE defined MTU), rather
+- 			than the maximum frame size.
++ - max-frame-size: See ethernet.txt file in the same directory
+ +- clocks: If present, the first clock should be the GMAC main clock,
+ +  further clocks may be specified in derived bindings.
+ +- clocks-names: One name for each entry in the clocks property, the
+ +  first one should be "stmmaceth".
+ =20
+  Examples:
+ =20
 
-------------------------------------------------------------------------------
+--Signature=_Mon__31_Mar_2014_13_24_57_+1100_koNqZvvbLcL0O6vW
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTONH9AAoJEMDTa8Ir7ZwV9RsP+wVYaiWA18sy5ZqCQUKBXRzV
+thf/oU5dc68Cgbtx9hPuL5Kd8YmFVGFEx5bYhuV6f849vbchQoxWXcbGkL1HHUts
+g33WEapmAC46AkV5l4ir4VWxjsDtDAAFkfYXIgXqHfUX5T2SUMHo44H7WyJK7kjF
+TQLKfjwFYeuWGDlfTL6Kea3Gfgm1tw0ghTCgE7a1AmBThyJ1Bwx8V93ga1VvUwLX
+F1nExFTRgIYzo/tJ8xySz4JPPTt1YfR4Agg3Eprt+X1MTbvjG5o1D5BJ27Jq02Jb
+o8qet+9EZN6on+cFOwq8phK8v0SwBCILLUKwn+xu1xagR/Ptkzjz08GqUwOIhUQD
+jUVdlwRwViNLi3AH2rWE+mx0BH987BgNdj9GUleduq5dqL+K30jGyKlkS/OVsiaW
+JIk0NZQIPpvHjE3KvcSsFLsKR4kIaB8HUx/QV3BYcUUkzOWM1rbYhyom0ZtWvNR/
+5sZenr1F3509xVHOEIM7LJXIqcRpTPCD/jUz1cl83G8PH9UngOIr6yjFk5WyCg8h
+uu2kWKffL3g/9llDBUARhJV6uWp8/ASae5bFXtN3LLB1I2g6pZOvilgvMkFbzkMv
+OIvo5YyifmbzehAed9w3fFBDNEGq3afn5QDIA5rIdq0Q7IzY1yVqhw/u8qtSbqad
+TmVN7XnoNhCUqsP9IxIl
+=25pF
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__31_Mar_2014_13_24_57_+1100_koNqZvvbLcL0O6vW--
