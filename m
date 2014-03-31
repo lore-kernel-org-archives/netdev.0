@@ -1,35 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v6 0/3] ipv6: tcp_ipv6 policy route issue
-Date: Mon, 31 Mar 2014 16:16:45 -0400 (EDT)
-Message-ID: <20140331.161645.1420318621069166291.davem@davemloft.net>
-References: <1396056451-5600-1-git-send-email-wangyufen@huawei.com>
+Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created
+ with no group
+Date: Mon, 31 Mar 2014 16:18:51 -0400 (EDT)
+Message-ID: <20140331.161851.1545173206165352304.davem@davemloft.net>
+References: <CAJZOPZL9h0q3iiN7Q2jJWW+uEs0EpNaWqVMqQMyL+-5QGxGWPg@mail.gmail.com>
+	<20140325.205324.1845346581147557473.davem@davemloft.net>
+	<20140329082918.GA5720@zed>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
-To: wangyufen@huawei.com
+Cc: or.gerlitz@gmail.com, dlstevens@us.ibm.com, cwang@twopensource.com,
+	netdev@vger.kernel.org
+To: mike.rapoport@ravellosystems.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42778 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42798 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751191AbaCaUQs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 16:16:48 -0400
-In-Reply-To: <1396056451-5600-1-git-send-email-wangyufen@huawei.com>
+	with ESMTP id S1751142AbaCaUSz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 16:18:55 -0400
+In-Reply-To: <20140329082918.GA5720@zed>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wangyufen <wangyufen@huawei.com>
-Date: Sat, 29 Mar 2014 09:27:28 +0800
+From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Date: Sat, 29 Mar 2014 11:29:18 +0300
 
-> From: Wang Yufen <wangyufen@huawei.com>
+> Hi David,
 > 
-> Wang Yufen (3):
->   ipv6: tcp_ipv6 do some cleanup
->   ipv6: reuse rt6_need_strict
->   ipv6: tcp_ipv6 policy route issue
+> On Tue, Mar 25, 2014 at 08:53:24PM -0400, David Miller wrote:
+>> 
+>> It turns out we are going to partially revert that commit and
+>> iptunnel_pull_header() will start doing the skb_dst_drop() again.
+>> 
+>> See:
+>> 
+>> 	http://patchwork.ozlabs.org/patch/332956/
+>> 
+>> for details.
+>> 
+>> Will that fix this bug too?
 > 
-> v4: use rt6_need_strict to check whether the oif directly
->     assigned to iif
-> v5: Move the whole rt6_need_strict as static inline into 
->     ip6_route.h, instade of just delete static.
+> I've found some more corner cases in the vxlan driver and the patch
+> below fixes them and my custom configuration case as well.
 
-Series applied, thanks.
+Mike, please submit this formally for inclusion, in a fresh patch posting,
+without any other unrelated context, thanks.
