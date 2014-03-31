@@ -1,43 +1,67 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net-next] net: ptp: oki-semi: fix build dependency
-Date: Sun, 30 Mar 2014 23:32:19 -0700
-Message-ID: <1396247539-27298-1-git-send-email-ast@plumgrid.com>
-Cc: Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:57637 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752992AbaCaGcX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 02:32:23 -0400
-Received: by mail-pa0-f46.google.com with SMTP id kx10so2267590pab.33
-        for <netdev@vger.kernel.org>; Sun, 30 Mar 2014 23:32:23 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "zheng.li" <zheng.x.li@oracle.com>
+Subject: Re: [PATCH] bonding: Inactive slaves should keep inactive flag's
+ value to 1
+Date: Mon, 31 Mar 2014 14:58:26 +0800
+Message-ID: <53391212.70205@oracle.com>
+References: <1395998529-5937-1-git-send-email-zheng.x.li@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Zheng Li <zheng.x.li@oracle.com>, netdev@vger.kernel.org,
+	andy@greyhouse.net, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, joe.jin@oracle.com
+To: fubar@us.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395998529-5937-1-git-send-email-zheng.x.li@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-fix kbuild test error:
-ERROR: "ptp_classify_raw" [drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.ko] undefined!
+Hi Jay,
+What's you think about the new patch.
 
-Fixes: 164d8c666521 ("net: ptp: do not reimplement PTP/BPF classifier")
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: linux-ppp@vger.kernel.org
-Cc: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
- drivers/net/ethernet/oki-semi/pch_gbe/Kconfig |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Thanks,
+Zheng Li
 
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-index a588ffde9700..b6f2ed76f7e4 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-@@ -4,7 +4,7 @@
- 
- config PCH_GBE
- 	tristate "OKI SEMICONDUCTOR IOH(ML7223/ML7831) GbE"
--	depends on PCI && (X86 || COMPILE_TEST)
-+	depends on PCI && NETWORK_PHY_TIMESTAMPING && (X86 || COMPILE_TEST)
- 	select MII
- 	select PTP_1588_CLOCK_PCH
- 	---help---
--- 
-1.7.9.5
+=D3=DA 2014=C4=EA03=D4=C228=C8=D5 17:22, Zheng Li =D0=B4=B5=C0:
+> In bond mode tlb and alb, inactive slaves should keep inactive flag t=
+o 1 to
+> refuse to receive broadcast packets. Now, active slave send broadcast=
+ packets
+> (for example ARP requests) which will arrive inactive slaves on same =
+host from
+> switch, but inactive slave's inactive flag is zero that cause bridge =
+receive the
+> broadcast packets to produce a wrong entry in forward table. Typical =
+situation
+> is domu send some ARP request which go out from dom0 bond's active sl=
+ave, then
+> the ARP broadcast request packets go back to inactive slave from swit=
+ch, because
+> the inactive slave's inactive flag is zero, kernel will receive the p=
+ackets and
+> pass them to bridge that cause dom0's bridge map domu's MAC address t=
+o port of
+> bond, bridge should map domu's MAC to port of vif.
+>=20
+> Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
+> ---
+>  drivers/net/bonding/bond_main.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bo=
+nd_main.c
+> index e5628fc..f97d72e 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -3058,7 +3058,7 @@ static int bond_open(struct net_device *bond_de=
+v)
+>  	if (bond_has_slaves(bond)) {
+>  		read_lock(&bond->curr_slave_lock);
+>  		bond_for_each_slave(bond, slave, iter) {
+> -			if ((bond->params.mode =3D=3D BOND_MODE_ACTIVEBACKUP)
+> +			if ((bond->params.mode =3D=3D BOND_MODE_ACTIVEBACKUP || bond_is_l=
+b(bond))
+>  				&& (slave !=3D bond->curr_active_slave)) {
+>  				bond_set_slave_inactive_flags(slave,
+>  							      BOND_SLAVE_NOTIFY_NOW);
+>=20
