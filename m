@@ -1,34 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: NFS does not work on linux-next 20140331
-Date: Mon, 31 Mar 2014 10:41:47 -0700
-Message-ID: <1396287707.29410.63.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAOMZO5DQ3dNB-R5rsd2X89XLbg_VYs7za8xQT2K-bWWmFS=YHA@mail.gmail.com>
-	 <1396283344.29410.55.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAOMZO5Ac2s9bA8Af+ObDOR+5q0FJAnQ9RoGRO62tCpMvK-npbg@mail.gmail.com>
-	 <20140331164301.GA24150@order.stressinduktion.org>
-	 <CAOMZO5AQQoQK_2SM7QwfRYePKmf0Ci1=yMfH7reRwm_hWAVEyg@mail.gmail.com>
-	 <20140331165429.GB24150@order.stressinduktion.org>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [net-next v2 07/14] i40evf: remove double space after return
+Date: Mon, 31 Mar 2014 10:48:04 -0700
+Message-ID: <20140331104804.00005c55@unknown>
+References: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1396015695-25283-8-git-send-email-jeffrey.t.kirsher@intel.com>
+	<CAJZOPZ+NqT8LsJGjtmZGwUANONXphgtm1tZSdoLrRiDyruyJ0Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Fabio Estevam <festevam@gmail.com>,
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+	"gospo@redhat.com" <gospo@redhat.com>, jesse.brandeburg@intel.com
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:62684 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753814AbaCaRlu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 13:41:50 -0400
-Received: by mail-pd0-f171.google.com with SMTP id r10so8304367pdi.30
-        for <netdev@vger.kernel.org>; Mon, 31 Mar 2014 10:41:49 -0700 (PDT)
-In-Reply-To: <20140331165429.GB24150@order.stressinduktion.org>
+Received: from mga11.intel.com ([192.55.52.93]:3252 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753052AbaCaRv7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Mar 2014 13:51:59 -0400
+In-Reply-To: <CAJZOPZ+NqT8LsJGjtmZGwUANONXphgtm1tZSdoLrRiDyruyJ0Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-03-31 at 18:54 +0200, Hannes Frederic Sowa wrote:
+On Fri, 28 Mar 2014 22:58:31 +0300
+Or Gerlitz <or.gerlitz@gmail.com> wrote:
+> Just out of curiosity, any special reason for four of the maintainers
+> to sign on a patch that remove a space?
 
-> Eric, do you mind if I take over, I'll audit the rest of the stack
-> regarding this change, too.
+Yeah, seems like lots of overkill, in this case it is just an artifact
+of all the people that handled the patch as it exited our process.
 
-I do not mind at all ;)
+Thanks for the review.
