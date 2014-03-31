@@ -1,59 +1,52 @@
-From: Neil Jerram <Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org>
-Subject: Re: [patch net-next RFC v2 2/6] skbuff: add "missed_flow"
-	flag
-Date: Mon, 31 Mar 2014 20:39:06 +0000
-Message-ID: <F6885DC5CBE92C4BB4D654841E63A30FD7DFC900@ENFIRHMBX1.datcon.co.uk>
-References: <1395851472-10524-1-git-send-email-jiri@resnulli.us>
- <1395851472-10524-3-git-send-email-jiri@resnulli.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] at86rf230: mask irq's before deregister device
+Date: Mon, 31 Mar 2014 16:43:34 -0400 (EDT)
+Message-ID: <20140331.164334.791905030722014681.davem@davemloft.net>
+References: <1396229211-9146-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- "edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org" <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
- "andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org" <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>,
- "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- "f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- "jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- "ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
- "ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org" <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
- "roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org" <roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
- "jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org" <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
- "linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
- "vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- "nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
- "sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org" <sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org>,
- "stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org" <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
- "dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: 'Jiri Pirko' <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>, "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
- <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1395851472-10524-3-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Content-Language: en-US
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: alex.aring@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43069 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750987AbaCaUnh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 16:43:37 -0400
+In-Reply-To: <1396229211-9146-1-git-send-email-alex.aring@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 03db95a..0100c2f 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -567,6 +567,7 @@ struct sk_buff {
->  	 * headers if needed
->  	 */
->  	__u8			encapsulation:1;
-> +	__u8			missed_flow:1;
->  	/* 6/8 bit hole (depending on ndisc_nodetype presence) */
->  	kmemcheck_bitfield_end(flags2);
+From: Alexander Aring <alex.aring@gmail.com>
+Date: Mon, 31 Mar 2014 03:26:51 +0200
 
-Presumably you need to update the "6/8 bit hole" comment here.
+> While transmit over a at86rf231 device and unloading the module I got:
+> 
+> [   29.643073] WARNING: CPU: 0 PID: 3 at kernel/workqueue.c:1335 __queue_work+0xb4/0x224()
+> [   29.651457] Modules linked in: at86rf230(-) autofs4
+> [   29.656612] CPU: 0 PID: 3 Comm: ksoftirqd/0 Tainted: G        W    3.14.0-rc6-01602-g902659e-dirty #294
+> [   29.666490] [<c00124f0>] (unwind_backtrace) from [<c0010ad0>] (show_stack+0x10/0x14)
+> [   29.674628] [<c0010ad0>] (show_stack) from [<c0032c80>] (warn_slowpath_common+0x60/0x80)
+> [   29.683116] [<c0032c80>] (warn_slowpath_common) from [<c0032d30>] (warn_slowpath_null+0x18/0x20)
+> [   29.692329] [<c0032d30>] (warn_slowpath_null) from [<c0045b08>] (__queue_work+0xb4/0x224)
+> [   29.700906] [<c0045b08>] (__queue_work) from [<c0045cc8>] (queue_work_on+0x50/0x78)
+> [   29.708944] [<c0045cc8>] (queue_work_on) from [<c05669cc>] (mac802154_tx+0x1e4/0x240)
+> [   29.717164] [<c05669cc>] (mac802154_tx) from [<c0471814>] (dev_hard_start_xmit+0x2f0/0x43c)
+> [   29.725926] [<c0471814>] (dev_hard_start_xmit) from [<c04878d0>] (sch_direct_xmit+0x64/0x2a0)
+> [   29.734867] [<c04878d0>] (sch_direct_xmit) from [<c0487c38>] (__qdisc_run+0x12c/0x18c)
+> [   29.743169] [<c0487c38>] (__qdisc_run) from [<c046e1b0>] (net_tx_action+0xe0/0x178)
+> [   29.751205] [<c046e1b0>] (net_tx_action) from [<c0036690>] (__do_softirq+0x100/0x264)
+> [   29.759420] [<c0036690>] (__do_softirq) from [<c0036818>] (run_ksoftirqd+0x24/0x4c)
+> [   29.767453] [<c0036818>] (run_ksoftirqd) from [<c005232c>] (smpboot_thread_fn+0x128/0x13c)
+> [   29.776121] [<c005232c>] (smpboot_thread_fn) from [<c004c3fc>] (kthread+0xd0/0xe4)
+> [   29.784061] [<c004c3fc>] (kthread) from [<c000da88>] (ret_from_fork+0x14/0x2c)
+> [   29.791628] ---[ end trace 3406ff24bd973834 ]---
+> 
+> The problem is there are still interrupts after deregister ieee802154
+> device. This patch mask all interrupts in the at86rf2xx chips before
+> deregister the device.
+> 
+> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
 
-Regards,
-	Neil
+Applied, thanks.
