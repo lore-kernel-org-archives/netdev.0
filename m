@@ -1,62 +1,39 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH] netlink: don't compare the nul-termination in nla_strcmp
-Date: Mon, 31 Mar 2014 17:34:08 +0200
-Message-ID: <1396280048-3740-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, fw@strlen.de, tgraf@suug.ch
-To: netdev@vger.kernel.org
+From: Masanari Iida <standby24x7@gmail.com>
+Subject: [PATCH 1/5] netfilter: Fix format string mismatch in ip_vs_proto_name()
+Date: Tue,  1 Apr 2014 00:40:15 +0900
+Message-ID: <1396280415-31007-1-git-send-email-standby24x7@gmail.com>
+Cc: Masanari Iida <standby24x7@gmail.com>
+To: netdev@vger.kernel.org, wensong@linux-vs.org, horms@verge.net.au,
+	ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:53323 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753845AbaCaPeV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Mar 2014 11:34:21 -0400
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:50026 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752467AbaCaPk1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 11:40:27 -0400
+Received: by mail-pa0-f54.google.com with SMTP id lf10so8437154pab.27
+        for <netdev@vger.kernel.org>; Mon, 31 Mar 2014 08:40:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-nla_strcmp compares the string length plus one, so it's implicitly
-including the nul-termination in the comparison.
+Fix string mismatch in ip_vs_proto_name()
 
- int nla_strcmp(const struct nlattr *nla, const char *str)
- {
-        int len = strlen(str) + 1;
-        ...
-                d = memcmp(nla_data(nla), str, len);
-
-However, if NLA_STRING is used, userspace can send us a string without
-the nul-termination. This is a problem since the string
-comparison will not match as the last byte may be not the
-nul-termination.
-
-Fix this by skipping the comparison of the nul-termination if the
-attribute data is nul-terminated. Suggested by Thomas Graf.
-
-Cc: Florian Westphal <fw@strlen.de>
-Cc: Thomas Graf <tgraf@suug.ch>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Masanari Iida <standby24x7@gmail.com>
 ---
- lib/nlattr.c |   10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+ net/netfilter/ipvs/ip_vs_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/lib/nlattr.c b/lib/nlattr.c
-index 18eca78..53beba5 100644
---- a/lib/nlattr.c
-+++ b/lib/nlattr.c
-@@ -303,9 +303,15 @@ int nla_memcmp(const struct nlattr *nla, const void *data,
-  */
- int nla_strcmp(const struct nlattr *nla, const char *str)
- {
--	int len = strlen(str) + 1;
--	int d = nla_len(nla) - len;
-+	int len = strlen(str);
-+	char *buf = nla_data(nla);
-+	int attrlen = nla_len(nla);
-+	int d;
- 
-+	if (buf[attrlen - 1] == '\0')
-+		attrlen--;
-+
-+	d = attrlen - len;
- 	if (d == 0)
- 		d = memcmp(nla_data(nla), str, len);
- 
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 4f26ee4..d9da8c4 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -97,7 +97,7 @@ const char *ip_vs_proto_name(unsigned int proto)
+ 		return "ICMPv6";
+ #endif
+ 	default:
+-		sprintf(buf, "IP_%d", proto);
++		sprintf(buf, "IP_%u", proto);
+ 		return buf;
+ 	}
+ }
 -- 
-1.7.10.4
+1.9.1.352.gd393d14
