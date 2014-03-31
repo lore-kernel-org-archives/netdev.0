@@ -1,36 +1,67 @@
-From: Masanari Iida <standby24x7@gmail.com>
-Subject: [PATCH 4/5] netfilter: Fix format string mismatch in nf_conntrack_irc_init()
-Date: Tue,  1 Apr 2014 00:43:38 +0900
-Message-ID: <1396280619-31152-3-git-send-email-standby24x7@gmail.com>
-References: <1396280619-31152-1-git-send-email-standby24x7@gmail.com>
-Cc: Masanari Iida <standby24x7@gmail.com>
-To: netdev@vger.kernel.org, pablo@netfilter.org, kaber@trash.net,
-	kadlec@blackhole.kfki.hu, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1396280619-31152-1-git-send-email-standby24x7@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/5] bonding: Changed hashing function to just provide
+ hash
+Date: Mon, 31 Mar 2014 08:44:46 -0700
+Message-ID: <1396280686.29410.36.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1396070925-17511-1-git-send-email-maheshb@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Mahesh Bandewar <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:48905 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754334AbaCaPou (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 11:44:50 -0400
+Received: by mail-pa0-f44.google.com with SMTP id bj1so8426777pad.3
+        for <netdev@vger.kernel.org>; Mon, 31 Mar 2014 08:44:50 -0700 (PDT)
+In-Reply-To: <1396070925-17511-1-git-send-email-maheshb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix format string mismatch in nf_conntrack_irc_init()
+On Fri, 2014-03-28 at 22:28 -0700, Mahesh Bandewar wrote:
+> Modified the hash function to return just hash separating from the
+> modulo operation that can be performed by the caller. This is to
+> make way for the tlb mode to use the same hashing policies that
+> are used in the 802.3ad and Xor mode.
+> 
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
 
-Signed-off-by: Masanari Iida <standby24x7@gmail.com>
----
- net/netfilter/nf_conntrack_irc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nf_conntrack_irc.c b/net/netfilter/nf_conntrack_irc.c
-index 0fd2976..8ee3a5f 100644
---- a/net/netfilter/nf_conntrack_irc.c
-+++ b/net/netfilter/nf_conntrack_irc.c
-@@ -263,7 +263,7 @@ static int __init nf_conntrack_irc_init(void)
- 		if (ports[i] == IRC_PORT)
- 			sprintf(irc[i].name, "irc");
- 		else
--			sprintf(irc[i].name, "irc-%u", i);
-+			sprintf(irc[i].name, "irc-%d", i);
- 
- 		ret = nf_conntrack_helper_register(&irc[i]);
- 		if (ret) {
--- 
-1.9.1.352.gd393d14
+> -int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb, int count)
+> +int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb)
+>  {
+>  	struct flow_keys flow;
+>  	u32 hash;
+>  
+>  	if (bond->params.xmit_policy == BOND_XMIT_POLICY_LAYER2 ||
+>  	    !bond_flow_dissect(bond, skb, &flow))
+> -		return bond_eth_hash(skb) % count;
+> +		return bond_eth_hash(skb);
+>  
+>  	if (bond->params.xmit_policy == BOND_XMIT_POLICY_LAYER23 ||
+>  	    bond->params.xmit_policy == BOND_XMIT_POLICY_ENCAP23)
+> @@ -3039,7 +3037,7 @@ int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb, int count)
+>  	hash ^= (hash >> 16);
+>  	hash ^= (hash >> 8);
+>  
+> -	return hash % count;
+> +	return hash;
+>  }
+
+
+Sounds good, but I would change  bond_xmit_hash() to return an u32
+instead of 'int'
+
+There is an interesting mix of u32 and int in this bonding code :(
+
+slave_cnt is signed, so a  (signed_hash % signed_slave_cnt) could
+potentially be negative ?
