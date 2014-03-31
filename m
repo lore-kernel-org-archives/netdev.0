@@ -1,22 +1,20 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the arm-soc tree
-Date: Mon, 31 Mar 2014 13:24:57 +1100
-Message-ID: <20140331132457.2d8d71019a52033bbef5b2c2@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Mon, 31 Mar 2014 13:34:35 +1100
+Message-ID: <20140331133435.67c5f41ea2e1f918730ebbe8@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: multipart/signed; protocol="application/pgp-signature";
  micalg="PGP-SHA256";
- boundary="Signature=_Mon__31_Mar_2014_13_24_57_+1100_koNqZvvbLcL0O6vW"
+ boundary="Signature=_Mon__31_Mar_2014_13_34_35_+1100_=MHuiIRQxQDztSCW"
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Dinh Nguyen <dinguyen@altera.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
-	<linux-arm-kernel@lists.infradead.org>
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-next-owner@vger.kernel.org>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Mon__31_Mar_2014_13_24_57_+1100_koNqZvvbLcL0O6vW
+--Signature=_Mon__31_Mar_2014_13_34_35_+1100_=MHuiIRQxQDztSCW
 Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
@@ -24,56 +22,58 @@ Content-Transfer-Encoding: quoted-printable
 Hi all,
 
 Today's linux-next merge of the net-next tree got a conflict in
-Documentation/devicetree/bindings/net/stmmac.txt between commit
-50b4af414d41 ("dts: stmmac: Document the clocks property in the stmmac
-base document") from the arm-soc tree and commit e8f08ee0ad86 ("DT: net:
-document Ethernet bindings in one place") from the net-next tree.
+drivers/net/xen-netback/netback.c between commit 1425c7a4e8d3
+("xen-netback: BUG_ON in xenvif_rx_action() not catching overflow") from
+the net tree and commit 8f13dd961228 ("xen-netback: Use skb->cb for
+pending_idx") from the net-next tree.
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
+I fixed it up (I think - see below) and can carry the fix as necessary
+(no action is required).
 
 --=20
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
 
-diff --cc Documentation/devicetree/bindings/net/stmmac.txt
-index 9a0c1b7bee29,5748351fb9df..000000000000
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@@ -31,13 -30,7 +30,11 @@@ Optional properties
-  - resets: Should contain a phandle to the STMMAC reset signal, if any
-  - reset-names: Should contain the reset signal name "stmmaceth", if a
-  	reset phandle is given
-- - max-frame-size:	Maximum Transfer Unit (IEEE defined MTU), rather
-- 			than the maximum frame size.
-+ - max-frame-size: See ethernet.txt file in the same directory
- +- clocks: If present, the first clock should be the GMAC main clock,
- +  further clocks may be specified in derived bindings.
- +- clocks-names: One name for each entry in the clocks property, the
- +  first one should be "stmmaceth".
+diff --cc drivers/net/xen-netback/netback.c
+index cd0bd95ccc14,cb784fe5220c..000000000000
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@@ -531,13 -539,8 +560,11 @@@ static void xenvif_rx_action(struct xen
+  		} else
+  			vif->rx_last_skb_slots =3D 0;
  =20
-  Examples:
+- 		sco =3D (struct skb_cb_overlay *)skb->cb;
+-=20
+ +		old_req_cons =3D vif->rx.req_cons;
+- 		sco->meta_slots_used =3D xenvif_gop_skb(skb, &npo);
++ 		XENVIF_RX_CB(skb)->meta_slots_used =3D xenvif_gop_skb(skb, &npo);
+ -		BUG_ON(XENVIF_RX_CB(skb)->meta_slots_used > max_slots_needed);
+ +		ring_slots_used =3D vif->rx.req_cons - old_req_cons;
+ +
+ +		BUG_ON(ring_slots_used > max_slots_needed);
  =20
+  		__skb_queue_tail(&rxq, skb);
+  	}
 
---Signature=_Mon__31_Mar_2014_13_24_57_+1100_koNqZvvbLcL0O6vW
+--Signature=_Mon__31_Mar_2014_13_34_35_+1100_=MHuiIRQxQDztSCW
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2.0.22 (GNU/Linux)
 
-iQIcBAEBCAAGBQJTONH9AAoJEMDTa8Ir7ZwV9RsP+wVYaiWA18sy5ZqCQUKBXRzV
-thf/oU5dc68Cgbtx9hPuL5Kd8YmFVGFEx5bYhuV6f849vbchQoxWXcbGkL1HHUts
-g33WEapmAC46AkV5l4ir4VWxjsDtDAAFkfYXIgXqHfUX5T2SUMHo44H7WyJK7kjF
-TQLKfjwFYeuWGDlfTL6Kea3Gfgm1tw0ghTCgE7a1AmBThyJ1Bwx8V93ga1VvUwLX
-F1nExFTRgIYzo/tJ8xySz4JPPTt1YfR4Agg3Eprt+X1MTbvjG5o1D5BJ27Jq02Jb
-o8qet+9EZN6on+cFOwq8phK8v0SwBCILLUKwn+xu1xagR/Ptkzjz08GqUwOIhUQD
-jUVdlwRwViNLi3AH2rWE+mx0BH987BgNdj9GUleduq5dqL+K30jGyKlkS/OVsiaW
-JIk0NZQIPpvHjE3KvcSsFLsKR4kIaB8HUx/QV3BYcUUkzOWM1rbYhyom0ZtWvNR/
-5sZenr1F3509xVHOEIM7LJXIqcRpTPCD/jUz1cl83G8PH9UngOIr6yjFk5WyCg8h
-uu2kWKffL3g/9llDBUARhJV6uWp8/ASae5bFXtN3LLB1I2g6pZOvilgvMkFbzkMv
-OIvo5YyifmbzehAed9w3fFBDNEGq3afn5QDIA5rIdq0Q7IzY1yVqhw/u8qtSbqad
-TmVN7XnoNhCUqsP9IxIl
-=25pF
+iQIcBAEBCAAGBQJTONRAAAoJEMDTa8Ir7ZwVe+0P/2ZSRiHsOT/p2NvodlgkI8aM
+AYIf9zp/j5yVkbEfmG3eaiEtjasb1RSr9zSb3yuZNDp8BDzHcONZFhAIlLVDVv07
+cU/GCBnzr2H+OTeHvw3ej5oDYS5n00kexrxNKeLYW0iepyhZzjHe5otIwYb7ZWEw
+MqRW/1d4xysLZnKYFgZVyIvuOBihy0ZyN7p7i6fLLrD0ybpeEatLF39gprzFN1gi
+JrjATXzgif/0locUODKf+O8qxJESv+S7EzPGw3TpgaHgZkshRQygOgDWSls+/BW0
+ScGO3gFNBfg7DjtNSzDTc4y2H99QxVeiU2HQ/IpCZpYgJqcLkVY+ZeXHfrxCx5bv
+dZ3yfHPBQUQJ/wBKplPHZL1piLLOhSxHA/eEmSsKno20AnDboi0E//Tdo4Z01iag
+MCrUhKlU9jcnn8s015puN+Z9GwhSf4nrtnY6OnPhZqzs2fL1p99HfqyR+SNNL7+1
+DuMRTHmUb3498f85VFlhQPbk2BmuhRQ8VR1/vDoj8GwFHTSIAtB1FEA5yZA9aEmc
+1MGdJLUYXZu7WtNDCGcV/eP5lIg/bTmZ3rqZlVe/0eFb24PGQ2s1bNcC4qtwDqlg
+u04LuYbinAbgr7484xOJo7v/81gjQ90o+LjXYMvbhHuAFd0KGkVo0HI//HI6wWhP
+wwnpEL/cKZt0ZZb3xZdR
+=wFVR
 -----END PGP SIGNATURE-----
 
---Signature=_Mon__31_Mar_2014_13_24_57_+1100_koNqZvvbLcL0O6vW--
+--Signature=_Mon__31_Mar_2014_13_34_35_+1100_=MHuiIRQxQDztSCW--
