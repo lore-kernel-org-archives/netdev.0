@@ -1,8 +1,8 @@
 From: Neil Jerram <Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org>
 Subject: Re: [patch net-next RFC v2 4/6] net: introduce switchdev
 	API
-Date: Mon, 31 Mar 2014 20:47:27 +0000
-Message-ID: <F6885DC5CBE92C4BB4D654841E63A30FD7DFC91C@ENFIRHMBX1.datcon.co.uk>
+Date: Mon, 31 Mar 2014 20:55:01 +0000
+Message-ID: <F6885DC5CBE92C4BB4D654841E63A30FD7DFC924@ENFIRHMBX1.datcon.co.uk>
 References: <1395851472-10524-1-git-send-email-jiri@resnulli.us>
  <1395851472-10524-5-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
@@ -41,25 +41,41 @@ Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-> diff --git a/net/Kconfig b/net/Kconfig
-> index e411046..e02ab8d 100644
-> --- a/net/Kconfig
-> +++ b/net/Kconfig
-> @@ -285,6 +285,16 @@ config NET_FLOW_LIMIT
->  	  with many clients some protection against DoS by a single (spoofed)
->  	  flow that greatly exceeds average workload.
-> 
-> +config NET_SWITCHDEV
-> +	tristate "Switch device"
-> +	depends on INET
-> +	---help---
-> +	  This module provides glue for hardware switch chips so they can be
-> +	  accessed from userspace via Open vSwitch Netlink API.
-> +
-> +	  To compile this code as a module, choose M here: the
-> +	  module will be called pktgen.
-> +
+Hi Jiri,
 
-"pktgen" cut'n'paste typo.
+Apologies for possibly newbie questions here, but:
 
+> +bool swdev_dev_check(const struct net_device *dev)
+> +{
+> +	return dev->priv_flags & IFF_SWITCH;
+> +}
+> +EXPORT_SYMBOL(swdev_dev_check);
+[...]
+> +	BUG_ON(!swdev_dev_check(dev));
+[...]
+> +int __swdev_register(struct net_device *dev)
+> +{
+> +	if (dev->priv_flags & IFF_SWITCH) {
+> +		netdev_err(dev, "Device is already registered as a switch
+> device\n");
+> +		return -EBUSY;
+> +	}
+[...]
+
+1. What's the benefit of requiring and policing the IFF_SWITCH flag, and requiring a switch netdev to call swdev_register, as opposed to just checking whether the netdev provides the relevant ops?
+
+> +int swdev_register(struct net_device *dev)
+> +{
+> +	int err;
+> +
+> +	rtnl_lock();
+> +	err = __swdev_register(dev);
+> +	rtnl_unlock();
+> +	return err;
+> +}
+> +EXPORT_SYMBOL(swdev_register);
+
+2. Why grab and release the rtnl lock, given that there appears to be nothing rtnl-related in between?
+
+Regards,
 	Neil
