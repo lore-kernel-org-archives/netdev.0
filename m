@@ -1,60 +1,108 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: RE: [PATCH net-next] qlcnic: Fix build failure due to undefined
- reference to `vxlan_get_rx_port'
-Date: Mon, 31 Mar 2014 23:33:47 +0000
-Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F88F20@avmb2.qlogic.org>
-References: <1396190545-20241-1-git-send-email-shahed.shaikh@qlogic.com>
- <20140331.162950.1977000263135313417.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>
-To: David Miller <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/13] ixgbevf: Change ixgbe_read_reg to ixgbevf_read_reg
+Date: Mon, 31 Mar 2014 16:34:52 -0700
+Message-ID: <1396308899-20926-7-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1396308899-20926-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:30574 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751024AbaCaXdt convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Mar 2014 19:33:49 -0400
-In-Reply-To: <20140331.162950.1977000263135313417.davem@davemloft.net>
-Content-Language: en-US
+Received: from mga01.intel.com ([192.55.52.88]:42191 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751633AbaCaXgK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Mar 2014 19:36:10 -0400
+In-Reply-To: <1396308899-20926-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Tuesday, April 01, 2014 2:00 AM
-> To: Shahed Shaikh
-> Cc: netdev; Dept-HSG Linux NIC Dev
-> Subject: Re: [PATCH net-next] qlcnic: Fix build failure due to undefined
-> reference to `vxlan_get_rx_port'
-> 
-> From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-> Date: Sun, 30 Mar 2014 10:42:25 -0400
-> 
-> > From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-> >
-> > Commit 2b3d7b758c687("qlcnic: Add VXLAN Rx offload support") uses
-> > vxlan_get_rx_port() which caused build failure when VXLAN=m.
-> >
-> > This patch fixes the build failure by adding dependency on VXLAN in
-> > Kconfig of qlcnic module and use vxlan_get_rx_port() accordingly.
-> >
-> > Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
-> > ---
-> > Hi David,
-> >
-> > Please apply this patch to net-next.
-> 
-> Do this properly, don't just CPP protect the symbol that fails.
-> 
-> Look at how I40E_VXLAN is used, it protect everything from the
-> ndo_*() ops to the surrounding support code.
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-Hi David,
+Change the ixgbe_read_reg function name to ixgbevf_read_reg to
+avoid a namespace clash with the ixgbe driver. This will allow
+ixgbe to take its register read function out-of-line to reduce
+memory footprint.
 
-Looks like net-next is closed. Please let me know if I can send the revised version of this patch as per your suggestion.
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c      | 8 ++++----
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 4 ++--
+ drivers/net/ethernet/intel/ixgbevf/vf.h           | 6 +++---
+ 3 files changed, 9 insertions(+), 9 deletions(-)
 
-Thanks,
-Shahed
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+index b2d0023..1baecb6 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+@@ -540,10 +540,10 @@ static bool reg_pattern_test(struct ixgbevf_adapter *adapter, u64 *data,
+ 		return true;
+ 	}
+ 	for (pat = 0; pat < ARRAY_SIZE(register_test_patterns); pat++) {
+-		before = ixgbe_read_reg(&adapter->hw, reg);
++		before = ixgbevf_read_reg(&adapter->hw, reg);
+ 		ixgbe_write_reg(&adapter->hw, reg,
+ 				register_test_patterns[pat] & write);
+-		val = ixgbe_read_reg(&adapter->hw, reg);
++		val = ixgbevf_read_reg(&adapter->hw, reg);
+ 		if (val != (register_test_patterns[pat] & write & mask)) {
+ 			hw_dbg(&adapter->hw,
+ 			       "pattern test reg %04X failed: got 0x%08X expected 0x%08X\n",
+@@ -567,9 +567,9 @@ static bool reg_set_and_check(struct ixgbevf_adapter *adapter, u64 *data,
+ 		*data = 1;
+ 		return true;
+ 	}
+-	before = ixgbe_read_reg(&adapter->hw, reg);
++	before = ixgbevf_read_reg(&adapter->hw, reg);
+ 	ixgbe_write_reg(&adapter->hw, reg, write & mask);
+-	val = ixgbe_read_reg(&adapter->hw, reg);
++	val = ixgbevf_read_reg(&adapter->hw, reg);
+ 	if ((write & mask) != (val & mask)) {
+ 		pr_err("set/check reg %04X test failed: got 0x%08X expected 0x%08X\n",
+ 		       reg, (val & mask), write & mask);
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index a50e892..5d93759 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -124,12 +124,12 @@ static void ixgbevf_check_remove(struct ixgbe_hw *hw, u32 reg)
+ 		ixgbevf_remove_adapter(hw);
+ 		return;
+ 	}
+-	value = ixgbe_read_reg(hw, IXGBE_VFSTATUS);
++	value = ixgbevf_read_reg(hw, IXGBE_VFSTATUS);
+ 	if (value == IXGBE_FAILED_READ_REG)
+ 		ixgbevf_remove_adapter(hw);
+ }
+ 
+-u32 ixgbe_read_reg(struct ixgbe_hw *hw, u32 reg)
++u32 ixgbevf_read_reg(struct ixgbe_hw *hw, u32 reg)
+ {
+ 	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
+ 	u32 value;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
+index 096d33a..3061d18 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
+@@ -186,8 +186,8 @@ static inline void ixgbe_write_reg(struct ixgbe_hw *hw, u32 reg, u32 value)
+ }
+ #define IXGBE_WRITE_REG(h, r, v) ixgbe_write_reg(h, r, v)
+ 
+-u32 ixgbe_read_reg(struct ixgbe_hw *hw, u32 reg);
+-#define IXGBE_READ_REG(h, r) ixgbe_read_reg(h, r)
++u32 ixgbevf_read_reg(struct ixgbe_hw *hw, u32 reg);
++#define IXGBE_READ_REG(h, r) ixgbevf_read_reg(h, r)
+ 
+ static inline void ixgbe_write_reg_array(struct ixgbe_hw *hw, u32 reg,
+ 					  u32 offset, u32 value)
+@@ -199,7 +199,7 @@ static inline void ixgbe_write_reg_array(struct ixgbe_hw *hw, u32 reg,
+ static inline u32 ixgbe_read_reg_array(struct ixgbe_hw *hw, u32 reg,
+ 					u32 offset)
+ {
+-	return ixgbe_read_reg(hw, reg + (offset << 2));
++	return ixgbevf_read_reg(hw, reg + (offset << 2));
+ }
+ #define IXGBE_READ_REG_ARRAY(h, r, o) ixgbe_read_reg_array(h, r, o)
+ 
+-- 
+1.9.0
