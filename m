@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qmi_wwan/cdc_ether: move Novatel E371 (1410:9011) to
- qmi_wwan
-Date: Mon, 31 Mar 2014 16:06:27 -0400 (EDT)
-Message-ID: <20140331.160627.41049785170860974.davem@davemloft.net>
-References: <1396004838-23877-1-git-send-email-yegorslists@googlemail.com>
+Subject: Re: [PATCH net-next 0/2] net: document sysfs entries
+Date: Mon, 31 Mar 2014 16:11:00 -0400 (EDT)
+Message-ID: <20140331.161100.642930165214073947.davem@davemloft.net>
+References: <1396041958-2471-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bjorn@mork.no, dcbw@redhat.com
-To: yegorslists@googlemail.com
+Cc: netdev@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42590 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42686 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750967AbaCaUG3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 16:06:29 -0400
-In-Reply-To: <1396004838-23877-1-git-send-email-yegorslists@googlemail.com>
+	with ESMTP id S1751167AbaCaULC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 16:11:02 -0400
+In-Reply-To: <1396041958-2471-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: yegorslists@googlemail.com
-Date: Fri, 28 Mar 2014 12:07:18 +0100
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Fri, 28 Mar 2014 14:25:56 -0700
 
-> From: Yegor Yefremov <yegorslists@googlemail.com>
+> This patchset attempts to document the basic set of sysfs entries that are
+> exposed by netdevices in /sys/class/net/<iface>/
 > 
-> This device provides QMI and ethernet functionality via a standard CDC
-> ethernet descriptor.  But when driven by cdc_ether, the QMI
-> functionality is unavailable because only cdc_ether can claim the USB
-> interface. Thus blacklist the device in cdc_ether and add its IDs to
-> qmi_wwan, which enables both QMI and ethernet simultaneously.
+> I did not go before the pre-git era, so the oldest entries are marked with
+> the 2.6.12 kernel version and dated of April 2005.
 > 
-> Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
+> Future patches will document the queues/ and statistics/ directories as well.
 
-Applied, thank you.
+Series applied, thanks for doing this Florian.
