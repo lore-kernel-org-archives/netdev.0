@@ -1,48 +1,70 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 4/5] bonding: Added bond_tlb_xmit() for tlb mode.
-Date: Mon, 31 Mar 2014 16:00:52 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6ECFA7@AcuExch.aculab.com>
-References: <1396070947-17721-1-git-send-email-maheshb@google.com>
- <1396281158.29410.41.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	"Maciej Zenczykowski" <maze@google.com>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
-	Mahesh Bandewar <maheshb@google.com>
+From: Yegor Yefremov <yegorslists@googlemail.com>
+Subject: [PATCH v2] qmi_wwan/cdc_ether: move Novatel E371 (1410:9011) to qmi_wwan
+Date: Mon, 31 Mar 2014 18:11:27 +0200
+Message-ID: <1396282287-5060-1-git-send-email-yegorslists@googlemail.com>
+Cc: bjorn@mork.no, dcbw@redhat.com, davem@davemloft.net,
+	Yegor Yefremov <yegorslists@googlemail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:39744 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752585AbaCaQCE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Mar 2014 12:02:04 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 31863-03 for <netdev@vger.kernel.org>;
- Mon, 31 Mar 2014 17:01:52 +0100 (BST)
-In-Reply-To: <1396281158.29410.41.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-bk0-f44.google.com ([209.85.214.44]:34930 "EHLO
+	mail-bk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754049AbaCaQLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 12:11:48 -0400
+Received: by mail-bk0-f44.google.com with SMTP id mz13so1196626bkb.17
+        for <netdev@vger.kernel.org>; Mon, 31 Mar 2014 09:11:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0DQouLi4NCj4gPiArCWlmICghaXNfbXVsdGljYXN0X2V0aGVyX2Fk
-ZHIoZXRoX2RhdGEtPmhfZGVzdCkpIHsNCj4gPiArCQlzd2l0Y2ggKG50b2hzKHNrYi0+cHJvdG9j
-b2wpKSB7DQo+IA0KPiBOaXQgOg0KPiANCj4gWW91IGNhbiBhdm9pZCB0aGUgbnRvaHMoc2tiLT5w
-cm90b2NvbCkNCj4gDQo+ID4gKwkJY2FzZSBFVEhfUF9JUDoNCj4gDQo+IGJ5IHVzaW5nICIgICBj
-YXNlIGh0b25zKEVUSF9QX0lQKQ0KPiANCj4gDQo+ID4gKwkJY2FzZSBFVEhfUF9JUFg6IC8qIElu
-IGNhc2Ugb2YgSVBYLCBpdCB3aWxsIGZhbGJhY2sgdG8gTDIgaGFzaCAqLw0KPiA+ICsJCWNhc2Ug
-RVRIX1BfSVBWNjoNCj4gPiArCQkJaGFzaF9pbmRleCA9IGJvbmRfeG1pdF9oYXNoKGJvbmQsIHNr
-Yik7DQo+ID4gKwkJCXR4X3NsYXZlID0gdGxiX2Nob29zZV9jaGFubmVsKGJvbmQsIGhhc2hfaW5k
-ZXggJiAweEZGLCBza2ItPmxlbik7DQo+ID4gKwkJCWJyZWFrOw0KPiA+ICsJCX0NCj4gPiArCX0N
-Cg0KV2hpY2ggbWF5IG9yIG5vdCBiZSBmYXN0ZXIuLi4NCkFzIGNvZGVkIHRoZSBjYXNlIGxhYmVs
-cyBtYXkgYmUgZGVuc2UgZW5vdWdoIHRvIGdlbmVyYXRlIGEganVtcCB0YWJsZS4NCklmIGJ5dGUg
-cmV2ZXJzZWQgdGhlIGdlbmVyYXRlZCBjb2RlIHdpbGwgYmUgYSBicmFuY2ggdHJlZS4NCg0KQSBk
-ZWVwIGJyYW5jaCB0cmVlIHdpbGwgYmUgd29yc2UsIGEgbWF0Y2ggb24gdGhlIGZpcnN0IGl0ZW0g
-b2YgYSBicmFuY2gNCnRyZWUgd2lsbCBhbG1vc3QgY2VydGFpbmx5IGJlIGJldHRlci4NCkknbSBu
-b3QgZ29pbmcgdG8gZ3Vlc3Mgd2hlcmUgdGhlIGJyZWFrZXZlbiBwb2ludCBpcyBmb3IgYW55IG1v
-ZGVybiBjcHVzLg0KDQoJRGF2aWQNCg0K
+This device provides QMI and ethernet functionality via a standard CDC
+ethernet descriptor.  But when driven by cdc_ether, the QMI
+functionality is unavailable because only cdc_ether can claim the USB
+interface. Thus blacklist the device in cdc_ether and add its IDs to
+qmi_wwan, which enables both QMI and ethernet simultaneously.
+
+Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
+---
+Changes:
+	v2: fix indentation
+
+ drivers/net/usb/cdc_ether.c | 7 +++++++
+ drivers/net/usb/qmi_wwan.c  | 7 +++++++
+ 2 files changed, 14 insertions(+)
+
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index bd363b2..9ea4bfe 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -625,6 +625,13 @@ static const struct usb_device_id	products[] = {
+ 	.driver_info = 0,
+ },
+ 
++/* Novatel Expedite E371 - handled by qmi_wwan */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(NOVATEL_VENDOR_ID, 0x9011, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++	.driver_info = 0,
++},
++
+ /* AnyDATA ADU960S - handled by qmi_wwan */
+ {
+ 	USB_DEVICE_AND_INTERFACE_INFO(0x16d5, 0x650a, USB_CLASS_COMM,
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 313cb6c..c912966 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -500,6 +500,13 @@ static const struct usb_device_id products[] = {
+ 		                              USB_CDC_PROTO_NONE),
+ 		.driver_info        = (unsigned long)&qmi_wwan_info,
+ 	},
++	{	/* Novatel Expedite E371 */
++		USB_DEVICE_AND_INTERFACE_INFO(0x1410, 0x9011,
++						USB_CLASS_COMM,
++						USB_CDC_SUBCLASS_ETHERNET,
++						USB_CDC_PROTO_NONE),
++		.driver_info        = (unsigned long)&qmi_wwan_info,
++	},
+ 	{	/* Dell Wireless 5800 (Novatel E362) */
+ 		USB_DEVICE_AND_INTERFACE_INFO(0x413C, 0x8195,
+ 					      USB_CLASS_COMM,
+-- 
+1.8.3.2
