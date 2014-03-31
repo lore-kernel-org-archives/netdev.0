@@ -1,95 +1,51 @@
 From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-Subject: [PATCH net-next v2 1/2] mac802154: allow only one WPAN to be up at any given time
-Date: Mon, 31 Mar 2014 21:37:45 +0200
-Message-ID: <1396294666-14005-2-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-References: <1396294666-14005-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
-	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next v2] mac802154: fix multiple WPAN handling
+Date: Mon, 31 Mar 2014 21:37:44 +0200
+Message-ID: <1396294666-14005-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from selenium.quasiparticle.net ([188.40.96.248]:46789 "EHLO
+Received: from selenium.quasiparticle.net ([188.40.96.248]:46788 "EHLO
 	quasiparticle.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751000AbaCaTh5 (ORCPT
+	with ESMTP id S1751004AbaCaTh5 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 15:37:57 -0400
-In-Reply-To: <1396294666-14005-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All 802.15.4 PHY devices with drivers in tree can support only one WPAN
-at any given time, yet the stack allows arbitrarily many WPAN devices to
-be created and up at the same time. This cannot work with what the
-hardware provides, and in the current implementation, provides an easy
-DoS vector to any process on the system that may call socket() and
-sendmsg().
+The current mac802154 stack allows an arbitrary number of WPAN netdevs for any
+given PHY, which is not sensible and not supported by all hardware with in-tree
+drivers. Also, previous commits have introduced configuration options that
+apply to WPAN devices, but were set to apply to the underlying PHY.
 
-Thus, allow only one WPAN per PHY to be up at once, just like mac80211
-does for managed devices.
+This patch set fixes both, allowing only one WPAN device to be up at any given
+time, and making WPAN-related settings per-WPAN instead of per-PHY.
 
-Signed-off-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
 ---
- net/mac802154/ieee802154_dev.c | 25 +++++++++++++++++++++++++
- net/mac802154/mac802154.h      |  1 +
- 2 files changed, 26 insertions(+)
 
-diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
-index 10cdb09..e7aa764 100644
---- a/net/mac802154/ieee802154_dev.c
-+++ b/net/mac802154/ieee802154_dev.c
-@@ -36,9 +36,28 @@
- int mac802154_slave_open(struct net_device *dev)
- {
- 	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+	struct mac802154_sub_if_data *subif;
- 	struct mac802154_priv *ipriv = priv->hw;
- 	int res = 0;
- 
-+	ASSERT_RTNL();
-+
-+	if (priv->type == IEEE802154_DEV_WPAN) {
-+		mutex_lock(&priv->hw->slaves_mtx);
-+		list_for_each_entry(subif, &priv->hw->slaves, list) {
-+			if (subif != priv && subif->type == priv->type &&
-+			    subif->running) {
-+				mutex_unlock(&priv->hw->slaves_mtx);
-+				return -EBUSY;
-+			}
-+		}
-+		mutex_unlock(&priv->hw->slaves_mtx);
-+	}
-+
-+	mutex_lock(&priv->hw->slaves_mtx);
-+	priv->running = true;
-+	mutex_unlock(&priv->hw->slaves_mtx);
-+
- 	if (ipriv->open_count++ == 0) {
- 		res = ipriv->ops->start(&ipriv->hw);
- 		WARN_ON(res);
-@@ -69,8 +88,14 @@ int mac802154_slave_close(struct net_device *dev)
- 	struct mac802154_sub_if_data *priv = netdev_priv(dev);
- 	struct mac802154_priv *ipriv = priv->hw;
- 
-+	ASSERT_RTNL();
-+
- 	netif_stop_queue(dev);
- 
-+	mutex_lock(&priv->hw->slaves_mtx);
-+	priv->running = false;
-+	mutex_unlock(&priv->hw->slaves_mtx);
-+
- 	if (!--ipriv->open_count)
- 		ipriv->ops->stop(&ipriv->hw);
- 
-diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
-index 4619486..f40522e 100644
---- a/net/mac802154/mac802154.h
-+++ b/net/mac802154/mac802154.h
-@@ -71,6 +71,7 @@ struct mac802154_sub_if_data {
- 	struct net_device *dev;
- 
- 	int type;
-+	bool running;
- 
- 	spinlock_t mib_lock;
- 
--- 
-1.9.0
+Changes since v1:
+ * fix check for PHY property setter methods. Reported by Alexander Aring
+
+---
+
+Applies on top of 9109e17f7c3ace48629397b44db5ce06bf168644. Fixes a possible
+DoS bug and moves some netdev properties in mac802154 to the places they should
+have gone from the outset.
+
+
+Phoebe Buckheister (2):
+      mac802154: allow only one WPAN to be up at any given time
+      mac802154: make csma/cca parameters per-wpan
+
+
+ include/linux/nl802154.h        |   2 +-
+ include/net/ieee802154_netdev.h |  17 ++++
+ net/ieee802154/ieee802154.h     |   2 +-
+ net/ieee802154/netlink.c        |   2 +-
+ net/ieee802154/nl-mac.c         | 122 +++++++++++++++++++++++-
+ net/ieee802154/nl-phy.c         | 200 +---------------------------------------
+ net/ieee802154/wpan-class.c     |   6 --
+ net/mac802154/ieee802154_dev.c  |  61 +++++++-----
+ net/mac802154/mac802154.h       |  10 ++
+ net/mac802154/mac_cmd.c         |   3 +
+ net/mac802154/wpan.c            |  89 +++++++++++++++++-
+ 11 files changed, 278 insertions(+), 236 deletions(-)
