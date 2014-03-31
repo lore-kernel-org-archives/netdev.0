@@ -1,66 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 5/5] bonding: Add tlb_dynamic_lb module parameter
-Date: Mon, 31 Mar 2014 09:00:02 -0700
-Message-ID: <1396281602.29410.44.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1396070949-17783-1-git-send-email-maheshb@google.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 4/5] bonding: Added bond_tlb_xmit() for tlb mode.
+Date: Mon, 31 Mar 2014 16:00:52 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6ECFA7@AcuExch.aculab.com>
+References: <1396070947-17721-1-git-send-email-maheshb@google.com>
+ <1396281158.29410.41.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Andy Gospodarek <andy@greyhouse.net>,
 	David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
+	"Maciej Zenczykowski" <maze@google.com>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:50637 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751982AbaCaQAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 12:00:05 -0400
-Received: by mail-pa0-f45.google.com with SMTP id kl14so8418296pab.32
-        for <netdev@vger.kernel.org>; Mon, 31 Mar 2014 09:00:04 -0700 (PDT)
-In-Reply-To: <1396070949-17783-1-git-send-email-maheshb@google.com>
+Received: from mx0.aculab.com ([213.249.233.131]:39744 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752585AbaCaQCE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Mar 2014 12:02:04 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 31863-03 for <netdev@vger.kernel.org>;
+ Mon, 31 Mar 2014 17:01:52 +0100 (BST)
+In-Reply-To: <1396281158.29410.41.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-03-28 at 22:29 -0700, Mahesh Bandewar wrote:
-> The aggresive load balancing causes packet re-ordering as active
-> flows are moved from a slave to another within the group. Sometime
-> this aggresive lb is not necessary if the preference is for less
-> re-ordering. This module parameter if used with value "0" disables
-> this dynamic flow shuffling minimizing packet re-ordering. Of course
-> the side effect is that it has to live with the static load balancing
-> that the hashing distribution provides. This impact is less severe if
-> the correct xmit-hashing-policy is used for the tlb setup.
-> 
-> The default value of the parameter is set to "1" mimicing the earlier
-> behavior.
-> 
-> Ran the netperf test with 200 stream for 1 min between two hosts with
-> 4x1G trunk (xmit-lb mode with xmit-policy L3+4) before and after these
-> changes. Following was the command used for those 200 instances -
-> 
->     netperf -t TCP_RR -l 60 -s 5 -H <host> -- -r1,1024
-
-There is reordering potential in this workload, as we have at most one
-packet containing payload in flight ?
-
-> 
-> Transactions per second:
->     Before changes: 109250
->     After  changes: 113752
-> 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> ---
-
->  			      "each slaves peer switch. The default is 1.");
-> +module_param(tlb_dynamic_lb, int, 0644);
-> +MODULE_PARM_DESC(tlb_dynamic_lb, "Enable periodic flow balancing. "
-> +				 "The default is 1.");
-
-I am a bit unsure why we need to add a new global parameter.
-
-If the tlb_dynamic_lb can be dynamically changed on a bonding device,
-why adding this ?
+RnJvbTogRXJpYyBEdW1hemV0DQouLi4NCj4gPiArCWlmICghaXNfbXVsdGljYXN0X2V0aGVyX2Fk
+ZHIoZXRoX2RhdGEtPmhfZGVzdCkpIHsNCj4gPiArCQlzd2l0Y2ggKG50b2hzKHNrYi0+cHJvdG9j
+b2wpKSB7DQo+IA0KPiBOaXQgOg0KPiANCj4gWW91IGNhbiBhdm9pZCB0aGUgbnRvaHMoc2tiLT5w
+cm90b2NvbCkNCj4gDQo+ID4gKwkJY2FzZSBFVEhfUF9JUDoNCj4gDQo+IGJ5IHVzaW5nICIgICBj
+YXNlIGh0b25zKEVUSF9QX0lQKQ0KPiANCj4gDQo+ID4gKwkJY2FzZSBFVEhfUF9JUFg6IC8qIElu
+IGNhc2Ugb2YgSVBYLCBpdCB3aWxsIGZhbGJhY2sgdG8gTDIgaGFzaCAqLw0KPiA+ICsJCWNhc2Ug
+RVRIX1BfSVBWNjoNCj4gPiArCQkJaGFzaF9pbmRleCA9IGJvbmRfeG1pdF9oYXNoKGJvbmQsIHNr
+Yik7DQo+ID4gKwkJCXR4X3NsYXZlID0gdGxiX2Nob29zZV9jaGFubmVsKGJvbmQsIGhhc2hfaW5k
+ZXggJiAweEZGLCBza2ItPmxlbik7DQo+ID4gKwkJCWJyZWFrOw0KPiA+ICsJCX0NCj4gPiArCX0N
+Cg0KV2hpY2ggbWF5IG9yIG5vdCBiZSBmYXN0ZXIuLi4NCkFzIGNvZGVkIHRoZSBjYXNlIGxhYmVs
+cyBtYXkgYmUgZGVuc2UgZW5vdWdoIHRvIGdlbmVyYXRlIGEganVtcCB0YWJsZS4NCklmIGJ5dGUg
+cmV2ZXJzZWQgdGhlIGdlbmVyYXRlZCBjb2RlIHdpbGwgYmUgYSBicmFuY2ggdHJlZS4NCg0KQSBk
+ZWVwIGJyYW5jaCB0cmVlIHdpbGwgYmUgd29yc2UsIGEgbWF0Y2ggb24gdGhlIGZpcnN0IGl0ZW0g
+b2YgYSBicmFuY2gNCnRyZWUgd2lsbCBhbG1vc3QgY2VydGFpbmx5IGJlIGJldHRlci4NCkknbSBu
+b3QgZ29pbmcgdG8gZ3Vlc3Mgd2hlcmUgdGhlIGJyZWFrZXZlbiBwb2ludCBpcyBmb3IgYW55IG1v
+ZGVybiBjcHVzLg0KDQoJRGF2aWQNCg0K
