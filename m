@@ -1,104 +1,177 @@
-From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Subject: [PATCH net-next 1/2] mac802154: allow only one
-	WPAN to be up at any given time
-Date: Mon, 31 Mar 2014 15:17:52 +0200
-Message-ID: <1396271873-10300-2-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-References: <1396271873-10300-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1396271873-10300-1-git-send-email-phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+From: Andrey Vagin <avagin@openvz.org>
+Subject: [PATCH] [RFC] netfilter: ct: flush net_gre->keymap_list only in nf_conntrack_proto_gre
+Date: Mon, 31 Mar 2014 18:14:18 +0400
+Message-ID: <1396275258-19015-1-git-send-email-avagin@openvz.org>
+Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org, vvs@parallels.com,
+	Andrey Vagin <avagin@openvz.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <netfilter-owner@vger.kernel.org>
+Sender: netfilter-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All 802.15.4 PHY devices with drivers in tree can support only one WPAN
-at any given time, yet the stack allows arbitrarily many WPAN devices to
-be created and up at the same time. This cannot work with what the
-hardware provides, and in the current implementation, provides an easy
-DoS vector to any process on the system that may call socket() and
-sendmsg().
+nf_ct_gre_keymap_flush() removes a nf_ct_gre_keymap object from
+net_gre->keymap_list and frees the object. But it doesn't clean
+a reference on this object from ct_pptp_info->keymap[dir].
+Then nf_ct_gre_keymap_destroy() may release the same object again.
 
-Thus, allow only one WPAN per PHY to be up at once, just like mac80211
-does for managed devices.
+So nf_ct_gre_keymap_flush() can be called only when we are sure that
+when nf_ct_gre_keymap_destroy will not be called.
 
-Signed-off-by: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
+nf_ct_gre_keymap is created by nf_ct_gre_keymap_add() and the right way
+to destroy it is to call nf_ct_gre_keymap_destroy().
+
+This patch marks nf_ct_gre_keymap_flush() as static, so this patch can
+break compilation of third party modules, which use
+nf_ct_gre_keymap_flush. I'm not sure this is the right way to deprecate
+this function.
+
+[  226.540793] general protection fault: 0000 [#1] SMP
+[  226.541750] Modules linked in: nf_nat_pptp nf_nat_proto_gre
+nf_conntrack_pptp nf_conntrack_proto_gre ip_gre ip_tunnel gre
+ppp_deflate bsd_comp ppp_async crc_ccitt ppp_generic slhc xt_nat
+iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat
+nf_conntrack veth tun bridge stp llc ppdev microcode joydev pcspkr
+serio_raw virtio_console virtio_balloon floppy parport_pc parport
+pvpanic i2c_piix4 virtio_net drm_kms_helper ttm ata_generic virtio_pci
+virtio_ring virtio drm i2c_core pata_acpi [last unloaded: ip_tunnel]
+[  226.541776] CPU: 0 PID: 49 Comm: kworker/u4:2 Not tainted 3.14.0-rc8+ #101
+[  226.541776] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[  226.541776] Workqueue: netns cleanup_net
+[  226.541776] task: ffff8800371e0000 ti: ffff88003730c000 task.ti: ffff88003730c000
+[  226.541776] RIP: 0010:[<ffffffff81389ba9>]  [<ffffffff81389ba9>] __list_del_entry+0x29/0xd0
+[  226.541776] RSP: 0018:ffff88003730dbd0  EFLAGS: 00010a83
+[  226.541776] RAX: 6b6b6b6b6b6b6b6b RBX: ffff8800374e6c40 RCX: dead000000200200
+[  226.541776] RDX: 6b6b6b6b6b6b6b6b RSI: ffff8800371e07d0 RDI: ffff8800374e6c40
+[  226.541776] RBP: ffff88003730dbd0 R08: 0000000000000000 R09: 0000000000000000
+[  226.541776] R10: 0000000000000001 R11: ffff88003730d92e R12: 0000000000000002
+[  226.541776] R13: ffff88007a4c42d0 R14: ffff88007aef0000 R15: ffff880036cf0018
+[  226.541776] FS:  0000000000000000(0000) GS:ffff88007fc00000(0000) knlGS:0000000000000000
+[  226.541776] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[  226.541776] CR2: 00007f07f643f7d0 CR3: 0000000036fd2000 CR4: 00000000000006f0
+[  226.541776] Stack:
+[  226.541776]  ffff88003730dbe8 ffffffff81389c5d ffff8800374ffbe4 ffff88003730dc28
+[  226.541776]  ffffffffa0162a43 ffffffffa01627c5 ffff88007a4c42d0 ffff88007aef0000
+[  226.541776]  ffffffffa01651c0 ffff88007a4c45e0 ffff88007aef0000 ffff88003730dc40
+[  226.541776] Call Trace:
+[  226.541776]  [<ffffffff81389c5d>] list_del+0xd/0x30
+[  226.541776]  [<ffffffffa0162a43>] nf_ct_gre_keymap_destroy+0x283/0x2d0 [nf_conntrack_proto_gre]
+[  226.541776]  [<ffffffffa01627c5>] ? nf_ct_gre_keymap_destroy+0x5/0x2d0 [nf_conntrack_proto_gre]
+[  226.541776]  [<ffffffffa0162ab7>] gre_destroy+0x27/0x70 [nf_conntrack_proto_gre]
+[  226.541776]  [<ffffffffa0117de3>] destroy_conntrack+0x83/0x200 [nf_conntrack]
+[  226.541776]  [<ffffffffa0117d87>] ? destroy_conntrack+0x27/0x200 [nf_conntrack]
+[  226.541776]  [<ffffffffa0117d60>] ? nf_conntrack_hash_check_insert+0x2e0/0x2e0 [nf_conntrack]
+[  226.541776]  [<ffffffff81630142>] nf_conntrack_destroy+0x72/0x180
+[  226.541776]  [<ffffffff816300d5>] ? nf_conntrack_destroy+0x5/0x180
+[  226.541776]  [<ffffffffa011ef80>] ? kill_l3proto+0x20/0x20 [nf_conntrack]
+[  226.541776]  [<ffffffffa011847e>] nf_ct_iterate_cleanup+0x14e/0x170 [nf_conntrack]
+[  226.541776]  [<ffffffffa011f74b>] nf_ct_l4proto_pernet_unregister+0x5b/0x90 [nf_conntrack]
+[  226.541776]  [<ffffffffa0162409>] proto_gre_net_exit+0x19/0x30 [nf_conntrack_proto_gre]
+[  226.541776]  [<ffffffff815edf89>] ops_exit_list.isra.1+0x39/0x60
+[  226.541776]  [<ffffffff815eecc0>] cleanup_net+0x100/0x1d0
+[  226.541776]  [<ffffffff810a608a>] process_one_work+0x1ea/0x4f0
+[  226.541776]  [<ffffffff810a6028>] ? process_one_work+0x188/0x4f0
+[  226.541776]  [<ffffffff810a64ab>] worker_thread+0x11b/0x3a0
+[  226.541776]  [<ffffffff810a6390>] ? process_one_work+0x4f0/0x4f0
+[  226.541776]  [<ffffffff810af42d>] kthread+0xed/0x110
+[  226.541776]  [<ffffffff8173d4dc>] ? _raw_spin_unlock_irq+0x2c/0x40
+[  226.541776]  [<ffffffff810af340>] ? kthread_create_on_node+0x200/0x200
+[  226.541776]  [<ffffffff8174747c>] ret_from_fork+0x7c/0xb0
+[  226.541776]  [<ffffffff810af340>] ? kthread_create_on_node+0x200/0x200
+[  226.541776] Code: 00 00 55 48 8b 17 48 b9 00 01 10 00 00 00 ad de
+48 8b 47 08 48 89 e5 48 39 ca 74 29 48 b9 00 02 20 00 00 00 ad de 48
+39 c8 74 7a <4c> 8b 00 4c 39 c7 75 53 4c 8b 42 08 4c 39 c7 75 2b 48 89
+42 08
+[  226.541776] RIP  [<ffffffff81389ba9>] __list_del_entry+0x29/0xd0
+[  226.541776]  RSP <ffff88003730dbd0>
+[  226.612193] ---[ end trace 985ae23ddfcc357c ]---
+
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Andrey Vagin <avagin@openvz.org>
 ---
- net/mac802154/ieee802154_dev.c |   25 +++++++++++++++++++++++++
- net/mac802154/mac802154.h      |    1 +
- 2 files changed, 26 insertions(+)
+ include/linux/netfilter/nf_conntrack_proto_gre.h |  1 -
+ net/netfilter/nf_conntrack_pptp.c                | 20 +-------------------
+ net/netfilter/nf_conntrack_proto_gre.c           |  3 +--
+ 3 files changed, 2 insertions(+), 22 deletions(-)
 
-diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
-index 10cdb09..e7aa764 100644
---- a/net/mac802154/ieee802154_dev.c
-+++ b/net/mac802154/ieee802154_dev.c
-@@ -36,9 +36,28 @@
- int mac802154_slave_open(struct net_device *dev)
+diff --git a/include/linux/netfilter/nf_conntrack_proto_gre.h b/include/linux/netfilter/nf_conntrack_proto_gre.h
+index ec2ffaf..df78dc2 100644
+--- a/include/linux/netfilter/nf_conntrack_proto_gre.h
++++ b/include/linux/netfilter/nf_conntrack_proto_gre.h
+@@ -87,7 +87,6 @@ int nf_ct_gre_keymap_add(struct nf_conn *ct, enum ip_conntrack_dir dir,
+ /* delete keymap entries */
+ void nf_ct_gre_keymap_destroy(struct nf_conn *ct);
+ 
+-void nf_ct_gre_keymap_flush(struct net *net);
+ void nf_nat_need_gre(void);
+ 
+ #endif /* __KERNEL__ */
+diff --git a/net/netfilter/nf_conntrack_pptp.c b/net/netfilter/nf_conntrack_pptp.c
+index 7bd03de..825c3e3 100644
+--- a/net/netfilter/nf_conntrack_pptp.c
++++ b/net/netfilter/nf_conntrack_pptp.c
+@@ -605,32 +605,14 @@ static struct nf_conntrack_helper pptp __read_mostly = {
+ 	.expect_policy		= &pptp_exp_policy,
+ };
+ 
+-static void nf_conntrack_pptp_net_exit(struct net *net)
+-{
+-	nf_ct_gre_keymap_flush(net);
+-}
+-
+-static struct pernet_operations nf_conntrack_pptp_net_ops = {
+-	.exit = nf_conntrack_pptp_net_exit,
+-};
+-
+ static int __init nf_conntrack_pptp_init(void)
  {
- 	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+	struct mac802154_sub_if_data *subif;
- 	struct mac802154_priv *ipriv = priv->hw;
- 	int res = 0;
+-	int rv;
+-
+-	rv = nf_conntrack_helper_register(&pptp);
+-	if (rv < 0)
+-		return rv;
+-	rv = register_pernet_subsys(&nf_conntrack_pptp_net_ops);
+-	if (rv < 0)
+-		nf_conntrack_helper_unregister(&pptp);
+-	return rv;
++	return nf_conntrack_helper_register(&pptp);
+ }
  
-+	ASSERT_RTNL();
-+
-+	if (priv->type == IEEE802154_DEV_WPAN) {
-+		mutex_lock(&priv->hw->slaves_mtx);
-+		list_for_each_entry(subif, &priv->hw->slaves, list) {
-+			if (subif != priv && subif->type == priv->type &&
-+			    subif->running) {
-+				mutex_unlock(&priv->hw->slaves_mtx);
-+				return -EBUSY;
-+			}
-+		}
-+		mutex_unlock(&priv->hw->slaves_mtx);
-+	}
-+
-+	mutex_lock(&priv->hw->slaves_mtx);
-+	priv->running = true;
-+	mutex_unlock(&priv->hw->slaves_mtx);
-+
- 	if (ipriv->open_count++ == 0) {
- 		res = ipriv->ops->start(&ipriv->hw);
- 		WARN_ON(res);
-@@ -69,8 +88,14 @@ int mac802154_slave_close(struct net_device *dev)
- 	struct mac802154_sub_if_data *priv = netdev_priv(dev);
- 	struct mac802154_priv *ipriv = priv->hw;
+ static void __exit nf_conntrack_pptp_fini(void)
+ {
+ 	nf_conntrack_helper_unregister(&pptp);
+-	unregister_pernet_subsys(&nf_conntrack_pptp_net_ops);
+ }
  
-+	ASSERT_RTNL();
-+
- 	netif_stop_queue(dev);
+ module_init(nf_conntrack_pptp_init);
+diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
+index 9d9c0da..d566573 100644
+--- a/net/netfilter/nf_conntrack_proto_gre.c
++++ b/net/netfilter/nf_conntrack_proto_gre.c
+@@ -66,7 +66,7 @@ static inline struct netns_proto_gre *gre_pernet(struct net *net)
+ 	return net_generic(net, proto_gre_net_id);
+ }
  
-+	mutex_lock(&priv->hw->slaves_mtx);
-+	priv->running = false;
-+	mutex_unlock(&priv->hw->slaves_mtx);
-+
- 	if (!--ipriv->open_count)
- 		ipriv->ops->stop(&ipriv->hw);
+-void nf_ct_gre_keymap_flush(struct net *net)
++static void nf_ct_gre_keymap_flush(struct net *net)
+ {
+ 	struct netns_proto_gre *net_gre = gre_pernet(net);
+ 	struct nf_ct_gre_keymap *km, *tmp;
+@@ -78,7 +78,6 @@ void nf_ct_gre_keymap_flush(struct net *net)
+ 	}
+ 	write_unlock_bh(&net_gre->keymap_lock);
+ }
+-EXPORT_SYMBOL(nf_ct_gre_keymap_flush);
  
-diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
-index 4619486..f40522e 100644
---- a/net/mac802154/mac802154.h
-+++ b/net/mac802154/mac802154.h
-@@ -71,6 +71,7 @@ struct mac802154_sub_if_data {
- 	struct net_device *dev;
- 
- 	int type;
-+	bool running;
- 
- 	spinlock_t mib_lock;
- 
+ static inline int gre_key_cmpfn(const struct nf_ct_gre_keymap *km,
+ 				const struct nf_conntrack_tuple *t)
 -- 
-1.7.9.5
+1.8.5.3
 
-
-------------------------------------------------------------------------------
