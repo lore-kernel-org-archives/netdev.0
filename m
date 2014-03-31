@@ -1,53 +1,70 @@
-From: Jes Sorensen <Jes.Sorensen@redhat.com>
-Subject: Re: [PATCH 0/6 NEXT]staging: r8723au: Add new driver
-Date: Mon, 31 Mar 2014 02:14:08 +0200
-Message-ID: <wrfjzjk7rzqn.fsf@redhat.com>
-References: <1396060663-3589-1-git-send-email-Larry.Finger@lwfinger.net>
- <1396063566.31134.42.camel@joe-AO722> <53363E1E.6050308@lwfinger.net>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net] at86rf230: mask irq's before
+	deregister device
+Date: Mon, 31 Mar 2014 03:26:51 +0200
+Message-ID: <1396229211-9146-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>, gregkh@linuxfoundation.org,
- devel@driverdev.osuosl.org, netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <53363E1E.6050308@lwfinger.net> (Larry Finger's message of "Fri,
- 28 Mar 2014 22:29:34 -0500")
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Larry Finger <Larry.Finger@lwfinger.net> writes:
-> On 03/28/2014 10:26 PM, Joe Perches wrote:
->> On Fri, 2014-03-28 at 21:37 -0500, Larry Finger wrote:
->>> The Realtek USB device RTL8723AU is found in Lenovo Yoga 13 tablets.
->>> A driver for it has been available in a GitHub repo for several months.
->> []
->>>   133 files changed, 89878 insertions(+)
->>
->> eek.  realtek don't do small or concise.
->
-> No, they do not. Those 90 K lines are after Jes and I deleted several
-> thousand lines. Of course, all these USB drivers have a complete MAC
-> stack - they do not do mac80211. :(
->
-> Larry
+While transmit over a at86rf231 device and unloading the module I got:
 
-We're not done with it yet, this is still work in progress. If you want
-to compare it to what it was before, try this:
+[   29.643073] WARNING: CPU: 0 PID: 3 at kernel/workqueue.c:1335 __queue_work+0xb4/0x224()
+[   29.651457] Modules linked in: at86rf230(-) autofs4
+[   29.656612] CPU: 0 PID: 3 Comm: ksoftirqd/0 Tainted: G        W    3.14.0-rc6-01602-g902659e-dirty #294
+[   29.666490] [<c00124f0>] (unwind_backtrace) from [<c0010ad0>] (show_stack+0x10/0x14)
+[   29.674628] [<c0010ad0>] (show_stack) from [<c0032c80>] (warn_slowpath_common+0x60/0x80)
+[   29.683116] [<c0032c80>] (warn_slowpath_common) from [<c0032d30>] (warn_slowpath_null+0x18/0x20)
+[   29.692329] [<c0032d30>] (warn_slowpath_null) from [<c0045b08>] (__queue_work+0xb4/0x224)
+[   29.700906] [<c0045b08>] (__queue_work) from [<c0045cc8>] (queue_work_on+0x50/0x78)
+[   29.708944] [<c0045cc8>] (queue_work_on) from [<c05669cc>] (mac802154_tx+0x1e4/0x240)
+[   29.717164] [<c05669cc>] (mac802154_tx) from [<c0471814>] (dev_hard_start_xmit+0x2f0/0x43c)
+[   29.725926] [<c0471814>] (dev_hard_start_xmit) from [<c04878d0>] (sch_direct_xmit+0x64/0x2a0)
+[   29.734867] [<c04878d0>] (sch_direct_xmit) from [<c0487c38>] (__qdisc_run+0x12c/0x18c)
+[   29.743169] [<c0487c38>] (__qdisc_run) from [<c046e1b0>] (net_tx_action+0xe0/0x178)
+[   29.751205] [<c046e1b0>] (net_tx_action) from [<c0036690>] (__do_softirq+0x100/0x264)
+[   29.759420] [<c0036690>] (__do_softirq) from [<c0036818>] (run_ksoftirqd+0x24/0x4c)
+[   29.767453] [<c0036818>] (run_ksoftirqd) from [<c005232c>] (smpboot_thread_fn+0x128/0x13c)
+[   29.776121] [<c005232c>] (smpboot_thread_fn) from [<c004c3fc>] (kthread+0xd0/0xe4)
+[   29.784061] [<c004c3fc>] (kthread) from [<c000da88>] (ret_from_fork+0x14/0x2c)
+[   29.791628] ---[ end trace 3406ff24bd973834 ]---
 
-git clone https://github.com/lwfinger/rtl8723au.git
+The problem is there are still interrupts after deregister ieee802154
+device. This patch mask all interrupts in the at86rf2xx chips before
+deregister the device.
 
-[jes@ultrasam rtl8723au]$ git diff cd93a4ae4151d69e9d198d8d4b3ef95c0e7714b6..kernel_version | diffstat -s
- 207 files changed, 58354 insertions(+), 129109 deletions(-)
+Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ drivers/net/ieee802154/at86rf230.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-It'll get even 'smaller' :)
+diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
+index a30258a..fbb83d1 100644
+--- a/drivers/net/ieee802154/at86rf230.c
++++ b/drivers/net/ieee802154/at86rf230.c
+@@ -997,6 +997,8 @@ static int at86rf230_remove(struct spi_device *spi)
+ {
+ 	struct at86rf230_local *lp = spi_get_drvdata(spi);
+ 
++	/* mask all at86rf230 irq's */
++	at86rf230_write_subreg(lp, SR_IRQ_MASK, 0);
+ 	ieee802154_unregister_device(lp->dev);
+ 
+ 	free_irq(spi->irq, lp);
+-- 
+1.9.1
 
-Jes
+
+------------------------------------------------------------------------------
