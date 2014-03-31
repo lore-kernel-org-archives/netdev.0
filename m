@@ -1,35 +1,48 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next v4 5/9] net: ptp: do not reimplement PTP/BPF
- classifier
-Date: Mon, 31 Mar 2014 22:37:28 +0200
-Message-ID: <5339D208.6070402@redhat.com>
-References: <1396029506-16776-1-git-send-email-dborkman@redhat.com> <1396029506-16776-6-git-send-email-dborkman@redhat.com> <20140331091309.GB6867@netboy>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv6: some ipv6 statistic counters failed to
+ disable bh
+Date: Mon, 31 Mar 2014 16:39:04 -0400 (EDT)
+Message-ID: <20140331.163904.1733729527022532179.davem@davemloft.net>
+References: <CAOMZO5DQ3dNB-R5rsd2X89XLbg_VYs7za8xQT2K-bWWmFS=YHA@mail.gmail.com>
+	<20140331181410.GC24150@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, ast@plumgrid.com, netdev@vger.kernel.org,
-	Jiri Benc <jbenc@redhat.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Cc: festevam@gmail.com, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44637 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750987AbaCaUhf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Mar 2014 16:37:35 -0400
-In-Reply-To: <20140331091309.GB6867@netboy>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43030 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750987AbaCaUjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 16:39:07 -0400
+In-Reply-To: <20140331181410.GC24150@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/31/2014 11:13 AM, Richard Cochran wrote:
-> On Fri, Mar 28, 2014 at 06:58:22PM +0100, Daniel Borkmann wrote:
->> Cc: Richard Cochran <richard.cochran@omicron.at>
->
-> I am sorry to say that I missed this. That old email address does not
-> work for me any more.
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Mon, 31 Mar 2014 20:14:10 +0200
 
-Ups, that's a pity, we'll get it fixed asap in the next days.
+> After commit c15b1ccadb323ea ("ipv6: move DAD and addrconf_verify
+> processing to workqueue") some counters are now updated in process context
+> and thus need to disable bh before doing so, otherwise deadlocks can
+> happen on 32-bit archs. Fabio Estevam noticed this while while mounting
+> a NFS volume on an ARM board.
+> 
+> As a compensation for missing this I looked after the other *_STATS_BH
+> and found three other calls which need updating:
+> 
+> 1) icmp6_send: ip6_fragment -> icmpv6_send -> icmp6_send (error handling)
+> 2) ip6_push_pending_frames: rawv6_sendmsg -> rawv6_push_pending_frames -> ...
+>    (only in case of icmp protocol with raw sockets in error handling)
+> 3) ping6_v6_sendmsg (error handling)
+> 
+> Fixes: c15b1ccadb323ea ("ipv6: move DAD and addrconf_verify processing to workqueue")
+> Reported-by: Fabio Estevam <festevam@gmail.com>
+> Tested-by: Fabio Estevam <fabio.estevam@freescale.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+> 
+> I would propose this patch for -stable, too.
 
-Will look into it by tomorrow.
-
-Thanks,
-
-Daniel
+Applied and queued up for -stable, thanks.
