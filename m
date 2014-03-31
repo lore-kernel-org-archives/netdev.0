@@ -1,7 +1,7 @@
 From: Masanari Iida <standby24x7@gmail.com>
-Subject: [PATCH 5/5] netfilter: Fix format string mismatch in nf_conntrack_sip_init()
-Date: Tue,  1 Apr 2014 00:43:39 +0900
-Message-ID: <1396280619-31152-4-git-send-email-standby24x7@gmail.com>
+Subject: [PATCH 4/5] netfilter: Fix format string mismatch in nf_conntrack_irc_init()
+Date: Tue,  1 Apr 2014 00:43:38 +0900
+Message-ID: <1396280619-31152-3-git-send-email-standby24x7@gmail.com>
 References: <1396280619-31152-1-git-send-email-standby24x7@gmail.com>
 Cc: Masanari Iida <standby24x7@gmail.com>
 To: netdev@vger.kernel.org, pablo@netfilter.org, kaber@trash.net,
@@ -12,25 +12,25 @@ In-Reply-To: <1396280619-31152-1-git-send-email-standby24x7@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix format string mismatch in nf_conntrack_sip_init().
+Fix format string mismatch in nf_conntrack_irc_init()
 
 Signed-off-by: Masanari Iida <standby24x7@gmail.com>
 ---
- net/netfilter/nf_conntrack_sip.c | 2 +-
+ net/netfilter/nf_conntrack_irc.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
-index 4c3ba1c..ef82019 100644
---- a/net/netfilter/nf_conntrack_sip.c
-+++ b/net/netfilter/nf_conntrack_sip.c
-@@ -1659,7 +1659,7 @@ static int __init nf_conntrack_sip_init(void)
- 			if (ports[i] == SIP_PORT)
- 				sprintf(sip[i][j].name, "sip");
- 			else
--				sprintf(sip[i][j].name, "sip-%u", i);
-+				sprintf(sip[i][j].name, "sip-%d", i);
+diff --git a/net/netfilter/nf_conntrack_irc.c b/net/netfilter/nf_conntrack_irc.c
+index 0fd2976..8ee3a5f 100644
+--- a/net/netfilter/nf_conntrack_irc.c
++++ b/net/netfilter/nf_conntrack_irc.c
+@@ -263,7 +263,7 @@ static int __init nf_conntrack_irc_init(void)
+ 		if (ports[i] == IRC_PORT)
+ 			sprintf(irc[i].name, "irc");
+ 		else
+-			sprintf(irc[i].name, "irc-%u", i);
++			sprintf(irc[i].name, "irc-%d", i);
  
- 			pr_debug("port #%u: %u\n", i, ports[i]);
- 
+ 		ret = nf_conntrack_helper_register(&irc[i]);
+ 		if (ret) {
 -- 
 1.9.1.352.gd393d14
