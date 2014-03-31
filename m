@@ -1,76 +1,78 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next v2 07/14] i40evf: remove double space after return
-Date: Mon, 31 Mar 2014 11:24:45 -0700
-Message-ID: <1396290285.2158.2.camel@jtkirshe-mobl.jf.intel.com>
-References: <1396015695-25283-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1396015695-25283-8-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <CAJZOPZ+NqT8LsJGjtmZGwUANONXphgtm1tZSdoLrRiDyruyJ0Q@mail.gmail.com>
-	 <20140331104804.00005c55@unknown>
-	 <CAJZOPZKSowPH4fB_QS3eXh2e9QFESKGaFfo9=x9gncE9bL8xAg@mail.gmail.com>
+From: Tom Gundersen <teg@jklm.no>
+Subject: [BUG?] the first bind() of an AF_PACKET socket to an interface is slow
+Date: Mon, 31 Mar 2014 20:43:04 +0200
+Message-ID: <CAG-2HqXW+ULp_K-873+DG3T_4FxcxaSy5aGQ+wf6P9m=015zgQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-2CGqkVK7YjXn4PC19QT5"
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: multipart/mixed; boundary=20cf3010e5b134a25f04f5eb6dd4
+Cc: Kay Sievers <kay@vrfy.org>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:3455 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752442AbaCaSZK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Mar 2014 14:25:10 -0400
-In-Reply-To: <CAJZOPZKSowPH4fB_QS3eXh2e9QFESKGaFfo9=x9gncE9bL8xAg@mail.gmail.com>
+Received: from mail-yk0-f169.google.com ([209.85.160.169]:58537 "EHLO
+	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754204AbaCaSnZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 14:43:25 -0400
+Received: by mail-yk0-f169.google.com with SMTP id 142so6607322ykq.0
+        for <netdev@vger.kernel.org>; Mon, 31 Mar 2014 11:43:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+--20cf3010e5b134a25f04f5eb6dd4
+Content-Type: text/plain; charset=UTF-8
 
---=-2CGqkVK7YjXn4PC19QT5
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Hi,
 
-On Mon, 2014-03-31 at 21:18 +0300, Or Gerlitz wrote:
-> On Mon, Mar 31, 2014 at 8:48 PM, Jesse Brandeburg
-> <jesse.brandeburg@intel.com> wrote:
-> > On Fri, 28 Mar 2014 22:58:31 +0300
-> > Or Gerlitz <or.gerlitz@gmail.com> wrote:
-> >> Just out of curiosity, any special reason for four of the maintainers
-> >> to sign on a patch that remove a space?
-> >
-> > Yeah, seems like lots of overkill, in this case it is just an artifact
-> > of all the people that handled the patch as it exited our process.
-> >
-> > Thanks for the review.
->=20
-> So beinh curios again, are you planning to change something based on
-> this feedback and your overkill comment?
+I'm observing some strange behavior using bind().
 
-Yeah, I will ensure that patches I send out won't have an overkill of
-signatures.  I saw this when I went to push it upstream and thought
-twice about trimming down the list.  I plan on keeping the author,
-tested-by and my signatures on the patch for sure.
+For any given process, and any given interface, the first time I bind
+a socket to the interface it takes a very long time. Subsequent binds
+to the same interface in the same process are instantaneous.
 
---=-2CGqkVK7YjXn4PC19QT5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+The time it takes seems independent of the interface, so also affects
+the loopback interface, but binding to all interfaces (ifindex=0) is
+instantaneous.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
+It is also peculiar to note that the time it takes to bind is
+seemingly randomly chosen on my machine from 9ms, 19ms, 29ms, 39ms,
+49ms and 59 ms, but I never observed any other values.
 
-iQIcBAABCgAGBQJTObLtAAoJEOVv75VaS+3OCxYQAIIfDjqcn/bLtDr7lKreajYi
-Vigq8zpee7pRIhbOReLEUdPNV8UG5cLFgEKZmS3CfIZEnLUyuNN1szAa2atQ8tb0
-kF9fAHteis7367pJAUnfkX1V+S1wxt8LZeqCU6zkSVNfh5kxxlFDVb0MT3azaIKF
-aLoKpU8Vrlew2FY51q0f0nR3GG78VcC/9l17VftYbwt8A0/9CUjnLIlOwYhi0YGa
-cCKmvM69q6DA0C+ZiXbV0O+Fa47dqBbGM+hECFFC1R4rL2ceODZZR/REkxQ3Ptlo
-h8XjZHFi/QvKgdYeoYoFoQPPVU3UJnYI1LxNeZfoG+KTs+Ru10tt2Gqsq3sDTDw9
-Im2yqEJ24+KlZowmp7HI3F04JaRMIHc6Nxx7MgLDjLKUQXOBAFqxkPNHKB3bw1xd
-2CVDjYDKRssw0b43T55V5DSf8crxLw6vVOmdkZN9cTWWoB1y7HkFMmj7UfCLoZwR
-q5Woym/0HpQCyLy+em9icKUtJU8fP+A9g8LefYv1O51o/1MLxEZ1DGoLCFiGYRQu
-wizTNpVkyfAl4XV8+rP7LyNSFEClwvsqAxvmJRmWXX1c9+ixy5ayp5ZKForgLAQL
-ggjyiuWbyxmSayTavJpQ97jymKY72arXOYaaNvyYtDm7e5QoGGosEdnIxJXqNTdE
-ZH7gwtyQE4TQJTsXHK7O
-=7AxD
------END PGP SIGNATURE-----
+The attached test program illustrates the problem, binding to
+ifindex=0 (all) and ifindex=1 (loopback).
 
---=-2CGqkVK7YjXn4PC19QT5--
+Sample run:
+# strace -f -T -ebind ./bind
+bind(3, {sa_family=AF_PACKET, proto=0x800, if0, pkttype=0x40 /* ? */,
+addr(6)={1328, ffffffffffff}, 20) = 0 <0.000036>
+bind(3, {sa_family=AF_PACKET, proto=0x800, if0, pkttype=0x40 /* ? */,
+addr(6)={1328, ffffffffffff}, 20) = 0 <0.000033>
+bind(3, {sa_family=AF_PACKET, proto=0x800, if1, pkttype=0x40 /* ? */,
+addr(6)={1328, ffffffffffff}, 20) = 0 <0.059706>
+bind(3, {sa_family=AF_PACKET, proto=0x800, if1, pkttype=0x40 /* ? */,
+addr(6)={1328, ffffffffffff}, 20) = 0 <0.000111>
+
+
+Can anyone enlighten me to what is going on? Is this expected behavior
+or a bug? Any suggestions for a work-around?
+
+Cheers,
+
+Tom
+
+--20cf3010e5b134a25f04f5eb6dd4
+Content-Type: text/x-csrc; charset=US-ASCII; name="bind.c"
+Content-Disposition: attachment; filename="bind.c"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_htg3t1690
+
+I2luY2x1ZGUgPGVycm5vLmg+CiNpbmNsdWRlIDxzeXMvdHlwZXMuaD4KI2luY2x1ZGUgPHN5cy9z
+b2NrZXQuaD4KI2luY2x1ZGUgPHN0cmluZy5oPgojaW5jbHVkZSA8bGludXgvaWZfcGFja2V0Lmg+
+CiNpbmNsdWRlIDxuZXQvZXRoZXJuZXQuaD4KI2luY2x1ZGUgPHN0ZGlvLmg+CiNpbmNsdWRlIDx1
+bmlzdGQuaD4KI2luY2x1ZGUgPHN5cy9zb2NrZXQuaD4KI2luY2x1ZGUgPHN5cy91bi5oPgojaW5j
+bHVkZSA8YXJwYS9pbmV0Lmg+CgppbnQgbWFpbigpIHsKICAgICAgICBzdHJ1Y3Qgc29ja2FkZHJf
+bGwgbGw7CiAgICAgICAgaW50IHM7CglpbnQgaTsKCglmb3IgKGkgPSAwOyBpIDwgMjsgaSsrKSB7
+CgkJcyA9IHNvY2tldChBRl9QQUNLRVQsIFNPQ0tfREdSQU0sIGh0b25zKEVUSF9QX0lQKSk7CgoJ
+ICAgICAgICBsbC5zbGxfZmFtaWx5ID0gQUZfUEFDS0VUOwoJICAgICAgICBsbC5zbGxfcHJvdG9j
+b2wgPSBodG9ucyhFVEhfUF9JUCk7CgkgICAgICAgIGxsLnNsbF9pZmluZGV4ID0gaTsKCgkgICAg
+ICAgIGJpbmQocywgKGNvbnN0IHN0cnVjdCBzb2NrYWRkciAqKSZsbCwgc2l6ZW9mKGxsKSk7Cgkg
+ICAgICAgIGJpbmQocywgKGNvbnN0IHN0cnVjdCBzb2NrYWRkciAqKSZsbCwgc2l6ZW9mKGxsKSk7
+CgkJY2xvc2Uocyk7Cgl9CgogICAgICAgIHJldHVybiAwOwp9Cg==
+--20cf3010e5b134a25f04f5eb6dd4--
