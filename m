@@ -1,51 +1,34 @@
-From: Heiner Kallweit <heiner.kallweit@web.de>
-Subject: [PATCH] ipv6: simplify code structure in addrconf.c/manage_tempaddrs
-Date: Mon, 31 Mar 2014 20:47:42 +0200
-Message-ID: <5339B84E.7030708@web.de>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [Linux-zigbee-devel] mac802154: make multiple WPAN handling
+ sensible
+Date: Mon, 31 Mar 2014 20:48:41 +0200
+Message-ID: <20140331184838.GA990@omega.Speedport_W_921V_1_24_000>
+References: <1396271873-10300-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-zigbee-devel@lists.sourceforge.net
+To: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.15.14]:64400 "EHLO mout.web.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754105AbaCaSss (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Mar 2014 14:48:48 -0400
-Received: from [192.168.178.101] ([84.142.93.207]) by smtp.web.de (mrweb103)
- with ESMTPSA (Nemesis) id 0Lz3FM-1X8AqE1l9E-014GFm for
- <netdev@vger.kernel.org>; Mon, 31 Mar 2014 20:48:46 +0200
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:49685 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754090AbaCaSsr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 14:48:47 -0400
+Received: by mail-wg0-f47.google.com with SMTP id x12so6237273wgg.18
+        for <netdev@vger.kernel.org>; Mon, 31 Mar 2014 11:48:46 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1396271873-10300-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-read_unlock_bh can be moved out of the if clause
+Hi Phoebe,
 
-Signed-off-by: Heiner Kallweit <heiner.kallweit@web.de>
----
- net/ipv6/addrconf.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+I got a:
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 6c7fa08..a65812f 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2122,6 +2122,7 @@ static void manage_tempaddrs(struct inet6_dev *idev,
- 		if (!(flags&IFA_F_TENTATIVE))
- 			ipv6_ifa_notify(0, ift);
- 	}
-+	read_unlock_bh(&idev->lock);
- 
- 	if ((create || list_empty(&idev->tempaddr_list)) &&
- 	    idev->cnf.use_tempaddr > 0) {
-@@ -2130,10 +2131,7 @@ static void manage_tempaddrs(struct inet6_dev *idev,
- 		 * Also create a temporary address if it's enabled but
- 		 * no temporary address currently exists.
- 		 */
--		read_unlock_bh(&idev->lock);
- 		ipv6_create_tempaddr(ifp, NULL);
--	} else {
--		read_unlock_bh(&idev->lock);
- 	}
- }
- 
--- 
-1.9.1.315.g3f09db0.dirty
+RTNETLINK answers: Unknown error 524
+
+when I try to make a "ip link set wpan0 up" after iz add.
+
+"iz listphy" shows the wpan device.
+
+- Alex
