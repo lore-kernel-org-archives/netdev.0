@@ -1,34 +1,37 @@
-From: Masanari Iida <standby24x7@gmail.com>
-Subject: [PATCH 2/5] netfilter: Fix format string mismatch in mangle_content_len()
-Date: Tue,  1 Apr 2014 00:43:36 +0900
-Message-ID: <1396280619-31152-1-git-send-email-standby24x7@gmail.com>
-Cc: Masanari Iida <standby24x7@gmail.com>
-To: netdev@vger.kernel.org, pablo@netfilter.org, kaber@trash.net,
-	kadlec@blackhole.kfki.hu, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/5] bonding: Reorg bond_alb_xmit code
+Date: Mon, 31 Mar 2014 08:46:54 -0700
+Message-ID: <1396280814.29410.37.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1396070941-17602-1-git-send-email-maheshb@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Mahesh Bandewar <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:39753 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752585AbaCaPrB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 11:47:01 -0400
+Received: by mail-pd0-f169.google.com with SMTP id fp1so8197881pdb.28
+        for <netdev@vger.kernel.org>; Mon, 31 Mar 2014 08:47:01 -0700 (PDT)
+In-Reply-To: <1396070941-17602-1-git-send-email-maheshb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix format string mismatch in mangle_connect_len()
+On Fri, 2014-03-28 at 22:29 -0700, Mahesh Bandewar wrote:
+> Separating the actual xmit part from the function in a separate
+> function that can be used in the tlb_xmit in the next patch. Also
+> there is no reason do_tx_balance to be an int so changing it to
+> bool type.
+> 
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
 
-Signed-off-by: Masanari Iida <standby24x7@gmail.com>
----
- net/netfilter/nf_nat_sip.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/netfilter/nf_nat_sip.c b/net/netfilter/nf_nat_sip.c
-index b4d691d..5f98845 100644
---- a/net/netfilter/nf_nat_sip.c
-+++ b/net/netfilter/nf_nat_sip.c
-@@ -434,7 +434,7 @@ static int mangle_content_len(struct sk_buff *skb, unsigned int protoff,
- 			      &matchoff, &matchlen) <= 0)
- 		return 0;
- 
--	buflen = sprintf(buffer, "%u", c_len);
-+	buflen = sprintf(buffer, "%d", c_len);
- 	return mangle_packet(skb, protoff, dataoff, dptr, datalen,
- 			     matchoff, matchlen, buffer, buflen);
- }
--- 
-1.9.1.352.gd393d14
+Acked-by: Eric Dumazet <edumazet@google.com>
