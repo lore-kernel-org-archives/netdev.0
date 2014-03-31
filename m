@@ -1,82 +1,92 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/13] e1000e: Fix no connectivity when driver loaded with cable out
-Date: Mon, 31 Mar 2014 16:34:47 -0700
-Message-ID: <1396308899-20926-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1396308899-20926-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/13][pull request] Intel Wired LAN Driver Updates
+Date: Mon, 31 Mar 2014 16:34:46 -0700
+Message-ID: <1396308899-20926-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:42191 "EHLO mga01.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:34702 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751615AbaCaXgH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Mar 2014 19:36:07 -0400
-In-Reply-To: <1396308899-20926-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751717AbaCaXg2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Mar 2014 19:36:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ertman <davidx.m.ertman@intel.com>
+This series contains fixes to e1000e, igb, ixgbe, ixgebvf, i40e and
+i40evf.
 
-In commit da1e2046e5, the flow for enabling/disabling an Si errata
-workaround (e1000_lv_jumbo_workaround_ich8lan) was changed to fix a problem
-with iAMT connections dropping on interface down with jumbo frames set.
-Part of this change was to move the function call disabling the workaround
-to e1000e_down() from the e1000_setup_rctl() function.  The mechanic for
-disabling of this workaround involves writing several MAC and PHY registers
-back to hardware defaults.
+David provides a fix for e1000e to resolve an issue where the device is
+capable of transmitting packets but is unable to receive packets until
+a previously introduced workaround is called.
 
-After this commit, when the driver is loaded with the cable out, the PHY
-registers are not programmed with the correct default values.  This causes
-the device to be capable of transmitting packets, but is unable to recieve
-them until this workaround is called.
+Jakub Kicinski provides PTP fixes for ixgbe, which include removing a
+redundant if clause and make sure we are not generating both a software and
+hardware timestamp.  As well as fix a race condition and leaking skbs
+when multiple transmit rings try to claim time stamping.
 
-The flow of e1000e's open code relies upon calling the above workaround to
-expicitly program these registers either with jumbo frame appropriate settings
-or h/w defaults on 82579 and newer hardware.
+Jean Sacren fixes a function declaration in ixgbe which was introduced
+in commit c97506ab0e22 ("ixgbe: Add check for FW veto bit").  In addition
+fixes a function header comment in i40e and fixes the error checking
+by binding the check to the pertinent DMA bit mask.
 
-Fix this issue by adding logic to e1000_setup_rctl() that not only calls
-e1000_lv_jumbo_workaround_ich8lan() when jumbo frames are set, to enable the
-workaround, but also calls this function to explicitly disable the workaround
-in the case that jumbo frames are not set.
+Mark provides several fixes for ixgbe and ixgbevf.  Most notably are fixes
+to resolve namespace issues and fix ECU warnings induced by LER for ixgbe
+and ixgbevf.
 
-Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/netdev.c | 20 +++++++++++++++-----
- 1 file changed, 15 insertions(+), 5 deletions(-)
+Joe Perches fixes up unnecessary casts in i40e and i40evf.
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index f1cce59..dce377b 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -2991,11 +2991,21 @@ static void e1000_setup_rctl(struct e1000_adapter *adapter)
- 	u32 rctl, rfctl;
- 	u32 pages = 0;
+Peter Senna Tschudin fixes igb to use pci_iounmap when the virtual mapping
+was done with pci_iomap.
  
--	/* Workaround Si errata on PCHx - configure jumbo frame flow */
--	if ((hw->mac.type >= e1000_pch2lan) &&
--	    (adapter->netdev->mtu > ETH_DATA_LEN) &&
--	    e1000_lv_jumbo_workaround_ich8lan(hw, true))
--		e_dbg("failed to enable jumbo frame workaround mode\n");
-+	/* Workaround Si errata on PCHx - configure jumbo frame flow.
-+	 * If jumbo frames not set, program related MAC/PHY registers
-+	 * to h/w defaults
-+	 */
-+	if (hw->mac.type >= e1000_pch2lan) {
-+		s32 ret_val;
-+
-+		if (adapter->netdev->mtu > ETH_DATA_LEN)
-+			ret_val = e1000_lv_jumbo_workaround_ich8lan(hw, true);
-+		else
-+			ret_val = e1000_lv_jumbo_workaround_ich8lan(hw, false);
-+
-+		if (ret_val)
-+			e_dbg("failed to enable|disable jumbo frame workaround mode\n");
-+	}
- 
- 	/* Program MC offset vector base */
- 	rctl = er32(RCTL);
+The following are changes since commit 0b70195e0c3206103be991e196c26fcf168d0334:
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+David Ertman (1):
+  e1000e: Fix no connectivity when driver loaded with cable out
+
+Jakub Kicinski (3):
+  ixgbe: remove redundant if clause from PTP work
+  ixgbe: never generate both software and hardware timestamps
+  ixgbe: fix race conditions on queuing skb for HW time stamp
+
+Jean Sacren (3):
+  ixgbe: fix ixgbe_check_reset_blocked() declaration
+  i40e: fix function kernel doc description
+  i40e/i40evf: fix error checking path
+
+Joe Perches (2):
+  i40e/i40evf: Remove addressof casts to same type
+  i40e: Remove casts of pointer to same type
+
+Mark Rustad (3):
+  ixgbevf: Change ixgbe_read_reg to ixgbevf_read_reg
+  ixgbe: Fix rcu warnings induced by LER
+  ixgbevf: Fix rcu warnings induced by LER
+
+Peter Senna Tschudin (1):
+  INTEL-IGB: Convert iounmap to pci_iounmap
+
+ drivers/net/ethernet/intel/e1000e/netdev.c        | 20 +++++++++++----
+ drivers/net/ethernet/intel/i40e/i40e_common.c     |  4 +--
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c    |  4 +--
+ drivers/net/ethernet/intel/i40e/i40e_main.c       | 11 ++++----
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c       |  2 +-
+ drivers/net/ethernet/intel/i40evf/i40e_common.c   |  3 +--
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c   | 11 ++++----
+ drivers/net/ethernet/intel/igb/igb_main.c         |  4 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h          |  2 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     | 31 +++++++++++++++++------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c      |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h      |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c      |  7 +++--
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c      |  8 +++---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  1 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 26 ++++++++++++++-----
+ drivers/net/ethernet/intel/ixgbevf/vf.h           |  6 ++---
+ 17 files changed, 92 insertions(+), 52 deletions(-)
+
 -- 
 1.9.0
