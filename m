@@ -1,40 +1,45 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next 2014-03-31
-Date: Mon, 31 Mar 2014 17:09:53 -0400 (EDT)
-Message-ID: <20140331.170953.1487229969639485446.davem@davemloft.net>
-References: <20140331193118.GE17412@tuxdriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net-gro: restore frag0 optimization
+Date: Mon, 31 Mar 2014 14:19:44 -0700
+Message-ID: <1396300784.29410.75.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <53345A6C.5080008@redhat.com>
+	 <1395940898.12610.307.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1396153701.29410.27.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140331.162747.1884094141150130320.davem@davemloft.net>
+	 <1396299703.29410.71.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140331193118.GE17412-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: mschmidt@redhat.com, netdev@vger.kernel.org, edumazet@google.com,
+	hkchu@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:59397 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750777AbaCaVTq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 17:19:46 -0400
+Received: by mail-pb0-f51.google.com with SMTP id uo5so8830629pbc.10
+        for <netdev@vger.kernel.org>; Mon, 31 Mar 2014 14:19:46 -0700 (PDT)
+In-Reply-To: <1396299703.29410.71.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Mon, 31 Mar 2014 15:31:19 -0400
+On Mon, 2014-03-31 at 14:01 -0700, Eric Dumazet wrote:
 
-> Please accept this one last round of general wireless updates for
-> the 3.15 merge window!
 > 
-> For the Bluetooth bits, Gustavo says:
-> 
-> "Here follow another set of patches to 3.15. This is mostly a bug fix
-> pull request with the exception of one commit from Marcel which adds
-> tracking to the current configured LE scan type parameter."
-> 
-> Beyond that, notable bits include some final refactoring of rtl8180
-> and the addition of the rtl8187se driver, fixes for a number of
-> problems identified by Dan Carpenter and his static analysis tools,
-> and a handful of other bits here and there.
-> 
-> Please let me know if there are problems!
+> BTW, I found a off-by-one error in skb_gro_header_hard()
 
-Pulled, thanks John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+>  
+> -static inline int skb_gro_header_hard(struct sk_buff *skb, unsigned int hlen)
+> +static inline bool skb_gro_header_hard(const struct sk_buff *skb,
+> +				       unsigned int hlen)
+>  {
+> -	return NAPI_GRO_CB(skb)->frag0_len < hlen;
+> +	return NAPI_GRO_CB(skb)->frag0_len <= hlen;
+>  }
+
+
+Oh well, scratch this. This strange function name fooled me again.
+
+bool slowpath = hlen > NAPI_GRO_CB(skb)->frag0_len;
