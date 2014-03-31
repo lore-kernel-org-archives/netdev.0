@@ -1,83 +1,64 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH] net: sched: dev_deactivate_many(): use msleep(1) instead
- of yield() to wait for outstanding qdisc_run callsb
-Date: Mon, 31 Mar 2014 23:49:16 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1403312333100.14882@ionos.tec.linutronix.de>
-References: <1393976987-23555-1-git-send-email-mkl@pengutronix.de> <20140306.160622.59358366688518505.davem@davemloft.net> <1394392160.15968.13.camel@deadeye.wl.decadent.org.uk> <20140309.185338.2057082497431220324.davem@davemloft.net>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH 5/5] bonding: Add tlb_dynamic_lb module parameter
+Date: Mon, 31 Mar 2014 14:52:31 -0700
+Message-ID: <CAF2d9ji1hgx8pzaLL1-OtY4c2YMN1U0-ePAHAYbXtUK7TAJJMA@mail.gmail.com>
+References: <1396070949-17783-1-git-send-email-maheshb@google.com> <20140331163503.GA27772@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: ben@decadent.org.uk, mkl@pengutronix.de,
-	linux-rt-users <linux-rt-users@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	kernel@pengutronix.de, Peter Zijlstra <peterz@infradead.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140309.185338.2057082497431220324.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Veaceslav Falico <vfalico@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f180.google.com ([209.85.220.180]:50436 "EHLO
+	mail-vc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751081AbaCaVww (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 17:52:52 -0400
+Received: by mail-vc0-f180.google.com with SMTP id lf12so8580985vcb.25
+        for <netdev@vger.kernel.org>; Mon, 31 Mar 2014 14:52:52 -0700 (PDT)
+In-Reply-To: <20140331163503.GA27772@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 9 Mar 2014, David Miller wrote:
-> From: Ben Hutchings <ben@decadent.org.uk>
-> Date: Sun, 09 Mar 2014 19:09:20 +0000
-> 
-> > On Thu, 2014-03-06 at 16:06 -0500, David Miller wrote:
-> >> From: Marc Kleine-Budde <mkl@pengutronix.de>
-> >> Date: Wed,  5 Mar 2014 00:49:47 +0100
-> >> 
-> >> > @@ -839,7 +839,7 @@ void dev_deactivate_many(struct list_head *head)
-> >> >       /* Wait for outstanding qdisc_run calls. */
-> >> >       list_for_each_entry(dev, head, unreg_list)
-> >> >               while (some_qdisc_is_busy(dev))
-> >> > -                     yield();
-> >> > +                     msleep(1)
-> >> >  }
-> >> 
-> >> I don't understand this.
-> >> 
-> >> yield() should really _mean_ yield.
-> >> 
-> >> The intent of a yield() call, like this one here, is unambiguously
-> >> that the current thread cannot do anything until some other thread
-> >> gets onto the cpu and makes forward progress.
-> >>
-> >> Therefore it should allow lower priority threads to run, not just
-> >> equal or higher priority ones.
-> > 
-> > Until when?
-> > 
-> > yield() is not a sensible operation in a preemptive multitasking system,
-> > regardless of RT.
-> 
-> To me it means "I've got nothing to do if other tasks want to run right
-> now"  Yes, I even see it having this meaning when an RT task executes
-> it.
-> 
-> How else can you interpret the intent above?
+On Mon, Mar 31, 2014 at 9:35 AM, Veaceslav Falico <vfalico@redhat.com> wrote:
+> On Fri, Mar 28, 2014 at 10:29:09PM -0700, Mahesh Bandewar wrote:
+> ...snip...
+>
+>> @@ -3046,7 +3050,7 @@ static void bond_work_init_all(struct bonding *bond)
+>> {
+>>         INIT_DELAYED_WORK(&bond->mcast_work,
+>>                           bond_resend_igmp_join_requests_delayed);
+>> -       if (bond_is_lb(bond))
+>> +       if (bond_is_lb(bond) && bond->params.tlb_dynamic_lb)
+>>                 INIT_DELAYED_WORK(&bond->alb_work, bond_alb_monitor);
+>>         INIT_DELAYED_WORK(&bond->mii_work, bond_mii_monitor);
+>>         if (bond->params.mode == BOND_MODE_ACTIVEBACKUP)
+>> @@ -3060,7 +3064,7 @@ static void bond_work_cancel_all(struct bonding
+>> *bond)
+>> {
+>>         cancel_delayed_work_sync(&bond->mii_work);
+>>         cancel_delayed_work_sync(&bond->arp_work);
+>> -       if (bond_is_lb(bond))
+>> +       if (bond_is_lb(bond) && bond->params.tlb_dynamic_lb)
+>>                 cancel_delayed_work_sync(&bond->alb_work);
+>>         cancel_delayed_work_sync(&bond->ad_work);
+>>         cancel_delayed_work_sync(&bond->mcast_work);
+>> @@ -3098,7 +3102,8 @@ static int bond_open(struct net_device *bond_dev)
+>>                  */
+>>                 if (bond_alb_initialize(bond, (bond->params.mode ==
+>> BOND_MODE_ALB)))
+>>                         return -ENOMEM;
+>> -               queue_delayed_work(bond->wq, &bond->alb_work, 0);
+>> +               if (bond->params.tlb_dynamic_lb)
+>> +                       queue_delayed_work(bond->wq, &bond->alb_work, 0);
+>
+>
+> So what happens if tlb_dynamic_lb is changed on the flight, via sysfs?
+> Seems like the delayed_work is handled only on bond_setup/open, and
+> changing the tlb_dynamic_lb via sysfs won't re-enable it.
 
-The problem is that the semantics of yield() are a complete disaster.
-
-yield() only works by some definiton of "works" when the involved
-parties are in the same scheduling class.
-
-You can yield from one SCHED_OTHER task to another SCHED_OTHER task,
-but yield() does not guarantee any progress. It might work for some
-scenarios of yield from one SCHED_FIFO task to another SCHED_FIFO task
-even better than in the SCHED_OTHER case, but there is no guarantee
-that it works at all.
-
-But yielding across scheduling classes cannot work ever. Not even in
-mainline.
-
-That's not a RT sepcific issue, it's just one of these problems which
-are unearthed by RT because it does not follow the bog standard
-scheduling class and priority assignements of your favourite distro
-setup.
-
-Once you tune a few knobs on a mainline kernel, you can provoke the
-same issue. It's that simple.
-
-yield() should die both in kernel and user space.
-
-Thanks,
-
-	tglx
+You can change the value of tlb_dynamic_lb only when the bond-device
+is down not otherwise.
