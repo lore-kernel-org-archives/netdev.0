@@ -1,35 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: fec: make sure to init MAC address
-Date: Mon, 31 Mar 2014 16:34:49 -0400 (EDT)
-Message-ID: <20140331.163449.1819672500427251304.davem@davemloft.net>
-References: <1396207928-2636-1-git-send-email-dev@lynxeye.de>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next v4 5/9] net: ptp: do not reimplement PTP/BPF
+ classifier
+Date: Mon, 31 Mar 2014 22:37:28 +0200
+Message-ID: <5339D208.6070402@redhat.com>
+References: <1396029506-16776-1-git-send-email-dborkman@redhat.com> <1396029506-16776-6-git-send-email-dborkman@redhat.com> <20140331091309.GB6867@netboy>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
-	l.stach@pengutronix.de
-To: dev@lynxeye.de
+Cc: davem@davemloft.net, ast@plumgrid.com, netdev@vger.kernel.org,
+	Jiri Benc <jbenc@redhat.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42988 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750777AbaCaUev (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 16:34:51 -0400
-In-Reply-To: <1396207928-2636-1-git-send-email-dev@lynxeye.de>
+Received: from mx1.redhat.com ([209.132.183.28]:44637 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750987AbaCaUhf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Mar 2014 16:37:35 -0400
+In-Reply-To: <20140331091309.GB6867@netboy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lucas Stach <dev@lynxeye.de>
-Date: Sun, 30 Mar 2014 21:32:08 +0200
+On 03/31/2014 11:13 AM, Richard Cochran wrote:
+> On Fri, Mar 28, 2014 at 06:58:22PM +0100, Daniel Borkmann wrote:
+>> Cc: Richard Cochran <richard.cochran@omicron.at>
+>
+> I am sorry to say that I missed this. That old email address does not
+> work for me any more.
 
-> From: Lucas Stach <l.stach@pengutronix.de>
-> 
-> Though we made sure to acquire a valid MAC for
-> the netdevice we never actually programmed it
-> into the hardware.
-> So if the bootloader did not set the MAC,
-> network operation would only work if userspace
-> explicitly asked to transfer the MAC to hardware.
-> 
-> Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+Ups, that's a pity, we'll get it fixed asap in the next days.
 
-Applied, thank you.
+Will look into it by tomorrow.
+
+Thanks,
+
+Daniel
