@@ -1,177 +1,117 @@
-From: Andrey Vagin <avagin@openvz.org>
-Subject: [PATCH] [RFC] netfilter: ct: flush net_gre->keymap_list only in nf_conntrack_proto_gre
-Date: Mon, 31 Mar 2014 18:14:18 +0400
-Message-ID: <1396275258-19015-1-git-send-email-avagin@openvz.org>
-Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org, vvs@parallels.com,
-	Andrey Vagin <avagin@openvz.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <netfilter-owner@vger.kernel.org>
-Sender: netfilter-owner@vger.kernel.org
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v2 1/2] xen-netback: Rename map ops
+Date: Mon, 31 Mar 2014 16:08:58 +0100
+Message-ID: <1396278539-27639-1-git-send-email-zoltan.kiss@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>
+To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-nf_ct_gre_keymap_flush() removes a nf_ct_gre_keymap object from
-net_gre->keymap_list and frees the object. But it doesn't clean
-a reference on this object from ct_pptp_info->keymap[dir].
-Then nf_ct_gre_keymap_destroy() may release the same object again.
+Rename identifiers to state explicitly that they refer to map ops.
 
-So nf_ct_gre_keymap_flush() can be called only when we are sure that
-when nf_ct_gre_keymap_destroy will not be called.
-
-nf_ct_gre_keymap is created by nf_ct_gre_keymap_add() and the right way
-to destroy it is to call nf_ct_gre_keymap_destroy().
-
-This patch marks nf_ct_gre_keymap_flush() as static, so this patch can
-break compilation of third party modules, which use
-nf_ct_gre_keymap_flush. I'm not sure this is the right way to deprecate
-this function.
-
-[  226.540793] general protection fault: 0000 [#1] SMP
-[  226.541750] Modules linked in: nf_nat_pptp nf_nat_proto_gre
-nf_conntrack_pptp nf_conntrack_proto_gre ip_gre ip_tunnel gre
-ppp_deflate bsd_comp ppp_async crc_ccitt ppp_generic slhc xt_nat
-iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat
-nf_conntrack veth tun bridge stp llc ppdev microcode joydev pcspkr
-serio_raw virtio_console virtio_balloon floppy parport_pc parport
-pvpanic i2c_piix4 virtio_net drm_kms_helper ttm ata_generic virtio_pci
-virtio_ring virtio drm i2c_core pata_acpi [last unloaded: ip_tunnel]
-[  226.541776] CPU: 0 PID: 49 Comm: kworker/u4:2 Not tainted 3.14.0-rc8+ #101
-[  226.541776] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[  226.541776] Workqueue: netns cleanup_net
-[  226.541776] task: ffff8800371e0000 ti: ffff88003730c000 task.ti: ffff88003730c000
-[  226.541776] RIP: 0010:[<ffffffff81389ba9>]  [<ffffffff81389ba9>] __list_del_entry+0x29/0xd0
-[  226.541776] RSP: 0018:ffff88003730dbd0  EFLAGS: 00010a83
-[  226.541776] RAX: 6b6b6b6b6b6b6b6b RBX: ffff8800374e6c40 RCX: dead000000200200
-[  226.541776] RDX: 6b6b6b6b6b6b6b6b RSI: ffff8800371e07d0 RDI: ffff8800374e6c40
-[  226.541776] RBP: ffff88003730dbd0 R08: 0000000000000000 R09: 0000000000000000
-[  226.541776] R10: 0000000000000001 R11: ffff88003730d92e R12: 0000000000000002
-[  226.541776] R13: ffff88007a4c42d0 R14: ffff88007aef0000 R15: ffff880036cf0018
-[  226.541776] FS:  0000000000000000(0000) GS:ffff88007fc00000(0000) knlGS:0000000000000000
-[  226.541776] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[  226.541776] CR2: 00007f07f643f7d0 CR3: 0000000036fd2000 CR4: 00000000000006f0
-[  226.541776] Stack:
-[  226.541776]  ffff88003730dbe8 ffffffff81389c5d ffff8800374ffbe4 ffff88003730dc28
-[  226.541776]  ffffffffa0162a43 ffffffffa01627c5 ffff88007a4c42d0 ffff88007aef0000
-[  226.541776]  ffffffffa01651c0 ffff88007a4c45e0 ffff88007aef0000 ffff88003730dc40
-[  226.541776] Call Trace:
-[  226.541776]  [<ffffffff81389c5d>] list_del+0xd/0x30
-[  226.541776]  [<ffffffffa0162a43>] nf_ct_gre_keymap_destroy+0x283/0x2d0 [nf_conntrack_proto_gre]
-[  226.541776]  [<ffffffffa01627c5>] ? nf_ct_gre_keymap_destroy+0x5/0x2d0 [nf_conntrack_proto_gre]
-[  226.541776]  [<ffffffffa0162ab7>] gre_destroy+0x27/0x70 [nf_conntrack_proto_gre]
-[  226.541776]  [<ffffffffa0117de3>] destroy_conntrack+0x83/0x200 [nf_conntrack]
-[  226.541776]  [<ffffffffa0117d87>] ? destroy_conntrack+0x27/0x200 [nf_conntrack]
-[  226.541776]  [<ffffffffa0117d60>] ? nf_conntrack_hash_check_insert+0x2e0/0x2e0 [nf_conntrack]
-[  226.541776]  [<ffffffff81630142>] nf_conntrack_destroy+0x72/0x180
-[  226.541776]  [<ffffffff816300d5>] ? nf_conntrack_destroy+0x5/0x180
-[  226.541776]  [<ffffffffa011ef80>] ? kill_l3proto+0x20/0x20 [nf_conntrack]
-[  226.541776]  [<ffffffffa011847e>] nf_ct_iterate_cleanup+0x14e/0x170 [nf_conntrack]
-[  226.541776]  [<ffffffffa011f74b>] nf_ct_l4proto_pernet_unregister+0x5b/0x90 [nf_conntrack]
-[  226.541776]  [<ffffffffa0162409>] proto_gre_net_exit+0x19/0x30 [nf_conntrack_proto_gre]
-[  226.541776]  [<ffffffff815edf89>] ops_exit_list.isra.1+0x39/0x60
-[  226.541776]  [<ffffffff815eecc0>] cleanup_net+0x100/0x1d0
-[  226.541776]  [<ffffffff810a608a>] process_one_work+0x1ea/0x4f0
-[  226.541776]  [<ffffffff810a6028>] ? process_one_work+0x188/0x4f0
-[  226.541776]  [<ffffffff810a64ab>] worker_thread+0x11b/0x3a0
-[  226.541776]  [<ffffffff810a6390>] ? process_one_work+0x4f0/0x4f0
-[  226.541776]  [<ffffffff810af42d>] kthread+0xed/0x110
-[  226.541776]  [<ffffffff8173d4dc>] ? _raw_spin_unlock_irq+0x2c/0x40
-[  226.541776]  [<ffffffff810af340>] ? kthread_create_on_node+0x200/0x200
-[  226.541776]  [<ffffffff8174747c>] ret_from_fork+0x7c/0xb0
-[  226.541776]  [<ffffffff810af340>] ? kthread_create_on_node+0x200/0x200
-[  226.541776] Code: 00 00 55 48 8b 17 48 b9 00 01 10 00 00 00 ad de
-48 8b 47 08 48 89 e5 48 39 ca 74 29 48 b9 00 02 20 00 00 00 ad de 48
-39 c8 74 7a <4c> 8b 00 4c 39 c7 75 53 4c 8b 42 08 4c 39 c7 75 2b 48 89
-42 08
-[  226.541776] RIP  [<ffffffff81389ba9>] __list_del_entry+0x29/0xd0
-[  226.541776]  RSP <ffff88003730dbd0>
-[  226.612193] ---[ end trace 985ae23ddfcc357c ]---
-
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Andrey Vagin <avagin@openvz.org>
+Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 ---
- include/linux/netfilter/nf_conntrack_proto_gre.h |  1 -
- net/netfilter/nf_conntrack_pptp.c                | 20 +-------------------
- net/netfilter/nf_conntrack_proto_gre.c           |  3 +--
- 3 files changed, 2 insertions(+), 22 deletions(-)
-
-diff --git a/include/linux/netfilter/nf_conntrack_proto_gre.h b/include/linux/netfilter/nf_conntrack_proto_gre.h
-index ec2ffaf..df78dc2 100644
---- a/include/linux/netfilter/nf_conntrack_proto_gre.h
-+++ b/include/linux/netfilter/nf_conntrack_proto_gre.h
-@@ -87,7 +87,6 @@ int nf_ct_gre_keymap_add(struct nf_conn *ct, enum ip_conntrack_dir dir,
- /* delete keymap entries */
- void nf_ct_gre_keymap_destroy(struct nf_conn *ct);
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 0efa32d..a650899 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -915,9 +915,9 @@ static inline void xenvif_grant_handle_reset(struct xenvif *vif,
  
--void nf_ct_gre_keymap_flush(struct net *net);
- void nf_nat_need_gre(void);
- 
- #endif /* __KERNEL__ */
-diff --git a/net/netfilter/nf_conntrack_pptp.c b/net/netfilter/nf_conntrack_pptp.c
-index 7bd03de..825c3e3 100644
---- a/net/netfilter/nf_conntrack_pptp.c
-+++ b/net/netfilter/nf_conntrack_pptp.c
-@@ -605,32 +605,14 @@ static struct nf_conntrack_helper pptp __read_mostly = {
- 	.expect_policy		= &pptp_exp_policy,
- };
- 
--static void nf_conntrack_pptp_net_exit(struct net *net)
--{
--	nf_ct_gre_keymap_flush(net);
--}
--
--static struct pernet_operations nf_conntrack_pptp_net_ops = {
--	.exit = nf_conntrack_pptp_net_exit,
--};
--
- static int __init nf_conntrack_pptp_init(void)
+ static int xenvif_tx_check_gop(struct xenvif *vif,
+ 			       struct sk_buff *skb,
+-			       struct gnttab_map_grant_ref **gopp)
++			       struct gnttab_map_grant_ref **gopp_map)
  {
--	int rv;
--
--	rv = nf_conntrack_helper_register(&pptp);
--	if (rv < 0)
--		return rv;
--	rv = register_pernet_subsys(&nf_conntrack_pptp_net_ops);
--	if (rv < 0)
--		nf_conntrack_helper_unregister(&pptp);
--	return rv;
-+	return nf_conntrack_helper_register(&pptp);
- }
+-	struct gnttab_map_grant_ref *gop = *gopp;
++	struct gnttab_map_grant_ref *gop_map = *gopp_map;
+ 	u16 pending_idx = XENVIF_TX_CB(skb)->pending_idx;
+ 	struct skb_shared_info *shinfo = skb_shinfo(skb);
+ 	struct pending_tx_info *tx_info;
+@@ -926,11 +926,11 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
+ 	struct sk_buff *first_skb = NULL;
  
- static void __exit nf_conntrack_pptp_fini(void)
- {
- 	nf_conntrack_helper_unregister(&pptp);
--	unregister_pernet_subsys(&nf_conntrack_pptp_net_ops);
- }
+ 	/* Check status of header. */
+-	err = gop->status;
++	err = gop_map->status;
+ 	if (unlikely(err))
+ 		xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_ERROR);
+ 	else
+-		xenvif_grant_handle_set(vif, pending_idx , gop->handle);
++		xenvif_grant_handle_set(vif, pending_idx , gop_map->handle);
  
- module_init(nf_conntrack_pptp_init);
-diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
-index 9d9c0da..d566573 100644
---- a/net/netfilter/nf_conntrack_proto_gre.c
-+++ b/net/netfilter/nf_conntrack_proto_gre.c
-@@ -66,7 +66,7 @@ static inline struct netns_proto_gre *gre_pernet(struct net *net)
- 	return net_generic(net, proto_gre_net_id);
- }
+ 	/* Skip first skb fragment if it is on same page as header fragment. */
+ 	start = (frag_get_pending_idx(&shinfo->frags[0]) == pending_idx);
+@@ -943,10 +943,12 @@ check_frags:
+ 		tx_info = &vif->pending_tx_info[pending_idx];
  
--void nf_ct_gre_keymap_flush(struct net *net)
-+static void nf_ct_gre_keymap_flush(struct net *net)
- {
- 	struct netns_proto_gre *net_gre = gre_pernet(net);
- 	struct nf_ct_gre_keymap *km, *tmp;
-@@ -78,7 +78,6 @@ void nf_ct_gre_keymap_flush(struct net *net)
+ 		/* Check error status: if okay then remember grant handle. */
+-		newerr = (++gop)->status;
++		newerr = (++gop_map)->status;
+ 
+ 		if (likely(!newerr)) {
+-			xenvif_grant_handle_set(vif, pending_idx , gop->handle);
++			xenvif_grant_handle_set(vif,
++						pending_idx,
++						gop_map->handle);
+ 			/* Had a previous error? Invalidate this fragment. */
+ 			if (unlikely(err))
+ 				xenvif_idx_unmap(vif, pending_idx);
+@@ -998,7 +1000,7 @@ check_frags:
+ 		}
  	}
- 	write_unlock_bh(&net_gre->keymap_lock);
- }
--EXPORT_SYMBOL(nf_ct_gre_keymap_flush);
  
- static inline int gre_key_cmpfn(const struct nf_ct_gre_keymap *km,
- 				const struct nf_conntrack_tuple *t)
--- 
-1.8.5.3
-
+-	*gopp = gop + 1;
++	*gopp_map = gop_map + 1;
+ 	return err;
+ }
+ 
+@@ -1374,7 +1376,7 @@ static int xenvif_handle_frag_list(struct xenvif *vif, struct sk_buff *skb)
+ 
+ static int xenvif_tx_submit(struct xenvif *vif)
+ {
+-	struct gnttab_map_grant_ref *gop = vif->tx_map_ops;
++	struct gnttab_map_grant_ref *gop_map = vif->tx_map_ops;
+ 	struct sk_buff *skb;
+ 	int work_done = 0;
+ 
+@@ -1387,7 +1389,7 @@ static int xenvif_tx_submit(struct xenvif *vif)
+ 		txp = &vif->pending_tx_info[pending_idx].req;
+ 
+ 		/* Check the remap error code. */
+-		if (unlikely(xenvif_tx_check_gop(vif, skb, &gop))) {
++		if (unlikely(xenvif_tx_check_gop(vif, skb, &gop_map))) {
+ 			netdev_dbg(vif->dev, "netback grant failed.\n");
+ 			skb_shinfo(skb)->nr_frags = 0;
+ 			kfree_skb(skb);
+@@ -1586,21 +1588,21 @@ static inline void xenvif_tx_dealloc_action(struct xenvif *vif)
+ /* Called after netfront has transmitted */
+ int xenvif_tx_action(struct xenvif *vif, int budget)
+ {
+-	unsigned nr_gops;
++	unsigned nr_mops;
+ 	int work_done, ret;
+ 
+ 	if (unlikely(!tx_work_todo(vif)))
+ 		return 0;
+ 
+-	nr_gops = xenvif_tx_build_gops(vif, budget);
++	nr_mops = xenvif_tx_build_gops(vif, budget);
+ 
+-	if (nr_gops == 0)
++	if (nr_mops == 0)
+ 		return 0;
+ 
+ 	ret = gnttab_map_refs(vif->tx_map_ops,
+ 			      NULL,
+ 			      vif->pages_to_map,
+-			      nr_gops);
++			      nr_mops);
+ 	BUG_ON(ret);
+ 
+ 	work_done = xenvif_tx_submit(vif);
