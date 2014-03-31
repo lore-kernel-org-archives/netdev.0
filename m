@@ -1,79 +1,53 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 3.13.y] nfqueue: Orphan frags in nfqnl_zcopy and handle
- errors
-Date: Mon, 31 Mar 2014 00:56:42 +0100
-Message-ID: <1396223802.1241.33.camel@deadeye.wl.decadent.org.uk>
-References: <20140328142914.GB25962@hansolo.jdub.homelinux.org>
+From: Jes Sorensen <Jes.Sorensen@redhat.com>
+Subject: Re: [PATCH 0/6 NEXT]staging: r8723au: Add new driver
+Date: Mon, 31 Mar 2014 02:14:08 +0200
+Message-ID: <wrfjzjk7rzqn.fsf@redhat.com>
+References: <1396060663-3589-1-git-send-email-Larry.Finger@lwfinger.net>
+ <1396063566.31134.42.camel@joe-AO722> <53363E1E.6050308@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-/7YSqv1imvPG/k/NLRfH"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
-To: Josh Boyer <jwboyer@fedoraproject.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:37445 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753880AbaC3X4y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Mar 2014 19:56:54 -0400
-In-Reply-To: <20140328142914.GB25962@hansolo.jdub.homelinux.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Joe Perches <joe@perches.com>, gregkh@linuxfoundation.org,
+ devel@driverdev.osuosl.org, netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <53363E1E.6050308@lwfinger.net> (Larry Finger's message of "Fri,
+ 28 Mar 2014 22:29:34 -0500")
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
+Larry Finger <Larry.Finger@lwfinger.net> writes:
+> On 03/28/2014 10:26 PM, Joe Perches wrote:
+>> On Fri, 2014-03-28 at 21:37 -0500, Larry Finger wrote:
+>>> The Realtek USB device RTL8723AU is found in Lenovo Yoga 13 tablets.
+>>> A driver for it has been available in a GitHub repo for several months.
+>> []
+>>>   133 files changed, 89878 insertions(+)
+>>
+>> eek.  realtek don't do small or concise.
+>
+> No, they do not. Those 90 K lines are after Jes and I deleted several
+> thousand lines. Of course, all these USB drivers have a complete MAC
+> stack - they do not do mac80211. :(
+>
+> Larry
 
---=-/7YSqv1imvPG/k/NLRfH
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+We're not done with it yet, this is still work in progress. If you want
+to compare it to what it was before, try this:
 
-On Fri, 2014-03-28 at 10:29 -0400, Josh Boyer wrote:
-> Backport of upstream commit 36d5fe6a0007 to 3.13.y
->=20
-> nfqnl_zcopy can copy elements of the frags array between skbs, but it doe=
-sn't
-> orphan them.  Also, it doesn't handle errors, so this patch takes care of=
- that
-> as well, and modify the caller accordingly.  skb_tx_error() is also added=
- to
-> the callers so they will signal the failed delivery towards the creator o=
-f the
-> skb.
->=20
-> Fixes CVE-2014-2568.
->=20
-> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Josh Boyer <jwboyer@fedoraproject.org>
-[...]
+git clone https://github.com/lwfinger/rtl8723au.git
 
-FWIW, I applied the same change to Debian's 3.13.7-1, except for leaving
-'from' as pointer-to-const.
+[jes@ultrasam rtl8723au]$ git diff cd93a4ae4151d69e9d198d8d4b3ef95c0e7714b6..kernel_version | diffstat -s
+ 207 files changed, 58354 insertions(+), 129109 deletions(-)
 
-Ben.
+It'll get even 'smaller' :)
 
---=20
-Ben Hutchings
-friends: People who know you well, but like you anyway.
-
---=-/7YSqv1imvPG/k/NLRfH
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAUzivOue/yOyVhhEJAQr4fw//YTLtiI2yhodiHs+aYyVEm/3eRQt5+VP+
-eKMK7acXdZTBnMoqBbgtrvH3LVKw0iFf2wvLAP5InwFV3w4RCngcTZeqWVomsLyH
-Ilq44q/AjK6YseeA+py3ZvPPZ0ZQCNFryPf4ifqzoAgp9qdBRe6HDH0akq8uOqlh
-x2pdJGCJmfdkCsgNgFyG4MdaLumFvsWvi9+wAV1nBSPSfLoa0UTq3hPJQambcEt7
-YpPBycfp2z8CM51UA/KUv3ORtbaWyDDVSXLWc2iCqA2Sm77GFrZNACWgA0RCzcTx
-jk20rdJ6Xfh9Q2XKehNX9J8lAI5M94Ga39CKpfsjxjVazlrrJf51BCpvKBDW4xhZ
-HJr6x58UAvar5nDdwMChunn94IAnvsJJJOWnInsXPeXkesBkfTtv7QjSlGO2HdIt
-xEnTrR3wGmsqYJdmXTt7hCo34oGJ+z4Vzv2rgZuvkRdDiFVYn8R202zwTzLUNAlu
-5H+CDu0LWOJIM5D0T/nfOUnhqlNX50IzNeEGXDuROm4Z5wFS8xIHLHvYNoLXn8P9
-XGaCn3VvVQxaJ1FTvpE0Q0B8ly7A3OdtL1I0EHpDJGxy2VVBQ8mvHPt30UluWIv1
-QVW5lkJzFip0n0haIQlfaw4b5dlFeDwOHoFO+5NTZ/MZTcbSgr22kX6uUDhRh3tA
-OcT1lYo6rSA=
-=8ICj
------END PGP SIGNATURE-----
-
---=-/7YSqv1imvPG/k/NLRfH--
+Jes
