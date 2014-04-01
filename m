@@ -1,31 +1,76 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [PATCH v3 net] xen-netback: disable rogue vif in kthread context
-Date: Tue, 1 Apr 2014 12:36:52 +0100
-Message-ID: <533AA4D4.10709@citrix.com>
-References: <1396352037-7721-1-git-send-email-wei.liu2@citrix.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH net-next v2 2/2] xen-netback: Grant copy the header
+ instead of map and memcpy
+Date: Tue, 1 Apr 2014 12:40:40 +0100
+Message-ID: <1396352440.8667.117.camel@kazak.uk.xensource.com>
+References: <1396278539-27639-1-git-send-email-zoltan.kiss@citrix.com>
+	 <1396278539-27639-2-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
-	<zoltan.kiss@citrix.com>, <edwin@etorok.net>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:54318 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752982AbaDALgy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Apr 2014 07:36:54 -0400
-In-Reply-To: <1396352037-7721-1-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1396278539-27639-2-git-send-email-zoltan.kiss@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/04/14 12:33, Wei Liu wrote:
-> @@ -1574,6 +1575,16 @@ int xenvif_kthread(void *data)
->  		wait_event_interruptible(vif->wq,
->  					 rx_work_todo(vif) ||
->  					 kthread_should_stop());
+On Mon, 2014-03-31 at 16:08 +0100, Zoltan Kiss wrote:
+>  
+>  check_frags:
+> -	for (i = start; i < nr_frags; i++) {
+> +	for (i = 0; i < nr_frags; i++, gop_map++) {
+>  		int j, newerr;
+>  
+>  		pending_idx = frag_get_pending_idx(&shinfo->frags[i]);
+> -		tx_info = &vif->pending_tx_info[pending_idx];
+>  
+>  		/* Check error status: if okay then remember grant handle. */
+> -		newerr = (++gop_map)->status;
+> +		newerr = (gop_map)->status;
 
-I think you're still missing a || vif->disabled from this wait_event
-conditional.
+You've reworked the handling of gop_map and when and where it is
+incremented, which might be a legit cleanup but does it relate to the
+bulk of this change somehow that I'm missing?
 
-David
+>  [...] 
+>  		__skb_put(skb, data_len);
+> +		vif->tx_copy_ops[*copy_ops].source.u.ref = txreq.gref;
+> +		vif->tx_copy_ops[*copy_ops].source.domid = vif->domid;
+> +		vif->tx_copy_ops[*copy_ops].source.offset = txreq.offset;
+> +
+> +		vif->tx_copy_ops[*copy_ops].dest.u.gmfn =
+> +			virt_to_mfn(skb->data);
+> +		vif->tx_copy_ops[*copy_ops].dest.domid = DOMID_SELF;
+> +		vif->tx_copy_ops[*copy_ops].dest.offset =
+> +			offset_in_page(skb->data);
+> +
+> +		vif->tx_copy_ops[*copy_ops].len = data_len;
+> +		vif->tx_copy_ops[*copy_ops].flags = GNTCOPY_source_gref;
+
+We have gnttab_set_map_op. Should we have gnttap_set_copy_op too?
+
+> -	BUG_ON(ret);
+> +	else {
+> +		gnttab_batch_copy(vif->tx_copy_ops, nr_cops);
+> +		if (nr_mops != 0) {
+
+
+if (nr_mops) would do.
+
+> +			ret = gnttab_map_refs(vif->tx_map_ops,
+
+So we use gnttab_batch_copy and gnttab_map_refs.
+
+Shouldn't we either use gnttab_batch_copy and gnttab_batch_map or
+gnttab_copy gnttab_map_refs. (where gnttab_copy might be a bare
+GNTTABOP_copy or might be a helper wrapper).
+
+The point of the batch interface is to handle page unsharing etc, but
+doing it only for copies seems like a waste one way or another.
+
+#include <paul's-comments>
+
+Ian.
