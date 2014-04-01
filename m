@@ -1,91 +1,71 @@
-From: Kusanagi Kouichi <slash@ac.auone-net.jp>
-Subject: [PATCH iproute2] veth: Handle flags correctry
-Date: Wed, 2 Apr 2014 01:09:18 +0900
-Message-ID: <533ae4ae0008a03800006db900006dbec00001330dca@amlmta034.auone-net.jp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] net: Add a test to see if a skb is freeable in irq
+ context
+Date: Tue, 01 Apr 2014 12:15:53 -0400 (EDT)
+Message-ID: <20140401.121553.1464672258686459428.davem@davemloft.net>
+References: <87eh1nktrw.fsf_-_@x220.int.ebiederm.org>
+	<20140329.180945.1823589321953879448.davem@davemloft.net>
+	<87a9c5jx1y.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bjorn@mork.no, eric.dumazet@gmail.com, ben@decadent.org.uk,
+	stephen@networkplumber.org, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com,
+	David.Laight@ACULAB.COM
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ae2-f130.auone-net.jp ([111.87.219.130]:43664 "EHLO
-	dmta01.auone-net.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752702AbaDAQUR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 12:20:17 -0400
-Received: from amlmta034.auone-net.jp (amlmta034-MM [10.188.22.53])
-	by dmta01.auone-net.jp (au one net mail) with ESMTP id DBFC456035F
-	for <netdev@vger.kernel.org>; Wed,  2 Apr 2014 01:09:18 +0900 (JST)
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:52432 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752695AbaDAQP6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 12:15:58 -0400
+In-Reply-To: <87a9c5jx1y.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Flags for a peer override flags for the other and not used for the
-peer.
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 01 Apr 2014 01:03:53 -0700
 
-before:
-# ip link add up type veth peer down multicast off
-# ip link
-1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN mode DEFAULT group default
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-2: veth0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
-    link/ether 2e:5c:cd:f5:63:d2 brd ff:ff:ff:ff:ff:ff
-3: veth1: <BROADCAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
-    link/ether 72:b0:fa:1e:76:7a brd ff:ff:ff:ff:ff:ff
+> David Miller <davem@davemloft.net> writes:
+> 
+>> From: ebiederm@xmission.com (Eric W. Biederman)
+>> Date: Thu, 27 Mar 2014 18:15:47 -0700
+>>
+>>> Currently netpoll and skb_release_head_state assume that a skb is
+>>> freeable in hard irq context except when skb->destructor is set.
+>>> 
+>>> The reality is far from this.  So add a function skb_irq_freeable to
+>>> compute the full test and in the process be the living documentation of
+>>> what the requirements are of actually freeing a skb in hard irq context.
+>>> 
+>>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>>  ...
+>>> +	return !skb->destructor &&
+>>> +#if IS_ENABLED(CONFIG_XFRM)
+>>> +		!skb->sp &&
+>>> +#endif
+>>> +#if IS_ENABLED(CONFIG_NF_CONNTRACK)
+>>> +		!skb->nfct &&
+>>> +#endif
+>>> +		!skb->_skb_refdst &&
+>>> +		!skb_has_frag_list(skb);
+>>
+>> I think you need to add "!skb->nf_bridge &&" to this test.
+> 
+> Given that the definition of nf_bridge_put is just:
+> 
+> static inline void nf_bridge_put(struct nf_bridge_info *nf_bridge)
+> {
+> 	if (nf_bridge && atomic_dec_and_test(&nf_bridge->use))
+> 		kfree(nf_bridge);
+> }
+> 
+> I don't see why.
+> 
+> atomic_dec_and_test and kfree are hard irq safe.
+> 
+> I can see the code evolving in a way where it wouldn't be safe to put a
+> nf_bridge from hard irq context but the code as it is today is trivially
+> safe.
 
-after:
-# ip link add up type veth peer down multicast off
-# ip link
-1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN mode DEFAULT group default
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-2: veth0: <BROADCAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
-    link/ether 6e:db:03:b3:bd:ff brd ff:ff:ff:ff:ff:ff
-3: veth1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000
-    link/ether a6:62:d9:84:f0:73 brd ff:ff:ff:ff:ff:ff
-
-Signed-off-by: Kusanagi Kouichi <slash@ac.auone-net.jp>
----
- ip/link_veth.c | 18 ++++++++++++++----
- 1 file changed, 14 insertions(+), 4 deletions(-)
-
-diff --git a/ip/link_veth.c b/ip/link_veth.c
-index 3cbeb54..1196a1b 100644
---- a/ip/link_veth.c
-+++ b/ip/link_veth.c
-@@ -34,12 +34,20 @@ static int veth_parse_opt(struct link_util *lu, int argc, char **argv,
- 	int err, len;
- 	struct rtattr * data;
- 	int group;
-+	struct ifinfomsg *ifm, *peer_ifm;
-+	unsigned int ifi_flags, ifi_change;
- 
- 	if (strcmp(argv[0], "peer") != 0) {
- 		usage();
- 		return -1;
- 	}
- 
-+	ifm = NLMSG_DATA(hdr);
-+	ifi_flags = ifm->ifi_flags;
-+	ifi_change = ifm->ifi_change;
-+	ifm->ifi_flags = 0;
-+	ifm->ifi_change = 0;
-+
- 	data = NLMSG_TAIL(hdr);
- 	addattr_l(hdr, 1024, VETH_INFO_PEER, NULL, 0);
- 
-@@ -57,10 +65,12 @@ static int veth_parse_opt(struct link_util *lu, int argc, char **argv,
- 		addattr_l(hdr, 1024, IFLA_IFNAME, name, len);
- 	}
- 
--	if (index) {
--		struct ifinfomsg *ifi = (struct ifinfomsg *)(data + 1);
--		ifi->ifi_index = index;
--	}
-+	peer_ifm = RTA_DATA(data);
-+	peer_ifm->ifi_index = index;
-+	peer_ifm->ifi_flags = ifm->ifi_flags;
-+	peer_ifm->ifi_change = ifm->ifi_change;
-+	ifm->ifi_flags = ifi_flags;
-+	ifm->ifi_change = ifi_change;
- 
- 	if (group != -1)
- 		addattr32(hdr, 1024, IFLA_GROUP, group);
--- 
-1.9.1
+Fair enough.
