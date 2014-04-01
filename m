@@ -1,59 +1,87 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH] openvswitch: supply a dummy err_handler of
- gre_cisco_protocol to prevent kernel crash
-Date: Tue, 1 Apr 2014 11:27:56 -0700
-Message-ID: <CAEP_g=-an14xN7Q2fmC+wMk1G9WTAX+JrVeBx5QGnw2-XU3ezQ@mail.gmail.com>
-References: <1395957398-24546-1-git-send-email-asuka.com@163.com>
- <CAEP_g=_qJ1uHKZmZdkUrT+NUkzbRgaHfShZoMbnnCb+LwjOneQ@mail.gmail.com>
- <4fd27e6c.c96a.14512e82018.Coremail.asuka.com@163.com> <CAEP_g=_84HXCZLOzQ0JdLBF5WVhqwTJeEAY-xjqDD8YCv8yrRg@mail.gmail.com>
- <3586fbc4.12f75.1451de4826d.Coremail.asuka.com@163.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: linux-next: Tree for Apr 1 (netfilter)
+Date: Tue, 01 Apr 2014 11:34:15 -0700
+Message-ID: <533B06A7.5010900@infradead.org>
+References: <20140401183907.a5127cadbe7116261096beaa@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: wei zhang <asuka.com@163.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na6sys009bog024.obsmtp.com ([74.125.150.88]:57372 "HELO
-	na6sys009bog024.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751254AbaDAS2U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 14:28:20 -0400
-Received: by mail-ie0-f175.google.com with SMTP id to1so9618895ieb.34
-        for <netdev@vger.kernel.org>; Tue, 01 Apr 2014 11:28:16 -0700 (PDT)
-In-Reply-To: <3586fbc4.12f75.1451de4826d.Coremail.asuka.com@163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>, linux-next@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20140401183907.a5127cadbe7116261096beaa@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 1, 2014 at 8:24 AM, wei zhang <asuka.com@163.com> wrote:
-> At 2014-04-01 08:49:53,"Jesse Gross" <jesse@nicira.com> wrote:
->>On Sun, Mar 30, 2014 at 5:12 AM, wei zhang <asuka.com@163.com> wrote:
->>> At 2014-03-29 06:02:25,"Jesse Gross" <jesse@nicira.com> wrote:
->
->>> Maybe I misunderstand something? I think if we discard all packet pass to us
->>> when we use gre vport, new gre_cisco_protocol which has lower priority could
->>> not see the packet intended to it.
->>
->>That's true but in this case it would also not see any data packets,
->>so I don't think that situation would work well anyways.
->>
->>> I checked the implementation of the ipgre_err(), which has be called before
->>> the err_handler of gre vport. It use the the (local address, remote address, key)
->>> to distinguish the packet which is realy intended to it, although it could not
->>> always get the key from the icmp packet. Should we do as the same as it?
->>> I'm not sure this is feasible, any advice is appreciate.
->>
->>OVS does flow based matching rather than using a static set of
->>configuration parameters, so everything "matches" in some way
->>(although the result might be to drop).
->
-> So the flow based match could dynamically determine by the ovs daemon, we could
-> not find out the belonging of the packet as far as we call ovs_dp_upcall(), isn't it?
+On 04/01/2014 12:39 AM, Stephen Rothwell wrote:
+> Hi all,
+> 
+> Please do not add material intended for v3.16 to your linux-next included
+> branches until after v3.15-rc1 is released.
+> 
+> This tree still fails (more than usual) the powerpc allyesconfig build.
+> 
+> Changes since 20140331:
+> 
+> The ia64 tree lost its build failure.
+> 
+> The powerpc tree still had its build failure.
+> 
+> The v4l-dvb tree still had its build failure so I used the version from
+> next-20140328.
+> 
+> The audit tree gained conflicts against Linus' and the net-next trees.
+> 
+> Non-merge commits (relative to Linus' tree): 10933
+>  9135 files changed, 457444 insertions(+), 222441 deletions(-)
+> 
+> ----------------------------------------------------------------------------
+> 
+> I have created today's linux-next tree at
+> git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git
+> (patches at http://www.kernel.org/pub/linux/kernel/next/ ).  If you
+> are tracking the linux-next tree using git, you should not use "git pull"
+> to do so as that will try to merge the new linux-next release with the
+> old one.  You should use "git fetch" as mentioned in the FAQ on the wiki
+> (see below).
+> 
+> You can see which trees have been included by looking in the Next/Trees
+> file in the source.  There are also quilt-import.log and merge.log files
+> in the Next directory.  Between each merge, the tree was built with
+> a ppc64_defconfig for powerpc and an allmodconfig for x86_64 and a
+> multi_v7_defconfig for arm. After the final fixups (if any), it is also
+> built with powerpc allnoconfig (32 and 64 bit), ppc44x_defconfig and
+> allyesconfig (this fails its final link) and i386, sparc, sparc64 and arm
+> defconfig.
+> 
+> Below is a summary of the state of the merge.
+> 
+> I am currently merging 213 trees (counting Linus' and 28 trees of patches
+> pending for Linus' tree).
+> 
+> Stats about the size of the tree over time can be seen at
+> http://neuling.org/linux-next-size.html .
+> 
+> Status of my local build tests will be at
+> http://kisskb.ellerman.id.au/linux-next .  If maintainers want to give
+> advice about cross compilers/configs that work, we are always open to add
+> more builds.
+> 
+> Thanks to Randy Dunlap for doing many randconfig builds.  And to Paul
+> Gortmaker for triage and bug fixes.
+> 
+> There is a wiki covering stuff to do with linux-next at
+> http://linux.f-seidel.de/linux-next/pmwiki/ .  Thanks to Frank Seidel.
 
-That's right - and since the OVS flow table always has a default
-behavior (even if it is drop or send to controller) there's never a
-packet that isn't considered to be destined to OVS once it is
-received.
+ 
+on x86_64:
 
-If this makes sense to you, would you mind submitting the patch you
-had earlier formally with a commit message and signed off by line?
+net/netfilter/xt_connlimit.c: In function 'connlimit_mt_check':
+net/netfilter/xt_connlimit.c:380:18: warning: division by zero [-Wdiv-by-zero]
+
+Maybe just use CONNLIMIT_LOCK_SLOTS instead of ARRAY_SIZE(...).
+
+
+-- 
+~Randy
