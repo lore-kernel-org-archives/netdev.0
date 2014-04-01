@@ -1,35 +1,35 @@
-From: Emil Medve <Emilian.Medve@Freescale.com>
-Subject: Re: [PATCH] net/phy: Remove return value for a void function
-Date: Tue, 1 Apr 2014 09:33:17 -0500
-Message-ID: <533ACE2D.6080403@Freescale.com>
-References: <1396362174-28775-1-git-send-email-Shruti@Freescale.com>
+From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Subject: RE: [PATCH v5 net-next 0/2] patchset: Support for configurable RSS
+ hash key
+Date: Tue, 1 Apr 2014 15:19:48 +0000
+Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C8A255E@CMEXMB1.ad.emulex.com>
+References: <BF3270C86E8B1349A26C34E4EC1C44CB2C89CCDD@CMEXMB1.ad.emulex.com>
+	<20140327.145336.1708122219432567015.davem@davemloft.net>
+	<1395970770.2898.54.camel@deadeye.wl.decadent.org.uk>
+ <20140328.171253.1863144825039621848.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: <Shruti@Freescale.com>, <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe005.messaging.microsoft.com ([65.55.88.15]:20295 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751095AbaDAOzM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 10:55:12 -0400
-In-Reply-To: <1396362174-28775-1-git-send-email-Shruti@Freescale.com>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:34762 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751398AbaDAPTu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 11:19:50 -0400
+In-Reply-To: <20140328.171253.1863144825039621848.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Shruti,
+> > By grouping the key and hash together, with some reserved fields
+> > (which the setter should initially require to be equal to zero), it
+> > should be possible to fill in support for numbered RSS contexts later
+> > without yet another new structure and operations.
 
 
-On 04/01/2014 09:22 AM, Shruti@Freescale.com wrote:
-> From: Shruti Kanetkar <Shruti@Freescale.com>
-> 
-> Change-Id: I03747d79beb1ef3a9e7fc8a11495196eabbed33f
-> Signed-off-by: Shruti Kanetkar <Shruti@Freescale.com>
-> Reviewed-on: http://git.am.freescale.net:8181/8914
-> Tested-by: Review Code-CDREVIEW <CDREVIEW@freescale.com>
-> Reviewed-by: Shruti Kanetkar <Shruti@freescale.com>
+> If that is the case, why don't we add from the start a "u32 rss_context;"
+> field that has to be set to zero for now?
 
-Please remove the internal Gerrit meta and re-send
-
-
-Cheers,
+The current structure has got three u32 reserved fields already. We could use one of them when the support is added.
