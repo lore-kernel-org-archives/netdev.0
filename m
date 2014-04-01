@@ -1,174 +1,170 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH v2 net-next] qlcnic: Fix build failure due to undefined reference to `vxlan_get_rx_port'
-Date: Tue, 1 Apr 2014 16:29:32 -0400
-Message-ID: <1396384172-28007-1-git-send-email-shahed.shaikh@qlogic.com>
+From: Struan Bartlett <struan.bartlett@gmail.com>
+Subject: [PATCH v1] netconsole: Add tty driver
+Date: Tue, 1 Apr 2014 23:13:06 +0200
+Message-ID: <CAOte+=Y5bSq96wXUHQnAZQRn4jMf+6V5Py6nU3eLNEW9NaRzzg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:23706 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751397AbaDAVGX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 17:06:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel@vger.kernel.org,
+	Andreas Schwab <schwab@linux-m68k.org>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiri Pirko <jiri@resnulli.us>, Joe Perches <joe@perches.com>,
+	Dan Aloni <alonid@postram.com>
+To: Matt Mackall <mpm@selenic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Adds tty driver to netconsole module. When module is loaded, it
+creates /dev/netcon0 device and enables support for console=netcon0
+kernel cmdline option, causing /dev/console output to be sent to
+/dev/netcon0. This allows startup/shutdown script output from
+headless platforms to be logged over (secure) network.
 
-Commit 2b3d7b758c687("qlcnic: Add VXLAN Rx offload support") uses
-vxlan_get_rx_port() which caused build failure when VXLAN=m.
-
-This patch fixes the build failure by adding dependency on VXLAN
-in Kconfig of qlcnic module and use vxlan_get_rx_port() and support
-code accordingly.
-
-Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Signed-off-by: Struan Bartlett <struan.bartlett@gmail.com>
 ---
-v2: Cover .ndo_{add|del}_vxlan_port() and support code under
-    CONFIG_QLCNIC_VXLAN check
 
-Please apply to net-next.
+--- a/drivers/net/netconsole.c  2014-03-31 04:40:15.000000000 +0100
++++ b/drivers/net/netconsole.c  2014-04-01 11:58:50.000000000 +0100
+@@ -15,6 +15,7 @@
+  *               generic card hooks
+  *               works non-modular
+  * 2003-09-07    rewritten with netpoll api
++ * 2014-03-31    tty driver by Struan Bartlett
+  */
 
-Thanks,
-Shahed
----
- drivers/net/ethernet/qlogic/Kconfig                |   10 ++++++++++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    3 +++
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |    8 +++++---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    8 ++++++++
- 4 files changed, 26 insertions(+), 3 deletions(-)
+ /****************************************************************
+@@ -47,6 +48,7 @@
+ #include <linux/netpoll.h>
+ #include <linux/inet.h>
+ #include <linux/configfs.h>
++#include <linux/tty.h>
 
-diff --git a/drivers/net/ethernet/qlogic/Kconfig b/drivers/net/ethernet/qlogic/Kconfig
-index f59e6be..c14bd31 100644
---- a/drivers/net/ethernet/qlogic/Kconfig
-+++ b/drivers/net/ethernet/qlogic/Kconfig
-@@ -56,6 +56,16 @@ config QLCNIC_DCB
- 	  mode of DCB is supported. PG and PFC values are related only
- 	  to Tx.
- 
-+config QLCNIC_VXLAN
-+	bool "Virtual eXtensible Local Area Network (VXLAN) offload support"
-+	default n
-+	depends on QLCNIC && VXLAN && !(QLCNIC=y && VXLAN=m)
-+	---help---
-+	  This enables hardware offload support for VXLAN protocol over QLogic's
-+	  84XX series adapters.
-+	  Say Y here if you want to enable hardware offload support for
-+	  Virtual eXtensible Local Area Network (VXLAN) in the driver.
-+
- config QLGE
- 	tristate "QLogic QLGE 10Gb Ethernet Driver Support"
- 	depends on PCI
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index b9039b5..f31bb5e 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -1011,8 +1011,11 @@ struct qlcnic_ipaddr {
- #define QLCNIC_APP_CHANGED_FLAGS	0x20000
- #define QLCNIC_HAS_PHYS_PORT_ID		0x40000
- #define QLCNIC_TSS_RSS			0x80000
-+
-+#ifdef CONFIG_QLCNIC_VXLAN
- #define QLCNIC_ADD_VXLAN_PORT		0x100000
- #define QLCNIC_DEL_VXLAN_PORT		0x200000
-+#endif
- 
- #define QLCNIC_IS_MSI_FAMILY(adapter) \
- 	((adapter)->flags & (QLCNIC_MSI_ENABLED | QLCNIC_MSIX_ENABLED))
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-index 2d91975..b48737d 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-@@ -1020,6 +1020,7 @@ static int qlcnic_83xx_idc_check_state_validity(struct qlcnic_adapter *adapter,
- 	return 0;
- }
- 
-+#ifdef CONFIG_QLCNIC_VXLAN
- #define QLC_83XX_ENCAP_TYPE_VXLAN	BIT_1
- #define QLC_83XX_MATCH_ENCAP_ID		BIT_2
- #define QLC_83XX_SET_VXLAN_UDP_DPORT	BIT_3
-@@ -1088,14 +1089,14 @@ static int qlcnic_set_vxlan_parsing(struct qlcnic_adapter *adapter,
- 
- 	return ret;
- }
-+#endif
- 
- static void qlcnic_83xx_periodic_tasks(struct qlcnic_adapter *adapter)
+ MODULE_AUTHOR("Maintainer: Matt Mackall <mpm@selenic.com>");
+ MODULE_DESCRIPTION("Console driver for network interfaces");
+@@ -728,7 +730,7 @@ static struct notifier_block netconsole_
+        .notifier_call  = netconsole_netdev_event,
+ };
+
+-static void write_msg(struct console *con, const char *msg, unsigned int len)
++static void _write_msg(const char *msg, unsigned int len)
  {
--	struct qlcnic_hardware_context *ahw = adapter->ahw;
--
- 	if (adapter->fhash.fnum)
- 		qlcnic_prune_lb_filters(adapter);
- 
-+#ifdef CONFIG_QLCNIC_VXLAN
- 	if (adapter->flags & QLCNIC_ADD_VXLAN_PORT) {
- 		if (qlcnic_set_vxlan_port(adapter))
- 			return;
-@@ -1108,9 +1109,10 @@ static void qlcnic_83xx_periodic_tasks(struct qlcnic_adapter *adapter)
- 		if (qlcnic_set_vxlan_parsing(adapter, false))
- 			return;
- 
--		ahw->vxlan_port = 0;
-+		adapter->ahw->vxlan_port = 0;
- 		adapter->flags &= ~QLCNIC_DEL_VXLAN_PORT;
- 	}
-+#endif
+        int frag, left;
+        unsigned long flags;
+@@ -764,10 +766,63 @@ static void write_msg(struct console *co
+        spin_unlock_irqrestore(&target_list_lock, flags);
  }
- 
- /**
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 79be451..309d056 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -21,7 +21,9 @@
- #include <linux/aer.h>
- #include <linux/log2.h>
- #include <linux/pci.h>
-+#ifdef CONFIG_QLCNIC_VXLAN
- #include <net/vxlan.h>
-+#endif
- 
- MODULE_DESCRIPTION("QLogic 1/10 GbE Converged/Intelligent Ethernet Driver");
- MODULE_LICENSE("GPL");
-@@ -462,6 +464,7 @@ static int qlcnic_get_phys_port_id(struct net_device *netdev,
- 	return 0;
- }
- 
-+#ifdef CONFIG_QLCNIC_VXLAN
- static void qlcnic_add_vxlan_port(struct net_device *netdev,
- 				  sa_family_t sa_family, __be16 port)
+
++static void write_msg(struct console *con, const char *msg, unsigned int len)
++{
++       _write_msg(msg, len);
++}
++
++static int netconsole_tty_open(struct tty_struct *tty, struct file *filp)
++{
++       return 0;
++}
++
++static void netconsole_tty_close(struct tty_struct *tty, struct file *filp)
++{
++}
++
++static int netconsole_tty_write(struct tty_struct *tty,
++                               const unsigned char *buf, int count)
++{
++       _write_msg(buf, count);
++       return count;
++}
++
++static int netconsole_tty_put_char(struct tty_struct *tty, unsigned char ch)
++{
++       char temp[2] = { ch, 0 };
++       _write_msg(temp, 1);
++       return 1;
++}
++
++static int netconsole_tty_write_room(struct tty_struct *tty)
++{
++       return MAX_PRINT_CHUNK;
++}
++
++static const struct tty_operations netconsole_tty_ops = {
++       .open           = netconsole_tty_open,
++       .close          = netconsole_tty_close,
++       .write          = netconsole_tty_write,
++       .put_char       = netconsole_tty_put_char,
++       .write_room     = netconsole_tty_write_room,
++};
++
++static struct tty_port netconsole_tty_port;
++static struct tty_driver *netconsole_tty_driver;
++
++static struct tty_driver *netconsole_device(struct console *co, int *index)
++{
++       if (!(co->flags & CON_ENABLED))
++               return NULL;
++       *index = co->index;
++       return netconsole_tty_driver;
++}
++
+ static struct console netconsole = {
+        .name   = "netcon",
+        .flags  = CON_ENABLED,
+        .write  = write_msg,
++       .device = netconsole_device
+ };
+
+ static int __init init_netconsole(void)
+@@ -802,11 +857,39 @@ static int __init init_netconsole(void)
+        if (err)
+                goto undonotifier;
+
++       netconsole_tty_driver = alloc_tty_driver(1);
++       if (!netconsole_tty_driver) {
++               err = -ENOMEM;
++               goto undonotifier;
++       }
++
++       tty_port_init(&netconsole_tty_port);
++
++       netconsole_tty_driver->driver_name = "netcon";
++       netconsole_tty_driver->name = "netcon";
++       netconsole_tty_driver->type = TTY_DRIVER_TYPE_SYSTEM;
++       netconsole_tty_driver->subtype = SYSTEM_TYPE_TTY;
++       netconsole_tty_driver->init_termios = tty_std_termios;
++       netconsole_tty_driver->init_termios.c_iflag = 0;
++       netconsole_tty_driver->init_termios.c_oflag = 0;
++       netconsole_tty_driver->flags = TTY_DRIVER_REAL_RAW;
++
++       tty_set_operations(netconsole_tty_driver, &netconsole_tty_ops);
++       tty_port_link_device(&netconsole_tty_port, netconsole_tty_driver, 0);
++
++       err = tty_register_driver(netconsole_tty_driver);
++       if (err)
++               goto undotty;
++
+        register_console(&netconsole);
+        pr_info("network logging started\n");
+
+        return err;
+
++undotty:
++       put_tty_driver(netconsole_tty_driver);
++       tty_port_destroy(&netconsole_tty_port);
++
+ undonotifier:
+        unregister_netdevice_notifier(&netconsole_netdev_notifier);
+
+@@ -830,6 +913,10 @@ static void __exit cleanup_netconsole(vo
  {
-@@ -490,6 +493,7 @@ static void qlcnic_del_vxlan_port(struct net_device *netdev,
- 
- 	adapter->flags |= QLCNIC_DEL_VXLAN_PORT;
- }
-+#endif
- 
- static const struct net_device_ops qlcnic_netdev_ops = {
- 	.ndo_open	   = qlcnic_open,
-@@ -509,8 +513,10 @@ static const struct net_device_ops qlcnic_netdev_ops = {
- 	.ndo_fdb_del		= qlcnic_fdb_del,
- 	.ndo_fdb_dump		= qlcnic_fdb_dump,
- 	.ndo_get_phys_port_id	= qlcnic_get_phys_port_id,
-+#ifdef CONFIG_QLCNIC_VXLAN
- 	.ndo_add_vxlan_port	= qlcnic_add_vxlan_port,
- 	.ndo_del_vxlan_port	= qlcnic_del_vxlan_port,
-+#endif
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller = qlcnic_poll_controller,
- #endif
-@@ -1975,8 +1981,10 @@ qlcnic_attach(struct qlcnic_adapter *adapter)
- 
- 	qlcnic_create_sysfs_entries(adapter);
- 
-+#ifdef CONFIG_QLCNIC_VXLAN
- 	if (qlcnic_encap_rx_offload(adapter))
- 		vxlan_get_rx_port(netdev);
-+#endif
- 
- 	adapter->is_up = QLCNIC_ADAPTER_UP_MAGIC;
- 	return 0;
--- 
-1.5.6
+        struct netconsole_target *nt, *tmp;
+
++       tty_unregister_driver(netconsole_tty_driver);
++       put_tty_driver(netconsole_tty_driver);
++       tty_port_destroy(&netconsole_tty_port);
++
+        unregister_console(&netconsole);
+        dynamic_netconsole_exit();
+        unregister_netdevice_notifier(&netconsole_netdev_notifier);
