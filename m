@@ -1,47 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] netlink: don't compare the nul-termination in
- nla_strcmp
-Date: Tue, 01 Apr 2014 15:26:06 -0400 (EDT)
-Message-ID: <20140401.152606.1113760851598806005.davem@davemloft.net>
-References: <1396373924-9538-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH] net: filter: minor: fix kdoc in __sk_run_filter
+Date: Tue, 01 Apr 2014 15:26:13 -0400 (EDT)
+Message-ID: <20140401.152613.1187865040678935534.davem@davemloft.net>
+References: <c632c48561df232d14dd87d68b3b322db110e8aa.1396373788.git.dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de, tgraf@suug.ch
-To: pablo@netfilter.org
+Cc: fengguang.wu@intel.com, netdev@vger.kernel.org, ast@plumgrid.com
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54163 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54167 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751214AbaDAT0I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 15:26:08 -0400
-In-Reply-To: <1396373924-9538-1-git-send-email-pablo@netfilter.org>
+	with ESMTP id S1751214AbaDAT0O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 15:26:14 -0400
+In-Reply-To: <c632c48561df232d14dd87d68b3b322db110e8aa.1396373788.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue,  1 Apr 2014 19:38:44 +0200
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Tue,  1 Apr 2014 19:38:01 +0200
 
-> From: Pablo Neira <pablo@netfilter.org>
+> This minor patch fixes the following warning when doing
+> a `make htmldocs`:
 > 
-> nla_strcmp compares the string length plus one, so it's implicitly
-> including the nul-termination in the comparison.
+>   DOCPROC Documentation/DocBook/networking.xml
+> Warning(.../net/core/filter.c:135): No description found for parameter 'insn'
+> Warning(.../net/core/filter.c:135): Excess function parameter 'fentry' description in '__sk_run_filter'
+>   HTML    Documentation/DocBook/networking.html
 > 
->  int nla_strcmp(const struct nlattr *nla, const char *str)
->  {
->         int len = strlen(str) + 1;
->         ...
->                 d = memcmp(nla_data(nla), str, len);
-> 
-> However, if NLA_STRING is used, userspace can send us a string without
-> the nul-termination. This is a problem since the string
-> comparison will not match as the last byte may be not the
-> nul-termination.
-> 
-> Fix this by skipping the comparison of the nul-termination if the
-> attribute data is nul-terminated. Suggested by Thomas Graf.
-> 
-> Cc: Florian Westphal <fw@strlen.de>
-> Cc: Thomas Graf <tgraf@suug.ch>
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
 
-Applied and queued up for -stable, thanks Pablo.
+Applied, thanks.
