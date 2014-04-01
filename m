@@ -1,78 +1,133 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [bug report] buffer overflow in isdn capi
-Date: Tue, 1 Apr 2014 18:48:30 +0300
-Message-ID: <20140401154830.GA16759@mwanda>
+From: "Nekludov, Max" <Max.Nekludov@elster.com>
+Subject: Bug in ks8851.c
+Date: Tue, 1 Apr 2014 15:41:58 +0000
+Message-ID: <b703c70840da4780bc93beed79a8503b@DB3PR02MB202.eurprd02.prod.outlook.com>
+References: <9525F3D6E0E9E64DA832F2587811AD6A200C24@USRAL1WVEXC01.elt.lcl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>
+Content-Type: multipart/mixed;
+	boundary="_002_b703c70840da4780bc93beed79a8503bDB3PR02MB202eurprd02pro_"
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"trivial@rustcorp.com.au" <trivial@rustcorp.com.au>,
+	"\"David S. Miller\"" <davem@davemloft.net>
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	"Nekludov, Max" <Max.Nekludov@elster.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Network Development" <netdev@vger.kernel.org>,
+	Stephen Boyd <sboyd@codeaurora.org>,
+	Matt Renzelmann <mjr@cs.wisc.edu>,
+	Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:19394 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751546AbaDAPsj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 11:48:39 -0400
-Content-Disposition: inline
+Received: from [213.199.154.12] ([213.199.154.12]:19594 "EHLO
+	emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751190AbaDAP5W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2014 11:57:22 -0400
+In-Reply-To: <9525F3D6E0E9E64DA832F2587811AD6A200C24@USRAL1WVEXC01.elt.lcl>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The command_2_index() function is buggy and leads to a buffer overflow.
-Does anyone know how to fix this?
+--_002_b703c70840da4780bc93beed79a8503bDB3PR02MB202eurprd02pro_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-drivers/isdn/capi/capiutil.c
-   403  static unsigned command_2_index(unsigned c, unsigned sc)
-   404  {
-   405          if (c & 0x80)
-   406                  c = 0x9 + (c & 0x0f);
-   407          else if (c <= 0x0f);
-   408          else if (c == 0x41)
-   409                  c = 0x9 + 0x1;
-   410          else if (c == 0xff)
-   411                  c = 0x00;
-   412          return (sc & 3) * (0x9 + 0x9) + c;
-   413  }
+Reset on RX failure and TX timeout.=0A=
+=0A=
+Electromagnetic noice can make device to not send TX interrupts.=0A=
+As result outgoing queue will be suspended forever.=0A=
+Also EMI can raise RX interrupt with zero value in KS_RXFC register.=0A=
+=0A=
+Patch attached.=
 
-Imagine that we input c = 0x7f and sc = 0x3.  Then 3 * 18 + 127 = 181
-and we return 181.
+--_002_b703c70840da4780bc93beed79a8503bDB3PR02MB202eurprd02pro_
+Content-Type: text/x-diff;
+	name="0001-ks8851-reset-on-RX-falure-and-TX-timeout.patch"
+Content-Description: 0001-ks8851-reset-on-RX-falure-and-TX-timeout.patch
+Content-Disposition: attachment;
+	filename="0001-ks8851-reset-on-RX-falure-and-TX-timeout.patch"; size=4553;
+	creation-date="Tue, 01 Apr 2014 15:40:18 GMT";
+	modification-date="Tue, 01 Apr 2014 15:40:18 GMT"
+Content-Transfer-Encoding: base64
 
-The other thing that stands out to me is that the last condition
-"(c == 0xff)" is never true because then the first condition
-"(c & 0x80)" would have been true already.
+a3M4ODUxOiByZXNldCBvbiBSWCBmYWlsdXJlIGFuZCBUWCB0aW1lb3V0CgpFbGVjdHJvbWFnbmV0
+aWMgbm9pY2UgY2FuIG1ha2UgZGV2aWNlIHRvIG5vdCBzZW5kIFRYIGludGVycnVwdHMuCkFzIHJl
+c3VsdCBvdXRnb2luZyBxdWV1ZSB3aWxsIGJlIHN1c3BlbmRlZCBmb3JldmVyLgpBbHNvIEVNSSBj
+YW4gcmFpc2UgUlggaW50ZXJydXB0IHdpdGggemVybyB2YWx1ZSBpbiBLU19SWEZDIHJlZ2lzdGVy
+LgoKU2lnbmVkLW9mZi1ieTogTWF4IE5la2x1ZG92IDxNYXguTmVrbHVkb3ZAZWxzdGVyLmNvbT4K
+LS0tCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9taWNyZWwva3M4ODUxLmMgfCA2NiArKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysrKysrKy0KIDEgZmlsZSBjaGFuZ2VkLCA2NSBpbnNlcnRpb25z
+KCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWlj
+cmVsL2tzODg1MS5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWljcmVsL2tzODg1MS5jCmluZGV4
+IGUwYzkyZTAuLjI1YjcyMjkgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L21pY3Jl
+bC9rczg4NTEuYworKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9taWNyZWwva3M4ODUxLmMKQEAg
+LTEyMyw2ICsxMjMsNyBAQCBzdHJ1Y3Qga3M4ODUxX25ldCB7CiAKIAlzdHJ1Y3Qgd29ya19zdHJ1
+Y3QJdHhfd29yazsKIAlzdHJ1Y3Qgd29ya19zdHJ1Y3QJcnhjdHJsX3dvcms7CisJc3RydWN0IGRl
+bGF5ZWRfd29yawl3ZHRfd29yazsKIAogCXN0cnVjdCBza19idWZmX2hlYWQJdHhxOwogCkBAIC0x
+NDAsNiArMTQxLDkgQEAgc3RhdGljIGludCBtc2dfZW5hYmxlOwogLyogc2hpZnQgZm9yIGJ5dGUt
+ZW5hYmxlIGRhdGEgKi8KICNkZWZpbmUgQllURV9FTihfeCkJKChfeCkgPDwgMikKIAorI2RlZmlu
+ZSBLUzg4NTFfVFhfUVVFVUVfU0laRSA2MTQ0CisjZGVmaW5lIEtTODg1MV9UWF9USU1FT1VUX01T
+IDEwMAorCiAvKiB0dXJuIHJlZ2lzdGVyIG51bWJlciBhbmQgYnl0ZS1lbmFibGUgbWFzayBpbnRv
+IGRhdGEgZm9yIHN0YXJ0IG9mIHBhY2tldCAqLwogI2RlZmluZSBNS19PUChfYnl0ZWVuLCBfcmVn
+KSAoQllURV9FTihfYnl0ZWVuKSB8IChfcmVnKSAgPDwgKDgrMikgfCAoX3JlZykgPj4gNikKIApA
+QCAtNDk1LDYgKzQ5OSw3IEBAIHN0YXRpYyB2b2lkIGtzODg1MV9kYmdfZHVtcGtrdChzdHJ1Y3Qg
+a3M4ODUxX25ldCAqa3MsIHU4ICpyeHBrdCkKIAkJICAgcnhwa3RbOF0sIHJ4cGt0WzldLCByeHBr
+dFsxMF0sIHJ4cGt0WzExXSwKIAkJICAgcnhwa3RbMTJdLCByeHBrdFsxM10sIHJ4cGt0WzE0XSwg
+cnhwa3RbMTVdKTsKIH0KK3N0YXRpYyB2b2lkIGtzODg1MV9yZXNldChzdHJ1Y3Qga3M4ODUxX25l
+dCAqa3MpOwogCiAvKioKICAqIGtzODg1MV9yeF9wa3RzIC0gcmVjZWl2ZSBwYWNrZXRzIGZyb20g
+dGhlIGhvc3QKQEAgLTUxNyw2ICs1MjIsMTIgQEAgc3RhdGljIHZvaWQga3M4ODUxX3J4X3BrdHMo
+c3RydWN0IGtzODg1MV9uZXQgKmtzKQogCiAJbmV0aWZfZGJnKGtzLCByeF9zdGF0dXMsIGtzLT5u
+ZXRkZXYsCiAJCSAgIiVzOiAlZCBwYWNrZXRzXG4iLCBfX2Z1bmNfXywgcnhmYyk7CisJCisJaWYg
+KHJ4ZmMgPT0gMCkgeworCQltZGVsYXkoMSk7CisJCS8qIFJYIGludGVycnVwdCBidXQgbm8gZGF0
+YSBpbiBidWZmZXIuIFdoaWNoIG1lYW5zIGhhcmR3YXJlIGZhaWx1cmUgY29uZGl0aW9uLiBSZXNl
+dC4gKi8KKwkJa3M4ODUxX3Jlc2V0KGtzKTsKKwl9CiAKIAkvKiBDdXJyZW50bHkgd2UncmUgaXNz
+dWluZyBhIHJlYWQgcGVyIHBhY2tldCwgYnV0IHdlIGNvdWxkIHBvc3NpYmx5CiAJICogaW1wcm92
+ZSB0aGUgY29kZSBieSBpc3N1aW5nIGEgc2luZ2xlIHJlYWQsIGdldHRpbmcgdGhlIHJlY2VpdmUK
+QEAgLTYxOSw2ICs2MzAsMTAgQEAgc3RhdGljIGlycXJldHVybl90IGtzODg1MV9pcnEoaW50IGly
+cSwgdm9pZCAqX2tzKQogCiAJaWYgKHN0YXR1cyAmIElSUV9UWEkpIHsKIAkJaGFuZGxlZCB8PSBJ
+UlFfVFhJOworCQkKKwkJbXV0ZXhfdW5sb2NrKCZrcy0+bG9jayk7CisJCWNhbmNlbF9kZWxheWVk
+X3dvcmtfc3luYygma3MtPndkdF93b3JrKTsKKwkJbXV0ZXhfbG9jaygma3MtPmxvY2spOwogCiAJ
+CS8qIG5vIGxvY2sgaGVyZSwgdHggcXVldWUgc2hvdWxkIGhhdmUgYmVlbiBzdG9wcGVkICovCiAK
+QEAgLTc0OSw2ICs3NjQsMTcgQEAgc3RhdGljIHZvaWQga3M4ODUxX2RvbmVfdHgoc3RydWN0IGtz
+ODg1MV9uZXQgKmtzLCBzdHJ1Y3Qgc2tfYnVmZiAqdHhiKQogCWRldl9rZnJlZV9za2IodHhiKTsK
+IH0KIAorc3RhdGljIHZvaWQga3M4ODUxX3dkdF93b3JrKHN0cnVjdCBkZWxheWVkX3dvcmsgKndv
+cmspCit7CisJc3RydWN0IGtzODg1MV9uZXQgKmtzID0gY29udGFpbmVyX29mKHdvcmssIHN0cnVj
+dCBrczg4NTFfbmV0LCB3ZHRfd29yayk7CisJbXV0ZXhfbG9jaygma3MtPmxvY2spOworCisJbWRl
+bGF5KDEpOworCWtzODg1MV9yZXNldChrcyk7CisKKwltdXRleF91bmxvY2soJmtzLT5sb2NrKTsK
+K30KKwogLyoqCiAgKiBrczg4NTFfdHhfd29yayAtIHByb2Nlc3MgdHggcGFja2V0KHMpCiAgKiBA
+d29yazogVGhlIHdvcmsgc3RydWN1dHJlIHdoYXQgd2FzIHNjaGVkdWxlZC4KQEAgLTc3OCw2ICs4
+MDQsOCBAQCBzdGF0aWMgdm9pZCBrczg4NTFfdHhfd29yayhzdHJ1Y3Qgd29ya19zdHJ1Y3QgKndv
+cmspCiAJCX0KIAl9CiAKKwlzY2hlZHVsZV9kZWxheWVkX3dvcmsoJmtzLT53ZHRfd29yaywgbXNl
+Y3NfdG9famlmZmllcyhLUzg4NTFfVFhfVElNRU9VVF9NUykpOworCiAJbXV0ZXhfdW5sb2NrKCZr
+cy0+bG9jayk7CiB9CiAKQEAgLTg1OCw2ICs4ODYsNDAgQEAgc3RhdGljIGludCBrczg4NTFfbmV0
+X29wZW4oc3RydWN0IG5ldF9kZXZpY2UgKmRldikKIAlyZXR1cm4gMDsKIH0KIAorc3RhdGljIHZv
+aWQga3M4ODUxX3Jlc2V0KHN0cnVjdCBrczg4NTFfbmV0ICprcykKK3sKKwluZXRpZl9zdG9wX3F1
+ZXVlKGtzLT5uZXRkZXYpOworCisJLyogdHVybiBvZmYgdGhlIElSUXMgYW5kIGFjayBhbnkgb3V0
+c3RhbmRpbmcgKi8KKwlrczg4NTFfd3JyZWcxNihrcywgS1NfSUVSLCAweDAwMDApOworCWtzODg1
+MV93cnJlZzE2KGtzLCBLU19JU1IsIDB4ZmZmZik7CisKKwkvKiBzaHV0ZG93biBSWCBwcm9jZXNz
+ICovCisJa3M4ODUxX3dycmVnMTYoa3MsIEtTX1JYQ1IxLCAweDAwMDApOworCisJLyogc2h1dGRv
+d24gVFggcHJvY2VzcyAqLworCWtzODg1MV93cnJlZzE2KGtzLCBLU19UWENSLCAweDAwMDApOwor
+CisJa3MtPnR4X3NwYWNlID0gS1M4ODUxX1RYX1FVRVVFX1NJWkU7CisKKwltdXRleF91bmxvY2so
+JmtzLT5sb2NrKTsKKwkKKwkvKiBlbnN1cmUgYW55IHF1ZXVlZCB0eCBidWZmZXJzIGFyZSBkdW1w
+ZWQgKi8KKwl3aGlsZSAoIXNrYl9xdWV1ZV9lbXB0eSgma3MtPnR4cSkpIHsKKwkJc3RydWN0IHNr
+X2J1ZmYgKnR4YiA9IHNrYl9kZXF1ZXVlKCZrcy0+dHhxKTsKKworCQluZXRpZl9kYmcoa3MsIGlm
+ZG93biwga3MtPm5ldGRldiwKKwkJCSAgIiVzOiBmcmVlaW5nIHR4YiAlcFxuIiwgX19mdW5jX18s
+IHR4Yik7CisKKwkJZGV2X2tmcmVlX3NrYih0eGIpOworCX0KKworCS8qIHJlb3BlbiBkZXZpY2Ug
+Ki8KKwlrczg4NTFfbmV0X29wZW4oa3MtPm5ldGRldik7CisKKwltdXRleF9sb2NrKCZrcy0+bG9j
+ayk7Cit9CisKIC8qKgogICoga3M4ODUxX25ldF9zdG9wIC0gY2xvc2UgbmV0d29yayBkZXZpY2UK
+ICAqIEBkZXY6IFRoZSBkZXZpY2UgYmVpbmcgY2xvc2VkLgpAQCAtODgzLDYgKzk0NSw3IEBAIHN0
+YXRpYyBpbnQga3M4ODUxX25ldF9zdG9wKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiAJLyogc3Rv
+cCBhbnkgb3V0c3RhbmRpbmcgd29yayAqLwogCWZsdXNoX3dvcmsoJmtzLT50eF93b3JrKTsKIAlm
+bHVzaF93b3JrKCZrcy0+cnhjdHJsX3dvcmspOworCWNhbmNlbF9kZWxheWVkX3dvcmtfc3luYygm
+a3MtPndkdF93b3JrKTsKIAogCW11dGV4X2xvY2soJmtzLT5sb2NrKTsKIAkvKiBzaHV0ZG93biBS
+WCBwcm9jZXNzICovCkBAIC0xNDE1LDcgKzE0NzgsNyBAQCBzdGF0aWMgaW50IGtzODg1MV9wcm9i
+ZShzdHJ1Y3Qgc3BpX2RldmljZSAqc3BpKQogCiAJa3MtPm5ldGRldiA9IG5kZXY7CiAJa3MtPnNw
+aWRldiA9IHNwaTsKLQlrcy0+dHhfc3BhY2UgPSA2MTQ0OworCWtzLT50eF9zcGFjZSA9IEtTODg1
+MV9UWF9RVUVVRV9TSVpFOwogCiAJa3MtPnZkZF9yZWcgPSByZWd1bGF0b3JfZ2V0X29wdGlvbmFs
+KCZzcGktPmRldiwgInZkZCIpOwogCWlmIChJU19FUlIoa3MtPnZkZF9yZWcpKSB7CkBAIC0xNDM3
+LDYgKzE1MDAsNyBAQCBzdGF0aWMgaW50IGtzODg1MV9wcm9iZShzdHJ1Y3Qgc3BpX2RldmljZSAq
+c3BpKQogCiAJSU5JVF9XT1JLKCZrcy0+dHhfd29yaywga3M4ODUxX3R4X3dvcmspOwogCUlOSVRf
+V09SSygma3MtPnJ4Y3RybF93b3JrLCBrczg4NTFfcnhjdHJsX3dvcmspOworCUlOSVRfREVMQVlF
+RF9XT1JLKCZrcy0+d2R0X3dvcmssIGtzODg1MV93ZHRfd29yayk7CiAKIAkvKiBpbml0aWFsaXNl
+IHByZS1tYWRlIHNwaSB0cmFuc2ZlciBtZXNzYWdlcyAqLwogCi0tIAoxLjguMy4yCgo=
 
-Here is how the function is used:
-
-drivers/isdn/capi/capiutil.c
-   564  /**
-   565   * capi_message2cmsg() - disassemble CAPI 2.0 message into _cmsg structure
-   566   * @cmsg:       _cmsg structure
-   567   * @msg:        buffer for assembled message
-   568   *
-   569   * Return value: 0 for success
-   570   */
-   571  
-   572  unsigned capi_message2cmsg(_cmsg *cmsg, u8 *msg)
-   573  {
-   574          memset(cmsg, 0, sizeof(_cmsg));
-   575          cmsg->m = msg;
-   576          cmsg->l = 8;
-   577          cmsg->p = 0;
-   578          byteTRcpy(cmsg->m + 4, &cmsg->Command);
-   579          byteTRcpy(cmsg->m + 5, &cmsg->Subcommand);
-   580          cmsg->par = cpars[command_2_index(cmsg->Command, cmsg->Subcommand)];
-                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-cpars = is a 79 element array.
-cmsg->Command and cmsg->Subcommand come from skb->data so we can't trust
-them.
-181 is past the end of the 79 element array.
-
-   581  
-   582          message_2_pars(cmsg);
-   583  
-   584          wordTRcpy(msg + 0, &cmsg->l);
-   585          wordTRcpy(cmsg->m + 2, &cmsg->ApplId);
-   586          wordTRcpy(cmsg->m + 6, &cmsg->Messagenumber);
-   587  
-   588          return 0;
-   589  }
-
-regards,
-dan carpenter
+--_002_b703c70840da4780bc93beed79a8503bDB3PR02MB202eurprd02pro_--
