@@ -1,80 +1,93 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: netfilter: NULL ptr deref on boot in xt_register_table
-Date: Tue, 01 Apr 2014 00:21:53 -0400
-Message-ID: <533A3EE1.7000104@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>, kadlec@blackhole.kfki.hu,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Wei Yang <weiyang@linux.vnet.ibm.com>
+Subject: [PATCH] net/mlx4_core: match pci_device_id including dynids
+Date: Tue,  1 Apr 2014 12:36:01 +0800
+Message-ID: <1396326961-20395-1-git-send-email-weiyang@linux.vnet.ibm.com>
+Cc: Wei Yang <weiyang@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org, yevgenyp@mellanox.com,
+	ogerlitz@mellanox.com, amirv@mellanox.com, bhelgaas@google.com,
+	linux-pci@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e28smtp05.in.ibm.com ([122.248.162.5]:40801 "EHLO
+	e28smtp05.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751216AbaDAEg2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 00:36:28 -0400
+Received: from /spool/local
+	by e28smtp05.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
+	Tue, 1 Apr 2014 10:06:25 +0530
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Fix issue introduced by commit: 97a5221 "net/mlx4_core: pass
+pci_device_id.driver_data to __mlx4_init_one during reset".
 
+pci_match_id() just match the static pci_device_id, which may return NULL if
+someone binds the driver to a device manually using
+/sys/bus/pci/drivers/.../new_id.
 
-While fuzzing with trinity inside a KVM tools guest running latest -next
-kernel I've stumbled on the following spew.
+This patch match pci_device_id with pci_match_device() to cover both dynids
+and static id_table.
 
-Since it sometimes happens during boot it seems like a race, but I can't
-really figure what it's racing with so early in the process.
+Thanks to Bjorn finding this issue.
 
-[   28.463086] ip_tables: (C) 2000-2006 Netfilter Core Team
-[   28.465649] BUG: unable to handle kernel NULL pointer dereference at 0000000000000030
-[   28.467037] IP: strcmp (lib/string.c:251)
-[   28.467999] PGD 0
-[   28.468274] Oops: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
-[   28.468933] Dumping ftrace buffer:
-[   28.469426]    (ftrace buffer empty)
-[   28.469809] Modules linked in:
-[   28.470075] CPU: 8 PID: 1 Comm: swapper/0 Tainted: G        W     3.14.0-rc8-next-20140331-sasha-00013-g7a8780f #351
-[   28.470075] task: ffff88096c5c8000 ti: ffff88003e298000 task.ti: ffff88003e298000
-[   28.470075] RIP: strcmp (lib/string.c:251)
-[   28.470075] RSP: 0000:ffff88003e299be8  EFLAGS: 00010217
-[   28.470075] RAX: 0000000000000002 RBX: ffff88026beb7008 RCX: 0000000000000006
-[   28.470075] RDX: 0000000000000000 RSI: ffff88026beb7038 RDI: 0000000000000030
-[   28.470075] RBP: ffff88003e299be8 R08: 0000000000000000 R09: 0000000000000000
-[   28.470075] R10: 0000000000000001 R11: 0000000000000000 R12: ffffffffa2f291b8
-[   28.470075] R13: ffff88026beb7038 R14: ffffffffa2f28400 R15: 0000000000000000
-[   28.470075] FS:  0000000000000000(0000) GS:ffff88026cc00000(0000) knlGS:0000000000000000
-[   28.470075] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[   28.470075] CR2: 0000000000000030 CR3: 0000000021e2c000 CR4: 00000000000006a0
-[   28.470075] Stack:
-[   28.470075]  ffff88003e299c58 ffffffffa0004d04 ffffffffa2f28400 ffff88026bea13b0
-[   28.470075]  ffff88003e299c78 0200000000000278 ffff88003e299c58 0000000000000000
-[   28.470075]  0000000000000008 ffff88026bea13b0 0000000000000000 ffff88003e299c78
-[   28.470075] Call Trace:
-[   28.470075] xt_register_table (net/netfilter/x_tables.c:905)
-[   28.470075] ipt_register_table (net/ipv4/netfilter/ip_tables.c:2088)
-[   28.470075] ? mutex_lock_nested (arch/x86/include/asm/paravirt.h:809 kernel/locking/mutex.c:569 kernel/locking/mutex.c:587)
-[   28.470075] iptable_filter_net_init (net/ipv4/netfilter/iptable_filter.c:72)
-[   28.470075] ops_init (net/core/net_namespace.c:107)
-[   28.470075] ? mutex_lock_nested (arch/x86/include/asm/preempt.h:98 kernel/locking/mutex.c:570 kernel/locking/mutex.c:587)
-[   28.470075] ? register_pernet_subsys (net/core/net_namespace.c:556)
-[   28.470075] register_pernet_operations (net/core/net_namespace.c:450 net/core/net_namespace.c:514)
-[   28.470075] ? printk (kernel/printk/printk.c:1695)
-[   28.470075] ? ip_tables_init (net/ipv4/netfilter/iptable_filter.c:87)
-[   28.470075] ? ip_tables_init (net/ipv4/netfilter/iptable_filter.c:87)
-[   28.470075] register_pernet_subsys (net/core/net_namespace.c:557)
-[   28.470075] iptable_filter_init (net/ipv4/netfilter/iptable_filter.c:91)
-[   28.470075] do_one_initcall (init/main.c:696)
-[   28.470075] ? parse_args (kernel/params.c:113 kernel/params.c:202)
-[   28.470075] kernel_init_freeable (init/main.c:761 init/main.c:770 init/main.c:789 init/main.c:910)
-[   28.470075] ? loglevel (init/main.c:241)
-[   28.470075] ? rest_init (init/main.c:837)
-[   28.470075] kernel_init (init/main.c:842)
-[   28.470075] ret_from_fork (arch/x86/kernel/entry_64.S:555)
-[   28.470075] ? rest_init (init/main.c:837)
-[   28.470075] Code: 83 c6 01 44 88 01 48 83 c1 01 45 84 c0 75 dc 0f 1f 40 00 5d c3 66 66 66 66 66 2e 0f 1f 84 00 00 00 00 00 55 48 89 e5 0f 1f 40 00 <0f> b6 07 48 83 c7 01 0f b6 16 48 83 c6 01 38 d0 74 0e 19 c0 83
-[   28.470075] RIP strcmp (lib/string.c:251)
-[   28.470075]  RSP <ffff88003e299be8>
-[   28.470075] CR2: 0000000000000030
+CC: Bjorn Helgaas <bhelgaas@google.com>
+CC: Amir Vadai <amirv@mellanox.com>
+Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+Acked-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c |    4 +++-
+ drivers/pci/pci-driver.c                  |    3 ++-
+ include/linux/pci.h                       |    2 ++
+ 3 files changed, 7 insertions(+), 2 deletions(-)
 
-
-Thanks,
-Sasha
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index aa54ef7..b0edb5c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -2673,7 +2673,9 @@ static pci_ers_result_t mlx4_pci_slot_reset(struct pci_dev *pdev)
+ 	const struct pci_device_id *id;
+ 	int ret;
+ 
+-	id = pci_match_id(mlx4_pci_table, pdev);
++	id = pci_match_device(pci_dev_driver(pdev), pdev);
++	BUG_ON(!id);
++
+ 	ret = __mlx4_init_one(pdev, id->driver_data);
+ 
+ 	return ret ? PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_RECOVERED;
+diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
+index 25f0bc6..1ee26a1 100644
+--- a/drivers/pci/pci-driver.c
++++ b/drivers/pci/pci-driver.c
+@@ -225,7 +225,7 @@ const struct pci_device_id *pci_match_id(const struct pci_device_id *ids,
+  * system is in its list of supported devices.  Returns the matching
+  * pci_device_id structure or %NULL if there is no match.
+  */
+-static const struct pci_device_id *pci_match_device(struct pci_driver *drv,
++const struct pci_device_id *pci_match_device(struct pci_driver *drv,
+ 						    struct pci_dev *dev)
+ {
+ 	struct pci_dynid *dynid;
+@@ -1355,6 +1355,7 @@ postcore_initcall(pci_driver_init);
+ 
+ EXPORT_SYMBOL_GPL(pci_add_dynid);
+ EXPORT_SYMBOL(pci_match_id);
++EXPORT_SYMBOL(pci_match_device);
+ EXPORT_SYMBOL(__pci_register_driver);
+ EXPORT_SYMBOL(pci_unregister_driver);
+ EXPORT_SYMBOL(pci_dev_driver);
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 44f6883..8ede1b5 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -1134,6 +1134,8 @@ int pci_add_dynid(struct pci_driver *drv,
+ 		  unsigned long driver_data);
+ const struct pci_device_id *pci_match_id(const struct pci_device_id *ids,
+ 					 struct pci_dev *dev);
++const struct pci_device_id *pci_match_device(struct pci_driver *drv,
++						    struct pci_dev *dev);
+ int pci_scan_bridge(struct pci_bus *bus, struct pci_dev *dev, int max,
+ 		    int pass);
+ 
+-- 
+1.7.9.5
