@@ -1,78 +1,123 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [patch 00/12] can: c_can: Fix a series of serious bugs and improve
- the performance
-Date: Tue, 01 Apr 2014 10:09:19 +0200
-Message-ID: <533A742F.4090703@pengutronix.de>
-References: <20140318171007.528610837@linutronix.de> <alpine.DEB.2.02.1403312355280.14882@ionos.tec.linutronix.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="EWCB91vJrpcPbhIxtuuWrBWgXnbRwSOn9"
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Markus Pargmann <mpa@pengutronix.de>,
-	Benedikt Spranger <b.spranger@linutronix.de>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Thomas Gleixner <tglx@linutronix.de>,
-	LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1403312355280.14882@ionos.tec.linutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH V1] net/mlx4: Set proper build dependancy with vxlan
+Date: Tue,  1 Apr 2014 11:27:13 +0300
+Message-ID: <1396340833-17125-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:54563 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751077AbaDAI1V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2014 04:27:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---EWCB91vJrpcPbhIxtuuWrBWgXnbRwSOn9
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Make sure that vxlan_get_rx_port() is present in the kernel build in a manner
+consistent with mlx4, else mlx4 can be made built-in where vxlan a module and
+the phase of the build linking fails. Add CONFIG_MLX4_EN_VXLAN for that.
 
-On 04/01/2014 12:35 AM, Thomas Gleixner wrote:
-> Dear Maintainers,
->=20
-> On Tue, 18 Mar 2014, Thomas Gleixner wrote:
->> The driver is full of serious bugs:
->>
->>     - Two HW init routines are not spec compliant.
->>
->>     - Completely defective message buffer handling in several ways
->>       That leads to interrupt storms and complete lockups.
->>
->>     - Complete lack of SMP awareness
->>
->> What's amazing is that people "optimize" and "fix" the driver over and=
+Also, #ifdef the advertizement and implementation of the mlx4 vxlan ndo
+calls and related code under this config directive.
 
->> over, but nobody bothered to understand the manual and repair the code=
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
 
->> for real.
->>
->> The series fixes _ALL_ bugs which I found so far, but I'm sure there
->> are more issues burried in that unreadable mess. I'm just not able to
->> trigger them.
->=20
-> What's the state of this series?
+changes from v0: 
 
-I'll apply your patches today.
+ - Applied feedback from Dave to wrap also the ndo calls 
+   and related code with #ifdef the new config directive
 
-regards,
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+ drivers/net/ethernet/mellanox/mlx4/Kconfig     |    7 +++++++
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    8 ++++++++
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    2 ++
+ 3 files changed, 17 insertions(+), 0 deletions(-)
 
-
---EWCB91vJrpcPbhIxtuuWrBWgXnbRwSOn9
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlM6dC8ACgkQjTAFq1RaXHOFOACaAtXIoGSUNPBLjRMmEIjNdo81
-lcgAn3Wy6+7nWuvi66RESejTkhVHbgZQ
-=XWTr
------END PGP SIGNATURE-----
-
---EWCB91vJrpcPbhIxtuuWrBWgXnbRwSOn9--
+diff --git a/drivers/net/ethernet/mellanox/mlx4/Kconfig b/drivers/net/ethernet/mellanox/mlx4/Kconfig
+index 1a6e188..1486ce9 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlx4/Kconfig
+@@ -23,6 +23,13 @@ config MLX4_EN_DCB
+ 
+ 	  If unsure, set to Y
+ 
++config MLX4_EN_VXLAN
++	bool "VXLAN offloads Support"
++	default y
++	depends on MLX4_EN && VXLAN && !(MLX4_EN=y && VXLAN=m)
++	---help---
++	  Say Y here if you want to use VXLAN offloads in the driver.
++
+ config MLX4_CORE
+ 	tristate
+ 	depends on PCI
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 82d7eb5..f085c2d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1698,8 +1698,10 @@ int mlx4_en_start_port(struct net_device *dev)
+ 
+ 	mlx4_set_stats_bitmap(mdev->dev, &priv->stats_bitmap);
+ 
++#ifdef CONFIG_MLX4_EN_VXLAN
+ 	if (priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_VXLAN_OFFLOADS)
+ 		vxlan_get_rx_port(dev);
++#endif
+ 	priv->port_up = true;
+ 	netif_tx_start_all_queues(dev);
+ 	netif_device_attach(dev);
+@@ -2267,6 +2269,7 @@ static int mlx4_en_get_phys_port_id(struct net_device *dev,
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_MLX4_EN_VXLAN
+ static void mlx4_en_add_vxlan_offloads(struct work_struct *work)
+ {
+ 	int ret;
+@@ -2341,6 +2344,7 @@ static void mlx4_en_del_vxlan_port(struct  net_device *dev,
+ 
+ 	queue_work(priv->mdev->workqueue, &priv->vxlan_del_task);
+ }
++#endif
+ 
+ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_open		= mlx4_en_open,
+@@ -2368,8 +2372,10 @@ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_busy_poll		= mlx4_en_low_latency_recv,
+ #endif
+ 	.ndo_get_phys_port_id	= mlx4_en_get_phys_port_id,
++#ifdef CONFIG_MLX4_EN_VXLAN
+ 	.ndo_add_vxlan_port	= mlx4_en_add_vxlan_port,
+ 	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
++#endif
+ };
+ 
+ static const struct net_device_ops mlx4_netdev_ops_master = {
+@@ -2461,8 +2467,10 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	INIT_WORK(&priv->linkstate_task, mlx4_en_linkstate);
+ 	INIT_DELAYED_WORK(&priv->stats_task, mlx4_en_do_get_stats);
+ 	INIT_DELAYED_WORK(&priv->service_task, mlx4_en_service_task);
++#ifdef CONFIG_MLX4_EN_VXLAN
+ 	INIT_WORK(&priv->vxlan_add_task, mlx4_en_add_vxlan_offloads);
+ 	INIT_WORK(&priv->vxlan_del_task, mlx4_en_del_vxlan_offloads);
++#endif
+ #ifdef CONFIG_MLX4_EN_DCB
+ 	if (!mlx4_is_slave(priv->mdev->dev)) {
+ 		if (mdev->dev->caps.flags & MLX4_DEV_CAP_FLAG_SET_ETH_SCHED) {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 36fc2a2..7a733c2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -559,8 +559,10 @@ struct mlx4_en_priv {
+ 	struct work_struct linkstate_task;
+ 	struct delayed_work stats_task;
+ 	struct delayed_work service_task;
++#ifdef CONFIG_MLX4_EN_VXLAN
+ 	struct work_struct vxlan_add_task;
+ 	struct work_struct vxlan_del_task;
++#endif
+ 	struct mlx4_en_perf_stats pstats;
+ 	struct mlx4_en_pkt_stats pkstats;
+ 	struct mlx4_en_port_stats port_stats;
+-- 
+1.7.1
