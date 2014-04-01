@@ -1,33 +1,30 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created with
- no group
-Date: Tue, 1 Apr 2014 12:22:12 -0700
-Message-ID: <CAHA+R7OO9Cc-vVzeQ4dozj1HyBgU9pHZL-aJL9KxYKx+SVaLVA@mail.gmail.com>
-References: <1396333381-7252-1-git-send-email-mike.rapoport@ravellosystems.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: Tree for Apr 1 (netfilter)
+Date: Tue, 01 Apr 2014 15:22:03 -0400 (EDT)
+Message-ID: <20140401.152203.847120817141929645.davem@davemloft.net>
+References: <20140401183907.a5127cadbe7116261096beaa@canb.auug.org.au>
+	<533B06A7.5010900@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	David Stevens <dlstevens@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>, stable@vger.kernel.org
-To: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1396333381-7252-1-git-send-email-mike.rapoport@ravellosystems.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: rdunlap@infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <533B06A7.5010900@infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 31, 2014 at 11:23 PM, Mike Rapoport
-<mike.rapoport@ravellosystems.com> wrote:
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 1236812..d091e52 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -871,6 +871,9 @@ static int vxlan_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
->         if (err)
->                 return err;
->
-> +       if (vxlan->default_dst.remote_ip.sa.sa_family != ip.sa.sa_family)
-> +               return -EAFNOSUPPORT;
-> +
+From: Randy Dunlap <rdunlap@infradead.org>
+Date: Tue, 01 Apr 2014 11:34:15 -0700
 
-Or move this check into vxlan_fdb_parse() so that vxlan_fdb_delete()
-could also catch this error?
+> on x86_64:
+> 
+> net/netfilter/xt_connlimit.c: In function 'connlimit_mt_check':
+> net/netfilter/xt_connlimit.c:380:18: warning: division by zero [-Wdiv-by-zero]
+> 
+> Maybe just use CONNLIMIT_LOCK_SLOTS instead of ARRAY_SIZE(...).
+
+I'd rather see that ARRAY_SIZE() be adjusted to work cleanly for zero
+sized array elements.
