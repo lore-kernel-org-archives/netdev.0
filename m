@@ -1,54 +1,78 @@
-From: "wei zhang" <asuka.com@163.com>
-Subject: Re: [PATCH] openvswitch: supply a dummy err_handler of
- gre_cisco_protocol to prevent kernel crash
-Date: Tue, 1 Apr 2014 23:24:46 +0800 (CST)
-Message-ID: <3586fbc4.12f75.1451de4826d.Coremail.asuka.com@163.com>
-References: <1395957398-24546-1-git-send-email-asuka.com@163.com>
- <CAEP_g=_qJ1uHKZmZdkUrT+NUkzbRgaHfShZoMbnnCb+LwjOneQ@mail.gmail.com>
- <4fd27e6c.c96a.14512e82018.Coremail.asuka.com@163.com>
- <CAEP_g=_84HXCZLOzQ0JdLBF5WVhqwTJeEAY-xjqDD8YCv8yrRg@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [bug report] buffer overflow in isdn capi
+Date: Tue, 1 Apr 2014 18:48:30 +0300
+Message-ID: <20140401154830.GA16759@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: "David Miller" <davem@davemloft.net>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>
-To: "Jesse Gross" <jesse@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEP_g=_84HXCZLOzQ0JdLBF5WVhqwTJeEAY-xjqDD8YCv8yrRg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:19394 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751546AbaDAPsj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 11:48:39 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-QXTCoDIwMTQtMDQtMDHCoDA4OjQ5OjUzLCJKZXNzZcKgR3Jvc3MiwqA8amVzc2VAbmljaXJhLmNv
-bT7CoHdyb3RlOgo+T27CoFN1bizCoE1hcsKgMzAswqAyMDE0wqBhdMKgNToxMsKgQU0swqB3ZWnC
-oHpoYW5nwqA8YXN1a2EuY29tQDE2My5jb20+wqB3cm90ZToKPj7CoEF0wqAyMDE0LTAzLTI5wqAw
-NjowMjoyNSwiSmVzc2XCoEdyb3NzIsKgPGplc3NlQG5pY2lyYS5jb20+wqB3cm90ZToKCj4+wqBN
-YXliZcKgScKgbWlzdW5kZXJzdGFuZMKgc29tZXRoaW5nP8KgScKgdGhpbmvCoGlmwqB3ZcKgZGlz
-Y2FyZMKgYWxswqBwYWNrZXTCoHBhc3PCoHRvwqB1cwo+PsKgd2hlbsKgd2XCoHVzZcKgZ3JlwqB2
-cG9ydCzCoG5ld8KgZ3JlX2Npc2NvX3Byb3RvY29swqB3aGljaMKgaGFzwqBsb3dlcsKgcHJpb3Jp
-dHnCoGNvdWxkCj4+wqBub3TCoHNlZcKgdGhlwqBwYWNrZXTCoGludGVuZGVkwqB0b8KgaXQuCj4K
-PlRoYXQnc8KgdHJ1ZcKgYnV0wqBpbsKgdGhpc8KgY2FzZcKgaXTCoHdvdWxkwqBhbHNvwqBub3TC
-oHNlZcKgYW55wqBkYXRhwqBwYWNrZXRzLAo+c2/CoEnCoGRvbid0wqB0aGlua8KgdGhhdMKgc2l0
-dWF0aW9uwqB3b3VsZMKgd29ya8Kgd2VsbMKgYW55d2F5cy4KPgo+PsKgScKgY2hlY2tlZMKgdGhl
-wqBpbXBsZW1lbnRhdGlvbsKgb2bCoHRoZcKgaXBncmVfZXJyKCkswqB3aGljaMKgaGFzwqBiZcKg
-Y2FsbGVkwqBiZWZvcmUKPj7CoHRoZcKgZXJyX2hhbmRsZXLCoG9mwqBncmXCoHZwb3J0LsKgSXTC
-oHVzZcKgdGhlwqB0aGXCoChsb2NhbMKgYWRkcmVzcyzCoHJlbW90ZcKgYWRkcmVzcyzCoGtleSkK
-Pj7CoHRvwqBkaXN0aW5ndWlzaMKgdGhlwqBwYWNrZXTCoHdoaWNowqBpc8KgcmVhbHnCoGludGVu
-ZGVkwqB0b8KgaXQswqBhbHRob3VnaMKgaXTCoGNvdWxkwqBub3QKPj7CoGFsd2F5c8KgZ2V0wqB0
-aGXCoGtlecKgZnJvbcKgdGhlwqBpY21wwqBwYWNrZXQuwqBTaG91bGTCoHdlwqBkb8KgYXPCoHRo
-ZcKgc2FtZcKgYXPCoGl0Pwo+PsKgSSdtwqBub3TCoHN1cmXCoHRoaXPCoGlzwqBmZWFzaWJsZSzC
-oGFuecKgYWR2aWNlwqBpc8KgYXBwcmVjaWF0ZS4KPgo+T1ZTwqBkb2VzwqBmbG93wqBiYXNlZMKg
-bWF0Y2hpbmfCoHJhdGhlcsKgdGhhbsKgdXNpbmfCoGHCoHN0YXRpY8Kgc2V0wqBvZgo+Y29uZmln
-dXJhdGlvbsKgcGFyYW1ldGVycyzCoHNvwqBldmVyeXRoaW5nwqAibWF0Y2hlcyLCoGluwqBzb21l
-wqB3YXkKPihhbHRob3VnaMKgdGhlwqByZXN1bHTCoG1pZ2h0wqBiZcKgdG/CoGRyb3ApLsKgCgpT
-byB0aGUgZmxvdyBiYXNlZCBtYXRjaCBjb3VsZCBkeW5hbWljYWxseSBkZXRlcm1pbmUgYnkgdGhl
-IG92cyBkYWVtb24sIHdlIGNvdWxkCm5vdCBmaW5kIG91dCB0aGUgYmVsb25naW5nIG9mIHRoZSBw
-YWNrZXQgYXMgZmFyIGFzIHdlIGNhbGzCoG92c19kcF91cGNhbGwoKSwgaXNuJ3QgaXQ/Cgo+VGhp
-c8KgZ2VuZXJhbGx5wqBtZWFuc8KgdGhhdMKgT1ZTCj5pc8KgdGhlwqByZWNlaXZlcsKgb2bCoGxh
-c3TCoHJlc29ydMKgYW5kwqBub3RoaW5nwqBjdXJyZW50bHnCoGhhc8KgYcKgbG93ZXIKPnByaW9y
-aXR5LsKgCgpUaGFua3MgZm9yIHlvdXIga2luZCBoZWxwLCB0aGlzIGNsYXJpZnkgbXkgbWlzdW5k
-ZXJzdGFuZGluZyEKCj5UaGF0wqBhY3R1YWxsecKgbWVhbnPCoHRoZcKgZGlmZmVyZW5jZcKgYmV0
-d2VlbsKgdGhlwqBwYXRjaGVzwqBpcwo+c29tZXdoYXTCoGFjYWRlbWljwqBidXTCoGl0wqBzZWVt
-c8KgbW9yZcKgcm9idXN0wqBmb3LCoHRoZcKgbG9naWPCoHRvwqBiZQo+Y29uc2lzdGVudC4KClJl
-Z2FyZHMsCldlaSBaaGFuZ8KgCgo=
+The command_2_index() function is buggy and leads to a buffer overflow.
+Does anyone know how to fix this?
+
+drivers/isdn/capi/capiutil.c
+   403  static unsigned command_2_index(unsigned c, unsigned sc)
+   404  {
+   405          if (c & 0x80)
+   406                  c = 0x9 + (c & 0x0f);
+   407          else if (c <= 0x0f);
+   408          else if (c == 0x41)
+   409                  c = 0x9 + 0x1;
+   410          else if (c == 0xff)
+   411                  c = 0x00;
+   412          return (sc & 3) * (0x9 + 0x9) + c;
+   413  }
+
+Imagine that we input c = 0x7f and sc = 0x3.  Then 3 * 18 + 127 = 181
+and we return 181.
+
+The other thing that stands out to me is that the last condition
+"(c == 0xff)" is never true because then the first condition
+"(c & 0x80)" would have been true already.
+
+Here is how the function is used:
+
+drivers/isdn/capi/capiutil.c
+   564  /**
+   565   * capi_message2cmsg() - disassemble CAPI 2.0 message into _cmsg structure
+   566   * @cmsg:       _cmsg structure
+   567   * @msg:        buffer for assembled message
+   568   *
+   569   * Return value: 0 for success
+   570   */
+   571  
+   572  unsigned capi_message2cmsg(_cmsg *cmsg, u8 *msg)
+   573  {
+   574          memset(cmsg, 0, sizeof(_cmsg));
+   575          cmsg->m = msg;
+   576          cmsg->l = 8;
+   577          cmsg->p = 0;
+   578          byteTRcpy(cmsg->m + 4, &cmsg->Command);
+   579          byteTRcpy(cmsg->m + 5, &cmsg->Subcommand);
+   580          cmsg->par = cpars[command_2_index(cmsg->Command, cmsg->Subcommand)];
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cpars = is a 79 element array.
+cmsg->Command and cmsg->Subcommand come from skb->data so we can't trust
+them.
+181 is past the end of the 79 element array.
+
+   581  
+   582          message_2_pars(cmsg);
+   583  
+   584          wordTRcpy(msg + 0, &cmsg->l);
+   585          wordTRcpy(cmsg->m + 2, &cmsg->ApplId);
+   586          wordTRcpy(cmsg->m + 6, &cmsg->Messagenumber);
+   587  
+   588          return 0;
+   589  }
+
+regards,
+dan carpenter
