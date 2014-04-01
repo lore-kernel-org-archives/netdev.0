@@ -1,51 +1,61 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH v4 net] xen-netback: disable rogue vif in kthread context
-Date: Tue, 1 Apr 2014 13:19:18 +0100
-Message-ID: <1396354758.8667.141.camel@kazak.uk.xensource.com>
-References: <1396352772-7884-1-git-send-email-wei.liu2@citrix.com>
-	 <533AACC6.3050200@citrix.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [net-next 01/13] e1000e: Fix no connectivity when driver loaded
+ with cable out
+Date: Tue, 1 Apr 2014 09:30:02 -0300
+Message-ID: <CAOMZO5Ar9QrqsnOjb=V_hLB9Rz51jBMByz=jOMH2iAHi+OfbjA@mail.gmail.com>
+References: <1396308899-20926-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1396308899-20926-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
-	<xen-devel@lists.xen.org>, <zoltan.kiss@citrix.com>,
-	<edwin@etorok.net>
-To: David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	David Ertman <davidx.m.ertman@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	gospo@redhat.com, sassmann@redhat.com,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:16148 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751889AbaDAMTn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Apr 2014 08:19:43 -0400
-In-Reply-To: <533AACC6.3050200@citrix.com>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:57841 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751153AbaDAMaE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 08:30:04 -0400
+Received: by mail-wi0-f176.google.com with SMTP id r20so5043858wiv.3
+        for <netdev@vger.kernel.org>; Tue, 01 Apr 2014 05:30:03 -0700 (PDT)
+In-Reply-To: <1396308899-20926-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-04-01 at 13:10 +0100, David Vrabel wrote:
-> On 01/04/14 12:46, Wei Liu wrote:
-> > When netback discovers frontend is sending malformed packet it will
-> > disables the interface which serves that frontend.
-> > 
-> > However disabling a network interface involving taking a mutex which
-> > cannot be done in softirq context, so we need to defer this process to
-> > kthread context.
-> > 
-> > This patch does the following:
-> > 1. introduce a flag to indicate the interface is disabled.
-> > 2. check that flag in TX path, don't do any work if it's true.
-> > 3. check that flag in RX path, turn off that interface if it's true.
-> > 
-> > The reason to disable it in RX path is because RX uses kthread. After
-> > this change the behavior of netback is still consistent -- it won't do
-> > any TX work for a rogue frontend, and the interface will be eventually
-> > turned off.
-> > 
-> > Also change a "continue" to "break" after xenvif_fatal_tx_err, as it
-> > doesn't make sense to continue processing packets if frontend is rogue.
-> > 
-> > This is a fix for XSA-90.
-> 
-> Reviewed-by: David Vrabel <david.vrabel@citrix.com>
+On Mon, Mar 31, 2014 at 8:34 PM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> From: David Ertman <davidx.m.ertman@intel.com>
+>
+> In commit da1e2046e5, the flow for enabling/disabling an Si errata
+> workaround (e1000_lv_jumbo_workaround_ich8lan) was changed to fix a problem
+> with iAMT connections dropping on interface down with jumbo frames set.
+> Part of this change was to move the function call disabling the workaround
+> to e1000e_down() from the e1000_setup_rctl() function.  The mechanic for
+> disabling of this workaround involves writing several MAC and PHY registers
+> back to hardware defaults.
+>
+> After this commit, when the driver is loaded with the cable out, the PHY
+> registers are not programmed with the correct default values.  This causes
+> the device to be capable of transmitting packets, but is unable to recieve
+> them until this workaround is called.
+>
+> The flow of e1000e's open code relies upon calling the above workaround to
+> expicitly program these registers either with jumbo frame appropriate settings
+> or h/w defaults on 82579 and newer hardware.
+>
+> Fix this issue by adding logic to e1000_setup_rctl() that not only calls
+> e1000_lv_jumbo_workaround_ich8lan() when jumbo frames are set, to enable the
+> workaround, but also calls this function to explicitly disable the workaround
+> in the case that jumbo frames are not set.
+>
+> Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
+> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
+Maybe a Reported-by tag from Thomas is missing?
 
-Ian.
+Regards,
+
+Fabio Estevam
