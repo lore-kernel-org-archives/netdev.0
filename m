@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2014-04-01
-Date: Tue, 01 Apr 2014 17:50:16 -0400 (EDT)
-Message-ID: <20140401.175016.1630099465882973166.davem@davemloft.net>
-References: <1396388550-23081-1-git-send-email-mkl@pengutronix.de>
+Subject: Re: [PATCH v2 0/2] netpoll: Use skb_irq_freeable to make
+ zap_completion_queue safe.
+Date: Tue, 01 Apr 2014 17:54:12 -0400 (EDT)
+Message-ID: <20140401.175412.1103908241120101573.davem@davemloft.net>
+References: <8761mzktj9.fsf_-_@x220.int.ebiederm.org>
+	<53357681.9050200@cogentembedded.com>
+	<87wqf8j1rx.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1396388550-23081-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bjorn@mork.no, eric.dumazet@gmail.com, ben@decadent.org.uk,
+	stephen@networkplumber.org, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com,
+	David.Laight@ACULAB.COM, sergei.shtylyov@cogentembedded.com
+To: ebiederm@xmission.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56118 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751223AbaDAVyO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 17:54:14 -0400
+In-Reply-To: <87wqf8j1rx.fsf_-_@x220.int.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Tue,  1 Apr 2014 23:42:14 +0200
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 01 Apr 2014 12:19:30 -0700
 
-> this is a pull request of 16 patches for the 3.15 release cycle.
-> 
-> Bjorn Van Tilt contributes a patch which fixes a memory leak in usb_8dev's
-> usb_8dev_start_xmit()s error path. A patch by Robert Schwebel fixes a typo in
-> the can documentation. The remaining patches all target the c_can driver. Two
-> of them are by me; they add a missing netif_napi_del() and return value
-> checking. Thomas Gleixner contributes 12 patches, which address several
-> shortcomings in the driver like hardware initialisation, concurrency, message
-> ordering and poor performance.
+> Resending with the requested typo fix in the commit message and
+> pruned down to just the bare minimal bug fix, that this patchset is.
 
-Pulled, thanks Marc.
+Series applied, I added the "const" to the skb_irq_freeable() argument
+as suggested by Eric Dumazet.
