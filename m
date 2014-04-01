@@ -1,78 +1,130 @@
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Subject: Re: [PATCH net-next] net/mlx4_core: Handle null return by
- pci_match_id()
-Date: Tue, 1 Apr 2014 09:41:10 +0800
-Message-ID: <20140401014110.GA5883@richard>
-References: <1396193215-6863-1-git-send-email-amirv@mellanox.com>
- <CAJZOPZ+je04BC8BAoL1i1jAGrMFbHkFSAjypFSd3Kxc6_PC-cw@mail.gmail.com>
- <20140331035439.GA11288@richard>
- <20140331.163240.1147956381197703417.davem@davemloft.net>
-Reply-To: Wei Yang <weiyang@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: weiyang@linux.vnet.ibm.com, or.gerlitz@gmail.com,
-	amirv@mellanox.com, netdev@vger.kernel.org, yevgenyp@mellanox.com,
-	bhelgaas@google.com
-To: David Miller <davem@davemloft.net>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH v2 4/5] bonding: Added bond_tlb_xmit() for tlb mode.
+Date: Mon, 31 Mar 2014 19:04:46 -0700
+Message-ID: <1396317886-5166-1-git-send-email-maheshb@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Mahesh Bandewar <maheshb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp04.au.ibm.com ([202.81.31.146]:46457 "EHLO
-	e23smtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751098AbaDABlS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 21:41:18 -0400
-Received: from /spool/local
-	by e23smtp04.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
-	Tue, 1 Apr 2014 11:41:16 +1000
-Received: from d23relay04.au.ibm.com (d23relay04.au.ibm.com [9.190.234.120])
-	by d23dlp01.au.ibm.com (Postfix) with ESMTP id EAAED2CE803F
-	for <netdev@vger.kernel.org>; Tue,  1 Apr 2014 12:41:12 +1100 (EST)
-Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
-	by d23relay04.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s311KkHR5964274
-	for <netdev@vger.kernel.org>; Tue, 1 Apr 2014 12:20:47 +1100
-Received: from d23av02.au.ibm.com (localhost [127.0.0.1])
-	by d23av02.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s311fB1H020398
-	for <netdev@vger.kernel.org>; Tue, 1 Apr 2014 12:41:12 +1100
-Content-Disposition: inline
-In-Reply-To: <20140331.163240.1147956381197703417.davem@davemloft.net>
+Received: from mail-pd0-f201.google.com ([209.85.192.201]:33837 "EHLO
+	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750996AbaDACEs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 22:04:48 -0400
+Received: by mail-pd0-f201.google.com with SMTP id x10so1170260pdj.4
+        for <netdev@vger.kernel.org>; Mon, 31 Mar 2014 19:04:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 31, 2014 at 04:32:40PM -0400, David Miller wrote:
->From: Wei Yang <weiyang@linux.vnet.ibm.com>
->Date: Mon, 31 Mar 2014 11:54:39 +0800
->
->> On Sun, Mar 30, 2014 at 09:08:06PM +0300, Or Gerlitz wrote:
->>>On Sun, Mar 30, 2014 at 6:26 PM, Amir Vadai <amirv@mellanox.com> wrote:
->>>> Fix issue introduced by commit: 97a5221 "net/mlx4_core: pass
->>>> pci_device_id.driver_data to __mlx4_init_one during reset".
->>>>
->>>> pci_match_id() might return NULL if someone binds the driver to a device
->>>> manually using /sys/bus/pci/drivers/.../new_id. Need to check 'id'
->>>> before using it.
->>>>
->>>> Thanks to Bjorn who raised the problem.
->>>
->>>Well, that commit was applied to net and is now present in Linus
->>>tree... so assuming it's too late for 3.14, need to queue this for
->>>-stable
->>>
->>>Or.
->> 
->> Sorry for this bothering, hope this will not block someone.
->> 
->> Here is my suggestion for fixing this, not sure this is a good way to export
->> pci_match_device() to modules. This is my current solution to this problem. If
->> you have any comments, please let me know.
->
->This needs to be ACK'd by the PCI maintainers, please make sure they see this.
+Re-organized the xmit function for the lb mode separating tlb xmit
+from the alb mode. This will enable use of the hashing policies
+like 802.3ad mode. Also extended use of xmit-hash-policy to tlb mode.
 
-Yes, I think Bjorn, maintainers of PCI, is in the list.
+Now the tlb-mode defaults to BOND_XMIT_POLICY_LAYER2 if the xmit policy
+module parameter is not set (just like 802.3ad, or Xor mode).
 
-Bjorn,
+Change-Id: I140257403d272df75f477b380207338d0f04963e
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+v2
+  Micro optimization - switch statement from ntohs(var) to htons(const) 
 
-Do you have some concern on this implementation?
-Or, you suggest me to send this to pci maillist too?
+ drivers/net/bonding/bond_alb.c     | 26 ++++++++++++++++++++++++++
+ drivers/net/bonding/bond_alb.h     |  1 +
+ drivers/net/bonding/bond_main.c    |  6 ++++--
+ drivers/net/bonding/bond_options.c |  2 +-
+ 4 files changed, 32 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 5cd36016c393..bf44ab417c54 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -1381,6 +1381,32 @@ out:
+ 	return NETDEV_TX_OK;
+ }
+ 
++int bond_tlb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
++{
++	struct bonding *bond = netdev_priv(bond_dev);
++	struct ethhdr *eth_data;
++	struct slave *tx_slave = NULL;
++	u32 hash_index = 0;
++
++	skb_reset_mac_header(skb);
++	eth_data = eth_hdr(skb);
++
++	/* Do not TX balance any multicast or broadcast */
++	if (!is_multicast_ether_addr(eth_data->h_dest)) {
++		switch (skb->protocol) {
++		case htons(ETH_P_IP):
++		case htons(ETH_P_IPX):
++		    /* In case of IPX, it will falback to L2 hash */
++		case htons(ETH_P_IPV6):
++			hash_index = bond_xmit_hash(bond, skb);
++			tx_slave = tlb_choose_channel(bond, hash_index & 0xFF, skb->len);
++			break;
++		}
++	}
++
++	return bond_do_alb_xmit(skb, bond, tx_slave);
++}
++
+ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
+index e09dd4bfafff..5fc76c01636c 100644
+--- a/drivers/net/bonding/bond_alb.h
++++ b/drivers/net/bonding/bond_alb.h
+@@ -175,6 +175,7 @@ void bond_alb_deinit_slave(struct bonding *bond, struct slave *slave);
+ void bond_alb_handle_link_change(struct bonding *bond, struct slave *slave, char link);
+ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave);
+ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev);
++int bond_tlb_xmit(struct sk_buff *skb, struct net_device *bond_dev);
+ void bond_alb_monitor(struct work_struct *);
+ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr);
+ void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id);
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 676db41b98bc..1bff382d9291 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3776,8 +3776,9 @@ static netdev_tx_t __bond_start_xmit(struct sk_buff *skb, struct net_device *dev
+ 	case BOND_MODE_8023AD:
+ 		return bond_3ad_xmit_xor(skb, dev);
+ 	case BOND_MODE_ALB:
+-	case BOND_MODE_TLB:
+ 		return bond_alb_xmit(skb, dev);
++	case BOND_MODE_TLB:
++		return bond_tlb_xmit(skb, dev);
+ 	default:
+ 		/* Should never happen, mode already checked */
+ 		pr_err("%s: Error: Unknown bonding mode %d\n",
+@@ -3998,7 +3999,8 @@ static int bond_check_params(struct bond_params *params)
+ 
+ 	if (xmit_hash_policy) {
+ 		if ((bond_mode != BOND_MODE_XOR) &&
+-		    (bond_mode != BOND_MODE_8023AD)) {
++		    (bond_mode != BOND_MODE_8023AD) &&
++		    (bond_mode != BOND_MODE_TLB)) {
+ 			pr_info("xmit_hash_policy param is irrelevant in mode %s\n",
+ 				bond_mode_name(bond_mode));
+ 		} else {
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index 724e30fa20b9..dc3893841752 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -199,7 +199,7 @@ static const struct bond_option bond_opts[] = {
+ 	[BOND_OPT_XMIT_HASH] = {
+ 		.id = BOND_OPT_XMIT_HASH,
+ 		.name = "xmit_hash_policy",
+-		.desc = "balance-xor and 802.3ad hashing method",
++		.desc = "balance-xor, 802.3ad, and tlb hashing method",
+ 		.values = bond_xmit_hashtype_tbl,
+ 		.set = bond_option_xmit_hash_policy_set
+ 	},
 -- 
-Richard Yang
-Help you, Help me
+1.9.1.423.g4596e3a
