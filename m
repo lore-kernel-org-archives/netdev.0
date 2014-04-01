@@ -1,93 +1,58 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net/phy: Remove return value for a void function
-Date: Tue, 1 Apr 2014 12:59:45 -0700
-Message-ID: <CAGVrzcaRci3Q871NOc_BLQf81dyWjwWxgE5HgT_V1GtJToG7YA@mail.gmail.com>
+From: Shruti Kanetkar <Shruti@freescale.com>
+Subject: RE: [PATCH] net/phy: Remove return value for a void function
+Date: Tue, 1 Apr 2014 20:03:50 +0000
+Message-ID: <94a88d16d21540dabf1e2eb715b11b9a@DM2PR03MB365.namprd03.prod.outlook.com>
 References: <1396363464-28923-1-git-send-email-Shruti@Freescale.com>
- <1396375445.21529.95.camel@joe-AO722> <62eb4c507b904928a6b5891113153f18@DM2PR03MB365.namprd03.prod.outlook.com>
+ <1396375445.21529.95.camel@joe-AO722>
+ <62eb4c507b904928a6b5891113153f18@DM2PR03MB365.namprd03.prod.outlook.com>
+ <CAGVrzcaRci3Q871NOc_BLQf81dyWjwWxgE5HgT_V1GtJToG7YA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Joe Perches <joe@perches.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Emilian Medve <Emilian.Medve@freescale.com>
-To: Shruti Kanetkar <Shruti@freescale.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:54252 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751368AbaDAUA0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 16:00:26 -0400
-Received: by mail-pd0-f172.google.com with SMTP id p10so10030443pdj.31
-        for <netdev@vger.kernel.org>; Tue, 01 Apr 2014 13:00:25 -0700 (PDT)
-In-Reply-To: <62eb4c507b904928a6b5891113153f18@DM2PR03MB365.namprd03.prod.outlook.com>
+Received: from mail-bn1blp0184.outbound.protection.outlook.com ([207.46.163.184]:55865
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751247AbaDAUDx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2014 16:03:53 -0400
+In-Reply-To: <CAGVrzcaRci3Q871NOc_BLQf81dyWjwWxgE5HgT_V1GtJToG7YA@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Shruti,
-
-2014-04-01 12:53 GMT-07:00 Shruti Kanetkar <Shruti@freescale.com>:
-> Hello Joe,
->
-> Thank you for sharing the script.
-> I shall give it a try and credit you for the script.
-
-Can you run this spatch throughout the drivers/net/phy/ files to begin
-with and see what interesting results it produces?
-
-Thanks!
-
->
->> -----Original Message-----
->> From: Joe Perches [mailto:joe@perches.com]
->> Sent: Tuesday, April 01, 2014 1:04 PM
->> To: Kanetkar Shruti-B44454
->> Cc: f.fainelli@gmail.com; netdev@vger.kernel.org; Medve Emilian-EMMEDVE1
->> Subject: Re: [PATCH] net/phy: Remove return value for a void function
->>
->> Here's a spatch script for this:
->>
->> $ cat void_return.cocci
->> @@
->> identifier func;
->> expression S;
->> @@
->> void func(...) {
->> ...
->>       if (...)
->> -             return S;
->> +             { S; return; }
->> ...
->> }
->>
->> @@
->> identifier func;
->> expression S;
->> @@
->> void func(...) {
->> ...
->>       if (...) {
->> ...
->> -             return S;
->> +             S;
->>       }
->> ...
->> }
->>
->> @@
->> identifier func;
->> expression S;
->> @@
->> void func(...) {
->> ...
->> -     return S;
->> +     S;
->> }
->>
->>
->>
->
-> Regards,
-> Shruti
-
-
-
--- 
-Florian
+SGVsbG8gRmxvcmlhbiwNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBG
+bG9yaWFuIEZhaW5lbGxpIFttYWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IFR1
+ZXNkYXksIEFwcmlsIDAxLCAyMDE0IDM6MDAgUE0NCj4gVG86IEthbmV0a2FyIFNocnV0aS1CNDQ0
+NTQNCj4gQ2M6IEpvZSBQZXJjaGVzOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBNZWR2ZSBFbWls
+aWFuLUVNTUVEVkUxDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIG5ldC9waHk6IFJlbW92ZSByZXR1
+cm4gdmFsdWUgZm9yIGEgdm9pZCBmdW5jdGlvbg0KPiANCj4gSGkgU2hydXRpLA0KPiANCj4gMjAx
+NC0wNC0wMSAxMjo1MyBHTVQtMDc6MDAgU2hydXRpIEthbmV0a2FyIDxTaHJ1dGlAZnJlZXNjYWxl
+LmNvbT46DQo+ID4gSGVsbG8gSm9lLA0KPiA+DQo+ID4gVGhhbmsgeW91IGZvciBzaGFyaW5nIHRo
+ZSBzY3JpcHQuDQo+ID4gSSBzaGFsbCBnaXZlIGl0IGEgdHJ5IGFuZCBjcmVkaXQgeW91IGZvciB0
+aGUgc2NyaXB0Lg0KPiANCj4gQ2FuIHlvdSBydW4gdGhpcyBzcGF0Y2ggdGhyb3VnaG91dCB0aGUg
+ZHJpdmVycy9uZXQvcGh5LyBmaWxlcyB0byBiZWdpbg0KPiB3aXRoIGFuZCBzZWUgd2hhdCBpbnRl
+cmVzdGluZyByZXN1bHRzIGl0IHByb2R1Y2VzPw0KPiANCg0KWWVzLCBJIHNoYWxsIGRlZmluaXRl
+bHkgdHJ5IHRoYXQuDQoNCj4gVGhhbmtzIQ0KPiANCj4gPg0KPiA+PiAtLS0tLU9yaWdpbmFsIE1l
+c3NhZ2UtLS0tLQ0KPiA+PiBGcm9tOiBKb2UgUGVyY2hlcyBbbWFpbHRvOmpvZUBwZXJjaGVzLmNv
+bV0NCj4gPj4gU2VudDogVHVlc2RheSwgQXByaWwgMDEsIDIwMTQgMTowNCBQTQ0KPiA+PiBUbzog
+S2FuZXRrYXIgU2hydXRpLUI0NDQ1NA0KPiA+PiBDYzogZi5mYWluZWxsaUBnbWFpbC5jb207IG5l
+dGRldkB2Z2VyLmtlcm5lbC5vcmc7IE1lZHZlIEVtaWxpYW4tDQo+IEVNTUVEVkUxDQo+ID4+IFN1
+YmplY3Q6IFJlOiBbUEFUQ0hdIG5ldC9waHk6IFJlbW92ZSByZXR1cm4gdmFsdWUgZm9yIGEgdm9p
+ZCBmdW5jdGlvbg0KPiA+Pg0KPiA+PiBIZXJlJ3MgYSBzcGF0Y2ggc2NyaXB0IGZvciB0aGlzOg0K
+PiA+Pg0KPiA+PiAkIGNhdCB2b2lkX3JldHVybi5jb2NjaQ0KPiA+PiBAQA0KPiA+PiBpZGVudGlm
+aWVyIGZ1bmM7DQo+ID4+IGV4cHJlc3Npb24gUzsNCj4gPj4gQEANCj4gPj4gdm9pZCBmdW5jKC4u
+Likgew0KPiA+PiAuLi4NCj4gPj4gICAgICAgaWYgKC4uLikNCj4gPj4gLSAgICAgICAgICAgICBy
+ZXR1cm4gUzsNCj4gPj4gKyAgICAgICAgICAgICB7IFM7IHJldHVybjsgfQ0KPiA+PiAuLi4NCj4g
+Pj4gfQ0KPiA+Pg0KPiA+PiBAQA0KPiA+PiBpZGVudGlmaWVyIGZ1bmM7DQo+ID4+IGV4cHJlc3Np
+b24gUzsNCj4gPj4gQEANCj4gPj4gdm9pZCBmdW5jKC4uLikgew0KPiA+PiAuLi4NCj4gPj4gICAg
+ICAgaWYgKC4uLikgew0KPiA+PiAuLi4NCj4gPj4gLSAgICAgICAgICAgICByZXR1cm4gUzsNCj4g
+Pj4gKyAgICAgICAgICAgICBTOw0KPiA+PiAgICAgICB9DQo+ID4+IC4uLg0KPiA+PiB9DQo+ID4+
+DQo+ID4+IEBADQo+ID4+IGlkZW50aWZpZXIgZnVuYzsNCj4gPj4gZXhwcmVzc2lvbiBTOw0KPiA+
+PiBAQA0KPiA+PiB2b2lkIGZ1bmMoLi4uKSB7DQo+ID4+IC4uLg0KPiA+PiAtICAgICByZXR1cm4g
+UzsNCj4gPj4gKyAgICAgUzsNCj4gPj4gfQ0KPiA+Pg0KPiA+Pg0KPiA+Pg0KPiA+DQo+ID4gUmVn
+YXJkcywNCj4gPiBTaHJ1dGkNCj4gDQo+IA0KPiANCj4gLS0NCj4gRmxvcmlhbg0KPiANCg0KUmVn
+YXJkcywNClNocnV0aQ0K
