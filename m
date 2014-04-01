@@ -1,64 +1,55 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH v2] netlink: don't compare the nul-termination in nla_strcmp
-Date: Tue,  1 Apr 2014 19:38:44 +0200
-Message-ID: <1396373924-9538-1-git-send-email-pablo@netfilter.org>
-Cc: fw@strlen.de, tgraf@suug.ch
-To: netdev@vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net/phy: Remove return value for a void function
+Date: Tue, 1 Apr 2014 10:47:41 -0700
+Message-ID: <CAGVrzcY3Xjd4H3BSgj1K52t+Mjh+Qv5RYjuFiNG0K9k6FinnGw@mail.gmail.com>
+References: <1396363464-28923-1-git-send-email-Shruti@Freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, emmedve1@freescale.com
+To: Shruti@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44094 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751316AbaDARjD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Apr 2014 13:39:03 -0400
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:40373 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751318AbaDARsW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 13:48:22 -0400
+Received: by mail-pd0-f178.google.com with SMTP id x10so9936875pdj.9
+        for <netdev@vger.kernel.org>; Tue, 01 Apr 2014 10:48:22 -0700 (PDT)
+In-Reply-To: <1396363464-28923-1-git-send-email-Shruti@Freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira <pablo@netfilter.org>
+2014-04-01 7:44 GMT-07:00  <Shruti@freescale.com>:
+> From: Shruti Kanetkar <Shruti@Freescale.com>
+>
+> Signed-off-by: Shruti Kanetkar <Shruti@Freescale.com>
 
-nla_strcmp compares the string length plus one, so it's implicitly
-including the nul-termination in the comparison.
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 
- int nla_strcmp(const struct nlattr *nla, const char *str)
- {
-        int len = strlen(str) + 1;
-        ...
-                d = memcmp(nla_data(nla), str, len);
+> ---
+>  drivers/net/phy/vitesse.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
+> index 14372c6..1f2f060 100644
+> --- a/drivers/net/phy/vitesse.c
+> +++ b/drivers/net/phy/vitesse.c
+> @@ -319,8 +319,8 @@ static int __init vsc82xx_init(void)
+>
+>  static void __exit vsc82xx_exit(void)
+>  {
+> -       return phy_drivers_unregister(vsc82xx_driver,
+> -               ARRAY_SIZE(vsc82xx_driver));
+> +       phy_drivers_unregister(vsc82xx_driver,
+> +                              ARRAY_SIZE(vsc82xx_driver));
+>  }
+>
+>  module_init(vsc82xx_init);
+> --
+> 1.8.3.1
+>
+>
 
-However, if NLA_STRING is used, userspace can send us a string without
-the nul-termination. This is a problem since the string
-comparison will not match as the last byte may be not the
-nul-termination.
 
-Fix this by skipping the comparison of the nul-termination if the
-attribute data is nul-terminated. Suggested by Thomas Graf.
 
-Cc: Florian Westphal <fw@strlen.de>
-Cc: Thomas Graf <tgraf@suug.ch>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- lib/nlattr.c |   10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/lib/nlattr.c b/lib/nlattr.c
-index 18eca78..fc67547 100644
---- a/lib/nlattr.c
-+++ b/lib/nlattr.c
-@@ -303,9 +303,15 @@ int nla_memcmp(const struct nlattr *nla, const void *data,
-  */
- int nla_strcmp(const struct nlattr *nla, const char *str)
- {
--	int len = strlen(str) + 1;
--	int d = nla_len(nla) - len;
-+	int len = strlen(str);
-+	char *buf = nla_data(nla);
-+	int attrlen = nla_len(nla);
-+	int d;
- 
-+	if (attrlen > 0 && buf[attrlen - 1] == '\0')
-+		attrlen--;
-+
-+	d = attrlen - len;
- 	if (d == 0)
- 		d = memcmp(nla_data(nla), str, len);
- 
 -- 
-1.7.10.4
+Florian
