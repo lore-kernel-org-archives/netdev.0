@@ -1,148 +1,64 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH v4 net] xen-netback: disable rogue vif in kthread context
-Date: Tue, 1 Apr 2014 12:46:12 +0100
-Message-ID: <1396352772-7884-1-git-send-email-wei.liu2@citrix.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next 01/13] e1000e: Fix no connectivity when driver loaded
+ with cable out
+Date: Tue, 01 Apr 2014 16:06:18 +0400
+Message-ID: <533AABBA.70603@cogentembedded.com>
+References: <1396308899-20926-1-git-send-email-jeffrey.t.kirsher@intel.com> <1396308899-20926-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <david.vrabel@citrix.com>, <zoltan.kiss@citrix.com>,
-	<edwin@etorok.net>, Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:21669 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751546AbaDALqg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 07:46:36 -0400
+Received: from mail-la0-f41.google.com ([209.85.215.41]:58896 "EHLO
+	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752062AbaDAMGV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 08:06:21 -0400
+Received: by mail-la0-f41.google.com with SMTP id gl10so7024558lab.0
+        for <netdev@vger.kernel.org>; Tue, 01 Apr 2014 05:06:19 -0700 (PDT)
+In-Reply-To: <1396308899-20926-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When netback discovers frontend is sending malformed packet it will
-disables the interface which serves that frontend.
+Hello.
 
-However disabling a network interface involving taking a mutex which
-cannot be done in softirq context, so we need to defer this process to
-kthread context.
+On 01-04-2014 3:34, Jeff Kirsher wrote:
 
-This patch does the following:
-1. introduce a flag to indicate the interface is disabled.
-2. check that flag in TX path, don't do any work if it's true.
-3. check that flag in RX path, turn off that interface if it's true.
+> From: David Ertman <davidx.m.ertman@intel.com>
 
-The reason to disable it in RX path is because RX uses kthread. After
-this change the behavior of netback is still consistent -- it won't do
-any TX work for a rogue frontend, and the interface will be eventually
-turned off.
+> In commit da1e2046e5, the flow for enabling/disabling an Si errata
 
-Also change a "continue" to "break" after xenvif_fatal_tx_err, as it
-doesn't make sense to continue processing packets if frontend is rogue.
+    Please also specify that commit's summary line in parens.
 
-This is a fix for XSA-90.
+> workaround (e1000_lv_jumbo_workaround_ich8lan) was changed to fix a problem
+> with iAMT connections dropping on interface down with jumbo frames set.
+> Part of this change was to move the function call disabling the workaround
+> to e1000e_down() from the e1000_setup_rctl() function.  The mechanic for
+> disabling of this workaround involves writing several MAC and PHY registers
+> back to hardware defaults.
 
-Reported-by: T=C3=B6r=C3=B6k Edwin <edwin@etorok.net>
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
----
-v4: add vif->disabled to kthread wait_event_interruptible
-v3: use napi_complete as it does all the necessary work for us
----
- drivers/net/xen-netback/common.h    |    5 +++++
- drivers/net/xen-netback/interface.c |   11 +++++++++++
- drivers/net/xen-netback/netback.c   |   16 ++++++++++++++--
- 3 files changed, 30 insertions(+), 2 deletions(-)
+> After this commit, when the driver is loaded with the cable out, the PHY
+> registers are not programmed with the correct default values.  This causes
+> the device to be capable of transmitting packets, but is unable to recieve
+> them until this workaround is called.
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback=
-/common.h
-index ae413a2..4bf5b33 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -113,6 +113,11 @@ struct xenvif {
- 	domid_t          domid;
- 	unsigned int     handle;
-=20
-+	/* Is this interface disabled? True when backend discovers
-+	 * frontend is rogue.
-+	 */
-+	bool disabled;
-+
- 	/* Use NAPI for guest TX */
- 	struct napi_struct napi;
- 	/* When feature-split-event-channels =3D 0, tx_irq =3D rx_irq. */
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netb=
-ack/interface.c
-index 301cc03..2e92d52 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -62,6 +62,15 @@ static int xenvif_poll(struct napi_struct *napi, int=
- budget)
- 	struct xenvif *vif =3D container_of(napi, struct xenvif, napi);
- 	int work_done;
-=20
-+	/* This vif is rogue, we pretend we've there is nothing to do
-+	 * for this vif to deschedule it from NAPI. But this interface
-+	 * will be turned off in thread context later.
-+	 */
-+	if (unlikely(vif->disabled)) {
-+		napi_complete(napi);
-+		return 0;
-+	}
-+
- 	work_done =3D xenvif_tx_action(vif, budget);
-=20
- 	if (work_done < budget) {
-@@ -321,6 +330,8 @@ struct xenvif *xenvif_alloc(struct device *parent, =
-domid_t domid,
- 	vif->ip_csum =3D 1;
- 	vif->dev =3D dev;
-=20
-+	vif->disabled =3D false;
-+
- 	vif->credit_bytes =3D vif->remaining_credit =3D ~0UL;
- 	vif->credit_usec  =3D 0UL;
- 	init_timer(&vif->credit_timeout);
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netbac=
-k/netback.c
-index cd0bd95..97030c1 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -680,7 +680,8 @@ static void xenvif_tx_err(struct xenvif *vif,
- static void xenvif_fatal_tx_err(struct xenvif *vif)
- {
- 	netdev_err(vif->dev, "fatal error; disabling device\n");
--	xenvif_carrier_off(vif);
-+	vif->disabled =3D true;
-+	xenvif_kick_thread(vif);
- }
-=20
- static int xenvif_count_requests(struct xenvif *vif,
-@@ -1151,7 +1152,7 @@ static unsigned xenvif_tx_build_gops(struct xenvi=
-f *vif, int budget)
- 				   vif->tx.sring->req_prod, vif->tx.req_cons,
- 				   XEN_NETIF_TX_RING_SIZE);
- 			xenvif_fatal_tx_err(vif);
--			continue;
-+			break;
- 		}
-=20
- 		work_to_do =3D RING_HAS_UNCONSUMED_REQUESTS(&vif->tx);
-@@ -1573,7 +1574,18 @@ int xenvif_kthread(void *data)
- 	while (!kthread_should_stop()) {
- 		wait_event_interruptible(vif->wq,
- 					 rx_work_todo(vif) ||
-+					 vif->disabled ||
- 					 kthread_should_stop());
-+
-+		/* This frontend is found to be rogue, disable it in
-+		 * kthread context. Currently this is only set when
-+		 * netback finds out frontend sends malformed packet,
-+		 * but we cannot disable the interface in softirq
-+		 * context so we defer it here.
-+		 */
-+		if (unlikely(vif->disabled && netif_carrier_ok(vif->dev)))
-+			xenvif_carrier_off(vif);
-+
- 		if (kthread_should_stop())
- 			break;
-=20
---=20
-1.7.10.4
+> The flow of e1000e's open code relies upon calling the above workaround to
+> expicitly program these registers either with jumbo frame appropriate settings
+> or h/w defaults on 82579 and newer hardware.
+
+> Fix this issue by adding logic to e1000_setup_rctl() that not only calls
+> e1000_lv_jumbo_workaround_ich8lan() when jumbo frames are set, to enable the
+> workaround, but also calls this function to explicitly disable the workaround
+> in the case that jumbo frames are not set.
+
+> Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
+> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>   drivers/net/ethernet/intel/e1000e/netdev.c | 20 +++++++++++++++-----
+>   1 file changed, 15 insertions(+), 5 deletions(-)
+
+[...]
+
+WBR, Sergei
