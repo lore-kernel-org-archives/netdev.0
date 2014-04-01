@@ -1,45 +1,45 @@
-From: <Shruti@Freescale.com>
-Subject: [PATCH] net/phy: Remove return value for a void function
-Date: Tue, 1 Apr 2014 09:22:54 -0500
-Message-ID: <1396362174-28775-1-git-send-email-Shruti@Freescale.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v2 net-next] net: ptp: oki-semi: fix build dependency
+Date: Tue, 01 Apr 2014 16:27:25 +0200
+Message-ID: <533ACCCD.8030601@redhat.com>
+References: <1396288941-23063-1-git-send-email-ast@plumgrid.com> <20140331185538.GB7729@netboy> <5339EB85.4050308@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <emmedve1@Freescale.com>,
-	Shruti Kanetkar <Shruti@Freescale.com>
-To: <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe003.messaging.microsoft.com ([216.32.180.13]:22538
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751452AbaDAOXG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 10:23:06 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:5629 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751171AbaDAO1f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2014 10:27:35 -0400
+In-Reply-To: <5339EB85.4050308@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shruti Kanetkar <Shruti@Freescale.com>
+On 04/01/2014 12:26 AM, Daniel Borkmann wrote:
+> On 03/31/2014 08:55 PM, Richard Cochran wrote:
+...
+>> We don't really need two copies. As long as you are refactoring this,
+>> why not reduce it to just one filter?
+>>
+>> Something like
+>>
+>> #if defined(CONFIG_PTP_1588_CLOCK) || defined(CONFIG_NETWORK_PHY_TIMESTAMPING)
+>>
+>> ... code here ...
+>>
+>> #endif
+>>
+>> could go into filter.c or somewhere else in the stack.
+>
+> I'd move that code into it's own file e.g. ptp_classifier.c and while
+> at it also remove PTP_FILTER stuff from the header file entirely and
+> hide it all locally in that file. I will cook something tomorrow.
 
-Change-Id: I03747d79beb1ef3a9e7fc8a11495196eabbed33f
-Signed-off-by: Shruti Kanetkar <Shruti@Freescale.com>
-Reviewed-on: http://git.am.freescale.net:8181/8914
-Tested-by: Review Code-CDREVIEW <CDREVIEW@freescale.com>
-Reviewed-by: Shruti Kanetkar <Shruti@freescale.com>
----
- drivers/net/phy/vitesse.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Posted at [1], let me know if that is fine with you, Richard.
 
-diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
-index 14372c6..1f2f060 100644
---- a/drivers/net/phy/vitesse.c
-+++ b/drivers/net/phy/vitesse.c
-@@ -319,8 +319,8 @@ static int __init vsc82xx_init(void)
- 
- static void __exit vsc82xx_exit(void)
- {
--	return phy_drivers_unregister(vsc82xx_driver,
--		ARRAY_SIZE(vsc82xx_driver));
-+	phy_drivers_unregister(vsc82xx_driver,
-+			       ARRAY_SIZE(vsc82xx_driver));
- }
- 
- module_init(vsc82xx_init);
--- 
-1.8.3.1
+Thanks !
+
+   [1] http://patchwork.ozlabs.org/patch/335949/
