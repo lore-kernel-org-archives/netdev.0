@@ -1,87 +1,206 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: linux-next: Tree for Apr 1 (netfilter)
-Date: Tue, 01 Apr 2014 11:34:15 -0700
-Message-ID: <533B06A7.5010900@infradead.org>
-References: <20140401183907.a5127cadbe7116261096beaa@canb.auug.org.au>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v2 2/2] xen-netback: Grant copy the header instead
+ of map and memcpy
+Date: Tue, 1 Apr 2014 19:55:35 +0100
+Message-ID: <533B0BA7.6040607@citrix.com>
+References: <1396278539-27639-1-git-send-email-zoltan.kiss@citrix.com> <1396278539-27639-2-git-send-email-zoltan.kiss@citrix.com> <9AAE0902D5BC7E449B7C8E4E778ABCD02B75F1@AMSPEX01CL01.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>, linux-next@vger.kernel.org
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20140401183907.a5127cadbe7116261096beaa@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Jonathan Davies <Jonathan.Davies@citrix.com>
+To: Paul Durrant <Paul.Durrant@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:8058 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751650AbaDASzj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2014 14:55:39 -0400
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD02B75F1@AMSPEX01CL01.citrite.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/01/2014 12:39 AM, Stephen Rothwell wrote:
-> Hi all,
-> 
-> Please do not add material intended for v3.16 to your linux-next included
-> branches until after v3.15-rc1 is released.
-> 
-> This tree still fails (more than usual) the powerpc allyesconfig build.
-> 
-> Changes since 20140331:
-> 
-> The ia64 tree lost its build failure.
-> 
-> The powerpc tree still had its build failure.
-> 
-> The v4l-dvb tree still had its build failure so I used the version from
-> next-20140328.
-> 
-> The audit tree gained conflicts against Linus' and the net-next trees.
-> 
-> Non-merge commits (relative to Linus' tree): 10933
->  9135 files changed, 457444 insertions(+), 222441 deletions(-)
-> 
-> ----------------------------------------------------------------------------
-> 
-> I have created today's linux-next tree at
-> git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git
-> (patches at http://www.kernel.org/pub/linux/kernel/next/ ).  If you
-> are tracking the linux-next tree using git, you should not use "git pull"
-> to do so as that will try to merge the new linux-next release with the
-> old one.  You should use "git fetch" as mentioned in the FAQ on the wiki
-> (see below).
-> 
-> You can see which trees have been included by looking in the Next/Trees
-> file in the source.  There are also quilt-import.log and merge.log files
-> in the Next directory.  Between each merge, the tree was built with
-> a ppc64_defconfig for powerpc and an allmodconfig for x86_64 and a
-> multi_v7_defconfig for arm. After the final fixups (if any), it is also
-> built with powerpc allnoconfig (32 and 64 bit), ppc44x_defconfig and
-> allyesconfig (this fails its final link) and i386, sparc, sparc64 and arm
-> defconfig.
-> 
-> Below is a summary of the state of the merge.
-> 
-> I am currently merging 213 trees (counting Linus' and 28 trees of patches
-> pending for Linus' tree).
-> 
-> Stats about the size of the tree over time can be seen at
-> http://neuling.org/linux-next-size.html .
-> 
-> Status of my local build tests will be at
-> http://kisskb.ellerman.id.au/linux-next .  If maintainers want to give
-> advice about cross compilers/configs that work, we are always open to add
-> more builds.
-> 
-> Thanks to Randy Dunlap for doing many randconfig builds.  And to Paul
-> Gortmaker for triage and bug fixes.
-> 
-> There is a wiki covering stuff to do with linux-next at
-> http://linux.f-seidel.de/linux-next/pmwiki/ .  Thanks to Frank Seidel.
-
- 
-on x86_64:
-
-net/netfilter/xt_connlimit.c: In function 'connlimit_mt_check':
-net/netfilter/xt_connlimit.c:380:18: warning: division by zero [-Wdiv-by-zero]
-
-Maybe just use CONNLIMIT_LOCK_SLOTS instead of ARRAY_SIZE(...).
+On 01/04/14 10:40, Paul Durrant wrote:
+>> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
+>> netback/netback.c
+>> index e781366..ba11ff5 100644
+>> --- a/drivers/net/xen-netback/netback.c
+>> +++ b/drivers/net/xen-netback/netback.c
+>> @@ -915,35 +915,30 @@ static inline void xenvif_grant_handle_reset(struct
+>> xenvif *vif,
+>>
+>>   static int xenvif_tx_check_gop(struct xenvif *vif,
+>>   			       struct sk_buff *skb,
+>> -			       struct gnttab_map_grant_ref **gopp_map)
+>> +			       struct gnttab_map_grant_ref **gopp_map,
+>> +			       struct gnttab_copy **gopp_copy)
+>>   {
+>>   	struct gnttab_map_grant_ref *gop_map = *gopp_map;
+>>   	u16 pending_idx = XENVIF_TX_CB(skb)->pending_idx;
+>>   	struct skb_shared_info *shinfo = skb_shinfo(skb);
+>> -	struct pending_tx_info *tx_info;
+>>   	int nr_frags = shinfo->nr_frags;
+>> -	int i, err, start;
+>> +	int i, err;
+>>   	struct sk_buff *first_skb = NULL;
+>>
+>>   	/* Check status of header. */
+>> -	err = gop_map->status;
+>> +	err = (*gopp_copy)->status;
+>> +	(*gopp_copy)++;
+>
+> I guess there's no undo work in the case of a copy op so you can bump the copy count here, but it might have been nicer to pair it with the update to the map count.
+I rather prefer to group related operations on the same variable to stay 
+close to each other.
 
 
--- 
-~Randy
+>> @@ -1067,9 +1051,9 @@ static int xenvif_get_extras(struct xenvif *vif,
+>>
+>>   		memcpy(&extra, RING_GET_REQUEST(&vif->tx, cons),
+>>   		       sizeof(extra));
+>> +		vif->tx.req_cons = ++cons;
+>>   		if (unlikely(!extra.type ||
+>>   			     extra.type >= XEN_NETIF_EXTRA_TYPE_MAX)) {
+>> -			vif->tx.req_cons = ++cons;
+>>   			netdev_err(vif->dev,
+>>   				   "Invalid extra type: %d\n", extra.type);
+>>   			xenvif_fatal_tx_err(vif);
+>> @@ -1077,7 +1061,6 @@ static int xenvif_get_extras(struct xenvif *vif,
+>>   		}
+>>
+>>   		memcpy(&extras[extra.type - 1], &extra, sizeof(extra));
+>> -		vif->tx.req_cons = ++cons;
+>
+> I know you called this out as unrelated, but I still think it would be better in a separate patch.
+Ok
+
+
+>> @@ -1269,24 +1255,39 @@ static unsigned xenvif_tx_build_gops(struct
+>> xenvif *vif, int budget)
+>>   			}
+>>   		}
+>>
+>> -		xenvif_tx_create_gop(vif, pending_idx, &txreq, gop);
+>> -
+>> -		gop++;
+>> -
+>>   		XENVIF_TX_CB(skb)->pending_idx = pending_idx;
+>>
+>>   		__skb_put(skb, data_len);
+>> +		vif->tx_copy_ops[*copy_ops].source.u.ref = txreq.gref;
+>> +		vif->tx_copy_ops[*copy_ops].source.domid = vif->domid;
+>> +		vif->tx_copy_ops[*copy_ops].source.offset = txreq.offset;
+>> +
+>> +		vif->tx_copy_ops[*copy_ops].dest.u.gmfn =
+>> +			virt_to_mfn(skb->data);
+>> +		vif->tx_copy_ops[*copy_ops].dest.domid = DOMID_SELF;
+>> +		vif->tx_copy_ops[*copy_ops].dest.offset =
+>> +			offset_in_page(skb->data);
+>> +
+>> +		vif->tx_copy_ops[*copy_ops].len = data_len;
+>> +		vif->tx_copy_ops[*copy_ops].flags =
+>> GNTCOPY_source_gref;
+>> +
+>> +		(*copy_ops)++;
+>>
+>>   		skb_shinfo(skb)->nr_frags = ret;
+>>   		if (data_len < txreq.size) {
+>>   			skb_shinfo(skb)->nr_frags++;
+>>   			frag_set_pending_idx(&skb_shinfo(skb)->frags[0],
+>>   					     pending_idx);
+>> +			xenvif_tx_create_gop(vif, pending_idx, &txreq,
+>> gop);
+>> +			gop++;
+>>   		} else {
+>>   			frag_set_pending_idx(&skb_shinfo(skb)->frags[0],
+>>   					     INVALID_PENDING_IDX);
+>> +			memcpy(&vif->pending_tx_info[pending_idx].req,
+>> &txreq,
+>> +			       sizeof(txreq));
+>>   		}
+>>
+>> +
+>
+> Unnecessary whitespace change.
+Ok
+
+>
+>>   		vif->pending_cons++;
+>>
+>>   		request_gop = xenvif_get_requests(vif, skb, txfrags, gop);
+>> @@ -1301,11 +1302,13 @@ static unsigned xenvif_tx_build_gops(struct
+>> xenvif *vif, int budget)
+>>
+>>   		vif->tx.req_cons = idx;
+>>
+>> -		if ((gop-vif->tx_map_ops) >= ARRAY_SIZE(vif-
+>>> tx_map_ops))
+>> +		if (((gop-vif->tx_map_ops) >= ARRAY_SIZE(vif-
+>>> tx_map_ops)) ||
+>> +		    (*copy_ops >= ARRAY_SIZE(vif->tx_map_ops)))
+>
+> Do you mean ARRAY_SIZE(vif->tx_copy_ops) here?
+Yes, I'll correct it.
+
+>
+>>   			break;
+>>   	}
+>>
+>> -	return gop - vif->tx_map_ops;
+>> +	(*map_ops) = gop - vif->tx_map_ops;
+>> +	return;
+>>   }
+>>
+>>   /* Consolidate skb with a frag_list into a brand new one with local pages on
+>> @@ -1377,6 +1380,7 @@ static int xenvif_handle_frag_list(struct xenvif *vif,
+>> struct sk_buff *skb)
+>>   static int xenvif_tx_submit(struct xenvif *vif)
+>>   {
+>>   	struct gnttab_map_grant_ref *gop_map = vif->tx_map_ops;
+>> +	struct gnttab_copy *gop_copy = vif->tx_copy_ops;
+>>   	struct sk_buff *skb;
+>>   	int work_done = 0;
+>>
+>> @@ -1389,7 +1393,7 @@ static int xenvif_tx_submit(struct xenvif *vif)
+>>   		txp = &vif->pending_tx_info[pending_idx].req;
+>>
+>>   		/* Check the remap error code. */
+>> -		if (unlikely(xenvif_tx_check_gop(vif, skb, &gop_map))) {
+>> +		if (unlikely(xenvif_tx_check_gop(vif, skb, &gop_map,
+>> &gop_copy))) {
+>>   			netdev_dbg(vif->dev, "netback grant failed.\n");
+>
+> It could have been the copy that failed. You should probably change the error message.
+I've changed it to "netback grant op failed.\n"
+
+>> @@ -1588,22 +1588,26 @@ static inline void xenvif_tx_dealloc_action(struct
+>> xenvif *vif)
+>>   /* Called after netfront has transmitted */
+>>   int xenvif_tx_action(struct xenvif *vif, int budget)
+>>   {
+>> -	unsigned nr_mops;
+>> +	unsigned nr_mops, nr_cops = 0;
+>>   	int work_done, ret;
+>>
+>>   	if (unlikely(!tx_work_todo(vif)))
+>>   		return 0;
+>>
+>> -	nr_mops = xenvif_tx_build_gops(vif, budget);
+>> +	xenvif_tx_build_gops(vif, budget, &nr_cops, &nr_mops);
+>>
+>> -	if (nr_mops == 0)
+>> +	if (nr_cops == 0)
+>>   		return 0;
+>> -
+>> -	ret = gnttab_map_refs(vif->tx_map_ops,
+>> -			      NULL,
+>> -			      vif->pages_to_map,
+>> -			      nr_mops);
+>> -	BUG_ON(ret);
+>> +	else {
+>
+> Do you need an 'else' here? Unless I'm misreading the diff your previous clause returns.
+Indeed, it's not necessary there
