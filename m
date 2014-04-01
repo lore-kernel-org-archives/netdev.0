@@ -1,30 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: Tree for Apr 1 (netfilter)
-Date: Tue, 01 Apr 2014 15:22:03 -0400 (EDT)
-Message-ID: <20140401.152203.847120817141929645.davem@davemloft.net>
-References: <20140401183907.a5127cadbe7116261096beaa@canb.auug.org.au>
-	<533B06A7.5010900@infradead.org>
+Subject: Re: [PATCH v2] netlink: don't compare the nul-termination in
+ nla_strcmp
+Date: Tue, 01 Apr 2014 15:26:06 -0400 (EDT)
+Message-ID: <20140401.152606.1113760851598806005.davem@davemloft.net>
+References: <1396373924-9538-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: rdunlap@infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <533B06A7.5010900@infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, fw@strlen.de, tgraf@suug.ch
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54163 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751214AbaDAT0I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 15:26:08 -0400
+In-Reply-To: <1396373924-9538-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Tue, 01 Apr 2014 11:34:15 -0700
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue,  1 Apr 2014 19:38:44 +0200
 
-> on x86_64:
+> From: Pablo Neira <pablo@netfilter.org>
 > 
-> net/netfilter/xt_connlimit.c: In function 'connlimit_mt_check':
-> net/netfilter/xt_connlimit.c:380:18: warning: division by zero [-Wdiv-by-zero]
+> nla_strcmp compares the string length plus one, so it's implicitly
+> including the nul-termination in the comparison.
 > 
-> Maybe just use CONNLIMIT_LOCK_SLOTS instead of ARRAY_SIZE(...).
+>  int nla_strcmp(const struct nlattr *nla, const char *str)
+>  {
+>         int len = strlen(str) + 1;
+>         ...
+>                 d = memcmp(nla_data(nla), str, len);
+> 
+> However, if NLA_STRING is used, userspace can send us a string without
+> the nul-termination. This is a problem since the string
+> comparison will not match as the last byte may be not the
+> nul-termination.
+> 
+> Fix this by skipping the comparison of the nul-termination if the
+> attribute data is nul-terminated. Suggested by Thomas Graf.
+> 
+> Cc: Florian Westphal <fw@strlen.de>
+> Cc: Thomas Graf <tgraf@suug.ch>
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-I'd rather see that ARRAY_SIZE() be adjusted to work cleanly for zero
-sized array elements.
+Applied and queued up for -stable, thanks Pablo.
