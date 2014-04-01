@@ -1,64 +1,66 @@
-From: Scott Feldman <sfeldma@cumulusnetworks.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of switch chip datapath
-Date: Tue, 1 Apr 2014 12:13:00 -0700
-Message-ID: <2D65D0C2-6BBC-4968-8400-4EB60BDF887A@cumulusnetworks.com>
-References: <5330BAB7.3040501@mojatatu.com> <20140325173927.GE8102@hmsreliant.think-freely.org> <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org> <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com> <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com> <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion> <533312A3.5070600@cumulusnetworks.com> <20140326180356.GK2869@minipsycho.orion>
-Mime-Version: 1.0 (Mac OS X Mail 7.2 \(1874\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: Jiri Pirko <jiri@resnulli.us>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH v2 2/2] netpoll: Use skb_irq_freeable to make zap_completion_queue safe.
+Date: Tue, 01 Apr 2014 12:21:02 -0700
+Message-ID: <87lhvoj1pd.fsf_-_@x220.int.ebiederm.org>
+References: <20140314.225923.61318448733570839.davem@davemloft.net>
+	<87k3bwqgf7.fsf@xmission.com> <877g7wqg8e.fsf_-_@xmission.com>
+	<20140317.154916.2276987764507311378.davem@davemloft.net>
+	<87iorcgh5d.fsf_-_@xmission.com> <87fvmgf2c7.fsf_-_@xmission.com>
+	<1395149407.22343.8.camel@deadeye.wl.decadent.org.uk>
+	<87lhw7inzg.fsf@nemi.mork.no>
+	<1395156229.9114.35.camel@edumazet-glaptop2.roam.corp.google.com>
+	<2c96faab-4293-4e7f-b8e0-4997af745fbf@email.android.com>
+	<063D6719AE5E284EB5DD2968C1650D6D0F6E02DB@AcuExch.aculab.com>
+	<87mwgbkttv.fsf_-_@x220.int.ebiederm.org>
+	<8761mzktj9.fsf_-_@x220.int.ebiederm.org>
+	<53357681.9050200@cogentembedded.com>
+	<87wqf8j1rx.fsf_-_@x220.int.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: =?utf-8?Q?'Bj=C3=B8rn?= Mork' <bjorn@mork.no>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	"stephen\@networkplumber.org" <stephen@networkplumber.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xiyou.wangcong\@gmail.com" <xiyou.wangcong@gmail.com>,
+	"mpm\@selenic.com" <mpm@selenic.com>,
+	"satyam.sharma\@gmail.com" <satyam.sharma@gmail.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:48655 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751311AbaDATVX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 15:21:23 -0400
-In-Reply-To: <20140326180356.GK2869@minipsycho.orion>
+Received: from out03.mta.xmission.com ([166.70.13.233]:33287 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751267AbaDATVy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 15:21:54 -0400
+In-Reply-To: <87wqf8j1rx.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
+	message of "Tue, 01 Apr 2014 12:19:30 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On Mar 26, 2014, at 11:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+Replace the test in zap_completion_queue to test when it is safe to
+free skbs in hard irq context with skb_irq_freeable ensuring we only
+free skbs when it is safe, and removing the possibility of subtle
+problems.
 
-> Wed, Mar 26, 2014 at 06:47:15PM CET, roopa@cumulusnetworks.com wrote:
->> On 3/26/14, 9:59 AM, Jiri Pirko wrote:
->>> Wed, Mar 26, 2014 at 05:54:17PM CET, roopa@cumulusnetworks.com wrote:
->>> So you implement bonding netlink api? Or you hook into bonding driver
->>> itselt? Can you show us the code?
->> We use the netlink API and libnl. In our current model, our switch
->> chip driver listens to netlink notifications and programs the switch
->> chip. The switch chip driver uses libnl caches and libnl netlink apis
->> to reflect the kernel state to switch chip.
-> 
-> 
-> So when you configure for example bonding over 2 ports, you actually use
-> bonding driver to do that. And you userspace app listens to
-> notifications and programs the switch chip accordingly. Am I close?
-> 
-> How about data? Is this new "bonding" interface able to assign ip to is
-> and send/receive packets.
-> 
-> I'm still not sure I understand your concept. Do you have some
-> documentation for it available?
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ net/core/netpoll.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Actually Jiri this is the code you and I worked on recently to netlink-ify bonding/slave attributes and active/inactive notification.  You have it right, user uses normal ip link tools and bonding driver to create bond, set attributes, and enslave switch ports.  RTM_NEWLINK is used to program ASIC to offload LAG to HW.  RTM_NEWLINK msgs contains bond attributes (mode, etc) and slave list, as well as slave status.  This is enough information to program ASIC.  Once programmed, ASIC offloads the data plane traffic, and in the case of egress, handles the LAG hash distribution.  Only the LACP control plane traffic makes it to the bonding driver; data plane traffic does not make it to the bonding driver.
-
-So, not trying to sound like a smart-ass, but the documentation is the bonding driver, specifically the netlink attributes/notifications.
-
--scott
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index ed7740f7a94d..e33937fb32a0 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -270,7 +270,7 @@ static void zap_completion_queue(void)
+ 		while (clist != NULL) {
+ 			struct sk_buff *skb = clist;
+ 			clist = clist->next;
+-			if (skb->destructor) {
++			if (!skb_irq_freeable(skb)) {
+ 				atomic_inc(&skb->users);
+ 				dev_kfree_skb_any(skb); /* put this one back */
+ 			} else {
+-- 
+1.7.10.4
