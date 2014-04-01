@@ -1,66 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/3] net: sxgbe: sxgbe_mdio_register() frees the bus
-Date: Tue, 01 Apr 2014 16:23:22 -0400 (EDT)
-Message-ID: <20140401.162322.2243641448457002118.davem@davemloft.net>
-References: <20140401133844.GA11536@mwanda>
+Subject: Re: [PATCH net-next v2] mac802154: fix multiple WPAN handling
+Date: Tue, 01 Apr 2014 16:26:15 -0400 (EDT)
+Message-ID: <20140401.162615.527797088376105489.davem@davemloft.net>
+References: <1396294666-14005-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bh74.an@samsung.com, ks.giri@samsung.com, siva.kallam@samsung.com,
-	vipul.pandya@samsung.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
+To: phoebe.buckheister@itwm.fraunhofer.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55129 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55160 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751397AbaDAUXY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 16:23:24 -0400
-In-Reply-To: <20140401133844.GA11536@mwanda>
+	with ESMTP id S1751366AbaDAU0Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 16:26:16 -0400
+In-Reply-To: <1396294666-14005-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Tue, 1 Apr 2014 16:38:44 +0300
+From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Date: Mon, 31 Mar 2014 21:37:44 +0200
 
-> @@ -219,13 +219,6 @@ int sxgbe_mdio_register(struct net_device *ndev)
->  		}
->  	}
->  
-> -	if (!err) {
-> -		netdev_err(ndev, "PHY not found\n");
-> -		mdiobus_unregister(mdio_bus);
-> -		mdiobus_free(mdio_bus);
-> -		goto mdiobus_err;
-> -	}
-> -
-...
-> @@ -93,9 +93,9 @@ static void sxgbe_core_set_umac_addr(void __iomem *ioaddr, unsigned char *addr,
->  {
->  	u32 high_word, low_word;
->  
-> -	high_word = (addr[5] << 8) || (addr[4]);
-> -	low_word = ((addr[3] << 24) || (addr[2] << 16) ||
-> -		    (addr[1] << 8) || (addr[0]));
-> +	high_word = (addr[5] << 8) | (addr[4]);
-> +	low_word = (addr[3] << 24) | (addr[2] << 16) |
-> +		   (addr[1] << 8) | (addr[0]);
->  	writel(high_word, ioaddr + SXGBE_CORE_ADD_HIGHOFFSET(reg_n));
->  	writel(low_word, ioaddr + SXGBE_CORE_ADD_LOWOFFSET(reg_n));
->  }
+> The current mac802154 stack allows an arbitrary number of WPAN netdevs for any
+> given PHY, which is not sensible and not supported by all hardware with in-tree
+> drivers. Also, previous commits have introduced configuration options that
+> apply to WPAN devices, but were set to apply to the underlying PHY.
+> 
+> This patch set fixes both, allowing only one WPAN device to be up at any given
+> time, and making WPAN-related settings per-WPAN instead of per-PHY.
 
-Nothing says "DRIVER NOT TESTED" like these two bugs.
-
-The MDIO bus is always freed, and the MAC address is corrupted
-into a boolean value before being programmed into the hardware.
-
-Frankly, this kind of stuff is unacceptable.
-
-I cannot see how this driver can function successfully with
-these two errors, it looks simply impossible.
-
-I'm not going to hide my feelings, this was a truly terrible driver
-submission.  The amount of reviewing resources consumed during all
-of these iterations was huge, and it still went in with bugs like
-this.
-
-It probably should have gone into staging.
+Series applied.
