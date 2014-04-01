@@ -1,220 +1,480 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Subject: [PATCH 2/3][v7] netlink: have netlink per-protocol bind function return an error code.
-Date: Tue,  1 Apr 2014 10:14:57 -0400
-Message-ID: <05279f8fb61d0f79a17b6936b110ad102f27440a.1396317747.git.rgb@redhat.com>
-References: <20140324183406.GE28666@madcap2.tricolour.ca>
-Cc: Richard Guy Briggs <rgb@redhat.com>, eparis@redhat.com,
-	sgrubb@redhat.com, hadi@mojatatu.com, davem@davemloft.net
-To: linux-audit@redhat.com, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140324183406.GE28666@madcap2.tricolour.ca>
-In-Reply-To: <cover.1396317747.git.rgb@redhat.com>
-References: <cover.1396317747.git.rgb@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH] net: ptp: move PTP classifier in its own file
+Date: Tue,  1 Apr 2014 16:20:23 +0200
+Message-ID: <1396362023-8704-1-git-send-email-dborkman@redhat.com>
+Cc: richardcochran@gmail.com, ast@plumgrid.com, fengguang.wu@intel.com,
+	netdev@vger.kernel.org, Jiri Benc <jbenc@redhat.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35923 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751787AbaDAOUi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2014 10:20:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Have the netlink per-protocol optional bind function return an int error code
-rather than void to signal a failure.
+This commit fixes a build error reported by Fengguang, that is
+triggered when CONFIG_NETWORK_PHY_TIMESTAMPING is not set:
 
-This will enable netlink protocols to perform extra checks including
-capabilities and permissions verifications when updating memberships in
-multicast groups.
+  ERROR: "ptp_classify_raw" [drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.ko] undefined!
 
-In netlink_bind() and netlink_setsockopt() the call to the per-protocol bind
-function was moved above the multicast group update to prevent any access to
-the multicast socket groups before checking with the per-protocol bind
-function.  This will enable the per-protocol bind function to be used to check
-permissions which could be denied before making them available, and to avoid
-the messy job of undoing the addition should the per-protocol bind function
-fail.
+The fix is to introduce its own file for the PTP BPF classifier,
+so that PTP_1588_CLOCK and/or NETWORK_PHY_TIMESTAMPING can select
+it independently from each other. IXP4xx driver on ARM needs to
+select it as well since it does not seem to select PTP_1588_CLOCK
+or similar that would pull it in automatically.
 
-The netfilter subsystem seems to be the only one currently using the
-per-protocol bind function.
+This also allows for hiding all of the internals of the BPF PTP
+program inside that file, and only exporting relevant API bits
+to drivers.
 
-Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
+This patch also adds a kdoc documentation of ptp_classify_raw()
+API to make it clear that it can return PTP_CLASS_* defines. Also,
+the BPF program has been translated into bpf_asm code, so that it
+can be more easily read and altered (extensively documented in [1]).
+
+In the kernel tree under tools/net/ we have bpf_asm and bpf_dbg
+tools, so the commented program can simply be translated via
+`./bpf_asm -c prog` where prog is a file that contains the
+commented code. This makes it easily readable/verifiable and when
+there's a need to change something, jump offsets etc do not need
+to be replaced manually which can be very error prone. Instead,
+a newly translated version via bpf_asm can simply replace the old
+code. I have checked opcode diffs before/after and it's the very
+same filter.
+
+  [1] Documentation/networking/filter.txt
+
+Fixes: 164d8c666521 ("net: ptp: do not reimplement PTP/BPF classifier")
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Cc: Richard Cochran <richardcochran@gmail.com>
+Cc: Jiri Benc <jbenc@redhat.com>
 ---
-In particular, the audit subsystem (NETLINK_AUDIT protocol) could benefit by
-being able to check specific capabilities for each multicast group before
-granting membership to the requesting socket.  Currently, all NETLINK_AUDIT
-sockets must have the capability CAP_NET_ADMIN.  No other capabilities are
-required to join a multicast group.  This capability is too broad allowing
-access to this socket by many applications that must not have access to this
-information.  It is proposed to add capability CAP_AUDIT_READ to allow this
-access while dropping the exessively broad capability CAP_NET_ADMIN.
+ (Fix applies to net-next tree.)
 
-There has also been some interest expressed by IETF ForCES folk.
+ drivers/net/ethernet/xscale/Kconfig |   1 +
+ drivers/net/phy/dp83640.c           |   1 +
+ drivers/ptp/Kconfig                 |   1 +
+ include/linux/ptp_classify.h        |  95 ++++++------------------
+ include/linux/skbuff.h              |   2 -
+ net/Kconfig                         |   4 +
+ net/core/Makefile                   |   1 +
+ net/core/ptp_classifier.c           | 141 ++++++++++++++++++++++++++++++++++++
+ net/core/timestamping.c             |  18 -----
+ net/socket.c                        |   5 +-
+ 10 files changed, 173 insertions(+), 96 deletions(-)
+ create mode 100644 net/core/ptp_classifier.c
 
-v7: fix formatting and rework logic to flatten indentation.
-
-v6: *really* fixed a logic error (missing braces) and a C99 error.
-
-v3: added netlink_unbind() option and unwound netlink_insert().
----
- include/linux/netlink.h   |    3 ++-
- net/netfilter/nfnetlink.c |    3 ++-
- net/netlink/af_netlink.c  |   42 +++++++++++++++++++++++++++++-------------
- net/netlink/af_netlink.h  |    6 ++++--
- 4 files changed, 37 insertions(+), 17 deletions(-)
-
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index 7a6c396..0ba2edd 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -45,7 +45,8 @@ struct netlink_kernel_cfg {
- 	unsigned int	flags;
- 	void		(*input)(struct sk_buff *skb);
- 	struct mutex	*cb_mutex;
--	void		(*bind)(int group);
-+	int		(*bind)(int group);
-+	void		(*unbind)(int group);
- 	bool		(*compare)(struct net *net, struct sock *sk);
- };
+diff --git a/drivers/net/ethernet/xscale/Kconfig b/drivers/net/ethernet/xscale/Kconfig
+index 3f43101..b81bc9f 100644
+--- a/drivers/net/ethernet/xscale/Kconfig
++++ b/drivers/net/ethernet/xscale/Kconfig
+@@ -23,6 +23,7 @@ config IXP4XX_ETH
+ 	tristate "Intel IXP4xx Ethernet support"
+ 	depends on ARM && ARCH_IXP4XX && IXP4XX_NPE && IXP4XX_QMGR
+ 	select PHYLIB
++	select NET_PTP_CLASSIFY
+ 	---help---
+ 	  Say Y here if you want to use built-in Ethernet ports
+ 	  on IXP4xx processor.
+diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
+index 352c5e4..6a999e6 100644
+--- a/drivers/net/phy/dp83640.c
++++ b/drivers/net/phy/dp83640.c
+@@ -27,6 +27,7 @@
+ #include <linux/module.h>
+ #include <linux/net_tstamp.h>
+ #include <linux/netdevice.h>
++#include <linux/if_vlan.h>
+ #include <linux/phy.h>
+ #include <linux/ptp_classify.h>
+ #include <linux/ptp_clock_kernel.h>
+diff --git a/drivers/ptp/Kconfig b/drivers/ptp/Kconfig
+index 5a7910e..6963bdf 100644
+--- a/drivers/ptp/Kconfig
++++ b/drivers/ptp/Kconfig
+@@ -7,6 +7,7 @@ menu "PTP clock support"
+ config PTP_1588_CLOCK
+ 	tristate "PTP clock support"
+ 	select PPS
++	select NET_PTP_CLASSIFY
+ 	help
+ 	  The IEEE 1588 standard defines a method to precisely
+ 	  synchronize distributed clocks over Ethernet networks. The
+diff --git a/include/linux/ptp_classify.h b/include/linux/ptp_classify.h
+index 6d3b0a2..7dfed71 100644
+--- a/include/linux/ptp_classify.h
++++ b/include/linux/ptp_classify.h
+@@ -23,11 +23,8 @@
+ #ifndef _PTP_CLASSIFY_H_
+ #define _PTP_CLASSIFY_H_
  
-diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
-index 1da5ef1..14c8ac8 100644
---- a/net/netfilter/nfnetlink.c
-+++ b/net/netfilter/nfnetlink.c
-@@ -392,7 +392,7 @@ static void nfnetlink_rcv(struct sk_buff *skb)
+-#include <linux/if_ether.h>
+-#include <linux/if_vlan.h>
+ #include <linux/ip.h>
+-#include <linux/filter.h>
+-#include <linux/in.h>
++#include <linux/skbuff.h>
+ 
+ #define PTP_CLASS_NONE  0x00 /* not a PTP event message */
+ #define PTP_CLASS_V1    0x01 /* protocol version 1 */
+@@ -40,7 +37,7 @@
+ #define PTP_CLASS_PMASK 0xf0 /* mask for the packet type field */
+ 
+ #define PTP_CLASS_V1_IPV4 (PTP_CLASS_V1 | PTP_CLASS_IPV4)
+-#define PTP_CLASS_V1_IPV6 (PTP_CLASS_V1 | PTP_CLASS_IPV6) /*probably DNE*/
++#define PTP_CLASS_V1_IPV6 (PTP_CLASS_V1 | PTP_CLASS_IPV6) /* probably DNE */
+ #define PTP_CLASS_V2_IPV4 (PTP_CLASS_V2 | PTP_CLASS_IPV4)
+ #define PTP_CLASS_V2_IPV6 (PTP_CLASS_V2 | PTP_CLASS_IPV6)
+ #define PTP_CLASS_V2_L2   (PTP_CLASS_V2 | PTP_CLASS_L2)
+@@ -49,82 +46,34 @@
+ #define PTP_EV_PORT 319
+ #define PTP_GEN_BIT 0x08 /* indicates general message, if set in message type */
+ 
+-#define OFF_ETYPE	12
+-#define OFF_IHL		14
+-#define OFF_FRAG	20
+-#define OFF_PROTO4	23
+-#define OFF_NEXT	6
+-#define OFF_UDP_DST	2
+-
+ #define OFF_PTP_SOURCE_UUID	22 /* PTPv1 only */
+ #define OFF_PTP_SEQUENCE_ID	30
+ #define OFF_PTP_CONTROL		32 /* PTPv1 only */
+ 
+-#define IPV4_HLEN(data) (((struct iphdr *)(data + OFF_IHL))->ihl << 2)
+-
++/* Below defines should actually be removed at some point in time. */
+ #define IP6_HLEN	40
+ #define UDP_HLEN	8
+-
+-#define RELOFF_DST4	(ETH_HLEN + OFF_UDP_DST)
+-#define OFF_DST6	(ETH_HLEN + IP6_HLEN + OFF_UDP_DST)
++#define OFF_IHL		14
+ #define OFF_PTP6	(ETH_HLEN + IP6_HLEN + UDP_HLEN)
++#define IPV4_HLEN(data) (((struct iphdr *)(data + OFF_IHL))->ihl << 2)
+ 
+-#define OP_AND	(BPF_ALU | BPF_AND  | BPF_K)
+-#define OP_JEQ	(BPF_JMP | BPF_JEQ  | BPF_K)
+-#define OP_JSET	(BPF_JMP | BPF_JSET | BPF_K)
+-#define OP_LDB	(BPF_LD  | BPF_B    | BPF_ABS)
+-#define OP_LDH	(BPF_LD  | BPF_H    | BPF_ABS)
+-#define OP_LDHI	(BPF_LD  | BPF_H    | BPF_IND)
+-#define OP_LDX	(BPF_LDX | BPF_B    | BPF_MSH)
+-#define OP_OR	(BPF_ALU | BPF_OR   | BPF_K)
+-#define OP_RETA	(BPF_RET | BPF_A)
+-#define OP_RETK	(BPF_RET | BPF_K)
+-
+-#define PTP_FILTER \
+-	{OP_LDH,	0,   0, OFF_ETYPE		}, /*              */ \
+-	{OP_JEQ,	0,  12, ETH_P_IP		}, /* f goto L20   */ \
+-	{OP_LDB,	0,   0, OFF_PROTO4		}, /*              */ \
+-	{OP_JEQ,	0,   9, IPPROTO_UDP		}, /* f goto L10   */ \
+-	{OP_LDH,	0,   0, OFF_FRAG		}, /*              */ \
+-	{OP_JSET,	7,   0, 0x1fff			}, /* t goto L11   */ \
+-	{OP_LDX,	0,   0, OFF_IHL			}, /*              */ \
+-	{OP_LDHI,	0,   0, RELOFF_DST4		}, /*              */ \
+-	{OP_JEQ,	0,   4, PTP_EV_PORT		}, /* f goto L12   */ \
+-	{OP_LDHI,	0,   0, ETH_HLEN + UDP_HLEN	}, /*              */ \
+-	{OP_AND,	0,   0, PTP_CLASS_VMASK		}, /*              */ \
+-	{OP_OR,		0,   0, PTP_CLASS_IPV4		}, /*              */ \
+-	{OP_RETA,	0,   0, 0			}, /*              */ \
+-/*L1x*/	{OP_RETK,	0,   0, PTP_CLASS_NONE		}, /*              */ \
+-/*L20*/	{OP_JEQ,	0,   9, ETH_P_IPV6		}, /* f goto L40   */ \
+-	{OP_LDB,	0,   0, ETH_HLEN + OFF_NEXT	}, /*              */ \
+-	{OP_JEQ,	0,   6, IPPROTO_UDP		}, /* f goto L30   */ \
+-	{OP_LDH,	0,   0, OFF_DST6		}, /*              */ \
+-	{OP_JEQ,	0,   4, PTP_EV_PORT		}, /* f goto L31   */ \
+-	{OP_LDH,	0,   0, OFF_PTP6		}, /*              */ \
+-	{OP_AND,	0,   0, PTP_CLASS_VMASK		}, /*              */ \
+-	{OP_OR,		0,   0, PTP_CLASS_IPV6		}, /*              */ \
+-	{OP_RETA,	0,   0, 0			}, /*              */ \
+-/*L3x*/	{OP_RETK,	0,   0, PTP_CLASS_NONE		}, /*              */ \
+-/*L40*/	{OP_JEQ,	0,   9, ETH_P_8021Q		}, /* f goto L50   */ \
+-	{OP_LDH,	0,   0, OFF_ETYPE + 4		}, /*              */ \
+-	{OP_JEQ,	0,  15, ETH_P_1588		}, /* f goto L60   */ \
+-	{OP_LDB,	0,   0, ETH_HLEN + VLAN_HLEN	}, /*              */ \
+-	{OP_AND,	0,   0, PTP_GEN_BIT		}, /*              */ \
+-	{OP_JEQ,	0,  12, 0			}, /* f goto L6x   */ \
+-	{OP_LDH,	0,   0, ETH_HLEN + VLAN_HLEN	}, /*              */ \
+-	{OP_AND,	0,   0, PTP_CLASS_VMASK		}, /*              */ \
+-	{OP_OR,		0,   0, PTP_CLASS_VLAN		}, /*              */ \
+-	{OP_RETA,	0,   0, 0			}, /*              */ \
+-/*L50*/	{OP_JEQ,	0,   7, ETH_P_1588		}, /* f goto L61   */ \
+-	{OP_LDB,	0,   0, ETH_HLEN		}, /*              */ \
+-	{OP_AND,	0,   0, PTP_GEN_BIT		}, /*              */ \
+-	{OP_JEQ,	0,   4, 0			}, /* f goto L6x   */ \
+-	{OP_LDH,	0,   0, ETH_HLEN		}, /*              */ \
+-	{OP_AND,	0,   0, PTP_CLASS_VMASK		}, /*              */ \
+-	{OP_OR,		0,   0, PTP_CLASS_L2		}, /*              */ \
+-	{OP_RETA,	0,   0, 0			}, /*              */ \
+-/*L6x*/	{OP_RETK,	0,   0, PTP_CLASS_NONE		},
+-
++#if defined(CONFIG_NET_PTP_CLASSIFY)
++/**
++ * ptp_classify_raw - classify a PTP packet
++ * @skb: buffer
++ *
++ * Runs a minimal BPF dissector to classify a network packet to
++ * determine the PTP class. In case the skb does not contain any
++ * PTP protocol data, PTP_CLASS_NONE will be returned, otherwise
++ * PTP_CLASS_V1_IPV{4,6}, PTP_CLASS_V2_IPV{4,6} or
++ * PTP_CLASS_V2_{L2,VLAN}, depending on the packet content.
++ */
+ unsigned int ptp_classify_raw(const struct sk_buff *skb);
+ 
++void __init ptp_classifier_init(void);
++#else
++static inline void ptp_classifier_init(void)
++{
++}
+ #endif
++#endif /* _PTP_CLASSIFY_H_ */
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 18ef022..31edf63 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2630,8 +2630,6 @@ static inline ktime_t net_invalid_timestamp(void)
+ 	return ktime_set(0, 0);
  }
  
- #ifdef CONFIG_MODULES
--static void nfnetlink_bind(int group)
-+static int nfnetlink_bind(int group)
+-void skb_timestamping_init(void);
+-
+ #ifdef CONFIG_NETWORK_PHY_TIMESTAMPING
+ 
+ void skb_clone_tx_timestamp(struct sk_buff *skb);
+diff --git a/net/Kconfig b/net/Kconfig
+index e411046..d1f6f96 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -89,8 +89,12 @@ config NETWORK_SECMARK
+ 	  to nfmark, but designated for security purposes.
+ 	  If you are unsure how to answer this question, answer N.
+ 
++config NET_PTP_CLASSIFY
++	def_bool n
++
+ config NETWORK_PHY_TIMESTAMPING
+ 	bool "Timestamping in PHY devices"
++	select NET_PTP_CLASSIFY
+ 	help
+ 	  This allows timestamping of network packets by PHYs with
+ 	  hardware timestamping capabilities. This option adds some
+diff --git a/net/core/Makefile b/net/core/Makefile
+index 9628c20..826b925 100644
+--- a/net/core/Makefile
++++ b/net/core/Makefile
+@@ -21,5 +21,6 @@ obj-$(CONFIG_FIB_RULES) += fib_rules.o
+ obj-$(CONFIG_TRACEPOINTS) += net-traces.o
+ obj-$(CONFIG_NET_DROP_MONITOR) += drop_monitor.o
+ obj-$(CONFIG_NETWORK_PHY_TIMESTAMPING) += timestamping.o
++obj-$(CONFIG_NET_PTP_CLASSIFY) += ptp_classifier.o
+ obj-$(CONFIG_CGROUP_NET_PRIO) += netprio_cgroup.o
+ obj-$(CONFIG_CGROUP_NET_CLASSID) += netclassid_cgroup.o
+diff --git a/net/core/ptp_classifier.c b/net/core/ptp_classifier.c
+new file mode 100644
+index 0000000..eaba0f6
+--- /dev/null
++++ b/net/core/ptp_classifier.c
+@@ -0,0 +1,141 @@
++/* PTP classifier
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ */
++
++/* The below program is the bpf_asm (tools/net/) representation of
++ * the opcode array in the ptp_filter structure.
++ *
++ * For convenience, this can easily be altered and reviewed with
++ * bpf_asm and bpf_dbg, e.g. `./bpf_asm -c prog` where prog is a
++ * simple file containing the below program:
++ *
++ * ldh [12]                        ; load ethertype
++ *
++ * ; PTP over UDP over IPv4 over Ethernet
++ * test_ipv4:
++ *   jneq #0x800, test_ipv6        ; ETH_P_IP ?
++ *   ldb [23]                      ; load proto
++ *   jneq #17, drop_ipv4           ; IPPROTO_UDP ?
++ *   ldh [20]                      ; load frag offset field
++ *   jset #0x1fff, drop_ipv4       ; don't allow fragments
++ *   ldxb 4*([14]&0xf)             ; load IP header len
++ *   ldh [x + 16]                  ; load UDP dst port
++ *   jneq #319, drop_ipv4          ; is port PTP_EV_PORT ?
++ *   ldh [x + 22]                  ; load payload
++ *   and #0xf                      ; mask PTP_CLASS_VMASK
++ *   or #0x10                      ; PTP_CLASS_IPV4
++ *   ret a                         ; return PTP class
++ *   drop_ipv4: ret #0x0           ; PTP_CLASS_NONE
++ *
++ * ; PTP over UDP over IPv6 over Ethernet
++ * test_ipv6:
++ *   jneq #0x86dd, test_8021q      ; ETH_P_IPV6 ?
++ *   ldb [20]                      ; load proto
++ *   jneq #17, drop_ipv6           ; IPPROTO_UDP ?
++ *   ldh [56]                      ; load UDP dst port
++ *   jneq #319, drop_ipv6          ; is port PTP_EV_PORT ?
++ *   ldh [62]                      ; load payload
++ *   and #0xf                      ; mask PTP_CLASS_VMASK
++ *   or #0x20                      ; PTP_CLASS_IPV6
++ *   ret a                         ; return PTP class
++ *   drop_ipv6: ret #0x0           ; PTP_CLASS_NONE
++ *
++ * ; PTP over 802.1Q over Ethernet
++ * test_8021q:
++ *   jneq #0x8100, test_ieee1588   ; ETH_P_8021Q ?
++ *   ldh [16]                      ; load inner type
++ *   jneq #0x88f7, drop_ieee1588   ; ETH_P_1588 ?
++ *   ldb [18]                      ; load payload
++ *   and #0x8                      ; as we don't have ports here, test
++ *   jneq #0x0, drop_ieee1588      ; for PTP_GEN_BIT and drop these
++ *   ldh [18]                      ; reload payload
++ *   and #0xf                      ; mask PTP_CLASS_VMASK
++ *   or #0x40                      ; PTP_CLASS_V2_VLAN
++ *   ret a                         ; return PTP class
++ *
++ * ; PTP over Ethernet
++ * test_ieee1588:
++ *   jneq #0x88f7, drop_ieee1588   ; ETH_P_1588 ?
++ *   ldb [14]                      ; load payload
++ *   and #0x8                      ; as we don't have ports here, test
++ *   jneq #0x0, drop_ieee1588      ; for PTP_GEN_BIT and drop these
++ *   ldh [14]                      ; reload payload
++ *   and #0xf                      ; mask PTP_CLASS_VMASK
++ *   or #0x30                      ; PTP_CLASS_L2
++ *   ret a                         ; return PTP class
++ *   drop_ieee1588: ret #0x0       ; PTP_CLASS_NONE
++ */
++
++#include <linux/skbuff.h>
++#include <linux/filter.h>
++#include <linux/ptp_classify.h>
++
++static struct sk_filter *ptp_insns __read_mostly;
++
++unsigned int ptp_classify_raw(const struct sk_buff *skb)
++{
++	return SK_RUN_FILTER(ptp_insns, skb);
++}
++EXPORT_SYMBOL_GPL(ptp_classify_raw);
++
++void __init ptp_classifier_init(void)
++{
++	static struct sock_filter ptp_filter[] = {
++		{ 0x28,  0,  0, 0x0000000c },
++		{ 0x15,  0, 12, 0x00000800 },
++		{ 0x30,  0,  0, 0x00000017 },
++		{ 0x15,  0,  9, 0x00000011 },
++		{ 0x28,  0,  0, 0x00000014 },
++		{ 0x45,  7,  0, 0x00001fff },
++		{ 0xb1,  0,  0, 0x0000000e },
++		{ 0x48,  0,  0, 0x00000010 },
++		{ 0x15,  0,  4, 0x0000013f },
++		{ 0x48,  0,  0, 0x00000016 },
++		{ 0x54,  0,  0, 0x0000000f },
++		{ 0x44,  0,  0, 0x00000010 },
++		{ 0x16,  0,  0, 0x00000000 },
++		{ 0x06,  0,  0, 0x00000000 },
++		{ 0x15,  0,  9, 0x000086dd },
++		{ 0x30,  0,  0, 0x00000014 },
++		{ 0x15,  0,  6, 0x00000011 },
++		{ 0x28,  0,  0, 0x00000038 },
++		{ 0x15,  0,  4, 0x0000013f },
++		{ 0x28,  0,  0, 0x0000003e },
++		{ 0x54,  0,  0, 0x0000000f },
++		{ 0x44,  0,  0, 0x00000020 },
++		{ 0x16,  0,  0, 0x00000000 },
++		{ 0x06,  0,  0, 0x00000000 },
++		{ 0x15,  0,  9, 0x00008100 },
++		{ 0x28,  0,  0, 0x00000010 },
++		{ 0x15,  0, 15, 0x000088f7 },
++		{ 0x30,  0,  0, 0x00000012 },
++		{ 0x54,  0,  0, 0x00000008 },
++		{ 0x15,  0, 12, 0x00000000 },
++		{ 0x28,  0,  0, 0x00000012 },
++		{ 0x54,  0,  0, 0x0000000f },
++		{ 0x44,  0,  0, 0x00000040 },
++		{ 0x16,  0,  0, 0x00000000 },
++		{ 0x15,  0,  7, 0x000088f7 },
++		{ 0x30,  0,  0, 0x0000000e },
++		{ 0x54,  0,  0, 0x00000008 },
++		{ 0x15,  0,  4, 0x00000000 },
++		{ 0x28,  0,  0, 0x0000000e },
++		{ 0x54,  0,  0, 0x0000000f },
++		{ 0x44,  0,  0, 0x00000030 },
++		{ 0x16,  0,  0, 0x00000000 },
++		{ 0x06,  0,  0, 0x00000000 },
++	};
++	struct sock_fprog ptp_prog = {
++		.len = ARRAY_SIZE(ptp_filter), .filter = ptp_filter,
++	};
++
++	BUG_ON(sk_unattached_filter_create(&ptp_insns, &ptp_prog));
++}
+diff --git a/net/core/timestamping.c b/net/core/timestamping.c
+index 9ff26b3..6521dfd 100644
+--- a/net/core/timestamping.c
++++ b/net/core/timestamping.c
+@@ -23,14 +23,6 @@
+ #include <linux/skbuff.h>
+ #include <linux/export.h>
+ 
+-static struct sk_filter *ptp_insns __read_mostly;
+-
+-unsigned int ptp_classify_raw(const struct sk_buff *skb)
+-{
+-	return SK_RUN_FILTER(ptp_insns, skb);
+-}
+-EXPORT_SYMBOL_GPL(ptp_classify_raw);
+-
+ static unsigned int classify(const struct sk_buff *skb)
  {
- 	const struct nfnetlink_subsystem *ss;
- 	int type = nfnl_group2type[group];
-@@ -402,6 +402,7 @@ static void nfnetlink_bind(int group)
- 	rcu_read_unlock();
- 	if (!ss)
- 		request_module("nfnetlink-subsys-%d", type);
-+	return 0;
+ 	if (likely(skb->dev && skb->dev->phydev &&
+@@ -140,13 +132,3 @@ bool skb_defer_rx_timestamp(struct sk_buff *skb)
+ 	return false;
  }
+ EXPORT_SYMBOL_GPL(skb_defer_rx_timestamp);
+-
+-void __init skb_timestamping_init(void)
+-{
+-	static struct sock_filter ptp_filter[] = { PTP_FILTER };
+-	struct sock_fprog ptp_prog = {
+-		.len = ARRAY_SIZE(ptp_filter), .filter = ptp_filter,
+-	};
+-
+-	BUG_ON(sk_unattached_filter_create(&ptp_insns, &ptp_prog));
+-}
+diff --git a/net/socket.c b/net/socket.c
+index f25eaa3..1b1e7e6 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -72,6 +72,7 @@
+ #include <linux/if_bridge.h>
+ #include <linux/if_frad.h>
+ #include <linux/if_vlan.h>
++#include <linux/ptp_classify.h>
+ #include <linux/init.h>
+ #include <linux/poll.h>
+ #include <linux/cache.h>
+@@ -2685,9 +2686,7 @@ static int __init sock_init(void)
+ 		goto out;
  #endif
  
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index bca50b9..9ae6e0f 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1198,7 +1198,8 @@ static int netlink_create(struct net *net, struct socket *sock, int protocol,
- 	struct module *module = NULL;
- 	struct mutex *cb_mutex;
- 	struct netlink_sock *nlk;
--	void (*bind)(int group);
-+	int (*bind)(int group);
-+	void (*unbind)(int group);
- 	int err = 0;
+-#ifdef CONFIG_NETWORK_PHY_TIMESTAMPING
+-	skb_timestamping_init();
+-#endif
++	ptp_classifier_init();
  
- 	sock->state = SS_UNCONNECTED;
-@@ -1224,6 +1225,7 @@ static int netlink_create(struct net *net, struct socket *sock, int protocol,
- 		err = -EPROTONOSUPPORT;
- 	cb_mutex = nl_table[protocol].cb_mutex;
- 	bind = nl_table[protocol].bind;
-+	unbind = nl_table[protocol].unbind;
- 	netlink_unlock_table();
- 
- 	if (err < 0)
-@@ -1240,6 +1242,7 @@ static int netlink_create(struct net *net, struct socket *sock, int protocol,
- 	nlk = nlk_sk(sock->sk);
- 	nlk->module = module;
- 	nlk->netlink_bind = bind;
-+	nlk->netlink_unbind = unbind;
  out:
  	return err;
- 
-@@ -1293,6 +1296,7 @@ static int netlink_release(struct socket *sock)
- 			kfree_rcu(old, rcu);
- 			nl_table[sk->sk_protocol].module = NULL;
- 			nl_table[sk->sk_protocol].bind = NULL;
-+			nl_table[sk->sk_protocol].unbind = NULL;
- 			nl_table[sk->sk_protocol].flags = 0;
- 			nl_table[sk->sk_protocol].registered = 0;
- 		}
-@@ -1441,6 +1445,25 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
- 	if (!nladdr->nl_groups && (nlk->groups == NULL || !(u32)nlk->groups[0]))
- 		return 0;
- 
-+	if (nlk->netlink_bind && nladdr->nl_groups) {
-+		int i;
-+
-+		for (i = 0; i < nlk->ngroups; i++)
-+			int undo;
-+
-+			if (!test_bit(i, (long unsigned int *)&nladdr->nl_groups))
-+				continue;
-+			err = nlk->netlink_bind(i);
-+			if (!err)
-+				continue;
-+			if (!nlk->portid)
-+				netlink_remove(sk);
-+			for (undo = 0; undo < i; undo++)
-+				if (nlk->netlink_unbind)
-+					nlk->netlink_unbind(undo);
-+			return err;
-+	}
-+
- 	netlink_table_grab();
- 	netlink_update_subscriptions(sk, nlk->subscriptions +
- 					 hweight32(nladdr->nl_groups) -
-@@ -1449,15 +1472,6 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
- 	netlink_update_listeners(sk);
- 	netlink_table_ungrab();
- 
--	if (nlk->netlink_bind && nlk->groups[0]) {
--		int i;
--
--		for (i=0; i<nlk->ngroups; i++) {
--			if (test_bit(i, nlk->groups))
--				nlk->netlink_bind(i);
--		}
--	}
--
- 	return 0;
- }
- 
-@@ -2095,14 +2109,16 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
- 			return err;
- 		if (!val || val - 1 >= nlk->ngroups)
- 			return -EINVAL;
-+		if (nlk->netlink_bind) {
-+			err = nlk->netlink_bind(val);
-+			if (err)
-+				return err;
-+		}
- 		netlink_table_grab();
- 		netlink_update_socket_mc(nlk, val,
- 					 optname == NETLINK_ADD_MEMBERSHIP);
- 		netlink_table_ungrab();
- 
--		if (nlk->netlink_bind)
--			nlk->netlink_bind(val);
--
- 		err = 0;
- 		break;
- 	}
-diff --git a/net/netlink/af_netlink.h b/net/netlink/af_netlink.h
-index acbd774..2aeae8a 100644
---- a/net/netlink/af_netlink.h
-+++ b/net/netlink/af_netlink.h
-@@ -37,7 +37,8 @@ struct netlink_sock {
- 	struct mutex		*cb_mutex;
- 	struct mutex		cb_def_mutex;
- 	void			(*netlink_rcv)(struct sk_buff *skb);
--	void			(*netlink_bind)(int group);
-+	int			(*netlink_bind)(int group);
-+	void			(*netlink_unbind)(int group);
- 	struct module		*module;
- #ifdef CONFIG_NETLINK_MMAP
- 	struct mutex		pg_vec_lock;
-@@ -73,7 +74,8 @@ struct netlink_table {
- 	unsigned int		groups;
- 	struct mutex		*cb_mutex;
- 	struct module		*module;
--	void			(*bind)(int group);
-+	int			(*bind)(int group);
-+	void			(*unbind)(int group);
- 	bool			(*compare)(struct net *net, struct sock *sock);
- 	int			registered;
- };
 -- 
-1.7.1
+1.7.11.7
