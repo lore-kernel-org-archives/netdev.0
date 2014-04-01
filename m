@@ -1,28 +1,46 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net-next] net/mlx4: Set proper build dependancy with vxlan
-Date: Tue, 1 Apr 2014 09:59:07 +0300
-Message-ID: <533A63BB.8040301@mellanox.com>
-References: <1396178905-3817-1-git-send-email-ogerlitz@mellanox.com> <20140331.162914.820542941540073428.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <amirv@mellanox.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:44566 "EHLO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751509AbaDAHAs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 03:00:48 -0400
-In-Reply-To: <20140331.162914.820542941540073428.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zheng Li <zheng.x.li@oracle.com>
+Subject: [PATCH v2] bonding: Inactive slaves should keep inactive flag's value
+Date: Tue,  1 Apr 2014 16:02:07 +0800
+Message-ID: <1396339327-24899-1-git-send-email-zheng.x.li@oracle.com>
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	joe.jin@oracle.com, zheng.x.li@oracle.com
+To: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	j.vosburgh@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 31/03/2014 23:29, David Miller wrote:
-> Please do this properly like the I40E_VXLAN Kconfig knob does, you 
-> have to protect everything including the ndo_*() methods and support 
-> code. 
+bond_open is not setting the inactive flag correctly for some modes (alb and
+tlb), resulting in error behavior if the bond has been administratively set
+down and then back up. This effect should not occur when slaves are added while
+the bond is up; it's something that only happens after a down/up bounce of the
+bond.
 
-Yep, I missed wrapping the ndo calls as the code that supports them, 
-will fix it.
+For example, in bond tlb or alb mode, domu send some ARP request which go out
+from dom0 bond's active slave, then the ARP broadcast request packets go back to
+inactive slave from switch, because the inactive slave's inactive flag is zero,
+kernel will receive the packets and pass them to bridge that cause dom0's bridge
+map domu's MAC address to port of bond, bridge should map domu's MAC to port of
+vif.
 
-Or.
+Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
+Signed-off-by: Jay Vosburgh <j.vosburgh@gmail.com>
+---
+ drivers/net/bonding/bond_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index e5628fc..f97d72e 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3058,7 +3058,7 @@ static int bond_open(struct net_device *bond_dev)
+ 	if (bond_has_slaves(bond)) {
+ 		read_lock(&bond->curr_slave_lock);
+ 		bond_for_each_slave(bond, slave, iter) {
+-			if ((bond->params.mode == BOND_MODE_ACTIVEBACKUP)
++			if ((bond->params.mode == BOND_MODE_ACTIVEBACKUP || bond_is_lb(bond))
+ 				&& (slave != bond->curr_active_slave)) {
+ 				bond_set_slave_inactive_flags(slave,
+ 							      BOND_SLAVE_NOTIFY_NOW);
+-- 
+1.7.6.5
