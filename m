@@ -1,86 +1,120 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next v2 2/2] xen-netback: Grant copy the header instead
- of map and memcpy
-Date: Tue, 1 Apr 2014 20:09:44 +0100
-Message-ID: <533B0EF8.6000900@citrix.com>
-References: <1396278539-27639-1-git-send-email-zoltan.kiss@citrix.com>	 <1396278539-27639-2-git-send-email-zoltan.kiss@citrix.com> <1396352440.8667.117.camel@kazak.uk.xensource.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH v2 0/2] netpoll: Use skb_irq_freeable to make zap_completion_queue safe.
+Date: Tue, 01 Apr 2014 12:19:30 -0700
+Message-ID: <87wqf8j1rx.fsf_-_@x220.int.ebiederm.org>
+References: <20140314.225923.61318448733570839.davem@davemloft.net>
+	<87k3bwqgf7.fsf@xmission.com> <877g7wqg8e.fsf_-_@xmission.com>
+	<20140317.154916.2276987764507311378.davem@davemloft.net>
+	<87iorcgh5d.fsf_-_@xmission.com> <87fvmgf2c7.fsf_-_@xmission.com>
+	<1395149407.22343.8.camel@deadeye.wl.decadent.org.uk>
+	<87lhw7inzg.fsf@nemi.mork.no>
+	<1395156229.9114.35.camel@edumazet-glaptop2.roam.corp.google.com>
+	<2c96faab-4293-4e7f-b8e0-4997af745fbf@email.android.com>
+	<063D6719AE5E284EB5DD2968C1650D6D0F6E02DB@AcuExch.aculab.com>
+	<87mwgbkttv.fsf_-_@x220.int.ebiederm.org>
+	<8761mzktj9.fsf_-_@x220.int.ebiederm.org>
+	<53357681.9050200@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1396352440.8667.117.camel@kazak.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: =?utf-8?Q?'Bj=C3=B8rn?= Mork' <bjorn@mork.no>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	"stephen\@networkplumber.org" <stephen@networkplumber.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xiyou.wangcong\@gmail.com" <xiyou.wangcong@gmail.com>,
+	"mpm\@selenic.com" <mpm@selenic.com>,
+	"satyam.sharma\@gmail.com" <satyam.sharma@gmail.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out03.mta.xmission.com ([166.70.13.233]:60822 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751233AbaDATTy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 15:19:54 -0400
+In-Reply-To: <53357681.9050200@cogentembedded.com> (Sergei Shtylyov's message
+	of "Fri, 28 Mar 2014 17:17:53 +0400")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/04/14 12:40, Ian Campbell wrote:
-> On Mon, 2014-03-31 at 16:08 +0100, Zoltan Kiss wrote:
->>
->>   check_frags:
->> -	for (i = start; i < nr_frags; i++) {
->> +	for (i = 0; i < nr_frags; i++, gop_map++) {
->>   		int j, newerr;
->>
->>   		pending_idx = frag_get_pending_idx(&shinfo->frags[i]);
->> -		tx_info = &vif->pending_tx_info[pending_idx];
->>
->>   		/* Check error status: if okay then remember grant handle. */
->> -		newerr = (++gop_map)->status;
->> +		newerr = (gop_map)->status;
->
-> You've reworked the handling of gop_map and when and where it is
-> incremented, which might be a legit cleanup but does it relate to the
-> bulk of this change somehow that I'm missing?
-That original "++gop_map" assumed the header was also grant mapped, and 
-incremented the pointer first here, which is wrong now.
 
->
->>   [...]
->>   		__skb_put(skb, data_len);
->> +		vif->tx_copy_ops[*copy_ops].source.u.ref = txreq.gref;
->> +		vif->tx_copy_ops[*copy_ops].source.domid = vif->domid;
->> +		vif->tx_copy_ops[*copy_ops].source.offset = txreq.offset;
->> +
->> +		vif->tx_copy_ops[*copy_ops].dest.u.gmfn =
->> +			virt_to_mfn(skb->data);
->> +		vif->tx_copy_ops[*copy_ops].dest.domid = DOMID_SELF;
->> +		vif->tx_copy_ops[*copy_ops].dest.offset =
->> +			offset_in_page(skb->data);
->> +
->> +		vif->tx_copy_ops[*copy_ops].len = data_len;
->> +		vif->tx_copy_ops[*copy_ops].flags = GNTCOPY_source_gref;
->
-> We have gnttab_set_map_op. Should we have gnttap_set_copy_op too?
-This is the only place at the moment when we do this, so I wouldn't 
-bother to do it.
+Resending with the requested typo fix in the commit message and pruned
+down to just the bare minimal bug fix, that this patchset is.
 
->
->> -	BUG_ON(ret);
->> +	else {
->> +		gnttab_batch_copy(vif->tx_copy_ops, nr_cops);
->> +		if (nr_mops != 0) {
->
->
-> if (nr_mops) would do.
->
->> +			ret = gnttab_map_refs(vif->tx_map_ops,
->
-> So we use gnttab_batch_copy and gnttab_map_refs.
->
-> Shouldn't we either use gnttab_batch_copy and gnttab_batch_map or
-> gnttab_copy gnttab_map_refs. (where gnttab_copy might be a bare
-> GNTTABOP_copy or might be a helper wrapper).
->
-> The point of the batch interface is to handle page unsharing etc, but
-> doing it only for copies seems like a waste one way or another.
-The difference between gnttab_batch_map and gnttab_map_refs is that the 
-latter calls set_foreign_p2m_mapping, which we need for sure.
-gnttab_batch_copy calls the hypercall and tries again if op->status == 
-GNTST_eagain. I think that's exactly what we need here as well.
-The naming might be confusing indeed, but that should be the topic of an 
-another patch.
+In some case such as trigger_all_cpu_backtrace netpoll can wind up
+generating a lot of packets in hard irq context.  My rough estimate is
+perhaps 1500 packets.  That is larger than any driver tx ring, which
+makes netpoll_poll_dev necessary to transmit all of the netconsole
+packets immediately.  Those 1500+ packets can take up a couple megabytes
+of memory if we aren't careful.  On some machines that is enough to
+start depleting the polls GFP_ATOMIC can dig into, so netpoll needs to
+at a minimum to be able to reuse the memory for the skbs it has
+transmitted.
 
-Zoli
+Today this reclamation of transmitted packets happens in
+zap_completetion_queue as dev_kfree_skb_irq places all packets to be
+freed on a completion queue.  netpoll then searches this queue for
+packets it thinks are freeable, and frees them.  Unfortunately
+the current logic netpoll uses to decided a packet is freeable
+is incorrect and thus unsafe :(
+
+The logic netpoll uses to determine if a packet is freeable is to verify
+a skb does not have a destructor.  Which works most of the time.  But in
+pathological cases it can report that a packet is freeable in hard irq
+context when it is not.
+
+This set of changes adds a function skb_irq_freeable and uses that
+function in zap_completion_queue to remove the bug.
+
+While I don't expect this will allow anything except skbs sent by
+netpoll to be freed, finding all packets that are freeable instead
+of just find packets generated by netpoll that are guaranteed to be
+freeable seems like the most robust and maintainable way of handling
+this proble.
+
+Eric W. Biederman (2):
+      net: Add a test to see if a skb is freeable in irq context
+      netpoll: Use skb_irq_freeable to make zap_completion_queue safe.
+
+ include/linux/skbuff.h | 13 +++++++++++++
+ net/core/netpoll.c     |  2 +-
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+
+---
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 18ef0224fb6a..113fee1b7b63 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2833,6 +2833,19 @@ static inline void skb_init_secmark(struct sk_buff *skb)
+ { }
+ #endif
+ 
++static inline bool skb_irq_freeable(struct sk_buff *skb)
++{
++       return !skb->destructor &&
++#if IS_ENABLED(CONFIG_XFRM)
++               !skb->sp &&
++#endif
++#if IS_ENABLED(CONFIG_NF_CONNTRACK)
++               !skb->nfct &&
++#endif
++               !skb->_skb_refdst &&
++               !skb_has_frag_list(skb);
++}
++
+ static inline void skb_set_queue_mapping(struct sk_buff *skb, u16 queue_mapping)
+ {
+        skb->queue_mapping = queue_mapping;
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index ed7740f7a94d..e33937fb32a0 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -270,7 +270,7 @@ static void zap_completion_queue(void)
+                while (clist != NULL) {
+                        struct sk_buff *skb = clist;
+                        clist = clist->next;
+-                       if (skb->destructor) {
++                       if (!skb_irq_freeable(skb)) {
+                                atomic_inc(&skb->users);
+                                dev_kfree_skb_any(skb); /* put this one back */
+                        } else {
