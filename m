@@ -1,114 +1,60 @@
-From: Heikki Krogerus <heikki.krogerus@linux.intel.com>
-Subject: [PATCHv3 2/5] net: rfkill: gpio: remove unused and obsolete platform parameters
-Date: Tue,  1 Apr 2014 17:02:53 +0300
-Message-ID: <1396360976-28657-3-git-send-email-heikki.krogerus@linux.intel.com>
-References: <1396360976-28657-1-git-send-email-heikki.krogerus@linux.intel.com>
-Cc: Chen-Yu Tsai <wens@csie.org>, Rhyland Klein <rklein@nvidia.com>,
-	Marc Dietrich <marvin24@gmx.de>,
-	Stephen Warren <swarren@wwwdotorg.org>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Alexandre Courbot <gnurou@gmail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-tegra@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1396360976-28657-1-git-send-email-heikki.krogerus@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: [PATCH 3/3] netlink: implement unbind to netlink_setsockopt
+	NETLINK_DROP_MEMBERSHIP
+Date: Tue,  1 Apr 2014 10:14:58 -0400
+Message-ID: <c050da1200ba5811b94bd1543728c7b90aafdb0f.1396317747.git.rgb@redhat.com>
+References: <20140324183406.GE28666@madcap2.tricolour.ca>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Richard Guy Briggs <rgb@redhat.com>, davem@davemloft.net,
+        hadi@mojatatu.com
+To: linux-audit@redhat.com, linux-kernel@vger.kernel.org,
+        netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-audit-bounces@redhat.com>
+In-Reply-To: <20140324183406.GE28666@madcap2.tricolour.ca>
+In-Reply-To: <cover.1396317747.git.rgb@redhat.com>
+References: <cover.1396317747.git.rgb@redhat.com>
+List-Unsubscribe: <https://www.redhat.com/mailman/options/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/linux-audit>
+List-Post: <mailto:linux-audit@redhat.com>
+List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=subscribe>
+Sender: linux-audit-bounces@redhat.com
+Errors-To: linux-audit-bounces@redhat.com
 List-Id: netdev.vger.kernel.org
 
-After upgrading to descriptor based gpios, the gpio numbers
-are not used anymore. The power_clk_name and the platform
-specific setup and close hooks are not used by anybody, and
-we should not encourage use of such things, so removing them.
+Call the per-protocol unbind function rather than bind function on
+NETLINK_DROP_MEMBERSHIP in netlink_setsockopt().
 
-Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
 ---
- include/linux/rfkill-gpio.h | 10 ----------
- net/rfkill/rfkill-gpio.c    | 15 +--------------
- 2 files changed, 1 insertion(+), 24 deletions(-)
+ net/netlink/af_netlink.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/rfkill-gpio.h b/include/linux/rfkill-gpio.h
-index 4d09f6e..20bcb55 100644
---- a/include/linux/rfkill-gpio.h
-+++ b/include/linux/rfkill-gpio.h
-@@ -27,21 +27,11 @@
-  * struct rfkill_gpio_platform_data - platform data for rfkill gpio device.
-  * for unused gpio's, the expected value is -1.
-  * @name:		name for the gpio rf kill instance
-- * @reset_gpio:		GPIO which is used for reseting rfkill switch
-- * @shutdown_gpio:	GPIO which is used for shutdown of rfkill switch
-- * @power_clk_name:	[optional] name of clk to turn off while blocked
-- * @gpio_runtime_close:	clean up platform specific gpio configuration
-- * @gpio_runtime_setup:	set up platform specific gpio configuration
-  */
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 9ae6e0f..3938138 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2109,7 +2109,7 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
+ 			return err;
+ 		if (!val || val - 1 >= nlk->ngroups)
+ 			return -EINVAL;
+-		if (nlk->netlink_bind) {
++		if (optname == NETLINK_ADD_MEMBERSHIP && nlk->netlink_bind) {
+ 			err = nlk->netlink_bind(val);
+ 			if (err)
+ 				return err;
+@@ -2118,6 +2118,8 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
+ 		netlink_update_socket_mc(nlk, val,
+ 					 optname == NETLINK_ADD_MEMBERSHIP);
+ 		netlink_table_ungrab();
++		if (optname == NETLINK_DROP_MEMBERSHIP && nlk->netlink_unbind)
++			nlk->netlink_unbind(val);
  
- struct rfkill_gpio_platform_data {
- 	char			*name;
--	int			reset_gpio;
--	int			shutdown_gpio;
--	const char		*power_clk_name;
- 	enum rfkill_type	type;
--	void	(*gpio_runtime_close)(struct platform_device *);
--	int	(*gpio_runtime_setup)(struct platform_device *);
- };
- 
- #endif /* __RFKILL_GPIO_H */
-diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
-index bd2a5b9..0adda44 100644
---- a/net/rfkill/rfkill-gpio.c
-+++ b/net/rfkill/rfkill-gpio.c
-@@ -87,7 +87,6 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
- {
- 	struct rfkill_gpio_platform_data *pdata = pdev->dev.platform_data;
- 	struct rfkill_gpio_data *rfkill;
--	const char *clk_name = NULL;
- 	struct gpio_desc *gpio;
- 	int ret;
- 	int len;
-@@ -101,7 +100,6 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
- 		if (ret)
- 			return ret;
- 	} else if (pdata) {
--		clk_name = pdata->power_clk_name;
- 		rfkill->name = pdata->name;
- 		rfkill->type = pdata->type;
- 	} else {
-@@ -120,7 +118,7 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
- 	snprintf(rfkill->reset_name, len + 6 , "%s_reset", rfkill->name);
- 	snprintf(rfkill->shutdown_name, len + 9, "%s_shutdown", rfkill->name);
- 
--	rfkill->clk = devm_clk_get(&pdev->dev, clk_name);
-+	rfkill->clk = devm_clk_get(&pdev->dev, NULL);
- 
- 	gpio = devm_gpiod_get_index(&pdev->dev, rfkill->reset_name, 0);
- 	if (!IS_ERR(gpio)) {
-@@ -146,14 +144,6 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
- 		return -EINVAL;
- 	}
- 
--	if (pdata && pdata->gpio_runtime_setup) {
--		ret = pdata->gpio_runtime_setup(pdev);
--		if (ret) {
--			dev_err(&pdev->dev, "can't set up gpio\n");
--			return ret;
--		}
--	}
--
- 	rfkill->rfkill_dev = rfkill_alloc(rfkill->name, &pdev->dev,
- 					  rfkill->type, &rfkill_gpio_ops,
- 					  rfkill);
-@@ -174,10 +164,7 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
- static int rfkill_gpio_remove(struct platform_device *pdev)
- {
- 	struct rfkill_gpio_data *rfkill = platform_get_drvdata(pdev);
--	struct rfkill_gpio_platform_data *pdata = pdev->dev.platform_data;
- 
--	if (pdata && pdata->gpio_runtime_close)
--		pdata->gpio_runtime_close(pdev);
- 	rfkill_unregister(rfkill->rfkill_dev);
- 	rfkill_destroy(rfkill->rfkill_dev);
- 
+ 		err = 0;
+ 		break;
 -- 
-1.9.1
+1.7.1
