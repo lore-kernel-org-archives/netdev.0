@@ -1,80 +1,46 @@
-From: Shruti Kanetkar <Shruti@freescale.com>
-Subject: RE: [PATCH] net/phy: Remove return value for a void function
-Date: Tue, 1 Apr 2014 19:53:52 +0000
-Message-ID: <62eb4c507b904928a6b5891113153f18@DM2PR03MB365.namprd03.prod.outlook.com>
-References: <1396363464-28923-1-git-send-email-Shruti@Freescale.com>
- <1396375445.21529.95.camel@joe-AO722>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] vxlan: using AF_PACKET socket to send multicast packet
+ cause WARNING
+Date: Tue, 01 Apr 2014 16:10:47 -0400 (EDT)
+Message-ID: <20140401.161047.854771903443514987.davem@davemloft.net>
+References: <1396343330-23648-1-git-send-email-lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Emilian Medve <Emilian.Medve@freescale.com>
-To: Joe Perches <joe@perches.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [207.46.163.207] ([207.46.163.207]:23327 "EHLO
-	na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751371AbaDAUKc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 16:10:32 -0400
-In-Reply-To: <1396375445.21529.95.camel@joe-AO722>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:54882 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751419AbaDAUKu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 16:10:50 -0400
+In-Reply-To: <1396343330-23648-1-git-send-email-lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Joe,
+From: Xin Long <lucien.xin@gmail.com>
+Date: Tue,  1 Apr 2014 17:08:50 +0800
 
-Thank you for sharing the script.
-I shall give it a try and credit you for the script.
+> dev_queue_xmit()->dev_hard_start_xmit()->vxlan_xmit()->ip_tunnel_xmit()->ip_mc_output(),
+> after reaching ip_mc_output(), it will check the mc_loop by sk_mc_loop(), but
+> it have no case for AF_PACKET, then cause WARN_ON(1).
+ ...
+> --- a/include/net/ip.h
+> +++ b/include/net/ip.h
+> @@ -428,6 +428,8 @@ static inline int sk_mc_loop(struct sock *sk)
+>  	case AF_INET6:
+>  		return inet6_sk(sk)->mc_loop;
+>  #endif
+> +	case AF_PACKET:
+> +		return 1;
+>  	}
+>  	WARN_ON(1);
+>  	return 1;
 
-> -----Original Message-----
-> From: Joe Perches [mailto:joe@perches.com]
-> Sent: Tuesday, April 01, 2014 1:04 PM
-> To: Kanetkar Shruti-B44454
-> Cc: f.fainelli@gmail.com; netdev@vger.kernel.org; Medve Emilian-EMMEDVE1
-> Subject: Re: [PATCH] net/phy: Remove return value for a void function
-> 
-> Here's a spatch script for this:
-> 
-> $ cat void_return.cocci
-> @@
-> identifier func;
-> expression S;
-> @@
-> void func(...) {
-> ...
-> 	if (...)
-> -		return S;
-> +		{ S; return; }
-> ...
-> }
-> 
-> @@
-> identifier func;
-> expression S;
-> @@
-> void func(...) {
-> ...
-> 	if (...) {
-> ...
-> -		return S;
-> +		S;
-> 	}
-> ...
-> }
-> 
-> @@
-> identifier func;
-> expression S;
-> @@
-> void func(...) {
-> ...
-> -	return S;
-> +	S;
-> }
-> 
-> 
-> 
+This is not the correct fix.
 
-Regards,
-Shruti
+If vxlan is going to reinject dev_hard_start_xmit() bound packets into
+the ipv4 stack, it must make sure that they are well formed.
+
+The SKB traversing the ipv4 stack must either be bound to an ipv4/ipv6
+socket or be orphaned.
