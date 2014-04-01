@@ -1,7 +1,7 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 14/16] can: c_can: Store dlc private
-Date: Tue,  1 Apr 2014 23:42:28 +0200
-Message-ID: <1396388550-23081-15-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 12/16] can: c_can: Make the code readable
+Date: Tue,  1 Apr 2014 23:42:26 +0200
+Message-ID: <1396388550-23081-13-git-send-email-mkl@pengutronix.de>
 References: <1396388550-23081-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
 	kernel@pengutronix.de, Thomas Gleixner <tglx@linutronix.de>,
@@ -14,111 +14,162 @@ List-Id: netdev.vger.kernel.org
 
 From: Thomas Gleixner <tglx@linutronix.de>
 
-We can avoid the HW access in TX cleanup path for retrieving the DLC
-of the sent package if we store the DLC in a private array.
-
-Ideally this should be handled in the can_echo_skb functions, but I
-leave that exercise to the CAN folks.
+If every other line contains line breaks, that's a clear sign for
+indentation level madness. Split out the inner loop and move the code
+to a separate function. gcc creates slightly worse code for that, but
+we'll fix that in the next step.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+[mkl: adjusted subject]
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/c_can/c_can.c | 28 +---------------------------
- drivers/net/can/c_can/c_can.h | 28 ++++++++++++++++++++++++++++
- 2 files changed, 29 insertions(+), 27 deletions(-)
+ drivers/net/can/c_can/c_can.c | 107 ++++++++++++++++++++++--------------------
+ 1 file changed, 56 insertions(+), 51 deletions(-)
 
 diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
-index 8ea1379..1e75223 100644
+index 1fe79ce..bd7234e 100644
 --- a/drivers/net/can/c_can/c_can.c
 +++ b/drivers/net/can/c_can/c_can.c
-@@ -145,33 +145,6 @@
- #define IF_RX			0
- #define IF_TX			1
+@@ -849,6 +849,52 @@ static u32 c_can_adjust_pending(u32 pend)
+ 	return pend & ~((1 << lasts) - 1);
+ }
  
--/*
-- * IFx register masks:
-- * allow easy operation on 16-bit registers when the
-- * argument is 32-bit instead
-- */
--#define IFX_WRITE_LOW_16BIT(x)	((x) & 0xFFFF)
--#define IFX_WRITE_HIGH_16BIT(x)	(((x) & 0xFFFF0000) >> 16)
--
--/* message object split */
--#define C_CAN_NO_OF_OBJECTS	32
--#define C_CAN_MSG_OBJ_RX_NUM	16
--#define C_CAN_MSG_OBJ_TX_NUM	16
--
--#define C_CAN_MSG_OBJ_RX_FIRST	1
--#define C_CAN_MSG_OBJ_RX_LAST	(C_CAN_MSG_OBJ_RX_FIRST + \
--				C_CAN_MSG_OBJ_RX_NUM - 1)
--
--#define C_CAN_MSG_OBJ_TX_FIRST	(C_CAN_MSG_OBJ_RX_LAST + 1)
--#define C_CAN_MSG_OBJ_TX_LAST	(C_CAN_MSG_OBJ_TX_FIRST + \
--				C_CAN_MSG_OBJ_TX_NUM - 1)
--
--#define C_CAN_MSG_OBJ_RX_SPLIT	9
--#define C_CAN_MSG_RX_LOW_LAST	(C_CAN_MSG_OBJ_RX_SPLIT - 1)
--
--#define C_CAN_NEXT_MSG_OBJ_MASK	(C_CAN_MSG_OBJ_TX_NUM - 1)
--#define RECEIVE_OBJECT_BITS	0x0000ffff
--
- /* status interrupt */
- #define STATUS_INTERRUPT	0x8000
- 
-@@ -537,6 +510,7 @@ static netdev_tx_t c_can_start_xmit(struct sk_buff *skb,
- 
- 	/* prepare message object for transmission */
- 	c_can_write_msg_object(dev, IF_TX, frame, msg_obj_no);
-+	priv->dlc[msg_obj_no - C_CAN_MSG_OBJ_TX_FIRST] = frame->can_dlc;
- 	can_put_echo_skb(skb, dev, msg_obj_no - C_CAN_MSG_OBJ_TX_FIRST);
++static int c_can_read_objects(struct net_device *dev, struct c_can_priv *priv,
++			      u32 pend, int quota)
++{
++	u32 pkts = 0, ctrl, obj;
++
++	while ((obj = ffs(pend)) && quota > 0) {
++		pend &= ~BIT(obj - 1);
++
++		c_can_object_get(dev, IF_RX, obj, IF_COMM_ALL &	~IF_COMM_TXRQST);
++		ctrl = priv->read_reg(priv, C_CAN_IFACE(MSGCTRL_REG, IF_RX));
++
++		if (ctrl & IF_MCONT_MSGLST) {
++			int n = c_can_handle_lost_msg_obj(dev, IF_RX, obj, ctrl);
++
++			pkts += n;
++			quota -= n;
++			continue;
++		}
++
++		/*
++		 * This really should not happen, but this covers some
++		 * odd HW behaviour. Do not remove that unless you
++		 * want to brick your machine.
++		 */
++		if (!(ctrl & IF_MCONT_NEWDAT))
++			continue;
++
++		/* read the data from the message object */
++		c_can_read_msg_object(dev, IF_RX, ctrl);
++
++		if (obj < C_CAN_MSG_RX_LOW_LAST)
++			c_can_mark_rx_msg_obj(dev, IF_RX, ctrl, obj);
++		else if (obj > C_CAN_MSG_RX_LOW_LAST)
++			/* activate this msg obj */
++			c_can_activate_rx_msg_obj(dev, IF_RX, ctrl, obj);
++		else if (obj == C_CAN_MSG_RX_LOW_LAST)
++			/* activate all lower message objects */
++			c_can_activate_all_lower_rx_msg_obj(dev, IF_RX, ctrl);
++
++		pkts++;
++		quota--;
++	}
++
++	return pkts;
++}
++
+ /*
+  * theory of operation:
+  *
+@@ -873,10 +919,8 @@ static u32 c_can_adjust_pending(u32 pend)
+  */
+ static int c_can_do_rx_poll(struct net_device *dev, int quota)
+ {
+-	u32 num_rx_pkts = 0;
+-	unsigned int msg_obj, msg_ctrl_save;
+ 	struct c_can_priv *priv = netdev_priv(dev);
+-	u32 val, pend = 0;
++	u32 pkts = 0, pend = 0, toread, n;
  
  	/*
-diff --git a/drivers/net/can/c_can/c_can.h b/drivers/net/can/c_can/c_can.h
-index 5097c80..faa8404 100644
---- a/drivers/net/can/c_can/c_can.h
-+++ b/drivers/net/can/c_can/c_can.h
-@@ -22,6 +22,33 @@
- #ifndef C_CAN_H
- #define C_CAN_H
+ 	 * It is faster to read only one 16bit register. This is only possible
+@@ -886,65 +930,26 @@ static int c_can_do_rx_poll(struct net_device *dev, int quota)
+ 			"Implementation does not support more message objects than 16");
  
-+/*
-+ * IFx register masks:
-+ * allow easy operation on 16-bit registers when the
-+ * argument is 32-bit instead
-+ */
-+#define IFX_WRITE_LOW_16BIT(x)	((x) & 0xFFFF)
-+#define IFX_WRITE_HIGH_16BIT(x)	(((x) & 0xFFFF0000) >> 16)
-+
-+/* message object split */
-+#define C_CAN_NO_OF_OBJECTS	32
-+#define C_CAN_MSG_OBJ_RX_NUM	16
-+#define C_CAN_MSG_OBJ_TX_NUM	16
-+
-+#define C_CAN_MSG_OBJ_RX_FIRST	1
-+#define C_CAN_MSG_OBJ_RX_LAST	(C_CAN_MSG_OBJ_RX_FIRST + \
-+				C_CAN_MSG_OBJ_RX_NUM - 1)
-+
-+#define C_CAN_MSG_OBJ_TX_FIRST	(C_CAN_MSG_OBJ_RX_LAST + 1)
-+#define C_CAN_MSG_OBJ_TX_LAST	(C_CAN_MSG_OBJ_TX_FIRST + \
-+				C_CAN_MSG_OBJ_TX_NUM - 1)
-+
-+#define C_CAN_MSG_OBJ_RX_SPLIT	9
-+#define C_CAN_MSG_RX_LOW_LAST	(C_CAN_MSG_OBJ_RX_SPLIT - 1)
-+
-+#define C_CAN_NEXT_MSG_OBJ_MASK	(C_CAN_MSG_OBJ_TX_NUM - 1)
-+#define RECEIVE_OBJECT_BITS	0x0000ffff
-+
- enum reg {
- 	C_CAN_CTRL_REG = 0,
- 	C_CAN_CTRL_EX_REG,
-@@ -173,6 +200,7 @@ struct c_can_priv {
- 	u32 __iomem *raminit_ctrlreg;
- 	unsigned int instance;
- 	void (*raminit) (const struct c_can_priv *priv, bool enable);
-+	u32 dlc[C_CAN_MSG_OBJ_TX_NUM];
- };
+ 	while (quota > 0) {
+-
+ 		if (!pend) {
+ 			pend = priv->read_reg(priv, C_CAN_INTPND1_REG);
+ 			if (!pend)
+-				return num_rx_pkts;
++				break;
+ 			/*
+ 			 * If the pending field has a gap, handle the
+ 			 * bits above the gap first.
+ 			 */
+-			val = c_can_adjust_pending(pend);
++			toread = c_can_adjust_pending(pend);
+ 		} else {
+-			val = pend;
++			toread = pend;
+ 		}
+ 		/* Remove the bits from pend */
+-		pend &= ~val;
+-
+-		while ((msg_obj = ffs(val)) && quota > 0) {
+-			val &= ~BIT(msg_obj - 1);
+-
+-			c_can_object_get(dev, IF_RX, msg_obj, IF_COMM_ALL &
+-					~IF_COMM_TXRQST);
+-			msg_ctrl_save = priv->read_reg(priv,
+-					C_CAN_IFACE(MSGCTRL_REG, IF_RX));
+-
+-			if (msg_ctrl_save & IF_MCONT_MSGLST) {
+-				int n;
+-
+-				n = c_can_handle_lost_msg_obj(dev, IF_RX,
+-							      msg_obj,
+-							      msg_ctrl_save);
+-				num_rx_pkts += n;
+-				quota -=n;
+-				continue;
+-			}
+-
+-			if (!(msg_ctrl_save & IF_MCONT_NEWDAT))
+-				continue;
+-
+-			/* read the data from the message object */
+-			c_can_read_msg_object(dev, IF_RX, msg_ctrl_save);
+-
+-			if (msg_obj < C_CAN_MSG_RX_LOW_LAST)
+-				c_can_mark_rx_msg_obj(dev, IF_RX,
+-						msg_ctrl_save, msg_obj);
+-			else if (msg_obj > C_CAN_MSG_RX_LOW_LAST)
+-				/* activate this msg obj */
+-				c_can_activate_rx_msg_obj(dev, IF_RX,
+-						msg_ctrl_save, msg_obj);
+-			else if (msg_obj == C_CAN_MSG_RX_LOW_LAST)
+-				/* activate all lower message objects */
+-				c_can_activate_all_lower_rx_msg_obj(dev,
+-						IF_RX, msg_ctrl_save);
+-
+-			num_rx_pkts++;
+-			quota--;
+-		}
++		pend &= ~toread;
++		/* Read the objects */
++		n = c_can_read_objects(dev, priv, toread, quota);
++		pkts += n;
++		quota -= n;
+ 	}
+-
+-	return num_rx_pkts;
++	return pkts;
+ }
  
- struct net_device *alloc_c_can_dev(void);
+ static inline int c_can_has_and_handle_berr(struct c_can_priv *priv)
 -- 
 1.9.0.279.gdc9e3eb
 
