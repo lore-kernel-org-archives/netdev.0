@@ -1,133 +1,58 @@
-From: "Nekludov, Max" <Max.Nekludov@elster.com>
-Subject: Bug in ks8851.c
-Date: Tue, 1 Apr 2014 15:41:58 +0000
-Message-ID: <b703c70840da4780bc93beed79a8503b@DB3PR02MB202.eurprd02.prod.outlook.com>
-References: <9525F3D6E0E9E64DA832F2587811AD6A200C24@USRAL1WVEXC01.elt.lcl>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [net-next 01/13] e1000e: Fix no connectivity when driver loaded
+ with cable out
+Date: Tue, 1 Apr 2014 18:07:35 +0200 (CEST)
+Message-ID: <alpine.DEB.2.02.1404011807080.14882@ionos.tec.linutronix.de>
+References: <1396308899-20926-1-git-send-email-jeffrey.t.kirsher@intel.com> <1396308899-20926-2-git-send-email-jeffrey.t.kirsher@intel.com> <CAOMZO5Ar9QrqsnOjb=V_hLB9Rz51jBMByz=jOMH2iAHi+OfbjA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_002_b703c70840da4780bc93beed79a8503bDB3PR02MB202eurprd02pro_"
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"trivial@rustcorp.com.au" <trivial@rustcorp.com.au>,
-	"\"David S. Miller\"" <davem@davemloft.net>
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	"Nekludov, Max" <Max.Nekludov@elster.com>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	"Network Development" <netdev@vger.kernel.org>,
-	Stephen Boyd <sboyd@codeaurora.org>,
-	Matt Renzelmann <mjr@cs.wisc.edu>,
-	Jiri Pirko <jiri@resnulli.us>
+	David Ertman <davidx.m.ertman@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	gospo@redhat.com, sassmann@redhat.com
+To: Fabio Estevam <festevam@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [213.199.154.12] ([213.199.154.12]:19594 "EHLO
-	emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751190AbaDAP5W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Apr 2014 11:57:22 -0400
-In-Reply-To: <9525F3D6E0E9E64DA832F2587811AD6A200C24@USRAL1WVEXC01.elt.lcl>
-Content-Language: en-US
+Received: from www.linutronix.de ([62.245.132.108]:46838 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751190AbaDAQH2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 12:07:28 -0400
+In-Reply-To: <CAOMZO5Ar9QrqsnOjb=V_hLB9Rz51jBMByz=jOMH2iAHi+OfbjA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---_002_b703c70840da4780bc93beed79a8503bDB3PR02MB202eurprd02pro_
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+On Tue, 1 Apr 2014, Fabio Estevam wrote:
 
-Reset on RX failure and TX timeout.=0A=
-=0A=
-Electromagnetic noice can make device to not send TX interrupts.=0A=
-As result outgoing queue will be suspended forever.=0A=
-Also EMI can raise RX interrupt with zero value in KS_RXFC register.=0A=
-=0A=
-Patch attached.=
+> On Mon, Mar 31, 2014 at 8:34 PM, Jeff Kirsher
+> <jeffrey.t.kirsher@intel.com> wrote:
+> > From: David Ertman <davidx.m.ertman@intel.com>
+> >
+> > In commit da1e2046e5, the flow for enabling/disabling an Si errata
+> > workaround (e1000_lv_jumbo_workaround_ich8lan) was changed to fix a problem
+> > with iAMT connections dropping on interface down with jumbo frames set.
+> > Part of this change was to move the function call disabling the workaround
+> > to e1000e_down() from the e1000_setup_rctl() function.  The mechanic for
+> > disabling of this workaround involves writing several MAC and PHY registers
+> > back to hardware defaults.
+> >
+> > After this commit, when the driver is loaded with the cable out, the PHY
+> > registers are not programmed with the correct default values.  This causes
+> > the device to be capable of transmitting packets, but is unable to recieve
+> > them until this workaround is called.
+> >
+> > The flow of e1000e's open code relies upon calling the above workaround to
+> > expicitly program these registers either with jumbo frame appropriate settings
+> > or h/w defaults on 82579 and newer hardware.
+> >
+> > Fix this issue by adding logic to e1000_setup_rctl() that not only calls
+> > e1000_lv_jumbo_workaround_ich8lan() when jumbo frames are set, to enable the
+> > workaround, but also calls this function to explicitly disable the workaround
+> > in the case that jumbo frames are not set.
+> >
+> > Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
+> > Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> 
+> Maybe a Reported-by tag from Thomas is missing?
 
---_002_b703c70840da4780bc93beed79a8503bDB3PR02MB202eurprd02pro_
-Content-Type: text/x-diff;
-	name="0001-ks8851-reset-on-RX-falure-and-TX-timeout.patch"
-Content-Description: 0001-ks8851-reset-on-RX-falure-and-TX-timeout.patch
-Content-Disposition: attachment;
-	filename="0001-ks8851-reset-on-RX-falure-and-TX-timeout.patch"; size=4553;
-	creation-date="Tue, 01 Apr 2014 15:40:18 GMT";
-	modification-date="Tue, 01 Apr 2014 15:40:18 GMT"
-Content-Transfer-Encoding: base64
-
-a3M4ODUxOiByZXNldCBvbiBSWCBmYWlsdXJlIGFuZCBUWCB0aW1lb3V0CgpFbGVjdHJvbWFnbmV0
-aWMgbm9pY2UgY2FuIG1ha2UgZGV2aWNlIHRvIG5vdCBzZW5kIFRYIGludGVycnVwdHMuCkFzIHJl
-c3VsdCBvdXRnb2luZyBxdWV1ZSB3aWxsIGJlIHN1c3BlbmRlZCBmb3JldmVyLgpBbHNvIEVNSSBj
-YW4gcmFpc2UgUlggaW50ZXJydXB0IHdpdGggemVybyB2YWx1ZSBpbiBLU19SWEZDIHJlZ2lzdGVy
-LgoKU2lnbmVkLW9mZi1ieTogTWF4IE5la2x1ZG92IDxNYXguTmVrbHVkb3ZAZWxzdGVyLmNvbT4K
-LS0tCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9taWNyZWwva3M4ODUxLmMgfCA2NiArKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKy0KIDEgZmlsZSBjaGFuZ2VkLCA2NSBpbnNlcnRpb25z
-KCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWlj
-cmVsL2tzODg1MS5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWljcmVsL2tzODg1MS5jCmluZGV4
-IGUwYzkyZTAuLjI1YjcyMjkgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L21pY3Jl
-bC9rczg4NTEuYworKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9taWNyZWwva3M4ODUxLmMKQEAg
-LTEyMyw2ICsxMjMsNyBAQCBzdHJ1Y3Qga3M4ODUxX25ldCB7CiAKIAlzdHJ1Y3Qgd29ya19zdHJ1
-Y3QJdHhfd29yazsKIAlzdHJ1Y3Qgd29ya19zdHJ1Y3QJcnhjdHJsX3dvcms7CisJc3RydWN0IGRl
-bGF5ZWRfd29yawl3ZHRfd29yazsKIAogCXN0cnVjdCBza19idWZmX2hlYWQJdHhxOwogCkBAIC0x
-NDAsNiArMTQxLDkgQEAgc3RhdGljIGludCBtc2dfZW5hYmxlOwogLyogc2hpZnQgZm9yIGJ5dGUt
-ZW5hYmxlIGRhdGEgKi8KICNkZWZpbmUgQllURV9FTihfeCkJKChfeCkgPDwgMikKIAorI2RlZmlu
-ZSBLUzg4NTFfVFhfUVVFVUVfU0laRSA2MTQ0CisjZGVmaW5lIEtTODg1MV9UWF9USU1FT1VUX01T
-IDEwMAorCiAvKiB0dXJuIHJlZ2lzdGVyIG51bWJlciBhbmQgYnl0ZS1lbmFibGUgbWFzayBpbnRv
-IGRhdGEgZm9yIHN0YXJ0IG9mIHBhY2tldCAqLwogI2RlZmluZSBNS19PUChfYnl0ZWVuLCBfcmVn
-KSAoQllURV9FTihfYnl0ZWVuKSB8IChfcmVnKSAgPDwgKDgrMikgfCAoX3JlZykgPj4gNikKIApA
-QCAtNDk1LDYgKzQ5OSw3IEBAIHN0YXRpYyB2b2lkIGtzODg1MV9kYmdfZHVtcGtrdChzdHJ1Y3Qg
-a3M4ODUxX25ldCAqa3MsIHU4ICpyeHBrdCkKIAkJICAgcnhwa3RbOF0sIHJ4cGt0WzldLCByeHBr
-dFsxMF0sIHJ4cGt0WzExXSwKIAkJICAgcnhwa3RbMTJdLCByeHBrdFsxM10sIHJ4cGt0WzE0XSwg
-cnhwa3RbMTVdKTsKIH0KK3N0YXRpYyB2b2lkIGtzODg1MV9yZXNldChzdHJ1Y3Qga3M4ODUxX25l
-dCAqa3MpOwogCiAvKioKICAqIGtzODg1MV9yeF9wa3RzIC0gcmVjZWl2ZSBwYWNrZXRzIGZyb20g
-dGhlIGhvc3QKQEAgLTUxNyw2ICs1MjIsMTIgQEAgc3RhdGljIHZvaWQga3M4ODUxX3J4X3BrdHMo
-c3RydWN0IGtzODg1MV9uZXQgKmtzKQogCiAJbmV0aWZfZGJnKGtzLCByeF9zdGF0dXMsIGtzLT5u
-ZXRkZXYsCiAJCSAgIiVzOiAlZCBwYWNrZXRzXG4iLCBfX2Z1bmNfXywgcnhmYyk7CisJCisJaWYg
-KHJ4ZmMgPT0gMCkgeworCQltZGVsYXkoMSk7CisJCS8qIFJYIGludGVycnVwdCBidXQgbm8gZGF0
-YSBpbiBidWZmZXIuIFdoaWNoIG1lYW5zIGhhcmR3YXJlIGZhaWx1cmUgY29uZGl0aW9uLiBSZXNl
-dC4gKi8KKwkJa3M4ODUxX3Jlc2V0KGtzKTsKKwl9CiAKIAkvKiBDdXJyZW50bHkgd2UncmUgaXNz
-dWluZyBhIHJlYWQgcGVyIHBhY2tldCwgYnV0IHdlIGNvdWxkIHBvc3NpYmx5CiAJICogaW1wcm92
-ZSB0aGUgY29kZSBieSBpc3N1aW5nIGEgc2luZ2xlIHJlYWQsIGdldHRpbmcgdGhlIHJlY2VpdmUK
-QEAgLTYxOSw2ICs2MzAsMTAgQEAgc3RhdGljIGlycXJldHVybl90IGtzODg1MV9pcnEoaW50IGly
-cSwgdm9pZCAqX2tzKQogCiAJaWYgKHN0YXR1cyAmIElSUV9UWEkpIHsKIAkJaGFuZGxlZCB8PSBJ
-UlFfVFhJOworCQkKKwkJbXV0ZXhfdW5sb2NrKCZrcy0+bG9jayk7CisJCWNhbmNlbF9kZWxheWVk
-X3dvcmtfc3luYygma3MtPndkdF93b3JrKTsKKwkJbXV0ZXhfbG9jaygma3MtPmxvY2spOwogCiAJ
-CS8qIG5vIGxvY2sgaGVyZSwgdHggcXVldWUgc2hvdWxkIGhhdmUgYmVlbiBzdG9wcGVkICovCiAK
-QEAgLTc0OSw2ICs3NjQsMTcgQEAgc3RhdGljIHZvaWQga3M4ODUxX2RvbmVfdHgoc3RydWN0IGtz
-ODg1MV9uZXQgKmtzLCBzdHJ1Y3Qgc2tfYnVmZiAqdHhiKQogCWRldl9rZnJlZV9za2IodHhiKTsK
-IH0KIAorc3RhdGljIHZvaWQga3M4ODUxX3dkdF93b3JrKHN0cnVjdCBkZWxheWVkX3dvcmsgKndv
-cmspCit7CisJc3RydWN0IGtzODg1MV9uZXQgKmtzID0gY29udGFpbmVyX29mKHdvcmssIHN0cnVj
-dCBrczg4NTFfbmV0LCB3ZHRfd29yayk7CisJbXV0ZXhfbG9jaygma3MtPmxvY2spOworCisJbWRl
-bGF5KDEpOworCWtzODg1MV9yZXNldChrcyk7CisKKwltdXRleF91bmxvY2soJmtzLT5sb2NrKTsK
-K30KKwogLyoqCiAgKiBrczg4NTFfdHhfd29yayAtIHByb2Nlc3MgdHggcGFja2V0KHMpCiAgKiBA
-d29yazogVGhlIHdvcmsgc3RydWN1dHJlIHdoYXQgd2FzIHNjaGVkdWxlZC4KQEAgLTc3OCw2ICs4
-MDQsOCBAQCBzdGF0aWMgdm9pZCBrczg4NTFfdHhfd29yayhzdHJ1Y3Qgd29ya19zdHJ1Y3QgKndv
-cmspCiAJCX0KIAl9CiAKKwlzY2hlZHVsZV9kZWxheWVkX3dvcmsoJmtzLT53ZHRfd29yaywgbXNl
-Y3NfdG9famlmZmllcyhLUzg4NTFfVFhfVElNRU9VVF9NUykpOworCiAJbXV0ZXhfdW5sb2NrKCZr
-cy0+bG9jayk7CiB9CiAKQEAgLTg1OCw2ICs4ODYsNDAgQEAgc3RhdGljIGludCBrczg4NTFfbmV0
-X29wZW4oc3RydWN0IG5ldF9kZXZpY2UgKmRldikKIAlyZXR1cm4gMDsKIH0KIAorc3RhdGljIHZv
-aWQga3M4ODUxX3Jlc2V0KHN0cnVjdCBrczg4NTFfbmV0ICprcykKK3sKKwluZXRpZl9zdG9wX3F1
-ZXVlKGtzLT5uZXRkZXYpOworCisJLyogdHVybiBvZmYgdGhlIElSUXMgYW5kIGFjayBhbnkgb3V0
-c3RhbmRpbmcgKi8KKwlrczg4NTFfd3JyZWcxNihrcywgS1NfSUVSLCAweDAwMDApOworCWtzODg1
-MV93cnJlZzE2KGtzLCBLU19JU1IsIDB4ZmZmZik7CisKKwkvKiBzaHV0ZG93biBSWCBwcm9jZXNz
-ICovCisJa3M4ODUxX3dycmVnMTYoa3MsIEtTX1JYQ1IxLCAweDAwMDApOworCisJLyogc2h1dGRv
-d24gVFggcHJvY2VzcyAqLworCWtzODg1MV93cnJlZzE2KGtzLCBLU19UWENSLCAweDAwMDApOwor
-CisJa3MtPnR4X3NwYWNlID0gS1M4ODUxX1RYX1FVRVVFX1NJWkU7CisKKwltdXRleF91bmxvY2so
-JmtzLT5sb2NrKTsKKwkKKwkvKiBlbnN1cmUgYW55IHF1ZXVlZCB0eCBidWZmZXJzIGFyZSBkdW1w
-ZWQgKi8KKwl3aGlsZSAoIXNrYl9xdWV1ZV9lbXB0eSgma3MtPnR4cSkpIHsKKwkJc3RydWN0IHNr
-X2J1ZmYgKnR4YiA9IHNrYl9kZXF1ZXVlKCZrcy0+dHhxKTsKKworCQluZXRpZl9kYmcoa3MsIGlm
-ZG93biwga3MtPm5ldGRldiwKKwkJCSAgIiVzOiBmcmVlaW5nIHR4YiAlcFxuIiwgX19mdW5jX18s
-IHR4Yik7CisKKwkJZGV2X2tmcmVlX3NrYih0eGIpOworCX0KKworCS8qIHJlb3BlbiBkZXZpY2Ug
-Ki8KKwlrczg4NTFfbmV0X29wZW4oa3MtPm5ldGRldik7CisKKwltdXRleF9sb2NrKCZrcy0+bG9j
-ayk7Cit9CisKIC8qKgogICoga3M4ODUxX25ldF9zdG9wIC0gY2xvc2UgbmV0d29yayBkZXZpY2UK
-ICAqIEBkZXY6IFRoZSBkZXZpY2UgYmVpbmcgY2xvc2VkLgpAQCAtODgzLDYgKzk0NSw3IEBAIHN0
-YXRpYyBpbnQga3M4ODUxX25ldF9zdG9wKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiAJLyogc3Rv
-cCBhbnkgb3V0c3RhbmRpbmcgd29yayAqLwogCWZsdXNoX3dvcmsoJmtzLT50eF93b3JrKTsKIAlm
-bHVzaF93b3JrKCZrcy0+cnhjdHJsX3dvcmspOworCWNhbmNlbF9kZWxheWVkX3dvcmtfc3luYygm
-a3MtPndkdF93b3JrKTsKIAogCW11dGV4X2xvY2soJmtzLT5sb2NrKTsKIAkvKiBzaHV0ZG93biBS
-WCBwcm9jZXNzICovCkBAIC0xNDE1LDcgKzE0NzgsNyBAQCBzdGF0aWMgaW50IGtzODg1MV9wcm9i
-ZShzdHJ1Y3Qgc3BpX2RldmljZSAqc3BpKQogCiAJa3MtPm5ldGRldiA9IG5kZXY7CiAJa3MtPnNw
-aWRldiA9IHNwaTsKLQlrcy0+dHhfc3BhY2UgPSA2MTQ0OworCWtzLT50eF9zcGFjZSA9IEtTODg1
-MV9UWF9RVUVVRV9TSVpFOwogCiAJa3MtPnZkZF9yZWcgPSByZWd1bGF0b3JfZ2V0X29wdGlvbmFs
-KCZzcGktPmRldiwgInZkZCIpOwogCWlmIChJU19FUlIoa3MtPnZkZF9yZWcpKSB7CkBAIC0xNDM3
-LDYgKzE1MDAsNyBAQCBzdGF0aWMgaW50IGtzODg1MV9wcm9iZShzdHJ1Y3Qgc3BpX2RldmljZSAq
-c3BpKQogCiAJSU5JVF9XT1JLKCZrcy0+dHhfd29yaywga3M4ODUxX3R4X3dvcmspOwogCUlOSVRf
-V09SSygma3MtPnJ4Y3RybF93b3JrLCBrczg4NTFfcnhjdHJsX3dvcmspOworCUlOSVRfREVMQVlF
-RF9XT1JLKCZrcy0+d2R0X3dvcmssIGtzODg1MV93ZHRfd29yayk7CiAKIAkvKiBpbml0aWFsaXNl
-IHByZS1tYWRlIHNwaSB0cmFuc2ZlciBtZXNzYWdlcyAqLwogCi0tIAoxLjguMy4yCgo=
-
---_002_b703c70840da4780bc93beed79a8503bDB3PR02MB202eurprd02pro_--
+Plus a Tested-by: me :)
