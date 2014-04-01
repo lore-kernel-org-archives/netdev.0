@@ -1,62 +1,44 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 2/3] ray_cs: replace del_timer by del_timer_sync
-Date: Tue,  1 Apr 2014 15:49:18 +0200
-Message-ID: <1396360159-16244-3-git-send-email-Julia.Lawall@lip6.fr>
-References: <1396360159-16244-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1396360159-16244-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: [PATCHv3 0/5] net: rfkill: gpio: cleanup and a few new acpi ids
+Date: Tue,  1 Apr 2014 17:02:51 +0300
+Message-ID: <1396360976-28657-1-git-send-email-heikki.krogerus@linux.intel.com>
+Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
+	Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>,
+	Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
+	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+Hi,
 
-Use del_timer_sync to ensure that the timer is stopped on all CPUs before
-the driver exits.
+I hope this one is OK with everyone.
 
-This change was suggested by Thomas Gleixner.
+Changes since v2:
+- Instead of changing the driver to use only indexed gpios, just
+  hard-coding the names.
 
-The semantic patch that makes this change is as follows:
-(http://coccinelle.lip6.fr/)
+Changes since v1:
+- Removed the gpio entries from arch/arm/mach-tegra/board-paz00.c
 
-// <smpl>
-@r@
-identifier i,t,ex;
-@@
-struct t i = { .remove = ex, };
 
-@@
-identifier r.ex;
-@@
-ex(...) {
-  <...
-- del_timer
-+ del_timer_sync
-    (...)
-  ...>
-}
-// </smpl>
+Heikki Krogerus (5):
+  ARM: tegra: remove obsolete gpio entries
+  net: rfkill: gpio: remove unused and obsolete platform parameters
+  net: rfkill: gpio: add ACPI ID for GPS module on Lenovo Miix2
+  net: rfkill: gpio: add ACPI IDs for a Broadcom bluetooth chip
+  net: rfkill: gpio: hard-code the gpio names
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+ arch/arm/mach-tegra/board-paz00.c |  4 +---
+ include/linux/rfkill-gpio.h       | 10 ----------
+ net/rfkill/rfkill-gpio.c          | 40 +++++++++------------------------------
+ 3 files changed, 10 insertions(+), 44 deletions(-)
 
----
-Not tested.
-
- drivers/net/wireless/ray_cs.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/ray_cs.c b/drivers/net/wireless/ray_cs.c
-index cbf0a58..8330fa3 100644
---- a/drivers/net/wireless/ray_cs.c
-+++ b/drivers/net/wireless/ray_cs.c
-@@ -343,7 +343,7 @@ static void ray_detach(struct pcmcia_device *link)
- 	ray_release(link);
- 
- 	local = netdev_priv(dev);
--	del_timer(&local->timer);
-+	del_timer_sync(&local->timer);
- 
- 	if (link->priv) {
- 		unregister_netdev(dev);
+-- 
+1.9.1
