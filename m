@@ -1,83 +1,47 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net] Call efx_set_channels() before efx->type->dimension_resources()
-Date: Tue, 1 Apr 2014 13:10:34 +0100
-Message-ID: <533AACBA.3020807@solarflare.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [PATCH v4 net] xen-netback: disable rogue vif in kthread context
+Date: Tue, 1 Apr 2014 13:10:46 +0100
+Message-ID: <533AACC6.3050200@citrix.com>
+References: <1396352772-7884-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-net-drivers@solarflare.com>,
-	Ben Hutchings <ben@decadent.org.uk>
-To: <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
+	<zoltan.kiss@citrix.com>, <edwin@etorok.net>,
+	Ian Campbell <ian.campbell@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:35829 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751096AbaDAMKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 08:10:39 -0400
+Received: from smtp.citrix.com ([66.165.176.89]:10290 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752244AbaDAMKt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2014 08:10:49 -0400
+In-Reply-To: <1396352772-7884-1-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Pieczko <dpieczko@solarflare.com>
+On 01/04/14 12:46, Wei Liu wrote:
+> When netback discovers frontend is sending malformed packet it will
+> disables the interface which serves that frontend.
+> 
+> However disabling a network interface involving taking a mutex which
+> cannot be done in softirq context, so we need to defer this process to
+> kthread context.
+> 
+> This patch does the following:
+> 1. introduce a flag to indicate the interface is disabled.
+> 2. check that flag in TX path, don't do any work if it's true.
+> 3. check that flag in RX path, turn off that interface if it's true.
+> 
+> The reason to disable it in RX path is because RX uses kthread. After
+> this change the behavior of netback is still consistent -- it won't do
+> any TX work for a rogue frontend, and the interface will be eventually
+> turned off.
+> 
+> Also change a "continue" to "break" after xenvif_fatal_tx_err, as it
+> doesn't make sense to continue processing packets if frontend is rogue.
+> 
+> This is a fix for XSA-90.
 
-When using the "separate_tx_channels=1" module parameter, the TX queues are
-initially numbered starting from the first TX-only channel number (after all the
-RX-only channels).  efx_set_channels() renumbers the queues so that they are
-indexed from zero.
+Reviewed-by: David Vrabel <david.vrabel@citrix.com>
 
-On EF10, the TX queues need to be relabelled in this way before calling the
-dimension_resources NIC type operation, otherwise the TX queue PIO buffers can be
-linked to the wrong VIs when using "separate_tx_channels=1".
-
-Added comments to explain UC/WC mappings for PIO buffers
-
-Signed-off-by: Shradha Shah <sshah@solarflare.com>
----
-This bug fix is needed for all versions supporting EF10
-i.e all versions including and after 3.12.
----
- drivers/net/ethernet/sfc/ef10.c |    7 +++++++
- drivers/net/ethernet/sfc/efx.c  |    3 ++-
- 2 files changed, 9 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 174a92f..7645a3c 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -565,10 +565,17 @@ static int efx_ef10_dimension_resources(struct efx_nic *efx)
- 	 * several of each (in fact that's the only option if host
- 	 * page size is >4K).  So we may allocate some extra VIs just
- 	 * for writing PIO buffers through.
-+	 *
-+	 * The UC mapping contains (min_vis - 1) complete VIs and the
-+	 * first half of the next VI.  Then the WC mapping begins with
-+	 * the second half of this last VI.
- 	 */
- 	uc_mem_map_size = PAGE_ALIGN((min_vis - 1) * EFX_VI_PAGE_SIZE +
- 				     ER_DZ_TX_PIOBUF);
- 	if (nic_data->n_piobufs) {
-+		/* pio_write_vi_base rounds down to give the number of complete
-+		 * VIs inside the UC mapping.
-+		 */
- 		pio_write_vi_base = uc_mem_map_size / EFX_VI_PAGE_SIZE;
- 		wc_mem_map_size = (PAGE_ALIGN((pio_write_vi_base +
- 					       nic_data->n_piobufs) *
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 83d4643..f06c790 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -1603,6 +1603,8 @@ static int efx_probe_nic(struct efx_nic *efx)
- 	if (rc)
- 		goto fail1;
- 
-+	efx_set_channels(efx);
-+
- 	rc = efx->type->dimension_resources(efx);
- 	if (rc)
- 		goto fail2;
-@@ -1613,7 +1615,6 @@ static int efx_probe_nic(struct efx_nic *efx)
- 		efx->rx_indir_table[i] =
- 			ethtool_rxfh_indir_default(i, efx->rss_spread);
- 
--	efx_set_channels(efx);
- 	netif_set_real_num_tx_queues(efx->net_dev, efx->n_tx_channels);
- 	netif_set_real_num_rx_queues(efx->net_dev, efx->n_rx_channels);
- 
+David
