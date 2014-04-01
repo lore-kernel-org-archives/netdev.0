@@ -1,46 +1,68 @@
-From: Zheng Li <zheng.x.li@oracle.com>
-Subject: [PATCH v2] bonding: Inactive slaves should keep inactive flag's value
-Date: Tue,  1 Apr 2014 16:02:07 +0800
-Message-ID: <1396339327-24899-1-git-send-email-zheng.x.li@oracle.com>
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	joe.jin@oracle.com, zheng.x.li@oracle.com
-To: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	j.vosburgh@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/3] net: Add a test to see if a skb is freeable in irq context
+Date: Tue, 01 Apr 2014 01:03:53 -0700
+Message-ID: <87a9c5jx1y.fsf@x220.int.ebiederm.org>
+References: <063D6719AE5E284EB5DD2968C1650D6D0F6E02DB@AcuExch.aculab.com>
+	<87mwgbkttv.fsf_-_@x220.int.ebiederm.org>
+	<87eh1nktrw.fsf_-_@x220.int.ebiederm.org>
+	<20140329.180945.1823589321953879448.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: bjorn@mork.no, eric.dumazet@gmail.com, ben@decadent.org.uk,
+	stephen@networkplumber.org, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, mpm@selenic.com, satyam.sharma@gmail.com,
+	David.Laight@ACULAB.COM
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out03.mta.xmission.com ([166.70.13.233]:56038 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751280AbaDAIEM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 04:04:12 -0400
+In-Reply-To: <20140329.180945.1823589321953879448.davem@davemloft.net> (David
+	Miller's message of "Sat, 29 Mar 2014 18:09:45 -0400 (EDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-bond_open is not setting the inactive flag correctly for some modes (alb and
-tlb), resulting in error behavior if the bond has been administratively set
-down and then back up. This effect should not occur when slaves are added while
-the bond is up; it's something that only happens after a down/up bounce of the
-bond.
+David Miller <davem@davemloft.net> writes:
 
-For example, in bond tlb or alb mode, domu send some ARP request which go out
-from dom0 bond's active slave, then the ARP broadcast request packets go back to
-inactive slave from switch, because the inactive slave's inactive flag is zero,
-kernel will receive the packets and pass them to bridge that cause dom0's bridge
-map domu's MAC address to port of bond, bridge should map domu's MAC to port of
-vif.
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Thu, 27 Mar 2014 18:15:47 -0700
+>
+>> Currently netpoll and skb_release_head_state assume that a skb is
+>> freeable in hard irq context except when skb->destructor is set.
+>> 
+>> The reality is far from this.  So add a function skb_irq_freeable to
+>> compute the full test and in the process be the living documentation of
+>> what the requirements are of actually freeing a skb in hard irq context.
+>> 
+>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>  ...
+>> +	return !skb->destructor &&
+>> +#if IS_ENABLED(CONFIG_XFRM)
+>> +		!skb->sp &&
+>> +#endif
+>> +#if IS_ENABLED(CONFIG_NF_CONNTRACK)
+>> +		!skb->nfct &&
+>> +#endif
+>> +		!skb->_skb_refdst &&
+>> +		!skb_has_frag_list(skb);
+>
+> I think you need to add "!skb->nf_bridge &&" to this test.
 
-Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
-Signed-off-by: Jay Vosburgh <j.vosburgh@gmail.com>
----
- drivers/net/bonding/bond_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Given that the definition of nf_bridge_put is just:
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index e5628fc..f97d72e 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3058,7 +3058,7 @@ static int bond_open(struct net_device *bond_dev)
- 	if (bond_has_slaves(bond)) {
- 		read_lock(&bond->curr_slave_lock);
- 		bond_for_each_slave(bond, slave, iter) {
--			if ((bond->params.mode == BOND_MODE_ACTIVEBACKUP)
-+			if ((bond->params.mode == BOND_MODE_ACTIVEBACKUP || bond_is_lb(bond))
- 				&& (slave != bond->curr_active_slave)) {
- 				bond_set_slave_inactive_flags(slave,
- 							      BOND_SLAVE_NOTIFY_NOW);
--- 
-1.7.6.5
+static inline void nf_bridge_put(struct nf_bridge_info *nf_bridge)
+{
+	if (nf_bridge && atomic_dec_and_test(&nf_bridge->use))
+		kfree(nf_bridge);
+}
+
+I don't see why.
+
+atomic_dec_and_test and kfree are hard irq safe.
+
+I can see the code evolving in a way where it wouldn't be safe to put a
+nf_bridge from hard irq context but the code as it is today is trivially
+safe.
+
+Eric
