@@ -1,64 +1,83 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next 01/13] e1000e: Fix no connectivity when driver loaded
- with cable out
-Date: Tue, 01 Apr 2014 16:06:18 +0400
-Message-ID: <533AABBA.70603@cogentembedded.com>
-References: <1396308899-20926-1-git-send-email-jeffrey.t.kirsher@intel.com> <1396308899-20926-2-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: [PATCH net] Call efx_set_channels() before efx->type->dimension_resources()
+Date: Tue, 1 Apr 2014 13:10:34 +0100
+Message-ID: <533AACBA.3020807@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Cc: <linux-net-drivers@solarflare.com>,
+	Ben Hutchings <ben@decadent.org.uk>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f41.google.com ([209.85.215.41]:58896 "EHLO
-	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752062AbaDAMGV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 08:06:21 -0400
-Received: by mail-la0-f41.google.com with SMTP id gl10so7024558lab.0
-        for <netdev@vger.kernel.org>; Tue, 01 Apr 2014 05:06:19 -0700 (PDT)
-In-Reply-To: <1396308899-20926-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:35829 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751096AbaDAMKj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 08:10:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Daniel Pieczko <dpieczko@solarflare.com>
 
-On 01-04-2014 3:34, Jeff Kirsher wrote:
+When using the "separate_tx_channels=1" module parameter, the TX queues are
+initially numbered starting from the first TX-only channel number (after all the
+RX-only channels).  efx_set_channels() renumbers the queues so that they are
+indexed from zero.
 
-> From: David Ertman <davidx.m.ertman@intel.com>
+On EF10, the TX queues need to be relabelled in this way before calling the
+dimension_resources NIC type operation, otherwise the TX queue PIO buffers can be
+linked to the wrong VIs when using "separate_tx_channels=1".
 
-> In commit da1e2046e5, the flow for enabling/disabling an Si errata
+Added comments to explain UC/WC mappings for PIO buffers
 
-    Please also specify that commit's summary line in parens.
+Signed-off-by: Shradha Shah <sshah@solarflare.com>
+---
+This bug fix is needed for all versions supporting EF10
+i.e all versions including and after 3.12.
+---
+ drivers/net/ethernet/sfc/ef10.c |    7 +++++++
+ drivers/net/ethernet/sfc/efx.c  |    3 ++-
+ 2 files changed, 9 insertions(+), 1 deletions(-)
 
-> workaround (e1000_lv_jumbo_workaround_ich8lan) was changed to fix a problem
-> with iAMT connections dropping on interface down with jumbo frames set.
-> Part of this change was to move the function call disabling the workaround
-> to e1000e_down() from the e1000_setup_rctl() function.  The mechanic for
-> disabling of this workaround involves writing several MAC and PHY registers
-> back to hardware defaults.
-
-> After this commit, when the driver is loaded with the cable out, the PHY
-> registers are not programmed with the correct default values.  This causes
-> the device to be capable of transmitting packets, but is unable to recieve
-> them until this workaround is called.
-
-> The flow of e1000e's open code relies upon calling the above workaround to
-> expicitly program these registers either with jumbo frame appropriate settings
-> or h/w defaults on 82579 and newer hardware.
-
-> Fix this issue by adding logic to e1000_setup_rctl() that not only calls
-> e1000_lv_jumbo_workaround_ich8lan() when jumbo frames are set, to enable the
-> workaround, but also calls this function to explicitly disable the workaround
-> in the case that jumbo frames are not set.
-
-> Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
-> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->   drivers/net/ethernet/intel/e1000e/netdev.c | 20 +++++++++++++++-----
->   1 file changed, 15 insertions(+), 5 deletions(-)
-
-[...]
-
-WBR, Sergei
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index 174a92f..7645a3c 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -565,10 +565,17 @@ static int efx_ef10_dimension_resources(struct efx_nic *efx)
+ 	 * several of each (in fact that's the only option if host
+ 	 * page size is >4K).  So we may allocate some extra VIs just
+ 	 * for writing PIO buffers through.
++	 *
++	 * The UC mapping contains (min_vis - 1) complete VIs and the
++	 * first half of the next VI.  Then the WC mapping begins with
++	 * the second half of this last VI.
+ 	 */
+ 	uc_mem_map_size = PAGE_ALIGN((min_vis - 1) * EFX_VI_PAGE_SIZE +
+ 				     ER_DZ_TX_PIOBUF);
+ 	if (nic_data->n_piobufs) {
++		/* pio_write_vi_base rounds down to give the number of complete
++		 * VIs inside the UC mapping.
++		 */
+ 		pio_write_vi_base = uc_mem_map_size / EFX_VI_PAGE_SIZE;
+ 		wc_mem_map_size = (PAGE_ALIGN((pio_write_vi_base +
+ 					       nic_data->n_piobufs) *
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 83d4643..f06c790 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -1603,6 +1603,8 @@ static int efx_probe_nic(struct efx_nic *efx)
+ 	if (rc)
+ 		goto fail1;
+ 
++	efx_set_channels(efx);
++
+ 	rc = efx->type->dimension_resources(efx);
+ 	if (rc)
+ 		goto fail2;
+@@ -1613,7 +1615,6 @@ static int efx_probe_nic(struct efx_nic *efx)
+ 		efx->rx_indir_table[i] =
+ 			ethtool_rxfh_indir_default(i, efx->rss_spread);
+ 
+-	efx_set_channels(efx);
+ 	netif_set_real_num_tx_queues(efx->net_dev, efx->n_tx_channels);
+ 	netif_set_real_num_rx_queues(efx->net_dev, efx->n_rx_channels);
+ 
