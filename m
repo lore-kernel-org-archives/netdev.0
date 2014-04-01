@@ -1,58 +1,38 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [net-next 01/13] e1000e: Fix no connectivity when driver loaded
- with cable out
-Date: Tue, 1 Apr 2014 18:07:35 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1404011807080.14882@ionos.tec.linutronix.de>
-References: <1396308899-20926-1-git-send-email-jeffrey.t.kirsher@intel.com> <1396308899-20926-2-git-send-email-jeffrey.t.kirsher@intel.com> <CAOMZO5Ar9QrqsnOjb=V_hLB9Rz51jBMByz=jOMH2iAHi+OfbjA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5 net-next 0/2] patchset: Support for configurable RSS
+ hash key
+Date: Tue, 01 Apr 2014 12:20:16 -0400 (EDT)
+Message-ID: <20140401.122016.1850526829984133014.davem@davemloft.net>
+References: <1395970770.2898.54.camel@deadeye.wl.decadent.org.uk>
+	<20140328.171253.1863144825039621848.davem@davemloft.net>
+	<BF3270C86E8B1349A26C34E4EC1C44CB2C8A255E@CMEXMB1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	David Ertman <davidx.m.ertman@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	gospo@redhat.com, sassmann@redhat.com
-To: Fabio Estevam <festevam@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ben@decadent.org.uk, netdev@vger.kernel.org
+To: VenkatKumar.Duvvuru@Emulex.Com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:46838 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751190AbaDAQH2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 12:07:28 -0400
-In-Reply-To: <CAOMZO5Ar9QrqsnOjb=V_hLB9Rz51jBMByz=jOMH2iAHi+OfbjA@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52474 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753150AbaDAQUS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 12:20:18 -0400
+In-Reply-To: <BF3270C86E8B1349A26C34E4EC1C44CB2C8A255E@CMEXMB1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 1 Apr 2014, Fabio Estevam wrote:
+From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Date: Tue, 1 Apr 2014 15:19:48 +0000
 
-> On Mon, Mar 31, 2014 at 8:34 PM, Jeff Kirsher
-> <jeffrey.t.kirsher@intel.com> wrote:
-> > From: David Ertman <davidx.m.ertman@intel.com>
-> >
-> > In commit da1e2046e5, the flow for enabling/disabling an Si errata
-> > workaround (e1000_lv_jumbo_workaround_ich8lan) was changed to fix a problem
-> > with iAMT connections dropping on interface down with jumbo frames set.
-> > Part of this change was to move the function call disabling the workaround
-> > to e1000e_down() from the e1000_setup_rctl() function.  The mechanic for
-> > disabling of this workaround involves writing several MAC and PHY registers
-> > back to hardware defaults.
-> >
-> > After this commit, when the driver is loaded with the cable out, the PHY
-> > registers are not programmed with the correct default values.  This causes
-> > the device to be capable of transmitting packets, but is unable to recieve
-> > them until this workaround is called.
-> >
-> > The flow of e1000e's open code relies upon calling the above workaround to
-> > expicitly program these registers either with jumbo frame appropriate settings
-> > or h/w defaults on 82579 and newer hardware.
-> >
-> > Fix this issue by adding logic to e1000_setup_rctl() that not only calls
-> > e1000_lv_jumbo_workaround_ich8lan() when jumbo frames are set, to enable the
-> > workaround, but also calls this function to explicitly disable the workaround
-> > in the case that jumbo frames are not set.
-> >
-> > Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
-> > Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> > By grouping the key and hash together, with some reserved fields
+>> > (which the setter should initially require to be equal to zero), it
+>> > should be possible to fill in support for numbered RSS contexts later
+>> > without yet another new structure and operations.
 > 
-> Maybe a Reported-by tag from Thomas is missing?
+> 
+>> If that is the case, why don't we add from the start a "u32 rss_context;"
+>> field that has to be set to zero for now?
+> 
+> The current structure has got three u32 reserved fields already. We could use one of them when the support is added.
 
-Plus a Tested-by: me :)
+Just do as I said, naming one of those to "rss_context" now, and require
+that it be zero.
