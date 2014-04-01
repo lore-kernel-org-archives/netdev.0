@@ -1,35 +1,54 @@
-From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
-Subject: RE: [PATCH v5 net-next 0/2] patchset: Support for configurable RSS
- hash key
-Date: Tue, 1 Apr 2014 15:19:48 +0000
-Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C8A255E@CMEXMB1.ad.emulex.com>
-References: <BF3270C86E8B1349A26C34E4EC1C44CB2C89CCDD@CMEXMB1.ad.emulex.com>
-	<20140327.145336.1708122219432567015.davem@davemloft.net>
-	<1395970770.2898.54.camel@deadeye.wl.decadent.org.uk>
- <20140328.171253.1863144825039621848.davem@davemloft.net>
+From: "wei zhang" <asuka.com@163.com>
+Subject: Re: [PATCH] openvswitch: supply a dummy err_handler of
+ gre_cisco_protocol to prevent kernel crash
+Date: Tue, 1 Apr 2014 23:24:46 +0800 (CST)
+Message-ID: <3586fbc4.12f75.1451de4826d.Coremail.asuka.com@163.com>
+References: <1395957398-24546-1-git-send-email-asuka.com@163.com>
+ <CAEP_g=_qJ1uHKZmZdkUrT+NUkzbRgaHfShZoMbnnCb+LwjOneQ@mail.gmail.com>
+ <4fd27e6c.c96a.14512e82018.Coremail.asuka.com@163.com>
+ <CAEP_g=_84HXCZLOzQ0JdLBF5WVhqwTJeEAY-xjqDD8YCv8yrRg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:34762 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751398AbaDAPTu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 11:19:50 -0400
-In-Reply-To: <20140328.171253.1863144825039621848.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: "David Miller" <davem@davemloft.net>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>
+To: "Jesse Gross" <jesse@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAEP_g=_84HXCZLOzQ0JdLBF5WVhqwTJeEAY-xjqDD8YCv8yrRg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> > By grouping the key and hash together, with some reserved fields
-> > (which the setter should initially require to be equal to zero), it
-> > should be possible to fill in support for numbered RSS contexts later
-> > without yet another new structure and operations.
-
-
-> If that is the case, why don't we add from the start a "u32 rss_context;"
-> field that has to be set to zero for now?
-
-The current structure has got three u32 reserved fields already. We could use one of them when the support is added.
+QXTCoDIwMTQtMDQtMDHCoDA4OjQ5OjUzLCJKZXNzZcKgR3Jvc3MiwqA8amVzc2VAbmljaXJhLmNv
+bT7CoHdyb3RlOgo+T27CoFN1bizCoE1hcsKgMzAswqAyMDE0wqBhdMKgNToxMsKgQU0swqB3ZWnC
+oHpoYW5nwqA8YXN1a2EuY29tQDE2My5jb20+wqB3cm90ZToKPj7CoEF0wqAyMDE0LTAzLTI5wqAw
+NjowMjoyNSwiSmVzc2XCoEdyb3NzIsKgPGplc3NlQG5pY2lyYS5jb20+wqB3cm90ZToKCj4+wqBN
+YXliZcKgScKgbWlzdW5kZXJzdGFuZMKgc29tZXRoaW5nP8KgScKgdGhpbmvCoGlmwqB3ZcKgZGlz
+Y2FyZMKgYWxswqBwYWNrZXTCoHBhc3PCoHRvwqB1cwo+PsKgd2hlbsKgd2XCoHVzZcKgZ3JlwqB2
+cG9ydCzCoG5ld8KgZ3JlX2Npc2NvX3Byb3RvY29swqB3aGljaMKgaGFzwqBsb3dlcsKgcHJpb3Jp
+dHnCoGNvdWxkCj4+wqBub3TCoHNlZcKgdGhlwqBwYWNrZXTCoGludGVuZGVkwqB0b8KgaXQuCj4K
+PlRoYXQnc8KgdHJ1ZcKgYnV0wqBpbsKgdGhpc8KgY2FzZcKgaXTCoHdvdWxkwqBhbHNvwqBub3TC
+oHNlZcKgYW55wqBkYXRhwqBwYWNrZXRzLAo+c2/CoEnCoGRvbid0wqB0aGlua8KgdGhhdMKgc2l0
+dWF0aW9uwqB3b3VsZMKgd29ya8Kgd2VsbMKgYW55d2F5cy4KPgo+PsKgScKgY2hlY2tlZMKgdGhl
+wqBpbXBsZW1lbnRhdGlvbsKgb2bCoHRoZcKgaXBncmVfZXJyKCkswqB3aGljaMKgaGFzwqBiZcKg
+Y2FsbGVkwqBiZWZvcmUKPj7CoHRoZcKgZXJyX2hhbmRsZXLCoG9mwqBncmXCoHZwb3J0LsKgSXTC
+oHVzZcKgdGhlwqB0aGXCoChsb2NhbMKgYWRkcmVzcyzCoHJlbW90ZcKgYWRkcmVzcyzCoGtleSkK
+Pj7CoHRvwqBkaXN0aW5ndWlzaMKgdGhlwqBwYWNrZXTCoHdoaWNowqBpc8KgcmVhbHnCoGludGVu
+ZGVkwqB0b8KgaXQswqBhbHRob3VnaMKgaXTCoGNvdWxkwqBub3QKPj7CoGFsd2F5c8KgZ2V0wqB0
+aGXCoGtlecKgZnJvbcKgdGhlwqBpY21wwqBwYWNrZXQuwqBTaG91bGTCoHdlwqBkb8KgYXPCoHRo
+ZcKgc2FtZcKgYXPCoGl0Pwo+PsKgSSdtwqBub3TCoHN1cmXCoHRoaXPCoGlzwqBmZWFzaWJsZSzC
+oGFuecKgYWR2aWNlwqBpc8KgYXBwcmVjaWF0ZS4KPgo+T1ZTwqBkb2VzwqBmbG93wqBiYXNlZMKg
+bWF0Y2hpbmfCoHJhdGhlcsKgdGhhbsKgdXNpbmfCoGHCoHN0YXRpY8Kgc2V0wqBvZgo+Y29uZmln
+dXJhdGlvbsKgcGFyYW1ldGVycyzCoHNvwqBldmVyeXRoaW5nwqAibWF0Y2hlcyLCoGluwqBzb21l
+wqB3YXkKPihhbHRob3VnaMKgdGhlwqByZXN1bHTCoG1pZ2h0wqBiZcKgdG/CoGRyb3ApLsKgCgpT
+byB0aGUgZmxvdyBiYXNlZCBtYXRjaCBjb3VsZCBkeW5hbWljYWxseSBkZXRlcm1pbmUgYnkgdGhl
+IG92cyBkYWVtb24sIHdlIGNvdWxkCm5vdCBmaW5kIG91dCB0aGUgYmVsb25naW5nIG9mIHRoZSBw
+YWNrZXQgYXMgZmFyIGFzIHdlIGNhbGzCoG92c19kcF91cGNhbGwoKSwgaXNuJ3QgaXQ/Cgo+VGhp
+c8KgZ2VuZXJhbGx5wqBtZWFuc8KgdGhhdMKgT1ZTCj5pc8KgdGhlwqByZWNlaXZlcsKgb2bCoGxh
+c3TCoHJlc29ydMKgYW5kwqBub3RoaW5nwqBjdXJyZW50bHnCoGhhc8KgYcKgbG93ZXIKPnByaW9y
+aXR5LsKgCgpUaGFua3MgZm9yIHlvdXIga2luZCBoZWxwLCB0aGlzIGNsYXJpZnkgbXkgbWlzdW5k
+ZXJzdGFuZGluZyEKCj5UaGF0wqBhY3R1YWxsecKgbWVhbnPCoHRoZcKgZGlmZmVyZW5jZcKgYmV0
+d2VlbsKgdGhlwqBwYXRjaGVzwqBpcwo+c29tZXdoYXTCoGFjYWRlbWljwqBidXTCoGl0wqBzZWVt
+c8KgbW9yZcKgcm9idXN0wqBmb3LCoHRoZcKgbG9naWPCoHRvwqBiZQo+Y29uc2lzdGVudC4KClJl
+Z2FyZHMsCldlaSBaaGFuZ8KgCgo=
