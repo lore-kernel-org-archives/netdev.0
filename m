@@ -1,65 +1,59 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: ipv6:remove ipv6 global address after the interface is down
-Date: Tue, 01 Apr 2014 18:12:09 +0800
-Message-ID: <533A90F9.3050807@gmail.com>
-References: <533A8737.8050108@gmail.com> <20140401093544.GF24150@order.stressinduktion.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] isdnloop: NUL-terminate strings from userspace
+Date: Tue, 1 Apr 2014 12:30:20 +0200
+Message-ID: <20140401103020.GG24150@order.stressinduktion.org>
+References: <1396346898-8950-1-git-send-email-vegard.nossum@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140401093544.GF24150@order.stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Dan Carpenter <dan.carpenter@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org
+To: Vegard Nossum <vegard.nossum@oracle.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1396346898-8950-1-git-send-email-vegard.nossum@oracle.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/01/2014 05:35 PM, Hannes Frederic Sowa wrote:
-> On Tue, Apr 01, 2014 at 05:30:31PM +0800, zhuyj wrote:
->> Hi, Paul
->>
->> With kernel 2.6.34.x, the following problem will appear.
->>
->>   TargetA ------------------------- TargetB
->> 3000::1/64 3000::2/64
->>
->>   TargetA
->>     - bring the interface down by doing an "ifconfig eth1 down"
->>     - bring the interface back up by doing an "ifconfig eth1 up"
->>
->> TargetB
->>     - ping6 3000::1
->>        ping6 succeeds the first time
->>     - after bringing the interface on TargetA down and then back up,
->> ping6 to the interface fails.
->>
->> With the latest mainline kernel(3.4+), this problem is resolved. When
->> eth1 is down, ipv6 address and route item are removed.
->> But with kernel 2.6.34.x, when eth1 is down, ipv6 address remains while
->> route item is removed.
->>
->> So when eth1 is up and assign the previous ipv6 address, with 2.6.34.x,
->> some errors will appear. But with latest mainline kernel, it can work well.
->>
->> So I made a patch to fix this problem in kernel 2.6.34.x. Please merge
->> this to kernel2.6.34.x.
-> 2.6.34 stable is EOL and won't get updated anymore. If this is problem is also
-> present in other, still maintained, stable kernel this would be possible.
-Hi, Hannes
+On Tue, Apr 01, 2014 at 12:08:18PM +0200, Vegard Nossum wrote:
+> Both the in-kernel and BSD strlcpy() require that the source string is
+> NUL terminated. We could use strncpy() + explicitly terminate the result,
+> but this relies on src and dest having the same size, so the safest thing
+> to do seems to explicitly terminate the source string before doing the
+> strlcpy().
+> 
+> Fixes: f9a23c84486ed35 ("isdnloop: use strlcpy() instead of strcpy()")
+> Cc: Dan Carpenter <dan.carpenter@oracle.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
+> ---
+>  drivers/isdn/isdnloop/isdnloop.c |    8 ++++++++
+>  1 file changed, 8 insertions(+)
+> 
+> diff --git a/drivers/isdn/isdnloop/isdnloop.c b/drivers/isdn/isdnloop/isdnloop.c
+> index 02125e6..50cd348 100644
+> --- a/drivers/isdn/isdnloop/isdnloop.c
+> +++ b/drivers/isdn/isdnloop/isdnloop.c
+> @@ -1070,6 +1070,14 @@ isdnloop_start(isdnloop_card *card, isdnloop_sdef *sdefp)
+>  		return -EBUSY;
+>  	if (copy_from_user((char *) &sdef, (char *) sdefp, sizeof(sdef)))
+>  		return -EFAULT;
+> +
+> +	/*
+> +	 * Null terminate strings from userspace so we don't have to worry
+> +	 * about this later on.
+> +	 */
+> +	for (i = 0; i < 3; i++)
+> +		sdef.num[i][sizeof(sdef.num[0]) - 1] = '\0';
+> +
 
-It is fortunate. I checked other stable kernel. They can work well. 
-Maybe this patch can only fix the problem on 2.6.34.x.
+Looking down the problem, it seems the problem is that the strlen in strlcpy
+could read beyond the input buffer?
 
->
-> Can you identify the upstream commit which repaired this problem and when it
-> got introduced?
-commit 73a8bd74 [ipv6:Revert 'administrative down' address handling 
-changes] can fix this problem.
+To prevent this problem in other parts of the kernel wouldn't it be better to
+replace the strlen with strnlen in strlcpy?
 
-Best Regards!
-Zhu Yanjun
->
-> Thanks,
->
->    Hannes
->
->
+Bye,
+
+  Hannes
