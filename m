@@ -1,27 +1,49 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: last call for iproute2-3.14
-Date: Mon, 31 Mar 2014 20:25:34 -0700
-Message-ID: <20140331202534.3b47034d@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH 1/1] iproute2: wrong error when label is more than 15
+ chars
+Date: Mon, 31 Mar 2014 20:48:45 -0700
+Message-ID: <20140331204845.6496a28c@nehalam.linuxnetplumber.net>
+References: <1395830388-13874-1-git-send-email-snagarka@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, psabata@redhat.com
+To: Swapnil Nagarkar <snagarka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:37181 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751816AbaDADZi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 23:25:38 -0400
-Received: by mail-pd0-f177.google.com with SMTP id y10so8892337pdj.36
-        for <netdev@vger.kernel.org>; Mon, 31 Mar 2014 20:25:38 -0700 (PDT)
-Received: from nehalam.linuxnetplumber.net (static-50-53-83-51.bvtn.or.frontiernet.net. [50.53.83.51])
-        by mx.google.com with ESMTPSA id gj9sm46618259pbc.7.2014.03.31.20.25.36
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Mon, 31 Mar 2014 20:25:36 -0700 (PDT)
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:34868 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751073AbaDADst (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Mar 2014 23:48:49 -0400
+Received: by mail-pb0-f51.google.com with SMTP id uo5so9194189pbc.38
+        for <netdev@vger.kernel.org>; Mon, 31 Mar 2014 20:48:48 -0700 (PDT)
+In-Reply-To: <1395830388-13874-1-git-send-email-snagarka@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since Linus has released 3.14, I am about to put out iproute2 for 3.14
-followed merge in from net-next.
+On Wed, 26 Mar 2014 16:09:48 +0530
+Swapnil Nagarkar <snagarka@redhat.com> wrote:
 
-Any last minute patches should be sent now.
+> The string for "label" option in "ip" command does not take more than 15 chanracters.
+> Gives error "RTNETLINK answers: Numerical result out of range".
+> $ ip addr add 10.65.X.X/23 dev em1:1 label em1:123456789012
+> RTNETLINK answers: Numerical result out of range
+> $ ip addr add 10.65.X.X/23 dev em1:1 label em1:12345678901
+> 
+> Adding check for maximum length of interface name and proper error
+> message.
+> 
+> After patch output:-
+> $ ./ip addr replace 192.168.50.4 dev em1:123 label em1:123456789012
+> Error: argument "em1:123456789012" is wrong: invalid label value.
+> 
+> Signed-off-by: Swapnil Nagarkar <snagarka@redhat.com>
+
+I am not sure I like ip route commands trying to "fix up" kernel errors
+like this. There are lots of possible error cases, and this one is so much
+a corner case it doesn't seem right to step in and do something special.
+
+The error number comes from the netlink attribute validation policy
+and although the glibc error string is less than useful, the concept of
+name too long does fit in the general meaning of ERANGE.
+
+Unless there is a compelling outcry, I am going to reject this.
