@@ -1,59 +1,67 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/13] ixgbe: never generate both software and hardware timestamps
-Date: Mon, 31 Mar 2014 16:34:49 -0700
-Message-ID: <1396308899-20926-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1396308899-20926-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jakub Kicinski <kubakici@wp.pl>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:42191 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751617AbaCaXgI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Mar 2014 19:36:08 -0400
-In-Reply-To: <1396308899-20926-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jay Vosburgh <j.vosburgh@gmail.com>
+Subject: Re: [PATCH] bonding: Inactive slaves should keep inactive flag's value to 1
+Date: Mon, 31 Mar 2014 17:35:19 -0700
+Message-ID: <21040.1396312519@famine>
+References: <1395998529-5937-1-git-send-email-zheng.x.li@oracle.com>
+Cc: netdev@vger.kernel.org, andy@greyhouse.net,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	joe.jin@oracle.com
+To: Zheng Li <zheng.x.li@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <1395998529-5937-1-git-send-email-zheng.x.li@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jakub Kicinski <kubakici@wp.pl>
+Zheng Li <zheng.x.li@oracle.com> wrote:
 
-skb_tx_timestamp() does not report software time stamp
-if SKBTX_IN_PROGRESS is set. According to timestamping.txt
-software time stamps are a fallback and should not be
-generated if hardware time stamp is provided.
+>In bond mode tlb and alb, inactive slaves should keep inactive flag to 1 to
+>refuse to receive broadcast packets. Now, active slave send broadcast packets
+>(for example ARP requests) which will arrive inactive slaves on same host from
+>switch, but inactive slave's inactive flag is zero that cause bridge receive the
+>broadcast packets to produce a wrong entry in forward table. Typical situation
+>is domu send some ARP request which go out from dom0 bond's active slave, then
+>the ARP broadcast request packets go back to inactive slave from switch, because
+>the inactive slave's inactive flag is zero, kernel will receive the packets and
+>pass them to bridge that cause dom0's bridge map domu's MAC address to port of
+>bond, bridge should map domu's MAC to port of vif.
 
-Move call to skb_tx_timestamp() after setting
-SKBTX_IN_PROGRESS.
+	I think the patch is ok (I don't have a machine to test it on at
+the moment), but the description above is leaving out some details about
+how the problem is induced.
 
-Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	The actual problem being fixed here is that bond_open is not
+setting the inactive flag correctly for some modes (alb and tlb),
+resulting in the behavior described above if the bond has been
+administratively set down and then back up.  This effect should not
+occur when slaves are added while the bond is up; it's something that
+only happens after a down/up bounce of the bond.
+
+	That said, the patch itself looks fine to me.
+
+Signed-off-by: Jay Vosburgh <j.vosburgh@gmail.com>
+
+	-J
+
+>Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
+>---
+> drivers/net/bonding/bond_main.c |    2 +-
+> 1 files changed, 1 insertions(+), 1 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index e5628fc..f97d72e 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -3058,7 +3058,7 @@ static int bond_open(struct net_device *bond_dev)
+> 	if (bond_has_slaves(bond)) {
+> 		read_lock(&bond->curr_slave_lock);
+> 		bond_for_each_slave(bond, slave, iter) {
+>-			if ((bond->params.mode == BOND_MODE_ACTIVEBACKUP)
+>+			if ((bond->params.mode == BOND_MODE_ACTIVEBACKUP || bond_is_lb(bond))
+> 				&& (slave != bond->curr_active_slave)) {
+> 				bond_set_slave_inactive_flags(slave,
+> 							      BOND_SLAVE_NOTIFY_NOW);
+>-- 
+>1.7.6.5
+
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 9e5a366..24538cb 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7042,8 +7042,6 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 		tx_flags |= IXGBE_TX_FLAGS_SW_VLAN;
- 	}
- 
--	skb_tx_timestamp(skb);
--
- 	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
- 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
- 		tx_flags |= IXGBE_TX_FLAGS_TSTAMP;
-@@ -7054,6 +7052,8 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 		schedule_work(&adapter->ptp_tx_work);
- 	}
- 
-+	skb_tx_timestamp(skb);
-+
- #ifdef CONFIG_PCI_IOV
- 	/*
- 	 * Use the l2switch_enable flag - would be false if the DMA
--- 
-1.9.0
+	-Jay Vosburgh, j.vosburgh@gmail.com
