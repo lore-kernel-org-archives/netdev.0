@@ -1,170 +1,102 @@
-From: Struan Bartlett <struan.bartlett@gmail.com>
-Subject: [PATCH v1] netconsole: Add tty driver
-Date: Tue, 1 Apr 2014 23:13:06 +0200
-Message-ID: <CAOte+=Y5bSq96wXUHQnAZQRn4jMf+6V5Py6nU3eLNEW9NaRzzg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel@vger.kernel.org,
-	Andreas Schwab <schwab@linux-m68k.org>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Andy Shevchenko <andy.shevchenko@gmail.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiri Pirko <jiri@resnulli.us>, Joe Perches <joe@perches.com>,
-	Dan Aloni <alonid@postram.com>
-To: Matt Mackall <mpm@selenic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [RFC PATCH] vlan: Try to adjust lower device mtu when configuring 802.1AD vlans
+Date: Tue,  1 Apr 2014 17:17:34 -0400
+Message-ID: <1396387054-4510-1-git-send-email-vyasevic@redhat.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com>,
+	Patrik McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45854 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751366AbaDAVRn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2014 17:17:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Adds tty driver to netconsole module. When module is loaded, it
-creates /dev/netcon0 device and enables support for console=netcon0
-kernel cmdline option, causing /dev/console output to be sent to
-/dev/netcon0. This allows startup/shutdown script output from
-headless platforms to be logged over (secure) network.
+802.1AD vlans supposed to encapsulate 802.1Q vlans.  To
+do this, we need an extra 4 bytes of header which are typically
+not accounted for by lower devices.  Some devices can not
+support frames longer then 1522 bytes at all.  Such devices
+can not really support 802.1AD, even in software, without
+the vlan reducing its mtu value.
 
-Signed-off-by: Struan Bartlett <struan.bartlett@gmail.com>
+This patch propses to increate the lower devices MTU to 1504
+in case of 802.1AD configuration, and if device doesn't
+support it, fail the creation of the vlan.  The user has an
+option to configure older-style Q-in-Q vlans and manually
+lower the mtu to support such encapsulation.
+
+CC: Patrik McHardy <kaber@trash.net>
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
+ net/8021q/vlan.c         | 17 +++++++++++++++++
+ net/8021q/vlan_netlink.c | 11 ++++++++---
+ 2 files changed, 25 insertions(+), 3 deletions(-)
 
---- a/drivers/net/netconsole.c  2014-03-31 04:40:15.000000000 +0100
-+++ b/drivers/net/netconsole.c  2014-04-01 11:58:50.000000000 +0100
-@@ -15,6 +15,7 @@
-  *               generic card hooks
-  *               works non-modular
-  * 2003-09-07    rewritten with netpoll api
-+ * 2014-03-31    tty driver by Struan Bartlett
-  */
-
- /****************************************************************
-@@ -47,6 +48,7 @@
- #include <linux/netpoll.h>
- #include <linux/inet.h>
- #include <linux/configfs.h>
-+#include <linux/tty.h>
-
- MODULE_AUTHOR("Maintainer: Matt Mackall <mpm@selenic.com>");
- MODULE_DESCRIPTION("Console driver for network interfaces");
-@@ -728,7 +730,7 @@ static struct notifier_block netconsole_
-        .notifier_call  = netconsole_netdev_event,
- };
-
--static void write_msg(struct console *con, const char *msg, unsigned int len)
-+static void _write_msg(const char *msg, unsigned int len)
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 175273f..0328d73 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -126,6 +126,7 @@ int vlan_check_real_dev(struct net_device *real_dev,
+ 			__be16 protocol, u16 vlan_id)
  {
-        int frag, left;
-        unsigned long flags;
-@@ -764,10 +766,63 @@ static void write_msg(struct console *co
-        spin_unlock_irqrestore(&target_list_lock, flags);
+ 	const char *name = real_dev->name;
++	int err;
+ 
+ 	if (real_dev->features & NETIF_F_VLAN_CHALLENGED) {
+ 		pr_info("VLANs not supported on %s\n", name);
+@@ -135,6 +136,21 @@ int vlan_check_real_dev(struct net_device *real_dev,
+ 	if (vlan_find_dev(real_dev, protocol, vlan_id) != NULL)
+ 		return -EEXIST;
+ 
++	if (protocol == htons(ETH_P_8021AD)) {
++		/* 8021AD vlan is meant to encapsulate 8021Q and thus we
++		 * need to make sure that lower device can handle a
++		 * larger mtu.
++		 * If the lower device still has a default ethernet mtu,
++		 * bump it up 4 bytes.  If not, it was set by user and
++		 * we'll trust the user knows what he is doing.
++		 */
++		if (real_dev->mtu == VLAN_ETH_DATA_LEN &&
++		    dev_set_mtu(real_dev, real_dev->mtu + VLAN_HLEN))
++			pr_warn("802.1AD mode is not supported on %s due to mtu limitations.\n", name);
++			return -EOPNOTSUPP
++		} 
++	}
++
+ 	return 0;
  }
-
-+static void write_msg(struct console *con, const char *msg, unsigned int len)
-+{
-+       _write_msg(msg, len);
-+}
+ 
+@@ -259,6 +275,7 @@ static int register_vlan_device(struct net_device *real_dev, u16 vlan_id)
+ 	 * hope the underlying device can handle it.
+ 	 */
+ 	new_dev->mtu = real_dev->mtu;
 +
-+static int netconsole_tty_open(struct tty_struct *tty, struct file *filp)
-+{
-+       return 0;
-+}
-+
-+static void netconsole_tty_close(struct tty_struct *tty, struct file *filp)
-+{
-+}
-+
-+static int netconsole_tty_write(struct tty_struct *tty,
-+                               const unsigned char *buf, int count)
-+{
-+       _write_msg(buf, count);
-+       return count;
-+}
-+
-+static int netconsole_tty_put_char(struct tty_struct *tty, unsigned char ch)
-+{
-+       char temp[2] = { ch, 0 };
-+       _write_msg(temp, 1);
-+       return 1;
-+}
-+
-+static int netconsole_tty_write_room(struct tty_struct *tty)
-+{
-+       return MAX_PRINT_CHUNK;
-+}
-+
-+static const struct tty_operations netconsole_tty_ops = {
-+       .open           = netconsole_tty_open,
-+       .close          = netconsole_tty_close,
-+       .write          = netconsole_tty_write,
-+       .put_char       = netconsole_tty_put_char,
-+       .write_room     = netconsole_tty_write_room,
-+};
-+
-+static struct tty_port netconsole_tty_port;
-+static struct tty_driver *netconsole_tty_driver;
-+
-+static struct tty_driver *netconsole_device(struct console *co, int *index)
-+{
-+       if (!(co->flags & CON_ENABLED))
-+               return NULL;
-+       *index = co->index;
-+       return netconsole_tty_driver;
-+}
-+
- static struct console netconsole = {
-        .name   = "netcon",
-        .flags  = CON_ENABLED,
-        .write  = write_msg,
-+       .device = netconsole_device
- };
-
- static int __init init_netconsole(void)
-@@ -802,11 +857,39 @@ static int __init init_netconsole(void)
-        if (err)
-                goto undonotifier;
-
-+       netconsole_tty_driver = alloc_tty_driver(1);
-+       if (!netconsole_tty_driver) {
-+               err = -ENOMEM;
-+               goto undonotifier;
-+       }
-+
-+       tty_port_init(&netconsole_tty_port);
-+
-+       netconsole_tty_driver->driver_name = "netcon";
-+       netconsole_tty_driver->name = "netcon";
-+       netconsole_tty_driver->type = TTY_DRIVER_TYPE_SYSTEM;
-+       netconsole_tty_driver->subtype = SYSTEM_TYPE_TTY;
-+       netconsole_tty_driver->init_termios = tty_std_termios;
-+       netconsole_tty_driver->init_termios.c_iflag = 0;
-+       netconsole_tty_driver->init_termios.c_oflag = 0;
-+       netconsole_tty_driver->flags = TTY_DRIVER_REAL_RAW;
-+
-+       tty_set_operations(netconsole_tty_driver, &netconsole_tty_ops);
-+       tty_port_link_device(&netconsole_tty_port, netconsole_tty_driver, 0);
-+
-+       err = tty_register_driver(netconsole_tty_driver);
-+       if (err)
-+               goto undotty;
-+
-        register_console(&netconsole);
-        pr_info("network logging started\n");
-
-        return err;
-
-+undotty:
-+       put_tty_driver(netconsole_tty_driver);
-+       tty_port_destroy(&netconsole_tty_port);
-+
- undonotifier:
-        unregister_netdevice_notifier(&netconsole_netdev_notifier);
-
-@@ -830,6 +913,10 @@ static void __exit cleanup_netconsole(vo
- {
-        struct netconsole_target *nt, *tmp;
-
-+       tty_unregister_driver(netconsole_tty_driver);
-+       put_tty_driver(netconsole_tty_driver);
-+       tty_port_destroy(&netconsole_tty_port);
-+
-        unregister_console(&netconsole);
-        dynamic_netconsole_exit();
-        unregister_netdevice_notifier(&netconsole_netdev_notifier);
+ 	new_dev->priv_flags |= (real_dev->priv_flags & IFF_UNICAST_FLT);
+ 
+ 	vlan = vlan_dev_priv(new_dev);
+diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
+index c7e634a..a925a8d 100644
+--- a/net/8021q/vlan_netlink.c
++++ b/net/8021q/vlan_netlink.c
+@@ -144,10 +144,15 @@ static int vlan_newlink(struct net *src_net, struct net_device *dev,
+ 	if (err < 0)
+ 		return err;
+ 
+-	if (!tb[IFLA_MTU])
+-		dev->mtu = real_dev->mtu;
+-	else if (dev->mtu > real_dev->mtu)
++	if (!tb[IFLA_MTU]) {
++		if (vlan->vlan_proto == htons(ETH_P_8021AD) &&
++	    	    real_dev->mtu == VLAN_ETH_DATA_LEN + VLAN_HLEN)
++			dev->mtu = VLAN_ETH_DATA_LEN;
++		else
++			dev->mtu = real_dev->mtu;
++	} else if (dev->mtu > real_dev->mtu) {
+ 		return -EINVAL;
++	}
+ 
+ 	err = vlan_changelink(dev, tb, data);
+ 	if (err < 0)
+-- 
+1.8.5.3
