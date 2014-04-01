@@ -1,44 +1,47 @@
-From: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: [PATCHv3 0/5] net: rfkill: gpio: cleanup and a few new acpi ids
-Date: Tue,  1 Apr 2014 17:02:51 +0300
-Message-ID: <1396360976-28657-1-git-send-email-heikki.krogerus@linux.intel.com>
-Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
-	Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>,
-	Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
-	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Subject: [PATCHv3 1/5] ARM: tegra: remove obsolete gpio entries
+Date: Tue,  1 Apr 2014 17:02:52 +0300
+Message-ID: <1396360976-28657-2-git-send-email-heikki.krogerus@linux.intel.com>
+References: <1396360976-28657-1-git-send-email-heikki.krogerus@linux.intel.com>
+Cc: Chen-Yu Tsai <wens@csie.org>, Rhyland Klein <rklein@nvidia.com>,
+	Marc Dietrich <marvin24@gmx.de>,
+	Stephen Warren <swarren@wwwdotorg.org>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Alexandre Courbot <gnurou@gmail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-tegra@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1396360976-28657-1-git-send-email-heikki.krogerus@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+After moving to description based gpio interface in
+rfkill-gpio, the gpio numbers are not used any more.
 
-I hope this one is OK with everyone.
+Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Reviewed-by: Marc Dietrich <marvin24@gmx.de>
+Acked-by: Stephen Warren <swarren@nvidia.com>
+---
+ arch/arm/mach-tegra/board-paz00.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-Changes since v2:
-- Instead of changing the driver to use only indexed gpios, just
-  hard-coding the names.
-
-Changes since v1:
-- Removed the gpio entries from arch/arm/mach-tegra/board-paz00.c
-
-
-Heikki Krogerus (5):
-  ARM: tegra: remove obsolete gpio entries
-  net: rfkill: gpio: remove unused and obsolete platform parameters
-  net: rfkill: gpio: add ACPI ID for GPS module on Lenovo Miix2
-  net: rfkill: gpio: add ACPI IDs for a Broadcom bluetooth chip
-  net: rfkill: gpio: hard-code the gpio names
-
- arch/arm/mach-tegra/board-paz00.c |  4 +---
- include/linux/rfkill-gpio.h       | 10 ----------
- net/rfkill/rfkill-gpio.c          | 40 +++++++++------------------------------
- 3 files changed, 10 insertions(+), 44 deletions(-)
-
+diff --git a/arch/arm/mach-tegra/board-paz00.c b/arch/arm/mach-tegra/board-paz00.c
+index e4dec9f..9c6029b 100644
+--- a/arch/arm/mach-tegra/board-paz00.c
++++ b/arch/arm/mach-tegra/board-paz00.c
+@@ -23,9 +23,7 @@
+ #include "board.h"
+ 
+ static struct rfkill_gpio_platform_data wifi_rfkill_platform_data = {
+-	.name		= "wifi_rfkill",
+-	.reset_gpio	= 25, /* PD1 */
+-	.shutdown_gpio	= 85, /* PK5 */
++	.name	= "wifi_rfkill",
+ 	.type	= RFKILL_TYPE_WLAN,
+ };
+ 
 -- 
 1.9.1
