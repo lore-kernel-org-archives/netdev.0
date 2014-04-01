@@ -1,48 +1,64 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH] net: filter: minor: fix kdoc in __sk_run_filter
-Date: Tue,  1 Apr 2014 19:38:01 +0200
-Message-ID: <c632c48561df232d14dd87d68b3b322db110e8aa.1396373788.git.dborkman@redhat.com>
-Cc: fengguang.wu@intel.com, netdev@vger.kernel.org, ast@plumgrid.com
-To: davem@davemloft.net
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH v2] netlink: don't compare the nul-termination in nla_strcmp
+Date: Tue,  1 Apr 2014 19:38:44 +0200
+Message-ID: <1396373924-9538-1-git-send-email-pablo@netfilter.org>
+Cc: fw@strlen.de, tgraf@suug.ch
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37711 "EHLO mx1.redhat.com"
+Received: from mail.us.es ([193.147.175.20]:44094 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751336AbaDARiM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Apr 2014 13:38:12 -0400
+	id S1751316AbaDARjD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2014 13:39:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This minor patch fixes the following warning when doing
-a `make htmldocs`:
+From: Pablo Neira <pablo@netfilter.org>
 
-  DOCPROC Documentation/DocBook/networking.xml
-Warning(.../net/core/filter.c:135): No description found for parameter 'insn'
-Warning(.../net/core/filter.c:135): Excess function parameter 'fentry' description in '__sk_run_filter'
-  HTML    Documentation/DocBook/networking.html
+nla_strcmp compares the string length plus one, so it's implicitly
+including the nul-termination in the comparison.
 
-Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Alexei Starovoitov <ast@plumgrid.com>
+ int nla_strcmp(const struct nlattr *nla, const char *str)
+ {
+        int len = strlen(str) + 1;
+        ...
+                d = memcmp(nla_data(nla), str, len);
+
+However, if NLA_STRING is used, userspace can send us a string without
+the nul-termination. This is a problem since the string
+comparison will not match as the last byte may be not the
+nul-termination.
+
+Fix this by skipping the comparison of the nul-termination if the
+attribute data is nul-terminated. Suggested by Thomas Graf.
+
+Cc: Florian Westphal <fw@strlen.de>
+Cc: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/core/filter.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ lib/nlattr.c |   10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 3733381..765556b 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -125,10 +125,10 @@ noinline u64 __bpf_call_base(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
- /**
-  *	__sk_run_filter - run a filter on a given context
-  *	@ctx: buffer to run the filter on
-- *	@fentry: filter to apply
-+ *	@insn: filter to apply
-  *
-  * Decode and apply filter instructions to the skb->data. Return length to
-- * keep, 0 for none. @ctx is the data we are operating on, @filter is the
-+ * keep, 0 for none. @ctx is the data we are operating on, @insn is the
-  * array of filter instructions.
+diff --git a/lib/nlattr.c b/lib/nlattr.c
+index 18eca78..fc67547 100644
+--- a/lib/nlattr.c
++++ b/lib/nlattr.c
+@@ -303,9 +303,15 @@ int nla_memcmp(const struct nlattr *nla, const void *data,
   */
- unsigned int __sk_run_filter(void *ctx, const struct sock_filter_int *insn)
+ int nla_strcmp(const struct nlattr *nla, const char *str)
+ {
+-	int len = strlen(str) + 1;
+-	int d = nla_len(nla) - len;
++	int len = strlen(str);
++	char *buf = nla_data(nla);
++	int attrlen = nla_len(nla);
++	int d;
+ 
++	if (attrlen > 0 && buf[attrlen - 1] == '\0')
++		attrlen--;
++
++	d = attrlen - len;
+ 	if (d == 0)
+ 		d = memcmp(nla_data(nla), str, len);
+ 
 -- 
-1.7.11.7
+1.7.10.4
