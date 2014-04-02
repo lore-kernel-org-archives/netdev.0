@@ -1,74 +1,123 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: 3.15 & Bonding
-Date: Wed, 02 Apr 2014 03:46:36 -0700
-Message-ID: <1396435596.3989.21.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <533BE2F8.5040903@gmail.com>
+From: "Fujinaka, Todd" <todd.fujinaka@intel.com>
+Subject: RE: [E1000-devel] fail to add 64 VLANs or more when SR-IOV is
+	enabled
+Date: Wed, 2 Apr 2014 23:23:08 +0000
+Message-ID: <9B4A1B1917080E46B64F07F2989DADD652978166@ORSMSX102.amr.corp.intel.com>
+References: <9DE5760509B7974286F38D93BF31DD62C7DF93@BPXM13GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Mailing-List fedora-kernel <kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>,
-	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Tom Gundersen <teg-B22kvLQNl6c@public.gmane.org>, Thomas Davis <tadavis-/3juihCSby0@public.gmane.org>,
-	linux-media <linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: poma <pomidorabelisima-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
-In-Reply-To: <533BE2F8.5040903-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://admin.fedoraproject.org/mailman/options/kernel>,
-	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.fedoraproject.org/pipermail/kernel/>
-List-Post: <mailto:kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
-List-Help: <mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=help>
-List-Subscribe: <https://admin.fedoraproject.org/mailman/listinfo/kernel>,
-	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=subscribe>
-Sender: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
-Errors-To: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
+Content-Type: text/plain; charset="iso-2022-jp"
+Content-Transfer-Encoding: 8BIT
+Cc: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	Hiroshi Baba <h-baba@ax.jp.nec.com>
+To: Madoka Komatsubara <m-komatsubara@ab.jp.nec.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <9DE5760509B7974286F38D93BF31DD62C7DF93@BPXM13GP.gisp.nec.co.jp>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCAyMDE0LTA0LTAyIGF0IDEyOjE0ICswMjAwLCBwb21hIHdyb3RlOgo+IEFyZSB5b3Ug
-YWxsIGFsbCByaWdodD8KPiBOZXcgVG91ciBkZSBCdWdzLi4uCj4gCj4gL3N5cy9kZXZpY2VzL3Zp
-cnR1YWwvbmV0L2JvbmQwL2JvbmRpbmcvbW9kZToKPiBhY3RpdmUtYmFja3VwIDEKPiAKPiAtIHN5
-c3RlbWQtbmV0d29ya2QKPiBkbWVzZzoKPiBCVUc6IHNsZWVwaW5nIGZ1bmN0aW9uIGNhbGxlZCBm
-cm9tIGludmFsaWQgY29udGV4dCBhdCBtbS9zbHViLmM6OTY1Cj4gaW5fYXRvbWljKCk6IDEsIGly
-cXNfZGlzYWJsZWQoKTogMCwgcGlkOiA1OTMsIG5hbWU6IHN5c3RlbWQtbmV0d29yawo+IDIgbG9j
-a3MgaGVsZCBieSBzeXN0ZW1kLW5ldHdvcmsvNTkzOgo+ICAjMDogIChydG5sX211dGV4KXsrLisu
-Ky59LCBhdDogWzxmZmZmZmZmZjgxNjllNTdiPl0gcnRuZXRsaW5rX3JjdisweDFiLzB4NDAKPiAg
-IzE6ICAoJmJvbmQtPmN1cnJfc2xhdmVfbG9jayl7Ky4uLisufSwgYXQ6IFs8ZmZmZmZmZmZhMDQ4
-NzI5MT5dCj4gYm9uZF9lbnNsYXZlKzB4ZjMxLzB4ZjUwIFtib25kaW5nXQo+IENQVTogMiBQSUQ6
-IDU5MyBDb21tOiBzeXN0ZW1kLW5ldHdvcmsgTm90IHRhaW50ZWQKPiAzLjE1LjAtMC5yYzAuZ2l0
-Mi4xLmZjMjEueDg2XzY0ICMxCj4gQ2FsbCBUcmFjZToKPiBkdW1wX3N0YWNrKzB4NGQvMHg2Ngo+
-IF9fbWlnaHRfc2xlZXArMHgxN2UvMHgyMzAKPiBrbWVtX2NhY2hlX2FsbG9jX25vZGUrMHg0YS8w
-eDM5MAo+ICBbPGZmZmZmZmZmODE2Nzc5ZGQ+XSBfX2FsbG9jX3NrYisweDVkLzB4MmQwCj4gIFs8
-ZmZmZmZmZmY4MTZhMGJkOD5dIHJ0bXNnX2lmaW5mbysweDQ4LzB4MTEwCj4gIFs8ZmZmZmZmZmY4
-MTBmYTE4ZD5dID8gdHJhY2VfaGFyZGlycXNfb24rMHhkLzB4MTAKPiAgWzxmZmZmZmZmZjgxMDlk
-ZDQ1Pl0gPyBfX2xvY2FsX2JoX2VuYWJsZV9pcCsweDc1LzB4ZTAKPiAgWzxmZmZmZmZmZmEwNDg1
-Y2E3Pl0gYm9uZF9jaGFuZ2VfYWN0aXZlX3NsYXZlKzB4MTk3LzB4NjcwIFtib25kaW5nXQo+ICBb
-PGZmZmZmZmZmYTA0ODYyNjQ+XSBib25kX3NlbGVjdF9hY3RpdmVfc2xhdmUrMHhlNC8weDFlMCBb
-Ym9uZGluZ10KPiAgWzxmZmZmZmZmZmEwNDg3MjlhPl0gYm9uZF9lbnNsYXZlKzB4ZjNhLzB4ZjUw
-IFtib25kaW5nXQo+ICBbPGZmZmZmZmZmODE2OWZkZjI+XSBkb19zZXRsaW5rKzB4YTAyLzB4YTcw
-Cj4gIFs8ZmZmZmZmZmY4MTNmNGZjNj5dID8gbmxhX3BhcnNlKzB4OTYvMHhlMAo+ICBbPGZmZmZm
-ZmZmODE2YTBkYTE+XSBydG5sX3NldGxpbmsrMHhjMS8weDEzMAo+ICBbPGZmZmZmZmZmODEwYTE3
-Mzk+XSA/IG5zX2NhcGFibGUrMHgzOS8weDcwCj4gIFs8ZmZmZmZmZmY4MTY5ZTY0Yj5dIHJ0bmV0
-bGlua19yY3ZfbXNnKzB4YWIvMHgyNzAKPiAgWzxmZmZmZmZmZjgxNjllNTdiPl0gPyBydG5ldGxp
-bmtfcmN2KzB4MWIvMHg0MAo+ICBbPGZmZmZmZmZmODE2OWU1N2I+XSA/IHJ0bmV0bGlua19yY3Yr
-MHgxYi8weDQwCj4gIFs8ZmZmZmZmZmY4MTY5ZTVhMD5dID8gcnRuZXRsaW5rX3JjdisweDQwLzB4
-NDAKPiAgWzxmZmZmZmZmZjgxNmMzZTI5Pl0gbmV0bGlua19yY3Zfc2tiKzB4YTkvMHhjMAo+ICBb
-PGZmZmZmZmZmODE2OWU1OGE+XSBydG5ldGxpbmtfcmN2KzB4MmEvMHg0MAo+ICBbPGZmZmZmZmZm
-ODE2YzM0MjA+XSBuZXRsaW5rX3VuaWNhc3QrMHgxMDAvMHgxZTAKPiAgWzxmZmZmZmZmZjgxNmMz
-ODQ3Pl0gbmV0bGlua19zZW5kbXNnKzB4MzQ3LzB4NzcwCj4gIFs8ZmZmZmZmZmY4MTY2Yzc4Yz5d
-IHNvY2tfc2VuZG1zZysweDljLzB4ZTAKPiAgWzxmZmZmZmZmZjgxMWRlMjJmPl0gPyBtaWdodF9m
-YXVsdCsweDVmLzB4YjAKPiAgWzxmZmZmZmZmZjgxMWRlMjc4Pl0gPyBtaWdodF9mYXVsdCsweGE4
-LzB4YjAKPiAgWzxmZmZmZmZmZjgxMWRlMjJmPl0gPyBtaWdodF9mYXVsdCsweDVmLzB4YjAKPiAg
-WzxmZmZmZmZmZjgxNjZjZDA0Pl0gU1lTQ19zZW5kdG8rMHgxMjQvMHgxZDAKPiAgWzxmZmZmZmZm
-ZjgxMDI0ODc5Pl0gPyBzY2hlZF9jbG9jaysweDkvMHgxMAo+ICBbPGZmZmZmZmZmODEwZGRiNzU+
-XSA/IGxvY2FsX2Nsb2NrKzB4MjUvMHgzMAo+ICBbPGZmZmZmZmZmODExMWNmYzk+XSA/IGN1cnJl
-bnRfa2VybmVsX3RpbWUrMHg2OS8weGQwCj4gIFs8ZmZmZmZmZmY4MTBmYTBiNT5dID8gdHJhY2Vf
-aGFyZGlycXNfb25fY2FsbGVyKzB4MTA1LzB4MWQwCj4gIFs8ZmZmZmZmZmY4MTBmYTE4ZD5dID8g
-dHJhY2VfaGFyZGlycXNfb24rMHhkLzB4MTAKPiAgWzxmZmZmZmZmZjgxNjZkZWRlPl0gU3lTX3Nl
-bmR0bysweGUvMHgxMAo+ICBbPGZmZmZmZmZmODE3ZTc5YTk+XSBzeXN0ZW1fY2FsbF9mYXN0cGF0
-aCsweDE2LzB4MWIKClNob3VsZCBiZSBmaXhlZCBieQoKY29tbWl0IDA3MjI1NmQxZjJiOGJhMGJi
-YjI2NWQ1OTBjNzAzZjNkNTdhMzlkNmEKQXV0aG9yOiBWZWFjZXNsYXYgRmFsaWNvIDx2ZmFsaWNv
-QHJlZGhhdC5jb20+CkRhdGU6ICAgVGh1IE1hciA2IDE1OjMzOjIyIDIwMTQgKzAxMDAKCiAgICBi
-b25kaW5nOiBtYWtlIHNsYXZlIHN0YXR1cyBub3RpZmljYXRpb25zIEdGUF9BVE9NSUMKICAgIAoK
-Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmtlcm5lbCBt
-YWlsaW5nIGxpc3QKa2VybmVsQGxpc3RzLmZlZG9yYXByb2plY3Qub3JnCmh0dHBzOi8vYWRtaW4u
-ZmVkb3JhcHJvamVjdC5vcmcvbWFpbG1hbi9saXN0aW5mby9rZXJuZWw=
+I think you're running into the filter limit for VFs.
+
+Todd Fujinaka
+Software Application Engineer
+Networking Division (ND)
+Intel Corporation
+todd.fujinaka@intel.com
+(503) 712-4565
+
+
+-----Original Message-----
+From: Madoka Komatsubara [mailto:m-komatsubara@ab.jp.nec.com] 
+Sent: Wednesday, April 02, 2014 2:11 AM
+To: Skidmore, Donald C; linux-kernel@vger.kernel.org; e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org
+Cc: Hiroshi Shimamoto; Hiroshi Baba
+Subject: Re: [E1000-devel] fail to add 64 VLANs or more when SR-IOV is enabled
+
+
+>-----Original Message-----
+>From: Komatsubara Madoka(小松原 円) 
+>Sent: Thursday, March 27, 2014 6:11 PM
+>To: 'linux-kernel@vger.kernel.org'; 'e1000-devel@lists.sourceforge.net'; 'netdev@vger.kernel.org'
+>Cc: Shimamoto Hiroshi(島本 裕志); Baba Hiroshi(馬場 裕司)
+>Subject: fail to add 64 VLANs or more when SR-IOV is enabled
+>
+>Hi all,
+>
+>
+>We're facing an issue that we cannot add 64 VLANs or more per VF.
+>When using SR-IOV, pass through a VF to the KVM guest and a lot of VLANs, we could add 63 VLANs using vconfig but we >failed to add 64th VLAN.
+>We'd like to use many VLANs on the guest with SR-IOV.
+>We're using Intel's 82599EB chip with ixgbe and ixgbevf driver.
+>
+>Has anyone seen the same issue?
+>Is there any idea to solve this?
+>
+
+Hi Donald,
+
+Do you also notice this problem?
+We're facing an issue that we can use only 64 VLANs per VF.
+We're using Intel's 82599EB chip with ixgbe and ixgbevf driver.
+
+
+Is it subject to the specification restrictions only 64 VLAN can use per VF?
+We'd like to use about 2000 VLAN per VF.
+
+Does it come from hardware?
+
+
+
+Regards,
+Madoka Komatsubara
+
+
+>The below instruction is a reproducing method.
+>Create hundred VLANs on the guest.
+>
+># for i in `seq 100 199`; do vconfig add eth2 $i; ifconfig 192.168.$i.1/24; done
+>
+># vconfig add eth2 100
+>Added VLAN with VID == 100 to IF -:eth2:-
+>
+># vconfig add eth2 101
+>Added VLAN with VID == 101 to IF -:eth2:-
+>
+># vconfig add eth2 102
+>Added VLAN with VID == 102 to IF -:eth2:-
+>
+>...
+>
+># vconfig add eth2 162
+>Added VLAN with VID == 162 to IF -:eth2:-
+>
+># vconfig add eth2 163
+>ERROR: trying to add VLAN #163 to IF -:eth2:-  error: Permission denied
+>SIOCSIFADDR: No such device
+>eth2.163: unknown interface: No such device
+>
+># vconfig add eth2 164
+>ERROR: trying to add VLAN #164 to IF -:eth2:-  error: Permission denied
+>SIOCSIFADDR: No such device
+>eth2.164: unknown interface: No such device
+>
+># vconfig add eth2 165
+>ERROR: trying to add VLAN #165 to IF -:eth2:-  error: Permission denied
+>SIOCSIFADDR: No such device
+>eth2.165: unknown interface: No such device
+>
+>
+>thanks,
+>Madoka Komatsubara
+
+
+------------------------------------------------------------------------------
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
