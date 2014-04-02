@@ -1,202 +1,76 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: Re: [PATCH] grant-table,
- xen-netback: Introduce helper functions for grant copy operations
-Date: Thu, 3 Apr 2014 08:12:02 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD02BB106@AMSPEX01CL01.citrite.net>
-References: <1396458349-30112-1-git-send-email-zoltan.kiss@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 1/5] bonding: Changed hashing function to just
+ provide hash
+Date: Wed, 02 Apr 2014 03:50:15 -0700
+Message-ID: <1396435815.3989.23.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1396422007-31930-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stefano Stabellini <Stefano.Stabellini@citrix.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Jonathan
-	Davies <Jonathan.Davies@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>, Ian Campbell
-	<Ian.Campbell@citrix.com>, Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>, David Vrabel
-	<david.vrabel@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1396458349-30112-1-git-send-email-zoltan.kiss@citrix.com>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Mahesh Bandewar <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:65012 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758283AbaDBKuS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 06:50:18 -0400
+Received: by mail-pb0-f44.google.com with SMTP id rp16so4686pbb.17
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 03:50:17 -0700 (PDT)
+In-Reply-To: <1396422007-31930-1-git-send-email-maheshb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Zoltan Kiss
-> Sent: 02 April 2014 18:06
-> To: Ian Campbell; Wei Liu; xen-devel@lists.xenproject.org;
-> konrad.wilk@oracle.com; boris.ostrovsky@oracle.com; David Vrabel
-> Cc: Stefano Stabellini; Paul Durrant; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; Jonathan Davies; Zoltan Kiss
-> Subject: [PATCH] grant-table, xen-netback: Introduce helper functions for
-> grant copy operations
+On Wed, 2014-04-02 at 00:00 -0700, Mahesh Bandewar wrote:
+> Modified the hash function to return just hash separating from the
+> modulo operation that can be performed by the caller. This is to
+> make way for the tlb mode to use the same hashing policies that
+> are used in the 802.3ad and Xor mode.
 > 
-> Create helper functions for grant copy operations and use them in netback.
-> 
-> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> Change-Id: I276609e87e0ca213c4d1b17b79c5e0b0f3d0dd6f
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 > ---
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
-> netback/netback.c
-> index 8d3bb4a..874df60 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -275,23 +275,29 @@ static void xenvif_gop_frag_copy(struct xenvif *vif,
-> struct sk_buff *skb,
->  			bytes = MAX_BUFFER_OFFSET - npo->copy_off;
+> v2:
+>   Change the return type of bond_xmit_hash() from int to u32
+> v3:
+>   Rebase.
 > 
->  		copy_gop = npo->copy + npo->copy_prod++;
-> -		copy_gop->flags = GNTCOPY_dest_gref;
-> -		copy_gop->len = bytes;
+>  drivers/net/bonding/bond_3ad.c  |  3 ++-
+>  drivers/net/bonding/bond_main.c | 10 ++++------
+>  drivers/net/bonding/bonding.h   |  2 +-
+>  3 files changed, 7 insertions(+), 8 deletions(-)
 > 
->  		if (foreign_vif) {
-> -			copy_gop->source.domid = foreign_vif->domid;
-> -			copy_gop->source.u.ref = foreign_gref;
-> -			copy_gop->flags |= GNTCOPY_source_gref;
-> +			gnttab_set_copy_op_ref_to_ref(copy_gop,
-> +						      foreign_gref,
-> +						      npo->copy_gref,
-> +						      foreign_vif->domid,
-> +						      offset,
-> +						      vif->domid,
-> +						      npo->copy_off,
-> +						      bytes,
-> +						      GNTCOPY_dest_gref |
-> +						      GNTCOPY_source_gref);
+> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+> index b667a51ed215..ccf2639e916f 100644
+> --- a/drivers/net/bonding/bond_3ad.c
+> +++ b/drivers/net/bonding/bond_3ad.c
+> @@ -30,6 +30,7 @@
+>  #include <linux/etherdevice.h>
+>  #include <linux/if_bonding.h>
+>  #include <linux/pkt_sched.h>
+> +#include <net/sock.h>
 
-Can't you lose the flags here (and in the other variants)? Since they are implied by the variant of the function they could just be hardcoded there, couldn't they?
+Not sure why you added this include ?
 
-  Paul
+>  #include <net/net_namespace.h>
+>  #include "bonding.h"
+>  #include "bond_3ad.h"
+> @@ -2440,7 +2441,7 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+>  		goto err_free;
+>  	}
+>  
+> -	slave_agg_no = bond_xmit_hash(bond, skb, slaves_in_agg);
+> +	slave_agg_no = bond_xmit_hash(bond, skb) % slaves_in_agg;
+>  	first_ok_slave = NULL;
+>  
+>  	bond_for_each_slave_rcu(bond, slave, iter) {
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
 
->  		} else {
-> -			copy_gop->source.domid = DOMID_SELF;
-> -			copy_gop->source.u.gmfn =
-> -				virt_to_mfn(page_address(page));
-> +			gnttab_set_copy_op_gmfn_to_ref(copy_gop,
-> +
-> virt_to_mfn(page_address(page)),
-> +						       npo->copy_gref,
-> +						       DOMID_SELF,
-> +						       offset,
-> +						       vif->domid,
-> +						       npo->copy_off,
-> +						       bytes,
-> +						       GNTCOPY_dest_gref);
->  		}
-> -		copy_gop->source.offset = offset;
-> -
-> -		copy_gop->dest.domid = vif->domid;
-> -		copy_gop->dest.offset = npo->copy_off;
-> -		copy_gop->dest.u.ref = npo->copy_gref;
-> 
->  		npo->copy_off += bytes;
->  		meta->size += bytes;
-> @@ -1297,18 +1303,16 @@ static void xenvif_tx_build_gops(struct xenvif
-> *vif,
->  		XENVIF_TX_CB(skb)->pending_idx = pending_idx;
-> 
->  		__skb_put(skb, data_len);
-> -		vif->tx_copy_ops[*copy_ops].source.u.ref = txreq.gref;
-> -		vif->tx_copy_ops[*copy_ops].source.domid = vif->domid;
-> -		vif->tx_copy_ops[*copy_ops].source.offset = txreq.offset;
-> -
-> -		vif->tx_copy_ops[*copy_ops].dest.u.gmfn =
-> -			virt_to_mfn(skb->data);
-> -		vif->tx_copy_ops[*copy_ops].dest.domid = DOMID_SELF;
-> -		vif->tx_copy_ops[*copy_ops].dest.offset =
-> -			offset_in_page(skb->data);
-> -
-> -		vif->tx_copy_ops[*copy_ops].len = data_len;
-> -		vif->tx_copy_ops[*copy_ops].flags =
-> GNTCOPY_source_gref;
-> +
-> +		gnttab_set_copy_op_ref_to_gmfn(&vif-
-> >tx_copy_ops[*copy_ops],
-> +					       txreq.gref,
-> +					       virt_to_mfn(skb->data),
-> +					       vif->domid,
-> +					       txreq.offset,
-> +					       DOMID_SELF,
-> +					       offset_in_page(skb->data),
-> +					       data_len,
-> +					       GNTCOPY_source_gref);
-> 
->  		(*copy_ops)++;
-> 
-> diff --git a/include/xen/grant_table.h b/include/xen/grant_table.h
-> index a5af2a2..90a2f4c 100644
-> --- a/include/xen/grant_table.h
-> +++ b/include/xen/grant_table.h
-> @@ -140,6 +140,59 @@ void
-> gnttab_grant_foreign_transfer_ref(grant_ref_t, domid_t domid,
->  				       unsigned long pfn);
-> 
->  static inline void
-> +gnttab_set_copy_op_common(struct gnttab_copy *copy,
-> +			  domid_t src_domid, uint16_t src_offset,
-> +			  domid_t dst_domid, uint16_t dst_offset,
-> +			  uint16_t len, uint16_t flags)
-> +{
-> +	copy->source.domid = src_domid;
-> +	copy->source.offset = src_offset;
-> +	copy->dest.domid = dst_domid;
-> +	copy->dest.offset = dst_offset;
-> +	copy->len = len;
-> +	copy->flags = flags;
-> +}
-> +
-> +static inline void
-> +gnttab_set_copy_op_gmfn_to_ref(struct gnttab_copy *copy,
-> +			       xen_pfn_t src_gmfn, grant_ref_t dst_ref,
-> +			       domid_t src_domid, uint16_t src_offset,
-> +			       domid_t dst_domid, uint16_t dst_offset,
-> +			       uint16_t len, uint16_t flags)
-> +{
-> +	copy->source.u.gmfn = src_gmfn;
-> +	copy->dest.u.ref = dst_ref;
-> +	gnttab_set_copy_op_common(copy, src_domid, src_offset,
-> dst_domid,
-> +				  dst_offset, len, flags);
-> +}
-> +
-> +static inline void
-> +gnttab_set_copy_op_ref_to_ref(struct gnttab_copy *copy,
-> +			      grant_ref_t src_ref, grant_ref_t dst_ref,
-> +			      domid_t src_domid, uint16_t src_offset,
-> +			      domid_t dst_domid, uint16_t dst_offset,
-> +			      uint16_t len, uint16_t flags)
-> +{
-> +	copy->source.u.ref = src_ref;
-> +	copy->dest.u.ref = dst_ref;
-> +	gnttab_set_copy_op_common(copy, src_domid, src_offset,
-> dst_domid,
-> +				  dst_offset, len, flags);
-> +}
-> +
-> +static inline void
-> +gnttab_set_copy_op_ref_to_gmfn(struct gnttab_copy *copy,
-> +			       grant_ref_t src_ref, xen_pfn_t dst_gmfn,
-> +			       domid_t src_domid, uint16_t src_offset,
-> +			       domid_t dst_domid, uint16_t dst_offset,
-> +			       uint16_t len, uint16_t flags)
-> +{
-> +	copy->source.u.ref = src_ref;
-> +	copy->dest.u.gmfn = dst_gmfn;
-> +	gnttab_set_copy_op_common(copy, src_domid, src_offset,
-> dst_domid,
-> +				  dst_offset, len, flags);
-> +}
-> +
-> +static inline void
->  gnttab_set_map_op(struct gnttab_map_grant_ref *map, phys_addr_t
-> addr,
->  		  uint32_t flags, grant_ref_t ref, domid_t domid)
->  {
+Otherwise, seems fine to me
+
+Acked-by: Eric Dumazet <edumazet@google.com>
