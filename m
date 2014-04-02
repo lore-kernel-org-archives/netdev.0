@@ -1,47 +1,59 @@
-From: Josh Boyer <jwboyer@gmail.com>
-Subject: [PATCH] net: enic: include irq.h for irqreturn_t definitions
-Date: Wed, 2 Apr 2014 11:24:00 -0400
-Message-ID: <20140402152400.GC20438@zod>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
+ of switch chip datapath
+Date: Wed, 2 Apr 2014 13:04:37 -0700
+Message-ID: <20140402130437.24885fd8@nehalam.linuxnetplumber.net>
+References: <5332677F.2090404@cumulusnetworks.com>
+	<5332B1FE.7080102@mojatatu.com>
+	<53330639.8050403@cumulusnetworks.com>
+	<20140326165934.GH2869@minipsycho.orion>
+	<533312A3.5070600@cumulusnetworks.com>
+	<20140326180356.GK2869@minipsycho.orion>
+	<2D65D0C2-6BBC-4968-8400-4EB60BDF887A@cumulusnetworks.com>
+	<533C1F91.6000704@greyhouse.net>
+	<20140402152546.GB3596@tuxdriver.com>
+	<CD1A9D96-F1E1-4AF6-B089-41AEBF7F1699@cumulusnetworks.com>
+	<20140402192915.GB3301@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Christian Benvenuti <benve@cisco.com>,
-	Sujith Sankar <ssujith@cisco.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f49.google.com ([209.85.219.49]:41175 "EHLO
-	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758696AbaDBPYG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 11:24:06 -0400
-Content-Disposition: inline
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:50576 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932324AbaDBUEl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 16:04:41 -0400
+Received: by mail-pb0-f44.google.com with SMTP id rp16so684195pbb.31
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 13:04:41 -0700 (PDT)
+In-Reply-To: <20140402192915.GB3301@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The enic driver fails to build on ARM with:
+On Wed, 2 Apr 2014 15:29:15 -0400
+"John W. Linville" <linville@tuxdriver.com> wrote:
 
-In file included from drivers/net/ethernet/cisco/enic/enic_res.c:40:0:
-drivers/net/ethernet/cisco/enic/enic.h:48:2: error: expected specifier-qualifier-list before 'irqreturn_t'
-  irqreturn_t (*isr)(int, void *);
-  ^
+> I've seen the 'ethtool -S' example before and I guess it is valid.
+> Still, is it worth the confusion of having a mostly useless/unique
+> netdev just to reuse an ethtool ioctl?  Maybe, I guess...?
 
-Nothing in the driver is explicitly including the irq definitions, so we add
-an include of linux/irq.h to pick them up.
-
-Signed-off-by: Josh Boyer <jwboyer@fedoraproject.org>
----
- drivers/net/ethernet/cisco/enic/enic.h | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
-index e9f7c656ddda..e35c8e0202ad 100644
---- a/drivers/net/ethernet/cisco/enic/enic.h
-+++ b/drivers/net/ethernet/cisco/enic/enic.h
-@@ -29,6 +29,7 @@
- #include "vnic_stats.h"
- #include "vnic_nic.h"
- #include "vnic_rss.h"
-+#include <linux/irq.h>
- 
- #define DRV_NAME		"enic"
- #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
--- 
-1.8.5.3
+ethtool is actually the most worthless part of the API.
+It can't be monitored, is ioctl based but and the statistics are device
+dependent making them useless for monitoring applications.
