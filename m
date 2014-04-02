@@ -1,70 +1,81 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] sh: add missing fpscr_values
-Date: Wed, 2 Apr 2014 09:09:56 -0700
-Message-ID: <CAMEtUuy_KZXmWAs6GkZe2HdJ_i0Go+FpJ09rA0AVg=dpWCevig@mail.gmail.com>
-References: <1396407244-26771-1-git-send-email-ast@plumgrid.com>
-	<20140402.084713.204716153605145333.davem@davemloft.net>
+From: Alexander Holler <holler@ahsoftware.de>
+Subject: Re: [PATCH regression] net: phy: fix initialization (config_init)
+ for Marvel 88E1116R PHYs
+Date: Wed, 02 Apr 2014 16:35:20 +0200
+Message-ID: <533C2028.7030604@ahsoftware.de>
+References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de> <533BF9CE.3050302@cogentembedded.com> <533BFD6B.7050503@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Paul Mundt <lethal@linux-sh.org>,
-	kbuild test robot <fengguang.wu@intel.com>,
-	linux-sh <linux-sh@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Kaz Kojima <kkojima@rr.iij4u.or.jp>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	linux-next@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20140402.084713.204716153605145333.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
+	Michal Simek <michal.simek@xilinx.com>, stable@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	linux-kernel@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <533BFD6B.7050503@cogentembedded.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 2, 2014 at 5:47 AM, David Miller <davem@davemloft.net> wrote:
-> From: Alexei Starovoitov <ast@plumgrid.com>
-> Date: Tue,  1 Apr 2014 19:54:04 -0700
->
->> GCC on SuperH for the following program:
->> int foo(int i)
->> {
->>       static const void *table[2] = {
->>               [0] = &&label1,
->>               [1] = &&label2,
->>       };
->>       goto *table[i & 1];
->>
->>       label1:
->>               return 1;
->>       label2:
->>               return 2;
->> }
->> generates code:
->>       mov.l   .L9,r1
->>       mov     #1,r0
->>       rts
->>       lds.l   @r1+,fpscr
->> .L9:
->>       .long   __fpscr_values+4
->>
->> so kernel has to provide body of fpscr_values just like glibc does
->>
->> Fixes: bd4cf0ed331a ("net: filter: rework/optimize internal BPF interpreter's instruction set")
->> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
->> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
->
-> You guys really need to just fix the compiler, sorry.
+Am 02.04.2014 14:07, schrieb Sergei Shtylyov:
+> On 02-04-2014 15:51, Sergei Shtylyov wrote:
+> 
+>>> Commit 7cd1463664c2a15721ff4ccfb61d4d970815cb3d (introduced with 3.14)
+>>> changed the initialization of the mv643xx_eth driver to use
+>>> phy_init_hw()
+>>> to reset the PHY. Unfortunately the initialization for the 88E1116R PHY
+>>> was broken such, that it used mdelay() instead of really waiting for a
+>>> reset to finish.
 
-agree.
+(...)
 
-To summarize:
-according to Kaz:
-"For sh2a, configuring gcc with --with-multilib-list=m2a,m2a-nofpu
- and specifying -m2a-nofpu during compiling kernel would work."
+>>>
+>>> -    mdelay(500);
+>>> +    do
+>>> +        temp = phy_read(phydev, MII_BMCR);
+>>> +    while (temp & BMCR_RESET);
+> 
+>>     Not clear why it's necessary to reset one more time... Also, tight
+>> loop
+>> without a timeout (0.5 sec, specified by IEEE 802.3) doesn't look
+>> good. The
+>> comment above phy_poll_reset() suggests that it could be used in the PHY
+>> drivers as well. Florian?
+> 
+>    Ah, I was looking at Linus' tree, not net-next.git, and hadn't read
+> Florian's replies before commenting on this...
 
-and as Geert pointed out we already have:
-arch/sh/Makefile:
-cflags-$(CONFIG_CPU_SH2A)               += $(call cc-option,-m2a,) \
-                                           $(call cc-option,-m2a-nofpu,)
+Just to be clear, this patch isn't a change request, it's a bugfix
+because the ethernet doesn't come up on my Kirkwood device(s) using
+kernel 3.14. So it's mainly meant for other people which want to use
+3.14 with similiar devices and have problems too.
 
-so no kernel changes needed and gcc just needs to be reconfigured.
+Reverting the above commit does do the trick here too.
+
+I haven't looked at the datasheet nor any possible erratas. So I don't
+know why and if there are multiple resets necessary. I've just made the
+code more similiar to what was used before the above commit changed the
+reset of the PHY. The tight loop is a copy from other m*_config_inits in
+the same file and was in use in mv643xx_eth before the above commit too.
+So at least the tight loop is proven to work. And genphy_soft_reset(),
+which does not wait indefinitely long if the phy never does come out of
+reset, is only available in some -next tree, definitely not where I look
+at and need it for a bugfix.
+
+But I agree, all the stuff looks very curious, tight loops without a
+timeout, multiple resets in order and such things more.
+
+But this patch isn't a cleanup, it's meant to be as small as possible to
+make things work again. And I decided that instead of just suggesting a
+revert, it's better to fix m88e1116r_config_init() which might be used
+at other places too.
+
+It might make sense to wait for some other users to complain, I think it
+won't need long as this SOC is used in Sheevaplugs and Dockstars, some
+ARMv5 devices which were quiet popular. Or if nobody else complains,
+maybe someone might test my change. Ut could be possible that the
+failing sequence is through the/my use of netconsole, which is, I
+assume, not very common.
+
+Regards,
+
+Alexander Holler
