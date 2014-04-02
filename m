@@ -1,81 +1,82 @@
-From: Alexander Holler <holler@ahsoftware.de>
-Subject: Re: [PATCH regression] net: phy: fix initialization (config_init)
- for Marvel 88E1116R PHYs
-Date: Wed, 02 Apr 2014 16:35:20 +0200
-Message-ID: <533C2028.7030604@ahsoftware.de>
-References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de> <533BF9CE.3050302@cogentembedded.com> <533BFD6B.7050503@cogentembedded.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH v4 net] xen-netback: disable rogue vif in kthread context
+Date: Wed, 2 Apr 2014 11:21:14 +0100
+Message-ID: <20140402102114.GF6382@zion.uk.xensource.com>
+References: <1396352772-7884-1-git-send-email-wei.liu2@citrix.com>
+ <20140401.162717.1962834632849633175.davem@davemloft.net>
+ <1396429540.8667.263.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
-	Michal Simek <michal.simek@xilinx.com>, stable@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	linux-kernel@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <533BFD6B.7050503@cogentembedded.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, <wei.liu2@citrix.com>,
+	<netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
+	<david.vrabel@citrix.com>, <zoltan.kiss@citrix.com>,
+	<edwin@etorok.net>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:1276 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755344AbaDBKVP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Apr 2014 06:21:15 -0400
+Content-Disposition: inline
+In-Reply-To: <1396429540.8667.263.camel@kazak.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 02.04.2014 14:07, schrieb Sergei Shtylyov:
-> On 02-04-2014 15:51, Sergei Shtylyov wrote:
-> 
->>> Commit 7cd1463664c2a15721ff4ccfb61d4d970815cb3d (introduced with 3.14)
->>> changed the initialization of the mv643xx_eth driver to use
->>> phy_init_hw()
->>> to reset the PHY. Unfortunately the initialization for the 88E1116R PHY
->>> was broken such, that it used mdelay() instead of really waiting for a
->>> reset to finish.
+On Wed, Apr 02, 2014 at 10:05:40AM +0100, Ian Campbell wrote:
+> On Tue, 2014-04-01 at 16:27 -0400, David Miller wrote:
+> > From: Wei Liu <wei.liu2@citrix.com>
+> > Date: Tue, 1 Apr 2014 12:46:12 +0100
+> >=20
+> > > When netback discovers frontend is sending malformed packet it wi=
+ll
+> > > disables the interface which serves that frontend.
+> > >=20
+> > > However disabling a network interface involving taking a mutex wh=
+ich
+> > > cannot be done in softirq context, so we need to defer this proce=
+ss to
+> > > kthread context.
+> > >=20
+> > > This patch does the following:
+> > > 1. introduce a flag to indicate the interface is disabled.
+> > > 2. check that flag in TX path, don't do any work if it's true.
+> > > 3. check that flag in RX path, turn off that interface if it's tr=
+ue.
+> > >=20
+> > > The reason to disable it in RX path is because RX uses kthread. A=
+fter
+> > > this change the behavior of netback is still consistent -- it won=
+'t do
+> > > any TX work for a rogue frontend, and the interface will be event=
+ually
+> > > turned off.
+> > >=20
+> > > Also change a "continue" to "break" after xenvif_fatal_tx_err, as=
+ it
+> > > doesn't make sense to continue processing packets if frontend is =
+rogue.
+> > >=20
+> > > This is a fix for XSA-90.
+> > >=20
+> > > Reported-by: T=F6r=F6k Edwin <edwin@etorok.net>
+> > > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> >=20
+> > Applied.
+>=20
+> Thanks.
+>=20
+> Wei -- can you advise as to which stable trees this should be queued
+> for? Looks like 3.12 onwards according to
+> http://xenbits.xen.org/xsa/advisory-90.html which says the issue aros=
+e
+> between 3.11 and 3.12-rc1?
+>=20
 
-(...)
+Correct.
 
->>>
->>> -    mdelay(500);
->>> +    do
->>> +        temp = phy_read(phydev, MII_BMCR);
->>> +    while (temp & BMCR_RESET);
-> 
->>     Not clear why it's necessary to reset one more time... Also, tight
->> loop
->> without a timeout (0.5 sec, specified by IEEE 802.3) doesn't look
->> good. The
->> comment above phy_poll_reset() suggests that it could be used in the PHY
->> drivers as well. Florian?
-> 
->    Ah, I was looking at Linus' tree, not net-next.git, and hadn't read
-> Florian's replies before commenting on this...
+Wei.
 
-Just to be clear, this patch isn't a change request, it's a bugfix
-because the ethernet doesn't come up on my Kirkwood device(s) using
-kernel 3.14. So it's mainly meant for other people which want to use
-3.14 with similiar devices and have problems too.
-
-Reverting the above commit does do the trick here too.
-
-I haven't looked at the datasheet nor any possible erratas. So I don't
-know why and if there are multiple resets necessary. I've just made the
-code more similiar to what was used before the above commit changed the
-reset of the PHY. The tight loop is a copy from other m*_config_inits in
-the same file and was in use in mv643xx_eth before the above commit too.
-So at least the tight loop is proven to work. And genphy_soft_reset(),
-which does not wait indefinitely long if the phy never does come out of
-reset, is only available in some -next tree, definitely not where I look
-at and need it for a bugfix.
-
-But I agree, all the stuff looks very curious, tight loops without a
-timeout, multiple resets in order and such things more.
-
-But this patch isn't a cleanup, it's meant to be as small as possible to
-make things work again. And I decided that instead of just suggesting a
-revert, it's better to fix m88e1116r_config_init() which might be used
-at other places too.
-
-It might make sense to wait for some other users to complain, I think it
-won't need long as this SOC is used in Sheevaplugs and Dockstars, some
-ARMv5 devices which were quiet popular. Or if nobody else complains,
-maybe someone might test my change. Ut could be possible that the
-failing sequence is through the/my use of netconsole, which is, I
-assume, not very common.
-
-Regards,
-
-Alexander Holler
+> Cheers,
+> Ian.
+>=20
