@@ -1,50 +1,49 @@
-From: Zheng Li <zheng.x.li@oracle.com>
-Subject: [PATCH v3] bonding: Inactive slaves should keep inactive flag's value
-Date: Wed,  2 Apr 2014 11:01:48 +0800
-Message-ID: <1396407708-4056-1-git-send-email-zheng.x.li@oracle.com>
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	joe.jin@oracle.com, zheng.x.li@oracle.com
-To: netdev@vger.kernel.org, j.vosburgh@gmail.com, fubar@us.ibm.com,
-	andy@greyhouse.net, vfalico@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:33756 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751904AbaDBCsR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 22:48:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] sh: add missing fpscr_values
+Date: Wed, 02 Apr 2014 08:47:13 -0400 (EDT)
+Message-ID: <20140402.084713.204716153605145333.davem@davemloft.net>
+References: <1396407244-26771-1-git-send-email-ast@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nobuhiro.iwamatsu.yj@renesas.com, dborkman@redhat.com,
+	lethal@linux-sh.org, fengguang.wu@intel.com,
+	linux-sh@vger.kernel.org, netdev@vger.kernel.org
+To: ast@plumgrid.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1396407244-26771-1-git-send-email-ast@plumgrid.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-bond_open is not setting the inactive flag correctly for some modes (alb and
-tlb), resulting in error behavior if the bond has been administratively set
-down and then back up. This effect should not occur when slaves are added while
-the bond is up; it's something that only happens after a down/up bounce of the
-bond.
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Tue,  1 Apr 2014 19:54:04 -0700
 
-For example, in bond tlb or alb mode, domu send some ARP request which go out
-from dom0 bond's active slave, then the ARP broadcast request packets go back to
-inactive slave from switch, because the inactive slave's inactive flag is zero,
-kernel will receive the packets and pass them to bridge that cause dom0's bridge
-map domu's MAC address to port of bond, bridge should map domu's MAC to port of
-vif.
+> GCC on SuperH for the following program:
+> int foo(int i)
+> {
+> 	static const void *table[2] = {
+> 		[0] = &&label1,
+> 		[1] = &&label2,
+> 	};
+> 	goto *table[i & 1];
+> 
+> 	label1:
+> 		return 1;
+> 	label2:
+> 		return 2;
+> }
+> generates code:
+> 	mov.l   .L9,r1
+> 	mov     #1,r0
+> 	rts
+> 	lds.l   @r1+,fpscr
+> .L9:
+> 	.long   __fpscr_values+4
+> 
+> so kernel has to provide body of fpscr_values just like glibc does
+> 
+> Fixes: bd4cf0ed331a ("net: filter: rework/optimize internal BPF interpreter's instruction set")
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
-Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
-Signed-off-by: Jay Vosburgh <j.vosburgh@gmail.com>
----
- drivers/net/bonding/bond_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index e5628fc..b42758f 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3058,7 +3058,7 @@ static int bond_open(struct net_device *bond_dev)
- 	if (bond_has_slaves(bond)) {
- 		read_lock(&bond->curr_slave_lock);
- 		bond_for_each_slave(bond, slave, iter) {
--			if ((bond->params.mode == BOND_MODE_ACTIVEBACKUP)
-+			if (USES_PRIMARY(bond->params.mode)
- 				&& (slave != bond->curr_active_slave)) {
- 				bond_set_slave_inactive_flags(slave,
- 							      BOND_SLAVE_NOTIFY_NOW);
--- 
-1.7.6.5
+You guys really need to just fix the compiler, sorry.
