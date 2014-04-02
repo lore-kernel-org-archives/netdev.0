@@ -1,38 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 2/5] bonding: Reorg bond_alb_xmit code
-Date: Wed, 02 Apr 2014 03:56:53 -0700
-Message-ID: <1396436213.3989.26.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1396422010-31981-1-git-send-email-maheshb@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:37180 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758052AbaDBK44 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 06:56:56 -0400
-Received: by mail-pa0-f48.google.com with SMTP id hz1so11067pad.21
-        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 03:56:55 -0700 (PDT)
-In-Reply-To: <1396422010-31981-1-git-send-email-maheshb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v6 4/4] brcmfmac: set NET_NAME_USER for P2P ifs
+Date: Wed,  2 Apr 2014 11:58:26 +0200
+Message-ID: <1396432706-14470-5-git-send-email-dh.herrmann@gmail.com>
+References: <1396432706-14470-1-git-send-email-dh.herrmann@gmail.com>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Tom Gundersen <teg-B22kvLQNl6c@public.gmane.org>,
+	Johannes berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Kay Sievers <kay.sievers-tD+1rO4QERM@public.gmane.org>,
+	David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1396432706-14470-1-git-send-email-dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-04-02 at 00:00 -0700, Mahesh Bandewar wrote:
-> Separating the actual xmit part from the function in a separate
-> function that can be used in the tlb_xmit in the next patch. Also
-> there is no reason do_tx_balance to be an int so changing it to
-> bool type.
-> 
-> Change-Id: I9c48ff30487810f68587e621a191db616f49bd3b
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> ---
+Netdevs created via nl80211 (currently only P2P ifs) have names provided
+by user-space. Therefore, set the naming-policy to NET_NAME_USER so it is
+correctly shown in sysfs.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Acked-by: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Acked-by: Tom Gundersen <teg-B22kvLQNl6c@public.gmane.org>
+Acked-by: Kay Sievers <kay.sievers-tD+1rO4QERM@public.gmane.org>
+---
+ drivers/net/wireless/brcm80211/brcmfmac/p2p.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/p2p.c b/drivers/net/wireless/brcm80211/brcmfmac/p2p.c
+index f3445ac..f721ed6 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/p2p.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/p2p.c
+@@ -2308,6 +2308,7 @@ struct wireless_dev *brcmf_p2p_add_vif(struct wiphy *wiphy, const char *name,
+ 		goto fail;
+ 	}
+ 
++	ifp->ndev->name_assign_type = NET_NAME_USER;
+ 	strncpy(ifp->ndev->name, name, sizeof(ifp->ndev->name) - 1);
+ 	err = brcmf_net_attach(ifp, true);
+ 	if (err) {
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
