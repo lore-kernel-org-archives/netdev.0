@@ -1,82 +1,49 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Wed, 2 Apr 2014 16:06:39 -0400
-Message-ID: <20140402200639.GD3301@tuxdriver.com>
-References: <53330639.8050403@cumulusnetworks.com>
- <20140326165934.GH2869@minipsycho.orion>
- <533312A3.5070600@cumulusnetworks.com>
- <20140326180356.GK2869@minipsycho.orion>
- <2D65D0C2-6BBC-4968-8400-4EB60BDF887A@cumulusnetworks.com>
- <533C1F91.6000704@greyhouse.net>
- <20140402152546.GB3596@tuxdriver.com>
- <CD1A9D96-F1E1-4AF6-B089-41AEBF7F1699@cumulusnetworks.com>
- <20140402192915.GB3301@tuxdriver.com>
- <3C265410-A9DF-489F-BC55-05B231564D12@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: Scott Feldman <sfeldma@cumulusnetworks.com>
+From: Wei Yang <weiyang@linux.vnet.ibm.com>
+Subject: [Patch net-next] pktgen: small code cleanup
+Date: Wed,  2 Apr 2014 16:24:51 +0800
+Message-ID: <1396427091-8230-1-git-send-email-weiyang@linux.vnet.ibm.com>
+Cc: davem@davemloft.net, Wei Yang <weiyang@linux.vnet.ibm.com>
+To: fan.du@windriver.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39765 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030187AbaDBUbC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 16:31:02 -0400
-Content-Disposition: inline
-In-Reply-To: <3C265410-A9DF-489F-BC55-05B231564D12@cumulusnetworks.com>
+Received: from e28smtp02.in.ibm.com ([122.248.162.2]:45949 "EHLO
+	e28smtp02.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758097AbaDBIZP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 04:25:15 -0400
+Received: from /spool/local
+	by e28smtp02.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
+	Wed, 2 Apr 2014 13:55:13 +0530
+Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
+	by d28dlp03.in.ibm.com (Postfix) with ESMTP id 82B4F1258054
+	for <netdev@vger.kernel.org>; Wed,  2 Apr 2014 13:57:38 +0530 (IST)
+Received: from d28av05.in.ibm.com (d28av05.in.ibm.com [9.184.220.67])
+	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s328P2nl51183714
+	for <netdev@vger.kernel.org>; Wed, 2 Apr 2014 13:55:02 +0530
+Received: from d28av05.in.ibm.com (localhost [127.0.0.1])
+	by d28av05.in.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s328P55u005918
+	for <netdev@vger.kernel.org>; Wed, 2 Apr 2014 13:55:06 +0530
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 02, 2014 at 12:54:50PM -0700, Scott Feldman wrote:
->=20
-> On Apr 2, 2014, at 12:29 PM, John W. Linville <linville@tuxdriver.com=
-> wrote:
->=20
-> > Cool!  I'm glad we agree.  Now we just need some switch hardware
-> > drivers that fit the general model outlined above...
->=20
-> Why wait?  Let=E2=80=99s create a switch device in qemu and then writ=
-e the
-> model/sample driver to that.  Put a PCI front end on the qemu device
-> which is mapped to kernel, and define a register set to represent all
-> the switch-like ops we want to offload, in a generic way.  Throw in
-> some DMA for CPU-bound I/O (ctrl traffic).  On the qemu device back
-> end, expose the ports as taps or whatever so we can wire to real-worl=
-d
-> link partners on the host side.
+Print the warning when the format is not correct.
 
-Not a bad idea at all.  This probably needs further discussion and/or
-a spec...and a QEMU hacker.  Where is my friend PJ when I need him? ;-)
+Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+---
+ net/core/pktgen.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> > I would be happy to maintain a kernel.org git tree as a nursery for
-> > such drivers as they develop and mature, and I'm sure my daytime
-> > employer would be happy to support me on that.  I wonder if we can
-> > get any switch people from Intel, Mellanox, Broadcom, or elsewhere
-> > to play along?
->=20
-> My gut tells me this is a build-it-and-they-will-come situation.
-
-No doubt -- in the meantime, feel free to Cc me on some patches!
-
-John
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index fdac61c..89d33c2 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -1767,7 +1767,7 @@ static ssize_t pktgen_thread_write(struct file *file,
+ 	char *pg_result;
+ 
+ 	if (count < 1) {
+-		//      sprintf(pg_result, "Wrong command format");
++		pr_warn("WARNING: Wrong command format in %s\n", __func__);
+ 		return -EINVAL;
+ 	}
+ 
+-- 
+1.7.9.5
