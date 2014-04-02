@@ -1,64 +1,167 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH net-next v3 2/2] xen-netback: Grant copy the header
- instead of map and memcpy
-Date: Thu, 3 Apr 2014 10:11:14 +0100
-Message-ID: <1396516274.4211.39.camel@kazak.uk.xensource.com>
-References: <1396458298-30041-1-git-send-email-zoltan.kiss@citrix.com>
-	 <1396458298-30041-2-git-send-email-zoltan.kiss@citrix.com>
-	 <9AAE0902D5BC7E449B7C8E4E778ABCD02BB0E1@AMSPEX01CL01.citrite.net>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH 2/2] net: mvneta: fix usage as a module on RGMII configurations
+Date: Wed, 02 Apr 2014 16:15:17 +0200
+Message-ID: <533C1B75.2020803@free-electrons.com>
+References: <1395789942-20764-1-git-send-email-thomas.petazzoni@free-electrons.com> <1395789942-20764-3-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Jonathan Davies" <Jonathan.Davies@citrix.com>
-To: Paul Durrant <Paul.Durrant@citrix.com>
+Cc: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Steve McIntyre <steve@einval.com>,
+	linux-arm-kernel@lists.infradead.org, stable@vger.kernel.org
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:6818 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751585AbaDCJLR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Apr 2014 05:11:17 -0400
-In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD02BB0E1@AMSPEX01CL01.citrite.net>
+Received: from top.free-electrons.com ([176.31.233.9]:56566 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932120AbaDBOPU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 10:15:20 -0400
+In-Reply-To: <1395789942-20764-3-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-04-03 at 09:07 +0100, Paul Durrant wrote:
-> > -----Original Message-----
-> > From: Zoltan Kiss
-> > Sent: 02 April 2014 18:05
-> > To: Ian Campbell; Wei Liu; xen-devel@lists.xenproject.org
-> > Cc: Paul Durrant; netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> > Jonathan Davies; Zoltan Kiss
-> > Subject: [PATCH net-next v3 2/2] xen-netback: Grant copy the header
-> > instead of map and memcpy
-> > 
-> > An old inefficiency of the TX path that we are grant mapping the first slot,
-> > and then copy the header part to the linear area. Instead, doing a grant copy
-> > for that header straight on is more reasonable. Especially because there are
-> > ongoing efforts to make Xen avoiding TLB flush after unmap when the page
-> > were
-> > not touched in Dom0. In the original way the memcpy ruined that.
-> > The key changes:
-> > - the vif has a tx_copy_ops array again
-> > - xenvif_tx_build_gops sets up the grant copy operations
-> > - we don't have to figure out whether the header and first frag are on the
-> > same
-> >   grant mapped page or not
-> > Note, we only grant copy PKT_PROT_LEN bytes from the first slot, the rest (if
-> > any) will be on the first frag, which is grant mapped. If the first slot is
-> > smaller than PKT_PROT_LEN, then we grant copy that, and later
-> > __pskb_pull_tail
-> > will pull more from the frags (if any)
-> > 
-> > Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-> 
-> Looks good to me.
-> 
-> Reviewed-by: Paul Durrant <paul.durrant@citrix.com>
+Hi,
 
-Me too:
+On 26/03/2014 00:25, Thomas Petazzoni wrote:
+> Commit 5445eaf309ff ('mvneta: Try to fix mvneta when compiled as
+> module') fixed the mvneta driver to make it work properly when loaded
+> as a module in SGMII configuration, which was tested successful by the
+> author on the Armada XP OpenBlocks AX3, which uses SGMII.
+> 
+> However, it turns out that the Armada XP GP, which uses RGMII, is
+> affected by a similar problem: its SERDES configuration is lost when
+> mvneta is loaded as a module, because this configuration is set by the
+> bootloader, and then lost because the clock is gated by the clock
+> framework until the mvneta driver is loaded again and the clock is
+> re-enabled.
+> 
+> However, it turns out that for the RGMII case, setting the SERDES
+> configuration is not sufficient: the PCS enable bit in the
+> MVNETA_GMAC_CTRL_2 register must also be set, like in the SGMII
+> configuration.
+> 
+> Therefore, this commit reworks the SGMII/RGMII initialization: the
+> only difference between the two now is a different SERDES
+> configuration, all the rest is identical.
+> 
+> In detail, to achieve this, the commit:
+> 
+>  * Renames MVNETA_SGMII_SERDES_CFG to MVNETA_SERDES_CFG because it is
+>    not specific to SGMII, but also used on RGMII configurations.
+> 
+>  * Adds a MVNETA_RGMII_SERDES_PROTO definition, that must be used as
+>    the MVNETA_SERDES_CFG value in RGMII configurations.
+> 
+>  * Removes the mvneta_gmac_rgmii_set() and mvneta_port_sgmii_config()
+>    functions, and instead directly do the SGMII/RGMII configuration in
+>    mvneta_port_up(), from where those functions where called. It is
+>    worth mentioning that mvneta_gmac_rgmii_set() had an 'enable'
+>    parameter that was always passed as '1', so it was pretty useless.
+> 
+>  * Reworks the mvneta_port_up() function to set the MVNETA_SERDES_CFG
+>    register to the appropriate value depending on the RGMII vs. SGMII
+>    configuration. It also unconditionally set the PCS_ENABLE bit (was
+>    already done for SGMII, but is now also needed for RGMII), and sets
+>    the PORT_RGMII bit (which was already done for both SGMII and
+>    RGMII).
+> 
+> This commit was successfully tested with mvneta compiled as a module,
+> on both the OpenBlocks AX3 (SGMII configuration) and the Armada XP GP
+> (RGMII configuration).
 
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
+Unfortunately with this patch, mvneta doesn't work anymore on the
+Mirabox (Armada 370 based board) on 3.14.I didn't managed to do a
+simple ping.
+
+Once I removed this commit then the driver worked again.
+
+Gregory
+
+
+> 
+> Reported-by: Steve McIntyre <steve@einval.com>
+> Cc: stable@vger.kernel.org # 3.11.x: 5445eaf309ff mvneta: Try to fix mvneta when compiled as module
+> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> ---
+>  drivers/net/ethernet/marvell/mvneta.c | 41 +++++++----------------------------
+>  1 file changed, 8 insertions(+), 33 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+> index d6b04d0..c9c2faa 100644
+> --- a/drivers/net/ethernet/marvell/mvneta.c
+> +++ b/drivers/net/ethernet/marvell/mvneta.c
+> @@ -88,8 +88,9 @@
+>  #define      MVNETA_TX_IN_PRGRS                  BIT(1)
+>  #define      MVNETA_TX_FIFO_EMPTY                BIT(8)
+>  #define MVNETA_RX_MIN_FRAME_SIZE                 0x247c
+> -#define MVNETA_SGMII_SERDES_CFG			 0x24A0
+> +#define MVNETA_SERDES_CFG			 0x24A0
+>  #define      MVNETA_SGMII_SERDES_PROTO		 0x0cc7
+> +#define      MVNETA_RGMII_SERDES_PROTO		 0x0667
+>  #define MVNETA_TYPE_PRIO                         0x24bc
+>  #define      MVNETA_FORCE_UNI                    BIT(21)
+>  #define MVNETA_TXQ_CMD_1                         0x24e4
+> @@ -710,35 +711,6 @@ static void mvneta_rxq_bm_disable(struct mvneta_port *pp,
+>  	mvreg_write(pp, MVNETA_RXQ_CONFIG_REG(rxq->id), val);
+>  }
+>  
+> -
+> -
+> -/* Sets the RGMII Enable bit (RGMIIEn) in port MAC control register */
+> -static void mvneta_gmac_rgmii_set(struct mvneta_port *pp, int enable)
+> -{
+> -	u32  val;
+> -
+> -	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
+> -
+> -	if (enable)
+> -		val |= MVNETA_GMAC2_PORT_RGMII;
+> -	else
+> -		val &= ~MVNETA_GMAC2_PORT_RGMII;
+> -
+> -	mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
+> -}
+> -
+> -/* Config SGMII port */
+> -static void mvneta_port_sgmii_config(struct mvneta_port *pp)
+> -{
+> -	u32 val;
+> -
+> -	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
+> -	val |= MVNETA_GMAC2_PCS_ENABLE;
+> -	mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
+> -
+> -	mvreg_write(pp, MVNETA_SGMII_SERDES_CFG, MVNETA_SGMII_SERDES_PROTO);
+> -}
+> -
+>  /* Start the Ethernet port RX and TX activity */
+>  static void mvneta_port_up(struct mvneta_port *pp)
+>  {
+> @@ -2756,12 +2728,15 @@ static void mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
+>  	mvreg_write(pp, MVNETA_UNIT_INTR_CAUSE, 0);
+>  
+>  	if (phy_mode == PHY_INTERFACE_MODE_SGMII)
+> -		mvneta_port_sgmii_config(pp);
+> +		mvreg_write(pp, MVNETA_SERDES_CFG, MVNETA_SGMII_SERDES_PROTO);
+> +	else
+> +		mvreg_write(pp, MVNETA_SERDES_CFG, MVNETA_RGMII_SERDES_PROTO);
+>  
+> -	mvneta_gmac_rgmii_set(pp, 1);
+> +	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
+> +
+> +	val |= MVNETA_GMAC2_PCS_ENABLE | MVNETA_GMAC2_PORT_RGMII;
+>  
+>  	/* Cancel Port Reset */
+> -	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
+>  	val &= ~MVNETA_GMAC2_PORT_RESET;
+>  	mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
+>  
+> 
+
+
+-- 
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
