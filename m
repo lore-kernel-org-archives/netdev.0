@@ -1,62 +1,88 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH v3 3/5] bonding: Initialize the ALB work queue for lb mode only.
-Date: Wed,  2 Apr 2014 00:00:12 -0700
-Message-ID: <1396422012-32022-1-git-send-email-maheshb@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Mahesh Bandewar <maheshb@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>
+From: Toshiaki Makita <toshiaki.makita1@gmail.com>
+Subject: Re: [RFC PATCH] vlan: Try to adjust lower device mtu when
+ configuring 802.1AD vlans
+Date: Thu, 03 Apr 2014 01:37:32 +0900
+Message-ID: <1396456652.2215.42.camel@localhost.localdomain>
+References: <1396387054-4510-1-git-send-email-vyasevic@redhat.com>
+	 <20140402122121.GD26334@macbook.localnet> <533C113E.2000908@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f74.google.com ([209.85.219.74]:33541 "EHLO
-	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757330AbaDBHAP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 03:00:15 -0400
-Received: by mail-oa0-f74.google.com with SMTP id i7so2205631oag.3
-        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 00:00:14 -0700 (PDT)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:51907 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932318AbaDBQhi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 12:37:38 -0400
+Received: by mail-pa0-f52.google.com with SMTP id rd3so435920pab.25
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 09:37:38 -0700 (PDT)
+In-Reply-To: <533C113E.2000908@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-micro change to initialize / cancel the ALB work queue only
-if the mode selected is ALB or TLB.
+On Wed, 2014-04-02 at 09:31 -0400, Vlad Yasevich wrote:
+> On 04/02/2014 08:21 AM, Patrick McHardy wrote:
+> > On Tue, Apr 01, 2014 at 05:17:34PM -0400, Vlad Yasevich wrote:
+> >> 802.1AD vlans supposed to encapsulate 802.1Q vlans.  To
+> >> do this, we need an extra 4 bytes of header which are typically
+> >> not accounted for by lower devices.  Some devices can not
+> >> support frames longer then 1522 bytes at all.  Such devices
+> >> can not really support 802.1AD, even in software, without
+> >> the vlan reducing its mtu value.
+> >>
+> >> This patch propses to increate the lower devices MTU to 1504
+> >> in case of 802.1AD configuration, and if device doesn't
+> >> support it, fail the creation of the vlan.  The user has an
+> >> option to configure older-style Q-in-Q vlans and manually
+> >> lower the mtu to support such encapsulation.
+> > 
+> > I think you should do the opposite. The lower layer device may be used
+> > for other things than the VLAN, so it doesn't seem right to change it's
+> > MTU. Instead I'd propose to set the MTU of the 802.1ad VLAN device to
+> > the lower device'e MTU - 4 unless a MTU has been specified by the user.
+> > 
+> 
+> The decrease of vlan mtu was my initial take on this as well.  The
+> problematic case with this is forwarding by an encapsulating
+> bridge (bridge that has 802.1AD as one port and ethX as others). The
+> frame from ethX will not fit into the mtu of the vlan device in
+> this case and the packet is dropped.  Ideally, we'd generate and ICMP
+> Too Big, but with the bridge we can't/don't do that.
+> 
+> Another problem is that linux assumes that MTU == MRU in case of
+> device receive buffer programming.  Thus, full sized 802.1AD
+> frames transmitted by the switch supporting it will probably get dropped
+> by the driver/firmware as too long.  I've tested this and saw it
+> happen on my systems.
+> 
+> An alternative I've thought off is to adjust the rx size in the drivers
+> when 802.1AD is configured, but that touches all the drivers, and
+> doesn't work well for not vlan-filtering drivers.  It needs a new
+> ndo api to adjust the rx length to make it consistent across all
+> devices.
+> 
+> > BTW, I couldn't find anything related to MTU handling in the 802.1ad
+> > standard, however I only have an old copy and might have looked in the
+> > wrong place. Do you have any information how this is supposed to be
+> > handled?
+> > 
+> 
+> The standard doesn't seem to mention anything about it, but looking
+> at switch implementations, most of them require a bump in the mtu to
+> 1504 to support 802.1AD.  Some allow for the decrease in vlan mtu, but
+> that also requires mss translations as well.
 
-Change-Id: I27a6cf65f72819889bf15b68f6ef4fca7d617186
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
-v2:
-  Rebase
-v3:
-  Rebase
+802.1ad was merged into 802.1Q-2011, and G.2.2 in it refers to maximum
+pdu size. However, this doesn't seem to mention the case where frames
+are double tagged.
 
- drivers/net/bonding/bond_main.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+MEF 6.1 requires UNI MTU size >= 1522 and MEF 31 requires E-NNI MTU size
+>= 1526 (In these documents, MTU seems to mean frame size).
+This implies that we should allow 1508 bytes of MTU size when we use
+802.1AD.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 6e96d510bc8d..676db41b98bc 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3046,7 +3046,8 @@ static void bond_work_init_all(struct bonding *bond)
- {
- 	INIT_DELAYED_WORK(&bond->mcast_work,
- 			  bond_resend_igmp_join_requests_delayed);
--	INIT_DELAYED_WORK(&bond->alb_work, bond_alb_monitor);
-+	if (bond_is_lb(bond))
-+		INIT_DELAYED_WORK(&bond->alb_work, bond_alb_monitor);
- 	INIT_DELAYED_WORK(&bond->mii_work, bond_mii_monitor);
- 	if (bond->params.mode == BOND_MODE_ACTIVEBACKUP)
- 		INIT_DELAYED_WORK(&bond->arp_work, bond_activebackup_arp_mon);
-@@ -3059,7 +3060,8 @@ static void bond_work_cancel_all(struct bonding *bond)
- {
- 	cancel_delayed_work_sync(&bond->mii_work);
- 	cancel_delayed_work_sync(&bond->arp_work);
--	cancel_delayed_work_sync(&bond->alb_work);
-+	if (bond_is_lb(bond))
-+		cancel_delayed_work_sync(&bond->alb_work);
- 	cancel_delayed_work_sync(&bond->ad_work);
- 	cancel_delayed_work_sync(&bond->mcast_work);
- }
--- 
-1.9.1.423.g4596e3a
+Is 1504 enough?
+
+Thanks,
+Toshiaki Makita
