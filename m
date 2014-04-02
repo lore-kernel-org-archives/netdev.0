@@ -1,76 +1,96 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 1/5] bonding: Changed hashing function to just
- provide hash
-Date: Wed, 02 Apr 2014 03:50:15 -0700
-Message-ID: <1396435815.3989.23.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1396422007-31930-1-git-send-email-maheshb@google.com>
+From: Karsten Keil <kkeil@linux-pingi.de>
+Subject: Re: [bug report] buffer overflow in isdn capi
+Date: Wed, 02 Apr 2014 18:46:38 +0200
+Message-ID: <533C3EEE.6020004@linux-pingi.de>
+References: <20140401154830.GA16759@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
+Cc: netdev@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>,
+	Karsten Keil <isdn@linux-pingi.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:65012 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758283AbaDBKuS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 06:50:18 -0400
-Received: by mail-pb0-f44.google.com with SMTP id rp16so4686pbb.17
-        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 03:50:17 -0700 (PDT)
-In-Reply-To: <1396422007-31930-1-git-send-email-maheshb@google.com>
+Received: from moutng.kundenserver.de ([212.227.126.187]:60920 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932414AbaDBQqm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 12:46:42 -0400
+In-Reply-To: <20140401154830.GA16759@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-04-02 at 00:00 -0700, Mahesh Bandewar wrote:
-> Modified the hash function to return just hash separating from the
-> modulo operation that can be performed by the caller. This is to
-> make way for the tlb mode to use the same hashing policies that
-> are used in the 802.3ad and Xor mode.
+Hi Dan,
+
+thanks for spotting this, really a bad thing.
+Fortunately it is only a local issue, the messages from the ISDN bus
+are translated in valid command/subcommand pairs in the controller
+firmware, so even if you send random data on the D-channel
+it should not result in a buffer overflow.
+But of course a local user could send wrong messages to the kernel
+via the /dev/capi20 device which then may let to the described out
+of bound access.
+
+Am 01.04.2014 17:48, schrieb Dan Carpenter:
+> The command_2_index() function is buggy and leads to a buffer overflow.
+> Does anyone know how to fix this?
 > 
-> Change-Id: I276609e87e0ca213c4d1b17b79c5e0b0f3d0dd6f
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> ---
-> v2:
->   Change the return type of bond_xmit_hash() from int to u32
-> v3:
->   Rebase.
+
+I think I have an idea, I will post a proposal soon.
+
+> drivers/isdn/capi/capiutil.c
+>    403  static unsigned command_2_index(unsigned c, unsigned sc)
+>    404  {
+>    405          if (c & 0x80)
+>    406                  c = 0x9 + (c & 0x0f);
+>    407          else if (c <= 0x0f);
+>    408          else if (c == 0x41)
+>    409                  c = 0x9 + 0x1;
+>    410          else if (c == 0xff)
+>    411                  c = 0x00;
+>    412          return (sc & 3) * (0x9 + 0x9) + c;
+>    413  }
 > 
->  drivers/net/bonding/bond_3ad.c  |  3 ++-
->  drivers/net/bonding/bond_main.c | 10 ++++------
->  drivers/net/bonding/bonding.h   |  2 +-
->  3 files changed, 7 insertions(+), 8 deletions(-)
+> Imagine that we input c = 0x7f and sc = 0x3.  Then 3 * 18 + 127 = 181
+> and we return 181.
+
+Yes need to check the array size at least, but this is not enough.
+
 > 
-> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-> index b667a51ed215..ccf2639e916f 100644
-> --- a/drivers/net/bonding/bond_3ad.c
-> +++ b/drivers/net/bonding/bond_3ad.c
-> @@ -30,6 +30,7 @@
->  #include <linux/etherdevice.h>
->  #include <linux/if_bonding.h>
->  #include <linux/pkt_sched.h>
-> +#include <net/sock.h>
+> The other thing that stands out to me is that the last condition
+> "(c == 0xff)" is never true because then the first condition
+> "(c & 0x80)" would have been true already.
 
-Not sure why you added this include ?
+Yes this should be the first check or a nested if in the current first
+check. command FF is the MANUFACTURER command and normally not
+implemented at all.
 
->  #include <net/net_namespace.h>
->  #include "bonding.h"
->  #include "bond_3ad.h"
-> @@ -2440,7 +2441,7 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
->  		goto err_free;
->  	}
->  
-> -	slave_agg_no = bond_xmit_hash(bond, skb, slaves_in_agg);
-> +	slave_agg_no = bond_xmit_hash(bond, skb) % slaves_in_agg;
->  	first_ok_slave = NULL;
->  
->  	bond_for_each_slave_rcu(bond, slave, iter) {
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> 
+> Here is how the function is used:
+> 
+> drivers/isdn/capi/capiutil.c
+>    564  /**
+>    565   * capi_message2cmsg() - disassemble CAPI 2.0 message into _cmsg structure
+>    566   * @cmsg:       _cmsg structure
+>    567   * @msg:        buffer for assembled message
+>    568   *
+>    569   * Return value: 0 for success
+>    570   */
+>    571  
+>    572  unsigned capi_message2cmsg(_cmsg *cmsg, u8 *msg)
+>    573  {
+>    574          memset(cmsg, 0, sizeof(_cmsg));
+>    575          cmsg->m = msg;
+>    576          cmsg->l = 8;
+>    577          cmsg->p = 0;
+>    578          byteTRcpy(cmsg->m + 4, &cmsg->Command);
+>    579          byteTRcpy(cmsg->m + 5, &cmsg->Subcommand);
+>    580          cmsg->par = cpars[command_2_index(cmsg->Command, cmsg->Subcommand)];
+>                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> cpars = is a 79 element array.
+> cmsg->Command and cmsg->Subcommand come from skb->data so we can't trust
+> them.
+> 181 is past the end of the 79 element array.
 
-Otherwise, seems fine to me
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+correct and this is not the only issue here. If you pass a value which
+is not a valid command, but will result in a index inside the array
+boundaries, it will result in  cmsg->par = NULL, which is also not
+handled properly in the parser functions.
