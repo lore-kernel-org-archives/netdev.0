@@ -1,129 +1,96 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Wed, 02 Apr 2014 17:24:24 +0200
-Message-ID: <4242558.6NaQec4f7j@wuerfel>
-References: <1396358832-15828-1-git-send-email-zhangfei.gao@linaro.org> <9532591.5yuCbpL4pV@wuerfel> <533BDDBA.1060800@linaro.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH regression] net: phy: fix initialization (config_init) for
+ Marvel 88E1116R PHYs
+Date: Tue, 1 Apr 2014 17:57:48 -0700
+Message-ID: <CAGVrzcZd9tBtcTY_2PRHVb9kJAjVHqn+EubUy4NGL66M_UuCDg@mail.gmail.com>
+References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: zhangfei <zhangfei.gao@linaro.org>, mark.rutland@arm.com,
-	devicetree@vger.kernel.org, f.fainelli@gmail.com,
-	linux@arm.linux.org.uk, eric.dumazet@gmail.com,
-	sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
-	David.Laight@aculab.com, davem@davemloft.net
-To: linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Michal Simek <michal.simek@xilinx.com>,
+	stable <stable@vger.kernel.org>
+To: Alexander Holler <holler@ahsoftware.de>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.13]:50849 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758804AbaDBPZA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 11:25:00 -0400
-In-Reply-To: <533BDDBA.1060800@linaro.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:60693 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751366AbaDBA63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 20:58:29 -0400
+In-Reply-To: <1396396559-6971-1-git-send-email-holler@ahsoftware.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 02 April 2014 17:51:54 zhangfei wrote:
-> Dear Arnd
-> 
-> On 04/02/2014 05:21 PM, Arnd Bergmann wrote:
-> > On Tuesday 01 April 2014 21:27:12 Zhangfei Gao wrote:
-> >> +static int hip04_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
-> >
-> > While it looks like there are no serious functionality bugs left, this
-> > function is rather inefficient, as has been pointed out before:
-> 
-> Yes, still need more performance tuning in the next step.
-> We need to enable the hardware feature of cache flush, under help of 
-> arm-smmu, as a result dma_map_single etc can be removed.
+2014-04-01 16:55 GMT-07:00 Alexander Holler <holler@ahsoftware.de>:
+> Commit 7cd1463664c2a15721ff4ccfb61d4d970815cb3d (introduced with 3.14)
+> changed the initialization of the mv643xx_eth driver to use phy_init_hw()
+> to reset the PHY. Unfortunately the initialization for the 88E1116R PHY
+> was broken such, that it used mdelay() instead of really waiting for a
+> reset to finish.
 
-You cannot remove the dma_map_single call here, but the implementation
-of that function will be different when you use the iommu_coherent_ops:
-Instead of flushing the caches, it will create or remove an iommu entry
-and return the bus address.
+So the only big difference before
+7cd1463664c2a15721ff4ccfb61d4d970815cb3d ("net: mv643xx_eth: use
+phy_init_hw to reset PHY") is that we waited potentially forever for
+the BMCR_RESET bit to get cleared, while now, we only wait for up to
+500 milliseconds.
 
-I remember you mentioned before that using the iommu on this particular
-SoC actually gives you cache-coherent DMA, so you may also be able
-to use arm_coherent_dma_ops if you can set up a static 1:1 mapping 
-between bus and phys addresses.
+Could you verify the following two things before your patch gets merged:
 
-> >> +{
-> >> +       struct hip04_priv *priv = netdev_priv(ndev);
-> >> +       struct net_device_stats *stats = &ndev->stats;
-> >> +       unsigned int tx_head = priv->tx_head;
-> >> +       struct tx_desc *desc = &priv->tx_desc[tx_head];
-> >> +       dma_addr_t phys;
-> >> +
-> >> +       hip04_tx_reclaim(ndev, false);
-> >> +       mod_timer(&priv->txtimer, jiffies + RECLAIM_PERIOD);
-> >> +
-> >> +       if (priv->tx_count >= TX_DESC_NUM) {
-> >> +               netif_stop_queue(ndev);
-> >> +               return NETDEV_TX_BUSY;
-> >> +       }
-> >
-> > This is where you have two problems:
-> >
-> > - if the descriptor ring is full, you wait for RECLAIM_PERIOD,
-> >    which is far too long at 500ms, because during that time you
-> >    are not able to add further data to the stopped queue.
-> 
-> Understand
-> The idea here is not using the timer as much as possible.
-> As experiment shows, only xmit reclaim buffers, the best throughput can 
-> be achieved.
+- how long does it take for your PHY to clear the BMCR_RESET bit, is
+it more than the allowed time out in
+drivers/net/phy/phy_device.c::phy_poll_reset
+- is your PHY powered down (check BMCR_PWRDOWN), if that is the case,
+we might be hitting some corner case where toggling BMCR_RESET will
+power it on, but at the expense of waiting longer
 
-I'm only talking about the case where that doesn't work: once you stop
-the queue, the xmit function won't get called again until the timer
-causes the reclaim be done and restart the queue.
+Thanks
 
-> > - As David Laight pointed out earlier, you must also ensure that
-> >    you don't have too much /data/ pending in the descriptor ring
-> >    when you stop the queue. For a 10mbit connection, you have already
-> >    tested (as we discussed on IRC) that 64 descriptors with 1500 byte
-> >    frames gives you a 68ms round-trip ping time, which is too much.
-> 
-> When iperf & ping running together and only ping, it is 0.7 ms.
-> 
-> >    Conversely, on 1gbit, having only 64 descriptors actually seems
-> >    a little low, and you may be able to get better throughput if
-> >    you extend the ring to e.g. 512 descriptors.
-> 
-> OK, Will check throughput of upgrade xmit descriptors.
-> But is it said not using too much descripors for xmit since no xmit 
-> interrupt?
+>
+> The effect was that the ethernet on my Kirkwood 88F6281 based device didn't
+> come up anymore (no carrier).
+>
+> Fix this by waiting for a reset to finish before proceeding further.
+>
+> Signed-off-by: Alexander Holler <holler@ahsoftware.de>
+>
+> Cc: Michal Simek <michal.simek@xilinx.com>
+> Cc: Florian Fainelli <f.fainelli@gmail.com>
+> Cc: <stable@vger.kernel.org>
+> ---
+>  drivers/net/phy/marvell.c | 8 ++++++--
+>  1 file changed, 6 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+> index bd37e45..5b84808 100644
+> --- a/drivers/net/phy/marvell.c
+> +++ b/drivers/net/phy/marvell.c
+> @@ -396,7 +396,9 @@ static int m88e1116r_config_init(struct phy_device *phydev)
+>         if (err < 0)
+>                 return err;
+>
+> -       mdelay(500);
+> +       do
+> +               temp = phy_read(phydev, MII_BMCR);
+> +       while (temp & BMCR_RESET);
+>
+>         err = phy_write(phydev, MII_MARVELL_PHY_PAGE, 0);
+>         if (err < 0)
+> @@ -429,7 +431,9 @@ static int m88e1116r_config_init(struct phy_device *phydev)
+>         if (err < 0)
+>                 return err;
+>
+> -       mdelay(500);
+> +       do
+> +               temp = phy_read(phydev, MII_BMCR);
+> +       while (temp & BMCR_RESET);
+>
+>         return 0;
+>  }
+> --
+> 1.8.3.1
+>
 
-The important part is to limit the time that data spends in the queue,
-which is a function of the interface tx speed and the number of bytes
-in the queue.
 
-> >> +       phys = dma_map_single(&ndev->dev, skb->data, skb->len, DMA_TO_DEVICE);
-> >> +       if (dma_mapping_error(&ndev->dev, phys)) {
-> >> +               dev_kfree_skb(skb);
-> >> +               return NETDEV_TX_OK;
-> >> +       }
-> >> +
-> >> +       priv->tx_skb[tx_head] = skb;
-> >> +       priv->tx_phys[tx_head] = phys;
-> >> +       desc->send_addr = cpu_to_be32(phys);
-> >> +       desc->send_size = cpu_to_be16(skb->len);
-> >> +       desc->cfg = cpu_to_be32(DESC_DEF_CFG);
-> >> +       phys = priv->tx_desc_dma + tx_head * sizeof(struct tx_desc);
-> >> +       desc->wb_addr = cpu_to_be32(phys);
-> >
-> > One detail: since you don't have cache-coherent DMA, "desc" will
-> > reside in uncached memory, so you try to minimize the number of accesses.
-> > It's probably faster if you build the descriptor on the stack and
-> > then atomically copy it over, rather than assigning each member at
-> > a time.
-> 
-> I am sorry, not quite understand, could you clarify more?
-> The phys and size etc of skb->data is changing, so need to assign.
-> If member contents keep constant, it can be set when initializing.
 
-I meant you should use 64-bit accesses here instead of multiple 32 and
-16 bit accesses, but as David noted, it's actually not that much of
-a deal for the writes as it is for the reads from uncached memory.
-
-The important part is to avoid the line where you do 'if (desc->send_addr
-!= 0)' as much as possible.
-
-	Arnd
+-- 
+Florian
