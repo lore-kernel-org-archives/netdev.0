@@ -1,167 +1,75 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v3 1/2] xen-netback: Rename map ops
-Date: Wed, 2 Apr 2014 18:04:57 +0100
-Message-ID: <1396458298-30041-1-git-send-email-zoltan.kiss@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 3/5] bonding: Initialize the ALB work queue for lb
+ mode only.
+Date: Wed, 02 Apr 2014 04:03:30 -0700
+Message-ID: <1396436610.3989.31.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1396422012-32022-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>
-To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Mahesh Bandewar <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:46118 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758057AbaDBLDd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 07:03:33 -0400
+Received: by mail-pb0-f46.google.com with SMTP id rq2so18375pbb.19
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 04:03:32 -0700 (PDT)
+In-Reply-To: <1396422012-32022-1-git-send-email-maheshb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rename identifiers to state explicitly that they refer to map ops.
+On Wed, 2014-04-02 at 00:00 -0700, Mahesh Bandewar wrote:
+> micro change to initialize / cancel the ALB work queue only
+> if the mode selected is ALB or TLB.
+> 
+> Change-Id: I27a6cf65f72819889bf15b68f6ef4fca7d617186
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+> v2:
+>   Rebase
+> v3:
+>   Rebase
+> 
+>  drivers/net/bonding/bond_main.c | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 6e96d510bc8d..676db41b98bc 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -3046,7 +3046,8 @@ static void bond_work_init_all(struct bonding *bond)
+>  {
+>  	INIT_DELAYED_WORK(&bond->mcast_work,
+>  			  bond_resend_igmp_join_requests_delayed);
+> -	INIT_DELAYED_WORK(&bond->alb_work, bond_alb_monitor);
+> +	if (bond_is_lb(bond))
+> +		INIT_DELAYED_WORK(&bond->alb_work, bond_alb_monitor);
+>  	INIT_DELAYED_WORK(&bond->mii_work, bond_mii_monitor);
+>  	if (bond->params.mode == BOND_MODE_ACTIVEBACKUP)
+>  		INIT_DELAYED_WORK(&bond->arp_work, bond_activebackup_arp_mon);
+> @@ -3059,7 +3060,8 @@ static void bond_work_cancel_all(struct bonding *bond)
+>  {
+>  	cancel_delayed_work_sync(&bond->mii_work);
+>  	cancel_delayed_work_sync(&bond->arp_work);
+> -	cancel_delayed_work_sync(&bond->alb_work);
+> +	if (bond_is_lb(bond))
+> +		cancel_delayed_work_sync(&bond->alb_work);
+>  	cancel_delayed_work_sync(&bond->ad_work);
+>  	cancel_delayed_work_sync(&bond->mcast_work);
+>  }
 
-Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
----
-v3:
-- rename xenvif_tx_create_gop to xenvif_tx_create_map_op
+I would prefer you drop this patch.
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index ae34f5f..8f468ab 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -819,13 +819,13 @@ struct xenvif_tx_cb {
- 
- #define XENVIF_TX_CB(skb) ((struct xenvif_tx_cb *)(skb)->cb)
- 
--static inline void xenvif_tx_create_gop(struct xenvif *vif,
--					u16 pending_idx,
--					struct xen_netif_tx_request *txp,
--					struct gnttab_map_grant_ref *gop)
-+static inline void xenvif_tx_create_map_op(struct xenvif *vif,
-+					  u16 pending_idx,
-+					  struct xen_netif_tx_request *txp,
-+					  struct gnttab_map_grant_ref *mop)
- {
--	vif->pages_to_map[gop-vif->tx_map_ops] = vif->mmap_pages[pending_idx];
--	gnttab_set_map_op(gop, idx_to_kaddr(vif, pending_idx),
-+	vif->pages_to_map[mop-vif->tx_map_ops] = vif->mmap_pages[pending_idx];
-+	gnttab_set_map_op(mop, idx_to_kaddr(vif, pending_idx),
- 			  GNTMAP_host_map | GNTMAP_readonly,
- 			  txp->gref, vif->domid);
- 
-@@ -879,7 +879,7 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
- 	     shinfo->nr_frags++, txp++, gop++) {
- 		index = pending_index(vif->pending_cons++);
- 		pending_idx = vif->pending_ring[index];
--		xenvif_tx_create_gop(vif, pending_idx, txp, gop);
-+		xenvif_tx_create_map_op(vif, pending_idx, txp, gop);
- 		frag_set_pending_idx(&frags[shinfo->nr_frags], pending_idx);
- 	}
- 
-@@ -899,7 +899,7 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif *vif,
- 		     shinfo->nr_frags++, txp++, gop++) {
- 			index = pending_index(vif->pending_cons++);
- 			pending_idx = vif->pending_ring[index];
--			xenvif_tx_create_gop(vif, pending_idx, txp, gop);
-+			xenvif_tx_create_map_op(vif, pending_idx, txp, gop);
- 			frag_set_pending_idx(&frags[shinfo->nr_frags],
- 					     pending_idx);
- 		}
-@@ -939,9 +939,9 @@ static inline void xenvif_grant_handle_reset(struct xenvif *vif,
- 
- static int xenvif_tx_check_gop(struct xenvif *vif,
- 			       struct sk_buff *skb,
--			       struct gnttab_map_grant_ref **gopp)
-+			       struct gnttab_map_grant_ref **gopp_map)
- {
--	struct gnttab_map_grant_ref *gop = *gopp;
-+	struct gnttab_map_grant_ref *gop_map = *gopp_map;
- 	u16 pending_idx = XENVIF_TX_CB(skb)->pending_idx;
- 	struct skb_shared_info *shinfo = skb_shinfo(skb);
- 	struct pending_tx_info *tx_info;
-@@ -950,11 +950,11 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
- 	struct sk_buff *first_skb = NULL;
- 
- 	/* Check status of header. */
--	err = gop->status;
-+	err = gop_map->status;
- 	if (unlikely(err))
- 		xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_ERROR);
- 	else
--		xenvif_grant_handle_set(vif, pending_idx , gop->handle);
-+		xenvif_grant_handle_set(vif, pending_idx , gop_map->handle);
- 
- 	/* Skip first skb fragment if it is on same page as header fragment. */
- 	start = (frag_get_pending_idx(&shinfo->frags[0]) == pending_idx);
-@@ -967,10 +967,12 @@ check_frags:
- 		tx_info = &vif->pending_tx_info[pending_idx];
- 
- 		/* Check error status: if okay then remember grant handle. */
--		newerr = (++gop)->status;
-+		newerr = (++gop_map)->status;
- 
- 		if (likely(!newerr)) {
--			xenvif_grant_handle_set(vif, pending_idx , gop->handle);
-+			xenvif_grant_handle_set(vif,
-+						pending_idx,
-+						gop_map->handle);
- 			/* Had a previous error? Invalidate this fragment. */
- 			if (unlikely(err))
- 				xenvif_idx_unmap(vif, pending_idx);
-@@ -1022,7 +1024,7 @@ check_frags:
- 		}
- 	}
- 
--	*gopp = gop + 1;
-+	*gopp_map = gop_map + 1;
- 	return err;
- }
- 
-@@ -1291,7 +1293,7 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
- 			}
- 		}
- 
--		xenvif_tx_create_gop(vif, pending_idx, &txreq, gop);
-+		xenvif_tx_create_map_op(vif, pending_idx, &txreq, gop);
- 
- 		gop++;
- 
-@@ -1398,7 +1400,7 @@ static int xenvif_handle_frag_list(struct xenvif *vif, struct sk_buff *skb)
- 
- static int xenvif_tx_submit(struct xenvif *vif)
- {
--	struct gnttab_map_grant_ref *gop = vif->tx_map_ops;
-+	struct gnttab_map_grant_ref *gop_map = vif->tx_map_ops;
- 	struct sk_buff *skb;
- 	int work_done = 0;
- 
-@@ -1411,7 +1413,7 @@ static int xenvif_tx_submit(struct xenvif *vif)
- 		txp = &vif->pending_tx_info[pending_idx].req;
- 
- 		/* Check the remap error code. */
--		if (unlikely(xenvif_tx_check_gop(vif, skb, &gop))) {
-+		if (unlikely(xenvif_tx_check_gop(vif, skb, &gop_map))) {
- 			netdev_dbg(vif->dev, "netback grant failed.\n");
- 			skb_shinfo(skb)->nr_frags = 0;
- 			kfree_skb(skb);
-@@ -1610,21 +1612,21 @@ static inline void xenvif_tx_dealloc_action(struct xenvif *vif)
- /* Called after netfront has transmitted */
- int xenvif_tx_action(struct xenvif *vif, int budget)
- {
--	unsigned nr_gops;
-+	unsigned nr_mops;
- 	int work_done, ret;
- 
- 	if (unlikely(!tx_work_todo(vif)))
- 		return 0;
- 
--	nr_gops = xenvif_tx_build_gops(vif, budget);
-+	nr_mops = xenvif_tx_build_gops(vif, budget);
- 
--	if (nr_gops == 0)
-+	if (nr_mops == 0)
- 		return 0;
- 
- 	ret = gnttab_map_refs(vif->tx_map_ops,
- 			      NULL,
- 			      vif->pages_to_map,
--			      nr_gops);
-+			      nr_mops);
- 	BUG_ON(ret);
- 
- 	work_done = xenvif_tx_submit(vif);
+As I said, there is no gain but potential troubles with this,
+bonding driver is heavily changed by lot of people. 
+
+Its not like we setup/dismantle thousand of bonding devices per second
+on a host.
