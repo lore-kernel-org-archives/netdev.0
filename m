@@ -1,49 +1,50 @@
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Subject: [Patch net-next] pktgen: small code cleanup
-Date: Wed,  2 Apr 2014 16:24:51 +0800
-Message-ID: <1396427091-8230-1-git-send-email-weiyang@linux.vnet.ibm.com>
-Cc: davem@davemloft.net, Wei Yang <weiyang@linux.vnet.ibm.com>
-To: fan.du@windriver.com, netdev@vger.kernel.org
+From: Zheng Li <zheng.x.li@oracle.com>
+Subject: [PATCH v3] bonding: Inactive slaves should keep inactive flag's value
+Date: Wed,  2 Apr 2014 11:01:48 +0800
+Message-ID: <1396407708-4056-1-git-send-email-zheng.x.li@oracle.com>
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	joe.jin@oracle.com, zheng.x.li@oracle.com
+To: netdev@vger.kernel.org, j.vosburgh@gmail.com, fubar@us.ibm.com,
+	andy@greyhouse.net, vfalico@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp02.in.ibm.com ([122.248.162.2]:45949 "EHLO
-	e28smtp02.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758097AbaDBIZP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 04:25:15 -0400
-Received: from /spool/local
-	by e28smtp02.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
-	Wed, 2 Apr 2014 13:55:13 +0530
-Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
-	by d28dlp03.in.ibm.com (Postfix) with ESMTP id 82B4F1258054
-	for <netdev@vger.kernel.org>; Wed,  2 Apr 2014 13:57:38 +0530 (IST)
-Received: from d28av05.in.ibm.com (d28av05.in.ibm.com [9.184.220.67])
-	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s328P2nl51183714
-	for <netdev@vger.kernel.org>; Wed, 2 Apr 2014 13:55:02 +0530
-Received: from d28av05.in.ibm.com (localhost [127.0.0.1])
-	by d28av05.in.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s328P55u005918
-	for <netdev@vger.kernel.org>; Wed, 2 Apr 2014 13:55:06 +0530
+Received: from aserp1040.oracle.com ([141.146.126.69]:33756 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751904AbaDBCsR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 22:48:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Print the warning when the format is not correct.
+bond_open is not setting the inactive flag correctly for some modes (alb and
+tlb), resulting in error behavior if the bond has been administratively set
+down and then back up. This effect should not occur when slaves are added while
+the bond is up; it's something that only happens after a down/up bounce of the
+bond.
 
-Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+For example, in bond tlb or alb mode, domu send some ARP request which go out
+from dom0 bond's active slave, then the ARP broadcast request packets go back to
+inactive slave from switch, because the inactive slave's inactive flag is zero,
+kernel will receive the packets and pass them to bridge that cause dom0's bridge
+map domu's MAC address to port of bond, bridge should map domu's MAC to port of
+vif.
+
+Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
+Signed-off-by: Jay Vosburgh <j.vosburgh@gmail.com>
 ---
- net/core/pktgen.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/bonding/bond_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index fdac61c..89d33c2 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -1767,7 +1767,7 @@ static ssize_t pktgen_thread_write(struct file *file,
- 	char *pg_result;
- 
- 	if (count < 1) {
--		//      sprintf(pg_result, "Wrong command format");
-+		pr_warn("WARNING: Wrong command format in %s\n", __func__);
- 		return -EINVAL;
- 	}
- 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index e5628fc..b42758f 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3058,7 +3058,7 @@ static int bond_open(struct net_device *bond_dev)
+ 	if (bond_has_slaves(bond)) {
+ 		read_lock(&bond->curr_slave_lock);
+ 		bond_for_each_slave(bond, slave, iter) {
+-			if ((bond->params.mode == BOND_MODE_ACTIVEBACKUP)
++			if (USES_PRIMARY(bond->params.mode)
+ 				&& (slave != bond->curr_active_slave)) {
+ 				bond_set_slave_inactive_flags(slave,
+ 							      BOND_SLAVE_NOTIFY_NOW);
 -- 
-1.7.9.5
+1.7.6.5
