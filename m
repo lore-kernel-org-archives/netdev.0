@@ -1,85 +1,82 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: [PATCH] net/mlx4_core: match pci_device_id including dynids
-Date: Wed, 2 Apr 2014 21:11:18 -0600
-Message-ID: <CAErSpo749gfvcJmwjCw6c6H07S9cvaX2kz4jw1AwUZzbDN6Afw@mail.gmail.com>
-References: <1396326961-20395-1-git-send-email-weiyang@linux.vnet.ibm.com>
- <CAErSpo4yj+31puKhnxJ9Dns4c-1cWoUxxQt+OTDQDCGuuksOAw@mail.gmail.com> <20140403015130.GA6151@richard>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
+ switch chip datapath
+Date: Wed, 2 Apr 2014 08:41:18 +0200
+Message-ID: <20140402064118.GA2844@minipsycho.orion>
+References: <20140325180009.GB15723@casper.infradead.org>
+ <20140325193533.GF8102@hmsreliant.think-freely.org>
+ <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com>
+ <5332677F.2090404@cumulusnetworks.com>
+ <5332B1FE.7080102@mojatatu.com>
+ <53330639.8050403@cumulusnetworks.com>
+ <20140326165934.GH2869@minipsycho.orion>
+ <533312A3.5070600@cumulusnetworks.com>
+ <20140326180356.GK2869@minipsycho.orion>
+ <2D65D0C2-6BBC-4968-8400-4EB60BDF887A@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, yevgenyp@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Wei Yang <weiyang@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:48840 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932843AbaDCDLj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 23:11:39 -0400
-Received: by mail-ie0-f169.google.com with SMTP id to1so1230205ieb.14
-        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 20:11:39 -0700 (PDT)
-In-Reply-To: <20140403015130.GA6151@richard>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:45834 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756658AbaDBGlW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 02:41:22 -0400
+Received: by mail-wi0-f181.google.com with SMTP id hm4so6416910wib.14
+        for <netdev@vger.kernel.org>; Tue, 01 Apr 2014 23:41:21 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <2D65D0C2-6BBC-4968-8400-4EB60BDF887A@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 2, 2014 at 7:51 PM, Wei Yang <weiyang@linux.vnet.ibm.com> wrote:
-> On Wed, Apr 02, 2014 at 12:28:46PM -0600, Bjorn Helgaas wrote:
-
->>I looked at all the .error_detected() methods in the tree, and I think
->>mlx4_pci_err_detected() is the only one that actually throws away the
->>pci_drvdata().  Most drivers just do pci_disable_device() and some
->>other housekeeping.  Can you do something similar?
+Tue, Apr 01, 2014 at 09:13:00PM CEST, sfeldma@cumulusnetworks.com wrote:
 >
-> Change mlx4_remove_one() to have just pci_disable_device() is a big decisioin.
-> I believe Or and Amir will have better ideas.
-
-Oh, I totally agree that you shouldn't make such a radical change just
-for this issue.  What I meant was that maybe there's a relatively
-simple way for you to hang on to the pci_drvdata() or at least the
-pci_device_id.driver_data value.
-
-BUT just on general principles, you should at least look at the other
-drivers and use the same model unless you need something different.  I
-doubt there's anything so special about mlx4 that it needs a totally
-different approach.  But again, this is a broad comment, not a
-suggestion for how to solve this particular issue.
-
->>The mlx4 approach of completely tearing down and rebuilding the device
->>*is* sort of appealing because I'm a little dubious of assuming that
->>any driver setup done before the reset is still valid afterwards.  But
->>maybe you could at least hang onto the pci_device_id.driver_data
->>value?  As far as the PCI core is concerned, it supplied that to the
->>.probe() function, and nothing has changed since then, so there's no
->>reason for a driver to request it again.
+>On Mar 26, 2014, at 11:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
 >
-> Hmm... so you suggest every driver better do what mlx4_core does? Clear/Reset
-> the device? This is reasonable to me, while one case comes into my mind --
-> SRIOV. For example this PF triggers an error and be reported the error. If we
-> tear down the PF, we should remove all the VFs too. This means once the PF
-> gets into an error, all the PF and VFs should be cleared/reset, no matter
-> whether the VFs are healthy or not. So there is no chance to isolate PF and
-> VFs. I guess this is not what we want to achieve for SRIOV. Is my
-> understanding correct?
+>> Wed, Mar 26, 2014 at 06:47:15PM CET, roopa@cumulusnetworks.com wrote:
+>>> On 3/26/14, 9:59 AM, Jiri Pirko wrote:
+>>>> Wed, Mar 26, 2014 at 05:54:17PM CET, roopa@cumulusnetworks.com wrote:
+>>>> So you implement bonding netlink api? Or you hook into bonding driver
+>>>> itselt? Can you show us the code?
+>>> We use the netlink API and libnl. In our current model, our switch
+>>> chip driver listens to netlink notifications and programs the switch
+>>> chip. The switch chip driver uses libnl caches and libnl netlink apis
+>>> to reflect the kernel state to switch chip.
+>> 
+>> 
+>> So when you configure for example bonding over 2 ports, you actually use
+>> bonding driver to do that. And you userspace app listens to
+>> notifications and programs the switch chip accordingly. Am I close?
+>> 
+>> How about data? Is this new "bonding" interface able to assign ip to is
+>> and send/receive packets.
+>> 
+>> I'm still not sure I understand your concept. Do you have some
+>> documentation for it available?
+>
+>Actually Jiri this is the code you and I worked on recently to netlink-ify bonding/slave attributes and active/inactive notification.  You have it right, user uses normal ip link tools and bonding driver to create bond, set attributes, and enslave switch ports.  RTM_NEWLINK is used to program ASIC to offload LAG to HW.  RTM_NEWLINK msgs contains bond attributes (mode, etc) and slave list, as well as slave status.  This is enough information to program ASIC.  Once programmed, ASIC offloads the data plane traffic, and in the case of egress, handles the LAG hash distribution.  Only the LACP control plane traffic makes it to the bonding driver; data plane traffic does not make it to the bonding driver.
+>
+>So, not trying to sound like a smart-ass, but the documentation is the bonding driver, specifically the netlink attributes/notifications.
 
-No, I'm not suggesting that everybody do what mlx4 does.  I'm just
-saying that I can see why mlx4 was designed that way.
+Ok, so no additional kernel code for this? Only some userpace agent
+programming the chip?
 
->From the PCI core's perspective, after .probe() returns successfully,
-we can call any driver entry point and pass the pci_dev to it, and
-expect it to work.  Doing mlx4_remove_one() in mlx4_pci_err_detected()
-sort of breaks that assumption because you clear out pci_drvdata().
-Right now, the only other entry point mlx4 really implements is
-mlx4_remove_one(), and it has a hack that tests whether pci_drvdata()
-is NULL.  But that's ... a hack, and you'll have to do the same
-if/when you implement suspend/resume/sriov_configure/etc.
 
-So doing the whole tear-down in mlx4_pci_err_detected() doesn't seem
-like a great design to me.  But mlx4_remove_one() probably could be
-refactored to move the bulk of its code into a helper, and then you
-could have both mlx4_remove_one() and mlx4_pci_err_detected() call
-that helper.  Clearing pci_set_drvdata() could be done only in
-mlx4_remove_one(), so it could be preserved in
-mlx4_pci_err_detected().
-
-Bjorn
+>
+>-scott
