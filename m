@@ -1,128 +1,96 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: RE: [PATCH net-next 1/1] sxgbe: fix driver probe error path and driver
- removal leaks
-Date: Wed, 02 Apr 2014 18:04:55 -0700
-Message-ID: <006c01cf4ed8$bb5cb030$32161090$@samsung.com>
-References: <20140402231343.GC5013@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH regression] net: phy: fix initialization (config_init)
+ for Marvel 88E1116R PHYs
+Date: Thu, 03 Apr 2014 00:27:23 +0200
+Message-ID: <533C8ECB.4090900@gmail.com>
+References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de> <CAGVrzcZd9tBtcTY_2PRHVb9kJAjVHqn+EubUy4NGL66M_UuCDg@mail.gmail.com> <533BD3CD.1010905@ahsoftware.de> <CAGVrzcZi5aNq8fR795fKhu2TAc1tQCa2YEorErZRLf2n9DPZuw@mail.gmail.com> <533C721E.1080004@gmail.com> <533C8B49.8080704@ahsoftware.de>
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: 'David Miller' <davem@davemloft.net>, dan.carpenter@oracle.com,
-	ks.giri@samsung.com, siva.kallam@samsung.com,
-	vipul.pandya@samsung.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: 'Francois Romieu' <romieu@fr.zoreil.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-reply-to: <20140402231343.GC5013@electric-eye.fr.zoreil.com>
-Content-language: en-us
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Michal Simek <michal.simek@xilinx.com>,
+	stable <stable@vger.kernel.org>
+To: Alexander Holler <holler@ahsoftware.de>,
+	Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:47622 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030593AbaDBW11 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 18:27:27 -0400
+In-Reply-To: <533C8B49.8080704@ahsoftware.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu <romieu@fr.zoreil.com> :
-> sxgbe_drv_probe:  mdio and priv->hw leaks
-> sxgbe_drv_remove: clk and priv->hw leaks
+On 04/03/2014 12:12 AM, Alexander Holler wrote:
+> Am 02.04.2014 22:25, schrieb Sebastian Hesselbarth:
+>> On 04/02/2014 09:01 PM, Florian Fainelli wrote:
+>>> 2014-04-02 2:09 GMT-07:00 Alexander Holler <holler@ahsoftware.de>:
+>>>> Am 02.04.2014 02:57, schrieb Florian Fainelli:
+>>>>> 2014-04-01 16:55 GMT-07:00 Alexander Holler <holler@ahsoftware.de>:
+>>>>>> Commit 7cd1463664c2a15721ff4ccfb61d4d970815cb3d (introduced with 3.14)
+>>>>>> changed the initialization of the mv643xx_eth driver to use phy_init_hw()
+>>>>>> to reset the PHY. Unfortunately the initialization for the 88E1116R PHY
+>>>>>> was broken such, that it used mdelay() instead of really waiting for a
+>>>>>> reset to finish.
+>>>
+>>> Can you resubmit with the following information:
+>>>
+>>> - you specify the commit that introduce the problem in parenthesis,
+>>> e.g: deadbeef ("dead: beef: cafe babe")
+>>> - put this dmesg snippet in your log message to clearly illustrate
+>>> what is happening
+>>> - clarify that the PHY needs to be polled in a comment in
+>>> m88e1116r_config_init()
+>>>
+>>> Meanwhile, it would be good if someone with access to this particular
+>>> PHY datasheet could look for known erratas, problems, non-standard
+>>> compliant behavior ....
+>>
+>> Alexander,
+>>
+>> I tried todays linux/master on Seagate Dockstar with Marvell 88E1116R
+>> (0x01410e40) and cannot reproduce any regression. I tried booting from
+>> tftp and usb, I also rebooted twice to see if there are any side
+>> effects - nothing - ethernet always comes up as expected.
+>>
+>> I am curious, how you determined above commit to be the cause of the
+>> regression you are seeing. Can you bisect, if you didn't already?
 > 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> ---
+> There was no bisecting necessary. I've just looked at what changed in
+> mv643xx_eth since 3.13 and the first commit I've reverted was already a
+> hit. Reading a bit source revealed the differences between the old reset
+> and the newly used one and ended up with my patch (first try) and was a
+> hit too.
 
-Acked-by: Byungho An <bh74.an@samsung.com>
+Honestly, your own fix changes a different driver than mv643xx_eth.
+There is a lot of changes from v3.13 to v3.14 and bisecting really
+helps to pin-point the one offending patch. As you can see from my
+tests with Dockstar, poking in the PHY driver may not be the right
+place to fix it.
 
-> 
->  Compiled, untested.
-> 
->  drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c | 27
-> ++++++++++++++++---------
->  1 file changed, 17 insertions(+), 10 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-> b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-> index a72688e..27e8c82 100644
-> --- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-> +++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-> @@ -2113,11 +2113,11 @@ struct sxgbe_priv_data *sxgbe_drv_probe(struct
-> device *device,
->  	/* allocate memory resources for Descriptor rings */
->  	ret = txring_mem_alloc(priv);
->  	if (ret)
-> -		goto error_free_netdev;
-> +		goto error_free_hw;
-> 
->  	ret = rxring_mem_alloc(priv);
->  	if (ret)
-> -		goto error_free_netdev;
-> +		goto error_free_hw;
-> 
->  	ndev->netdev_ops = &sxgbe_netdev_ops;
-> 
-> @@ -2163,7 +2163,7 @@ struct sxgbe_priv_data *sxgbe_drv_probe(struct
-> device *device,
->  	if (IS_ERR(priv->sxgbe_clk)) {
->  		netdev_warn(ndev, "%s: warning: cannot get CSR clock\n",
->  			    __func__);
-> -		goto error_clk_get;
-> +		goto error_napi_del;
->  	}
-> 
->  	/* If a specific clk_csr value is passed from the platform @@ -2182,24
-> +2182,27 @@ struct sxgbe_priv_data *sxgbe_drv_probe(struct device *device,
->  	if (ret < 0) {
->  		netdev_dbg(ndev, "%s: MDIO bus (id: %d) registration
-> failed\n",
->  			   __func__, priv->plat->bus_id);
-> -		goto error_mdio_register;
-> +		goto error_clk_put;
->  	}
-> 
->  	ret = register_netdev(ndev);
->  	if (ret) {
->  		pr_err("%s: ERROR %i registering the device\n", __func__,
-ret);
-> -		goto error_netdev_register;
-> +		goto error_mdio_unregister;
->  	}
-> 
->  	sxgbe_check_ether_addr(priv);
-> 
->  	return priv;
-> 
-> -error_mdio_register:
-> +error_mdio_unregister:
-> +	sxgbe_mdio_unregister(ndev);
-> +error_clk_put:
->  	clk_put(priv->sxgbe_clk);
-> -error_clk_get:
-> -error_netdev_register:
-> +error_napi_del:
->  	netif_napi_del(&priv->napi);
-> +error_free_hw:
-> +	kfree(priv->hw);
->  error_free_netdev:
->  	free_netdev(ndev);
-> 
-> @@ -2224,11 +2227,15 @@ int sxgbe_drv_remove(struct net_device *ndev)
->  	priv->hw->mac->enable_tx(priv->ioaddr, false);
->  	priv->hw->mac->enable_rx(priv->ioaddr, false);
-> 
-> -	netif_napi_del(&priv->napi);
-> +	unregister_netdev(ndev);
-> 
->  	sxgbe_mdio_unregister(ndev);
-> 
-> -	unregister_netdev(ndev);
-> +	clk_put(priv->sxgbe_clk);
-> +
-> +	netif_napi_del(&priv->napi);
-> +
-> +	kfree(priv->hw);
-> 
->  	free_netdev(ndev);
-> 
-> --
-> 1.9.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the
-body of
-> a message to majordomo@vger.kernel.org More majordomo info at
-> http://vger.kernel.org/majordomo-info.html
+> Actually I assumed the reset needs longer than the 500ms, but as the
+> printks revealed, the reset is much faster.
+> So the problem seems to be the much increased time (1s) the newly used
+> reset function idles in mdelay.
 
+You assume that the PHY issue comes from waiting for too long _after_
+the reset? And again, the very same PHY on Dockstar is not affected.
+
+> But I think I have found the real reason. and the change of the reset
+> just increased the chance the problem is hit (here with 100% success or
+> fail rate however you want to name it).
+> 
+> Just give me a day or two to find the time to verify my assumption (I
+> don't want to speculate) and maybe find a real fix for the problem. Of
+> course, I still like my patch because it greatly decreases the time
+> necessary for a reset (and the chance to hit the problem).
+
+Well, you can share your idea anytime. You already speculated that PHY
+reset on 88e1116r is broken but it seems that is not true. The more
+you share of your issue and the tries to fix it, the more likely is it
+we can follow your patch immediately.
+
+Again, if you really want to find the real patch breaking Sheevaplug,
+use git bisect.
+
+Sebastian
