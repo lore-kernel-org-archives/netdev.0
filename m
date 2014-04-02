@@ -1,124 +1,61 @@
-From: Alexander Holler <holler@ahsoftware.de>
-Subject: Re: [PATCH regression] net: phy: fix initialization (config_init)
- for Marvel 88E1116R PHYs
-Date: Wed, 02 Apr 2014 11:09:33 +0200
-Message-ID: <533BD3CD.1010905@ahsoftware.de>
-References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de> <CAGVrzcZd9tBtcTY_2PRHVb9kJAjVHqn+EubUy4NGL66M_UuCDg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 5/5] bonding: Add tlb_dynamic_lb module parameter
+Date: Wed, 02 Apr 2014 04:11:25 -0700
+Message-ID: <1396437085.3989.36.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1396422017-32099-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
-	Michal Simek <michal.simek@xilinx.com>,
-	stable <stable@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <CAGVrzcZd9tBtcTY_2PRHVb9kJAjVHqn+EubUy4NGL66M_UuCDg@mail.gmail.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Mahesh Bandewar <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:35074 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758419AbaDBLL2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 07:11:28 -0400
+Received: by mail-pb0-f54.google.com with SMTP id ma3so26412pbc.27
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 04:11:28 -0700 (PDT)
+In-Reply-To: <1396422017-32099-1-git-send-email-maheshb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 02.04.2014 02:57, schrieb Florian Fainelli:
-> 2014-04-01 16:55 GMT-07:00 Alexander Holler <holler@ahsoftware.de>:
->> Commit 7cd1463664c2a15721ff4ccfb61d4d970815cb3d (introduced with 3.14)
->> changed the initialization of the mv643xx_eth driver to use phy_init_hw()
->> to reset the PHY. Unfortunately the initialization for the 88E1116R PHY
->> was broken such, that it used mdelay() instead of really waiting for a
->> reset to finish.
->
-> So the only big difference before
-> 7cd1463664c2a15721ff4ccfb61d4d970815cb3d ("net: mv643xx_eth: use
-> phy_init_hw to reset PHY") is that we waited potentially forever for
-> the BMCR_RESET bit to get cleared, while now, we only wait for up to
-> 500 milliseconds.
->
-> Could you verify the following two things before your patch gets merged:
->
-> - how long does it take for your PHY to clear the BMCR_RESET bit, is
-> it more than the allowed time out in
-> drivers/net/phy/phy_device.c::phy_poll_reset
-> - is your PHY powered down (check BMCR_PWRDOWN), if that is the case,
-> we might be hitting some corner case where toggling BMCR_RESET will
-> power it on, but at the expense of waiting longer
+On Wed, 2014-04-02 at 00:00 -0700, Mahesh Bandewar wrote:
+> The aggresive load balancing causes packet re-ordering as active
+> flows are moved from a slave to another within the group. Sometime
+> this aggresive lb is not necessary if the preference is for less
+> re-ordering. This module parameter if used with value "0" disables
+> this dynamic flow shuffling minimizing packet re-ordering. Of course
+> the side effect is that it has to live with the static load balancing
+> that the hashing distribution provides. This impact is less severe if
+> the correct xmit-hashing-policy is used for the tlb setup.
+> 
+> The default value of the parameter is set to "1" mimicing the earlier
+> behavior.
+> 
+> Ran the netperf test with 200 stream for 1 min between two hosts with
+> 4x1G trunk (xmit-lb mode with xmit-policy L3+4) before and after these
+> changes. Following was the command used for those 200 instances -
+> 
+>     netperf -t TCP_RR -l 60 -s 5 -H <host> -- -r81920,81920
+> 
+> Transactions per second:
+>     Before change: 1,367.11
+>     After  change: 1,470.65
+> 
+> Change-Id: Ie3f75c77282cf602e83a6e833c6eb164e72a0990
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
 
-I've  done two tests with pr_info before and after the two resets in 
-m88e1116r_config_init:
+Sorry, but a new module parameter with no documentation of why it is
+needed is not welcomed.
 
-with my patch:
------------------------
-dmesg | grep -A1 -B1  AHO
-[    1.090099] mv643xx_eth: MV-643xx 10/100/1000 ethernet driver version 1.4
-[    1.175916] AHO: before first reset
-[    1.179613] AHO: after first reset
-[    1.183743] AHO: before second reset
-[    1.187530] AHO: after second reset
-[    1.191905] mv643xx_eth_port mv643xx_eth_port.0 eth0: port 0 with MAC 
-address xx
---
-[    1.426487] netpoll: netconsole: device eth0 not up yet, forcing it
-[    1.505986] AHO: before first reset
-[    1.509725] AHO: after first reset
-[    1.513899] AHO: before second reset
-[    1.517754] AHO: after second reset
-[    1.521802] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
---
-[   21.372591] Adding 2996116k swap on /dev/sda3.  Priority:-1 extents:1 
-across:2996116k
-[   28.305989] AHO: before first reset
-[   28.306200] AHO: after first reset
-[   28.306936] AHO: before second reset
-[   28.307153] AHO: after second reset
-[   31.509973] mv643xx_eth_port mv643xx_eth_port.0 eth0: link up, 1000 
-Mb/s, full duplex, flow control disabled
------------------------
+You provided all knobs to be able to set the parameter on each bonding,
+so why do we have to introduce this global setting ?
 
-
-with mdelay (the value after reset is what contains MII_BMCR):
-
------------------------
-dmesg | grep -A1 -B1  AHO
-[    1.090072] mv643xx_eth: MV-643xx 10/100/1000 ethernet driver version 1.4
-[    1.175888] AHO: before first reset
-[    1.678806] AHO: after first reset 0x0
-[    1.683281] AHO: before second reset
-[    2.186288] AHO: after second reset 0x0
-[    2.191010] mv643xx_eth_port mv643xx_eth_port.0 eth0: port 0 with MAC 
-address xx
---
-[    2.426349] netpoll: netconsole: device eth0 not up yet, forcing it
-[    2.505917] AHO: before first reset
-[    2.605824] usb 1-1: new high-speed USB device number 2 using orion-ehci
---
-[    2.829987] hub 1-1:1.0: 4 ports detected
-[    3.044502] AHO: after first reset 0x0
-[    3.049133] AHO: before second reset
-[    3.126110] usb 1-1.1: new high-speed USB device number 3 using 
-orion-ehci
---
-[    3.526107] usb 1-1.3: device descriptor read/64, error -32
-[    3.614264] AHO: after second reset 0x0
-[    3.618708] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
---
-[   21.335730] Adding 2996116k swap on /dev/sda3.  Priority:-1 extents:1 
-across:2996116k
-[   28.195942] AHO: before first reset
-[   28.696270] AHO: after first reset 0x800
-[   28.696958] AHO: before second reset
-[   29.197354] AHO: after second reset 0x800
-[  111.612263] RPC: Registered named UNIX socket transport module.
------------------------
-
-So we see, the first reset in the last call of m88e1116r_config_init() 
-fails to complete in 500ms and the phy seems to be stuck afterwards, 
-but, for whatever reason, it doesn't need 500ms if mdelay isn't used (if 
-we can trust the timestamps).
-
-(You can also see, I have netconsole enabled using netconsole=... in the 
-kernel cmdline).
-
-That behaviour is reproducible. The first reset in the last call to
-m88e1116r_config_init() always fails if mdelay is used.
-
-Regards,
-
-Alexander Holler
+Also please add documentation on Documentation/networking/bonding.txt
