@@ -1,73 +1,162 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net-next v2] vxlan: fix handling of the inner 8021Q tagged
- frame
-Date: Wed, 02 Apr 2014 17:30:55 +0900
-Message-ID: <533BCABF.80303@lab.ntt.co.jp>
-References: <87d2h1i0pj.wl%atzm@stratosphere.co.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Atzm Watanabe <atzm@stratosphere.co.jp>, netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
+From: David Herrmann <dh.herrmann@gmail.com>
+Subject: [PATCH v6 1/4] net: add name_assign_type netdev attribute
+Date: Wed,  2 Apr 2014 11:58:23 +0200
+Message-ID: <1396432706-14470-2-git-send-email-dh.herrmann@gmail.com>
+References: <1396432706-14470-1-git-send-email-dh.herrmann@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Tom Gundersen <teg@jklm.no>,
+	Johannes berg <johannes@sipsolutions.net>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	David Herrmann <dh.herrmann@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:33286 "EHLO
-	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757976AbaDBIbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 04:31:04 -0400
-In-Reply-To: <87d2h1i0pj.wl%atzm@stratosphere.co.jp>
+Received: from mail-bk0-f49.google.com ([209.85.214.49]:54801 "EHLO
+	mail-bk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758197AbaDBJ6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 05:58:49 -0400
+In-Reply-To: <1396432706-14470-1-git-send-email-dh.herrmann@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(2014/04/01 23:27), Atzm Watanabe wrote:
-> Currently the implementation can forward the 8021Q tagged frame,
-> but the FDB cannot learn the VID.
-> So there is a possibility of forwarding the frame to wrong VTEP,
-> when same LLADDR exists on different VLANs.
-> 
-> This patch supports only single tagged frame, so the outermost
-> tag will be used when handling the 8021AD Q-in-Q frame.
-> 
-> v2: Fix probably unsafe operation on the struct vxlan_key.
->     The outermost tag will be used when handling the 8021AD
->     Q-in-Q frame.  Based on Stephen Hemminger's comments.
-> 
-> Signed-off-by: Atzm Watanabe <atzm@stratosphere.co.jp>
-...
-> @@ -1215,8 +1257,18 @@ static void vxlan_rcv(struct vxlan_sock *vs,
->  #endif
->  	}
->  
-> +	ether_addr_copy(key.eth_addr, eth_hdr(skb)->h_source);
-> +	switch (ntohs(eth_hdr(skb)->h_proto)) {
-> +	case ETH_P_8021Q:
-> +	case ETH_P_8021AD:
-> +		key.vlan_id = ntohs(vlan_eth_hdr(skb)->h_vlan_TCI) & VLAN_VID_MASK;
-> +		break;
+The name_assign_type attribute gives hints where the interface name of a
+given net-device comes from. Three different values are currently defined:
+  NET_NAME_ENUM:
+    This is the default. The ifname is provided by the kernel with an
+    enumerated suffix. Names may be reused and unstable.
+  NET_NAME_USER:
+    The ifname was provided by user-space during net-device setup.
+  NET_NAME_RENAMED:
+    The net-device has been renamed via RTNL. Once this type is set, it
+    cannot change again.
 
-It seems that we can't segregate skbs tagged by same vlan id but
-different vlan protocols.
+This attribute comes in handy for reliable net-device names. If an ifname
+is provided by user-space, we can safely assume that the naming-policy
+avoids reuse and is stable. Only if it was set by the kernel, the
+interfaces might need to be renamed.
 
-> +	default:
-> +		key.vlan_id = 0;
-> +	}
-> +
->  	if ((vxlan->flags & VXLAN_F_LEARN) &&
-> -	    vxlan_snoop(skb->dev, &saddr, eth_hdr(skb)->h_source))
-> +	    vxlan_snoop(skb->dev, &saddr, &key))
->  		goto drop;
->  
->  	skb_reset_network_header(skb);
-...
-> @@ -1983,23 +2056,28 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
->  #endif
->  	}
->  
-> -	f = vxlan_find_mac(vxlan, eth->h_dest);
-> +	ether_addr_copy(key.eth_addr, eth->h_dest);
-> +	key.vlan_id = vlan_tx_tag_present(skb) ? vlan_tx_tag_get_id(skb) : 0;
+The NET_NAME_RENAMED value allows us to detect whether some-one else
+already renamed the device, in which case we shouldn't touch it again. The
+NET_NAME_USER value allows us to detect whether some other naming policy
+created the device, in which case there's no need to rename it.
 
-Can't we assume that skbs always have HW accelarated vlan tags?
+The most significant use-case is to detect virtual wifi-P2P devices, which
+are named by wpa_supplicant et al. We shouldn't rename them as wpas
+already provides a proper naming-policy.
 
+Note that this patch only provides the core infrastructure. The different
+net-dev types need to be manually fixed to use NET_NAME_USER instead of
+the default (NET_NAME_ENUM). NET_NAME_ENUM is the least restrictive,
+though, so it seems safe to use it as fallback for non-converted net-dev
+types.
 
-Thanks,
-Toshiaki Makita
+Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
+Acked-by: Tom Gundersen <teg@jklm.no>
+Acked-by: Kay Sievers <kay.sievers@vrfy.org>
+---
+ include/linux/netdevice.h      | 2 ++
+ include/uapi/linux/netdevice.h | 4 ++++
+ net/core/dev.c                 | 7 +++++++
+ net/core/net-sysfs.c           | 2 ++
+ net/core/rtnetlink.c           | 2 ++
+ 5 files changed, 17 insertions(+)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 775cc95..e016edd 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1372,6 +1372,8 @@ struct net_device {
+ 	struct kset		*queues_kset;
+ #endif
+ 
++	unsigned char		name_assign_type; /* name assignment type */
++
+ 	bool			uc_promisc;
+ 	unsigned int		promiscuity;
+ 	unsigned int		allmulti;
+diff --git a/include/uapi/linux/netdevice.h b/include/uapi/linux/netdevice.h
+index fdfbd1c..af50a04 100644
+--- a/include/uapi/linux/netdevice.h
++++ b/include/uapi/linux/netdevice.h
+@@ -36,6 +36,10 @@
+ /* Initial net device group. All devices belong to group 0 by default. */
+ #define INIT_NETDEV_GROUP	0
+ 
++/* interface name assignment types (sysfs name_assign_type attribute) */
++#define NET_NAME_ENUM		0	/* enumerated by kernel (default) */
++#define NET_NAME_USER		1	/* provided by user-space */
++#define NET_NAME_RENAMED	2	/* renamed by user-space */
+ 
+ 
+ /* Media selection options. */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 48d81e4..b901aaa 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1083,6 +1083,7 @@ static int dev_get_valid_name(struct net *net,
+ int dev_change_name(struct net_device *dev, const char *newname)
+ {
+ 	char oldname[IFNAMSIZ];
++	unsigned char old_assign_type;
+ 	int err = 0;
+ 	int ret;
+ 	struct net *net;
+@@ -1109,10 +1110,14 @@ int dev_change_name(struct net_device *dev, const char *newname)
+ 		return err;
+ 	}
+ 
++	old_assign_type = dev->name_assign_type;
++	dev->name_assign_type = NET_NAME_RENAMED;
++
+ rollback:
+ 	ret = device_rename(&dev->dev, dev->name);
+ 	if (ret) {
+ 		memcpy(dev->name, oldname, IFNAMSIZ);
++		dev->name_assign_type = old_assign_type;
+ 		write_seqcount_end(&devnet_rename_seq);
+ 		return ret;
+ 	}
+@@ -1141,6 +1146,8 @@ rollback:
+ 			write_seqcount_begin(&devnet_rename_seq);
+ 			memcpy(dev->name, oldname, IFNAMSIZ);
+ 			memcpy(oldname, newname, IFNAMSIZ);
++			dev->name_assign_type = old_assign_type;
++			old_assign_type = NET_NAME_RENAMED;
+ 			goto rollback;
+ 		} else {
+ 			pr_err("%s: name change rollback failed: %d\n",
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 4623962..a39ae01 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -105,6 +105,7 @@ static ssize_t netdev_store(struct device *dev, struct device_attribute *attr,
+ 
+ NETDEVICE_SHOW_RO(dev_id, fmt_hex);
+ NETDEVICE_SHOW_RO(dev_port, fmt_dec);
++NETDEVICE_SHOW_RO(name_assign_type, fmt_dec);
+ NETDEVICE_SHOW_RO(addr_assign_type, fmt_dec);
+ NETDEVICE_SHOW_RO(addr_len, fmt_dec);
+ NETDEVICE_SHOW_RO(iflink, fmt_dec);
+@@ -387,6 +388,7 @@ static struct attribute *net_class_attrs[] = {
+ 	&dev_attr_dev_port.attr,
+ 	&dev_attr_iflink.attr,
+ 	&dev_attr_ifindex.attr,
++	&dev_attr_name_assign_type.attr,
+ 	&dev_attr_addr_assign_type.attr,
+ 	&dev_attr_addr_len.attr,
+ 	&dev_attr_link_mode.attr,
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index d4ff417..2e4be7f 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1971,6 +1971,8 @@ replay:
+ 		}
+ 
+ 		dev->ifindex = ifm->ifi_index;
++		if (tb[IFLA_IFNAME])
++			dev->name_assign_type = NET_NAME_USER;
+ 
+ 		if (ops->newlink) {
+ 			err = ops->newlink(net, dev, tb, data);
+-- 
+1.9.1
