@@ -1,60 +1,125 @@
-From: Scott Feldman <sfeldma@cumulusnetworks.com>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of switch chip datapath
-Date: Wed, 2 Apr 2014 12:54:50 -0700
-Message-ID: <3C265410-A9DF-489F-BC55-05B231564D12@cumulusnetworks.com>
-References: <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com> <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion> <533312A3.5070600@cumulusnetworks.com> <20140326180356.GK2869@minipsycho.orion> <2D65D0C2-6BBC-4968-8400-4EB60BDF887A@cumulusnetworks.com> <533C1F91.6000704@greyhouse.net> <20140402152546.GB3596@tuxdriver.com> <CD1A9D96-F1E1-4AF6-B089-41AEBF7F1699@cumulusnetworks.com> <20140402192915.GB3301@tuxdriver.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.2 \(1874\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: "John W. Linville" <linville@tuxdriver.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: [PATCH] net/mlx4_core: match pci_device_id including dynids
+Date: Wed, 2 Apr 2014 12:28:46 -0600
+Message-ID: <CAErSpo4yj+31puKhnxJ9Dns4c-1cWoUxxQt+OTDQDCGuuksOAw@mail.gmail.com>
+References: <1396326961-20395-1-git-send-email-weiyang@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, yevgenyp@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Wei Yang <weiyang@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:34876 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932688AbaDBT45 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 15:56:57 -0400
-In-Reply-To: <20140402192915.GB3301@tuxdriver.com>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:38276 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932737AbaDBS3H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 14:29:07 -0400
+Received: by mail-ie0-f169.google.com with SMTP id to1so657474ieb.28
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 11:29:07 -0700 (PDT)
+In-Reply-To: <1396326961-20395-1-git-send-email-weiyang@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Mar 31, 2014 at 10:36 PM, Wei Yang <weiyang@linux.vnet.ibm.com> wrote:
+> Fix issue introduced by commit: 97a5221 "net/mlx4_core: pass
+> pci_device_id.driver_data to __mlx4_init_one during reset".
+>
+> pci_match_id() just match the static pci_device_id, which may return NULL if
+> someone binds the driver to a device manually using
+> /sys/bus/pci/drivers/.../new_id.
+>
+> This patch match pci_device_id with pci_match_device() to cover both dynids
+> and static id_table.
+>
+> Thanks to Bjorn finding this issue.
 
-On Apr 2, 2014, at 12:29 PM, John W. Linville <linville@tuxdriver.com> =
-wrote:
+I didn't actually find it; I just passed along an issue found by
+Coverity.  I usually include "Found by Coverity (CID 1194947)" in the
+changelog in case anybody is trying to manage those issues.
 
-> Cool!  I'm glad we agree.  Now we just need some switch hardware
-> drivers that fit the general model outlined above...
+> CC: Bjorn Helgaas <bhelgaas@google.com>
+> CC: Amir Vadai <amirv@mellanox.com>
+> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+> Acked-by: Amir Vadai <amirv@mellanox.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/main.c |    4 +++-
+>  drivers/pci/pci-driver.c                  |    3 ++-
+>  include/linux/pci.h                       |    2 ++
+>  3 files changed, 7 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+> index aa54ef7..b0edb5c 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+> @@ -2673,7 +2673,9 @@ static pci_ers_result_t mlx4_pci_slot_reset(struct pci_dev *pdev)
+>         const struct pci_device_id *id;
+>         int ret;
+>
+> -       id = pci_match_id(mlx4_pci_table, pdev);
+> +       id = pci_match_device(pci_dev_driver(pdev), pdev);
+> +       BUG_ON(!id);
 
-Why wait?  Let=92s create a switch device in qemu and then write the mo=
-del/sample driver to that.  Put a PCI front end on the qemu device whic=
-h is mapped to kernel, and define a register set to represent all the s=
-witch-like ops we want to offload, in a generic way.  Throw in some DMA=
- for CPU-bound I/O (ctrl traffic).  On the qemu device back end, expose=
- the ports as taps or whatever so we can wire to real-world link partne=
-rs on the host side.
+This doesn't seem like the best solution to me, because it basically
+duplicates part of __pci_device_probe() in the driver.  And of course,
+I'd rather not export pci_match_device() if we can avoid it (I don't
+have a specific objection; just the general "don't export more than
+necessary" rule, and something with a single user always makes me look
+twice).
 
-> I would be happy to maintain a kernel.org git tree as a nursery for
-> such drivers as they develop and mature, and I'm sure my daytime
-> employer would be happy to support me on that.  I wonder if we can
-> get any switch people from Intel, Mellanox, Broadcom, or elsewhere
-> to play along?
+I looked at all the .error_detected() methods in the tree, and I think
+mlx4_pci_err_detected() is the only one that actually throws away the
+pci_drvdata().  Most drivers just do pci_disable_device() and some
+other housekeeping.  Can you do something similar?
 
-My gut tells me this is a build-it-and-they-will-come situation.
+The mlx4 approach of completely tearing down and rebuilding the device
+*is* sort of appealing because I'm a little dubious of assuming that
+any driver setup done before the reset is still valid afterwards.  But
+maybe you could at least hang onto the pci_device_id.driver_data
+value?  As far as the PCI core is concerned, it supplied that to the
+.probe() function, and nothing has changed since then, so there's no
+reason for a driver to request it again.
 
--scott
+Bjorn
+
+>         ret = __mlx4_init_one(pdev, id->driver_data);
+>
+>         return ret ? PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_RECOVERED;
+> diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
+> index 25f0bc6..1ee26a1 100644
+> --- a/drivers/pci/pci-driver.c
+> +++ b/drivers/pci/pci-driver.c
+> @@ -225,7 +225,7 @@ const struct pci_device_id *pci_match_id(const struct pci_device_id *ids,
+>   * system is in its list of supported devices.  Returns the matching
+>   * pci_device_id structure or %NULL if there is no match.
+>   */
+> -static const struct pci_device_id *pci_match_device(struct pci_driver *drv,
+> +const struct pci_device_id *pci_match_device(struct pci_driver *drv,
+>                                                     struct pci_dev *dev)
+>  {
+>         struct pci_dynid *dynid;
+> @@ -1355,6 +1355,7 @@ postcore_initcall(pci_driver_init);
+>
+>  EXPORT_SYMBOL_GPL(pci_add_dynid);
+>  EXPORT_SYMBOL(pci_match_id);
+> +EXPORT_SYMBOL(pci_match_device);
+>  EXPORT_SYMBOL(__pci_register_driver);
+>  EXPORT_SYMBOL(pci_unregister_driver);
+>  EXPORT_SYMBOL(pci_dev_driver);
+> diff --git a/include/linux/pci.h b/include/linux/pci.h
+> index 44f6883..8ede1b5 100644
+> --- a/include/linux/pci.h
+> +++ b/include/linux/pci.h
+> @@ -1134,6 +1134,8 @@ int pci_add_dynid(struct pci_driver *drv,
+>                   unsigned long driver_data);
+>  const struct pci_device_id *pci_match_id(const struct pci_device_id *ids,
+>                                          struct pci_dev *dev);
+> +const struct pci_device_id *pci_match_device(struct pci_driver *drv,
+> +                                                   struct pci_dev *dev);
+>  int pci_scan_bridge(struct pci_bus *bus, struct pci_dev *dev, int max,
+>                     int pass);
+>
+> --
+> 1.7.9.5
+>
