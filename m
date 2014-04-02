@@ -1,167 +1,63 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH 2/2] net: mvneta: fix usage as a module on RGMII configurations
-Date: Wed, 02 Apr 2014 16:15:17 +0200
-Message-ID: <533C1B75.2020803@free-electrons.com>
-References: <1395789942-20764-1-git-send-email-thomas.petazzoni@free-electrons.com> <1395789942-20764-3-git-send-email-thomas.petazzoni@free-electrons.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH regression] net: phy: fix initialization (config_init)
+ for Marvel 88E1116R PHYs
+Date: Wed, 02 Apr 2014 16:07:07 +0400
+Message-ID: <533BFD6B.7050503@cogentembedded.com>
+References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de> <533BF9CE.3050302@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Steve McIntyre <steve@einval.com>,
-	linux-arm-kernel@lists.infradead.org, stable@vger.kernel.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:56566 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932120AbaDBOPU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 10:15:20 -0400
-In-Reply-To: <1395789942-20764-3-git-send-email-thomas.petazzoni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
+	Michal Simek <michal.simek@xilinx.com>, stable@vger.kernel.org
+To: Alexander Holler <holler@ahsoftware.de>,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <533BF9CE.3050302@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On 02-04-2014 15:51, Sergei Shtylyov wrote:
 
-On 26/03/2014 00:25, Thomas Petazzoni wrote:
-> Commit 5445eaf309ff ('mvneta: Try to fix mvneta when compiled as
-> module') fixed the mvneta driver to make it work properly when loaded
-> as a module in SGMII configuration, which was tested successful by the
-> author on the Armada XP OpenBlocks AX3, which uses SGMII.
-> 
-> However, it turns out that the Armada XP GP, which uses RGMII, is
-> affected by a similar problem: its SERDES configuration is lost when
-> mvneta is loaded as a module, because this configuration is set by the
-> bootloader, and then lost because the clock is gated by the clock
-> framework until the mvneta driver is loaded again and the clock is
-> re-enabled.
-> 
-> However, it turns out that for the RGMII case, setting the SERDES
-> configuration is not sufficient: the PCS enable bit in the
-> MVNETA_GMAC_CTRL_2 register must also be set, like in the SGMII
-> configuration.
-> 
-> Therefore, this commit reworks the SGMII/RGMII initialization: the
-> only difference between the two now is a different SERDES
-> configuration, all the rest is identical.
-> 
-> In detail, to achieve this, the commit:
-> 
->  * Renames MVNETA_SGMII_SERDES_CFG to MVNETA_SERDES_CFG because it is
->    not specific to SGMII, but also used on RGMII configurations.
-> 
->  * Adds a MVNETA_RGMII_SERDES_PROTO definition, that must be used as
->    the MVNETA_SERDES_CFG value in RGMII configurations.
-> 
->  * Removes the mvneta_gmac_rgmii_set() and mvneta_port_sgmii_config()
->    functions, and instead directly do the SGMII/RGMII configuration in
->    mvneta_port_up(), from where those functions where called. It is
->    worth mentioning that mvneta_gmac_rgmii_set() had an 'enable'
->    parameter that was always passed as '1', so it was pretty useless.
-> 
->  * Reworks the mvneta_port_up() function to set the MVNETA_SERDES_CFG
->    register to the appropriate value depending on the RGMII vs. SGMII
->    configuration. It also unconditionally set the PCS_ENABLE bit (was
->    already done for SGMII, but is now also needed for RGMII), and sets
->    the PORT_RGMII bit (which was already done for both SGMII and
->    RGMII).
-> 
-> This commit was successfully tested with mvneta compiled as a module,
-> on both the OpenBlocks AX3 (SGMII configuration) and the Armada XP GP
-> (RGMII configuration).
+>> Commit 7cd1463664c2a15721ff4ccfb61d4d970815cb3d (introduced with 3.14)
+>> changed the initialization of the mv643xx_eth driver to use phy_init_hw()
+>> to reset the PHY. Unfortunately the initialization for the 88E1116R PHY
+>> was broken such, that it used mdelay() instead of really waiting for a
+>> reset to finish.
 
-Unfortunately with this patch, mvneta doesn't work anymore on the
-Mirabox (Armada 370 based board) on 3.14.I didn't managed to do a
-simple ping.
+>> The effect was that the ethernet on my Kirkwood 88F6281 based device didn't
+>> come up anymore (no carrier).
 
-Once I removed this commit then the driver worked again.
+>> Fix this by waiting for a reset to finish before proceeding further.
 
-Gregory
+>> Signed-off-by: Alexander Holler <holler@ahsoftware.de>
 
+>> Cc: Michal Simek <michal.simek@xilinx.com>
+>> Cc: Florian Fainelli <f.fainelli@gmail.com>
+>> Cc: <stable@vger.kernel.org>
+>> ---
+>>   drivers/net/phy/marvell.c | 8 ++++++--
+>>   1 file changed, 6 insertions(+), 2 deletions(-)
 
-> 
-> Reported-by: Steve McIntyre <steve@einval.com>
-> Cc: stable@vger.kernel.org # 3.11.x: 5445eaf309ff mvneta: Try to fix mvneta when compiled as module
-> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> ---
->  drivers/net/ethernet/marvell/mvneta.c | 41 +++++++----------------------------
->  1 file changed, 8 insertions(+), 33 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index d6b04d0..c9c2faa 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -88,8 +88,9 @@
->  #define      MVNETA_TX_IN_PRGRS                  BIT(1)
->  #define      MVNETA_TX_FIFO_EMPTY                BIT(8)
->  #define MVNETA_RX_MIN_FRAME_SIZE                 0x247c
-> -#define MVNETA_SGMII_SERDES_CFG			 0x24A0
-> +#define MVNETA_SERDES_CFG			 0x24A0
->  #define      MVNETA_SGMII_SERDES_PROTO		 0x0cc7
-> +#define      MVNETA_RGMII_SERDES_PROTO		 0x0667
->  #define MVNETA_TYPE_PRIO                         0x24bc
->  #define      MVNETA_FORCE_UNI                    BIT(21)
->  #define MVNETA_TXQ_CMD_1                         0x24e4
-> @@ -710,35 +711,6 @@ static void mvneta_rxq_bm_disable(struct mvneta_port *pp,
->  	mvreg_write(pp, MVNETA_RXQ_CONFIG_REG(rxq->id), val);
->  }
->  
-> -
-> -
-> -/* Sets the RGMII Enable bit (RGMIIEn) in port MAC control register */
-> -static void mvneta_gmac_rgmii_set(struct mvneta_port *pp, int enable)
-> -{
-> -	u32  val;
-> -
-> -	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
-> -
-> -	if (enable)
-> -		val |= MVNETA_GMAC2_PORT_RGMII;
-> -	else
-> -		val &= ~MVNETA_GMAC2_PORT_RGMII;
-> -
-> -	mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
-> -}
-> -
-> -/* Config SGMII port */
-> -static void mvneta_port_sgmii_config(struct mvneta_port *pp)
-> -{
-> -	u32 val;
-> -
-> -	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
-> -	val |= MVNETA_GMAC2_PCS_ENABLE;
-> -	mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
-> -
-> -	mvreg_write(pp, MVNETA_SGMII_SERDES_CFG, MVNETA_SGMII_SERDES_PROTO);
-> -}
-> -
->  /* Start the Ethernet port RX and TX activity */
->  static void mvneta_port_up(struct mvneta_port *pp)
->  {
-> @@ -2756,12 +2728,15 @@ static void mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
->  	mvreg_write(pp, MVNETA_UNIT_INTR_CAUSE, 0);
->  
->  	if (phy_mode == PHY_INTERFACE_MODE_SGMII)
-> -		mvneta_port_sgmii_config(pp);
-> +		mvreg_write(pp, MVNETA_SERDES_CFG, MVNETA_SGMII_SERDES_PROTO);
-> +	else
-> +		mvreg_write(pp, MVNETA_SERDES_CFG, MVNETA_RGMII_SERDES_PROTO);
->  
-> -	mvneta_gmac_rgmii_set(pp, 1);
-> +	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
-> +
-> +	val |= MVNETA_GMAC2_PCS_ENABLE | MVNETA_GMAC2_PORT_RGMII;
->  
->  	/* Cancel Port Reset */
-> -	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
->  	val &= ~MVNETA_GMAC2_PORT_RESET;
->  	mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
->  
-> 
+>> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+>> index bd37e45..5b84808 100644
+>> --- a/drivers/net/phy/marvell.c
+>> +++ b/drivers/net/phy/marvell.c
+[...]
+>> @@ -429,7 +431,9 @@ static int m88e1116r_config_init(struct phy_device *phydev)
+>>       if (err < 0)
+>>           return err;
+>>
+>> -    mdelay(500);
+>> +    do
+>> +        temp = phy_read(phydev, MII_BMCR);
+>> +    while (temp & BMCR_RESET);
 
+>     Not clear why it's necessary to reset one more time... Also, tight loop
+> without a timeout (0.5 sec, specified by IEEE 802.3) doesn't look good. The
+> comment above phy_poll_reset() suggests that it could be used in the PHY
+> drivers as well. Florian?
 
--- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+    Ah, I was looking at Linus' tree, not net-next.git, and hadn't read 
+Florian's replies before commenting on this...
+
+WBR, Sergei
