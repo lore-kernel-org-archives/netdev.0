@@ -1,72 +1,43 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: on kernel 2.6.34.15, vlan and raw packets can not be received
- with gfar-enet nic
-Date: Thu, 03 Apr 2014 17:57:53 +0800
-Message-ID: <533D30A1.1060509@gmail.com>
-References: <53310F4E.4080104@gmail.com> <533D25D4.4000607@gmail.com>
- <20140403092727.GD16158@1wt.eu>
+From: mihailov ivan <mihailov.iaa@gmail.com>
+Subject: [PATCH] add missing support of 10mbit in emac/rgmii
+Date: Wed, 2 Apr 2014 21:41:50 +0400
+Message-ID: <CA+Z7AcYQSwYj7SGWnFSrsN_LMM=R6yJbiosiSQRJ3Eq39U3Xmw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: "Yang, Zhangle \(Eric\)" <Zhangle.Yang@windriver.com>,
- netdev@vger.kernel.org, richardcochran@gmail.com,
- linuxppc-dev@lists.ozlabs.org, guang.yang@windriver.com,
- linux-kernel@vger.kernel.org, yongjun_wei@trendmicro.com.cn,
- sandeep.kumar@freescale.com, Claudiu Manoil <claudiu.manoil@freescale.com>,
- "Tao, Yue" <Yue.Tao@windriver.com>, joe@perches.com, festevam@gmail.com,
- clarocq@gmail.com
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20140403092727.GD16158@1wt.eu>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:41301 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932598AbaDBRlw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 13:41:52 -0400
+Received: by mail-wg0-f46.google.com with SMTP id b13so620395wgh.5
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 10:41:51 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDQvMDMvMjAxNCAwNToyNyBQTSwgV2lsbHkgVGFycmVhdSB3cm90ZToKPiBIaSBaaHUsCj4K
-PiBPbiBUaHUsIEFwciAwMywgMjAxNCBhdCAwNToxMTo0OFBNICswODAwLCB6aHV5aiB3cm90ZToK
-Pj4gSGksIENsYXVkaXUKPj4KPj4gUGxlYXNlIGhlbHAgdG8gcmV2aWV3IHRoaXMgcGF0Y2guIFRo
-aXMgcGF0Y2ggaXMgZm9yIGtlcm5lbCAyLjYueC4gVGhhbmtzCj4+IGEgbG90Lgo+Pgo+PiBIaSwg
-V2lsbHkKPj4KPj4gUGxlYXNlIGhlbHAgdG8gbWVyZ2UgdGhpcyBwYXRjaCB0byBsb25ndGVybTog
-Mi42LjMyLjYxIHNpbmNlIHRoaXMKPj4gcHJvYmxlbSBhbHNvIG9jY3VycyBvbiB0aGlzIGtlcm5l
-bC4gVGhhbmtzIGEgbG90Lgo+IENvdWxkIHlvdSBwbGVhc2Ugc2VuZCB0aGUgcmVmZXJlbmNlIHRv
-IHRoZSBlcXVpdmFsZW50IG1haW5saW5lIGNvbW1pdCAodGhlIG9uZQo+IHdoaWNoIGRpc2FibGVz
-IHRoZSB0eCB2bGFuIGZlYXR1cmUgSSdtIGFzc3VtaW5nKSA/IEknbGwgaGFwcGlseSBxdWV1ZSBp
-dCBmb3IKPiAyLjYuMzIuNjIuCj4KPiBUaGFua3MsCj4gV2lsbHkKPgo+CkhpLCBXaWxseQoKSSBy
-ZWZlcmVuY2UgdGhlIGZvbGxvd2luZyAyIG1haW5saW5lIGNvbW1pdHMuIFRoZXNlIDIgY29tbWl0
-cyBhcmUgYmFzZWQgCm9uIHRoZSBjdXJyZW50IGtlcm5lbCAzLnggYW5kIGV0aHRvb2wuCklmIHdl
-IG9ubHkgYmFja3BvcnQgdGhlc2UgMiBjb21taXRzIG9uIGtlcm5lbCAyLjYueCwgdGhpcyBwcm9i
-bGVtIHdpbGwgCm5vdCBiZSBmaXhlZCB5ZXQuCgpCZXN0IFJlZ2FyZHMhClpodSBZYW5qdW4KCjEu
-IGNvbW1pdCA4N2MyODhjNmU5YWEzMTcyMGI3MmUyYmMyZDY2NWUyNGUxNjUzYzNlCkF1dGhvcjog
-SmlyaSBQaXJrbyA8anBpcmtvQHJlZGhhdC5jb20+CkRhdGU6ICAgV2VkIEp1bCAyMCAwNDo1NDox
-OSAyMDExICswMDAwCgogICAgIGdpYW5mYXI6IGRvIHZsYW4gY2xlYW51cAoKICAgICAtIHVuaWZ5
-IHZsYW4gYW5kIG5vbnZsYW4gcnggcGF0aAogICAgIC0ga2lsbCBwcml2LT52bGdycCBhbmQgZ2Zh
-cl92bGFuX3J4X3JlZ2lzdGVyCiAgICAgLSBhbGxvdyB0byB0dXJuIG9uL29mZiByeC90eCB2bGFu
-IGFjY2VsIHZpYSBldGh0b29sCgogICAgIFNpZ25lZC1vZmYtYnk6IEppcmkgUGlya28gPGpwaXJr
-b0ByZWRoYXQuY29tPgogICAgIFNpZ25lZC1vZmYtYnk6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1A
-ZGF2ZW1sb2Z0Lm5ldD4KCiAgZHJpdmVycy9uZXQvZ2lhbmZhci5jIHwgICA1NSAKKysrKysrKysr
-KysrKysrKysrKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQogIDEgZmlsZSBjaGFuZ2Vk
-LCAyOSBpbnNlcnRpb25zKCspLCAyNiBkZWxldGlvbnMoLSkKCjIuY29tbWl0IGI4NTJiNzIwODc3
-ZTZiOGUxMmI5NWE3Y2I0ZTAwZWEzNTFiOGNiZmMKQXV0aG9yOiBTZWJhc3RpYW4gUMO2aG4gPHNl
-YmFzdGlhbi5iZWxkZW5AZ29vZ2xlbWFpbC5jb20+CkRhdGU6ICAgVHVlIEp1bCAyNiAwMDowMzox
-MyAyMDExICswMDAwCgogICAgIGdpYW5mYXI6IGZpeCBidWcgY2F1c2VkIGJ5IDg3YzI4OGM2ZTlh
-YTMxNzIwYjcyZTJiYzJkNjY1ZTI0ZTE2NTNjM2UKCiAgICAgY29tbWl0IDg3YzI4OGM2ZTlhYTMx
-NzIwYjcyZTJiYzJkNjY1ZTI0ZTE2NTNjM2UgImdpYW5mYXI6IGRvIHZsYW4gCmNsZWFudXAiIGhh
-cyB0d28gaXNzdWVzOgogICAgICMgcGVybXV0YXRpb24gb2YgcnggYW5kIHR4IGZsYWdzCiAgICAg
-IyBlbmFibGluZyB2bGFuIHRhZyBpbnNlcnRpb24gYnkgZGVmYXVsdCAodGhpcyBsZWFkcyB0byB1
-bnVzYWJsZSAKY29ubmVjdGlvbnMgb24gc29tZSBjb25maWd1cmF0aW9ucykKCiAgICAgSWYgVkxB
-TiBpbnNlcnRpb24gaXMgcmVxdWVzdGVkICh2aWEgZXRodG9vbCkgaXQgd2lsbCBiZSBzZXQgYXQg
-YW4gCm90aGVyIHBvaW50IC4uLgoKICAgICBTaWduZWQtb2ZmLWJ5OiBTZWJhc3RpYW4gUG9laG4g
-PHNlYmFzdGlhbi5wb2VobkBiZWxkZW4uY29tPgogICAgIFNpZ25lZC1vZmYtYnk6IERhdmlkIFMu
-IE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4KCiAgZHJpdmVycy9uZXQvZ2lhbmZhci5jIHwg
-ICAgNiArLS0tLS0KICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKyksIDUgZGVsZXRpb25z
-KC0pCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51
-eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBz
-Oi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
+In chips of emac/rgmii b'000' for 0/1 channel isn't suitable which
+resulted in non working network interface in this mode.
+
+Signed-off-by: Ivan Mikhaylov <mihailov.iaa@gmail.com>
+
+--- a/drivers/net/ethernet/ibm/
+emac/rgmii.c    2014-03-31
+07:40:15.000000000 +0400
++++ b/drivers/net/ethernet/ibm/emac/rgmii.c    2014-04-02
+19:52:12.957559554 +0400
+@@ -45,6 +45,7 @@
+
+ /* RGMIIx_SSR */
+ #define RGMII_SSR_MASK(idx)    (0x7 << ((idx) * 8))
++#define RGMII_SSR_10(idx)    (0x1 << ((idx) * 8))
+ #define RGMII_SSR_100(idx)    (0x2 << ((idx) * 8))
+ #define RGMII_SSR_1000(idx)    (0x4 << ((idx) * 8))
+
+@@ -139,6 +140,8 @@
+         ssr |= RGMII_SSR_1000(input);
+     else if (speed == SPEED_100)
+         ssr |= RGMII_SSR_100(input);
++    else if (speed == SPEED_10)
++        ssr |= RGMII_SSR_10(input);
+
+     out_be32(&p->ssr, ssr);
