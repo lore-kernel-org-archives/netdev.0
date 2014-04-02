@@ -1,65 +1,77 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next 0/4] intel: string and rx tstamping cleanups
-Date: Tue, 01 Apr 2014 18:44:57 -0700
-Message-ID: <1396403097.2230.1.camel@jtkirshe-mobl>
-References: <1396399939-18420-1-git-send-email-kubakici@wp.pl>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-1UG0WJbw3p+aIgdEgJmq"
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-To: Jakub Kicinski <kubakici@wp.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:39916 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751676AbaDBBpK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Apr 2014 21:45:10 -0400
-In-Reply-To: <1396399939-18420-1-git-send-email-kubakici@wp.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net-next] sh: add missing fpscr_values
+Date: Tue,  1 Apr 2014 19:54:04 -0700
+Message-ID: <1396407244-26771-1-git-send-email-ast@plumgrid.com>
+Cc: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Paul Mundt <lethal@linux-sh.org>,
+	Fengguang Wu <fengguang.wu@intel.com>,
+	linux-sh@vger.kernel.org, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+GCC on SuperH for the following program:
+int foo(int i)
+{
+	static const void *table[2] = {
+		[0] = &&label1,
+		[1] = &&label2,
+	};
+	goto *table[i & 1];
 
---=-1UG0WJbw3p+aIgdEgJmq
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+	label1:
+		return 1;
+	label2:
+		return 2;
+}
+generates code:
+	mov.l   .L9,r1
+	mov     #1,r0
+	rts
+	lds.l   @r1+,fpscr
+.L9:
+	.long   __fpscr_values+4
 
-On Wed, 2014-04-02 at 02:52 +0200, Jakub Kicinski wrote:
-> This series contains promised string fixes and small cleanups for rx
-> time
-> stamping code in igb and ixgbe.
->=20
-> String cleanups are limited to new line termination. Joe Perches
-> suggested
-> more improvements that seem worthwhile. [1]
->=20
-> Rx time stamping path in igb and ixgbe was redesigned few times in the
-> past
-> and there are some small errors and leftovers from previous versions
-> so=20
-> I clean it up a little too.
+so kernel has to provide body of fpscr_values just like glibc does
 
-Thanks Jakub, I will add your series to my queue.
+Fixes: bd4cf0ed331a ("net: filter: rework/optimize internal BPF interpreter's instruction set")
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>
+---
 
---=-1UG0WJbw3p+aIgdEgJmq
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+kernel modules can hit the same problem, so export it
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
+ arch/sh/lib/Makefile       |    2 +-
+ arch/sh/lib/fpscr_values.c |    4 ++++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+ create mode 100644 arch/sh/lib/fpscr_values.c
 
-iQIcBAABCgAGBQJTO2uZAAoJEOVv75VaS+3OSn8P/29z0G1j6e6m4F2hLBChmgMd
-Gj+AP22LBWM12tai4/QTLgzIgYwKne4mjbCVydqpQJPkHKGJODIRz+LBCrlCxJjK
-K+t9w4SgHreDSVTk0CXYyRKggw4Ua4SoJHJ76cNblDDWM3q7+kYPDleFjwC9IAcF
-iLx9fYUlGPoshz8dYMb210ESI0C6ptmSYKrive1vFfSkjuQDTFkpLBtu8gTQ2SNc
-0up0j5COTIz8hX6I8I+XNFJg5dboSty6XMxcl4K3HnpqsL3Bzy4/TR9zCscQ8Kkd
-r0+iVGkokNzZEX8yBIkv9Z/5kgDsQ8YD5M4JkJSaAPCgxDJGrfCZS+jIMmjQXm29
-NRgrDHuJXJGKynsblbsMTSbnc4T3AygyKL0xTE1yDMf3tVeiEDIRS30L+o7zioXA
-nEm9NcKImzXyRuDcmAoNWYPBHJvvk02ef9+T0E2+Q6FbCn5nN6rNiC8IVZ/xQ/8y
-tvteQz6aTFxp01K4GasGhpgb69jLBLjoDMmLyQtcLvsAabK4cVGtQG5T+WObxsCl
-s1KTP5hEJwo4VCZMK7OhwViJkteqiNesNdSX+Hm/hXIaSgRPVDRZhaw2V3jx5o80
-uB3PMkGDxnJp1rjDtctJyt366af6xkMeFNarxpsAko17ogeRVTzPi6zYPwMow85n
-8e2Dhvop47dMV9EShbxU
-=Js6b
------END PGP SIGNATURE-----
+diff --git a/arch/sh/lib/Makefile b/arch/sh/lib/Makefile
+index 3baff31e58cf..0d0c7ae21cfe 100644
+--- a/arch/sh/lib/Makefile
++++ b/arch/sh/lib/Makefile
+@@ -8,7 +8,7 @@ lib-y  = delay.o memmove.o memchr.o \
+ # Extracted from libgcc
+ obj-y += movmem.o ashldi3.o ashrdi3.o lshrdi3.o \
+ 	 ashlsi3.o ashrsi3.o ashiftrt.o lshrsi3.o \
+-	 udiv_qrnnd.o
++	 udiv_qrnnd.o fpscr_values.o
+ 
+ udivsi3-y			:= udivsi3_i4i-Os.o
+ 
+diff --git a/arch/sh/lib/fpscr_values.c b/arch/sh/lib/fpscr_values.c
+new file mode 100644
+index 000000000000..58153272aba1
+--- /dev/null
++++ b/arch/sh/lib/fpscr_values.c
+@@ -0,0 +1,4 @@
++#include <linux/module.h>
++
++long __fpscr_values[2] = { 0L, 0x80000L };
++EXPORT_SYMBOL(__fpscr_values);
+-- 
+1.7.9.5
 
---=-1UG0WJbw3p+aIgdEgJmq--
