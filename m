@@ -1,96 +1,103 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH regression] net: phy: fix initialization (config_init)
- for Marvel 88E1116R PHYs
-Date: Thu, 03 Apr 2014 00:27:23 +0200
-Message-ID: <533C8ECB.4090900@gmail.com>
-References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de> <CAGVrzcZd9tBtcTY_2PRHVb9kJAjVHqn+EubUy4NGL66M_UuCDg@mail.gmail.com> <533BD3CD.1010905@ahsoftware.de> <CAGVrzcZi5aNq8fR795fKhu2TAc1tQCa2YEorErZRLf2n9DPZuw@mail.gmail.com> <533C721E.1080004@gmail.com> <533C8B49.8080704@ahsoftware.de>
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Michal Simek <michal.simek@xilinx.com>,
-	stable <stable@vger.kernel.org>
-To: Alexander Holler <holler@ahsoftware.de>,
-	Florian Fainelli <f.fainelli@gmail.com>
+From: Scott Feldman <sfeldma@cumulusnetworks.com>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of switch chip datapath
+Date: Wed, 2 Apr 2014 08:37:28 -0700
+Message-ID: <AC3C5F7C-E515-48FC-AA76-E7199C6FFB51@cumulusnetworks.com>
+References: <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org> <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com> <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com> <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion> <533312A3.5070600@cumulusnetworks.com> <20140326180356.GK2869@minipsycho.orion> <2D65D0C2-6BBC-4968-8400-4EB60BDF887A@cumulusnetworks.com> <20140402064118.GA2844@minipsycho.orion>
+Mime-Version: 1.0 (Mac OS X Mail 7.2 \(1874\))
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:47622 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030593AbaDBW11 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 18:27:27 -0400
-In-Reply-To: <533C8B49.8080704@ahsoftware.de>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:33205 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758623AbaDBPjc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 11:39:32 -0400
+In-Reply-To: <20140402064118.GA2844@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/03/2014 12:12 AM, Alexander Holler wrote:
-> Am 02.04.2014 22:25, schrieb Sebastian Hesselbarth:
->> On 04/02/2014 09:01 PM, Florian Fainelli wrote:
->>> 2014-04-02 2:09 GMT-07:00 Alexander Holler <holler@ahsoftware.de>:
->>>> Am 02.04.2014 02:57, schrieb Florian Fainelli:
->>>>> 2014-04-01 16:55 GMT-07:00 Alexander Holler <holler@ahsoftware.de>:
->>>>>> Commit 7cd1463664c2a15721ff4ccfb61d4d970815cb3d (introduced with 3.14)
->>>>>> changed the initialization of the mv643xx_eth driver to use phy_init_hw()
->>>>>> to reset the PHY. Unfortunately the initialization for the 88E1116R PHY
->>>>>> was broken such, that it used mdelay() instead of really waiting for a
->>>>>> reset to finish.
->>>
->>> Can you resubmit with the following information:
->>>
->>> - you specify the commit that introduce the problem in parenthesis,
->>> e.g: deadbeef ("dead: beef: cafe babe")
->>> - put this dmesg snippet in your log message to clearly illustrate
->>> what is happening
->>> - clarify that the PHY needs to be polled in a comment in
->>> m88e1116r_config_init()
->>>
->>> Meanwhile, it would be good if someone with access to this particular
->>> PHY datasheet could look for known erratas, problems, non-standard
->>> compliant behavior ....
->>
->> Alexander,
->>
->> I tried todays linux/master on Seagate Dockstar with Marvell 88E1116R
->> (0x01410e40) and cannot reproduce any regression. I tried booting from
->> tftp and usb, I also rebooted twice to see if there are any side
->> effects - nothing - ethernet always comes up as expected.
->>
->> I am curious, how you determined above commit to be the cause of the
->> regression you are seeing. Can you bisect, if you didn't already?
-> 
-> There was no bisecting necessary. I've just looked at what changed in
-> mv643xx_eth since 3.13 and the first commit I've reverted was already a
-> hit. Reading a bit source revealed the differences between the old reset
-> and the newly used one and ended up with my patch (first try) and was a
-> hit too.
 
-Honestly, your own fix changes a different driver than mv643xx_eth.
-There is a lot of changes from v3.13 to v3.14 and bisecting really
-helps to pin-point the one offending patch. As you can see from my
-tests with Dockstar, poking in the PHY driver may not be the right
-place to fix it.
+On Apr 1, 2014, at 11:41 PM, Jiri Pirko <jiri@resnulli.us> wrote:
 
-> Actually I assumed the reset needs longer than the 500ms, but as the
-> printks revealed, the reset is much faster.
-> So the problem seems to be the much increased time (1s) the newly used
-> reset function idles in mdelay.
+> Tue, Apr 01, 2014 at 09:13:00PM CEST, sfeldma@cumulusnetworks.com wro=
+te:
+>>=20
+>> On Mar 26, 2014, at 11:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>=20
+>>> Wed, Mar 26, 2014 at 06:47:15PM CET, roopa@cumulusnetworks.com wrot=
+e:
+>>>> On 3/26/14, 9:59 AM, Jiri Pirko wrote:
+>>>>> Wed, Mar 26, 2014 at 05:54:17PM CET, roopa@cumulusnetworks.com wr=
+ote:
+>>>>> So you implement bonding netlink api? Or you hook into bonding dr=
+iver
+>>>>> itselt? Can you show us the code?
+>>>> We use the netlink API and libnl. In our current model, our switch
+>>>> chip driver listens to netlink notifications and programs the swit=
+ch
+>>>> chip. The switch chip driver uses libnl caches and libnl netlink a=
+pis
+>>>> to reflect the kernel state to switch chip.
+>>>=20
+>>>=20
+>>> So when you configure for example bonding over 2 ports, you actuall=
+y use
+>>> bonding driver to do that. And you userspace app listens to
+>>> notifications and programs the switch chip accordingly. Am I close?
+>>>=20
+>>> How about data? Is this new "bonding" interface able to assign ip t=
+o is
+>>> and send/receive packets.
+>>>=20
+>>> I'm still not sure I understand your concept. Do you have some
+>>> documentation for it available?
+>>=20
+>> Actually Jiri this is the code you and I worked on recently to netli=
+nk-ify bonding/slave attributes and active/inactive notification. You h=
+ave it right, user uses normal ip link tools and bonding driver to crea=
+te bond, set attributes, and enslave switch ports. RTM_NEWLINK is used =
+to program ASIC to offload LAG to HW.  RTM_NEWLINK msgs contains bond a=
+ttributes (mode, etc) and slave list, as well as slave status.  This is=
+ enough information to program ASIC.  Once programmed, ASIC offloads th=
+e data plane traffic, and in the case of egress, handles the LAG hash d=
+istribution.  Only the LACP control plane traffic makes it to the bondi=
+ng driver; data plane traffic does not make it to the bonding driver.
+>>=20
+>> So, not trying to sound like a smart-ass, but the documentation is t=
+he bonding driver, specifically the netlink attributes/notifications.
+>=20
+> Ok, so no additional kernel code for this?
 
-You assume that the PHY issue comes from waiting for too long _after_
-the reset? And again, the very same PHY on Dockstar is not affected.
+The kernel is rich with netlink.  Bonds, bridges, vlans, vxlans, L3 rou=
+te tables, flow tables, neigh table, addr table, and the list goes on, =
+all give up their info via netlink.  Add in a simple netdev-based abstr=
+action for switch ports (such as yours) and you have everything (well, =
+almost, the devil is in the details) you need to program switch chips. =
+ From netlink you get the mgmt plane to HW offload the data plane from =
+the kernel.
 
-> But I think I have found the real reason. and the change of the reset
-> just increased the chance the problem is hit (here with 100% success or
-> fail rate however you want to name it).
-> 
-> Just give me a day or two to find the time to verify my assumption (I
-> don't want to speculate) and maybe find a real fix for the problem. Of
-> course, I still like my patch because it greatly decreases the time
-> necessary for a reset (and the chance to hit the problem).
+> Only some user pace agent programming the chip?
 
-Well, you can share your idea anytime. You already speculated that PHY
-reset on 88e1116r is broken but it seems that is not true. The more
-you share of your issue and the tries to fix it, the more likely is it
-we can follow your patch immediately.
+If using netlink, the agent programming the chip can live in the kernel=
+ (preferred) or user-space.  Netlink listener can reside either place, =
+since it=92s a multicast bus.
 
-Again, if you really want to find the real patch breaking Sheevaplug,
-use git bisect.
-
-Sebastian
+-scott
