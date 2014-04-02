@@ -1,77 +1,47 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net-next] sh: add missing fpscr_values
-Date: Tue,  1 Apr 2014 19:54:04 -0700
-Message-ID: <1396407244-26771-1-git-send-email-ast@plumgrid.com>
-Cc: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Paul Mundt <lethal@linux-sh.org>,
-	Fengguang Wu <fengguang.wu@intel.com>,
-	linux-sh@vger.kernel.org, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Josh Boyer <jwboyer@gmail.com>
+Subject: [PATCH] net: enic: include irq.h for irqreturn_t definitions
+Date: Wed, 2 Apr 2014 11:24:00 -0400
+Message-ID: <20140402152400.GC20438@zod>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Christian Benvenuti <benve@cisco.com>,
+	Sujith Sankar <ssujith@cisco.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f49.google.com ([209.85.219.49]:41175 "EHLO
+	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758696AbaDBPYG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 11:24:06 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-GCC on SuperH for the following program:
-int foo(int i)
-{
-	static const void *table[2] = {
-		[0] = &&label1,
-		[1] = &&label2,
-	};
-	goto *table[i & 1];
+The enic driver fails to build on ARM with:
 
-	label1:
-		return 1;
-	label2:
-		return 2;
-}
-generates code:
-	mov.l   .L9,r1
-	mov     #1,r0
-	rts
-	lds.l   @r1+,fpscr
-.L9:
-	.long   __fpscr_values+4
+In file included from drivers/net/ethernet/cisco/enic/enic_res.c:40:0:
+drivers/net/ethernet/cisco/enic/enic.h:48:2: error: expected specifier-qualifier-list before 'irqreturn_t'
+  irqreturn_t (*isr)(int, void *);
+  ^
 
-so kernel has to provide body of fpscr_values just like glibc does
+Nothing in the driver is explicitly including the irq definitions, so we add
+an include of linux/irq.h to pick them up.
 
-Fixes: bd4cf0ed331a ("net: filter: rework/optimize internal BPF interpreter's instruction set")
-Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-Cc: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Josh Boyer <jwboyer@fedoraproject.org>
 ---
+ drivers/net/ethernet/cisco/enic/enic.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-kernel modules can hit the same problem, so export it
-
- arch/sh/lib/Makefile       |    2 +-
- arch/sh/lib/fpscr_values.c |    4 ++++
- 2 files changed, 5 insertions(+), 1 deletion(-)
- create mode 100644 arch/sh/lib/fpscr_values.c
-
-diff --git a/arch/sh/lib/Makefile b/arch/sh/lib/Makefile
-index 3baff31e58cf..0d0c7ae21cfe 100644
---- a/arch/sh/lib/Makefile
-+++ b/arch/sh/lib/Makefile
-@@ -8,7 +8,7 @@ lib-y  = delay.o memmove.o memchr.o \
- # Extracted from libgcc
- obj-y += movmem.o ashldi3.o ashrdi3.o lshrdi3.o \
- 	 ashlsi3.o ashrsi3.o ashiftrt.o lshrsi3.o \
--	 udiv_qrnnd.o
-+	 udiv_qrnnd.o fpscr_values.o
+diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
+index e9f7c656ddda..e35c8e0202ad 100644
+--- a/drivers/net/ethernet/cisco/enic/enic.h
++++ b/drivers/net/ethernet/cisco/enic/enic.h
+@@ -29,6 +29,7 @@
+ #include "vnic_stats.h"
+ #include "vnic_nic.h"
+ #include "vnic_rss.h"
++#include <linux/irq.h>
  
- udivsi3-y			:= udivsi3_i4i-Os.o
- 
-diff --git a/arch/sh/lib/fpscr_values.c b/arch/sh/lib/fpscr_values.c
-new file mode 100644
-index 000000000000..58153272aba1
---- /dev/null
-+++ b/arch/sh/lib/fpscr_values.c
-@@ -0,0 +1,4 @@
-+#include <linux/module.h>
-+
-+long __fpscr_values[2] = { 0L, 0x80000L };
-+EXPORT_SYMBOL(__fpscr_values);
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
 -- 
-1.7.9.5
-
+1.8.5.3
