@@ -1,60 +1,70 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] vxlan: using AF_PACKET socket to send multicast packet
- cause WARNING
-Date: Wed, 2 Apr 2014 07:51:06 -0700
-Message-ID: <20140402075106.3eec7791@nehalam.linuxnetplumber.net>
-References: <1396343330-23648-1-git-send-email-lucien.xin@gmail.com>
-	<20140401.161047.854771903443514987.davem@davemloft.net>
-	<CADvbK_dK_fBB3bQSWKkAk6adtgrHm553Hr3JGHsw67qeS0cQOw@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next 2/4] e1000e/igb/ixgbe/i40e: fix message
+ terminations
+Date: Tue, 01 Apr 2014 18:45:41 -0700
+Message-ID: <1396403141.2230.3.camel@jtkirshe-mobl>
+References: <1396399939-18420-1-git-send-email-kubakici@wp.pl>
+	 <1396399939-18420-3-git-send-email-kubakici@wp.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	network dev <netdev@vger.kernel.org>
-To: lucien xin <lucien.xin@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-pe1mB8CmJET2Vwp4V90A"
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: Jakub Kicinski <kubakici@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:51132 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932195AbaDBOvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 10:51:11 -0400
-Received: by mail-pb0-f48.google.com with SMTP id md12so296254pbc.35
-        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 07:51:11 -0700 (PDT)
-In-Reply-To: <CADvbK_dK_fBB3bQSWKkAk6adtgrHm553Hr3JGHsw67qeS0cQOw@mail.gmail.com>
+Received: from mga02.intel.com ([134.134.136.20]:27312 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754466AbaDBBps (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2014 21:45:48 -0400
+In-Reply-To: <1396399939-18420-3-git-send-email-kubakici@wp.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2 Apr 2014 13:31:59 +0800
-lucien xin <lucien.xin@gmail.com> wrote:
 
-> On Wed, Apr 2, 2014 at 4:10 AM, David Miller <davem@davemloft.net> wrote:
-> > This is not the correct fix.
-> >
-> > If vxlan is going to reinject dev_hard_start_xmit() bound packets into
-> > the ipv4 stack, it must make sure that they are well formed.
-> >
-> > The SKB traversing the ipv4 stack must either be bound to an ipv4/ipv6
-> > socket or be orphaned.
-> 
-> yeah,  it's right. then I want to bound skb to vxlan's sock in
-> vxlan_xmit_skb(), like this:
-> 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 1236812..8fd7e93 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -1755,6 +1755,8 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
->         if (err)
->                 return err;
-> 
-> +       skb_set_owner_w(skb, vs->sock->sk);
-> +
->         return iptunnel_xmit(rt, skb, src, dst, IPPROTO_UDP, tos, ttl, df,
->                              false);
->  }
-> 
-> which can not only solve the issue, but also make the logic more correct.
-> David, how do you think?
+--=-pe1mB8CmJET2Vwp4V90A
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-That breaks local socket accounting for tunneled packets.
-The idea is that a TCP socket sending over vxlan will keep it's
-memory accounting all the way until the device sends it.
+On Wed, 2014-04-02 at 02:52 +0200, Jakub Kicinski wrote:
+> Add \n at the end of messages where missing, remove all \r.
+>=20
+> Reported-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
+> ---
+>  drivers/net/ethernet/intel/e1000e/netdev.c      |  2 +-
+>  drivers/net/ethernet/intel/i40e/i40e_nvm.c      |  2 +-
+>  drivers/net/ethernet/intel/i40e/i40e_ptp.c      |  4 ++--
+>  drivers/net/ethernet/intel/i40e/i40e_txrx.c     |  4 ++--
+>  drivers/net/ethernet/intel/igb/e1000_i210.c     |  2 +-
+>  drivers/net/ethernet/intel/igb/e1000_mac.c      | 13 ++++++-------
+>  drivers/net/ethernet/intel/igb/igb_ptp.c        |  4 ++--
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  2 +-
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c    |  6 +++---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c    |  4 ++--
+>  10 files changed, 21 insertions(+), 22 deletions(-)
+
+Added to my queue, thanks!
+
+--=-pe1mB8CmJET2Vwp4V90A
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAABCgAGBQJTO2vFAAoJEOVv75VaS+3OrlAP/iibxZhfW6cT5VsNnn64tbAV
+Y0ldl5Mc9rVcD1wtenxf09EcillComiuDcPlLqPv2X4LM6nT2eJ6IQm9kOsANBS6
+D5SOMU+59/9GhJvbc8/3WO3Prmqf7lu/QJvmUJrbShl+samhYOhqvrmZXmuARKGU
+9v++6sKsB4MGvxt+2S/jUiE2nt2voIX8gasOozqVxDv5QpX+0d5lDugZ2Zg99tG3
+QdsKs9CASZn8ITAYaw8LWjOeWE0FXKMdZpgAFC9WskgzpZKVraIrn6kXgZEeDZyg
+JXNcUiIIuo1g8Kg+OsR1sp/XlCBHirlb5LNZ5scBpdg060iRKB3NUU1mqFyptWRc
+5L2CHbvhHzT5v7RZKqfiVQ5nvq62x/NVOfxxU+N1Kf1o/NiFPRUjf3faAwScsVa9
+L9ouCYO3N5Bb40pdy34uU2pzrnh/Qe8K2cbjwgTssMuC6u5JkGR0DMC19t99LQj0
+JycmityZoWGkZ7z1C9Rl7OZAOcfdpj46zX/GcmSP/uKtXgpYSilGYK1LvMpNSX3U
+nXb5YVEmsGL9mYXv3Tdk7axql2qSuyTyuPZiODwRLYnTKQvsN8CPoU4TyVEaZNXw
+qbPIbiqzmJXbnadMUGF/9rk+nDZ0r215QzHs+0Zn23dBhegOalCUP/y2dFQZil6I
+GO94lWov8qojeVDOMbnu
+=2zyG
+-----END PGP SIGNATURE-----
+
+--=-pe1mB8CmJET2Vwp4V90A--
