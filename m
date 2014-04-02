@@ -1,50 +1,104 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] sh: add missing fpscr_values
-Date: Wed, 02 Apr 2014 09:04:30 +0200
-Message-ID: <533BB67E.4030803@redhat.com>
-References: <1396407244-26771-1-git-send-email-ast@plumgrid.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH net-next v2 2/2] xen-netback: Grant copy the
+ header instead of map and memcpy
+Date: Wed, 2 Apr 2014 08:32:21 +0100
+Message-ID: <1396423941.26869.64.camel@dagon.hellion.org.uk>
+References: <1396278539-27639-1-git-send-email-zoltan.kiss@citrix.com>
+	<1396278539-27639-2-git-send-email-zoltan.kiss@citrix.com>
+	<1396352440.8667.117.camel@kazak.uk.xensource.com>
+	<533B0EF8.6000900@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Paul Mundt <lethal@linux-sh.org>,
-	Fengguang Wu <fengguang.wu@intel.com>,
-	linux-sh@vger.kernel.org, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1396407244-26771-1-git-send-email-ast@plumgrid.com>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: jonathan.davies@citrix.com, wei.liu2@citrix.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, paul.durrant@citrix.com,
+	xen-devel@lists.xenproject.org
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <533B0EF8.6000900@citrix.com>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
-On 04/02/2014 04:54 AM, Alexei Starovoitov wrote:
-> GCC on SuperH for the following program:
-> int foo(int i)
-> {
-> 	static const void *table[2] = {
-> 		[0] = &&label1,
-> 		[1] = &&label2,
-> 	};
-> 	goto *table[i & 1];
->
-> 	label1:
-> 		return 1;
-> 	label2:
-> 		return 2;
-> }
-> generates code:
-> 	mov.l   .L9,r1
-> 	mov     #1,r0
-> 	rts
-> 	lds.l   @r1+,fpscr
-> .L9:
-> 	.long   __fpscr_values+4
->
-> so kernel has to provide body of fpscr_values just like glibc does
->
-> Fixes: bd4cf0ed331a ("net: filter: rework/optimize internal BPF interpreter's instruction set")
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> Cc: Daniel Borkmann <dborkman@redhat.com>
+On Tue, 2014-04-01 at 20:09 +0100, Zoltan Kiss wrote:
+> On 01/04/14 12:40, Ian Campbell wrote:
+> > On Mon, 2014-03-31 at 16:08 +0100, Zoltan Kiss wrote:
+> >>
+> >>   check_frags:
+> >> -	for (i = start; i < nr_frags; i++) {
+> >> +	for (i = 0; i < nr_frags; i++, gop_map++) {
+> >>   		int j, newerr;
+> >>
+> >>   		pending_idx = frag_get_pending_idx(&shinfo->frags[i]);
+> >> -		tx_info = &vif->pending_tx_info[pending_idx];
+> >>
+> >>   		/* Check error status: if okay then remember grant handle. */
+> >> -		newerr = (++gop_map)->status;
+> >> +		newerr = (gop_map)->status;
+> >
+> > You've reworked the handling of gop_map and when and where it is
+> > incremented, which might be a legit cleanup but does it relate to the
+> > bulk of this change somehow that I'm missing?
+> That original "++gop_map" assumed the header was also grant mapped, and 
+> incremented the pointer first here, which is wrong now.
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+OK, that makes sense.
+
+> >>   [...]
+> >>   		__skb_put(skb, data_len);
+> >> +		vif->tx_copy_ops[*copy_ops].source.u.ref = txreq.gref;
+> >> +		vif->tx_copy_ops[*copy_ops].source.domid = vif->domid;
+> >> +		vif->tx_copy_ops[*copy_ops].source.offset = txreq.offset;
+> >> +
+> >> +		vif->tx_copy_ops[*copy_ops].dest.u.gmfn =
+> >> +			virt_to_mfn(skb->data);
+> >> +		vif->tx_copy_ops[*copy_ops].dest.domid = DOMID_SELF;
+> >> +		vif->tx_copy_ops[*copy_ops].dest.offset =
+> >> +			offset_in_page(skb->data);
+> >> +
+> >> +		vif->tx_copy_ops[*copy_ops].len = data_len;
+> >> +		vif->tx_copy_ops[*copy_ops].flags = GNTCOPY_source_gref;
+> >
+> > We have gnttab_set_map_op. Should we have gnttap_set_copy_op too?
+> This is the only place at the moment when we do this, so I wouldn't 
+> bother to do it.
+
+It's not only about multiple uses of the pattern but about code clarity
+and API consistency.
+
+> >> -	BUG_ON(ret);
+> >> +	else {
+> >> +		gnttab_batch_copy(vif->tx_copy_ops, nr_cops);
+> >> +		if (nr_mops != 0) {
+> >
+> >
+> > if (nr_mops) would do.
+> >
+> >> +			ret = gnttab_map_refs(vif->tx_map_ops,
+> >
+> > So we use gnttab_batch_copy and gnttab_map_refs.
+> >
+> > Shouldn't we either use gnttab_batch_copy and gnttab_batch_map or
+> > gnttab_copy gnttab_map_refs. (where gnttab_copy might be a bare
+> > GNTTABOP_copy or might be a helper wrapper).
+> >
+> > The point of the batch interface is to handle page unsharing etc, but
+> > doing it only for copies seems like a waste one way or another.
+> The difference between gnttab_batch_map and gnttab_map_refs is that the 
+> latter calls set_foreign_p2m_mapping, which we need for sure.
+> gnttab_batch_copy calls the hypercall and tries again if op->status == 
+> GNTST_eagain. I think that's exactly what we need here as well.
+> The naming might be confusing indeed, but that should be the topic of an 
+> another patch.
+
+Whether you choose to do it now or later this code should use a
+consistent set of ops, either gnttab_batch_* or gnttab_*_refs, from day
+one.
+
+Ian.
