@@ -1,197 +1,51 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH v3 2/5] bonding: Reorg bond_alb_xmit code
-Date: Wed,  2 Apr 2014 00:00:10 -0700
-Message-ID: <1396422010-31981-1-git-send-email-maheshb@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Mahesh Bandewar <maheshb@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>
+From: Daeseok Youn <daeseok.youn@gmail.com>
+Subject: [PATCH 1/2] nfc: fix NULL pointer dereference
+Date: Wed, 02 Apr 2014 16:55:30 +0900
+Message-ID: <20540404.Au0OUqzobS@daeseok-laptop.cloud.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: aloisio.almeida@openbossa.org, sameo@linux.intel.com,
+	linux-wireless@vger.kernel.org, linux-nfc@lists.01.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, lauro.venancio@openbossa.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f202.google.com ([209.85.214.202]:35305 "EHLO
-	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932088AbaDBHF3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 03:05:29 -0400
-Received: by mail-ob0-f202.google.com with SMTP id wo20so2207534obc.3
-        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 00:05:28 -0700 (PDT)
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:40843 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753357AbaDBHzf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 03:55:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Separating the actual xmit part from the function in a separate
-function that can be used in the tlb_xmit in the next patch. Also
-there is no reason do_tx_balance to be an int so changing it to
-bool type.
 
-Change-Id: I9c48ff30487810f68587e621a191db616f49bd3b
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+dev is NULL when nfc_get_device() is failed but
+dev is used for handling error.
+
+coccicheck says:
+ net/nfc/netlink.c:1092:21-24: ERROR:
+dev is NULL but dereferenced.
+
+Signed-off-by: Daeseok Youn <daeseok.youn@gmail.com>
 ---
-v2:
-  Rebase
-v3:
-  Rebase
+ net/nfc/netlink.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
- drivers/net/bonding/bond_alb.c | 79 +++++++++++++++++++++++-------------------
- 1 file changed, 44 insertions(+), 35 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 9f69e818b000..5cd36016c393 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1347,6 +1347,40 @@ void bond_alb_deinitialize(struct bonding *bond)
- 		rlb_deinitialize(bond);
- }
+diff --git a/net/nfc/netlink.c b/net/nfc/netlink.c
+index 43cb1c1..b2ad570 100644
+--- a/net/nfc/netlink.c
++++ b/net/nfc/netlink.c
+@@ -1026,10 +1026,8 @@ static int nfc_genl_llc_sdreq(struct sk_buff *skb, struct genl_info *info)
+ 	idx = nla_get_u32(info->attrs[NFC_ATTR_DEVICE_INDEX]);
  
-+static int bond_do_alb_xmit(struct sk_buff *skb, struct bonding *bond,
-+		struct slave *tx_slave)
-+{
-+	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
-+	struct ethhdr *eth_data = eth_hdr(skb);
-+
-+	if (!tx_slave) {
-+		/* unbalanced or unassigned, send through primary */
-+		tx_slave = rcu_dereference(bond->curr_active_slave);
-+		bond_info->unbalanced_load += skb->len;
-+	}
-+
-+	if (tx_slave && SLAVE_IS_OK(tx_slave)) {
-+		if (tx_slave != rcu_dereference(bond->curr_active_slave)) {
-+			ether_addr_copy(eth_data->h_source,
-+					tx_slave->dev->dev_addr);
-+		}
-+
-+		bond_dev_queue_xmit(bond, skb, tx_slave->dev);
-+		goto out;
-+	}
-+
-+	if (tx_slave) {
-+		_lock_tx_hashtbl(bond);
-+		__tlb_clear_slave(bond, tx_slave, 0);
-+		_unlock_tx_hashtbl(bond);
-+	}
-+
-+	/* no suitable interface, frame not sent */
-+	dev_kfree_skb_any(skb);
-+out:
-+	return NETDEV_TX_OK;
-+}
-+
- int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
-@@ -1355,7 +1389,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 	struct slave *tx_slave = NULL;
- 	static const __be32 ip_bcast = htonl(0xffffffff);
- 	int hash_size = 0;
--	int do_tx_balance = 1;
-+	bool do_tx_balance = true;
- 	u32 hash_index = 0;
- 	const u8 *hash_start = NULL;
- 	struct ipv6hdr *ip6hdr;
-@@ -1370,7 +1404,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 		if (ether_addr_equal_64bits(eth_data->h_dest, mac_bcast) ||
- 		    (iph->daddr == ip_bcast) ||
- 		    (iph->protocol == IPPROTO_IGMP)) {
--			do_tx_balance = 0;
-+			do_tx_balance = false;
- 			break;
- 		}
- 		hash_start = (char *)&(iph->daddr);
-@@ -1382,7 +1416,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 		 * that here just in case.
- 		 */
- 		if (ether_addr_equal_64bits(eth_data->h_dest, mac_bcast)) {
--			do_tx_balance = 0;
-+			do_tx_balance = false;
- 			break;
- 		}
- 
-@@ -1390,7 +1424,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 		 * broadcasts in IPv4.
- 		 */
- 		if (ether_addr_equal_64bits(eth_data->h_dest, mac_v6_allmcast)) {
--			do_tx_balance = 0;
-+			do_tx_balance = false;
- 			break;
- 		}
- 
-@@ -1400,7 +1434,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 		 */
- 		ip6hdr = ipv6_hdr(skb);
- 		if (ipv6_addr_any(&ip6hdr->saddr)) {
--			do_tx_balance = 0;
-+			do_tx_balance = false;
- 			break;
- 		}
- 
-@@ -1410,7 +1444,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 	case ETH_P_IPX:
- 		if (ipx_hdr(skb)->ipx_checksum != IPX_NO_CHECKSUM) {
- 			/* something is wrong with this packet */
--			do_tx_balance = 0;
-+			do_tx_balance = false;
- 			break;
- 		}
- 
-@@ -1419,7 +1453,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 			 * this family since it has an "ARP" like
- 			 * mechanism
- 			 */
--			do_tx_balance = 0;
-+			do_tx_balance = false;
- 			break;
- 		}
- 
-@@ -1427,12 +1461,12 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 		hash_size = ETH_ALEN;
- 		break;
- 	case ETH_P_ARP:
--		do_tx_balance = 0;
-+		do_tx_balance = false;
- 		if (bond_info->rlb_enabled)
- 			tx_slave = rlb_arp_xmit(skb, bond);
- 		break;
- 	default:
--		do_tx_balance = 0;
-+		do_tx_balance = false;
- 		break;
- 	}
- 
-@@ -1441,32 +1475,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
- 		tx_slave = tlb_choose_channel(bond, hash_index, skb->len);
- 	}
- 
--	if (!tx_slave) {
--		/* unbalanced or unassigned, send through primary */
--		tx_slave = rcu_dereference(bond->curr_active_slave);
--		bond_info->unbalanced_load += skb->len;
+ 	dev = nfc_get_device(idx);
+-	if (!dev) {
+-		rc = -ENODEV;
+-		goto exit;
 -	}
--
--	if (tx_slave && SLAVE_IS_OK(tx_slave)) {
--		if (tx_slave != rcu_dereference(bond->curr_active_slave)) {
--			ether_addr_copy(eth_data->h_source,
--					tx_slave->dev->dev_addr);
--		}
--
--		bond_dev_queue_xmit(bond, skb, tx_slave->dev);
--		goto out;
--	}
--
--	if (tx_slave) {
--		_lock_tx_hashtbl(bond);
--		__tlb_clear_slave(bond, tx_slave, 0);
--		_unlock_tx_hashtbl(bond);
--	}
--
--	/* no suitable interface, frame not sent */
--	dev_kfree_skb_any(skb);
--out:
--	return NETDEV_TX_OK;
-+	return bond_do_alb_xmit(skb, bond, tx_slave);
- }
++	if (!dev)
++		return -ENODEV;
  
- void bond_alb_monitor(struct work_struct *work)
+ 	device_lock(&dev->dev);
+ 
 -- 
-1.9.1.423.g4596e3a
+1.7.4.4
