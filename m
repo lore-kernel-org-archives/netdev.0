@@ -1,66 +1,99 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: sched: dev_deactivate_many(): use msleep(1)
- instead of yield() to wait for outstanding qdisc_run callsb
-Date: Wed, 02 Apr 2014 04:17:39 -0700
-Message-ID: <1396437459.3989.39.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1393976987-23555-1-git-send-email-mkl@pengutronix.de>
-	 <20140306.160622.59358366688518505.davem@davemloft.net>
-	 <1394392160.15968.13.camel@deadeye.wl.decadent.org.uk>
-	 <20140309.185338.2057082497431220324.davem@davemloft.net>
-	 <alpine.DEB.2.02.1403312333100.14882@ionos.tec.linutronix.de>
-	 <20140402110743.GG27965@twins.programming.kicks-ass.net>
+From: Madoka Komatsubara <m-komatsubara@ab.jp.nec.com>
+Subject: RE: Unable to receive multicast packet on VF
+Date: Wed, 2 Apr 2014 09:04:47 +0000
+Message-ID: <9DE5760509B7974286F38D93BF31DD62C7DF52@BPXM13GP.gisp.nec.co.jp>
+References: <9DE5760509B7974286F38D93BF31DD62C7D0B8@BPXM13GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF2228664685D9725C@ORSMSX110.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	David Miller <davem@davemloft.net>, ben@decadent.org.uk,
-	mkl@pengutronix.de,
-	linux-rt-users <linux-rt-users@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	kernel@pengutronix.de
-To: Peter Zijlstra <peterz@infradead.org>
+Content-Type: text/plain; charset="iso-2022-jp"
+Content-Transfer-Encoding: 8BIT
+Cc: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	Hiroshi Baba <h-baba@ax.jp.nec.com>
+To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:63236 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758184AbaDBLRm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 07:17:42 -0400
-In-Reply-To: <20140402110743.GG27965@twins.programming.kicks-ass.net>
+Received: from TYO201.gate.nec.co.jp ([210.143.35.51]:64481 "EHLO
+	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758151AbaDBJHk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 05:07:40 -0400
+In-Reply-To: <F6FB0E698C9B3143BDF729DF2228664685D9725C@ORSMSX110.amr.corp.intel.com>
+Content-Language: ja-JP
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-04-02 at 13:07 +0200, Peter Zijlstra wrote:
-> On Mon, Mar 31, 2014 at 11:49:16PM +0200, Thomas Gleixner wrote:
-> > > >> The intent of a yield() call, like this one here, is unambiguously
-> > > >> that the current thread cannot do anything until some other thread
-> > > >> gets onto the cpu and makes forward progress.
-> 
-> Yeah; like Thomas said; that's not what yield() does -- or can do.
-> 
-> yield() only says 'I don't know what to do, you figure it out', but then
-> fails to provide enough information to actually do something sensible.
-> 
-> It cannot put the task to sleep; because it doesn't pair with a wakeup;
-> and therefore the task stays an eligible/runnable task from a scheduler
-> pov.
-> 
-> The scheduler is therefore entirely in its right to pick this task
-> again; and pretty much has to under many circumstances.
-> 
-> yield() does not, and can not, guarantee forward progress - ever.
-> 
-> Use wait_event() and assorted bits to wait for an actual event. That is
-> a sleep paired with a wakeup and thus has progress guarantees.
 
-Why wouldn't it be safe to redefine yield as msleep(1) ?
+> -----Original Message-----
+> From: Skidmore, Donald C [mailto:donald.c.skidmore@intel.com]
+> Sent: Saturday, March 29, 2014 5:54 AM
+> To: Komatsubara Madoka(小松原 円); linux-kernel@vger.kernel.org;
+> e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org
+> Cc: Shimamoto Hiroshi(島本 裕志); Baba Hiroshi(馬場 裕司)
+> Subject: RE: Unable to receive multicast packet on VF
+> 
+> 
+> 
+> > -----Original Message-----
+> > From: Madoka Komatsubara [mailto:m-komatsubara@ab.jp.nec.com]
+> > Sent: Friday, March 28, 2014 4:49 AM
+> > To: linux-kernel@vger.kernel.org; e1000-devel@lists.sourceforge.net;
+> > netdev@vger.kernel.org
+> > Cc: Hiroshi Shimamoto; Hiroshi Baba
+> > Subject: [E1000-devel] Unable to receive multicast packet on VF
+> >
+> > Hi all,
+> >
+> >
+> > We would like to use multicast packet on the guest with Intel 82599EB
+> > SR- IOV.
+> > However, the document says that adding the multicast MAC address to
+> > the VF is allowed during PF initialization only. (Please refer to the
+> > URL below.) It means that we couldn't handle dynamically allocated multicast
+> address.
+> >
+> > On the other hand,
+> > >From the data sheet, 82599EB has Multicast Promiscuous mode.
+> > We could enable it on PF and all multicast packets are delivered to every
+> VF.
+> > That doesn't seem good, because each guest has to handle unnecessary
+> > packet.
+> >
+> > Isn't it good to have a feature to add specific multicast address to VF?
+> > Does anyone know that issue or the solution?
+> >
+> >
+> >
+> > <http://www.intel.com/content/dam/www/public/us/en/documents/datas
+> > heets/82599-10-gbe-controller-datasheet.pdf>
+> >  page585
+> >  section 8.2.3.7.7
+> >  "This table should be initialized by software before transmit and
+> > receive are enabled."
+> >
+> > Regards,
+> > Madoka Komatsubara
+> >
+> 
+> Hi Madoka,
+> 
+> You can see where we are changing the multicast address list in the VF driver
+> in ixgbevf_set_rx_mode().  This not only called via ndo_set_rx_mode but in
+> our up and open calls.   So while it is true this needs to be initialized before
+> transmit and receive are enabled, the value can be changed without requiring
+> the module to be reloaded.
+> 
+> Hope that helps,
+> -Don
 
-net/ipv4/tcp_output.c seems to also use yield().
+
+Hi Donald,
+
+Thank you for your information.
+it is currently under consideration.
+I will contact you again later.
 
 
-                /* Socket is locked, keep trying until memory is available. */
-                for (;;) {
-                        skb = alloc_skb_fclone(MAX_TCP_HEADER,
-                                               sk->sk_allocation);
-                        if (skb)
-                                break;
-                        yield();
-                }
+Regards,
+Madoka Komatsubara
