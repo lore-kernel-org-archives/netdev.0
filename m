@@ -1,130 +1,89 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: [PATCH net-next 1/1] sxgbe: use common NET_VENDOR_FOO style.
-Date: Wed, 02 Apr 2014 19:35:43 -0400
-Message-ID: <67692.1396481743@turing-police.cc.vt.edu>
-References: <19617.1396041625@turing-police.cc.vt.edu>
-            <20140402231303.GB5013@electric-eye.fr.zoreil.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [PATCH net-next v2 2/2] xen-netback: Grant copy the
+ header instead of map and memcpy
+Date: Wed, 2 Apr 2014 14:11:59 +0100
+Message-ID: <533C0C9F.8030205@citrix.com>
+References: <1396278539-27639-1-git-send-email-zoltan.kiss@citrix.com>	<1396278539-27639-2-git-send-email-zoltan.kiss@citrix.com>
+	<1396352440.8667.117.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1396481743_3292P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Siva Reddy Kallam <siva.kallam@samsung.com>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lennier.cc.vt.edu ([198.82.162.213]:45180 "EHLO
-	lennier.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932252AbaDBXjH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 19:39:07 -0400
-In-Reply-To: Your message of "Thu, 03 Apr 2014 01:13:03 +0200."
-             <20140402231303.GB5013@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jonathan.davies@citrix.com, wei.liu2@citrix.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, paul.durrant@citrix.com,
+	Zoltan Kiss <zoltan.kiss@citrix.com>, xen-devel@lists.xenproject.org
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1396352440.8667.117.camel@kazak.uk.xensource.com>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
---==_Exmh_1396481743_3292P
-Content-Type: text/plain; charset=us-ascii
+On 01/04/14 12:40, Ian Campbell wrote:
+> On Mon, 2014-03-31 at 16:08 +0100, Zoltan Kiss wrote:
+>>  
+>>  		__skb_put(skb, data_len);
+>> +		vif->tx_copy_ops[*copy_ops].source.u.ref = txreq.gref;
+>> +		vif->tx_copy_ops[*copy_ops].source.domid = vif->domid;
+>> +		vif->tx_copy_ops[*copy_ops].source.offset = txreq.offset;
+>> +
+>> +		vif->tx_copy_ops[*copy_ops].dest.u.gmfn =
+>> +			virt_to_mfn(skb->data);
+>> +		vif->tx_copy_ops[*copy_ops].dest.domid = DOMID_SELF;
+>> +		vif->tx_copy_ops[*copy_ops].dest.offset =
+>> +			offset_in_page(skb->data);
+>> +
+>> +		vif->tx_copy_ops[*copy_ops].len = data_len;
+>> +		vif->tx_copy_ops[*copy_ops].flags = GNTCOPY_source_gref;
+> 
+> We have gnttab_set_map_op. Should we have gnttap_set_copy_op too?
 
-On Thu, 03 Apr 2014 01:13:03 +0200, Francois Romieu said:
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> ---
->
->  Valdis, is it what you had in mind ?
+A set of 3 might be useful I think.
 
-Works for me.  That brings it in line with other network drivers, feel free
-to stick this on:
+gnttab_set_copy_op_ref_to_gfn()
+gnttab_set_copy_op_gfn_to_ref()
+gnttab_set_copy_op_ref_to_ref()
 
-Acked-by: Valdis Kletnieks <valdis.kletnieks@vt.edu>
+> 
+>> -	BUG_ON(ret);
+>> +	else {
+>> +		gnttab_batch_copy(vif->tx_copy_ops, nr_cops);
+>> +		if (nr_mops != 0) {
+> 
+> 
+> if (nr_mops) would do.
+> 
+>> +			ret = gnttab_map_refs(vif->tx_map_ops,
+> 
+> So we use gnttab_batch_copy and gnttab_map_refs.
+> 
+> Shouldn't we either use gnttab_batch_copy and gnttab_batch_map or
+> gnttab_copy gnttab_map_refs. (where gnttab_copy might be a bare
+> GNTTABOP_copy or might be a helper wrapper).
 
->  drivers/net/ethernet/samsung/Kconfig       | 24 ++++++++++++++++++++----
->  drivers/net/ethernet/samsung/sxgbe/Kconfig |  9 ---------
->  2 files changed, 20 insertions(+), 13 deletions(-)
->  delete mode 100644 drivers/net/ethernet/samsung/sxgbe/Kconfig
->
-> diff --git a/drivers/net/ethernet/samsung/Kconfig b/drivers/net/ethernet/sams
-ung/Kconfig
-> index 7902341..2360d81 100644
-> --- a/drivers/net/ethernet/samsung/Kconfig
-> +++ b/drivers/net/ethernet/samsung/Kconfig
-> @@ -3,14 +3,30 @@
->  #
->
->  config NET_VENDOR_SAMSUNG
-> -	bool "Samsung Ethernet device"
-> +	bool "Samsung Ethernet devices"
->  	default y
->  	---help---
-> -	  This is the driver for the SXGBE 10G Ethernet IP block found on Samsu
-ng
-> -	  platforms.
-> +	  If you have a network (Ethernet) chipset belonging to this class,
-> +	  say Y.
-> +
-> +	  Note that the answer to this question does not directly affect
-> +	  the kernel: saying N will just case the configurator to skip all
-> +	  the questions about Samsung chipsets. If you say Y, you will be asked
-> +	  for your specific chipset/driver in the following questions.
->
->  if NET_VENDOR_SAMSUNG
->
-> -source "drivers/net/ethernet/samsung/sxgbe/Kconfig"
-> +config SXGBE_ETH
-> +	tristate "Samsung 10G/2.5G/1G SXGBE Ethernet driver"
-> +	depends on HAS_IOMEM && HAS_DMA
-> +	select PHYLIB
-> +	select CRC32
-> +	select PTP_1588_CLOCK
-> +	---help---
-> +	  This is the driver for the SXGBE 10G Ethernet IP block found on
-> +	  Samsung platforms.
-> +
-> +	  To compile this driver as a module, choose M here: the module
-> +	  will be called samsung-sxgbe.
->
->  endif # NET_VENDOR_SAMSUNG
-> diff --git a/drivers/net/ethernet/samsung/sxgbe/Kconfig b/drivers/net/etherne
-t/samsung/sxgbe/Kconfig
-> deleted file mode 100644
-> index d79288c..0000000
-> --- a/drivers/net/ethernet/samsung/sxgbe/Kconfig
-> +++ /dev/null
-> @@ -1,9 +0,0 @@
-> -config SXGBE_ETH
-> -	tristate "Samsung 10G/2.5G/1G SXGBE Ethernet driver"
-> -	depends on HAS_IOMEM && HAS_DMA
-> -	select PHYLIB
-> -	select CRC32
-> -	select PTP_1588_CLOCK
-> -	---help---
-> -	  This is the driver for the SXGBE 10G Ethernet IP block found on Samsu
-ng
-> -	  platforms.
-> --
-> 1.9.0
->
+gnttab_batch_map() is not correct here since it does not update the p2m.
+ There is only one copy API (gnttab_batch_copy()).
 
+> The point of the batch interface is to handle page unsharing etc, but
+> doing it only for copies seems like a waste one way or another.
 
+Both mapping and copy need to handle (hypervisor) paging/shaing and the
+two calls Zoli has used do this.
 
---==_Exmh_1396481743_3292P
-Content-Type: application/pgp-signature
+gnttab_map_refs() is basically gnttab_batch_map() +
+set_foreign_p2m_mapping().
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Exmh version 2.5 07/13/2001
+I'd be in favour of a patch that:
 
-iQIVAwUBUzyezwdmEQWDXROgAQKZ4Q/+NPmozjRowg1twTRnro7IhPYHAMpTa/mv
-Fke0UClQPpxvMwvsrQsrIYvMfx0j113H1UxEykFh6QpcN8ydJJkLzPYNWMGkzFRH
-DBjmF+KUkmXGmZxujeHIdfJrEDld0g7tKiEG2Js+4EM48m1wWimH6qf89SnLniRb
-K+H905sePTLiGztNoN9VxFesEJUNPQ79l5K8+GOhdOjLjYV8s/zyUWj0UAm85FY2
-5Jd7RT+aEBYcr7qe7rYbHyFg8IXVslOffxi5k/C+GuvwMqoYOG4fLsukoPCU58NV
-VsyCQ7ClTPj090GZBSaySaBPkq9iiM6XjjGYAtOmGfE1vpHCFU61COv+doojilUo
-ew/OGulDzy6ILu0QXT5RM4UHbvY3HyiO5NCAqNRyD56zkgcEuZVZdghM+dgw6U2t
-elY340gRQyZc+EmAx/DSEuEv6e9GQu4LE9BRycTu7OFVIl6b/FMijRodo6hEC+nh
-hgkEp9VW6b8t/FWaFQ1XYJsk5tLw7OI2bQC01OSEQTzvpJLS98dh5H4ao1v6nLtL
-zrNVuT1iitJ0V+PQUnSbrjAIjhMWNZGmB9SHl0r+z4v1gqf9zKzHP+huQ3yrTvWA
-l6Dhurygfq73AEI2O6IlaOt3N/g+YlZoPwvwmPzWgbf7EOXuTwRhME29KY9EUidt
-u1f0y0WtAZg=
-=UmUl
------END PGP SIGNATURE-----
+- renamed gnttab_map_refs() to gnttab_batch_map_pages()
+- refactored it to call gnttab_batch_map().
+- added documentation
 
---==_Exmh_1396481743_3292P--
+But I don't see why this would be a prerequisite for this series.
+
+David
