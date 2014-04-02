@@ -1,52 +1,81 @@
-From: Madoka Komatsubara <m-komatsubara@ab.jp.nec.com>
-Subject: RE: [E1000-devel] fail to add 64 VLANs or more when SR-IOV is
- enabled
-Date: Thu, 3 Apr 2014 02:03:43 +0000
-Message-ID: <9DE5760509B7974286F38D93BF31DD62C7E200@BPXM13GP.gisp.nec.co.jp>
-References: <9DE5760509B7974286F38D93BF31DD62C7DF93@BPXM13GP.gisp.nec.co.jp>
-	<9B4A1B1917080E46B64F07F2989DADD652978166@ORSMSX102.amr.corp.intel.com>
-	<9DE5760509B7974286F38D93BF31DD62C7E125@BPXM13GP.gisp.nec.co.jp>
- <20140402.213941.1530194697006154708.davem@davemloft.net>
+From: Alexander Holler <holler@ahsoftware.de>
+Subject: Re: [PATCH regression] net: phy: fix initialization (config_init)
+ for Marvel 88E1116R PHYs
+Date: Thu, 03 Apr 2014 00:12:25 +0200
+Message-ID: <533C8B49.8080704@ahsoftware.de>
+References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de> <CAGVrzcZd9tBtcTY_2PRHVb9kJAjVHqn+EubUy4NGL66M_UuCDg@mail.gmail.com> <533BD3CD.1010905@ahsoftware.de> <CAGVrzcZi5aNq8fR795fKhu2TAc1tQCa2YEorErZRLf2n9DPZuw@mail.gmail.com> <533C721E.1080004@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Content-Transfer-Encoding: 8BIT
-Cc: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	Hiroshi Baba <h-baba@ax.jp.nec.com>
-To: David Miller <davem@davemloft.net>,
-	"todd.fujinaka@intel.com" <todd.fujinaka@intel.com>,
-	"donald.c.skidmore@intel.com" <donald.c.skidmore@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140402.213941.1530194697006154708.davem@davemloft.net>
-Content-Language: ja-JP
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Michal Simek <michal.simek@xilinx.com>,
+	stable <stable@vger.kernel.org>
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from h1446028.stratoserver.net ([85.214.92.142]:45570 "EHLO
+	mail.ahsoftware.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030526AbaDBWMh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 18:12:37 -0400
+In-Reply-To: <533C721E.1080004@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, April 03, 2014 10:40 AM
-> To: Komatsubara Madoka(小松原 円)
-> Cc: todd.fujinaka@intel.com; donald.c.skidmore@intel.com;
-> linux-kernel@vger.kernel.org; e1000-devel@lists.sourceforge.net;
-> netdev@vger.kernel.org; Shimamoto Hiroshi(島本 裕志); Baba Hiroshi(馬場 裕
-> 司)
-> Subject: Re: [E1000-devel] fail to add 64 VLANs or more when SR-IOV is enabled
+Am 02.04.2014 22:25, schrieb Sebastian Hesselbarth:
+> On 04/02/2014 09:01 PM, Florian Fainelli wrote:
+>> 2014-04-02 2:09 GMT-07:00 Alexander Holler <holler@ahsoftware.de>:
+>>> Am 02.04.2014 02:57, schrieb Florian Fainelli:
+>>>> 2014-04-01 16:55 GMT-07:00 Alexander Holler <holler@ahsoftware.de>:
+>>>>> Commit 7cd1463664c2a15721ff4ccfb61d4d970815cb3d (introduced with 3.14)
+>>>>> changed the initialization of the mv643xx_eth driver to use phy_init_hw()
+>>>>> to reset the PHY. Unfortunately the initialization for the 88E1116R PHY
+>>>>> was broken such, that it used mdelay() instead of really waiting for a
+>>>>> reset to finish.
+>>
+>> Can you resubmit with the following information:
+>>
+>> - you specify the commit that introduce the problem in parenthesis,
+>> e.g: deadbeef ("dead: beef: cafe babe")
+>> - put this dmesg snippet in your log message to clearly illustrate
+>> what is happening
+>> - clarify that the PHY needs to be polled in a comment in
+>> m88e1116r_config_init()
+>>
+>> Meanwhile, it would be good if someone with access to this particular
+>> PHY datasheet could look for known erratas, problems, non-standard
+>> compliant behavior ....
 > 
-> From: Madoka Komatsubara <m-komatsubara@ab.jp.nec.com>
-> Date: Thu, 3 Apr 2014 01:12:13 +0000
+> Alexander,
 > 
-> > Thank you for the quick response.
-> > How can I increase the limit？
+> I tried todays linux/master on Seagate Dockstar with Marvell 88E1116R
+> (0x01410e40) and cannot reproduce any regression. I tried booting from
+> tftp and usb, I also rebooted twice to see if there are any side
+> effects - nothing - ethernet always comes up as expected.
 > 
-> It's a hardware limit, you cannot increase it.
+> I am curious, how you determined above commit to be the cause of the
+> regression you are seeing. Can you bisect, if you didn't already?
 
+There was no bisecting necessary. I've just looked at what changed in
+mv643xx_eth since 3.13 and the first commit I've reverted was already a
+hit. Reading a bit source revealed the differences between the old reset
+and the newly used one and ended up with my patch (first try) and was a
+hit too.
 
-Thank you for your information.
-Does it mean disabling filter is the only way to use over 64 VLANs and is it possible?
+Actually I assumed the reset needs longer than the 500ms, but as the
+printks revealed, the reset is much faster.
+So the problem seems to be the much increased time (1s) the newly used
+reset function idles in mdelay.
+
+But I think I have found the real reason. and the change of the reset
+just increased the chance the problem is hit (here with 100% success or
+fail rate however you want to name it).
+
+Just give me a day or two to find the time to verify my assumption (I
+don't want to speculate) and maybe find a real fix for the problem. Of
+course, I still like my patch because it greatly decreases the time
+necessary for a reset (and the chance to hit the problem).
 
 Regards,
-Madoka
+
+Alexander Holler
