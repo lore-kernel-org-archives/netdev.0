@@ -1,104 +1,114 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH net-next v2 2/2] xen-netback: Grant copy the
- header instead of map and memcpy
-Date: Wed, 2 Apr 2014 08:32:21 +0100
-Message-ID: <1396423941.26869.64.camel@dagon.hellion.org.uk>
-References: <1396278539-27639-1-git-send-email-zoltan.kiss@citrix.com>
-	<1396278539-27639-2-git-send-email-zoltan.kiss@citrix.com>
-	<1396352440.8667.117.camel@kazak.uk.xensource.com>
-	<533B0EF8.6000900@citrix.com>
+From: Brian Allen Vanderburg II <brianvanderburg2@aim.com>
+Subject: iproute2/vlan: Idea: Support untagged VLAN interfaces
+Date: Wed, 02 Apr 2014 07:54:38 -0400
+Message-ID: <533BFA7E.9020001@aim.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jonathan.davies@citrix.com, wei.liu2@citrix.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, paul.durrant@citrix.com,
-	xen-devel@lists.xenproject.org
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <533B0EF8.6000900@citrix.com>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="pboJxaMPccpRFfUQQRC3QmNedDwJhGV9j"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from omr-m10.mx.aol.com ([64.12.143.86]:38106 "EHLO
+	omr-m10.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758426AbaDBLwm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 07:52:42 -0400
+Received: from mtaout-mab01.mx.aol.com (mtaout-mab01.mx.aol.com [172.26.249.81])
+	by omr-m10.mx.aol.com (Outbound Mail Relay) with ESMTP id 9765470242A5D
+	for <netdev@vger.kernel.org>; Wed,  2 Apr 2014 07:52:41 -0400 (EDT)
+Received: from [192.168.1.109] (cpe-069-132-214-147.carolina.res.rr.com [69.132.214.147])
+	(using TLSv1 with cipher DHE-RSA-AES128-SHA (128/128 bits))
+	(No client certificate requested)
+	by mtaout-mab01.mx.aol.com (MUA/Third Party Client Interface) with ESMTPSA id 62A6A380000B1
+	for <netdev@vger.kernel.org>; Wed,  2 Apr 2014 07:52:41 -0400 (EDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-04-01 at 20:09 +0100, Zoltan Kiss wrote:
-> On 01/04/14 12:40, Ian Campbell wrote:
-> > On Mon, 2014-03-31 at 16:08 +0100, Zoltan Kiss wrote:
-> >>
-> >>   check_frags:
-> >> -	for (i = start; i < nr_frags; i++) {
-> >> +	for (i = 0; i < nr_frags; i++, gop_map++) {
-> >>   		int j, newerr;
-> >>
-> >>   		pending_idx = frag_get_pending_idx(&shinfo->frags[i]);
-> >> -		tx_info = &vif->pending_tx_info[pending_idx];
-> >>
-> >>   		/* Check error status: if okay then remember grant handle. */
-> >> -		newerr = (++gop_map)->status;
-> >> +		newerr = (gop_map)->status;
-> >
-> > You've reworked the handling of gop_map and when and where it is
-> > incremented, which might be a legit cleanup but does it relate to the
-> > bulk of this change somehow that I'm missing?
-> That original "++gop_map" assumed the header was also grant mapped, and 
-> incremented the pointer first here, which is wrong now.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--pboJxaMPccpRFfUQQRC3QmNedDwJhGV9j
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-OK, that makes sense.
+I've been recent playing around with some of the new VLAN filtering
+features.  One feature I want to be able to do is to create an interface
+that handles untagged data for VLANs as a sub-interface instead.=20
+Currently, untagged data is only handled by the main interface.  I can
+think of some reasons to have untagged data on its own VLAN interface.
 
-> >>   [...]
-> >>   		__skb_put(skb, data_len);
-> >> +		vif->tx_copy_ops[*copy_ops].source.u.ref = txreq.gref;
-> >> +		vif->tx_copy_ops[*copy_ops].source.domid = vif->domid;
-> >> +		vif->tx_copy_ops[*copy_ops].source.offset = txreq.offset;
-> >> +
-> >> +		vif->tx_copy_ops[*copy_ops].dest.u.gmfn =
-> >> +			virt_to_mfn(skb->data);
-> >> +		vif->tx_copy_ops[*copy_ops].dest.domid = DOMID_SELF;
-> >> +		vif->tx_copy_ops[*copy_ops].dest.offset =
-> >> +			offset_in_page(skb->data);
-> >> +
-> >> +		vif->tx_copy_ops[*copy_ops].len = data_len;
-> >> +		vif->tx_copy_ops[*copy_ops].flags = GNTCOPY_source_gref;
-> >
-> > We have gnttab_set_map_op. Should we have gnttap_set_copy_op too?
-> This is the only place at the moment when we do this, so I wouldn't 
-> bother to do it.
+* The ability to bring up and down the untagged interface without
+affecting all tagged interfaces as well.
+* The ability to bridge only untagged traffic for mapping/translating.=20
+If an untagged sub-interface exists, then VLAN mapping can be performed
+by bridging the VLAN interfaces of two NICs with differing VLANs and
+including the untagged traffic.  Without untagged VLAN sub-interfaces
+only tagged traffic could be mapped.  The bridge VLAN filtering allows
+filtering of VLANs per port, but does not seem to allow mapping or
+translating VLANs.
+* Misc
 
-It's not only about multiple uses of the pattern but about code clarity
-and API consistency.
+The bridge VLAN filtering feature seems to make it possible, but
+requires a rather large amount of configuration.  This first section
+will take any traffic on eth0 and pass it in to br0.  VLAN 1 is untagged
+on eth0, but is treated as tagged as it passes to br0.
 
-> >> -	BUG_ON(ret);
-> >> +	else {
-> >> +		gnttab_batch_copy(vif->tx_copy_ops, nr_cops);
-> >> +		if (nr_mops != 0) {
-> >
-> >
-> > if (nr_mops) would do.
-> >
-> >> +			ret = gnttab_map_refs(vif->tx_map_ops,
-> >
-> > So we use gnttab_batch_copy and gnttab_map_refs.
-> >
-> > Shouldn't we either use gnttab_batch_copy and gnttab_batch_map or
-> > gnttab_copy gnttab_map_refs. (where gnttab_copy might be a bare
-> > GNTTABOP_copy or might be a helper wrapper).
-> >
-> > The point of the batch interface is to handle page unsharing etc, but
-> > doing it only for copies seems like a waste one way or another.
-> The difference between gnttab_batch_map and gnttab_map_refs is that the 
-> latter calls set_foreign_p2m_mapping, which we need for sure.
-> gnttab_batch_copy calls the hypercall and tries again if op->status == 
-> GNTST_eagain. I think that's exactly what we need here as well.
-> The naming might be confusing indeed, but that should be the topic of an 
-> another patch.
+    ip link add dev br0 type bridge
+    ip link set dev eth0 master br0
+    ip link set dev eth0 promisc on
+    echo 1 > /sys/class/net/br0/bridge/vlan_filtering
 
-Whether you choose to do it now or later this code should use a
-consistent set of ops, either gnttab_batch_* or gnttab_*_refs, from day
-one.
+    bridge vlan add dev eth0 vid 1 pvid untagged
+    bridge vlan add dev eth0 vid 10
+    bridge vlan add dev eth0 vid 99
 
-Ian.
+    bridge vlan add dev br0 vid 1 self
+    bridge vlan add dev br0 vid 10 self
+    bridge vlan add dev br0 vid 99 self
+
+Because br0 sees even the original untagged traffic as tagged, I can now
+add a separate interface for the untagged VLAN as desired:
+
+    ip link add link br0 name br0_user type vlan id 1
+    ip link add link br0 name br0_priv type vlan id 10
+    ip link add link br0 name br0_mgmt type vlan id 99
+
+The interfaces can then be configured as normal.  I can bring down any
+interface and it will not affect the others, or do anything else.  I
+have managed to confirm this seems to work fine in a VM where untagged
+traffic on eth0 was received on br0_user as expected.
+
+This is a bit of work to get a "sub-interface" for an untagged VLAN.=20
+One idea I had was that if the groundwork already exists, it may be
+possible to add something similar directly to the interface without the
+bridge and VLAN filtering setup.  I could imagine a command such as
+
+    ip link add link eth0 name eth0_user type vlan id 1 pvid untagged
+
+as being able to accomplish the same thing without the overhead of
+creating a bridge and assigning all the VLANs to both the physical
+device and bridge device.
+
+
+--pboJxaMPccpRFfUQQRC3QmNedDwJhGV9j
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iQIcBAEBAgAGBQJTO/qCAAoJEOdzerRR63OMEPEQAIIdhdmBJLm3kZR5JuijmB1R
+0b4rdnYuwzROsPF2LNJwYqtOhnRERPsa4vBkQIQZ4DF7jNBS0+B9PO+ScYpq1GVt
+8VCXiHuEd5OH0ByyBv1Up/HF7/2UHor617ZGCh0c3ldSxz4MVxbFw9EOXW2p+Vsy
+4ntSR6VZrjt5DGOb/u7wI5f9SliVkE4Zy1Yg1TFOFNvh/qb9HnR+jaXNjr8KMyWQ
+Q+B7GuJxdnFIA0FJF3tDNcjSGw4VVAEvOlxwXMB1UQsp6dOpOHSErGbQadHVozmx
+fqmOiqoEyDQnD9fQm1eI28R7bYCFtcMIMISFwKz5SqOAH5OcENqBeFUjW7/65HW0
+fp/9LT9OcwbhmJlviy8MFdeUioZcJ7FJmN4m5WL94ap9GmVYS4wS5UPIt+9q88bd
+aAXdVDV7N80uFhY/KxTKh34tmb2H1MMyHvDICvvEyGY1LFBiiTFWeALAtHrwFivM
+ttoG2KbLmkMWe35Ci0eVsBZYqWjNETiXRwuoeafObQ5NIV+qr69Wr/e6UU57cPBm
+vuKWJi1MFgUpVOjRkwze+Q7rDHOFUrFpv8ZmbwkqBee04KDDiqeTfrTOys+o2DWI
+qQSPyQHq6k8JCgHutXUFaxG5t0tMnImlDdlWE5qrOh04BVxTxyeJGSEK1AOtPpXH
+BROqkrmZrcfDkinj4Pa6
+=Rh3W
+-----END PGP SIGNATURE-----
+
+--pboJxaMPccpRFfUQQRC3QmNedDwJhGV9j--
