@@ -1,205 +1,66 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: Re: [PATCH net-next v3 1/2] xen-netback: Rename map ops
-Date: Thu, 3 Apr 2014 08:08:03 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD02BB0F1@AMSPEX01CL01.citrite.net>
-References: <1396458298-30041-1-git-send-email-zoltan.kiss@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: sched: dev_deactivate_many(): use msleep(1)
+ instead of yield() to wait for outstanding qdisc_run callsb
+Date: Wed, 02 Apr 2014 04:17:39 -0700
+Message-ID: <1396437459.3989.39.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1393976987-23555-1-git-send-email-mkl@pengutronix.de>
+	 <20140306.160622.59358366688518505.davem@davemloft.net>
+	 <1394392160.15968.13.camel@deadeye.wl.decadent.org.uk>
+	 <20140309.185338.2057082497431220324.davem@davemloft.net>
+	 <alpine.DEB.2.02.1403312333100.14882@ionos.tec.linutronix.de>
+	 <20140402110743.GG27965@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Jonathan
-	Davies <Jonathan.Davies@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>, Ian Campbell
-	<Ian.Campbell@citrix.com>, Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1396458298-30041-1-git-send-email-zoltan.kiss@citrix.com>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>, ben@decadent.org.uk,
+	mkl@pengutronix.de,
+	linux-rt-users <linux-rt-users@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	kernel@pengutronix.de
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:63236 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758184AbaDBLRm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 07:17:42 -0400
+In-Reply-To: <20140402110743.GG27965@twins.programming.kicks-ass.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Zoltan Kiss
-> Sent: 02 April 2014 18:05
-> To: Ian Campbell; Wei Liu; xen-devel@lists.xenproject.org
-> Cc: Paul Durrant; netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> Jonathan Davies; Zoltan Kiss
-> Subject: [PATCH net-next v3 1/2] xen-netback: Rename map ops
+On Wed, 2014-04-02 at 13:07 +0200, Peter Zijlstra wrote:
+> On Mon, Mar 31, 2014 at 11:49:16PM +0200, Thomas Gleixner wrote:
+> > > >> The intent of a yield() call, like this one here, is unambiguously
+> > > >> that the current thread cannot do anything until some other thread
+> > > >> gets onto the cpu and makes forward progress.
 > 
-> Rename identifiers to state explicitly that they refer to map ops.
+> Yeah; like Thomas said; that's not what yield() does -- or can do.
 > 
-> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> yield() only says 'I don't know what to do, you figure it out', but then
+> fails to provide enough information to actually do something sensible.
+> 
+> It cannot put the task to sleep; because it doesn't pair with a wakeup;
+> and therefore the task stays an eligible/runnable task from a scheduler
+> pov.
+> 
+> The scheduler is therefore entirely in its right to pick this task
+> again; and pretty much has to under many circumstances.
+> 
+> yield() does not, and can not, guarantee forward progress - ever.
+> 
+> Use wait_event() and assorted bits to wait for an actual event. That is
+> a sleep paired with a wakeup and thus has progress guarantees.
 
-Reviewed-by: Paul Durrant <paul.durrant@citrix.com>
+Why wouldn't it be safe to redefine yield as msleep(1) ?
 
-> ---
-> v3:
-> - rename xenvif_tx_create_gop to xenvif_tx_create_map_op
-> 
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
-> netback/netback.c
-> index ae34f5f..8f468ab 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -819,13 +819,13 @@ struct xenvif_tx_cb {
-> 
->  #define XENVIF_TX_CB(skb) ((struct xenvif_tx_cb *)(skb)->cb)
-> 
-> -static inline void xenvif_tx_create_gop(struct xenvif *vif,
-> -					u16 pending_idx,
-> -					struct xen_netif_tx_request *txp,
-> -					struct gnttab_map_grant_ref *gop)
-> +static inline void xenvif_tx_create_map_op(struct xenvif *vif,
-> +					  u16 pending_idx,
-> +					  struct xen_netif_tx_request *txp,
-> +					  struct gnttab_map_grant_ref *mop)
->  {
-> -	vif->pages_to_map[gop-vif->tx_map_ops] = vif-
-> >mmap_pages[pending_idx];
-> -	gnttab_set_map_op(gop, idx_to_kaddr(vif, pending_idx),
-> +	vif->pages_to_map[mop-vif->tx_map_ops] = vif-
-> >mmap_pages[pending_idx];
-> +	gnttab_set_map_op(mop, idx_to_kaddr(vif, pending_idx),
->  			  GNTMAP_host_map | GNTMAP_readonly,
->  			  txp->gref, vif->domid);
-> 
-> @@ -879,7 +879,7 @@ static struct gnttab_map_grant_ref
-> *xenvif_get_requests(struct xenvif *vif,
->  	     shinfo->nr_frags++, txp++, gop++) {
->  		index = pending_index(vif->pending_cons++);
->  		pending_idx = vif->pending_ring[index];
-> -		xenvif_tx_create_gop(vif, pending_idx, txp, gop);
-> +		xenvif_tx_create_map_op(vif, pending_idx, txp, gop);
->  		frag_set_pending_idx(&frags[shinfo->nr_frags],
-> pending_idx);
->  	}
-> 
-> @@ -899,7 +899,7 @@ static struct gnttab_map_grant_ref
-> *xenvif_get_requests(struct xenvif *vif,
->  		     shinfo->nr_frags++, txp++, gop++) {
->  			index = pending_index(vif->pending_cons++);
->  			pending_idx = vif->pending_ring[index];
-> -			xenvif_tx_create_gop(vif, pending_idx, txp, gop);
-> +			xenvif_tx_create_map_op(vif, pending_idx, txp,
-> gop);
->  			frag_set_pending_idx(&frags[shinfo->nr_frags],
->  					     pending_idx);
->  		}
-> @@ -939,9 +939,9 @@ static inline void xenvif_grant_handle_reset(struct
-> xenvif *vif,
-> 
->  static int xenvif_tx_check_gop(struct xenvif *vif,
->  			       struct sk_buff *skb,
-> -			       struct gnttab_map_grant_ref **gopp)
-> +			       struct gnttab_map_grant_ref **gopp_map)
->  {
-> -	struct gnttab_map_grant_ref *gop = *gopp;
-> +	struct gnttab_map_grant_ref *gop_map = *gopp_map;
->  	u16 pending_idx = XENVIF_TX_CB(skb)->pending_idx;
->  	struct skb_shared_info *shinfo = skb_shinfo(skb);
->  	struct pending_tx_info *tx_info;
-> @@ -950,11 +950,11 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
->  	struct sk_buff *first_skb = NULL;
-> 
->  	/* Check status of header. */
-> -	err = gop->status;
-> +	err = gop_map->status;
->  	if (unlikely(err))
->  		xenvif_idx_release(vif, pending_idx,
-> XEN_NETIF_RSP_ERROR);
->  	else
-> -		xenvif_grant_handle_set(vif, pending_idx , gop->handle);
-> +		xenvif_grant_handle_set(vif, pending_idx , gop_map-
-> >handle);
-> 
->  	/* Skip first skb fragment if it is on same page as header fragment. */
->  	start = (frag_get_pending_idx(&shinfo->frags[0]) == pending_idx);
-> @@ -967,10 +967,12 @@ check_frags:
->  		tx_info = &vif->pending_tx_info[pending_idx];
-> 
->  		/* Check error status: if okay then remember grant handle.
-> */
-> -		newerr = (++gop)->status;
-> +		newerr = (++gop_map)->status;
-> 
->  		if (likely(!newerr)) {
-> -			xenvif_grant_handle_set(vif, pending_idx , gop-
-> >handle);
-> +			xenvif_grant_handle_set(vif,
-> +						pending_idx,
-> +						gop_map->handle);
->  			/* Had a previous error? Invalidate this fragment. */
->  			if (unlikely(err))
->  				xenvif_idx_unmap(vif, pending_idx);
-> @@ -1022,7 +1024,7 @@ check_frags:
->  		}
->  	}
-> 
-> -	*gopp = gop + 1;
-> +	*gopp_map = gop_map + 1;
->  	return err;
->  }
-> 
-> @@ -1291,7 +1293,7 @@ static unsigned xenvif_tx_build_gops(struct xenvif
-> *vif, int budget)
->  			}
->  		}
-> 
-> -		xenvif_tx_create_gop(vif, pending_idx, &txreq, gop);
-> +		xenvif_tx_create_map_op(vif, pending_idx, &txreq, gop);
-> 
->  		gop++;
-> 
-> @@ -1398,7 +1400,7 @@ static int xenvif_handle_frag_list(struct xenvif *vif,
-> struct sk_buff *skb)
-> 
->  static int xenvif_tx_submit(struct xenvif *vif)
->  {
-> -	struct gnttab_map_grant_ref *gop = vif->tx_map_ops;
-> +	struct gnttab_map_grant_ref *gop_map = vif->tx_map_ops;
->  	struct sk_buff *skb;
->  	int work_done = 0;
-> 
-> @@ -1411,7 +1413,7 @@ static int xenvif_tx_submit(struct xenvif *vif)
->  		txp = &vif->pending_tx_info[pending_idx].req;
-> 
->  		/* Check the remap error code. */
-> -		if (unlikely(xenvif_tx_check_gop(vif, skb, &gop))) {
-> +		if (unlikely(xenvif_tx_check_gop(vif, skb, &gop_map))) {
->  			netdev_dbg(vif->dev, "netback grant failed.\n");
->  			skb_shinfo(skb)->nr_frags = 0;
->  			kfree_skb(skb);
-> @@ -1610,21 +1612,21 @@ static inline void xenvif_tx_dealloc_action(struct
-> xenvif *vif)
->  /* Called after netfront has transmitted */
->  int xenvif_tx_action(struct xenvif *vif, int budget)
->  {
-> -	unsigned nr_gops;
-> +	unsigned nr_mops;
->  	int work_done, ret;
-> 
->  	if (unlikely(!tx_work_todo(vif)))
->  		return 0;
-> 
-> -	nr_gops = xenvif_tx_build_gops(vif, budget);
-> +	nr_mops = xenvif_tx_build_gops(vif, budget);
-> 
-> -	if (nr_gops == 0)
-> +	if (nr_mops == 0)
->  		return 0;
-> 
->  	ret = gnttab_map_refs(vif->tx_map_ops,
->  			      NULL,
->  			      vif->pages_to_map,
-> -			      nr_gops);
-> +			      nr_mops);
->  	BUG_ON(ret);
-> 
->  	work_done = xenvif_tx_submit(vif);
+net/ipv4/tcp_output.c seems to also use yield().
+
+
+                /* Socket is locked, keep trying until memory is available. */
+                for (;;) {
+                        skb = alloc_skb_fclone(MAX_TCP_HEADER,
+                                               sk->sk_allocation);
+                        if (skb)
+                                break;
+                        yield();
+                }
