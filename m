@@ -1,51 +1,90 @@
-From: Daeseok Youn <daeseok.youn@gmail.com>
-Subject: [PATCH 1/2] nfc: fix NULL pointer dereference
-Date: Wed, 02 Apr 2014 16:55:30 +0900
-Message-ID: <20540404.Au0OUqzobS@daeseok-laptop.cloud.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH regression] net: phy: fix initialization (config_init) for
+ Marvel 88E1116R PHYs
+Date: Tue, 1 Apr 2014 17:00:30 -0700
+Message-ID: <CAGVrzcZGYTK9goPnrxNLxvFJJBk9zUpedH+wZOeWPx-WKxOmbQ@mail.gmail.com>
+References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: aloisio.almeida@openbossa.org, sameo@linux.intel.com,
-	linux-wireless@vger.kernel.org, linux-nfc@lists.01.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net, lauro.venancio@openbossa.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Michal Simek <michal.simek@xilinx.com>,
+	stable <stable@vger.kernel.org>
+To: Alexander Holler <holler@ahsoftware.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:40843 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753357AbaDBHzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 03:55:35 -0400
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:63460 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755699AbaDBABN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 20:01:13 -0400
+In-Reply-To: <1396396559-6971-1-git-send-email-holler@ahsoftware.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+2014-04-01 16:55 GMT-07:00 Alexander Holler <holler@ahsoftware.de>:
+> Commit 7cd1463664c2a15721ff4ccfb61d4d970815cb3d (introduced with 3.14)
 
-dev is NULL when nfc_get_device() is failed but
-dev is used for handling error.
+Please specify the commit message in parenthesis.
 
-coccicheck says:
- net/nfc/netlink.c:1092:21-24: ERROR:
-dev is NULL but dereferenced.
+> changed the initialization of the mv643xx_eth driver to use phy_init_hw()
+> to reset the PHY. Unfortunately the initialization for the 88E1116R PHY
+> was broken such, that it used mdelay() instead of really waiting for a
+> reset to finish.
+>
+> The effect was that the ethernet on my Kirkwood 88F6281 based device didn't
+> come up anymore (no carrier).
+>
+> Fix this by waiting for a reset to finish before proceeding further.
+>
+> Signed-off-by: Alexander Holler <holler@ahsoftware.de>
+>
+> Cc: Michal Simek <michal.simek@xilinx.com>
+> Cc: Florian Fainelli <f.fainelli@gmail.com>
+> Cc: <stable@vger.kernel.org>
+> ---
+>  drivers/net/phy/marvell.c | 8 ++++++--
+>  1 file changed, 6 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+> index bd37e45..5b84808 100644
+> --- a/drivers/net/phy/marvell.c
+> +++ b/drivers/net/phy/marvell.c
+> @@ -396,7 +396,9 @@ static int m88e1116r_config_init(struct phy_device *phydev)
+>         if (err < 0)
+>                 return err;
+>
+> -       mdelay(500);
+> +       do
+> +               temp = phy_read(phydev, MII_BMCR);
+> +       while (temp & BMCR_RESET);
 
-Signed-off-by: Daeseok Youn <daeseok.youn@gmail.com>
----
- net/nfc/netlink.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+Please use genphy_soft_reset() which ensures that the bit is cleared,
+and will also wait for an appropriate amount of time before returning.
+I had a bunch of local patches waiting for net-next which clean up the
+Marvell PHY driver to use genphy_soft_reset() consistently instead of
+open-coding BMCR_RESET without waiting for the bit to get cleared.
 
-diff --git a/net/nfc/netlink.c b/net/nfc/netlink.c
-index 43cb1c1..b2ad570 100644
---- a/net/nfc/netlink.c
-+++ b/net/nfc/netlink.c
-@@ -1026,10 +1026,8 @@ static int nfc_genl_llc_sdreq(struct sk_buff *skb, struct genl_info *info)
- 	idx = nla_get_u32(info->attrs[NFC_ATTR_DEVICE_INDEX]);
- 
- 	dev = nfc_get_device(idx);
--	if (!dev) {
--		rc = -ENODEV;
--		goto exit;
--	}
-+	if (!dev)
-+		return -ENODEV;
- 
- 	device_lock(&dev->dev);
- 
+>
+>         err = phy_write(phydev, MII_MARVELL_PHY_PAGE, 0);
+>         if (err < 0)
+> @@ -429,7 +431,9 @@ static int m88e1116r_config_init(struct phy_device *phydev)
+>         if (err < 0)
+>                 return err;
+>
+> -       mdelay(500);
+> +       do
+> +               temp = phy_read(phydev, MII_BMCR);
+> +       while (temp & BMCR_RESET);
+
+Ditto.
+
+>
+>         return 0;
+>  }
+> --
+> 1.8.3.1
+>
+
+
+
 -- 
-1.7.4.4
+Florian
