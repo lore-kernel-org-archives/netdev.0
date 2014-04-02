@@ -1,137 +1,50 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: on kernel 2.6.34.15, vlan and raw packets can not be received
- with gfar-enet nic
-Date: Thu, 03 Apr 2014 18:15:25 +0800
-Message-ID: <533D34BD.900@gmail.com>
-References: <53310F4E.4080104@gmail.com> <533D25D4.4000607@gmail.com>
- <20140403092727.GD16158@1wt.eu>
+From: lucien xin <lucien.xin@gmail.com>
+Subject: Re: [PATCH] vxlan: using AF_PACKET socket to send multicast packet
+ cause WARNING
+Date: Wed, 2 Apr 2014 13:31:59 +0800
+Message-ID: <CADvbK_dK_fBB3bQSWKkAk6adtgrHm553Hr3JGHsw67qeS0cQOw@mail.gmail.com>
+References: <1396343330-23648-1-git-send-email-lucien.xin@gmail.com>
+	<20140401.161047.854771903443514987.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------010908060705050701050105"
-Cc: "Yang, Zhangle \(Eric\)" <Zhangle.Yang@windriver.com>,
- netdev@vger.kernel.org, richardcochran@gmail.com,
- linuxppc-dev@lists.ozlabs.org, guang.yang@windriver.com,
- linux-kernel@vger.kernel.org, yongjun_wei@trendmicro.com.cn,
- zhuyj <zyjzyj2000@gmail.com>, sandeep.kumar@freescale.com,
- Claudiu Manoil <claudiu.manoil@freescale.com>, "Tao,
- Yue" <Yue.Tao@windriver.com>, joe@perches.com, festevam@gmail.com,
- clarocq@gmail.com
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20140403092727.GD16158@1wt.eu>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: network dev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:55424 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752492AbaDBFcA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 01:32:00 -0400
+Received: by mail-wi0-f179.google.com with SMTP id z2so4584393wiv.0
+        for <netdev@vger.kernel.org>; Tue, 01 Apr 2014 22:31:59 -0700 (PDT)
+In-Reply-To: <20140401.161047.854771903443514987.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------010908060705050701050105
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-
-On 04/03/2014 05:27 PM, Willy Tarreau wrote:
-> Hi Zhu,
+On Wed, Apr 2, 2014 at 4:10 AM, David Miller <davem@davemloft.net> wrote:
+> This is not the correct fix.
 >
-> On Thu, Apr 03, 2014 at 05:11:48PM +0800, zhuyj wrote:
->> Hi, Claudiu
->>
->> Please help to review this patch. This patch is for kernel 2.6.x. Thanks
->> a lot.
->>
->> Hi, Willy
->>
->> Please help to merge this patch to longterm: 2.6.32.61 since this
->> problem also occurs on this kernel. Thanks a lot.
-> Could you please send the reference to the equivalent mainline commit (the one
-> which disables the tx vlan feature I'm assuming) ? I'll happily queue it for
-> 2.6.32.62.
+> If vxlan is going to reinject dev_hard_start_xmit() bound packets into
+> the ipv4 stack, it must make sure that they are well formed.
 >
-> Thanks,
-> Willy
->
->
-Hi, Willy
+> The SKB traversing the ipv4 stack must either be bound to an ipv4/ipv6
+> socket or be orphaned.
 
-I made a new patch. In long commit message, I inserted the equivalent 
-mainline commit
-about this feature. Maybe it is better. Now this patch is in the 
-attachment. Please check
-and merge it into kernel 2.6.32.62.
+yeah,  it's right. then I want to bound skb to vxlan's sock in
+vxlan_xmit_skb(), like this:
 
-Thanks a lot.
-Zhu Yanjun
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 1236812..8fd7e93 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1755,6 +1755,8 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+        if (err)
+                return err;
 
++       skb_set_owner_w(skb, vs->sock->sk);
++
+        return iptunnel_xmit(rt, skb, src, dst, IPPROTO_UDP, tos, ttl, df,
+                             false);
+ }
 
---------------010908060705050701050105
-Content-Type: text/x-patch;
- name="0001-gianfar-disable-TX-vlan-based-on-kernel-2.6.x.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename*0="0001-gianfar-disable-TX-vlan-based-on-kernel-2.6.x.patch"
-
->From 3b74ad6134f8eccce9ee391fb02ff15863630c1b Mon Sep 17 00:00:00 2001
-From: Zhu Yanjun <Yanjun.Zhu@windriver.com>
-Date: Thu, 3 Apr 2014 16:41:13 +0800
-Subject: [PATCH 1/1] gianfar: disable TX vlan based on kernel 2.6.x
-
-2.6.x kernels require a similar logic change as commit e1653c3e
-[gianfar: do vlan cleanup] and commit 51b8cbfc
-[gianfar: fix bug caused by e1653c3e] introduces for newer kernels.
-
-Since there is something wrong with tx vlan of gianfar nic driver,
-in kernel(3.1+), tx vlan is disabled. But in kernel 2.6.x, tx vlan
-is still enabled. Thus,gianfar nic driver can not support vlan
-packets and non-vlan packets at the same time.
-
-Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
----
- drivers/net/gianfar.c |    8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
-
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 934a28f..8aa2cf6 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -365,7 +365,7 @@ static int gfar_probe(struct of_device *ofdev,
- 	priv->vlgrp = NULL;
- 
- 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_VLAN)
--		dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
-+		dev->features |= NETIF_F_HW_VLAN_RX;
- 
- 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_EXTENDED_HASH) {
- 		priv->extended_hash = 1;
-@@ -1451,12 +1451,6 @@ static void gfar_vlan_rx_register(struct net_device *dev,
- 	priv->vlgrp = grp;
- 
- 	if (grp) {
--		/* Enable VLAN tag insertion */
--		tempval = gfar_read(&priv->regs->tctrl);
--		tempval |= TCTRL_VLINS;
--
--		gfar_write(&priv->regs->tctrl, tempval);
--
- 		/* Enable VLAN tag extraction */
- 		tempval = gfar_read(&priv->regs->rctrl);
- 		tempval |= (RCTRL_VLEX | RCTRL_PRSDEP_INIT);
--- 
-1.7.9.5
-
-
---------------010908060705050701050105
-Content-Type: text/plain; charset="utf-8"
-MIME-Version: 1.0
-Content-Transfer-Encoding: base64
-Content-Disposition: inline
-
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMt
-ZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xp
-c3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
-
---------------010908060705050701050105--
+which can not only solve the issue, but also make the logic more correct.
+David, how do you think?
