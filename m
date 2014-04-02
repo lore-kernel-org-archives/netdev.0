@@ -1,131 +1,97 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: [PATCH net-next 4/4] igb: fix last_rx_timestamp usage
-Date: Wed,  2 Apr 2014 02:52:19 +0200
-Message-ID: <1396399939-18420-5-git-send-email-kubakici@wp.pl>
-References: <1396399939-18420-1-git-send-email-kubakici@wp.pl>
-Cc: Jakub Kicinski <kubakici@wp.pl>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net,
-	Matthew Vick <matthew.vick@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support
+ of switch chip datapath
+Date: Wed, 02 Apr 2014 10:32:49 -0400
+Message-ID: <533C1F91.6000704@greyhouse.net>
+References: <5330BAB7.3040501@mojatatu.com> <20140325173927.GE8102@hmsreliant.think-freely.org> <20140325180009.GB15723@casper.infradead.org> <20140325193533.GF8102@hmsreliant.think-freely.org> <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com> <5332677F.2090404@cumulusnetworks.com> <5332B1FE.7080102@mojatatu.com> <53330639.8050403@cumulusnetworks.com> <20140326165934.GH2869@minipsycho.orion> <533312A3.5070600@cumulusnetworks.com> <20140326180356.GK2869@minipsycho.orion> <2D65D0C2-6BBC-4968-8400-4EB60BDF887A@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.wp.pl ([212.77.101.10]:22504 "EHLO mx3.wp.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755050AbaDBAx3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Apr 2014 20:53:29 -0400
-In-Reply-To: <1396399939-18420-1-git-send-email-kubakici@wp.pl>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:35487 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932148AbaDBOki (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 10:40:38 -0400
+Received: by mail-qc0-f174.google.com with SMTP id c9so299441qcz.19
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 07:40:37 -0700 (PDT)
+In-Reply-To: <2D65D0C2-6BBC-4968-8400-4EB60BDF887A@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-last_rx_timestamp should be updated only when rx time stamp is
-read. Also it's only used with NICs that have per-interface time
-stamping resources so it can be moved to adapter structure and
-set in igb_ptp_rx_rgtstamp().
+On 04/01/2014 03:13 PM, Scott Feldman wrote:
+> On Mar 26, 2014, at 11:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>
+>> Wed, Mar 26, 2014 at 06:47:15PM CET, roopa@cumulusnetworks.com wrote:
+>>> On 3/26/14, 9:59 AM, Jiri Pirko wrote:
+>>>> Wed, Mar 26, 2014 at 05:54:17PM CET, roopa@cumulusnetworks.com wrote:
+>>>> So you implement bonding netlink api? Or you hook into bonding driver
+>>>> itselt? Can you show us the code?
+>>> We use the netlink API and libnl. In our current model, our switch
+>>> chip driver listens to netlink notifications and programs the switch
+>>> chip. The switch chip driver uses libnl caches and libnl netlink apis
+>>> to reflect the kernel state to switch chip.
+>>
+>> So when you configure for example bonding over 2 ports, you actually use
+>> bonding driver to do that. And you userspace app listens to
+>> notifications and programs the switch chip accordingly. Am I close?
+>>
+>> How about data? Is this new "bonding" interface able to assign ip to is
+>> and send/receive packets.
+>>
+>> I'm still not sure I understand your concept. Do you have some
+>> documentation for it available?
+> Actually Jiri this is the code you and I worked on recently to netlink-ify bonding/slave attributes and active/inactive notification.  You have it right, user uses normal ip link tools and bonding driver to create bond, set attributes, and enslave switch ports.  RTM_NEWLINK is used to program ASIC to offload LAG to HW.  RTM_NEWLINK msgs contains bond attributes (mode, etc) and slave list, as well as slave status.  This is enough information to program ASIC.  Once programmed, ASIC offloads the data plane traffic, and in the case of egress, handles the LAG hash distribution.  Only the LACP control plane traffic makes it to the bonding driver; data plane traffic does not make it to the bonding driver.
+>
+> So, not trying to sound like a smart-ass, but the documentation is the bonding driver, specifically the netlink attributes/notifications.
+>
+> -scott
 
-Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
----
-NOTE: Compile tested only!
----
- drivers/net/ethernet/intel/igb/igb.h      | 16 +---------------
- drivers/net/ethernet/intel/igb/igb_main.c |  4 +++-
- drivers/net/ethernet/intel/igb/igb_ptp.c  | 14 +++++++-------
- 3 files changed, 11 insertions(+), 23 deletions(-)
+Using netlink messages to notify drivers for these ASICs really seems 
+like a great way to handle things.  It would obviously require some 
+expansion of netlink, but that seems fine.
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 7fbe1e9..2713006 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -241,7 +241,6 @@ struct igb_ring {
- 		struct igb_tx_buffer *tx_buffer_info;
- 		struct igb_rx_buffer *rx_buffer_info;
- 	};
--	unsigned long last_rx_timestamp;
- 	void *desc;			/* descriptor ring memory */
- 	unsigned long flags;		/* ring specific flags */
- 	void __iomem *tail;		/* pointer to ring tail register */
-@@ -437,6 +436,7 @@ struct igb_adapter {
- 	struct hwtstamp_config tstamp_config;
- 	unsigned long ptp_tx_start;
- 	unsigned long last_rx_ptp_check;
-+	unsigned long last_rx_timestamp;
- 	spinlock_t tmreg_lock;
- 	struct cyclecounter cc;
- 	struct timecounter tc;
-@@ -533,20 +533,6 @@ void igb_ptp_rx_hang(struct igb_adapter *adapter);
- void igb_ptp_rx_rgtstamp(struct igb_q_vector *q_vector, struct sk_buff *skb);
- void igb_ptp_rx_pktstamp(struct igb_q_vector *q_vector, unsigned char *va,
- 			 struct sk_buff *skb);
--static inline void igb_ptp_rx_hwtstamp(struct igb_ring *rx_ring,
--				       union e1000_adv_rx_desc *rx_desc,
--				       struct sk_buff *skb)
--{
--	if (igb_test_staterr(rx_desc, E1000_RXDADV_STAT_TS) &&
--	    !igb_test_staterr(rx_desc, E1000_RXDADV_STAT_TSIP))
--		igb_ptp_rx_rgtstamp(rx_ring->q_vector, skb);
--
--	/* Update the last_rx_timestamp timer in order to enable watchdog check
--	 * for error case of latched timestamp on a dropped packet.
--	 */
--	rx_ring->last_rx_timestamp = jiffies;
--}
--
- int igb_ptp_set_ts_config(struct net_device *netdev, struct ifreq *ifr);
- int igb_ptp_get_ts_config(struct net_device *netdev, struct ifreq *ifr);
- #ifdef CONFIG_IGB_HWMON
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 3019818..accec51 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -6955,7 +6955,9 @@ static void igb_process_skb_fields(struct igb_ring *rx_ring,
- 
- 	igb_rx_checksum(rx_ring, rx_desc, skb);
- 
--	igb_ptp_rx_hwtstamp(rx_ring, rx_desc, skb);
-+	if (igb_test_staterr(rx_desc, E1000_RXDADV_STAT_TS) &&
-+	    !igb_test_staterr(rx_desc, E1000_RXDADV_STAT_TSIP))
-+		igb_ptp_rx_rgtstamp(rx_ring->q_vector, skb);
- 
- 	if ((dev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
- 	    igb_test_staterr(rx_desc, E1000_RXD_STAT_VP)) {
-diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-index bc33c4c..ab25e49 100644
---- a/drivers/net/ethernet/intel/igb/igb_ptp.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -427,10 +427,8 @@ static void igb_ptp_overflow_check(struct work_struct *work)
- void igb_ptp_rx_hang(struct igb_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
--	struct igb_ring *rx_ring;
- 	u32 tsyncrxctl = rd32(E1000_TSYNCRXCTL);
- 	unsigned long rx_event;
--	int n;
- 
- 	if (hw->mac.type != e1000_82576)
- 		return;
-@@ -445,11 +443,8 @@ void igb_ptp_rx_hang(struct igb_adapter *adapter)
- 
- 	/* Determine the most recent watchdog or rx_timestamp event */
- 	rx_event = adapter->last_rx_ptp_check;
--	for (n = 0; n < adapter->num_rx_queues; n++) {
--		rx_ring = adapter->rx_ring[n];
--		if (time_after(rx_ring->last_rx_timestamp, rx_event))
--			rx_event = rx_ring->last_rx_timestamp;
--	}
-+	if (time_after(adapter->last_rx_timestamp, rx_event))
-+		rx_event = adapter->last_rx_timestamp;
- 
- 	/* Only need to read the high RXSTMP register to clear the lock */
- 	if (time_is_before_jiffies(rx_event + 5 * HZ)) {
-@@ -540,6 +535,11 @@ void igb_ptp_rx_rgtstamp(struct igb_q_vector *q_vector,
- 	regval |= (u64)rd32(E1000_RXSTMPH) << 32;
- 
- 	igb_ptp_systim_to_hwtstamp(adapter, skb_hwtstamps(skb), regval);
-+
-+	/* Update the last_rx_timestamp timer in order to enable watchdog check
-+	 * for error case of latched timestamp on a dropped packet.
-+	 */
-+	adapter->last_rx_timestamp = jiffies;
- }
- 
- /**
--- 
-1.9.0
+I would prefer that ASIC vendors write initial drivers for their ASICs 
+such that each physical port is detected and exported as a netdev.  This 
+would mean each *minimal* kernel driver for an ASIC would need to have 
+support for the following (off the top of my head):
+
+- detect link status on an interface
+- set an interface's MAC address
+- configure the chip to send all frames to the CPU
+- register a napi handler for the interfaces (depending on 
+packet-buffering capabilities in the hardware)
+
+As support for new hardware capabilities are moved from switch vendor 
+SDKs to their kernel driver the driver can begin to listen for netlink 
+messages that:
+
+- setup bonds/teams
+- add ports to bridge groups
+- configure port-based or mac-based VLANs
+- add unicast and multicast entries
+- add and remove entries from a flow table
+- ...
+
+Maybe this all seems to matter-of-fact and the discussion has evolved 
+well beyond something this high-level, but there still seems to be 
+significant discussion about whether or not the ASIC should be exported 
+as a netdev and I'm just not seeing a compelling reason. This was my 
+attempt to explain why.  :)
