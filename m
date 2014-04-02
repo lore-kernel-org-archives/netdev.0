@@ -1,96 +1,333 @@
-From: Karsten Keil <kkeil@linux-pingi.de>
-Subject: Re: [bug report] buffer overflow in isdn capi
-Date: Wed, 02 Apr 2014 18:46:38 +0200
-Message-ID: <533C3EEE.6020004@linux-pingi.de>
-References: <20140401154830.GA16759@mwanda>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH v3 5/5] bonding: Add tlb_dynamic_lb module parameter
+Date: Wed, 02 Apr 2014 12:47:12 +0200
+Message-ID: <533BEAB0.1060208@redhat.com>
+References: <1396422017-32099-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-	Karsten Keil <isdn@linux-pingi.de>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Mahesh Bandewar <maheshb@google.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:60920 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932414AbaDBQqm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 12:46:42 -0400
-In-Reply-To: <20140401154830.GA16759@mwanda>
+Received: from mx1.redhat.com ([209.132.183.28]:23317 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757924AbaDBKvl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Apr 2014 06:51:41 -0400
+In-Reply-To: <1396422017-32099-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dan,
-
-thanks for spotting this, really a bad thing.
-Fortunately it is only a local issue, the messages from the ISDN bus
-are translated in valid command/subcommand pairs in the controller
-firmware, so even if you send random data on the D-channel
-it should not result in a buffer overflow.
-But of course a local user could send wrong messages to the kernel
-via the /dev/capi20 device which then may let to the described out
-of bound access.
-
-Am 01.04.2014 17:48, schrieb Dan Carpenter:
-> The command_2_index() function is buggy and leads to a buffer overflow.
-> Does anyone know how to fix this?
+On 04/02/2014 09:00 AM, Mahesh Bandewar wrote:
+> The aggresive load balancing causes packet re-ordering as active
+> flows are moved from a slave to another within the group. Sometime
+> this aggresive lb is not necessary if the preference is for less
+> re-ordering. This module parameter if used with value "0" disables
+> this dynamic flow shuffling minimizing packet re-ordering. Of course
+> the side effect is that it has to live with the static load balancing
+> that the hashing distribution provides. This impact is less severe if
+> the correct xmit-hashing-policy is used for the tlb setup.
 > 
-
-I think I have an idea, I will post a proposal soon.
-
-> drivers/isdn/capi/capiutil.c
->    403  static unsigned command_2_index(unsigned c, unsigned sc)
->    404  {
->    405          if (c & 0x80)
->    406                  c = 0x9 + (c & 0x0f);
->    407          else if (c <= 0x0f);
->    408          else if (c == 0x41)
->    409                  c = 0x9 + 0x1;
->    410          else if (c == 0xff)
->    411                  c = 0x00;
->    412          return (sc & 3) * (0x9 + 0x9) + c;
->    413  }
+> The default value of the parameter is set to "1" mimicing the earlier
+> behavior.
 > 
-> Imagine that we input c = 0x7f and sc = 0x3.  Then 3 * 18 + 127 = 181
-> and we return 181.
-
-Yes need to check the array size at least, but this is not enough.
-
+> Ran the netperf test with 200 stream for 1 min between two hosts with
+> 4x1G trunk (xmit-lb mode with xmit-policy L3+4) before and after these
+> changes. Following was the command used for those 200 instances -
 > 
-> The other thing that stands out to me is that the last condition
-> "(c == 0xff)" is never true because then the first condition
-> "(c & 0x80)" would have been true already.
-
-Yes this should be the first check or a nested if in the current first
-check. command FF is the MANUFACTURER command and normally not
-implemented at all.
-
+>     netperf -t TCP_RR -l 60 -s 5 -H <host> -- -r81920,81920
 > 
-> Here is how the function is used:
+> Transactions per second:
+>     Before change: 1,367.11
+>     After  change: 1,470.65
 > 
-> drivers/isdn/capi/capiutil.c
->    564  /**
->    565   * capi_message2cmsg() - disassemble CAPI 2.0 message into _cmsg structure
->    566   * @cmsg:       _cmsg structure
->    567   * @msg:        buffer for assembled message
->    568   *
->    569   * Return value: 0 for success
->    570   */
->    571  
->    572  unsigned capi_message2cmsg(_cmsg *cmsg, u8 *msg)
->    573  {
->    574          memset(cmsg, 0, sizeof(_cmsg));
->    575          cmsg->m = msg;
->    576          cmsg->l = 8;
->    577          cmsg->p = 0;
->    578          byteTRcpy(cmsg->m + 4, &cmsg->Command);
->    579          byteTRcpy(cmsg->m + 5, &cmsg->Subcommand);
->    580          cmsg->par = cpars[command_2_index(cmsg->Command, cmsg->Subcommand)];
->                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> cpars = is a 79 element array.
-> cmsg->Command and cmsg->Subcommand come from skb->data so we can't trust
-> them.
-> 181 is past the end of the 79 element array.
+> Change-Id: Ie3f75c77282cf602e83a6e833c6eb164e72a0990
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+> v2:
+>   [Trivial] Commit log update with the proper workload and perf numbers.
+> v3:
+>   [Trivial] Styling changes.
+>   Simplified set() by using built-in BOND_OPTFLAG_IFDOWN flag. 
+> 
+>  drivers/net/bonding/bond_alb.c     | 19 +++++++++++++++----
+>  drivers/net/bonding/bond_main.c    | 28 +++++++++++++++++++++++++---
+>  drivers/net/bonding/bond_options.c | 27 +++++++++++++++++++++++++++
+>  drivers/net/bonding/bond_options.h |  1 +
+>  drivers/net/bonding/bond_sysfs.c   | 29 +++++++++++++++++++++++++++++
+>  drivers/net/bonding/bonding.h      |  1 +
+>  6 files changed, 98 insertions(+), 7 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+> index bf44ab417c54..f29ec54faaf0 100644
+> --- a/drivers/net/bonding/bond_alb.c
+> +++ b/drivers/net/bonding/bond_alb.c
+> @@ -1356,7 +1356,8 @@ static int bond_do_alb_xmit(struct sk_buff *skb, struct bonding *bond,
+>  	if (!tx_slave) {
+>  		/* unbalanced or unassigned, send through primary */
+>  		tx_slave = rcu_dereference(bond->curr_active_slave);
+> -		bond_info->unbalanced_load += skb->len;
+> +		if (bond->params.tlb_dynamic_lb)
+> +			bond_info->unbalanced_load += skb->len;
+>  	}
+>  
+>  	if (tx_slave && SLAVE_IS_OK(tx_slave)) {
+> @@ -1369,7 +1370,7 @@ static int bond_do_alb_xmit(struct sk_buff *skb, struct bonding *bond,
+>  		goto out;
+>  	}
+>  
+> -	if (tx_slave) {
+> +	if (tx_slave && bond->params.tlb_dynamic_lb) {
+>  		_lock_tx_hashtbl(bond);
+>  		__tlb_clear_slave(bond, tx_slave, 0);
+>  		_unlock_tx_hashtbl(bond);
+> @@ -1399,11 +1400,21 @@ int bond_tlb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+>  		    /* In case of IPX, it will falback to L2 hash */
+>  		case htons(ETH_P_IPV6):
+>  			hash_index = bond_xmit_hash(bond, skb);
+> -			tx_slave = tlb_choose_channel(bond, hash_index & 0xFF, skb->len);
+> +			if (bond->params.tlb_dynamic_lb) {
+> +				tx_slave = tlb_choose_channel(bond,
+> +							      hash_index & 0xFF,
+> +							      skb->len);
+> +			} else {
+> +				struct list_head *iter;
+> +
+> +				int idx = hash_index % bond->slave_cnt;
+				^^^^^^^^^^^^
+This is also a declaration, please move it up and leave the empty line after it.
 
-correct and this is not the only issue here. If you pass a value which
-is not a valid command, but will result in a index inside the array
-boundaries, it will result in  cmsg->par = NULL, which is also not
-handled properly in the parser functions.
+> +				bond_for_each_slave_rcu(bond, tx_slave, iter)
+> +					if (--idx < 0)
+> +						break;
+> +			}
+>  			break;
+>  		}
+>  	}
+> -
+>  	return bond_do_alb_xmit(skb, bond, tx_slave);
+>  }
+>  
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 1bff382d9291..977f688c2724 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -111,6 +111,7 @@ static struct bond_params bonding_defaults;
+>  static int resend_igmp = BOND_DEFAULT_RESEND_IGMP;
+>  static int packets_per_slave = 1;
+>  static int lp_interval = BOND_ALB_DEFAULT_LP_INTERVAL;
+> +static int tlb_dynamic_lb = 1;
+>  
+>  module_param(max_bonds, int, 0);
+>  MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
+> @@ -191,6 +192,9 @@ module_param(lp_interval, uint, 0);
+>  MODULE_PARM_DESC(lp_interval, "The number of seconds between instances where "
+>  			      "the bonding driver sends learning packets to "
+>  			      "each slaves peer switch. The default is 1.");
+> +module_param(tlb_dynamic_lb, int, 0644);
+> +MODULE_PARM_DESC(tlb_dynamic_lb, "Enable periodic flow balancing. "
+> +				 "The default is 1.");
+>  
+>  /*----------------------------- Global variables ----------------------------*/
+>  
+> @@ -3046,7 +3050,7 @@ static void bond_work_init_all(struct bonding *bond)
+>  {
+>  	INIT_DELAYED_WORK(&bond->mcast_work,
+>  			  bond_resend_igmp_join_requests_delayed);
+> -	if (bond_is_lb(bond))
+> +	if (bond_is_lb(bond) && bond->params.tlb_dynamic_lb)
+>  		INIT_DELAYED_WORK(&bond->alb_work, bond_alb_monitor);
+>  	INIT_DELAYED_WORK(&bond->mii_work, bond_mii_monitor);
+>  	if (bond->params.mode == BOND_MODE_ACTIVEBACKUP)
+> @@ -3060,7 +3064,7 @@ static void bond_work_cancel_all(struct bonding *bond)
+>  {
+>  	cancel_delayed_work_sync(&bond->mii_work);
+>  	cancel_delayed_work_sync(&bond->arp_work);
+> -	if (bond_is_lb(bond))
+> +	if (bond_is_lb(bond) && bond->params.tlb_dynamic_lb)
+>  		cancel_delayed_work_sync(&bond->alb_work);
+>  	cancel_delayed_work_sync(&bond->ad_work);
+>  	cancel_delayed_work_sync(&bond->mcast_work);
+> @@ -3098,7 +3102,8 @@ static int bond_open(struct net_device *bond_dev)
+>  		 */
+>  		if (bond_alb_initialize(bond, (bond->params.mode == BOND_MODE_ALB)))
+>  			return -ENOMEM;
+> -		queue_delayed_work(bond->wq, &bond->alb_work, 0);
+> +		if (bond->params.tlb_dynamic_lb)
+> +			queue_delayed_work(bond->wq, &bond->alb_work, 0);
+>  	}
+>  
+>  	if (bond->params.miimon)  /* link check interval, in milliseconds. */
+> @@ -4285,6 +4290,22 @@ static int bond_check_params(struct bond_params *params)
+>  		lp_interval = BOND_ALB_DEFAULT_LP_INTERVAL;
+>  	}
+>  
+> +	if (!tlb_dynamic_lb) {
+> +		if (bond_mode == BOND_MODE_TLB) {
+> +			pr_notice("Dynamic-lb is disabled.\n");
+> +		} else {
+> +			pr_warn("Disabling dynamic-lb is unsupported"
+> +				" in this mode, force enabling "
+> +				"dynamic-lb\n");
+			^^^^^^
+Please keep the messages on a single line even if it's a bit longer, that way
+it's easier to grep.
+
+> +			/*
+> +			 * IMPORTANT: Set it to "1" here so that we
+> +			 * dont have to worry about validating mode
+> +			 * before checking value of tlb_dynamic_lb
+> +			 */
+			^^^^^
+In the networking the comment style is /* text
+					* text
+					*/
+(Documentation/networking/netdev-FAQ.txt)
+> +			tlb_dynamic_lb = 1;
+> +		}
+> +	}
+> +
+>  	/* fill params struct with the proper values */
+>  	params->mode = bond_mode;
+>  	params->xmit_policy = xmit_hashtype;
+> @@ -4306,6 +4327,7 @@ static int bond_check_params(struct bond_params *params)
+>  	params->min_links = min_links;
+>  	params->lp_interval = lp_interval;
+>  	params->packets_per_slave = packets_per_slave;
+> +	params->tlb_dynamic_lb = tlb_dynamic_lb;
+>  	if (packets_per_slave > 0) {
+>  		params->reciprocal_packets_per_slave =
+>  			reciprocal_value(packets_per_slave);
+> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+> index dc3893841752..9fba7a1e6d51 100644
+> --- a/drivers/net/bonding/bond_options.c
+> +++ b/drivers/net/bonding/bond_options.c
+> @@ -70,6 +70,8 @@ static int bond_option_mode_set(struct bonding *bond,
+>  				const struct bond_opt_value *newval);
+>  static int bond_option_slaves_set(struct bonding *bond,
+>  				  const struct bond_opt_value *newval);
+> +static int bond_option_tlb_dynamic_lb_set(struct bonding *bond,
+> +				  const struct bond_opt_value *newval);
+>  
+>  
+>  static const struct bond_opt_value bond_mode_tbl[] = {
+> @@ -179,6 +181,12 @@ static const struct bond_opt_value bond_lp_interval_tbl[] = {
+>  	{ NULL,      -1,      0},
+>  };
+>  
+> +static const struct bond_opt_value bond_tlb_dynamic_lb_tbl[] = {
+> +	{ "off", 0,  0},
+> +	{ "on",  1,  BOND_VALFLAG_DEFAULT},
+> +	{ NULL,  -1, 0}
+> +};
+> +
+>  static const struct bond_option bond_opts[] = {
+>  	[BOND_OPT_MODE] = {
+>  		.id = BOND_OPT_MODE,
+> @@ -364,6 +372,15 @@ static const struct bond_option bond_opts[] = {
+>  		.flags = BOND_OPTFLAG_RAWVAL,
+>  		.set = bond_option_slaves_set
+>  	},
+> +	[BOND_OPT_TLB_DYNAMIC_LB] = {
+> +		.id = BOND_OPT_TLB_DYNAMIC_LB,
+> +		.name = "dynamic_lb",
+> +		.desc = "Enable dynamic flow shuffling",
+> +		.unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_TLB)),
+> +		.values = bond_tlb_dynamic_lb_tbl,
+> +		.flags = BOND_OPTFLAG_IFDOWN,
+> +		.set = bond_option_tlb_dynamic_lb_set,
+> +	},
+>  	{ }
+>  };
+>  
+> @@ -1337,3 +1354,13 @@ err_no_cmd:
+>  	ret = -EPERM;
+>  	goto out;
+>  }
+> +
+> +static int bond_option_tlb_dynamic_lb_set(struct bonding *bond,
+> +					  const struct bond_opt_value *newval)
+> +{
+> +	pr_info("%s: Setting dynamic-lb to %s (%llu)\n",
+> +		bond->dev->name, newval->string, newval->value);
+> +	bond->params.tlb_dynamic_lb = newval->value;
+> +
+> +	return 0;
+> +}
+> diff --git a/drivers/net/bonding/bond_options.h b/drivers/net/bonding/bond_options.h
+> index 12be9e1bfb0c..c1860f06145a 100644
+> --- a/drivers/net/bonding/bond_options.h
+> +++ b/drivers/net/bonding/bond_options.h
+> @@ -62,6 +62,7 @@ enum {
+>  	BOND_OPT_RESEND_IGMP,
+>  	BOND_OPT_LP_INTERVAL,
+>  	BOND_OPT_SLAVES,
+> +	BOND_OPT_TLB_DYNAMIC_LB,
+>  	BOND_OPT_LAST
+>  };
+>  
+> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+> index 0e8b268da0a0..431892f1a4ce 100644
+> --- a/drivers/net/bonding/bond_sysfs.c
+> +++ b/drivers/net/bonding/bond_sysfs.c
+> @@ -1039,6 +1039,34 @@ static ssize_t bonding_store_lp_interval(struct device *d,
+>  static DEVICE_ATTR(lp_interval, S_IRUGO | S_IWUSR,
+>  		   bonding_show_lp_interval, bonding_store_lp_interval);
+>  
+> +static ssize_t bonding_show_tlb_dynamic_lb(struct device *d,
+> +					   struct device_attribute *attr,
+> +					   char *buf)
+> +{
+> +	struct bonding *bond = to_bond(d);
+> +	return sprintf(buf, "%d\n", bond->params.tlb_dynamic_lb);
+> +}
+> +
+> +static ssize_t bonding_store_tlb_dynamic_lb(struct device *d,
+> +					    struct device_attribute *attr,
+> +					    const char *buf,
+> +					    size_t count)
+> +{
+> +	struct bonding *bond = to_bond(d);
+> +	int ret;
+> +
+> +	ret = bond_opt_tryset_rtnl(bond, BOND_OPT_TLB_DYNAMIC_LB,
+> +				   (char *)buf);
+> +	if (!ret)
+> +		ret = count;
+> +
+> +	return ret;
+> +}
+> +
+> +static DEVICE_ATTR(tlb_dynamic_lb, S_IRUGO | S_IWUSR,
+> +		   bonding_show_tlb_dynamic_lb,
+> +		   bonding_store_tlb_dynamic_lb);
+> +
+>  static ssize_t bonding_show_packets_per_slave(struct device *d,
+>  					      struct device_attribute *attr,
+>  					      char *buf)
+> @@ -1099,6 +1127,7 @@ static struct attribute *per_bond_attrs[] = {
+>  	&dev_attr_min_links.attr,
+>  	&dev_attr_lp_interval.attr,
+>  	&dev_attr_packets_per_slave.attr,
+> +	&dev_attr_tlb_dynamic_lb.attr,
+>  	NULL,
+>  };
+>  
+> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+> index c0948ca26389..c1c7c2f12ac4 100644
+> --- a/drivers/net/bonding/bonding.h
+> +++ b/drivers/net/bonding/bonding.h
+> @@ -174,6 +174,7 @@ struct bond_params {
+>  	int resend_igmp;
+>  	int lp_interval;
+>  	int packets_per_slave;
+> +	int tlb_dynamic_lb;
+>  	struct reciprocal_value reciprocal_packets_per_slave;
+>  };
+>  
+> 
