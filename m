@@ -1,68 +1,109 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch 1/2] lib/string.c: use the name "C-string" in comments
-Date: Wed, 2 Apr 2014 11:47:08 +0300
-Message-ID: <20140402084708.GA6018@mwanda>
-References: <20140401.161838.1562296825577866979.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH net-next 1/1] sxgbe: fix driver probe error path and driver
+ removal leaks
+Date: Thu, 3 Apr 2014 01:13:43 +0200
+Message-ID: <20140402231343.GC5013@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "H. Peter Anvin" <hpa@linux.intel.com>,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	vegard.nossum@oracle.com, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Andi Kleen <ak@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: "'David Miller'" <davem@davemloft.net>, dan.carpenter@oracle.com,
+	ks.giri@samsung.com, siva.kallam@samsung.com,
+	vipul.pandya@samsung.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Byungho An <bh74.an@samsung.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20140401.161838.1562296825577866979.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-For strncpy() and friends the source string may or may not have an
-actual NUL character at the end.  The documentation is confusing in this
-because it specifically mentions that you are passing a "NUL-terminated"
-string.  Wikipedia says that "C-string" is an alternative name we can
-use instead.
+sxgbe_drv_probe:  mdio and priv->hw leaks
+sxgbe_drv_remove: clk and priv->hw leaks
 
-http://en.wikipedia.org/wiki/Null-terminated_string
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+ Compiled, untested.
 
-diff --git a/lib/string.c b/lib/string.c
-index 9b1f906..89ad0f0 100644
---- a/lib/string.c
-+++ b/lib/string.c
-@@ -107,7 +107,7 @@ EXPORT_SYMBOL(strcpy);
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c | 27 ++++++++++++++++---------
+ 1 file changed, 17 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+index a72688e..27e8c82 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+@@ -2113,11 +2113,11 @@ struct sxgbe_priv_data *sxgbe_drv_probe(struct device *device,
+ 	/* allocate memory resources for Descriptor rings */
+ 	ret = txring_mem_alloc(priv);
+ 	if (ret)
+-		goto error_free_netdev;
++		goto error_free_hw;
  
- #ifndef __HAVE_ARCH_STRNCPY
- /**
-- * strncpy - Copy a length-limited, %NUL-terminated string
-+ * strncpy - Copy a length-limited, C-string
-  * @dest: Where to copy the string to
-  * @src: Where to copy the string from
-  * @count: The maximum number of bytes to copy
-@@ -136,7 +136,7 @@ EXPORT_SYMBOL(strncpy);
+ 	ret = rxring_mem_alloc(priv);
+ 	if (ret)
+-		goto error_free_netdev;
++		goto error_free_hw;
  
- #ifndef __HAVE_ARCH_STRLCPY
- /**
-- * strlcpy - Copy a %NUL terminated string into a sized buffer
-+ * strlcpy - Copy a C-string into a sized buffer
-  * @dest: Where to copy the string to
-  * @src: Where to copy the string from
-  * @size: size of destination buffer
-@@ -182,7 +182,7 @@ EXPORT_SYMBOL(strcat);
+ 	ndev->netdev_ops = &sxgbe_netdev_ops;
  
- #ifndef __HAVE_ARCH_STRNCAT
- /**
-- * strncat - Append a length-limited, %NUL-terminated string to another
-+ * strncat - Append a length-limited, C-string to another
-  * @dest: The string to be appended to
-  * @src: The string to append to it
-  * @count: The maximum numbers of bytes to copy
-@@ -211,7 +211,7 @@ EXPORT_SYMBOL(strncat);
+@@ -2163,7 +2163,7 @@ struct sxgbe_priv_data *sxgbe_drv_probe(struct device *device,
+ 	if (IS_ERR(priv->sxgbe_clk)) {
+ 		netdev_warn(ndev, "%s: warning: cannot get CSR clock\n",
+ 			    __func__);
+-		goto error_clk_get;
++		goto error_napi_del;
+ 	}
  
- #ifndef __HAVE_ARCH_STRLCAT
- /**
-- * strlcat - Append a length-limited, %NUL-terminated string to another
-+ * strlcat - Append a length-limited, C-string to another
-  * @dest: The string to be appended to
-  * @src: The string to append to it
-  * @count: The size of the destination buffer.
+ 	/* If a specific clk_csr value is passed from the platform
+@@ -2182,24 +2182,27 @@ struct sxgbe_priv_data *sxgbe_drv_probe(struct device *device,
+ 	if (ret < 0) {
+ 		netdev_dbg(ndev, "%s: MDIO bus (id: %d) registration failed\n",
+ 			   __func__, priv->plat->bus_id);
+-		goto error_mdio_register;
++		goto error_clk_put;
+ 	}
+ 
+ 	ret = register_netdev(ndev);
+ 	if (ret) {
+ 		pr_err("%s: ERROR %i registering the device\n", __func__, ret);
+-		goto error_netdev_register;
++		goto error_mdio_unregister;
+ 	}
+ 
+ 	sxgbe_check_ether_addr(priv);
+ 
+ 	return priv;
+ 
+-error_mdio_register:
++error_mdio_unregister:
++	sxgbe_mdio_unregister(ndev);
++error_clk_put:
+ 	clk_put(priv->sxgbe_clk);
+-error_clk_get:
+-error_netdev_register:
++error_napi_del:
+ 	netif_napi_del(&priv->napi);
++error_free_hw:
++	kfree(priv->hw);
+ error_free_netdev:
+ 	free_netdev(ndev);
+ 
+@@ -2224,11 +2227,15 @@ int sxgbe_drv_remove(struct net_device *ndev)
+ 	priv->hw->mac->enable_tx(priv->ioaddr, false);
+ 	priv->hw->mac->enable_rx(priv->ioaddr, false);
+ 
+-	netif_napi_del(&priv->napi);
++	unregister_netdev(ndev);
+ 
+ 	sxgbe_mdio_unregister(ndev);
+ 
+-	unregister_netdev(ndev);
++	clk_put(priv->sxgbe_clk);
++
++	netif_napi_del(&priv->napi);
++
++	kfree(priv->hw);
+ 
+ 	free_netdev(ndev);
+ 
+-- 
+1.9.0
+
