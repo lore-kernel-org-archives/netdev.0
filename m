@@ -1,276 +1,197 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: on kernel 2.6.34.15, vlan and raw packets can not be received
- with gfar-enet nic
-Date: Thu, 03 Apr 2014 17:11:48 +0800
-Message-ID: <533D25D4.4000607@gmail.com>
-References: <53310F4E.4080104@gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------000409010002020204030804"
-To: sandeep.kumar@freescale.com, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, "Tao, Yue" <Yue.Tao@windriver.com>,
- "Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
- guang.yang@windriver.com, joe@perches.com, festevam@gmail.com,
- linuxppc-dev@lists.ozlabs.org, richardcochran@gmail.com,
- clarocq@gmail.com, yongjun_wei@trendmicro.com.cn,
- Claudiu Manoil <claudiu.manoil@freescale.com>,
- w@1wt.eu, zhuyj <zyjzyj2000@gmail.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <53310F4E.4080104@gmail.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH v3 2/5] bonding: Reorg bond_alb_xmit code
+Date: Wed,  2 Apr 2014 00:00:10 -0700
+Message-ID: <1396422010-31981-1-git-send-email-maheshb@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Mahesh Bandewar <maheshb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f202.google.com ([209.85.214.202]:35305 "EHLO
+	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932088AbaDBHF3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 03:05:29 -0400
+Received: by mail-ob0-f202.google.com with SMTP id wo20so2207534obc.3
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 00:05:28 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------000409010002020204030804
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Separating the actual xmit part from the function in a separate
+function that can be used in the tlb_xmit in the next patch. Also
+there is no reason do_tx_balance to be an int so changing it to
+bool type.
 
-Hi, Claudiu
-
-Please help to review this patch. This patch is for kernel 2.6.x. Thanks 
-a lot.
-
-Hi, Willy
-
-Please help to merge this patch to longterm: 2.6.32.61 since this 
-problem also occurs on this kernel. Thanks a lot.
-
-Based on kernel 2.6.x, gianfar nic driver can not work well. The root 
-cause is that tx vlan of gianfar can not handle VLAN tag 0. So on kernel 
-3.0+, this tx vlan feature is disabled. But on kernel 2.6.x, this 
-feature is still enabled. This patch will disable this feature of 
-gianfar nic driver. If this feature is enabled, gianfar nic can not 
-support vlan packets and non-vlan packets at the same time. The 
-following steps will reproduce this problem.
-
-The steps are as below.
-
-1. boot two freescale-p2020 boards with linux kernel 2.6.x, then 
-connected 2 gfar-enet nic cards with a direct network line;
-
-2. On board 1, checked the driver of eth0
-
-ethtool -i eth0
-
-driver: gfar-enet
-version: 1.3
-firmware-version: N/A
-bus-info: N/A
-
-On board 2, I checked the driver of eth1
-
-ethtool -i eth1
-
-driver: gfar-enet
-version: 1.3
-firmware-version: N/A
-bus-info: N/A
-
-3. Then configure the ip address on the above 2 nic cards.
-
-On board 1,
-
-ifconfig eth0 192.168.1.13/24 up
-
-On board 2,
-
-ifconfig eth1 192.168.1.196/24 up
-
-4. We can access the other board on one board.
-For example, on board 1, we can ping board 2.
-
-root@p2020rdb:/root> ping 192.168.1.196
-PING 192.168.1.196 (192.168.1.196) 56(84) bytes of data.
-64 bytes from 192.168.1.196: icmp_req=1 ttl=64 time=2.92 ms
-64 bytes from 192.168.1.196: icmp_req=2 ttl=64 time=0.096 ms
-
-5. We configure vlan on these 2 boards. VLAN tag 0
-On board 1,
-
-modprobe 8021q
-vconfig add eth0 4091
-ifconfig eth0.4091 10.1.1.13/24 up
-
-On board 2,
-
-modprobe 8021q
-vconfig add eth1 4091
-ifconfig eth1.4091 10.1.1.196/24 up
-
-6. We can access the other board on one board through vlan.
-For example, on board 1, we can ping board 2 through vlan nic.
-
-root@p2020rdb:/root> ping 10.1.1.196
-PING 10.1.1.196 (10.1.1.196) 56(84) bytes of data.
-64 bytes from 10.1.1.196: icmp_req=1 ttl=64 time=2.92 ms
-64 bytes from 10.1.1.196: icmp_req=2 ttl=64 time=0.096 ms
-
-But we can not access the other board on one board through raw nic.
-For example, on board, we can not ping board 2.
-
-root@p2020rdb:/root> ping 192.168.1.196
- From 192.168.1.196 icmp_seq=1 Destination Host Unreachable
- From 192.168.1.196 icmp_seq=2 Destination Host Unreachable
- From 192.168.1.196 icmp_seq=3 Destination Host Unreachable
-
-Best Regards!
-Zhu Yanjun
-
-On 03/25/2014 01:08 PM, zhuyj wrote:
-> Hi, Sandeep Gopalpet
->
-> I am a developer. Now I confronted an interesting phenomena. When I 
-> used linux kernel 2.6.34.15 on freescale-p2020, I can not receive raw 
-> and vlan packets on gfar-enet nic. But with e1000e nic, we can make 
-> vlan and raw packets work well. I looked into the source code and find 
-> that maybe it is related with hardware insert and remove vlan head. 
-> But I have no the specifications of gfar-enet nic. Would you like to 
-> give some document or some guides?
->
-> Thanks a lot.
-> Zhu Yanjun
->
-> The steps are as below.
->
-> 1. I boot two freescale-p2020 boards with linux kernel 2.6.34.15, then 
-> I connected 2 gfar-enet nic cards with a direct network line;
->
-> 2. On board 1, I checked the driver of eth0
->
-> ethtool -i eth0
->
-> driver: gfar-enet
-> version: 1.3
-> firmware-version: N/A
-> bus-info: N/A
->
-> On board 2, I checked the driver of eth1
->
-> ethtool -i eth1
->
-> driver: gfar-enet
-> version: 1.3
-> firmware-version: N/A
-> bus-info: N/A
->
-> 3. Then I configure the ip address on the above 2 nic cards.
->
-> On board 1,
->
-> ifconfig eth0 192.168.1.13/24 up
->
-> On board 2,
->
-> ifconfig eth1 192.168.1.196/24 up
->
-> 4. We can access the other board on one board.
-> For example, on board 1, we can ping board 2.
->
-> root@p2020rdb:/root> ping 192.168.1.196
-> PING 192.168.1.196 (192.168.1.196) 56(84) bytes of data.
-> 64 bytes from 192.168.1.196: icmp_req=1 ttl=64 time=2.92 ms
-> 64 bytes from 192.168.1.196: icmp_req=2 ttl=64 time=0.096 ms
->
-> 5. We configure vlan on these 2 boards. VLAN tag 0
-> On board 1,
->
-> modprobe 8021q
-> vconfig add eth0 4091
-> ifconfig eth0.4091 10.1.1.13/24 up
->
-> On board 2,
->
-> modprobe 8021q
-> vconfig add eth1 4091
-> ifconfig eth1.4091 10.1.1.196/24 up
->
-> 6. We can access the other board on one board through vlan.
-> For example, on board 1, we can ping board 2 through vlan nic.
->
-> root@p2020rdb:/root> ping 10.1.1.196
-> PING 10.1.1.196 (10.1.1.196) 56(84) bytes of data.
-> 64 bytes from 10.1.1.196: icmp_req=1 ttl=64 time=2.92 ms
-> 64 bytes from 10.1.1.196: icmp_req=2 ttl=64 time=0.096 ms
->
-> But we can not access the other board on one board through raw nic.
-> For example, on board, we can not ping board 2.
->
-> root@p2020rdb:/root> ping 192.168.1.196
-> From 192.168.1.196 icmp_seq=1 Destination Host Unreachable
-> From 192.168.1.196 icmp_seq=2 Destination Host Unreachable
-> From 192.168.1.196 icmp_seq=3 Destination Host Unreachable
->
->
-
-
---------------000409010002020204030804
-Content-Type: text/x-patch;
- name="0001-gianfar-disable-TX-vlan-based-on-kernel-2.6.x.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename*0="0001-gianfar-disable-TX-vlan-based-on-kernel-2.6.x.patch"
-
->From afd48fa3ad5b15d519adeb19b2a9c00051327c68 Mon Sep 17 00:00:00 2001
-From: Zhu Yanjun <Yanjun.Zhu@windriver.com>
-Date: Thu, 3 Apr 2014 16:41:13 +0800
-Subject: [PATCH 1/1] gianfar: disable TX vlan based on kernel 2.6.x
-
-Since there is something wrong with tx vlan of gianfar nic driver,
-on kernel(3.0+), tx vlan is disabled. But on kernel 2.6.x, tx vlan
-is still enabled. Thus,gianfar nic driver can not support vlan
-packets and non-vlan packets.
-
-Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+Change-Id: I9c48ff30487810f68587e621a191db616f49bd3b
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
- drivers/net/gianfar.c |    8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+v2:
+  Rebase
+v3:
+  Rebase
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 934a28f..8aa2cf6 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -365,7 +365,7 @@ static int gfar_probe(struct of_device *ofdev,
- 	priv->vlgrp = NULL;
+ drivers/net/bonding/bond_alb.c | 79 +++++++++++++++++++++++-------------------
+ 1 file changed, 44 insertions(+), 35 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 9f69e818b000..5cd36016c393 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -1347,6 +1347,40 @@ void bond_alb_deinitialize(struct bonding *bond)
+ 		rlb_deinitialize(bond);
+ }
  
- 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_VLAN)
--		dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
-+		dev->features |= NETIF_F_HW_VLAN_RX;
++static int bond_do_alb_xmit(struct sk_buff *skb, struct bonding *bond,
++		struct slave *tx_slave)
++{
++	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
++	struct ethhdr *eth_data = eth_hdr(skb);
++
++	if (!tx_slave) {
++		/* unbalanced or unassigned, send through primary */
++		tx_slave = rcu_dereference(bond->curr_active_slave);
++		bond_info->unbalanced_load += skb->len;
++	}
++
++	if (tx_slave && SLAVE_IS_OK(tx_slave)) {
++		if (tx_slave != rcu_dereference(bond->curr_active_slave)) {
++			ether_addr_copy(eth_data->h_source,
++					tx_slave->dev->dev_addr);
++		}
++
++		bond_dev_queue_xmit(bond, skb, tx_slave->dev);
++		goto out;
++	}
++
++	if (tx_slave) {
++		_lock_tx_hashtbl(bond);
++		__tlb_clear_slave(bond, tx_slave, 0);
++		_unlock_tx_hashtbl(bond);
++	}
++
++	/* no suitable interface, frame not sent */
++	dev_kfree_skb_any(skb);
++out:
++	return NETDEV_TX_OK;
++}
++
+ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+@@ -1355,7 +1389,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 	struct slave *tx_slave = NULL;
+ 	static const __be32 ip_bcast = htonl(0xffffffff);
+ 	int hash_size = 0;
+-	int do_tx_balance = 1;
++	bool do_tx_balance = true;
+ 	u32 hash_index = 0;
+ 	const u8 *hash_start = NULL;
+ 	struct ipv6hdr *ip6hdr;
+@@ -1370,7 +1404,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 		if (ether_addr_equal_64bits(eth_data->h_dest, mac_bcast) ||
+ 		    (iph->daddr == ip_bcast) ||
+ 		    (iph->protocol == IPPROTO_IGMP)) {
+-			do_tx_balance = 0;
++			do_tx_balance = false;
+ 			break;
+ 		}
+ 		hash_start = (char *)&(iph->daddr);
+@@ -1382,7 +1416,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 		 * that here just in case.
+ 		 */
+ 		if (ether_addr_equal_64bits(eth_data->h_dest, mac_bcast)) {
+-			do_tx_balance = 0;
++			do_tx_balance = false;
+ 			break;
+ 		}
  
- 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_EXTENDED_HASH) {
- 		priv->extended_hash = 1;
-@@ -1451,12 +1451,6 @@ static void gfar_vlan_rx_register(struct net_device *dev,
- 	priv->vlgrp = grp;
+@@ -1390,7 +1424,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 		 * broadcasts in IPv4.
+ 		 */
+ 		if (ether_addr_equal_64bits(eth_data->h_dest, mac_v6_allmcast)) {
+-			do_tx_balance = 0;
++			do_tx_balance = false;
+ 			break;
+ 		}
  
- 	if (grp) {
--		/* Enable VLAN tag insertion */
--		tempval = gfar_read(&priv->regs->tctrl);
--		tempval |= TCTRL_VLINS;
+@@ -1400,7 +1434,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 		 */
+ 		ip6hdr = ipv6_hdr(skb);
+ 		if (ipv6_addr_any(&ip6hdr->saddr)) {
+-			do_tx_balance = 0;
++			do_tx_balance = false;
+ 			break;
+ 		}
+ 
+@@ -1410,7 +1444,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 	case ETH_P_IPX:
+ 		if (ipx_hdr(skb)->ipx_checksum != IPX_NO_CHECKSUM) {
+ 			/* something is wrong with this packet */
+-			do_tx_balance = 0;
++			do_tx_balance = false;
+ 			break;
+ 		}
+ 
+@@ -1419,7 +1453,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 			 * this family since it has an "ARP" like
+ 			 * mechanism
+ 			 */
+-			do_tx_balance = 0;
++			do_tx_balance = false;
+ 			break;
+ 		}
+ 
+@@ -1427,12 +1461,12 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 		hash_size = ETH_ALEN;
+ 		break;
+ 	case ETH_P_ARP:
+-		do_tx_balance = 0;
++		do_tx_balance = false;
+ 		if (bond_info->rlb_enabled)
+ 			tx_slave = rlb_arp_xmit(skb, bond);
+ 		break;
+ 	default:
+-		do_tx_balance = 0;
++		do_tx_balance = false;
+ 		break;
+ 	}
+ 
+@@ -1441,32 +1475,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 		tx_slave = tlb_choose_channel(bond, hash_index, skb->len);
+ 	}
+ 
+-	if (!tx_slave) {
+-		/* unbalanced or unassigned, send through primary */
+-		tx_slave = rcu_dereference(bond->curr_active_slave);
+-		bond_info->unbalanced_load += skb->len;
+-	}
 -
--		gfar_write(&priv->regs->tctrl, tempval);
+-	if (tx_slave && SLAVE_IS_OK(tx_slave)) {
+-		if (tx_slave != rcu_dereference(bond->curr_active_slave)) {
+-			ether_addr_copy(eth_data->h_source,
+-					tx_slave->dev->dev_addr);
+-		}
 -
- 		/* Enable VLAN tag extraction */
- 		tempval = gfar_read(&priv->regs->rctrl);
- 		tempval |= (RCTRL_VLEX | RCTRL_PRSDEP_INIT);
+-		bond_dev_queue_xmit(bond, skb, tx_slave->dev);
+-		goto out;
+-	}
+-
+-	if (tx_slave) {
+-		_lock_tx_hashtbl(bond);
+-		__tlb_clear_slave(bond, tx_slave, 0);
+-		_unlock_tx_hashtbl(bond);
+-	}
+-
+-	/* no suitable interface, frame not sent */
+-	dev_kfree_skb_any(skb);
+-out:
+-	return NETDEV_TX_OK;
++	return bond_do_alb_xmit(skb, bond, tx_slave);
+ }
+ 
+ void bond_alb_monitor(struct work_struct *work)
 -- 
-1.7.9.5
-
-
---------------000409010002020204030804
-Content-Type: text/plain; charset="utf-8"
-MIME-Version: 1.0
-Content-Transfer-Encoding: base64
-Content-Disposition: inline
-
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMt
-ZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xp
-c3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
-
---------------000409010002020204030804--
+1.9.1.423.g4596e3a
