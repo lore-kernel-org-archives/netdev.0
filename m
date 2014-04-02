@@ -1,128 +1,63 @@
-From: Philipp Zabel <p.zabel@pengutronix.de>
-Subject: [PATCH] net: Micrel KSZ8864RMN 4-port managed switch support
-Date: Wed,  2 Apr 2014 17:50:16 +0200
-Message-ID: <1396453816-32348-1-git-send-email-p.zabel@pengutronix.de>
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Frederic LAMBERT <frdrc66@gmail.com>, kernel@pengutronix.de,
-	Philipp Zabel <p.zabel@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
+ switch chip datapath
+Date: Wed, 2 Apr 2014 22:23:18 +0200
+Message-ID: <20140402202318.GC2844@minipsycho.orion>
+References: <53330639.8050403@cumulusnetworks.com>
+ <20140326165934.GH2869@minipsycho.orion>
+ <533312A3.5070600@cumulusnetworks.com>
+ <20140326180356.GK2869@minipsycho.orion>
+ <2D65D0C2-6BBC-4968-8400-4EB60BDF887A@cumulusnetworks.com>
+ <533C1F91.6000704@greyhouse.net>
+ <20140402152546.GB3596@tuxdriver.com>
+ <CD1A9D96-F1E1-4AF6-B089-41AEBF7F1699@cumulusnetworks.com>
+ <20140402192915.GB3301@tuxdriver.com>
+ <20140402130437.24885fd8@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
+	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
+	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
+	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:47923 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758918AbaDBUXW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 16:23:22 -0400
+Received: by mail-wi0-f178.google.com with SMTP id bs8so1257163wib.17
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 13:23:21 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140402130437.24885fd8@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for the Micrel KSZ8864RMN switch to the spi_ks8995
-driver. The KSZ8864RMN switch has a wider 256-byte register space.
+Wed, Apr 02, 2014 at 10:04:37PM CEST, stephen@networkplumber.org wrote:
+>On Wed, 2 Apr 2014 15:29:15 -0400
+>"John W. Linville" <linville@tuxdriver.com> wrote:
+>
+>> I've seen the 'ethtool -S' example before and I guess it is valid.
+>> Still, is it worth the confusion of having a mostly useless/unique
+>> netdev just to reuse an ethtool ioctl?  Maybe, I guess...?
+>
+>ethtool is actually the most worthless part of the API.
+>It can't be monitored, is ioctl based but and the statistics are device
+>dependent making them useless for monitoring applications.
 
-Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
----
- drivers/net/phy/spi_ks8995.c | 49 +++++++++++++++++++++++++++++++++++---------
- 1 file changed, 39 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
-index 4cf5fb9..ad4e028 100644
---- a/drivers/net/phy/spi_ks8995.c
-+++ b/drivers/net/phy/spi_ks8995.c
-@@ -1,5 +1,5 @@
- /*
-- * SPI driver for Micrel/Kendin KS8995M ethernet switch
-+ * SPI driver for Micrel/Kendin KS8995M and KSZ8864RMN ethernet switches
-  *
-  * Copyright (C) 2008 Gabor Juhos <juhosg at openwrt.org>
-  *
-@@ -70,7 +70,10 @@
- #define KS8995_REG_IAD1		0x76    /* Indirect Access Data 1 */
- #define KS8995_REG_IAD0		0x77    /* Indirect Access Data 0 */
- 
-+#define KSZ8864_REG_ID1		0xfe	/* Chip ID in bit 7 */
-+
- #define KS8995_REGS_SIZE	0x80
-+#define KSZ8864_REGS_SIZE	0x100
- 
- #define ID1_CHIPID_M		0xf
- #define ID1_CHIPID_S		4
-@@ -94,6 +97,7 @@ struct ks8995_switch {
- 	struct spi_device	*spi;
- 	struct mutex		lock;
- 	struct ks8995_pdata	*pdata;
-+	unsigned int		regs_size;
- };
- 
- static inline u8 get_chip_id(u8 val)
-@@ -216,11 +220,11 @@ static ssize_t ks8995_registers_read(struct file *filp, struct kobject *kobj,
- 	dev = container_of(kobj, struct device, kobj);
- 	ks8995 = dev_get_drvdata(dev);
- 
--	if (unlikely(off > KS8995_REGS_SIZE))
-+	if (unlikely(off > ks8995->regs_size))
- 		return 0;
- 
--	if ((off + count) > KS8995_REGS_SIZE)
--		count = KS8995_REGS_SIZE - off;
-+	if ((off + count) > ks8995->regs_size)
-+		count = ks8995->regs_size - off;
- 
- 	if (unlikely(!count))
- 		return count;
-@@ -238,11 +242,11 @@ static ssize_t ks8995_registers_write(struct file *filp, struct kobject *kobj,
- 	dev = container_of(kobj, struct device, kobj);
- 	ks8995 = dev_get_drvdata(dev);
- 
--	if (unlikely(off >= KS8995_REGS_SIZE))
-+	if (unlikely(off >= ks8995->regs_size))
- 		return -EFBIG;
- 
--	if ((off + count) > KS8995_REGS_SIZE)
--		count = KS8995_REGS_SIZE - off;
-+	if ((off + count) > ks8995->regs_size)
-+		count = ks8995->regs_size - off;
- 
- 	if (unlikely(!count))
- 		return count;
-@@ -306,6 +310,26 @@ static int ks8995_probe(struct spi_device *spi)
- 		goto err_drvdata;
- 	}
- 
-+	ks->regs_size = KS8995_REGS_SIZE;
-+	if (get_chip_id(ids[1]) != CHIPID_M) {
-+		u8 val;
-+
-+		/* Check if this is a KSZ8864RMN */
-+		err = ks8995_read(ks, &val, KSZ8864_REG_ID1, sizeof(val));
-+		if (err < 0) {
-+			dev_err(&spi->dev,
-+				"unable to read chip id register, err=%d\n",
-+				err);
-+			goto err_drvdata;
-+		}
-+		if ((val & 0x80) == 0) {
-+			dev_err(&spi->dev, "unknown chip:%02x,0\n", ids[1]);
-+			goto err_drvdata;
-+		}
-+		ks->regs_size = KSZ8864_REGS_SIZE;
-+		ks8995_registers_attr.size = KSZ8864_REGS_SIZE;
-+	}
-+
- 	err = ks8995_reset(ks);
- 	if (err)
- 		goto err_drvdata;
-@@ -317,9 +341,14 @@ static int ks8995_probe(struct spi_device *spi)
- 		goto err_drvdata;
- 	}
- 
--	dev_info(&spi->dev, "KS89%02X device found, Chip ID:%01x, "
--			"Revision:%01x\n", ids[0],
--			get_chip_id(ids[1]), get_chip_rev(ids[1]));
-+	if (get_chip_id(ids[1]) == CHIPID_M) {
-+		dev_info(&spi->dev,
-+			 "KS8995 device found, Chip ID:%01x, Revision:%01x\n",
-+			 get_chip_id(ids[1]), get_chip_rev(ids[1]));
-+	} else {
-+		dev_info(&spi->dev, "KSZ8864 device found, Revision:%01x\n",
-+			 get_chip_rev(ids[1]));
-+	}
- 
- 	return 0;
- 
--- 
-1.9.1
+Has anyone actually been thinking about converting ethtool functionality
+to netlink as well? I did some time ago. Most of it should be easy (more or less)
+to do I believe.
