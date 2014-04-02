@@ -1,67 +1,62 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next 4/4] igb: fix last_rx_timestamp usage
-Date: Tue, 01 Apr 2014 18:46:06 -0700
-Message-ID: <1396403166.2230.5.camel@jtkirshe-mobl>
-References: <1396399939-18420-1-git-send-email-kubakici@wp.pl>
-	 <1396399939-18420-5-git-send-email-kubakici@wp.pl>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-39G9E5rS92KRLWRyGu9y"
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	Matthew Vick <matthew.vick@intel.com>
-To: Jakub Kicinski <kubakici@wp.pl>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH v3 3/5] bonding: Initialize the ALB work queue for lb mode only.
+Date: Wed,  2 Apr 2014 00:00:12 -0700
+Message-ID: <1396422012-32022-1-git-send-email-maheshb@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Mahesh Bandewar <maheshb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:35735 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754466AbaDBBqN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Apr 2014 21:46:13 -0400
-In-Reply-To: <1396399939-18420-5-git-send-email-kubakici@wp.pl>
+Received: from mail-oa0-f74.google.com ([209.85.219.74]:33541 "EHLO
+	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757330AbaDBHAP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 03:00:15 -0400
+Received: by mail-oa0-f74.google.com with SMTP id i7so2205631oag.3
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 00:00:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+micro change to initialize / cancel the ALB work queue only
+if the mode selected is ALB or TLB.
 
---=-39G9E5rS92KRLWRyGu9y
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Change-Id: I27a6cf65f72819889bf15b68f6ef4fca7d617186
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+v2:
+  Rebase
+v3:
+  Rebase
 
-On Wed, 2014-04-02 at 02:52 +0200, Jakub Kicinski wrote:
-> last_rx_timestamp should be updated only when rx time stamp is
-> read. Also it's only used with NICs that have per-interface time
-> stamping resources so it can be moved to adapter structure and
-> set in igb_ptp_rx_rgtstamp().
->=20
-> Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
-> ---
-> NOTE: Compile tested only!
-> ---
->  drivers/net/ethernet/intel/igb/igb.h      | 16 +---------------
->  drivers/net/ethernet/intel/igb/igb_main.c |  4 +++-
->  drivers/net/ethernet/intel/igb/igb_ptp.c  | 14 +++++++-------
->  3 files changed, 11 insertions(+), 23 deletions(-)
+ drivers/net/bonding/bond_main.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-Added to my queue, thanks!
-
---=-39G9E5rS92KRLWRyGu9y
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAABCgAGBQJTO2veAAoJEOVv75VaS+3OZDoQAKJJjGZHuEaNK9rOY2G0Jw64
-hw+4ZplJAlipnUQ8ScjusdqjV4hb09SEjHhOk2GvL6y23iHq8zARdQwt+yof2dYs
-PxGfRO6N3hc/ltNk4JnJeoKvmWApFIsyATBWnk2XrhLwd0FM1FE2CraEtYM+Q5UM
-B0CvZrv+mSDRPdzS2M8DC4K+gnKe3DS0TRQY5Yns1XAibdjf0zCeT0OPDeHwiNTB
-ZcUAHZfjSI7Mf/55rYQYtVQ3TjBxPhTphow3IRVYpwufpCHTcfsUV1FuFtCHK1cR
-JlljjOo/E23KagV4xyjmq2EGMXIIHugIlFH1mFdRThK+pxoPnSWIxzFn8xRZxx48
-/vVimlvud9vTOsuhUQyR2I3MFJFuLbYsmoZBkn90E1G4Rtji1qo5qeDoHGhSxWYp
-sHV0y3/d3OZz0eu8fpm19oa2XLxDKfRePGi24fIebMUF18Nv1/ByHgS+XihZr6Rl
-eK7BvoZ/HyL+3gaaJkMZOfJlFAZagsV5iZv6XZtUoaE9MBV6rDJNww79cG1jW3Z6
-C2iSV/Y42mPnFYi/JNpBDJpLb3OhlevTzW3sXxUQOXEqIqyo5rVqoiXgJqHg0qEx
-owzofmB0NAX7HZeU+dvtC3rA27RkOtbs4qyDx63BEYKNLYMLVjRmm1ppPHtczmwq
-PMrGClHggdBomEUMzXI1
-=GBZW
------END PGP SIGNATURE-----
-
---=-39G9E5rS92KRLWRyGu9y--
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 6e96d510bc8d..676db41b98bc 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3046,7 +3046,8 @@ static void bond_work_init_all(struct bonding *bond)
+ {
+ 	INIT_DELAYED_WORK(&bond->mcast_work,
+ 			  bond_resend_igmp_join_requests_delayed);
+-	INIT_DELAYED_WORK(&bond->alb_work, bond_alb_monitor);
++	if (bond_is_lb(bond))
++		INIT_DELAYED_WORK(&bond->alb_work, bond_alb_monitor);
+ 	INIT_DELAYED_WORK(&bond->mii_work, bond_mii_monitor);
+ 	if (bond->params.mode == BOND_MODE_ACTIVEBACKUP)
+ 		INIT_DELAYED_WORK(&bond->arp_work, bond_activebackup_arp_mon);
+@@ -3059,7 +3060,8 @@ static void bond_work_cancel_all(struct bonding *bond)
+ {
+ 	cancel_delayed_work_sync(&bond->mii_work);
+ 	cancel_delayed_work_sync(&bond->arp_work);
+-	cancel_delayed_work_sync(&bond->alb_work);
++	if (bond_is_lb(bond))
++		cancel_delayed_work_sync(&bond->alb_work);
+ 	cancel_delayed_work_sync(&bond->ad_work);
+ 	cancel_delayed_work_sync(&bond->mcast_work);
+ }
+-- 
+1.9.1.423.g4596e3a
