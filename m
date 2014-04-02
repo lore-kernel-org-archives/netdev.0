@@ -1,79 +1,130 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH regression] net: phy: fix initialization (config_init)
- for Marvel 88E1116R PHYs
-Date: Thu, 03 Apr 2014 00:30:17 +0200
-Message-ID: <533C8F79.2030707@gmail.com>
-References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de> <CAGVrzcZd9tBtcTY_2PRHVb9kJAjVHqn+EubUy4NGL66M_UuCDg@mail.gmail.com> <533BD3CD.1010905@ahsoftware.de>
-Content-Type: text/plain; charset=UTF-8
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH net-next 1/1] sxgbe: use common NET_VENDOR_FOO style.
+Date: Wed, 02 Apr 2014 19:35:43 -0400
+Message-ID: <67692.1396481743@turing-police.cc.vt.edu>
+References: <19617.1396041625@turing-police.cc.vt.edu>
+            <20140402231303.GB5013@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; boundary="==_Exmh_1396481743_3292P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Michal Simek <michal.simek@xilinx.com>,
-	stable <stable@vger.kernel.org>
-To: Alexander Holler <holler@ahsoftware.de>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <533BD3CD.1010905@ahsoftware.de>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Siva Reddy Kallam <siva.kallam@samsung.com>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lennier.cc.vt.edu ([198.82.162.213]:45180 "EHLO
+	lennier.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932252AbaDBXjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 19:39:07 -0400
+In-Reply-To: Your message of "Thu, 03 Apr 2014 01:13:03 +0200."
+             <20140402231303.GB5013@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/02/2014 11:09 AM, Alexander Holler wrote:
-> Am 02.04.2014 02:57, schrieb Florian Fainelli:
->> Could you verify the following two things before your patch gets merged:
->>
->> - how long does it take for your PHY to clear the BMCR_RESET bit, is
->> it more than the allowed time out in
->> drivers/net/phy/phy_device.c::phy_poll_reset
->> - is your PHY powered down (check BMCR_PWRDOWN), if that is the case,
->> we might be hitting some corner case where toggling BMCR_RESET will
->> power it on, but at the expense of waiting longer
-> 
-> I've  done two tests with pr_info before and after the two resets in
-> m88e1116r_config_init:
-> 
+--==_Exmh_1396481743_3292P
+Content-Type: text/plain; charset=us-ascii
 
-[...]
+On Thu, 03 Apr 2014 01:13:03 +0200, Francois Romieu said:
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> ---
+>
+>  Valdis, is it what you had in mind ?
 
-> with mdelay (the value after reset is what contains MII_BMCR):
-> 
-> -----------------------
-> dmesg | grep -A1 -B1  AHO
-> [    1.090072] mv643xx_eth: MV-643xx 10/100/1000 ethernet driver version
-> 1.4
-> [    1.175888] AHO: before first reset
-> [    1.678806] AHO: after first reset 0x0
-> [    1.683281] AHO: before second reset
-> [    2.186288] AHO: after second reset 0x0
-> [    2.191010] mv643xx_eth_port mv643xx_eth_port.0 eth0: port 0 with MAC
-> address xx
-> -- 
-> [    2.426349] netpoll: netconsole: device eth0 not up yet, forcing it
-> [    2.505917] AHO: before first reset
-> [    2.605824] usb 1-1: new high-speed USB device number 2 using orion-ehci
-> -- 
-> [    2.829987] hub 1-1:1.0: 4 ports detected
-> [    3.044502] AHO: after first reset 0x0
+Works for me.  That brings it in line with other network drivers, feel free
+to stick this on:
 
-If the above hex at the end is BMCR..
+Acked-by: Valdis Kletnieks <valdis.kletnieks@vt.edu>
 
-> [    3.049133] AHO: before second reset
-> [    3.126110] usb 1-1.1: new high-speed USB device number 3 using
-> orion-ehci
-> -- 
-> [    3.526107] usb 1-1.3: device descriptor read/64, error -32
-> [    3.614264] AHO: after second reset 0x0
-> [    3.618708] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
-> -- 
-> [   21.335730] Adding 2996116k swap on /dev/sda3.  Priority:-1 extents:1
-> across:2996116k
-> [   28.195942] AHO: before first reset
-> [   28.696270] AHO: after first reset 0x800
+>  drivers/net/ethernet/samsung/Kconfig       | 24 ++++++++++++++++++++----
+>  drivers/net/ethernet/samsung/sxgbe/Kconfig |  9 ---------
+>  2 files changed, 20 insertions(+), 13 deletions(-)
+>  delete mode 100644 drivers/net/ethernet/samsung/sxgbe/Kconfig
+>
+> diff --git a/drivers/net/ethernet/samsung/Kconfig b/drivers/net/ethernet/sams
+ung/Kconfig
+> index 7902341..2360d81 100644
+> --- a/drivers/net/ethernet/samsung/Kconfig
+> +++ b/drivers/net/ethernet/samsung/Kconfig
+> @@ -3,14 +3,30 @@
+>  #
+>
+>  config NET_VENDOR_SAMSUNG
+> -	bool "Samsung Ethernet device"
+> +	bool "Samsung Ethernet devices"
+>  	default y
+>  	---help---
+> -	  This is the driver for the SXGBE 10G Ethernet IP block found on Samsu
+ng
+> -	  platforms.
+> +	  If you have a network (Ethernet) chipset belonging to this class,
+> +	  say Y.
+> +
+> +	  Note that the answer to this question does not directly affect
+> +	  the kernel: saying N will just case the configurator to skip all
+> +	  the questions about Samsung chipsets. If you say Y, you will be asked
+> +	  for your specific chipset/driver in the following questions.
+>
+>  if NET_VENDOR_SAMSUNG
+>
+> -source "drivers/net/ethernet/samsung/sxgbe/Kconfig"
+> +config SXGBE_ETH
+> +	tristate "Samsung 10G/2.5G/1G SXGBE Ethernet driver"
+> +	depends on HAS_IOMEM && HAS_DMA
+> +	select PHYLIB
+> +	select CRC32
+> +	select PTP_1588_CLOCK
+> +	---help---
+> +	  This is the driver for the SXGBE 10G Ethernet IP block found on
+> +	  Samsung platforms.
+> +
+> +	  To compile this driver as a module, choose M here: the module
+> +	  will be called samsung-sxgbe.
+>
+>  endif # NET_VENDOR_SAMSUNG
+> diff --git a/drivers/net/ethernet/samsung/sxgbe/Kconfig b/drivers/net/etherne
+t/samsung/sxgbe/Kconfig
+> deleted file mode 100644
+> index d79288c..0000000
+> --- a/drivers/net/ethernet/samsung/sxgbe/Kconfig
+> +++ /dev/null
+> @@ -1,9 +0,0 @@
+> -config SXGBE_ETH
+> -	tristate "Samsung 10G/2.5G/1G SXGBE Ethernet driver"
+> -	depends on HAS_IOMEM && HAS_DMA
+> -	select PHYLIB
+> -	select CRC32
+> -	select PTP_1588_CLOCK
+> -	---help---
+> -	  This is the driver for the SXGBE 10G Ethernet IP block found on Samsu
+ng
+> -	  platforms.
+> --
+> 1.9.0
+>
 
-.. have you noticed that your PHY enters POWERDOWN here?
 
-Sebastian
 
-> [   28.696958] AHO: before second reset
-> [   29.197354] AHO: after second reset 0x800
-> [  111.612263] RPC: Registered named UNIX socket transport module.
-> -----------------------
+--==_Exmh_1396481743_3292P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Exmh version 2.5 07/13/2001
+
+iQIVAwUBUzyezwdmEQWDXROgAQKZ4Q/+NPmozjRowg1twTRnro7IhPYHAMpTa/mv
+Fke0UClQPpxvMwvsrQsrIYvMfx0j113H1UxEykFh6QpcN8ydJJkLzPYNWMGkzFRH
+DBjmF+KUkmXGmZxujeHIdfJrEDld0g7tKiEG2Js+4EM48m1wWimH6qf89SnLniRb
+K+H905sePTLiGztNoN9VxFesEJUNPQ79l5K8+GOhdOjLjYV8s/zyUWj0UAm85FY2
+5Jd7RT+aEBYcr7qe7rYbHyFg8IXVslOffxi5k/C+GuvwMqoYOG4fLsukoPCU58NV
+VsyCQ7ClTPj090GZBSaySaBPkq9iiM6XjjGYAtOmGfE1vpHCFU61COv+doojilUo
+ew/OGulDzy6ILu0QXT5RM4UHbvY3HyiO5NCAqNRyD56zkgcEuZVZdghM+dgw6U2t
+elY340gRQyZc+EmAx/DSEuEv6e9GQu4LE9BRycTu7OFVIl6b/FMijRodo6hEC+nh
+hgkEp9VW6b8t/FWaFQ1XYJsk5tLw7OI2bQC01OSEQTzvpJLS98dh5H4ao1v6nLtL
+zrNVuT1iitJ0V+PQUnSbrjAIjhMWNZGmB9SHl0r+z4v1gqf9zKzHP+huQ3yrTvWA
+l6Dhurygfq73AEI2O6IlaOt3N/g+YlZoPwvwmPzWgbf7EOXuTwRhME29KY9EUidt
+u1f0y0WtAZg=
+=UmUl
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1396481743_3292P--
