@@ -1,35 +1,40 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] net: ti: fix CPTS driver build on arm
-Date: Wed, 02 Apr 2014 08:22:38 +0200
-Message-ID: <533BACAE.3060603@redhat.com>
-References: <1396402008-3462-1-git-send-email-ast@plumgrid.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/mlx4_core: match pci_device_id including dynids
+Date: Tue, 01 Apr 2014 22:29:55 -0400 (EDT)
+Message-ID: <20140401.222955.1322740724254746495.davem@davemloft.net>
+References: <1396326961-20395-1-git-send-email-weiyang@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Richard Cochran <richardcochran@gmail.com>,
-	netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6736 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756577AbaDBGWp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Apr 2014 02:22:45 -0400
-In-Reply-To: <1396402008-3462-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, yevgenyp@mellanox.com,
+	ogerlitz@mellanox.com, amirv@mellanox.com, bhelgaas@google.com,
+	linux-pci@vger.kernel.org
+To: weiyang@linux.vnet.ibm.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1396326961-20395-1-git-send-email-weiyang@linux.vnet.ibm.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/02/2014 03:26 AM, Alexei Starovoitov wrote:
-> fix build errors:
-> drivers/net/ethernet/ti/cpts.c:266:12: error: 'ETH_HLEN' undeclared (first use in this function)
-> drivers/net/ethernet/ti/cpts.c:276:23: error: 'VLAN_HLEN' undeclared (first use in this function)
->
-> Fixes: 408eccce3204 ("net: ptp: move PTP classifier in its own file")
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> Suggested-by: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Richard Cochran <richardcochran@gmail.com>
+From: Wei Yang <weiyang@linux.vnet.ibm.com>
+Date: Tue,  1 Apr 2014 12:36:01 +0800
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+> Fix issue introduced by commit: 97a5221 "net/mlx4_core: pass
+> pci_device_id.driver_data to __mlx4_init_one during reset".
+> 
+> pci_match_id() just match the static pci_device_id, which may return NULL if
+> someone binds the driver to a device manually using
+> /sys/bus/pci/drivers/.../new_id.
+> 
+> This patch match pci_device_id with pci_match_device() to cover both dynids
+> and static id_table.
+> 
+> Thanks to Bjorn finding this issue.
+> 
+> CC: Bjorn Helgaas <bhelgaas@google.com>
+> CC: Amir Vadai <amirv@mellanox.com>
+> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+> Acked-by: Amir Vadai <amirv@mellanox.com>
 
-Thanks, should have set up an ARM toolchain :/ (allmodconfig on x86_64 was fine).
+And ACK from the PCI folks would be greatly appreciated.
+
+Thanks.
