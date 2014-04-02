@@ -1,96 +1,105 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH regression] net: phy: fix initialization (config_init) for
- Marvel 88E1116R PHYs
-Date: Tue, 1 Apr 2014 17:57:48 -0700
-Message-ID: <CAGVrzcZd9tBtcTY_2PRHVb9kJAjVHqn+EubUy4NGL66M_UuCDg@mail.gmail.com>
-References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH net-next] sh: add missing fpscr_values
+Date: Wed, 2 Apr 2014 09:38:54 +0200
+Message-ID: <CAMuHMdW+Pj_y-eiEhxW5EHtPbnZA1xHJK0K0W_uvwvxKiYrzZg@mail.gmail.com>
+References: <1396407244-26771-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Michal Simek <michal.simek@xilinx.com>,
-	stable <stable@vger.kernel.org>
-To: Alexander Holler <holler@ahsoftware.de>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Paul Mundt <lethal@linux-sh.org>,
+	Fengguang Wu <fengguang.wu@intel.com>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:60693 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751366AbaDBA63 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 20:58:29 -0400
-In-Reply-To: <1396396559-6971-1-git-send-email-holler@ahsoftware.de>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:57911 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757992AbaDBHiy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 03:38:54 -0400
+In-Reply-To: <1396407244-26771-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-04-01 16:55 GMT-07:00 Alexander Holler <holler@ahsoftware.de>:
-> Commit 7cd1463664c2a15721ff4ccfb61d4d970815cb3d (introduced with 3.14)
-> changed the initialization of the mv643xx_eth driver to use phy_init_hw()
-> to reset the PHY. Unfortunately the initialization for the 88E1116R PHY
-> was broken such, that it used mdelay() instead of really waiting for a
-> reset to finish.
-
-So the only big difference before
-7cd1463664c2a15721ff4ccfb61d4d970815cb3d ("net: mv643xx_eth: use
-phy_init_hw to reset PHY") is that we waited potentially forever for
-the BMCR_RESET bit to get cleared, while now, we only wait for up to
-500 milliseconds.
-
-Could you verify the following two things before your patch gets merged:
-
-- how long does it take for your PHY to clear the BMCR_RESET bit, is
-it more than the allowed time out in
-drivers/net/phy/phy_device.c::phy_poll_reset
-- is your PHY powered down (check BMCR_PWRDOWN), if that is the case,
-we might be hitting some corner case where toggling BMCR_RESET will
-power it on, but at the expense of waiting longer
-
-Thanks
-
+On Wed, Apr 2, 2014 at 4:54 AM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> GCC on SuperH for the following program:
+> int foo(int i)
+> {
+>         static const void *table[2] = {
+>                 [0] = &&label1,
+>                 [1] = &&label2,
+>         };
+>         goto *table[i & 1];
 >
-> The effect was that the ethernet on my Kirkwood 88F6281 based device didn't
-> come up anymore (no carrier).
+>         label1:
+>                 return 1;
+>         label2:
+>                 return 2;
+> }
+> generates code:
+>         mov.l   .L9,r1
+>         mov     #1,r0
+>         rts
+>         lds.l   @r1+,fpscr
+> .L9:
+>         .long   __fpscr_values+4
 >
-> Fix this by waiting for a reset to finish before proceeding further.
+> so kernel has to provide body of fpscr_values just like glibc does
 >
-> Signed-off-by: Alexander Holler <holler@ahsoftware.de>
->
-> Cc: Michal Simek <michal.simek@xilinx.com>
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
-> Cc: <stable@vger.kernel.org>
+> Fixes: bd4cf0ed331a ("net: filter: rework/optimize internal BPF interpreter's instruction set")
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
 > ---
->  drivers/net/phy/marvell.c | 8 ++++++--
->  1 file changed, 6 insertions(+), 2 deletions(-)
 >
-> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-> index bd37e45..5b84808 100644
-> --- a/drivers/net/phy/marvell.c
-> +++ b/drivers/net/phy/marvell.c
-> @@ -396,7 +396,9 @@ static int m88e1116r_config_init(struct phy_device *phydev)
->         if (err < 0)
->                 return err;
+> kernel modules can hit the same problem, so export it
 >
-> -       mdelay(500);
-> +       do
-> +               temp = phy_read(phydev, MII_BMCR);
-> +       while (temp & BMCR_RESET);
+>  arch/sh/lib/Makefile       |    2 +-
+>  arch/sh/lib/fpscr_values.c |    4 ++++
+>  2 files changed, 5 insertions(+), 1 deletion(-)
+>  create mode 100644 arch/sh/lib/fpscr_values.c
 >
->         err = phy_write(phydev, MII_MARVELL_PHY_PAGE, 0);
->         if (err < 0)
-> @@ -429,7 +431,9 @@ static int m88e1116r_config_init(struct phy_device *phydev)
->         if (err < 0)
->                 return err;
+> diff --git a/arch/sh/lib/Makefile b/arch/sh/lib/Makefile
+> index 3baff31e58cf..0d0c7ae21cfe 100644
+> --- a/arch/sh/lib/Makefile
+> +++ b/arch/sh/lib/Makefile
+> @@ -8,7 +8,7 @@ lib-y  = delay.o memmove.o memchr.o \
+>  # Extracted from libgcc
+>  obj-y += movmem.o ashldi3.o ashrdi3.o lshrdi3.o \
+>          ashlsi3.o ashrsi3.o ashiftrt.o lshrsi3.o \
+> -        udiv_qrnnd.o
+> +        udiv_qrnnd.o fpscr_values.o
 >
-> -       mdelay(500);
-> +       do
-> +               temp = phy_read(phydev, MII_BMCR);
-> +       while (temp & BMCR_RESET);
+>  udivsi3-y                      := udivsi3_i4i-Os.o
 >
->         return 0;
->  }
-> --
-> 1.8.3.1
->
+> diff --git a/arch/sh/lib/fpscr_values.c b/arch/sh/lib/fpscr_values.c
+> new file mode 100644
+> index 000000000000..58153272aba1
+> --- /dev/null
+> +++ b/arch/sh/lib/fpscr_values.c
+> @@ -0,0 +1,4 @@
+> +#include <linux/module.h>
+> +
+> +long __fpscr_values[2] = { 0L, 0x80000L };
+> +EXPORT_SYMBOL(__fpscr_values);
 
+Pardon my ignorance, but according to
+http://www.sourceware.org/ml/libc-alpha/2003-06/msg00027.html
+__fpscr_values is needed for FPU support only.
 
+The kernel is built with -m4-nofpu. If this option is used, gcc doesn't generate
+the reference to __fpscr_values?
 
--- 
-Florian
+Why do we need symbols for userspace FPU support in the kernel?
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
