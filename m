@@ -1,77 +1,50 @@
-From: David Decotigny <decot@googlers.com>
-Subject: [PATCH iproute2 v1] iproute2: show counter of carrier on<->off transitions
-Date: Wed,  2 Apr 2014 09:19:00 -0700
-Message-ID: <6c78808eaf4b31f98c9de9bef6f29397c67cf09e.1396455409.git.decot@googlers.com>
-References: <cover.1396455409.git.decot@googlers.com>
-Cc: David Decotigny <decot@googlers.com>
-To: netdev@vger.kernel.org
+From: Josh Boyer <jwboyer@fedoraproject.org>
+Subject: [PATCH] net: qlcnic: include irq.h for irq definitions
+Date: Wed, 2 Apr 2014 11:25:47 -0400
+Message-ID: <20140402152547.GD20438@zod>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-driver@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Himanshu Madhani <himanshu.madhani@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f201.google.com ([209.85.192.201]:43500 "EHLO
-	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932348AbaDBQ0h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 12:26:37 -0400
-Received: by mail-pd0-f201.google.com with SMTP id x10so69404pdj.0
-        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 09:26:36 -0700 (PDT)
-In-Reply-To: <cover.1396455409.git.decot@googlers.com>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:63803 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758568AbaDBPZu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 11:25:50 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows to display the current counter of carrier on<->off
-transitions (IFLA_CARRIER_CHANGES, see kernel commit "expose number of
-carrier on/off changes"):
+The qlcnic driver fails to build on ARM with errors like:
 
-  ip -s -s link show dev eth0
-  ...
-  2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 etc.
-    link/ether ............ brd ff:ff:ff:ff:ff:ff
-    RX: bytes  packets  errors  dropped overrun mcast
-    134705     758      0       0       0       0
-    RX errors: length  crc     frame   fifo    missed
-               0        0       0       0       0
-    TX: bytes  packets  errors  dropped carrier collsns
-    77374      731      0       0       0       0
-    TX errors: aborted fifo    window  heartbeat
-               0        0       0       0
-    link: carrier_changes 4
+In file included from drivers/net/ethernet/qlogic/qlcnic/qlcnic.h:36:0,
+                 from drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c:8:
+drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h:585:1: error: unknown type name 'irqreturn_t'
+ irqreturn_t qlcnic_83xx_clear_legacy_intr(struct qlcnic_adapter *);
+ ^
 
-Tested:
-  - kernel with patch "net-sysfs: expose number of carrier on/off
-    changes": see above
-  - kernel wthout the patch: line "link:" not displayed (as expected)
+Nothing in the driver is explicitly including the irq definitions, so we
+add an include of linux/irq.h to pick them up.
 
-Signed-off-by: David Decotigny <decot@googlers.com>
+Signed-off-by: Josh Boyer <jwboyer@fedoraproject.org>
 ---
- include/linux/if_link.h | 1 +
- ip/ipaddress.c          | 5 +++++
- 2 files changed, 6 insertions(+)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index f08505c..84fca1e 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -144,6 +144,7 @@ enum {
- 	IFLA_NUM_RX_QUEUES,
- 	IFLA_CARRIER,
- 	IFLA_PHYS_PORT_ID,
-+	IFLA_CARRIER_CHANGES,
- 	__IFLA_MAX
- };
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+index f19f81cde134..cbc897e6bb8f 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+@@ -23,6 +23,7 @@
+ #include <linux/ethtool.h>
+ #include <linux/mii.h>
+ #include <linux/timer.h>
++#include <linux/irq.h>
  
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 14d1720..78b80ee 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -527,6 +527,11 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 			print_link_stats(fp, RTA_DATA(tb[IFLA_STATS]));
- 	}
+ #include <linux/vmalloc.h>
  
-+	if (do_link && (show_stats > 1) && tb[IFLA_CARRIER_CHANGES]) {
-+		fprintf(fp, "%s    link: carrier_changes %u", _SL_,
-+			*(int*)RTA_DATA(tb[IFLA_CARRIER_CHANGES]));
-+	}
-+
- 	if (do_link && tb[IFLA_VFINFO_LIST] && tb[IFLA_NUM_VF]) {
- 		struct rtattr *i, *vflist = tb[IFLA_VFINFO_LIST];
- 		int rem = RTA_PAYLOAD(vflist);
 -- 
-1.9.1.423.g4596e3a
+1.8.5.3
