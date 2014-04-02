@@ -1,45 +1,63 @@
-From: Struan Bartlett <struan.bartlett@gmail.com>
-Subject: Re: [PATCH v2] netconsole: Add tty driver
-Date: Wed, 2 Apr 2014 23:30:24 +0100
-Message-ID: <20140402223024.GA12627@NewsNow.co.uk>
-References: <533B2F03.6060008@gmail.com>
- <201404022116.HIB82683.FOJMFFHVStOLOQ@I-love.SAKURA.ne.jp>
+From: "wei zhang" <asuka.com@163.com>
+Subject: Re: [PATCH] openvswitch: supply a dummy err_handler of
+ gre_cisco_protocol to prevent kernel crash
+Date: Wed, 2 Apr 2014 08:23:28 +0800 (CST)
+Message-ID: <158d7617.12955.1451fd1b702.Coremail.asuka.com@163.com>
+References: <1395957398-24546-1-git-send-email-asuka.com@163.com>
+ <CAEP_g=_qJ1uHKZmZdkUrT+NUkzbRgaHfShZoMbnnCb+LwjOneQ@mail.gmail.com>
+ <4fd27e6c.c96a.14512e82018.Coremail.asuka.com@163.com>
+ <CAEP_g=_84HXCZLOzQ0JdLBF5WVhqwTJeEAY-xjqDD8YCv8yrRg@mail.gmail.com>
+ <3586fbc4.12f75.1451de4826d.Coremail.asuka.com@163.com>
+ <CAEP_g=-an14xN7Q2fmC+wMk1G9WTAX+JrVeBx5QGnw2-XU3ezQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, schwab@linux-m68k.org,
-	netdev@vger.kernel.org, davem@davemloft.net, nikolay@redhat.com,
-	andy.shevchenko@gmail.com, gregkh@linuxfoundation.org,
-	jiri@resnulli.us, joe@perches.com, alonid@postram.com
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>, mpm@selenic.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: "David Miller" <davem@davemloft.net>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>
+To: "Jesse Gross" <jesse@nicira.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201404022116.HIB82683.FOJMFFHVStOLOQ@I-love.SAKURA.ne.jp>
+In-Reply-To: <CAEP_g=-an14xN7Q2fmC+wMk1G9WTAX+JrVeBx5QGnw2-XU3ezQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/04/2014 14:16, Tetsuo Handa wrote:
-> Struan Bartlett wrote:
->> Adds tty driver to netconsole module. When module is loaded,
->> creates /dev/netcon0 device and enables support for console=netcon0
->> kernel cmdline option, causing /dev/console output to be sent to
->> /dev/netcon0. This allows startup/shutdown script output from
->> headless platforms to be logged over (secure) network.
-> 
-> Excuse me, but I think that the netconsole logging can work only during network
-> interfaces (e.g. eth0) are up. Did this patch description assume that the
-> network interfaces are up before the startup script is started and the shutdown
-> script is finished before the network interfaces are down?
-
-Yes it did. I hope I have clarified that in the v3 patch description.
-In practice, at least in a Debian environment: i) the netconsole module itself
-is generally capable of raising the network interface when it is loaded by the
-initramfs init script (which precedes all /etc/init.d/* scripts); ii) very
-little of consequence tends to happens during shutdown after networking is
-stopped; iii) equally, it is not usually problematic to disable the networking
-shutdown script, since it runs on platforms about to be rebooted or powered off.
-We do this by editing the Default-Stop LSB header in /etc/init.d/networking.
-
-> By the way, I uploaded a logger specialized for receiving netconsole messages
-> to http://sourceforge.jp/projects/akari/scm/svn/tree/head/branches/udplogger/ .
-
-Thank you. I'll check it out.
+QXTCoDIwMTQtMDQtMDLCoDAyOjI3OjU2LCJKZXNzZcKgR3Jvc3MiwqA8amVzc2VAbmljaXJhLmNv
+bT7CoHdyb3RlOgo+T27CoFR1ZSzCoEFwcsKgMSzCoDIwMTTCoGF0wqA4OjI0wqBBTSzCoHdlacKg
+emhhbmfCoDxhc3VrYS5jb21AMTYzLmNvbT7CoHdyb3RlOgo+PsKgQXTCoDIwMTQtMDQtMDHCoDA4
+OjQ5OjUzLCJKZXNzZcKgR3Jvc3MiwqA8amVzc2VAbmljaXJhLmNvbT7CoHdyb3RlOgo+Pj5PbsKg
+U3VuLMKgTWFywqAzMCzCoDIwMTTCoGF0wqA1OjEywqBBTSzCoHdlacKgemhhbmfCoDxhc3VrYS5j
+b21AMTYzLmNvbT7CoHdyb3RlOgo+Pj4+wqBBdMKgMjAxNC0wMy0yOcKgMDY6MDI6MjUsIkplc3Nl
+wqBHcm9zcyLCoDxqZXNzZUBuaWNpcmEuY29tPsKgd3JvdGU6Cj4+Cj4+Pj7CoE1heWJlwqBJwqBt
+aXN1bmRlcnN0YW5kwqBzb21ldGhpbmc/wqBJwqB0aGlua8KgaWbCoHdlwqBkaXNjYXJkwqBhbGzC
+oHBhY2tldMKgcGFzc8KgdG/CoHVzCj4+Pj7CoHdoZW7CoHdlwqB1c2XCoGdyZcKgdnBvcnQswqBu
+ZXfCoGdyZV9jaXNjb19wcm90b2NvbMKgd2hpY2jCoGhhc8KgbG93ZXLCoHByaW9yaXR5wqBjb3Vs
+ZAo+Pj4+wqBub3TCoHNlZcKgdGhlwqBwYWNrZXTCoGludGVuZGVkwqB0b8KgaXQuCj4+Pgo+Pj5U
+aGF0J3PCoHRydWXCoGJ1dMKgaW7CoHRoaXPCoGNhc2XCoGl0wqB3b3VsZMKgYWxzb8Kgbm90wqBz
+ZWXCoGFuecKgZGF0YcKgcGFja2V0cywKPj4+c2/CoEnCoGRvbid0wqB0aGlua8KgdGhhdMKgc2l0
+dWF0aW9uwqB3b3VsZMKgd29ya8Kgd2VsbMKgYW55d2F5cy4KPj4+Cj4+Pj7CoEnCoGNoZWNrZWTC
+oHRoZcKgaW1wbGVtZW50YXRpb27CoG9mwqB0aGXCoGlwZ3JlX2VycigpLMKgd2hpY2jCoGhhc8Kg
+YmXCoGNhbGxlZMKgYmVmb3JlCj4+Pj7CoHRoZcKgZXJyX2hhbmRsZXLCoG9mwqBncmXCoHZwb3J0
+LsKgSXTCoHVzZcKgdGhlwqB0aGXCoChsb2NhbMKgYWRkcmVzcyzCoHJlbW90ZcKgYWRkcmVzcyzC
+oGtleSkKPj4+PsKgdG/CoGRpc3Rpbmd1aXNowqB0aGXCoHBhY2tldMKgd2hpY2jCoGlzwqByZWFs
+ecKgaW50ZW5kZWTCoHRvwqBpdCzCoGFsdGhvdWdowqBpdMKgY291bGTCoG5vdAo+Pj4+wqBhbHdh
+eXPCoGdldMKgdGhlwqBrZXnCoGZyb23CoHRoZcKgaWNtcMKgcGFja2V0LsKgU2hvdWxkwqB3ZcKg
+ZG/CoGFzwqB0aGXCoHNhbWXCoGFzwqBpdD8KPj4+PsKgSSdtwqBub3TCoHN1cmXCoHRoaXPCoGlz
+wqBmZWFzaWJsZSzCoGFuecKgYWR2aWNlwqBpc8KgYXBwcmVjaWF0ZS4KPj4+Cj4+Pk9WU8KgZG9l
+c8KgZmxvd8KgYmFzZWTCoG1hdGNoaW5nwqByYXRoZXLCoHRoYW7CoHVzaW5nwqBhwqBzdGF0aWPC
+oHNldMKgb2YKPj4+Y29uZmlndXJhdGlvbsKgcGFyYW1ldGVycyzCoHNvwqBldmVyeXRoaW5nwqAi
+bWF0Y2hlcyLCoGluwqBzb21lwqB3YXkKPj4+KGFsdGhvdWdowqB0aGXCoHJlc3VsdMKgbWlnaHTC
+oGJlwqB0b8KgZHJvcCkuCj4+Cj4+wqBTb8KgdGhlwqBmbG93wqBiYXNlZMKgbWF0Y2jCoGNvdWxk
+wqBkeW5hbWljYWxsecKgZGV0ZXJtaW5lwqBiecKgdGhlwqBvdnPCoGRhZW1vbizCoHdlwqBjb3Vs
+ZAo+PsKgbm90wqBmaW5kwqBvdXTCoHRoZcKgYmVsb25naW5nwqBvZsKgdGhlwqBwYWNrZXTCoGFz
+wqBmYXLCoGFzwqB3ZcKgY2FsbMKgb3ZzX2RwX3VwY2FsbCgpLMKgaXNuJ3TCoGl0Pwo+Cj5UaGF0
+J3PCoHJpZ2h0wqAtwqBhbmTCoHNpbmNlwqB0aGXCoE9WU8KgZmxvd8KgdGFibGXCoGFsd2F5c8Kg
+aGFzwqBhwqBkZWZhdWx0Cj5iZWhhdmlvcsKgKGV2ZW7CoGlmwqBpdMKgaXPCoGRyb3DCoG9ywqBz
+ZW5kwqB0b8KgY29udHJvbGxlcinCoHRoZXJlJ3PCoG5ldmVywqBhCj5wYWNrZXTCoHRoYXTCoGlz
+bid0wqBjb25zaWRlcmVkwqB0b8KgYmXCoGRlc3RpbmVkwqB0b8KgT1ZTwqBvbmNlwqBpdMKgaXMK
+PnJlY2VpdmVkLgo+Cj5JZsKgdGhpc8KgbWFrZXPCoHNlbnNlwqB0b8KgeW91LMKgd291bGTCoHlv
+dcKgbWluZMKgc3VibWl0dGluZ8KgdGhlwqBwYXRjaMKgeW91Cj5oYWTCoGVhcmxpZXLCoGZvcm1h
+bGx5wqB3aXRowqBhwqBjb21taXTCoG1lc3NhZ2XCoGFuZMKgc2lnbmVkwqBvZmbCoGJ5wqBsaW5l
+PwoKU3VyZSwgdGhhbmsgeW91IGFnYWluIGFzIGl0J3MgbXkgZmlyc3QgdGltZSB0byBzZW5kIHBh
+dGNoIHRvIHRoZSBrZXJuZWwsIHlvdXIgcGF0aWVudCBhbmQga2luZApoZWxwIGdpdmUgbWUgY29u
+ZmlkZW5jZSB0byBkbyBpdCA6KQoKUmVnYXJkcywKV2VpIFpoYW5n
