@@ -1,72 +1,86 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [PATCH] grant-table,
- xen-netback: Introduce helper functions for grant copy operations
-Date: Thu, 3 Apr 2014 10:48:58 +0100
-Message-ID: <533D2E8A.90101@citrix.com>
-References: <1396458349-30112-1-git-send-email-zoltan.kiss@citrix.com>
-	<9AAE0902D5BC7E449B7C8E4E778ABCD02BB106@AMSPEX01CL01.citrite.net>
+From: poma <pomidorabelisima-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: 3.15 & Bonding
+Date: Wed, 02 Apr 2014 16:46:30 +0200
+Message-ID: <533C22C6.1090101@gmail.com>
+References: <533BE2F8.5040903@gmail.com>
+	<1396435596.3989.21.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jonathan Davies <Jonathan.Davies@citrix.com>, Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Stefano Stabellini <Stefano.Stabellini@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>
-To: Paul Durrant <Paul.Durrant@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD02BB106@AMSPEX01CL01.citrite.net>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Veaceslav Falico <vfalico-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Mailing-List fedora-kernel <kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>,
+	Josh Boyer <jwboyer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Tom Gundersen <teg-B22kvLQNl6c@public.gmane.org>,
+	Thomas Davis <tadavis-/3juihCSby0@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-media <linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
+In-Reply-To: <1396435596.3989.21.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+List-Unsubscribe: <https://admin.fedoraproject.org/mailman/options/kernel>,
+	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.fedoraproject.org/pipermail/kernel/>
+List-Post: <mailto:kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
+List-Help: <mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=help>
+List-Subscribe: <https://admin.fedoraproject.org/mailman/listinfo/kernel>,
+	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=subscribe>
+Sender: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
+Errors-To: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 03/04/14 09:12, Paul Durrant wrote:
-> Zoltan Kiss wrote:
->>
->> Create helper functions for grant copy operations and use them in netback.
->>
-[...]
->> --- a/drivers/net/xen-netback/netback.c
->> +++ b/drivers/net/xen-netback/netback.c
->> @@ -275,23 +275,29 @@ static void xenvif_gop_frag_copy(struct xenvif *vif,
->> struct sk_buff *skb,
->>  			bytes = MAX_BUFFER_OFFSET - npo->copy_off;
->>
->>  		copy_gop = npo->copy + npo->copy_prod++;
->> -		copy_gop->flags = GNTCOPY_dest_gref;
->> -		copy_gop->len = bytes;
->>
->>  		if (foreign_vif) {
->> -			copy_gop->source.domid = foreign_vif->domid;
->> -			copy_gop->source.u.ref = foreign_gref;
->> -			copy_gop->flags |= GNTCOPY_source_gref;
->> +			gnttab_set_copy_op_ref_to_ref(copy_gop,
->> +						      foreign_gref,
->> +						      npo->copy_gref,
->> +						      foreign_vif->domid,
->> +						      offset,
->> +						      vif->domid,
->> +						      npo->copy_off,
->> +						      bytes,
->> +						      GNTCOPY_dest_gref |
->> +						      GNTCOPY_source_gref);
-> 
-> Can't you lose the flags here (and in the other variants)? Since
-> they are implied by the variant of the function they could just be hardcoded
-> there, couldn't they?
-
-Even with that change these are still functions with 7 or 8 parameters
-with no obvious order.  That's just awful.  The open-coded struct
-initialization is better.
-
-David
+T24gMDIuMDQuMjAxNCAxMjo0NiwgRXJpYyBEdW1hemV0IHdyb3RlOgo+IE9uIFdlZCwgMjAxNC0w
+NC0wMiBhdCAxMjoxNCArMDIwMCwgcG9tYSB3cm90ZToKPj4gQXJlIHlvdSBhbGwgYWxsIHJpZ2h0
+Pwo+PiBOZXcgVG91ciBkZSBCdWdzLi4uCj4+Cj4+IC9zeXMvZGV2aWNlcy92aXJ0dWFsL25ldC9i
+b25kMC9ib25kaW5nL21vZGU6Cj4+IGFjdGl2ZS1iYWNrdXAgMQo+Pgo+PiAtIHN5c3RlbWQtbmV0
+d29ya2QKPj4gZG1lc2c6Cj4+IEJVRzogc2xlZXBpbmcgZnVuY3Rpb24gY2FsbGVkIGZyb20gaW52
+YWxpZCBjb250ZXh0IGF0IG1tL3NsdWIuYzo5NjUKPj4gaW5fYXRvbWljKCk6IDEsIGlycXNfZGlz
+YWJsZWQoKTogMCwgcGlkOiA1OTMsIG5hbWU6IHN5c3RlbWQtbmV0d29yawo+PiAyIGxvY2tzIGhl
+bGQgYnkgc3lzdGVtZC1uZXR3b3JrLzU5MzoKPj4gICMwOiAgKHJ0bmxfbXV0ZXgpeysuKy4rLn0s
+IGF0OiBbPGZmZmZmZmZmODE2OWU1N2I+XSBydG5ldGxpbmtfcmN2KzB4MWIvMHg0MAo+PiAgIzE6
+ICAoJmJvbmQtPmN1cnJfc2xhdmVfbG9jayl7Ky4uLisufSwgYXQ6IFs8ZmZmZmZmZmZhMDQ4NzI5
+MT5dCj4+IGJvbmRfZW5zbGF2ZSsweGYzMS8weGY1MCBbYm9uZGluZ10KPj4gQ1BVOiAyIFBJRDog
+NTkzIENvbW06IHN5c3RlbWQtbmV0d29yayBOb3QgdGFpbnRlZAo+PiAzLjE1LjAtMC5yYzAuZ2l0
+Mi4xLmZjMjEueDg2XzY0ICMxCj4+IENhbGwgVHJhY2U6Cj4+IGR1bXBfc3RhY2srMHg0ZC8weDY2
+Cj4+IF9fbWlnaHRfc2xlZXArMHgxN2UvMHgyMzAKPj4ga21lbV9jYWNoZV9hbGxvY19ub2RlKzB4
+NGEvMHgzOTAKPj4gIFs8ZmZmZmZmZmY4MTY3NzlkZD5dIF9fYWxsb2Nfc2tiKzB4NWQvMHgyZDAK
+Pj4gIFs8ZmZmZmZmZmY4MTZhMGJkOD5dIHJ0bXNnX2lmaW5mbysweDQ4LzB4MTEwCj4+ICBbPGZm
+ZmZmZmZmODEwZmExOGQ+XSA/IHRyYWNlX2hhcmRpcnFzX29uKzB4ZC8weDEwCj4+ICBbPGZmZmZm
+ZmZmODEwOWRkNDU+XSA/IF9fbG9jYWxfYmhfZW5hYmxlX2lwKzB4NzUvMHhlMAo+PiAgWzxmZmZm
+ZmZmZmEwNDg1Y2E3Pl0gYm9uZF9jaGFuZ2VfYWN0aXZlX3NsYXZlKzB4MTk3LzB4NjcwIFtib25k
+aW5nXQo+PiAgWzxmZmZmZmZmZmEwNDg2MjY0Pl0gYm9uZF9zZWxlY3RfYWN0aXZlX3NsYXZlKzB4
+ZTQvMHgxZTAgW2JvbmRpbmddCj4+ICBbPGZmZmZmZmZmYTA0ODcyOWE+XSBib25kX2Vuc2xhdmUr
+MHhmM2EvMHhmNTAgW2JvbmRpbmddCj4+ICBbPGZmZmZmZmZmODE2OWZkZjI+XSBkb19zZXRsaW5r
+KzB4YTAyLzB4YTcwCj4+ICBbPGZmZmZmZmZmODEzZjRmYzY+XSA/IG5sYV9wYXJzZSsweDk2LzB4
+ZTAKPj4gIFs8ZmZmZmZmZmY4MTZhMGRhMT5dIHJ0bmxfc2V0bGluaysweGMxLzB4MTMwCj4+ICBb
+PGZmZmZmZmZmODEwYTE3Mzk+XSA/IG5zX2NhcGFibGUrMHgzOS8weDcwCj4+ICBbPGZmZmZmZmZm
+ODE2OWU2NGI+XSBydG5ldGxpbmtfcmN2X21zZysweGFiLzB4MjcwCj4+ICBbPGZmZmZmZmZmODE2
+OWU1N2I+XSA/IHJ0bmV0bGlua19yY3YrMHgxYi8weDQwCj4+ICBbPGZmZmZmZmZmODE2OWU1N2I+
+XSA/IHJ0bmV0bGlua19yY3YrMHgxYi8weDQwCj4+ICBbPGZmZmZmZmZmODE2OWU1YTA+XSA/IHJ0
+bmV0bGlua19yY3YrMHg0MC8weDQwCj4+ICBbPGZmZmZmZmZmODE2YzNlMjk+XSBuZXRsaW5rX3Jj
+dl9za2IrMHhhOS8weGMwCj4+ICBbPGZmZmZmZmZmODE2OWU1OGE+XSBydG5ldGxpbmtfcmN2KzB4
+MmEvMHg0MAo+PiAgWzxmZmZmZmZmZjgxNmMzNDIwPl0gbmV0bGlua191bmljYXN0KzB4MTAwLzB4
+MWUwCj4+ICBbPGZmZmZmZmZmODE2YzM4NDc+XSBuZXRsaW5rX3NlbmRtc2crMHgzNDcvMHg3NzAK
+Pj4gIFs8ZmZmZmZmZmY4MTY2Yzc4Yz5dIHNvY2tfc2VuZG1zZysweDljLzB4ZTAKPj4gIFs8ZmZm
+ZmZmZmY4MTFkZTIyZj5dID8gbWlnaHRfZmF1bHQrMHg1Zi8weGIwCj4+ICBbPGZmZmZmZmZmODEx
+ZGUyNzg+XSA/IG1pZ2h0X2ZhdWx0KzB4YTgvMHhiMAo+PiAgWzxmZmZmZmZmZjgxMWRlMjJmPl0g
+PyBtaWdodF9mYXVsdCsweDVmLzB4YjAKPj4gIFs8ZmZmZmZmZmY4MTY2Y2QwND5dIFNZU0Nfc2Vu
+ZHRvKzB4MTI0LzB4MWQwCj4+ICBbPGZmZmZmZmZmODEwMjQ4Nzk+XSA/IHNjaGVkX2Nsb2NrKzB4
+OS8weDEwCj4+ICBbPGZmZmZmZmZmODEwZGRiNzU+XSA/IGxvY2FsX2Nsb2NrKzB4MjUvMHgzMAo+
+PiAgWzxmZmZmZmZmZjgxMTFjZmM5Pl0gPyBjdXJyZW50X2tlcm5lbF90aW1lKzB4NjkvMHhkMAo+
+PiAgWzxmZmZmZmZmZjgxMGZhMGI1Pl0gPyB0cmFjZV9oYXJkaXJxc19vbl9jYWxsZXIrMHgxMDUv
+MHgxZDAKPj4gIFs8ZmZmZmZmZmY4MTBmYTE4ZD5dID8gdHJhY2VfaGFyZGlycXNfb24rMHhkLzB4
+MTAKPj4gIFs8ZmZmZmZmZmY4MTY2ZGVkZT5dIFN5U19zZW5kdG8rMHhlLzB4MTAKPj4gIFs8ZmZm
+ZmZmZmY4MTdlNzlhOT5dIHN5c3RlbV9jYWxsX2Zhc3RwYXRoKzB4MTYvMHgxYgo+IAo+IFNob3Vs
+ZCBiZSBmaXhlZCBieQo+IAo+IGNvbW1pdCAwNzIyNTZkMWYyYjhiYTBiYmIyNjVkNTkwYzcwM2Yz
+ZDU3YTM5ZDZhCj4gQXV0aG9yOiBWZWFjZXNsYXYgRmFsaWNvIDx2ZmFsaWNvQHJlZGhhdC5jb20+
+Cj4gRGF0ZTogICBUaHUgTWFyIDYgMTU6MzM6MjIgMjAxNCArMDEwMAo+IAo+ICAgICBib25kaW5n
+OiBtYWtlIHNsYXZlIHN0YXR1cyBub3RpZmljYXRpb25zIEdGUF9BVE9NSUMKPiAgICAgCgpUaGFu
+a3MgZm9yIHBpY2tpbmcgdGhpcyBvbmUhCgpUZXN0ZWQgd2l0aAozLjE1LjAtMC5yYzAuZ2l0My4y
+LmZjMjEueDg2XzY0CmkuZS4KMy4xNS4wLTAucmMwLmdpdDMuMS5mYzIxLng4Nl82NFsxXSAmCmJv
+bmRpbmctbWFrZS1zbGF2ZS1zdGF0dXMtbm90aWZpY2F0aW9ucy1HRlBfQVRPTUlDLnBhdGNoWzJd
+CgpQQVNTRUQhCgoKcG9tYQoKClsxXQpodHRwOi8va29qaS5mZWRvcmFwcm9qZWN0Lm9yZy9rb2pp
+L2J1aWxkaW5mbz9idWlsZElEPTUwODYxNQpbMl0KaHR0cHM6Ly9naXQua2VybmVsLm9yZy9jZ2l0
+L2xpbnV4L2tlcm5lbC9naXQvbmV4dC9saW51eC1uZXh0LmdpdC9jb21taXQvZHJpdmVycy9uZXQv
+Ym9uZGluZz9pZD0wNzIyNTZkMWYyYjhiYTBiYmIyNjVkNTkwYzcwM2YzZDU3YTM5ZDZhCgpfX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwprZXJuZWwgbWFpbGlu
+ZyBsaXN0Cmtlcm5lbEBsaXN0cy5mZWRvcmFwcm9qZWN0Lm9yZwpodHRwczovL2FkbWluLmZlZG9y
+YXByb2plY3Qub3JnL21haWxtYW4vbGlzdGluZm8va2VybmVs
