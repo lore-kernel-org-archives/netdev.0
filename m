@@ -1,82 +1,73 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next RFC 0/4] introduce infrastructure for support of
- switch chip datapath
-Date: Wed, 2 Apr 2014 08:41:18 +0200
-Message-ID: <20140402064118.GA2844@minipsycho.orion>
-References: <20140325180009.GB15723@casper.infradead.org>
- <20140325193533.GF8102@hmsreliant.think-freely.org>
- <CAGVrzcbRggJV+5+EuZnXVoU+qdK9ugPRL+J-mp-UraGuo19jnQ@mail.gmail.com>
- <5332677F.2090404@cumulusnetworks.com>
- <5332B1FE.7080102@mojatatu.com>
- <53330639.8050403@cumulusnetworks.com>
- <20140326165934.GH2869@minipsycho.orion>
- <533312A3.5070600@cumulusnetworks.com>
- <20140326180356.GK2869@minipsycho.orion>
- <2D65D0C2-6BBC-4968-8400-4EB60BDF887A@cumulusnetworks.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [RFC PATCH] vlan: Try to adjust lower device mtu when configuring
+ 802.1AD vlans
+Date: Wed, 02 Apr 2014 09:31:42 -0400
+Message-ID: <533C113E.2000908@redhat.com>
+References: <1396387054-4510-1-git-send-email-vyasevic@redhat.com> <20140402122121.GD26334@macbook.localnet>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	dborkman <dborkman@redhat.com>, ogerlitz <ogerlitz@mellanox.com>,
-	jesse <jesse@nicira.com>, pshelar <pshelar@nicira.com>,
-	azhou <azhou@nicira.com>, Ben Hutchings <ben@decadent.org.uk>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	jeffrey.t.kirsher@intel.com, vyasevic <vyasevic@redhat.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: Scott Feldman <sfeldma@cumulusnetworks.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:45834 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756658AbaDBGlW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 02:41:22 -0400
-Received: by mail-wi0-f181.google.com with SMTP id hm4so6416910wib.14
-        for <netdev@vger.kernel.org>; Tue, 01 Apr 2014 23:41:21 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <2D65D0C2-6BBC-4968-8400-4EB60BDF887A@cumulusnetworks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:20001 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932216AbaDBNbs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Apr 2014 09:31:48 -0400
+In-Reply-To: <20140402122121.GD26334@macbook.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Apr 01, 2014 at 09:13:00PM CEST, sfeldma@cumulusnetworks.com wrote:
->
->On Mar 26, 2014, at 11:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->
->> Wed, Mar 26, 2014 at 06:47:15PM CET, roopa@cumulusnetworks.com wrote:
->>> On 3/26/14, 9:59 AM, Jiri Pirko wrote:
->>>> Wed, Mar 26, 2014 at 05:54:17PM CET, roopa@cumulusnetworks.com wrote:
->>>> So you implement bonding netlink api? Or you hook into bonding driver
->>>> itselt? Can you show us the code?
->>> We use the netlink API and libnl. In our current model, our switch
->>> chip driver listens to netlink notifications and programs the switch
->>> chip. The switch chip driver uses libnl caches and libnl netlink apis
->>> to reflect the kernel state to switch chip.
->> 
->> 
->> So when you configure for example bonding over 2 ports, you actually use
->> bonding driver to do that. And you userspace app listens to
->> notifications and programs the switch chip accordingly. Am I close?
->> 
->> How about data? Is this new "bonding" interface able to assign ip to is
->> and send/receive packets.
->> 
->> I'm still not sure I understand your concept. Do you have some
->> documentation for it available?
->
->Actually Jiri this is the code you and I worked on recently to netlink-ify bonding/slave attributes and active/inactive notification.  You have it right, user uses normal ip link tools and bonding driver to create bond, set attributes, and enslave switch ports.  RTM_NEWLINK is used to program ASIC to offload LAG to HW.  RTM_NEWLINK msgs contains bond attributes (mode, etc) and slave list, as well as slave status.  This is enough information to program ASIC.  Once programmed, ASIC offloads the data plane traffic, and in the case of egress, handles the LAG hash distribution.  Only the LACP control plane traffic makes it to the bonding driver; data plane traffic does not make it to the bonding driver.
->
->So, not trying to sound like a smart-ass, but the documentation is the bonding driver, specifically the netlink attributes/notifications.
+On 04/02/2014 08:21 AM, Patrick McHardy wrote:
+> On Tue, Apr 01, 2014 at 05:17:34PM -0400, Vlad Yasevich wrote:
+>> 802.1AD vlans supposed to encapsulate 802.1Q vlans.  To
+>> do this, we need an extra 4 bytes of header which are typically
+>> not accounted for by lower devices.  Some devices can not
+>> support frames longer then 1522 bytes at all.  Such devices
+>> can not really support 802.1AD, even in software, without
+>> the vlan reducing its mtu value.
+>>
+>> This patch propses to increate the lower devices MTU to 1504
+>> in case of 802.1AD configuration, and if device doesn't
+>> support it, fail the creation of the vlan.  The user has an
+>> option to configure older-style Q-in-Q vlans and manually
+>> lower the mtu to support such encapsulation.
+> 
+> I think you should do the opposite. The lower layer device may be used
+> for other things than the VLAN, so it doesn't seem right to change it's
+> MTU. Instead I'd propose to set the MTU of the 802.1ad VLAN device to
+> the lower device'e MTU - 4 unless a MTU has been specified by the user.
+> 
 
-Ok, so no additional kernel code for this? Only some userpace agent
-programming the chip?
+The decrease of vlan mtu was my initial take on this as well.  The
+problematic case with this is forwarding by an encapsulating
+bridge (bridge that has 802.1AD as one port and ethX as others). The
+frame from ethX will not fit into the mtu of the vlan device in
+this case and the packet is dropped.  Ideally, we'd generate and ICMP
+Too Big, but with the bridge we can't/don't do that.
 
+Another problem is that linux assumes that MTU == MRU in case of
+device receive buffer programming.  Thus, full sized 802.1AD
+frames transmitted by the switch supporting it will probably get dropped
+by the driver/firmware as too long.  I've tested this and saw it
+happen on my systems.
 
->
->-scott
+An alternative I've thought off is to adjust the rx size in the drivers
+when 802.1AD is configured, but that touches all the drivers, and
+doesn't work well for not vlan-filtering drivers.  It needs a new
+ndo api to adjust the rx length to make it consistent across all
+devices.
+
+> BTW, I couldn't find anything related to MTU handling in the 802.1ad
+> standard, however I only have an old copy and might have looked in the
+> wrong place. Do you have any information how this is supposed to be
+> handled?
+> 
+
+The standard doesn't seem to mention anything about it, but looking
+at switch implementations, most of them require a bump in the mtu to
+1504 to support 802.1AD.  Some allow for the decrease in vlan mtu, but
+that also requires mss translations as well.
+
+-vlad
