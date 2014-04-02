@@ -1,53 +1,45 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH v4 net] xen-netback: disable rogue vif in
-	kthread context
-Date: Wed, 2 Apr 2014 10:05:40 +0100
-Message-ID: <1396429540.8667.263.camel@kazak.uk.xensource.com>
-References: <1396352772-7884-1-git-send-email-wei.liu2@citrix.com>
-	<20140401.162717.1962834632849633175.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: Micrel KSZ8864RMN 4-port managed switch support
+Date: Wed, 02 Apr 2014 09:28:59 -0700
+Message-ID: <1396456139.32040.9.camel@joe-AO722>
+References: <1396453816-32348-1-git-send-email-p.zabel@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: wei.liu2@citrix.com, netdev@vger.kernel.org, edwin@etorok.net,
-	xen-devel@lists.xen.org, david.vrabel@citrix.com, zoltan.kiss@citrix.com
-To: David Miller <davem@davemloft.net>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <20140401.162717.1962834632849633175.davem@davemloft.net>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Frederic LAMBERT <frdrc66@gmail.com>, kernel@pengutronix.de
+To: Philipp Zabel <p.zabel@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1396453816-32348-1-git-send-email-p.zabel@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCAyMDE0LTA0LTAxIGF0IDE2OjI3IC0wNDAwLCBEYXZpZCBNaWxsZXIgd3JvdGU6Cj4g
-RnJvbTogV2VpIExpdSA8d2VpLmxpdTJAY2l0cml4LmNvbT4KPiBEYXRlOiBUdWUsIDEgQXByIDIw
-MTQgMTI6NDY6MTIgKzAxMDAKPiAKPiA+IFdoZW4gbmV0YmFjayBkaXNjb3ZlcnMgZnJvbnRlbmQg
-aXMgc2VuZGluZyBtYWxmb3JtZWQgcGFja2V0IGl0IHdpbGwKPiA+IGRpc2FibGVzIHRoZSBpbnRl
-cmZhY2Ugd2hpY2ggc2VydmVzIHRoYXQgZnJvbnRlbmQuCj4gPiAKPiA+IEhvd2V2ZXIgZGlzYWJs
-aW5nIGEgbmV0d29yayBpbnRlcmZhY2UgaW52b2x2aW5nIHRha2luZyBhIG11dGV4IHdoaWNoCj4g
-PiBjYW5ub3QgYmUgZG9uZSBpbiBzb2Z0aXJxIGNvbnRleHQsIHNvIHdlIG5lZWQgdG8gZGVmZXIg
-dGhpcyBwcm9jZXNzIHRvCj4gPiBrdGhyZWFkIGNvbnRleHQuCj4gPiAKPiA+IFRoaXMgcGF0Y2gg
-ZG9lcyB0aGUgZm9sbG93aW5nOgo+ID4gMS4gaW50cm9kdWNlIGEgZmxhZyB0byBpbmRpY2F0ZSB0
-aGUgaW50ZXJmYWNlIGlzIGRpc2FibGVkLgo+ID4gMi4gY2hlY2sgdGhhdCBmbGFnIGluIFRYIHBh
-dGgsIGRvbid0IGRvIGFueSB3b3JrIGlmIGl0J3MgdHJ1ZS4KPiA+IDMuIGNoZWNrIHRoYXQgZmxh
-ZyBpbiBSWCBwYXRoLCB0dXJuIG9mZiB0aGF0IGludGVyZmFjZSBpZiBpdCdzIHRydWUuCj4gPiAK
-PiA+IFRoZSByZWFzb24gdG8gZGlzYWJsZSBpdCBpbiBSWCBwYXRoIGlzIGJlY2F1c2UgUlggdXNl
-cyBrdGhyZWFkLiBBZnRlcgo+ID4gdGhpcyBjaGFuZ2UgdGhlIGJlaGF2aW9yIG9mIG5ldGJhY2sg
-aXMgc3RpbGwgY29uc2lzdGVudCAtLSBpdCB3b24ndCBkbwo+ID4gYW55IFRYIHdvcmsgZm9yIGEg
-cm9ndWUgZnJvbnRlbmQsIGFuZCB0aGUgaW50ZXJmYWNlIHdpbGwgYmUgZXZlbnR1YWxseQo+ID4g
-dHVybmVkIG9mZi4KPiA+IAo+ID4gQWxzbyBjaGFuZ2UgYSAiY29udGludWUiIHRvICJicmVhayIg
-YWZ0ZXIgeGVudmlmX2ZhdGFsX3R4X2VyciwgYXMgaXQKPiA+IGRvZXNuJ3QgbWFrZSBzZW5zZSB0
-byBjb250aW51ZSBwcm9jZXNzaW5nIHBhY2tldHMgaWYgZnJvbnRlbmQgaXMgcm9ndWUuCj4gPiAK
-PiA+IFRoaXMgaXMgYSBmaXggZm9yIFhTQS05MC4KPiA+IAo+ID4gUmVwb3J0ZWQtYnk6IFTDtnLD
-tmsgRWR3aW4gPGVkd2luQGV0b3Jvay5uZXQ+Cj4gPiBTaWduZWQtb2ZmLWJ5OiBXZWkgTGl1IDx3
-ZWkubGl1MkBjaXRyaXguY29tPgo+IAo+IEFwcGxpZWQuCgpUaGFua3MuCgpXZWkgLS0gY2FuIHlv
-dSBhZHZpc2UgYXMgdG8gd2hpY2ggc3RhYmxlIHRyZWVzIHRoaXMgc2hvdWxkIGJlIHF1ZXVlZApm
-b3I/IExvb2tzIGxpa2UgMy4xMiBvbndhcmRzIGFjY29yZGluZyB0bwpodHRwOi8veGVuYml0cy54
-ZW4ub3JnL3hzYS9hZHZpc29yeS05MC5odG1sIHdoaWNoIHNheXMgdGhlIGlzc3VlIGFyb3NlCmJl
-dHdlZW4gMy4xMSBhbmQgMy4xMi1yYzE/CgpDaGVlcnMsCklhbi4KCgoKX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApY
-ZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwOi8vbGlzdHMueGVuLm9yZy94ZW4tZGV2ZWwK
+On Wed, 2014-04-02 at 17:50 +0200, Philipp Zabel wrote:
+> This patch adds support for the Micrel KSZ8864RMN switch to the spi_ks8995
+> driver. The KSZ8864RMN switch has a wider 256-byte register space.
+
+trivia:
+
+> diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
+[]
+> @@ -317,9 +341,14 @@ static int ks8995_probe(struct spi_device *spi)
+>  		goto err_drvdata;
+>  	}
+>  
+> -	dev_info(&spi->dev, "KS89%02X device found, Chip ID:%01x, "
+> -			"Revision:%01x\n", ids[0],
+> -			get_chip_id(ids[1]), get_chip_rev(ids[1]));
+> +	if (get_chip_id(ids[1]) == CHIPID_M) {
+> +		dev_info(&spi->dev,
+> +			 "KS8995 device found, Chip ID:%01x, Revision:%01x\n",
+
+Using %01x is kind of nonsensical.  %x seems more sensible.
+
+> +			 get_chip_id(ids[1]), get_chip_rev(ids[1]));
+> +	} else {
+> +		dev_info(&spi->dev, "KSZ8864 device found, Revision:%01x\n",
+> +			 get_chip_rev(ids[1]));
+> +	}
+
+here too
