@@ -1,42 +1,73 @@
-From: Daeseok Youn <daeseok.youn@gmail.com>
-Subject: [PATCH 2/2] nfc: remove unneeded nfc_put_device() calls
-Date: Wed, 02 Apr 2014 16:56:31 +0900
-Message-ID: <31741678.fEkJSmnf5n@daeseok-laptop.cloud.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH regression] net: phy: fix initialization (config_init)
+ for Marvel 88E1116R PHYs
+Date: Wed, 02 Apr 2014 15:51:42 +0400
+Message-ID: <533BF9CE.3050302@cogentembedded.com>
+References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: aloisio.almeida@openbossa.org, sameo@linux.intel.com,
-	linux-wireless@vger.kernel.org, linux-nfc@lists.01.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net, lauro.venancio@openbossa.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:49294 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751424AbaDBH4g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 03:56:36 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
+	Michal Simek <michal.simek@xilinx.com>, stable@vger.kernel.org
+To: Alexander Holler <holler@ahsoftware.de>,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1396396559-6971-1-git-send-email-holler@ahsoftware.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hello.
 
-If local is NULL, nfs_put_device() is called twice.
-So nfs_put_device() in "if (!local)" is removed.
+On 02-04-2014 3:55, Alexander Holler wrote:
 
-Signed-off-by: Daeseok Youn <daeseok.youn@gmail.com>
----
- net/nfc/netlink.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+> Commit 7cd1463664c2a15721ff4ccfb61d4d970815cb3d (introduced with 3.14)
+> changed the initialization of the mv643xx_eth driver to use phy_init_hw()
+> to reset the PHY. Unfortunately the initialization for the 88E1116R PHY
+> was broken such, that it used mdelay() instead of really waiting for a
+> reset to finish.
 
-diff --git a/net/nfc/netlink.c b/net/nfc/netlink.c
-index b2ad570..3e0a676 100644
---- a/net/nfc/netlink.c
-+++ b/net/nfc/netlink.c
-@@ -1038,7 +1038,6 @@ static int nfc_genl_llc_sdreq(struct sk_buff *skb, struct genl_info *info)
- 
- 	local = nfc_llcp_find_local(dev);
- 	if (!local) {
--		nfc_put_device(dev);
- 		rc = -ENODEV;
- 		goto exit;
- 	}
--- 
-1.7.4.4
+> The effect was that the ethernet on my Kirkwood 88F6281 based device didn't
+> come up anymore (no carrier).
+
+> Fix this by waiting for a reset to finish before proceeding further.
+
+> Signed-off-by: Alexander Holler <holler@ahsoftware.de>
+
+> Cc: Michal Simek <michal.simek@xilinx.com>
+> Cc: Florian Fainelli <f.fainelli@gmail.com>
+> Cc: <stable@vger.kernel.org>
+> ---
+>   drivers/net/phy/marvell.c | 8 ++++++--
+>   1 file changed, 6 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+> index bd37e45..5b84808 100644
+> --- a/drivers/net/phy/marvell.c
+> +++ b/drivers/net/phy/marvell.c
+> @@ -396,7 +396,9 @@ static int m88e1116r_config_init(struct phy_device *phydev)
+>   	if (err < 0)
+>   		return err;
+>
+> -	mdelay(500);
+> +	do
+> +		temp = phy_read(phydev, MII_BMCR);
+> +	while (temp & BMCR_RESET);
+
+    I don't understand what's the point of this BMCR reset if phy_init_hw() 
+will have already done it before calling phy_init_hw().
+
+> @@ -429,7 +431,9 @@ static int m88e1116r_config_init(struct phy_device *phydev)
+>   	if (err < 0)
+>   		return err;
+>
+> -	mdelay(500);
+> +	do
+> +		temp = phy_read(phydev, MII_BMCR);
+> +	while (temp & BMCR_RESET);
+
+    Not clear why it's necessary to reset one more time... Also, tight loop 
+without a timeout (0.5 sec, specified by IEEE 802.3) doesn't look good. The 
+comment above phy_poll_reset() suggests that it could be used in the PHY 
+drivers as well. Florian?
+
+WBR, Sergei
