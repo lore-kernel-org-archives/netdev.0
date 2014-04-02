@@ -1,115 +1,97 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH v4 1/4] bonding: Changed hashing function to just provide hash
-Date: Wed,  2 Apr 2014 17:33:19 -0700
-Message-ID: <1396485199-3967-1-git-send-email-maheshb@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Mahesh Bandewar <maheshb@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH 2/2] packet: fix packet_direct_xmit for BQL enabled drivers
+Date: Wed,  2 Apr 2014 20:52:57 +0200
+Message-ID: <1396464777-18375-3-git-send-email-dborkman@redhat.com>
+References: <1396464777-18375-1-git-send-email-dborkman@redhat.com>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f73.google.com ([209.85.213.73]:41422 "EHLO
-	mail-yh0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933374AbaDCAdX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 20:33:23 -0400
-Received: by mail-yh0-f73.google.com with SMTP id c41so150158yho.2
-        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 17:33:22 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:63054 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932827AbaDBSxK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Apr 2014 14:53:10 -0400
+In-Reply-To: <1396464777-18375-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Modified the hash function to return just hash separating from the
-modulo operation that can be performed by the caller. This is to
-make way for the tlb mode to use the same hashing policies that
-are used in the 802.3ad and Xor mode.
+Currently, in packet_direct_xmit() we test the assigned netdevice queue
+for netif_xmit_frozen_or_stopped() before doing an ndo_start_xmit().
 
-Change-Id: I276609e87e0ca213c4d1b17b79c5e0b0f3d0dd6f
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+This can have the side-effect that BQL enabled drivers which make use
+of netdev_tx_sent_queue() internally, set __QUEUE_STATE_STACK_XOFF from
+within the stack and would not fully fill the device's TX ring from
+packet sockets with PACKET_QDISC_BYPASS enabled.
+
+Instead, use a test without BQL bit so that bursts can be absorbed
+into the NICs TX ring. Fix and code suggested by Eric Dumazet, thanks!
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
-v2:
-  Change the return type of bond_xmit_hash() from int to u32
-v3:
-  Rebase.
-v4:
-  Removed spurious net/sock.h inclusion
+ include/linux/netdevice.h | 24 +++++++++++++++++++-----
+ net/packet/af_packet.c    |  2 +-
+ 2 files changed, 20 insertions(+), 6 deletions(-)
 
- drivers/net/bonding/bond_3ad.c  |  2 +-
- drivers/net/bonding/bond_main.c | 10 ++++------
- drivers/net/bonding/bonding.h   |  2 +-
- 3 files changed, 6 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index b667a51ed215..9a0d61e0c188 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2440,7 +2440,7 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
- 		goto err_free;
- 	}
- 
--	slave_agg_no = bond_xmit_hash(bond, skb, slaves_in_agg);
-+	slave_agg_no = bond_xmit_hash(bond, skb) % slaves_in_agg;
- 	first_ok_slave = NULL;
- 
- 	bond_for_each_slave_rcu(bond, slave, iter) {
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 95a6ca7d9e51..6e96d510bc8d 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3015,20 +3015,18 @@ static bool bond_flow_dissect(struct bonding *bond, struct sk_buff *skb,
-  * bond_xmit_hash - generate a hash value based on the xmit policy
-  * @bond: bonding device
-  * @skb: buffer to use for headers
-- * @count: modulo value
-  *
-  * This function will extract the necessary headers from the skb buffer and use
-  * them to generate a hash based on the xmit_policy set in the bonding device
-- * which will be reduced modulo count before returning.
-  */
--int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb, int count)
-+u32 bond_xmit_hash(struct bonding *bond, struct sk_buff *skb)
- {
- 	struct flow_keys flow;
- 	u32 hash;
- 
- 	if (bond->params.xmit_policy == BOND_XMIT_POLICY_LAYER2 ||
- 	    !bond_flow_dissect(bond, skb, &flow))
--		return bond_eth_hash(skb) % count;
-+		return bond_eth_hash(skb);
- 
- 	if (bond->params.xmit_policy == BOND_XMIT_POLICY_LAYER23 ||
- 	    bond->params.xmit_policy == BOND_XMIT_POLICY_ENCAP23)
-@@ -3039,7 +3037,7 @@ int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb, int count)
- 	hash ^= (hash >> 16);
- 	hash ^= (hash >> 8);
- 
--	return hash % count;
-+	return hash;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 775cc95..7ed3a3a 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -519,11 +519,18 @@ enum netdev_queue_state_t {
+ 	__QUEUE_STATE_DRV_XOFF,
+ 	__QUEUE_STATE_STACK_XOFF,
+ 	__QUEUE_STATE_FROZEN,
+-#define QUEUE_STATE_ANY_XOFF ((1 << __QUEUE_STATE_DRV_XOFF)		| \
+-			      (1 << __QUEUE_STATE_STACK_XOFF))
+-#define QUEUE_STATE_ANY_XOFF_OR_FROZEN (QUEUE_STATE_ANY_XOFF		| \
+-					(1 << __QUEUE_STATE_FROZEN))
+ };
++
++#define QUEUE_STATE_DRV_XOFF	(1 << __QUEUE_STATE_DRV_XOFF)
++#define QUEUE_STATE_STACK_XOFF	(1 << __QUEUE_STATE_STACK_XOFF)
++#define QUEUE_STATE_FROZEN	(1 << __QUEUE_STATE_FROZEN)
++
++#define QUEUE_STATE_ANY_XOFF	(QUEUE_STATE_DRV_XOFF | QUEUE_STATE_STACK_XOFF)
++#define QUEUE_STATE_ANY_XOFF_OR_FROZEN (QUEUE_STATE_ANY_XOFF | \
++					QUEUE_STATE_FROZEN)
++#define QUEUE_STATE_DRV_XOFF_OR_FROZEN (QUEUE_STATE_DRV_XOFF | \
++					QUEUE_STATE_FROZEN)
++
+ /*
+  * __QUEUE_STATE_DRV_XOFF is used by drivers to stop the transmit queue.  The
+  * netif_tx_* functions below are used to manipulate this flag.  The
+@@ -2252,11 +2259,18 @@ static inline bool netif_xmit_stopped(const struct netdev_queue *dev_queue)
+ 	return dev_queue->state & QUEUE_STATE_ANY_XOFF;
  }
  
- /*-------------------------- Device entry points ----------------------------*/
-@@ -3666,7 +3664,7 @@ static int bond_xmit_xor(struct sk_buff *skb, struct net_device *bond_dev)
+-static inline bool netif_xmit_frozen_or_stopped(const struct netdev_queue *dev_queue)
++static inline bool
++netif_xmit_frozen_or_stopped(const struct netdev_queue *dev_queue)
  {
- 	struct bonding *bond = netdev_priv(bond_dev);
- 
--	bond_xmit_slave_id(bond, skb, bond_xmit_hash(bond, skb, bond->slave_cnt));
-+	bond_xmit_slave_id(bond, skb, bond_xmit_hash(bond, skb) % bond->slave_cnt);
- 
- 	return NETDEV_TX_OK;
+ 	return dev_queue->state & QUEUE_STATE_ANY_XOFF_OR_FROZEN;
  }
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index b8bdd0acc8f3..c0948ca26389 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -499,7 +499,7 @@ int bond_sysfs_slave_add(struct slave *slave);
- void bond_sysfs_slave_del(struct slave *slave);
- int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev);
- int bond_release(struct net_device *bond_dev, struct net_device *slave_dev);
--int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb, int count);
-+u32 bond_xmit_hash(struct bonding *bond, struct sk_buff *skb);
- void bond_select_active_slave(struct bonding *bond);
- void bond_change_active_slave(struct bonding *bond, struct slave *new_active);
- void bond_create_debugfs(void);
+ 
++static inline bool
++netif_xmit_frozen_or_drv_stopped(const struct netdev_queue *dev_queue)
++{
++	return dev_queue->state & QUEUE_STATE_DRV_XOFF_OR_FROZEN;
++}
++
+ static inline void netdev_tx_sent_queue(struct netdev_queue *dev_queue,
+ 					unsigned int bytes)
+ {
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index c81a971..72e0c71 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -261,7 +261,7 @@ static int packet_direct_xmit(struct sk_buff *skb)
+ 	local_bh_disable();
+ 
+ 	HARD_TX_LOCK(dev, txq, smp_processor_id());
+-	if (!netif_xmit_frozen_or_stopped(txq)) {
++	if (!netif_xmit_frozen_or_drv_stopped(txq)) {
+ 		ret = ops->ndo_start_xmit(skb, dev);
+ 		if (ret == NETDEV_TX_OK)
+ 			txq_trans_update(txq);
 -- 
-1.9.1.423.g4596e3a
+1.7.11.7
