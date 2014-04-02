@@ -1,86 +1,64 @@
-From: poma <pomidorabelisima-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: 3.15 & Bonding
-Date: Wed, 02 Apr 2014 16:46:30 +0200
-Message-ID: <533C22C6.1090101@gmail.com>
-References: <533BE2F8.5040903@gmail.com>
-	<1396435596.3989.21.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexandre Courbot <gnurou@gmail.com>
+Subject: Re: [PATCHv3 0/5] net: rfkill: gpio: cleanup and a few new acpi ids
+Date: Wed, 2 Apr 2014 18:36:06 +0900
+Message-ID: <CAAVeFuLXQ99gMW6Kmr4fj2FhccsKUEajBWLn8v33LB_LbGjgqw@mail.gmail.com>
+References: <1396360976-28657-1-git-send-email-heikki.krogerus@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Veaceslav Falico <vfalico-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Mailing-List fedora-kernel <kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>,
-	Josh Boyer <jwboyer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Tom Gundersen <teg-B22kvLQNl6c@public.gmane.org>,
-	Thomas Davis <tadavis-/3juihCSby0@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-media <linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
-In-Reply-To: <1396435596.3989.21.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-List-Unsubscribe: <https://admin.fedoraproject.org/mailman/options/kernel>,
-	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.fedoraproject.org/pipermail/kernel/>
-List-Post: <mailto:kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
-List-Help: <mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=help>
-List-Subscribe: <https://admin.fedoraproject.org/mailman/listinfo/kernel>,
-	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=subscribe>
-Sender: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
-Errors-To: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Chen-Yu Tsai <wens@csie.org>,
+	Rhyland Klein <rklein@nvidia.com>,
+	Marc Dietrich <marvin24@gmx.de>,
+	Stephen Warren <swarren@wwwdotorg.org>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Arnd Bergmann <arnd@arndb.de>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-tegra@vger.kernel.org" <linux-tegra@vger.kernel.org>
+To: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:34638 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752978AbaDBJg1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 05:36:27 -0400
+In-Reply-To: <1396360976-28657-1-git-send-email-heikki.krogerus@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDIuMDQuMjAxNCAxMjo0NiwgRXJpYyBEdW1hemV0IHdyb3RlOgo+IE9uIFdlZCwgMjAxNC0w
-NC0wMiBhdCAxMjoxNCArMDIwMCwgcG9tYSB3cm90ZToKPj4gQXJlIHlvdSBhbGwgYWxsIHJpZ2h0
-Pwo+PiBOZXcgVG91ciBkZSBCdWdzLi4uCj4+Cj4+IC9zeXMvZGV2aWNlcy92aXJ0dWFsL25ldC9i
-b25kMC9ib25kaW5nL21vZGU6Cj4+IGFjdGl2ZS1iYWNrdXAgMQo+Pgo+PiAtIHN5c3RlbWQtbmV0
-d29ya2QKPj4gZG1lc2c6Cj4+IEJVRzogc2xlZXBpbmcgZnVuY3Rpb24gY2FsbGVkIGZyb20gaW52
-YWxpZCBjb250ZXh0IGF0IG1tL3NsdWIuYzo5NjUKPj4gaW5fYXRvbWljKCk6IDEsIGlycXNfZGlz
-YWJsZWQoKTogMCwgcGlkOiA1OTMsIG5hbWU6IHN5c3RlbWQtbmV0d29yawo+PiAyIGxvY2tzIGhl
-bGQgYnkgc3lzdGVtZC1uZXR3b3JrLzU5MzoKPj4gICMwOiAgKHJ0bmxfbXV0ZXgpeysuKy4rLn0s
-IGF0OiBbPGZmZmZmZmZmODE2OWU1N2I+XSBydG5ldGxpbmtfcmN2KzB4MWIvMHg0MAo+PiAgIzE6
-ICAoJmJvbmQtPmN1cnJfc2xhdmVfbG9jayl7Ky4uLisufSwgYXQ6IFs8ZmZmZmZmZmZhMDQ4NzI5
-MT5dCj4+IGJvbmRfZW5zbGF2ZSsweGYzMS8weGY1MCBbYm9uZGluZ10KPj4gQ1BVOiAyIFBJRDog
-NTkzIENvbW06IHN5c3RlbWQtbmV0d29yayBOb3QgdGFpbnRlZAo+PiAzLjE1LjAtMC5yYzAuZ2l0
-Mi4xLmZjMjEueDg2XzY0ICMxCj4+IENhbGwgVHJhY2U6Cj4+IGR1bXBfc3RhY2srMHg0ZC8weDY2
-Cj4+IF9fbWlnaHRfc2xlZXArMHgxN2UvMHgyMzAKPj4ga21lbV9jYWNoZV9hbGxvY19ub2RlKzB4
-NGEvMHgzOTAKPj4gIFs8ZmZmZmZmZmY4MTY3NzlkZD5dIF9fYWxsb2Nfc2tiKzB4NWQvMHgyZDAK
-Pj4gIFs8ZmZmZmZmZmY4MTZhMGJkOD5dIHJ0bXNnX2lmaW5mbysweDQ4LzB4MTEwCj4+ICBbPGZm
-ZmZmZmZmODEwZmExOGQ+XSA/IHRyYWNlX2hhcmRpcnFzX29uKzB4ZC8weDEwCj4+ICBbPGZmZmZm
-ZmZmODEwOWRkNDU+XSA/IF9fbG9jYWxfYmhfZW5hYmxlX2lwKzB4NzUvMHhlMAo+PiAgWzxmZmZm
-ZmZmZmEwNDg1Y2E3Pl0gYm9uZF9jaGFuZ2VfYWN0aXZlX3NsYXZlKzB4MTk3LzB4NjcwIFtib25k
-aW5nXQo+PiAgWzxmZmZmZmZmZmEwNDg2MjY0Pl0gYm9uZF9zZWxlY3RfYWN0aXZlX3NsYXZlKzB4
-ZTQvMHgxZTAgW2JvbmRpbmddCj4+ICBbPGZmZmZmZmZmYTA0ODcyOWE+XSBib25kX2Vuc2xhdmUr
-MHhmM2EvMHhmNTAgW2JvbmRpbmddCj4+ICBbPGZmZmZmZmZmODE2OWZkZjI+XSBkb19zZXRsaW5r
-KzB4YTAyLzB4YTcwCj4+ICBbPGZmZmZmZmZmODEzZjRmYzY+XSA/IG5sYV9wYXJzZSsweDk2LzB4
-ZTAKPj4gIFs8ZmZmZmZmZmY4MTZhMGRhMT5dIHJ0bmxfc2V0bGluaysweGMxLzB4MTMwCj4+ICBb
-PGZmZmZmZmZmODEwYTE3Mzk+XSA/IG5zX2NhcGFibGUrMHgzOS8weDcwCj4+ICBbPGZmZmZmZmZm
-ODE2OWU2NGI+XSBydG5ldGxpbmtfcmN2X21zZysweGFiLzB4MjcwCj4+ICBbPGZmZmZmZmZmODE2
-OWU1N2I+XSA/IHJ0bmV0bGlua19yY3YrMHgxYi8weDQwCj4+ICBbPGZmZmZmZmZmODE2OWU1N2I+
-XSA/IHJ0bmV0bGlua19yY3YrMHgxYi8weDQwCj4+ICBbPGZmZmZmZmZmODE2OWU1YTA+XSA/IHJ0
-bmV0bGlua19yY3YrMHg0MC8weDQwCj4+ICBbPGZmZmZmZmZmODE2YzNlMjk+XSBuZXRsaW5rX3Jj
-dl9za2IrMHhhOS8weGMwCj4+ICBbPGZmZmZmZmZmODE2OWU1OGE+XSBydG5ldGxpbmtfcmN2KzB4
-MmEvMHg0MAo+PiAgWzxmZmZmZmZmZjgxNmMzNDIwPl0gbmV0bGlua191bmljYXN0KzB4MTAwLzB4
-MWUwCj4+ICBbPGZmZmZmZmZmODE2YzM4NDc+XSBuZXRsaW5rX3NlbmRtc2crMHgzNDcvMHg3NzAK
-Pj4gIFs8ZmZmZmZmZmY4MTY2Yzc4Yz5dIHNvY2tfc2VuZG1zZysweDljLzB4ZTAKPj4gIFs8ZmZm
-ZmZmZmY4MTFkZTIyZj5dID8gbWlnaHRfZmF1bHQrMHg1Zi8weGIwCj4+ICBbPGZmZmZmZmZmODEx
-ZGUyNzg+XSA/IG1pZ2h0X2ZhdWx0KzB4YTgvMHhiMAo+PiAgWzxmZmZmZmZmZjgxMWRlMjJmPl0g
-PyBtaWdodF9mYXVsdCsweDVmLzB4YjAKPj4gIFs8ZmZmZmZmZmY4MTY2Y2QwND5dIFNZU0Nfc2Vu
-ZHRvKzB4MTI0LzB4MWQwCj4+ICBbPGZmZmZmZmZmODEwMjQ4Nzk+XSA/IHNjaGVkX2Nsb2NrKzB4
-OS8weDEwCj4+ICBbPGZmZmZmZmZmODEwZGRiNzU+XSA/IGxvY2FsX2Nsb2NrKzB4MjUvMHgzMAo+
-PiAgWzxmZmZmZmZmZjgxMTFjZmM5Pl0gPyBjdXJyZW50X2tlcm5lbF90aW1lKzB4NjkvMHhkMAo+
-PiAgWzxmZmZmZmZmZjgxMGZhMGI1Pl0gPyB0cmFjZV9oYXJkaXJxc19vbl9jYWxsZXIrMHgxMDUv
-MHgxZDAKPj4gIFs8ZmZmZmZmZmY4MTBmYTE4ZD5dID8gdHJhY2VfaGFyZGlycXNfb24rMHhkLzB4
-MTAKPj4gIFs8ZmZmZmZmZmY4MTY2ZGVkZT5dIFN5U19zZW5kdG8rMHhlLzB4MTAKPj4gIFs8ZmZm
-ZmZmZmY4MTdlNzlhOT5dIHN5c3RlbV9jYWxsX2Zhc3RwYXRoKzB4MTYvMHgxYgo+IAo+IFNob3Vs
-ZCBiZSBmaXhlZCBieQo+IAo+IGNvbW1pdCAwNzIyNTZkMWYyYjhiYTBiYmIyNjVkNTkwYzcwM2Yz
-ZDU3YTM5ZDZhCj4gQXV0aG9yOiBWZWFjZXNsYXYgRmFsaWNvIDx2ZmFsaWNvQHJlZGhhdC5jb20+
-Cj4gRGF0ZTogICBUaHUgTWFyIDYgMTU6MzM6MjIgMjAxNCArMDEwMAo+IAo+ICAgICBib25kaW5n
-OiBtYWtlIHNsYXZlIHN0YXR1cyBub3RpZmljYXRpb25zIEdGUF9BVE9NSUMKPiAgICAgCgpUaGFu
-a3MgZm9yIHBpY2tpbmcgdGhpcyBvbmUhCgpUZXN0ZWQgd2l0aAozLjE1LjAtMC5yYzAuZ2l0My4y
-LmZjMjEueDg2XzY0CmkuZS4KMy4xNS4wLTAucmMwLmdpdDMuMS5mYzIxLng4Nl82NFsxXSAmCmJv
-bmRpbmctbWFrZS1zbGF2ZS1zdGF0dXMtbm90aWZpY2F0aW9ucy1HRlBfQVRPTUlDLnBhdGNoWzJd
-CgpQQVNTRUQhCgoKcG9tYQoKClsxXQpodHRwOi8va29qaS5mZWRvcmFwcm9qZWN0Lm9yZy9rb2pp
-L2J1aWxkaW5mbz9idWlsZElEPTUwODYxNQpbMl0KaHR0cHM6Ly9naXQua2VybmVsLm9yZy9jZ2l0
-L2xpbnV4L2tlcm5lbC9naXQvbmV4dC9saW51eC1uZXh0LmdpdC9jb21taXQvZHJpdmVycy9uZXQv
-Ym9uZGluZz9pZD0wNzIyNTZkMWYyYjhiYTBiYmIyNjVkNTkwYzcwM2YzZDU3YTM5ZDZhCgpfX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwprZXJuZWwgbWFpbGlu
-ZyBsaXN0Cmtlcm5lbEBsaXN0cy5mZWRvcmFwcm9qZWN0Lm9yZwpodHRwczovL2FkbWluLmZlZG9y
-YXByb2plY3Qub3JnL21haWxtYW4vbGlzdGluZm8va2VybmVs
+Negative number of added lines, temporary string buffers removal, and
+use of the gpiod interface: lots of stuff to like here!
+
+Acked-by: Alexandre Courbot <acourbot@nvidia.com>
+
+On Tue, Apr 1, 2014 at 11:02 PM, Heikki Krogerus
+<heikki.krogerus@linux.intel.com> wrote:
+> Hi,
+>
+> I hope this one is OK with everyone.
+>
+> Changes since v2:
+> - Instead of changing the driver to use only indexed gpios, just
+>   hard-coding the names.
+>
+> Changes since v1:
+> - Removed the gpio entries from arch/arm/mach-tegra/board-paz00.c
+>
+>
+> Heikki Krogerus (5):
+>   ARM: tegra: remove obsolete gpio entries
+>   net: rfkill: gpio: remove unused and obsolete platform parameters
+>   net: rfkill: gpio: add ACPI ID for GPS module on Lenovo Miix2
+>   net: rfkill: gpio: add ACPI IDs for a Broadcom bluetooth chip
+>   net: rfkill: gpio: hard-code the gpio names
+>
+>  arch/arm/mach-tegra/board-paz00.c |  4 +---
+>  include/linux/rfkill-gpio.h       | 10 ----------
+>  net/rfkill/rfkill-gpio.c          | 40 +++++++++------------------------------
+>  3 files changed, 10 insertions(+), 44 deletions(-)
+>
+> --
+> 1.9.1
+>
