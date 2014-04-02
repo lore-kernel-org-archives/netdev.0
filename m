@@ -1,125 +1,124 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: [PATCH] net/mlx4_core: match pci_device_id including dynids
-Date: Wed, 2 Apr 2014 12:28:46 -0600
-Message-ID: <CAErSpo4yj+31puKhnxJ9Dns4c-1cWoUxxQt+OTDQDCGuuksOAw@mail.gmail.com>
-References: <1396326961-20395-1-git-send-email-weiyang@linux.vnet.ibm.com>
+From: Alexander Holler <holler@ahsoftware.de>
+Subject: Re: [PATCH regression] net: phy: fix initialization (config_init)
+ for Marvel 88E1116R PHYs
+Date: Wed, 02 Apr 2014 11:09:33 +0200
+Message-ID: <533BD3CD.1010905@ahsoftware.de>
+References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de> <CAGVrzcZd9tBtcTY_2PRHVb9kJAjVHqn+EubUy4NGL66M_UuCDg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, yevgenyp@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Wei Yang <weiyang@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:38276 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932737AbaDBS3H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 14:29:07 -0400
-Received: by mail-ie0-f169.google.com with SMTP id to1so657474ieb.28
-        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 11:29:07 -0700 (PDT)
-In-Reply-To: <1396326961-20395-1-git-send-email-weiyang@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Michal Simek <michal.simek@xilinx.com>,
+	stable <stable@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <CAGVrzcZd9tBtcTY_2PRHVb9kJAjVHqn+EubUy4NGL66M_UuCDg@mail.gmail.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 31, 2014 at 10:36 PM, Wei Yang <weiyang@linux.vnet.ibm.com> wrote:
-> Fix issue introduced by commit: 97a5221 "net/mlx4_core: pass
-> pci_device_id.driver_data to __mlx4_init_one during reset".
+Am 02.04.2014 02:57, schrieb Florian Fainelli:
+> 2014-04-01 16:55 GMT-07:00 Alexander Holler <holler@ahsoftware.de>:
+>> Commit 7cd1463664c2a15721ff4ccfb61d4d970815cb3d (introduced with 3.14)
+>> changed the initialization of the mv643xx_eth driver to use phy_init_hw()
+>> to reset the PHY. Unfortunately the initialization for the 88E1116R PHY
+>> was broken such, that it used mdelay() instead of really waiting for a
+>> reset to finish.
 >
-> pci_match_id() just match the static pci_device_id, which may return NULL if
-> someone binds the driver to a device manually using
-> /sys/bus/pci/drivers/.../new_id.
+> So the only big difference before
+> 7cd1463664c2a15721ff4ccfb61d4d970815cb3d ("net: mv643xx_eth: use
+> phy_init_hw to reset PHY") is that we waited potentially forever for
+> the BMCR_RESET bit to get cleared, while now, we only wait for up to
+> 500 milliseconds.
 >
-> This patch match pci_device_id with pci_match_device() to cover both dynids
-> and static id_table.
+> Could you verify the following two things before your patch gets merged:
 >
-> Thanks to Bjorn finding this issue.
+> - how long does it take for your PHY to clear the BMCR_RESET bit, is
+> it more than the allowed time out in
+> drivers/net/phy/phy_device.c::phy_poll_reset
+> - is your PHY powered down (check BMCR_PWRDOWN), if that is the case,
+> we might be hitting some corner case where toggling BMCR_RESET will
+> power it on, but at the expense of waiting longer
 
-I didn't actually find it; I just passed along an issue found by
-Coverity.  I usually include "Found by Coverity (CID 1194947)" in the
-changelog in case anybody is trying to manage those issues.
+I've  done two tests with pr_info before and after the two resets in 
+m88e1116r_config_init:
 
-> CC: Bjorn Helgaas <bhelgaas@google.com>
-> CC: Amir Vadai <amirv@mellanox.com>
-> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
-> Acked-by: Amir Vadai <amirv@mellanox.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/main.c |    4 +++-
->  drivers/pci/pci-driver.c                  |    3 ++-
->  include/linux/pci.h                       |    2 ++
->  3 files changed, 7 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-> index aa54ef7..b0edb5c 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-> @@ -2673,7 +2673,9 @@ static pci_ers_result_t mlx4_pci_slot_reset(struct pci_dev *pdev)
->         const struct pci_device_id *id;
->         int ret;
->
-> -       id = pci_match_id(mlx4_pci_table, pdev);
-> +       id = pci_match_device(pci_dev_driver(pdev), pdev);
-> +       BUG_ON(!id);
+with my patch:
+-----------------------
+dmesg | grep -A1 -B1  AHO
+[    1.090099] mv643xx_eth: MV-643xx 10/100/1000 ethernet driver version 1.4
+[    1.175916] AHO: before first reset
+[    1.179613] AHO: after first reset
+[    1.183743] AHO: before second reset
+[    1.187530] AHO: after second reset
+[    1.191905] mv643xx_eth_port mv643xx_eth_port.0 eth0: port 0 with MAC 
+address xx
+--
+[    1.426487] netpoll: netconsole: device eth0 not up yet, forcing it
+[    1.505986] AHO: before first reset
+[    1.509725] AHO: after first reset
+[    1.513899] AHO: before second reset
+[    1.517754] AHO: after second reset
+[    1.521802] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+--
+[   21.372591] Adding 2996116k swap on /dev/sda3.  Priority:-1 extents:1 
+across:2996116k
+[   28.305989] AHO: before first reset
+[   28.306200] AHO: after first reset
+[   28.306936] AHO: before second reset
+[   28.307153] AHO: after second reset
+[   31.509973] mv643xx_eth_port mv643xx_eth_port.0 eth0: link up, 1000 
+Mb/s, full duplex, flow control disabled
+-----------------------
 
-This doesn't seem like the best solution to me, because it basically
-duplicates part of __pci_device_probe() in the driver.  And of course,
-I'd rather not export pci_match_device() if we can avoid it (I don't
-have a specific objection; just the general "don't export more than
-necessary" rule, and something with a single user always makes me look
-twice).
 
-I looked at all the .error_detected() methods in the tree, and I think
-mlx4_pci_err_detected() is the only one that actually throws away the
-pci_drvdata().  Most drivers just do pci_disable_device() and some
-other housekeeping.  Can you do something similar?
+with mdelay (the value after reset is what contains MII_BMCR):
 
-The mlx4 approach of completely tearing down and rebuilding the device
-*is* sort of appealing because I'm a little dubious of assuming that
-any driver setup done before the reset is still valid afterwards.  But
-maybe you could at least hang onto the pci_device_id.driver_data
-value?  As far as the PCI core is concerned, it supplied that to the
-.probe() function, and nothing has changed since then, so there's no
-reason for a driver to request it again.
+-----------------------
+dmesg | grep -A1 -B1  AHO
+[    1.090072] mv643xx_eth: MV-643xx 10/100/1000 ethernet driver version 1.4
+[    1.175888] AHO: before first reset
+[    1.678806] AHO: after first reset 0x0
+[    1.683281] AHO: before second reset
+[    2.186288] AHO: after second reset 0x0
+[    2.191010] mv643xx_eth_port mv643xx_eth_port.0 eth0: port 0 with MAC 
+address xx
+--
+[    2.426349] netpoll: netconsole: device eth0 not up yet, forcing it
+[    2.505917] AHO: before first reset
+[    2.605824] usb 1-1: new high-speed USB device number 2 using orion-ehci
+--
+[    2.829987] hub 1-1:1.0: 4 ports detected
+[    3.044502] AHO: after first reset 0x0
+[    3.049133] AHO: before second reset
+[    3.126110] usb 1-1.1: new high-speed USB device number 3 using 
+orion-ehci
+--
+[    3.526107] usb 1-1.3: device descriptor read/64, error -32
+[    3.614264] AHO: after second reset 0x0
+[    3.618708] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+--
+[   21.335730] Adding 2996116k swap on /dev/sda3.  Priority:-1 extents:1 
+across:2996116k
+[   28.195942] AHO: before first reset
+[   28.696270] AHO: after first reset 0x800
+[   28.696958] AHO: before second reset
+[   29.197354] AHO: after second reset 0x800
+[  111.612263] RPC: Registered named UNIX socket transport module.
+-----------------------
 
-Bjorn
+So we see, the first reset in the last call of m88e1116r_config_init() 
+fails to complete in 500ms and the phy seems to be stuck afterwards, 
+but, for whatever reason, it doesn't need 500ms if mdelay isn't used (if 
+we can trust the timestamps).
 
->         ret = __mlx4_init_one(pdev, id->driver_data);
->
->         return ret ? PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_RECOVERED;
-> diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
-> index 25f0bc6..1ee26a1 100644
-> --- a/drivers/pci/pci-driver.c
-> +++ b/drivers/pci/pci-driver.c
-> @@ -225,7 +225,7 @@ const struct pci_device_id *pci_match_id(const struct pci_device_id *ids,
->   * system is in its list of supported devices.  Returns the matching
->   * pci_device_id structure or %NULL if there is no match.
->   */
-> -static const struct pci_device_id *pci_match_device(struct pci_driver *drv,
-> +const struct pci_device_id *pci_match_device(struct pci_driver *drv,
->                                                     struct pci_dev *dev)
->  {
->         struct pci_dynid *dynid;
-> @@ -1355,6 +1355,7 @@ postcore_initcall(pci_driver_init);
->
->  EXPORT_SYMBOL_GPL(pci_add_dynid);
->  EXPORT_SYMBOL(pci_match_id);
-> +EXPORT_SYMBOL(pci_match_device);
->  EXPORT_SYMBOL(__pci_register_driver);
->  EXPORT_SYMBOL(pci_unregister_driver);
->  EXPORT_SYMBOL(pci_dev_driver);
-> diff --git a/include/linux/pci.h b/include/linux/pci.h
-> index 44f6883..8ede1b5 100644
-> --- a/include/linux/pci.h
-> +++ b/include/linux/pci.h
-> @@ -1134,6 +1134,8 @@ int pci_add_dynid(struct pci_driver *drv,
->                   unsigned long driver_data);
->  const struct pci_device_id *pci_match_id(const struct pci_device_id *ids,
->                                          struct pci_dev *dev);
-> +const struct pci_device_id *pci_match_device(struct pci_driver *drv,
-> +                                                   struct pci_dev *dev);
->  int pci_scan_bridge(struct pci_bus *bus, struct pci_dev *dev, int max,
->                     int pass);
->
-> --
-> 1.7.9.5
->
+(You can also see, I have netconsole enabled using netconsole=... in the 
+kernel cmdline).
+
+That behaviour is reproducible. The first reset in the last call to
+m88e1116r_config_init() always fails if mdelay is used.
+
+Regards,
+
+Alexander Holler
