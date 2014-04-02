@@ -1,87 +1,67 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 1/1] sxgbe: use common NET_VENDOR_FOO style.
-Date: Thu, 3 Apr 2014 01:13:03 +0200
-Message-ID: <20140402231303.GB5013@electric-eye.fr.zoreil.com>
-References: <19617.1396041625@turing-police.cc.vt.edu>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next 4/4] igb: fix last_rx_timestamp usage
+Date: Tue, 01 Apr 2014 18:46:06 -0700
+Message-ID: <1396403166.2230.5.camel@jtkirshe-mobl>
+References: <1396399939-18420-1-git-send-email-kubakici@wp.pl>
+	 <1396399939-18420-5-git-send-email-kubakici@wp.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Siva Reddy Kallam <siva.kallam@samsung.com>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-39G9E5rS92KRLWRyGu9y"
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	Matthew Vick <matthew.vick@intel.com>
+To: Jakub Kicinski <kubakici@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:44338 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933473AbaDBXNU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 19:13:20 -0400
-Content-Disposition: inline
-In-Reply-To: <19617.1396041625@turing-police.cc.vt.edu>
+Received: from mga01.intel.com ([192.55.52.88]:35735 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754466AbaDBBqN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Apr 2014 21:46:13 -0400
+In-Reply-To: <1396399939-18420-5-git-send-email-kubakici@wp.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
 
- Valdis, is it what you had in mind ?
+--=-39G9E5rS92KRLWRyGu9y
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
- drivers/net/ethernet/samsung/Kconfig       | 24 ++++++++++++++++++++----
- drivers/net/ethernet/samsung/sxgbe/Kconfig |  9 ---------
- 2 files changed, 20 insertions(+), 13 deletions(-)
- delete mode 100644 drivers/net/ethernet/samsung/sxgbe/Kconfig
+On Wed, 2014-04-02 at 02:52 +0200, Jakub Kicinski wrote:
+> last_rx_timestamp should be updated only when rx time stamp is
+> read. Also it's only used with NICs that have per-interface time
+> stamping resources so it can be moved to adapter structure and
+> set in igb_ptp_rx_rgtstamp().
+>=20
+> Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
+> ---
+> NOTE: Compile tested only!
+> ---
+>  drivers/net/ethernet/intel/igb/igb.h      | 16 +---------------
+>  drivers/net/ethernet/intel/igb/igb_main.c |  4 +++-
+>  drivers/net/ethernet/intel/igb/igb_ptp.c  | 14 +++++++-------
+>  3 files changed, 11 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/samsung/Kconfig b/drivers/net/ethernet/samsung/Kconfig
-index 7902341..2360d81 100644
---- a/drivers/net/ethernet/samsung/Kconfig
-+++ b/drivers/net/ethernet/samsung/Kconfig
-@@ -3,14 +3,30 @@
- #
- 
- config NET_VENDOR_SAMSUNG
--	bool "Samsung Ethernet device"
-+	bool "Samsung Ethernet devices"
- 	default y
- 	---help---
--	  This is the driver for the SXGBE 10G Ethernet IP block found on Samsung
--	  platforms.
-+	  If you have a network (Ethernet) chipset belonging to this class,
-+	  say Y.
-+
-+	  Note that the answer to this question does not directly affect
-+	  the kernel: saying N will just case the configurator to skip all
-+	  the questions about Samsung chipsets. If you say Y, you will be asked
-+	  for your specific chipset/driver in the following questions.
- 
- if NET_VENDOR_SAMSUNG
- 
--source "drivers/net/ethernet/samsung/sxgbe/Kconfig"
-+config SXGBE_ETH
-+	tristate "Samsung 10G/2.5G/1G SXGBE Ethernet driver"
-+	depends on HAS_IOMEM && HAS_DMA
-+	select PHYLIB
-+	select CRC32
-+	select PTP_1588_CLOCK
-+	---help---
-+	  This is the driver for the SXGBE 10G Ethernet IP block found on
-+	  Samsung platforms.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called samsung-sxgbe.
- 
- endif # NET_VENDOR_SAMSUNG
-diff --git a/drivers/net/ethernet/samsung/sxgbe/Kconfig b/drivers/net/ethernet/samsung/sxgbe/Kconfig
-deleted file mode 100644
-index d79288c..0000000
---- a/drivers/net/ethernet/samsung/sxgbe/Kconfig
-+++ /dev/null
-@@ -1,9 +0,0 @@
--config SXGBE_ETH
--	tristate "Samsung 10G/2.5G/1G SXGBE Ethernet driver"
--	depends on HAS_IOMEM && HAS_DMA
--	select PHYLIB
--	select CRC32
--	select PTP_1588_CLOCK
--	---help---
--	  This is the driver for the SXGBE 10G Ethernet IP block found on Samsung
--	  platforms.
--- 
-1.9.0
+Added to my queue, thanks!
+
+--=-39G9E5rS92KRLWRyGu9y
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAABCgAGBQJTO2veAAoJEOVv75VaS+3OZDoQAKJJjGZHuEaNK9rOY2G0Jw64
+hw+4ZplJAlipnUQ8ScjusdqjV4hb09SEjHhOk2GvL6y23iHq8zARdQwt+yof2dYs
+PxGfRO6N3hc/ltNk4JnJeoKvmWApFIsyATBWnk2XrhLwd0FM1FE2CraEtYM+Q5UM
+B0CvZrv+mSDRPdzS2M8DC4K+gnKe3DS0TRQY5Yns1XAibdjf0zCeT0OPDeHwiNTB
+ZcUAHZfjSI7Mf/55rYQYtVQ3TjBxPhTphow3IRVYpwufpCHTcfsUV1FuFtCHK1cR
+JlljjOo/E23KagV4xyjmq2EGMXIIHugIlFH1mFdRThK+pxoPnSWIxzFn8xRZxx48
+/vVimlvud9vTOsuhUQyR2I3MFJFuLbYsmoZBkn90E1G4Rtji1qo5qeDoHGhSxWYp
+sHV0y3/d3OZz0eu8fpm19oa2XLxDKfRePGi24fIebMUF18Nv1/ByHgS+XihZr6Rl
+eK7BvoZ/HyL+3gaaJkMZOfJlFAZagsV5iZv6XZtUoaE9MBV6rDJNww79cG1jW3Z6
+C2iSV/Y42mPnFYi/JNpBDJpLb3OhlevTzW3sXxUQOXEqIqyo5rVqoiXgJqHg0qEx
+owzofmB0NAX7HZeU+dvtC3rA27RkOtbs4qyDx63BEYKNLYMLVjRmm1ppPHtczmwq
+PMrGClHggdBomEUMzXI1
+=GBZW
+-----END PGP SIGNATURE-----
+
+--=-39G9E5rS92KRLWRyGu9y--
