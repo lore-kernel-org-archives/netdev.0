@@ -1,43 +1,49 @@
-From: mihailov ivan <mihailov.iaa@gmail.com>
-Subject: [PATCH] add missing support of 10mbit in emac/rgmii
-Date: Wed, 2 Apr 2014 21:41:50 +0400
-Message-ID: <CA+Z7AcYQSwYj7SGWnFSrsN_LMM=R6yJbiosiSQRJ3Eq39U3Xmw@mail.gmail.com>
+From: =?ISO-8859-1?Q?Ortwin_Gl=FCck?= <odi@odi.ch>
+Subject: 3.14 regression: huge latency in read/select on tun
+Date: Wed, 02 Apr 2014 18:17:34 +0200
+Message-ID: <533C381E.9090103@odi.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:41301 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932598AbaDBRlw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 13:41:52 -0400
-Received: by mail-wg0-f46.google.com with SMTP id b13so620395wgh.5
-        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 10:41:51 -0700 (PDT)
+Received: from fep14.mx.upcmail.net ([62.179.121.34]:39580 "EHLO
+	fep14.mx.upcmail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758808AbaDBQSw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 12:18:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In chips of emac/rgmii b'000' for 0/1 channel isn't suitable which
-resulted in non working network interface in this mode.
+Hi,
 
-Signed-off-by: Ivan Mikhaylov <mihailov.iaa@gmail.com>
+Since 3.14 the openconnect VPN tunnel becomes unusable for me because
+packets appear on the tun device at a horribly low rate. 3.12 and 3.13
+do not exhibt the problem.
 
---- a/drivers/net/ethernet/ibm/
-emac/rgmii.c    2014-03-31
-07:40:15.000000000 +0400
-+++ b/drivers/net/ethernet/ibm/emac/rgmii.c    2014-04-02
-19:52:12.957559554 +0400
-@@ -45,6 +45,7 @@
+Here is an strace of openconnect trying to read from its fd
+  7 -> /dev/net/tun
 
- /* RGMIIx_SSR */
- #define RGMII_SSR_MASK(idx)    (0x7 << ((idx) * 8))
-+#define RGMII_SSR_10(idx)    (0x1 << ((idx) * 8))
- #define RGMII_SSR_100(idx)    (0x2 << ((idx) * 8))
- #define RGMII_SSR_1000(idx)    (0x4 << ((idx) * 8))
+15:07:33.130640 read(7, 0x1e05e58, 1280) = -1 EAGAIN (Resource
+temporarily unavailable)
+===> should return available data already
+15:07:33.130745 select(8, [3 6 7], [], [6], {30, 0}) = 1 (in [7], left
+{29, 783272})
+===> HUGE 217ms delay here
+15:07:33.347681 read(6, 0x1dfc973, 5)   = -1 EAGAIN (Resource
+temporarily unavailable)
+15:07:33.347806 read(7,
+"E\10\5\0b\343@\0@\6\17~\n\363X\236\n\271UE\222:\0\26\37O\7\342\315\21q\33"...,
+1280) = 1280
 
-@@ -139,6 +140,8 @@
-         ssr |= RGMII_SSR_1000(input);
-     else if (speed == SPEED_100)
-         ssr |= RGMII_SSR_100(input);
-+    else if (speed == SPEED_10)
-+        ssr |= RGMII_SSR_10(input);
 
-     out_be32(&p->ssr, ssr);
+The send queue of the socket being routed via the tun device has a lot
+of outstanding data (here an scp/ssh upload):
+tcp        0  29788 local:46577  remote:22   ESTABLISHED
+
+(IPs replaced for privacy)
+
+toggling TCP autocorking has no influence.
+
+Any ideas what could be the culprit?
+
+Ortwin
