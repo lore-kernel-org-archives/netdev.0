@@ -1,97 +1,77 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH 2/2] packet: fix packet_direct_xmit for BQL enabled drivers
-Date: Wed,  2 Apr 2014 20:52:57 +0200
-Message-ID: <1396464777-18375-3-git-send-email-dborkman@redhat.com>
-References: <1396464777-18375-1-git-send-email-dborkman@redhat.com>
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>
-To: davem@davemloft.net
+From: David Decotigny <decot@googlers.com>
+Subject: [PATCH iproute2 v1] iproute2: show counter of carrier on<->off transitions
+Date: Wed,  2 Apr 2014 09:19:00 -0700
+Message-ID: <6c78808eaf4b31f98c9de9bef6f29397c67cf09e.1396455409.git.decot@googlers.com>
+References: <cover.1396455409.git.decot@googlers.com>
+Cc: David Decotigny <decot@googlers.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63054 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932827AbaDBSxK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Apr 2014 14:53:10 -0400
-In-Reply-To: <1396464777-18375-1-git-send-email-dborkman@redhat.com>
+Received: from mail-pd0-f201.google.com ([209.85.192.201]:43500 "EHLO
+	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932348AbaDBQ0h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 12:26:37 -0400
+Received: by mail-pd0-f201.google.com with SMTP id x10so69404pdj.0
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 09:26:36 -0700 (PDT)
+In-Reply-To: <cover.1396455409.git.decot@googlers.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, in packet_direct_xmit() we test the assigned netdevice queue
-for netif_xmit_frozen_or_stopped() before doing an ndo_start_xmit().
+This patch allows to display the current counter of carrier on<->off
+transitions (IFLA_CARRIER_CHANGES, see kernel commit "expose number of
+carrier on/off changes"):
 
-This can have the side-effect that BQL enabled drivers which make use
-of netdev_tx_sent_queue() internally, set __QUEUE_STATE_STACK_XOFF from
-within the stack and would not fully fill the device's TX ring from
-packet sockets with PACKET_QDISC_BYPASS enabled.
+  ip -s -s link show dev eth0
+  ...
+  2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 etc.
+    link/ether ............ brd ff:ff:ff:ff:ff:ff
+    RX: bytes  packets  errors  dropped overrun mcast
+    134705     758      0       0       0       0
+    RX errors: length  crc     frame   fifo    missed
+               0        0       0       0       0
+    TX: bytes  packets  errors  dropped carrier collsns
+    77374      731      0       0       0       0
+    TX errors: aborted fifo    window  heartbeat
+               0        0       0       0
+    link: carrier_changes 4
 
-Instead, use a test without BQL bit so that bursts can be absorbed
-into the NICs TX ring. Fix and code suggested by Eric Dumazet, thanks!
+Tested:
+  - kernel with patch "net-sysfs: expose number of carrier on/off
+    changes": see above
+  - kernel wthout the patch: line "link:" not displayed (as expected)
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- include/linux/netdevice.h | 24 +++++++++++++++++++-----
- net/packet/af_packet.c    |  2 +-
- 2 files changed, 20 insertions(+), 6 deletions(-)
+ include/linux/if_link.h | 1 +
+ ip/ipaddress.c          | 5 +++++
+ 2 files changed, 6 insertions(+)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 775cc95..7ed3a3a 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -519,11 +519,18 @@ enum netdev_queue_state_t {
- 	__QUEUE_STATE_DRV_XOFF,
- 	__QUEUE_STATE_STACK_XOFF,
- 	__QUEUE_STATE_FROZEN,
--#define QUEUE_STATE_ANY_XOFF ((1 << __QUEUE_STATE_DRV_XOFF)		| \
--			      (1 << __QUEUE_STATE_STACK_XOFF))
--#define QUEUE_STATE_ANY_XOFF_OR_FROZEN (QUEUE_STATE_ANY_XOFF		| \
--					(1 << __QUEUE_STATE_FROZEN))
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index f08505c..84fca1e 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -144,6 +144,7 @@ enum {
+ 	IFLA_NUM_RX_QUEUES,
+ 	IFLA_CARRIER,
+ 	IFLA_PHYS_PORT_ID,
++	IFLA_CARRIER_CHANGES,
+ 	__IFLA_MAX
  };
-+
-+#define QUEUE_STATE_DRV_XOFF	(1 << __QUEUE_STATE_DRV_XOFF)
-+#define QUEUE_STATE_STACK_XOFF	(1 << __QUEUE_STATE_STACK_XOFF)
-+#define QUEUE_STATE_FROZEN	(1 << __QUEUE_STATE_FROZEN)
-+
-+#define QUEUE_STATE_ANY_XOFF	(QUEUE_STATE_DRV_XOFF | QUEUE_STATE_STACK_XOFF)
-+#define QUEUE_STATE_ANY_XOFF_OR_FROZEN (QUEUE_STATE_ANY_XOFF | \
-+					QUEUE_STATE_FROZEN)
-+#define QUEUE_STATE_DRV_XOFF_OR_FROZEN (QUEUE_STATE_DRV_XOFF | \
-+					QUEUE_STATE_FROZEN)
-+
- /*
-  * __QUEUE_STATE_DRV_XOFF is used by drivers to stop the transmit queue.  The
-  * netif_tx_* functions below are used to manipulate this flag.  The
-@@ -2252,11 +2259,18 @@ static inline bool netif_xmit_stopped(const struct netdev_queue *dev_queue)
- 	return dev_queue->state & QUEUE_STATE_ANY_XOFF;
- }
  
--static inline bool netif_xmit_frozen_or_stopped(const struct netdev_queue *dev_queue)
-+static inline bool
-+netif_xmit_frozen_or_stopped(const struct netdev_queue *dev_queue)
- {
- 	return dev_queue->state & QUEUE_STATE_ANY_XOFF_OR_FROZEN;
- }
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 14d1720..78b80ee 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -527,6 +527,11 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 			print_link_stats(fp, RTA_DATA(tb[IFLA_STATS]));
+ 	}
  
-+static inline bool
-+netif_xmit_frozen_or_drv_stopped(const struct netdev_queue *dev_queue)
-+{
-+	return dev_queue->state & QUEUE_STATE_DRV_XOFF_OR_FROZEN;
-+}
++	if (do_link && (show_stats > 1) && tb[IFLA_CARRIER_CHANGES]) {
++		fprintf(fp, "%s    link: carrier_changes %u", _SL_,
++			*(int*)RTA_DATA(tb[IFLA_CARRIER_CHANGES]));
++	}
 +
- static inline void netdev_tx_sent_queue(struct netdev_queue *dev_queue,
- 					unsigned int bytes)
- {
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index c81a971..72e0c71 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -261,7 +261,7 @@ static int packet_direct_xmit(struct sk_buff *skb)
- 	local_bh_disable();
- 
- 	HARD_TX_LOCK(dev, txq, smp_processor_id());
--	if (!netif_xmit_frozen_or_stopped(txq)) {
-+	if (!netif_xmit_frozen_or_drv_stopped(txq)) {
- 		ret = ops->ndo_start_xmit(skb, dev);
- 		if (ret == NETDEV_TX_OK)
- 			txq_trans_update(txq);
+ 	if (do_link && tb[IFLA_VFINFO_LIST] && tb[IFLA_NUM_VF]) {
+ 		struct rtattr *i, *vflist = tb[IFLA_VFINFO_LIST];
+ 		int rem = RTA_PAYLOAD(vflist);
 -- 
-1.7.11.7
+1.9.1.423.g4596e3a
