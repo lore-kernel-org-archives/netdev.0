@@ -1,78 +1,43 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: RE: [patch 1/3] net: sxgbe: sxgbe_mdio_register() frees the bus
-Date: Tue, 01 Apr 2014 23:55:51 -0700
-Message-ID: <000301cf4e40$97f14a40$c7d3dec0$@samsung.com>
-References: <20140401133844.GA11536@mwanda>
- <20140401.162322.2243641448457002118.davem@davemloft.net>
+From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Subject: RE: [PATCH v5 net-next 0/2] patchset: Support for configurable RSS
+ hash key
+Date: Wed, 2 Apr 2014 11:14:20 +0000
+Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C8A2EF3@CMEXMB1.ad.emulex.com>
+References: <1395970770.2898.54.camel@deadeye.wl.decadent.org.uk>
+	<20140328.171253.1863144825039621848.davem@davemloft.net>
+	<BF3270C86E8B1349A26C34E4EC1C44CB2C8A255E@CMEXMB1.ad.emulex.com>
+ <20140401.122016.1850526829984133014.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ks.giri@samsung.com, siva.kallam@samsung.com,
-	vipul.pandya@samsung.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: 'David Miller' <davem@davemloft.net>, dan.carpenter@oracle.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-reply-to: <20140401.162322.2243641448457002118.davem@davemloft.net>
-Content-language: en-us
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:25791 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758484AbaDBLOW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 07:14:22 -0400
+In-Reply-To: <20140401.122016.1850526829984133014.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> :
-> From: Dan Carpenter <dan.carpenter@oracle.com>
-> Date: Tue, 1 Apr 2014 16:38:44 +0300
-> 
-> > @@ -219,13 +219,6 @@ int sxgbe_mdio_register(struct net_device *ndev)
-> >  		}
-> >  	}
+> >> > By grouping the key and hash together, with some reserved fields
+> >> > (which the setter should initially require to be equal to zero), it
+> >> > should be possible to fill in support for numbered RSS contexts
+> >> > later without yet another new structure and operations.
 > >
-> > -	if (!err) {
-> > -		netdev_err(ndev, "PHY not found\n");
-> > -		mdiobus_unregister(mdio_bus);
-> > -		mdiobus_free(mdio_bus);
-> > -		goto mdiobus_err;
-> > -	}
-> > -
-> ...
-> > @@ -93,9 +93,9 @@ static void sxgbe_core_set_umac_addr(void __iomem
-> > *ioaddr, unsigned char *addr,  {
-> >  	u32 high_word, low_word;
 > >
-> > -	high_word = (addr[5] << 8) || (addr[4]);
-> > -	low_word = ((addr[3] << 24) || (addr[2] << 16) ||
-> > -		    (addr[1] << 8) || (addr[0]));
-> > +	high_word = (addr[5] << 8) | (addr[4]);
-> > +	low_word = (addr[3] << 24) | (addr[2] << 16) |
-> > +		   (addr[1] << 8) | (addr[0]);
-> >  	writel(high_word, ioaddr + SXGBE_CORE_ADD_HIGHOFFSET(reg_n));
-> >  	writel(low_word, ioaddr + SXGBE_CORE_ADD_LOWOFFSET(reg_n));  }
+> >> If that is the case, why don't we add from the start a "u32 rss_context;"
+> >> field that has to be set to zero for now?
+> >
+> > The current structure has got three u32 reserved fields already. We could use
+> one of them when the support is added.
 > 
-> Nothing says "DRIVER NOT TESTED" like these two bugs.
-> 
-> The MDIO bus is always freed, and the MAC address is corrupted into a
-> boolean value before being programmed into the hardware.
-> 
-> Frankly, this kind of stuff is unacceptable.
-> 
-> I cannot see how this driver can function successfully with these two
-errors, it
-> looks simply impossible.
-> 
-> I'm not going to hide my feelings, this was a truly terrible driver
-submission.
-> The amount of reviewing resources consumed during all of these iterations
-was
-> huge, and it still went in with bugs like this.
-> 
-> It probably should have gone into staging.
+> Just do as I said, naming one of those to "rss_context" now, and require that it
+> be zero.
 
-Oops, my apologies. mdio err path and logical and bitwise for mac address are
-my mistake I didn't tested carefully (maybe tested with previous version)
-because I couldn't much time to test it due to facing merge window. sorry
-about that...
+David, I see that net-next will not be opened for new feature patches for some time. Please let me know if I can submit "v6" version of this patch now or wait till net-next opens back up. Thanks.
 
-For logical and bitwise OR for mac address, actually I couldn't catch since
-"eth_hw_addr_random" is used.. however it is also mistake.
-
-I apology again.
-
-
+Venkat.
