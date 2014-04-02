@@ -1,152 +1,68 @@
-From: Philipp Zabel <p.zabel@pengutronix.de>
-Subject: [PATCH v2] net: Micrel KSZ8864RMN 4-port managed switch support
-Date: Thu,  3 Apr 2014 11:28:10 +0200
-Message-ID: <1396517290-4123-1-git-send-email-p.zabel@pengutronix.de>
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Frederic LAMBERT <frdrc66@gmail.com>, kernel@pengutronix.de,
-	Philipp Zabel <p.zabel@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:58711 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751739AbaDCJ2T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 05:28:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch 1/2] lib/string.c: use the name "C-string" in comments
+Date: Wed, 2 Apr 2014 11:47:08 +0300
+Message-ID: <20140402084708.GA6018@mwanda>
+References: <20140401.161838.1562296825577866979.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "H. Peter Anvin" <hpa@linux.intel.com>,
+	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	vegard.nossum@oracle.com, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Andi Kleen <ak@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140401.161838.1562296825577866979.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds support for the Micrel KSZ8864RMN switch to the spi_ks8995
-driver. The KSZ8864RMN switch has a wider 256-byte register space.
+For strncpy() and friends the source string may or may not have an
+actual NUL character at the end.  The documentation is confusing in this
+because it specifically mentions that you are passing a "NUL-terminated"
+string.  Wikipedia says that "C-string" is an alternative name we can
+use instead.
 
-Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
----
-Changes since v1:
- - Store a copy of ks8995_registers_attr in the struct ks8995_switch to
-   avoid problems in the theoretical case of a board with both KS8995MA
-   and KSZ8864RMN switches.
- - Make ks8995_registers_attr const.
- - Use %x instead of %01x in dev_info.
----
- drivers/net/phy/spi_ks8995.c | 52 ++++++++++++++++++++++++++++++++++----------
- 1 file changed, 40 insertions(+), 12 deletions(-)
+http://en.wikipedia.org/wiki/Null-terminated_string
 
-diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
-index 4cf5fb9..22b047f 100644
---- a/drivers/net/phy/spi_ks8995.c
-+++ b/drivers/net/phy/spi_ks8995.c
-@@ -1,5 +1,5 @@
- /*
-- * SPI driver for Micrel/Kendin KS8995M ethernet switch
-+ * SPI driver for Micrel/Kendin KS8995M and KSZ8864RMN ethernet switches
-  *
-  * Copyright (C) 2008 Gabor Juhos <juhosg at openwrt.org>
-  *
-@@ -70,7 +70,10 @@
- #define KS8995_REG_IAD1		0x76    /* Indirect Access Data 1 */
- #define KS8995_REG_IAD0		0x77    /* Indirect Access Data 0 */
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+diff --git a/lib/string.c b/lib/string.c
+index 9b1f906..89ad0f0 100644
+--- a/lib/string.c
++++ b/lib/string.c
+@@ -107,7 +107,7 @@ EXPORT_SYMBOL(strcpy);
  
-+#define KSZ8864_REG_ID1		0xfe	/* Chip ID in bit 7 */
-+
- #define KS8995_REGS_SIZE	0x80
-+#define KSZ8864_REGS_SIZE	0x100
+ #ifndef __HAVE_ARCH_STRNCPY
+ /**
+- * strncpy - Copy a length-limited, %NUL-terminated string
++ * strncpy - Copy a length-limited, C-string
+  * @dest: Where to copy the string to
+  * @src: Where to copy the string from
+  * @count: The maximum number of bytes to copy
+@@ -136,7 +136,7 @@ EXPORT_SYMBOL(strncpy);
  
- #define ID1_CHIPID_M		0xf
- #define ID1_CHIPID_S		4
-@@ -94,6 +97,7 @@ struct ks8995_switch {
- 	struct spi_device	*spi;
- 	struct mutex		lock;
- 	struct ks8995_pdata	*pdata;
-+	struct bin_attribute	regs_attr;
- };
+ #ifndef __HAVE_ARCH_STRLCPY
+ /**
+- * strlcpy - Copy a %NUL terminated string into a sized buffer
++ * strlcpy - Copy a C-string into a sized buffer
+  * @dest: Where to copy the string to
+  * @src: Where to copy the string from
+  * @size: size of destination buffer
+@@ -182,7 +182,7 @@ EXPORT_SYMBOL(strcat);
  
- static inline u8 get_chip_id(u8 val)
-@@ -216,11 +220,11 @@ static ssize_t ks8995_registers_read(struct file *filp, struct kobject *kobj,
- 	dev = container_of(kobj, struct device, kobj);
- 	ks8995 = dev_get_drvdata(dev);
+ #ifndef __HAVE_ARCH_STRNCAT
+ /**
+- * strncat - Append a length-limited, %NUL-terminated string to another
++ * strncat - Append a length-limited, C-string to another
+  * @dest: The string to be appended to
+  * @src: The string to append to it
+  * @count: The maximum numbers of bytes to copy
+@@ -211,7 +211,7 @@ EXPORT_SYMBOL(strncat);
  
--	if (unlikely(off > KS8995_REGS_SIZE))
-+	if (unlikely(off > ks8995->regs_attr.size))
- 		return 0;
- 
--	if ((off + count) > KS8995_REGS_SIZE)
--		count = KS8995_REGS_SIZE - off;
-+	if ((off + count) > ks8995->regs_attr.size)
-+		count = ks8995->regs_attr.size - off;
- 
- 	if (unlikely(!count))
- 		return count;
-@@ -238,11 +242,11 @@ static ssize_t ks8995_registers_write(struct file *filp, struct kobject *kobj,
- 	dev = container_of(kobj, struct device, kobj);
- 	ks8995 = dev_get_drvdata(dev);
- 
--	if (unlikely(off >= KS8995_REGS_SIZE))
-+	if (unlikely(off >= ks8995->regs_attr.size))
- 		return -EFBIG;
- 
--	if ((off + count) > KS8995_REGS_SIZE)
--		count = KS8995_REGS_SIZE - off;
-+	if ((off + count) > ks8995->regs_attr.size)
-+		count = ks8995->regs_attr.size - off;
- 
- 	if (unlikely(!count))
- 		return count;
-@@ -251,7 +255,7 @@ static ssize_t ks8995_registers_write(struct file *filp, struct kobject *kobj,
- }
- 
- 
--static struct bin_attribute ks8995_registers_attr = {
-+static const struct bin_attribute ks8995_registers_attr = {
- 	.attr = {
- 		.name   = "registers",
- 		.mode   = S_IRUSR | S_IWUSR,
-@@ -306,20 +310,44 @@ static int ks8995_probe(struct spi_device *spi)
- 		goto err_drvdata;
- 	}
- 
-+	memcpy(&ks->regs_attr, &ks8995_registers_attr, sizeof(ks->regs_attr));
-+	if (get_chip_id(ids[1]) != CHIPID_M) {
-+		u8 val;
-+
-+		/* Check if this is a KSZ8864RMN */
-+		err = ks8995_read(ks, &val, KSZ8864_REG_ID1, sizeof(val));
-+		if (err < 0) {
-+			dev_err(&spi->dev,
-+				"unable to read chip id register, err=%d\n",
-+				err);
-+			goto err_drvdata;
-+		}
-+		if ((val & 0x80) == 0) {
-+			dev_err(&spi->dev, "unknown chip:%02x,0\n", ids[1]);
-+			goto err_drvdata;
-+		}
-+		ks->regs_attr.size = KSZ8864_REGS_SIZE;
-+	}
-+
- 	err = ks8995_reset(ks);
- 	if (err)
- 		goto err_drvdata;
- 
--	err = sysfs_create_bin_file(&spi->dev.kobj, &ks8995_registers_attr);
-+	err = sysfs_create_bin_file(&spi->dev.kobj, &ks->regs_attr);
- 	if (err) {
- 		dev_err(&spi->dev, "unable to create sysfs file, err=%d\n",
- 				    err);
- 		goto err_drvdata;
- 	}
- 
--	dev_info(&spi->dev, "KS89%02X device found, Chip ID:%01x, "
--			"Revision:%01x\n", ids[0],
--			get_chip_id(ids[1]), get_chip_rev(ids[1]));
-+	if (get_chip_id(ids[1]) == CHIPID_M) {
-+		dev_info(&spi->dev,
-+			 "KS8995 device found, Chip ID:%x, Revision:%x\n",
-+			 get_chip_id(ids[1]), get_chip_rev(ids[1]));
-+	} else {
-+		dev_info(&spi->dev, "KSZ8864 device found, Revision:%x\n",
-+			 get_chip_rev(ids[1]));
-+	}
- 
- 	return 0;
- 
--- 
-1.9.1
+ #ifndef __HAVE_ARCH_STRLCAT
+ /**
+- * strlcat - Append a length-limited, %NUL-terminated string to another
++ * strlcat - Append a length-limited, C-string to another
+  * @dest: The string to be appended to
+  * @src: The string to append to it
+  * @count: The size of the destination buffer.
