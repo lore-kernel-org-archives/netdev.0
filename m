@@ -1,33 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: ti: fix CPTS driver build on arm
-Date: Thu, 03 Apr 2014 11:25:09 -0400 (EDT)
-Message-ID: <20140403.112509.2216291933293306098.davem@davemloft.net>
-References: <1396402008-3462-1-git-send-email-ast@plumgrid.com>
+Subject: Re: [PATCH] isdnloop: Validate NUL-terminated strings from user.
+Date: Thu, 03 Apr 2014 11:27:00 -0400 (EDT)
+Message-ID: <20140403.112700.1784911571711405881.davem@davemloft.net>
+References: <20140401.161838.1562296825577866979.davem@davemloft.net>
+	<533B889A.2060105@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, richardcochran@gmail.com,
-	netdev@vger.kernel.org
-To: ast@plumgrid.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44902 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752505AbaDCPXg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 11:23:36 -0400
-In-Reply-To: <1396402008-3462-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	vegard.nossum@oracle.com, dan.carpenter@oracle.com
+To: yoshfuji@linux-ipv6.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <533B889A.2060105@linux-ipv6.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Tue,  1 Apr 2014 18:26:48 -0700
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Wed, 02 Apr 2014 12:48:42 +0900
 
-> fix build errors:
-> drivers/net/ethernet/ti/cpts.c:266:12: error: 'ETH_HLEN' undeclared (first use in this function)
-> drivers/net/ethernet/ti/cpts.c:276:23: error: 'VLAN_HLEN' undeclared (first use in this function)
+> Return -EINVAL unless all of user-given strings are correctly
+> NUL-terminated.
 > 
-> Fixes: 408eccce3204 ("net: ptp: move PTP classifier in its own file")
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> Suggested-by: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Applied, thanks.
+Applied and queud up for -stable, thanks!
