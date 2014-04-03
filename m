@@ -1,45 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v6 0/4] Provide netdev naming-policy via sysfs
-Date: Thu, 03 Apr 2014 14:03:24 -0400 (EDT)
-Message-ID: <20140403.140324.1744832114380351572.davem@davemloft.net>
-References: <1396432706-14470-1-git-send-email-dh.herrmann@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: bnx2x: include irq.h for irqreturn_t definitions
+Date: Thu, 03 Apr 2014 14:04:55 -0400 (EDT)
+Message-ID: <20140403.140455.585675998546647028.davem@davemloft.net>
+References: <20140402152158.GB20438@zod>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, teg-B22kvLQNl6c@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kay.sievers-tD+1rO4QERM@public.gmane.org
-To: dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1396432706-14470-1-git-send-email-dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: ariele@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jwboyer@fedoraproject.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45905 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753255AbaDCSDW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 14:03:22 -0400
+In-Reply-To: <20140402152158.GB20438@zod>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Wed,  2 Apr 2014 11:58:22 +0200
+From: Josh Boyer <jwboyer@fedoraproject.org>
+Date: Wed, 2 Apr 2014 11:21:58 -0400
 
-> This is v6 of the name_assign_type attribute for netdevs. Changes since v5 [1]:
->  - Acked-by: Kay Sievers
->  - rebased on net-next of today
+> The bnx2x driver fails to build on ARM with:
 > 
-> Aimed for 3.15, but feel free to delay for 3.16 if you want it in -next for some
-> more time.
+> In file included from drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c:28:0:
+> drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h:243:1: error: unknown type name 'irqreturn_t'
+>  irqreturn_t bnx2x_msix_sp_int(int irq, void *dev_instance);
+>  ^
+> drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h:251:1: error: unknown type name 'irqreturn_t'
+>  irqreturn_t bnx2x_interrupt(int irq, void *dev_instance);
+>  ^
+> 
+> Nothing in bnx2x_link.c or bnx2x_cmn.h is explicitly including the irq
+> definitions, so we add an include of linux/irq.h to pick them up.
+> 
+> Signed-off-by: Josh Boyer <jwboyer@fedoraproject.org>
 
-I'm fine with the basic idea, but the implementation needs work and
-this will be deferred to 3.16 in any event.
-
-We really need to specify the name allocation type at alloc_netdev()
-time, I know that's more work but that's the only way you can be sure
-you caught all such cases.
-
-I know you missed the ISDN layer, where the name can come from the
-user via an ioctl().  I'm sure there were several more.
-
-You can even do something like make alloc_netdev_enumerated()
-be a shorthand for alloc_netdev(size, name, NET_NAME_ENUM, ...)
-
-Thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
