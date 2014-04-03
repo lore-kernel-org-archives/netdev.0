@@ -1,37 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next,v4] hyperv: Add support for virtual Receive
- Side Scaling (vRSS)
-Date: Thu, 03 Apr 2014 11:15:08 -0400 (EDT)
-Message-ID: <20140403.111508.1416100875090509051.davem@davemloft.net>
-References: <1396541134-9588-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH net] net: vxlan: fix crash when interface is created
+ with no group
+Date: Thu, 03 Apr 2014 11:19:14 -0400 (EDT)
+Message-ID: <20140403.111914.2151023252588766039.davem@davemloft.net>
+References: <1396333381-7252-1-git-send-email-mike.rapoport@ravellosystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1396541134-9588-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: dlstevens@us.ibm.com, cwang@twopensource.com,
+	netdev@vger.kernel.org, stable@vger.kernel.org
+To: mike.rapoport@ravellosystems.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44854 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752613AbaDCPRl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 11:17:41 -0400
+In-Reply-To: <1396333381-7252-1-git-send-email-mike.rapoport@ravellosystems.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Thu,  3 Apr 2014 09:05:34 -0700
+From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Date: Tue,  1 Apr 2014 09:23:01 +0300
 
-> This feature allows multiple channels to be used by each virtual NIC.
-> It is available on Hyper-V host 2012 R2.
+> If the vxlan interface is created without explicit group definition,
+> there are corner cases which may cause kernel panic.
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> For instance, in the following scenario:
+ ...
+> When vxlan interface is created without explicit group definition, the
+> default_dst protocol family is initialiazed to AF_UNSPEC and the driver
+> assumes IPv4 configuration. On the other side, the default_dst protocol
+> family is used to differentiate between IPv4 and IPv6 cases and, since,
+> AF_UNSPEC != AF_INET, the processing takes the IPv6 path.
+> 
+> Making the IPv4 assumption explicit by settting default_dst protocol
+> family to AF_INET4 and preventing mixing of IPv4 and IPv6 addresses in
+> snooped fdb entries fixes the corner case crashes.
+> 
+> Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
+> ---
+> 
+> This can happen starting from 3.12 when IPv6 support was merged to vxlan.
 
-I announced on netdev the other day that the merge window is open and
-I'm not accepting patches for new features until the net-next tree is
-open again.
+Looks good to me, thanks for following up on this.
+
+Applied and queued up for -stable.
