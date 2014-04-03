@@ -1,162 +1,115 @@
-From: David Herrmann <dh.herrmann@gmail.com>
-Subject: [PATCH v6 1/4] net: add name_assign_type netdev attribute
-Date: Wed,  2 Apr 2014 11:58:23 +0200
-Message-ID: <1396432706-14470-2-git-send-email-dh.herrmann@gmail.com>
-References: <1396432706-14470-1-git-send-email-dh.herrmann@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Tom Gundersen <teg@jklm.no>,
-	Johannes berg <johannes@sipsolutions.net>,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	David Herrmann <dh.herrmann@gmail.com>
-To: netdev@vger.kernel.org
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH v4 1/4] bonding: Changed hashing function to just provide hash
+Date: Wed,  2 Apr 2014 17:33:19 -0700
+Message-ID: <1396485199-3967-1-git-send-email-maheshb@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Mahesh Bandewar <maheshb@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f49.google.com ([209.85.214.49]:54801 "EHLO
-	mail-bk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758197AbaDBJ6t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 05:58:49 -0400
-In-Reply-To: <1396432706-14470-1-git-send-email-dh.herrmann@gmail.com>
+Received: from mail-yh0-f73.google.com ([209.85.213.73]:41422 "EHLO
+	mail-yh0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933374AbaDCAdX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 20:33:23 -0400
+Received: by mail-yh0-f73.google.com with SMTP id c41so150158yho.2
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 17:33:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The name_assign_type attribute gives hints where the interface name of a
-given net-device comes from. Three different values are currently defined:
-  NET_NAME_ENUM:
-    This is the default. The ifname is provided by the kernel with an
-    enumerated suffix. Names may be reused and unstable.
-  NET_NAME_USER:
-    The ifname was provided by user-space during net-device setup.
-  NET_NAME_RENAMED:
-    The net-device has been renamed via RTNL. Once this type is set, it
-    cannot change again.
+Modified the hash function to return just hash separating from the
+modulo operation that can be performed by the caller. This is to
+make way for the tlb mode to use the same hashing policies that
+are used in the 802.3ad and Xor mode.
 
-This attribute comes in handy for reliable net-device names. If an ifname
-is provided by user-space, we can safely assume that the naming-policy
-avoids reuse and is stable. Only if it was set by the kernel, the
-interfaces might need to be renamed.
-
-The NET_NAME_RENAMED value allows us to detect whether some-one else
-already renamed the device, in which case we shouldn't touch it again. The
-NET_NAME_USER value allows us to detect whether some other naming policy
-created the device, in which case there's no need to rename it.
-
-The most significant use-case is to detect virtual wifi-P2P devices, which
-are named by wpa_supplicant et al. We shouldn't rename them as wpas
-already provides a proper naming-policy.
-
-Note that this patch only provides the core infrastructure. The different
-net-dev types need to be manually fixed to use NET_NAME_USER instead of
-the default (NET_NAME_ENUM). NET_NAME_ENUM is the least restrictive,
-though, so it seems safe to use it as fallback for non-converted net-dev
-types.
-
-Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
-Acked-by: Tom Gundersen <teg@jklm.no>
-Acked-by: Kay Sievers <kay.sievers@vrfy.org>
+Change-Id: I276609e87e0ca213c4d1b17b79c5e0b0f3d0dd6f
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
- include/linux/netdevice.h      | 2 ++
- include/uapi/linux/netdevice.h | 4 ++++
- net/core/dev.c                 | 7 +++++++
- net/core/net-sysfs.c           | 2 ++
- net/core/rtnetlink.c           | 2 ++
- 5 files changed, 17 insertions(+)
+v2:
+  Change the return type of bond_xmit_hash() from int to u32
+v3:
+  Rebase.
+v4:
+  Removed spurious net/sock.h inclusion
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 775cc95..e016edd 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1372,6 +1372,8 @@ struct net_device {
- 	struct kset		*queues_kset;
- #endif
+ drivers/net/bonding/bond_3ad.c  |  2 +-
+ drivers/net/bonding/bond_main.c | 10 ++++------
+ drivers/net/bonding/bonding.h   |  2 +-
+ 3 files changed, 6 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index b667a51ed215..9a0d61e0c188 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2440,7 +2440,7 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+ 		goto err_free;
+ 	}
  
-+	unsigned char		name_assign_type; /* name assignment type */
-+
- 	bool			uc_promisc;
- 	unsigned int		promiscuity;
- 	unsigned int		allmulti;
-diff --git a/include/uapi/linux/netdevice.h b/include/uapi/linux/netdevice.h
-index fdfbd1c..af50a04 100644
---- a/include/uapi/linux/netdevice.h
-+++ b/include/uapi/linux/netdevice.h
-@@ -36,6 +36,10 @@
- /* Initial net device group. All devices belong to group 0 by default. */
- #define INIT_NETDEV_GROUP	0
+-	slave_agg_no = bond_xmit_hash(bond, skb, slaves_in_agg);
++	slave_agg_no = bond_xmit_hash(bond, skb) % slaves_in_agg;
+ 	first_ok_slave = NULL;
  
-+/* interface name assignment types (sysfs name_assign_type attribute) */
-+#define NET_NAME_ENUM		0	/* enumerated by kernel (default) */
-+#define NET_NAME_USER		1	/* provided by user-space */
-+#define NET_NAME_RENAMED	2	/* renamed by user-space */
- 
- 
- /* Media selection options. */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 48d81e4..b901aaa 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1083,6 +1083,7 @@ static int dev_get_valid_name(struct net *net,
- int dev_change_name(struct net_device *dev, const char *newname)
+ 	bond_for_each_slave_rcu(bond, slave, iter) {
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 95a6ca7d9e51..6e96d510bc8d 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3015,20 +3015,18 @@ static bool bond_flow_dissect(struct bonding *bond, struct sk_buff *skb,
+  * bond_xmit_hash - generate a hash value based on the xmit policy
+  * @bond: bonding device
+  * @skb: buffer to use for headers
+- * @count: modulo value
+  *
+  * This function will extract the necessary headers from the skb buffer and use
+  * them to generate a hash based on the xmit_policy set in the bonding device
+- * which will be reduced modulo count before returning.
+  */
+-int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb, int count)
++u32 bond_xmit_hash(struct bonding *bond, struct sk_buff *skb)
  {
- 	char oldname[IFNAMSIZ];
-+	unsigned char old_assign_type;
- 	int err = 0;
- 	int ret;
- 	struct net *net;
-@@ -1109,10 +1110,14 @@ int dev_change_name(struct net_device *dev, const char *newname)
- 		return err;
- 	}
+ 	struct flow_keys flow;
+ 	u32 hash;
  
-+	old_assign_type = dev->name_assign_type;
-+	dev->name_assign_type = NET_NAME_RENAMED;
-+
- rollback:
- 	ret = device_rename(&dev->dev, dev->name);
- 	if (ret) {
- 		memcpy(dev->name, oldname, IFNAMSIZ);
-+		dev->name_assign_type = old_assign_type;
- 		write_seqcount_end(&devnet_rename_seq);
- 		return ret;
- 	}
-@@ -1141,6 +1146,8 @@ rollback:
- 			write_seqcount_begin(&devnet_rename_seq);
- 			memcpy(dev->name, oldname, IFNAMSIZ);
- 			memcpy(oldname, newname, IFNAMSIZ);
-+			dev->name_assign_type = old_assign_type;
-+			old_assign_type = NET_NAME_RENAMED;
- 			goto rollback;
- 		} else {
- 			pr_err("%s: name change rollback failed: %d\n",
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 4623962..a39ae01 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -105,6 +105,7 @@ static ssize_t netdev_store(struct device *dev, struct device_attribute *attr,
+ 	if (bond->params.xmit_policy == BOND_XMIT_POLICY_LAYER2 ||
+ 	    !bond_flow_dissect(bond, skb, &flow))
+-		return bond_eth_hash(skb) % count;
++		return bond_eth_hash(skb);
  
- NETDEVICE_SHOW_RO(dev_id, fmt_hex);
- NETDEVICE_SHOW_RO(dev_port, fmt_dec);
-+NETDEVICE_SHOW_RO(name_assign_type, fmt_dec);
- NETDEVICE_SHOW_RO(addr_assign_type, fmt_dec);
- NETDEVICE_SHOW_RO(addr_len, fmt_dec);
- NETDEVICE_SHOW_RO(iflink, fmt_dec);
-@@ -387,6 +388,7 @@ static struct attribute *net_class_attrs[] = {
- 	&dev_attr_dev_port.attr,
- 	&dev_attr_iflink.attr,
- 	&dev_attr_ifindex.attr,
-+	&dev_attr_name_assign_type.attr,
- 	&dev_attr_addr_assign_type.attr,
- 	&dev_attr_addr_len.attr,
- 	&dev_attr_link_mode.attr,
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index d4ff417..2e4be7f 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1971,6 +1971,8 @@ replay:
- 		}
+ 	if (bond->params.xmit_policy == BOND_XMIT_POLICY_LAYER23 ||
+ 	    bond->params.xmit_policy == BOND_XMIT_POLICY_ENCAP23)
+@@ -3039,7 +3037,7 @@ int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb, int count)
+ 	hash ^= (hash >> 16);
+ 	hash ^= (hash >> 8);
  
- 		dev->ifindex = ifm->ifi_index;
-+		if (tb[IFLA_IFNAME])
-+			dev->name_assign_type = NET_NAME_USER;
+-	return hash % count;
++	return hash;
+ }
  
- 		if (ops->newlink) {
- 			err = ops->newlink(net, dev, tb, data);
+ /*-------------------------- Device entry points ----------------------------*/
+@@ -3666,7 +3664,7 @@ static int bond_xmit_xor(struct sk_buff *skb, struct net_device *bond_dev)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 
+-	bond_xmit_slave_id(bond, skb, bond_xmit_hash(bond, skb, bond->slave_cnt));
++	bond_xmit_slave_id(bond, skb, bond_xmit_hash(bond, skb) % bond->slave_cnt);
+ 
+ 	return NETDEV_TX_OK;
+ }
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index b8bdd0acc8f3..c0948ca26389 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -499,7 +499,7 @@ int bond_sysfs_slave_add(struct slave *slave);
+ void bond_sysfs_slave_del(struct slave *slave);
+ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev);
+ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev);
+-int bond_xmit_hash(struct bonding *bond, struct sk_buff *skb, int count);
++u32 bond_xmit_hash(struct bonding *bond, struct sk_buff *skb);
+ void bond_select_active_slave(struct bonding *bond);
+ void bond_change_active_slave(struct bonding *bond, struct slave *new_active);
+ void bond_create_debugfs(void);
 -- 
-1.9.1
+1.9.1.423.g4596e3a
