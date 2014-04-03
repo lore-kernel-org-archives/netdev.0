@@ -1,63 +1,44 @@
-From: "wei zhang" <asuka.com@163.com>
-Subject: Re: [PATCH] openvswitch: supply a dummy err_handler of
- gre_cisco_protocol to prevent kernel crash
-Date: Wed, 2 Apr 2014 08:23:28 +0800 (CST)
-Message-ID: <158d7617.12955.1451fd1b702.Coremail.asuka.com@163.com>
-References: <1395957398-24546-1-git-send-email-asuka.com@163.com>
- <CAEP_g=_qJ1uHKZmZdkUrT+NUkzbRgaHfShZoMbnnCb+LwjOneQ@mail.gmail.com>
- <4fd27e6c.c96a.14512e82018.Coremail.asuka.com@163.com>
- <CAEP_g=_84HXCZLOzQ0JdLBF5WVhqwTJeEAY-xjqDD8YCv8yrRg@mail.gmail.com>
- <3586fbc4.12f75.1451de4826d.Coremail.asuka.com@163.com>
- <CAEP_g=-an14xN7Q2fmC+wMk1G9WTAX+JrVeBx5QGnw2-XU3ezQ@mail.gmail.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: on kernel 2.6.34.15,
+ vlan and raw packets can not be received with gfar-enet nic
+Date: Thu, 3 Apr 2014 11:27:28 +0200
+Message-ID: <20140403092727.GD16158@1wt.eu>
+References: <53310F4E.4080104@gmail.com> <533D25D4.4000607@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: "David Miller" <davem@davemloft.net>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>
-To: "Jesse Gross" <jesse@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEP_g=-an14xN7Q2fmC+wMk1G9WTAX+JrVeBx5QGnw2-XU3ezQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "Yang, Zhangle \(Eric\)" <Zhangle.Yang@windriver.com>,
+ netdev@vger.kernel.org, richardcochran@gmail.com,
+ linuxppc-dev@lists.ozlabs.org, guang.yang@windriver.com,
+ linux-kernel@vger.kernel.org, yongjun_wei@trendmicro.com.cn,
+ sandeep.kumar@freescale.com, Claudiu Manoil <claudiu.manoil@freescale.com>,
+ "Tao, Yue" <Yue.Tao@windriver.com>, joe@perches.com, festevam@gmail.com,
+ clarocq@gmail.com
+To: zhuyj <zyjzyj2000@gmail.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <533D25D4.4000607@gmail.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-QXTCoDIwMTQtMDQtMDLCoDAyOjI3OjU2LCJKZXNzZcKgR3Jvc3MiwqA8amVzc2VAbmljaXJhLmNv
-bT7CoHdyb3RlOgo+T27CoFR1ZSzCoEFwcsKgMSzCoDIwMTTCoGF0wqA4OjI0wqBBTSzCoHdlacKg
-emhhbmfCoDxhc3VrYS5jb21AMTYzLmNvbT7CoHdyb3RlOgo+PsKgQXTCoDIwMTQtMDQtMDHCoDA4
-OjQ5OjUzLCJKZXNzZcKgR3Jvc3MiwqA8amVzc2VAbmljaXJhLmNvbT7CoHdyb3RlOgo+Pj5PbsKg
-U3VuLMKgTWFywqAzMCzCoDIwMTTCoGF0wqA1OjEywqBBTSzCoHdlacKgemhhbmfCoDxhc3VrYS5j
-b21AMTYzLmNvbT7CoHdyb3RlOgo+Pj4+wqBBdMKgMjAxNC0wMy0yOcKgMDY6MDI6MjUsIkplc3Nl
-wqBHcm9zcyLCoDxqZXNzZUBuaWNpcmEuY29tPsKgd3JvdGU6Cj4+Cj4+Pj7CoE1heWJlwqBJwqBt
-aXN1bmRlcnN0YW5kwqBzb21ldGhpbmc/wqBJwqB0aGlua8KgaWbCoHdlwqBkaXNjYXJkwqBhbGzC
-oHBhY2tldMKgcGFzc8KgdG/CoHVzCj4+Pj7CoHdoZW7CoHdlwqB1c2XCoGdyZcKgdnBvcnQswqBu
-ZXfCoGdyZV9jaXNjb19wcm90b2NvbMKgd2hpY2jCoGhhc8KgbG93ZXLCoHByaW9yaXR5wqBjb3Vs
-ZAo+Pj4+wqBub3TCoHNlZcKgdGhlwqBwYWNrZXTCoGludGVuZGVkwqB0b8KgaXQuCj4+Pgo+Pj5U
-aGF0J3PCoHRydWXCoGJ1dMKgaW7CoHRoaXPCoGNhc2XCoGl0wqB3b3VsZMKgYWxzb8Kgbm90wqBz
-ZWXCoGFuecKgZGF0YcKgcGFja2V0cywKPj4+c2/CoEnCoGRvbid0wqB0aGlua8KgdGhhdMKgc2l0
-dWF0aW9uwqB3b3VsZMKgd29ya8Kgd2VsbMKgYW55d2F5cy4KPj4+Cj4+Pj7CoEnCoGNoZWNrZWTC
-oHRoZcKgaW1wbGVtZW50YXRpb27CoG9mwqB0aGXCoGlwZ3JlX2VycigpLMKgd2hpY2jCoGhhc8Kg
-YmXCoGNhbGxlZMKgYmVmb3JlCj4+Pj7CoHRoZcKgZXJyX2hhbmRsZXLCoG9mwqBncmXCoHZwb3J0
-LsKgSXTCoHVzZcKgdGhlwqB0aGXCoChsb2NhbMKgYWRkcmVzcyzCoHJlbW90ZcKgYWRkcmVzcyzC
-oGtleSkKPj4+PsKgdG/CoGRpc3Rpbmd1aXNowqB0aGXCoHBhY2tldMKgd2hpY2jCoGlzwqByZWFs
-ecKgaW50ZW5kZWTCoHRvwqBpdCzCoGFsdGhvdWdowqBpdMKgY291bGTCoG5vdAo+Pj4+wqBhbHdh
-eXPCoGdldMKgdGhlwqBrZXnCoGZyb23CoHRoZcKgaWNtcMKgcGFja2V0LsKgU2hvdWxkwqB3ZcKg
-ZG/CoGFzwqB0aGXCoHNhbWXCoGFzwqBpdD8KPj4+PsKgSSdtwqBub3TCoHN1cmXCoHRoaXPCoGlz
-wqBmZWFzaWJsZSzCoGFuecKgYWR2aWNlwqBpc8KgYXBwcmVjaWF0ZS4KPj4+Cj4+Pk9WU8KgZG9l
-c8KgZmxvd8KgYmFzZWTCoG1hdGNoaW5nwqByYXRoZXLCoHRoYW7CoHVzaW5nwqBhwqBzdGF0aWPC
-oHNldMKgb2YKPj4+Y29uZmlndXJhdGlvbsKgcGFyYW1ldGVycyzCoHNvwqBldmVyeXRoaW5nwqAi
-bWF0Y2hlcyLCoGluwqBzb21lwqB3YXkKPj4+KGFsdGhvdWdowqB0aGXCoHJlc3VsdMKgbWlnaHTC
-oGJlwqB0b8KgZHJvcCkuCj4+Cj4+wqBTb8KgdGhlwqBmbG93wqBiYXNlZMKgbWF0Y2jCoGNvdWxk
-wqBkeW5hbWljYWxsecKgZGV0ZXJtaW5lwqBiecKgdGhlwqBvdnPCoGRhZW1vbizCoHdlwqBjb3Vs
-ZAo+PsKgbm90wqBmaW5kwqBvdXTCoHRoZcKgYmVsb25naW5nwqBvZsKgdGhlwqBwYWNrZXTCoGFz
-wqBmYXLCoGFzwqB3ZcKgY2FsbMKgb3ZzX2RwX3VwY2FsbCgpLMKgaXNuJ3TCoGl0Pwo+Cj5UaGF0
-J3PCoHJpZ2h0wqAtwqBhbmTCoHNpbmNlwqB0aGXCoE9WU8KgZmxvd8KgdGFibGXCoGFsd2F5c8Kg
-aGFzwqBhwqBkZWZhdWx0Cj5iZWhhdmlvcsKgKGV2ZW7CoGlmwqBpdMKgaXPCoGRyb3DCoG9ywqBz
-ZW5kwqB0b8KgY29udHJvbGxlcinCoHRoZXJlJ3PCoG5ldmVywqBhCj5wYWNrZXTCoHRoYXTCoGlz
-bid0wqBjb25zaWRlcmVkwqB0b8KgYmXCoGRlc3RpbmVkwqB0b8KgT1ZTwqBvbmNlwqBpdMKgaXMK
-PnJlY2VpdmVkLgo+Cj5JZsKgdGhpc8KgbWFrZXPCoHNlbnNlwqB0b8KgeW91LMKgd291bGTCoHlv
-dcKgbWluZMKgc3VibWl0dGluZ8KgdGhlwqBwYXRjaMKgeW91Cj5oYWTCoGVhcmxpZXLCoGZvcm1h
-bGx5wqB3aXRowqBhwqBjb21taXTCoG1lc3NhZ2XCoGFuZMKgc2lnbmVkwqBvZmbCoGJ5wqBsaW5l
-PwoKU3VyZSwgdGhhbmsgeW91IGFnYWluIGFzIGl0J3MgbXkgZmlyc3QgdGltZSB0byBzZW5kIHBh
-dGNoIHRvIHRoZSBrZXJuZWwsIHlvdXIgcGF0aWVudCBhbmQga2luZApoZWxwIGdpdmUgbWUgY29u
-ZmlkZW5jZSB0byBkbyBpdCA6KQoKUmVnYXJkcywKV2VpIFpoYW5n
+SGkgWmh1LAoKT24gVGh1LCBBcHIgMDMsIDIwMTQgYXQgMDU6MTE6NDhQTSArMDgwMCwgemh1eWog
+d3JvdGU6Cj4gSGksIENsYXVkaXUKPiAKPiBQbGVhc2UgaGVscCB0byByZXZpZXcgdGhpcyBwYXRj
+aC4gVGhpcyBwYXRjaCBpcyBmb3Iga2VybmVsIDIuNi54LiBUaGFua3MgCj4gYSBsb3QuCj4gCj4g
+SGksIFdpbGx5Cj4gCj4gUGxlYXNlIGhlbHAgdG8gbWVyZ2UgdGhpcyBwYXRjaCB0byBsb25ndGVy
+bTogMi42LjMyLjYxIHNpbmNlIHRoaXMgCj4gcHJvYmxlbSBhbHNvIG9jY3VycyBvbiB0aGlzIGtl
+cm5lbC4gVGhhbmtzIGEgbG90LgoKQ291bGQgeW91IHBsZWFzZSBzZW5kIHRoZSByZWZlcmVuY2Ug
+dG8gdGhlIGVxdWl2YWxlbnQgbWFpbmxpbmUgY29tbWl0ICh0aGUgb25lCndoaWNoIGRpc2FibGVz
+IHRoZSB0eCB2bGFuIGZlYXR1cmUgSSdtIGFzc3VtaW5nKSA/IEknbGwgaGFwcGlseSBxdWV1ZSBp
+dCBmb3IKMi42LjMyLjYyLgoKVGhhbmtzLApXaWxseQoKX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBw
+Yy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8v
+bGludXhwcGMtZGV2
