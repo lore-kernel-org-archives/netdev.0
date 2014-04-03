@@ -1,52 +1,74 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH 2/2] net: mvneta: fix usage as a module on RGMII
- configurations
-Date: Thu, 3 Apr 2014 11:36:52 +0200
-Message-ID: <20140403113652.33f11413@skate>
-References: <1395789942-20764-1-git-send-email-thomas.petazzoni@free-electrons.com>
-	<1395789942-20764-3-git-send-email-thomas.petazzoni@free-electrons.com>
-	<533C1B75.2020803@free-electrons.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Thu, 03 Apr 2014 10:35:11 +0200
+Message-ID: <7201300.YltrNpx6X5@wuerfel>
+References: <1396358832-15828-1-git-send-email-zhangfei.gao@linaro.org> <4698724.S4F2PxkdOH@wuerfel> <CAMj5BkgfwE1hHpVeqH9WRitwCB30x3c4w0qw7sXT3PiOV-QcPQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Steve McIntyre <steve@einval.com>,
-	linux-arm-kernel@lists.infradead.org, stable@vger.kernel.org
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <533C1B75.2020803@free-electrons.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: David Laight <David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org>,
+	"mark.rutland-5wv7dgnIgG8@public.gmane.org" <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org" <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	"eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org"
+	<sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Zhangfei Gao <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Zhangfei Gao <zhangfei.gao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMj5BkgfwE1hHpVeqH9WRitwCB30x3c4w0qw7sXT3PiOV-QcPQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Dear Gregory CLEMENT,
-
-On Wed, 02 Apr 2014 16:15:17 +0200, Gregory CLEMENT wrote:
-
-> > This commit was successfully tested with mvneta compiled as a module,
-> > on both the OpenBlocks AX3 (SGMII configuration) and the Armada XP GP
-> > (RGMII configuration).
+On Thursday 03 April 2014 14:24:25 Zhangfei Gao wrote:
+> On Wed, Apr 2, 2014 at 11:49 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
+> > On Wednesday 02 April 2014 10:04:34 David Laight wrote:
+> >> What you need to avoid is reads from uncached memory.
+> >> It may well beneficial for the tx reclaim code to first
+> >> check whether all the transmits have completed (likely)
+> >> instead of testing each descriptor in turn.
+> >
+> > Good point, reading from noncached memory is actually the
+> > part that matters. For slow networks (e.g. 10mbit), checking if
+> > all of the descriptors have finished is not quite as likely to succeed
+> > as for fast (gbit), especially if the timeout is set to expire
+> > before all descriptors have completed.
+> >
+> > If it makes a lot of difference to performance, one could use
+> > a binary search over the outstanding descriptors rather than looking
+> > just at the last one.
+> >
 > 
-> Unfortunately with this patch, mvneta doesn't work anymore on the
-> Mirabox (Armada 370 based board) on 3.14.I didn't managed to do a
-> simple ping.
+> I am afraid, there may no simple way to check whether all transmits completed.
+
+Why can't you do the trivial change that David suggested above? It
+sounds like a three line change to your current code. No need to do
+the binary change at first, just see what difference it makes.
+
+> Still want enable the cache coherent feature first.
+> Then two benefits:
+> 1. dma buffer cacheable.
+> 2. descriptor can directly use cacheable memory, so the performance
+> concern here may be solved accordingly.
 > 
-> Once I removed this commit then the driver worked again.
+> So how about using this version as first version, while tuning the
+> performance in the next step.
+> Currently, the gbit interface can reach 420M bits/s in iperf, and the
+> 100M interface can reach 94M bits/s.
 
-Problem reproduced. It turns out that some RGMII platforms need the
-PCS_ENABLE bit to be set (e.g: Armada XP GP), while some other
-platforms need the PCS_ENABLE bit to be cleared (e.g: Armada 370
-Mirabox). I've verified that on both platforms.
+It sounds like a very simple thing to try and you'd know immediately
+if it helps or not.
 
-I've asked for more details about this bit to understand in which
-situation it should be set or cleared. I'll get back to you with an
-updated patch once I have enough information to write a fix.
+Besides, you still have to change the other two issues I mentioned
+regarding the tx reclaim, so you can do all three at once.
 
-Thanks for the report,
-
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+	Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
