@@ -1,44 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.14 regression: huge latency in read/select on tun
-Date: Thu, 03 Apr 2014 06:50:26 -0700
-Message-ID: <1396533026.12330.9.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <533C381E.9090103@odi.ch>
-	 <1396456973.3989.41.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <533D133A.3090008@odi.ch>
-	 <1396531176.12330.6.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexander Holler <holler@ahsoftware.de>
+Subject: Re: [PATCH regression] net: phy: fix initialization (config_init)
+ for Marvel 88E1116R PHYs
+Date: Thu, 03 Apr 2014 17:06:52 +0200
+Message-ID: <533D790C.5000104@ahsoftware.de>
+References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de> <CAGVrzcZd9tBtcTY_2PRHVb9kJAjVHqn+EubUy4NGL66M_UuCDg@mail.gmail.com> <533BD3CD.1010905@ahsoftware.de> <CAGVrzcZi5aNq8fR795fKhu2TAc1tQCa2YEorErZRLf2n9DPZuw@mail.gmail.com> <533C721E.1080004@gmail.com> <533C8B49.8080704@ahsoftware.de> <533C8ECB.4090900@gmail.com> <533D0B09.9040602@ahsoftware.de> <533D207E.9020909@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Ortwin =?ISO-8859-1?Q?Gl=FCck?= <odi@odi.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:63309 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751777AbaDCNu2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 09:50:28 -0400
-In-Reply-To: <1396531176.12330.6.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Michal Simek <michal.simek@xilinx.com>,
+	stable <stable@vger.kernel.org>
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <533D207E.9020909@gmail.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-04-03 at 06:19 -0700, Eric Dumazet wrote:
+Am 03.04.2014 10:49, schrieb Sebastian Hesselbarth:
+> On 04/03/2014 09:17 AM, Alexander Holler wrote:
+>> Am 03.04.2014 00:27, schrieb Sebastian Hesselbarth:
+>>> On 04/03/2014 12:12 AM, Alexander Holler wrote:
+>>>>> I am curious, how you determined above commit to be the cause of the
+>>>>> regression you are seeing. Can you bisect, if you didn't already?
+>>>>
+>>>> There was no bisecting necessary. I've just looked at what changed in
+>>>> mv643xx_eth since 3.13 and the first commit I've reverted was already a
+>>>> hit. Reading a bit source revealed the differences between the old reset
+>>>> and the newly used one and ended up with my patch (first try) and was a
+>>>> hit too.
+>>>
+>>> Honestly, your own fix changes a different driver than mv643xx_eth.
+>>
+>> It changes stuff which now (through the mentioned commit) gets used
+>> through the change in mv643xx_eth.
+>
+> Sigh. You have proven youself that the commit isn't the root cause
+> of the issue you are seeing. Nor is "fixing" 88e1116r init sequence
+> a reasonable fix.
 
-> It seems TSO support is broken.
+Sorry, continuing this discussion doesn't make sense. You have the same 
+hw, so just try enabling netconsole with 3.14 and use dhcpcd from 
+userland (this does the final reset here which hangs.
 
-If bug is in tun.c you have this list of changes  you could bisect
-from :
+But don't suggest me (or insist on) a time consuming and totally useless 
+bisect when I already know what makes the problem to appear (100% 
+reliable here).
 
-# git log --oneline v3.13..v3.14 drivers/net/tun.c
-6671b2240c54 tun: remove bogus hardware vlan acceleration flags from vlan_features
-99932d4fc03a netdevice: add queue selection fallback handler for ndo_select_queue
-93e14b6d776e tun: add device name(iff) field to proc fdinfo entry
-fa35864e0bb7 tuntap: Fix for a race in accessing numqueues
-0a379e21c503 Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-fbe4d4565bad tun, rfs: fix the incorrect hash value
-9bc8893937c8 tun: Add support for RFS on tun flows
-143c90549494 Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-3958afa1b272 net: Change skb_get_rxhash to skb_get_hash
-42404c091510 Revert "tun: remove useless codes in tun_chr_aio_read() and tun_recvmsg()"
-73713357ab58 tun: remove useless codes in tun_chr_aio_read() and tun_recvmsg()
-34f9f437104b Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-f96eb74c84eb tun: remove unused parameter in tun_do_read()
-92d4ea6e412a tun: spelling fixes
+I have better ways to waste my time.
+
+Alexander Holler
