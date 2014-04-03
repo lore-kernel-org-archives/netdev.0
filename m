@@ -1,53 +1,66 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next,v4] hyperv: Add support for virtual Receive
- Side Scaling (vRSS)
-Date: Thu, 3 Apr 2014 15:17:28 +0000
-Message-ID: <aa48898a5b084977b7b9ef8aa1588a43@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <1396541134-9588-1-git-send-email-haiyangz@microsoft.com>
- <20140403.111508.1416100875090509051.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Thu, 03 Apr 2014 11:22:33 -0400 (EDT)
+Message-ID: <20140403.112233.2042790497591275140.davem@davemloft.net>
+References: <1396358832-15828-4-git-send-email-zhangfei.gao@linaro.org>
+	<9532591.5yuCbpL4pV@wuerfel>
+	<063D6719AE5E284EB5DD2968C1650D6D0F6EE729@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"driverdev-devel@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140403.111508.1416100875090509051.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: arnd@arndb.de, zhangfei.gao@linaro.org, linux@arm.linux.org.uk,
+	f.fainelli@gmail.com, sergei.shtylyov@cogentembedded.com,
+	mark.rutland@arm.com, eric.dumazet@gmail.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: David.Laight@ACULAB.COM
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44884 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752330AbaDCPVA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 11:21:00 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6EE729@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: David Laight <David.Laight@ACULAB.COM>
+Date: Wed, 2 Apr 2014 10:04:34 +0000
 
-
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, April 3, 2014 11:15 AM
-> To: Haiyang Zhang
-> Cc: netdev@vger.kernel.org; KY Srinivasan; olaf@aepfle.de;
-> jasowang@redhat.com; linux-kernel@vger.kernel.org; driverdev-
-> devel@linuxdriverproject.org
-> Subject: Re: [PATCH net-next,v4] hyperv: Add support for virtual Receive Side
-> Scaling (vRSS)
+> From: Arnd Bergmann
+>> On Tuesday 01 April 2014 21:27:12 Zhangfei Gao wrote:
+>> > +static int hip04_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>> 
+>> While it looks like there are no serious functionality bugs left, this
+>> function is rather inefficient, as has been pointed out before:
+>> 
+>> > +{
+>> > +       struct hip04_priv *priv = netdev_priv(ndev);
+>> > +       struct net_device_stats *stats = &ndev->stats;
+>> > +       unsigned int tx_head = priv->tx_head;
+>> > +       struct tx_desc *desc = &priv->tx_desc[tx_head];
+>> > +       dma_addr_t phys;
+>> > +
+>> > +       hip04_tx_reclaim(ndev, false);
+>> > +       mod_timer(&priv->txtimer, jiffies + RECLAIM_PERIOD);
+>> > +
+>> > +       if (priv->tx_count >= TX_DESC_NUM) {
+>> > +               netif_stop_queue(ndev);
+>> > +               return NETDEV_TX_BUSY;
+>> > +       }
+>> 
+>> This is where you have two problems:
+>> 
+>> - if the descriptor ring is full, you wait for RECLAIM_PERIOD,
+>>   which is far too long at 500ms, because during that time you
+>>   are not able to add further data to the stopped queue.
 > 
-> From: Haiyang Zhang <haiyangz@microsoft.com>
-> Date: Thu,  3 Apr 2014 09:05:34 -0700
-> 
-> > This feature allows multiple channels to be used by each virtual NIC.
-> > It is available on Hyper-V host 2012 R2.
-> >
-> > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> > Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> 
-> I announced on netdev the other day that the merge window is open and I'm
-> not accepting patches for new features until the net-next tree is open again.
+> Best to have some idea how long it will take for the ring to empty.
+> IIRC you need a count of the bytes in the tx ring anyway.
+> There isn't much point waking up until most of the queued
+> transmits have had time to complete.
 
-I see. (I found the dependency was merged in, so I was re-submitting... )
-I will wait for the net-next tree opening.
+There is absolutely no doubt in my mind that you cannot use timers
+for this, it simply will never work properly.
 
-Thanks,
-- Haiyang
+There needs to be a real notification from the device of some
+sort, and I don't care what form that comes in.
