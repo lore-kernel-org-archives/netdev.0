@@ -1,42 +1,68 @@
-From: Sharat Masetty <sharat04@gmail.com>
-Subject: RPS vs RFS
-Date: Thu, 3 Apr 2014 13:14:04 -0600
-Message-ID: <CAJzFV36pTwUyfoW=Jz1tBKSYbZTLvokOLST+XoX593YP6oN7Pw@mail.gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: net-core-rtnetlinkc-copy-paste-error-in-rtnl_bridge_notify.patch
+Date: Thu, 03 Apr 2014 21:47:58 +0200
+Message-ID: <533DBAEE.8060605@redhat.com>
+References: <20140403120122.fe50ce80260faf3fc3a4ae30@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: sharat chandra <sharat04@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevich@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f172.google.com ([74.125.82.172]:35090 "EHLO
-	mail-we0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753321AbaDCTOG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 15:14:06 -0400
-Received: by mail-we0-f172.google.com with SMTP id t61so2384633wes.3
-        for <netdev@vger.kernel.org>; Thu, 03 Apr 2014 12:14:04 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:26285 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753371AbaDCTsL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Apr 2014 15:48:11 -0400
+In-Reply-To: <20140403120122.fe50ce80260faf3fc3a4ae30@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am trying to understand the true benefit of RFS over RPS. In the
-kernel documentation scaling.txt, the author talks about data cache
-hitrate, can someone explain what this actually means? In which
-scenarios would RFS be beneficial? Why would it help to have network
-stack run on the same core on which the application for a stream/flow
-is running?
+On 04/03/2014 09:01 PM, Andrew Morton wrote:
+> Guys, I've been sitting on this since January and simply cannot
+> remember what happened with it.  Is this still a thing or did it get
+> nacked, or...?
 
+http://thread.gmane.org/gmane.linux.kernel/1638261/focus=1642371
 
-Consider a NIC with a single receive queue, single interrupt line, and
-iperf application is pulling data off this NIC card. In case where
-iperf may still be running on the same core on which the interrupts
-are delivered, then in that case the whole stack is pinned to the same
-core, and would not be benefiting a lot from this scheme
+I think someone should add a comment to this code line stating that
+this is intentional ... :)
 
-
-
-
-References:
-https://www.kernel.org/doc/Documentation/networking/scaling.txt
-
-https://lwn.net/Articles/382428/
-
-Regards,
-Sharat
+> Thanks.
+>
+> From: Yogesh Gaur <yogeshgaur.83@gmail.com>
+> Subject: net/core/rtnetlink.c: copy paste error in rtnl_bridge_notify()
+>
+> Seems to be copy paste error in calling ndo_bridge_getlink() func.
+>
+> Signed-off-by: Yogesh Gaur <yogeshgaur.83@gmail.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Vlad Yasevich <vyasevich@gmail.com>
+> Cc: Jiri Pirko <jiri@resnulli.us>
+> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
+>
+>   net/core/rtnetlink.c |    2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff -puN net/core/rtnetlink.c~net-core-rtnetlinkc-copy-paste-error-in-rtnl_bridge_notify net/core/rtnetlink.c
+> --- a/net/core/rtnetlink.c~net-core-rtnetlinkc-copy-paste-error-in-rtnl_bridge_notify
+> +++ a/net/core/rtnetlink.c
+> @@ -2576,7 +2576,7 @@ static int rtnl_bridge_notify(struct net
+>
+>   	if ((!flags || (flags & BRIDGE_FLAGS_MASTER)) &&
+>   	    br_dev && br_dev->netdev_ops->ndo_bridge_getlink) {
+> -		err = br_dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev, 0);
+> +		err = br_dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, br_dev, 0);
+>   		if (err < 0)
+>   			goto errout;
+>   	}
+> _
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
