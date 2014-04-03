@@ -1,39 +1,48 @@
-From: Alexander Holler <holler@ahsoftware.de>
-Subject: Re: [PATCH regression] net: phy: fix initialization (config_init)
- for Marvel 88E1116R PHYs
-Date: Thu, 03 Apr 2014 17:58:16 +0200
-Message-ID: <533D8518.1010306@ahsoftware.de>
-References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de> <CAGVrzcZd9tBtcTY_2PRHVb9kJAjVHqn+EubUy4NGL66M_UuCDg@mail.gmail.com> <533BD3CD.1010905@ahsoftware.de> <CAGVrzcZi5aNq8fR795fKhu2TAc1tQCa2YEorErZRLf2n9DPZuw@mail.gmail.com> <533C721E.1080004@gmail.com> <533C8B49.8080704@ahsoftware.de> <533C8ECB.4090900@gmail.com> <533D0B09.9040602@ahsoftware.de> <533D207E.9020909@gmail.com> <533D790C.5000104@ahsoftware.de> <533D8207.2050108@gmail.com>
+From: Josh Boyer <jwboyer@fedoraproject.org>
+Subject: [PATCH] net: cpts: Add includes for ETH_HLEN and VLAN_HLEN
+ definitions
+Date: Thu, 3 Apr 2014 12:08:43 -0400
+Message-ID: <20140403160843.GD15134@hansolo.jdub.homelinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Michal Simek <michal.simek@xilinx.com>,
-	stable <stable@vger.kernel.org>
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <533D8207.2050108@gmail.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 03.04.2014 17:45, schrieb Sebastian Hesselbarth:
+If CONFIG_TI_CPTS is enabled, the ti_cpsw driver will fail to build with:
 
->
-> I will try to reproduce it and if I hit it, will do a bisect to find
-> (and fix) the offending patch.
->
->> I have better ways to waste my time.
->
-> Like writing workarounds instead of fixing bugs?
+drivers/net/ethernet/ti/cpts.c: In function 'cpts_match':
+drivers/net/ethernet/ti/cpts.c:266:12: error: 'ETH_HLEN' undeclared (first use in this function)
+   offset = ETH_HLEN + IPV4_HLEN(data) + UDP_HLEN;
+            ^
+drivers/net/ethernet/ti/cpts.c:266:12: note: each undeclared identifier is reported only once for each function it appears in
+drivers/net/ethernet/ti/cpts.c:276:23: error: 'VLAN_HLEN' undeclared (first use in this function)
+   offset = ETH_HLEN + VLAN_HLEN;
+                       ^
 
-Sure. If I would try to fix (or even describe) every bug in the kernel I 
-already know about, I would never have time to do anything else.
+Add includes of if_ether.h and if_vlan.h to bring in the appropriate defines.
 
-Besides that you still try to ignore, that I didn't know at first that 
-it's a workaround at all. Especially after I've discovered that the 
-reset is the place where things are failing. Otherwise I wouldn't have 
-sent the patch (which I know NOW that it just is a workaround).
+Signed-off-by: Josh Boyer <jwboyer@fedoraproject.org>
+---
+ drivers/net/ethernet/ti/cpts.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Alexander Holler
+diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+index a3bbf59eaafd..2a2f82ae0c1d 100644
+--- a/drivers/net/ethernet/ti/cpts.c
++++ b/drivers/net/ethernet/ti/cpts.c
+@@ -19,6 +19,8 @@
+  */
+ #include <linux/err.h>
+ #include <linux/if.h>
++#include <linux/if_ether.h>
++#include <linux/if_vlan.h>
+ #include <linux/hrtimer.h>
+ #include <linux/module.h>
+ #include <linux/net_tstamp.h>
+-- 
+1.8.5.3
