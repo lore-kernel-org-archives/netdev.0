@@ -1,97 +1,243 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Wed, 02 Apr 2014 11:21:45 +0200
-Message-ID: <9532591.5yuCbpL4pV@wuerfel>
-References: <1396358832-15828-1-git-send-email-zhangfei.gao@linaro.org> <1396358832-15828-4-git-send-email-zhangfei.gao@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Zhangfei Gao <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1396358832-15828-4-git-send-email-zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: [PATCH] net: add a sysctl to reflect the fwmark on replies
+Date: Thu,  3 Apr 2014 18:00:01 +0900
+Message-ID: <1396515601-24880-1-git-send-email-lorenzo@google.com>
+References: <CAKD1Yr1nGPY131oDrHHHNyhatE3nHFA+Tb4QfVv-mTTHY7B=Yw@mail.gmail.com>
+Cc: davem@davemloft.net, ja@ssi.bg,
+	Lorenzo Colitti <lorenzo@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:40307 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758939AbaDCJAS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 05:00:18 -0400
+Received: by mail-pa0-f41.google.com with SMTP id fa1so1529039pad.14
+        for <netdev@vger.kernel.org>; Thu, 03 Apr 2014 02:00:18 -0700 (PDT)
+In-Reply-To: <CAKD1Yr1nGPY131oDrHHHNyhatE3nHFA+Tb4QfVv-mTTHY7B=Yw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 01 April 2014 21:27:12 Zhangfei Gao wrote:
-> +static int hip04_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+Kernel-originated IP packets that have no user socket associated
+with them (e.g., ICMP errors and echo replies, TCP RSTs, etc.)
+are emitted with a mark of zero. Add a sysctl to make them have
+the same mark as the packet they are replying to.
 
-While it looks like there are no serious functionality bugs left, this
-function is rather inefficient, as has been pointed out before:
+This allows an administrator that wishes to do so to use
+mark-based routing, firewalling, etc. for these replies by
+marking the original packets inbound.
 
-> +{
-> +       struct hip04_priv *priv = netdev_priv(ndev);
-> +       struct net_device_stats *stats = &ndev->stats;
-> +       unsigned int tx_head = priv->tx_head;
-> +       struct tx_desc *desc = &priv->tx_desc[tx_head];
-> +       dma_addr_t phys;
-> +
-> +       hip04_tx_reclaim(ndev, false);
-> +       mod_timer(&priv->txtimer, jiffies + RECLAIM_PERIOD);
-> +
-> +       if (priv->tx_count >= TX_DESC_NUM) {
-> +               netif_stop_queue(ndev);
-> +               return NETDEV_TX_BUSY;
-> +       }
+Tested using user-mode linux:
+ - ICMP/ICMPv6 echo replies and errors.
+ - TCP RST packets (IPv4 and IPv6).
 
-This is where you have two problems:
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+---
+ include/net/ip.h           |  3 +++
+ include/net/netns/ipv4.h   |  2 ++
+ net/ipv4/icmp.c            | 11 +++++++++--
+ net/ipv4/ip_output.c       |  3 ++-
+ net/ipv4/sysctl_net_ipv4.c |  7 +++++++
+ net/ipv6/icmp.c            |  6 ++++++
+ net/ipv6/tcp_ipv6.c        |  1 +
+ 7 files changed, 30 insertions(+), 3 deletions(-)
 
-- if the descriptor ring is full, you wait for RECLAIM_PERIOD,
-  which is far too long at 500ms, because during that time you
-  are not able to add further data to the stopped queue.
-
-- As David Laight pointed out earlier, you must also ensure that
-  you don't have too much /data/ pending in the descriptor ring
-  when you stop the queue. For a 10mbit connection, you have already
-  tested (as we discussed on IRC) that 64 descriptors with 1500 byte
-  frames gives you a 68ms round-trip ping time, which is too much.
-  Conversely, on 1gbit, having only 64 descriptors actually seems
-  a little low, and you may be able to get better throughput if
-  you extend the ring to e.g. 512 descriptors.
-
-> +       phys = dma_map_single(&ndev->dev, skb->data, skb->len, DMA_TO_DEVICE);
-> +       if (dma_mapping_error(&ndev->dev, phys)) {
-> +               dev_kfree_skb(skb);
-> +               return NETDEV_TX_OK;
-> +       }
-> +
-> +       priv->tx_skb[tx_head] = skb;
-> +       priv->tx_phys[tx_head] = phys;
-> +       desc->send_addr = cpu_to_be32(phys);
-> +       desc->send_size = cpu_to_be16(skb->len);
-> +       desc->cfg = cpu_to_be32(DESC_DEF_CFG);
-> +       phys = priv->tx_desc_dma + tx_head * sizeof(struct tx_desc);
-> +       desc->wb_addr = cpu_to_be32(phys);
-
-One detail: since you don't have cache-coherent DMA, "desc" will
-reside in uncached memory, so you try to minimize the number of accesses.
-It's probably faster if you build the descriptor on the stack and
-then atomically copy it over, rather than assigning each member at
-a time.
-
-The same would be true for the rx descriptors.
-
-> +       skb_tx_timestamp(skb);
-> +
-> +       /* Don't wait up for transmitted skbs to be freed. */
-> +       skb_orphan(skb);
-> +
-> +       hip04_set_xmit_desc(priv, phys);
-> +       priv->tx_head = TX_NEXT(tx_head);
-> +
-> +       stats->tx_bytes += skb->len;
-> +       stats->tx_packets++;
-> +       priv->tx_count++;
-> +
-> +       return NETDEV_TX_OK;
-> +}
-
-	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 25064c2..2c0fc74 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -238,6 +238,9 @@ void ipfrag_init(void);
+ 
+ void ip_static_sysctl_init(void);
+ 
++#define IP_REPLY_MARK(net, mark) \
++	((net)->ipv4.sysctl_fwmark_reflect ? (mark) : 0)
++
+ static inline bool ip_is_fragment(const struct iphdr *iph)
+ {
+ 	return (iph->frag_off & htons(IP_MF | IP_OFFSET)) != 0;
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 80f500a..8e1a9c0 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -72,6 +72,8 @@ struct netns_ipv4 {
+ 	int sysctl_ip_no_pmtu_disc;
+ 	int sysctl_ip_fwd_use_pmtu;
+ 
++	int sysctl_fwmark_reflect;
++
+ 	kgid_t sysctl_ping_group_range[2];
+ 
+ 	atomic_t dev_addr_genid;
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 0134663..e6128cd 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -337,6 +337,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
+ 	struct sock *sk;
+ 	struct inet_sock *inet;
+ 	__be32 daddr, saddr;
++	u32 mark = IP_REPLY_MARK(net, skb->mark);
+ 
+ 	if (ip_options_echo(&icmp_param->replyopts.opt.opt, skb))
+ 		return;
+@@ -349,6 +350,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
+ 	icmp_param->data.icmph.checksum = 0;
+ 
+ 	inet->tos = ip_hdr(skb)->tos;
++	sk->sk_mark = mark;
+ 	daddr = ipc.addr = ip_hdr(skb)->saddr;
+ 	saddr = fib_compute_spec_dst(skb);
+ 	ipc.opt = NULL;
+@@ -364,6 +366,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
+ 	memset(&fl4, 0, sizeof(fl4));
+ 	fl4.daddr = daddr;
+ 	fl4.saddr = saddr;
++	fl4.flowi4_mark = mark;
+ 	fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
+ 	fl4.flowi4_proto = IPPROTO_ICMP;
+ 	security_skb_classify_flow(skb, flowi4_to_flowi(&fl4));
+@@ -382,7 +385,7 @@ static struct rtable *icmp_route_lookup(struct net *net,
+ 					struct flowi4 *fl4,
+ 					struct sk_buff *skb_in,
+ 					const struct iphdr *iph,
+-					__be32 saddr, u8 tos,
++					__be32 saddr, u8 tos, u32 mark,
+ 					int type, int code,
+ 					struct icmp_bxm *param)
+ {
+@@ -394,6 +397,7 @@ static struct rtable *icmp_route_lookup(struct net *net,
+ 	fl4->daddr = (param->replyopts.opt.opt.srr ?
+ 		      param->replyopts.opt.opt.faddr : iph->saddr);
+ 	fl4->saddr = saddr;
++	fl4->flowi4_mark = mark;
+ 	fl4->flowi4_tos = RT_TOS(tos);
+ 	fl4->flowi4_proto = IPPROTO_ICMP;
+ 	fl4->fl4_icmp_type = type;
+@@ -491,6 +495,7 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
+ 	struct flowi4 fl4;
+ 	__be32 saddr;
+ 	u8  tos;
++	u32 mark;
+ 	struct net *net;
+ 	struct sock *sk;
+ 
+@@ -592,6 +597,7 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
+ 	tos = icmp_pointers[type].error ? ((iph->tos & IPTOS_TOS_MASK) |
+ 					   IPTOS_PREC_INTERNETCONTROL) :
+ 					  iph->tos;
++	mark = IP_REPLY_MARK(net, skb_in->mark);
+ 
+ 	if (ip_options_echo(&icmp_param->replyopts.opt.opt, skb_in))
+ 		goto out_unlock;
+@@ -608,13 +614,14 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
+ 	icmp_param->skb	  = skb_in;
+ 	icmp_param->offset = skb_network_offset(skb_in);
+ 	inet_sk(sk)->tos = tos;
++	sk->sk_mark = mark;
+ 	ipc.addr = iph->saddr;
+ 	ipc.opt = &icmp_param->replyopts.opt;
+ 	ipc.tx_flags = 0;
+ 	ipc.ttl = 0;
+ 	ipc.tos = -1;
+ 
+-	rt = icmp_route_lookup(net, &fl4, skb_in, iph, saddr, tos,
++	rt = icmp_route_lookup(net, &fl4, skb_in, iph, saddr, tos, mark,
+ 			       type, code, icmp_param);
+ 	if (IS_ERR(rt))
+ 		goto out_unlock;
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 1a0755f..be93317 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -1501,7 +1501,8 @@ void ip_send_unicast_reply(struct net *net, struct sk_buff *skb, __be32 daddr,
+ 			daddr = replyopts.opt.opt.faddr;
+ 	}
+ 
+-	flowi4_init_output(&fl4, arg->bound_dev_if, 0,
++	flowi4_init_output(&fl4, arg->bound_dev_if,
++			   IP_REPLY_MARK(net, skb->mark),
+ 			   RT_TOS(arg->tos),
+ 			   RT_SCOPE_UNIVERSE, ip_hdr(skb)->protocol,
+ 			   ip_reply_arg_flowi_flags(arg),
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 44eba05..e40a738 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -838,6 +838,13 @@ static struct ctl_table ipv4_net_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec,
+ 	},
++	{
++		.procname	= "fwmark_reflect",
++		.data		= &init_net.ipv4.sysctl_fwmark_reflect,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
+ 	{ }
+ };
+ 
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 7b32652..63e96841 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -400,6 +400,7 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
+ 	int len;
+ 	int hlimit;
+ 	int err = 0;
++	u32 mark = IP_REPLY_MARK(net, skb->mark);
+ 
+ 	if ((u8 *)hdr < skb->head ||
+ 	    (skb_network_header(skb) + sizeof(*hdr)) > skb_tail_pointer(skb))
+@@ -466,6 +467,7 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
+ 	fl6.daddr = hdr->saddr;
+ 	if (saddr)
+ 		fl6.saddr = *saddr;
++	fl6.flowi6_mark = mark;
+ 	fl6.flowi6_oif = iif;
+ 	fl6.fl6_icmp_type = type;
+ 	fl6.fl6_icmp_code = code;
+@@ -474,6 +476,7 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
+ 	sk = icmpv6_xmit_lock(net);
+ 	if (sk == NULL)
+ 		return;
++	sk->sk_mark = mark;
+ 	np = inet6_sk(sk);
+ 
+ 	if (!icmpv6_xrlim_allow(sk, type, &fl6))
+@@ -556,6 +559,7 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 	int err = 0;
+ 	int hlimit;
+ 	u8 tclass;
++	u32 mark = IP_REPLY_MARK(net, skb->mark);
+ 
+ 	saddr = &ipv6_hdr(skb)->daddr;
+ 
+@@ -574,11 +578,13 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 		fl6.saddr = *saddr;
+ 	fl6.flowi6_oif = skb->dev->ifindex;
+ 	fl6.fl6_icmp_type = ICMPV6_ECHO_REPLY;
++	fl6.flowi6_mark = mark;
+ 	security_skb_classify_flow(skb, flowi6_to_flowi(&fl6));
+ 
+ 	sk = icmpv6_xmit_lock(net);
+ 	if (sk == NULL)
+ 		return;
++	sk->sk_mark = mark;
+ 	np = inet6_sk(sk);
+ 
+ 	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 5ca56ce..0315c59 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -802,6 +802,7 @@ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
+ 		fl6.flowi6_oif = inet6_iif(skb);
+ 	else
+ 		fl6.flowi6_oif = oif;
++	fl6.flowi6_mark = IP_REPLY_MARK(net, skb->mark);
+ 	fl6.fl6_dport = t1->dest;
+ 	fl6.fl6_sport = t1->source;
+ 	security_skb_classify_flow(skb, flowi6_to_flowi(&fl6));
+-- 
+1.9.1.423.g4596e3a
