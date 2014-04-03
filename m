@@ -1,55 +1,44 @@
-From: lucien xin <lucien.xin@gmail.com>
-Subject: Re: [PATCH] vxlan: using AF_PACKET socket to send multicast packet
- cause WARNING
-Date: Thu, 3 Apr 2014 13:28:33 +0800
-Message-ID: <CADvbK_ftDf_AsbEeF9EViBm68Co3bj1L-fR1-BDA0Uxn=1LPpA@mail.gmail.com>
-References: <1396343330-23648-1-git-send-email-lucien.xin@gmail.com>
-	<20140401.161047.854771903443514987.davem@davemloft.net>
-	<CADvbK_dK_fBB3bQSWKkAk6adtgrHm553Hr3JGHsw67qeS0cQOw@mail.gmail.com>
-	<20140402075106.3eec7791@nehalam.linuxnetplumber.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] net: add a sysctl to reflect the fwmark on replies
+Date: Thu, 3 Apr 2014 14:10:53 +0200
+Message-ID: <20140403121053.GB13354@order.stressinduktion.org>
+References: <CAKD1Yr1nGPY131oDrHHHNyhatE3nHFA+Tb4QfVv-mTTHY7B=Yw@mail.gmail.com> <1396515601-24880-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	network dev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ja@ssi.bg
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f169.google.com ([74.125.82.169]:48683 "EHLO
-	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161276AbaDCF2e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 01:28:34 -0400
-Received: by mail-we0-f169.google.com with SMTP id w62so1255088wes.0
-        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 22:28:33 -0700 (PDT)
-In-Reply-To: <20140402075106.3eec7791@nehalam.linuxnetplumber.net>
+Received: from order.stressinduktion.org ([87.106.68.36]:48695 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751929AbaDCMKy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 08:10:54 -0400
+Content-Disposition: inline
+In-Reply-To: <1396515601-24880-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 2, 2014 at 10:51 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> That breaks local socket accounting for tunneled packets.
-It do break, I think it should break, becaue vlxan send UDP packets,
-it should be bound to UDP socket.
-after  encapsulating the packet with local socket.  it reach the
-vxlan's xmit.  and It should be take into
-vxlan's UDP socket.and local socket should not take care of it.
+On Thu, Apr 03, 2014 at 06:00:01PM +0900, Lorenzo Colitti wrote:
+> Kernel-originated IP packets that have no user socket associated
+> with them (e.g., ICMP errors and echo replies, TCP RSTs, etc.)
+> are emitted with a mark of zero. Add a sysctl to make them have
+> the same mark as the packet they are replying to.
+> 
+> This allows an administrator that wishes to do so to use
+> mark-based routing, firewalling, etc. for these replies by
+> marking the original packets inbound.
+> 
+> Tested using user-mode linux:
+>  - ICMP/ICMPv6 echo replies and errors.
+>  - TCP RST packets (IPv4 and IPv6).
 
-now the problem is that the local socket(AF_PACKET) cannot take it to
-travel the ipv4/6 protocol stack,
-unlike TCP/UDP socket.   perhaps, in later, there will be other type
-protocol family that has the same issue.
-so I think vxlan should support it.
+Hmm, maybe add two sysctls to distinguish between IPv4 and IPv6?
 
-> The idea is that a TCP socket sending over vxlan will keep it's
-> memory accounting all the way until the device sends it.
-yes, the idea is there.  But if vxlan is treated as net_device,  the
-packet enter it's xmit(), which seems
- to be send by the device.  so when the packet goes there, the TCP
-socket also should let it go.
+We share the sysctl namespace for tcp with ipv4, but otherwise the knobs
+are isolated if they touch ip-only behaviour.
 
-of course, if you insist the idea you said,  to support only some type
-protocol family, do you have some
-better suggestion?
+Also net-next is currently closed, so the patch would have to wait until it
+opens back up in a few weeks(?).
 
-I cannot be sure I understand you well, those are just my own
-thoughts. pls help to check and correct it .  :)
+Bye,
 
-many thanks to your reply.
+  Hannes
