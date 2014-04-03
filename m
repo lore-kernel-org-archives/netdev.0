@@ -1,123 +1,72 @@
-From: "Fujinaka, Todd" <todd.fujinaka@intel.com>
-Subject: RE: [E1000-devel] fail to add 64 VLANs or more when SR-IOV is
-	enabled
-Date: Wed, 2 Apr 2014 23:23:08 +0000
-Message-ID: <9B4A1B1917080E46B64F07F2989DADD652978166@ORSMSX102.amr.corp.intel.com>
-References: <9DE5760509B7974286F38D93BF31DD62C7DF93@BPXM13GP.gisp.nec.co.jp>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: on kernel 2.6.34.15, vlan and raw packets can not be received
+ with gfar-enet nic
+Date: Thu, 03 Apr 2014 17:57:53 +0800
+Message-ID: <533D30A1.1060509@gmail.com>
+References: <53310F4E.4080104@gmail.com> <533D25D4.4000607@gmail.com>
+ <20140403092727.GD16158@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Content-Transfer-Encoding: 8BIT
-Cc: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	Hiroshi Baba <h-baba@ax.jp.nec.com>
-To: Madoka Komatsubara <m-komatsubara@ab.jp.nec.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <9DE5760509B7974286F38D93BF31DD62C7DF93@BPXM13GP.gisp.nec.co.jp>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: "Yang, Zhangle \(Eric\)" <Zhangle.Yang@windriver.com>,
+ netdev@vger.kernel.org, richardcochran@gmail.com,
+ linuxppc-dev@lists.ozlabs.org, guang.yang@windriver.com,
+ linux-kernel@vger.kernel.org, yongjun_wei@trendmicro.com.cn,
+ sandeep.kumar@freescale.com, Claudiu Manoil <claudiu.manoil@freescale.com>,
+ "Tao, Yue" <Yue.Tao@windriver.com>, joe@perches.com, festevam@gmail.com,
+ clarocq@gmail.com
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20140403092727.GD16158@1wt.eu>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-I think you're running into the filter limit for VFs.
-
-Todd Fujinaka
-Software Application Engineer
-Networking Division (ND)
-Intel Corporation
-todd.fujinaka@intel.com
-(503) 712-4565
-
-
------Original Message-----
-From: Madoka Komatsubara [mailto:m-komatsubara@ab.jp.nec.com] 
-Sent: Wednesday, April 02, 2014 2:11 AM
-To: Skidmore, Donald C; linux-kernel@vger.kernel.org; e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org
-Cc: Hiroshi Shimamoto; Hiroshi Baba
-Subject: Re: [E1000-devel] fail to add 64 VLANs or more when SR-IOV is enabled
-
-
->-----Original Message-----
->From: Komatsubara Madoka(小松原 円) 
->Sent: Thursday, March 27, 2014 6:11 PM
->To: 'linux-kernel@vger.kernel.org'; 'e1000-devel@lists.sourceforge.net'; 'netdev@vger.kernel.org'
->Cc: Shimamoto Hiroshi(島本 裕志); Baba Hiroshi(馬場 裕司)
->Subject: fail to add 64 VLANs or more when SR-IOV is enabled
->
->Hi all,
->
->
->We're facing an issue that we cannot add 64 VLANs or more per VF.
->When using SR-IOV, pass through a VF to the KVM guest and a lot of VLANs, we could add 63 VLANs using vconfig but we >failed to add 64th VLAN.
->We'd like to use many VLANs on the guest with SR-IOV.
->We're using Intel's 82599EB chip with ixgbe and ixgbevf driver.
->
->Has anyone seen the same issue?
->Is there any idea to solve this?
->
-
-Hi Donald,
-
-Do you also notice this problem?
-We're facing an issue that we can use only 64 VLANs per VF.
-We're using Intel's 82599EB chip with ixgbe and ixgbevf driver.
-
-
-Is it subject to the specification restrictions only 64 VLAN can use per VF?
-We'd like to use about 2000 VLAN per VF.
-
-Does it come from hardware?
-
-
-
-Regards,
-Madoka Komatsubara
-
-
->The below instruction is a reproducing method.
->Create hundred VLANs on the guest.
->
-># for i in `seq 100 199`; do vconfig add eth2 $i; ifconfig 192.168.$i.1/24; done
->
-># vconfig add eth2 100
->Added VLAN with VID == 100 to IF -:eth2:-
->
-># vconfig add eth2 101
->Added VLAN with VID == 101 to IF -:eth2:-
->
-># vconfig add eth2 102
->Added VLAN with VID == 102 to IF -:eth2:-
->
->...
->
-># vconfig add eth2 162
->Added VLAN with VID == 162 to IF -:eth2:-
->
-># vconfig add eth2 163
->ERROR: trying to add VLAN #163 to IF -:eth2:-  error: Permission denied
->SIOCSIFADDR: No such device
->eth2.163: unknown interface: No such device
->
-># vconfig add eth2 164
->ERROR: trying to add VLAN #164 to IF -:eth2:-  error: Permission denied
->SIOCSIFADDR: No such device
->eth2.164: unknown interface: No such device
->
-># vconfig add eth2 165
->ERROR: trying to add VLAN #165 to IF -:eth2:-  error: Permission denied
->SIOCSIFADDR: No such device
->eth2.165: unknown interface: No such device
->
->
->thanks,
->Madoka Komatsubara
-
-
-------------------------------------------------------------------------------
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+T24gMDQvMDMvMjAxNCAwNToyNyBQTSwgV2lsbHkgVGFycmVhdSB3cm90ZToKPiBIaSBaaHUsCj4K
+PiBPbiBUaHUsIEFwciAwMywgMjAxNCBhdCAwNToxMTo0OFBNICswODAwLCB6aHV5aiB3cm90ZToK
+Pj4gSGksIENsYXVkaXUKPj4KPj4gUGxlYXNlIGhlbHAgdG8gcmV2aWV3IHRoaXMgcGF0Y2guIFRo
+aXMgcGF0Y2ggaXMgZm9yIGtlcm5lbCAyLjYueC4gVGhhbmtzCj4+IGEgbG90Lgo+Pgo+PiBIaSwg
+V2lsbHkKPj4KPj4gUGxlYXNlIGhlbHAgdG8gbWVyZ2UgdGhpcyBwYXRjaCB0byBsb25ndGVybTog
+Mi42LjMyLjYxIHNpbmNlIHRoaXMKPj4gcHJvYmxlbSBhbHNvIG9jY3VycyBvbiB0aGlzIGtlcm5l
+bC4gVGhhbmtzIGEgbG90Lgo+IENvdWxkIHlvdSBwbGVhc2Ugc2VuZCB0aGUgcmVmZXJlbmNlIHRv
+IHRoZSBlcXVpdmFsZW50IG1haW5saW5lIGNvbW1pdCAodGhlIG9uZQo+IHdoaWNoIGRpc2FibGVz
+IHRoZSB0eCB2bGFuIGZlYXR1cmUgSSdtIGFzc3VtaW5nKSA/IEknbGwgaGFwcGlseSBxdWV1ZSBp
+dCBmb3IKPiAyLjYuMzIuNjIuCj4KPiBUaGFua3MsCj4gV2lsbHkKPgo+CkhpLCBXaWxseQoKSSBy
+ZWZlcmVuY2UgdGhlIGZvbGxvd2luZyAyIG1haW5saW5lIGNvbW1pdHMuIFRoZXNlIDIgY29tbWl0
+cyBhcmUgYmFzZWQgCm9uIHRoZSBjdXJyZW50IGtlcm5lbCAzLnggYW5kIGV0aHRvb2wuCklmIHdl
+IG9ubHkgYmFja3BvcnQgdGhlc2UgMiBjb21taXRzIG9uIGtlcm5lbCAyLjYueCwgdGhpcyBwcm9i
+bGVtIHdpbGwgCm5vdCBiZSBmaXhlZCB5ZXQuCgpCZXN0IFJlZ2FyZHMhClpodSBZYW5qdW4KCjEu
+IGNvbW1pdCA4N2MyODhjNmU5YWEzMTcyMGI3MmUyYmMyZDY2NWUyNGUxNjUzYzNlCkF1dGhvcjog
+SmlyaSBQaXJrbyA8anBpcmtvQHJlZGhhdC5jb20+CkRhdGU6ICAgV2VkIEp1bCAyMCAwNDo1NDox
+OSAyMDExICswMDAwCgogICAgIGdpYW5mYXI6IGRvIHZsYW4gY2xlYW51cAoKICAgICAtIHVuaWZ5
+IHZsYW4gYW5kIG5vbnZsYW4gcnggcGF0aAogICAgIC0ga2lsbCBwcml2LT52bGdycCBhbmQgZ2Zh
+cl92bGFuX3J4X3JlZ2lzdGVyCiAgICAgLSBhbGxvdyB0byB0dXJuIG9uL29mZiByeC90eCB2bGFu
+IGFjY2VsIHZpYSBldGh0b29sCgogICAgIFNpZ25lZC1vZmYtYnk6IEppcmkgUGlya28gPGpwaXJr
+b0ByZWRoYXQuY29tPgogICAgIFNpZ25lZC1vZmYtYnk6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1A
+ZGF2ZW1sb2Z0Lm5ldD4KCiAgZHJpdmVycy9uZXQvZ2lhbmZhci5jIHwgICA1NSAKKysrKysrKysr
+KysrKysrKysrKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQogIDEgZmlsZSBjaGFuZ2Vk
+LCAyOSBpbnNlcnRpb25zKCspLCAyNiBkZWxldGlvbnMoLSkKCjIuY29tbWl0IGI4NTJiNzIwODc3
+ZTZiOGUxMmI5NWE3Y2I0ZTAwZWEzNTFiOGNiZmMKQXV0aG9yOiBTZWJhc3RpYW4gUMO2aG4gPHNl
+YmFzdGlhbi5iZWxkZW5AZ29vZ2xlbWFpbC5jb20+CkRhdGU6ICAgVHVlIEp1bCAyNiAwMDowMzox
+MyAyMDExICswMDAwCgogICAgIGdpYW5mYXI6IGZpeCBidWcgY2F1c2VkIGJ5IDg3YzI4OGM2ZTlh
+YTMxNzIwYjcyZTJiYzJkNjY1ZTI0ZTE2NTNjM2UKCiAgICAgY29tbWl0IDg3YzI4OGM2ZTlhYTMx
+NzIwYjcyZTJiYzJkNjY1ZTI0ZTE2NTNjM2UgImdpYW5mYXI6IGRvIHZsYW4gCmNsZWFudXAiIGhh
+cyB0d28gaXNzdWVzOgogICAgICMgcGVybXV0YXRpb24gb2YgcnggYW5kIHR4IGZsYWdzCiAgICAg
+IyBlbmFibGluZyB2bGFuIHRhZyBpbnNlcnRpb24gYnkgZGVmYXVsdCAodGhpcyBsZWFkcyB0byB1
+bnVzYWJsZSAKY29ubmVjdGlvbnMgb24gc29tZSBjb25maWd1cmF0aW9ucykKCiAgICAgSWYgVkxB
+TiBpbnNlcnRpb24gaXMgcmVxdWVzdGVkICh2aWEgZXRodG9vbCkgaXQgd2lsbCBiZSBzZXQgYXQg
+YW4gCm90aGVyIHBvaW50IC4uLgoKICAgICBTaWduZWQtb2ZmLWJ5OiBTZWJhc3RpYW4gUG9laG4g
+PHNlYmFzdGlhbi5wb2VobkBiZWxkZW4uY29tPgogICAgIFNpZ25lZC1vZmYtYnk6IERhdmlkIFMu
+IE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4KCiAgZHJpdmVycy9uZXQvZ2lhbmZhci5jIHwg
+ICAgNiArLS0tLS0KICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKyksIDUgZGVsZXRpb25z
+KC0pCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51
+eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBz
+Oi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
