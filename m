@@ -1,40 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/mlx4_core: match pci_device_id including dynids
-Date: Tue, 01 Apr 2014 22:29:55 -0400 (EDT)
-Message-ID: <20140401.222955.1322740724254746495.davem@davemloft.net>
-References: <1396326961-20395-1-git-send-email-weiyang@linux.vnet.ibm.com>
+From: =?UTF-8?q?Cristian=20Rodr=C3=ADguez?= <crrodriguez@opensuse.org>
+Subject: [PATCH ethtool 1/2] ixgbe: missing "static" in function definition
+Date: Thu,  3 Apr 2014 00:06:15 -0300
+Message-ID: <1396494376-6521-1-git-send-email-crrodriguez@opensuse.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yevgenyp@mellanox.com,
-	ogerlitz@mellanox.com, amirv@mellanox.com, bhelgaas@google.com,
-	linux-pci@vger.kernel.org
-To: weiyang@linux.vnet.ibm.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1396326961-20395-1-git-send-email-weiyang@linux.vnet.ibm.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ben@decadent.org.uk,
+	=?UTF-8?q?Cristian=20Rodr=C3=ADguez?= <crrodriguez@opensuse.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f171.google.com ([209.85.216.171]:62865 "EHLO
+	mail-qc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932869AbaDCDGp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 23:06:45 -0400
+Received: by mail-qc0-f171.google.com with SMTP id c9so1241935qcz.30
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 20:06:44 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Date: Tue,  1 Apr 2014 12:36:01 +0800
+Signed-off-by: Cristian Rodr=C3=ADguez <crrodriguez@opensuse.org>
+---
+ ixgbe.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> Fix issue introduced by commit: 97a5221 "net/mlx4_core: pass
-> pci_device_id.driver_data to __mlx4_init_one during reset".
-> 
-> pci_match_id() just match the static pci_device_id, which may return NULL if
-> someone binds the driver to a device manually using
-> /sys/bus/pci/drivers/.../new_id.
-> 
-> This patch match pci_device_id with pci_match_device() to cover both dynids
-> and static id_table.
-> 
-> Thanks to Bjorn finding this issue.
-> 
-> CC: Bjorn Helgaas <bhelgaas@google.com>
-> CC: Amir Vadai <amirv@mellanox.com>
-> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
-> Acked-by: Amir Vadai <amirv@mellanox.com>
-
-And ACK from the PCI folks would be greatly appreciated.
-
-Thanks.
+diff --git a/ixgbe.c b/ixgbe.c
+index 6a663e4..3928d77 100644
+--- a/ixgbe.c
++++ b/ixgbe.c
+@@ -76,7 +76,7 @@ enum ixgbe_mac_type {
+ 	ixgbe_num_macs
+ };
+=20
+-enum ixgbe_mac_type
++static enum ixgbe_mac_type
+ ixgbe_get_mac_type(u16 device_id)
+ {
+ 	enum ixgbe_mac_type mac_type =3D ixgbe_mac_unknown;
+--=20
+1.8.4.5
