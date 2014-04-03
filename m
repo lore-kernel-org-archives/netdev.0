@@ -1,25 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: Micrel KSZ8864RMN 4-port managed switch support
-Date: Thu, 03 Apr 2014 16:15:51 -0400 (EDT)
-Message-ID: <20140403.161551.122482244018928134.davem@davemloft.net>
-References: <1396517290-4123-1-git-send-email-p.zabel@pengutronix.de>
+Subject: Re: [PATCH net] net-gro: reset skb->truesize in napi_reuse_skb()
+Date: Thu, 03 Apr 2014 16:18:34 -0400 (EDT)
+Message-ID: <20140403.161834.1232262926542795326.davem@davemloft.net>
+References: <1396542490.12330.17.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	frdrc66@gmail.com, kernel@pengutronix.de
-To: p.zabel@pengutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1396517290-4123-1-git-send-email-p.zabel@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46662 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753796AbaDCURA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 16:17:00 -0400
+In-Reply-To: <1396542490.12330.17.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Philipp Zabel <p.zabel@pengutronix.de>
-Date: Thu,  3 Apr 2014 11:28:10 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 03 Apr 2014 09:28:10 -0700
 
-> This patch adds support for the Micrel KSZ8864RMN switch to the spi_ks8995
-> driver. The KSZ8864RMN switch has a wider 256-byte register space.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+> Recycling skb always had been very tough...
+> 
+> This time it appears GRO layer can accumulate skb->truesize
+> adjustments made by drivers when they attach a fragment to skb.
+> 
+> skb_gro_receive() can only subtract from skb->truesize the used part
+> of a fragment.
+> 
+> I spotted this problem seeing TcpExtPruneCalled and
+> TcpExtTCPRcvCollapsed that were unexpected with a recent kernel, where
+> TCP receive window should be sized properly to accept traffic coming
+> from a driver not overshooting skb->truesize.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks.
+Nasty...
+
+Applied, thanks Eric.
