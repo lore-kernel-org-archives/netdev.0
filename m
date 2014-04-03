@@ -1,121 +1,44 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [RFC PATCH] vlan: Try to adjust lower device mtu when configuring
- 802.1AD vlans
-Date: Thu, 03 Apr 2014 09:07:48 -0400
-Message-ID: <533D5D24.9080005@redhat.com>
-References: <1396387054-4510-1-git-send-email-vyasevic@redhat.com>	 <20140402122121.GD26334@macbook.localnet> <533C113E.2000908@redhat.com> <1396456652.2215.42.camel@localhost.localdomain> <533C3E60.8070509@redhat.com> <533D1C95.6010705@lab.ntt.co.jp>
-Reply-To: vyasevic@redhat.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.14 regression: huge latency in read/select on tun
+Date: Thu, 03 Apr 2014 06:50:26 -0700
+Message-ID: <1396533026.12330.9.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <533C381E.9090103@odi.ch>
+	 <1396456973.3989.41.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <533D133A.3090008@odi.ch>
+	 <1396531176.12330.6.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Toshiaki Makita <toshiaki.makita1@gmail.com>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Ortwin =?ISO-8859-1?Q?Gl=FCck?= <odi@odi.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62050 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751817AbaDCNH5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Apr 2014 09:07:57 -0400
-In-Reply-To: <533D1C95.6010705@lab.ntt.co.jp>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:63309 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751777AbaDCNu2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 09:50:28 -0400
+In-Reply-To: <1396531176.12330.6.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/03/2014 04:32 AM, Toshiaki Makita wrote:
-> (2014/04/03 1:44), Vlad Yasevich wrote:
->> On 04/02/2014 12:37 PM, Toshiaki Makita wrote:
->>> On Wed, 2014-04-02 at 09:31 -0400, Vlad Yasevich wrote:
->>>> On 04/02/2014 08:21 AM, Patrick McHardy wrote:
->>>>> On Tue, Apr 01, 2014 at 05:17:34PM -0400, Vlad Yasevich wrote:
->>>>>> 802.1AD vlans supposed to encapsulate 802.1Q vlans.  To
->>>>>> do this, we need an extra 4 bytes of header which are typically
->>>>>> not accounted for by lower devices.  Some devices can not
->>>>>> support frames longer then 1522 bytes at all.  Such devices
->>>>>> can not really support 802.1AD, even in software, without
->>>>>> the vlan reducing its mtu value.
->>>>>>
->>>>>> This patch propses to increate the lower devices MTU to 1504
->>>>>> in case of 802.1AD configuration, and if device doesn't
->>>>>> support it, fail the creation of the vlan.  The user has an
->>>>>> option to configure older-style Q-in-Q vlans and manually
->>>>>> lower the mtu to support such encapsulation.
->>>>>
->>>>> I think you should do the opposite. The lower layer device may be used
->>>>> for other things than the VLAN, so it doesn't seem right to change it's
->>>>> MTU. Instead I'd propose to set the MTU of the 802.1ad VLAN device to
->>>>> the lower device'e MTU - 4 unless a MTU has been specified by the user.
->>>>>
->>>>
->>>> The decrease of vlan mtu was my initial take on this as well.  The
->>>> problematic case with this is forwarding by an encapsulating
->>>> bridge (bridge that has 802.1AD as one port and ethX as others). The
->>>> frame from ethX will not fit into the mtu of the vlan device in
->>>> this case and the packet is dropped.  Ideally, we'd generate and ICMP
->>>> Too Big, but with the bridge we can't/don't do that.
->>>>
->>>> Another problem is that linux assumes that MTU == MRU in case of
->>>> device receive buffer programming.  Thus, full sized 802.1AD
->>>> frames transmitted by the switch supporting it will probably get dropped
->>>> by the driver/firmware as too long.  I've tested this and saw it
->>>> happen on my systems.
->>>>
->>>> An alternative I've thought off is to adjust the rx size in the drivers
->>>> when 802.1AD is configured, but that touches all the drivers, and
->>>> doesn't work well for not vlan-filtering drivers.  It needs a new
->>>> ndo api to adjust the rx length to make it consistent across all
->>>> devices.
->>>>
->>>>> BTW, I couldn't find anything related to MTU handling in the 802.1ad
->>>>> standard, however I only have an old copy and might have looked in the
->>>>> wrong place. Do you have any information how this is supposed to be
->>>>> handled?
->>>>>
->>>>
->>>> The standard doesn't seem to mention anything about it, but looking
->>>> at switch implementations, most of them require a bump in the mtu to
->>>> 1504 to support 802.1AD.  Some allow for the decrease in vlan mtu, but
->>>> that also requires mss translations as well.
->>>
->>> 802.1ad was merged into 802.1Q-2011, and G.2.2 in it refers to maximum
->>> pdu size. However, this doesn't seem to mention the case where frames
->>> are double tagged.
->>>
->>> MEF 6.1 requires UNI MTU size >= 1522 and MEF 31 requires E-NNI MTU size
->>>> = 1526 (In these documents, MTU seems to mean frame size).
->>> This implies that we should allow 1508 bytes of MTU size when we use
->>> 802.1AD.
->>>
->>
->> 1522 = 1500 + 14 + 4 (.1Q) + 4 (FCS)
->>
->>> Is 1504 enough?
->>
->> 1526 = 1500 + 14 +4 (.1Q) + 4 (.1AD) + 4(FCS)
-> 
-> Thank you for the supplementation.
-> 
->>
->> This is why Cisco docs recommend mtu of 1504.
->>
->> Of course this doesn't in any way account for stacked .1AD tags.
-> 
-> So we are likely to receive 1508 (1526) sized frames in 802.1ad network.
+On Thu, 2014-04-03 at 06:19 -0700, Eric Dumazet wrote:
 
-1526 byte frame is 1504 mtu, as demonstrated above.
+> It seems TSO support is broken.
 
-> Is it correct that you confirmed most NICs can receive 1508 sized frames
-> with 1504 mtu size setting?
+If bug is in tun.c you have this list of changes  you could bisect
+from :
 
-Some might, but I haven't confirmed that.  Most NICs already account for
-802.1Q header in their receive buffer calculations.  Some nics jump
-to the 2K rx size and enable jumbo mode once rx size goes above 1522
-bytes.  I think those will be able to receive larger frames.  Others
-don't support jumbo mode at all.  These nics can't support 802.1AD
-without reducing mtu on the vlan interface itself.  That, however, leads
-to other necessary configuration changes which is why this proposal
-leaves it up to the user to configure.
-
--vlad
-> 
-> Thanks,
-> Toshiaki Makita
-> 
+# git log --oneline v3.13..v3.14 drivers/net/tun.c
+6671b2240c54 tun: remove bogus hardware vlan acceleration flags from vlan_features
+99932d4fc03a netdevice: add queue selection fallback handler for ndo_select_queue
+93e14b6d776e tun: add device name(iff) field to proc fdinfo entry
+fa35864e0bb7 tuntap: Fix for a race in accessing numqueues
+0a379e21c503 Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+fbe4d4565bad tun, rfs: fix the incorrect hash value
+9bc8893937c8 tun: Add support for RFS on tun flows
+143c90549494 Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+3958afa1b272 net: Change skb_get_rxhash to skb_get_hash
+42404c091510 Revert "tun: remove useless codes in tun_chr_aio_read() and tun_recvmsg()"
+73713357ab58 tun: remove useless codes in tun_chr_aio_read() and tun_recvmsg()
+34f9f437104b Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+f96eb74c84eb tun: remove unused parameter in tun_do_read()
+92d4ea6e412a tun: spelling fixes
