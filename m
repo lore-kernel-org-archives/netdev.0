@@ -1,57 +1,73 @@
-From: Albert Krenz <albert.krenz87@googlemail.com>
-Subject: Cannot delete entries from bridge fdb
-Date: Wed, 2 Apr 2014 11:25:42 +0200
-Message-ID: <CAPRaSD7v2S2Hy+4vJytX8Q1L42X_qJryDYRGmpauJfjqxsywwQ@mail.gmail.com>
+From: "zheng.li" <zheng.x.li@oracle.com>
+Subject: Re: [PATCH v3] bonding: Inactive slaves should keep inactive flag's
+ value
+Date: Thu, 03 Apr 2014 10:16:01 +0800
+Message-ID: <533CC461.4070209@oracle.com>
+References: <1396407708-4056-1-git-send-email-zheng.x.li@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f46.google.com ([209.85.192.46]:54095 "EHLO
-	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756687AbaDBJZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 05:25:43 -0400
-Received: by mail-qg0-f46.google.com with SMTP id 63so6650024qgz.19
-        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 02:25:42 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Zheng Li <zheng.x.li@oracle.com>, netdev@vger.kernel.org,
+	fubar@us.ibm.com, andy@greyhouse.net, vfalico@redhat.com,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	joe.jin@oracle.com
+To: j.vosburgh@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1396407708-4056-1-git-send-email-zheng.x.li@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello everyone,
-i have a question concerning the forwarding database (fdb) of the
-bridges. I am using:
-- Ubuntu 13.10
-- kernel 3.11.0 from ubuntu repos
-- bridge utility 0.0 from iproute2 package
-- bridge-utils 1.5
+Hi Jay,
+How do you think about the new patch used USES_PRIMARY, can it be merge=
+d
+to upstream?
 
-I have 3 applications, each one creating a tap (tap0 - tap2) which i
-add to the bridge br0. Two Applications are receiving Frames (app0 and
-app1) and the third one (app2) sends one Frame every second to app0.
-SRC and DST MAC are different from the tap MAC's. App0 sends an answer
-to app2 and the bridge adds an entry to his fdb with the MAC of app0
-on tap0.
+Thanks,
+Zheng Li
 
-Now i wanted to delete this entry which does not work. RTNETLINK tells
-me there is no file or directory. See the following example:
 
-root@mypc:~# bridge fdb show dev tap0
-33:33:00:00:00:01 self permanent
-01:00:5E:00:00:01 self permanent
-40:EC:F8:03:A7:B5 vlan 0
-              << i want to delete this one
-9A:0D:06:68:5D:75 vlan 0 permanent
-         << MAC of tap0
-root@mypc:~# bridge fdb del 40:EC:F8:03:A7:B5 vlan0 dev tap0
-RTNETLINK answers: No such file or directory
-
-If i add a random entry i can delete it without any problem.
-
-root@mypc:~# bridge fdb add 40:EC:F8:03:A7:FF vlan0 dev tap0
-root@mypc:~# bridge fdb del 40:EC:F8:03:A7:FF vlan0 dev tap0
-                << this works
-
-Is there another syntax to delete entries which the bridge has added
-by himself? Or is it not possible to delete entries which you haven't
-added by hand?
-
-greetings
-Albert Krenz
+=D3=DA 2014=C4=EA04=D4=C202=C8=D5 11:01, Zheng Li =D0=B4=B5=C0:
+> bond_open is not setting the inactive flag correctly for some modes (=
+alb and
+> tlb), resulting in error behavior if the bond has been administrative=
+ly set
+> down and then back up. This effect should not occur when slaves are a=
+dded while
+> the bond is up; it's something that only happens after a down/up boun=
+ce of the
+> bond.
+>=20
+> For example, in bond tlb or alb mode, domu send some ARP request whic=
+h go out
+> from dom0 bond's active slave, then the ARP broadcast request packets=
+ go back to
+> inactive slave from switch, because the inactive slave's inactive fla=
+g is zero,
+> kernel will receive the packets and pass them to bridge that cause do=
+m0's bridge
+> map domu's MAC address to port of bond, bridge should map domu's MAC =
+to port of
+> vif.
+>=20
+> Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
+> Signed-off-by: Jay Vosburgh <j.vosburgh@gmail.com>
+> ---
+>  drivers/net/bonding/bond_main.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bo=
+nd_main.c
+> index e5628fc..b42758f 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -3058,7 +3058,7 @@ static int bond_open(struct net_device *bond_de=
+v)
+>  	if (bond_has_slaves(bond)) {
+>  		read_lock(&bond->curr_slave_lock);
+>  		bond_for_each_slave(bond, slave, iter) {
+> -			if ((bond->params.mode =3D=3D BOND_MODE_ACTIVEBACKUP)
+> +			if (USES_PRIMARY(bond->params.mode)
+>  				&& (slave !=3D bond->curr_active_slave)) {
+>  				bond_set_slave_inactive_flags(slave,
+>  							      BOND_SLAVE_NOTIFY_NOW);
+>=20
