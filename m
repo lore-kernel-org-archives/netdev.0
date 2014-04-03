@@ -1,26 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 1/4] bonding: Changed hashing function to just
- provide hash
-Date: Thu, 03 Apr 2014 16:06:17 -0400 (EDT)
-Message-ID: <20140403.160617.1505091939697835486.davem@davemloft.net>
-References: <1396485199-3967-1-git-send-email-maheshb@google.com>
+Subject: Re: [PATCH v2] net: Micrel KSZ8864RMN 4-port managed switch support
+Date: Thu, 03 Apr 2014 16:15:51 -0400 (EDT)
+Message-ID: <20140403.161551.122482244018928134.davem@davemloft.net>
+References: <1396517290-4123-1-git-send-email-p.zabel@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net,
-	netdev@vger.kernel.org, edumazet@google.com, maze@google.com
-To: maheshb@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46600 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753348AbaDCUEo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 16:04:44 -0400
-In-Reply-To: <1396485199-3967-1-git-send-email-maheshb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	frdrc66@gmail.com, kernel@pengutronix.de
+To: p.zabel@pengutronix.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1396517290-4123-1-git-send-email-p.zabel@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu,  3 Apr 2014 11:28:10 +0200
 
-These changes came in too late and should be resubmitted when the
-net-next tree opens back up after the merge window.
+> This patch adds support for the Micrel KSZ8864RMN switch to the spi_ks8995
+> driver. The KSZ8864RMN switch has a wider 256-byte register space.
+> 
+> Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
 
-Thanks.
+Applied, thanks.
