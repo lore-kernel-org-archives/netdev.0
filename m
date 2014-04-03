@@ -1,102 +1,48 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH] vlan: unnecessary to check if vlan_pcpu_stats is NULL
-Date: Thu,  3 Apr 2014 20:45:25 +0800
-Message-ID: <1396529125-1441-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
+From: "Ilya V. Matveychikov" <i.matveychikov@securitycode.ru>
+Subject: Re: question: update_pmtu doesn't update dst mtu
+Date: Thu, 3 Apr 2014 16:27:04 +0400
+Message-ID: <533D5398.7080209@securitycode.ru>
+References: <533D47FD.9020904@securitycode.ru> <20140403115809.GA13354@order.stressinduktion.org> <533D4EF9.60608@securitycode.ru> <20140403121410.GC13354@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:37535 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751557AbaDCMph (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 08:45:37 -0400
-Received: by mail-pd0-f171.google.com with SMTP id r10so1736891pdi.2
-        for <netdev@vger.kernel.org>; Thu, 03 Apr 2014 05:45:36 -0700 (PDT)
-Received: from localhost ([1.202.252.122])
-        by mx.google.com with ESMTPSA id i10sm24847531pat.36.2014.04.03.05.45.33
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Thu, 03 Apr 2014 05:45:35 -0700 (PDT)
+Received: from itna.infosec.ru ([82.198.190.199]:25378 "EHLO itna.infosec.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751976AbaDCM0Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Apr 2014 08:26:24 -0400
+In-Reply-To: <20140403121410.GC13354@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
+On 03.04.2014 16:14, Hannes Frederic Sowa wrote:
+> On Thu, Apr 03, 2014 at 04:07:21PM +0400, Ilya V. Matveychikov wrote:
+>> On 03.04.2014 15:58, Hannes Frederic Sowa wrote:
+>>> On Thu, Apr 03, 2014 at 03:37:33PM +0400, Ilya V. Matveychikov wrote:
+>>>> Looking through the code gives me that rt_pmtu is always 0 for the skb->dst
+>>>> entry and ipv4_mtu that called via the dst->ops->mtu() uses dev->mtu :(
+>>>
+>>> At this point you have to drop skb_dst and have to relookup the route. During
+>>> that a new dst will be created which gets the mtu value from the next hop
+>>> exception, which got created by update_pmtu.
+>>>
+>>> Normally routes are checked with dst_check if they are still valid
+>>> and a relookup should happen. In your example just do the relookup
+>>> unconditionally.
+>>>
+>>
+>> Does it mean that the next packet must have an updated route without any
+>> problems? I meant that if the first packet xmitting leads to updating the route
+>> PMTU via the exception creating (or updating) so the next packets must have an
+>> updated route? Am I right?
+> 
+> In case the next packet causes a lookup in the routing table, yes. Or
+> if it does cache the routing lookup in some structure and checks the
+> route with dst_check and conditionally does a relookup (which kernel
+> implementation should already do) then you should also get the updated
+> mtu value.
+> 
 
-if allocating memory for vlan_pcpu_stats failed, the device can not be operated
-
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/8021q/vlan_dev.c |   58 ++++++++++++++++++++++++--------------------------
- 1 file changed, 28 insertions(+), 30 deletions(-)
-
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 4f3e907..dbab6f1 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -666,38 +666,36 @@ static void vlan_ethtool_get_drvinfo(struct net_device *dev,
- 
- static struct rtnl_link_stats64 *vlan_dev_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
- {
-+	struct vlan_pcpu_stats *p;
-+	u32 rx_errors = 0, tx_dropped = 0;
-+	int i;
- 
--	if (vlan_dev_priv(dev)->vlan_pcpu_stats) {
--		struct vlan_pcpu_stats *p;
--		u32 rx_errors = 0, tx_dropped = 0;
--		int i;
--
--		for_each_possible_cpu(i) {
--			u64 rxpackets, rxbytes, rxmulticast, txpackets, txbytes;
--			unsigned int start;
--
--			p = per_cpu_ptr(vlan_dev_priv(dev)->vlan_pcpu_stats, i);
--			do {
--				start = u64_stats_fetch_begin_irq(&p->syncp);
--				rxpackets	= p->rx_packets;
--				rxbytes		= p->rx_bytes;
--				rxmulticast	= p->rx_multicast;
--				txpackets	= p->tx_packets;
--				txbytes		= p->tx_bytes;
--			} while (u64_stats_fetch_retry_irq(&p->syncp, start));
--
--			stats->rx_packets	+= rxpackets;
--			stats->rx_bytes		+= rxbytes;
--			stats->multicast	+= rxmulticast;
--			stats->tx_packets	+= txpackets;
--			stats->tx_bytes		+= txbytes;
--			/* rx_errors & tx_dropped are u32 */
--			rx_errors	+= p->rx_errors;
--			tx_dropped	+= p->tx_dropped;
--		}
--		stats->rx_errors  = rx_errors;
--		stats->tx_dropped = tx_dropped;
-+	for_each_possible_cpu(i) {
-+		u64 rxpackets, rxbytes, rxmulticast, txpackets, txbytes;
-+		unsigned int start;
-+
-+		p = per_cpu_ptr(vlan_dev_priv(dev)->vlan_pcpu_stats, i);
-+		do {
-+			start = u64_stats_fetch_begin_irq(&p->syncp);
-+			rxpackets	= p->rx_packets;
-+			rxbytes		= p->rx_bytes;
-+			rxmulticast	= p->rx_multicast;
-+			txpackets	= p->tx_packets;
-+			txbytes		= p->tx_bytes;
-+		} while (u64_stats_fetch_retry_irq(&p->syncp, start));
-+
-+		stats->rx_packets	+= rxpackets;
-+		stats->rx_bytes		+= rxbytes;
-+		stats->multicast	+= rxmulticast;
-+		stats->tx_packets	+= txpackets;
-+		stats->tx_bytes		+= txbytes;
-+		/* rx_errors & tx_dropped are u32 */
-+		rx_errors	+= p->rx_errors;
-+		tx_dropped	+= p->tx_dropped;
- 	}
-+	stats->rx_errors  = rx_errors;
-+	stats->tx_dropped = tx_dropped;
-+
- 	return stats;
- }
- 
--- 
-1.7.10.4
+OK, seems that I understand the logic. Thanks a lot.
