@@ -1,90 +1,72 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH regression] net: phy: fix initialization (config_init) for
- Marvel 88E1116R PHYs
-Date: Tue, 1 Apr 2014 17:00:30 -0700
-Message-ID: <CAGVrzcZGYTK9goPnrxNLxvFJJBk9zUpedH+wZOeWPx-WKxOmbQ@mail.gmail.com>
-References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [PATCH] grant-table,
+ xen-netback: Introduce helper functions for grant copy operations
+Date: Thu, 3 Apr 2014 10:48:58 +0100
+Message-ID: <533D2E8A.90101@citrix.com>
+References: <1396458349-30112-1-git-send-email-zoltan.kiss@citrix.com>
+	<9AAE0902D5BC7E449B7C8E4E778ABCD02BB106@AMSPEX01CL01.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Michal Simek <michal.simek@xilinx.com>,
-	stable <stable@vger.kernel.org>
-To: Alexander Holler <holler@ahsoftware.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:63460 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755699AbaDBABN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Apr 2014 20:01:13 -0400
-In-Reply-To: <1396396559-6971-1-git-send-email-holler@ahsoftware.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jonathan Davies <Jonathan.Davies@citrix.com>, Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Stefano Stabellini <Stefano.Stabellini@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>
+To: Paul Durrant <Paul.Durrant@citrix.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD02BB106@AMSPEX01CL01.citrite.net>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
-2014-04-01 16:55 GMT-07:00 Alexander Holler <holler@ahsoftware.de>:
-> Commit 7cd1463664c2a15721ff4ccfb61d4d970815cb3d (introduced with 3.14)
+On 03/04/14 09:12, Paul Durrant wrote:
+> Zoltan Kiss wrote:
+>>
+>> Create helper functions for grant copy operations and use them in netback.
+>>
+[...]
+>> --- a/drivers/net/xen-netback/netback.c
+>> +++ b/drivers/net/xen-netback/netback.c
+>> @@ -275,23 +275,29 @@ static void xenvif_gop_frag_copy(struct xenvif *vif,
+>> struct sk_buff *skb,
+>>  			bytes = MAX_BUFFER_OFFSET - npo->copy_off;
+>>
+>>  		copy_gop = npo->copy + npo->copy_prod++;
+>> -		copy_gop->flags = GNTCOPY_dest_gref;
+>> -		copy_gop->len = bytes;
+>>
+>>  		if (foreign_vif) {
+>> -			copy_gop->source.domid = foreign_vif->domid;
+>> -			copy_gop->source.u.ref = foreign_gref;
+>> -			copy_gop->flags |= GNTCOPY_source_gref;
+>> +			gnttab_set_copy_op_ref_to_ref(copy_gop,
+>> +						      foreign_gref,
+>> +						      npo->copy_gref,
+>> +						      foreign_vif->domid,
+>> +						      offset,
+>> +						      vif->domid,
+>> +						      npo->copy_off,
+>> +						      bytes,
+>> +						      GNTCOPY_dest_gref |
+>> +						      GNTCOPY_source_gref);
+> 
+> Can't you lose the flags here (and in the other variants)? Since
+> they are implied by the variant of the function they could just be hardcoded
+> there, couldn't they?
 
-Please specify the commit message in parenthesis.
+Even with that change these are still functions with 7 or 8 parameters
+with no obvious order.  That's just awful.  The open-coded struct
+initialization is better.
 
-> changed the initialization of the mv643xx_eth driver to use phy_init_hw()
-> to reset the PHY. Unfortunately the initialization for the 88E1116R PHY
-> was broken such, that it used mdelay() instead of really waiting for a
-> reset to finish.
->
-> The effect was that the ethernet on my Kirkwood 88F6281 based device didn't
-> come up anymore (no carrier).
->
-> Fix this by waiting for a reset to finish before proceeding further.
->
-> Signed-off-by: Alexander Holler <holler@ahsoftware.de>
->
-> Cc: Michal Simek <michal.simek@xilinx.com>
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
-> Cc: <stable@vger.kernel.org>
-> ---
->  drivers/net/phy/marvell.c | 8 ++++++--
->  1 file changed, 6 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-> index bd37e45..5b84808 100644
-> --- a/drivers/net/phy/marvell.c
-> +++ b/drivers/net/phy/marvell.c
-> @@ -396,7 +396,9 @@ static int m88e1116r_config_init(struct phy_device *phydev)
->         if (err < 0)
->                 return err;
->
-> -       mdelay(500);
-> +       do
-> +               temp = phy_read(phydev, MII_BMCR);
-> +       while (temp & BMCR_RESET);
-
-Please use genphy_soft_reset() which ensures that the bit is cleared,
-and will also wait for an appropriate amount of time before returning.
-I had a bunch of local patches waiting for net-next which clean up the
-Marvell PHY driver to use genphy_soft_reset() consistently instead of
-open-coding BMCR_RESET without waiting for the bit to get cleared.
-
->
->         err = phy_write(phydev, MII_MARVELL_PHY_PAGE, 0);
->         if (err < 0)
-> @@ -429,7 +431,9 @@ static int m88e1116r_config_init(struct phy_device *phydev)
->         if (err < 0)
->                 return err;
->
-> -       mdelay(500);
-> +       do
-> +               temp = phy_read(phydev, MII_BMCR);
-> +       while (temp & BMCR_RESET);
-
-Ditto.
-
->
->         return 0;
->  }
-> --
-> 1.8.3.1
->
-
-
-
--- 
-Florian
+David
