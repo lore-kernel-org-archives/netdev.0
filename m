@@ -1,57 +1,122 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH regression] net: phy: fix initialization (config_init)
- for Marvel 88E1116R PHYs
-Date: Thu, 03 Apr 2014 19:44:05 +0200
-Message-ID: <533D9DE5.3000605@gmail.com>
-References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de> <CAGVrzcZd9tBtcTY_2PRHVb9kJAjVHqn+EubUy4NGL66M_UuCDg@mail.gmail.com> <533BD3CD.1010905@ahsoftware.de> <CAGVrzcZi5aNq8fR795fKhu2TAc1tQCa2YEorErZRLf2n9DPZuw@mail.gmail.com> <533C721E.1080004@gmail.com> <533C8B49.8080704@ahsoftware.de> <533C8ECB.4090900@gmail.com> <533D0B09.9040602@ahsoftware.de> <533D207E.9020909@gmail.com> <533D790C.5000104@ahsoftware.de>
-Content-Type: text/plain; charset=UTF-8
+From: Alexander Holler <holler@ahsoftware.de>
+Subject: Bug(s) with netconsole (using mv643xx_eth on Kirkwood)
+Date: Thu, 03 Apr 2014 19:58:03 +0200
+Message-ID: <533DA12B.8090904@ahsoftware.de>
+References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de> <CAGVrzcZd9tBtcTY_2PRHVb9kJAjVHqn+EubUy4NGL66M_UuCDg@mail.gmail.com> <533BD3CD.1010905@ahsoftware.de> <CAGVrzcZi5aNq8fR795fKhu2TAc1tQCa2YEorErZRLf2n9DPZuw@mail.gmail.com> <533C721E.1080004@gmail.com> <533C8B49.8080704@ahsoftware.de> <533C8ECB.4090900@gmail.com> <533D0B09.9040602@ahsoftware.de> <533D207E.9020909@gmail.com> <533D790C.5000104@ahsoftware.de> <533D8207.2050108@gmail.com> <533D8518.1010306@ahsoftware.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>,
 	Michal Simek <michal.simek@xilinx.com>,
-	stable <stable@vger.kernel.org>
-To: Alexander Holler <holler@ahsoftware.de>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <533D790C.5000104@ahsoftware.de>
-Sender: stable-owner@vger.kernel.org
+	David Miller <davem@davemloft.net>
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <533D8518.1010306@ahsoftware.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/03/2014 05:06 PM, Alexander Holler wrote:
-> Am 03.04.2014 10:49, schrieb Sebastian Hesselbarth:
->> On 04/03/2014 09:17 AM, Alexander Holler wrote:
->>> Am 03.04.2014 00:27, schrieb Sebastian Hesselbarth:
->>>> On 04/03/2014 12:12 AM, Alexander Holler wrote:
->>>>>> I am curious, how you determined above commit to be the cause of the
->>>>>> regression you are seeing. Can you bisect, if you didn't already?
->>>>>
->>>>> There was no bisecting necessary. I've just looked at what changed in
->>>>> mv643xx_eth since 3.13 and the first commit I've reverted was
->>>>> already a
->>>>> hit. Reading a bit source revealed the differences between the old
->>>>> reset
->>>>> and the newly used one and ended up with my patch (first try) and
->>>>> was a
->>>>> hit too.
->>>>
-> 
-> Sorry, continuing this discussion doesn't make sense. You have the same
-> hw, so just try enabling netconsole with 3.14 and use dhcpcd from
-> userland (this does the final reset here which hangs.
-> 
-> But don't suggest me (or insist on) a time consuming and totally useless
-> bisect when I already know what makes the problem to appear (100%
-> reliable here).
+(I've changed the topic and removed stable@ from the cc-list to reflect 
+the current status)
 
-Alexander,
+(Long mail, but hopefully a good problem description)
 
-I tried to reproduce the regression on Dockstar with 3.14.0 and
-3.14.0-07247-gcd6362be, netconsole enabled, DHCP (dhclient).
+I already knew about problems with netconsole and mv643xx_eth since
+4 years, but didn't care a lot because everything else worked flawless,
+I even had forgotten that I've enabled netconsole. (But the bugs I've
+experienced 4 years ago, seeing no msgs remotely from netconsole seem to
+have disappeared).
 
-I can neither reproduce any issues with ethernet before nor after
-dhclient kicks in. I can also use netconsole just fine and see
-plenty of kernel bootlog messages sent to netconsole receiver.
+But now, using 3.14, I hit a bug which killed the ethernet with a 100%
+success rate, and, after digging a bit, I've come to the conclusion
+that netconsole (together with a maybe broken initialization of the PHY) 
+is the source of the problem.
 
-Can you _please_ share a full report how to properly reproduce it?
+The kernel is 3.14 (mainline) with one reverted patch (7cd1463). This 
+patch changed the initialization of the PHY such, that the ethernet dies 
+100% reproducible on a Kirkwood 88F6281 based machine. Reverting that 
+patch gives me a oneline bug-enabler:
 
-Sebastian
+------
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c 
+b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index e891b48..246f065 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -2095,7 +2095,8 @@ static void port_start(struct mv643xx_eth_private *mp)
+                 struct ethtool_cmd cmd;
+
+                 mv643xx_eth_get_settings(mp->dev, &cmd);
+-               phy_reset(mp);
++               //phy_reset(mp);
++               phy_init_hw(mp->phy);
+                 mv643xx_eth_set_settings(mp->dev, &cmd);
+                 phy_start(mp->phy);
+         }
+------
+
+First I describe what happens at boot:
+
+- Bootloader (U-Boot) enables (somehow) the network such that is usable 
+as a console for the bootloader,
+- Kernel is loaded and started with netconsole enabled through the 
+kernel command line (netconsole=...),
+- eth driver probe => PHY reset
+- netconsole initializes the network (netpoll_setup) => PHY reset,
+- userland starts,
+- userland configures network (ip addr add fixedIP ..., a hack used for 
+a very early ntpdate before the rootfs becomes rw), I'm not sure if 
+that's end up again in a PHY reset.
+- userland starts network by using dhcpcd => PHY reset
+
+Now several use cases:
+
+Case 1:
+Using plain 3.14 the last step fails with no carrier, because the PHY 
+ends up in a never ending reset (BMCR_RESET always set) in 
+m88e1111_config_init() called by phy_init_hw() in port_start() in 
+mv643xx_eth.
+
+Case 2:
+Without enabling netconsole through the kernel command line, I see no 
+problems.
+
+Case 3:
+If I enable the old phy_reset() in mv643xx_eth, I see no problems.
+
+Case 4:
+If I reduce the time the newly used reset in phy_init_hw() spends in
+calling mdelay(500) twice to some milliseconds m88e1111_config_init by 
+polling for a cleared BMCR_RESET, I see no problems.
+
+Case 5:
+If I disable the initialization of the network in the bootloader, 
+netconsole even worked 4 years ago. But I haven't looked into that case 
+further, because I always want to use the network as a console for the 
+bootloader.
+
+
+Current assumption:
+
+So, after having spend too much time into diagnosing the above stuff (so 
+I was right in ignoring the non-working netconsole for 4 years), I've 
+comed to the conclusion that some synchronization between 
+netconsole/netpoll and the normal network stack or mv643xx_eth is 
+missing. That would explain why the PHY ends up in a never ending reset 
+and why this only happens reproducible if the PHY reset needs a whole 
+second by using mdelay(500) twice (which likely is used to switch
+the task to netconsole inbetween). It might be a hw problem too (I 
+haven't read the datasheet or looked for any erratas).
+
+I hope everyone who missed some more information is happy now, otherwise
+I (again) wasted time to type a problem description (not to speak about 
+the already spent time trying to diagnose the problem)
+
+So go on and try to take the almost low hanging fruit. I'm not sure if I
+will spend more time on that topic as I already have a working 
+patch/workaround and the discussion has become a bit tiresome. Sorry.
+
+Regards,
+
+Alexander Holler
