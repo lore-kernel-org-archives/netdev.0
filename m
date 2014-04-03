@@ -1,256 +1,137 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: [PATCH net-next 2/4] e1000e/igb/ixgbe/i40e: fix message terminations
-Date: Wed,  2 Apr 2014 02:52:17 +0200
-Message-ID: <1396399939-18420-3-git-send-email-kubakici@wp.pl>
-References: <1396399939-18420-1-git-send-email-kubakici@wp.pl>
-Cc: Jakub Kicinski <kubakici@wp.pl>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.12]:45296 "EHLO mx4.wp.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751366AbaDBAxP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Apr 2014 20:53:15 -0400
-In-Reply-To: <1396399939-18420-1-git-send-email-kubakici@wp.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: on kernel 2.6.34.15, vlan and raw packets can not be received
+ with gfar-enet nic
+Date: Thu, 03 Apr 2014 18:15:25 +0800
+Message-ID: <533D34BD.900@gmail.com>
+References: <53310F4E.4080104@gmail.com> <533D25D4.4000607@gmail.com>
+ <20140403092727.GD16158@1wt.eu>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------010908060705050701050105"
+Cc: "Yang, Zhangle \(Eric\)" <Zhangle.Yang@windriver.com>,
+ netdev@vger.kernel.org, richardcochran@gmail.com,
+ linuxppc-dev@lists.ozlabs.org, guang.yang@windriver.com,
+ linux-kernel@vger.kernel.org, yongjun_wei@trendmicro.com.cn,
+ zhuyj <zyjzyj2000@gmail.com>, sandeep.kumar@freescale.com,
+ Claudiu Manoil <claudiu.manoil@freescale.com>, "Tao,
+ Yue" <Yue.Tao@windriver.com>, joe@perches.com, festevam@gmail.com,
+ clarocq@gmail.com
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20140403092727.GD16158@1wt.eu>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-Add \n at the end of messages where missing, remove all \r.
+This is a multi-part message in MIME format.
+--------------010908060705050701050105
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Reported-by: Joe Perches <joe@perches.com>
-Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
+On 04/03/2014 05:27 PM, Willy Tarreau wrote:
+> Hi Zhu,
+>
+> On Thu, Apr 03, 2014 at 05:11:48PM +0800, zhuyj wrote:
+>> Hi, Claudiu
+>>
+>> Please help to review this patch. This patch is for kernel 2.6.x. Thanks
+>> a lot.
+>>
+>> Hi, Willy
+>>
+>> Please help to merge this patch to longterm: 2.6.32.61 since this
+>> problem also occurs on this kernel. Thanks a lot.
+> Could you please send the reference to the equivalent mainline commit (the one
+> which disables the tx vlan feature I'm assuming) ? I'll happily queue it for
+> 2.6.32.62.
+>
+> Thanks,
+> Willy
+>
+>
+Hi, Willy
+
+I made a new patch. In long commit message, I inserted the equivalent 
+mainline commit
+about this feature. Maybe it is better. Now this patch is in the 
+attachment. Please check
+and merge it into kernel 2.6.32.62.
+
+Thanks a lot.
+Zhu Yanjun
+
+
+--------------010908060705050701050105
+Content-Type: text/x-patch;
+ name="0001-gianfar-disable-TX-vlan-based-on-kernel-2.6.x.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename*0="0001-gianfar-disable-TX-vlan-based-on-kernel-2.6.x.patch"
+
+>From 3b74ad6134f8eccce9ee391fb02ff15863630c1b Mon Sep 17 00:00:00 2001
+From: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+Date: Thu, 3 Apr 2014 16:41:13 +0800
+Subject: [PATCH 1/1] gianfar: disable TX vlan based on kernel 2.6.x
+
+2.6.x kernels require a similar logic change as commit e1653c3e
+[gianfar: do vlan cleanup] and commit 51b8cbfc
+[gianfar: fix bug caused by e1653c3e] introduces for newer kernels.
+
+Since there is something wrong with tx vlan of gianfar nic driver,
+in kernel(3.1+), tx vlan is disabled. But in kernel 2.6.x, tx vlan
+is still enabled. Thus,gianfar nic driver can not support vlan
+packets and non-vlan packets at the same time.
+
+Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c      |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_nvm.c      |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_ptp.c      |  4 ++--
- drivers/net/ethernet/intel/i40e/i40e_txrx.c     |  4 ++--
- drivers/net/ethernet/intel/igb/e1000_i210.c     |  2 +-
- drivers/net/ethernet/intel/igb/e1000_mac.c      | 13 ++++++-------
- drivers/net/ethernet/intel/igb/igb_ptp.c        |  4 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c    |  6 +++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c    |  4 ++--
- 10 files changed, 21 insertions(+), 22 deletions(-)
+ drivers/net/gianfar.c |    8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index dce377b..d8c2a57 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1165,7 +1165,7 @@ static void e1000e_tx_hwtstamp_work(struct work_struct *work)
- 		dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
- 		adapter->tx_hwtstamp_skb = NULL;
- 		adapter->tx_hwtstamp_timeouts++;
--		e_warn("clearing Tx timestamp hang");
-+		e_warn("clearing Tx timestamp hang\n");
- 	} else {
- 		/* reschedule to check later */
- 		schedule_work(&adapter->tx_hwtstamp_work);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-index 262bdf1..8129918 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-@@ -160,7 +160,7 @@ static i40e_status i40e_poll_sr_srctl_done_bit(struct i40e_hw *hw)
- 		udelay(5);
- 	}
- 	if (ret_code == I40E_ERR_TIMEOUT)
--		hw_dbg(hw, "Done bit in GLNVM_SRCTL not set");
-+		hw_dbg(hw, "Done bit in GLNVM_SRCTL not set\n");
- 	return ret_code;
- }
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 934a28f..8aa2cf6 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -365,7 +365,7 @@ static int gfar_probe(struct of_device *ofdev,
+ 	priv->vlgrp = NULL;
  
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-index 545079c..562ed20 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-@@ -240,7 +240,7 @@ static void i40e_ptp_tx_work(struct work_struct *work)
- 		pf->ptp_tx_skb = NULL;
- 		clear_bit_unlock(__I40E_PTP_TX_IN_PROGRESS, &pf->state);
- 		pf->tx_hwtstamp_timeouts++;
--		dev_warn(&pf->pdev->dev, "clearing Tx timestamp hang");
-+		dev_warn(&pf->pdev->dev, "clearing Tx timestamp hang\n");
- 		return;
- 	}
+ 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_VLAN)
+-		dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
++		dev->features |= NETIF_F_HW_VLAN_RX;
  
-@@ -322,7 +322,7 @@ void i40e_ptp_rx_hang(struct i40e_vsi *vsi)
- 		pf->last_rx_ptp_check = jiffies;
- 		pf->rx_hwtstamp_cleared++;
- 		dev_warn(&vsi->back->pdev->dev,
--			 "%s: clearing Rx timestamp hang",
-+			 "%s: clearing Rx timestamp hang\n",
- 			 __func__);
- 	}
- }
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 9436527..ee669c6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -418,7 +418,7 @@ int i40e_add_del_fdir(struct i40e_vsi *vsi,
- 		}
- 		break;
- 	default:
--		dev_info(&pf->pdev->dev, "Could not specify spec type %d",
-+		dev_info(&pf->pdev->dev, "Could not specify spec type %d\n",
- 			 input->flow_type);
- 		ret = -EINVAL;
- 	}
-@@ -478,7 +478,7 @@ static void i40e_fd_handle_status(struct i40e_ring *rx_ring,
- 				pf->flags |= I40E_FLAG_FDIR_REQUIRES_REINIT;
- 			}
- 		} else {
--			dev_info(&pdev->dev, "FD filter programming error");
-+			dev_info(&pdev->dev, "FD filter programming error\n");
- 		}
- 	} else if (error ==
- 			  (0x1 << I40E_RX_PROG_STATUS_DESC_NO_FD_ENTRY_SHIFT)) {
-diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.c b/drivers/net/ethernet/intel/igb/e1000_i210.c
-index db96339..f67f8a1 100644
---- a/drivers/net/ethernet/intel/igb/e1000_i210.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_i210.c
-@@ -365,7 +365,7 @@ static s32 igb_read_invm_word_i210(struct e1000_hw *hw, u8 address, u16 *data)
- 			word_address = INVM_DWORD_TO_WORD_ADDRESS(invm_dword);
- 			if (word_address == address) {
- 				*data = INVM_DWORD_TO_WORD_DATA(invm_dword);
--				hw_dbg("Read INVM Word 0x%02x = %x",
-+				hw_dbg("Read INVM Word 0x%02x = %x\n",
- 					  address, *data);
- 				status = E1000_SUCCESS;
- 				break;
-diff --git a/drivers/net/ethernet/intel/igb/e1000_mac.c b/drivers/net/ethernet/intel/igb/e1000_mac.c
-index 5910a93..1e0c404 100644
---- a/drivers/net/ethernet/intel/igb/e1000_mac.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_mac.c
-@@ -929,11 +929,10 @@ s32 igb_config_fc_after_link_up(struct e1000_hw *hw)
- 			 */
- 			if (hw->fc.requested_mode == e1000_fc_full) {
- 				hw->fc.current_mode = e1000_fc_full;
--				hw_dbg("Flow Control = FULL.\r\n");
-+				hw_dbg("Flow Control = FULL.\n");
- 			} else {
- 				hw->fc.current_mode = e1000_fc_rx_pause;
--				hw_dbg("Flow Control = "
--				       "RX PAUSE frames only.\r\n");
-+				hw_dbg("Flow Control = RX PAUSE frames only.\n");
- 			}
- 		}
- 		/* For receiving PAUSE frames ONLY.
-@@ -948,7 +947,7 @@ s32 igb_config_fc_after_link_up(struct e1000_hw *hw)
- 			  (mii_nway_lp_ability_reg & NWAY_LPAR_PAUSE) &&
- 			  (mii_nway_lp_ability_reg & NWAY_LPAR_ASM_DIR)) {
- 			hw->fc.current_mode = e1000_fc_tx_pause;
--			hw_dbg("Flow Control = TX PAUSE frames only.\r\n");
-+			hw_dbg("Flow Control = TX PAUSE frames only.\n");
- 		}
- 		/* For transmitting PAUSE frames ONLY.
- 		 *
-@@ -962,7 +961,7 @@ s32 igb_config_fc_after_link_up(struct e1000_hw *hw)
- 			 !(mii_nway_lp_ability_reg & NWAY_LPAR_PAUSE) &&
- 			 (mii_nway_lp_ability_reg & NWAY_LPAR_ASM_DIR)) {
- 			hw->fc.current_mode = e1000_fc_rx_pause;
--			hw_dbg("Flow Control = RX PAUSE frames only.\r\n");
-+			hw_dbg("Flow Control = RX PAUSE frames only.\n");
- 		}
- 		/* Per the IEEE spec, at this point flow control should be
- 		 * disabled.  However, we want to consider that we could
-@@ -988,10 +987,10 @@ s32 igb_config_fc_after_link_up(struct e1000_hw *hw)
- 			 (hw->fc.requested_mode == e1000_fc_tx_pause) ||
- 			 (hw->fc.strict_ieee)) {
- 			hw->fc.current_mode = e1000_fc_none;
--			hw_dbg("Flow Control = NONE.\r\n");
-+			hw_dbg("Flow Control = NONE.\n");
- 		} else {
- 			hw->fc.current_mode = e1000_fc_rx_pause;
--			hw_dbg("Flow Control = RX PAUSE frames only.\r\n");
-+			hw_dbg("Flow Control = RX PAUSE frames only.\n");
- 		}
+ 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_EXTENDED_HASH) {
+ 		priv->extended_hash = 1;
+@@ -1451,12 +1451,6 @@ static void gfar_vlan_rx_register(struct net_device *dev,
+ 	priv->vlgrp = grp;
  
- 		/* Now we need to do one last check...  If we auto-
-diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-index 2cca8fd..bc33c4c 100644
---- a/drivers/net/ethernet/intel/igb/igb_ptp.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -389,7 +389,7 @@ static void igb_ptp_tx_work(struct work_struct *work)
- 		adapter->ptp_tx_skb = NULL;
- 		clear_bit_unlock(__IGB_PTP_TX_IN_PROGRESS, &adapter->state);
- 		adapter->tx_hwtstamp_timeouts++;
--		dev_warn(&adapter->pdev->dev, "clearing Tx timestamp hang");
-+		dev_warn(&adapter->pdev->dev, "clearing Tx timestamp hang\n");
- 		return;
- 	}
- 
-@@ -456,7 +456,7 @@ void igb_ptp_rx_hang(struct igb_adapter *adapter)
- 		rd32(E1000_RXSTMPH);
- 		adapter->last_rx_ptp_check = jiffies;
- 		adapter->rx_hwtstamp_cleared++;
--		dev_warn(&adapter->pdev->dev, "clearing Rx timestamp hang");
-+		dev_warn(&adapter->pdev->dev, "clearing Rx timestamp hang\n");
- 	}
- }
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 24fba39..981b8a7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -1195,7 +1195,7 @@ static s32 ixgbe_detect_eeprom_page_size_generic(struct ixgbe_hw *hw,
- 	 */
- 	hw->eeprom.word_page_size = IXGBE_EEPROM_PAGE_SIZE_MAX - data[0];
- 
--	hw_dbg(hw, "Detected EEPROM page size = %d words.",
-+	hw_dbg(hw, "Detected EEPROM page size = %d words.\n",
- 	       hw->eeprom.word_page_size);
- out:
- 	return status;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index 23f7652..a76af8e2 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -536,7 +536,7 @@ s32 ixgbe_setup_phy_link_generic(struct ixgbe_hw *hw)
- 
- 	if (time_out == max_time_out) {
- 		status = IXGBE_ERR_LINK_SETUP;
--		hw_dbg(hw, "ixgbe_setup_phy_link_generic: time out");
-+		hw_dbg(hw, "ixgbe_setup_phy_link_generic: time out\n");
- 	}
- 
- 	return status;
-@@ -745,7 +745,7 @@ s32 ixgbe_setup_phy_link_tnx(struct ixgbe_hw *hw)
- 
- 	if (time_out == max_time_out) {
- 		status = IXGBE_ERR_LINK_SETUP;
--		hw_dbg(hw, "ixgbe_setup_phy_link_tnx: time out");
-+		hw_dbg(hw, "ixgbe_setup_phy_link_tnx: time out\n");
- 	}
- 
- 	return status;
-@@ -1175,7 +1175,7 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 				status = 0;
- 			} else {
- 				if (hw->allow_unsupported_sfp) {
--					e_warn(drv, "WARNING: Intel (R) Network Connections are quality tested using Intel (R) Ethernet Optics.  Using untested modules is not supported and may cause unstable operation or damage to the module or the adapter.  Intel Corporation is not responsible for any harm caused by using untested modules.");
-+					e_warn(drv, "WARNING: Intel (R) Network Connections are quality tested using Intel (R) Ethernet Optics.  Using untested modules is not supported and may cause unstable operation or damage to the module or the adapter.  Intel Corporation is not responsible for any harm caused by using untested modules.\n");
- 					status = 0;
- 				} else {
- 					hw_dbg(hw,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-index 63515a6..6fef807 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-@@ -461,7 +461,7 @@ void ixgbe_ptp_rx_hang(struct ixgbe_adapter *adapter)
- 		IXGBE_READ_REG(hw, IXGBE_RXSTMPH);
- 		adapter->last_rx_ptp_check = jiffies;
- 
--		e_warn(drv, "clearing RX Timestamp hang");
-+		e_warn(drv, "clearing RX Timestamp hang\n");
- 	}
- }
- 
-@@ -517,7 +517,7 @@ static void ixgbe_ptp_tx_hwtstamp_work(struct work_struct *work)
- 		dev_kfree_skb_any(adapter->ptp_tx_skb);
- 		adapter->ptp_tx_skb = NULL;
- 		clear_bit_unlock(__IXGBE_PTP_TX_IN_PROGRESS, &adapter->state);
--		e_warn(drv, "clearing Tx Timestamp hang");
-+		e_warn(drv, "clearing Tx Timestamp hang\n");
- 		return;
- 	}
- 
+ 	if (grp) {
+-		/* Enable VLAN tag insertion */
+-		tempval = gfar_read(&priv->regs->tctrl);
+-		tempval |= TCTRL_VLINS;
+-
+-		gfar_write(&priv->regs->tctrl, tempval);
+-
+ 		/* Enable VLAN tag extraction */
+ 		tempval = gfar_read(&priv->regs->rctrl);
+ 		tempval |= (RCTRL_VLEX | RCTRL_PRSDEP_INIT);
 -- 
-1.9.0
+1.7.9.5
+
+
+--------------010908060705050701050105
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+Content-Disposition: inline
+
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMt
+ZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xp
+c3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
+
+--------------010908060705050701050105--
