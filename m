@@ -1,33 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 net-next 0/2] patchset: Support for configurable RSS
- hash key
-Date: Thu, 03 Apr 2014 14:37:55 -0400 (EDT)
-Message-ID: <20140403.143755.599850061015565150.davem@davemloft.net>
-References: <BF3270C86E8B1349A26C34E4EC1C44CB2C8A255E@CMEXMB1.ad.emulex.com>
-	<20140401.122016.1850526829984133014.davem@davemloft.net>
-	<BF3270C86E8B1349A26C34E4EC1C44CB2C8A2EF3@CMEXMB1.ad.emulex.com>
+From: Alexander Holler <holler@ahsoftware.de>
+Subject: Re: Bug(s) with netconsole (using mv643xx_eth on Kirkwood)
+Date: Thu, 03 Apr 2014 20:39:19 +0200
+Message-ID: <533DAAD7.40000@ahsoftware.de>
+References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de> <CAGVrzcZd9tBtcTY_2PRHVb9kJAjVHqn+EubUy4NGL66M_UuCDg@mail.gmail.com> <533BD3CD.1010905@ahsoftware.de> <CAGVrzcZi5aNq8fR795fKhu2TAc1tQCa2YEorErZRLf2n9DPZuw@mail.gmail.com> <533C721E.1080004@gmail.com> <533C8B49.8080704@ahsoftware.de> <533C8ECB.4090900@gmail.com> <533D0B09.9040602@ahsoftware.de> <533D207E.9020909@gmail.com> <533D790C.5000104@ahsoftware.de> <533D8207.2050108@gmail.com> <533D8518.1010306@ahsoftware.de> <533DA12B.8090904@ahsoftware.de> <533DA69A.2010402@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, netdev@vger.kernel.org
-To: VenkatKumar.Duvvuru@Emulex.Com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46104 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752937AbaDCSgW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 14:36:22 -0400
-In-Reply-To: <BF3270C86E8B1349A26C34E4EC1C44CB2C8A2EF3@CMEXMB1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Michal Simek <michal.simek@xilinx.com>,
+	David Miller <davem@davemloft.net>
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <533DA69A.2010402@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
-Date: Wed, 2 Apr 2014 11:14:20 +0000
+Am 03.04.2014 20:21, schrieb Sebastian Hesselbarth:
+> On 04/03/2014 07:58 PM, Alexander Holler wrote:
 
-> David, I see that net-next will not be opened for new feature
-> patches for some time. Please let me know if I can submit "v6"
-> version of this patch now or wait till net-next opens back
-> up. Thanks.
+>> I hope everyone who missed some more information is happy now, otherwise
+>> I (again) wasted time to type a problem description (not to speak about
+>> the already spent time trying to diagnose the problem)
+>>
+>> So go on and try to take the almost low hanging fruit. I'm not sure if I
+>> will spend more time on that topic as I already have a working
+>> patch/workaround and the discussion has become a bit tiresome. Sorry.
+>
+> Alexander, please stop f*cking around here. Florian, David, and me
+> already showed a lot patience. None of your patches deals with the
+> real issue. Either help others to properly reproduce it or leave it.
 
-Unfortunately, I think we need to defer.
+I haven't requested help.
 
-Thank you.
+I've send a patch which fixed a problem here I had with a new reset. The 
+problem appears inside the reset (the reset doesn't end), so the patch 
+looked very reasonable. That's all.
+
+And, please, keep your words where they belong to.
+
+Alexander Holler
