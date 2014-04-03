@@ -1,182 +1,276 @@
-From: Markos Chandras <markos.chandras@imgtec.com>
-Subject: [PATCH] MIPS: lib: iomap: Use __mem_{read,write}{b,w,l} for MMIO
-Date: Wed, 2 Apr 2014 09:53:24 +0100
-Message-ID: <1396428804-31075-1-git-send-email-markos.chandras@imgtec.com>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: on kernel 2.6.34.15, vlan and raw packets can not be received
+ with gfar-enet nic
+Date: Thu, 03 Apr 2014 17:11:48 +0800
+Message-ID: <533D25D4.4000607@gmail.com>
+References: <53310F4E.4080104@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Markos Chandras <markos.chandras@imgtec.com>,
-        Steve Glendinning <steve.glendinning@shawell.net>,
-        Ben Boeckel <mathstuf@gmail.com>,
-        "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
-        "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Jeffrey Deans <Jeffrey.Deans@imgtec.com>,
-        Ralf Baechle <ralf@linux-mips.org>
-To: <linux-mips@linux-mips.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+Content-Type: multipart/mixed; boundary="------------000409010002020204030804"
+To: sandeep.kumar@freescale.com, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, "Tao, Yue" <Yue.Tao@windriver.com>,
+ "Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
+ guang.yang@windriver.com, joe@perches.com, festevam@gmail.com,
+ linuxppc-dev@lists.ozlabs.org, richardcochran@gmail.com,
+ clarocq@gmail.com, yongjun_wei@trendmicro.com.cn,
+ Claudiu Manoil <claudiu.manoil@freescale.com>,
+ w@1wt.eu, zhuyj <zyjzyj2000@gmail.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <53310F4E.4080104@gmail.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-Using the __raw_{read,write}{b,w,l} functions to perform
-repeatable MMIO could result in problems if the host bus
-does not match the endianness of the PCI/ISA. This problem
-is visible on big-endian SEAD3 configurations after commit
-2925f6c0c7af32720dcbadc586463aeceb6baa22
-"net: smc911x: use io{read,write}*_rep accessors". This effectively
-moves away from using the __mem_* variants to __raw_* ones
-and causes a kernel bug as follows:
+This is a multi-part message in MIME format.
+--------------000409010002020204030804
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Call Trace:
-CPU 0 Unable to handle kernel paging request at virtual address 00000000,
-epc == 00000000, ra == 8012b3b0
-Oops[#1]:
-Cpu 0
-$ 0   : 00000000 00000065 00000000 00000004
-$ 4   : 00000000 00000000 9a82dd60 00000000
-$ 8   : 00000000 00000000 a00ae278 00000007
-$12   : 0000000e 00000011 804c4228 ffff9411
-$16   : 00000100 00000000 80560000 807fc6d0
-$20   : 807fc8d0 807fcad0 807fbec0 00000100
-$24   : 00009150 80109be0
-$28   : 9a82c000 9a82dd28 00000001 8012b3b0
-Hi    : 00000000
-Lo    : 00000000
-epc   : 00000000   (null)
-    Not tainted
-ra    : 8012b3b0 call_timer_fn.isra.39+0x24/0x84
-Status: 10009503    KERNEL EXL IE
-Cause : 00800808
-BadVA : 00000000
-PrId  : 00019c20 (MIPS M14Kc)
-Modules linked in:
-Process swapper (pid: 1, threadinfo=9a82c000, task=9a82ba18, tls=00000000)
-Stack : 00000040 00000000 00000007 8056732c 80580000 00000001 9a82dd60 00200200
-        80560000 8012b598 8056732c 80580000 00000001 00000000 9a82dd60 9a82dd60
-        00000000 807fbd44 807fbd40 805664e0 0000000a 80800000 00000004 80125924
-        0000fda0 000007f0 80000000 00000001 80800000 007f0000 00200140 80166338
-        00000000 8100fda0 0000fda0 000007f0 80000000 00000001 80800000 007f0000
-        ...
-Call Trace:
-[<8012b598>] run_timer_softirq+0x188/0x1f4
-[<80125924>] __do_softirq+0xc4/0x18c
-[<80166338>] handle_percpu_irq+0x54/0x84
-[<80125aa4>] do_softirq+0x68/0x70
-[<80103b50>] do_IRQ+0x18/0x28
-[<80125d1c>] irq_exit+0x94/0xc0
-[<80125aa4>] do_softirq+0x68/0x70
-[<80102130>] ret_from_irq+0x0/0x4
-[<80102130>] ret_from_irq+0x0/0x4
-[<80125d1c>] irq_exit+0x94/0xc0
-[<803165b0>] __bzero+0xd4/0x164
-[<80346d0c>] mem32_serial_out+0x0/0x1c
-[<8010d4ac>] free_init_pages+0x98/0xfc
-[<80180a08>] free_hot_cold_page+0x2c/0x1c4
-[<80180bd8>] __free_pages+0x38/0x98
-[<8010d4a0>] free_init_pages+0x8c/0xfc
-[<8010d4ac>] free_init_pages+0x98/0xfc
-[<8049fb04>] kernel_init+0x28/0x15c
-[<80147484>] schedule_tail+0x1c/0x60
-[<8049fadc>] kernel_init+0x0/0x15c
-[<80102178>] ret_from_kernel_thread+0x14/0x1c
-[<8040a06f>] skb_pad+0xe7/0x13c
+Hi, Claudiu
 
-CC: Steve Glendinning <steve.glendinning@shawell.net>
-CC: Ben Boeckel <mathstuf@gmail.com>
-CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-CC: David S. Miller <davem@davemloft.net>
-CC: netdev@vger.kernel.org
-CC: Jeffrey Deans <Jeffrey.Deans@imgtec.com>
-CC: Ralf Baechle <ralf@linux-mips.org>
-Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
+Please help to review this patch. This patch is for kernel 2.6.x. Thanks 
+a lot.
+
+Hi, Willy
+
+Please help to merge this patch to longterm: 2.6.32.61 since this 
+problem also occurs on this kernel. Thanks a lot.
+
+Based on kernel 2.6.x, gianfar nic driver can not work well. The root 
+cause is that tx vlan of gianfar can not handle VLAN tag 0. So on kernel 
+3.0+, this tx vlan feature is disabled. But on kernel 2.6.x, this 
+feature is still enabled. This patch will disable this feature of 
+gianfar nic driver. If this feature is enabled, gianfar nic can not 
+support vlan packets and non-vlan packets at the same time. The 
+following steps will reproduce this problem.
+
+The steps are as below.
+
+1. boot two freescale-p2020 boards with linux kernel 2.6.x, then 
+connected 2 gfar-enet nic cards with a direct network line;
+
+2. On board 1, checked the driver of eth0
+
+ethtool -i eth0
+
+driver: gfar-enet
+version: 1.3
+firmware-version: N/A
+bus-info: N/A
+
+On board 2, I checked the driver of eth1
+
+ethtool -i eth1
+
+driver: gfar-enet
+version: 1.3
+firmware-version: N/A
+bus-info: N/A
+
+3. Then configure the ip address on the above 2 nic cards.
+
+On board 1,
+
+ifconfig eth0 192.168.1.13/24 up
+
+On board 2,
+
+ifconfig eth1 192.168.1.196/24 up
+
+4. We can access the other board on one board.
+For example, on board 1, we can ping board 2.
+
+root@p2020rdb:/root> ping 192.168.1.196
+PING 192.168.1.196 (192.168.1.196) 56(84) bytes of data.
+64 bytes from 192.168.1.196: icmp_req=1 ttl=64 time=2.92 ms
+64 bytes from 192.168.1.196: icmp_req=2 ttl=64 time=0.096 ms
+
+5. We configure vlan on these 2 boards. VLAN tag 0
+On board 1,
+
+modprobe 8021q
+vconfig add eth0 4091
+ifconfig eth0.4091 10.1.1.13/24 up
+
+On board 2,
+
+modprobe 8021q
+vconfig add eth1 4091
+ifconfig eth1.4091 10.1.1.196/24 up
+
+6. We can access the other board on one board through vlan.
+For example, on board 1, we can ping board 2 through vlan nic.
+
+root@p2020rdb:/root> ping 10.1.1.196
+PING 10.1.1.196 (10.1.1.196) 56(84) bytes of data.
+64 bytes from 10.1.1.196: icmp_req=1 ttl=64 time=2.92 ms
+64 bytes from 10.1.1.196: icmp_req=2 ttl=64 time=0.096 ms
+
+But we can not access the other board on one board through raw nic.
+For example, on board, we can not ping board 2.
+
+root@p2020rdb:/root> ping 192.168.1.196
+ From 192.168.1.196 icmp_seq=1 Destination Host Unreachable
+ From 192.168.1.196 icmp_seq=2 Destination Host Unreachable
+ From 192.168.1.196 icmp_seq=3 Destination Host Unreachable
+
+Best Regards!
+Zhu Yanjun
+
+On 03/25/2014 01:08 PM, zhuyj wrote:
+> Hi, Sandeep Gopalpet
+>
+> I am a developer. Now I confronted an interesting phenomena. When I 
+> used linux kernel 2.6.34.15 on freescale-p2020, I can not receive raw 
+> and vlan packets on gfar-enet nic. But with e1000e nic, we can make 
+> vlan and raw packets work well. I looked into the source code and find 
+> that maybe it is related with hardware insert and remove vlan head. 
+> But I have no the specifications of gfar-enet nic. Would you like to 
+> give some document or some guides?
+>
+> Thanks a lot.
+> Zhu Yanjun
+>
+> The steps are as below.
+>
+> 1. I boot two freescale-p2020 boards with linux kernel 2.6.34.15, then 
+> I connected 2 gfar-enet nic cards with a direct network line;
+>
+> 2. On board 1, I checked the driver of eth0
+>
+> ethtool -i eth0
+>
+> driver: gfar-enet
+> version: 1.3
+> firmware-version: N/A
+> bus-info: N/A
+>
+> On board 2, I checked the driver of eth1
+>
+> ethtool -i eth1
+>
+> driver: gfar-enet
+> version: 1.3
+> firmware-version: N/A
+> bus-info: N/A
+>
+> 3. Then I configure the ip address on the above 2 nic cards.
+>
+> On board 1,
+>
+> ifconfig eth0 192.168.1.13/24 up
+>
+> On board 2,
+>
+> ifconfig eth1 192.168.1.196/24 up
+>
+> 4. We can access the other board on one board.
+> For example, on board 1, we can ping board 2.
+>
+> root@p2020rdb:/root> ping 192.168.1.196
+> PING 192.168.1.196 (192.168.1.196) 56(84) bytes of data.
+> 64 bytes from 192.168.1.196: icmp_req=1 ttl=64 time=2.92 ms
+> 64 bytes from 192.168.1.196: icmp_req=2 ttl=64 time=0.096 ms
+>
+> 5. We configure vlan on these 2 boards. VLAN tag 0
+> On board 1,
+>
+> modprobe 8021q
+> vconfig add eth0 4091
+> ifconfig eth0.4091 10.1.1.13/24 up
+>
+> On board 2,
+>
+> modprobe 8021q
+> vconfig add eth1 4091
+> ifconfig eth1.4091 10.1.1.196/24 up
+>
+> 6. We can access the other board on one board through vlan.
+> For example, on board 1, we can ping board 2 through vlan nic.
+>
+> root@p2020rdb:/root> ping 10.1.1.196
+> PING 10.1.1.196 (10.1.1.196) 56(84) bytes of data.
+> 64 bytes from 10.1.1.196: icmp_req=1 ttl=64 time=2.92 ms
+> 64 bytes from 10.1.1.196: icmp_req=2 ttl=64 time=0.096 ms
+>
+> But we can not access the other board on one board through raw nic.
+> For example, on board, we can not ping board 2.
+>
+> root@p2020rdb:/root> ping 192.168.1.196
+> From 192.168.1.196 icmp_seq=1 Destination Host Unreachable
+> From 192.168.1.196 icmp_seq=2 Destination Host Unreachable
+> From 192.168.1.196 icmp_seq=3 Destination Host Unreachable
+>
+>
+
+
+--------------000409010002020204030804
+Content-Type: text/x-patch;
+ name="0001-gianfar-disable-TX-vlan-based-on-kernel-2.6.x.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename*0="0001-gianfar-disable-TX-vlan-based-on-kernel-2.6.x.patch"
+
+>From afd48fa3ad5b15d519adeb19b2a9c00051327c68 Mon Sep 17 00:00:00 2001
+From: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+Date: Thu, 3 Apr 2014 16:41:13 +0800
+Subject: [PATCH 1/1] gianfar: disable TX vlan based on kernel 2.6.x
+
+Since there is something wrong with tx vlan of gianfar nic driver,
+on kernel(3.0+), tx vlan is disabled. But on kernel 2.6.x, tx vlan
+is still enabled. Thus,gianfar nic driver can not support vlan
+packets and non-vlan packets.
+
+Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
 ---
-It seems there are some inconsistencies on how the readsl/writesl and the
-io{read,write}*_rep functions are implemented on MIPS. The former do
-byte-swapping whereas the later do not. However, the way I read the commit
-message from 2925f6c0c7af32720dcbadc586463aeceb6baa22, is  that the
-io{read,write}*_rep functions are drop-in replacements for the readsl/writesl
-ones which is not the case here. Or maybe there is something wrong with the
-driver? Or maybe the SEAD3 board needs 'SWAP_IO_SPACE if CPU_BIG_ENDIAN'?
+ drivers/net/gianfar.c |    8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
-Assuming the patch is correct, it needs to be backported to >=3.8
-kernels.
----
- arch/mips/lib/iomap.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
-
-diff --git a/arch/mips/lib/iomap.c b/arch/mips/lib/iomap.c
-index e3acb2d..9f4bc52 100644
---- a/arch/mips/lib/iomap.c
-+++ b/arch/mips/lib/iomap.c
-@@ -97,14 +97,14 @@ EXPORT_SYMBOL(iowrite32be);
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 934a28f..8aa2cf6 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -365,7 +365,7 @@ static int gfar_probe(struct of_device *ofdev,
+ 	priv->vlgrp = NULL;
  
- /*
-  * These are the "repeat MMIO read/write" functions.
-- * Note the "__raw" accesses, since we don't want to
-- * convert to CPU byte order. We write in "IO byte
-- * order" (we also don't have IO barriers).
-+ * Note the "__mem" accesses, since we want to convert
-+ * to CPU byte order if the host bus happens to not match the
-+ * endianness of PCI/ISA (see mach-generic/mangle-port.h).
-  */
- static inline void mmio_insb(void __iomem *addr, u8 *dst, int count)
- {
- 	while (--count >= 0) {
--		u8 data = __raw_readb(addr);
-+		u8 data = __mem_readb(addr);
- 		*dst = data;
- 		dst++;
- 	}
-@@ -113,7 +113,7 @@ static inline void mmio_insb(void __iomem *addr, u8 *dst, int count)
- static inline void mmio_insw(void __iomem *addr, u16 *dst, int count)
- {
- 	while (--count >= 0) {
--		u16 data = __raw_readw(addr);
-+		u16 data = __mem_readw(addr);
- 		*dst = data;
- 		dst++;
- 	}
-@@ -122,7 +122,7 @@ static inline void mmio_insw(void __iomem *addr, u16 *dst, int count)
- static inline void mmio_insl(void __iomem *addr, u32 *dst, int count)
- {
- 	while (--count >= 0) {
--		u32 data = __raw_readl(addr);
-+		u32 data = __mem_readl(addr);
- 		*dst = data;
- 		dst++;
- 	}
-@@ -131,7 +131,7 @@ static inline void mmio_insl(void __iomem *addr, u32 *dst, int count)
- static inline void mmio_outsb(void __iomem *addr, const u8 *src, int count)
- {
- 	while (--count >= 0) {
--		__raw_writeb(*src, addr);
-+		__mem_writeb(*src, addr);
- 		src++;
- 	}
- }
-@@ -139,7 +139,7 @@ static inline void mmio_outsb(void __iomem *addr, const u8 *src, int count)
- static inline void mmio_outsw(void __iomem *addr, const u16 *src, int count)
- {
- 	while (--count >= 0) {
--		__raw_writew(*src, addr);
-+		__mem_writew(*src, addr);
- 		src++;
- 	}
- }
-@@ -147,7 +147,7 @@ static inline void mmio_outsw(void __iomem *addr, const u16 *src, int count)
- static inline void mmio_outsl(void __iomem *addr, const u32 *src, int count)
- {
- 	while (--count >= 0) {
--		__raw_writel(*src, addr);
-+		__mem_writel(*src, addr);
- 		src++;
- 	}
- }
+ 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_VLAN)
+-		dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
++		dev->features |= NETIF_F_HW_VLAN_RX;
+ 
+ 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_EXTENDED_HASH) {
+ 		priv->extended_hash = 1;
+@@ -1451,12 +1451,6 @@ static void gfar_vlan_rx_register(struct net_device *dev,
+ 	priv->vlgrp = grp;
+ 
+ 	if (grp) {
+-		/* Enable VLAN tag insertion */
+-		tempval = gfar_read(&priv->regs->tctrl);
+-		tempval |= TCTRL_VLINS;
+-
+-		gfar_write(&priv->regs->tctrl, tempval);
+-
+ 		/* Enable VLAN tag extraction */
+ 		tempval = gfar_read(&priv->regs->rctrl);
+ 		tempval |= (RCTRL_VLEX | RCTRL_PRSDEP_INIT);
 -- 
-1.9.1
+1.7.9.5
+
+
+--------------000409010002020204030804
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+Content-Disposition: inline
+
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMt
+ZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xp
+c3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
+
+--------------000409010002020204030804--
