@@ -1,114 +1,205 @@
-From: Brian Allen Vanderburg II <brianvanderburg2@aim.com>
-Subject: iproute2/vlan: Idea: Support untagged VLAN interfaces
-Date: Wed, 02 Apr 2014 07:54:38 -0400
-Message-ID: <533BFA7E.9020001@aim.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: Re: [PATCH net-next v3 1/2] xen-netback: Rename map ops
+Date: Thu, 3 Apr 2014 08:08:03 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD02BB0F1@AMSPEX01CL01.citrite.net>
+References: <1396458298-30041-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="pboJxaMPccpRFfUQQRC3QmNedDwJhGV9j"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from omr-m10.mx.aol.com ([64.12.143.86]:38106 "EHLO
-	omr-m10.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758426AbaDBLwm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 07:52:42 -0400
-Received: from mtaout-mab01.mx.aol.com (mtaout-mab01.mx.aol.com [172.26.249.81])
-	by omr-m10.mx.aol.com (Outbound Mail Relay) with ESMTP id 9765470242A5D
-	for <netdev@vger.kernel.org>; Wed,  2 Apr 2014 07:52:41 -0400 (EDT)
-Received: from [192.168.1.109] (cpe-069-132-214-147.carolina.res.rr.com [69.132.214.147])
-	(using TLSv1 with cipher DHE-RSA-AES128-SHA (128/128 bits))
-	(No client certificate requested)
-	by mtaout-mab01.mx.aol.com (MUA/Third Party Client Interface) with ESMTPSA id 62A6A380000B1
-	for <netdev@vger.kernel.org>; Wed,  2 Apr 2014 07:52:41 -0400 (EDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Jonathan
+	Davies <Jonathan.Davies@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>, Ian Campbell
+	<Ian.Campbell@citrix.com>, Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1396458298-30041-1-git-send-email-zoltan.kiss@citrix.com>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---pboJxaMPccpRFfUQQRC3QmNedDwJhGV9j
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+> -----Original Message-----
+> From: Zoltan Kiss
+> Sent: 02 April 2014 18:05
+> To: Ian Campbell; Wei Liu; xen-devel@lists.xenproject.org
+> Cc: Paul Durrant; netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+> Jonathan Davies; Zoltan Kiss
+> Subject: [PATCH net-next v3 1/2] xen-netback: Rename map ops
+> 
+> Rename identifiers to state explicitly that they refer to map ops.
+> 
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 
-I've been recent playing around with some of the new VLAN filtering
-features.  One feature I want to be able to do is to create an interface
-that handles untagged data for VLANs as a sub-interface instead.=20
-Currently, untagged data is only handled by the main interface.  I can
-think of some reasons to have untagged data on its own VLAN interface.
+Reviewed-by: Paul Durrant <paul.durrant@citrix.com>
 
-* The ability to bring up and down the untagged interface without
-affecting all tagged interfaces as well.
-* The ability to bridge only untagged traffic for mapping/translating.=20
-If an untagged sub-interface exists, then VLAN mapping can be performed
-by bridging the VLAN interfaces of two NICs with differing VLANs and
-including the untagged traffic.  Without untagged VLAN sub-interfaces
-only tagged traffic could be mapped.  The bridge VLAN filtering allows
-filtering of VLANs per port, but does not seem to allow mapping or
-translating VLANs.
-* Misc
-
-The bridge VLAN filtering feature seems to make it possible, but
-requires a rather large amount of configuration.  This first section
-will take any traffic on eth0 and pass it in to br0.  VLAN 1 is untagged
-on eth0, but is treated as tagged as it passes to br0.
-
-    ip link add dev br0 type bridge
-    ip link set dev eth0 master br0
-    ip link set dev eth0 promisc on
-    echo 1 > /sys/class/net/br0/bridge/vlan_filtering
-
-    bridge vlan add dev eth0 vid 1 pvid untagged
-    bridge vlan add dev eth0 vid 10
-    bridge vlan add dev eth0 vid 99
-
-    bridge vlan add dev br0 vid 1 self
-    bridge vlan add dev br0 vid 10 self
-    bridge vlan add dev br0 vid 99 self
-
-Because br0 sees even the original untagged traffic as tagged, I can now
-add a separate interface for the untagged VLAN as desired:
-
-    ip link add link br0 name br0_user type vlan id 1
-    ip link add link br0 name br0_priv type vlan id 10
-    ip link add link br0 name br0_mgmt type vlan id 99
-
-The interfaces can then be configured as normal.  I can bring down any
-interface and it will not affect the others, or do anything else.  I
-have managed to confirm this seems to work fine in a VM where untagged
-traffic on eth0 was received on br0_user as expected.
-
-This is a bit of work to get a "sub-interface" for an untagged VLAN.=20
-One idea I had was that if the groundwork already exists, it may be
-possible to add something similar directly to the interface without the
-bridge and VLAN filtering setup.  I could imagine a command such as
-
-    ip link add link eth0 name eth0_user type vlan id 1 pvid untagged
-
-as being able to accomplish the same thing without the overhead of
-creating a bridge and assigning all the VLANs to both the physical
-device and bridge device.
-
-
---pboJxaMPccpRFfUQQRC3QmNedDwJhGV9j
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBAgAGBQJTO/qCAAoJEOdzerRR63OMEPEQAIIdhdmBJLm3kZR5JuijmB1R
-0b4rdnYuwzROsPF2LNJwYqtOhnRERPsa4vBkQIQZ4DF7jNBS0+B9PO+ScYpq1GVt
-8VCXiHuEd5OH0ByyBv1Up/HF7/2UHor617ZGCh0c3ldSxz4MVxbFw9EOXW2p+Vsy
-4ntSR6VZrjt5DGOb/u7wI5f9SliVkE4Zy1Yg1TFOFNvh/qb9HnR+jaXNjr8KMyWQ
-Q+B7GuJxdnFIA0FJF3tDNcjSGw4VVAEvOlxwXMB1UQsp6dOpOHSErGbQadHVozmx
-fqmOiqoEyDQnD9fQm1eI28R7bYCFtcMIMISFwKz5SqOAH5OcENqBeFUjW7/65HW0
-fp/9LT9OcwbhmJlviy8MFdeUioZcJ7FJmN4m5WL94ap9GmVYS4wS5UPIt+9q88bd
-aAXdVDV7N80uFhY/KxTKh34tmb2H1MMyHvDICvvEyGY1LFBiiTFWeALAtHrwFivM
-ttoG2KbLmkMWe35Ci0eVsBZYqWjNETiXRwuoeafObQ5NIV+qr69Wr/e6UU57cPBm
-vuKWJi1MFgUpVOjRkwze+Q7rDHOFUrFpv8ZmbwkqBee04KDDiqeTfrTOys+o2DWI
-qQSPyQHq6k8JCgHutXUFaxG5t0tMnImlDdlWE5qrOh04BVxTxyeJGSEK1AOtPpXH
-BROqkrmZrcfDkinj4Pa6
-=Rh3W
------END PGP SIGNATURE-----
-
---pboJxaMPccpRFfUQQRC3QmNedDwJhGV9j--
+> ---
+> v3:
+> - rename xenvif_tx_create_gop to xenvif_tx_create_map_op
+> 
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
+> netback/netback.c
+> index ae34f5f..8f468ab 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -819,13 +819,13 @@ struct xenvif_tx_cb {
+> 
+>  #define XENVIF_TX_CB(skb) ((struct xenvif_tx_cb *)(skb)->cb)
+> 
+> -static inline void xenvif_tx_create_gop(struct xenvif *vif,
+> -					u16 pending_idx,
+> -					struct xen_netif_tx_request *txp,
+> -					struct gnttab_map_grant_ref *gop)
+> +static inline void xenvif_tx_create_map_op(struct xenvif *vif,
+> +					  u16 pending_idx,
+> +					  struct xen_netif_tx_request *txp,
+> +					  struct gnttab_map_grant_ref *mop)
+>  {
+> -	vif->pages_to_map[gop-vif->tx_map_ops] = vif-
+> >mmap_pages[pending_idx];
+> -	gnttab_set_map_op(gop, idx_to_kaddr(vif, pending_idx),
+> +	vif->pages_to_map[mop-vif->tx_map_ops] = vif-
+> >mmap_pages[pending_idx];
+> +	gnttab_set_map_op(mop, idx_to_kaddr(vif, pending_idx),
+>  			  GNTMAP_host_map | GNTMAP_readonly,
+>  			  txp->gref, vif->domid);
+> 
+> @@ -879,7 +879,7 @@ static struct gnttab_map_grant_ref
+> *xenvif_get_requests(struct xenvif *vif,
+>  	     shinfo->nr_frags++, txp++, gop++) {
+>  		index = pending_index(vif->pending_cons++);
+>  		pending_idx = vif->pending_ring[index];
+> -		xenvif_tx_create_gop(vif, pending_idx, txp, gop);
+> +		xenvif_tx_create_map_op(vif, pending_idx, txp, gop);
+>  		frag_set_pending_idx(&frags[shinfo->nr_frags],
+> pending_idx);
+>  	}
+> 
+> @@ -899,7 +899,7 @@ static struct gnttab_map_grant_ref
+> *xenvif_get_requests(struct xenvif *vif,
+>  		     shinfo->nr_frags++, txp++, gop++) {
+>  			index = pending_index(vif->pending_cons++);
+>  			pending_idx = vif->pending_ring[index];
+> -			xenvif_tx_create_gop(vif, pending_idx, txp, gop);
+> +			xenvif_tx_create_map_op(vif, pending_idx, txp,
+> gop);
+>  			frag_set_pending_idx(&frags[shinfo->nr_frags],
+>  					     pending_idx);
+>  		}
+> @@ -939,9 +939,9 @@ static inline void xenvif_grant_handle_reset(struct
+> xenvif *vif,
+> 
+>  static int xenvif_tx_check_gop(struct xenvif *vif,
+>  			       struct sk_buff *skb,
+> -			       struct gnttab_map_grant_ref **gopp)
+> +			       struct gnttab_map_grant_ref **gopp_map)
+>  {
+> -	struct gnttab_map_grant_ref *gop = *gopp;
+> +	struct gnttab_map_grant_ref *gop_map = *gopp_map;
+>  	u16 pending_idx = XENVIF_TX_CB(skb)->pending_idx;
+>  	struct skb_shared_info *shinfo = skb_shinfo(skb);
+>  	struct pending_tx_info *tx_info;
+> @@ -950,11 +950,11 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
+>  	struct sk_buff *first_skb = NULL;
+> 
+>  	/* Check status of header. */
+> -	err = gop->status;
+> +	err = gop_map->status;
+>  	if (unlikely(err))
+>  		xenvif_idx_release(vif, pending_idx,
+> XEN_NETIF_RSP_ERROR);
+>  	else
+> -		xenvif_grant_handle_set(vif, pending_idx , gop->handle);
+> +		xenvif_grant_handle_set(vif, pending_idx , gop_map-
+> >handle);
+> 
+>  	/* Skip first skb fragment if it is on same page as header fragment. */
+>  	start = (frag_get_pending_idx(&shinfo->frags[0]) == pending_idx);
+> @@ -967,10 +967,12 @@ check_frags:
+>  		tx_info = &vif->pending_tx_info[pending_idx];
+> 
+>  		/* Check error status: if okay then remember grant handle.
+> */
+> -		newerr = (++gop)->status;
+> +		newerr = (++gop_map)->status;
+> 
+>  		if (likely(!newerr)) {
+> -			xenvif_grant_handle_set(vif, pending_idx , gop-
+> >handle);
+> +			xenvif_grant_handle_set(vif,
+> +						pending_idx,
+> +						gop_map->handle);
+>  			/* Had a previous error? Invalidate this fragment. */
+>  			if (unlikely(err))
+>  				xenvif_idx_unmap(vif, pending_idx);
+> @@ -1022,7 +1024,7 @@ check_frags:
+>  		}
+>  	}
+> 
+> -	*gopp = gop + 1;
+> +	*gopp_map = gop_map + 1;
+>  	return err;
+>  }
+> 
+> @@ -1291,7 +1293,7 @@ static unsigned xenvif_tx_build_gops(struct xenvif
+> *vif, int budget)
+>  			}
+>  		}
+> 
+> -		xenvif_tx_create_gop(vif, pending_idx, &txreq, gop);
+> +		xenvif_tx_create_map_op(vif, pending_idx, &txreq, gop);
+> 
+>  		gop++;
+> 
+> @@ -1398,7 +1400,7 @@ static int xenvif_handle_frag_list(struct xenvif *vif,
+> struct sk_buff *skb)
+> 
+>  static int xenvif_tx_submit(struct xenvif *vif)
+>  {
+> -	struct gnttab_map_grant_ref *gop = vif->tx_map_ops;
+> +	struct gnttab_map_grant_ref *gop_map = vif->tx_map_ops;
+>  	struct sk_buff *skb;
+>  	int work_done = 0;
+> 
+> @@ -1411,7 +1413,7 @@ static int xenvif_tx_submit(struct xenvif *vif)
+>  		txp = &vif->pending_tx_info[pending_idx].req;
+> 
+>  		/* Check the remap error code. */
+> -		if (unlikely(xenvif_tx_check_gop(vif, skb, &gop))) {
+> +		if (unlikely(xenvif_tx_check_gop(vif, skb, &gop_map))) {
+>  			netdev_dbg(vif->dev, "netback grant failed.\n");
+>  			skb_shinfo(skb)->nr_frags = 0;
+>  			kfree_skb(skb);
+> @@ -1610,21 +1612,21 @@ static inline void xenvif_tx_dealloc_action(struct
+> xenvif *vif)
+>  /* Called after netfront has transmitted */
+>  int xenvif_tx_action(struct xenvif *vif, int budget)
+>  {
+> -	unsigned nr_gops;
+> +	unsigned nr_mops;
+>  	int work_done, ret;
+> 
+>  	if (unlikely(!tx_work_todo(vif)))
+>  		return 0;
+> 
+> -	nr_gops = xenvif_tx_build_gops(vif, budget);
+> +	nr_mops = xenvif_tx_build_gops(vif, budget);
+> 
+> -	if (nr_gops == 0)
+> +	if (nr_mops == 0)
+>  		return 0;
+> 
+>  	ret = gnttab_map_refs(vif->tx_map_ops,
+>  			      NULL,
+>  			      vif->pages_to_map,
+> -			      nr_gops);
+> +			      nr_mops);
+>  	BUG_ON(ret);
+> 
+>  	work_done = xenvif_tx_submit(vif);
