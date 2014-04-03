@@ -1,48 +1,114 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 4/5] bonding: Added bond_tlb_xmit() for tlb mode.
-Date: Wed, 02 Apr 2014 04:02:10 -0700
-Message-ID: <1396436530.3989.30.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1396422014-32061-1-git-send-email-maheshb@google.com>
+From: =?UTF-8?q?Cristian=20Rodr=C3=ADguez?= <crrodriguez@opensuse.org>
+Subject: [PATCH ethtool 2/2] Use htobe64, htobe16 from libc instead of local byteswap code
+Date: Thu,  3 Apr 2014 00:06:16 -0300
+Message-ID: <1396494376-6521-2-git-send-email-crrodriguez@opensuse.org>
+References: <1396494376-6521-1-git-send-email-crrodriguez@opensuse.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ben@decadent.org.uk,
+	=?UTF-8?q?Cristian=20Rodr=C3=ADguez?= <crrodriguez@opensuse.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:59341 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758057AbaDBLCN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 07:02:13 -0400
-Received: by mail-pd0-f171.google.com with SMTP id r10so22997pdi.2
-        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 04:02:13 -0700 (PDT)
-In-Reply-To: <1396422014-32061-1-git-send-email-maheshb@google.com>
+Received: from mail-qc0-f176.google.com ([209.85.216.176]:47159 "EHLO
+	mail-qc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932869AbaDCDHI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Apr 2014 23:07:08 -0400
+Received: by mail-qc0-f176.google.com with SMTP id m20so1214743qcx.21
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 20:07:07 -0700 (PDT)
+In-Reply-To: <1396494376-6521-1-git-send-email-crrodriguez@opensuse.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-04-02 at 00:00 -0700, Mahesh Bandewar wrote:
-> Re-organized the xmit function for the lb mode separating tlb xmit
-> from the alb mode. This will enable use of the hashing policies
-> like 802.3ad mode. Also extended use of xmit-hash-policy to tlb mode.
-> 
-> Now the tlb-mode defaults to BOND_XMIT_POLICY_LAYER2 if the xmit policy
-> module parameter is not set (just like 802.3ad, or Xor mode).
-> 
-> Change-Id: I140257403d272df75f477b380207338d0f04963e
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> ---
-> v2:
->   Micro optimization - switch statement from ntohs(var) to htons(const) 
-> v3:
->   Rebase
+They are implemented in <endian.h> which is already included
+in internal.h, no need to reinvent them with different names.
 
-As mentioned by Nikolay, no need to init hash_index to 0.
+Signed-off-by: Cristian Rodr=C3=ADguez <crrodriguez@opensuse.org>
+---
+ ethtool.c  |  2 +-
+ internal.h | 31 -------------------------------
+ rxclass.c  |  4 ++--
+ 3 files changed, 3 insertions(+), 34 deletions(-)
 
-Otherwise :
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+diff --git a/ethtool.c b/ethtool.c
+index acb4397..e47ce0b 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -368,7 +368,7 @@ static void parse_generic_cmdline(struct cmd_contex=
+t *ctx,
+ 				}
+ 				case CMDL_BE16: {
+ 					u16 *p =3D info[idx].wanted_val;
+-					*p =3D cpu_to_be16(
++					*p =3D htobe16(
+ 						get_uint_range(argp[i], 0,
+ 							       0xffff));
+ 					break;
+diff --git a/internal.h b/internal.h
+index 86a64f2..7e7266b 100644
+--- a/internal.h
++++ b/internal.h
+@@ -31,37 +31,6 @@ typedef __int32_t s32;
+ #include "ethtool-copy.h"
+ #include "net_tstamp-copy.h"
+=20
+-#if __BYTE_ORDER =3D=3D __BIG_ENDIAN
+-static inline u16 cpu_to_be16(u16 value)
+-{
+-	return value;
+-}
+-static inline u32 cpu_to_be32(u32 value)
+-{
+-	return value;
+-}
+-static inline u64 cpu_to_be64(u64 value)
+-{
+-	return value;
+-}
+-#else
+-static inline u16 cpu_to_be16(u16 value)
+-{
+-	return (value >> 8) | (value << 8);
+-}
+-static inline u32 cpu_to_be32(u32 value)
+-{
+-	return cpu_to_be16(value >> 16) | (cpu_to_be16(value) << 16);
+-}
+-static inline u64 cpu_to_be64(u64 value)
+-{
+-	return cpu_to_be32(value >> 32) | ((u64)cpu_to_be32(value) << 32);
+-}
+-#endif
+-
+-#define ntohll cpu_to_be64
+-#define htonll cpu_to_be64
+-
+ #define BITS_PER_BYTE		8
+ #define BITS_PER_LONG		(BITS_PER_BYTE * sizeof(long))
+ #define DIV_ROUND_UP(n, d)	(((n) + (d) - 1) / (d))
+diff --git a/rxclass.c b/rxclass.c
+index cd686a3..a013e06 100644
+--- a/rxclass.c
++++ b/rxclass.c
+@@ -836,7 +836,7 @@ static int rxclass_get_val(char *str, unsigned char=
+ *p, u32 *flags,
+ 		err =3D rxclass_get_ulong(str, &val, 64);
+ 		if (err)
+ 			return -1;
+-		*(__be64 *)&p[opt->offset] =3D htonll((u64)val);
++		*(__be64 *)&p[opt->offset] =3D htobe64((u64)val);
+ 		if (opt->moffset >=3D 0)
+ 			*(__be64 *)&p[opt->moffset] =3D (__be64)mask;
+ 		break;
+@@ -939,7 +939,7 @@ static int rxclass_get_mask(char *str, unsigned cha=
+r *p,
+ 		err =3D rxclass_get_ulong(str, &val, 64);
+ 		if (err)
+ 			return -1;
+-		*(__be64 *)&p[opt->moffset] =3D ~htonll((u64)val);
++		*(__be64 *)&p[opt->moffset] =3D ~htobe64((u64)val);
+ 		break;
+ 	}
+ 	case OPT_IP4: {
+--=20
+1.8.4.5
