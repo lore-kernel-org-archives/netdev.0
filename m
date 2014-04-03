@@ -1,42 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net-gro: reset skb->truesize in napi_reuse_skb()
-Date: Thu, 03 Apr 2014 16:18:34 -0400 (EDT)
-Message-ID: <20140403.161834.1232262926542795326.davem@davemloft.net>
-References: <1396542490.12330.17.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH] vlan: unnecessary to check if vlan_pcpu_stats is NULL
+Date: Thu, 03 Apr 2014 16:36:03 -0400 (EDT)
+Message-ID: <20140403.163603.2057792710871114160.davem@davemloft.net>
+References: <1396529125-1441-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46662 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46758 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753796AbaDCURA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 16:17:00 -0400
-In-Reply-To: <1396542490.12330.17.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1753644AbaDCUea (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 16:34:30 -0400
+In-Reply-To: <1396529125-1441-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 03 Apr 2014 09:28:10 -0700
+From: roy.qing.li@gmail.com
+Date: Thu,  3 Apr 2014 20:45:25 +0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
-> Recycling skb always had been very tough...
+> if allocating memory for vlan_pcpu_stats failed, the device can not be operated
 > 
-> This time it appears GRO layer can accumulate skb->truesize
-> adjustments made by drivers when they attach a fragment to skb.
-> 
-> skb_gro_receive() can only subtract from skb->truesize the used part
-> of a fragment.
-> 
-> I spotted this problem seeing TcpExtPruneCalled and
-> TcpExtTCPRcvCollapsed that were unexpected with a recent kernel, where
-> TCP receive window should be sized properly to accept traffic coming
-> from a driver not overshooting skb->truesize.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-Nasty...
+This check seems to have been there since Eric Dumazet added precise
+RX statistic accounting.
 
-Applied, thanks Eric.
+It looks unnecessary to me, Eric?
+
+ ...
+>  static struct rtnl_link_stats64 *vlan_dev_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
+>  {
+> +	struct vlan_pcpu_stats *p;
+> +	u32 rx_errors = 0, tx_dropped = 0;
+> +	int i;
+>  
+> -	if (vlan_dev_priv(dev)->vlan_pcpu_stats) {
