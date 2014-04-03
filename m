@@ -1,51 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] net-gro: reset skb->truesize in napi_reuse_skb()
-Date: Thu, 03 Apr 2014 09:28:10 -0700
-Message-ID: <1396542490.12330.17.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: cpts: Add includes for ETH_HLEN and VLAN_HLEN
+ definitions
+Date: Thu, 03 Apr 2014 12:32:19 -0400 (EDT)
+Message-ID: <20140403.123219.186974875530426005.davem@davemloft.net>
+References: <20140403160843.GD15134@hansolo.jdub.homelinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:52381 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752665AbaDCQ2L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 12:28:11 -0400
-Received: by mail-pb0-f54.google.com with SMTP id ma3so2108294pbc.27
-        for <netdev@vger.kernel.org>; Thu, 03 Apr 2014 09:28:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mugunthanvnm@ti.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jwboyer@fedoraproject.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140403160843.GD15134@hansolo.jdub.homelinux.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+From: Josh Boyer <jwboyer@fedoraproject.org>
+Date: Thu, 3 Apr 2014 12:08:43 -0400
 
-Recycling skb always had been very tough...
+> If CONFIG_TI_CPTS is enabled, the ti_cpsw driver will fail to build with:
+> 
+> drivers/net/ethernet/ti/cpts.c: In function 'cpts_match':
+> drivers/net/ethernet/ti/cpts.c:266:12: error: 'ETH_HLEN' undeclared (first use in this function)
+>    offset = ETH_HLEN + IPV4_HLEN(data) + UDP_HLEN;
+>             ^
+> drivers/net/ethernet/ti/cpts.c:266:12: note: each undeclared identifier is reported only once for each function it appears in
+> drivers/net/ethernet/ti/cpts.c:276:23: error: 'VLAN_HLEN' undeclared (first use in this function)
+>    offset = ETH_HLEN + VLAN_HLEN;
+>                        ^
+> 
+> Add includes of if_ether.h and if_vlan.h to bring in the appropriate defines.
+> 
+> Signed-off-by: Josh Boyer <jwboyer@fedoraproject.org>
 
-This time it appears GRO layer can accumulate skb->truesize
-adjustments made by drivers when they attach a fragment to skb.
-
-skb_gro_receive() can only subtract from skb->truesize the used part
-of a fragment.
-
-I spotted this problem seeing TcpExtPruneCalled and
-TcpExtTCPRcvCollapsed that were unexpected with a recent kernel, where
-TCP receive window should be sized properly to accept traffic coming
-from a driver not overshooting skb->truesize.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/dev.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 757063420ce0..8770984e1ddc 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4043,6 +4043,7 @@ static void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
- 	skb->vlan_tci = 0;
- 	skb->dev = napi->dev;
- 	skb->skb_iif = 0;
-+	skb->truesize = SKB_TRUESIZE(skb_end_offset(skb));
- 
- 	napi->skb = skb;
- }
+A patch for this was already submitted to netdev and applied to the 'net'
+GIT tree earlier today.
