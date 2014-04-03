@@ -1,53 +1,31 @@
-From: "Ilya V. Matveychikov" <i.matveychikov@securitycode.ru>
-Subject: question: update_pmtu doesn't update dst mtu
-Date: Thu, 3 Apr 2014 15:37:33 +0400
-Message-ID: <533D47FD.9020904@securitycode.ru>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH] net: reflect the fwmark for replies with no socket
+Date: Thu, 3 Apr 2014 18:06:08 +0900
+Message-ID: <CAKD1Yr1HFhtgeNS22AKEATvf86UbZ2u+YTXVn_1qCFu1YrH9+g@mail.gmail.com>
+References: <1394536541-25702-1-git-send-email-lorenzo@google.com>
+ <alpine.LFD.2.11.1403112242190.1769@ja.home.ssi.bg> <CAKD1Yr0WAZaUgtDS2CpiNZsB48U6mT9vd+NniV4jrVTB5DhrQg@mail.gmail.com>
+ <alpine.LFD.2.11.1403120857160.1504@ja.home.ssi.bg> <CAKD1Yr1nGPY131oDrHHHNyhatE3nHFA+Tb4QfVv-mTTHY7B=Yw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from itna.infosec.ru ([82.198.190.199]:23266 "EHLO itna.infosec.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751853AbaDCLqh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Apr 2014 07:46:37 -0400
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:53889 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932106AbaDCJG3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 05:06:29 -0400
+Received: by mail-ie0-f174.google.com with SMTP id rp18so1469981iec.5
+        for <netdev@vger.kernel.org>; Thu, 03 Apr 2014 02:06:28 -0700 (PDT)
+In-Reply-To: <CAKD1Yr1nGPY131oDrHHHNyhatE3nHFA+Tb4QfVv-mTTHY7B=Yw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Thu, Apr 3, 2014 at 5:55 PM, Lorenzo Colitti <lorenzo@google.com> wrote:
+> Ack. I'll shortly post a patch that does this. It uses one
+> per-namespace sysctl - net.ipv4.fwmark_reflect - for both IPv4 and
+> IPv6.
 
-Is this a place where I can post questions not the patches? If so, can anybody
-explain me what the problem I have when trying to update dst PMTU value.
+http://patchwork.ozlabs.org/patch/336553/
 
-So, the scheme is the following:
-
-                  skb->dst                   rt(pmtu)
-IN_DEV (MTU 1500) -------> TUNNEL (MTU 1440) -------> OUT_DEV (MTU 1500)
-
-I have a simple tunnel_xmit function that handles all the packets that goes
-trough the tunnel. So, I have an skb with valid skb->dst value (filled earlier
-in ip_input_route_noref).
-
-Next, when encapsulation is done, I needed to get an output route for the packet
-(rt at the scheme). At this point I know that the output route may have a PMTU
-value that is different from the OUT_DEV->mtu. So, I'm trying to update the
-input skb->dst route's PMTU with the update_pmtu function. It seems that all is
-OK, but when I trying to get the dst mtu value (using dst_mtu(skb_dst(skb))) I
-always get the value of 1440 (TUNNEL's MTU):
-
-tunnel_xmit:
-    ...
-    pmtu = dst_mtu(&rt->dst) - OVERHEAD; // pmtu = 1300, for example
-    skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, pmtu);
-    // dst_mtu(skb_dst(skb)) still returns 1440
-
-Looking through the code gives me that rt_pmtu is always 0 for the skb->dst
-entry and ipv4_mtu that called via the dst->ops->mtu() uses dev->mtu :(
-
-So, the question is what I missed when trying to dynamically tunning tunnel's
-input route path MTU?
-
-Thanks :)
-
--- 
-Ilya V. Matveychikov
+David, does it look better to you now it's an option?
