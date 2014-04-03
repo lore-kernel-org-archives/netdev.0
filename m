@@ -1,45 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 2/2] xen-netback: Grant copy the header
- instead of map and memcpy
-Date: Thu, 03 Apr 2014 14:23:38 -0400 (EDT)
-Message-ID: <20140403.142338.566501064461610448.davem@davemloft.net>
-References: <1396458298-30041-1-git-send-email-zoltan.kiss@citrix.com>
-	<1396458298-30041-2-git-send-email-zoltan.kiss@citrix.com>
+From: Alexander Holler <holler@ahsoftware.de>
+Subject: Re: Bug(s) with netconsole (using mv643xx_eth on Kirkwood)
+Date: Thu, 03 Apr 2014 20:23:31 +0200
+Message-ID: <533DA723.3030000@ahsoftware.de>
+References: <1396396559-6971-1-git-send-email-holler@ahsoftware.de> <CAGVrzcZd9tBtcTY_2PRHVb9kJAjVHqn+EubUy4NGL66M_UuCDg@mail.gmail.com> <533BD3CD.1010905@ahsoftware.de> <CAGVrzcZi5aNq8fR795fKhu2TAc1tQCa2YEorErZRLf2n9DPZuw@mail.gmail.com> <533C721E.1080004@gmail.com> <533C8B49.8080704@ahsoftware.de> <533C8ECB.4090900@gmail.com> <533D0B09.9040602@ahsoftware.de> <533D207E.9020909@gmail.com> <533D790C.5000104@ahsoftware.de> <533D8207.2050108@gmail.com> <533D8518.1010306@ahsoftware.de> <533DA12B.8090904@ahsoftware.de> <533DA69A.2010402@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ian.campbell@citrix.com, wei.liu2@citrix.com,
-	xen-devel@lists.xenproject.org, paul.durrant@citrix.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jonathan.davies@citrix.com
-To: zoltan.kiss@citrix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46014 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753337AbaDCSWF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 14:22:05 -0400
-In-Reply-To: <1396458298-30041-2-git-send-email-zoltan.kiss@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Michal Simek <michal.simek@xilinx.com>,
+	David Miller <davem@davemloft.net>
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <533DA69A.2010402@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Date: Wed, 2 Apr 2014 18:04:58 +0100
+Am 03.04.2014 20:21, schrieb Sebastian Hesselbarth:
+> On 04/03/2014 07:58 PM, Alexander Holler wrote:
+> [...]
+>> I already knew about problems with netconsole and mv643xx_eth since
+>> 4 years, but didn't care a lot because everything else worked flawless,
+>> I even had forgotten that I've enabled netconsole. (But the bugs I've
+>> experienced 4 years ago, seeing no msgs remotely from netconsole seem to
+>> have disappeared).
+>
+> Alexander,
+>
+> you need to be more specific. You cannot just say "problems" and "bugs".
 
-> An old inefficiency of the TX path that we are grant mapping the first slot,
-> and then copy the header part to the linear area. Instead, doing a grant copy
-> for that header straight on is more reasonable. Especially because there are
-> ongoing efforts to make Xen avoiding TLB flush after unmap when the page were
-> not touched in Dom0. In the original way the memcpy ruined that.
-> The key changes:
-> - the vif has a tx_copy_ops array again
-> - xenvif_tx_build_gops sets up the grant copy operations
-> - we don't have to figure out whether the header and first frag are on the same
->   grant mapped page or not
-> Note, we only grant copy PKT_PROT_LEN bytes from the first slot, the rest (if
-> any) will be on the first frag, which is grant mapped. If the first slot is
-> smaller than PKT_PROT_LEN, then we grant copy that, and later __pskb_pull_tail
-> will pull more from the frags (if any)
-> 
-> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-
-Applied.
+I can. Full stop. Thanks.
