@@ -1,74 +1,38 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Thu, 03 Apr 2014 10:35:11 +0200
-Message-ID: <7201300.YltrNpx6X5@wuerfel>
-References: <1396358832-15828-1-git-send-email-zhangfei.gao@linaro.org> <4698724.S4F2PxkdOH@wuerfel> <CAMj5BkgfwE1hHpVeqH9WRitwCB30x3c4w0qw7sXT3PiOV-QcPQ@mail.gmail.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: on kernel 2.6.34.15, vlan and raw packets can not be received with gfar-enet nic
+Date: Thu, 3 Apr 2014 12:21:36 +0200
+Message-ID: <20140403102136.GF16158@1wt.eu>
+References: <53310F4E.4080104@gmail.com> <533D25D4.4000607@gmail.com> <20140403092727.GD16158@1wt.eu> <533D34BD.900@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: David Laight <David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org>,
-	"mark.rutland-5wv7dgnIgG8@public.gmane.org" <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org" <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	"eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org"
-	<sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Zhangfei Gao <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Zhangfei Gao <zhangfei.gao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAMj5BkgfwE1hHpVeqH9WRitwCB30x3c4w0qw7sXT3PiOV-QcPQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: sandeep.kumar@freescale.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, "Tao, Yue" <Yue.Tao@windriver.com>,
+	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
+	guang.yang@windriver.com, joe@perches.com, festevam@gmail.com,
+	linuxppc-dev@lists.ozlabs.org, richardcochran@gmail.com,
+	clarocq@gmail.com, yongjun_wei@trendmicro.com.cn,
+	Claudiu Manoil <claudiu.manoil@freescale.com>
+To: zhuyj <zyjzyj2000@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 1wt.eu ([62.212.114.60]:2896 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751848AbaDCKVt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Apr 2014 06:21:49 -0400
+Content-Disposition: inline
+In-Reply-To: <533D34BD.900@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 03 April 2014 14:24:25 Zhangfei Gao wrote:
-> On Wed, Apr 2, 2014 at 11:49 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
-> > On Wednesday 02 April 2014 10:04:34 David Laight wrote:
-> >> What you need to avoid is reads from uncached memory.
-> >> It may well beneficial for the tx reclaim code to first
-> >> check whether all the transmits have completed (likely)
-> >> instead of testing each descriptor in turn.
-> >
-> > Good point, reading from noncached memory is actually the
-> > part that matters. For slow networks (e.g. 10mbit), checking if
-> > all of the descriptors have finished is not quite as likely to succeed
-> > as for fast (gbit), especially if the timeout is set to expire
-> > before all descriptors have completed.
-> >
-> > If it makes a lot of difference to performance, one could use
-> > a binary search over the outstanding descriptors rather than looking
-> > just at the last one.
-> >
+On Thu, Apr 03, 2014 at 06:15:25PM +0800, zhuyj wrote:
+> Hi, Willy
 > 
-> I am afraid, there may no simple way to check whether all transmits completed.
+> I made a new patch. In long commit message, I inserted the equivalent 
+> mainline commit
+> about this feature. Maybe it is better. Now this patch is in the 
+> attachment. Please check
+> and merge it into kernel 2.6.32.62.
 
-Why can't you do the trivial change that David suggested above? It
-sounds like a three line change to your current code. No need to do
-the binary change at first, just see what difference it makes.
+Sure, it's much better this way.
 
-> Still want enable the cache coherent feature first.
-> Then two benefits:
-> 1. dma buffer cacheable.
-> 2. descriptor can directly use cacheable memory, so the performance
-> concern here may be solved accordingly.
-> 
-> So how about using this version as first version, while tuning the
-> performance in the next step.
-> Currently, the gbit interface can reach 420M bits/s in iperf, and the
-> 100M interface can reach 94M bits/s.
-
-It sounds like a very simple thing to try and you'd know immediately
-if it helps or not.
-
-Besides, you still have to change the other two issues I mentioned
-regarding the tx reclaim, so you can do all three at once.
-
-	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks!
+Willy
