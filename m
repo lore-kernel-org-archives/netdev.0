@@ -1,64 +1,55 @@
-From: <erik.hugne@ericsson.com>
-Subject: [PATCH] tipc: fix regression bug where node events are not being generated
-Date: Thu, 3 Apr 2014 08:28:01 +0200
-Message-ID: <1396506481-17362-1-git-send-email-erik.hugne@ericsson.com>
+From: lucien xin <lucien.xin@gmail.com>
+Subject: Re: [PATCH] vxlan: using AF_PACKET socket to send multicast packet
+ cause WARNING
+Date: Thu, 3 Apr 2014 13:28:33 +0800
+Message-ID: <CADvbK_ftDf_AsbEeF9EViBm68Co3bj1L-fR1-BDA0Uxn=1LPpA@mail.gmail.com>
+References: <1396343330-23648-1-git-send-email-lucien.xin@gmail.com>
+	<20140401.161047.854771903443514987.davem@davemloft.net>
+	<CADvbK_dK_fBB3bQSWKkAk6adtgrHm553Hr3JGHsw67qeS0cQOw@mail.gmail.com>
+	<20140402075106.3eec7791@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ying.xue@windriver.com>, <paul.gortmaker@windriver.com>,
-	<richard.alpe@ericsson.com>, Erik Hugne <erik.hugne@ericsson.com>
-To: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
-	<jon.maloy@ericsson.com>, <maloy@donjonn.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	network dev <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.ericsson.se ([193.180.251.45]:57608 "EHLO
-	mailgw1.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1162311AbaDCG1c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 02:27:32 -0400
+Received: from mail-we0-f169.google.com ([74.125.82.169]:48683 "EHLO
+	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161276AbaDCF2e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 01:28:34 -0400
+Received: by mail-we0-f169.google.com with SMTP id w62so1255088wes.0
+        for <netdev@vger.kernel.org>; Wed, 02 Apr 2014 22:28:33 -0700 (PDT)
+In-Reply-To: <20140402075106.3eec7791@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+On Wed, Apr 2, 2014 at 10:51 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> That breaks local socket accounting for tunneled packets.
+It do break, I think it should break, becaue vlxan send UDP packets,
+it should be bound to UDP socket.
+after  encapsulating the packet with local socket.  it reach the
+vxlan's xmit.  and It should be take into
+vxlan's UDP socket.and local socket should not take care of it.
 
-Commit 5902385a2440a55f005b266c93e0bb9398e5a62b ("tipc: obsolete
-the remote management feature") introduces a regression where node
-topology events are not being generated because the publication
-that triggers this: {0, <z.c.n>, <z.c.n>} is no longer available.
-This will break applications that rely on node events to discover
-when nodes join/leave a cluster.
+now the problem is that the local socket(AF_PACKET) cannot take it to
+travel the ipv4/6 protocol stack,
+unlike TCP/UDP socket.   perhaps, in later, there will be other type
+protocol family that has the same issue.
+so I think vxlan should support it.
 
-We fix this by advertising the node publication when TIPC enters
-networking mode, and withdraws it upon shutdown.
+> The idea is that a TCP socket sending over vxlan will keep it's
+> memory accounting all the way until the device sends it.
+yes, the idea is there.  But if vxlan is treated as net_device,  the
+packet enter it's xmit(), which seems
+ to be send by the device.  so when the packet goes there, the TCP
+socket also should let it go.
 
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
----
-Patch is based on net-next, as the commit that introduces the
-regression, 5902385 was only recently applied to that tree.
-Sorry for the inconvenience.
+of course, if you insist the idea you said,  to support only some type
+protocol family, do you have some
+better suggestion?
 
- net/tipc/net.c | 3 +++
- 1 file changed, 3 insertions(+)
+I cannot be sure I understand you well, those are just my own
+thoughts. pls help to check and correct it .  :)
 
-diff --git a/net/tipc/net.c b/net/tipc/net.c
-index 0374a81..4c564eb 100644
---- a/net/tipc/net.c
-+++ b/net/tipc/net.c
-@@ -182,6 +182,8 @@ void tipc_net_start(u32 addr)
- 	tipc_bclink_init();
- 	write_unlock_bh(&tipc_net_lock);
- 
-+	tipc_nametbl_publish(TIPC_CFG_SRV, tipc_own_addr, tipc_own_addr,
-+			     TIPC_ZONE_SCOPE, 0, tipc_own_addr);
- 	pr_info("Started in network mode\n");
- 	pr_info("Own node address %s, network identity %u\n",
- 		tipc_addr_string_fill(addr_string, tipc_own_addr), tipc_net_id);
-@@ -192,6 +194,7 @@ void tipc_net_stop(void)
- 	if (!tipc_own_addr)
- 		return;
- 
-+	tipc_nametbl_withdraw(TIPC_CFG_SRV, tipc_own_addr, 0, tipc_own_addr);
- 	write_lock_bh(&tipc_net_lock);
- 	tipc_bearer_stop();
- 	tipc_bclink_stop();
--- 
-1.8.3.2
+many thanks to your reply.
