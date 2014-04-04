@@ -1,45 +1,42 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: Re: Inconsistent lock state introduced by ipv6/addrconf change
-Date: Fri, 4 Apr 2014 23:09:59 +0800
-Message-ID: <20140404150958.GB16383@dragon>
-References: <20140404073455.GB29778@dragon>
- <20140404114848.GD13354@order.stressinduktion.org>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [RFC PATCH] bridge: remove !IFF_UP restriction when deleting
+ bridge from ioctl
+Date: Fri, 04 Apr 2014 10:15:50 -0500
+Message-ID: <1396624550.15118.11.camel@dcbw.local>
+References: <1396623382.15118.6.camel@dcbw.local>
+	 <20140404.110800.1665495271585798396.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140404114848.GD13354@order.stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42941 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753113AbaDDPPi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2014 11:15:38 -0400
+In-Reply-To: <20140404.110800.1665495271585798396.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 04, 2014 at 01:48:48PM +0200, Hannes Frederic Sowa wrote:
-> Hello!
+On Fri, 2014-04-04 at 11:08 -0400, David Miller wrote:
+> From: Dan Williams <dcbw@redhat.com>
+> Date: Fri, 04 Apr 2014 09:56:22 -0500
 > 
-> On Fri, Apr 04, 2014 at 03:34:56PM +0800, Shawn Guo wrote:
-> > I'm running into an inconsistent lock state warning on the final v3.14
-> > kernel (-rc8 is good) on Freescale i.MX6 platform with fec driver
-> > (drivers/net/ethernet/freescale/fec_main.c).  The git bisect points
-> > the finger to commit c15b1cc (ipv6: move DAD and addrconf_verify
-> > processing to workqueue).  Reverting the commit does fix the problem
-> > for me.  The image is built from arch/arm/configs/imx_v6_v7_defconfig.
+> > netlink doesn't care about IFF_UP when deleting a bridge, so "ip link
+> > del br0" works just fine.  The ioctl does care, which means that brctl
+> > complains "bridge br0 still up; can't delete it".  Make things
+> > consistent by always allowing bridge deletion even if the bridge is up.
 > > 
-> > The interesting part is the same warning shows up on mainline tree until
-> > net-next gets merged with commit cd6362b.  That's why Olof's autobooter
-> > keeps reporting failure on hummingboard and wandboard (both i.MX6 based)
-> > since v3.14 release [1], but reports success after commit cd6362b.
-> > 
-> > We're less concerned by the mainline tree, since the problem disappeared
-> > now (nice to know why though).  But we do still want to fix it for 3.14
-> > stable kernel.
+> > Signed-off-by: Dan Williams <dcbw@redhat.com>
+> > ---
+> > Question: does anyone consider the ioctl behavior API?  Can we change it
+> > even though it's been this way forever?  It means that bridges that
+> > previously would not have been deleted by brctl will now be deleted.
+> > But anyone using /sbin/ip could already delete them.
 > 
-> The patch which fixes this is already queued up for -stable:
-> 
-> http://patchwork.ozlabs.org/patch/335536/
+> Unfortunately I think we're stuck with the existing behavior.
 
-Thanks for the pointer.
+Ok, fair enough.
 
-Shawn
+Dan
