@@ -1,46 +1,44 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/2] net: davinci_mdio: use devm_* api
-Date: Fri, 04 Apr 2014 17:18:55 +0400
-Message-ID: <533EB13F.5010406@cogentembedded.com>
-References: <1396618825-4241-1-git-send-email-grygorii.strashko@ti.com> <1396618825-4241-3-git-send-email-grygorii.strashko@ti.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next] net: make packet_type->ak_packet_priv generic
+Date: Fri, 4 Apr 2014 15:23:00 +0200
+Message-ID: <20140404132300.GA2892@minipsycho.brq.redhat.com>
+References: <1396614038-31975-1-git-send-email-jiri@resnulli.us>
+ <533EAC70.2070604@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davinci-linux-open-source@linux.davincidsp.com,
-	linux-doc@vger.kernel.org, Randy Dunlap <rdunlap@infradead.org>,
-	linux-kernel@vger.kernel.org, santosh.shilimkar@ti.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Jonathan Cameron <jic23@kernel.org>
-To: Grygorii Strashko <grygorii.strashko@ti.com>,
-	Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1396618825-4241-3-git-send-email-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	vfalico@redhat.com, stephen@networkplumber.org, hkchu@google.com,
+	dborkman@redhat.com, willemb@google.com,
+	hannes@stressinduktion.org, atzm@stratosphere.co.jp, phil@nwl.cc,
+	richardcochran@gmail.com
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:56457 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752752AbaDDNXE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 09:23:04 -0400
+Received: by mail-wi0-f178.google.com with SMTP id bs8so1243666wib.11
+        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 06:23:02 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <533EAC70.2070604@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04-04-2014 17:40, Grygorii Strashko wrote:
+=46ri, Apr 04, 2014 at 02:58:24PM CEST, nicolas.dichtel@6wind.com wrote=
+:
+>Le 04/04/2014 14:20, Jiri Pirko a =E9crit :
+>>The priv is used now by af_packet. Rename it to make it useable for
+>>others as well. Also, introduce packet_id_match to move the sk matchi=
+ng
+>>from skb_loop_sk to af_packet code where it belongs.
+>>
+>>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>>---
+>>  include/linux/netdevice.h |  2 +-
+>>  net/core/dev.c            |  4 +---
+>>  net/packet/af_packet.c    | 22 +++++++++++++++-------
+>>  3 files changed, 17 insertions(+), 11 deletions(-)
+>Hmm, net-next is closed I think.
 
-> Use devm_* API for memory allocation and to get device's clock
-> to simplify driver's code.
-
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-> ---
->   drivers/net/ethernet/ti/davinci_mdio.c |   21 ++++-----------------
->   1 file changed, 4 insertions(+), 17 deletions(-)
-
-> diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-> index 0cca9de..f0f7128 100644
-> --- a/drivers/net/ethernet/ti/davinci_mdio.c
-> +++ b/drivers/net/ethernet/ti/davinci_mdio.c
-[...]
-> @@ -425,16 +417,11 @@ static int davinci_mdio_remove(struct platform_device *pdev)
->
->   	if (data->bus) {
->   		mdiobus_unregister(data->bus);
-> -		mdiobus_free(data->bus);
->   	}
-
-    Remove {} please, it's not needed anymore, according to 
-Documentation/CodingStyle.
-
-WBR, Sergei
+I did not see the announcement, maybe I missed it.
