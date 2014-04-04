@@ -1,41 +1,65 @@
-From: Jagan Teki <jagannadh.teki@gmail.com>
-Subject: Link up issue on ethernet/realtek/r8169.c
-Date: Fri, 4 Apr 2014 12:17:51 +0530
-Message-ID: <CAD6G_RTVPip-G34AxLRpFbs50WFFtWS6yth-r-E889h2B2Cd-w@mail.gmail.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: Re: [PATCH] Documentation: document the gianfar tx vlan offload issue
+Date: Fri, 4 Apr 2014 10:07:05 +0300
+Message-ID: <533E5A19.6060701@freescale.com>
+References: <1396580685-17156-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: nic_swsd@realtek.com, romieu@fr.zoreil.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <Yanjun.Zhu@windriver.com>
+To: <roy.qing.li@gmail.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tx2ehsobe005.messaging.microsoft.com ([65.55.88.15]:55715 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752050AbaDDHHO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 03:07:14 -0400
+In-Reply-To: <1396580685-17156-1-git-send-email-roy.qing.li@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 4/4/2014 6:04 AM, roy.qing.li@gmail.com wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
+>
+> The commit b852b72087[gianfar: fix bug caused by 87c288c6e9] and e2c53be223
+> [gianfar: fix default tx vlan offload feature flag] disabled tx vlan offload
+> from dev->feature, since enabling vlan tag insertion leads to unusable
+> connections on some configurations.
+>
+> But this feature is in dev->hw_feature still, and a user can enable it by
+> "ethtool", so document the tx vlan offload issue.
+>
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+> Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
+> ---
+>   Documentation/networking/gianfar.txt |   12 ++++++++++++
+>   1 file changed, 12 insertions(+)
+>
+> diff --git a/Documentation/networking/gianfar.txt b/Documentation/networking/gianfar.txt
+> index ad474ea..2d3dbe6 100644
+> --- a/Documentation/networking/gianfar.txt
+> +++ b/Documentation/networking/gianfar.txt
+> @@ -51,6 +51,18 @@ configuring VLANs.  The gianfar driver supports hardware insertion and
+>   extraction of VLAN headers, but not filtering.  Filtering will be
+>   done by the kernel.
+>   
+> +But if tx vlan tag hardware insertion is enabled, and a vlan-device is
+> +created, the physical device which vlan device is on will be unable to
+> +work, like:
+> +
+> +	$ethtool -K eth0 tx-vlan-stag-hw-insert on
+> +	$ifconfig eth0 192.168.1.13/24 up
+> +
+> +	$vconfig add eth0 4091
+> +	$ifconfig eth0.4091 10.1.1.13/24 up
+> +eth0.4091 can work, but eth0 can not work, since eth0 sends the insane
+> +packets out.
+> +
+I don't really like this, this is hardly a technical explanation. 
+("insane packets"?)
+Please have a look at the HW reference manual.  There you have the 
+description
+of the VLAN extraction feature (see VLEX).
 
-I'm using TP-LINK PCIe NIC card on my PCIe Root Complex.
-
-Probing looks fine by setting:
-r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-PCI: enabling device 0000:00:00.0 (0140 -> 0143)
-PCI: enabling device 0000:01:00.0 (0140 -> 0143)
-r8169 0000:01:00.0 eth0: RTL8168e/8111e at 0xf006a000,
-c0:4a:00:07:18:d4, XID 0c200000 IRQ 89
-r8169 0000:01:00.0 eth0: jumbo features [frames: 9200 bytes, tx
-checksumming: ko]
-
-But I have an issue while in link is up
-
-$ ifconfig 192.168.1.10 up
-r8169 0000:01:00.0: Direct firmware load failed with error -2
-r8169 0000:01:00.0: Falling back to user helper
-r8169 0000:01:00.0 eth0: unable to load firmware patch
-rtl_nic/rtl8168e-2.fw (-2)
-r8169 0000:01:00.0 eth0: link down
-
-Looks like firmware loading is failed in open call, Can any one
-suggest how to debug further.
-
-thanks!
--- 
-Jagan.
+Regards,
+Claudiu
