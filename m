@@ -1,27 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] net: hisilicon: new hip04 MDIO driver
-Date: Fri, 04 Apr 2014 13:48:30 -0400 (EDT)
-Message-ID: <20140404.134830.367816850781542907.davem@davemloft.net>
-References: <1396358832-15828-3-git-send-email-zhangfei.gao@linaro.org>
-	<1396626136-2338-1-git-send-email-zhangfei.gao@linaro.org>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH net] e1000e: Correctly include VLAN_HLEN when
+	changing interface MTU
+Date: Fri,  4 Apr 2014 16:48:48 -0400
+Message-ID: <1396644528-32430-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux@arm.linux.org.uk, arnd@arndb.de, f.fainelli@gmail.com,
-	sergei.shtylyov@cogentembedded.com, mark.rutland@arm.com,
-	David.Laight@ACULAB.COM, eric.dumazet@gmail.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: zhangfei.gao@linaro.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53322 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751166AbaDDRrA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 13:47:00 -0400
-In-Reply-To: <1396626136-2338-1-git-send-email-zhangfei.gao@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Vlad Yasevich <vyasevic@redhat.com>, e1000-devel@lists.sourceforge.net
+To: netdev@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
+
+When changing the interface mtu, the driver starts with a value
+that doesn't include VLAN_HLEN.  Later tests in the driver
+set the rx_buffer_len based on the mtu.  As a result, when
+the user increases the mtu to 1504 (to support 802.1AD for example),
+the driver rx_buffer_len does not change and frames longer
+the 1522 bytes are rejected as too long.
+
+Include VLAN_HLEN from the start so that an user mtu greater then
+1500 bytes is correctly reflected in the driver rx_buffer_len.
+
+CC: e1000-devel@lists.sourceforge.net
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 6d91933..492a136 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -5654,7 +5654,7 @@ struct rtnl_link_stats64 *e1000e_get_stats64(struct net_device *netdev,
+ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+-	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
++	int max_frame = new_mtu + VLAN_HLEN + ETH_HLEN + ETH_FCS_LEN;
+ 
+ 	/* Jumbo frame support */
+ 	if ((max_frame > ETH_FRAME_LEN + ETH_FCS_LEN) &&
+-- 
+1.8.5.3
 
 
-When you make a new postings of a patch, you must resend the entire
-series, not just the patch which is being updated.
+------------------------------------------------------------------------------
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
