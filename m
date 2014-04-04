@@ -1,40 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Documentation: document the gianfar tx vlan offload
- issue
-Date: Fri, 04 Apr 2014 09:56:33 -0400 (EDT)
-Message-ID: <20140404.095633.1081341257454844906.davem@davemloft.net>
-References: <1396580685-17156-1-git-send-email-roy.qing.li@gmail.com>
+Subject: Re: [Patch iproute2] ipaddress: do not add ifa_flags when not
+ necessary
+Date: Fri, 04 Apr 2014 09:59:05 -0400 (EDT)
+Message-ID: <20140404.095905.2169727474578538143.davem@davemloft.net>
+References: <1396591503-16632-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, claudiu.manoil@freescale.com,
-	Yanjun.Zhu@windriver.com
-To: roy.qing.li@gmail.com
+Cc: netdev@vger.kernel.org, jiri@resnulli.us,
+	stephen@networkplumber.org
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51860 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51879 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752384AbaDDNy6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 09:54:58 -0400
-In-Reply-To: <1396580685-17156-1-git-send-email-roy.qing.li@gmail.com>
+	with ESMTP id S1752473AbaDDN5a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 09:57:30 -0400
+In-Reply-To: <1396591503-16632-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roy.qing.li@gmail.com
-Date: Fri,  4 Apr 2014 11:04:45 +0800
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Thu,  3 Apr 2014 23:05:03 -0700
 
-> +But if tx vlan tag hardware insertion is enabled, and a vlan-device is
-> +created, the physical device which vlan device is on will be unable to
-> +work, like:
-> +
-> +	$ethtool -K eth0 tx-vlan-stag-hw-insert on
-> +	$ifconfig eth0 192.168.1.13/24 up
-> +
-> +	$vconfig add eth0 4091
-> +	$ifconfig eth0.4091 10.1.1.13/24 up
-> +eth0.4091 can work, but eth0 can not work, since eth0 sends the insane
-> +packets out.
+> commit 37c9b94ed21d5779acc23d89a4 (add support for extended ifa_flags)
+> introduced a regression:
+> 
+> 	# ./ip/ip addr add 192.168.0.1/24 dev eth0
+> 	RTNETLINK answers: Invalid argument
+> 
+> This is due to old kernels don't support IFA_FLAGS flag, it should be skipped
+> if we don't use this feature at all.
+> 
+> Cc: Jiri Pirko <jiri@resnulli.us>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-This is a bit of a joke.
+Your patch doesn't really fully fix the problem.
 
-If a configuration doesn't work properly, it should be disallowed
-by the driver, rather than "documented".
+If the kernel rejects because of presence of the IFA_FLAGS attribute,
+it will do so for all such cases.
+
+Therefore the guard you need is not whether ifa_flags is NULL, but
+whether a large enough flag bit is set such that IFA_FLAGS is required.
+
+IFA_FLAGS was added because ifa.ifa_flags is too small for the new
+values we needed to add.
