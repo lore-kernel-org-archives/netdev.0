@@ -1,44 +1,39 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH RFC 0/9] socket filtering using nf_tables
-Date: Fri, 4 Apr 2014 17:27:34 +0200
-Message-ID: <20140404152734.GA3434@localhost>
-References: <1394529560-3490-1-git-send-email-pablo@netfilter.org>
- <20140404.112432.523364323608428978.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/3] net: hisilicon: new hip04 MDIO driver
+Date: Fri, 04 Apr 2014 11:30:10 -0400 (EDT)
+Message-ID: <20140404.113010.1212333214715849484.davem@davemloft.net>
+References: <1396624597-390-1-git-send-email-zhangfei.gao@linaro.org>
+	<1396624597-390-3-git-send-email-zhangfei.gao@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux@arm.linux.org.uk, arnd@arndb.de, f.fainelli@gmail.com,
+	sergei.shtylyov@cogentembedded.com, mark.rutland@arm.com,
+	David.Laight@ACULAB.COM, eric.dumazet@gmail.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: zhangfei.gao@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35432 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753602AbaDDP1k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2014 11:27:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20140404.112432.523364323608428978.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52473 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753758AbaDDP2f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 11:28:35 -0400
+In-Reply-To: <1396624597-390-3-git-send-email-zhangfei.gao@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 04, 2014 at 11:24:32AM -0400, David Miller wrote:
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
-> Date: Tue, 11 Mar 2014 10:19:11 +0100
-> 
-> > The following patchset provides a socket filtering alternative to BPF
-> > which allows you to define your filter using the nf_tables expressions.
-> 
-> Generally I like this series, but of course you will need to respin
-> it against the work that went into net-next recently.
+From: Zhangfei Gao <zhangfei.gao@linaro.org>
+Date: Fri,  4 Apr 2014 23:16:36 +0800
 
-Sure, no problem.
+> +config HIP04_ETH
+> +	tristate "HISILICON P04 Ethernet support"
+> +	select NET_CORE
+> +	select PHYLIB
+> +	select MARVELL_PHY
+> +	select MFD_SYSCON
+> +	---help---
+> +	  If you wish to compile a kernel for a hardware with hisilicon p04 SoC and
+> +	  want to use the internal ethernet then you should answer Y to this.
 
-> I only wonder about the expression implementation module loading
-> logic when we add an nft filter to a socket.
-
-Yes, that needs to be revisited, some people already rised concerns on
-that.
-
-> It seems that if the module doesn't exist, we return -EAGAIN, drop the
-> mutex, and retry.  I see nothing which breaks this loop, it seems like
-> it can run forever if a module is simply not present.
-
-Will recheck this as well. Thanks for the feedback.
+Selecting NET_CORE makes no sense, if it's not set this driver's
+Kconfig file won't even be considered.
