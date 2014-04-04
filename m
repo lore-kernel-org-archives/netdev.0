@@ -1,84 +1,69 @@
-From: "Fujinaka, Todd" <todd.fujinaka@intel.com>
-Subject: Re: fail to add 64 VLANs or more when SR-IOV is
- enabled
-Date: Fri, 4 Apr 2014 21:29:47 +0000
-Message-ID: <9B4A1B1917080E46B64F07F2989DADD65297912C@ORSMSX102.amr.corp.intel.com>
-References: <9DE5760509B7974286F38D93BF31DD62C7DF93@BPXM13GP.gisp.nec.co.jp>
-	<9B4A1B1917080E46B64F07F2989DADD652978166@ORSMSX102.amr.corp.intel.com>
-	<9DE5760509B7974286F38D93BF31DD62C7E125@BPXM13GP.gisp.nec.co.jp>
-	<20140402.213941.1530194697006154708.davem@davemloft.net>
-	<9DE5760509B7974286F38D93BF31DD62C7E200@BPXM13GP.gisp.nec.co.jp>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net] e1000e: Correctly include VLAN_HLEN when changing
+ interface MTU
+Date: Fri, 04 Apr 2014 15:22:41 -0700
+Message-ID: <1396650161.2300.7.camel@jtkirshe-mobl>
+References: <1396644528-32430-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-y38ApvfTN7aFzf/SNLjU"
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:35583 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752064AbaDDWWm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2014 18:22:42 -0400
+In-Reply-To: <1396644528-32430-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-y38ApvfTN7aFzf/SNLjU
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, 2014-04-04 at 16:48 -0400, Vlad Yasevich wrote:
+> When changing the interface mtu, the driver starts with a value
+> that doesn't include VLAN_HLEN.  Later tests in the driver
+> set the rx_buffer_len based on the mtu.  As a result, when
+> the user increases the mtu to 1504 (to support 802.1AD for example),
+> the driver rx_buffer_len does not change and frames longer
+> the 1522 bytes are rejected as too long.
+>=20
+> Include VLAN_HLEN from the start so that an user mtu greater then
+> 1500 bytes is correctly reflected in the driver rx_buffer_len.
+>=20
+> CC: e1000-devel@lists.sourceforge.net
+> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>  drivers/net/ethernet/intel/e1000e/netdev.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+
+Thanks Vlad, I will add the patch to my queue.
+
+--=-y38ApvfTN7aFzf/SNLjU
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	Hiroshi Baba <h-baba@ax.jp.nec.com>
-To: Madoka Komatsubara <m-komatsubara@ab.jp.nec.com>, David Miller
-	<davem@davemloft.net>, "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <9DE5760509B7974286F38D93BF31DD62C7E200@BPXM13GP.gisp.nec.co.jp>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
 
-You can have more than 64 VLANs, but not for a single VF.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
 
-Todd Fujinaka
-Software Application Engineer
-Networking Division (ND)
-Intel Corporation
-todd.fujinaka@intel.com
-(503) 712-4565
+iQIcBAABCgAGBQJTPzCxAAoJEOVv75VaS+3OB98P/0jxDNEVUAc3fm65fprONw6q
+VDh8Hoa2itH2u5REFQvVHeyx6Wq90b0cGKZqyhGpFJ1sXh+joC34DxggYmXNrVLs
+qIW1zVQRtQcsrDy9zy4+QQ2PDXJqFc3CUbgU2GwqxB/1Wtpxf8lLlt7/GRVtpkz9
+5MIgCpBWSN99IsqUlvkCdHmuw2T7vjMPaIslW0/lFJMOVJUKsP9waoa8ozm48s6v
+qXXuly1sj475tEpqiJOFaI73cOcJC/bSOW1/FW9QIoODZhLYXjNbfRYLJfWinKRC
+Wz4Z+atmC7QlHC7tvgMgtZ+plHwy6/H72Mg3o8Ike+FykWKKtPCgJG1XpersH2D4
+mZAyTqYDXGWnVBYmn45NY4UU5N8TKiWPQA5oQxZPeynViCjFn9IT7OI+Fd8oa/h0
+X1ixWUOR1vkffdqGHxT6jUTPWb6x82T6z2yspF3svONrmRRQ53X0TyHBYk786UEH
+BqrjO1a3zWlNi2TTuXtT3QDFCcSPKyPOKzA8PijuKXIt8vJj20/8FFnSHoxmbAVR
+EU+4e2zYQWsHNXi5ahRhctyncdIg5FAEeQDFlIwaxnH0mBokkfYY83ignQC5DH+Y
+3Hq1/EB/zfA6+TL/yK1a5VpnIocGB1PzTz4KK0/0vQaERPQXWFCdPZthGNzchgnQ
+p/a2IysioBTlSpKkPk6i
+=YclU
+-----END PGP SIGNATURE-----
 
-
------Original Message-----
-From: Madoka Komatsubara [mailto:m-komatsubara@ab.jp.nec.com] 
-Sent: Wednesday, April 02, 2014 7:04 PM
-To: David Miller; Fujinaka, Todd; Skidmore, Donald C; linux-kernel@vger.kernel.org; e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org
-Cc: Hiroshi Shimamoto; Hiroshi Baba
-Subject: RE: [E1000-devel] fail to add 64 VLANs or more when SR-IOV is enabled
-
-
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, April 03, 2014 10:40 AM
-> To: Komatsubara Madoka(小松原 円)
-> Cc: todd.fujinaka@intel.com; donald.c.skidmore@intel.com; 
-> linux-kernel@vger.kernel.org; e1000-devel@lists.sourceforge.net;
-> netdev@vger.kernel.org; Shimamoto Hiroshi(島本 裕志); Baba Hiroshi(馬場 裕
-> 司)
-> Subject: Re: [E1000-devel] fail to add 64 VLANs or more when SR-IOV is 
-> enabled
-> 
-> From: Madoka Komatsubara <m-komatsubara@ab.jp.nec.com>
-> Date: Thu, 3 Apr 2014 01:12:13 +0000
-> 
-> > Thank you for the quick response.
-> > How can I increase the limit？
-> 
-> It's a hardware limit, you cannot increase it.
-
-
-Thank you for your information.
-Does it mean disabling filter is the only way to use over 64 VLANs and is it possible?
-
-Regards,
-Madoka
-
-
-------------------------------------------------------------------------------
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+--=-y38ApvfTN7aFzf/SNLjU--
