@@ -1,38 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] bonding: Inactive slaves should keep inactive
- flag's value
-Date: Fri, 04 Apr 2014 10:04:38 -0400 (EDT)
-Message-ID: <20140404.100438.264462269855449623.davem@davemloft.net>
-References: <1396407708-4056-1-git-send-email-zheng.x.li@oracle.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next] net: make packet_type->ak_packet_priv generic
+Date: Fri, 4 Apr 2014 16:03:25 +0200
+Message-ID: <20140404140325.GB2892@minipsycho.brq.redhat.com>
+References: <1396614038-31975-1-git-send-email-jiri@resnulli.us>
+ <20140404.095420.1460518706334112992.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, fubar@us.ibm.com,
-	andy@greyhouse.net, vfalico@redhat.com,
-	linux-kernel@vger.kernel.org, joe.jin@oracle.com
-To: zheng.x.li@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1396407708-4056-1-git-send-email-zheng.x.li@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, edumazet@google.com, vfalico@redhat.com,
+	nicolas.dichtel@6wind.com, stephen@networkplumber.org,
+	hkchu@google.com, dborkman@redhat.com, willemb@google.com,
+	hannes@stressinduktion.org, atzm@stratosphere.co.jp, phil@nwl.cc,
+	richardcochran@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:53927 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753090AbaDDOD3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 10:03:29 -0400
+Received: by mail-wi0-f176.google.com with SMTP id r20so1346719wiv.3
+        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 07:03:28 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140404.095420.1460518706334112992.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zheng Li <zheng.x.li@oracle.com>
-Date: Wed,  2 Apr 2014 11:01:48 +0800
+Fri, Apr 04, 2014 at 03:54:20PM CEST, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Fri,  4 Apr 2014 14:20:38 +0200
+>
+>> The priv is used now by af_packet. Rename it to make it useable for
+>> others as well. Also, introduce packet_id_match to move the sk matching
+>> from skb_loop_sk to af_packet code where it belongs.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>
+>Firstly, net-next is closed.
 
-> bond_open is not setting the inactive flag correctly for some modes (alb and
-> tlb), resulting in error behavior if the bond has been administratively set
-> down and then back up. This effect should not occur when slaves are added while
-> the bond is up; it's something that only happens after a down/up bounce of the
-> bond.
-> 
-> For example, in bond tlb or alb mode, domu send some ARP request which go out
-> from dom0 bond's active slave, then the ARP broadcast request packets go back to
-> inactive slave from switch, because the inactive slave's inactive flag is zero,
-> kernel will receive the packets and pass them to bridge that cause dom0's bridge
-> map domu's MAC address to port of bond, bridge should map domu's MAC to port of
-> vif.
-> 
-> Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
-> Signed-off-by: Jay Vosburgh <j.vosburgh@gmail.com>
+Dave, it would be really great if you stick with the same email subject
+when you declare net-next closed. I was looking for "CLOSED" but now the
+subject is "no new feature patches please" which I missed.
 
-Applied.
+Subject like "*net-next is CLOSED*" or some other constant nicely
+visible string would avoid people like me miss this and people like you
+and Nicolas to remind me :)
+
+>
+>Secondly, submit this with the unmentioned and mysterious "other
+>user", there currently are none.
+
+There is none atm. But anyway, the struct field name should be generic,
+cause this is not specific to af_packet. Anybody might want to pass a
+"priv".
