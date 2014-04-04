@@ -1,39 +1,76 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [patch net-next] net: make packet_type->ak_packet_priv generic
-Date: Fri, 04 Apr 2014 14:58:24 +0200
-Message-ID: <533EAC70.2070604@6wind.com>
-References: <1396614038-31975-1-git-send-email-jiri@resnulli.us>
-Reply-To: nicolas.dichtel@6wind.com
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/2] mdio_bus: implement devm_mdiobus_alloc/devm_mdiobus_free
+Date: Fri, 04 Apr 2014 17:15:35 +0400
+Message-ID: <533EB077.6000005@cogentembedded.com>
+References: <1396618825-4241-1-git-send-email-grygorii.strashko@ti.com> <1396618825-4241-2-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, edumazet@google.com, vfalico@redhat.com,
-	stephen@networkplumber.org, hkchu@google.com, dborkman@redhat.com,
-	willemb@google.com, hannes@stressinduktion.org,
-	atzm@stratosphere.co.jp, phil@nwl.cc, richardcochran@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:46518 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752388AbaDDM63 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 08:58:29 -0400
-Received: by mail-wg0-f43.google.com with SMTP id x13so3357538wgg.26
-        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 05:58:27 -0700 (PDT)
-In-Reply-To: <1396614038-31975-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davinci-linux-open-source@linux.davincidsp.com,
+	linux-doc@vger.kernel.org, Randy Dunlap <rdunlap@infradead.org>,
+	linux-kernel@vger.kernel.org, santosh.shilimkar@ti.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Jonathan Cameron <jic23@kernel.org>
+To: Grygorii Strashko <grygorii.strashko@ti.com>,
+	Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1396618825-4241-2-git-send-email-grygorii.strashko@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 04/04/2014 14:20, Jiri Pirko a =C3=A9crit :
-> The priv is used now by af_packet. Rename it to make it useable for
-> others as well. Also, introduce packet_id_match to move the sk matchi=
-ng
-> from skb_loop_sk to af_packet code where it belongs.
+Hello.
+
+On 04-04-2014 17:40, Grygorii Strashko wrote:
+
+> Add a resource managed devm_mdiobus_alloc()/devm_mdiobus_free()
+> to automatically clean up MDIO bus alocations made by MDIO drivers,
+> thus leading to simplified MDIO drivers code.
+
+> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+[...]
+
+> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+> index 76f54b3..fdcd6d1 100644
+> --- a/drivers/net/phy/mdio_bus.c
+> +++ b/drivers/net/phy/mdio_bus.c
+> @@ -69,6 +69,74 @@ struct mii_bus *mdiobus_alloc_size(size_t size)
+>   }
+>   EXPORT_SYMBOL(mdiobus_alloc_size);
 >
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->   include/linux/netdevice.h |  2 +-
->   net/core/dev.c            |  4 +---
->   net/packet/af_packet.c    | 22 +++++++++++++++-------
->   3 files changed, 17 insertions(+), 11 deletions(-)
-Hmm, net-next is closed I think.
+> +static void _devm_mdiobus_free(struct device *dev, void *res)
+> +{
+> +	mdiobus_free(*(struct mii_bus **)res);
+> +}
+> +
+> +static int devm_mdiobus_match(struct device *dev, void *res, void *data)
+> +{
+> +	struct mii_bus **r = res;
+
+    Please insert an empty line after declaration.
+
+> +	if (!r || !*r) {
+> +		WARN_ON(!r || !*r);
+
+    Hm, why we need the duplicate check This condition is always true.
+
+[...]
+> +/**
+> + * devm_mdiobus_free - Resource-managed mdiobus_free()
+> + * @dev:		Device this mii_bus belongs to
+> + * @bus:		the mii_bus associated with the device
+> + *
+> + * Free mii_bus allocated with devm_mdiobus_alloc().
+> + */
+> +void devm_mdiobus_free(struct device *dev, struct mii_bus *bus)
+> +{
+> +	int rc;
+> +
+> +	rc = devres_release(dev, _devm_mdiobus_free,
+> +		devm_mdiobus_match, bus);
+
+    Please make this line start under 'dev', according to the networking 
+coding style.
+
+[...]
+
+WBR, Sergei
