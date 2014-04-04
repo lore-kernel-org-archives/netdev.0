@@ -1,52 +1,28 @@
-From: "Ilya V. Matveychikov" <i.matveychikov@securitycode.ru>
-Subject: Re: [RFC PATCH] veth: keep peers MTU values synchronized
-Date: Fri, 4 Apr 2014 18:42:29 +0400
-Message-ID: <533EC4D5.50304@securitycode.ru>
-References: <533DD390.6020103@gmail.com> <20140404.102518.2263545144702348056.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] rds: prevent dereference of a NULL device in
+ rds_iw_laddr_check
+Date: Fri, 04 Apr 2014 10:44:26 -0400 (EDT)
+Message-ID: <20140404.104426.2226769084775433079.davem@davemloft.net>
+References: <1396139975-5314-1-git-send-email-sasha.levin@oracle.com>
+	<20140331.162607.153228065356865845.davem@davemloft.net>
+	<20140404143136.GA2593@hercules>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <matvejchikov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from itna.infosec.ru ([82.198.190.199]:25494 "EHLO itna.infosec.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753386AbaDDOlu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2014 10:41:50 -0400
-In-Reply-To: <20140404.102518.2263545144702348056.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sasha.levin@oracle.com, chien.yen@oracle.com,
+	rds-devel@oss.oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: luis.henriques@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140404143136.GA2593@hercules>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04.04.2014 18:25, David Miller wrote:
-> From: "Ilya V. Matveychikov" <matvejchikov@gmail.com>
-> Date: Fri, 04 Apr 2014 01:33:04 +0400
-> 
->> Keep peers MTU values synchronized. That prevent dropping packets
->> while
->> forwarding as diffirent MTU values prevent skb moving from one peer's
->> device to another (is_skb_forwardable returns false).
->>
->> Signed-off-by: Ilya V. Matveychikov <i.matveychikov@securitycode.ru>
-> 
-> Such side effects on another device when changing the configuration
-> of one are strongly discouraged.
-> 
+=46rom: Lu=EDs Henriques <luis.henriques@canonical.com>
+Date: Fri, 4 Apr 2014 15:31:36 +0100
 
-Devices are paired. It means that one depends on another. Is there any case
-where this "side" effect wouldn't be helpful?
+> Could you please queue this one for stable as well?  (Looks like it e=
+ven
+> has CVE-2014-2678 assigned to it.)
 
-> Furthermore, when the veth peer is created, no attempt is made to
-> synchronize the MTUs.
-
-Peers are created at once and ether_setup used for the configuration so MTU
-values equals.
-
-> 
-> Let it therefore be the admins responsibility to keep them in sync
-> just as it would be on a real network.
-> 
-> 
-
-Different MTU values for the veth pairs are meaningless as if so we can't do the
-communication between the namespaces at all. So, is it correct to shift all the
-configuration problems to admins?
+Done.
