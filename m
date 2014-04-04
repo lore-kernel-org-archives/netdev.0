@@ -1,51 +1,54 @@
-From: Lukas Tribus <luky-37@hotmail.com>
-Subject: RE: IPv6 routing table max_size badly dimensioned compared to IPv4
-Date: Fri, 4 Apr 2014 18:03:42 +0200
-Message-ID: <DUB123-W32175F346BC24A876CDAA2ED6F0@phx.gbl>
-References: <1393532583.26794.26.camel@edumazet-glaptop2.roam.corp.google.com>,<20140227205010.GB27495@order.stressinduktion.org>,<1393534920.26794.40.camel@edumazet-glaptop2.roam.corp.google.com>,<20140227.174755.801004637112620140.davem@davemloft.net>,<20140228110735.GA13494@xs.powerdns.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch iproute2] ipaddress: do not add ifa_flags when not necessary
+Date: Fri, 4 Apr 2014 09:52:04 -0700
+Message-ID: <CAM_iQpWyjZFMWC1dBs2x_xfH4DsppHTDBVT9xO7XN5EuVcbKow@mail.gmail.com>
+References: <1396591503-16632-1-git-send-email-xiyou.wangcong@gmail.com>
+	<20140404.095905.2169727474578538143.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: bert hubert <bert.hubert@netherlabs.nl>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dub0-omc3-s33.dub0.hotmail.com ([157.55.2.42]:37793 "EHLO
-	dub0-omc3-s33.dub0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753229AbaDDQIy convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2014 12:08:54 -0400
-In-Reply-To: <20140228110735.GA13494@xs.powerdns.com>
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:36773 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752915AbaDDQwF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 12:52:05 -0400
+Received: by mail-ob0-f170.google.com with SMTP id uz6so3819714obc.29
+        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 09:52:04 -0700 (PDT)
+In-Reply-To: <20140404.095905.2169727474578538143.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On Thu, Feb 27, 2014 at 05:47:55PM -0500, David Miller wrote:
->>> If we need to perform 10000 inserts per second, and gc timeout is 60
->>> seconds, tree contains 600.000 entries, gc takes forever...
+On Fri, Apr 4, 2014 at 6:59 AM, David Miller <davem@davemloft.net> wrote:
+> From: Cong Wang <xiyou.wangcong@gmail.com>
+> Date: Thu,  3 Apr 2014 23:05:03 -0700
+>
+>> commit 37c9b94ed21d5779acc23d89a4 (add support for extended ifa_flags)
+>> introduced a regression:
 >>
->> The only long term solution is to align ipv6 to be more like ipv4.
+>>       # ./ip/ip addr add 192.168.0.1/24 dev eth0
+>>       RTNETLINK answers: Invalid argument
+>>
+>> This is due to old kernels don't support IFA_FLAGS flag, it should be skipped
+>> if we don't use this feature at all.
+>>
+>> Cc: Jiri Pirko <jiri@resnulli.us>
+>> Cc: Stephen Hemminger <stephen@networkplumber.org>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 >
-> Yes please. There appears to be a lingering assumption IPv6 is small scale.
+> Your patch doesn't really fully fix the problem.
 >
-> T-Mobile USA is now providing IPv6 only service via DNA64/NAT64, creating
-> (dozens of) millions of IPv6 only clients. (More on this 'hack' on
-> http://blog.powerdns.com/2013/05/17/ripe-66-powerdns-and-dns64nat64/ )
+> If the kernel rejects because of presence of the IFA_FLAGS attribute,
+> it will do so for all such cases.
 >
-> So aligning IPv6 scalability with IPv4 scalability would be grand, thanks!
+> Therefore the guard you need is not whether ifa_flags is NULL, but
+> whether a large enough flag bit is set such that IFA_FLAGS is required.
+>
+> IFA_FLAGS was added because ifa.ifa_flags is too small for the new
+> values we needed to add.
 
-FYI, this was also mentioned by Paul Saab from Facebook in a
-presentation [1] during last months V6 World Congress [2].
+Right, we should use IFA_FLAGS only when ifa_flags > 0xFF.
 
-Looks like more and more people start hitting this.
-
-
-
-Best regards,
-
-Lukas
-
-
-[1] https://www.facebook.com/groups/2234775539/10152303014725540/
-[2] http://www.uppersideconferences.com/v6world2014/v6world2014introduction.html 		 	   		  
+Thanks!
