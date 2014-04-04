@@ -1,42 +1,51 @@
-From: =?UTF-8?B?T3J0d2luIEdsw7xjaw==?= <odi@odi.ch>
-Subject: Re: 3.14 regression: huge latency in read/select on tun
-Date: Fri, 04 Apr 2014 10:34:11 +0200
-Message-ID: <533E6E83.7030106@odi.ch>
-References: <533C381E.9090103@odi.ch>	 <1396456973.3989.41.camel@edumazet-glaptop2.roam.corp.google.com>	 <533D133A.3090008@odi.ch>	 <1396531176.12330.6.camel@edumazet-glaptop2.roam.corp.google.com> <1396533026.12330.9.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jagan Teki <jagannadh.teki@gmail.com>
+Subject: Re: Link up issue on ethernet/realtek/r8169.c
+Date: Fri, 4 Apr 2014 14:30:36 +0530
+Message-ID: <CAD6G_RSwHQT5vDQJMSfYpfHbdckuFGZtx7ghM-89q=8rw85iXw@mail.gmail.com>
+References: <CAD6G_RTVPip-G34AxLRpFbs50WFFtWS6yth-r-E889h2B2Cd-w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: nic_swsd@realtek.com, romieu@fr.zoreil.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1396533026.12330.9.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <CAD6G_RTVPip-G34AxLRpFbs50WFFtWS6yth-r-E889h2B2Cd-w@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Apr 4, 2014 at 12:17 PM, Jagan Teki <jagannadh.teki@gmail.com> wrote:
+> Hi,
+>
+> I'm using TP-LINK PCIe NIC card on my PCIe Root Complex.
+>
+> Probing looks fine by setting:
+> r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+> PCI: enabling device 0000:00:00.0 (0140 -> 0143)
+> PCI: enabling device 0000:01:00.0 (0140 -> 0143)
+> r8169 0000:01:00.0 eth0: RTL8168e/8111e at 0xf006a000,
+> c0:4a:00:07:18:d4, XID 0c200000 IRQ 89
+> r8169 0000:01:00.0 eth0: jumbo features [frames: 9200 bytes, tx
+> checksumming: ko]
+>
+> But I have an issue while in link is up
+>
+> $ ifconfig 192.168.1.10 up
+> r8169 0000:01:00.0: Direct firmware load failed with error -2
+> r8169 0000:01:00.0: Falling back to user helper
+> r8169 0000:01:00.0 eth0: unable to load firmware patch
+> rtl_nic/rtl8168e-2.fw (-2)
+> r8169 0000:01:00.0 eth0: link down
+>
+> Looks like firmware loading is failed in open call, Can any one
+> suggest how to debug further.
 
+Got the fix! I have updated .config with firmware details from [1]
 
-On 03.04.2014 15:50, Eric Dumazet wrote:
-> If bug is in tun.c you have this list of changes  you could bisect
-> from :
-> 
-> # git log --oneline v3.13..v3.14 drivers/net/tun.c
-> 6671b2240c54 tun: remove bogus hardware vlan acceleration flags from vlan_features
-> 99932d4fc03a netdevice: add queue selection fallback handler for ndo_select_queue
-> 93e14b6d776e tun: add device name(iff) field to proc fdinfo entry
-> fa35864e0bb7 tuntap: Fix for a race in accessing numqueues
-> 0a379e21c503 Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-> fbe4d4565bad tun, rfs: fix the incorrect hash value
-> 9bc8893937c8 tun: Add support for RFS on tun flows
-> 143c90549494 Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-> 3958afa1b272 net: Change skb_get_rxhash to skb_get_hash
-> 42404c091510 Revert "tun: remove useless codes in tun_chr_aio_read() and tun_recvmsg()"
-> 73713357ab58 tun: remove useless codes in tun_chr_aio_read() and tun_recvmsg()
-> 34f9f437104b Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-> f96eb74c84eb tun: remove unused parameter in tun_do_read()
-> 92d4ea6e412a tun: spelling fixes
+CONFIG_EXTRA_FIRMWARE="rtl_nic/rtl8168e-2.fw"
+CONFIG_EXTRA_FIRMWARE_DIR="/opt"
 
+[1] http://git.exherbo.org/summer/packages/firmware/rtl_nic/index.html
 
-That list doesn't look too promising. I'd rather look in net/ipv4 which
-does have TSO/GSO related changes. I tried to bisect that but the system
-hangs on boot when net devices are enabled. So it may prove difficult to
-pin down. I may try again during the weekend.
+thanks!
+-- 
+Jagan.
