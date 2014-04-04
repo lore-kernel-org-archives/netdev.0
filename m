@@ -1,60 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] net: make packet_type->ak_packet_priv generic
-Date: Fri, 04 Apr 2014 10:07:54 -0400 (EDT)
-Message-ID: <20140404.100754.1337061118939924472.davem@davemloft.net>
-References: <1396614038-31975-1-git-send-email-jiri@resnulli.us>
-	<20140404.095420.1460518706334112992.davem@davemloft.net>
-	<20140404140325.GB2892@minipsycho.brq.redhat.com>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: Re: Can I make USB IP addresses persist across unplug-replug events.
+Date: Fri, 04 Apr 2014 16:08:04 +0200
+Message-ID: <533EBCC4.9070701@meshcoding.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D0F6EFE84@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, vfalico@redhat.com,
-	nicolas.dichtel@6wind.com, stephen@networkplumber.org,
-	hkchu@google.com, dborkman@redhat.com, willemb@google.com,
-	hannes@stressinduktion.org, atzm@stratosphere.co.jp, phil@nwl.cc,
-	richardcochran@gmail.com
-To: jiri@resnulli.us
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="XFxMmn57HTg3bkBjexXoPURbLvGsgphlM"
+Cc: netdev@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51951 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752736AbaDDOGU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 10:06:20 -0400
-In-Reply-To: <20140404140325.GB2892@minipsycho.brq.redhat.com>
+Received: from s3.neomailbox.net ([178.209.62.157]:6091 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753139AbaDDOIc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 10:08:32 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6EFE84@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Fri, 4 Apr 2014 16:03:25 +0200
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--XFxMmn57HTg3bkBjexXoPURbLvGsgphlM
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-> Fri, Apr 04, 2014 at 03:54:20PM CEST, davem@davemloft.net wrote:
->>From: Jiri Pirko <jiri@resnulli.us>
->>Date: Fri,  4 Apr 2014 14:20:38 +0200
->>
->>> The priv is used now by af_packet. Rename it to make it useable for
->>> others as well. Also, introduce packet_id_match to move the sk matching
->>> from skb_loop_sk to af_packet code where it belongs.
->>> 
->>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>
->>Firstly, net-next is closed.
-> 
-> Dave, it would be really great if you stick with the same email subject
-> when you declare net-next closed. I was looking for "CLOSED" but now the
-> subject is "no new feature patches please" which I missed.
+On 04/04/14 15:47, David Laight wrote:
+> Is there a sane way to stop the local IP address (etc) associated
+> with a USB network interface being deleted when the USB card
+> is unplugged - so that everything will recover quickly when it is
+> plugged back in?
+>=20
+> Maybe something horrid like master-slave bonding/teaming with a dummy
+> software interface which will silently discard tx traffic when the
+> usb interface is missing.
 
-Sorry, that's not a reasonable request.
+What about a bridge interface? When the usb network device is plugged-in
+you can enslave it in the bridge (and viceversa on unplug).
 
-It is very clear from the subject line I choose what the message is
-about.  I don't have to use an ALL CAPS subject line "just because"
+The IP is configured on the bridge so it will survive and also the users
+applications using it.
 
->>Secondly, submit this with the unmentioned and mysterious "other
->>user", there currently are none.
-> 
-> There is none atm. But anyway, the struct field name should be generic,
-> cause this is not specific to af_packet. Anybody might want to pass a
-> "priv".
+no? or am I missing something important? :)
 
-No, because it makes it clear what the one and only user is.
 
-Any new user would be seriously frowned upon, because this is
-an easy side channel for proprietary extensions to the networking.
+Cheers,
+
+
+--=20
+Antonio Quartulli
+
+
+--XFxMmn57HTg3bkBjexXoPURbLvGsgphlM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iQIcBAEBCAAGBQJTPrzIAAoJEEKTMo6mOh1VfP0P/1tVlCe4kAN1f3k0Z1ADARSf
+7tFtA32GU81ccEuQ6Y+gw8eRi+sdwMEXyJK/8QBfhF42Zvgi1GOCubO6GacYBMu6
+9xa5+hARFaZ0X4Q+KvRKYyo95Aw8SMyFd5+4FuOdUCyjN5wcrZ7pD5BC323nbn77
+CHaodpRXg0xdW4cfMWvT+eZGwfFU46PUezlRM1Umh+neGmMXX2V6u334v1gdf2fF
+otXRDNEprMmgH2gxhQuUj2CpX6bMewmMb9/jX5k5QkP68T+CJzRafoiPy2vIyxgS
+h2nF2wstjD/xiC0G9182xxlvLdGZeB4GR/RJX2xk0BTeRFH/UX1JG/vFVmzeM+gU
+myCiM25omv7mvKz2/2E5AltoR/7/wIYxdytV98eQN9Gdog9D0tOzsXZ704+xPjZe
+mvpQtV9dxy925ZKRFI7CxHP2v3tpiEEZOe90BaTQPG7j17U4n9K6/fu83w42CW2f
+bcGKX8vnQPW3+PWOhc+glk07Y+JxXOXlJOGKOLiEC4tl6lvHdL/DkDX+6skWGhJ3
+GpY+ZZ+yIKsOZQJmfoDtzchCjEPj6W/ltUJZA9gWvnYoPDz1KcD5w1KAwzWdhgI5
+kV4DYILmIvlpayfw09bBkNguOr5MjdLJW9NRhtZtutWSihTyEsanehUxX7GIQGI9
+W7/m838RFT0PnlDCnpMB
+=JUHF
+-----END PGP SIGNATURE-----
+
+--XFxMmn57HTg3bkBjexXoPURbLvGsgphlM--
