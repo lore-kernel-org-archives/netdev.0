@@ -1,8 +1,8 @@
 From: Zhangfei Gao <zhangfei.gao@linaro.org>
 Subject: [PATCH 2/3] net: hisilicon: new hip04 MDIO driver
-Date: Fri,  4 Apr 2014 23:42:16 +0800
-Message-ID: <1396626136-2338-1-git-send-email-zhangfei.gao@linaro.org>
-References: <1396358832-15828-3-git-send-email-zhangfei.gao@linaro.org>
+Date: Fri,  4 Apr 2014 23:45:57 +0800
+Message-ID: <1396626357-2414-1-git-send-email-zhangfei.gao@linaro.org>
+References: <1396624597-390-3-git-send-email-zhangfei.gao@linaro.org>
 Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
 	devicetree@vger.kernel.org, Zhangfei Gao <zhangfei.gao@linaro.org>
 To: davem@davemloft.net, linux@arm.linux.org.uk, arnd@arndb.de,
@@ -10,13 +10,13 @@ To: davem@davemloft.net, linux@arm.linux.org.uk, arnd@arndb.de,
 	mark.rutland@arm.com, David.Laight@ACULAB.COM,
 	eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:39489 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753340AbaDDPm3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 11:42:29 -0400
-Received: by mail-pb0-f45.google.com with SMTP id uo5so3622795pbc.18
-        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 08:42:28 -0700 (PDT)
-In-Reply-To: <1396358832-15828-3-git-send-email-zhangfei.gao@linaro.org>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:38913 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753585AbaDDPqI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 11:46:08 -0400
+Received: by mail-pb0-f50.google.com with SMTP id md12so3647630pbc.9
+        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 08:46:07 -0700 (PDT)
+In-Reply-To: <1396624597-390-3-git-send-email-zhangfei.gao@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
