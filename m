@@ -1,50 +1,32 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: i40e: Add code to handle FD table full condition
-Date: Fri, 4 Apr 2014 10:59:30 -0400
-Message-ID: <20140404145930.GA20434@redhat.com>
-References: <20140403052019.CFC67661245@gitolite.kernel.org>
+From: "Ilya V. Matveychikov" <i.matveychikov@securitycode.ru>
+Subject: Re: [RFC PATCH] veth: keep peers MTU values synchronized
+Date: Fri, 4 Apr 2014 19:04:51 +0400
+Message-ID: <533ECA13.60305@securitycode.ru>
+References: <533DD390.6020103@gmail.com>	<20140404.102518.2263545144702348056.davem@davemloft.net>	<533EC4D5.50304@securitycode.ru> <20140404.104921.1668611243816621886.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: anjali.singhai@intel.com, jeffrey.t.kirsher@intel.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <matvejchikov@gmail.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41070 "EHLO mx1.redhat.com"
+Received: from itna.infosec.ru ([82.198.190.199]:17043 "EHLO itna.infosec.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752067AbaDDO7i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2014 10:59:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20140403052019.CFC67661245@gitolite.kernel.org>
+	id S1752709AbaDDPEK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2014 11:04:10 -0400
+In-Reply-To: <20140404.104921.1668611243816621886.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 03, 2014 at 05:20:19AM +0000, Linux Kernel wrote:
- > Gitweb:     http://git.kernel.org/linus/;a=commit;h=55a5e60b9f583f64a6c95cfe869dd2d65ae53a95
- > Commit:     55a5e60b9f583f64a6c95cfe869dd2d65ae53a95
- > Parent:     61dade7e9201162cba683cff103cebbdf06655d4
- > Author:     Anjali Singhai Jain <anjali.singhai@intel.com>
- > AuthorDate: Wed Feb 12 06:33:25 2014 +0000
- > Committer:  Jeff Kirsher <jeffrey.t.kirsher@intel.com>
- > CommitDate: Fri Mar 14 16:30:03 2014 -0700
- > 
- >     i40e: Add code to handle FD table full condition
- 
-...
+On 04.04.2014 18:49, David Miller wrote:
+> From: "Ilya V. Matveychikov" <i.matveychikov@securitycode.ru>
+> Date: Fri, 4 Apr 2014 18:42:29 +0400
+> 
+>> Peers are created at once and ether_setup used for the configuration so MTU
+>> values equals.
+> 
+> If an IFLA_MTU value is specified for the peer it will be honored.
+> 
+> 
 
- > +			/* Turn off ATR first */
- > +			if (pf->flags | I40E_FLAG_FD_ATR_ENABLED) {
-
-This condition is always true.
-Did you mean to write something like
-
-	if (pf->flags & ~I40E_FLAG_FD_ATR_ENABLED)
-
-perhaps ?
-
-Same with the 
-
-	} else if (pf->flags | I40E_FLAG_FD_SB_ENABLED) {
-
-that pairs with it.
-
-
-	Dave
+OK, I see it. Does that mean that the patch needs to be updated or the proposed
+behavior is incorrect and must not be in kernel?
