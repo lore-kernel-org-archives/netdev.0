@@ -1,74 +1,54 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [Xen-devel] [PATCH] grant-table, xen-netback: Introduce helper
- functions for grant copy operations
-Date: Fri, 4 Apr 2014 15:50:59 +0100
-Message-ID: <1396623059.4211.255.camel@kazak.uk.xensource.com>
-References: <1396458349-30112-1-git-send-email-zoltan.kiss@citrix.com>
-	 <9AAE0902D5BC7E449B7C8E4E778ABCD02BB106@AMSPEX01CL01.citrite.net>
-	 <533D2E8A.90101@citrix.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: [RFC PATCH] bridge: remove !IFF_UP restriction when deleting bridge
+ from ioctl
+Date: Fri, 04 Apr 2014 09:56:22 -0500
+Message-ID: <1396623382.15118.6.camel@dcbw.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Paul Durrant <Paul.Durrant@citrix.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stefano Stabellini <Stefano.Stabellini@citrix.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Jonathan Davies <Jonathan.Davies@citrix.com>
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <533D2E8A.90101@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:29816 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753521AbaDDO4H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2014 10:56:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-04-03 at 10:48 +0100, David Vrabel wrote:
-> On 03/04/14 09:12, Paul Durrant wrote:
-> > Zoltan Kiss wrote:
-> >>
-> >> Create helper functions for grant copy operations and use them in netback.
-> >>
-> [...]
-> >> --- a/drivers/net/xen-netback/netback.c
-> >> +++ b/drivers/net/xen-netback/netback.c
-> >> @@ -275,23 +275,29 @@ static void xenvif_gop_frag_copy(struct xenvif *vif,
-> >> struct sk_buff *skb,
-> >>  			bytes = MAX_BUFFER_OFFSET - npo->copy_off;
-> >>
-> >>  		copy_gop = npo->copy + npo->copy_prod++;
-> >> -		copy_gop->flags = GNTCOPY_dest_gref;
-> >> -		copy_gop->len = bytes;
-> >>
-> >>  		if (foreign_vif) {
-> >> -			copy_gop->source.domid = foreign_vif->domid;
-> >> -			copy_gop->source.u.ref = foreign_gref;
-> >> -			copy_gop->flags |= GNTCOPY_source_gref;
-> >> +			gnttab_set_copy_op_ref_to_ref(copy_gop,
-> >> +						      foreign_gref,
-> >> +						      npo->copy_gref,
-> >> +						      foreign_vif->domid,
-> >> +						      offset,
-> >> +						      vif->domid,
-> >> +						      npo->copy_off,
-> >> +						      bytes,
-> >> +						      GNTCOPY_dest_gref |
-> >> +						      GNTCOPY_source_gref);
-> > 
-> > Can't you lose the flags here (and in the other variants)? Since
-> > they are implied by the variant of the function they could just be hardcoded
-> > there, couldn't they?
-> 
-> Even with that change these are still functions with 7 or 8 parameters
-> with no obvious order.  That's just awful.  The open-coded struct
-> initialization is better.
+netlink doesn't care about IFF_UP when deleting a bridge, so "ip link
+del br0" works just fine.  The ioctl does care, which means that brctl
+complains "bridge br0 still up; can't delete it".  Make things
+consistent by always allowing bridge deletion even if the bridge is up.
 
-Yes, I think this was a failed experiment.
+Signed-off-by: Dan Williams <dcbw@redhat.com>
+---
+Question: does anyone consider the ioctl behavior API?  Can we change it
+even though it's been this way forever?  It means that bridges that
+previously would not have been deleted by brctl will now be deleted.
+But anyone using /sbin/ip could already delete them.
 
-The original code would likely still be improvable by using a temporary
-variable to hold "vif->tx_copy_ops[*copy_ops]", basically the way the
-mapping ops are via mop->.
-
-Ian.
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index 54d207d..33cd83f 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -264,19 +264,14 @@ int br_del_bridge(struct net *net, const char *name)
+ 		ret =  -ENXIO; 	/* Could not find device */
+ 
+ 	else if (!(dev->priv_flags & IFF_EBRIDGE)) {
+ 		/* Attempt to delete non bridge device! */
+ 		ret = -EPERM;
+ 	}
+ 
+-	else if (dev->flags & IFF_UP) {
+-		/* Not shutdown yet. */
+-		ret = -EBUSY;
+-	}
+-
+ 	else
+ 		br_dev_delete(dev, NULL);
+ 
+ 	rtnl_unlock();
+ 	return ret;
+ }
+ 
