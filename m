@@ -1,57 +1,40 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: RPS vs RFS
-Date: Thu, 3 Apr 2014 16:58:43 -0700
-Message-ID: <CA+mtBx9aF0XTG8wtBB2W7Be5o3PrbKZ_EWRuSoD73q=gvoT6AQ@mail.gmail.com>
-References: <CAJzFV36pTwUyfoW=Jz1tBKSYbZTLvokOLST+XoX593YP6oN7Pw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Sharat Masetty <sharat04@gmail.com>
+From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Subject: [PATCH] net: smc911x: Remove unused local variable
+Date: Fri,  4 Apr 2014 02:16:23 +0200
+Message-ID: <1396570583-6564-1-git-send-email-laurent.pinchart@ideasonboard.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:39292 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753758AbaDCX6o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 19:58:44 -0400
-Received: by mail-ie0-f175.google.com with SMTP id to1so2645043ieb.20
-        for <netdev@vger.kernel.org>; Thu, 03 Apr 2014 16:58:44 -0700 (PDT)
-In-Reply-To: <CAJzFV36pTwUyfoW=Jz1tBKSYbZTLvokOLST+XoX593YP6oN7Pw@mail.gmail.com>
+Received: from perceval.ideasonboard.com ([95.142.166.194]:52906 "EHLO
+	perceval.ideasonboard.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753866AbaDDAOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Apr 2014 20:14:23 -0400
+Received: from avalon.ideasonboard.com (unknown [91.177.168.144])
+	by perceval.ideasonboard.com (Postfix) with ESMTPSA id 3E0DF359AC
+	for <netdev@vger.kernel.org>; Fri,  4 Apr 2014 02:12:38 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 3, 2014 at 12:14 PM, Sharat Masetty <sharat04@gmail.com> wrote:
-> I am trying to understand the true benefit of RFS over RPS. In the
-> kernel documentation scaling.txt, the author talks about data cache
-> hitrate, can someone explain what this actually means? In which
-> scenarios would RFS be beneficial? Why would it help to have network
-> stack run on the same core on which the application for a stream/flow
-> is running?
->
-Silo'ing processing is typically good, it provides cache locality,
-potentially eliminates a cross CPU wakeup, and hopefully reduces lock
-contention. There is a secondary benefit in that we get some isolation
-of RX processing and application.
->
-> Consider a NIC with a single receive queue, single interrupt line, and
-> iperf application is pulling data off this NIC card. In case where
-> iperf may still be running on the same core on which the interrupts
-> are delivered, then in that case the whole stack is pinned to the same
-> core, and would not be benefiting a lot from this scheme
->
-Consider what happens you have a multi threaded network intensive
-application like a web server. Running all the networking an a single
-CPU becomes a bottleneck (why we created RPS/RFS in the first place).
+The ioaddr local variable is assigned to but never used in the
+smc911x_rx_dma_irq() function, remove it.
 
->
->
->
-> References:
-> https://www.kernel.org/doc/Documentation/networking/scaling.txt
->
-> https://lwn.net/Articles/382428/
->
-> Regards,
-> Sharat
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+---
+ drivers/net/ethernet/smsc/smc911x.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/smsc/smc911x.c b/drivers/net/ethernet/smsc/smc911x.c
+index c50fb08..50b4d83 100644
+--- a/drivers/net/ethernet/smsc/smc911x.c
++++ b/drivers/net/ethernet/smsc/smc911x.c
+@@ -1211,7 +1211,6 @@ static void
+ smc911x_rx_dma_irq(int dma, void *data)
+ {
+ 	struct net_device *dev = (struct net_device *)data;
+-	unsigned long ioaddr = dev->base_addr;
+ 	struct smc911x_local *lp = netdev_priv(dev);
+ 	struct sk_buff *skb = lp->current_rx_skb;
+ 	unsigned long flags;
+-- 
+Regards,
+
+Laurent Pinchart
