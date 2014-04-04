@@ -1,42 +1,64 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [RFC PATCH] bridge: remove !IFF_UP restriction when deleting
- bridge from ioctl
-Date: Fri, 04 Apr 2014 10:15:50 -0500
-Message-ID: <1396624550.15118.11.camel@dcbw.local>
-References: <1396623382.15118.6.camel@dcbw.local>
-	 <20140404.110800.1665495271585798396.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Zhangfei Gao <zhangfei.gao@linaro.org>
+Subject: [PATCH v6 0/3] add hisilicon hip04 ethernet driver
+Date: Fri,  4 Apr 2014 23:16:34 +0800
+Message-ID: <1396624597-390-1-git-send-email-zhangfei.gao@linaro.org>
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, Zhangfei Gao <zhangfei.gao@linaro.org>
+To: davem@davemloft.net, linux@arm.linux.org.uk, arnd@arndb.de,
+	f.fainelli@gmail.com, sergei.shtylyov@cogentembedded.com,
+	mark.rutland@arm.com, David.Laight@ACULAB.COM,
+	eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42941 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753113AbaDDPPi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Apr 2014 11:15:38 -0400
-In-Reply-To: <20140404.110800.1665495271585798396.davem@davemloft.net>
+Received: from mail-pb0-f43.google.com ([209.85.160.43]:54854 "EHLO
+	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753626AbaDDPQu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 11:16:50 -0400
+Received: by mail-pb0-f43.google.com with SMTP id um1so3584988pbc.16
+        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 08:16:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-04-04 at 11:08 -0400, David Miller wrote:
-> From: Dan Williams <dcbw@redhat.com>
-> Date: Fri, 04 Apr 2014 09:56:22 -0500
-> 
-> > netlink doesn't care about IFF_UP when deleting a bridge, so "ip link
-> > del br0" works just fine.  The ioctl does care, which means that brctl
-> > complains "bridge br0 still up; can't delete it".  Make things
-> > consistent by always allowing bridge deletion even if the bridge is up.
-> > 
-> > Signed-off-by: Dan Williams <dcbw@redhat.com>
-> > ---
-> > Question: does anyone consider the ioctl behavior API?  Can we change it
-> > even though it's been this way forever?  It means that bridges that
-> > previously would not have been deleted by brctl will now be deleted.
-> > But anyone using /sbin/ip could already delete them.
-> 
-> Unfortunately I think we're stuck with the existing behavior.
+v6:
+Suggest by Russell: Use netdev_sent_queue & netdev_completed_queue to solve latency issue 
+Also shorten the period of timer, which is used to wakeup the queue since no
+tx completed interrupt.
 
-Ok, fair enough.
+v5:
+no big change, fix typo
 
-Dan
+v4:
+Modify accoringly to the suggetion from Arnd, Florian, Eric, David
+Use of_parse_phandle_with_fixed_args & syscon_node_to_regmap get ppe info
+Add skb_orphan() and tx_timer for reclaim since no tx_finished interrupt
+Update timeout, and move of_phy_connect to probe to reuse open/stop
+
+v3:
+Suggest from Arnd, use syscon & regmap_write/read to replace static void __iomem *ppebase.
+Modify hisilicon-hip04-net.txt accrordingly to suggestion from Florian and Sergei.
+
+v2:
+Got many suggestions from Russell, Arnd, Florian, Mark and Sergei
+Remove memcpy, use dma_map/unmap_single, use dma_alloc_coherent rather than dma_pool, etc.
+Refer property in ethernet.txt, change ppe description, etc.
+
+Zhangfei Gao (3):
+  Documentation: add Device tree bindings for Hisilicon hip04 ethernet
+  net: hisilicon: new hip04 MDIO driver
+  net: hisilicon: new hip04 ethernet driver
+
+ .../bindings/net/hisilicon-hip04-net.txt           |   88 +++
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/hisilicon/Kconfig             |   32 +
+ drivers/net/ethernet/hisilicon/Makefile            |    5 +
+ drivers/net/ethernet/hisilicon/hip04_eth.c         |  777 ++++++++++++++++++++
+ drivers/net/ethernet/hisilicon/hip04_mdio.c        |  186 +++++
+ 7 files changed, 1090 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
+ create mode 100644 drivers/net/ethernet/hisilicon/Kconfig
+ create mode 100644 drivers/net/ethernet/hisilicon/Makefile
+ create mode 100644 drivers/net/ethernet/hisilicon/hip04_eth.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hip04_mdio.c
+
+-- 
+1.7.9.5
