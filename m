@@ -1,35 +1,28 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next v3 1/2] xen-netback: Rename map ops
-Date: Fri, 4 Apr 2014 15:47:46 +0100
-Message-ID: <533EC612.90400@citrix.com>
-References: <1396458298-30041-1-git-send-email-zoltan.kiss@citrix.com> <20140403.142330.1048193401278908355.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] veth: keep peers MTU values synchronized
+Date: Fri, 04 Apr 2014 10:49:21 -0400 (EDT)
+Message-ID: <20140404.104921.1668611243816621886.davem@davemloft.net>
+References: <533DD390.6020103@gmail.com>
+	<20140404.102518.2263545144702348056.davem@davemloft.net>
+	<533EC4D5.50304@securitycode.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <paul.durrant@citrix.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<jonathan.davies@citrix.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140403.142330.1048193401278908355.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: matvejchikov@gmail.com, netdev@vger.kernel.org
+To: i.matveychikov@securitycode.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52156 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753286AbaDDOrq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 10:47:46 -0400
+In-Reply-To: <533EC4D5.50304@securitycode.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/04/14 19:23, David Miller wrote:
-> From: Zoltan Kiss <zoltan.kiss@citrix.com>
-> Date: Wed, 2 Apr 2014 18:04:57 +0100
->
->> Rename identifiers to state explicitly that they refer to map ops.
->>
->> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
->
-> Applied.
+From: "Ilya V. Matveychikov" <i.matveychikov@securitycode.ru>
+Date: Fri, 4 Apr 2014 18:42:29 +0400
 
-Hi,
+> Peers are created at once and ether_setup used for the configuration so MTU
+> values equals.
 
-I still can't see these two on net-next, did something went wrong?
-
-Zoli
-
-p.s.: I've just sent a trivial format string fix on top of this patch
+If an IFLA_MTU value is specified for the peer it will be honored.
