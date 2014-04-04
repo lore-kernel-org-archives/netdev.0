@@ -1,48 +1,68 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] ipv6: recompute the array size
-Date: Fri, 04 Apr 2014 16:34:00 +0400
-Message-ID: <533EA6B8.9020007@cogentembedded.com>
-References: <1396594286-21788-1-git-send-email-roy.qing.li@gmail.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: [PATCH] net: phy: shift phy_init_hw after device_add during phy device registration
+Date: Fri, 4 Apr 2014 16:38:48 +0300
+Message-ID: <1396618728-4151-1-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: roy.qing.li@gmail.com, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: Grygorii Strashko <grygorii.strashko@ti.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f41.google.com ([209.85.215.41]:48589 "EHLO
-	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752689AbaDDMdw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 08:33:52 -0400
-Received: by mail-la0-f41.google.com with SMTP id gl10so2487716lab.28
-        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 05:33:51 -0700 (PDT)
-In-Reply-To: <1396594286-21788-1-git-send-email-roy.qing.li@gmail.com>
+Received: from comal.ext.ti.com ([198.47.26.152]:55477 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753195AbaDDMqp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2014 08:46:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Now the call of phy_init_hw() in phy_device_register() is converted to
+be just a NOP, because phy_init_hw() is called before PHY devices probing
+and phydev->drv == NULL at this moment.
 
-On 04-04-2014 10:51, roy.qing.li@gmail.com wrote:
+phy_device_register()
+ |- phy_init_hw() -> NOP
+ |- device_add()
+    |- phy_probe() -> may be if driver is ready
+       |- phydev->drv = <&phy_driver>
 
-> From: Li RongQing <roy.qing.li@gmail.com>
+Hence, shift call of phy_init_hw() after device_add() and in such way
+increase possibility of its execution.
 
-> recompute the array size to kill the warning:
->   net/ipv6/xfrm6_state.c:66:26: error: cannot size expression
+This patch is RFC because:
+- this patch will change PHY's callbacks call order: .config_init() will
+be called after .probe()
+- i'm not sure that phy_init_hw() need to be called from phy_device_register() and
+maybe it can be moved in other place, like phy_probe()
 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
->   net/ipv6/xfrm6_state.c |    2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+---
+ drivers/net/phy/phy_device.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-> diff --git a/net/ipv6/xfrm6_state.c b/net/ipv6/xfrm6_state.c
-> index 3fc9701..9e08572 100644
-> --- a/net/ipv6/xfrm6_state.c
-> +++ b/net/ipv6/xfrm6_state.c
-> @@ -63,7 +63,7 @@ __xfrm6_sort(void **dst, void **src, int n, int (*cmp)(void *p), int maxclass)
->   	int class[XFRM_MAX_DEPTH];
->   	int count[maxclass];
->
-> -	memset(count, 0, sizeof(count));
-> +	memset(count, 0, sizeof(int)*maxclass);
-
-    Please insert spaces before and after *.
-
-WBR, Sergei
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 2f6989b..496940be 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -352,16 +352,16 @@ int phy_device_register(struct phy_device *phydev)
+ 		return -EINVAL;
+ 	phydev->bus->phy_map[phydev->addr] = phydev;
+ 
+-	/* Run all of the fixups for this PHY */
+-	err = phy_init_hw(phydev);
++	err = device_add(&phydev->dev);
+ 	if (err) {
+-		pr_err("PHY %d failed to initialize\n", phydev->addr);
++		pr_err("PHY %d failed to add\n", phydev->addr);
+ 		goto out;
+ 	}
+ 
+-	err = device_add(&phydev->dev);
++	/* Run all of the fixups for this PHY */
++	err = phy_init_hw(phydev);
+ 	if (err) {
+-		pr_err("PHY %d failed to add\n", phydev->addr);
++		pr_err("PHY %d failed to initialize\n", phydev->addr);
+ 		goto out;
+ 	}
+ 
+-- 
+1.7.9.5
