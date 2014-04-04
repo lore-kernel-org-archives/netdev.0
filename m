@@ -1,38 +1,42 @@
-From: Li RongQing <roy.qing.li@gmail.com>
-Subject: Re: [PATCH] Documentation: document the gianfar tx vlan offload issue
-Date: Fri, 4 Apr 2014 15:39:42 +0800
-Message-ID: <CAJFZqHx9q8EfaVE-JrXmhJBM8R_t4y_0XwO596-fD9ObvsoW=g@mail.gmail.com>
-References: <1396580685-17156-1-git-send-email-roy.qing.li@gmail.com>
-	<533E5A19.6060701@freescale.com>
-	<533E5B03.2050801@freescale.com>
+From: =?UTF-8?B?T3J0d2luIEdsw7xjaw==?= <odi@odi.ch>
+Subject: Re: 3.14 regression: huge latency in read/select on tun
+Date: Fri, 04 Apr 2014 10:34:11 +0200
+Message-ID: <533E6E83.7030106@odi.ch>
+References: <533C381E.9090103@odi.ch>	 <1396456973.3989.41.camel@edumazet-glaptop2.roam.corp.google.com>	 <533D133A.3090008@odi.ch>	 <1396531176.12330.6.camel@edumazet-glaptop2.roam.corp.google.com> <1396533026.12330.9.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>, Yanjun.Zhu@windriver.com
-To: Claudiu Manoil <claudiu.manoil@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f42.google.com ([209.85.192.42]:51879 "EHLO
-	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750811AbaDDHjn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 03:39:43 -0400
-Received: by mail-qg0-f42.google.com with SMTP id q107so3032827qgd.1
-        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 00:39:42 -0700 (PDT)
-In-Reply-To: <533E5B03.2050801@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1396533026.12330.9.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->>
->> I don't really like this, this is hardly a technical explanation.
->> ("insane packets"?)
->> Please have a look at the HW reference manual.  There you have the
->> description
->> of the VLAN extraction feature (see VLEX).
->>
-> And VLAN insertion (VLINS) as well, for that matter.
->
->
 
-Not all users will have time to read HW reference manual, if we can give them
-more explanation, I think it maybe save their time to debug, to see code, and
-search manual
 
--Roy
+On 03.04.2014 15:50, Eric Dumazet wrote:
+> If bug is in tun.c you have this list of changes  you could bisect
+> from :
+> 
+> # git log --oneline v3.13..v3.14 drivers/net/tun.c
+> 6671b2240c54 tun: remove bogus hardware vlan acceleration flags from vlan_features
+> 99932d4fc03a netdevice: add queue selection fallback handler for ndo_select_queue
+> 93e14b6d776e tun: add device name(iff) field to proc fdinfo entry
+> fa35864e0bb7 tuntap: Fix for a race in accessing numqueues
+> 0a379e21c503 Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+> fbe4d4565bad tun, rfs: fix the incorrect hash value
+> 9bc8893937c8 tun: Add support for RFS on tun flows
+> 143c90549494 Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+> 3958afa1b272 net: Change skb_get_rxhash to skb_get_hash
+> 42404c091510 Revert "tun: remove useless codes in tun_chr_aio_read() and tun_recvmsg()"
+> 73713357ab58 tun: remove useless codes in tun_chr_aio_read() and tun_recvmsg()
+> 34f9f437104b Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+> f96eb74c84eb tun: remove unused parameter in tun_do_read()
+> 92d4ea6e412a tun: spelling fixes
+
+
+That list doesn't look too promising. I'd rather look in net/ipv4 which
+does have TSO/GSO related changes. I tried to bisect that but the system
+hangs on boot when net devices are enabled. So it may prove difficult to
+pin down. I may try again during the weekend.
