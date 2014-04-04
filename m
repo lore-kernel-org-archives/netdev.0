@@ -1,139 +1,45 @@
-From: Toshiaki Makita <toshiaki.makita1@gmail.com>
-Subject: Re: [RFC PATCH] vlan: Try to adjust lower device mtu when
- configuring 802.1AD vlans
-Date: Sat, 05 Apr 2014 00:08:52 +0900
-Message-ID: <1396624132.1771.15.camel@localhost.localdomain>
-References: <1396387054-4510-1-git-send-email-vyasevic@redhat.com>
-		 <20140402122121.GD26334@macbook.localnet> <533C113E.2000908@redhat.com>
-	 <1396456652.2215.42.camel@localhost.localdomain>
-	 <533C3E60.8070509@redhat.com> <533D1C95.6010705@lab.ntt.co.jp>
-	 <533D5D24.9080005@redhat.com>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: Inconsistent lock state introduced by ipv6/addrconf change
+Date: Fri, 4 Apr 2014 23:09:59 +0800
+Message-ID: <20140404150958.GB16383@dragon>
+References: <20140404073455.GB29778@dragon>
+ <20140404114848.GD13354@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:53405 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752502AbaDDPI5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 11:08:57 -0400
-Received: by mail-pb0-f44.google.com with SMTP id rp16so3574895pbb.17
-        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 08:08:57 -0700 (PDT)
-In-Reply-To: <533D5D24.9080005@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140404114848.GD13354@order.stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-04-03 at 09:07 -0400, Vlad Yasevich wrote:
-> On 04/03/2014 04:32 AM, Toshiaki Makita wrote:
-> > (2014/04/03 1:44), Vlad Yasevich wrote:
-> >> On 04/02/2014 12:37 PM, Toshiaki Makita wrote:
-> >>> On Wed, 2014-04-02 at 09:31 -0400, Vlad Yasevich wrote:
-> >>>> On 04/02/2014 08:21 AM, Patrick McHardy wrote:
-> >>>>> On Tue, Apr 01, 2014 at 05:17:34PM -0400, Vlad Yasevich wrote:
-> >>>>>> 802.1AD vlans supposed to encapsulate 802.1Q vlans.  To
-> >>>>>> do this, we need an extra 4 bytes of header which are typically
-> >>>>>> not accounted for by lower devices.  Some devices can not
-> >>>>>> support frames longer then 1522 bytes at all.  Such devices
-> >>>>>> can not really support 802.1AD, even in software, without
-> >>>>>> the vlan reducing its mtu value.
-> >>>>>>
-> >>>>>> This patch propses to increate the lower devices MTU to 1504
-> >>>>>> in case of 802.1AD configuration, and if device doesn't
-> >>>>>> support it, fail the creation of the vlan.  The user has an
-> >>>>>> option to configure older-style Q-in-Q vlans and manually
-> >>>>>> lower the mtu to support such encapsulation.
-> >>>>>
-> >>>>> I think you should do the opposite. The lower layer device may be used
-> >>>>> for other things than the VLAN, so it doesn't seem right to change it's
-> >>>>> MTU. Instead I'd propose to set the MTU of the 802.1ad VLAN device to
-> >>>>> the lower device'e MTU - 4 unless a MTU has been specified by the user.
-> >>>>>
-> >>>>
-> >>>> The decrease of vlan mtu was my initial take on this as well.  The
-> >>>> problematic case with this is forwarding by an encapsulating
-> >>>> bridge (bridge that has 802.1AD as one port and ethX as others). The
-> >>>> frame from ethX will not fit into the mtu of the vlan device in
-> >>>> this case and the packet is dropped.  Ideally, we'd generate and ICMP
-> >>>> Too Big, but with the bridge we can't/don't do that.
-> >>>>
-> >>>> Another problem is that linux assumes that MTU == MRU in case of
-> >>>> device receive buffer programming.  Thus, full sized 802.1AD
-> >>>> frames transmitted by the switch supporting it will probably get dropped
-> >>>> by the driver/firmware as too long.  I've tested this and saw it
-> >>>> happen on my systems.
-> >>>>
-> >>>> An alternative I've thought off is to adjust the rx size in the drivers
-> >>>> when 802.1AD is configured, but that touches all the drivers, and
-> >>>> doesn't work well for not vlan-filtering drivers.  It needs a new
-> >>>> ndo api to adjust the rx length to make it consistent across all
-> >>>> devices.
-> >>>>
-> >>>>> BTW, I couldn't find anything related to MTU handling in the 802.1ad
-> >>>>> standard, however I only have an old copy and might have looked in the
-> >>>>> wrong place. Do you have any information how this is supposed to be
-> >>>>> handled?
-> >>>>>
-> >>>>
-> >>>> The standard doesn't seem to mention anything about it, but looking
-> >>>> at switch implementations, most of them require a bump in the mtu to
-> >>>> 1504 to support 802.1AD.  Some allow for the decrease in vlan mtu, but
-> >>>> that also requires mss translations as well.
-> >>>
-> >>> 802.1ad was merged into 802.1Q-2011, and G.2.2 in it refers to maximum
-> >>> pdu size. However, this doesn't seem to mention the case where frames
-> >>> are double tagged.
-> >>>
-> >>> MEF 6.1 requires UNI MTU size >= 1522 and MEF 31 requires E-NNI MTU size
-> >>>> = 1526 (In these documents, MTU seems to mean frame size).
-> >>> This implies that we should allow 1508 bytes of MTU size when we use
-> >>> 802.1AD.
-> >>>
-> >>
-> >> 1522 = 1500 + 14 + 4 (.1Q) + 4 (FCS)
-> >>
-> >>> Is 1504 enough?
-> >>
-> >> 1526 = 1500 + 14 +4 (.1Q) + 4 (.1AD) + 4(FCS)
-> > 
-> > Thank you for the supplementation.
-> > 
-> >>
-> >> This is why Cisco docs recommend mtu of 1504.
-> >>
-> >> Of course this doesn't in any way account for stacked .1AD tags.
-> > 
-> > So we are likely to receive 1508 (1526) sized frames in 802.1ad network.
+On Fri, Apr 04, 2014 at 01:48:48PM +0200, Hannes Frederic Sowa wrote:
+> Hello!
 > 
-> 1526 byte frame is 1504 mtu, as demonstrated above.
-
-Not so sure.
-It's true only if NIC reserves extra 4 bytes for mtu.
-If the outer 802.1ad tag is not recognized as a vlan tag by NIC, both
-the outer tag and the inner tag are not ethernet header but payload to
-the NIC.
-
+> On Fri, Apr 04, 2014 at 03:34:56PM +0800, Shawn Guo wrote:
+> > I'm running into an inconsistent lock state warning on the final v3.14
+> > kernel (-rc8 is good) on Freescale i.MX6 platform with fec driver
+> > (drivers/net/ethernet/freescale/fec_main.c).  The git bisect points
+> > the finger to commit c15b1cc (ipv6: move DAD and addrconf_verify
+> > processing to workqueue).  Reverting the commit does fix the problem
+> > for me.  The image is built from arch/arm/configs/imx_v6_v7_defconfig.
+> > 
+> > The interesting part is the same warning shows up on mainline tree until
+> > net-next gets merged with commit cd6362b.  That's why Olof's autobooter
+> > keeps reporting failure on hummingboard and wandboard (both i.MX6 based)
+> > since v3.14 release [1], but reports success after commit cd6362b.
+> > 
+> > We're less concerned by the mainline tree, since the problem disappeared
+> > now (nice to know why though).  But we do still want to fix it for 3.14
+> > stable kernel.
 > 
-> > Is it correct that you confirmed most NICs can receive 1508 sized frames
-> > with 1504 mtu size setting?
+> The patch which fixes this is already queued up for -stable:
 > 
-> Some might, but I haven't confirmed that.  Most NICs already account for
-> 802.1Q header in their receive buffer calculations.  Some nics jump
-> to the 2K rx size and enable jumbo mode once rx size goes above 1522
-> bytes.  I think those will be able to receive larger frames. 
+> http://patchwork.ozlabs.org/patch/335536/
 
-Thank you very much, got it.
+Thanks for the pointer.
 
-> Others
-> don't support jumbo mode at all.  These nics can't support 802.1AD
-> without reducing mtu on the vlan interface itself.  
-
-Doesn't setting mtu to 1508 help us in some cases?
-
-Thanks,
-Toshiaki Makita
-
-> That, however, leads
-> to other necessary configuration changes which is why this proposal
-> leaves it up to the user to configure.
+Shawn
