@@ -1,65 +1,142 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v2] openvswitch: supply a dummy err_handler of
- gre_cisco_protocol to prevent kernel crash
-Date: Fri, 4 Apr 2014 16:05:59 -0700
-Message-ID: <CAEP_g=9WRyaSmRKHDZmWXwzjDyex8NheyveGzfH4qmMbhgGHdQ@mail.gmail.com>
-References: <1396398194-4163-1-git-send-email-asuka.com@163.com>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: [loopback] b17c706987f: +197.7% qperf.sctp.bw
+Date: Fri, 4 Apr 2014 21:56:33 +0800
+Message-ID: <20140404135633.GA22386@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
- Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Wei Zhang <asuka.com-9Onoh4P/yGk@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1396398194-4163-1-git-send-email-asuka.com-9Onoh4P/yGk@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	lkp@01.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 1, 2014 at 5:23 PM, Wei Zhang <asuka.com-9Onoh4P/yGk@public.gmane.org> wrote:
-> When use gre vport, openvswitch register a gre_cisco_protocol but does not
-> supply a err_handler with it. The gre_cisco_err() in net/ipv4/gre_demux.c expect
-> err_handler be provided with the gre_cisco_protocol implementation, and call
-> ->err_handler() without existence check, cause the kernel crash.
->
-> This patch provide a err_handler to fix this bug.
->
-> v2 -> v1: use the same logic of the gre_rcv() to distinguish which packet is
-> intended to us!
+Hi Daniel,
 
-As a tip on kernel process: if you put the version information after
-three dashes below the signed-off-by line then git will automatically
-remove it when the final patch is applied.
+We are glad to find big SCTP performance improvements
 
-> diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-> index a3d6951..f391df1 100644
-> --- a/net/openvswitch/vport-gre.c
-> +++ b/net/openvswitch/vport-gre.c
-> @@ -110,6 +110,21 @@ static int gre_rcv(struct sk_buff *skb,
->         return PACKET_RCVD;
->  }
->
-> +/* Called with rcu_read_lock and BH disabled. */
-> +static int gre_err(struct sk_buff *skb, u32 info,
-> +                  const struct tnl_ptk_info *tpi)
-> +{
-> +       struct ovs_net *ovs_net;
-> +       struct vport *vport;
-> +
-> +       ovs_net = net_generic(dev_net(skb->dev), ovs_net_id);
-> +       vport = rcu_dereference(ovs_net->vport_net.gre_vport);
-> +       if (unlikely(!vport))
-> +               return PACKET_REJECT;
-> +       else
-> +               return PACKET_RCVD;
+git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git master
+commit b17c706987fa6f28bdc1771c8266e7a69e22adcb ("loopback: sctp: add NETIF_F_SCTP_CSUM to device features")
 
-Sorry, I forgot to say this before - if we receive the packet then we
-should also call consume_skb() on it.
+72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
+---------------  -------------------------  
+ 3.848e+08 ~ 6%    +197.7%  1.146e+09 ~ 5%  bens/micro/qperf/600s
+ 3.848e+08 ~ 6%    +197.7%  1.146e+09 ~ 5%  TOTAL qperf.sctp.bw
+
+72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
+---------------  -------------------------  
+     39.30 ~ 3%     +91.0%      75.06 ~11%  lkp-a06/micro/qperf/600s
+     39.30 ~ 3%     +91.0%      75.06 ~11%  TOTAL qperf.sctp.bw
+
+72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
+---------------  -------------------------  
+       126 ~ 0%      -3.2%        122 ~ 0%  lkp-a06/micro/qperf/600s
+       126 ~ 0%      -3.2%        122 ~ 0%  TOTAL qperf.sctp.latency
+
+72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
+---------------  -------------------------  
+    216270 ~ 2%     -46.5%     115740 ~ 4%  lkp-a06/micro/qperf/600s
+    216270 ~ 2%     -46.5%     115740 ~ 4%  TOTAL cpuidle.C4.usage
+
+72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
+---------------  -------------------------  
+  48722971 ~ 5%     +45.1%   70681678 ~ 7%  lkp-a06/micro/qperf/600s
+  48722971 ~ 5%     +45.1%   70681678 ~ 7%  TOTAL cpuidle.C2.time
+
+72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
+---------------  -------------------------  
+    370655 ~ 2%     +46.8%     543952 ~ 7%  lkp-a06/micro/qperf/600s
+    370655 ~ 2%     +46.8%     543952 ~ 7%  TOTAL cpuidle.C2.usage
+
+72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
+---------------  -------------------------  
+      1.00 ~13%     -22.8%       0.77 ~15%  lkp-a06/micro/qperf/600s
+      1.00 ~13%     -22.8%       0.77 ~15%  TOTAL perf-profile.cpu-cycles.acpi_processor_ffh_cstate_enter.acpi_idle_enter_bm.cpuidle_enter_state.cpuidle_idle_call.arch_cpu_idle
+
+72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
+---------------  -------------------------  
+  18055616 ~ 4%     +28.5%   23205101 ~ 2%  bens/micro/qperf/600s
+  18055616 ~ 4%     +28.5%   23205101 ~ 2%  TOTAL proc-vmstat.numa_local
+
+72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
+---------------  -------------------------  
+  18055616 ~ 4%     +28.5%   23205101 ~ 2%  bens/micro/qperf/600s
+  18055616 ~ 4%     +28.5%   23205101 ~ 2%  TOTAL proc-vmstat.numa_hit
+
+72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
+---------------  -------------------------  
+  51480524 ~ 4%     +37.7%   70886229 ~ 2%  bens/micro/qperf/600s
+  15233974 ~ 0%     +14.2%   17397187 ~ 3%  lkp-a06/micro/qperf/600s
+  66714498 ~ 3%     +32.3%   88283417 ~ 2%  TOTAL proc-vmstat.pgalloc_normal
+
+72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
+---------------  -------------------------  
+ 2.109e+08 ~ 4%     +37.7%  2.904e+08 ~ 2%  bens/micro/qperf/600s
+  24268359 ~ 0%     +14.2%   27716949 ~ 3%  lkp-a06/micro/qperf/600s
+ 2.352e+08 ~ 3%     +35.3%  3.181e+08 ~ 2%  TOTAL proc-vmstat.pgfree
+
+72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
+---------------  -------------------------  
+ 1.594e+08 ~ 4%     +37.7%  2.195e+08 ~ 2%  bens/micro/qperf/600s
+   9034872 ~ 0%     +14.2%   10321019 ~ 3%  lkp-a06/micro/qperf/600s
+ 1.685e+08 ~ 4%     +36.4%  2.299e+08 ~ 2%  TOTAL proc-vmstat.pgalloc_dma32
+
+72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
+---------------  -------------------------  
+     51262 ~ 2%     -10.0%      46151 ~ 3%  lkp-a06/micro/qperf/600s
+     51262 ~ 2%     -10.0%      46151 ~ 3%  TOTAL time.involuntary_context_switches
+
+72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
+---------------  -------------------------  
+     65268 ~ 1%      +6.8%      69676 ~ 0%  bens/micro/qperf/600s
+     65268 ~ 1%      +6.8%      69676 ~ 0%  TOTAL vmstat.system.in
+
+72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
+---------------  -------------------------  
+  33939624 ~29%     +22.6%   41609509 ~ 0%  bens/micro/qperf/600s
+   4125867 ~ 1%      +3.9%    4285302 ~ 0%  lkp-a06/micro/qperf/600s
+  38065492 ~26%     +20.6%   45894812 ~ 0%  TOTAL time.voluntary_context_switches
+
+72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
+---------------  -------------------------  
+    129649 ~ 1%      +6.8%     138432 ~ 0%  bens/micro/qperf/600s
+     13874 ~ 1%      +4.8%      14540 ~ 0%  lkp-a06/micro/qperf/600s
+    143523 ~ 1%      +6.6%     152972 ~ 0%  TOTAL vmstat.system.cs
+
+72f8e06f3ea022d  b17c706987fa6f28bdc1771c8  
+---------------  -------------------------  
+       739 ~19%     +12.0%        827 ~ 0%  bens/micro/qperf/600s
+       812 ~ 0%      -3.4%        784 ~ 1%  lkp-a06/micro/qperf/600s
+      1551 ~ 9%      +3.9%       1612 ~ 0%  TOTAL time.system_time
+
+
+Legend:
+	~XX%    - stddev percent
+	[+-]XX% - change percent
+
+
+                                     qperf.sctp.bw
+
+   1.3e+09 ++---------------------------------------------------------------+
+   1.2e+09 ++O                                             O                |
+           |   O  O O                  O O        O   O  O                  |
+   1.1e+09 O+         O O O O  O O O        O O O   O        O              |
+     1e+09 ++                        O                                      |
+           |                                                                |
+     9e+08 ++                                                               |
+     8e+08 ++                                                               |
+     7e+08 ++                                                               |
+           |                                                                |
+     6e+08 ++                                                               |
+     5e+08 ++                                                               |
+           |                                         .*..     .*.    .*.    |
+     4e+08 *+*.*..*.*.*. .*.*..*.*.*.*.*.*..*.*.*.*.*    *.*.*   *.*.   *.*.*
+     3e+08 ++-----------*---------------------------------------------------+
+
+
+	[*] bisect-good sample
+	[O] bisect-bad  sample
+
+Thanks,
+Fengguang
