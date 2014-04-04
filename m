@@ -1,31 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sched: dev_deactivate_many(): use msleep(1)
- instead of yield() to wait for outstanding qdisc_run callsb
-Date: Fri, 04 Apr 2014 11:28:50 -0400 (EDT)
-Message-ID: <20140404.112850.1541183418380443600.davem@davemloft.net>
-References: <20140402110743.GG27965@twins.programming.kicks-ass.net>
-	<1396437459.3989.39.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140404151942.GI10526@twins.programming.kicks-ass.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH RFC 0/9] socket filtering using nf_tables
+Date: Fri, 4 Apr 2014 17:27:34 +0200
+Message-ID: <20140404152734.GA3434@localhost>
+References: <1394529560-3490-1-git-send-email-pablo@netfilter.org>
+ <20140404.112432.523364323608428978.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, tglx@linutronix.de, ben@decadent.org.uk,
-	mkl@pengutronix.de, linux-rt-users@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kernel@pengutronix.de
-To: peterz@infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140404151942.GI10526@twins.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	kaber@trash.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:35432 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753602AbaDDP1k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2014 11:27:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20140404.112432.523364323608428978.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Fri, 4 Apr 2014 17:19:42 +0200
+On Fri, Apr 04, 2014 at 11:24:32AM -0400, David Miller wrote:
+> From: Pablo Neira Ayuso <pablo@netfilter.org>
+> Date: Tue, 11 Mar 2014 10:19:11 +0100
+> 
+> > The following patchset provides a socket filtering alternative to BPF
+> > which allows you to define your filter using the nf_tables expressions.
+> 
+> Generally I like this series, but of course you will need to respin
+> it against the work that went into net-next recently.
 
-> And the above loop in tcp_output() is a plain memory deadlock, you
-> should not loop on allocations like that. If the allocation fails;
-> propagate the error.
+Sure, no problem.
 
-There is nothing to "propagate" it to.  We have no "event" that will
-trigger so that we have a second chance to send the FIN out, it really
-must go out before we progress any further at this stage.
+> I only wonder about the expression implementation module loading
+> logic when we add an nft filter to a socket.
+
+Yes, that needs to be revisited, some people already rised concerns on
+that.
+
+> It seems that if the module doesn't exist, we return -EAGAIN, drop the
+> mutex, and retry.  I see nothing which breaks this loop, it seems like
+> it can run forever if a module is simply not present.
+
+Will recheck this as well. Thanks for the feedback.
