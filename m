@@ -1,53 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next] net: make packet_type->ak_packet_priv generic
-Date: Fri, 04 Apr 2014 07:33:12 -0700
-Message-ID: <1396621992.12330.30.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1396614038-31975-1-git-send-email-jiri@resnulli.us>
-		<20140404.095420.1460518706334112992.davem@davemloft.net>
-		<20140404140325.GB2892@minipsycho.brq.redhat.com>
-	 <20140404.100754.1337061118939924472.davem@davemloft.net>
-	 <533EC05C.50902@6wind.com>
+From: "Ilya V. Matveychikov" <i.matveychikov@securitycode.ru>
+Subject: Re: [RFC PATCH] veth: keep peers MTU values synchronized
+Date: Fri, 4 Apr 2014 18:42:29 +0400
+Message-ID: <533EC4D5.50304@securitycode.ru>
+References: <533DD390.6020103@gmail.com> <20140404.102518.2263545144702348056.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jiri@resnulli.us,
-	netdev@vger.kernel.org, edumazet@google.com, vfalico@redhat.com,
-	stephen@networkplumber.org, hkchu@google.com, dborkman@redhat.com,
-	willemb@google.com, hannes@stressinduktion.org,
-	atzm@stratosphere.co.jp, phil@nwl.cc, richardcochran@gmail.com
-To: nicolas.dichtel@6wind.com
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <matvejchikov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:50134 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752844AbaDDOdK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 10:33:10 -0400
-Received: by mail-pa0-f45.google.com with SMTP id kl14so3549046pab.4
-        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 07:33:10 -0700 (PDT)
-In-Reply-To: <533EC05C.50902@6wind.com>
+Received: from itna.infosec.ru ([82.198.190.199]:25494 "EHLO itna.infosec.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753386AbaDDOlu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Apr 2014 10:41:50 -0400
+In-Reply-To: <20140404.102518.2263545144702348056.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-04-04 at 16:23 +0200, Nicolas Dichtel wrote:
-
-> Sure, the subject is very clear. Personally I don't care, but I think that a
-> part of netdev subscribers/submitters don't read every emails. Having always
-> the same prefix (like the one you already used: '[README]') may ease these guys
-> to put some filters to highlight these emails. At the end, this may also save
-> you time ;-)
+On 04.04.2014 18:25, David Miller wrote:
+> From: "Ilya V. Matveychikov" <matvejchikov@gmail.com>
+> Date: Fri, 04 Apr 2014 01:33:04 +0400
 > 
-> My two cents,
+>> Keep peers MTU values synchronized. That prevent dropping packets
+>> while
+>> forwarding as diffirent MTU values prevent skb moving from one peer's
+>> device to another (is_skb_forwardable returns false).
+>>
+>> Signed-off-by: Ilya V. Matveychikov <i.matveychikov@securitycode.ru>
+> 
+> Such side effects on another device when changing the configuration
+> of one are strongly discouraged.
+> 
 
-My 2 cents would be for a developer to use updated git tree before
-submitting a patch, right ?
+Devices are paired. It means that one depends on another. Is there any case
+where this "side" effect wouldn't be helpful?
 
-Then, if you simply do following its pretty obvious :
+> Furthermore, when the veth peer is created, no attempt is made to
+> synchronize the MTUs.
 
-$ git show | head -8
-commit cd6362befe4cc7bf589a5236d2a780af2d47bcc9
-Merge: 0f1b1e6d73cb b1586f099ba8
-Author: Linus Torvalds <torvalds@linux-foundation.org>
-Date:   Wed Apr 2 20:53:45 2014 -0700
+Peers are created at once and ether_setup used for the configuration so MTU
+values equals.
 
-    Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next
-    
-    Pull networking updates from David Miller:
+> 
+> Let it therefore be the admins responsibility to keep them in sync
+> just as it would be on a real network.
+> 
+> 
+
+Different MTU values for the veth pairs are meaningless as if so we can't do the
+communication between the namespaces at all. So, is it correct to shift all the
+configuration problems to admins?
