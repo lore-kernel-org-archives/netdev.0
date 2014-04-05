@@ -1,142 +1,203 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH next-next 4/6] net: Call skb_checksum_init in IPv4
-Date: Fri, 4 Apr 2014 17:27:36 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1404041721170.21628@tomh.mtv.corp.google.com>
+Subject: [PATCH net-next 6/6] net: Implmement RFC 6936 (zero RX csums for
+ UDP/IPv6)
+Date: Fri, 4 Apr 2014 17:28:24 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1404041720560.21339@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f201.google.com ([209.85.220.201]:60299 "EHLO
-	mail-vc0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751716AbaDEAdJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 20:33:09 -0400
-Received: by mail-vc0-f201.google.com with SMTP id ik5so598299vcb.2
-        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 17:33:08 -0700 (PDT)
+Received: from mail-pb0-f73.google.com ([209.85.160.73]:51231 "EHLO
+	mail-pb0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753401AbaDEAfg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 20:35:36 -0400
+Received: by mail-pb0-f73.google.com with SMTP id rp16so655907pbb.0
+        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 17:35:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tested by running 20 netperf TCP_STREAMs with combinations of
-LRO on/off, rx-csum-offload on/off, device provide checksum-complete
-(emulated) with occasional incorrect value.
+RFC 6936 relaxes the requirement of RFC 2460 that UDP/IPv6 packets which
+are received with a zero UDP checksum value must be dropped. RFC 6936
+allow zero checksums to support tunnels over UDP.
+
+This patch adds a new socket option UDP_CHECK6_ZERO_OKAY whcih can be
+set on a UDP socket to indicate that a zero checksum is acceptable
+(e.g. the socket is for a tunnel). The ip6 checksum and UDP receive
+functions were updated accordingly to deal with this.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/net/ip.h    |  2 ++
- net/ipv4/af_inet.c  |  7 +++++++
- net/ipv4/tcp_ipv4.c | 25 ++-----------------------
- net/ipv4/udp.c      | 19 ++-----------------
- 4 files changed, 13 insertions(+), 40 deletions(-)
+ include/linux/udp.h      |  3 ++-
+ include/uapi/linux/udp.h |  1 +
+ net/ipv4/udp.c           |  8 ++++++++
+ net/ipv6/ip6_checksum.c  | 19 ++++++++-----------
+ net/ipv6/udp.c           | 39 +++++++++++++++++++++++++++++++++++++--
+ 5 files changed, 56 insertions(+), 14 deletions(-)
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 25064c2..6929a45 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -337,6 +337,8 @@ static inline void ip_select_ident_more(struct sk_buff *skb, struct dst_entry *d
- 		__ip_select_ident(iph, dst, more);
- }
+diff --git a/include/linux/udp.h b/include/linux/udp.h
+index 42278bb..647ffc9 100644
+--- a/include/linux/udp.h
++++ b/include/linux/udp.h
+@@ -63,7 +63,8 @@ struct udp_sock {
+ #define UDPLITE_SEND_CC  0x2  		/* set via udplite setsockopt         */
+ #define UDPLITE_RECV_CC  0x4		/* set via udplite setsocktopt        */
+ 	__u8		 pcflag;        /* marks socket as UDP-Lite if > 0    */
+-	__u8		 unused[3];
++	__u8		 check6_zero_okay; /* Zero csum okay for IPv6 */
++	__u8		 unused[2];
+ 	/*
+ 	 * For encapsulation sockets.
+ 	 */
+diff --git a/include/uapi/linux/udp.h b/include/uapi/linux/udp.h
+index e2bcfd7..46d0e58 100644
+--- a/include/uapi/linux/udp.h
++++ b/include/uapi/linux/udp.h
+@@ -28,6 +28,7 @@ struct udphdr {
  
-+__wsum inet_pseudo_compute(struct sk_buff *skb, int proto);
-+
- /*
-  *	Map a multicast IP onto multicast MAC for type ethernet.
-  */
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 8c54870..c51b96a 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1454,6 +1454,13 @@ out_unlock:
- 	return err;
- }
+ /* UDP socket options */
+ #define UDP_CORK	1	/* Never send partially complete segments */
++#define UDP_CHECK6_ZERO_OKAY	2	/* Zero checksum okay for IPv6 UDP */
+ #define UDP_ENCAP	100	/* Set the socket to accept encapsulated packets */
  
-+__wsum inet_pseudo_compute(struct sk_buff *skb, int proto)
-+{
-+	return csum_tcpudp_nofold(ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
-+				  skb->len, proto, 0);
-+}
-+EXPORT_SYMBOL(inet_pseudo_compute);
-+
- int inet_ctl_sock_create(struct sock **sk, unsigned short family,
- 			 unsigned short type, unsigned char protocol,
- 			 struct net *net)
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 6379894..ab5128c 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1744,28 +1744,6 @@ static struct sock *tcp_v4_hnd_req(struct sock *sk, struct sk_buff *skb)
- 	return sk;
- }
- 
--static __sum16 tcp_v4_checksum_init(struct sk_buff *skb)
--{
--	const struct iphdr *iph = ip_hdr(skb);
--
--	if (skb->ip_summed == CHECKSUM_COMPLETE) {
--		if (!tcp_v4_check(skb->len, iph->saddr,
--				  iph->daddr, skb->csum)) {
--			skb->ip_summed = CHECKSUM_UNNECESSARY;
--			return 0;
--		}
--	}
--
--	skb->csum = csum_tcpudp_nofold(iph->saddr, iph->daddr,
--				       skb->len, IPPROTO_TCP, 0);
--
--	if (skb->len <= 76) {
--		return __skb_checksum_complete(skb);
--	}
--	return 0;
--}
--
--
- /* The socket must have it's spinlock held when we get
-  * here.
-  *
-@@ -1960,7 +1938,8 @@ int tcp_v4_rcv(struct sk_buff *skb)
- 	 * Packet length and doff are validated by header prediction,
- 	 * provided case of th->doff==0 is eliminated.
- 	 * So, we defer the checks. */
--	if (!skb_csum_unnecessary(skb) && tcp_v4_checksum_init(skb))
-+
-+	if (skb_checksum_init(skb, IPPROTO_TCP, inet_pseudo_compute))
- 		goto csum_error;
- 
- 	th = tcp_hdr(skb);
+ /* UDP encapsulation types */
 diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 4468e1a..d5e3a76 100644
+index d5e3a76..9b88788 100644
 --- a/net/ipv4/udp.c
 +++ b/net/ipv4/udp.c
-@@ -1672,7 +1672,6 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- static inline int udp4_csum_init(struct sk_buff *skb, struct udphdr *uh,
- 				 int proto)
- {
--	const struct iphdr *iph;
- 	int err;
+@@ -2003,6 +2003,10 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
+ 		}
+ 		break;
  
- 	UDP_SKB_CB(skb)->partial_cov = 0;
-@@ -1684,22 +1683,8 @@ static inline int udp4_csum_init(struct sk_buff *skb, struct udphdr *uh,
++	case UDP_CHECK6_ZERO_OKAY:
++		up->check6_zero_okay = !!val;
++		break;
++
+ 	/*
+ 	 * 	UDP-Lite's partial checksum coverage (RFC 3828).
+ 	 */
+@@ -2081,6 +2085,10 @@ int udp_lib_getsockopt(struct sock *sk, int level, int optname,
+ 		val = up->corkflag;
+ 		break;
+ 
++	case UDP_CHECK6_ZERO_OKAY:
++		val = up->check6_zero_okay;
++		break;
++
+ 	case UDP_ENCAP:
+ 		val = up->encap_type;
+ 		break;
+diff --git a/net/ipv6/ip6_checksum.c b/net/ipv6/ip6_checksum.c
+index 6105b8f..55896cd 100644
+--- a/net/ipv6/ip6_checksum.c
++++ b/net/ipv6/ip6_checksum.c
+@@ -83,16 +83,13 @@ int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh, int proto)
  			return err;
  	}
  
--	iph = ip_hdr(skb);
 -	if (uh->check == 0) {
--		skb->ip_summed = CHECKSUM_UNNECESSARY;
--	} else if (skb->ip_summed == CHECKSUM_COMPLETE) {
--		if (!csum_tcpudp_magic(iph->saddr, iph->daddr, skb->len,
--				      proto, skb->csum))
--			skb->ip_summed = CHECKSUM_UNNECESSARY;
+-		/* RFC 2460 section 8.1 says that we SHOULD log
+-		   this error. Well, it is reasonable.
+-		 */
+-		LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0 for [%pI6c]:%u->[%pI6c]:%u\n",
+-			       &ipv6_hdr(skb)->saddr, ntohs(uh->source),
+-			       &ipv6_hdr(skb)->daddr, ntohs(uh->dest));
+-		return 1;
 -	}
--	if (!skb_csum_unnecessary(skb))
--		skb->csum = csum_tcpudp_nofold(iph->saddr, iph->daddr,
--					       skb->len, proto, 0);
--	/* Probably, we should checksum udp header (it should be in cache
--	 * in any case) and data in tiny packets (< rx copybreak).
--	 */
 -
--	return 0;
+-	return skb_checksum_init(skb, IPPROTO_UDP, ip6_pseudo_compute);
++	/*
++	 * To support RFC 6936 (allow zero checksum in UDP/IPV6 for tunnels)
++	 * we accept a checksum of zero here. When we find the socket
++	 * for the UDP packet we'll check if that socket allows zero checksum
++	 * for IPv6 (set by socket option).
++	 */
 +	return skb_checksum_init_zero_check(skb, proto, uh->check,
-+					    inet_pseudo_compute);
++					   ip6_pseudo_compute);
  }
- 
+ EXPORT_SYMBOL(udp6_csum_init);
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 1e586d9..8b874b9 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -760,13 +760,25 @@ static void flush_stack(struct sock **stack, unsigned int count,
+ 	if (unlikely(skb1))
+ 		kfree_skb(skb1);
+ }
++
++static void udp6_csum_zero_error(struct sk_buff *skb)
++{
++	/*
++	 * RFC 2460 section 8.1 says that we SHOULD log
++	 * this error. Well, it is reasonable.
++	*/
++	LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0 for [%pI6c]:%u->[%pI6c]:%u\n",
++		       &ipv6_hdr(skb)->saddr, ntohs(udp_hdr(skb)->source),
++		       &ipv6_hdr(skb)->daddr, ntohs(udp_hdr(skb)->dest));
++}
++
  /*
+  * Note: called only from the BH handler context,
+  * so we don't need to lock the hashes.
+  */
+ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 		const struct in6_addr *saddr, const struct in6_addr *daddr,
+-		struct udp_table *udptable)
++		struct udp_table *udptable, int proto)
+ {
+ 	struct sock *sk, *stack[256 / sizeof(struct sock *)];
+ 	const struct udphdr *uh = udp_hdr(skb);
+@@ -779,6 +791,19 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 	dif = inet6_iif(skb);
+ 	sk = udp_v6_mcast_next(net, sk, uh->dest, daddr, uh->source, saddr, dif);
+ 	while (sk) {
++		if (!uh->check && !udp_sk(sk)->check6_zero_okay) {
++			/*
++			 * If checksum in packet is zero and not all the
++			 * sockets accept a zero checksum then declare
++			 * a checksum error.
++			 */
++			flush_stack(stack, count, skb, ~0);
++			count = 0;
++			udp6_csum_zero_error(skb);
++			UDP6_INC_STATS_BH(net, UDP_MIB_CSUMERRORS, proto == IPPROTO_UDPLITE);
++			UDP6_INC_STATS_BH(net, UDP_MIB_INERRORS, proto == IPPROTO_UDPLITE);
++			break;
++		}
+ 		stack[count++] = sk;
+ 		sk = udp_v6_mcast_next(net, sk_nulls_next(sk), uh->dest, daddr,
+ 				       uh->source, saddr, dif);
+@@ -855,7 +880,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 	 */
+ 	if (ipv6_addr_is_multicast(daddr))
+ 		return __udp6_lib_mcast_deliver(net, skb,
+-				saddr, daddr, udptable);
++				saddr, daddr, udptable, proto);
+ 
+ 	/* Unicast */
+ 
+@@ -867,6 +892,11 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 	if (sk != NULL) {
+ 		int ret;
+ 
++		if (!uh->check && !udp_sk(sk)->check6_zero_okay) {
++			udp6_csum_zero_error(skb);
++			goto csum_error;
++		}
++
+ 		ret = udpv6_queue_rcv_skb(sk, skb);
+ 		sock_put(sk);
+ 
+@@ -879,6 +909,11 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 		return 0;
+ 	}
+ 
++	if (!uh->check) {
++		udp6_csum_zero_error(skb);
++		goto csum_error;
++	}
++
+ 	if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
+ 		goto discard;
+ 
 -- 
 1.9.1.423.g4596e3a
