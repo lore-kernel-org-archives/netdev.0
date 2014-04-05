@@ -1,50 +1,67 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net] at86rf230: fix MAX_CSMA_RETRIES
-	parameter
-Date: Sat,  5 Apr 2014 13:49:26 +0200
-Message-ID: <1396698566-18200-1-git-send-email-alex.aring@gmail.com>
+From: Balakumaran Kannan <kumaran.4353@gmail.com>
+Subject: [PATCH net IPv6]: Fix maximum IPv6 address limit violation
+Date: Sat, 05 Apr 2014 17:22:59 +0530
+Message-ID: <533FEE9B.5090806@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fix a copy&paste failure for setting the MAX_CSMA_RETRIES
-value of the at86rf212 chip which was introduced by commit
-f2fdd67c6bc89de0100410efb37de69b1c98ac03 ("ieee802154: enable
-smart transmitter features of RF212")
+Kernel doesn't check with max IPv6 address limit before adding IPv6 temporary
+address.
 
-Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Cc: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
+Security fix CVE-2013-0343 removes max_addresses check from ipv6_create_tempaddr
+function as this is handled before in addrconf_prefix_rcv function. But
+addrconf_prefix_rcv does max_addresses check only before adding MAC based RA
+address and if limit is already reached, it stops processing the prefix.
+
+When IPv6 privacy extension is enabled, two addresses will be created for a
+new prefix received through RA. So if a machine has (max_addresses - 1) number
+of  IPv6 addresses, after receiving an RA with new prefix the machine will have
+(max_addresses + 1) number of IPv6 addresses.
+
+So it is better to use a new prefix only if two IPv6 address slots available
+in case IPv6 privacy extension is enabled.
+
+Severity: Less
+
+Signed-off-by: Balakumaran Kannan <kumaran.4353@gmail.com>
 ---
- drivers/net/ieee802154/at86rf230.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+How to reproduce:
+        1. Enable IPv6 privacy extension by setting value of
+           /proc/sys/net/ipv6/conf/<iface>/use_tempaddr to 2.
+        2. Flood RA with different prefixes.
+        3. Check total number of IPv6 address assigned for your iface.
+           By default max_addresses will be 16. So after receiving 8 RAs, there
+           will be 17 IPv6 addresses including link-local address.
+---
+ net/ipv6/addrconf.c |    9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index 89417ac..430bb0d 100644
---- a/drivers/net/ieee802154/at86rf230.c
-+++ b/drivers/net/ieee802154/at86rf230.c
-@@ -852,7 +852,7 @@ at86rf212_set_csma_params(struct ieee802154_dev *dev, u8 min_be, u8 max_be,
- 	if (rc)
- 		return rc;
- 
--	return at86rf230_write_subreg(lp, SR_MAX_CSMA_RETRIES, max_be);
-+	return at86rf230_write_subreg(lp, SR_MAX_CSMA_RETRIES, retries);
- }
- 
- static int
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 6c7fa08..8a7e4ba 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2278,6 +2278,15 @@ ok:
+            /* Do not allow to create too much of autoconfigured
+             * addresses; this would be too easy way to crash kernel.
+             */
++#ifdef CONFIG_IPV6_PRIVACY
++           /* When IPv6 privacy extension is enabled, there must
++            * be two IPv6 address slots available.
++            * - One for MAC based address
++            * - Another for temporary address
++            */
++           if (max_addresses > 1)
++               max_addresses--;
++#endif
+            if (!max_addresses ||
+                ipv6_count_addresses(in6_dev) < max_addresses)
+                ifp = ipv6_add_addr(in6_dev, &addr, NULL,
 -- 
-1.9.1
-
-
-------------------------------------------------------------------------------
+1.7.9.5
