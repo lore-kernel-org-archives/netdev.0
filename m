@@ -1,52 +1,67 @@
-From: "wei zhang" <asuka.com@163.com>
-Subject: Re: [PATCH v2] openvswitch: supply a dummy err_handler of
- gre_cisco_protocol to prevent kernel crash
-Date: Sat, 5 Apr 2014 12:20:27 +0800 (CST)
-Message-ID: <158dbf4d.1b3c.145301dbf7a.Coremail.asuka.com@163.com>
-References: <1396398194-4163-1-git-send-email-asuka.com@163.com>
- <CAEP_g=9WRyaSmRKHDZmWXwzjDyex8NheyveGzfH4qmMbhgGHdQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: "David Miller" <davem@davemloft.net>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>
-To: "Jesse Gross" <jesse@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEP_g=9WRyaSmRKHDZmWXwzjDyex8NheyveGzfH4qmMbhgGHdQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Zhangfei Gao <zhangfei.gao@linaro.org>
+Subject: [PATCH v7 0/3] add hisilicon hip04 ethernet driver
+Date: Sat,  5 Apr 2014 12:35:03 +0800
+Message-ID: <1396672506-9296-1-git-send-email-zhangfei.gao@linaro.org>
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, Zhangfei Gao <zhangfei.gao@linaro.org>
+To: davem@davemloft.net, linux@arm.linux.org.uk, arnd@arndb.de,
+	f.fainelli@gmail.com, sergei.shtylyov@cogentembedded.com,
+	mark.rutland@arm.com, David.Laight@ACULAB.COM,
+	eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:37048 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751922AbaDEEgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Apr 2014 00:36:11 -0400
+Received: by mail-pd0-f178.google.com with SMTP id x10so4168776pdj.23
+        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 21:36:10 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-QXTCoDIwMTQtMDQtMDXCoDA3OjA1OjU5LCJKZXNzZcKgR3Jvc3MiwqA8amVzc2VAbmljaXJhLmNv
-bT7CoHdyb3RlOgo+T27CoFR1ZSzCoEFwcsKgMSzCoDIwMTTCoGF0wqA1OjIzwqBQTSzCoFdlacKg
-WmhhbmfCoDxhc3VrYS5jb21AMTYzLmNvbT7CoHdyb3RlOgo+Pgo+PsKgdjLCoC0+wqB2MTrCoHVz
-ZcKgdGhlwqBzYW1lwqBsb2dpY8Kgb2bCoHRoZcKgZ3JlX3JjdigpwqB0b8KgZGlzdGluZ3Vpc2jC
-oHdoaWNowqBwYWNrZXTCoGlzCj4+wqBpbnRlbmRlZMKgdG/CoHVzIQo+Cj5Bc8KgYcKgdGlwwqBv
-bsKga2VybmVswqBwcm9jZXNzOsKgaWbCoHlvdcKgcHV0wqB0aGXCoHZlcnNpb27CoGluZm9ybWF0
-aW9uwqBhZnRlcgo+dGhyZWXCoGRhc2hlc8KgYmVsb3fCoHRoZcKgc2lnbmVkLW9mZi1iecKgbGlu
-ZcKgdGhlbsKgZ2l0wqB3aWxswqBhdXRvbWF0aWNhbGx5Cj5yZW1vdmXCoGl0wqB3aGVuwqB0aGXC
-oGZpbmFswqBwYXRjaMKgaXPCoGFwcGxpZWQuCgpUaGFua3MsIHNob3VsZCBJwqBtb2RpZnkgaXQg
-YW5kIHNlbmQgYSB2MyBwYXRjaD8KCj4KPj7CoGRpZmbCoC0tZ2l0wqBhL25ldC9vcGVudnN3aXRj
-aC92cG9ydC1ncmUuY8KgYi9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtZ3JlLmMKPj7CoGluZGV4wqBh
-M2Q2OTUxLi5mMzkxZGYxwqAxMDA2NDQKPj7CoC0tLcKgYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQt
-Z3JlLmMKPj7CoCsrK8KgYi9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtZ3JlLmMKPj7CoEBAwqAtMTEw
-LDbCoCsxMTAsMjHCoEBAwqBzdGF0aWPCoGludMKgZ3JlX3JjdihzdHJ1Y3TCoHNrX2J1ZmbCoCpz
-a2IsCj4+wqDCoMKgwqDCoMKgwqDCoMKgcmV0dXJuwqBQQUNLRVRfUkNWRDsKPj7CoMKgfQo+Pgo+
-PsKgKy8qwqBDYWxsZWTCoHdpdGjCoHJjdV9yZWFkX2xvY2vCoGFuZMKgQkjCoGRpc2FibGVkLsKg
-Ki8KPj7CoCtzdGF0aWPCoGludMKgZ3JlX2VycihzdHJ1Y3TCoHNrX2J1ZmbCoCpza2IswqB1MzLC
-oGluZm8sCj4+wqArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgY29uc3TCoHN0
-cnVjdMKgdG5sX3B0a19pbmZvwqAqdHBpKQo+PsKgK3sKPj7CoCvCoMKgwqDCoMKgwqDCoHN0cnVj
-dMKgb3ZzX25ldMKgKm92c19uZXQ7Cj4+wqArwqDCoMKgwqDCoMKgwqBzdHJ1Y3TCoHZwb3J0wqAq
-dnBvcnQ7Cj4+wqArCj4+wqArwqDCoMKgwqDCoMKgwqBvdnNfbmV0wqA9wqBuZXRfZ2VuZXJpYyhk
-ZXZfbmV0KHNrYi0+ZGV2KSzCoG92c19uZXRfaWQpOwo+PsKgK8KgwqDCoMKgwqDCoMKgdnBvcnTC
-oD3CoHJjdV9kZXJlZmVyZW5jZShvdnNfbmV0LT52cG9ydF9uZXQuZ3JlX3Zwb3J0KTsKPj7CoCvC
-oMKgwqDCoMKgwqDCoGlmwqAodW5saWtlbHkoIXZwb3J0KSkKPj7CoCvCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqByZXR1cm7CoFBBQ0tFVF9SRUpFQ1Q7Cj4+wqArwqDCoMKgwqDCoMKgwqBl
-bHNlCj4+wqArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgcmV0dXJuwqBQQUNLRVRfUkNW
-RDsKPgo+U29ycnkswqBJwqBmb3Jnb3TCoHRvwqBzYXnCoHRoaXPCoGJlZm9yZcKgLcKgaWbCoHdl
-wqByZWNlaXZlwqB0aGXCoHBhY2tldMKgdGhlbsKgd2UKPnNob3VsZMKgYWxzb8KgY2FsbMKgY29u
-c3VtZV9za2IoKcKgb27CoGl0LgoKTWF5YmUgdGhlcmUgaXMgbm8gbmVlZCB0byBjYWxsIGNvbnN1
-bWVfc2tiKCk/IFRoZSBpY21wX3JjdigpIHdvdWxkCmNhbGwga2ZyZWVfc2tiKCkgZm9yIHVzLiBJ
-IGFsc28gY2hlY2tlZCB0aGUgaXBncmVfZXJyKCksIGl0IHJldHVybsKgClBBQ0tFVF9SQ1ZEIHdp
-dGhvdXQgY2FsbCBjb25zdW1lX3NrYigpIHRvby4KClJlZ2FyZHMsCldlaSBaaGFuZw==
+v7:
+Remove select NET_CORE in 0002
+
+v6:
+Suggest by Russell: Use netdev_sent_queue & netdev_completed_queue to solve latency issue 
+Also shorten the period of timer, which is used to wakeup the queue since no
+tx completed interrupt.
+
+v5:
+no big change, fix typo
+
+v4:
+Modify accoringly to the suggetion from Arnd, Florian, Eric, David
+Use of_parse_phandle_with_fixed_args & syscon_node_to_regmap get ppe info
+Add skb_orphan() and tx_timer for reclaim since no tx_finished interrupt
+Update timeout, and move of_phy_connect to probe to reuse open/stop
+
+v3:
+Suggest from Arnd, use syscon & regmap_write/read to replace static void __iomem *ppebase.
+Modify hisilicon-hip04-net.txt accrordingly to suggestion from Florian and Sergei.
+
+v2:
+Got many suggestions from Russell, Arnd, Florian, Mark and Sergei
+Remove memcpy, use dma_map/unmap_single, use dma_alloc_coherent rather than dma_pool, etc.
+Refer property in ethernet.txt, change ppe description, etc.
+
+Zhangfei Gao (3):
+  Documentation: add Device tree bindings for Hisilicon hip04 ethernet
+  net: hisilicon: new hip04 MDIO driver
+  net: hisilicon: new hip04 ethernet driver
+
+ .../bindings/net/hisilicon-hip04-net.txt           |   88 +++
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/hisilicon/Kconfig             |   31 +
+ drivers/net/ethernet/hisilicon/Makefile            |    5 +
+ drivers/net/ethernet/hisilicon/hip04_eth.c         |  777 ++++++++++++++++++++
+ drivers/net/ethernet/hisilicon/hip04_mdio.c        |  186 +++++
+ 7 files changed, 1089 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
+ create mode 100644 drivers/net/ethernet/hisilicon/Kconfig
+ create mode 100644 drivers/net/ethernet/hisilicon/Makefile
+ create mode 100644 drivers/net/ethernet/hisilicon/hip04_eth.c
+ create mode 100644 drivers/net/ethernet/hisilicon/hip04_mdio.c
+
+-- 
+1.7.9.5
