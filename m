@@ -1,45 +1,50 @@
-From: Balakumaran Kannan <kumaran.4353@gmail.com>
-Subject: [PATCH net] Remove unnecessary condition check in phy
-Date: Sat, 05 Apr 2014 13:00:16 +0530
-Message-ID: <533FB108.6010508@gmail.com>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net] at86rf230: fix MAX_CSMA_RETRIES
+	parameter
+Date: Sat,  5 Apr 2014 13:49:26 +0200
+Message-ID: <1396698566-18200-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:54856 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753320AbaDEHaV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Apr 2014 03:30:21 -0400
-Received: by mail-pb0-f51.google.com with SMTP id uo5so4420048pbc.24
-        for <netdev@vger.kernel.org>; Sat, 05 Apr 2014 00:30:21 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This condition check makes no difference in the code flow since 3.10
+This patch fix a copy&paste failure for setting the MAX_CSMA_RETRIES
+value of the at86rf212 chip which was introduced by commit
+f2fdd67c6bc89de0100410efb37de69b1c98ac03 ("ieee802154: enable
+smart transmitter features of RF212")
 
-Signed-off-by: Balakumaran Kannan <kumaran.4353@gmail.com>
+Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
 ---
- drivers/net/phy/phy.c |    6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
+ drivers/net/ieee802154/at86rf230.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 1d788f1..1b6d09a 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -756,12 +756,8 @@ void phy_state_machine(struct work_struct *work)
-            netif_carrier_on(phydev->attached_dev);
-            phydev->adjust_link(phydev->attached_dev);
-
--       } else if (0 == phydev->link_timeout--) {
-+       } else if (0 == phydev->link_timeout--)
-            needs_aneg = 1;
--           /* If we have the magic_aneg bit, we try again */
--           if (phydev->drv->flags & PHY_HAS_MAGICANEG)
--               break;
--       }
-        break;
-    case PHY_NOLINK:
-        err = phy_read_status(phydev);
+diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
+index 89417ac..430bb0d 100644
+--- a/drivers/net/ieee802154/at86rf230.c
++++ b/drivers/net/ieee802154/at86rf230.c
+@@ -852,7 +852,7 @@ at86rf212_set_csma_params(struct ieee802154_dev *dev, u8 min_be, u8 max_be,
+ 	if (rc)
+ 		return rc;
+ 
+-	return at86rf230_write_subreg(lp, SR_MAX_CSMA_RETRIES, max_be);
++	return at86rf230_write_subreg(lp, SR_MAX_CSMA_RETRIES, retries);
+ }
+ 
+ static int
 -- 
-1.7.9.5
+1.9.1
+
+
+------------------------------------------------------------------------------
