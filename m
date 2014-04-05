@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 7/8] netfilter: nf_tables: fix wrong format in request_module()
-Date: Sat,  5 Apr 2014 18:03:49 +0200
-Message-ID: <1396713830-4009-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/8] netfilter: Add {ipt,ip6t}_osf aliases for xt_osf
+Date: Sat,  5 Apr 2014 18:03:46 +0200
+Message-ID: <1396713830-4009-5-git-send-email-pablo@netfilter.org>
 References: <1396713830-4009-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,29 +10,34 @@ In-Reply-To: <1396713830-4009-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The intended format in request_module is %.*s instead of %*.s.
+From: Kirill Tkhai <ktkhai@parallels.com>
 
-Reported-by: Florian Westphal <fw@strlen.de>
+There are no these aliases, so kernel can not request appropriate
+match table:
+
+$ iptables -I INPUT -p tcp -m osf --genre Windows --ttl 2 -j DROP
+iptables: No chain/target/match by that name.
+
+setsockopt() requests ipt_osf module, which is not present. Add
+the aliases.
+
+Signed-off-by: Kirill Tkhai <ktkhai@parallels.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_api.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/netfilter/xt_osf.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 43ae487..3fd159d 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -152,8 +152,8 @@ nf_tables_chain_type_lookup(const struct nft_af_info *afi,
- #ifdef CONFIG_MODULES
- 	if (autoload) {
- 		nfnl_unlock(NFNL_SUBSYS_NFTABLES);
--		request_module("nft-chain-%u-%*.s", afi->family,
--			       nla_len(nla)-1, (const char *)nla_data(nla));
-+		request_module("nft-chain-%u-%.*s", afi->family,
-+			       nla_len(nla), (const char *)nla_data(nla));
- 		nfnl_lock(NFNL_SUBSYS_NFTABLES);
- 		type = __nf_tables_chain_type_lookup(afi->family, nla);
- 		if (type != NULL)
+diff --git a/net/netfilter/xt_osf.c b/net/netfilter/xt_osf.c
+index 7174611..c529161 100644
+--- a/net/netfilter/xt_osf.c
++++ b/net/netfilter/xt_osf.c
+@@ -422,4 +422,6 @@ module_exit(xt_osf_fini);
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Evgeniy Polyakov <zbr@ioremap.net>");
+ MODULE_DESCRIPTION("Passive OS fingerprint matching.");
++MODULE_ALIAS("ipt_osf");
++MODULE_ALIAS("ip6t_osf");
+ MODULE_ALIAS_NFNL_SUBSYS(NFNL_SUBSYS_OSF);
 -- 
 1.7.10.4
 
