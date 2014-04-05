@@ -1,52 +1,48 @@
 From: Jean Sacren <sakiwit@gmail.com>
-Subject: [PATCH net 2/2] mac802154: fix duplicate #include headers
-Date: Sat,  5 Apr 2014 00:29:01 -0600
-Message-ID: <1396679341-23502-3-git-send-email-sakiwit@gmail.com>
+Subject: [PATCH net 1/2] sxgbe: fix duplicate #include headers
+Date: Sat,  5 Apr 2014 00:29:00 -0600
+Message-ID: <1396679341-23502-2-git-send-email-sakiwit@gmail.com>
 References: <1396679341-23502-1-git-send-email-sakiwit@gmail.com>
-Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>,
-	linux-zigbee-devel@lists.sourceforge.net
+Cc: Byungho An <bh74.an@samsung.com>, Girish K S <ks.giri@samsung.com>,
+	Siva Reddy Kallam <siva.kallam@samsung.com>,
+	Vipul Pandya <vipul.pandya@samsung.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:43205 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751700AbaDEGch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Apr 2014 02:32:37 -0400
-Received: by mail-pd0-f172.google.com with SMTP id p10so4247091pdj.31
-        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 23:32:36 -0700 (PDT)
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:39229 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751700AbaDEGce (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Apr 2014 02:32:34 -0400
+Received: by mail-pd0-f173.google.com with SMTP id z10so4260438pdj.4
+        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 23:32:34 -0700 (PDT)
 In-Reply-To: <1396679341-23502-1-git-send-email-sakiwit@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The commit e6278d92005e ("mac802154: use header operations to
-create/parse headers") included the header
-
-		net/ieee802154_netdev.h
-
-which had been included by the commit b70ab2e87f17 ("ieee802154:
-enforce consistent endianness in the 802.15.4 stack"). Fix this
-duplicate #include by deleting the latter one as the required header
-has already been in place.
+The commit 1edb9ca69e8a ("net: sxgbe: add basic framework for
+Samsung 10Gb ethernet driver") added support for Samsung 10Gb
+ethernet driver(sxgbe) with a minor issue of including linux/io.h
+header twice in sxgbe_dma.c file. Fix the duplicate #include by
+deleting the top one so that all the rest good #include headers
+would be preserved in the alphabetical order.
 
 Signed-off-by: Jean Sacren <sakiwit@gmail.com>
-Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Cc: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-Cc: linux-zigbee-devel@lists.sourceforge.net
+Cc: Byungho An <bh74.an@samsung.com>
+Cc: Girish K S <ks.giri@samsung.com>
+Cc: Siva Reddy Kallam <siva.kallam@samsung.com>
+Cc: Vipul Pandya <vipul.pandya@samsung.com>
 ---
- net/mac802154/mib.c | 1 -
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c | 1 -
  1 file changed, 1 deletion(-)
 
-diff --git a/net/mac802154/mib.c b/net/mac802154/mib.c
-index 153bd1ddbfbb..f0991f2344d4 100644
---- a/net/mac802154/mib.c
-+++ b/net/mac802154/mib.c
-@@ -26,7 +26,6 @@
- #include <net/mac802154.h>
- #include <net/ieee802154_netdev.h>
- #include <net/wpan-phy.h>
--#include <net/ieee802154_netdev.h>
- 
- #include "mac802154.h"
- 
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
+index 28f89c41d0cd..4d989ff6c978 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
+@@ -9,7 +9,6 @@
+  * it under the terms of the GNU General Public License version 2 as
+  * published by the Free Software Foundation.
+  */
+-#include <linux/io.h>
+ #include <linux/delay.h>
+ #include <linux/export.h>
+ #include <linux/io.h>
