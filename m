@@ -1,83 +1,108 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 3/8] netfilter: x_tables: allow to use cgroup match for LOCAL_IN nf hooks
-Date: Sat,  5 Apr 2014 18:03:45 +0200
-Message-ID: <1396713830-4009-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 8/8] netfilter: Can't fail and free after table replacement
+Date: Sat,  5 Apr 2014 18:03:50 +0200
+Message-ID: <1396713830-4009-9-git-send-email-pablo@netfilter.org>
 References: <1396713830-4009-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:34332 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:34346 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753087AbaDEQEC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Apr 2014 12:04:02 -0400
+	id S1753159AbaDEQEF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Apr 2014 12:04:05 -0400
 In-Reply-To: <1396713830-4009-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Perevalov <a.perevalov@samsung.com>
+From: Thomas Graf <tgraf@suug.ch>
 
-This simple modification allows iptables to work with INPUT chain
-in combination with cgroup module. It could be useful for counting
-ingress traffic per cgroup with nfacct netfilter module. There
-were no problems to count the egress traffic that way formerly.
+All xtables variants suffer from the defect that the copy_to_user()
+to copy the counters to user memory may fail after the table has
+already been exchanged and thus exposed. Return an error at this
+point will result in freeing the already exposed table. Any
+subsequent packet processing will result in a kernel panic.
 
-It's possible to get classified sk_buff after PREROUTING, due to
-socket lookup being done in early_demux (tcp_v4_early_demux). Also
-it works for udp as well.
+We can't copy the counters before exposing the new tables as we
+want provide the counter state after the old table has been
+unhooked. Therefore convert this into a silent error.
 
-Trivial usage example, assuming we're in the same shell every step
-and we have enough permissions:
-
-1) Classic net_cls cgroup initialization:
-
-  mkdir /sys/fs/cgroup/net_cls
-  mount -t cgroup -o net_cls net_cls /sys/fs/cgroup/net_cls
-
-2) Set up cgroup for interesting application:
-
-  mkdir /sys/fs/cgroup/net_cls/wget
-  echo 1 > /sys/fs/cgroup/net_cls/wget/net_cls.classid
-  echo $BASHPID > /sys/fs/cgroup/net_cls/wget/cgroup.procs
-
-3) Create kernel counters:
-
-  nfacct add wget-cgroup-in
-  iptables -A INPUT -m cgroup ! --cgroup 1 -m nfacct --nfacct-name wget-cgroup-in
-
-  nfacct add wget-cgroup-out
-  iptables -A OUTPUT -m cgroup ! --cgroup 1 -m nfacct --nfacct-name wget-cgroup-out
-
-4) Network usage:
-
-  wget https://www.kernel.org/pub/linux/kernel/v3.x/testing/linux-3.14-rc6.tar.xz
-
-5) Check results:
-
-  nfacct list
-
-Cgroup approach is being used for the DataUsage (counting & blocking
-traffic) feature for Samsung's modification of the Tizen OS.
-
-Signed-off-by: Alexey Perevalov <a.perevalov@samsung.com>
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Florian Westphal <fw@strlen.de>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_cgroup.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/bridge/netfilter/ebtables.c |    5 ++---
+ net/ipv4/netfilter/arp_tables.c |    6 ++++--
+ net/ipv4/netfilter/ip_tables.c  |    6 ++++--
+ net/ipv6/netfilter/ip6_tables.c |    6 ++++--
+ 4 files changed, 14 insertions(+), 9 deletions(-)
 
-diff --git a/net/netfilter/xt_cgroup.c b/net/netfilter/xt_cgroup.c
-index 9a8e77e7..f4e8330 100644
---- a/net/netfilter/xt_cgroup.c
-+++ b/net/netfilter/xt_cgroup.c
-@@ -54,7 +54,8 @@ static struct xt_match cgroup_mt_reg __read_mostly = {
- 	.matchsize  = sizeof(struct xt_cgroup_info),
- 	.me         = THIS_MODULE,
- 	.hooks      = (1 << NF_INET_LOCAL_OUT) |
--		      (1 << NF_INET_POST_ROUTING),
-+		      (1 << NF_INET_POST_ROUTING) |
-+		      (1 << NF_INET_LOCAL_IN),
- };
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index 0e474b1..1059ed3 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -1044,10 +1044,9 @@ static int do_replace_finish(struct net *net, struct ebt_replace *repl,
+ 	if (repl->num_counters &&
+ 	   copy_to_user(repl->counters, counterstmp,
+ 	   repl->num_counters * sizeof(struct ebt_counter))) {
+-		ret = -EFAULT;
++		/* Silent error, can't fail, new table is already in place */
++		net_warn_ratelimited("ebtables: counters copy to user failed while replacing table\n");
+ 	}
+-	else
+-		ret = 0;
  
- static int __init cgroup_mt_init(void)
+ 	/* decrease module count and free resources */
+ 	EBT_ENTRY_ITERATE(table->entries, table->entries_size,
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index 59da7cd..f95b6f9 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -1044,8 +1044,10 @@ static int __do_replace(struct net *net, const char *name,
+ 
+ 	xt_free_table_info(oldinfo);
+ 	if (copy_to_user(counters_ptr, counters,
+-			 sizeof(struct xt_counters) * num_counters) != 0)
+-		ret = -EFAULT;
++			 sizeof(struct xt_counters) * num_counters) != 0) {
++		/* Silent error, can't fail, new table is already in place */
++		net_warn_ratelimited("arptables: counters copy to user failed while replacing table\n");
++	}
+ 	vfree(counters);
+ 	xt_table_unlock(t);
+ 	return ret;
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 718dfbd..99e810f 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -1231,8 +1231,10 @@ __do_replace(struct net *net, const char *name, unsigned int valid_hooks,
+ 
+ 	xt_free_table_info(oldinfo);
+ 	if (copy_to_user(counters_ptr, counters,
+-			 sizeof(struct xt_counters) * num_counters) != 0)
+-		ret = -EFAULT;
++			 sizeof(struct xt_counters) * num_counters) != 0) {
++		/* Silent error, can't fail, new table is already in place */
++		net_warn_ratelimited("iptables: counters copy to user failed while replacing table\n");
++	}
+ 	vfree(counters);
+ 	xt_table_unlock(t);
+ 	return ret;
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 710238f..e080fbb 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -1241,8 +1241,10 @@ __do_replace(struct net *net, const char *name, unsigned int valid_hooks,
+ 
+ 	xt_free_table_info(oldinfo);
+ 	if (copy_to_user(counters_ptr, counters,
+-			 sizeof(struct xt_counters) * num_counters) != 0)
+-		ret = -EFAULT;
++			 sizeof(struct xt_counters) * num_counters) != 0) {
++		/* Silent error, can't fail, new table is already in place */
++		net_warn_ratelimited("ip6tables: counters copy to user failed while replacing table\n");
++	}
+ 	vfree(counters);
+ 	xt_table_unlock(t);
+ 	return ret;
 -- 
 1.7.10.4
