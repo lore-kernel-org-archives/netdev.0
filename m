@@ -1,118 +1,129 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next 3/6] net: Generalize checksum_init functions
-Date: Fri, 4 Apr 2014 17:27:19 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1404041717020.20947@tomh.mtv.corp.google.com>
+Subject: [PATCH next-next 5/6] net: Call skb_checksum_init in IPv6
+Date: Fri, 4 Apr 2014 17:28:09 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1404041721050.21509@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f202.google.com ([209.85.214.202]:41165 "EHLO
-	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754291AbaDEA1U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 20:27:20 -0400
-Received: by mail-ob0-f202.google.com with SMTP id wo20so726427obc.1
-        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 17:27:19 -0700 (PDT)
+Received: from mail-ie0-f202.google.com ([209.85.223.202]:61927 "EHLO
+	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753615AbaDEA2K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Apr 2014 20:28:10 -0400
+Received: by mail-ie0-f202.google.com with SMTP id lx4so727711iec.5
+        for <netdev@vger.kernel.org>; Fri, 04 Apr 2014 17:28:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Create a general __skb_checksum_validate function to subsume the
-various checksum_init functions. This function can either init
-the checksums, or do the full validation (logically check_init+
-skb_check_complete)-- a flag to the function sets that.
-
-Added several stub functions for calling __skb_checksum_validate.
+Tested by running 20 netperf TCP_STREAMs with combinations of
+LRO on/off, rx-csum-offload on/off, device provide checksum-complete
+(emulated) with occasional incorrect value.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/linux/skbuff.h | 35 +++++++++++++++++++++++++++++++++++
- net/core/checksum.c    | 32 ++++++++++++++++++++++++++++++++
- 2 files changed, 67 insertions(+)
+ include/net/ip6_checksum.h |  2 ++
+ net/core/checksum.c        |  1 +
+ net/ipv6/ip6_checksum.c    | 19 +++++++++----------
+ net/ipv6/tcp_ipv6.c        | 21 +--------------------
+ 4 files changed, 13 insertions(+), 30 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 08074a8..6cfbd52 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2741,6 +2741,41 @@ static inline __sum16 skb_checksum_complete(struct sk_buff *skb)
- 	       0 : __skb_checksum_complete(skb);
- }
+diff --git a/include/net/ip6_checksum.h b/include/net/ip6_checksum.h
+index 9e3c540..2df805b 100644
+--- a/include/net/ip6_checksum.h
++++ b/include/net/ip6_checksum.h
+@@ -41,6 +41,8 @@ __sum16 csum_ipv6_magic(const struct in6_addr *saddr,
+ 			__wsum csum);
+ #endif
  
-+__sum16 __skb_checksum_validate(struct sk_buff *skb, int proto, bool complete,
-+		bool zero_check_okay, __sum16 check,
-+		__wsum (*compute_pseudo)(struct sk_buff *skb, int proto));
++__wsum ip6_pseudo_compute(struct sk_buff *skb, int proto);
 +
-+static inline __sum16 skb_checksum_init(struct sk_buff *skb, int proto,
-+		__wsum (*compute_pseudo)(struct sk_buff *skb, int proto)) {
-+	return __skb_checksum_validate(skb, proto, false, false,
-+				       0, compute_pseudo);
-+}
-+
-+static inline __sum16 skb_checksum_init_zero_check(struct sk_buff *skb,
-+		int proto, __sum16 check,
-+		__wsum (*compute_pseudo)(struct sk_buff *skb, int proto)) {
-+	return __skb_checksum_validate(skb, proto, false, true,
-+				       check, compute_pseudo);
-+}
-+
-+static inline __sum16 skb_checksum_validate(struct sk_buff *skb, int proto,
-+		__wsum (*compute_pseudo)(struct sk_buff *skb, int proto)) {
-+	return __skb_checksum_validate(skb, proto, true, false,
-+				       0, compute_pseudo);
-+}
-+
-+static inline __sum16 skb_checksum_simple_validate(struct sk_buff *skb)
-+{
-+	return __skb_checksum_validate(skb, 0, true, false, 0, NULL);
-+}
-+
-+static inline __sum16 skb_checksum_validate_zero_check(struct sk_buff *skb,
-+	       int proto, __sum16 check,
-+	       __wsum (*compute_pseudo)(struct sk_buff *skb, int proto)) {
-+	return __skb_checksum_validate(skb, proto, true, true,
-+				       check, compute_pseudo);
-+}
-+
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- void nf_conntrack_destroy(struct nf_conntrack *nfct);
- static inline void nf_conntrack_put(struct nf_conntrack *nfct)
+ static __inline__ __sum16 tcp_v6_check(int len,
+ 				   const struct in6_addr *saddr,
+ 				   const struct in6_addr *daddr,
 diff --git a/net/core/checksum.c b/net/core/checksum.c
-index 2954f86..b0df8c7 100644
+index b0df8c7..33249c3 100644
 --- a/net/core/checksum.c
 +++ b/net/core/checksum.c
-@@ -24,3 +24,35 @@ __sum16 __skb_checksum_complete(struct sk_buff *skb)
- 	return __skb_checksum_complete_head(skb, skb->len);
+@@ -56,3 +56,4 @@ __sum16 __skb_checksum_validate(struct sk_buff *skb, int proto, bool complete,
+ 
+ 	return 0;
  }
- EXPORT_SYMBOL(__skb_checksum_complete);
-+
-+
-+__sum16 __skb_checksum_validate(struct sk_buff *skb, int proto, bool complete,
-+				bool zero_check_okay, __sum16 check,
-+				__wsum (*compute_pseudo)(struct sk_buff *skb,
-+							 int proto))
++EXPORT_SYMBOL(__skb_checksum_validate);
+diff --git a/net/ipv6/ip6_checksum.c b/net/ipv6/ip6_checksum.c
+index ee7a97f..6105b8f 100644
+--- a/net/ipv6/ip6_checksum.c
++++ b/net/ipv6/ip6_checksum.c
+@@ -62,6 +62,14 @@ __sum16 csum_ipv6_magic(const struct in6_addr *saddr,
+ EXPORT_SYMBOL(csum_ipv6_magic);
+ #endif
+ 
++__wsum ip6_pseudo_compute(struct sk_buff *skb, int proto)
 +{
-+	__wsum psum;
-+
-+	if (skb_csum_unnecessary(skb)) {
-+		return 0;
-+	} else if (zero_check_okay && !check) {
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		return 0;
-+	}
-+
-+	psum = compute_pseudo ? compute_pseudo(skb, proto) : 0;
-+
-+	if (skb->ip_summed == CHECKSUM_COMPLETE) {
-+		if (!csum_fold(csum_add(psum, skb->csum))) {
-+			skb->ip_summed = CHECKSUM_UNNECESSARY;
-+			return 0;
-+		}
-+	}
-+
-+	skb->csum = psum;
-+
-+	if (complete || skb->len <= 76)
-+		return __skb_checksum_complete(skb);
-+
-+	return 0;
++	return ~csum_unfold(csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
++					    &ipv6_hdr(skb)->daddr,
++					    skb->len, proto, 0));
 +}
++EXPORT_SYMBOL(ip6_pseudo_compute);
++
+ int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh, int proto)
+ {
+ 	int err;
+@@ -84,16 +92,7 @@ int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh, int proto)
+ 			       &ipv6_hdr(skb)->daddr, ntohs(uh->dest));
+ 		return 1;
+ 	}
+-	if (skb->ip_summed == CHECKSUM_COMPLETE &&
+-	    !csum_ipv6_magic(&ipv6_hdr(skb)->saddr, &ipv6_hdr(skb)->daddr,
+-			     skb->len, proto, skb->csum))
+-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+-
+-	if (!skb_csum_unnecessary(skb))
+-		skb->csum = ~csum_unfold(csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+-							 &ipv6_hdr(skb)->daddr,
+-							 skb->len, proto, 0));
+ 
+-	return 0;
++	return skb_checksum_init(skb, IPPROTO_UDP, ip6_pseudo_compute);
+ }
+ EXPORT_SYMBOL(udp6_csum_init);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 5ca56ce..ee873e1 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1294,25 +1294,6 @@ out:
+ 	return NULL;
+ }
+ 
+-static __sum16 tcp_v6_checksum_init(struct sk_buff *skb)
+-{
+-	if (skb->ip_summed == CHECKSUM_COMPLETE) {
+-		if (!tcp_v6_check(skb->len, &ipv6_hdr(skb)->saddr,
+-				  &ipv6_hdr(skb)->daddr, skb->csum)) {
+-			skb->ip_summed = CHECKSUM_UNNECESSARY;
+-			return 0;
+-		}
+-	}
+-
+-	skb->csum = ~csum_unfold(tcp_v6_check(skb->len,
+-					      &ipv6_hdr(skb)->saddr,
+-					      &ipv6_hdr(skb)->daddr, 0));
+-
+-	if (skb->len <= 76)
+-		return __skb_checksum_complete(skb);
+-	return 0;
+-}
+-
+ /* The socket must have it's spinlock held when we get
+  * here.
+  *
+@@ -1486,7 +1467,7 @@ static int tcp_v6_rcv(struct sk_buff *skb)
+ 	if (!pskb_may_pull(skb, th->doff*4))
+ 		goto discard_it;
+ 
+-	if (!skb_csum_unnecessary(skb) && tcp_v6_checksum_init(skb))
++	if (skb_checksum_init(skb, IPPROTO_TCP, ip6_pseudo_compute))
+ 		goto csum_error;
+ 
+ 	th = tcp_hdr(skb);
 -- 
 1.9.1.423.g4596e3a
