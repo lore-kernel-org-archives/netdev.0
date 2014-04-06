@@ -1,45 +1,49 @@
 From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] rsi: Add missing initialization of ii
-Date: Sun,  6 Apr 2014 15:30:39 +0200
-Message-ID: <1396791040-26816-1-git-send-email-geert@linux-m68k.org>
+Subject: Re: linux-next: Tree for Apr 1 (netfilter)
+Date: Sun, 6 Apr 2014 15:50:04 +0200
+Message-ID: <CAMuHMdXaoUvUButpaDYQh6aj=Zm9GCS7MKFA_-h8GOo1RkOObw@mail.gmail.com>
+References: <20140401183907.a5127cadbe7116261096beaa@canb.auug.org.au>
+	<533B06A7.5010900@infradead.org>
+	<20140401.152203.847120817141929645.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: "John W. Linville" <linville@tuxdriver.com>,
-	Fariya Fatima <fariyaf@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Randy Dunlap <rdunlap@infradead.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Linux-Next <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20140401.152203.847120817141929645.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-drivers/net/wireless/rsi/rsi_91x_core.c: In function =E2=80=98rsi_core_=
-determine_hal_queue=E2=80=99:
-drivers/net/wireless/rsi/rsi_91x_core.c:91: warning: =E2=80=98ii=E2=80=99=
- may be used uninitialized in this function
+On Tue, Apr 1, 2014 at 9:22 PM, David Miller <davem@davemloft.net> wrote:
+> From: Randy Dunlap <rdunlap@infradead.org>
+> Date: Tue, 01 Apr 2014 11:34:15 -0700
+>
+>> on x86_64:
+>>
+>> net/netfilter/xt_connlimit.c: In function 'connlimit_mt_check':
+>> net/netfilter/xt_connlimit.c:380:18: warning: division by zero [-Wdiv-by-zero]
+>>
+>> Maybe just use CONNLIMIT_LOCK_SLOTS instead of ARRAY_SIZE(...).
+>
+> I'd rather see that ARRAY_SIZE() be adjusted to work cleanly for zero
+> sized array elements.
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
-Is zero the correct initialization value?
+Anyone with a suggestion?
 
- drivers/net/wireless/rsi/rsi_91x_core.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Please note this is now in Linus' tree, possibly crashing people's boxes...
 
-diff --git a/drivers/net/wireless/rsi/rsi_91x_core.c b/drivers/net/wire=
-less/rsi/rsi_91x_core.c
-index e89535e86caf..20a62f36e89b 100644
---- a/drivers/net/wireless/rsi/rsi_91x_core.c
-+++ b/drivers/net/wireless/rsi/rsi_91x_core.c
-@@ -88,7 +88,7 @@ static u8 rsi_core_determine_hal_queue(struct rsi_com=
-mon *common)
- 	bool recontend_queue =3D false;
- 	u32 q_len =3D 0;
- 	u8 q_num =3D INVALID_QUEUE;
--	u8 ii, min =3D 0;
-+	u8 ii =3D 0, min =3D 0;
-=20
- 	if (skb_queue_len(&common->tx_queue[MGMT_SOFT_Q])) {
- 		if (!common->mgmt_q_block)
---=20
-1.7.9.5
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
