@@ -1,53 +1,42 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] cpts: Fix missing includes
-Date: Sun, 06 Apr 2014 19:47:28 +0200
-Message-ID: <53419330.405@redhat.com>
-References: <1396805660-9807-1-git-send-email-vincent.stehle@laposte.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org
-To: =?UTF-8?B?VmluY2VudCBTdGVobMOp?= <vincent.stehle@laposte.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1396805660-9807-1-git-send-email-vincent.stehle@laposte.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
+Subject: [PATCH] net/at91_ether: avoid NULL pointer dereference
+Date: Sun,  6 Apr 2014 20:37:44 +0200
+Message-ID: <1396809464-22471-1-git-send-email-gilles.chanteperdrix@xenomai.org>
+Cc: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sd-51317.dedibox.fr ([62.210.215.82]:35620 "EHLO
+	sd-51317.dedibox.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754388AbaDFSxR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Apr 2014 14:53:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/06/2014 07:34 PM, Vincent Stehl=C3=A9 wrote:
-> The ETH_HLEN and VLAN_HLEN definitions are not in if.h any more. Add =
-the
-> necessary includes to fix the following compilation errors:
->
->    drivers/net/ethernet/ti/cpts.c: In function =E2=80=98cpts_match=E2=
-=80=99:
->    drivers/net/ethernet/ti/cpts.c:266:12: error: =E2=80=98ETH_HLEN=E2=
-=80=99 undeclared (first use in this function)
->    drivers/net/ethernet/ti/cpts.c:266:12: note: each undeclared ident=
-ifier is reported only once for each function it appears in
->    drivers/net/ethernet/ti/cpts.c:276:23: error: =E2=80=98VLAN_HLEN=E2=
-=80=99 undeclared (first use in this function)
->
-> Signed-off-by: Vincent Stehl=C3=A9 <vincent.stehle@laposte.net>
+The at91_ether driver calls macb_mii_init passing a 'struct macb'
+structure whose tx_clk member is initialized to 0. However,
+macb_handle_link_change() expects tx_clk to be the result of
+a call to clk_get, and so IS_ERR(tx_clk) to be true if the clock
+is invalid. This causes an oops when booting Linux 3.14 on the
+csb637 board. The following changes avoids this.
 
-Thanks, fix is already in net tree ...
+Signed-off-by: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
+---
+ drivers/net/ethernet/cadence/at91_ether.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=3D=
-79eb9d28c9b22fa419e2c3f1b2cc6e285720ae41
-
-> diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti=
-/cpts.c
-> index a3bbf59..2a2f82a 100644
-> --- a/drivers/net/ethernet/ti/cpts.c
-> +++ b/drivers/net/ethernet/ti/cpts.c
-> @@ -19,6 +19,8 @@
->    */
->   #include <linux/err.h>
->   #include <linux/if.h>
-> +#include <linux/if_ether.h>
-> +#include <linux/if_vlan.h>
->   #include <linux/hrtimer.h>
->   #include <linux/module.h>
->   #include <linux/net_tstamp.h>
->
+diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
+index ce75de9..4a79eda 100644
+--- a/drivers/net/ethernet/cadence/at91_ether.c
++++ b/drivers/net/ethernet/cadence/at91_ether.c
+@@ -342,6 +342,9 @@ static int __init at91ether_probe(struct platform_device *pdev)
+ 	}
+ 	clk_enable(lp->pclk);
+ 
++	lp->hclk = ERR_PTR(-ENOENT);
++	lp->tx_clk = ERR_PTR(-ENOENT);
++
+ 	/* Install the interrupt handler */
+ 	dev->irq = platform_get_irq(pdev, 0);
+ 	res = devm_request_irq(&pdev->dev, dev->irq, at91ether_interrupt, 0, dev->name, dev);
+-- 
+1.7.10.4
