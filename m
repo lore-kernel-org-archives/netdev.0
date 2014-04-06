@@ -1,145 +1,42 @@
-From: Toshiaki Makita <toshiaki.makita1@gmail.com>
-Subject: Re: [RFC PATCH] vlan: Try to adjust lower device mtu when
- configuring 802.1AD vlans
-Date: Mon, 07 Apr 2014 00:21:55 +0900
-Message-ID: <1396797715.5233.20.camel@localhost.localdomain>
-References: <1396387054-4510-1-git-send-email-vyasevic@redhat.com>
-			 <20140402122121.GD26334@macbook.localnet> <533C113E.2000908@redhat.com>
-		 <1396456652.2215.42.camel@localhost.localdomain>
-		 <533C3E60.8070509@redhat.com> <533D1C95.6010705@lab.ntt.co.jp>
-		 <533D5D24.9080005@redhat.com>
-	 <1396624132.1771.15.camel@localhost.localdomain>
-	 <533ECE26.3060702@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: Tree for Apr 1 (netfilter)
+Date: Sun, 06 Apr 2014 11:31:06 -0400 (EDT)
+Message-ID: <20140406.113106.564835222660199498.davem@davemloft.net>
+References: <533B06A7.5010900@infradead.org>
+	<20140401.152203.847120817141929645.davem@davemloft.net>
+	<CAMuHMdXaoUvUButpaDYQh6aj=Zm9GCS7MKFA_-h8GOo1RkOObw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:40694 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753352AbaDFPWC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Apr 2014 11:22:02 -0400
-Received: by mail-pb0-f54.google.com with SMTP id ma3so5629776pbc.27
-        for <netdev@vger.kernel.org>; Sun, 06 Apr 2014 08:22:01 -0700 (PDT)
-In-Reply-To: <533ECE26.3060702@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rdunlap@infradead.org, sfr@canb.auug.org.au,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: geert@linux-m68k.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdXaoUvUButpaDYQh6aj=Zm9GCS7MKFA_-h8GOo1RkOObw@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-04-04 at 11:22 -0400, Vlad Yasevich wrote:
-> On 04/04/2014 11:08 AM, Toshiaki Makita wrote:
-> > On Thu, 2014-04-03 at 09:07 -0400, Vlad Yasevich wrote:
-> >> On 04/03/2014 04:32 AM, Toshiaki Makita wrote:
-> >>> (2014/04/03 1:44), Vlad Yasevich wrote:
-> >>>> On 04/02/2014 12:37 PM, Toshiaki Makita wrote:
-> >>>>> On Wed, 2014-04-02 at 09:31 -0400, Vlad Yasevich wrote:
-> >>>>>> On 04/02/2014 08:21 AM, Patrick McHardy wrote:
-> >>>>>>> On Tue, Apr 01, 2014 at 05:17:34PM -0400, Vlad Yasevich wrote:
-> >>>>>>>> 802.1AD vlans supposed to encapsulate 802.1Q vlans.  To
-> >>>>>>>> do this, we need an extra 4 bytes of header which are typically
-> >>>>>>>> not accounted for by lower devices.  Some devices can not
-> >>>>>>>> support frames longer then 1522 bytes at all.  Such devices
-> >>>>>>>> can not really support 802.1AD, even in software, without
-> >>>>>>>> the vlan reducing its mtu value.
-> >>>>>>>>
-> >>>>>>>> This patch propses to increate the lower devices MTU to 1504
-> >>>>>>>> in case of 802.1AD configuration, and if device doesn't
-> >>>>>>>> support it, fail the creation of the vlan.  The user has an
-> >>>>>>>> option to configure older-style Q-in-Q vlans and manually
-> >>>>>>>> lower the mtu to support such encapsulation.
-> >>>>>>>
-> >>>>>>> I think you should do the opposite. The lower layer device may be used
-> >>>>>>> for other things than the VLAN, so it doesn't seem right to change it's
-> >>>>>>> MTU. Instead I'd propose to set the MTU of the 802.1ad VLAN device to
-> >>>>>>> the lower device'e MTU - 4 unless a MTU has been specified by the user.
-> >>>>>>>
-> >>>>>>
-> >>>>>> The decrease of vlan mtu was my initial take on this as well.  The
-> >>>>>> problematic case with this is forwarding by an encapsulating
-> >>>>>> bridge (bridge that has 802.1AD as one port and ethX as others). The
-> >>>>>> frame from ethX will not fit into the mtu of the vlan device in
-> >>>>>> this case and the packet is dropped.  Ideally, we'd generate and ICMP
-> >>>>>> Too Big, but with the bridge we can't/don't do that.
-> >>>>>>
-> >>>>>> Another problem is that linux assumes that MTU == MRU in case of
-> >>>>>> device receive buffer programming.  Thus, full sized 802.1AD
-> >>>>>> frames transmitted by the switch supporting it will probably get dropped
-> >>>>>> by the driver/firmware as too long.  I've tested this and saw it
-> >>>>>> happen on my systems.
-> >>>>>>
-> >>>>>> An alternative I've thought off is to adjust the rx size in the drivers
-> >>>>>> when 802.1AD is configured, but that touches all the drivers, and
-> >>>>>> doesn't work well for not vlan-filtering drivers.  It needs a new
-> >>>>>> ndo api to adjust the rx length to make it consistent across all
-> >>>>>> devices.
-> >>>>>>
-> >>>>>>> BTW, I couldn't find anything related to MTU handling in the 802.1ad
-> >>>>>>> standard, however I only have an old copy and might have looked in the
-> >>>>>>> wrong place. Do you have any information how this is supposed to be
-> >>>>>>> handled?
-> >>>>>>>
-> >>>>>>
-> >>>>>> The standard doesn't seem to mention anything about it, but looking
-> >>>>>> at switch implementations, most of them require a bump in the mtu to
-> >>>>>> 1504 to support 802.1AD.  Some allow for the decrease in vlan mtu, but
-> >>>>>> that also requires mss translations as well.
-> >>>>>
-> >>>>> 802.1ad was merged into 802.1Q-2011, and G.2.2 in it refers to maximum
-> >>>>> pdu size. However, this doesn't seem to mention the case where frames
-> >>>>> are double tagged.
-> >>>>>
-> >>>>> MEF 6.1 requires UNI MTU size >= 1522 and MEF 31 requires E-NNI MTU size
-> >>>>>> = 1526 (In these documents, MTU seems to mean frame size).
-> >>>>> This implies that we should allow 1508 bytes of MTU size when we use
-> >>>>> 802.1AD.
-> >>>>>
-> >>>>
-> >>>> 1522 = 1500 + 14 + 4 (.1Q) + 4 (FCS)
-> >>>>
-> >>>>> Is 1504 enough?
-> >>>>
-> >>>> 1526 = 1500 + 14 +4 (.1Q) + 4 (.1AD) + 4(FCS)
-> >>>
-> >>> Thank you for the supplementation.
-> >>>
-> >>>>
-> >>>> This is why Cisco docs recommend mtu of 1504.
-> >>>>
-> >>>> Of course this doesn't in any way account for stacked .1AD tags.
-> >>>
-> >>> So we are likely to receive 1508 (1526) sized frames in 802.1ad network.
-> >>
-> >> 1526 byte frame is 1504 mtu, as demonstrated above.
-> > 
-> > Not so sure.
-> > It's true only if NIC reserves extra 4 bytes for mtu.
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Sun, 6 Apr 2014 15:50:04 +0200
+
+> On Tue, Apr 1, 2014 at 9:22 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Randy Dunlap <rdunlap@infradead.org>
+>> Date: Tue, 01 Apr 2014 11:34:15 -0700
+>>
+>>> on x86_64:
+>>>
+>>> net/netfilter/xt_connlimit.c: In function 'connlimit_mt_check':
+>>> net/netfilter/xt_connlimit.c:380:18: warning: division by zero [-Wdiv-by-zero]
+>>>
+>>> Maybe just use CONNLIMIT_LOCK_SLOTS instead of ARRAY_SIZE(...).
+>>
+>> I'd rather see that ARRAY_SIZE() be adjusted to work cleanly for zero
+>> sized array elements.
 > 
-> Pretty much all drivers reserve extra 4 bytes for the .1Q header.
-
-Looking over some drivers, as you say, most drivers do it.
-But I couldn't find extra room for vlan header in cxgb.
-
-Also, some drivers don't seem to like this approach...
-bnx2x already reserves 8 bytes for vlans.
-qlge accepts only 1500 or 9000 mtu (and maybe 1500 setting allows up to
-2048 frame size?)
-
+> Anyone with a suggestion?
 > 
-> > If the outer 802.1ad tag is not recognized as a vlan tag by NIC, both
-> > the outer tag and the inner tag are not ethernet header but payload to
-> > the NIC.
-> 
-> But the nic doesn't really care about MTU values itself.  It uses it
-> to compute the frame length that it will support for rx and tx.  That
-> computation is what the above math shows.
-> 
-> So, the nics that do not support .1AD acceleration (the ones you
-> mentioned above), will already account for the .1Q header, but the MTU
-> (payload) needs to increased by 4 bytes to account for .1AD header.
-> We don't have to account for .1Q header again.
+> Please note this is now in Linus' tree, possibly crashing people's boxes...
 
-Fair enough.
-
-Thanks,
-Toshiaki Makita
+I took in the version of the fix I didn't like via Pablo for
+now.
