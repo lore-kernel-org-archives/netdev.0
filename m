@@ -1,33 +1,59 @@
-From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH v3] netconsole: Add tty driver
-Date: Sun, 6 Apr 2014 18:21:00 +0100
-Message-ID: <20140406182100.5206758e@alan.etchedpixels.co.uk>
-References: <20140402185904.GD11734@NewsNow.co.uk>
+From: =?UTF-8?q?Vincent=20Stehl=C3=A9?= <vincent.stehle@laposte.net>
+Subject: [PATCH] cpts: Fix missing includes
+Date: Sun,  6 Apr 2014 19:34:20 +0200
+Message-ID: <1396805660-9807-1-git-send-email-vincent.stehle@laposte.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Matt Mackall <mpm@selenic.com>, linux-kernel@vger.kernel.org,
-	Andreas Schwab <schwab@linux-m68k.org>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Andy Shevchenko <andy.shevchenko@gmail.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiri Pirko <jiri@resnulli.us>, Joe Perches <joe@perches.com>,
-	Dan Aloni <alonid@postram.com>
-To: Struan Bartlett <struan.bartlett@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140402185904.GD11734@NewsNow.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Vincent=20Stehl=C3=A9?= <vincent.stehle@laposte.net>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2 Apr 2014 19:59:04 +0100
-Struan Bartlett <struan.bartlett@gmail.com> wrote:
+The ETH_HLEN and VLAN_HLEN definitions are not in if.h any more. Add th=
+e
+necessary includes to fix the following compilation errors:
 
-> Adds tty driver to netconsole module. 
+  drivers/net/ethernet/ti/cpts.c: In function =E2=80=98cpts_match=E2=80=
+=99:
+  drivers/net/ethernet/ti/cpts.c:266:12: error: =E2=80=98ETH_HLEN=E2=80=
+=99 undeclared (first use in this function)
+  drivers/net/ethernet/ti/cpts.c:266:12: note: each undeclared identifi=
+er is reported only once for each function it appears in
+  drivers/net/ethernet/ti/cpts.c:276:23: error: =E2=80=98VLAN_HLEN=E2=80=
+=99 undeclared (first use in this function)
 
-NAK
+Signed-off-by: Vincent Stehl=C3=A9 <vincent.stehle@laposte.net>
+---
 
-You don't need to add a tty driver to any console to do this. We have a
-ttyprintk driver that works with *any* console today.
 
-Alan
+Hi,
+
+This compilation error can be seen with e.g. arm allmodconfig.
+
+Best regards,
+
+V.
+
+
+ drivers/net/ethernet/ti/cpts.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/c=
+pts.c
+index a3bbf59..2a2f82a 100644
+--- a/drivers/net/ethernet/ti/cpts.c
++++ b/drivers/net/ethernet/ti/cpts.c
+@@ -19,6 +19,8 @@
+  */
+ #include <linux/err.h>
+ #include <linux/if.h>
++#include <linux/if_ether.h>
++#include <linux/if_vlan.h>
+ #include <linux/hrtimer.h>
+ #include <linux/module.h>
+ #include <linux/net_tstamp.h>
+--=20
+1.9.1
