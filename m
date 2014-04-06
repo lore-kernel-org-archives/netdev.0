@@ -1,67 +1,45 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH stable 3.4.y 0/2] gso/gro forwarding changeset
-Date: Sun, 06 Apr 2014 14:16:20 +0100
-Message-ID: <1396790180.22689.122.camel@deadeye.wl.decadent.org.uk>
-References: <1393061606-5422-1-git-send-email-fw@strlen.de>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] rsi: Add missing initialization of ii
+Date: Sun,  6 Apr 2014 15:30:39 +0200
+Message-ID: <1396791040-26816-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-1ipNL0PR3CDZn34x7upB"
-Cc: netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58241 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751502AbaDFNQb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Apr 2014 09:16:31 -0400
-In-Reply-To: <1393061606-5422-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: "John W. Linville" <linville@tuxdriver.com>,
+	Fariya Fatima <fariyaf@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+drivers/net/wireless/rsi/rsi_91x_core.c: In function =E2=80=98rsi_core_=
+determine_hal_queue=E2=80=99:
+drivers/net/wireless/rsi/rsi_91x_core.c:91: warning: =E2=80=98ii=E2=80=99=
+ may be used uninitialized in this function
 
---=-1ipNL0PR3CDZn34x7upB
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+Is zero the correct initialization value?
 
-On Sat, 2014-02-22 at 10:33 +0100, Florian Westphal wrote:
-> Dropped the 2nd patch of the series (addition of netif_skb_dev_features)
-> for the longterm-backport.
->=20
-> The forward path will use 0 feature mask instead.
-> I think it is preferable to keep the changeset smaller for these kernels.
->=20
-> Should apply to 3.2.y as well.
->=20
-> Let me know if you disagree and would like to have netif_skb_dev_features
-> backport too.
+ drivers/net/wireless/rsi/rsi_91x_core.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I've queued these up for 3.2, thanks.
-
-Ben.
-
+diff --git a/drivers/net/wireless/rsi/rsi_91x_core.c b/drivers/net/wire=
+less/rsi/rsi_91x_core.c
+index e89535e86caf..20a62f36e89b 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_core.c
++++ b/drivers/net/wireless/rsi/rsi_91x_core.c
+@@ -88,7 +88,7 @@ static u8 rsi_core_determine_hal_queue(struct rsi_com=
+mon *common)
+ 	bool recontend_queue =3D false;
+ 	u32 q_len =3D 0;
+ 	u8 q_num =3D INVALID_QUEUE;
+-	u8 ii, min =3D 0;
++	u8 ii =3D 0, min =3D 0;
+=20
+ 	if (skb_queue_len(&common->tx_queue[MGMT_SOFT_Q])) {
+ 		if (!common->mgmt_q_block)
 --=20
-Ben Hutchings
-I say we take off; nuke the site from orbit.  It's the only way to be sure.
-
---=-1ipNL0PR3CDZn34x7upB
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAU0FTpOe/yOyVhhEJAQpnFhAAv9zzpYIP4tLUNTF4onSrWIuaA/ivUMcO
-S2R5Xd/sx+LEs2Qjy9ubg7/gAC4XUgGsL+fDwYlHBJK0AEmQnux5JzU2ypHXG8+r
-RgbMjBPJMoe2A9nj1cWFVw28mw/oomgEWAiXyECeT3Y+7hFLsVgsy5QUr1/k7DtL
-0dKwIAx0QDlCa1S4cjlcHwrz0I36WBVv9U2XRpMrhLDAxndlEuukZO6Xt7J2vzwb
-Wf5cjIfm5/pz1nsgnvsN4hvDJGtOGKTwhNikkElxbD6UUkN7oQABdLkQ4WBGI8yf
-NwS2bD7+zyQfM9C0w7adusgHeMUWbNtIFg7glsv60tIw3PkXz4v1ZHDUjJ7LdpPV
-YhS9ogsHwSIxV8Q+E7yA9FHEKqAfM+saeLOZE2z5e5CBdy/M/sIWWTAcd4EIdt9N
-ZrPOHKuw8Y440Uc8oxhb8+fYkToSs+kYTGzYZyH/fP3pzY1EuPp04B2UhVndB7Qm
-x45eD+RwHNXh+d/9bDCYMmDNoBIie+sS9yfLaBQ3huGwzKDsK2qU/+mLRBz2C36j
-jRWUA2laNmTdzFYcX9uUMqrJIOwDgi7Bfq+oOcMBgJSPEbjEMHkK3/Emk48tdjFX
-j9fGB+jB1sgKMChs8I5pz3ac/zT9cZqZ+NoHeN/NZhLdmE6ovUW7TK6ya5T1tom2
-pCRPAlXhYfU=
-=7LbJ
------END PGP SIGNATURE-----
-
---=-1ipNL0PR3CDZn34x7upB--
+1.7.9.5
