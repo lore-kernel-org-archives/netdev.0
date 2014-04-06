@@ -1,264 +1,65 @@
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Subject: [Patch net-next] net/mlx4_core: match pci_device_id including dynids
-Date: Sun,  6 Apr 2014 10:07:30 +0800
-Message-ID: <1396750050-7183-1-git-send-email-weiyang@linux.vnet.ibm.com>
-Cc: Wei Yang <weiyang@linux.vnet.ibm.com>
-To: yevgenyp@mellanox.com, ogerlitz@mellanox.com, amirv@mellanox.com,
-	bhelgaas@google.com, linux-pci@vger.kernel.org,
-	netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-pci-owner@vger.kernel.org>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] staging: r8723au: Fix randconfig build errors
+Date: Sat,  5 Apr 2014 22:48:59 -0500
+Message-ID: <1396756139-26286-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Jes Sorensen <Jes.Sorensen@redhat.com>,
+	kbuild test robot <fengguang.wu@intel.com>, kbuild-all@01.org
+To: gregkh@linuxfoundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f50.google.com ([209.85.219.50]:37551 "EHLO
+	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754132AbaDFDtV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Apr 2014 23:49:21 -0400
+Received: by mail-oa0-f50.google.com with SMTP id i7so5205157oag.37
+        for <netdev@vger.kernel.org>; Sat, 05 Apr 2014 20:49:20 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix issue introduced by commit: 97a5221 "net/mlx4_core: pass
-pci_device_id.driver_data to __mlx4_init_one during reset".
+The kbuild test robot got the following errors for i386-randconfig-c0-04060652:
 
-pci_match_id() just match the static pci_device_id, which may return NULL if
-someone binds the driver to a device manually using
-/sys/bus/pci/drivers/.../new_id.
+ERROR: "wiphy_free" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "bridge_tunnel_header" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "ieee80211_frequency_to_channel" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "cfg80211_rx_mgmt" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "ieee80211_channel_to_frequency" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "cfg80211_mgmt_tx_status" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "rfc1042_header" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "__ieee80211_get_channel" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "wiphy_unregister" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "cfg80211_connect_result" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "cfg80211_michael_mic_failure" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "cfg80211_roamed" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "cfg80211_put_bss" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "wiphy_new" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "wiphy_register" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "cfg80211_inform_bss_width_frame" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "cfg80211_disconnected" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "ieee80211_amsdu_to_8023s" [drivers/staging/rtl8723au/r8723au.ko] undefined!
+ERROR: "cfg80211_scan_done" [drivers/staging/rtl8723au/r8723au.ko] undefined!
 
-This patch wrap up a helper function __mlx4_remove_one() which does the tear
-down function but preserve the drv_data. Functions like
-mlx4_pci_err_detected() and mlx4_restart_one() will call this one with out
-releasing drvdata.
+All of these are fixed by forcing the selection of CFG80211 in Kconfig.
 
-Tested on ConnectX-3.
-
-CC: Bjorn Helgaas <bhelgaas@google.com>
-CC: Amir Vadai <amirv@mellanox.com>
-Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Jes Sorensen <Jes.Sorensen@redhat.com>
+Cc: kbuild test robot <fengguang.wu@intel.com>
+Cc: kbuild-all@01.org
 ---
- drivers/net/ethernet/mellanox/mlx4/main.c |  165 +++++++++++++++--------------
- 1 file changed, 88 insertions(+), 77 deletions(-)
+ drivers/staging/rtl8723au/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index aa54ef7..9dd23e0 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -2268,13 +2268,8 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
- 	/* Allow large DMA segments, up to the firmware limit of 1 GB */
- 	dma_set_max_seg_size(&pdev->dev, 1024 * 1024 * 1024);
- 
--	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
--	if (!priv) {
--		err = -ENOMEM;
--		goto err_release_regions;
--	}
--
--	dev       = &priv->dev;
-+	dev       = pci_get_drvdata(pdev);
-+	priv      = mlx4_priv(dev);
- 	dev->pdev = pdev;
- 	INIT_LIST_HEAD(&priv->ctx_list);
- 	spin_lock_init(&priv->ctx_lock);
-@@ -2453,9 +2448,6 @@ slave_start:
- 	mlx4_sense_init(dev);
- 	mlx4_start_sense(dev);
- 
--	priv->pci_dev_data = pci_dev_data;
--	pci_set_drvdata(pdev, dev);
--
- 	return 0;
- 
- err_port:
-@@ -2520,84 +2512,101 @@ err_disable_pdev:
- 
- static int mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
- {
-+	struct mlx4_priv *priv;
-+	struct mlx4_dev *dev;
-+
- 	printk_once(KERN_INFO "%s", mlx4_version);
- 
-+	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
-+	if (!priv) {
-+		return -ENOMEM;
-+	}
-+
-+	dev       = &priv->dev;
-+	pci_set_drvdata(pdev, dev);
-+	priv->pci_dev_data = id->driver_data;
-+
- 	return __mlx4_init_one(pdev, id->driver_data);
- }
- 
--static void mlx4_remove_one(struct pci_dev *pdev)
-+static void __mlx4_remove_one(struct pci_dev *pdev)
- {
- 	struct mlx4_dev  *dev  = pci_get_drvdata(pdev);
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	int p;
- 
--	if (dev) {
--		/* in SRIOV it is not allowed to unload the pf's
--		 * driver while there are alive vf's */
--		if (mlx4_is_master(dev)) {
--			if (mlx4_how_many_lives_vf(dev))
--				printk(KERN_ERR "Removing PF when there are assigned VF's !!!\n");
--		}
--		mlx4_stop_sense(dev);
--		mlx4_unregister_device(dev);
-+	/* in SRIOV it is not allowed to unload the pf's
-+	 * driver while there are alive vf's */
-+	if (mlx4_is_master(dev)) {
-+		if (mlx4_how_many_lives_vf(dev))
-+			printk(KERN_ERR "Removing PF when there are assigned VF's !!!\n");
-+	}
-+	mlx4_stop_sense(dev);
-+	mlx4_unregister_device(dev);
- 
--		for (p = 1; p <= dev->caps.num_ports; p++) {
--			mlx4_cleanup_port_info(&priv->port[p]);
--			mlx4_CLOSE_PORT(dev, p);
--		}
-+	for (p = 1; p <= dev->caps.num_ports; p++) {
-+		mlx4_cleanup_port_info(&priv->port[p]);
-+		mlx4_CLOSE_PORT(dev, p);
-+	}
- 
--		if (mlx4_is_master(dev))
--			mlx4_free_resource_tracker(dev,
--						   RES_TR_FREE_SLAVES_ONLY);
--
--		mlx4_cleanup_counters_table(dev);
--		mlx4_cleanup_qp_table(dev);
--		mlx4_cleanup_srq_table(dev);
--		mlx4_cleanup_cq_table(dev);
--		mlx4_cmd_use_polling(dev);
--		mlx4_cleanup_eq_table(dev);
--		mlx4_cleanup_mcg_table(dev);
--		mlx4_cleanup_mr_table(dev);
--		mlx4_cleanup_xrcd_table(dev);
--		mlx4_cleanup_pd_table(dev);
-+	if (mlx4_is_master(dev))
-+		mlx4_free_resource_tracker(dev,
-+					   RES_TR_FREE_SLAVES_ONLY);
- 
--		if (mlx4_is_master(dev))
--			mlx4_free_resource_tracker(dev,
--						   RES_TR_FREE_STRUCTS_ONLY);
--
--		iounmap(priv->kar);
--		mlx4_uar_free(dev, &priv->driver_uar);
--		mlx4_cleanup_uar_table(dev);
--		if (!mlx4_is_slave(dev))
--			mlx4_clear_steering(dev);
--		mlx4_free_eq_table(dev);
--		if (mlx4_is_master(dev))
--			mlx4_multi_func_cleanup(dev);
--		mlx4_close_hca(dev);
--		if (mlx4_is_slave(dev))
--			mlx4_multi_func_cleanup(dev);
--		mlx4_cmd_cleanup(dev);
--
--		if (dev->flags & MLX4_FLAG_MSI_X)
--			pci_disable_msix(pdev);
--		if (dev->flags & MLX4_FLAG_SRIOV) {
--			mlx4_warn(dev, "Disabling SR-IOV\n");
--			pci_disable_sriov(pdev);
--		}
-+	mlx4_cleanup_counters_table(dev);
-+	mlx4_cleanup_qp_table(dev);
-+	mlx4_cleanup_srq_table(dev);
-+	mlx4_cleanup_cq_table(dev);
-+	mlx4_cmd_use_polling(dev);
-+	mlx4_cleanup_eq_table(dev);
-+	mlx4_cleanup_mcg_table(dev);
-+	mlx4_cleanup_mr_table(dev);
-+	mlx4_cleanup_xrcd_table(dev);
-+	mlx4_cleanup_pd_table(dev);
- 
--		if (!mlx4_is_slave(dev))
--			mlx4_free_ownership(dev);
-+	if (mlx4_is_master(dev))
-+		mlx4_free_resource_tracker(dev,
-+					   RES_TR_FREE_STRUCTS_ONLY);
- 
--		kfree(dev->caps.qp0_tunnel);
--		kfree(dev->caps.qp0_proxy);
--		kfree(dev->caps.qp1_tunnel);
--		kfree(dev->caps.qp1_proxy);
-+	iounmap(priv->kar);
-+	mlx4_uar_free(dev, &priv->driver_uar);
-+	mlx4_cleanup_uar_table(dev);
-+	if (!mlx4_is_slave(dev))
-+		mlx4_clear_steering(dev);
-+	mlx4_free_eq_table(dev);
-+	if (mlx4_is_master(dev))
-+		mlx4_multi_func_cleanup(dev);
-+	mlx4_close_hca(dev);
-+	if (mlx4_is_slave(dev))
-+		mlx4_multi_func_cleanup(dev);
-+	mlx4_cmd_cleanup(dev);
- 
--		kfree(priv);
--		pci_release_regions(pdev);
--		pci_disable_device(pdev);
--		pci_set_drvdata(pdev, NULL);
-+	if (dev->flags & MLX4_FLAG_MSI_X)
-+		pci_disable_msix(pdev);
-+	if (dev->flags & MLX4_FLAG_SRIOV) {
-+		mlx4_warn(dev, "Disabling SR-IOV\n");
-+		pci_disable_sriov(pdev);
- 	}
-+
-+	if (!mlx4_is_slave(dev))
-+		mlx4_free_ownership(dev);
-+
-+	kfree(dev->caps.qp0_tunnel);
-+	kfree(dev->caps.qp0_proxy);
-+	kfree(dev->caps.qp1_tunnel);
-+	kfree(dev->caps.qp1_proxy);
-+	pci_release_regions(pdev);
-+	pci_disable_device(pdev);
-+}
-+
-+static void mlx4_remove_one(struct pci_dev *pdev)
-+{
-+	struct mlx4_dev  *dev  = pci_get_drvdata(pdev);
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+
-+	__mlx4_remove_one(pdev);
-+	kfree(priv);
-+	pci_set_drvdata(pdev, NULL);
- }
- 
- int mlx4_restart_one(struct pci_dev *pdev)
-@@ -2607,7 +2616,7 @@ int mlx4_restart_one(struct pci_dev *pdev)
- 	int		  pci_dev_data;
- 
- 	pci_dev_data = priv->pci_dev_data;
--	mlx4_remove_one(pdev);
-+	__mlx4_remove_one(pdev);
- 	return __mlx4_init_one(pdev, pci_dev_data);
- }
- 
-@@ -2662,7 +2671,7 @@ MODULE_DEVICE_TABLE(pci, mlx4_pci_table);
- static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
- 					      pci_channel_state_t state)
- {
--	mlx4_remove_one(pdev);
-+	__mlx4_remove_one(pdev);
- 
- 	return state == pci_channel_io_perm_failure ?
- 		PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_NEED_RESET;
-@@ -2670,11 +2679,13 @@ static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
- 
- static pci_ers_result_t mlx4_pci_slot_reset(struct pci_dev *pdev)
- {
--	const struct pci_device_id *id;
--	int ret;
-+	struct mlx4_dev	 *dev  = pci_get_drvdata(pdev);
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	int		  pci_dev_data;
-+	int               ret;
- 
--	id = pci_match_id(mlx4_pci_table, pdev);
--	ret = __mlx4_init_one(pdev, id->driver_data);
-+	pci_dev_data = priv->pci_dev_data;
-+	ret = __mlx4_init_one(pdev, pci_dev_data);
- 
- 	return ret ? PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_RECOVERED;
- }
+diff --git a/drivers/staging/rtl8723au/Kconfig b/drivers/staging/rtl8723au/Kconfig
+index 7f19d15..78e8805 100644
+--- a/drivers/staging/rtl8723au/Kconfig
++++ b/drivers/staging/rtl8723au/Kconfig
+@@ -3,6 +3,7 @@ config R8723AU
+ 	depends on WLAN && USB
+ 	select WIRELESS_EXT
+ 	select WEXT_PRIV
++	select CFG80211
+ 	default n
+ 	---help---
+ 	This option adds the Realtek RTL8723AU USB device such as found in
 -- 
-1.7.9.5
+1.8.1.4
