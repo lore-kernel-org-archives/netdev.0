@@ -1,49 +1,56 @@
 From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: linux-next: Tree for Apr 1 (netfilter)
-Date: Sun, 6 Apr 2014 15:50:04 +0200
-Message-ID: <CAMuHMdXaoUvUButpaDYQh6aj=Zm9GCS7MKFA_-h8GOo1RkOObw@mail.gmail.com>
-References: <20140401183907.a5127cadbe7116261096beaa@canb.auug.org.au>
-	<533B06A7.5010900@infradead.org>
-	<20140401.152203.847120817141929645.davem@davemloft.net>
+Subject: [PATCH] tipc: Let tipc_release() return 0
+Date: Sun,  6 Apr 2014 15:56:14 +0200
+Message-ID: <1396792574-32169-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Randy Dunlap <rdunlap@infradead.org>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	Linux-Next <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20140401.152203.847120817141929645.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Jon Maloy <jon.maloy@ericsson.com>,
+	Allan Stephens <allan.stephens@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 1, 2014 at 9:22 PM, David Miller <davem@davemloft.net> wrote:
-> From: Randy Dunlap <rdunlap@infradead.org>
-> Date: Tue, 01 Apr 2014 11:34:15 -0700
->
->> on x86_64:
->>
->> net/netfilter/xt_connlimit.c: In function 'connlimit_mt_check':
->> net/netfilter/xt_connlimit.c:380:18: warning: division by zero [-Wdiv-by-zero]
->>
->> Maybe just use CONNLIMIT_LOCK_SLOTS instead of ARRAY_SIZE(...).
->
-> I'd rather see that ARRAY_SIZE() be adjusted to work cleanly for zero
-> sized array elements.
+net/tipc/socket.c: In function =E2=80=98tipc_release=E2=80=99:
+net/tipc/socket.c:352: warning: =E2=80=98res=E2=80=99 is used uninitial=
+ized in this function
 
-Anyone with a suggestion?
+Introduced by commit 24be34b5a0c9114541891d29dff1152bb1a8df34 ("tipc:
+eliminate upcall function pointers between port and socket"), which
+removed the sole initializer of "res".
 
-Please note this is now in Linus' tree, possibly crashing people's boxes...
+Just return 0 to fix it.
 
-Gr{oetje,eeting}s,
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ net/tipc/socket.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 29b7f26a12cf..adc12e227303 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -301,7 +301,6 @@ static int tipc_release(struct socket *sock)
+ 	struct tipc_sock *tsk;
+ 	struct tipc_port *port;
+ 	struct sk_buff *buf;
+-	int res;
+=20
+ 	/*
+ 	 * Exit if socket isn't fully initialized (occurs when a failed accep=
+t()
+@@ -349,7 +348,7 @@ static int tipc_release(struct socket *sock)
+ 	sock_put(sk);
+ 	sock->sk =3D NULL;
+=20
+-	return res;
++	return 0;
+ }
+=20
+ /**
+--=20
+1.7.9.5
