@@ -1,56 +1,51 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH] staging: r8723au: Fix randconfig build errors
-Date: Sat, 5 Apr 2014 21:09:36 -0700
-Message-ID: <20140406040936.GA11608@kroah.com>
-References: <1396756139-26286-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: [tipc] dest_name_check() is racy (potential security hole)
+Date: Sun, 6 Apr 2014 05:39:34 +0100
+Message-ID: <20140406043934.GW18016@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- kbuild test robot <fengguang.wu@intel.com>, kbuild-all@01.org,
- Jes Sorensen <Jes.Sorensen@redhat.com>
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jon Maloy <jon.maloy@ericsson.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:44216 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750812AbaDFEjg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Apr 2014 00:39:36 -0400
 Content-Disposition: inline
-In-Reply-To: <1396756139-26286-1-git-send-email-Larry.Finger@lwfinger.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 05, 2014 at 10:48:59PM -0500, Larry Finger wrote:
-> The kbuild test robot got the following errors for i386-randconfig-c0-04060652:
-> 
-> ERROR: "wiphy_free" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "bridge_tunnel_header" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "ieee80211_frequency_to_channel" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "cfg80211_rx_mgmt" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "ieee80211_channel_to_frequency" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "cfg80211_mgmt_tx_status" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "rfc1042_header" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "__ieee80211_get_channel" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "wiphy_unregister" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "cfg80211_connect_result" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "cfg80211_michael_mic_failure" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "cfg80211_roamed" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "cfg80211_put_bss" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "wiphy_new" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "wiphy_register" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "cfg80211_inform_bss_width_frame" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "cfg80211_disconnected" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "ieee80211_amsdu_to_8023s" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> ERROR: "cfg80211_scan_done" [drivers/staging/rtl8723au/r8723au.ko] undefined!
-> 
-> All of these are fixed by forcing the selection of CFG80211 in Kconfig.
-> 
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-> Cc: Jes Sorensen <Jes.Sorensen@redhat.com>
-> Cc: kbuild test robot <fengguang.wu@intel.com>
+	dest_name_check() is called by tipc sendmsg(2).  What it does ends
+with
+        if (!m->msg_iovlen || (m->msg_iov[0].iov_len < sizeof(hdr)))
+                return -EMSGSIZE;
+        if (copy_from_user(&hdr, m->msg_iov[0].iov_base, sizeof(hdr)))
+                return -EFAULT;
+        if ((ntohs(hdr.tcm_type) & 0xC000) && (!capable(CAP_NET_ADMIN)))
+                return -EACCES;
 
-This should have been "Reported-by:"  I'll fix that up by hand...
+        return 0;
+IOW, it checks that iovec we'd been given is large enough to contain
+struct tipc_cfg_msg_hdr and that non-priveleged sender doesn't have
+->tcm_type in that header with bits 14 or 15 set.
+
+According to the comment in front of it, it "prevents restricted configuration
+commands from being issued by unauthorized users".  Makes sense, right?
+Except that it obviously doesn't provide any security whatsoever, because
+the value we'd read from the iovec is immediately discarded and later
+we reread it again.
+
+There is nothing to stop the caller from spawning a threar that would flip
+the bits in question back and forth, while the parent keeps calling sendmsg().
+Sooner or later we will have dest_name_check() pick the harmless value,
+with subsequent memcpy_fromiovecend() picking the modified one.
+
+AFAICS, that part of dest_name_check() must be delayed until tipc_msg_build(),
+when we read that header for real.  Brute-force way to do that would be to
+pass a flag to tipc_msg_build() ("do we want to check tcm_type?") and have it
+set on call chains coming from tipc_send2name() and tipc_multicast().
+
+Again, in the current form the check doesn't do much good; I've no idea
+how much nastiness can be achieved by fooling it, but it *can* be fooled.
+
+Comments?
