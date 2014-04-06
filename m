@@ -1,112 +1,75 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] ipv6: Reparent temporary address(es) if global address
- was deleted from userspace
-Date: Sun, 06 Apr 2014 22:27:03 +0200
-Message-ID: <5341B897.1080105@redhat.com>
-References: <5341A52B.2070207@web.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] decnet: fix possible NULL deref in dnet_select_source()
+Date: Sun, 06 Apr 2014 14:59:14 -0700
+Message-ID: <1396821554.12330.51.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5341A3C1.9060101@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Heiner Kallweit <heiner.kallweit@web.de>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-decnet-user@lists.sourceforge.net,
+	LKML <linux-kernel@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>
+To: Sasha Levin <sasha.levin@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7139 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752445AbaDFU1J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Apr 2014 16:27:09 -0400
-In-Reply-To: <5341A52B.2070207@web.de>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:48459 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752575AbaDFV7Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Apr 2014 17:59:16 -0400
+In-Reply-To: <5341A3C1.9060101@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/06/2014 09:04 PM, Heiner Kallweit wrote:
-> If the kernel takes care of global and temporary addresses it can happen that the global
-> address is deleted from userspace, e.g. by network managers in case the link goes (temporarily) down.
-> In addition to the then orphaned temporary address(es) the next RA will create a new temporary address.
-> Therefore we might end up with more than one non-deprecated temporary address for the same prefix
-> for a longer period of time (>regen_advance). According to RfC 4941 sect. 3.4 this should not happen.
+From: Eric Dumazet <edumazet@google.com>
 
-Nit: your commit description should only be ~75 chars wide max
+dnet_select_source() should make sure dn_ptr is not NULL.
 
-> Fix this by reparenting orphaned temporary addresses.
->
-> Signed-off-by: Heiner Kallweit <heiner.kallweit@web.de>
-> ---
->   net/ipv6/addrconf.c | 34 +++++++++++++++++++++++++++++++---
->   1 file changed, 31 insertions(+), 3 deletions(-)
->
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 6c7fa08..4d5595b 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -2077,14 +2077,34 @@ static void manage_tempaddrs(struct inet6_dev *idev,
->   {
->   	u32 flags;
->   	struct inet6_ifaddr *ift;
-> +	unsigned long regen_advance;
->
->   	read_lock_bh(&idev->lock);
-> +	regen_advance = idev->cnf.regen_max_retry *
-> +			idev->cnf.dad_transmits *
-> +			NEIGH_VAR(idev->nd_parms, RETRANS_TIME) / HZ;
->   	/* update all temporary addresses in the list */
->   	list_for_each_entry(ift, &idev->tempaddr_list, tmp_list) {
->   		int age, max_valid, max_prefered;
-> +		bool reparent;
->
-> -		if (ifp != ift->ifpub)
-> -			continue;
-> +		reparent = false;
+While looking at this decnet code, I believe I found a device
+reference leak, lets fix it as well.
+ 
+Reported-by: Sasha Levin <sasha.levin@oracle.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+It seems this bug is very old, no recent change is involved.
 
-You can collapse initialization where you declare the variable.
+ net/decnet/dn_route.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-> +		spin_lock(&ift->lock);
-> +		if (ifp != ift->ifpub) {
-> +			/* reparent if orphaned temporary address with same
-> +			 * prefix is found
-> +			 */
-> +			if (ipv6_prefix_equal(&ift->addr, &ifp->addr,
-> +					      ift->prefix_len)) {
-> +				in6_ifa_hold(ifp);
-> +				in6_ifa_put(ift->ifpub);
-> +				ift->ifpub = ifp;
-> +				reparent = true;
-> +			} else {
-> +				spin_unlock(&ift->lock);
-> +				continue;
-> +			}
-> +		}
->
->   		/* RFC 4941 section 3.3:
->   		 * If a received option will extend the lifetime of a public
-> @@ -2110,7 +2130,6 @@ static void manage_tempaddrs(struct inet6_dev *idev,
->   		if (prefered_lft > max_prefered)
->   			prefered_lft = max_prefered;
->
-> -		spin_lock(&ift->lock);
->   		flags = ift->flags;
->   		ift->valid_lft = valid_lft;
->   		ift->prefered_lft = prefered_lft;
-> @@ -2119,6 +2138,15 @@ static void manage_tempaddrs(struct inet6_dev *idev,
->   			ift->flags &= ~IFA_F_DEPRECATED;
->
->   		spin_unlock(&ift->lock);
-> +		/* Don't create a temporary address if we reparented one which
-> +		 * is prefered more than regen_advance
-
-Nit: s/prefered/preferred/
-
-> +		 */
-> +		if (reparent && prefered_lft > regen_advance) {
-> +			create = false;
-> +			pr_info("%s: reparent orphaned temporary address\n",
-> +				__func__);
-
-The pr_info() should ideally be removed (or at least made pr_debug()).
-
-> +		}
-> +
->   		if (!(flags&IFA_F_TENTATIVE))
->   			ipv6_ifa_notify(0, ift);
->   	}
->
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index ce0cbbfe0f43..4d1608dfb0bd 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -923,6 +923,8 @@ static __le16 dnet_select_source(const struct net_device *dev, __le16 daddr, int
+ 
+ 	rcu_read_lock();
+ 	dn_db = rcu_dereference(dev->dn_ptr);
++	if (!dn_db)
++		goto out;
+ 	for (ifa = rcu_dereference(dn_db->ifa_list);
+ 	     ifa != NULL;
+ 	     ifa = rcu_dereference(ifa->ifa_next)) {
+@@ -938,6 +940,7 @@ static __le16 dnet_select_source(const struct net_device *dev, __le16 daddr, int
+ 		if (best_match == 0)
+ 			saddr = ifa->ifa_local;
+ 	}
++out:
+ 	rcu_read_unlock();
+ 
+ 	return saddr;
+@@ -1034,7 +1037,6 @@ source_ok:
+ 		if (dev_out)
+ 			dev_put(dev_out);
+ 		dev_out = init_net.loopback_dev;
+-		dev_hold(dev_out);
+ 		if (!fld.daddr) {
+ 			fld.daddr =
+ 			fld.saddr = dnet_select_source(dev_out, 0,
+@@ -1042,6 +1044,7 @@ source_ok:
+ 			if (!fld.daddr)
+ 				goto out;
+ 		}
++		dev_hold(dev_out);
+ 		fld.flowidn_oif = LOOPBACK_IFINDEX;
+ 		res.type = RTN_LOCAL;
+ 		goto make_route;
