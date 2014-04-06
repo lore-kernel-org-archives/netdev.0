@@ -1,75 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] decnet: fix possible NULL deref in dnet_select_source()
-Date: Sun, 06 Apr 2014 14:59:14 -0700
-Message-ID: <1396821554.12330.51.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5341A3C1.9060101@oracle.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: nl802154 UAPI definitions
+Date: Sun, 06 Apr 2014 23:22:15 +0100
+Message-ID: <1396822935.13361.9.camel@deadeye.wl.decadent.org.uk>
+References: <1396271873-10300-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+	 <1396271873-10300-3-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-decnet-user@lists.sourceforge.net,
-	LKML <linux-kernel@vger.kernel.org>,
-	Dave Jones <davej@redhat.com>
-To: Sasha Levin <sasha.levin@oracle.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Ze560DAGDKu2+wAVPBiO"
+Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net,
+	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:48459 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752575AbaDFV7Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Apr 2014 17:59:16 -0400
-In-Reply-To: <5341A3C1.9060101@oracle.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:59284 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753726AbaDFWW1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Apr 2014 18:22:27 -0400
+In-Reply-To: <1396271873-10300-3-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
 
-dnet_select_source() should make sure dn_ptr is not NULL.
+--=-Ze560DAGDKu2+wAVPBiO
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-While looking at this decnet code, I believe I found a device
-reference leak, lets fix it as well.
- 
-Reported-by: Sasha Levin <sasha.levin@oracle.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
-It seems this bug is very old, no recent change is involved.
+On Mon, 2014-03-31 at 15:17 +0200, Phoebe Buckheister wrote:
+[...]
+> --- a/include/linux/nl802154.h
+> +++ b/include/linux/nl802154.h
+> @@ -132,7 +132,7 @@ enum {
+>  	IEEE802154_ADD_IFACE,
+>  	IEEE802154_DEL_IFACE,
+> =20
+> -	IEEE802154_SET_PHYPARAMS,
+> +	IEEE802154_SET_MACPARAMS,
+> =20
+>  	__IEEE802154_CMD_MAX,
+>  };
+[...]
 
- net/decnet/dn_route.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+By the way, this header file belongs in include/uapi/linux (except for
+the ieee802154_policy declaration).
 
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index ce0cbbfe0f43..4d1608dfb0bd 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -923,6 +923,8 @@ static __le16 dnet_select_source(const struct net_device *dev, __le16 daddr, int
- 
- 	rcu_read_lock();
- 	dn_db = rcu_dereference(dev->dn_ptr);
-+	if (!dn_db)
-+		goto out;
- 	for (ifa = rcu_dereference(dn_db->ifa_list);
- 	     ifa != NULL;
- 	     ifa = rcu_dereference(ifa->ifa_next)) {
-@@ -938,6 +940,7 @@ static __le16 dnet_select_source(const struct net_device *dev, __le16 daddr, int
- 		if (best_match == 0)
- 			saddr = ifa->ifa_local;
- 	}
-+out:
- 	rcu_read_unlock();
- 
- 	return saddr;
-@@ -1034,7 +1037,6 @@ source_ok:
- 		if (dev_out)
- 			dev_put(dev_out);
- 		dev_out = init_net.loopback_dev;
--		dev_hold(dev_out);
- 		if (!fld.daddr) {
- 			fld.daddr =
- 			fld.saddr = dnet_select_source(dev_out, 0,
-@@ -1042,6 +1044,7 @@ source_ok:
- 			if (!fld.daddr)
- 				goto out;
- 		}
-+		dev_hold(dev_out);
- 		fld.flowidn_oif = LOOPBACK_IFINDEX;
- 		res.type = RTN_LOCAL;
- 		goto make_route;
+Ben.
+
+--=20
+Ben Hutchings
+I say we take off; nuke the site from orbit.  It's the only way to be sure.
+
+--=-Ze560DAGDKu2+wAVPBiO
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAU0HTl+e/yOyVhhEJAQptNA//Wtlyqvwk5G2yELClPC7/LJA4WrwEaCk0
+JbnqB5p0DrFlthRq9oMW40GEEk3oSM5XY0XYtLBP0JwiR3y7S/tqkWAS5TUvBBMA
+YGspxvTUR/UBbdRARAgERegKpEopliBTFE5Owt7DY0hbdfNJl+Wdfw+ecseVpbyz
+vDwJY9BsAeiTOXAnJQP9mS+uDp06opgaVA/HlWwhs15vUiuSxBl9krdJCOpoQ/2i
+2+o03qimvtQEP2fQXnD29y545GpazRzIoSQ7BzdYu550g3NKLg93im7QKTYiHtiI
+g1U2iXeirVC5g7pY9Sjmwuw5ZbiXqQf6WgNu5GD7xeH52RweSYV33B68rQU5xeZS
+fRHmgWzF1rP8yZlrcg8GtmeMUCqvO8xunafHU7WdtL3LODfQFlNO9NJd37RvjCxC
+1mrIaFahPi4Hg/aNVDhMFV0gzeekMSeP4qKx6KSzd6B9+TzwDOQWG74SUcz7/HpC
+mkBQTokvw7HTqh/D7MBozL+KZsYAZuyuLix0q7e3SwZ9AJ9KUcSHj8Ga0uRAc+Te
+/jR+i4soYSdKUXSUj/neOALfXQ56DwZG9QG4xebWsn2rujFdbf1Iloq2IUIlgpqQ
+OqlF3i1W1agOd3/Op1IsHfaD3e03k5Xch4R4dUwSaydQwRDYbbItQS4DiJTDJTDN
+2NCDTiBnpKk=
+=7+sA
+-----END PGP SIGNATURE-----
+
+--=-Ze560DAGDKu2+wAVPBiO--
