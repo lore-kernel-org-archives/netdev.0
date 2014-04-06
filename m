@@ -1,51 +1,74 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [tipc] dest_name_check() is racy (potential security hole)
-Date: Sun, 6 Apr 2014 05:39:34 +0100
-Message-ID: <20140406043934.GW18016@ZenIV.linux.org.uk>
+From: Balakumaran Kannan <kumaran.4353@gmail.com>
+Subject: Re: [PATCH net IPv6]: Fix maximum IPv6 address limit violation
+Date: Sun, 06 Apr 2014 11:57:02 +0530
+Message-ID: <5340F3B6.2050105@gmail.com>
+References: <533FEE9B.5090806@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jon Maloy <jon.maloy@ericsson.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:44216 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750812AbaDFEjg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Apr 2014 00:39:36 -0400
-Content-Disposition: inline
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:46843 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751292AbaDFG1G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Apr 2014 02:27:06 -0400
+In-Reply-To: <533FEE9B.5090806@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	dest_name_check() is called by tipc sendmsg(2).  What it does ends
-with
-        if (!m->msg_iovlen || (m->msg_iov[0].iov_len < sizeof(hdr)))
-                return -EMSGSIZE;
-        if (copy_from_user(&hdr, m->msg_iov[0].iov_base, sizeof(hdr)))
-                return -EFAULT;
-        if ((ntohs(hdr.tcm_type) & 0xC000) && (!capable(CAP_NET_ADMIN)))
-                return -EACCES;
+Hi Hannes,
 
-        return 0;
-IOW, it checks that iovec we'd been given is large enough to contain
-struct tipc_cfg_msg_hdr and that non-priveleged sender doesn't have
-->tcm_type in that header with bits 14 or 15 set.
+>> Kernel doesn't check with max IPv6 address limit before adding IPv6 temporary
+>> address.
+>>
+>> Security fix CVE-2013-0343 removes max_addresses check from ipv6_create_tempaddr
+>> function as this is handled before in addrconf_prefix_rcv function. But
+>> addrconf_prefix_rcv does max_addresses check only before adding MAC based RA
+>> address and if limit is already reached, it stops processing the prefix.
+>>
+>> When IPv6 privacy extension is enabled, two addresses will be created for a
+>> new prefix received through RA. So if a machine has (max_addresses - 1) number
+>> of  IPv6 addresses, after receiving an RA with new prefix the machine will have
+>> (max_addresses + 1) number of IPv6 addresses.
+>>
+>> So it is better to use a new prefix only if two IPv6 address slots available
+>> in case IPv6 privacy extension is enabled.
+>
+> When I removed the check I did not think about any reason why the
+> max_addresses must count exact. It is merely there to prevent DoS attacks.
+> Is there a reason to revisit this? We don't care about locally added
+> addresses and I decided to do so for temporary addresses, too, because
+> only some small number will ever be generated for an autoconfigured one.
+>
+> Actually when rolling over privacy addresses we generate new ones before
+> the old ones expire, so there could be more of those. This depends on
+> the setting of the timers.
+>
+> IMHO we don't need this additional check and complexity or this there
+> a reason I don't currently see?
+>
+>Thanks for the submission,
+>
+>  Hannes
 
-According to the comment in front of it, it "prevents restricted configuration
-commands from being issued by unauthorized users".  Makes sense, right?
-Except that it obviously doesn't provide any security whatsoever, because
-the value we'd read from the iovec is immediately discarded and later
-we reread it again.
+Thanks for the explanation. I agree with your argument that the reason behind
+max_addresses is to avoid DOS attack. But my humble opinion is when we impose
+some constrains, we must adhere to that. I don't think adding tolerance to an
+integer limit is a good policy.
 
-There is nothing to stop the caller from spawning a threar that would flip
-the bits in question back and forth, while the parent keeps calling sendmsg().
-Sooner or later we will have dest_name_check() pick the harmless value,
-with subsequent memcpy_fromiovecend() picking the modified one.
+And before the security fix, there was an additional check while creating
+temporary address. I thought this additional check is a better way and try to
+make the code behave similar.
 
-AFAICS, that part of dest_name_check() must be delayed until tipc_msg_build(),
-when we read that header for real.  Brute-force way to do that would be to
-pass a flag to tipc_msg_build() ("do we want to check tcm_type?") and have it
-set on call chains coming from tipc_send2name() and tipc_multicast().
+But anyway the impact of this is very minimal or no impact at all. Thats why I
+kept the severity to less. I see this patch more policy oriented than technical. So
+either accepting or rejecting this is depending on 'how we code' than 'what we
+code'.
 
-Again, in the current form the check doesn't do much good; I've no idea
-how much nastiness can be achieved by fooling it, but it *can* be fooled.
+Once again thanks for the detailed explanation.
 
-Comments?
+Regards,
+K.Balakumaran
