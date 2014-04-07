@@ -1,49 +1,66 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH] net: sched: dev_deactivate_many(): use msleep(1) instead
- of yield() to wait for outstanding qdisc_run callsb
-Date: Mon, 7 Apr 2014 13:24:13 +0200
-Message-ID: <20140407112413.GI11096@twins.programming.kicks-ass.net>
-References: <20140402110743.GG27965@twins.programming.kicks-ass.net>
- <1396437459.3989.39.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140404151942.GI10526@twins.programming.kicks-ass.net>
- <20140404.112850.1541183418380443600.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2] macvlan: Move broadcasts into a work queue
+Date: Mon, 07 Apr 2014 07:07:42 -0700
+Message-ID: <1396879662.12330.63.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <<20140407075347.GA26461@gondor.apana.org.au>
+	 <E1WX4P2-0006wA-9Q@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, tglx@linutronix.de, ben@decadent.org.uk,
-	mkl@pengutronix.de, linux-rt-users@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kernel@pengutronix.de
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140404.112850.1541183418380443600.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:57194 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755182AbaDGOHo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 10:07:44 -0400
+Received: by mail-pa0-f46.google.com with SMTP id kx10so6731983pab.5
+        for <netdev@vger.kernel.org>; Mon, 07 Apr 2014 07:07:43 -0700 (PDT)
+In-Reply-To: <E1WX4P2-0006wA-9Q@gondolin.me.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 04, 2014 at 11:28:50AM -0400, David Miller wrote:
-> From: Peter Zijlstra <peterz@infradead.org>
-> Date: Fri, 4 Apr 2014 17:19:42 +0200
+On Mon, 2014-04-07 at 15:55 +0800, Herbert Xu wrote:
+> Currently broadcasts are handled in network RX context, where
+> the packets are sent through netif_rx.  This means that the number
+> of macvlans will be constrained by the capacity of netif_rx.
 > 
-> > And the above loop in tcp_output() is a plain memory deadlock, you
-> > should not loop on allocations like that. If the allocation fails;
-> > propagate the error.
+> For example, setting up 4096 macvlans practically causes all
+> broadcast packets to be dropped as the default netif_rx queue
+> size simply can't handle 4096 skbs being stuffed into it all
+> at once.
 > 
-> There is nothing to "propagate" it to.  We have no "event" that will
-> trigger so that we have a second chance to send the FIN out, it really
-> must go out before we progress any further at this stage.
+> Fundamentally, we need to ensure that the amount of work handled
+> in each netif_rx backlog run is constrained.  As broadcasts are
+> anything but constrained, it either needs to be limited per run
+> or moved to process context.
+> 
+> This patch picks the second option and moves all broadcast handling
+> bar the trivial case of packets going to a single interface into
+> a work queue.  Obviously there also needs to be a limit on how
+> many broadcast packets we postpone in this way.  I've arbitrarily
+> chosen tx_queue_len of the master device as the limit (act_mirred
+> also happens to use this parameter in a similar way).
+> 
+> In order to ensure we don't exceed the backlog queue we will use
+> netif_rx_ni instead of netif_rx for broadcast packets.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> ---
+> 
 
->From what I remember of TCP/IP the FIN packet is used once per
-connection; to terminate said connection. So if we pre-allocate one per
-connection, at establishment time (where we can still easily fail) we
-should be good and safe.
+Hi Herbert.
 
-Now, I suppose there's valid arguments against this -- wasted memory
-being one I suspect.
+I suppose its a net-next material ?
 
-Also, seeing how this code has basically been this way forever and has
-not caused (afaik) any actual memory deadlocks (they're hard anyway). We
-might just get away with not touching it.
+Memory allocations (one incoming message -> ~4096 duplications) probably
+should use GFP_KERNEL. This might need a change from rcu to simple mutex
+for macvlan_broadcast() scan of all macvlans.
 
-That said, at the very least we want a comment here stating that this is
-a potential memory deadlock and why the alternatives aren't any good, so
-that future readers (possibly us again) know this has been considered.
+cond_resched() could help macvlan_process_broadcast() to not hog cpu.
+
+Anyway, 4.000 incoming messages are duplicated into 16.000.000 messages,
+it takes half a minute to process on a single cpu. You might need
+multiple workqueue to split the load on all online cpus ;)
+
+Thanks !
