@@ -1,56 +1,42 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] net/at91_ether: avoid NULL pointer dereference
-Date: Mon, 7 Apr 2014 09:06:54 +0200
-Message-ID: <53424E8E.6030908@atmel.com>
-References: <1396809464-22471-1-git-send-email-gilles.chanteperdrix@xenomai.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [0/2] macvlan: Handle broadcasts in work queue
+Date: Mon, 7 Apr 2014 15:53:47 +0800
+Message-ID: <20140407075347.GA26461@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-To: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>,
-	<netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.243]:11229 "EHLO
-	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754924AbaDGHG5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 03:06:57 -0400
-In-Reply-To: <1396809464-22471-1-git-send-email-gilles.chanteperdrix@xenomai.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:41663 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750863AbaDGHy1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 03:54:27 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/04/2014 20:37, Gilles Chanteperdrix :
-> The at91_ether driver calls macb_mii_init passing a 'struct macb'
-> structure whose tx_clk member is initialized to 0. However,
-> macb_handle_link_change() expects tx_clk to be the result of
-> a call to clk_get, and so IS_ERR(tx_clk) to be true if the clock
-> is invalid. This causes an oops when booting Linux 3.14 on the
-> csb637 board. The following changes avoids this.
-> 
-> Signed-off-by: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
+Hi:
 
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+These two patches fix a problem where the macvlan driver tries
+to do too much work in netif_receive_skb.  In particular, for
+broadcasts it'll send one skb to each macvlan interface all
+within a single netif_receive_skb call.  This is way too much
+for netif_rx to handle once the number of macvlans exceeds a
+certain level (low thousands).  Even if netif_rx could handle
+it, doing this amount of work in a single netif_receive_skb
+call seriously skews the balance of the network stack.
 
-Thanks for this fix. Bye,
+These patches fix this by moving broadcasts to process context
+so that the scheduler can deal with the fairness issue.  The
+immediate problem of the netif_rx limit is handled by using
+netif_rx_ni.
 
-> ---
->  drivers/net/ethernet/cadence/at91_ether.c |    3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-> index ce75de9..4a79eda 100644
-> --- a/drivers/net/ethernet/cadence/at91_ether.c
-> +++ b/drivers/net/ethernet/cadence/at91_ether.c
-> @@ -342,6 +342,9 @@ static int __init at91ether_probe(struct platform_device *pdev)
->  	}
->  	clk_enable(lp->pclk);
->  
-> +	lp->hclk = ERR_PTR(-ENOENT);
-> +	lp->tx_clk = ERR_PTR(-ENOENT);
-> +
->  	/* Install the interrupt handler */
->  	dev->irq = platform_get_irq(pdev, 0);
->  	res = devm_request_irq(&pdev->dev, dev->irq, at91ether_interrupt, 0, dev->name, dev);
-> 
+Similar issues exist elsewhere in our stack regarding broadcasts,
+e.g., the bridge driver.  Luckily, with the bridge driver at
+least we happen to have a limit of 256 ports per bridge.  Still,
+doing 256 actions in one netif_receive_skb is less than ideal.
 
-
+Cheers,
 -- 
-Nicolas Ferre
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
