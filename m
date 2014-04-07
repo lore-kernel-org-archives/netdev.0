@@ -1,44 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next-next 5/6] net: Call skb_checksum_init in IPv6
-Date: Mon, 07 Apr 2014 13:15:12 -0400 (EDT)
-Message-ID: <20140407.131512.2218385912431719305.davem@davemloft.net>
-References: <alpine.DEB.2.02.1404041721050.21509@tomh.mtv.corp.google.com>
+Subject: Re: [PATCH net-next 6/6] net: Implmement RFC 6936 (zero RX csums
+ for UDP/IPv6)
+Date: Mon, 07 Apr 2014 13:16:33 -0400 (EDT)
+Message-ID: <20140407.131633.1635128478858805272.davem@davemloft.net>
+References: <alpine.DEB.2.02.1404041720560.21339@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55107 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55121 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755553AbaDGRPN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 13:15:13 -0400
-In-Reply-To: <alpine.DEB.2.02.1404041721050.21509@tomh.mtv.corp.google.com>
+	with ESMTP id S1755356AbaDGRQe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 13:16:34 -0400
+In-Reply-To: <alpine.DEB.2.02.1404041720560.21339@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tom Herbert <therbert@google.com>
-Date: Fri, 4 Apr 2014 17:28:09 -0700 (PDT)
+Date: Fri, 4 Apr 2014 17:28:24 -0700 (PDT)
 
-> @@ -62,6 +62,14 @@ __sum16 csum_ipv6_magic(const struct in6_addr *saddr,
->  EXPORT_SYMBOL(csum_ipv6_magic);
->  #endif
->  
-> +__wsum ip6_pseudo_compute(struct sk_buff *skb, int proto)
-> +{
-> +	return ~csum_unfold(csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
-> +					    &ipv6_hdr(skb)->daddr,
-> +					    skb->len, proto, 0));
-> +}
-> +EXPORT_SYMBOL(ip6_pseudo_compute);
+> RFC 6936 relaxes the requirement of RFC 2460 that UDP/IPv6 packets which
+> are received with a zero UDP checksum value must be dropped. RFC 6936
+> allow zero checksums to support tunnels over UDP.
+> 
+> This patch adds a new socket option UDP_CHECK6_ZERO_OKAY whcih can be
+> set on a UDP socket to indicate that a zero checksum is acceptable
+> (e.g. the socket is for a tunnel). The ip6 checksum and UDP receive
+> functions were updated accordingly to deal with this.
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-Similarly to the ipv4 case this should really be inline.
+I see you reply to this later and say we can use sk_no_check.
 
-I see what the problem is, you've made this now a callback so now it
-can't be really inlined any more.
+Are you really sure?  This might create a surprise for someone
+inadvertantly setting that now and expecting it to have a very
+specific effect only for ipv4 UDP sockets.
 
-That's really a terrible negative to this set of changes, please see
-if you can avoid that and inline all of this exactly how it is done
-now in the input paths.
-
-Thanks.
+The safest thing to do is to create the new option, then there
+is no discrepancy.
