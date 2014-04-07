@@ -1,41 +1,61 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] pktgen: fix xmit test for BQL enabled devices
-Date: Mon,  7 Apr 2014 17:18:30 +0200
-Message-ID: <1396883910-3064-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
-To: davem@davemloft.net
+From: Tobias Brunner <tobias@strongswan.org>
+Subject: Problems with fragments since gso skb forwarding changes in virtual
+ environment
+Date: Mon, 07 Apr 2014 18:04:42 +0200
+Message-ID: <5342CC9A.6040800@strongswan.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Marcelo Ricardo Leitner <mleitner@redhat.com>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44461 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753057AbaDGPSk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Apr 2014 11:18:40 -0400
+Received: from sifsv-80046.hsr.ch ([152.96.80.46]:42830 "EHLO
+	mail.strongswan.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1751938AbaDGQN1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 12:13:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Similarly as in commit 8e2f1a63f221 ("packet: fix packet_direct_xmit
-for BQL enabled drivers"), we test for __QUEUE_STATE_STACK_XOFF bit
-in pktgen's xmit, which would not fully fill the device's TX ring for
-BQL drivers that use netdev_tx_sent_queue(). Fix is to use, similarly
-as we do in packet sockets, netif_xmit_frozen_or_drv_stopped() test.
+Hi Florian et al,
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Eric Dumazet <edumazet@google.com>
----
- net/core/pktgen.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+We noticed a problem with fragmented packets in the KVM/libvirt-based
+strongSwan integration test environment [1] with guest kernels that
+include the following commit:
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index d0dac57..d068ec2 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -3340,7 +3340,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 
- 	__netif_tx_lock_bh(txq);
- 
--	if (unlikely(netif_xmit_frozen_or_stopped(txq))) {
-+	if (unlikely(netif_xmit_frozen_or_drv_stopped(txq))) {
- 		ret = NETDEV_TX_BUSY;
- 		pkt_dev->last_ok = 0;
- 		goto unlock;
--- 
-1.7.11.7
+	net: ip, ipv6: handle gso skbs in forwarding path
+	fe6cc55f3a9a053482a76f5a6b2257cee51b4663
+
+The network topology in test scenarios that trigger the problem is as
+follows:
+
+	Host A - br1 - Router R - br2 - Host B
+
+Where the two hosts and the router are virtual guests connected via
+bridges all created via libvirt (see [2] for the XML config files).  The
+guest's network interfaces all use virtio.
+
+If the router runs with a kernel that includes the commit above, packets
+sent from A to B that exceed the MTU (1500 in this case) will be split
+into fragments when leaving R.  These fragment skbs get defragmented by
+the host kernel's nf_defrag_ipv4 module while being forwarded on br2.
+
+This poses a problem.  Because the fragment skbs are not GSO, neither is
+the defragmented skb.  Hence the packets are dropped just before leaving
+the bridge, as is_skb_forwardable() will return false unless a too large
+skb is actually GSO (this is the same for older host kernels, where the
+check is directly done in br_forward.c).
+
+Without the commit, and between A and R even with it (because it only
+affects forwarding), the skbs are GSO throughout and transmitted from A
+to B without ever actually being fragmented.
+
+Any ideas how to fix this properly?  That is, without just reverting
+parts of your commit for our guest kernels.
+
+Regards,
+Tobias
+
+[1] http://wiki.strongswan.org/projects/strongswan/wiki/TestingEnvironment
+[2] http://git.strongswan.org/?p=strongswan.git;a=tree;f=testing/config/kvm
