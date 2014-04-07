@@ -1,55 +1,101 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: Inconsistent perf top output
-Date: Sun, 06 Apr 2014 21:10:34 -0700
-Message-ID: <87ioqlkced.fsf@tassilo.jf.intel.com>
-References: <645781396449095@web21h.yandex.ru>
+From: Heiner Kallweit <heiner.kallweit@web.de>
+Subject: [PATCH v2] ipv6: Reparent temporary address(es) if global address
+ was, deleted from userspace
+Date: Mon, 07 Apr 2014 07:43:12 +0200
+Message-ID: <53423AF0.5080308@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-perf-users@vger.kernel.org, netdev@vger.kernel.org
-To: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
-Return-path: <linux-perf-users-owner@vger.kernel.org>
-In-Reply-To: <645781396449095@web21h.yandex.ru> (Oleg A. Arkhangelsky's
-	message of "Wed, 02 Apr 2014 18:31:35 +0400")
-Sender: linux-perf-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.web.de ([212.227.15.4]:59933 "EHLO mout.web.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750743AbaDGFn1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Apr 2014 01:43:27 -0400
+Received: from [192.168.178.101] ([84.142.80.96]) by smtp.web.de (mrweb101)
+ with ESMTPSA (Nemesis) id 0MPYB3-1WbhAV0Caf-004jIK for
+ <netdev@vger.kernel.org>; Mon, 07 Apr 2014 07:43:26 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru> writes:
+If the kernel takes care of global and temporary addresses it can happen
+that the global address is deleted from userspace,
+e.g. by network managers in case the link goes (temporarily) down.
+In addition to the then orphaned temporary address(es) the next RA will
+create a new temporary address. Therefore we might end up with more than
+one non-deprecated temporary address for the same prefix for a longer
+period of time (>regen_advance). According to RfC4941 sect. 3.4 this
+should not happen.
 
-Better asked on netdev. Copied here. It's unlikely to be a perf problem.
-You better specify what kernel version you have.
+Fix this by reparenting orphaned temporary addresses.
 
-> Hello,
->
-> I'm profiling Linux IP packet forwarding performance. In common case I see this
-> functions eating most of CPU cycles.
->
-> 13735.00 22.5% build_skb  
-> 5138.00   8.4% ipt_do_table 
-> 4750.00   7.8% fib_table_lookup
-> 3519.00   5.8% ixgbe_clean_rx_irq
-> 2836.00   4.6% nf_iterate
-> 1530.00   2.5% dev_queue_xmit
->
-> Looks good. But accidentally I run tcpdump program on one of the NICs related
-> to my test. After killing tcpdump I see that top is different:
->
-> 6362.00 10.3% fib_table_lookup
-> 6227.00 10.1% ipt_do_table
-> 4300.00  7.0% ixgbe_clean_rx_irq
-> 3771.00  6.1% nf_iterate
-> 3284.00  5.3% build_skb
-> 2179.00  3.5% ixgbe_xmit_frame_ring
->
-> Dramatic change in build_skb() cpu cycles. But tcpdump is not active anymore.
-> More than this, if I stop pktgen on traffic generator PC for a few seconds and
-> start it again without any other changes, I see that build_skb() is top offender
-> again. Running tcpdump again and killing it move fib_table_lookup() or
-> ipt_do_table() (they are pretty same in cpu cycles) to the top. So this behavior
-> is reproducible.
->
-> I just have no sane explanation to such strange behavior. Maybe someone have?
->
-> Thank you!
+v2: style fixes
 
+Signed-off-by: Heiner Kallweit <heiner.kallweit@web.de>
+---
+ net/ipv6/addrconf.c | 30 +++++++++++++++++++++++++++---
+ 1 file changed, 27 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 6c7fa08..8072968 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2077,14 +2077,33 @@ static void manage_tempaddrs(struct inet6_dev *idev,
+ {
+ 	u32 flags;
+ 	struct inet6_ifaddr *ift;
++	unsigned long regen_advance;
+ 
+ 	read_lock_bh(&idev->lock);
++	regen_advance = idev->cnf.regen_max_retry *
++			idev->cnf.dad_transmits *
++			NEIGH_VAR(idev->nd_parms, RETRANS_TIME) / HZ;
+ 	/* update all temporary addresses in the list */
+ 	list_for_each_entry(ift, &idev->tempaddr_list, tmp_list) {
+ 		int age, max_valid, max_prefered;
++		bool reparent = false;
+ 
+-		if (ifp != ift->ifpub)
+-			continue;
++		spin_lock(&ift->lock);
++		if (ifp != ift->ifpub) {
++			/* reparent if orphaned temporary address with same
++			 * prefix is found
++			 */
++			if (ipv6_prefix_equal(&ift->addr, &ifp->addr,
++					      ift->prefix_len)) {
++				in6_ifa_hold(ifp);
++				in6_ifa_put(ift->ifpub);
++				ift->ifpub = ifp;
++				reparent = true;
++			} else {
++				spin_unlock(&ift->lock);
++				continue;
++			}
++		}
+ 
+ 		/* RFC 4941 section 3.3:
+ 		 * If a received option will extend the lifetime of a public
+@@ -2110,7 +2129,6 @@ static void manage_tempaddrs(struct inet6_dev *idev,
+ 		if (prefered_lft > max_prefered)
+ 			prefered_lft = max_prefered;
+ 
+-		spin_lock(&ift->lock);
+ 		flags = ift->flags;
+ 		ift->valid_lft = valid_lft;
+ 		ift->prefered_lft = prefered_lft;
+@@ -2119,6 +2137,12 @@ static void manage_tempaddrs(struct inet6_dev *idev,
+ 			ift->flags &= ~IFA_F_DEPRECATED;
+ 
+ 		spin_unlock(&ift->lock);
++		/* Don't create a temporary address if we reparented one which
++		 * is preferred more than regen_advance
++		 */
++		if (reparent && prefered_lft > regen_advance)
++			create = false;
++
+ 		if (!(flags&IFA_F_TENTATIVE))
+ 			ipv6_ifa_notify(0, ift);
+ 	}
 -- 
-ak@linux.intel.com -- Speaking for myself only
+1.9.1.315.g3f09db0.dirty
