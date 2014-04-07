@@ -1,46 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net IPv6]: Fix maximum IPv6 address limit violation
-Date: Mon, 07 Apr 2014 15:06:11 -0400 (EDT)
-Message-ID: <20140407.150611.1998010372710875030.davem@davemloft.net>
-References: <533FEE9B.5090806@gmail.com>
+Subject: Re: net/l2tp/l2tp_ppp.c should take pmtu from tunnel socket
+Date: Mon, 07 Apr 2014 15:07:30 -0400 (EDT)
+Message-ID: <20140407.150730.744205365492439471.davem@davemloft.net>
+References: <CAP6LPsDCgCCxRhF4Pc+JZu_ZRou9RJ6SEEyk6Sa2sxtbqs_Gog@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
-	linux-kernel@vger.kernel.org
-To: kumaran.4353@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <533FEE9B.5090806@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: dmgenp@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57114 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754711AbaDGTHb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 15:07:31 -0400
+In-Reply-To: <CAP6LPsDCgCCxRhF4Pc+JZu_ZRou9RJ6SEEyk6Sa2sxtbqs_Gog@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Balakumaran Kannan <kumaran.4353@gmail.com>
-Date: Sat, 05 Apr 2014 17:22:59 +0530
+From: Dmitry Petukhov <dmgenp@gmail.com>
+Date: Sun, 6 Apr 2014 00:58:27 +0600
 
-> +#ifdef CONFIG_IPV6_PRIVACY
-> +           /* When IPv6 privacy extension is enabled, there must
-> +            * be two IPv6 address slots available.
-> +            * - One for MAC based address
-> +            * - Another for temporary address
-> +            */
-> +           if (max_addresses > 1)
-> +               max_addresses--;
-> +#endif
->             if (!max_addresses ||
->                 ipv6_count_addresses(in6_dev) < max_addresses)
->                 ifp = ipv6_add_addr(in6_dev, &addr, NULL,
-> -- 
-> 1.7.9.5
+> currently when it tries to get PMTU, it does
 > 
+> dst = sk_dst_get(sk);
+> ...
+> u32 pmtu = dst_mtu(__sk_dst_get(sk));
+> 
+> where sk represents PPPoX socket
+> 
+> it should use tunnel UDP socket instead, tunnel->sock
+> 
+> This bug bite me when I tried to use l2tp vpn over the link with mtu <
+> 1500 but where fragments were dropped somewere along the path. I tried
+> to use this mechanism with
+> 
+> ip route add <dst> via ... mtu <lower_mtu>
+> 
+> but it didn't work.
+> 
+> After the fix I was able to use this feature of l2tp_ppp driver, it
+> picked up mtu set by ip route and used it.
+> 
+> patch against https://github.com/torvalds/linux master:
 
-Your claim is that you're shooting for accurate policy enforcement, but even
-you patch doesn't do this.
+This is not a proper patch submission, please read Documentation/SubmittingPatches
+to learn how to do it properly.
 
-You are not taking into account whether temporary addresses will even be
-created.
+In particular, you need to provide a proper patch signoff.
 
-An accurate implementation would duplicate all of the special checks that
-manage_tempaddrs() does to determine whether a temporary address will be
-created or not.  In particular, it needs to check if the device is even
-configured to use tempaddrs.
+Please do not reply to this thread with the updated patch submission,
+instead make a new, fresh, list posting following the patch submission
+rules.
+
+Thanks.
