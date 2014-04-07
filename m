@@ -1,50 +1,41 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] [RFC] netfilter: ct: flush net_gre->keymap_list only in
- nf_conntrack_proto_gre
-Date: Mon, 7 Apr 2014 16:51:58 +0200
-Message-ID: <20140407145158.GA25974@localhost>
-References: <1396275258-19015-1-git-send-email-avagin@openvz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, vvs@parallels.com,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
-To: Andrey Vagin <avagin@openvz.org>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] pktgen: fix xmit test for BQL enabled devices
+Date: Mon,  7 Apr 2014 17:18:30 +0200
+Message-ID: <1396883910-3064-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:57686 "EHLO mail.us.es"
+Received: from mx1.redhat.com ([209.132.183.28]:44461 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754760AbaDGOwE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Apr 2014 10:52:04 -0400
-Content-Disposition: inline
-In-Reply-To: <1396275258-19015-1-git-send-email-avagin@openvz.org>
+	id S1753057AbaDGPSk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Apr 2014 11:18:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 31, 2014 at 06:14:18PM +0400, Andrey Vagin wrote:
-> nf_ct_gre_keymap_flush() removes a nf_ct_gre_keymap object from
-> net_gre->keymap_list and frees the object. But it doesn't clean
-> a reference on this object from ct_pptp_info->keymap[dir].
-> Then nf_ct_gre_keymap_destroy() may release the same object again.
-> 
-> So nf_ct_gre_keymap_flush() can be called only when we are sure that
-> when nf_ct_gre_keymap_destroy will not be called.
-> 
-> nf_ct_gre_keymap is created by nf_ct_gre_keymap_add() and the right way
-> to destroy it is to call nf_ct_gre_keymap_destroy().
+Similarly as in commit 8e2f1a63f221 ("packet: fix packet_direct_xmit
+for BQL enabled drivers"), we test for __QUEUE_STATE_STACK_XOFF bit
+in pktgen's xmit, which would not fully fill the device's TX ring for
+BQL drivers that use netdev_tx_sent_queue(). Fix is to use, similarly
+as we do in packet sockets, netif_xmit_frozen_or_drv_stopped() test.
 
-I think you use call nf_ct_iterate_cleanup() to get rid of all GRE
-conntrack entries that have a ct->master, which means that they were
-created by PPTP. That implicitly calls gre_destroy, which releases the
-keymap object.
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Eric Dumazet <edumazet@google.com>
+---
+ net/core/pktgen.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> This patch marks nf_ct_gre_keymap_flush() as static, so this patch can
-> break compilation of third party modules, which use
-> nf_ct_gre_keymap_flush. I'm not sure this is the right way to deprecate
-> this function.
-
-No problem with that, we don't mind about out of tree modules. With
-the approach I'm proposing I think you will also need to make this
-function static as it won't be used by PPTP anymore.
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index d0dac57..d068ec2 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -3340,7 +3340,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 
+ 	__netif_tx_lock_bh(txq);
+ 
+-	if (unlikely(netif_xmit_frozen_or_stopped(txq))) {
++	if (unlikely(netif_xmit_frozen_or_drv_stopped(txq))) {
+ 		ret = NETDEV_TX_BUSY;
+ 		pkt_dev->last_ok = 0;
+ 		goto unlock;
+-- 
+1.7.11.7
