@@ -1,57 +1,88 @@
-From: "Phoebe Buckheister" <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Subject: Re: nl802154 UAPI definitions
-Date: Mon, 7 Apr 2014 00:43:01 +0200
-Message-ID: <acff4139b1286a0c047ffb3001d2e0b5.squirrel@webmail.itwm.fhg.de>
-References: <1396271873-10300-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-	<1396271873-10300-3-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-	<1396822935.13361.9.camel@deadeye.wl.decadent.org.uk>
-Reply-To: phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] staging: r8723au: Fix build problem when RFKILL is not
+ selected
+Date: Sun,  6 Apr 2014 19:42:03 -0500
+Message-ID: <1396831323-31055-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: "Ben Hutchings" <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1396822935.13361.9.camel-nDn/Rdv9kqW9Jme8/bJn5UCKIB8iOfG2tUK59QYPAWc@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ Jes Sorensen <Jes.Sorensen@redhat.com>, kbuild-all@01.org,
+ Larry Finger <Larry.Finger@lwfinger.net>
+To: gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, April 7, 2014 12:22 am, Ben Hutchings wrote:
-> On Mon, 2014-03-31 at 15:17 +0200, Phoebe Buckheister wrote:
-> [...]
->> --- a/include/linux/nl802154.h
->> +++ b/include/linux/nl802154.h
->> @@ -132,7 +132,7 @@ enum {
->>  	IEEE802154_ADD_IFACE,
->>  	IEEE802154_DEL_IFACE,
->>
->> -	IEEE802154_SET_PHYPARAMS,
->> +	IEEE802154_SET_MACPARAMS,
->>
->>  	__IEEE802154_CMD_MAX,
->>  };
-> [...]
->
-> By the way, this header file belongs in include/uapi/linux (except for
-> the ieee802154_policy declaration).
+The kbuild test robot reports the following build errors for x86_64-randconfig-c1-0407:
 
-Yes, I've talked about that with other 802154 devs a few times as well. No
-kernel until 3.15 will have had a 802.15.4 stack that's seriously usable,
-whether at all or in compliance with regulations, do to an impressive list
-of bugs and missing control knobs. I'd suggest to move all user-relevant
-API descriptions to uapi/ once all that is sorted out to signify that the
-stack is now somewhat usable beyond the toy examples of sending and
-receiving five packets or so. (For example, before 3.15, anything 6lowpan
-might crash the kernel, and opening 802.15.4 sockets while a 6lowpan
-device *exists* will crash the machine hard. Unfortunately, byte ordering
-in the APIs will stay with us nonetheless.)
+All error/warnings:
 
+   net/built-in.o: In function `wiphy_new':
+>> (.text+0x7684c): undefined reference to `rfkill_alloc'
+   net/built-in.o: In function `wiphy_rfkill_start_polling':
+>> (.text+0x76da4): undefined reference to `rfkill_resume_polling'
+   net/built-in.o: In function `wiphy_rfkill_stop_polling':
+>> (.text+0x76de9): undefined reference to `rfkill_pause_polling'
+   net/built-in.o: In function `wiphy_unregister':
+>> (.text+0x76ec9): undefined reference to `rfkill_unregister'
+   net/built-in.o: In function `wiphy_rfkill_set_hw_state':
+>> (.text+0x771bc): undefined reference to `rfkill_set_hw_state'
+   net/built-in.o: In function `wiphy_register':
+>> (.text+0x77968): undefined reference to `rfkill_register'
+   net/built-in.o: In function `wiphy_register':
+>> (.text+0x77981): undefined reference to `rfkill_destroy'
+   net/built-in.o: In function `cfg80211_rfkill_sync_work':
+>> core.c:(.text+0x788ad): undefined reference to `rfkill_blocked'
+   net/built-in.o: In function `cfg80211_dev_free':
+>> (.text+0x78a7b): undefined reference to `rfkill_destroy'
+   net/built-in.o: In function `cfg80211_netdev_notifier_call':
+>> core.c:(.text+0x79203): undefined reference to `rfkill_blocked'
+   net/built-in.o: In function `nl80211_start_p2p_device':
 
-------------------------------------------------------------------------------
+These undefined sysbols are all satisfied if a "select RFKILL" is added to
+Kconfig. This "fix" leads to another problem as follows:
+
+>> nl80211.c:(.text+0x9032e): undefined reference to `rfkill_blocked'
+net/rfkill/Kconfig:4:error: recursive dependency detected!
+net/rfkill/Kconfig:4:   symbol RFKILL is selected by R8723AU
+drivers/staging/rtl8723au/Kconfig:1:    symbol R8723AU depends on USB
+drivers/usb/Kconfig:41: symbol USB is selected by MOUSE_APPLETOUCH
+drivers/input/mouse/Kconfig:162:        symbol MOUSE_APPLETOUCH depends on INPUT
+drivers/input/Kconfig:8:        symbol INPUT is selected by ACPI_CMPC
+drivers/platform/x86/Kconfig:635:       symbol ACPI_CMPC depends on RFKILL
+
+To avoid substituting one build error for another, I added a "depends on RFKILL".
+My suspicion is that this particular error is caused by a kbuild bug, or that the
+selection of INPUT by ACPI_CMPC is wrong. In any case, that will be solved separately.
+
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Jes Sorensen <Jes.Sorensen@redhat.com>
+Cc: kbuild-all@01.org
+---
+ drivers/staging/rtl8723au/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/staging/rtl8723au/Kconfig b/drivers/staging/rtl8723au/Kconfig
+index 78e8805..07fb5e4 100644
+--- a/drivers/staging/rtl8723au/Kconfig
++++ b/drivers/staging/rtl8723au/Kconfig
+@@ -1,6 +1,6 @@
+ config R8723AU
+ 	tristate "Realtek RTL8723AU Wireless LAN NIC driver"
+-	depends on WLAN && USB
++	depends on USB && WLAN && RFKILL
+ 	select WIRELESS_EXT
+ 	select WEXT_PRIV
+ 	select CFG80211
+-- 
+1.8.1.4
