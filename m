@@ -1,61 +1,45 @@
-From: Tobias Brunner <tobias@strongswan.org>
-Subject: Problems with fragments since gso skb forwarding changes in virtual
- environment
-Date: Mon, 07 Apr 2014 18:04:42 +0200
-Message-ID: <5342CC9A.6040800@strongswan.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: filter: be more defensive on div/mod by X==0
+Date: Mon, 07 Apr 2014 12:55:09 -0400 (EDT)
+Message-ID: <20140407.125509.554303783565384171.davem@davemloft.net>
+References: <1396652643-15647-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Marcelo Ricardo Leitner <mleitner@redhat.com>
-To: Florian Westphal <fw@strlen.de>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sifsv-80046.hsr.ch ([152.96.80.46]:42830 "EHLO
-	mail.strongswan.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751938AbaDGQN1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 12:13:27 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:54839 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753778AbaDGQzL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 12:55:11 -0400
+In-Reply-To: <1396652643-15647-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian et al,
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Sat,  5 Apr 2014 01:04:03 +0200
 
-We noticed a problem with fragmented packets in the KVM/libvirt-based
-strongSwan integration test environment [1] with guest kernels that
-include the following commit:
+> The old interpreter behaviour was that we returned with 0
+> whenever we found a division by 0 would take place. In the new
+> interpreter we would currently just skip that instead and
+> continue execution.
+> 
+> It's true that a value of 0 as return might not be appropriate
+> in all cases, but current users (socket filters -> drop
+> packet, seccomp -> SECCOMP_RET_KILL, cls_bpf -> unclassified,
+> etc) seem fine with that behaviour. Better this than undefined
+> BPF program behaviour as it's expected that A contains the
+> result of the division. In future, as more use cases open up,
+> we could further adapt this return value to our needs, if
+> necessary.
+> 
+> So reintroduce return of 0 for division by 0 as in the old
+> interpreter. Also in case of K which is guaranteed to be 32bit
+> wide, sk_chk_filter() already takes care of preventing division
+> by 0 invoked through K, so we can generally spare us these tests.
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Reviewed-by: Alexei Starovoitov <ast@plumgrid.com>
 
-	net: ip, ipv6: handle gso skbs in forwarding path
-	fe6cc55f3a9a053482a76f5a6b2257cee51b4663
-
-The network topology in test scenarios that trigger the problem is as
-follows:
-
-	Host A - br1 - Router R - br2 - Host B
-
-Where the two hosts and the router are virtual guests connected via
-bridges all created via libvirt (see [2] for the XML config files).  The
-guest's network interfaces all use virtio.
-
-If the router runs with a kernel that includes the commit above, packets
-sent from A to B that exceed the MTU (1500 in this case) will be split
-into fragments when leaving R.  These fragment skbs get defragmented by
-the host kernel's nf_defrag_ipv4 module while being forwarded on br2.
-
-This poses a problem.  Because the fragment skbs are not GSO, neither is
-the defragmented skb.  Hence the packets are dropped just before leaving
-the bridge, as is_skb_forwardable() will return false unless a too large
-skb is actually GSO (this is the same for older host kernels, where the
-check is directly done in br_forward.c).
-
-Without the commit, and between A and R even with it (because it only
-affects forwarding), the skbs are GSO throughout and transmitted from A
-to B without ever actually being fragmented.
-
-Any ideas how to fix this properly?  That is, without just reverting
-parts of your commit for our guest kernels.
-
-Regards,
-Tobias
-
-[1] http://wiki.strongswan.org/projects/strongswan/wiki/TestingEnvironment
-[2] http://git.strongswan.org/?p=strongswan.git;a=tree;f=testing/config/kvm
+Applied, thanks Daniel.
