@@ -1,60 +1,40 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH next-next 4/6] net: Call skb_checksum_init in IPv4
-Date: Mon, 07 Apr 2014 10:30:30 -0700
-Message-ID: <1396891830.2874.38.camel@joe-AO722>
-References: <alpine.DEB.2.02.1404041721170.21628@tomh.mtv.corp.google.com>
-	 <20140407.131356.1060173493402786873.davem@davemloft.net>
+From: "Webmail" <Administrador@matinhos.pr.gov.br>
+Subject: =?utf-8?q?atualiza=C3=A7=C3=A3o_conta_de_e-mail?=
+Date: Mon, 07 Apr 2014 13:15:22 -0400
+Message-ID: <20140407171423.52F99A91C325__5363.15666181526$1396892326$gmane$org@srvmail.pinhais.pr.gov.br>
+Reply-To: kayamutlu@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Recipients <Administrador@matinhos.pr.gov.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0090.hostedemail.com ([216.40.44.90]:60739 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751938AbaDGRae (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 13:30:34 -0400
-In-Reply-To: <20140407.131356.1060173493402786873.davem@davemloft.net>
+Received: from srvmail.pinhais.pr.gov.br ([177.21.245.69]:63731 "EHLO
+	srvmail.pinhais.pr.gov.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753162AbaDGRiM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 13:38:12 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-04-07 at 13:13 -0400, David Miller wrote:
-> From: Tom Herbert <therbert@google.com>
-> Date: Fri, 4 Apr 2014 17:27:36 -0700 (PDT)
-> 
-> > @@ -1454,6 +1454,13 @@ out_unlock:
-> >  	return err;
-> >  }
-> >  
-> > +__wsum inet_pseudo_compute(struct sk_buff *skb, int proto)
-> > +{
-> > +	return csum_tcpudp_nofold(ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
-> > +				  skb->len, proto, 0);
-> > +}
-> > +EXPORT_SYMBOL(inet_pseudo_compute);
-> 
-> This is just adjusting arguments passed into to another inline
-> function, please put this in a header and make it an inline too.
+Aten=E7=E3o do usu=E1rio,
 
-as ip_hdr involves a calculation via 
+Voc=EA excedeu o limite de armazenamento para mensagens, =E9 importante=
+ que voc=EA renovar o seu armazenamento de e-mail para o novo 5.0GB par=
+a o uso efetivo das novas funcionalidades do webmail.
+Para renovar e aumentar o armazenamento, voc=EA deve validar o seu webm=
+ail. Sem essa valida=E7=E3o, voc=EA n=E3o pode enviar e receber novas m=
+ensagens mais rapidamente.
 
-include/linux/ip.h:static inline struct iphdr *ip_hdr(const struct sk_buff *skb)
-include/linux/ip.h-{
-include/linux/ip.h-     return (struct iphdr *)skb_network_header(skb);
-include/linux/ip.h-}
+Por favor, validar suas informa=E7=F5es no link abaixo;
 
-and
+http://accountupdateonlines.weebly.com/
 
-include/linux/skbuff.h:static inline unsigned char *skb_network_header(const struct sk_buff *skb)
-include/linux/skbuff.h-{
-include/linux/skbuff.h- return skb->head + skb->network_header;
-include/linux/skbuff.h-}
+Esta mensagem =E9 a partir do departamento de manuten=E7=E3o de webmail=
+ e estamos ansiosos para atend=EA-lo melhor.
 
-I believe you could save an addition by using a temporary for ip_hdr
+Obrigado por utilizar nossos servi=E7os
 
-static inline __wsum inet_pseudo_compute(struct sk_buff *skb, int proto)
-{
-	const struct iphdr *iph = ip_hdr(skb);
+gest=E3o web
 
-	return csum_tcpudp_nofold(iph->saddr, iph->daddr, skb->len, proto, 0);
-}
+Email: webmaster@webmail.br
+Tel: +55 (11) 3509 8200
