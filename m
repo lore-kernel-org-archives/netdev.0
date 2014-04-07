@@ -1,45 +1,73 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: filter: be more defensive on div/mod by X==0
-Date: Mon, 07 Apr 2014 12:55:09 -0400 (EDT)
-Message-ID: <20140407.125509.554303783565384171.davem@davemloft.net>
-References: <1396652643-15647-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH net-next 1/6] net: Allow csum_add to be provided in arch
+Date: Mon, 07 Apr 2014 13:06:20 -0400 (EDT)
+Message-ID: <20140407.130620.2069601044282998492.davem@davemloft.net>
+References: <alpine.DEB.2.02.1404041714560.20552@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, netdev@vger.kernel.org
-To: dborkman@redhat.com
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54839 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55006 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753778AbaDGQzL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 12:55:11 -0400
-In-Reply-To: <1396652643-15647-1-git-send-email-dborkman@redhat.com>
+	with ESMTP id S1753162AbaDGRGW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 13:06:22 -0400
+In-Reply-To: <alpine.DEB.2.02.1404041714560.20552@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Sat,  5 Apr 2014 01:04:03 +0200
+From: Tom Herbert <therbert@google.com>
+Date: Fri, 4 Apr 2014 17:26:46 -0700 (PDT)
 
-> The old interpreter behaviour was that we returned with 0
-> whenever we found a division by 0 would take place. In the new
-> interpreter we would currently just skip that instead and
-> continue execution.
+> csum_add is really nothing more then add-with-carry which
+> can be implemented efficiently in some architectures.
+> Allow architecture to define this protected by HAVE_ARCH_CSUM_ADD.
 > 
-> It's true that a value of 0 as return might not be appropriate
-> in all cases, but current users (socket filters -> drop
-> packet, seccomp -> SECCOMP_RET_KILL, cls_bpf -> unclassified,
-> etc) seem fine with that behaviour. Better this than undefined
-> BPF program behaviour as it's expected that A contains the
-> result of the division. In future, as more use cases open up,
-> we could further adapt this return value to our needs, if
-> necessary.
+> Provide csum_add in for x86.
 > 
-> So reintroduce return of 0 for division by 0 as in the old
-> interpreter. Also in case of K which is guaranteed to be 32bit
-> wide, sk_chk_filter() already takes care of preventing division
-> by 0 invoked through K, so we can generally spare us these tests.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Reviewed-by: Alexei Starovoitov <ast@plumgrid.com>
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-Applied, thanks Daniel.
+The Sparc version looks like this, feel free to integrate it into this
+patch.
+
+diff --git a/arch/sparc/include/asm/checksum_32.h b/arch/sparc/include/asm/checksum_32.h
+index bdbda14..3297436 100644
+--- a/arch/sparc/include/asm/checksum_32.h
++++ b/arch/sparc/include/asm/checksum_32.h
+@@ -238,4 +238,15 @@ static inline __sum16 ip_compute_csum(const void *buff, int len)
+ 	return csum_fold(csum_partial(buff, len, 0));
+ }
+ 
++#define HAVE_ARCH_CSUM_ADD
++static inline __wsum csum_add(__wsum csum, __wsum addend)
++{
++	__asm__ __volatile__(
++"	addcc	%0, %1, %0\n"
++"	addx	%0, %%g0, %0"
++	: "=r" (csum)
++	: "r" (addend), "0" (csum));
++	return csum;
++}
++
+ #endif /* !(__SPARC_CHECKSUM_H) */
+diff --git a/arch/sparc/include/asm/checksum_64.h b/arch/sparc/include/asm/checksum_64.h
+index 019b961..38b24a3 100644
+--- a/arch/sparc/include/asm/checksum_64.h
++++ b/arch/sparc/include/asm/checksum_64.h
+@@ -164,4 +164,15 @@ static inline __sum16 ip_compute_csum(const void *buff, int len)
+ 	return csum_fold(csum_partial(buff, len, 0));
+ }
+ 
++#define HAVE_ARCH_CSUM_ADD
++static inline __wsum csum_add(__wsum csum, __wsum addend)
++{
++	__asm__ __volatile__(
++"	addcc	%0, %1, %0\n"
++"	addc	%0, %%g0, %0"
++	: "=r" (csum)
++	: "r" (addend), "0" (csum));
++	return csum;
++}
++
+ #endif /* !(__SPARC64_CHECKSUM_H) */
