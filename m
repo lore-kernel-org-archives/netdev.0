@@ -1,32 +1,62 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/at91_ether: avoid NULL pointer dereference
-Date: Mon, 07 Apr 2014 15:10:47 -0400 (EDT)
-Message-ID: <20140407.151047.1262185364557499792.davem@davemloft.net>
-References: <1396809464-22471-1-git-send-email-gilles.chanteperdrix@xenomai.org>
+Subject: Re: [PATCH] decnet: fix possible NULL deref in dnet_select_source()
+Date: Mon, 07 Apr 2014 15:18:54 -0400 (EDT)
+Message-ID: <20140407.151854.411047851818388937.davem@davemloft.net>
+References: <5341A3C1.9060101@oracle.com>
+	<1396821554.12330.51.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org
-To: gilles.chanteperdrix@xenomai.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57196 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752718AbaDGTKt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 15:10:49 -0400
-In-Reply-To: <1396809464-22471-1-git-send-email-gilles.chanteperdrix@xenomai.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sasha.levin@oracle.com, netdev@vger.kernel.org,
+	linux-decnet-user@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, davej@redhat.com
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1396821554.12330.51.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
-Date: Sun,  6 Apr 2014 20:37:44 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 06 Apr 2014 14:59:14 -0700
 
-> The at91_ether driver calls macb_mii_init passing a 'struct macb'
-> structure whose tx_clk member is initialized to 0. However,
-> macb_handle_link_change() expects tx_clk to be the result of
-> a call to clk_get, and so IS_ERR(tx_clk) to be true if the clock
-> is invalid. This causes an oops when booting Linux 3.14 on the
-> csb637 board. The following changes avoids this.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
+> dnet_select_source() should make sure dn_ptr is not NULL.
+> 
+> While looking at this decnet code, I believe I found a device
+> reference leak, lets fix it as well.
+>  
+> Reported-by: Sasha Levin <sasha.levin@oracle.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+> It seems this bug is very old, no recent change is involved.
 
-Applied and queued up for -stable, thanks!
+The callers work hard to ensure this.
+
+Analyzing all call sites:
+
+1) __dn_fib_res_prefsrc() uses the FIB entry device pointer, we should not
+   be adding FIB entries pointing to devices which do not have their
+   decnet private initialized yet.
+
+2) dn_route_output_slow()
+
+   The paths leading to the dnet_select_address() call(s) check if
+   dev_out->dn_ptr is not NULL, except when using loopback.
+
+In some other paths the device comes from neigh->dev, from which the
+'neigh' was looked up in dn_neigh_table.  There should not be neighbour
+entries in this table pointing to devices which do not have their
+decnet private setup yet.
+
+And in the loopback case, it is the decnet stack's responsibility to
+make sure ->dn_ptr is setup properly, else it should fail the module
+load and stack initialization.
+
+I think there is some core fundamental issue here, and just adding
+a NULL check to dnet_select_source() is just papering around the issue.
+
+Please look closer at the stack trace, this code, and my analysis
+above to figure out what's really going on so we can fix this properly.
+
+Thanks.
