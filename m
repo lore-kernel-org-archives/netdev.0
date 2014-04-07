@@ -1,88 +1,55 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] staging: r8723au: Fix build problem when RFKILL is not
- selected
-Date: Sun,  6 Apr 2014 19:42:03 -0500
-Message-ID: <1396831323-31055-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: Inconsistent perf top output
+Date: Sun, 06 Apr 2014 21:10:34 -0700
+Message-ID: <87ioqlkced.fsf@tassilo.jf.intel.com>
+References: <645781396449095@web21h.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- Jes Sorensen <Jes.Sorensen@redhat.com>, kbuild-all@01.org,
- Larry Finger <Larry.Finger@lwfinger.net>
-To: gregkh@linuxfoundation.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Type: text/plain
+Cc: linux-perf-users@vger.kernel.org, netdev@vger.kernel.org
+To: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
+Return-path: <linux-perf-users-owner@vger.kernel.org>
+In-Reply-To: <645781396449095@web21h.yandex.ru> (Oleg A. Arkhangelsky's
+	message of "Wed, 02 Apr 2014 18:31:35 +0400")
+Sender: linux-perf-users-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The kbuild test robot reports the following build errors for x86_64-randconfig-c1-0407:
+"\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru> writes:
 
-All error/warnings:
+Better asked on netdev. Copied here. It's unlikely to be a perf problem.
+You better specify what kernel version you have.
 
-   net/built-in.o: In function `wiphy_new':
->> (.text+0x7684c): undefined reference to `rfkill_alloc'
-   net/built-in.o: In function `wiphy_rfkill_start_polling':
->> (.text+0x76da4): undefined reference to `rfkill_resume_polling'
-   net/built-in.o: In function `wiphy_rfkill_stop_polling':
->> (.text+0x76de9): undefined reference to `rfkill_pause_polling'
-   net/built-in.o: In function `wiphy_unregister':
->> (.text+0x76ec9): undefined reference to `rfkill_unregister'
-   net/built-in.o: In function `wiphy_rfkill_set_hw_state':
->> (.text+0x771bc): undefined reference to `rfkill_set_hw_state'
-   net/built-in.o: In function `wiphy_register':
->> (.text+0x77968): undefined reference to `rfkill_register'
-   net/built-in.o: In function `wiphy_register':
->> (.text+0x77981): undefined reference to `rfkill_destroy'
-   net/built-in.o: In function `cfg80211_rfkill_sync_work':
->> core.c:(.text+0x788ad): undefined reference to `rfkill_blocked'
-   net/built-in.o: In function `cfg80211_dev_free':
->> (.text+0x78a7b): undefined reference to `rfkill_destroy'
-   net/built-in.o: In function `cfg80211_netdev_notifier_call':
->> core.c:(.text+0x79203): undefined reference to `rfkill_blocked'
-   net/built-in.o: In function `nl80211_start_p2p_device':
+> Hello,
+>
+> I'm profiling Linux IP packet forwarding performance. In common case I see this
+> functions eating most of CPU cycles.
+>
+> 13735.00 22.5% build_skb  
+> 5138.00   8.4% ipt_do_table 
+> 4750.00   7.8% fib_table_lookup
+> 3519.00   5.8% ixgbe_clean_rx_irq
+> 2836.00   4.6% nf_iterate
+> 1530.00   2.5% dev_queue_xmit
+>
+> Looks good. But accidentally I run tcpdump program on one of the NICs related
+> to my test. After killing tcpdump I see that top is different:
+>
+> 6362.00 10.3% fib_table_lookup
+> 6227.00 10.1% ipt_do_table
+> 4300.00  7.0% ixgbe_clean_rx_irq
+> 3771.00  6.1% nf_iterate
+> 3284.00  5.3% build_skb
+> 2179.00  3.5% ixgbe_xmit_frame_ring
+>
+> Dramatic change in build_skb() cpu cycles. But tcpdump is not active anymore.
+> More than this, if I stop pktgen on traffic generator PC for a few seconds and
+> start it again without any other changes, I see that build_skb() is top offender
+> again. Running tcpdump again and killing it move fib_table_lookup() or
+> ipt_do_table() (they are pretty same in cpu cycles) to the top. So this behavior
+> is reproducible.
+>
+> I just have no sane explanation to such strange behavior. Maybe someone have?
+>
+> Thank you!
 
-These undefined sysbols are all satisfied if a "select RFKILL" is added to
-Kconfig. This "fix" leads to another problem as follows:
-
->> nl80211.c:(.text+0x9032e): undefined reference to `rfkill_blocked'
-net/rfkill/Kconfig:4:error: recursive dependency detected!
-net/rfkill/Kconfig:4:   symbol RFKILL is selected by R8723AU
-drivers/staging/rtl8723au/Kconfig:1:    symbol R8723AU depends on USB
-drivers/usb/Kconfig:41: symbol USB is selected by MOUSE_APPLETOUCH
-drivers/input/mouse/Kconfig:162:        symbol MOUSE_APPLETOUCH depends on INPUT
-drivers/input/Kconfig:8:        symbol INPUT is selected by ACPI_CMPC
-drivers/platform/x86/Kconfig:635:       symbol ACPI_CMPC depends on RFKILL
-
-To avoid substituting one build error for another, I added a "depends on RFKILL".
-My suspicion is that this particular error is caused by a kbuild bug, or that the
-selection of INPUT by ACPI_CMPC is wrong. In any case, that will be solved separately.
-
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Jes Sorensen <Jes.Sorensen@redhat.com>
-Cc: kbuild-all@01.org
----
- drivers/staging/rtl8723au/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/staging/rtl8723au/Kconfig b/drivers/staging/rtl8723au/Kconfig
-index 78e8805..07fb5e4 100644
---- a/drivers/staging/rtl8723au/Kconfig
-+++ b/drivers/staging/rtl8723au/Kconfig
-@@ -1,6 +1,6 @@
- config R8723AU
- 	tristate "Realtek RTL8723AU Wireless LAN NIC driver"
--	depends on WLAN && USB
-+	depends on USB && WLAN && RFKILL
- 	select WIRELESS_EXT
- 	select WEXT_PRIV
- 	select CFG80211
 -- 
-1.8.1.4
+ak@linux.intel.com -- Speaking for myself only
