@@ -1,66 +1,47 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: RE: [PATCH net 1/2] sxgbe: fix duplicate #include headers
-Date: Mon, 07 Apr 2014 18:46:49 +0900
-Message-ID: <038301cf5246$4c51eea0$e4f5cbe0$%an@samsung.com>
-References: <1396679341-23502-1-git-send-email-sakiwit@gmail.com>
- <1396679341-23502-2-git-send-email-sakiwit@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2] ipv6: Reparent temporary address(es) if global address was, deleted from userspace
+Date: Mon, 7 Apr 2014 12:22:29 +0200
+Message-ID: <20140407102229.GB27255@order.stressinduktion.org>
+References: <53423AF0.5080308@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: 'Girish K S' <ks.giri@samsung.com>,
-	'Siva Reddy Kallam' <siva.kallam@samsung.com>,
-	'Vipul Pandya' <vipul.pandya@samsung.com>
-To: 'Jean Sacren' <sakiwit@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Heiner Kallweit <heiner.kallweit@web.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:9309 "EHLO
-	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755166AbaDGJqv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 05:46:51 -0400
-Received: from epcpsbgr4.samsung.com
- (u144.gpu120.samsung.co.kr [203.254.230.144])
- by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0N3N00B7RN62OP30@mailout1.samsung.com> for
- netdev@vger.kernel.org; Mon, 07 Apr 2014 18:46:50 +0900 (KST)
-In-reply-to: <1396679341-23502-2-git-send-email-sakiwit@gmail.com>
-Content-language: ko
+Received: from order.stressinduktion.org ([87.106.68.36]:55414 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754636AbaDGKWb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 06:22:31 -0400
+Content-Disposition: inline
+In-Reply-To: <53423AF0.5080308@web.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jean Sacren wrote:
+On Mon, Apr 07, 2014 at 07:43:12AM +0200, Heiner Kallweit wrote:
+> If the kernel takes care of global and temporary addresses it can happen
+> that the global address is deleted from userspace,
+> e.g. by network managers in case the link goes (temporarily) down.
+> In addition to the then orphaned temporary address(es) the next RA will
+> create a new temporary address. Therefore we might end up with more than
+> one non-deprecated temporary address for the same prefix for a longer
+> period of time (>regen_advance). According to RfC4941 sect. 3.4 this
+> should not happen.
 > 
-> The commit 1edb9ca69e8a ("net: sxgbe: add basic framework for
-> Samsung 10Gb ethernet driver") added support for Samsung 10Gb
-> ethernet driver(sxgbe) with a minor issue of including linux/io.h
-> header twice in sxgbe_dma.c file. Fix the duplicate #include by
-> deleting the top one so that all the rest good #include headers
-> would be preserved in the alphabetical order.
+> Fix this by reparenting orphaned temporary addresses.
 > 
-> Signed-off-by: Jean Sacren <sakiwit@gmail.com>
-> Cc: Byungho An <bh74.an@samsung.com>
+> v2: style fixes
+> 
+> Signed-off-by: Heiner Kallweit <heiner.kallweit@web.de>
 
-Acked-by: Byungho An <bh74.an@samsung.com>
+Looks good!
+
+Btw. do you intend this as a bugfix for net or net-next? net-next is currently
+closed and you would have to resubmit this patch as soon as net-next opens
+back up. A notification will be send to this list.
+
+Current kernels only print a warning if this happens, so IMHO net-next would
+be ok?
 
 Thanks,
-Byungho
 
-> Cc: Girish K S <ks.giri@samsung.com>
-> Cc: Siva Reddy Kallam <siva.kallam@samsung.com>
-> Cc: Vipul Pandya <vipul.pandya@samsung.com>
-> ---
->  drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
-> b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
-> index 28f89c41d0cd..4d989ff6c978 100644
-> --- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
-> +++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
-> @@ -9,7 +9,6 @@
->   * it under the terms of the GNU General Public License version 2 as
->   * published by the Free Software Foundation.
->   */
-> -#include <linux/io.h>
->  #include <linux/delay.h>
->  #include <linux/export.h>
->  #include <linux/io.h>
+  Hannes
