@@ -1,54 +1,40 @@
-From: Ken O'Brien <ken@kenobrien.org>
-Subject: proc net statistics
-Date: Mon, 07 Apr 2014 11:39:34 +0100
-Message-ID: <1396867174.6220.4.camel@laptop.site>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: (patch needs review) NULL dereference in xfrm_output with NAT
+Date: Mon, 7 Apr 2014 12:55:59 +0200
+Message-ID: <20140407105559.GO32371@secunet.com>
+References: <20140402103711.GJ5945@methuselah>
+ <20140404090242.GN32371@secunet.com>
+ <20140404122917.GM5945@methuselah>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-5BwiKeJBY1tFq03/K3y2"
-To: Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: Martin Pelikan <martin.pelikan@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:33144 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755159AbaDGK4J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Apr 2014 06:56:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20140404122917.GM5945@methuselah>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, Apr 04, 2014 at 02:29:17PM +0200, Martin Pelikan wrote:
+> 
+> Your patch avoids the crash the same way as mine, but doesn't fix my related
+> problem: I have two flows through that IPv6 endpoint: IPv6 default gw tunnel
+> + IPv4 tunnel between two private networks.  But only one of them works at a
+> time, and it is the one which was set up first.
+> The other endpoint is OpenBSD with iked(8) and I can see the replies going
+> into enc0 there, ESP packets arriving into this Linux box at enp4s6, but the
+> traffic isn't being decapsulated and sent further away on br0.
+> If I disable the working tunnel (v6 for example), the other one (v4) starts
+> working immediately, so it's probably not caused by bad strongSwan config.
+> 
+> Do you think these bugs might be related?  Any ideas how to proceed without
+> spending days on it? 
 
---=-5BwiKeJBY1tFq03/K3y2
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-Hi,
-
-I was under the impression that statistics reported
-in /proc/{$pid}/net/dev were specific to that process, but the values
-appear to be globals, i.e., identical for all processes.
-
-Is this a bug?
-
-Regards,
-
-Ken
-
---=-5BwiKeJBY1tFq03/K3y2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAABAgAGBQJTQoBmAAoJEH6r6VcNuxY8JKUQAIEH4g9ZpS1tYjvhRrZvr3hP
-kjmZU2wqR9WQOYnIhRKqGq2ROV8128VJ3eN3NQCYY9dG0uMzrtrWBAMNYXQX0e9L
-aO1rvsQoZqa/a3VKn+sZjqEUFlRwmUuKggvH7HPycoQ3n1wyFlk5FsnOOLwWSWAC
-BJoey+ys8A9Xh+locADuxK2FaPN+XcjcwlZjNX1k+asEAgbX/yGXf207JEYS/+G3
-4Mrt+r9STP/X+efdqe6kyXWDcsKrW8YqWKKMjVN1SSKkHb/vKPKCmjEN2LuY99cD
-gnwjrs2dtj3wbwQdU4KAwzoVTGp5Cy1MyKwrOPRbkndJVKdBr5b8nSmu9WdXcE5c
-cXNCIRRpTb/cj5tTMrnEwNMDqL3/ppViDcbN5h3zXh4LHLq1MPhLaxZh7WbbTb4q
-KIcaqt5zW6A9yxo7CMEj0ABwT3mhKQt86aiv/rkUU5gXPkTlhCfUSQK0GOpDBam/
-RlGTUfF4aAqt9YMkdUwJJSye/8HiRiZhy0lWCgY5Gofmfpc2/2NEaU/BIcLFWs5O
-1ncpNVvAl0zwZxgO749S8rlaFCxGtbeUq6Y8CDDNPYDACK3TMaPKGz7BD4OpZhLh
-OEQw/PlXqyzjzfjOjGsYSvRDsP5VbZlGtHqnlhzbQjcYEyBQWDtwscxcWCCNV/im
-gF70GRlCnvo+yjgA6r9m
-=Ey+0
------END PGP SIGNATURE-----
-
---=-5BwiKeJBY1tFq03/K3y2--
+A good starting point for further debugging would be to find out
+where the packets are dropped. xfrm increases a counter whenever
+a packet is dropped in the xfrm layer. You can find these counters
+in /proc/net/xfrm_stat.
