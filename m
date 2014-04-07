@@ -1,104 +1,56 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: [PATCH v7 1/2] can: xilinx CAN controller support
-Date: Mon, 07 Apr 2014 08:56:50 +0200
-Message-ID: <53424C32.7090000@monstr.eu>
-References: <3e750ec3-9d47-4b4e-8173-56698ab19786@CH1EHSMHS029.ehs.local>
-Reply-To: monstr@monstr.eu
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH] net/at91_ether: avoid NULL pointer dereference
+Date: Mon, 7 Apr 2014 09:06:54 +0200
+Message-ID: <53424E8E.6030908@atmel.com>
+References: <1396809464-22471-1-git-send-email-gilles.chanteperdrix@xenomai.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="WtPjUIdcbAiEAWTVRw2qqJmVhPaiGXxNM"
-Cc: wg@grandegger.com, mkl@pengutronix.de, michal.simek@xilinx.com,
-	grant.likely@linaro.org, robh+dt@kernel.org,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	devicetree@vger.kernel.org,
-	Kedareswara rao Appana <appanad@xilinx.com>
-To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3e750ec3-9d47-4b4e-8173-56698ab19786@CH1EHSMHS029.ehs.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+To: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>,
+	<netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eusmtp01.atmel.com ([212.144.249.243]:11229 "EHLO
+	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754924AbaDGHG5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 03:06:57 -0400
+In-Reply-To: <1396809464-22471-1-git-send-email-gilles.chanteperdrix@xenomai.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---WtPjUIdcbAiEAWTVRw2qqJmVhPaiGXxNM
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On 06/04/2014 20:37, Gilles Chanteperdrix :
+> The at91_ether driver calls macb_mii_init passing a 'struct macb'
+> structure whose tx_clk member is initialized to 0. However,
+> macb_handle_link_change() expects tx_clk to be the result of
+> a call to clk_get, and so IS_ERR(tx_clk) to be true if the clock
+> is invalid. This causes an oops when booting Linux 3.14 on the
+> csb637 board. The following changes avoids this.
+> 
+> Signed-off-by: Gilles Chanteperdrix <gilles.chanteperdrix@xenomai.org>
 
-On 04/02/2014 03:13 PM, Kedareswara rao Appana wrote:
-> This patch adds xilinx CAN controller support.
-> This driver supports both ZYNQ CANPS and Soft IP
-> AXI CAN controller.
->=20
-> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+
+Thanks for this fix. Bye,
+
 > ---
-> Changes for v7:
-> - Updated the driver with review comments.
-> - Moved the driver bindings doc as a separte patch.
-> Changes for v6:
-> - Updated the driver with review comments.
-> - Used the clock names specified in the data sheet.
-> - Updated the devicetree bindings doc as per Rob suggestion.
-> Changes for v5:
-> - Updated the driver with the review comments.
-> - Remove the check for the tx fifo full interrupt condition
->   form Tx interrupt routine as we are checking it in the _xmit
->   routine.
-> - Clearing the txok interrupt in the tx interrupt routine for
->   every Tx can frame.
-> Changes for v4:
-> - Added check for the tx fifo full interrupt condition in
-> Tx interrupt routine.
-> - Added be iohelper functions.
-> - Moved the clock enable/disable to probe/remove because of
->   Added big endian support for AXI CAN controller case(reading
->   a register during probe for that we need to enable clock).
-> Changes for v3:
-> - Updated the driver with the review comments.
-> - Modified the tranmit logic as per Marc suggestion.
-> - Enabling the clock when the interface is up to reduce the
->   Power consumption.
-> Changes for v2:
-> - Updated with the review comments.
-> - Removed the unnecessary debug prints.
-> - include tx,rx fifo depths in ZYNQ CANPS case also
-> ---
->  drivers/net/can/Kconfig      |    7 +
->  drivers/net/can/Makefile     |    1 +
->  drivers/net/can/xilinx_can.c | 1176 ++++++++++++++++++++++++++++++++++=
-++++++++
->  3 files changed, 1184 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/net/can/xilinx_can.c
-
-Mark: Any update on this one?
-BTW: When you apply these patches you should apply 2/2 before 1/2. There =
-is
-new checking for binding.
-
-Thanks,
-Michal
-
---=20
-Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
-Maintainer of Linux kernel - Xilinx Zynq ARM architecture
-Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
+>  drivers/net/ethernet/cadence/at91_ether.c |    3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
+> index ce75de9..4a79eda 100644
+> --- a/drivers/net/ethernet/cadence/at91_ether.c
+> +++ b/drivers/net/ethernet/cadence/at91_ether.c
+> @@ -342,6 +342,9 @@ static int __init at91ether_probe(struct platform_device *pdev)
+>  	}
+>  	clk_enable(lp->pclk);
+>  
+> +	lp->hclk = ERR_PTR(-ENOENT);
+> +	lp->tx_clk = ERR_PTR(-ENOENT);
+> +
+>  	/* Install the interrupt handler */
+>  	dev->irq = platform_get_irq(pdev, 0);
+>  	res = devm_request_irq(&pdev->dev, dev->irq, at91ether_interrupt, 0, dev->name, dev);
+> 
 
 
-
---WtPjUIdcbAiEAWTVRw2qqJmVhPaiGXxNM
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iEYEARECAAYFAlNCTDIACgkQykllyylKDCG1EgCeLE2XknDSTycp+m4/LnRJNFgf
-Ht0An3Z5dCr0Dd/TEcg1ZoPKU0OIAYo+
-=0rwI
------END PGP SIGNATURE-----
-
---WtPjUIdcbAiEAWTVRw2qqJmVhPaiGXxNM--
+-- 
+Nicolas Ferre
