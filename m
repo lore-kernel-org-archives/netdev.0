@@ -1,58 +1,61 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH] net: core: don't account for udp header size when computing seglen
-Date: Tue,  8 Apr 2014 22:51:28 +0200
-Message-ID: <1396990288-10692-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: netdev@vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] ipv4: fib: check forwarding before checking send_redirects
+Date: Tue, 8 Apr 2014 14:17:08 -0700
+Message-ID: <CAM_iQpXrmRNhQCWjiRSKwzxvtcq9XuT-cWS4vRxYVYxpUEN3qQ@mail.gmail.com>
+References: <1396985482-30886-1-git-send-email-xiyou.wangcong@gmail.com>
+	<20140408.164356.557108616710530006.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Julian Anastasov <ja@ssi.bg>,
+	Cong Wang <cwang@twopensource.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:50870 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757465AbaDHU4R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 16:56:17 -0400
+Received: from mail-oa0-f44.google.com ([209.85.219.44]:49142 "EHLO
+	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756627AbaDHVRI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 17:17:08 -0400
+Received: by mail-oa0-f44.google.com with SMTP id n16so1723271oag.17
+        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 14:17:08 -0700 (PDT)
+In-Reply-To: <20140408.164356.557108616710530006.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case of tcp, gso_size contains the tcpmss.
+On Tue, Apr 8, 2014 at 1:43 PM, David Miller <davem@davemloft.net> wrote:
+> From: Cong Wang <xiyou.wangcong@gmail.com>
+> Date: Tue,  8 Apr 2014 12:31:22 -0700
+>
+>> From: Cong Wang <cwang@twopensource.com>
+>>
+>> We have seen in a weird case we had to disable send_redirects in order
+>> to pass rp filter check even though we don't set forwarding at all.
+>> This looks wrong, at least according to ip-sysctl.txt send_redirects should
+>> only make sense when we enable forwarding.
+>>
+>> Cc: Eric Biederman <ebiederm@xmission.com>
+>> Cc: Julian Anastasov <ja@ssi.bg>
+>> Cc: David S. Miller <davem@davemloft.net>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> Signed-off-by: Cong Wang <cwang@twopensource.com>
+>
+> I'm not so sure about this.
+>
+> This test here is just an optimization, which bypasses the long path
+> processing of FIB source address validation if certain strict
+> conditions are met.
+>
+> __fib_validate_source() should do the right thing if it is executed,
+> it is just the slow path, and you should determine why it is rejecting
+> your traffic instead.
+>
+> Your change is a valid optimization perhaps, but not a bug fix.
 
-For UFO (udp fragmentation offloading) skbs, gso_size is the fragment
-payload size, i.e. we must not account for udp header size.
+In our case, we have the following setting:
 
-Otherwise, when using virtio drivers, a to-be-forwarded UFO GSO packet
-will be needlessly fragmented in the forward path, because we think its
-individual segments are too large for the outgoing link.
+1) rp_filter = 0 (set manually)
+2) forwarding = 0 (default)
+3) send_redirects = 1 (default)
 
-Fixes: de960aa9ab4d ("net: add and use skb_gso_transport_seglen()")
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Reported-by: Tobias Brunner <tobias@strongswan.org>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/core/skbuff.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 30c7d35..57e225c 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3937,12 +3937,14 @@ EXPORT_SYMBOL_GPL(skb_scrub_packet);
- unsigned int skb_gso_transport_seglen(const struct sk_buff *skb)
- {
- 	const struct skb_shared_info *shinfo = skb_shinfo(skb);
--	unsigned int hdr_len;
- 
- 	if (likely(shinfo->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)))
--		hdr_len = tcp_hdrlen(skb);
--	else
--		hdr_len = sizeof(struct udphdr);
--	return hdr_len + shinfo->gso_size;
-+		return tcp_hdrlen(skb) + shinfo->gso_size;
-+
-+	/* UFO sets gso_size to the size of the fragmentation
-+	 * payload, i.e. the size of the L4 (UDP) header is already
-+	 * accounted for.
-+	 */
-+	return shinfo->gso_size;
- }
- EXPORT_SYMBOL_GPL(skb_gso_transport_seglen);
--- 
-1.8.1.5
+We are not supposed even to execute __fib_validate_source() in such case,
+are we? :)
