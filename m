@@ -1,82 +1,121 @@
-From: Tobias Brunner <tobias@strongswan.org>
-Subject: Re: Problems with fragments since gso skb forwarding changes in virtual
- environment
-Date: Tue, 08 Apr 2014 14:24:25 +0200
-Message-ID: <5343EA79.8030104@strongswan.org>
-References: <5342CC9A.6040800@strongswan.org> <20140407234640.GB31953@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Marcelo Ricardo Leitner <mleitner@redhat.com>
-To: Florian Westphal <fw@strlen.de>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] net: sctp: wake up all assocs if sndbuf policy is per socket
+Date: Tue,  8 Apr 2014 15:33:57 +0200
+Message-ID: <1396964037-13245-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Thomas Graf <tgraf@suug.ch>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sifsv-80046.hsr.ch ([152.96.80.46]:53237 "EHLO
-	mail.strongswan.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1756141AbaDHMY1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 08:24:27 -0400
-In-Reply-To: <20140407234640.GB31953@breakpoint.cc>
+Received: from mx1.redhat.com ([209.132.183.28]:24798 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756552AbaDHNei (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2014 09:34:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+SCTP charges chunks for wmem accounting via skb->truesize in
+sctp_set_owner_w(), and sctp_wfree() respectively as the
+reverse operation. If a sender runs out of wmem, it needs to
+wait via sctp_wait_for_sndbuf(), and gets woken up by a call
+to __sctp_write_space() mostly via sctp_wfree().
 
-> Do I interpret this correctly:
-> 
-> Host A - br1 - Router R - br2 - Host B
->   Mtu >1500               Mtu 1500
-> 
-> 1. host A sends GSO packet, DF not set
-> 2. packet arrives at R, still GSO packet
-> 3. forward on R fragments packet since it won't fit
->    outgoing interface (which is normal virtio ethernet) mtu
-> 4. fragmented packets leave R
-> 5. fragmented packets arrive on host system (not pictured above) br2
-> interface
-> 
-> 6. packets are being bridged on host system, call_iptables sysctl on
-> 7. packets are defragmented by netfilter on host due to call_iptables
-> sysctl on
-> 8. packets are tossed on host in br_dev_queue_push_xmit because
->    is_skb_forwardable() returns false
-> 
-> Is that correct?
+__sctp_write_space() is being called per association. Although
+we assign sk->sk_write_space() to sctp_write_space(), which
+is then being done per socket, it is only used if send space
+is increased per socket option (SO_SNDBUF), as SOCK_USE_WRITE_QUEUE
+is set and therefore not invoked in sock_wfree().
 
-Exactly.  The MTU is 1500 on all interfaces though.
+Commit 4c3a5bdae293 ("sctp: Don't charge for data in sndbuf
+again when transmitting packet") fixed an issue where in case
+sctp_packet_transmit() manages to queue up more than sndbuf
+bytes, sctp_wait_for_sndbuf() will never be woken up again
+unless it is interrupted by a signal. However, a still
+remaining issue is that if net.sctp.sndbuf_policy=0, that is
+accounting per socket, and one-to-many sockets are in use,
+the reclaimed write space from sctp_wfree() is 'unfairly'
+handed back on the server to the association that is the lucky
+one to be woken up again via __sctp_write_space(), while
+the remaining associations are never be woken up again
+(unless by a signal).
 
->> Without the commit, and between A and R even with it (because it only
->> affects forwarding), the skbs are GSO throughout and transmitted from A
->> to B without ever actually being fragmented.
-> 
-> I see why this change makes it trip over GSO skbs, but I fail to
-> see why it would work with larger-than-1500-mtu-and-fragmentation-allowed
-> packets being sent from A to B. (or with fragments generated locally
-> on R).
-> 
-> To the host system it should make no difference at all if the fragments
-> came into existence in R's forwarding path, or being sent by A, or if
-> the fragments were generated locally on R (i.e. ping -s $bignum $hosta
-> on R with DF off).
+The effect disappears with net.sctp.sndbuf_policy=1, that
+is wmem accounting per association, as it guarantees a fair
+share of wmem among associations.
 
-In our test scenarios the packets are UDP and GSO and without the commit
-(or between A and R) they travel unchanged between guest and host
-kernels without ever touching a physical interface that would actually
-cause them to get fragmented (I wasn't aware of this, until I looked
-into this issue).
+Therefore, if we have reclaimed memory in case of per socket
+accouting, wake all related associations to a socket in a
+fair manner, that is, traverse the socket association list
+starting from the current neighbour of the association and
+issue a __sctp_write_space() to everyone until we end up
+waking ourselves. This guarantees that no association is
+preferred over another and even if more associations are
+taken into the one-to-many session, all receivers will get
+messages from the server and are not stalled forever on
+high load. This setting still leaves the advantage of per
+socket accounting in touch as an association can still use
+up global limits if unused by others.
 
-For ICMP it's interesting to note that 'ping -s $bignum $hostb' from A
-works even with the commit.  The packet is already fragmented when it
-leaves A and these fragments are forwarded properly by the host bridges.
- They are defragmented by the nf_defrag_ipv4 module, but are fragmented
-again in br_nf_dev_queue_xmit() because skb->nfct is non-null as pointed
-out by you and David.
+Fixes: 4eb701dfc618 ("[SCTP] Fix SCTP sendbuffer accouting.")
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Thomas Graf <tgraf@suug.ch>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+---
+ [ When net-next opens up again, we need to think how
+   we can ideally make a new list interface and simplify
+   both open-coded list traversals. ]
 
-I tried removing the skb->nfct check, and while that fixes the
-forwarding issue on the host, for some reason the UDP socket on B does
-not receive the packet (the guest kernel does, even defragments it and
-queues it to the socket, but the userland program never receives the
-datagram).
+ net/sctp/socket.c | 31 ++++++++++++++++++++++++++++++-
+ 1 file changed, 30 insertions(+), 1 deletion(-)
 
-Regards,
-Tobias
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 981aaf8..a4c8c1f 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -6593,6 +6593,35 @@ static void __sctp_write_space(struct sctp_association *asoc)
+ 	}
+ }
+ 
++static void sctp_wake_up_waiters(struct sock *sk,
++				 struct sctp_association *asoc)
++{
++	struct sctp_association *tmp = asoc;
++
++	/* We do accounting for the sndbuf space per association,
++	 * so we only need to wake our own association.
++	 */
++	if (asoc->ep->sndbuf_policy)
++		return __sctp_write_space(asoc);
++
++	/* Accounting for the sndbuf space is per socket, so we need
++	 * to wake up others, try to be fair and in case of other
++	 * associations, let them have a go first instead of just
++	 * doing a sctp_write_space() call.
++	 */
++	for (tmp = list_next_entry(tmp, asocs); 1;
++	     tmp = list_next_entry(tmp, asocs)) {
++		/* Manually skip the head element. */
++		if (&tmp->asocs == &((sctp_sk(sk))->ep->asocs))
++			continue;
++		/* Wake up association. */
++		__sctp_write_space(tmp);
++		/* We've reached the end. */
++		if (tmp == asoc)
++			break;
++	}
++}
++
+ /* Do accounting for the sndbuf space.
+  * Decrement the used sndbuf space of the corresponding association by the
+  * data size which was just transmitted(freed).
+@@ -6620,7 +6649,7 @@ static void sctp_wfree(struct sk_buff *skb)
+ 	sk_mem_uncharge(sk, skb->truesize);
+ 
+ 	sock_wfree(skb);
+-	__sctp_write_space(asoc);
++	sctp_wake_up_waiters(sk, asoc);
+ 
+ 	sctp_association_put(asoc);
+ }
+-- 
+1.7.11.7
