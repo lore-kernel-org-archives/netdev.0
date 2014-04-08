@@ -1,72 +1,35 @@
-From: Hin-Tak Leung <htl10@users.sourceforge.net>
-Subject: Re: [PATCH] rtl8187: fix use after free on failure path in rtl8187_probe()
-Date: Tue, 8 Apr 2014 01:12:44 +0100 (BST)
-Message-ID: <1396915964.55973.YahooMailBasic@web172301.mail.ir2.yahoo.com>
-Reply-To: htl10@users.sourceforge.net
+From: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Subject: Re: Fault ammission :)
+Date: Mon, 7 Apr 2014 17:22:09 -0700
+Message-ID: <20140408002209.GB25024@kroah.com>
+References: <alpine.LNX.2.03.1404071046430.2161@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ldv-project@linuxtesting.org
-To: larry.finger@lwfinger.net, khoroshilov@ispras.ru,
-	herton@canonical.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm22-vm2.bullet.mail.ir2.yahoo.com ([212.82.97.8]:36637 "EHLO
-	nm22-vm2.bullet.mail.ir2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753162AbaDHASd convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Apr 2014 20:18:33 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+To: "Enrico Mioso (@atlantide)" <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LNX.2.03.1404071046430.2161-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-------------------------------
-On Sun, Mar 30, 2014 10:31 PM BST Larry Finger wrote:
+On Mon, Apr 07, 2014 at 10:55:36AM +0200, Enrico Mioso (@atlantide) wrote:
+> Just to say - that my first COMMIT (adding support fo ONDA MT828UP) was
+> simply wrong. There was a firmware update, but it didn't influence the
+> thing, so I simply mistaken. But now, with the latter commit fixing the
+> thing, all works fine.
+> I will be better to keep udev running :) .
+> References:
+> - Patch: "usb: serial: option.c: remove ONDA MT825UP product ID fromdriver"
+> - (indirect references in this one)
 
->On 03/28/2014 03:26 PM, Alexey Khoroshilov wrote:
-> If allocation of io_dmabuf fails, rtl8187_probe() calls usb_put_dev(u=
-dev)
-> while usb_get_dev(udev) is not called yet. As a result refcnt is decr=
-emented
-> incorrectly and usb_dev can be used after memory deallocation.
->
-> Found by Linux Driver Verification project (linuxtesting.org).
->
-> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
-> ---
->
->Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
->
->Thanks,
->
->Larry
+I don't understand, is there a patch we should now revert?
 
-Acked-by: Hin-Tak Leung <htl10@users.sourceforge.net>
+thanks,
 
-Hin-Tak
-
->
->=A0=A0=A0drivers/net/wireless/rtl818x/rtl8187/dev.c | 4 ++--
->=A0=A0=A01 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/wireless/rtl818x/rtl8187/dev.c b/drivers/net=
-/wireless/rtl818x/rtl8187/dev.c
-> index fd78df813a85..d7f540a9dc9b 100644
-> --- a/drivers/net/wireless/rtl818x/rtl8187/dev.c
-> +++ b/drivers/net/wireless/rtl818x/rtl8187/dev.c
-> @@ -1636,10 +1636,10 @@ static int rtl8187_probe(struct usb_interface=
- *intf,
->
->=A0 =A0 err_free_dmabuf:
->=A0=A0=A0=A0=A0=A0 kfree(priv->io_dmabuf);
-> - err_free_dev:
-> -=A0=A0=A0 ieee80211_free_hw(dev);
->=A0=A0=A0=A0=A0=A0 usb_set_intfdata(intf, NULL);
->=A0=A0=A0=A0=A0=A0 usb_put_dev(udev);
-> + err_free_dev:
-> +=A0=A0=A0 ieee80211_free_hw(dev);
->=A0=A0=A0=A0=A0=A0 return err;
->=A0=A0=A0}
->
->
->
+greg k-h
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
