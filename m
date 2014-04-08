@@ -1,52 +1,58 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net v2] net: sctp: wake up all assocs if sndbuf policy
- is per socket
-Date: Tue, 08 Apr 2014 22:50:31 +0200
-Message-ID: <53446117.7010701@redhat.com>
-References: <20140408.131819.1373401078750444800.davem@davemloft.net> <53442FD0.5020609@redhat.com> <20140408.141918.1353780924646899277.davem@redhat.com> <20140408.144601.1499418906739470715.davem@davemloft.net> <53444841.2010702@redhat.com> <53445005.9000707@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, tgraf@suug.ch, nhorman@tuxdriver.com
-To: vyasevic@redhat.com
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH] net: core: don't account for udp header size when computing seglen
+Date: Tue,  8 Apr 2014 22:51:28 +0200
+Message-ID: <1396990288-10692-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46098 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756174AbaDHUvG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Apr 2014 16:51:06 -0400
-In-Reply-To: <53445005.9000707@redhat.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:50870 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757465AbaDHU4R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 16:56:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/08/2014 09:37 PM, Vlad Yasevich wrote:
-> On 04/08/2014 03:04 PM, Daniel Borkmann wrote:
->> On 04/08/2014 08:46 PM, David Miller wrote:
->>>
->>> Daniel and Vlad, I'm about to send Linus a pull request.
->>>
->>> I know that you still need to fixup this SCTP change and it'll be
->>> in there, but I really need to get the changes in my tree staged
->>> so that I can do a set of -stable submissions.
->>>
->>> So please don't freak out, I know that this change still needs work
->>> and shouldn't go to -stable just yet :-)
->>
->> Noted, thanks. I think the issue is that in sctp_association_free()
->> we do a list_del(&asoc->asocs) and then flush sctp_outq_free() which
->> will then access on sctp_wfree() a poisoned entry. I think this
->> should be list_del_init() instead.
->
-> Switching to list_del_init() will solve the crash, but will not address
-> the issue.  You've just removed an association and need to notify others
-> of available space.  You can't do that since you've been unlinked.
->
-> We either need a rcu_style unlink, or detect the delete case and loop
-> from the beginning.
->
-> You can do #2 easily enough by looking at asoc->base.dead to decide
-> where to start looping.
+In case of tcp, gso_size contains the tcpmss.
 
-Agreed, I think #2 is better, so we can simply call and return with
-sctp_write_space() if we see that the assoc is dead; I think SCTP is
-doing too much deferring to RCU anyway. ;)
+For UFO (udp fragmentation offloading) skbs, gso_size is the fragment
+payload size, i.e. we must not account for udp header size.
+
+Otherwise, when using virtio drivers, a to-be-forwarded UFO GSO packet
+will be needlessly fragmented in the forward path, because we think its
+individual segments are too large for the outgoing link.
+
+Fixes: de960aa9ab4d ("net: add and use skb_gso_transport_seglen()")
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Reported-by: Tobias Brunner <tobias@strongswan.org>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/core/skbuff.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 30c7d35..57e225c 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3937,12 +3937,14 @@ EXPORT_SYMBOL_GPL(skb_scrub_packet);
+ unsigned int skb_gso_transport_seglen(const struct sk_buff *skb)
+ {
+ 	const struct skb_shared_info *shinfo = skb_shinfo(skb);
+-	unsigned int hdr_len;
+ 
+ 	if (likely(shinfo->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)))
+-		hdr_len = tcp_hdrlen(skb);
+-	else
+-		hdr_len = sizeof(struct udphdr);
+-	return hdr_len + shinfo->gso_size;
++		return tcp_hdrlen(skb) + shinfo->gso_size;
++
++	/* UFO sets gso_size to the size of the fragmentation
++	 * payload, i.e. the size of the L4 (UDP) header is already
++	 * accounted for.
++	 */
++	return shinfo->gso_size;
+ }
+ EXPORT_SYMBOL_GPL(skb_gso_transport_seglen);
+-- 
+1.8.1.5
