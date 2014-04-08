@@ -1,27 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Hyper-V network driver
-Date: Mon, 07 Apr 2014 21:06:57 -0400 (EDT)
-Message-ID: <20140407.210657.688217974330826748.davem@davemloft.net>
-References: <e19a4b22ac61490d83041702fff709b8@BY2PR03MB299.namprd03.prod.outlook.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net] Remove unnecessary condition check in phy
+Date: Mon, 7 Apr 2014 18:09:00 -0700
+Message-ID: <CAGVrzcbeFpd+7xgxPNVUW-TEVEeP+wh+XvVkgwvnQBJk7OqHCw@mail.gmail.com>
+References: <533FB108.6010508@gmail.com> <20140407.145819.1044253560836772927.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kys@microsoft.com
+Content-Type: text/plain; charset=UTF-8
+Cc: kumaran.4353@gmail.com, netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60548 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756036AbaDHBG6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 21:06:58 -0400
-In-Reply-To: <e19a4b22ac61490d83041702fff709b8@BY2PR03MB299.namprd03.prod.outlook.com>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:58034 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755202AbaDHBJl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 21:09:41 -0400
+Received: by mail-pb0-f41.google.com with SMTP id jt11so246836pbb.0
+        for <netdev@vger.kernel.org>; Mon, 07 Apr 2014 18:09:40 -0700 (PDT)
+In-Reply-To: <20140407.145819.1044253560836772927.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: KY Srinivasan <kys@microsoft.com>
-Date: Tue, 8 Apr 2014 00:49:49 +0000
+2014-04-07 11:58 GMT-07:00 David Miller <davem@davemloft.net>:
+> From: Balakumaran Kannan <kumaran.4353@gmail.com>
+> Date: Sat, 05 Apr 2014 13:00:16 +0530
+>
+>> This condition check makes no difference in the code flow since 3.10
+>>
+>> Signed-off-by: Balakumaran Kannan <kumaran.4353@gmail.com>
+>
+> The big questions is, was this intentional?
 
-> I have a couple of bug fixes that I want to submit. This is for the
-> offload feature you committed couple of weeks ago for Hyper-V. Is
-> the tree open for bug fixes?
+It was before a33e6112d9b0 ("phy: Elimination the forced speed
+reduction algorithm") because the PHY having PHY_HAS_MAGICANEG set
+would not go through the PHY speed reduction algorithm. Now, this is
+useless as there is a subsequent break and no conditional code based
+on PHY_HAS_MAGICANEG (which means that we should also kill its usage
+at some point).
 
-Yes, the 'net' tree is.
+Feel free to add my reviewed-by tag after fixing the mangling David spotted.
+
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
