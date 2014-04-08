@@ -1,58 +1,38 @@
-From: "Lendacky, Thomas" <Thomas.Lendacky@amd.com>
-Subject: PHY driver loading for clause 45 PHY
-Date: Tue, 8 Apr 2014 21:20:33 +0000
-Message-ID: <986457BC66A4884EBFFDEFEBEB20F84C15F27D90@satlexdag03.amd.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net] ipv4: fib: check forwarding before checking
+ send_redirects
+Date: Tue, 08 Apr 2014 17:23:43 -0400 (EDT)
+Message-ID: <20140408.172343.917107273854891906.davem@davemloft.net>
+References: <1396985482-30886-1-git-send-email-xiyou.wangcong@gmail.com>
+	<20140408.164356.557108616710530006.davem@davemloft.net>
+	<CAM_iQpXrmRNhQCWjiRSKwzxvtcq9XuT-cWS4vRxYVYxpUEN3qQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com, ja@ssi.bg,
+	cwang@twopensource.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0188.outbound.protection.outlook.com ([207.46.163.188]:30618
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756683AbaDHVUi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 17:20:38 -0400
-Received: from satlvexedge02.amd.com (satlvexedge02.amd.com [10.177.96.29])
-	(using TLSv1 with cipher AES128-SHA (128/128 bits))
-	(No client certificate requested)
-	by atltwp02.amd.com (Axway MailGate 5.2.1) with ESMTPS id 23DD7D160A5
-	for <netdev@vger.kernel.org>; Tue,  8 Apr 2014 16:20:33 -0500 (CDT)
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:47076 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756121AbaDHVXp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 17:23:45 -0400
+In-Reply-To: <CAM_iQpXrmRNhQCWjiRSKwzxvtcq9XuT-cWS4vRxYVYxpUEN3qQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've encountered an issue trying to get a phy driver to load when the
-phy supports clause 45.  I  call get_phy_device passing in an mii_bus
-structure, an MMD address and true for is_c45.  The get_phy_device
-function calls the get_phy_id function which calls the appropriate c45
-routines to obtain the device ids for each available MMD device.
-However, phy_id is set to zero upon return (by get_phy_c45_ids).  This
-zero phy_id is used by phy_device_create to build a module name in an
-attempt to load a phy driver that is associated with the phy_id. Since
-the module name used doesn't match any of the ids associated with my
-phy driver, my phy driver does not load.
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue, 8 Apr 2014 14:17:08 -0700
 
-I've worked around this for now by patching phy_device_create just
-before calling request_module:
+> We are not supposed even to execute __fib_validate_source() in such
+> case, are we? :)
 
-diff -rup linux-3.14/drivers/net/phy/phy_device.c linux-3.14-build/drivers/net/phy/phy_device.c
---- linux-3.14/drivers/net/phy/phy_device.c	2014-03-30 22:40:15.000000000 -0500
-+++ linux-3.14-build/drivers/net/phy/phy_device.c	2014-04-08 15:51:24.000000000 -0500
-@@ -195,6 +195,9 @@ struct phy_device *phy_device_create(str
- 	 * driver will get bored and give up as soon as it finds that
- 	 * there's no driver _already_ loaded.
- 	 */
-+	if (is_c45 && (addr < ARRAY_SIZE(c45_ids->device_ids)))
-+		phy_id = c45_ids->device_ids[addr];
-+
- 	request_module(MDIO_MODULE_PREFIX MDIO_ID_FMT, MDIO_ID_ARGS(phy_id));
- 
- 	device_initialize(&dev->dev);
+Yes, we used to, every time we'd make a routing cache entry, we'd
+execute this code.
 
-This builds the proper module name, but I'm not sure this is the proper
-thing to do.  Should the code loop through all the device_ids and issue
-a request_module for each non-zero id?  Or is there a better way to get
-a phy driver that supports clause 45 loaded?
+Check fib_validate_source() from before the routing cache removal if
+you don't believe me.
 
-Thanks,
-Tom
+That check you are editing was added by myself as an optimization
+that was necessary after the routing cache removal since this
+function performs two FIB table lookups every time it is called.
