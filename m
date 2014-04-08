@@ -1,47 +1,51 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] ipv4: fib: check forwarding before checking send_redirects
-Date: Tue,  8 Apr 2014 12:31:22 -0700
-Message-ID: <1396985482-30886-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: davem@davemloft.net, Eric Biederman <ebiederm@xmission.com>,
-	Julian Anastasov <ja@ssi.bg>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Cong Wang <cwang@twopensource.com>
-To: netdev@vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net v2] net: sctp: wake up all assocs if sndbuf policy
+ is per socket
+Date: Tue, 08 Apr 2014 15:37:41 -0400
+Message-ID: <53445005.9000707@redhat.com>
+References: <20140408.131819.1373401078750444800.davem@davemloft.net> <53442FD0.5020609@redhat.com> <20140408.141918.1353780924646899277.davem@redhat.com> <20140408.144601.1499418906739470715.davem@davemloft.net> <53444841.2010702@redhat.com>
+Reply-To: vyasevic@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org, tgraf@suug.ch,
+	nhorman@tuxdriver.com
+To: Daniel Borkmann <dborkman@redhat.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:41538 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932159AbaDHTbx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 15:31:53 -0400
-Received: by mail-pa0-f52.google.com with SMTP id rd3so1457610pab.25
-        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 12:31:53 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:14065 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932159AbaDHTiN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2014 15:38:13 -0400
+In-Reply-To: <53444841.2010702@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <cwang@twopensource.com>
+On 04/08/2014 03:04 PM, Daniel Borkmann wrote:
+> On 04/08/2014 08:46 PM, David Miller wrote:
+>>
+>> Daniel and Vlad, I'm about to send Linus a pull request.
+>>
+>> I know that you still need to fixup this SCTP change and it'll be
+>> in there, but I really need to get the changes in my tree staged
+>> so that I can do a set of -stable submissions.
+>>
+>> So please don't freak out, I know that this change still needs work
+>> and shouldn't go to -stable just yet :-)
+> 
+> Noted, thanks. I think the issue is that in sctp_association_free()
+> we do a list_del(&asoc->asocs) and then flush sctp_outq_free() which
+> will then access on sctp_wfree() a poisoned entry. I think this
+> should be list_del_init() instead.
 
-We have seen in a weird case we had to disable send_redirects in order
-to pass rp filter check even though we don't set forwarding at all.
-This looks wrong, at least according to ip-sysctl.txt send_redirects should
-only make sense when we enable forwarding.
+Switching to list_del_init() will solve the crash, but will not address
+the issue.  You've just removed an association and need to notify others
+of available space.  You can't do that since you've been unlinked.
 
-Cc: Eric Biederman <ebiederm@xmission.com>
-Cc: Julian Anastasov <ja@ssi.bg>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Cong Wang <cwang@twopensource.com>
+We either need a rcu_style unlink, or detect the delete case and loop
+from the beginning.
 
----
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 1a629f8..3f9e324 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -321,7 +321,8 @@ int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
- 	int r = secpath_exists(skb) ? 0 : IN_DEV_RPFILTER(idev);
- 
- 	if (!r && !fib_num_tclassid_users(dev_net(dev)) &&
--	    (dev->ifindex != oif || !IN_DEV_TX_REDIRECTS(idev))) {
-+	    (dev->ifindex != oif || !IN_DEV_FORWARD(idev) ||
-+	     !IN_DEV_TX_REDIRECTS(idev))) {
- 		*itag = 0;
- 		return 0;
- 	}
+You can do #2 easily enough by looking at asoc->base.dead to decide
+where to start looping.
+
+-vlad
