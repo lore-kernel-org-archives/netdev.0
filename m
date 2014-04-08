@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phylib: export phy_suspend and phy_resume
-Date: Tue, 08 Apr 2014 12:29:53 -0400 (EDT)
-Message-ID: <20140408.122953.1708326631498329706.davem@davemloft.net>
-References: <20140408071101.GA14453@gmail.com>
+Subject: Re: [PATCH] decnet: fix possible NULL deref in dnet_select_source()
+Date: Tue, 08 Apr 2014 12:37:50 -0400 (EDT)
+Message-ID: <20140408.123750.693837509861075227.davem@davemloft.net>
+References: <1396821554.12330.51.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140407.151854.411047851818388937.davem@davemloft.net>
+	<1396932704.16584.9.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tobias@waldekranz.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43313 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932124AbaDHQ3z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 12:29:55 -0400
-In-Reply-To: <20140408071101.GA14453@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sasha.levin@oracle.com, netdev@vger.kernel.org,
+	linux-decnet-user@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, davej@redhat.com
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1396932704.16584.9.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tobias Waldekranz <tobias@waldekranz.com>
-Date: Tue, 8 Apr 2014 09:11:01 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 07 Apr 2014 21:51:44 -0700
 
-> These functions are exported in include/linux/phy.h but the symbol
-> exports where missing.
+> On Mon, 2014-04-07 at 15:18 -0400, David Miller wrote:
 > 
-> Signed-off-by: Tobias Waldekranz <tobias@waldekranz.com>
+>> And in the loopback case, it is the decnet stack's responsibility to
+>> make sure ->dn_ptr is setup properly, else it should fail the module
+>> load and stack initialization.
+>> can fix this properly.
+> 
+> This was based on Sasha report and my limited time.
+> It seems you have more time than me to spend on decnet !
 
-Because they are only used in places where module exports are unnecessary.
-Presence in foo.h does not automatically mean the symbol should be
-exported to modules.
-
-If you come up with a use case that requires the module export, submit
-it along with a patch like this.
-
-But for now I'm not applying this, sorry.
+Understood, I'll take a deeper look into this.
