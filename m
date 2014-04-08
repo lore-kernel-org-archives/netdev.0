@@ -1,79 +1,64 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] net: sctp: test if association is dead in sctp_wake_up_waiters
-Date: Wed,  9 Apr 2014 00:23:36 +0200
-Message-ID: <1396995816-25275-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: davem@davemloft.net
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] ipv4: fib: check forwarding before checking send_redirects
+Date: Tue, 8 Apr 2014 15:55:12 -0700
+Message-ID: <CAM_iQpXNf9rBCtZ2ipiHr2i2Kk4r0QtewiNC-qW8RzR0ChoWqA@mail.gmail.com>
+References: <1396985482-30886-1-git-send-email-xiyou.wangcong@gmail.com>
+	<20140408.164356.557108616710530006.davem@davemloft.net>
+	<CAM_iQpXrmRNhQCWjiRSKwzxvtcq9XuT-cWS4vRxYVYxpUEN3qQ@mail.gmail.com>
+	<20140408.172343.917107273854891906.davem@davemloft.net>
+	<CAM_iQpXkmU9qw_KPeMPnE0KGbcCWo5R=Le7HsizyiuRJVkKshA@mail.gmail.com>
+	<alpine.LFD.2.11.1404090110500.3310@ja.home.ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Cong Wang <cwang@twopensource.com>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41791 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757726AbaDHWXl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Apr 2014 18:23:41 -0400
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:41212 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756372AbaDHWzN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 18:55:13 -0400
+Received: by mail-ob0-f181.google.com with SMTP id wp4so1766992obc.26
+        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 15:55:12 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.11.1404090110500.3310@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In function sctp_wake_up_waiters() we need to involve a test
-if the association is declared dead. If so, we don't have any
-reference to a possible sibling association anymore and need
-to invoke sctp_write_space() instead and normally walk the
-socket's associations and notify them of new wmem space. The
-reason for special casing is that, otherwise, we could run
-into the following issue:
+Thanks for your reply, David and Julian!
 
-sctp_association_free()
-`-> list_del(&asoc->asocs)         <-- poisons list pointer
-    asoc->base.dead = true
-    sctp_outq_free(&asoc->outqueue)
-    `-> __sctp_outq_teardown()
-     `-> sctp_chunk_free()
-      `-> consume_skb()
-       `-> sctp_wfree()
-        `-> sctp_wake_up_waiters() <-- dereferences poisoned pointers
-                                       if asoc->ep->sndbuf_policy=0
+On Tue, Apr 8, 2014 at 3:15 PM, Julian Anastasov <ja@ssi.bg> wrote:
+>         Yes, the code will fail if input route is
+> tried on loopback device. My first thought was that
+> you forgot to 'ip route flush cache' after clearing
+> rp_filter.
+>
 
-Therefore, only walk the list in an 'optimized' way if we find
-that the current association is still active. It's also more
-clean in that context to just use list_del_init() when we call
-sctp_association_free(). Stress-testing seems fine now.
+route cache is removed after 3.6, so I don't need to do it?
 
-Fixes: cd253f9f357d ("net: sctp: wake up all assocs if sndbuf policy is per socket")
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Vlad Yasevich <vyasevic@redhat.com>
----
- net/sctp/associola.c | 2 +-
- net/sctp/socket.c    | 6 ++++++
- 2 files changed, 7 insertions(+), 1 deletion(-)
+>> which looks good to me too, since the packet has src addr == dst addr.
+>>
+>> Which part am I missing?
+>
+>         What kind of packet is that and why the skb lost its
+> output route and now it is trying for input route?
+>
 
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 4f6d6f9..0f8fa97 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -331,7 +331,7 @@ void sctp_association_free(struct sctp_association *asoc)
- 	 * don't bother for if this is a temporary association.
- 	 */
- 	if (!asoc->temp) {
--		list_del(&asoc->asocs);
-+		list_del_init(&asoc->asocs);
- 
- 		/* Decrement the backlog value for a TCP-style listening
- 		 * socket.
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 5f83a6a..270d5bd 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -6604,6 +6604,12 @@ static void sctp_wake_up_waiters(struct sock *sk,
- 	if (asoc->ep->sndbuf_policy)
- 		return __sctp_write_space(asoc);
- 
-+	/* If association goes down and is just flushing its
-+	 * outq, then just normally notify others.
-+	 */
-+	if (asoc->base.dead)
-+		return sctp_write_space(sk);
-+
- 	/* Accounting for the sndbuf space is per socket, so we
- 	 * need to wake up others, try to be fair and in case of
- 	 * other associations, let them have a go first instead
--- 
-1.7.11.7
+Yeah, I just noticed that for normal loopback packets its ->dst
+are forced to be kept so that it will not need to lookup route
+again on rx. However, in our case, we redirect the packets
+from veth0 to lo when src_addr == dst_addr, its ->dst is dropped
+after coming out of the network namespace, therefore goes into
+the slow path to validate the reverse path and lookup the route.
+
+I think David's point is still valid in this case, __fib_validate_source()
+should not reject the packets. So hmm... the only reason I can find is
+the following code:
+
+        if (fib_lookup(net, &fl4, &res) == 0) {
+                if (res.type == RTN_UNICAST)
+                        ret = FIB_RES_NH(res).nh_scope >= RT_SCOPE_HOST;
+        }
+
+where its nh_scope == RT_SCOPE_HOST?
