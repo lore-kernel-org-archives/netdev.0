@@ -1,68 +1,142 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] phylib: export phy_suspend and phy_resume
-Date: Tue, 8 Apr 2014 08:26:39 -0700
-Message-ID: <CAGVrzcY5aa5z36qooLqRZv2b_z=mJd2KeOjs9W5uWDSZ1hjRdQ@mail.gmail.com>
-References: <20140408071101.GA14453@gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net v2] net: sctp: wake up all assocs if sndbuf policy
+ is per socket
+Date: Tue, 08 Apr 2014 11:28:43 -0400
+Message-ID: <534415AB.80108@redhat.com>
+References: <1396970773-17500-1-git-send-email-dborkman@redhat.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Tobias Waldekranz <tobias@waldekranz.com>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Thomas Graf <tgraf@suug.ch>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f181.google.com ([209.85.216.181]:46931 "EHLO
-	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756788AbaDHP1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 11:27:21 -0400
-Received: by mail-qc0-f181.google.com with SMTP id x3so1153008qcv.26
-        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 08:27:20 -0700 (PDT)
-In-Reply-To: <20140408071101.GA14453@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:13385 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756369AbaDHP3t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2014 11:29:49 -0400
+In-Reply-To: <1396970773-17500-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-04-08 0:11 GMT-07:00 Tobias Waldekranz <tobias@waldekranz.com>:
-> These functions are exported in include/linux/phy.h but the symbol
-> exports where missing.
+On 04/08/2014 11:26 AM, Daniel Borkmann wrote:
+> SCTP charges chunks for wmem accounting via skb->truesize in
+> sctp_set_owner_w(), and sctp_wfree() respectively as the
+> reverse operation. If a sender runs out of wmem, it needs to
+> wait via sctp_wait_for_sndbuf(), and gets woken up by a call
+> to __sctp_write_space() mostly via sctp_wfree().
+> 
+> __sctp_write_space() is being called per association. Although
+> we assign sk->sk_write_space() to sctp_write_space(), which
+> is then being done per socket, it is only used if send space
+> is increased per socket option (SO_SNDBUF), as SOCK_USE_WRITE_QUEUE
+> is set and therefore not invoked in sock_wfree().
+> 
+> Commit 4c3a5bdae293 ("sctp: Don't charge for data in sndbuf
+> again when transmitting packet") fixed an issue where in case
+> sctp_packet_transmit() manages to queue up more than sndbuf
+> bytes, sctp_wait_for_sndbuf() will never be woken up again
+> unless it is interrupted by a signal. However, a still
+> remaining issue is that if net.sctp.sndbuf_policy=0, that is
+> accounting per socket, and one-to-many sockets are in use,
+> the reclaimed write space from sctp_wfree() is 'unfairly'
+> handed back on the server to the association that is the lucky
+> one to be woken up again via __sctp_write_space(), while
+> the remaining associations are never be woken up again
+> (unless by a signal).
+> 
+> The effect disappears with net.sctp.sndbuf_policy=1, that
+> is wmem accounting per association, as it guarantees a fair
+> share of wmem among associations.
+> 
+> Therefore, if we have reclaimed memory in case of per socket
+> accounting, wake all related associations to a socket in a
+> fair manner, that is, traverse the socket association list
+> starting from the current neighbour of the association and
+> issue a __sctp_write_space() to everyone until we end up
+> waking ourselves. This guarantees that no association is
+> preferred over another and even if more associations are
+> taken into the one-to-many session, all receivers will get
+> messages from the server and are not stalled forever on
+> high load. This setting still leaves the advantage of per
+> socket accounting in touch as an association can still use
+> up global limits if unused by others.
+> 
+> Fixes: 4eb701dfc618 ("[SCTP] Fix SCTP sendbuffer accouting.")
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Thomas Graf <tgraf@suug.ch>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Cc: Vlad Yasevich <vyasevic@redhat.com>
 
-Thanks! I had this sitting somewhere and somehow forgot to send it.
+Acked-by: Vlad Yasevich <vyasevic@redhat.com>
 
->
-> Signed-off-by: Tobias Waldekranz <tobias@waldekranz.com>
-
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+-vlad
 
 > ---
->  drivers/net/phy/phy_device.c | 2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 0ce6066..7485334 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -695,6 +695,7 @@ int phy_suspend(struct phy_device *phydev)
->                 return phydrv->suspend(phydev);
->         return 0;
+>  [ When net-next opens up again, we need to think how
+>    we can ideally make a new list interface and simplify
+>    both open-coded list traversals. ]
+> 
+>  v1->v2:
+>   - Improved comment, included note about locking
+> 
+>  net/sctp/socket.c | 36 +++++++++++++++++++++++++++++++++++-
+>  1 file changed, 35 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 981aaf8..96cfaba 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -6593,6 +6593,40 @@ static void __sctp_write_space(struct sctp_association *asoc)
+>  	}
 >  }
-> +EXPORT_SYMBOL(phy_suspend);
->
->  int phy_resume(struct phy_device *phydev)
->  {
-> @@ -704,6 +705,7 @@ int phy_resume(struct phy_device *phydev)
->                 return phydrv->resume(phydev);
->         return 0;
+>  
+> +static void sctp_wake_up_waiters(struct sock *sk,
+> +				 struct sctp_association *asoc)
+> +{
+> +	struct sctp_association *tmp = asoc;
+> +
+> +	/* We do accounting for the sndbuf space per association,
+> +	 * so we only need to wake our own association.
+> +	 */
+> +	if (asoc->ep->sndbuf_policy)
+> +		return __sctp_write_space(asoc);
+> +
+> +	/* Accounting for the sndbuf space is per socket, so we
+> +	 * need to wake up others, try to be fair and in case of
+> +	 * other associations, let them have a go first instead
+> +	 * of just doing a sctp_write_space() call.
+> +	 *
+> +	 * Note that we reach sctp_wake_up_waiters() only when
+> +	 * associations free up queued chunks, thus we are under
+> +	 * lock and the list of associations on a socket is
+> +	 * guaranteed not to change.
+> +	 */
+> +	for (tmp = list_next_entry(tmp, asocs); 1;
+> +	     tmp = list_next_entry(tmp, asocs)) {
+> +		/* Manually skip the head element. */
+> +		if (&tmp->asocs == &((sctp_sk(sk))->ep->asocs))
+> +			continue;
+> +		/* Wake up association. */
+> +		__sctp_write_space(tmp);
+> +		/* We've reached the end. */
+> +		if (tmp == asoc)
+> +			break;
+> +	}
+> +}
+> +
+>  /* Do accounting for the sndbuf space.
+>   * Decrement the used sndbuf space of the corresponding association by the
+>   * data size which was just transmitted(freed).
+> @@ -6620,7 +6654,7 @@ static void sctp_wfree(struct sk_buff *skb)
+>  	sk_mem_uncharge(sk, skb->truesize);
+>  
+>  	sock_wfree(skb);
+> -	__sctp_write_space(asoc);
+> +	sctp_wake_up_waiters(sk, asoc);
+>  
+>  	sctp_association_put(asoc);
 >  }
-> +EXPORT_SYMBOL(phy_resume);
->
->  /* Generic PHY support and helper functions */
->
-> --
-> 1.8.4.357.g8d83871.dirty
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
-
--- 
-Florian
+> 
