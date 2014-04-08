@@ -1,36 +1,46 @@
-From: David Miller <davem@davemloft.net>
+From: Tobias Waldekranz <tobias@waldekranz.com>
 Subject: Re: [PATCH] phylib: export phy_suspend and phy_resume
-Date: Tue, 08 Apr 2014 13:04:14 -0400 (EDT)
-Message-ID: <20140408.130414.751183135423854989.davem@davemloft.net>
+Date: Tue, 8 Apr 2014 19:07:41 +0200
+Message-ID: <20140408170741.GA4793@gmail.com>
 References: <20140408071101.GA14453@gmail.com>
-	<CAGVrzcY5aa5z36qooLqRZv2b_z=mJd2KeOjs9W5uWDSZ1hjRdQ@mail.gmail.com>
+ <20140408.122953.1708326631498329706.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tobias@waldekranz.com, sebastian.hesselbarth@gmail.com,
-	netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43840 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932078AbaDHREP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 13:04:15 -0400
-In-Reply-To: <CAGVrzcY5aa5z36qooLqRZv2b_z=mJd2KeOjs9W5uWDSZ1hjRdQ@mail.gmail.com>
+Received: from mail-bk0-f49.google.com ([209.85.214.49]:59222 "EHLO
+	mail-bk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756131AbaDHRIX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 13:08:23 -0400
+Received: by mail-bk0-f49.google.com with SMTP id my13so802353bkb.8
+        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 10:08:22 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140408.122953.1708326631498329706.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 8 Apr 2014 08:26:39 -0700
+On Tue, Apr 08, 2014 at 12:29:53PM -0400, David Miller wrote:
+> From: Tobias Waldekranz <tobias@waldekranz.com>
+> Date: Tue, 8 Apr 2014 09:11:01 +0200
+> 
+> > These functions are exported in include/linux/phy.h but the symbol
+> > exports where missing.
+> > 
+> > Signed-off-by: Tobias Waldekranz <tobias@waldekranz.com>
+> 
+> Because they are only used in places where module exports are unnecessary.
+> Presence in foo.h does not automatically mean the symbol should be
+> exported to modules.
+> 
+> If you come up with a use case that requires the module export, submit
+> it along with a patch like this.
+> 
+> But for now I'm not applying this, sorry.
 
-> 2014-04-08 0:11 GMT-07:00 Tobias Waldekranz <tobias@waldekranz.com>:
->> These functions are exported in include/linux/phy.h but the symbol
->> exports where missing.
-> 
-> Thanks! I had this sitting somewhere and somehow forgot to send it.
-> 
->>
->> Signed-off-by: Tobias Waldekranz <tobias@waldekranz.com>
-> 
-> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+Further investigation revealed that I was actually looking for
+phy_start/stop. Sorry about the noise.
 
-I don't want to see these exported until there is an actual use.
+-- 
+Thanks
+ - wkz
