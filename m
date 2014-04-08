@@ -1,51 +1,54 @@
-From: "Enrico Mioso (@atlantide)" <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Fault ammission :)
-Date: Tue, 8 Apr 2014 06:55:27 +0200 (CEST)
-Message-ID: <alpine.LNX.2.03.1404080654530.354@gmail.com>
-References: <alpine.LNX.2.03.1404071046430.2161@gmail.com> <20140408002209.GB25024@kroah.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [Patch net-next] net/mlx4_core: match pci_device_id including
+ dynids
+Date: Tue, 8 Apr 2014 09:48:30 +0300
+Message-ID: <53439BBE.4070708@mellanox.com>
+References: <1396750050-7183-1-git-send-email-weiyang@linux.vnet.ibm.com> <20140407.144340.688537373203786487.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Enrico Mioso (@atlantide)" <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-To: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140408002209.GB25024-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <yevgenyp@mellanox.com>, <amirv@mellanox.com>,
+	<bhelgaas@google.com>, <linux-pci@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <weiyang@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:34609 "EHLO
+	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756036AbaDHGym (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 02:54:42 -0400
+In-Reply-To: <20140407.144340.688537373203786487.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 07/04/2014 21:43, David Miller wrote:
+> From: Wei Yang <weiyang@linux.vnet.ibm.com>
+> Date: Sun,  6 Apr 2014 10:07:30 +0800
+>
+>> Fix issue introduced by commit: 97a5221 "net/mlx4_core: pass
+>> pci_device_id.driver_data to __mlx4_init_one during reset".
+>>
+>> pci_match_id() just match the static pci_device_id, which may return NULL if
+>> someone binds the driver to a device manually using
+>> /sys/bus/pci/drivers/.../new_id.
+>>
+>> This patch wrap up a helper function __mlx4_remove_one() which does the tear
+>> down function but preserve the drv_data. Functions like
+>> mlx4_pci_err_detected() and mlx4_restart_one() will call this one with out
+>> releasing drvdata.
+>>
+>> Tested on ConnectX-3.
+>>
+>> CC: Bjorn Helgaas <bhelgaas@google.com>
+>> CC: Amir Vadai <amirv@mellanox.com>
+>> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+> Please resubmit this when the net-next tree opens back up, thanks.
 
+Dave, this patch is for net, since it fixes an issue in the current code 
+(actually it relates to a patch
+that was merged after 3.14-rc7, so it would eventually might go to 
+-stable too). The author wasn't very
+familiar with the exact differences/nature of net vs. net-next, so it 
+might created some confusion here, I'v
+sent him few private notes to explain how things go...
 
-On Mon, 7 Apr 2014, Greg KH wrote:
-
-==Date: Mon, 7 Apr 2014 17:22:09 -0700
-==From: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-==To: "Enrico Mioso (@atlantide)" <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-==Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-==    Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-==Subject: Re: Fault ammission :)
-==
-==On Mon, Apr 07, 2014 at 10:55:36AM +0200, Enrico Mioso (@atlantide) wrote:
-==> Just to say - that my first COMMIT (adding support fo ONDA MT828UP) was
-==> simply wrong. There was a firmware update, but it didn't influence the
-==> thing, so I simply mistaken. But now, with the latter commit fixing the
-==> thing, all works fine.
-==> I will be better to keep udev running :) .
-==> References:
-==> - Patch: "usb: serial: option.c: remove ONDA MT825UP product ID fromdriver"
-==> - (indirect references in this one)
-==
-==I don't understand, is there a patch we should now revert?
-==
-==thanks,
-==
-==greg k-h
-==
-No - things works fine as they are now. Thank you and sorry for the "noise".
-
-Enrico
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Or.
