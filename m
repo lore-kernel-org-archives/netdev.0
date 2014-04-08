@@ -1,69 +1,59 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net v2] net: sctp: test if association is dead in sctp_wake_up_waiters
-Date: Wed,  9 Apr 2014 01:32:37 +0200
-Message-ID: <de3e98e644dde7dcaea9a952de38eb32a2959eeb.1396999714.git.dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: davem@davemloft.net
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [PATCH net-next 2/2] ptp: Fix compiler warnings in the testptp
+ utility
+Date: Tue, 8 Apr 2014 21:43:05 +0000
+Message-ID: <1396993385.2376.8.camel@jekeller-desk1.amr.corp.intel.com>
+References: <1395746646-28299-1-git-send-email-christian.riesch@omicron.at>
+	 <a2330f7d-0abf-4ee0-9288-1e881b2b5368@mary.at.omicron.at>
+	 <20140325114523.GB14836@netboy>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Christian Riesch <christian.riesch@omicron.at>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Dong Zhu <bluezhudong@gmail.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:65168 "EHLO mx1.redhat.com"
+Received: from mga09.intel.com ([134.134.136.24]:24060 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932313AbaDHXcj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Apr 2014 19:32:39 -0400
+	id S1756235AbaDIAQp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2014 20:16:45 -0400
+In-Reply-To: <20140325114523.GB14836@netboy>
+Content-Language: en-US
+Content-ID: <D4FBF12EEA86654094F52BDB5BA76D04@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In function sctp_wake_up_waiters(), we need to involve a test
-if the association is declared dead. If so, we don't have any
-reference to a possible sibling association anymore and need
-to invoke sctp_write_space() instead and normally walk the
-socket's associations and notify them of new wmem space. The
-reason for special casing is that, otherwise, we could run
-into the following issue:
-
-sctp_association_free()
-`-> list_del(&asoc->asocs)         <-- poisons list pointer
-    asoc->base.dead = true
-    sctp_outq_free(&asoc->outqueue)
-    `-> __sctp_outq_teardown()
-     `-> sctp_chunk_free()
-      `-> consume_skb()
-       `-> sctp_wfree()
-        `-> sctp_wake_up_waiters() <-- dereferences poisoned pointers
-                                       if asoc->ep->sndbuf_policy=0
-
-Therefore, only walk the list in an 'optimized' way if we find
-that the current association is still active. We could also use
-list_del_init() in addition when we call sctp_association_free(),
-but as Vlad suggests, we want to trap such bugs and thus leave
-it poisoned as is. Stress-testing seems fine now.
-
-Fixes: cd253f9f357d ("net: sctp: wake up all assocs if sndbuf policy is per socket")
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Vlad Yasevich <vyasevic@redhat.com>
----
- v1->v2:
-  - leave list_del()
-
- net/sctp/socket.c | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 5f83a6a..270d5bd 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -6604,6 +6604,12 @@ static void sctp_wake_up_waiters(struct sock *sk,
- 	if (asoc->ep->sndbuf_policy)
- 		return __sctp_write_space(asoc);
- 
-+	/* If association goes down and is just flushing its
-+	 * outq, then just normally notify others.
-+	 */
-+	if (asoc->base.dead)
-+		return sctp_write_space(sk);
-+
- 	/* Accounting for the sndbuf space is per socket, so we
- 	 * need to wake up others, try to be fair and in case of
- 	 * other associations, let them have a go first instead
--- 
-1.7.11.7
+T24gVHVlLCAyMDE0LTAzLTI1IGF0IDEyOjQ1ICswMTAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6
+DQo+IE9uIFR1ZSwgTWFyIDI1LCAyMDE0IGF0IDEyOjI0OjA2UE0gKzAxMDAsIENocmlzdGlhbiBS
+aWVzY2ggd3JvdGU6DQo+ID4gU2lnbmVkLW9mZi1ieTogQ2hyaXN0aWFuIFJpZXNjaCA8Y2hyaXN0
+aWFuLnJpZXNjaEBvbWljcm9uLmF0Pg0KPiA+IENjOiBEb25nIFpodSA8Ymx1ZXpodWRvbmdAZ21h
+aWwuY29tPg0KPiA+IC0tLQ0KPiA+ICBEb2N1bWVudGF0aW9uL3B0cC90ZXN0cHRwLmMgfCAgIDEw
+ICsrKysrLS0tLS0NCj4gPiAgMSBmaWxlIGNoYW5nZWQsIDUgaW5zZXJ0aW9ucygrKSwgNSBkZWxl
+dGlvbnMoLSkNCj4gPiANCj4gPiBkaWZmIC0tZ2l0IGEvRG9jdW1lbnRhdGlvbi9wdHAvdGVzdHB0
+cC5jIGIvRG9jdW1lbnRhdGlvbi9wdHAvdGVzdHB0cC5jDQo+ID4gaW5kZXggMTNiZGRkNS4uMTRi
+ZjE5ZSAxMDA2NDQNCj4gPiAtLS0gYS9Eb2N1bWVudGF0aW9uL3B0cC90ZXN0cHRwLmMNCj4gPiAr
+KysgYi9Eb2N1bWVudGF0aW9uL3B0cC90ZXN0cHRwLmMNCj4gPiBAQCAtNDk2LDE0ICs0OTYsMTQg
+QEAgaW50IG1haW4oaW50IGFyZ2MsIGNoYXIgKmFyZ3ZbXSkNCj4gPiAgCQkJaW50ZXJ2YWwgPSB0
+MiAtIHQxOw0KPiA+ICAJCQlvZmZzZXQgPSAodDIgKyB0MSkgLyAyIC0gdHA7DQo+ID4gIA0KPiA+
+IC0JCQlwcmludGYoInN5c3RlbSB0aW1lOiAlbGQuJWxkXG4iLA0KPiA+ICsJCQlwcmludGYoInN5
+c3RlbSB0aW1lOiAlbGxkLiV1XG4iLA0KPiA+ICAJCQkJKHBjdCsyKmkpLT5zZWMsIChwY3QrMipp
+KS0+bnNlYyk7DQo+ID4gLQkJCXByaW50ZigicGhjICAgIHRpbWU6ICVsZC4lbGRcbiIsDQo+ID4g
+KwkJCXByaW50ZigicGhjICAgIHRpbWU6ICVsbGQuJXVcbiIsDQo+ID4gIAkJCQkocGN0KzIqaSsx
+KS0+c2VjLCAocGN0KzIqaSsxKS0+bnNlYyk7DQo+ID4gLQkJCXByaW50Zigic3lzdGVtIHRpbWU6
+ICVsZC4lbGRcbiIsDQo+ID4gKwkJCXByaW50Zigic3lzdGVtIHRpbWU6ICVsbGQuJXVcbiIsDQo+
+ID4gIAkJCQkocGN0KzIqaSsyKS0+c2VjLCAocGN0KzIqaSsyKS0+bnNlYyk7DQo+ID4gLQkJCXBy
+aW50Zigic3lzdGVtL3BoYyBjbG9jayB0aW1lIG9mZnNldCBpcyAlbGQgbnNcbiINCj4gPiAtCQkJ
+CSJzeXN0ZW0gICAgIGNsb2NrIHRpbWUgZGVsYXkgIGlzICVsZCBuc1xuIiwNCj4gDQo+IFVzZSBQ
+UklkNjQgaW5zdGVhZD8NCj4gDQo+IFRoYW5rcywNCj4gUmljaGFyZA0KPiANCg0KSSBhZ3JlZSB3
+aXRoIHRoaXMuICVsbGQgaXMgbm90IGdvaW5nIHRvIHJlc29sdmUgdGhlIGVycm9yIHByb3Blcmx5
+IG9uIGENCjMyIGJpdCBtYWNoaW5lLiBMb29rcyBsaWtlIGEgZm9sbG93LW9uIHBhdGNoIHdvdWxk
+IGhhdmUgdG8gYmUgZ2VuZXJhdGVkLA0Kc2luY2UgRGF2ZSBhcHBsaWVkIHRoaXMgYWxyZWFkeS4N
+Cg0KVGhhbmtzLA0KSmFrZQ0KDQo+ID4gKwkJCXByaW50Zigic3lzdGVtL3BoYyBjbG9jayB0aW1l
+IG9mZnNldCBpcyAlbGxkIG5zXG4iDQo+ID4gKwkJCQkic3lzdGVtICAgICBjbG9jayB0aW1lIGRl
+bGF5ICBpcyAlbGxkIG5zXG4iLA0KPiA+ICAJCQkJb2Zmc2V0LCBpbnRlcnZhbCk7DQo+ID4gIAkJ
+fQ0KPiA+ICANCj4gPiAtLSANCj4gPiAxLjcuOS41DQo+ID4gDQo+IC0tDQo+IFRvIHVuc3Vic2Ny
+aWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGlu
+DQo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+
+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21v
+LWluZm8uaHRtbA0KDQoNCg==
