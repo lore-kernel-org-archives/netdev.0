@@ -1,56 +1,50 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: ipv6: Should inet6_addr_del consider IFA_F_MANAGETEMPADDR?
-Date: Tue, 8 Apr 2014 22:14:30 +0200
-Message-ID: <20140408201430.GD27255@order.stressinduktion.org>
-References: <53443F5D.6030509@web.de>
+From: Dmitry Petukhov <dmgenp@gmail.com>
+Subject: [PATCH net] l2tp: take PMTU from tunnel UDP socket
+Date: Wed, 9 Apr 2014 02:23:20 +0600
+Message-ID: <20140409022320.752f036a@laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	jiri@resnulli.us, thaller@redhat.com
-To: Heiner Kallweit <heiner.kallweit@web.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:59077 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756551AbaDHUOb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 16:14:31 -0400
-Content-Disposition: inline
-In-Reply-To: <53443F5D.6030509@web.de>
+Received: from mail-bk0-f43.google.com ([209.85.214.43]:33882 "EHLO
+	mail-bk0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756179AbaDHUYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 16:24:30 -0400
+Received: by mail-bk0-f43.google.com with SMTP id v15so1246451bkz.16
+        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 13:24:29 -0700 (PDT)
+Received: from laptop ([82.193.155.251])
+        by mx.google.com with ESMTPSA id q4sm2446633lbh.20.2014.04.08.13.24.27
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Tue, 08 Apr 2014 13:24:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[cc Jiri + Thomas]
+When l2tp driver tries to get PMTU for the tunnel destination, it uses
+the pointer to struct sock that represents PPPoX socket, while it
+should use the pointer that represents UDP socket of the tunnel.
 
-Hi!
+Signed-off-by: Dmitry Petukhov <dmgenp@gmail.com>
+---
+ net/l2tp/l2tp_ppp.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-On Tue, Apr 08, 2014 at 08:26:37PM +0200, Heiner Kallweit wrote:
-> I stumbled accross the fact that inet6_addr_add as well as inet6_addr_modify
-> consider IFA_F_TEMPORARY whilst inet6_addr_del does not.
-> 
-> My understanding of IFA_F_MANAGETEMPADDR is that it allows userspace applications
-> to deal with temporary addresses w/o having to create / track (and possibly delete)
-> each and every temporary address.
-> 
-> This works fine when creating / modifying a global address. However when a
-> global address is deleted the orphaned temporary addresses remain.
-> Shouldn't the userspace be able to set IFA_F_MANAGETEMPADDR also for RTM_DELADDR
-> to signalize that the kernel should delete all related temporary addresses as well?
-
-Sure, that is possible. I guess it was not done already because
-inet6_addr_del did not handle IFA_FLAGS at all. But it should be a very
-tiny change to pass that flag down. Please submit an iproute patch along
-with your changes.
-
-> It would be a rather small extension to manage_tempaddrs to add a "delete" parameter
-> and set valid_lft=prefered_lft=0 for each temporary address if set.
-
-I think valid_lft=prefered_lft=0; manage_tempaddr(...);
-addrconf_verify_rtnl(); is enough to clean up the old temporary address.
-No need for a further flag.
-
-> Sorry if this was discussed before and I miss something.
-
-I don't remember a discussion about that. ;)
-
-Bye,
-
-  Hannes
+diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+index d276e2d..950909f 100644
+--- a/net/l2tp/l2tp_ppp.c
++++ b/net/l2tp/l2tp_ppp.c
+@@ -753,9 +753,9 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
+ 	session->deref = pppol2tp_session_sock_put;
+ 
+ 	/* If PMTU discovery was enabled, use the MTU that was discovered */
+-	dst = sk_dst_get(sk);
++	dst = sk_dst_get(tunnel->sock);
+ 	if (dst != NULL) {
+-		u32 pmtu = dst_mtu(__sk_dst_get(sk));
++		u32 pmtu = dst_mtu(__sk_dst_get(tunnel->sock));
+ 		if (pmtu != 0)
+ 			session->mtu = session->mru = pmtu -
+ 				PPPOL2TP_HEADER_OVERHEAD;
+--
+1.7.9.5
