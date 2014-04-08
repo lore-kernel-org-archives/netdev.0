@@ -1,50 +1,42 @@
-From: yegorslists@googlemail.com
-Subject: [PATCH] net: cpsw: fix dual_emac VLAN issue
-Date: Tue,  8 Apr 2014 16:58:30 +0200
-Message-ID: <1396969110-3114-2-git-send-email-yegorslists@googlemail.com>
-References: <1396969110-3114-1-git-send-email-yegorslists@googlemail.com>
-Cc: mugunthanvnm@ti.com, Yegor Yefremov <yegorslists@googlemail.com>
-To: netdev@vger.kernel.org
+From: Ebru Alakavuk <ebru.alakavuk@yasar.edu.tr>
+Subject: =?utf-8?B?0KXQvtGA0L7RiNC40LUg0L3QvtCy0L7RgdGC0Lgh?=
+Date: Tue, 08 Apr 2014 17:28:38 +0300 (EEST)
+Message-ID: <e2c462fa-9225-4e79-b581-c24de2ea1722@webmail>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: i@i.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hhlx01.visionsystems.de ([62.145.30.242]:53217 "EHLO
-	mail.visionsystems.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756839AbaDHO6y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 10:58:54 -0400
-In-Reply-To: <1396969110-3114-1-git-send-email-yegorslists@googlemail.com>
+Received: from gateway.yasar.edu.tr ([82.222.172.68]:33749 "EHLO
+	mgateway.yasar.edu.tr" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1757046AbaDHPDx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 11:03:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yegor Yefremov <yegorslists@googlemail.com>
-
-CPSW shows following behavior: some stations in LAN don't
-answer CPSW's ARP request. Kernel 3.2 could talk to all stations in
-the same LAN.
-
-Use the same cpsw_ale_add_vlan procedure as in kernel 3.2.
-
-Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
----
- drivers/net/ethernet/ti/cpsw.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 5d5fec6..aa06370 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1040,11 +1040,13 @@ static inline void cpsw_add_dual_emac_def_ale_entries(
- 	else
- 		slave_write(slave, slave->port_vlan, CPSW2_PORT_VLAN);
- 	cpsw_ale_add_vlan(priv->ale, slave->port_vlan, port_mask,
--			  port_mask, port_mask, 0);
-+			  0, port_mask, port_mask);
- 	cpsw_ale_add_mcast(priv->ale, priv->ndev->broadcast,
- 			   port_mask, ALE_VLAN, slave->port_vlan, 0);
- 	cpsw_ale_add_ucast(priv->ale, priv->mac_addr,
- 		priv->host_port, ALE_VLAN, slave->port_vlan);
-+	cpsw_ale_add_vlan(priv->ale, 0, ALE_ALL_PORTS << priv->host_port,
-+		ALE_ALL_PORTS << priv->host_port, priv->host_port, 0);
- }
- 
- static void soft_reset_slave(struct cpsw_slave *slave)
--- 
-1.7.7
+CgoKRGVhciBTaXIgLyBNYWRhbS4gCgrQn9GA0LXQtNC70L7QttC10L3QuNC1INC/0L4g0LrRgNC1
+0LTQuNGC0YMgQCAzJSDQs9C+0LTQvtCy0YvRhS4g0LzQuNC90LjQvNGD0LwgJCA1MDAwINC4INC8
+0LDQutGB0LjQvNGD0LwgMjAwINC80LjQu9C70LjQvtC90L7QsiDQtNC+0LvQu9Cw0YDQvtCyLiDQ
+tdGB0LvQuCDQstGLINC30LDQuNC90YLQtdGA0LXRgdC+0LLQsNC90YssINC/0L7QttCw0LvRg9C5
+0YHRgtCwLCDQv9C+0LTRgNC+0LHQvdGD0Y4g0LjQvdGE0L7RgNC80LDRhtC40Y46INC40LzRjzog
+LS0tLSDQodGD0LzQvNCwINC60YDQtdC00LjRgtCwOiDQmtGA0LXQtNC40YIg0J/RgNC+0LTQvtC7
+0LbQuNGC0LXQu9GM0L3QvtGB0YLRjCAtLS0tOiAtLS0tINCi0LXQu9C10YTQvtC9OiAtLS0g0KHR
+gtGA0LDQvdCwOiAtLS0tLS0tIC0g0JLQvtC30YDQsNGB0YI6IC0tLS0g0J/QvtC7OiAtINCm0LXQ
+u9C10LLQvtC1INC90LDQt9C90LDRh9C10L3QuNC1INC30LDQudC80LAgLS0tLSDQktGB0LUg0L7R
+gtCy0LXRgtC+0Lwg0LTQvtC70LbQvdGLINCx0YvRgtGMINC90LDQv9GA0LDQstC70LXQvdGLINCy
+INC60L7QvNC/0LDQvdC40LggKGJvbmRmaW5hbmNlbG9hbmZpcm1AeWFob28uZGUpIAoK0KEg0L3Q
+sNC40LvRg9GH0YjQuNC80Lgg0L/QvtC20LXQu9Cw0L3QuNGP0LzQuCwgCtCa0YDQtdC00LjRgiDQ
+utC+0LzQv9Cw0L3QuNC4Lg0KQnUgZWxla3Ryb25payBwb3N0YWRhIGJ1bHVuYW4gdHVtIGZpa2ly
+IHZlIGdvcnVzbGVyIHZlIGVraW5kZWtpIGRvc3lhbGFyIHNhZGVjZSBhZHJlcyBzYWhpcC9zYWhp
+cGxlcmluZSBhaXQgb2x1cCwNCllhc2FyIFVuaXZlcnNpdGVzaSBidSBtZXNhamluIGljZXJpZ2kg
+aWxlIGlsZ2lsaSBvbGFyYWsgaGljIGJpciBodWt1a3NhbCBzb3J1bWx1bHVndSBrYWJ1bCBldG1l
+ei4gRWdlciBnb25kZXJpbG1lc2kNCmR1c3VudWxlbiBraXNpIHZleWEga3VydWx1cyBkZWdpbHNl
+bml6LCBsdXRmZW4gZ29uZGVyZW4ga2lzaXlpIGRlcmhhbCBoYWJlcmRhciBlZGluaXogdmUgbWVz
+YWppIHNpc3RlbWluaXpkZW4gc2lsaW5pei48YnI+PGJyPg0KVGhlIGluZm9ybWF0aW9uIGNvbnRh
+aW5lZCBpbiB0aGlzIGUtbWFpbCBhbmQgYW55IGZpbGVzIHRyYW5zbWl0dGVkIHdpdGggaXQgYXJl
+IGludGVuZGVkIHNvbGVseSBmb3IgdGhlIHVzZSBvZiB0aGUNCmluZGl2aWR1YWwgb3IgZW50aXR5
+IHRvIHdob20gdGhleSBhcmUgYWRkcmVzc2VkIFlhc2FyIFVuaXZlcnNpdHkgZG9lcyBub3QgYWNj
+ZXB0IGxlZ2FsIHJlc3BvbnNpYmlsaXR5IGZvciB0aGUgDQpjb250ZW50cy4gSWYgeW91IGFyZSBu
+b3QgdGhlIGludGVuZGVkIHJlY2lwaWVudCwgcGxlYXNlIGltbWVkaWF0ZWx5IG5vdGlmeSB0aGUg
+c2VuZGVyIGFuZCBkZWxldGUgdGhlIG1lc3NhZ2UgZnJvbSB5b3VyIHN5c3RlbS4=
