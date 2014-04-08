@@ -1,78 +1,72 @@
-From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH 1/2] mdio_bus: implement
-	devm_mdiobus_alloc/devm_mdiobus_free
-Date: Tue, 8 Apr 2014 12:52:05 +0300
-Message-ID: <5343C6C5.2050502@ti.com>
-References: <1396618825-4241-1-git-send-email-grygorii.strashko@ti.com>
-	<1396618825-4241-2-git-send-email-grygorii.strashko@ti.com>
-	<533EB077.6000005@cogentembedded.com>
+From: "Ilya V. Matveychikov" <i.matveychikov@securitycode.ru>
+Subject: Re: question: update_pmtu doesn't update dst mtu
+Date: Tue, 8 Apr 2014 13:03:43 +0400
+Message-ID: <5343BB6F.2090601@securitycode.ru>
+References: <533D47FD.9020904@securitycode.ru> <20140403115809.GA13354@order.stressinduktion.org> <533D4EF9.60608@securitycode.ru> <20140403121410.GC13354@order.stressinduktion.org> <533D5398.7080209@securitycode.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
-        <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <santosh.shilimkar-l0cyMroinI0@public.gmane.org>,
-        "David S. Miller"
-	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Jonathan Cameron <jic23-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-        Florian Fainelli
-	<f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-In-Reply-To: <533EB077.6000005-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from itna.infosec.ru ([82.198.190.199]:51758 "EHLO itna.infosec.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755935AbaDHJDG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2014 05:03:06 -0400
+In-Reply-To: <533D5398.7080209@securitycode.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/04/2014 04:15 PM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 04-04-2014 17:40, Grygorii Strashko wrote:
->
->> Add a resource managed devm_mdiobus_alloc()/devm_mdiobus_free()
->> to automatically clean up MDIO bus alocations made by MDIO drivers,
->> thus leading to simplified MDIO drivers code.
->
->> Signed-off-by: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
-> [...]
->
->> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
->> index 76f54b3..fdcd6d1 100644
->> --- a/drivers/net/phy/mdio_bus.c
->> +++ b/drivers/net/phy/mdio_bus.c
->> @@ -69,6 +69,74 @@ struct mii_bus *mdiobus_alloc_size(size_t size)
->>   }
->>   EXPORT_SYMBOL(mdiobus_alloc_size);
+On 03.04.2014 16:27, Ilya V. Matveychikov wrote:
+> On 03.04.2014 16:14, Hannes Frederic Sowa wrote:
+>> On Thu, Apr 03, 2014 at 04:07:21PM +0400, Ilya V. Matveychikov wrote:
+>>> On 03.04.2014 15:58, Hannes Frederic Sowa wrote:
+>>>> On Thu, Apr 03, 2014 at 03:37:33PM +0400, Ilya V. Matveychikov wrote:
+>>>>> Looking through the code gives me that rt_pmtu is always 0 for the skb->dst
+>>>>> entry and ipv4_mtu that called via the dst->ops->mtu() uses dev->mtu :(
+>>>>
+>>>> At this point you have to drop skb_dst and have to relookup the route. During
+>>>> that a new dst will be created which gets the mtu value from the next hop
+>>>> exception, which got created by update_pmtu.
+>>>>
+>>>> Normally routes are checked with dst_check if they are still valid
+>>>> and a relookup should happen. In your example just do the relookup
+>>>> unconditionally.
+>>>>
+>>>
+>>> Does it mean that the next packet must have an updated route without any
+>>> problems? I meant that if the first packet xmitting leads to updating the route
+>>> PMTU via the exception creating (or updating) so the next packets must have an
+>>> updated route? Am I right?
 >>
->> +static void _devm_mdiobus_free(struct device *dev, void *res)
->> +{
->> +    mdiobus_free(*(struct mii_bus **)res);
->> +}
->> +
->> +static int devm_mdiobus_match(struct device *dev, void *res, void *data)
->> +{
->> +    struct mii_bus **r = res;
->
->     Please insert an empty line after declaration.
->
->> +    if (!r || !*r) {
->> +        WARN_ON(!r || !*r);
->
->     Hm, why we need the duplicate check This condition is always true.
+>> In case the next packet causes a lookup in the routing table, yes. Or
+>> if it does cache the routing lookup in some structure and checks the
+>> route with dst_check and conditionally does a relookup (which kernel
+>> implementation should already do) then you should also get the updated
+>> mtu value.
+>>
+> 
+> OK, seems that I understand the logic. Thanks a lot.
 
-It can be replaced with:
-	if (WARN_ON(!r || !*r))
-		return 0;
+Just another related question that gets me into trouble. Imagine that there is
+an SKB that wants to be transmitted via that tunnel. Let's say that when it
+comes to the TUNNEL device it has an MTU1 value. Now, someone updates the PMTU
+for the route and mtu decreasing from MTU1 to MTU2, so MTU2 < MTU1.
 
+Given that, I suppose that our SKB must be (re)fragmented with ip_fragment as
+it's size might be slightly bigger then the path can pass. The problem is that
+ip_fragment uses dst_mtu(skb_dst(skb)) to determine the fragment size but it
+still has MTU1 value as even update_pmtu(MTU2) was called as it doesn't leads to
+real dst MTU updating.
 
-I will wait for additional comments, then resend.
+So the question is do I need to relookup the route or can I use the following
+hack before ip_fragment:
 
-Regards,
-- grygorii
+	// dst_mtu(dst) shows MTU1
+	dst->ops->update_pmtu(dst, ..., MTU2)
+	...
+	skb_rtable(skb)->rt_pmtu = MTU2;
+	dst_set_expires(dst, 1);
+	...
+	// now, ip_fragment knows about real MTU value
+	ip_fragment(skb, output...)
