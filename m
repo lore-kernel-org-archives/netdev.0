@@ -1,49 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] Remove unnecessary condition check in phy
-Date: Mon, 07 Apr 2014 21:15:37 -0400 (EDT)
-Message-ID: <20140407.211537.2275013635206463873.davem@davemloft.net>
-References: <533FB108.6010508@gmail.com>
-	<20140407.145819.1044253560836772927.davem@davemloft.net>
-	<CAGVrzcbeFpd+7xgxPNVUW-TEVEeP+wh+XvVkgwvnQBJk7OqHCw@mail.gmail.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH net-next 6/6] net: Implmement RFC 6936 (zero RX csums
+ for UDP/IPv6)
+Date: Tue, 08 Apr 2014 10:17:03 +0900
+Message-ID: <53434E0F.90707@linux-ipv6.org>
+References: <alpine.DEB.2.02.1404041720560.21339@tomh.mtv.corp.google.com>	<5342F307.6020407@linux-ipv6.org> <CA+mtBx_gUsovA87Fqpn+zzDzNL7wJ7YWX3_pfcZORg=nexXHcw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: kumaran.4353@gmail.com, netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60595 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754690AbaDHBPj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 21:15:39 -0400
-In-Reply-To: <CAGVrzcbeFpd+7xgxPNVUW-TEVEeP+wh+XvVkgwvnQBJk7OqHCw@mail.gmail.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:37334 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754690AbaDHBRG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Apr 2014 21:17:06 -0400
+In-Reply-To: <CA+mtBx_gUsovA87Fqpn+zzDzNL7wJ7YWX3_pfcZORg=nexXHcw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Mon, 7 Apr 2014 18:09:00 -0700
+Tom Herbert wrote:
 
-> 2014-04-07 11:58 GMT-07:00 David Miller <davem@davemloft.net>:
->> From: Balakumaran Kannan <kumaran.4353@gmail.com>
->> Date: Sat, 05 Apr 2014 13:00:16 +0530
+>>>       while (sk) {
+>>> +             if (!uh->check && !udp_sk(sk)->check6_zero_okay) {
+>>> +                     /*
+>>> +                      * If checksum in packet is zero and not all the
+>>> +                      * sockets accept a zero checksum then declare
+>>> +                      * a checksum error.
+>>> +                      */
+>>> +                     flush_stack(stack, count, skb, ~0);
+>>> +                     count = 0;
+>>> +                     udp6_csum_zero_error(skb);
+>>> +                     UDP6_INC_STATS_BH(net, UDP_MIB_CSUMERRORS, proto == IPPROTO_UDPLITE);
+>>> +                     UDP6_INC_STATS_BH(net, UDP_MIB_INERRORS, proto == IPPROTO_UDPLITE);
+>>> +                     break;
+>>> +             }
+>>>               stack[count++] = sk;
+>>>               sk = udp_v6_mcast_next(net, sk_nulls_next(sk), uh->dest, daddr,
+>>>                                      uh->source, saddr, dif);
 >>
->>> This condition check makes no difference in the code flow since 3.10
->>>
->>> Signed-off-by: Balakumaran Kannan <kumaran.4353@gmail.com>
+>> This seems wrong; packets with zero-checksum will not be delivered to
+>> some sockets if some of sockets accept zero-checksums and others do not.
 >>
->> The big questions is, was this intentional?
-> 
-> It was before a33e6112d9b0 ("phy: Elimination the forced speed
-> reduction algorithm") because the PHY having PHY_HAS_MAGICANEG set
-> would not go through the PHY speed reduction algorithm. Now, this is
-> useless as there is a subsequent break and no conditional code based
-> on PHY_HAS_MAGICANEG (which means that we should also kill its usage
-> at some point).
+> Okay, I suppose delivering to some and not others is reasonable,
+> although there's no accounting for the non-deliverables-- I suppose
+> there's no completely clean way to do this...
 
-Yep, I read through the history and that's why I noticed the patch didn't
-apply, I was about to apply it :-)
+Well, I believe that supporting UDP packets with zero-checksum
+should be implemented in a consistent way with UDP-lite.
 
-> Feel free to add my reviewed-by tag after fixing the mangling David spotted.
-> 
-> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+>> BTW, I have been thinking that we should introduce 4 options
+>> (or bits) for IPv4/IPv6 checksumming for sender/receiver.
+>>
+> What are these 4 options?
 
-Will do, thanks Florian.
+I meant combination of {ipv4,ipv6} and {sender,receiver}.
+
+--yoshfuji
