@@ -1,52 +1,61 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch] isdnloop: several buffer overflows
-Date: Tue, 8 Apr 2014 14:02:08 +0300
-Message-ID: <20140408110208.GF4963@mwanda>
-References: <20140408092309.GA26450@mwanda>
- <063D6719AE5E284EB5DD2968C1650D6D0F6F14A1@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	YOSHIFUJI Hideaki / ???? <yoshfuji@linux-ipv6.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6F14A1@AcuExch.aculab.com>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Mack <zonque@gmail.com>
+Subject: [PATCH 1/2] net: phy: export genphy_config_init()
+Date: Tue,  8 Apr 2014 13:15:20 +0200
+Message-ID: <1396955721-21111-1-git-send-email-zonque@gmail.com>
+Cc: davem@davemloft.net, mugunthanvnm@ti.com, ujhelyi.m@gmail.com,
+	Daniel Mack <zonque@gmail.com>
+To: netdev@vger.kernel.org, f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f172.google.com ([74.125.82.172]:40360 "EHLO
+	mail-we0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750789AbaDHLP3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 07:15:29 -0400
+Received: by mail-we0-f172.google.com with SMTP id t61so776736wes.31
+        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 04:15:28 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 08, 2014 at 09:34:09AM +0000, David Laight wrote:
-> From: Dan Carpenter
-> > There are three buffer overflows addressed in this patch.
-> ...
-> > 2) In isdnloop_parse_cmd(), p points to a 6 characters into a 60
-> > character buffer so we have 54 characters.  The ->eazlist[] is 11
-> > characters long.  I have modified the code to return if the source
-> > buffer is too long.
-> ...
-> > @@ -903,6 +903,8 @@ isdnloop_parse_cmd(isdnloop_card *card)
-> >  	case 7:
-> >  		/* 0x;EAZ */
-> >  		p += 3;
-> > +		if (strlen(p) >= sizeof(card->eazlist[0]))
-> > +			break;
-> >  		strcpy(card->eazlist[ch - 1], p);
-> >  		break;
-> >  	case 8:
-> 
-> If you've done the strlen() you might as well use memcpy().
-> There are also functions that will do a bounded strlen(),
-> (eg memchr()).
-> 
+This enables other drivers to call this generic implementation, and then
+only do specific details on top of it.
 
-I re-wrote the patch based on your suggestion but decided that I prefer
-the original just because the diff is smaller.  This is a driver that no
-one uses and it's full of bugs.  Let's not worry about optimizing the
-slow paths at this point.
+Signed-off-by: Daniel Mack <zonque@gmail.com>
+---
+ drivers/net/phy/phy_device.c | 3 ++-
+ include/linux/phy.h          | 1 +
+ 2 files changed, 3 insertions(+), 1 deletion(-)
 
-regards,
-dan carpenter
-
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 2f6989b..84485ea 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -1029,7 +1029,7 @@ static int gen10g_read_status(struct phy_device *phydev)
+ 	return 0;
+ }
+ 
+-static int genphy_config_init(struct phy_device *phydev)
++int genphy_config_init(struct phy_device *phydev)
+ {
+ 	int val;
+ 	u32 features;
+@@ -1074,6 +1074,7 @@ static int genphy_config_init(struct phy_device *phydev)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL(genphy_config_init);
+ 
+ static int gen10g_config_init(struct phy_device *phydev)
+ {
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 565188c..dcf7f13 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -609,6 +609,7 @@ static inline int phy_read_status(struct phy_device *phydev)
+ 	return phydev->drv->read_status(phydev);
+ }
+ 
++int genphy_config_init(struct phy_device *phydev);
+ int genphy_setup_forced(struct phy_device *phydev);
+ int genphy_restart_aneg(struct phy_device *phydev);
+ int genphy_config_aneg(struct phy_device *phydev);
+-- 
+1.9.0
