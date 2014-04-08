@@ -1,75 +1,36 @@
-From: Julian Anastasov <ja@ssi.bg>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [Patch net] ipv4: fib: check forwarding before checking
  send_redirects
-Date: Wed, 9 Apr 2014 01:03:29 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1404090022270.1554@ja.home.ssi.bg>
-References: <1396985482-30886-1-git-send-email-xiyou.wangcong@gmail.com>
+Date: Tue, 08 Apr 2014 18:04:03 -0400 (EDT)
+Message-ID: <20140408.180403.2032592427150449635.davem@davemloft.net>
+References: <CAM_iQpXrmRNhQCWjiRSKwzxvtcq9XuT-cWS4vRxYVYxpUEN3qQ@mail.gmail.com>
+	<20140408.172343.917107273854891906.davem@davemloft.net>
+	<CAM_iQpXkmU9qw_KPeMPnE0KGbcCWo5R=Le7HsizyiuRJVkKshA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Eric Biederman <ebiederm@xmission.com>,
-	Cong Wang <cwang@twopensource.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com, ja@ssi.bg,
+	cwang@twopensource.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:33938 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756232AbaDHWEE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Apr 2014 18:04:04 -0400
-In-Reply-To: <1396985482-30886-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47491 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756232AbaDHWEH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 18:04:07 -0400
+In-Reply-To: <CAM_iQpXkmU9qw_KPeMPnE0KGbcCWo5R=Le7HsizyiuRJVkKshA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue, 8 Apr 2014 14:50:09 -0700
 
-	Hello,
+> Which part am I missing?
 
-On Tue, 8 Apr 2014, Cong Wang wrote:
+Please stop looking at this conditional, I'm begging you.
 
-> From: Cong Wang <cwang@twopensource.com>
-> 
-> We have seen in a weird case we had to disable send_redirects in order
-> to pass rp filter check even though we don't set forwarding at all.
-> This looks wrong, at least according to ip-sysctl.txt send_redirects should
-> only make sense when we enable forwarding.
-> 
-> Cc: Eric Biederman <ebiederm@xmission.com>
-> Cc: Julian Anastasov <ja@ssi.bg>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> Signed-off-by: Cong Wang <cwang@twopensource.com>
-> 
-> ---
-> diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-> index 1a629f8..3f9e324 100644
-> --- a/net/ipv4/fib_frontend.c
-> +++ b/net/ipv4/fib_frontend.c
-> @@ -321,7 +321,8 @@ int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
->  	int r = secpath_exists(skb) ? 0 : IN_DEV_RPFILTER(idev);
->  
->  	if (!r && !fib_num_tclassid_users(dev_net(dev)) &&
-> -	    (dev->ifindex != oif || !IN_DEV_TX_REDIRECTS(idev))) {
-> +	    (dev->ifindex != oif || !IN_DEV_FORWARD(idev) ||
-> +	     !IN_DEV_TX_REDIRECTS(idev))) {
+Instead, concentrate on why __fib_validate_source() is rejecting
+your packets.
 
-	Very strange. Above IN_DEV_FORWARD matters only
-when dev->ifindex == oif. And this can happen only for the
-ip_route_input_slow -> ip_mkroute_input -> __mkroute_input
-case. We are not supposed to reach fib_validate_source because
-ip_mkroute_input is after the IN_DEV_FORWARD check in
-ip_route_input_slow. This was for forwarding.
-
-	If the case is not forwarding but local delivery,
-the dev->ifindex != oif condition should be always true
-because we provide 0 or LOOPBACK_IFINDEX for oif.
-
-	So, the question is how we reach fib_validate_source
-with dev->ifindex == oif and IN_DEV_FORWARD(idev) already
-checked to be != 0 ?
-
->  		*itag = 0;
->  		return 0;
->  	}
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+The code must function correctly even if __fib_validate_source()
+is invoked unconditionally, all the time, for all non-IPSEC
+packets.
