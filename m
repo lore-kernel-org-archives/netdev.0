@@ -1,79 +1,75 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] ipv4: fib: check forwarding before checking send_redirects
-Date: Tue, 8 Apr 2014 14:50:09 -0700
-Message-ID: <CAM_iQpXkmU9qw_KPeMPnE0KGbcCWo5R=Le7HsizyiuRJVkKshA@mail.gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [Patch net] ipv4: fib: check forwarding before checking
+ send_redirects
+Date: Wed, 9 Apr 2014 01:03:29 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1404090022270.1554@ja.home.ssi.bg>
 References: <1396985482-30886-1-git-send-email-xiyou.wangcong@gmail.com>
-	<20140408.164356.557108616710530006.davem@davemloft.net>
-	<CAM_iQpXrmRNhQCWjiRSKwzxvtcq9XuT-cWS4vRxYVYxpUEN3qQ@mail.gmail.com>
-	<20140408.172343.917107273854891906.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Julian Anastasov <ja@ssi.bg>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Eric Biederman <ebiederm@xmission.com>,
 	Cong Wang <cwang@twopensource.com>
-To: David Miller <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:46770 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756980AbaDHVuK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 17:50:10 -0400
-Received: by mail-ob0-f181.google.com with SMTP id wp4so1765760obc.12
-        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 14:50:09 -0700 (PDT)
-In-Reply-To: <20140408.172343.917107273854891906.davem@davemloft.net>
+Received: from ja.ssi.bg ([178.16.129.10]:33938 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756232AbaDHWEE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2014 18:04:04 -0400
+In-Reply-To: <1396985482-30886-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 8, 2014 at 2:23 PM, David Miller <davem@davemloft.net> wrote:
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> Date: Tue, 8 Apr 2014 14:17:08 -0700
->
->> We are not supposed even to execute __fib_validate_source() in such
->> case, are we? :)
->
-> Yes, we used to, every time we'd make a routing cache entry, we'd
-> execute this code.
->
-> Check fib_validate_source() from before the routing cache removal if
-> you don't believe me.
->
-> That check you are editing was added by myself as an optimization
-> that was necessary after the routing cache removal since this
-> function performs two FIB table lookups every time it is called.
 
-I must miss something here. Looking at the code:
+	Hello,
 
-        int r = secpath_exists(skb) ? 0 : IN_DEV_RPFILTER(idev);
+On Tue, 8 Apr 2014, Cong Wang wrote:
 
-        if (!r && !fib_num_tclassid_users(dev_net(dev)) &&
-            (dev->ifindex != oif || !IN_DEV_TX_REDIRECTS(idev))) {
-                *itag = 0;
-                return 0;
-        }
+> From: Cong Wang <cwang@twopensource.com>
+> 
+> We have seen in a weird case we had to disable send_redirects in order
+> to pass rp filter check even though we don't set forwarding at all.
+> This looks wrong, at least according to ip-sysctl.txt send_redirects should
+> only make sense when we enable forwarding.
+> 
+> Cc: Eric Biederman <ebiederm@xmission.com>
+> Cc: Julian Anastasov <ja@ssi.bg>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Cong Wang <cwang@twopensource.com>
+> 
+> ---
+> diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+> index 1a629f8..3f9e324 100644
+> --- a/net/ipv4/fib_frontend.c
+> +++ b/net/ipv4/fib_frontend.c
+> @@ -321,7 +321,8 @@ int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
+>  	int r = secpath_exists(skb) ? 0 : IN_DEV_RPFILTER(idev);
+>  
+>  	if (!r && !fib_num_tclassid_users(dev_net(dev)) &&
+> -	    (dev->ifindex != oif || !IN_DEV_TX_REDIRECTS(idev))) {
+> +	    (dev->ifindex != oif || !IN_DEV_FORWARD(idev) ||
+> +	     !IN_DEV_TX_REDIRECTS(idev))) {
 
-r == 0 is true in our case since we disable rp_filter manually.
-And fib_num_tclassid_users() == 0 by default too.
+	Very strange. Above IN_DEV_FORWARD matters only
+when dev->ifindex == oif. And this can happen only for the
+ip_route_input_slow -> ip_mkroute_input -> __mkroute_input
+case. We are not supposed to reach fib_validate_source because
+ip_mkroute_input is after the IN_DEV_FORWARD check in
+ip_route_input_slow. This was for forwarding.
 
-Therefore, the only thing takes effect is if dev->ifindex == oif.
-Given the fact that disabling send_redirects makes the problem
-disappear, dev->ifindex != oif must be false, otherwise it doesn't
-even need to check TX_REDIRECTS.
+	If the case is not forwarding but local delivery,
+the dev->ifindex != oif condition should be always true
+because we provide 0 or LOOPBACK_IFINDEX for oif.
 
-The rx interface is loopback, so skb->dev == lo, and the oif we pass
-here must be LOOPBACK_IFINDEX, therefore the following code
-in ip_route_input_slow():
+	So, the question is how we reach fib_validate_source
+with dev->ifindex == oif and IN_DEV_FORWARD(idev) already
+checked to be != 0 ?
 
-        if (res.type == RTN_LOCAL) {
-                err = fib_validate_source(skb, saddr, daddr, tos,
-                                          LOOPBACK_IFINDEX,
-                                          dev, in_dev, &itag);
-                if (err < 0)
-                        goto martian_source_keep_err;
-                goto local_input;
-        }
+>  		*itag = 0;
+>  		return 0;
+>  	}
 
-which looks good to me too, since the packet has src addr == dst addr.
+Regards
 
-Which part am I missing?
-
-Thanks!
+--
+Julian Anastasov <ja@ssi.bg>
