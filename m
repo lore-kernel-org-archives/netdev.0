@@ -1,48 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] ipv4: fib: check forwarding before checking
- send_redirects
-Date: Tue, 08 Apr 2014 16:43:56 -0400 (EDT)
-Message-ID: <20140408.164356.557108616710530006.davem@davemloft.net>
-References: <1396985482-30886-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net v2] net: sctp: wake up all assocs if sndbuf policy
+ is per socket
+Date: Tue, 08 Apr 2014 22:50:31 +0200
+Message-ID: <53446117.7010701@redhat.com>
+References: <20140408.131819.1373401078750444800.davem@davemloft.net> <53442FD0.5020609@redhat.com> <20140408.141918.1353780924646899277.davem@redhat.com> <20140408.144601.1499418906739470715.davem@davemloft.net> <53444841.2010702@redhat.com> <53445005.9000707@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com, ja@ssi.bg,
-	cwang@twopensource.com
-To: xiyou.wangcong@gmail.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, tgraf@suug.ch, nhorman@tuxdriver.com
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46556 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932220AbaDHUn6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 16:43:58 -0400
-In-Reply-To: <1396985482-30886-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:46098 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756174AbaDHUvG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2014 16:51:06 -0400
+In-Reply-To: <53445005.9000707@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue,  8 Apr 2014 12:31:22 -0700
+On 04/08/2014 09:37 PM, Vlad Yasevich wrote:
+> On 04/08/2014 03:04 PM, Daniel Borkmann wrote:
+>> On 04/08/2014 08:46 PM, David Miller wrote:
+>>>
+>>> Daniel and Vlad, I'm about to send Linus a pull request.
+>>>
+>>> I know that you still need to fixup this SCTP change and it'll be
+>>> in there, but I really need to get the changes in my tree staged
+>>> so that I can do a set of -stable submissions.
+>>>
+>>> So please don't freak out, I know that this change still needs work
+>>> and shouldn't go to -stable just yet :-)
+>>
+>> Noted, thanks. I think the issue is that in sctp_association_free()
+>> we do a list_del(&asoc->asocs) and then flush sctp_outq_free() which
+>> will then access on sctp_wfree() a poisoned entry. I think this
+>> should be list_del_init() instead.
+>
+> Switching to list_del_init() will solve the crash, but will not address
+> the issue.  You've just removed an association and need to notify others
+> of available space.  You can't do that since you've been unlinked.
+>
+> We either need a rcu_style unlink, or detect the delete case and loop
+> from the beginning.
+>
+> You can do #2 easily enough by looking at asoc->base.dead to decide
+> where to start looping.
 
-> From: Cong Wang <cwang@twopensource.com>
-> 
-> We have seen in a weird case we had to disable send_redirects in order
-> to pass rp filter check even though we don't set forwarding at all.
-> This looks wrong, at least according to ip-sysctl.txt send_redirects should
-> only make sense when we enable forwarding.
-> 
-> Cc: Eric Biederman <ebiederm@xmission.com>
-> Cc: Julian Anastasov <ja@ssi.bg>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> Signed-off-by: Cong Wang <cwang@twopensource.com>
-
-I'm not so sure about this.
-
-This test here is just an optimization, which bypasses the long path
-processing of FIB source address validation if certain strict
-conditions are met.
-
-__fib_validate_source() should do the right thing if it is executed,
-it is just the slow path, and you should determine why it is rejecting
-your traffic instead.
-
-Your change is a valid optimization perhaps, but not a bug fix.
+Agreed, I think #2 is better, so we can simply call and return with
+sctp_write_space() if we see that the assoc is dead; I think SCTP is
+doing too much deferring to RCU anyway. ;)
