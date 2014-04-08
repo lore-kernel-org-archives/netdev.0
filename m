@@ -1,131 +1,146 @@
-From: zhangfei <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Tue, 08 Apr 2014 22:47:25 +0800
-Message-ID: <53440BFD.3000805@linaro.org>
-References: <1396672506-9296-1-git-send-email-zhangfei.gao@linaro.org>	<1396672506-9296-4-git-send-email-zhangfei.gao@linaro.org> <20140407.145356.928382660541891827.davem@davemloft.net> <5343AE45.4020308@linaro.org> <063D6719AE5E284EB5DD2968C1650D6D0F6F1434@AcuExch.aculab.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net] net: sctp: wake up all assocs if sndbuf policy is
+ per socket
+Date: Tue, 08 Apr 2014 16:52:35 +0200
+Message-ID: <53440D33.2000809@redhat.com>
+References: <1396964037-13245-1-git-send-email-dborkman@redhat.com> <53440A90.2030501@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org" <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	"arnd-r2nGTMty4D4@public.gmane.org" <arnd-r2nGTMty4D4@public.gmane.org>,
-	"f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org"
-	<sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-	"mark.rutland-5wv7dgnIgG8@public.gmane.org" <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	"eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6F1434-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:27939 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757186AbaDHOxX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2014 10:53:23 -0400
+In-Reply-To: <53440A90.2030501@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear David,
-
-On 04/08/2014 04:30 PM, David Laight wrote:
-> From: zhangfei [mailto:zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org]
->> On 04/08/2014 02:53 AM, David Miller wrote:
->>> From: Zhangfei Gao <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
->>> Date: Sat,  5 Apr 2014 12:35:06 +0800
->>>
->>>> +struct tx_desc {
->>>> +	u32 send_addr;
->>>> +	u16 reserved_16;
->>>> +	u16 send_size;
->
-> The above doesn't look right for endianness independence.
-> I'd guess the hardware spec shows a 32bit word with the 'send size'
-> in one half - that is what you need to define.
->
-> Since this is a tx descriptor (and written by the host) you
-> can't have 'reserved' field - the host has to write it.
-> probably these are 'must be zero' fields.
-
-Yes, it is not endianness independence.
-In fact, we have switched the layout since it is u16 for doing the 
-switch endianness.
-
-The reserved_16 is the part not used.
-So it is simpler to define u32 here.
-If upper 16 bits also need to be set, usually we still use the u32, and 
-organize dynamically, right?
-
->
->>>> +	u32 reserved_32;
->>>> +	u32 cfg;
->>>> +	u32 wb_addr;
->>>> +} ____cacheline_aligned;
->>>
->>> I do not think that ____cacheline_aligned is appropriate at all here.
->>>
->>> First of all, this is a hardware descriptor, so it has a fixed layout
->>> and therefore size.
->
-> The structure also isn't even a multiple of a power of two.
-> So there will be implicit padding at the end.
->
-> Since there isn't a 'pointer to next' I presume the hardware accesses
-> the descriptors from adjacent physical addresses.
-> So you need to explicitly pad to that size.
-> If the cache line size were 128 byte the above wouldn't work at all.
-Yes, __aligned(64) can be used here, when I though directly use 64 is 
-not good.
-The requirement is desc address should be align to 0x40, since desc phys 
-is send to register whose [31:6] is used.
-
->
->>>
->>> Secondly, unless you declare this object statically in the data section
->>> of the object file, the alignment doesn't matter.  These descriptors
->>> are always dynamically allocated, rather than instantiated in the
->>> kernel/driver image.
+On 04/08/2014 04:41 PM, Vlad Yasevich wrote:
+> On 04/08/2014 09:33 AM, Daniel Borkmann wrote:
+>> SCTP charges chunks for wmem accounting via skb->truesize in
+>> sctp_set_owner_w(), and sctp_wfree() respectively as the
+>> reverse operation. If a sender runs out of wmem, it needs to
+>> wait via sctp_wait_for_sndbuf(), and gets woken up by a call
+>> to __sctp_write_space() mostly via sctp_wfree().
 >>
->> The ____cacheline_aligned used here is only for the requirement of
->> alignment, and use dma_alloc_coherent, while at first dma_pool is used
->> for the requirement of alignment.
->> Otherwise desc[1] is not aligned and can not be used directly, the
->> structure is smaller.
->
-> It sounds like you should be explicitly padding the structure
-> to 32 bytes - whether or not that is the cache line size.
-Got it, understand now.
-
->
-> ...
->> I am sorry, but unfortunately this series really does NOT have TX done
->> interrupt after checked with hardware guy many times.
->> And next series will add TX done interrupt according to the feedback.
+>> __sctp_write_space() is being called per association. Although
+>> we assign sk->sk_write_space() to sctp_write_space(), which
+>> is then being done per socket, it is only used if send space
+>> is increased per socket option (SO_SNDBUF), as SOCK_USE_WRITE_QUEUE
+>> is set and therefore not invoked in sock_wfree().
 >>
->> There are two reasons of removing the TX done interrupt when the chip is
->> designed.
->> 1. The specific product does not care the latency, only care the throughput.
->> 2. When doing many experiment, the tx done interrupt will impact the
->> throughput, as a result reclaim is moved to xmit as one of
->> optimizations, then finally tx done interrupt is removed at all.
+>> Commit 4c3a5bdae293 ("sctp: Don't charge for data in sndbuf
+>> again when transmitting packet") fixed an issue where in case
+>> sctp_packet_transmit() manages to queue up more than sndbuf
+>> bytes, sctp_wait_for_sndbuf() will never be woken up again
+>> unless it is interrupted by a signal. However, a still
+>> remaining issue is that if net.sctp.sndbuf_policy=0, that is
+>> accounting per socket, and one-to-many sockets are in use,
+>> the reclaimed write space from sctp_wfree() is 'unfairly'
+>> handed back on the server to the association that is the lucky
+>> one to be woken up again via __sctp_write_space(), while
+>> the remaining associations are never be woken up again
+>> (unless by a signal).
 >>
->> Is it acceptable of removing timer as well as latency handling, or any
->> other work around of this kind of hardware?
+>> The effect disappears with net.sctp.sndbuf_policy=1, that
+>> is wmem accounting per association, as it guarantees a fair
+>> share of wmem among associations.
+>>
+>> Therefore, if we have reclaimed memory in case of per socket
+>> accouting, wake all related associations to a socket in a
+>> fair manner, that is, traverse the socket association list
+>> starting from the current neighbour of the association and
+>> issue a __sctp_write_space() to everyone until we end up
+>> waking ourselves. This guarantees that no association is
+>> preferred over another and even if more associations are
+>> taken into the one-to-many session, all receivers will get
+>> messages from the server and are not stalled forever on
+>> high load. This setting still leaves the advantage of per
+>> socket accounting in touch as an association can still use
+>> up global limits if unused by others.
+>>
+>> Fixes: 4eb701dfc618 ("[SCTP] Fix SCTP sendbuffer accouting.")
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> Cc: Thomas Graf <tgraf@suug.ch>
+>> Cc: Neil Horman <nhorman@tuxdriver.com>
+>> ---
+>>   [ When net-next opens up again, we need to think how
+>>     we can ideally make a new list interface and simplify
+>>     both open-coded list traversals. ]
+>>
+>>   net/sctp/socket.c | 31 ++++++++++++++++++++++++++++++-
+>>   1 file changed, 30 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+>> index 981aaf8..a4c8c1f 100644
+>> --- a/net/sctp/socket.c
+>> +++ b/net/sctp/socket.c
+>> @@ -6593,6 +6593,35 @@ static void __sctp_write_space(struct sctp_association *asoc)
+>>   	}
+>>   }
+>>
+>> +static void sctp_wake_up_waiters(struct sock *sk,
+>> +				 struct sctp_association *asoc)
+>> +{
+>> +	struct sctp_association *tmp = asoc;
+>> +
+>> +	/* We do accounting for the sndbuf space per association,
+>> +	 * so we only need to wake our own association.
+>> +	 */
+>> +	if (asoc->ep->sndbuf_policy)
+>> +		return __sctp_write_space(asoc);
+>> +
+>> +	/* Accounting for the sndbuf space is per socket, so we need
+>> +	 * to wake up others, try to be fair and in case of other
+>> +	 * associations, let them have a go first instead of just
+>> +	 * doing a sctp_write_space() call.
+>> +	 */
 >
-> If you don't have a global 'TX done' interrupt, you need a per
-> descriptor one.
-> Otherwise you cannot send at maximum rate in the absence of
-> receive traffic.
+> May be a note saying that we are here only when association frees
+> queued up chunks and thus we are under lock and the list is guaranteed
+> not to change.
+
+Ok, will add that to the comment and respin, thanks Vlad.
+
+>> +	for (tmp = list_next_entry(tmp, asocs); 1;
 >
+> Why not change the stop condition to tmp == asoc.  It should work
+> since it will not be head pointer.
 
-Global 'TX done' interrupt means interrupt for desc chain (several desc 
-link together), right?
-There is no interrupt for either desc chain or single desc.
+If I see this correctly, wouldn't we then exclude to eventually
+call __sctp_write_space(tmp) on ourselves as we also need to make
+sure to wake us up?
 
-By the way, if single desc interrupt, is it can be optimized like napi, 
-disable the interrupt and re-enable the interrupt until all buffers are 
-reclaimed?
-
-Thanks
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> -vlad
+>
+>> +	     tmp = list_next_entry(tmp, asocs)) {
+>> +		/* Manually skip the head element. */
+>> +		if (&tmp->asocs == &((sctp_sk(sk))->ep->asocs))
+>> +			continue;
+>> +		/* Wake up association. */
+>> +		__sctp_write_space(tmp);
+>> +		/* We've reached the end. */
+>> +		if (tmp == asoc)
+>> +			break;
+>> +	}
+>> +}
+>> +
+>>   /* Do accounting for the sndbuf space.
+>>    * Decrement the used sndbuf space of the corresponding association by the
+>>    * data size which was just transmitted(freed).
+>> @@ -6620,7 +6649,7 @@ static void sctp_wfree(struct sk_buff *skb)
+>>   	sk_mem_uncharge(sk, skb->truesize);
+>>
+>>   	sock_wfree(skb);
+>> -	__sctp_write_space(asoc);
+>> +	sctp_wake_up_waiters(sk, asoc);
+>>
+>>   	sctp_association_put(asoc);
+>>   }
+>>
+>
