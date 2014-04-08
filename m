@@ -1,61 +1,78 @@
 From: Daniel Mack <zonque@gmail.com>
-Subject: [PATCH 1/2] net: phy: export genphy_config_init()
-Date: Tue,  8 Apr 2014 13:15:20 +0200
-Message-ID: <1396955721-21111-1-git-send-email-zonque@gmail.com>
+Subject: [PATCH 2/2] net: phy: at803x: use genphy_config_init()
+Date: Tue,  8 Apr 2014 13:15:21 +0200
+Message-ID: <1396955721-21111-2-git-send-email-zonque@gmail.com>
+References: <1396955721-21111-1-git-send-email-zonque@gmail.com>
 Cc: davem@davemloft.net, mugunthanvnm@ti.com, ujhelyi.m@gmail.com,
 	Daniel Mack <zonque@gmail.com>
 To: netdev@vger.kernel.org, f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f172.google.com ([74.125.82.172]:40360 "EHLO
-	mail-we0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750789AbaDHLP3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 07:15:29 -0400
-Received: by mail-we0-f172.google.com with SMTP id t61so776736wes.31
-        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 04:15:28 -0700 (PDT)
+Received: from mail-wg0-f43.google.com ([74.125.82.43]:53834 "EHLO
+	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755454AbaDHLPb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 07:15:31 -0400
+Received: by mail-wg0-f43.google.com with SMTP id x13so767691wgg.26
+        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 04:15:30 -0700 (PDT)
+In-Reply-To: <1396955721-21111-1-git-send-email-zonque@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This enables other drivers to call this generic implementation, and then
-only do specific details on top of it.
+Use the generic bits from genphy_config_init() instead of implementing
+the same functionality again.
 
 Signed-off-by: Daniel Mack <zonque@gmail.com>
 ---
- drivers/net/phy/phy_device.c | 3 ++-
- include/linux/phy.h          | 1 +
- 2 files changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/phy/at803x.c | 36 +++---------------------------------
+ 1 file changed, 3 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 2f6989b..84485ea 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -1029,7 +1029,7 @@ static int gen10g_read_status(struct phy_device *phydev)
- 	return 0;
- }
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+index bc71947..850171f 100644
+--- a/drivers/net/phy/at803x.c
++++ b/drivers/net/phy/at803x.c
+@@ -141,41 +141,11 @@ static int at803x_resume(struct phy_device *phydev)
  
--static int genphy_config_init(struct phy_device *phydev)
-+int genphy_config_init(struct phy_device *phydev)
+ static int at803x_config_init(struct phy_device *phydev)
  {
- 	int val;
- 	u32 features;
-@@ -1074,6 +1074,7 @@ static int genphy_config_init(struct phy_device *phydev)
+-	int val;
+ 	int ret;
+-	u32 features;
+-
+-	features = SUPPORTED_TP | SUPPORTED_MII | SUPPORTED_AUI |
+-		   SUPPORTED_FIBRE | SUPPORTED_BNC;
+-
+-	val = phy_read(phydev, MII_BMSR);
+-	if (val < 0)
+-		return val;
+-
+-	if (val & BMSR_ANEGCAPABLE)
+-		features |= SUPPORTED_Autoneg;
+-	if (val & BMSR_100FULL)
+-		features |= SUPPORTED_100baseT_Full;
+-	if (val & BMSR_100HALF)
+-		features |= SUPPORTED_100baseT_Half;
+-	if (val & BMSR_10FULL)
+-		features |= SUPPORTED_10baseT_Full;
+-	if (val & BMSR_10HALF)
+-		features |= SUPPORTED_10baseT_Half;
+-
+-	if (val & BMSR_ESTATEN) {
+-		val = phy_read(phydev, MII_ESTATUS);
+-		if (val < 0)
+-			return val;
+-
+-		if (val & ESTATUS_1000_TFULL)
+-			features |= SUPPORTED_1000baseT_Full;
+-		if (val & ESTATUS_1000_THALF)
+-			features |= SUPPORTED_1000baseT_Half;
+-	}
  
- 	return 0;
- }
-+EXPORT_SYMBOL(genphy_config_init);
+-	phydev->supported = features;
+-	phydev->advertising = features;
++	ret = genphy_config_init(phydev);
++	if (ret < 0)
++		return ret;
  
- static int gen10g_config_init(struct phy_device *phydev)
- {
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 565188c..dcf7f13 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -609,6 +609,7 @@ static inline int phy_read_status(struct phy_device *phydev)
- 	return phydev->drv->read_status(phydev);
- }
- 
-+int genphy_config_init(struct phy_device *phydev);
- int genphy_setup_forced(struct phy_device *phydev);
- int genphy_restart_aneg(struct phy_device *phydev);
- int genphy_config_aneg(struct phy_device *phydev);
+ 	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID) {
+ 		ret = phy_write(phydev, AT803X_DEBUG_ADDR,
 -- 
 1.9.0
