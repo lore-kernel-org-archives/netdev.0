@@ -1,8 +1,8 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH net 2/3] Drivers: net: hyperv: Negotiate suitable ndis version
- for offload support
-Date: Tue,  8 Apr 2014 12:46:10 -0700
-Message-ID: <1396986371-12137-3-git-send-email-kys@microsoft.com>
+Subject: [PATCH net 1/3] Drivers: net: hyperv: Allocate memory for all
+ possible per-pecket information
+Date: Tue,  8 Apr 2014 12:46:09 -0700
+Message-ID: <1396986371-12137-2-git-send-email-kys@microsoft.com>
 References: <1396986332-12098-1-git-send-email-kys@microsoft.com>
  <1396986371-12137-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
@@ -24,27 +24,29 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-Ws2008R2 supports ndis_version 6.1 and 6.1 is the minimal version required
-for various offloads. Negotiate ndis_version 6.1 when on ws2008r2.
+An outgoing packet can potentially need per-packet information for
+all the offloads and VLAN tagging. Fix this issue.
 
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- drivers/net/hyperv/netvsc.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/hyperv/netvsc_drv.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index daddea2..f7629ec 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -344,7 +344,7 @@ static int netvsc_connect_vsp(struct hv_device *device)
- 	memset(init_packet, 0, sizeof(struct nvsp_message));
- 
- 	if (net_device->nvsp_version <= NVSP_PROTOCOL_VERSION_4)
--		ndis_version = 0x00050001;
-+		ndis_version = 0x00060001;
- 	else
- 		ndis_version = 0x0006001e;
- 
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 4e4cf9e..6f39baa 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -319,7 +319,9 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	packet = kzalloc(sizeof(struct hv_netvsc_packet) +
+ 			 (num_data_pgs * sizeof(struct hv_page_buffer)) +
+ 			 sizeof(struct rndis_message) +
+-			 NDIS_VLAN_PPI_SIZE, GFP_ATOMIC);
++			 NDIS_VLAN_PPI_SIZE +
++			 NDIS_CSUM_PPI_SIZE +
++			 NDIS_LSO_PPI_SIZE, GFP_ATOMIC);
+ 	if (!packet) {
+ 		/* out of memory, drop packet */
+ 		netdev_err(net, "unable to allocate hv_netvsc_packet\n");
 -- 
 1.7.4.1
