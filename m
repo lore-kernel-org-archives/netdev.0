@@ -1,50 +1,48 @@
-From: Dmitry Petukhov <dmgenp@gmail.com>
-Subject: [PATCH net] l2tp: take PMTU from tunnel UDP socket
-Date: Wed, 9 Apr 2014 02:23:20 +0600
-Message-ID: <20140409022320.752f036a@laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net] ipv4: fib: check forwarding before checking
+ send_redirects
+Date: Tue, 08 Apr 2014 16:43:56 -0400 (EDT)
+Message-ID: <20140408.164356.557108616710530006.davem@davemloft.net>
+References: <1396985482-30886-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com, ja@ssi.bg,
+	cwang@twopensource.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f43.google.com ([209.85.214.43]:33882 "EHLO
-	mail-bk0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756179AbaDHUYa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 16:24:30 -0400
-Received: by mail-bk0-f43.google.com with SMTP id v15so1246451bkz.16
-        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 13:24:29 -0700 (PDT)
-Received: from laptop ([82.193.155.251])
-        by mx.google.com with ESMTPSA id q4sm2446633lbh.20.2014.04.08.13.24.27
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Tue, 08 Apr 2014 13:24:28 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:46556 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932220AbaDHUn6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 16:43:58 -0400
+In-Reply-To: <1396985482-30886-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When l2tp driver tries to get PMTU for the tunnel destination, it uses
-the pointer to struct sock that represents PPPoX socket, while it
-should use the pointer that represents UDP socket of the tunnel.
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue,  8 Apr 2014 12:31:22 -0700
 
-Signed-off-by: Dmitry Petukhov <dmgenp@gmail.com>
----
- net/l2tp/l2tp_ppp.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> From: Cong Wang <cwang@twopensource.com>
+> 
+> We have seen in a weird case we had to disable send_redirects in order
+> to pass rp filter check even though we don't set forwarding at all.
+> This looks wrong, at least according to ip-sysctl.txt send_redirects should
+> only make sense when we enable forwarding.
+> 
+> Cc: Eric Biederman <ebiederm@xmission.com>
+> Cc: Julian Anastasov <ja@ssi.bg>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Cong Wang <cwang@twopensource.com>
 
-diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-index d276e2d..950909f 100644
---- a/net/l2tp/l2tp_ppp.c
-+++ b/net/l2tp/l2tp_ppp.c
-@@ -753,9 +753,9 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
- 	session->deref = pppol2tp_session_sock_put;
- 
- 	/* If PMTU discovery was enabled, use the MTU that was discovered */
--	dst = sk_dst_get(sk);
-+	dst = sk_dst_get(tunnel->sock);
- 	if (dst != NULL) {
--		u32 pmtu = dst_mtu(__sk_dst_get(sk));
-+		u32 pmtu = dst_mtu(__sk_dst_get(tunnel->sock));
- 		if (pmtu != 0)
- 			session->mtu = session->mru = pmtu -
- 				PPPOL2TP_HEADER_OVERHEAD;
---
-1.7.9.5
+I'm not so sure about this.
+
+This test here is just an optimization, which bypasses the long path
+processing of FIB source address validation if certain strict
+conditions are met.
+
+__fib_validate_source() should do the right thing if it is executed,
+it is just the slow path, and you should determine why it is rejecting
+your traffic instead.
+
+Your change is a valid optimization perhaps, but not a bug fix.
