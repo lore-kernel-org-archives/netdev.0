@@ -1,36 +1,41 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH] net: cpsw: fix dual_emac VLAN issue
-Date: Tue, 08 Apr 2014 14:15:28 -0400 (EDT)
-Message-ID: <20140408.141528.2130884658575478739.davem@redhat.com>
-References: <1396969110-3114-1-git-send-email-yegorslists@googlemail.com>
-	<1396969110-3114-2-git-send-email-yegorslists@googlemail.com>
+Subject: Re: [PATCH 1/2] FDDI: Reformat <linux/if_fddi.h> for 8-character
+ tabs
+Date: Tue, 08 Apr 2014 14:16:53 -0400 (EDT)
+Message-ID: <20140408.141653.1416547338502980127.davem@redhat.com>
+References: <alpine.LFD.2.11.1404080022120.26128@eddie.linux-mips.org>
+	<20140408.124631.2239975325018007505.davem@davemloft.net>
+	<alpine.LFD.2.11.1404081855360.2730@eddie.linux-mips.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com
-To: yegorslists@googlemail.com
+Cc: netdev@vger.kernel.org
+To: macro@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25559 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:41808 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932649AbaDHSPg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Apr 2014 14:15:36 -0400
-In-Reply-To: <1396969110-3114-2-git-send-email-yegorslists@googlemail.com>
+	id S932644AbaDHSQ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2014 14:16:57 -0400
+In-Reply-To: <alpine.LFD.2.11.1404081855360.2730@eddie.linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: yegorslists@googlemail.com
-Date: Tue,  8 Apr 2014 16:58:30 +0200
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Date: Tue, 8 Apr 2014 18:56:51 +0100 (BST)
 
-> From: Yegor Yefremov <yegorslists@googlemail.com>
+> On Tue, 8 Apr 2014, David Miller wrote:
 > 
-> CPSW shows following behavior: some stations in LAN don't
-> answer CPSW's ARP request. Kernel 3.2 could talk to all stations in
-> the same LAN.
+>> Such cleanups are only appropriate for the net-next tree, which is not
+>> open at this time.
+>> 
+>> Please resubmit this change when the net-next tree is openned back up
+>> for submissions.
 > 
-> Use the same cpsw_ale_add_vlan procedure as in kernel 3.2.
-> 
-> Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
+>  OK, where can I find the status of the tree, I wasn't able to track down 
+> one before I posted these changes?
 
-The CPSW driver was not added to the tree until v3.3, so saying
-you're restoring behavior that existed in v3.2 doesn't make any
-sense at all.
+The net-next tree openning will be clearly announced on the netdev
+mailing list.
+
+Every developer working on networking changes should closely follow
+that list.
