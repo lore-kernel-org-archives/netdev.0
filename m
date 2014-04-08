@@ -1,72 +1,75 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [Patch net-next] net/mlx4_core: match pci_device_id including dynids
-Date: Tue, 8 Apr 2014 19:51:22 +0300
-Message-ID: <CAJZOPZKd9mdgXWbQvr9CbMw_3KWhK+GYFC5PK2v8FnGct2RjTQ@mail.gmail.com>
-References: <1396750050-7183-1-git-send-email-weiyang@linux.vnet.ibm.com>
-	<20140407.144340.688537373203786487.davem@davemloft.net>
-	<53439BBE.4070708@mellanox.com>
-	<20140408.122538.300463519945725052.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 2/2] macvlan: Move broadcasts into a work queue
+Date: Tue, 8 Apr 2014 09:55:23 -0700
+Message-ID: <20140408095523.2d4e14bd@nehalam.linuxnetplumber.net>
+References: <<20140407075347.GA26461@gondor.apana.org.au>
+	<E1WX4P2-0006wA-9Q@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Wei Yang <weiyang@linux.vnet.ibm.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f179.google.com ([209.85.216.179]:41091 "EHLO
-	mail-qc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757217AbaDHQvX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 12:51:23 -0400
-In-Reply-To: <20140408.122538.300463519945725052.davem@davemloft.net>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:56463 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750868AbaDHQz1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 12:55:27 -0400
+Received: by mail-pb0-f45.google.com with SMTP id uo5so1295187pbc.4
+        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 09:55:26 -0700 (PDT)
+In-Reply-To: <E1WX4P2-0006wA-9Q@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 8, 2014 at 7:25 PM, David Miller <davem@davemloft.net> wrote:
->
-> From: Or Gerlitz <ogerlitz@mellanox.com>
-> Date: Tue, 8 Apr 2014 09:48:30 +0300
->
-> > On 07/04/2014 21:43, David Miller wrote:
-> >> From: Wei Yang <weiyang@linux.vnet.ibm.com>
-> >> Date: Sun,  6 Apr 2014 10:07:30 +0800
-> >>
-> >>> Fix issue introduced by commit: 97a5221 "net/mlx4_core: pass
-> >>> pci_device_id.driver_data to __mlx4_init_one during reset".
-> >>>
-> >>> pci_match_id() just match the static pci_device_id, which may return
-> >>> NULL if
-> >>> someone binds the driver to a device manually using
-> >>> /sys/bus/pci/drivers/.../new_id.
-> >>>
-> >>> This patch wrap up a helper function __mlx4_remove_one() which does
-> >>> the tear
-> >>> down function but preserve the drv_data. Functions like
-> >>> mlx4_pci_err_detected() and mlx4_restart_one() will call this one with
-> >>> out
-> >>> releasing drvdata.
-> >>>
-> >>> Tested on ConnectX-3.
-> >>>
-> >>> CC: Bjorn Helgaas <bhelgaas@google.com>
-> >>> CC: Amir Vadai <amirv@mellanox.com>
-> >>> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
-> >> Please resubmit this when the net-next tree opens back up, thanks.
-> >
-> > Dave, this patch is for net, since it fixes an issue in the current
-> > code (actually it relates to a patch
-> > that was merged after 3.14-rc7, so it would eventually might go to
-> > -stable too). The author wasn't very
-> > familiar with the exact differences/nature of net vs. net-next, so it
-> > might created some confusion here, I'v
-> > sent him few private notes to explain how things go...
->
-> Then please resubmit this patch with the proper subject line, th ank you.
+On Mon, 07 Apr 2014 15:55:36 +0800
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+
+> +static void macvlan_broadcast_enqueue(struct macvlan_port *port,
+> +				      struct sk_buff *skb)
+> +{
+> +	int err = -ENOMEM;
+> +
+> +	skb = skb_clone(skb, GFP_ATOMIC);
+> +	if (unlikely(!skb))
+> +		goto err;
+> +
+> +	spin_lock(&port->bc_queue.lock);
+> +	if (skb_queue_len(&port->bc_queue) < skb->dev->tx_queue_len) {
+> +		__skb_queue_tail(&port->bc_queue, skb);
+> +		err = 0;
+> +	}
+> +	spin_unlock(&port->bc_queue.lock);
+> +
+> +	if (unlikely(err)) {
+> +err:
+> +		atomic_long_inc(&skb->dev->rx_dropped);
+> +		return;
+> +	}
+> +
+
+unlikely() with goto is redundant and unnecessary.
+
+IMHO jumping into a block is bad code style
+
+Why not just move err: to the end as in:
 
 
-We've sent some feedback on the patch to the author along with crash
-net vs. net-next course, I really hope V1 he will post with the proper
-tag...
+	skb = skb_clone(skb, GFP_ATOMIC);
+	if (unlikely(!skb))
+		goto err;
+
+	spin_lock(&port->bc_queue.lock);
+	if (skb_queue_len(&port->bc_queue) < skb->dev->tx_queue_len) {
+		__skb_queue_tail(&port->bc_queue, skb);
+		err = 0;
+	}
+	spin_unlock(&port->bc_queue.lock);
+
+	if (err)
+		goto err;
+
+	schedule_work(&port->bc_work);
+	return;
+err:
+
+	atomic_long_inc(&skb->dev->rx_dropped);
+}
