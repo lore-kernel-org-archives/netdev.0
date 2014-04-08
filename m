@@ -1,31 +1,36 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net v2] net: sctp: wake up all assocs if sndbuf policy
- is per socket
-Date: Tue, 08 Apr 2014 19:20:16 +0200
-Message-ID: <53442FD0.5020609@redhat.com>
-References: <1396970773-17500-1-git-send-email-dborkman@redhat.com> <53442A62.3050905@redhat.com> <20140408.131819.1373401078750444800.davem@davemloft.net>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH] net: cpsw: fix dual_emac VLAN issue
+Date: Tue, 08 Apr 2014 14:15:28 -0400 (EDT)
+Message-ID: <20140408.141528.2130884658575478739.davem@redhat.com>
+References: <1396969110-3114-1-git-send-email-yegorslists@googlemail.com>
+	<1396969110-3114-2-git-send-email-yegorslists@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org, tgraf@suug.ch,
-	nhorman@tuxdriver.com, vyasevic@redhat.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com
+To: yegorslists@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51677 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:25559 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757128AbaDHSOa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Apr 2014 14:14:30 -0400
-In-Reply-To: <20140408.131819.1373401078750444800.davem@davemloft.net>
+	id S932649AbaDHSPg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Apr 2014 14:15:36 -0400
+In-Reply-To: <1396969110-3114-2-git-send-email-yegorslists@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/08/2014 07:18 PM, David Miller wrote:
-> From: Daniel Borkmann <dborkman@redhat.com>
-> Date: Tue, 08 Apr 2014 18:57:06 +0200
->
->> Hm, I still found an issue, please hold on with this one, thanks.
->
-> Ugh too late I pushed it out, you'll need to send a relative fix.
+From: yegorslists@googlemail.com
+Date: Tue,  8 Apr 2014 16:58:30 +0200
 
-No problem, will do, thanks. I suggest to take it out from
-the stable queue for now. Sorry for any inconvenience.
+> From: Yegor Yefremov <yegorslists@googlemail.com>
+> 
+> CPSW shows following behavior: some stations in LAN don't
+> answer CPSW's ARP request. Kernel 3.2 could talk to all stations in
+> the same LAN.
+> 
+> Use the same cpsw_ale_add_vlan procedure as in kernel 3.2.
+> 
+> Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
+
+The CPSW driver was not added to the tree until v3.3, so saying
+you're restoring behavior that existed in v3.2 doesn't make any
+sense at all.
