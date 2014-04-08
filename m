@@ -1,72 +1,99 @@
-From: "Ilya V. Matveychikov" <i.matveychikov@securitycode.ru>
-Subject: Re: question: update_pmtu doesn't update dst mtu
-Date: Tue, 8 Apr 2014 13:03:43 +0400
-Message-ID: <5343BB6F.2090601@securitycode.ru>
-References: <533D47FD.9020904@securitycode.ru> <20140403115809.GA13354@order.stressinduktion.org> <533D4EF9.60608@securitycode.ru> <20140403121410.GC13354@order.stressinduktion.org> <533D5398.7080209@securitycode.ru>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] isdnloop: several buffer overflows
+Date: Tue, 8 Apr 2014 12:23:09 +0300
+Message-ID: <20140408092309.GA26450@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from itna.infosec.ru ([82.198.190.199]:51758 "EHLO itna.infosec.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755935AbaDHJDG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Apr 2014 05:03:06 -0400
-In-Reply-To: <533D5398.7080209@securitycode.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03.04.2014 16:27, Ilya V. Matveychikov wrote:
-> On 03.04.2014 16:14, Hannes Frederic Sowa wrote:
->> On Thu, Apr 03, 2014 at 04:07:21PM +0400, Ilya V. Matveychikov wrote:
->>> On 03.04.2014 15:58, Hannes Frederic Sowa wrote:
->>>> On Thu, Apr 03, 2014 at 03:37:33PM +0400, Ilya V. Matveychikov wrote:
->>>>> Looking through the code gives me that rt_pmtu is always 0 for the skb->dst
->>>>> entry and ipv4_mtu that called via the dst->ops->mtu() uses dev->mtu :(
->>>>
->>>> At this point you have to drop skb_dst and have to relookup the route. During
->>>> that a new dst will be created which gets the mtu value from the next hop
->>>> exception, which got created by update_pmtu.
->>>>
->>>> Normally routes are checked with dst_check if they are still valid
->>>> and a relookup should happen. In your example just do the relookup
->>>> unconditionally.
->>>>
->>>
->>> Does it mean that the next packet must have an updated route without any
->>> problems? I meant that if the first packet xmitting leads to updating the route
->>> PMTU via the exception creating (or updating) so the next packets must have an
->>> updated route? Am I right?
->>
->> In case the next packet causes a lookup in the routing table, yes. Or
->> if it does cache the routing lookup in some structure and checks the
->> route with dst_check and conditionally does a relookup (which kernel
->> implementation should already do) then you should also get the updated
->> mtu value.
->>
-> 
-> OK, seems that I understand the logic. Thanks a lot.
+There are three buffer overflows addressed in this patch.
 
-Just another related question that gets me into trouble. Imagine that there is
-an SKB that wants to be transmitted via that tunnel. Let's say that when it
-comes to the TUNNEL device it has an MTU1 value. Now, someone updates the PMTU
-for the route and mtu decreasing from MTU1 to MTU2, so MTU2 < MTU1.
+1) In isdnloop_fake_err() we add an 'E' to a 60 character string and
+then copy it into a 60 character buffer.  I have made the destination
+buffer 64 characters and I'm changed the sprintf() to a snprintf().
 
-Given that, I suppose that our SKB must be (re)fragmented with ip_fragment as
-it's size might be slightly bigger then the path can pass. The problem is that
-ip_fragment uses dst_mtu(skb_dst(skb)) to determine the fragment size but it
-still has MTU1 value as even update_pmtu(MTU2) was called as it doesn't leads to
-real dst MTU updating.
+2) In isdnloop_parse_cmd(), p points to a 6 characters into a 60
+character buffer so we have 54 characters.  The ->eazlist[] is 11
+characters long.  I have modified the code to return if the source
+buffer is too long.
 
-So the question is do I need to relookup the route or can I use the following
-hack before ip_fragment:
+3) In isdnloop_command() the cbuf[] array was 60 characters long but the
+max length of the string then can be up to 79 characters.  I made the
+cbuf array 80 characters long and changed the sprintf() to snprintf().
+I also removed the temporary "dial" buffer and changed it to use "p"
+directly.
 
-	// dst_mtu(dst) shows MTU1
-	dst->ops->update_pmtu(dst, ..., MTU2)
-	...
-	skb_rtable(skb)->rt_pmtu = MTU2;
-	dst_set_expires(dst, 1);
-	...
-	// now, ip_fragment knows about real MTU value
-	ip_fragment(skb, output...)
+Unfortunately, we pass the "cbuf" string from isdnloop_command() to
+isdnloop_writecmd() which truncates anything over 60 characters to make
+it fit in card->omsg[].  (It can accept values up to 255 characters so
+long as there is a '\n' character every 60 characters).  For now I have
+just fixed the memory corruption bug and left the other problems in this
+driver alone.
+
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+diff --git a/drivers/isdn/isdnloop/isdnloop.c b/drivers/isdn/isdnloop/isdnloop.c
+index e1f8748..5a4da94 100644
+--- a/drivers/isdn/isdnloop/isdnloop.c
++++ b/drivers/isdn/isdnloop/isdnloop.c
+@@ -518,9 +518,9 @@ static isdnloop_stat isdnloop_cmd_table[] =
+ static void
+ isdnloop_fake_err(isdnloop_card *card)
+ {
+-	char buf[60];
++	char buf[64];
+ 
+-	sprintf(buf, "E%s", card->omsg);
++	snprintf(buf, sizeof(buf), "E%s", card->omsg);
+ 	isdnloop_fake(card, buf, -1);
+ 	isdnloop_fake(card, "NAK", -1);
+ }
+@@ -903,6 +903,8 @@ isdnloop_parse_cmd(isdnloop_card *card)
+ 	case 7:
+ 		/* 0x;EAZ */
+ 		p += 3;
++		if (strlen(p) >= sizeof(card->eazlist[0]))
++			break;
+ 		strcpy(card->eazlist[ch - 1], p);
+ 		break;
+ 	case 8:
+@@ -1133,7 +1135,7 @@ isdnloop_command(isdn_ctrl *c, isdnloop_card *card)
+ {
+ 	ulong a;
+ 	int i;
+-	char cbuf[60];
++	char cbuf[80];
+ 	isdn_ctrl cmd;
+ 	isdnloop_cdef cdef;
+ 
+@@ -1198,7 +1200,6 @@ isdnloop_command(isdn_ctrl *c, isdnloop_card *card)
+ 			break;
+ 		if ((c->arg & 255) < ISDNLOOP_BCH) {
+ 			char *p;
+-			char dial[50];
+ 			char dcode[4];
+ 
+ 			a = c->arg;
+@@ -1210,10 +1211,10 @@ isdnloop_command(isdn_ctrl *c, isdnloop_card *card)
+ 			} else
+ 				/* Normal Dial */
+ 				strcpy(dcode, "CAL");
+-			strcpy(dial, p);
+-			sprintf(cbuf, "%02d;D%s_R%s,%02d,%02d,%s\n", (int) (a + 1),
+-				dcode, dial, c->parm.setup.si1,
+-				c->parm.setup.si2, c->parm.setup.eazmsn);
++			snprintf(cbuf, sizeof(cbuf),
++				 "%02d;D%s_R%s,%02d,%02d,%s\n", (int) (a + 1),
++				 dcode, p, c->parm.setup.si1,
++				 c->parm.setup.si2, c->parm.setup.eazmsn);
+ 			i = isdnloop_writecmd(cbuf, strlen(cbuf), 0, card);
+ 		}
+ 		break;
