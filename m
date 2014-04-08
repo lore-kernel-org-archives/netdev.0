@@ -1,72 +1,53 @@
-From: Andrew Vagin <avagin@parallels.com>
-Subject: Re: [PATCH] [RFC] netfilter: ct: flush net_gre->keymap_list only in
- nf_conntrack_proto_gre
-Date: Tue, 8 Apr 2014 10:56:00 +0400
-Message-ID: <20140408065600.GA15309@paralelels.com>
-References: <1396275258-19015-1-git-send-email-avagin@openvz.org>
- <20140407145158.GA25974@localhost>
+From: Tobias Waldekranz <tobias@waldekranz.com>
+Subject: [PATCH] phylib: export phy_suspend and phy_resume
+Date: Tue, 8 Apr 2014 09:11:01 +0200
+Message-ID: <20140408071101.GA14453@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="koi8-r"
-Cc: Andrey Vagin <avagin@openvz.org>, <linux-kernel@vger.kernel.org>,
-	<netfilter-devel@vger.kernel.org>, <netfilter@vger.kernel.org>,
-	<coreteam@netfilter.org>, <netdev@vger.kernel.org>,
-	<vvs@parallels.com>, Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:35310 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755217AbaDHHLo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 03:11:44 -0400
+Received: by mail-lb0-f182.google.com with SMTP id n15so485491lbi.27
+        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 00:11:43 -0700 (PDT)
+Received: from gmail.com ([213.132.98.41])
+        by mx.google.com with ESMTPSA id q4sm961538lbl.14.2014.04.08.00.11.42
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Tue, 08 Apr 2014 00:11:42 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20140407145158.GA25974@localhost>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 07, 2014 at 04:51:58PM +0200, Pablo Neira Ayuso wrote:
-> On Mon, Mar 31, 2014 at 06:14:18PM +0400, Andrey Vagin wrote:
-> > nf_ct_gre_keymap_flush() removes a nf_ct_gre_keymap object from
-> > net_gre->keymap_list and frees the object. But it doesn't clean
-> > a reference on this object from ct_pptp_info->keymap[dir].
-> > Then nf_ct_gre_keymap_destroy() may release the same object again.
-> > 
-> > So nf_ct_gre_keymap_flush() can be called only when we are sure that
-> > when nf_ct_gre_keymap_destroy will not be called.
-> > 
-> > nf_ct_gre_keymap is created by nf_ct_gre_keymap_add() and the right way
-> > to destroy it is to call nf_ct_gre_keymap_destroy().
-> 
-> I think you use call nf_ct_iterate_cleanup() to get rid of all GRE
-> conntrack entries that have a ct->master, which means that they were
-> created by PPTP. That implicitly calls gre_destroy, which releases the
-> keymap object.
+These functions are exported in include/linux/phy.h but the symbol
+exports where missing.
 
-I'm not sure that I understand your comment. Currently I change nothing
-about nf_ct_iterate_cleanup(). In this sentence I point to the right
-procedure of destroying a gre conntrack.
+Signed-off-by: Tobias Waldekranz <tobias@waldekranz.com>
+---
+ drivers/net/phy/phy_device.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-nf_ct_iterate_cleanup() is called from nf_ct_l4proto_pernet_unregister().
-
-[ 1858.693250]   <idle>-0       1..s. 118795582us : nf_ct_gre_keymap_add <-exp_gre
-[ 1858.693250]   <idle>-0       1..s. 118795598us : nf_ct_gre_keymap_add <-exp_gre
-[ 1858.693250]   <idle>-0       1..s. 118795652us : nf_ct_gre_keymap_add <-exp_gre
-[ 1858.693250]   <idle>-0       1..s. 118795683us : nf_ct_gre_keymap_add <-exp_gre
-[ 1858.693250] kworker/-44      1.... 133620272us : nf_conntrack_pptp_net_exit <-ops_exit_list.isra.1
-[ 1858.693250] kworker/-44      1.... 133620274us : nf_ct_gre_keymap_flush <-nf_conntrack_pptp_net_exit
-[ 1858.693250] kworker/-44      1.... 133621145us : proto_gre_net_exit <-ops_exit_list.isra.1
-[ 1858.693250] kworker/-44      1.... 133621145us : nf_ct_l4proto_pernet_unregister <-proto_gre_net_exit
-[ 1858.693250] kworker/-44      1.... 133621146us : nf_ct_iterate_cleanup <-nf_ct_l4proto_pernet_unregister
-[ 1858.693250] kworker/-44      1.... 133621187us : nf_ct_gre_keymap_destroy <-gre_destroy
-
-> 
-> > This patch marks nf_ct_gre_keymap_flush() as static, so this patch can
-> > break compilation of third party modules, which use
-> > nf_ct_gre_keymap_flush. I'm not sure this is the right way to deprecate
-> > this function.
-> 
-> No problem with that, we don't mind about out of tree modules. With
-> the approach I'm proposing I think you will also need to make this
-> function static as it won't be used by PPTP anymore.
-
-I have made this function static. If you don't have other comment, could
-you take this patch?
-
-Thanks,
-Andrey
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 0ce6066..7485334 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -695,6 +695,7 @@ int phy_suspend(struct phy_device *phydev)
+ 		return phydrv->suspend(phydev);
+ 	return 0;
+ }
++EXPORT_SYMBOL(phy_suspend);
+ 
+ int phy_resume(struct phy_device *phydev)
+ {
+@@ -704,6 +705,7 @@ int phy_resume(struct phy_device *phydev)
+ 		return phydrv->resume(phydev);
+ 	return 0;
+ }
++EXPORT_SYMBOL(phy_resume);
+ 
+ /* Generic PHY support and helper functions */
+ 
+-- 
+1.8.4.357.g8d83871.dirty
