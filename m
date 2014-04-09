@@ -1,58 +1,45 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: ipv6: Should inet6_addr_del consider IFA_F_MANAGETEMPADDR?
-Date: Wed, 9 Apr 2014 22:36:11 +0200
-Message-ID: <20140409203611.GG27255@order.stressinduktion.org>
-References: <53443F5D.6030509@web.de> <20140408201430.GD27255@order.stressinduktion.org> <5345A1B3.1010508@web.de>
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH net, V1 0/3] Fix issues with Heper-V network offload code
+Date: Wed,  9 Apr 2014 15:00:10 -0700
+Message-ID: <1397080810-17953-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Heiner Kallweit <heiner.kallweit@web.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:33416 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933885AbaDIUgM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 16:36:12 -0400
-Content-Disposition: inline
-In-Reply-To: <5345A1B3.1010508@web.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+ jasowang@redhat.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 09, 2014 at 09:38:27PM +0200, Heiner Kallweit wrote:
-> Am 08.04.2014 22:14, schrieb Hannes Frederic Sowa:
-> > [cc Jiri + Thomas]
-> >
-> > Hi!
-> >
-> > On Tue, Apr 08, 2014 at 08:26:37PM +0200, Heiner Kallweit wrote:
-> >> I stumbled accross the fact that inet6_addr_add as well as inet6_addr_modify
-> >> consider IFA_F_TEMPORARY whilst inet6_addr_del does not.
-> >>
-> >> My understanding of IFA_F_MANAGETEMPADDR is that it allows userspace applications
-> >> to deal with temporary addresses w/o having to create / track (and possibly delete)
-> >> each and every temporary address.
-> >>
-> >> This works fine when creating / modifying a global address. However when a
-> >> global address is deleted the orphaned temporary addresses remain.
-> >> Shouldn't the userspace be able to set IFA_F_MANAGETEMPADDR also for RTM_DELADDR
-> >> to signalize that the kernel should delete all related temporary addresses as well?
-> > Sure, that is possible. I guess it was not done already because
-> > inet6_addr_del did not handle IFA_FLAGS at all. But it should be a very
-> > tiny change to pass that flag down. Please submit an iproute patch along
-> > with your changes.
-> After a brief look at the source code of iproute2 it seems like "ip addr del" already supports sending
-> IFA_F_MANAGETEMPADDR with RTM_DELADDR, though I have the impression it's unintentional.
-> 
-> The del command internally calls ipaddr_modify just like add / change / replace.
-> And ipaddr_modify happily populates every flag provided on the command line w/o checking whether
-> the flag is applicable for the respective command.
-> 
-> Having said this only the usage info needs to be extended.
-> Not sure: Should the related patch go to this mailing list or to Stephen directly who seems to be the
-> current maintainer.
+WS2008 R2 does not support udp checksum offload. Furthermore, ws2012 and
+ws2012 r2 have issues offloading udp checksum from Linux guests.
+This patch-set addresses these issues as well as other bug fixes.
+Please apply.
 
-iproute patches are handled the same way as kernel patches on this mailing
-list. Cc Stephen wouldn't hurt either. ;)
+In this version, I have addressed the comment from David Miller with reagards
+to COWing the skb prior to modifying the header (patch 3/3).
 
-Bye,
+K. Y. Srinivasan (3):
+  Drivers: net: hyperv: Allocate memory for all possible per-pecket
+    information
+  Drivers: net: hyperv: Negotiate suitable ndis version for offload
+    support
+  Drivers: net: hyperv: Address UDP checksum issues
 
-  Hannes
+ drivers/net/hyperv/hyperv_net.h   |    1 +
+ drivers/net/hyperv/netvsc.c       |    2 +-
+ drivers/net/hyperv/netvsc_drv.c   |   23 +++++++++++++++++++++--
+ drivers/net/hyperv/rndis_filter.c |   12 +++++++++++-
+ 4 files changed, 34 insertions(+), 4 deletions(-)
+
+-- 
+1.7.4.1
