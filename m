@@ -1,77 +1,58 @@
-From: "Ilya V. Matveychikov" <i.matveychikov@securitycode.ru>
-Subject: Re: question: update_pmtu doesn't update dst mtu
-Date: Wed, 9 Apr 2014 12:17:33 +0400
-Message-ID: <5345021D.30505@securitycode.ru>
-References: <533D47FD.9020904@securitycode.ru> <20140403115809.GA13354@order.stressinduktion.org> <533D4EF9.60608@securitycode.ru> <20140403121410.GC13354@order.stressinduktion.org> <533D5398.7080209@securitycode.ru> <5343BB6F.2090601@securitycode.ru> <20140408145718.GC27255@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH v2] net: core: don't account for udp header size when computing seglen
+Date: Wed,  9 Apr 2014 10:28:50 +0200
+Message-ID: <1397032130-2271-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from itna.infosec.ru ([82.198.190.199]:47125 "EHLO itna.infosec.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752839AbaDIIQv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Apr 2014 04:16:51 -0400
-In-Reply-To: <20140408145718.GC27255@order.stressinduktion.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:52336 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932187AbaDIIdo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 04:33:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08.04.2014 18:57, Hannes Frederic Sowa wrote:
-> On Tue, Apr 08, 2014 at 01:03:43PM +0400, Ilya V. Matveychikov wrote:
->> Just another related question that gets me into trouble. Imagine that there is
->> an SKB that wants to be transmitted via that tunnel. Let's say that when it
->> comes to the TUNNEL device it has an MTU1 value. Now, someone updates the PMTU
->> for the route and mtu decreasing from MTU1 to MTU2, so MTU2 < MTU1.
->>
->> Given that, I suppose that our SKB must be (re)fragmented with ip_fragment as
->> it's size might be slightly bigger then the path can pass. The problem is that
->> ip_fragment uses dst_mtu(skb_dst(skb)) to determine the fragment size but it
->> still has MTU1 value as even update_pmtu(MTU2) was called as it doesn't leads to
->> real dst MTU updating.
->>
->> So the question is do I need to relookup the route or can I use the following
->> hack before ip_fragment:
->>
->> 	// dst_mtu(dst) shows MTU1
->> 	dst->ops->update_pmtu(dst, ..., MTU2)
->> 	...
->> 	skb_rtable(skb)->rt_pmtu = MTU2;
-> 
-> This might be a cached dst and you would alter the mtu for more nexthops than
-> you intended.
-> 
->> 	dst_set_expires(dst, 1);
-> 
-> With this you won't get around the time_after_eq check. You would have to
-> tweak it manually to not retrieve dst_metrics value (this is what you
-> intended?).
-> 
+In case of tcp, gso_size contains the tcpmss.
 
-Well, I missed it. Also, that was a hack and it's not the best solution...
+For UFO (udp fragmentation offloading) skbs, gso_size is the fragment
+payload size, i.e. we must not account for udp header size.
 
->> 	...
->> 	// now, ip_fragment knows about real MTU value
->> 	ip_fragment(skb, output...)
-> 
-> Check if you can something do like
-> skb_dst_drop(skb);
-> new_dst = ip_route_output*(..., &fl4, ...);
-> skb_dst_set(_noref)(skb, new_dst);
-> 
+Otherwise, when using virtio drivers, a to-be-forwarded UFO GSO packet
+will be needlessly fragmented in the forward path, because we think its
+individual segments are too large for the outgoing link.
 
-Works fine, thanks! By the way, could you briefly explain why routes are
-separated to input and output? What are the benefits?
+Fixes: fe6cc55f3a9a053 ("net: ip, ipv6: handle gso skbs in forwarding path")
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Reported-by: Tobias Brunner <tobias@strongswan.org>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ changes since v1:
+  - update 'Fixes:' tag.
 
-> This should be a very unlikely path, I assume, so should not degrade
-> performance that much.
-
-Sure.
-
-> 
-> I wonder why you update the mtu in the output path.
-
-Well, the problem is that I don't know how to properly handle packets whose DSTs
-have changed while processing. The simple solution is to drop them. But I think
-it's not the best case as we can re-fragment them if new MTU value is lesser
-than the older one.
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 30c7d35..57e225c 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3937,12 +3937,14 @@ EXPORT_SYMBOL_GPL(skb_scrub_packet);
+ unsigned int skb_gso_transport_seglen(const struct sk_buff *skb)
+ {
+ 	const struct skb_shared_info *shinfo = skb_shinfo(skb);
+-	unsigned int hdr_len;
+ 
+ 	if (likely(shinfo->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)))
+-		hdr_len = tcp_hdrlen(skb);
+-	else
+-		hdr_len = sizeof(struct udphdr);
+-	return hdr_len + shinfo->gso_size;
++		return tcp_hdrlen(skb) + shinfo->gso_size;
++
++	/* UFO sets gso_size to the size of the fragmentation
++	 * payload, i.e. the size of the L4 (UDP) header is already
++	 * accounted for.
++	 */
++	return shinfo->gso_size;
+ }
+ EXPORT_SYMBOL_GPL(skb_gso_transport_seglen);
+-- 
+1.8.1.5
