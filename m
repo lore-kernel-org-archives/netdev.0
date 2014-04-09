@@ -1,59 +1,72 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [PATCH net-next 2/2] ptp: Fix compiler warnings in the testptp
- utility
-Date: Tue, 8 Apr 2014 21:43:05 +0000
-Message-ID: <1396993385.2376.8.camel@jekeller-desk1.amr.corp.intel.com>
-References: <1395746646-28299-1-git-send-email-christian.riesch@omicron.at>
-	 <a2330f7d-0abf-4ee0-9288-1e881b2b5368@mary.at.omicron.at>
-	 <20140325114523.GB14836@netboy>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2] openvswitch: supply a dummy err_handler of
+ gre_cisco_protocol to prevent kernel crash
+Date: Tue, 8 Apr 2014 17:46:00 -0700
+Message-ID: <CAEP_g=8VE8KWu8CqTNeub8rTwiVZD-SWGDr9mZzgAZ-0-T2AMQ@mail.gmail.com>
+References: <1396398194-4163-1-git-send-email-asuka.com@163.com>
+ <CAEP_g=9WRyaSmRKHDZmWXwzjDyex8NheyveGzfH4qmMbhgGHdQ@mail.gmail.com>
+ <158dbf4d.1b3c.145301dbf7a.Coremail.asuka.com@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Christian Riesch <christian.riesch@omicron.at>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Dong Zhu <bluezhudong@gmail.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:24060 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756235AbaDIAQp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Apr 2014 20:16:45 -0400
-In-Reply-To: <20140325114523.GB14836@netboy>
-Content-Language: en-US
-Content-ID: <D4FBF12EEA86654094F52BDB5BA76D04@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: wei zhang <asuka.com-9Onoh4P/yGk@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <158dbf4d.1b3c.145301dbf7a.Coremail.asuka.com-9Onoh4P/yGk@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCAyMDE0LTAzLTI1IGF0IDEyOjQ1ICswMTAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6
-DQo+IE9uIFR1ZSwgTWFyIDI1LCAyMDE0IGF0IDEyOjI0OjA2UE0gKzAxMDAsIENocmlzdGlhbiBS
-aWVzY2ggd3JvdGU6DQo+ID4gU2lnbmVkLW9mZi1ieTogQ2hyaXN0aWFuIFJpZXNjaCA8Y2hyaXN0
-aWFuLnJpZXNjaEBvbWljcm9uLmF0Pg0KPiA+IENjOiBEb25nIFpodSA8Ymx1ZXpodWRvbmdAZ21h
-aWwuY29tPg0KPiA+IC0tLQ0KPiA+ICBEb2N1bWVudGF0aW9uL3B0cC90ZXN0cHRwLmMgfCAgIDEw
-ICsrKysrLS0tLS0NCj4gPiAgMSBmaWxlIGNoYW5nZWQsIDUgaW5zZXJ0aW9ucygrKSwgNSBkZWxl
-dGlvbnMoLSkNCj4gPiANCj4gPiBkaWZmIC0tZ2l0IGEvRG9jdW1lbnRhdGlvbi9wdHAvdGVzdHB0
-cC5jIGIvRG9jdW1lbnRhdGlvbi9wdHAvdGVzdHB0cC5jDQo+ID4gaW5kZXggMTNiZGRkNS4uMTRi
-ZjE5ZSAxMDA2NDQNCj4gPiAtLS0gYS9Eb2N1bWVudGF0aW9uL3B0cC90ZXN0cHRwLmMNCj4gPiAr
-KysgYi9Eb2N1bWVudGF0aW9uL3B0cC90ZXN0cHRwLmMNCj4gPiBAQCAtNDk2LDE0ICs0OTYsMTQg
-QEAgaW50IG1haW4oaW50IGFyZ2MsIGNoYXIgKmFyZ3ZbXSkNCj4gPiAgCQkJaW50ZXJ2YWwgPSB0
-MiAtIHQxOw0KPiA+ICAJCQlvZmZzZXQgPSAodDIgKyB0MSkgLyAyIC0gdHA7DQo+ID4gIA0KPiA+
-IC0JCQlwcmludGYoInN5c3RlbSB0aW1lOiAlbGQuJWxkXG4iLA0KPiA+ICsJCQlwcmludGYoInN5
-c3RlbSB0aW1lOiAlbGxkLiV1XG4iLA0KPiA+ICAJCQkJKHBjdCsyKmkpLT5zZWMsIChwY3QrMipp
-KS0+bnNlYyk7DQo+ID4gLQkJCXByaW50ZigicGhjICAgIHRpbWU6ICVsZC4lbGRcbiIsDQo+ID4g
-KwkJCXByaW50ZigicGhjICAgIHRpbWU6ICVsbGQuJXVcbiIsDQo+ID4gIAkJCQkocGN0KzIqaSsx
-KS0+c2VjLCAocGN0KzIqaSsxKS0+bnNlYyk7DQo+ID4gLQkJCXByaW50Zigic3lzdGVtIHRpbWU6
-ICVsZC4lbGRcbiIsDQo+ID4gKwkJCXByaW50Zigic3lzdGVtIHRpbWU6ICVsbGQuJXVcbiIsDQo+
-ID4gIAkJCQkocGN0KzIqaSsyKS0+c2VjLCAocGN0KzIqaSsyKS0+bnNlYyk7DQo+ID4gLQkJCXBy
-aW50Zigic3lzdGVtL3BoYyBjbG9jayB0aW1lIG9mZnNldCBpcyAlbGQgbnNcbiINCj4gPiAtCQkJ
-CSJzeXN0ZW0gICAgIGNsb2NrIHRpbWUgZGVsYXkgIGlzICVsZCBuc1xuIiwNCj4gDQo+IFVzZSBQ
-UklkNjQgaW5zdGVhZD8NCj4gDQo+IFRoYW5rcywNCj4gUmljaGFyZA0KPiANCg0KSSBhZ3JlZSB3
-aXRoIHRoaXMuICVsbGQgaXMgbm90IGdvaW5nIHRvIHJlc29sdmUgdGhlIGVycm9yIHByb3Blcmx5
-IG9uIGENCjMyIGJpdCBtYWNoaW5lLiBMb29rcyBsaWtlIGEgZm9sbG93LW9uIHBhdGNoIHdvdWxk
-IGhhdmUgdG8gYmUgZ2VuZXJhdGVkLA0Kc2luY2UgRGF2ZSBhcHBsaWVkIHRoaXMgYWxyZWFkeS4N
-Cg0KVGhhbmtzLA0KSmFrZQ0KDQo+ID4gKwkJCXByaW50Zigic3lzdGVtL3BoYyBjbG9jayB0aW1l
-IG9mZnNldCBpcyAlbGxkIG5zXG4iDQo+ID4gKwkJCQkic3lzdGVtICAgICBjbG9jayB0aW1lIGRl
-bGF5ICBpcyAlbGxkIG5zXG4iLA0KPiA+ICAJCQkJb2Zmc2V0LCBpbnRlcnZhbCk7DQo+ID4gIAkJ
-fQ0KPiA+ICANCj4gPiAtLSANCj4gPiAxLjcuOS41DQo+ID4gDQo+IC0tDQo+IFRvIHVuc3Vic2Ny
-aWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGlu
-DQo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+
-IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21v
-LWluZm8uaHRtbA0KDQoNCg==
+On Fri, Apr 4, 2014 at 9:20 PM, wei zhang <asuka.com-9Onoh4P/yGk@public.gmane.org> wrote:
+> At 2014-04-05 07:05:59,"Jesse Gross" <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org> wrote:
+>>On Tue, Apr 1, 2014 at 5:23 PM, Wei Zhang <asuka.com-9Onoh4P/yGk@public.gmane.org> wrote:
+>>>
+>>> v2 -> v1: use the same logic of the gre_rcv() to distinguish which packet is
+>>> intended to us!
+>>
+>>As a tip on kernel process: if you put the version information after
+>>three dashes below the signed-off-by line then git will automatically
+>>remove it when the final patch is applied.
+>
+> Thanks, should I modify it and send a v3 patch?
+>
+>>
+>>> diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+>>> index a3d6951..f391df1 100644
+>>> --- a/net/openvswitch/vport-gre.c
+>>> +++ b/net/openvswitch/vport-gre.c
+>>> @@ -110,6 +110,21 @@ static int gre_rcv(struct sk_buff *skb,
+>>>         return PACKET_RCVD;
+>>>  }
+>>>
+>>> +/* Called with rcu_read_lock and BH disabled. */
+>>> +static int gre_err(struct sk_buff *skb, u32 info,
+>>> +                  const struct tnl_ptk_info *tpi)
+>>> +{
+>>> +       struct ovs_net *ovs_net;
+>>> +       struct vport *vport;
+>>> +
+>>> +       ovs_net = net_generic(dev_net(skb->dev), ovs_net_id);
+>>> +       vport = rcu_dereference(ovs_net->vport_net.gre_vport);
+>>> +       if (unlikely(!vport))
+>>> +               return PACKET_REJECT;
+>>> +       else
+>>> +               return PACKET_RCVD;
+>>
+>>Sorry, I forgot to say this before - if we receive the packet then we
+>>should also call consume_skb() on it.
+>
+> Maybe there is no need to call consume_skb()? The icmp_rcv() would
+> call kfree_skb() for us. I also checked the ipgre_err(), it return
+> PACKET_RCVD without call consume_skb() too.
+
+Thanks, you are right. I applied your patch as is.
