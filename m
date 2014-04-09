@@ -1,67 +1,82 @@
-From: Shawn Bohrer <shawn.bohrer@gmail.com>
-Subject: Re: udp: Question about busy_poll change
-Date: Wed, 9 Apr 2014 09:51:29 -0500
-Message-ID: <20140409145129.GA4002@sbohrermbp13-local.rgmadvisors.com>
-References: <53455581.7060209@solarflare.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] staging: r8723au: Fix build warnings
+Date: Wed,  9 Apr 2014 10:05:20 -0500
+Message-ID: <1397055920-11654-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Shawn Bohrer <sbohrer@rgmadvisors.com>,
-	Jonathan Cooper <jcooper@solarflare.com>,
-	eric.dumazet@gmail.com
-To: Edward Cree <ecree@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f45.google.com ([209.85.219.45]:46112 "EHLO
-	mail-oa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933057AbaDIOvk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 10:51:40 -0400
-Received: by mail-oa0-f45.google.com with SMTP id eb12so2821008oac.4
-        for <netdev@vger.kernel.org>; Wed, 09 Apr 2014 07:51:40 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <53455581.7060209@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ Jes Sorensen <Jes.Sorensen@redhat.com>, kbuild-all@01.org,
+ Larry Finger <Larry.Finger@lwfinger.net>
+To: gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 09, 2014 at 03:13:21PM +0100, Edward Cree wrote:
-> Commit 005ec9743394010cd37d86c3fd2e81978231cdbf, "udp: Only allow busy
-> read/poll on connected sockets",
-> causes a performance regression (increased latency) on some
-> micro-benchmarks which don't connect() their UDP socket, and might well
-> have a similar effect on real applications that do the same thing.
-> As far as I can tell, the change is only needed in the case where the
-> UDP socket is bound to INADDR_ANY, _and_ traffic on the chosen UDP port
-> is received through more than one NIC (or perhaps through a NIC with
-> separate NAPI contexts per receive queue?)
+The kbuild test robot reports the following:
 
-Yep.  The separate NAPI contexts per receive queue part was one of the
-main reasons, though I suppose the INADDR_ANY case is relevant as
-well.
+tree:   git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git master
+head:   75ff24fa52f0cc512ceee4c377632b91a3a80811
+commit: 9176303c404741b2f96796466437f2badf6e289b staging: r8723au: Turn on build of new driver
+date:   4 days ago
+config: make ARCH=avr32 allyesconfig
 
-> In particular, busy polling makes sense for a client (which will only be
-> receiving packets from one remote address even though the socket is
-> unconnected), or for a socket which has been bound to an interface's
-> address (at least in the case of sfc, where we have one NAPI context for
-> all the receive queues on an interface).
+All warnings:
 
-I agree that it makes sense in this case but if you meet these
-requirements then you can also connect your UDP socket.  The real
-problem is that there is no way for the kernel to know that you will
-only receive packets from a single remote address, so you have to
-connect.
-
-I believe the sfc case where you only have a single NAPI context is
-also valid and it seems reasonable to me that if you can detect that
-specific case that busy polling could be allowed.  I'm not sure how to
-detect this.  I'm sure patches are welcome.
-
-> So, what was the deeper rationale for this change?  Is there a
-> correctness issue or does the old behaviour just affect performance
-> through unnecessary busy_polling?  Or have I just misunderstood things
-> completely?
-
-If we are spinning on a NAPI context and a packet arrives in a
-different rx queue then you'll get unpredictable latencies and
-out of order packets.  For the people using this feature that is
-probably not desirable.
-
+>> drivers/staging/rtl8723au/include/rtw_mlme.h:620: warning: 'rtw_set_roaming' declared inline after being called
+   drivers/staging/rtl8723au/include/rtw_mlme.h:620: warning: previous declaration of 'rtw_set_roaming' was here
+>> drivers/staging/rtl8723au/include/rtw_mlme.h:621: warning: 'rtw_to_roaming' declared inline after being called
+   drivers/staging/rtl8723au/include/rtw_mlme.h:621: warning: previous declaration of 'rtw_to_roaming' was here
 --
-Shawn
+   drivers/staging/rtl8723au/hal/rtl8723a_hal_init.c: In function 'Hal_EEValueCheck':
+>> drivers/staging/rtl8723au/hal/rtl8723a_hal_init.c:2277: warning: comparison is always true due to limited range of data type
+
+The first two warnings are fixed by making the two prototypes be "inline" to match
+the actual routine. The third warning comes from testing that a u8 quantity is positive.
+
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Jes Sorensen <Jes.Sorensen@redhat.com>
+Cc: kbuild-all@01.org
+---
+ drivers/staging/rtl8723au/hal/rtl8723a_hal_init.c | 2 +-
+ drivers/staging/rtl8723au/include/rtw_mlme.h      | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/staging/rtl8723au/hal/rtl8723a_hal_init.c b/drivers/staging/rtl8723au/hal/rtl8723a_hal_init.c
+index 0a86923..dae61af 100644
+--- a/drivers/staging/rtl8723au/hal/rtl8723a_hal_init.c
++++ b/drivers/staging/rtl8723au/hal/rtl8723a_hal_init.c
+@@ -2277,7 +2277,7 @@ static void Hal_EEValueCheck(u8 EEType, void *pInValue, void *pOutValue)
+ 		u8 *pIn, *pOut;
+ 		pIn = (u8 *) pInValue;
+ 		pOut = (u8 *) pOutValue;
+-		if (*pIn >= 0 && *pIn <= 63) {
++		if (*pIn <= 63) {
+ 			*pOut = *pIn;
+ 		} else {
+ 			RT_TRACE(_module_hci_hal_init_c_, _drv_err_,
+diff --git a/drivers/staging/rtl8723au/include/rtw_mlme.h b/drivers/staging/rtl8723au/include/rtw_mlme.h
+index 2d4f61b..3457b96 100644
+--- a/drivers/staging/rtl8723au/include/rtw_mlme.h
++++ b/drivers/staging/rtl8723au/include/rtw_mlme.h
+@@ -616,7 +616,7 @@ void _rtw23a_roaming(struct rtw_adapter *adapter,
+ 		  struct wlan_network *tgt_network);
+ void rtw23a_roaming(struct rtw_adapter *adapter,
+ 		 struct wlan_network *tgt_network);
+-void rtw_set_roaming(struct rtw_adapter *adapter, u8 to_roaming);
+-u8 rtw_to_roaming(struct rtw_adapter *adapter);
++inline void rtw_set_roaming(struct rtw_adapter *adapter, u8 to_roaming);
++inline u8 rtw_to_roaming(struct rtw_adapter *adapter);
+ 
+ #endif /* __RTL871X_MLME_H_ */
+-- 
+1.8.1.4
