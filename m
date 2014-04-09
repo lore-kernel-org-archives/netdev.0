@@ -1,97 +1,74 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net v2] net: sctp: test if association is dead in sctp_wake_up_waiters
-Date: Wed, 09 Apr 2014 08:56:26 -0400
-Message-ID: <5345437A.6040602@gmail.com>
-References: <de3e98e644dde7dcaea9a952de38eb32a2959eeb.1396999714.git.dborkman@redhat.com> <5345003B.8080601@redhat.com> <534521D0.7050707@redhat.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH v2] net: cpsw: fix dual_emac VLAN issue
+Date: Wed, 9 Apr 2014 18:39:38 +0530
+Message-ID: <53454692.309@ti.com>
+References: <1397048023-10522-1-git-send-email-yegorslists@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net
+To: <yegorslists@googlemail.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f172.google.com ([209.85.216.172]:36055 "EHLO
-	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932798AbaDIM42 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 08:56:28 -0400
-In-Reply-To: <534521D0.7050707@redhat.com>
+Received: from devils.ext.ti.com ([198.47.26.153]:60731 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932674AbaDINJl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 09:09:41 -0400
+In-Reply-To: <1397048023-10522-1-git-send-email-yegorslists@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/09/2014 06:32 AM, Daniel Borkmann wrote:
-> On 04/09/2014 10:09 AM, Daniel Borkmann wrote:
->> On 04/09/2014 01:10 AM, Vlad Yasevich wrote:
->>  > On 04/08/2014 06:23 PM, Daniel Borkmann wrote:
->>  >> In function sctp_wake_up_waiters() we need to involve a test
->>  >> if the association is declared dead. If so, we don't have any
->>  >> reference to a possible sibling association anymore and need
->>  >> to invoke sctp_write_space() instead and normally walk the
->>  >> socket's associations and notify them of new wmem space. The
->>  >> reason for special casing is that, otherwise, we could run
->>  >> into the following issue:
->>  >>
->>  >> sctp_association_free()
->>  >> `-> list_del(&asoc->asocs)         <-- poisons list pointer
->>  >>      asoc->base.dead = true
->>  >>      sctp_outq_free(&asoc->outqueue)
->>  >>      `-> __sctp_outq_teardown()
->>  >>       `-> sctp_chunk_free()
->>  >>        `-> consume_skb()
->>  >>         `-> sctp_wfree()
->>  >>          `-> sctp_wake_up_waiters() <-- dereferences poisoned
->> pointers
->>  >>                                         if asoc->ep->sndbuf_policy=0
->>  >>
->>  >> Therefore, only walk the list in an 'optimized' way if we find
->>  >> that the current association is still active. It's also more
->>  >> clean in that context to just use list_del_init() when we call
->>  >> sctp_association_free(). Stress-testing seems fine now.
->>  >
->>  > One of the reasons that we don't use list_del_init() here is that
->>  > we want to be able to trap on uninitialized/corrupt list manipulation,
->>  > just like you did.  If it wasn't there, the bug would have been
->> hidden.
->>  >
->>  > Please keep it there.  The rest of the patch is fine.
->>
->> Test run over night and I've seen no issues.
->>
->> But I'd still question the usage of asoc->base.dead though, I think
->> this approach of testing for asoc->base.dead is a bit racy (perhaps
->> general usage of it, imho) - at least here there's a tiny window where
->> we poison pointers before we actually declare the associaton dead.
->>
->> Also, I think even if we would have deleted ourselves from the list
->> after declaring the association dead, a different CPU accessing this
->> association via sctp_wfree() might already have gotten past the
->> asoc->base.dead test while we declare it dead in the meantime.
-> 
-> Ok, I think we can scratch that thought ... what happens is that parallel
-> calls to sctp_sendmsg() are protected under lock_sock()/release_sock()
-> pair as already stated in the code and within that lock, we are setting
-> sctp_set_owner_w() for each chunk. When we call sctp_primitive_SEND(),
-> still under lock, we might eventually end up in sctp_packet_transmit(),
-> if I follow the path correctly, and orphan the skb in
-> sctp_packet_set_owner_w()
-> [ which basically would mean, we actually uncharge the accounted memory by
-> orphaning _before_ we call dev_queue_xmit() since commit 4c3a5bdae293
-> ("sctp: Don't charge for data in sndbuf again when transmitting packet")
-> but that's perhaps a different story ] and set a new destructor. The
-> only thing where in that context an association can be freed up by
-> sctp_association_free() is if sctp_primitive_SEND() returns with error.
-> So even in that case, we're still protected under
-> lock_sock()/release_sock()
-> when we flush the outq, so testing asoc->base.dead should be okay then,
-> quite unintuitive though. Thus, patch seems fine, if wished, I could
-> still document that in the commit message? Vlad, are we on the same
-> page? ;)
+On Wednesday 09 April 2014 06:23 PM, yegorslists@googlemail.com wrote:
+> From: Yegor Yefremov <yegorslists@googlemail.com>
+>
+> dual_emac mode was first introduced in TI's PSP kernel 3.2.
+> See repository git://arago-project.org/git/projects/linux-am33x.git
+> commit 6afa003a0b06a0376c941436b38204ba2edc4a98.
+>
+> Since commit d9ba8f9e6298af71ec1c1fd3d88c3ef68abd0ec3 dual_emac
+> feature was upstreamed, but with some changes compared to the original
+> source, that led to following behavior:
+>
+> Some stations in LAN don't answer CPSW's ARP request. PSP kernel 3.2
+> could talk to all stations in the same LAN.
+>
+> Use the same cpsw_ale_add_vlan procedure as in PSP kernel 3.2 to fix
+> this regression.
+>
+> Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
+> CC: Mugunthan V N <mugunthanvnm@ti.com>
+> ---
+> Changes:
+> 	v2: make more detailed description
+>
+>  drivers/net/ethernet/ti/cpsw.c |    4 +++-
+>  1 files changed, 3 insertions(+), 1 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index 5d5fec6..aa06370 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -1040,11 +1040,13 @@ static inline void cpsw_add_dual_emac_def_ale_entries(
+>  	else
+>  		slave_write(slave, slave->port_vlan, CPSW2_PORT_VLAN);
+>  	cpsw_ale_add_vlan(priv->ale, slave->port_vlan, port_mask,
+> -			  port_mask, port_mask, 0);
+> +			  0, port_mask, port_mask);
 
-yes, socket lock protects the reading of writing to any association
-variables.
+Dual EMAC VLAN must be untagged on egress and why you need unregistered
+multicast packet to be passed to CPU?
 
--vlad
+>  	cpsw_ale_add_mcast(priv->ale, priv->ndev->broadcast,
+>  			   port_mask, ALE_VLAN, slave->port_vlan, 0);
+>  	cpsw_ale_add_ucast(priv->ale, priv->mac_addr,
+>  		priv->host_port, ALE_VLAN, slave->port_vlan);
+> +	cpsw_ale_add_vlan(priv->ale, 0, ALE_ALL_PORTS << priv->host_port,
+> +		ALE_ALL_PORTS << priv->host_port, priv->host_port, 0);
 
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Vlan ID 0 must not be used, cpsw default vlan id should be used,
+currently 0 is used as default VLAN for internal packet switching, in
+case some one using different default vlan id, then this fix will break.
+
+I have fixed the issue already and submitted a patch.
+http://patchwork.ozlabs.org/patch/337769/
+
+Regards
+Mugunthan V N
