@@ -1,61 +1,78 @@
-From: yegorslists@googlemail.com
-Subject: [PATCH v2] net: cpsw: fix dual_emac VLAN issue
-Date: Wed,  9 Apr 2014 14:53:43 +0200
-Message-ID: <1397048023-10522-1-git-send-email-yegorslists@googlemail.com>
-Cc: Yegor Yefremov <yegorslists@googlemail.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-To: netdev@vger.kernel.org
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net v2] net: sctp: test if association is dead in sctp_wake_up_waiters
+Date: Wed, 09 Apr 2014 08:55:07 -0400
+Message-ID: <5345432B.40100@gmail.com>
+References: <de3e98e644dde7dcaea9a952de38eb32a2959eeb.1396999714.git.dborkman@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hhlx01.visionsystems.de ([62.145.30.242]:50056 "EHLO
-	mail.visionsystems.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932597AbaDIMyK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 08:54:10 -0400
+Received: from mail-qg0-f41.google.com ([209.85.192.41]:65452 "EHLO
+	mail-qg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932597AbaDIMzK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 08:55:10 -0400
+In-Reply-To: <de3e98e644dde7dcaea9a952de38eb32a2959eeb.1396999714.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yegor Yefremov <yegorslists@googlemail.com>
+On 04/08/2014 07:32 PM, Daniel Borkmann wrote:
+> In function sctp_wake_up_waiters(), we need to involve a test
+> if the association is declared dead. If so, we don't have any
+> reference to a possible sibling association anymore and need
+> to invoke sctp_write_space() instead and normally walk the
+> socket's associations and notify them of new wmem space. The
+> reason for special casing is that, otherwise, we could run
+> into the following issue:
+> 
+> sctp_association_free()
+> `-> list_del(&asoc->asocs)         <-- poisons list pointer
+>     asoc->base.dead = true
+>     sctp_outq_free(&asoc->outqueue)
+>     `-> __sctp_outq_teardown()
+>      `-> sctp_chunk_free()
+>       `-> consume_skb()
+>        `-> sctp_wfree()
+>         `-> sctp_wake_up_waiters() <-- dereferences poisoned pointers
+>                                        if asoc->ep->sndbuf_policy=0
+> 
+> Therefore, only walk the list in an 'optimized' way if we find
+> that the current association is still active. We could also use
+> list_del_init() in addition when we call sctp_association_free(),
+> but as Vlad suggests, we want to trap such bugs and thus leave
+> it poisoned as is. Stress-testing seems fine now.
+> 
+> Fixes: cd253f9f357d ("net: sctp: wake up all assocs if sndbuf policy is per socket")
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Vlad Yasevich <vyasevic@redhat.com>
 
-dual_emac mode was first introduced in TI's PSP kernel 3.2.
-See repository git://arago-project.org/git/projects/linux-am33x.git
-commit 6afa003a0b06a0376c941436b38204ba2edc4a98.
+Acked-by: Vlad Yasevich <vyasevic@redhat.com>
 
-Since commit d9ba8f9e6298af71ec1c1fd3d88c3ef68abd0ec3 dual_emac
-feature was upstreamed, but with some changes compared to the original
-source, that led to following behavior:
-
-Some stations in LAN don't answer CPSW's ARP request. PSP kernel 3.2
-could talk to all stations in the same LAN.
-
-Use the same cpsw_ale_add_vlan procedure as in PSP kernel 3.2 to fix
-this regression.
-
-Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
-CC: Mugunthan V N <mugunthanvnm@ti.com>
----
-Changes:
-	v2: make more detailed description
-
- drivers/net/ethernet/ti/cpsw.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 5d5fec6..aa06370 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1040,11 +1040,13 @@ static inline void cpsw_add_dual_emac_def_ale_entries(
- 	else
- 		slave_write(slave, slave->port_vlan, CPSW2_PORT_VLAN);
- 	cpsw_ale_add_vlan(priv->ale, slave->port_vlan, port_mask,
--			  port_mask, port_mask, 0);
-+			  0, port_mask, port_mask);
- 	cpsw_ale_add_mcast(priv->ale, priv->ndev->broadcast,
- 			   port_mask, ALE_VLAN, slave->port_vlan, 0);
- 	cpsw_ale_add_ucast(priv->ale, priv->mac_addr,
- 		priv->host_port, ALE_VLAN, slave->port_vlan);
-+	cpsw_ale_add_vlan(priv->ale, 0, ALE_ALL_PORTS << priv->host_port,
-+		ALE_ALL_PORTS << priv->host_port, priv->host_port, 0);
- }
- 
- static void soft_reset_slave(struct cpsw_slave *slave)
--- 
-1.7.7
+-vlad
+> ---
+>  v1->v2:
+>   - leave list_del()
+> 
+>  net/sctp/socket.c | 6 ++++++
+>  1 file changed, 6 insertions(+)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 5f83a6a..270d5bd 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -6604,6 +6604,12 @@ static void sctp_wake_up_waiters(struct sock *sk,
+>  	if (asoc->ep->sndbuf_policy)
+>  		return __sctp_write_space(asoc);
+>  
+> +	/* If association goes down and is just flushing its
+> +	 * outq, then just normally notify others.
+> +	 */
+> +	if (asoc->base.dead)
+> +		return sctp_write_space(sk);
+> +
+>  	/* Accounting for the sndbuf space is per socket, so we
+>  	 * need to wake up others, try to be fair and in case of
+>  	 * other associations, let them have a go first instead
+> 
