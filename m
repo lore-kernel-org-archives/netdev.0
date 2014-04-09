@@ -1,44 +1,43 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/5] wil6210: Convert to Kbuild
-Date: Wed, 09 Apr 2014 09:06:41 -0700
-Message-ID: <1397059601.14321.19.camel@joe-AO722>
-References: <1396946179-11677-1-git-send-email-qca_vkondrat@qca.qualcomm.com>
-	 <1396946179-11677-2-git-send-email-qca_vkondrat@qca.qualcomm.com>
-	 <1396973691.5212.3.camel@joe-AO722> <2146187.nt2BTDzSlP@lx-vladimir>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 0/3] Fix some bugs in staging drivers
+Date: Wed,  9 Apr 2014 11:12:57 -0500
+Message-ID: <1397059980-11942-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "John W . Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, wil6210@qca.qualcomm.com,
-	netdev <netdev@vger.kernel.org>
-To: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>,
-	Michal Marek <mmarek@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0081.hostedemail.com ([216.40.44.81]:39440 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932786AbaDIQGs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 12:06:48 -0400
-In-Reply-To: <2146187.nt2BTDzSlP@lx-vladimir>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ Larry Finger <Larry.Finger@lwfinger.net>
+To: gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-(adding Michal Marek)
+While analyzing parts of the recently merged r8723au driver, Jes Sorensen
+found two bugs that are found in other Reaktek drivers in staging. This
+set of patches fixes them.
 
-On Wed, 2014-04-09 at 17:08 +0300, Vladimir Kondratiev wrote:
-> On Tuesday, April 08, 2014 09:14:51 AM Joe Perches wrote:
-> > On Tue, 2014-04-08 at 11:36 +0300, Vladimir Kondratiev wrote:
-> > > Convert Makefile -> Kbuild,
-> > > to make off-kernel development easier and less intrusive.
-> > No drivers/net directory uses Kbuild.
-> > Why should this?
-> 
-> because it makes it easier to do off-kernel development, and then
-> move things to the proper location within the kernel without
-> conflicting changes in the Makefile.
-> As I understand, Kbuild is better choice because it is really not
-> standalone "Makefile", it is intended to be included by the real
-> Makefile. Thus, distinct name is better.
-> Are there any reasons why not using Kbuild? I did not found
-> guidelines when use Kbuild and when not.
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 
-Michal?  Any opinion?
+
+Larry Finger (3):
+  staging: r8188eu: Calling rtw_get_stainfo() with a NULL sta_addr will
+    return NULL
+  staging: r8188eu: Fix case where ethtype was never obtained and always
+    be checked against 0
+  staging: r8712u: Fix case where ethtype was never obtained and always
+    be checked against 0
+
+ drivers/staging/rtl8188eu/core/rtw_recv.c | 24 ++++++++++--------------
+ drivers/staging/rtl8712/rtl871x_recv.c    | 15 +++++++--------
+ 2 files changed, 17 insertions(+), 22 deletions(-)
+
+-- 
+1.8.1.4
