@@ -1,43 +1,58 @@
-From: Francois WELLENREITER <f.wellenreiter@gmail.com>
-Subject: Does IPv6 support Jumbograms ?
-Date: Wed, 09 Apr 2014 21:42:43 +0200
-Message-ID: <5345A2B3.7040602@gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH 2/3] staging: r8188eu: Fix case where ethtype was never
+ obtained and always be checked against 0
+Date: Wed, 9 Apr 2014 22:44:57 +0300
+Message-ID: <20140409194457.GK4963@mwanda>
+References: <1397059980-11942-1-git-send-email-Larry.Finger@lwfinger.net>
+ <1397059980-11942-3-git-send-email-Larry.Finger@lwfinger.net>
+ <53457428.4030408@cogentembedded.com>
+ <20140409190204.GD26890@mwanda>
+ <53459B78.7090709@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:55302 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932847AbaDITmr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 15:42:47 -0400
-Received: by mail-wi0-f175.google.com with SMTP id cc10so9523036wib.14
-        for <netdev@vger.kernel.org>; Wed, 09 Apr 2014 12:42:46 -0700 (PDT)
-Received: from ?IPv6:2a01:e34:ef74:28b0:2289:84ff:fea6:56c1? ([2a01:e34:ef74:28b0:2289:84ff:fea6:56c1])
-        by mx.google.com with ESMTPSA id h19sm6252471wiw.17.2014.04.09.12.42.44
-        for <netdev@vger.kernel.org>
-        (version=TLSv1 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
-        Wed, 09 Apr 2014 12:42:45 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
+ netdev@vger.kernel.org, Stable <stable@vger.kernel.org>,
+ Larry Finger <Larry.Finger@lwfinger.net>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <53459B78.7090709@cogentembedded.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-Hi there,
+On Wed, Apr 09, 2014 at 11:11:52PM +0400, Sergei Shtylyov wrote:
+> On 04/09/2014 11:02 PM, Dan Carpenter wrote:
+> 
+> >>>diff --git a/drivers/staging/rtl8188eu/core/rtw_recv.c b/drivers/staging/rtl8188eu/core/rtw_recv.c
+> >>>index 01fcabc..61084d6 100644
+> >>>--- a/drivers/staging/rtl8188eu/core/rtw_recv.c
+> >>>+++ b/drivers/staging/rtl8188eu/core/rtw_recv.c
+> >>>@@ -551,7 +551,7 @@ static struct recv_frame *portctrl(struct adapter *adapter,
+> >>>  	struct sta_info *psta;
+> >>>  	struct sta_priv *pstapriv;
+> >>>  	struct recv_frame *prtnframe;
+> >>>-	u16	ether_type = 0;
+> >>>+	u16	ether_type;
+> 
+> >>    I suggest:
+> 
+> >>	u16 ethertype;
+> 
+> >I don't understand this suggestion.  Why is that name prefered?
+> 
+>    Sorry, I've managed to somehow remove the underscore. :-/
+> My real suggestion was to replace the tab with a space.
 
-I've been recently running performance tests with the loopback interfac=
-e
-increasing the MTU over the 65535 byte limit.
-I was really surprised to see that a simple scp onto the ::1 address
-systematically blocked after transferring about 2,4 MB.
-My interpretation of this behavior is that the current IPv6 kernel laye=
-r
-does not support Jumbograms at all. Am I wrong ?
-If that's not the case, what could then the right interpretation of thi=
-s
-issue ?
-And whenever I'm right, is there any plan to support this feature in a
-near future ?
+Ah, sure.
 
-Thanks in advance for any help.
-Regards,
-
-                  Fran=E7ois
+regards,
+dan carpenter
