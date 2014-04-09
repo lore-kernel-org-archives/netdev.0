@@ -1,47 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Does IPv6 support Jumbograms ?
-Date: Wed, 09 Apr 2014 14:41:05 -0700
-Message-ID: <1397079665.16584.17.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5345A2B3.7040602@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois WELLENREITER <f.wellenreiter@gmail.com>
+From: Paul McQuade <paulmcquad@gmail.com>
+Subject: [PATCH 3/3] net:hamradio:6pack.c:#include <linux/uaccess.h>
+Date: Wed,  9 Apr 2014 23:11:08 +0100
+Message-ID: <1397081468-10301-1-git-send-email-paulmcquad@gmail.com>
+Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: ajk@comnets.uni-bremen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:57647 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964976AbaDIVlJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 17:41:09 -0400
-Received: by mail-pd0-f173.google.com with SMTP id z10so2966480pdj.4
-        for <netdev@vger.kernel.org>; Wed, 09 Apr 2014 14:41:09 -0700 (PDT)
-In-Reply-To: <5345A2B3.7040602@gmail.com>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:38948 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934430AbaDIWLX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 18:11:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-04-09 at 21:42 +0200, Francois WELLENREITER wrote:
-> Hi there,
-> 
-> I've been recently running performance tests with the loopback interface
-> increasing the MTU over the 65535 byte limit.
-> I was really surprised to see that a simple scp onto the ::1 address
-> systematically blocked after transferring about 2,4 MB.
-> My interpretation of this behavior is that the current IPv6 kernel layer
-> does not support Jumbograms at all. Am I wrong ?
-> If that's not the case, what could then the right interpretation of this
-> issue ?
-> And whenever I'm right, is there any plan to support this feature in a
-> near future ?
+WARNING: Use #include <linux/uaccess.h> instead of <asm/uaccess.h>
 
-What do you mean by blocked ?
+Signed-off-by: Paul McQuade <paulmcquad@gmail.com>
+---
+ drivers/net/hamradio/6pack.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Please give more details (kernel version, exact mtu...), because it
-should not happen !
-
-# ifconfig lo mtu 100000
-# scp -6 vmlinux edumazet@ip6-localhost:/tmp
-Password: 
-vmlinux
-100%   24MB  23.5MB/s   00:00    
-# ls -l /tmp/vmlinux
--rwxr-xr-x 1 edumazet eng 24668915 Apr  9 14:37 /tmp/vmlinux
+diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
+index 66e2b19..4cd3acd 100644
+--- a/drivers/net/hamradio/6pack.c
++++ b/drivers/net/hamradio/6pack.c
+@@ -13,7 +13,7 @@
+  */
+ 
+ #include <linux/module.h>
+-#include <asm/uaccess.h>
++#include <linux/uaccess.h>
+ #include <linux/bitops.h>
+ #include <linux/string.h>
+ #include <linux/mm.h>
+-- 
+1.8.3.2
