@@ -1,29 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net phylib: Remove unnecessary condition check in
- phy
-Date: Wed, 09 Apr 2014 13:04:14 -0400 (EDT)
-Message-ID: <20140409.130414.1427995437695377764.davem@davemloft.net>
-References: <5344BF99.5090604@gmail.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [PATCH net-next 2/2] ptp: Fix compiler warnings in the testptp
+ utility
+Date: Wed, 9 Apr 2014 17:33:50 +0000
+Message-ID: <1397064830.1141.11.camel@jekeller-desk1.amr.corp.intel.com>
+References: <1395746646-28299-1-git-send-email-christian.riesch@omicron.at>
+	 <a2330f7d-0abf-4ee0-9288-1e881b2b5368@mary.at.omicron.at>
+	 <20140325114523.GB14836@netboy>
+	 <1396993385.2376.8.camel@jekeller-desk1.amr.corp.intel.com>
+	 <C5B090FABC863EF2D36D89C3@[172.22.2.41]>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
-To: kumaran.4353@gmail.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	Christian Riesch <christian.riesch@omicron.at>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Dong Zhu <bluezhudong@gmail.com>
+To: Christian Riesch <christian.riesch@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56536 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933686AbaDIREQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 13:04:16 -0400
-In-Reply-To: <5344BF99.5090604@gmail.com>
+Received: from mga02.intel.com ([134.134.136.20]:22215 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933720AbaDIRjf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Apr 2014 13:39:35 -0400
+In-Reply-To: <C5B090FABC863EF2D36D89C3@[172.22.2.41]>
+Content-Language: en-US
+Content-ID: <2808FCC21EE1A04189162D34C1B6ABCE@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Balakumaran Kannan <kumaran.4353@gmail.com>
-Date: Wed, 09 Apr 2014 09:03:45 +0530
-
-> This condition check makes no difference in the code flow since 3.10
-> 
-> Signed-off-by: Balakumaran Kannan <kumaran.4353@gmail.com>
-> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-
-Applied, thanks.
+T24gV2VkLCAyMDE0LTA0LTA5IGF0IDA4OjQwICswMjAwLCBDaHJpc3RpYW4gUmllc2NoIHdyb3Rl
+Og0KPiANCj4gLS1PbiBBcHJpbCAwOCwgMjAxNCAyMTo0MyArMDAwMCAiS2VsbGVyLCBKYWNvYiBF
+IiANCj4gPGphY29iLmUua2VsbGVyQGludGVsLmNvbT4gd3JvdGU6DQo+IA0KPiA+IE9uIFR1ZSwg
+MjAxNC0wMy0yNSBhdCAxMjo0NSArMDEwMCwgUmljaGFyZCBDb2NocmFuIHdyb3RlOg0KPiA+PiBP
+biBUdWUsIE1hciAyNSwgMjAxNCBhdCAxMjoyNDowNlBNICswMTAwLCBDaHJpc3RpYW4gUmllc2No
+IHdyb3RlOg0KPiA+PiA+IFNpZ25lZC1vZmYtYnk6IENocmlzdGlhbiBSaWVzY2ggPGNocmlzdGlh
+bi5yaWVzY2hAb21pY3Jvbi5hdD4NCj4gPj4gPiBDYzogRG9uZyBaaHUgPGJsdWV6aHVkb25nQGdt
+YWlsLmNvbT4NCj4gPj4gPiAtLS0NCj4gPj4gPiAgRG9jdW1lbnRhdGlvbi9wdHAvdGVzdHB0cC5j
+IHwgICAxMCArKysrKy0tLS0tDQo+ID4+ID4gIDEgZmlsZSBjaGFuZ2VkLCA1IGluc2VydGlvbnMo
+KyksIDUgZGVsZXRpb25zKC0pDQo+ID4+ID4NCj4gPj4gPiBkaWZmIC0tZ2l0IGEvRG9jdW1lbnRh
+dGlvbi9wdHAvdGVzdHB0cC5jIGIvRG9jdW1lbnRhdGlvbi9wdHAvdGVzdHB0cC5jDQo+ID4+ID4g
+aW5kZXggMTNiZGRkNS4uMTRiZjE5ZSAxMDA2NDQNCj4gPj4gPiAtLS0gYS9Eb2N1bWVudGF0aW9u
+L3B0cC90ZXN0cHRwLmMNCj4gPj4gPiArKysgYi9Eb2N1bWVudGF0aW9uL3B0cC90ZXN0cHRwLmMN
+Cj4gPj4gPiBAQCAtNDk2LDE0ICs0OTYsMTQgQEAgaW50IG1haW4oaW50IGFyZ2MsIGNoYXIgKmFy
+Z3ZbXSkNCj4gPj4gPiAgCQkJaW50ZXJ2YWwgPSB0MiAtIHQxOw0KPiA+PiA+ICAJCQlvZmZzZXQg
+PSAodDIgKyB0MSkgLyAyIC0gdHA7DQo+ID4+ID4NCj4gPj4gPiAtCQkJcHJpbnRmKCJzeXN0ZW0g
+dGltZTogJWxkLiVsZFxuIiwNCj4gPj4gPiArCQkJcHJpbnRmKCJzeXN0ZW0gdGltZTogJWxsZC4l
+dVxuIiwNCj4gPj4gPiAgCQkJCShwY3QrMippKS0+c2VjLCAocGN0KzIqaSktPm5zZWMpOw0KPiA+
+PiA+IC0JCQlwcmludGYoInBoYyAgICB0aW1lOiAlbGQuJWxkXG4iLA0KPiA+PiA+ICsJCQlwcmlu
+dGYoInBoYyAgICB0aW1lOiAlbGxkLiV1XG4iLA0KPiA+PiA+ICAJCQkJKHBjdCsyKmkrMSktPnNl
+YywgKHBjdCsyKmkrMSktPm5zZWMpOw0KPiA+PiA+IC0JCQlwcmludGYoInN5c3RlbSB0aW1lOiAl
+bGQuJWxkXG4iLA0KPiA+PiA+ICsJCQlwcmludGYoInN5c3RlbSB0aW1lOiAlbGxkLiV1XG4iLA0K
+PiA+PiA+ICAJCQkJKHBjdCsyKmkrMiktPnNlYywgKHBjdCsyKmkrMiktPm5zZWMpOw0KPiA+PiA+
+IC0JCQlwcmludGYoInN5c3RlbS9waGMgY2xvY2sgdGltZSBvZmZzZXQgaXMgJWxkIG5zXG4iDQo+
+ID4+ID4gLQkJCQkic3lzdGVtICAgICBjbG9jayB0aW1lIGRlbGF5ICBpcyAlbGQgbnNcbiIsDQo+
+ID4+DQo+ID4+IFVzZSBQUklkNjQgaW5zdGVhZD8NCj4gPj4NCj4gPj4gVGhhbmtzLA0KPiA+PiBS
+aWNoYXJkDQo+ID4+DQo+ID4NCj4gPiBJIGFncmVlIHdpdGggdGhpcy4gJWxsZCBpcyBub3QgZ29p
+bmcgdG8gcmVzb2x2ZSB0aGUgZXJyb3IgcHJvcGVybHkgb24gYQ0KPiA+IDMyIGJpdCBtYWNoaW5l
+LiBMb29rcyBsaWtlIGEgZm9sbG93LW9uIHBhdGNoIHdvdWxkIGhhdmUgdG8gYmUgZ2VuZXJhdGVk
+LA0KPiA+IHNpbmNlIERhdmUgYXBwbGllZCB0aGlzIGFscmVhZHkuDQo+IA0KPiBJIGNoZWNrZWQg
+YWdhaW4sIG5vIGZvbGxvdy11cCBwYXRjaCBpcyByZXF1aXJlZDogRGF2aWQgZmlyc3QgYXBwbGll
+ZCB2MSANCj4gKGNvbW1pdCAyMDMxOTFjMzg2ZTgzYjhjNWQ5NWJiYmFlZjEzYmFhNjI5NTEyNzI2
+KSwgbGF0ZXIgcmV2ZXJ0ZWQgaXQgDQo+ICgwMzFmZTc5MmNjZDRmNWQ3OTQxNWIyMTljNzNiODY4
+ZGE5OGQ5YjcwKSwgYW5kIGFwcGxpZWQgdjIgDQo+ICg0ZWM1NGY5NTczNmYyZDkwZTRkOWU0ZmNj
+NzVjZjEyMjhmMGYzZWRlKS4NCj4gDQo+IFRoYW5rcywgQ2hyaXN0aWFuDQoNCkFuZCB5ZXMsIHlv
+dSB3ZXJlIHJpZ2h0ICVsbGQgd29ya3MgZm9yIDMyYml0IGJ1dCBub3QgNjRiaXQuIEkgaGFkIGl0
+DQpiYWNrd2FyZHMuDQoNClRoYW5rcywNCkpha2UNCg==
