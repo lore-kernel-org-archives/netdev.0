@@ -1,8 +1,8 @@
 From: Christian Riesch <christian.riesch@gmail.com>
 Subject: Re: [PATCH net-next 2/2] ptp: Fix compiler warnings in the testptp
  utility
-Date: Wed, 09 Apr 2014 08:23:56 +0200
-Message-ID: <E5D957FE6841B1A8773B909A@[172.22.2.41]>
+Date: Wed, 09 Apr 2014 08:40:59 +0200
+Message-ID: <C5B090FABC863EF2D36D89C3@[172.22.2.41]>
 References: <1395746646-28299-1-git-send-email-christian.riesch@omicron.at>
  <a2330f7d-0abf-4ee0-9288-1e881b2b5368@mary.at.omicron.at>
  <20140325114523.GB14836@netboy>
@@ -15,12 +15,12 @@ Cc: Christian Riesch <christian.riesch@omicron.at>,
 To: "Keller, Jacob E" <jacob.e.keller@intel.com>,
 	Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:54213 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750814AbaDIGYB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 02:24:01 -0400
-Received: by mail-ee0-f54.google.com with SMTP id d49so1459921eek.27
-        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 23:24:00 -0700 (PDT)
+Received: from mail-ee0-f44.google.com ([74.125.83.44]:58476 "EHLO
+	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750948AbaDIGlE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 02:41:04 -0400
+Received: by mail-ee0-f44.google.com with SMTP id e49so1439096eek.17
+        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 23:41:03 -0700 (PDT)
 In-Reply-To: <1396993385.2376.8.camel@jekeller-desk1.amr.corp.intel.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
@@ -66,8 +66,12 @@ List-ID: <netdev.vger.kernel.org>
 >>
 >
 > I agree with this. %lld is not going to resolve the error properly on a
-> 32 bit machine.
+> 32 bit machine. Looks like a follow-on patch would have to be generated,
+> since Dave applied this already.
 
-Actually, %lld solves the problem on a 32 bit machine (this is what I am 
-compiling for), but it will cause warnings on 64 bit, right?
-Christian
+I checked again, no follow-up patch is required: David first applied v1 
+(commit 203191c386e83b8c5d95bbbaef13baa629512726), later reverted it 
+(031fe792ccd4f5d79415b219c73b868da98d9b70), and applied v2 
+(4ec54f95736f2d90e4d9e4fcc75cf1228f0f3ede).
+
+Thanks, Christian
