@@ -1,66 +1,81 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [PATCH net-next 2/2] ptp: Fix compiler warnings in the testptp
- utility
-Date: Wed, 9 Apr 2014 17:33:50 +0000
-Message-ID: <1397064830.1141.11.camel@jekeller-desk1.amr.corp.intel.com>
-References: <1395746646-28299-1-git-send-email-christian.riesch@omicron.at>
-	 <a2330f7d-0abf-4ee0-9288-1e881b2b5368@mary.at.omicron.at>
-	 <20140325114523.GB14836@netboy>
-	 <1396993385.2376.8.camel@jekeller-desk1.amr.corp.intel.com>
-	 <C5B090FABC863EF2D36D89C3@[172.22.2.41]>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 2/3] staging: r8188eu: Fix case where ethtype was never
+ obtained and always be checked against 0
+Date: Wed, 09 Apr 2014 12:44:54 -0500
+Message-ID: <53458716.6040803@lwfinger.net>
+References: <1397059980-11942-1-git-send-email-Larry.Finger@lwfinger.net>
+ <1397059980-11942-3-git-send-email-Larry.Finger@lwfinger.net>
+ <53457428.4030408@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	Christian Riesch <christian.riesch@omicron.at>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Dong Zhu <bluezhudong@gmail.com>
-To: Christian Riesch <christian.riesch@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:22215 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933720AbaDIRjf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Apr 2014 13:39:35 -0400
-In-Reply-To: <C5B090FABC863EF2D36D89C3@[172.22.2.41]>
-Content-Language: en-US
-Content-ID: <2808FCC21EE1A04189162D34C1B6ABCE@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ Stable <stable@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+ gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <53457428.4030408@cogentembedded.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCAyMDE0LTA0LTA5IGF0IDA4OjQwICswMjAwLCBDaHJpc3RpYW4gUmllc2NoIHdyb3Rl
-Og0KPiANCj4gLS1PbiBBcHJpbCAwOCwgMjAxNCAyMTo0MyArMDAwMCAiS2VsbGVyLCBKYWNvYiBF
-IiANCj4gPGphY29iLmUua2VsbGVyQGludGVsLmNvbT4gd3JvdGU6DQo+IA0KPiA+IE9uIFR1ZSwg
-MjAxNC0wMy0yNSBhdCAxMjo0NSArMDEwMCwgUmljaGFyZCBDb2NocmFuIHdyb3RlOg0KPiA+PiBP
-biBUdWUsIE1hciAyNSwgMjAxNCBhdCAxMjoyNDowNlBNICswMTAwLCBDaHJpc3RpYW4gUmllc2No
-IHdyb3RlOg0KPiA+PiA+IFNpZ25lZC1vZmYtYnk6IENocmlzdGlhbiBSaWVzY2ggPGNocmlzdGlh
-bi5yaWVzY2hAb21pY3Jvbi5hdD4NCj4gPj4gPiBDYzogRG9uZyBaaHUgPGJsdWV6aHVkb25nQGdt
-YWlsLmNvbT4NCj4gPj4gPiAtLS0NCj4gPj4gPiAgRG9jdW1lbnRhdGlvbi9wdHAvdGVzdHB0cC5j
-IHwgICAxMCArKysrKy0tLS0tDQo+ID4+ID4gIDEgZmlsZSBjaGFuZ2VkLCA1IGluc2VydGlvbnMo
-KyksIDUgZGVsZXRpb25zKC0pDQo+ID4+ID4NCj4gPj4gPiBkaWZmIC0tZ2l0IGEvRG9jdW1lbnRh
-dGlvbi9wdHAvdGVzdHB0cC5jIGIvRG9jdW1lbnRhdGlvbi9wdHAvdGVzdHB0cC5jDQo+ID4+ID4g
-aW5kZXggMTNiZGRkNS4uMTRiZjE5ZSAxMDA2NDQNCj4gPj4gPiAtLS0gYS9Eb2N1bWVudGF0aW9u
-L3B0cC90ZXN0cHRwLmMNCj4gPj4gPiArKysgYi9Eb2N1bWVudGF0aW9uL3B0cC90ZXN0cHRwLmMN
-Cj4gPj4gPiBAQCAtNDk2LDE0ICs0OTYsMTQgQEAgaW50IG1haW4oaW50IGFyZ2MsIGNoYXIgKmFy
-Z3ZbXSkNCj4gPj4gPiAgCQkJaW50ZXJ2YWwgPSB0MiAtIHQxOw0KPiA+PiA+ICAJCQlvZmZzZXQg
-PSAodDIgKyB0MSkgLyAyIC0gdHA7DQo+ID4+ID4NCj4gPj4gPiAtCQkJcHJpbnRmKCJzeXN0ZW0g
-dGltZTogJWxkLiVsZFxuIiwNCj4gPj4gPiArCQkJcHJpbnRmKCJzeXN0ZW0gdGltZTogJWxsZC4l
-dVxuIiwNCj4gPj4gPiAgCQkJCShwY3QrMippKS0+c2VjLCAocGN0KzIqaSktPm5zZWMpOw0KPiA+
-PiA+IC0JCQlwcmludGYoInBoYyAgICB0aW1lOiAlbGQuJWxkXG4iLA0KPiA+PiA+ICsJCQlwcmlu
-dGYoInBoYyAgICB0aW1lOiAlbGxkLiV1XG4iLA0KPiA+PiA+ICAJCQkJKHBjdCsyKmkrMSktPnNl
-YywgKHBjdCsyKmkrMSktPm5zZWMpOw0KPiA+PiA+IC0JCQlwcmludGYoInN5c3RlbSB0aW1lOiAl
-bGQuJWxkXG4iLA0KPiA+PiA+ICsJCQlwcmludGYoInN5c3RlbSB0aW1lOiAlbGxkLiV1XG4iLA0K
-PiA+PiA+ICAJCQkJKHBjdCsyKmkrMiktPnNlYywgKHBjdCsyKmkrMiktPm5zZWMpOw0KPiA+PiA+
-IC0JCQlwcmludGYoInN5c3RlbS9waGMgY2xvY2sgdGltZSBvZmZzZXQgaXMgJWxkIG5zXG4iDQo+
-ID4+ID4gLQkJCQkic3lzdGVtICAgICBjbG9jayB0aW1lIGRlbGF5ICBpcyAlbGQgbnNcbiIsDQo+
-ID4+DQo+ID4+IFVzZSBQUklkNjQgaW5zdGVhZD8NCj4gPj4NCj4gPj4gVGhhbmtzLA0KPiA+PiBS
-aWNoYXJkDQo+ID4+DQo+ID4NCj4gPiBJIGFncmVlIHdpdGggdGhpcy4gJWxsZCBpcyBub3QgZ29p
-bmcgdG8gcmVzb2x2ZSB0aGUgZXJyb3IgcHJvcGVybHkgb24gYQ0KPiA+IDMyIGJpdCBtYWNoaW5l
-LiBMb29rcyBsaWtlIGEgZm9sbG93LW9uIHBhdGNoIHdvdWxkIGhhdmUgdG8gYmUgZ2VuZXJhdGVk
-LA0KPiA+IHNpbmNlIERhdmUgYXBwbGllZCB0aGlzIGFscmVhZHkuDQo+IA0KPiBJIGNoZWNrZWQg
-YWdhaW4sIG5vIGZvbGxvdy11cCBwYXRjaCBpcyByZXF1aXJlZDogRGF2aWQgZmlyc3QgYXBwbGll
-ZCB2MSANCj4gKGNvbW1pdCAyMDMxOTFjMzg2ZTgzYjhjNWQ5NWJiYmFlZjEzYmFhNjI5NTEyNzI2
-KSwgbGF0ZXIgcmV2ZXJ0ZWQgaXQgDQo+ICgwMzFmZTc5MmNjZDRmNWQ3OTQxNWIyMTljNzNiODY4
-ZGE5OGQ5YjcwKSwgYW5kIGFwcGxpZWQgdjIgDQo+ICg0ZWM1NGY5NTczNmYyZDkwZTRkOWU0ZmNj
-NzVjZjEyMjhmMGYzZWRlKS4NCj4gDQo+IFRoYW5rcywgQ2hyaXN0aWFuDQoNCkFuZCB5ZXMsIHlv
-dSB3ZXJlIHJpZ2h0ICVsbGQgd29ya3MgZm9yIDMyYml0IGJ1dCBub3QgNjRiaXQuIEkgaGFkIGl0
-DQpiYWNrd2FyZHMuDQoNClRoYW5rcywNCkpha2UNCg==
+On 04/09/2014 11:24 AM, Sergei Shtylyov wrote:
+> On 04/09/2014 08:12 PM, Larry Finger wrote:
+>
+>> Zero-initializing ether_type masked that the ether type would never be
+>> obtained for 8021x packets and the comparition against eapol_type
+>> would always fail.
+>
+>> Reported-by: Jes Sorensen <Jes.Sorensen@redhat.com>
+>> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+>> Cc: Stable <stable@vger.kernel.org>
+>> ---
+>>   drivers/staging/rtl8188eu/core/rtw_recv.c | 20 ++++++++------------
+>>   1 file changed, 8 insertions(+), 12 deletions(-)
+>
+>> diff --git a/drivers/staging/rtl8188eu/core/rtw_recv.c
+>> b/drivers/staging/rtl8188eu/core/rtw_recv.c
+>> index 01fcabc..61084d6 100644
+>> --- a/drivers/staging/rtl8188eu/core/rtw_recv.c
+>> +++ b/drivers/staging/rtl8188eu/core/rtw_recv.c
+>> @@ -551,7 +551,7 @@ static struct recv_frame *portctrl(struct adapter *adapter,
+>>       struct sta_info *psta;
+>>       struct sta_priv *pstapriv;
+>>       struct recv_frame *prtnframe;
+>> -    u16    ether_type = 0;
+>> +    u16    ether_type;
+>
+>     I suggest:
+>
+>      u16 ethertype;
+>
+>>       u16  eapol_type = 0x888e;/* for Funia BD's WPA issue */
+>>       struct rx_pkt_attrib *pattrib;
+>>       __be16 be_tmp;
+>> @@ -571,19 +571,17 @@ static struct recv_frame *portctrl(struct adapter *adapter,
+>>
+>>       RT_TRACE(_module_rtl871x_recv_c_, _drv_info_,
+>> ("########portctrl:adapter->securitypriv.dot11AuthAlgrthm=%d\n",
+>> adapter->securitypriv.dot11AuthAlgrthm));
+>>
+>> -    if (auth_alg == 2) {
+>> +    if (auth_alg == dot11AuthAlgrthm_8021X) {
+>> +        /* get ether_type */
+>> +        ptr = ptr + pfhdr->attrib.hdrlen + LLC_HEADER_SIZE;
+>
+>     Why not:
+>
+>          ptr += pfhdr->attrib.hdrlen + LLC_HEADER_SIZE;
+
+It seems to me that it is only a matter of preference. Exactly the same object 
+code will be generated. If saving 5 characters in the source file is really 
+important, then I think I'm in the wrong business.
+
+Larry
