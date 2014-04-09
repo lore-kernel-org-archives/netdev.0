@@ -1,43 +1,59 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH V2] staging: r8723au: Fix build warnings
-Date: Wed, 9 Apr 2014 11:44:12 -0700
-Message-ID: <20140409184412.GA9916@kroah.com>
-References: <1397066159-14690-1-git-send-email-Larry.Finger@lwfinger.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 3/3] Drivers: net: hyperv: Address UDP checksum issues
+Date: Wed, 09 Apr 2014 14:42:06 -0400 (EDT)
+Message-ID: <20140409.144206.149826397772279425.davem@davemloft.net>
+References: <4ae24ae5c6ea45c399e7be03c69dc442@BY2PR03MB299.namprd03.prod.outlook.com>
+ <20140409.143655.2112963679697366338.davem@davemloft.net>
+ <b9662fd6593d462e83c5b88af75d5f2e@BY2PR03MB299.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
-	Jes Sorensen <Jes.Sorensen@redhat.com>, kbuild-all@01.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:37203 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933323AbaDISlk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 14:41:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1397066159-14690-1-git-send-email-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org
+To: kys@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <b9662fd6593d462e83c5b88af75d5f2e@BY2PR03MB299.namprd03.prod.outlook.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 09, 2014 at 12:55:59PM -0500, Larry Finger wrote:
-> The kbuild test robot reports the following:
-> 
-> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git master
-> head:   75ff24fa52f0cc512ceee4c377632b91a3a80811
-> commit: 9176303c404741b2f96796466437f2badf6e289b staging: r8723au: Turn on build of new driver
-> date:   4 days ago
-> config: make ARCH=avr32 allyesconfig
-> 
-> All warnings:
-> 
-> >> drivers/staging/rtl8723au/include/rtw_mlme.h:620: warning: 'rtw_set_roaming' declared inline after being called
->    drivers/staging/rtl8723au/include/rtw_mlme.h:620: warning: previous declaration of 'rtw_set_roaming' was here
-> >> drivers/staging/rtl8723au/include/rtw_mlme.h:621: warning: 'rtw_to_roaming' declared inline after being called
->    drivers/staging/rtl8723au/include/rtw_mlme.h:621: warning: previous declaration of 'rtw_to_roaming' was here
-> --
->    drivers/staging/rtl8723au/hal/rtl8723a_hal_init.c: In function 'Hal_EEValueCheck':
-> >> drivers/staging/rtl8723au/hal/rtl8723a_hal_init.c:2277: warning: comparison is always true due to limited range of data type
-> 
-> The first two warnings are fixed by making the two prototypes be "inline" to match
-> the actual routine.
+From: KY Srinivasan <kys@microsoft.com>
+Date: Wed, 9 Apr 2014 18:39:57 +0000
 
-This sentance doesn't match the patch contents anymore :(
+> 
+> 
+>> -----Original Message-----
+>> From: David Miller [mailto:davem@davemloft.net]
+>> Sent: Wednesday, April 9, 2014 11:37 AM
+>> To: KY Srinivasan
+>> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+>> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
+>> jasowang@redhat.com
+>> Subject: Re: [PATCH net 3/3] Drivers: net: hyperv: Address UDP checksum
+>> issues
+>> 
+>> From: KY Srinivasan <kys@microsoft.com>
+>> Date: Wed, 9 Apr 2014 18:08:47 +0000
+>> 
+>> > Thanks Dave. I will COW the SKB before changing the checksum value. I
+>> > do have a question though.  I looked at a bunch of hardware drivers
+>> > and they modify the header information, specially checksum field and I
+>> > could not see where they had COWed the skb. I was grepping for skb_cow
+>> > in these drivers.
+>> 
+>> Look for skb_cow_head(), for example, the tg3.c driver uses this.
+>> 
+> Thank you. I will update this patch. Do you want me to resend the whole set or just
+> this patch.
+
+You never need to ask me this.
+
+Always, when there is an update to any part of a series, re-submit the entire
+series.
