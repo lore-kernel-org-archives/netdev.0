@@ -1,90 +1,83 @@
-From: Paul McQuade <paulmcquad@gmail.com>
-Subject: [PATCH 2/2] drivers:baycom_epp.c tabs
-Date: Thu, 10 Apr 2014 00:25:21 +0100
-Message-ID: <1397085921-13803-2-git-send-email-paulmcquad@gmail.com>
-References: <1397085921-13803-1-git-send-email-paulmcquad@gmail.com>
-Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: t.sailer@alumni.ethz.ch
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1397085921-13803-1-git-send-email-paulmcquad@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: Re: [PATCH v2.56] datapath: Add basic MPLS support to
+	kernel
+Date: Thu, 10 Apr 2014 08:33:28 +0900
+Message-ID: <20140409233326.GA18623@verge.net.au>
+References: <1396323981-20700-1-git-send-email-horms@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1396323981-20700-1-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-ERROR: code indent should use tabs where possible
-ERROR: space required after that ';' (ctx:VxV)
+On Tue, Apr 01, 2014 at 12:46:20PM +0900, Simon Horman wrote:
+> Hi Jesse, Hi Pravin, Hi All,
+> 
+> This patchset makes use of a whitelist to only allow mpls_push actions to
+> be applied to packets with an ethertype where the tag order is well defined
+> and implemented. This avoids the problem of where an MPLS LSE should be
+> added in relation to a VLAN or similar tag.
+> 
+> The list of allowed ethertypes is currently:
+> 
+>   - ETH_P_IP (0x0800)
+>   - ETH_P_ARP (0x0806)
+>   - ETH_P_RARP (0x0835)
+>   - ETH_P_IPV6 (0x86DD)
+>   - ETH_P_MPLS_UC (0x8847)
+>   - ETH_P_MPLS_MC (0x8847)
 
-Signed-off-by: Paul McQuade <paulmcquad@gmail.com>
----
- drivers/net/hamradio/baycom_epp.c | 20 ++++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
+Hi,
 
-diff --git a/drivers/net/hamradio/baycom_epp.c b/drivers/net/hamradio/baycom_epp.c
-index 3daafec..5012ab5 100644
---- a/drivers/net/hamradio/baycom_epp.c
-+++ b/drivers/net/hamradio/baycom_epp.c
-@@ -54,7 +54,7 @@
- #include <linux/baycom.h>
- #include <linux/jiffies.h>
- #include <linux/random.h>
--#include <net/ax25.h> 
-+#include <net/ax25.h>
- #include <linux/uaccess.h>
- 
- /* --------------------------------------------------------------------- */
-@@ -64,7 +64,7 @@
- 
- /* --------------------------------------------------------------------- */
- 
--static const char paranoia_str[] = KERN_ERR 
-+static const char paranoia_str[] = KERN_ERR
- 	"baycom_epp: bad magic number for hdlcdrv_state struct in routine %s\n";
- 
- static const char bc_drvname[] = "baycom_epp";
-@@ -169,7 +169,7 @@ static struct net_device *baycom_device[NR_PORTS];
- struct baycom_state {
- 	int magic;
- 
--        struct pardevice *pdev;
-+	struct pardevice *pdev;
- 	struct net_device *dev;
- 	unsigned int work_running;
- 	struct delayed_work run_work;
-@@ -185,18 +185,18 @@ struct baycom_state {
- 		unsigned int loopback;
- 	} cfg;
- 
--        struct hdlcdrv_channel_params ch_params;
-+	struct hdlcdrv_channel_params ch_params;
- 
--        struct {
-+	struct {
- 		unsigned int bitbuf, bitstream, numbits, state;
- 		unsigned char *bufptr;
- 		int bufcnt;
- 		unsigned char buf[TXBUFFER_SIZE];
--        } hdlcrx;
-+	} hdlcrx;
- 
--        struct {
-+	struct {
- 		int calibrate;
--                int slotcnt;
-+		int slotcnt;
- 		int flags;
- 		enum { tx_idle = 0, tx_keyup, tx_data, tx_tail } state;
- 		unsigned char *bufptr;
-@@ -246,9 +246,9 @@ struct baycom_state {
- #if 0
- static inline void append_crc_ccitt(unsigned char *buffer, int len)
- {
-- 	unsigned int crc = 0xffff;
-+	unsigned int crc = 0xffff;
- 
--	for (;len>0;len--)
-+	for ( ; len > 0; len--)
- 		crc = (crc >> 8) ^ crc_ccitt_table[(crc ^ *buffer++) & 0xff];
- 	crc ^= 0xffff;
- 	*buffer++ = crc;
--- 
-1.8.3.2
+a gentle nudge on this one.
+I'd be most appreciative of some feedback.
+
+> I have updated this patch since v2.55 so that:
+> 
+> * The MPLS ethertypes are included in the whitelist of ethertypes
+>   that allow mpls_push actions.
+> * It once again applies on top of the master branch
+> 
+> 
+> Simon Horman (1):
+>   datapath: Add basic MPLS support to kernel
+> 
+>  OPENFLOW-1.1+                                   |   4 -
+>  datapath/Modules.mk                             |   1 +
+>  datapath/actions.c                              | 119 +++++++++-
+>  datapath/datapath.c                             |   4 +-
+>  datapath/flow.c                                 |  29 +++
+>  datapath/flow.h                                 |  17 +-
+>  datapath/flow_netlink.c                         | 298 ++++++++++++++++++++++--
+>  datapath/flow_netlink.h                         |   2 +-
+>  datapath/linux/compat/gso.c                     |  70 +++++-
+>  datapath/linux/compat/gso.h                     |  41 +++-
+>  datapath/linux/compat/include/linux/netdevice.h |   6 +-
+>  datapath/linux/compat/netdevice.c               |  10 +-
+>  datapath/mpls.h                                 |  15 ++
+>  include/linux/openvswitch.h                     |   9 +-
+>  14 files changed, 568 insertions(+), 57 deletions(-)
+>  create mode 100644 datapath/mpls.h
+> 
+> -- 
+> 1.8.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
