@@ -1,82 +1,47 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] staging: r8723au: Fix build warnings
-Date: Wed,  9 Apr 2014 10:05:20 -0500
-Message-ID: <1397055920-11654-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
+Subject: Re: [PATCHv3 0/5] net: rfkill: gpio: cleanup and a few new acpi ids
+Date: Wed, 09 Apr 2014 09:32:31 -0600
+Message-ID: <5345680F.3040903@wwwdotorg.org>
+References: <1396360976-28657-1-git-send-email-heikki.krogerus@linux.intel.com> <1396946275.5936.2.camel@jlt4.sipsolutions.net> <20140409100147.GB3083@xps8300>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- Jes Sorensen <Jes.Sorensen@redhat.com>, kbuild-all@01.org,
- Larry Finger <Larry.Finger@lwfinger.net>
-To: gregkh@linuxfoundation.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
+	Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>,
+	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140409100147.GB3083@xps8300>
+Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The kbuild test robot reports the following:
+On 04/09/2014 04:01 AM, Heikki Krogerus wrote:
+> Hi,
+> 
+> On Tue, Apr 08, 2014 at 10:37:55AM +0200, Johannes Berg wrote:
+>> On Tue, 2014-04-01 at 17:02 +0300, Heikki Krogerus wrote:
+>>> I hope this one is OK with everyone.
+>>
+>> It's fine with me. Are you expecting me to pick up any of these patches,
+>> or do you want them to go through some other tree? Either way is fine
+>> with me, but the first patch looks like something I probably shouldn't
+>> be taking.
+> 
+> The second patch depends on it.
+> 
+> Stephen! Are you expecting any changes to board-paz00.c in this kernel
+> cycle? If not, I think it would be easiest if Johannes, you take the
+> whole set. What do you guys think?
 
-tree:   git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git master
-head:   75ff24fa52f0cc512ceee4c377632b91a3a80811
-commit: 9176303c404741b2f96796466437f2badf6e289b staging: r8723au: Turn on build of new driver
-date:   4 days ago
-config: make ARCH=avr32 allyesconfig
+I can't predict the future, but the chances are pretty slim - that file
+is pretty tiny and doesn't have much churn.
 
-All warnings:
-
->> drivers/staging/rtl8723au/include/rtw_mlme.h:620: warning: 'rtw_set_roaming' declared inline after being called
-   drivers/staging/rtl8723au/include/rtw_mlme.h:620: warning: previous declaration of 'rtw_set_roaming' was here
->> drivers/staging/rtl8723au/include/rtw_mlme.h:621: warning: 'rtw_to_roaming' declared inline after being called
-   drivers/staging/rtl8723au/include/rtw_mlme.h:621: warning: previous declaration of 'rtw_to_roaming' was here
---
-   drivers/staging/rtl8723au/hal/rtl8723a_hal_init.c: In function 'Hal_EEValueCheck':
->> drivers/staging/rtl8723au/hal/rtl8723a_hal_init.c:2277: warning: comparison is always true due to limited range of data type
-
-The first two warnings are fixed by making the two prototypes be "inline" to match
-the actual routine. The third warning comes from testing that a u8 quantity is positive.
-
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Jes Sorensen <Jes.Sorensen@redhat.com>
-Cc: kbuild-all@01.org
----
- drivers/staging/rtl8723au/hal/rtl8723a_hal_init.c | 2 +-
- drivers/staging/rtl8723au/include/rtw_mlme.h      | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/staging/rtl8723au/hal/rtl8723a_hal_init.c b/drivers/staging/rtl8723au/hal/rtl8723a_hal_init.c
-index 0a86923..dae61af 100644
---- a/drivers/staging/rtl8723au/hal/rtl8723a_hal_init.c
-+++ b/drivers/staging/rtl8723au/hal/rtl8723a_hal_init.c
-@@ -2277,7 +2277,7 @@ static void Hal_EEValueCheck(u8 EEType, void *pInValue, void *pOutValue)
- 		u8 *pIn, *pOut;
- 		pIn = (u8 *) pInValue;
- 		pOut = (u8 *) pOutValue;
--		if (*pIn >= 0 && *pIn <= 63) {
-+		if (*pIn <= 63) {
- 			*pOut = *pIn;
- 		} else {
- 			RT_TRACE(_module_hci_hal_init_c_, _drv_err_,
-diff --git a/drivers/staging/rtl8723au/include/rtw_mlme.h b/drivers/staging/rtl8723au/include/rtw_mlme.h
-index 2d4f61b..3457b96 100644
---- a/drivers/staging/rtl8723au/include/rtw_mlme.h
-+++ b/drivers/staging/rtl8723au/include/rtw_mlme.h
-@@ -616,7 +616,7 @@ void _rtw23a_roaming(struct rtw_adapter *adapter,
- 		  struct wlan_network *tgt_network);
- void rtw23a_roaming(struct rtw_adapter *adapter,
- 		 struct wlan_network *tgt_network);
--void rtw_set_roaming(struct rtw_adapter *adapter, u8 to_roaming);
--u8 rtw_to_roaming(struct rtw_adapter *adapter);
-+inline void rtw_set_roaming(struct rtw_adapter *adapter, u8 to_roaming);
-+inline u8 rtw_to_roaming(struct rtw_adapter *adapter);
- 
- #endif /* __RTL871X_MLME_H_ */
--- 
-1.8.1.4
+The best approach is to put this series in its own topic branch. Then,
+if any conflict does come up, I can simply merge the branch into the
+Tegra treee and apply the conflicting patches on top.
