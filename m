@@ -1,46 +1,42 @@
-From: Balakumaran Kannan <kumaran.4353@gmail.com>
-Subject: [PATCH v3] net phylib: Remove unnecessary condition check in phy
-Date: Wed, 09 Apr 2014 09:03:45 +0530
-Message-ID: <5344BF99.5090604@gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net PATCH 1/1] drivers: net: cpsw: Add default vlan for dual emac case also
+Date: Wed, 9 Apr 2014 11:34:40 +0530
+Message-ID: <1397023480-4181-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: f.fainelli@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:32816 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757645AbaDIDdu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 23:33:50 -0400
-Received: by mail-pd0-f176.google.com with SMTP id r10so1868810pdi.21
-        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 20:33:50 -0700 (PDT)
+Received: from bear.ext.ti.com ([192.94.94.41]:60688 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751491AbaDIGEq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Apr 2014 02:04:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This condition check makes no difference in the code flow since 3.10
+Dual EMAC works with VLAN segregation of the ports, so default vlan needs
+to be added in dual EMAC case else default vlan will be tagged for all
+egress packets and vlan unaware switches/servers will drop packets
+from the EVM.
 
-Signed-off-by: Balakumaran Kannan <kumaran.4353@gmail.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- drivers/net/phy/phy.c |    6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 1d788f1..1b6d09a 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -756,12 +756,8 @@ void phy_state_machine(struct work_struct *work)
- 			netif_carrier_on(phydev->attached_dev);
- 			phydev->adjust_link(phydev->attached_dev);
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 5d5fec6..6133e4a 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1201,8 +1201,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 	for_each_slave(priv, cpsw_slave_open, priv);
  
--		} else if (0 == phydev->link_timeout--) {
-+		} else if (0 == phydev->link_timeout--)
- 			needs_aneg = 1;
--			/* If we have the magic_aneg bit, we try again */
--			if (phydev->drv->flags & PHY_HAS_MAGICANEG)
--				break;
--		}
- 		break;
- 	case PHY_NOLINK:
- 		err = phy_read_status(phydev);
+ 	/* Add default VLAN */
+-	if (!priv->data.dual_emac)
+-		cpsw_add_default_vlan(priv);
++	cpsw_add_default_vlan(priv);
+ 
+ 	if (!cpsw_common_res_usage_state(priv)) {
+ 		/* setup tx dma to fixed prio and zero offset */
 -- 
-1.7.9.5
+1.9.0
