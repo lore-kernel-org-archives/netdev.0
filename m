@@ -1,46 +1,48 @@
-From: Heikki Krogerus <heikki.krogerus@linux.intel.com>
-Subject: Re: [PATCHv3 0/5] net: rfkill: gpio: cleanup and a few new acpi ids
-Date: Wed, 9 Apr 2014 13:01:47 +0300
-Message-ID: <20140409100147.GB3083@xps8300>
-References: <1396360976-28657-1-git-send-email-heikki.krogerus@linux.intel.com>
- <1396946275.5936.2.camel@jlt4.sipsolutions.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 2/2] macvlan: Move broadcasts into a work queue
+Date: Wed, 9 Apr 2014 10:10:16 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6F2E17@AcuExch.aculab.com>
+References: <20140407075347.GA26461@gondor.apana.org.au>
+ <E1WX4P2-0006wA-9Q@gondolin.me.apana.org.au>
+ <20140408095523.2d4e14bd@nehalam.linuxnetplumber.net>
+ <20140409085001.GA12938@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chen-Yu Tsai <wens@csie.org>, Rhyland Klein <rklein@nvidia.com>,
-	Marc Dietrich <marvin24@gmx.de>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Alexandre Courbot <gnurou@gmail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-tegra@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>,
-	Stephen Warren <swarren@wwwdotorg.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1396946275.5936.2.camel@jlt4.sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Herbert Xu' <herbert@gondor.apana.org.au>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:41813 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1757645AbaDIKL6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 06:11:58 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 04776-07 for <netdev@vger.kernel.org>;
+ Wed,  9 Apr 2014 11:11:48 +0100 (BST)
+In-Reply-To: <20140409085001.GA12938@gondor.apana.org.au>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Tue, Apr 08, 2014 at 10:37:55AM +0200, Johannes Berg wrote:
-> On Tue, 2014-04-01 at 17:02 +0300, Heikki Krogerus wrote:
-> > I hope this one is OK with everyone.
+From: Herbert Xu
+...
+> This patch picks the second option and moves all broadcast handling
+> bar the trivial case of packets going to a single interface into
+> a work queue.  Obviously there also needs to be a limit on how
+> many broadcast packets we postpone in this way.  I've arbitrarily
+> chosen tx_queue_len of the master device as the limit (act_mirred
+> also happens to use this parameter in a similar way).
 > 
-> It's fine with me. Are you expecting me to pick up any of these patches,
-> or do you want them to go through some other tree? Either way is fine
-> with me, but the first patch looks like something I probably shouldn't
-> be taking.
+> In order to ensure we don't exceed the backlog queue we will use
+> netif_rx_ni instead of netif_rx for broadcast packets.
 
-The second patch depends on it.
+Should you limit the number of broadcasts queued for transmit
+on each interface as well as the number of postponed broadcasts.
 
-Stephen! Are you expecting any changes to board-paz00.c in this kernel
-cycle? If not, I think it would be easiest if Johannes, you take the
-whole set. What do you guys think?
+It probably isn't a good idea to completely fill an interface's
+transmit queue with broadcasts.
 
-
-Thanks,
-
--- 
-heikki
+	David
