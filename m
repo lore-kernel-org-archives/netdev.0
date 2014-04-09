@@ -1,29 +1,46 @@
 From: Balakumaran Kannan <kumaran.4353@gmail.com>
-Subject: Re: [PATCH v2] net phylib: Remove unnecessary condition check
-Date: Wed, 9 Apr 2014 08:58:51 +0530
-Message-ID: <CAHPKR9KCkHEb1WNwCEFgJQQSuC2hftAngNoFH90DPu4fhavXvA@mail.gmail.com>
-References: <534413E1.8070205@gmail.com>
-	<20140408.130345.2291211656267642777.davem@davemloft.net>
+Subject: [PATCH v3] net phylib: Remove unnecessary condition check in phy
+Date: Wed, 09 Apr 2014 09:03:45 +0530
+Message-ID: <5344BF99.5090604@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+To: f.fainelli@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f181.google.com ([74.125.82.181]:37785 "EHLO
-	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756288AbaDID2w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 23:28:52 -0400
-Received: by mail-we0-f181.google.com with SMTP id q58so1813756wes.40
-        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 20:28:51 -0700 (PDT)
-In-Reply-To: <20140408.130345.2291211656267642777.davem@davemloft.net>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:32816 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757645AbaDIDdu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 23:33:50 -0400
+Received: by mail-pd0-f176.google.com with SMTP id r10so1868810pdi.21
+        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 20:33:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm sorry David. I'll correct those mistakes and send the patch. Sorry
-for the inconvenience caused.
+This condition check makes no difference in the code flow since 3.10
 
-And thank you very much for your patience and noticing the mistakes clearly.
+Signed-off-by: Balakumaran Kannan <kumaran.4353@gmail.com>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/phy/phy.c |    6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
-Regards,
-Bala
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 1d788f1..1b6d09a 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -756,12 +756,8 @@ void phy_state_machine(struct work_struct *work)
+ 			netif_carrier_on(phydev->attached_dev);
+ 			phydev->adjust_link(phydev->attached_dev);
+ 
+-		} else if (0 == phydev->link_timeout--) {
++		} else if (0 == phydev->link_timeout--)
+ 			needs_aneg = 1;
+-			/* If we have the magic_aneg bit, we try again */
+-			if (phydev->drv->flags & PHY_HAS_MAGICANEG)
+-				break;
+-		}
+ 		break;
+ 	case PHY_NOLINK:
+ 		err = phy_read_status(phydev);
+-- 
+1.7.9.5
