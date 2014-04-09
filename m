@@ -1,47 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: core: don't account for udp header size when
- computing seglen
-Date: Tue, 08 Apr 2014 22:06:00 -0400 (EDT)
-Message-ID: <20140408.220600.925628398524560053.davem@davemloft.net>
-References: <1396990288-10692-1-git-send-email-fw@strlen.de>
+From: Balakumaran Kannan <kumaran.4353@gmail.com>
+Subject: Re: [PATCH v2] net phylib: Remove unnecessary condition check
+Date: Wed, 9 Apr 2014 08:58:51 +0530
+Message-ID: <CAHPKR9KCkHEb1WNwCEFgJQQSuC2hftAngNoFH90DPu4fhavXvA@mail.gmail.com>
+References: <534413E1.8070205@gmail.com>
+	<20140408.130345.2291211656267642777.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: fw@strlen.de
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49813 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756210AbaDICGH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 22:06:07 -0400
-In-Reply-To: <1396990288-10692-1-git-send-email-fw@strlen.de>
+Received: from mail-we0-f181.google.com ([74.125.82.181]:37785 "EHLO
+	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756288AbaDID2w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Apr 2014 23:28:52 -0400
+Received: by mail-we0-f181.google.com with SMTP id q58so1813756wes.40
+        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 20:28:51 -0700 (PDT)
+In-Reply-To: <20140408.130345.2291211656267642777.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Tue,  8 Apr 2014 22:51:28 +0200
+I'm sorry David. I'll correct those mistakes and send the patch. Sorry
+for the inconvenience caused.
 
-> In case of tcp, gso_size contains the tcpmss.
-> 
-> For UFO (udp fragmentation offloading) skbs, gso_size is the fragment
-> payload size, i.e. we must not account for udp header size.
-> 
-> Otherwise, when using virtio drivers, a to-be-forwarded UFO GSO packet
-> will be needlessly fragmented in the forward path, because we think its
-> individual segments are too large for the outgoing link.
-> 
-> Fixes: de960aa9ab4d ("net: add and use skb_gso_transport_seglen()")
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Reported-by: Tobias Brunner <tobias@strongswan.org>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+And thank you very much for your patience and noticing the mistakes clearly.
 
-I agree completely with the fix, but not necessarily with the Fixes:
-tag.
-
-All that commit did was move the code to a common location, it
-always had this bug.
-
-I suppose you could list the subsequent commit, the one that started
-using this helper in the IP forwarding code, as what this "Fixes".
-
-Thanks Florian.
+Regards,
+Bala
