@@ -1,77 +1,86 @@
-From: Christian Riesch <christian.riesch@gmail.com>
-Subject: Re: [PATCH net-next 2/2] ptp: Fix compiler warnings in the testptp
- utility
-Date: Wed, 09 Apr 2014 08:40:59 +0200
-Message-ID: <C5B090FABC863EF2D36D89C3@[172.22.2.41]>
-References: <1395746646-28299-1-git-send-email-christian.riesch@omicron.at>
- <a2330f7d-0abf-4ee0-9288-1e881b2b5368@mary.at.omicron.at>
- <20140325114523.GB14836@netboy>
- <1396993385.2376.8.camel@jekeller-desk1.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Christian Riesch <christian.riesch@omicron.at>,
-	netdev@vger.kernel.org, Dong Zhu <bluezhudong@gmail.com>
-To: "Keller, Jacob E" <jacob.e.keller@intel.com>,
-	Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f44.google.com ([74.125.83.44]:58476 "EHLO
-	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750948AbaDIGlE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 02:41:04 -0400
-Received: by mail-ee0-f44.google.com with SMTP id e49so1439096eek.17
-        for <netdev@vger.kernel.org>; Tue, 08 Apr 2014 23:41:03 -0700 (PDT)
-In-Reply-To: <1396993385.2376.8.camel@jekeller-desk1.amr.corp.intel.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net] bridge: Fix double free and memory leak around
+	br_allowed_ingress
+Date: Wed,  9 Apr 2014 17:00:30 +0900
+Message-ID: <1397030430-9625-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: "David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+br_allowed_ingress() has two problems.
 
+1. If br_allowed_ingress() is called by br_handle_frame_finish() and
+vlan_untag() in br_allowed_ingress() fails, skb will be freed by both
+vlan_untag() and br_handle_frame_finish().
 
---On April 08, 2014 21:43 +0000 "Keller, Jacob E" 
-<jacob.e.keller@intel.com> wrote:
+2. If br_allowed_ingress() is called by br_dev_xmit() and
+br_allowed_ingress() fails, the skb will not be freed.
 
-> On Tue, 2014-03-25 at 12:45 +0100, Richard Cochran wrote:
->> On Tue, Mar 25, 2014 at 12:24:06PM +0100, Christian Riesch wrote:
->> > Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
->> > Cc: Dong Zhu <bluezhudong@gmail.com>
->> > ---
->> >  Documentation/ptp/testptp.c |   10 +++++-----
->> >  1 file changed, 5 insertions(+), 5 deletions(-)
->> >
->> > diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
->> > index 13bddd5..14bf19e 100644
->> > --- a/Documentation/ptp/testptp.c
->> > +++ b/Documentation/ptp/testptp.c
->> > @@ -496,14 +496,14 @@ int main(int argc, char *argv[])
->> >  			interval = t2 - t1;
->> >  			offset = (t2 + t1) / 2 - tp;
->> >
->> > -			printf("system time: %ld.%ld\n",
->> > +			printf("system time: %lld.%u\n",
->> >  				(pct+2*i)->sec, (pct+2*i)->nsec);
->> > -			printf("phc    time: %ld.%ld\n",
->> > +			printf("phc    time: %lld.%u\n",
->> >  				(pct+2*i+1)->sec, (pct+2*i+1)->nsec);
->> > -			printf("system time: %ld.%ld\n",
->> > +			printf("system time: %lld.%u\n",
->> >  				(pct+2*i+2)->sec, (pct+2*i+2)->nsec);
->> > -			printf("system/phc clock time offset is %ld ns\n"
->> > -				"system     clock time delay  is %ld ns\n",
->>
->> Use PRId64 instead?
->>
->> Thanks,
->> Richard
->>
->
-> I agree with this. %lld is not going to resolve the error properly on a
-> 32 bit machine. Looks like a follow-on patch would have to be generated,
-> since Dave applied this already.
+Fix these two problems by freeing the skb in br_allowed_ingress()
+if it fails.
 
-I checked again, no follow-up patch is required: David first applied v1 
-(commit 203191c386e83b8c5d95bbbaef13baa629512726), later reverted it 
-(031fe792ccd4f5d79415b219c73b868da98d9b70), and applied v2 
-(4ec54f95736f2d90e4d9e4fcc75cf1228f0f3ede).
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+---
+ net/bridge/br_input.c | 2 +-
+ net/bridge/br_vlan.c  | 7 ++++---
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
-Thanks, Christian
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index d0cca3c..7985dea 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -73,7 +73,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 		goto drop;
+ 
+ 	if (!br_allowed_ingress(p->br, nbp_get_vlan_info(p), skb, &vid))
+-		goto drop;
++		goto out;
+ 
+ 	/* insert into forwarding database after filtering to avoid spoofing */
+ 	br = p->br;
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 9151071..4a37161 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -170,7 +170,7 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+ 	 * rejected.
+ 	 */
+ 	if (!v)
+-		return false;
++		goto drop;
+ 
+ 	/* If vlan tx offload is disabled on bridge device and frame was
+ 	 * sent from vlan device on the bridge device, it does not have
+@@ -193,7 +193,7 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+ 		 * vlan untagged or priority-tagged traffic belongs to.
+ 		 */
+ 		if (pvid == VLAN_N_VID)
+-			return false;
++			goto drop;
+ 
+ 		/* PVID is set on this port.  Any untagged or priority-tagged
+ 		 * ingress frame is considered to belong to this vlan.
+@@ -216,7 +216,8 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+ 	/* Frame had a valid vlan tag.  See if vlan is allowed */
+ 	if (test_bit(*vid, v->vlan_bitmap))
+ 		return true;
+-
++drop:
++	kfree_skb(skb);
+ 	return false;
+ }
+ 
+-- 
+1.8.1.2
