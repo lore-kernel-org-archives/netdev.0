@@ -1,65 +1,77 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net v2] net: sctp: test if association is dead in sctp_wake_up_waiters
-Date: Wed, 09 Apr 2014 10:09:31 +0200
-Message-ID: <5345003B.8080601@redhat.com>
-References: <de3e98e644dde7dcaea9a952de38eb32a2959eeb.1396999714.git.dborkman@redhat.com>
+From: "Ilya V. Matveychikov" <i.matveychikov@securitycode.ru>
+Subject: Re: question: update_pmtu doesn't update dst mtu
+Date: Wed, 9 Apr 2014 12:17:33 +0400
+Message-ID: <5345021D.30505@securitycode.ru>
+References: <533D47FD.9020904@securitycode.ru> <20140403115809.GA13354@order.stressinduktion.org> <533D4EF9.60608@securitycode.ru> <20140403121410.GC13354@order.stressinduktion.org> <533D5398.7080209@securitycode.ru> <5343BB6F.2090601@securitycode.ru> <20140408145718.GC27255@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: davem@davemloft.net
+Cc: <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43288 "EHLO mx1.redhat.com"
+Received: from itna.infosec.ru ([82.198.190.199]:47125 "EHLO itna.infosec.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752839AbaDIIJm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Apr 2014 04:09:42 -0400
-In-Reply-To: <de3e98e644dde7dcaea9a952de38eb32a2959eeb.1396999714.git.dborkman@redhat.com>
+	id S1752839AbaDIIQv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Apr 2014 04:16:51 -0400
+In-Reply-To: <20140408145718.GC27255@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/09/2014 01:10 AM, Vlad Yasevich wrote:
- > On 04/08/2014 06:23 PM, Daniel Borkmann wrote:
- >> In function sctp_wake_up_waiters() we need to involve a test
- >> if the association is declared dead. If so, we don't have any
- >> reference to a possible sibling association anymore and need
- >> to invoke sctp_write_space() instead and normally walk the
- >> socket's associations and notify them of new wmem space. The
- >> reason for special casing is that, otherwise, we could run
- >> into the following issue:
- >>
- >> sctp_association_free()
- >> `-> list_del(&asoc->asocs)         <-- poisons list pointer
- >>      asoc->base.dead = true
- >>      sctp_outq_free(&asoc->outqueue)
- >>      `-> __sctp_outq_teardown()
- >>       `-> sctp_chunk_free()
- >>        `-> consume_skb()
- >>         `-> sctp_wfree()
- >>          `-> sctp_wake_up_waiters() <-- dereferences poisoned pointers
- >>                                         if asoc->ep->sndbuf_policy=0
- >>
- >> Therefore, only walk the list in an 'optimized' way if we find
- >> that the current association is still active. It's also more
- >> clean in that context to just use list_del_init() when we call
- >> sctp_association_free(). Stress-testing seems fine now.
- >
- > One of the reasons that we don't use list_del_init() here is that
- > we want to be able to trap on uninitialized/corrupt list manipulation,
- > just like you did.  If it wasn't there, the bug would have been hidden.
- >
- > Please keep it there.  The rest of the patch is fine.
+On 08.04.2014 18:57, Hannes Frederic Sowa wrote:
+> On Tue, Apr 08, 2014 at 01:03:43PM +0400, Ilya V. Matveychikov wrote:
+>> Just another related question that gets me into trouble. Imagine that there is
+>> an SKB that wants to be transmitted via that tunnel. Let's say that when it
+>> comes to the TUNNEL device it has an MTU1 value. Now, someone updates the PMTU
+>> for the route and mtu decreasing from MTU1 to MTU2, so MTU2 < MTU1.
+>>
+>> Given that, I suppose that our SKB must be (re)fragmented with ip_fragment as
+>> it's size might be slightly bigger then the path can pass. The problem is that
+>> ip_fragment uses dst_mtu(skb_dst(skb)) to determine the fragment size but it
+>> still has MTU1 value as even update_pmtu(MTU2) was called as it doesn't leads to
+>> real dst MTU updating.
+>>
+>> So the question is do I need to relookup the route or can I use the following
+>> hack before ip_fragment:
+>>
+>> 	// dst_mtu(dst) shows MTU1
+>> 	dst->ops->update_pmtu(dst, ..., MTU2)
+>> 	...
+>> 	skb_rtable(skb)->rt_pmtu = MTU2;
+> 
+> This might be a cached dst and you would alter the mtu for more nexthops than
+> you intended.
+> 
+>> 	dst_set_expires(dst, 1);
+> 
+> With this you won't get around the time_after_eq check. You would have to
+> tweak it manually to not retrieve dst_metrics value (this is what you
+> intended?).
+> 
 
-Test run over night and I've seen no issues.
+Well, I missed it. Also, that was a hack and it's not the best solution...
 
-But I'd still question the usage of asoc->base.dead though, I think
-this approach of testing for asoc->base.dead is a bit racy (perhaps
-general usage of it, imho) - at least here there's a tiny window where
-we poison pointers before we actually declare the associaton dead.
+>> 	...
+>> 	// now, ip_fragment knows about real MTU value
+>> 	ip_fragment(skb, output...)
+> 
+> Check if you can something do like
+> skb_dst_drop(skb);
+> new_dst = ip_route_output*(..., &fl4, ...);
+> skb_dst_set(_noref)(skb, new_dst);
+> 
 
-Also, I think even if we would have deleted ourselves from the list
-after declaring the association dead, a different CPU accessing this
-association via sctp_wfree() might already have gotten past the
-asoc->base.dead test while we declare it dead in the meantime.
+Works fine, thanks! By the way, could you briefly explain why routes are
+separated to input and output? What are the benefits?
 
-Imho, this still needs to be resolved differently. I'll look further ...
+> This should be a very unlikely path, I assume, so should not degrade
+> performance that much.
+
+Sure.
+
+> 
+> I wonder why you update the mtu in the output path.
+
+Well, the problem is that I don't know how to properly handle packets whose DSTs
+have changed while processing. The simple solution is to drop them. But I think
+it's not the best case as we can re-fragment them if new MTU value is lesser
+than the older one.
