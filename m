@@ -1,20 +1,21 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
 Subject: Re: [PATCH 2/3] staging: r8188eu: Fix case where ethtype was never
  obtained and always be checked against 0
-Date: Wed, 9 Apr 2014 22:00:17 +0300
-Message-ID: <20140409190017.GC26890@mwanda>
+Date: Wed, 9 Apr 2014 22:02:04 +0300
+Message-ID: <20140409190204.GD26890@mwanda>
 References: <1397059980-11942-1-git-send-email-Larry.Finger@lwfinger.net>
  <1397059980-11942-3-git-send-email-Larry.Finger@lwfinger.net>
- <20140409185152.GB26890@mwanda>
+ <53457428.4030408@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
- Stable <stable@vger.kernel.org>, netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
+ netdev@vger.kernel.org, Stable <stable@vger.kernel.org>,
+ Larry Finger <Larry.Finger@lwfinger.net>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 Content-Disposition: inline
-In-Reply-To: <20140409185152.GB26890@mwanda>
+In-Reply-To: <53457428.4030408@cogentembedded.com>
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
 List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
@@ -26,26 +27,24 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 09, 2014 at 09:51:53PM +0300, Dan Carpenter wrote:
-> > -	if (auth_alg == 2) {
-> > +	if (auth_alg == dot11AuthAlgrthm_8021X) {
-> > +		/* get ether_type */
-> > +		ptr = ptr + pfhdr->attrib.hdrlen + LLC_HEADER_SIZE;
-> > +		memcpy(&ether_type, ptr, 2);
-> > +		ether_type = ntohs((unsigned short)ether_type);
+On Wed, Apr 09, 2014 at 08:24:08PM +0400, Sergei Shtylyov wrote:
+> >diff --git a/drivers/staging/rtl8188eu/core/rtw_recv.c b/drivers/staging/rtl8188eu/core/rtw_recv.c
+> >index 01fcabc..61084d6 100644
+> >--- a/drivers/staging/rtl8188eu/core/rtw_recv.c
+> >+++ b/drivers/staging/rtl8188eu/core/rtw_recv.c
+> >@@ -551,7 +551,7 @@ static struct recv_frame *portctrl(struct adapter *adapter,
+> >  	struct sta_info *psta;
+> >  	struct sta_priv *pstapriv;
+> >  	struct recv_frame *prtnframe;
+> >-	u16	ether_type = 0;
+> >+	u16	ether_type;
 > 
-> This cast doesn't make sense.  u16 and unsigned short are the same
-> thing.  Anyway, the "ether_type" should be declared as __be16 because
-> it's network endian.
+>    I suggest:
+> 
+> 	u16 ethertype;
 > 
 
-OOps.  You mostly use ether_type as u16.  But the cast is still wrong it
-should be:
-
-		ether_type = ntohs((__be16)ether_type);
-
-Or something.  You could use the be_tmp variable...  Doesn't this patch
-introduce an unused variable warning?
+I don't understand this suggestion.  Why is that name prefered?
 
 regards,
 dan carpenter
