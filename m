@@ -1,74 +1,36 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 3/3] staging: r8712u: Fix case where ethtype was never
- obtained and always be checked against 0
-Date: Wed,  9 Apr 2014 11:13:00 -0500
-Message-ID: <1397059980-11942-4-git-send-email-Larry.Finger@lwfinger.net>
-References: <1397059980-11942-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] staging: r8723au: Fix build warnings
+Date: Wed, 09 Apr 2014 09:15:45 -0700
+Message-ID: <1397060145.14321.21.camel@joe-AO722>
+References: <1397055920-11654-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- Stable <stable@vger.kernel.org>, Larry Finger <Larry.Finger@lwfinger.net>
-To: gregkh@linuxfoundation.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1397059980-11942-1-git-send-email-Larry.Finger@lwfinger.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	devel@driverdev.osuosl.org, Jes Sorensen <Jes.Sorensen@redhat.com>,
+	kbuild-all@01.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0088.hostedemail.com ([216.40.44.88]:46021 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S933344AbaDIQPx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 12:15:53 -0400
+In-Reply-To: <1397055920-11654-1-git-send-email-Larry.Finger@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Zero-initializing ether_type masked that the ether type would never be
-obtained for 8021x packets and the comparition against eapol_type
-would always fail.
+On Wed, 2014-04-09 at 10:05 -0500, Larry Finger wrote:
+> The kbuild test robot reports the following:
+[]
+> diff --git a/drivers/staging/rtl8723au/include/rtw_mlme.h b/drivers/staging/rtl8723au/include/rtw_mlme.h
+[]
+> -void rtw_set_roaming(struct rtw_adapter *adapter, u8 to_roaming);
+> -u8 rtw_to_roaming(struct rtw_adapter *adapter);
+> +inline void rtw_set_roaming(struct rtw_adapter *adapter, u8 to_roaming);
+> +inline u8 rtw_to_roaming(struct rtw_adapter *adapter);
 
-Reported-by: Jes Sorensen <Jes.Sorensen@redhat.com>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Stable <stable@vger.kernel.org>
----
- drivers/staging/rtl8712/rtl871x_recv.c | 15 +++++++--------
- 1 file changed, 7 insertions(+), 8 deletions(-)
+I think this doesn't make sense.
 
-diff --git a/drivers/staging/rtl8712/rtl871x_recv.c b/drivers/staging/rtl8712/rtl871x_recv.c
-index 23ec684..d8d1a76 100644
---- a/drivers/staging/rtl8712/rtl871x_recv.c
-+++ b/drivers/staging/rtl8712/rtl871x_recv.c
-@@ -254,7 +254,7 @@ union recv_frame *r8712_portctrl(struct _adapter *adapter,
- 	struct sta_info *psta;
- 	struct	sta_priv *pstapriv;
- 	union recv_frame *prtnframe;
--	u16 ether_type = 0;
-+	u16 ether_type;
- 
- 	pstapriv = &adapter->stapriv;
- 	ptr = get_recvframe_data(precv_frame);
-@@ -262,16 +262,15 @@ union recv_frame *r8712_portctrl(struct _adapter *adapter,
- 	psta_addr = pfhdr->attrib.ta;
- 	psta = r8712_get_stainfo(pstapriv, psta_addr);
- 	auth_alg = adapter->securitypriv.AuthAlgrthm;
--	if (auth_alg == 2) {
-+	if (auth_alg == dot11AuthAlgrthm_8021X) {
-+		/* get ether_type */
-+		ptr = ptr + pfhdr->attrib.hdrlen + LLC_HEADER_SIZE;
-+		memcpy(&ether_type, ptr, 2);
-+		ether_type = ntohs((unsigned short)ether_type);
-+
- 		if ((psta != NULL) && (psta->ieee8021x_blocked)) {
- 			/* blocked
- 			 * only accept EAPOL frame */
--			prtnframe = precv_frame;
--			/*get ether_type */
--			ptr = ptr + pfhdr->attrib.hdrlen +
--			      pfhdr->attrib.iv_len + LLC_HEADER_SIZE;
--			memcpy(&ether_type, ptr, 2);
--			ether_type = ntohs((unsigned short)ether_type);
- 			if (ether_type == 0x888e)
- 				prtnframe = precv_frame;
- 			else {
--- 
-1.8.1.4
+Either the inline should be removed from
+the .c file or the function should be moved
+into the .h file and made static inline.
