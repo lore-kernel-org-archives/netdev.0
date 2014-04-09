@@ -1,44 +1,31 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/3] staging: r8188eu: Fix case where ethtype was never
- obtained and always be checked against 0
-Date: Wed, 09 Apr 2014 23:11:52 +0400
-Message-ID: <53459B78.7090709@cogentembedded.com>
-References: <1397059980-11942-1-git-send-email-Larry.Finger@lwfinger.net> <1397059980-11942-3-git-send-email-Larry.Finger@lwfinger.net> <53457428.4030408@cogentembedded.com> <20140409190204.GD26890@mwanda>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] l2tp: take PMTU from tunnel UDP socket
+Date: Wed, 09 Apr 2014 15:25:08 -0400 (EDT)
+Message-ID: <20140409.152508.873221226779407639.davem@davemloft.net>
+References: <20140409022320.752f036a@laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	gregkh@linuxfoundation.org, devel@driverdev.osuosl.org,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20140409190204.GD26890@mwanda>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: dmgenp@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57501 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933705AbaDITZM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 15:25:12 -0400
+In-Reply-To: <20140409022320.752f036a@laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/09/2014 11:02 PM, Dan Carpenter wrote:
+From: Dmitry Petukhov <dmgenp@gmail.com>
+Date: Wed, 9 Apr 2014 02:23:20 +0600
 
->>> diff --git a/drivers/staging/rtl8188eu/core/rtw_recv.c b/drivers/staging/rtl8188eu/core/rtw_recv.c
->>> index 01fcabc..61084d6 100644
->>> --- a/drivers/staging/rtl8188eu/core/rtw_recv.c
->>> +++ b/drivers/staging/rtl8188eu/core/rtw_recv.c
->>> @@ -551,7 +551,7 @@ static struct recv_frame *portctrl(struct adapter *adapter,
->>>   	struct sta_info *psta;
->>>   	struct sta_priv *pstapriv;
->>>   	struct recv_frame *prtnframe;
->>> -	u16	ether_type = 0;
->>> +	u16	ether_type;
+> When l2tp driver tries to get PMTU for the tunnel destination, it uses
+> the pointer to struct sock that represents PPPoX socket, while it
+> should use the pointer that represents UDP socket of the tunnel.
+> 
+> Signed-off-by: Dmitry Petukhov <dmgenp@gmail.com>
 
->>     I suggest:
+Nice, 4 year old bug :-)
 
->> 	u16 ethertype;
-
-> I don't understand this suggestion.  Why is that name prefered?
-
-    Sorry, I've managed to somehow remove the underscore. :-/
-My real suggestion was to replace the tab with a space.
-
-> regards,
-> dan carpenter
-
-WBR, Sergei
+Applied and queued up for -stable, thanks.
