@@ -1,48 +1,81 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 2/2] macvlan: Move broadcasts into a work queue
-Date: Wed, 9 Apr 2014 10:10:16 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6F2E17@AcuExch.aculab.com>
-References: <20140407075347.GA26461@gondor.apana.org.au>
- <E1WX4P2-0006wA-9Q@gondolin.me.apana.org.au>
- <20140408095523.2d4e14bd@nehalam.linuxnetplumber.net>
- <20140409085001.GA12938@gondor.apana.org.au>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net v2] net: sctp: test if association is dead in sctp_wake_up_waiters
+Date: Wed, 09 Apr 2014 12:32:48 +0200
+Message-ID: <534521D0.7050707@redhat.com>
+References: <de3e98e644dde7dcaea9a952de38eb32a2959eeb.1396999714.git.dborkman@redhat.com> <5345003B.8080601@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Herbert Xu' <herbert@gondor.apana.org.au>,
-	Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:41813 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1757645AbaDIKL6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 06:11:58 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 04776-07 for <netdev@vger.kernel.org>;
- Wed,  9 Apr 2014 11:11:48 +0100 (BST)
-In-Reply-To: <20140409085001.GA12938@gondor.apana.org.au>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:21532 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750784AbaDIKcw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Apr 2014 06:32:52 -0400
+In-Reply-To: <5345003B.8080601@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu
-...
-> This patch picks the second option and moves all broadcast handling
-> bar the trivial case of packets going to a single interface into
-> a work queue.  Obviously there also needs to be a limit on how
-> many broadcast packets we postpone in this way.  I've arbitrarily
-> chosen tx_queue_len of the master device as the limit (act_mirred
-> also happens to use this parameter in a similar way).
-> 
-> In order to ensure we don't exceed the backlog queue we will use
-> netif_rx_ni instead of netif_rx for broadcast packets.
+On 04/09/2014 10:09 AM, Daniel Borkmann wrote:
+> On 04/09/2014 01:10 AM, Vlad Yasevich wrote:
+>  > On 04/08/2014 06:23 PM, Daniel Borkmann wrote:
+>  >> In function sctp_wake_up_waiters() we need to involve a test
+>  >> if the association is declared dead. If so, we don't have any
+>  >> reference to a possible sibling association anymore and need
+>  >> to invoke sctp_write_space() instead and normally walk the
+>  >> socket's associations and notify them of new wmem space. The
+>  >> reason for special casing is that, otherwise, we could run
+>  >> into the following issue:
+>  >>
+>  >> sctp_association_free()
+>  >> `-> list_del(&asoc->asocs)         <-- poisons list pointer
+>  >>      asoc->base.dead = true
+>  >>      sctp_outq_free(&asoc->outqueue)
+>  >>      `-> __sctp_outq_teardown()
+>  >>       `-> sctp_chunk_free()
+>  >>        `-> consume_skb()
+>  >>         `-> sctp_wfree()
+>  >>          `-> sctp_wake_up_waiters() <-- dereferences poisoned pointers
+>  >>                                         if asoc->ep->sndbuf_policy=0
+>  >>
+>  >> Therefore, only walk the list in an 'optimized' way if we find
+>  >> that the current association is still active. It's also more
+>  >> clean in that context to just use list_del_init() when we call
+>  >> sctp_association_free(). Stress-testing seems fine now.
+>  >
+>  > One of the reasons that we don't use list_del_init() here is that
+>  > we want to be able to trap on uninitialized/corrupt list manipulation,
+>  > just like you did.  If it wasn't there, the bug would have been hidden.
+>  >
+>  > Please keep it there.  The rest of the patch is fine.
+>
+> Test run over night and I've seen no issues.
+>
+> But I'd still question the usage of asoc->base.dead though, I think
+> this approach of testing for asoc->base.dead is a bit racy (perhaps
+> general usage of it, imho) - at least here there's a tiny window where
+> we poison pointers before we actually declare the associaton dead.
+>
+> Also, I think even if we would have deleted ourselves from the list
+> after declaring the association dead, a different CPU accessing this
+> association via sctp_wfree() might already have gotten past the
+> asoc->base.dead test while we declare it dead in the meantime.
 
-Should you limit the number of broadcasts queued for transmit
-on each interface as well as the number of postponed broadcasts.
-
-It probably isn't a good idea to completely fill an interface's
-transmit queue with broadcasts.
-
-	David
+Ok, I think we can scratch that thought ... what happens is that parallel
+calls to sctp_sendmsg() are protected under lock_sock()/release_sock()
+pair as already stated in the code and within that lock, we are setting
+sctp_set_owner_w() for each chunk. When we call sctp_primitive_SEND(),
+still under lock, we might eventually end up in sctp_packet_transmit(),
+if I follow the path correctly, and orphan the skb in sctp_packet_set_owner_w()
+[ which basically would mean, we actually uncharge the accounted memory by
+orphaning _before_ we call dev_queue_xmit() since commit 4c3a5bdae293
+("sctp: Don't charge for data in sndbuf again when transmitting packet")
+but that's perhaps a different story ] and set a new destructor. The
+only thing where in that context an association can be freed up by
+sctp_association_free() is if sctp_primitive_SEND() returns with error.
+So even in that case, we're still protected under lock_sock()/release_sock()
+when we flush the outq, so testing asoc->base.dead should be okay then,
+quite unintuitive though. Thus, patch seems fine, if wished, I could
+still document that in the commit message? Vlad, are we on the same page? ;)
