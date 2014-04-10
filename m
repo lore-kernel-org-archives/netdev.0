@@ -1,49 +1,47 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Does IPv6 support Jumbograms ?
-Date: Wed, 09 Apr 2014 17:36:10 -0700
-Message-ID: <1397090170.16584.21.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5345A2B3.7040602@gmail.com>
-	 <1397079665.16584.17.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140409223546.GH27255@order.stressinduktion.org>
+Subject: [PATCH] packet: fix potential use after free
+Date: Wed, 09 Apr 2014 18:22:39 -0700
+Message-ID: <1397092959.16584.26.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Francois WELLENREITER <f.wellenreiter@gmail.com>,
-	netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: netdev <netdev@vger.kernel.org>, Xi Wang <xii@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:39209 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932847AbaDJAgM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 20:36:12 -0400
-Received: by mail-pd0-f180.google.com with SMTP id v10so3106547pde.25
-        for <netdev@vger.kernel.org>; Wed, 09 Apr 2014 17:36:11 -0700 (PDT)
-In-Reply-To: <20140409223546.GH27255@order.stressinduktion.org>
+Received: from mail-pb0-f42.google.com ([209.85.160.42]:42627 "EHLO
+	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932996AbaDJBWl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Apr 2014 21:22:41 -0400
+Received: by mail-pb0-f42.google.com with SMTP id rr13so3279021pbb.1
+        for <netdev@vger.kernel.org>; Wed, 09 Apr 2014 18:22:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-04-10 at 00:35 +0200, Hannes Frederic Sowa wrote:
-> On Wed, Apr 09, 2014 at 02:41:05PM -0700, Eric Dumazet wrote:
-> > What do you mean by blocked ?
-> > 
-> > Please give more details (kernel version, exact mtu...), because it
-> > should not happen !
-> > 
-> > # ifconfig lo mtu 100000
-> > # scp -6 vmlinux edumazet@ip6-localhost:/tmp
-> > Password: 
-> > vmlinux
-> > 100%   24MB  23.5MB/s   00:00    
-> > # ls -l /tmp/vmlinux
-> > -rwxr-xr-x 1 edumazet eng 24668915 Apr  9 14:37 /tmp/vmlinux
-> 
-> I couldn't test it on my development system with a recent net-next kernel
-> yet, but on my laptop with a distribution 3.13.9 kernel this happened too.
+From: Eric Dumazet <edumazet@google.com>
 
-Oh well, it seems ip6_mtu() needs to cap mtu to max mtu for non
-jumbograms...
+As soon skb is queued into sk_receive_queue, it can be consumed,
+so its racy to access skb->len.
 
--	return mtu;
-+	return min_t(unsigned int, mtu, IP6_MAX_MTU);
+Given that sk_data_ready() / sock_def_readable() don't really care, just
+use 0 instead of skb->len
 
-#define IP6_MAX_MTU (65535 + 40)
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Xi Wang <xii@google.com>
+---
+ net/packet/af_packet.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 72e0c71fb01d..373d557e22ee 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1848,7 +1848,8 @@ static int packet_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	skb->dropcount = atomic_read(&sk->sk_drops);
+ 	__skb_queue_tail(&sk->sk_receive_queue, skb);
+ 	spin_unlock(&sk->sk_receive_queue.lock);
+-	sk->sk_data_ready(sk, skb->len);
++	/* Remember: we can not reference skb after this point */
++	sk->sk_data_ready(sk, 0);
+ 	return 0;
+ 
+ drop_n_acct:
