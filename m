@@ -1,234 +1,524 @@
-From: Borislav Petkov <bp@alien8.de>
-Subject: Re: [E1000-devel] e1000e 0000:00:19.0 eth0: Hardware Error
-Date: Thu, 10 Apr 2014 18:33:39 +0200
-Message-ID: <20140410163339.GL29093@pd.tnic>
-References: <20140410115941.GI29093@pd.tnic>
- <9B4A1B1917080E46B64F07F2989DADD65297BCAC@ORSMSX102.amr.corp.intel.com>
- <2B0E3F215D1AB84DA946C8BEE234CCC9370D484B@ORSMSX101.amr.corp.intel.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless 2014-04-10
+Date: Thu, 10 Apr 2014 13:45:47 -0400
+Message-ID: <20140410174547.GC13595@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="6TrnltStXW4iwmi0"
-Cc: "Fujinaka, Todd" <todd.fujinaka@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: "Ertman, DavidX M" <davidx.m.ertman@intel.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="+QahgC5+KEYLbs62"
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <2B0E3F215D1AB84DA946C8BEE234CCC9370D484B@ORSMSX101.amr.corp.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---6TrnltStXW4iwmi0
+--+QahgC5+KEYLbs62
 Content-Type: text/plain; charset=utf-8
 Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Hi guys,
+Dave,
 
-let me answer to all of you here:
+Please pull this batch of fixes intended for the 3.15 stream!
 
-On Thu, Apr 10, 2014 at 03:45:41PM +0000, Ertman, DavidX M wrote:
-> Could you also provide some information about the configuration
-> of the system when this happens?
+Chun-Yeow Yeoh gives us an ath9k_htc fix so that mac80211 can report
+last_tx_rate correctly for those devices..
 
-AFAIR, this happens when I stick the network cable in. I'll pay
-attention to the exact moment when this happens in the future and report
-back.
+Fariya Fatima has a number of small fixes for things identified by
+the static analysis folks in the new rsi driver.
 
-> Do you have Runtime Power Management configured
-> in the kernel and enabled? (echo auto >
-> /sys/devices/pci0000\:00/0000\:00\:19.0/power/control)
+Felix Fietkau brings an ath9k fix to better support some older chips,
+and a fix for a scheduling while atomic bug introduced by an earlier
+patch.
 
-Yes. I normally run powertop when the machine goes up after a reboot and
-set all tunables to "Good". The above is one of them.
+Janusz Dziedzic produced an ath9k fix to only enable DFS when a
+related build option is selected.
 
-> Is the network cable in and link is up?
+Paul Bolle removes some dead code in rtlwifi.
 
-Yes, as I mentioned, there is a very high chance that it happens when I
-plug in the network cable. But I'll need to confirm that.
+Rafa=C5=82 Mi=C5=82ecki fixes some b43 code that was accessing some registe=
+rs
+with operations for the wrong register width.
 
-> Is anything happening to the link partner (going up and down,
-> connecting and disconnecting)?
+Please let me know if there are problems!
 
-Not that I know of - the partner is a 8-port switch where other machines
-are connected. Their connection is fine AFAICT.
+Thanks,
 
-> We also need to know what part you're using. "lspci | grep Ethernet"
-> should narrow that down.
+John
 
-> What kind of system (platform) is this happening on? It's a LOM
-> correct? Can you run 'lspci -vvv' and output the results?
+---
 
-Machine is Thinkpad x230, I'm attaching full lspci -vvv -xxxx output
-with PCI config space dump, hth.
+The following changes since commit f34c4a35d87949fbb0e0f31eba3c054e9f8199ba:
 
-Thanks guys.
+  l2tp: take PMTU from tunnel UDP socket (2014-04-09 15:24:38 -0400)
 
--- 
-Regards/Gruss,
-    Boris.
+are available in the git repository at:
 
-Sent from a fat crate under my desk. Formatting is fine.
---
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-d=
+avem
 
---6TrnltStXW4iwmi0
-Content-Type: application/octet-stream
-Content-Disposition: attachment; filename="lspci.gz"
-Content-Transfer-Encoding: base64
+for you to fetch changes up to 029d3ac9722d23e4f3b65656878cb3e4d9e280d4:
 
-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
-Mf+r+yyuXDjJ36TVrFzvziUsclho65ZwoCfs6bxWfmfNfbc2n2/1UzRHAulycLlquJ8Pu3zp
-afsGtOGBCY4Umj7sFW5HO+7Mnmnn85mtXRbs8jkSLX+SVQ/Cc8puJadsV3LKfiWnEIlTmMQp
-VOIULnHKIpFTnrznFDpxyr6lbVFApOiVbV3SHGjRJ20Fomy22BQ+2RQ+2RQ+2RQ+2RQ+2RQ+
-2RQ+2RQ+2RQ+2RQ+2RQ+ORQ+ORQ+ORQ+ORQ+ORQ+ORQ+ORQ+ORQ+ORQ+ORQ+ORQ+ORQ+ORQ+
-ORQ+ORQ+ORQ+uRQ+uRQ+uRQ+uRQ+uRQ+uRQ+uRQ+uRQ+uRQ+uRQ+uRQ+uRQ+uRQ+uRQ+uRQ+
-uRQ+eRQ+eRQ+eRQ+eRQ+eaQf1yh88ih88ih88ih88ih88ih88ih88ih88ih88ih88ih88il8
-8il88il88il88il88klPT1H45FP45FP45FP45FP45FP45FP45FP45FP45FP4FFD4FFD4FFD4
-FFD4FFD4FFD4FJAeR6TwKaDwKaDwKaDwKaDwKaDwKaDwKaDwKaDwKaTwKaTwKaTwKaTwKaTw
-KaTwKaTwKSQ930vhU0jhU0jhU0jhU0jhU0jhU0jhU0jhU4/Cpx6FTz0Kn3oUPvUofOpR+NSj
-8KlH4VOP9EMuhU89Cp96FD71KHzqUfjUo/CpR+FTROFTROFTROFTROFTROFTROFTROFTROFT
-ROFTRHoygsKniMKniMKniMKniMKniMKnmMKnmMKnmMKnmMKnmMKnmMKnmMKnmMKnmMKnmMKn
-mPSoEYVPMYVPMYVPMYVPMYVPCYVPCYVPCYVPCYVPCYVPCYVPCYVPCYVPCYVPCYVPCYVPCenZ
-PQqfEgqfEgqfEgqfUgqfUgqfUgqfUgqfUgqfUgqfUgqfUgqfUgqfUgqfUgqfUgqfUlKQF4VP
-KYVPKYVPgsInQeGToPBJUPgkKHwSFD4JCp8EhU+CwidB4ZOg8ElQ+CQofBIkJWoKnwSFTxmF
-TxmFTxmFTxmFTxmFTxmFTxmFTxmFTxmFTxmFTxmFTxmFTxmFTxmFTxkpXIOsi5G8sKRuwPrX
-VGwThYwpNHGbMkgMw7mYlgxM3AV19zf4qoYhS0VSpgJFMb6FOtTfIBi4MfT4AEsyqvLbqPq6
-Z8G9Y2iOIpVnNpxNIIs0LyAxdS6S7lClvIdiGi/fsljc5EU67TkMeMOo5K48yLJsd0dHLC/c
-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
+  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/li=
+nville/wireless into for-davem (2014-04-10 09:58:06 -0400)
 
---6TrnltStXW4iwmi0--
+----------------------------------------------------------------
+
+Chun-Yeow Yeoh (1):
+      ath9k_htc: set IEEE80211_TX_STAT_AMPDU for acked aggregated frames
+
+Fariya Fatima (6):
+      rsi: Potential null pointer derefernce issue fixed.
+      rsi: Fixed signedness bug reported by static code analyzer.
+      rsi: Fixed issue relating to variable de-referenced before check 'ada=
+pter'
+      rsi: Fixed issue relating to return value.
+      rsi: Fixed issue relating to index of q_num.
+      rsi: Fixed issue relating to doing dma on stack error.
+
+Felix Fietkau (2):
+      ath9k_hw: reduce ANI firstep range for older chips
+      ath9k: fix a scheduling while atomic bug in CSA handling
+
+Janusz Dziedzic (1):
+      ath9k: Enable DFS only when ATH9K_DFS_CERTIFIED
+
+John W. Linville (1):
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless i=
+nto for-davem
+
+Paul Bolle (1):
+      rtlwifi: btcoexist: remove undefined Kconfig macros
+
+Rafa=C5=82 Mi=C5=82ecki (1):
+      b43: Fix machine check error due to improper access of B43_MMIO_PSM_P=
+HY_HDR
+
+ drivers/net/wireless/ath/ath9k/ar5008_phy.c        |  4 +--
+ drivers/net/wireless/ath/ath9k/beacon.c            |  7 ++---
+ drivers/net/wireless/ath/ath9k/htc_drv_txrx.c      |  5 +++-
+ drivers/net/wireless/ath/ath9k/init.c              |  2 ++
+ drivers/net/wireless/b43/phy_n.c                   | 14 ++++-----
+ drivers/net/wireless/rsi/rsi_91x_core.c            |  6 ++--
+ drivers/net/wireless/rsi/rsi_91x_debugfs.c         | 35 ++++++++++--------=
+----
+ drivers/net/wireless/rsi/rsi_91x_mgmt.c            |  8 +++--
+ drivers/net/wireless/rsi/rsi_91x_sdio.c            |  5 ++--
+ drivers/net/wireless/rsi/rsi_91x_sdio_ops.c        |  6 ++--
+ drivers/net/wireless/rsi/rsi_91x_usb.c             | 26 +++++++++++-----
+ .../net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c  | 10 -------
+ 12 files changed, 66 insertions(+), 62 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath9k/ar5008_phy.c b/drivers/net/wire=
+less/ath/ath9k/ar5008_phy.c
+index 3b3e91057a4c..00fb8badbacc 100644
+--- a/drivers/net/wireless/ath/ath9k/ar5008_phy.c
++++ b/drivers/net/wireless/ath/ath9k/ar5008_phy.c
+@@ -1004,11 +1004,9 @@ static bool ar5008_hw_ani_control_new(struct ath_hw =
+*ah,
+ 	case ATH9K_ANI_FIRSTEP_LEVEL:{
+ 		u32 level =3D param;
+=20
+-		value =3D level * 2;
++		value =3D level;
+ 		REG_RMW_FIELD(ah, AR_PHY_FIND_SIG,
+ 			      AR_PHY_FIND_SIG_FIRSTEP, value);
+-		REG_RMW_FIELD(ah, AR_PHY_FIND_SIG_LOW,
+-			      AR_PHY_FIND_SIG_FIRSTEP_LOW, value);
+=20
+ 		if (level !=3D aniState->firstepLevel) {
+ 			ath_dbg(common, ANI,
+diff --git a/drivers/net/wireless/ath/ath9k/beacon.c b/drivers/net/wireless=
+/ath/ath9k/beacon.c
+index 471e0f624e81..bd9e634879e6 100644
+--- a/drivers/net/wireless/ath/ath9k/beacon.c
++++ b/drivers/net/wireless/ath/ath9k/beacon.c
+@@ -312,10 +312,9 @@ static void ath9k_csa_update_vif(void *data, u8 *mac, =
+struct ieee80211_vif *vif)
+=20
+ void ath9k_csa_update(struct ath_softc *sc)
+ {
+-	ieee80211_iterate_active_interfaces(sc->hw,
+-					    IEEE80211_IFACE_ITER_NORMAL,
+-					    ath9k_csa_update_vif,
+-					    sc);
++	ieee80211_iterate_active_interfaces_atomic(sc->hw,
++						   IEEE80211_IFACE_ITER_NORMAL,
++						   ath9k_csa_update_vif, sc);
+ }
+=20
+ void ath9k_beacon_tasklet(unsigned long data)
+diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c b/drivers/net/wi=
+reless/ath/ath9k/htc_drv_txrx.c
+index e8149e3dbdd5..289f3d8924b5 100644
+--- a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
++++ b/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
+@@ -471,8 +471,11 @@ static void ath9k_htc_tx_process(struct ath9k_htc_priv=
+ *priv,
+ 	if (!txok || !vif || !txs)
+ 		goto send_mac80211;
+=20
+-	if (txs->ts_flags & ATH9K_HTC_TXSTAT_ACK)
++	if (txs->ts_flags & ATH9K_HTC_TXSTAT_ACK) {
+ 		tx_info->flags |=3D IEEE80211_TX_STAT_ACK;
++		if (tx_info->flags & IEEE80211_TX_CTL_AMPDU)
++			tx_info->flags |=3D IEEE80211_TX_STAT_AMPDU;
++	}
+=20
+ 	if (txs->ts_flags & ATH9K_HTC_TXSTAT_FILT)
+ 		tx_info->flags |=3D IEEE80211_TX_STAT_TX_FILTERED;
+diff --git a/drivers/net/wireless/ath/ath9k/init.c b/drivers/net/wireless/a=
+th/ath9k/init.c
+index c0a4e866edca..cbbb02a6b13b 100644
+--- a/drivers/net/wireless/ath/ath9k/init.c
++++ b/drivers/net/wireless/ath/ath9k/init.c
+@@ -670,6 +670,7 @@ static const struct ieee80211_iface_combination if_comb=
+[] =3D {
+ 		.num_different_channels =3D 1,
+ 		.beacon_int_infra_match =3D true,
+ 	},
++#ifdef CONFIG_ATH9K_DFS_CERTIFIED
+ 	{
+ 		.limits =3D if_dfs_limits,
+ 		.n_limits =3D ARRAY_SIZE(if_dfs_limits),
+@@ -679,6 +680,7 @@ static const struct ieee80211_iface_combination if_comb=
+[] =3D {
+ 		.radar_detect_widths =3D	BIT(NL80211_CHAN_WIDTH_20_NOHT) |
+ 					BIT(NL80211_CHAN_WIDTH_20),
+ 	}
++#endif
+ };
+=20
+ static void ath9k_set_hw_capab(struct ath_softc *sc, struct ieee80211_hw *=
+hw)
+diff --git a/drivers/net/wireless/b43/phy_n.c b/drivers/net/wireless/b43/ph=
+y_n.c
+index 05ee7f10cc8f..24ccbe96e0c8 100644
+--- a/drivers/net/wireless/b43/phy_n.c
++++ b/drivers/net/wireless/b43/phy_n.c
+@@ -5176,22 +5176,22 @@ static void b43_nphy_channel_setup(struct b43_wldev=
+ *dev,
+ 	int ch =3D new_channel->hw_value;
+=20
+ 	u16 old_band_5ghz;
+-	u32 tmp32;
++	u16 tmp16;
+=20
+ 	old_band_5ghz =3D
+ 		b43_phy_read(dev, B43_NPHY_BANDCTL) & B43_NPHY_BANDCTL_5GHZ;
+ 	if (new_channel->band =3D=3D IEEE80211_BAND_5GHZ && !old_band_5ghz) {
+-		tmp32 =3D b43_read32(dev, B43_MMIO_PSM_PHY_HDR);
+-		b43_write32(dev, B43_MMIO_PSM_PHY_HDR, tmp32 | 4);
++		tmp16 =3D b43_read16(dev, B43_MMIO_PSM_PHY_HDR);
++		b43_write16(dev, B43_MMIO_PSM_PHY_HDR, tmp16 | 4);
+ 		b43_phy_set(dev, B43_PHY_B_BBCFG, 0xC000);
+-		b43_write32(dev, B43_MMIO_PSM_PHY_HDR, tmp32);
++		b43_write16(dev, B43_MMIO_PSM_PHY_HDR, tmp16);
+ 		b43_phy_set(dev, B43_NPHY_BANDCTL, B43_NPHY_BANDCTL_5GHZ);
+ 	} else if (new_channel->band =3D=3D IEEE80211_BAND_2GHZ && old_band_5ghz)=
+ {
+ 		b43_phy_mask(dev, B43_NPHY_BANDCTL, ~B43_NPHY_BANDCTL_5GHZ);
+-		tmp32 =3D b43_read32(dev, B43_MMIO_PSM_PHY_HDR);
+-		b43_write32(dev, B43_MMIO_PSM_PHY_HDR, tmp32 | 4);
++		tmp16 =3D b43_read16(dev, B43_MMIO_PSM_PHY_HDR);
++		b43_write16(dev, B43_MMIO_PSM_PHY_HDR, tmp16 | 4);
+ 		b43_phy_mask(dev, B43_PHY_B_BBCFG, 0x3FFF);
+-		b43_write32(dev, B43_MMIO_PSM_PHY_HDR, tmp32);
++		b43_write16(dev, B43_MMIO_PSM_PHY_HDR, tmp16);
+ 	}
+=20
+ 	b43_chantab_phy_upload(dev, e);
+diff --git a/drivers/net/wireless/rsi/rsi_91x_core.c b/drivers/net/wireless=
+/rsi/rsi_91x_core.c
+index e89535e86caf..1a8d32138593 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_core.c
++++ b/drivers/net/wireless/rsi/rsi_91x_core.c
+@@ -102,10 +102,10 @@ static u8 rsi_core_determine_hal_queue(struct rsi_com=
+mon *common)
+ 	}
+=20
+ get_queue_num:
+-	q_num =3D 0;
+ 	recontend_queue =3D false;
+=20
+ 	q_num =3D rsi_determine_min_weight_queue(common);
++
+ 	q_len =3D skb_queue_len(&common->tx_queue[ii]);
+ 	ii =3D q_num;
+=20
+@@ -118,7 +118,9 @@ get_queue_num:
+ 		}
+ 	}
+=20
+-	common->tx_qinfo[q_num].pkt_contended =3D 0;
++	if (q_num < NUM_EDCA_QUEUES)
++		common->tx_qinfo[q_num].pkt_contended =3D 0;
++
+ 	/* Adjust the back off values for all queues again */
+ 	recontend_queue =3D rsi_recalculate_weights(common);
+=20
+diff --git a/drivers/net/wireless/rsi/rsi_91x_debugfs.c b/drivers/net/wirel=
+ess/rsi/rsi_91x_debugfs.c
+index 7e4ef4554411..c466246a323f 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_debugfs.c
++++ b/drivers/net/wireless/rsi/rsi_91x_debugfs.c
+@@ -289,32 +289,29 @@ int rsi_init_dbgfs(struct rsi_hw *adapter)
+ 	const struct rsi_dbg_files *files;
+=20
+ 	dev_dbgfs =3D kzalloc(sizeof(*dev_dbgfs), GFP_KERNEL);
++	if (!dev_dbgfs)
++		return -ENOMEM;
++
+ 	adapter->dfsentry =3D dev_dbgfs;
+=20
+ 	snprintf(devdir, sizeof(devdir), "%s",
+ 		 wiphy_name(adapter->hw->wiphy));
+-	dev_dbgfs->subdir =3D debugfs_create_dir(devdir, NULL);
+=20
+-	if (IS_ERR(dev_dbgfs->subdir)) {
+-		if (dev_dbgfs->subdir =3D=3D ERR_PTR(-ENODEV))
+-			rsi_dbg(ERR_ZONE,
+-				"%s:Debugfs has not been mounted\n", __func__);
+-		else
+-			rsi_dbg(ERR_ZONE, "debugfs:%s not created\n", devdir);
++	dev_dbgfs->subdir =3D debugfs_create_dir(devdir, NULL);
+=20
+-		adapter->dfsentry =3D NULL;
++	if (!dev_dbgfs->subdir) {
+ 		kfree(dev_dbgfs);
+-		return (int)PTR_ERR(dev_dbgfs->subdir);
+-	} else {
+-		for (ii =3D 0; ii < adapter->num_debugfs_entries; ii++) {
+-			files =3D &dev_debugfs_files[ii];
+-			dev_dbgfs->rsi_files[ii] =3D
+-			debugfs_create_file(files->name,
+-					    files->perms,
+-					    dev_dbgfs->subdir,
+-					    common,
+-					    &files->fops);
+-		}
++		return -ENOMEM;
++	}
++
++	for (ii =3D 0; ii < adapter->num_debugfs_entries; ii++) {
++		files =3D &dev_debugfs_files[ii];
++		dev_dbgfs->rsi_files[ii] =3D
++		debugfs_create_file(files->name,
++				    files->perms,
++				    dev_dbgfs->subdir,
++				    common,
++				    &files->fops);
+ 	}
+ 	return 0;
+ }
+diff --git a/drivers/net/wireless/rsi/rsi_91x_mgmt.c b/drivers/net/wireless=
+/rsi/rsi_91x_mgmt.c
+index 2361a6849ad7..73694295648f 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_mgmt.c
++++ b/drivers/net/wireless/rsi/rsi_91x_mgmt.c
+@@ -738,7 +738,7 @@ int rsi_hal_load_key(struct rsi_common *common,
+  *
+  * Return: 0 on success, corresponding error code on failure.
+  */
+-static u8 rsi_load_bootup_params(struct rsi_common *common)
++static int rsi_load_bootup_params(struct rsi_common *common)
+ {
+ 	struct sk_buff *skb;
+ 	struct rsi_boot_params *boot_params;
+@@ -1272,6 +1272,7 @@ int rsi_mgmt_pkt_recv(struct rsi_common *common, u8 *=
+msg)
+ {
+ 	s32 msg_len =3D (le16_to_cpu(*(__le16 *)&msg[0]) & 0x0fff);
+ 	u16 msg_type =3D (msg[2]);
++	int ret;
+=20
+ 	rsi_dbg(FSM_ZONE, "%s: Msg Len: %d, Msg Type: %4x\n",
+ 		__func__, msg_len, msg_type);
+@@ -1284,8 +1285,9 @@ int rsi_mgmt_pkt_recv(struct rsi_common *common, u8 *=
+msg)
+ 		if (common->fsm_state =3D=3D FSM_CARD_NOT_READY) {
+ 			rsi_set_default_parameters(common);
+=20
+-			if (rsi_load_bootup_params(common))
+-				return -ENOMEM;
++			ret =3D rsi_load_bootup_params(common);
++			if (ret)
++				return ret;
+ 			else
+ 				common->fsm_state =3D FSM_BOOT_PARAMS_SENT;
+ 		} else {
+diff --git a/drivers/net/wireless/rsi/rsi_91x_sdio.c b/drivers/net/wireless=
+/rsi/rsi_91x_sdio.c
+index 852453f386e2..2e39d38d6a9e 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_sdio.c
++++ b/drivers/net/wireless/rsi/rsi_91x_sdio.c
+@@ -756,12 +756,13 @@ fail:
+ static void rsi_disconnect(struct sdio_func *pfunction)
+ {
+ 	struct rsi_hw *adapter =3D sdio_get_drvdata(pfunction);
+-	struct rsi_91x_sdiodev *dev =3D
+-		(struct rsi_91x_sdiodev *)adapter->rsi_dev;
++	struct rsi_91x_sdiodev *dev;
+=20
+ 	if (!adapter)
+ 		return;
+=20
++	dev =3D (struct rsi_91x_sdiodev *)adapter->rsi_dev;
++
+ 	dev->write_fail =3D 2;
+ 	rsi_mac80211_detach(adapter);
+=20
+diff --git a/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c b/drivers/net/wire=
+less/rsi/rsi_91x_sdio_ops.c
+index f1cb99cafed8..20d11ccfffe3 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
++++ b/drivers/net/wireless/rsi/rsi_91x_sdio_ops.c
+@@ -247,7 +247,7 @@ static int rsi_process_pkt(struct rsi_common *common)
+ 	if (!common->rx_data_pkt) {
+ 		rsi_dbg(ERR_ZONE, "%s: Failed in memory allocation\n",
+ 			__func__);
+-		return -1;
++		return -ENOMEM;
+ 	}
+=20
+ 	status =3D rsi_sdio_host_intf_read_pkt(adapter,
+@@ -260,12 +260,10 @@ static int rsi_process_pkt(struct rsi_common *common)
+ 	}
+=20
+ 	status =3D rsi_read_pkt(common, rcv_pkt_len);
+-	kfree(common->rx_data_pkt);
+-	return status;
+=20
+ fail:
+ 	kfree(common->rx_data_pkt);
+-	return -1;
++	return status;
+ }
+=20
+ /**
+diff --git a/drivers/net/wireless/rsi/rsi_91x_usb.c b/drivers/net/wireless/=
+rsi/rsi_91x_usb.c
+index bb1bf96670eb..4c46e5631e2f 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_usb.c
++++ b/drivers/net/wireless/rsi/rsi_91x_usb.c
+@@ -154,24 +154,30 @@ static int rsi_usb_reg_read(struct usb_device *usbdev,
+ 			    u16 *value,
+ 			    u16 len)
+ {
+-	u8 temp_buf[4];
+-	int status =3D 0;
++	u8 *buf;
++	int status =3D -ENOMEM;
++
++	buf  =3D kmalloc(0x04, GFP_KERNEL);
++	if (!buf)
++		return status;
+=20
+ 	status =3D usb_control_msg(usbdev,
+ 				 usb_rcvctrlpipe(usbdev, 0),
+ 				 USB_VENDOR_REGISTER_READ,
+ 				 USB_TYPE_VENDOR,
+ 				 ((reg & 0xffff0000) >> 16), (reg & 0xffff),
+-				 (void *)temp_buf,
++				 (void *)buf,
+ 				 len,
+ 				 HZ * 5);
+=20
+-	*value =3D (temp_buf[0] | (temp_buf[1] << 8));
++	*value =3D (buf[0] | (buf[1] << 8));
+ 	if (status < 0) {
+ 		rsi_dbg(ERR_ZONE,
+ 			"%s: Reg read failed with error code :%d\n",
+ 			__func__, status);
+ 	}
++	kfree(buf);
++
+ 	return status;
+ }
+=20
+@@ -190,8 +196,12 @@ static int rsi_usb_reg_write(struct usb_device *usbdev,
+ 			     u16 value,
+ 			     u16 len)
+ {
+-	u8 usb_reg_buf[4];
+-	int status =3D 0;
++	u8 *usb_reg_buf;
++	int status =3D -ENOMEM;
++
++	usb_reg_buf  =3D kmalloc(0x04, GFP_KERNEL);
++	if (!usb_reg_buf)
++		return status;
+=20
+ 	usb_reg_buf[0] =3D (value & 0x00ff);
+ 	usb_reg_buf[1] =3D (value & 0xff00) >> 8;
+@@ -212,6 +222,8 @@ static int rsi_usb_reg_write(struct usb_device *usbdev,
+ 			"%s: Reg write failed with error code :%d\n",
+ 			__func__, status);
+ 	}
++	kfree(usb_reg_buf);
++
+ 	return status;
+ }
+=20
+@@ -286,7 +298,7 @@ int rsi_usb_write_register_multiple(struct rsi_hw *adap=
+ter,
+ 		return -ENOMEM;
+=20
+ 	while (count) {
+-		transfer =3D min_t(int, count, 4096);
++		transfer =3D (u8)(min_t(u32, count, 4096));
+ 		memcpy(buf, data, transfer);
+ 		status =3D usb_control_msg(dev->usbdev,
+ 					 usb_sndctrlpipe(dev->usbdev, 0),
+diff --git a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c b/driver=
+s/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c
+index b6722de64a31..33da3dfcfa4f 100644
+--- a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c
++++ b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c
+@@ -625,17 +625,7 @@ bool exhalbtc_initlize_variables(struct rtl_priv *adap=
+ter)
+ 	else
+ 		btcoexist->binded =3D true;
+=20
+-#if (defined(CONFIG_PCI_HCI))
+-	btcoexist->chip_interface =3D BTC_INTF_PCI;
+-#elif (defined(CONFIG_USB_HCI))
+-	btcoexist->chip_interface =3D BTC_INTF_USB;
+-#elif (defined(CONFIG_SDIO_HCI))
+-	btcoexist->chip_interface =3D BTC_INTF_SDIO;
+-#elif (defined(CONFIG_GSPI_HCI))
+-	btcoexist->chip_interface =3D BTC_INTF_GSPI;
+-#else
+ 	btcoexist->chip_interface =3D BTC_INTF_UNKNOWN;
+-#endif
+=20
+ 	if (NULL =3D=3D btcoexist->adapter)
+ 		btcoexist->adapter =3D adapter;
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
+
+--+QahgC5+KEYLbs62
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJTRtjLAAoJEJctW/TcYTgG5EQP/jUOILjHg6e4ozbEP1n8vfaQ
+k5xjG0rjz6LUYntGrSnKIX+FrMaRdb8k9CvayJGPhOsr494SIt6XrvKsbeVkRAxq
+mnLC9bnjH9RX+8HDD9R3uRmuGqcrSKopQdUFVGvAIO3+wvWe2CUYJR2BLhH4APmq
+gJOgVirncCHGpkXSnqId0WWx2jbrUtM4AnsGNGfFnK2dQV7AN+8S4waAmnZ8SLUV
+kstNs0pByc4Po9QFL3qZQZHirROST8nYXcAifipj1A6+MeBZjLA9lHpe4pfUC4FC
+Zo4xmVQwRKvnMI7gq3IFgunFCGdRqhggdHL3ilUZ1v06EOTFToE+sNSNmY9TLXgL
+TOAOq8vu/p037Jo9y0jdRPu9mQiK+/sgUJagP3gsZ5w+vSrXw97lJXJTpmqf1s5l
+/88s2/6BEbyQd5pOU1Jn/7n7ynncGpM+qzoApCiW+7pz7ianCmM/mL8ILAABCLbi
+BGXb1C5eAdaG8mhD53ohHtYXregRX1Z0Ystoqs150lxgy1symoXXnV9WMp1pR+qC
+q1xfCx+monTNrUmeQjJITDO13bEUmLnDPl/g0+4rDEfk4awk51BT/0PJV0NK6GgS
+br9zzV+IXsmq+dZk+a/E/G2vUfBEc3YYAco7T5S6tIrywS9hLPvhqdIjoTgMZrUe
+443dQSS9NuxsuiLwLRYh
+=qpRl
+-----END PGP SIGNATURE-----
+
+--+QahgC5+KEYLbs62--
