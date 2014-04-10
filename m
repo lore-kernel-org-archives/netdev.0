@@ -1,112 +1,102 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] softirq: punt to ksoftirqd if __do_softirq recently
- looped
-Date: Thu, 10 Apr 2014 11:15:12 -0700
-Message-ID: <1397153712.16584.41.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140410115706.662fb5e7@annuminas.surriel.com>
+From: Christian Engelmayer <cengelma@gmx.at>
+Subject: [PATCH resend] rsi: Fix a potential memory leak in
+ rsi_set_channel()
+Date: Thu, 10 Apr 2014 20:31:46 +0200
+Message-ID: <20140410203146.767149e7@spike>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jiri Benc <jbenc@redhat.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	David Miller <davem@davemloft.net>,
-	Frederic Weisbecker <fweisbec@gmail.com>
-To: Rik van Riel <riel@redhat.com>
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/iHoF=8G47JmKKQiDyzh/ZF7"; protocol="application/pgp-signature"
+Cc: dan.carpenter@oracle.com, joe@perches.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com, fariyaf@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140410115706.662fb5e7@annuminas.surriel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-04-10 at 11:57 -0400, Rik van Riel wrote:
-> Jiri noticed that netperf throughput had gotten worse in recent years,
-> for smaller message sizes. In the past, ksoftirqd would take around 80%
-> of a CPU, and netserver would take around 100% of another CPU.
-> 
-> On current kernels, sometimes all the softirq processing is done in the
-> context of the netperf process, which can result in as much as a 50%
-> performance drop, due to netserver spending all its CPU time "delivering"
-> packets to a socket it rarely empties, and dropping the packets on the
-> floor as a result.
-> 
-> This seems silly in an age where even cell phones are multi-core, and
-> we could simply let the ksoftirqd thread handle the softirq load, so
-> the scheduler can migrate the userspace task to another CPU.
-> 
-> This patch accomplishes that in a very simplistic way. The code
-> remembers when __do_softirq last looped, and will punt softirq
-> handling to ksoftirqd if another softirq happens in the same jiffie.
-> 
-> Netperf results:
-> 
-> 			without patch		with patch
-> UDP_STREAM      1472    957.17 / 954.18         957.15 / 951.73
-> UDP_STREAM      978     936.85 / 930.06         936.84 / 927.63
-> UDP_STREAM      466     875.98 / 865.62         875.98 / 868.65
-> UDP_STREAM      210     760.88 / 748.70         760.88 / 748.61
-> UDP_STREAM      82      554.06 / 329.96         554.06 / 505.95
->                         unstable ^^^^^^
-> UDP_STREAM      18      158.99 / 108.95         160.73 / 112.68
-> 
-> Signed-off-by: Rik van Riel <riel@redhat.com>
-> Cc: Frederic Weisbecker <fweisbec@gmail.com>
-> Cc: David Miller <davem@davemloft.net>
-> Cc: Thomas Gleixner <tglx@linutronix.de>
-> Cc: Peter Zijlstra <peterz@infradead.org>
-> Tested-by: Jiri Benc <jbenc@redhat.com>
-> Reported-by: Jiri Benc <jbenc@redhat.com>
-> ---
->  kernel/softirq.c | 10 +++++++++-
->  1 file changed, 9 insertions(+), 1 deletion(-)
-> 
-> diff --git a/kernel/softirq.c b/kernel/softirq.c
-> index 787b3a0..020be2f 100644
-> --- a/kernel/softirq.c
-> +++ b/kernel/softirq.c
-> @@ -56,6 +56,7 @@ EXPORT_SYMBOL(irq_stat);
->  static struct softirq_action softirq_vec[NR_SOFTIRQS] __cacheline_aligned_in_smp;
->  
->  DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
-> +DEFINE_PER_CPU(unsigned long, softirq_looped);
->  
->  char *softirq_to_name[NR_SOFTIRQS] = {
->  	"HI", "TIMER", "NET_TX", "NET_RX", "BLOCK", "BLOCK_IOPOLL",
-> @@ -271,6 +272,9 @@ asmlinkage void __do_softirq(void)
->  
->  	pending = local_softirq_pending();
->  	if (pending) {
-> +		/* Still busy? Remember this for invoke_softirq() below... */
-> +		this_cpu_write(softirq_looped, jiffies);
-> +
->  		if (time_before(jiffies, end) && !need_resched() &&
->  		    --max_restart)
->  			goto restart;
-> @@ -330,7 +334,11 @@ void irq_enter(void)
->  
->  static inline void invoke_softirq(void)
->  {
-> -	if (!force_irqthreads) {
-> +	/*
-> +	 * If force_irqthreads is set, or if we looped in __do_softirq this
-> +	 * jiffie, punt to ksoftirqd to prevent userland starvation.
-> +	 */
-> +	if (!force_irqthreads && this_cpu_read(softirq_looped) != jiffies) {
->  		/*
->  		 * We can safely execute softirq on the current stack if
->  		 * it is the irq stack, because it should be near empty
+--Sig_/iHoF=8G47JmKKQiDyzh/ZF7
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
+Fix a potential memory leak in function rsi_set_channel() that is used to
+program channel changes. The channel check block for the frequency bands
+directly exits the function in case of an error, thus leaving an already
+allocated skb unreferenced. Move the checks above allocating the skb.
+Detected by Coverity: CID 1195576.
 
-I guess this is the tradeoff between latencies and throughput.
+Signed-off-by: Christian Engelmayer <cengelma@gmx.at>
+---
+Applies against git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.g=
+it
+Compile tested.
+---
+ drivers/net/wireless/rsi/rsi_91x_mgmt.c | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
 
-Have you tried some TCP_RR  / UDP_RR tests with one / multiple
-instances, and have you tried drivers that use deferred skb freeing
-(hard irq calling TX completion handler, then dev_kfree_skb_any()
-scheduling TX softirq) and increase chance of having a not zero
-local_softirq_pending() 
+diff --git a/drivers/net/wireless/rsi/rsi_91x_mgmt.c b/drivers/net/wireless=
+/rsi/rsi_91x_mgmt.c
+index 2361a68..be5b1fd 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_mgmt.c
++++ b/drivers/net/wireless/rsi/rsi_91x_mgmt.c
+@@ -841,16 +841,6 @@ int rsi_set_channel(struct rsi_common *common, u16 cha=
+nnel)
+ 	rsi_dbg(MGMT_TX_ZONE,
+ 		"%s: Sending scan req frame\n", __func__);
+=20
+-	skb =3D dev_alloc_skb(FRAME_DESC_SZ);
+-	if (!skb) {
+-		rsi_dbg(ERR_ZONE, "%s: Failed in allocation of skb\n",
+-			__func__);
+-		return -ENOMEM;
+-	}
+-
+-	memset(skb->data, 0, FRAME_DESC_SZ);
+-	mgmt_frame =3D (struct rsi_mac_frame *)skb->data;
+-
+ 	if (common->band =3D=3D IEEE80211_BAND_5GHZ) {
+ 		if ((channel >=3D 36) && (channel <=3D 64))
+ 			channel =3D ((channel - 32) / 4);
+@@ -868,6 +858,16 @@ int rsi_set_channel(struct rsi_common *common, u16 cha=
+nnel)
+ 		}
+ 	}
+=20
++	skb =3D dev_alloc_skb(FRAME_DESC_SZ);
++	if (!skb) {
++		rsi_dbg(ERR_ZONE, "%s: Failed in allocation of skb\n",
++			__func__);
++		return -ENOMEM;
++	}
++
++	memset(skb->data, 0, FRAME_DESC_SZ);
++	mgmt_frame =3D (struct rsi_mac_frame *)skb->data;
++
+ 	mgmt_frame->desc_word[0] =3D cpu_to_le16(RSI_WIFI_MGMT_Q << 12);
+ 	mgmt_frame->desc_word[1] =3D cpu_to_le16(SCAN_REQUEST);
+ 	mgmt_frame->desc_word[4] =3D cpu_to_le16(channel);
+--=20
+1.8.3.2
 
-Calling skb destructor on a different cpu can have a huge false sharing
-effect. A TCP socket is really big.
+--Sig_/iHoF=8G47JmKKQiDyzh/ZF7
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
 
-Your test only UDP_STREAM stresses the RX part, and UDP sockets dont
-use the complex callbacks TCP sockets use.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+
+iQIcBAEBAgAGBQJTRuOSAAoJEKssnEpaPQKE8b8P/RQcnFMCHuu4EQsD7Uo9p36I
+xe4nYc6hImIpaQV1HsbBXA0Zvi7PjssSOOqobyVdyhsWrwxwiR9LvEH+n/+I+DIm
+qr8V09UnM7mcW6Qk7Kc5hojTZG0ggG+1G9WbDXNT9aJgskX2Q2ltPWdk1R6ShqJW
+L7QEY1+qX3LxVkUD60fPCa6xMt9UgRjEzB2MD57gOxDJYZ5rHXoVsOEvaeWcNQPe
+T7JOK2F+h/x7vhyRBOYkfWL7nM5JhOh3Sx7b3VE3nUkDy+QMu3cK5nq+d6YKFptK
+XLRqY3/hNmuaY8s6wVRlx7ES1q4flYQK2MLx0K+ElNzkkfOuYFnGPVBdyiLQGyKm
+DiUl7rOMsrLoqGB1MytZRPPZTQPqp8So9/HsKkOpfoslYichsbPvmKKMk92DQPw7
+SoOwPh7O7qgczgOGlHuZG3XHl2zA0jiZWR+EAWsX1ygJG2fsSuy0TxbT+e1b0aL3
+Fk2SbzqrNjY4UMx3bHN4H14wePhKbJuvjShVZfOcZm5rJCSrGbZQ10zoFgM3ya1l
+uqqhaYmeq9FLBOeoj9/H0GYaRt7/36lP59xXE8eLQB29TpHmSmzYmVRhbzdlHmFU
+NB3+tlv8GdoUP6PX+/m4CjbbyznrwfbWQ8RbAin08lHDv1n4SkA8EV/qhWZpB2wZ
+YqUhbqhuJ0XREhFNC/bQ
+=mh/v
+-----END PGP SIGNATURE-----
+
+--Sig_/iHoF=8G47JmKKQiDyzh/ZF7--
