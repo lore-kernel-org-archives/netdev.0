@@ -1,34 +1,30 @@
-From: "Ilya V. Matveychikov" <i.matveychikov@securitycode.ru>
-Subject: Re: question: update_pmtu doesn't update dst mtu
-Date: Thu, 10 Apr 2014 12:28:49 +0400
-Message-ID: <53465641.4070407@securitycode.ru>
-References: <533D47FD.9020904@securitycode.ru> <20140403115809.GA13354@order.stressinduktion.org> <533D4EF9.60608@securitycode.ru> <20140403121410.GC13354@order.stressinduktion.org> <533D5398.7080209@securitycode.ru> <5343BB6F.2090601@securitycode.ru> <20140408145718.GC27255@order.stressinduktion.org> <5345021D.30505@securitycode.ru> <20140409203010.GE27255@order.stressinduktion.org>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net PATCH 0/2] fix for cpsw interface up/down with high ethernet traffic
+Date: Thu, 10 Apr 2014 14:23:22 +0530
+Message-ID: <1397120004-13195-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from itna.infosec.ru ([82.198.190.199]:61260 "EHLO itna.infosec.ru"
+Received: from bear.ext.ti.com ([192.94.94.41]:36176 "EHLO bear.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965097AbaDJI2M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Apr 2014 04:28:12 -0400
-In-Reply-To: <20140409203010.GE27255@order.stressinduktion.org>
+	id S934714AbaDJIxc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Apr 2014 04:53:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10.04.2014 00:30, Hannes Frederic Sowa wrote:
-> On Wed, Apr 09, 2014 at 12:17:33PM +0400, Ilya V. Matveychikov wrote:
->> Works fine, thanks! By the way, could you briefly explain why routes are
->> separated to input and output? What are the benefits?
-> 
-> Core routing table is not split by input and output, merely the dst
-> construction and surrounding lookup and policy checks are seperated for input
-> and output.
-> 
-> Output does not have to deal with source address validation e.g. but has to do
-> source address selection.
-> 
-> Quite hard to answer, I guess the design emerged quite naturally. ;)
+This patch series fixes the cpsw issue with interface up/dpwn with high
+ethernet traffic.
 
-OK, I've got it. Thanks again.
+Mugunthan V N (2):
+  drivers: net: cpsw: discard all packets received when interface is
+    down
+  drivers: net: cpsw: enable interrupts after napi enable and clearing
+    previous interrupts
+
+ drivers/net/ethernet/ti/cpsw.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+-- 
+1.9.2.459.g68773ac
