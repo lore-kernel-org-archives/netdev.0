@@ -1,73 +1,71 @@
-From: Fam Zheng <famz@redhat.com>
-Subject: Re: [PATCH RFC V2 4/4] tools: virtio: add a top-like utility for
- displaying vhost satistics
-Date: Thu, 10 Apr 2014 17:27:02 +0800
-Message-ID: <20140410092702.GJ22890@T430.nay.redhat.com>
-References: <1395394913-19548-1-git-send-email-jasowang@redhat.com>
- <1395394913-19548-5-git-send-email-jasowang@redhat.com>
+From: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
+Subject: Re: [PATCH 1/5] wil6210: Convert to Kbuild
+Date: Thu, 10 Apr 2014 13:23:18 +0300
+Message-ID: <1949326.Ead3K8R9Y2@lx-vladimir>
+References: <1396946179-11677-1-git-send-email-qca_vkondrat@qca.qualcomm.com> <1397059601.14321.19.camel@joe-AO722> <534654D7.4080904@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mst@redhat.com, kvm@vger.kernel.org,
-	virtio-dev@lists.oasis-open.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Joe Perches <joe@perches.com>,
+	"John W . Linville" <linville@tuxdriver.com>,
+	<linux-wireless@vger.kernel.org>, <wil6210@qca.qualcomm.com>,
+	netdev <netdev@vger.kernel.org>
+To: Michal Marek <mmarek@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34865 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933149AbaDJJ05 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Apr 2014 05:26:57 -0400
-Content-Disposition: inline
-In-Reply-To: <1395394913-19548-5-git-send-email-jasowang@redhat.com>
+Received: from wolverine01.qualcomm.com ([199.106.114.254]:2440 "EHLO
+	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965637AbaDJKXX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2014 06:23:23 -0400
+In-Reply-To: <534654D7.4080904@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 03/21 17:41, Jason Wang wrote:
-> This patch adds simple python to display vhost satistics of vhost, the codes
-> were based on kvm_stat script from qemu. As work function has been recored,
-> filters could be used to distinguish which kinds of work are being executed or
-> queued:
+On Thursday, April 10, 2014 10:22:47 AM Michal Marek wrote:
+> On 2014-04-09 18:06, Joe Perches wrote:
+> > (adding Michal Marek)
+> > 
+> > On Wed, 2014-04-09 at 17:08 +0300, Vladimir Kondratiev wrote:
+> >> On Tuesday, April 08, 2014 09:14:51 AM Joe Perches wrote:
+> >>> On Tue, 2014-04-08 at 11:36 +0300, Vladimir Kondratiev wrote:
+> >>>> Convert Makefile -> Kbuild,
+> >>>> to make off-kernel development easier and less intrusive.
+> >>> No drivers/net directory uses Kbuild.
+> >>> Why should this?
+> >>
+> >> because it makes it easier to do off-kernel development, and then
+> >> move things to the proper location within the kernel without
+> >> conflicting changes in the Makefile.
 > 
-> vhost statistics
+> You can create a GNUmakefile for this purpose, it takes precedence over
+> Makefile.
 > 
->  vhost_virtio_update_used_idx               1215215       0
->  vhost_virtio_get_vq_desc                   1215215       0
->  vhost_work_queue_wakeup                     986808       0
->  vhost_virtio_signal                         811601       0
->  vhost_net_tx                                611457       0
->  vhost_net_rx                                603758       0
->  vhost_net_tx(datacopy)                      601903       0
->  vhost_work_queue_wakeup(rx_net)             565081       0
->  vhost_virtio_signal(rx)                     461603       0
->  vhost_work_queue_wakeup(tx_kick)            421718       0
->  vhost_virtio_update_avail_event             417346       0
->  vhost_virtio_signal(tx)                     349998       0
->  vhost_work_queue_coalesce                    39384       0
->  vhost_work_queue_coalesce(rx_net)            38677       0
->  vhost_net_tx(zerocopy)                        9554       0
->  vhost_work_queue_coalesce(tx_kick)             707       0
->  vhost_work_queue_wakeup(rx_kick)                 9       0
 > 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  tools/virtio/vhost_stat | 375 ++++++++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 375 insertions(+)
->  create mode 100755 tools/virtio/vhost_stat
+> >> As I understand, Kbuild is better choice because it is really not
+> >> standalone "Makefile", it is intended to be included by the real
+> >> Makefile. Thus, distinct name is better.
+> >> Are there any reasons why not using Kbuild? I did not found
+> >> guidelines when use Kbuild and when not.
 > 
-> diff --git a/tools/virtio/vhost_stat b/tools/virtio/vhost_stat
-> new file mode 100755
-> index 0000000..398fd4a
-> --- /dev/null
-> +++ b/tools/virtio/vhost_stat
-> @@ -0,0 +1,375 @@
-> +#!/usr/bin/python
-> +#
-> +# top-like utility for displaying vhost statistics
-> +#
-> +# Copyright 2012 Red Hat, Inc.
+> Kbuild is a slightly better choice because it better describes the
+> content, but I don't think its needed to rename existing Makefiles just
+> because of that. Kbuild is needed in the toplevel directory or in
+> arch/*/, where Makefile has a different special meaning. The out of tree
+> build use case can be solved by a GNUmakefile.
+> 
 
-Should it be 2014?
+Originally, I followed the code found at
+drivers/scsi/osd/
+They have Kbuild for in-kernel use and Makefile for out-of-tree
 
-Fam
+But now I found, Documentation/kbuild/makefiles.txt says:
+---cut---
+The preferred name for the kbuild files are 'Makefile' but 'Kbuild' can
+be used and if both a 'Makefile' and a 'Kbuild' file exists, then the 'Kbuild'
+file will be used.
+---cut---
 
-<snip>
+Accordingly to this, would you say I should drop this patch and go with
+GNUmakefile + Makefile for internal development? I am pretty neutral with
+this, just need to know what is the proper way.
+
+Thanks, Vladimir 
