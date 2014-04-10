@@ -1,35 +1,54 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] packet: fix potential use after free
-Date: Thu, 10 Apr 2014 10:19:21 +0200
-Message-ID: <53465409.3070507@redhat.com>
-References: <1397092959.16584.26.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Michal Marek <mmarek@suse.cz>
+Subject: Re: [PATCH 1/5] wil6210: Convert to Kbuild
+Date: Thu, 10 Apr 2014 10:22:47 +0200
+Message-ID: <534654D7.4080904@suse.cz>
+References: <1396946179-11677-1-git-send-email-qca_vkondrat@qca.qualcomm.com>	 <1396946179-11677-2-git-send-email-qca_vkondrat@qca.qualcomm.com>	 <1396973691.5212.3.camel@joe-AO722> <2146187.nt2BTDzSlP@lx-vladimir> <1397059601.14321.19.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Xi Wang <xii@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "John W . Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, wil6210@qca.qualcomm.com,
+	netdev <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>,
+	Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20281 "EHLO mx1.redhat.com"
+Received: from cantor2.suse.de ([195.135.220.15]:43646 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965164AbaDJITd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Apr 2014 04:19:33 -0400
-In-Reply-To: <1397092959.16584.26.camel@edumazet-glaptop2.roam.corp.google.com>
+	id S964832AbaDJIWu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Apr 2014 04:22:50 -0400
+In-Reply-To: <1397059601.14321.19.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/10/2014 03:22 AM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> As soon skb is queued into sk_receive_queue, it can be consumed,
-> so its racy to access skb->len.
->
-> Given that sk_data_ready() / sock_def_readable() don't really care, just
-> use 0 instead of skb->len
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Xi Wang <xii@google.com>
+On 2014-04-09 18:06, Joe Perches wrote:
+> (adding Michal Marek)
+> 
+> On Wed, 2014-04-09 at 17:08 +0300, Vladimir Kondratiev wrote:
+>> On Tuesday, April 08, 2014 09:14:51 AM Joe Perches wrote:
+>>> On Tue, 2014-04-08 at 11:36 +0300, Vladimir Kondratiev wrote:
+>>>> Convert Makefile -> Kbuild,
+>>>> to make off-kernel development easier and less intrusive.
+>>> No drivers/net directory uses Kbuild.
+>>> Why should this?
+>>
+>> because it makes it easier to do off-kernel development, and then
+>> move things to the proper location within the kernel without
+>> conflicting changes in the Makefile.
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+You can create a GNUmakefile for this purpose, it takes precedence over
+Makefile.
 
-Seems to be there since pre 2005 ...
+
+>> As I understand, Kbuild is better choice because it is really not
+>> standalone "Makefile", it is intended to be included by the real
+>> Makefile. Thus, distinct name is better.
+>> Are there any reasons why not using Kbuild? I did not found
+>> guidelines when use Kbuild and when not.
+
+Kbuild is a slightly better choice because it better describes the
+content, but I don't think its needed to rename existing Makefiles just
+because of that. Kbuild is needed in the toplevel directory or in
+arch/*/, where Makefile has a different special meaning. The out of tree
+build use case can be solved by a GNUmakefile.
+
+Michal
