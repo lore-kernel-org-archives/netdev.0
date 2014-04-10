@@ -1,69 +1,64 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net PATCH 1/2] drivers: net: cpsw: discard all packets received when interface is down
-Date: Thu, 10 Apr 2014 14:23:23 +0530
-Message-ID: <1397120004-13195-2-git-send-email-mugunthanvnm@ti.com>
+Subject: [net PATCH 2/2] drivers: net: cpsw: enable interrupts after napi enable and clearing previous interrupts
+Date: Thu, 10 Apr 2014 14:23:24 +0530
+Message-ID: <1397120004-13195-3-git-send-email-mugunthanvnm@ti.com>
 References: <1397120004-13195-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:36178 "EHLO bear.ext.ti.com"
+Received: from bear.ext.ti.com ([192.94.94.41]:36181 "EHLO bear.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934776AbaDJIxd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Apr 2014 04:53:33 -0400
+	id S934802AbaDJIxe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Apr 2014 04:53:34 -0400
 In-Reply-To: <1397120004-13195-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the Ethernet interface is brought down during high Ethernet traffic,
-then cpsw creates the following warn dump. When cpdma has already processed
-the packet then the status will be greater than 0, so the cpsw_rx_handler
-considers that the interface is up and try to resubmit one more rx buffer
-to cpdma which fails as the DMA is in teardown process. This can be avoided
-by checking the interface state and then process the received packet, if the
-interface is down just discard and free the skb and return.
-
-[ 2823.104591] WARNING: CPU: 0 PID: 1823 at drivers/net/ethernet/ti/cpsw.c:711 cpsw_rx_handler+0x148/0x164()
-[ 2823.114654] Modules linked in:
-[ 2823.117872] CPU: 0 PID: 1823 Comm: ifconfig Tainted: G        W     3.14.0-11992-gf34c4a3 #11
-[ 2823.126860] [<c0014b5c>] (unwind_backtrace) from [<c00117e4>] (show_stack+0x10/0x14)
-[ 2823.135030] [<c00117e4>] (show_stack) from [<c0533a9c>] (dump_stack+0x80/0x9c)
-[ 2823.142619] [<c0533a9c>] (dump_stack) from [<c003f0e0>] (warn_slowpath_common+0x6c/0x90)
-[ 2823.151141] [<c003f0e0>] (warn_slowpath_common) from [<c003f120>] (warn_slowpath_null+0x1c/0x24)
-[ 2823.160336] [<c003f120>] (warn_slowpath_null) from [<c03caeb0>] (cpsw_rx_handler+0x148/0x164)
-[ 2823.169314] [<c03caeb0>] (cpsw_rx_handler) from [<c03c730c>] (__cpdma_chan_free+0x90/0xa8)
-[ 2823.178028] [<c03c730c>] (__cpdma_chan_free) from [<c03c7418>] (__cpdma_chan_process+0xf4/0x134)
-[ 2823.187279] [<c03c7418>] (__cpdma_chan_process) from [<c03c7560>] (cpdma_chan_stop+0xb4/0x17c)
-[ 2823.196349] [<c03c7560>] (cpdma_chan_stop) from [<c03c766c>] (cpdma_ctlr_stop+0x44/0x9c)
-[ 2823.204872] [<c03c766c>] (cpdma_ctlr_stop) from [<c03cb708>] (cpsw_ndo_stop+0x154/0x188)
-[ 2823.213321] [<c03cb708>] (cpsw_ndo_stop) from [<c046f0ec>] (__dev_close_many+0x84/0xc8)
-[ 2823.221761] [<c046f0ec>] (__dev_close_many) from [<c046f158>] (__dev_close+0x28/0x3c)
-[ 2823.230012] [<c046f158>] (__dev_close) from [<c0474ca8>] (__dev_change_flags+0x88/0x160)
-[ 2823.238483] [<c0474ca8>] (__dev_change_flags) from [<c0474da0>] (dev_change_flags+0x18/0x48)
-[ 2823.247316] [<c0474da0>] (dev_change_flags) from [<c04d12c4>] (devinet_ioctl+0x61c/0x6e0)
-[ 2823.255884] [<c04d12c4>] (devinet_ioctl) from [<c045c660>] (sock_ioctl+0x68/0x2a4)
-[ 2823.263789] [<c045c660>] (sock_ioctl) from [<c0125fe4>] (do_vfs_ioctl+0x78/0x61c)
-[ 2823.271629] [<c0125fe4>] (do_vfs_ioctl) from [<c01265ec>] (SyS_ioctl+0x64/0x74)
-[ 2823.279284] [<c01265ec>] (SyS_ioctl) from [<c000e580>] (ret_fast_syscall+0x0/0x48)
+When the Ethernet interface is put down and up with heavy Ethernet
+traffic, then there is prossibility of an interrupt waiting in irq
+controller to be processed, so when the interface is brought up again
+just after enable interrupt, it goes to ISR due to the previous
+unhandled interrutp and in ISR napi is not scheduled as the napi
+is not enabled in ndo_open which results in disabled interrupt for
+CPSW and no packets are received in cpsw. So this patch moves enabling
+of interupts after napi_enable and clearing CPDMA interrupts.
 
 Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- drivers/net/ethernet/ti/cpsw.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/ti/cpsw.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 6133e4a..4e3d197 100644
+index 4e3d197..36aa109 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -687,7 +687,7 @@ static void cpsw_rx_handler(void *token, int len, int status)
+@@ -1252,6 +1252,12 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 		cpsw_set_coalesce(ndev, &coal);
+ 	}
  
- 	cpsw_dual_emac_src_port_detect(status, priv, ndev, skb);
++	napi_enable(&priv->napi);
++	cpdma_ctlr_start(priv->dma);
++	cpsw_intr_enable(priv);
++	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
++	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
++
+ 	prim_cpsw = cpsw_get_slave_priv(priv, 0);
+ 	if (prim_cpsw->irq_enabled == false) {
+ 		if ((priv == prim_cpsw) || !netif_running(prim_cpsw->ndev)) {
+@@ -1260,12 +1266,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 		}
+ 	}
  
--	if (unlikely(status < 0)) {
-+	if (unlikely(status < 0) || unlikely(!netif_running(ndev))) {
- 		/* the interface is going down, skbs are purged */
- 		dev_kfree_skb_any(skb);
- 		return;
+-	napi_enable(&priv->napi);
+-	cpdma_ctlr_start(priv->dma);
+-	cpsw_intr_enable(priv);
+-	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
+-	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
+-
+ 	if (priv->data.dual_emac)
+ 		priv->slaves[priv->emac_port].open_stat = true;
+ 	return 0;
 -- 
 1.9.2.459.g68773ac
