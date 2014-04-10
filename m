@@ -1,107 +1,34 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Should linux send netlink message as it is deleting that routing
- entry?
-Date: Thu, 10 Apr 2014 16:23:26 +0800
-Message-ID: <534654FE.3040804@gmail.com>
+From: "Ilya V. Matveychikov" <i.matveychikov@securitycode.ru>
+Subject: Re: question: update_pmtu doesn't update dst mtu
+Date: Thu, 10 Apr 2014 12:28:49 +0400
+Message-ID: <53465641.4070407@securitycode.ru>
+References: <533D47FD.9020904@securitycode.ru> <20140403115809.GA13354@order.stressinduktion.org> <533D4EF9.60608@securitycode.ru> <20140403121410.GC13354@order.stressinduktion.org> <533D5398.7080209@securitycode.ru> <5343BB6F.2090601@securitycode.ru> <20140408145718.GC27255@order.stressinduktion.org> <5345021D.30505@securitycode.ru> <20140409203010.GE27255@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	ebiederm@xmission.com, ja@ssi.bg, zhuyj <zyjzyj2000@gmail.com>,
-	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
-	"Tao, Yue" <Yue.Tao@windriver.com>,
-	"Zadoyan, Grant" <Grant.Zadoyan@windriver.com>
+Cc: <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:55751 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965164AbaDJIX0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2014 04:23:26 -0400
-Received: by mail-pa0-f41.google.com with SMTP id fa1so3697450pad.28
-        for <netdev@vger.kernel.org>; Thu, 10 Apr 2014 01:23:25 -0700 (PDT)
+Received: from itna.infosec.ru ([82.198.190.199]:61260 "EHLO itna.infosec.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965097AbaDJI2M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Apr 2014 04:28:12 -0400
+In-Reply-To: <20140409203010.GE27255@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, David
+On 10.04.2014 00:30, Hannes Frederic Sowa wrote:
+> On Wed, Apr 09, 2014 at 12:17:33PM +0400, Ilya V. Matveychikov wrote:
+>> Works fine, thanks! By the way, could you briefly explain why routes are
+>> separated to input and output? What are the benefits?
+> 
+> Core routing table is not split by input and output, merely the dst
+> construction and surrounding lookup and policy checks are seperated for input
+> and output.
+> 
+> Output does not have to deal with source address validation e.g. but has to do
+> source address selection.
+> 
+> Quite hard to answer, I guess the design emerged quite naturally. ;)
 
-With ubuntu 12.04, I run the following to reproduce this defect.
-
-1) Configure an interface
-ifconfig eth1 150.0.0.1/24 up
-
-2) Add routing entry via that interface address
-route add -net 200.0.0.0/24 gw 150.0.0.1
-
-3) Change the ip address on that interface as shown below.
-ifconfig eth1 151.0.0.1/24 up
-
-4) Check netlink messages with "ip monitor all". There is no route 
-delete netlink message.
-
-[ADDR]Deleted 3: eth1    inet 150.0.0.1/24 brd 150.0.0.255 scope global eth1
-[ROUTE]Deleted 150.0.0.0/24 dev eth1  proto kernel  scope link  src 
-150.0.0.1
-[ROUTE]Deleted broadcast 150.0.0.255 dev eth1  table local  proto 
-kernel  scope link  src 150.0.0.1
-[ROUTE]Deleted broadcast 150.0.0.0 dev eth1  table local  proto kernel  
-scope link  src 150.0.0.1
-[ROUTE]Deleted local 150.0.0.1 dev eth1  table local  proto kernel scope 
-host  src 150.0.0.1
-[NEIGH]224.0.0.251 dev eth1 lladdr 01:00:5e:00:00:fb NOARP
-[NEIGH]224.0.0.22 dev eth1 lladdr 01:00:5e:00:00:16 NOARP
-[ADDR]3: eth1    inet 151.0.0.1/16 brd 151.0.255.255 scope global eth1
-[ROUTE]local 151.0.0.1 dev eth1  table local  proto kernel  scope host  
-src 151.0.0.1
-[ROUTE]broadcast 151.0.255.255 dev eth1  table local  proto kernel scope 
-link  src 151.0.0.1
-[ROUTE]151.0.0.0/16 dev eth1  proto kernel  scope link  src 151.0.0.1
-[ROUTE]broadcast 151.0.0.0 dev eth1  table local  proto kernel scope 
-link  src 151.0.0.1
-[ADDR]Deleted 3: eth1    inet 151.0.0.1/16 brd 151.0.255.255 scope 
-global eth1
-[ROUTE]Deleted 151.0.0.0/16 dev eth1  proto kernel  scope link  src 
-151.0.0.1
-[ROUTE]Deleted broadcast 151.0.255.255 dev eth1  table local  proto 
-kernel  scope link  src 151.0.0.1
-[ROUTE]Deleted broadcast 151.0.0.0 dev eth1  table local  proto kernel  
-scope link  src 151.0.0.1
-[ROUTE]Deleted local 151.0.0.1 dev eth1  table local  proto kernel scope 
-host  src 151.0.0.1
-[NEIGH]224.0.0.22 dev eth1 lladdr 01:00:5e:00:00:16 NOARP
-[ADDR]3: eth1    inet 151.0.0.1/24 brd 151.0.0.255 scope global eth1
-[ROUTE]local 151.0.0.1 dev eth1  table local  proto kernel  scope host  
-src 151.0.0.1
-[ROUTE]broadcast 151.0.0.255 dev eth1  table local  proto kernel scope 
-link  src 151.0.0.1
-[ROUTE]151.0.0.0/24 dev eth1  proto kernel  scope link  src 151.0.0.1
-[ROUTE]broadcast 151.0.0.0 dev eth1  table local  proto kernel scope 
-link  src 151.0.0.1
-
-There is no netlink message to notify that 200.0.0.0/24 is deleted. But 
-in fact, this 200.0.0.0/24 route item disappears.
-
-I checked the source code, and I found the following is the process to 
-delete static routes when the attached interface is deleted.
-
-  1)               |  fib_netdev_event() {
-  1)               |    fib_disable_ip() {
-  1)   1.284 us    |      fib_sync_down_dev();
-  1)               |      fib_flush() {
-  1)               |        fib_table_flush() {
-  1)   0.129 us    |          fib_release_info();
-  1)   0.351 us    |          fib_release_info();
-  1)   4.605 us    |        }
-  1)               |        fib_table_flush() {
-  1)   0.096 us    |          fib_release_info();
-  1)   0.255 us    |          fib_release_info();
-  1)   4.770 us    |        }
-  1) + 11.787 us   |      }
-  1) ! 315.273 us  |    }
-  1) ! 315.888 us  |  }
-
-But there is no netlink message sent here.
-
-Should linux send netlink message as it is deleting that 200.0.0.0/24 
-routing entry?
-
-Best Regards!
-Zhu Yanjun
+OK, I've got it. Thanks again.
