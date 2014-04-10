@@ -1,53 +1,59 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 2/3] staging: r8188eu: Fix case where ethtype was never
- obtained and always be checked against 0
-Date: Thu, 10 Apr 2014 09:14:56 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6F4388@AcuExch.aculab.com>
-References: <1397059980-11942-1-git-send-email-Larry.Finger@lwfinger.net>
- <1397059980-11942-3-git-send-email-Larry.Finger@lwfinger.net>
- <20140409185152.GB26890@mwanda>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH net-next v6 3/3] ipv6: tcp_ipv6 policy route issue
+Date: Thu, 10 Apr 2014 18:23:35 +0900
+Message-ID: <CAKD1Yr1Qkc6OP_6Oj7x1S0u9QWS5HP17rDAo=_kT8kHm_qPf5Q@mail.gmail.com>
+References: <1396056451-5600-1-git-send-email-wangyufen@huawei.com> <1396056451-5600-4-git-send-email-wangyufen@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
- "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
- Stable <stable@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Dan Carpenter' <dan.carpenter@oracle.com>, Larry Finger
- <Larry.Finger@lwfinger.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140409185152.GB26890@mwanda>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: Wangyufen <wangyufen@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:63314 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933057AbaDJJX4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2014 05:23:56 -0400
+Received: by mail-ie0-f173.google.com with SMTP id rl12so3674989iec.18
+        for <netdev@vger.kernel.org>; Thu, 10 Apr 2014 02:23:56 -0700 (PDT)
+In-Reply-To: <1396056451-5600-4-git-send-email-wangyufen@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter
-...
-> > -	if (auth_alg == 2) {
-> > +	if (auth_alg == dot11AuthAlgrthm_8021X) {
-> > +		/* get ether_type */
-> > +		ptr = ptr + pfhdr->attrib.hdrlen + LLC_HEADER_SIZE;
-> > +		memcpy(&ether_type, ptr, 2);
-> > +		ether_type = ntohs((unsigned short)ether_type);
-> 
-> This cast doesn't make sense.  u16 and unsigned short are the same
-> thing.  Anyway, the "ether_type" should be declared as __be16 because
-> it's network endian.
+On Sat, Mar 29, 2014 at 10:27 AM, Wangyufen <wangyufen@huawei.com> wrote:
+> The issue raises when adding policy route, specify a particular
+> NIC as oif, the policy route did not take effect. The reason is
+> that fl6.oif is not set and route map failed. From the
+> tcp_v6_send_response function, if the binding address is linklocal,
+> fl6.oif is set, but not for global address.
+>
+> [...]
+>
+>         fl6.flowi6_proto = IPPROTO_TCP;
+> -       if (ipv6_addr_type(&fl6.daddr) & IPV6_ADDR_LINKLOCAL)
+> +       if (rt6_need_strict(&fl6.daddr) || !oif)
+>                 fl6.flowi6_oif = inet6_iif(skb);
 
-Is it worth doing just:
-	ether_type = ptr[0] << 8 | ptr[1];
-Or, if 'ptr' can't be misaligned, just reading a BE short.
-If the compiler doesn't inline memcpy() the above code is horrid.
+> +       else
+> +               fl6.flowi6_oif = oif;
 
-Are there MD inline functions for reading misaligned 16/32 bit date
-with specific endianness?
+Shouldn't this be && !oif instead of || !oif? It seems to me that the
+logic should be:
 
-	David
+1. If sk->sk_bound_dev_if is set, use that interface.
+2. Otherwise, if the connection came from a link-local address, use
+the incoming interface.
+3. Otherwise, use whatever route the system happens to have without
+special regard to the incoming interface.
+
+If so, then I think the code now does the wrong thing in two cases:
+
+1. If the SYN comes from a global address, and sk->sk_bound_dev_if is
+not set, the SYNACK is forced onto/prefers the interface the SYN came
+in on instead of just doing a routing lookup with no interface.
+2. If the SYN comes from a link-local address, and sk->sk_bound_dev_if
+is set, then the SYNACK is forced onto/prefers the incoming interface
+instead of the one specified by sk->sk_bound_dev_if.
+
+If I am correct, then I'm happy to send out the trivial patch to fix
+this. (Against what? net? net-next when the tree reopens?)
