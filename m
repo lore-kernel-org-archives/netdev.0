@@ -1,102 +1,35 @@
-From: Christian Engelmayer <cengelma@gmx.at>
-Subject: [PATCH resend] rsi: Fix a potential memory leak in
- rsi_set_channel()
-Date: Thu, 10 Apr 2014 20:31:46 +0200
-Message-ID: <20140410203146.767149e7@spike>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH] udp: allow busy_poll on some unconnected sockets
+Date: Thu, 10 Apr 2014 11:32:25 -0700
+Message-ID: <1397154745.16584.42.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <53455581.7060209@solarflare.com>
+	 <20140409145129.GA4002@sbohrermbp13-local.rgmadvisors.com>
+	 <53457334.1030602@solarflare.com>
+	 <alpine.LFD.2.03.1404101856170.27143@solarflare.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/iHoF=8G47JmKKQiDyzh/ZF7"; protocol="application/pgp-signature"
-Cc: dan.carpenter@oracle.com, joe@perches.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com, fariyaf@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Shawn Bohrer <shawn.bohrer@gmail.com>,
+	Shawn Bohrer <sbohrer@rgmadvisors.com>,
+	Jonathan Cooper <jcooper@solarflare.com>
+To: Edward Cree <ecree@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:56426 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932804AbaDJSc1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2014 14:32:27 -0400
+Received: by mail-pb0-f46.google.com with SMTP id rq2so4278861pbb.5
+        for <netdev@vger.kernel.org>; Thu, 10 Apr 2014 11:32:27 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.03.1404101856170.27143@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/iHoF=8G47JmKKQiDyzh/ZF7
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On Thu, 2014-04-10 at 19:04 +0100, Edward Cree wrote:
 
-Fix a potential memory leak in function rsi_set_channel() that is used to
-program channel changes. The channel check block for the frequency bands
-directly exits the function in case of an error, thus leaving an already
-allocated skb unreferenced. Move the checks above allocating the skb.
-Detected by Coverity: CID 1195576.
+> Tested by setting IFF_SINGLE_NAPI in sfc; a UDP ping-pong test showed a
+>  performance benefit from sysctl net.core.busy_{read,poll}=50 in both the
+>  connected and unconnected case, where previously it only saw the benefit
+>  when the socket had been connected.
 
-Signed-off-by: Christian Engelmayer <cengelma@gmx.at>
----
-Applies against git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.g=
-it
-Compile tested.
----
- drivers/net/wireless/rsi/rsi_91x_mgmt.c | 20 ++++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/wireless/rsi/rsi_91x_mgmt.c b/drivers/net/wireless=
-/rsi/rsi_91x_mgmt.c
-index 2361a68..be5b1fd 100644
---- a/drivers/net/wireless/rsi/rsi_91x_mgmt.c
-+++ b/drivers/net/wireless/rsi/rsi_91x_mgmt.c
-@@ -841,16 +841,6 @@ int rsi_set_channel(struct rsi_common *common, u16 cha=
-nnel)
- 	rsi_dbg(MGMT_TX_ZONE,
- 		"%s: Sending scan req frame\n", __func__);
-=20
--	skb =3D dev_alloc_skb(FRAME_DESC_SZ);
--	if (!skb) {
--		rsi_dbg(ERR_ZONE, "%s: Failed in allocation of skb\n",
--			__func__);
--		return -ENOMEM;
--	}
--
--	memset(skb->data, 0, FRAME_DESC_SZ);
--	mgmt_frame =3D (struct rsi_mac_frame *)skb->data;
--
- 	if (common->band =3D=3D IEEE80211_BAND_5GHZ) {
- 		if ((channel >=3D 36) && (channel <=3D 64))
- 			channel =3D ((channel - 32) / 4);
-@@ -868,6 +858,16 @@ int rsi_set_channel(struct rsi_common *common, u16 cha=
-nnel)
- 		}
- 	}
-=20
-+	skb =3D dev_alloc_skb(FRAME_DESC_SZ);
-+	if (!skb) {
-+		rsi_dbg(ERR_ZONE, "%s: Failed in allocation of skb\n",
-+			__func__);
-+		return -ENOMEM;
-+	}
-+
-+	memset(skb->data, 0, FRAME_DESC_SZ);
-+	mgmt_frame =3D (struct rsi_mac_frame *)skb->data;
-+
- 	mgmt_frame->desc_word[0] =3D cpu_to_le16(RSI_WIFI_MGMT_Q << 12);
- 	mgmt_frame->desc_word[1] =3D cpu_to_le16(SCAN_REQUEST);
- 	mgmt_frame->desc_word[4] =3D cpu_to_le16(channel);
---=20
-1.8.3.2
-
---Sig_/iHoF=8G47JmKKQiDyzh/ZF7
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-
-iQIcBAEBAgAGBQJTRuOSAAoJEKssnEpaPQKE8b8P/RQcnFMCHuu4EQsD7Uo9p36I
-xe4nYc6hImIpaQV1HsbBXA0Zvi7PjssSOOqobyVdyhsWrwxwiR9LvEH+n/+I+DIm
-qr8V09UnM7mcW6Qk7Kc5hojTZG0ggG+1G9WbDXNT9aJgskX2Q2ltPWdk1R6ShqJW
-L7QEY1+qX3LxVkUD60fPCa6xMt9UgRjEzB2MD57gOxDJYZ5rHXoVsOEvaeWcNQPe
-T7JOK2F+h/x7vhyRBOYkfWL7nM5JhOh3Sx7b3VE3nUkDy+QMu3cK5nq+d6YKFptK
-XLRqY3/hNmuaY8s6wVRlx7ES1q4flYQK2MLx0K+ElNzkkfOuYFnGPVBdyiLQGyKm
-DiUl7rOMsrLoqGB1MytZRPPZTQPqp8So9/HsKkOpfoslYichsbPvmKKMk92DQPw7
-SoOwPh7O7qgczgOGlHuZG3XHl2zA0jiZWR+EAWsX1ygJG2fsSuy0TxbT+e1b0aL3
-Fk2SbzqrNjY4UMx3bHN4H14wePhKbJuvjShVZfOcZm5rJCSrGbZQ10zoFgM3ya1l
-uqqhaYmeq9FLBOeoj9/H0GYaRt7/36lP59xXE8eLQB29TpHmSmzYmVRhbzdlHmFU
-NB3+tlv8GdoUP6PX+/m4CjbbyznrwfbWQ8RbAin08lHDv1n4SkA8EV/qhWZpB2wZ
-YqUhbqhuJ0XREhFNC/bQ
-=mh/v
------END PGP SIGNATURE-----
-
---Sig_/iHoF=8G47JmKKQiDyzh/ZF7--
+Right, but how often do we have single NAPI devices on hosts wanting
+very low latencies ?
