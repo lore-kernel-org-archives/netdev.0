@@ -1,54 +1,107 @@
-From: Michal Marek <mmarek@suse.cz>
-Subject: Re: [PATCH 1/5] wil6210: Convert to Kbuild
-Date: Thu, 10 Apr 2014 10:22:47 +0200
-Message-ID: <534654D7.4080904@suse.cz>
-References: <1396946179-11677-1-git-send-email-qca_vkondrat@qca.qualcomm.com>	 <1396946179-11677-2-git-send-email-qca_vkondrat@qca.qualcomm.com>	 <1396973691.5212.3.camel@joe-AO722> <2146187.nt2BTDzSlP@lx-vladimir> <1397059601.14321.19.camel@joe-AO722>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Should linux send netlink message as it is deleting that routing
+ entry?
+Date: Thu, 10 Apr 2014 16:23:26 +0800
+Message-ID: <534654FE.3040804@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "John W . Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, wil6210@qca.qualcomm.com,
-	netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>,
-	Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	ebiederm@xmission.com, ja@ssi.bg, zhuyj <zyjzyj2000@gmail.com>,
+	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
+	"Tao, Yue" <Yue.Tao@windriver.com>,
+	"Zadoyan, Grant" <Grant.Zadoyan@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:43646 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964832AbaDJIWu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Apr 2014 04:22:50 -0400
-In-Reply-To: <1397059601.14321.19.camel@joe-AO722>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:55751 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965164AbaDJIX0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2014 04:23:26 -0400
+Received: by mail-pa0-f41.google.com with SMTP id fa1so3697450pad.28
+        for <netdev@vger.kernel.org>; Thu, 10 Apr 2014 01:23:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014-04-09 18:06, Joe Perches wrote:
-> (adding Michal Marek)
-> 
-> On Wed, 2014-04-09 at 17:08 +0300, Vladimir Kondratiev wrote:
->> On Tuesday, April 08, 2014 09:14:51 AM Joe Perches wrote:
->>> On Tue, 2014-04-08 at 11:36 +0300, Vladimir Kondratiev wrote:
->>>> Convert Makefile -> Kbuild,
->>>> to make off-kernel development easier and less intrusive.
->>> No drivers/net directory uses Kbuild.
->>> Why should this?
->>
->> because it makes it easier to do off-kernel development, and then
->> move things to the proper location within the kernel without
->> conflicting changes in the Makefile.
+Hi, David
 
-You can create a GNUmakefile for this purpose, it takes precedence over
-Makefile.
+With ubuntu 12.04, I run the following to reproduce this defect.
 
+1) Configure an interface
+ifconfig eth1 150.0.0.1/24 up
 
->> As I understand, Kbuild is better choice because it is really not
->> standalone "Makefile", it is intended to be included by the real
->> Makefile. Thus, distinct name is better.
->> Are there any reasons why not using Kbuild? I did not found
->> guidelines when use Kbuild and when not.
+2) Add routing entry via that interface address
+route add -net 200.0.0.0/24 gw 150.0.0.1
 
-Kbuild is a slightly better choice because it better describes the
-content, but I don't think its needed to rename existing Makefiles just
-because of that. Kbuild is needed in the toplevel directory or in
-arch/*/, where Makefile has a different special meaning. The out of tree
-build use case can be solved by a GNUmakefile.
+3) Change the ip address on that interface as shown below.
+ifconfig eth1 151.0.0.1/24 up
 
-Michal
+4) Check netlink messages with "ip monitor all". There is no route 
+delete netlink message.
+
+[ADDR]Deleted 3: eth1    inet 150.0.0.1/24 brd 150.0.0.255 scope global eth1
+[ROUTE]Deleted 150.0.0.0/24 dev eth1  proto kernel  scope link  src 
+150.0.0.1
+[ROUTE]Deleted broadcast 150.0.0.255 dev eth1  table local  proto 
+kernel  scope link  src 150.0.0.1
+[ROUTE]Deleted broadcast 150.0.0.0 dev eth1  table local  proto kernel  
+scope link  src 150.0.0.1
+[ROUTE]Deleted local 150.0.0.1 dev eth1  table local  proto kernel scope 
+host  src 150.0.0.1
+[NEIGH]224.0.0.251 dev eth1 lladdr 01:00:5e:00:00:fb NOARP
+[NEIGH]224.0.0.22 dev eth1 lladdr 01:00:5e:00:00:16 NOARP
+[ADDR]3: eth1    inet 151.0.0.1/16 brd 151.0.255.255 scope global eth1
+[ROUTE]local 151.0.0.1 dev eth1  table local  proto kernel  scope host  
+src 151.0.0.1
+[ROUTE]broadcast 151.0.255.255 dev eth1  table local  proto kernel scope 
+link  src 151.0.0.1
+[ROUTE]151.0.0.0/16 dev eth1  proto kernel  scope link  src 151.0.0.1
+[ROUTE]broadcast 151.0.0.0 dev eth1  table local  proto kernel scope 
+link  src 151.0.0.1
+[ADDR]Deleted 3: eth1    inet 151.0.0.1/16 brd 151.0.255.255 scope 
+global eth1
+[ROUTE]Deleted 151.0.0.0/16 dev eth1  proto kernel  scope link  src 
+151.0.0.1
+[ROUTE]Deleted broadcast 151.0.255.255 dev eth1  table local  proto 
+kernel  scope link  src 151.0.0.1
+[ROUTE]Deleted broadcast 151.0.0.0 dev eth1  table local  proto kernel  
+scope link  src 151.0.0.1
+[ROUTE]Deleted local 151.0.0.1 dev eth1  table local  proto kernel scope 
+host  src 151.0.0.1
+[NEIGH]224.0.0.22 dev eth1 lladdr 01:00:5e:00:00:16 NOARP
+[ADDR]3: eth1    inet 151.0.0.1/24 brd 151.0.0.255 scope global eth1
+[ROUTE]local 151.0.0.1 dev eth1  table local  proto kernel  scope host  
+src 151.0.0.1
+[ROUTE]broadcast 151.0.0.255 dev eth1  table local  proto kernel scope 
+link  src 151.0.0.1
+[ROUTE]151.0.0.0/24 dev eth1  proto kernel  scope link  src 151.0.0.1
+[ROUTE]broadcast 151.0.0.0 dev eth1  table local  proto kernel scope 
+link  src 151.0.0.1
+
+There is no netlink message to notify that 200.0.0.0/24 is deleted. But 
+in fact, this 200.0.0.0/24 route item disappears.
+
+I checked the source code, and I found the following is the process to 
+delete static routes when the attached interface is deleted.
+
+  1)               |  fib_netdev_event() {
+  1)               |    fib_disable_ip() {
+  1)   1.284 us    |      fib_sync_down_dev();
+  1)               |      fib_flush() {
+  1)               |        fib_table_flush() {
+  1)   0.129 us    |          fib_release_info();
+  1)   0.351 us    |          fib_release_info();
+  1)   4.605 us    |        }
+  1)               |        fib_table_flush() {
+  1)   0.096 us    |          fib_release_info();
+  1)   0.255 us    |          fib_release_info();
+  1)   4.770 us    |        }
+  1) + 11.787 us   |      }
+  1) ! 315.273 us  |    }
+  1) ! 315.888 us  |  }
+
+But there is no netlink message sent here.
+
+Should linux send netlink message as it is deleting that 200.0.0.0/24 
+routing entry?
+
+Best Regards!
+Zhu Yanjun
