@@ -1,40 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/3] net: mvneta: Introduce a software TSO implementation
-Date: Thu, 10 Apr 2014 16:16:39 -0700
-Message-ID: <1397171799.16584.48.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1397170682-19138-1-git-send-email-ezequiel.garcia@free-electrons.com>
-	 <1397170682-19138-4-git-send-email-ezequiel.garcia@free-electrons.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Does IPv6 support Jumbograms ?
+Date: Fri, 11 Apr 2014 01:54:59 +0200
+Message-ID: <20140410235459.GK27255@order.stressinduktion.org>
+References: <5345A2B3.7040602@gmail.com> <1397079665.16584.17.camel@edumazet-glaptop2.roam.corp.google.com> <20140409223546.GH27255@order.stressinduktion.org> <1397090170.16584.21.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	Willy Tarreau <w@1wt.eu>, Tawfik Bayouk <tawfik@marvell.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Simon Guinot <sguinot@lacie.com>
-To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Francois WELLENREITER <f.wellenreiter@gmail.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:50272 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935788AbaDJXQm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2014 19:16:42 -0400
-Received: by mail-pd0-f171.google.com with SMTP id r10so4496353pdi.2
-        for <netdev@vger.kernel.org>; Thu, 10 Apr 2014 16:16:41 -0700 (PDT)
-In-Reply-To: <1397170682-19138-4-git-send-email-ezequiel.garcia@free-electrons.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:36284 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759269AbaDJXzB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2014 19:55:01 -0400
+Content-Disposition: inline
+In-Reply-To: <1397090170.16584.21.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-04-10 at 19:58 -0300, Ezequiel Garcia wrote:
-> +	/* Calculate expected number of TX descriptors */
-> +	desc_count = skb_shinfo(skb)->gso_segs * 2 + skb_shinfo(skb)->nr_frags;
-> +	if ((txq->count + desc_count) >= txq->size)
-> +		return 0;
-> +
+On Wed, Apr 09, 2014 at 05:36:10PM -0700, Eric Dumazet wrote:
+> On Thu, 2014-04-10 at 00:35 +0200, Hannes Frederic Sowa wrote:
+> > On Wed, Apr 09, 2014 at 02:41:05PM -0700, Eric Dumazet wrote:
+> > > What do you mean by blocked ?
+> > > 
+> > > Please give more details (kernel version, exact mtu...), because it
+> > > should not happen !
+> > > 
+> > > # ifconfig lo mtu 100000
+> > > # scp -6 vmlinux edumazet@ip6-localhost:/tmp
+> > > Password: 
+> > > vmlinux
+> > > 100%   24MB  23.5MB/s   00:00    
+> > > # ls -l /tmp/vmlinux
+> > > -rwxr-xr-x 1 edumazet eng 24668915 Apr  9 14:37 /tmp/vmlinux
+> > 
+> > I couldn't test it on my development system with a recent net-next kernel
+> > yet, but on my laptop with a distribution 3.13.9 kernel this happened too.
+> 
+> Oh well, it seems ip6_mtu() needs to cap mtu to max mtu for non
+> jumbograms...
+> 
+> -	return mtu;
+> +	return min_t(unsigned int, mtu, IP6_MAX_MTU);
+> 
+> #define IP6_MAX_MTU (65535 + 40)
 
-Hmm.. have you tried to play with small MSS ?
+                             ^ minus
 
-I think you should set dev->gso_max_segs to a sensible value...
+I think we should do that. Otherwise we would have to start supporting
+jumbograms in the output path generally.
 
-see commit 7e6d06f0de3f7 for details.
+Greetings,
+
+  Hannes
