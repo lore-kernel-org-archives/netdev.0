@@ -1,69 +1,39 @@
-From: David Newall <davidn@davidnewall.com>
-Subject: No return for ping -R; not sure if this is the right list
-Date: Thu, 10 Apr 2014 16:29:52 +0930
-Message-ID: <53464168.90508@davidnewall.com>
+From: Markos Chandras <Markos.Chandras@imgtec.com>
+Subject: Re: [PATCH v2 13/14] MIPS: net: Add BPF JIT
+Date: Thu, 10 Apr 2014 08:46:26 +0100
+Message-ID: <53464C52.2060004@imgtec.com>
+References: <1396957635-27071-14-git-send-email-markos.chandras@imgtec.com> <1397059208-27096-1-git-send-email-markos.chandras@imgtec.com> <CAOiHx=kh3+Xzvyx7PsEfNCiEf6cRP3ucQKDfY3brZ6FR2KwW4Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Netdev <netdev@vger.kernel.org>
+Cc: MIPS Mailing List <linux-mips@linux-mips.org>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Jonas Gorski <jogo@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hawking.rebel.net.au ([203.20.69.83]:49325 "EHLO
-	hawking.rebel.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934241AbaDJHE6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2014 03:04:58 -0400
+Received: from mailapp01.imgtec.com ([195.89.28.114]:41337 "EHLO
+	mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934648AbaDJHqL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2014 03:46:11 -0400
+In-Reply-To: <CAOiHx=kh3+Xzvyx7PsEfNCiEf6cRP3ucQKDfY3brZ6FR2KwW4Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello All,
+On 04/09/2014 11:28 PM, Jonas Gorski wrote:
+>
+>> +#ifdef CONFIG_CPU_LITTLE_ENDIAN
+>> +                       /* This needs little endian fixup */
+>> +                       if (config_enabled(CPU_MIPSR1)) {
+>
+> Hm, looking at arch/mips/Kconfig, this will falsely identify CPU_BMIPS
+> as R2 as it does not select CPU_MIPSR1.
+>
+> How about "if (cpu_has_mips_r1)"? There are some targets that have
+> both R1 and R2 cores (e.g. bcm47xx), and even if we built the kernel
+> for R1, it does not prevent us from emitting R2 instructions because
+> we do this at runtime when we can check for it.
 
-I apologise if this is the wrong list.  It's a user question, not a 
-development question, which I wanted to send to the linux-net list, but 
-that list no longer exists (according to vger.kernel.org.)  I couldn't 
-find where it went, and I'm hoping, if this is not the right place, that 
-someone will kindly point me in the proper direction.
+Sounds about right. Let me have a look
 
-My problem is a large number of duplicate ACKs, retransmitted packets, 
-and packets out of order.
 
-I'm running Ubuntu 13.10 on a Dell 1920, with Ubuntu's twist of Linux 
-3.11.0-18-generic kernel.  I have two ethernet ports bonded in 
-active-backup mode, and bridged with STP on.  I've got a number of 
-virtual hosts running on it, using kvm (QEMU 1.5.0, QEMU API 1.1.1) and 
-libvirt (1.1.1).
-
-Some type of Cisco router sits in front of the machine, which is managed 
-by the DC who hosts my server.  They also advertise my public IP range 
-with BGP.  Apparently there are two independent routes.
-
-I wanted to confirm that the problem is not routing, and thought a 
-number of pings with record-route might help, but get no packets 
-returned other than when I ping one of the server's own IP addresses.  
-Even when I ping a virtual host with -R, no pings are returned, at least 
-according to ping, although I do see them using tcpdump.
-
-They appear to be discarded somewhere on the server, but I cannot find 
-where.
-
-It's possible the DC is dropping packets with RR option set, and have 
-sent them email asking this to be confirmed and changed, but that does 
-not explain why a ping -R to a virtual host doesn't work.
-
-Inserting --proto icmp -j ACCEPT rules in the INPUT, FORWARD & OUTPUT 
-chains of the server's iptables' filter table does not help. According 
-to /proc/net/ip_tables_names, the only other table is mangle, for which 
-all chains are ACCEPT policy and empty, other than POSTROUTING which is 
-ACCEPT policy and has CHECKSUM fill rules covering UDP port 68 to two of 
-my virtual sub-nets.
-
-There are no iptables rules at all on the target virtual-host.
-
-Even though I'm sure you all already picked up this, just to clear, I am 
-not using the iptables ipv4options module, nor, that I can see, any 
-other iptables-based rule that would do this.
-
-So, any suggestions to explain what is dropping these pings, or what is 
-causing the duplicate acks, retransmits and out-of-order packets, would 
-be very gratefully received.  Or, even just a pointer to a better place 
-to ask.
-
-David
+-- 
+markos
