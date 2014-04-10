@@ -1,49 +1,53 @@
-From: "Nekludov, Max" <Max.Nekludov@elster.com>
-Subject: RE: ks8851: reset on RX failure and TX timeout
-Date: Thu, 10 Apr 2014 09:16:20 +0000
-Message-ID: <28499d90be6a410f9a24d64b76a5c262@DB3PR02MB202.eurprd02.prod.outlook.com>
-References: <b703c70840da4780bc93beed79a8503b@DB3PR02MB202.eurprd02.prod.outlook.com>
-	<20140401.181355.1375673242692769955.davem@davemloft.net>
-	<e095559e0b69441eb44fecc7e8639a71@DB3PR02MB202.eurprd02.prod.outlook.com>,<20140403.133203.1056561986987869608.davem@davemloft.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 2/3] staging: r8188eu: Fix case where ethtype was never
+ obtained and always be checked against 0
+Date: Thu, 10 Apr 2014 09:14:56 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6F4388@AcuExch.aculab.com>
+References: <1397059980-11942-1-git-send-email-Larry.Finger@lwfinger.net>
+ <1397059980-11942-3-git-send-email-Larry.Finger@lwfinger.net>
+ <20140409185152.GB26890@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"sboyd@codeaurora.org" <sboyd@codeaurora.org>,
-	"mjr@cs.wisc.edu" <mjr@cs.wisc.edu>,
-	"jiri@resnulli.us" <jiri@resnulli.us>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"trivial@rustcorp.com.au" <trivial@rustcorp.com.au>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140403.133203.1056561986987869608.davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+Cc: "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
+ "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+ Stable <stable@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Dan Carpenter' <dan.carpenter@oracle.com>, Larry Finger
+ <Larry.Finger@lwfinger.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140409185152.GB26890@mwanda>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-I've tried to use ndo_tx_timeout. Actually it works. But it takes too long time after TX failure and before watchdog fires.
+From: Dan Carpenter
+...
+> > -	if (auth_alg == 2) {
+> > +	if (auth_alg == dot11AuthAlgrthm_8021X) {
+> > +		/* get ether_type */
+> > +		ptr = ptr + pfhdr->attrib.hdrlen + LLC_HEADER_SIZE;
+> > +		memcpy(&ether_type, ptr, 2);
+> > +		ether_type = ntohs((unsigned short)ether_type);
+> 
+> This cast doesn't make sense.  u16 and unsigned short are the same
+> thing.  Anyway, the "ether_type" should be declared as __be16 because
+> it's network endian.
 
-As I understand ndo_tx_timeout will be called only if tx queue is stopped. But ks8851 driver stops queue only after it's full.
-So one have to  send a lot of data to reset device (~6KiB).
+Is it worth doing just:
+	ether_type = ptr[0] << 8 | ptr[1];
+Or, if 'ptr' can't be misaligned, just reading a BE short.
+If the compiler doesn't inline memcpy() the above code is horrid.
 
-But I need to recover as fast as possible. Could you suggest how to achieve that?
-________________________________________
-From: David Miller <davem@davemloft.net>
-Sent: Thursday, April 3, 2014 9:32 PM
-To: Nekludov, Max
-Cc: torvalds@linux-foundation.org; netdev@vger.kernel.org; sboyd@codeaurora.org; mjr@cs.wisc.edu; jiri@resnulli.us; linux-kernel@vger.kernel.org; trivial@rustcorp.com.au
-Subject: Re: ks8851: reset on RX failure and TX timeout
+Are there MD inline functions for reading misaligned 16/32 bit date
+with specific endianness?
 
-From: "Nekludov, Max" <Max.Nekludov@elster.com>
-Date: Wed, 2 Apr 2014 06:31:23 +0000
-
-> Electromagnetic noise can make device to not send TX interrupts.
-> As result outgoing queue will be suspended forever.
-> Also EMI can raise RX interrupt with zero value in KS_RXFC register.
->
-> Signed-off-by: Max Nekludov <Max.Nekludov@elster.com>
-
-We have a watchdog facility for TX timeouts, don't reinvent the wheel.
-
-Implement ->ndo_tx_timeout() and set dev->watchdog_timeo appropriately.
+	David
