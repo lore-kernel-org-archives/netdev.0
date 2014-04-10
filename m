@@ -1,104 +1,112 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [RFC PATCH] udp: allow busy_poll on some unconnected sockets
-Date: Thu, 10 Apr 2014 19:04:47 +0100
-Message-ID: <alpine.LFD.2.03.1404101856170.27143@solarflare.com>
-References: <53455581.7060209@solarflare.com> <20140409145129.GA4002@sbohrermbp13-local.rgmadvisors.com> <53457334.1030602@solarflare.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] softirq: punt to ksoftirqd if __do_softirq recently
+ looped
+Date: Thu, 10 Apr 2014 11:15:12 -0700
+Message-ID: <1397153712.16584.41.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140410115706.662fb5e7@annuminas.surriel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Shawn Bohrer <shawn.bohrer@gmail.com>,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>,
-	Jonathan Cooper <jcooper@solarflare.com>,
-	<eric.dumazet@gmail.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:40496 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752918AbaDJSE6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2014 14:04:58 -0400
-In-Reply-To: <53457334.1030602@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jiri Benc <jbenc@redhat.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>,
+	Frederic Weisbecker <fweisbec@gmail.com>
+To: Rik van Riel <riel@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140410115706.662fb5e7@annuminas.surriel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Specifically, if the socket has been bound to a local address, and the
- net_device only uses a single NAPI context, then we don't need to be
- connected for busy_poll to do the right thing, since all our received
- packets have to come through the same NAPI context.
+On Thu, 2014-04-10 at 11:57 -0400, Rik van Riel wrote:
+> Jiri noticed that netperf throughput had gotten worse in recent years,
+> for smaller message sizes. In the past, ksoftirqd would take around 80%
+> of a CPU, and netserver would take around 100% of another CPU.
+> 
+> On current kernels, sometimes all the softirq processing is done in the
+> context of the netperf process, which can result in as much as a 50%
+> performance drop, due to netserver spending all its CPU time "delivering"
+> packets to a socket it rarely empties, and dropping the packets on the
+> floor as a result.
+> 
+> This seems silly in an age where even cell phones are multi-core, and
+> we could simply let the ksoftirqd thread handle the softirq load, so
+> the scheduler can migrate the userspace task to another CPU.
+> 
+> This patch accomplishes that in a very simplistic way. The code
+> remembers when __do_softirq last looped, and will punt softirq
+> handling to ksoftirqd if another softirq happens in the same jiffie.
+> 
+> Netperf results:
+> 
+> 			without patch		with patch
+> UDP_STREAM      1472    957.17 / 954.18         957.15 / 951.73
+> UDP_STREAM      978     936.85 / 930.06         936.84 / 927.63
+> UDP_STREAM      466     875.98 / 865.62         875.98 / 868.65
+> UDP_STREAM      210     760.88 / 748.70         760.88 / 748.61
+> UDP_STREAM      82      554.06 / 329.96         554.06 / 505.95
+>                         unstable ^^^^^^
+> UDP_STREAM      18      158.99 / 108.95         160.73 / 112.68
+> 
+> Signed-off-by: Rik van Riel <riel@redhat.com>
+> Cc: Frederic Weisbecker <fweisbec@gmail.com>
+> Cc: David Miller <davem@davemloft.net>
+> Cc: Thomas Gleixner <tglx@linutronix.de>
+> Cc: Peter Zijlstra <peterz@infradead.org>
+> Tested-by: Jiri Benc <jbenc@redhat.com>
+> Reported-by: Jiri Benc <jbenc@redhat.com>
+> ---
+>  kernel/softirq.c | 10 +++++++++-
+>  1 file changed, 9 insertions(+), 1 deletion(-)
+> 
+> diff --git a/kernel/softirq.c b/kernel/softirq.c
+> index 787b3a0..020be2f 100644
+> --- a/kernel/softirq.c
+> +++ b/kernel/softirq.c
+> @@ -56,6 +56,7 @@ EXPORT_SYMBOL(irq_stat);
+>  static struct softirq_action softirq_vec[NR_SOFTIRQS] __cacheline_aligned_in_smp;
+>  
+>  DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
+> +DEFINE_PER_CPU(unsigned long, softirq_looped);
+>  
+>  char *softirq_to_name[NR_SOFTIRQS] = {
+>  	"HI", "TIMER", "NET_TX", "NET_RX", "BLOCK", "BLOCK_IOPOLL",
+> @@ -271,6 +272,9 @@ asmlinkage void __do_softirq(void)
+>  
+>  	pending = local_softirq_pending();
+>  	if (pending) {
+> +		/* Still busy? Remember this for invoke_softirq() below... */
+> +		this_cpu_write(softirq_looped, jiffies);
+> +
+>  		if (time_before(jiffies, end) && !need_resched() &&
+>  		    --max_restart)
+>  			goto restart;
+> @@ -330,7 +334,11 @@ void irq_enter(void)
+>  
+>  static inline void invoke_softirq(void)
+>  {
+> -	if (!force_irqthreads) {
+> +	/*
+> +	 * If force_irqthreads is set, or if we looped in __do_softirq this
+> +	 * jiffie, punt to ksoftirqd to prevent userland starvation.
+> +	 */
+> +	if (!force_irqthreads && this_cpu_read(softirq_looped) != jiffies) {
+>  		/*
+>  		 * We can safely execute softirq on the current stack if
+>  		 * it is the irq stack, because it should be near empty
 
-[ I previously thought we would need a flag in the skb to determine if the
-  net_device uses single NAPI, but in fact we can just follow skb->dev. ]
 
-Being bound to a local address is determined by the sk's inet_saddr,
- since that appears to be set to 0 when binding to a multicast or
- broadcast address (which is what we want, because they might get packets
- from any interface).  But I'm not entirely confident this is correct.
+I guess this is the tradeoff between latencies and throughput.
 
-Only implemented for IPv4, because I'm even less sure about the "are we
- bound to a real unicast address" logic in the IPv6 case.
+Have you tried some TCP_RR  / UDP_RR tests with one / multiple
+instances, and have you tried drivers that use deferred skb freeing
+(hard irq calling TX completion handler, then dev_kfree_skb_any()
+scheduling TX softirq) and increase chance of having a not zero
+local_softirq_pending() 
 
-Tested by setting IFF_SINGLE_NAPI in sfc; a UDP ping-pong test showed a
- performance benefit from sysctl net.core.busy_{read,poll}=50 in both the
- connected and unconnected case, where previously it only saw the benefit
- when the socket had been connected.
----
- include/linux/netdevice.h |  3 +++
- net/ipv4/udp.c            | 11 +++++++++--
- 2 files changed, 12 insertions(+), 2 deletions(-)
+Calling skb destructor on a different cpu can have a huge false sharing
+effect. A TCP socket is really big.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 775cc95..d63e10e 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1173,6 +1173,7 @@ struct net_device_ops {
-  * @IFF_LIVE_ADDR_CHANGE: device supports hardware address
-  *	change when it's running
-  * @IFF_MACVLAN: Macvlan device
-+ * @IFF_SINGLE_NAPI: device uses a single NAPI context for all rx queues
-  */
- enum netdev_priv_flags {
- 	IFF_802_1Q_VLAN			= 1<<0,
-@@ -1197,6 +1198,7 @@ enum netdev_priv_flags {
- 	IFF_SUPP_NOFCS			= 1<<19,
- 	IFF_LIVE_ADDR_CHANGE		= 1<<20,
- 	IFF_MACVLAN			= 1<<21,
-+	IFF_SINGLE_NAPI			= 1<<22,
- };
- 
- #define IFF_802_1Q_VLAN			IFF_802_1Q_VLAN
-@@ -1221,6 +1223,7 @@ enum netdev_priv_flags {
- #define IFF_SUPP_NOFCS			IFF_SUPP_NOFCS
- #define IFF_LIVE_ADDR_CHANGE		IFF_LIVE_ADDR_CHANGE
- #define IFF_MACVLAN			IFF_MACVLAN
-+#define IFF_SINGLE_NAPI			IFF_SINGLE_NAPI
- 
- /*
-  *	The DEVICE structure.
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 4468e1a..f4561fa 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1420,14 +1420,21 @@ static void udp_v4_rehash(struct sock *sk)
- 	udp_lib_rehash(sk, new_hash);
- }
- 
-+/* If the device only uses one NAPI context for all receive queues, then
-+ * we only need to be bound, not connected, to safely sk_mark_napi_id */
-+static inline bool udp_single_napi(struct sock *sk, struct sk_buff *skb)
-+{
-+	return inet_sk(sk)->inet_saddr && (skb->dev->priv_flags & IFF_SINGLE_NAPI);
-+}
-+
- static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- {
- 	int rc;
- 
--	if (inet_sk(sk)->inet_daddr) {
-+	if (inet_sk(sk)->inet_daddr)
- 		sock_rps_save_rxhash(sk, skb);
-+	if (inet_sk(sk)->inet_daddr || udp_single_napi(sk, skb))
- 		sk_mark_napi_id(sk, skb);
--	}
- 
- 	rc = sock_queue_rcv_skb(sk, skb);
- 	if (rc < 0) {
--- 
-1.7.11.7
+Your test only UDP_STREAM stresses the RX part, and UDP sockets dont
+use the complex callbacks TCP sockets use.
