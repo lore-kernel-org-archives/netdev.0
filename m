@@ -1,74 +1,80 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 13/13] i40evf: program RSS LUT correctly
-Date: Fri, 11 Apr 2014 06:53:03 -0700
-Message-ID: <1397224383-19269-14-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1397224383-19269-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch A Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 00/13][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 11 Apr 2014 06:52:50 -0700
+Message-ID: <1397224383-19269-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:47069 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758773AbaDKNxO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Apr 2014 09:53:14 -0400
-In-Reply-To: <1397224383-19269-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1755655AbaDKNxJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Apr 2014 09:53:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch A Williams <mitch.a.williams@intel.com>
+This series contains updates to e1000, e1000e, igb, igbvf, ixgb, ixgbe,
+ixgbevf and i40evf.
 
-A recent change broke the RSS LUT programming, causing it to be
-programmed with all 0. Correct this by actually assigning the
-incremented value back to the counter variable so that the increment
-will be remembered by the calling function.
+Mark fixes an issue with ixgbe and ixgbevf by adding a bit to indicate
+when workqueues have been initialized.  This permits the register read
+error handling from attempting to use them prior to that, which also
+generates warnings.  Checking for a detected removal after initializing
+the work queues allows the probe function to return an error without
+getting the workqueue involved.  Further, if the error_detected
+callback is entered before the workqueues are initialized, exit without
+recovery since the device initialization was so truncated.
 
-While we're at it, add a proper kernel-doc function comment to our
-helper function.
+Francois Romieu provides several patches to all the drivers to remove
+the open coded skb_cow_head.
 
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
+Jakub Kicinski provides a fix for igb where last_rx_timestamp should be
+updated only when Rx time stamp is read.
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index e35e66f..2797548 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1412,6 +1412,14 @@ restart_watchdog:
- 	schedule_work(&adapter->adminq_task);
- }
- 
-+/**
-+ * i40evf_configure_rss - increment to next available tx queue
-+ * @adapter: board private structure
-+ * @j: queue counter
-+ *
-+ * Helper function for RSS programming to increment through available
-+ * queus. Returns the next queue value.
-+ **/
- static int next_queue(struct i40evf_adapter *adapter, int j)
- {
- 	j += 1;
-@@ -1451,10 +1459,14 @@ static void i40evf_configure_rss(struct i40evf_adapter *adapter)
- 	/* Populate the LUT with max no. of queues in round robin fashion */
- 	j = adapter->vsi_res->num_queue_pairs;
- 	for (i = 0; i <= I40E_VFQF_HLUT_MAX_INDEX; i++) {
--		lut = next_queue(adapter, j);
--		lut |= next_queue(adapter, j) << 8;
--		lut |= next_queue(adapter, j) << 16;
--		lut |= next_queue(adapter, j) << 24;
-+		j = next_queue(adapter, j);
-+		lut = j;
-+		j = next_queue(adapter, j);
-+		lut |= j << 8;
-+		j = next_queue(adapter, j);
-+		lut |= j << 16;
-+		j = next_queue(adapter, j);
-+		lut |= j << 24;
- 		wr32(hw, I40E_VFQF_HLUT(i), lut);
- 	}
- 	i40e_flush(hw);
+Mitch provides a fix for i40evf where a recent change broke the RSS LUT
+programming causing it to be programmed with all 0's.
+
+The following are changes since commit 6d39d589bb76ee8a1c6cde6822006ae0053decff:
+  net: core: don't account for udp header size when computing seglen
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
+
+Francois Romieu (8):
+  ixgbe: remove open-coded skb_cow_head
+  ixgbevf: remove open-coded skb_cow_head
+  e1000: remove open-coded skb_cow_head
+  e1000e: remove open-coded skb_cow_head
+  igb: remove open-coded skb_cow_head
+  igbvf: remove open-coded skb_cow_head
+  ixgb: remove open-coded skb_cow_head
+  i40evf: remove open-coded skb_cow_head
+
+Jakub Kicinski (2):
+  e1000: remove debug messages with function names
+  igb: fix last_rx_timestamp usage
+
+Mark Rustad (2):
+  ixgbe: Add bit to mark service task initialization
+  ixgbevf: Add bit to mark work queue initialization
+
+Mitch A Williams (1):
+  i40evf: program RSS LUT correctly
+
+ drivers/net/ethernet/intel/e1000/e1000_hw.c       | 124 ----------------------
+ drivers/net/ethernet/intel/e1000/e1000_main.c     |  11 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c        |  10 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c     |  10 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c   |  20 +++-
+ drivers/net/ethernet/intel/igb/igb.h              |  16 +--
+ drivers/net/ethernet/intel/igb/igb_main.c         |  13 +--
+ drivers/net/ethernet/intel/igb/igb_ptp.c          |  14 +--
+ drivers/net/ethernet/intel/igbvf/netdev.c         |  16 ++-
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c       |  10 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h          |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  28 +++--
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   1 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  20 ++--
+ 14 files changed, 91 insertions(+), 203 deletions(-)
+
 -- 
 1.9.0
