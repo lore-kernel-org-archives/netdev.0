@@ -1,46 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3] ipv6: Limit mtu to 65575 bytes
-Date: Fri, 11 Apr 2014 08:26:43 -0700
-Message-ID: <1397230003.16584.96.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5345A2B3.7040602@gmail.com>
-	 <1397079665.16584.17.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140409223546.GH27255@order.stressinduktion.org>
-	 <1397090170.16584.21.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140410235459.GK27255@order.stressinduktion.org>
-	 <1397176824.16584.52.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1397180530.16584.69.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <534753D4.6070600@linux-ipv6.org>
-	 <1397186427.16584.86.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1397190216.16584.90.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140411132207.GO27255@order.stressinduktion.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH 2/2] macvlan: Move broadcasts into a work queue
+Date: Fri, 11 Apr 2014 09:11:57 -0700
+Message-ID: <5348144D.9050607@candelatech.com>
+References: <20140407142334.GA28814@gondor.apana.org.au> <53442868.3090701@candelatech.com> <20140408172349.GA7147@gondor.apana.org.au> <20140410.214023.849284639345029049.davem@davemloft.net> <20140411015906.GB31251@gondor.apana.org.au> <1397182170.16584.75.camel@edumazet-glaptop2.roam.corp.google.com> <20140411021300.GA31748@gondor.apana.org.au> <063D6719AE5E284EB5DD2968C1650D6D0F6F5DE1@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+Cc: "'Herbert Xu'" <herbert@gondor.apana.org.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
 	David Miller <davem@davemloft.net>,
-	Francois WELLENREITER <f.wellenreiter@gmail.com>,
-	netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:49634 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754049AbaDKP0p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 11:26:45 -0400
-Received: by mail-pd0-f175.google.com with SMTP id x10so5371084pdj.6
-        for <netdev@vger.kernel.org>; Fri, 11 Apr 2014 08:26:45 -0700 (PDT)
-In-Reply-To: <20140411132207.GO27255@order.stressinduktion.org>
+Received: from mail.candelatech.com ([208.74.158.172]:35334 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759163AbaDKQMK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 12:12:10 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6F5DE1@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-04-11 at 15:22 +0200, Hannes Frederic Sowa wrote:
-
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+On 04/11/2014 01:45 AM, David Laight wrote:
+>>> ARP filter would require to inspect the queried IPv4 address, and
+>>> macvlan do not currently have a list of IPv4 addresses per port.
+>>
+>> Indeed.  Thanks for snapping us out of our collective daydream :)
 > 
-> Eric, the optimization for limiting the mtu in tcp case is still possible.
-> It is not that people don't care. ;)
+> You could save the info from ARP responses.
+> 
+> Whether you want that much layer-breaking is another matter.
+> By the sound of it, it might be worth doing the deep packet
+> inspection at startup.
 
-I am not sure I want to add an additional test in TCP, as current
-systems do not really have performance issues. I would 99.99% of the
-time, MSS is already a multiple of 4.
+I wouldn't want to keep history, but in most network scenarios,
+having only the interface with the matching MAC answer the APR is good
+enough.
 
-I think we have more pressing problems ;)
+I've too much else to worry about to code this up now though.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
