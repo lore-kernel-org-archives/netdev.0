@@ -1,118 +1,54 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] netlink: preserve netlink pkt_type on dev_queue_xmit_nit
-Date: Fri, 11 Apr 2014 20:25:29 +0200
-Message-ID: <1397240729-32667-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, Jakub Zawadzki <darkjames-ws@darkjames.pl>
-To: davem@davemloft.net
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: Should linux send netlink message as it is deleting that
+ routing entry?
+Date: Fri, 11 Apr 2014 11:30:42 -0700
+Message-ID: <20140411113042.4328c39c@nehalam.linuxnetplumber.net>
+References: <534654FE.3040804@gmail.com>
+	<5347B2C4.6040103@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	ebiederm@xmission.com, ja@ssi.bg,
+	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
+	"Tao, Yue" <Yue.Tao@windriver.com>,
+	"Zadoyan, Grant" <Grant.Zadoyan@windriver.com>,
+	eric.dumazet@gmail.com, socketcan@hartkopp.net,
+	hannes@stressinduktion.org, cwang@twopensource.com
+To: zhuyj <zyjzyj2000@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32917 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754521AbaDKSZe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Apr 2014 14:25:34 -0400
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:49841 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752807AbaDKSaq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 14:30:46 -0400
+Received: by mail-pb0-f44.google.com with SMTP id rp16so5727672pbb.31
+        for <netdev@vger.kernel.org>; Fri, 11 Apr 2014 11:30:45 -0700 (PDT)
+In-Reply-To: <5347B2C4.6040103@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In dev_queue_xmit_nit(), we unconditionally overwrite
-the pkt_type of the new skb clone to PACKET_OUTGOING,
-thus in packet sockets, we always propagate this to
-sll_pkttype member of struct sockaddr_ll.
+On Fri, 11 Apr 2014 17:15:48 +0800
+zhuyj <zyjzyj2000@gmail.com> wrote:
 
-Hence, probe for skb_nit_type_netlink() and in case
-we tap on a non-netlink socket, overwrite the setting
-to PACKET_OUTGOING just as before. I think we can mark
-the _non_-netlink sockets as likely since i) we don't
-expect such heavy load in netlink messages as we do
-with network packets, and ii) tapping on netlink
-messages is rather to be considered a rare event
-compared to tapping on network packets.
+> > With ubuntu 12.04, I run the following to reproduce this defect.
+> >
+> > 1) Configure an interface
+> > ifconfig eth1 150.0.0.1/24 up
+> >
+> > 2) Add routing entry via that interface address
+> > route add -net 200.0.0.0/24 gw 150.0.0.1
+> >
+> > 3) Change the ip address on that interface as shown below.
+> > ifconfig eth1 151.0.0.1/24 up
+> >
+> > 4) Check netlink messages with "ip monitor all". There is no route 
+> > delete netlink message.
+> >
 
-I have tested this with capturing on latest netsniff-ng
-and propagation works fine. While at it, we also fixed
-up the comment style and added two cases where their
-conditions are to be considered unlikely() as well.
-
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Jakub Zawadzki <darkjames-ws@darkjames.pl>
----
- include/linux/skbuff.h |  7 +++++++
- net/core/dev.c         | 21 +++++++++++----------
- 2 files changed, 18 insertions(+), 10 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 08074a8..11445bf 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -33,6 +33,7 @@
- #include <linux/dma-mapping.h>
- #include <linux/netdev_features.h>
- #include <linux/sched.h>
-+#include <linux/if_packet.h>
- #include <net/flow_keys.h>
- 
- /* A. Checksumming of received packets by device.
-@@ -2974,6 +2975,12 @@ int skb_checksum_setup(struct sk_buff *skb, bool recalculate);
- 
- u32 __skb_get_poff(const struct sk_buff *skb);
- 
-+static inline bool skb_nit_type_netlink(const struct sk_buff *skb)
-+{
-+	return skb->pkt_type == PACKET_USER ||
-+	       skb->pkt_type == PACKET_KERNEL;
-+}
-+
- /**
-  * skb_head_is_locked - Determine if the skb->head is locked down
-  * @skb: skb to check
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 14dac06..5bed6b8 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1742,7 +1742,7 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
- 		 * they originated from - MvS (miquels@drinkel.ow.org)
- 		 */
- 		if ((ptype->dev == dev || !ptype->dev) &&
--		    (!skb_loop_sk(ptype, skb))) {
-+		    !skb_loop_sk(ptype, skb)) {
- 			if (pt_prev) {
- 				deliver_skb(skb2, pt_prev, skb->dev);
- 				pt_prev = ptype;
-@@ -1750,27 +1750,28 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
- 			}
- 
- 			skb2 = skb_clone(skb, GFP_ATOMIC);
--			if (!skb2)
-+			if (unlikely(!skb2))
- 				break;
- 
- 			net_timestamp_set(skb2);
- 
--			/* skb->nh should be correctly
--			   set by sender, so that the second statement is
--			   just protection against buggy protocols.
-+			/* skb->nh should be correctly set by sender, so
-+			 * that the second statement is just protection
-+			 * against buggy protocols.
- 			 */
- 			skb_reset_mac_header(skb2);
- 
--			if (skb_network_header(skb2) < skb2->data ||
--			    skb_network_header(skb2) > skb_tail_pointer(skb2)) {
-+			if (unlikely(skb_network_header(skb2) < skb2->data ||
-+				     skb_network_header(skb2) >
-+				     skb_tail_pointer(skb2))) {
- 				net_crit_ratelimited("protocol %04x is buggy, dev %s\n",
--						     ntohs(skb2->protocol),
--						     dev->name);
-+						     ntohs(skb2->protocol), dev->name);
- 				skb_reset_network_header(skb2);
- 			}
- 
- 			skb2->transport_header = skb2->network_header;
--			skb2->pkt_type = PACKET_OUTGOING;
-+			if (likely(!skb_nit_type_netlink(skb2)))
-+				skb2->pkt_type = PACKET_OUTGOING;
- 			pt_prev = ptype;
- 		}
- 	}
--- 
-1.7.11.7
+With IPv4 there are several cases where there is a non-notified
+implicit route withdrawal. This is not something that can be fixed.
+There are two issues:
+ 1. with large backbone size route tables (ie 1M routes), the number
+    of notification messages becomes a bottleneck and would be unreliable
+ 2. the existing routing daemons (quagga, bird, etc) all understand/expect
+    the existing semantics
