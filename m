@@ -1,67 +1,52 @@
-From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH 0/2] introduce devm_mdiobus_alloc/devm_mdiobus_free
-Date: Fri, 11 Apr 2014 14:05:25 +0300
-Message-ID: <5347CC75.8040300@ti.com>
-References: <1396618825-4241-1-git-send-email-grygorii.strashko@ti.com>
-	<CAGVrzcZ8vXBn4omyR7+ejihhcrspt-Rz_BBh55esxNFO06gHgQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: What causes these TCP packet getting lost in linux kernel
+Date: Fri, 11 Apr 2014 03:41:06 -0700
+Message-ID: <1397212866.16584.93.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAMRd1sXbgcGQuBKd6b-wwkrsqgh_4QicfyR=1hh+TqyYUjYHFA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: dlos <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
-        "linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <santosh.shilimkar-l0cyMroinI0@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Jonathan
- Cameron <jic23-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-In-Reply-To: <CAGVrzcZ8vXBn4omyR7+ejihhcrspt-Rz_BBh55esxNFO06gHgQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: <davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-Errors-To: davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: chptx y <chptxy@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:60441 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755160AbaDKKlI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 06:41:08 -0400
+Received: by mail-pb0-f47.google.com with SMTP id up15so5255660pbc.20
+        for <netdev@vger.kernel.org>; Fri, 11 Apr 2014 03:41:07 -0700 (PDT)
+In-Reply-To: <CAMRd1sXbgcGQuBKd6b-wwkrsqgh_4QicfyR=1hh+TqyYUjYHFA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
-On 04/11/2014 07:55 AM, Florian Fainelli wrote:
-> Hi Grygorii,
+On Fri, 2014-04-11 at 15:19 +0800, chptx y wrote:
+> Hi,
 > 
-> 2014-04-04 6:40 GMT-07:00 Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>:
->> Introduce a resource managed devm_mdiobus_alloc()/devm_mdiobus_free()
->> to automatically clean up MDIO bus alocations made by MDIO drivers,
->> thus leading to simplified MDIO drivers code.
->>
->> Update Davinci MDIO driver ss example of new devm APIs usage.
+> I captured these packets with tcpdump on Android device(linux 3.4.39),
+> these packets are in a HTTP GET Stream:
 > 
-> This does look good at first glance. net-next is currently closed at
-> the moment, so this will have to be merged later.
-
-Thanks. It can wait for 3.16, so I'll update & resend after rc1.
-I have few more patches for davinci_mdio.c, so
-my intention here was to check if I can base them on top of new API or not :)
-
+> 1  385.447794 Server -> Client: SEQ 12517, LEN 100
+> 2  385.498345 Client -> Server: SEQ 3086, LEN 0, ACK 12617
+> 3  385.497836 Server -> Client: SEQ 12617, LEN 1348
+> 4  385.498644 Client -> Server: [DUP ACK] SEQ 3086, LEN 0, ACK 12617
+> 5  385.498735 Server -> Client: SEQ 13965, LEN 619
+> 6  385.498978 Client -> Server: [Dup ACK] SEQ 3086, LEN 0, ACK 12617
+> 7  385.718843 Server -> Client: [Retrans] SEQ 13965, LEN 619
+> 8  385.719280 Client -> Server: [DUP ACK] SEQ 3086, LEN 0, ACK 12617
+> 9  385.733230 Server -> Client: [Retrans] SEQ 12617, LEN 1348
+> 10 385.733602 Client -> Server: SEQ 3086, LEN 0, ACK 14584
+> 11 385.909921 Server -> Client: [Retrans] SEQ 12617, LEN 1348
+> 12 385.910449 Client -> Server: [DUP ACK][Window Upd.] SEQ 3086, LEN
+> 0, ACK 14584
+> 13 388.031541 Client -> Server: SEQ 832, LEN 0, ACK 4192, FIN
+> 14 388.031681 Client -> Server: SEQ 3086, LEN 0, ACK 14584, FIN
 > 
-> At some point, we might also want to handle the mdio_bus irq array, as
-> that one is also usually dynamically allocated. Maybe we could just do
-> a static irq[PHY_MAX_ADDR] allocation, 32 times the size of an integer
-> might not be worth a potential leak.
-
-It sounds good, but first of all irq field of mii_bus structure has to be made private. 
-And drivers have to use getter/setters to access it - then its type can be changes 
-simply and safely.
-
-By the way, mdiobus_register() can be handled using DEVM approach too, but it 
-will a bit more complex.
-
-[...]
+> Client is my device run tcpdump on.
 > 
+> packet #3 (SEQ 12617) has been captured yet, Is there any problem in
+> kernel causes this packet getting lost in upper layer? why does kernel
+> send packet #4 (DUP ACK) repeatedly?
 
-Regards,
-- grygorii
+Frame could be rejected because of a checksum error
+
+tcpdump -vv (On the android device)
