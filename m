@@ -1,45 +1,174 @@
-From: Stefan Roese <sr-ynQEQJNshbs@public.gmane.org>
-Subject: Re: [PATCH] net: sun4i-emac: add promiscuous support
-Date: Fri, 11 Apr 2014 11:55:50 +0200
-Message-ID: <5347BC26.4070907@denx.de>
-References: <1397209577-24443-1-git-send-email-marc.zyngier@arm.com>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net] r8152: check RTL8152_UNPLUG
+Date: Fri, 11 Apr 2014 17:54:31 +0800
+Message-ID: <1394712342-15778-4-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-To: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-sunxi+bncBCXMVYMKQEGRBC7YT2NAKGQEWLUECEY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1397209577-24443-1-git-send-email-marc.zyngier-5wv7dgnIgG8@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, <sejeong.na@samsung.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11.04.2014 11:46, Marc Zyngier wrote:
-> The sun4i-emac driver is rather primitive, and doesn't support
-> promiscuous mode. This makes usage such as bridging impossible,
-> which is a shame on virtualization capable HW such as the
-> Allwinner A20.
->
-> The fix is fairly simple: move the RX setup code to the ndo_set_rx_mode
-> vector, and add the required HW configuration when IFF_PROMISC is passed
-> by the core code.
->
-> This has been tested on a generic A20 box running a few virtual
-> machines hanging off a bridge with the EMAC chip as the link to the
-> outside world.
->
-> Cc: Stefan Roese <sr-ynQEQJNshbs@public.gmane.org>
-> Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-> Signed-off-by: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>
+When the device is unplugged, the driver would try to disable the
+device. Add checking the flag of RTL8152_UNPLUG to skip setting
+the device when it is unplugged. This could shorten the time of
+unloading the driver.
 
-Looks good, so:
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 48 insertions(+)
 
-Acked-by: Stefan Roese <sr-ynQEQJNshbs@public.gmane.org>
-
-Thanks,
-Stefan
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 18e12a3..3fbfb08 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -929,6 +929,9 @@ static int read_mii_word(struct net_device *netdev, int phy_id, int reg)
+ 	struct r8152 *tp = netdev_priv(netdev);
+ 	int ret;
+ 
++	if (test_bit(RTL8152_UNPLUG, &tp->flags))
++		return -ENODEV;
++
+ 	if (phy_id != R8152_PHY_ID)
+ 		return -EINVAL;
+ 
+@@ -949,6 +952,9 @@ void write_mii_word(struct net_device *netdev, int phy_id, int reg, int val)
+ {
+ 	struct r8152 *tp = netdev_priv(netdev);
+ 
++	if (test_bit(RTL8152_UNPLUG, &tp->flags))
++		return;
++
+ 	if (phy_id != R8152_PHY_ID)
+ 		return;
+ 
+@@ -1962,6 +1968,9 @@ static int rtl_enable(struct r8152 *tp)
+ 
+ static int rtl8152_enable(struct r8152 *tp)
+ {
++	if (test_bit(RTL8152_UNPLUG, &tp->flags))
++		return -ENODEV;
++
+ 	set_tx_qlen(tp);
+ 	rtl_set_eee_plus(tp);
+ 
+@@ -1994,6 +2003,9 @@ static void r8153_set_rx_agg(struct r8152 *tp)
+ 
+ static int rtl8153_enable(struct r8152 *tp)
+ {
++	if (test_bit(RTL8152_UNPLUG, &tp->flags))
++		return -ENODEV;
++
+ 	set_tx_qlen(tp);
+ 	rtl_set_eee_plus(tp);
+ 	r8153_set_rx_agg(tp);
+@@ -2006,6 +2018,11 @@ static void rtl8152_disable(struct r8152 *tp)
+ 	u32 ocp_data;
+ 	int i;
+ 
++	if (test_bit(RTL8152_UNPLUG, &tp->flags)) {
++		rtl_drop_queued_tx(tp);
++		return;
++	}
++
+ 	ocp_data = ocp_read_dword(tp, MCU_TYPE_PLA, PLA_RCR);
+ 	ocp_data &= ~RCR_ACPT_ALL;
+ 	ocp_write_dword(tp, MCU_TYPE_PLA, PLA_RCR, ocp_data);
+@@ -2232,6 +2249,9 @@ static void r8152b_exit_oob(struct r8152 *tp)
+ 	u32 ocp_data;
+ 	int i;
+ 
++	if (test_bit(RTL8152_UNPLUG, &tp->flags))
++		return;
++
+ 	ocp_data = ocp_read_dword(tp, MCU_TYPE_PLA, PLA_RCR);
+ 	ocp_data &= ~RCR_ACPT_ALL;
+ 	ocp_write_dword(tp, MCU_TYPE_PLA, PLA_RCR, ocp_data);
+@@ -2460,6 +2480,9 @@ static void r8153_first_init(struct r8152 *tp)
+ 	u32 ocp_data;
+ 	int i;
+ 
++	if (test_bit(RTL8152_UNPLUG, &tp->flags))
++		return;
++
+ 	rxdy_gated_en(tp, true);
+ 	r8153_teredo_off(tp);
+ 
+@@ -2687,6 +2710,11 @@ out:
+ 
+ static void rtl8152_down(struct r8152 *tp)
+ {
++	if (test_bit(RTL8152_UNPLUG, &tp->flags)) {
++		rtl_drop_queued_tx(tp);
++		return;
++	}
++
+ 	r8152_power_cut_en(tp, false);
+ 	r8152b_disable_aldps(tp);
+ 	r8152b_enter_oob(tp);
+@@ -2695,6 +2723,11 @@ static void rtl8152_down(struct r8152 *tp)
+ 
+ static void rtl8153_down(struct r8152 *tp)
+ {
++	if (test_bit(RTL8152_UNPLUG, &tp->flags)) {
++		rtl_drop_queued_tx(tp);
++		return;
++	}
++
+ 	r8153_u1u2en(tp, false);
+ 	r8153_power_cut_en(tp, false);
+ 	r8153_disable_aldps(tp);
+@@ -2904,6 +2937,9 @@ static void r8152b_init(struct r8152 *tp)
+ {
+ 	u32 ocp_data;
+ 
++	if (test_bit(RTL8152_UNPLUG, &tp->flags))
++		return;
++
+ 	if (tp->version == RTL_VER_01) {
+ 		ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_LED_FEATURE);
+ 		ocp_data &= ~LED_MODE_MASK;
+@@ -2939,6 +2975,9 @@ static void r8153_init(struct r8152 *tp)
+ 	u32 ocp_data;
+ 	int i;
+ 
++	if (test_bit(RTL8152_UNPLUG, &tp->flags))
++		return;
++
+ 	r8153_u1u2en(tp, false);
+ 
+ 	for (i = 0; i < 500; i++) {
+@@ -3213,6 +3252,9 @@ static int rtl8152_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
+ 	struct mii_ioctl_data *data = if_mii(rq);
+ 	int res;
+ 
++	if (test_bit(RTL8152_UNPLUG, &tp->flags))
++		return -ENODEV;
++
+ 	res = usb_autopm_get_interface(tp->intf);
+ 	if (res < 0)
+ 		goto out;
+@@ -3293,12 +3335,18 @@ static void r8152b_get_version(struct r8152 *tp)
+ 
+ static void rtl8152_unload(struct r8152 *tp)
+ {
++	if (test_bit(RTL8152_UNPLUG, &tp->flags))
++		return;
++
+ 	if (tp->version != RTL_VER_01)
+ 		r8152_power_cut_en(tp, true);
+ }
+ 
+ static void rtl8153_unload(struct r8152 *tp)
+ {
++	if (test_bit(RTL8152_UNPLUG, &tp->flags))
++		return;
++
+ 	r8153_power_cut_en(tp, true);
+ }
+ 
+-- 
+1.9.0
