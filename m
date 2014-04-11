@@ -1,57 +1,98 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net 1/2] gre: don't allow to add the same tunnel twice
-Date: Fri, 11 Apr 2014 15:51:18 +0200
-Message-ID: <1397224279-4161-2-git-send-email-nicolas.dichtel@6wind.com>
-References: <1397224279-4161-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Pravin B Shelar <pshelar@nicira.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 01/13] ixgbe: Add bit to mark service task initialization
+Date: Fri, 11 Apr 2014 06:52:51 -0700
+Message-ID: <1397224383-19269-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1397224383-19269-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:37692 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932075AbaDKNv3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 09:51:29 -0400
-In-Reply-To: <1397224279-4161-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mga11.intel.com ([192.55.52.93]:47069 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755788AbaDKNxK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Apr 2014 09:53:10 -0400
+In-Reply-To: <1397224383-19269-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Before the patch, it was possible to add two times the same tunnel:
-ip l a gre1 type gre remote 10.16.0.121 local 10.16.0.249
-ip l a gre2 type gre remote 10.16.0.121 local 10.16.0.249
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-It was possible, because ip_tunnel_newlink() calls ip_tunnel_find() with the
-argument dev->type, which was set only later (when calling ndo_init handler
-in register_netdevice()). Let's set this type in the setup handler, which is
-called before newlink handler.
+There needs to be an indication when the service task has been
+initialized. This is because register access prior to that time
+can detect a removal and attempt to schedule the service task.
+Adding the __IXGBE_SERVICE_INITED bit allows this to be checked
+and if not set prevent the service task scheduling. By checking
+for a removal right after initialization, the probe can be failed
+at that point without getting the service task involved.
 
-Introduced by commit c54419321455 ("GRE: Refactor GRE tunneling code.").
-
-CC: Pravin B Shelar <pshelar@nicira.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/ipv4/ip_gre.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 15 ++++++++++++++-
+ 2 files changed, 15 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index ec4f762efda5..94213c891565 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -463,6 +463,7 @@ static const struct net_device_ops ipgre_netdev_ops = {
- static void ipgre_tunnel_setup(struct net_device *dev)
- {
- 	dev->netdev_ops		= &ipgre_netdev_ops;
-+	dev->type		= ARPHRD_IPGRE;
- 	ip_tunnel_setup(dev, ipgre_net_id);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 55c53a1..1a12c1d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -811,6 +811,7 @@ enum ixgbe_state_t {
+ 	__IXGBE_DISABLED,
+ 	__IXGBE_REMOVING,
+ 	__IXGBE_SERVICE_SCHED,
++	__IXGBE_SERVICE_INITED,
+ 	__IXGBE_IN_SFP_INIT,
+ 	__IXGBE_PTP_RUNNING,
+ 	__IXGBE_PTP_TX_IN_PROGRESS,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 8436c65..00c9308 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -297,7 +297,8 @@ static void ixgbe_remove_adapter(struct ixgbe_hw *hw)
+ 		return;
+ 	hw->hw_addr = NULL;
+ 	e_dev_err("Adapter removed\n");
+-	ixgbe_service_event_schedule(adapter);
++	if (test_bit(__IXGBE_SERVICE_INITED, &adapter->state))
++		ixgbe_service_event_schedule(adapter);
  }
  
-@@ -501,7 +502,6 @@ static int ipgre_tunnel_init(struct net_device *dev)
- 	memcpy(dev->dev_addr, &iph->saddr, 4);
- 	memcpy(dev->broadcast, &iph->daddr, 4);
+ void ixgbe_check_remove(struct ixgbe_hw *hw, u32 reg)
+@@ -8023,6 +8024,10 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	/* EEPROM */
+ 	memcpy(&hw->eeprom.ops, ii->eeprom_ops, sizeof(hw->eeprom.ops));
+ 	eec = IXGBE_READ_REG(hw, IXGBE_EEC);
++	if (ixgbe_removed(hw->hw_addr)) {
++		err = -EIO;
++		goto err_ioremap;
++	}
+ 	/* If EEPROM is valid (bit 8 = 1), use default otherwise use bit bang */
+ 	if (!(eec & (1 << 8)))
+ 		hw->eeprom.ops.read = &ixgbe_read_eeprom_bit_bang_generic;
+@@ -8185,7 +8190,12 @@ skip_sriov:
+ 	setup_timer(&adapter->service_timer, &ixgbe_service_timer,
+ 		    (unsigned long) adapter);
  
--	dev->type		= ARPHRD_IPGRE;
- 	dev->flags		= IFF_NOARP;
- 	dev->priv_flags		&= ~IFF_XMIT_DST_RELEASE;
- 	dev->addr_len		= 4;
++	if (ixgbe_removed(hw->hw_addr)) {
++		err = -EIO;
++		goto err_sw_init;
++	}
+ 	INIT_WORK(&adapter->service_task, ixgbe_service_task);
++	set_bit(__IXGBE_SERVICE_INITED, &adapter->state);
+ 	clear_bit(__IXGBE_SERVICE_SCHED, &adapter->state);
+ 
+ 	err = ixgbe_init_interrupt_scheme(adapter);
+@@ -8494,6 +8504,9 @@ static pci_ers_result_t ixgbe_io_error_detected(struct pci_dev *pdev,
+ 
+ skip_bad_vf_detection:
+ #endif /* CONFIG_PCI_IOV */
++	if (!test_bit(__IXGBE_SERVICE_INITED, &adapter->state))
++		return PCI_ERS_RESULT_DISCONNECT;
++
+ 	rtnl_lock();
+ 	netif_device_detach(netdev);
+ 
 -- 
 1.9.0
