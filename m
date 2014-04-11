@@ -1,67 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv6: Limit mtu to 65572 bytes
-Date: Thu, 10 Apr 2014 18:58:45 -0700
-Message-ID: <1397181525.16584.70.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5345A2B3.7040602@gmail.com>
-	 <1397079665.16584.17.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140409223546.GH27255@order.stressinduktion.org>
-	 <1397090170.16584.21.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140410235459.GK27255@order.stressinduktion.org>
-	 <1397176824.16584.52.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1397180530.16584.69.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2/2] macvlan: Move broadcasts into a work queue
+Date: Fri, 11 Apr 2014 09:59:06 +0800
+Message-ID: <20140411015906.GB31251@gondor.apana.org.au>
+References: <20140407142334.GA28814@gondor.apana.org.au>
+ <53442868.3090701@candelatech.com>
+ <20140408172349.GA7147@gondor.apana.org.au>
+ <20140410.214023.849284639345029049.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Francois WELLENREITER <f.wellenreiter@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: greearb@candelatech.com, eric.dumazet@gmail.com,
 	netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:56231 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753294AbaDKB6s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2014 21:58:48 -0400
-Received: by mail-pb0-f45.google.com with SMTP id uo5so4729859pbc.4
-        for <netdev@vger.kernel.org>; Thu, 10 Apr 2014 18:58:48 -0700 (PDT)
-In-Reply-To: <1397180530.16584.69.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from ringil.hengli.com.au ([178.18.16.133]:38261 "EHLO
+	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754064AbaDKB7M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2014 21:59:12 -0400
+Content-Disposition: inline
+In-Reply-To: <20140410.214023.849284639345029049.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-04-10 at 18:42 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On Thu, Apr 10, 2014 at 09:40:23PM -0400, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Wed, 9 Apr 2014 01:23:49 +0800
 > 
-> Francois reported that setting big mtu on loopback device could prevent
-> tcp sessions making progress.
+> > On Tue, Apr 08, 2014 at 09:48:40AM -0700, Ben Greear wrote:
+> >> 
+> >> At least for ARPs, maybe we could inspect the packet and only
+> >> deliver to interfaces configured with the MAC that is being
+> >> ARPed for (or ones that are in promisc)?
+> > 
+> > Yes this would definitely be a great optimisation.
 > 
-> We do not support (yet ?) IPv6 Jumbograms and cook corrupted packets.
-> 
-> We must limit the IPv6 MTU to (65535 + 40) bytes in theory.
-> 
-> In practice, its better to align to a multiple of 4 for optimal TCP
-> performance.
+> Yes and you can use the direct rather than the workqueue path.
 
-Same story for IPv4 btw : current lo mtu=65536 is suboptimal
+This would be a worthy optimisation for bridge.c too.  In fact,
+I wonder if it would be possible to share some of the broadcast/
+multicast logic between macvlan and bridge.
 
-
-lpq83:~# ifconfig lo mtu 65536
-lpq83:~# ./netperf 
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-localhost () port 0 AF_INET
-Recv   Send    Send                          
-Socket Socket  Message  Elapsed              
-Size   Size    Size     Time     Throughput  
-bytes  bytes   bytes    secs.    10^6bits/sec  
-
- 87380  16384  16384    10.00    33020.76   
-
-
-lpq83:~# ifconfig lo mtu 65533
-lpq83:~# ./netperf 
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-localhost () port 0 AF_INET
-Recv   Send    Send                          
-Socket Socket  Message  Elapsed              
-Size   Size    Size     Time     Throughput  
-bytes  bytes   bytes    secs.    10^6bits/sec  
-
- 87380  16384  16384    10.00    39010.09   
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
