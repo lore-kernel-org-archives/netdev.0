@@ -1,106 +1,56 @@
-From: Mateusz Guzik <mguzik@redhat.com>
-Subject: Re: [PATCH] net: ipv4: current group_info should be put after using.
-Date: Fri, 11 Apr 2014 15:33:03 +0200
-Message-ID: <20140411133302.GE15546@mguzik.redhat.com>
-References: <1397237828.12958.3.camel@wxm-ubuntu>
- <20140411083533.GA15546@mguzik.redhat.com>
+From: "Lendacky, Thomas" <Thomas.Lendacky@amd.com>
+Subject: PHY driver loading for clause 45 PHY
+Date: Fri, 11 Apr 2014 13:47:41 +0000
+Message-ID: <986457BC66A4884EBFFDEFEBEB20F84C15F28CB2@satlexdag03.amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, chuansheng.liu@intel.com,
-	dongxing.zhang@intel.com, pmatouse@redhat.com
-To: "Wang, Xiaoming" <xiaoming.wang@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140411083533.GA15546@mguzik.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1blp0188.outbound.protection.outlook.com ([207.46.163.188]:25541
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756817AbaDKNrs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 09:47:48 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 11, 2014 at 10:35:33AM +0200, Mateusz Guzik wrote:
-> On Fri, Apr 11, 2014 at 01:37:08PM -0400, Wang, Xiaoming wrote:
-> > There is a memory leak in ping. Current group_info had been got in 
-> > ping_init_sock and group_info->usage increased. 
-> > But the usage hasn't decreased anywhere in ping.
-> > This will make this group_info never freed and cause memory leak.
-> > 
-> 
-> Memory leak is only one of possible side-effects, thus I believe commit
-> message should be adjusted.
-> 
-> This is a typical refcount leak exploitable by unprivileged users, so
-> side effects can range from nothing through memory leaks and crashes to
-> possibly privilege escalation.
-> 
-> That said losing ' and cause memory leak' from your commit message
-> would be fine in my opinion.
-> 
+Adding PHY library maintainer, Florian, directly...
 
-Huh, not sure why I wrote that last sentence, it does not make much
-sense. Sorry.
+I've encountered an issue trying to get a phy driver to load when the
+phy supports clause 45.  I  call get_phy_device passing in an mii_bus
+structure, an MMD address and true for is_c45.  The get_phy_device
+function calls the get_phy_id function which calls the appropriate c45
+routines to obtain the device ids for each available MMD device.
+However, phy_id is set to zero upon return (by get_phy_c45_ids).  This
+zero phy_id is used by phy_device_create to build a module name in an
+attempt to load a phy driver that is associated with the phy_id. Since
+the module name used doesn't match any of the ids associated with my
+phy driver, my phy driver does not load.
 
-There is a pending CVE request for this bug:
-http://seclists.org/oss-sec/2014/q2/97
+I've worked around this for now by patching phy_device_create just
+before calling request_module:
 
-The bug was introduced with:
-commit c319b4d76b9e583a5d88d6bf190e079c4e43213d
-Author: Vasiliy Kulikov <segoon@openwall.com>
-Date:   Fri May 13 10:01:00 2011 +0000
+diff -rup linux-3.14/drivers/net/phy/phy_device.c linux-3.14-build/drivers/net/phy/phy_device.c
+--- linux-3.14/drivers/net/phy/phy_device.c	2014-03-30 22:40:15.000000000 -0500
++++ linux-3.14-build/drivers/net/phy/phy_device.c	2014-04-08 15:51:24.000000000 -0500
+@@ -195,6 +195,9 @@ struct phy_device *phy_device_create(str
+ 	 * driver will get bored and give up as soon as it finds that
+ 	 * there's no driver _already_ loaded.
+ 	 */
++	if (is_c45 && (addr < ARRAY_SIZE(c45_ids->device_ids)))
++		phy_id = c45_ids->device_ids[addr];
++
+ 	request_module(MDIO_MODULE_PREFIX MDIO_ID_FMT, MDIO_ID_ARGS(phy_id));
+ 
+ 	device_initialize(&dev->dev);
 
-    net: ipv4: add IPPROTO_ICMP socket kind
+This builds the proper module name, but I'm not sure this is the proper
+thing to do.  Should the code loop through all the device_ids and issue
+a request_module for each non-zero id?  Or is there a better way to get
+a phy driver that supports clause 45 loaded?
 
-starting with 3.0 kernel.
-
-
-> See also a nit below.
-> 
-> > ---
-> >  net/ipv4/ping.c |   11 ++++++++---
-> >  1 files changed, 8 insertions(+), 3 deletions(-)
-> > 
-> > diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-> > index f4b19e5..2af7b1f 100644
-> > --- a/net/ipv4/ping.c
-> > +++ b/net/ipv4/ping.c
-> > @@ -255,23 +255,28 @@ int ping_init_sock(struct sock *sk)
-> >  	struct group_info *group_info = get_current_groups();
-> >  	int i, j, count = group_info->ngroups;
-> >  	kgid_t low, high;
-> > +	int ret = 0;
-> >  
-> >  	inet_get_ping_group_range_net(net, &low, &high);
-> >  	if (gid_lte(low, group) && gid_lte(group, high))
-> > -		return 0;
-> > +		goto out_release_group;
-> >  
-> 
-> Since group_info is not even used here maybe it would be better to leave
-> return 0 as it is and call get_current_groups before the loop?
-> 
-> >  	for (i = 0; i < group_info->nblocks; i++) {
-> >  		int cp_count = min_t(int, NGROUPS_PER_BLOCK, count);
-> >  		for (j = 0; j < cp_count; j++) {
-> >  			kgid_t gid = group_info->blocks[i][j];
-> >  			if (gid_lte(low, gid) && gid_lte(gid, high))
-> > -				return 0;
-> > +				goto out_release_group;
-> >  		}
-> >  
-> >  		count -= cp_count;
-> >  	}
-> >  
-> > -	return -EACCES;
-> > +	ret = -EACCES;
-> > +
-> > +out_release_group:
-> > +	put_group_info(group_info);
-> > +	return ret;
-> >  }
-> >  EXPORT_SYMBOL_GPL(ping_init_sock);
-> >  
-> 
-> -- 
-> Mateusz Guzik
-
--- 
-Mateusz Guzik
+Thanks,
+Tom
