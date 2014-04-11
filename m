@@ -1,35 +1,40 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCHv3 0/5] net: rfkill: gpio: cleanup and a few new acpi ids
-Date: Fri, 11 Apr 2014 09:32:57 +0200
-Message-ID: <1397201577.4420.1.camel@jlt4.sipsolutions.net>
-References: <1396360976-28657-1-git-send-email-heikki.krogerus@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Rhyland Klein <rklein-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>,
-	Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>,
-	Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
-	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1396360976-28657-1-git-send-email-heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Sender: linux-tegra-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Daniel J Blueman <daniel@quora.org>
+Subject: [PATCH] Don't build unused suspend/resume functions not enabled
+Date: Fri, 11 Apr 2014 16:14:26 +0800
+Message-ID: <1397204066-7389-1-git-send-email-daniel@quora.org>
+Cc: linux-kernel@vger.kernel.org, Daniel J Blueman <daniel@quora.org>
+To: Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-04-01 at 17:02 +0300, Heikki Krogerus wrote:
-> Hi,
-> 
-> I hope this one is OK with everyone.
+When CONFIG_PM_SLEEP isn't enabled, bnx2_suspend/resume are unused; don't
+build them when they aren't used.
 
-Looks good to me, all applied.
+Signed-off-by: Daniel J Blueman <daniel@quora.org>
+---
+ drivers/net/ethernet/broadcom/bnx2.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-It's in jberg/mac80211-next.git rfkill-gpio-cleanups branch, in case
-anybody needs this separately. John isn't taking pull requests for -next
-until after -rc1, at which point I'll send it to him.
-
-johannes
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index b14c606..617bfe6 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -8578,6 +8578,7 @@ bnx2_remove_one(struct pci_dev *pdev)
+ 	pci_disable_device(pdev);
+ }
+ 
++#ifdef CONFIG_PM_SLEEP
+ static int
+ bnx2_suspend(struct device *device)
+ {
+@@ -8616,7 +8617,6 @@ bnx2_resume(struct device *device)
+ 	return 0;
+ }
+ 
+-#ifdef CONFIG_PM_SLEEP
+ static SIMPLE_DEV_PM_OPS(bnx2_pm_ops, bnx2_suspend, bnx2_resume);
+ #define BNX2_PM_OPS (&bnx2_pm_ops)
+ 
+-- 
+1.8.3.2
