@@ -1,47 +1,42 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 2/2] macvlan: Move broadcasts into a work queue
-Date: Fri, 11 Apr 2014 09:20:18 -0700
-Message-ID: <53481642.9040008@candelatech.com>
-References: <20140407142334.GA28814@gondor.apana.org.au> <53442868.3090701@candelatech.com> <20140408172349.GA7147@gondor.apana.org.au> <20140410.214023.849284639345029049.davem@davemloft.net> <20140411015906.GB31251@gondor.apana.org.au> <1397182170.16584.75.camel@edumazet-glaptop2.roam.corp.google.com> <20140411021300.GA31748@gondor.apana.org.au> <063D6719AE5E284EB5DD2968C1650D6D0F6F5DE1@AcuExch.aculab.com> <5348144D.9050607@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] mvneta: software TSO implementation
+Date: Fri, 11 Apr 2014 12:58:38 -0400 (EDT)
+Message-ID: <20140411.125838.2303458258387254900.davem@davemloft.net>
+References: <20140411054847.GE30855@1wt.eu>
+	<20140411.022006.1718259701974368498.davem@davemloft.net>
+	<20140411063021.GH30855@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "'Herbert Xu'" <herbert@gondor.apana.org.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+Cc: eric.dumazet@gmail.com, ezequiel.garcia@free-electrons.com,
+	netdev@vger.kernel.org, thomas.petazzoni@free-electrons.com,
+	gregory.clement@free-electrons.com, simon.guinot@sequanux.org,
+	tawfik@marvell.com, alior@marvell.com
+To: w@1wt.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:42692 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759618AbaDKQU1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 12:20:27 -0400
-In-Reply-To: <5348144D.9050607@candelatech.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56403 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422731AbaDKQ6n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 12:58:43 -0400
+In-Reply-To: <20140411063021.GH30855@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/11/2014 09:11 AM, Ben Greear wrote:
-> On 04/11/2014 01:45 AM, David Laight wrote:
->>>> ARP filter would require to inspect the queried IPv4 address, and
->>>> macvlan do not currently have a list of IPv4 addresses per port.
->>>
->>> Indeed.  Thanks for snapping us out of our collective daydream :)
->>
->> You could save the info from ARP responses.
->>
->> Whether you want that much layer-breaking is another matter.
->> By the sound of it, it might be worth doing the deep packet
->> inspection at startup.
+From: Willy Tarreau <w@1wt.eu>
+Date: Fri, 11 Apr 2014 08:30:21 +0200
+
+> Do you think for example that having an xmit_tso() function which would
+> iterate over all segments and call something like :
+>    ->build_hdr()
+>    ->build_data()
+>    ->unroll_all()
 > 
-> I wouldn't want to keep history, but in most network scenarios,
-> having only the interface with the matching MAC answer the APR is good
-> enough.
+> would be sufficient ?
 
-I meant to say matching IP instead of matching MAC.
+Yes, something involving callbacks is probably going to be necessary.
 
-Thanks,
-Ben
+> I think that the fact you want to do it for NIU is a good opportunity
+> to try to do it the right way in the most generic mode, but we'll
+> surely need your help on this!
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+I can help for sure :)
