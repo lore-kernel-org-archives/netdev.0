@@ -1,36 +1,40 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [Patch iproute2] u32: add terminal parameter
-Date: Fri, 11 Apr 2014 14:04:46 -0700
-Message-ID: <20140411140446.6412e9dc@nehalam.linuxnetplumber.net>
-References: <1396631826-15188-1-git-send-email-xiyou.wangcong@gmail.com>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: [PATCH 1/2] FDDI: Reformat <linux/if_fddi.h> for 8-character
+ tabs
+Date: Fri, 11 Apr 2014 22:28:10 +0100 (BST)
+Message-ID: <alpine.LFD.2.11.1404112226010.31092@eddie.linux-mips.org>
+References: <alpine.LFD.2.11.1404080022120.26128@eddie.linux-mips.org>        <20140408.124631.2239975325018007505.davem@davemloft.net>        <alpine.LFD.2.11.1404081855360.2730@eddie.linux-mips.org> <20140408.141653.1416547338502980127.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:53195 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754397AbaDKVEt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 17:04:49 -0400
-Received: by mail-pd0-f181.google.com with SMTP id p10so5680619pdj.26
-        for <netdev@vger.kernel.org>; Fri, 11 Apr 2014 14:04:49 -0700 (PDT)
-In-Reply-To: <1396631826-15188-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from eddie.linux-mips.org ([78.24.191.182]:39179 "EHLO
+	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751831AbaDKV2L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 17:28:11 -0400
+Received: from localhost.localdomain ([127.0.0.1]:58021 "EHLO
+        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
+        by eddie.linux-mips.org with ESMTP id S6823925AbaDKV2KMqnAO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 23:28:10 +0200
+In-Reply-To: <20140408.141653.1416547338502980127.davem@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri,  4 Apr 2014 10:17:06 -0700
-Cong Wang <xiyou.wangcong@gmail.com> wrote:
+On Tue, 8 Apr 2014, David Miller wrote:
 
-> It is useful to allow user to specify to terminate u32 filter matching
-> when there is no action. Currently we only terminate it when there is
-> an action attached.
+> >  OK, where can I find the status of the tree, I wasn't able to track down 
+> > one before I posted these changes?
 > 
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->  tc/f_u32.c | 9 ++++++++-
->  1 file changed, 8 insertions(+), 1 deletion(-)
+> The net-next tree openning will be clearly announced on the netdev
+> mailing list.
+> 
+> Every developer working on networking changes should closely follow
+> that list.
 
-Iproute2 commands are supposed to be invertible.
-If you take something as input, it should be displayed on output.
+ OK, I've tracked down your announcements now so I know what to look for; 
+obviously I missed the acceptance window by a week, sigh...
+
+ Thanks for your guidance, have a good weekend!
+
+  Maciej
