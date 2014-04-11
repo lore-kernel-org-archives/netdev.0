@@ -1,125 +1,92 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: Should linux send netlink message as it is deleting that routing
- entry?
-Date: Fri, 11 Apr 2014 17:15:48 +0800
-Message-ID: <5347B2C4.6040103@gmail.com>
-References: <534654FE.3040804@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	ebiederm@xmission.com, ja@ssi.bg,
-	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
-	"Tao, Yue" <Yue.Tao@windriver.com>,
-	"Zadoyan, Grant" <Grant.Zadoyan@windriver.com>,
-	eric.dumazet@gmail.com, socketcan@hartkopp.net,
-	hannes@stressinduktion.org, cwang@twopensource.com,
-	zhuyj <zyjzyj2000@gmail.com>
+From: Marc Zyngier <marc.zyngier@arm.com>
+Subject: [PATCH] net: sun4i-emac: add promiscuous support
+Date: Fri, 11 Apr 2014 10:46:17 +0100
+Message-ID: <1397209577-24443-1-git-send-email-marc.zyngier@arm.com>
+Cc: Stefan Roese <sr@denx.de>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>
+To: linux-sunxi@googlegroups.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f43.google.com ([209.85.216.43]:37012 "EHLO
-	mail-qa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750805AbaDKJPu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 05:15:50 -0400
-Received: by mail-qa0-f43.google.com with SMTP id j15so5044872qaq.2
-        for <netdev@vger.kernel.org>; Fri, 11 Apr 2014 02:15:49 -0700 (PDT)
-In-Reply-To: <534654FE.3040804@gmail.com>
+Received: from fw-tnat.austin.arm.com ([217.140.110.23]:53484 "EHLO
+	collaborate-mta1.arm.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755998AbaDKJqT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 05:46:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, all
+The sun4i-emac driver is rather primitive, and doesn't support
+promiscuous mode. This makes usage such as bridging impossible,
+which is a shame on virtualization capable HW such as the
+Allwinner A20.
 
-Please help to look at this problem. And give us an official 
-explanation. Should linux send netlink message as it is deleting that 
-routing entry?
+The fix is fairly simple: move the RX setup code to the ndo_set_rx_mode
+vector, and add the required HW configuration when IFF_PROMISC is passed
+by the core code.
 
-Thanks a lot.
-Zhu Yanjun
+This has been tested on a generic A20 box running a few virtual
+machines hanging off a bridge with the EMAC chip as the link to the
+outside world.
 
-On 04/10/2014 04:23 PM, zhuyj wrote:
-> Hi, David
->
-> With ubuntu 12.04, I run the following to reproduce this defect.
->
-> 1) Configure an interface
-> ifconfig eth1 150.0.0.1/24 up
->
-> 2) Add routing entry via that interface address
-> route add -net 200.0.0.0/24 gw 150.0.0.1
->
-> 3) Change the ip address on that interface as shown below.
-> ifconfig eth1 151.0.0.1/24 up
->
-> 4) Check netlink messages with "ip monitor all". There is no route 
-> delete netlink message.
->
-> [ADDR]Deleted 3: eth1    inet 150.0.0.1/24 brd 150.0.0.255 scope 
-> global eth1
-> [ROUTE]Deleted 150.0.0.0/24 dev eth1  proto kernel  scope link src 
-> 150.0.0.1
-> [ROUTE]Deleted broadcast 150.0.0.255 dev eth1  table local  proto 
-> kernel  scope link  src 150.0.0.1
-> [ROUTE]Deleted broadcast 150.0.0.0 dev eth1  table local  proto 
-> kernel  scope link  src 150.0.0.1
-> [ROUTE]Deleted local 150.0.0.1 dev eth1  table local  proto kernel 
-> scope host  src 150.0.0.1
-> [NEIGH]224.0.0.251 dev eth1 lladdr 01:00:5e:00:00:fb NOARP
-> [NEIGH]224.0.0.22 dev eth1 lladdr 01:00:5e:00:00:16 NOARP
-> [ADDR]3: eth1    inet 151.0.0.1/16 brd 151.0.255.255 scope global eth1
-> [ROUTE]local 151.0.0.1 dev eth1  table local  proto kernel  scope 
-> host  src 151.0.0.1
-> [ROUTE]broadcast 151.0.255.255 dev eth1  table local  proto kernel 
-> scope link  src 151.0.0.1
-> [ROUTE]151.0.0.0/16 dev eth1  proto kernel  scope link  src 151.0.0.1
-> [ROUTE]broadcast 151.0.0.0 dev eth1  table local  proto kernel scope 
-> link  src 151.0.0.1
-> [ADDR]Deleted 3: eth1    inet 151.0.0.1/16 brd 151.0.255.255 scope 
-> global eth1
-> [ROUTE]Deleted 151.0.0.0/16 dev eth1  proto kernel  scope link src 
-> 151.0.0.1
-> [ROUTE]Deleted broadcast 151.0.255.255 dev eth1  table local proto 
-> kernel  scope link  src 151.0.0.1
-> [ROUTE]Deleted broadcast 151.0.0.0 dev eth1  table local  proto 
-> kernel  scope link  src 151.0.0.1
-> [ROUTE]Deleted local 151.0.0.1 dev eth1  table local  proto kernel 
-> scope host  src 151.0.0.1
-> [NEIGH]224.0.0.22 dev eth1 lladdr 01:00:5e:00:00:16 NOARP
-> [ADDR]3: eth1    inet 151.0.0.1/24 brd 151.0.0.255 scope global eth1
-> [ROUTE]local 151.0.0.1 dev eth1  table local  proto kernel  scope 
-> host  src 151.0.0.1
-> [ROUTE]broadcast 151.0.0.255 dev eth1  table local  proto kernel scope 
-> link  src 151.0.0.1
-> [ROUTE]151.0.0.0/24 dev eth1  proto kernel  scope link  src 151.0.0.1
-> [ROUTE]broadcast 151.0.0.0 dev eth1  table local  proto kernel scope 
-> link  src 151.0.0.1
->
-> There is no netlink message to notify that 200.0.0.0/24 is deleted. 
-> But in fact, this 200.0.0.0/24 route item disappears.
->
-> I checked the source code, and I found the following is the process to 
-> delete static routes when the attached interface is deleted.
->
->  1)               |  fib_netdev_event() {
->  1)               |    fib_disable_ip() {
->  1)   1.284 us    |      fib_sync_down_dev();
->  1)               |      fib_flush() {
->  1)               |        fib_table_flush() {
->  1)   0.129 us    |          fib_release_info();
->  1)   0.351 us    |          fib_release_info();
->  1)   4.605 us    |        }
->  1)               |        fib_table_flush() {
->  1)   0.096 us    |          fib_release_info();
->  1)   0.255 us    |          fib_release_info();
->  1)   4.770 us    |        }
->  1) + 11.787 us   |      }
->  1) ! 315.273 us  |    }
->  1) ! 315.888 us  |  }
->
-> But there is no netlink message sent here.
->
-> Should linux send netlink message as it is deleting that 200.0.0.0/24 
-> routing entry?
->
-> Best Regards!
-> Zhu Yanjun
->
->
+Cc: Stefan Roese <sr@denx.de>
+Cc: Maxime Ripard <maxime.ripard@free-electrons.com>
+Signed-off-by: Marc Zyngier <marc.zyngier@arm.com>
+---
+ drivers/net/ethernet/allwinner/sun4i-emac.c | 30 ++++++++++++++++++++---------
+ 1 file changed, 21 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
+index 511f6ee..6343beb 100644
+--- a/drivers/net/ethernet/allwinner/sun4i-emac.c
++++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
+@@ -268,15 +268,6 @@ static unsigned int emac_setup(struct net_device *ndev)
+ 	writel(reg_val | EMAC_TX_MODE_ABORTED_FRAME_EN,
+ 		db->membase + EMAC_TX_MODE_REG);
+ 
+-	/* set up RX */
+-	reg_val = readl(db->membase + EMAC_RX_CTL_REG);
+-
+-	writel(reg_val | EMAC_RX_CTL_PASS_LEN_OOR_EN |
+-		EMAC_RX_CTL_ACCEPT_UNICAST_EN | EMAC_RX_CTL_DA_FILTER_EN |
+-		EMAC_RX_CTL_ACCEPT_MULTICAST_EN |
+-		EMAC_RX_CTL_ACCEPT_BROADCAST_EN,
+-		db->membase + EMAC_RX_CTL_REG);
+-
+ 	/* set MAC */
+ 	/* set MAC CTL0 */
+ 	reg_val = readl(db->membase + EMAC_MAC_CTL0_REG);
+@@ -309,6 +300,26 @@ static unsigned int emac_setup(struct net_device *ndev)
+ 	return 0;
+ }
+ 
++static void emac_set_rx_mode(struct net_device *ndev)
++{
++	struct emac_board_info *db = netdev_priv(ndev);
++	unsigned int reg_val;
++
++	/* set up RX */
++	reg_val = readl(db->membase + EMAC_RX_CTL_REG);
++
++	if (ndev->flags & IFF_PROMISC)
++		reg_val |= EMAC_RX_CTL_PASS_ALL_EN;
++	else
++		reg_val &= ~EMAC_RX_CTL_PASS_ALL_EN;
++
++	writel(reg_val | EMAC_RX_CTL_PASS_LEN_OOR_EN |
++		EMAC_RX_CTL_ACCEPT_UNICAST_EN | EMAC_RX_CTL_DA_FILTER_EN |
++		EMAC_RX_CTL_ACCEPT_MULTICAST_EN |
++		EMAC_RX_CTL_ACCEPT_BROADCAST_EN,
++		db->membase + EMAC_RX_CTL_REG);
++}
++
+ static unsigned int emac_powerup(struct net_device *ndev)
+ {
+ 	struct emac_board_info *db = netdev_priv(ndev);
+@@ -782,6 +793,7 @@ static const struct net_device_ops emac_netdev_ops = {
+ 	.ndo_stop		= emac_stop,
+ 	.ndo_start_xmit		= emac_start_xmit,
+ 	.ndo_tx_timeout		= emac_timeout,
++	.ndo_set_rx_mode	= emac_set_rx_mode,
+ 	.ndo_do_ioctl		= emac_ioctl,
+ 	.ndo_change_mtu		= eth_change_mtu,
+ 	.ndo_validate_addr	= eth_validate_addr,
+-- 
+1.8.3.4
