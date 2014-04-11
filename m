@@ -1,43 +1,149 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: Limit mtu to 65572 bytes
-Date: Fri, 11 Apr 2014 04:57:07 +0200
-Message-ID: <20140411025707.GM27255@order.stressinduktion.org>
-References: <5345A2B3.7040602@gmail.com> <1397079665.16584.17.camel@edumazet-glaptop2.roam.corp.google.com> <20140409223546.GH27255@order.stressinduktion.org> <1397090170.16584.21.camel@edumazet-glaptop2.roam.corp.google.com> <20140410235459.GK27255@order.stressinduktion.org> <1397176824.16584.52.camel@edumazet-glaptop2.roam.corp.google.com> <1397180530.16584.69.camel@edumazet-glaptop2.roam.corp.google.com> <534753D4.6070600@linux-ipv6.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH] tuntap: add flow control to support back pressure
+Date: Fri, 11 Apr 2014 10:57:55 +0800
+Message-ID: <1397185075.6230.1.camel@localhost>
+References: <5345FFBC.7020502@adjacentlink.com>
+	 <20140410102931.GA12077@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Francois WELLENREITER <f.wellenreiter@gmail.com>,
-	netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:36488 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754064AbaDKC5I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2014 22:57:08 -0400
-Content-Disposition: inline
-In-Reply-To: <534753D4.6070600@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Steven Galgano <sgalgano@adjacentlink.com>, davem@davemloft.net,
+	xemul@parallels.com, wuzhy@linux.vnet.ibm.com, therbert@google.com,
+	yamato@redhat.com, richardcochran@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Brian Adamson <Brian.Adamson@nrl.navy.mil>,
+	Joseph Giovatto <jgiovatto@adjacentlink.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140410102931.GA12077@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 11, 2014 at 11:30:44AM +0900, YOSHIFUJI Hideaki wrote:
-> Eric Dumazet wrote:
-> 
-> > We must limit the IPv6 MTU to (65535 + 40) bytes in theory.
+On Thu, 2014-04-10 at 13:29 +0300, Michael S. Tsirkin wrote:
+> On Wed, Apr 09, 2014 at 10:19:40PM -0400, Steven Galgano wrote:
+> > Add tuntap flow control support for use by back pressure routing protocols. Setting the new TUNSETIFF flag IFF_FLOW_CONTROL, will signal resources as unavailable when the tx queue limit is reached by issuing a netif_tx_stop_all_queues() rather than discarding frames. A netif_tx_wake_all_queues() is issued after reading a frame from the queue to signal resource availability.
 > > 
-> > In practice, its better to align to a multiple of 4 for optimal TCP
-> > performance.
+> > Back pressure capability was previously supported by the legacy tun default mode. This change restores that functionality, which was last present in v3.7.
+> > 
+> > Reported-by: Brian Adamson <brian.adamson@nrl.navy.mil>
+> > Tested-by: Joseph Giovatto <jgiovatto@adjacentlink.com>
+> > Signed-off-by: Steven Galgano <sgalgano@adjacentlink.com>
 > 
-> It is a TCP issue.  We should not limit the mtu to 65532+40.
-> I am for 65535+40. Otherwise, other protocol such as UDP cannot
-> use full mtu as before.
+> I don't think it's a good idea.
+> 
+> This trivial flow control really created more problems than it was worth.
+> 
+> In particular this blocks all flows so it's trivially easy for one flow
+> to block and starve all others: just send a bunch of packets to loopback
+> destinations that get queued all over the place.
+> 
+> Luckily it was never documented so we changed the default and nothing
+> seems to break, but we won't be so lucky if we add an explicit API.
+> 
+> 
+> One way to implement this would be with ubuf_info callback this is
+> already invoked in most places where a packet might get stuck for a long
+> time.  It's still incomplete though: this will prevent head of queue
+> blocking literally forever, but a single bad flow can still degrade
+> performance significantly.
 
-I have not seen problems with max ipv6 mtu limit of 65535+40 and tcp.
-
-I agree this would be a better approach, and maybe & ~3 the mtu/mss
-in tcp code? I assume people expect maximum udp packet sizes working
-over loopback?
-
-Greetings,
-
-  Hannes
+This is send queue for tuntap. Like all other real nics, we can solve
+this through fairness qdiscs?
+> 
+> Another alternative is to try and isolate the flows that we
+> can handle and throttle them.
+> 
+> It's all fixable but we really need to fix the issues *before*
+> exposing the interface to userspace.
+> 
+> 
+> 
+> > ---
+> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> > index ee328ba..268130c 100644
+> > --- a/drivers/net/tun.c
+> > +++ b/drivers/net/tun.c
+> > @@ -783,8 +783,19 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+> >  	 * number of queues.
+> >  	 */
+> >  	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue) * numqueues
+> > -			  >= dev->tx_queue_len)
+> > -		goto drop;
+> > +			>= dev->tx_queue_len) {
+> > +		if (tun->flags & TUN_FLOW_CONTROL) {
+> > +			/* Resources unavailable stop transmissions */
+> > +			netif_tx_stop_all_queues(dev);
+> > +
+> > +			/* We won't see all dropped packets individually, so
+> > +			 * over run error is more appropriate.
+> > +			 */
+> > +			dev->stats.tx_fifo_errors++;
+> > +		} else {
+> > +			goto drop;
+> > +		}
+> > +	}
+> >  
+> >  	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
+> >  		goto drop;
+> > @@ -1362,6 +1373,9 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+> >  			continue;
+> >  		}
+> >  
+> > +		/* Wake in case resources previously signaled unavailable */
+> > +		netif_tx_wake_all_queues(tun->dev);
+> > +
+> >  		ret = tun_put_user(tun, tfile, skb, iv, len);
+> >  		kfree_skb(skb);
+> >  		break;
+> > @@ -1550,6 +1564,9 @@ static int tun_flags(struct tun_struct *tun)
+> >  	if (tun->flags & TUN_PERSIST)
+> >  		flags |= IFF_PERSIST;
+> >  
+> > +	if (tun->flags & TUN_FLOW_CONTROL)
+> > +		flags |= IFF_FLOW_CONTROL;
+> > +
+> >  	return flags;
+> >  }
+> >  
+> > @@ -1732,6 +1749,11 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+> >  	else
+> >  		tun->flags &= ~TUN_TAP_MQ;
+> >  
+> > +	if (ifr->ifr_flags & IFF_FLOW_CONTROL)
+> > +		tun->flags |= TUN_FLOW_CONTROL;
+> > +	else
+> > +		tun->flags &= ~TUN_FLOW_CONTROL;
+> > +
+> >  	/* Make sure persistent devices do not get stuck in
+> >  	 * xoff state.
+> >  	 */
+> > @@ -1900,7 +1922,8 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+> >  		 * This is needed because we never checked for invalid flags on
+> >  		 * TUNSETIFF. */
+> >  		return put_user(IFF_TUN | IFF_TAP | IFF_NO_PI | IFF_ONE_QUEUE |
+> > -				IFF_VNET_HDR | IFF_MULTI_QUEUE,
+> > +				IFF_VNET_HDR | IFF_MULTI_QUEUE |
+> > +				IFF_FLOW_CONTROL,
+> >  				(unsigned int __user*)argp);
+> >  	} else if (cmd == TUNSETQUEUE)
+> >  		return tun_set_queue(file, &ifr);
+> > diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
+> > index e9502dd..bcf2790 100644
+> > --- a/include/uapi/linux/if_tun.h
+> > +++ b/include/uapi/linux/if_tun.h
+> > @@ -36,6 +36,7 @@
+> >  #define TUN_PERSIST 	0x0100	
+> >  #define TUN_VNET_HDR 	0x0200
+> >  #define TUN_TAP_MQ      0x0400
+> > +#define TUN_FLOW_CONTROL 0x0800
+> >  
+> >  /* Ioctl defines */
+> >  #define TUNSETNOCSUM  _IOW('T', 200, int) 
+> > @@ -70,6 +71,7 @@
+> >  #define IFF_MULTI_QUEUE 0x0100
+> >  #define IFF_ATTACH_QUEUE 0x0200
+> >  #define IFF_DETACH_QUEUE 0x0400
+> > +#define IFF_FLOW_CONTROL 0x0010
+> >  /* read-only flag */
+> >  #define IFF_PERSIST	0x0800
+> >  #define IFF_NOFILTER	0x1000
