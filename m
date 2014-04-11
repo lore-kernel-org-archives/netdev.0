@@ -1,42 +1,45 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH] net/apne: replace IS_ERR and PTR_ERR with PTR_ERR_OR_ZERO
-Date: Fri, 11 Apr 2014 16:37:37 +0800
-Message-ID: <1397205457-24287-1-git-send-email-duanj.fnst@cn.fujitsu.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] ipv6: Limit mtu to 65572 bytes
+Date: Fri, 11 Apr 2014 08:40:42 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6F5DBD@AcuExch.aculab.com>
+References: <5345A2B3.7040602@gmail.com>
+	 <1397079665.16584.17.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140409223546.GH27255@order.stressinduktion.org>
+	 <1397090170.16584.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140410235459.GK27255@order.stressinduktion.org>
+	 <1397176824.16584.52.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1397180530.16584.69.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <534753D4.6070600@linux-ipv6.org>
+	 <20140411025707.GM27255@order.stressinduktion.org>
+ <1397186090.16584.82.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Duan Jiong <duanj.fnst@cn.fujitsu.com>
-To: <davem@davemloft.net>, <tedheadster@gmail.com>,
-	<geert@linux-m68k.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	David Miller <davem@davemloft.net>,
+	Francois WELLENREITER <f.wellenreiter@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([59.151.112.132]:47904 "EHLO
-	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750817AbaDKIjg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 04:39:36 -0400
+Received: from mx0.aculab.com ([213.249.233.131]:55501 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754654AbaDKImb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Apr 2014 04:42:31 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 22680-01 for <netdev@vger.kernel.org>;
+ Fri, 11 Apr 2014 09:42:21 +0100 (BST)
+In-Reply-To: <1397186090.16584.82.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes coccinelle error regarding usage of IS_ERR and
-PTR_ERR instead of PTR_ERR_OR_ZERO.
-
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
- drivers/net/ethernet/8390/apne.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/8390/apne.c b/drivers/net/ethernet/8390/apne.c
-index 30104b6..c56ac9e 100644
---- a/drivers/net/ethernet/8390/apne.c
-+++ b/drivers/net/ethernet/8390/apne.c
-@@ -560,9 +560,7 @@ static struct net_device *apne_dev;
- static int __init apne_module_init(void)
- {
- 	apne_dev = apne_probe(-1);
--	if (IS_ERR(apne_dev))
--		return PTR_ERR(apne_dev);
--	return 0;
-+	return PTR_ERR_OR_ZERO(apne_dev);
- }
- 
- static void __exit apne_module_exit(void)
--- 
-1.8.3.1
+RnJvbTogRXJpYyBEdW1hemV0DQo+IFllcywgcmVjZW50IEludGVsIGNwdXMgaGF2ZSByZWFsbHkg
+ZmFzdCBtZW0gY29weSwgZXZlbiB3aXRoIGRpZmZlcmVudA0KPiBhbGlnbm1lbnRzIGZvciBzb3Vy
+Y2UvZGVzdC4NCg0KWWVzLCB0aGV5J3ZlIGZpbmFsbHkgdGhyb3duIGEgc21hbGwgYW1vdW50IG9m
+IGxvZ2ljIGF0IGl0Lg0KUHJvYmFibHkgYSBjYWNoZSBsaW5lIHNpemVkIGJhcnJlbCBzaGlmdGVy
+Lg0KJ3JlcCBtb3ZzYicgaGFzIGFsc28gYmVlbiBvcHRpbWlzZWQgZm9yIHNob3J0IHRyYW5zZmVy
+cyAoYnV0IGlzDQpzbG93ZXIgZm9yIGxvbmdlciBvbmVzKS4NCg0KQXQgbGVhc3QgdGhlIHplcm8g
+bGVuZ3RoICdyZXAgbW92c2InIGF0IHRoZSBlbmQgb2YgdGhlIGlubGluZWQNCm1lbWNweSB3aWxs
+IG5vdCB0YWtlIDQwKyBjbG9ja3Mgb24gdGhvc2UgY3B1cy4NCg0KCURhdmlkDQoNCg==
