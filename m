@@ -1,52 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: What causes these TCP packet getting lost in linux kernel
-Date: Fri, 11 Apr 2014 03:41:06 -0700
-Message-ID: <1397212866.16584.93.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAMRd1sXbgcGQuBKd6b-wwkrsqgh_4QicfyR=1hh+TqyYUjYHFA@mail.gmail.com>
+From: Jonathan Cooper <jcooper@solarflare.com>
+Subject: Re: [RFC PATCH] udp: allow busy_poll on some unconnected sockets
+Date: Fri, 11 Apr 2014 11:44:07 +0100
+Message-ID: <5347C777.2080901@solarflare.com>
+References: <53455581.7060209@solarflare.com>   <20140409145129.GA4002@sbohrermbp13-local.rgmadvisors.com>   <53457334.1030602@solarflare.com>   <alpine.LFD.2.03.1404101856170.27143@solarflare.com>  <1397154745.16584.42.camel@edumazet-glaptop2.roam.corp.google.com>  <5346E520.7080007@solarflare.com> <1397156649.16584.45.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: chptx y <chptxy@gmail.com>
+Cc: Edward Cree <ecree@solarflare.com>, <netdev@vger.kernel.org>,
+	Shawn Bohrer <shawn.bohrer@gmail.com>,
+	Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:60441 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755160AbaDKKlI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 06:41:08 -0400
-Received: by mail-pb0-f47.google.com with SMTP id up15so5255660pbc.20
-        for <netdev@vger.kernel.org>; Fri, 11 Apr 2014 03:41:07 -0700 (PDT)
-In-Reply-To: <CAMRd1sXbgcGQuBKd6b-wwkrsqgh_4QicfyR=1hh+TqyYUjYHFA@mail.gmail.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:34537 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750892AbaDKKoM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 06:44:12 -0400
+In-Reply-To: <1397156649.16584.45.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-04-11 at 15:19 +0800, chptx y wrote:
-> Hi,
-> 
-> I captured these packets with tcpdump on Android device(linux 3.4.39),
-> these packets are in a HTTP GET Stream:
-> 
-> 1  385.447794 Server -> Client: SEQ 12517, LEN 100
-> 2  385.498345 Client -> Server: SEQ 3086, LEN 0, ACK 12617
-> 3  385.497836 Server -> Client: SEQ 12617, LEN 1348
-> 4  385.498644 Client -> Server: [DUP ACK] SEQ 3086, LEN 0, ACK 12617
-> 5  385.498735 Server -> Client: SEQ 13965, LEN 619
-> 6  385.498978 Client -> Server: [Dup ACK] SEQ 3086, LEN 0, ACK 12617
-> 7  385.718843 Server -> Client: [Retrans] SEQ 13965, LEN 619
-> 8  385.719280 Client -> Server: [DUP ACK] SEQ 3086, LEN 0, ACK 12617
-> 9  385.733230 Server -> Client: [Retrans] SEQ 12617, LEN 1348
-> 10 385.733602 Client -> Server: SEQ 3086, LEN 0, ACK 14584
-> 11 385.909921 Server -> Client: [Retrans] SEQ 12617, LEN 1348
-> 12 385.910449 Client -> Server: [DUP ACK][Window Upd.] SEQ 3086, LEN
-> 0, ACK 14584
-> 13 388.031541 Client -> Server: SEQ 832, LEN 0, ACK 4192, FIN
-> 14 388.031681 Client -> Server: SEQ 3086, LEN 0, ACK 14584, FIN
-> 
-> Client is my device run tcpdump on.
-> 
-> packet #3 (SEQ 12617) has been captured yet, Is there any problem in
-> kernel causes this packet getting lost in upper layer? why does kernel
-> send packet #4 (DUP ACK) repeatedly?
+On 10/04/14 20:04, Eric Dumazet wrote:
+> On Thu, 2014-04-10 at 19:38 +0100, Edward Cree wrote:
+>> On 10/04/14 19:32, Eric Dumazet wrote:
+>>> On Thu, 2014-04-10 at 19:04 +0100, Edward Cree wrote:
+>>>
+>>>> Tested by setting IFF_SINGLE_NAPI in sfc; a UDP ping-pong test showed a
+>>>>   performance benefit from sysctl net.core.busy_{read,poll}=50 in both the
+>>>>   connected and unconnected case, where previously it only saw the benefit
+>>>>   when the socket had been connected.
+>>> Right, but how often do we have single NAPI devices on hosts wanting
+>>> very low latencies ?
+>>>
+>> Well, sfc only has a single NAPI context per device, and I'm fairly sure
+>> most sfc users want very low latencies.
+>> Or have I misunderstood?
+> sfc is multi queue/channel, but has a single NAPI instance ?
+>
+> Sounds wierd.
+>
+> Please explain me, how GRO can be efficient.
+>
+> I believe you have one napi per channel.
+>
+Whoops, this is my fault, I derped reading our NAPI code. You are 
+entirely correct, we do have multiple NAPI instances per device, so our 
+proposed scheme is unworkable. We'll just have to connect the socket.
+Sorry to waste your time.
 
-Frame could be rejected because of a checksum error
-
-tcpdump -vv (On the android device)
+Jon
