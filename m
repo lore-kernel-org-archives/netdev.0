@@ -1,36 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net, V1 0/3] Fix issues with Heper-V network offload code
-Date: Fri, 11 Apr 2014 15:18:20 -0400 (EDT)
-Message-ID: <20140411.151820.2244532449368168368.davem@davemloft.net>
-References: <1397080810-17953-1-git-send-email-kys@microsoft.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH 0/3] mvneta: software TSO implementation
+Date: Fri, 11 Apr 2014 21:43:39 +0200
+Message-ID: <20140411194339.GA6758@1wt.eu>
+References: <1397170682-19138-1-git-send-email-ezequiel.garcia@free-electrons.com> <20140410.205128.1312451576920196881.davem@davemloft.net> <1397178150.16584.53.camel@edumazet-glaptop2.roam.corp.google.com> <20140411054847.GE30855@1wt.eu> <20140411190827.GC19199@arch.cereza>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org
-To: kys@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1397080810-17953-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	thomas.petazzoni@free-electrons.com,
+	gregory.clement@free-electrons.com, simon.guinot@sequanux.org,
+	tawfik@marvell.com, alior@marvell.com
+To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 1wt.eu ([62.212.114.60]:4133 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750735AbaDKTnr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Apr 2014 15:43:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20140411190827.GC19199@arch.cereza>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Date: Wed,  9 Apr 2014 15:00:10 -0700
-
-> WS2008 R2 does not support udp checksum offload. Furthermore, ws2012 and
-> ws2012 r2 have issues offloading udp checksum from Linux guests.
-> This patch-set addresses these issues as well as other bug fixes.
-> Please apply.
+On Fri, Apr 11, 2014 at 04:08:27PM -0300, Ezequiel Garcia wrote:
+> On Apr 11, Willy Tarreau wrote:
+> > On Thu, Apr 10, 2014 at 06:02:30PM -0700, Eric Dumazet wrote:
+> > > On Thu, 2014-04-10 at 20:51 -0400, David Miller wrote:
+> > > > This is not really driver specific code.
+> > > > 
+> > > > Please create an appropriate abstraction, and put this code in a
+> > > > common place so that any driver can do this.
+> > > > 
+> > > > Thanks.
+> > > 
+> > > Note a prior implementation existed in
+> > > 
+> > > drivers/net/ethernet/tile/tilegx.c
+> > > 
+> > > Note sure how it can be properly factorized, but worth trying .
+> > 
+> > I also tried to find how to do this for mv643xx_eth a few years ago
+> > 
+> [..]
 > 
-> In this version, I have addressed the comment from David Miller with reagards
-> to COWing the skb prior to modifying the header (patch 3/3).
+> Can you share *any* code about this attempt on mv643xx_eth? It would be
+> helpful to see other TSO cases, to have more examples in order to come
+> up with a proper abstraction.
 
-This looks a lot better, series applied, thanks.
+Unfortunately no. I remember that I picked the equivalent code from
+mv_eth in the kirkwood's LSP and tried to adapt it to the mainline
+driver, but unfortunately by then I didn't exactly understand well
+what the driver was doing despite Eric explaining me a few things
+about GSO and segmentation. Too many things were obscure to me and
+I had to give up. The only vague memories I have are that this NIC
+doesn't support Tx csum on VLANs nor IPv6. That's about all, I regret.
+
+By the way, I could be wrong but I also have some memories about this
+in the myri10ge driver. I recall something like it using software TSO
+for VLANs or IPv6 or a combination of both, I don't exactly remember.
+It's also possible that it depends on the firmware versions. Anyway the
+driver is clean and well commented, it's easier to read than average.
+
+Hoping this helps,
+Willy
