@@ -1,42 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: ipv6: Fix oif in TCP SYN+ACK route lookup.
-Date: Fri, 11 Apr 2014 16:44:27 -0400 (EDT)
-Message-ID: <20140411.164427.1090382302661075075.davem@davemloft.net>
-References: <1397189952-31438-1-git-send-email-lorenzo@google.com>
+Subject: Re: [PATCH v3] ipv6: Limit mtu to 65575 bytes
+Date: Fri, 11 Apr 2014 16:48:48 -0400 (EDT)
+Message-ID: <20140411.164848.983714986536717393.davem@davemloft.net>
+References: <534753D4.6070600@linux-ipv6.org>
+	<1397186427.16584.86.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1397190216.16584.90.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-	wangyufen@huawei.com
-To: lorenzo@google.com
+Cc: yoshfuji@linux-ipv6.org, hannes@stressinduktion.org,
+	f.wellenreiter@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59144 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59194 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753067AbaDKUo3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 16:44:29 -0400
-In-Reply-To: <1397189952-31438-1-git-send-email-lorenzo@google.com>
+	with ESMTP id S1753259AbaDKUsu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 16:48:50 -0400
+In-Reply-To: <1397190216.16584.90.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lorenzo Colitti <lorenzo@google.com>
-Date: Fri, 11 Apr 2014 13:19:12 +0900
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 10 Apr 2014 21:23:36 -0700
 
-> net-next commit 9c76a11, ipv6: tcp_ipv6 policy route issue, had
-> a boolean logic error that caused incorrect behaviour for TCP
-> SYN+ACK when oif-based rules are in use. Specifically:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> 1. If a SYN comes in from a global address, and sk_bound_dev_if
->    is not set, the routing lookup has oif set to the interface
->    the SYN came in on. Instead, it should have oif unset,
->    because for global addresses, the incoming interface doesn't
->    necessarily have any bearing on the interface the SYN+ACK is
->    sent out on.
-> 2. If a SYN comes in from a link-local address, and
->    sk_bound_dev_if is set, the routing lookup has oif set to the
->    interface the SYN came in on. Instead, it should have oif set
->    to sk_bound_dev_if, because that's what the application
->    requested.
+> Francois reported that setting big mtu on loopback device could prevent
+> tcp sessions making progress.
 > 
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+> We do not support (yet ?) IPv6 Jumbograms and cook corrupted packets.
+> 
+> We must limit the IPv6 MTU to (65535 + 40) bytes in theory.
+> 
+> Tested:
+> 
+> ifconfig lo mtu 70000
+> netperf -H ::1
+> 
+> Before patch : Throughput :   0.05 Mbits
+> 
+> After patch : Throughput : 35484 Mbits
+> 
+> Reported-by: Francois WELLENREITER <f.wellenreiter@gmail.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Applied, thank you.
+Applied and queued up for -stable, thanks Eric.
