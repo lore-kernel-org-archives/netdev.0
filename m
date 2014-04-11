@@ -1,98 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 01/13] ixgbe: Add bit to mark service task initialization
-Date: Fri, 11 Apr 2014 06:52:51 -0700
-Message-ID: <1397224383-19269-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 11/13] ixgb: remove open-coded skb_cow_head
+Date: Fri, 11 Apr 2014 06:53:01 -0700
+Message-ID: <1397224383-19269-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1397224383-19269-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:47069 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:35182 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755788AbaDKNxK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Apr 2014 09:53:10 -0400
+	id S1757431AbaDKNxN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Apr 2014 09:53:13 -0400
 In-Reply-To: <1397224383-19269-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
 
-There needs to be an indication when the service task has been
-initialized. This is because register access prior to that time
-can detect a removal and attempt to schedule the service task.
-Adding the __IXGBE_SERVICE_INITED bit allows this to be checked
-and if not set prevent the service task scheduling. By checking
-for a removal right after initialization, the probe can be failed
-at that point without getting the service task involved.
-
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 15 ++++++++++++++-
- 2 files changed, 15 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 55c53a1..1a12c1d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -811,6 +811,7 @@ enum ixgbe_state_t {
- 	__IXGBE_DISABLED,
- 	__IXGBE_REMOVING,
- 	__IXGBE_SERVICE_SCHED,
-+	__IXGBE_SERVICE_INITED,
- 	__IXGBE_IN_SFP_INIT,
- 	__IXGBE_PTP_RUNNING,
- 	__IXGBE_PTP_TX_IN_PROGRESS,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 8436c65..00c9308 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -297,7 +297,8 @@ static void ixgbe_remove_adapter(struct ixgbe_hw *hw)
- 		return;
- 	hw->hw_addr = NULL;
- 	e_dev_err("Adapter removed\n");
--	ixgbe_service_event_schedule(adapter);
-+	if (test_bit(__IXGBE_SERVICE_INITED, &adapter->state))
-+		ixgbe_service_event_schedule(adapter);
- }
+diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_main.c b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+index f42c201..6080127 100644
+--- a/drivers/net/ethernet/intel/ixgb/ixgb_main.c
++++ b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+@@ -1220,17 +1220,15 @@ ixgb_tso(struct ixgb_adapter *adapter, struct sk_buff *skb)
+ 	unsigned int i;
+ 	u8 ipcss, ipcso, tucss, tucso, hdr_len;
+ 	u16 ipcse, tucse, mss;
+-	int err;
  
- void ixgbe_check_remove(struct ixgbe_hw *hw, u32 reg)
-@@ -8023,6 +8024,10 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	/* EEPROM */
- 	memcpy(&hw->eeprom.ops, ii->eeprom_ops, sizeof(hw->eeprom.ops));
- 	eec = IXGBE_READ_REG(hw, IXGBE_EEC);
-+	if (ixgbe_removed(hw->hw_addr)) {
-+		err = -EIO;
-+		goto err_ioremap;
-+	}
- 	/* If EEPROM is valid (bit 8 = 1), use default otherwise use bit bang */
- 	if (!(eec & (1 << 8)))
- 		hw->eeprom.ops.read = &ixgbe_read_eeprom_bit_bang_generic;
-@@ -8185,7 +8190,12 @@ skip_sriov:
- 	setup_timer(&adapter->service_timer, &ixgbe_service_timer,
- 		    (unsigned long) adapter);
+ 	if (likely(skb_is_gso(skb))) {
+ 		struct ixgb_buffer *buffer_info;
+ 		struct iphdr *iph;
++		int err;
  
-+	if (ixgbe_removed(hw->hw_addr)) {
-+		err = -EIO;
-+		goto err_sw_init;
-+	}
- 	INIT_WORK(&adapter->service_task, ixgbe_service_task);
-+	set_bit(__IXGBE_SERVICE_INITED, &adapter->state);
- 	clear_bit(__IXGBE_SERVICE_SCHED, &adapter->state);
+-		if (skb_header_cloned(skb)) {
+-			err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+-			if (err)
+-				return err;
+-		}
++		err = skb_cow_head(skb, 0);
++		if (err < 0)
++			return err;
  
- 	err = ixgbe_init_interrupt_scheme(adapter);
-@@ -8494,6 +8504,9 @@ static pci_ers_result_t ixgbe_io_error_detected(struct pci_dev *pdev,
- 
- skip_bad_vf_detection:
- #endif /* CONFIG_PCI_IOV */
-+	if (!test_bit(__IXGBE_SERVICE_INITED, &adapter->state))
-+		return PCI_ERS_RESULT_DISCONNECT;
-+
- 	rtnl_lock();
- 	netif_device_detach(netdev);
- 
+ 		hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
+ 		mss = skb_shinfo(skb)->gso_size;
 -- 
 1.9.0
