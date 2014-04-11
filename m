@@ -1,47 +1,43 @@
-From: Willy Tarreau <w@1wt.eu>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 0/3] mvneta: software TSO implementation
-Date: Fri, 11 Apr 2014 07:48:47 +0200
-Message-ID: <20140411054847.GE30855@1wt.eu>
-References: <1397170682-19138-1-git-send-email-ezequiel.garcia@free-electrons.com> <20140410.205128.1312451576920196881.davem@davemloft.net> <1397178150.16584.53.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Fri, 11 Apr 2014 02:20:06 -0400 (EDT)
+Message-ID: <20140411.022006.1718259701974368498.davem@davemloft.net>
+References: <20140410.205128.1312451576920196881.davem@davemloft.net>
+	<1397178150.16584.53.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140411054847.GE30855@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	ezequiel.garcia@free-electrons.com, netdev@vger.kernel.org,
-	thomas.petazzoni@free-electrons.com,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, ezequiel.garcia@free-electrons.com,
+	netdev@vger.kernel.org, thomas.petazzoni@free-electrons.com,
 	gregory.clement@free-electrons.com, simon.guinot@sequanux.org,
 	tawfik@marvell.com, alior@marvell.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: w@1wt.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:3977 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754589AbaDKFsz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Apr 2014 01:48:55 -0400
-Content-Disposition: inline
-In-Reply-To: <1397178150.16584.53.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47304 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750963AbaDKGUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 02:20:11 -0400
+In-Reply-To: <20140411054847.GE30855@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 10, 2014 at 06:02:30PM -0700, Eric Dumazet wrote:
-> On Thu, 2014-04-10 at 20:51 -0400, David Miller wrote:
-> > This is not really driver specific code.
-> > 
-> > Please create an appropriate abstraction, and put this code in a
-> > common place so that any driver can do this.
-> > 
-> > Thanks.
-> 
-> Note a prior implementation existed in
-> 
-> drivers/net/ethernet/tile/tilegx.c
-> 
-> Note sure how it can be properly factorized, but worth trying .
+From: Willy Tarreau <w@1wt.eu>
+Date: Fri, 11 Apr 2014 07:48:47 +0200
 
-I also tried to find how to do this for mv643xx_eth a few years ago
-based on other drivers (eg: tilegx) and failed to find anything
-common. At this level, we're really playing with the NIC's descriptors,
-and many of them have different capabilities (eg: HW checksums for all
-frames, VLAN or none, etc...). I don't really see how this could be
-factorized, and since many NICs do support TSO, I'm not convinced by
-the effort.
+> I also tried to find how to do this for mv643xx_eth a few years ago
+> based on other drivers (eg: tilegx) and failed to find anything
+> common. At this level, we're really playing with the NIC's descriptors,
+> and many of them have different capabilities (eg: HW checksums for all
+> frames, VLAN or none, etc...). I don't really see how this could be
+> factorized, and since many NICs do support TSO, I'm not convinced by
+> the effort.
 
-Willy
+I wanted to hook this into the NIU driver as well, which also lacks
+TSO support.
+
+The descriptor and checksum part is chip specific, but the segmentation
+of the buffer segments, calculating the number of necessary descriptors,
+etc. absolutely is not.
+
+Please work on finding a suitable abstraction, it's possible.
