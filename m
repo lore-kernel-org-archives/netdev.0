@@ -1,55 +1,46 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 06/13] e1000: remove open-coded skb_cow_head
-Date: Fri, 11 Apr 2014 06:52:56 -0700
-Message-ID: <1397224383-19269-7-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1397224383-19269-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] ipv6: Limit mtu to 65575 bytes
+Date: Fri, 11 Apr 2014 08:26:43 -0700
+Message-ID: <1397230003.16584.96.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5345A2B3.7040602@gmail.com>
+	 <1397079665.16584.17.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140409223546.GH27255@order.stressinduktion.org>
+	 <1397090170.16584.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140410235459.GK27255@order.stressinduktion.org>
+	 <1397176824.16584.52.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1397180530.16584.69.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <534753D4.6070600@linux-ipv6.org>
+	 <1397186427.16584.86.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1397190216.16584.90.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140411132207.GO27255@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	David Miller <davem@davemloft.net>,
+	Francois WELLENREITER <f.wellenreiter@gmail.com>,
+	netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:35182 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755768AbaDKNxL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Apr 2014 09:53:11 -0400
-In-Reply-To: <1397224383-19269-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:49634 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754049AbaDKP0p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 11:26:45 -0400
+Received: by mail-pd0-f175.google.com with SMTP id x10so5371084pdj.6
+        for <netdev@vger.kernel.org>; Fri, 11 Apr 2014 08:26:45 -0700 (PDT)
+In-Reply-To: <20140411132207.GO27255@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
+On Fri, 2014-04-11 at 15:22 +0200, Hannes Frederic Sowa wrote:
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000/e1000_main.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> 
+> Eric, the optimization for limiting the mtu in tcp case is still possible.
+> It is not that people don't care. ;)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 46e6544..27058df 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -2682,14 +2682,13 @@ static int e1000_tso(struct e1000_adapter *adapter,
- 	u32 cmd_length = 0;
- 	u16 ipcse = 0, tucse, mss;
- 	u8 ipcss, ipcso, tucss, tucso, hdr_len;
--	int err;
- 
- 	if (skb_is_gso(skb)) {
--		if (skb_header_cloned(skb)) {
--			err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
--			if (err)
--				return err;
--		}
-+		int err;
-+
-+		err = skb_cow_head(skb, 0);
-+		if (err < 0)
-+			return err;
- 
- 		hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
- 		mss = skb_shinfo(skb)->gso_size;
--- 
-1.9.0
+I am not sure I want to add an additional test in TCP, as current
+systems do not really have performance issues. I would 99.99% of the
+time, MSS is already a multiple of 4.
+
+I think we have more pressing problems ;)
