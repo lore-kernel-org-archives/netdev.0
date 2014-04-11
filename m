@@ -1,46 +1,61 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 2/2] macvlan: Move broadcasts into a work queue
-Date: Fri, 11 Apr 2014 09:11:57 -0700
-Message-ID: <5348144D.9050607@candelatech.com>
-References: <20140407142334.GA28814@gondor.apana.org.au> <53442868.3090701@candelatech.com> <20140408172349.GA7147@gondor.apana.org.au> <20140410.214023.849284639345029049.davem@davemloft.net> <20140411015906.GB31251@gondor.apana.org.au> <1397182170.16584.75.camel@edumazet-glaptop2.roam.corp.google.com> <20140411021300.GA31748@gondor.apana.org.au> <063D6719AE5E284EB5DD2968C1650D6D0F6F5DE1@AcuExch.aculab.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: [PATCH] tcp: fix compiler array bounds warning on selective_acks[]
+Date: Fri, 11 Apr 2014 10:12:43 -0600
+Message-ID: <CAErSpo4KOe5zBYNXDhdEFUMdhCBhs00CCvYHbW3071ZUdN6s6A@mail.gmail.com>
+References: <20140410213029.24916.93892.stgit@bhelgaas-glaptop.roam.corp.google.com>
+ <063D6719AE5E284EB5DD2968C1650D6D0F6F5DFA@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "'Herbert Xu'" <herbert@gondor.apana.org.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:35334 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759163AbaDKQMK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 12:12:10 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6F5DE1@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	James Morris <jmorris@namei.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Patrick McHardy <kaber@trash.net>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6F5DFA@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/11/2014 01:45 AM, David Laight wrote:
->>> ARP filter would require to inspect the queried IPv4 address, and
->>> macvlan do not currently have a list of IPv4 addresses per port.
+On Fri, Apr 11, 2014 at 2:59 AM, David Laight <David.Laight@aculab.com> wrote:
+> Bjorn Helgaas
+>> With -Werror=array-bounds, gcc v4.8.x warns that in tcp_sack_remove(), a
+>> selective_acks[] "array subscript is above array bounds".
 >>
->> Indeed.  Thanks for snapping us out of our collective daydream :)
-> 
-> You could save the info from ARP responses.
-> 
-> Whether you want that much layer-breaking is another matter.
-> By the sound of it, it might be worth doing the deep packet
-> inspection at startup.
+>> I don't understand how gcc figures this out, or why we don't see similar
+>> problems many other places, but this is the only fix I can figure out.
+> ...
+>> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+>> index 65cf90e063d5..65133b108236 100644
+>> --- a/net/ipv4/tcp_input.c
+>> +++ b/net/ipv4/tcp_input.c
+>> @@ -4047,7 +4047,8 @@ static void tcp_sack_remove(struct tcp_sock *tp)
+>>
+>>                       /* Zap this SACK, by moving forward any other SACKS. */
+>>                       for (i = this_sack+1; i < num_sacks; i++)
+>> -                             tp->selective_acks[i-1] = tp->selective_acks[i];
+>> +                             if (i < ARRAY_SIZE(tp->selective_acks))
+>> +                                     tp->selective_acks[i-1] = tp->selective_acks[i];
+>>                       num_sacks--;
+>>                       continue;
+>>               }
+>
+> You really shouldn't add that test every time around the loop.
+>
+> Try changing the loop so the assignment is:
+>    tp->selective_acks[i] = tp->selective_acks[i + 1];
+>
+> or the loop test to:
+>         i <= num_sacks - 1;
+>
+> Or beat up the gcc developers :-)
 
-I wouldn't want to keep history, but in most network scenarios,
-having only the interface with the matching MAC answer the APR is good
-enough.
+You're right, that *is* ugly.  And it seems that gcc-v4.9.x doesn't
+complain about this, and that's good enough for my purposes, so I
+withdraw this patch.
 
-I've too much else to worry about to code this up now though.
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Thanks and sorry for the noise,
+  Bjorn
