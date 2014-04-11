@@ -1,46 +1,79 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/2] macvlan: Move broadcasts into a work queue
-Date: Fri, 11 Apr 2014 09:59:06 +0800
-Message-ID: <20140411015906.GB31251@gondor.apana.org.au>
-References: <20140407142334.GA28814@gondor.apana.org.au>
- <53442868.3090701@candelatech.com>
- <20140408172349.GA7147@gondor.apana.org.au>
- <20140410.214023.849284639345029049.davem@davemloft.net>
+From: "Wang, Xiaoming" <xiaoming.wang@intel.com>
+Subject: [PATCH] net: ipv4: current group_info should be put after using.
+Date: Fri, 11 Apr 2014 12:10:38 -0400
+Message-ID: <1397232638.20759.28.camel@wxm-ubuntu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: greearb@candelatech.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:38261 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754064AbaDKB7M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2014 21:59:12 -0400
-Content-Disposition: inline
-In-Reply-To: <20140410.214023.849284639345029049.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: chuansheng.liu@intel.com, dongxing.zhang@intel.com,
+	xiaoming.wang@intel.com
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 10, 2014 at 09:40:23PM -0400, David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Wed, 9 Apr 2014 01:23:49 +0800
-> 
-> > On Tue, Apr 08, 2014 at 09:48:40AM -0700, Ben Greear wrote:
-> >> 
-> >> At least for ARPs, maybe we could inspect the packet and only
-> >> deliver to interfaces configured with the MAC that is being
-> >> ARPed for (or ones that are in promisc)?
-> > 
-> > Yes this would definitely be a great optimisation.
-> 
-> Yes and you can use the direct rather than the workqueue path.
+There is a memory leak in ping when call ping in dumpstate.
+Current group_info had been got in ping_init_sock and group_info->usage
+increased. But the usage hasn't decreased.
+This will make group_info never freed and cause memory leak.
 
-This would be a worthy optimisation for bridge.c too.  In fact,
-I wonder if it would be possible to share some of the broadcast/
-multicast logic between macvlan and bridge.
+unreferenced object 0xcd0e8840 (size 192):
+  comm "dumpstate", pid 7583, jiffies 78360 (age 91.810s)
+  hex dump (first 32 bytes):
+    02 00 00 00 06 00 00 00 01 00 00 00 ef 03 00 00  ................
+    f1 03 00 00 f7 03 00 00 04 04 00 00 bb 0b 00 00  ................
+  backtrace:
+    [<c1a6bbfc>] kmemleak_alloc+0x3c/0xa0
+    [<c1320457>] __kmalloc+0xe7/0x1d0
+    [<c1267c04>] groups_alloc+0x34/0xb0
+    [<c1267e5c>] SyS_setgroups+0x3c/0xf0
+    [<c1a864a8>] syscall_call+0x7/0xb
+    [<ffffffff>] 0xffffffff
 
-Cheers,
+Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
+Signed-off-by: Zhang Dongxing <dongxing.zhang@intel.com>
+Signed-off-by: xiaoming wang <xiaoming.wang@intel.com>
+---
+ net/ipv4/ping.c |   11 ++++++++---
+ 1 files changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index f4b19e5..2af7b1f 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -255,23 +255,28 @@ int ping_init_sock(struct sock *sk)
+ 	struct group_info *group_info = get_current_groups();
+ 	int i, j, count = group_info->ngroups;
+ 	kgid_t low, high;
++	int ret = 0;
+ 
+ 	inet_get_ping_group_range_net(net, &low, &high);
+ 	if (gid_lte(low, group) && gid_lte(group, high))
+-		return 0;
++		goto EXIT;
+ 
+ 	for (i = 0; i < group_info->nblocks; i++) {
+ 		int cp_count = min_t(int, NGROUPS_PER_BLOCK, count);
+ 		for (j = 0; j < cp_count; j++) {
+ 			kgid_t gid = group_info->blocks[i][j];
+ 			if (gid_lte(low, gid) && gid_lte(gid, high))
+-				return 0;
++				goto EXIT;
+ 		}
+ 
+ 		count -= cp_count;
+ 	}
+ 
+-	return -EACCES;
++	ret = -EACCES;
++
++EXIT:
++	put_group_info(group_info);
++	return ret;
+ }
+ EXPORT_SYMBOL_GPL(ping_init_sock);
+ 
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.7.1
