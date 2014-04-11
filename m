@@ -1,44 +1,125 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] tcp: fix compiler array bounds warning on
- selective_acks[]
-Date: Fri, 11 Apr 2014 08:59:57 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6F5DFA@AcuExch.aculab.com>
-References: <20140410213029.24916.93892.stgit@bhelgaas-glaptop.roam.corp.google.com>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: Should linux send netlink message as it is deleting that routing
+ entry?
+Date: Fri, 11 Apr 2014 17:15:48 +0800
+Message-ID: <5347B2C4.6040103@gmail.com>
+References: <534654FE.3040804@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	James Morris <jmorris@namei.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Patrick McHardy <kaber@trash.net>
-To: 'Bjorn Helgaas' <bhelgaas@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140410213029.24916.93892.stgit@bhelgaas-glaptop.roam.corp.google.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	ebiederm@xmission.com, ja@ssi.bg,
+	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
+	"Tao, Yue" <Yue.Tao@windriver.com>,
+	"Zadoyan, Grant" <Grant.Zadoyan@windriver.com>,
+	eric.dumazet@gmail.com, socketcan@hartkopp.net,
+	hannes@stressinduktion.org, cwang@twopensource.com,
+	zhuyj <zyjzyj2000@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f43.google.com ([209.85.216.43]:37012 "EHLO
+	mail-qa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750805AbaDKJPu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 05:15:50 -0400
+Received: by mail-qa0-f43.google.com with SMTP id j15so5044872qaq.2
+        for <netdev@vger.kernel.org>; Fri, 11 Apr 2014 02:15:49 -0700 (PDT)
+In-Reply-To: <534654FE.3040804@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Qmpvcm4gSGVsZ2FhcyANCj4gV2l0aCAtV2Vycm9yPWFycmF5LWJvdW5kcywgZ2NjIHY0LjgueCB3
-YXJucyB0aGF0IGluIHRjcF9zYWNrX3JlbW92ZSgpLCBhDQo+IHNlbGVjdGl2ZV9hY2tzW10gImFy
-cmF5IHN1YnNjcmlwdCBpcyBhYm92ZSBhcnJheSBib3VuZHMiLg0KPiANCj4gSSBkb24ndCB1bmRl
-cnN0YW5kIGhvdyBnY2MgZmlndXJlcyB0aGlzIG91dCwgb3Igd2h5IHdlIGRvbid0IHNlZSBzaW1p
-bGFyDQo+IHByb2JsZW1zIG1hbnkgb3RoZXIgcGxhY2VzLCBidXQgdGhpcyBpcyB0aGUgb25seSBm
-aXggSSBjYW4gZmlndXJlIG91dC4NCi4uLg0KPiBkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvdGNwX2lu
-cHV0LmMgYi9uZXQvaXB2NC90Y3BfaW5wdXQuYw0KPiBpbmRleCA2NWNmOTBlMDYzZDUuLjY1MTMz
-YjEwODIzNiAxMDA2NDQNCj4gLS0tIGEvbmV0L2lwdjQvdGNwX2lucHV0LmMNCj4gKysrIGIvbmV0
-L2lwdjQvdGNwX2lucHV0LmMNCj4gQEAgLTQwNDcsNyArNDA0Nyw4IEBAIHN0YXRpYyB2b2lkIHRj
-cF9zYWNrX3JlbW92ZShzdHJ1Y3QgdGNwX3NvY2sgKnRwKQ0KPiANCj4gIAkJCS8qIFphcCB0aGlz
-IFNBQ0ssIGJ5IG1vdmluZyBmb3J3YXJkIGFueSBvdGhlciBTQUNLUy4gKi8NCj4gIAkJCWZvciAo
-aSA9IHRoaXNfc2FjaysxOyBpIDwgbnVtX3NhY2tzOyBpKyspDQo+IC0JCQkJdHAtPnNlbGVjdGl2
-ZV9hY2tzW2ktMV0gPSB0cC0+c2VsZWN0aXZlX2Fja3NbaV07DQo+ICsJCQkJaWYgKGkgPCBBUlJB
-WV9TSVpFKHRwLT5zZWxlY3RpdmVfYWNrcykpDQo+ICsJCQkJCXRwLT5zZWxlY3RpdmVfYWNrc1tp
-LTFdID0gdHAtPnNlbGVjdGl2ZV9hY2tzW2ldOw0KPiAgCQkJbnVtX3NhY2tzLS07DQo+ICAJCQlj
-b250aW51ZTsNCj4gIAkJfQ0KDQpZb3UgcmVhbGx5IHNob3VsZG4ndCBhZGQgdGhhdCB0ZXN0IGV2
-ZXJ5IHRpbWUgYXJvdW5kIHRoZSBsb29wLg0KDQpUcnkgY2hhbmdpbmcgdGhlIGxvb3Agc28gdGhl
-IGFzc2lnbm1lbnQgaXM6DQogICB0cC0+c2VsZWN0aXZlX2Fja3NbaV0gPSB0cC0+c2VsZWN0aXZl
-X2Fja3NbaSArIDFdOw0KDQpvciB0aGUgbG9vcCB0ZXN0IHRvOg0KCWkgPD0gbnVtX3NhY2tzIC0g
-MTsNCg0KT3IgYmVhdCB1cCB0aGUgZ2NjIGRldmVsb3BlcnMgOi0pDQoNCglEYXZpZA0KDQo=
+Hi, all
+
+Please help to look at this problem. And give us an official 
+explanation. Should linux send netlink message as it is deleting that 
+routing entry?
+
+Thanks a lot.
+Zhu Yanjun
+
+On 04/10/2014 04:23 PM, zhuyj wrote:
+> Hi, David
+>
+> With ubuntu 12.04, I run the following to reproduce this defect.
+>
+> 1) Configure an interface
+> ifconfig eth1 150.0.0.1/24 up
+>
+> 2) Add routing entry via that interface address
+> route add -net 200.0.0.0/24 gw 150.0.0.1
+>
+> 3) Change the ip address on that interface as shown below.
+> ifconfig eth1 151.0.0.1/24 up
+>
+> 4) Check netlink messages with "ip monitor all". There is no route 
+> delete netlink message.
+>
+> [ADDR]Deleted 3: eth1    inet 150.0.0.1/24 brd 150.0.0.255 scope 
+> global eth1
+> [ROUTE]Deleted 150.0.0.0/24 dev eth1  proto kernel  scope link src 
+> 150.0.0.1
+> [ROUTE]Deleted broadcast 150.0.0.255 dev eth1  table local  proto 
+> kernel  scope link  src 150.0.0.1
+> [ROUTE]Deleted broadcast 150.0.0.0 dev eth1  table local  proto 
+> kernel  scope link  src 150.0.0.1
+> [ROUTE]Deleted local 150.0.0.1 dev eth1  table local  proto kernel 
+> scope host  src 150.0.0.1
+> [NEIGH]224.0.0.251 dev eth1 lladdr 01:00:5e:00:00:fb NOARP
+> [NEIGH]224.0.0.22 dev eth1 lladdr 01:00:5e:00:00:16 NOARP
+> [ADDR]3: eth1    inet 151.0.0.1/16 brd 151.0.255.255 scope global eth1
+> [ROUTE]local 151.0.0.1 dev eth1  table local  proto kernel  scope 
+> host  src 151.0.0.1
+> [ROUTE]broadcast 151.0.255.255 dev eth1  table local  proto kernel 
+> scope link  src 151.0.0.1
+> [ROUTE]151.0.0.0/16 dev eth1  proto kernel  scope link  src 151.0.0.1
+> [ROUTE]broadcast 151.0.0.0 dev eth1  table local  proto kernel scope 
+> link  src 151.0.0.1
+> [ADDR]Deleted 3: eth1    inet 151.0.0.1/16 brd 151.0.255.255 scope 
+> global eth1
+> [ROUTE]Deleted 151.0.0.0/16 dev eth1  proto kernel  scope link src 
+> 151.0.0.1
+> [ROUTE]Deleted broadcast 151.0.255.255 dev eth1  table local proto 
+> kernel  scope link  src 151.0.0.1
+> [ROUTE]Deleted broadcast 151.0.0.0 dev eth1  table local  proto 
+> kernel  scope link  src 151.0.0.1
+> [ROUTE]Deleted local 151.0.0.1 dev eth1  table local  proto kernel 
+> scope host  src 151.0.0.1
+> [NEIGH]224.0.0.22 dev eth1 lladdr 01:00:5e:00:00:16 NOARP
+> [ADDR]3: eth1    inet 151.0.0.1/24 brd 151.0.0.255 scope global eth1
+> [ROUTE]local 151.0.0.1 dev eth1  table local  proto kernel  scope 
+> host  src 151.0.0.1
+> [ROUTE]broadcast 151.0.0.255 dev eth1  table local  proto kernel scope 
+> link  src 151.0.0.1
+> [ROUTE]151.0.0.0/24 dev eth1  proto kernel  scope link  src 151.0.0.1
+> [ROUTE]broadcast 151.0.0.0 dev eth1  table local  proto kernel scope 
+> link  src 151.0.0.1
+>
+> There is no netlink message to notify that 200.0.0.0/24 is deleted. 
+> But in fact, this 200.0.0.0/24 route item disappears.
+>
+> I checked the source code, and I found the following is the process to 
+> delete static routes when the attached interface is deleted.
+>
+>  1)               |  fib_netdev_event() {
+>  1)               |    fib_disable_ip() {
+>  1)   1.284 us    |      fib_sync_down_dev();
+>  1)               |      fib_flush() {
+>  1)               |        fib_table_flush() {
+>  1)   0.129 us    |          fib_release_info();
+>  1)   0.351 us    |          fib_release_info();
+>  1)   4.605 us    |        }
+>  1)               |        fib_table_flush() {
+>  1)   0.096 us    |          fib_release_info();
+>  1)   0.255 us    |          fib_release_info();
+>  1)   4.770 us    |        }
+>  1) + 11.787 us   |      }
+>  1) ! 315.273 us  |    }
+>  1) ! 315.888 us  |  }
+>
+> But there is no netlink message sent here.
+>
+> Should linux send netlink message as it is deleting that 200.0.0.0/24 
+> routing entry?
+>
+> Best Regards!
+> Zhu Yanjun
+>
+>
