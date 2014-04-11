@@ -1,38 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 0/3] mvneta: software TSO implementation
-Date: Thu, 10 Apr 2014 18:02:30 -0700
-Message-ID: <1397178150.16584.53.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1397170682-19138-1-git-send-email-ezequiel.garcia@free-electrons.com>
-	 <20140410.205128.1312451576920196881.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] macvlan: Move broadcasts into a work queue
+Date: Thu, 10 Apr 2014 21:40:23 -0400 (EDT)
+Message-ID: <20140410.214023.849284639345029049.davem@davemloft.net>
+References: <20140407142334.GA28814@gondor.apana.org.au>
+	<53442868.3090701@candelatech.com>
+	<20140408172349.GA7147@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ezequiel.garcia@free-electrons.com, netdev@vger.kernel.org,
-	thomas.petazzoni@free-electrons.com,
-	gregory.clement@free-electrons.com, simon.guinot@sequanux.org,
-	w@1wt.eu, tawfik@marvell.com, alior@marvell.com
-To: David Miller <davem@davemloft.net>
+Cc: greearb@candelatech.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:42809 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753957AbaDKBCc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2014 21:02:32 -0400
-Received: by mail-pd0-f170.google.com with SMTP id v10so4586812pde.15
-        for <netdev@vger.kernel.org>; Thu, 10 Apr 2014 18:02:31 -0700 (PDT)
-In-Reply-To: <20140410.205128.1312451576920196881.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45661 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753294AbaDKBk1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Apr 2014 21:40:27 -0400
+In-Reply-To: <20140408172349.GA7147@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-04-10 at 20:51 -0400, David Miller wrote:
-> This is not really driver specific code.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 9 Apr 2014 01:23:49 +0800
+
+> On Tue, Apr 08, 2014 at 09:48:40AM -0700, Ben Greear wrote:
+>> 
+>> At least for ARPs, maybe we could inspect the packet and only
+>> deliver to interfaces configured with the MAC that is being
+>> ARPed for (or ones that are in promisc)?
 > 
-> Please create an appropriate abstraction, and put this code in a
-> common place so that any driver can do this.
-> 
-> Thanks.
+> Yes this would definitely be a great optimisation.
 
-Note a prior implementation existed in
-
-drivers/net/ethernet/tile/tilegx.c
-
-Note sure how it can be properly factorized, but worth trying .
+Yes and you can use the direct rather than the workqueue path.
