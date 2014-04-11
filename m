@@ -1,53 +1,37 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH net] net: ipv6: Fix oif in TCP SYN+ACK route lookup.
-Date: Fri, 11 Apr 2014 13:19:12 +0900
-Message-ID: <1397189952-31438-1-git-send-email-lorenzo@google.com>
-Cc: hannes@stressinduktion.org, davem@davemloft.net,
-	wangyufen@huawei.com, Lorenzo Colitti <lorenzo@google.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv6: Limit mtu to 65572 bytes
+Date: Thu, 10 Apr 2014 21:20:29 -0700
+Message-ID: <1397190029.16584.87.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1397180530.16584.69.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <534753D4.6070600@linux-ipv6.org>
+	 <1397186427.16584.86.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140410.233020.1295376284838706264.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, hannes@stressinduktion.org,
+	f.wellenreiter@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:62647 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750794AbaDKETe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 00:19:34 -0400
-Received: by mail-pa0-f49.google.com with SMTP id lj1so4791884pab.8
-        for <netdev@vger.kernel.org>; Thu, 10 Apr 2014 21:19:33 -0700 (PDT)
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:36743 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750760AbaDKEUa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 00:20:30 -0400
+Received: by mail-pd0-f174.google.com with SMTP id y13so4771947pdi.33
+        for <netdev@vger.kernel.org>; Thu, 10 Apr 2014 21:20:30 -0700 (PDT)
+In-Reply-To: <20140410.233020.1295376284838706264.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-net-next commit 9c76a11, ipv6: tcp_ipv6 policy route issue, had
-a boolean logic error that caused incorrect behaviour for TCP
-SYN+ACK when oif-based rules are in use. Specifically:
+On Thu, 2014-04-10 at 23:30 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 10 Apr 2014 20:20:27 -0700
+> 
+> > +/* We do not (yet ?) support IPv6 jumbograms (RFC 2675)
+> > + * Unlike IPv4, hdr->seg_len doesn't include the IPv6 header
+> > + */
+> > +#define IP6_MAX_MTU (0xFFFF + sizeof(struct ipv6hdr))
+> 
+> Hmmm, does this still match $Subj?
 
-1. If a SYN comes in from a global address, and sk_bound_dev_if
-   is not set, the routing lookup has oif set to the interface
-   the SYN came in on. Instead, it should have oif unset,
-   because for global addresses, the incoming interface doesn't
-   necessarily have any bearing on the interface the SYN+ACK is
-   sent out on.
-2. If a SYN comes in from a link-local address, and
-   sk_bound_dev_if is set, the routing lookup has oif set to the
-   interface the SYN came in on. Instead, it should have oif set
-   to sk_bound_dev_if, because that's what the application
-   requested.
-
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
----
- net/ipv6/tcp_ipv6.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 5ca56ce..e289830 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -798,7 +798,7 @@ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
- 	__tcp_v6_send_check(buff, &fl6.saddr, &fl6.daddr);
- 
- 	fl6.flowi6_proto = IPPROTO_TCP;
--	if (rt6_need_strict(&fl6.daddr) || !oif)
-+	if (rt6_need_strict(&fl6.daddr) && !oif)
- 		fl6.flowi6_oif = inet6_iif(skb);
- 	else
- 		fl6.flowi6_oif = oif;
--- 
-1.9.1.423.g4596e3a
+Ugh, sorry, I had to run. I'll resend. 
