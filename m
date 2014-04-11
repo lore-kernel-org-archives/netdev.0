@@ -1,64 +1,48 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH 0/3] mvneta: software TSO implementation
-Date: Fri, 11 Apr 2014 21:43:39 +0200
-Message-ID: <20140411194339.GA6758@1wt.eu>
-References: <1397170682-19138-1-git-send-email-ezequiel.garcia@free-electrons.com> <20140410.205128.1312451576920196881.davem@davemloft.net> <1397178150.16584.53.camel@edumazet-glaptop2.roam.corp.google.com> <20140411054847.GE30855@1wt.eu> <20140411190827.GC19199@arch.cereza>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] packet: fix potential use after free
+Date: Fri, 11 Apr 2014 15:59:22 -0400 (EDT)
+Message-ID: <20140411.155922.2269056965511687739.davem@davemloft.net>
+References: <1397092959.16584.26.camel@edumazet-glaptop2.roam.corp.google.com>
+	<53465409.3070507@redhat.com>
+	<1397142418.16584.28.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	thomas.petazzoni@free-electrons.com,
-	gregory.clement@free-electrons.com, simon.guinot@sequanux.org,
-	tawfik@marvell.com, alior@marvell.com
-To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dborkman@redhat.com, netdev@vger.kernel.org, xii@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:4133 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750735AbaDKTnr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Apr 2014 15:43:47 -0400
-Content-Disposition: inline
-In-Reply-To: <20140411190827.GC19199@arch.cereza>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58742 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751937AbaDKT70 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 15:59:26 -0400
+In-Reply-To: <1397142418.16584.28.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 11, 2014 at 04:08:27PM -0300, Ezequiel Garcia wrote:
-> On Apr 11, Willy Tarreau wrote:
-> > On Thu, Apr 10, 2014 at 06:02:30PM -0700, Eric Dumazet wrote:
-> > > On Thu, 2014-04-10 at 20:51 -0400, David Miller wrote:
-> > > > This is not really driver specific code.
-> > > > 
-> > > > Please create an appropriate abstraction, and put this code in a
-> > > > common place so that any driver can do this.
-> > > > 
-> > > > Thanks.
-> > > 
-> > > Note a prior implementation existed in
-> > > 
-> > > drivers/net/ethernet/tile/tilegx.c
-> > > 
-> > > Note sure how it can be properly factorized, but worth trying .
-> > 
-> > I also tried to find how to do this for mv643xx_eth a few years ago
-> > 
-> [..]
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 10 Apr 2014 08:06:58 -0700
+
+> On Thu, 2014-04-10 at 10:19 +0200, Daniel Borkmann wrote:
+>> On 04/10/2014 03:22 AM, Eric Dumazet wrote:
+>> > From: Eric Dumazet <edumazet@google.com>
+>> >
+>> > As soon skb is queued into sk_receive_queue, it can be consumed,
+>> > so its racy to access skb->len.
+>> >
+>> > Given that sk_data_ready() / sock_def_readable() don't really care, just
+>> > use 0 instead of skb->len
+>> >
+>> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> > Cc: Xi Wang <xii@google.com>
+>> 
+>> Acked-by: Daniel Borkmann <dborkman@redhat.com>
+>> 
+>> Seems to be there since pre 2005 ...
 > 
-> Can you share *any* code about this attempt on mv643xx_eth? It would be
-> helpful to see other TSO cases, to have more examples in order to come
-> up with a proper abstraction.
+> Yeah, and many other places have the same error, a full audit is
+> probably needed.
 
-Unfortunately no. I remember that I picked the equivalent code from
-mv_eth in the kirkwood's LSP and tried to adapt it to the mainline
-driver, but unfortunately by then I didn't exactly understand well
-what the driver was doing despite Eric explaining me a few things
-about GSO and segmentation. Too many things were obscure to me and
-I had to give up. The only vague memories I have are that this NIC
-doesn't support Tx csum on VLANs nor IPv6. That's about all, I regret.
+Not only sock_def_readable(), but all implementations of this callback absolutely
+do not care about the length argument.
 
-By the way, I could be wrong but I also have some memories about this
-in the myri10ge driver. I recall something like it using software TSO
-for VLANs or IPv6 or a combination of both, I don't exactly remember.
-It's also possible that it depends on the firmware versions. Anyway the
-driver is clean and well commented, it's easier to read than average.
-
-Hoping this helps,
-Willy
+I'm working on a patch to kill the argument completely.
