@@ -1,106 +1,43 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 2/4] Documentation: dts: Add bindings for APM X-Gene
- SoC ethernet driver
-Date: Sat, 12 Apr 2014 11:55:03 -0700
-Message-ID: <CAGVrzcbFHbZBaN1GsxViHaWsttU==2+9cf5mNRGwj9nbNxesVA@mail.gmail.com>
-References: <1397271984-23405-1-git-send-email-isubramanian@apm.com> <1397271984-23405-3-git-send-email-isubramanian@apm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: What causes these TCP packet getting lost in linux kernel
+Date: Sat, 12 Apr 2014 12:32:52 -0700
+Message-ID: <1397331172.4222.8.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAMRd1sXbgcGQuBKd6b-wwkrsqgh_4QicfyR=1hh+TqyYUjYHFA@mail.gmail.com>
+	 <1397212866.16584.93.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAMRd1sUk_-gtOOgf2dPU_mpgCugDE2F82Te5arnhi+8-uPgm0g@mail.gmail.com>
+	 <CAJzFV35Z9f-73of0vq2bhUZbN++17cuexcQV4SSSvqJXNyKnRQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	jcm@redhat.com, Greg KH <gregkh@linuxfoundation.org>,
-	patches@apm.com,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Keyur Chudgar <kchudgar@apm.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Ravi Patel <rapatel@apm.com>
-To: Iyappan Subramanian <isubramanian@apm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1397271984-23405-3-git-send-email-isubramanian@apm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: chptx y <chptxy@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Sharat Masetty <sharat04@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:49350 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754472AbaDLTcx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Apr 2014 15:32:53 -0400
+Received: by mail-pb0-f47.google.com with SMTP id up15so6719984pbc.34
+        for <netdev@vger.kernel.org>; Sat, 12 Apr 2014 12:32:53 -0700 (PDT)
+In-Reply-To: <CAJzFV35Z9f-73of0vq2bhUZbN++17cuexcQV4SSSvqJXNyKnRQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-04-11 20:06 GMT-07:00 Iyappan Subramanian <isubramanian@apm.com>:
-> This patch adds documentation for APM X-Gene SoC ethernet DTS binding.
->
-> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-> Signed-off-by: Ravi Patel <rapatel@apm.com>
-> Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
-> ---
->  .../devicetree/bindings/net/apm-xgene-enet.txt     |   46 ++++++++++++++++++++
->  1 file changed, 46 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/apm-xgene-enet.txt
->
-> diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-> new file mode 100644
-> index 0000000..0c983e8
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-> @@ -0,0 +1,46 @@
-> +APM X-Gene SoC Ethernet nodes
-> +
-> +Ethernet nodes are defined to describe on-chip ethernet interfaces in
-> +APM X-Gene SoC.
-> +
-> +Required properties:
-> +- compatible           : Should be "apm,xgene-enet"
-> +- reg                  : First resource is the ethernet base register set
-> +                         Second resource is the ring base register set
-> +                         Third resource is the ring command register set
-> +- interrupts           : Ethernet main interrupt
-> +- clocks               : Reference to the clock entry.
-> +- local-mac-address    : Ethernet MAC address.
-> +- phy-addr             : Ethernet MII phy address.
-> +- phy-mode             : Ethernet MII mode.
-> +
-> +Optional properties:
-> +- status               : Should be "ok" or "disabled" for enabled/disabled.
-> +                         Default is "ok".
-> +
-> +Example:
-> +       menetclk: menetclk {
-> +               compatible = "apm,xgene-device-clock";
-> +               clock-output-names = "menetclk";
-> +               status = "ok";
-> +       };
-> +
-> +       menet: ethernet@17020000 {
-> +               compatible = "apm,xgene-enet";
-> +               status = "disabled";
-> +               reg = <0x0 0x17020000 0x0 0xd100>,
-> +                     <0x0 0X17030000 0x0 0X400>,
-> +                     <0x0 0X10000000 0x0 0X200>;
-> +               interrupts = <0x0 0x3c 0x4>;
-> +               clocks = <&menetclk 0>;
-> +               local-mac-address = [00 01 73 00 00 01];
-> +               phy-addr = <3>;
+On Sat, 2014-04-12 at 12:35 -0600, Sharat Masetty wrote:
+> Check /proc/net/netstat and /proc/net/snmp
+> 
+> In netstat look for
+> 
+> LINUX_MIB_TCPOFODROP and LINUX_MIB_BACKLOGDROP
 
-An Ethernet PHY node needs to follow the ePAPR recommended
-representation, which is not this one. Please refer to
-Documentation/devicetree/bindinsg/net/phy.txt for examples on how to
-do this properly.
+The packet is not out of order, according to tcpdump.
 
-> +               phy-mode = "rgmii";
-> +       };
-> +
-> +
-> +/* Board-specific peripheral configurations */
-> +
-> +&menet {
-> +        status = "ok";
-> +};
-> --
-> 1.7.9.5
->
->
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+Note that the receiver reacts to incoming packet, sending a DUPACK, so
+its not a backlogdrop.
 
+tcpdump trace is really incomplete, I asked tcpdump -vv but got nothing
+from chptx, assuming this is a real name.
 
+packet might be rejected because of a zero receiver window, who knows.
 
--- 
-Florian
+I might search in my basement this crystal ball I might have.
