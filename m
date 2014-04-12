@@ -1,57 +1,134 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: Re: [REGRESSION,BISECTED] mvneta broken in 3.14 on RN2120, RN102 and RN104 after e3a8786c10e7
-Date: Sat, 12 Apr 2014 18:37:54 +0200
-Message-ID: <87vbueo659.fsf@natisbad.org>
-References: <87k3au8qba.fsf@natisbad.org> <20140412183112.7ca31cb6@skate>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: 802.1AD packets - Kernel changes ether type from 88A8 to 8100
+ on all packets.
+Date: Sat, 12 Apr 2014 19:06:36 +0200
+Message-ID: <5349729C.3020602@redhat.com>
+References: <BLU184-W706F779E20884E4F486ED9D0540@phx.gbl> <1397319636.1789.11.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dennis Punjabi <linuxdev@icts.bz>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Atzm Watanabe <atzm@stratosphere.co.jp>
+To: Toshiaki Makita <toshiaki.makita1@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4-g21.free.fr ([212.27.42.4]:56966 "EHLO smtp4-g21.free.fr"
+Received: from mx1.redhat.com ([209.132.183.28]:46076 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751299AbaDLQiO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Apr 2014 12:38:14 -0400
-Received: from smtp.natisbad.org (unknown [81.57.185.249])
-	by smtp4-g21.free.fr (Postfix) with ESMTP id C1B494C8066
-	for <netdev@vger.kernel.org>; Sat, 12 Apr 2014 18:38:04 +0200 (CEST)
-In-Reply-To: <20140412183112.7ca31cb6@skate> (Thomas Petazzoni's message of
-	"Sat, 12 Apr 2014 18:31:12 +0200")
+	id S1751830AbaDLRGu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Apr 2014 13:06:50 -0400
+In-Reply-To: <1397319636.1789.11.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Thomas,
+[ please also cc Atzm if you refer to his patches ]
 
-Thomas Petazzoni <thomas.petazzoni@free-electrons.com> writes:
-
->> I built a first kernel with the 'else' branch above removed (rationale:
->> SERDES config was not set for RGMII prior to the patch). The issue
->> remained.
->>      
->>     -       mvneta_gmac_rgmii_set(pp, 1);
->>     +       val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
->>     +
->>     +       val |= MVNETA_GMAC2_PCS_ENABLE | MVNETA_GMAC2_PORT_RGMII;
->> 
->> I removed MVNETA_GMAC2_PCS_ENABLE flag setting (rationale: it was only
->> done for SGMII prior to the patch and all my platforms have RGMII
->> connected PHY). *The issue disappeared on all 3 NAS with that simple
->> change*.
+On 04/12/2014 06:20 PM, Toshiaki Makita wrote:
+>       1. On Fri, 2014-04-11 at 11:01 +0000, Dennis Punjabi wrote:
+>> Background:
+>> 1) I need to setup a Linux software bridge and ensure that packets coming in on one bridge port exit unchanged on another bridge port, like a normal HW bridge.
+>> 2) I need to use the new vlan filtering capability of the bridge. Good news of this feature is made in the kernel announcement of release 3.9 @ http://kernelnewbies.org/Linux_3.9
+>> 3) I need to test what presently happens to 802.1AD tagged packets when bridge vlan filtering is enabled because I also need support for Q-in-Q.
+>>
+>> I am using a packet generator (Ostinato) and creating 802.1AD packets as follows:
+>>
+>> (MAC_HDR)           (8021AD_HDR)   (8021Q HDR)  (PAYLOAD)
+>>
+>> (DA | SA | TYPE)    (TCI | TPID)        (TCI | TPID)    (TEST PAYLOAD - ARP BCAST PACKET)
+>>
+>> (DA | SA | 88A8)    (TCI | 8100)         (TCI | 0806)    (TEST PAYLOAD - ARP BCAST PACKET)
+>>
+>> (hopefully the alignment is ok above, if not I apologize and hope its clear enough)
+>>
+>> Even before setting up the the bridge, I want to ensure that packets are being received properly to my system.
+>> I do a tcpdump output for the port receiving the generated packets.
+>>
+>> What I notice is that the 88A8 TPIC/ether type get changed to 8100.
+>> Ie, all packets with ether type 802.1AD get changed to 802.1Q type, ie 8100.
+>> I initially tested this on a 3.14 vanilla kernel.
 >
-> Yes, issue known. See https://bugzilla.kernel.org/show_bug.cgi?id=73401.
+> Hi.
 >
-> Unfortunately, at this point I don't have enough informations to fix
-> both issues: the issue you're having, and the issue of using mvneta as
-> a module. Since the issue you're having is much more problematic, I'll
-> send a patch to revert my patch, until I have enough informations to
-> fix the problem in a proper way.
+> Though I'm not an expert with libpcap, I feel tcpdump sometimes shows a
+> wrong vlan protocol (if vlan_tci is used).
 >
-> Thanks for your report!
+> Maybe this topic has relevance?
+>
+> packet: deliver VLAN TPID to userspace
+> http://marc.info/?l=linux-netdev&m=138728859001934&w=2
+> http://marc.info/?l=linux-netdev&m=138728859601935&w=2
+> http://marc.info/?l=linux-netdev&m=138728860101937&w=2
+> http://marc.info/?l=linux-netdev&m=138728860601939&w=2
 
-Thanks for your work and the fast feedback. Do not hesitate to bug me if
-you want me to do some tests at some point.
+The issue seems not to be in AF_PACKET as it just 'playes dumb' and propagates
+what has been set in the skb as metadata to user space e.g., see ...
 
-Cheers,
+@@ -1925,9 +1928,11 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+  		h.h2->tp_nsec = ts.tv_nsec;
+  		if (vlan_tx_tag_present(skb)) {
+  			h.h2->tp_vlan_tci = vlan_tx_tag_get(skb);
+-			status |= TP_STATUS_VLAN_VALID;
++			h.h2->tp_vlan_tpid = ntohs(skb->vlan_proto);
++			status |= TP_STATUS_VLAN_VALID | TP_STATUS_VLAN_TPID_VALID;
+  		} else {
+  			h.h2->tp_vlan_tci = 0;
++			h.h2->tp_vlan_tpid = 0;
+  		}
+  		memset(h.h2->tp_padding, 0, sizeof(h.h2->tp_padding));
+  		hdrlen = sizeof(*h.h2);
 
-a+
+... so the patches look good to me in that regard.
+
+libpcap does some ugly hacks in case of vlan and seems to reinserts vlan
+header manually if it detects that vlan information was stripped in the
+packet itself and passed via aux data. I would suspect that perhaps
+something is not correct in that area ... at first glance, have a look
+what they are doing (pcap-linux.c):
+
+...
+#if defined(HAVE_PACKET_AUXDATA) && defined(HAVE_LINUX_TPACKET_AUXDATA_TP_VLAN_TCI)
+         if (handlep->vlan_offset != -1) {
+                 for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+                         struct tpacket_auxdata *aux;
+                         unsigned int len;
+                         struct vlan_tag *tag;
+
+                         ....
+
+                         aux = (struct tpacket_auxdata *)CMSG_DATA(cmsg);
+
+                         ...
+
+                         bp -= VLAN_TAG_LEN;
+                         memmove(bp, bp + VLAN_TAG_LEN, handlep->vlan_offset);
+
+                         tag = (struct vlan_tag *)(bp + handlep->vlan_offset);
+                         tag->vlan_tpid = htons(ETH_P_8021Q);
+                         tag->vlan_tci = htons(aux->tp_vlan_tci);
+
+                         packet_len += VLAN_TAG_LEN;
+                 }
+         }
+#endif /* defined(HAVE_PACKET_AUXDATA) && defined(HAVE_LINUX_TPACKET_AUXDATA_TP_VLAN_TCI) */
+#endif /* HAVE_PF_PACKET_SOCKETS */
+...
+
+> Thanks,
+> Toshiaki Makita
+>
+>>
+>> I recompiled my 8139too.c driver and printed printk the packets in the driver before they are handed over to netif_receive_skb.
+>> Before being passed to the kernel networking stack the packet is as it is supposed to be, ie it has the correct 88A8 ether type.
+>>
+>> I went ahead and tested this on kernel 3.12, 3.11, 3.10. I Saw the same result.
+>>
+>> I also tested it on 3.9, 3.8 and 2.6 and these kernels did not change the 88A8 to 8100.
+>>
+>> Is this intentional or a bug? Does this have something to do with the addition of the new feature (vlan: Add 802.1ad support) announced in kernel 3.10? http://kernelnewbies.org/Linux_3.10
+>>
+>> I have been following the net-dev mailing lists and want to test the bridge 802.1AD filtering feature discussed here http://www.spinics.net/lists/linux-ethernet-bridging/msg05207.html but cannot do so if the bridge does not even get the 802.1AD tagged packets to begin with.
+>>
+>> Assuming I don't want to use filtering and just want a simple bridge. The expected behaviour is that the bridge must not change my packet and should simply pass it along. Is my thinking correct?
+>>
+>> Thanks for any help provided.
+>>
+>> Dennis
