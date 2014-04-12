@@ -1,48 +1,86 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch iproute2] u32: add terminal parameter
-Date: Fri, 11 Apr 2014 18:15:19 -0700
-Message-ID: <CAM_iQpU7Ntn-yo-ez0vP2BhKe+-Vaq1w_+MQhFPHM-bbQZx2gg@mail.gmail.com>
-References: <1396631826-15188-1-git-send-email-xiyou.wangcong@gmail.com>
-	<20140411140446.6412e9dc@nehalam.linuxnetplumber.net>
-	<CAM_iQpVpNOJ1xiK45qXGRXgBZ2QcmwoPc7p=SOHCo=1kTwPfFQ@mail.gmail.com>
-	<20140411175800.08e9ffe3@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v2 2/4] Documentation: dts: Add bindings for APM X-Gene SoC ethernet driver
+Date: Fri, 11 Apr 2014 20:06:22 -0700
+Message-ID: <1397271984-23405-3-git-send-email-isubramanian@apm.com>
+References: <1397271984-23405-1-git-send-email-isubramanian@apm.com>
+Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, jcm@redhat.com,
+	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>,
+	Ravi Patel <rapatel@apm.com>, Keyur Chudgar <kchudgar@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f48.google.com ([209.85.219.48]:64476 "EHLO
-	mail-oa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755343AbaDLBPU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 21:15:20 -0400
-Received: by mail-oa0-f48.google.com with SMTP id m1so6925954oag.7
-        for <netdev@vger.kernel.org>; Fri, 11 Apr 2014 18:15:19 -0700 (PDT)
-In-Reply-To: <20140411175800.08e9ffe3@nehalam.linuxnetplumber.net>
+Received: from exprod5og108.obsmtp.com ([64.18.0.186]:57256 "HELO
+	exprod5og108.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1756075AbaDLDG1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 23:06:27 -0400
+Received: by mail-pd0-f174.google.com with SMTP id y13so5955805pdi.5
+        for <netdev@vger.kernel.org>; Fri, 11 Apr 2014 20:06:26 -0700 (PDT)
+In-Reply-To: <1397271984-23405-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 11, 2014 at 5:58 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Fri, 11 Apr 2014 17:45:53 -0700
-> Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> It's already there:
->>
->>         } else if (sel && sel->flags&TC_U32_TERMINAL) {
->>                 fprintf(f, "terminal flowid ??? ");
->>         }
->
-> But it printing it like an error, not an known good option.
-> The ??? implies that somebody did something wrong.
+This patch adds documentation for APM X-Gene SoC ethernet DTS binding.
 
-I don't know why ??? is displayed together with terminal, but
-nothing seems wrong here, check the output after I add
-a mirred action:
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Signed-off-by: Ravi Patel <rapatel@apm.com>
+Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
+---
+ .../devicetree/bindings/net/apm-xgene-enet.txt     |   46 ++++++++++++++++++++
+ 1 file changed, 46 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/apm-xgene-enet.txt
 
-filter protocol ip pref 49152 u32
-filter protocol ip pref 49152 u32 fh 800: ht divisor 1
-filter protocol ip pref 49152 u32 fh 800::800 order 2048 key ht 800
-bkt 0 terminal flowid ???
-  match 01020304/ffffffff at 16
-action order 1: mirred (Egress Mirror to device virbr0) pipe
-  index 1 ref 1 bind 1
+diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+new file mode 100644
+index 0000000..0c983e8
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+@@ -0,0 +1,46 @@
++APM X-Gene SoC Ethernet nodes
++
++Ethernet nodes are defined to describe on-chip ethernet interfaces in
++APM X-Gene SoC.
++
++Required properties:
++- compatible		: Should be "apm,xgene-enet"
++- reg			: First resource is the ethernet base register set
++			  Second resource is the ring base register set
++			  Third resource is the ring command register set
++- interrupts		: Ethernet main interrupt
++- clocks		: Reference to the clock entry.
++- local-mac-address	: Ethernet MAC address.
++- phy-addr		: Ethernet MII phy address.
++- phy-mode		: Ethernet MII mode.
++
++Optional properties:
++- status		: Should be "ok" or "disabled" for enabled/disabled.
++			  Default is "ok".
++
++Example:
++	menetclk: menetclk {
++		compatible = "apm,xgene-device-clock";
++		clock-output-names = "menetclk";
++		status = "ok";
++	};
++
++	menet: ethernet@17020000 {
++		compatible = "apm,xgene-enet";
++		status = "disabled";
++		reg = <0x0 0x17020000 0x0 0xd100>,
++		      <0x0 0X17030000 0x0 0X400>,
++		      <0x0 0X10000000 0x0 0X200>;
++		interrupts = <0x0 0x3c 0x4>;
++		clocks = <&menetclk 0>;
++		local-mac-address = [00 01 73 00 00 01];
++		phy-addr = <3>;
++		phy-mode = "rgmii";
++	};
++
++
++/* Board-specific peripheral configurations */
++
++&menet {
++        status = "ok";
++};
+-- 
+1.7.9.5
