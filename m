@@ -1,7 +1,7 @@
 From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Subject: [PATCH v2 3/4] dts: Add bindings for APM X-Gene SoC ethernet driver
-Date: Fri, 11 Apr 2014 20:06:23 -0700
-Message-ID: <1397271984-23405-4-git-send-email-isubramanian@apm.com>
+Subject: [PATCH v2 1/4] MAINTAINERS: Add entry for APM X-Gene SoC ethernet driver
+Date: Fri, 11 Apr 2014 20:06:21 -0700
+Message-ID: <1397271984-23405-2-git-send-email-isubramanian@apm.com>
 References: <1397271984-23405-1-git-send-email-isubramanian@apm.com>
 Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
@@ -14,68 +14,35 @@ In-Reply-To: <1397271984-23405-1-git-send-email-isubramanian-qTEPVZfXA3Y@public.
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds bindings for APM X-Gene SoC ethernet driver.
+This patch adds a MAINTAINERS entry for APM X-Gene SoC
+ethernet driver.
 
 Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
 Signed-off-by: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
 Signed-off-by: Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
 ---
- arch/arm64/boot/dts/apm-mustang.dts |    4 ++++
- arch/arm64/boot/dts/apm-storm.dtsi  |   18 +++++++++++++++---
- 2 files changed, 19 insertions(+), 3 deletions(-)
+ MAINTAINERS |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/arch/arm64/boot/dts/apm-mustang.dts b/arch/arm64/boot/dts/apm-mustang.dts
-index 1247ca1..e2fb1ef 100644
---- a/arch/arm64/boot/dts/apm-mustang.dts
-+++ b/arch/arm64/boot/dts/apm-mustang.dts
-@@ -24,3 +24,7 @@
- 		reg = < 0x1 0x00000000 0x0 0x80000000 >; /* Updated by bootloader */
- 	};
- };
-+
-+&menet {
-+	status = "ok";
-+};
-diff --git a/arch/arm64/boot/dts/apm-storm.dtsi b/arch/arm64/boot/dts/apm-storm.dtsi
-index 93f4b2d..6b2b7f9 100644
---- a/arch/arm64/boot/dts/apm-storm.dtsi
-+++ b/arch/arm64/boot/dts/apm-storm.dtsi
-@@ -167,14 +167,13 @@
- 				clock-output-names = "ethclk";
- 			};
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 11b3937..bc32a01 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -686,6 +686,14 @@ S:	Maintained
+ F:	drivers/net/appletalk/
+ F:	net/appletalk/
  
--			eth8clk: eth8clk {
-+			menetclk: menetclk {
- 				compatible = "apm,xgene-device-clock";
- 				#clock-cells = <1>;
- 				clocks = <&ethclk 0>;
--				clock-names = "eth8clk";
- 				reg = <0x0 0x1702C000 0x0 0x1000>;
- 				reg-names = "csr-reg";
--				clock-output-names = "eth8clk";
-+				clock-output-names = "menetclk";
- 			};
- 
- 			sataphy1clk: sataphy1clk@1f21c000 {
-@@ -339,5 +338,18 @@
- 			phys = <&phy3 0>;
- 			phy-names = "sata-phy";
- 		};
++APPLIED MICRO (APM) X-GENE SOC ETHERNET DRIVER
++M:	Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
++M:	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
++M:	Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
++S:	Maintained
++F:	drivers/net/ethernet/apm/xgene
++F:	Documentation/devicetree/bindings/net/apm-xgene-enet.txt
 +
-+		menet: ethernet@17020000 {
-+			compatible = "apm,xgene-enet";
-+			status = "disabled";
-+			reg = <0x0 0x17020000 0x0 0xd100>,
-+			      <0x0 0X17030000 0x0 0X400>,
-+			      <0x0 0X10000000 0x0 0X200>;
-+			interrupts = <0x0 0x3c 0x4>;
-+			clocks = <&menetclk 0>;
-+			local-mac-address = [00 01 73 00 00 01];
-+			phy-addr = <3>;
-+			phy-mode = "rgmii";
-+		};
- 	};
- };
+ APTINA CAMERA SENSOR PLL
+ M:	Laurent Pinchart <Laurent.pinchart-ryLnwIuWjnjg/C1BVhZhaw@public.gmane.org>
+ L:	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 -- 
 1.7.9.5
 
