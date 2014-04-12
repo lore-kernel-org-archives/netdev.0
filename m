@@ -1,51 +1,64 @@
-From: Rik van Riel <riel@redhat.com>
-Subject: Re: [PATCH] softirq: punt to ksoftirqd if __do_softirq recently looped
-Date: Fri, 11 Apr 2014 20:02:25 -0400
-Message-ID: <53488291.1040501@redhat.com>
-References: <20140410115706.662fb5e7@annuminas.surriel.com> <20140411.163342.1319748709214614224.davem@davemloft.net>
+From: Arvid Brodin <arvid.brodin@alten.se>
+Subject: TCP checksum problem
+Date: Sat, 12 Apr 2014 02:25:53 +0200
+Message-ID: <53488811.2080602@alten.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jbenc@redhat.com, peterz@infradead.org, tglx@linutronix.de,
-	fweisbec@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140411.163342.1319748709214614224.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spam1.webland.se ([91.207.112.90]:51940 "EHLO spam1.webland.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755521AbaDLAfQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Apr 2014 20:35:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/11/2014 04:33 PM, David Miller wrote:
-> From: Rik van Riel <riel@redhat.com>
-> Date: Thu, 10 Apr 2014 11:57:06 -0400
-> 
->> @@ -330,7 +334,11 @@ void irq_enter(void)
->>  
->>  static inline void invoke_softirq(void)
->>  {
->> -	if (!force_irqthreads) {
->> +	/*
->> +	 * If force_irqthreads is set, or if we looped in __do_softirq this
->> +	 * jiffie, punt to ksoftirqd to prevent userland starvation.
->> +	 */
->> +	if (!force_irqthreads && this_cpu_read(softirq_looped) != jiffies) {
-> 
-> If we do this, which I'm not convinced of yet, I think we should use two
-> jiffies as the cutoff.
+Hi,
 
-I am not fully convinced, either.  This patch mostly just illustrates
-the problem, and gives something that solves Jiri's immediate problem.
+I'm trying to insert a 6-byte HSR header into a newly copied skb, betwe=
+en the ethernet header and the IP header. The skb comes from my virtual=
+ device's ndo_start_xmit() function and is to be sent on to a physical =
+interface after modification. Essentially, this is what I'm doing:
 
-It is quite likely that there is a better way to solve the problem of:
-1) softirq handling starving out userspace processing,
-2) which could be solved by moving the userspace process elsewhere, and
-3) shifting softirq processing to ksoftirqd
+	skb =3D skb_copy_expand(skb, skb_headroom(skb) + HSR_HLEN, 0, GFP_ATOM=
+IC);
 
-A working patch seems to be one of the better ways to start a
-discussion, though.
+	/* Move ethernet header to make room for the HSR header */
+	src =3D skb_mac_header(skb);
+	WARN_ON_ONCE(src !=3D skb->data);
+	dst =3D skb_push(skb, HSR_HLEN);
+	memmove(dst, src, ETH_HLEN);
+	skb_reset_mac_header(skb);
 
-If anybody has a nicer idea on how to solve the problem, I'd even be
-willing to implement your idea, and give Jiri another patch to test :)
+	/* Fill in the 6-byte header */
+	hsr_fill_tag(skb, frame, port);
 
--- 
-All rights reversed
+	/* Point the skb to the physical interface */
+	skb->dev =3D port->dev;=20
+
+	dev_queue_xmit(skb);
+
+But something goes wrong with the TCP checksum on the way out. Arp, pin=
+g etc works fine, but anything using TCP is discarded by the receiver d=
+ue to incorrect TCP checksums.
+
+Using wireshark and some printks, I've managed to decide that the updat=
+ed TCP checksum is written offset by -6 bytes from where it should be (=
+into what wireshark calls the TCP header "acknowledgement number" field=
+).
+
+Any idea why this happens? I've spent a few days on this now and I'm ru=
+nning out of ideas...
+
+This is run on the cadence/macb ethernet device. Before the call to skb=
+_copy_expand(), skb->ip_summed is CHECKSUM_PARTIAL, skb->csum_start is =
+120, and skb->csum_offset is 16. The total frame length is 80 bytes (on=
+ the wire as reported by wireshark - I think this is excluding the FCS)=
+=2E
+
+
+--=20
+Arvid Brodin | Consultant (Linux)
+ALTEN | Knarrarn=C3=A4sgatan 7 | SE-164 40 Kista | Sweden
+arvid.brodin@alten.se | www.alten.se/en/
