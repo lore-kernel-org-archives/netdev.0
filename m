@@ -1,49 +1,51 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] packet: fix potential use after free
-Date: Sat, 12 Apr 2014 01:37:30 +0200
-Message-ID: <53487CBA.7080009@redhat.com>
-References: <1397092959.16584.26.camel@edumazet-glaptop2.roam.corp.google.com> <53465409.3070507@redhat.com> <1397142418.16584.28.camel@edumazet-glaptop2.roam.corp.google.com> <20140411.155922.2269056965511687739.davem@davemloft.net>
+From: Rik van Riel <riel@redhat.com>
+Subject: Re: [PATCH] softirq: punt to ksoftirqd if __do_softirq recently looped
+Date: Fri, 11 Apr 2014 20:02:25 -0400
+Message-ID: <53488291.1040501@redhat.com>
+References: <20140410115706.662fb5e7@annuminas.surriel.com> <20140411.163342.1319748709214614224.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, xii@google.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jbenc@redhat.com, peterz@infradead.org, tglx@linutronix.de,
+	fweisbec@gmail.com
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53866 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750842AbaDKXhi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Apr 2014 19:37:38 -0400
-In-Reply-To: <20140411.155922.2269056965511687739.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140411.163342.1319748709214614224.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/11/2014 09:59 PM, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 10 Apr 2014 08:06:58 -0700
->
->> On Thu, 2014-04-10 at 10:19 +0200, Daniel Borkmann wrote:
->>> On 04/10/2014 03:22 AM, Eric Dumazet wrote:
->>>> From: Eric Dumazet <edumazet@google.com>
->>>>
->>>> As soon skb is queued into sk_receive_queue, it can be consumed,
->>>> so its racy to access skb->len.
->>>>
->>>> Given that sk_data_ready() / sock_def_readable() don't really care, just
->>>> use 0 instead of skb->len
->>>>
->>>> Signed-off-by: Eric Dumazet <edumazet@google.com>
->>>> Cc: Xi Wang <xii@google.com>
->>>
->>> Acked-by: Daniel Borkmann <dborkman@redhat.com>
->>>
->>> Seems to be there since pre 2005 ...
->>
->> Yeah, and many other places have the same error, a full audit is
->> probably needed.
->
-> Not only sock_def_readable(), but all implementations of this callback absolutely
-> do not care about the length argument.
->
-> I'm working on a patch to kill the argument completely.
+On 04/11/2014 04:33 PM, David Miller wrote:
+> From: Rik van Riel <riel@redhat.com>
+> Date: Thu, 10 Apr 2014 11:57:06 -0400
+> 
+>> @@ -330,7 +334,11 @@ void irq_enter(void)
+>>  
+>>  static inline void invoke_softirq(void)
+>>  {
+>> -	if (!force_irqthreads) {
+>> +	/*
+>> +	 * If force_irqthreads is set, or if we looped in __do_softirq this
+>> +	 * jiffie, punt to ksoftirqd to prevent userland starvation.
+>> +	 */
+>> +	if (!force_irqthreads && this_cpu_read(softirq_looped) != jiffies) {
+> 
+> If we do this, which I'm not convinced of yet, I think we should use two
+> jiffies as the cutoff.
 
-Sounds good! Seen you've already pushed that, thanks!
+I am not fully convinced, either.  This patch mostly just illustrates
+the problem, and gives something that solves Jiri's immediate problem.
+
+It is quite likely that there is a better way to solve the problem of:
+1) softirq handling starving out userspace processing,
+2) which could be solved by moving the userspace process elsewhere, and
+3) shifting softirq processing to ksoftirqd
+
+A working patch seems to be one of the better ways to start a
+discussion, though.
+
+If anybody has a nicer idea on how to solve the problem, I'd even be
+willing to implement your idea, and give Jiri another patch to test :)
+
+-- 
+All rights reversed
