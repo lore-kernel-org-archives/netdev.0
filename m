@@ -1,82 +1,83 @@
-From: Toshiaki Makita <toshiaki.makita1@gmail.com>
-Subject: Re: 802.1AD packets - Kernel changes ether type from 88A8 to 8100
- on all packets.
-Date: Sun, 13 Apr 2014 01:20:36 +0900
-Message-ID: <1397319636.1789.11.camel@localhost.localdomain>
-References: <BLU184-W706F779E20884E4F486ED9D0540@phx.gbl>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: [REGRESSION,BISECTED] mvneta broken in 3.14 on RN2120, RN102 and RN104 after e3a8786c10e7
+Date: Sat, 12 Apr 2014 18:28:57 +0200
+Message-ID: <87k3au8qba.fsf@natisbad.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dennis Punjabi <linuxdev@icts.bz>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:52093 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751448AbaDLQUm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Apr 2014 12:20:42 -0400
-Received: by mail-pd0-f169.google.com with SMTP id fp1so6513529pdb.28
-        for <netdev@vger.kernel.org>; Sat, 12 Apr 2014 09:20:42 -0700 (PDT)
-In-Reply-To: <BLU184-W706F779E20884E4F486ED9D0540@phx.gbl>
+Received: from smtp4-g21.free.fr ([212.27.42.4]:56964 "EHLO smtp4-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751462AbaDLQ3d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Apr 2014 12:29:33 -0400
+Received: from smtp.natisbad.org (unknown [81.57.185.249])
+	by smtp4-g21.free.fr (Postfix) with ESMTP id 41CF94C80EE
+	for <netdev@vger.kernel.org>; Sat, 12 Apr 2014 18:29:17 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-     1. On Fri, 2014-04-11 at 11:01 +0000, Dennis Punjabi wrote:
-> Background:
-> 1) I need to setup a Linux software bridge and ensure that packets coming in on one bridge port exit unchanged on another bridge port, like a normal HW bridge.
-> 2) I need to use the new vlan filtering capability of the bridge. Good news of this feature is made in the kernel announcement of release 3.9 @ http://kernelnewbies.org/Linux_3.9
-> 3) I need to test what presently happens to 802.1AD tagged packets when bridge vlan filtering is enabled because I also need support for Q-in-Q.
-> 
-> I am using a packet generator (Ostinato) and creating 802.1AD packets as follows:
-> 
-> (MAC_HDR)           (8021AD_HDR)   (8021Q HDR)  (PAYLOAD)
-> 
-> (DA | SA | TYPE)    (TCI | TPID)        (TCI | TPID)    (TEST PAYLOAD - ARP BCAST PACKET)
-> 
-> (DA | SA | 88A8)    (TCI | 8100)         (TCI | 0806)    (TEST PAYLOAD - ARP BCAST PACKET)
-> 
-> (hopefully the alignment is ok above, if not I apologize and hope its clear enough)
-> 
-> Even before setting up the the bridge, I want to ensure that packets are being received properly to my system.
-> I do a tcpdump output for the port receiving the generated packets.
-> 
-> What I notice is that the 88A8 TPIC/ether type get changed to 8100.
-> Ie, all packets with ether type 802.1AD get changed to 802.1Q type, ie 8100.
-> I initially tested this on a 3.14 vanilla kernel.
+Hi Thomas,
 
-Hi.
+Network is broken w/ 3.14 kernel on Netgear ReadyNAS 102 (the SoC is
+an Armada 370 using mvneta driver and rgmii phy): nothing sent, nothing
+received from the interface. This came as a surprise (it was reported by
+two users) as 3.14-rc8 was ok on my side.
 
-Though I'm not an expert with libpcap, I feel tcpdump sometimes shows a
-wrong vlan protocol (if vlan_tci is used).
+I also checked on a ReadyNAS 104 (Armada 370 using mvneta driver and
+rgmii phy for both interfaces) and a ReadyNAS 2120 (Armada XP using
+mvneta driver and rgmii phy for both interfaces). They are both
+affected too.
 
-Maybe this topic has relevance?
+A short bisect session pointed e3a8786c10e7 (net: mvneta: fix usage as a
+module on RGMII configurations). Reverting it put things back in order
+on those three devices.
 
-packet: deliver VLAN TPID to userspace
-http://marc.info/?l=linux-netdev&m=138728859001934&w=2
-http://marc.info/?l=linux-netdev&m=138728859601935&w=2
-http://marc.info/?l=linux-netdev&m=138728860101937&w=2
-http://marc.info/?l=linux-netdev&m=138728860601939&w=2
+I took a quick look at e3a8786c10e7 commit and did some tests to narrow
+the root cause (I do not have A370 functional specification doc at hand
+today so I was not able to check mvneta details):
 
-Thanks,
-Toshiaki Makita
+    -}
+    -
+     /* Start the Ethernet port RX and TX activity */
+     static void mvneta_port_up(struct mvneta_port *pp)
+     {
+    @@ -2756,12 +2728,15 @@ static void mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
+            mvreg_write(pp, MVNETA_UNIT_INTR_CAUSE, 0);
+     
+            if (phy_mode == PHY_INTERFACE_MODE_SGMII)
+    -               mvneta_port_sgmii_config(pp);
+    +               mvreg_write(pp, MVNETA_SERDES_CFG, MVNETA_SGMII_SERDES_PROTO);
+    +       else
+    +               mvreg_write(pp, MVNETA_SERDES_CFG, MVNETA_RGMII_SERDES_PROTO);
 
-> 
-> I recompiled my 8139too.c driver and printed printk the packets in the driver before they are handed over to netif_receive_skb.
-> Before being passed to the kernel networking stack the packet is as it is supposed to be, ie it has the correct 88A8 ether type.
-> 
-> I went ahead and tested this on kernel 3.12, 3.11, 3.10. I Saw the same result.
-> 
-> I also tested it on 3.9, 3.8 and 2.6 and these kernels did not change the 88A8 to 8100.
-> 
-> Is this intentional or a bug? Does this have something to do with the addition of the new feature (vlan: Add 802.1ad support) announced in kernel 3.10? http://kernelnewbies.org/Linux_3.10
-> 
-> I have been following the net-dev mailing lists and want to test the bridge 802.1AD filtering feature discussed here http://www.spinics.net/lists/linux-ethernet-bridging/msg05207.html but cannot do so if the bridge does not even get the 802.1AD tagged packets to begin with.
-> 
-> Assuming I don't want to use filtering and just want a simple bridge. The expected behaviour is that the bridge must not change my packet and should simply pass it along. Is my thinking correct?
-> 
-> Thanks for any help provided.
-> 
-> Dennis
->  		 	   		  --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+I built a first kernel with the 'else' branch above removed (rationale:
+SERDES config was not set for RGMII prior to the patch). The issue
+remained.
+     
+    -       mvneta_gmac_rgmii_set(pp, 1);
+    +       val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
+    +
+    +       val |= MVNETA_GMAC2_PCS_ENABLE | MVNETA_GMAC2_PORT_RGMII;
+
+I removed MVNETA_GMAC2_PCS_ENABLE flag setting (rationale: it was only
+done for SGMII prior to the patch and all my platforms have RGMII
+connected PHY). *The issue disappeared on all 3 NAS with that simple
+change*.
+
+Some additional notes:
+ - you tested w/ mvneta as a module. Did you test w/ mvneta driver
+   built in the kernel? This is what I have on my side.
+ - e3a8786c10e7 is in 3.13.9 kernel and possibly previous ones: I can
+   confirm 3.13.9 is also broken for me.
+ - I initially thought the issue was specific to A370 (some differences
+   in mvneta logic?) as all your tests had been done on AXP. This is the
+   reason I also checked the RN2120 (mv78230) and it is impacted.
+
+Any idea is welcome.
+
+Cheers,
+
+a+
