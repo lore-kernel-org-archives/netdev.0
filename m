@@ -1,64 +1,33 @@
-From: Arvid Brodin <arvid.brodin@alten.se>
-Subject: TCP checksum problem
-Date: Sat, 12 Apr 2014 02:25:53 +0200
-Message-ID: <53488811.2080602@alten.se>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch iproute2] u32: add terminal parameter
+Date: Fri, 11 Apr 2014 17:45:53 -0700
+Message-ID: <CAM_iQpVpNOJ1xiK45qXGRXgBZ2QcmwoPc7p=SOHCo=1kTwPfFQ@mail.gmail.com>
+References: <1396631826-15188-1-git-send-email-xiyou.wangcong@gmail.com>
+	<20140411140446.6412e9dc@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:51940 "EHLO spam1.webland.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755521AbaDLAfQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Apr 2014 20:35:16 -0400
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:50265 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750842AbaDLApy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Apr 2014 20:45:54 -0400
+Received: by mail-ob0-f170.google.com with SMTP id uz6so6860091obc.15
+        for <netdev@vger.kernel.org>; Fri, 11 Apr 2014 17:45:54 -0700 (PDT)
+In-Reply-To: <20140411140446.6412e9dc@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Fri, Apr 11, 2014 at 2:04 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+>
+> Iproute2 commands are supposed to be invertible.
+> If you take something as input, it should be displayed on output.
 
-I'm trying to insert a 6-byte HSR header into a newly copied skb, betwe=
-en the ethernet header and the IP header. The skb comes from my virtual=
- device's ndo_start_xmit() function and is to be sent on to a physical =
-interface after modification. Essentially, this is what I'm doing:
+It's already there:
 
-	skb =3D skb_copy_expand(skb, skb_headroom(skb) + HSR_HLEN, 0, GFP_ATOM=
-IC);
-
-	/* Move ethernet header to make room for the HSR header */
-	src =3D skb_mac_header(skb);
-	WARN_ON_ONCE(src !=3D skb->data);
-	dst =3D skb_push(skb, HSR_HLEN);
-	memmove(dst, src, ETH_HLEN);
-	skb_reset_mac_header(skb);
-
-	/* Fill in the 6-byte header */
-	hsr_fill_tag(skb, frame, port);
-
-	/* Point the skb to the physical interface */
-	skb->dev =3D port->dev;=20
-
-	dev_queue_xmit(skb);
-
-But something goes wrong with the TCP checksum on the way out. Arp, pin=
-g etc works fine, but anything using TCP is discarded by the receiver d=
-ue to incorrect TCP checksums.
-
-Using wireshark and some printks, I've managed to decide that the updat=
-ed TCP checksum is written offset by -6 bytes from where it should be (=
-into what wireshark calls the TCP header "acknowledgement number" field=
-).
-
-Any idea why this happens? I've spent a few days on this now and I'm ru=
-nning out of ideas...
-
-This is run on the cadence/macb ethernet device. Before the call to skb=
-_copy_expand(), skb->ip_summed is CHECKSUM_PARTIAL, skb->csum_start is =
-120, and skb->csum_offset is 16. The total frame length is 80 bytes (on=
- the wire as reported by wireshark - I think this is excluding the FCS)=
-=2E
-
-
---=20
-Arvid Brodin | Consultant (Linux)
-ALTEN | Knarrarn=C3=A4sgatan 7 | SE-164 40 Kista | Sweden
-arvid.brodin@alten.se | www.alten.se/en/
+        } else if (sel && sel->flags&TC_U32_TERMINAL) {
+                fprintf(f, "terminal flowid ??? ");
+        }
