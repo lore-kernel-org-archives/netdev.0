@@ -1,334 +1,299 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Sat, 12 Apr 2014 17:42:00 -0400 (EDT)
-Message-ID: <20140412.174200.277517786111079219.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Wei Yang <weiyang@linux.vnet.ibm.com>
+Subject: [PATCH V2 net] net/mlx4_core: Preserve pci_dev_data after __mlx4_remove_one()
+Date: Sun, 13 Apr 2014 11:22:13 +0800
+Message-ID: <1397359333-8378-1-git-send-email-weiyang@linux.vnet.ibm.com>
+Cc: Wei Yang <weiyang@linux.vnet.ibm.com>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: linux-pci@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+Return-path: <linux-pci-owner@vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+pci_match_id() just match the static pci_device_id, which may return NULL if
+someone binds the driver to a device manually using
+/sys/bus/pci/drivers/.../new_id.
 
-1) Various fixes to the new Redpine Signals wireless driver, from
-   Fariya Fatima.
+This patch wrap up a helper function __mlx4_remove_one() which does the tear
+down function but preserve the drv_data. Functions like
+mlx4_pci_err_detected() and mlx4_restart_one() will call this one with out
+releasing drvdata.
 
-2) L2TP PPP connect code takes PMTU from the wrong socket, fix from
-   Dmitry Petukhov.
+Fixes: 97a5221 "net/mlx4_core: pass pci_device_id.driver_data to __mlx4_init_one during reset".
 
-3) UFO and TSO packets differ in whether they include the protocol head=
-er
-   in gso_size, account for that in skb_gso_transport_seglen().  From
-   Florian Westphal.
+CC: Bjorn Helgaas <bhelgaas@google.com>
+CC: Amir Vadai <amirv@mellanox.com>
+CC: Jack Morgenstein <jackm@dev.mellanox.co.il>
+CC: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+Acked-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-4) If VLAN untagging fails, we double free the SKB in the bridging
-   output path.  From Toshiaki Makita.
-
-5) Several call sites of sk->sk_data_ready() were referencing an SKB
-   just added to the socket receive queue in order to calculate the
-   second argument via skb->len.  This is dangerous because the
-   moment the skb is added to the receive queue it can be consumed
-   in another context and freed up.
-
-   It turns out also that none of the sk->sk_data_ready()
-   implementations even care about this second argument.
-
-   So just kill it off and thus fix all these use-after-free bugs as a
-   side effect.
-
-6) Fix inverted test in tcp_v6_send_response(), from Lorenzo Colitti.
-
-7) pktgen needs to do locking properly for LLTX devices, from Daniel
-   Borkmann.
-
-8) xen-netfront driver initializes TX array entries in RX loop :-)
-   From Vincenzo Maffione.
-
-9) After refactoring, some tunnel drivers allow a tunnel to be
-   configured on top itself.  Fix from Nicolas Dichtel.
-
-Please pull, thanks a lot!
-
-The following changes since commit ce7613db2d8d4d5af2587ab5d7090055c456=
-2201:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2014-0=
-4-08 12:41:23 -0700)
-
-are available in the git repository at:
-
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
-
-for you to fetch changes up to eda43ce03919f2b929a884fddbefa98cfb04fec9=
-:
-
-  Merge branch 'tunnels' (2014-04-12 17:03:20 -0400)
-
-----------------------------------------------------------------
-
-Balakumaran Kannan (1):
-      net phylib: Remove unnecessary condition check in phy
-
-Chun-Yeow Yeoh (1):
-      ath9k_htc: set IEEE80211_TX_STAT_AMPDU for acked aggregated frame=
-s
-
-Daniel Borkmann (2):
-      net: sctp: test if association is dead in sctp_wake_up_waiters
-      pktgen: be friendly to LLTX devices
-
-David S. Miller (6):
-      Merge branch 'hyperv'
-      net: Fix use after free by removing length arg from sk_data_ready=
- callbacks.
-      Merge branch 'cpsw'
-      Merge branch 'for-davem' of git://git.kernel.org/.../linville/wir=
-eless
-      Merge branch 'master' of git://git.kernel.org/.../jkirsher/net
-      Merge branch 'tunnels'
-
-Dmitry Petukhov (1):
-      l2tp: take PMTU from tunnel UDP socket
-
-Duan Jiong (1):
-      net/apne: replace IS_ERR and PTR_ERR with PTR_ERR_OR_ZERO
-
-=46ariya Fatima (6):
-      rsi: Potential null pointer derefernce issue fixed.
-      rsi: Fixed signedness bug reported by static code analyzer.
-      rsi: Fixed issue relating to variable de-referenced before check =
-'adapter'
-      rsi: Fixed issue relating to return value.
-      rsi: Fixed issue relating to index of q_num.
-      rsi: Fixed issue relating to doing dma on stack error.
-
-=46elix Fietkau (2):
-      ath9k_hw: reduce ANI firstep range for older chips
-      ath9k: fix a scheduling while atomic bug in CSA handling
-
-=46lorian Westphal (1):
-      net: core: don't account for udp header size when computing segle=
-n
-
-=46rancois Romieu (8):
-      ixgbe: remove open-coded skb_cow_head
-      ixgbevf: remove open-coded skb_cow_head
-      e1000: remove open-coded skb_cow_head
-      e1000e: remove open-coded skb_cow_head
-      igb: remove open-coded skb_cow_head
-      igbvf: remove open-coded skb_cow_head
-      ixgb: remove open-coded skb_cow_head
-      i40evf: remove open-coded skb_cow_head
-
-Jakub Kicinski (2):
-      e1000: remove debug messages with function names
-      igb: fix last_rx_timestamp usage
-
-Janusz Dziedzic (1):
-      ath9k: Enable DFS only when ATH9K_DFS_CERTIFIED
-
-John W. Linville (1):
-      Merge branch 'master' of git://git.kernel.org/.../linville/wirele=
-ss into for-davem
-
-KY Srinivasan (3):
-      Drivers: net: hyperv: Allocate memory for all possible per-pecket=
- information
-      Drivers: net: hyperv: Negotiate suitable ndis version for offload=
- support
-      Drivers: net: hyperv: Address UDP checksum issues
-
-Lorenzo Colitti (1):
-      net: ipv6: Fix oif in TCP SYN+ACK route lookup.
-
-Marc Zyngier (1):
-      net: sun4i-emac: add promiscuous support
-
-Mark Rustad (2):
-      ixgbe: Add bit to mark service task initialization
-      ixgbevf: Add bit to mark work queue initialization
-
-Mitch A Williams (1):
-      i40evf: program RSS LUT correctly
-
-Mugunthan V N (3):
-      drivers: net: cpsw: Add default vlan for dual emac case also
-      drivers: net: cpsw: discard all packets received when interface i=
-s down
-      drivers: net: cpsw: enable interrupts after napi enable and clear=
-ing previous interrupts
-
-Nicolas Dichtel (2):
-      gre: don't allow to add the same tunnel twice
-      vti: don't allow to add the same tunnel twice
-
-Paul Bolle (1):
-      rtlwifi: btcoexist: remove undefined Kconfig macros
-
-Rafa=A9=A9 Mi=A9=A9ecki (1):
-      b43: Fix machine check error due to improper access of B43_MMIO_P=
-SM_PHY_HDR
-
-Thomas Richter (1):
-      bonding: Remove debug_fs files when module init fails
-
-Toshiaki Makita (1):
-      bridge: Fix double free and memory leak around br_allowed_ingress
-
-Vincenzo Maffione (1):
-      drivers: net: xen-netfront: fix array initialization bug
-
-hayeswang (1):
-      r8152: check RTL8152_UNPLUG
-
- drivers/net/bonding/bond_main.c                               |   1 +
- drivers/net/ethernet/8390/apne.c                              |   4 +-
- drivers/net/ethernet/allwinner/sun4i-emac.c                   |  30 ++=
-+++++----
- drivers/net/ethernet/intel/e1000/e1000_hw.c                   | 124 --=
---------------------------------------------
- drivers/net/ethernet/intel/e1000/e1000_main.c                 |  11 ++=
---
- drivers/net/ethernet/intel/e1000e/netdev.c                    |  10 ++=
---
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c                 |  10 ++=
---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c               |  20 ++=
-++++--
- drivers/net/ethernet/intel/igb/igb.h                          |  16 +-=
-----
- drivers/net/ethernet/intel/igb/igb_main.c                     |  13 ++=
 ---
- drivers/net/ethernet/intel/igb/igb_ptp.c                      |  14 ++=
-+---
- drivers/net/ethernet/intel/igbvf/netdev.c                     |  16 ++=
-+---
- drivers/net/ethernet/intel/ixgb/ixgb_main.c                   |  10 ++=
---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h                      |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c                 |  28 ++=
-++++++---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h                  |   1 +
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c             |  20 ++=
-+++---
- drivers/net/ethernet/ti/cpsw.c                                |  17 ++=
-+----
- drivers/net/hyperv/hyperv_net.h                               |   1 +
- drivers/net/hyperv/netvsc.c                                   |   2 +-
- drivers/net/hyperv/netvsc_drv.c                               |  30 ++=
-++++++++-
- drivers/net/hyperv/rndis_filter.c                             |  12 ++=
-++-
- drivers/net/phy/phy.c                                         |   6 +-=
--
- drivers/net/usb/r8152.c                                       |  48 ++=
-++++++++++++++++
- drivers/net/wireless/ath/ath9k/ar5008_phy.c                   |   4 +-
- drivers/net/wireless/ath/ath9k/beacon.c                       |   7 ++=
--
- drivers/net/wireless/ath/ath9k/htc_drv_txrx.c                 |   5 +-
- drivers/net/wireless/ath/ath9k/init.c                         |   2 +
- drivers/net/wireless/b43/phy_n.c                              |  14 ++=
-+---
- drivers/net/wireless/rsi/rsi_91x_core.c                       |   6 ++=
--
- drivers/net/wireless/rsi/rsi_91x_debugfs.c                    |  35 ++=
-++++-------
- drivers/net/wireless/rsi/rsi_91x_mgmt.c                       |   8 +-=
--
- drivers/net/wireless/rsi/rsi_91x_sdio.c                       |   5 +-
- drivers/net/wireless/rsi/rsi_91x_sdio_ops.c                   |   6 +-=
--
- drivers/net/wireless/rsi/rsi_91x_usb.c                        |  26 ++=
-+++++---
- drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c         |  10 --=
---
- drivers/net/xen-netfront.c                                    |   2 +-
- drivers/scsi/iscsi_tcp.c                                      |   2 +-
- drivers/scsi/iscsi_tcp.h                                      |   2 +-
- drivers/staging/lustre/lnet/klnds/socklnd/socklnd_lib-linux.c |   4 +-
- drivers/target/iscsi/iscsi_target_core.h                      |   2 +-
- drivers/target/iscsi/iscsi_target_nego.c                      |   2 +-
- fs/dlm/lowcomms.c                                             |   2 +-
- fs/ncpfs/ncp_fs_sb.h                                          |   4 +-
- fs/ncpfs/sock.c                                               |   4 +-
- fs/ocfs2/cluster/tcp.c                                        |  15 ++=
-+---
- fs/ocfs2/cluster/tcp_internal.h                               |   2 +-
- include/linux/sunrpc/svcsock.h                                |   2 +-
- include/net/sctp/sctp.h                                       |   2 +-
- include/net/sock.h                                            |   2 +-
- net/atm/clip.c                                                |   2 +-
- net/atm/lec.c                                                 |  10 ++=
---
- net/atm/mpc.c                                                 |   6 +-=
--
- net/atm/raw.c                                                 |   2 +-
- net/atm/signaling.c                                           |   2 +-
- net/ax25/ax25_in.c                                            |   2 +-
- net/bluetooth/l2cap_sock.c                                    |   6 +-=
--
- net/bluetooth/rfcomm/core.c                                   |   4 +-
- net/bluetooth/rfcomm/sock.c                                   |   4 +-
- net/bluetooth/sco.c                                           |   2 +-
- net/bridge/br_input.c                                         |   2 +-
- net/bridge/br_vlan.c                                          |   7 +-=
--
- net/caif/caif_socket.c                                        |   4 +-
- net/ceph/messenger.c                                          |   2 +-
- net/core/pktgen.c                                             |   8 ++=
--
- net/core/skbuff.c                                             |  16 ++=
-+---
- net/core/sock.c                                               |   4 +-
- net/dccp/input.c                                              |   2 +-
- net/dccp/minisocks.c                                          |   2 +-
- net/decnet/dn_nsp_in.c                                        |   4 +-
- net/ipv4/ip_gre.c                                             |   2 +-
- net/ipv4/ip_vti.c                                             |   2 +-
- net/ipv4/tcp_input.c                                          |  10 ++=
---
- net/ipv4/tcp_ipv4.c                                           |   2 +-
- net/ipv4/tcp_minisocks.c                                      |   2 +-
- net/ipv6/tcp_ipv6.c                                           |   2 +-
- net/iucv/af_iucv.c                                            |   4 +-
- net/key/af_key.c                                              |   2 +-
- net/l2tp/l2tp_ppp.c                                           |   4 +-
- net/netlink/af_netlink.c                                      |   4 +-
- net/netrom/af_netrom.c                                        |   2 +-
- net/nfc/llcp_core.c                                           |   2 +-
- net/packet/af_packet.c                                        |   6 +-=
--
- net/phonet/pep-gprs.c                                         |   4 +-
- net/phonet/pep.c                                              |   8 ++=
--
- net/rds/tcp.h                                                 |   4 +-
- net/rds/tcp_listen.c                                          |   6 +-=
--
- net/rds/tcp_recv.c                                            |   8 +-=
--
- net/rose/af_rose.c                                            |   2 +-
- net/rxrpc/ar-input.c                                          |   6 +-=
--
- net/rxrpc/ar-internal.h                                       |   2 +-
- net/sctp/socket.c                                             |   8 ++=
--
- net/sctp/ulpqueue.c                                           |   4 +-
- net/sunrpc/svcsock.c                                          |  12 ++=
+V0 --> V1:
+   1. zero the mlx4_priv at the end of __mlx4_remove_one
+   2. add a flag in mlx4_priv to mark it is released or not
+V1 --> V2:
+   1. rebase it on latest net tree
 ---
- net/sunrpc/xprtsock.c                                         |   8 +-=
+ drivers/net/ethernet/mellanox/mlx4/main.c |  177 ++++++++++++++++-------------
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h |    1 +
+ 2 files changed, 101 insertions(+), 77 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index f0ae95f..b6d60e2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -2301,13 +2301,8 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
+ 	/* Allow large DMA segments, up to the firmware limit of 1 GB */
+ 	dma_set_max_seg_size(&pdev->dev, 1024 * 1024 * 1024);
+ 
+-	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+-	if (!priv) {
+-		err = -ENOMEM;
+-		goto err_release_regions;
+-	}
 -
- net/tipc/server.c                                             |   4 +-
- net/tipc/socket.c                                             |   6 +-=
+-	dev       = &priv->dev;
++	dev       = pci_get_drvdata(pdev);
++	priv      = mlx4_priv(dev);
+ 	dev->pdev = pdev;
+ 	INIT_LIST_HEAD(&priv->ctx_list);
+ 	spin_lock_init(&priv->ctx_lock);
+@@ -2535,8 +2530,7 @@ slave_start:
+ 	mlx4_sense_init(dev);
+ 	mlx4_start_sense(dev);
+ 
+-	priv->pci_dev_data = pci_dev_data;
+-	pci_set_drvdata(pdev, dev);
++	priv->removed = 0;
+ 
+ 	return 0;
+ 
+@@ -2604,85 +2598,112 @@ err_disable_pdev:
+ 
+ static int mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
+ {
++	struct mlx4_priv *priv;
++	struct mlx4_dev *dev;
++
+ 	printk_once(KERN_INFO "%s", mlx4_version);
+ 
++	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
++	if (!priv) {
++		return -ENOMEM;
++	}
++
++	dev       = &priv->dev;
++	pci_set_drvdata(pdev, dev);
++	priv->pci_dev_data = id->driver_data;
++
+ 	return __mlx4_init_one(pdev, id->driver_data);
+ }
+ 
+-static void mlx4_remove_one(struct pci_dev *pdev)
++static void __mlx4_remove_one(struct pci_dev *pdev)
+ {
+ 	struct mlx4_dev  *dev  = pci_get_drvdata(pdev);
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
++	int               pci_dev_data;
+ 	int p;
+ 
+-	if (dev) {
+-		/* in SRIOV it is not allowed to unload the pf's
+-		 * driver while there are alive vf's */
+-		if (mlx4_is_master(dev)) {
+-			if (mlx4_how_many_lives_vf(dev))
+-				printk(KERN_ERR "Removing PF when there are assigned VF's !!!\n");
+-		}
+-		mlx4_stop_sense(dev);
+-		mlx4_unregister_device(dev);
++	if (priv->removed)
++		return;
+ 
+-		for (p = 1; p <= dev->caps.num_ports; p++) {
+-			mlx4_cleanup_port_info(&priv->port[p]);
+-			mlx4_CLOSE_PORT(dev, p);
+-		}
++	pci_dev_data = priv->pci_dev_data;
+ 
+-		if (mlx4_is_master(dev))
+-			mlx4_free_resource_tracker(dev,
+-						   RES_TR_FREE_SLAVES_ONLY);
 -
- net/unix/af_unix.c                                            |   6 +-=
+-		mlx4_cleanup_counters_table(dev);
+-		mlx4_cleanup_qp_table(dev);
+-		mlx4_cleanup_srq_table(dev);
+-		mlx4_cleanup_cq_table(dev);
+-		mlx4_cmd_use_polling(dev);
+-		mlx4_cleanup_eq_table(dev);
+-		mlx4_cleanup_mcg_table(dev);
+-		mlx4_cleanup_mr_table(dev);
+-		mlx4_cleanup_xrcd_table(dev);
+-		mlx4_cleanup_pd_table(dev);
++	/* in SRIOV it is not allowed to unload the pf's
++	 * driver while there are alive vf's */
++	if (mlx4_is_master(dev)) {
++		if (mlx4_how_many_lives_vf(dev))
++			printk(KERN_ERR "Removing PF when there are assigned VF's !!!\n");
++	}
++	mlx4_stop_sense(dev);
++	mlx4_unregister_device(dev);
+ 
+-		if (mlx4_is_master(dev))
+-			mlx4_free_resource_tracker(dev,
+-						   RES_TR_FREE_STRUCTS_ONLY);
 -
- net/vmw_vsock/vmci_transport_notify.c                         |   2 +-
- net/vmw_vsock/vmci_transport_notify_qstate.c                  |   4 +-
- net/x25/af_x25.c                                              |   2 +-
- net/x25/x25_in.c                                              |   2 +-
- 102 files changed, 420 insertions(+), 433 deletions(-)
+-		iounmap(priv->kar);
+-		mlx4_uar_free(dev, &priv->driver_uar);
+-		mlx4_cleanup_uar_table(dev);
+-		if (!mlx4_is_slave(dev))
+-			mlx4_clear_steering(dev);
+-		mlx4_free_eq_table(dev);
+-		if (mlx4_is_master(dev))
+-			mlx4_multi_func_cleanup(dev);
+-		mlx4_close_hca(dev);
+-		if (mlx4_is_slave(dev))
+-			mlx4_multi_func_cleanup(dev);
+-		mlx4_cmd_cleanup(dev);
+-
+-		if (dev->flags & MLX4_FLAG_MSI_X)
+-			pci_disable_msix(pdev);
+-		if (dev->flags & MLX4_FLAG_SRIOV) {
+-			mlx4_warn(dev, "Disabling SR-IOV\n");
+-			pci_disable_sriov(pdev);
+-		}
++	for (p = 1; p <= dev->caps.num_ports; p++) {
++		mlx4_cleanup_port_info(&priv->port[p]);
++		mlx4_CLOSE_PORT(dev, p);
++	}
++
++	if (mlx4_is_master(dev))
++		mlx4_free_resource_tracker(dev,
++				   RES_TR_FREE_SLAVES_ONLY);
++
++	mlx4_cleanup_counters_table(dev);
++	mlx4_cleanup_qp_table(dev);
++	mlx4_cleanup_srq_table(dev);
++	mlx4_cleanup_cq_table(dev);
++	mlx4_cmd_use_polling(dev);
++	mlx4_cleanup_eq_table(dev);
++	mlx4_cleanup_mcg_table(dev);
++	mlx4_cleanup_mr_table(dev);
++	mlx4_cleanup_xrcd_table(dev);
++	mlx4_cleanup_pd_table(dev);
+ 
+-		if (!mlx4_is_slave(dev))
+-			mlx4_free_ownership(dev);
++	if (mlx4_is_master(dev))
++		mlx4_free_resource_tracker(dev,
++				   RES_TR_FREE_STRUCTS_ONLY);
+ 
+-		kfree(dev->caps.qp0_tunnel);
+-		kfree(dev->caps.qp0_proxy);
+-		kfree(dev->caps.qp1_tunnel);
+-		kfree(dev->caps.qp1_proxy);
+-		kfree(dev->dev_vfs);
++	iounmap(priv->kar);
++	mlx4_uar_free(dev, &priv->driver_uar);
++	mlx4_cleanup_uar_table(dev);
++	if (!mlx4_is_slave(dev))
++		mlx4_clear_steering(dev);
++	mlx4_free_eq_table(dev);
++	if (mlx4_is_master(dev))
++		mlx4_multi_func_cleanup(dev);
++	mlx4_close_hca(dev);
++	if (mlx4_is_slave(dev))
++		mlx4_multi_func_cleanup(dev);
++	mlx4_cmd_cleanup(dev);
+ 
+-		kfree(priv);
+-		pci_release_regions(pdev);
+-		pci_disable_device(pdev);
+-		pci_set_drvdata(pdev, NULL);
++	if (dev->flags & MLX4_FLAG_MSI_X)
++		pci_disable_msix(pdev);
++	if (dev->flags & MLX4_FLAG_SRIOV) {
++		mlx4_warn(dev, "Disabling SR-IOV\n");
++		pci_disable_sriov(pdev);
+ 	}
++
++	if (!mlx4_is_slave(dev))
++		mlx4_free_ownership(dev);
++
++	kfree(dev->caps.qp0_tunnel);
++	kfree(dev->caps.qp0_proxy);
++	kfree(dev->caps.qp1_tunnel);
++	kfree(dev->caps.qp1_proxy);
++	kfree(dev->dev_vfs);
++
++	pci_release_regions(pdev);
++	pci_disable_device(pdev);
++	memset(priv, 0, sizeof(*priv));
++	priv->pci_dev_data = pci_dev_data;
++	priv->removed = 1;
++}
++
++static void mlx4_remove_one(struct pci_dev *pdev)
++{
++	struct mlx4_dev  *dev  = pci_get_drvdata(pdev);
++	struct mlx4_priv *priv = mlx4_priv(dev);
++
++	__mlx4_remove_one(pdev);
++	kfree(priv);
++	pci_set_drvdata(pdev, NULL);
+ }
+ 
+ int mlx4_restart_one(struct pci_dev *pdev)
+@@ -2692,7 +2713,7 @@ int mlx4_restart_one(struct pci_dev *pdev)
+ 	int		  pci_dev_data;
+ 
+ 	pci_dev_data = priv->pci_dev_data;
+-	mlx4_remove_one(pdev);
++	__mlx4_remove_one(pdev);
+ 	return __mlx4_init_one(pdev, pci_dev_data);
+ }
+ 
+@@ -2747,7 +2768,7 @@ MODULE_DEVICE_TABLE(pci, mlx4_pci_table);
+ static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
+ 					      pci_channel_state_t state)
+ {
+-	mlx4_remove_one(pdev);
++	__mlx4_remove_one(pdev);
+ 
+ 	return state == pci_channel_io_perm_failure ?
+ 		PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_NEED_RESET;
+@@ -2755,11 +2776,13 @@ static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
+ 
+ static pci_ers_result_t mlx4_pci_slot_reset(struct pci_dev *pdev)
+ {
+-	const struct pci_device_id *id;
+-	int ret;
++	struct mlx4_dev	 *dev  = pci_get_drvdata(pdev);
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	int		  pci_dev_data;
++	int               ret;
+ 
+-	id = pci_match_id(mlx4_pci_table, pdev);
+-	ret = __mlx4_init_one(pdev, id->driver_data);
++	pci_dev_data = priv->pci_dev_data;
++	ret = __mlx4_init_one(pdev, pci_dev_data);
+ 
+ 	return ret ? PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_RECOVERED;
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index cf8be41..f9c4651 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -800,6 +800,7 @@ struct mlx4_priv {
+ 	spinlock_t		ctx_lock;
+ 
+ 	int			pci_dev_data;
++	int                     removed;
+ 
+ 	struct list_head        pgdir_list;
+ 	struct mutex            pgdir_mutex;
+-- 
+1.7.9.5
