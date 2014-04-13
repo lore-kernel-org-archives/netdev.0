@@ -1,70 +1,103 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net] net/mlx4_core: Defer VF initialization till PF is fully initialized
-Date: Sun, 13 Apr 2014 18:17:35 +0300
-Message-ID: <1397402255-9996-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Stuart Hayes <Stuart_Hayes@Dell.com>
+From: Mathias Krause <minipli@googlemail.com>
+Subject: [PATCH net] filter: prevent nla extensions to peek beyond the end of the message
+Date: Sun, 13 Apr 2014 18:23:33 +0200
+Message-ID: <1397406213-15452-1-git-send-email-minipli@googlemail.com>
+Cc: netdev@vger.kernel.org, Mathias Krause <minipli@googlemail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:58220 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751268AbaDMPR7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Apr 2014 11:17:59 -0400
+Received: from mail-bk0-f54.google.com ([209.85.214.54]:38433 "EHLO
+	mail-bk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751499AbaDMQX4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2014 12:23:56 -0400
+Received: by mail-bk0-f54.google.com with SMTP id 6so2983149bkj.27
+        for <netdev@vger.kernel.org>; Sun, 13 Apr 2014 09:23:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix in commit [1] is not sufficient since a deferred VF initialization
-could happen after pci_enable_sriov() is finished, but before the PF is
-fully initialized.
-Need to prevent VFs from initializing till the PF is fully ready and
-comm channel is operational.
+The BPF_S_ANC_NLATTR and BPF_S_ANC_NLATTR_NEST extensions fail to check
+for a minimal message length before testing the supplied offset to be
+within the bounds of the message. This allows the subtraction of the nla
+header to underflow and therefore -- as the data type is unsigned --
+allowing far to big offset and length values for the search of the
+netlink attribute.
 
-[1] - 9798935 "net/mlx4_core: mlx4_init_slave() shouldn't access comm
-      channel before PF is ready"
+The remainder calculation for the BPF_S_ANC_NLATTR_NEST extension is
+also wrong. It has the minuend und subtrahend mixed up, therefore
+calculates a huge length value, allowing to overrun the end of the
+message while looking for the netlink attribute.
 
-CC: Stuart Hayes <Stuart_Hayes@Dell.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
+The following three BPF snippets will trigger the bugs when attached to
+a UNIX datagram socket and parsing a message with length 1, 2 or 3.
+
+ ,-[ PoC for missing size check in BPF_S_ANC_NLATTR ]--
+ | ld	#0x87654321
+ | ldx	#42
+ | ld	#nla
+ | ret	a
+ `---
+
+ ,-[ PoC for the same bug in BPF_S_ANC_NLATTR_NEST ]--
+ | ld	#0x87654321
+ | ldx	#42
+ | ld	#nlan
+ | ret	a
+ `---
+
+ ,-[ PoC for wrong remainder calculation in BPF_S_ANC_NLATTR_NEST ]--
+ | ; (needs a fake netlink header at offset 0)
+ | ld	#0
+ | ldx	#42
+ | ld	#nlan
+ | ret	a
+ `---
+
+Fix the first issue by ensuring the message length fulfills the minimal
+size constrains of a nla header. Fix the second bug by getting the math
+for the remainder calculation right.
+
+Fixes: 4738c1db15 ("[SKFILTER]: Add SKF_ADF_NLATTR instruction")
+Fixes: d214c7537b ("filter: add SKF_AD_NLATTR_NEST to look for nested..")
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Mathias Krause <minipli@googlemail.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/main.c | 8 +++++++-
+Backporters will find the code in question in the switch block of
+sk_run_filter().
+
+ net/core/filter.c |    8 +++++++-
  1 file changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index f0ae95f..da62866 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -2374,10 +2374,10 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
- 			} else {
- 				atomic_inc(&pf_loading);
- 				err = pci_enable_sriov(pdev, total_vfs);
--				atomic_dec(&pf_loading);
- 				if (err) {
- 					mlx4_err(dev, "Failed to enable SR-IOV, continuing without SR-IOV (err = %d).\n",
- 						 err);
-+					atomic_dec(&pf_loading);
- 					err = 0;
- 				} else {
- 					mlx4_warn(dev, "Running in master mode\n");
-@@ -2538,6 +2538,9 @@ slave_start:
- 	priv->pci_dev_data = pci_dev_data;
- 	pci_set_drvdata(pdev, dev);
+diff --git a/net/core/filter.c b/net/core/filter.c
+index e08b3822c7..0e0856f5d7 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -600,6 +600,9 @@ static u64 __skb_get_nlattr(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
+ 	if (skb_is_nonlinear(skb))
+ 		return 0;
  
-+	if (mlx4_is_master(dev) && dev->num_vfs)
-+		atomic_dec(&pf_loading);
++	if (skb->len < sizeof(struct nlattr))
++		return 0;
 +
- 	return 0;
+ 	if (A > skb->len - sizeof(struct nlattr))
+ 		return 0;
  
- err_port:
-@@ -2588,6 +2591,9 @@ err_rel_own:
- 	if (!mlx4_is_slave(dev))
- 		mlx4_free_ownership(dev);
+@@ -618,11 +621,14 @@ static u64 __skb_get_nlattr_nest(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
+ 	if (skb_is_nonlinear(skb))
+ 		return 0;
  
-+	if (mlx4_is_master(dev) && dev->num_vfs)
-+		atomic_dec(&pf_loading);
++	if (skb->len < sizeof(struct nlattr))
++		return 0;
 +
- 	kfree(priv->dev.dev_vfs);
+ 	if (A > skb->len - sizeof(struct nlattr))
+ 		return 0;
  
- err_free_dev:
+ 	nla = (struct nlattr *) &skb->data[A];
+-	if (nla->nla_len > A - skb->len)
++	if (nla->nla_len > skb->len - A)
+ 		return 0;
+ 
+ 	nla = nla_find_nested(nla, X);
 -- 
-1.8.3.4
+1.7.10.4
