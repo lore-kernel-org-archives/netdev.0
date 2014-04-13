@@ -1,126 +1,129 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH] Revert "net: mvneta: fix usage as a module on RGMII configurations"
-Date: Sun, 13 Apr 2014 11:15:33 +0200
-Message-ID: <1397380533-16012-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	linux-arm-kernel@lists.infradead.org, stable@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH V2 net] net/mlx4_core: Preserve pci_dev_data after __mlx4_remove_one()
+Date: Sun, 13 Apr 2014 15:06:10 +0400
+Message-ID: <534A6FA2.90800@cogentembedded.com>
+References: <1397359333-8378-1-git-send-email-weiyang@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Bjorn Helgaas <bhelgaas@google.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: Wei Yang <weiyang@linux.vnet.ibm.com>, linux-pci@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:53985 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753862AbaDMLFy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2014 07:05:54 -0400
+Received: by mail-lb0-f172.google.com with SMTP id c11so4849820lbj.31
+        for <netdev@vger.kernel.org>; Sun, 13 Apr 2014 04:05:53 -0700 (PDT)
+In-Reply-To: <1397359333-8378-1-git-send-email-weiyang@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This reverts commit e3a8786c10e75903f1269474e21fe8cb49c3a670. While
-this commit allows to use the mvneta driver as a module on some
-configurations, it breaks other configurations even if mvneta is used
-built-in.
+Hello.
 
-This breakage is due to the fact that on some RGMII platforms, the PCS
-bit has to be set, and on some other platforms, it has to be
-cleared. At the moment, we lack informations to know exactly the
-significance of this bit (the datasheet only says "enables PCS"), and
-so we can't produce a patch that will work on all platforms at this
-point. And since this change is breaking the network completely for
-many users, it's much better to revert it for now. We'll come back
-later with a proper fix that takes into account all platforms.
+On 13-04-2014 7:22, Wei Yang wrote:
 
-Basically:
+> pci_match_id() just match the static pci_device_id, which may return NULL if
+> someone binds the driver to a device manually using
+> /sys/bus/pci/drivers/.../new_id.
 
- * Armada XP GP is configured as RGMII-ID, and needs the PCS bit to be
-   set.
- * Armada 370 Mirabox is configured as RGMII-ID, and needs the PCS bit
-   to be cleared.
+> This patch wrap up a helper function __mlx4_remove_one() which does the tear
+> down function but preserve the drv_data. Functions like
+> mlx4_pci_err_detected() and mlx4_restart_one() will call this one with out
+> releasing drvdata.
 
-And at the moment, we don't know how to make the distinction between
-those two cases. One hint is that the Armada XP GP appears in fact to
-be using a QSGMII connection with the PHY (Quad-SGMII), but
-configuring it as SGMII doesn't work, while RGMII-ID works. This needs
-more investigation, but in the mean time, let's unbreak the network
-for all those users.
+> Fixes: 97a5221 "net/mlx4_core: pass pci_device_id.driver_data to __mlx4_init_one during reset".
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Reported-by: Arnaud Ebalard <arno@natisbad.org>
-Reported-by: Alexander Reuter <Alexander.Reuter@gmx.net>
-Fixes: https://bugzilla.kernel.org/show_bug.cgi?id=73401
-Cc: stable@vger.kernel.org
----
- drivers/net/ethernet/marvell/mvneta.c | 41 ++++++++++++++++++++++++++++-------
- 1 file changed, 33 insertions(+), 8 deletions(-)
+> CC: Bjorn Helgaas <bhelgaas@google.com>
+> CC: Amir Vadai <amirv@mellanox.com>
+> CC: Jack Morgenstein <jackm@dev.mellanox.co.il>
+> CC: Or Gerlitz <ogerlitz@mellanox.com>
+> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+> Acked-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 8d76fca..ca2dfbe 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -89,9 +89,8 @@
- #define      MVNETA_TX_IN_PRGRS                  BIT(1)
- #define      MVNETA_TX_FIFO_EMPTY                BIT(8)
- #define MVNETA_RX_MIN_FRAME_SIZE                 0x247c
--#define MVNETA_SERDES_CFG			 0x24A0
-+#define MVNETA_SGMII_SERDES_CFG			 0x24A0
- #define      MVNETA_SGMII_SERDES_PROTO		 0x0cc7
--#define      MVNETA_RGMII_SERDES_PROTO		 0x0667
- #define MVNETA_TYPE_PRIO                         0x24bc
- #define      MVNETA_FORCE_UNI                    BIT(21)
- #define MVNETA_TXQ_CMD_1                         0x24e4
-@@ -712,6 +711,35 @@ static void mvneta_rxq_bm_disable(struct mvneta_port *pp,
- 	mvreg_write(pp, MVNETA_RXQ_CONFIG_REG(rxq->id), val);
- }
- 
-+
-+
-+/* Sets the RGMII Enable bit (RGMIIEn) in port MAC control register */
-+static void mvneta_gmac_rgmii_set(struct mvneta_port *pp, int enable)
-+{
-+	u32  val;
-+
-+	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
-+
-+	if (enable)
-+		val |= MVNETA_GMAC2_PORT_RGMII;
-+	else
-+		val &= ~MVNETA_GMAC2_PORT_RGMII;
-+
-+	mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
-+}
-+
-+/* Config SGMII port */
-+static void mvneta_port_sgmii_config(struct mvneta_port *pp)
-+{
-+	u32 val;
-+
-+	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
-+	val |= MVNETA_GMAC2_PCS_ENABLE;
-+	mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
-+
-+	mvreg_write(pp, MVNETA_SGMII_SERDES_CFG, MVNETA_SGMII_SERDES_PROTO);
-+}
-+
- /* Start the Ethernet port RX and TX activity */
- static void mvneta_port_up(struct mvneta_port *pp)
- {
-@@ -2729,15 +2757,12 @@ static void mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
- 	mvreg_write(pp, MVNETA_UNIT_INTR_CAUSE, 0);
- 
- 	if (phy_mode == PHY_INTERFACE_MODE_SGMII)
--		mvreg_write(pp, MVNETA_SERDES_CFG, MVNETA_SGMII_SERDES_PROTO);
--	else
--		mvreg_write(pp, MVNETA_SERDES_CFG, MVNETA_RGMII_SERDES_PROTO);
-+		mvneta_port_sgmii_config(pp);
- 
--	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
--
--	val |= MVNETA_GMAC2_PCS_ENABLE | MVNETA_GMAC2_PORT_RGMII;
-+	mvneta_gmac_rgmii_set(pp, 1);
- 
- 	/* Cancel Port Reset */
-+	val = mvreg_read(pp, MVNETA_GMAC_CTRL_2);
- 	val &= ~MVNETA_GMAC2_PORT_RESET;
- 	mvreg_write(pp, MVNETA_GMAC_CTRL_2, val);
- 
--- 
-1.8.3.2
+[...]
+
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+> index f0ae95f..b6d60e2 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+[...]
+> @@ -2604,85 +2598,112 @@ err_disable_pdev:
+>
+>   static int mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
+>   {
+> +	struct mlx4_priv *priv;
+> +	struct mlx4_dev *dev;
+> +
+>   	printk_once(KERN_INFO "%s", mlx4_version);
+>
+> +	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+> +	if (!priv) {
+> +		return -ENOMEM;
+> +	}
+
+    {} not needed here.
+
+[...]
+> +	/* in SRIOV it is not allowed to unload the pf's
+> +	 * driver while there are alive vf's */
+> +	if (mlx4_is_master(dev)) {
+> +		if (mlx4_how_many_lives_vf(dev))
+
+    Could be folded into single *if*.
+
+> +			printk(KERN_ERR "Removing PF when there are assigned VF's !!!\n");
+> +	}
+> +	mlx4_stop_sense(dev);
+> +	mlx4_unregister_device(dev);
+[...]
+> +	for (p = 1; p <= dev->caps.num_ports; p++) {
+> +		mlx4_cleanup_port_info(&priv->port[p]);
+> +		mlx4_CLOSE_PORT(dev, p);
+> +	}
+> +
+> +	if (mlx4_is_master(dev))
+> +		mlx4_free_resource_tracker(dev,
+> +				   RES_TR_FREE_SLAVES_ONLY);
+
+    Please re-align this line so that it starts right under 'dev'.
+
+[...]
+>
+> -		if (!mlx4_is_slave(dev))
+> -			mlx4_free_ownership(dev);
+> +	if (mlx4_is_master(dev))
+> +		mlx4_free_resource_tracker(dev,
+> +				   RES_TR_FREE_STRUCTS_ONLY);
+
+    Likewise.
+
+[...]
+> @@ -2755,11 +2776,13 @@ static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
+>
+>   static pci_ers_result_t mlx4_pci_slot_reset(struct pci_dev *pdev)
+>   {
+> -	const struct pci_device_id *id;
+> -	int ret;
+> +	struct mlx4_dev	 *dev  = pci_get_drvdata(pdev);
+> +	struct mlx4_priv *priv = mlx4_priv(dev);
+> +	int		  pci_dev_data;
+
+    Doesn't seem that this variable is necessary.
+
+> +	int               ret;
+>
+> -	id = pci_match_id(mlx4_pci_table, pdev);
+> -	ret = __mlx4_init_one(pdev, id->driver_data);
+> +	pci_dev_data = priv->pci_dev_data;
+> +	ret = __mlx4_init_one(pdev, pci_dev_data);
+>
+>   	return ret ? PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_RECOVERED;
+>   }
+[...]
+
+WBR, Sergei
