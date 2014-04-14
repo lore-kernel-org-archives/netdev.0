@@ -1,195 +1,118 @@
-From: Chema Gonzalez <chema@google.com>
-Subject: [PATCH] filter: added BPF random opcode
-Date: Mon, 14 Apr 2014 16:02:49 -0700
-Message-ID: <1397516569-31033-1-git-send-email-chema@google.com>
-Cc: netdev@vger.kernel.org, Chema Gonzalez <chema@google.com>
-To: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f201.google.com ([209.85.192.201]:42351 "EHLO
-	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752798AbaDNXCz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 19:02:55 -0400
-Received: by mail-pd0-f201.google.com with SMTP id x10so1139889pdj.0
-        for <netdev@vger.kernel.org>; Mon, 14 Apr 2014 16:02:54 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Masami Ichikawa <masami256@gmail.com>
+Subject: Re: [PATCH] seccomp: Release fp pointer when leaving from seccomp_attach_filter().
+Date: Tue, 15 Apr 2014 08:06:05 +0900
+Message-ID: <CACOXgS_UyhYuxuLRmMEMB9O2Ld70WDjXL_W-Tb0W-ADL3fBKLA@mail.gmail.com>
+References: <1397491333-13746-1-git-send-email-masami256@gmail.com>
+	<CAMEtUuz6v1JKev+Saq4kcc=k9nW2Q9pU__n=7bjvvZV2EofLYA@mail.gmail.com>
+	<CAGXu5jJSnTB1ifPmgW5VwSrVU4yqgg2SEpxAEi=0Afpy_mc0yg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Josh Triplett <josh@joshtriplett.org>,
+	Eric Paris <eparis@redhat.com>,
+	Rashika Kheria <rashika.kheria@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGXu5jJSnTB1ifPmgW5VwSrVU4yqgg2SEpxAEi=0Afpy_mc0yg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This should allow random packet sampling.
+On Tue, Apr 15, 2014 at 2:08 AM, Kees Cook <keescook@chromium.org> wrote:
+> On Mon, Apr 14, 2014 at 9:18 AM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+>> On Mon, Apr 14, 2014 at 9:02 AM, Masami Ichikawa <masami256@gmail.com> wrote:
+>>> kmemleak reported some memory leak as below.
+>>
+>> grrr. yes. sorry.
+>>
+>>> unreferenced object 0xffff8800d6ea4000 (size 512):
+>>>   comm "sshd", pid 278, jiffies 4294898315 (age 46.653s)
+>>>   hex dump (first 32 bytes):
+>>>     21 00 00 00 04 00 00 00 15 00 01 00 3e 00 00 c0  !...........>...
+>>>     06 00 00 00 00 00 00 00 21 00 00 00 00 00 00 00  ........!.......
+>>>   backtrace:
+>>>     [<ffffffff8151414e>] kmemleak_alloc+0x4e/0xb0
+>>>     [<ffffffff811a3a40>] __kmalloc+0x280/0x320
+>>>     [<ffffffff8110842e>] prctl_set_seccomp+0x11e/0x3b0
+>>>     [<ffffffff8107bb6b>] SyS_prctl+0x3bb/0x4a0
+>>>     [<ffffffff8152ef2d>] system_call_fastpath+0x1a/0x1f
+>>>     [<ffffffffffffffff>] 0xffffffffffffffff
+>>>
+>>> This memory leak happend in seccomp_attach_filter().
+>>> The fp pointer was allocated via kzalloc so that it needs to realase memory
+>>> when leaving from function.
+>
+> Thanks for the catch!
+>
+>>> This patch changed two things.
+>>> One is set -ENOMEM to ret, if fp is unable to get memory.
+>>> The other is removes "return 0" statement, and frees fp pointer before
+>>> leaving.
+>>>
+>>> Signed-off-by: Masami Ichikawa <masami256@gmail.com>
+>>> ---
+>>>  kernel/seccomp.c | 8 +++++---
+>>>  1 file changed, 5 insertions(+), 3 deletions(-)
+>>>
+>>> diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+>>> index d8d046c..a9ce7a9 100644
+>>> --- a/kernel/seccomp.c
+>>> +++ b/kernel/seccomp.c
+>>> @@ -259,8 +259,10 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
+>>>         filter = kzalloc(sizeof(struct seccomp_filter) +
+>>>                          sizeof(struct sock_filter_int) * new_len,
+>>>                          GFP_KERNEL|__GFP_NOWARN);
+>>> -       if (!filter)
+>>> +       if (!filter) {
+>>> +               ret = -ENOMEM;
+>>>                 goto free_prog;
+>>> +       }
+>>
+>> agree. that's a good addition.
+>>
+>>>         ret = sk_convert_filter(fp, fprog->len, filter->insnsi, &new_len);
+>>>         if (ret)
+>>> @@ -275,10 +277,10 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
+>>>          */
+>>>         filter->prev = current->seccomp.filter;
+>>>         current->seccomp.filter = filter;
+>>> -       return 0;
+>>
+>> I think mixing error and ok return paths is ugly.
+I troubled that have two kfree(fp) path or merge error and success path.
+But separate paths is easy to read.
 
-Signed-off-by: Chema Gonzalez <chema@google.com>
----
- Documentation/networking/filter.txt |  1 +
- include/linux/filter.h              |  1 +
- include/uapi/linux/filter.h         |  3 ++-
- net/core/filter.c                   | 12 ++++++++++++
- tools/net/bpf_exp.l                 |  1 +
- tools/net/bpf_exp.y                 | 11 ++++++++++-
- tools/net/icmp_random.bpf           | 12 ++++++++++++
- 7 files changed, 39 insertions(+), 2 deletions(-)
- create mode 100644 tools/net/icmp_random.bpf
+>> Can you add kfree(fp) here instead of removing return 0?
+>>
+>> Thanks!
+>>
+>>>  free_filter:
+>>> -       kfree(filter);
+>>> +       if (ret)
+>>> +               kfree(filter);
+>>>  free_prog:
+>>>         kfree(fp);
+>>>         return ret;
+>>> --
+>>> 1.9.1
+>>>
+>
+> Yeah, I'd prefer a different approach that follows the existing
+> conventions in the code. I'll send a separate patch.
+I see.
 
-diff --git a/Documentation/networking/filter.txt b/Documentation/networking/filter.txt
-index 81f940f..7192b46 100644
---- a/Documentation/networking/filter.txt
-+++ b/Documentation/networking/filter.txt
-@@ -281,6 +281,7 @@ Possible BPF extensions are shown in the following table:
-   cpu                                   raw_smp_processor_id()
-   vlan_tci                              vlan_tx_tag_get(skb)
-   vlan_pr                               vlan_tx_tag_present(skb)
-+  random                                prandom_u32()
- 
- These extensions can also be prefixed with '#'.
- Examples for low-level BPF:
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 262dcbb..49c28aa 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -224,6 +224,7 @@ enum {
- 	BPF_S_ANC_VLAN_TAG,
- 	BPF_S_ANC_VLAN_TAG_PRESENT,
- 	BPF_S_ANC_PAY_OFFSET,
-+	BPF_S_ANC_RANDOM,
- };
- 
- #endif /* __LINUX_FILTER_H__ */
-diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
-index 8eb9cca..253b4d4 100644
---- a/include/uapi/linux/filter.h
-+++ b/include/uapi/linux/filter.h
-@@ -130,7 +130,8 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
- #define SKF_AD_VLAN_TAG	44
- #define SKF_AD_VLAN_TAG_PRESENT 48
- #define SKF_AD_PAY_OFFSET	52
--#define SKF_AD_MAX	56
-+#define SKF_AD_RANDOM	56
-+#define SKF_AD_MAX	60
- #define SKF_NET_OFF   (-0x100000)
- #define SKF_LL_OFF    (-0x200000)
- 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 765556b..b2a80a1 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -637,6 +637,12 @@ static u64 __get_raw_cpu_id(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
- 	return raw_smp_processor_id();
- }
- 
-+/* note that this only generates 32-bit random numbers */
-+static u64 __skb_get_random(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
-+{
-+	return (u64)prandom_u32();
-+}
-+
- /* Register mappings for user programs. */
- #define A_REG		0
- #define X_REG		7
-@@ -773,6 +779,7 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
- 	case SKF_AD_OFF + SKF_AD_NLATTR:
- 	case SKF_AD_OFF + SKF_AD_NLATTR_NEST:
- 	case SKF_AD_OFF + SKF_AD_CPU:
-+	case SKF_AD_OFF + SKF_AD_RANDOM:
- 		/* arg1 = ctx */
- 		insn->code = BPF_ALU64 | BPF_MOV | BPF_X;
- 		insn->a_reg = ARG1_REG;
-@@ -806,6 +813,9 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
- 		case SKF_AD_OFF + SKF_AD_CPU:
- 			insn->imm = __get_raw_cpu_id - __bpf_call_base;
- 			break;
-+		case SKF_AD_OFF + SKF_AD_RANDOM:
-+			insn->imm = __skb_get_random - __bpf_call_base;
-+			break;
- 		}
- 		break;
- 
-@@ -1356,6 +1366,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
- 			ANCILLARY(VLAN_TAG);
- 			ANCILLARY(VLAN_TAG_PRESENT);
- 			ANCILLARY(PAY_OFFSET);
-+			ANCILLARY(RANDOM);
- 			}
- 
- 			/* ancillary operation unknown or unsupported */
-@@ -1741,6 +1752,7 @@ void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to)
- 		[BPF_S_ANC_VLAN_TAG]	= BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_ANC_VLAN_TAG_PRESENT] = BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_ANC_PAY_OFFSET]	= BPF_LD|BPF_B|BPF_ABS,
-+		[BPF_S_ANC_RANDOM]	= BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_LD_W_LEN]	= BPF_LD|BPF_W|BPF_LEN,
- 		[BPF_S_LD_W_IND]	= BPF_LD|BPF_W|BPF_IND,
- 		[BPF_S_LD_H_IND]	= BPF_LD|BPF_H|BPF_IND,
-diff --git a/tools/net/bpf_exp.l b/tools/net/bpf_exp.l
-index bf7be77..804256f 100644
---- a/tools/net/bpf_exp.l
-+++ b/tools/net/bpf_exp.l
-@@ -92,6 +92,7 @@ extern void yyerror(const char *str);
- "#"?("cpu")	{ return K_CPU; }
- "#"?("vlan_tci") { return K_VLANT; }
- "#"?("vlan_pr")	{ return K_VLANP; }
-+"#"?("random")	{ return K_RAND; }
- 
- ":"		{ return ':'; }
- ","		{ return ','; }
-diff --git a/tools/net/bpf_exp.y b/tools/net/bpf_exp.y
-index d15efc9..e6306c5 100644
---- a/tools/net/bpf_exp.y
-+++ b/tools/net/bpf_exp.y
-@@ -56,7 +56,7 @@ static void bpf_set_jmp_label(char *label, enum jmp_type type);
- %token OP_LDXI
- 
- %token K_PKT_LEN K_PROTO K_TYPE K_NLATTR K_NLATTR_NEST K_MARK K_QUEUE K_HATYPE
--%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF
-+%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF K_RAND
- 
- %token ':' ',' '[' ']' '(' ')' 'x' 'a' '+' 'M' '*' '&' '#' '%'
- 
-@@ -164,6 +164,9 @@ ldb
- 	| OP_LDB K_POFF {
- 		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
- 				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
-+	| OP_LDB K_RAND {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_RANDOM); }
- 	;
- 
- ldh
-@@ -212,6 +215,9 @@ ldh
- 	| OP_LDH K_POFF {
- 		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
- 				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
-+	| OP_LDH K_RAND {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_RANDOM); }
- 	;
- 
- ldi
-@@ -265,6 +271,9 @@ ld
- 	| OP_LD K_POFF {
- 		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
- 				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
-+	| OP_LD K_RAND {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_RANDOM); }
- 	| OP_LD 'M' '[' number ']' {
- 		bpf_set_curr_instr(BPF_LD | BPF_MEM, 0, 0, $4); }
- 	| OP_LD '[' 'x' '+' number ']' {
-diff --git a/tools/net/icmp_random.bpf b/tools/net/icmp_random.bpf
-new file mode 100644
-index 0000000..b9adcbf
---- /dev/null
-+++ b/tools/net/icmp_random.bpf
-@@ -0,0 +1,12 @@
-+# icmp random packet sampling, 1 in 4
-+ldh [12]
-+jne #0x800, drop
-+ldb [23]
-+jneq #1, drop
-+# get a random uint32 number
-+ld random
-+mod #4
-+jneq #1, drop
-+ret #-1
-+drop: ret #0
-+
+Thank you for considering it.
+
+> -Kees
+>
+> --
+> Kees Cook
+> Chrome OS Security
+
+
+Cheeers,
+
 -- 
-1.9.1.423.g4596e3a
+Masami Ichikawa
