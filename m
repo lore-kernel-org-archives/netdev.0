@@ -1,44 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] Revert "net: sctp: Fix a_rwnd/rwnd management to
- reflect real state of the receiver's buffer"
-Date: Mon, 14 Apr 2014 16:48:39 -0400 (EDT)
-Message-ID: <20140414.164839.2032159104530481155.davem@davemloft.net>
-References: <1397504717-19566-1-git-send-email-dborkman@redhat.com>
+From: Stratos Karafotis <stratosk@semaphore.gr>
+Subject: [PATCH 20/20] irda: sh_sir: Use cpufreq_for_each_valid_entry macro
+ for iteration
+Date: Tue, 15 Apr 2014 00:11:14 +0300
+Message-ID: <534C4EF2.5060200@semaphore.gr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	matija.glavinic-pecotic.ext@nsn.com, alexander.sverdlin@nsn.com,
-	vyasevich@gmail.com
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58761 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750932AbaDNUsl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 16:48:41 -0400
-In-Reply-To: <1397504717-19566-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Viresh Kumar <viresh.kumar@linaro.org>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Samuel Ortiz <samuel@sortiz.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Mon, 14 Apr 2014 21:45:17 +0200
+The cpufreq core supports the cpufreq_for_each_valid_entry macro
+helper for iteration over the cpufreq_frequency_table, so use it.
 
-> This reverts commit ef2820a735f7 ("net: sctp: Fix a_rwnd/rwnd management
-> to reflect real state of the receiver's buffer") as it introduced a
-> serious performance regression on SCTP over IPv4 and IPv6, though a not
-> as dramatic on the latter. Measurements are on 10Gbit/s with ixgbe NICs.
-> 
-> Current state:
- ...
-> With the reverted patch applied, the SCTP/IPv4 performance is back
-> to normal on latest upstream for IPv4 and IPv6 and has same throughput
-> as 3.4.2 test kernel, steady and interval reports are smooth again.
-> 
-> Fixes: ef2820a735f7 ("net: sctp: Fix a_rwnd/rwnd management to reflect real state of the receiver's buffer")
-> Reported-by: Peter Butler <pbutler@sonusnet.com>
-> Reported-by: Dongsheng Song <dongsheng.song@gmail.com>
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Tested-by: Peter Butler <pbutler@sonusnet.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+It should have no functional changes.
 
-Applied and queued up for -stable.
+Signed-off-by: Stratos Karafotis <stratosk@semaphore.gr>
+---
+
+Please note that I was no able to compile test this patch due to 
+lack of cross compiler.
+
+ drivers/net/irda/sh_sir.c | 14 +++++---------
+ 1 file changed, 5 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/irda/sh_sir.c b/drivers/net/irda/sh_sir.c
+index cadf52e..e3fe9a2 100644
+--- a/drivers/net/irda/sh_sir.c
++++ b/drivers/net/irda/sh_sir.c
+@@ -217,21 +217,17 @@ crc_init_out:
+ static u32 sh_sir_find_sclk(struct clk *irda_clk)
+ {
+ 	struct cpufreq_frequency_table *freq_table = irda_clk->freq_table;
++	struct cpufreq_frequency_table *pos;
+ 	struct clk *pclk = clk_get(NULL, "peripheral_clk");
+ 	u32 limit, min = 0xffffffff, tmp;
+-	int i, index = 0;
++	int index = 0;
+ 
+ 	limit = clk_get_rate(pclk);
+ 	clk_put(pclk);
+ 
+ 	/* IrDA can not set over peripheral_clk */
+-	for (i = 0;
+-	     freq_table[i].frequency != CPUFREQ_TABLE_END;
+-	     i++) {
+-		u32 freq = freq_table[i].frequency;
+-
+-		if (freq == CPUFREQ_ENTRY_INVALID)
+-			continue;
++	cpufreq_for_each_valid_entry(pos, freq_table) {
++		u32 freq = pos->frequency;
+ 
+ 		/* IrDA should not over peripheral_clk */
+ 		if (freq > limit)
+@@ -240,7 +236,7 @@ static u32 sh_sir_find_sclk(struct clk *irda_clk)
+ 		tmp = freq % SCLK_BASE;
+ 		if (tmp < min) {
+ 			min = tmp;
+-			index = i;
++			index = pos - freq_table;
+ 		}
+ 	}
+ 
+-- 
+1.9.0
