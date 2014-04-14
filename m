@@ -1,75 +1,46 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH] seccomp: fix memory leak on filter attach
-Date: Mon, 14 Apr 2014 10:17:53 -0700
-Message-ID: <CAMEtUuzCBXROUE6Nf6B8+vmTaD2xOh5LjkmsVSGuwKo1gO-mNQ@mail.gmail.com>
-References: <20140414171114.GA31384@www.outflux.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net IPv6: Remove unnecessary argument of
+ ndisc_send_ns and ndisc_send_na
+Date: Mon, 14 Apr 2014 13:22:01 -0400 (EDT)
+Message-ID: <20140414.132201.372297856628816549.davem@davemloft.net>
+References: <534B5EAB.9050803@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Masami Ichikawa <masami256@gmail.com>,
-	Will Drewry <wad@chromium.org>,
-	Josh Triplett <josh@joshtriplett.org>,
-	Rashika Kheria <rashika.kheria@gmail.com>,
-	James Morris <james.l.morris@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>, eparis@redhat.com,
-	Network Development <netdev@vger.kernel.org>
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140414171114.GA31384@www.outflux.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
+	netdev@vger.kernel.org
+To: kumaran.4353@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56382 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753001AbaDNRWD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 13:22:03 -0400
+In-Reply-To: <534B5EAB.9050803@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 14, 2014 at 10:11 AM, Kees Cook <keescook@chromium.org> wrote:
-> This sets the correct error code when final filter memory is unavailable,
-> and frees the raw filter no matter what.
->
-> unreferenced object 0xffff8800d6ea4000 (size 512):
->   comm "sshd", pid 278, jiffies 4294898315 (age 46.653s)
->   hex dump (first 32 bytes):
->     21 00 00 00 04 00 00 00 15 00 01 00 3e 00 00 c0  !...........>...
->     06 00 00 00 00 00 00 00 21 00 00 00 00 00 00 00  ........!.......
->   backtrace:
->     [<ffffffff8151414e>] kmemleak_alloc+0x4e/0xb0
->     [<ffffffff811a3a40>] __kmalloc+0x280/0x320
->     [<ffffffff8110842e>] prctl_set_seccomp+0x11e/0x3b0
->     [<ffffffff8107bb6b>] SyS_prctl+0x3bb/0x4a0
->     [<ffffffff8152ef2d>] system_call_fastpath+0x1a/0x1f
->     [<ffffffffffffffff>] 0xffffffffffffffff
->
-> Reported-by: Masami Ichikawa <masami256@gmail.com>
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-> Cc: stable@vger.kernel.org
+From: Balakumaran Kannan <kumaran.4353@gmail.com>
+Date: Mon, 14 Apr 2014 09:36:03 +0530
 
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
-
+> The 'neigh' argument of 'ndisc_send_ns' and 'ndisc_send_na' are not used in
+> these functions. So this argument could be removed.
+> 
+> And a minor change of 'optlen' assignment in those functions. the compound
+> addition and assignment operator is not needed as 'optlen' value is always
+> zero.
+> 
+> Signed-off-by: Balakumaran Kannan <kumaran.4353@gmail.com>
 > ---
->  kernel/seccomp.c |    2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/kernel/seccomp.c b/kernel/seccomp.c
-> index fd609bd9d6dd..2d7dcdfb7422 100644
-> --- a/kernel/seccomp.c
-> +++ b/kernel/seccomp.c
-> @@ -256,6 +256,7 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
->                 goto free_prog;
->
->         /* Allocate a new seccomp_filter */
-> +       ret = -ENOMEM;
->         filter = kzalloc(sizeof(struct seccomp_filter) +
->                          sizeof(struct sock_filter_int) * new_len,
->                          GFP_KERNEL|__GFP_NOWARN);
-> @@ -265,6 +266,7 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
->         ret = sk_convert_filter(fp, fprog->len, filter->insnsi, &new_len);
->         if (ret)
->                 goto free_filter;
-> +       kfree(fp);
->
->         atomic_set(&filter->usage, 1);
->         filter->len = new_len;
-> --
-> 1.7.9.5
->
->
-> --
-> Kees Cook
-> Chrome OS Security
+> I am not sure whether 'neigh' argument is intentional or planned for any
+> future use. If you find this is unnecessary, this patch could be considered.
+> 
+> And ndisc_send_na is used as a function pointer in ipv6_stub. This may affect
+> anybody using this structure. But with default configuration built, I didn't
+> get any error or warning. Kindly consider this scenario also.
+> 
+> Please ignore the previous patch as it doesn't have optlen modification in
+> ndisc_send_na
+
+I really don't like this change, and furthermore this breaks the build
+as Hideaki YOSHIFUJI pointed out.  Drivers use the ipv6_stub methods and
+you thus have to update all of the ones that use the ->ndisc_*().
