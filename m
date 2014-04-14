@@ -1,347 +1,124 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net] Revert "net: sctp: Fix a_rwnd/rwnd management to
- reflect real state of the receiver's buffer"
-Date: Mon, 14 Apr 2014 15:57:54 -0400
-Message-ID: <534C3DC2.9070604@gmail.com>
-References: <1397504717-19566-1-git-send-email-dborkman@redhat.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH] seccomp: fix populating a0-a5 syscall args in 32-bit
+ x86 BPF
+Date: Mon, 14 Apr 2014 13:13:45 -0700
+Message-ID: <534C4179.7070704@amacapital.net>
+References: <1397502179-15029-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>,
-	Alexander Sverdlin <alexander.sverdlin@nsn.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	torvalds@linux-foundation.org,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Eric Paris <eparis@redhat.com>,
+	James Morris <james.l.morris@oracle.com>,
+	Kees Cook <keescook@chromium.org>
 To: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f179.google.com ([209.85.216.179]:38473 "EHLO
-	mail-qc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751141AbaDNT56 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 15:57:58 -0400
-In-Reply-To: <1397504717-19566-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1397502179-15029-1-git-send-email-dborkman@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/14/2014 03:45 PM, Daniel Borkmann wrote:
-> This reverts commit ef2820a735f7 ("net: sctp: Fix a_rwnd/rwnd management
-> to reflect real state of the receiver's buffer") as it introduced a
-> serious performance regression on SCTP over IPv4 and IPv6, though a not
-> as dramatic on the latter. Measurements are on 10Gbit/s with ixgbe NICs.
+On 04/14/2014 12:02 PM, Daniel Borkmann wrote:
+> Linus reports that on 32-bit x86 Chromium throws the following seccomp
+> resp. audit log messages:
 > 
-> Current state:
+>   audit: type=1326 audit(1397359304.356:28108): auid=500 uid=500
+> gid=500 ses=2 subj=unconfined_u:unconfined_r:chrome_sandbox_t:s0-s0:c0.c1023
+> pid=3677 comm="chrome" exe="/opt/google/chrome/chrome" sig=0
+> syscall=172 compat=0 ip=0xb2dd9852 code=0x30000
 > 
-> [root@Lab200slot2 ~]# iperf3 --sctp -4 -c 192.168.241.3 -V -l 1452 -t 60
-> iperf version 3.0.1 (10 January 2014)
-> Linux Lab200slot2 3.14.0 #1 SMP Thu Apr 3 23:18:29 EDT 2014 x86_64
-> Time: Fri, 11 Apr 2014 17:56:21 GMT
-> Connecting to host 192.168.241.3, port 5201
->       Cookie: Lab200slot2.1397238981.812898.548918
-> [  4] local 192.168.241.2 port 38616 connected to 192.168.241.3 port 5201
-> Starting Test: protocol: SCTP, 1 streams, 1452 byte blocks, omitting 0 seconds, 60 second test
-> [ ID] Interval           Transfer     Bandwidth
-> [  4]   0.00-1.09   sec  20.8 MBytes   161 Mbits/sec
-> [  4]   1.09-2.13   sec  10.8 MBytes  86.8 Mbits/sec
-> [  4]   2.13-3.15   sec  3.57 MBytes  29.5 Mbits/sec
-> [  4]   3.15-4.16   sec  4.33 MBytes  35.7 Mbits/sec
-> [  4]   4.16-6.21   sec  10.4 MBytes  42.7 Mbits/sec
-> [  4]   6.21-6.21   sec  0.00 Bytes    0.00 bits/sec
-> [  4]   6.21-7.35   sec  34.6 MBytes   253 Mbits/sec
-> [  4]   7.35-11.45  sec  22.0 MBytes  45.0 Mbits/sec
-> [  4]  11.45-11.45  sec  0.00 Bytes    0.00 bits/sec
-> [  4]  11.45-11.45  sec  0.00 Bytes    0.00 bits/sec
-> [  4]  11.45-11.45  sec  0.00 Bytes    0.00 bits/sec
-> [  4]  11.45-12.51  sec  16.0 MBytes   126 Mbits/sec
-> [  4]  12.51-13.59  sec  20.3 MBytes   158 Mbits/sec
-> [  4]  13.59-14.65  sec  13.4 MBytes   107 Mbits/sec
-> [  4]  14.65-16.79  sec  33.3 MBytes   130 Mbits/sec
-> [  4]  16.79-16.79  sec  0.00 Bytes    0.00 bits/sec
-> [  4]  16.79-17.82  sec  5.94 MBytes  48.7 Mbits/sec
-> (etc)
+>   audit: type=1326 audit(1397359304.356:28109): auid=500 uid=500
+> gid=500 ses=2 subj=unconfined_u:unconfined_r:chrome_sandbox_t:s0-s0:c0.c1023
+> pid=3677 comm="chrome" exe="/opt/google/chrome/chrome" sig=0 syscall=5
+> compat=0 ip=0xb2dd9852 code=0x50000
 > 
-> [root@Lab200slot2 ~]#  iperf3 --sctp -6 -c 2001:db8:0:f101::1 -V -l 1400 -t 60
-> iperf version 3.0.1 (10 January 2014)
-> Linux Lab200slot2 3.14.0 #1 SMP Thu Apr 3 23:18:29 EDT 2014 x86_64
-> Time: Fri, 11 Apr 2014 19:08:41 GMT
-> Connecting to host 2001:db8:0:f101::1, port 5201
->       Cookie: Lab200slot2.1397243321.714295.2b3f7c
-> [  4] local 2001:db8:0:f101::2 port 55804 connected to 2001:db8:0:f101::1 port 5201
-> Starting Test: protocol: SCTP, 1 streams, 1400 byte blocks, omitting 0 seconds, 60 second test
-> [ ID] Interval           Transfer     Bandwidth
-> [  4]   0.00-1.00   sec   169 MBytes  1.42 Gbits/sec
-> [  4]   1.00-2.00   sec   201 MBytes  1.69 Gbits/sec
-> [  4]   2.00-3.00   sec   188 MBytes  1.58 Gbits/sec
-> [  4]   3.00-4.00   sec   174 MBytes  1.46 Gbits/sec
-> [  4]   4.00-5.00   sec   165 MBytes  1.39 Gbits/sec
-> [  4]   5.00-6.00   sec   199 MBytes  1.67 Gbits/sec
-> [  4]   6.00-7.00   sec   163 MBytes  1.36 Gbits/sec
-> [  4]   7.00-8.00   sec   174 MBytes  1.46 Gbits/sec
-> [  4]   8.00-9.00   sec   193 MBytes  1.62 Gbits/sec
-> [  4]   9.00-10.00  sec   196 MBytes  1.65 Gbits/sec
-> [  4]  10.00-11.00  sec   157 MBytes  1.31 Gbits/sec
-> [  4]  11.00-12.00  sec   175 MBytes  1.47 Gbits/sec
-> [  4]  12.00-13.00  sec   192 MBytes  1.61 Gbits/sec
-> [  4]  13.00-14.00  sec   199 MBytes  1.67 Gbits/sec
-> (etc)
+> These audit messages are being triggered via audit_seccomp() through
+> __secure_computing() in seccomp mode (BPF) filter with seccomp return
+> codes 0x30000 (== SECCOMP_RET_TRAP) and 0x50000 (== SECCOMP_RET_ERRNO)
+> during filter runtime. Moreover, Linus reports that x86_64 Chromium
+> seems fine.
 > 
-> After patch:
+> The underlying issue that explains this is that the implementation of
+> populate_seccomp_data() is wrong. Our seccomp data structure sd that
+> is being shared with user ABI is:
 > 
-> [root@Lab200slot2 ~]#  iperf3 --sctp -4 -c 192.168.240.3 -V -l 1452 -t 60
-> iperf version 3.0.1 (10 January 2014)
-> Linux Lab200slot2 3.14.0+ #1 SMP Mon Apr 14 12:06:40 EDT 2014 x86_64
-> Time: Mon, 14 Apr 2014 16:40:48 GMT
-> Connecting to host 192.168.240.3, port 5201
->       Cookie: Lab200slot2.1397493648.413274.65e131
-> [  4] local 192.168.240.2 port 50548 connected to 192.168.240.3 port 5201
-> Starting Test: protocol: SCTP, 1 streams, 1452 byte blocks, omitting 0 seconds, 60 second test
-> [ ID] Interval           Transfer     Bandwidth
-> [  4]   0.00-1.00   sec   240 MBytes  2.02 Gbits/sec
-> [  4]   1.00-2.00   sec   239 MBytes  2.01 Gbits/sec
-> [  4]   2.00-3.00   sec   240 MBytes  2.01 Gbits/sec
-> [  4]   3.00-4.00   sec   239 MBytes  2.00 Gbits/sec
-> [  4]   4.00-5.00   sec   245 MBytes  2.05 Gbits/sec
-> [  4]   5.00-6.00   sec   240 MBytes  2.01 Gbits/sec
-> [  4]   6.00-7.00   sec   240 MBytes  2.02 Gbits/sec
-> [  4]   7.00-8.00   sec   239 MBytes  2.01 Gbits/sec
+>   struct seccomp_data {
+>     int nr;
+>     __u32 arch;
+>     __u64 instruction_pointer;
+>     __u64 args[6];
+>   };
 > 
-> With the reverted patch applied, the SCTP/IPv4 performance is back
-> to normal on latest upstream for IPv4 and IPv6 and has same throughput
-> as 3.4.2 test kernel, steady and interval reports are smooth again.
+> Therefore, a simple cast to 'unsigned long *' for storing the value of
+> the syscall argument via syscall_get_arguments() is just wrong as on
+> 32-bit x86 (or any other 32bit arch), it would result in storing a0-a5
+> at wrong offsets in args[] member, and thus i) could leak stack memory
+> to user space and ii) tampers with the logic of seccomp BPF programs
+> that read out and check for syscall arguments:
 > 
-> Fixes: ef2820a735f7 ("net: sctp: Fix a_rwnd/rwnd management to reflect real state of the receiver's buffer")
-> Reported-by: Peter Butler <pbutler@sonusnet.com>
-> Reported-by: Dongsheng Song <dongsheng.song@gmail.com>
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Tested-by: Peter Butler <pbutler@sonusnet.com>
+>   syscall_get_arguments(task, regs, 0, 1, (unsigned long *) &sd->args[0]);
+
+I think this description is wrong.  (unsigned long *) &sd->args[1] is
+the right location, at least on 32-bit little-endian architectures.
+((unsigned long *) &sd->args)[1] would be wrong, as I think you've
+described, but that's not what the code does.
+
+I think the real problem is that 32-bit BE is hosed, and on 32-bit LE,
+the high bits aren't getting cleared.
+
+I would make this change conditional on BITS_PER_LONG != 8, since this
+probably severely pessimizes architectures like ia-64.
+
+> 
+> Tested on 32-bit x86 with Google Chrome, unfortunately only via remote
+> test machine through slow ssh X forwarding, but it fixes the issue on
+> my side. So fix it up by storing args in type correct variables, gcc
+> is clever and optimizes the copy away in other cases, e.g. x86_64.
+> 
+> Fixes: bd4cf0ed331a ("net: filter: rework/optimize internal BPF interpreter's instruction set")
+> Reported-and-bisected-by: Linus Torvalds <torvalds@linux-foundation.org>
 > Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
-> Cc: Alexander Sverdlin <alexander.sverdlin@nsn.com>
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
-
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
-
-The base approach is sound.  The idea is to calculate rwnd based
-on receiver buffer available.  The algorithm chosen however, is
-gives a much higher preference to small data and penalizes large
-data transfers.  We need to figure our something else here..
-
--vlad
-
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> Cc: Linus Torvalds <torvalds@linux-foundation.org>
+> Cc: Eric Paris <eparis@redhat.com>
+> Cc: James Morris <james.l.morris@oracle.com>
+> Cc: Kees Cook <keescook@chromium.org>
 > ---
->  As commit ef2820a735f7 affects kernels with 3.11 and onwards, this
->  needs a rework by Matija for net-next again, so that this fix can
->  go back to -stable and restore performance for 3.11-3.15 kernels.
+>  Dave, do you want to pick this up?
 > 
->  include/net/sctp/structs.h | 14 +++++++-
->  net/sctp/associola.c       | 82 ++++++++++++++++++++++++++++++++++++----------
->  net/sctp/sm_statefuns.c    |  2 +-
->  net/sctp/socket.c          |  6 ++++
->  net/sctp/ulpevent.c        |  8 ++---
->  5 files changed, 87 insertions(+), 25 deletions(-)
+>  kernel/seccomp.c | 17 ++++++++---------
+>  1 file changed, 8 insertions(+), 9 deletions(-)
 > 
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 6ee76c8..d992ca3 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -1653,6 +1653,17 @@ struct sctp_association {
->  	/* This is the last advertised value of rwnd over a SACK chunk. */
->  	__u32 a_rwnd;
->  
-> +	/* Number of bytes by which the rwnd has slopped.  The rwnd is allowed
-> +	 * to slop over a maximum of the association's frag_point.
-> +	 */
-> +	__u32 rwnd_over;
-> +
-> +	/* Keeps treack of rwnd pressure.  This happens when we have
-> +	 * a window, but not recevie buffer (i.e small packets).  This one
-> +	 * is releases slowly (1 PMTU at a time ).
-> +	 */
-> +	__u32 rwnd_press;
-> +
->  	/* This is the sndbuf size in use for the association.
->  	 * This corresponds to the sndbuf size for the association,
->  	 * as specified in the sk->sndbuf.
-> @@ -1881,7 +1892,8 @@ void sctp_assoc_update(struct sctp_association *old,
->  __u32 sctp_association_get_next_tsn(struct sctp_association *);
->  
->  void sctp_assoc_sync_pmtu(struct sock *, struct sctp_association *);
-> -void sctp_assoc_rwnd_update(struct sctp_association *, bool);
-> +void sctp_assoc_rwnd_increase(struct sctp_association *, unsigned int);
-> +void sctp_assoc_rwnd_decrease(struct sctp_association *, unsigned int);
->  void sctp_assoc_set_primary(struct sctp_association *,
->  			    struct sctp_transport *);
->  void sctp_assoc_del_nonprimary_peers(struct sctp_association *,
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index 4f6d6f9..39579c3 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -1395,35 +1395,44 @@ static inline bool sctp_peer_needs_update(struct sctp_association *asoc)
->  	return false;
->  }
->  
-> -/* Update asoc's rwnd for the approximated state in the buffer,
-> - * and check whether SACK needs to be sent.
-> - */
-> -void sctp_assoc_rwnd_update(struct sctp_association *asoc, bool update_peer)
-> +/* Increase asoc's rwnd by len and send any window update SACK if needed. */
-> +void sctp_assoc_rwnd_increase(struct sctp_association *asoc, unsigned int len)
+> diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+> index d8d046c..590c379 100644
+> --- a/kernel/seccomp.c
+> +++ b/kernel/seccomp.c
+> @@ -69,18 +69,17 @@ static void populate_seccomp_data(struct seccomp_data *sd)
 >  {
-> -	int rx_count;
->  	struct sctp_chunk *sack;
->  	struct timer_list *timer;
+>  	struct task_struct *task = current;
+>  	struct pt_regs *regs = task_pt_regs(task);
+> +	unsigned long args[6];
 >  
-> -	if (asoc->ep->rcvbuf_policy)
-> -		rx_count = atomic_read(&asoc->rmem_alloc);
-> -	else
-> -		rx_count = atomic_read(&asoc->base.sk->sk_rmem_alloc);
-> +	if (asoc->rwnd_over) {
-> +		if (asoc->rwnd_over >= len) {
-> +			asoc->rwnd_over -= len;
-> +		} else {
-> +			asoc->rwnd += (len - asoc->rwnd_over);
-> +			asoc->rwnd_over = 0;
-> +		}
-> +	} else {
-> +		asoc->rwnd += len;
-> +	}
->  
-> -	if ((asoc->base.sk->sk_rcvbuf - rx_count) > 0)
-> -		asoc->rwnd = (asoc->base.sk->sk_rcvbuf - rx_count) >> 1;
-> -	else
-> -		asoc->rwnd = 0;
-> +	/* If we had window pressure, start recovering it
-> +	 * once our rwnd had reached the accumulated pressure
-> +	 * threshold.  The idea is to recover slowly, but up
-> +	 * to the initial advertised window.
-> +	 */
-> +	if (asoc->rwnd_press && asoc->rwnd >= asoc->rwnd_press) {
-> +		int change = min(asoc->pathmtu, asoc->rwnd_press);
-> +		asoc->rwnd += change;
-> +		asoc->rwnd_press -= change;
-> +	}
->  
-> -	pr_debug("%s: asoc:%p rwnd=%u, rx_count=%d, sk_rcvbuf=%d\n",
-> -		 __func__, asoc, asoc->rwnd, rx_count,
-> -		 asoc->base.sk->sk_rcvbuf);
-> +	pr_debug("%s: asoc:%p rwnd increased by %d to (%u, %u) - %u\n",
-> +		 __func__, asoc, len, asoc->rwnd, asoc->rwnd_over,
-> +		 asoc->a_rwnd);
->  
->  	/* Send a window update SACK if the rwnd has increased by at least the
->  	 * minimum of the association's PMTU and half of the receive buffer.
->  	 * The algorithm used is similar to the one described in
->  	 * Section 4.2.3.3 of RFC 1122.
->  	 */
-> -	if (update_peer && sctp_peer_needs_update(asoc)) {
-> +	if (sctp_peer_needs_update(asoc)) {
->  		asoc->a_rwnd = asoc->rwnd;
->  
->  		pr_debug("%s: sending window update SACK- asoc:%p rwnd:%u "
-> @@ -1445,6 +1454,45 @@ void sctp_assoc_rwnd_update(struct sctp_association *asoc, bool update_peer)
->  	}
+>  	sd->nr = syscall_get_nr(task, regs);
+>  	sd->arch = syscall_get_arch();
+> -
+> -	/* Unroll syscall_get_args to help gcc on arm. */
+> -	syscall_get_arguments(task, regs, 0, 1, (unsigned long *) &sd->args[0]);
+> -	syscall_get_arguments(task, regs, 1, 1, (unsigned long *) &sd->args[1]);
+> -	syscall_get_arguments(task, regs, 2, 1, (unsigned long *) &sd->args[2]);
+> -	syscall_get_arguments(task, regs, 3, 1, (unsigned long *) &sd->args[3]);
+> -	syscall_get_arguments(task, regs, 4, 1, (unsigned long *) &sd->args[4]);
+> -	syscall_get_arguments(task, regs, 5, 1, (unsigned long *) &sd->args[5]);
+> -
+> +	syscall_get_arguments(task, regs, 0, 6, args);
+> +	sd->args[0] = args[0];
+> +	sd->args[1] = args[1];
+> +	sd->args[2] = args[2];
+> +	sd->args[3] = args[3];
+> +	sd->args[4] = args[4];
+> +	sd->args[5] = args[5];
+>  	sd->instruction_pointer = KSTK_EIP(task);
 >  }
 >  
-> +/* Decrease asoc's rwnd by len. */
-> +void sctp_assoc_rwnd_decrease(struct sctp_association *asoc, unsigned int len)
-> +{
-> +	int rx_count;
-> +	int over = 0;
-> +
-> +	if (unlikely(!asoc->rwnd || asoc->rwnd_over))
-> +		pr_debug("%s: association:%p has asoc->rwnd:%u, "
-> +			 "asoc->rwnd_over:%u!\n", __func__, asoc,
-> +			 asoc->rwnd, asoc->rwnd_over);
-> +
-> +	if (asoc->ep->rcvbuf_policy)
-> +		rx_count = atomic_read(&asoc->rmem_alloc);
-> +	else
-> +		rx_count = atomic_read(&asoc->base.sk->sk_rmem_alloc);
-> +
-> +	/* If we've reached or overflowed our receive buffer, announce
-> +	 * a 0 rwnd if rwnd would still be positive.  Store the
-> +	 * the potential pressure overflow so that the window can be restored
-> +	 * back to original value.
-> +	 */
-> +	if (rx_count >= asoc->base.sk->sk_rcvbuf)
-> +		over = 1;
-> +
-> +	if (asoc->rwnd >= len) {
-> +		asoc->rwnd -= len;
-> +		if (over) {
-> +			asoc->rwnd_press += asoc->rwnd;
-> +			asoc->rwnd = 0;
-> +		}
-> +	} else {
-> +		asoc->rwnd_over = len - asoc->rwnd;
-> +		asoc->rwnd = 0;
-> +	}
-> +
-> +	pr_debug("%s: asoc:%p rwnd decreased by %d to (%u, %u, %u)\n",
-> +		 __func__, asoc, len, asoc->rwnd, asoc->rwnd_over,
-> +		 asoc->rwnd_press);
-> +}
->  
->  /* Build the bind address list for the association based on info from the
->   * local endpoint and the remote peer.
-> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-> index 01e0024..ae9fbeb 100644
-> --- a/net/sctp/sm_statefuns.c
-> +++ b/net/sctp/sm_statefuns.c
-> @@ -6178,7 +6178,7 @@ static int sctp_eat_data(const struct sctp_association *asoc,
->  	 * PMTU.  In cases, such as loopback, this might be a rather
->  	 * large spill over.
->  	 */
-> -	if ((!chunk->data_accepted) && (!asoc->rwnd ||
-> +	if ((!chunk->data_accepted) && (!asoc->rwnd || asoc->rwnd_over ||
->  	    (datalen > asoc->rwnd + asoc->frag_point))) {
->  
->  		/* If this is the next TSN, consider reneging to make
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index e13519e..ff20e2d 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -2115,6 +2115,12 @@ static int sctp_recvmsg(struct kiocb *iocb, struct sock *sk,
->  		sctp_skb_pull(skb, copied);
->  		skb_queue_head(&sk->sk_receive_queue, skb);
->  
-> +		/* When only partial message is copied to the user, increase
-> +		 * rwnd by that amount. If all the data in the skb is read,
-> +		 * rwnd is updated when the event is freed.
-> +		 */
-> +		if (!sctp_ulpevent_is_notification(event))
-> +			sctp_assoc_rwnd_increase(event->asoc, copied);
->  		goto out;
->  	} else if ((event->msg_flags & MSG_NOTIFICATION) ||
->  		   (event->msg_flags & MSG_EOR))
-> diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
-> index 8d198ae..85c6465 100644
-> --- a/net/sctp/ulpevent.c
-> +++ b/net/sctp/ulpevent.c
-> @@ -989,7 +989,7 @@ static void sctp_ulpevent_receive_data(struct sctp_ulpevent *event,
->  	skb = sctp_event2skb(event);
->  	/* Set the owner and charge rwnd for bytes received.  */
->  	sctp_ulpevent_set_owner(event, asoc);
-> -	sctp_assoc_rwnd_update(asoc, false);
-> +	sctp_assoc_rwnd_decrease(asoc, skb_headlen(skb));
->  
->  	if (!skb->data_len)
->  		return;
-> @@ -1011,7 +1011,6 @@ static void sctp_ulpevent_release_data(struct sctp_ulpevent *event)
->  {
->  	struct sk_buff *skb, *frag;
->  	unsigned int	len;
-> -	struct sctp_association *asoc;
->  
->  	/* Current stack structures assume that the rcv buffer is
->  	 * per socket.   For UDP style sockets this is not true as
-> @@ -1036,11 +1035,8 @@ static void sctp_ulpevent_release_data(struct sctp_ulpevent *event)
->  	}
->  
->  done:
-> -	asoc = event->asoc;
-> -	sctp_association_hold(asoc);
-> +	sctp_assoc_rwnd_increase(event->asoc, len);
->  	sctp_ulpevent_release_owner(event);
-> -	sctp_assoc_rwnd_update(asoc, true);
-> -	sctp_association_put(asoc);
->  }
->  
->  static void sctp_ulpevent_release_frag_data(struct sctp_ulpevent *event)
 > 
