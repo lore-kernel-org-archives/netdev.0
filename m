@@ -1,44 +1,59 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] seccomp: fix memory leak on filter attach
-Date: Mon, 14 Apr 2014 20:23:58 +0200
-Message-ID: <534C27BE.9020709@redhat.com>
-References: <20140414171114.GA31384@www.outflux.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: What causes these TCP packet getting lost in linux kernel
+Date: Mon, 14 Apr 2014 11:32:55 -0700
+Message-ID: <1397500375.4222.37.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAMRd1sXbgcGQuBKd6b-wwkrsqgh_4QicfyR=1hh+TqyYUjYHFA@mail.gmail.com>
+	 <1397212866.16584.93.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAMRd1sUk_-gtOOgf2dPU_mpgCugDE2F82Te5arnhi+8-uPgm0g@mail.gmail.com>
+	 <CAJzFV35Z9f-73of0vq2bhUZbN++17cuexcQV4SSSvqJXNyKnRQ@mail.gmail.com>
+	 <1397331172.4222.8.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAMRd1sV_ZzgFF8a2D=CsugHPHrNY=ifV1F46bKVwNSP9FvNPUw@mail.gmail.com>
+	 <534B9EBC.4000606@davidnewall.com>
+	 <CAMRd1sWa70D3Cjx74jC8g2fJKXho=okrpu+HfsZmu77-70c4DQ@mail.gmail.com>
+	 <1397484804.4222.23.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAJzFV34Z077yQv71X8WSQ2U-6iCNPnsPDBNaSFoQabxHG_q-2w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Masami Ichikawa <masami256@gmail.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Will Drewry <wad@chromium.org>,
-	Josh Triplett <josh@joshtriplett.org>,
-	Rashika Kheria <rashika.kheria@gmail.com>,
-	James Morris <james.l.morris@oracle.com>, davem@davemloft.net,
-	eparis@redhat.com, netdev@vger.kernel.org
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140414171114.GA31384@www.outflux.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: chptx y <chptxy@gmail.com>, David Newall <davidn@davidnewall.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Sharat Masetty <sharat04@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:53266 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752947AbaDNSc5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 14:32:57 -0400
+Received: by mail-pb0-f50.google.com with SMTP id md12so8601466pbc.9
+        for <netdev@vger.kernel.org>; Mon, 14 Apr 2014 11:32:57 -0700 (PDT)
+In-Reply-To: <CAJzFV34Z077yQv71X8WSQ2U-6iCNPnsPDBNaSFoQabxHG_q-2w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/14/2014 07:11 PM, Kees Cook wrote:
-> This sets the correct error code when final filter memory is unavailable,
-> and frees the raw filter no matter what.
->
-> unreferenced object 0xffff8800d6ea4000 (size 512):
->    comm "sshd", pid 278, jiffies 4294898315 (age 46.653s)
->    hex dump (first 32 bytes):
->      21 00 00 00 04 00 00 00 15 00 01 00 3e 00 00 c0  !...........>...
->      06 00 00 00 00 00 00 00 21 00 00 00 00 00 00 00  ........!.......
->    backtrace:
->      [<ffffffff8151414e>] kmemleak_alloc+0x4e/0xb0
->      [<ffffffff811a3a40>] __kmalloc+0x280/0x320
->      [<ffffffff8110842e>] prctl_set_seccomp+0x11e/0x3b0
->      [<ffffffff8107bb6b>] SyS_prctl+0x3bb/0x4a0
->      [<ffffffff8152ef2d>] system_call_fastpath+0x1a/0x1f
->      [<ffffffffffffffff>] 0xffffffffffffffff
->
-> Reported-by: Masami Ichikawa <masami256@gmail.com>
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-> Cc: stable@vger.kernel.org
+On Mon, 2014-04-14 at 11:58 -0600, Sharat Masetty wrote:
+> Thats a good find.. Is this drop count documented in netstat stats?
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+
+Sure  : LINUX_MIB_PAWSESTABREJECTED
+
+nstat -a | grep PAWSEstab
+
+> 
+> On Mon, Apr 14, 2014 at 8:13 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Mon, 2014-04-14 at 17:20 +0800, chptx y wrote:
+> >> i don't know why, no matter I capture packets on my Ubuntu PC or
+> >> Android device with tcpdump,  open the output file with wireshark, all
+> >> output packets are marked with "incorrect checksum", but it seems that
+> >> this problem don't affect  subsequent packets interaction. why?
+> >
+> > Checksums are filled by the NIC on TX packets, some tcpdump/wireshark
+> > versions do not really know of this.
+> >
+> > packet 30 (which is accepted) has TSval=4054079470 & TSecr=22894,
+> > but packet 32 has TSval=4054078149 & TSecr=22863, while its sequence is
+> > correct (coming after the prior packet)
+> >
+> > Sender has a wrong implementation of TCP Timestamps (RFC 1323), or a
+> > middlebox mangles timestamps badly.
+> >
+> > Receiver considers this as an old packet.
+> >\
