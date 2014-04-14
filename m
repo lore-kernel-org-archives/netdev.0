@@ -1,111 +1,61 @@
-From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Subject: Re: [PATCH v2 2/4] Documentation: dts: Add bindings for APM X-Gene
- SoC ethernet driver
-Date: Mon, 14 Apr 2014 15:15:19 -0700
-Message-ID: <CAKh23FkRJAqS7+5m+0k1E8gx3T23xsBfq8bw=847MR-uJxZvJQ@mail.gmail.com>
-References: <1397271984-23405-1-git-send-email-isubramanian@apm.com>
-	<1397271984-23405-3-git-send-email-isubramanian@apm.com>
-	<534BDD6F.2070903@codethink.co.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, patches <patches-qTEPVZfXA3Y@public.gmane.org>,
-	Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>, Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
-To: Ben Dooks <ben.dooks-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <534BDD6F.2070903-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/3] Netfilter fixes for net
+Date: Tue, 15 Apr 2014 00:43:32 +0200
+Message-ID: <1397515415-5477-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Ben,
+Hi David,
 
-Thanks for the review comments. Please find my responses inline.
+The following patchset contains three Netfilter fixes for your net tree,
+they are:
 
-Thanks,
-Iyappan
+* Fix missing generation sequence initialization which results in a splat
+  if lockdep is enabled, it was introduced in the recent works to improve
+  nf_conntrack scalability, from Andrey Vagin.
 
-On Mon, Apr 14, 2014 at 6:06 AM, Ben Dooks <ben.dooks-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org> wrote:
-> On 12/04/14 04:06, Iyappan Subramanian wrote:
->>
->> This patch adds documentation for APM X-Gene SoC ethernet DTS binding.
->>
->> Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
->> Signed-off-by: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
->> Signed-off-by: Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
->> ---
->>   .../devicetree/bindings/net/apm-xgene-enet.txt     |   46
->> ++++++++++++++++++++
->>   1 file changed, 46 insertions(+)
->>   create mode 100644
->> Documentation/devicetree/bindings/net/apm-xgene-enet.txt
->>
->> diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
->> b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
->> new file mode 100644
->> index 0000000..0c983e8
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
->> @@ -0,0 +1,46 @@
->> +APM X-Gene SoC Ethernet nodes
->> +
->> +Ethernet nodes are defined to describe on-chip ethernet interfaces in
->> +APM X-Gene SoC.
->> +
->> +Required properties:
->> +- compatible           : Should be "apm,xgene-enet"
->> +- reg                  : First resource is the ethernet base register set
->> +                         Second resource is the ring base register set
->> +                         Third resource is the ring command register set
->> +- interrupts           : Ethernet main interrupt
->> +- clocks               : Reference to the clock entry.
->> +- local-mac-address    : Ethernet MAC address.
->> +- phy-addr             : Ethernet MII phy address.
->> +- phy-mode             : Ethernet MII mode.
->> +
->> +Optional properties:
->> +- status               : Should be "ok" or "disabled" for
->> enabled/disabled.
->> +                         Default is "ok".
->> +
->> +Example:
->> +       menetclk: menetclk {
->> +               compatible = "apm,xgene-device-clock";
->> +               clock-output-names = "menetclk";
->> +               status = "ok";
->> +       };
->> +
->> +       menet: ethernet@17020000 {
->> +               compatible = "apm,xgene-enet";
->> +               status = "disabled";
->> +               reg = <0x0 0x17020000 0x0 0xd100>,
->> +                     <0x0 0X17030000 0x0 0X400>,
->> +                     <0x0 0X10000000 0x0 0X200>;
->> +               interrupts = <0x0 0x3c 0x4>;
->> +               clocks = <&menetclk 0>;
->> +               local-mac-address = [00 01 73 00 00 01];
->> +               phy-addr = <3>;
->> +               phy-mode = "rgmii";
->> +       };
->
->
-> That doesn't look correct for a phy binding.
->
+* Don't flush the GRE keymap list in nf_conntrack when the pptp helper is
+  disabled otherwise this crashes due to a double release, from Andrey
+  Vagin.
 
-Okay.  I will change the dts to use phy-handle property and remove
-phy-addr.  I will also rename phy-mode to phy-connection-type as per
-Documentation/devicetree/bindings/net/ethernet.txt
+* Fix nf_tables cmp fast in big endian, from Patrick McHardy.
 
->
-> --
-> Ben Dooks                               http://www.codethink.co.uk/
-> Senior Engineer                         Codethink - Providing Genius
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 6859e7df6d9045a461412777e63bd8cef12f9705:
+
+  netdev: remove potentially harmful checks (2014-04-07 15:52:07 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+for you to fetch changes up to b855d416dc17061ebb271ea7ef1201d100531770:
+
+  netfilter: nf_tables: fix nft_cmp_fast failure on big endian for size < 4 (2014-04-14 10:38:02 +0200)
+
+----------------------------------------------------------------
+Andrey Vagin (2):
+      netfilter: nf_conntrack: flush net_gre->keymap_list only from gre helper
+      netfilter: nf_conntrack: initialize net.ct.generation
+
+Patrick McHardy (1):
+      netfilter: nf_tables: fix nft_cmp_fast failure on big endian for size < 4
+
+ include/linux/netfilter/nf_conntrack_proto_gre.h |    1 -
+ include/net/netfilter/nf_tables_core.h           |   10 ++++++++++
+ net/netfilter/nf_conntrack_core.c                |    1 +
+ net/netfilter/nf_conntrack_pptp.c                |   20 +-------------------
+ net/netfilter/nf_conntrack_proto_gre.c           |    3 +--
+ net/netfilter/nf_tables_core.c                   |    3 +--
+ net/netfilter/nft_cmp.c                          |    2 +-
+ 7 files changed, 15 insertions(+), 25 deletions(-)
