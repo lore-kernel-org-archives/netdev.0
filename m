@@ -1,61 +1,176 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/3] Netfilter fixes for net
-Date: Tue, 15 Apr 2014 00:43:32 +0200
-Message-ID: <1397515415-5477-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/3] netfilter: nf_conntrack: flush net_gre->keymap_list only from gre helper
+Date: Tue, 15 Apr 2014 00:43:33 +0200
+Message-ID: <1397515415-5477-2-git-send-email-pablo@netfilter.org>
+References: <1397515415-5477-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1397515415-5477-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Andrey Vagin <avagin@openvz.org>
 
-The following patchset contains three Netfilter fixes for your net tree,
-they are:
+nf_ct_gre_keymap_flush() removes a nf_ct_gre_keymap object from
+net_gre->keymap_list and frees the object. But it doesn't clean
+a reference on this object from ct_pptp_info->keymap[dir].
+Then nf_ct_gre_keymap_destroy() may release the same object again.
 
-* Fix missing generation sequence initialization which results in a splat
-  if lockdep is enabled, it was introduced in the recent works to improve
-  nf_conntrack scalability, from Andrey Vagin.
+So nf_ct_gre_keymap_flush() can be called only when we are sure that
+when nf_ct_gre_keymap_destroy will not be called.
 
-* Don't flush the GRE keymap list in nf_conntrack when the pptp helper is
-  disabled otherwise this crashes due to a double release, from Andrey
-  Vagin.
+nf_ct_gre_keymap is created by nf_ct_gre_keymap_add() and the right way
+to destroy it is to call nf_ct_gre_keymap_destroy().
 
-* Fix nf_tables cmp fast in big endian, from Patrick McHardy.
+This patch marks nf_ct_gre_keymap_flush() as static, so this patch can
+break compilation of third party modules, which use
+nf_ct_gre_keymap_flush. I'm not sure this is the right way to deprecate
+this function.
 
-You can pull these changes from:
+[  226.540793] general protection fault: 0000 [#1] SMP
+[  226.541750] Modules linked in: nf_nat_pptp nf_nat_proto_gre
+nf_conntrack_pptp nf_conntrack_proto_gre ip_gre ip_tunnel gre
+ppp_deflate bsd_comp ppp_async crc_ccitt ppp_generic slhc xt_nat
+iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat
+nf_conntrack veth tun bridge stp llc ppdev microcode joydev pcspkr
+serio_raw virtio_console virtio_balloon floppy parport_pc parport
+pvpanic i2c_piix4 virtio_net drm_kms_helper ttm ata_generic virtio_pci
+virtio_ring virtio drm i2c_core pata_acpi [last unloaded: ip_tunnel]
+[  226.541776] CPU: 0 PID: 49 Comm: kworker/u4:2 Not tainted 3.14.0-rc8+ #101
+[  226.541776] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[  226.541776] Workqueue: netns cleanup_net
+[  226.541776] task: ffff8800371e0000 ti: ffff88003730c000 task.ti: ffff88003730c000
+[  226.541776] RIP: 0010:[<ffffffff81389ba9>]  [<ffffffff81389ba9>] __list_del_entry+0x29/0xd0
+[  226.541776] RSP: 0018:ffff88003730dbd0  EFLAGS: 00010a83
+[  226.541776] RAX: 6b6b6b6b6b6b6b6b RBX: ffff8800374e6c40 RCX: dead000000200200
+[  226.541776] RDX: 6b6b6b6b6b6b6b6b RSI: ffff8800371e07d0 RDI: ffff8800374e6c40
+[  226.541776] RBP: ffff88003730dbd0 R08: 0000000000000000 R09: 0000000000000000
+[  226.541776] R10: 0000000000000001 R11: ffff88003730d92e R12: 0000000000000002
+[  226.541776] R13: ffff88007a4c42d0 R14: ffff88007aef0000 R15: ffff880036cf0018
+[  226.541776] FS:  0000000000000000(0000) GS:ffff88007fc00000(0000) knlGS:0000000000000000
+[  226.541776] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[  226.541776] CR2: 00007f07f643f7d0 CR3: 0000000036fd2000 CR4: 00000000000006f0
+[  226.541776] Stack:
+[  226.541776]  ffff88003730dbe8 ffffffff81389c5d ffff8800374ffbe4 ffff88003730dc28
+[  226.541776]  ffffffffa0162a43 ffffffffa01627c5 ffff88007a4c42d0 ffff88007aef0000
+[  226.541776]  ffffffffa01651c0 ffff88007a4c45e0 ffff88007aef0000 ffff88003730dc40
+[  226.541776] Call Trace:
+[  226.541776]  [<ffffffff81389c5d>] list_del+0xd/0x30
+[  226.541776]  [<ffffffffa0162a43>] nf_ct_gre_keymap_destroy+0x283/0x2d0 [nf_conntrack_proto_gre]
+[  226.541776]  [<ffffffffa01627c5>] ? nf_ct_gre_keymap_destroy+0x5/0x2d0 [nf_conntrack_proto_gre]
+[  226.541776]  [<ffffffffa0162ab7>] gre_destroy+0x27/0x70 [nf_conntrack_proto_gre]
+[  226.541776]  [<ffffffffa0117de3>] destroy_conntrack+0x83/0x200 [nf_conntrack]
+[  226.541776]  [<ffffffffa0117d87>] ? destroy_conntrack+0x27/0x200 [nf_conntrack]
+[  226.541776]  [<ffffffffa0117d60>] ? nf_conntrack_hash_check_insert+0x2e0/0x2e0 [nf_conntrack]
+[  226.541776]  [<ffffffff81630142>] nf_conntrack_destroy+0x72/0x180
+[  226.541776]  [<ffffffff816300d5>] ? nf_conntrack_destroy+0x5/0x180
+[  226.541776]  [<ffffffffa011ef80>] ? kill_l3proto+0x20/0x20 [nf_conntrack]
+[  226.541776]  [<ffffffffa011847e>] nf_ct_iterate_cleanup+0x14e/0x170 [nf_conntrack]
+[  226.541776]  [<ffffffffa011f74b>] nf_ct_l4proto_pernet_unregister+0x5b/0x90 [nf_conntrack]
+[  226.541776]  [<ffffffffa0162409>] proto_gre_net_exit+0x19/0x30 [nf_conntrack_proto_gre]
+[  226.541776]  [<ffffffff815edf89>] ops_exit_list.isra.1+0x39/0x60
+[  226.541776]  [<ffffffff815eecc0>] cleanup_net+0x100/0x1d0
+[  226.541776]  [<ffffffff810a608a>] process_one_work+0x1ea/0x4f0
+[  226.541776]  [<ffffffff810a6028>] ? process_one_work+0x188/0x4f0
+[  226.541776]  [<ffffffff810a64ab>] worker_thread+0x11b/0x3a0
+[  226.541776]  [<ffffffff810a6390>] ? process_one_work+0x4f0/0x4f0
+[  226.541776]  [<ffffffff810af42d>] kthread+0xed/0x110
+[  226.541776]  [<ffffffff8173d4dc>] ? _raw_spin_unlock_irq+0x2c/0x40
+[  226.541776]  [<ffffffff810af340>] ? kthread_create_on_node+0x200/0x200
+[  226.541776]  [<ffffffff8174747c>] ret_from_fork+0x7c/0xb0
+[  226.541776]  [<ffffffff810af340>] ? kthread_create_on_node+0x200/0x200
+[  226.541776] Code: 00 00 55 48 8b 17 48 b9 00 01 10 00 00 00 ad de
+48 8b 47 08 48 89 e5 48 39 ca 74 29 48 b9 00 02 20 00 00 00 ad de 48
+39 c8 74 7a <4c> 8b 00 4c 39 c7 75 53 4c 8b 42 08 4c 39 c7 75 2b 48 89
+42 08
+[  226.541776] RIP  [<ffffffff81389ba9>] __list_del_entry+0x29/0xd0
+[  226.541776]  RSP <ffff88003730dbd0>
+[  226.612193] ---[ end trace 985ae23ddfcc357c ]---
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 6859e7df6d9045a461412777e63bd8cef12f9705:
-
-  netdev: remove potentially harmful checks (2014-04-07 15:52:07 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-for you to fetch changes up to b855d416dc17061ebb271ea7ef1201d100531770:
-
-  netfilter: nf_tables: fix nft_cmp_fast failure on big endian for size < 4 (2014-04-14 10:38:02 +0200)
-
-----------------------------------------------------------------
-Andrey Vagin (2):
-      netfilter: nf_conntrack: flush net_gre->keymap_list only from gre helper
-      netfilter: nf_conntrack: initialize net.ct.generation
-
-Patrick McHardy (1):
-      netfilter: nf_tables: fix nft_cmp_fast failure on big endian for size < 4
-
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Andrey Vagin <avagin@openvz.org>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
  include/linux/netfilter/nf_conntrack_proto_gre.h |    1 -
- include/net/netfilter/nf_tables_core.h           |   10 ++++++++++
- net/netfilter/nf_conntrack_core.c                |    1 +
  net/netfilter/nf_conntrack_pptp.c                |   20 +-------------------
  net/netfilter/nf_conntrack_proto_gre.c           |    3 +--
- net/netfilter/nf_tables_core.c                   |    3 +--
- net/netfilter/nft_cmp.c                          |    2 +-
- 7 files changed, 15 insertions(+), 25 deletions(-)
+ 3 files changed, 2 insertions(+), 22 deletions(-)
+
+diff --git a/include/linux/netfilter/nf_conntrack_proto_gre.h b/include/linux/netfilter/nf_conntrack_proto_gre.h
+index ec2ffaf..df78dc2 100644
+--- a/include/linux/netfilter/nf_conntrack_proto_gre.h
++++ b/include/linux/netfilter/nf_conntrack_proto_gre.h
+@@ -87,7 +87,6 @@ int nf_ct_gre_keymap_add(struct nf_conn *ct, enum ip_conntrack_dir dir,
+ /* delete keymap entries */
+ void nf_ct_gre_keymap_destroy(struct nf_conn *ct);
+ 
+-void nf_ct_gre_keymap_flush(struct net *net);
+ void nf_nat_need_gre(void);
+ 
+ #endif /* __KERNEL__ */
+diff --git a/net/netfilter/nf_conntrack_pptp.c b/net/netfilter/nf_conntrack_pptp.c
+index 7bd03de..825c3e3 100644
+--- a/net/netfilter/nf_conntrack_pptp.c
++++ b/net/netfilter/nf_conntrack_pptp.c
+@@ -605,32 +605,14 @@ static struct nf_conntrack_helper pptp __read_mostly = {
+ 	.expect_policy		= &pptp_exp_policy,
+ };
+ 
+-static void nf_conntrack_pptp_net_exit(struct net *net)
+-{
+-	nf_ct_gre_keymap_flush(net);
+-}
+-
+-static struct pernet_operations nf_conntrack_pptp_net_ops = {
+-	.exit = nf_conntrack_pptp_net_exit,
+-};
+-
+ static int __init nf_conntrack_pptp_init(void)
+ {
+-	int rv;
+-
+-	rv = nf_conntrack_helper_register(&pptp);
+-	if (rv < 0)
+-		return rv;
+-	rv = register_pernet_subsys(&nf_conntrack_pptp_net_ops);
+-	if (rv < 0)
+-		nf_conntrack_helper_unregister(&pptp);
+-	return rv;
++	return nf_conntrack_helper_register(&pptp);
+ }
+ 
+ static void __exit nf_conntrack_pptp_fini(void)
+ {
+ 	nf_conntrack_helper_unregister(&pptp);
+-	unregister_pernet_subsys(&nf_conntrack_pptp_net_ops);
+ }
+ 
+ module_init(nf_conntrack_pptp_init);
+diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
+index 9d9c0da..d566573 100644
+--- a/net/netfilter/nf_conntrack_proto_gre.c
++++ b/net/netfilter/nf_conntrack_proto_gre.c
+@@ -66,7 +66,7 @@ static inline struct netns_proto_gre *gre_pernet(struct net *net)
+ 	return net_generic(net, proto_gre_net_id);
+ }
+ 
+-void nf_ct_gre_keymap_flush(struct net *net)
++static void nf_ct_gre_keymap_flush(struct net *net)
+ {
+ 	struct netns_proto_gre *net_gre = gre_pernet(net);
+ 	struct nf_ct_gre_keymap *km, *tmp;
+@@ -78,7 +78,6 @@ void nf_ct_gre_keymap_flush(struct net *net)
+ 	}
+ 	write_unlock_bh(&net_gre->keymap_lock);
+ }
+-EXPORT_SYMBOL(nf_ct_gre_keymap_flush);
+ 
+ static inline int gre_key_cmpfn(const struct nf_ct_gre_keymap *km,
+ 				const struct nf_conntrack_tuple *t)
+-- 
+1.7.10.4
+
