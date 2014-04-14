@@ -1,69 +1,102 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [RFC] sh_eth: use RNC mode for R8A7790
-Date: Mon, 14 Apr 2014 18:35:21 +0200
-Message-ID: <CAMuHMdX_7eX1F7PkO4WAkUdeNgPjkY_LozGZFeAROEN=K0Jp2w@mail.gmail.com>
-References: <1396025185-7911-1-git-send-email-ben.dooks@codethink.co.uk>
-	<5335DDC7.8040400@cogentembedded.com>
-	<534BD8F9.5080105@codethink.co.uk>
+From: Arvid Brodin <arvid.brodin@alten.se>
+Subject: Re: TCP checksum problem
+Date: Mon, 14 Apr 2014 18:34:32 +0200
+Message-ID: <534C0E18.5050702@alten.se>
+References: <53488811.2080602@alten.se> <1397263768.4222.1.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	magnus.damm@opensource.se,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-To: Ben Dooks <ben.dooks@codethink.co.uk>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:60435 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754175AbaDNQfX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 12:35:23 -0400
-In-Reply-To: <534BD8F9.5080105@codethink.co.uk>
+Received: from spam1.webland.se ([91.207.112.90]:54959 "EHLO spam1.webland.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753222AbaDNQkX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Apr 2014 12:40:23 -0400
+In-Reply-To: <1397263768.4222.1.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ben,
-
-On Mon, Apr 14, 2014 at 2:47 PM, Ben Dooks <ben.dooks@codethink.co.uk> wrote:
-> On 28/03/14 20:38, Sergei Shtylyov wrote:
->> On 03/28/2014 07:46 PM, Ben Dooks wrote:
->>> The current behaviour of the sh_eth driver is not to use the RNC bit
->>> for the receive ring. This means that every packet recieved is not only
->>> generating an IRQ but it also stops the receive ring DMA as well until
->>> the driver re-enables it after unloading the packet.
+On 2014-04-12 02:49, Eric Dumazet wrote:
+> On Sat, 2014-04-12 at 02:25 +0200, Arvid Brodin wrote:
+>> Hi,
 >>
->>> This means that a number of the following errors are generated due to
->>> the receive packet FIFO overflowing due to nowhere to put packets:
+>> I'm trying to insert a 6-byte HSR header into a newly copied skb,
+>> between the ethernet header and the IP header. The skb comes from my
+>> virtual device's ndo_start_xmit() function and is to be sent on to a
+>> physical interface after modification. Essentially, this is what I'm
+>> doing:
 >>
->>>     net eth0: Receive FIFO Overflow
+>> 	skb =3D skb_copy_expand(skb, skb_headroom(skb) + HSR_HLEN, 0,
+>> GFP_ATOMIC);
 >>
->>> Setting the RMCR_RNC configuration has so far been tested with an NFS
->>> root filesystem and the driver has not failed yet. It is not yet known
->>> why this is not set for R8A779x operation
+>> 	/* Move ethernet header to make room for the HSR header */
+>> 	src =3D skb_mac_header(skb);
+>> 	WARN_ON_ONCE(src !=3D skb->data);
+>> 	dst =3D skb_push(skb, HSR_HLEN);
+>> 	memmove(dst, src, ETH_HLEN);
+>> 	skb_reset_mac_header(skb);
 >>
->>     The reason is simple: it's not set on almost all 100 Mbs devices
->> except SH7757 (and most recently added R7S72100), so this was a matter
->> of copy-paste. I've had setting this bit on at least R-Car devices on my
->> aganda for some time but couldn't get to it yet.
+>> 	/* Fill in the 6-byte header */
+>> 	hsr_fill_tag(skb, frame, port);
 >>
->>> (Feedback on this issue or other testing is welcome)
+>> 	/* Point the skb to the physical interface */
+>> 	skb->dev =3D port->dev;=20
 >>
->>     OK, I'll try it with netperf UDP test known to generate handful of
->> the aforementioned errors, when I have time.
->
-> Has anyone had time to look at this?
+>> 	dev_queue_xmit(skb);
+>>
+>> But something goes wrong with the TCP checksum on the way out. Arp,
+>> ping etc works fine, but anything using TCP is discarded by the
+>> receiver due to incorrect TCP checksums.
+>>
+>> Using wireshark and some printks, I've managed to decide that the
+>> updated TCP checksum is written offset by -6 bytes from where it
+>> should be (into what wireshark calls the TCP header "acknowledgement
+>> number" field).
+>>
+>> Any idea why this happens? I've spent a few days on this now and I'm
+>> running out of ideas...
+>>
+>> This is run on the cadence/macb ethernet device. Before the call to
+>> skb_copy_expand(), skb->ip_summed is CHECKSUM_PARTIAL, skb->csum_sta=
+rt
+>> is 120, and skb->csum_offset is 16. The total frame length is 80 byt=
+es
+>> (on the wire as reported by wireshark - I think this is excluding th=
+e
+>> FCS).
+>>
+>>
+>=20
+> You need to set skb->csum_start to the new offset.
+>=20
+> ( skb_transport_header(skb) - skb->head )
+>=20
+> Check how __tcp_v4_send_check() sets csum_start & csum_offset
+>=20
+> (csum_offset you can leave it as is)
+>=20
 
-I gave it a try on Koelsch (it does apply to r8a7791, too, right?), and didn't
-see any good or ill effects. Just using NFS root and generating some I/O,
-so nothing fancy.
+I recompiled my code today and ran it again, and it worked. I have no=20
+idea what change I made, althought I know I first used=20
 
-Gr{oetje,eeting}s,
+skb =3D __pskb_copy(skb, skb_headroom(skb) + HSR_HLEN, GFP_ATOMIC);
 
-                        Geert
+instead of=20
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+skb =3D skb_copy_expand(skb, skb_headroom(skb) + HSR_HLEN, 0, GFP_ATOMI=
+C);
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+for the allocation of the new skb. The latter adjusts csum_start, the=20
+former doesn't. I may have changed to the latter and simultaneously=20
+added a manual adjustment to csum_start, because I know I was surprised=
+=20
+that the checksum moved 2*HSR_HLEN bytes when I did the adjustment. :)
+
+Anyway, it seems to work now. Thanks for the help!
+
+
+--=20
+Arvid Brodin | Consultant (Linux)
+ALTEN | Knarrarn=C3=A4sgatan 7 | SE-164 40 Kista | Sweden
+arvid.brodin@alten.se | www.alten.se/en/
