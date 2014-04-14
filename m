@@ -1,63 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG] A panic caused by null pointer dereference aftering
- updating to
-Date: Mon, 14 Apr 2014 15:22:25 -0400 (EDT)
-Message-ID: <20140414.152225.1983723140136958968.davem@davemloft.net>
-References: <1397499566.4222.36.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140414.144843.488522666550066271.davem@davemloft.net>
-	<1397502396.4222.45.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [PATCH] cxgb4: Save the correct mac addr for hw-loopback connections
+	in the L2T
+Date: Mon, 14 Apr 2014 14:22:43 -0500
+Message-ID: <20140414192243.13234.46587.stgit@build.ogc.int>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: nasa4836@gmail.com, jchapman@katalix.com, edumazet@google.com,
-	joe@perches.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1397502396.4222.45.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hariprasad@chelsio.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.opengridcomputing.com ([72.48.136.20]:54360 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751141AbaDNTWn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 15:22:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 14 Apr 2014 12:06:36 -0700
+Hardware needs the local device mac address to support hw loopback for
+rdma loopback connections.
 
-> On Mon, 2014-04-14 at 14:48 -0400, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Mon, 14 Apr 2014 11:19:26 -0700
->> 
->> > ip_local_out() doesn't use skb->sk
->> 
->> It does Eric.
->> 
-> 
-> Hmmm, right...
-> 
->> We had just such a report with this in the backtrace, when AF_PACKET
->> sends over vxlan devices.
->> 
->> The problem is ip_mc_output().
-> 
-> So this means that : User socket wanted sk_mc_loop(sk), but because
-> vxlan changed skb->sk to internal socket, we were doing something else
-> anyway.
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+---
 
-Actually the exact opposite is happening.  vxlan does not override skb->sk,
-and leaves it as AF_PACKET's socket.  Then we crash in ip_mc_output() because
-it only expects IP sockets, not AF_PACKET ones, attached to skb->sk.
+ drivers/net/ethernet/chelsio/cxgb4/l2t.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-> There are a lot of undocumented features here... like
-> 
->  	skb->priority = sk->sk_priority;
->  	skb->mark = sk->sk_mark;
-> 
-> which socket do we want here (in ip_queue_xmit()) ?
-
-Probably that of tunnel.
-
-> Its interesting to see ip6_xmit() already has a 'struct sock *sk'
-> parameter...
-> 
-> This was the preliminary patch I tested :
-
-You still need to make similar transformation to ip_local_out() as mentioned
-above.
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/l2t.c b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
+index 81e8402..8a96572 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/l2t.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
+@@ -154,7 +154,7 @@ static int write_l2e(struct adapter *adap, struct l2t_entry *e, int sync)
+ 	req->params = htons(L2T_W_PORT(e->lport) | L2T_W_NOREPLY(!sync));
+ 	req->l2t_idx = htons(e->idx);
+ 	req->vlan = htons(e->vlan);
+-	if (e->neigh)
++	if (e->neigh && !(e->neigh->dev->flags & IFF_LOOPBACK))
+ 		memcpy(e->dmac, e->neigh->ha, sizeof(e->dmac));
+ 	memcpy(req->dst_mac, e->dmac, sizeof(req->dst_mac));
+ 
+@@ -394,6 +394,8 @@ struct l2t_entry *cxgb4_l2t_get(struct l2t_data *d, struct neighbour *neigh,
+ 	if (e) {
+ 		spin_lock(&e->lock);          /* avoid race with t4_l2t_free */
+ 		e->state = L2T_STATE_RESOLVING;
++		if (neigh->dev->flags & IFF_LOOPBACK)
++			memcpy(e->dmac, physdev->dev_addr, sizeof(e->dmac));
+ 		memcpy(e->addr, addr, addr_len);
+ 		e->ifindex = ifidx;
+ 		e->hash = hash;
