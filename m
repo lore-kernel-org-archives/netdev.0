@@ -1,51 +1,57 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: [PATCH net 1/2] at86rf230: remove check if AVDD settled
-Date: Mon, 14 Apr 2014 18:06:45 +0200
-Message-ID: <1397491606-7290-2-git-send-email-alex.aring@gmail.com>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net 2/2] at86rf230: fix
+	__at86rf230_read_subreg function
+Date: Mon, 14 Apr 2014 18:06:46 +0200
+Message-ID: <1397491606-7290-3-git-send-email-alex.aring@gmail.com>
 References: <1397491606-7290-1-git-send-email-alex.aring@gmail.com>
-Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, phoebe.buckheister@itwm.fraunhofer.de,
-	werner@almesberger.net, Alexander Aring <alex.aring@gmail.com>
-To: alex.bluesman.smirnov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f42.google.com ([74.125.83.42]:59629 "EHLO
-	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754523AbaDNQG4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 12:06:56 -0400
-Received: by mail-ee0-f42.google.com with SMTP id d17so6825787eek.1
-        for <netdev@vger.kernel.org>; Mon, 14 Apr 2014 09:06:54 -0700 (PDT)
-In-Reply-To: <1397491606-7290-1-git-send-email-alex.aring@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1397491606-7290-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The AVDD regulator is only settled TX_ON (PLL_ON) state. Since commit
-7dcbd22a97eb0689e6c583ad630ae0e7341e34c1 ("ieee802154: ensure that first
-RF212 state comes from TRX_OFF"). We are in TRX_OFF state at the
-beginning.
+The __at86rf230_read_subreg function don't mask and shift register
+contents which it should do. This patch adds the necessary masks and
+shift operations in this function.
 
-Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+Since we have csma support this can make some trouble on state changes.
+
+Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ieee802154/at86rf230.c | 8 --------
- 1 file changed, 8 deletions(-)
+ drivers/net/ieee802154/at86rf230.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index 430bb0d..e102eef 100644
+index e102eef..e36f194 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -1025,14 +1025,6 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
- 		return -EINVAL;
- 	}
+@@ -365,7 +365,7 @@ __at86rf230_read_subreg(struct at86rf230_local *lp,
+ 	dev_vdbg(&lp->spi->dev, "buf[1] = %02x\n", buf[1]);
  
--	rc = at86rf230_read_subreg(lp, SR_AVDD_OK, &status);
--	if (rc)
--		return rc;
--	if (!status) {
--		dev_err(&lp->spi->dev, "AVDD error\n");
--		return -EINVAL;
--	}
--
- 	return 0;
+ 	if (status == 0)
+-		*data = buf[1];
++		*data = (buf[1] & mask) >> shift;
+ 
+ 	return status;
  }
- 
 -- 
 1.9.2
+
+
+------------------------------------------------------------------------------
+Learn Graph Databases - Download FREE O'Reilly Book
+"Graph Databases" is the definitive new guide to graph databases and their
+applications. Written by three acclaimed leaders in the field,
+this first edition is now available. Download your free book today!
+http://p.sf.net/sfu/NeoTech
