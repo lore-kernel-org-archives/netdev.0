@@ -1,75 +1,83 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] net: cadence: Add architecture dependencies
-Date: Mon, 14 Apr 2014 14:59:53 +0200
-Message-ID: <534BDBC9.8000509@atmel.com>
-References: <20140414141151.5ee5434d@endymion.delvare>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: Re: [PATCH v2 2/4] Documentation: dts: Add bindings for APM X-Gene
+ SoC ethernet driver
+Date: Mon, 14 Apr 2014 14:06:55 +0100
+Message-ID: <534BDD6F.2070903@codethink.co.uk>
+References: <1397271984-23405-1-git-send-email-isubramanian@apm.com> <1397271984-23405-3-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>
-To: Jean Delvare <jdelvare@suse.de>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.242]:64617 "EHLO
-	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751519AbaDNM7y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 08:59:54 -0400
-In-Reply-To: <20140414141151.5ee5434d@endymion.delvare>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, jcm@redhat.com,
+	patches@apm.com, Ravi Patel <rapatel@apm.com>,
+	Keyur Chudgar <kchudgar@apm.com>
+To: Iyappan Subramanian <isubramanian@apm.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1397271984-23405-3-git-send-email-isubramanian@apm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 14/04/2014 14:11, Jean Delvare :
-> The Cadence ethernet chipsets are only used on specific ARM
-> architectures. Add Kconfig dependencies so that drivers for these
-> chipsets are only buildable on the relevant architectures.
-> 
-> Signed-off-by: Jean Delvare <jdelvare@suse.de>
-> Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
+On 12/04/14 04:06, Iyappan Subramanian wrote:
+> This patch adds documentation for APM X-Gene SoC ethernet DTS binding.
+>
+> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+> Signed-off-by: Ravi Patel <rapatel@apm.com>
+> Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
 > ---
-> I'm not 100% certain I got the dependencies for MACB right, please let
-> me know if I forgot something (or it can always be added later.)
-> 
->  drivers/net/ethernet/cadence/Kconfig |    6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
-> 
-> --- linux-3.15-rc1.orig/drivers/net/ethernet/cadence/Kconfig	2014-03-31 05:40:15.000000000 +0200
-> +++ linux-3.15-rc1/drivers/net/ethernet/cadence/Kconfig	2014-04-14 13:38:09.308168512 +0200
-> @@ -4,7 +4,7 @@
->  
->  config NET_CADENCE
->  	bool "Cadence devices"
-> -	depends on HAS_IOMEM
-> +	depends on HAS_IOMEM && (ARM || COMPILE_TEST)
+>   .../devicetree/bindings/net/apm-xgene-enet.txt     |   46 ++++++++++++++++++++
+>   1 file changed, 46 insertions(+)
+>   create mode 100644 Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+>
+> diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+> new file mode 100644
+> index 0000000..0c983e8
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+> @@ -0,0 +1,46 @@
+> +APM X-Gene SoC Ethernet nodes
+> +
+> +Ethernet nodes are defined to describe on-chip ethernet interfaces in
+> +APM X-Gene SoC.
+> +
+> +Required properties:
+> +- compatible		: Should be "apm,xgene-enet"
+> +- reg			: First resource is the ethernet base register set
+> +			  Second resource is the ring base register set
+> +			  Third resource is the ring command register set
+> +- interrupts		: Ethernet main interrupt
+> +- clocks		: Reference to the clock entry.
+> +- local-mac-address	: Ethernet MAC address.
+> +- phy-addr		: Ethernet MII phy address.
+> +- phy-mode		: Ethernet MII mode.
+> +
+> +Optional properties:
+> +- status		: Should be "ok" or "disabled" for enabled/disabled.
+> +			  Default is "ok".
+> +
+> +Example:
+> +	menetclk: menetclk {
+> +		compatible = "apm,xgene-device-clock";
+> +		clock-output-names = "menetclk";
+> +		status = "ok";
+> +	};
+> +
+> +	menet: ethernet@17020000 {
+> +		compatible = "apm,xgene-enet";
+> +		status = "disabled";
+> +		reg = <0x0 0x17020000 0x0 0xd100>,
+> +		      <0x0 0X17030000 0x0 0X400>,
+> +		      <0x0 0X10000000 0x0 0X200>;
+> +		interrupts = <0x0 0x3c 0x4>;
+> +		clocks = <&menetclk 0>;
+> +		local-mac-address = [00 01 73 00 00 01];
+> +		phy-addr = <3>;
+> +		phy-mode = "rgmii";
+> +	};
 
-This one is wrong: PLATFORM_AT32AP is not an ARM platform but an AVR32 one.
+That doesn't look correct for a phy binding.
 
->  	default y
->  	---help---
->  	  If you have a network (Ethernet) card belonging to this class, say Y.
-> @@ -22,7 +22,7 @@ if NET_CADENCE
->  
->  config ARM_AT91_ETHER
->  	tristate "AT91RM9200 Ethernet support"
-> -	depends on HAS_DMA
-> +	depends on HAS_DMA && (ARCH_AT91RM9200 || COMPILE_TEST)
->  	select MACB
->  	---help---
->  	  If you wish to compile a kernel for the AT91RM9200 and enable
-> @@ -30,7 +30,7 @@ config ARM_AT91_ETHER
->  
->  config MACB
->  	tristate "Cadence MACB/GEM support"
-> -	depends on HAS_DMA
-> +	depends on HAS_DMA && (PLATFORM_AT32AP || ARCH_AT91 || ARCH_PICOXCELL || ARCH_ZYNQ || COMPILE_TEST)
->  	select PHYLIB
->  	---help---
->  	  The Cadence MACB ethernet interface is found on many Atmel AT32 and
-> 
-> 
 
-Well, do we really need the adding of these dependencies? I though that
-we were moving toward the decreasing of dependency checks in Kconfig...
-
-Bye,
 -- 
-Nicolas Ferre
+Ben Dooks				http://www.codethink.co.uk/
+Senior Engineer				Codethink - Providing Genius
