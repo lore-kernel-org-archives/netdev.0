@@ -1,67 +1,72 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net v2 1/2] at86rf230: remove check if
-	AVDD settled
-Date: Mon, 14 Apr 2014 18:48:01 +0200
-Message-ID: <1397494082-9394-2-git-send-email-alex.aring@gmail.com>
-References: <1397494082-9394-1-git-send-email-alex.aring@gmail.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [RFC] sh_eth: use RNC mode for R8A7790
+Date: Mon, 14 Apr 2014 18:48:34 +0200
+Message-ID: <CAMuHMdUwDxb5K+Q335isLE-+HLwbwGSksp0KYmGoaXGYQmSiug@mail.gmail.com>
+References: <1396025185-7911-1-git-send-email-ben.dooks@codethink.co.uk>
+	<5335DDC7.8040400@cogentembedded.com>
+	<534BD8F9.5080105@codethink.co.uk>
+	<CAMuHMdX_7eX1F7PkO4WAkUdeNgPjkY_LozGZFeAROEN=K0Jp2w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1397494082-9394-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	magnus.damm@opensource.se,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+To: Ben Dooks <ben.dooks@codethink.co.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:46418 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755649AbaDNQsg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 12:48:36 -0400
+In-Reply-To: <CAMuHMdX_7eX1F7PkO4WAkUdeNgPjkY_LozGZFeAROEN=K0Jp2w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The AVDD regulator is only enabled when the RF section is active TX_ON
-(PLL_ON) state. Since commit 7dcbd22a97eb0689e6c583ad630ae0e7341e34c1
-("ieee802154: ensure that first RF212 state comes from TRX_OFF").
-We are in TRX_OFF state at the time at86rf230_hw_init is run.
+On Mon, Apr 14, 2014 at 6:35 PM, Geert Uytterhoeven
+<geert@linux-m68k.org> wrote:
+> On Mon, Apr 14, 2014 at 2:47 PM, Ben Dooks <ben.dooks@codethink.co.uk> wrote:
+>> On 28/03/14 20:38, Sergei Shtylyov wrote:
+>>> On 03/28/2014 07:46 PM, Ben Dooks wrote:
+>>>> The current behaviour of the sh_eth driver is not to use the RNC bit
+>>>> for the receive ring. This means that every packet recieved is not only
+>>>> generating an IRQ but it also stops the receive ring DMA as well until
+>>>> the driver re-enables it after unloading the packet.
+>>>
+>>>> This means that a number of the following errors are generated due to
+>>>> the receive packet FIFO overflowing due to nowhere to put packets:
+>>>
+>>>>     net eth0: Receive FIFO Overflow
+>>>
+>>>> Setting the RMCR_RNC configuration has so far been tested with an NFS
+>>>> root filesystem and the driver has not failed yet. It is not yet known
+>>>> why this is not set for R8A779x operation
+>>>
+>>>     The reason is simple: it's not set on almost all 100 Mbs devices
+>>> except SH7757 (and most recently added R7S72100), so this was a matter
+>>> of copy-paste. I've had setting this bit on at least R-Car devices on my
+>>> aganda for some time but couldn't get to it yet.
+>>>
+>>>> (Feedback on this issue or other testing is welcome)
+>>>
+>>>     OK, I'll try it with netperf UDP test known to generate handful of
+>>> the aforementioned errors, when I have time.
+>>
+>> Has anyone had time to look at this?
+>
+> I gave it a try on Koelsch (it does apply to r8a7791, too, right?), and didn't
+> see any good or ill effects. Just using NFS root and generating some I/O,
+> so nothing fancy.
 
-Note that this test would only fail in case of a severe hardware
-malfunction (faulty/shorted power supply, etc.) so it wasn't all that
-useful in the first place.
+FWIW, I still have "renesas,no-ether-link" in the ethernet node in DT.
 
-Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Reviewed-by: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
----
- drivers/net/ieee802154/at86rf230.c | 8 --------
- 1 file changed, 8 deletions(-)
+Gr{oetje,eeting}s,
 
-diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index 430bb0d..e102eef 100644
---- a/drivers/net/ieee802154/at86rf230.c
-+++ b/drivers/net/ieee802154/at86rf230.c
-@@ -1025,14 +1025,6 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
- 		return -EINVAL;
- 	}
- 
--	rc = at86rf230_read_subreg(lp, SR_AVDD_OK, &status);
--	if (rc)
--		return rc;
--	if (!status) {
--		dev_err(&lp->spi->dev, "AVDD error\n");
--		return -EINVAL;
--	}
--
- 	return 0;
- }
- 
--- 
-1.9.2
+                        Geert
 
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
-------------------------------------------------------------------------------
-Learn Graph Databases - Download FREE O'Reilly Book
-"Graph Databases" is the definitive new guide to graph databases and their
-applications. Written by three acclaimed leaders in the field,
-this first edition is now available. Download your free book today!
-http://p.sf.net/sfu/NeoTech
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
