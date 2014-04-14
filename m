@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/3] netfilter: nf_conntrack: initialize net.ct.generation
-Date: Tue, 15 Apr 2014 00:43:34 +0200
-Message-ID: <1397515415-5477-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/3] netfilter: nf_tables: fix nft_cmp_fast failure on big endian for size < 4
+Date: Tue, 15 Apr 2014 00:43:35 +0200
+Message-ID: <1397515415-5477-4-git-send-email-pablo@netfilter.org>
 References: <1397515415-5477-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,81 +10,80 @@ In-Reply-To: <1397515415-5477-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrey Vagin <avagin@openvz.org>
+From: Patrick McHardy <kaber@trash.net>
 
-[  251.920788] INFO: trying to register non-static key.
-[  251.921386] the code is fine but needs lockdep annotation.
-[  251.921386] turning off the locking correctness validator.
-[  251.921386] CPU: 2 PID: 15715 Comm: socket_listen Not tainted 3.14.0+ #294
-[  251.921386] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[  251.921386]  0000000000000000 000000009d18c210 ffff880075f039b8 ffffffff816b7ecd
-[  251.921386]  ffffffff822c3b10 ffff880075f039c8 ffffffff816b36f4 ffff880075f03aa0
-[  251.921386]  ffffffff810c65ff ffffffff810c4a85 00000000fffffe01 ffffffffa0075172
-[  251.921386] Call Trace:
-[  251.921386]  [<ffffffff816b7ecd>] dump_stack+0x45/0x56
-[  251.921386]  [<ffffffff816b36f4>] register_lock_class.part.24+0x38/0x3c
-[  251.921386]  [<ffffffff810c65ff>] __lock_acquire+0x168f/0x1b40
-[  251.921386]  [<ffffffff810c4a85>] ? trace_hardirqs_on_caller+0x105/0x1d0
-[  251.921386]  [<ffffffffa0075172>] ? nf_nat_setup_info+0x252/0x3a0 [nf_nat]
-[  251.921386]  [<ffffffff816c1215>] ? _raw_spin_unlock_bh+0x35/0x40
-[  251.921386]  [<ffffffffa0075172>] ? nf_nat_setup_info+0x252/0x3a0 [nf_nat]
-[  251.921386]  [<ffffffff810c7272>] lock_acquire+0xa2/0x120
-[  251.921386]  [<ffffffffa008ab90>] ? ipv4_confirm+0x90/0xf0 [nf_conntrack_ipv4]
-[  251.921386]  [<ffffffffa0055989>] __nf_conntrack_confirm+0x129/0x410 [nf_conntrack]
-[  251.921386]  [<ffffffffa008ab90>] ? ipv4_confirm+0x90/0xf0 [nf_conntrack_ipv4]
-[  251.921386]  [<ffffffffa008ab90>] ipv4_confirm+0x90/0xf0 [nf_conntrack_ipv4]
-[  251.921386]  [<ffffffff815e7b00>] ? ip_fragment+0x9f0/0x9f0
-[  251.921386]  [<ffffffff815d8c5a>] nf_iterate+0xaa/0xc0
-[  251.921386]  [<ffffffff815e7b00>] ? ip_fragment+0x9f0/0x9f0
-[  251.921386]  [<ffffffff815d8d14>] nf_hook_slow+0xa4/0x190
-[  251.921386]  [<ffffffff815e7b00>] ? ip_fragment+0x9f0/0x9f0
-[  251.921386]  [<ffffffff815e98f2>] ip_output+0x92/0x100
-[  251.921386]  [<ffffffff815e8df9>] ip_local_out+0x29/0x90
-[  251.921386]  [<ffffffff815e9240>] ip_queue_xmit+0x170/0x4c0
-[  251.921386]  [<ffffffff815e90d5>] ? ip_queue_xmit+0x5/0x4c0
-[  251.921386]  [<ffffffff81601208>] tcp_transmit_skb+0x498/0x960
-[  251.921386]  [<ffffffff81602d82>] tcp_connect+0x812/0x960
-[  251.921386]  [<ffffffff810e3dc5>] ? ktime_get_real+0x25/0x70
-[  251.921386]  [<ffffffff8159ea2a>] ? secure_tcp_sequence_number+0x6a/0xc0
-[  251.921386]  [<ffffffff81606f57>] tcp_v4_connect+0x317/0x470
-[  251.921386]  [<ffffffff8161f645>] __inet_stream_connect+0xb5/0x330
-[  251.921386]  [<ffffffff8158dfc3>] ? lock_sock_nested+0x33/0xa0
-[  251.921386]  [<ffffffff810c4b5d>] ? trace_hardirqs_on+0xd/0x10
-[  251.921386]  [<ffffffff81078885>] ? __local_bh_enable_ip+0x75/0xe0
-[  251.921386]  [<ffffffff8161f8f8>] inet_stream_connect+0x38/0x50
-[  251.921386]  [<ffffffff8158b157>] SYSC_connect+0xe7/0x120
-[  251.921386]  [<ffffffff810e3789>] ? current_kernel_time+0x69/0xd0
-[  251.921386]  [<ffffffff810c4a85>] ? trace_hardirqs_on_caller+0x105/0x1d0
-[  251.921386]  [<ffffffff810c4b5d>] ? trace_hardirqs_on+0xd/0x10
-[  251.921386]  [<ffffffff8158c36e>] SyS_connect+0xe/0x10
-[  251.921386]  [<ffffffff816caf69>] system_call_fastpath+0x16/0x1b
-[  312.014104] INFO: rcu_sched detected stalls on CPUs/tasks: {} (detected by 0, t=60003 jiffies, g=42359, c=42358, q=333)
-[  312.015097] INFO: Stall ended before state dump start
+nft_cmp_fast is used for equality comparisions of size <= 4. For
+comparisions of size < 4 byte a mask is calculated that is applied to
+both the data from userspace (during initialization) and the register
+value (during runtime). Both values are stored using (in effect) memcpy
+to a memory area that is then interpreted as u32 by nft_cmp_fast.
 
-Fixes: 93bb0ceb75be ("netfilter: conntrack: remove central spinlock nf_conntrack_lock")
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Andrey Vagin <avagin@openvz.org>
+This works fine on little endian since smaller types have the same base
+address, however on big endian this is not true and the smaller types
+are interpreted as a big number with trailing zero bytes.
+
+The mask therefore must not include the lower bytes, but the higher bytes
+on big endian. Add a helper function that does a cpu_to_le32 to switch
+the bytes on big endian. Since we're dealing with a mask of just consequitive
+bits, this works out fine.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_core.c |    1 +
- 1 file changed, 1 insertion(+)
+ include/net/netfilter/nf_tables_core.h |   10 ++++++++++
+ net/netfilter/nf_tables_core.c         |    3 +--
+ net/netfilter/nft_cmp.c                |    2 +-
+ 3 files changed, 12 insertions(+), 3 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 6dba48e..75421f2 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1795,6 +1795,7 @@ int nf_conntrack_init_net(struct net *net)
- 	int cpu;
+diff --git a/include/net/netfilter/nf_tables_core.h b/include/net/netfilter/nf_tables_core.h
+index cf2b7ae..a75fc8e 100644
+--- a/include/net/netfilter/nf_tables_core.h
++++ b/include/net/netfilter/nf_tables_core.h
+@@ -13,6 +13,16 @@ struct nft_cmp_fast_expr {
+ 	u8			len;
+ };
  
- 	atomic_set(&net->ct.count, 0);
-+	seqcount_init(&net->ct.generation);
++/* Calculate the mask for the nft_cmp_fast expression. On big endian the
++ * mask needs to include the *upper* bytes when interpreting that data as
++ * something smaller than the full u32, therefore a cpu_to_le32 is done.
++ */
++static inline u32 nft_cmp_fast_mask(unsigned int len)
++{
++	return cpu_to_le32(~0U >> (FIELD_SIZEOF(struct nft_cmp_fast_expr,
++						data) * BITS_PER_BYTE - len));
++}
++
+ extern const struct nft_expr_ops nft_cmp_fast_ops;
  
- 	net->ct.pcpu_lists = alloc_percpu(struct ct_pcpu);
- 	if (!net->ct.pcpu_lists)
+ int nft_cmp_module_init(void);
+diff --git a/net/netfilter/nf_tables_core.c b/net/netfilter/nf_tables_core.c
+index 90998a6..8041053 100644
+--- a/net/netfilter/nf_tables_core.c
++++ b/net/netfilter/nf_tables_core.c
+@@ -25,9 +25,8 @@ static void nft_cmp_fast_eval(const struct nft_expr *expr,
+ 			      struct nft_data data[NFT_REG_MAX + 1])
+ {
+ 	const struct nft_cmp_fast_expr *priv = nft_expr_priv(expr);
+-	u32 mask;
++	u32 mask = nft_cmp_fast_mask(priv->len);
+ 
+-	mask = ~0U >> (sizeof(priv->data) * BITS_PER_BYTE - priv->len);
+ 	if ((data[priv->sreg].data[0] & mask) == priv->data)
+ 		return;
+ 	data[NFT_REG_VERDICT].verdict = NFT_BREAK;
+diff --git a/net/netfilter/nft_cmp.c b/net/netfilter/nft_cmp.c
+index 954925d..e2b3f51 100644
+--- a/net/netfilter/nft_cmp.c
++++ b/net/netfilter/nft_cmp.c
+@@ -128,7 +128,7 @@ static int nft_cmp_fast_init(const struct nft_ctx *ctx,
+ 	BUG_ON(err < 0);
+ 	desc.len *= BITS_PER_BYTE;
+ 
+-	mask = ~0U >> (sizeof(priv->data) * BITS_PER_BYTE - desc.len);
++	mask = nft_cmp_fast_mask(desc.len);
+ 	priv->data = data.data[0] & mask;
+ 	priv->len  = desc.len;
+ 	return 0;
 -- 
 1.7.10.4
 
