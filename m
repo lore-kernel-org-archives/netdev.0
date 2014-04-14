@@ -1,61 +1,66 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH] ip6_gre: don't allow to remove the fb_tunnel_dev
-Date: Mon, 14 Apr 2014 17:11:38 +0200
-Message-ID: <1397488298-19931-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Dmitry Kozlov <xeb@mail.ru>
-To: davem@davemloft.net
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 73891] New: Slow Transfer Speeds though openconnect,
+ Juniper SSL vpns
+Date: Mon, 14 Apr 2014 08:18:24 -0700
+Message-ID: <20140414081824.39014bf5@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:40715 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754607AbaDNPLw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 11:11:52 -0400
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:55053 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754739AbaDNPS1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 11:18:27 -0400
+Received: by mail-pa0-f41.google.com with SMTP id fa1so8326195pad.14
+        for <netdev@vger.kernel.org>; Mon, 14 Apr 2014 08:18:27 -0700 (PDT)
+Received: from nehalam.linuxnetplumber.net (static-50-53-83-51.bvtn.or.frontiernet.net. [50.53.83.51])
+        by mx.google.com with ESMTPSA id q10sm34418265pbl.29.2014.04.14.08.18.26
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Mon, 14 Apr 2014 08:18:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's possible to remove the FB tunnel with the command 'ip link del ip6gre0' but
-this is unsafe, the module always supposes that this device exists. For example,
-ip6gre_tunnel_lookup() may use it unconditionally.
 
-Let's add a rtnl handler for dellink, which will never remove the FB tunnel (we
-let ip6gre_destroy_tunnels() do the job).
 
-Introduced by commit c12b395a4664 ("gre: Support GRE over IPv6").
+Begin forwarded message:
 
-CC: Dmitry Kozlov <xeb@mail.ru>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/ip6_gre.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+Date: Sat, 12 Apr 2014 08:35:59 -0700
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 73891] New: Slow Transfer Speeds though openconnect, Juniper SSL vpns
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index c98338b81d30..9d921462b57f 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -1559,6 +1559,15 @@ static int ip6gre_changelink(struct net_device *dev, struct nlattr *tb[],
- 	return 0;
- }
- 
-+static void ip6gre_dellink(struct net_device *dev, struct list_head *head)
-+{
-+	struct net *net = dev_net(dev);
-+	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
-+
-+	if (dev != ign->fb_tunnel_dev)
-+		unregister_netdevice_queue(dev, head);
-+}
-+
- static size_t ip6gre_get_size(const struct net_device *dev)
- {
- 	return
-@@ -1636,6 +1645,7 @@ static struct rtnl_link_ops ip6gre_link_ops __read_mostly = {
- 	.validate	= ip6gre_tunnel_validate,
- 	.newlink	= ip6gre_newlink,
- 	.changelink	= ip6gre_changelink,
-+	.dellink	= ip6gre_dellink,
- 	.get_size	= ip6gre_get_size,
- 	.fill_info	= ip6gre_fill_info,
- };
+
+https://bugzilla.kernel.org/show_bug.cgi?id=73891
+
+            Bug ID: 73891
+           Summary: Slow Transfer Speeds though openconnect, Juniper SSL
+                    vpns
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.14
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+          Assignee: shemminger@linux-foundation.org
+          Reporter: wshuman3@gmail.com
+        Regression: No
+
+There was a regression in 3.14 which caused slow transfer speeds noticed when
+connected to openconnect and juniper ssl vpns.
+
+There was also a discussion about this on the mailing list 
+https://lkml.org/lkml/2014/4/2/317
+
+I had time to bisect.
+# first bad commit: [53d6471cef17262d3ad1c7ce8982a234244f68ec] net: Account for
+all vlan headers in skb_mac_gso_segment
+
 -- 
-1.9.0
+You are receiving this mail because:
+You are the assignee for the bug.
