@@ -1,32 +1,66 @@
-From: etienne.champetier@free.fr
-Subject: tun and routing
-Date: Mon, 14 Apr 2014 13:47:13 +0200 (CEST)
-Message-ID: <376498473.79151018.1397476033181.JavaMail.root@zimbra65-e11.priv.proxad.net>
-References: <176092473.79093321.1397474889713.JavaMail.root@zimbra65-e11.priv.proxad.net>
+From: Jean Delvare <jdelvare@suse.de>
+Subject: [PATCH] net: cadence: Add architecture dependencies
+Date: Mon, 14 Apr 2014 14:11:51 +0200
+Message-ID: <20140414141151.5ee5434d@endymion.delvare>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g21.free.fr ([212.27.42.1]:46507 "EHLO smtp1-g21.free.fr"
+Received: from cantor2.suse.de ([195.135.220.15]:59388 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754930AbaDNLrP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Apr 2014 07:47:15 -0400
-Received: from zimbra65-e11.priv.proxad.net (unknown [172.20.243.215])
-	by smtp1-g21.free.fr (Postfix) with ESMTP id A93A2239BBFE
-	for <netdev@vger.kernel.org>; Mon, 14 Apr 2014 13:47:11 +0200 (CEST)
-In-Reply-To: <176092473.79093321.1397474889713.JavaMail.root@zimbra65-e11.priv.proxad.net>
+	id S1751644AbaDNMLy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Apr 2014 08:11:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+The Cadence ethernet chipsets are only used on specific ARM
+architectures. Add Kconfig dependencies so that drivers for these
+chipsets are only buildable on the relevant architectures.
 
-When the kernel gives a packet to a tun interface, you loose the "next-hop" information, because you only have L3+ infos.
-So you have destination ip, but if it's out of the tun subnet, you have to do routing in your application. (with a tap interface the next-hop is the dest mac)
+Signed-off-by: Jean Delvare <jdelvare@suse.de>
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
+I'm not 100% certain I got the dependencies for MACB right, please let
+me know if I forgot something (or it can always be added later.)
 
-Is there a way to have this next-hop info, and remove "internal" (in the application) routing table?
+ drivers/net/ethernet/cadence/Kconfig |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-If not what would be the cleanest way to sync the "internal" routing table with the kernel routing table?
+--- linux-3.15-rc1.orig/drivers/net/ethernet/cadence/Kconfig	2014-03-31 05:40:15.000000000 +0200
++++ linux-3.15-rc1/drivers/net/ethernet/cadence/Kconfig	2014-04-14 13:38:09.308168512 +0200
+@@ -4,7 +4,7 @@
+ 
+ config NET_CADENCE
+ 	bool "Cadence devices"
+-	depends on HAS_IOMEM
++	depends on HAS_IOMEM && (ARM || COMPILE_TEST)
+ 	default y
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y.
+@@ -22,7 +22,7 @@ if NET_CADENCE
+ 
+ config ARM_AT91_ETHER
+ 	tristate "AT91RM9200 Ethernet support"
+-	depends on HAS_DMA
++	depends on HAS_DMA && (ARCH_AT91RM9200 || COMPILE_TEST)
+ 	select MACB
+ 	---help---
+ 	  If you wish to compile a kernel for the AT91RM9200 and enable
+@@ -30,7 +30,7 @@ config ARM_AT91_ETHER
+ 
+ config MACB
+ 	tristate "Cadence MACB/GEM support"
+-	depends on HAS_DMA
++	depends on HAS_DMA && (PLATFORM_AT32AP || ARCH_AT91 || ARCH_PICOXCELL || ARCH_ZYNQ || COMPILE_TEST)
+ 	select PHYLIB
+ 	---help---
+ 	  The Cadence MACB ethernet interface is found on many Atmel AT32 and
 
-Thanks in advance
-Etienne
+
+-- 
+Jean Delvare
+SUSE L3 Support
