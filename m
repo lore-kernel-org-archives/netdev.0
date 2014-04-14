@@ -1,89 +1,69 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH] seccomp: Release fp pointer when leaving from seccomp_attach_filter().
-Date: Mon, 14 Apr 2014 09:18:06 -0700
-Message-ID: <CAMEtUuz6v1JKev+Saq4kcc=k9nW2Q9pU__n=7bjvvZV2EofLYA@mail.gmail.com>
-References: <1397491333-13746-1-git-send-email-masami256@gmail.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [RFC] sh_eth: use RNC mode for R8A7790
+Date: Mon, 14 Apr 2014 18:35:21 +0200
+Message-ID: <CAMuHMdX_7eX1F7PkO4WAkUdeNgPjkY_LozGZFeAROEN=K0Jp2w@mail.gmail.com>
+References: <1396025185-7911-1-git-send-email-ben.dooks@codethink.co.uk>
+	<5335DDC7.8040400@cogentembedded.com>
+	<534BD8F9.5080105@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Kees Cook <keescook@chromium.org>,
-	"David S. Miller" <davem@davemloft.net>, josh@joshtriplett.org,
-	eparis@redhat.com, rashika.kheria@gmail.com,
-	LKML <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Masami Ichikawa <masami256@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1397491333-13746-1-git-send-email-masami256@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	magnus.damm@opensource.se,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+To: Ben Dooks <ben.dooks@codethink.co.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:60435 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754175AbaDNQfX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 12:35:23 -0400
+In-Reply-To: <534BD8F9.5080105@codethink.co.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 14, 2014 at 9:02 AM, Masami Ichikawa <masami256@gmail.com> wrote:
-> kmemleak reported some memory leak as below.
+Hi Ben,
 
-grrr. yes. sorry.
-
-> unreferenced object 0xffff8800d6ea4000 (size 512):
->   comm "sshd", pid 278, jiffies 4294898315 (age 46.653s)
->   hex dump (first 32 bytes):
->     21 00 00 00 04 00 00 00 15 00 01 00 3e 00 00 c0  !...........>...
->     06 00 00 00 00 00 00 00 21 00 00 00 00 00 00 00  ........!.......
->   backtrace:
->     [<ffffffff8151414e>] kmemleak_alloc+0x4e/0xb0
->     [<ffffffff811a3a40>] __kmalloc+0x280/0x320
->     [<ffffffff8110842e>] prctl_set_seccomp+0x11e/0x3b0
->     [<ffffffff8107bb6b>] SyS_prctl+0x3bb/0x4a0
->     [<ffffffff8152ef2d>] system_call_fastpath+0x1a/0x1f
->     [<ffffffffffffffff>] 0xffffffffffffffff
+On Mon, Apr 14, 2014 at 2:47 PM, Ben Dooks <ben.dooks@codethink.co.uk> wrote:
+> On 28/03/14 20:38, Sergei Shtylyov wrote:
+>> On 03/28/2014 07:46 PM, Ben Dooks wrote:
+>>> The current behaviour of the sh_eth driver is not to use the RNC bit
+>>> for the receive ring. This means that every packet recieved is not only
+>>> generating an IRQ but it also stops the receive ring DMA as well until
+>>> the driver re-enables it after unloading the packet.
+>>
+>>> This means that a number of the following errors are generated due to
+>>> the receive packet FIFO overflowing due to nowhere to put packets:
+>>
+>>>     net eth0: Receive FIFO Overflow
+>>
+>>> Setting the RMCR_RNC configuration has so far been tested with an NFS
+>>> root filesystem and the driver has not failed yet. It is not yet known
+>>> why this is not set for R8A779x operation
+>>
+>>     The reason is simple: it's not set on almost all 100 Mbs devices
+>> except SH7757 (and most recently added R7S72100), so this was a matter
+>> of copy-paste. I've had setting this bit on at least R-Car devices on my
+>> aganda for some time but couldn't get to it yet.
+>>
+>>> (Feedback on this issue or other testing is welcome)
+>>
+>>     OK, I'll try it with netperf UDP test known to generate handful of
+>> the aforementioned errors, when I have time.
 >
-> This memory leak happend in seccomp_attach_filter().
-> The fp pointer was allocated via kzalloc so that it needs to realase memory
-> when leaving from function.
->
-> This patch changed two things.
-> One is set -ENOMEM to ret, if fp is unable to get memory.
-> The other is removes "return 0" statement, and frees fp pointer before
-> leaving.
->
-> Signed-off-by: Masami Ichikawa <masami256@gmail.com>
-> ---
->  kernel/seccomp.c | 8 +++++---
->  1 file changed, 5 insertions(+), 3 deletions(-)
->
-> diff --git a/kernel/seccomp.c b/kernel/seccomp.c
-> index d8d046c..a9ce7a9 100644
-> --- a/kernel/seccomp.c
-> +++ b/kernel/seccomp.c
-> @@ -259,8 +259,10 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
->         filter = kzalloc(sizeof(struct seccomp_filter) +
->                          sizeof(struct sock_filter_int) * new_len,
->                          GFP_KERNEL|__GFP_NOWARN);
-> -       if (!filter)
-> +       if (!filter) {
-> +               ret = -ENOMEM;
->                 goto free_prog;
-> +       }
+> Has anyone had time to look at this?
 
-agree. that's a good addition.
+I gave it a try on Koelsch (it does apply to r8a7791, too, right?), and didn't
+see any good or ill effects. Just using NFS root and generating some I/O,
+so nothing fancy.
 
->         ret = sk_convert_filter(fp, fprog->len, filter->insnsi, &new_len);
->         if (ret)
-> @@ -275,10 +277,10 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
->          */
->         filter->prev = current->seccomp.filter;
->         current->seccomp.filter = filter;
-> -       return 0;
+Gr{oetje,eeting}s,
 
-I think mixing error and ok return paths is ugly.
-Can you add kfree(fp) here instead of removing return 0?
+                        Geert
 
-Thanks!
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
->  free_filter:
-> -       kfree(filter);
-> +       if (ret)
-> +               kfree(filter);
->  free_prog:
->         kfree(fp);
->         return ret;
-> --
-> 1.9.1
->
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
