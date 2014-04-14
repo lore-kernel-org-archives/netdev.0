@@ -1,42 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [BUG] A panic caused by null pointer dereference aftering
- updating to
-Date: Mon, 14 Apr 2014 13:34:17 -0400 (EDT)
-Message-ID: <20140414.133417.308357592624654107.davem@davemloft.net>
-References: <534BFC69.6080209@katalix.com>
-	<CAHz2CGVVx3Fi5Vy0dr7z5r2yerbg9cjux61NM0fVeMAtK_Wf9Q@mail.gmail.com>
-	<1397495549.4222.26.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH] net: cadence: Add architecture dependencies
+Date: Mon, 14 Apr 2014 13:34:31 -0400 (EDT)
+Message-ID: <20140414.133431.2093767162311938311.davem@davemloft.net>
+References: <534BDBC9.8000509@atmel.com>
+	<20140414.125439.1807278146637759316.davem@davemloft.net>
+	<20140414191438.444d6ed8@endymion.delvare>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nasa4836@gmail.com, jchapman@katalix.com, edumazet@google.com,
-	joe@perches.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1397495549.4222.26.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
+	grant.likely@linaro.org, robh+dt@kernel.org
+To: jdelvare@suse.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56480 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755077AbaDNRed (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 13:34:33 -0400
+In-Reply-To: <20140414191438.444d6ed8@endymion.delvare>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 14 Apr 2014 10:12:29 -0700
+From: Jean Delvare <jdelvare@suse.de>
+Date: Mon, 14 Apr 2014 19:14:38 +0200
 
-> Hmm, it seems commit 31c70d5956fc l2tp: keep original skb ownership
-> is the problem.
+> Hi David,
 > 
-> ip_queue_xmit() assumes the socket attached to skb is an inet socket.
+> On Mon, 14 Apr 2014 12:54:39 -0400 (EDT), David Miller wrote:
+>> From: Nicolas Ferre <nicolas.ferre@atmel.com>
+>> Date: Mon, 14 Apr 2014 14:59:53 +0200
+>> 
+>> > Well, do we really need the adding of these dependencies? I though that
+>> > we were moving toward the decreasing of dependency checks in Kconfig...
+>> 
+>> Yeah I really don't want to apply this, I like that this driver gets enabled
+>> and compile tested when I do my standard allmodconfig/allyesconfig builds.
+> 
+> They will still be. allmodconfig/allyesconfig enables COMPILE_TEST. Is
+> the world not wonderful? :)
 
-This is similar to the "send over AF_PACKET" issue we were discussing
-the other week.
-
-It seems we need a real resolution to this issue.
-
-To recap:
-
-1) We want to charge memory to the top-level socket.
-
-2) However during encapsulations etc. we can end up in IP stack
-   which expects only IP sockets to be attached to skb->sk
-
-I suspect that in the short term we may have to bit the bullet and
-compromise #2, and do flow control via the tunnel's socket.
+Ok I'm not so against this then :)
