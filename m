@@ -1,34 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG] A panic caused by null pointer dereference aftering
- updating to
-Date: Mon, 14 Apr 2014 14:23:24 -0700
-Message-ID: <1397510604.4222.63.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1397499566.4222.36.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140414.144843.488522666550066271.davem@davemloft.net>
-	 <1397502396.4222.45.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140414.152225.1983723140136958968.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: nasa4836@gmail.com, jchapman@katalix.com, edumazet@google.com,
-	joe@perches.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140414.152225.1983723140136958968.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH] net: Start with correct mac_len in skb_network_protocol
+Date: Mon, 14 Apr 2014 17:37:26 -0400
+Message-ID: <1397511446-6624-1-git-send-email-vyasevic@redhat.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Daniel Borkman <dborkman@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55938 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755534AbaDNVhb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Apr 2014 17:37:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-04-14 at 15:22 -0400, David Miller wrote:
+Sometimes, when the packet arrives at skb_mac_gso_segment()
+its skb->mac_len already accounts for some of the mac lenght
+headers in the packet.  This seems to happen when forwarding
+through and OpenSSL tunnel.
 
+When we start looking for any vlan headers in skb_network_protocol()
+we seem to ignore any of the already known mac headers and start
+with an ETH_HLEN.  This results in an incorrect offset, dropped
+TSO frames and general slowness of the connection.
 
-> 
-> You still need to make similar transformation to ip_local_out() as mentioned
-> above.
+We can start counting from the known skb->mac_len
+and return at least that much if all mac level headers
+are known and accounted for.
 
-I was trying to cook a not too invasive patch.
+Fixes: 53d6471cef17262d3ad1c7ce8982a234244f68ec (net: Account for all vlan headers in skb_mac_gso_segment)
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Daniel Borkman <dborkman@redhat.com>
+Tested-by: Martin Filip <nexus+kernel@smoula.net>
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ net/core/dev.c      | 2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Changing ip_local_out() means changing dst_output() / nf_hook()  and
-hundred of call sites.
-
-Unless I misunderstood you ?
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 45fa2f1..6088927 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2289,7 +2289,7 @@ EXPORT_SYMBOL(skb_checksum_help);
+ __be16 skb_network_protocol(struct sk_buff *skb, int *depth)
+ {
+ 	__be16 type = skb->protocol;
+-	int vlan_depth = ETH_HLEN;
++	int vlan_depth = skb->mac_len;
+ 
+ 	/* Tunnel gso handlers can set protocol to ethernet. */
+ 	if (type == htons(ETH_P_TEB)) {
+-- 
+1.9.0
