@@ -1,55 +1,61 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH net] sfc:On MCDI timeout, issue an FLR (and mark MCDI
- to fail-fast)
-Date: Mon, 14 Apr 2014 16:02:54 +0100
-Message-ID: <534BF89E.5020603@solarflare.com>
-References: <534BF37F.6020604@solarflare.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-net-drivers@solarflare.com>,
-	Robert Stonehouse <rstonehouse@solarflare.com>
-To: Shradha Shah <sshah@solarflare.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH] ip6_gre: don't allow to remove the fb_tunnel_dev
+Date: Mon, 14 Apr 2014 17:11:38 +0200
+Message-ID: <1397488298-19931-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Dmitry Kozlov <xeb@mail.ru>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:36913 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750983AbaDNPDA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 11:03:00 -0400
-In-Reply-To: <534BF37F.6020604@solarflare.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:40715 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754607AbaDNPLw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 11:11:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14/04/14 15:41, Shradha Shah wrote:
-> diff --git a/drivers/net/ethernet/sfc/enum.h b/drivers/net/ethernet/sfc/enum.h
-> index 75ef7ef..70c2473 100644
-> --- a/drivers/net/ethernet/sfc/enum.h
-> +++ b/drivers/net/ethernet/sfc/enum.h
-> @@ -165,7 +168,14 @@ enum reset_type {
->  	RESET_TYPE_DMA_ERROR,
->  	RESET_TYPE_TX_SKIP,
->  	RESET_TYPE_MC_FAILURE,
-> -	RESET_TYPE_MC_BIST,
-> +	/* RESET_TYPE_MC_BIST and RESET_TYPE_MCDI_TIMEOUT are actually methods,
-> +	 * not just reasons, but they don't fit the scope hierarchy (they're
-> +	 * not well-ordered by inclusion)
-> +	 * We encode this by having their enum values be greater than
-> +	 * RESET_TYPE_MAX_METHOD.  This also prevents issuing them with
-> +	 * efx_ioctl_reset
-> +	 */
-> +	RESET_TYPE_MCDI_TIMEOUT,
->  	RESET_TYPE_MAX,
->  };
->  
-Looks like I messed up this comment; this is only true of
-RESET_TYPE_MCDI_TIMEOUT, not RESET_TYPE_MC_BIST.
-So should be something like:
+It's possible to remove the FB tunnel with the command 'ip link del ip6gre0' but
+this is unsafe, the module always supposes that this device exists. For example,
+ip6gre_tunnel_lookup() may use it unconditionally.
 
-    /* RESET_TYPE_MCDI_TIMEOUT is actually a method, not just a reason, but
-    * it doesn't fit the scope hierarchy (not well-ordered by inclusion).
-    * We encode this by having its enum value be greater than
-    * RESET_TYPE_MAX_METHOD. This also prevents issuing it with
-    * efx_ioctl_reset.
-    */
+Let's add a rtnl handler for dellink, which will never remove the FB tunnel (we
+let ip6gre_destroy_tunnels() do the job).
 
--Edward
+Introduced by commit c12b395a4664 ("gre: Support GRE over IPv6").
+
+CC: Dmitry Kozlov <xeb@mail.ru>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/ipv6/ip6_gre.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index c98338b81d30..9d921462b57f 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -1559,6 +1559,15 @@ static int ip6gre_changelink(struct net_device *dev, struct nlattr *tb[],
+ 	return 0;
+ }
+ 
++static void ip6gre_dellink(struct net_device *dev, struct list_head *head)
++{
++	struct net *net = dev_net(dev);
++	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
++
++	if (dev != ign->fb_tunnel_dev)
++		unregister_netdevice_queue(dev, head);
++}
++
+ static size_t ip6gre_get_size(const struct net_device *dev)
+ {
+ 	return
+@@ -1636,6 +1645,7 @@ static struct rtnl_link_ops ip6gre_link_ops __read_mostly = {
+ 	.validate	= ip6gre_tunnel_validate,
+ 	.newlink	= ip6gre_newlink,
+ 	.changelink	= ip6gre_changelink,
++	.dellink	= ip6gre_dellink,
+ 	.get_size	= ip6gre_get_size,
+ 	.fill_info	= ip6gre_fill_info,
+ };
+-- 
+1.9.0
