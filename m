@@ -1,49 +1,89 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net 0/2] at86rf230: various fixes
-Date: Mon, 14 Apr 2014 18:06:44 +0200
-Message-ID: <1397491606-7290-1-git-send-email-alex.aring@gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH] seccomp: Release fp pointer when leaving from seccomp_attach_filter().
+Date: Mon, 14 Apr 2014 09:18:06 -0700
+Message-ID: <CAMEtUuz6v1JKev+Saq4kcc=k9nW2Q9pU__n=7bjvvZV2EofLYA@mail.gmail.com>
+References: <1397491333-13746-1-git-send-email-masami256@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Kees Cook <keescook@chromium.org>,
+	"David S. Miller" <davem@davemloft.net>, josh@joshtriplett.org,
+	eparis@redhat.com, rashika.kheria@gmail.com,
+	LKML <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Masami Ichikawa <masami256@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1397491333-13746-1-git-send-email-masami256@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Mon, Apr 14, 2014 at 9:02 AM, Masami Ichikawa <masami256@gmail.com> wrote:
+> kmemleak reported some memory leak as below.
 
-I currently working on a big cleanup for the at86rf230 and I detect some bugs
-in the current implementation. I will send patch stacks if net-next is open
-again.
+grrr. yes. sorry.
 
-It's funny to find the forgotten shift and mask in the __at86rf230_read_subreg
-function but it only makes trouble if csma is activated that's why it still works
-before for me.
+> unreferenced object 0xffff8800d6ea4000 (size 512):
+>   comm "sshd", pid 278, jiffies 4294898315 (age 46.653s)
+>   hex dump (first 32 bytes):
+>     21 00 00 00 04 00 00 00 15 00 01 00 3e 00 00 c0  !...........>...
+>     06 00 00 00 00 00 00 00 21 00 00 00 00 00 00 00  ........!.......
+>   backtrace:
+>     [<ffffffff8151414e>] kmemleak_alloc+0x4e/0xb0
+>     [<ffffffff811a3a40>] __kmalloc+0x280/0x320
+>     [<ffffffff8110842e>] prctl_set_seccomp+0x11e/0x3b0
+>     [<ffffffff8107bb6b>] SyS_prctl+0x3bb/0x4a0
+>     [<ffffffff8152ef2d>] system_call_fastpath+0x1a/0x1f
+>     [<ffffffffffffffff>] 0xffffffffffffffff
+>
+> This memory leak happend in seccomp_attach_filter().
+> The fp pointer was allocated via kzalloc so that it needs to realase memory
+> when leaving from function.
+>
+> This patch changed two things.
+> One is set -ENOMEM to ret, if fp is unable to get memory.
+> The other is removes "return 0" statement, and frees fp pointer before
+> leaving.
+>
+> Signed-off-by: Masami Ichikawa <masami256@gmail.com>
+> ---
+>  kernel/seccomp.c | 8 +++++---
+>  1 file changed, 5 insertions(+), 3 deletions(-)
+>
+> diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+> index d8d046c..a9ce7a9 100644
+> --- a/kernel/seccomp.c
+> +++ b/kernel/seccomp.c
+> @@ -259,8 +259,10 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
+>         filter = kzalloc(sizeof(struct seccomp_filter) +
+>                          sizeof(struct sock_filter_int) * new_len,
+>                          GFP_KERNEL|__GFP_NOWARN);
+> -       if (!filter)
+> +       if (!filter) {
+> +               ret = -ENOMEM;
+>                 goto free_prog;
+> +       }
 
-- Alex
+agree. that's a good addition.
 
-Alexander Aring (2):
-  at86rf230: remove check if AVDD settled
-  at86rf230: fix __at86rf230_read_subreg function
+>         ret = sk_convert_filter(fp, fprog->len, filter->insnsi, &new_len);
+>         if (ret)
+> @@ -275,10 +277,10 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
+>          */
+>         filter->prev = current->seccomp.filter;
+>         current->seccomp.filter = filter;
+> -       return 0;
 
- drivers/net/ieee802154/at86rf230.c | 10 +---------
- 1 file changed, 1 insertion(+), 9 deletions(-)
+I think mixing error and ok return paths is ugly.
+Can you add kfree(fp) here instead of removing return 0?
 
--- 
-1.9.2
+Thanks!
 
-
-------------------------------------------------------------------------------
-Learn Graph Databases - Download FREE O'Reilly Book
-"Graph Databases" is the definitive new guide to graph databases and their
-applications. Written by three acclaimed leaders in the field,
-this first edition is now available. Download your free book today!
-http://p.sf.net/sfu/NeoTech
+>  free_filter:
+> -       kfree(filter);
+> +       if (ret)
+> +               kfree(filter);
+>  free_prog:
+>         kfree(fp);
+>         return ret;
+> --
+> 1.9.1
+>
