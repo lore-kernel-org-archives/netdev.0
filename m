@@ -1,411 +1,96 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [ANNOUNCE]: Release of nftables 0.2
-Date: Mon, 14 Apr 2014 13:39:36 +0200
-Message-ID: <20140414113933.GA20756@macbook.localnet>
+From: Martin Filip <nexus+kernel@smoula.net>
+Subject: TUN device performance regression
+Date: Mon, 14 Apr 2014 13:31:58 +0200
+Message-ID: <1397475118.11864.5.camel@interceptor.in.smoula.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="0OAP2g/MAC+5xKAE"
-Cc: netfilter@vger.kernel.org, announce@lists.netfilter.org,
-	netdev@vger.kernel.org, coreteam@netfilter.org
-To: netfilter-devel@vger.kernel.org
+Content-Type: multipart/mixed; boundary="=-lGpTmJtkLg0efAxiJ+SG"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60381 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751644AbaDNLjl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 07:39:41 -0400
-Content-Disposition: inline
+Received: from scarab.smoula.net ([83.240.14.6]:42517 "EHLO scarab.smoula.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751023AbaDNLlj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Apr 2014 07:41:39 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by scarab.smoula.net (Postfix) with ESMTP id 36D9F2550D
+	for <netdev@vger.kernel.org>; Mon, 14 Apr 2014 13:32:05 +0200 (CEST)
+Received: from scarab.smoula.net ([127.0.0.1])
+	by localhost (scarab.smoula.net [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id QRDsUPJF6QA4 for <netdev@vger.kernel.org>;
+	Mon, 14 Apr 2014 13:31:59 +0200 (CEST)
+Received: from [IPv6:2001:470:5950:b00c::1] (interceptor.smoula.net [IPv6:2001:470:5950:b00c::1])
+	(using TLSv1 with cipher DHE-RSA-AES128-SHA (128/128 bits))
+	(No client certificate requested)
+	by scarab.smoula.net (Postfix) with ESMTPSA id 661DF2605A
+	for <netdev@vger.kernel.org>; Mon, 14 Apr 2014 13:31:59 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---0OAP2g/MAC+5xKAE
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-The netfilter project presents:
-
-	nftables 0.2
-
-This release contains a rather large number of bug fixes, syntax cleanups,
-new features, support for all new features contained in the recent 3.14
-kernel release as well as *drumroll* documentation.
-
-
-Syntax changes
-==============
-
-* More consistency in data type names
-
-  Data type names are used in set declarations. All address related types
-  now follow the naming scheme *_addr, all protocol related types *_proto
-  and the network interface related type iface_*. The arphrd type has been
-  renamed to iface_type.
-
-* Unqualified meta expressions
-
-  A number of keys of the meta expressions can be used without the meta
-  keyword for simplicity. These are mark, iif, iifname, iiftype, oif,
-  oifname, oiftype, skuid, skgid, nftrace and rtclassid. The meta keyword
-  may still be used if desired.
-
-  - nft filter output meta skuid root accept
-
-  becomes
-
-  - nft filter output skuid root accept
-
-
-New features
-============
-
-The more prominent new features include:
-
-* Support for hybrid IPv4/IPv6 tables
-
-  nftables now supports the "inet" family, which can be used to create
-  hybrid tables that contain rules for both IPv4 and IPv6. This should
-  greatly help reduce maintenance overhead for dual stack setups.
-
-  To create a standard filter table, use the supplied table template:
-
-  nft -f /etc/nftables/inet-filter
-
-  Rules in the inet family can apply to either just IPv4, just IPv6 or
-  both types of packets:
-
-  nft inet filter input ip saddr 192.168.0.0/24 jump from_lan
-  nft inet filter input ip6 saddr 2001::/64 jump from_lan
-  nft inet filter input tcp dport ssh accept
-  nft inet filter input iif lo accept
-
-* Support to set meta keys
-
-  Corresponding to the iptables MARK, CLASSIFY and TRACE targets, nftables
-  now supports changing meta data associated with a packet.
-
-  - nft filter input mark set 0x1
-
-    will set the packet mark to 0x1.
-
-  - nft filter input mark set mark | 0x1
-
-    will OR the current value with 0x1.
-
-  Using maps, you can do neat things like setting the mark dependant on
-  the source address in a single rule:
-
-  nft filter input mark set ip saddr map {
-	192.168.0.0/24 : 0x1,
-	192.168.1.0-192.168.1.64 : 0x2,
-	192.168.2.1 : 0x3,
-	* : 0x4
-  }
-
-  Or set it based on the network number using bitwise operations:
-
-  nft filter input ip saddr 192.168.0.0/16 mark set ip saddr & 0xff00
-
-  The packet classification can be changed in a similar fashion using
-  "meta priority set ...", tracing can be enabled using "nftrace set 1".
-
-* Support to set conntrack keys
-
-  Similar to the meta keys feature, it is now possible to change data
-  associated with connection tracking entries. At this time only the
-  conntrack mark is supported.
-
-  - nft filter input ct mark set mark
-
-  will set the conntrack mark to the packet mark
-
-  - nft filter output mark set ct mark
-
-  will set the packet mark to the conntrack mark
-
-  - nft filter output ct mark set 0x1
-
-  will set the conntrack mark to the value 0x1.
-
-* connlabel support
-
-  Support for connection tracking labels (connlabels) has been added.
-  connlabel.conf is parsed and the values can be used as symbolic
-  constants in combination with the "ct label" expression.
-
-  - nft filter input ct label clients,servers accept
-
-  will accept packets of connections labeled with either clients or servers.
-
-* Queue load balancing
-
-  The queue statement now supports load balancing, CPU fanout, queue bypass
-  etc.
-
-  - nft filter output queue num 3 total 2 options fanout
-
-  will queue packets to queue numbers 3 and 4 using CPU fanout.
-
-* XML/JSON ruleset export
-
-  Using "nft export <xml|json>", the ruleset can be exported in either format.
-  A corresponding import facility will follow soon.
-
-* Human readable comments in the ruleset
-
-  nftables supports storing comments together with a rule in the ruleset
-  that are displayed when listing the ruleset. The syntax is
-
-  - nft filter input tcp dport ssh accept comment "SSH access"
-
-  Please note that the syntax may change before the next release.
-
-* Full file parsing
-
-  nftables now recovers from errors during ruleset parsing and continues
-  up to a threshold of 10 errors before aborting. This allows to quicker
-  validate and fix up an erroneous ruleset.
-
-* "create" command
-
-  The create command can be used to create tables and chains, but unlike
-  the add command it doesn't return an error if the object already exists.
-
-* Misc
-
- A larger number of smaller improvements have been made to  error
- reporting, ruleset listing, and other parts have been made.
- 
-
-Bug fixes
-=========
-
-* Big endian support
-
-  A number of problems on big endian architectures have been fixed. A
-  single bugfix for the kernel is still in the queue, once it has hit
-  -stable this release should be fully functional on big endian.
-
-* Flag comparision for single flag values
-
-  When no operation is explicitly specified in a relational expression,
-  nftables determines the operation based on the data types of the
-  right hand side expression. For bitmask types, the operation is a flag
-  comparision, i.e.
-
-  tcp flags syn,ack
-
-  tests if either SYN or ACK is set. In the case that the right hand side
-  consisted of only a single value, nftables so far incorrectly generated
-  an equlity expression, IOW "tcp flags syn" would match on SYN and only
-  SYN. Now the expected thing is done and all packets that have the SYN
-  flag set will match.
-
-* Operator precedence in ruleset listing
-
-  When using bitwise expressions, the ruleset listing will now print
-  expressions in when required by operator precedence.
-
-* Symbolic variable existance and redefinitions
-
-  nftables will check for existance of a symbolic variable at time of use
-  instead of during evaluation. Redefinitions of existing variables now
-  trigger an error.
-
-* Map interval conflicts
-
-  When maps contain overlapping ranges (ranges or prefix expressions), the
-  ranges are prioritized based on their size. A smaller (more specific)
-  range takes precedence over larger (less specific) ones. When the ranges
-  have an identical size, no precedence can be determined and an error is
-  returned if the associated data/verdict differs.
- 
-* Misc
-
-  A number of crashes, failed assertions, incorrect definitions and more
-  have been fixed.
-
-
-Documentation
-=============
-
-Some reference documentation (man-page / PDF) has been added. Unfortunately
-I did not manage to complete it so far, but work is ongoing and shouldn't
-take very long anymore. The incomplete sections are mainly a number of
-statement types, set and map declarations and higher order expressions.
-
-
-Name
-====
-
-As Keith Alexander is no longer the director of the NSA and we don't know
-specifics about the mischief committed by his successor Michael S. Rogers
-yet, this release is simply called "Support Edward Snowden", which is a
-timeless worthy cause. 
-
-If you're in Germany, you can order some stickers to show your support for
-asylum for Snowden at https://shop.digitalcourage.de/snowden.html for free.
-
-$ nft -v
-nftables v0.2 (Support Edward Snowden)
-
-
-Resources
-=========
-
-The nftables code can be obtained from:
-
-* http://netfilter.org/projects/nftables/downloads.html
-* ftp://ftp.netfilter.org/pub/nftables
-* git://git.netfilter.org/nftables
-
-To build the code, you libnftnl and libmnl are required:
-
-* http://netfilter.org/projects/libnftnl/index.html
-* http://netfilter.org/projects/libmnl/index.html
-
-The iptables compatibility layer is available at:
-
-* git://git.netfilter.org/iptables-nftables
-
-
-The website updates are still in progress, but will be completed soon.
-
-
-Outlook
-=======
-
-The pace of development is still increasing and lots of interesting things
-are in the pipeline. Features currently worked on and most likely included
-in the next version include:
-
-* netlink event monitor - monitor ruleset events, set changes etc.
-
-* support for concatenations - multidimensional exact matches in O(1)
-
-* new transaction infrastructure - fully atomic updates for all object types
-
-* set selection - automatic selection of the optimal set implementation
-
-* JSON/XML import - the counterpart to the new ruleset export facility
-
-
-Thanks
-======
-
-Thanks to all our contributors, testers and bug reporters, whom have all
-helped to improve nftables.
-
-
-On behalf of the Netfilter Core Team,
-Happy bytecode execution :)
-
---0OAP2g/MAC+5xKAE
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="shortlog.txt"
-
-Ana Rey (4):
-      src: proto: fixed a rreply symbol
-      src: proto: fixed a rreply symbol
-      nftables: Fix list of sets by family
-      rule: fix crash in set listing
-
-Arturo Borrero (4):
-      netlink: delete unused variable
-      netlink: fix chain attribute parsing
-      src: fix expr_binary_error()-related compilation warnings
-      ct: add support for setting ct mark
-
-Arturo Borrero Gonzalez (2):
-      ruleset: add XML/JSON export
-      expression: fix constant expression allocation on big endian
-
-Eric Leblond (1):
-      src: add support for queue
-
-Florian Westphal (6):
-      netlink_delinearize: meta: fix wrong type in attributes
-      ct: direction should be integer, not bitmask
-      ct: connlabel matching support
-      datatype: don't leak file ptr on error
-      expr: do not suppress OP_EQ when RHS is bitmask type
-      build: drop AC_FUNC_MALLOC/REALLOC
-
-Pablo Neira Ayuso (7):
-      netlink: add support to set meta keys
-      build: use libnftnl instead of libnftables in configure.in
-      bump release number to 0.100
-      mnl: fix inclusion of last rule in batch page
-      Merge branch 'master' into next-3.14
-      meta: remove line break when printing priority
-      src: add support for rule human-readable comments
-
-Patrick McHardy (67):
-      expr: replace PAYLOAD_PROTOCOL_EXPR by generic flag
-      nftables: generic procotol contexts
-      expr: add protocol context update callback
-      proto: add helper function to update protocol context
-      proto: add debugging for protocol context updates
-      ct expr: protocol context updates and dynamic typing
-      include: resync nftables.h with kernel
-      nftables: add support for the "inet" family
-      netlink_delinearize: remove implied meta expressions
-      proto: add support for meta templates
-      meta: add nfproto support
-      meta: add l4proto support
-      Merge remote-tracking branch 'origin/master' into next-3.14
-      netlink_delinearize: fix compiler warning
-      Merge remote-tracking branch 'origin/master' into next-3.14
-      Merge remote-tracking branch 'origin/master' into next-3.14
-      Merge remote-tracking branch 'origin/master' into next-3.14
-      expr: remove secmark from ct and meta expression
-      meta: don't require "meta" keyword for a subset of meta expressions
-      Merge branch 'master' into next-3.14
-      Merge branch 'master' into next-3.14
-      Merge remote-tracking branch 'origin/master' into next-3.14
-      Merge remote-tracking branch 'origin/master' into next-3.14
-      parser: use symbolic expressions for parsing keywords as protocol values
-      Merge remote-tracking branch 'origin/master' into next-3.14
-      Merge remote-tracking branch 'origin/master' into next-3.14
-      cmd: add create command for tables and chains
-      set: add abstract set descriptions
-      Revert "set: add abstract set descriptions"
-      evaluate: determine implicit relational op before RHS constant checks
-      scanner: don't update location's line_offset for newlines
-      scanner: update last_line in struct location
-      erec: skip includes with INDESC_INTERNAL
-      parser: close scope when encountering an error in a table or chain block
-      parser: recover from errors in any block
-      parser: evaluate commands immediately after parsing
-      tests: add two tests for error reporting
-      parser: prohibit redefinitions of symbols and verify existance on use
-      files: add inet filter table definition
-      cmd: initialize cmd list and use list_splice_tail() for adding to command list
-      netlink: add netlink specific location
-      eval: use list_splice_tail() properly
-      netlink_linearize: fix flagcmp op
-      Merge branch 'next-3.14' of git.netfilter.org:nftables into next-3.14
-      evaluate: use flagcmp for single RHS bitmask expression
-      binop: take care of operator precedence when printing binop arguments
-      netlink_delinarize: convert *all* bitmask values into individual bit values
-      netlink: fix prefix expression handling
-      expr: make expr_binary_error() usable outside of evaluation
-      expr: add comparison function for singleton expressions
-      set: abort on interval conflicts
-      netlink: use set location for IO errors
-      parser: add grammatical distinction for verdict maps
-      set: properly account set size when merging recursive set definitions
-      segtree: sort set elements before decomposition
-      utils: fix -Wcast-align warnings on sparc
-      parser: fix ether keyword clash
-      Merge branch 'master' of git.netfilter.org:nftables
-      gmputil: use MSF/LSF in import/export functions dependant on host byte order
-      netlink: fix length value of concat data
-      build: fix documentation build
-      doc: documentation update
-      datatypes: rename some types for more consistency
-      doc: fix programlisting indentation
-      doc: change documentation license to CC BY-SA 4.0
-      doc: fix make install problems
-      Bump version to v0.2
-
-
---0OAP2g/MAC+5xKAE--
+--=-lGpTmJtkLg0efAxiJ+SG
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+I've noticed significant TUN device performance drop between 3.13 and
+3.14 kernels, problem seems to persist until current git version.
+
+With good kernel I can achieve full 100mbps through openvpn without any
+problem, with problematic kernel TX performance drops down to ~50kbps.
+
+According to git bisect it seems that root of all evil is commit
+53d6471cef17262d3ad1c7ce8982a234244f68ec.
+
+I can confirm that performance is great again with current kernel when I
+revert this one.
+
+-- 
+Martin Filip
+e-mail: nexus@smoula.net
+jabberID: nexus@smoula.net
+http://www.smoula.net
+
+
+--=-lGpTmJtkLg0efAxiJ+SG
+Content-Disposition: attachment; filename="bisect.log"
+Content-Type: text/x-log; name="bisect.log"; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+git bisect start
+# bad: [c9eaa447e77efe77b7fa4c953bd62de8297fd6c5] Linux 3.15-rc1
+git bisect bad c9eaa447e77efe77b7fa4c953bd62de8297fd6c5
+# good: [d8ec26d7f8287f5788a494f56e8814210f0e64be] Linux 3.13
+git bisect good d8ec26d7f8287f5788a494f56e8814210f0e64be
+# good: [d265d9ac6c7c3201f0fea737cdf9c74e50415178] [media] exynos4-is: Use external s5k6a3 sensor driver
+git bisect good d265d9ac6c7c3201f0fea737cdf9c74e50415178
+# bad: [ec0159503ae74aeb834e78366bdf4b9663ca1129] hwmon: (k10temp) Add support for AMD F16 M30h processor
+git bisect bad ec0159503ae74aeb834e78366bdf4b9663ca1129
+# bad: [c70929147a10fa4538886cb23b934b509c4c0e49] Merge tag 'sound-3.15-rc1' of git://git.kernel.org/pub/scm/linux/kernel/git/tiwai/sound
+git bisect bad c70929147a10fa4538886cb23b934b509c4c0e49
+# bad: [683b6c6f82a60fabf47012581c2cfbf1b037ab95] Merge branch 'irq-core-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip
+git bisect bad 683b6c6f82a60fabf47012581c2cfbf1b037ab95
+# bad: [462bf234a82ae1ae9d7628f59bc81022591e1348] Merge branch 'core-locking-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip
+git bisect bad 462bf234a82ae1ae9d7628f59bc81022591e1348
+# good: [8712a00514e50aafa7c9bf5cd3955fa60758e53b] Merge branch 'akpm' (patches from Andrew Morton)
+git bisect good 8712a00514e50aafa7c9bf5cd3955fa60758e53b
+# good: [92f99731e61a3487781762d4e6ae8b1576e68e07] Merge tag 'sound-3.14' of git://git.kernel.org/pub/scm/linux/kernel/git/tiwai/sound
+git bisect good 92f99731e61a3487781762d4e6ae8b1576e68e07
+# good: [f217c44ebd41ce7369d2df07622b2839479183b0] Merge tag 'trace-fixes-v3.14-rc7-v2' of git://git.kernel.org/pub/scm/linux/kernel/git/rostedt/linux-trace
+git bisect good f217c44ebd41ce7369d2df07622b2839479183b0
+# bad: [49d8137a4039c63c834827f4bfe875e27bb9c521] Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+git bisect bad 49d8137a4039c63c834827f4bfe875e27bb9c521
+# bad: [fc92f745f8d0d3736ce5afb00a905d7cc61f9c46] bridge: Fix crash with vlan filtering and tcpdump
+git bisect bad fc92f745f8d0d3736ce5afb00a905d7cc61f9c46
+# good: [97a5221f56bad2e1c7e8ab55da4ac4748ef59c64] net/mlx4_core: pass pci_device_id.driver_data to __mlx4_init_one during reset
+git bisect good 97a5221f56bad2e1c7e8ab55da4ac4748ef59c64
+# good: [99b192da9c99284ad3374132e56f66995cadc6b4] bridge: Fix handling stacked vlan tags
+git bisect good 99b192da9c99284ad3374132e56f66995cadc6b4
+# good: [c15b1ccadb323ea50023e8f1cca2954129a62b51] ipv6: move DAD and addrconf_verify processing to workqueue
+git bisect good c15b1ccadb323ea50023e8f1cca2954129a62b51
+# good: [898602a049504dea256e696ee3152dc0b788a393] MAINTAINERS: bonding: change email address
+git bisect good 898602a049504dea256e696ee3152dc0b788a393
+# bad: [53d6471cef17262d3ad1c7ce8982a234244f68ec] net: Account for all vlan headers in skb_mac_gso_segment
+git bisect bad 53d6471cef17262d3ad1c7ce8982a234244f68ec
+# first bad commit: [53d6471cef17262d3ad1c7ce8982a234244f68ec] net: Account for all vlan headers in skb_mac_gso_segment
+
+--=-lGpTmJtkLg0efAxiJ+SG--
