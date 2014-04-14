@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net v2 2/2] at86rf230: fix
-	__at86rf230_read_subreg function
-Date: Mon, 14 Apr 2014 18:48:02 +0200
-Message-ID: <1397494082-9394-3-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH net v2 1/2] at86rf230: remove check if
+	AVDD settled
+Date: Mon, 14 Apr 2014 18:48:01 +0200
+Message-ID: <1397494082-9394-2-git-send-email-alex.aring@gmail.com>
 References: <1397494082-9394-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,34 +21,40 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The __at86rf230_read_subreg function don't mask and shift register
-contents which it should do. This patch adds the necessary masks and
-shift operations in this function.
+The AVDD regulator is only enabled when the RF section is active TX_ON
+(PLL_ON) state. Since commit 7dcbd22a97eb0689e6c583ad630ae0e7341e34c1
+("ieee802154: ensure that first RF212 state comes from TRX_OFF").
+We are in TRX_OFF state at the time at86rf230_hw_init is run.
 
-Since we have csma support this can make some trouble on state changes.
-Since CSMA support turned on some bits in the TRX_STATUS register that
-used to be zero, not masking broke checking of the TRX_STATUS field
-after commanding a state change.
+Note that this test would only fail in case of a severe hardware
+malfunction (faulty/shorted power supply, etc.) so it wasn't all that
+useful in the first place.
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Reviewed-by: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
 ---
- drivers/net/ieee802154/at86rf230.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ieee802154/at86rf230.c | 8 --------
+ 1 file changed, 8 deletions(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index e102eef..e36f194 100644
+index 430bb0d..e102eef 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -365,7 +365,7 @@ __at86rf230_read_subreg(struct at86rf230_local *lp,
- 	dev_vdbg(&lp->spi->dev, "buf[1] = %02x\n", buf[1]);
+@@ -1025,14 +1025,6 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
+ 		return -EINVAL;
+ 	}
  
- 	if (status == 0)
--		*data = buf[1];
-+		*data = (buf[1] & mask) >> shift;
- 
- 	return status;
+-	rc = at86rf230_read_subreg(lp, SR_AVDD_OK, &status);
+-	if (rc)
+-		return rc;
+-	if (!status) {
+-		dev_err(&lp->spi->dev, "AVDD error\n");
+-		return -EINVAL;
+-	}
+-
+ 	return 0;
  }
+ 
 -- 
 1.9.2
 
