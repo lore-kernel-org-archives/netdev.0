@@ -1,118 +1,55 @@
-From: Masami Ichikawa <masami256@gmail.com>
-Subject: Re: [PATCH] seccomp: Release fp pointer when leaving from seccomp_attach_filter().
-Date: Tue, 15 Apr 2014 08:06:05 +0900
-Message-ID: <CACOXgS_UyhYuxuLRmMEMB9O2Ld70WDjXL_W-Tb0W-ADL3fBKLA@mail.gmail.com>
-References: <1397491333-13746-1-git-send-email-masami256@gmail.com>
-	<CAMEtUuz6v1JKev+Saq4kcc=k9nW2Q9pU__n=7bjvvZV2EofLYA@mail.gmail.com>
-	<CAGXu5jJSnTB1ifPmgW5VwSrVU4yqgg2SEpxAEi=0Afpy_mc0yg@mail.gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch iproute2] u32: add terminal parameter
+Date: Mon, 14 Apr 2014 19:14:38 -0400
+Message-ID: <534C6BDE.8020600@mojatatu.com>
+References: <1396631826-15188-1-git-send-email-xiyou.wangcong@gmail.com>	<20140411140446.6412e9dc@nehalam.linuxnetplumber.net>	<CAM_iQpVpNOJ1xiK45qXGRXgBZ2QcmwoPc7p=SOHCo=1kTwPfFQ@mail.gmail.com>	<20140411175800.08e9ffe3@nehalam.linuxnetplumber.net>	<CAM_iQpU7Ntn-yo-ez0vP2BhKe+-Vaq1w_+MQhFPHM-bbQZx2gg@mail.gmail.com>	<534926F7.10505@mojatatu.com> <CAM_iQpXJnOOUbpS0WwrB7C50LGxcLhMEQPrDB84Zm-SLKVHh6w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Josh Triplett <josh@joshtriplett.org>,
-	Eric Paris <eparis@redhat.com>,
-	Rashika Kheria <rashika.kheria@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGXu5jJSnTB1ifPmgW5VwSrVU4yqgg2SEpxAEi=0Afpy_mc0yg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f45.google.com ([209.85.219.45]:44961 "EHLO
+	mail-oa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751002AbaDNXOx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 19:14:53 -0400
+Received: by mail-oa0-f45.google.com with SMTP id eb12so9885532oac.4
+        for <netdev@vger.kernel.org>; Mon, 14 Apr 2014 16:14:53 -0700 (PDT)
+In-Reply-To: <CAM_iQpXJnOOUbpS0WwrB7C50LGxcLhMEQPrDB84Zm-SLKVHh6w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 15, 2014 at 2:08 AM, Kees Cook <keescook@chromium.org> wrote:
-> On Mon, Apr 14, 2014 at 9:18 AM, Alexei Starovoitov <ast@plumgrid.com> wrote:
->> On Mon, Apr 14, 2014 at 9:02 AM, Masami Ichikawa <masami256@gmail.com> wrote:
->>> kmemleak reported some memory leak as below.
+On 04/14/14 17:18, Cong Wang wrote:
+> On Sat, Apr 12, 2014 at 4:43 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+
+> Why? The qdisc my u32 filters attached to is classless (ingress).
+
+flowid is a filter id. I am almost certain it was a mistake on your
+part to leave it out. This is why i called it an FAQ and suggested
+you provide a patch to block people from leaving it out.
+
+> Also, why this is relevant to u32 terminal?
+
+Because if you defined a flowid you are defining it as a terminal
+u32 node. You wouldnt have to complain about "???" or produce a patch
+to solve a non-existent problem.
+You want to add a new syntax and didnt even bother to look at the code?
+
+>> So I agree with Stephen on the verdict on your patch.
+>> We need a patch to avoid this FAQ problem since it happens
+>> often i.e reject a filter that doesnt have flow/classid
+>> specified. How about you provide that patch instead?
 >>
->> grrr. yes. sorry.
->>
->>> unreferenced object 0xffff8800d6ea4000 (size 512):
->>>   comm "sshd", pid 278, jiffies 4294898315 (age 46.653s)
->>>   hex dump (first 32 bytes):
->>>     21 00 00 00 04 00 00 00 15 00 01 00 3e 00 00 c0  !...........>...
->>>     06 00 00 00 00 00 00 00 21 00 00 00 00 00 00 00  ........!.......
->>>   backtrace:
->>>     [<ffffffff8151414e>] kmemleak_alloc+0x4e/0xb0
->>>     [<ffffffff811a3a40>] __kmalloc+0x280/0x320
->>>     [<ffffffff8110842e>] prctl_set_seccomp+0x11e/0x3b0
->>>     [<ffffffff8107bb6b>] SyS_prctl+0x3bb/0x4a0
->>>     [<ffffffff8152ef2d>] system_call_fastpath+0x1a/0x1f
->>>     [<ffffffffffffffff>] 0xffffffffffffffff
->>>
->>> This memory leak happend in seccomp_attach_filter().
->>> The fp pointer was allocated via kzalloc so that it needs to realase memory
->>> when leaving from function.
 >
-> Thanks for the catch!
+> Even if you were right, it is too late to change, we obviously don't
+> want to break existing scripts that work fine. I am pretty sure
+> my script runs well without flowid.
 >
->>> This patch changed two things.
->>> One is set -ENOMEM to ret, if fp is unable to get memory.
->>> The other is removes "return 0" statement, and frees fp pointer before
->>> leaving.
->>>
->>> Signed-off-by: Masami Ichikawa <masami256@gmail.com>
->>> ---
->>>  kernel/seccomp.c | 8 +++++---
->>>  1 file changed, 5 insertions(+), 3 deletions(-)
->>>
->>> diff --git a/kernel/seccomp.c b/kernel/seccomp.c
->>> index d8d046c..a9ce7a9 100644
->>> --- a/kernel/seccomp.c
->>> +++ b/kernel/seccomp.c
->>> @@ -259,8 +259,10 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
->>>         filter = kzalloc(sizeof(struct seccomp_filter) +
->>>                          sizeof(struct sock_filter_int) * new_len,
->>>                          GFP_KERNEL|__GFP_NOWARN);
->>> -       if (!filter)
->>> +       if (!filter) {
->>> +               ret = -ENOMEM;
->>>                 goto free_prog;
->>> +       }
->>
->> agree. that's a good addition.
->>
->>>         ret = sk_convert_filter(fp, fprog->len, filter->insnsi, &new_len);
->>>         if (ret)
->>> @@ -275,10 +277,10 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
->>>          */
->>>         filter->prev = current->seccomp.filter;
->>>         current->seccomp.filter = filter;
->>> -       return 0;
->>
->> I think mixing error and ok return paths is ugly.
-I troubled that have two kfree(fp) path or merge error and success path.
-But separate paths is easy to read.
 
->> Can you add kfree(fp) here instead of removing return 0?
->>
->> Thanks!
->>
->>>  free_filter:
->>> -       kfree(filter);
->>> +       if (ret)
->>> +               kfree(filter);
->>>  free_prog:
->>>         kfree(fp);
->>>         return ret;
->>> --
->>> 1.9.1
->>>
->
-> Yeah, I'd prefer a different approach that follows the existing
-> conventions in the code. I'll send a separate patch.
-I see.
+I dont think it can be guaranteed to work at all if you dont specify
+a flowid. You may have gotten lucky.
 
-Thank you for considering it.
-
-> -Kees
->
-> --
-> Kees Cook
-> Chrome OS Security
-
-
-Cheeers,
-
--- 
-Masami Ichikawa
+cheers,
+jamal
