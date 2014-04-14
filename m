@@ -1,44 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3 net] net/mlx4_core: Preserve pci_dev_data after
- __mlx4_remove_one()
-Date: Sun, 13 Apr 2014 23:14:03 -0400 (EDT)
-Message-ID: <20140413.231403.935690370456036216.davem@davemloft.net>
-References: <1397440279-6004-1-git-send-email-weiyang@linux.vnet.ibm.com>
+Subject: Re: [PATCH] Revert "net: mvneta: fix usage as a module on RGMII
+ configurations"
+Date: Sun, 13 Apr 2014 23:14:57 -0400 (EDT)
+Message-ID: <20140413.231457.1275572148025135232.davem@davemloft.net>
+References: <1397380533-16012-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-pci@vger.kernel.org, netdev@vger.kernel.org,
-	sergei.shtylyov@cogentembedded.com, bhelgaas@google.com,
-	amirv@mellanox.com, jackm@dev.mellanox.co.il, ogerlitz@mellanox.com
-To: weiyang@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49497 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750770AbaDNDOG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2014 23:14:06 -0400
-In-Reply-To: <1397440279-6004-1-git-send-email-weiyang@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, ezequiel.garcia@free-electrons.com,
+	gregory.clement@free-electrons.com, jason@lakedaemon.net,
+	andrew@lunn.ch, sebastian.hesselbarth@gmail.com, alior@marvell.com,
+	tawfik@marvell.com, linux-arm-kernel@lists.infradead.org,
+	stable@vger.kernel.org
+To: thomas.petazzoni@free-electrons.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1397380533-16012-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Date: Mon, 14 Apr 2014 09:51:19 +0800
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Date: Sun, 13 Apr 2014 11:15:33 +0200
 
-> pci_match_id() just match the static pci_device_id, which may return NULL if
-> someone binds the driver to a device manually using
-> /sys/bus/pci/drivers/.../new_id.
+> This reverts commit e3a8786c10e75903f1269474e21fe8cb49c3a670. While
+> this commit allows to use the mvneta driver as a module on some
+> configurations, it breaks other configurations even if mvneta is used
+> built-in.
 > 
-> This patch wrap up a helper function __mlx4_remove_one() which does the tear
-> down function but preserve the drv_data. Functions like
-> mlx4_pci_err_detected() and mlx4_restart_one() will call this one with out
-> releasing drvdata.
+> This breakage is due to the fact that on some RGMII platforms, the PCS
+> bit has to be set, and on some other platforms, it has to be
+> cleared. At the moment, we lack informations to know exactly the
+> significance of this bit (the datasheet only says "enables PCS"), and
+> so we can't produce a patch that will work on all platforms at this
+> point. And since this change is breaking the network completely for
+> many users, it's much better to revert it for now. We'll come back
+> later with a proper fix that takes into account all platforms.
 > 
-> Fixes: 97a5221 "net/mlx4_core: pass pci_device_id.driver_data to __mlx4_init_one during reset".
+> Basically:
 > 
-> CC: Bjorn Helgaas <bhelgaas@google.com>
-> CC: Amir Vadai <amirv@mellanox.com>
-> CC: Jack Morgenstein <jackm@dev.mellanox.co.il>
-> CC: Or Gerlitz <ogerlitz@mellanox.com>
-> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
-> Acked-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+>  * Armada XP GP is configured as RGMII-ID, and needs the PCS bit to be
+>    set.
+>  * Armada 370 Mirabox is configured as RGMII-ID, and needs the PCS bit
+>    to be cleared.
+> 
+> And at the moment, we don't know how to make the distinction between
+> those two cases. One hint is that the Armada XP GP appears in fact to
+> be using a QSGMII connection with the PHY (Quad-SGMII), but
+> configuring it as SGMII doesn't work, while RGMII-ID works. This needs
+> more investigation, but in the mean time, let's unbreak the network
+> for all those users.
+> 
+> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> Reported-by: Arnaud Ebalard <arno@natisbad.org>
+> Reported-by: Alexander Reuter <Alexander.Reuter@gmx.net>
+> Fixes: https://bugzilla.kernel.org/show_bug.cgi?id=73401
 
-Applied and queued up for -stable, thanks.
+Applied, thanks for following up on this.
