@@ -1,46 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: What causes these TCP packet getting lost in linux kernel
-Date: Mon, 14 Apr 2014 07:13:24 -0700
-Message-ID: <1397484804.4222.23.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAMRd1sXbgcGQuBKd6b-wwkrsqgh_4QicfyR=1hh+TqyYUjYHFA@mail.gmail.com>
-	 <1397212866.16584.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAMRd1sUk_-gtOOgf2dPU_mpgCugDE2F82Te5arnhi+8-uPgm0g@mail.gmail.com>
-	 <CAJzFV35Z9f-73of0vq2bhUZbN++17cuexcQV4SSSvqJXNyKnRQ@mail.gmail.com>
-	 <1397331172.4222.8.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAMRd1sV_ZzgFF8a2D=CsugHPHrNY=ifV1F46bKVwNSP9FvNPUw@mail.gmail.com>
-	 <534B9EBC.4000606@davidnewall.com>
-	 <CAMRd1sWa70D3Cjx74jC8g2fJKXho=okrpu+HfsZmu77-70c4DQ@mail.gmail.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: [PATCH net 0/6] qlcnic: Bug fixes
+Date: Mon, 14 Apr 2014 10:02:17 -0400
+Message-ID: <1397484143-9708-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Newall <davidn@davidnewall.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: chptx y <chptxy@gmail.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:58753 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750853AbaDNON0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 10:13:26 -0400
-Received: by mail-pa0-f51.google.com with SMTP id kq14so8317915pab.10
-        for <netdev@vger.kernel.org>; Mon, 14 Apr 2014 07:13:25 -0700 (PDT)
-In-Reply-To: <CAMRd1sWa70D3Cjx74jC8g2fJKXho=okrpu+HfsZmu77-70c4DQ@mail.gmail.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:46899 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751007AbaDNOjp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 10:39:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-04-14 at 17:20 +0800, chptx y wrote:
-> i don't know why, no matter I capture packets on my Ubuntu PC or
-> Android device with tcpdump,  open the output file with wireshark, all
-> output packets are marked with "incorrect checksum", but it seems that
-> this problem don't affect  subsequent packets interaction. why?
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-Checksums are filled by the NIC on TX packets, some tcpdump/wireshark
-versions do not really know of this.
+Hi David,
 
-packet 30 (which is accepted) has TSval=4054079470 & TSecr=22894,
-but packet 32 has TSval=4054078149 & TSecr=22863, while its sequence is
-correct (coming after the prior packet)
+This patch series contains following bug fixes -
 
-Sender has a wrong implementation of TCP Timestamps (RFC 1323), or a
-middlebox mangles timestamps badly.
+* Send INIT_NIC_FUNC mailbox command as first mailbox
+* Fix a panic because of uninitialized delayed_work.
+* Fix inconsistent calculation of max rings count.
+* Fix PVID configuration issue. Driver needs to clear older
+  PVID before adding new one.
+* Fix QLogic application/driver interface by packing vNIC information
+  array.
+* Fix a crash when user tries to disable SR-IOV while VFs are
+  still assigned to VMs.
 
-Receiver considers this as an old packet.
+Please apply to net.
+
+Thanks,
+Shahed
+
+
+Jitendra Kalsaria (2):
+  qlcnic: Fix PVID configuration on eSwitch port.
+  qlcnic: Fix QLogic application/driver interface for virtual NIC
+    configuration
+
+Manish Chopra (1):
+  qlcnic: Do not disable SR-IOV when VFs are assigned to VMs
+
+Shahed Shaikh (1):
+  qlcnic: Fix max ring count calculation
+
+Sucheta Chakraborty (2):
+  qlcnic: Fix panic due to uninitialzed delayed_work struct in use.
+  qlcnic: Fix to send INIT_NIC_FUNC as first mailbox.
+
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  | 21 ++++++++-------
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c    |  3 +--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c    |  2 --
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  5 ++--
+ .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   | 10 +++++++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c  | 31 ++++++++++++----------
+ 6 files changed, 43 insertions(+), 29 deletions(-)
+
+-- 
+1.8.1.4
