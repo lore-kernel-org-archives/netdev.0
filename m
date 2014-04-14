@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/3] netfilter: nf_conntrack: flush net_gre->keymap_list only from gre helper
-Date: Tue, 15 Apr 2014 00:43:33 +0200
-Message-ID: <1397515415-5477-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/3] netfilter: nf_conntrack: initialize net.ct.generation
+Date: Tue, 15 Apr 2014 00:43:34 +0200
+Message-ID: <1397515415-5477-3-git-send-email-pablo@netfilter.org>
 References: <1397515415-5477-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,82 +12,57 @@ List-Id: netdev.vger.kernel.org
 
 From: Andrey Vagin <avagin@openvz.org>
 
-nf_ct_gre_keymap_flush() removes a nf_ct_gre_keymap object from
-net_gre->keymap_list and frees the object. But it doesn't clean
-a reference on this object from ct_pptp_info->keymap[dir].
-Then nf_ct_gre_keymap_destroy() may release the same object again.
+[  251.920788] INFO: trying to register non-static key.
+[  251.921386] the code is fine but needs lockdep annotation.
+[  251.921386] turning off the locking correctness validator.
+[  251.921386] CPU: 2 PID: 15715 Comm: socket_listen Not tainted 3.14.0+ #294
+[  251.921386] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[  251.921386]  0000000000000000 000000009d18c210 ffff880075f039b8 ffffffff816b7ecd
+[  251.921386]  ffffffff822c3b10 ffff880075f039c8 ffffffff816b36f4 ffff880075f03aa0
+[  251.921386]  ffffffff810c65ff ffffffff810c4a85 00000000fffffe01 ffffffffa0075172
+[  251.921386] Call Trace:
+[  251.921386]  [<ffffffff816b7ecd>] dump_stack+0x45/0x56
+[  251.921386]  [<ffffffff816b36f4>] register_lock_class.part.24+0x38/0x3c
+[  251.921386]  [<ffffffff810c65ff>] __lock_acquire+0x168f/0x1b40
+[  251.921386]  [<ffffffff810c4a85>] ? trace_hardirqs_on_caller+0x105/0x1d0
+[  251.921386]  [<ffffffffa0075172>] ? nf_nat_setup_info+0x252/0x3a0 [nf_nat]
+[  251.921386]  [<ffffffff816c1215>] ? _raw_spin_unlock_bh+0x35/0x40
+[  251.921386]  [<ffffffffa0075172>] ? nf_nat_setup_info+0x252/0x3a0 [nf_nat]
+[  251.921386]  [<ffffffff810c7272>] lock_acquire+0xa2/0x120
+[  251.921386]  [<ffffffffa008ab90>] ? ipv4_confirm+0x90/0xf0 [nf_conntrack_ipv4]
+[  251.921386]  [<ffffffffa0055989>] __nf_conntrack_confirm+0x129/0x410 [nf_conntrack]
+[  251.921386]  [<ffffffffa008ab90>] ? ipv4_confirm+0x90/0xf0 [nf_conntrack_ipv4]
+[  251.921386]  [<ffffffffa008ab90>] ipv4_confirm+0x90/0xf0 [nf_conntrack_ipv4]
+[  251.921386]  [<ffffffff815e7b00>] ? ip_fragment+0x9f0/0x9f0
+[  251.921386]  [<ffffffff815d8c5a>] nf_iterate+0xaa/0xc0
+[  251.921386]  [<ffffffff815e7b00>] ? ip_fragment+0x9f0/0x9f0
+[  251.921386]  [<ffffffff815d8d14>] nf_hook_slow+0xa4/0x190
+[  251.921386]  [<ffffffff815e7b00>] ? ip_fragment+0x9f0/0x9f0
+[  251.921386]  [<ffffffff815e98f2>] ip_output+0x92/0x100
+[  251.921386]  [<ffffffff815e8df9>] ip_local_out+0x29/0x90
+[  251.921386]  [<ffffffff815e9240>] ip_queue_xmit+0x170/0x4c0
+[  251.921386]  [<ffffffff815e90d5>] ? ip_queue_xmit+0x5/0x4c0
+[  251.921386]  [<ffffffff81601208>] tcp_transmit_skb+0x498/0x960
+[  251.921386]  [<ffffffff81602d82>] tcp_connect+0x812/0x960
+[  251.921386]  [<ffffffff810e3dc5>] ? ktime_get_real+0x25/0x70
+[  251.921386]  [<ffffffff8159ea2a>] ? secure_tcp_sequence_number+0x6a/0xc0
+[  251.921386]  [<ffffffff81606f57>] tcp_v4_connect+0x317/0x470
+[  251.921386]  [<ffffffff8161f645>] __inet_stream_connect+0xb5/0x330
+[  251.921386]  [<ffffffff8158dfc3>] ? lock_sock_nested+0x33/0xa0
+[  251.921386]  [<ffffffff810c4b5d>] ? trace_hardirqs_on+0xd/0x10
+[  251.921386]  [<ffffffff81078885>] ? __local_bh_enable_ip+0x75/0xe0
+[  251.921386]  [<ffffffff8161f8f8>] inet_stream_connect+0x38/0x50
+[  251.921386]  [<ffffffff8158b157>] SYSC_connect+0xe7/0x120
+[  251.921386]  [<ffffffff810e3789>] ? current_kernel_time+0x69/0xd0
+[  251.921386]  [<ffffffff810c4a85>] ? trace_hardirqs_on_caller+0x105/0x1d0
+[  251.921386]  [<ffffffff810c4b5d>] ? trace_hardirqs_on+0xd/0x10
+[  251.921386]  [<ffffffff8158c36e>] SyS_connect+0xe/0x10
+[  251.921386]  [<ffffffff816caf69>] system_call_fastpath+0x16/0x1b
+[  312.014104] INFO: rcu_sched detected stalls on CPUs/tasks: {} (detected by 0, t=60003 jiffies, g=42359, c=42358, q=333)
+[  312.015097] INFO: Stall ended before state dump start
 
-So nf_ct_gre_keymap_flush() can be called only when we are sure that
-when nf_ct_gre_keymap_destroy will not be called.
-
-nf_ct_gre_keymap is created by nf_ct_gre_keymap_add() and the right way
-to destroy it is to call nf_ct_gre_keymap_destroy().
-
-This patch marks nf_ct_gre_keymap_flush() as static, so this patch can
-break compilation of third party modules, which use
-nf_ct_gre_keymap_flush. I'm not sure this is the right way to deprecate
-this function.
-
-[  226.540793] general protection fault: 0000 [#1] SMP
-[  226.541750] Modules linked in: nf_nat_pptp nf_nat_proto_gre
-nf_conntrack_pptp nf_conntrack_proto_gre ip_gre ip_tunnel gre
-ppp_deflate bsd_comp ppp_async crc_ccitt ppp_generic slhc xt_nat
-iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat
-nf_conntrack veth tun bridge stp llc ppdev microcode joydev pcspkr
-serio_raw virtio_console virtio_balloon floppy parport_pc parport
-pvpanic i2c_piix4 virtio_net drm_kms_helper ttm ata_generic virtio_pci
-virtio_ring virtio drm i2c_core pata_acpi [last unloaded: ip_tunnel]
-[  226.541776] CPU: 0 PID: 49 Comm: kworker/u4:2 Not tainted 3.14.0-rc8+ #101
-[  226.541776] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[  226.541776] Workqueue: netns cleanup_net
-[  226.541776] task: ffff8800371e0000 ti: ffff88003730c000 task.ti: ffff88003730c000
-[  226.541776] RIP: 0010:[<ffffffff81389ba9>]  [<ffffffff81389ba9>] __list_del_entry+0x29/0xd0
-[  226.541776] RSP: 0018:ffff88003730dbd0  EFLAGS: 00010a83
-[  226.541776] RAX: 6b6b6b6b6b6b6b6b RBX: ffff8800374e6c40 RCX: dead000000200200
-[  226.541776] RDX: 6b6b6b6b6b6b6b6b RSI: ffff8800371e07d0 RDI: ffff8800374e6c40
-[  226.541776] RBP: ffff88003730dbd0 R08: 0000000000000000 R09: 0000000000000000
-[  226.541776] R10: 0000000000000001 R11: ffff88003730d92e R12: 0000000000000002
-[  226.541776] R13: ffff88007a4c42d0 R14: ffff88007aef0000 R15: ffff880036cf0018
-[  226.541776] FS:  0000000000000000(0000) GS:ffff88007fc00000(0000) knlGS:0000000000000000
-[  226.541776] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[  226.541776] CR2: 00007f07f643f7d0 CR3: 0000000036fd2000 CR4: 00000000000006f0
-[  226.541776] Stack:
-[  226.541776]  ffff88003730dbe8 ffffffff81389c5d ffff8800374ffbe4 ffff88003730dc28
-[  226.541776]  ffffffffa0162a43 ffffffffa01627c5 ffff88007a4c42d0 ffff88007aef0000
-[  226.541776]  ffffffffa01651c0 ffff88007a4c45e0 ffff88007aef0000 ffff88003730dc40
-[  226.541776] Call Trace:
-[  226.541776]  [<ffffffff81389c5d>] list_del+0xd/0x30
-[  226.541776]  [<ffffffffa0162a43>] nf_ct_gre_keymap_destroy+0x283/0x2d0 [nf_conntrack_proto_gre]
-[  226.541776]  [<ffffffffa01627c5>] ? nf_ct_gre_keymap_destroy+0x5/0x2d0 [nf_conntrack_proto_gre]
-[  226.541776]  [<ffffffffa0162ab7>] gre_destroy+0x27/0x70 [nf_conntrack_proto_gre]
-[  226.541776]  [<ffffffffa0117de3>] destroy_conntrack+0x83/0x200 [nf_conntrack]
-[  226.541776]  [<ffffffffa0117d87>] ? destroy_conntrack+0x27/0x200 [nf_conntrack]
-[  226.541776]  [<ffffffffa0117d60>] ? nf_conntrack_hash_check_insert+0x2e0/0x2e0 [nf_conntrack]
-[  226.541776]  [<ffffffff81630142>] nf_conntrack_destroy+0x72/0x180
-[  226.541776]  [<ffffffff816300d5>] ? nf_conntrack_destroy+0x5/0x180
-[  226.541776]  [<ffffffffa011ef80>] ? kill_l3proto+0x20/0x20 [nf_conntrack]
-[  226.541776]  [<ffffffffa011847e>] nf_ct_iterate_cleanup+0x14e/0x170 [nf_conntrack]
-[  226.541776]  [<ffffffffa011f74b>] nf_ct_l4proto_pernet_unregister+0x5b/0x90 [nf_conntrack]
-[  226.541776]  [<ffffffffa0162409>] proto_gre_net_exit+0x19/0x30 [nf_conntrack_proto_gre]
-[  226.541776]  [<ffffffff815edf89>] ops_exit_list.isra.1+0x39/0x60
-[  226.541776]  [<ffffffff815eecc0>] cleanup_net+0x100/0x1d0
-[  226.541776]  [<ffffffff810a608a>] process_one_work+0x1ea/0x4f0
-[  226.541776]  [<ffffffff810a6028>] ? process_one_work+0x188/0x4f0
-[  226.541776]  [<ffffffff810a64ab>] worker_thread+0x11b/0x3a0
-[  226.541776]  [<ffffffff810a6390>] ? process_one_work+0x4f0/0x4f0
-[  226.541776]  [<ffffffff810af42d>] kthread+0xed/0x110
-[  226.541776]  [<ffffffff8173d4dc>] ? _raw_spin_unlock_irq+0x2c/0x40
-[  226.541776]  [<ffffffff810af340>] ? kthread_create_on_node+0x200/0x200
-[  226.541776]  [<ffffffff8174747c>] ret_from_fork+0x7c/0xb0
-[  226.541776]  [<ffffffff810af340>] ? kthread_create_on_node+0x200/0x200
-[  226.541776] Code: 00 00 55 48 8b 17 48 b9 00 01 10 00 00 00 ad de
-48 8b 47 08 48 89 e5 48 39 ca 74 29 48 b9 00 02 20 00 00 00 ad de 48
-39 c8 74 7a <4c> 8b 00 4c 39 c7 75 53 4c 8b 42 08 4c 39 c7 75 2b 48 89
-42 08
-[  226.541776] RIP  [<ffffffff81389ba9>] __list_del_entry+0x29/0xd0
-[  226.541776]  RSP <ffff88003730dbd0>
-[  226.612193] ---[ end trace 985ae23ddfcc357c ]---
-
+Fixes: 93bb0ceb75be ("netfilter: conntrack: remove central spinlock nf_conntrack_lock")
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>
 Cc: Pablo Neira Ayuso <pablo@netfilter.org>
 Cc: Patrick McHardy <kaber@trash.net>
 Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
@@ -95,82 +70,21 @@ Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Andrey Vagin <avagin@openvz.org>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter/nf_conntrack_proto_gre.h |    1 -
- net/netfilter/nf_conntrack_pptp.c                |   20 +-------------------
- net/netfilter/nf_conntrack_proto_gre.c           |    3 +--
- 3 files changed, 2 insertions(+), 22 deletions(-)
+ net/netfilter/nf_conntrack_core.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/include/linux/netfilter/nf_conntrack_proto_gre.h b/include/linux/netfilter/nf_conntrack_proto_gre.h
-index ec2ffaf..df78dc2 100644
---- a/include/linux/netfilter/nf_conntrack_proto_gre.h
-+++ b/include/linux/netfilter/nf_conntrack_proto_gre.h
-@@ -87,7 +87,6 @@ int nf_ct_gre_keymap_add(struct nf_conn *ct, enum ip_conntrack_dir dir,
- /* delete keymap entries */
- void nf_ct_gre_keymap_destroy(struct nf_conn *ct);
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 6dba48e..75421f2 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1795,6 +1795,7 @@ int nf_conntrack_init_net(struct net *net)
+ 	int cpu;
  
--void nf_ct_gre_keymap_flush(struct net *net);
- void nf_nat_need_gre(void);
+ 	atomic_set(&net->ct.count, 0);
++	seqcount_init(&net->ct.generation);
  
- #endif /* __KERNEL__ */
-diff --git a/net/netfilter/nf_conntrack_pptp.c b/net/netfilter/nf_conntrack_pptp.c
-index 7bd03de..825c3e3 100644
---- a/net/netfilter/nf_conntrack_pptp.c
-+++ b/net/netfilter/nf_conntrack_pptp.c
-@@ -605,32 +605,14 @@ static struct nf_conntrack_helper pptp __read_mostly = {
- 	.expect_policy		= &pptp_exp_policy,
- };
- 
--static void nf_conntrack_pptp_net_exit(struct net *net)
--{
--	nf_ct_gre_keymap_flush(net);
--}
--
--static struct pernet_operations nf_conntrack_pptp_net_ops = {
--	.exit = nf_conntrack_pptp_net_exit,
--};
--
- static int __init nf_conntrack_pptp_init(void)
- {
--	int rv;
--
--	rv = nf_conntrack_helper_register(&pptp);
--	if (rv < 0)
--		return rv;
--	rv = register_pernet_subsys(&nf_conntrack_pptp_net_ops);
--	if (rv < 0)
--		nf_conntrack_helper_unregister(&pptp);
--	return rv;
-+	return nf_conntrack_helper_register(&pptp);
- }
- 
- static void __exit nf_conntrack_pptp_fini(void)
- {
- 	nf_conntrack_helper_unregister(&pptp);
--	unregister_pernet_subsys(&nf_conntrack_pptp_net_ops);
- }
- 
- module_init(nf_conntrack_pptp_init);
-diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
-index 9d9c0da..d566573 100644
---- a/net/netfilter/nf_conntrack_proto_gre.c
-+++ b/net/netfilter/nf_conntrack_proto_gre.c
-@@ -66,7 +66,7 @@ static inline struct netns_proto_gre *gre_pernet(struct net *net)
- 	return net_generic(net, proto_gre_net_id);
- }
- 
--void nf_ct_gre_keymap_flush(struct net *net)
-+static void nf_ct_gre_keymap_flush(struct net *net)
- {
- 	struct netns_proto_gre *net_gre = gre_pernet(net);
- 	struct nf_ct_gre_keymap *km, *tmp;
-@@ -78,7 +78,6 @@ void nf_ct_gre_keymap_flush(struct net *net)
- 	}
- 	write_unlock_bh(&net_gre->keymap_lock);
- }
--EXPORT_SYMBOL(nf_ct_gre_keymap_flush);
- 
- static inline int gre_key_cmpfn(const struct nf_ct_gre_keymap *km,
- 				const struct nf_conntrack_tuple *t)
+ 	net->ct.pcpu_lists = alloc_percpu(struct ct_pcpu);
+ 	if (!net->ct.pcpu_lists)
 -- 
 1.7.10.4
 
