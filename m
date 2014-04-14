@@ -1,41 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG] A panic caused by null pointer dereference aftering
- updating to
-Date: Mon, 14 Apr 2014 11:19:26 -0700
-Message-ID: <1397499566.4222.36.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1397497204.4222.28.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140414.134901.2191404761213317963.davem@davemloft.net>
-	 <1397498082.4222.29.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140414.140253.788885546068554928.davem@davemloft.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] seccomp: fix memory leak on filter attach
+Date: Mon, 14 Apr 2014 20:23:58 +0200
+Message-ID: <534C27BE.9020709@redhat.com>
+References: <20140414171114.GA31384@www.outflux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: nasa4836@gmail.com, jchapman@katalix.com, edumazet@google.com,
-	joe@perches.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org,
+	Masami Ichikawa <masami256@gmail.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Will Drewry <wad@chromium.org>,
+	Josh Triplett <josh@joshtriplett.org>,
+	Rashika Kheria <rashika.kheria@gmail.com>,
+	James Morris <james.l.morris@oracle.com>, davem@davemloft.net,
+	eparis@redhat.com, netdev@vger.kernel.org
+To: Kees Cook <keescook@chromium.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140414.140253.788885546068554928.davem@davemloft.net>
+In-Reply-To: <20140414171114.GA31384@www.outflux.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-04-14 at 14:02 -0400, David Miller wrote:
+On 04/14/2014 07:11 PM, Kees Cook wrote:
+> This sets the correct error code when final filter memory is unavailable,
+> and frees the raw filter no matter what.
+>
+> unreferenced object 0xffff8800d6ea4000 (size 512):
+>    comm "sshd", pid 278, jiffies 4294898315 (age 46.653s)
+>    hex dump (first 32 bytes):
+>      21 00 00 00 04 00 00 00 15 00 01 00 3e 00 00 c0  !...........>...
+>      06 00 00 00 00 00 00 00 21 00 00 00 00 00 00 00  ........!.......
+>    backtrace:
+>      [<ffffffff8151414e>] kmemleak_alloc+0x4e/0xb0
+>      [<ffffffff811a3a40>] __kmalloc+0x280/0x320
+>      [<ffffffff8110842e>] prctl_set_seccomp+0x11e/0x3b0
+>      [<ffffffff8107bb6b>] SyS_prctl+0x3bb/0x4a0
+>      [<ffffffff8152ef2d>] system_call_fastpath+0x1a/0x1f
+>      [<ffffffffffffffff>] 0xffffffffffffffff
+>
+> Reported-by: Masami Ichikawa <masami256@gmail.com>
+> Signed-off-by: Kees Cook <keescook@chromium.org>
+> Cc: stable@vger.kernel.org
 
-> BTW, it occurs to me that there may be some other spots in the output path
-> that expect that if SKB is ETH_P_IP then skb->sk is IP socket.  For example
-> somewhere in netfilter or packet classifier paths.
-> 
-> Just FYI... that was one of the things I was going to audit.
-
-packet classifiers cannot have such assumptions for sure.
-
-About iptunnel_xmit(), I do not think there is an issue, as we do not
-enter ip_queue_xmit() on this path, but ip_local_out().
-
-ip_local_out() doesn't use skb->sk , unless some netfilter module
-uses this. I am not sure how the previous behavior could be useful in
-this case, as all packets were sharing same socket ownership.
-
-net/netfilter/xt_owner.c for example has better coverage if it can
-really have a pointer to the user socket, not the internal socket used
-by l2tp or vxlan tunnel.
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
