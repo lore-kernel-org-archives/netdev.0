@@ -1,50 +1,40 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH] seccomp: fix populating a0-a5 syscall args in 32-bit x86 BPF
-Date: Mon, 14 Apr 2014 13:28:52 -0700
-Message-ID: <CALCETrUu4zmawcn+U+ppDjK-hPGDff15jOhe5ojJU5ppEw4AzQ@mail.gmail.com>
-References: <1397502179-15029-1-git-send-email-dborkman@redhat.com>
- <534C4179.7070704@amacapital.net> <20140414.162452.1169041476405438694.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: filter: seccomp: fix wrong decoding of
+ BPF_S_ANC_SECCOMP_LD_W
+Date: Mon, 14 Apr 2014 16:47:53 -0400 (EDT)
+Message-ID: <20140414.164753.1675305498861641361.davem@davemloft.net>
+References: <1397503212-17087-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: dborkman@redhat.com, Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	ast@plumgrid.com, Eric Paris <eparis@redhat.com>,
-	James Morris <james.l.morris@oracle.com>,
-	Kees Cook <keescook@chromium.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140414.162452.1169041476405438694.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ast@plumgrid.com, xemul@parallels.com
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58733 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751830AbaDNUr6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 16:47:58 -0400
+In-Reply-To: <1397503212-17087-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 14, 2014 at 1:24 PM, David Miller <davem@davemloft.net> wrote:
-> From: Andy Lutomirski <luto@amacapital.net>
-> Date: Mon, 14 Apr 2014 13:13:45 -0700
->
->> I think this description is wrong.  (unsigned long *) &sd->args[1] is
->> the right location, at least on 32-bit little-endian architectures.
->
-> It absolutely is not.
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Mon, 14 Apr 2014 21:20:12 +0200
 
-Huh?  It's a pointer to the right address, but the type is wrong.
+> While reviewing seccomp code, we found that BPF_S_ANC_SECCOMP_LD_W has
+> been wrongly decoded by commit a8fc927780 ("sk-filter: Add ability to
+> get socket filter program (v2)") into the opcode BPF_LD|BPF_B|BPF_ABS
+> although it should have been decoded as BPF_LD|BPF_W|BPF_ABS.
+> 
+> In practice, this should not have much side-effect though, as such
+> conversion is/was being done through prctl(2) PR_SET_SECCOMP. Reverse
+> operation PR_GET_SECCOMP will only return the current seccomp mode, but
+> not the filter itself. Since the transition to the new BPF infrastructure,
+> it's also not used anymore, so we can simply remove this as it's
+> unreachable.
+> 
+> Fixes: a8fc927780 ("sk-filter: Add ability to get socket filter program (v2)")
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
-The changelog says "on 32-bit x86 (or any other 32bit arch), it would
-result in storing a0-a5 at wrong offsets in args[] member".  Unless
-I'm mistaken, this is incorrect: a0-a5 are are the correct offsets,
-but they are stored with the wrong type, so the other bits in there
-are garbage.
-
->
-> The thing is a u64, and we must respect that type in a completely
-> portable way.
->
-> Daniel's change is %100 correct, portable, and doesn't have any
-> ugly ifdef crap.
->
-
-I have no problem with the patch itself.  I'm suggesting that a better
-changelog message would confuse other people reading the same patch
-less.
-
---Andy
+Applied.
