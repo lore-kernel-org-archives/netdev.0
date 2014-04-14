@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/mlx4_core: Defer VF initialization till PF is
- fully initialized
-Date: Sun, 13 Apr 2014 23:16:28 -0400 (EDT)
-Message-ID: <20140413.231628.385494360877484074.davem@davemloft.net>
-References: <1397402255-9996-1-git-send-email-amirv@mellanox.com>
+Subject: Re: [PATCH net] ipv4: return valid RTA_IIF on ip route get
+Date: Sun, 13 Apr 2014 23:24:08 -0400 (EDT)
+Message-ID: <20140413.232408.2160730307149131073.davem@davemloft.net>
+References: <1397401682-8615-1-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yevgenyp@mellanox.com,
-	ogerlitz@mellanox.com, Stuart_Hayes@Dell.com
-To: amirv@mellanox.com
+Cc: netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49520 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49542 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750770AbaDNDQ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2014 23:16:29 -0400
-In-Reply-To: <1397402255-9996-1-git-send-email-amirv@mellanox.com>
+	with ESMTP id S1750770AbaDNDYK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2014 23:24:10 -0400
+In-Reply-To: <1397401682-8615-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Sun, 13 Apr 2014 18:17:35 +0300
+From: Julian Anastasov <ja@ssi.bg>
+Date: Sun, 13 Apr 2014 18:08:02 +0300
 
-> Fix in commit [1] is not sufficient since a deferred VF initialization
-> could happen after pci_enable_sriov() is finished, but before the PF is
-> fully initialized.
-> Need to prevent VFs from initializing till the PF is fully ready and
-> comm channel is operational.
+> Extend commit 13378cad02afc2adc6c0e07fca03903c7ada0b37
+> ("ipv4: Change rt->rt_iif encoding.") from 3.6 to return valid
+> RTA_IIF on 'ip route get ... iif DEVICE' instead of rt_iif 0
+> which is displayed as 'iif *'.
 > 
-> [1] - 9798935 "net/mlx4_core: mlx4_init_slave() shouldn't access comm
->       channel before PF is ready"
+> inet_iif is not appropriate to use because skb_iif is not set.
+> Use the skb->dev->ifindex instead.
 > 
-> CC: Stuart Hayes <Stuart_Hayes@Dell.com>
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
 
-This patch does not apply to the current 'net' tree, please resubmit.
+Applied and queued up for -stable, thanks Julian.
