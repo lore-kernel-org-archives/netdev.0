@@ -1,71 +1,45 @@
-From: Stratos Karafotis <stratosk@semaphore.gr>
-Subject: [PATCH 20/20] irda: sh_sir: Use cpufreq_for_each_valid_entry macro
- for iteration
-Date: Tue, 15 Apr 2014 00:11:14 +0300
-Message-ID: <534C4EF2.5060200@semaphore.gr>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch iproute2] u32: add terminal parameter
+Date: Mon, 14 Apr 2014 14:18:58 -0700
+Message-ID: <CAM_iQpXJnOOUbpS0WwrB7C50LGxcLhMEQPrDB84Zm-SLKVHh6w@mail.gmail.com>
+References: <1396631826-15188-1-git-send-email-xiyou.wangcong@gmail.com>
+	<20140411140446.6412e9dc@nehalam.linuxnetplumber.net>
+	<CAM_iQpVpNOJ1xiK45qXGRXgBZ2QcmwoPc7p=SOHCo=1kTwPfFQ@mail.gmail.com>
+	<20140411175800.08e9ffe3@nehalam.linuxnetplumber.net>
+	<CAM_iQpU7Ntn-yo-ez0vP2BhKe+-Vaq1w_+MQhFPHM-bbQZx2gg@mail.gmail.com>
+	<534926F7.10505@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Viresh Kumar <viresh.kumar@linaro.org>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: Samuel Ortiz <samuel@sortiz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:44404 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754706AbaDNVS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 17:18:58 -0400
+Received: by mail-ob0-f169.google.com with SMTP id va2so9754690obc.14
+        for <netdev@vger.kernel.org>; Mon, 14 Apr 2014 14:18:58 -0700 (PDT)
+In-Reply-To: <534926F7.10505@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The cpufreq core supports the cpufreq_for_each_valid_entry macro
-helper for iteration over the cpufreq_frequency_table, so use it.
+On Sat, Apr 12, 2014 at 4:43 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> Cong,
+>
+> You MUST specify flowid in your filter construct;->
 
-It should have no functional changes.
+Why? The qdisc my u32 filters attached to is classless (ingress).
 
-Signed-off-by: Stratos Karafotis <stratosk@semaphore.gr>
----
+Also, why this is relevant to u32 terminal?
 
-Please note that I was no able to compile test this patch due to 
-lack of cross compiler.
+> So I agree with Stephen on the verdict on your patch.
+> We need a patch to avoid this FAQ problem since it happens
+> often i.e reject a filter that doesnt have flow/classid
+> specified. How about you provide that patch instead?
+>
 
- drivers/net/irda/sh_sir.c | 14 +++++---------
- 1 file changed, 5 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/irda/sh_sir.c b/drivers/net/irda/sh_sir.c
-index cadf52e..e3fe9a2 100644
---- a/drivers/net/irda/sh_sir.c
-+++ b/drivers/net/irda/sh_sir.c
-@@ -217,21 +217,17 @@ crc_init_out:
- static u32 sh_sir_find_sclk(struct clk *irda_clk)
- {
- 	struct cpufreq_frequency_table *freq_table = irda_clk->freq_table;
-+	struct cpufreq_frequency_table *pos;
- 	struct clk *pclk = clk_get(NULL, "peripheral_clk");
- 	u32 limit, min = 0xffffffff, tmp;
--	int i, index = 0;
-+	int index = 0;
- 
- 	limit = clk_get_rate(pclk);
- 	clk_put(pclk);
- 
- 	/* IrDA can not set over peripheral_clk */
--	for (i = 0;
--	     freq_table[i].frequency != CPUFREQ_TABLE_END;
--	     i++) {
--		u32 freq = freq_table[i].frequency;
--
--		if (freq == CPUFREQ_ENTRY_INVALID)
--			continue;
-+	cpufreq_for_each_valid_entry(pos, freq_table) {
-+		u32 freq = pos->frequency;
- 
- 		/* IrDA should not over peripheral_clk */
- 		if (freq > limit)
-@@ -240,7 +236,7 @@ static u32 sh_sir_find_sclk(struct clk *irda_clk)
- 		tmp = freq % SCLK_BASE;
- 		if (tmp < min) {
- 			min = tmp;
--			index = i;
-+			index = pos - freq_table;
- 		}
- 	}
- 
--- 
-1.9.0
+Even if you were right, it is too late to change, we obviously don't
+want to break existing scripts that work fine. I am pretty sure
+my script runs well without flowid.
