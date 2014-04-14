@@ -1,35 +1,41 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH] drivers: net: xen-netfront: fix array initialization
- bug
-Date: Mon, 14 Apr 2014 10:42:20 +0100
-Message-ID: <534BAD7C.6090107@citrix.com>
-References: <1397296540-3007-1-git-send-email-v.maffione@gmail.com> <20140412.165152.1877473530496221304.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <v.maffione@gmail.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <david.vrabel@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <boris.ostrovsky@oracle.com>
-To: David Miller <davem@davemloft.net>
+From: "Li, Zhen-Hua" <zhen-hual@hp.com>
+Subject: [PATCH 1/1] driver/net: remove unused code in cosa module
+Date: Mon, 14 Apr 2014 18:08:36 +0800
+Message-ID: <1397470116-19669-1-git-send-email-zhen-hual@hp.com>
+Cc: "Li, Zhen-Hua" <zhen-hual@hp.com>
+To: <kas@fi.muni.cz>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140412.165152.1877473530496221304.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/04/14 21:51, David Miller wrote:
-> From: Vincenzo Maffione <v.maffione@gmail.com>
-> Date: Sat, 12 Apr 2014 11:55:40 +0200
-> 
->> This patch fixes the initialization of an array used in the TX
->> datapath that was mistakenly initialized together with the
->> RX datapath arrays. An out of range array access could happen
->> when RX and TX rings had different sizes.
->>
->> Signed-off-by: Vincenzo Maffione <v.maffione@gmail.com>
-> 
-> Good catch, applied, thanks.
+From: "Li, Zhen-Hua" <zhen-hual@hp.com>
 
-Thanks.  You can queue this for net-next since the Tx and Rx rings are
-the same constant size.
+For the cosa module, CONFIG_COSA can only be checked as 'm',
+and cosa module can only be compiled as a module.
 
-David
+So remove unused code in cosa.c
+
+Signed-off-by: Li, Zhen-Hua <zhen-hual@hp.com>
+---
+ drivers/net/wan/cosa.c |    4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/drivers/net/wan/cosa.c b/drivers/net/wan/cosa.c
+index 84734a8..83c39e2 100644
+--- a/drivers/net/wan/cosa.c
++++ b/drivers/net/wan/cosa.c
+@@ -1521,11 +1521,7 @@ static int cosa_reset_and_read_id(struct cosa_data *cosa, char *idstring)
+ 	cosa_putstatus(cosa, 0);
+ 	cosa_getdata8(cosa);
+ 	cosa_putstatus(cosa, SR_RST);
+-#ifdef MODULE
+ 	msleep(500);
+-#else
+-	udelay(5*100000);
+-#endif
+ 	/* Disable all IRQs from the card */
+ 	cosa_putstatus(cosa, 0);
+ 
+-- 
+1.7.10.4
