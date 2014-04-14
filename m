@@ -1,25 +1,25 @@
 From: Balakumaran Kannan <kumaran.4353@gmail.com>
-Subject: [PATCH] net IPv6: Remove unnecessary argument of ndisc_send_ns and
- ndisc_send_na
-Date: Mon, 14 Apr 2014 09:10:26 +0530
-Message-ID: <534B58AA.80704@gmail.com>
+Subject: [PATCH v2] net IPv6: Remove unnecessary argument of ndisc_send_ns
+ and ndisc_send_na
+Date: Mon, 14 Apr 2014 09:36:03 +0530
+Message-ID: <534B5EAB.9050803@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
+	kaber@trash.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:60907 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750826AbaDNDke (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Apr 2014 23:40:34 -0400
-Received: by mail-pa0-f54.google.com with SMTP id lf10so7685906pab.41
-        for <netdev@vger.kernel.org>; Sun, 13 Apr 2014 20:40:33 -0700 (PDT)
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:61585 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750770AbaDNEGK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 00:06:10 -0400
+Received: by mail-pd0-f173.google.com with SMTP id z10so7618551pdj.32
+        for <netdev@vger.kernel.org>; Sun, 13 Apr 2014 21:06:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 The 'neigh' argument of 'ndisc_send_ns' and 'ndisc_send_na' are not used in
-these functions. So this could be removed.
+these functions. So this argument could be removed.
 
 And a minor change of 'optlen' assignment in those functions. the compound
 addition and assignment operator is not needed as 'optlen' value is always
@@ -30,16 +30,20 @@ Signed-off-by: Balakumaran Kannan <kumaran.4353@gmail.com>
 I am not sure whether 'neigh' argument is intentional or planned for any
 future use. If you find this is unnecessary, this patch could be considered.
 
-And ndisc_send_na is used as a function pointer in ipv6_stub. This may affect anybody
-using this structure. But with default configuration built, I didn't get any error or
-warning. Kindly consider this scenario also. 
+And ndisc_send_na is used as a function pointer in ipv6_stub. This may affect
+anybody using this structure. But with default configuration built, I didn't
+get any error or warning. Kindly consider this scenario also.
+
+Please ignore the previous patch as it doesn't have optlen modification in
+ndisc_send_na
+---
 ---
  include/net/addrconf.h |    3 +--
  include/net/ndisc.h    |    6 ++----
  net/ipv6/addrconf.c    |    2 +-
- net/ipv6/ndisc.c       |   19 ++++++++-----------
+ net/ipv6/ndisc.c       |   21 +++++++++------------
  net/ipv6/route.c       |    2 +-
- 5 files changed, 13 insertions(+), 19 deletions(-)
+ 5 files changed, 14 insertions(+), 20 deletions(-)
 
 diff --git a/include/net/addrconf.h b/include/net/addrconf.h
 index 933a9f2..778a78f 100644
@@ -90,7 +94,7 @@ index 6c7fa08..68d0a92 100644
  	in6_ifa_put(ifp);
  	rtnl_unlock();
 diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 09a22f4..ec4faa7 100644
+index 09a22f4..df37c71 100644
 --- a/net/ipv6/ndisc.c
 +++ b/net/ipv6/ndisc.c
 @@ -465,8 +465,7 @@ static void ndisc_send_skb(struct sk_buff *skb,
@@ -103,6 +107,15 @@ index 09a22f4..ec4faa7 100644
  		   const struct in6_addr *solicited_addr,
  		   bool router, bool solicited, bool override, bool inc_opt)
  {
+@@ -496,7 +495,7 @@ void ndisc_send_na(struct net_device *dev, struct neighbour *neigh,
+ 	if (!dev->addr_len)
+ 		inc_opt = 0;
+ 	if (inc_opt)
+-		optlen += ndisc_opt_addr_space(dev);
++		optlen = ndisc_opt_addr_space(dev);
+ 
+ 	skb = ndisc_alloc_skb(dev, sizeof(*msg) + optlen);
+ 	if (!skb)
 @@ -532,7 +531,7 @@ static void ndisc_send_unsol_na(struct net_device *dev)
  
  	read_lock_bh(&idev->lock);
