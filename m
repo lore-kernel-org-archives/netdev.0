@@ -1,8 +1,7 @@
 From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-Subject: [PATCH] net:v3: Add support to configure SR-IOV VF minimum and maximum Tx rate through ip tool.
-Date: Mon, 14 Apr 2014 00:36:10 -0400
-Message-ID: <1397450170-8221-2-git-send-email-sucheta.chakraborty@qlogic.com>
-References: <1397450170-8221-1-git-send-email-sucheta.chakraborty@qlogic.com>
+Subject: [PATCH 1/1] iproute2: v3: Add support to configure SR-IOV VF minimum and maximum Tx rate through ip tool.
+Date: Mon, 14 Apr 2014 00:37:00 -0400
+Message-ID: <1397450220-8269-1-git-send-email-sucheta.chakraborty@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <Dept-HSGLinuxNICDev@qlogic.com>, <ben@decadent.org.uk>,
@@ -10,602 +9,44 @@ Cc: <Dept-HSGLinuxNICDev@qlogic.com>, <ben@decadent.org.uk>,
 	<Ariel.Elior@qlogic.com>, <amirv@mellanox.com>, <mkubecek@suse.cz>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:53633 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750905AbaDNFNw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 01:13:52 -0400
-In-Reply-To: <1397450170-8221-1-git-send-email-sucheta.chakraborty@qlogic.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:4166 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752800AbaDNFOc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 01:14:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-o min_tx_rate puts lower limit on the VF bandwidth. VF is guaranteed
-  to have a bandwidth of at least this value.
-  max_tx_rate puts cap on the VF bandwidth. VF can have a bandwidth
-  of up to this value.
+o "min_tx_rate" option has been added for minimum Tx rate. Hence, for
+  consistent naming, "max_tx_rate" option has been introduced for maximum
+  Tx rate.
 
-o A new handler set_vf_rate for attr IFLA_VF_RATE has been introduced
-  which takes 4 arguments:
-  netdev, VF number, min_tx_rate, max_tx_rate
+o Change in v2: "rate" can be used along with "max_tx_rate".
+  When both are specified, "max_tx_rate" should override.
 
-o ndo_set_vf_rate replaces ndo_set_vf_tx_rate handler.
+o Change in v3:
+  * IFLA_VF_RATE: When IFLA_VF_RATE is used, and user has given only one of
+    min_tx_rate or max_tx_rate, reading of previous rate limits is done in
+    userspace instead of in kernel space before ndo_set_vf_rate.
 
-o Drivers that currently implement ndo_set_vf_tx_rate should now call
-  ndo_set_vf_rate instead and reject attempt to set a minimum bandwidth
-  greater than 0 for IFLA_VF_TX_RATE when IFLA_VF_RATE is not yet
-  implemented by driver.
-
-o If user enters only one of either min_tx_rate or max_tx_rate, then,
-  userland should read back the other value from driver and set both
-  for IFLA_VF_RATE.
-  Drivers that have not yet implemented IFLA_VF_RATE should always
-  return min_tx_rate as 0 when read from ip tool.
-
-o If both IFLA_VF_TX_RATE and IFLA_VF_RATE options are specified, then
-  IFLA_VF_RATE should override.
-
-o Idea is to have consistent display of rate values to user.
-
-o Usage example: -
-
-  ./ip link set p4p1 vf 0 rate 900
-
-  ./ip link show p4p1
-  32: p4p1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
-  DEFAULT qlen 1000
-    link/ether 00:0e:1e:08:b0:f0 brd ff:ff:ff:ff:ff:ff
-    vf 0 MAC 3e:a0:ca:bd:ae:5a, tx rate 900 (Mbps), max tx rate 900
-  (Mbps)
-    vf 1 MAC f6:c6:7c:3f:3d:6c
-    vf 2 MAC 56:32:43:98:d7:71
-    vf 3 MAC d6:be:c3:b5:85:ff
-    vf 4 MAC ee:a9:9a:1e:19:14
-    vf 5 MAC 4a:d0:4c:07:52:18
-    vf 6 MAC 3a:76:44:93:62:f9
-    vf 7 MAC 82:e9:e7:e3:15:1a
-
-  ./ip link set p4p1 vf 0 max_tx_rate 300 min_tx_rate 200
-
-  ./ip link show p4p1
-  32: p4p1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
-  DEFAULT qlen 1000
-    link/ether 00:0e:1e:08:b0:f0 brd ff:ff:ff:ff:ff:ff
-    vf 0 MAC 3e:a0:ca:bd:ae:5a, tx rate 300 (Mbps), max tx rate 300
-  (Mbps), min tx rate 200 (Mbps)
-    vf 1 MAC f6:c6:7c:3f:3d:6c
-    vf 2 MAC 56:32:43:98:d7:71
-    vf 3 MAC d6:be:c3:b5:85:ff
-    vf 4 MAC ee:a9:9a:1e:19:14
-    vf 5 MAC 4a:d0:4c:07:52:18
-    vf 6 MAC 3a:76:44:93:62:f9
-    vf 7 MAC 82:e9:e7:e3:15:1a
-
-  ./ip link set p4p1 vf 0 max_tx_rate 600 rate 300
-
-  ./ip link show p4p1
-  32: p4p1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode
-  DEFAULT qlen 1000
-    link/ether 00:0e:1e:08:b0:f brd ff:ff:ff:ff:ff:ff
-    vf 0 MAC 3e:a0:ca:bd:ae:5, tx rate 600 (Mbps), max tx rate 600
-  (Mbps), min tx rate 200 (Mbps)
-    vf 1 MAC f6:c6:7c:3f:3d:6c
-    vf 2 MAC 56:32:43:98:d7:71
-    vf 3 MAC d6:be:c3:b5:85:ff
-    vf 4 MAC ee:a9:9a:1e:19:14
-    vf 5 MAC 4a:d0:4c:07:52:18
-    vf 6 MAC 3a:76:44:93:62:f9
-    vf 7 MAC 82:e9:e7:e3:15:1a
+  * IFLA_VF_TX_RATE: When IFLA_VF_TX_RATE is used, min_tx_rate is always read
+    in kernel space. This takes care of below scenarios:
+    (1) when old tool sends "rate" but kernel is new (expects min and max)
+    (2) when new tool sends only "rate" but kernel is old (expects only "rate")
 
 Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c  |    3 +-
- drivers/net/ethernet/emulex/benet/be_main.c        |   20 +++++---
- drivers/net/ethernet/intel/i40e/i40e_main.c        |    2 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |    6 ++-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |    3 +-
- drivers/net/ethernet/intel/igb/igb_main.c          |   20 +++++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |   13 +++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h     |    3 +-
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |   11 ++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    1 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |    2 +-
- .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |    1 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |   52 ++++++++++++++------
- drivers/net/ethernet/sfc/siena_sriov.c             |    3 +-
- include/linux/if_link.h                            |    3 +-
- include/linux/netdevice.h                          |    8 ++-
- include/uapi/linux/if_link.h                       |    9 +++-
- net/core/rtnetlink.c                               |   38 ++++++++++++--
- 20 files changed, 142 insertions(+), 60 deletions(-)
+ include/linux/if_link.h |    9 ++++++-
+ ip/ip_common.h          |    1 +
+ ip/ipaddress.c          |   60 +++++++++++++++++++++++++++++++++++++++++++++++
+ ip/iplink.c             |   57 +++++++++++++++++++++++++++++++++++++++++++-
+ man/man8/ip-link.8.in   |   24 +++++++++++++++++-
+ 5 files changed, 147 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index 5c523b3..fcaee7e 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -2551,7 +2551,8 @@ int bnx2x_get_vf_config(struct net_device *dev, int vfidx,
- 
- 	ivi->vf = vfidx;
- 	ivi->qos = 0;
--	ivi->tx_rate = 10000; /* always 10G. TBA take from link struct */
-+	ivi->max_tx_rate = 10000; /* always 10G. TBA take from link struct */
-+	ivi->min_tx_rate = 0;
- 	ivi->spoofchk = 1; /*always enabled */
- 	if (vf->state == VF_ENABLED) {
- 		/* mac and vlan are in vlan_mac objects */
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 3e6df47..e500b4e 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1307,7 +1307,8 @@ static int be_get_vf_config(struct net_device *netdev, int vf,
- 		return -EINVAL;
- 
- 	vi->vf = vf;
--	vi->tx_rate = vf_cfg->tx_rate;
-+	vi->max_tx_rate = vf_cfg->tx_rate;
-+	vi->min_tx_rate = 0;
- 	vi->vlan = vf_cfg->vlan_tag & VLAN_VID_MASK;
- 	vi->qos = vf_cfg->vlan_tag >> VLAN_PRIO_SHIFT;
- 	memcpy(&vi->mac, vf_cfg->mac_addr, ETH_ALEN);
-@@ -1348,8 +1349,8 @@ static int be_set_vf_vlan(struct net_device *netdev,
- 	return status;
- }
- 
--static int be_set_vf_tx_rate(struct net_device *netdev,
--			int vf, int rate)
-+static int be_set_vf_tx_rate(struct net_device *netdev, int vf,
-+			     int min_tx_rate, int max_tx_rate)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 	int status = 0;
-@@ -1360,18 +1361,21 @@ static int be_set_vf_tx_rate(struct net_device *netdev,
- 	if (vf >= adapter->num_vfs)
- 		return -EINVAL;
- 
--	if (rate < 100 || rate > 10000) {
-+	if (min_tx_rate)
-+		return -EINVAL;
-+
-+	if (max_tx_rate < 100 || max_tx_rate > 10000) {
- 		dev_err(&adapter->pdev->dev,
- 			"tx rate must be between 100 and 10000 Mbps\n");
- 		return -EINVAL;
- 	}
- 
--	status = be_cmd_config_qos(adapter, rate / 10, vf + 1);
-+	status = be_cmd_config_qos(adapter, max_tx_rate / 10, vf + 1);
- 	if (status)
- 		dev_err(&adapter->pdev->dev,
--				"tx rate %d on VF %d failed\n", rate, vf);
-+			"max tx rate %d on VF %d failed\n", max_tx_rate, vf);
- 	else
--		adapter->vf_cfg[vf].tx_rate = rate;
-+		adapter->vf_cfg[vf].tx_rate = max_tx_rate;
- 	return status;
- }
- static int be_set_vf_link_state(struct net_device *netdev, int vf,
-@@ -4245,7 +4249,7 @@ static const struct net_device_ops be_netdev_ops = {
- 	.ndo_vlan_rx_kill_vid	= be_vlan_rem_vid,
- 	.ndo_set_vf_mac		= be_set_vf_mac,
- 	.ndo_set_vf_vlan	= be_set_vf_vlan,
--	.ndo_set_vf_tx_rate	= be_set_vf_tx_rate,
-+	.ndo_set_vf_rate	= be_set_vf_tx_rate,
- 	.ndo_get_vf_config	= be_get_vf_config,
- 	.ndo_set_vf_link_state  = be_set_vf_link_state,
- #ifdef CONFIG_NET_POLL_CONTROLLER
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 861b722..8b219d8 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -6664,7 +6664,7 @@ static const struct net_device_ops i40e_netdev_ops = {
- 	.ndo_set_features	= i40e_set_features,
- 	.ndo_set_vf_mac		= i40e_ndo_set_vf_mac,
- 	.ndo_set_vf_vlan	= i40e_ndo_set_vf_port_vlan,
--	.ndo_set_vf_tx_rate	= i40e_ndo_set_vf_bw,
-+	.ndo_set_vf_rate	= i40e_ndo_set_vf_bw,
- 	.ndo_get_vf_config	= i40e_ndo_get_vf_config,
- 	.ndo_set_vf_link_state	= i40e_ndo_set_vf_link_state,
- #ifdef CONFIG_I40E_VXLAN
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 02c11a7..5bececa 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -2158,7 +2158,8 @@ error_pvid:
-  *
-  * configure vf tx rate
-  **/
--int i40e_ndo_set_vf_bw(struct net_device *netdev, int vf_id, int tx_rate)
-+int i40e_ndo_set_vf_bw(struct net_device *netdev, int vf_id, int min_tx_rate,
-+		       int max_tx_rate)
- {
- 	return -EOPNOTSUPP;
- }
-@@ -2200,7 +2201,8 @@ int i40e_ndo_get_vf_config(struct net_device *netdev,
- 
- 	memcpy(&ivi->mac, vf->default_lan_addr.addr, ETH_ALEN);
- 
--	ivi->tx_rate = 0;
-+	ivi->max_tx_rate = 0;
-+	ivi->min_tx_rate = 0;
- 	ivi->vlan = le16_to_cpu(vsi->info.pvid) & I40E_VLAN_MASK;
- 	ivi->qos = (le16_to_cpu(vsi->info.pvid) & I40E_PRIORITY_MASK) >>
- 		   I40E_VLAN_PRIORITY_SHIFT;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-index 389c47f..9a71212 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-@@ -115,7 +115,8 @@ void i40e_vc_notify_vf_reset(struct i40e_vf *vf);
- int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac);
- int i40e_ndo_set_vf_port_vlan(struct net_device *netdev,
- 			      int vf_id, u16 vlan_id, u8 qos);
--int i40e_ndo_set_vf_bw(struct net_device *netdev, int vf_id, int tx_rate);
-+int i40e_ndo_set_vf_bw(struct net_device *netdev, int vf_id, int min_tx_rate,
-+		       int max_tx_rate);
- int i40e_ndo_get_vf_config(struct net_device *netdev,
- 			   int vf_id, struct ifla_vf_info *ivi);
- int i40e_ndo_set_vf_link_state(struct net_device *netdev, int vf_id, int link);
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 3019818..3e90a33 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -172,7 +172,7 @@ static void igb_restore_vf_multicasts(struct igb_adapter *adapter);
- static int igb_ndo_set_vf_mac(struct net_device *netdev, int vf, u8 *mac);
- static int igb_ndo_set_vf_vlan(struct net_device *netdev,
- 			       int vf, u16 vlan, u8 qos);
--static int igb_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate);
-+static int igb_ndo_set_vf_bw(struct net_device *, int, int, int);
- static int igb_ndo_set_vf_spoofchk(struct net_device *netdev, int vf,
- 				   bool setting);
- static int igb_ndo_get_vf_config(struct net_device *netdev, int vf,
-@@ -2087,7 +2087,7 @@ static const struct net_device_ops igb_netdev_ops = {
- 	.ndo_vlan_rx_kill_vid	= igb_vlan_rx_kill_vid,
- 	.ndo_set_vf_mac		= igb_ndo_set_vf_mac,
- 	.ndo_set_vf_vlan	= igb_ndo_set_vf_vlan,
--	.ndo_set_vf_tx_rate	= igb_ndo_set_vf_bw,
-+	.ndo_set_vf_rate	= igb_ndo_set_vf_bw,
- 	.ndo_set_vf_spoofchk	= igb_ndo_set_vf_spoofchk,
- 	.ndo_get_vf_config	= igb_ndo_get_vf_config,
- #ifdef CONFIG_NET_POLL_CONTROLLER
-@@ -7870,7 +7870,8 @@ static void igb_check_vf_rate_limit(struct igb_adapter *adapter)
- 	}
- }
- 
--static int igb_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate)
-+static int igb_ndo_set_vf_bw(struct net_device *netdev, int vf,
-+			     int min_tx_rate, int max_tx_rate)
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
-@@ -7879,15 +7880,19 @@ static int igb_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate)
- 	if (hw->mac.type != e1000_82576)
- 		return -EOPNOTSUPP;
- 
-+	if (min_tx_rate)
-+		return -EINVAL;
-+
- 	actual_link_speed = igb_link_mbps(adapter->link_speed);
- 	if ((vf >= adapter->vfs_allocated_count) ||
- 	    (!(rd32(E1000_STATUS) & E1000_STATUS_LU)) ||
--	    (tx_rate < 0) || (tx_rate > actual_link_speed))
-+	    (max_tx_rate < 0) ||
-+	    (max_tx_rate > actual_link_speed))
- 		return -EINVAL;
- 
- 	adapter->vf_rate_link_speed = actual_link_speed;
--	adapter->vf_data[vf].tx_rate = (u16)tx_rate;
--	igb_set_vf_rate_limit(hw, vf, tx_rate, actual_link_speed);
-+	adapter->vf_data[vf].tx_rate = (u16)max_tx_rate;
-+	igb_set_vf_rate_limit(hw, vf, max_tx_rate, actual_link_speed);
- 
- 	return 0;
- }
-@@ -7927,7 +7932,8 @@ static int igb_ndo_get_vf_config(struct net_device *netdev,
- 		return -EINVAL;
- 	ivi->vf = vf;
- 	memcpy(&ivi->mac, adapter->vf_data[vf].vf_mac_addresses, ETH_ALEN);
--	ivi->tx_rate = adapter->vf_data[vf].tx_rate;
-+	ivi->max_tx_rate = adapter->vf_data[vf].tx_rate;
-+	ivi->min_tx_rate = 0;
- 	ivi->vlan = adapter->vf_data[vf].pf_vlan;
- 	ivi->qos = adapter->vf_data[vf].pf_qos;
- 	ivi->spoofchk = adapter->vf_data[vf].spoofchk_enabled;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 8436c65..61d48fa 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7782,7 +7782,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_do_ioctl		= ixgbe_ioctl,
- 	.ndo_set_vf_mac		= ixgbe_ndo_set_vf_mac,
- 	.ndo_set_vf_vlan	= ixgbe_ndo_set_vf_vlan,
--	.ndo_set_vf_tx_rate	= ixgbe_ndo_set_vf_bw,
-+	.ndo_set_vf_rate	= ixgbe_ndo_set_vf_bw,
- 	.ndo_set_vf_spoofchk	= ixgbe_ndo_set_vf_spoofchk,
- 	.ndo_get_vf_config	= ixgbe_ndo_get_vf_config,
- 	.ndo_get_stats64	= ixgbe_get_stats64,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index e6c68d3..b014087 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -1231,7 +1231,8 @@ void ixgbe_check_vf_rate_limit(struct ixgbe_adapter *adapter)
- 	}
- }
- 
--int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate)
-+int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int min_tx_rate,
-+			int max_tx_rate)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	int link_speed;
-@@ -1249,13 +1250,16 @@ int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate)
- 	if (link_speed != 10000)
- 		return -EINVAL;
- 
-+	if (min_tx_rate)
-+		return -EINVAL;
-+
- 	/* rate limit cannot be less than 10Mbs or greater than link speed */
--	if (tx_rate && ((tx_rate <= 10) || (tx_rate > link_speed)))
-+	if (max_tx_rate && ((max_tx_rate <= 10) || (max_tx_rate > link_speed)))
- 		return -EINVAL;
- 
- 	/* store values */
- 	adapter->vf_rate_link_speed = link_speed;
--	adapter->vfinfo[vf].tx_rate = tx_rate;
-+	adapter->vfinfo[vf].tx_rate = max_tx_rate;
- 
- 	/* update hardware configuration */
- 	ixgbe_set_vf_rate_limit(adapter, vf);
-@@ -1297,7 +1301,8 @@ int ixgbe_ndo_get_vf_config(struct net_device *netdev,
- 		return -EINVAL;
- 	ivi->vf = vf;
- 	memcpy(&ivi->mac, adapter->vfinfo[vf].vf_mac_addresses, ETH_ALEN);
--	ivi->tx_rate = adapter->vfinfo[vf].tx_rate;
-+	ivi->max_tx_rate = adapter->vfinfo[vf].tx_rate;
-+	ivi->min_tx_rate = 0;
- 	ivi->vlan = adapter->vfinfo[vf].pf_vlan;
- 	ivi->qos = adapter->vfinfo[vf].pf_qos;
- 	ivi->spoofchk = adapter->vfinfo[vf].spoofchk_enabled;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-index 139eadd..3adc6a4 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-@@ -42,7 +42,8 @@ void ixgbe_ping_all_vfs(struct ixgbe_adapter *adapter);
- int ixgbe_ndo_set_vf_mac(struct net_device *netdev, int queue, u8 *mac);
- int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int queue, u16 vlan,
- 			   u8 qos);
--int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate);
-+int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int min_tx_rate,
-+			int max_tx_rate);
- int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting);
- int ixgbe_ndo_get_vf_config(struct net_device *netdev,
- 			    int vf, struct ifla_vf_info *ivi);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 78099ea..c3f59c0 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -2481,11 +2481,12 @@ int mlx4_get_vf_config(struct mlx4_dev *dev, int port, int vf, struct ifla_vf_in
- 	ivf->mac[4] = ((s_info->mac >> (1*8)) & 0xff);
- 	ivf->mac[5] = ((s_info->mac)  & 0xff);
- 
--	ivf->vlan	= s_info->default_vlan;
--	ivf->qos	= s_info->default_qos;
--	ivf->tx_rate	= s_info->tx_rate;
--	ivf->spoofchk	= s_info->spoofchk;
--	ivf->linkstate	= s_info->link_state;
-+	ivf->vlan		= s_info->default_vlan;
-+	ivf->qos		= s_info->default_qos;
-+	ivf->max_tx_rate	= s_info->tx_rate;
-+	ivf->min_tx_rate	= 0;
-+	ivf->spoofchk		= s_info->spoofchk;
-+	ivf->linkstate		= s_info->link_state;
- 
- 	return 0;
- }
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 7b52a88..3f75197 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -1316,6 +1316,7 @@ struct qlcnic_eswitch {
- #define QL_STATUS_INVALID_PARAM	-1
- 
- #define MAX_BW			100	/* % of link speed */
-+#define MIN_BW			1	/* % of link speed */
- #define MAX_VLAN_ID		4095
- #define MIN_VLAN_ID		2
- #define DEFAULT_MAC_LEARN	1
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 309d056..a891e53 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -522,7 +522,7 @@ static const struct net_device_ops qlcnic_netdev_ops = {
- #endif
- #ifdef CONFIG_QLCNIC_SRIOV
- 	.ndo_set_vf_mac		= qlcnic_sriov_set_vf_mac,
--	.ndo_set_vf_tx_rate	= qlcnic_sriov_set_vf_tx_rate,
-+	.ndo_set_vf_rate	= qlcnic_sriov_set_vf_tx_rate,
- 	.ndo_get_vf_config	= qlcnic_sriov_get_vf_config,
- 	.ndo_set_vf_vlan	= qlcnic_sriov_set_vf_vlan,
- 	.ndo_set_vf_spoofchk	= qlcnic_sriov_set_vf_spoofchk,
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
-index 396bd1f..c38ac4c 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
-@@ -231,7 +231,7 @@ bool qlcnic_sriov_soft_flr_check(struct qlcnic_adapter *,
- void qlcnic_sriov_pf_reset(struct qlcnic_adapter *);
- int qlcnic_sriov_pf_reinit(struct qlcnic_adapter *);
- int qlcnic_sriov_set_vf_mac(struct net_device *, int, u8 *);
--int qlcnic_sriov_set_vf_tx_rate(struct net_device *, int, int);
-+int qlcnic_sriov_set_vf_tx_rate(struct net_device *, int, int, int);
- int qlcnic_sriov_get_vf_config(struct net_device *, int ,
- 			       struct ifla_vf_info *);
- int qlcnic_sriov_set_vf_vlan(struct net_device *, int, u16, u8);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-index 0638c18..2304848 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-@@ -198,6 +198,7 @@ int qlcnic_sriov_init(struct qlcnic_adapter *adapter, int num_vfs)
- 			}
- 			sriov->vf_info[i].vp = vp;
- 			vp->max_tx_bw = MAX_BW;
-+			vp->min_tx_bw = MIN_BW;
- 			vp->spoofchk = true;
- 			random_ether_addr(vp->mac);
- 			dev_info(&adapter->pdev->dev,
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-index 14f748c..c490475 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-@@ -1805,7 +1805,8 @@ int qlcnic_sriov_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
- 	return 0;
- }
- 
--int qlcnic_sriov_set_vf_tx_rate(struct net_device *netdev, int vf, int tx_rate)
-+int qlcnic_sriov_set_vf_tx_rate(struct net_device *netdev, int vf,
-+				int min_tx_rate, int max_tx_rate)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	struct qlcnic_sriov *sriov = adapter->ahw->sriov;
-@@ -1820,35 +1821,52 @@ int qlcnic_sriov_set_vf_tx_rate(struct net_device *netdev, int vf, int tx_rate)
- 	if (vf >= sriov->num_vfs)
- 		return -EINVAL;
- 
--	if (tx_rate >= 10000 || tx_rate < 100) {
-+	vf_info = &sriov->vf_info[vf];
-+	vp = vf_info->vp;
-+	vpid = vp->handle;
-+
-+	if (!min_tx_rate)
-+		min_tx_rate = QLC_VF_MIN_TX_RATE;
-+
-+	if (max_tx_rate &&
-+	    (max_tx_rate >= 10000 || max_tx_rate < min_tx_rate)) {
- 		netdev_err(netdev,
--			   "Invalid Tx rate, allowed range is [%d - %d]",
--			   QLC_VF_MIN_TX_RATE, QLC_VF_MAX_TX_RATE);
-+			   "Invalid max Tx rate, allowed range is [%d - %d]",
-+			   min_tx_rate, QLC_VF_MAX_TX_RATE);
- 		return -EINVAL;
- 	}
- 
--	if (tx_rate == 0)
--		tx_rate = 10000;
-+	if (!max_tx_rate)
-+		max_tx_rate = 10000;
- 
--	vf_info = &sriov->vf_info[vf];
--	vp = vf_info->vp;
--	vpid = vp->handle;
-+	if (min_tx_rate &&
-+	    (min_tx_rate > max_tx_rate || min_tx_rate < QLC_VF_MIN_TX_RATE)) {
-+		netdev_err(netdev,
-+			   "Invalid min Tx rate, allowed range is [%d - %d]",
-+			   QLC_VF_MIN_TX_RATE, max_tx_rate);
-+		return -EINVAL;
-+	}
- 
- 	if (test_bit(QLC_BC_VF_STATE, &vf_info->state)) {
- 		if (qlcnic_sriov_get_vf_vport_info(adapter, &nic_info, vpid))
- 			return -EIO;
- 
--		nic_info.max_tx_bw = tx_rate / 100;
-+		nic_info.max_tx_bw = max_tx_rate / 100;
-+		nic_info.min_tx_bw = min_tx_rate / 100;
- 		nic_info.bit_offsets = BIT_0;
- 
- 		if (qlcnic_sriov_pf_set_vport_info(adapter, &nic_info, vpid))
- 			return -EIO;
- 	}
- 
--	vp->max_tx_bw = tx_rate / 100;
-+	vp->max_tx_bw = max_tx_rate / 100;
-+	netdev_info(netdev,
-+		    "Setting Max Tx rate %d (Mbps), %d %% of PF bandwidth, for VF %d\n",
-+		    max_tx_rate, vp->max_tx_bw, vf);
-+	vp->min_tx_bw = min_tx_rate / 100;
- 	netdev_info(netdev,
--		    "Setting Tx rate %d (Mbps), %d %% of PF bandwidth, for VF %d\n",
--		    tx_rate, vp->max_tx_bw, vf);
-+		    "Setting Min Tx rate %d (Mbps), %d %% of PF bandwidth, for VF %d\n",
-+		    min_tx_rate, vp->min_tx_bw, vf);
- 	return 0;
- }
- 
-@@ -1947,9 +1965,13 @@ int qlcnic_sriov_get_vf_config(struct net_device *netdev,
- 	ivi->qos = vp->qos;
- 	ivi->spoofchk = vp->spoofchk;
- 	if (vp->max_tx_bw == MAX_BW)
--		ivi->tx_rate = 0;
-+		ivi->max_tx_rate = 0;
-+	else
-+		ivi->max_tx_rate = vp->max_tx_bw * 100;
-+	if (vp->min_tx_bw == MIN_BW)
-+		ivi->min_tx_rate = 0;
- 	else
--		ivi->tx_rate = vp->max_tx_bw * 100;
-+		ivi->min_tx_rate = vp->min_tx_bw * 100;
- 
- 	ivi->vf = vf;
- 	return 0;
-diff --git a/drivers/net/ethernet/sfc/siena_sriov.c b/drivers/net/ethernet/sfc/siena_sriov.c
-index 9a9205e..43d2e64 100644
---- a/drivers/net/ethernet/sfc/siena_sriov.c
-+++ b/drivers/net/ethernet/sfc/siena_sriov.c
-@@ -1633,7 +1633,8 @@ int efx_sriov_get_vf_config(struct net_device *net_dev, int vf_i,
- 
- 	ivi->vf = vf_i;
- 	ether_addr_copy(ivi->mac, vf->addr.mac_addr);
--	ivi->tx_rate = 0;
-+	ivi->max_tx_rate = 0;
-+	ivi->min_tx_rate = 0;
- 	tci = ntohs(vf->addr.tci);
- 	ivi->vlan = tci & VLAN_VID_MASK;
- 	ivi->qos = (tci >> VLAN_PRIO_SHIFT) & 0x7;
 diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index a86784d..119130e 100644
+index f08505c..4388f3e 100644
 --- a/include/linux/if_link.h
 +++ b/include/linux/if_link.h
-@@ -10,8 +10,9 @@ struct ifla_vf_info {
- 	__u8 mac[32];
- 	__u32 vlan;
- 	__u32 qos;
--	__u32 tx_rate;
- 	__u32 spoofchk;
- 	__u32 linkstate;
-+	__u32 min_tx_rate;
-+	__u32 max_tx_rate;
- };
- #endif /* _LINUX_IF_LINK_H */
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 7ed3a3a..046257a 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -853,7 +853,8 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
-  *	SR-IOV management functions.
-  * int (*ndo_set_vf_mac)(struct net_device *dev, int vf, u8* mac);
-  * int (*ndo_set_vf_vlan)(struct net_device *dev, int vf, u16 vlan, u8 qos);
-- * int (*ndo_set_vf_tx_rate)(struct net_device *dev, int vf, int rate);
-+ * int (*ndo_set_vf_rate)(struct net_device *dev, int vf, int min_tx_rate,
-+ *			  int max_tx_rate);
-  * int (*ndo_set_vf_spoofchk)(struct net_device *dev, int vf, bool setting);
-  * int (*ndo_get_vf_config)(struct net_device *dev,
-  *			    int vf, struct ifla_vf_info *ivf);
-@@ -1047,8 +1048,9 @@ struct net_device_ops {
- 						  int queue, u8 *mac);
- 	int			(*ndo_set_vf_vlan)(struct net_device *dev,
- 						   int queue, u16 vlan, u8 qos);
--	int			(*ndo_set_vf_tx_rate)(struct net_device *dev,
--						      int vf, int rate);
-+	int			(*ndo_set_vf_rate)(struct net_device *dev,
-+						   int vf, int min_tx_rate,
-+						   int max_tx_rate);
- 	int			(*ndo_set_vf_spoofchk)(struct net_device *dev,
- 						       int vf, bool setting);
- 	int			(*ndo_get_vf_config)(struct net_device *dev,
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 9a7f7ac..622e791 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -399,9 +399,10 @@ enum {
+@@ -396,9 +396,10 @@ enum {
  	IFLA_VF_UNSPEC,
  	IFLA_VF_MAC,		/* Hardware queue specific attributes */
  	IFLA_VF_VLAN,
@@ -617,111 +58,254 @@ index 9a7f7ac..622e791 100644
  	__IFLA_VF_MAX,
  };
  
-@@ -423,6 +424,12 @@ struct ifla_vf_tx_rate {
+@@ -420,6 +421,12 @@ struct ifla_vf_tx_rate {
  	__u32 rate; /* Max TX bandwidth in Mbps, 0 disables throttling */
  };
  
 +struct ifla_vf_rate {
 +	__u32 vf;
-+	__u32 min_tx_rate; /* Min Bandwidth in Mbps */
-+	__u32 max_tx_rate; /* Max Bandwidth in Mbps */
++	__u32 min_tx_rate; /* Min TX bandwidth in Mbps */
++	__u32 max_tx_rate; /* Max TX bandwidth in Mbps */
 +};
 +
  struct ifla_vf_spoofchk {
  	__u32 vf;
  	__u32 setting;
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index d4ff417..fa693eb 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -767,8 +767,8 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev,
- 		size += num_vfs *
- 			(nla_total_size(sizeof(struct ifla_vf_mac)) +
- 			 nla_total_size(sizeof(struct ifla_vf_vlan)) +
--			 nla_total_size(sizeof(struct ifla_vf_tx_rate)) +
--			 nla_total_size(sizeof(struct ifla_vf_spoofchk)));
-+			 nla_total_size(sizeof(struct ifla_vf_spoofchk)) +
-+			 nla_total_size(sizeof(struct ifla_vf_rate)));
- 		return size;
- 	} else
- 		return 0;
-@@ -1030,6 +1030,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			struct ifla_vf_info ivi;
- 			struct ifla_vf_mac vf_mac;
- 			struct ifla_vf_vlan vf_vlan;
-+			struct ifla_vf_rate vf_rate;
- 			struct ifla_vf_tx_rate vf_tx_rate;
- 			struct ifla_vf_spoofchk vf_spoofchk;
- 			struct ifla_vf_link_state vf_linkstate;
-@@ -1050,6 +1051,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 				break;
- 			vf_mac.vf =
- 				vf_vlan.vf =
-+				vf_rate.vf =
- 				vf_tx_rate.vf =
- 				vf_spoofchk.vf =
- 				vf_linkstate.vf = ivi.vf;
-@@ -1057,7 +1059,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			memcpy(vf_mac.mac, ivi.mac, sizeof(ivi.mac));
- 			vf_vlan.vlan = ivi.vlan;
- 			vf_vlan.qos = ivi.qos;
--			vf_tx_rate.rate = ivi.tx_rate;
-+			vf_tx_rate.rate = ivi.max_tx_rate;
-+			vf_rate.min_tx_rate = ivi.min_tx_rate;
-+			vf_rate.max_tx_rate = ivi.max_tx_rate;
- 			vf_spoofchk.setting = ivi.spoofchk;
- 			vf_linkstate.link_state = ivi.linkstate;
- 			vf = nla_nest_start(skb, IFLA_VF_INFO);
-@@ -1067,6 +1071,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			}
- 			if (nla_put(skb, IFLA_VF_MAC, sizeof(vf_mac), &vf_mac) ||
- 			    nla_put(skb, IFLA_VF_VLAN, sizeof(vf_vlan), &vf_vlan) ||
-+			    nla_put(skb, IFLA_VF_RATE, sizeof(vf_rate),
-+				    &vf_rate) ||
- 			    nla_put(skb, IFLA_VF_TX_RATE, sizeof(vf_tx_rate),
- 				    &vf_tx_rate) ||
- 			    nla_put(skb, IFLA_VF_SPOOFCHK, sizeof(vf_spoofchk),
-@@ -1173,6 +1179,8 @@ static const struct nla_policy ifla_vf_policy[IFLA_VF_MAX+1] = {
- 				    .len = sizeof(struct ifla_vf_tx_rate) },
- 	[IFLA_VF_SPOOFCHK]	= { .type = NLA_BINARY,
- 				    .len = sizeof(struct ifla_vf_spoofchk) },
-+	[IFLA_VF_RATE]		= { .type = NLA_BINARY,
-+				    .len = sizeof(struct ifla_vf_rate) },
- };
+diff --git a/ip/ip_common.h b/ip/ip_common.h
+index 698dc7a..849ffff 100644
+--- a/ip/ip_common.h
++++ b/ip/ip_common.h
+@@ -17,6 +17,7 @@ extern int iproute_monitor(int argc, char **argv);
+ extern void iplink_usage(void) __attribute__((noreturn));
+ extern void iproute_reset_filter(void);
+ extern void ipmroute_reset_filter(void);
++void ipaddr_get_vf_rate(int, int *, int *);
+ extern void ipaddr_reset_filter(int);
+ extern void ipneigh_reset_filter(void);
+ extern void ipntable_reset_filter(void);
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 14d1720..b53b9e8 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -245,6 +245,7 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
+ {
+ 	struct ifla_vf_mac *vf_mac;
+ 	struct ifla_vf_vlan *vf_vlan;
++	struct ifla_vf_rate *vf_rate;
+ 	struct ifla_vf_tx_rate *vf_tx_rate;
+ 	struct ifla_vf_spoofchk *vf_spoofchk;
+ 	struct ifla_vf_link_state *vf_linkstate;
+@@ -262,6 +263,7 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
+ 	vf_mac = RTA_DATA(vf[IFLA_VF_MAC]);
+ 	vf_vlan = RTA_DATA(vf[IFLA_VF_VLAN]);
+ 	vf_tx_rate = RTA_DATA(vf[IFLA_VF_TX_RATE]);
++	vf_rate = RTA_DATA(vf[IFLA_VF_RATE]);
  
- static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
-@@ -1325,11 +1333,29 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
- 		}
- 		case IFLA_VF_TX_RATE: {
- 			struct ifla_vf_tx_rate *ivt;
-+			struct ifla_vf_info ivf;
- 			ivt = nla_data(vf);
- 			err = -EOPNOTSUPP;
--			if (ops->ndo_set_vf_tx_rate)
--				err = ops->ndo_set_vf_tx_rate(dev, ivt->vf,
--							      ivt->rate);
-+			if (ops->ndo_get_vf_config)
-+				err = ops->ndo_get_vf_config(dev, ivt->vf,
-+							     &ivf);
-+			if (err)
-+				break;
-+			err = -EOPNOTSUPP;
-+			if (ops->ndo_set_vf_rate)
-+				err = ops->ndo_set_vf_rate(dev, ivt->vf,
-+							   ivf.min_tx_rate,
-+							   ivt->rate);
-+			break;
+ 	/* Check if the spoof checking vf info type is supported by
+ 	 * this kernel.
+@@ -297,6 +299,10 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
+ 		fprintf(fp, ", qos %d", vf_vlan->qos);
+ 	if (vf_tx_rate->rate)
+ 		fprintf(fp, ", tx rate %d (Mbps)", vf_tx_rate->rate);
++	if (vf_rate->max_tx_rate)
++		fprintf(fp, ", max tx rate %d (Mbps)", vf_rate->max_tx_rate);
++	if (vf_rate->min_tx_rate)
++		fprintf(fp, ", min tx rate %d (Mbps)", vf_rate->min_tx_rate);
+ 	if (vf_spoofchk && vf_spoofchk->setting != -1) {
+ 		if (vf_spoofchk->setting)
+ 			fprintf(fp, ", spoof checking on");
+@@ -1252,6 +1258,60 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
+ 	return 0;
+ }
+ 
++static void
++ipaddr_loop_each_vf(struct rtattr *tb[], int vfnum, int *min, int *max)
++{
++	struct rtattr *vflist = tb[IFLA_VFINFO_LIST];
++	struct rtattr *i, *vf[IFLA_VF_MAX+1];
++	struct ifla_vf_rate *vf_rate;
++	int rem;
++
++	rem = RTA_PAYLOAD(vflist);
++
++	for (i = RTA_DATA(vflist); RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
++		parse_rtattr_nested(vf, IFLA_VF_MAX, i);
++		vf_rate = RTA_DATA(vf[IFLA_VF_RATE]);
++		if (vf_rate->vf == vfnum) {
++			*min = vf_rate->min_tx_rate;
++			*max = vf_rate->max_tx_rate;
++			return;
 +		}
-+		case IFLA_VF_RATE: {
-+			struct ifla_vf_rate *ivt;
-+			ivt = nla_data(vf);
-+			err = -EOPNOTSUPP;
-+			if (ops->ndo_set_vf_rate)
-+				err = ops->ndo_set_vf_rate(dev, ivt->vf,
-+							   ivt->min_tx_rate,
-+							   ivt->max_tx_rate);
- 			break;
++	}
++	fprintf(stderr, "Cannot find VF %d\n", vfnum);
++	exit(1);
++}
++
++void ipaddr_get_vf_rate(int vfnum, int *min, int *max)
++{
++	struct nlmsg_chain linfo = { NULL, NULL};
++	struct rtattr *tb[IFLA_MAX+1];
++	struct ifinfomsg *ifi;
++	struct nlmsg_list *l;
++	struct nlmsghdr *n;
++	int len;
++
++	if (rtnl_wilddump_request(&rth, AF_UNSPEC, RTM_GETLINK) < 0) {
++		perror("Cannot send dump request");
++		exit(1);
++	}
++	if (rtnl_dump_filter(&rth, store_nlmsg, &linfo) < 0) {
++		fprintf(stderr, "Dump terminated\n");
++		exit(1);
++	}
++	for (l = linfo.head; l; l = l->next) {
++		n = &l->h;
++		ifi = NLMSG_DATA(n);
++		len = n->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
++
++		parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
++
++		if ((tb[IFLA_VFINFO_LIST] && tb[IFLA_NUM_VF])) {
++			ipaddr_loop_each_vf(tb, vfnum, min, max);
++			return;
++		}
++	}
++}
++
+ int ipaddr_list_link(int argc, char **argv)
+ {
+ 	preferred_family = AF_PACKET;
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 6a62cc0..a6bf283 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -217,14 +217,38 @@ struct iplink_req {
+ static int iplink_parse_vf(int vf, int *argcp, char ***argvp,
+ 			   struct iplink_req *req)
+ {
++	char new_rate_api = 0, count = 0, override_legacy_rate = 0;
++	struct ifla_vf_rate tivt;
+ 	int len, argc = *argcp;
+ 	char **argv = *argvp;
+ 	struct rtattr *vfinfo;
+ 
++	tivt.min_tx_rate = -1;
++	tivt.max_tx_rate = -1;
++
+ 	vfinfo = addattr_nest(&req->n, sizeof(*req), IFLA_VF_INFO);
+ 
+ 	while (NEXT_ARG_OK()) {
+ 		NEXT_ARG();
++		count++;
++		if (!matches(*argv, "max_tx_rate")) {
++			/* new API in use */
++			new_rate_api = 1;
++			/* override legacy rate */
++			override_legacy_rate = 1;
++		} else if (!matches(*argv, "min_tx_rate")) {
++			/* new API in use */
++			new_rate_api = 1;
++		}
++	}
++
++	while (count--) {
++		/* rewind arg */
++		PREV_ARG();
++	}
++
++	while (NEXT_ARG_OK()) {
++		NEXT_ARG();
+ 		if (matches(*argv, "mac") == 0) {
+ 			struct ifla_vf_mac ivm;
+ 			NEXT_ARG();
+@@ -261,7 +285,25 @@ static int iplink_parse_vf(int vf, int *argcp, char ***argvp,
+ 				invarg("Invalid \"rate\" value\n", *argv);
+ 			}
+ 			ivt.vf = vf;
+-			addattr_l(&req->n, sizeof(*req), IFLA_VF_TX_RATE, &ivt, sizeof(ivt));
++			if (!new_rate_api)
++				addattr_l(&req->n, sizeof(*req),
++					  IFLA_VF_TX_RATE, &ivt, sizeof(ivt));
++			else if (!override_legacy_rate)
++				tivt.max_tx_rate = ivt.rate;
++
++		} else if (matches(*argv, "max_tx_rate") == 0) {
++			NEXT_ARG();
++			if (get_unsigned(&tivt.max_tx_rate, *argv, 0))
++				invarg("Invalid \"max tx rate\" value\n",
++				       *argv);
++			tivt.vf = vf;
++
++		} else if (matches(*argv, "min_tx_rate") == 0) {
++			NEXT_ARG();
++			if (get_unsigned(&tivt.min_tx_rate, *argv, 0))
++				invarg("Invalid \"min tx rate\" value\n",
++				       *argv);
++			tivt.vf = vf;
+ 
+ 		} else if (matches(*argv, "spoofchk") == 0) {
+ 			struct ifla_vf_spoofchk ivs;
+@@ -295,6 +337,19 @@ static int iplink_parse_vf(int vf, int *argcp, char ***argvp,
  		}
- 		case IFLA_VF_SPOOFCHK: {
+ 	}
+ 
++	if (new_rate_api) {
++		int tmin, tmax;
++		if (tivt.min_tx_rate == -1 || tivt.max_tx_rate == -1) {
++			ipaddr_get_vf_rate(tivt.vf, &tmin, &tmax);
++			if (tivt.min_tx_rate == -1)
++				tivt.min_tx_rate = tmin;
++			if (tivt.max_tx_rate == -1)
++				tivt.max_tx_rate = tmax;
++		}
++		addattr_l(&req->n, sizeof(*req), IFLA_VF_RATE, &tivt,
++			  sizeof(tivt));
++	}
++
+ 	if (argc == *argcp)
+ 		incomplete_command();
+ 
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index 94d07fc..4a21e1d 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -124,6 +124,10 @@ ip-link \- network device configuration
+ .IR VLAN-QOS " ] ] ["
+ .B rate
+ .IR TXRATE " ] ["
++.B max_tx_rate
++.IR TXRATE " ] ["
++.B min_tx_rate
++.IR TXRATE " ] ["
+ .B spoofchk { on | off }
+ ] |
+ .br
+@@ -568,8 +572,24 @@ as 0 disables VLAN tagging and filtering for the VF.
+ 
+ .sp
+ .BI rate " TXRATE"
+-- change the allowed transmit bandwidth, in Mbps, for the specified VF.
+-Setting this parameter to 0 disables rate limiting. The
++-- change the allowed transmit bandwidth, in Mbps, for the specified VF.
++Setting this parameter to 0 disables rate limiting.
++This option will be deprecated in future. Please use
++.B "max_tx_rate"
++option instead.
++.B vf
++parameter must be specified.
++
++.sp
++.BI max_tx_rate " TXRATE"
++- change the allowed maximum transmit bandwidth, in Mbps, for the specified VF.
++.B vf
++parameter must be specified.
++
++.sp
++.BI min_tx_rate " TXRATE"
++- change the allowed minimum transmit bandwidth, in Mbps, for the specified VF.
++Minimum TXRATE should be always <= Maximum TXRATE. The
+ .B vf
+ parameter must be specified.
+ 
 -- 
-1.5.6
+1.7.1
