@@ -1,72 +1,44 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [RFC] sh_eth: use RNC mode for R8A7790
-Date: Mon, 14 Apr 2014 18:48:34 +0200
-Message-ID: <CAMuHMdUwDxb5K+Q335isLE-+HLwbwGSksp0KYmGoaXGYQmSiug@mail.gmail.com>
-References: <1396025185-7911-1-git-send-email-ben.dooks@codethink.co.uk>
-	<5335DDC7.8040400@cogentembedded.com>
-	<534BD8F9.5080105@codethink.co.uk>
-	<CAMuHMdX_7eX1F7PkO4WAkUdeNgPjkY_LozGZFeAROEN=K0Jp2w@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Xen-devel] [PATCH] drivers: net: xen-netfront: fix array
+ initialization bug
+Date: Mon, 14 Apr 2014 12:51:31 -0400 (EDT)
+Message-ID: <20140414.125131.1934050779129550948.davem@davemloft.net>
+References: <1397296540-3007-1-git-send-email-v.maffione@gmail.com>
+	<20140412.165152.1877473530496221304.davem@davemloft.net>
+	<534BAD7C.6090107@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	magnus.damm@opensource.se,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-To: Ben Dooks <ben.dooks@codethink.co.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:46418 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755649AbaDNQsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 12:48:36 -0400
-In-Reply-To: <CAMuHMdX_7eX1F7PkO4WAkUdeNgPjkY_LozGZFeAROEN=K0Jp2w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: v.maffione@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org,
+	boris.ostrovsky@oracle.com
+To: david.vrabel@citrix.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <534BAD7C.6090107@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 14, 2014 at 6:35 PM, Geert Uytterhoeven
-<geert@linux-m68k.org> wrote:
-> On Mon, Apr 14, 2014 at 2:47 PM, Ben Dooks <ben.dooks@codethink.co.uk> wrote:
->> On 28/03/14 20:38, Sergei Shtylyov wrote:
->>> On 03/28/2014 07:46 PM, Ben Dooks wrote:
->>>> The current behaviour of the sh_eth driver is not to use the RNC bit
->>>> for the receive ring. This means that every packet recieved is not only
->>>> generating an IRQ but it also stops the receive ring DMA as well until
->>>> the driver re-enables it after unloading the packet.
->>>
->>>> This means that a number of the following errors are generated due to
->>>> the receive packet FIFO overflowing due to nowhere to put packets:
->>>
->>>>     net eth0: Receive FIFO Overflow
->>>
->>>> Setting the RMCR_RNC configuration has so far been tested with an NFS
->>>> root filesystem and the driver has not failed yet. It is not yet known
->>>> why this is not set for R8A779x operation
->>>
->>>     The reason is simple: it's not set on almost all 100 Mbs devices
->>> except SH7757 (and most recently added R7S72100), so this was a matter
->>> of copy-paste. I've had setting this bit on at least R-Car devices on my
->>> aganda for some time but couldn't get to it yet.
->>>
->>>> (Feedback on this issue or other testing is welcome)
->>>
->>>     OK, I'll try it with netperf UDP test known to generate handful of
->>> the aforementioned errors, when I have time.
->>
->> Has anyone had time to look at this?
->
-> I gave it a try on Koelsch (it does apply to r8a7791, too, right?), and didn't
-> see any good or ill effects. Just using NFS root and generating some I/O,
-> so nothing fancy.
+From: David Vrabel <david.vrabel@citrix.com>
+Date: Mon, 14 Apr 2014 10:42:20 +0100
 
-FWIW, I still have "renesas,no-ether-link" in the ethernet node in DT.
+> On 12/04/14 21:51, David Miller wrote:
+>> From: Vincenzo Maffione <v.maffione@gmail.com>
+>> Date: Sat, 12 Apr 2014 11:55:40 +0200
+>> 
+>>> This patch fixes the initialization of an array used in the TX
+>>> datapath that was mistakenly initialized together with the
+>>> RX datapath arrays. An out of range array access could happen
+>>> when RX and TX rings had different sizes.
+>>>
+>>> Signed-off-by: Vincenzo Maffione <v.maffione@gmail.com>
+>> 
+>> Good catch, applied, thanks.
+> 
+> Thanks.  You can queue this for net-next since the Tx and Rx rings are
+> the same constant size.
 
-Gr{oetje,eeting}s,
+I was able to determine when I reviewed this patch that the size in bytes
+of the rings are the same (PAGE_SIZE), but I couldn't ascertain whether
+the individual ring entries in the TX ring and RX ring are the same size.
 
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Are they?
