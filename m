@@ -1,32 +1,195 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] Netfilter fixes for net
-Date: Mon, 14 Apr 2014 19:00:32 -0400 (EDT)
-Message-ID: <20140414.190032.1844010181476508083.davem@davemloft.net>
-References: <1397515415-5477-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1397515415-5477-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chema Gonzalez <chema@google.com>
+Subject: [PATCH] filter: added BPF random opcode
+Date: Mon, 14 Apr 2014 16:02:49 -0700
+Message-ID: <1397516569-31033-1-git-send-email-chema@google.com>
+Cc: netdev@vger.kernel.org, Chema Gonzalez <chema@google.com>
+To: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f201.google.com ([209.85.192.201]:42351 "EHLO
+	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752798AbaDNXCz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 19:02:55 -0400
+Received: by mail-pd0-f201.google.com with SMTP id x10so1139889pdj.0
+        for <netdev@vger.kernel.org>; Mon, 14 Apr 2014 16:02:54 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue, 15 Apr 2014 00:43:32 +0200
+This should allow random packet sampling.
 
-> The following patchset contains three Netfilter fixes for your net tree,
-> they are:
-> 
-> * Fix missing generation sequence initialization which results in a splat
->   if lockdep is enabled, it was introduced in the recent works to improve
->   nf_conntrack scalability, from Andrey Vagin.
-> 
-> * Don't flush the GRE keymap list in nf_conntrack when the pptp helper is
->   disabled otherwise this crashes due to a double release, from Andrey
->   Vagin.
-> 
-> * Fix nf_tables cmp fast in big endian, from Patrick McHardy.
+Signed-off-by: Chema Gonzalez <chema@google.com>
+---
+ Documentation/networking/filter.txt |  1 +
+ include/linux/filter.h              |  1 +
+ include/uapi/linux/filter.h         |  3 ++-
+ net/core/filter.c                   | 12 ++++++++++++
+ tools/net/bpf_exp.l                 |  1 +
+ tools/net/bpf_exp.y                 | 11 ++++++++++-
+ tools/net/icmp_random.bpf           | 12 ++++++++++++
+ 7 files changed, 39 insertions(+), 2 deletions(-)
+ create mode 100644 tools/net/icmp_random.bpf
 
-Pulled, thanks a lot Pablo.
+diff --git a/Documentation/networking/filter.txt b/Documentation/networking/filter.txt
+index 81f940f..7192b46 100644
+--- a/Documentation/networking/filter.txt
++++ b/Documentation/networking/filter.txt
+@@ -281,6 +281,7 @@ Possible BPF extensions are shown in the following table:
+   cpu                                   raw_smp_processor_id()
+   vlan_tci                              vlan_tx_tag_get(skb)
+   vlan_pr                               vlan_tx_tag_present(skb)
++  random                                prandom_u32()
+ 
+ These extensions can also be prefixed with '#'.
+ Examples for low-level BPF:
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 262dcbb..49c28aa 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -224,6 +224,7 @@ enum {
+ 	BPF_S_ANC_VLAN_TAG,
+ 	BPF_S_ANC_VLAN_TAG_PRESENT,
+ 	BPF_S_ANC_PAY_OFFSET,
++	BPF_S_ANC_RANDOM,
+ };
+ 
+ #endif /* __LINUX_FILTER_H__ */
+diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
+index 8eb9cca..253b4d4 100644
+--- a/include/uapi/linux/filter.h
++++ b/include/uapi/linux/filter.h
+@@ -130,7 +130,8 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+ #define SKF_AD_VLAN_TAG	44
+ #define SKF_AD_VLAN_TAG_PRESENT 48
+ #define SKF_AD_PAY_OFFSET	52
+-#define SKF_AD_MAX	56
++#define SKF_AD_RANDOM	56
++#define SKF_AD_MAX	60
+ #define SKF_NET_OFF   (-0x100000)
+ #define SKF_LL_OFF    (-0x200000)
+ 
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 765556b..b2a80a1 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -637,6 +637,12 @@ static u64 __get_raw_cpu_id(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
+ 	return raw_smp_processor_id();
+ }
+ 
++/* note that this only generates 32-bit random numbers */
++static u64 __skb_get_random(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
++{
++	return (u64)prandom_u32();
++}
++
+ /* Register mappings for user programs. */
+ #define A_REG		0
+ #define X_REG		7
+@@ -773,6 +779,7 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
+ 	case SKF_AD_OFF + SKF_AD_NLATTR:
+ 	case SKF_AD_OFF + SKF_AD_NLATTR_NEST:
+ 	case SKF_AD_OFF + SKF_AD_CPU:
++	case SKF_AD_OFF + SKF_AD_RANDOM:
+ 		/* arg1 = ctx */
+ 		insn->code = BPF_ALU64 | BPF_MOV | BPF_X;
+ 		insn->a_reg = ARG1_REG;
+@@ -806,6 +813,9 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
+ 		case SKF_AD_OFF + SKF_AD_CPU:
+ 			insn->imm = __get_raw_cpu_id - __bpf_call_base;
+ 			break;
++		case SKF_AD_OFF + SKF_AD_RANDOM:
++			insn->imm = __skb_get_random - __bpf_call_base;
++			break;
+ 		}
+ 		break;
+ 
+@@ -1356,6 +1366,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+ 			ANCILLARY(VLAN_TAG);
+ 			ANCILLARY(VLAN_TAG_PRESENT);
+ 			ANCILLARY(PAY_OFFSET);
++			ANCILLARY(RANDOM);
+ 			}
+ 
+ 			/* ancillary operation unknown or unsupported */
+@@ -1741,6 +1752,7 @@ void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to)
+ 		[BPF_S_ANC_VLAN_TAG]	= BPF_LD|BPF_B|BPF_ABS,
+ 		[BPF_S_ANC_VLAN_TAG_PRESENT] = BPF_LD|BPF_B|BPF_ABS,
+ 		[BPF_S_ANC_PAY_OFFSET]	= BPF_LD|BPF_B|BPF_ABS,
++		[BPF_S_ANC_RANDOM]	= BPF_LD|BPF_B|BPF_ABS,
+ 		[BPF_S_LD_W_LEN]	= BPF_LD|BPF_W|BPF_LEN,
+ 		[BPF_S_LD_W_IND]	= BPF_LD|BPF_W|BPF_IND,
+ 		[BPF_S_LD_H_IND]	= BPF_LD|BPF_H|BPF_IND,
+diff --git a/tools/net/bpf_exp.l b/tools/net/bpf_exp.l
+index bf7be77..804256f 100644
+--- a/tools/net/bpf_exp.l
++++ b/tools/net/bpf_exp.l
+@@ -92,6 +92,7 @@ extern void yyerror(const char *str);
+ "#"?("cpu")	{ return K_CPU; }
+ "#"?("vlan_tci") { return K_VLANT; }
+ "#"?("vlan_pr")	{ return K_VLANP; }
++"#"?("random")	{ return K_RAND; }
+ 
+ ":"		{ return ':'; }
+ ","		{ return ','; }
+diff --git a/tools/net/bpf_exp.y b/tools/net/bpf_exp.y
+index d15efc9..e6306c5 100644
+--- a/tools/net/bpf_exp.y
++++ b/tools/net/bpf_exp.y
+@@ -56,7 +56,7 @@ static void bpf_set_jmp_label(char *label, enum jmp_type type);
+ %token OP_LDXI
+ 
+ %token K_PKT_LEN K_PROTO K_TYPE K_NLATTR K_NLATTR_NEST K_MARK K_QUEUE K_HATYPE
+-%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF
++%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF K_RAND
+ 
+ %token ':' ',' '[' ']' '(' ')' 'x' 'a' '+' 'M' '*' '&' '#' '%'
+ 
+@@ -164,6 +164,9 @@ ldb
+ 	| OP_LDB K_POFF {
+ 		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+ 				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
++	| OP_LDB K_RAND {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_RANDOM); }
+ 	;
+ 
+ ldh
+@@ -212,6 +215,9 @@ ldh
+ 	| OP_LDH K_POFF {
+ 		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+ 				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
++	| OP_LDH K_RAND {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_RANDOM); }
+ 	;
+ 
+ ldi
+@@ -265,6 +271,9 @@ ld
+ 	| OP_LD K_POFF {
+ 		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+ 				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
++	| OP_LD K_RAND {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_RANDOM); }
+ 	| OP_LD 'M' '[' number ']' {
+ 		bpf_set_curr_instr(BPF_LD | BPF_MEM, 0, 0, $4); }
+ 	| OP_LD '[' 'x' '+' number ']' {
+diff --git a/tools/net/icmp_random.bpf b/tools/net/icmp_random.bpf
+new file mode 100644
+index 0000000..b9adcbf
+--- /dev/null
++++ b/tools/net/icmp_random.bpf
+@@ -0,0 +1,12 @@
++# icmp random packet sampling, 1 in 4
++ldh [12]
++jne #0x800, drop
++ldb [23]
++jneq #1, drop
++# get a random uint32 number
++ld random
++mod #4
++jneq #1, drop
++ret #-1
++drop: ret #0
++
+-- 
+1.9.1.423.g4596e3a
