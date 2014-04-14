@@ -1,38 +1,137 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] tuntap: add flow control to support back pressure
-Date: Sun, 13 Apr 2014 21:40:04 -0400 (EDT)
-Message-ID: <20140413.214004.1087903132047842986.davem@davemloft.net>
-References: <5347487B.4040608@adjacentlink.com>
-	<20140413141745.GB17839@redhat.com>
-	<534B3A33.9090401@adjacentlink.com>
+From: Wei Yang <weiyang@linux.vnet.ibm.com>
+Subject: Re: [PATCH V2 net] net/mlx4_core: Preserve pci_dev_data after
+ __mlx4_remove_one()
+Date: Mon, 14 Apr 2014 09:50:30 +0800
+Message-ID: <20140414015029.GA5374@richard>
+References: <1397359333-8378-1-git-send-email-weiyang@linux.vnet.ibm.com>
+ <534A6FA2.90800@cogentembedded.com>
+Reply-To: Wei Yang <weiyang@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, jasowang@redhat.com, xemul@parallels.com,
-	wuzhy@linux.vnet.ibm.com, therbert@google.com, yamato@redhat.com,
-	richardcochran@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Brian.Adamson@nrl.navy.mil,
-	jgiovatto@adjacentlink.com
-To: sgalgano@adjacentlink.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <534B3A33.9090401@adjacentlink.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Wei Yang <weiyang@linux.vnet.ibm.com>, linux-pci@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <534A6FA2.90800@cogentembedded.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Steven Galgano <sgalgano@adjacentlink.com>
-Date: Sun, 13 Apr 2014 21:30:27 -0400
+On Sun, Apr 13, 2014 at 03:06:10PM +0400, Sergei Shtylyov wrote:
+>Hello.
 
-> Added optional per queue flow control support using IFF_FLOW_CONTROL. When the IFF_FLOW_CONTROL TUNSETIFF flag is specified it will set a per queue flag to indicate that the queue should be stopped using netif_tx_stop_queue(), rather than discarding frames once full. After reading a frame from the respective stopped queue, a netif_tx_wake_queue() is issued to signal resource availability.
-> 
-> The per queue TUN_FLOW_CONTROL flag is stored in struct tun_file. This provides the flexibility to enable flow control on all, none or some queues when using IFF_MULTI_QUEUE. When not using IFF_MULTI_QUEUE, IFF_FLOW_CONTROL will apply to the single queue. No changes were made to the default drop frame policy.
-> 
-> This change adds support for back pressure use cases.
-> 
-> Reported-by: Brian Adamson <brian.adamson@nrl.navy.mil>
-> Tested-by: Joseph Giovatto <jgiovatto@djacentlink.com>
-> Signed-off-by: Steven Galgano <sgalgano@adjacentlink.com>
+Thanks for the comments.
 
-Please format your commit messages to ~80 columns of text.
+Changed accordingly and will send another version.
 
-It won't be automatically formatted by GIT and in fact it looks ugly
-with all the wrapping in text based tools.
+>
+>On 13-04-2014 7:22, Wei Yang wrote:
+>
+>>pci_match_id() just match the static pci_device_id, which may return NULL if
+>>someone binds the driver to a device manually using
+>>/sys/bus/pci/drivers/.../new_id.
+>
+>>This patch wrap up a helper function __mlx4_remove_one() which does the tear
+>>down function but preserve the drv_data. Functions like
+>>mlx4_pci_err_detected() and mlx4_restart_one() will call this one with out
+>>releasing drvdata.
+>
+>>Fixes: 97a5221 "net/mlx4_core: pass pci_device_id.driver_data to __mlx4_init_one during reset".
+>
+>>CC: Bjorn Helgaas <bhelgaas@google.com>
+>>CC: Amir Vadai <amirv@mellanox.com>
+>>CC: Jack Morgenstein <jackm@dev.mellanox.co.il>
+>>CC: Or Gerlitz <ogerlitz@mellanox.com>
+>>Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+>>Acked-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+>
+>[...]
+>
+>>diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+>>index f0ae95f..b6d60e2 100644
+>>--- a/drivers/net/ethernet/mellanox/mlx4/main.c
+>>+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+>[...]
+>>@@ -2604,85 +2598,112 @@ err_disable_pdev:
+>>
+>>  static int mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
+>>  {
+>>+	struct mlx4_priv *priv;
+>>+	struct mlx4_dev *dev;
+>>+
+>>  	printk_once(KERN_INFO "%s", mlx4_version);
+>>
+>>+	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+>>+	if (!priv) {
+>>+		return -ENOMEM;
+>>+	}
+>
+>   {} not needed here.
+>
+>[...]
+>>+	/* in SRIOV it is not allowed to unload the pf's
+>>+	 * driver while there are alive vf's */
+>>+	if (mlx4_is_master(dev)) {
+>>+		if (mlx4_how_many_lives_vf(dev))
+>
+>   Could be folded into single *if*.
+>
+>>+			printk(KERN_ERR "Removing PF when there are assigned VF's !!!\n");
+>>+	}
+>>+	mlx4_stop_sense(dev);
+>>+	mlx4_unregister_device(dev);
+>[...]
+>>+	for (p = 1; p <= dev->caps.num_ports; p++) {
+>>+		mlx4_cleanup_port_info(&priv->port[p]);
+>>+		mlx4_CLOSE_PORT(dev, p);
+>>+	}
+>>+
+>>+	if (mlx4_is_master(dev))
+>>+		mlx4_free_resource_tracker(dev,
+>>+				   RES_TR_FREE_SLAVES_ONLY);
+>
+>   Please re-align this line so that it starts right under 'dev'.
+>
+>[...]
+>>
+>>-		if (!mlx4_is_slave(dev))
+>>-			mlx4_free_ownership(dev);
+>>+	if (mlx4_is_master(dev))
+>>+		mlx4_free_resource_tracker(dev,
+>>+				   RES_TR_FREE_STRUCTS_ONLY);
+>
+>   Likewise.
+>
+>[...]
+>>@@ -2755,11 +2776,13 @@ static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
+>>
+>>  static pci_ers_result_t mlx4_pci_slot_reset(struct pci_dev *pdev)
+>>  {
+>>-	const struct pci_device_id *id;
+>>-	int ret;
+>>+	struct mlx4_dev	 *dev  = pci_get_drvdata(pdev);
+>>+	struct mlx4_priv *priv = mlx4_priv(dev);
+>>+	int		  pci_dev_data;
+>
+>   Doesn't seem that this variable is necessary.
+>
+>>+	int               ret;
+>>
+>>-	id = pci_match_id(mlx4_pci_table, pdev);
+>>-	ret = __mlx4_init_one(pdev, id->driver_data);
+>>+	pci_dev_data = priv->pci_dev_data;
+>>+	ret = __mlx4_init_one(pdev, pci_dev_data);
+>>
+>>  	return ret ? PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_RECOVERED;
+>>  }
+>[...]
+>
+>WBR, Sergei
+
+-- 
+Richard Yang
+Help you, Help me
