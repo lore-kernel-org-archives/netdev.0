@@ -1,40 +1,85 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: Re: [net PATCH 1/1] drivers: net: cpsw: Add default vlan for dual
- emac case also
-Date: Tue, 15 Apr 2014 15:46:00 +0200
-Message-ID: <CAGm1_ktmygGNWqEvO=59ZVFbTprUHLuXAmSM3UXfVrShPJsz_g@mail.gmail.com>
-References: <1397023480-4181-1-git-send-email-mugunthanvnm@ti.com> <20140409.145624.1000792872429500740.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "N, Mugunthan V" <mugunthanvnm@ti.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCH 1/3] net: phy: add minimal support for QSGMII PHY
+Date: Tue, 15 Apr 2014 15:50:19 +0200
+Message-ID: <1397569821-5530-2-git-send-email-thomas.petazzoni@free-electrons.com>
+References: <1397569821-5530-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Tawfik Bayouk <tawfik@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Dmitri Epshtein <dima@marvell.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	George Joseph <george.joseph@fairview5.com>, arno@natisbad.org,
+	Willy Tarreau <w@1wt.eu>,
+	Alexander Reuter <Alexander.Reuter@gmx.net>,
+	devicetree@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:37204 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750919AbaDONqV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 09:46:21 -0400
-Received: by mail-pa0-f43.google.com with SMTP id bj1so9632869pad.16
-        for <netdev@vger.kernel.org>; Tue, 15 Apr 2014 06:46:20 -0700 (PDT)
-In-Reply-To: <20140409.145624.1000792872429500740.davem@davemloft.net>
+Received: from top.free-electrons.com ([176.31.233.9]:40744 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752992AbaDONu0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 09:50:26 -0400
+In-Reply-To: <1397569821-5530-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 9, 2014 at 8:56 PM, David Miller <davem@davemloft.net> wrote:
-> From: Mugunthan V N <mugunthanvnm@ti.com>
-> Date: Wed, 9 Apr 2014 11:34:40 +0530
->
->> Dual EMAC works with VLAN segregation of the ports, so default vlan needs
->> to be added in dual EMAC case else default vlan will be tagged for all
->> egress packets and vlan unaware switches/servers will drop packets
->> from the EVM.
+This commit adds the necessary definitions for the PHY layer to
+recognize "qsgmii" as a valid PHY interface. A QSMII interface, as
+defined at
+http://en.wikipedia.org/wiki/Media_Independent_Interface#Quad_Serial_Gigabit_Media_Independent_Interface,
+is "is a method of combining four SGMII lines into a 5Gbit/s
+interface. QSGMII, like SGMII, uses LVDS signalling for the TX and RX
+data and a single LVDS clock signal. QSGMII uses significantly fewer
+signal lines than four SGMII busses."
 
-Hi Mugunthan,
+This type of MAC <-> PHY connection might require special handling on
+the MAC driver side, so it should be possible to express this type of
+MAC <-> PHY connection, for example in the Device Tree.
 
-though this patch fixes drop packets issue, it introduces another
-issue. Just connect both interfaces to one switch and configure
-different subnets. As soon as you get a broadcast you have an endless
-loop and network communication is not possible at all. Before this
-patch you could operate as if you had really two independent NICs.
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Cc: devicetree@vger.kernel.org
+---
+ Documentation/devicetree/bindings/net/ethernet.txt | 2 +-
+ include/linux/phy.h                                | 3 +++
+ 2 files changed, 4 insertions(+), 1 deletion(-)
 
-Yegor
+diff --git a/Documentation/devicetree/bindings/net/ethernet.txt b/Documentation/devicetree/bindings/net/ethernet.txt
+index 9ecd43d..3fc3605 100644
+--- a/Documentation/devicetree/bindings/net/ethernet.txt
++++ b/Documentation/devicetree/bindings/net/ethernet.txt
+@@ -10,7 +10,7 @@ The following properties are common to the Ethernet controllers:
+ - max-frame-size: number, maximum transfer unit (IEEE defined MTU), rather than
+   the maximum frame size (there's contradiction in ePAPR).
+ - phy-mode: string, operation mode of the PHY interface; supported values are
+-  "mii", "gmii", "sgmii", "tbi", "rev-mii", "rmii", "rgmii", "rgmii-id",
++  "mii", "gmii", "sgmii", "qsgmii", "tbi", "rev-mii", "rmii", "rgmii", "rgmii-id",
+   "rgmii-rxid", "rgmii-txid", "rtbi", "smii", "xgmii"; this is now a de-facto
+   standard property;
+ - phy-connection-type: the same as "phy-mode" property but described in ePAPR;
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 24126c4..4d0221f 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -75,6 +75,7 @@ typedef enum {
+ 	PHY_INTERFACE_MODE_SMII,
+ 	PHY_INTERFACE_MODE_XGMII,
+ 	PHY_INTERFACE_MODE_MOCA,
++	PHY_INTERFACE_MODE_QSGMII,
+ 	PHY_INTERFACE_MODE_MAX,
+ } phy_interface_t;
+ 
+@@ -116,6 +117,8 @@ static inline const char *phy_modes(phy_interface_t interface)
+ 		return "xgmii";
+ 	case PHY_INTERFACE_MODE_MOCA:
+ 		return "moca";
++	case PHY_INTERFACE_MODE_QSGMII:
++		return "qsgmii";
+ 	default:
+ 		return "unknown";
+ 	}
+-- 
+1.8.3.2
