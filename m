@@ -1,44 +1,37 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch iproute2] u32: add terminal parameter
-Date: Tue, 15 Apr 2014 09:00:18 -0400
-Message-ID: <534D2D62.5080109@mojatatu.com>
-References: <1396631826-15188-1-git-send-email-xiyou.wangcong@gmail.com>	<20140411140446.6412e9dc@nehalam.linuxnetplumber.net>	<CAM_iQpVpNOJ1xiK45qXGRXgBZ2QcmwoPc7p=SOHCo=1kTwPfFQ@mail.gmail.com>	<20140411175800.08e9ffe3@nehalam.linuxnetplumber.net>	<CAM_iQpU7Ntn-yo-ez0vP2BhKe+-Vaq1w_+MQhFPHM-bbQZx2gg@mail.gmail.com>	<534926F7.10505@mojatatu.com>	<CAM_iQpXJnOOUbpS0WwrB7C50LGxcLhMEQPrDB84Zm-SLKVHh6w@mail.gmail.com>	<534C6BDE.8020600@mojatatu.com> <CAM_iQpV8GeEQr+GFFy2Etct_51YhvXEBKydyH9q4NP5QbsDOnA@mail.gmail.com>
+From: "Li, Zhen-Hua" <zhen-hual@hp.com>
+Subject: Re: [PATCH 1/1] driver/net: add missing rtnl lock/unlock for benet
+Date: Tue, 15 Apr 2014 12:59:56 +0000
+Message-ID: <1249C41B-D72F-40C8-A8F1-D135D02A1511@hp.com>
+References: <1397544352-28841-1-git-send-email-zhen-hual@hp.com>
+ <b4855c2a-5a63-47a5-ba61-f9ce736f6401@CMEXHTCAS1.ad.emulex.com>
+ <534CF596.3010609@hp.com>,<069bdb52-6176-407a-b7fc-3f23a944a529@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:62207 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751304AbaDONAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 09:00:39 -0400
-Received: by mail-ie0-f170.google.com with SMTP id rd18so9311650iec.1
-        for <netdev@vger.kernel.org>; Tue, 15 Apr 2014 06:00:38 -0700 (PDT)
-In-Reply-To: <CAM_iQpV8GeEQr+GFFy2Etct_51YhvXEBKydyH9q4NP5QbsDOnA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
+Cc: Subramanian Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <Ajit.Khaparde@Emulex.Com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Sathya Perla <Sathya.Perla@Emulex.Com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <069bdb52-6176-407a-b7fc-3f23a944a529@CMEXHTCAS2.ad.emulex.com>
+Content-Language: zh-CN
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/14/14 21:57, Cong Wang wrote:
-
-> So essentially why u32 filters can't just do matching without bothering
-
-u32 is a special animal. You can actually have intermediate nodes
-which are _not_ terminal. i.e you can build a tree of hashes which
-interconnect other hashes eventually leading to terminal nodes.
-
-> classid especially when they are attached to an ingress qdisc? I still
-> fail to see a reason why I have to care about classid here.
-
-It is more of a historical artifact with "benefits".
-Historical in that egress qdiscs with classes existed before ingress;
-so it makes sense to keep the syntax people are already familiar with.
-Benefits because infact with the right approach the flowid even at
-ingress can be used as input(look at the route classifier for example
-and association with route accounting of the source).
-
-
-cheers,
-jamal
+WWVzLCB0aGF0J3Mgb2sgZm9yIG1lLg0KDQq3otfUztK1xCBpUGhvbmUNCg0K1NogMjAxNMTqNNTC
+MTXI1aOsz8LO5zc6NTejrCJTYXRoeWEgUGVybGEiIDxTYXRoeWEuUGVybGFARW11bGV4LkNvbT4g
+0LS1wKO6DQoNCj4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+PiBGcm9tOiBMaSwgWmhl
+bkh1YSBbbWFpbHRvOnpoZW4taHVhbEBocC5jb21dDQo+PiANCj4+IEJlY2F1c2UgbmV0aWZfcnVu
+bmluZygpIGlzIGNhbGxlZCBpbiBuZXRpZl9kZXZpY2VfZGV0YWNoIGFuZA0KPj4gbmV0aWZfZGV2
+aWNlX2F0dGFjaC4gVG8gYXZvaWQgZGV2IHN0YXR1cyBjaGFuZ2VkIHdoaWxlDQo+PiBuZXRpZl9k
+ZXZpY2VfZGV0YWNoL2F0dGFjaCBpcyBub3QgZmluaXNoZWQsIEkgdGhpbmsgYSBydG5sX2xvY2sg
+YW5kDQo+PiB1bmxvY2sgc2hvdWxkIGJlIGNhbGxlZCB0byBhdm9pZCB0aGlzLg0KPiANCj4gT2su
+IEknZCBsaWtlIHRvIHRoZW4gZmFjdG9yIHRoZSBjb2RlIHNsaWdodGx5IGRpZmZlcmVudGx5IGJ5
+IHVzaW5nDQo+IHJvdXRpbmVzIGxpa2UgdGhpczoNCj4gDQo+IGJlX2Nsb3NlX3N5bmMoKSB7DQo+
+ICAgIHJ0bmxfbG9jaygpOw0KPiANCj4gICAgICBuZXRpZl9kZXZpY2VfZGV0YWNoKG5ldGRldik7
+DQo+ICAgICAgIGlmIChuZXRpZl9ydW5uaW5nKG5ldGRldikpDQo+ICAgICAgICAgICBiZV9jbG9z
+ZShuZXRkZXYpOw0KPiANCj4gICAgcnRubF91bmxvY2soKTsNCj4gfQ0KPiANCj4gYW5kIHNpbWls
+YXJseSBmb3IgYmVfb3Blbl9zeW5jKCkNCj4gDQo+IEFuZCwgSSdkIG5lZWQgc29tZSB0aW1lIHRv
+IHRlc3QgdGhlc2UgZmxvd3MgdG9vLg0KPiBXb3VsZCB5b3UgYmUgT0sgd2l0aCB0aGlzPw0KPiAN
+Cj4gdGhhbmtzLA0KPiAtU2F0aHlhDQo=
