@@ -1,67 +1,70 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: Re: [PATCH 0/3] net: mvneta: fix usage as a module, and support QSGMII properly
-Date: Tue, 15 Apr 2014 22:54:37 +0200
-Message-ID: <87a9bmxqia.fsf@natisbad.org>
-References: <1397569821-5530-1-git-send-email-thomas.petazzoni@free-electrons.com>
+From: Stephen Warren <swarren@wwwdotorg.org>
+Subject: Re: [PATCH 5/7] net: rfkill: gpio: add device tree support
+Date: Tue, 15 Apr 2014 15:00:01 -0600
+Message-ID: <534D9DD1.2070004@wwwdotorg.org>
+References: <1397544101-18135-1-git-send-email-wens@csie.org> <1397544101-18135-6-git-send-email-wens@csie.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Dmitri Epshtein <dima@marvell.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	George Joseph <george.joseph@fairview5.com>,
-	Willy Tarreau <w@1wt.eu>,
-	Alexander Reuter <Alexander.Reuter@gmx.net>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Alexandre Courbot <gnurou@gmail.com>,
+	Heikki Krogerus <heikki.krogerus@linux.intel.com>,
+	Arnd Bergmann <arnd@arndb.de>, devicetree@vger.kernel.org,
+	netdev@vger.kernel.org, linux-sunxi@googlegroups.com,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-gpio@vger.kernel.org,
+	Mika Westerberg <mika.westerberg@linux.intel.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Chen-Yu Tsai <wens@csie.org>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4-g21.free.fr ([212.27.42.4]:5401 "EHLO smtp4-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750931AbaDOUy4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Apr 2014 16:54:56 -0400
-Received: from smtp.natisbad.org (unknown [81.57.185.249])
-	by smtp4-g21.free.fr (Postfix) with ESMTP id CB42E4C8078
-	for <netdev@vger.kernel.org>; Tue, 15 Apr 2014 22:54:53 +0200 (CEST)
-In-Reply-To: <1397569821-5530-1-git-send-email-thomas.petazzoni@free-electrons.com>
-	(Thomas Petazzoni's message of "Tue, 15 Apr 2014 15:50:18 +0200")
+Received: from avon.wwwdotorg.org ([70.85.31.133]:33924 "EHLO
+	avon.wwwdotorg.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750790AbaDOVAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 17:00:07 -0400
+In-Reply-To: <1397544101-18135-6-git-send-email-wens@csie.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Thomas,
+On 04/15/2014 12:41 AM, Chen-Yu Tsai wrote:
 
-Thomas Petazzoni <thomas.petazzoni@free-electrons.com> writes:
+Patch description?
 
-> This set of patches has been tested on:
->
->  * Armada XP GP (four QSGMII interfaces)
->  * Armada XP DB (two RGMII interfaces and two SGMII interfaces)
->  * Armada 370 Mirabox (two RGMII interfaces)
->
-> I've tested both the driver built-in, and compiled as a module.
->
-> Since the last attempt at fixing this was quite a fiasco, I'd like
-> this new attempt to be tested more widely before being applied. I'll
-> try to do some testing on other Armada boards I have, but independent
-> testing from other persons would also be appreciated.
->
-> Note that these patches apply after reverting the previous attempt,
-> obviously.
+> diff --git a/Documentation/devicetree/bindings/rfkill/rfkill-gpio.txt b/Documentation/devicetree/bindings/rfkill/rfkill-gpio.txt
 
-I just tested the set w/ the driver built-on on top of current
-3.15.0-rc1 w/ e3a8786c10e7 reverted on a RN102 (A370, 2xRGMII), a
-RN104  (A370, 2xRGMII) and a RN2120 (AXP, 2xRGMII). The interface(s)
-work(s) as expected, i.e. everything is in order. You can add my
+> +Required properties:
 
-Tested-by: Arnaud Ebalard <arno@natisbad.org>
+> +- gpios		: At most two GPIO phandles
+> +- gpio-names	: Shall be "reset" or "shutdown", matching gpios.
+> +		  If both are provided, the "reset" GPIO is toggled first.
 
-Thanks for your work!
+As Maxime mentioned, this is an unusual way of defining GPIOs. If this
+new way is acceptable, then I'd suggest more precise wording, e.g.:
 
-Cheers,
+- gpios: Must contain an entry for each entry in gpio-names.
+  See ../gpio/gpio.txt for details.
+- gpio-names: May contain any or all of the following entries:
+  - reset
+  - shutdown
 
-a+
+> +- rfkill-type	: Type of RFKILL device: 1 for WiFi, 2 for BlueTooth, etc.
+> +		  See include/uapi/linux/rfkill.h for all valid values
+
+It would be nice if include/dt-bindings/rfkill-gpio.h existed and
+contained e.g.:
+
+#define RFKILL_TYPE_BLUETOOTH 2
+
+So that:
+
+> +Example:
+> +
+> +	rfkill_bt {
+...
+> +		rfkill-type = <2>;
+
+Could be written as:
+
+		rfkill-type = <RFKILL_TYPE_BLUETOOTH>;
