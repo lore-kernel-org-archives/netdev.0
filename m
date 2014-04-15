@@ -1,7 +1,7 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 1/2] ipv4: add a sock pointer to ip_queue_xmit()
-Date: Tue, 15 Apr 2014 13:49:11 -0400 (EDT)
-Message-ID: <20140415.134911.762071231191012540.davem@davemloft.net>
+Subject: [PATCH 2/2] ipv4: add a sock pointer to dst->output() path.
+Date: Tue, 15 Apr 2014 13:49:16 -0400 (EDT)
+Message-ID: <20140415.134916.1941040568700162970.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -9,188 +9,525 @@ Cc: nasa4836@gmail.com, jchapman@katalix.com, lucien.xin@gmail.com,
 	netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39534 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39539 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750920AbaDORtM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 13:49:12 -0400
+	with ESMTP id S1751012AbaDORtR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 13:49:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 From: Eric Dumazet <edumazet@google.com>
 
-ip_queue_xmit() assumes the skb it has to transmit is attached to an
-inet socket. Commit 31c70d5956fc ("l2tp: keep original skb ownership")
-changed l2tp to not change skb ownership and thus broke this assumption.
+In the dst->output() path for ipv4, the code assumes the skb it has to
+transmit is attached to an inet socket, specifically via
+ip_mc_output() : The sk_mc_loop() test triggers a WARN_ON() when the
+provider of the packet is an AF_PACKET socket.
 
-One fix is to add a new 'struct sock *sk' parameter to ip_queue_xmit(),
-so that we do not assume skb->sk points to the socket used by l2tp
-tunnel.
+The dst->output() method gets an additional 'struct sock *sk'
+parameter. This needs a cascade of changes so that this parameter can
+be propagated from vxlan to final consumer.
 
-Fixes: 31c70d5956fc ("l2tp: keep original skb ownership")
-Reported-by: Zhan Jianyu <nasa4836@gmail.com>
-Tested-by: Zhan Jianyu <nasa4836@gmail.com>
+Fixes: 8f646c922d55 ("vxlan: keep original skb ownership")
+Reported-by: lucien xin <lucien.xin@gmail.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/inet6_connection_sock.h | 2 +-
- include/net/inet_connection_sock.h  | 2 +-
- include/net/ip.h                    | 2 +-
- net/dccp/output.c                   | 2 +-
- net/ipv4/ip_output.c                | 5 +++--
- net/ipv4/tcp_output.c               | 2 +-
- net/ipv6/inet6_connection_sock.c    | 3 +--
- net/l2tp/l2tp_core.c                | 4 ++--
- net/l2tp/l2tp_ip.c                  | 2 +-
- net/sctp/protocol.c                 | 2 +-
- 10 files changed, 13 insertions(+), 13 deletions(-)
+ drivers/net/vxlan.c         |  4 ++--
+ include/net/dst.h           | 14 +++++++++++---
+ include/net/ip.h            | 11 ++++++++---
+ include/net/ip_tunnels.h    |  2 +-
+ include/net/ipv6.h          |  2 +-
+ include/net/xfrm.h          |  6 +++---
+ net/core/dst.c              | 15 +++++++++------
+ net/decnet/dn_route.c       | 16 ++++++++++++++--
+ net/ipv4/ip_output.c        | 11 +++++------
+ net/ipv4/ip_tunnel.c        |  2 +-
+ net/ipv4/ip_tunnel_core.c   |  4 ++--
+ net/ipv4/route.c            |  4 ++--
+ net/ipv4/xfrm4_output.c     |  2 +-
+ net/ipv6/ip6_output.c       |  2 +-
+ net/ipv6/route.c            | 14 +++++++-------
+ net/ipv6/sit.c              |  5 +++--
+ net/ipv6/xfrm6_output.c     |  2 +-
+ net/openvswitch/vport-gre.c |  2 +-
+ net/xfrm/xfrm_policy.c      |  2 +-
+ 19 files changed, 74 insertions(+), 46 deletions(-)
 
-diff --git a/include/net/inet6_connection_sock.h b/include/net/inet6_connection_sock.h
-index f981ba7..74af137 100644
---- a/include/net/inet6_connection_sock.h
-+++ b/include/net/inet6_connection_sock.h
-@@ -40,7 +40,7 @@ void inet6_csk_reqsk_queue_hash_add(struct sock *sk, struct request_sock *req,
- 
- void inet6_csk_addr2sockaddr(struct sock *sk, struct sockaddr *uaddr);
- 
--int inet6_csk_xmit(struct sk_buff *skb, struct flowi *fl);
-+int inet6_csk_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl);
- 
- struct dst_entry *inet6_csk_update_pmtu(struct sock *sk, u32 mtu);
- #endif /* _INET6_CONNECTION_SOCK_H */
-diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
-index c55aeed..7a43138 100644
---- a/include/net/inet_connection_sock.h
-+++ b/include/net/inet_connection_sock.h
-@@ -36,7 +36,7 @@ struct tcp_congestion_ops;
-  * (i.e. things that depend on the address family)
-  */
- struct inet_connection_sock_af_ops {
--	int	    (*queue_xmit)(struct sk_buff *skb, struct flowi *fl);
-+	int	    (*queue_xmit)(struct sock *sk, struct sk_buff *skb, struct flowi *fl);
- 	void	    (*send_check)(struct sock *sk, struct sk_buff *skb);
- 	int	    (*rebuild_header)(struct sock *sk);
- 	void	    (*sk_rx_dst_set)(struct sock *sk, const struct sk_buff *skb);
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 25064c2..77e73d2 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -111,7 +111,7 @@ int ip_do_nat(struct sk_buff *skb);
- void ip_send_check(struct iphdr *ip);
- int __ip_local_out(struct sk_buff *skb);
- int ip_local_out(struct sk_buff *skb);
--int ip_queue_xmit(struct sk_buff *skb, struct flowi *fl);
-+int ip_queue_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl);
- void ip_init(void);
- int ip_append_data(struct sock *sk, struct flowi4 *fl4,
- 		   int getfrag(void *from, char *to, int offset, int len,
-diff --git a/net/dccp/output.c b/net/dccp/output.c
-index 8876078..0248e8a 100644
---- a/net/dccp/output.c
-+++ b/net/dccp/output.c
-@@ -138,7 +138,7 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
- 
- 		DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
- 
--		err = icsk->icsk_af_ops->queue_xmit(skb, &inet->cork.fl);
-+		err = icsk->icsk_af_ops->queue_xmit(sk, skb, &inet->cork.fl);
- 		return net_xmit_eval(err);
- 	}
- 	return -ENOBUFS;
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 1a0755f..7ad68b8 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -315,9 +315,9 @@ static void ip_copy_addrs(struct iphdr *iph, const struct flowi4 *fl4)
- 	       sizeof(fl4->saddr) + sizeof(fl4->daddr));
- }
- 
--int ip_queue_xmit(struct sk_buff *skb, struct flowi *fl)
-+/* Note: skb->sk can be different from sk, in case of tunnels */
-+int ip_queue_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl)
- {
--	struct sock *sk = skb->sk;
- 	struct inet_sock *inet = inet_sk(sk);
- 	struct ip_options_rcu *inet_opt;
- 	struct flowi4 *fl4;
-@@ -389,6 +389,7 @@ packet_routed:
- 	ip_select_ident_more(skb, &rt->dst, sk,
- 			     (skb_shinfo(skb)->gso_segs ?: 1) - 1);
- 
-+	/* TODO : should we use skb->sk here instead of sk ? */
- 	skb->priority = sk->sk_priority;
- 	skb->mark = sk->sk_mark;
- 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 699fb10..025e250 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -981,7 +981,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 		TCP_ADD_STATS(sock_net(sk), TCP_MIB_OUTSEGS,
- 			      tcp_skb_pcount(skb));
- 
--	err = icsk->icsk_af_ops->queue_xmit(skb, &inet->cork.fl);
-+	err = icsk->icsk_af_ops->queue_xmit(sk, skb, &inet->cork.fl);
- 	if (likely(err <= 0))
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index c55e316..82355d5 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1755,8 +1755,8 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+ 	if (err)
  		return err;
  
-diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
-index c913818..d4ade34 100644
---- a/net/ipv6/inet6_connection_sock.c
-+++ b/net/ipv6/inet6_connection_sock.c
-@@ -224,9 +224,8 @@ static struct dst_entry *inet6_csk_route_socket(struct sock *sk,
- 	return dst;
+-	return iptunnel_xmit(rt, skb, src, dst, IPPROTO_UDP, tos, ttl, df,
+-			     false);
++	return iptunnel_xmit(vs->sock->sk, rt, skb, src, dst, IPPROTO_UDP,
++			     tos, ttl, df, false);
+ }
+ EXPORT_SYMBOL_GPL(vxlan_xmit_skb);
+ 
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 46ed958..71c60f4 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -45,7 +45,7 @@ struct dst_entry {
+ 	void			*__pad1;
+ #endif
+ 	int			(*input)(struct sk_buff *);
+-	int			(*output)(struct sk_buff *);
++	int			(*output)(struct sock *sk, struct sk_buff *skb);
+ 
+ 	unsigned short		flags;
+ #define DST_HOST		0x0001
+@@ -367,7 +367,11 @@ static inline struct dst_entry *skb_dst_pop(struct sk_buff *skb)
+ 	return child;
  }
  
--int inet6_csk_xmit(struct sk_buff *skb, struct flowi *fl_unused)
-+int inet6_csk_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl_unused)
+-int dst_discard(struct sk_buff *skb);
++int dst_discard_sk(struct sock *sk, struct sk_buff *skb);
++static inline int dst_discard(struct sk_buff *skb)
++{
++	return dst_discard_sk(skb->sk, skb);
++}
+ void *dst_alloc(struct dst_ops *ops, struct net_device *dev, int initial_ref,
+ 		int initial_obsolete, unsigned short flags);
+ void __dst_free(struct dst_entry *dst);
+@@ -449,9 +453,13 @@ static inline void dst_set_expires(struct dst_entry *dst, int timeout)
+ }
+ 
+ /* Output packet to network from transport.  */
++static inline int dst_output_sk(struct sock *sk, struct sk_buff *skb)
++{
++	return skb_dst(skb)->output(sk, skb);
++}
+ static inline int dst_output(struct sk_buff *skb)
+ {
+-	return skb_dst(skb)->output(skb);
++	return dst_output_sk(skb->sk, skb);
+ }
+ 
+ /* Input packet from network to transport.  */
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 77e73d2..3ec2b0f 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -104,13 +104,18 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
+ 	   struct net_device *orig_dev);
+ int ip_local_deliver(struct sk_buff *skb);
+ int ip_mr_input(struct sk_buff *skb);
+-int ip_output(struct sk_buff *skb);
+-int ip_mc_output(struct sk_buff *skb);
++int ip_output(struct sock *sk, struct sk_buff *skb);
++int ip_mc_output(struct sock *sk, struct sk_buff *skb);
+ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *));
+ int ip_do_nat(struct sk_buff *skb);
+ void ip_send_check(struct iphdr *ip);
+ int __ip_local_out(struct sk_buff *skb);
+-int ip_local_out(struct sk_buff *skb);
++int ip_local_out_sk(struct sock *sk, struct sk_buff *skb);
++static inline int ip_local_out(struct sk_buff *skb)
++{
++	return ip_local_out_sk(skb->sk, skb);
++}
++
+ int ip_queue_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl);
+ void ip_init(void);
+ int ip_append_data(struct sock *sk, struct flowi4 *fl4,
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index e77c104..a4daf9e 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -153,7 +153,7 @@ static inline u8 ip_tunnel_ecn_encap(u8 tos, const struct iphdr *iph,
+ }
+ 
+ int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto);
+-int iptunnel_xmit(struct rtable *rt, struct sk_buff *skb,
++int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+ 		  __be32 src, __be32 dst, __u8 proto,
+ 		  __u8 tos, __u8 ttl, __be16 df, bool xnet);
+ 
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 4f541f1..d640925 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -731,7 +731,7 @@ struct dst_entry *ip6_blackhole_route(struct net *net,
+  *	skb processing functions
+  */
+ 
+-int ip6_output(struct sk_buff *skb);
++int ip6_output(struct sock *sk, struct sk_buff *skb);
+ int ip6_forward(struct sk_buff *skb);
+ int ip6_input(struct sk_buff *skb);
+ int ip6_mc_input(struct sk_buff *skb);
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 32682ae..116e9c7 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -333,7 +333,7 @@ struct xfrm_state_afinfo {
+ 						const xfrm_address_t *saddr);
+ 	int			(*tmpl_sort)(struct xfrm_tmpl **dst, struct xfrm_tmpl **src, int n);
+ 	int			(*state_sort)(struct xfrm_state **dst, struct xfrm_state **src, int n);
+-	int			(*output)(struct sk_buff *skb);
++	int			(*output)(struct sock *sk, struct sk_buff *skb);
+ 	int			(*output_finish)(struct sk_buff *skb);
+ 	int			(*extract_input)(struct xfrm_state *x,
+ 						 struct sk_buff *skb);
+@@ -1540,7 +1540,7 @@ static inline int xfrm4_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
+ 
+ int xfrm4_extract_output(struct xfrm_state *x, struct sk_buff *skb);
+ int xfrm4_prepare_output(struct xfrm_state *x, struct sk_buff *skb);
+-int xfrm4_output(struct sk_buff *skb);
++int xfrm4_output(struct sock *sk, struct sk_buff *skb);
+ int xfrm4_output_finish(struct sk_buff *skb);
+ int xfrm4_rcv_cb(struct sk_buff *skb, u8 protocol, int err);
+ int xfrm4_protocol_register(struct xfrm4_protocol *handler, unsigned char protocol);
+@@ -1565,7 +1565,7 @@ __be32 xfrm6_tunnel_alloc_spi(struct net *net, xfrm_address_t *saddr);
+ __be32 xfrm6_tunnel_spi_lookup(struct net *net, const xfrm_address_t *saddr);
+ int xfrm6_extract_output(struct xfrm_state *x, struct sk_buff *skb);
+ int xfrm6_prepare_output(struct xfrm_state *x, struct sk_buff *skb);
+-int xfrm6_output(struct sk_buff *skb);
++int xfrm6_output(struct sock *sk, struct sk_buff *skb);
+ int xfrm6_output_finish(struct sk_buff *skb);
+ int xfrm6_find_1stfragopt(struct xfrm_state *x, struct sk_buff *skb,
+ 			  u8 **prevhdr);
+diff --git a/net/core/dst.c b/net/core/dst.c
+index ca4231e..80d6286 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -142,12 +142,12 @@ loop:
+ 	mutex_unlock(&dst_gc_mutex);
+ }
+ 
+-int dst_discard(struct sk_buff *skb)
++int dst_discard_sk(struct sock *sk, struct sk_buff *skb)
+ {
+ 	kfree_skb(skb);
+ 	return 0;
+ }
+-EXPORT_SYMBOL(dst_discard);
++EXPORT_SYMBOL(dst_discard_sk);
+ 
+ const u32 dst_default_metrics[RTAX_MAX + 1] = {
+ 	/* This initializer is needed to force linker to place this variable
+@@ -184,7 +184,7 @@ void *dst_alloc(struct dst_ops *ops, struct net_device *dev,
+ 	dst->xfrm = NULL;
+ #endif
+ 	dst->input = dst_discard;
+-	dst->output = dst_discard;
++	dst->output = dst_discard_sk;
+ 	dst->error = 0;
+ 	dst->obsolete = initial_obsolete;
+ 	dst->header_len = 0;
+@@ -209,8 +209,10 @@ static void ___dst_free(struct dst_entry *dst)
+ 	/* The first case (dev==NULL) is required, when
+ 	   protocol module is unloaded.
+ 	 */
+-	if (dst->dev == NULL || !(dst->dev->flags&IFF_UP))
+-		dst->input = dst->output = dst_discard;
++	if (dst->dev == NULL || !(dst->dev->flags&IFF_UP)) {
++		dst->input = dst_discard;
++		dst->output = dst_discard_sk;
++	}
+ 	dst->obsolete = DST_OBSOLETE_DEAD;
+ }
+ 
+@@ -361,7 +363,8 @@ static void dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+ 		return;
+ 
+ 	if (!unregister) {
+-		dst->input = dst->output = dst_discard;
++		dst->input = dst_discard;
++		dst->output = dst_discard_sk;
+ 	} else {
+ 		dst->dev = dev_net(dst->dev)->loopback_dev;
+ 		dev_hold(dst->dev);
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index ce0cbbf..daccc4a 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -752,7 +752,7 @@ static int dn_to_neigh_output(struct sk_buff *skb)
+ 	return n->output(n, skb);
+ }
+ 
+-static int dn_output(struct sk_buff *skb)
++static int dn_output(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct dst_entry *dst = skb_dst(skb);
+ 	struct dn_route *rt = (struct dn_route *)dst;
+@@ -838,6 +838,18 @@ drop:
+  * Used to catch bugs. This should never normally get
+  * called.
+  */
++static int dn_rt_bug_sk(struct sock *sk, struct sk_buff *skb)
++{
++	struct dn_skb_cb *cb = DN_SKB_CB(skb);
++
++	net_dbg_ratelimited("dn_rt_bug: skb from:%04x to:%04x\n",
++			    le16_to_cpu(cb->src), le16_to_cpu(cb->dst));
++
++	kfree_skb(skb);
++
++	return NET_RX_DROP;
++}
++
+ static int dn_rt_bug(struct sk_buff *skb)
+ {
+ 	struct dn_skb_cb *cb = DN_SKB_CB(skb);
+@@ -1463,7 +1475,7 @@ make_route:
+ 
+ 	rt->n = neigh;
+ 	rt->dst.lastuse = jiffies;
+-	rt->dst.output = dn_rt_bug;
++	rt->dst.output = dn_rt_bug_sk;
+ 	switch (res.type) {
+ 	case RTN_UNICAST:
+ 		rt->dst.input = dn_forward;
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 7ad68b8..1cbeba5 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -101,17 +101,17 @@ int __ip_local_out(struct sk_buff *skb)
+ 		       skb_dst(skb)->dev, dst_output);
+ }
+ 
+-int ip_local_out(struct sk_buff *skb)
++int ip_local_out_sk(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int err;
+ 
+ 	err = __ip_local_out(skb);
+ 	if (likely(err == 1))
+-		err = dst_output(skb);
++		err = dst_output_sk(sk, skb);
+ 
+ 	return err;
+ }
+-EXPORT_SYMBOL_GPL(ip_local_out);
++EXPORT_SYMBOL_GPL(ip_local_out_sk);
+ 
+ static inline int ip_select_ttl(struct inet_sock *inet, struct dst_entry *dst)
+ {
+@@ -226,9 +226,8 @@ static int ip_finish_output(struct sk_buff *skb)
+ 		return ip_finish_output2(skb);
+ }
+ 
+-int ip_mc_output(struct sk_buff *skb)
++int ip_mc_output(struct sock *sk, struct sk_buff *skb)
  {
 -	struct sock *sk = skb->sk;
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct flowi6 fl6;
- 	struct dst_entry *dst;
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 47f7a54..a4e37d7 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1131,10 +1131,10 @@ static int l2tp_xmit_core(struct l2tp_session *session, struct sk_buff *skb,
- 	skb->local_df = 1;
- #if IS_ENABLED(CONFIG_IPV6)
- 	if (tunnel->sock->sk_family == PF_INET6 && !tunnel->v4mapped)
--		error = inet6_csk_xmit(skb, NULL);
-+		error = inet6_csk_xmit(tunnel->sock, skb, NULL);
- 	else
- #endif
--		error = ip_queue_xmit(skb, fl);
-+		error = ip_queue_xmit(tunnel->sock, skb, fl);
+ 	struct rtable *rt = skb_rtable(skb);
+ 	struct net_device *dev = rt->dst.dev;
  
- 	/* Update stats */
- 	if (error >= 0) {
-diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
-index 0b44d85..3397fe6 100644
---- a/net/l2tp/l2tp_ip.c
-+++ b/net/l2tp/l2tp_ip.c
-@@ -487,7 +487,7 @@ static int l2tp_ip_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *m
- 
- xmit:
- 	/* Queue the packet to IP for output */
--	rc = ip_queue_xmit(skb, &inet->cork.fl);
-+	rc = ip_queue_xmit(sk, skb, &inet->cork.fl);
- 	rcu_read_unlock();
- 
- error:
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 4e1d0fc..c09757f 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -957,7 +957,7 @@ static inline int sctp_v4_xmit(struct sk_buff *skb,
- 
- 	SCTP_INC_STATS(sock_net(&inet->sk), SCTP_MIB_OUTSCTPPACKS);
- 
--	return ip_queue_xmit(skb, &transport->fl);
-+	return ip_queue_xmit(&inet->sk, skb, &transport->fl);
+@@ -287,7 +286,7 @@ int ip_mc_output(struct sk_buff *skb)
+ 			    !(IPCB(skb)->flags & IPSKB_REROUTED));
  }
  
- static struct sctp_af sctp_af_inet;
+-int ip_output(struct sk_buff *skb)
++int ip_output(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct net_device *dev = skb_dst(skb)->dev;
+ 
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index e77381d..484d0ce 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -670,7 +670,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		return;
+ 	}
+ 
+-	err = iptunnel_xmit(rt, skb, fl4.saddr, fl4.daddr, protocol,
++	err = iptunnel_xmit(skb->sk, rt, skb, fl4.saddr, fl4.daddr, protocol,
+ 			    tos, ttl, df, !net_eq(tunnel->net, dev_net(dev)));
+ 	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
+ 
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index e0c2b1d..bcf206c 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -46,7 +46,7 @@
+ #include <net/netns/generic.h>
+ #include <net/rtnetlink.h>
+ 
+-int iptunnel_xmit(struct rtable *rt, struct sk_buff *skb,
++int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+ 		  __be32 src, __be32 dst, __u8 proto,
+ 		  __u8 tos, __u8 ttl, __be16 df, bool xnet)
+ {
+@@ -76,7 +76,7 @@ int iptunnel_xmit(struct rtable *rt, struct sk_buff *skb,
+ 	iph->ttl	=	ttl;
+ 	__ip_select_ident(iph, &rt->dst, (skb_shinfo(skb)->gso_segs ?: 1) - 1);
+ 
+-	err = ip_local_out(skb);
++	err = ip_local_out_sk(sk, skb);
+ 	if (unlikely(net_xmit_eval(err)))
+ 		pkt_len = 0;
+ 	return pkt_len;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 20a59c3..1485aaf 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1129,7 +1129,7 @@ static void ipv4_link_failure(struct sk_buff *skb)
+ 		dst_set_expires(&rt->dst, 0);
+ }
+ 
+-static int ip_rt_bug(struct sk_buff *skb)
++static int ip_rt_bug(struct sock *sk, struct sk_buff *skb)
+ {
+ 	pr_debug("%s: %pI4 -> %pI4, %s\n",
+ 		 __func__, &ip_hdr(skb)->saddr, &ip_hdr(skb)->daddr,
+@@ -2218,7 +2218,7 @@ struct dst_entry *ipv4_blackhole_route(struct net *net, struct dst_entry *dst_or
+ 
+ 		new->__use = 1;
+ 		new->input = dst_discard;
+-		new->output = dst_discard;
++		new->output = dst_discard_sk;
+ 
+ 		new->dev = ort->dst.dev;
+ 		if (new->dev)
+diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+index baa0f63..40e701f 100644
+--- a/net/ipv4/xfrm4_output.c
++++ b/net/ipv4/xfrm4_output.c
+@@ -86,7 +86,7 @@ int xfrm4_output_finish(struct sk_buff *skb)
+ 	return xfrm_output(skb);
+ }
+ 
+-int xfrm4_output(struct sk_buff *skb)
++int xfrm4_output(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct dst_entry *dst = skb_dst(skb);
+ 	struct xfrm_state *x = dst->xfrm;
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 3284d61..40e7581 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -132,7 +132,7 @@ static int ip6_finish_output(struct sk_buff *skb)
+ 		return ip6_finish_output2(skb);
+ }
+ 
+-int ip6_output(struct sk_buff *skb)
++int ip6_output(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct net_device *dev = skb_dst(skb)->dev;
+ 	struct inet6_dev *idev = ip6_dst_idev(skb_dst(skb));
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 5ea462e..4011617 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -84,9 +84,9 @@ static void		ip6_dst_ifdown(struct dst_entry *,
+ static int		 ip6_dst_gc(struct dst_ops *ops);
+ 
+ static int		ip6_pkt_discard(struct sk_buff *skb);
+-static int		ip6_pkt_discard_out(struct sk_buff *skb);
++static int		ip6_pkt_discard_out(struct sock *sk, struct sk_buff *skb);
+ static int		ip6_pkt_prohibit(struct sk_buff *skb);
+-static int		ip6_pkt_prohibit_out(struct sk_buff *skb);
++static int		ip6_pkt_prohibit_out(struct sock *sk, struct sk_buff *skb);
+ static void		ip6_link_failure(struct sk_buff *skb);
+ static void		ip6_rt_update_pmtu(struct dst_entry *dst, struct sock *sk,
+ 					   struct sk_buff *skb, u32 mtu);
+@@ -290,7 +290,7 @@ static const struct rt6_info ip6_blk_hole_entry_template = {
+ 		.obsolete	= DST_OBSOLETE_FORCE_CHK,
+ 		.error		= -EINVAL,
+ 		.input		= dst_discard,
+-		.output		= dst_discard,
++		.output		= dst_discard_sk,
+ 	},
+ 	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
+ 	.rt6i_protocol  = RTPROT_KERNEL,
+@@ -1058,7 +1058,7 @@ struct dst_entry *ip6_blackhole_route(struct net *net, struct dst_entry *dst_ori
+ 
+ 		new->__use = 1;
+ 		new->input = dst_discard;
+-		new->output = dst_discard;
++		new->output = dst_discard_sk;
+ 
+ 		if (dst_metrics_read_only(&ort->dst))
+ 			new->_metrics = ort->dst._metrics;
+@@ -1577,7 +1577,7 @@ int ip6_route_add(struct fib6_config *cfg)
+ 		switch (cfg->fc_type) {
+ 		case RTN_BLACKHOLE:
+ 			rt->dst.error = -EINVAL;
+-			rt->dst.output = dst_discard;
++			rt->dst.output = dst_discard_sk;
+ 			rt->dst.input = dst_discard;
+ 			break;
+ 		case RTN_PROHIBIT:
+@@ -2129,7 +2129,7 @@ static int ip6_pkt_discard(struct sk_buff *skb)
+ 	return ip6_pkt_drop(skb, ICMPV6_NOROUTE, IPSTATS_MIB_INNOROUTES);
+ }
+ 
+-static int ip6_pkt_discard_out(struct sk_buff *skb)
++static int ip6_pkt_discard_out(struct sock *sk, struct sk_buff *skb)
+ {
+ 	skb->dev = skb_dst(skb)->dev;
+ 	return ip6_pkt_drop(skb, ICMPV6_NOROUTE, IPSTATS_MIB_OUTNOROUTES);
+@@ -2140,7 +2140,7 @@ static int ip6_pkt_prohibit(struct sk_buff *skb)
+ 	return ip6_pkt_drop(skb, ICMPV6_ADM_PROHIBITED, IPSTATS_MIB_INNOROUTES);
+ }
+ 
+-static int ip6_pkt_prohibit_out(struct sk_buff *skb)
++static int ip6_pkt_prohibit_out(struct sock *sk, struct sk_buff *skb)
+ {
+ 	skb->dev = skb_dst(skb)->dev;
+ 	return ip6_pkt_drop(skb, ICMPV6_ADM_PROHIBITED, IPSTATS_MIB_OUTNOROUTES);
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 1693c8d..8da8268 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -974,8 +974,9 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
+ 		goto out;
+ 	}
+ 
+-	err = iptunnel_xmit(rt, skb, fl4.saddr, fl4.daddr, IPPROTO_IPV6, tos,
+-			    ttl, df, !net_eq(tunnel->net, dev_net(dev)));
++	err = iptunnel_xmit(skb->sk, rt, skb, fl4.saddr, fl4.daddr,
++			    IPPROTO_IPV6, tos, ttl, df,
++			    !net_eq(tunnel->net, dev_net(dev)));
+ 	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
+ 	return NETDEV_TX_OK;
+ 
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+index 6cd625e..19ef329 100644
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -163,7 +163,7 @@ static int __xfrm6_output(struct sk_buff *skb)
+ 	return x->outer_mode->afinfo->output_finish(skb);
+ }
+ 
+-int xfrm6_output(struct sk_buff *skb)
++int xfrm6_output(struct sock *sk, struct sk_buff *skb)
+ {
+ 	return NF_HOOK(NFPROTO_IPV6, NF_INET_POST_ROUTING, skb, NULL,
+ 		       skb_dst(skb)->dev, __xfrm6_output);
+diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+index a3d6951..ebb6e24 100644
+--- a/net/openvswitch/vport-gre.c
++++ b/net/openvswitch/vport-gre.c
+@@ -174,7 +174,7 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 
+ 	skb->local_df = 1;
+ 
+-	return iptunnel_xmit(rt, skb, fl.saddr,
++	return iptunnel_xmit(skb->sk, rt, skb, fl.saddr,
+ 			     OVS_CB(skb)->tun_key->ipv4_dst, IPPROTO_GRE,
+ 			     OVS_CB(skb)->tun_key->ipv4_tos,
+ 			     OVS_CB(skb)->tun_key->ipv4_ttl, df, false);
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index f02f511..c08fbd1 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1842,7 +1842,7 @@ purge_queue:
+ 	xfrm_pol_put(pol);
+ }
+ 
+-static int xdst_queue_output(struct sk_buff *skb)
++static int xdst_queue_output(struct sock *sk, struct sk_buff *skb)
+ {
+ 	unsigned long sched_next;
+ 	struct dst_entry *dst = skb_dst(skb);
 -- 
 1.7.11.7
