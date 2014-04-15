@@ -1,8 +1,7 @@
 From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: [PATCH 2/7] gpiolib: Support purely name based gpiod
- lookup in device trees
-Date: Tue, 15 Apr 2014 14:41:36 +0800
-Message-ID: <1397544101-18135-3-git-send-email-wens@csie.org>
+Subject: [PATCH 3/7] net: rfkill: gpio: use clk_prepare_enable/clk_disable_unprepare
+Date: Tue, 15 Apr 2014 14:41:37 +0800
+Message-ID: <1397544101-18135-4-git-send-email-wens@csie.org>
 References: <1397544101-18135-1-git-send-email-wens@csie.org>
 Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
@@ -24,7 +23,7 @@ To: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
 	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
 	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
 	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <linux-sunxi+bncBCMILY6JWQBBBVNJWONAKGQETQIZGMY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBCMILY6JWQBBBWVJWONAKGQEALA4IHY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 In-Reply-To: <1397544101-18135-1-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
 List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -34,36 +33,31 @@ List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:
 List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-This patch enables gpio-names based gpiod lookup in device tree usage,
-which ignores the index passed to gpiod_get_index. If this fails, fall
-back to the original function-index ("con_id"-gpios) based lookup scheme,
-for backward compatibility and any drivers needing more than one GPIO
-for any function.
+rfkill-gpio calls clk_enable() without first calling clk_prepare(),
+resulting in a warning and no effect. Switch to clk_prepare_enable()
+and clk_disable_unprepare.
 
 Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
 ---
- drivers/gpio/gpiolib.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ net/rfkill/rfkill-gpio.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/gpio/gpiolib.c b/drivers/gpio/gpiolib.c
-index 761013f..956f01e 100644
---- a/drivers/gpio/gpiolib.c
-+++ b/drivers/gpio/gpiolib.c
-@@ -2585,8 +2585,13 @@ static struct gpio_desc *of_find_gpio(struct device *dev, const char *con_id,
- 	else
- 		snprintf(prop_name, 32, "gpios");
- 
--	desc = of_get_named_gpiod_flags(dev->of_node, prop_name, idx,
--					&of_flags);
-+	/* try gpio-names based lookup first */
-+	desc = of_get_gpiod_flags_by_name(dev->of_node, con_id, &of_flags);
-+
-+	/* fallback to function based lookup */
-+	if (IS_ERR(desc))
-+		desc = of_get_named_gpiod_flags(dev->of_node, prop_name, idx,
-+				&of_flags);
- 
- 	if (IS_ERR(desc))
- 		return desc;
+diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
+index 9c4a5eb..29ff07c 100644
+--- a/net/rfkill/rfkill-gpio.c
++++ b/net/rfkill/rfkill-gpio.c
+@@ -49,10 +49,10 @@ static int rfkill_gpio_set_power(void *data, bool blocked)
+ 		gpiod_set_value(rfkill->shutdown_gpio, 0);
+ 		gpiod_set_value(rfkill->reset_gpio, 0);
+ 		if (!IS_ERR(rfkill->clk) && rfkill->clk_enabled)
+-			clk_disable(rfkill->clk);
++			clk_disable_unprepare(rfkill->clk);
+ 	} else {
+ 		if (!IS_ERR(rfkill->clk) && !rfkill->clk_enabled)
+-			clk_enable(rfkill->clk);
++			clk_prepare_enable(rfkill->clk);
+ 		gpiod_set_value(rfkill->reset_gpio, 1);
+ 		gpiod_set_value(rfkill->shutdown_gpio, 1);
+ 	}
 -- 
 1.9.1
