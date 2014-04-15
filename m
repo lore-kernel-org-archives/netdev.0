@@ -1,57 +1,41 @@
-From: "Butler, Peter" <pbutler@sonusnet.com>
-Subject: RE: [PATCH net] Revert "net: sctp: Fix a_rwnd/rwnd management to
- reflect real state of the receiver's buffer"
-Date: Tue, 15 Apr 2014 14:27:26 +0000
-Message-ID: <1383F7BACEF3F141A39A7AC90F80407E31E525@psmwsonsmbx01.sonusnet.com>
-References: <1397504717-19566-1-git-send-email-dborkman@redhat.com>
- <534CD523.50301@nsn.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] filter: added BPF random opcode
+Date: Tue, 15 Apr 2014 07:41:34 -0700
+Message-ID: <1397572894.4222.98.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1397516569-31033-1-git-send-email-chema@google.com>
+	 <534CDE99.6090407@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	"Matija Glavinic Pecotic" <matija.glavinic-pecotic.ext@nsn.com>,
-	Vlad Yasevich <vyasevich@gmail.com>
-To: Alexander Sverdlin <alexander.sverdlin@nsn.com>,
-	ext Daniel Borkmann <dborkman@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Chema Gonzalez <chema@google.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	ast@plumgrid.com
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p02c11o142.mxlogic.net ([208.65.144.75]:53543 "EHLO
-	p02c11o142.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751141AbaDOOdx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 10:33:53 -0400
-In-Reply-To: <534CD523.50301@nsn.com>
-Content-Language: en-US
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:50377 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754423AbaDOOlg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 10:41:36 -0400
+Received: by mail-pa0-f53.google.com with SMTP id ld10so9656289pab.40
+        for <netdev@vger.kernel.org>; Tue, 15 Apr 2014 07:41:35 -0700 (PDT)
+In-Reply-To: <534CDE99.6090407@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SSdtIG5vdCBzdXJlIGlmIHRoZSBmb2xsb3dpbmcgcHJvY2Vzc2luZyBwb3dlciBpcyBhY3R1YWxs
-eSByZXF1aXJlZCB0byByZXByb2R1Y2UgdGhlIHByb2JsZW0sIGJ1dCB0aGlzIGlzIG15IHNldHVw
-Og0KDQotIDIgc2luZ2xlLWJvYXJkIGNvbXB1dGVycyAoU0JDcyksIGVhY2ggYSBYZW9uIEM1NTI4
-IEAgMi4xM0dIeiAoNC1jb3JlIHdpdGggSFQgPSA4IGNvcmVzIGVhY2gpDQotIDEwR2IgSW50ZWwg
-ODI1OTlFQiBOSUNzIChJWEdCRSk7IGVhY2ggU0JDIGhhcyAyIG9mIHRoZXNlIGJ1dCBvbmx5IDEg
-d2FzIHVzZWQgZm9yIHRoaXMgU0NUUCB0ZXN0aW5nIChpLmUuIE5PVCBtdWx0aS1ob21lZCkNCi0g
-MTBHYiBiYWNrcGxhbmUsIGFwcHJveC4gMC4yIG1zIFJUVCAoaG93ZXZlciBJIGFsc28gdGVzdGVk
-IHRoaXMgd2l0aCBSVFQgPSAxMCBtcywgMjAgbXMsIDUwIG1zIGFuZCBpdCBpcyByZXByb2R1Y2li
-bGUgaW4gYWxsIHNjZW5hcmlvcykNCi0gc2VuZCBidWZmZXIgc2l6ZSA9IDEyMDAwMDAsIHJlY2Vp
-dmUgYnVmZmVyIHNpemUgPSAzMDAwMDAwDQoNCg0KDQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0t
-LS0tDQpGcm9tOiBsaW51eC1zY3RwLW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRvOmxpbnV4
-LXNjdHAtb3duZXJAdmdlci5rZXJuZWwub3JnXSBPbiBCZWhhbGYgT2YgQWxleGFuZGVyIFN2ZXJk
-bGluDQpTZW50OiBBcHJpbC0xNS0xNCAyOjQ0IEFNDQpUbzogZXh0IERhbmllbCBCb3JrbWFubjsg
-ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldA0KQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LXNj
-dHBAdmdlci5rZXJuZWwub3JnOyBNYXRpamEgR2xhdmluaWMgUGVjb3RpYzsgVmxhZCBZYXNldmlj
-aA0KU3ViamVjdDogUmU6IFtQQVRDSCBuZXRdIFJldmVydCAibmV0OiBzY3RwOiBGaXggYV9yd25k
-L3J3bmQgbWFuYWdlbWVudCB0byByZWZsZWN0IHJlYWwgc3RhdGUgb2YgdGhlIHJlY2VpdmVyJ3Mg
-YnVmZmVyIg0KDQpIZWxsbyBEYW5pZWwsDQoNCk9uIDE0LzA0LzE0IDIxOjQ1LCBleHQgRGFuaWVs
-IEJvcmttYW5uIHdyb3RlOg0KPiBUaGlzIHJldmVydHMgY29tbWl0IGVmMjgyMGE3MzVmNyAoIm5l
-dDogc2N0cDogRml4IGFfcnduZC9yd25kIA0KPiBtYW5hZ2VtZW50IHRvIHJlZmxlY3QgcmVhbCBz
-dGF0ZSBvZiB0aGUgcmVjZWl2ZXIncyBidWZmZXIiKSBhcyBpdCANCj4gaW50cm9kdWNlZCBhIHNl
-cmlvdXMgcGVyZm9ybWFuY2UgcmVncmVzc2lvbiBvbiBTQ1RQIG92ZXIgSVB2NCBhbmQgDQo+IElQ
-djYsIHRob3VnaCBhIG5vdCBhcyBkcmFtYXRpYyBvbiB0aGUgbGF0dGVyLiBNZWFzdXJlbWVudHMg
-YXJlIG9uIDEwR2JpdC9zIHdpdGggaXhnYmUgTklDcy4NCg0KQ291bGQgeW91IHBsZWFzZSBzaGFy
-ZSBvdGhlciBIVyBkZXRhaWxzPyBJIHdvbmRlciBob3cgbXVjaCBDUFUgcG93ZXIgb25lIG5lZWRz
-IGZvciBzdWNoIGEgdGhyb3VnaHB1dD8NCg0KLS0NCkJlc3QgcmVnYXJkcywNCkFsZXhhbmRlciBT
-dmVyZGxpbi4NCi0tDQpUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGlu
-ZSAidW5zdWJzY3JpYmUgbGludXgtc2N0cCIgaW4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1h
-am9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcgTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3Zn
-ZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQo=
+On Tue, 2014-04-15 at 09:24 +0200, Daniel Borkmann wrote:
+
+> > @@ -773,6 +779,7 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
+> >   	case SKF_AD_OFF + SKF_AD_NLATTR:
+> >   	case SKF_AD_OFF + SKF_AD_NLATTR_NEST:
+> >   	case SKF_AD_OFF + SKF_AD_CPU:
+> > +	case SKF_AD_OFF + SKF_AD_RANDOM:
+> 
+> I think instead of a function call, this sould rather be modelled
+> directly into the internal insn set and thus converted differently,
+> so we can spare us the call.
+
+Hmmm... this would need percpu storage, thus preempt disable/enable
+calls, and prandom_u32_state() is about 40 instructions.
+
+This is really not worth the pain.
