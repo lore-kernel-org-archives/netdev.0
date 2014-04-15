@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net 1/3] net: move LOOPBACK_IFINDEX to
- include/net/flow.h
-Date: Tue, 15 Apr 2014 15:06:00 -0400 (EDT)
-Message-ID: <20140415.150600.1198094454060493410.davem@davemloft.net>
-References: <1397525608-11592-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH 1/1] driver/net: add missing rtnl lock/unlock for benet
+Date: Tue, 15 Apr 2014 15:09:50 -0400 (EDT)
+Message-ID: <20140415.150950.2105729446204659132.davem@davemloft.net>
+References: <1397544352-28841-1-git-send-email-zhen-hual@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com, ja@ssi.bg,
-	cwang@twopensource.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39969 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751445AbaDOTGC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 15:06:02 -0400
-In-Reply-To: <1397525608-11592-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
+	ajit.khaparde@emulex.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: zhen-hual@hp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1397544352-28841-1-git-send-email-zhen-hual@hp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: "Li, Zhen-Hua" <zhen-hual@hp.com>
+Date: Tue, 15 Apr 2014 14:45:52 +0800
 
-Cong, first of all, I'd like you to combine patches #1 and #2.
+> From: "Li, Zhen-Hua" <zhen-hual@hp.com>
+> 
+> In benet driver, netif_device_detach and netif_device_attach should be
+> called between rtnl_lock and rtnl_unlock.
+> 
+> Signed-off-by: Li, Zhen-Hua <zhen-hual@hp.com>
 
-Also, Julian made it clear that several other changes needed happen
-besides the single fib_validate_source() call site you are modifying
-in patch #3.
+This absolutely does not look like a driver specific issue, therefore
+I do not want you to make such locking context adjustments only in
+your driver.
 
-He also said, for example, that the flow4_iif assignment in
-__fib_validate_source() needs adjusting as well.
-
-He furthermore said that other assignments of zero to flow4_iif
-in netfilter and elsewhere must be adjusted as well.
-
-Please also provide a proper 0/N patch posting next time explaining
-exactly what the series does and why it is necessary.
+Do it somewhere generic so that every driver gets the fix, not just
+your driver.
