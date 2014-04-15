@@ -1,52 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] ipv4: add a sock pointer to ip_queue_xmit() and
- friends
-Date: Tue, 15 Apr 2014 13:06:04 -0700
-Message-ID: <1397592364.4222.101.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1397520840.4222.65.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAHz2CGW_Eh5P_Z4=a-tfnp-S_62bZRXk2pLxes7ufEdfr0hwAQ@mail.gmail.com>
-	 <1397572392.4222.93.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140415.131636.1847117096992048895.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch iproute2] u32: add terminal parameter
+Date: Tue, 15 Apr 2014 13:17:50 -0700
+Message-ID: <CAM_iQpVmxmutCXMucP65UoxtPON=vJrxQ3B_jDTpMjWPycebaw@mail.gmail.com>
+References: <1396631826-15188-1-git-send-email-xiyou.wangcong@gmail.com>
+	<20140411140446.6412e9dc@nehalam.linuxnetplumber.net>
+	<CAM_iQpVpNOJ1xiK45qXGRXgBZ2QcmwoPc7p=SOHCo=1kTwPfFQ@mail.gmail.com>
+	<20140411175800.08e9ffe3@nehalam.linuxnetplumber.net>
+	<CAM_iQpU7Ntn-yo-ez0vP2BhKe+-Vaq1w_+MQhFPHM-bbQZx2gg@mail.gmail.com>
+	<534926F7.10505@mojatatu.com>
+	<CAM_iQpXJnOOUbpS0WwrB7C50LGxcLhMEQPrDB84Zm-SLKVHh6w@mail.gmail.com>
+	<534C6BDE.8020600@mojatatu.com>
+	<CAM_iQpV8GeEQr+GFFy2Etct_51YhvXEBKydyH9q4NP5QbsDOnA@mail.gmail.com>
+	<534D2D62.5080109@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: nasa4836@gmail.com, jchapman@katalix.com, netdev@vger.kernel.org,
-	lucien.xin@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:52921 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752781AbaDOUGG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 16:06:06 -0400
-Received: by mail-pb0-f47.google.com with SMTP id up15so9884511pbc.6
-        for <netdev@vger.kernel.org>; Tue, 15 Apr 2014 13:06:05 -0700 (PDT)
-In-Reply-To: <20140415.131636.1847117096992048895.davem@davemloft.net>
+Received: from mail-oa0-f50.google.com ([209.85.219.50]:64071 "EHLO
+	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753036AbaDOURv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 16:17:51 -0400
+Received: by mail-oa0-f50.google.com with SMTP id i7so11558117oag.9
+        for <netdev@vger.kernel.org>; Tue, 15 Apr 2014 13:17:50 -0700 (PDT)
+In-Reply-To: <534D2D62.5080109@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-04-15 at 13:16 -0400, David Miller wrote:
+On Tue, Apr 15, 2014 at 6:00 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 04/14/14 21:57, Cong Wang wrote:
+>
+>> So essentially why u32 filters can't just do matching without bothering
+>
+>
+> u32 is a special animal. You can actually have intermediate nodes
+> which are _not_ terminal. i.e you can build a tree of hashes which
+> interconnect other hashes eventually leading to terminal nodes.
+>
 
-> This doesn't compile, I'd expect to see hunks such as:
-> 
-> @@ -184,7 +184,7 @@ void *dst_alloc(struct dst_ops *ops, struct net_device *dev,
->  	dst->xfrm = NULL;
->  #endif
->  	dst->input = dst_discard;
-> -	dst->output = dst_discard;
-> +	dst->output = dst_discard_sk;
->  	dst->error = 0;
->  	dst->obsolete = initial_obsolete;
->  	dst->header_len = 0;
-> 
-> for this file, but I don't.  Maybe you posted an outdated revision of your
-> patch?  There also aren't the necessary decnet and XFRM changes, layers
-> which also use dst->output().
-> 
-> Anyways, I'm splitting up your patches and sorting this out.
+I knew, I thought at least classid is an alternative for action, that is,
+one doing classify and one doing some other action.
 
-Hmmpff. The truth is I did a "make allyesconfig;make -j24", and the
-build completed, but I missed warnings.
+>
+>> classid especially when they are attached to an ingress qdisc? I still
+>> fail to see a reason why I have to care about classid here.
+>
+>
+> It is more of a historical artifact with "benefits".
+> Historical in that egress qdiscs with classes existed before ingress;
+> so it makes sense to keep the syntax people are already familiar with.
+> Benefits because infact with the right approach the flowid even at
+> ingress can be used as input(look at the route classifier for example
+> and association with route accounting of the source).
+>
 
-And the thing even booted and ran properly.
+I see. The next question would be what is a reasonable classid
+value for a classless qdisc? Or can we set it to some value to express
+"we don't care"?
 
-Sorry for this, and thanks for taking care of the mess.
+Thanks!
