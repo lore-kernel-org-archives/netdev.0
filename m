@@ -1,25 +1,66 @@
-From: David Newall <davidn@davidnewall.com>
-Subject: Re: What causes these TCP packet getting lost in linux kernel
-Date: Mon, 14 Apr 2014 18:09:24 +0930
-Message-ID: <534B9EBC.4000606@davidnewall.com>
-References: <CAMRd1sXbgcGQuBKd6b-wwkrsqgh_4QicfyR=1hh+TqyYUjYHFA@mail.gmail.com>	<1397212866.16584.93.camel@edumazet-glaptop2.roam.corp.google.com>	<CAMRd1sUk_-gtOOgf2dPU_mpgCugDE2F82Te5arnhi+8-uPgm0g@mail.gmail.com>	<CAJzFV35Z9f-73of0vq2bhUZbN++17cuexcQV4SSSvqJXNyKnRQ@mail.gmail.com>	<1397331172.4222.8.camel@edumazet-glaptop2.roam.corp.google.com> <CAMRd1sV_ZzgFF8a2D=CsugHPHrNY=ifV1F46bKVwNSP9FvNPUw@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH] seccomp: fix populating a0-a5 syscall args in 32-bit x86 BPF
+Date: Mon, 14 Apr 2014 23:31:51 -0700
+Message-ID: <CAMEtUux-ekQdx2M0e=py81zvAGWo4r6Upxmwfvcrv739kSH_oQ@mail.gmail.com>
+References: <1397502179-15029-1-git-send-email-dborkman@redhat.com>
+	<534C4179.7070704@amacapital.net>
+	<20140414.162452.1169041476405438694.davem@davemloft.net>
+	<CALCETrUu4zmawcn+U+ppDjK-hPGDff15jOhe5ojJU5ppEw4AzQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: chptx y <chptxy@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hawking.rebel.net.au ([203.20.69.83]:51451 "EHLO
-	hawking.rebel.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750864AbaDOEUx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 00:20:53 -0400
-In-Reply-To: <CAMRd1sV_ZzgFF8a2D=CsugHPHrNY=ifV1F46bKVwNSP9FvNPUw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Eric Paris <eparis@redhat.com>,
+	James Morris <james.l.morris@oracle.com>,
+	Kees Cook <keescook@chromium.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALCETrUu4zmawcn+U+ppDjK-hPGDff15jOhe5ojJU5ppEw4AzQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It's interesting that all of the packets from source port 34865 to 
-destination port 80 have invalid checksums.  The hint, that it could be 
-a TCP offload engine, doesn't sound entirely believable because some 
-value is being calculated and stored, not just a fixed or random value; 
-and as the destination is port 80, I'm guessing that these the packets 
-from your Android device, which probably doesn't have a TCP offload engine.
+On Mon, Apr 14, 2014 at 1:28 PM, Andy Lutomirski <luto@amacapital.net> wrote:
+> On Mon, Apr 14, 2014 at 1:24 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Andy Lutomirski <luto@amacapital.net>
+>> Date: Mon, 14 Apr 2014 13:13:45 -0700
+>>
+>>> I think this description is wrong.  (unsigned long *) &sd->args[1] is
+>>> the right location, at least on 32-bit little-endian architectures.
+>>
+>> It absolutely is not.
+>
+> Huh?  It's a pointer to the right address, but the type is wrong.
+>
+> The changelog says "on 32-bit x86 (or any other 32bit arch), it would
+> result in storing a0-a5 at wrong offsets in args[] member".  Unless
+> I'm mistaken, this is incorrect: a0-a5 are are the correct offsets,
+> but they are stored with the wrong type, so the other bits in there
+> are garbage.
+
+agree. your above description is more correct than the log.
+We were focusing on the bug itself and the log came a bit misleading
+as a result of multiple iterations back and forth between me and Daniel.
+
+also the log says:
+"gcc is clever and optimizes the copy away in other cases, e.g. x86_64"
+since we actually checked assembler, so the fix doesn't pessimize
+64-bit architectures :)
+This function is in critical path for seccomp, so performance definitely
+matters.
+
+>>
+>> The thing is a u64, and we must respect that type in a completely
+>> portable way.
+>>
+>> Daniel's change is %100 correct, portable, and doesn't have any
+>> ugly ifdef crap.
+>>
+>
+> I have no problem with the patch itself.  I'm suggesting that a better
+> changelog message would confuse other people reading the same patch
+> less.
+>
+> --Andy
