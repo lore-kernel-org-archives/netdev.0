@@ -1,76 +1,79 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH 3/3] ARM: mvebu: use qsgmii phy-mode for Armada XP GP interfaces
-Date: Tue, 15 Apr 2014 15:50:21 +0200
-Message-ID: <1397569821-5530-4-git-send-email-thomas.petazzoni@free-electrons.com>
-References: <1397569821-5530-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Dmitri Epshtein <dima@marvell.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	George Joseph <george.joseph@fairview5.com>, arno@natisbad.org,
-	Willy Tarreau <w@1wt.eu>,
-	Alexander Reuter <Alexander.Reuter@gmx.net>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:40767 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753946AbaDONu2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 09:50:28 -0400
-In-Reply-To: <1397569821-5530-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] ipv4: Add option to get TCP_FASTOPEN to getsockopt()
+Date: Tue, 15 Apr 2014 06:52:34 -0700
+Message-ID: <1397569954.4222.76.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <87r44yixds.fsf@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Kenjiro Nakayama <nakayamakenjiro@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87r44yixds.fsf@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The Armada XP GP isn't using rgmii-id connections between the MAC and
-PHY, but instead a single QSGMII connection, which is a quad-SGMII
-connection: a double pair of differential lines that are multiplexed
-to convey the traffic of four network interfaces between a MAC and a
-PHY.
+On Tue, 2014-04-15 at 21:35 +0900, Kenjiro Nakayama wrote:
+> Hi,
+> 
+> TCP_FASTOPEN option can be set via setsockopt(), but the value cannot be
+> gotten via getsockopt(). This patch adds the option to getsockopt().
+> 
+> Sighned-off-by: Kenjiro Nakayama <nakayamakenjiro@gmail.com>
+> 
+>  	Add option to get TCP_FASTOPEN to getsockopt()
+> ---
+>  net/ipv4/tcp.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
+> 
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 4bd6d52..86186f4 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -2916,6 +2916,13 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
+>  	case TCP_USER_TIMEOUT:
+>  		val = jiffies_to_msecs(icsk->icsk_user_timeout);
+>  		break;
+> +
+> +	case TCP_FASTOPEN:
+> +		val = icsk->icsk_accept_queue.fastopenq ?
+> +		    icsk->icsk_accept_queue.fastopenq->max_qlen
+> +		    : sysctl_tcp_fastopen;
+> +		break;
+> +
+>  	case TCP_TIMESTAMP:
+>  		val = tcp_time_stamp + tp->tsoffset;
+>  		break;
+> --
+> 1.9.0
 
-Until now, the Armada XP GP was relying on the bootloader setting the
-correct values in various configuration registers. With this change,
-the mvneta driver can be used as a module on this platform.
+I have no idea why you keep using sysctl_tcp_fastopen in your patches.
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- arch/arm/boot/dts/armada-xp-gp.dts | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+It seems you only want your application to
+read /proc/sys/net/ipv4/tcp_fastopen ?
 
-diff --git a/arch/arm/boot/dts/armada-xp-gp.dts b/arch/arm/boot/dts/armada-xp-gp.dts
-index 61bda68..c921f3b 100644
---- a/arch/arm/boot/dts/armada-xp-gp.dts
-+++ b/arch/arm/boot/dts/armada-xp-gp.dts
-@@ -146,22 +146,22 @@
- 			ethernet@70000 {
- 				status = "okay";
- 				phy = <&phy0>;
--				phy-mode = "rgmii-id";
-+				phy-mode = "qsgmii";
- 			};
- 			ethernet@74000 {
- 				status = "okay";
- 				phy = <&phy1>;
--				phy-mode = "rgmii-id";
-+				phy-mode = "qsgmii";
- 			};
- 			ethernet@30000 {
- 				status = "okay";
- 				phy = <&phy2>;
--				phy-mode = "rgmii-id";
-+				phy-mode = "qsgmii";
- 			};
- 			ethernet@34000 {
- 				status = "okay";
- 				phy = <&phy3>;
--				phy-mode = "rgmii-id";
-+				phy-mode = "qsgmii";
- 			};
- 
- 			/* Front-side USB slot */
--- 
-1.8.3.2
+And you don't have CONFIG_PROC_FS maybe, and you add a workaround ?
+
+As already mentioned, even if sysctl_tcp_fastopen is set to one, it does
+not mean this socket is fastopen enabled.
+
+setsockopt()/getsockopt() for a given key should be symmetrical.
+
+ie :
+
+getsockopt(fd, SOL_TCP, TCP_FASTOPEN, &val, &len);
+setsockopt(fd, SOL_TCP, TCP_FASTOPEN, &val, sizeof(val));
+
+should be a no operation. Its obviously not the case with your proposal.
+
+Please address Neal concerns, and add in the changelog what is this
+option supposed to do _exactly_.
+
+hint : max_qlen and sysctl_tcp_fastopen do not have the same units,
+its like comparing apples and oranges.
+
+Thanks
