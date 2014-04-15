@@ -1,47 +1,63 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
-Date: Tue, 15 Apr 2014 19:08:23 +0200
-Message-ID: <1397581703.8212.5.camel@x220>
-References: <1391971686-9517-1-git-send-email-richard@nod.at>
-	 <1391971686-9517-10-git-send-email-richard@nod.at>
-	 <52F7D480.1050106@hauke-m.de> <52F7DF21.70207@nod.at>
-	 <CAHNKnsS7Mv4ZhBWZa53go9L9nZimJ7_FG5HFJ9C3kkGMAEz-mA@mail.gmail.com>
-	 <52F8C373.9060108@rempel-privat.de>
-	 <CAHNKnsQF5Hdf3JT91moPraRQzn4kMpdD2NSiJ7b30wQhS1W4MA@mail.gmail.com>
-	 <CAGVrzcYnECx5Q=i+m6qZn29y4JALDpw5SWoUNP-S6HgPR3_ygQ@mail.gmail.com>
-	 <CAHNKnsRACSo=DfOyiHxqV3acv_wfZmz4tMnYAW0wo4OCibwdfA@mail.gmail.com>
-	 <CAHNKnsRQp7WLSJNAXEYPTd=qs1DquOfNgKtHES-Utvcy1=FEgQ@mail.gmail.com>
-	 <20140213201421.GJ22203@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv4: add a sock pointer to ip_queue_xmit() and
+ friends
+Date: Tue, 15 Apr 2014 13:16:36 -0400 (EDT)
+Message-ID: <20140415.131636.1847117096992048895.davem@davemloft.net>
+References: <1397520840.4222.65.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAHz2CGW_Eh5P_Z4=a-tfnp-S_62bZRXk2pLxes7ufEdfr0hwAQ@mail.gmail.com>
+	<1397572392.4222.93.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Sergey Ryazanov <ryazanov.s.a@gmail.com>,
-	Oleksij Rempel <linux@rempel-privat.de>,
-	Richard Weinberger <richard@nod.at>,
-	Jonathan Bither <jonbither@gmail.com>,
-	openwrt-devel@lists.openwrt.org, Hauke Mehrtens <hauke@hauke-m.de>,
-	Jiri Slaby <jirislaby@gmail.com>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	linux-wireless@vger.kernel.org, ath5k-devel@venema.h4ckr.net,
-	open@hauke-m.de, list@hauke-m.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, antonynpavlov@gmail.com,
-	Florian Fainelli <florian@openwrt.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140213201421.GJ22203@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: nasa4836@gmail.com, jchapman@katalix.com, netdev@vger.kernel.org,
+	lucien.xin@gmail.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39272 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750993AbaDORQi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 13:16:38 -0400
+In-Reply-To: <1397572392.4222.93.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-02-13 at 15:14 -0500, John W. Linville wrote:
-> On Wed, Feb 12, 2014 at 02:50:30PM +0400, Sergey Ryazanov wrote:
-> > John, can you delay the merging of this patch for a few months, I will
-> > try to prepare the necessary patches to add AR231x architecture to the
-> > kernel and send them to linux-mips.
-> 
-> OK -- looking forward to your patches.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 15 Apr 2014 07:33:12 -0700
 
-So am I. Is there any news on this front?
+> diff --git a/net/core/dst.c b/net/core/dst.c
+> index ca4231ec7347..7443c2725c9c 100644
+> --- a/net/core/dst.c
+> +++ b/net/core/dst.c
+> @@ -142,12 +142,12 @@ loop:
+>  	mutex_unlock(&dst_gc_mutex);
+>  }
+>  
+> -int dst_discard(struct sk_buff *skb)
+> +int dst_discard_sk(struct sock *sk, struct sk_buff *skb)
+>  {
+>  	kfree_skb(skb);
+>  	return 0;
+>  }
+> -EXPORT_SYMBOL(dst_discard);
+> +EXPORT_SYMBOL(dst_discard_sk);
+>  
+>  const u32 dst_default_metrics[RTAX_MAX + 1] = {
+>  	/* This initializer is needed to force linker to place this variable
 
+This doesn't compile, I'd expect to see hunks such as:
 
-Paul Bolle
+@@ -184,7 +184,7 @@ void *dst_alloc(struct dst_ops *ops, struct net_device *dev,
+ 	dst->xfrm = NULL;
+ #endif
+ 	dst->input = dst_discard;
+-	dst->output = dst_discard;
++	dst->output = dst_discard_sk;
+ 	dst->error = 0;
+ 	dst->obsolete = initial_obsolete;
+ 	dst->header_len = 0;
+
+for this file, but I don't.  Maybe you posted an outdated revision of your
+patch?  There also aren't the necessary decnet and XFRM changes, layers
+which also use dst->output().
+
+Anyways, I'm splitting up your patches and sorting this out.
