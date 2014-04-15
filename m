@@ -1,53 +1,51 @@
-From: Chema Gonzalez <chema@google.com>
-Subject: Re: [PATCH] filter: added BPF random opcode
-Date: Tue, 15 Apr 2014 11:19:21 -0700
-Message-ID: <CA+ZOOTOe7c=0pYow8PZ-tKK0NPSpNKqjGF2YwGPbptE5r5PqMg@mail.gmail.com>
-References: <1397516569-31033-1-git-send-email-chema@google.com>
-	<534CDE99.6090407@redhat.com>
-	<CA+ZOOTMmRiACgBtMSWm-Barr_MZS446Z5M2Z6B+HmZYwqcvh6A@mail.gmail.com>
-	<534D61ED.9070203@redhat.com>
+From: Vincenzo Maffione <v.maffione@gmail.com>
+Subject: Re: [PATCH] drivers: net: xen-netfront: remove unused arrays
+Date: Tue, 15 Apr 2014 20:46:43 +0200
+Message-ID: <CA+_eA9gAqyKyFXbGZpUQiDqA2jVWAWUbE3cbeXhRtSFZGmh3jg@mail.gmail.com>
+References: <1397583579-32162-1-git-send-email-v.maffione@gmail.com>
+	<534D7244.5000002@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	ast@plumgrid.com
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f49.google.com ([209.85.219.49]:43497 "EHLO
-	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754769AbaDOSTW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 14:19:22 -0400
-Received: by mail-oa0-f49.google.com with SMTP id o6so11178466oag.22
-        for <netdev@vger.kernel.org>; Tue, 15 Apr 2014 11:19:22 -0700 (PDT)
-In-Reply-To: <534D61ED.9070203@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Vrabel <david.vrabel@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <534D7244.5000002@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 15, 2014 at 9:44 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
->>> I think using just "rnd" is cleaner here.
+2014-04-15 19:54 GMT+02:00 David Vrabel <david.vrabel@citrix.com>:
+> On 15/04/14 18:39, Vincenzo Maffione wrote:
+>> This patch removes some unused arrays from the netfront
+>> private data structure.
+>> Also removes an unused address variable.
 >>
->> I think using always random (in fact I may s/K_RAND/K_RANDOM/g) allows
->> easier grepping.
+>> Signed-off-by: Vincenzo Maffione <v.maffione@gmail.com>
 >
+> Huh. I wonder what they were for.
 >
-> I know it's just nitpicking, but I'd be happier if that would
-> either be rnd or rand in bpf_asm.
-"rand" it is.
+> Acked-by: David Vrabel <david.vrabel@citrix.com>
+>
+> For net related patches please say whether they're for the net (current
+> RCs) or net-next branch.  e.g.,
+>
+> [PATCH net-next] xen-netfront: removed unused arrays.
+>
+Ok, thanks.
 
->>> This example should rather go into Documentation/networking/filter.txt's
->>> example section, rather than tools/net/ .
->>
->> I'll add it there.
->
->
-> Ok, thanks.
-Done.
+I used linux-next
+   git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git
+but I don't really know what is the most appropriate.
+(I guess git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git is "net"?)
 
-> For 'playing', I'd rather be happy to add that to the documentation file
-> in Documentation/networking/filter.txt where we have other examples, or
-> alternatively, if there is really no other way around, a new folder inside
-> of Documentation/networking/ .
-I think it would be better close to the tools/net/bpf* tools. Anyway,
-I removed it for now.
+Vincenzo
 
--Chema
+> Thanks.
+>
+> David
+
+
+
+-- 
+Vincenzo Maffione
