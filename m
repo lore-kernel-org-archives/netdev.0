@@ -1,33 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] driver/net: add missing rtnl lock/unlock for benet
-Date: Tue, 15 Apr 2014 15:09:50 -0400 (EDT)
-Message-ID: <20140415.150950.2105729446204659132.davem@davemloft.net>
-References: <1397544352-28841-1-git-send-email-zhen-hual@hp.com>
+Subject: Re: [PATCH net v2] sfc:On MCDI timeout, issue an FLR (and mark
+ MCDI to fail-fast)
+Date: Tue, 15 Apr 2014 15:11:02 -0400 (EDT)
+Message-ID: <20140415.151102.1823905467453048765.davem@davemloft.net>
+References: <534D3073.4020906@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
-	ajit.khaparde@emulex.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: zhen-hual@hp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1397544352-28841-1-git-send-email-zhen-hual@hp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	rstonehouse@solarflare.com
+To: sshah@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40000 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753222AbaDOTLE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 15:11:04 -0400
+In-Reply-To: <534D3073.4020906@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Li, Zhen-Hua" <zhen-hual@hp.com>
-Date: Tue, 15 Apr 2014 14:45:52 +0800
+From: Shradha Shah <sshah@solarflare.com>
+Date: Tue, 15 Apr 2014 14:13:23 +0100
 
-> From: "Li, Zhen-Hua" <zhen-hual@hp.com>
+> From: Edward Cree <ecree@solarflare.com>
 > 
-> In benet driver, netif_device_detach and netif_device_attach should be
-> called between rtnl_lock and rtnl_unlock.
+> When an MCDI command times out (whether or not we find it
+> completed when we poll), call efx_mcdi_abandon(), which tells
+> all subsequent MCDI calls to fail-fast, and queues up an FLR.
 > 
-> Signed-off-by: Li, Zhen-Hua <zhen-hual@hp.com>
+> Because an FLR doesn't lead to receiving any reboot even from
+> the MC (unlike most other types of reset), we have to call
+> efx_ef10_reset_mc_allocations.
+> In efx_start_all(), if a reset (of any kind) is pending, we
+> bail out.
+> Without this, attempts to reconfigure (e.g. change mtu) can
+> cause driver/mc state inconsistency if the first MCDI call
+> triggers an FLR.
+> 
+> For similar reasons, on EF10, in
+> efx_reset_down(method=RESET_TYPE_MCDI_TIMEOUT), set the number
+> of active queues to zero before calling efx_stop_all().
+> And, on farch, in efx_reset_up(method=RESET_TYPE_MCDI_TIMEOUT),
+> set active_queues and flushes pending & outstanding to zero.
+> 
+> efx_mcdi_mode_{poll,event}() should not take us out of fail-fast
+>  mode. Instead, this is done by efx_mcdi_reset() after the FLR
+> completes.
+> 
+> The new FLR reset_type RESET_TYPE_MCDI_TIMEOUT doesn't really
+> fit into the hierarchy of reset 'scopes' whereby efx_reset()
+> decides some resets subsume others.  Thus, it uses separate logic.
+> 
+> Also, fixed up some inconsistency around RESET_TYPE_MC_BIST,
+> which was in the wrong place in that hierarchy.
+> 
+> Signed-off-by: Shradha Shah <sshah@solarflare.com>
 
-This absolutely does not look like a driver specific issue, therefore
-I do not want you to make such locking context adjustments only in
-your driver.
-
-Do it somewhere generic so that every driver gets the fix, not just
-your driver.
+Applied, thanks.
