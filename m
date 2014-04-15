@@ -1,207 +1,470 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net v2 1/2] ipv4,fib: pass LOOPBACK_IFINDEX instead of 0 to flowi4_iif
-Date: Tue, 15 Apr 2014 16:25:34 -0700
-Message-ID: <1397604335-12752-2-git-send-email-xiyou.wangcong@gmail.com>
-References: <1397604335-12752-1-git-send-email-xiyou.wangcong@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Subject: [Patch net] sched, cls: check if we could overwrite actions when changing a filter
+Date: Tue, 15 Apr 2014 16:46:03 -0700
+Message-ID: <1397605563-29756-1-git-send-email-xiyou.wangcong@gmail.com>
 Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Biederman <ebiederm@xmission.com>,
-	Julian Anastasov <ja@ssi.bg>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Cong Wang <cwang@twopensource.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:42000 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232AbaDOX0D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 19:26:03 -0400
-Received: by mail-pb0-f42.google.com with SMTP id rr13so10196004pbb.29
-        for <netdev@vger.kernel.org>; Tue, 15 Apr 2014 16:26:02 -0700 (PDT)
-In-Reply-To: <1397604335-12752-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:37156 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750885AbaDOXqL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 19:46:11 -0400
+Received: by mail-pa0-f47.google.com with SMTP id lj1so10195757pab.20
+        for <netdev@vger.kernel.org>; Tue, 15 Apr 2014 16:46:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Cong Wang <cwang@twopensource.com>
+From: Cong Wang <cwang@twopensource.com>
 
-As suggested by Julian:
+When actions are attached to a filter, they are a part of the filter
+itself, so when changing a filter we should allow to overwrite the actions
+inside as well.
 
-	Simply, flowi4_iif must not contain 0, it does not
-	look logical to ignore all ip rules with specified iif.
+In my specific case, when I tried to _append_ a new action to an existing
+filter which already has an action, I got EEXIST since kernel refused
+to overwrite the existing one in kernel.
 
-because in fib_rule_match() we do:
+This patch checks if we are changing the filter checking NLM_F_CREATE flag
+(Sigh, filters don't use NLM_F_REPLACE...) and then passes the boolean down
+to actions. This fixes the problem above.
 
-        if (rule->iifindex && (rule->iifindex !=3D fl->flowi_iif))
-                goto out;
-
-flowi4_iif should be LOOPBACK_IFINDEX by default.
-
-We need to move LOOPBACK_IFINDEX to include/net/flow.h:
-
-1) It is mostly used by flowi_iif
-
-2) Fix the following compile error if we use it in flow.h
-by the patches latter:
-
-In file included from include/linux/netfilter.h:277:0,
-                 from include/net/netns/netfilter.h:5,
-                 from include/net/net_namespace.h:21,
-                 from include/linux/netdevice.h:43,
-                 from include/linux/icmpv6.h:12,
-                 from include/linux/ipv6.h:61,
-                 from include/net/ipv6.h:16,
-                 from include/linux/sunrpc/clnt.h:27,
-                 from include/linux/nfs_fs.h:30,
-                 from init/do_mounts.c:32:
-include/net/flow.h: In function =E2=80=98flowi4_init_output=E2=80=99:
-include/net/flow.h:84:32: error: =E2=80=98LOOPBACK_IFINDEX=E2=80=99 und=
-eclared (first use in this function)
-
-Cc: Eric Biederman <ebiederm@xmission.com>
-Cc: Julian Anastasov <ja@ssi.bg>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 Cc: David S. Miller <davem@davemloft.net>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 Signed-off-by: Cong Wang <cwang@twopensource.com>
 ---
- include/net/flow.h                | 10 +++++++++-
- include/net/net_namespace.h       |  9 +--------
- net/ipv4/fib_frontend.c           |  2 +-
- net/ipv4/fib_semantics.c          |  1 +
- net/ipv4/ipmr.c                   |  2 +-
- net/ipv4/netfilter/ipt_rpfilter.c |  5 +----
- net/ipv6/ip6mr.c                  |  2 +-
- 7 files changed, 15 insertions(+), 16 deletions(-)
+ include/net/pkt_cls.h     |  2 +-
+ include/net/sch_generic.h |  2 +-
+ net/sched/cls_api.c       |  9 +++++----
+ net/sched/cls_basic.c     | 10 +++++-----
+ net/sched/cls_bpf.c       | 10 +++++-----
+ net/sched/cls_cgroup.c    |  4 ++--
+ net/sched/cls_flow.c      |  4 ++--
+ net/sched/cls_fw.c        | 10 +++++-----
+ net/sched/cls_route.c     | 11 ++++++-----
+ net/sched/cls_rsvp.h      |  4 ++--
+ net/sched/cls_tcindex.c   |  8 ++++----
+ net/sched/cls_u32.c       | 10 +++++-----
+ 12 files changed, 43 insertions(+), 41 deletions(-)
 
-diff --git a/include/net/flow.h b/include/net/flow.h
-index 64fd248..8109a15 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -11,6 +11,14 @@
- #include <linux/in6.h>
- #include <linux/atomic.h>
-=20
-+/*
-+ * ifindex generation is per-net namespace, and loopback is
-+ * always the 1st device in ns (see net_dev_init), thus any
-+ * loopback device should get ifindex 1
-+ */
-+
-+#define LOOPBACK_IFINDEX	1
-+
- struct flowi_common {
- 	int	flowic_oif;
- 	int	flowic_iif;
-@@ -80,7 +88,7 @@ static inline void flowi4_init_output(struct flowi4 *=
-fl4, int oif,
- 				      __be16 dport, __be16 sport)
- {
- 	fl4->flowi4_oif =3D oif;
--	fl4->flowi4_iif =3D 0;
-+	fl4->flowi4_iif =3D LOOPBACK_IFINDEX;
- 	fl4->flowi4_mark =3D mark;
- 	fl4->flowi4_tos =3D tos;
- 	fl4->flowi4_scope =3D scope;
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 79387f7..5f9eb26 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -9,6 +9,7 @@
- #include <linux/list.h>
- #include <linux/sysctl.h>
-=20
-+#include <net/flow.h>
- #include <net/netns/core.h>
- #include <net/netns/mib.h>
- #include <net/netns/unix.h>
-@@ -131,14 +132,6 @@ struct net {
- 	atomic_t		fnhe_genid;
- };
-=20
--/*
-- * ifindex generation is per-net namespace, and loopback is
-- * always the 1st device in ns (see net_dev_init), thus any
-- * loopback device should get ifindex 1
-- */
--
--#define LOOPBACK_IFINDEX	1
--
- #include <linux/seq_file_net.h>
-=20
- /* Init's network namespace */
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 1a629f8..255aa99 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -250,7 +250,7 @@ static int __fib_validate_source(struct sk_buff *sk=
-b, __be32 src, __be32 dst,
- 	bool dev_match;
-=20
- 	fl4.flowi4_oif =3D 0;
--	fl4.flowi4_iif =3D oif;
-+	fl4.flowi4_iif =3D oif ? : LOOPBACK_IFINDEX;
- 	fl4.daddr =3D src;
- 	fl4.saddr =3D dst;
- 	fl4.flowi4_tos =3D tos;
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index b53f0bf..8a043f0 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -631,6 +631,7 @@ static int fib_check_nh(struct fib_config *cfg, str=
-uct fib_info *fi,
- 				.daddr =3D nh->nh_gw,
- 				.flowi4_scope =3D cfg->fc_scope + 1,
- 				.flowi4_oif =3D nh->nh_oif,
-+				.flowi4_iif =3D LOOPBACK_IFINDEX,
- 			};
-=20
- 			/* It is not necessary, but requires a bit of thinking */
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 2886357..d84dc8d 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -455,7 +455,7 @@ static netdev_tx_t reg_vif_xmit(struct sk_buff *skb=
-, struct net_device *dev)
- 	struct mr_table *mrt;
- 	struct flowi4 fl4 =3D {
- 		.flowi4_oif	=3D dev->ifindex,
--		.flowi4_iif	=3D skb->skb_iif,
-+		.flowi4_iif	=3D skb->skb_iif ? : LOOPBACK_IFINDEX,
- 		.flowi4_mark	=3D skb->mark,
- 	};
- 	int err;
-diff --git a/net/ipv4/netfilter/ipt_rpfilter.c b/net/ipv4/netfilter/ipt=
-_rpfilter.c
-index c49dcd0..4bfaedf 100644
---- a/net/ipv4/netfilter/ipt_rpfilter.c
-+++ b/net/ipv4/netfilter/ipt_rpfilter.c
-@@ -89,11 +89,8 @@ static bool rpfilter_mt(const struct sk_buff *skb, s=
-truct xt_action_param *par)
- 	if (ipv4_is_multicast(iph->daddr)) {
- 		if (ipv4_is_zeronet(iph->saddr))
- 			return ipv4_is_local_multicast(iph->daddr) ^ invert;
--		flow.flowi4_iif =3D 0;
--	} else {
--		flow.flowi4_iif =3D LOOPBACK_IFINDEX;
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index a2441fb..6da46dc 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -136,7 +136,7 @@ tcf_exts_exec(struct sk_buff *skb, struct tcf_exts *exts,
+ 
+ int tcf_exts_validate(struct net *net, struct tcf_proto *tp,
+ 		      struct nlattr **tb, struct nlattr *rate_tlv,
+-		      struct tcf_exts *exts);
++		      struct tcf_exts *exts, bool ovr);
+ void tcf_exts_destroy(struct tcf_proto *tp, struct tcf_exts *exts);
+ void tcf_exts_change(struct tcf_proto *tp, struct tcf_exts *dst,
+ 		     struct tcf_exts *src);
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index d062f81..624f985 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -199,7 +199,7 @@ struct tcf_proto_ops {
+ 	int			(*change)(struct net *net, struct sk_buff *,
+ 					struct tcf_proto*, unsigned long,
+ 					u32 handle, struct nlattr **,
+-					unsigned long *);
++					unsigned long *, bool);
+ 	int			(*delete)(struct tcf_proto*, unsigned long);
+ 	void			(*walk)(struct tcf_proto*, struct tcf_walker *arg);
+ 
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 29a30a1..6786130 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -317,7 +317,8 @@ replay:
+ 		}
  	}
--
-+	flow.flowi4_iif =3D LOOPBACK_IFINDEX;
- 	flow.daddr =3D iph->saddr;
- 	flow.saddr =3D rpfilter_get_saddr(iph->daddr);
- 	flow.flowi4_oif =3D 0;
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 8737400..8659067 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -700,7 +700,7 @@ static netdev_tx_t reg_vif_xmit(struct sk_buff *skb=
-,
- 	struct mr6_table *mrt;
- 	struct flowi6 fl6 =3D {
- 		.flowi6_oif	=3D dev->ifindex,
--		.flowi6_iif	=3D skb->skb_iif,
-+		.flowi6_iif	=3D skb->skb_iif ? : LOOPBACK_IFINDEX,
- 		.flowi6_mark	=3D skb->mark,
- 	};
+ 
+-	err = tp->ops->change(net, skb, tp, cl, t->tcm_handle, tca, &fh);
++	err = tp->ops->change(net, skb, tp, cl, t->tcm_handle, tca, &fh,
++			      n->nlmsg_flags & NLM_F_CREATE ? TCA_ACT_NOREPLACE : TCA_ACT_REPLACE);
+ 	if (err == 0) {
+ 		if (tp_created) {
+ 			spin_lock_bh(root_lock);
+@@ -504,7 +505,7 @@ void tcf_exts_destroy(struct tcf_proto *tp, struct tcf_exts *exts)
+ EXPORT_SYMBOL(tcf_exts_destroy);
+ 
+ int tcf_exts_validate(struct net *net, struct tcf_proto *tp, struct nlattr **tb,
+-		  struct nlattr *rate_tlv, struct tcf_exts *exts)
++		  struct nlattr *rate_tlv, struct tcf_exts *exts, bool ovr)
+ {
+ #ifdef CONFIG_NET_CLS_ACT
+ 	{
+@@ -513,7 +514,7 @@ int tcf_exts_validate(struct net *net, struct tcf_proto *tp, struct nlattr **tb,
+ 		INIT_LIST_HEAD(&exts->actions);
+ 		if (exts->police && tb[exts->police]) {
+ 			act = tcf_action_init_1(net, tb[exts->police], rate_tlv,
+-						"police", TCA_ACT_NOREPLACE,
++						"police", ovr,
+ 						TCA_ACT_BIND);
+ 			if (IS_ERR(act))
+ 				return PTR_ERR(act);
+@@ -523,7 +524,7 @@ int tcf_exts_validate(struct net *net, struct tcf_proto *tp, struct nlattr **tb,
+ 		} else if (exts->action && tb[exts->action]) {
+ 			int err;
+ 			err = tcf_action_init(net, tb[exts->action], rate_tlv,
+-					      NULL, TCA_ACT_NOREPLACE,
++					      NULL, ovr,
+ 					      TCA_ACT_BIND, &exts->actions);
+ 			if (err)
+ 				return err;
+diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
+index e98ca99..0ae1813 100644
+--- a/net/sched/cls_basic.c
++++ b/net/sched/cls_basic.c
+@@ -130,14 +130,14 @@ static const struct nla_policy basic_policy[TCA_BASIC_MAX + 1] = {
+ static int basic_set_parms(struct net *net, struct tcf_proto *tp,
+ 			   struct basic_filter *f, unsigned long base,
+ 			   struct nlattr **tb,
+-			   struct nlattr *est)
++			   struct nlattr *est, bool ovr)
+ {
  	int err;
---=20
+ 	struct tcf_exts e;
+ 	struct tcf_ematch_tree t;
+ 
+ 	tcf_exts_init(&e, TCA_BASIC_ACT, TCA_BASIC_POLICE);
+-	err = tcf_exts_validate(net, tp, tb, est, &e);
++	err = tcf_exts_validate(net, tp, tb, est, &e, ovr);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -161,7 +161,7 @@ errout:
+ 
+ static int basic_change(struct net *net, struct sk_buff *in_skb,
+ 			struct tcf_proto *tp, unsigned long base, u32 handle,
+-			struct nlattr **tca, unsigned long *arg)
++			struct nlattr **tca, unsigned long *arg, bool ovr)
+ {
+ 	int err;
+ 	struct basic_head *head = tp->root;
+@@ -179,7 +179,7 @@ static int basic_change(struct net *net, struct sk_buff *in_skb,
+ 	if (f != NULL) {
+ 		if (handle && f->handle != handle)
+ 			return -EINVAL;
+-		return basic_set_parms(net, tp, f, base, tb, tca[TCA_RATE]);
++		return basic_set_parms(net, tp, f, base, tb, tca[TCA_RATE], ovr);
+ 	}
+ 
+ 	err = -ENOBUFS;
+@@ -206,7 +206,7 @@ static int basic_change(struct net *net, struct sk_buff *in_skb,
+ 		f->handle = head->hgenerator;
+ 	}
+ 
+-	err = basic_set_parms(net, tp, f, base, tb, tca[TCA_RATE]);
++	err = basic_set_parms(net, tp, f, base, tb, tca[TCA_RATE], ovr);
+ 	if (err < 0)
+ 		goto errout;
+ 
+diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+index 8e3cf49..1618696 100644
+--- a/net/sched/cls_bpf.c
++++ b/net/sched/cls_bpf.c
+@@ -156,7 +156,7 @@ static void cls_bpf_put(struct tcf_proto *tp, unsigned long f)
+ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
+ 				   struct cls_bpf_prog *prog,
+ 				   unsigned long base, struct nlattr **tb,
+-				   struct nlattr *est)
++				   struct nlattr *est, bool ovr)
+ {
+ 	struct sock_filter *bpf_ops, *bpf_old;
+ 	struct tcf_exts exts;
+@@ -170,7 +170,7 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
+ 		return -EINVAL;
+ 
+ 	tcf_exts_init(&exts, TCA_BPF_ACT, TCA_BPF_POLICE);
+-	ret = tcf_exts_validate(net, tp, tb, est, &exts);
++	ret = tcf_exts_validate(net, tp, tb, est, &exts, ovr);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -242,7 +242,7 @@ static u32 cls_bpf_grab_new_handle(struct tcf_proto *tp,
+ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
+ 			  struct tcf_proto *tp, unsigned long base,
+ 			  u32 handle, struct nlattr **tca,
+-			  unsigned long *arg)
++			  unsigned long *arg, bool ovr)
+ {
+ 	struct cls_bpf_head *head = tp->root;
+ 	struct cls_bpf_prog *prog = (struct cls_bpf_prog *) *arg;
+@@ -260,7 +260,7 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
+ 		if (handle && prog->handle != handle)
+ 			return -EINVAL;
+ 		return cls_bpf_modify_existing(net, tp, prog, base, tb,
+-					       tca[TCA_RATE]);
++					       tca[TCA_RATE], ovr);
+ 	}
+ 
+ 	prog = kzalloc(sizeof(*prog), GFP_KERNEL);
+@@ -277,7 +277,7 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
+ 		goto errout;
+ 	}
+ 
+-	ret = cls_bpf_modify_existing(net, tp, prog, base, tb, tca[TCA_RATE]);
++	ret = cls_bpf_modify_existing(net, tp, prog, base, tb, tca[TCA_RATE], ovr);
+ 	if (ret < 0)
+ 		goto errout;
+ 
+diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+index 8e2158a..cacf01b 100644
+--- a/net/sched/cls_cgroup.c
++++ b/net/sched/cls_cgroup.c
+@@ -83,7 +83,7 @@ static const struct nla_policy cgroup_policy[TCA_CGROUP_MAX + 1] = {
+ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
+ 			     struct tcf_proto *tp, unsigned long base,
+ 			     u32 handle, struct nlattr **tca,
+-			     unsigned long *arg)
++			     unsigned long *arg, bool ovr)
+ {
+ 	struct nlattr *tb[TCA_CGROUP_MAX + 1];
+ 	struct cls_cgroup_head *head = tp->root;
+@@ -119,7 +119,7 @@ static int cls_cgroup_change(struct net *net, struct sk_buff *in_skb,
+ 		return err;
+ 
+ 	tcf_exts_init(&e, TCA_CGROUP_ACT, TCA_CGROUP_POLICE);
+-	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e);
++	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e, ovr);
+ 	if (err < 0)
+ 		return err;
+ 
+diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
+index 257029c..35be16f 100644
+--- a/net/sched/cls_flow.c
++++ b/net/sched/cls_flow.c
+@@ -349,7 +349,7 @@ static const struct nla_policy flow_policy[TCA_FLOW_MAX + 1] = {
+ static int flow_change(struct net *net, struct sk_buff *in_skb,
+ 		       struct tcf_proto *tp, unsigned long base,
+ 		       u32 handle, struct nlattr **tca,
+-		       unsigned long *arg)
++		       unsigned long *arg, bool ovr)
+ {
+ 	struct flow_head *head = tp->root;
+ 	struct flow_filter *f;
+@@ -393,7 +393,7 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
+ 	}
+ 
+ 	tcf_exts_init(&e, TCA_FLOW_ACT, TCA_FLOW_POLICE);
+-	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e);
++	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e, ovr);
+ 	if (err < 0)
+ 		return err;
+ 
+diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
+index 63a3ce7..861b03c 100644
+--- a/net/sched/cls_fw.c
++++ b/net/sched/cls_fw.c
+@@ -169,7 +169,7 @@ static const struct nla_policy fw_policy[TCA_FW_MAX + 1] = {
+ 
+ static int
+ fw_change_attrs(struct net *net, struct tcf_proto *tp, struct fw_filter *f,
+-	struct nlattr **tb, struct nlattr **tca, unsigned long base)
++	struct nlattr **tb, struct nlattr **tca, unsigned long base, bool ovr)
+ {
+ 	struct fw_head *head = tp->root;
+ 	struct tcf_exts e;
+@@ -177,7 +177,7 @@ fw_change_attrs(struct net *net, struct tcf_proto *tp, struct fw_filter *f,
+ 	int err;
+ 
+ 	tcf_exts_init(&e, TCA_FW_ACT, TCA_FW_POLICE);
+-	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e);
++	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e, ovr);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -218,7 +218,7 @@ static int fw_change(struct net *net, struct sk_buff *in_skb,
+ 		     struct tcf_proto *tp, unsigned long base,
+ 		     u32 handle,
+ 		     struct nlattr **tca,
+-		     unsigned long *arg)
++		     unsigned long *arg, bool ovr)
+ {
+ 	struct fw_head *head = tp->root;
+ 	struct fw_filter *f = (struct fw_filter *) *arg;
+@@ -236,7 +236,7 @@ static int fw_change(struct net *net, struct sk_buff *in_skb,
+ 	if (f != NULL) {
+ 		if (f->id != handle && handle)
+ 			return -EINVAL;
+-		return fw_change_attrs(net, tp, f, tb, tca, base);
++		return fw_change_attrs(net, tp, f, tb, tca, base, ovr);
+ 	}
+ 
+ 	if (!handle)
+@@ -264,7 +264,7 @@ static int fw_change(struct net *net, struct sk_buff *in_skb,
+ 	tcf_exts_init(&f->exts, TCA_FW_ACT, TCA_FW_POLICE);
+ 	f->id = handle;
+ 
+-	err = fw_change_attrs(net, tp, f, tb, tca, base);
++	err = fw_change_attrs(net, tp, f, tb, tca, base, ovr);
+ 	if (err < 0)
+ 		goto errout;
+ 
+diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
+index 1ad3068..dd9fc25 100644
+--- a/net/sched/cls_route.c
++++ b/net/sched/cls_route.c
+@@ -333,7 +333,8 @@ static const struct nla_policy route4_policy[TCA_ROUTE4_MAX + 1] = {
+ static int route4_set_parms(struct net *net, struct tcf_proto *tp,
+ 			    unsigned long base, struct route4_filter *f,
+ 			    u32 handle, struct route4_head *head,
+-			    struct nlattr **tb, struct nlattr *est, int new)
++			    struct nlattr **tb, struct nlattr *est, int new,
++			    bool ovr)
+ {
+ 	int err;
+ 	u32 id = 0, to = 0, nhandle = 0x8000;
+@@ -343,7 +344,7 @@ static int route4_set_parms(struct net *net, struct tcf_proto *tp,
+ 	struct tcf_exts e;
+ 
+ 	tcf_exts_init(&e, TCA_ROUTE4_ACT, TCA_ROUTE4_POLICE);
+-	err = tcf_exts_validate(net, tp, tb, est, &e);
++	err = tcf_exts_validate(net, tp, tb, est, &e, ovr);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -428,7 +429,7 @@ static int route4_change(struct net *net, struct sk_buff *in_skb,
+ 		       struct tcf_proto *tp, unsigned long base,
+ 		       u32 handle,
+ 		       struct nlattr **tca,
+-		       unsigned long *arg)
++		       unsigned long *arg, bool ovr)
+ {
+ 	struct route4_head *head = tp->root;
+ 	struct route4_filter *f, *f1, **fp;
+@@ -455,7 +456,7 @@ static int route4_change(struct net *net, struct sk_buff *in_skb,
+ 			old_handle = f->handle;
+ 
+ 		err = route4_set_parms(net, tp, base, f, handle, head, tb,
+-			tca[TCA_RATE], 0);
++			tca[TCA_RATE], 0, ovr);
+ 		if (err < 0)
+ 			return err;
+ 
+@@ -479,7 +480,7 @@ static int route4_change(struct net *net, struct sk_buff *in_skb,
+ 
+ 	tcf_exts_init(&f->exts, TCA_ROUTE4_ACT, TCA_ROUTE4_POLICE);
+ 	err = route4_set_parms(net, tp, base, f, handle, head, tb,
+-		tca[TCA_RATE], 1);
++		tca[TCA_RATE], 1, ovr);
+ 	if (err < 0)
+ 		goto errout;
+ 
+diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
+index 19f8e5d..1020e23 100644
+--- a/net/sched/cls_rsvp.h
++++ b/net/sched/cls_rsvp.h
+@@ -415,7 +415,7 @@ static int rsvp_change(struct net *net, struct sk_buff *in_skb,
+ 		       struct tcf_proto *tp, unsigned long base,
+ 		       u32 handle,
+ 		       struct nlattr **tca,
+-		       unsigned long *arg)
++		       unsigned long *arg, bool ovr)
+ {
+ 	struct rsvp_head *data = tp->root;
+ 	struct rsvp_filter *f, **fp;
+@@ -436,7 +436,7 @@ static int rsvp_change(struct net *net, struct sk_buff *in_skb,
+ 		return err;
+ 
+ 	tcf_exts_init(&e, TCA_RSVP_ACT, TCA_RSVP_POLICE);
+-	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e);
++	err = tcf_exts_validate(net, tp, tb, tca[TCA_RATE], &e, ovr);
+ 	if (err < 0)
+ 		return err;
+ 
+diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+index eed8404..d11d0a4 100644
+--- a/net/sched/cls_tcindex.c
++++ b/net/sched/cls_tcindex.c
+@@ -192,7 +192,7 @@ static int
+ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
+ 		  u32 handle, struct tcindex_data *p,
+ 		  struct tcindex_filter_result *r, struct nlattr **tb,
+-		 struct nlattr *est)
++		  struct nlattr *est, bool ovr)
+ {
+ 	int err, balloc = 0;
+ 	struct tcindex_filter_result new_filter_result, *old_r = r;
+@@ -202,7 +202,7 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
+ 	struct tcf_exts e;
+ 
+ 	tcf_exts_init(&e, TCA_TCINDEX_ACT, TCA_TCINDEX_POLICE);
+-	err = tcf_exts_validate(net, tp, tb, est, &e);
++	err = tcf_exts_validate(net, tp, tb, est, &e, ovr);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -331,7 +331,7 @@ errout:
+ static int
+ tcindex_change(struct net *net, struct sk_buff *in_skb,
+ 	       struct tcf_proto *tp, unsigned long base, u32 handle,
+-	       struct nlattr **tca, unsigned long *arg)
++	       struct nlattr **tca, unsigned long *arg, bool ovr)
+ {
+ 	struct nlattr *opt = tca[TCA_OPTIONS];
+ 	struct nlattr *tb[TCA_TCINDEX_MAX + 1];
+@@ -351,7 +351,7 @@ tcindex_change(struct net *net, struct sk_buff *in_skb,
+ 		return err;
+ 
+ 	return tcindex_set_parms(net, tp, base, handle, p, r, tb,
+-				 tca[TCA_RATE]);
++				 tca[TCA_RATE], ovr);
+ }
+ 
+ 
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index 84c28da..c39b583 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -486,13 +486,13 @@ static const struct nla_policy u32_policy[TCA_U32_MAX + 1] = {
+ static int u32_set_parms(struct net *net, struct tcf_proto *tp,
+ 			 unsigned long base, struct tc_u_hnode *ht,
+ 			 struct tc_u_knode *n, struct nlattr **tb,
+-			 struct nlattr *est)
++			 struct nlattr *est, bool ovr)
+ {
+ 	int err;
+ 	struct tcf_exts e;
+ 
+ 	tcf_exts_init(&e, TCA_U32_ACT, TCA_U32_POLICE);
+-	err = tcf_exts_validate(net, tp, tb, est, &e);
++	err = tcf_exts_validate(net, tp, tb, est, &e, ovr);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -545,7 +545,7 @@ errout:
+ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 		      struct tcf_proto *tp, unsigned long base, u32 handle,
+ 		      struct nlattr **tca,
+-		      unsigned long *arg)
++		      unsigned long *arg, bool ovr)
+ {
+ 	struct tc_u_common *tp_c = tp->data;
+ 	struct tc_u_hnode *ht;
+@@ -569,7 +569,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 			return -EINVAL;
+ 
+ 		return u32_set_parms(net, tp, base, n->ht_up, n, tb,
+-				     tca[TCA_RATE]);
++				     tca[TCA_RATE], ovr);
+ 	}
+ 
+ 	if (tb[TCA_U32_DIVISOR]) {
+@@ -656,7 +656,7 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 	}
+ #endif
+ 
+-	err = u32_set_parms(net, tp, base, ht, n, tb, tca[TCA_RATE]);
++	err = u32_set_parms(net, tp, base, ht, n, tb, tca[TCA_RATE], ovr);
+ 	if (err == 0) {
+ 		struct tc_u_knode **ins;
+ 		for (ins = &ht->ht[TC_U32_HASH(handle)]; *ins; ins = &(*ins)->next)
+-- 
 1.8.3.1
