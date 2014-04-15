@@ -1,8 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH 1/3] net: phy: add minimal support for QSGMII PHY
-Date: Tue, 15 Apr 2014 15:50:19 +0200
-Message-ID: <1397569821-5530-2-git-send-email-thomas.petazzoni@free-electrons.com>
-References: <1397569821-5530-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH 0/3] net: mvneta: fix usage as a module, and support QSGMII properly
+Date: Tue, 15 Apr 2014 15:50:18 +0200
+Message-ID: <1397569821-5530-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Jason Cooper <jason@lakedaemon.net>,
 	Andrew Lunn <andrew@lunn.ch>,
@@ -15,71 +14,79 @@ Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
 	George Joseph <george.joseph@fairview5.com>, arno@natisbad.org,
 	Willy Tarreau <w@1wt.eu>,
-	Alexander Reuter <Alexander.Reuter@gmx.net>,
-	devicetree@vger.kernel.org
+	Alexander Reuter <Alexander.Reuter@gmx.net>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:40744 "EHLO
+Received: from top.free-electrons.com ([176.31.233.9]:40729 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752992AbaDONu0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 09:50:26 -0400
-In-Reply-To: <1397569821-5530-1-git-send-email-thomas.petazzoni@free-electrons.com>
+	with ESMTP id S1753808AbaDONuY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 09:50:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit adds the necessary definitions for the PHY layer to
-recognize "qsgmii" as a valid PHY interface. A QSMII interface, as
-defined at
-http://en.wikipedia.org/wiki/Media_Independent_Interface#Quad_Serial_Gigabit_Media_Independent_Interface,
-is "is a method of combining four SGMII lines into a 5Gbit/s
-interface. QSGMII, like SGMII, uses LVDS signalling for the TX and RX
-data and a single LVDS clock signal. QSGMII uses significantly fewer
-signal lines than four SGMII busses."
+Hello,
 
-This type of MAC <-> PHY connection might require special handling on
-the MAC driver side, so it should be possible to express this type of
-MAC <-> PHY connection, for example in the Device Tree.
+This set of patches is a new attempt at fixing the operation of the
+mvneta driver when built as a module. For the record, the previous
+attempt, merged in commit e3a8786c10e75903f1269474e21fe8cb49c3a670
+('net: mvneta: fix usage as a module on RGMII configurations') caused
+problems for all RGMII configurations.
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Cc: devicetree@vger.kernel.org
----
- Documentation/devicetree/bindings/net/ethernet.txt | 2 +-
- include/linux/phy.h                                | 3 +++
- 2 files changed, 4 insertions(+), 1 deletion(-)
+In fact, it turned out that the MAC to PHY connection on the Armada XP
+GP, which was described as using RGMII-ID according to its Device
+Tree, is in fact a QSGMII connection. And the RGMII and QSGMII
+configurations have to be handled in a different way in the driver,
+because the SERDES configuration is different in those two cases.
 
-diff --git a/Documentation/devicetree/bindings/net/ethernet.txt b/Documentation/devicetree/bindings/net/ethernet.txt
-index 9ecd43d..3fc3605 100644
---- a/Documentation/devicetree/bindings/net/ethernet.txt
-+++ b/Documentation/devicetree/bindings/net/ethernet.txt
-@@ -10,7 +10,7 @@ The following properties are common to the Ethernet controllers:
- - max-frame-size: number, maximum transfer unit (IEEE defined MTU), rather than
-   the maximum frame size (there's contradiction in ePAPR).
- - phy-mode: string, operation mode of the PHY interface; supported values are
--  "mii", "gmii", "sgmii", "tbi", "rev-mii", "rmii", "rgmii", "rgmii-id",
-+  "mii", "gmii", "sgmii", "qsgmii", "tbi", "rev-mii", "rmii", "rgmii", "rgmii-id",
-   "rgmii-rxid", "rgmii-txid", "rtbi", "smii", "xgmii"; this is now a de-facto
-   standard property;
- - phy-connection-type: the same as "phy-mode" property but described in ePAPR;
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 24126c4..4d0221f 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -75,6 +75,7 @@ typedef enum {
- 	PHY_INTERFACE_MODE_SMII,
- 	PHY_INTERFACE_MODE_XGMII,
- 	PHY_INTERFACE_MODE_MOCA,
-+	PHY_INTERFACE_MODE_QSGMII,
- 	PHY_INTERFACE_MODE_MAX,
- } phy_interface_t;
- 
-@@ -116,6 +117,8 @@ static inline const char *phy_modes(phy_interface_t interface)
- 		return "xgmii";
- 	case PHY_INTERFACE_MODE_MOCA:
- 		return "moca";
-+	case PHY_INTERFACE_MODE_QSGMII:
-+		return "qsgmii";
- 	default:
- 		return "unknown";
- 	}
+So, this patch series fixes that by:
+
+ * Adding minimal handling of a "qsgmii" connection type in the PHY
+   layer. Mainly to make sure that a "qsgmii" phy-mode in the Device
+   Tree is recognized, and handed over to the driver as
+   PHY_INTERFACE_QSGMII.
+
+ * Changing the mvneta driver to properly configure the RGMIIEn and
+   PCSEn bits in the GMAC_CTRL_2 register, and configure the SERDES
+   register, in the three possible cases: RGMII, SGMII and QSGMII.
+
+ * Updating the Device Tree of the Armada XP GP board to reflect the
+   fact that it uses a QSGMII MAC/PHY connection.
+
+PATCH 1 and 2 would be merged by David Miller, through the net tree,
+while PATCH 3 would be merged by the mach-mvebu maintainers, through
+their tree and arm-soc.
+
+This set of patches has been tested on:
+
+ * Armada XP GP (four QSGMII interfaces)
+ * Armada XP DB (two RGMII interfaces and two SGMII interfaces)
+ * Armada 370 Mirabox (two RGMII interfaces)
+
+I've tested both the driver built-in, and compiled as a module.
+
+Since the last attempt at fixing this was quite a fiasco, I'd like
+this new attempt to be tested more widely before being applied. I'll
+try to do some testing on other Armada boards I have, but independent
+testing from other persons would also be appreciated.
+
+Note that these patches apply after reverting the previous attempt,
+obviously.
+
+Thanks,
+
+Thomas
+
+Thomas Petazzoni (3):
+  net: phy: add minimal support for QSGMII PHY
+  net: mvneta: properly configure the MAC <-> PHY connection in all
+    situations
+  ARM: mvebu: use qsgmii phy-mode for Armada XP GP interfaces
+
+ Documentation/devicetree/bindings/net/ethernet.txt |  2 +-
+ arch/arm/boot/dts/armada-xp-gp.dts                 |  8 +--
+ drivers/net/ethernet/marvell/mvneta.c              | 73 ++++++++++------------
+ include/linux/phy.h                                |  3 +
+ 4 files changed, 42 insertions(+), 44 deletions(-)
+
 -- 
 1.8.3.2
