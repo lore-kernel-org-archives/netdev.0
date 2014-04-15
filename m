@@ -1,50 +1,35 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net 1/3] net: move LOOPBACK_IFINDEX to include/net/flow.h
-Date: Tue, 15 Apr 2014 12:13:13 -0700
-Message-ID: <CAM_iQpULd0bLfLJbwJn3GkbChGMrxbd9Nq4v7mamBUjXpqx+ZQ@mail.gmail.com>
-References: <1397525608-11592-1-git-send-email-xiyou.wangcong@gmail.com>
-	<20140415.150600.1198094454060493410.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] qlcnic: Fix MSI-X initialization code
+Date: Tue, 15 Apr 2014 15:15:20 -0400 (EDT)
+Message-ID: <20140415.151520.1523135090870130956.davem@davemloft.net>
+References: <1397554634-26795-1-git-send-email-agordeev@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Julian Anastasov <ja@ssi.bg>,
-	Cong Wang <cwang@twopensource.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:45371 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754737AbaDOTNO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 15:13:14 -0400
-Received: by mail-ob0-f173.google.com with SMTP id wn1so3755866obc.18
-        for <netdev@vger.kernel.org>; Tue, 15 Apr 2014 12:13:13 -0700 (PDT)
-In-Reply-To: <20140415.150600.1198094454060493410.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, shahed.shaikh@qlogic.com,
+	Dept-HSGLinuxNICDev@qlogic.com, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
+To: agordeev@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1397554634-26795-1-git-send-email-agordeev@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 15, 2014 at 12:06 PM, David Miller <davem@davemloft.net> wrote:
->
-> Cong, first of all, I'd like you to combine patches #1 and #2.
->
+From: Alexander Gordeev <agordeev@redhat.com>
+Date: Tue, 15 Apr 2014 11:37:14 +0200
 
-OK, whatever you prefer...I have no strong opinion here.
+> Function qlcnic_setup_tss_rss_intr() might enter endless
+> loop in case pci_enable_msix() contiguously returns a
+> positive number of MSI-Xs that could have been allocated.
+> Besides, the function contains 'err = -EIO;' assignment
+> that never could be reached. This update fixes the
+> aforementioned issues.
+> 
+> Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>
+> Cc: Dept-HSGLinuxNICDev@qlogic.com
+> Cc: netdev@vger.kernel.org
+> Cc: linux-pci@vger.kernel.org
+> 
+> Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
 
-> Also, Julian made it clear that several other changes needed happen
-> besides the single fib_validate_source() call site you are modifying
-> in patch #3.
->
-> He also said, for example, that the flow4_iif assignment in
-> __fib_validate_source() needs adjusting as well.
->
-> He furthermore said that other assignments of zero to flow4_iif
-> in netfilter and elsewhere must be adjusted as well.
-
-I believe I did in patch #2, or I still miss anything?
-
->
-> Please also provide a proper 0/N patch posting next time explaining
-> exactly what the series does and why it is necessary.
-
-OK, will do, I thought per-patch description is enough.
-
-Thanks.
+Applied, thanks.
