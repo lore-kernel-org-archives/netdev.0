@@ -1,63 +1,39 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch iproute2] u32: add terminal parameter
-Date: Tue, 15 Apr 2014 13:17:50 -0700
-Message-ID: <CAM_iQpVmxmutCXMucP65UoxtPON=vJrxQ3B_jDTpMjWPycebaw@mail.gmail.com>
-References: <1396631826-15188-1-git-send-email-xiyou.wangcong@gmail.com>
-	<20140411140446.6412e9dc@nehalam.linuxnetplumber.net>
-	<CAM_iQpVpNOJ1xiK45qXGRXgBZ2QcmwoPc7p=SOHCo=1kTwPfFQ@mail.gmail.com>
-	<20140411175800.08e9ffe3@nehalam.linuxnetplumber.net>
-	<CAM_iQpU7Ntn-yo-ez0vP2BhKe+-Vaq1w_+MQhFPHM-bbQZx2gg@mail.gmail.com>
-	<534926F7.10505@mojatatu.com>
-	<CAM_iQpXJnOOUbpS0WwrB7C50LGxcLhMEQPrDB84Zm-SLKVHh6w@mail.gmail.com>
-	<534C6BDE.8020600@mojatatu.com>
-	<CAM_iQpV8GeEQr+GFFy2Etct_51YhvXEBKydyH9q4NP5QbsDOnA@mail.gmail.com>
-	<534D2D62.5080109@mojatatu.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [Patch net 2/3] ipv4,fib: pass LOOPBACK_IFINDEX instead of 0 to
+ flowi4_iif
+Date: Tue, 15 Apr 2014 23:26:53 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1404152315130.1549@ja.home.ssi.bg>
+References: <1397525608-11592-1-git-send-email-xiyou.wangcong@gmail.com> <1397525608-11592-2-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Eric Biederman <ebiederm@xmission.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f50.google.com ([209.85.219.50]:64071 "EHLO
-	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753036AbaDOURv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 16:17:51 -0400
-Received: by mail-oa0-f50.google.com with SMTP id i7so11558117oag.9
-        for <netdev@vger.kernel.org>; Tue, 15 Apr 2014 13:17:50 -0700 (PDT)
-In-Reply-To: <534D2D62.5080109@mojatatu.com>
+Received: from ja.ssi.bg ([178.16.129.10]:59581 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752340AbaDOU1b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2014 16:27:31 -0400
+In-Reply-To: <1397525608-11592-2-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 15, 2014 at 6:00 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 04/14/14 21:57, Cong Wang wrote:
->
->> So essentially why u32 filters can't just do matching without bothering
->
->
-> u32 is a special animal. You can actually have intermediate nodes
-> which are _not_ terminal. i.e you can build a tree of hashes which
-> interconnect other hashes eventually leading to terminal nodes.
->
 
-I knew, I thought at least classid is an alternative for action, that is,
-one doing classify and one doing some other action.
+	Hello,
 
->
->> classid especially when they are attached to an ingress qdisc? I still
->> fail to see a reason why I have to care about classid here.
->
->
-> It is more of a historical artifact with "benefits".
-> Historical in that egress qdiscs with classes existed before ingress;
-> so it makes sense to keep the syntax people are already familiar with.
-> Benefits because infact with the right approach the flowid even at
-> ingress can be used as input(look at the route classifier for example
-> and association with route accounting of the source).
->
+On Mon, 14 Apr 2014, Cong Wang wrote:
 
-I see. The next question would be what is a reasonable classid
-value for a classless qdisc? Or can we set it to some value to express
-"we don't care"?
+> From: Cong Wang <cwang@twopensource.com>
+> 
+> flowi4_iif should be LOOPBACK_IFINDEX by default.
 
-Thanks!
+	Looks good to me, you included all needed changes
+into the 3 patches. After checking all fib_lookup() callers
+I see one remaining place to be fixed, if we want to be
+pedantic: fib_check_nh() needs a LOOPBACK_IFINDEX for fl4.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
