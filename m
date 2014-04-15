@@ -1,35 +1,97 @@
-From: Alexander Sverdlin <alexander.sverdlin@nsn.com>
-Subject: Re: [PATCH net] Revert "net: sctp: Fix a_rwnd/rwnd management to
- reflect real state of the receiver's buffer"
-Date: Tue, 15 Apr 2014 08:43:47 +0200
-Message-ID: <534CD523.50301@nsn.com>
-References: <1397504717-19566-1-git-send-email-dborkman@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>,
-	Vlad Yasevich <vyasevich@gmail.com>
-To: ext Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from demumfd002.nsn-inter.net ([93.183.12.31]:51220 "EHLO
-	demumfd002.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750930AbaDOGn4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 02:43:56 -0400
-In-Reply-To: <1397504717-19566-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Li, Zhen-Hua" <zhen-hual@hp.com>
+Subject: [PATCH 1/1] driver/net: add missing rtnl lock/unlock for benet
+Date: Tue, 15 Apr 2014 14:45:52 +0800
+Message-ID: <1397544352-28841-1-git-send-email-zhen-hual@hp.com>
+Cc: "Li, Zhen-Hua" <zhen-hual@hp.com>
+To: Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Daniel,
+From: "Li, Zhen-Hua" <zhen-hual@hp.com>
 
-On 14/04/14 21:45, ext Daniel Borkmann wrote:
-> This reverts commit ef2820a735f7 ("net: sctp: Fix a_rwnd/rwnd management
-> to reflect real state of the receiver's buffer") as it introduced a
-> serious performance regression on SCTP over IPv4 and IPv6, though a not
-> as dramatic on the latter. Measurements are on 10Gbit/s with ixgbe NICs.
+In benet driver, netif_device_detach and netif_device_attach should be
+called between rtnl_lock and rtnl_unlock.
 
-Could you please share other HW details? I wonder how much CPU power one needs for such a throughput?
+Signed-off-by: Li, Zhen-Hua <zhen-hual@hp.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c |   17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 3e6df47..9c44b3f 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -4555,8 +4555,11 @@ static void be_func_recovery_task(struct work_struct *work)
+ 		rtnl_unlock();
+ 
+ 		status = lancer_recover_func(adapter);
+-		if (!status)
++		if (!status) {
++			rtnl_lock();
+ 			netif_device_attach(adapter->netdev);
++			rtnl_unlock();
++		}
+ 	}
+ 
+ 	/* In Lancer, for all errors other than provisioning error (-EAGAIN),
+@@ -4784,12 +4787,12 @@ static int be_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	be_intr_set(adapter, false);
+ 	cancel_delayed_work_sync(&adapter->func_recovery_work);
+ 
++	rtnl_lock();
+ 	netif_device_detach(netdev);
+ 	if (netif_running(netdev)) {
+-		rtnl_lock();
+ 		be_close(netdev);
+-		rtnl_unlock();
+ 	}
++	rtnl_unlock();
+ 	be_clear(adapter);
+ 
+ 	pci_save_state(pdev);
+@@ -4804,7 +4807,9 @@ static int be_resume(struct pci_dev *pdev)
+ 	struct be_adapter *adapter = pci_get_drvdata(pdev);
+ 	struct net_device *netdev =  adapter->netdev;
+ 
++	rtnl_lock();
+ 	netif_device_detach(netdev);
++	rtnl_unlock();
+ 
+ 	status = pci_enable_device(pdev);
+ 	if (status)
+@@ -4832,7 +4837,9 @@ static int be_resume(struct pci_dev *pdev)
+ 
+ 	schedule_delayed_work(&adapter->func_recovery_work,
+ 			      msecs_to_jiffies(1000));
++	rtnl_lock();
+ 	netif_device_attach(netdev);
++	rtnl_unlock();
+ 
+ 	if (adapter->wol_en)
+ 		be_setup_wol(adapter, false);
+@@ -4853,7 +4860,9 @@ static void be_shutdown(struct pci_dev *pdev)
+ 	cancel_delayed_work_sync(&adapter->work);
+ 	cancel_delayed_work_sync(&adapter->func_recovery_work);
+ 
++	rtnl_lock();
+ 	netif_device_detach(adapter->netdev);
++	rtnl_unlock();
+ 
+ 	be_cmd_reset_function(adapter);
+ 
+@@ -4957,7 +4966,9 @@ static void be_eeh_resume(struct pci_dev *pdev)
+ 
+ 	schedule_delayed_work(&adapter->func_recovery_work,
+ 			      msecs_to_jiffies(1000));
++	rtnl_lock();
+ 	netif_device_attach(netdev);
++	rtnl_unlock();
+ 	return;
+ err:
+ 	dev_err(&adapter->pdev->dev, "EEH resume failed\n");
 -- 
-Best regards,
-Alexander Sverdlin.
+1.7.10.4
