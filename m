@@ -1,63 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv4: add a sock pointer to ip_queue_xmit() and
- friends
-Date: Tue, 15 Apr 2014 13:16:36 -0400 (EDT)
-Message-ID: <20140415.131636.1847117096992048895.davem@davemloft.net>
-References: <1397520840.4222.65.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHz2CGW_Eh5P_Z4=a-tfnp-S_62bZRXk2pLxes7ufEdfr0hwAQ@mail.gmail.com>
-	<1397572392.4222.93.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nasa4836@gmail.com, jchapman@katalix.com, netdev@vger.kernel.org,
-	lucien.xin@gmail.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39272 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750993AbaDORQi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Apr 2014 13:16:38 -0400
-In-Reply-To: <1397572392.4222.93.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vincenzo Maffione <v.maffione@gmail.com>
+Subject: [PATCH] drivers: net: xen-netfront: remove unused arrays
+Date: Tue, 15 Apr 2014 19:39:39 +0200
+Message-ID: <1397583579-32162-1-git-send-email-v.maffione@gmail.com>
+Cc: boris.ostrovsky@oracle.com, david.vrabel@citrix.com,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Vincenzo Maffione <v.maffione@gmail.com>
+To: konrad.wilk@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 15 Apr 2014 07:33:12 -0700
+This patch removes some unused arrays from the netfront
+private data structure.
+Also removes an unused address variable.
 
-> diff --git a/net/core/dst.c b/net/core/dst.c
-> index ca4231ec7347..7443c2725c9c 100644
-> --- a/net/core/dst.c
-> +++ b/net/core/dst.c
-> @@ -142,12 +142,12 @@ loop:
->  	mutex_unlock(&dst_gc_mutex);
->  }
->  
-> -int dst_discard(struct sk_buff *skb)
-> +int dst_discard_sk(struct sock *sk, struct sk_buff *skb)
->  {
->  	kfree_skb(skb);
->  	return 0;
->  }
-> -EXPORT_SYMBOL(dst_discard);
-> +EXPORT_SYMBOL(dst_discard_sk);
->  
->  const u32 dst_default_metrics[RTAX_MAX + 1] = {
->  	/* This initializer is needed to force linker to place this variable
+Signed-off-by: Vincenzo Maffione <v.maffione@gmail.com>
+---
+Hello,
+  I don't see the point in having those unused arrays in the private
+structure.
 
-This doesn't compile, I'd expect to see hunks such as:
+Sorry if I'm missing something.
 
-@@ -184,7 +184,7 @@ void *dst_alloc(struct dst_ops *ops, struct net_device *dev,
- 	dst->xfrm = NULL;
- #endif
- 	dst->input = dst_discard;
--	dst->output = dst_discard;
-+	dst->output = dst_discard_sk;
- 	dst->error = 0;
- 	dst->obsolete = initial_obsolete;
- 	dst->header_len = 0;
+Cheers,
+  Vincenzo
 
-for this file, but I don't.  Maybe you posted an outdated revision of your
-patch?  There also aren't the necessary decnet and XFRM changes, layers
-which also use dst->output().
 
-Anyways, I'm splitting up your patches and sorting this out.
+ drivers/net/xen-netfront.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 158b5e6..1403ac7 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -137,10 +137,6 @@ struct netfront_info {
+ 	grant_ref_t gref_rx_head;
+ 	grant_ref_t grant_rx_ref[NET_RX_RING_SIZE];
+ 
+-	unsigned long rx_pfn_array[NET_RX_RING_SIZE];
+-	struct multicall_entry rx_mcl[NET_RX_RING_SIZE+1];
+-	struct mmu_update rx_mmu[NET_RX_RING_SIZE];
+-
+ 	/* Statistics */
+ 	struct netfront_stats __percpu *stats;
+ 
+@@ -252,7 +248,6 @@ static void xennet_alloc_rx_buffers(struct net_device *dev)
+ 	RING_IDX req_prod = np->rx.req_prod_pvt;
+ 	grant_ref_t ref;
+ 	unsigned long pfn;
+-	void *vaddr;
+ 	struct xen_netif_rx_request *req;
+ 
+ 	if (unlikely(!netif_carrier_ok(dev)))
+@@ -322,7 +317,6 @@ no_skb:
+ 		np->grant_rx_ref[id] = ref;
+ 
+ 		pfn = page_to_pfn(skb_frag_page(&skb_shinfo(skb)->frags[0]));
+-		vaddr = page_address(skb_frag_page(&skb_shinfo(skb)->frags[0]));
+ 
+ 		req = RING_GET_REQUEST(&np->rx, req_prod + i);
+ 		gnttab_grant_foreign_access_ref(ref,
+-- 
+1.9.2
