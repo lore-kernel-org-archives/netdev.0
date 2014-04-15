@@ -1,80 +1,46 @@
-From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 6/7] net: rfkill: gpio: add clock-frequency
- device tree property
-Date: Tue, 15 Apr 2014 16:44:16 +0200
-Message-ID: <20140415144416.GH3207@lukather>
-References: <1397544101-18135-1-git-send-email-wens@csie.org>
- <1397544101-18135-7-git-send-email-wens@csie.org>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] filter: added BPF random opcode
+Date: Tue, 15 Apr 2014 17:04:18 +0200
+Message-ID: <534D4A72.2010909@redhat.com>
+References: <1397516569-31033-1-git-send-email-chema@google.com>  <534CDE99.6090407@redhat.com> <1397572894.4222.98.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="4LFBTxd4L5NLO6ly"
-Cc: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Mika Westerberg <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>, linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Return-path: <linux-sunxi+bncBD2ZNBF5VYJRB4MLWWNAKGQE7GDCNAQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1397544101-18135-7-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Chema Gonzalez <chema@google.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	ast@plumgrid.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:16313 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751148AbaDOPEb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Apr 2014 11:04:31 -0400
+In-Reply-To: <1397572894.4222.98.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 04/15/2014 04:41 PM, Eric Dumazet wrote:
+> On Tue, 2014-04-15 at 09:24 +0200, Daniel Borkmann wrote:
+>
+>>> @@ -773,6 +779,7 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
+>>>    	case SKF_AD_OFF + SKF_AD_NLATTR:
+>>>    	case SKF_AD_OFF + SKF_AD_NLATTR_NEST:
+>>>    	case SKF_AD_OFF + SKF_AD_CPU:
+>>> +	case SKF_AD_OFF + SKF_AD_RANDOM:
+>>
+>> I think instead of a function call, this sould rather be modelled
+>> directly into the internal insn set and thus converted differently,
+>> so we can spare us the call.
+>
+> Hmmm... this would need percpu storage, thus preempt disable/enable
+> calls, and prandom_u32_state() is about 40 instructions.
+>
+> This is really not worth the pain.
 
---4LFBTxd4L5NLO6ly
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, Apr 15, 2014 at 02:41:40PM +0800, Chen-Yu Tsai wrote:
-> Some devices, such as Broadcom Bluetooth devices, require a specific
-> clock rate for the clock tied to the rfkill device. Add a clock-frequency
-> property so we can specify this from the device tree.
->=20
-> Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-
-I think such a property belongs to the device that requires it, and
-not to the rfkill that controls it.
-
-Maxime
-
---=20
-Maxime Ripard, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
-
---4LFBTxd4L5NLO6ly
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-
-iQIcBAEBAgAGBQJTTUXAAAoJEBx+YmzsjxAgsCUP/iA4SYjm+jYyJMCgApwwXNKw
-w/VFkZpJUOm3raQQ/L+Xi2KSm4+xkXr7G3MbsIX1hkst2uuuOFUjSTsejkFrHbj2
-hhH5cgZyag3qYI5ZYFxqF9kKpe0x7TdyWWGM9MMH3Gi2DgkwtnoA537XxSK8DRK7
-mfczf7sIuimy/sqZugnYFntFw+r61jBz0NyG6C34tXYkyUHQwqVVKkCP+ev7d5j+
-vgNXAgMNutArLpTVJtQcTDrRXgAmjx2jCVekk2+N4Xiv1Whil9uIZ93i99cMBJSR
-72sDpenoaXYsBH5MZAusnxHwft/TFq/xlEVXvIwKHb3pn9JinbRNkMrN0rAFOCVM
-MOIau7s1R2DrEjMEQGxrxQayjXbZWDsZu5Xv/OkRCSNK69dpL9Wpz/WHvwIhsvSy
-EhW7DAztAiUMeYuc137Re68gU4VLCNrtRTe4UuZKwkW25ps9DJtrz4b6bqA/Ct/X
-I4Fnuk/v0uY6VYW03gmJTF8Oa0bztz4tRcgirfZVzFvYjUBc0VQp9l6DcuBohi7k
-DXZyQmCHq0x0AcVvxuiDi7GJ+sIJHbq8TBiaK2NbpzTJADlG0XN2vojfb0Jyr6jk
-zv1qLqTCv40qt8xqiOoSolLcsYQZTjpd4t9y4oIyjKU8g874WpSDHlb7EXT01UYS
-iA+4sA6cuZ/t/O3VwhpC
-=ksvN
------END PGP SIGNATURE-----
-
---4LFBTxd4L5NLO6ly--
+Absolutely, that was not what I meant actually. Calling to
+prandom_u32_state() is fine, no need to have another prng just
+for that. I was just wondering if it makes sense to model that
+directly as an instruction into a jump-table target that calls
+prandom_u32() from there instead 'indirectly'. Need to think
+about this a bit more ...
