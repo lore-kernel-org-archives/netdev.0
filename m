@@ -1,61 +1,55 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net 3/3] ipv4,fib: pass 0 instead of LOOPBACK_IFINDEX to fib_validate_source()
-Date: Mon, 14 Apr 2014 18:33:28 -0700
-Message-ID: <1397525608-11592-3-git-send-email-xiyou.wangcong@gmail.com>
-References: <1397525608-11592-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Biederman <ebiederm@xmission.com>,
-	Julian Anastasov <ja@ssi.bg>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <cwang@twopensource.com>
-To: netdev@vger.kernel.org
+From: Dennis Punjabi <linuxdev@icts.bz>
+Subject: RE: 802.1AD packets - Kernel changes ether type from 88A8 to 8100
+ on all packets.
+Date: Tue, 15 Apr 2014 01:34:47 +0000
+Message-ID: <BLU184-W5932FDD379FA1C7DFFA92FD0500@phx.gbl>
+References: <BLU184-W706F779E20884E4F486ED9D0540@phx.gbl>,<1397319636.1789.11.camel@localhost.localdomain>,<5349729C.3020602@redhat.com>,<87sipgsen9.wl%atzm@stratosphere.co.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Toshiaki Makita <toshiaki.makita1@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Atzm Watanabe <atzm@stratosphere.co.jp>,
+	Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:51709 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751133AbaDOBdk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Apr 2014 21:33:40 -0400
-Received: by mail-pd0-f169.google.com with SMTP id fp1so8846995pdb.28
-        for <netdev@vger.kernel.org>; Mon, 14 Apr 2014 18:33:40 -0700 (PDT)
-In-Reply-To: <1397525608-11592-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from blu0-omc4-s14.blu0.hotmail.com ([65.55.111.153]:2941 "EHLO
+	blu0-omc4-s14.blu0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750828AbaDOBjx convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Apr 2014 21:39:53 -0400
+In-Reply-To: <87sipgsen9.wl%atzm@stratosphere.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <cwang@twopensource.com>
+>>> Hi.
+>>>
+>>> Though I'm not an expert with libpcap, I feel tcpdump sometimes shows a
+>>> wrong vlan protocol (if vlan_tci is used).
+>>>
+>>> Maybe this topic has relevance?
+>>>
+>>> packet: deliver VLAN TPID to userspace
+>>> http://marc.info/?l=linux-netdev&m=138728859001934&w=2
+>>> http://marc.info/?l=linux-netdev&m=138728859601935&w=2
+>>> http://marc.info/?l=linux-netdev&m=138728860101937&w=2
+>>> http://marc.info/?l=linux-netdev&m=138728860601939&w=2
+>>
+>> The issue seems not to be in AF_PACKET as it just 'playes dumb' and propagates
+>> what has been set in the skb as metadata to user space e.g., see ...
+>
+> Yes.
+> Also I sent a small pull-request for libpcap via github to fix this
+> issue about 2 weeks ago, but it is not pulled yet, still opened:
+>
+> https://github.com/the-tcpdump-group/libpcap/pull/346
 
-In my special case, when a packet is redirected from veth0 to lo,
-its skb->dev->ifindex would be LOOPBACK_IFINDEX. Meanwhile we
-pass the hard-coded LOOPBACK_IFINDEX to fib_validate_source()
-in ip_route_input_slow(). This would cause the following check
-in fib_validate_source() fail:
 
-            (dev->ifindex != oif || !IN_DEV_TX_REDIRECTS(idev))
+Thanks Atzm and everyone for clarifying that and pointing me in the right direction.
+Was not too sure where to begin looking.
 
-when rp_filter is disabeld on loopback. As suggested by Julian,
-the caller should pass 0 here so that we will not end up by
-calling __fib_validate_source().
+I will apply the individual patches and try the 802.1AD filtering on the bridge.
+Appreciate your help.
 
-Cc: Eric Biederman <ebiederm@xmission.com>
-Cc: Julian Anastasov <ja@ssi.bg>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Cong Wang <cwang@twopensource.com>
----
- net/ipv4/route.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 20a59c3..93d4921 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1700,8 +1700,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 
- 	if (res.type == RTN_LOCAL) {
- 		err = fib_validate_source(skb, saddr, daddr, tos,
--					  LOOPBACK_IFINDEX,
--					  dev, in_dev, &itag);
-+					  0, dev, in_dev, &itag);
- 		if (err < 0)
- 			goto martian_source_keep_err;
- 		goto local_input;
--- 
-1.8.3.1
+Best Regards,
+Dennis
+ 		 	   		  
