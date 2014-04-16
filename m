@@ -1,24 +1,44 @@
-From: Sharat Masetty <sharat04@gmail.com>
-Subject: Question on Lockless TX
-Date: Tue, 15 Apr 2014 22:29:14 -0600
-Message-ID: <CAJzFV37OPJVVx3rO=L9RRZFn8NajiR1HZuZEZ8M3SepXTsMQ6A@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 10/19] NET: set PF_FSTRANS while holding sk_lock
+Date: Tue, 15 Apr 2014 22:13:46 -0700
+Message-ID: <1397625226.4222.113.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140416033623.10604.69237.stgit@notabene.brown>
+	 <20140416040336.10604.96000.stgit@notabene.brown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f170.google.com ([74.125.82.170]:52913 "EHLO
-	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750928AbaDPE3P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2014 00:29:15 -0400
-Received: by mail-we0-f170.google.com with SMTP id w61so10452120wes.1
-        for <netdev@vger.kernel.org>; Tue, 15 Apr 2014 21:29:14 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xfs-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140416040336.10604.96000.stgit-wvvUuzkyo1EYVZTmpyfIwg@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Can someone explain to me, why would a driver choose to implement
-Lockless TX? What are the advantages/disadvantages of choosing to do
-so?Any performance benefits? A reference to a sample driver
-implementation would be helpful to understand.
+On Wed, 2014-04-16 at 14:03 +1000, NeilBrown wrote:
+> sk_lock can be taken while reclaiming memory (in nfsd for loop-back
+> NFS mounts, and presumably in nfs), and memory can be allocated while
+> holding sk_lock, at least via:
+> 
+>  inet_listen -> inet_csk_listen_start ->reqsk_queue_alloc
+> 
+> So to avoid deadlocks, always set PF_FSTRANS while holding sk_lock.
+> 
+> This deadlock was found by lockdep.
 
-Thanks
-Sharat
+Wow, this is adding expensive stuff in fast path, only for nfsd :(
+
+BTW, why should the current->flags should be saved on a socket field,
+and not a current->save_flags. This really looks a thread property, not
+a socket one.
+
+Why nfsd could not have PF_FSTRANS in its current->flags ?
+
+For applications handling millions of sockets, this makes a difference.
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
