@@ -1,55 +1,30 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [Xen-devel] [PATCH] drivers: net: xen-netfront: remove unused
- arrays
-Date: Wed, 16 Apr 2014 09:26:38 +0100
-Message-ID: <1397636798.24638.117.camel@kazak.uk.xensource.com>
-References: <1397583579-32162-1-git-send-email-v.maffione@gmail.com>
-	 <534D7244.5000002@citrix.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] filter: added BPF random opcode
+Date: Wed, 16 Apr 2014 10:32:40 +0200
+Message-ID: <534E4028.6090501@redhat.com>
+References: <1397585816-1267-1-git-send-email-chema@google.com> <CAMEtUuw3-LEuwJ2cAQ+F-tu_-wzy4HK4ZteAuJpYfY9hW66+FA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Vincenzo Maffione <v.maffione@gmail.com>,
-	<xen-devel@lists.xenproject.org>, <boris.ostrovsky@oracle.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <534D7244.5000002@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Chema Gonzalez <chema@google.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:34910 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752708AbaDPIcx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Apr 2014 04:32:53 -0400
+In-Reply-To: <CAMEtUuw3-LEuwJ2cAQ+F-tu_-wzy4HK4ZteAuJpYfY9hW66+FA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-04-15 at 18:54 +0100, David Vrabel wrote:
-> On 15/04/14 18:39, Vincenzo Maffione wrote:
-> > This patch removes some unused arrays from the netfront
-> > private data structure.
-> > Also removes an unused address variable.
-> > 
-> > Signed-off-by: Vincenzo Maffione <v.maffione@gmail.com>
-> 
-> Huh. I wonder what they were for.
+On 04/16/2014 08:24 AM, Alexei Starovoitov wrote:
+...
+> At the same time I think the extension technic itself is nice and clean :)
+> The call approach is definitely how we envisioned it to be used.
+> Right now we have only x86-64 jit that is waiting for net-next to be opened,
+> but this extension will be automatically jit-ed due to 'call approach'. Nice.
 
-Looks like they were leftovers from the old flipping mode of operation.
-Which was removed with:
-        commit 5dcddfae63bd26da0f11a8e40f0ae555b5ac624e
-        Author: Jeremy Fitzhardinge <jeremy@goop.org>
-        Date:   Tue Aug 7 14:56:42 2007 -0700
-        
-            xen-netfront: remove dead code
-        
-Which missed these bits.
-Ian.
-
-> Acked-by: David Vrabel <david.vrabel@citrix.com>
-> 
-> For net related patches please say whether they're for the net (current
-> RCs) or net-next branch.  e.g.,
-> 
-> [PATCH net-next] xen-netfront: removed unused arrays.
-> 
-> Thanks.
-> 
-> David
-> 
-> _______________________________________________
-> Xen-devel mailing list
-> Xen-devel@lists.xen.org
-> http://lists.xen.org/xen-devel
+Ok, in terms of JIT it's definitely better that way, agreed.
