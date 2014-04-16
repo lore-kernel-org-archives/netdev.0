@@ -1,49 +1,99 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing cgroup path
-Date: Wed, 16 Apr 2014 10:53:22 -0700
-Message-ID: <CALCETrX3srGgO4kSueBOYrFSi5__LoHEExis8uvCE+hwgUTdiw@mail.gmail.com>
+From: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing
+ cgroup path
+Date: Wed, 16 Apr 2014 14:06:42 -0400
+Message-ID: <20140416180642.GG31074@redhat.com>
 References: <CALCETrURHNmLyccRiF_W8o2ozRMR4AaCjUE=_PU8z1+Pq6X2jQ@mail.gmail.com>
- <20140416002010.GA5035@redhat.com> <CALCETrWzHYN3kKcmDTFDfGhZqE4u9+6XDtiOu5nncbK_7KKH0g@mail.gmail.com>
- <20140416.085743.1614257692560892039.davem@davemloft.net> <CALCETrVv8SPM5xjOVGy7qO2aq3FKtG2uG57J49nO7Wy0-gg0Ew@mail.gmail.com>
- <1397664837.19767.410.camel@willson.li.ssimo.org> <CALCETrXn7b6UuALpGUVoyQYfR2uzk5tj2ABV=dkvtFNgqM5sxQ@mail.gmail.com>
- <1397667766.19767.440.camel@willson.li.ssimo.org> <CALCETrU_yKQVZyVug25cxwQFjWJ7Zf20FY-6ht+RJifXtDdDWg@mail.gmail.com>
- <1397669685.19767.450.camel@willson.li.ssimo.org>
+ <20140416002010.GA5035@redhat.com>
+ <CALCETrWzHYN3kKcmDTFDfGhZqE4u9+6XDtiOu5nncbK_7KKH0g@mail.gmail.com>
+ <20140416.085743.1614257692560892039.davem@davemloft.net>
+ <CALCETrVv8SPM5xjOVGy7qO2aq3FKtG2uG57J49nO7Wy0-gg0Ew@mail.gmail.com>
+ <1397664837.19767.410.camel@willson.li.ssimo.org>
+ <CALCETrXn7b6UuALpGUVoyQYfR2uzk5tj2ABV=dkvtFNgqM5sxQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Daniel Walsh <dwalsh-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Daniel Walsh <dwalsh-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
 	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
 	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
 Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1397669685.19767.450.camel-Hs+ccMQdwurzDu64bZtGtWD2FQJk+8+b@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CALCETrXn7b6UuALpGUVoyQYfR2uzk5tj2ABV=dkvtFNgqM5sxQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 16, 2014 at 10:34 AM, Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> On Wed, 2014-04-16 at 10:29 -0700, Andy Lutomirski wrote:
->> Then please remove SO_PASSCGROUP.
->
-> Can you stop demanding changes while demonstrating you haven't well
-> understood the needs, let alone the consequences ?
->
-> Take a day or 2, put your thoughts together and come back with a clear
-> description of your concerns if you still have any, please.
+On Wed, Apr 16, 2014 at 09:31:25AM -0700, Andy Lutomirski wrote:
+> On Wed, Apr 16, 2014 at 9:13 AM, Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> > On Wed, 2014-04-16 at 07:37 -0700, Andy Lutomirski wrote:
+> >> On Wed, Apr 16, 2014 at 5:57 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> >> >
+> >> > Please, just stop.
+> >>
+> >> No.
+> >>
+> >> This thread is proposing an ABI.  This means that, if the ABI ends up
+> >> in Linus's kernel, then it has to be supported forever.  Now is the
+> >> time to find and fix any issues with it before they become much harder
+> >> to fix.
+> >
+> > Ok, but so far I haven't seen a single objection from you that has solid
+> > grounds.
+> 
+> CVE-2013-1959 was caused by a new kernel feature causing a call to
+> write(2) to behave as though the caller was authenticating itself to
+> something else where, in previous kernels, write(2) did not
+> authenticate.
+> 
+> Admittedly cgroups aren't currently as important as uid, but if this
+> changes, then SO_PASSCGROUP, as currently written, will have *exactly*
+> the same problem.
 
-OK, if one of you can give a description of what the needs are.  So
-far, I've heard:
+I am not sure how same issue with happen with cgroups. In the case of
+socket example, you are forcing a setuid program to write to standard
+output and that setuid program will run in same cgroup as caller and
+will have same cgroup as caller. So even if somebody was using cgroup
+information for authentication, atleast in this particular case it
+will not be a problem. Both unpriviliged and priviliged programs has
+same cgroups.
 
-SSSD, but there was already a longish thread on why SSSD could solve
-all of its problems without any kernel changes at all.  I didn't see a
-compelling answer there.
+> 
+> >
+> > The only one that *may* be reasonable is the "secret" cgroup name one,
+> > however nobody seem to come up with a reason why it is legitimate to
+> > allow to keep cgroup names secret.
+> >
+> > And if you can come up with such a good reason the SO_NOPASSCGROUP
+> > option seem the right solution.
+> >
+> >> This ABI is especially tricky because programs will use it even if
+> >> they don't explicitly try to.  So just adding the ABI may break
+> >> existing assumptions that are relevant to security or correctness.
+> >
+> > It's not clear to me what you mean by this, either you explicitly use
+> > SO_PASSCGROUP or not, it's not like you can involuntarily add a flag ...
+> >
+> 
+> The issue here is that the receiver sets SO_(PASS|PEER)CGROUP, forcing
+> the sender to identify or authenticate itself.  The sender might not
+> want to identify itself.  Even if you don't buy any secrecy arguments,
+> the sender might not intend to authenticate.  Certainly no existing
+> callers of connect or write intend to authenticate using their cgroup,
+> since current kernels don't have those semantics.
 
-journald for things in containers, but this doesn't seem to me to
-require any help from the kernel.
+Ok, so passing cgroup information is not necessarily a problem as long
+as it is not used for authentication. So say somebody is just logging
+all the client request and which cgroup client was in, that should not
+be a problem.
 
-journald for things not in containers.  This one is legit, although it
-can be solved, albeit with some races, in current kernels.  Is this
-the only example?
+I agree that before somebody uses cgroup information for authentication
+purposes, may be there needs to be a bigger debate whether this info
+can be used safely for authentication purposes or not and in what
+circumstances it is safe to use for authentication.
 
---Andy
+But that does not mean that API to pass the cgroup information around is
+wrong.
+
+Thanks
+Vivek
