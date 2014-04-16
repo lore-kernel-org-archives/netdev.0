@@ -1,133 +1,97 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net] Revert "net: sctp: Fix a_rwnd/rwnd management to
- reflect real state of the receiver's buffer"
-Date: Wed, 16 Apr 2014 14:50:37 -0400
-Message-ID: <534ED0FD.4040709@gmail.com>
-References: <1397504717-19566-1-git-send-email-dborkman@redhat.com> <534C3DC2.9070604@gmail.com> <534E29D4.60100@nsn.com> <CAE8XmWqgcNAHcKnzdUamQ0T+NP27GKSiRv37JEHSQW-=1Fu=2w@mail.gmail.com> <534E473E.20303@nsn.com>
+From: Vivek Goyal <vgoyal@redhat.com>
+Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing
+ cgroup path
+Date: Wed, 16 Apr 2014 14:51:54 -0400
+Message-ID: <20140416185153.GI31074@redhat.com>
+References: <20140416002010.GA5035@redhat.com>
+ <CALCETrWzHYN3kKcmDTFDfGhZqE4u9+6XDtiOu5nncbK_7KKH0g@mail.gmail.com>
+ <20140416.085743.1614257692560892039.davem@davemloft.net>
+ <CALCETrVv8SPM5xjOVGy7qO2aq3FKtG2uG57J49nO7Wy0-gg0Ew@mail.gmail.com>
+ <1397664837.19767.410.camel@willson.li.ssimo.org>
+ <CALCETrXn7b6UuALpGUVoyQYfR2uzk5tj2ABV=dkvtFNgqM5sxQ@mail.gmail.com>
+ <1397667766.19767.440.camel@willson.li.ssimo.org>
+ <CALCETrU_yKQVZyVug25cxwQFjWJ7Zf20FY-6ht+RJifXtDdDWg@mail.gmail.com>
+ <20140416183614.GH31074@redhat.com>
+ <CALCETrURhBXQaYYJiHq2svPqB3-K7kmgD2QUTT9LCjry=fukWA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: Alexander Sverdlin <alexander.sverdlin@nsn.com>,
-	ext Dongsheng Song <dongsheng.song@gmail.com>,
-	Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f172.google.com ([209.85.216.172]:38031 "EHLO
-	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754600AbaDPSun (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2014 14:50:43 -0400
-In-Reply-To: <534E473E.20303@nsn.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Simo Sorce <ssorce@redhat.com>, David Miller <davem@davemloft.net>,
+	Tejun Heo <tj@kernel.org>, Daniel Walsh <dwalsh@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	lpoetter@redhat.com, cgroups@vger.kernel.org, kay@redhat.com,
+	Network Development <netdev@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CALCETrURhBXQaYYJiHq2svPqB3-K7kmgD2QUTT9LCjry=fukWA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/16/2014 05:02 AM, Alexander Sverdlin wrote:
-> Hi Dongsheng!
->
-> On 16/04/14 10:39, ext Dongsheng Song wrote:
->> >From my testing, netperf throughput from 600 Mbit/s drop to 6 Mbit/s,
->> the penalty is 99 %.
->
-> The question was, do you see this as a problem of the new rwnd algorithm?
-> If yes, how exactly?
+On Wed, Apr 16, 2014 at 11:40:44AM -0700, Andy Lutomirski wrote:
+> On Wed, Apr 16, 2014 at 11:36 AM, Vivek Goyal <vgoyal@redhat.com> wrote:
+> > On Wed, Apr 16, 2014 at 10:29:08AM -0700, Andy Lutomirski wrote:
+> >
+> > [..]
+> >> >> Admittedly cgroups aren't currently as important as uid, but if this
+> >> >> changes, then SO_PASSCGROUP, as currently written, will have *exactly*
+> >> >> the same problem.
+> >> >
+> >> > Which is easy to foil by using SO_PEERCGROUP and find out who originally
+> >> > opened the socket, which is why that is also available!
+> >>
+> >> Then please remove SO_PASSCGROUP.
+> >
+> > SO_PASSCGROUP is important because SO_PEERCGROUP does not work with unix
+> > datagram sockets.
+> 
+> Right.  I forgot about that.
+> 
+> >
+> > Again going back to logging example, if some clients are logging to unix
+> > datagram sockets, SO_PASSCGROUP is the only option to figure out cgroup
+> > of client.
+> 
+> Hmm.  I think that, in your patch, the cgroup that is sent is the
+> cgroup of the caller of write/send/sendmsg.  What if you changed it to
+> use the same cgroup that SO_PEERCRED would use?  Would that still
+> work?
 
-The algorithm isn't wrong, but the implementation appears to have
-a bug with window update SACKs.  The problem is that
-sk->sk_rmem_alloc is updated by the skb destructor when
-skb is freed.  This happens after we call sctp_assoc_rwnd_update()
-which tries to send the update SACK.  As a result, in default
-config with per-socket accounting, the test
-    if ((asoc->base.sk->sk_rcvbuf - rx_count) > 0)
-uses the wrong values for rx_count and results in advertisement
-of decreased rwnd instead of what is really available.
+No. SO_PEERCRED stores the cgroup information once at the time of
+connect(). After that it never changes.
 
-Can you try this patch without the revert applied.
+What if sender changes the cgroup. That information will not be captured.
+Also what if multiple client use the same socket fd to writer to logger?
+In that case too storing cgroup info in socket will not help.
+
+Cgroup is sender task's property and not client side socket's property. 
+
+> 
+> >>
+> >> I still haven't seen any explanation for what's wrong with requiring
+> >> senders to ask the kernel to transmit their cgroup.
+> >
+> > If nothing else, additional complexity and ovhead. Extra pair of messages
+> > need to be exchanged to request and then provide the information.
+> >
+> > How would it work in logging example? Every time logger receives a
+> > message, is it supposed to send another message to client to send
+> > SCM_CGROUP? That does not sound right.
+> 
+> No -- just have the logger send the cgroup with every message.  Yes,
+> it seems silly, but it's probably barely more expensive than with the
+> code in your patch.
+
+So receiver gets the cgroup messages even if it might not want to. There
+is no way to say "Hey don't send me SCM_CGROUP's messages".
+
+Now all loggers need to be modifed to always send SCM_CGROUP messages. And
+all other more complicated cases might need a different consideration and
+clients and servers will need to be modified accordingly.
+
+I think it is much simpler to allow passing of cgroup information and
+once we figure out some concrete cases where passing of that info is
+not desirabe, implement SO_NOPASSCGROUP and modify those *selected few
+corner cases* to set this flag on sockets.
 
 Thanks
--vlad
-
-diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
-index 8d198ae..cc2d440 100644
---- a/net/sctp/ulpevent.c
-+++ b/net/sctp/ulpevent.c
-@@ -1011,7 +1011,6 @@ static void sctp_ulpevent_release_data(struct
-sctp_ulpevent *event)
- {
- 	struct sk_buff *skb, *frag;
- 	unsigned int	len;
--	struct sctp_association *asoc;
-
- 	/* Current stack structures assume that the rcv buffer is
- 	 * per socket.   For UDP style sockets this is not true as
-@@ -1036,11 +1035,7 @@ static void sctp_ulpevent_release_data(struct
-sctp_ulpevent *event)
- 	}
-
- done:
--	asoc = event->asoc;
--	sctp_association_hold(asoc);
- 	sctp_ulpevent_release_owner(event);
--	sctp_assoc_rwnd_update(asoc, true);
--	sctp_association_put(asoc);
- }
-
- static void sctp_ulpevent_release_frag_data(struct sctp_ulpevent *event)
-@@ -1071,12 +1066,21 @@ done:
-  */
- void sctp_ulpevent_free(struct sctp_ulpevent *event)
- {
-+	struct sctp_association *assoc = event->asoc;
-+
- 	if (sctp_ulpevent_is_notification(event))
- 		sctp_ulpevent_release_owner(event);
- 	else
- 		sctp_ulpevent_release_data(event);
-
- 	kfree_skb(sctp_event2skb(event));
-+	/* The socket is locked and the assocaiton can't go anywhere
-+	 * since we are walking the uplqueue.  No need to hold
-+	 * another ref on the association.  Now that the skb has been
-+	 * freed and accounted for everywhere, see if we need to send
-+	 * a window update SACK.
-+	 */
-+	sctp_assoc_rwnd_update(asoc, true);
- }
-
- /* Purge the skb lists holding ulpevents. */
-
-
-> The algorithm actually has no preference to any amount of data.
-> It was fine-tuned before to serve as congestion control algorithm, but
-this should
-> be located elsewhere. Perhaps, indeed, a re-use of congestion control
-modules from
-> TCP would be possible...
->
->> http://www.spinics.net/lists/linux-sctp/msg03308.html
->>
->>
->> On Wed, Apr 16, 2014 at 2:57 PM, Matija Glavinic Pecotic
->> <matija.glavinic-pecotic.ext@nsn.com> wrote:
->>>
->>> Hello Vlad,
->>>
->>> On 04/14/2014 09:57 PM, ext Vlad Yasevich wrote:
->>>> The base approach is sound.  The idea is to calculate rwnd based
->>>> on receiver buffer available.  The algorithm chosen however, is
->>>> gives a much higher preference to small data and penalizes large
->>>> data transfers.  We need to figure our something else here..
->>>
->>> I don't follow you here. Could you please explain what do you see as
-penalty?
->>>
->>> Thanks,
->>>
->>> Matija
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->>
->
+Vivek
