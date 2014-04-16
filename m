@@ -1,82 +1,52 @@
-From: "Li, Zhen-Hua" <zhen-hual@hp.com>
-Subject: [PATCH 1/1] net: Add rtnl_lock for netif_device_attach/detach
-Date: Wed, 16 Apr 2014 15:08:02 +0800
-Message-ID: <1397632082-18453-1-git-send-email-zhen-hual@hp.com>
-Cc: "Li, Zhen-Hua" <zhen-hual@hp.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	stephen hemminger <stephen@networkplumber.org>,
-	Jerry Chu <hkchu@google.com>,
-	Sathya Perla <sathya.perla@emulex.com>,
-	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
-	Ajit Khaparde <ajit.khaparde@emulex.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+From: "Li, ZhenHua" <zhen-hual@hp.com>
+Subject: Re: [PATCH 1/1] driver/net: add missing rtnl lock/unlock for benet
+Date: Wed, 16 Apr 2014 15:09:11 +0800
+Message-ID: <534E2C97.4040908@hp.com>
+References: <1397544352-28841-1-git-send-email-zhen-hual@hp.com> <20140415.150950.2105729446204659132.davem@davemloft.net> <534E2399.5030801@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
+	ajit.khaparde@emulex.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <534E2399.5030801@hp.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Li, Zhen-Hua" <zhen-hual@hp.com>
+Hi David,
+I have sent out another patch for the fix.
 
-As netif_running is called in netif_device_attach/detach. There should be
-rtnl_lock/unlock called, to avoid dev stat change during netif_device_attach
-and detach being called.
-I checked NIC some drivers,  some of them have netif_device_attach/detach
-called between rtnl_lock/unlock, while some drivers do not.
-
-This patch is tring to find a generic way to fix this for all NIC drivers.
-
-Signed-off-by: Li, Zhen-Hua <zhen-hual@hp.com>
----
- net/core/dev.c |   18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 5b3042e..795bbc5 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2190,10 +2190,19 @@ EXPORT_SYMBOL(__dev_kfree_skb_any);
-  */
- void netif_device_detach(struct net_device *dev)
- {
-+	/**
-+	 * As netif_running is called , rtnl_lock and unlock are needed to
-+	 * avoid __LINK_STATE_START bit changes during this function call.
-+	 */
-+	int need_unlock;
-+
-+	need_unlock = rtnl_trylock();
- 	if (test_and_clear_bit(__LINK_STATE_PRESENT, &dev->state) &&
- 	    netif_running(dev)) {
- 		netif_tx_stop_all_queues(dev);
- 	}
-+	if (need_unlock)
-+		rtnl_unlock();
- }
- EXPORT_SYMBOL(netif_device_detach);
- 
-@@ -2205,11 +2214,20 @@ EXPORT_SYMBOL(netif_device_detach);
-  */
- void netif_device_attach(struct net_device *dev)
- {
-+	/**
-+	 * As netif_running is called , rtnl_lock and unlock are needed to
-+	 * avoid __LINK_STATE_START bit changes during this function call.
-+	 */
-+	int need_unlock;
-+
-+	need_unlock = rtnl_trylock();
- 	if (!test_and_set_bit(__LINK_STATE_PRESENT, &dev->state) &&
- 	    netif_running(dev)) {
- 		netif_tx_wake_all_queues(dev);
- 		__netdev_watchdog_up(dev);
- 	}
-+	if (need_unlock)
-+		rtnl_unlock();
- }
- EXPORT_SYMBOL(netif_device_attach);
- 
--- 
-1.7.10.4
+Thanks
+ZhenHua
+On 04/16/2014 02:30 PM, Li, ZhenHua wrote:
+> Hi David,
+>
+> I think you are right. I checked other NIC drivers, found some of them
+> call rtnl_lock and rtnl_unlock around netif_device_detach and attach
+> functions, while some drivers did not.
+>
+> I will create a new patch in generic way to fix this.
+>
+> Regards
+> ZhenHua
+> On 04/16/2014 03:09 AM, David Miller wrote:
+>> From: "Li, Zhen-Hua" <zhen-hual@hp.com>
+>> Date: Tue, 15 Apr 2014 14:45:52 +0800
+>>
+>>> From: "Li, Zhen-Hua" <zhen-hual@hp.com>
+>>>
+>>> In benet driver, netif_device_detach and netif_device_attach should be
+>>> called between rtnl_lock and rtnl_unlock.
+>>>
+>>> Signed-off-by: Li, Zhen-Hua <zhen-hual@hp.com>
+>>
+>> This absolutely does not look like a driver specific issue, therefore
+>> I do not want you to make such locking context adjustments only in
+>> your driver.
+>>
+>> Do it somewhere generic so that every driver gets the fix, not just
+>> your driver.
+>>
+>
