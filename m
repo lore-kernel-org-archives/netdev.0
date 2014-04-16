@@ -1,23 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing
- cgroup path
-Date: Wed, 16 Apr 2014 08:57:43 -0400 (EDT)
-Message-ID: <20140416.085743.1614257692560892039.davem@davemloft.net>
-References: <CALCETrURHNmLyccRiF_W8o2ozRMR4AaCjUE=_PU8z1+Pq6X2jQ@mail.gmail.com>
-	<20140416002010.GA5035@redhat.com>
-	<CALCETrWzHYN3kKcmDTFDfGhZqE4u9+6XDtiOu5nncbK_7KKH0g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 10/19] NET: set PF_FSTRANS while holding sk_lock
+Date: Wed, 16 Apr 2014 09:00:02 -0400 (EDT)
+Message-ID: <20140416.090002.2186526865564557549.davem@davemloft.net>
+References: <20140416033623.10604.69237.stgit@notabene.brown>
+	<20140416040336.10604.96000.stgit@notabene.brown>
+	<1397625226.4222.113.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, dwalsh-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALCETrWzHYN3kKcmDTFDfGhZqE4u9+6XDtiOu5nncbK_7KKH0g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: neilb@suse.de, linux-mm@kvack.org, linux-nfs@vger.kernel.org,
+ linux-kernel@vger.kernel.org, xfs@oss.sgi.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1397625226.4222.113.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 15 Apr 2014 22:13:46 -0700
 
-Please, just stop.
+> For applications handling millions of sockets, this makes a difference.
+
+Indeed, this really is not acceptable.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
