@@ -1,80 +1,111 @@
-From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: Re: [PATCH 1/7] gpiolib: gpiolib-of: Implement device
- tree gpio-names based lookup
-Date: Wed, 16 Apr 2014 17:56:54 +0800
-Message-ID: <CAGb2v65PF=i3pL58JycJLyp-TjsEeVxO-uDuZ6xrEob5oJLj5g@mail.gmail.com>
-References: <1397544101-18135-1-git-send-email-wens@csie.org>
- <1397544101-18135-2-git-send-email-wens@csie.org> <20140415142024.GD3207@lukather>
- <CAAVeFuLDhTVGDnmYtnxEY8hhn6HE6tU9OB24WDPtmxEHjiRiuQ@mail.gmail.com> <CAAVeFu+rJXH=Uat5_qWPu6OfmDAFxHj2b+n=OSmwtSw4s+fv6w@mail.gmail.com>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing
+ cgroup path
+Date: Wed, 16 Apr 2014 06:17:09 -0400
+Message-ID: <20140416101709.GA14131@redhat.com>
+References: <1397596546-10153-1-git-send-email-vgoyal@redhat.com>
+ <1397596546-10153-3-git-send-email-vgoyal@redhat.com>
+ <CALCETrURHNmLyccRiF_W8o2ozRMR4AaCjUE=_PU8z1+Pq6X2jQ@mail.gmail.com>
+ <20140416002010.GA5035@redhat.com>
+ <CALCETrWzHYN3kKcmDTFDfGhZqE4u9+6XDtiOu5nncbK_7KKH0g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	Mika Westerberg <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
-	"linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-To: Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBCMILY6JWQBBB6VHXGNAKGQE7UZJFOY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <CAAVeFu+rJXH=Uat5_qWPu6OfmDAFxHj2b+n=OSmwtSw4s+fv6w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Daniel Walsh <dwalsh-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CALCETrWzHYN3kKcmDTFDfGhZqE4u9+6XDtiOu5nncbK_7KKH0g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, Apr 15, 2014 at 08:47:54PM -0700, Andy Lutomirski wrote:
+> On Apr 15, 2014 5:20 PM, "Vivek Goyal" <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> >
+> > On Tue, Apr 15, 2014 at 02:53:13PM -0700, Andy Lutomirski wrote:
+> > > On Tue, Apr 15, 2014 at 2:15 PM, Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> > > > This patch implements socket option SO_PASSCGROUP along the lines of
+> > > > SO_PASSCRED.
+> > > >
+> > > > If SO_PASSCGROUP is set, then recvmsg() will get a control message
+> > > > SCM_CGROUP which will contain the cgroup path of sender. This cgroup
+> > > > belongs to first mounted hierarchy in the sytem.
+> > > >
+> > > > SCM_CGROUP control message can only be received and sender can not send
+> > > > a SCM_CGROUP message. Kernel automatically generates one if receiver
+> > > > chooses to receive one.
+> > > >
+> > > > This works both for unix stream and datagram sockets.
+> > > >
+> > > > cgroup information is passed only if either the sender or receiver has
+> > > > SO_PASSCGROUP option set. This means for existing workloads they should
+> > > > not see any significant performance impact of this change.
+> > >
+> > > This is odd.  Shouldn't an SCM_CGROUP cmsg be generated when the
+> > > receiver has SO_PASSCGROUP set and the sender passes SCM_CGROUP to
+> > > sendmsg?
+> >
+> > How can receiver trust the cgroup info generated by sender. It needs to
+> > be generated by kernel so that receiver can trust it.
+> >
+> > And if receiver needs to know cgroup of sender, receiver can just set
+> > SO_PASSCGROUP on socket and receiver should get one SCM_CGROUP message
+> > with each message received.
+> 
+> I think the kernel should validate the data.
+> 
+> Here's an attack against SO_PEERCGROUP: if you create a container with
+> a super secret name, then every time you connect to any unix socket,
+> you leak the name.
 
-On Wed, Apr 16, 2014 at 3:06 PM, Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Wed, Apr 16, 2014 at 3:12 PM, Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> On Tue, Apr 15, 2014 at 11:20 PM, Maxime Ripard
->> <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org> wrote:
->>> Hi Chen-Yu,
->>>
->>> On Tue, Apr 15, 2014 at 02:41:35PM +0800, Chen-Yu Tsai wrote:
->>>> This patch provides of_get_gpiod_flags_by_name(), which looks up GPIO
->>>> phandles by name only, through gpios/gpio-names, and not by index.
->>>
->>> IIRC, gpios only uses the *-gpios properties, and not gpios/gpio-names
->>> pattern seen on various other things.
->>>
->>> Is it some new property you introduce? If so, please add it to the
->>> documentation.
->>>
->>> Now, I'm not sure that having two distinct representations of GPIOs in
->>> the DT is a good thing. Yes, it's looking odd compared to other
->>> similar bindings, but it's what we have to deal with.
->>
->> Mmmm I *think* I somehow remember a discussion about this topic
->> recently, but I cannot find it. Maybe Chen-yu could point us to the
->> conclusion of this discussion and the rationale for (re)implementing
->> named GPIOs this way?
->
-> Aha, here maybe:
->
-> https://lkml.org/lkml/2014/1/21/164
+One should be able to do that already today with SO_PASSCRED option and
+then map pid to cgroup. Or if one is using user namespaces then go
+through uid mappings and  figure out which container sent message.
 
-They're also mentioned in:
+> 
+> Here's an attack against SO_PASSCGROUP, as you implemented it: connect
+> a socket and get someone else to write(2) to it.  This isn't very
+> hard.  Now you've impersonated.
 
-https://lkml.org/lkml/2014/2/25/581
+If you can get another process to write to your socket and impersonate,
+then what will stop from that process to also send SCM_CGROUP message
+also? So I don't see how SCM_CGROUP from client will solve this problem.
 
-> However I don't see a clear conclusion that we should implement that
-> scheme. Not that I am strongly against it, but I'd like to see a
-> practical purpose for it.
+Kernel cgroup verification will also not help in this case as sender
+is sending his own cgroup.
 
-Again no clear conclusion on this. I wrote this as it was one possible
-way out of the index-based GPIO stuff.
+> 
+> I advocate for the following semantics: if sendmsg is passed a
+> SCM_CGROUP cmsg, and that cmsg has the right cgroup, and the receiver
+> has SO_PASSCGROUP set, then the receiver gets SCM_CGROUP.  If you try
+> to lie using SCM_CGROUP, you get -EPERM.  If you set SO_PASSCGROUP,
+> but your peer doesn't sent SCM_CREDS, you get nothing.
+> 
+> This is immune to both attacks.  It should be cheaper, too, since
+> there's no overhead for people who don't use it.
 
-Hopefully others will chime in and we can decide whether this is what
-we want or not.
+I think you seem to be saying that a client's credentials should not be
+visible to receiver until and unless client himself wants to reveal
+those. IOW, it kind of looks like an anonymous mode of operation where
+client connects to a socket but receiver client not want to reveal any of
+the information about itself to receiver.
 
+I am not sure how useful that mode really is. If it is really useful, I
+think one could implement another socket option on client side to
+deny passing cgroup information to receiver. Say SO_NOPASSCGROUP.
 
-Cheers
-ChenYu
+Before we even get there, I will question that what's so secret about
+cgroup information that one would like to hide it from receiver. We don't
+hide uid, pid, gid. 
+
+Secondly, how would client know when to send SCM_CGROUP to receiver. For
+the use case I mentioned that init wants to log cgroup of every message
+going into journal. How would client know that every message needs to
+have SCM_CGROUP. By automatically getting client information when receiver
+needs it, simplifies the things a lot without any client modificaiton.
+
+Thanks
+Vivek
