@@ -1,30 +1,90 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH 1/3] net: mdio-gpio: Use devm_ functions where possible
-Date: Wed, 16 Apr 2014 13:22:16 -0700
-Message-ID: <20140416202216.GA27629@roeck-us.net>
-References: <1397614602-29694-1-git-send-email-linux@roeck-us.net>
- <1397614602-29694-2-git-send-email-linux@roeck-us.net>
- <724F6C6CDC8C86478473775085778C4E09E86BC3@ImsEx1.ims.dom>
- <724F6C6CDC8C86478473775085778C4E09E86BE0@ImsEx1.ims.dom>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing cgroup path
+Date: Wed, 16 Apr 2014 13:24:32 -0700
+Message-ID: <CALCETrU9P+1Az+uuU_zE4uZZ-qmp5M_=YAXvfcK=rzQRbgoG5g@mail.gmail.com>
+References: <20140416.085743.1614257692560892039.davem@davemloft.net>
+ <CALCETrVv8SPM5xjOVGy7qO2aq3FKtG2uG57J49nO7Wy0-gg0Ew@mail.gmail.com>
+ <1397664837.19767.410.camel@willson.li.ssimo.org> <CALCETrXn7b6UuALpGUVoyQYfR2uzk5tj2ABV=dkvtFNgqM5sxQ@mail.gmail.com>
+ <20140416180642.GG31074@redhat.com> <CALCETrVUw5+vCCONy1VTXpskbY_eZFo2CtbehwV5Mhj4d4+icw@mail.gmail.com>
+ <20140416182530.GB550@redhat.com> <CALCETrUs1js3Br81ZkiQnsuWduzOiqDe3aV0K_z_zw0znSuiag@mail.gmail.com>
+ <20140416190657.GK31074@redhat.com> <CALCETrUv56awd+UoO_f8LLL2FVq-Hc6Bd6iBGMqWjVGpgxgTSg@mail.gmail.com>
+ <20140416193918.GM31074@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Simo Sorce <ssorce@redhat.com>, David Miller <davem@davemloft.net>,
+	Tejun Heo <tj@kernel.org>, Daniel Walsh <dwalsh@redhat.com>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Chris Healy <chealy@imsco-us.com>
+	lpoetter@redhat.com, cgroups@vger.kernel.org, kay@redhat.com,
+	Network Development <netdev@vger.kernel.org>
+To: Vivek Goyal <vgoyal@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <724F6C6CDC8C86478473775085778C4E09E86BE0@ImsEx1.ims.dom>
+In-Reply-To: <20140416193918.GM31074@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 16, 2014 at 06:50:56PM +0000, Chris Healy wrote:
-> OK, I just sent it.  Hopefully, I didn't mess it up again!
-> 
-> Do I need to do the same for 2/3 and 3/3?
+On Wed, Apr 16, 2014 at 12:39 PM, Vivek Goyal <vgoyal@redhat.com> wrote:
+> On Wed, Apr 16, 2014 at 12:13:21PM -0700, Andy Lutomirski wrote:
+>> On Wed, Apr 16, 2014 at 12:06 PM, Vivek Goyal <vgoyal@redhat.com> wrote:
+>> > On Wed, Apr 16, 2014 at 11:35:13AM -0700, Andy Lutomirski wrote:
+>> >> On Wed, Apr 16, 2014 at 11:25 AM, Vivek Goyal <vgoyal@redhat.com> wrote:
+>> >> > On Wed, Apr 16, 2014 at 11:13:31AM -0700, Andy Lutomirski wrote:
+>> >> >
+>> >> > [..]
+>> >> >> > Ok, so passing cgroup information is not necessarily a problem as long
+>> >> >> > as it is not used for authentication. So say somebody is just logging
+>> >> >> > all the client request and which cgroup client was in, that should not
+>> >> >> > be a problem.
+>> >> >>
+>> >> >> Do you consider correct attribution of logging messages to be
+>> >> >> important?  If so, then this is a kind of authentication, albeit one
+>> >> >> where the impact of screwing it up is a bit lower.
+>> >> >
+>> >> > So not passing cgroup information makes attribution more correct. Just
+>> >> > logging of information is authentication how? Both kernel and user space
+>> >> > log message into /var/log/messages and kernel messages are prefixed with
+>> >> > "kernel". So this somehow becomes are sort of authentication. I don't
+>> >> > get it.
+>> >>
+>> >> I did a bad job of explaining what I meant.
+>> >>
+>> >> I think that, currently, log lines can be correctly attributed to the
+>> >> kernel or to userspace, but determining where in userspace a log line
+>> >> came from is a bit flaky.  One of the goals of these patches is to
+>> >> make log attribution less flaky.  But if you want log attribution to
+>> >> be completely correct, even in the presence of malicious programs,
+>> >> then I think that the current patches aren't quite there.
+>> >
+>> > Why do you think that current patches are not there yet in the presence of
+>> > malicious program. In your example, one program opened the socket and
+>> > passed it to malicious program. And all the future messages are coming
+>> > from malicious program. As long as receiver checks for SO_PASSCGROUP,
+>> > it covers your example.
+>>
+>> This is backwards.  The malicious program opens the socket and passes
+>> it to an unwitting non-malicious program.  That non-malicious program
+>> sends messages, and the logging daemon things that the non-malicious
+>> program actually intended for these messages to end up in the system
+>> log.
+>
+> Either way you look at it, I can't see the problem. Even without cgroup
+> info, in your example, a non-malicious programs error message will show
+> up at the receiver (Because malicious program passed that fd as stdout
+> to non-malicious program).
+>
+> Are you complainig about this?
+>
+> Or are you complaing that non-malicious program's cgroup info will show
+> up at the receiver. What's the problem with that. Receiver can use
+> SO_PASSCGROUP and get non-malicious programs cgroup and log it (along
+> with error message). I don't see where is the problem in that.
 
-Hi Chris,
+I'm not talking about the risk that someone learns someone's cgroup.
+I'm talking about the risk that a malicious program can get a lot
+entry like: "whatever planted text"
+_SYSTEMD_UNIT=non-malicious.service.  That is, they've spoofed a log
+line.
 
-David just sent an e-mail that he accepted the series, so the answer is no.
+If you don't care about spoofing of log lines, then there's no point
+to having the kernel validate them anyway.
 
-Guenter
+--Andy
