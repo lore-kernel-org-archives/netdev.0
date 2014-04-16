@@ -1,81 +1,64 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: [PATCH net-next RESEND 2/2] net: phy: at803x: use genphy_config_init()
-Date: Wed, 16 Apr 2014 17:19:13 +0200
-Message-ID: <1397661553-22117-2-git-send-email-zonque@gmail.com>
-References: <1397661553-22117-1-git-send-email-zonque@gmail.com>
-Cc: davem@davemloft.net, mugunthanvnm@ti.com, ujhelyi.m@gmail.com,
-	Daniel Mack <zonque@gmail.com>
-To: netdev@vger.kernel.org, f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f49.google.com ([74.125.83.49]:53367 "EHLO
-	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161706AbaDPPTg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2014 11:19:36 -0400
-Received: by mail-ee0-f49.google.com with SMTP id c41so8973588eek.36
-        for <netdev@vger.kernel.org>; Wed, 16 Apr 2014 08:19:35 -0700 (PDT)
-In-Reply-To: <1397661553-22117-1-git-send-email-zonque@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] softirq: a single rcu_bh_qs() call is enough
+Date: Wed, 16 Apr 2014 09:06:24 -0700
+Message-ID: <1397664384.4222.124.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use the generic bits from genphy_config_init() instead of implementing
-the same functionality again.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Daniel Mack <zonque@gmail.com>
+Calling rcu_bh_qs() after every softirq action is not really needed.
+
+What RCU needs is at least one rcu_bh_qs() per softirq round to note a
+quiescent state was passed for rcu_bh
+
+Note for Paul and myself : this could be inlined as a single instruction
+and avoid smp_processor_id()
+(sone this_cpu_write(rcu_bh_data.passed_quiesce, 1))
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
-Resending this after 3.15-rc1 has been released, assuming that the
-net-next tree is now open again.
+ kernel/softirq.c |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
- drivers/net/phy/at803x.c | 36 +++---------------------------------
- 1 file changed, 3 insertions(+), 33 deletions(-)
-
-diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
-index bc71947..850171f 100644
---- a/drivers/net/phy/at803x.c
-+++ b/drivers/net/phy/at803x.c
-@@ -141,41 +141,11 @@ static int at803x_resume(struct phy_device *phydev)
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index b50990a5bea0..b9b2d4906848 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -232,7 +232,6 @@ asmlinkage void __do_softirq(void)
+ 	bool in_hardirq;
+ 	__u32 pending;
+ 	int softirq_bit;
+-	int cpu;
  
- static int at803x_config_init(struct phy_device *phydev)
- {
--	int val;
- 	int ret;
--	u32 features;
--
--	features = SUPPORTED_TP | SUPPORTED_MII | SUPPORTED_AUI |
--		   SUPPORTED_FIBRE | SUPPORTED_BNC;
--
--	val = phy_read(phydev, MII_BMSR);
--	if (val < 0)
--		return val;
--
--	if (val & BMSR_ANEGCAPABLE)
--		features |= SUPPORTED_Autoneg;
--	if (val & BMSR_100FULL)
--		features |= SUPPORTED_100baseT_Full;
--	if (val & BMSR_100HALF)
--		features |= SUPPORTED_100baseT_Half;
--	if (val & BMSR_10FULL)
--		features |= SUPPORTED_10baseT_Full;
--	if (val & BMSR_10HALF)
--		features |= SUPPORTED_10baseT_Half;
--
--	if (val & BMSR_ESTATEN) {
--		val = phy_read(phydev, MII_ESTATUS);
--		if (val < 0)
--			return val;
--
--		if (val & ESTATUS_1000_TFULL)
--			features |= SUPPORTED_1000baseT_Full;
--		if (val & ESTATUS_1000_THALF)
--			features |= SUPPORTED_1000baseT_Half;
--	}
+ 	/*
+ 	 * Mask out PF_MEMALLOC s current task context is borrowed for the
+@@ -247,7 +246,6 @@ asmlinkage void __do_softirq(void)
+ 	__local_bh_disable_ip(_RET_IP_, SOFTIRQ_OFFSET);
+ 	in_hardirq = lockdep_softirq_start();
  
--	phydev->supported = features;
--	phydev->advertising = features;
-+	ret = genphy_config_init(phydev);
-+	if (ret < 0)
-+		return ret;
+-	cpu = smp_processor_id();
+ restart:
+ 	/* Reset the pending bitmask before enabling irqs */
+ 	set_softirq_pending(0);
+@@ -276,11 +274,11 @@ restart:
+ 			       prev_count, preempt_count());
+ 			preempt_count_set(prev_count);
+ 		}
+-		rcu_bh_qs(cpu);
+ 		h++;
+ 		pending >>= softirq_bit;
+ 	}
  
- 	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID) {
- 		ret = phy_write(phydev, AT803X_DEBUG_ADDR,
--- 
-1.9.0
++	rcu_bh_qs(smp_processor_id());
+ 	local_irq_disable();
+ 
+ 	pending = local_softirq_pending();
