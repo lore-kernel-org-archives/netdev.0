@@ -1,61 +1,120 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH 0/3] net: mdio-gpio enhancements
-Date: Tue, 15 Apr 2014 19:16:39 -0700
-Message-ID: <1397614602-29694-1-git-send-email-linux@roeck-us.net>
+Subject: [PATCH 3/3] net: mdio-gpio: Add support for separate MDI and MDO gpio pins
+Date: Tue, 15 Apr 2014 19:16:42 -0700
+Message-ID: <1397614602-29694-4-git-send-email-linux@roeck-us.net>
+References: <1397614602-29694-1-git-send-email-linux@roeck-us.net>
 Cc: Chris Healy <chealy@imsco-us.com>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1397614602-29694-1-git-send-email-linux@roeck-us.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following series of patches adds support for active-low gpio pins
-as well as for systems with separate MDI and MDO pins to the mdio-gpio
-driver.
+This is for a system with fixed assignments of input and output pins
+(various variants of Kontron COMe).
 
-A board using those features is based on a COM Express CPU board.
-The COM Express standard supports GPIO pins on its connector,
-with one caveat: The pins on the connector have fixed direction
-and are hard configured either as input or output pins.
-The COM Express Design Guide [1] provides additional details.
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+ drivers/net/phy/mdio-gpio.c |   34 +++++++++++++++++++++++++++++++---
+ include/linux/mdio-gpio.h   |    2 ++
+ 2 files changed, 33 insertions(+), 3 deletions(-)
 
-The hardware uses three of the GPO/GPI pins from the COM Express board
-to drive an MDIO bus. Connectivity between GPI/GPO pins and the MDIO bus
-is as follows.
-
-GPI2 --------------------+------------ MDIO
-                         |
-            +--------+   |
-GPO2 ---+---G        |   |
-        |   |        |   |
-       4.7k | 2N7002 D---+
-	|   |        |
-	+---S        |
-	|   +--------+
-       GND
-
-GPO1 --------------------------------- MDC
-
-To support this hardware, two extensions to the driver were necessary.
-
-- Due to the FET in the MDO path (GPO2), the MDO signal is inverted.
-  The driver therefore has to support active-low GPIO pins.
-
-- The MDIO signal must be separated into MDI and MDO.
-
-Those changes are implemented in patch 2/3 and 3/3.
-Patch 1/3 simplifies the error path and thus the subsequent
-patches.
-
-
-[1] http://www.picmg.org/pdf/picmg_comdg_100.pdf
-
-----------------------------------------------------------------
-Guenter Roeck (3):
-      net: mdio-gpio: Use devm_ functions where possible
-      net: mdio-gpio: Add support for active low gpio pins
-      net: mdio-gpio: Add support for separate MDI and MDO gpio pins
-
- drivers/net/phy/mdio-gpio.c |   68 ++++++++++++++++++++++++++++++-------------
- include/linux/mdio-gpio.h   |    5 ++++
- 2 files changed, 52 insertions(+), 21 deletions(-)
+diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+index fac211a..9c4defd 100644
+--- a/drivers/net/phy/mdio-gpio.c
++++ b/drivers/net/phy/mdio-gpio.c
+@@ -32,8 +32,8 @@
+ 
+ struct mdio_gpio_info {
+ 	struct mdiobb_ctrl ctrl;
+-	int mdc, mdio;
+-	int mdc_active_low, mdio_active_low;
++	int mdc, mdio, mdo;
++	int mdc_active_low, mdio_active_low, mdo_active_low;
+ };
+ 
+ static void *mdio_gpio_of_get_data(struct platform_device *pdev)
+@@ -60,6 +60,12 @@ static void *mdio_gpio_of_get_data(struct platform_device *pdev)
+ 	pdata->mdio = ret;
+ 	pdata->mdio_active_low = flags & OF_GPIO_ACTIVE_LOW;
+ 
++	ret = of_get_gpio_flags(np, 2, &flags);
++	if (ret > 0) {
++		pdata->mdo = ret;
++		pdata->mdo_active_low = flags & OF_GPIO_ACTIVE_LOW;
++	}
++
+ 	return pdata;
+ }
+ 
+@@ -68,6 +74,16 @@ static void mdio_dir(struct mdiobb_ctrl *ctrl, int dir)
+ 	struct mdio_gpio_info *bitbang =
+ 		container_of(ctrl, struct mdio_gpio_info, ctrl);
+ 
++	if (bitbang->mdo) {
++		/* Separate output pin. Always set its value to high
++		 * when changing direction. If direction is input,
++		 * assume the pin serves as pull-up. If direction is
++		 * output, the default value is high.
++		 */
++		gpio_set_value(bitbang->mdo, 1 ^ bitbang->mdo_active_low);
++		return;
++	}
++
+ 	if (dir)
+ 		gpio_direction_output(bitbang->mdio,
+ 				      1 ^ bitbang->mdio_active_low);
+@@ -88,7 +104,10 @@ static void mdio_set(struct mdiobb_ctrl *ctrl, int what)
+ 	struct mdio_gpio_info *bitbang =
+ 		container_of(ctrl, struct mdio_gpio_info, ctrl);
+ 
+-	gpio_set_value(bitbang->mdio, what ^ bitbang->mdio_active_low);
++	if (bitbang->mdo)
++		gpio_set_value(bitbang->mdo, what ^ bitbang->mdo_active_low);
++	else
++		gpio_set_value(bitbang->mdio, what ^ bitbang->mdio_active_low);
+ }
+ 
+ static void mdc_set(struct mdiobb_ctrl *ctrl, int what)
+@@ -125,6 +144,8 @@ static struct mii_bus *mdio_gpio_bus_init(struct device *dev,
+ 	bitbang->mdc_active_low = pdata->mdc_active_low;
+ 	bitbang->mdio = pdata->mdio;
+ 	bitbang->mdio_active_low = pdata->mdio_active_low;
++	bitbang->mdo = pdata->mdo;
++	bitbang->mdo_active_low = pdata->mdo_active_low;
+ 
+ 	new_bus = alloc_mdio_bitbang(&bitbang->ctrl);
+ 	if (!new_bus)
+@@ -151,6 +172,13 @@ static struct mii_bus *mdio_gpio_bus_init(struct device *dev,
+ 	if (devm_gpio_request(dev, bitbang->mdio, "mdio"))
+ 		goto out_free_bus;
+ 
++	if (bitbang->mdo) {
++		if (devm_gpio_request(dev, bitbang->mdo, "mdo"))
++			goto out_free_bus;
++		gpio_direction_output(bitbang->mdo, 1);
++		gpio_direction_input(bitbang->mdio);
++	}
++
+ 	gpio_direction_output(bitbang->mdc, 0);
+ 
+ 	dev_set_drvdata(dev, new_bus);
+diff --git a/include/linux/mdio-gpio.h b/include/linux/mdio-gpio.h
+index 57e57fe..66c30a7 100644
+--- a/include/linux/mdio-gpio.h
++++ b/include/linux/mdio-gpio.h
+@@ -17,9 +17,11 @@ struct mdio_gpio_platform_data {
+ 	/* GPIO numbers for bus pins */
+ 	unsigned int mdc;
+ 	unsigned int mdio;
++	unsigned int mdo;
+ 
+ 	bool mdc_active_low;
+ 	bool mdio_active_low;
++	bool mdo_active_low;
+ 
+ 	unsigned int phy_mask;
+ 	int irqs[PHY_MAX_ADDR];
+-- 
+1.7.9.7
