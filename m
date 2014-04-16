@@ -1,65 +1,110 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [Patch net v2 0/2] ipv4: fix flowi4_iif for input routing
-Date: Wed, 16 Apr 2014 08:42:31 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1404160840200.1673@ja.home.ssi.bg>
-References: <1397604335-12752-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Ming Zhao <mingzhao@gmail.com>
+Subject: Fwd: EPOLLOUT is triggered after sending data on UDP socket without EAGAIN
+Date: Tue, 15 Apr 2014 22:46:53 -0700
+Message-ID: <CAN0GiO2M53LV=6wLdvEu=0yoT+nS+tGXPOROJmsQTWH=azdpzQ@mail.gmail.com>
+References: <CAN0GiO0GR09a5cU3ALNzbDosmRh8aNoNvQ0meE8nG4e2ikvacQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Eric Biederman <ebiederm@xmission.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <cwang@twopensource.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:50216 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751782AbaDPFnN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Apr 2014 01:43:13 -0400
-In-Reply-To: <1397604335-12752-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:49752 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751845AbaDPFqx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2014 01:46:53 -0400
+Received: by mail-oa0-f46.google.com with SMTP id i7so11975307oag.33
+        for <netdev@vger.kernel.org>; Tue, 15 Apr 2014 22:46:53 -0700 (PDT)
+In-Reply-To: <CAN0GiO0GR09a5cU3ALNzbDosmRh8aNoNvQ0meE8nG4e2ikvacQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi there,
 
-	Hello,
+I'm not sure whether this is an epoll bug:
 
-On Tue, 15 Apr 2014, Cong Wang wrote:
+- I have a UDP socket which is non-blocking and watched by epoll with
+(EPOLLOUT | EPOLLET).
+- EPOLLOUT is triggered after registering the file descriptor with
+epoll_add, which is expected.
+- After calling sendto on the UDP socket with a very small message(5
+bytes), sendto returns the exact number of bytes sent and no EAGAIN is
+generated.
+- *but* calling epoll_wait still returns EPOLLOUT.
 
-> This patchset fixes ->flowi4_iif for input routing and rp filter,
-> based on suggestion from Julian. See per patch for details.
-> 
-> v1 -> v2:
-> * merge the first two patches into one
-> * fix fib_check_nh() too
-> * add this cover letter
-> 
-> Cc: Eric Biederman <ebiederm@xmission.com>
-> Cc: Julian Anastasov <ja@ssi.bg>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> Signed-off-by: Cong Wang <cwang@twopensource.com>
+Shouldn't that EPOLLOUT be only triggered when an EAGAIN is generated
+after any writing operation?
 
-	v2 looks good to me, thanks!
+Here is the code I use:
+==================
+We have very simple wrapper for socket and epoll operations, and you
+can easily guess what they're doing
 
-Reviewed-by: Julian Anastasov <ja@ssi.bg>
+TEST(EpollService, UdpWriteable) {
+  Socket client(Socket::UDP());
+  Socket server(Socket::UDP());
 
-> Cong Wang (2):
->   ipv4,fib: pass LOOPBACK_IFINDEX instead of 0 to flowi4_iif
->   ipv4,route: pass 0 instead of LOOPBACK_IFINDEX to
->     fib_validate_source()
-> 
->  include/net/flow.h                | 10 +++++++++-
->  include/net/net_namespace.h       |  9 +--------
->  net/ipv4/fib_frontend.c           |  2 +-
->  net/ipv4/fib_semantics.c          |  1 +
->  net/ipv4/ipmr.c                   |  2 +-
->  net/ipv4/netfilter/ipt_rpfilter.c |  5 +----
->  net/ipv4/route.c                  |  3 +--
->  net/ipv6/ip6mr.c                  |  2 +-
->  8 files changed, 16 insertions(+), 18 deletions(-)
-> 
-> -- 
-> 1.8.3.1
+  // Ask os to pick random port
+  CHECK_ERR(server.Bind(SocketAddress(SocketAddress::LOOPBACK, 0)));
+  const SocketAddress server_addr(server.GetMyAddress());
+  ASSERT_TRUE(SocketOption::SetBlocking(client.fd(), false));
 
-Regards
+  EpollService eps;
+  eps.Add(client.fd(), EPOLLOUT | EPOLLET, NULL);
+  epoll_event event;
+  // The fd should be writable.
+  ASSERT_EQ(1, eps.Wait(&event, 1, 0));
+  // No more writable event.
+  ASSERT_EQ(0, eps.Wait(&event, 1, 0));
 
---
-Julian Anastasov <ja@ssi.bg>
+  const char buffer[] = "abcd";
+  CHECK_ERR(::sendto(client.fd(), buffer, ARRAYSIZE(buffer), 0,
+                     server_addr.addr(), server_addr.length()))1;
+  EXPECT_EQ(0, eps.Wait(&event, 1, 0)) << "Got unexpect event " << event.events;
+  EXPECT_EQ(0, eps.Wait(&event, 1, 0)) << "Got unexpect event " << event.events;
+
+  client.Close();
+  server.Close();
+}
+
+And strace output:
+===============
+
+write(1, "\33[0;32m[ RUN      ] \33[mEpollServ"..., 49[ RUN      ]
+EpollService.UdpWriteable
+) = 49
+socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 4
+socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 5
+bind(5, {sa_family=AF_INET,
+sin_port=htons(0),sin_addr=inet_addr("127.0.0.1")}, 16) = 0
+getsockname(5, {sa_family=AF_INET,
+sin_port=htons(51019),sin_addr=inet_addr("127.0.0.1")}, [16]) = 0
+fcntl(4, F_GETFL)                       = 0x2 (flags O_RDWR)
+fcntl(4, F_SETFL, O_RDWR|O_NONBLOCK)    = 0
+epoll_create(1024)                      = 6
+epoll_ctl(6, EPOLL_CTL_ADD, 4, {EPOLLOUT|EPOLLET, {u32=0, u64=0}}) = 0
+epoll_wait(6, {{EPOLLOUT, {u32=0, u64=0}}}, 1, 0) = 1
+epoll_wait(6, {}, 1, 0)                 = 0
+sendto(4, "abcd\0", 5, 0, {sa_family=AF_INET,
+sin_port=htons(51019),sin_addr=inet_addr("127.0.0.1")}, 16) = 5
+epoll_wait(6, {{EPOLLOUT, {u32=0, u64=0}}}, 1, 0) = 1
+write(1, "net/base/eventmanager_test.cc:50"...,99net/base/eventmanager_test.cc:50:
+Failure
+
+Value of: eps.Wait(&event, 1, 0)
+
+  Actual: 1
+
+Expected: 0
+
+) = 99
+
+write(1, "Got unexpect event 4\n", 21Got unexpect event 4
+)  = 21
+epoll_wait(6, {}, 1, 0)                 = 0
+close(4)                                = 0
+close(5)                                = 0
+close(6)                                = 0
+
+write(1, "\33[0;31m[  FAILED  ] \33[mEpollServ"..., 56[  FAILED  ]
+EpollService.UdpWriteable (2 ms)
+
+Thank you for your feedback!
