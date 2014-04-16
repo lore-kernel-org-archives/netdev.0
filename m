@@ -1,36 +1,76 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH] net: c_can: Add support for D_CAN module RAM Init.
-Date: Wed, 16 Apr 2014 23:13:23 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1404162312020.22697@ionos.tec.linutronix.de>
-References: <1397672973-3480-1-git-send-email-tthayer@altera.com> <1397672973-3480-2-git-send-email-tthayer@altera.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] softirq: a single rcu_bh_qs() call is enough
+Date: Wed, 16 Apr 2014 15:51:10 -0700
+Message-ID: <20140416225110.GE4496@linux.vnet.ibm.com>
+References: <1397664384.4222.124.camel@edumazet-glaptop2.roam.corp.google.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-can@vger.kernel.org, wg@grandegger.com, mkl@pengutronix.de,
-	socketcan@hartkopp.net, anilkumar@ti.com, tthayer.linux@gmail.com,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Thor Thayer <tthayer@altera.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1397672973-3480-2-git-send-email-tthayer@altera.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1397664384.4222.124.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On Wed, 16 Apr 2014, tthayer@altera.com wrote:
-
-> From: Thor Thayer <tthayer@altera.com>
+On Wed, Apr 16, 2014 at 09:06:24AM -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> The D_CAN driver was written to support the TI D_CAN implementation
-> which placed the D_CAN RAM reset in a separate register. In the
-> standard D_CAN module the RAM Init is in the D_CAN module so
-> handle the RAM Init differently.
-> +		if (!res) {
-> +			priv->raminit = c_can_hw_raminit;
-> +			priv->raminit_type_flag = 0;
+> Calling rcu_bh_qs() after every softirq action is not really needed.
+> 
+> What RCU needs is at least one rcu_bh_qs() per softirq round to note a
+> quiescent state was passed for rcu_bh
+> 
+> Note for Paul and myself : this could be inlined as a single instruction
+> and avoid smp_processor_id()
+> (sone this_cpu_write(rcu_bh_data.passed_quiesce, 1))
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Can we please make that raminit_type and use proper constants?
+Looks plausible -- will give it a go!  If nothing breaks, queued for
+3.16.
 
-Thanks,
+							Thanx, Paul
 
-	tglx
+> ---
+>  kernel/softirq.c |    4 +---
+>  1 file changed, 1 insertion(+), 3 deletions(-)
+> 
+> diff --git a/kernel/softirq.c b/kernel/softirq.c
+> index b50990a5bea0..b9b2d4906848 100644
+> --- a/kernel/softirq.c
+> +++ b/kernel/softirq.c
+> @@ -232,7 +232,6 @@ asmlinkage void __do_softirq(void)
+>  	bool in_hardirq;
+>  	__u32 pending;
+>  	int softirq_bit;
+> -	int cpu;
+> 
+>  	/*
+>  	 * Mask out PF_MEMALLOC s current task context is borrowed for the
+> @@ -247,7 +246,6 @@ asmlinkage void __do_softirq(void)
+>  	__local_bh_disable_ip(_RET_IP_, SOFTIRQ_OFFSET);
+>  	in_hardirq = lockdep_softirq_start();
+> 
+> -	cpu = smp_processor_id();
+>  restart:
+>  	/* Reset the pending bitmask before enabling irqs */
+>  	set_softirq_pending(0);
+> @@ -276,11 +274,11 @@ restart:
+>  			       prev_count, preempt_count());
+>  			preempt_count_set(prev_count);
+>  		}
+> -		rcu_bh_qs(cpu);
+>  		h++;
+>  		pending >>= softirq_bit;
+>  	}
+> 
+> +	rcu_bh_qs(smp_processor_id());
+>  	local_irq_disable();
+> 
+>  	pending = local_softirq_pending();
+> 
+> 
