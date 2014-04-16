@@ -1,55 +1,38 @@
-From: Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing
- cgroup path
-Date: Wed, 16 Apr 2014 12:13:57 -0400
-Message-ID: <1397664837.19767.410.camel@willson.li.ssimo.org>
-References: <CALCETrURHNmLyccRiF_W8o2ozRMR4AaCjUE=_PU8z1+Pq6X2jQ@mail.gmail.com>
-	 <20140416002010.GA5035@redhat.com>
-	 <CALCETrWzHYN3kKcmDTFDfGhZqE4u9+6XDtiOu5nncbK_7KKH0g@mail.gmail.com>
-	 <20140416.085743.1614257692560892039.davem@davemloft.net>
-	 <CALCETrVv8SPM5xjOVGy7qO2aq3FKtG2uG57J49nO7Wy0-gg0Ew@mail.gmail.com>
+From: "Ms. Victoria  Williams" <vittorioscanferlato@alice.it>
+Subject: Call: Mr.Freeman Brown.
+Date: Wed, 16 Apr 2014 18:21:30 +0200 (CEST)
+Message-ID: <1456b57daed.vittorioscanferlato@alice.it>
+Reply-To: bonustransferdepart20@yahoo.com.hk
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Daniel Walsh <dwalsh-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALCETrVv8SPM5xjOVGy7qO2aq3FKtG2uG57J49nO7Wy0-gg0Ew-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp302.alice.it ([82.57.200.118]:8611 "EHLO smtp302.alice.it"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422648AbaDPQVt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Apr 2014 12:21:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-04-16 at 07:37 -0700, Andy Lutomirski wrote:
-> On Wed, Apr 16, 2014 at 5:57 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> >
-> > Please, just stop.
-> 
-> No.
-> 
-> This thread is proposing an ABI.  This means that, if the ABI ends up
-> in Linus's kernel, then it has to be supported forever.  Now is the
-> time to find and fix any issues with it before they become much harder
-> to fix.
+Winner !
 
-Ok, but so far I haven't seen a single objection from you that has solid
-grounds.
+Your name & email has emerged as the winner on our (western union) online on 
+going bonus raffle draw on our e-pay system as one of our esteem patronized 
+customers.
 
-The only one that *may* be reasonable is the "secret" cgroup name one,
-however nobody seem to come up with a reason why it is legitimate to
-allow to keep cgroup names secret.
+Now you have been awarded the sum of usd1m.,Call the officer and reconfirm the 
+below info;
+Receiver's name:...
+Country:...
+Private Ph #:....
+Scan id:...
 
-And if you can come up with such a good reason the SO_NOPASSCGROUP
-option seem the right solution.
+Note,you must pay usd58 for your transfer file reactivation.
+contact:Mr.Freeman Brown.
+Em: office1@bigmail.nl
+Ph:+229 687 591 79
 
-> This ABI is especially tricky because programs will use it even if
-> they don't explicitly try to.  So just adding the ABI may break
-> existing assumptions that are relevant to security or correctness.
-
-It's not clear to me what you mean by this, either you explicitly use
-SO_PASSCGROUP or not, it's not like you can involuntarily add a flag ...
-
-Simo.
+Regards
+Ms.Anna Williams.
+Chief Coordinator
