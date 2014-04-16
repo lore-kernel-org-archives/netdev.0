@@ -1,73 +1,476 @@
-From: Vivek Goyal <vgoyal@redhat.com>
-Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing
- cgroup path
-Date: Wed, 16 Apr 2014 14:25:30 -0400
-Message-ID: <20140416182530.GB550@redhat.com>
-References: <CALCETrURHNmLyccRiF_W8o2ozRMR4AaCjUE=_PU8z1+Pq6X2jQ@mail.gmail.com>
- <20140416002010.GA5035@redhat.com>
- <CALCETrWzHYN3kKcmDTFDfGhZqE4u9+6XDtiOu5nncbK_7KKH0g@mail.gmail.com>
- <20140416.085743.1614257692560892039.davem@davemloft.net>
- <CALCETrVv8SPM5xjOVGy7qO2aq3FKtG2uG57J49nO7Wy0-gg0Ew@mail.gmail.com>
- <1397664837.19767.410.camel@willson.li.ssimo.org>
- <CALCETrXn7b6UuALpGUVoyQYfR2uzk5tj2ABV=dkvtFNgqM5sxQ@mail.gmail.com>
- <20140416180642.GG31074@redhat.com>
- <CALCETrVUw5+vCCONy1VTXpskbY_eZFo2CtbehwV5Mhj4d4+icw@mail.gmail.com>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: [PATCH net v3] sfc:On MCDI timeout, issue an FLR (and mark MCDI to
+ fail-fast)
+Date: Wed, 16 Apr 2014 19:27:48 +0100
+Message-ID: <534ECBA4.20408@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simo Sorce <ssorce@redhat.com>, David Miller <davem@davemloft.net>,
-	Tejun Heo <tj@kernel.org>, Daniel Walsh <dwalsh@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	lpoetter@redhat.com, cgroups@vger.kernel.org, kay@redhat.com,
-	Network Development <netdev@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CALCETrVUw5+vCCONy1VTXpskbY_eZFo2CtbehwV5Mhj4d4+icw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
+	"Robert Stonehouse" <rstonehouse@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:45887 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755736AbaDPS1w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2014 14:27:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 16, 2014 at 11:13:31AM -0700, Andy Lutomirski wrote:
+From: Edward Cree <ecree@solarflare.com>
 
-[..]
-> > Ok, so passing cgroup information is not necessarily a problem as long
-> > as it is not used for authentication. So say somebody is just logging
-> > all the client request and which cgroup client was in, that should not
-> > be a problem.
-> 
-> Do you consider correct attribution of logging messages to be
-> important?  If so, then this is a kind of authentication, albeit one
-> where the impact of screwing it up is a bit lower.
+When an MCDI command times out (whether or not we find it
+completed when we poll), call efx_mcdi_abandon(), which tells
+all subsequent MCDI calls to fail-fast, and queues up an FLR.
 
-So not passing cgroup information makes attribution more correct. Just
-logging of information is authentication how? Both kernel and user space
-log message into /var/log/messages and kernel messages are prefixed with
-"kernel". So this somehow becomes are sort of authentication. I don't
-get it.
+Because an FLR doesn't lead to receiving any reboot even from
+the MC (unlike most other types of reset), we have to call
+efx_ef10_reset_mc_allocations.
+In efx_start_all(), if a reset (of any kind) is pending, we
+bail out.
+Without this, attempts to reconfigure (e.g. change mtu) can
+cause driver/mc state inconsistency if the first MCDI call
+triggers an FLR.
 
-> 
-> >
-> > I agree that before somebody uses cgroup information for authentication
-> > purposes, may be there needs to be a bigger debate whether this info
-> > can be used safely for authentication purposes or not and in what
-> > circumstances it is safe to use for authentication.
-> 
-> I thought that the original intended user of these patches was SSSD.
-> I have no idea what SSSD wanted them for, but I think it may better.
+For similar reasons, on EF10, in
+efx_reset_down(method=RESET_TYPE_MCDI_TIMEOUT), set the number
+of active queues to zero before calling efx_stop_all().
+And, on farch, in efx_reset_up(method=RESET_TYPE_MCDI_TIMEOUT),
+set active_queues and flushes pending & outstanding to zero.
 
-SSSD wanted to use this information too. And I think this is a good time 
-to revisit and discuss can cgroup information be used safely for
-authentication or not.
+efx_mcdi_mode_{poll,event}() should not take us out of fail-fast
+ mode. Instead, this is done by efx_mcdi_reset() after the FLR
+completes.
 
-> 
-> >
-> > But that does not mean that API to pass the cgroup information around is
-> > wrong.
-> >
-> 
-> It may not be wrong, but it might be extremely difficult or impossible
-> to use it safely.  I think that's something to avoid.
+The new FLR reset_type RESET_TYPE_MCDI_TIMEOUT doesn't really
+fit into the hierarchy of reset 'scopes' whereby efx_reset()
+decides some resets subsume others.  Thus, it uses separate logic.
 
-Atleast I can't see a problem with logging example yet.
+Also, fixed up some inconsistency around RESET_TYPE_MC_BIST,
+which was in the wrong place in that hierarchy.
 
-Thanks
-Vivek
+Signed-off-by: Shradha Shah <sshah@solarflare.com>
+---
+ drivers/net/ethernet/sfc/ef10.c       | 12 +++++++-
+ drivers/net/ethernet/sfc/efx.c        | 19 ++++++++++--
+ drivers/net/ethernet/sfc/enum.h       | 23 ++++++++++-----
+ drivers/net/ethernet/sfc/falcon.c     |  4 +++
+ drivers/net/ethernet/sfc/farch.c      | 22 ++++++++++++++
+ drivers/net/ethernet/sfc/mcdi.c       | 55 ++++++++++++++++++++++++++++-------
+ drivers/net/ethernet/sfc/mcdi.h       | 13 +++++++++
+ drivers/net/ethernet/sfc/net_driver.h |  4 +++
+ drivers/net/ethernet/sfc/nic.h        |  1 +
+ drivers/net/ethernet/sfc/siena.c      |  2 ++
+ 10 files changed, 133 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index 21c20ea0..b5ed30a 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -738,8 +738,11 @@ static int efx_ef10_reset(struct efx_nic *efx, enum reset_type reset_type)
+ 	/* If it was a port reset, trigger reallocation of MC resources.
+ 	 * Note that on an MC reset nothing needs to be done now because we'll
+ 	 * detect the MC reset later and handle it then.
++	 * For an FLR, we never get an MC reset event, but the MC has reset all
++	 * resources assigned to us, so we have to trigger reallocation now.
+ 	 */
+-	if (reset_type == RESET_TYPE_ALL && !rc)
++	if ((reset_type == RESET_TYPE_ALL ||
++	     reset_type == RESET_TYPE_MCDI_TIMEOUT) && !rc)
+ 		efx_ef10_reset_mc_allocations(efx);
+ 	return rc;
+ }
+@@ -2141,6 +2144,11 @@ static int efx_ef10_fini_dmaq(struct efx_nic *efx)
+ 	return 0;
+ }
+ 
++static void efx_ef10_prepare_flr(struct efx_nic *efx)
++{
++	atomic_set(&efx->active_queues, 0);
++}
++
+ static bool efx_ef10_filter_equal(const struct efx_filter_spec *left,
+ 				  const struct efx_filter_spec *right)
+ {
+@@ -3603,6 +3611,8 @@ const struct efx_nic_type efx_hunt_a0_nic_type = {
+ 	.probe_port = efx_mcdi_port_probe,
+ 	.remove_port = efx_mcdi_port_remove,
+ 	.fini_dmaq = efx_ef10_fini_dmaq,
++	.prepare_flr = efx_ef10_prepare_flr,
++	.finish_flr = efx_port_dummy_op_void,
+ 	.describe_stats = efx_ef10_describe_stats,
+ 	.update_stats = efx_ef10_update_stats,
+ 	.start_stats = efx_mcdi_mac_start_stats,
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 57b971e..63d595f 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -76,6 +76,7 @@ const char *const efx_reset_type_names[] = {
+ 	[RESET_TYPE_RECOVER_OR_ALL]     = "RECOVER_OR_ALL",
+ 	[RESET_TYPE_WORLD]              = "WORLD",
+ 	[RESET_TYPE_RECOVER_OR_DISABLE] = "RECOVER_OR_DISABLE",
++	[RESET_TYPE_MC_BIST]		= "MC_BIST",
+ 	[RESET_TYPE_DISABLE]            = "DISABLE",
+ 	[RESET_TYPE_TX_WATCHDOG]        = "TX_WATCHDOG",
+ 	[RESET_TYPE_INT_ERROR]          = "INT_ERROR",
+@@ -83,7 +84,7 @@ const char *const efx_reset_type_names[] = {
+ 	[RESET_TYPE_DMA_ERROR]          = "DMA_ERROR",
+ 	[RESET_TYPE_TX_SKIP]            = "TX_SKIP",
+ 	[RESET_TYPE_MC_FAILURE]         = "MC_FAILURE",
+-	[RESET_TYPE_MC_BIST]		= "MC_BIST",
++	[RESET_TYPE_MCDI_TIMEOUT]	= "MCDI_TIMEOUT (FLR)",
+ };
+ 
+ /* Reset workqueue. If any NIC has a hardware failure then a reset will be
+@@ -1739,7 +1740,8 @@ static void efx_start_all(struct efx_nic *efx)
+ 
+ 	/* Check that it is appropriate to restart the interface. All
+ 	 * of these flags are safe to read under just the rtnl lock */
+-	if (efx->port_enabled || !netif_running(efx->net_dev))
++	if (efx->port_enabled || !netif_running(efx->net_dev) ||
++	    efx->reset_pending)
+ 		return;
+ 
+ 	efx_start_port(efx);
+@@ -2334,6 +2336,9 @@ void efx_reset_down(struct efx_nic *efx, enum reset_type method)
+ {
+ 	EFX_ASSERT_RESET_SERIALISED(efx);
+ 
++	if (method == RESET_TYPE_MCDI_TIMEOUT)
++		efx->type->prepare_flr(efx);
++
+ 	efx_stop_all(efx);
+ 	efx_disable_interrupts(efx);
+ 
+@@ -2354,6 +2359,10 @@ int efx_reset_up(struct efx_nic *efx, enum reset_type method, bool ok)
+ 
+ 	EFX_ASSERT_RESET_SERIALISED(efx);
+ 
++	if (method == RESET_TYPE_MCDI_TIMEOUT)
++		efx->type->finish_flr(efx);
++
++	/* Ensure that SRAM is initialised even if we're disabling the device */
+ 	rc = efx->type->init(efx);
+ 	if (rc) {
+ 		netif_err(efx, drv, efx->net_dev, "failed to initialise NIC\n");
+@@ -2417,7 +2426,10 @@ int efx_reset(struct efx_nic *efx, enum reset_type method)
+ 	/* Clear flags for the scopes we covered.  We assume the NIC and
+ 	 * driver are now quiescent so that there is no race here.
+ 	 */
+-	efx->reset_pending &= -(1 << (method + 1));
++	if (method < RESET_TYPE_MAX_METHOD)
++		efx->reset_pending &= -(1 << (method + 1));
++	else /* it doesn't fit into the well-ordered scope hierarchy */
++		__clear_bit(method, &efx->reset_pending);
+ 
+ 	/* Reinitialise bus-mastering, which may have been turned off before
+ 	 * the reset was scheduled. This is still appropriate, even in the
+@@ -2546,6 +2558,7 @@ void efx_schedule_reset(struct efx_nic *efx, enum reset_type type)
+ 	case RESET_TYPE_DISABLE:
+ 	case RESET_TYPE_RECOVER_OR_DISABLE:
+ 	case RESET_TYPE_MC_BIST:
++	case RESET_TYPE_MCDI_TIMEOUT:
+ 		method = type;
+ 		netif_dbg(efx, drv, efx->net_dev, "scheduling %s reset\n",
+ 			  RESET_TYPE(method));
+diff --git a/drivers/net/ethernet/sfc/enum.h b/drivers/net/ethernet/sfc/enum.h
+index 75ef7ef..d1dbb5f 100644
+--- a/drivers/net/ethernet/sfc/enum.h
++++ b/drivers/net/ethernet/sfc/enum.h
+@@ -143,6 +143,7 @@ enum efx_loopback_mode {
+  * @RESET_TYPE_WORLD: Reset as much as possible
+  * @RESET_TYPE_RECOVER_OR_DISABLE: Try to recover. Apply RESET_TYPE_DISABLE if
+  * unsuccessful.
++ * @RESET_TYPE_MC_BIST: MC entering BIST mode.
+  * @RESET_TYPE_DISABLE: Reset datapath, MAC and PHY; leave NIC disabled
+  * @RESET_TYPE_TX_WATCHDOG: reset due to TX watchdog
+  * @RESET_TYPE_INT_ERROR: reset due to internal error
+@@ -150,14 +151,16 @@ enum efx_loopback_mode {
+  * @RESET_TYPE_DMA_ERROR: DMA error
+  * @RESET_TYPE_TX_SKIP: hardware completed empty tx descriptors
+  * @RESET_TYPE_MC_FAILURE: MC reboot/assertion
++ * @RESET_TYPE_MCDI_TIMEOUT: MCDI timeout.
+  */
+ enum reset_type {
+-	RESET_TYPE_INVISIBLE = 0,
+-	RESET_TYPE_RECOVER_OR_ALL = 1,
+-	RESET_TYPE_ALL = 2,
+-	RESET_TYPE_WORLD = 3,
+-	RESET_TYPE_RECOVER_OR_DISABLE = 4,
+-	RESET_TYPE_DISABLE = 5,
++	RESET_TYPE_INVISIBLE,
++	RESET_TYPE_RECOVER_OR_ALL,
++	RESET_TYPE_ALL,
++	RESET_TYPE_WORLD,
++	RESET_TYPE_RECOVER_OR_DISABLE,
++	RESET_TYPE_MC_BIST,
++	RESET_TYPE_DISABLE,
+ 	RESET_TYPE_MAX_METHOD,
+ 	RESET_TYPE_TX_WATCHDOG,
+ 	RESET_TYPE_INT_ERROR,
+@@ -165,7 +168,13 @@ enum reset_type {
+ 	RESET_TYPE_DMA_ERROR,
+ 	RESET_TYPE_TX_SKIP,
+ 	RESET_TYPE_MC_FAILURE,
+-	RESET_TYPE_MC_BIST,
++	/* RESET_TYPE_MCDI_TIMEOUT is actually a method, not just a reason, but
++	 * it doesn't fit the scope hierarchy (not well-ordered by inclusion).
++	 * We encode this by having its enum value be greater than
++	 * RESET_TYPE_MAX_METHOD. This also prevents issuing it with
++	 * efx_ioctl_reset.
++	 */
++	RESET_TYPE_MCDI_TIMEOUT,
+ 	RESET_TYPE_MAX,
+ };
+ 
+diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
+index 8ec20b7..fae25a4 100644
+--- a/drivers/net/ethernet/sfc/falcon.c
++++ b/drivers/net/ethernet/sfc/falcon.c
+@@ -2696,6 +2696,8 @@ const struct efx_nic_type falcon_a1_nic_type = {
+ 	.fini_dmaq = efx_farch_fini_dmaq,
+ 	.prepare_flush = falcon_prepare_flush,
+ 	.finish_flush = efx_port_dummy_op_void,
++	.prepare_flr = efx_port_dummy_op_void,
++	.finish_flr = efx_farch_finish_flr,
+ 	.describe_stats = falcon_describe_nic_stats,
+ 	.update_stats = falcon_update_nic_stats,
+ 	.start_stats = falcon_start_nic_stats,
+@@ -2790,6 +2792,8 @@ const struct efx_nic_type falcon_b0_nic_type = {
+ 	.fini_dmaq = efx_farch_fini_dmaq,
+ 	.prepare_flush = falcon_prepare_flush,
+ 	.finish_flush = efx_port_dummy_op_void,
++	.prepare_flr = efx_port_dummy_op_void,
++	.finish_flr = efx_farch_finish_flr,
+ 	.describe_stats = falcon_describe_nic_stats,
+ 	.update_stats = falcon_update_nic_stats,
+ 	.start_stats = falcon_start_nic_stats,
+diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
+index a087613..0537381 100644
+--- a/drivers/net/ethernet/sfc/farch.c
++++ b/drivers/net/ethernet/sfc/farch.c
+@@ -741,6 +741,28 @@ int efx_farch_fini_dmaq(struct efx_nic *efx)
+ 	return rc;
+ }
+ 
++/* Reset queue and flush accounting after FLR
++ *
++ * One possible cause of FLR recovery is that DMA may be failing (eg. if bus
++ * mastering was disabled), in which case we don't receive (RXQ) flush
++ * completion events.  This means that efx->rxq_flush_outstanding remained at 4
++ * after the FLR; also, efx->active_queues was non-zero (as no flush completion
++ * events were received, and we didn't go through efx_check_tx_flush_complete())
++ * If we don't fix this up, on the next call to efx_realloc_channels() we won't
++ * flush any RX queues because efx->rxq_flush_outstanding is at the limit of 4
++ * for batched flush requests; and the efx->active_queues gets messed up because
++ * we keep incrementing for the newly initialised queues, but it never went to
++ * zero previously.  Then we get a timeout every time we try to restart the
++ * queues, as it doesn't go back to zero when we should be flushing the queues.
++ */
++void efx_farch_finish_flr(struct efx_nic *efx)
++{
++	atomic_set(&efx->rxq_flush_pending, 0);
++	atomic_set(&efx->rxq_flush_outstanding, 0);
++	atomic_set(&efx->active_queues, 0);
++}
++
++
+ /**************************************************************************
+  *
+  * Event queue processing
+diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+index 7bd4b14..5239cf9 100644
+--- a/drivers/net/ethernet/sfc/mcdi.c
++++ b/drivers/net/ethernet/sfc/mcdi.c
+@@ -52,12 +52,7 @@ static void efx_mcdi_timeout_async(unsigned long context);
+ static int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
+ 			       bool *was_attached_out);
+ static bool efx_mcdi_poll_once(struct efx_nic *efx);
+-
+-static inline struct efx_mcdi_iface *efx_mcdi(struct efx_nic *efx)
+-{
+-	EFX_BUG_ON_PARANOID(!efx->mcdi);
+-	return &efx->mcdi->iface;
+-}
++static void efx_mcdi_abandon(struct efx_nic *efx);
+ 
+ int efx_mcdi_init(struct efx_nic *efx)
+ {
+@@ -558,6 +553,8 @@ static int _efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
+ 			rc = 0;
+ 		}
+ 
++		efx_mcdi_abandon(efx);
++
+ 		/* Close the race with efx_mcdi_ev_cpl() executing just too late
+ 		 * and completing a request we've just cancelled, by ensuring
+ 		 * that the seqno check therein fails.
+@@ -672,6 +669,9 @@ int efx_mcdi_rpc_start(struct efx_nic *efx, unsigned cmd,
+ 	if (efx->mc_bist_for_other_fn)
+ 		return -ENETDOWN;
+ 
++	if (mcdi->mode == MCDI_MODE_FAIL)
++		return -ENETDOWN;
++
+ 	efx_mcdi_acquire_sync(mcdi);
+ 	efx_mcdi_send_request(efx, cmd, inbuf, inlen);
+ 	return 0;
+@@ -812,7 +812,11 @@ void efx_mcdi_mode_poll(struct efx_nic *efx)
+ 		return;
+ 
+ 	mcdi = efx_mcdi(efx);
+-	if (mcdi->mode == MCDI_MODE_POLL)
++	/* If already in polling mode, nothing to do.
++	 * If in fail-fast state, don't switch to polled completion.
++	 * FLR recovery will do that later.
++	 */
++	if (mcdi->mode == MCDI_MODE_POLL || mcdi->mode == MCDI_MODE_FAIL)
+ 		return;
+ 
+ 	/* We can switch from event completion to polled completion, because
+@@ -841,8 +845,8 @@ void efx_mcdi_flush_async(struct efx_nic *efx)
+ 
+ 	mcdi = efx_mcdi(efx);
+ 
+-	/* We must be in polling mode so no more requests can be queued */
+-	BUG_ON(mcdi->mode != MCDI_MODE_POLL);
++	/* We must be in poll or fail mode so no more requests can be queued */
++	BUG_ON(mcdi->mode == MCDI_MODE_EVENTS);
+ 
+ 	del_timer_sync(&mcdi->async_timer);
+ 
+@@ -875,8 +879,11 @@ void efx_mcdi_mode_event(struct efx_nic *efx)
+ 		return;
+ 
+ 	mcdi = efx_mcdi(efx);
+-
+-	if (mcdi->mode == MCDI_MODE_EVENTS)
++	/* If already in event completion mode, nothing to do.
++	 * If in fail-fast state, don't switch to event completion.  FLR
++	 * recovery will do that later.
++	 */
++	if (mcdi->mode == MCDI_MODE_EVENTS || mcdi->mode == MCDI_MODE_FAIL)
+ 		return;
+ 
+ 	/* We can't switch from polled to event completion in the middle of a
+@@ -966,6 +973,19 @@ static void efx_mcdi_ev_bist(struct efx_nic *efx)
+ 	spin_unlock(&mcdi->iface_lock);
+ }
+ 
++/* MCDI timeouts seen, so make all MCDI calls fail-fast and issue an FLR to try
++ * to recover.
++ */
++static void efx_mcdi_abandon(struct efx_nic *efx)
++{
++	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
++
++	if (xchg(&mcdi->mode, MCDI_MODE_FAIL) == MCDI_MODE_FAIL)
++		return; /* it had already been done */
++	netif_dbg(efx, hw, efx->net_dev, "MCDI is timing out; trying to recover\n");
++	efx_schedule_reset(efx, RESET_TYPE_MCDI_TIMEOUT);
++}
++
+ /* Called from  falcon_process_eventq for MCDI events */
+ void efx_mcdi_process_event(struct efx_channel *channel,
+ 			    efx_qword_t *event)
+@@ -1512,6 +1532,19 @@ int efx_mcdi_reset(struct efx_nic *efx, enum reset_type method)
+ {
+ 	int rc;
+ 
++	/* If MCDI is down, we can't handle_assertion */
++	if (method == RESET_TYPE_MCDI_TIMEOUT) {
++		rc = pci_reset_function(efx->pci_dev);
++		if (rc)
++			return rc;
++		/* Re-enable polled MCDI completion */
++		if (efx->mcdi) {
++			struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
++			mcdi->mode = MCDI_MODE_POLL;
++		}
++		return 0;
++	}
++
+ 	/* Recover from a failed assertion pre-reset */
+ 	rc = efx_mcdi_handle_assertion(efx);
+ 	if (rc)
+diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
+index 52931ae..56465f7 100644
+--- a/drivers/net/ethernet/sfc/mcdi.h
++++ b/drivers/net/ethernet/sfc/mcdi.h
+@@ -28,9 +28,16 @@ enum efx_mcdi_state {
+ 	MCDI_STATE_COMPLETED,
+ };
+ 
++/**
++ * enum efx_mcdi_mode - MCDI transaction mode
++ * @MCDI_MODE_POLL: poll for MCDI completion, until timeout
++ * @MCDI_MODE_EVENTS: wait for an mcdi_event.  On timeout, poll once
++ * @MCDI_MODE_FAIL: we think MCDI is dead, so fail-fast all calls
++ */
+ enum efx_mcdi_mode {
+ 	MCDI_MODE_POLL,
+ 	MCDI_MODE_EVENTS,
++	MCDI_MODE_FAIL,
+ };
+ 
+ /**
+@@ -104,6 +111,12 @@ struct efx_mcdi_data {
+ 	u32 fn_flags;
+ };
+ 
++static inline struct efx_mcdi_iface *efx_mcdi(struct efx_nic *efx)
++{
++	EFX_BUG_ON_PARANOID(!efx->mcdi);
++	return &efx->mcdi->iface;
++}
++
+ #ifdef CONFIG_SFC_MCDI_MON
+ static inline struct efx_mcdi_mon *efx_mcdi_mon(struct efx_nic *efx)
+ {
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 8a400a0..5bdae8e 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -972,6 +972,8 @@ struct efx_mtd_partition {
+  *	(for Falcon architecture)
+  * @finish_flush: Clean up after flushing the DMA queues (for Falcon
+  *	architecture)
++ * @prepare_flr: Prepare for an FLR
++ * @finish_flr: Clean up after an FLR
+  * @describe_stats: Describe statistics for ethtool
+  * @update_stats: Update statistics not provided by event handling.
+  *	Either argument may be %NULL.
+@@ -1100,6 +1102,8 @@ struct efx_nic_type {
+ 	int (*fini_dmaq)(struct efx_nic *efx);
+ 	void (*prepare_flush)(struct efx_nic *efx);
+ 	void (*finish_flush)(struct efx_nic *efx);
++	void (*prepare_flr)(struct efx_nic *efx);
++	void (*finish_flr)(struct efx_nic *efx);
+ 	size_t (*describe_stats)(struct efx_nic *efx, u8 *names);
+ 	size_t (*update_stats)(struct efx_nic *efx, u64 *full_stats,
+ 			       struct rtnl_link_stats64 *core_stats);
+diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
+index a001fae..d3ad8ed 100644
+--- a/drivers/net/ethernet/sfc/nic.h
++++ b/drivers/net/ethernet/sfc/nic.h
+@@ -757,6 +757,7 @@ static inline int efx_nic_irq_test_irq_cpu(struct efx_nic *efx)
+ int efx_nic_flush_queues(struct efx_nic *efx);
+ void siena_prepare_flush(struct efx_nic *efx);
+ int efx_farch_fini_dmaq(struct efx_nic *efx);
++void efx_farch_finish_flr(struct efx_nic *efx);
+ void siena_finish_flush(struct efx_nic *efx);
+ void falcon_start_nic_stats(struct efx_nic *efx);
+ void falcon_stop_nic_stats(struct efx_nic *efx);
+diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
+index 23f3a6f..50ffefe 100644
+--- a/drivers/net/ethernet/sfc/siena.c
++++ b/drivers/net/ethernet/sfc/siena.c
+@@ -921,6 +921,8 @@ const struct efx_nic_type siena_a0_nic_type = {
+ 	.fini_dmaq = efx_farch_fini_dmaq,
+ 	.prepare_flush = siena_prepare_flush,
+ 	.finish_flush = siena_finish_flush,
++	.prepare_flr = efx_port_dummy_op_void,
++	.finish_flr = efx_farch_finish_flr,
+ 	.describe_stats = siena_describe_nic_stats,
+ 	.update_stats = siena_update_nic_stats,
+ 	.start_stats = efx_mcdi_mac_start_stats,
