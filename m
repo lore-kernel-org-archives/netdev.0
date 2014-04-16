@@ -1,8 +1,7 @@
 From: NeilBrown <neilb@suse.de>
-Subject: [PATCH 05/19] SUNRPC: track whether a request is coming from a
- loop-back interface.
+Subject: [PATCH 10/19] NET: set PF_FSTRANS while holding sk_lock
 Date: Wed, 16 Apr 2014 14:03:36 +1000
-Message-ID: <20140416040336.10604.14822.stgit@notabene.brown>
+Message-ID: <20140416040336.10604.96000.stgit@notabene.brown>
 References: <20140416033623.10604.69237.stgit@notabene.brown>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,76 +14,54 @@ In-Reply-To: <20140416033623.10604.69237.stgit@notabene.brown>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-If an incoming NFS request is coming from the local host, then
-nfsd will need to perform some special handling.  So detect that
-possibility and make the source visible in rq_local.
+sk_lock can be taken while reclaiming memory (in nfsd for loop-back
+NFS mounts, and presumably in nfs), and memory can be allocated while
+holding sk_lock, at least via:
+
+ inet_listen -> inet_csk_listen_start ->reqsk_queue_alloc
+
+So to avoid deadlocks, always set PF_FSTRANS while holding sk_lock.
+
+This deadlock was found by lockdep.
 
 Signed-off-by: NeilBrown <neilb@suse.de>
 ---
- include/linux/sunrpc/svc.h      |    1 +
- include/linux/sunrpc/svc_xprt.h |    1 +
- net/sunrpc/svcsock.c            |   10 ++++++++++
- 3 files changed, 12 insertions(+)
+ include/net/sock.h |    1 +
+ net/core/sock.c    |    2 ++
+ 2 files changed, 3 insertions(+)
 
-diff --git a/include/linux/sunrpc/svc.h b/include/linux/sunrpc/svc.h
-index 04e763221246..a0dbbd1e00e9 100644
---- a/include/linux/sunrpc/svc.h
-+++ b/include/linux/sunrpc/svc.h
-@@ -254,6 +254,7 @@ struct svc_rqst {
- 	u32			rq_prot;	/* IP protocol */
- 	unsigned short
- 				rq_secure  : 1;	/* secure port */
-+	unsigned short		rq_local   : 1;	/* local request */
+diff --git a/include/net/sock.h b/include/net/sock.h
+index b9586a137cad..27c355637e44 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -324,6 +324,7 @@ struct sock {
+ #define sk_v6_rcv_saddr	__sk_common.skc_v6_rcv_saddr
  
- 	void *			rq_argp;	/* decoded arguments */
- 	void *			rq_resp;	/* xdr'd results */
-diff --git a/include/linux/sunrpc/svc_xprt.h b/include/linux/sunrpc/svc_xprt.h
-index b05963f09ebf..b99bdfb0fcf9 100644
---- a/include/linux/sunrpc/svc_xprt.h
-+++ b/include/linux/sunrpc/svc_xprt.h
-@@ -63,6 +63,7 @@ struct svc_xprt {
- #define	XPT_DETACHED	10		/* detached from tempsocks list */
- #define XPT_LISTENER	11		/* listening endpoint */
- #define XPT_CACHE_AUTH	12		/* cache auth info */
-+#define XPT_LOCAL	13		/* connection from loopback interface */
+ 	socket_lock_t		sk_lock;
++	unsigned int		sk_pflags; /* process flags before taking lock */
+ 	struct sk_buff_head	sk_receive_queue;
+ 	/*
+ 	 * The backlog queue is special, it is always used with
+diff --git a/net/core/sock.c b/net/core/sock.c
+index cf9bd24e4099..8bc677ef072e 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -2341,6 +2341,7 @@ void lock_sock_nested(struct sock *sk, int subclass)
+ 	/*
+ 	 * The sk_lock has mutex_lock() semantics here:
+ 	 */
++	current_set_flags_nested(&sk->sk_pflags, PF_FSTRANS);
+ 	mutex_acquire(&sk->sk_lock.dep_map, subclass, 0, _RET_IP_);
+ 	local_bh_enable();
+ }
+@@ -2352,6 +2353,7 @@ void release_sock(struct sock *sk)
+ 	 * The sk_lock has mutex_unlock() semantics:
+ 	 */
+ 	mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
++	current_restore_flags_nested(&sk->sk_pflags, PF_FSTRANS);
  
- 	struct svc_serv		*xpt_server;	/* service for transport */
- 	atomic_t    	    	xpt_reserved;	/* space on outq that is rsvd */
-diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-index b6e59f0a9475..193115fe968c 100644
---- a/net/sunrpc/svcsock.c
-+++ b/net/sunrpc/svcsock.c
-@@ -811,6 +811,7 @@ static struct svc_xprt *svc_tcp_accept(struct svc_xprt *xprt)
- 	struct socket	*newsock;
- 	struct svc_sock	*newsvsk;
- 	int		err, slen;
-+	struct dst_entry *dst;
- 	RPC_IFDEBUG(char buf[RPC_MAX_ADDRBUFLEN]);
- 
- 	dprintk("svc: tcp_accept %p sock %p\n", svsk, sock);
-@@ -867,6 +868,14 @@ static struct svc_xprt *svc_tcp_accept(struct svc_xprt *xprt)
- 	}
- 	svc_xprt_set_local(&newsvsk->sk_xprt, sin, slen);
- 
-+	clear_bit(XPT_LOCAL, &newsvsk->sk_xprt.xpt_flags);
-+	rcu_read_lock();
-+	dst = rcu_dereference(newsock->sk->sk_dst_cache);
-+	if (dst && dst->dev &&
-+	    (dst->dev->features & NETIF_F_LOOPBACK))
-+		set_bit(XPT_LOCAL, &newsvsk->sk_xprt.xpt_flags);
-+	rcu_read_unlock();
-+
- 	if (serv->sv_stats)
- 		serv->sv_stats->nettcpconn++;
- 
-@@ -1112,6 +1121,7 @@ static int svc_tcp_recvfrom(struct svc_rqst *rqstp)
- 
- 	rqstp->rq_xprt_ctxt   = NULL;
- 	rqstp->rq_prot	      = IPPROTO_TCP;
-+	rqstp->rq_local	      = !!test_bit(XPT_LOCAL, &svsk->sk_xprt.xpt_flags);
- 
- 	p = (__be32 *)rqstp->rq_arg.head[0].iov_base;
- 	calldir = p[1];
+ 	spin_lock_bh(&sk->sk_lock.slock);
+ 	if (sk->sk_backlog.tail)
 
 
 --
