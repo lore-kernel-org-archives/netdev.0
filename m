@@ -1,90 +1,84 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing cgroup path
-Date: Wed, 16 Apr 2014 13:24:32 -0700
-Message-ID: <CALCETrU9P+1Az+uuU_zE4uZZ-qmp5M_=YAXvfcK=rzQRbgoG5g@mail.gmail.com>
-References: <20140416.085743.1614257692560892039.davem@davemloft.net>
- <CALCETrVv8SPM5xjOVGy7qO2aq3FKtG2uG57J49nO7Wy0-gg0Ew@mail.gmail.com>
- <1397664837.19767.410.camel@willson.li.ssimo.org> <CALCETrXn7b6UuALpGUVoyQYfR2uzk5tj2ABV=dkvtFNgqM5sxQ@mail.gmail.com>
- <20140416180642.GG31074@redhat.com> <CALCETrVUw5+vCCONy1VTXpskbY_eZFo2CtbehwV5Mhj4d4+icw@mail.gmail.com>
- <20140416182530.GB550@redhat.com> <CALCETrUs1js3Br81ZkiQnsuWduzOiqDe3aV0K_z_zw0znSuiag@mail.gmail.com>
- <20140416190657.GK31074@redhat.com> <CALCETrUv56awd+UoO_f8LLL2FVq-Hc6Bd6iBGMqWjVGpgxgTSg@mail.gmail.com>
- <20140416193918.GM31074@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] sched, cls: check if we could overwrite actions when
+ changing a filter
+Date: Wed, 16 Apr 2014 14:10:08 -0700
+Message-ID: <CAM_iQpXRVZ8_keaL-8OkmRVguA29bnTPS2ZHZ0j2SSeB6A=1jQ@mail.gmail.com>
+References: <1397605563-29756-1-git-send-email-xiyou.wangcong@gmail.com>
+	<534E77D0.8000307@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Simo Sorce <ssorce@redhat.com>, David Miller <davem@davemloft.net>,
-	Tejun Heo <tj@kernel.org>, Daniel Walsh <dwalsh@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	lpoetter@redhat.com, cgroups@vger.kernel.org, kay@redhat.com,
-	Network Development <netdev@vger.kernel.org>
-To: Vivek Goyal <vgoyal@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140416193918.GM31074@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f51.google.com ([209.85.219.51]:42865 "EHLO
+	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030183AbaDPVKJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2014 17:10:09 -0400
+Received: by mail-oa0-f51.google.com with SMTP id i4so12963387oah.24
+        for <netdev@vger.kernel.org>; Wed, 16 Apr 2014 14:10:09 -0700 (PDT)
+In-Reply-To: <534E77D0.8000307@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 16, 2014 at 12:39 PM, Vivek Goyal <vgoyal@redhat.com> wrote:
-> On Wed, Apr 16, 2014 at 12:13:21PM -0700, Andy Lutomirski wrote:
->> On Wed, Apr 16, 2014 at 12:06 PM, Vivek Goyal <vgoyal@redhat.com> wrote:
->> > On Wed, Apr 16, 2014 at 11:35:13AM -0700, Andy Lutomirski wrote:
->> >> On Wed, Apr 16, 2014 at 11:25 AM, Vivek Goyal <vgoyal@redhat.com> wrote:
->> >> > On Wed, Apr 16, 2014 at 11:13:31AM -0700, Andy Lutomirski wrote:
->> >> >
->> >> > [..]
->> >> >> > Ok, so passing cgroup information is not necessarily a problem as long
->> >> >> > as it is not used for authentication. So say somebody is just logging
->> >> >> > all the client request and which cgroup client was in, that should not
->> >> >> > be a problem.
->> >> >>
->> >> >> Do you consider correct attribution of logging messages to be
->> >> >> important?  If so, then this is a kind of authentication, albeit one
->> >> >> where the impact of screwing it up is a bit lower.
->> >> >
->> >> > So not passing cgroup information makes attribution more correct. Just
->> >> > logging of information is authentication how? Both kernel and user space
->> >> > log message into /var/log/messages and kernel messages are prefixed with
->> >> > "kernel". So this somehow becomes are sort of authentication. I don't
->> >> > get it.
->> >>
->> >> I did a bad job of explaining what I meant.
->> >>
->> >> I think that, currently, log lines can be correctly attributed to the
->> >> kernel or to userspace, but determining where in userspace a log line
->> >> came from is a bit flaky.  One of the goals of these patches is to
->> >> make log attribution less flaky.  But if you want log attribution to
->> >> be completely correct, even in the presence of malicious programs,
->> >> then I think that the current patches aren't quite there.
->> >
->> > Why do you think that current patches are not there yet in the presence of
->> > malicious program. In your example, one program opened the socket and
->> > passed it to malicious program. And all the future messages are coming
->> > from malicious program. As long as receiver checks for SO_PASSCGROUP,
->> > it covers your example.
+On Wed, Apr 16, 2014 at 5:30 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 04/15/14 19:46, Cong Wang wrote:
 >>
->> This is backwards.  The malicious program opens the socket and passes
->> it to an unwitting non-malicious program.  That non-malicious program
->> sends messages, and the logging daemon things that the non-malicious
->> program actually intended for these messages to end up in the system
->> log.
+>> From: Cong Wang <cwang@twopensource.com>
+>>
+>> When actions are attached to a filter, they are a part of the filter
+>> itself, so when changing a filter we should allow to overwrite the actions
+>> inside as well.
+>>
+>> In my specific case, when I tried to _append_ a new action to an existing
+>> filter which already has an action, I got EEXIST since kernel refused
+>> to overwrite the existing one in kernel.
+>>
+>> This patch checks if we are changing the filter checking NLM_F_CREATE flag
+>> (Sigh, filters don't use NLM_F_REPLACE...) and then passes the boolean
+>> down
+>> to actions. This fixes the problem above.
 >
-> Either way you look at it, I can't see the problem. Even without cgroup
-> info, in your example, a non-malicious programs error message will show
-> up at the receiver (Because malicious program passed that fd as stdout
-> to non-malicious program).
 >
-> Are you complainig about this?
 >
-> Or are you complaing that non-malicious program's cgroup info will show
-> up at the receiver. What's the problem with that. Receiver can use
-> SO_PASSCGROUP and get non-malicious programs cgroup and log it (along
-> with error message). I don't see where is the problem in that.
+> What are you trying to achieve?
 
-I'm not talking about the risk that someone learns someone's cgroup.
-I'm talking about the risk that a malicious program can get a lot
-entry like: "whatever planted text"
-_SYSTEMD_UNIT=non-malicious.service.  That is, they've spoofed a log
-line.
+I thought it's clear: I have a filter F1 contains an action A1,
+they are already in kernel (therefore I can read them from libnl cache),
+then I want to append A2 to F1 so that F1 would have two actions
+A1 and A2.
 
-If you don't care about spoofing of log lines, then there's no point
-to having the kernel validate them anyway.
+In short: change from F1 -> A1 to F1 -> A1 -> A2 atomically.
 
---Andy
+> These are general netlink rules (which can be streamlined by
+> the object).
+> Append means "I dont care if this exists, add it to the end"
+
+Exactly what I meant.
+
+> In that case, you would specify the an existing filter rule but
+> in order to resolve ambiguity tc classifiers provide priorities
+> (i.e just specify a different priority) and the rule will be added
+> before or after  the conflicting rule.
+> If you dont do that then you will get back EEXIST to tell you
+> there is a conflict.
+
+But I already told kernel I am changing a filter, so why it
+complains? I should change an existing one, shouldn't I?
+
+> You cant replace an existing filter in particular when it has
+> a graph of actions attached to it. You can replace the paremetrization
+> of an existing bound action - but i am not sure that is what you
+> are trying to do here. For that address the specific action directly.
+> i.e tc action ....
+
+Why? Since actions are inside it, I should be able to change any
+part of it, right?
+
+> If otoh you wanted to replace the filter + action graph with a backup
+> rule, then just add it lower in the priority list and delete the
+> existing one etc.
+>
+
+This is not atomic, is it?
