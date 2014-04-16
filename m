@@ -1,100 +1,147 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Subject: Re: [RFC PATCH] ehea:  use GFP_NOWAIT in ehea_error_data()
-Date: Wed, 16 Apr 2014 07:30:49 -0300
-Message-ID: <20140416103049.GC29537@oc0268524204.ibm.com>
-References: <1397617620.13188.97.camel@ThinkPad-T5421.cn.ibm.com>
+From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Subject: Re: Re: [PATCH 7/7] ARM: sun7i: cubietruck: enable
+ bluetooth module
+Date: Wed, 16 Apr 2014 18:39:28 +0800
+Message-ID: <CAGb2v67HzB22a3huRRZyufXkdTFE410MhXqAHyC-MmVo0-GCFA@mail.gmail.com>
+References: <1397544101-18135-1-git-send-email-wens@csie.org>
+ <1397544101-18135-8-git-send-email-wens@csie.org> <20140415144215.GG3207@lukather>
+ <CAGb2v643HyvFdhQ0znreB8ENXHWpcx6tFwdeU7VuU8KYWcT4ZA@mail.gmail.com> <20140416094428.GK3207@lukather>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: NetDev <netdev@vger.kernel.org>
-To: Li Zhong <zhong@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp01.br.ibm.com ([32.104.18.85]:40377 "EHLO
-	e24smtp01.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755304AbaDPKa5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2014 06:30:57 -0400
-Received: from /spool/local
-	by e24smtp01.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
-	Wed, 16 Apr 2014 07:30:55 -0300
-Received: from d24relay03.br.ibm.com (d24relay03.br.ibm.com [9.13.184.25])
-	by d24dlp01.br.ibm.com (Postfix) with ESMTP id 0B3873520052
-	for <netdev@vger.kernel.org>; Wed, 16 Apr 2014 06:30:49 -0400 (EDT)
-Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
-	by d24relay03.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s3GAUaj048562386
-	for <netdev@vger.kernel.org>; Wed, 16 Apr 2014 07:30:36 -0300
-Received: from d24av05.br.ibm.com (localhost [127.0.0.1])
-	by d24av05.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s3GAUpJt003938
-	for <netdev@vger.kernel.org>; Wed, 16 Apr 2014 06:30:52 -0400
-Content-Disposition: inline
-In-Reply-To: <1397617620.13188.97.camel@ThinkPad-T5421.cn.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>, Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Mika Westerberg <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
+	"linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"maxime.ripard" <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+To: linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBCMILY6JWQBBB5N3XGNAKGQEQN6STNA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <20140416094428.GK3207@lukather>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 16, 2014 at 11:07:00AM +0800, Li Zhong wrote:
-> I found following sleeping function called from invalid context complain
-> while trying memory hot add/remove. 
-> 
-> As it could be called in atomic context, use GFP_NOWAIT here.
-> 
-> [64523.378595] BUG: sleeping function called from invalid context at mm/page_alloc.c:2706
-> [64523.378599] in_atomic(): 1, irqs_disabled(): 1, pid: 18546, name: drmgr
-> [64523.378605] CPU: 0 PID: 18546 Comm: drmgr Tainted: G        W     3.15.0-rc1+ #4
-> [64523.378608] Call Trace:
-> [64523.378616] [c000000ed7fd3690] [c000000000015f50] .show_stack+0x130/0x200 (unreliable)
-> [64523.378624] [c000000ed7fd3760] [c0000000008bd314] .dump_stack+0xa0/0xdc
-> [64523.378630] [c000000ed7fd37e0] [c0000000000e28cc] .__might_sleep+0x13c/0x170
-> [64523.378637] [c000000ed7fd3870] [c0000000001e6734] .__alloc_pages_nodemask+0x3f4/0xca0
-> [64523.378643] [c000000ed7fd3a30] [c00000000023bd3c] .alloc_pages_current+0xcc/0x170
-> [64523.378648] [c000000ed7fd3ad0] [c0000000001df520] .__get_free_pages+0x30/0xb0
-> [64523.378668] [c000000ed7fd3b50] [d0000000077dad10] .ehea_error_data+0x40/0x1b0 [ehea]
-> [64523.378674] [c000000ed7fd3bf0] [d0000000077d3afc] .ehea_qp_aff_irq_handler+0x9c/0x110 [ehea]
-> [64523.378680] [c000000ed7fd3c90] [c00000000011d144] .handle_irq_event_percpu+0x94/0x2f0
-> [64523.378685] [c000000ed7fd3d60] [c00000000011d400] .handle_irq_event+0x60/0xa0
-> [64523.378689] [c000000ed7fd3df0] [c000000000122314] .handle_fasteoi_irq+0xe4/0x290
-> [64523.378693] [c000000ed7fd3e80] [c00000000011c244] .generic_handle_irq+0x54/0x80
-> [64523.378698] [c000000ed7fd3f00] [c000000000010f30] .__do_irq+0x90/0x200
-> [64523.378703] [c000000ed7fd3f90] [c000000000024bc8] .call_do_irq+0x14/0x24
-> [64523.378707] [c000000ec50fefe0] [c000000000011138] .do_IRQ+0x98/0x110
-> [64523.378712] [c000000ec50ff090] [c000000000002394] hardware_interrupt_common+0x114/0x180
-> [64523.378718] --- Exception: 501 at .arch_local_irq_restore+0x74/0x90
-> [64523.378718]     LR = .arch_local_irq_restore+0x74/0x90
-> [64523.378724] [c000000ec50ff380] [c0000000000a855c] .wakeup_softirqd+0x3c/0x50 (unreliable)
-> [64523.378731] [c000000ec50ff3f0] [c000000000751fd0] .__netif_schedule+0xb0/0x100
-> [64523.378736] [c000000ec50ff470] [d0000000077d268c] .ehea_rereg_mrs+0x9dc/0xb40 [ehea]
-> [64523.378741] [c000000ec50ff5d0] [d0000000077d295c] .ehea_mem_notifier+0x16c/0x180 [ehea]
-> [64523.378748] [c000000ec50ff660] [c0000000008b184c] .notifier_call_chain+0x8c/0x100
-> [64523.378754] [c000000ec50ff700] [c0000000000d896c] .__blocking_notifier_call_chain+0x6c/0xe0
-> [64523.378761] [c000000ec50ff7a0] [c00000000055e2e8] .memory_notify+0x38/0x60
-> [64523.378766] [c000000ec50ff820] [c000000000265ae8] .__offline_pages.constprop.16+0x2a8/0xa20
-> [64523.378771] [c000000ec50ff990] [c00000000055e190] .memory_subsys_offline+0x70/0xe0
-> [64523.378776] [c000000ec50ffa10] [c00000000053f6c8] .device_offline+0xf8/0x140
-> [64523.378780] [c000000ec50ffaa0] [c00000000055ddd0] .store_mem_state+0x150/0x210
-> [64523.378785] [c000000ec50ffb30] [c00000000053b8c4] .dev_attr_store+0x64/0xa0
-> [64523.378790] [c000000ec50ffbc0] [c000000000311f4c] .sysfs_kf_write+0x7c/0xb0
-> [64523.378794] [c000000ec50ffc50] [c000000000310fd4] .kernfs_fop_write+0x154/0x1e0
-> [64523.378800] [c000000ec50ffcf0] [c00000000026b750] .vfs_write+0xe0/0x260
-> [64523.378804] [c000000ec50ffd90] [c00000000026c444] .SyS_write+0x64/0x110
-> [64523.378809] [c000000ec50ffe30] [c000000000009ffc] syscall_exit+0x0/0x7c
-> 
-> Signed-off-by: Li Zhong <zhong@linux.vnet.ibm.com>
-> ---
->  drivers/net/ethernet/ibm/ehea/ehea_qmr.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/ibm/ehea/ehea_qmr.c b/drivers/net/ethernet/ibm/ehea/ehea_qmr.c
-> index 9b03033..fa16897 100644
-> --- a/drivers/net/ethernet/ibm/ehea/ehea_qmr.c
-> +++ b/drivers/net/ethernet/ibm/ehea/ehea_qmr.c
-> @@ -996,7 +996,7 @@ u64 ehea_error_data(struct ehea_adapter *adapter, u64 res_handle,
->  	u64 *rblock;
->  	u64 type = 0;
-> 
-> -	rblock = (void *)get_zeroed_page(GFP_KERNEL);
-> +	rblock = (void *)get_zeroed_page(GFP_NOWAIT);
->  	if (!rblock) {
->  		pr_err("Cannot allocate rblock memory\n");
->  		goto out;
-> 
-> 
+Hi,
 
-Acked-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+On Wed, Apr 16, 2014 at 5:44 PM, Maxime Ripard
+<maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org> wrote:
+> Hi,
+>
+> Please try to keep me in CC, even though the ML doesn't make it easy..
+
+Sorry about that.
+
+> On Wed, Apr 16, 2014 at 12:06:59AM +0800, Chen-Yu Tsai wrote:
+>> >> @@ -139,4 +152,16 @@
+>> >>       reg_usb2_vbus: usb2-vbus {
+>> >>               status = "okay";
+>> >>       };
+>> >> +
+>> >> +     rfkill_bt {
+>> >> +             compatible = "rfkill-gpio";
+>> >> +             pinctrl-names = "default";
+>> >> +             pinctrl-0 = <&bt_pwr_pin_cubietruck>, <&clk_out_a_pins_a>;
+>> >> +             clocks = <&clk_out_a>;
+>> >> +             clock-frequency = <32768>;
+>> >> +             gpios = <&pio 7 18 0>; /* PH18 */
+>> >> +             gpio-names = "reset";
+>> >> +             rfkill-name = "bt";
+>> >> +             rfkill-type = <2>;
+>> >> +     };
+>> >
+>> > Hmmm, I don't think that's actually right.
+>> >
+>> > If you have such a device, then I'd expect it to be represented as a
+>> > full device in the DT, probably with one part for the WiFi, one part
+>> > for the Bluetooth, and here the definition of the rfkill device that
+>> > controls it.
+>>
+>> The AP6210 is not one device, but 2 separate chips in one module. Each
+>> chip has its own controls and interface. They just so happen to share
+>> the same enclosure. Even 2-in-1 chips by Broadcom have separate controls
+>> and interfaces. The WiFi side is most likely connected via SDIO, while
+>> the Bluetooth side is connected to a UART, and optionally I2S for sound.
+>
+> It's even easier to represent then.
+>
+>> > But tying parts of the device to the rfkill that controls it, such as
+>> > the clocks, or the frequency it runs at seems just wrong.
+>>
+>> I understand where you're coming from. For devices on buses that require
+>> drivers (such as USB, SDIO) these properties probably should be tied to
+>> the device node.
+>>
+>> For our use case here, which is a bluetooth chip connected on the UART,
+>> there is no in kernel representation or driver to tie them to. Same goes
+>> for UART based GPS chips. They just so happen to require toggling a GPIO,
+>> and maybe enabling a specific clock, to get it running. Afterwards,
+>> accessing it is done solely from userspace. For our Broadcom chips, the
+>> user has to upload its firmware first, then designate the tty as a Bluetooth
+>> HCI using hciattach.
+>>
+>> We are using the rfkill device as a on-off switch.
+>
+> I understand your point, but the fact that it's implemented in
+> user-space, or that UART is not a bus (which probably should be), is
+> only a Linux specific story, and how it's implemented in Linux (even
+> if the whole rfkill node is another one, but let's stay on topic).
+
+I gave it some thought last night. You are right. My whole approach
+is wrong. But let's try to make it right.
+
+So considering the fact that it's primarily connected to a UART,
+maybe I should make it a sub-node to the UART node it's actually
+connected to? Something like:
+
+        uart2: serial@01c28800 {
+                pinctrl-names = "default";
+                pinctrl-0 = <&uart2_pins_a>;
+                status = "okay";
+
+                bt: bt_hci {
+                        compatible = "brcm,bcm20710";
+                        /* maybe add some generic compatible */
+                        pinctrl-names = "default";
+                        pinctrl-0 = <&clk_out_a_pins_a>,
+<&bt_pwr_pin_cubietruck>;
+                        clocks = <&clk_out_a>;
+                        clock-frequency = <32768>;
+                        gpios = <&pio 7 18 0>; /* PH18 */
+                };
+        };
+
+And let the uart core handle power sequencing for sub-nodes.
+
+The rfkill node would still have the gpios and clocks, but not the
+clock-frequency property. It's sole purpose would be to toggle the
+controls. But I think the placement is still odd. Perhaps these
+virtual devices shouldn't live in the DT at all.
+
+> This is a huge abstraction leak.
+>
+> Let's say you need the I2S stream you mentionned for some
+> reason. Would you tie the audio stream to the rfkill node as well?
+> I'm sorry, but from an hardware description perspective, it makes no
+> sense.
+
+The above revision should be better, from a hardware perspective. I'm
+not sure how to tie in the I2S stream, and there I haven't found any
+examples in the DT tree.
+
+> What's the feeling of the DT maintainers?
+
+
+Cheers
+
+ChenYu
