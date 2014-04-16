@@ -1,44 +1,65 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 10/19] NET: set PF_FSTRANS while holding sk_lock
-Date: Tue, 15 Apr 2014 22:13:46 -0700
-Message-ID: <1397625226.4222.113.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140416033623.10604.69237.stgit@notabene.brown>
-	 <20140416040336.10604.96000.stgit@notabene.brown>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [Patch net v2 0/2] ipv4: fix flowi4_iif for input routing
+Date: Wed, 16 Apr 2014 08:42:31 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1404160840200.1673@ja.home.ssi.bg>
+References: <1397604335-12752-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xfs-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140416040336.10604.96000.stgit-wvvUuzkyo1EYVZTmpyfIwg@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Eric Biederman <ebiederm@xmission.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:50216 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751782AbaDPFnN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Apr 2014 01:43:13 -0400
+In-Reply-To: <1397604335-12752-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-04-16 at 14:03 +1000, NeilBrown wrote:
-> sk_lock can be taken while reclaiming memory (in nfsd for loop-back
-> NFS mounts, and presumably in nfs), and memory can be allocated while
-> holding sk_lock, at least via:
+
+	Hello,
+
+On Tue, 15 Apr 2014, Cong Wang wrote:
+
+> This patchset fixes ->flowi4_iif for input routing and rp filter,
+> based on suggestion from Julian. See per patch for details.
 > 
->  inet_listen -> inet_csk_listen_start ->reqsk_queue_alloc
+> v1 -> v2:
+> * merge the first two patches into one
+> * fix fib_check_nh() too
+> * add this cover letter
 > 
-> So to avoid deadlocks, always set PF_FSTRANS while holding sk_lock.
+> Cc: Eric Biederman <ebiederm@xmission.com>
+> Cc: Julian Anastasov <ja@ssi.bg>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Cong Wang <cwang@twopensource.com>
+
+	v2 looks good to me, thanks!
+
+Reviewed-by: Julian Anastasov <ja@ssi.bg>
+
+> Cong Wang (2):
+>   ipv4,fib: pass LOOPBACK_IFINDEX instead of 0 to flowi4_iif
+>   ipv4,route: pass 0 instead of LOOPBACK_IFINDEX to
+>     fib_validate_source()
 > 
-> This deadlock was found by lockdep.
+>  include/net/flow.h                | 10 +++++++++-
+>  include/net/net_namespace.h       |  9 +--------
+>  net/ipv4/fib_frontend.c           |  2 +-
+>  net/ipv4/fib_semantics.c          |  1 +
+>  net/ipv4/ipmr.c                   |  2 +-
+>  net/ipv4/netfilter/ipt_rpfilter.c |  5 +----
+>  net/ipv4/route.c                  |  3 +--
+>  net/ipv6/ip6mr.c                  |  2 +-
+>  8 files changed, 16 insertions(+), 18 deletions(-)
+> 
+> -- 
+> 1.8.3.1
 
-Wow, this is adding expensive stuff in fast path, only for nfsd :(
-
-BTW, why should the current->flags should be saved on a socket field,
-and not a current->save_flags. This really looks a thread property, not
-a socket one.
-
-Why nfsd could not have PF_FSTRANS in its current->flags ?
-
-For applications handling millions of sockets, this makes a difference.
-
+Regards
 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Julian Anastasov <ja@ssi.bg>
