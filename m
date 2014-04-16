@@ -1,53 +1,129 @@
-From: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
-Subject: Re: [PATCH net] Revert "net: sctp: Fix a_rwnd/rwnd management to
- reflect real state of the receiver's buffer"
-Date: Wed, 16 Apr 2014 21:24:15 +0200
-Message-ID: <534ED8DF.8040808@nsn.com>
-References: <1397504717-19566-1-git-send-email-dborkman@redhat.com> <534C3DC2.9070604@gmail.com> <534E29D4.60100@nsn.com> <CAE8XmWqgcNAHcKnzdUamQ0T+NP27GKSiRv37JEHSQW-=1Fu=2w@mail.gmail.com> <534E473E.20303@nsn.com> <534ED0FD.4040709@gmail.com> <534ED48A.6040502@redhat.com>
+From: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing
+ cgroup path
+Date: Wed, 16 Apr 2014 15:39:18 -0400
+Message-ID: <20140416193918.GM31074@redhat.com>
+References: <20140416.085743.1614257692560892039.davem@davemloft.net>
+ <CALCETrVv8SPM5xjOVGy7qO2aq3FKtG2uG57J49nO7Wy0-gg0Ew@mail.gmail.com>
+ <1397664837.19767.410.camel@willson.li.ssimo.org>
+ <CALCETrXn7b6UuALpGUVoyQYfR2uzk5tj2ABV=dkvtFNgqM5sxQ@mail.gmail.com>
+ <20140416180642.GG31074@redhat.com>
+ <CALCETrVUw5+vCCONy1VTXpskbY_eZFo2CtbehwV5Mhj4d4+icw@mail.gmail.com>
+ <20140416182530.GB550@redhat.com>
+ <CALCETrUs1js3Br81ZkiQnsuWduzOiqDe3aV0K_z_zw0znSuiag@mail.gmail.com>
+ <20140416190657.GK31074@redhat.com>
+ <CALCETrUv56awd+UoO_f8LLL2FVq-Hc6Bd6iBGMqWjVGpgxgTSg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	Alexander Sverdlin <alexander.sverdlin@nsn.com>,
-	ext Dongsheng Song <dongsheng.song@gmail.com>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: ext Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from demumfd001.nsn-inter.net ([93.183.12.32]:40729 "EHLO
-	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753114AbaDPT0L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2014 15:26:11 -0400
-In-Reply-To: <534ED48A.6040502@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Daniel Walsh <dwalsh-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CALCETrUv56awd+UoO_f8LLL2FVq-Hc6Bd6iBGMqWjVGpgxgTSg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 04/16/2014 09:05 PM, ext Daniel Borkmann wrote:
-> On 04/16/2014 08:50 PM, Vlad Yasevich wrote:
->> On 04/16/2014 05:02 AM, Alexander Sverdlin wrote:
->>> Hi Dongsheng!
->>>
->>> On 16/04/14 10:39, ext Dongsheng Song wrote:
->>>> >From my testing, netperf throughput from 600 Mbit/s drop to 6 Mbit/s,
->>>> the penalty is 99 %.
->>>
->>> The question was, do you see this as a problem of the new rwnd algorithm?
->>> If yes, how exactly?
+On Wed, Apr 16, 2014 at 12:13:21PM -0700, Andy Lutomirski wrote:
+> On Wed, Apr 16, 2014 at 12:06 PM, Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> > On Wed, Apr 16, 2014 at 11:35:13AM -0700, Andy Lutomirski wrote:
+> >> On Wed, Apr 16, 2014 at 11:25 AM, Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> >> > On Wed, Apr 16, 2014 at 11:13:31AM -0700, Andy Lutomirski wrote:
+> >> >
+> >> > [..]
+> >> >> > Ok, so passing cgroup information is not necessarily a problem as long
+> >> >> > as it is not used for authentication. So say somebody is just logging
+> >> >> > all the client request and which cgroup client was in, that should not
+> >> >> > be a problem.
+> >> >>
+> >> >> Do you consider correct attribution of logging messages to be
+> >> >> important?  If so, then this is a kind of authentication, albeit one
+> >> >> where the impact of screwing it up is a bit lower.
+> >> >
+> >> > So not passing cgroup information makes attribution more correct. Just
+> >> > logging of information is authentication how? Both kernel and user space
+> >> > log message into /var/log/messages and kernel messages are prefixed with
+> >> > "kernel". So this somehow becomes are sort of authentication. I don't
+> >> > get it.
+> >>
+> >> I did a bad job of explaining what I meant.
+> >>
+> >> I think that, currently, log lines can be correctly attributed to the
+> >> kernel or to userspace, but determining where in userspace a log line
+> >> came from is a bit flaky.  One of the goals of these patches is to
+> >> make log attribution less flaky.  But if you want log attribution to
+> >> be completely correct, even in the presence of malicious programs,
+> >> then I think that the current patches aren't quite there.
+> >
+> > Why do you think that current patches are not there yet in the presence of
+> > malicious program. In your example, one program opened the socket and
+> > passed it to malicious program. And all the future messages are coming
+> > from malicious program. As long as receiver checks for SO_PASSCGROUP,
+> > it covers your example.
 > 
-> [ Default config ./test_timetolive from lksctp-test suite triggered
->   that as well actually it appears, i.e. showing that the app never
->   woke up from the 3 sec timeout. ]
+> This is backwards.  The malicious program opens the socket and passes
+> it to an unwitting non-malicious program.  That non-malicious program
+> sends messages, and the logging daemon things that the non-malicious
+> program actually intended for these messages to end up in the system
+> log.
 
-We had a different case there. Test wasnt hanging due to decreased performance, but due to fact that with the patch sender created very large message, as opposed to situation before the patch where test message was of much smaller size.
+Either way you look at it, I can't see the problem. Even without cgroup
+info, in your example, a non-malicious programs error message will show
+up at the receiver (Because malicious program passed that fd as stdout
+to non-malicious program).
 
-http://www.spinics.net/lists/linux-sctp/msg03185.html
+Are you complainig about this?
 
->> The algorithm isn't wrong, but the implementation appears to have
->> a bug with window update SACKs.  The problem is that
->> sk->sk_rmem_alloc is updated by the skb destructor when
->> skb is freed.  This happens after we call sctp_assoc_rwnd_update()
->> which tries to send the update SACK.  As a result, in default
->> config with per-socket accounting, the test
->>      if ((asoc->base.sk->sk_rcvbuf - rx_count) > 0)
->> uses the wrong values for rx_count and results in advertisement
->> of decreased rwnd instead of what is really available.
+Or are you complaing that non-malicious program's cgroup info will show
+up at the receiver. What's the problem with that. Receiver can use
+SO_PASSCGROUP and get non-malicious programs cgroup and log it (along
+with error message). I don't see where is the problem in that.
+
+> 
+> >
+> >>
+> >> Is the reason that you don't want to modify the senders because you
+> >> want users of syslog(3) to get the new behavior?  If so, I think it
+> >> would be nice to update glibc to fix that, but maybe the kernel should
+> >> cooperate, and maybe SO_PEERCGROUP is a decent way to handle this.
+> >
+> > Modifying every user of unix sockets to start passing cgroup information
+> > will make sense only if it was deemed that passing cgroup information
+> > is risky inherently and should be done only in selected cases.
+> >
+> > I think so far our understanding is that we can't find anything
+> > inherently wrong with passing cgroup information, though there might
+> > be some corner cases we can run into and which are not obivious right
+> > now.
+> 
+> I think I've explained why causing write(2) to start transmitting the
+> caller's cgroup is problematic. Your SO_PASSCGROUP patch does that.
+> Your SO_PEERCGROUP patch does not.
+
+That's a generic statement. You have not given an specific example, where
+it will be a problem. Two easy ways to mitigate this will be.
+
+- Depending on use case, just look at SO_PEERCGROUP info. This will
+  avoid all the use cases you mentioned about tricking a priviliged
+  program to write something on a fd.
+
+- Also depending on use case one could compare both SO_PEERCGROUP and
+  SO_PASSCGROUP info and make sure cgroup remains the same otherwise
+  deny the service.
+
+> 
+> I'm still nervous about SO_PEERCGROUP and about a variant of
+> SO_PASSCGROUP that used the cgroup as of the time of connect(2), but
+> I'm much less convinced that there's an actual problem.  My
+> nervousness here is more that I don't like APIs that aren't clearly
+> safe.
+
+CVE you pointed to talks about SCM_CREDENTIAL vulnerability. That was
+a bug and now it has been fixed. So what's unsafe about SCM_CREDENTIAL
+now.
+
+Thanks
+Vivek
