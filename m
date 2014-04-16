@@ -1,45 +1,35 @@
-From: "Li, ZhenHua" <zhen-hual@hp.com>
-Subject: Re: [PATCH 1/1] driver/net: add missing rtnl lock/unlock for benet
-Date: Wed, 16 Apr 2014 14:30:49 +0800
-Message-ID: <534E2399.5030801@hp.com>
-References: <1397544352-28841-1-git-send-email-zhen-hual@hp.com> <20140415.150950.2105729446204659132.davem@davemloft.net>
+From: Matija Glavinic Pecotic <matija.glavinic-pecotic.ext@nsn.com>
+Subject: Re: [PATCH net] Revert "net: sctp: Fix a_rwnd/rwnd management to
+ reflect real state of the receiver's buffer"
+Date: Wed, 16 Apr 2014 08:57:24 +0200
+Message-ID: <534E29D4.60100@nsn.com>
+References: <1397504717-19566-1-git-send-email-dborkman@redhat.com> <534C3DC2.9070604@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
-	ajit.khaparde@emulex.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140415.150950.2105729446204659132.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Alexander Sverdlin <alexander.sverdlin@nsn.com>
+To: ext Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from demumfd002.nsn-inter.net ([93.183.12.31]:46100 "EHLO
+	demumfd002.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753011AbaDPG7N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2014 02:59:13 -0400
+In-Reply-To: <534C3DC2.9070604@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Hello Vlad,
 
-I think you are right. I checked other NIC drivers, found some of them 
-call rtnl_lock and rtnl_unlock around netif_device_detach and attach 
-functions, while some drivers did not.
+On 04/14/2014 09:57 PM, ext Vlad Yasevich wrote:
+> The base approach is sound.  The idea is to calculate rwnd based
+> on receiver buffer available.  The algorithm chosen however, is
+> gives a much higher preference to small data and penalizes large
+> data transfers.  We need to figure our something else here..
 
-I will create a new patch in generic way to fix this.
+I don't follow you here. Could you please explain what do you see as penalty?
 
-Regards
-ZhenHua
-On 04/16/2014 03:09 AM, David Miller wrote:
-> From: "Li, Zhen-Hua" <zhen-hual@hp.com>
-> Date: Tue, 15 Apr 2014 14:45:52 +0800
->
->> From: "Li, Zhen-Hua" <zhen-hual@hp.com>
->>
->> In benet driver, netif_device_detach and netif_device_attach should be
->> called between rtnl_lock and rtnl_unlock.
->>
->> Signed-off-by: Li, Zhen-Hua <zhen-hual@hp.com>
->
-> This absolutely does not look like a driver specific issue, therefore
-> I do not want you to make such locking context adjustments only in
-> your driver.
->
-> Do it somewhere generic so that every driver gets the fix, not just
-> your driver.
->
+Thanks,
+
+Matija
