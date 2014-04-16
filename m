@@ -1,85 +1,44 @@
-From: walter harms <wharms@bfs.de>
-Subject: Re: [patch v2] isdn: icn: buffer overflow in icn_command()
-Date: Wed, 16 Apr 2014 14:10:07 +0200
-Message-ID: <534E731F.6060701@bfs.de>
-References: <20140416112516.GA12917@mwanda>
-Reply-To: wharms@bfs.de
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch iproute2] u32: add terminal parameter
+Date: Wed, 16 Apr 2014 08:19:22 -0400
+Message-ID: <534E754A.8020403@mojatatu.com>
+References: <1396631826-15188-1-git-send-email-xiyou.wangcong@gmail.com>	<20140411140446.6412e9dc@nehalam.linuxnetplumber.net>	<CAM_iQpVpNOJ1xiK45qXGRXgBZ2QcmwoPc7p=SOHCo=1kTwPfFQ@mail.gmail.com>	<20140411175800.08e9ffe3@nehalam.linuxnetplumber.net>	<CAM_iQpU7Ntn-yo-ez0vP2BhKe+-Vaq1w_+MQhFPHM-bbQZx2gg@mail.gmail.com>	<534926F7.10505@mojatatu.com>	<CAM_iQpXJnOOUbpS0WwrB7C50LGxcLhMEQPrDB84Zm-SLKVHh6w@mail.gmail.com>	<534C6BDE.8020600@mojatatu.com>	<CAM_iQpV8GeEQr+GFFy2Etct_51YhvXEBKydyH9q4NP5QbsDOnA@mail.gmail.com>	<534D2D62.5080109@mojatatu.com> <CAM_iQpVmxmutCXMucP65UoxtPON=vJrxQ3B_jDTpMjWPycebaw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx01-fr.bfs.de ([193.174.231.67]:37546 "EHLO mx01-fr.bfs.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753471AbaDPMKO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Apr 2014 08:10:14 -0400
-In-Reply-To: <20140416112516.GA12917@mwanda>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:33616 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751377AbaDPMTr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2014 08:19:47 -0400
+Received: by mail-ie0-f174.google.com with SMTP id rp18so10383258iec.19
+        for <netdev@vger.kernel.org>; Wed, 16 Apr 2014 05:19:46 -0700 (PDT)
+In-Reply-To: <CAM_iQpVmxmutCXMucP65UoxtPON=vJrxQ3B_jDTpMjWPycebaw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 04/15/14 16:17, Cong Wang wrote:
 
+>
+> I knew, I thought at least classid is an alternative for action, that is,
+> one doing classify and one doing some other action.
+>
 
-Am 16.04.2014 13:25, schrieb Dan Carpenter:
-> This buffer over was detected using static analysis:
-> 
-> 	drivers/isdn/icn/icn.c:1325 icn_command()
-> 	error: format string overflow. buf_size: 60 length: 98
-> 
-> The calculation for the length of the string is off because it assumes
-> that the dial[] buffer holds a 50 character string, but actually it is
-> at most 31 characters and NUL.  I have removed the dial[] buffer because
-> it isn't needed.
-> 
-> The maximum length of the string is actually 79 characters and a NUL.  I
-> have made the cbuf[] array large enough to hold it and changed the
-> sprintf() to an snprintf() as a further safety enhancement.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> v2: update changelog.
-> 
-> diff --git a/drivers/isdn/icn/icn.c b/drivers/isdn/icn/icn.c
-> index 53d487f..88c0603 100644
-> --- a/drivers/isdn/icn/icn.c
-> +++ b/drivers/isdn/icn/icn.c
-> @@ -1155,7 +1155,7 @@ icn_command(isdn_ctrl *c, icn_card *card)
->  	ulong a;
->  	ulong flags;
->  	int i;
-> -	char cbuf[60];
-> +	char cbuf[80];
->  	isdn_ctrl cmd;
->  	icn_cdef cdef;
->  	char __user *arg;
-> @@ -1309,7 +1309,6 @@ icn_command(isdn_ctrl *c, icn_card *card)
->  			break;
->  		if ((c->arg & 255) < ICN_BCH) {
->  			char *p;
-> -			char dial[50];
->  			char dcode[4];
->  
->  			a = c->arg;
-> @@ -1321,10 +1320,10 @@ icn_command(isdn_ctrl *c, icn_card *card)
->  			} else
->  				/* Normal Dial */
->  				strcpy(dcode, "CAL");
-> -			strcpy(dial, p);
-> -			sprintf(cbuf, "%02d;D%s_R%s,%02d,%02d,%s\n", (int) (a + 1),
-> -				dcode, dial, c->parm.setup.si1,
-> -				c->parm.setup.si2, c->parm.setup.eazmsn);
-> +			snprintf(cbuf, sizeof(cbuf),
-> +				 "%02d;D%s_R%s,%02d,%02d,%s\n", (int) (a + 1),
-> +				 dcode, p, c->parm.setup.si1,
-> +				 c->parm.setup.si2, c->parm.setup.eazmsn);
->  			i = icn_writecmd(cbuf, strlen(cbuf), 0, card);
->  		}
->  		break;
-> 
+Indeed you could look at setting the flowid as "default action".
 
-if someone is still working on this ...
-maybe a vararg version of icn_writecmd() would be a nice helper.
+>
+> I see. The next question would be what is a reasonable classid
+> value for a classless qdisc? Or can we set it to some value to express
+> "we don't care"?
+>
 
-re,
- wh
+Mostly it is dont care (and no new syntax is introduced); however,
+like i pointed out with the route classifier there could be correlation
+with other things  downstream.
+
+cheers,
+jamal
