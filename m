@@ -1,103 +1,53 @@
-From: NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [PATCH 10/19] NET: set PF_FSTRANS while holding sk_lock
-Date: Wed, 16 Apr 2014 15:47:46 +1000
-Message-ID: <20140416154746.7dbb4485@notabene.brown>
-References: <20140416033623.10604.69237.stgit@notabene.brown>
-	<20140416040336.10604.96000.stgit@notabene.brown>
-	<1397625226.4222.113.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [net PATCH 1/1] drivers: net: cpsw: Add default vlan for dual
+ emac case also
+Date: Wed, 16 Apr 2014 11:27:38 +0530
+Message-ID: <534E1BD2.5050809@ti.com>
+References: <1397023480-4181-1-git-send-email-mugunthanvnm@ti.com> <20140409.145624.1000792872429500740.davem@davemloft.net> <CAGm1_ktmygGNWqEvO=59ZVFbTprUHLuXAmSM3UXfVrShPJsz_g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/YX/W05=F6X9qrxW7nKLwnOj"; protocol="application/pgp-signature"
-Cc: linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xfs-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1397625226.4222.113.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Yegor Yefremov <yegorslists@googlemail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:38299 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752014AbaDPF5m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Apr 2014 01:57:42 -0400
+In-Reply-To: <CAGm1_ktmygGNWqEvO=59ZVFbTprUHLuXAmSM3UXfVrShPJsz_g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/YX/W05=F6X9qrxW7nKLwnOj
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On Tuesday 15 April 2014 07:16 PM, Yegor Yefremov wrote:
+> On Wed, Apr 9, 2014 at 8:56 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Mugunthan V N <mugunthanvnm@ti.com>
+>> Date: Wed, 9 Apr 2014 11:34:40 +0530
+>>
+>>> Dual EMAC works with VLAN segregation of the ports, so default vlan needs
+>>> to be added in dual EMAC case else default vlan will be tagged for all
+>>> egress packets and vlan unaware switches/servers will drop packets
+>>> from the EVM.
+> Hi Mugunthan,
+>
+> though this patch fixes drop packets issue, it introduces another
+> issue. Just connect both interfaces to one switch and configure
+> different subnets. As soon as you get a broadcast you have an endless
+> loop and network communication is not possible at all. Before this
+> patch you could operate as if you had really two independent NICs.
+>
+>
 
-On Tue, 15 Apr 2014 22:13:46 -0700 Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-wrote:
+This patch doesn't add any multicast or unicast entry in the ALE table,
+so there is no possible way that a broadcast packet is switched within
+the two external ports, and this patch removes the encapsulation of the
+default vlan id which is used for internal packet switching inside CPSW
+switch from host and any packet received from external port will be
+tagged with port vlan so internal switching will happen with that port
+vlan-id which will be only that physical port and host port. so the
+scenario which you mentioned cannot happen theoretically untill you
+enable bridge between the dual ethernet interface and connect both to
+the same interface.
 
-> On Wed, 2014-04-16 at 14:03 +1000, NeilBrown wrote:
-> > sk_lock can be taken while reclaiming memory (in nfsd for loop-back
-> > NFS mounts, and presumably in nfs), and memory can be allocated while
-> > holding sk_lock, at least via:
-> >=20
-> >  inet_listen -> inet_csk_listen_start ->reqsk_queue_alloc
-> >=20
-> > So to avoid deadlocks, always set PF_FSTRANS while holding sk_lock.
-> >=20
-> > This deadlock was found by lockdep.
->=20
-> Wow, this is adding expensive stuff in fast path, only for nfsd :(
-
-Yes, this was probably one part that I was least comfortable about.
-
->=20
-> BTW, why should the current->flags should be saved on a socket field,
-> and not a current->save_flags. This really looks a thread property, not
-> a socket one.
->=20
-> Why nfsd could not have PF_FSTRANS in its current->flags ?
-
-nfsd does have PF_FSTRANS set in current->flags.  But some other processes
-might not.
-
-If any process takes sk_lock, allocates memory, and then blocks in reclaim =
-it
-could be waiting for nfsd.  If nfsd waits for that sk_lock, it would cause a
-deadlock.
-
-Thinking a bit more carefully .... I suspect that any socket that nfsd
-created would only ever be locked by nfsd.  If that is the case then the
-problem can be resolved entirely within nfsd.  We would need to tell lockdep
-that there are two sorts of sk_locks, those which nfsd uses and all the
-rest.  That might get a little messy, but wouldn't impact performance.
-
-Is it justified to assume that sockets created by nfsd threads would only
-ever be locked by nfsd threads (and interrupts, which won't be allocating
-memory so don't matter), or might there be locked by other threads - e.g for
-'netstat -a' etc??
-
-
->=20
-> For applications handling millions of sockets, this makes a difference.
->=20
-
-Thanks,
-NeilBrown
-
-
---Sig_/YX/W05=F6X9qrxW7nKLwnOj
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIVAwUBU04Zgjnsnt1WYoG5AQKvxBAAv9gDOMnc/LfCUMBQxzIaIokErrHkCKxM
-8u1W93ux2PFls2k6qTlSCVSBpO6chk1Avr9SWPyJZvTFYUnh98PiDV1tKVxJCek8
-42kflXGTxHUFXkSBV1ue21mOdn7gw0R3myuMZ8zXD/JFl9sDylwuUbg28hexfWky
-sPEu3OCd9DiKm+2uWSe+wlFDWDHkzknRw6g0Ym5/PfuiOl6SgNcHT4w97+Jp1hkd
-Xs/TQSIv3aRevVoBtFdtQ90vHE2lEakCOShqyH+oH2ryYmaCsAV2nJzOcpYxZTsL
-FTo3Xh+NqDIWUZEsulJtN1vrkOpAIEeJgRcGxwIEauYi/+mGEFF6O+Xo2QK8Dq0c
-/rJrDsNvzJ0EHkaIZACsYXQRHljRPzYGmRCoSnsSnnea/Uqda9sluxPzR7Gsxc0B
-DqyJd00t6fTQHwWGBG/XEvf1htts4s7rFwLysfBOnK5W5Rc3rih6/ue+i4Ebptmu
-tzekBzYicl83hb8KXhpUD4h+PkW1UtUJsbmP5qhMK8wRqzhnsyliil8yxJDY2YTo
-Z+qCD7lsacI2NtAvB0hwNQmXG1rq7oYn0rF7s/1vwl+AQSEaYHELWUm6cb9cE+42
-OhlnV7nle5yy/mPF93G54m+qwRDlFM8xM7PH7t9JoGdFRXDW/QMh7ma9k2HjVBH/
-jxxIu5TYBIw=
-=PGsl
------END PGP SIGNATURE-----
-
---Sig_/YX/W05=F6X9qrxW7nKLwnOj--
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards
+Mugunthan V N
