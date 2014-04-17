@@ -1,76 +1,87 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: [PATCH] net: Fix ns_capable check in sock_diag_put_filterinfo
-Date: Wed, 16 Apr 2014 21:41:34 -0700
-Message-ID: <1360f6acc2064d49a41f2d993d05cdcf8a40fc06.1397709384.git.luto@amacapital.net>
-Cc: Andy Lutomirski <luto@amacapital.net>, stable@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: in kernel 2.6.x, tun/tap nic supports vlan packets
+Date: Thu, 17 Apr 2014 07:02:28 +0200
+Message-ID: <20140417050228.GC8243@1wt.eu>
+References: <534F4C1E.1000006@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	joe@perches.com, julia.lawall@lip6.fr, dingtianhong@huawei.com,
+	linux-kernel@vger.kernel.org, jasowang@redhat.com, mst@redhat.com,
+	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
+	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
+	"Tao, Yue" <Yue.Tao@windriver.com>
+To: zhuyj <zyjzyj2000@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <534F4C1E.1000006@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The caller needs capabilities on the namespace being queried, not on
-their own namespace.  This is a security bug, although it likely has
-only a minor impact.
+Hi Zhu,
 
-Cc: stable@vger.kernel.org
-Signed-off-by: Andy Lutomirski <luto@amacapital.net>
----
+On Thu, Apr 17, 2014 at 11:35:58AM +0800, zhuyj wrote:
+> Hi, all
+> 
+> In kernel 2.6.x, linux depends on nic vlan hardware acceleration to 
+> insert/extract
+> vlan tag. In this scene, in kernel 2.6.x
+> 
+>                  _____        ________
+>     A           |     | B    |        | C
+>  vlan packets-->| tap |----->|vlan nic|--->
+>                 |_____|      |________|
+> 
+> We hope vlan packets pass through tap and vlan nic from A to c.
+> But in kernel 2.6.x, linux kernel can not extract vlan tag. It depends
+> on nic vlan hardware acceleration. It is well known that tap nic has no
+> vlan acceleration. So in the above scene, vlan packets can not be handled by
+> tap nic. These vlan packets will be discarded in B. They can not arrive 
+> at C.
 
-Someone should check that I'm right.  I had trouble getting 'ss -b' to
-work, even with plain old sudo.
+It's not clear to me what you want to achieve. Are you trying to create
+vlan interfaces on top of a tap interface ? Eg: tap1.12, tap1.23 etc ?
 
- include/linux/sock_diag.h | 2 +-
- net/core/sock_diag.c      | 4 ++--
- net/packet/diag.c         | 2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+> In kernel 3.x, linux can handle vlan packets. It does not depend on nic vlan
+> hardware acceleration. So the above scene can work well in kernel 3.x.
+> 
+> To resolve the above in kernel 2.6.x, we simulated vlan hardware 
+> acceleration in
+> tun/tap driver. Then followed the logic of commit commit 4fba4ca4
+> [vlan: Centralize handling of hardware acceleration] to modify the vlan 
+> packets
+> process in kernel 2.6.x. In the end, the above scene can work well in 
+> patched
+> kernel 2.6.x.
+> 
+> Please comment on it. Any reply is appreciated.
+> 
+> Hi, Willy
+> 
+> These 2 patches are for linux2.6.x. These can work well here. Please 
+> help to merge
+> linux 2.6.32.x. Thanks a lot.
 
-diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
-index 54f91d3..302ab80 100644
---- a/include/linux/sock_diag.h
-+++ b/include/linux/sock_diag.h
-@@ -23,7 +23,7 @@ int sock_diag_check_cookie(void *sk, __u32 *cookie);
- void sock_diag_save_cookie(void *sk, __u32 *cookie);
- 
- int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attr);
--int sock_diag_put_filterinfo(struct user_namespace *user_ns, struct sock *sk,
-+int sock_diag_put_filterinfo(struct sock *sk,
- 			     struct sk_buff *skb, int attrtype);
- 
- #endif
-diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
-index a0e9cf6..6a7fae2 100644
---- a/net/core/sock_diag.c
-+++ b/net/core/sock_diag.c
-@@ -49,7 +49,7 @@ int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attrtype)
- }
- EXPORT_SYMBOL_GPL(sock_diag_put_meminfo);
- 
--int sock_diag_put_filterinfo(struct user_namespace *user_ns, struct sock *sk,
-+int sock_diag_put_filterinfo(struct sock *sk,
- 			     struct sk_buff *skb, int attrtype)
- {
- 	struct nlattr *attr;
-@@ -57,7 +57,7 @@ int sock_diag_put_filterinfo(struct user_namespace *user_ns, struct sock *sk,
- 	unsigned int len;
- 	int err = 0;
- 
--	if (!ns_capable(user_ns, CAP_NET_ADMIN)) {
-+	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN)) {
- 		nla_reserve(skb, attrtype, 0);
- 		return 0;
- 	}
-diff --git a/net/packet/diag.c b/net/packet/diag.c
-index 533ce4f..435ff99 100644
---- a/net/packet/diag.c
-+++ b/net/packet/diag.c
-@@ -172,7 +172,7 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
- 		goto out_nlmsg_trim;
- 
- 	if ((req->pdiag_show & PACKET_SHOW_FILTER) &&
--	    sock_diag_put_filterinfo(user_ns, sk, skb, PACKET_DIAG_FILTER))
-+	    sock_diag_put_filterinfo(sk, skb, PACKET_DIAG_FILTER))
- 		goto out_nlmsg_trim;
- 
- 	return nlmsg_end(skb, nlh);
--- 
-1.9.0
+Well, 2.6.32.x is in deep freeze mode and it receives only critical fixes
+once in a while. While I can appreciate that the patch above might solve
+the issue you're facing, I'm wondering if there are not any acceptable
+workarounds for such a deep freeze kernel. You patch is not huge, but it
+definitely affects a working driver, and I wouldn't like risking to break
+the tap driver for other users, and I reall don't have the skills to audit
+it completely to ensure this is not the case. And if it breaks, I'll have
+to revert it or seek for some help on netdev.
+
+So I'd say that I'd rather not merge it unless I get an Acked-by from some
+netdev people who are willing to help in case of any future regression,
+which is unlikely but still possible.
+
+Just out of curiosity, what is the motivation for ongoing development on
+top of 2.6.32 ? Are there any important deployments that cannot upgrade
+for any specific reason ? I'm asking because most 2.6.32.x kernels that
+are stuffed into embedded boxes very likely come with their own number
+of in-house patches to add whatever feature is needed in such contexts,
+so I'm wondering why having this patch in mainline would help in your
+situation compared to having it into your own patch set only.
+
+Thanks,
+Willy
