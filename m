@@ -1,46 +1,79 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing cgroup path
-Date: Thu, 17 Apr 2014 12:23:52 -0700
-Message-ID: <CALCETrXbATieFBmFb0SzR=pwsAZ7KvAubFi1EcesuFkOKA_=eQ@mail.gmail.com>
-References: <CALCETrUrj2LtAoXp600BD2ANgE2UUEbTYQrK8hHqDR=qpeFPcg@mail.gmail.com>
- <1397751853.2628.50.camel@willson.li.ssimo.org> <CALCETrWNWvumFg9Qba0GEOjYop4WYe530tCPtakrhnoCrHqhUQ@mail.gmail.com>
- <1397753323.2628.60.camel@willson.li.ssimo.org> <CALCETrXj6kD3E+vsaWmkrSbaQYTu=c-Hsw640jh4O+FbojYk2g@mail.gmail.com>
- <20140417171256.GB25334@redhat.com> <CALCETrVq4HRpfWOAbZAQbyjuraQd=OxnW=WjSoe5JgBzRStiKg@mail.gmail.com>
- <1397756025.2628.64.camel@willson.li.ssimo.org> <CALCETrVBJFgKwRKBE2jAG6kiGgkJ+MyQiw2nyz5yj0h68kCk9A@mail.gmail.com>
- <1397759013.2628.86.camel@willson.li.ssimo.org> <20140417185023.GA32527@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Simo Sorce <ssorce@redhat.com>, Daniel J Walsh <dwalsh@redhat.com>,
-	David Miller <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	lpoetter@redhat.com, cgroups@vger.kernel.org, kay@redhat.com,
-	Network Development <netdev@vger.kernel.org>
-To: Vivek Goyal <vgoyal@redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] sctp: add support for busy polling to sctp protocol
+Date: Thu, 17 Apr 2014 15:26:51 -0400
+Message-ID: <1397762811-2989-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org
+To: linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:59214 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751178AbaDQTYN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2014 15:24:13 -0400
-Received: by mail-lb0-f169.google.com with SMTP id q8so746994lbi.28
-        for <netdev@vger.kernel.org>; Thu, 17 Apr 2014 12:24:12 -0700 (PDT)
-In-Reply-To: <20140417185023.GA32527@redhat.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56496 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751136AbaDQT1L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2014 15:27:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 17, 2014 at 11:50 AM, Vivek Goyal <vgoyal@redhat.com> wrote:
-> On Thu, Apr 17, 2014 at 02:23:33PM -0400, Simo Sorce wrote:
->> Perhaps this could be done with a sendmsg() header flag or simplified
->> ancillary data even, rather than forcing the sender process to retrieve
->> and construct the whole information which is already available in
->> kernel.
->
-> So what would be the protocol here? When should somebody send an
-> SCM_CGROUP message using sendmsg()?
->
+The busy polling socket option adds support for sockets to busy wait on data
+arriving on the napi queue from which they have most recently received a frame.
+Currently only tcp and udp support this feature, but theres no reason sctp can't
+do so as well.  Add it in so appliations can take advantage of it
 
-Presumably whenever it knows talking to someone who cares about the
-cgroup.  Since I don't understand why you would want to know someone's
-cgroup when speaking a protocol that didn't previously require cgroup
-infomation, I don't really have a good answer for you.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Vlad Yasevich <vyasevich@gmail.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Daniel Borkmann <dborkman@redhat.com>
+CC: netdev@vger.kernel.org
+---
+ net/sctp/socket.c   | 5 +++++
+ net/sctp/ulpqueue.c | 4 ++++
+ 2 files changed, 9 insertions(+)
 
---Andy
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 981aaf8..9788e07 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -71,6 +71,7 @@
+ #include <net/route.h>
+ #include <net/ipv6.h>
+ #include <net/inet_common.h>
++#include <net/busy_poll.h>
+ 
+ #include <linux/socket.h> /* for sa_family_t */
+ #include <linux/export.h>
+@@ -6553,6 +6554,10 @@ static struct sk_buff *sctp_skb_recv_datagram(struct sock *sk, int flags,
+ 		if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 			break;
+ 
++		if (sk_can_busy_loop(sk) &&
++		    sk_busy_loop(sk, noblock))
++			continue;
++
+ 		/* User doesn't want to wait.  */
+ 		error = -EAGAIN;
+ 		if (!timeo)
+diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
+index 5dc9411..a4df012 100644
+--- a/net/sctp/ulpqueue.c
++++ b/net/sctp/ulpqueue.c
+@@ -38,6 +38,7 @@
+ #include <linux/types.h>
+ #include <linux/skbuff.h>
+ #include <net/sock.h>
++#include <net/busy_poll.h>
+ #include <net/sctp/structs.h>
+ #include <net/sctp/sctp.h>
+ #include <net/sctp/sm.h>
+@@ -204,6 +205,9 @@ int sctp_ulpq_tail_event(struct sctp_ulpq *ulpq, struct sctp_ulpevent *event)
+ 	if (sock_flag(sk, SOCK_DEAD) || (sk->sk_shutdown & RCV_SHUTDOWN))
+ 		goto out_free;
+ 
++	if (!sctp_ulpevent_is_notification(event))
++		sk_mark_napi_id(sk, skb);
++
+ 	/* Check if the user wishes to receive this event.  */
+ 	if (!sctp_ulpevent_is_enabled(event, &sctp_sk(sk)->subscribe))
+ 		goto out_free;
+-- 
+1.8.3.1
