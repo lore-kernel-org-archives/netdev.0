@@ -1,128 +1,72 @@
-From: Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing
- cgroup path
-Date: Thu, 17 Apr 2014 14:31:24 -0400
-Message-ID: <1397759484.2628.93.camel@willson.li.ssimo.org>
-References: <20140416180642.GG31074@redhat.com>
-	 <CALCETrVUw5+vCCONy1VTXpskbY_eZFo2CtbehwV5Mhj4d4+icw@mail.gmail.com>
-	 <20140416185936.GJ31074@redhat.com> <534FF61B.4010901@redhat.com>
-	 <1397750674.2628.44.camel@willson.li.ssimo.org>
-	 <CALCETrUrj2LtAoXp600BD2ANgE2UUEbTYQrK8hHqDR=qpeFPcg@mail.gmail.com>
-	 <1397751853.2628.50.camel@willson.li.ssimo.org>
-	 <CALCETrWNWvumFg9Qba0GEOjYop4WYe530tCPtakrhnoCrHqhUQ@mail.gmail.com>
-	 <1397753323.2628.60.camel@willson.li.ssimo.org>
-	 <CALCETrXj6kD3E+vsaWmkrSbaQYTu=c-Hsw640jh4O+FbojYk2g@mail.gmail.com>
-	 <20140417171256.GB25334@redhat.com>
-	 <CALCETrVq4HRpfWOAbZAQbyjuraQd=OxnW=WjSoe5JgBzRStiKg@mail.gmail.com>
-	 <1397757169.2628.75.camel@willson.li.ssimo.org>
-	 <CALCETrUon7mZzp12th2bZ=cJyTjn8ePwg_VtPWL_bykjnnpKLw@mail.gmail.com>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing cgroup path
+Date: Thu, 17 Apr 2014 11:33:58 -0700
+Message-ID: <CALCETrUpstdgdZFFgng+g4oAaF-KBHcC0QREiA=oc0j3Dm+Mkg@mail.gmail.com>
+References: <20140416180642.GG31074@redhat.com> <CALCETrVUw5+vCCONy1VTXpskbY_eZFo2CtbehwV5Mhj4d4+icw@mail.gmail.com>
+ <20140416185936.GJ31074@redhat.com> <534FF61B.4010901@redhat.com>
+ <1397750674.2628.44.camel@willson.li.ssimo.org> <CALCETrUrj2LtAoXp600BD2ANgE2UUEbTYQrK8hHqDR=qpeFPcg@mail.gmail.com>
+ <1397751853.2628.50.camel@willson.li.ssimo.org> <CALCETrWNWvumFg9Qba0GEOjYop4WYe530tCPtakrhnoCrHqhUQ@mail.gmail.com>
+ <1397753323.2628.60.camel@willson.li.ssimo.org> <CALCETrXj6kD3E+vsaWmkrSbaQYTu=c-Hsw640jh4O+FbojYk2g@mail.gmail.com>
+ <20140417171256.GB25334@redhat.com> <CALCETrVq4HRpfWOAbZAQbyjuraQd=OxnW=WjSoe5JgBzRStiKg@mail.gmail.com>
+ <1397756025.2628.64.camel@willson.li.ssimo.org> <CALCETrVBJFgKwRKBE2jAG6kiGgkJ+MyQiw2nyz5yj0h68kCk9A@mail.gmail.com>
+ <1397759013.2628.86.camel@willson.li.ssimo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
 Cc: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
 	Daniel J Walsh <dwalsh-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
 	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
 	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
 	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+To: Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALCETrUon7mZzp12th2bZ=cJyTjn8ePwg_VtPWL_bykjnnpKLw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+In-Reply-To: <1397759013.2628.86.camel-Hs+ccMQdwurzDu64bZtGtWD2FQJk+8+b@public.gmane.org>
 Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-04-17 at 11:04 -0700, Andy Lutomirski wrote:
-> On Thu, Apr 17, 2014 at 10:52 AM, Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> > On Thu, 2014-04-17 at 10:26 -0700, Andy Lutomirski wrote:
-> >> On Thu, Apr 17, 2014 at 10:12 AM, Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> >> > On Thu, Apr 17, 2014 at 09:55:08AM -0700, Andy Lutomirski wrote:
-> >> >> On Thu, Apr 17, 2014 at 9:48 AM, Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> >> >> > On Thu, 2014-04-17 at 09:37 -0700, Andy Lutomirski wrote:
-> >> >> >> On Thu, Apr 17, 2014 at 9:24 AM, Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> >> >> >> > On Thu, 2014-04-17 at 09:11 -0700, Andy Lutomirski wrote:
-> >> >> >> >>
-> >> >> >> >> No.  The logging daemon thinks it wants to know who the writer is, but
-> >> >> >> >> the logging daemon is wrong.  It actually wants to know who composed a
-> >> >> >> >> log message destined to it.  The caller of write(2) may or may not be
-> >> >> >> >> the same entity.
-> >> >> >> >
-> >> >> >> > This works both ways, and doesn't really matter, you are *no* better off
-> >> >> >> > w/o this interface.
-> >> >> >> >
-> >> >> >> >> If this form of SO_PASSCGROUP somehow makes it into a pull request for
-> >> >> >> >> Linus, I will ask him not to pull it and/or to revert it.  I think
-> >> >> >> >> he'll agree that write(2) MUST NOT care who called it.
-> >> >> >> >
-> >> >> >> > And write() does not, there is no access control check being performed
-> >> >> >> > here. This call is the same as getting the pid of the process and
-> >> >> >> > crawling /proc with that information, just more efficient and race-free.
-> >> >> >>
-> >> >> >> Doing it using the pid of writer is wrong.  So is doing it with the
-> >> >> >> cgroup of the writer.  The fact that it's even possible to use the pid
-> >> >> >> of the caller of write(2) is a mistake, but that particular mistake
-> >> >> >> is, unfortunately, well-enshrined in history.
-> >> >> >>
-> >> >> >> >
-> >> >> >> > I repeat, it is *not* access control.
-> >> >> >> >
-> >> >> >>
-> >> >> >> Sure it is.
-> >> >> >>
-> >> >> >> Either correct attribution of logs doesn't matter, in which case it
-> >> >> >> makes little difference how you do it, or it does matter, in which
-> >> >> >> case it should be done right.
-> >> >> >
-> >> >> > Well journald can *also* get  SO_PEERCGROUP and log anomalies if the 2
-> >> >> > differ. That is if the log happens on a connected socket.
-> >> >> >
-> >> >> > If the log happens on a unix datagram* then SO_PEERCGROUP is not
-> >> >> > available because there is no connect(), however write() cannot be used
-> >> >> > either, only sendmsg() AFAIK, so the "setuid" binary attack does not
-> >> >> > apply.
-> >> >> >
-> >> >>
-> >> >> Or you could only send SCM_CGROUP when the writer asks sendmsg to send
-> >> >> it, in which case this whole problem goes away.
-> >> >
-> >> > Sending SCM_CGROUP explicitly is also sending cgroup info at write(2) time
-> >> > and if receiver uses that info for access control, it can be problematic.
-> >> >
-> >>
-> >> Not really.  write(2) can't send SCM_CGROUP.  Callers of sendmsg(2)
-> >> who supply SCM_CGROUP are explicitly indicating that they want their
-> >> cgroup associated with that message.  Callers of write(2) and send(2)
-> >> are simply indicating that they have some bytes that they want to
-> >> shove into whatever's at the other end of the fd.
-> >
-> > So you are telling me that you want to change all code that writes to
-> > stderr to be changed to use sendmsg() instead of write() in order to get
-> > that information ?
-> 
-> No.  I'm telling you that I want whoever writes the logging code to
-> change *the logging code* to use sendmsg.
-> 
+On Thu, Apr 17, 2014 at 11:23 AM, Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> On Thu, 2014-04-17 at 10:35 -0700, Andy Lutomirski wrote:
+>> On Thu, Apr 17, 2014 at 10:33 AM, Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+>> > On Thu, 2014-04-17 at 10:26 -0700, Andy Lutomirski wrote:
+>> >>
+>> >> Not really.  write(2) can't send SCM_CGROUP.  Callers of sendmsg(2)
+>> >> who supply SCM_CGROUP are explicitly indicating that they want their
+>> >> cgroup associated with that message.  Callers of write(2) and send(2)
+>> >> are simply indicating that they have some bytes that they want to
+>> >> shove into whatever's at the other end of the fd.
+>> >
+>> > But there is no attack vector that passes by tricking setuid binaries to
+>> > write to pre-opened file descriptors on sendmsg(), and for the other
+>> > cases (connected socket) journald can always cross check with
+>> > SO_PEERCGROUP, so why do we care again ?
+>>
+>> Because the proposed code does not do what I described, at least as
+>> far I as I can tell.
+>
+> Ok let me backtrack, apparently if you explicitly use connect() on a
+> datagram socket then you *can* write() (thanks to Vivek for checking
+> this).
+>
+> So you can trick something to write() to it but you can't do
+> SO_PEERCGROUP on the other side, because it is not really a connected
+> socket, the connection is only faked on the sender side by constructing
+> sendmsg() messages with the original address passed into connect().
+>
+> So given this unfortunate circumstance, requiring the client to
+> explicitly pass cgroup data on unix datagram sockets may be an
+> acceptable request IMO.
+>
+> Perhaps this could be done with a sendmsg() header flag or simplified
+> ancillary data even, rather than forcing the sender process to retrieve
+> and construct the whole information which is already available in
+> kernel.
 
-> > If you are using datagram sockets then the sender explicitly has to use
-> > sendmsg() already and if a setuid binary can be convinced to send
-> > arbitrary data to an arbitrary datagram sokcet you have bigger problems
-> > in that binary, and said binary will send you whatever cgroup it is in.
-> 
-> Really?
+It seems reasonable to me to have the sender give a blank SCM_CGROUP
+and to let the kernel populate it.
 
-I want to retract my comment in light of the fact you can use connect()
-on a datagram socket and then kernel will "helpfully" then allow you to
-use write() on it, I forgot about this detail.
+I'm still a bit vague on what happens if the sender is in two
+different cgroups.  Which one wins?  Presumably the unified hierarchy
+one if one of them is in use, but I haven't kept track of all the
+changes there.
 
-For the logging q. above I wouldn't see any issue unless the journald
-people were planning on using connect() themselves to pie things like
-stderr over a datagram socket.
-If that were the case, well then ...
-
-OTOH, I still need to understand how you attack a setuid binary to fake
-a cgroup, it's not like uig/gid information that is changed by the
-simple fact of invoking the setuid binary, and this is a brand new
-contract, so it is not unreasonable to put in the security
-considerations that a setuid binary should take extracare to where they
-emit stdout/stderr message should they decide to change their cgroup ...
-
-Simo.
+--Andy
