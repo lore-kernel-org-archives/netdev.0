@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next RFC v3 03/10] net: introduce generic switch devices support
-Date: Thu, 17 Apr 2014 14:14:30 +0200
-Message-ID: <1397736876-11771-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next RFC v3 04/10] rtnl: expose physical switch id for particular device
+Date: Thu, 17 Apr 2014 14:14:31 +0200
+Message-ID: <1397736876-11771-5-git-send-email-jiri@resnulli.us>
 References: <1397736876-11771-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
@@ -18,219 +18,102 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
 	Neil.Jerram@metaswitch.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f51.google.com ([74.125.83.51]:60009 "EHLO
-	mail-ee0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161024AbaDQMO5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2014 08:14:57 -0400
-Received: by mail-ee0-f51.google.com with SMTP id c13so603255eek.10
-        for <netdev@vger.kernel.org>; Thu, 17 Apr 2014 05:14:55 -0700 (PDT)
+Received: from mail-ee0-f52.google.com ([74.125.83.52]:62284 "EHLO
+	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945892AbaDQMPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2014 08:15:00 -0400
+Received: by mail-ee0-f52.google.com with SMTP id e49so585897eek.25
+        for <netdev@vger.kernel.org>; Thu, 17 Apr 2014 05:14:59 -0700 (PDT)
 In-Reply-To: <1397736876-11771-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The goal of this is to provide a possibility to suport various switch
-chips. Drivers should implement relevant ndos to do so. So far, only one
-ndo for getting physical switch id is in place.
+The the netdevice represents a port in a switch, it will expose
+IFLA_PHYS_SWITCH_ID value via rtnl. Two netdevices with a same value
+belong to one physical switch.
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- Documentation/networking/switchdev.txt | 53 ++++++++++++++++++++++++++++++++++
- include/linux/netdevice.h              | 10 +++++++
- include/linux/switchdev.h              | 30 +++++++++++++++++++
- net/Kconfig                            |  6 ++++
- net/core/Makefile                      |  1 +
- net/core/switchdev.c                   | 32 ++++++++++++++++++++
- 6 files changed, 132 insertions(+)
- create mode 100644 Documentation/networking/switchdev.txt
- create mode 100644 include/linux/switchdev.h
- create mode 100644 net/core/switchdev.c
+ include/uapi/linux/if_link.h |  1 +
+ net/core/rtnetlink.c         | 26 +++++++++++++++++++++++++-
+ 2 files changed, 26 insertions(+), 1 deletion(-)
 
-diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
-new file mode 100644
-index 0000000..20345cc
---- /dev/null
-+++ b/Documentation/networking/switchdev.txt
-@@ -0,0 +1,53 @@
-+Switch device drivers HOWTO
-+===========================
-+
-+First lets describe a topology a bit. Imagine the following example:
-+
-+       +----------------------------+    +---------------+
-+       |     SOME switch chip       |    |      CPU      |
-+       +----------------------------+    +---------------+
-+       port1 port2 port3 port4 MNGMNT    |     PCI-E     |
-+         |     |     |     |     |       +---------------+
-+        PHY   PHY    |     |     |         |  NIC0 NIC1
-+                     |     |     |         |   |    |
-+                     |     |     +- PCI-E -+   |    |
-+                     |     +------- MII -------+    |
-+                     +------------- MII ------------+
-+
-+In this example, there are two independent lines between the switch silicon
-+and CPU. NIC0 and NIC1 drivers are not aware of a switch presence. They are
-+separate from the switch driver. SOME switch chip is by managed by a driver
-+via PCI-E device MNGMNT. Note that MNGMNT device, NIC0 and NIC1 may be
-+connected to some other type of bus.
-+
-+Now, for the previous example show the representation in kernel:
-+
-+       +----------------------------+    +---------------+    
-+       |     SOME switch chip       |    |      CPU      |
-+       +----------------------------+    +---------------+
-+       sw0p0 sw0p1 sw0p2 sw0p3 MNGMNT    |     PCI-E     |
-+         |     |     |     |     |       +---------------+
-+        PHY   PHY    |     |     |         |  eth0 eth1
-+                     |     |     |         |   |    |
-+                     |     |     +- PCI-E -+   |    |
-+                     |     +------- MII -------+    |
-+                     +------------- MII ------------+
-+
-+Lets call the example switch driver for SOME switch chip "SOMEswitch". This
-+driver takes care of PCI-E device MNGMNT. There is a netdevice instance sw0pX
-+created for each port of a switch. These netdevices are instances
-+of "SOMEswitch" driver. sw0pX netdevices serve as a "representation"
-+of the switch chip. eth0 and eth1 are instances of some other existing driver.
-+
-+The only difference of the switch-port netdevice from the ordinary netdevice
-+is that is implements couple more NDOs:
-+
-+	ndo_swdev_get_id - This returns the same ID for two port netdevices of
-+			   the same physical switch chip. This is mandatory to
-+			   be implemented by all switch drivers and serves
-+			   the caller for recognition of a port netdevice.
-+	ndo_swdev_* - Functions that serve for a manipulation of the switch chip
-+		      itself. They are not port-specific. Caller might use
-+		      arbitrary port netdevice of the same switch and it will
-+		      make no difference.
-+	ndo_swportdev_* - Functions that serve for a port-specific manipulation.
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 8cf4f5e..83e38a0 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -991,6 +991,12 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
-  *	Callback to use for xmit over the accelerated station. This
-  *	is used in place of ndo_start_xmit on accelerated net
-  *	devices.
-+ *
-+ * int (*ndo_swdev_get_id)(struct net_device *dev,
-+ *			   struct netdev_phys_item_id *psid);
-+ *	Called to get an ID of the switch chip this port is part of.
-+ *	If driver implements this, it indicates that it represents a port
-+ *	of a switch chip.
-  */
- struct net_device_ops {
- 	int			(*ndo_init)(struct net_device *dev);
-@@ -1137,6 +1143,10 @@ struct net_device_ops {
- 	netdev_tx_t		(*ndo_dfwd_start_xmit) (struct sk_buff *skb,
- 							struct net_device *dev,
- 							void *priv);
-+#ifdef CONFIG_NET_SWITCHDEV
-+	int			(*ndo_swdev_get_id)(struct net_device *dev,
-+						    struct netdev_phys_item_id *psid);
-+#endif
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 9a7f7ac..c11f492 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -145,6 +145,7 @@ enum {
+ 	IFLA_CARRIER,
+ 	IFLA_PHYS_PORT_ID,
+ 	IFLA_CARRIER_CHANGES,
++	IFLA_PHYS_SWITCH_ID,
+ 	__IFLA_MAX
  };
  
- /**
-diff --git a/include/linux/switchdev.h b/include/linux/switchdev.h
-new file mode 100644
-index 0000000..b147dde
---- /dev/null
-+++ b/include/linux/switchdev.h
-@@ -0,0 +1,30 @@
-+/*
-+ * include/linux/switchdev.h - Switch device API
-+ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+#ifndef _LINUX_SWITCHDEV_H_
-+#define _LINUX_SWITCHDEV_H_
-+
-+#include <linux/netdevice.h>
-+#include <linux/sw_flow.h>
-+
-+#ifdef CONFIG_NET_SWITCHDEV
-+
-+int swdev_get_id(struct net_device *dev, struct netdev_phys_item_id *psid);
-+
-+#else
-+
-+static inline int swdev_get_id(struct net_device *dev,
-+			       struct netdev_phys_item_id *psid)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+#endif
-+
-+#endif /* _LINUX_SWITCHDEV_H_ */
-diff --git a/net/Kconfig b/net/Kconfig
-index d1f6f96..b13be7c 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -289,6 +289,12 @@ config NET_FLOW_LIMIT
- 	  with many clients some protection against DoS by a single (spoofed)
- 	  flow that greatly exceeds average workload.
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 231e043..7170e24 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -43,6 +43,7 @@
  
-+config NET_SWITCHDEV
-+	boolean "Switch device support"
-+	depends on INET
-+	---help---
-+	  This module provides support for hardware switch chips.
-+
- menu "Network testing"
- 
- config NET_PKTGEN
-diff --git a/net/core/Makefile b/net/core/Makefile
-index 826b925..4b27dff 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -24,3 +24,4 @@ obj-$(CONFIG_NETWORK_PHY_TIMESTAMPING) += timestamping.o
- obj-$(CONFIG_NET_PTP_CLASSIFY) += ptp_classifier.o
- obj-$(CONFIG_CGROUP_NET_PRIO) += netprio_cgroup.o
- obj-$(CONFIG_CGROUP_NET_CLASSID) += netclassid_cgroup.o
-+obj-$(CONFIG_NET_SWITCHDEV) += switchdev.o
-diff --git a/net/core/switchdev.c b/net/core/switchdev.c
-new file mode 100644
-index 0000000..2d275f5
---- /dev/null
-+++ b/net/core/switchdev.c
-@@ -0,0 +1,32 @@
-+/*
-+ * net/core/switchdev.c - Switch device API
-+ * Copyright (c) 2014 Jiri Pirko <jiri@resnulli.us>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/init.h>
-+#include <linux/netdevice.h>
+ #include <linux/inet.h>
+ #include <linux/netdevice.h>
 +#include <linux/switchdev.h>
-+
-+/**
-+ *	swdev_get_id - Get ID of a switch
-+ *	@dev: port device
-+ *	@psid: switch ID
-+ *
-+ *	Get ID of a switch this port is part of.
-+ */
-+int swdev_get_id(struct net_device *dev, struct netdev_phys_item_id *psid)
+ #include <net/ip.h>
+ #include <net/protocol.h>
+ #include <net/arp.h>
+@@ -829,7 +830,8 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + rtnl_port_size(dev) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
+ 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
+ 	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
+-	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_PORT_ID */
++	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
++	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN); /* IFLA_PHYS_SWITCH_ID */
+ }
+ 
+ static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
+@@ -926,6 +928,24 @@ static int rtnl_phys_port_id_fill(struct sk_buff *skb, struct net_device *dev)
+ 	return 0;
+ }
+ 
++static int rtnl_phys_switch_id_fill(struct sk_buff *skb, struct net_device *dev)
 +{
-+	const struct net_device_ops *ops = dev->netdev_ops;
++	int err;
++	struct netdev_phys_item_id psid;
 +
-+	if (!ops->ndo_swdev_get_id)
-+		return -EOPNOTSUPP;
-+	return ops->ndo_swdev_get_id(dev, psid);
++	err = swdev_get_id(dev, &psid);
++	if (err) {
++		if (err == -EOPNOTSUPP)
++			return 0;
++		return err;
++	}
++
++	if (nla_put(skb, IFLA_PHYS_SWITCH_ID, psid.id_len, psid.id))
++		return -EMSGSIZE;
++
++	return 0;
 +}
-+EXPORT_SYMBOL(swdev_get_id);
++
+ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			    int type, u32 pid, u32 seq, u32 change,
+ 			    unsigned int flags, u32 ext_filter_mask)
+@@ -998,6 +1018,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	if (rtnl_phys_port_id_fill(skb, dev))
+ 		goto nla_put_failure;
+ 
++	if (rtnl_phys_switch_id_fill(skb, dev))
++		goto nla_put_failure;
++
+ 	attr = nla_reserve(skb, IFLA_STATS,
+ 			sizeof(struct rtnl_link_stats));
+ 	if (attr == NULL)
+@@ -1151,6 +1174,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
+ 	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+ 	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
++	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+ };
+ 
+ static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
 -- 
 1.9.0
