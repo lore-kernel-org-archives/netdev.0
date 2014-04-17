@@ -1,84 +1,70 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] staging: r8188eu: Fix some sparse warnings
-Date: Thu, 17 Apr 2014 10:35:22 -0500
-Message-ID: <1397748922-8941-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Daniel J Walsh <dwalsh@redhat.com>
+Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing cgroup
+ path
+Date: Thu, 17 Apr 2014 08:41:15 -0700
+Message-ID: <534FF61B.4010901@redhat.com>
+References: <CALCETrURHNmLyccRiF_W8o2ozRMR4AaCjUE=_PU8z1+Pq6X2jQ@mail.gmail.com> <20140416002010.GA5035@redhat.com> <CALCETrWzHYN3kKcmDTFDfGhZqE4u9+6XDtiOu5nncbK_7KKH0g@mail.gmail.com> <20140416.085743.1614257692560892039.davem@davemloft.net> <CALCETrVv8SPM5xjOVGy7qO2aq3FKtG2uG57J49nO7Wy0-gg0Ew@mail.gmail.com> <1397664837.19767.410.camel@willson.li.ssimo.org> <CALCETrXn7b6UuALpGUVoyQYfR2uzk5tj2ABV=dkvtFNgqM5sxQ@mail.gmail.com> <20140416180642.GG31074@redhat.com> <CALCETrVUw5+vCCONy1VTXpskbY_eZFo2CtbehwV5Mhj4d4+icw@mail.gmail.com> <20140416185936.GJ31074@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- Dan Carpenter <dan.carpenter@oracle.com>,
- Larry Finger <Larry.Finger@lwfinger.net>
-To: gregkh@linuxfoundation.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Cc: Simo Sorce <ssorce@redhat.com>, David Miller <davem@davemloft.net>,
+	Tejun Heo <tj@kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	lpoetter@redhat.com, cgroups@vger.kernel.org, kay@redhat.com,
+	Network Development <netdev@vger.kernel.org>
+To: Vivek Goyal <vgoyal@redhat.com>,
+	Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140416185936.GJ31074@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In a patch entitles "staging: r8188eu: Fix case where ethtype was never obtained
-and always be checked against 0" (commit ID unknown), I introduce an endian error.
-This patch fixes that, and removes two additional sparse warnings.
 
-drivers/staging/rtl8188eu/core/rtw_recv.c:653:6: warning: symbol 'process_pwrbit_data' was not declared. Should it be static?
-drivers/staging/rtl8188eu/core/rtw_recv.c:1828:5: warning: symbol 'enqueue_reorder_recvframe' was not declared. Should it be static?
+On 04/16/2014 11:59 AM, Vivek Goyal wrote:
+> On Wed, Apr 16, 2014 at 11:13:31AM -0700, Andy Lutomirski wrote:
+>> On Wed, Apr 16, 2014 at 11:06 AM, Vivek Goyal <vgoyal@redhat.com> wrote:
+>>> On Wed, Apr 16, 2014 at 09:31:25AM -0700, Andy Lutomirski wrote:
+>>> I am not sure how same issue with happen with cgroups. In the case of
+>>> socket example, you are forcing a setuid program to write to standard
+>>> output and that setuid program will run in same cgroup as caller and
+>>> will have same cgroup as caller. So even if somebody was using cgroup
+>>> information for authentication, atleast in this particular case it
+>>> will not be a problem. Both unpriviliged and priviliged programs has
+>>> same cgroups.
+>>>
+>> I'm not sure that there's an actual attackable program.  But I also
+>> see no reason to be convinced that there isn't one, and the problem
+>> can easily be avoided by requiring programs to explicitly ask to send
+>> their cgroup.
+> If you can't prove that there is something fundamentally wrong with
+> passing cgroup info to receiver, there is no reason to block these
+> patches either.
+>
+> We can't fix the problems which we can't see. You are saying that I 
+> don't know what kind of problem can happen due to cgroup passing. Still
+> that does not mean none of the problems exist. So let us not pass cgroup
+> info by default and ask client to opt in.
+>
+> I don't think this is a very convincing argument.
+>
+> To me, if we can't see anything fundamentally wrong with passing cgroup
+> info, we should take these patches in. And once we figure out that there
+> is are problematic use cases, then implement SO_NOPASSCGROUP and
+> SO_NOPEERCRED  and allow problematic clients to opt out.
+>
+> Thanks
+> Vivek
+The two use cases for this patch are:
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Dan Carpenter <dan.carpenter@oracle.com>
----
- drivers/staging/rtl8188eu/core/rtw_recv.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+1 Logging, to make sure the cgroup information gets correctly attributed
+to the caller. 
 
-diff --git a/drivers/staging/rtl8188eu/core/rtw_recv.c b/drivers/staging/rtl8188eu/core/rtw_recv.c
-index aeb0053..9bb1790 100644
---- a/drivers/staging/rtl8188eu/core/rtw_recv.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_recv.c
-@@ -554,6 +554,7 @@ static struct recv_frame *portctrl(struct adapter *adapter,
- 	u16	ether_type;
- 	u16  eapol_type = 0x888e;/* for Funia BD's WPA issue */
- 	struct rx_pkt_attrib *pattrib;
-+	__be16 be_tmp;
- 
- 
- 	pstapriv = &adapter->stapriv;
-@@ -573,8 +574,8 @@ static struct recv_frame *portctrl(struct adapter *adapter,
- 	if (auth_alg == 2) {
- 		/* get ether_type */
- 		ptr = ptr + pfhdr->attrib.hdrlen + LLC_HEADER_SIZE;
--		memcpy(&ether_type, ptr, 2);
--		ether_type = ntohs((unsigned short)ether_type);
-+		memcpy(&be_tmp, ptr, 2);
-+		ether_type = ntohs(be_tmp);
- 
- 		if ((psta != NULL) && (psta->ieee8021x_blocked)) {
- 			/* blocked */
-@@ -647,8 +648,8 @@ static int recv_decache(struct recv_frame *precv_frame, u8 bretry,
- 	return _SUCCESS;
- }
- 
--void process_pwrbit_data(struct adapter *padapter,
--			 struct recv_frame *precv_frame)
-+static void process_pwrbit_data(struct adapter *padapter,
-+				struct recv_frame *precv_frame)
- {
- #ifdef CONFIG_88EU_AP_MODE
- 	unsigned char pwrbit;
-@@ -1822,8 +1823,8 @@ static int check_indicate_seq(struct recv_reorder_ctrl *preorder_ctrl, u16 seq_n
- 	return true;
- }
- 
--int enqueue_reorder_recvframe(struct recv_reorder_ctrl *preorder_ctrl,
--			      struct recv_frame *prframe)
-+static int enqueue_reorder_recvframe(struct recv_reorder_ctrl *preorder_ctrl,
-+				     struct recv_frame *prframe)
- {
- 	struct rx_pkt_attrib *pattrib = &prframe->attrib;
- 	struct __queue *ppending_recvframe_queue = &preorder_ctrl->pending_recvframe_queue;
--- 
-1.8.1.4
+2 Potentially reveal different information to the caller based on the
+cgroup information. 
+
+Imagine you want to set up an apache web server that is going to use
+sssd for authentication data.  You might want to reveal a limited set of
+users to the apache service process based on the fact that it is running
+in the apache.service.slice.  If the apache service does the equivalent
+of getent passwd I want to give it different information then say sshd
+did the same calls.
