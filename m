@@ -1,46 +1,50 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [patch iproute2 RFC v3 4/5] iproute2: add support for dummyswport
-Date: Thu, 17 Apr 2014 15:19:51 +0200
-Message-ID: <534FD4F7.5060402@6wind.com>
-References: <1397736876-11771-1-git-send-email-jiri@resnulli.us> <1397737053-11892-1-git-send-email-jiri@resnulli.us> <1397737053-11892-5-git-send-email-jiri@resnulli.us>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@cumulusnetworks.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, dev@openvswitch.org, jasowang@redhat.com,
-	ebiederm@xmission.com, ryazanov.s.a@gmail.com,
-	buytenh@wantstofly.org, aviadr@mellanox.com, nbd@openwrt.org,
-	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: [PATCH net] tg3: update rx_jumbo_pending ring param only when jumbo frames are enabled
+Date: Thu, 17 Apr 2014 14:51:08 +0200
+Message-ID: <1397739068-14240-1-git-send-email-ivecera@redhat.com>
+Cc: mchan@broadcom.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:36405 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161240AbaDQNTz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2014 09:19:55 -0400
-Received: by mail-wi0-f170.google.com with SMTP id bs8so2723728wib.1
-        for <netdev@vger.kernel.org>; Thu, 17 Apr 2014 06:19:54 -0700 (PDT)
-In-Reply-To: <1397737053-11892-5-git-send-email-jiri@resnulli.us>
+Received: from mx1.redhat.com ([209.132.183.28]:53496 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756162AbaDQNY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Apr 2014 09:24:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 17/04/2014 14:17, Jiri Pirko a =C3=A9crit :
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->   include/linux/if_link.h |  9 ++++++++
->   ip/Makefile             |  3 ++-
->   ip/iplink_dummyswport.c | 56 ++++++++++++++++++++++++++++++++++++++=
-+++++++++++
->   3 files changed, 67 insertions(+), 1 deletion(-)
->   create mode 100644 ip/iplink_dummyswport.c
+The patch fixes a problem with dropped jumbo frames after usage of
+'ethtool -G ... rx'.
 
-Don't forget to update iplink_usage() in ip/iplink.c, with the new type=
-=2E
+Scenario:
+1. ip link set eth0 up
+2. ethtool -G eth0 rx N # <- This zeroes rx-jumbo
+3. ip link set mtu 9000 dev eth0
+
+The ethtool command set rx_jumbo_pending to zero so any received jumbo
+packets are dropped and you need to use 'ethtool -G eth0 rx-jumbo N'
+to workaround the issue.
+The patch changes the logic so rx_jumbo_pending value is changed only if
+jumbo frames are enabled (MTU > 1500).
+
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index b9f7022..e5d95c5 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -12286,7 +12286,9 @@ static int tg3_set_ringparam(struct net_device *dev, struct ethtool_ringparam *e
+ 	if (tg3_flag(tp, MAX_RXPEND_64) &&
+ 	    tp->rx_pending > 63)
+ 		tp->rx_pending = 63;
+-	tp->rx_jumbo_pending = ering->rx_jumbo_pending;
++
++	if (tg3_flag(tp, JUMBO_RING_ENABLE))
++		tp->rx_jumbo_pending = ering->rx_jumbo_pending;
+ 
+ 	for (i = 0; i < tp->irq_max; i++)
+ 		tp->napi[i].tx_pending = ering->tx_pending;
+-- 
+1.8.3.2
