@@ -1,10 +1,11 @@
-From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
 Subject: Re: [patch net-next RFC v3 02/10] net: rename
  netdev_phys_port_id to more generic name
-Date: Thu, 17 Apr 2014 08:01:10 -0700
-Message-ID: <20140417080110.73485409@nehalam.linuxnetplumber.net>
+Date: Thu, 17 Apr 2014 17:05:24 +0200
+Message-ID: <20140417150524.GB3068@minipsycho.orion>
 References: <1397736876-11771-1-git-send-email-jiri@resnulli.us>
  <1397736876-11771-3-git-send-email-jiri@resnulli.us>
+ <20140417080110.73485409@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -17,9 +18,10 @@ Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT
  vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
  netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
  davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+To: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1397736876-11771-3-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20140417080110.73485409-We1ePj4FEcvRI77zikRAJc56i+j3xesD0e7PPNI6Mm0@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
  <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -31,71 +33,76 @@ Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, 17 Apr 2014 14:14:29 +0200
-Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org> wrote:
+Thu, Apr 17, 2014 at 05:01:10PM CEST, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org wrote:
+>On Thu, 17 Apr 2014 14:14:29 +0200
+>Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org> wrote:
+>
+>> So this can be reused for identification of other "items" as well.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+>> ---
+>>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  2 +-
+>>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |  2 +-
+>>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |  2 +-
+>>  include/linux/netdevice.h                        | 16 ++++++++--------
+>>  net/core/dev.c                                   |  2 +-
+>>  net/core/net-sysfs.c                             |  2 +-
+>>  net/core/rtnetlink.c                             |  6 +++---
+>>  7 files changed, 16 insertions(+), 16 deletions(-)
+>> 
+>> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+>> index a78edac..a4b25b1 100644
+>> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+>> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+>> @@ -12360,7 +12360,7 @@ static int bnx2x_validate_addr(struct net_device *dev)
+>>  }
+>>  
+>>  static int bnx2x_get_phys_port_id(struct net_device *netdev,
+>> -				  struct netdev_phys_port_id *ppid)
+>> +				  struct netdev_phys_item_id *ppid)
+>>  {
+>>  	struct bnx2x *bp = netdev_priv(netdev);
+>>  
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> index f085c2d..e784bb4 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> @@ -2251,7 +2251,7 @@ static int mlx4_en_set_vf_link_state(struct net_device *dev, int vf, int link_st
+>>  
+>>  #define PORT_ID_BYTE_LEN 8
+>>  static int mlx4_en_get_phys_port_id(struct net_device *dev,
+>> -				    struct netdev_phys_port_id *ppid)
+>> +				    struct netdev_phys_item_id *ppid)
+>>  {
+>>  	struct mlx4_en_priv *priv = netdev_priv(dev);
+>>  	struct mlx4_dev *mdev = priv->mdev->dev;
+>> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+>> index 309d056..55af16a 100644
+>> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+>> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+>> @@ -450,7 +450,7 @@ static void qlcnic_82xx_cancel_idc_work(struct qlcnic_adapter *adapter)
+>>  }
+>>  
+>>  static int qlcnic_get_phys_port_id(struct net_device *netdev,
+>> -				   struct netdev_phys_port_id *ppid)
+>> +				   struct netdev_phys_item_id *ppid)
+>>  {
+>>  	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+>>  	struct qlcnic_hardware_context *ahw = adapter->ahw;
+>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>> index 775cc95..8cf4f5e 100644
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+>> @@ -735,13 +735,13 @@ struct netdev_fcoe_hbainfo {
+>>  };
+>>  #endif
+>>  
+>> -#define MAX_PHYS_PORT_ID_LEN 32
+>> +#define MAX_PHYS_ITEM_ID_LEN 32
+>>  
+>
+>Why the rename?
 
-> So this can be reused for identification of other "items" as well.
-> 
-> Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-> ---
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  2 +-
->  drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |  2 +-
->  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |  2 +-
->  include/linux/netdevice.h                        | 16 ++++++++--------
->  net/core/dev.c                                   |  2 +-
->  net/core/net-sysfs.c                             |  2 +-
->  net/core/rtnetlink.c                             |  6 +++---
->  7 files changed, 16 insertions(+), 16 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> index a78edac..a4b25b1 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> @@ -12360,7 +12360,7 @@ static int bnx2x_validate_addr(struct net_device *dev)
->  }
->  
->  static int bnx2x_get_phys_port_id(struct net_device *netdev,
-> -				  struct netdev_phys_port_id *ppid)
-> +				  struct netdev_phys_item_id *ppid)
->  {
->  	struct bnx2x *bp = netdev_priv(netdev);
->  
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> index f085c2d..e784bb4 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> @@ -2251,7 +2251,7 @@ static int mlx4_en_set_vf_link_state(struct net_device *dev, int vf, int link_st
->  
->  #define PORT_ID_BYTE_LEN 8
->  static int mlx4_en_get_phys_port_id(struct net_device *dev,
-> -				    struct netdev_phys_port_id *ppid)
-> +				    struct netdev_phys_item_id *ppid)
->  {
->  	struct mlx4_en_priv *priv = netdev_priv(dev);
->  	struct mlx4_dev *mdev = priv->mdev->dev;
-> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> index 309d056..55af16a 100644
-> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> @@ -450,7 +450,7 @@ static void qlcnic_82xx_cancel_idc_work(struct qlcnic_adapter *adapter)
->  }
->  
->  static int qlcnic_get_phys_port_id(struct net_device *netdev,
-> -				   struct netdev_phys_port_id *ppid)
-> +				   struct netdev_phys_item_id *ppid)
->  {
->  	struct qlcnic_adapter *adapter = netdev_priv(netdev);
->  	struct qlcnic_hardware_context *ahw = adapter->ahw;
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 775cc95..8cf4f5e 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -735,13 +735,13 @@ struct netdev_fcoe_hbainfo {
->  };
->  #endif
->  
-> -#define MAX_PHYS_PORT_ID_LEN 32
-> +#define MAX_PHYS_ITEM_ID_LEN 32
->  
 
-Why the rename?
+I use the same struct in "net: introduce generic switch devices support"
+to identify switch. So that is no longer only a "port id"
