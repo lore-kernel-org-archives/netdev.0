@@ -1,52 +1,87 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCH 3/3] ARM: mvebu: use qsgmii phy-mode for Armada XP GP
- interfaces
-Date: Thu, 17 Apr 2014 01:13:17 -0400
-Message-ID: <20140417051317.GQ28159@titan.lakedaemon.net>
-References: <1397569821-5530-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <1397569821-5530-4-git-send-email-thomas.petazzoni@free-electrons.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Fix ns_capable check in sock_diag_put_filterinfo
+Date: Wed, 16 Apr 2014 22:21:26 -0700
+Message-ID: <1397712086.19600.2.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1360f6acc2064d49a41f2d993d05cdcf8a40fc06.1397709384.git.luto@amacapital.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
-	George Joseph <george.joseph@fairview5.com>,
-	Tawfik Bayouk <tawfik@marvell.com>, netdev@vger.kernel.org,
-	Alexander Reuter <Alexander.Reuter@gmx.net>, arno@natisbad.org,
-	Willy Tarreau <w@1wt.eu>, Nadav Haklai <nadavh@marvell.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Dmitri Epshtein <dima@marvell.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mho-02-ewr.mailhop.org ([204.13.248.72]:43171 "EHLO
-	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161417AbaDQFNv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2014 01:13:51 -0400
-Content-Disposition: inline
-In-Reply-To: <1397569821-5530-4-git-send-email-thomas.petazzoni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev@vger.kernel.org, stable@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1360f6acc2064d49a41f2d993d05cdcf8a40fc06.1397709384.git.luto@amacapital.net>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 15, 2014 at 03:50:21PM +0200, Thomas Petazzoni wrote:
-> The Armada XP GP isn't using rgmii-id connections between the MAC and
-> PHY, but instead a single QSGMII connection, which is a quad-SGMII
-> connection: a double pair of differential lines that are multiplexed
-> to convey the traffic of four network interfaces between a MAC and a
-> PHY.
+On Wed, 2014-04-16 at 21:41 -0700, Andy Lutomirski wrote:
+> The caller needs capabilities on the namespace being queried, not on
+> their own namespace.  This is a security bug, although it likely has
+> only a minor impact.
 > 
-> Until now, the Armada XP GP was relying on the bootloader setting the
-> correct values in various configuration registers. With this change,
-> the mvneta driver can be used as a module on this platform.
-> 
-> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Andy Lutomirski <luto@amacapital.net>
 > ---
->  arch/arm/boot/dts/armada-xp-gp.dts | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
+> 
+> Someone should check that I'm right.  I had trouble getting 'ss -b' to
+> work, even with plain old sudo.
+> 
+>  include/linux/sock_diag.h | 2 +-
+>  net/core/sock_diag.c      | 4 ++--
+>  net/packet/diag.c         | 2 +-
+>  3 files changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
+> index 54f91d3..302ab80 100644
+> --- a/include/linux/sock_diag.h
+> +++ b/include/linux/sock_diag.h
+> @@ -23,7 +23,7 @@ int sock_diag_check_cookie(void *sk, __u32 *cookie);
+>  void sock_diag_save_cookie(void *sk, __u32 *cookie);
+>  
+>  int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attr);
+> -int sock_diag_put_filterinfo(struct user_namespace *user_ns, struct sock *sk,
+> +int sock_diag_put_filterinfo(struct sock *sk,
+>  			     struct sk_buff *skb, int attrtype);
+>  
+>  #endif
+> diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
+> index a0e9cf6..6a7fae2 100644
+> --- a/net/core/sock_diag.c
+> +++ b/net/core/sock_diag.c
+> @@ -49,7 +49,7 @@ int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attrtype)
+>  }
+>  EXPORT_SYMBOL_GPL(sock_diag_put_meminfo);
+>  
+> -int sock_diag_put_filterinfo(struct user_namespace *user_ns, struct sock *sk,
+> +int sock_diag_put_filterinfo(struct sock *sk,
+>  			     struct sk_buff *skb, int attrtype)
+>  {
+>  	struct nlattr *attr;
+> @@ -57,7 +57,7 @@ int sock_diag_put_filterinfo(struct user_namespace *user_ns, struct sock *sk,
+>  	unsigned int len;
+>  	int err = 0;
+>  
+> -	if (!ns_capable(user_ns, CAP_NET_ADMIN)) {
+> +	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN)) {
+>  		nla_reserve(skb, attrtype, 0);
+>  		return 0;
+>  	}
+> diff --git a/net/packet/diag.c b/net/packet/diag.c
+> index 533ce4f..435ff99 100644
+> --- a/net/packet/diag.c
+> +++ b/net/packet/diag.c
+> @@ -172,7 +172,7 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+>  		goto out_nlmsg_trim;
+>  
+>  	if ((req->pdiag_show & PACKET_SHOW_FILTER) &&
+> -	    sock_diag_put_filterinfo(user_ns, sk, skb, PACKET_DIAG_FILTER))
+> +	    sock_diag_put_filterinfo(sk, skb, PACKET_DIAG_FILTER))
+>  		goto out_nlmsg_trim;
+>  
+>  	return nlmsg_end(skb, nlh);
 
-Applied to mvebu/dt-fixes with Willy and Arnaud's Tested-by's
+Note you would have more chances CCing the author of the chunk you
+changed, and giving commit id like that :
 
-thx,
-
-Jason.
+Fixes: e8d9612c181b ("sock_diag: allow to dump bpf filters")
