@@ -1,160 +1,77 @@
-From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Subject: Re: [PATCH v2 4/4] drivers: net: Add APM X-Gene SoC ethernet driver support.
-Date: Wed, 16 Apr 2014 19:06:47 -0700
-Message-ID: <CAKh23FmM6L4PeL+GOz=neQac4ZDj+_LmH5=zTLtVZxfUe9HQVw@mail.gmail.com>
-References: <1397271984-23405-1-git-send-email-isubramanian@apm.com>
-	<1397271984-23405-5-git-send-email-isubramanian@apm.com>
-	<534BEB20.3080501@codethink.co.uk>
+From: NeilBrown <neilb@suse.de>
+Subject: Re: [PATCH 10/19] NET: set PF_FSTRANS while holding sk_lock
+Date: Thu, 17 Apr 2014 12:38:37 +1000
+Message-ID: <20140417123837.5987e5e9@notabene.brown>
+References: <20140416033623.10604.69237.stgit@notabene.brown>
+	<20140416040336.10604.96000.stgit@notabene.brown>
+	<1397625226.4222.113.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140416.090002.2186526865564557549.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, patches <patches-qTEPVZfXA3Y@public.gmane.org>,
-	Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>, Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
-To: Ben Dooks <ben.dooks-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <534BEB20.3080501-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/SSVtvNA+Qn7U/.GV8.0daYz"; protocol="application/pgp-signature"
+Cc: eric.dumazet@gmail.com, linux-mm@kvack.org, linux-nfs@vger.kernel.org,
+ linux-kernel@vger.kernel.org, xfs@oss.sgi.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20140416.090002.2186526865564557549.davem@davemloft.net>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+--Sig_/SSVtvNA+Qn7U/.GV8.0daYz
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Please find my response inline.
+On Wed, 16 Apr 2014 09:00:02 -0400 (EDT) David Miller <davem@davemloft.net>
+wrote:
 
-On Mon, Apr 14, 2014 at 7:05 AM, Ben Dooks <ben.dooks-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org> wrote:
-> On 12/04/14 04:06, Iyappan Subramanian wrote:
->>
->> This patch adds network driver for APM X-Gene SoC ethernet.
->>
->> Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
->> Signed-off-by: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
->
->
-> [snip]
->
->
->> +{
->> +       struct xgene_enet_pdata *pdata = netdev_priv(ndev);
->> +       struct phy_device *phydev;
->> +       unsigned char phy_id[MII_BUS_ID_SIZE+3];
->> +       int ret = 0;
->> +
->> +       phydev = phy_find_first(pdata->mdio_bus);
->> +       if (!phydev) {
->> +               netdev_info(ndev, "no PHY found\n");
->> +               ret = -1;
->> +               goto out;
->> +       }
->> +
->> +       /* attach the mac to the phy */
->> +       snprintf(phy_id, sizeof(phy_id), PHY_ID_FMT, pdata->mdio_bus->id,
->> +                pdata->phy_addr);
->> +       phydev = phy_connect(ndev, phy_id,
->> +                            &xgene_enet_mdio_link_change,
->> pdata->phy_mode);
->> +       if (IS_ERR(phydev)) {
->> +               netdev_err(ndev, "Could not attach to PHY\n");
->> +               ret = PTR_ERR(phydev);
->> +               phydev = NULL;
->> +               goto out;
->> +       }
->> +
->
->
-> You should be using of_phy_connect or similar so that the
-> necessary PHY<>OF data is properly initialised
->
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 15 Apr 2014 22:13:46 -0700
+>=20
+> > For applications handling millions of sockets, this makes a difference.
+>=20
+> Indeed, this really is not acceptable.
 
-I will use of_phy_connect function to connect to PHY.
+As you say...
+I've just discovered that I can get rid of the lockdep message (and hence
+presumably the deadlock risk) with a well placed:
 
->
->> +       netdev_info(ndev, "phy_id=0x%08x phy_drv=\"%s\"",
->> +                   phydev->phy_id, phydev->drv->name);
->> +out:
->> +       pdata->phy_link = 0;
->> +       pdata->phy_speed = 0;
->> +       pdata->phy_dev = phydev;
->> +
->> +       return ret;
->> +}
->> +
->
->
->
-> [snip]
->
->
->> +struct xgene_enet_desc {
->> +       u64 m0;
->> +       u64 m1;
->> +       u64 m2;
->> +       u64 m3;
->> +};
->> +
->> +struct xgene_enet_desc16 {
->> +       u64 m0;
->> +       u64 m1;
->> +};
->> +
->> +static inline void xgene_enet_cpu_to_le64(struct xgene_enet_desc *desc,
->> +                                         int count)
->> +{
->> +#ifdef CONFIG_CPU_BIG_ENDIAN
->> +       int i;
->> +
->> +       for (i = 0; i < count; i++)
->> +               ((u64 *)desc)[i] = cpu_to_le64(((u64 *)desc)[i]);
->> +#endif
->> +}
->> +
->> +static inline void xgene_enet_le64_to_cpu(struct xgene_enet_desc *desc,
->> +                                         int count)
->> +{
->> +#ifdef CONFIG_CPU_BIG_ENDIAN
->> +       int i;
->> +
->> +       for (i = 0; i < count; i++)
->> +               ((u64 *)desc)[i] = le64_to_cpu(((u64 *)desc)[i]);
->> +#endif
->> +}
->> +
->> +static inline void xgene_enet_desc16_to_le64(struct xgene_enet_desc
->> *desc)
->> +{
->> +#ifdef CONFIG_CPU_BIG_ENDIAN
->> +       ((u64 *)desc)[1] = cpu_to_le64(((u64 *)desc)[1]);
->> +#endif
->> +}
->> +
->> +static inline void xgene_enet_le64_to_desc16(struct xgene_enet_desc
->> *desc)
->> +{
->> +#ifdef CONFIG_CPU_BIG_ENDIAN
->> +       ((u64 *)desc)[1] = le64_to_cpu(((u64 *)desc)[1]);
->> +#endif
->> +}
->
->
-> With this do you not risk confusing the hardware by swapping the
-> format of the descriptors?
->
-> Why not use xxx_to_cpu() and cpu_to_xxx() functions when reading or
-> writing the descriptors? It would also remove a lot of the #ifdef in
-> this code.
+		newsock->sk->sk_allocation =3D GFP_NOFS;
 
-Our hardware expects descriptor in the little endian format.  I will remove the
-#ifdef.
+which surprised me as it seemed to be an explicit GFP_KERNEL allocation that
+was mentioned in the lockdep trace.  Obviously these traces require quite
+some sophistication to understand.
 
->
-> --
-> Ben Dooks                               http://www.codethink.co.uk/
-> Senior Engineer                         Codethink - Providing Genius
+So - thanks for the feedback, patch can be ignored.
+
+Thanks,
+NeilBrown
+
+--Sig_/SSVtvNA+Qn7U/.GV8.0daYz
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIVAwUBU08+rTnsnt1WYoG5AQLRZhAAw2OqHGStjcH4tCI4w3eDMVb87MK1AVtQ
+U3pUF/WbzPSl0yhxDaa3vIg6L2ogkASESK6Oiiu8PZbG3TunCNwq63XXTKvE6EIY
+nABc2yOb9u/cixXtIuMC9E8ydnZa/dEkIyFY9oMXBjuOwb3L/ugKFm0upzBUVokw
+VtyZs8rl9s9IwgvuErpFbDR3ZxEk0VaMdREFwGCpkUD6DjknMTpGdaUelPxe+DEd
+Ffy6B7fjrkdG/8B4vYZKlW2c5on1lLqc+hgY24LrLUpLxHwu4HCuIrAuhzILDex/
+X5hZbQQhj2reLB8rsqJWOjmKn19/y8EbapUwa6BUMkSVHDCf0voCUjkHI8dOYcvM
+TnrmEzJS3Ym/x5rbenUCr2hEOEbZ80UEcMbdbrVm3rhPoMDtSifdtU2LEKro8oCk
+GPoOR3fYSLyxXNGQTlGiG3vSuSAIxF8tznBLnuCPIAPXK8LtXIn3oIOxNsN1J/LK
+TxZJsdA+I9YmV5uIn7cJarNYKdXvhR6x0YPoxUFzQZkngChosN3ZkGOHQeG2moyA
+JewuEtWT5Z1n1as19big3XukdBNnhJ/B11DpyI3TlfhIYN0mROFEAQkvXuOYYO+o
+CqkHfQp765IaTt0WOiVFu9bibhdxWwt1jwfasn1TE9LtvVlwlUlbPVL/8NrMXnOa
+Nkz7UZ1IxWU=
+=WfY/
+-----END PGP SIGNATURE-----
+
+--Sig_/SSVtvNA+Qn7U/.GV8.0daYz--
+
 --
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
