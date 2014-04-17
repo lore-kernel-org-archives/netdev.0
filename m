@@ -1,145 +1,136 @@
-From: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: Re: [PATCH 7/7] ARM: sun7i: cubietruck: enable
- bluetooth module
-Date: Thu, 17 Apr 2014 09:43:40 +0200
-Message-ID: <534F862C.8010604@broadcom.com>
-References: <1397544101-18135-1-git-send-email-wens@csie.org> <1397544101-18135-8-git-send-email-wens@csie.org> <20140415144215.GG3207@lukather> <CAGb2v643HyvFdhQ0znreB8ENXHWpcx6tFwdeU7VuU8KYWcT4ZA@mail.gmail.com> <20140416094428.GK3207@lukather> <CAGb2v67HzB22a3huRRZyufXkdTFE410MhXqAHyC-MmVo0-GCFA@mail.gmail.com> <534E8102.4070404@redhat.com>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] net: Fix ns_capable check in sock_diag_put_filterinfo
+Date: Thu, 17 Apr 2014 01:37:09 -0700
+Message-ID: <87r44w73nu.fsf@x220.int.ebiederm.org>
+References: <1360f6acc2064d49a41f2d993d05cdcf8a40fc06.1397709384.git.luto@amacapital.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, Arnd Bergmann
-	<arnd-r2nGTMty4D4@public.gmane.org>, Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>, Ian Campbell
-	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "Linus
- Walleij" <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "John W. Linville"
-	<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, devicetree
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Kumar Gala
-	<galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, "Mika
- Westerberg" <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, maxime.ripard
-	<maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, linux-arm-kernel
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <linux-serial@vger.k
-To: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Return-path: <linux-sunxi+bncBCKLZOXH5AIBBMUMX2NAKGQEVRN7WDQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <534E8102.4070404-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out03.mta.xmission.com ([166.70.13.233]:56914 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754959AbaDQIhg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2014 04:37:36 -0400
+In-Reply-To: <1360f6acc2064d49a41f2d993d05cdcf8a40fc06.1397709384.git.luto@amacapital.net>
+	(Andy Lutomirski's message of "Wed, 16 Apr 2014 21:41:34 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-+ linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Andy Lutomirski <luto@amacapital.net> writes:
 
-On 16/04/14 15:09, Hans de Goede wrote:
-> Hi,
->
-> On 04/16/2014 12:39 PM, Chen-Yu Tsai wrote:
->> Hi,
->>
->> On Wed, Apr 16, 2014 at 5:44 PM, Maxime Ripard
->> <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org> wrote:
->>> Hi,
->>>
->>> Please try to keep me in CC, even though the ML doesn't make it easy..
->>
->> Sorry about that.
->>
->>> On Wed, Apr 16, 2014 at 12:06:59AM +0800, Chen-Yu Tsai wrote:
->>>>>> @@ -139,4 +152,16 @@
->>>>>>        reg_usb2_vbus: usb2-vbus {
->>>>>>                status = "okay";
->>>>>>        };
->>>>>> +
->>>>>> +     rfkill_bt {
->>>>>> +             compatible = "rfkill-gpio";
->>>>>> +             pinctrl-names = "default";
->>>>>> +             pinctrl-0 = <&bt_pwr_pin_cubietruck>, <&clk_out_a_pins_a>;
->>>>>> +             clocks = <&clk_out_a>;
->>>>>> +             clock-frequency = <32768>;
->>>>>> +             gpios = <&pio 7 18 0>; /* PH18 */
->>>>>> +             gpio-names = "reset";
->>>>>> +             rfkill-name = "bt";
->>>>>> +             rfkill-type = <2>;
->>>>>> +     };
->>>>>
->>>>> Hmmm, I don't think that's actually right.
->>>>>
->>>>> If you have such a device, then I'd expect it to be represented as a
->>>>> full device in the DT, probably with one part for the WiFi, one part
->>>>> for the Bluetooth, and here the definition of the rfkill device that
->>>>> controls it.
->>>>
->>>> The AP6210 is not one device, but 2 separate chips in one module. Each
->>>> chip has its own controls and interface. They just so happen to share
->>>> the same enclosure. Even 2-in-1 chips by Broadcom have separate controls
->>>> and interfaces. The WiFi side is most likely connected via SDIO, while
->>>> the Bluetooth side is connected to a UART, and optionally I2S for sound.
->>>
->>> It's even easier to represent then.
->>>
->>>>> But tying parts of the device to the rfkill that controls it, such as
->>>>> the clocks, or the frequency it runs at seems just wrong.
->>>>
->>>> I understand where you're coming from. For devices on buses that require
->>>> drivers (such as USB, SDIO) these properties probably should be tied to
->>>> the device node.
->>>>
->>>> For our use case here, which is a bluetooth chip connected on the UART,
->>>> there is no in kernel representation or driver to tie them to. Same goes
->>>> for UART based GPS chips. They just so happen to require toggling a GPIO,
->>>> and maybe enabling a specific clock, to get it running. Afterwards,
->>>> accessing it is done solely from userspace. For our Broadcom chips, the
->>>> user has to upload its firmware first, then designate the tty as a Bluetooth
->>>> HCI using hciattach.
->>>>
->>>> We are using the rfkill device as a on-off switch.
->>>
->>> I understand your point, but the fact that it's implemented in
->>> user-space, or that UART is not a bus (which probably should be), is
->>> only a Linux specific story, and how it's implemented in Linux (even
->>> if the whole rfkill node is another one, but let's stay on topic).
->>
->> I gave it some thought last night. You are right. My whole approach
->> is wrong. But let's try to make it right.
->>
->> So considering the fact that it's primarily connected to a UART,
->> maybe I should make it a sub-node to the UART node it's actually
->> connected to? Something like:
->>
->>          uart2: serial@01c28800 {
->>                  pinctrl-names = "default";
->>                  pinctrl-0 = <&uart2_pins_a>;
->>                  status = "okay";
->>
->>                  bt: bt_hci {
->>                          compatible = "brcm,bcm20710";
->>                          /* maybe add some generic compatible */
->>                          pinctrl-names = "default";
->>                          pinctrl-0 = <&clk_out_a_pins_a>,
->> <&bt_pwr_pin_cubietruck>;
->>                          clocks = <&clk_out_a>;
->>                          clock-frequency = <32768>;
->>                          gpios = <&pio 7 18 0>; /* PH18 */
->>                  };
->>          };
->>
->> And let the uart core handle power sequencing for sub-nodes.
->
-> Great, I missed this reply when I typed my mail I send a few minutes
-> ago. I agree that this approach is how thing should be.
+> The caller needs capabilities on the namespace being queried, not on
+> their own namespace.  This is a security bug, although it likely has
+> only a minor impact.
 
-Regarding the device tree hierarchy this seems right, but powering the 
-sub-nodes seems outside the realm of uart core.
+Hmm.  Thinking this through.
 
-> Regards,
+It would likely help to rename sk_user_ns to sk_opener_user_ns to make
+things clearer.
+
+As I read net/core/sock_diag.c anyone is allowed to open a diag socket
+and send messages to the kernel.
+
+Which means the code as written is definitely wrong as checking if we
+have CAP_NET_ADMIN in the user namespace in which we opened the netlink
+socket is meaningless.  We could very easily have unshared the user
+namespace and have no permissions whatsoever over the network namespace
+we are querrying.
+
+I see three possibilities here.
+1) We simply don't care who gets to read the bpf filter of a socket.
+2) We consider reading the bpf filter of a socket an information leak
+   about the socket and the opener of the socket.
+3) We consider reading the bpf filter of a socket something we should
+   only let the administrator of a network namespace do.
+
+I honestly don't know the intent of the check, and what we are trying to
+protect against so I don't know why having permissions to protect the
+bpf filter is important.
+
+If we simply don't care we should just delete this permission check.
+
+If we want to protect the opener of the socket we probably want
+something looks a lot like ptrace_may_access(..., PTRACE_MODE_READ)
+applied to the creds of the socket.  Call it
+
+	ns_capable((sock_opener_user_ns(sk), CAP_NET_ADMIN)
+
+for short.
+
+
+And if this is something we just want to limit to administrators
+of network stacks the check should be
+
+	ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN)
+
+As Andy has coded below.
+
+Nicolas what was the intent of having a capability check to protect the
+bpf filter?  What were you trying to protect against with a capability
+check on the bpf filter?
+
+Eric
+
+
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Andy Lutomirski <luto@amacapital.net>
+> ---
 >
-> Hans
+> Someone should check that I'm right.  I had trouble getting 'ss -b' to
+> work, even with plain old sudo.
 >
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+>  include/linux/sock_diag.h | 2 +-
+>  net/core/sock_diag.c      | 4 ++--
+>  net/packet/diag.c         | 2 +-
+>  3 files changed, 4 insertions(+), 4 deletions(-)
 >
+> diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
+> index 54f91d3..302ab80 100644
+> --- a/include/linux/sock_diag.h
+> +++ b/include/linux/sock_diag.h
+> @@ -23,7 +23,7 @@ int sock_diag_check_cookie(void *sk, __u32 *cookie);
+>  void sock_diag_save_cookie(void *sk, __u32 *cookie);
+>  
+>  int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attr);
+> -int sock_diag_put_filterinfo(struct user_namespace *user_ns, struct sock *sk,
+> +int sock_diag_put_filterinfo(struct sock *sk,
+>  			     struct sk_buff *skb, int attrtype);
+>  
+>  #endif
+> diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
+> index a0e9cf6..6a7fae2 100644
+> --- a/net/core/sock_diag.c
+> +++ b/net/core/sock_diag.c
+> @@ -49,7 +49,7 @@ int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attrtype)
+>  }
+>  EXPORT_SYMBOL_GPL(sock_diag_put_meminfo);
+>  
+> -int sock_diag_put_filterinfo(struct user_namespace *user_ns, struct sock *sk,
+> +int sock_diag_put_filterinfo(struct sock *sk,
+>  			     struct sk_buff *skb, int attrtype)
+>  {
+>  	struct nlattr *attr;
+> @@ -57,7 +57,7 @@ int sock_diag_put_filterinfo(struct user_namespace *user_ns, struct sock *sk,
+>  	unsigned int len;
+>  	int err = 0;
+>  
+> -	if (!ns_capable(user_ns, CAP_NET_ADMIN)) {
+> +	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN)) {
+>  		nla_reserve(skb, attrtype, 0);
+>  		return 0;
+>  	}
+> diff --git a/net/packet/diag.c b/net/packet/diag.c
+> index 533ce4f..435ff99 100644
+> --- a/net/packet/diag.c
+> +++ b/net/packet/diag.c
+> @@ -172,7 +172,7 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+>  		goto out_nlmsg_trim;
+>  
+>  	if ((req->pdiag_show & PACKET_SHOW_FILTER) &&
+> -	    sock_diag_put_filterinfo(user_ns, sk, skb, PACKET_DIAG_FILTER))
+> +	    sock_diag_put_filterinfo(sk, skb, PACKET_DIAG_FILTER))
+>  		goto out_nlmsg_trim;
+>  
+>  	return nlmsg_end(skb, nlh);
