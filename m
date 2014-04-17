@@ -1,68 +1,44 @@
-From: Dave Chinner <david@fromorbit.com>
-Subject: Re: [PATCH/RFC 00/19] Support loop-back NFS mounts
-Date: Thu, 17 Apr 2014 11:27:39 +1000
-Message-ID: <20140417012739.GU15995@dastard>
-References: <20140416033623.10604.69237.stgit@notabene.brown>
- <20140416104207.75b044e8@tlielax.poochiereds.net>
- <20140417102048.2fc8275c@notabene.brown>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] filter: added BPF random opcode
+Date: Wed, 16 Apr 2014 18:38:16 -0700
+Message-ID: <1397698696.4222.138.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1397585816-1267-1-git-send-email-chema@google.com>
+	 <CAMEtUuw3-LEuwJ2cAQ+F-tu_-wzy4HK4ZteAuJpYfY9hW66+FA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Layton <jlayton@redhat.com>, linux-nfs@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>, netdev@vger.kernel.org,
-	Ming Lei <ming.lei@canonical.com>, linux-kernel@vger.kernel.org,
-	xfs@oss.sgi.com, linux-mm@kvack.org, Ingo Molnar <mingo@redhat.com>
-To: NeilBrown <neilb@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20140417102048.2fc8275c@notabene.brown>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Chema Gonzalez <chema@google.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:64023 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753437AbaDQBiS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2014 21:38:18 -0400
+Received: by mail-pb0-f44.google.com with SMTP id rp16so11610283pbb.3
+        for <netdev@vger.kernel.org>; Wed, 16 Apr 2014 18:38:17 -0700 (PDT)
+In-Reply-To: <CAMEtUuw3-LEuwJ2cAQ+F-tu_-wzy4HK4ZteAuJpYfY9hW66+FA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 17, 2014 at 10:20:48AM +1000, NeilBrown wrote:
-> A good example is the deadlock with the flush-* threads.
-> flush-* will lock a page, and  then call ->writepage.  If ->writepage
-> allocates memory it can enter reclaim, call ->releasepage on NFS, and block
-> waiting for a COMMIT to complete.
-> The COMMIT might already be running, performing fsync on that same file that
-> flush-* is flushing.  It locks each page in turn.  When it  gets to the page
-> that flush-* has locked, it will deadlock.
+On Tue, 2014-04-15 at 23:24 -0700, Alexei Starovoitov wrote:
 
-It's nfs_release_page() again....
+> In particular I don't find the reason of moving random
+> packet sampling into kernel to be that great.
+> pcap cannot receive them quickly enough anyway,
+> so there are drops already.
+> Just randomly pick packets that reached the user space.
+> Why add this to the kernel? I don't see how it can improve accuracy.
 
-> In general, if nfsd is allowed to block on local filesystem, and local
-> filesystem is allowed to block on NFS, then a deadlock can happen.
-> We would need a clear hierarchy
-> 
->    __GFP_NETFS > __GFP_FS > __GFP_IO
-> 
-> for it to work.  I'm not sure the extra level really helps a lot and it would
-> be a lot of churn.
+It has nothing to do with speed or accuracy.
 
-I think you are looking at this the wrong way - it's not the other
-filesystems that have to avoid memory reclaim recursion, it's the
-NFS client mount that is on loopback that needs to avoid recursion.
+Being able to intercept 0.001 % of the packets (and not 0.001 % of the
+flows...) can be useful to network operators.
 
-IMO, the fix should be that the NFS client cannot block on messages sent to the NFSD
-on the same host during memory reclaim. That is, nfs_release_page()
-cannot send commit messages to the server if the server is on
-localhost. Instead, it just tells memory reclaim that it can't
-reclaim that page.
+_Then_ if its super super super fast, thats better, of course.
 
-If nfs_release_page() no longer blocks in memory reclaim, and all
-these nfsd-gets-blocked-in-GFP_KERNEL-memory-allocation recursion
-problems go away. Do the same for all the other memory reclaim
-operations in the NFS client, and you've got a solution that should
-work without needing to walk all over the rest of the kernel....
-
-Cheers,
-
-Dave.
--- 
-Dave Chinner
-david@fromorbit.com
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Suggesting to intercept all packets, then filtering 99.999 % of them in
+user space is not going to work. Its going to be super super super slow.
