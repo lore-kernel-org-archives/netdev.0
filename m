@@ -1,8 +1,7 @@
 From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: [patch iproute2 RFC v3 2/5] iproute2: utils: change
-	hexstring_n2a and hexstring_a2n to do not work with ":"
-Date: Thu, 17 Apr 2014 14:17:30 +0200
-Message-ID: <1397737053-11892-3-git-send-email-jiri@resnulli.us>
+Subject: [patch iproute2 RFC v3 3/5] iproute2: ipa: show switch id
+Date: Thu, 17 Apr 2014 14:17:31 +0200
+Message-ID: <1397737053-11892-4-git-send-email-jiri@resnulli.us>
 References: <1397736876-11771-1-git-send-email-jiri@resnulli.us>
  <1397737053-11892-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
@@ -33,75 +32,41 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
 ---
- lib/utils.c | 46 +++++++++++++---------------------------------
- 1 file changed, 13 insertions(+), 33 deletions(-)
+ include/linux/if_link.h | 2 ++
+ ip/ipaddress.c          | 8 ++++++++
+ 2 files changed, 10 insertions(+)
 
-diff --git a/lib/utils.c b/lib/utils.c
-index 4e9c719..e9e1040 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -743,10 +743,6 @@ char *hexstring_n2a(const __u8 *str, int len, char *buf, int blen)
- 		sprintf(ptr, "%02x", str[i]);
- 		ptr += 2;
- 		blen -= 2;
--		if (i != len-1 && blen > 1) {
--			*ptr++ = ':';
--			blen--;
--		}
- 	}
- 	return buf;
- }
-@@ -754,38 +750,22 @@ char *hexstring_n2a(const __u8 *str, int len, char *buf, int blen)
- __u8* hexstring_a2n(const char *str, __u8 *buf, int blen)
- {
- 	int cnt = 0;
-+	char *endptr;
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index f08505c..2932453 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -144,6 +144,8 @@ enum {
+ 	IFLA_NUM_RX_QUEUES,
+ 	IFLA_CARRIER,
+ 	IFLA_PHYS_PORT_ID,
++	IFLA_CARRIER_CHANGES,
++	IFLA_PHYS_SWITCH_ID,
+ 	__IFLA_MAX
+ };
  
--	for (;;) {
--		unsigned acc;
--		char ch;
--
--		acc = 0;
--
--		while ((ch = *str) != ':' && ch != 0) {
--			if (ch >= '0' && ch <= '9')
--				ch -= '0';
--			else if (ch >= 'a' && ch <= 'f')
--				ch -= 'a'-10;
--			else if (ch >= 'A' && ch <= 'F')
--				ch -= 'A'-10;
--			else
--				return NULL;
--			acc = (acc<<4) + ch;
--			str++;
--		}
--
--		if (acc > 255)
-+	if (strlen(str) % 2)
-+		return NULL;
-+	while (cnt < blen && strlen(str) > 1) {
-+		unsigned int tmp;
-+		char tmpstr[3];
-+
-+		strncpy(tmpstr, str, 2);
-+		tmpstr[2] = '\0';
-+		tmp = strtoul(tmpstr, &endptr, 16);
-+		if (errno != 0 || tmp > 0xFF || *endptr != '\0')
- 			return NULL;
--		if (cnt < blen) {
--			buf[cnt] = acc;
--			cnt++;
--		}
--		if (ch == 0)
--			break;
--		++str;
-+		buf[cnt++] = tmp;
-+		str += 2;
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 14d1720..43f7296 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -470,6 +470,14 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 		fprintf(fp, "master %s ", ll_idx_n2a(*(int*)RTA_DATA(tb[IFLA_MASTER]), b1));
  	}
--	if (cnt < blen)
--		memset(buf+cnt, 0, blen-cnt);
- 	return buf;
- }
+ 
++	if (tb[IFLA_PHYS_SWITCH_ID]) {
++		SPRINT_BUF(b1);
++		fprintf(fp, "swid %s ",
++			hexstring_n2a(RTA_DATA(tb[IFLA_PHYS_SWITCH_ID]),
++				      RTA_PAYLOAD(tb[IFLA_PHYS_SWITCH_ID]),
++				      b1, sizeof(b1)));
++	}
++
+ 	if (tb[IFLA_OPERSTATE])
+ 		print_operstate(fp, rta_getattr_u8(tb[IFLA_OPERSTATE]));
  
 -- 
 1.9.0
