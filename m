@@ -1,69 +1,93 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] sched, cls: check if we could overwrite actions when
- changing a filter
-Date: Thu, 17 Apr 2014 13:48:21 -0700
-Message-ID: <CAM_iQpVqQbXcm0gGxe_JMURPtGYH+iOi8UGgvis5je6g9zbiKQ@mail.gmail.com>
-References: <1397605563-29756-1-git-send-email-xiyou.wangcong@gmail.com>
-	<534E77D0.8000307@mojatatu.com>
-	<CAM_iQpXRVZ8_keaL-8OkmRVguA29bnTPS2ZHZ0j2SSeB6A=1jQ@mail.gmail.com>
-	<534FBFF0.3020606@mojatatu.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] sctp: add support for busy polling to sctp protocol
+Date: Thu, 17 Apr 2014 17:37:29 -0400
+Message-ID: <53504999.4080709@gmail.com>
+References: <1397762811-2989-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <cwang@twopensource.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f181.google.com ([209.85.128.181]:36289 "EHLO
-	mail-ve0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751179AbaDQUsW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2014 16:48:22 -0400
-Received: by mail-ve0-f181.google.com with SMTP id oy12so1254325veb.12
-        for <netdev@vger.kernel.org>; Thu, 17 Apr 2014 13:48:21 -0700 (PDT)
-In-Reply-To: <534FBFF0.3020606@mojatatu.com>
+Received: from mail-qg0-f41.google.com ([209.85.192.41]:36496 "EHLO
+	mail-qg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750971AbaDQVhd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2014 17:37:33 -0400
+In-Reply-To: <1397762811-2989-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 17, 2014 at 4:50 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 04/16/14 17:10, Cong Wang wrote:
->>
->> Why? Since actions are inside it, I should be able to change any
->> part of it, right?
->>
->
-> The challenge is in the semantics. You are making change to the
-> graph _not_ to the filter. There are dependencies in a graph. IOW,
-> I doubt what you are doing could be made generic and safe without
-> it being a two step operation since we have multiple tables to deal
-> with.
-> Example - what would you do if you wanted to change the graph
-> so that you add something in the middle or remove something at
-> the end?
+On 04/17/2014 03:26 PM, Neil Horman wrote:
+> The busy polling socket option adds support for sockets to busy wait on data
+> arriving on the napi queue from which they have most recently received a frame.
+> Currently only tcp and udp support this feature, but theres no reason sctp can't
+> do so as well.  Add it in so appliations can take advantage of it
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> CC: Vlad Yasevich <vyasevich@gmail.com>
+> CC: "David S. Miller" <davem@davemloft.net>
+> CC: Daniel Borkmann <dborkman@redhat.com>
+> CC: netdev@vger.kernel.org
 
+Hi Neil
 
-Actions attached to a filter are at the end of the graph, they should
-be able to be added/removed together.
+Do we gain anything by polling?
+This is probably more appropriate for net-next...
 
->
->
->>> If otoh you wanted to replace the filter + action graph with a backup
->>> rule, then just add it lower in the priority list and delete the
->>> existing one etc.
->>>
->>
->> This is not atomic, is it?
->>
->
-> It avoids the need for atomicity. Backup rule will never be used
-> as long as the active is still in use.
-> If you can do the two steps in the kernel as i described, then
-> you can achieve your purpose but i worry it will complicate code
-> for a corner use case (which has a work around already).
->
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-This is a workaround, not a fix. What if I have multiple threads
-trying to append an action at the same time? This workaround
-can't guarantee the correctness.
+Thanks
+-vlad
 
-My case is a perfectly valid use, we have to fix it, maybe in
-another way.
+> ---
+>  net/sctp/socket.c   | 5 +++++
+>  net/sctp/ulpqueue.c | 4 ++++
+>  2 files changed, 9 insertions(+)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 981aaf8..9788e07 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -71,6 +71,7 @@
+>  #include <net/route.h>
+>  #include <net/ipv6.h>
+>  #include <net/inet_common.h>
+> +#include <net/busy_poll.h>
+>  
+>  #include <linux/socket.h> /* for sa_family_t */
+>  #include <linux/export.h>
+> @@ -6553,6 +6554,10 @@ static struct sk_buff *sctp_skb_recv_datagram(struct sock *sk, int flags,
+>  		if (sk->sk_shutdown & RCV_SHUTDOWN)
+>  			break;
+>  
+> +		if (sk_can_busy_loop(sk) &&
+> +		    sk_busy_loop(sk, noblock))
+> +			continue;
+> +
+>  		/* User doesn't want to wait.  */
+>  		error = -EAGAIN;
+>  		if (!timeo)
+> diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
+> index 5dc9411..a4df012 100644
+> --- a/net/sctp/ulpqueue.c
+> +++ b/net/sctp/ulpqueue.c
+> @@ -38,6 +38,7 @@
+>  #include <linux/types.h>
+>  #include <linux/skbuff.h>
+>  #include <net/sock.h>
+> +#include <net/busy_poll.h>
+>  #include <net/sctp/structs.h>
+>  #include <net/sctp/sctp.h>
+>  #include <net/sctp/sm.h>
+> @@ -204,6 +205,9 @@ int sctp_ulpq_tail_event(struct sctp_ulpq *ulpq, struct sctp_ulpevent *event)
+>  	if (sock_flag(sk, SOCK_DEAD) || (sk->sk_shutdown & RCV_SHUTDOWN))
+>  		goto out_free;
+>  
+> +	if (!sctp_ulpevent_is_notification(event))
+> +		sk_mark_napi_id(sk, skb);
+> +
+>  	/* Check if the user wishes to receive this event.  */
+>  	if (!sctp_ulpevent_is_enabled(event, &sctp_sk(sk)->subscribe))
+>  		goto out_free;
+> 
