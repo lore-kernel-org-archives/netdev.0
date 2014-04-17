@@ -1,122 +1,283 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: [patch net-next RFC v3 08/10] net: add
-	netdev_for_each_all_lower_dev_rcu helper
-Date: Thu, 17 Apr 2014 14:14:35 +0200
-Message-ID: <1397736876-11771-9-git-send-email-jiri@resnulli.us>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next RFC v3 09/10] openvswitch: introduce vport_op get_netdev
+Date: Thu, 17 Apr 2014 14:14:36 +0200
+Message-ID: <1397736876-11771-10-git-send-email-jiri@resnulli.us>
 References: <1397736876-11771-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
- dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org,
- buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
- linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
- vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
- stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1397736876-11771-1-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
+	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
+	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
+	ben@decadent.org.uk, stephen@networkplumber.org,
+	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
+	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
+	edumazet@google.com, jhs@mojatatu.com, sfeldma@cumulusnetworks.com,
+	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
+	linville@tuxdriver.com, dev@openvswitch.org, jasowang@redhat.com,
+	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
+	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
+	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
+	Neil.Jerram@metaswitch.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f41.google.com ([74.125.83.41]:58299 "EHLO
+	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945905AbaDQMPQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2014 08:15:16 -0400
+Received: by mail-ee0-f41.google.com with SMTP id t10so603466eei.14
+        for <netdev@vger.kernel.org>; Thu, 17 Apr 2014 05:15:15 -0700 (PDT)
+In-Reply-To: <1397736876-11771-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+This will allow to query easily if the vport has netdev. Also it allows
+to unexpose netdev_vport_priv and struct netdev_vport.
+
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/linux/netdevice.h | 18 +++++++++++++-----
- net/core/dev.c            | 26 ++++++++++++++------------
- 2 files changed, 27 insertions(+), 17 deletions(-)
+ net/openvswitch/datapath.c           |  2 +-
+ net/openvswitch/dp_notify.c          |  7 ++---
+ net/openvswitch/vport-internal_dev.c | 53 ++++++++++++++++++++++++------------
+ net/openvswitch/vport-netdev.c       | 16 +++++++++++
+ net/openvswitch/vport-netdev.h       | 12 --------
+ net/openvswitch/vport.h              |  2 ++
+ 6 files changed, 57 insertions(+), 35 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 14bd8b3..bee9673 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3076,15 +3076,23 @@ extern int		weight_p;
- extern int		bpf_jit_enable;
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index fcbdb52..10ffb0a 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -148,7 +148,7 @@ static int get_dpifindex(struct datapath *dp)
  
- bool netdev_has_upper_dev(struct net_device *dev, struct net_device *upper_dev);
--struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *dev,
--						     struct list_head **iter);
-+struct net_device *netdev_all_adj_get_next_dev_rcu(struct net_device *dev,
-+						   struct list_head **iter,
-+						   struct list_head *adj_list);
+ 	local = ovs_vport_rcu(dp, OVSP_LOCAL);
+ 	if (local)
+-		ifindex = netdev_vport_priv(local)->dev->ifindex;
++		ifindex = local->ops->get_netdev(local)->ifindex;
+ 	else
+ 		ifindex = 0;
  
- /* iterate through upper list, must be called under RCU read lock */
- #define netdev_for_each_all_upper_dev_rcu(dev, updev, iter) \
--	for (iter = &(dev)->all_adj_list.upper, \
--	     updev = netdev_all_upper_get_next_dev_rcu(dev, &(iter)); \
-+	for (iter = NULL, \
-+	     updev = netdev_all_adj_get_next_dev_rcu(dev, &(iter), &(dev)->all_adj_list.upper); \
- 	     updev; \
--	     updev = netdev_all_upper_get_next_dev_rcu(dev, &(iter)))
-+	     updev = netdev_all_adj_get_next_dev_rcu(dev, &(iter), &(dev)->all_adj_list.upper))
+diff --git a/net/openvswitch/dp_notify.c b/net/openvswitch/dp_notify.c
+index 2c631fe..d2cc24b 100644
+--- a/net/openvswitch/dp_notify.c
++++ b/net/openvswitch/dp_notify.c
+@@ -58,13 +58,12 @@ void ovs_dp_notify_wq(struct work_struct *work)
+ 			struct hlist_node *n;
+ 
+ 			hlist_for_each_entry_safe(vport, n, &dp->ports[i], dp_hash_node) {
+-				struct netdev_vport *netdev_vport;
++				struct net_device *dev;
+ 
+ 				if (vport->ops->type != OVS_VPORT_TYPE_NETDEV)
+ 					continue;
+-
+-				netdev_vport = netdev_vport_priv(vport);
+-				if (!(netdev_vport->dev->priv_flags & IFF_OVS_DATAPATH))
++				dev = vport->ops->get_netdev(vport);
++				if (!(dev->priv_flags & IFF_OVS_DATAPATH))
+ 					dp_detach_port_notify(vport);
+ 			}
+ 		}
+diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+index 729c687..86ba186 100644
+--- a/net/openvswitch/vport-internal_dev.c
++++ b/net/openvswitch/vport-internal_dev.c
+@@ -31,6 +31,16 @@
+ #include "vport-internal_dev.h"
+ #include "vport-netdev.h"
+ 
++struct internal_dev_vport {
++	struct rcu_head rcu;
++	struct net_device *dev;
++};
 +
-+/* iterate through lower list, must be called under RCU read lock */
-+#define netdev_for_each_all_lower_dev_rcu(dev, lodev, iter) \
-+	for (iter = NULL, \
-+	     lodev = netdev_all_adj_get_next_dev_rcu(dev, &(iter), &(dev)->all_adj_list.lower); \
-+	     lodev; \
-+	     lodev = netdev_all_adj_get_next_dev_rcu(dev, &(iter), &(dev)->all_adj_list.lower))
- 
- void *netdev_lower_get_next_private(struct net_device *dev,
- 				    struct list_head **iter);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a0de81c..62bcec9 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4542,30 +4542,32 @@ void *netdev_adjacent_get_private(struct list_head *adj_list)
- EXPORT_SYMBOL(netdev_adjacent_get_private);
- 
- /**
-- * netdev_all_upper_get_next_dev_rcu - Get the next dev from upper list
-+ * netdev_all_adj_get_next_dev_rcu - Get the next dev from adjacent list
-  * @dev: device
-  * @iter: list_head ** of the current position
-+ * @adj_list: adjacent list to go through
-  *
-- * Gets the next device from the dev's upper list, starting from iter
-+ * Gets the next device from the dev's adjacent list, starting from iter
-  * position. The caller must hold RCU read lock.
-  */
--struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *dev,
--						     struct list_head **iter)
-+struct net_device *netdev_all_adj_get_next_dev_rcu(struct net_device *dev,
-+						   struct list_head **iter,
-+						   struct list_head *adj_list)
++static struct internal_dev_vport *internal_dev_vport_priv(const struct vport *vport)
++{
++	return vport_priv(vport);
++}
++
+ struct internal_dev {
+ 	struct vport *vport;
+ };
+@@ -145,48 +155,49 @@ static void do_setup(struct net_device *netdev)
+ static struct vport *internal_dev_create(const struct vport_parms *parms)
  {
--	struct netdev_adjacent *upper;
-+	struct netdev_adjacent *adj;
+ 	struct vport *vport;
+-	struct netdev_vport *netdev_vport;
++	struct internal_dev_vport *int_vport;
+ 	struct internal_dev *internal_dev;
++	struct net_device *dev;
+ 	int err;
  
- 	WARN_ON_ONCE(!rcu_read_lock_held() && !lockdep_rtnl_is_held());
+-	vport = ovs_vport_alloc(sizeof(struct netdev_vport),
++	vport = ovs_vport_alloc(sizeof(struct internal_dev_vport),
+ 				&ovs_internal_vport_ops, parms);
+ 	if (IS_ERR(vport)) {
+ 		err = PTR_ERR(vport);
+ 		goto error;
+ 	}
  
--	upper = list_entry_rcu((*iter)->next, struct netdev_adjacent, list);
--
--	if (&upper->list == &dev->all_adj_list.upper)
-+	if (!*iter)
-+		*iter = adj_list;
-+	if ((*iter)->next == adj_list)
- 		return NULL;
+-	netdev_vport = netdev_vport_priv(vport);
++	int_vport = internal_dev_vport_priv(vport);
  
--	*iter = &upper->list;
--
--	return upper->dev;
-+	adj = list_entry_rcu((*iter)->next, struct netdev_adjacent, list);
-+	*iter = &adj->list;
-+	return adj->dev;
+-	netdev_vport->dev = alloc_netdev(sizeof(struct internal_dev),
+-					 parms->name, do_setup);
+-	if (!netdev_vport->dev) {
++	dev = alloc_netdev(sizeof(struct internal_dev), parms->name, do_setup);
++	if (!dev) {
+ 		err = -ENOMEM;
+ 		goto error_free_vport;
+ 	}
++	int_vport->dev = dev;
+ 
+-	dev_net_set(netdev_vport->dev, ovs_dp_get_net(vport->dp));
+-	internal_dev = internal_dev_priv(netdev_vport->dev);
++	dev_net_set(dev, ovs_dp_get_net(vport->dp));
++	internal_dev = internal_dev_priv(dev);
+ 	internal_dev->vport = vport;
+ 
+ 	/* Restrict bridge port to current netns. */
+ 	if (vport->port_no == OVSP_LOCAL)
+-		netdev_vport->dev->features |= NETIF_F_NETNS_LOCAL;
++		dev->features |= NETIF_F_NETNS_LOCAL;
+ 
+ 	rtnl_lock();
+-	err = register_netdevice(netdev_vport->dev);
++	err = register_netdevice(dev);
+ 	if (err)
+ 		goto error_free_netdev;
+ 
+-	dev_set_promiscuity(netdev_vport->dev, 1);
++	dev_set_promiscuity(dev, 1);
+ 	rtnl_unlock();
+-	netif_start_queue(netdev_vport->dev);
++	netif_start_queue(dev);
+ 
+ 	return vport;
+ 
+ error_free_netdev:
+ 	rtnl_unlock();
+-	free_netdev(netdev_vport->dev);
++	free_netdev(dev);
+ error_free_vport:
+ 	ovs_vport_free(vport);
+ error:
+@@ -195,21 +206,21 @@ error:
+ 
+ static void internal_dev_destroy(struct vport *vport)
+ {
+-	struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
++	struct internal_dev_vport *int_vport = internal_dev_vport_priv(vport);
+ 
+-	netif_stop_queue(netdev_vport->dev);
++	netif_stop_queue(int_vport->dev);
+ 	rtnl_lock();
+-	dev_set_promiscuity(netdev_vport->dev, -1);
++	dev_set_promiscuity(int_vport->dev, -1);
+ 
+ 	/* unregister_netdevice() waits for an RCU grace period. */
+-	unregister_netdevice(netdev_vport->dev);
++	unregister_netdevice(int_vport->dev);
+ 
+ 	rtnl_unlock();
  }
--EXPORT_SYMBOL(netdev_all_upper_get_next_dev_rcu);
-+EXPORT_SYMBOL(netdev_all_adj_get_next_dev_rcu);
  
- /**
-  * netdev_lower_get_next_private - Get the next ->private from the
+ static int internal_dev_recv(struct vport *vport, struct sk_buff *skb)
+ {
+-	struct net_device *netdev = netdev_vport_priv(vport)->dev;
++	struct net_device *netdev = internal_dev_vport_priv(vport)->dev;
+ 	int len;
+ 
+ 	len = skb->len;
+@@ -228,12 +239,18 @@ static int internal_dev_recv(struct vport *vport, struct sk_buff *skb)
+ 	return len;
+ }
+ 
++static struct net_device *internal_dev_get_netdev(struct vport *vport)
++{
++	return internal_dev_vport_priv(vport)->dev;
++}
++
+ const struct vport_ops ovs_internal_vport_ops = {
+ 	.type		= OVS_VPORT_TYPE_INTERNAL,
+ 	.create		= internal_dev_create,
+ 	.destroy	= internal_dev_destroy,
+ 	.get_name	= ovs_netdev_get_name,
+ 	.send		= internal_dev_recv,
++	.get_netdev	= internal_dev_get_netdev,
+ };
+ 
+ int ovs_is_internal_dev(const struct net_device *netdev)
+diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
+index d21f77d..aaf3d14 100644
+--- a/net/openvswitch/vport-netdev.c
++++ b/net/openvswitch/vport-netdev.c
+@@ -33,6 +33,16 @@
+ #include "vport-internal_dev.h"
+ #include "vport-netdev.h"
+ 
++struct netdev_vport {
++	struct rcu_head rcu;
++	struct net_device *dev;
++};
++
++static struct netdev_vport *netdev_vport_priv(const struct vport *vport)
++{
++	return vport_priv(vport);
++}
++
+ /* Must be called with rcu_read_lock. */
+ static void netdev_port_receive(struct vport *vport, struct sk_buff *skb)
+ {
+@@ -224,10 +234,16 @@ struct vport *ovs_netdev_get_vport(struct net_device *dev)
+ 		return NULL;
+ }
+ 
++static struct net_device *netdev_get_netdev(struct vport *vport)
++{
++	return netdev_vport_priv(vport)->dev;
++}
++
+ const struct vport_ops ovs_netdev_vport_ops = {
+ 	.type		= OVS_VPORT_TYPE_NETDEV,
+ 	.create		= netdev_create,
+ 	.destroy	= netdev_destroy,
+ 	.get_name	= ovs_netdev_get_name,
+ 	.send		= netdev_send,
++	.get_netdev	= netdev_get_netdev,
+ };
+diff --git a/net/openvswitch/vport-netdev.h b/net/openvswitch/vport-netdev.h
+index 8df01c11..f03d41d 100644
+--- a/net/openvswitch/vport-netdev.h
++++ b/net/openvswitch/vport-netdev.h
+@@ -26,18 +26,6 @@
+ 
+ struct vport *ovs_netdev_get_vport(struct net_device *dev);
+ 
+-struct netdev_vport {
+-	struct rcu_head rcu;
+-
+-	struct net_device *dev;
+-};
+-
+-static inline struct netdev_vport *
+-netdev_vport_priv(const struct vport *vport)
+-{
+-	return vport_priv(vport);
+-}
+-
+ const char *ovs_netdev_get_name(const struct vport *);
+ void ovs_netdev_detach_dev(struct vport *);
+ 
+diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+index 0979304..d7d3af9 100644
+--- a/net/openvswitch/vport.h
++++ b/net/openvswitch/vport.h
+@@ -145,6 +145,8 @@ struct vport_ops {
+ 	const char *(*get_name)(const struct vport *);
+ 
+ 	int (*send)(struct vport *, struct sk_buff *);
++
++	struct net_device *(*get_netdev)(struct vport *);
+ };
+ 
+ enum vport_err_type {
 -- 
 1.9.0
