@@ -1,97 +1,76 @@
-From: Dave Chinner <david@fromorbit.com>
-Subject: Re: [PATCH/RFC 00/19] Support loop-back NFS mounts
-Date: Thu, 17 Apr 2014 14:23:13 +1000
-Message-ID: <20140417042313.GV15995@dastard>
-References: <20140416033623.10604.69237.stgit@notabene.brown>
- <20140416104207.75b044e8@tlielax.poochiereds.net>
- <20140417102048.2fc8275c@notabene.brown>
- <20140417012739.GU15995@dastard>
- <20140417115018.460345d0@notabene.brown>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Layton <jlayton@redhat.com>, linux-nfs@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>, netdev@vger.kernel.org,
-	Ming Lei <ming.lei@canonical.com>, linux-kernel@vger.kernel.org,
-	xfs@oss.sgi.com, linux-mm@kvack.org, Ingo Molnar <mingo@redhat.com>
-To: NeilBrown <neilb@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20140417115018.460345d0@notabene.brown>
-Sender: owner-linux-mm@kvack.org
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: [PATCH] net: Fix ns_capable check in sock_diag_put_filterinfo
+Date: Wed, 16 Apr 2014 21:41:34 -0700
+Message-ID: <1360f6acc2064d49a41f2d993d05cdcf8a40fc06.1397709384.git.luto@amacapital.net>
+Cc: Andy Lutomirski <luto@amacapital.net>, stable@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 17, 2014 at 11:50:18AM +1000, NeilBrown wrote:
-> On Thu, 17 Apr 2014 11:27:39 +1000 Dave Chinner <david@fromorbit.com> wrote:
-> 
-> > On Thu, Apr 17, 2014 at 10:20:48AM +1000, NeilBrown wrote:
-> > > A good example is the deadlock with the flush-* threads.
-> > > flush-* will lock a page, and  then call ->writepage.  If ->writepage
-> > > allocates memory it can enter reclaim, call ->releasepage on NFS, and block
-> > > waiting for a COMMIT to complete.
-> > > The COMMIT might already be running, performing fsync on that same file that
-> > > flush-* is flushing.  It locks each page in turn.  When it  gets to the page
-> > > that flush-* has locked, it will deadlock.
-> > 
-> > It's nfs_release_page() again....
-> > 
-> > > In general, if nfsd is allowed to block on local filesystem, and local
-> > > filesystem is allowed to block on NFS, then a deadlock can happen.
-> > > We would need a clear hierarchy
-> > > 
-> > >    __GFP_NETFS > __GFP_FS > __GFP_IO
-> > > 
-> > > for it to work.  I'm not sure the extra level really helps a lot and it would
-> > > be a lot of churn.
-> > 
-> > I think you are looking at this the wrong way - it's not the other
-> > filesystems that have to avoid memory reclaim recursion, it's the
-> > NFS client mount that is on loopback that needs to avoid recursion.
-> > 
-> > IMO, the fix should be that the NFS client cannot block on messages sent to the NFSD
-> > on the same host during memory reclaim. That is, nfs_release_page()
-> > cannot send commit messages to the server if the server is on
-> > localhost. Instead, it just tells memory reclaim that it can't
-> > reclaim that page.
-> > 
-> > If nfs_release_page() no longer blocks in memory reclaim, and all
-> > these nfsd-gets-blocked-in-GFP_KERNEL-memory-allocation recursion
-> > problems go away. Do the same for all the other memory reclaim
-> > operations in the NFS client, and you've got a solution that should
-> > work without needing to walk all over the rest of the kernel....
-> 
-> Maybe.
-> It is nfs_release_page() today. I wonder if it could be other things another
-> day.  I want to be sure I have a solution that really makes sense.
+The caller needs capabilities on the namespace being queried, not on
+their own namespace.  This is a security bug, although it likely has
+only a minor impact.
 
-There could be other things, but in the absence of those things,
-I don't think that adding another layer to memory reclaim
-dependencies for this niche corner case makes a lot of sense. ;)
+Cc: stable@vger.kernel.org
+Signed-off-by: Andy Lutomirski <luto@amacapital.net>
+---
 
-> However ... the thing that nfs_release_page is doing it sending a COMMIT to
-> tell the server to flush to stable storage.  It does that so that if the
-> server crashes, then the client can re-send.
-> Of course when it is a loop-back mount the client is the server so the COMMIT
-> is completely pointless.  If the client notices that it is sending a COMMIT
-> to itself, it can simply assume a positive reply.
+Someone should check that I'm right.  I had trouble getting 'ss -b' to
+work, even with plain old sudo.
 
-Yes, that's very true. You might have to treat ->writepage
-specially, too, if that can block, say, on the number of outstanding
-requests that can be sent to the server.
+ include/linux/sock_diag.h | 2 +-
+ net/core/sock_diag.c      | 4 ++--
+ net/packet/diag.c         | 2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
-> You are right, that would make the patch set a lot less intrusive.  I'll give
-> it some serious thought - thanks.
-
-No worries. :)
-
-Cheers,
-
-Dave.
+diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
+index 54f91d3..302ab80 100644
+--- a/include/linux/sock_diag.h
++++ b/include/linux/sock_diag.h
+@@ -23,7 +23,7 @@ int sock_diag_check_cookie(void *sk, __u32 *cookie);
+ void sock_diag_save_cookie(void *sk, __u32 *cookie);
+ 
+ int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attr);
+-int sock_diag_put_filterinfo(struct user_namespace *user_ns, struct sock *sk,
++int sock_diag_put_filterinfo(struct sock *sk,
+ 			     struct sk_buff *skb, int attrtype);
+ 
+ #endif
+diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
+index a0e9cf6..6a7fae2 100644
+--- a/net/core/sock_diag.c
++++ b/net/core/sock_diag.c
+@@ -49,7 +49,7 @@ int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attrtype)
+ }
+ EXPORT_SYMBOL_GPL(sock_diag_put_meminfo);
+ 
+-int sock_diag_put_filterinfo(struct user_namespace *user_ns, struct sock *sk,
++int sock_diag_put_filterinfo(struct sock *sk,
+ 			     struct sk_buff *skb, int attrtype)
+ {
+ 	struct nlattr *attr;
+@@ -57,7 +57,7 @@ int sock_diag_put_filterinfo(struct user_namespace *user_ns, struct sock *sk,
+ 	unsigned int len;
+ 	int err = 0;
+ 
+-	if (!ns_capable(user_ns, CAP_NET_ADMIN)) {
++	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN)) {
+ 		nla_reserve(skb, attrtype, 0);
+ 		return 0;
+ 	}
+diff --git a/net/packet/diag.c b/net/packet/diag.c
+index 533ce4f..435ff99 100644
+--- a/net/packet/diag.c
++++ b/net/packet/diag.c
+@@ -172,7 +172,7 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+ 		goto out_nlmsg_trim;
+ 
+ 	if ((req->pdiag_show & PACKET_SHOW_FILTER) &&
+-	    sock_diag_put_filterinfo(user_ns, sk, skb, PACKET_DIAG_FILTER))
++	    sock_diag_put_filterinfo(sk, skb, PACKET_DIAG_FILTER))
+ 		goto out_nlmsg_trim;
+ 
+ 	return nlmsg_end(skb, nlh);
 -- 
-Dave Chinner
-david@fromorbit.com
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+1.9.0
