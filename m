@@ -1,114 +1,160 @@
-From: NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [PATCH/RFC 00/19] Support loop-back NFS mounts
-Date: Thu, 17 Apr 2014 11:50:18 +1000
-Message-ID: <20140417115018.460345d0@notabene.brown>
-References: <20140416033623.10604.69237.stgit@notabene.brown>
-	<20140416104207.75b044e8@tlielax.poochiereds.net>
-	<20140417102048.2fc8275c@notabene.brown>
-	<20140417012739.GU15995@dastard>
+From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Subject: Re: [PATCH v2 4/4] drivers: net: Add APM X-Gene SoC ethernet driver support.
+Date: Wed, 16 Apr 2014 19:06:47 -0700
+Message-ID: <CAKh23FmM6L4PeL+GOz=neQac4ZDj+_LmH5=zTLtVZxfUe9HQVw@mail.gmail.com>
+References: <1397271984-23405-1-git-send-email-isubramanian@apm.com>
+	<1397271984-23405-5-git-send-email-isubramanian@apm.com>
+	<534BEB20.3080501@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/aR.nJzAOWD3tAtDyjyGs6Ar"; protocol="application/pgp-signature"
-Cc: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xfs-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
-	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Dave Chinner <david-FqsqvQoI3Ljby3iVrkZq2A@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140417012739.GU15995@dastard>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, patches <patches-qTEPVZfXA3Y@public.gmane.org>,
+	Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>, Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+To: Ben Dooks <ben.dooks-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <534BEB20.3080501-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/aR.nJzAOWD3tAtDyjyGs6Ar
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Hi,
 
-On Thu, 17 Apr 2014 11:27:39 +1000 Dave Chinner <david-FqsqvQoI3Ljby3iVrkZq2A@public.gmane.org> wrote:
+Please find my response inline.
 
-> On Thu, Apr 17, 2014 at 10:20:48AM +1000, NeilBrown wrote:
-> > A good example is the deadlock with the flush-* threads.
-> > flush-* will lock a page, and  then call ->writepage.  If ->writepage
-> > allocates memory it can enter reclaim, call ->releasepage on NFS, and b=
-lock
-> > waiting for a COMMIT to complete.
-> > The COMMIT might already be running, performing fsync on that same file=
- that
-> > flush-* is flushing.  It locks each page in turn.  When it  gets to the=
- page
-> > that flush-* has locked, it will deadlock.
->=20
-> It's nfs_release_page() again....
->=20
-> > In general, if nfsd is allowed to block on local filesystem, and local
-> > filesystem is allowed to block on NFS, then a deadlock can happen.
-> > We would need a clear hierarchy
-> >=20
-> >    __GFP_NETFS > __GFP_FS > __GFP_IO
-> >=20
-> > for it to work.  I'm not sure the extra level really helps a lot and it=
- would
-> > be a lot of churn.
->=20
-> I think you are looking at this the wrong way - it's not the other
-> filesystems that have to avoid memory reclaim recursion, it's the
-> NFS client mount that is on loopback that needs to avoid recursion.
->=20
-> IMO, the fix should be that the NFS client cannot block on messages sent =
-to the NFSD
-> on the same host during memory reclaim. That is, nfs_release_page()
-> cannot send commit messages to the server if the server is on
-> localhost. Instead, it just tells memory reclaim that it can't
-> reclaim that page.
->=20
-> If nfs_release_page() no longer blocks in memory reclaim, and all
-> these nfsd-gets-blocked-in-GFP_KERNEL-memory-allocation recursion
-> problems go away. Do the same for all the other memory reclaim
-> operations in the NFS client, and you've got a solution that should
-> work without needing to walk all over the rest of the kernel....
+On Mon, Apr 14, 2014 at 7:05 AM, Ben Dooks <ben.dooks-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org> wrote:
+> On 12/04/14 04:06, Iyappan Subramanian wrote:
+>>
+>> This patch adds network driver for APM X-Gene SoC ethernet.
+>>
+>> Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+>> Signed-off-by: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
+>
+>
+> [snip]
+>
+>
+>> +{
+>> +       struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+>> +       struct phy_device *phydev;
+>> +       unsigned char phy_id[MII_BUS_ID_SIZE+3];
+>> +       int ret = 0;
+>> +
+>> +       phydev = phy_find_first(pdata->mdio_bus);
+>> +       if (!phydev) {
+>> +               netdev_info(ndev, "no PHY found\n");
+>> +               ret = -1;
+>> +               goto out;
+>> +       }
+>> +
+>> +       /* attach the mac to the phy */
+>> +       snprintf(phy_id, sizeof(phy_id), PHY_ID_FMT, pdata->mdio_bus->id,
+>> +                pdata->phy_addr);
+>> +       phydev = phy_connect(ndev, phy_id,
+>> +                            &xgene_enet_mdio_link_change,
+>> pdata->phy_mode);
+>> +       if (IS_ERR(phydev)) {
+>> +               netdev_err(ndev, "Could not attach to PHY\n");
+>> +               ret = PTR_ERR(phydev);
+>> +               phydev = NULL;
+>> +               goto out;
+>> +       }
+>> +
+>
+>
+> You should be using of_phy_connect or similar so that the
+> necessary PHY<>OF data is properly initialised
+>
 
-Maybe.
-It is nfs_release_page() today. I wonder if it could be other things another
-day.  I want to be sure I have a solution that really makes sense.
+I will use of_phy_connect function to connect to PHY.
 
-However ... the thing that nfs_release_page is doing it sending a COMMIT to
-tell the server to flush to stable storage.  It does that so that if the
-server crashes, then the client can re-send.
-Of course when it is a loop-back mount the client is the server so the COMM=
-IT
-is completely pointless.  If the client notices that it is sending a COMMIT
-to itself, it can simply assume a positive reply.
+>
+>> +       netdev_info(ndev, "phy_id=0x%08x phy_drv=\"%s\"",
+>> +                   phydev->phy_id, phydev->drv->name);
+>> +out:
+>> +       pdata->phy_link = 0;
+>> +       pdata->phy_speed = 0;
+>> +       pdata->phy_dev = phydev;
+>> +
+>> +       return ret;
+>> +}
+>> +
+>
+>
+>
+> [snip]
+>
+>
+>> +struct xgene_enet_desc {
+>> +       u64 m0;
+>> +       u64 m1;
+>> +       u64 m2;
+>> +       u64 m3;
+>> +};
+>> +
+>> +struct xgene_enet_desc16 {
+>> +       u64 m0;
+>> +       u64 m1;
+>> +};
+>> +
+>> +static inline void xgene_enet_cpu_to_le64(struct xgene_enet_desc *desc,
+>> +                                         int count)
+>> +{
+>> +#ifdef CONFIG_CPU_BIG_ENDIAN
+>> +       int i;
+>> +
+>> +       for (i = 0; i < count; i++)
+>> +               ((u64 *)desc)[i] = cpu_to_le64(((u64 *)desc)[i]);
+>> +#endif
+>> +}
+>> +
+>> +static inline void xgene_enet_le64_to_cpu(struct xgene_enet_desc *desc,
+>> +                                         int count)
+>> +{
+>> +#ifdef CONFIG_CPU_BIG_ENDIAN
+>> +       int i;
+>> +
+>> +       for (i = 0; i < count; i++)
+>> +               ((u64 *)desc)[i] = le64_to_cpu(((u64 *)desc)[i]);
+>> +#endif
+>> +}
+>> +
+>> +static inline void xgene_enet_desc16_to_le64(struct xgene_enet_desc
+>> *desc)
+>> +{
+>> +#ifdef CONFIG_CPU_BIG_ENDIAN
+>> +       ((u64 *)desc)[1] = cpu_to_le64(((u64 *)desc)[1]);
+>> +#endif
+>> +}
+>> +
+>> +static inline void xgene_enet_le64_to_desc16(struct xgene_enet_desc
+>> *desc)
+>> +{
+>> +#ifdef CONFIG_CPU_BIG_ENDIAN
+>> +       ((u64 *)desc)[1] = le64_to_cpu(((u64 *)desc)[1]);
+>> +#endif
+>> +}
+>
+>
+> With this do you not risk confusing the hardware by swapping the
+> format of the descriptors?
+>
+> Why not use xxx_to_cpu() and cpu_to_xxx() functions when reading or
+> writing the descriptors? It would also remove a lot of the #ifdef in
+> this code.
 
-You are right, that would make the patch set a lot less intrusive.  I'll gi=
-ve
-it some serious thought - thanks.
+Our hardware expects descriptor in the little endian format.  I will remove the
+#ifdef.
 
-NeilBrown
-
---Sig_/aR.nJzAOWD3tAtDyjyGs6Ar
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIVAwUBU08zWjnsnt1WYoG5AQKfQw//WIl8Mf1G0vzy816TBvi7fx3VCp6SUV7s
-jQeCJSD0IPRzCFmxH1ZJFzy3jIK8J3dbT8cSGjxXYegOq+kyyVjbHXOG2msC1riY
-ytOGUQnOS8MHscbcAOR7r61t/1t7FZiSJ51Th7pykepQmbm9QNEna+U0wzna3poK
-NNRDrs1J0eySpLTydegKoyg4w6KP6MLXqlYQm1FigvkreDEZ9mvBW7NrGycwDQF8
-NZgq8+dGCL3MAq+uZ7WMqAoCZwZUrusVZBc3zvXYWepSMFSW1FOmQP971QZ9DgI2
-KzarhdGOSFTbVHLhZafYV0X2k/hATVoIJpXh3Kl2ak0qdnuuUPJ/s64zxvQ3N4wo
-3zBU0/TvcEVs6toQfcT/Zi91rCIvVvl8BOssIosbwknfLyi/JEYtnDJ+MxWBlg1G
-xlaEF1pDaQYEix5Ocg1qyU7oroFv98+pZ4BZeDI7Y/A6gasVvR3NKBOFcadozYuo
-FBTuYO6ZTSVPZ1+ASqykb5hh3GGKO5oM4x7xX0dQRSADk4qo4FLfv6ONKK2OfjQo
-r6FBlpw9OU6su26F4XzDkFLPb3xUDgfY7gMG6vIZYmCS7JGOvTg2rpk6inZxzATb
-40mX+gFDXs5oE9XGaqz2Fl7Lw/BNluPNDEpkmWJX42+7cdClnc2XPSJyvpFx7nLH
-lfrN+yaHFBM=
-=c/XS
------END PGP SIGNATURE-----
-
---Sig_/aR.nJzAOWD3tAtDyjyGs6Ar--
+>
+> --
+> Ben Dooks                               http://www.codethink.co.uk/
+> Senior Engineer                         Codethink - Providing Genius
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
