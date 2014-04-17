@@ -1,84 +1,139 @@
-From: Chema Gonzalez <chema@google.com>
-Subject: Re: [PATCH] filter: added BPF random opcode
-Date: Wed, 16 Apr 2014 17:19:57 -0700
-Message-ID: <CA+ZOOTPs8cpjqttv2DxU14GGZF1zETnN74_0t0KVjTZV2uY3nQ@mail.gmail.com>
-References: <1397585816-1267-1-git-send-email-chema@google.com>
-	<CAMEtUuw3-LEuwJ2cAQ+F-tu_-wzy4HK4ZteAuJpYfY9hW66+FA@mail.gmail.com>
+From: NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH/RFC 00/19] Support loop-back NFS mounts
+Date: Thu, 17 Apr 2014 10:20:48 +1000
+Message-ID: <20140417102048.2fc8275c@notabene.brown>
+References: <20140416033623.10604.69237.stgit@notabene.brown>
+	<20140416104207.75b044e8@tlielax.poochiereds.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:41092 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753240AbaDQAT6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2014 20:19:58 -0400
-Received: by mail-ob0-f181.google.com with SMTP id gq1so3329610obb.40
-        for <netdev@vger.kernel.org>; Wed, 16 Apr 2014 17:19:58 -0700 (PDT)
-In-Reply-To: <CAMEtUuw3-LEuwJ2cAQ+F-tu_-wzy4HK4ZteAuJpYfY9hW66+FA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/ZiKmG43mXH3JoeDwPbs7CZV"; protocol="application/pgp-signature"
+Cc: linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xfs-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140416104207.75b044e8-9yPaYZwiELC+kQycOl6kW4xkIHaj4LzF@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 15, 2014 at 11:24 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> On Tue, Apr 15, 2014 at 11:16 AM, Chema Gonzalez <chema@google.com> wrote:
->> This should allow random packet sampling.
->
-> I think commit log should have more than one line,
-> especially for the new feature that affects uapi
-I will beef it up in the next version (this time I'll wait for the
-net-next window to open).
+--Sig_/ZiKmG43mXH3JoeDwPbs7CZV
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-> In particular I don't find the reason of moving random
-> packet sampling into kernel to be that great.
-> pcap cannot receive them quickly enough anyway,
-> so there are drops already.
-> Just randomly pick packets that reached the user space.
-> Why add this to the kernel? I don't see how it can improve accuracy.
-The main use I see for this is random packet sampling. If you're
-getting packet drops in pcap, you definitely want the kernel to do the
-sampling. Sampling the packets that survived all the way through
-userspace instead of the packets that arrived to the nic is biased.
+On Wed, 16 Apr 2014 10:42:07 -0400 Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
 
-The new message will be:
+> On Wed, 16 Apr 2014 14:03:35 +1000
+> NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org> wrote:
+>=20
 
-"""
-filter: added BPF random opcode
+> > Comments, criticisms, etc most welcome.
+> >=20
+> > Thanks,
+> > NeilBrown
+> >=20
+>=20
+> I've only given this a once-over, but the basic concept seems a bit
+> flawed. IIUC, the basic idea is to disallow allocations done in knfsd
+> threads context from doing fs-based reclaim.
+>=20
+> This seems very heavy-handed, and like it could cause problems on a
+> busy NFS server. Those sorts of servers are likely to have a lot of
+> data in pagecache and thus we generally want to allow them to do do
+> writeback when memory is tight.
+>=20
+> It's generally acceptable for knfsd to recurse into local filesystem
+> code for writeback. What you want to avoid in this situation is reclaim
+> on NFS filesystems that happen to be from knfsd on the same box.
+>=20
+> If you really want to fix this, what may make more sense is trying to
+> plumb that information down more granularly. Maybe GFP_NONETFS and/or
+> PF_NETFSTRANS flags?
 
-Added a new ancillary load (bpf call in eBPF parlance) that produces
-a 32-bit random number. We are implementing it as an ancillary load
-(instead of an ISA opcode) because (a) it is simpler, (b) allows easy
-JITing, and (c) seems more in line with generic ISAs that do not have
-"get a random number" as a instruction, but as an OS call.
+Hi Jeff,
+ a few clarifications first:
 
-The main use for this ancillary load is to perform random packet sampling.
-"""
+ 1/ These changes probably won't affect a "busy NFS server" at all.  The
+    PF_FSTRANS flag only get set in nfsd when it sees a request from the lo=
+cal
+    host.  Most busy NFS servers would never see that, and so would never s=
+et
+    PF_FSTRANS.
 
-> At the same time I think the extension technic itself is nice and clean :)
-> The call approach is definitely how we envisioned it to be used.
-> Right now we have only x86-64 jit that is waiting for net-next to be opened,
-> but this extension will be automatically jit-ed due to 'call approach'. Nice.
->
-> When you post patch revision please add vN tag.
-I will.
+ 2/ Setting PF_FSTRANS does not affect where writeback is done.  Direct
+    reclaim hasn't performed filesystem writeback since 3.2, it is all done
+    by kswapd (I think direct reclaim still writes to swap sometimes).
+    The main effects of setting PF_FSTRANS (as modified by this page set)
+    are:
+      - when reclaim calls ->releasepage  __GFP_FS is not set in the gfp_t =
+arg
+      - various caches like dcache, icache etc are not shrunk from
+        direct reclaim
+    There are other effects, but I'm less clear on exactly what they mean.
 
->> +/* note that this only generates 32-bit random numbers */
->> +static u64 __skb_get_random(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
->
-> function name is misleading. It has nothing to do with 'skb'. Please
-> drop that prefix.
-I renamed the function "__get_random_u32".
+A flag specific to network filesystems might make sense, but I don't think =
+it
+would solve all the deadlocks.
 
->> +{
->> +       return (u64)prandom_u32();
->
-> we have 64-bit registers now, so would be nice to generalize it to 64-bit random
-> since 8/16/32 can be made with bpf_and operation.
-> but I don't see how to cleanly do it yet, so I guess the current form is fine.
->
-> I like the approach, but would be nice to hear better justification
-> for extending uapi.
+A good example is the deadlock with the flush-* threads.
+flush-* will lock a page, and  then call ->writepage.  If ->writepage
+allocates memory it can enter reclaim, call ->releasepage on NFS, and block
+waiting for a COMMIT to complete.
+The COMMIT might already be running, performing fsync on that same file that
+flush-* is flushing.  It locks each page in turn.  When it  gets to the page
+that flush-* has locked, it will deadlock.
 
--Chema
+xfs_vm_writepage does allocate memory with __GFP_FS set
+   xfs_vm_writepage -> xfs_setfilesize_trans_alloc -> xfs_trans_alloc ->
+   _xfs_trans_allo
+
+and I have had this deadlock happen.  To avoid this we need flush-* to ensu=
+re
+that no memory allocation blocks on NFS.  We could set a PF_NETFSTRANS ther=
+e,
+but as that code really has nothing to do with networks it would seem an odd
+place to put a network-fs-specific flag.
+
+In general, if nfsd is allowed to block on local filesystem, and local
+filesystem is allowed to block on NFS, then a deadlock can happen.
+We would need a clear hierarchy
+
+   __GFP_NETFS > __GFP_FS > __GFP_IO
+
+for it to work.  I'm not sure the extra level really helps a lot and it wou=
+ld
+be a lot of churn.
+
+
+Thanks,
+NeilBrown
+
+
+--Sig_/ZiKmG43mXH3JoeDwPbs7CZV
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIVAwUBU08eYDnsnt1WYoG5AQI3mQ//b09b32kYZg134oqC28wk4GuKXD4068sE
+Vcj1k1jm+zz0nHfY1XbLA2PYmLGeNc1bUSGwtOwVwNvbI1xrae4Da2J6sfQ600nO
+8ozsbNXA32Bwp9h4LySPfpvJFatGmW5Kad/88qFc0a9vxXFFjIlm2hmhCuIopTCt
+PnwHRuTudFWi+Uu2JeqvmNRzcCTt0udNsc7xXlEwk5IXlYj/Qj7WVat40NjQd84E
+We+y6vTsMkHd2G/yoGdBNTQQedOgrAwyiGudq3VHPUpXgbkpnrnU0tikA2dssL10
+XlY37WlZeuqS7NKCAhLJbrJijHI8Js+cUbAhb/zNGW3llCFddYXBjWzWHT07/ISv
+A8+vuItTa0f/PsI8VkXbJ5P1QMmMtkgsbE+UOJ573v3v9Z2CKemZVrUBmCuOX/x7
+iY8eSdU0SsBWTu6OO6TS4BvIu5yvX4PYdt3MvjF1LspLv6ggZ93LUr1+KV0TyUs2
+ugbsf9Mq7vrnDdYR3z4Xb38xnAwz+5OmDgaDHTaA67VMYA2Y5K9IoVxMwTdEwGQ5
+WOy/KviX2JBbOKLmwcQeZgiTaEpr4CRY6rDA6fIqORBysrGqkujiY1e2OkX8sd30
+yo+WHWp7DIeWiJXEUTaRXewa8CgcUY3CXATuj+bsilLTVOhxT28rK5FwtAq6y00N
+Go80SPlCYvY=
+=Ornx
+-----END PGP SIGNATURE-----
+
+--Sig_/ZiKmG43mXH3JoeDwPbs7CZV--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
