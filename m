@@ -1,80 +1,69 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] net: sctp: cache auth_enable per endpoint
-Date: Thu, 17 Apr 2014 16:44:26 -0400
-Message-ID: <20140417204426.GK13715@hmsreliant.think-freely.org>
-References: <1397748410-1983-1-git-send-email-dborkman@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] sched, cls: check if we could overwrite actions when
+ changing a filter
+Date: Thu, 17 Apr 2014 13:48:21 -0700
+Message-ID: <CAM_iQpVqQbXcm0gGxe_JMURPtGYH+iOi8UGgvis5je6g9zbiKQ@mail.gmail.com>
+References: <1397605563-29756-1-git-send-email-xiyou.wangcong@gmail.com>
+	<534E77D0.8000307@mojatatu.com>
+	<CAM_iQpXRVZ8_keaL-8OkmRVguA29bnTPS2ZHZ0j2SSeB6A=1jQ@mail.gmail.com>
+	<534FBFF0.3020606@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kumba@gentoo.org, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevic@redhat.com>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:57192 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750969AbaDQUot (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2014 16:44:49 -0400
-Content-Disposition: inline
-In-Reply-To: <1397748410-1983-1-git-send-email-dborkman@redhat.com>
+Received: from mail-ve0-f181.google.com ([209.85.128.181]:36289 "EHLO
+	mail-ve0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751179AbaDQUsW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2014 16:48:22 -0400
+Received: by mail-ve0-f181.google.com with SMTP id oy12so1254325veb.12
+        for <netdev@vger.kernel.org>; Thu, 17 Apr 2014 13:48:21 -0700 (PDT)
+In-Reply-To: <534FBFF0.3020606@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 17, 2014 at 05:26:50PM +0200, Daniel Borkmann wrote:
-> From: Vlad Yasevich <vyasevic@redhat.com>
-> 
-> Currently, it is possible to create an SCTP socket, then switch
-> auth_enable via sysctl setting to 1 and crash the system on connect:
-> 
-> Oops[#1]:
-> CPU: 0 PID: 0 Comm: swapper Not tainted 3.14.1-mipsgit-20140415 #1
-> task: ffffffff8056ce80 ti: ffffffff8055c000 task.ti: ffffffff8055c000
-> [...]
-> Call Trace:
-> [<ffffffff8043c4e8>] sctp_auth_asoc_set_default_hmac+0x68/0x80
-> [<ffffffff8042b300>] sctp_process_init+0x5e0/0x8a4
-> [<ffffffff8042188c>] sctp_sf_do_5_1B_init+0x234/0x34c
-> [<ffffffff804228c8>] sctp_do_sm+0xb4/0x1e8
-> [<ffffffff80425a08>] sctp_endpoint_bh_rcv+0x1c4/0x214
-> [<ffffffff8043af68>] sctp_rcv+0x588/0x630
-> [<ffffffff8043e8e8>] sctp6_rcv+0x10/0x24
-> [<ffffffff803acb50>] ip6_input+0x2c0/0x440
-> [<ffffffff8030fc00>] __netif_receive_skb_core+0x4a8/0x564
-> [<ffffffff80310650>] process_backlog+0xb4/0x18c
-> [<ffffffff80313cbc>] net_rx_action+0x12c/0x210
-> [<ffffffff80034254>] __do_softirq+0x17c/0x2ac
-> [<ffffffff800345e0>] irq_exit+0x54/0xb0
-> [<ffffffff800075a4>] ret_from_irq+0x0/0x4
-> [<ffffffff800090ec>] rm7k_wait_irqoff+0x24/0x48
-> [<ffffffff8005e388>] cpu_startup_entry+0xc0/0x148
-> [<ffffffff805a88b0>] start_kernel+0x37c/0x398
-> Code: dd0900b8  000330f8  0126302d <dcc60000> 50c0fff1  0047182a  a48306a0
-> 03e00008  00000000
-> ---[ end trace b530b0551467f2fd ]---
-> Kernel panic - not syncing: Fatal exception in interrupt
-> 
-> What happens while auth_enable=0 in that case is, that
-> ep->auth_hmacs is initialized to NULL in sctp_auth_init_hmacs()
-> when endpoint is being created.
-> 
-> After that point, if an admin switches over to auth_enable=1,
-> the machine can crash due to NULL pointer dereference during
-> reception of an INIT chunk. When we enter sctp_process_init()
-> via sctp_sf_do_5_1B_init() in order to respond to an INIT chunk,
-> the INIT verification succeeds and while we walk and process
-> all INIT params via sctp_process_param() we find that
-> net->sctp.auth_enable is set, therefore do not fall through,
-> but invoke sctp_auth_asoc_set_default_hmac() instead, and thus,
-> dereference what we have set to NULL during endpoint
-> initialization phase.
-> 
-> The fix is to make auth_enable immutable by caching its value
-> during endpoint initialization, so that its original value is
-> being carried along until destruction. The bug seems to originate
-> from the very first days.
-> 
-> Fix in joint work with Daniel Borkmann.
-> 
-> Reported-by: Joshua Kinard <kumba@gentoo.org>
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Looks pretty straighforward
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+On Thu, Apr 17, 2014 at 4:50 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 04/16/14 17:10, Cong Wang wrote:
+>>
+>> Why? Since actions are inside it, I should be able to change any
+>> part of it, right?
+>>
+>
+> The challenge is in the semantics. You are making change to the
+> graph _not_ to the filter. There are dependencies in a graph. IOW,
+> I doubt what you are doing could be made generic and safe without
+> it being a two step operation since we have multiple tables to deal
+> with.
+> Example - what would you do if you wanted to change the graph
+> so that you add something in the middle or remove something at
+> the end?
+
+
+Actions attached to a filter are at the end of the graph, they should
+be able to be added/removed together.
+
+>
+>
+>>> If otoh you wanted to replace the filter + action graph with a backup
+>>> rule, then just add it lower in the priority list and delete the
+>>> existing one etc.
+>>>
+>>
+>> This is not atomic, is it?
+>>
+>
+> It avoids the need for atomicity. Backup rule will never be used
+> as long as the active is still in use.
+> If you can do the two steps in the kernel as i described, then
+> you can achieve your purpose but i worry it will complicate code
+> for a corner use case (which has a work around already).
+>
+
+This is a workaround, not a fix. What if I have multiple threads
+trying to append an action at the same time? This workaround
+can't guarantee the correctness.
+
+My case is a perfectly valid use, we have to fix it, maybe in
+another way.
