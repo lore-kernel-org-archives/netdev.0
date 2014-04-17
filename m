@@ -1,77 +1,100 @@
-From: NeilBrown <neilb@suse.de>
-Subject: Re: [PATCH 10/19] NET: set PF_FSTRANS while holding sk_lock
-Date: Thu, 17 Apr 2014 12:38:37 +1000
-Message-ID: <20140417123837.5987e5e9@notabene.brown>
-References: <20140416033623.10604.69237.stgit@notabene.brown>
-	<20140416040336.10604.96000.stgit@notabene.brown>
-	<1397625226.4222.113.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140416.090002.2186526865564557549.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/SSVtvNA+Qn7U/.GV8.0daYz"; protocol="application/pgp-signature"
-Cc: eric.dumazet@gmail.com, linux-mm@kvack.org, linux-nfs@vger.kernel.org,
- linux-kernel@vger.kernel.org, xfs@oss.sgi.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20140416.090002.2186526865564557549.davem@davemloft.net>
-Sender: owner-linux-mm@kvack.org
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v3 2/4] Documentation: dts: Add bindings for APM X-Gene SoC ethernet driver
+Date: Wed, 16 Apr 2014 19:39:26 -0700
+Message-ID: <1397702368-4846-3-git-send-email-isubramanian@apm.com>
+References: <1397702368-4846-1-git-send-email-isubramanian@apm.com>
+Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, jcm@redhat.com,
+	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>,
+	Ravi Patel <rapatel@apm.com>, Keyur Chudgar <kchudgar@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1397702368-4846-1-git-send-email-isubramanian@apm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/SSVtvNA+Qn7U/.GV8.0daYz
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+This patch adds documentation for APM X-Gene SoC ethernet DTS binding.
 
-On Wed, 16 Apr 2014 09:00:02 -0400 (EDT) David Miller <davem@davemloft.net>
-wrote:
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Signed-off-by: Ravi Patel <rapatel@apm.com>
+Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
+---
+ .../devicetree/bindings/net/apm-xgene-enet.txt     |   66 ++++++++++++++++++++
+ 1 file changed, 66 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/apm-xgene-enet.txt
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 15 Apr 2014 22:13:46 -0700
->=20
-> > For applications handling millions of sockets, this makes a difference.
->=20
-> Indeed, this really is not acceptable.
-
-As you say...
-I've just discovered that I can get rid of the lockdep message (and hence
-presumably the deadlock risk) with a well placed:
-
-		newsock->sk->sk_allocation =3D GFP_NOFS;
-
-which surprised me as it seemed to be an explicit GFP_KERNEL allocation that
-was mentioned in the lockdep trace.  Obviously these traces require quite
-some sophistication to understand.
-
-So - thanks for the feedback, patch can be ignored.
-
-Thanks,
-NeilBrown
-
---Sig_/SSVtvNA+Qn7U/.GV8.0daYz
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIVAwUBU08+rTnsnt1WYoG5AQLRZhAAw2OqHGStjcH4tCI4w3eDMVb87MK1AVtQ
-U3pUF/WbzPSl0yhxDaa3vIg6L2ogkASESK6Oiiu8PZbG3TunCNwq63XXTKvE6EIY
-nABc2yOb9u/cixXtIuMC9E8ydnZa/dEkIyFY9oMXBjuOwb3L/ugKFm0upzBUVokw
-VtyZs8rl9s9IwgvuErpFbDR3ZxEk0VaMdREFwGCpkUD6DjknMTpGdaUelPxe+DEd
-Ffy6B7fjrkdG/8B4vYZKlW2c5on1lLqc+hgY24LrLUpLxHwu4HCuIrAuhzILDex/
-X5hZbQQhj2reLB8rsqJWOjmKn19/y8EbapUwa6BUMkSVHDCf0voCUjkHI8dOYcvM
-TnrmEzJS3Ym/x5rbenUCr2hEOEbZ80UEcMbdbrVm3rhPoMDtSifdtU2LEKro8oCk
-GPoOR3fYSLyxXNGQTlGiG3vSuSAIxF8tznBLnuCPIAPXK8LtXIn3oIOxNsN1J/LK
-TxZJsdA+I9YmV5uIn7cJarNYKdXvhR6x0YPoxUFzQZkngChosN3ZkGOHQeG2moyA
-JewuEtWT5Z1n1as19big3XukdBNnhJ/B11DpyI3TlfhIYN0mROFEAQkvXuOYYO+o
-CqkHfQp765IaTt0WOiVFu9bibhdxWwt1jwfasn1TE9LtvVlwlUlbPVL/8NrMXnOa
-Nkz7UZ1IxWU=
-=WfY/
------END PGP SIGNATURE-----
-
---Sig_/SSVtvNA+Qn7U/.GV8.0daYz--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+new file mode 100644
+index 0000000..9ad6fe1
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+@@ -0,0 +1,66 @@
++APM X-Gene SoC Ethernet nodes
++
++Ethernet nodes are defined to describe on-chip ethernet interfaces in
++APM X-Gene SoC.
++
++Required properties:
++- compatible:		Should be "apm,xgene-enet"
++- reg:			First resource is the ethernet base register set
++			Second resource is the ring base register set
++			Third resource is the ring command register set
++- interrupts:		Ethernet main interrupt
++- clocks:		Reference to the clock entry.
++- local-mac-address:	Ethernet MAC address.
++- phy-connection-type:	Ethernet MII mode.
++
++- mdio device tree subnode: When the X-Gene SoC has a phy connected to its local
++		mdio, there must be device tree subnode with the following
++		required properties:
++
++	- compatible: Must be "apm,xgene-mdio".
++	- #address-cells: Must be <1>.
++	- #size-cells: Must be <0>.
++
++	For the phy on the mdio bus, there must be a node with the following
++	fields:
++
++	- reg: phy id used to communicate to phy.
++
++Optional properties:
++- status		: Should be "ok" or "disabled" for enabled/disabled.
++			  Default is "ok".
++
++Example:
++	menetclk: menetclk {
++		compatible = "apm,xgene-device-clock";
++		clock-output-names = "menetclk";
++		status = "ok";
++	};
++
++	menet: ethernet@17020000 {
++		compatible = "apm,xgene-enet";
++		status = "disabled";
++		reg = <0x0 0x17020000 0x0 0xd100>,
++		      <0x0 0X17030000 0x0 0X400>,
++		      <0x0 0X10000000 0x0 0X200>;
++		interrupts = <0x0 0x3c 0x4>;
++		clocks = <&menetclk 0>;
++		local-mac-address = [00 01 73 00 00 01];
++		phy-connection-type = "rgmii";
++		phy-handle = <&menetphy>;
++		mdio {
++			compatible = "apm,xgene-mdio";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			menetphy: menetphy@3 {
++				reg = <0x3>;
++			};
++
++		};
++	};
++
++/* Board-specific peripheral configurations */
++
++&menet {
++        status = "ok";
++};
+-- 
+1.7.9.5
