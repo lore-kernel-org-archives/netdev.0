@@ -1,283 +1,361 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next RFC v3 09/10] openvswitch: introduce vport_op get_netdev
-Date: Thu, 17 Apr 2014 14:14:36 +0200
-Message-ID: <1397736876-11771-10-git-send-email-jiri@resnulli.us>
+From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Subject: [patch net-next RFC v3 10/10] openvswitch: add support
+	for datapath hardware offload
+Date: Thu, 17 Apr 2014 14:15:38 +0200
+Message-ID: <1397736938-11838-1-git-send-email-jiri@resnulli.us>
 References: <1397736876-11771-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, nhorman@tuxdriver.com, andy@greyhouse.net,
-	tgraf@suug.ch, dborkman@redhat.com, ogerlitz@mellanox.com,
-	jesse@nicira.com, pshelar@nicira.com, azhou@nicira.com,
-	ben@decadent.org.uk, stephen@networkplumber.org,
-	jeffrey.t.kirsher@intel.com, vyasevic@redhat.com,
-	xiyou.wangcong@gmail.com, john.r.fastabend@intel.com,
-	edumazet@google.com, jhs@mojatatu.com, sfeldma@cumulusnetworks.com,
-	f.fainelli@gmail.com, roopa@cumulusnetworks.com,
-	linville@tuxdriver.com, dev@openvswitch.org, jasowang@redhat.com,
-	ebiederm@xmission.com, nicolas.dichtel@6wind.com,
-	ryazanov.s.a@gmail.com, buytenh@wantstofly.org,
-	aviadr@mellanox.com, nbd@openwrt.org, alexei.starovoitov@gmail.com,
-	Neil.Jerram@metaswitch.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f41.google.com ([74.125.83.41]:58299 "EHLO
-	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1945905AbaDQMPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2014 08:15:16 -0400
-Received: by mail-ee0-f41.google.com with SMTP id t10so603466eei.14
-        for <netdev@vger.kernel.org>; Thu, 17 Apr 2014 05:15:15 -0700 (PDT)
-In-Reply-To: <1397736876-11771-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
+ dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org,
+ buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
+ linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
+ vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
+ stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1397736876-11771-1-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-This will allow to query easily if the vport has netdev. Also it allows
-to unexpose netdev_vport_priv and struct netdev_vport.
+Benefit from the possibility to work with flows in switch devices and
+use the swdev api to offload flow datapath.
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
 ---
- net/openvswitch/datapath.c           |  2 +-
- net/openvswitch/dp_notify.c          |  7 ++---
- net/openvswitch/vport-internal_dev.c | 53 ++++++++++++++++++++++++------------
- net/openvswitch/vport-netdev.c       | 16 +++++++++++
- net/openvswitch/vport-netdev.h       | 12 --------
- net/openvswitch/vport.h              |  2 ++
- 6 files changed, 57 insertions(+), 35 deletions(-)
+ include/linux/sw_flow.h      |  16 +++-
+ net/openvswitch/Makefile     |   3 +-
+ net/openvswitch/datapath.c   |  16 +++-
+ net/openvswitch/hw_offload.c | 170 +++++++++++++++++++++++++++++++++++++++++++
+ net/openvswitch/hw_offload.h |  31 ++++++++
+ 5 files changed, 231 insertions(+), 5 deletions(-)
+ create mode 100644 net/openvswitch/hw_offload.c
+ create mode 100644 net/openvswitch/hw_offload.h
 
+diff --git a/include/linux/sw_flow.h b/include/linux/sw_flow.h
+index 3bbd5aa..12a24f9 100644
+--- a/include/linux/sw_flow.h
++++ b/include/linux/sw_flow.h
+@@ -102,7 +102,21 @@ struct sw_flow {
+ 	struct sw_flow_mask *mask;
+ };
+ 
++enum sw_flow_action_type {
++	SW_FLOW_ACTION_TYPE_OUTPUT,
++	SW_FLOW_ACTION_TYPE_VLAN_PUSH,
++	SW_FLOW_ACTION_TYPE_VLAN_POP,
++};
++
+ struct sw_flow_action {
+-}
++	enum sw_flow_action_type type;
++	union {
++		struct net_device *output_dev;
++		struct {
++			__be16 vlan_proto;
++			u16 vlan_tci;
++		} vlan;
++	};
++};
+ 
+ #endif /* _LINUX_SW_FLOW_H_ */
+diff --git a/net/openvswitch/Makefile b/net/openvswitch/Makefile
+index 3591cb5..5152437 100644
+--- a/net/openvswitch/Makefile
++++ b/net/openvswitch/Makefile
+@@ -13,7 +13,8 @@ openvswitch-y := \
+ 	flow_table.o \
+ 	vport.o \
+ 	vport-internal_dev.o \
+-	vport-netdev.o
++	vport-netdev.o \
++	hw_offload.o
+ 
+ ifneq ($(CONFIG_OPENVSWITCH_VXLAN),)
+ openvswitch-y += vport-vxlan.o
 diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index fcbdb52..10ffb0a 100644
+index 10ffb0a..f1e0792 100644
 --- a/net/openvswitch/datapath.c
 +++ b/net/openvswitch/datapath.c
-@@ -148,7 +148,7 @@ static int get_dpifindex(struct datapath *dp)
- 
- 	local = ovs_vport_rcu(dp, OVSP_LOCAL);
- 	if (local)
--		ifindex = netdev_vport_priv(local)->dev->ifindex;
-+		ifindex = local->ops->get_netdev(local)->ifindex;
- 	else
- 		ifindex = 0;
- 
-diff --git a/net/openvswitch/dp_notify.c b/net/openvswitch/dp_notify.c
-index 2c631fe..d2cc24b 100644
---- a/net/openvswitch/dp_notify.c
-+++ b/net/openvswitch/dp_notify.c
-@@ -58,13 +58,12 @@ void ovs_dp_notify_wq(struct work_struct *work)
- 			struct hlist_node *n;
- 
- 			hlist_for_each_entry_safe(vport, n, &dp->ports[i], dp_hash_node) {
--				struct netdev_vport *netdev_vport;
-+				struct net_device *dev;
- 
- 				if (vport->ops->type != OVS_VPORT_TYPE_NETDEV)
- 					continue;
--
--				netdev_vport = netdev_vport_priv(vport);
--				if (!(netdev_vport->dev->priv_flags & IFF_OVS_DATAPATH))
-+				dev = vport->ops->get_netdev(vport);
-+				if (!(dev->priv_flags & IFF_OVS_DATAPATH))
- 					dp_detach_port_notify(vport);
- 			}
- 		}
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index 729c687..86ba186 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -31,6 +31,16 @@
+@@ -59,6 +59,7 @@
+ #include "flow_netlink.h"
  #include "vport-internal_dev.h"
  #include "vport-netdev.h"
++#include "hw_offload.h"
  
-+struct internal_dev_vport {
-+	struct rcu_head rcu;
-+	struct net_device *dev;
-+};
-+
-+static struct internal_dev_vport *internal_dev_vport_priv(const struct vport *vport)
-+{
-+	return vport_priv(vport);
-+}
-+
- struct internal_dev {
- 	struct vport *vport;
- };
-@@ -145,48 +155,49 @@ static void do_setup(struct net_device *netdev)
- static struct vport *internal_dev_create(const struct vport_parms *parms)
- {
- 	struct vport *vport;
--	struct netdev_vport *netdev_vport;
-+	struct internal_dev_vport *int_vport;
- 	struct internal_dev *internal_dev;
-+	struct net_device *dev;
- 	int err;
+ int ovs_net_id __read_mostly;
  
--	vport = ovs_vport_alloc(sizeof(struct netdev_vport),
-+	vport = ovs_vport_alloc(sizeof(struct internal_dev_vport),
- 				&ovs_internal_vport_ops, parms);
- 	if (IS_ERR(vport)) {
- 		err = PTR_ERR(vport);
- 		goto error;
+@@ -840,13 +841,15 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
+ 		flow->flow.key = masked_key;
+ 		flow->flow.unmasked_key = key;
+ 		rcu_assign_pointer(flow->sf_acts, acts);
++		acts = NULL;
+ 
+ 		/* Put flow in bucket. */
+ 		error = ovs_flow_tbl_insert(&dp->table, flow, &mask);
+-		if (error) {
+-			acts = NULL;
++		if (error)
+ 			goto err_flow_free;
+-		}
++		error = ovs_hw_flow_insert(dp, flow, flow->sf_acts);
++		if (error)
++			goto err_flow_tbl_remove;
+ 
+ 		reply = ovs_flow_cmd_build_info(flow, dp, info, OVS_FLOW_CMD_NEW);
+ 	} else {
+@@ -868,6 +871,10 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
+ 		if (!ovs_flow_cmp_unmasked_key(flow, &match))
+ 			goto err_unlock_ovs;
+ 
++		error = ovs_hw_flow_actions_update(dp, flow, acts);
++		if (error)
++			goto err_unlock_ovs;
++
+ 		/* Update actions. */
+ 		old_acts = ovsl_dereference(flow->sf_acts);
+ 		rcu_assign_pointer(flow->sf_acts, acts);
+@@ -888,6 +895,8 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
+ 			     0, PTR_ERR(reply));
+ 	return 0;
+ 
++err_flow_tbl_remove:
++	ovs_flow_tbl_remove(&dp->table, flow);
+ err_flow_free:
+ 	ovs_flow_free(flow, false);
+ err_unlock_ovs:
+@@ -985,6 +994,7 @@ static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
+ 		goto unlock;
  	}
  
--	netdev_vport = netdev_vport_priv(vport);
-+	int_vport = internal_dev_vport_priv(vport);
++	ovs_hw_flow_remove(dp, flow);
+ 	ovs_flow_tbl_remove(&dp->table, flow);
  
--	netdev_vport->dev = alloc_netdev(sizeof(struct internal_dev),
--					 parms->name, do_setup);
--	if (!netdev_vport->dev) {
-+	dev = alloc_netdev(sizeof(struct internal_dev), parms->name, do_setup);
-+	if (!dev) {
- 		err = -ENOMEM;
- 		goto error_free_vport;
- 	}
-+	int_vport->dev = dev;
- 
--	dev_net_set(netdev_vport->dev, ovs_dp_get_net(vport->dp));
--	internal_dev = internal_dev_priv(netdev_vport->dev);
-+	dev_net_set(dev, ovs_dp_get_net(vport->dp));
-+	internal_dev = internal_dev_priv(dev);
- 	internal_dev->vport = vport;
- 
- 	/* Restrict bridge port to current netns. */
- 	if (vport->port_no == OVSP_LOCAL)
--		netdev_vport->dev->features |= NETIF_F_NETNS_LOCAL;
-+		dev->features |= NETIF_F_NETNS_LOCAL;
- 
- 	rtnl_lock();
--	err = register_netdevice(netdev_vport->dev);
-+	err = register_netdevice(dev);
- 	if (err)
- 		goto error_free_netdev;
- 
--	dev_set_promiscuity(netdev_vport->dev, 1);
-+	dev_set_promiscuity(dev, 1);
- 	rtnl_unlock();
--	netif_start_queue(netdev_vport->dev);
-+	netif_start_queue(dev);
- 
- 	return vport;
- 
- error_free_netdev:
- 	rtnl_unlock();
--	free_netdev(netdev_vport->dev);
-+	free_netdev(dev);
- error_free_vport:
- 	ovs_vport_free(vport);
- error:
-@@ -195,21 +206,21 @@ error:
- 
- static void internal_dev_destroy(struct vport *vport)
- {
--	struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
-+	struct internal_dev_vport *int_vport = internal_dev_vport_priv(vport);
- 
--	netif_stop_queue(netdev_vport->dev);
-+	netif_stop_queue(int_vport->dev);
- 	rtnl_lock();
--	dev_set_promiscuity(netdev_vport->dev, -1);
-+	dev_set_promiscuity(int_vport->dev, -1);
- 
- 	/* unregister_netdevice() waits for an RCU grace period. */
--	unregister_netdevice(netdev_vport->dev);
-+	unregister_netdevice(int_vport->dev);
- 
- 	rtnl_unlock();
- }
- 
- static int internal_dev_recv(struct vport *vport, struct sk_buff *skb)
- {
--	struct net_device *netdev = netdev_vport_priv(vport)->dev;
-+	struct net_device *netdev = internal_dev_vport_priv(vport)->dev;
- 	int len;
- 
- 	len = skb->len;
-@@ -228,12 +239,18 @@ static int internal_dev_recv(struct vport *vport, struct sk_buff *skb)
- 	return len;
- }
- 
-+static struct net_device *internal_dev_get_netdev(struct vport *vport)
+ 	err = ovs_flow_cmd_fill_info(flow, dp, reply, info->snd_portid,
+diff --git a/net/openvswitch/hw_offload.c b/net/openvswitch/hw_offload.c
+new file mode 100644
+index 0000000..c4c64d0
+--- /dev/null
++++ b/net/openvswitch/hw_offload.c
+@@ -0,0 +1,170 @@
++/*
++ * Copyright (c) 2014 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA
++ */
++
++#include <linux/kernel.h>
++#include <linux/rcupdate.h>
++#include <linux/netdevice.h>
++#include <linux/sw_flow.h>
++#include <linux/switchdev.h>
++
++#include "datapath.h"
++#include "vport-netdev.h"
++
++static struct net_device *__dp_master(struct datapath *dp)
 +{
-+	return internal_dev_vport_priv(vport)->dev;
++	struct vport *local;
++
++	local = ovs_vport_ovsl_rcu(dp, OVSP_LOCAL);
++	BUG_ON(!local);
++	return local->ops->get_netdev(local);
 +}
 +
- const struct vport_ops ovs_internal_vport_ops = {
- 	.type		= OVS_VPORT_TYPE_INTERNAL,
- 	.create		= internal_dev_create,
- 	.destroy	= internal_dev_destroy,
- 	.get_name	= ovs_netdev_get_name,
- 	.send		= internal_dev_recv,
-+	.get_netdev	= internal_dev_get_netdev,
- };
- 
- int ovs_is_internal_dev(const struct net_device *netdev)
-diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-index d21f77d..aaf3d14 100644
---- a/net/openvswitch/vport-netdev.c
-+++ b/net/openvswitch/vport-netdev.c
-@@ -33,6 +33,16 @@
- #include "vport-internal_dev.h"
- #include "vport-netdev.h"
- 
-+struct netdev_vport {
-+	struct rcu_head rcu;
++static int sw_flow_action_create(struct datapath *dp,
++				 struct sw_flow_action **p_action,
++				 size_t *p_action_count,
++				 struct sw_flow_actions *acts)
++{
++	const struct nlattr *attr = acts->actions;
++	int len = acts->actions_len;
++	const struct nlattr *a;
++	int rem;
++	struct sw_flow_action *action, *cur;
++	size_t action_count = 0;
++	int err;
++
++	for (a = attr, rem = len; rem > 0; a = nla_next(a, &rem))
++		action_count++;
++
++	action = kzalloc(sizeof(*action) * action_count, GFP_KERNEL);
++	if (!action)
++		return -ENOMEM;
++
++	cur = action;
++	for (a = attr, rem = len; rem > 0; a = nla_next(a, &rem)) {
++		switch (nla_type(a)) {
++		case OVS_ACTION_ATTR_OUTPUT:
++			{
++				struct vport *vport;
++
++				vport = ovs_vport_ovsl_rcu(dp, nla_get_u32(a));
++				if (vport->ops->type != OVS_VPORT_TYPE_NETDEV) {
++					err = -EOPNOTSUPP;
++					goto errout;
++				}
++				cur->type = SW_FLOW_ACTION_TYPE_OUTPUT;
++				cur->output_dev = vport->ops->get_netdev(vport);
++			}
++			break;
++
++		case OVS_ACTION_ATTR_PUSH_VLAN:
++			{
++				const struct ovs_action_push_vlan *vlan;
++
++				vlan = nla_data(a);
++				cur->type = SW_FLOW_ACTION_TYPE_VLAN_PUSH;
++				cur->vlan.vlan_proto = vlan->vlan_tpid;
++				cur->vlan.vlan_tci = vlan->vlan_tci;
++			}
++			break;
++
++		case OVS_ACTION_ATTR_POP_VLAN:
++			cur->type = SW_FLOW_ACTION_TYPE_VLAN_POP;
++			break;
++
++		default:
++			err = -EOPNOTSUPP;
++			goto errout;
++		}
++		action++;
++	}
++	*p_action = action;
++	*p_action_count = action_count;
++	return 0;
++
++errout:
++	kfree(action);
++	return err;
++}
++
++int ovs_hw_flow_insert(struct datapath *dp, struct ovs_flow *flow,
++		       struct sw_flow_actions *acts)
++{
++	struct list_head *iter;
 +	struct net_device *dev;
-+};
++	struct sw_flow_action *action;
++	size_t action_count;
++	int err;
 +
-+static struct netdev_vport *netdev_vport_priv(const struct vport *vport)
-+{
-+	return vport_priv(vport);
++	err = sw_flow_action_create(dp, &action, &action_count, acts);
++	if (err)
++		return err;
++
++	rcu_read_lock();
++	netdev_for_each_all_lower_dev_rcu(__dp_master(dp), dev, iter) {
++		err = swdev_flow_insert(dev, &flow->flow);
++		if (err && err != -EOPNOTSUPP)
++			break;
++		err = swdev_flow_action_set(dev, &flow->flow,
++					    action, action_count);
++		if (err && err != -EOPNOTSUPP)
++			break;
++	}
++	rcu_read_unlock();
++
++	kfree(action);
++
++	return err;
 +}
 +
- /* Must be called with rcu_read_lock. */
- static void netdev_port_receive(struct vport *vport, struct sk_buff *skb)
- {
-@@ -224,10 +234,16 @@ struct vport *ovs_netdev_get_vport(struct net_device *dev)
- 		return NULL;
- }
- 
-+static struct net_device *netdev_get_netdev(struct vport *vport)
++void ovs_hw_flow_remove(struct datapath *dp, struct ovs_flow *flow)
 +{
-+	return netdev_vport_priv(vport)->dev;
++	struct list_head *iter;
++	struct net_device *dev;
++
++	rcu_read_lock();
++	netdev_for_each_all_lower_dev_rcu(__dp_master(dp), dev, iter)
++		swdev_flow_remove(dev, &flow->flow);
++	rcu_read_unlock();
 +}
 +
- const struct vport_ops ovs_netdev_vport_ops = {
- 	.type		= OVS_VPORT_TYPE_NETDEV,
- 	.create		= netdev_create,
- 	.destroy	= netdev_destroy,
- 	.get_name	= ovs_netdev_get_name,
- 	.send		= netdev_send,
-+	.get_netdev	= netdev_get_netdev,
- };
-diff --git a/net/openvswitch/vport-netdev.h b/net/openvswitch/vport-netdev.h
-index 8df01c11..f03d41d 100644
---- a/net/openvswitch/vport-netdev.h
-+++ b/net/openvswitch/vport-netdev.h
-@@ -26,18 +26,6 @@
- 
- struct vport *ovs_netdev_get_vport(struct net_device *dev);
- 
--struct netdev_vport {
--	struct rcu_head rcu;
--
--	struct net_device *dev;
--};
--
--static inline struct netdev_vport *
--netdev_vport_priv(const struct vport *vport)
--{
--	return vport_priv(vport);
--}
--
- const char *ovs_netdev_get_name(const struct vport *);
- void ovs_netdev_detach_dev(struct vport *);
- 
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index 0979304..d7d3af9 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -145,6 +145,8 @@ struct vport_ops {
- 	const char *(*get_name)(const struct vport *);
- 
- 	int (*send)(struct vport *, struct sk_buff *);
++int ovs_hw_flow_actions_update(struct datapath *dp, struct ovs_flow *flow,
++			       struct sw_flow_actions *acts)
++{
++	struct list_head *iter;
++	struct net_device *dev;
++	struct sw_flow_action *action;
++	size_t action_count;
++	int err;
 +
-+	struct net_device *(*get_netdev)(struct vport *);
- };
- 
- enum vport_err_type {
++	err = sw_flow_action_create(dp, &action, &action_count, acts);
++	if (err)
++		return err;
++
++	rcu_read_lock();
++	netdev_for_each_all_lower_dev_rcu(__dp_master(dp), dev, iter) {
++		err = swdev_flow_action_set(dev, &flow->flow,
++					    action, action_count);
++		if (err && err != -EOPNOTSUPP)
++			break;
++	}
++	rcu_read_unlock();
++
++	kfree(action);
++
++	return err;
++}
+diff --git a/net/openvswitch/hw_offload.h b/net/openvswitch/hw_offload.h
+new file mode 100644
+index 0000000..7ecb60f
+--- /dev/null
++++ b/net/openvswitch/hw_offload.h
+@@ -0,0 +1,31 @@
++/*
++ * Copyright (c) 2014 Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
++ * 02110-1301, USA
++ */
++
++#ifndef HW_OFFLOAD_H
++#define HW_OFFLOAD_H 1
++
++#include "datapath.h"
++#include "flow.h"
++
++int ovs_hw_flow_insert(struct datapath *dp, struct ovs_flow *flow,
++		       struct sw_flow_actions *acts);
++void ovs_hw_flow_remove(struct datapath *dp, struct ovs_flow *flow);
++int ovs_hw_flow_actions_update(struct datapath *dp, struct ovs_flow *flow,
++			       struct sw_flow_actions *acts);
++
++#endif
 -- 
 1.9.0
