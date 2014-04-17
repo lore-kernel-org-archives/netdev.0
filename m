@@ -1,184 +1,145 @@
-From: "Dongsheng.Wang@freescale.com" <Dongsheng.Wang@freescale.com>
-Subject: Powerpc: e1000e cannot work normally after system resume from
- sleep(standby)
-Date: Thu, 17 Apr 2014 07:00:16 +0000
-Message-ID: <5f7a898d9d6e4b7ea5c781d40c483a88@BN1PR03MB188.namprd03.prod.outlook.com>
+From: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: Re: [PATCH 7/7] ARM: sun7i: cubietruck: enable
+ bluetooth module
+Date: Thu, 17 Apr 2014 09:43:40 +0200
+Message-ID: <534F862C.8010604@broadcom.com>
+References: <1397544101-18135-1-git-send-email-wens@csie.org> <1397544101-18135-8-git-send-email-wens@csie.org> <20140415144215.GG3207@lukather> <CAGb2v643HyvFdhQ0znreB8ENXHWpcx6tFwdeU7VuU8KYWcT4ZA@mail.gmail.com> <20140416094428.GK3207@lukather> <CAGb2v67HzB22a3huRRZyufXkdTFE410MhXqAHyC-MmVo0-GCFA@mail.gmail.com> <534E8102.4070404@redhat.com>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, Arnd Bergmann
+	<arnd-r2nGTMty4D4@public.gmane.org>, Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>, Ian Campbell
+	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "Linus
+ Walleij" <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "John W. Linville"
+	<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, devicetree
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Kumar Gala
+	<galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, "Mika
+ Westerberg" <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, maxime.ripard
+	<maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, linux-arm-kernel
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <linux-serial@vger.k
+To: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBCKLZOXH5AIBBMUMX2NAKGQEVRN7WDQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <534E8102.4070404-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Hi all,
++ linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-Now I'm developing Freescale PCIe power management feature. The following is my PCIe
-suspend/resume code.
+On 16/04/14 15:09, Hans de Goede wrote:
+> Hi,
+>
+> On 04/16/2014 12:39 PM, Chen-Yu Tsai wrote:
+>> Hi,
+>>
+>> On Wed, Apr 16, 2014 at 5:44 PM, Maxime Ripard
+>> <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org> wrote:
+>>> Hi,
+>>>
+>>> Please try to keep me in CC, even though the ML doesn't make it easy..
+>>
+>> Sorry about that.
+>>
+>>> On Wed, Apr 16, 2014 at 12:06:59AM +0800, Chen-Yu Tsai wrote:
+>>>>>> @@ -139,4 +152,16 @@
+>>>>>>        reg_usb2_vbus: usb2-vbus {
+>>>>>>                status = "okay";
+>>>>>>        };
+>>>>>> +
+>>>>>> +     rfkill_bt {
+>>>>>> +             compatible = "rfkill-gpio";
+>>>>>> +             pinctrl-names = "default";
+>>>>>> +             pinctrl-0 = <&bt_pwr_pin_cubietruck>, <&clk_out_a_pins_a>;
+>>>>>> +             clocks = <&clk_out_a>;
+>>>>>> +             clock-frequency = <32768>;
+>>>>>> +             gpios = <&pio 7 18 0>; /* PH18 */
+>>>>>> +             gpio-names = "reset";
+>>>>>> +             rfkill-name = "bt";
+>>>>>> +             rfkill-type = <2>;
+>>>>>> +     };
+>>>>>
+>>>>> Hmmm, I don't think that's actually right.
+>>>>>
+>>>>> If you have such a device, then I'd expect it to be represented as a
+>>>>> full device in the DT, probably with one part for the WiFi, one part
+>>>>> for the Bluetooth, and here the definition of the rfkill device that
+>>>>> controls it.
+>>>>
+>>>> The AP6210 is not one device, but 2 separate chips in one module. Each
+>>>> chip has its own controls and interface. They just so happen to share
+>>>> the same enclosure. Even 2-in-1 chips by Broadcom have separate controls
+>>>> and interfaces. The WiFi side is most likely connected via SDIO, while
+>>>> the Bluetooth side is connected to a UART, and optionally I2S for sound.
+>>>
+>>> It's even easier to represent then.
+>>>
+>>>>> But tying parts of the device to the rfkill that controls it, such as
+>>>>> the clocks, or the frequency it runs at seems just wrong.
+>>>>
+>>>> I understand where you're coming from. For devices on buses that require
+>>>> drivers (such as USB, SDIO) these properties probably should be tied to
+>>>> the device node.
+>>>>
+>>>> For our use case here, which is a bluetooth chip connected on the UART,
+>>>> there is no in kernel representation or driver to tie them to. Same goes
+>>>> for UART based GPS chips. They just so happen to require toggling a GPIO,
+>>>> and maybe enabling a specific clock, to get it running. Afterwards,
+>>>> accessing it is done solely from userspace. For our Broadcom chips, the
+>>>> user has to upload its firmware first, then designate the tty as a Bluetooth
+>>>> HCI using hciattach.
+>>>>
+>>>> We are using the rfkill device as a on-off switch.
+>>>
+>>> I understand your point, but the fact that it's implemented in
+>>> user-space, or that UART is not a bus (which probably should be), is
+>>> only a Linux specific story, and how it's implemented in Linux (even
+>>> if the whole rfkill node is another one, but let's stay on topic).
+>>
+>> I gave it some thought last night. You are right. My whole approach
+>> is wrong. But let's try to make it right.
+>>
+>> So considering the fact that it's primarily connected to a UART,
+>> maybe I should make it a sub-node to the UART node it's actually
+>> connected to? Something like:
+>>
+>>          uart2: serial@01c28800 {
+>>                  pinctrl-names = "default";
+>>                  pinctrl-0 = <&uart2_pins_a>;
+>>                  status = "okay";
+>>
+>>                  bt: bt_hci {
+>>                          compatible = "brcm,bcm20710";
+>>                          /* maybe add some generic compatible */
+>>                          pinctrl-names = "default";
+>>                          pinctrl-0 = <&clk_out_a_pins_a>,
+>> <&bt_pwr_pin_cubietruck>;
+>>                          clocks = <&clk_out_a>;
+>>                          clock-frequency = <32768>;
+>>                          gpios = <&pio 7 18 0>; /* PH18 */
+>>                  };
+>>          };
+>>
+>> And let the uart core handle power sequencing for sub-nodes.
+>
+> Great, I missed this reply when I typed my mail I send a few minutes
+> ago. I agree that this approach is how thing should be.
 
-when I test system wake up from sleep(STANDBY), I got below calltrace. Looks like e1000e
-cannot transfer data, maybe watchdog has some issue. Or maybe some of the other causes.
-I think this is not root cause. Because If changed mdelay(10) to 20ms. E1000 will work normal.
-Maybe e1000e need more time to recover? Or ?
+Regarding the device tree hierarchy this seems right, but powering the 
+sub-nodes seems outside the realm of uart core.
 
-Here are my test results:
-E1000e plug in PCIe slot 1, we need to delay 10ms.
-E1000e plug in PCIe slot 2, we need to delay 20ms.
-E1000e plug in PCIe slot 3, we need to delay 60ms.
-
-Anyone have any idea about this?
-
-
-*Suspend flow*: 
-if (fsl_pcie_check_link(hose))
-		return;
-
-/* Send PME_Turn_Off Message Request */
-setbits32(&pci->pex_pmcr, PEX_PMCR_PTOMR);
-
-/* Wait trun off done */
-/* RC will get this detect quickly */
-for (i = 0; i < 50; i++) {
-	dr = in_be32(&pci->pex_pme_mes_dr);
-	if (dr & ENL23_DETECT_BIT) {
-			out_be32(&pci->pex_pme_mes_dr, dr);
-			break;
-	}
-
-	udelay(1000);
-}
-
-/*
- * "PCI Bus Power Management Interface Specification" define
- * Minimum System Software Guaranteed Delays
- *
- * D0, D1 or D2 --> D3, need delay 10ms.
- * But we need to delay more time when EP plug in p1022 slot2.
- */
-mdelay(10);
-
-
-*Resume flow*:
-if (fsl_pcie_check_link(hose))
-		return;
-
-/* Send Exit L2 State Message */
-setbits32(&pci->pex_pmcr, PEX_PMCR_EXL2S);
-
-/* Wait exit done */
-/* RC will get this detect quickly */
-for (i = 0; i < 50; i++) {
-	dr = in_be32(&pci->pex_pme_mes_dr);
-	if (dr & EXL23_DETECT_BIT) {
-			out_be32(&pci->pex_pme_mes_dr, dr);
-			break;
-	}
-
-	udelay(1000);
-}
-
-/*
- * "PCI Bus Power Management Interface Specification" define
- * Minimum System Software Guaranteed Delays
- *
- * D3 hot --> D0, need delay 10ms.
- * But we need to delay more time when EP plug in p1022 slot2.
- */
-mdelay(10);
-
-================================================================================
-					CALL TRACE
-================================================================================
-
-[root@p1022 /root]# udhcpc -i eth0
-udhcpc (v1.11.2) started
-IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
-Sending discover...
-e1000e: eth0 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: Rx/Tx
-IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-Sending discover...
-Sending discover...
-NETDEV WATCHDOG: eth0 (e1000e): transmit queue 0 timed out
-------------[ cut here ]------------
-WARNING: at net/sched/sch_generic.c:264
-Modules linked in:
-CPU: 1 PID: 0 Comm: swapper/1 Not tainted 3.14.0-173871-g9964256-dirty #42
-task: ee0534e0 ti: ee070000 task.ti: ee070000
-NIP: c036267c LR: c036267c CTR: c028b834
-REGS: ee071d00 TRAP: 0700   Not tainted  (3.14.0-173871-g9964256-dirty)
-MSR: 00029000 <CE,EE,ME>  CR: 42000022  XER: 20000000
-
-GPR00: c036267c ee071db0 ee0534e0 0000003a c16393b0 c16398e8 01079000 c05c03a8
-GPR08: 00000001 00000001 01079000 00000132 00000132 00000000 00000004 c05ed040
-GPR16: 00000001 00000100 00000004 fffef539 00000000 c05c10c0 00000038 ffffffff
-GPR24: 00000000 00000001 ee070000 00000004 c05e0000 c05f0000 ee3c0000 00000000
-NIP [c036267c] dev_watchdog+0x2c8/0x2d8
-LR [c036267c] dev_watchdog+0x2c8/0x2d8
-Call Trace:
-[ee071db0] [c036267c] dev_watchdog+0x2c8/0x2d8 (unreliable)
-[ee071de0] [c004778c] call_timer_fn.isra.24+0x28/0x84
-[ee071e00] [c00479b8] run_timer_softirq+0x1d0/0x248
-[ee071e40] [c004090c] __do_softirq+0x104/0x20c
-[ee071ea0] [c0040cd8] irq_exit+0xa4/0xc8
-[ee071eb0] [c0009ef4] timer_interrupt+0xb8/0xdc
-[ee071ed0] [c000f57c] ret_from_except+0x0/0x18
---- Exception: 901 at arch_cpu_idle+0x24/0x5c
-    LR = arch_cpu_idle+0x24/0x5c
-[ee071f90] [c0089534] rcu_idle_enter+0xa4/0xd0 (unreliable)
-[ee071fa0] [c0076010] cpu_startup_entry+0x120/0x17c
-[ee071fd0] [c0010bbc] start_secondary+0x214/0x224
-[ee071ff0] [c0002154] __secondary_start+0x7c/0xc8
-Instruction dump:
-4e800421 80fe0224 4bffff4c 7fc3f378 4bfe5401 7fc4f378 7c651b78 3c60c055
-7fe6fb78 3863e0f4 4cc63182 480e9a05 <0fe00000> 39200001 993c6f38 4bffffb4
----[ end trace 2d4f2cedfa86e32f ]---
-e1000e 0002:05:00.0: Net device Info
-e1000e: Device Name     state            trans_start      last_rx
-e1000e: eth0            0000000000000003 00000000FFFEF040 0000000000000000
-e1000e 0002:05:00.0: Register Dump
-e1000e:  Register Name   Value
-e1000e: CTRL            58100248
-e1000e: STATUS          00080783
-e1000e: CTRL_EXT        18580000
-e1000e: ICR             00000000
-e1000e: RCTL            04008002
-e1000e: RDLEN           00001000
-e1000e: RDH             0000001d
-e1000e: RDT             000000f0
-e1000e: RDTR            00000020
-e1000e: RXDCTL[0-1]     01040420 01040420
-e1000e: ERT             00000000
-e1000e: RDBAL           2d390000
-e1000e: RDBAH           00000000
-e1000e: RDFH            0000020a
-e1000e: RDFT            0000020a
-e1000e: RDFHS           0000020a
-e1000e: RDFTS           0000020a
-e1000e: RDFPC           00000000
-e1000e: TCTL            3103f0fa
-e1000e: TDBAL           2e158000
-e1000e: TDBAH           00000000
-e1000e: TDLEN           00001000
-e1000e: TDH             00000001
-e1000e: TDT             00000001
-e1000e: TIDV            00000008
-e1000e: TXDCTL[0-1]     0141011f 0141011f
-e1000e: TADV            00000020
-e1000e: TARC[0-1]       04000403 00000403
-e1000e: TDFH            00001000
-e1000e: TDFT            00001012
-e1000e: TDFHS           00001000
-e1000e: TDFTS           00001000
-e1000e: TDFPC           00000000
-e1000e 0002:05:00.0: Tx Ring Summary
-e1000e: Queue [NTU] [NTC] [bi(ntc)->dma  ] leng ntw timestamp
-e1000e:      0     1     0 000000002C809802 005A   0 00000000FFFEF044
-e1000e 0002:05:00.0: Rx Ring Summary
-e1000e: Queue [NTU] [NTC]
-e1000e:      0    FF     0
-e1000e 0002:05:00.0 eth0: Reset adapter unexpectedly
+> Regards,
+>
+> Hans
+>
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+>
