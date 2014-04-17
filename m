@@ -1,201 +1,123 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net v4] vlan: Fix lockdep warning when vlan dev handle notification
-Date: Thu, 17 Apr 2014 18:40:36 +0800
-Message-ID: <534FAFA4.9050503@huawei.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [ANNOUNCE] libnftnl 1.0.1 release
+Date: Thu, 17 Apr 2014 13:09:08 +0200
+Message-ID: <20140417110908.GA23125@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Ben Hutchings <ben@decadent.org.uk>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	"Florian Fainelli" <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:14814 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755190AbaDQKlR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2014 06:41:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="IS0zKkzwUGydFO0o"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-announce@lists.netfilter.org, lwn@lwn.net
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When I open the LOCKDEP config and run these steps:
 
-modprobe 8021q
-vconfig add eth2 20
-vconfig add eth2.20 30
-ifconfig eth2 xx.xx.xx.xx
+--IS0zKkzwUGydFO0o
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-then the Call Trace happened:
+Hi!
 
-[32524.386288] =============================================
-[32524.386293] [ INFO: possible recursive locking detected ]
-[32524.386298] 3.14.0-rc2-0.7-default+ #35 Tainted: G           O
-[32524.386302] ---------------------------------------------
-[32524.386306] ifconfig/3103 is trying to acquire lock:
-[32524.386310]  (&vlan_netdev_addr_lock_key/1){+.....}, at: [<ffffffff814275f4>] dev_mc_sync+0x64/0xb0
-[32524.386326]
-[32524.386326] but task is already holding lock:
-[32524.386330]  (&vlan_netdev_addr_lock_key/1){+.....}, at: [<ffffffff8141af83>] dev_set_rx_mode+0x23/0x40
-[32524.386341]
-[32524.386341] other info that might help us debug this:
-[32524.386345]  Possible unsafe locking scenario:
-[32524.386345]
-[32524.386350]        CPU0
-[32524.386352]        ----
-[32524.386354]   lock(&vlan_netdev_addr_lock_key/1);
-[32524.386359]   lock(&vlan_netdev_addr_lock_key/1);
-[32524.386364]
-[32524.386364]  *** DEADLOCK ***
-[32524.386364]
-[32524.386368]  May be due to missing lock nesting notation
-[32524.386368]
-[32524.386373] 2 locks held by ifconfig/3103:
-[32524.386376]  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81431d42>] rtnl_lock+0x12/0x20
-[32524.386387]  #1:  (&vlan_netdev_addr_lock_key/1){+.....}, at: [<ffffffff8141af83>] dev_set_rx_mode+0x23/0x40
-[32524.386398]
-[32524.386398] stack backtrace:
-[32524.386403] CPU: 1 PID: 3103 Comm: ifconfig Tainted: G           O 3.14.0-rc2-0.7-default+ #35
-[32524.386409] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
-[32524.386414]  ffffffff81ffae40 ffff8800d9625ae8 ffffffff814f68a2 ffff8800d9625bc8
-[32524.386421]  ffffffff810a35fb ffff8800d8a8d9d0 00000000d9625b28 ffff8800d8a8e5d0
-[32524.386428]  000003cc00000000 0000000000000002 ffff8800d8a8e5f8 0000000000000000
-[32524.386435] Call Trace:
-[32524.386441]  [<ffffffff814f68a2>] dump_stack+0x6a/0x78
-[32524.386448]  [<ffffffff810a35fb>] __lock_acquire+0x7ab/0x1940
-[32524.386454]  [<ffffffff810a323a>] ? __lock_acquire+0x3ea/0x1940
-[32524.386459]  [<ffffffff810a4874>] lock_acquire+0xe4/0x110
-[32524.386464]  [<ffffffff814275f4>] ? dev_mc_sync+0x64/0xb0
-[32524.386471]  [<ffffffff814fc07a>] _raw_spin_lock_nested+0x2a/0x40
-[32524.386476]  [<ffffffff814275f4>] ? dev_mc_sync+0x64/0xb0
-[32524.386481]  [<ffffffff814275f4>] dev_mc_sync+0x64/0xb0
-[32524.386489]  [<ffffffffa0500cab>] vlan_dev_set_rx_mode+0x2b/0x50 [8021q]
-[32524.386495]  [<ffffffff8141addf>] __dev_set_rx_mode+0x5f/0xb0
-[32524.386500]  [<ffffffff8141af8b>] dev_set_rx_mode+0x2b/0x40
-[32524.386506]  [<ffffffff8141b3cf>] __dev_open+0xef/0x150
-[32524.386511]  [<ffffffff8141b177>] __dev_change_flags+0xa7/0x190
-[32524.386516]  [<ffffffff8141b292>] dev_change_flags+0x32/0x80
-[32524.386524]  [<ffffffff8149ca56>] devinet_ioctl+0x7d6/0x830
-[32524.386532]  [<ffffffff81437b0b>] ? dev_ioctl+0x34b/0x660
-[32524.386540]  [<ffffffff814a05b0>] inet_ioctl+0x80/0xa0
-[32524.386550]  [<ffffffff8140199d>] sock_do_ioctl+0x2d/0x60
-[32524.386558]  [<ffffffff81401a52>] sock_ioctl+0x82/0x2a0
-[32524.386568]  [<ffffffff811a7123>] do_vfs_ioctl+0x93/0x590
-[32524.386578]  [<ffffffff811b2705>] ? rcu_read_lock_held+0x45/0x50
-[32524.386586]  [<ffffffff811b39e5>] ? __fget_light+0x105/0x110
-[32524.386594]  [<ffffffff811a76b1>] SyS_ioctl+0x91/0xb0
-[32524.386604]  [<ffffffff815057e2>] system_call_fastpath+0x16/0x1b
+The Netfilter project proudly presents:
 
-========================================================================
+        libnftnl 1.0.1
 
-The reason is that all of the addr_lock_key for vlan dev have the same class,
-so if we change the status for vlan dev, the vlan dev and its real dev will
-hold the same class of addr_lock_key together, so the warning happened.
+libnftnl is a userspace library providing a low-level netlink
+programming interface (API) to the in-kernel nf_tables subsystem. The
+library libnftnl has been previously known as libnftables. This
+library is currently used by the nft command line tool.
 
-we should distinguish the lock depth for vlan dev and its real dev.
+This release comes with new features available in 3.14 and fixes.
+See ChangeLog that comes attached to this email for more details.
 
-v1->v2: Convert the vlan_netdev_addr_lock_key to an array of eight elements, which
-	could support to add 8 vlan id on a same vlan dev, I think it is enough for current
-	scene, because a netdev's name is limited to IFNAMSIZ which could not hold 8 vlan id,
-	and the vlan dev would not meet the same class key with its real dev.
+You can download it from:
 
-	The new function vlan_dev_get_lockdep_subkey() will return the subkey and make the vlan
-	dev could get a suitable class key.
+http://www.netfilter.org/projects/libnftnl/downloads.html
+ftp://ftp.netfilter.org/pub/libnftnl/
 
-v2->v3: According David's suggestion, I use the subclass to distinguish the lock key for vlan dev
-	and its real dev, but it make no sense, because the difference for subclass in the
-	lock_class_key doesn't mean that the difference class for lock_key, so I use lock_depth
-	to distinguish the different depth for every vlan dev, the same depth of the vlan dev
-	could have the same lock_class_key, I import the MAX_LOCK_DEPTH from the include/linux/sched.h,
-	I think it is enough here, the lockdep should never exceed that value.
+Have fun!
 
-v3->v4: Add a huge array of locking keys will waste static kernel memory and is not a appropriate method,
-	we could use _nested() variants to fix the problem, calculate the depth for every vlan dev,
-	and use the depth as the subclass for addr_lock_key.
+--IS0zKkzwUGydFO0o
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: attachment; filename="changes-libnftnl-1.0.1.txt"
+Content-Transfer-Encoding: 8bit
 
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- net/8021q/vlan_dev.c | 46 +++++++++++++++++++++++++++++++++++++++++-----
- net/core/dev.c       |  1 +
- 2 files changed, 42 insertions(+), 5 deletions(-)
+Ana Rey (9):
+      tests: Use getopt_long to parse the command-line arguments.
+      xml, json: Delete a cmpdata label in xml and json file
+      xml, json: Delete an immediatedate label in xml and json file
+      tests: New tools to update xml and json testfiles
+      tests: Add support to check a json or xml testfile
+      tests: Fix a memory leak
+      target, match: Fix an invalid read
+      set-elem: fix a memory leak
+      lookup: Fix an invalid read
 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 6f142f0..a1c4f67 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -493,10 +493,48 @@ static void vlan_dev_change_rx_flags(struct net_device *dev, int change)
- 	}
- }
- 
-+static int vlan_calculate_locking_subclass(struct net_device *real_dev)
-+{
-+	int subclass = 0;
-+
-+	while (is_vlan_dev(real_dev)) {
-+		subclass++;
-+		real_dev = vlan_dev_priv(real_dev)->real_dev;
-+	}
-+
-+	return subclass;
-+}
-+
-+static void vlan_dev_mc_sync(struct net_device *to, struct net_device *from)
-+{
-+	int err = 0, subclass;
-+
-+	subclass = vlan_calculate_locking_subclass(to);
-+
-+	spin_lock_nested(&to->addr_list_lock, subclass);
-+	err = __hw_addr_sync(&to->mc, &from->mc, to->addr_len);
-+	if (!err)
-+		__dev_set_rx_mode(to);
-+	spin_unlock(&to->addr_list_lock);
-+}
-+
-+static void vlan_dev_uc_sync(struct net_device *to, struct net_device *from)
-+{
-+	int err = 0, subclass;
-+
-+	subclass = vlan_calculate_locking_subclass(to);
-+
-+	spin_lock_nested(&to->addr_list_lock, subclass);
-+	err = __hw_addr_sync(&to->uc, &from->uc, to->addr_len);
-+	if (!err)
-+		__dev_set_rx_mode(to);
-+	spin_unlock(&to->addr_list_lock);
-+}
-+
- static void vlan_dev_set_rx_mode(struct net_device *vlan_dev)
- {
--	dev_mc_sync(vlan_dev_priv(vlan_dev)->real_dev, vlan_dev);
--	dev_uc_sync(vlan_dev_priv(vlan_dev)->real_dev, vlan_dev);
-+	vlan_dev_mc_sync(vlan_dev_priv(vlan_dev)->real_dev, vlan_dev);
-+	vlan_dev_uc_sync(vlan_dev_priv(vlan_dev)->real_dev, vlan_dev);
- }
- 
- /*
-@@ -608,9 +646,7 @@ static int vlan_dev_init(struct net_device *dev)
- 
- 	SET_NETDEV_DEVTYPE(dev, &vlan_type);
- 
--	if (is_vlan_dev(real_dev))
--		subclass = 1;
--
-+	subclass = vlan_calculate_locking_subclass(dev);
- 	vlan_dev_set_lockdep_class(dev, subclass);
- 
- 	vlan_dev_priv(dev)->vlan_pcpu_stats = netdev_alloc_pcpu_stats(struct vlan_pcpu_stats);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 14dac06..21265cd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5238,6 +5238,7 @@ void __dev_set_rx_mode(struct net_device *dev)
- 	if (ops->ndo_set_rx_mode)
- 		ops->ndo_set_rx_mode(dev);
- }
-+EXPORT_SYMBOL(__dev_set_rx_mode);
- 
- void dev_set_rx_mode(struct net_device *dev)
- {
--- 
-1.8.0
+Arturo Borrero (8):
+      src: update meta expr
+      examples: nft-set-get: retrieve all sets via unspec
+      examples: add nft-ruleset-get
+      include: add stdint.h to common.h
+      src: check if netlink parsing fails
+      set_elems: delete unexisting exported symbol
+      set_elem: parse family from Netlink message
+      examples: complete nft-events example
+
+Arturo Borrero Gonzalez (1):
+      tests: add table 'use' attr to testfiles
+
+Eric Leblond (2):
+      expr: add support for nfnetlink queue
+      test: add tests for expr queue
+
+Florian Westphal (1):
+      expr: add conntrack label match support
+
+Jan Engelhardt (2):
+      build: resolve build failure involving linux/netlink.h
+      build: resolve compile error involving XT_EXTENSION_MAXNAMELEN
+
+Kristian Evensen (2):
+      meta: Let user specify any combination of sreg/dreg
+      expr: ct: Add support for setting the mark
+
+Pablo Neira Ayuso (17):
+      src: fix compilation due to missing NFPROTO_INET definition
+      build: fix final report after configuration
+      include: add cached copy of linux/kernel.h
+      Merge branch 'master' into next-3.14
+      chain: print usage counter for base chain via default output as well
+      src: compile queue expression support
+      src: early attribute type validation in nft_*_attr_set
+      src: add assertion infrastructure to validate attribute types
+      src: add nft_*_attr_{set|get}_data interface
+      src: fix wrong type in NFT_ATTR_*_FAMILY
+      include: get linux/netfilter/nf_tables.h in sync with kernel header
+      example: nft-rule-add: simplify example
+      rule: add NFT_RULE_ATTR_USERDATA support
+      examples: remove nft-rule-insert from Makefile.am
+      src: fix bogus assertion for unset attributes
+      include: add missing netfilter.h
+      bump version to 1.0.1
+
+Patrick McHardy (4):
+      libnftables: add support for inet family and mete nfproto/l4proto expressions
+      Merge branch 'next-3.14' of git.netfilter.org:libnftables into inet
+      libnftables: replace netfilter.h by sanitized header
+      expr/cmp: fix type size
+
+Tomasz Bursztyka (2):
+      table: Add support for NFTA_TABLE_USE attribute
+      build: Ensure pkg-config file provides the right informations
+
+Álvaro Neira Ayuso (5):
+      examples: nft-rule-del: fix missing batching headers
+      examples: nft-rule-insert: fix and merge it to nft-rule-add
+      examples: nft-rule-del: removed printf rule function
+      rule: don't print unset attributes
+      rule: don't enforce attributes when parsing
+
+
+--IS0zKkzwUGydFO0o--
