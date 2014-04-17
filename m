@@ -1,8 +1,8 @@
 From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: [patch iproute2 RFC v3 1/5] iproute2: arpd: use
-	ll_addr_a2n and ll_addr_n2a
-Date: Thu, 17 Apr 2014 14:17:29 +0200
-Message-ID: <1397737053-11892-2-git-send-email-jiri@resnulli.us>
+Subject: [patch iproute2 RFC v3 2/5] iproute2: utils: change
+	hexstring_n2a and hexstring_a2n to do not work with ":"
+Date: Thu, 17 Apr 2014 14:17:30 +0200
+Message-ID: <1397737053-11892-3-git-send-email-jiri@resnulli.us>
 References: <1397736876-11771-1-git-send-email-jiri@resnulli.us>
  <1397737053-11892-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
@@ -33,39 +33,75 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
 ---
- misc/arpd.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ lib/utils.c | 46 +++++++++++++---------------------------------
+ 1 file changed, 13 insertions(+), 33 deletions(-)
 
-diff --git a/misc/arpd.c b/misc/arpd.c
-index bfe7de9..0839e3f 100644
---- a/misc/arpd.c
-+++ b/misc/arpd.c
-@@ -36,6 +36,7 @@
+diff --git a/lib/utils.c b/lib/utils.c
+index 4e9c719..e9e1040 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -743,10 +743,6 @@ char *hexstring_n2a(const __u8 *str, int len, char *buf, int blen)
+ 		sprintf(ptr, "%02x", str[i]);
+ 		ptr += 2;
+ 		blen -= 2;
+-		if (i != len-1 && blen > 1) {
+-			*ptr++ = ':';
+-			blen--;
+-		}
+ 	}
+ 	return buf;
+ }
+@@ -754,38 +750,22 @@ char *hexstring_n2a(const __u8 *str, int len, char *buf, int blen)
+ __u8* hexstring_a2n(const char *str, __u8 *buf, int blen)
+ {
+ 	int cnt = 0;
++	char *endptr;
  
- #include "libnetlink.h"
- #include "utils.h"
-+#include "rt_names.h"
+-	for (;;) {
+-		unsigned acc;
+-		char ch;
+-
+-		acc = 0;
+-
+-		while ((ch = *str) != ':' && ch != 0) {
+-			if (ch >= '0' && ch <= '9')
+-				ch -= '0';
+-			else if (ch >= 'a' && ch <= 'f')
+-				ch -= 'a'-10;
+-			else if (ch >= 'A' && ch <= 'F')
+-				ch -= 'A'-10;
+-			else
+-				return NULL;
+-			acc = (acc<<4) + ch;
+-			str++;
+-		}
+-
+-		if (acc > 255)
++	if (strlen(str) % 2)
++		return NULL;
++	while (cnt < blen && strlen(str) > 1) {
++		unsigned int tmp;
++		char tmpstr[3];
++
++		strncpy(tmpstr, str, 2);
++		tmpstr[2] = '\0';
++		tmp = strtoul(tmpstr, &endptr, 16);
++		if (errno != 0 || tmp > 0xFF || *endptr != '\0')
+ 			return NULL;
+-		if (cnt < blen) {
+-			buf[cnt] = acc;
+-			cnt++;
+-		}
+-		if (ch == 0)
+-			break;
+-		++str;
++		buf[cnt++] = tmp;
++		str += 2;
+ 	}
+-	if (cnt < blen)
+-		memset(buf+cnt, 0, blen-cnt);
+ 	return buf;
+ }
  
- int resolve_hosts;
- 
-@@ -721,8 +722,7 @@ int main(int argc, char **argv)
- 				goto do_abort;
- 			}
- 
--			dbdat.data = hexstring_a2n(macbuf, b1, 6);
--			if (dbdat.data == NULL)
-+			if (ll_addr_a2n((char *) b1, 6, macbuf) != 6)
- 				goto do_abort;
- 			dbdat.size = 6;
- 
-@@ -747,7 +747,7 @@ int main(int argc, char **argv)
- 					printf("%-8d %-15s %s\n",
- 					       key->iface,
- 					       inet_ntoa(*(struct in_addr*)&key->addr),
--					       hexstring_n2a(dbdat.data, 6, b1, 18));
-+					       ll_addr_n2a(dbdat.data, 6, ARPHRD_ETHER, b1, 18));
- 				} else {
- 					printf("%-8d %-15s FAILED: %dsec ago\n",
- 					       key->iface,
 -- 
 1.9.0
