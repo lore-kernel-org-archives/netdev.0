@@ -1,44 +1,114 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] filter: added BPF random opcode
-Date: Wed, 16 Apr 2014 18:38:16 -0700
-Message-ID: <1397698696.4222.138.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1397585816-1267-1-git-send-email-chema@google.com>
-	 <CAMEtUuw3-LEuwJ2cAQ+F-tu_-wzy4HK4ZteAuJpYfY9hW66+FA@mail.gmail.com>
+From: NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH/RFC 00/19] Support loop-back NFS mounts
+Date: Thu, 17 Apr 2014 11:50:18 +1000
+Message-ID: <20140417115018.460345d0@notabene.brown>
+References: <20140416033623.10604.69237.stgit@notabene.brown>
+	<20140416104207.75b044e8@tlielax.poochiereds.net>
+	<20140417102048.2fc8275c@notabene.brown>
+	<20140417012739.GU15995@dastard>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Chema Gonzalez <chema@google.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:64023 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753437AbaDQBiS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Apr 2014 21:38:18 -0400
-Received: by mail-pb0-f44.google.com with SMTP id rp16so11610283pbb.3
-        for <netdev@vger.kernel.org>; Wed, 16 Apr 2014 18:38:17 -0700 (PDT)
-In-Reply-To: <CAMEtUuw3-LEuwJ2cAQ+F-tu_-wzy4HK4ZteAuJpYfY9hW66+FA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/aR.nJzAOWD3tAtDyjyGs6Ar"; protocol="application/pgp-signature"
+Cc: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xfs-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org, linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Dave Chinner <david-FqsqvQoI3Ljby3iVrkZq2A@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140417012739.GU15995@dastard>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-04-15 at 23:24 -0700, Alexei Starovoitov wrote:
+--Sig_/aR.nJzAOWD3tAtDyjyGs6Ar
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-> In particular I don't find the reason of moving random
-> packet sampling into kernel to be that great.
-> pcap cannot receive them quickly enough anyway,
-> so there are drops already.
-> Just randomly pick packets that reached the user space.
-> Why add this to the kernel? I don't see how it can improve accuracy.
+On Thu, 17 Apr 2014 11:27:39 +1000 Dave Chinner <david-FqsqvQoI3Ljby3iVrkZq2A@public.gmane.org> wrote:
 
-It has nothing to do with speed or accuracy.
+> On Thu, Apr 17, 2014 at 10:20:48AM +1000, NeilBrown wrote:
+> > A good example is the deadlock with the flush-* threads.
+> > flush-* will lock a page, and  then call ->writepage.  If ->writepage
+> > allocates memory it can enter reclaim, call ->releasepage on NFS, and b=
+lock
+> > waiting for a COMMIT to complete.
+> > The COMMIT might already be running, performing fsync on that same file=
+ that
+> > flush-* is flushing.  It locks each page in turn.  When it  gets to the=
+ page
+> > that flush-* has locked, it will deadlock.
+>=20
+> It's nfs_release_page() again....
+>=20
+> > In general, if nfsd is allowed to block on local filesystem, and local
+> > filesystem is allowed to block on NFS, then a deadlock can happen.
+> > We would need a clear hierarchy
+> >=20
+> >    __GFP_NETFS > __GFP_FS > __GFP_IO
+> >=20
+> > for it to work.  I'm not sure the extra level really helps a lot and it=
+ would
+> > be a lot of churn.
+>=20
+> I think you are looking at this the wrong way - it's not the other
+> filesystems that have to avoid memory reclaim recursion, it's the
+> NFS client mount that is on loopback that needs to avoid recursion.
+>=20
+> IMO, the fix should be that the NFS client cannot block on messages sent =
+to the NFSD
+> on the same host during memory reclaim. That is, nfs_release_page()
+> cannot send commit messages to the server if the server is on
+> localhost. Instead, it just tells memory reclaim that it can't
+> reclaim that page.
+>=20
+> If nfs_release_page() no longer blocks in memory reclaim, and all
+> these nfsd-gets-blocked-in-GFP_KERNEL-memory-allocation recursion
+> problems go away. Do the same for all the other memory reclaim
+> operations in the NFS client, and you've got a solution that should
+> work without needing to walk all over the rest of the kernel....
 
-Being able to intercept 0.001 % of the packets (and not 0.001 % of the
-flows...) can be useful to network operators.
+Maybe.
+It is nfs_release_page() today. I wonder if it could be other things another
+day.  I want to be sure I have a solution that really makes sense.
 
-_Then_ if its super super super fast, thats better, of course.
+However ... the thing that nfs_release_page is doing it sending a COMMIT to
+tell the server to flush to stable storage.  It does that so that if the
+server crashes, then the client can re-send.
+Of course when it is a loop-back mount the client is the server so the COMM=
+IT
+is completely pointless.  If the client notices that it is sending a COMMIT
+to itself, it can simply assume a positive reply.
 
-Suggesting to intercept all packets, then filtering 99.999 % of them in
-user space is not going to work. Its going to be super super super slow.
+You are right, that would make the patch set a lot less intrusive.  I'll gi=
+ve
+it some serious thought - thanks.
+
+NeilBrown
+
+--Sig_/aR.nJzAOWD3tAtDyjyGs6Ar
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIVAwUBU08zWjnsnt1WYoG5AQKfQw//WIl8Mf1G0vzy816TBvi7fx3VCp6SUV7s
+jQeCJSD0IPRzCFmxH1ZJFzy3jIK8J3dbT8cSGjxXYegOq+kyyVjbHXOG2msC1riY
+ytOGUQnOS8MHscbcAOR7r61t/1t7FZiSJ51Th7pykepQmbm9QNEna+U0wzna3poK
+NNRDrs1J0eySpLTydegKoyg4w6KP6MLXqlYQm1FigvkreDEZ9mvBW7NrGycwDQF8
+NZgq8+dGCL3MAq+uZ7WMqAoCZwZUrusVZBc3zvXYWepSMFSW1FOmQP971QZ9DgI2
+KzarhdGOSFTbVHLhZafYV0X2k/hATVoIJpXh3Kl2ak0qdnuuUPJ/s64zxvQ3N4wo
+3zBU0/TvcEVs6toQfcT/Zi91rCIvVvl8BOssIosbwknfLyi/JEYtnDJ+MxWBlg1G
+xlaEF1pDaQYEix5Ocg1qyU7oroFv98+pZ4BZeDI7Y/A6gasVvR3NKBOFcadozYuo
+FBTuYO6ZTSVPZ1+ASqykb5hh3GGKO5oM4x7xX0dQRSADk4qo4FLfv6ONKK2OfjQo
+r6FBlpw9OU6su26F4XzDkFLPb3xUDgfY7gMG6vIZYmCS7JGOvTg2rpk6inZxzATb
+40mX+gFDXs5oE9XGaqz2Fl7Lw/BNluPNDEpkmWJX42+7cdClnc2XPSJyvpFx7nLH
+lfrN+yaHFBM=
+=c/XS
+-----END PGP SIGNATURE-----
+
+--Sig_/aR.nJzAOWD3tAtDyjyGs6Ar--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
