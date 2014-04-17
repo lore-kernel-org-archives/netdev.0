@@ -1,87 +1,52 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: in kernel 2.6.x, tun/tap nic supports vlan packets
-Date: Thu, 17 Apr 2014 07:02:28 +0200
-Message-ID: <20140417050228.GC8243@1wt.eu>
-References: <534F4C1E.1000006@gmail.com>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH 3/3] ARM: mvebu: use qsgmii phy-mode for Armada XP GP
+ interfaces
+Date: Thu, 17 Apr 2014 01:13:17 -0400
+Message-ID: <20140417051317.GQ28159@titan.lakedaemon.net>
+References: <1397569821-5530-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <1397569821-5530-4-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	joe@perches.com, julia.lawall@lip6.fr, dingtianhong@huawei.com,
-	linux-kernel@vger.kernel.org, jasowang@redhat.com, mst@redhat.com,
-	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
-	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
-	"Tao, Yue" <Yue.Tao@windriver.com>
-To: zhuyj <zyjzyj2000@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
+	George Joseph <george.joseph@fairview5.com>,
+	Tawfik Bayouk <tawfik@marvell.com>, netdev@vger.kernel.org,
+	Alexander Reuter <Alexander.Reuter@gmx.net>, arno@natisbad.org,
+	Willy Tarreau <w@1wt.eu>, Nadav Haklai <nadavh@marvell.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Dmitri Epshtein <dima@marvell.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mho-02-ewr.mailhop.org ([204.13.248.72]:43171 "EHLO
+	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161417AbaDQFNv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2014 01:13:51 -0400
 Content-Disposition: inline
-In-Reply-To: <534F4C1E.1000006@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1397569821-5530-4-git-send-email-thomas.petazzoni@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Zhu,
-
-On Thu, Apr 17, 2014 at 11:35:58AM +0800, zhuyj wrote:
-> Hi, all
+On Tue, Apr 15, 2014 at 03:50:21PM +0200, Thomas Petazzoni wrote:
+> The Armada XP GP isn't using rgmii-id connections between the MAC and
+> PHY, but instead a single QSGMII connection, which is a quad-SGMII
+> connection: a double pair of differential lines that are multiplexed
+> to convey the traffic of four network interfaces between a MAC and a
+> PHY.
 > 
-> In kernel 2.6.x, linux depends on nic vlan hardware acceleration to 
-> insert/extract
-> vlan tag. In this scene, in kernel 2.6.x
+> Until now, the Armada XP GP was relying on the bootloader setting the
+> correct values in various configuration registers. With this change,
+> the mvneta driver can be used as a module on this platform.
 > 
->                  _____        ________
->     A           |     | B    |        | C
->  vlan packets-->| tap |----->|vlan nic|--->
->                 |_____|      |________|
-> 
-> We hope vlan packets pass through tap and vlan nic from A to c.
-> But in kernel 2.6.x, linux kernel can not extract vlan tag. It depends
-> on nic vlan hardware acceleration. It is well known that tap nic has no
-> vlan acceleration. So in the above scene, vlan packets can not be handled by
-> tap nic. These vlan packets will be discarded in B. They can not arrive 
-> at C.
+> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> ---
+>  arch/arm/boot/dts/armada-xp-gp.dts | 8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
 
-It's not clear to me what you want to achieve. Are you trying to create
-vlan interfaces on top of a tap interface ? Eg: tap1.12, tap1.23 etc ?
+Applied to mvebu/dt-fixes with Willy and Arnaud's Tested-by's
 
-> In kernel 3.x, linux can handle vlan packets. It does not depend on nic vlan
-> hardware acceleration. So the above scene can work well in kernel 3.x.
-> 
-> To resolve the above in kernel 2.6.x, we simulated vlan hardware 
-> acceleration in
-> tun/tap driver. Then followed the logic of commit commit 4fba4ca4
-> [vlan: Centralize handling of hardware acceleration] to modify the vlan 
-> packets
-> process in kernel 2.6.x. In the end, the above scene can work well in 
-> patched
-> kernel 2.6.x.
-> 
-> Please comment on it. Any reply is appreciated.
-> 
-> Hi, Willy
-> 
-> These 2 patches are for linux2.6.x. These can work well here. Please 
-> help to merge
-> linux 2.6.32.x. Thanks a lot.
+thx,
 
-Well, 2.6.32.x is in deep freeze mode and it receives only critical fixes
-once in a while. While I can appreciate that the patch above might solve
-the issue you're facing, I'm wondering if there are not any acceptable
-workarounds for such a deep freeze kernel. You patch is not huge, but it
-definitely affects a working driver, and I wouldn't like risking to break
-the tap driver for other users, and I reall don't have the skills to audit
-it completely to ensure this is not the case. And if it breaks, I'll have
-to revert it or seek for some help on netdev.
-
-So I'd say that I'd rather not merge it unless I get an Acked-by from some
-netdev people who are willing to help in case of any future regression,
-which is unlikely but still possible.
-
-Just out of curiosity, what is the motivation for ongoing development on
-top of 2.6.32 ? Are there any important deployments that cannot upgrade
-for any specific reason ? I'm asking because most 2.6.32.x kernels that
-are stuffed into embedded boxes very likely come with their own number
-of in-house patches to add whatever feature is needed in such contexts,
-so I'm wondering why having this patch in mainline would help in your
-situation compared to having it into your own patch set only.
-
-Thanks,
-Willy
+Jason.
