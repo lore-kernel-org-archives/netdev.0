@@ -1,249 +1,94 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 2/2] macvlan: Move broadcasts into a work queue
-Date: Thu, 17 Apr 2014 13:45:59 +0800
-Message-ID: <20140417054559.GB23959@gondor.apana.org.au>
-References: <20140407075347.GA26461@gondor.apana.org.au>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: in kernel 2.6.x, tun/tap nic supports vlan packets
+Date: Thu, 17 Apr 2014 13:50:07 +0800
+Message-ID: <534F6B8F.9000207@gmail.com>
+References: <534F4C1E.1000006@gmail.com> <20140417050228.GC8243@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:55638 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755220AbaDQFqB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2014 01:46:01 -0400
-Content-Disposition: inline
-In-Reply-To: <20140407075347.GA26461@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	joe@perches.com, julia.lawall@lip6.fr, dingtianhong@huawei.com,
+	linux-kernel@vger.kernel.org, jasowang@redhat.com, mst@redhat.com,
+	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
+	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
+	"Tao, Yue" <Yue.Tao@windriver.com>, zhuyj <zyjzyj2000@gmail.com>
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140417050228.GC8243@1wt.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently broadcasts are handled in network RX context, where
-the packets are sent through netif_rx.  This means that the number
-of macvlans will be constrained by the capacity of netif_rx.
+On 04/17/2014 01:02 PM, Willy Tarreau wrote:
+> Hi Zhu,
+>
+> On Thu, Apr 17, 2014 at 11:35:58AM +0800, zhuyj wrote:
+>> Hi, all
+>>
+>> In kernel 2.6.x, linux depends on nic vlan hardware acceleration to
+>> insert/extract
+>> vlan tag. In this scene, in kernel 2.6.x
+>>
+>>                   _____        ________
+>>      A           |     | B    |        | C
+>>   vlan packets-->| tap |----->|vlan nic|--->
+>>                  |_____|      |________|
+>>
+>> We hope vlan packets pass through tap and vlan nic from A to c.
+>> But in kernel 2.6.x, linux kernel can not extract vlan tag. It depends
+>> on nic vlan hardware acceleration. It is well known that tap nic has no
+>> vlan acceleration. So in the above scene, vlan packets can not be handled by
+>> tap nic. These vlan packets will be discarded in B. They can not arrive
+>> at C.
+> It's not clear to me what you want to achieve. Are you trying to create
+> vlan interfaces on top of a tap interface ? Eg: tap1.12, tap1.23 etc ?
+Hi, Willy
 
-For example, setting up 4096 macvlans practically causes all
-broadcast packets to be dropped as the default netif_rx queue
-size simply can't handle 4096 skbs being stuffed into it all
-at once.
+Yes. These 2 patches are trying create vlan interfaces on top of a tap 
+interface.
 
-Fundamentally, we need to ensure that the amount of work handled
-in each netif_rx backlog run is constrained.  As broadcasts are
-anything but constrained, it either needs to be limited per run
-or moved to process context.
-
-This patch picks the second option and moves all broadcast handling
-bar the trivial case of packets going to a single interface into
-a work queue.  Obviously there also needs to be a limit on how
-many broadcast packets we postpone in this way.  I've arbitrarily
-chosen tx_queue_len of the master device as the limit (act_mirred
-also happens to use this parameter in a similar way).
-
-In order to ensure we don't exceed the backlog queue we will use
-netif_rx_ni instead of netif_rx for broadcast packets.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 753a8c2..8b8220f 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -30,6 +30,7 @@
- #include <linux/if_link.h>
- #include <linux/if_macvlan.h>
- #include <linux/hash.h>
-+#include <linux/workqueue.h>
- #include <net/rtnetlink.h>
- #include <net/xfrm.h>
- 
-@@ -40,10 +41,18 @@ struct macvlan_port {
- 	struct hlist_head	vlan_hash[MACVLAN_HASH_SIZE];
- 	struct list_head	vlans;
- 	struct rcu_head		rcu;
-+	struct sk_buff_head	bc_queue;
-+	struct work_struct	bc_work;
- 	bool 			passthru;
- 	int			count;
- };
- 
-+struct macvlan_skb_cb {
-+	const struct macvlan_dev *src;
-+};
-+
-+#define MACVLAN_SKB_CB(__skb) ((struct macvlan_skb_cb *)&((__skb)->cb[0]))
-+
- static void macvlan_port_destroy(struct net_device *dev);
- 
- static struct macvlan_port *macvlan_port_get_rcu(const struct net_device *dev)
-@@ -120,7 +129,7 @@ static int macvlan_broadcast_one(struct sk_buff *skb,
- 	struct net_device *dev = vlan->dev;
- 
- 	if (local)
--		return dev_forward_skb(dev, skb);
-+		return __dev_forward_skb(dev, skb);
- 
- 	skb->dev = dev;
- 	if (ether_addr_equal_64bits(eth->h_dest, dev->broadcast))
-@@ -128,7 +137,7 @@ static int macvlan_broadcast_one(struct sk_buff *skb,
- 	else
- 		skb->pkt_type = PACKET_MULTICAST;
- 
--	return netif_rx(skb);
-+	return 0;
- }
- 
- static u32 macvlan_hash_mix(const struct macvlan_dev *vlan)
-@@ -175,32 +184,32 @@ static void macvlan_broadcast(struct sk_buff *skb,
- 			if (likely(nskb))
- 				err = macvlan_broadcast_one(
- 					nskb, vlan, eth,
--					mode == MACVLAN_MODE_BRIDGE);
-+					mode == MACVLAN_MODE_BRIDGE) ?:
-+				      netif_rx_ni(nskb);
- 			macvlan_count_rx(vlan, skb->len + ETH_HLEN,
- 					 err == NET_RX_SUCCESS, 1);
- 		}
- 	}
- }
- 
--/* called under rcu_read_lock() from netif_receive_skb */
--static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
-+static void macvlan_process_broadcast(struct work_struct *w)
- {
--	struct macvlan_port *port;
--	struct sk_buff *skb = *pskb;
--	const struct ethhdr *eth = eth_hdr(skb);
--	const struct macvlan_dev *vlan;
--	const struct macvlan_dev *src;
--	struct net_device *dev;
--	unsigned int len = 0;
--	int ret = NET_RX_DROP;
-+	struct macvlan_port *port = container_of(w, struct macvlan_port,
-+						 bc_work);
-+	struct sk_buff *skb;
-+	struct sk_buff_head list;
-+
-+	skb_queue_head_init(&list);
-+
-+	spin_lock_bh(&port->bc_queue.lock);
-+	skb_queue_splice_tail_init(&port->bc_queue, &list);
-+	spin_unlock_bh(&port->bc_queue.lock);
-+
-+	while ((skb = __skb_dequeue(&list))) {
-+		const struct macvlan_dev *src = MACVLAN_SKB_CB(skb)->src;
-+
-+		rcu_read_lock();
- 
--	port = macvlan_port_get_rcu(skb->dev);
--	if (is_multicast_ether_addr(eth->h_dest)) {
--		skb = ip_check_defrag(skb, IP_DEFRAG_MACVLAN);
--		if (!skb)
--			return RX_HANDLER_CONSUMED;
--		eth = eth_hdr(skb);
--		src = macvlan_hash_lookup(port, eth->h_source);
- 		if (!src)
- 			/* frame comes from an external address */
- 			macvlan_broadcast(skb, port, NULL,
-@@ -213,20 +222,77 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
- 			macvlan_broadcast(skb, port, src->dev,
- 					  MACVLAN_MODE_VEPA |
- 					  MACVLAN_MODE_BRIDGE);
--		else if (src->mode == MACVLAN_MODE_BRIDGE)
-+		else
- 			/*
- 			 * flood only to VEPA ports, bridge ports
- 			 * already saw the frame on the way out.
- 			 */
- 			macvlan_broadcast(skb, port, src->dev,
- 					  MACVLAN_MODE_VEPA);
--		else {
-+
-+		rcu_read_unlock();
-+
-+		kfree_skb(skb);
-+	}
-+}
-+
-+static void macvlan_broadcast_enqueue(struct macvlan_port *port,
-+				      struct sk_buff *skb)
-+{
-+	int err = -ENOMEM;
-+
-+	skb = skb_clone(skb, GFP_ATOMIC);
-+	if (!skb)
-+		goto err;
-+
-+	spin_lock(&port->bc_queue.lock);
-+	if (skb_queue_len(&port->bc_queue) < skb->dev->tx_queue_len) {
-+		__skb_queue_tail(&port->bc_queue, skb);
-+		err = 0;
-+	}
-+	spin_unlock(&port->bc_queue.lock);
-+
-+	if (err)
-+		goto err;
-+
-+	schedule_work(&port->bc_work);
-+	return;
-+
-+err:
-+	atomic_long_inc(&skb->dev->rx_dropped);
-+}
-+
-+/* called under rcu_read_lock() from netif_receive_skb */
-+static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
-+{
-+	struct macvlan_port *port;
-+	struct sk_buff *skb = *pskb;
-+	const struct ethhdr *eth = eth_hdr(skb);
-+	const struct macvlan_dev *vlan;
-+	const struct macvlan_dev *src;
-+	struct net_device *dev;
-+	unsigned int len = 0;
-+	int ret = NET_RX_DROP;
-+
-+	port = macvlan_port_get_rcu(skb->dev);
-+	if (is_multicast_ether_addr(eth->h_dest)) {
-+		skb = ip_check_defrag(skb, IP_DEFRAG_MACVLAN);
-+		if (!skb)
-+			return RX_HANDLER_CONSUMED;
-+		eth = eth_hdr(skb);
-+		src = macvlan_hash_lookup(port, eth->h_source);
-+		if (src && src->mode != MACVLAN_MODE_VEPA &&
-+		    src->mode != MACVLAN_MODE_BRIDGE) {
- 			/* forward to original port. */
- 			vlan = src;
--			ret = macvlan_broadcast_one(skb, vlan, eth, 0);
-+			ret = macvlan_broadcast_one(skb, vlan, eth, 0) ?:
-+			      netif_rx(skb);
- 			goto out;
- 		}
- 
-+		MACVLAN_SKB_CB(skb)->src = src;
-+		macvlan_broadcast_enqueue(port, skb);
-+
- 		return RX_HANDLER_PASS;
- 	}
- 
-@@ -764,6 +830,9 @@ static int macvlan_port_create(struct net_device *dev)
- 	for (i = 0; i < MACVLAN_HASH_SIZE; i++)
- 		INIT_HLIST_HEAD(&port->vlan_hash[i]);
- 
-+	skb_queue_head_init(&port->bc_queue);
-+	INIT_WORK(&port->bc_work, macvlan_process_broadcast);
-+
- 	err = netdev_rx_handler_register(dev, macvlan_handle_frame, port);
- 	if (err)
- 		kfree(port);
-@@ -776,6 +845,7 @@ static void macvlan_port_destroy(struct net_device *dev)
- {
- 	struct macvlan_port *port = macvlan_port_get_rtnl(dev);
- 
-+	cancel_work_sync(&port->bc_work);
- 	dev->priv_flags &= ~IFF_MACVLAN_PORT;
- 	netdev_rx_handler_unregister(dev);
- 	kfree_rcu(port, rcu);
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Zhu Yanjun
+>
+>> In kernel 3.x, linux can handle vlan packets. It does not depend on nic vlan
+>> hardware acceleration. So the above scene can work well in kernel 3.x.
+>>
+>> To resolve the above in kernel 2.6.x, we simulated vlan hardware
+>> acceleration in
+>> tun/tap driver. Then followed the logic of commit commit 4fba4ca4
+>> [vlan: Centralize handling of hardware acceleration] to modify the vlan
+>> packets
+>> process in kernel 2.6.x. In the end, the above scene can work well in
+>> patched
+>> kernel 2.6.x.
+>>
+>> Please comment on it. Any reply is appreciated.
+>>
+>> Hi, Willy
+>>
+>> These 2 patches are for linux2.6.x. These can work well here. Please
+>> help to merge
+>> linux 2.6.32.x. Thanks a lot.
+> Well, 2.6.32.x is in deep freeze mode and it receives only critical fixes
+> once in a while. While I can appreciate that the patch above might solve
+> the issue you're facing, I'm wondering if there are not any acceptable
+> workarounds for such a deep freeze kernel. You patch is not huge, but it
+> definitely affects a working driver, and I wouldn't like risking to break
+> the tap driver for other users, and I reall don't have the skills to audit
+> it completely to ensure this is not the case. And if it breaks, I'll have
+> to revert it or seek for some help on netdev.
+>
+> So I'd say that I'd rather not merge it unless I get an Acked-by from some
+> netdev people who are willing to help in case of any future regression,
+> which is unlikely but still possible.
+>
+> Just out of curiosity, what is the motivation for ongoing development on
+> top of 2.6.32 ? Are there any important deployments that cannot upgrade
+> for any specific reason ? I'm asking because most 2.6.32.x kernels that
+> are stuffed into embedded boxes very likely come with their own number
+> of in-house patches to add whatever feature is needed in such contexts,
+> so I'm wondering why having this patch in mainline would help in your
+> situation compared to having it into your own patch set only.
+>
+> Thanks,
+> Willy
+>
+>
