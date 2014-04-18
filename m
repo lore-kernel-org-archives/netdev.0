@@ -1,78 +1,145 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: [PATCH] net: sxgbe: Added phy_found error path
-Date: Fri, 18 Apr 2014 20:59:39 +0900
-Message-ID: <000701cf5afd$ad1e65f0$075b31d0$%an@samsung.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: Freescale FEC i.MX28 restart problem
+Date: Fri, 18 Apr 2014 09:59:35 -0300
+Message-ID: <CAOMZO5CyFaP2phreKYdwUUB0RcpAhomDzm1QhAjCYtH09yYfQQ@mail.gmail.com>
+References: <53511079.2020206@meduna.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, ks.giri@samsung.com, vipul.pandya@samsung.com
-To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-Content-language: ko
-Sender: linux-samsung-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Fabio Estevam <fabio.estevam@freescale.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jim Baxter <jim_baxter@mentor.com>,
+	Duan Fugang-B38611 <B38611@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Russell King <linux@arm.linux.org.uk>
+To: Stanislav Meduna <stano@meduna.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53511079.2020206@meduna.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Apr 18, 2014 at 8:46 AM, Stanislav Meduna <stano@meduna.org> wrote:
+> Hi,
+>
+> I am experiencing a problem with the ethernet controller on an
+> i.MX28 SoC. When doing
+>   /etc/init.d/networking restart
+> sometimes I get "MDIO read timeout" and the controller does not
+> recover. The problem is more prominent if the interface is communicating
+> when the restart is performed.
+>
+> I have found that the reason is the EBERR bit being set somewher.
+> The reference manual states:
+>
+>   Ethernet bus error. This bit indicates a system bus error occurs when a DMA
+>   transaction is underway (Signal dma_eberr_int asserted). When the EBERR bit
+>   is set, ETHER_EN is cleared, halting frame processing by the MAC. When this
+>   occurs, software needs to insure proper actions (possibly resetting the
+>   system) to resume normal operation.
+>
+> Clearing the ETHER_EN also disables the MII interrupts, so this
+> explains why the controller does not recover.
+>
+> I assume the EBERR comes because of resetting the FEC at various
+> places - the fec_restart is called from 7 and fec_stop from 5 places.
+> It looks something here does not pay attention whether everything
+> is idle. In addition to EBERR also the BABR and MII are set
+> (MII because there was a MII transaction attempt, for babbling
+> receiver I have no idea). In case it matters the PHY connected
+> is the virtual port of the LAN9303 switch.
+>
+> Trying to put a graceful stop before the reset in fec_restart
+> did not help. The controller is enabled when coming out of both
+> paths involving the reset, it is after this it falls into the
+> error state.
+>
+> My platform is 3.12.15-rt, but I assume the problem is not rt-related.
+>
+> The following patch remedies the situation, but this is just
+> a demonstration and not a solution. The warning is sometimes
+> output up to 3 times.
+>
+> Please Cc: me when replying.
+>
+>
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index 1ec398b..cebb912 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -194,7 +194,7 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+>  #define FEC_ENET_MII   ((uint)0x00800000)      /* MII interrupt */
+>  #define FEC_ENET_EBERR ((uint)0x00400000)      /* SDMA bus error */
+>
+> -#define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII)
+> +#define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII | FEC_ENET_EBERR)
+>  #define FEC_RX_DISABLED_IMASK (FEC_DEFAULT_IMASK & (~FEC_ENET_RXF))
+>
+>  /* The FEC stores dest/src/type/vlan, data, and checksum for receive packets.
+> @@ -303,6 +303,31 @@ static void *swap_buffer(void *bufaddr, int len)
+>         return bufaddr;
+>  }
+>
+> +/* Re-enable the controller after an ethernet bus error.
+> + *
+> + * Reference manual: This bit indicates a system bus
+> + * error occurs when a DMA transaction is underway
+> + * (Signal dma_eberr_int asserted). When the EBERR bit
+> + * is set, ETHER_EN is cleared, halting frame processing
+> + * by the MAC. When this occurs, software needs to insure
+> + * proper actions (possibly resetting the system) to resume
+> + * normal operation.
+> + *
+> + * This seems to happen when we restart the controller.
+> + */
+> +static inline void fec_enet_clear_eberr_if_needed(struct net_device *ndev)
+> +{
+> +       struct fec_enet_private *fep = netdev_priv(ndev);
+> +       u32 ctl = readl(fep->hwp + FEC_ECNTRL);
+> +
+> +       if (!(ctl & 2)) {
+> +               ctl |= 2;
+> +               writel(FEC_ENET_EBERR, fep->hwp + FEC_IEVENT);
+> +               writel(ctl, fep->hwp + FEC_ECNTRL);
+> +               netdev_warn(ndev, "Re-enabled after EBERR\n");
+> +       }
+> +}
+> +
+>  static int
+>  fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
+>  {
+> @@ -1059,6 +1084,10 @@ fec_enet_interrupt(int irq, void *dev_id)
+>                         ret = IRQ_HANDLED;
+>                         complete(&fep->mdio_done);
+>                 }
+> +
+> +               if (int_events & FEC_ENET_EBERR)
+> +                       fec_enet_clear_eberr_if_needed(ndev);
+> +
+>         } while (int_events);
+>
+>         return ret;
+> @@ -1200,6 +1229,8 @@ static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+>         struct fec_enet_private *fep = bus->priv;
+>         unsigned long time_left;
+>
+> +       fec_enet_clear_eberr_if_needed(fep->netdev);
+> +
+>         fep->mii_timeout = 0;
+>         init_completion(&fep->mdio_done);
+>
+> @@ -1227,6 +1258,8 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
+>         struct fec_enet_private *fep = bus->priv;
+>         unsigned long time_left;
+>
+> +       fec_enet_clear_eberr_if_needed(fep->netdev);
+> +
+>         fep->mii_timeout = 0;
+>         init_completion(&fep->mdio_done);
 
-This patch adds phy_found error path when there is no phy device 
-and changes bus_name.
+Could you try the latest Russell's FEC patches available at?
+http://ftp.arm.linux.org.uk/cgit/linux-arm.git/log/?h=fec-testing
 
-Signed-off-by: Byungho An <bh74.an@samsung.com>
----
- drivers/net/ethernet/samsung/sxgbe/sxgbe_mdio.c |   14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
+Regards,
 
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_mdio.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_mdio.c
-index 01af2cb..7dcaf1a 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_mdio.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_mdio.c
-@@ -27,7 +27,7 @@
- #define SXGBE_SMA_PREAD_CMD	0x02 /* post read  increament address */
- #define SXGBE_SMA_READ_CMD	0x03 /* read command */
- #define SXGBE_SMA_SKIP_ADDRFRM	0x00040000 /* skip the address frame */
--#define SXGBE_MII_BUSY		0x00800000 /* mii busy */
-+#define SXGBE_MII_BUSY		0x00400000 /* mii busy */
- 
- static int sxgbe_mdio_busy_wait(void __iomem *ioaddr, unsigned int mii_data)
- {
-@@ -147,6 +147,7 @@ int sxgbe_mdio_register(struct net_device *ndev)
- 	struct sxgbe_mdio_bus_data *mdio_data = priv->plat->mdio_bus_data;
- 	int err, phy_addr;
- 	int *irqlist;
-+	bool phy_found = false;
- 	bool act;
- 
- 	/* allocate the new mdio bus */
-@@ -162,7 +163,7 @@ int sxgbe_mdio_register(struct net_device *ndev)
- 		irqlist = priv->mii_irq;
- 
- 	/* assign mii bus fields */
--	mdio_bus->name = "samsxgbe";
-+	mdio_bus->name = "sxgbe";
- 	mdio_bus->read = &sxgbe_mdio_read;
- 	mdio_bus->write = &sxgbe_mdio_write;
- 	snprintf(mdio_bus->id, MII_BUS_ID_SIZE, "%s-%x",
-@@ -216,13 +217,22 @@ int sxgbe_mdio_register(struct net_device *ndev)
- 			netdev_info(ndev, "PHY ID %08x at %d IRQ %s (%s)%s\n",
- 				    phy->phy_id, phy_addr, irq_str,
- 				    dev_name(&phy->dev), act ? " active" : "");
-+			phy_found = true;
- 		}
- 	}
- 
-+	if (!phy_found) {
-+		netdev_err(ndev, "PHY not found\n");
-+		goto phyfound_err;
-+	}
-+
- 	priv->mii = mdio_bus;
- 
- 	return 0;
- 
-+phyfound_err:
-+	err = -ENODEV;
-+	mdiobus_unregister(mdio_bus);
- mdiobus_err:
- 	mdiobus_free(mdio_bus);
- 	return err;
--- 
-1.7.10.4
+Fabio Estevam
