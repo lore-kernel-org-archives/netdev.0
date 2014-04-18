@@ -1,7 +1,8 @@
 From: "Luis R. Rodriguez" <mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org>
-Subject: [PATCH 2/3] 6lowpan: make lowpan_cb static
-Date: Thu, 17 Apr 2014 18:22:55 -0700
-Message-ID: <1397784176-15809-3-git-send-email-mcgrof@do-not-panic.com>
+Subject: [PATCH 3/3] 6lowpan: include
+	net/net_namespace.h on 6lowpan namepsace header
+Date: Thu, 17 Apr 2014 18:22:56 -0700
+Message-ID: <1397784176-15809-4-git-send-email-mcgrof@do-not-panic.com>
 References: <1397784176-15809-1-git-send-email-mcgrof@do-not-panic.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,27 +25,28 @@ List-Id: netdev.vger.kernel.org
 
 From: "Luis R. Rodriguez" <mcgrof-IBi9RG/b67k@public.gmane.org>
 
+Don't rely on driver files or other headers having this file included.
+
 CC: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Cc: Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Cc: linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Signed-off-by: Luis R. Rodriguez <mcgrof-IBi9RG/b67k@public.gmane.org>
 ---
- net/ieee802154/reassembly.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/net/6lowpan.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/ieee802154/reassembly.c b/net/ieee802154/reassembly.c
-index 132b65b..6f1428c 100644
---- a/net/ieee802154/reassembly.c
-+++ b/net/ieee802154/reassembly.c
-@@ -36,7 +36,7 @@ struct lowpan_frag_info {
- 	u8 d_offset;
- };
+diff --git a/include/net/6lowpan.h b/include/net/6lowpan.h
+index f7d372b..79b530f 100644
+--- a/include/net/6lowpan.h
++++ b/include/net/6lowpan.h
+@@ -54,6 +54,7 @@
+ #define __6LOWPAN_H__
  
--struct lowpan_frag_info *lowpan_cb(struct sk_buff *skb)
-+static struct lowpan_frag_info *lowpan_cb(struct sk_buff *skb)
- {
- 	return (struct lowpan_frag_info *)skb->cb;
- }
+ #include <net/ipv6.h>
++#include <net/net_namespace.h>
+ 
+ #define UIP_802154_SHORTADDR_LEN	2  /* compressed ipv6 address length */
+ #define UIP_IPH_LEN			40 /* ipv6 fixed header size */
 -- 
 1.9.1
 
