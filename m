@@ -1,93 +1,98 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] sctp: add support for busy polling to sctp protocol
-Date: Thu, 17 Apr 2014 17:37:29 -0400
-Message-ID: <53504999.4080709@gmail.com>
-References: <1397762811-2989-1-git-send-email-nhorman@tuxdriver.com>
+From: Max Schwarz <max.schwarz@online.de>
+Subject: [PATCH] arc_emac: write initial MAC address from devicetree to hw
+Date: Fri, 18 Apr 2014 02:17:32 +0200
+Message-ID: <1664530.jeK9vBIgft@typ>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>, linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f41.google.com ([209.85.192.41]:36496 "EHLO
-	mail-qg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750971AbaDQVhd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Apr 2014 17:37:33 -0400
-In-Reply-To: <1397762811-2989-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Heiko Stuebner <heiko@sntech.de>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/17/2014 03:26 PM, Neil Horman wrote:
-> The busy polling socket option adds support for sockets to busy wait on data
-> arriving on the napi queue from which they have most recently received a frame.
-> Currently only tcp and udp support this feature, but theres no reason sctp can't
-> do so as well.  Add it in so appliations can take advantage of it
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> CC: Vlad Yasevich <vyasevich@gmail.com>
-> CC: "David S. Miller" <davem@davemloft.net>
-> CC: Daniel Borkmann <dborkman@redhat.com>
-> CC: netdev@vger.kernel.org
+The MAC address retrieved from dt was not actually written to the
+hardware. This meant proper communication was only possible after
+changing the MAC address.
 
-Hi Neil
+=46ix that by always writing the mac address during probing.
 
-Do we gain anything by polling?
-This is probably more appropriate for net-next...
+Signed-off-by: Max Schwarz <max.schwarz@online.de>
+---
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+I recently noticed this problem on the Radxa Rock board. I'm not
+sure how this has ever worked on other platforms, though. I can
+only receive broadcast packets without configuring the address.
 
-Thanks
--vlad
+Running ifconfig eth0 hw ether XYZ or applying the patch fixes
+the problem for me.
 
-> ---
->  net/sctp/socket.c   | 5 +++++
->  net/sctp/ulpqueue.c | 4 ++++
->  2 files changed, 9 insertions(+)
-> 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 981aaf8..9788e07 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -71,6 +71,7 @@
->  #include <net/route.h>
->  #include <net/ipv6.h>
->  #include <net/inet_common.h>
-> +#include <net/busy_poll.h>
->  
->  #include <linux/socket.h> /* for sa_family_t */
->  #include <linux/export.h>
-> @@ -6553,6 +6554,10 @@ static struct sk_buff *sctp_skb_recv_datagram(struct sock *sk, int flags,
->  		if (sk->sk_shutdown & RCV_SHUTDOWN)
->  			break;
->  
-> +		if (sk_can_busy_loop(sk) &&
-> +		    sk_busy_loop(sk, noblock))
-> +			continue;
-> +
->  		/* User doesn't want to wait.  */
->  		error = -EAGAIN;
->  		if (!timeo)
-> diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
-> index 5dc9411..a4df012 100644
-> --- a/net/sctp/ulpqueue.c
-> +++ b/net/sctp/ulpqueue.c
-> @@ -38,6 +38,7 @@
->  #include <linux/types.h>
->  #include <linux/skbuff.h>
->  #include <net/sock.h>
-> +#include <net/busy_poll.h>
->  #include <net/sctp/structs.h>
->  #include <net/sctp/sctp.h>
->  #include <net/sctp/sm.h>
-> @@ -204,6 +205,9 @@ int sctp_ulpq_tail_event(struct sctp_ulpq *ulpq, struct sctp_ulpevent *event)
->  	if (sock_flag(sk, SOCK_DEAD) || (sk->sk_shutdown & RCV_SHUTDOWN))
->  		goto out_free;
->  
-> +	if (!sctp_ulpevent_is_notification(event))
-> +		sk_mark_napi_id(sk, skb);
-> +
->  	/* Check if the user wishes to receive this event.  */
->  	if (!sctp_ulpevent_is_enabled(event, &sctp_sk(sk)->subscribe))
->  		goto out_free;
-> 
+CCing Heiko St=FCbner because he has seen the problem as well.
+
+ drivers/net/ethernet/arc/emac_main.c | 21 ++++++++++++++-------
+ 1 file changed, 14 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/etherne=
+t/arc/emac_main.c
+index eeecc29..9f45782 100644
+--- a/drivers/net/ethernet/arc/emac_main.c
++++ b/drivers/net/ethernet/arc/emac_main.c
+@@ -574,6 +574,18 @@ static int arc_emac_tx(struct sk_buff *skb, struct=
+ net_device *ndev)
+ 	return NETDEV_TX_OK;
+ }
+=20
++static void arc_emac_set_address_internal(struct net_device *ndev)
++{
++	struct arc_emac_priv *priv =3D netdev_priv(ndev);
++	unsigned int addr_low, addr_hi;
++
++	addr_low =3D le32_to_cpu(*(__le32 *) &ndev->dev_addr[0]);
++	addr_hi =3D le16_to_cpu(*(__le16 *) &ndev->dev_addr[4]);
++
++	arc_reg_set(priv, R_ADDRL, addr_low);
++	arc_reg_set(priv, R_ADDRH, addr_hi);
++}
++
+ /**
+  * arc_emac_set_address - Set the MAC address for this device.
+  * @ndev:	Pointer to net_device structure.
+@@ -587,9 +599,7 @@ static int arc_emac_tx(struct sk_buff *skb, struct =
+net_device *ndev)
+  */
+ static int arc_emac_set_address(struct net_device *ndev, void *p)
+ {
+-	struct arc_emac_priv *priv =3D netdev_priv(ndev);
+ 	struct sockaddr *addr =3D p;
+-	unsigned int addr_low, addr_hi;
+=20
+ 	if (netif_running(ndev))
+ 		return -EBUSY;
+@@ -599,11 +609,7 @@ static int arc_emac_set_address(struct net_device =
+*ndev, void *p)
+=20
+ 	memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
+=20
+-	addr_low =3D le32_to_cpu(*(__le32 *) &ndev->dev_addr[0]);
+-	addr_hi =3D le16_to_cpu(*(__le16 *) &ndev->dev_addr[4]);
+-
+-	arc_reg_set(priv, R_ADDRL, addr_low);
+-	arc_reg_set(priv, R_ADDRH, addr_hi);
++	arc_emac_set_address_internal(ndev);
+=20
+ 	return 0;
+ }
+@@ -713,6 +719,7 @@ static int arc_emac_probe(struct platform_device *p=
+dev)
+ 	else
+ 		eth_hw_addr_random(ndev);
+=20
++	arc_emac_set_address_internal(ndev);
+ 	dev_info(&pdev->dev, "MAC address is now %pM\n", ndev->dev_addr);
+=20
+ 	/* Do 1 allocation instead of 2 separate ones for Rx and Tx BD rings =
+*/
+--=20
+1.8.3.2
