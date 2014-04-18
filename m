@@ -1,82 +1,80 @@
-From: Stanislav Meduna <stano@meduna.org>
-Subject: Re: Freescale FEC i.MX28 restart problem
-Date: Fri, 18 Apr 2014 19:13:28 +0200
-Message-ID: <53515D38.4090400@meduna.org>
-References: <53511079.2020206@meduna.org>	<CAOMZO5CyFaP2phreKYdwUUB0RcpAhomDzm1QhAjCYtH09yYfQQ@mail.gmail.com> <CAOMZO5DAixbrO1Zhvm60gevdCbKVgSP652vS7QYZS+XSfbPLdQ@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] sched, cls: check if we could overwrite actions when
+ changing a filter
+Date: Fri, 18 Apr 2014 10:18:09 -0700
+Message-ID: <CAM_iQpX13QBbGnsKfD1oL6t331-=wRWFU_0ktdtgngpfE1Z6nA@mail.gmail.com>
+References: <1397605563-29756-1-git-send-email-xiyou.wangcong@gmail.com>
+	<534E77D0.8000307@mojatatu.com>
+	<CAM_iQpXRVZ8_keaL-8OkmRVguA29bnTPS2ZHZ0j2SSeB6A=1jQ@mail.gmail.com>
+	<534FBFF0.3020606@mojatatu.com>
+	<CAM_iQpVqQbXcm0gGxe_JMURPtGYH+iOi8UGgvis5je6g9zbiKQ@mail.gmail.com>
+	<53513619.5060202@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Fabio Estevam <fabio.estevam@freescale.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jim Baxter <jim_baxter@mentor.com>,
-	Duan Fugang-B38611 <B38611@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Russell King <linux@arm.linux.org.uk>
-To: Fabio Estevam <festevam@gmail.com>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.meduna.org ([92.240.244.38]:40839 "EHLO meduna.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751736AbaDRRNm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Apr 2014 13:13:42 -0400
-In-Reply-To: <CAOMZO5DAixbrO1Zhvm60gevdCbKVgSP652vS7QYZS+XSfbPLdQ@mail.gmail.com>
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:37786 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754423AbaDRRSK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2014 13:18:10 -0400
+Received: by mail-ob0-f175.google.com with SMTP id wp4so2007499obc.6
+        for <netdev@vger.kernel.org>; Fri, 18 Apr 2014 10:18:10 -0700 (PDT)
+In-Reply-To: <53513619.5060202@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18.04.2014 15:05, Fabio Estevam wrote:
+On Fri, Apr 18, 2014 at 7:26 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> Ok, let provide a slightly complex graph, sorry it is hard to do ascii
+> diagram for this, so i will illustrate programmatically:
+>
+> if (icmp) {
+>     mark with tag 11 //mark index 7
+>     if (rate < 10kbs) { //policer index 1
+>        return
+>     } else {
+>        mark with tag 12  //mark index 3
+>        if (rate2 < 20kbs) {//policer index 2
+>           return
+>       } else {
+>           mirror to dummy0 //mirred index 8
+>       }
+>    }
+> }
+>
+> What does adding/deleting even mean in this case?
 
->> Could you try the latest Russell's FEC patches available at?
->> http://ftp.arm.linux.org.uk/cgit/linux-arm.git/log/?h=fec-testing
-> 
-> In particular this one could help with your "MDIO timeout" issue:
-> http://ftp.arm.linux.org.uk/cgit/linux-arm.git/commit/?h=fec-testing&id=ec1fac3de70b16c69d3edc9f223e91d56b1915de
+In this case, all the statements inside if (icmp) {} are actions, right?
+Sorry, I still fail to see why not allowing to change them *together*?
 
-Thanks for the heads-up, I was not aware that there is a larger
-refactoring going on.
+IOW, what's wrong with changing if (icmp) { A } to if (icmp) { B } ?
+where A and B could be any complex combination of actions.
+RTNL lock guarantees this is transactional.
 
-I did just copy the whole fec driver from that branch into
-my environment (the isolated patch does not apply as it needs
-the previous work) and yes, it seems to help. I'll give it
-a bit more testing and I will report if there are still
-some issues.
+Users are responsible to ensure the logic of A or B is correct, not
+the kernel. Kernel should allow even a wrong combination,
+since there is no way to check the correctness in kernel.
 
-However, in my opinion the FEC_ENET_EBERR handling should be also
-added (if only to print a big fat error), as if this happens
-for whatever reason, the controller is now dead until reboot.
+I never mean to only add or remove one of them inside, although
+my specific case is just for appending, my patch should allow to
+overwrite all the actions together.
 
-I had a problem where the MDIO communication was needed before
-the controller has interrupts enabled - I am not quite sure whether
-it is always the case or was caused by my unrelated patch.
-I need to specify the PHY in the device tree as my hardware
-uses weird MDIO address to FEC port assignment. The only change
-in the logic is that in the fec_enet_mii_probe an of_phy_connect
-is used instead of phy_connect and I think they both end in the
-same code, but maybe I have overlooked something.
+[...]
 
-I just added a hack to poll for the MII transaction completion
-and it started to work:
-
-
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1356,6 +1357,14 @@ static unsigned long fec_enet_mdio_op(struct fec_enet_pri
-        time_left = wait_for_completion_timeout(&fep->mdio_done,
-                        usecs_to_jiffies(FEC_MII_TIMEOUT));
-
-+       if (time_left == 0) {
-+               u32 int_events = readl(fep->hwp + FEC_IEVENT);
-+               if (int_events & FEC_ENET_MII) {
-+                       writel(FEC_ENET_MII, fep->hwp + FEC_IEVENT);
-+                       time_left = 1;
-+               }
-+       }
-+
-        mutex_unlock(&fep->mutex);
-
-        return time_left;
+>
+> If you really really really insist i has to be done in the kernel;
+> then i would hope youd do it in some form of pseudo transacational
+> approach as i described is done today in user space.
+> I hope avoidance of a fat approach like 2PC as well is in order.
+> Again as i said I am extremely leary of optimizing for such
+> corner case since you can achieve all that in user space.
+>
 
 
-Many thanks
--- 
-                                          Stano
+It is not a corner case, it is a very basic functionality we need:
+
+We mirror icmp packets to every vethX device, when one of them
+is gone, we just remove the action; when a new one comes up,
+we append an action. So simple...
