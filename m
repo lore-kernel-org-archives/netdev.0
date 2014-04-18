@@ -1,98 +1,115 @@
-From: Max Schwarz <max.schwarz@online.de>
-Subject: [PATCH] arc_emac: write initial MAC address from devicetree to hw
-Date: Fri, 18 Apr 2014 02:17:32 +0200
-Message-ID: <1664530.jeK9vBIgft@typ>
+From: Behan Webster <behanw@converseincode.com>
+Subject: Re: [PATCH v4] net: netfilter: LLVMLinux: vlais-netfilter
+Date: Thu, 17 Apr 2014 17:40:42 -0700
+Message-ID: <5350748A.1060105@converseincode.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D0F6E0F8D@AcuExch.aculab.com> <1395557744-25248-1-git-send-email-behanw@converseincode.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Heiko Stuebner <heiko@sntech.de>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dwmw2@infradead.org,
+	pageexec@freemail.hu, Mark Charlebois <charlebm@gmail.com>,
+	=?UTF-8?B?Vmluw61jaXVzIFRpbnRp?= <viniciustinti@gmail.com>
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1395557744-25248-1-git-send-email-behanw@converseincode.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The MAC address retrieved from dt was not actually written to the
-hardware. This meant proper communication was only possible after
-changing the MAC address.
+On 03/22/14 23:55, behanw@converseincode.com wrote:
+> From: Mark Charlebois <charlebm@gmail.com>
+>
+> Replaced non-standard C use of Variable Length Arrays In Structs (VLA=
+IS) in
+> xt_repldata.h with a C99 compliant flexible array member and then cal=
+culated
+> offsets to the other struct members. These other members aren't refer=
+enced by
+> name in this code, however this patch maintains the same memory layou=
+t and
+> padding as was previously accomplished using VLAIS.
+>
+> Had the original structure been ordered differently, with the entries=
+ VLA at
+> the end, then it could have been a flexible member, and this patch wo=
+uld have
+> been a lot simpler. However since the data stored in this structure i=
+s
+> ultimately exported to userspace, the order of this structure can't b=
+e changed.
+>
+> This patch makes no attempt to change the existing behavior, merely t=
+he way in
+> which the current layout is accomplished using standard C99 construct=
+s. As such
+> the code can now be compiled with either gcc or clang.
+>
+> This version of the patch removes the trailing alignment that the VLA=
+IS
+> structure would allocate in order to simplify the patch.
+>
+> Author: Mark Charlebois <charlebm@gmail.com>
+> Signed-off-by: Mark Charlebois <charlebm@gmail.com>
+> Signed-off-by: Behan Webster <behanw@converseincode.com>
+> Signed-off-by: Vin=C3=ADcius Tinti <viniciustinti@gmail.com>
+> ---
+>   net/netfilter/xt_repldata.h | 22 +++++++++++++++++-----
+>   1 file changed, 17 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/netfilter/xt_repldata.h b/net/netfilter/xt_repldata.=
+h
+> index 6efe4e5..8fd3241 100644
+> --- a/net/netfilter/xt_repldata.h
+> +++ b/net/netfilter/xt_repldata.h
+> @@ -5,23 +5,35 @@
+>    * they serve as the hanging-off data accessed through repl.data[].
+>    */
+>  =20
+> +/* tbl has the following structure equivalent, but is C99 compliant:
+> + * struct {
+> + *	struct type##_replace repl;
+> + *	struct type##_standard entries[nhooks];
+> + *	struct type##_error term;
+> + * } *tbl;
+> + */
+> +
+>   #define xt_alloc_initial_table(type, typ2) ({ \
+>   	unsigned int hook_mask =3D info->valid_hooks; \
+>   	unsigned int nhooks =3D hweight32(hook_mask); \
+>   	unsigned int bytes =3D 0, hooknum =3D 0, i =3D 0; \
+>   	struct { \
+>   		struct type##_replace repl; \
+> -		struct type##_standard entries[nhooks]; \
+> -		struct type##_error term; \
+> -	} *tbl =3D kzalloc(sizeof(*tbl), GFP_KERNEL); \
+> +		struct type##_standard entries[]; \
+> +	} *tbl; \
+> +	struct type##_error *term; \
+> +	size_t term_offset =3D (offsetof(typeof(*tbl), entries[nhooks]) + \
+> +		__alignof__(*term) - 1) & ~(__alignof__(*term) - 1); \
+> +	tbl =3D kzalloc(term_offset + sizeof(*term), GFP_KERNEL); \
+>   	if (tbl =3D=3D NULL) \
+>   		return NULL; \
+> +	term =3D (struct type##_error *)&(((char *)tbl)[term_offset]); \
+>   	strncpy(tbl->repl.name, info->name, sizeof(tbl->repl.name)); \
+> -	tbl->term =3D (struct type##_error)typ2##_ERROR_INIT;  \
+> +	*term =3D (struct type##_error)typ2##_ERROR_INIT;  \
+>   	tbl->repl.valid_hooks =3D hook_mask; \
+>   	tbl->repl.num_entries =3D nhooks + 1; \
+>   	tbl->repl.size =3D nhooks * sizeof(struct type##_standard) + \
+> -	                 sizeof(struct type##_error); \
+> +			 sizeof(struct type##_error); \
+>   	for (; hook_mask !=3D 0; hook_mask >>=3D 1, ++hooknum) { \
+>   		if (!(hook_mask & 1)) \
+>   			continue; \
 
-=46ix that by always writing the mac address during probing.
+Any further feedback about this patch?
 
-Signed-off-by: Max Schwarz <max.schwarz@online.de>
----
+Behan
 
-I recently noticed this problem on the Radxa Rock board. I'm not
-sure how this has ever worked on other platforms, though. I can
-only receive broadcast packets without configuring the address.
-
-Running ifconfig eth0 hw ether XYZ or applying the patch fixes
-the problem for me.
-
-CCing Heiko St=FCbner because he has seen the problem as well.
-
- drivers/net/ethernet/arc/emac_main.c | 21 ++++++++++++++-------
- 1 file changed, 14 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/etherne=
-t/arc/emac_main.c
-index eeecc29..9f45782 100644
---- a/drivers/net/ethernet/arc/emac_main.c
-+++ b/drivers/net/ethernet/arc/emac_main.c
-@@ -574,6 +574,18 @@ static int arc_emac_tx(struct sk_buff *skb, struct=
- net_device *ndev)
- 	return NETDEV_TX_OK;
- }
-=20
-+static void arc_emac_set_address_internal(struct net_device *ndev)
-+{
-+	struct arc_emac_priv *priv =3D netdev_priv(ndev);
-+	unsigned int addr_low, addr_hi;
-+
-+	addr_low =3D le32_to_cpu(*(__le32 *) &ndev->dev_addr[0]);
-+	addr_hi =3D le16_to_cpu(*(__le16 *) &ndev->dev_addr[4]);
-+
-+	arc_reg_set(priv, R_ADDRL, addr_low);
-+	arc_reg_set(priv, R_ADDRH, addr_hi);
-+}
-+
- /**
-  * arc_emac_set_address - Set the MAC address for this device.
-  * @ndev:	Pointer to net_device structure.
-@@ -587,9 +599,7 @@ static int arc_emac_tx(struct sk_buff *skb, struct =
-net_device *ndev)
-  */
- static int arc_emac_set_address(struct net_device *ndev, void *p)
- {
--	struct arc_emac_priv *priv =3D netdev_priv(ndev);
- 	struct sockaddr *addr =3D p;
--	unsigned int addr_low, addr_hi;
-=20
- 	if (netif_running(ndev))
- 		return -EBUSY;
-@@ -599,11 +609,7 @@ static int arc_emac_set_address(struct net_device =
-*ndev, void *p)
-=20
- 	memcpy(ndev->dev_addr, addr->sa_data, ndev->addr_len);
-=20
--	addr_low =3D le32_to_cpu(*(__le32 *) &ndev->dev_addr[0]);
--	addr_hi =3D le16_to_cpu(*(__le16 *) &ndev->dev_addr[4]);
--
--	arc_reg_set(priv, R_ADDRL, addr_low);
--	arc_reg_set(priv, R_ADDRH, addr_hi);
-+	arc_emac_set_address_internal(ndev);
-=20
- 	return 0;
- }
-@@ -713,6 +719,7 @@ static int arc_emac_probe(struct platform_device *p=
-dev)
- 	else
- 		eth_hw_addr_random(ndev);
-=20
-+	arc_emac_set_address_internal(ndev);
- 	dev_info(&pdev->dev, "MAC address is now %pM\n", ndev->dev_addr);
-=20
- 	/* Do 1 allocation instead of 2 separate ones for Rx and Tx BD rings =
-*/
 --=20
-1.8.3.2
+Behan Webster
+behanw@converseincode.com
