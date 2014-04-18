@@ -1,48 +1,40 @@
-From: Amos Kong <akong@redhat.com>
-Subject: [PATCH] virtio_net: zero is an invald queue_pairs number
-Date: Fri, 18 Apr 2014 13:45:41 +0800
-Message-ID: <1397799941-11371-1-git-send-email-akong@redhat.com>
+From: Stefan Wahren <info@lategoodbye.de>
+Subject: Porting ethernet over spi driver
+Date: Fri, 18 Apr 2014 11:17:18 +0200
+Message-ID: <5350ED9E.6080103@lategoodbye.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com
-To: virtualization@lists.linux-foundation.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.augenpunkt.de ([213.239.207.9]:41625 "EHLO
+	www.augenpunkt.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751697AbaDRJhs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2014 05:37:48 -0400
+Received: from erde.kosmos.lan (178-25-105-167-dynip.superkabel.de [178.25.105.167])
+	by www.augenpunkt.de (Postfix) with ESMTP id CF414CED4F
+	for <netdev@vger.kernel.org>; Fri, 18 Apr 2014 11:06:04 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Execute "ethtool -L eth0 combined 0" in guest, if multiqueue
-is enabled, virtnet_send_command() will return -EINVAL error,
-there is a validation in QEMU.
+Hi,
 
-But if multiqueue is disabled, virtnet_set_queues() will just
-return zero (success). We should return error for this situation.
+i'm trying to port a ethernet over spi driver to current mainline, which 
+originally based on kernel 2.6.
 
-Signed-off-by: Amos Kong <akong@redhat.com>
----
- drivers/net/virtio_net.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Now i'm searching for some guidelines, checklists, common pitfalls or 
+just hints about that.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 7b68746..8a852b5 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1285,7 +1285,7 @@ static int virtnet_set_channels(struct net_device *dev,
- 	if (channels->rx_count || channels->tx_count || channels->other_count)
- 		return -EINVAL;
- 
--	if (queue_pairs > vi->max_queue_pairs)
-+	if (queue_pairs > vi->max_queue_pairs || queue_pairs == 0)
- 		return -EINVAL;
- 
- 	get_online_cpus();
--- 
-1.9.0
+Is there something about that, which is up to date?
+
+Is there a list or something of legacy function, which shouldn't be used 
+anymore?
+
+Are there any new must have features?
+
+Is there a good reference implementation for ethernet over spi?
+
+Thanks in advance.
+
+Kind regards
+Stefan Wahren
