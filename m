@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Subject: Re: [PATCH v2 1/4] mdio_bus: implement devm_mdiobus_alloc/devm_mdiobus_free
-Date: Fri, 18 Apr 2014 21:48:28 +0400
-Message-ID: <5351656C.6070108@cogentembedded.com>
+Date: Fri, 18 Apr 2014 21:52:16 +0400
+Message-ID: <53516650.3000405@cogentembedded.com>
 References: <1397841897-9170-1-git-send-email-grygorii.strashko@ti.com> <1397841897-9170-2-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
@@ -20,8 +20,6 @@ In-Reply-To: <1397841897-9170-2-git-send-email-grygorii.strashko@ti.com>
 Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
-
 On 04/18/2014 09:24 PM, Grygorii Strashko wrote:
 
 > Add a resource managed devm_mdiobus_alloc()/devm_mdiobus_free()
@@ -32,28 +30,40 @@ On 04/18/2014 09:24 PM, Grygorii Strashko wrote:
 > Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 [...]
 
-> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
 > index 76f54b3..6412beb 100644
 > --- a/drivers/net/phy/mdio_bus.c
 > +++ b/drivers/net/phy/mdio_bus.c
 > @@ -69,6 +69,74 @@ struct mii_bus *mdiobus_alloc_size(size_t size)
 [...]
 > +/**
-> + * devm_mdiobus_free - Resource-managed mdiobus_free()
-> + * @dev:		Device this mii_bus belongs to
-> + * @bus:		the mii_bus associated with the device
+> + * devm_mdiobus_alloc - Resource-managed mdiobus_alloc_size()
+> + * @dev:		Device to allocate mii_bus for
+> + * @sizeof_priv:	Space to allocate for private structure.
 > + *
-> + * Free mii_bus allocated with devm_mdiobus_alloc().
+> + * Managed mdiobus_alloc_size. mii_bus allocated with this function is
+> + * automatically freed on driver detach.
+> + *
+> + * If an mii_bus allocated with this function needs to be freed separately,
+> + * devm_mdiobus_free() must be used.
+> + *
+> + * RETURNS:
+> + * Pointer to allocated mii_bus on success, NULL on failure.
 > + */
-> +void devm_mdiobus_free(struct device *dev, struct mii_bus *bus)
+> +struct mii_bus *devm_mdiobus_alloc(struct device *dev, int sizeof_priv)
 > +{
-> +	int rc;
+> +	struct mii_bus **ptr, *bus;
 > +
-> +	rc = devres_release(dev, _devm_mdiobus_free,
-> +		devm_mdiobus_match, bus);
+> +	ptr = devres_alloc(_devm_mdiobus_free, sizeof(*ptr),
+> +			   GFP_KERNEL);
+> +	if (!ptr)
+> +		return NULL;
+> +
+> +	/* use raw alloc_dr for kmalloc caller tracing */
+> +	bus = mdiobus_alloc_size(sizeof_priv);
 
-    Please re-align this line, so that it starts right under 'dev' on the 
-previous line.
+    Since the wrapped function is called mdiobus_alloc_size(), not 
+mdiobus_alloc(), perhaps it's better to call the wrapper 
+devm_mdiobus_alloc_size()?
 
 WBR, Sergei
 
