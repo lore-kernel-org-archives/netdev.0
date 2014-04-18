@@ -1,57 +1,27 @@
-From: zhangfei <zhangfei.gao@linaro.org>
-Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Fri, 18 Apr 2014 21:17:52 +0800
-Message-ID: <53512600.6020902@linaro.org>
-References: <1396672506-9296-1-git-send-email-zhangfei.gao@linaro.org>	<1396672506-9296-4-git-send-email-zhangfei.gao@linaro.org> <20140407.145356.928382660541891827.davem@davemloft.net>
+From: <tthayer@altera.com>
+Subject: [PATCHv2] Add support for standard D_CAN module RAM Init Bit
+Date: Fri, 18 Apr 2014 09:03:13 -0500
+Message-ID: <1397829794-9714-1-git-send-email-tthayer@altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux@arm.linux.org.uk, arnd@arndb.de, f.fainelli@gmail.com,
-	sergei.shtylyov@cogentembedded.com, mark.rutland@arm.com,
-	David.Laight@ACULAB.COM, eric.dumazet@gmail.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <socketcan@hartkopp.net>, <anilkumar@ti.com>,
+	<davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <tthayer.linux@gmail.com>
+To: <linux-can@vger.kernel.org>, <wg@grandegger.com>,
+	<mkl@pengutronix.de>, <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:52884 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754369AbaDRNSC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2014 09:18:02 -0400
-Received: by mail-pd0-f179.google.com with SMTP id w10so1433627pde.24
-        for <netdev@vger.kernel.org>; Fri, 18 Apr 2014 06:18:02 -0700 (PDT)
-In-Reply-To: <20140407.145356.928382660541891827.davem@davemloft.net>
+Received: from mail-bl2on0121.outbound.protection.outlook.com ([65.55.169.121]:17767
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751314AbaDRN6n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Apr 2014 09:58:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear David
+The standard D_CAN module includes the RAM Init bit in one of the 
+D_CAN registers. This patch will properly initialize the RAM Init
+bit which is self-clearing when the RAM Init is complete.
+This patch fixes a boot message reporting an invalid resource as
+well as the message saying control memory is not used for raminit.
 
-On 04/08/2014 02:53 AM, David Miller wrote:
-
->> +static void hip04_tx_reclaim(struct net_device *ndev, bool force)
->   ...
->> +static void hip04_xmit_timer(unsigned long data)
->> +{
->> +	struct net_device *ndev = (void *) data;
->> +
->> +	hip04_tx_reclaim(ndev, false);
->> +}
->   ...
->> +	mod_timer(&priv->txtimer, jiffies + RECLAIM_PERIOD);
->
-> And this is where I stop reading your driver, I've stated already that this
-> kind of reclaim scheme is unacceptable.
->
-> The kernel timers lack the granularity necessary to service TX reclaim
-> with a reasonable amount of latency.
->
-> You must use some kind of hardware notification of TX slots becomming
-> available, I find it totally impossible that a modern ethernet controller
-> was created without a TX done interrupt.
->
-
-There is no tx_done interrupt, we may need some workaround.
-
-Is it acceptable to use poll to reclaim the xmitted buffer.
-And in the xmit calling napi_schedule.
-
-Thanks
+[PATCHv2] net: c_can: Add support for D_CAN RAM Init bit in D_CAN
