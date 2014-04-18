@@ -1,96 +1,62 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net] sched, cls: check if we could overwrite actions when
- changing a filter
-Date: Fri, 18 Apr 2014 10:26:33 -0400
-Message-ID: <53513619.5060202@mojatatu.com>
-References: <1397605563-29756-1-git-send-email-xiyou.wangcong@gmail.com>	<534E77D0.8000307@mojatatu.com>	<CAM_iQpXRVZ8_keaL-8OkmRVguA29bnTPS2ZHZ0j2SSeB6A=1jQ@mail.gmail.com>	<534FBFF0.3020606@mojatatu.com> <CAM_iQpVqQbXcm0gGxe_JMURPtGYH+iOi8UGgvis5je6g9zbiKQ@mail.gmail.com>
+From: "Ertman, DavidX M" <davidx.m.ertman@intel.com>
+Subject: RE: [net-next 01/13] e1000e: Fix no connectivity when driver loaded
+ with cable out
+Date: Fri, 18 Apr 2014 15:27:47 +0000
+Message-ID: <2B0E3F215D1AB84DA946C8BEE234CCC9370E0B59@ORSMSX101.amr.corp.intel.com>
+References: <1396308899-20926-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1396308899-20926-2-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1397826946.3624.32.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <cwang@twopensource.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Ben Hutchings <ben@decadent.org.uk>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:50899 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751532AbaDRO0y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2014 10:26:54 -0400
-Received: by mail-ig0-f172.google.com with SMTP id hn18so720637igb.11
-        for <netdev@vger.kernel.org>; Fri, 18 Apr 2014 07:26:54 -0700 (PDT)
-In-Reply-To: <CAM_iQpVqQbXcm0gGxe_JMURPtGYH+iOi8UGgvis5je6g9zbiKQ@mail.gmail.com>
+Received: from mga03.intel.com ([143.182.124.21]:14982 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751139AbaDRP1u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Apr 2014 11:27:50 -0400
+In-Reply-To: <1397826946.3624.32.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/17/14 16:48, Cong Wang wrote:
-
-> Actions attached to a filter are at the end of the graph, they should
-> be able to be added/removed together.
-
-
-I will try to be clear: you are changing policy which is a higher
-level semantic than any one of filter or actions. Consider:
-
-a) A simple policy in a linear graph
-if (icmp) --> A-->B-->C-->D-->E
-
-With the following individual change operations:
-i)change to delete C
-ii)change to add G after B
-iii) add F as branch from D
-iv) add H after E and maintain linear status
-v) after #iv make the graph at node D selectively branch between E/H
-
-Ok, let provide a slightly complex graph, sorry it is hard to do ascii
-diagram for this, so i will illustrate programmatically:
-
-if (icmp) {
-     mark with tag 11 //mark index 7
-     if (rate < 10kbs) { //policer index 1
-        return
-     } else {
-        mark with tag 12  //mark index 3
-        if (rate2 < 20kbs) {//policer index 2
-           return
-       } else {
-           mirror to dummy0 //mirred index 8
-       }
-    }
-}
-
-What does adding/deleting even mean in this case?
-
->
-> This is a workaround, not a fix. What if I have multiple threads
-> trying to append an action at the same time? This workaround
-> can't guarantee the correctness.
->
-
-Sorry Cong, your approach is NOT a fix. There is _no way_ you can
-achieve correctness without a two phase operation. Talk to the
-netfilter guys about such experiences (in 2.x kernels?).
-The multiple threads issue is taken care of by locking,
-you just want to reduce the amount of lock time needed; that is
-what that (proven) 2 phase approach is doing.
-I called it workaround because you dont need to make any changes
-in the kernel. There is a tiny window of inconsistency possible in
-presence of multiple contenders but you already get that with things
-like RCU (grace period) that you added.
-
-> My case is a perfectly valid use,
-
-I am not questioning your use case - just it shouldnt come as a hack at
-the expense of all other use cases (of which the most important
-are not replacing/changing a graph but creating and deleting one).
-
->we have to fix it, maybe in another way.
-
-If you really really really insist i has to be done in the kernel;
-then i would hope youd do it in some form of pseudo transacational
-approach as i described is done today in user space.
-I hope avoidance of a fat approach like 2PC as well is in order.
-Again as i said I am extremely leary of optimizing for such
-corner case since you can achieve all that in user space.
-
-cheers,
-jamal
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
+dG86YmVuQGRlY2FkZW50Lm9yZy51a10NCj4gU2VudDogRnJpZGF5LCBBcHJpbCAxOCwgMjAxNCA2
+OjE2IEFNDQo+IFRvOiBLaXJzaGVyLCBKZWZmcmV5IFQ7IEVydG1hbiwgRGF2aWRYIE0NCj4gQ2M6
+IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGdvc3BvQHJlZGhh
+dC5jb207DQo+IHNhc3NtYW5uQHJlZGhhdC5jb20NCj4gU3ViamVjdDogUmU6IFtuZXQtbmV4dCAw
+MS8xM10gZTEwMDBlOiBGaXggbm8gY29ubmVjdGl2aXR5IHdoZW4gZHJpdmVyIGxvYWRlZA0KPiB3
+aXRoIGNhYmxlIG91dA0KPiANCj4gT24gTW9uLCAyMDE0LTAzLTMxIGF0IDE2OjM0IC0wNzAwLCBK
+ZWZmIEtpcnNoZXIgd3JvdGU6DQo+ID4gRnJvbTogRGF2aWQgRXJ0bWFuIDxkYXZpZHgubS5lcnRt
+YW5AaW50ZWwuY29tPg0KPiA+DQo+ID4gSW4gY29tbWl0IGRhMWUyMDQ2ZTUsIHRoZSBmbG93IGZv
+ciBlbmFibGluZy9kaXNhYmxpbmcgYW4gU2kgZXJyYXRhDQo+ID4gd29ya2Fyb3VuZCAoZTEwMDBf
+bHZfanVtYm9fd29ya2Fyb3VuZF9pY2g4bGFuKSB3YXMgY2hhbmdlZCB0byBmaXggYQ0KPiBwcm9i
+bGVtDQo+ID4gd2l0aCBpQU1UIGNvbm5lY3Rpb25zIGRyb3BwaW5nIG9uIGludGVyZmFjZSBkb3du
+IHdpdGgganVtYm8gZnJhbWVzIHNldC4NCj4gPiBQYXJ0IG9mIHRoaXMgY2hhbmdlIHdhcyB0byBt
+b3ZlIHRoZSBmdW5jdGlvbiBjYWxsIGRpc2FibGluZyB0aGUgd29ya2Fyb3VuZA0KPiA+IHRvIGUx
+MDAwZV9kb3duKCkgZnJvbSB0aGUgZTEwMDBfc2V0dXBfcmN0bCgpIGZ1bmN0aW9uLiAgVGhlIG1l
+Y2hhbmljIGZvcg0KPiA+IGRpc2FibGluZyBvZiB0aGlzIHdvcmthcm91bmQgaW52b2x2ZXMgd3Jp
+dGluZyBzZXZlcmFsIE1BQyBhbmQgUEhZIHJlZ2lzdGVycw0KPiA+IGJhY2sgdG8gaGFyZHdhcmUg
+ZGVmYXVsdHMuDQo+ID4NCj4gPiBBZnRlciB0aGlzIGNvbW1pdCwgd2hlbiB0aGUgZHJpdmVyIGlz
+IGxvYWRlZCB3aXRoIHRoZSBjYWJsZSBvdXQsIHRoZSBQSFkNCj4gPiByZWdpc3RlcnMgYXJlIG5v
+dCBwcm9ncmFtbWVkIHdpdGggdGhlIGNvcnJlY3QgZGVmYXVsdCB2YWx1ZXMuICBUaGlzIGNhdXNl
+cw0KPiA+IHRoZSBkZXZpY2UgdG8gYmUgY2FwYWJsZSBvZiB0cmFuc21pdHRpbmcgcGFja2V0cywg
+YnV0IGlzIHVuYWJsZSB0byByZWNpZXZlDQo+ID4gdGhlbSB1bnRpbCB0aGlzIHdvcmthcm91bmQg
+aXMgY2FsbGVkLg0KPiBbLi4uXQ0KPiANCj4gV2hpY2ggZGV2aWNlcyBhcmUgYWZmZWN0ZWQgYnkg
+dGhpcz8gIEkganVzdCBkaWQgYSBiYWNrcG9ydCBvZiBlMTAwMGUNCj4gZnJvbSAzLjEzIGZvciBE
+ZWJpYW4gNy41IGFuZCBkaWRuJ3Qgc3BvdCB0aGlzIGZpeCB1bnRpbCBsYXRlci4NCj4gDQo+IEkg
+Y291bGRuJ3QgcmVwcm9kdWNlIHRoaXMgcHJvYmxlbSBvbiBteSBsYXB0b3AsIHdoaWNoIGhhczoN
+Cj4gDQo+IDAwOjE5LjAgRXRoZXJuZXQgY29udHJvbGxlciBbMDIwMF06IEludGVsIENvcnBvcmF0
+aW9uIDgyNTc5TE0gR2lnYWJpdA0KPiBOZXR3b3JrIENvbm5lY3Rpb24gWzgwODY6MTUwMl0gKHJl
+diAwNCkNCj4gDQo+IEJlbi4NCj4gDQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MNCj4gTG93ZXJ5J3Mg
+TGF3Og0KPiAgICAgICAgICAgICAgSWYgaXQgamFtcywgZm9yY2UgaXQuIElmIGl0IGJyZWFrcywg
+aXQgbmVlZGVkIHJlcGxhY2luZyBhbnl3YXkuDQoNCmkyMTcgcGFydHMgYXJlIGFmZmVjdGVkIGJ5
+IHRoaXMgaXNzdWUuDQoNCkl0IGlzIHBvc3NpYmxlIHRoYXQgODI1NzkgcGFydHMgYXJlIG5vdCBh
+ZmZlY3RlZCAoSSBkb24ndCB0aGluayBhIHJlcHJvIHdhcyBkb25lIHdpdGggb25lIG9mIHRoZXNl
+IGRldmljZXMpLCBidXQgdGhlIGNvZGUgaW52b2x2ZWQgd2FzIG9yaWdpbmFsbHkgcHV0IGluIGZv
+ciBhbiA4MjU3OSB3b3JrYXJvdW5kLg0KDQpEYXZlIEVydG1hbg0K
