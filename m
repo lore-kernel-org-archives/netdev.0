@@ -1,7 +1,8 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v2 0/4] introduce devm_mdiobus_alloc/free and clean up davinci mdio
-Date: Fri, 18 Apr 2014 20:24:53 +0300
-Message-ID: <1397841897-9170-1-git-send-email-grygorii.strashko@ti.com>
+Subject: [PATCH 4/4] net: davinci_mdio: simplify IO memory mapping
+Date: Fri, 18 Apr 2014 20:24:57 +0300
+Message-ID: <1397841897-9170-5-git-send-email-grygorii.strashko@ti.com>
+References: <1397841897-9170-1-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Randy Dunlap <rdunlap@infradead.org>,
@@ -14,34 +15,51 @@ Cc: Randy Dunlap <rdunlap@infradead.org>,
 	<sergei.shtylyov@cogentembedded.com>,
 	Grygorii Strashko <grygorii.strashko@ti.com>
 To: Florian Fainelli <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Sender: linux-doc-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1397841897-9170-1-git-send-email-grygorii.strashko@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Introduce a resource managed devm_mdiobus_alloc()/devm_mdiobus_free()
-to automatically clean up MDIO bus alocations made by MDIO drivers,
-thus leading to simplified MDIO drivers code.
-
-Clean up Davinci MDIO driver and use new devm API.
-
-Changes in v2:
-- minor comments taken into account
-- additional patches added for cleaning up Davinci MDIO driver
+Simplify IO memory mapping by using devm_ioremap_resource()
+which will do all errors handling and reporting for us.
 
 Cc: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+---
+ drivers/net/ethernet/ti/davinci_mdio.c |   21 +++------------------
+ 1 file changed, 3 insertions(+), 18 deletions(-)
 
-Grygorii Strashko (4):
-  mdio_bus: implement devm_mdiobus_alloc/devm_mdiobus_free
-  net: davinci_mdio: use devm_* api
-  net: davinci_mdio: drop pinctrl_pm_select_default_state from probe
-  net: davinci_mdio: simplify IO memory mapping
-
- Documentation/driver-model/devres.txt  |    4 ++
- drivers/net/ethernet/ti/davinci_mdio.c |   48 ++++------------------
- drivers/net/phy/mdio_bus.c             |   68 ++++++++++++++++++++++++++++++++
- include/linux/phy.h                    |    2 +
- 4 files changed, 82 insertions(+), 40 deletions(-)
-
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index 98d53a3..87e9f20 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -363,24 +363,9 @@ static int davinci_mdio_probe(struct platform_device *pdev)
+ 	spin_lock_init(&data->lock);
+ 
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	if (!res) {
+-		dev_err(dev, "could not find register map resource\n");
+-		ret = -ENOENT;
+-		goto bail_out;
+-	}
+-
+-	res = devm_request_mem_region(dev, res->start, resource_size(res),
+-					    dev_name(dev));
+-	if (!res) {
+-		dev_err(dev, "could not allocate register map resource\n");
+-		ret = -ENXIO;
+-		goto bail_out;
+-	}
+-
+-	data->regs = devm_ioremap_nocache(dev, res->start, resource_size(res));
+-	if (!data->regs) {
+-		dev_err(dev, "could not map mdio registers\n");
+-		ret = -ENOMEM;
++	data->regs = devm_ioremap_resource(dev, res);
++	if (IS_ERR(data->regs)) {
++		ret = PTR_ERR(data->regs);
+ 		goto bail_out;
+ 	}
+ 
 -- 
 1.7.9.5
-
