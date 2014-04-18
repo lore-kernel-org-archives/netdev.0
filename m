@@ -1,25 +1,40 @@
-From: "Luis R. Rodriguez" <mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org>
-Subject: [ANNOUNCE] backports-3.15-rc1 is released
-Date: Thu, 17 Apr 2014 19:10:39 -0700
-Message-ID: <1397787039-17821-1-git-send-email-mcgrof@do-not-panic.com>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	"Luis R. Rodriguez" <mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org>
-To: backports-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <backports-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: backports-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Amos Kong <akong@redhat.com>
+Subject: [PATCH] ethtool: fix a typo in displaying channel parameters
+Date: Fri, 18 Apr 2014 09:39:59 +0800
+Message-ID: <1397785199-1470-1-git-send-email-akong@redhat.com>
+Cc: bwh@kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44993 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750970AbaDRCSn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Apr 2014 22:18:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Linux backports [0] backports-v3.15-rc1 is out [1]. Please
-go test and see if you can and break things or if see if
-we've broken anything so far before a final release in
-sync with Linus' releases. As usual development only happens
-on the master branch, we'll then carry fixes onto the stable
-branch. It just so happens that today's master branch is
-exactly as we have it on the linux-3.15.y branch.
+ # ethtool -L eth0 combined 1
+ combined unmodified, ignoring
+ no channel parameters changed, aborting
+ current values: tx 0 rx 0 other 0combined 1
+                                ^^^^
 
-[0] https://backports.wiki.kernel.org/
-[1] https://www.kernel.org/pub/linux/kernel/projects/backports/stable/v3.15-rc1/backports-3.15-rc1-1.tar.xz
+Signed-off-by: Amos Kong <akong@redhat.com>
+---
+ ethtool.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-  Luis
+diff --git a/ethtool.c b/ethtool.c
+index acb4397..4c75653 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -1764,7 +1764,7 @@ static int do_schannels(struct cmd_context *ctx)
+ 	if (!changed) {
+ 		fprintf(stderr, "no channel parameters changed, aborting\n");
+ 		fprintf(stderr, "current values: tx %u rx %u other %u"
+-			"combined %u\n", echannels.rx_count,
++			" combined %u\n", echannels.rx_count,
+ 			echannels.tx_count, echannels.other_count,
+ 			echannels.combined_count);
+ 		return 1;
+-- 
+1.9.0
