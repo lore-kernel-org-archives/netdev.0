@@ -1,93 +1,63 @@
-From: Tim Gardner <tim.gardner@canonical.com>
-Subject: Re: [PATCH net-next] xprtrdma: rpcrdma_register_default_external:
- Silence frame size warning
-Date: Fri, 18 Apr 2014 13:56:00 -0600
-Message-ID: <53518350.8010605@canonical.com>
-References: <1397850625-44074-1-git-send-email-tim.gardner@canonical.com> <CAHQdGtQyntscf5kwgWW-v0hWvdT0djKHhibhKNRtwGrcPu-e-Q@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH] filter: added BPF random opcode
+Date: Fri, 18 Apr 2014 13:21:35 -0700
+Message-ID: <CAMEtUuxb0PDU5mJVjajGZNwaCAt=5xTj4tyH99_LWRstzQTtUw@mail.gmail.com>
+References: <1397585816-1267-1-git-send-email-chema@google.com>
+	<CAMEtUuw3-LEuwJ2cAQ+F-tu_-wzy4HK4ZteAuJpYfY9hW66+FA@mail.gmail.com>
+	<1397698696.4222.138.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux NFS Mailing List <linux-nfs@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel mailing list <linux-kernel@vger.kernel.org>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Trond Myklebust <trond.myklebust@primarydata.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHQdGtQyntscf5kwgWW-v0hWvdT0djKHhibhKNRtwGrcPu-e-Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Chema Gonzalez <chema@google.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f175.google.com ([74.125.82.175]:58661 "EHLO
+	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751197AbaDRUVh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2014 16:21:37 -0400
+Received: by mail-we0-f175.google.com with SMTP id q58so1875119wes.6
+        for <netdev@vger.kernel.org>; Fri, 18 Apr 2014 13:21:36 -0700 (PDT)
+In-Reply-To: <1397698696.4222.138.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/18/2014 01:52 PM, Trond Myklebust wrote:
+On Wed, Apr 16, 2014 at 6:38 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2014-04-15 at 23:24 -0700, Alexei Starovoitov wrote:
 >
-> On Fri, Apr 18, 2014 at 3:50 PM, Tim Gardner <tim.gardner@canonical.com
-> <mailto:tim.gardner@canonical.com>> wrote:
+>> In particular I don't find the reason of moving random
+>> packet sampling into kernel to be that great.
+>> pcap cannot receive them quickly enough anyway,
+>> so there are drops already.
+>> Just randomly pick packets that reached the user space.
+>> Why add this to the kernel? I don't see how it can improve accuracy.
 >
->     net/sunrpc/xprtrdma/verbs.c: In function
->     'rpcrdma_register_default_external':
->     net/sunrpc/xprtrdma/verbs.c:1774:1: warning: the frame size of 1048
->     bytes is larger than 1024 bytes [-Wframe-larger-than=]
+> It has nothing to do with speed or accuracy.
 >
->     gcc version 4.8.2, x86_64-linux-gnu
+> Being able to intercept 0.001 % of the packets (and not 0.001 % of the
+> flows...) can be useful to network operators.
 >
->     Cc: Trond Myklebust <trond.myklebust@primarydata.com
->     <mailto:trond.myklebust@primarydata.com>>
->     Cc: "J. Bruce Fields" <bfields@fieldses.org
->     <mailto:bfields@fieldses.org>>
->     Cc: "David S. Miller" <davem@davemloft.net <mailto:davem@davemloft.net>>
->     Signed-off-by: Tim Gardner <tim.gardner@canonical.com
->     <mailto:tim.gardner@canonical.com>>
->     ---
->       net/sunrpc/xprtrdma/verbs.c |    8 +++++++-
->       1 file changed, 7 insertions(+), 1 deletion(-)
+> _Then_ if its super super super fast, thats better, of course.
 >
->     diff --git a/net/sunrpc/xprtrdma/verbs.c b/net/sunrpc/xprtrdma/verbs.c
->     index 93726560..8130349 100644
->     --- a/net/sunrpc/xprtrdma/verbs.c
->     +++ b/net/sunrpc/xprtrdma/verbs.c
->     @@ -1736,9 +1736,13 @@ rpcrdma_register_default_external(struct
->     rpcrdma_mr_seg *seg,
->              int mem_priv = (writing ? IB_ACCESS_REMOTE_WRITE :
->                                        IB_ACCESS_REMOTE_READ);
->              struct rpcrdma_mr_seg *seg1 = seg;
->     -       struct ib_phys_buf ipb[RPCRDMA_MAX_DATA_SEGS];
->     +       struct ib_phys_buf *ipb;
->              int len, i, rc = 0;
->
->     +       ipb = kmalloc(sizeof(*ipb) * RPCRDMA_MAX_DATA_SEGS, GFP_ATOMIC);
->     +       if (!ipb)
->     +               return -ENOMEM;
->     +
->              if (*nsegs > RPCRDMA_MAX_DATA_SEGS)
->                      *nsegs = RPCRDMA_MAX_DATA_SEGS;
->              for (len = 0, i = 0; i < *nsegs;) {
->     @@ -1770,6 +1774,8 @@ rpcrdma_register_default_external(struct
->     rpcrdma_mr_seg *seg,
->                      seg1->mr_len = len;
->              }
->              *nsegs = i;
->     +
->     +       kfree(ipb);
->              return rc;
->       }
->
->     --
->     1.7.9.5
->
-> What has this got to do with net-next? It is RPC related...
->
-> --
->
-> Trond Myklebust
->
-> Linux NFS client maintainer, PrimaryData
->
-> trond.myklebust@primarydata.com <mailto:trond.myklebust@primarydata.com>
->
+> Suggesting to intercept all packets, then filtering 99.999 % of them in
+> user space is not going to work. Its going to be super super super slow.
 
-I guess I naively thought that anything under the net directory went 
-through Dave's tree.
+correct.
+I was suggesting user space approach, because example does:
++  ld rand
++  mod #4
++  jneq #1, drop
 
-rtg
--- 
-Tim Gardner tim.gardner@canonical.com
+If 4 is replaced with rate of packets per second and which can be
+roughly estimated before creating the filter, then this example would
+make sense.
+On a loaded server the rate will be in tens of millions, but when it idles
+this fixed rand()%1000000==1 won't be sending anything to
+userspace for hours.
+
+I suspect adding 'ld rand' just 'felt' useful and no real
+filters were created with it.
+For true packet sampling 'ld getnstime' would be needed too.
+As I said I like the approach, I just want to see a real use case for it.
