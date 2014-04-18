@@ -1,162 +1,96 @@
-From: <tthayer@altera.com>
-Subject: [PATCHv2] net: c_can: Add support for D_CAN Module RAM Init
-Date: Fri, 18 Apr 2014 09:03:14 -0500
-Message-ID: <1397829794-9714-2-git-send-email-tthayer@altera.com>
-References: <1397829794-9714-1-git-send-email-tthayer@altera.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net] sched, cls: check if we could overwrite actions when
+ changing a filter
+Date: Fri, 18 Apr 2014 10:26:33 -0400
+Message-ID: <53513619.5060202@mojatatu.com>
+References: <1397605563-29756-1-git-send-email-xiyou.wangcong@gmail.com>	<534E77D0.8000307@mojatatu.com>	<CAM_iQpXRVZ8_keaL-8OkmRVguA29bnTPS2ZHZ0j2SSeB6A=1jQ@mail.gmail.com>	<534FBFF0.3020606@mojatatu.com> <CAM_iQpVqQbXcm0gGxe_JMURPtGYH+iOi8UGgvis5je6g9zbiKQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <socketcan@hartkopp.net>, <anilkumar@ti.com>,
-	<davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <tthayer.linux@gmail.com>,
-	Thor Thayer <tthayer@altera.com>
-To: <linux-can@vger.kernel.org>, <wg@grandegger.com>,
-	<mkl@pengutronix.de>, <tglx@linutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1397829794-9714-1-git-send-email-tthayer@altera.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:50899 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751532AbaDRO0y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2014 10:26:54 -0400
+Received: by mail-ig0-f172.google.com with SMTP id hn18so720637igb.11
+        for <netdev@vger.kernel.org>; Fri, 18 Apr 2014 07:26:54 -0700 (PDT)
+In-Reply-To: <CAM_iQpVqQbXcm0gGxe_JMURPtGYH+iOi8UGgvis5je6g9zbiKQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thor Thayer <tthayer@altera.com>
+On 04/17/14 16:48, Cong Wang wrote:
 
-The D_CAN driver was written to support the TI D_CAN implementation
-which placed the D_CAN RAM reset in a separate register. In the
-standard D_CAN module the RAM Init is in the D_CAN module so
-handle the RAM Init differently.
-This patch has only been tested on the standard D_CAN module (but not
-on the TI D_CAN module).
+> Actions attached to a filter are at the end of the graph, they should
+> be able to be added/removed together.
 
-Signed-off-by: Thor Thayer <tthayer@altera.com>
----
-Changes in v2:
--Rename raminit_type_flag to raminit_type
--New constants for raminit_type
----
----
- drivers/net/can/c_can/c_can.h          |    3 ++
- drivers/net/can/c_can/c_can_platform.c |   51 +++++++++++++++++++++++++-------
- 2 files changed, 44 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/can/c_can/c_can.h b/drivers/net/can/c_can/c_can.h
-index faa8404..73c6c88 100644
---- a/drivers/net/can/c_can/c_can.h
-+++ b/drivers/net/can/c_can/c_can.h
-@@ -88,6 +88,7 @@ enum reg {
- 	C_CAN_INTPND2_REG,
- 	C_CAN_MSGVAL1_REG,
- 	C_CAN_MSGVAL2_REG,
-+	C_CAN_FUNCTION_REG,
- };
- 
- static const u16 reg_map_c_can[] = {
-@@ -139,6 +140,7 @@ static const u16 reg_map_d_can[] = {
- 	[C_CAN_BRPEXT_REG]	= 0x0E,
- 	[C_CAN_INT_REG]		= 0x10,
- 	[C_CAN_TEST_REG]	= 0x14,
-+	[C_CAN_FUNCTION_REG]	= 0x18,
- 	[C_CAN_TXRQST1_REG]	= 0x88,
- 	[C_CAN_TXRQST2_REG]	= 0x8A,
- 	[C_CAN_NEWDAT1_REG]	= 0x9C,
-@@ -201,6 +203,7 @@ struct c_can_priv {
- 	unsigned int instance;
- 	void (*raminit) (const struct c_can_priv *priv, bool enable);
- 	u32 dlc[C_CAN_MSG_OBJ_TX_NUM];
-+	u32 raminit_type;
- };
- 
- struct net_device *alloc_c_can_dev(void);
-diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
-index 806d927..af3366f 100644
---- a/drivers/net/can/c_can/c_can_platform.c
-+++ b/drivers/net/can/c_can/c_can_platform.c
-@@ -41,6 +41,14 @@
- #define CAN_RAMINIT_DONE_MASK(i)	(0x100 << (i))
- #define CAN_RAMINIT_ALL_MASK(i)		(0x101 << (i))
- static DEFINE_SPINLOCK(raminit_lock);
-+#define DCAN_RAM_INIT_BIT		(1 << 3)
-+struct c_can_ram_init_masks {
-+	u32 start;
-+	u32 done;
-+	u32 all;
-+};
-+#define CAN_RAMINIT_TYPE_STANDARD	0
-+#define CAN_RAMINIT_TYPE_TI		1
- /*
-  * 16-bit c_can registers can be arranged differently in the memory
-  * architecture of different implementations. For example: 16-bit
-@@ -82,9 +90,19 @@ static void c_can_hw_raminit_wait(const struct c_can_priv *priv, u32 mask,
- 
- static void c_can_hw_raminit(const struct c_can_priv *priv, bool enable)
- {
--	u32 mask = CAN_RAMINIT_ALL_MASK(priv->instance);
-+	struct c_can_ram_init_masks ram_init_masks;
- 	u32 ctrl;
- 
-+	if (priv->raminit_type == CAN_RAMINIT_TYPE_TI) {
-+		ram_init_masks.start = CAN_RAMINIT_START_MASK(priv->instance);
-+		ram_init_masks.done = CAN_RAMINIT_DONE_MASK(priv->instance);
-+		ram_init_masks.all = CAN_RAMINIT_ALL_MASK(priv->instance);
-+	} else {
-+		ram_init_masks.start = DCAN_RAM_INIT_BIT;
-+		ram_init_masks.done = 0;
-+		ram_init_masks.all = 0;
-+	}
-+
- 	spin_lock(&raminit_lock);
- 
- 	ctrl = readl(priv->raminit_ctrlreg);
-@@ -92,18 +110,18 @@ static void c_can_hw_raminit(const struct c_can_priv *priv, bool enable)
- 	 * looking at the 0 -> transition, but is not self clearing;
- 	 * And we clear the init done bit as well.
- 	 */
--	ctrl &= ~CAN_RAMINIT_START_MASK(priv->instance);
--	ctrl |= CAN_RAMINIT_DONE_MASK(priv->instance);
-+	ctrl &= ~ram_init_masks.start;
-+	ctrl |= ram_init_masks.done;
- 	writel(ctrl, priv->raminit_ctrlreg);
--	ctrl &= ~CAN_RAMINIT_DONE_MASK(priv->instance);
--	c_can_hw_raminit_wait(priv, ctrl, mask);
-+	ctrl &= ~ram_init_masks.done;
-+	c_can_hw_raminit_wait(priv, ctrl, ram_init_masks.all);
- 
- 	if (enable) {
- 		/* Set start bit and wait for the done bit. */
--		ctrl |= CAN_RAMINIT_START_MASK(priv->instance);
-+		ctrl |= ram_init_masks.start;
- 		writel(ctrl, priv->raminit_ctrlreg);
--		ctrl |= CAN_RAMINIT_DONE_MASK(priv->instance);
--		c_can_hw_raminit_wait(priv, ctrl, mask);
-+		ctrl |= ram_init_masks.done;
-+		c_can_hw_raminit_wait(priv, ctrl, ram_init_masks.all);
- 	}
- 	spin_unlock(&raminit_lock);
- }
-@@ -221,11 +239,24 @@ static int c_can_plat_probe(struct platform_device *pdev)
- 			priv->instance = pdev->id;
- 
- 		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-+		/* Not all D_CAN module have a separate register for the D_CAN
-+		 * RAM initialization. Use default RAM init bit in D_CAN module
-+		 * if not specified in DT.
-+		 */
-+		if (!res) {
-+			priv->raminit = c_can_hw_raminit;
-+			priv->raminit_type = CAN_RAMINIT_TYPE_STANDARD;
-+			priv->raminit_ctrlreg = addr +
-+				priv->regs[C_CAN_FUNCTION_REG];
-+			break;
-+		}
- 		priv->raminit_ctrlreg = devm_ioremap_resource(&pdev->dev, res);
--		if (IS_ERR(priv->raminit_ctrlreg) || (int)priv->instance < 0)
-+		if (IS_ERR(priv->raminit_ctrlreg) || (int)priv->instance < 0) {
- 			dev_info(&pdev->dev, "control memory is not used for raminit\n");
--		else
-+		} else {
- 			priv->raminit = c_can_hw_raminit;
-+			priv->raminit_type = CAN_RAMINIT_TYPE_TI;
-+		}
- 		break;
- 	default:
- 		ret = -EINVAL;
--- 
-1.7.9.5
+I will try to be clear: you are changing policy which is a higher
+level semantic than any one of filter or actions. Consider:
 
+a) A simple policy in a linear graph
+if (icmp) --> A-->B-->C-->D-->E
+
+With the following individual change operations:
+i)change to delete C
+ii)change to add G after B
+iii) add F as branch from D
+iv) add H after E and maintain linear status
+v) after #iv make the graph at node D selectively branch between E/H
+
+Ok, let provide a slightly complex graph, sorry it is hard to do ascii
+diagram for this, so i will illustrate programmatically:
+
+if (icmp) {
+     mark with tag 11 //mark index 7
+     if (rate < 10kbs) { //policer index 1
+        return
+     } else {
+        mark with tag 12  //mark index 3
+        if (rate2 < 20kbs) {//policer index 2
+           return
+       } else {
+           mirror to dummy0 //mirred index 8
+       }
+    }
+}
+
+What does adding/deleting even mean in this case?
+
+>
+> This is a workaround, not a fix. What if I have multiple threads
+> trying to append an action at the same time? This workaround
+> can't guarantee the correctness.
+>
+
+Sorry Cong, your approach is NOT a fix. There is _no way_ you can
+achieve correctness without a two phase operation. Talk to the
+netfilter guys about such experiences (in 2.x kernels?).
+The multiple threads issue is taken care of by locking,
+you just want to reduce the amount of lock time needed; that is
+what that (proven) 2 phase approach is doing.
+I called it workaround because you dont need to make any changes
+in the kernel. There is a tiny window of inconsistency possible in
+presence of multiple contenders but you already get that with things
+like RCU (grace period) that you added.
+
+> My case is a perfectly valid use,
+
+I am not questioning your use case - just it shouldnt come as a hack at
+the expense of all other use cases (of which the most important
+are not replacing/changing a graph but creating and deleting one).
+
+>we have to fix it, maybe in another way.
+
+If you really really really insist i has to be done in the kernel;
+then i would hope youd do it in some form of pseudo transacational
+approach as i described is done today in user space.
+I hope avoidance of a fat approach like 2PC as well is in order.
+Again as i said I am extremely leary of optimizing for such
+corner case since you can achieve all that in user space.
+
+cheers,
+jamal
