@@ -1,51 +1,59 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Subject: [PATCH 3/6] netlink: implement unbind to netlink_setsockopt NETLINK_DROP_MEMBERSHIP
-Date: Fri, 18 Apr 2014 13:34:07 -0400
-Message-ID: <05abbc9f1bad49dd7adca5f434fb47404caddd84.1397831970.git.rgb@redhat.com>
-References: <20140324183406.GE28666@madcap2.tricolour.ca>
-Cc: Richard Guy Briggs <rgb@redhat.com>, davem@davemloft.net,
-	eparis@redhat.com, netfilter-devel@vger.kernel.org,
-	hadi@mojatatu.com, sgrubb@redhat.com
-To: linux-audit@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, selinux@tycho.nsa.gov,
-	linux-security-module@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20140324183406.GE28666@madcap2.tricolour.ca>
-In-Reply-To: <cover.1397831970.git.rgb@redhat.com>
-References: <cover.1397831970.git.rgb@redhat.com>
-Sender: linux-security-module-owner@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2 1/4] mdio_bus: implement devm_mdiobus_alloc/devm_mdiobus_free
+Date: Fri, 18 Apr 2014 21:48:28 +0400
+Message-ID: <5351656C.6070108@cogentembedded.com>
+References: <1397841897-9170-1-git-send-email-grygorii.strashko@ti.com> <1397841897-9170-2-git-send-email-grygorii.strashko@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Randy Dunlap <rdunlap@infradead.org>,
+	Jonathan Cameron <jic23@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	prabhakar.csengg@gmail.com, santosh.shilimkar@ti.com,
+	Sekhar Nori <nsekhar@ti.com>, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	davinci-linux-open-source@linux.davincidsp.com
+To: Grygorii Strashko <grygorii.strashko@ti.com>,
+	Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1397841897-9170-2-git-send-email-grygorii.strashko@ti.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Call the per-protocol unbind function rather than bind function on
-NETLINK_DROP_MEMBERSHIP in netlink_setsockopt().
+Hello.
 
-Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
----
- net/netlink/af_netlink.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+On 04/18/2014 09:24 PM, Grygorii Strashko wrote:
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 3f43e5a..cdb236f 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2118,7 +2118,7 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
- 			return err;
- 		if (!val || val - 1 >= nlk->ngroups)
- 			return -EINVAL;
--		if (nlk->netlink_bind) {
-+		if (optname == NETLINK_ADD_MEMBERSHIP && nlk->netlink_bind) {
- 			err = nlk->netlink_bind(val);
- 			if (err)
- 				return err;
-@@ -2127,6 +2127,8 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
- 		netlink_update_socket_mc(nlk, val,
- 					 optname == NETLINK_ADD_MEMBERSHIP);
- 		netlink_table_ungrab();
-+		if (optname == NETLINK_DROP_MEMBERSHIP && nlk->netlink_unbind)
-+			nlk->netlink_unbind(val);
- 
- 		err = 0;
- 		break;
--- 
-1.7.1
+> Add a resource managed devm_mdiobus_alloc()/devm_mdiobus_free()
+> to automatically clean up MDIO bus alocations made by MDIO drivers,
+> thus leading to simplified MDIO drivers code.
+
+> Cc: Florian Fainelli <f.fainelli@gmail.com>
+> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+[...]
+
+> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+> index 76f54b3..6412beb 100644
+> --- a/drivers/net/phy/mdio_bus.c
+> +++ b/drivers/net/phy/mdio_bus.c
+> @@ -69,6 +69,74 @@ struct mii_bus *mdiobus_alloc_size(size_t size)
+[...]
+> +/**
+> + * devm_mdiobus_free - Resource-managed mdiobus_free()
+> + * @dev:		Device this mii_bus belongs to
+> + * @bus:		the mii_bus associated with the device
+> + *
+> + * Free mii_bus allocated with devm_mdiobus_alloc().
+> + */
+> +void devm_mdiobus_free(struct device *dev, struct mii_bus *bus)
+> +{
+> +	int rc;
+> +
+> +	rc = devres_release(dev, _devm_mdiobus_free,
+> +		devm_mdiobus_match, bus);
+
+    Please re-align this line, so that it starts right under 'dev' on the 
+previous line.
+
+WBR, Sergei
 
