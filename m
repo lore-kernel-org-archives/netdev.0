@@ -1,89 +1,57 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [net-next 01/13] e1000e: Fix no connectivity when driver loaded
- with cable out
-Date: Fri, 18 Apr 2014 14:15:46 +0100
-Message-ID: <1397826946.3624.32.camel@deadeye.wl.decadent.org.uk>
-References: <1396308899-20926-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1396308899-20926-2-git-send-email-jeffrey.t.kirsher@intel.com>
+From: zhangfei <zhangfei.gao@linaro.org>
+Subject: Re: [PATCH 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Fri, 18 Apr 2014 21:17:52 +0800
+Message-ID: <53512600.6020902@linaro.org>
+References: <1396672506-9296-1-git-send-email-zhangfei.gao@linaro.org>	<1396672506-9296-4-git-send-email-zhangfei.gao@linaro.org> <20140407.145356.928382660541891827.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-IVX3FkqaZNKSzTApHEwT"
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Ertman <davidx.m.ertman@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux@arm.linux.org.uk, arnd@arndb.de, f.fainelli@gmail.com,
+	sergei.shtylyov@cogentembedded.com, mark.rutland@arm.com,
+	David.Laight@ACULAB.COM, eric.dumazet@gmail.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:42037 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754022AbaDRNP6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2014 09:15:58 -0400
-In-Reply-To: <1396308899-20926-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:52884 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754369AbaDRNSC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Apr 2014 09:18:02 -0400
+Received: by mail-pd0-f179.google.com with SMTP id w10so1433627pde.24
+        for <netdev@vger.kernel.org>; Fri, 18 Apr 2014 06:18:02 -0700 (PDT)
+In-Reply-To: <20140407.145356.928382660541891827.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Dear David
 
---=-IVX3FkqaZNKSzTApHEwT
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+On 04/08/2014 02:53 AM, David Miller wrote:
 
-On Mon, 2014-03-31 at 16:34 -0700, Jeff Kirsher wrote:
-> From: David Ertman <davidx.m.ertman@intel.com>
->=20
-> In commit da1e2046e5, the flow for enabling/disabling an Si errata
-> workaround (e1000_lv_jumbo_workaround_ich8lan) was changed to fix a probl=
-em
-> with iAMT connections dropping on interface down with jumbo frames set.
-> Part of this change was to move the function call disabling the workaroun=
-d
-> to e1000e_down() from the e1000_setup_rctl() function.  The mechanic for
-> disabling of this workaround involves writing several MAC and PHY registe=
-rs
-> back to hardware defaults.
->=20
-> After this commit, when the driver is loaded with the cable out, the PHY
-> registers are not programmed with the correct default values.  This cause=
-s
-> the device to be capable of transmitting packets, but is unable to reciev=
-e
-> them until this workaround is called.
-[...]
+>> +static void hip04_tx_reclaim(struct net_device *ndev, bool force)
+>   ...
+>> +static void hip04_xmit_timer(unsigned long data)
+>> +{
+>> +	struct net_device *ndev = (void *) data;
+>> +
+>> +	hip04_tx_reclaim(ndev, false);
+>> +}
+>   ...
+>> +	mod_timer(&priv->txtimer, jiffies + RECLAIM_PERIOD);
+>
+> And this is where I stop reading your driver, I've stated already that this
+> kind of reclaim scheme is unacceptable.
+>
+> The kernel timers lack the granularity necessary to service TX reclaim
+> with a reasonable amount of latency.
+>
+> You must use some kind of hardware notification of TX slots becomming
+> available, I find it totally impossible that a modern ethernet controller
+> was created without a TX done interrupt.
+>
 
-Which devices are affected by this?  I just did a backport of e1000e
-from 3.13 for Debian 7.5 and didn't spot this fix until later.
+There is no tx_done interrupt, we may need some workaround.
 
-I couldn't reproduce this problem on my laptop, which has:
+Is it acceptable to use poll to reclaim the xmitted buffer.
+And in the xmit calling napi_schedule.
 
-00:19.0 Ethernet controller [0200]: Intel Corporation 82579LM Gigabit Netwo=
-rk Connection [8086:1502] (rev 04)
-
-Ben.
-
---=20
-Ben Hutchings
-Lowery's Law:
-             If it jams, force it. If it breaks, it needed replacing anyway=
-.
-
---=-IVX3FkqaZNKSzTApHEwT
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAU1Elgue/yOyVhhEJAQrX/A//agFa6W0SvUI4YSx26qzvUs9OyN0cft2N
-JEVrTShbbaZPAIrxYFmn8xg+WeGgB3W22HTBY1cnhzYNRy5qqI1MZXvdbIYsNFvn
-mry0NK+OWt5KAKb7h8t3LcMf9GFMFsDNySaamA++xHN1eYVUXHdS+H9oh3yml1Iy
-c6CKJdBu+Cq2CBYXHpRzBkegBqWQ4wKBWa7ysJKll7S6VNXqKnvec8vehpVI3tsH
-Xx7v/Y7YnDuyKoyi29qQfqQIweroUKR/q9fOIJZ9zv3dgJBsIKv2cQzD8cKJP6QG
-8qszVS0jHvKH/DtsskCbRCaEfP1pGICasXMCDq1WIGLZvMszhjU+Azfdom9Lntyh
-Ecs6nRhyb2h3swXc2ZhXsdGNeI9lZ6ILIF1rkREvjppKMBuyXOTg8QJkMKzio6/O
-Le4W2Ul650YyaR8V2ovXmtAmdr7lcQd66Tjf7OgT8LBvwVpDlnO+OP04c9kBBNGu
-NRJAToY/CAZg8J7R1V4BMMZs0EXDqkU+cDqMm6Crzd2Y/erl90Hx6dNqMKkGlFHq
-giutUQHwAsgSj3nBMVJYgg3juP0CkKf5OvKP8MSZO5BWwdg2E631j7ru7JoGIdny
-S5VC/l8az/f9cgGCelohDBoitR/jEuLyLmspjn+04ISzGK5Co67EoAQtdpJ7PQ7u
-GqtbGmqoU6U=
-=RHxC
------END PGP SIGNATURE-----
-
---=-IVX3FkqaZNKSzTApHEwT--
+Thanks
