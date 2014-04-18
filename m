@@ -1,110 +1,48 @@
-From: Weiping Pan <wpan@redhat.com>
-Subject: [PATCH] tcp: make tcp_cwnd_application_limited() static
-Date: Fri, 18 Apr 2014 12:27:46 +0800
-Message-ID: <e41998355cfed2a278072df2c113b6f89a81dfd0.1397795231.git.wpan@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12659 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750830AbaDRE2W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Apr 2014 00:28:22 -0400
-Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s3I4SL35015927
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 18 Apr 2014 00:28:22 -0400
-Received: from localhost.localdomain.com (dhcp-17-50.nay.redhat.com [10.66.17.50])
-	by int-mx01.intmail.prod.int.phx2.redhat.com (8.13.8/8.13.8) with ESMTP id s3I4SKqI030425
-	for <netdev@vger.kernel.org>; Fri, 18 Apr 2014 00:28:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Amos Kong <akong@redhat.com>
+Subject: [PATCH] virtio_net: zero is an invald queue_pairs number
+Date: Fri, 18 Apr 2014 13:45:41 +0800
+Message-ID: <1397799941-11371-1-git-send-email-akong@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mst@redhat.com
+To: virtualization@lists.linux-foundation.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Make tcp_cwnd_application_limited() static and move it from tcp_input.c to
-tcp_output.c
+Execute "ethtool -L eth0 combined 0" in guest, if multiqueue
+is enabled, virtnet_send_command() will return -EINVAL error,
+there is a validation in QEMU.
 
-Signed-off-by: Weiping Pan <wpan@redhat.com>
+But if multiqueue is disabled, virtnet_set_queues() will just
+return zero (success). We should return error for this situation.
+
+Signed-off-by: Amos Kong <akong@redhat.com>
 ---
- include/net/tcp.h     |    1 -
- net/ipv4/tcp_input.c  |   22 ----------------------
- net/ipv4/tcp_output.c |   22 ++++++++++++++++++++++
- 3 files changed, 22 insertions(+), 23 deletions(-)
+ drivers/net/virtio_net.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 87d8774..163d2b4 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -558,7 +558,6 @@ void tcp_send_loss_probe(struct sock *sk);
- bool tcp_schedule_loss_probe(struct sock *sk);
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 7b68746..8a852b5 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1285,7 +1285,7 @@ static int virtnet_set_channels(struct net_device *dev,
+ 	if (channels->rx_count || channels->tx_count || channels->other_count)
+ 		return -EINVAL;
  
- /* tcp_input.c */
--void tcp_cwnd_application_limited(struct sock *sk);
- void tcp_resume_early_retransmit(struct sock *sk);
- void tcp_rearm_rto(struct sock *sk);
- void tcp_reset(struct sock *sk);
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index d6b46eb..6efed13 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4703,28 +4703,6 @@ static int tcp_prune_queue(struct sock *sk)
- 	return -1;
- }
+-	if (queue_pairs > vi->max_queue_pairs)
++	if (queue_pairs > vi->max_queue_pairs || queue_pairs == 0)
+ 		return -EINVAL;
  
--/* RFC2861, slow part. Adjust cwnd, after it was not full during one rto.
-- * As additional protections, we do not touch cwnd in retransmission phases,
-- * and if application hit its sndbuf limit recently.
-- */
--void tcp_cwnd_application_limited(struct sock *sk)
--{
--	struct tcp_sock *tp = tcp_sk(sk);
--
--	if (inet_csk(sk)->icsk_ca_state == TCP_CA_Open &&
--	    sk->sk_socket && !test_bit(SOCK_NOSPACE, &sk->sk_socket->flags)) {
--		/* Limited by application or receiver window. */
--		u32 init_win = tcp_init_cwnd(tp, __sk_dst_get(sk));
--		u32 win_used = max(tp->snd_cwnd_used, init_win);
--		if (win_used < tp->snd_cwnd) {
--			tp->snd_ssthresh = tcp_current_ssthresh(sk);
--			tp->snd_cwnd = (tp->snd_cwnd + win_used) >> 1;
--		}
--		tp->snd_cwnd_used = 0;
--	}
--	tp->snd_cwnd_stamp = tcp_time_stamp;
--}
--
- static bool tcp_should_expand_sndbuf(const struct sock *sk)
- {
- 	const struct tcp_sock *tp = tcp_sk(sk);
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 025e250..29dde97 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1387,6 +1387,28 @@ unsigned int tcp_current_mss(struct sock *sk)
- 	return mss_now;
- }
- 
-+/* RFC2861, slow part. Adjust cwnd, after it was not full during one rto.
-+ * As additional protections, we do not touch cwnd in retransmission phases,
-+ * and if application hit its sndbuf limit recently.
-+ */
-+static void tcp_cwnd_application_limited(struct sock *sk)
-+{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+
-+	if (inet_csk(sk)->icsk_ca_state == TCP_CA_Open &&
-+	    sk->sk_socket && !test_bit(SOCK_NOSPACE, &sk->sk_socket->flags)) {
-+		/* Limited by application or receiver window. */
-+		u32 init_win = tcp_init_cwnd(tp, __sk_dst_get(sk));
-+		u32 win_used = max(tp->snd_cwnd_used, init_win);
-+		if (win_used < tp->snd_cwnd) {
-+			tp->snd_ssthresh = tcp_current_ssthresh(sk);
-+			tp->snd_cwnd = (tp->snd_cwnd + win_used) >> 1;
-+		}
-+		tp->snd_cwnd_used = 0;
-+	}
-+	tp->snd_cwnd_stamp = tcp_time_stamp;
-+}
-+
- /* Congestion window validation. (RFC2861) */
- static void tcp_cwnd_validate(struct sock *sk)
- {
+ 	get_online_cpus();
 -- 
-1.7.4
+1.9.0
