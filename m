@@ -1,147 +1,82 @@
-From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH v2 1/4] mdio_bus: implement
-	devm_mdiobus_alloc/devm_mdiobus_free
-Date: Fri, 18 Apr 2014 20:24:54 +0300
-Message-ID: <1397841897-9170-2-git-send-email-grygorii.strashko@ti.com>
-References: <1397841897-9170-1-git-send-email-grygorii.strashko@ti.com>
+From: Stanislav Meduna <stano@meduna.org>
+Subject: Re: Freescale FEC i.MX28 restart problem
+Date: Fri, 18 Apr 2014 19:13:28 +0200
+Message-ID: <53515D38.4090400@meduna.org>
+References: <53511079.2020206@meduna.org>	<CAOMZO5CyFaP2phreKYdwUUB0RcpAhomDzm1QhAjCYtH09yYfQQ@mail.gmail.com> <CAOMZO5DAixbrO1Zhvm60gevdCbKVgSP652vS7QYZS+XSfbPLdQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
-        <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <santosh.shilimkar-l0cyMroinI0@public.gmane.org>,
-        "David S. Miller"
-	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Jonathan Cameron <jic23-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-In-Reply-To: <1397841897-9170-1-git-send-email-grygorii.strashko-l0cyMroinI0@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Fabio Estevam <fabio.estevam@freescale.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jim Baxter <jim_baxter@mentor.com>,
+	Duan Fugang-B38611 <B38611@freescale.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Russell King <linux@arm.linux.org.uk>
+To: Fabio Estevam <festevam@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.meduna.org ([92.240.244.38]:40839 "EHLO meduna.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751736AbaDRRNm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Apr 2014 13:13:42 -0400
+In-Reply-To: <CAOMZO5DAixbrO1Zhvm60gevdCbKVgSP652vS7QYZS+XSfbPLdQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add a resource managed devm_mdiobus_alloc()/devm_mdiobus_free()
-to automatically clean up MDIO bus alocations made by MDIO drivers,
-thus leading to simplified MDIO drivers code.
+On 18.04.2014 15:05, Fabio Estevam wrote:
 
-Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
----
- Documentation/driver-model/devres.txt |    4 ++
- drivers/net/phy/mdio_bus.c            |   68 +++++++++++++++++++++++++++++++++
- include/linux/phy.h                   |    2 +
- 3 files changed, 74 insertions(+)
+>> Could you try the latest Russell's FEC patches available at?
+>> http://ftp.arm.linux.org.uk/cgit/linux-arm.git/log/?h=fec-testing
+> 
+> In particular this one could help with your "MDIO timeout" issue:
+> http://ftp.arm.linux.org.uk/cgit/linux-arm.git/commit/?h=fec-testing&id=ec1fac3de70b16c69d3edc9f223e91d56b1915de
 
-diff --git a/Documentation/driver-model/devres.txt b/Documentation/driver-model/devres.txt
-index 4f7897e..31aa066 100644
---- a/Documentation/driver-model/devres.txt
-+++ b/Documentation/driver-model/devres.txt
-@@ -308,3 +308,7 @@ SLAVE DMA ENGINE
- 
- SPI
-   devm_spi_register_master()
+Thanks for the heads-up, I was not aware that there is a larger
+refactoring going on.
+
+I did just copy the whole fec driver from that branch into
+my environment (the isolated patch does not apply as it needs
+the previous work) and yes, it seems to help. I'll give it
+a bit more testing and I will report if there are still
+some issues.
+
+However, in my opinion the FEC_ENET_EBERR handling should be also
+added (if only to print a big fat error), as if this happens
+for whatever reason, the controller is now dead until reboot.
+
+I had a problem where the MDIO communication was needed before
+the controller has interrupts enabled - I am not quite sure whether
+it is always the case or was caused by my unrelated patch.
+I need to specify the PHY in the device tree as my hardware
+uses weird MDIO address to FEC port assignment. The only change
+in the logic is that in the fec_enet_mii_probe an of_phy_connect
+is used instead of phy_connect and I think they both end in the
+same code, but maybe I have overlooked something.
+
+I just added a hack to poll for the MII transaction completion
+and it started to work:
+
+
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1356,6 +1357,14 @@ static unsigned long fec_enet_mdio_op(struct fec_enet_pri
+        time_left = wait_for_completion_timeout(&fep->mdio_done,
+                        usecs_to_jiffies(FEC_MII_TIMEOUT));
+
++       if (time_left == 0) {
++               u32 int_events = readl(fep->hwp + FEC_IEVENT);
++               if (int_events & FEC_ENET_MII) {
++                       writel(FEC_ENET_MII, fep->hwp + FEC_IEVENT);
++                       time_left = 1;
++               }
++       }
 +
-+MDIO
-+  devm_mdiobus_alloc()
-+  devm_mdiobus_free()
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 76f54b3..6412beb 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -69,6 +69,74 @@ struct mii_bus *mdiobus_alloc_size(size_t size)
- }
- EXPORT_SYMBOL(mdiobus_alloc_size);
- 
-+static void _devm_mdiobus_free(struct device *dev, void *res)
-+{
-+	mdiobus_free(*(struct mii_bus **)res);
-+}
-+
-+static int devm_mdiobus_match(struct device *dev, void *res, void *data)
-+{
-+	struct mii_bus **r = res;
-+
-+	if (WARN_ON(!r || !*r))
-+		return 0;
-+
-+	return *r == data;
-+}
-+
-+/**
-+ * devm_mdiobus_alloc - Resource-managed mdiobus_alloc_size()
-+ * @dev:		Device to allocate mii_bus for
-+ * @sizeof_priv:	Space to allocate for private structure.
-+ *
-+ * Managed mdiobus_alloc_size. mii_bus allocated with this function is
-+ * automatically freed on driver detach.
-+ *
-+ * If an mii_bus allocated with this function needs to be freed separately,
-+ * devm_mdiobus_free() must be used.
-+ *
-+ * RETURNS:
-+ * Pointer to allocated mii_bus on success, NULL on failure.
-+ */
-+struct mii_bus *devm_mdiobus_alloc(struct device *dev, int sizeof_priv)
-+{
-+	struct mii_bus **ptr, *bus;
-+
-+	ptr = devres_alloc(_devm_mdiobus_free, sizeof(*ptr),
-+			   GFP_KERNEL);
-+	if (!ptr)
-+		return NULL;
-+
-+	/* use raw alloc_dr for kmalloc caller tracing */
-+	bus = mdiobus_alloc_size(sizeof_priv);
-+	if (bus) {
-+		*ptr = bus;
-+		devres_add(dev, ptr);
-+	} else {
-+		devres_free(ptr);
-+	}
-+
-+	return bus;
-+}
-+EXPORT_SYMBOL_GPL(devm_mdiobus_alloc);
-+
-+/**
-+ * devm_mdiobus_free - Resource-managed mdiobus_free()
-+ * @dev:		Device this mii_bus belongs to
-+ * @bus:		the mii_bus associated with the device
-+ *
-+ * Free mii_bus allocated with devm_mdiobus_alloc().
-+ */
-+void devm_mdiobus_free(struct device *dev, struct mii_bus *bus)
-+{
-+	int rc;
-+
-+	rc = devres_release(dev, _devm_mdiobus_free,
-+		devm_mdiobus_match, bus);
-+	WARN_ON(rc);
-+}
-+EXPORT_SYMBOL_GPL(devm_mdiobus_free);
-+
- /**
-  * mdiobus_release - mii_bus device release callback
-  * @d: the target struct device that contains the mii_bus
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 24126c4..2238bea 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -195,6 +195,8 @@ static inline struct mii_bus *mdiobus_alloc(void)
- int mdiobus_register(struct mii_bus *bus);
- void mdiobus_unregister(struct mii_bus *bus);
- void mdiobus_free(struct mii_bus *bus);
-+struct mii_bus *devm_mdiobus_alloc(struct device *dev, int sizeof_priv);
-+void devm_mdiobus_free(struct device *dev, struct mii_bus *bus);
- struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr);
- int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum);
- int mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val);
+        mutex_unlock(&fep->mutex);
+
+        return time_left;
+
+
+Many thanks
 -- 
-1.7.9.5
+                                          Stano
