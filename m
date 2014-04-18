@@ -1,50 +1,108 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v2 3/4] net: davinci_mdio: drop pinctrl_pm_select_default_state from probe
-Date: Fri, 18 Apr 2014 20:24:56 +0300
-Message-ID: <1397841897-9170-4-git-send-email-grygorii.strashko@ti.com>
+From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH v2 2/4] net: davinci_mdio: use devm_* api
+Date: Fri, 18 Apr 2014 20:24:55 +0300
+Message-ID: <1397841897-9170-3-git-send-email-grygorii.strashko@ti.com>
 References: <1397841897-9170-1-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Randy Dunlap <rdunlap@infradead.org>,
-	Jonathan Cameron <jic23@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	<prabhakar.csengg@gmail.com>, <santosh.shilimkar@ti.com>,
-	Sekhar Nori <nsekhar@ti.com>, <linux-doc@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	<davinci-linux-open-source@linux.davincidsp.com>,
-	<sergei.shtylyov@cogentembedded.com>,
-	Grygorii Strashko <grygorii.strashko@ti.com>
-To: Florian Fainelli <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1397841897-9170-1-git-send-email-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
+        <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <santosh.shilimkar-l0cyMroinI0@public.gmane.org>,
+        "David S. Miller"
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Jonathan Cameron <jic23-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+In-Reply-To: <1397841897-9170-1-git-send-email-grygorii.strashko-l0cyMroinI0@public.gmane.org>
+List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
+List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
+List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
+Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The "default" pinctrl state is set by Drivers core now before
-calling the driver's probe.
-Hence, it's safe to drop pinctrl_pm_select_default_state() call
-from Davinci mdio driver probe.
+Use devm_* API for memory allocation and to get device's clock
+to simplify driver's code.
 
-Cc: Florian Fainelli <f.fainelli@gmail.com>
-Cs: Linus Walleij <linus.walleij@linaro.org>
-Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
 ---
- drivers/net/ethernet/ti/davinci_mdio.c |    3 ---
- 1 file changed, 3 deletions(-)
+ drivers/net/ethernet/ti/davinci_mdio.c |   24 +++++-------------------
+ 1 file changed, 5 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-index eda4946..98d53a3 100644
+index 0cca9de..eda4946 100644
 --- a/drivers/net/ethernet/ti/davinci_mdio.c
 +++ b/drivers/net/ethernet/ti/davinci_mdio.c
-@@ -348,9 +348,6 @@ static int davinci_mdio_probe(struct platform_device *pdev)
- 	data->bus->parent	= dev;
- 	data->bus->priv		= data;
+@@ -321,15 +321,14 @@ static int davinci_mdio_probe(struct platform_device *pdev)
+ 	struct phy_device *phy;
+ 	int ret, addr;
  
--	/* Select default pin state */
--	pinctrl_pm_select_default_state(&pdev->dev);
--
+-	data = kzalloc(sizeof(*data), GFP_KERNEL);
++	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
+ 	if (!data)
+ 		return -ENOMEM;
+ 
+-	data->bus = mdiobus_alloc();
++	data->bus = devm_mdiobus_alloc(dev, 0);
+ 	if (!data->bus) {
+ 		dev_err(dev, "failed to alloc mii bus\n");
+-		ret = -ENOMEM;
+-		goto bail_out;
++		return -ENOMEM;
+ 	}
+ 
+ 	if (dev->of_node) {
+@@ -354,7 +353,7 @@ static int davinci_mdio_probe(struct platform_device *pdev)
+ 
  	pm_runtime_enable(&pdev->dev);
  	pm_runtime_get_sync(&pdev->dev);
- 	data->clk = devm_clk_get(dev, "fck");
+-	data->clk = clk_get(&pdev->dev, "fck");
++	data->clk = devm_clk_get(dev, "fck");
+ 	if (IS_ERR(data->clk)) {
+ 		dev_err(dev, "failed to get device clock\n");
+ 		ret = PTR_ERR(data->clk);
+@@ -406,16 +405,9 @@ static int davinci_mdio_probe(struct platform_device *pdev)
+ 	return 0;
+ 
+ bail_out:
+-	if (data->bus)
+-		mdiobus_free(data->bus);
+-
+-	if (data->clk)
+-		clk_put(data->clk);
+ 	pm_runtime_put_sync(&pdev->dev);
+ 	pm_runtime_disable(&pdev->dev);
+ 
+-	kfree(data);
+-
+ 	return ret;
+ }
+ 
+@@ -423,18 +415,12 @@ static int davinci_mdio_remove(struct platform_device *pdev)
+ {
+ 	struct davinci_mdio_data *data = platform_get_drvdata(pdev);
+ 
+-	if (data->bus) {
++	if (data->bus)
+ 		mdiobus_unregister(data->bus);
+-		mdiobus_free(data->bus);
+-	}
+ 
+-	if (data->clk)
+-		clk_put(data->clk);
+ 	pm_runtime_put_sync(&pdev->dev);
+ 	pm_runtime_disable(&pdev->dev);
+ 
+-	kfree(data);
+-
+ 	return 0;
+ }
+ 
 -- 
 1.7.9.5
