@@ -1,72 +1,192 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 3/7] e1000e: Correctly include VLAN_HLEN when
-	changing interface MTU
-Date: Fri, 18 Apr 2014 18:59:23 -0700
-Message-ID: <1397872767-4001-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 6/7] ixgbe: clean up Rx time stamping code
+Date: Fri, 18 Apr 2014 18:59:26 -0700
+Message-ID: <1397872767-4001-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1397872767-4001-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevic@redhat.com>, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+Cc: Jakub Kicinski <kubakici@wp.pl>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:52335 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753952AbaDSB7e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Apr 2014 21:59:34 -0400
 In-Reply-To: <1397872767-4001-1-git-send-email-jeffrey.t.kirsher@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevic@redhat.com>
+From: Jakub Kicinski <kubakici@wp.pl>
 
-When changing the interface mtu, the driver starts with a value
-that doesn't include VLAN_HLEN.  Later tests in the driver
-set the rx_buffer_len based on the mtu.  As a result, when
-the user increases the mtu to 1504 (to support 802.1AD for example),
-the driver rx_buffer_len does not change and frames longer
-the 1522 bytes are rejected as too long.
+Time stamping resources are per-interface so there is no need
+to keep separate last_rx_timestamp for each Rx ring, move
+last_rx_timestamp to the adapter structure.
 
-Include VLAN_HLEN from the start so that an user mtu greater then
-1500 bytes is correctly reflected in the driver rx_buffer_len.
+With last_rx_timestamp inside adapter, ixgbe_ptp_rx_hwtstamp()
+inline function is reduced to a single if statement so it is
+no longer necessary. If statement is placed directly in
+ixgbe_process_skb_fields() fixing likely/unlikely marking.
 
-CC: e1000-devel@lists.sourceforge.net
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Checks for q_vector or adapter to be NULL are superfluous.
+
+Comment about taking I/O hit is a leftover from previous design.
+
+Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      | 21 ++--------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  3 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c  | 36 ++++++++-------------------
+ 3 files changed, 15 insertions(+), 45 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index d50c91e..165f7bc 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -5687,7 +5687,7 @@ struct rtnl_link_stats64 *e1000e_get_stats64(struct net_device *netdev,
- static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
--	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
-+	int max_frame = new_mtu + VLAN_HLEN + ETH_HLEN + ETH_FCS_LEN;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 1a12c1d..c6c4ca7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -256,7 +256,6 @@ struct ixgbe_ring {
+ 		struct ixgbe_tx_buffer *tx_buffer_info;
+ 		struct ixgbe_rx_buffer *rx_buffer_info;
+ 	};
+-	unsigned long last_rx_timestamp;
+ 	unsigned long state;
+ 	u8 __iomem *tail;
+ 	dma_addr_t dma;			/* phys. address of descriptor ring */
+@@ -770,6 +769,7 @@ struct ixgbe_adapter {
+ 	unsigned long ptp_tx_start;
+ 	unsigned long last_overflow_check;
+ 	unsigned long last_rx_ptp_check;
++	unsigned long last_rx_timestamp;
+ 	spinlock_t tmreg_lock;
+ 	struct cyclecounter cc;
+ 	struct timecounter tc;
+@@ -944,24 +944,7 @@ void ixgbe_ptp_init(struct ixgbe_adapter *adapter);
+ void ixgbe_ptp_stop(struct ixgbe_adapter *adapter);
+ void ixgbe_ptp_overflow_check(struct ixgbe_adapter *adapter);
+ void ixgbe_ptp_rx_hang(struct ixgbe_adapter *adapter);
+-void __ixgbe_ptp_rx_hwtstamp(struct ixgbe_q_vector *q_vector,
+-			     struct sk_buff *skb);
+-static inline void ixgbe_ptp_rx_hwtstamp(struct ixgbe_ring *rx_ring,
+-					 union ixgbe_adv_rx_desc *rx_desc,
+-					 struct sk_buff *skb)
+-{
+-	if (unlikely(!ixgbe_test_staterr(rx_desc, IXGBE_RXDADV_STAT_TS)))
+-		return;
+-
+-	__ixgbe_ptp_rx_hwtstamp(rx_ring->q_vector, skb);
+-
+-	/*
+-	 * Update the last_rx_timestamp timer in order to enable watchdog check
+-	 * for error case of latched timestamp on a dropped packet.
+-	 */
+-	rx_ring->last_rx_timestamp = jiffies;
+-}
+-
++void ixgbe_ptp_rx_hwtstamp(struct ixgbe_adapter *adapter, struct sk_buff *skb);
+ int ixgbe_ptp_set_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr);
+ int ixgbe_ptp_get_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr);
+ void ixgbe_ptp_start_cyclecounter(struct ixgbe_adapter *adapter);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index c4c526b..d62e7a2 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1664,7 +1664,8 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
  
- 	/* Jumbo frame support */
- 	if ((max_frame > ETH_FRAME_LEN + ETH_FCS_LEN) &&
+ 	ixgbe_rx_checksum(rx_ring, rx_desc, skb);
+ 
+-	ixgbe_ptp_rx_hwtstamp(rx_ring, rx_desc, skb);
++	if (unlikely(ixgbe_test_staterr(rx_desc, IXGBE_RXDADV_STAT_TS)))
++		ixgbe_ptp_rx_hwtstamp(rx_ring->q_vector->adapter, skb);
+ 
+ 	if ((dev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
+ 	    ixgbe_test_staterr(rx_desc, IXGBE_RXD_STAT_VP)) {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
+index 63515a6..c247a22 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
+@@ -435,10 +435,8 @@ void ixgbe_ptp_overflow_check(struct ixgbe_adapter *adapter)
+ void ixgbe_ptp_rx_hang(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	struct ixgbe_ring *rx_ring;
+ 	u32 tsyncrxctl = IXGBE_READ_REG(hw, IXGBE_TSYNCRXCTL);
+ 	unsigned long rx_event;
+-	int n;
+ 
+ 	/* if we don't have a valid timestamp in the registers, just update the
+ 	 * timeout counter and exit
+@@ -450,11 +448,8 @@ void ixgbe_ptp_rx_hang(struct ixgbe_adapter *adapter)
+ 
+ 	/* determine the most recent watchdog or rx_timestamp event */
+ 	rx_event = adapter->last_rx_ptp_check;
+-	for (n = 0; n < adapter->num_rx_queues; n++) {
+-		rx_ring = adapter->rx_ring[n];
+-		if (time_after(rx_ring->last_rx_timestamp, rx_event))
+-			rx_event = rx_ring->last_rx_timestamp;
+-	}
++	if (time_after(adapter->last_rx_timestamp, rx_event))
++		rx_event = adapter->last_rx_timestamp;
+ 
+ 	/* only need to read the high RXSTMP register to clear the lock */
+ 	if (time_is_before_jiffies(rx_event + 5*HZ)) {
+@@ -530,35 +525,22 @@ static void ixgbe_ptp_tx_hwtstamp_work(struct work_struct *work)
+ }
+ 
+ /**
+- * __ixgbe_ptp_rx_hwtstamp - utility function which checks for RX time stamp
+- * @q_vector: structure containing interrupt and ring information
++ * ixgbe_ptp_rx_hwtstamp - utility function which checks for RX time stamp
++ * @adapter: pointer to adapter struct
+  * @skb: particular skb to send timestamp with
+  *
+  * if the timestamp is valid, we convert it into the timecounter ns
+  * value, then store that result into the shhwtstamps structure which
+  * is passed up the network stack
+  */
+-void __ixgbe_ptp_rx_hwtstamp(struct ixgbe_q_vector *q_vector,
+-			     struct sk_buff *skb)
++void ixgbe_ptp_rx_hwtstamp(struct ixgbe_adapter *adapter, struct sk_buff *skb)
+ {
+-	struct ixgbe_adapter *adapter;
+-	struct ixgbe_hw *hw;
++	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct skb_shared_hwtstamps *shhwtstamps;
+ 	u64 regval = 0, ns;
+ 	u32 tsyncrxctl;
+ 	unsigned long flags;
+ 
+-	/* we cannot process timestamps on a ring without a q_vector */
+-	if (!q_vector || !q_vector->adapter)
+-		return;
+-
+-	adapter = q_vector->adapter;
+-	hw = &adapter->hw;
+-
+-	/*
+-	 * Read the tsyncrxctl register afterwards in order to prevent taking an
+-	 * I/O hit on every packet.
+-	 */
+ 	tsyncrxctl = IXGBE_READ_REG(hw, IXGBE_TSYNCRXCTL);
+ 	if (!(tsyncrxctl & IXGBE_TSYNCRXCTL_VALID))
+ 		return;
+@@ -566,13 +548,17 @@ void __ixgbe_ptp_rx_hwtstamp(struct ixgbe_q_vector *q_vector,
+ 	regval |= (u64)IXGBE_READ_REG(hw, IXGBE_RXSTMPL);
+ 	regval |= (u64)IXGBE_READ_REG(hw, IXGBE_RXSTMPH) << 32;
+ 
+-
+ 	spin_lock_irqsave(&adapter->tmreg_lock, flags);
+ 	ns = timecounter_cyc2time(&adapter->tc, regval);
+ 	spin_unlock_irqrestore(&adapter->tmreg_lock, flags);
+ 
+ 	shhwtstamps = skb_hwtstamps(skb);
+ 	shhwtstamps->hwtstamp = ns_to_ktime(ns);
++
++	/* Update the last_rx_timestamp timer in order to enable watchdog check
++	 * for error case of latched timestamp on a dropped packet.
++	 */
++	adapter->last_rx_timestamp = jiffies;
+ }
+ 
+ int ixgbe_ptp_get_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr)
 -- 
 1.9.0
-
-
-------------------------------------------------------------------------------
-Learn Graph Databases - Download FREE O'Reilly Book
-"Graph Databases" is the definitive new guide to graph databases and their
-applications. Written by three acclaimed leaders in the field,
-this first edition is now available. Download your free book today!
-http://p.sf.net/sfu/NeoTech
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
