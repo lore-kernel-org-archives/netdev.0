@@ -1,272 +1,111 @@
-From: Amos Kong <akong@redhat.com>
-Subject: RFC: sharing config interrupt between virtio devices for saving MSI
-Date: Sat, 19 Apr 2014 12:08:15 +0800
-Message-ID: <20140419040815.GB4681@amosk.info>
-References: <20140330111427.GD24476@redhat.com>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: nft 2.0, NULL pointer dereference in 3.14.1
+Date: Sat, 19 Apr 2014 10:36:27 +0300
+Message-ID: <52ee4b86089383eb7ae8d2bed17e6f8b@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="v9Ux+11Zm5mwPlX6"
-Cc: netdev@vger.kernel.org
-To: "MichaelS.Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20140330111427.GD24476@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
-
-
---v9Ux+11Zm5mwPlX6
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-
-Hi all,
-
-I'm working on this item in Upstream Networking todolist:
-
-| - Sharing config interrupts
-|    Support more devices by sharing a single msi vector
-|    between multiple virtio devices.
-|    (Applies to virtio-blk too).
-
-I have this solution here, and only have draft patches of Solution
-1 & 2, let's discuss if solution 3 is feasible.
-
-* We should not introduce perf regression in this change
-* little effect is acceptable because we are _sharing_ interrupt
-
-Solution 1:
-==========
-share one LSI interrupt for configuration change of all virtio devices.
-Draft patch: share_lsi_for_all_config.patch
-
-Solution 2:
-==========
-share one MSI interrupt for configuration change of all virtio devices.
-Draft patch: share_msix_for_all_config.patch
-
-Solution 3:
-==========
-dynamic adjust interrupt policy when device is added or removed
-Current:
--------
-- try to allocate a MSI to device's config
-- try to allocate a MSI for each vq
-- share one MSI for all vqs of one device
-- share one LSI for config & vqs of one device
-
-additional dynamic policies:
----------------------------
-- if there is no enough MSI, adjust interrupt allocation for returning
-  some MSI
-   - try to find a device that allocated one MSI for each vq, change
-     it to share one MSI for saving the MSI
-   - try to share one MSI for config of all virtio_pci devices
-   - try to share one LSI for config of all devices
-
-- if device is removed, try to re-allocate freed MSI to existed
-  devices, if they aren't in best status (one MSI for config, one
-  MSI for each vq)
-   - if config of all devices is sharing one LSI, try to upgrade it to MSI
-   - if config of all devices is sharing one MSI, try to allocate one
-     MSI for configuration change of each device
-   - try to find a device that is sharing one MSI for all vqs, try to
-     allocate one MSI for each vq
-
-
-
-BTW, I saw we still notify all vqs even VIRTIO_PCI_ISR_CONFIG bit of
-isr is set, is it necessary?
-
-diff --git a/drivers/virtio/virtio_pci.c b/drivers/virtio/virtio_pci.c
-index 101db3f..176aabc 100644
---- a/drivers/virtio/virtio_pci.c
-+++ b/drivers/virtio/virtio_pci.c
-@@ -259,9 +259,9 @@ static irqreturn_t vp_interrupt(int irq, void
-*opaque)
- 
-        /* Configuration change?  Tell driver if it wants to know. */
-        if (isr & VIRTIO_PCI_ISR_CONFIG)
--               vp_config_changed(irq, opaque);
--
--       return vp_vring_interrupt(irq, opaque);
-+               return vp_config_changed(irq, opaque);
-+       else
-+               return vp_vring_interrupt(irq, opaque);
- }
- 
- static void vp_free_vectors(struct virtio_device *vdev)
-
--- 
-			Amos.
-
---v9Ux+11Zm5mwPlX6
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="share_lsi_for_all_config.patch"
-
-diff --git a/drivers/virtio/virtio_pci.c b/drivers/virtio/virtio_pci.c
-index 101db3f..5ba348d 100644
---- a/drivers/virtio/virtio_pci.c
-+++ b/drivers/virtio/virtio_pci.c
-@@ -302,6 +302,8 @@ static void vp_free_vectors(struct virtio_device *vdev)
- 	vp_dev->msix_affinity_masks = NULL;
- }
- 
-+//static msix_entry *config_msix_entry;
-+static char config_msix_name[100];
- static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
- 				   bool per_vq_vectors)
- {
-@@ -341,14 +343,13 @@ static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
- 
- 	/* Set the vector used for configuration */
- 	v = vp_dev->msix_used_vectors;
--	snprintf(vp_dev->msix_names[v], sizeof *vp_dev->msix_names,
-+	snprintf(config_msix_name, sizeof *vp_dev->msix_names,
- 		 "%s-config", name);
--	err = request_irq(vp_dev->msix_entries[v].vector,
--			  vp_config_changed, 0, vp_dev->msix_names[v],
--			  vp_dev);
-+	err = request_irq(vp_dev->pci_dev->irq, vp_config_changed, IRQF_SHARED, config_msix_name, vp_dev);
- 	if (err)
- 		goto error;
--	++vp_dev->msix_used_vectors;
-+
-+        //++vp_dev->msix_used_vectors;
- 
- 	iowrite16(v, vp_dev->ioaddr + VIRTIO_MSI_CONFIG_VECTOR);
- 	/* Verify we had enough resources to assign the vector */
-@@ -380,7 +381,7 @@ static int vp_request_intx(struct virtio_device *vdev)
- {
- 	int err;
- 	struct virtio_pci_device *vp_dev = to_vp_device(vdev);
--
-+	printk(KERN_INFO "share irq: %d\n", vp_dev->pci_dev->irq);
- 	err = request_irq(vp_dev->pci_dev->irq, vp_interrupt,
- 			  IRQF_SHARED, dev_name(&vdev->dev), vp_dev);
- 	if (!err)
-@@ -536,13 +537,13 @@ static int vp_try_to_find_vqs(struct virtio_device *vdev, unsigned nvqs,
- 	} else {
- 		if (per_vq_vectors) {
- 			/* Best option: one for change interrupt, one per vq. */
--			nvectors = 1;
-+			nvectors = 0;
- 			for (i = 0; i < nvqs; ++i)
- 				if (callbacks[i])
- 					++nvectors;
- 		} else {
- 			/* Second best: one for change, shared for all vqs. */
--			nvectors = 2;
-+			nvectors = 1;
- 		}
- 
- 		err = vp_request_msix_vectors(vdev, nvectors, per_vq_vectors);
-
---v9Ux+11Zm5mwPlX6
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="share_msix_for_all_config.path"
-
-diff --git a/drivers/virtio/virtio_pci.c b/drivers/virtio/virtio_pci.c
-index 101db3f..5ae1844 100644
---- a/drivers/virtio/virtio_pci.c
-+++ b/drivers/virtio/virtio_pci.c
-@@ -62,6 +62,8 @@ struct virtio_pci_device
- 
- 	/* Whether we have vector per vq */
- 	bool per_vq_vectors;
-+
-+	char config_msix_name[256];
- };
- 
- /* Constants for MSI-X */
-@@ -302,6 +304,8 @@ static void vp_free_vectors(struct virtio_device *vdev)
- 	vp_dev->msix_affinity_masks = NULL;
- }
- 
-+static struct msix_entry *config_msix_entry;
-+static char *config_msix_name;
- static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
- 				   bool per_vq_vectors)
- {
-@@ -309,9 +313,14 @@ static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
- 	const char *name = dev_name(&vp_dev->vdev.dev);
- 	unsigned i, v;
- 	int err = -ENOMEM;
-+        int has_config_msix = 1;
- 
--	vp_dev->msix_vectors = nvectors;
-+        if (!config_msix_entry) {
-+		has_config_msix = 0;
-+		nvectors += 1;
-+        }
- 
-+	vp_dev->msix_vectors = nvectors;
- 	vp_dev->msix_entries = kmalloc(nvectors * sizeof *vp_dev->msix_entries,
- 				       GFP_KERNEL);
- 	if (!vp_dev->msix_entries)
-@@ -341,14 +350,24 @@ static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
- 
- 	/* Set the vector used for configuration */
- 	v = vp_dev->msix_used_vectors;
--	snprintf(vp_dev->msix_names[v], sizeof *vp_dev->msix_names,
-+
-+        if (has_config_msix == 0) {
-+		config_msix_entry = &vp_dev->msix_entries[v];
-+		config_msix_name = vp_dev->msix_names[v];
-+        } else {
-+		config_msix_name = vp_dev->config_msix_name;
-+	}
-+
-+	snprintf(vp_dev->config_msix_name, sizeof *vp_dev->msix_names,
- 		 "%s-config", name);
--	err = request_irq(vp_dev->msix_entries[v].vector,
--			  vp_config_changed, 0, vp_dev->msix_names[v],
--			  vp_dev);
-+	err = request_irq(config_msix_entry->vector,
-+                          vp_config_changed, IRQF_SHARED,
-+                          vp_dev->config_msix_name, vp_dev);
- 	if (err)
- 		goto error;
--	++vp_dev->msix_used_vectors;
-+
-+        if (has_config_msix == 0)
-+             ++vp_dev->msix_used_vectors;
- 
- 	iowrite16(v, vp_dev->ioaddr + VIRTIO_MSI_CONFIG_VECTOR);
- 	/* Verify we had enough resources to assign the vector */
-@@ -536,13 +555,13 @@ static int vp_try_to_find_vqs(struct virtio_device *vdev, unsigned nvqs,
- 	} else {
- 		if (per_vq_vectors) {
- 			/* Best option: one for change interrupt, one per vq. */
--			nvectors = 1;
-+			nvectors = 0;
- 			for (i = 0; i < nvqs; ++i)
- 				if (callbacks[i])
- 					++nvectors;
- 		} else {
- 			/* Second best: one for change, shared for all vqs. */
--			nvectors = 2;
-+			nvectors = 1;
- 		}
- 
- 		err = vp_request_msix_vectors(vdev, nvectors, per_vq_vectors);
-
---v9Ux+11Zm5mwPlX6
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+To: netdev@vger.kernel.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	Pablo <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hosting.visp.net.lb ([194.146.153.11]:47165 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750905AbaDSHgb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Apr 2014 03:36:31 -0400
+Received: from hosting.visp.net.lb (localhost [127.0.0.1])
+	by hosting.visp.net.lb (Postfix) with ESMTP id BF60848051B
+	for <netdev@vger.kernel.org>; Sat, 19 Apr 2014 10:36:27 +0300 (EEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-Virtualization mailing list
-Virtualization@lists.linux-foundation.org
-https://lists.linuxfoundation.org/mailman/listinfo/virtualization
---v9Ux+11Zm5mwPlX6--
+Hi
+
+While trying nft got kernel NULL dereference
+extreme ~ # nft -v
+nftables v0.2 (Support Edward Snowden)
+extreme ~ # uname -a
+Linux extreme 3.14.1-extreme-stable #1 SMP Sat Apr 19 10:23:48 EEST 2014 
+x86_64 Intel(R) Core(TM) i7-4770 CPU @ 3.40GHz GenuineIntel GNU/Linux
+
+Command i tried (nothing else entered before it):
+nft add rule filter icmp-chain counter
+
+kernel message:
+[   44.071555] Netfilter messages via NETLINK v0.30.
+[   44.072253] BUG: unable to handle kernel NULL pointer dereference at 
+0000000000000119
+[   44.072264] IP: [<ffffffff8171db1f>] netlink_getsockbyportid+0xf/0x70
+[   44.072272] PGD 7f2b74067 PUD 7f2b73067 PMD 0
+[   44.072277] Oops: 0000 [#1] SMP
+[   44.072280] Modules linked in: nfnetlink ftdi_sio usbserial 
+usb_storage x86_pkg_temp_thermal intel_powerclamp coretemp kvm_intel kvm 
+iTCO_wdt iTCO_vendor_support mei_me mei lpc_ich mfd_core
+[   44.072301] CPU: 4 PID: 2573 Comm: nft Not tainted 
+3.14.1-extreme-stable #1
+[   44.072304] Hardware name:                  /DH87MC, BIOS 
+MCH8710H.86A.0154.2014.0123.1542 01/23/2014
+[   44.072308] task: ffff8807f5195340 ti: ffff8807d4c36000 task.ti: 
+ffff8807d4c36000
+[   44.072311] RIP: 0010:[<ffffffff8171db1f>]  [<ffffffff8171db1f>] 
+netlink_getsockbyportid+0xf/0x70
+[   44.072317] RSP: 0018:ffff8807d4c37a90  EFLAGS: 00010202
+[   44.072319] RAX: 0000000000000000 RBX: 0000000000000000 RCX: 
+0000000000000028
+[   44.072322] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 
+0000000000000000
+[   44.072325] RBP: ffff8807d4c37a98 R08: 0000000000000000 R09: 
+ffff8807f85b0028
+[   44.072328] R10: 00000000ffffffff R11: 0000000000000000 R12: 
+ffff8807f5de2900
+[   44.072331] R13: 0000000000000000 R14: 0000000000000000 R15: 
+0000000000000018
+[   44.072335] FS:  00007fa028b25700(0000) GS:ffff88081ed00000(0000) 
+knlGS:0000000000000000
+[   44.072338] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[   44.072341] CR2: 0000000000000119 CR3: 00000007f370d000 CR4: 
+00000000001407e0
+[   44.072343] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 
+0000000000000000
+[   44.072346] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 
+0000000000000400
+[   44.072349] Stack:
+[   44.072351]  0000000000000040 ffff8807d4c37ad0 ffffffff8171fd81 
+0000000000000000
+[   44.072357]  ffff8807f5de2900 ffff8807f5de2900 00000000ffffffa1 
+ffff8807f85b1600
+[   44.072363]  ffff8807d4c37b08 ffffffff817206c9 ffff8807f85b1600 
+ffff8807f5de3400
+[   44.072369] Call Trace:
+[   44.072373]  [<ffffffff8171fd81>] netlink_unicast+0x91/0x200
+[   44.072377]  [<ffffffff817206c9>] netlink_ack+0x99/0x110
+[   44.072381]  [<ffffffffa004b951>] nfnetlink_rcv+0x3c1/0x408 
+[nfnetlink]
+[   44.072385]  [<ffffffff8171fde3>] netlink_unicast+0xf3/0x200
+[   44.072389]  [<ffffffff817201ef>] netlink_sendmsg+0x2ff/0x740
+[   44.072394]  [<ffffffff81044752>] ? __mmdrop+0x62/0x90
+[   44.072398]  [<ffffffff816dafdb>] sock_sendmsg+0x8b/0xc0
+[   44.072403]  [<ffffffff812f1af5>] ? 
+copy_user_enhanced_fast_string+0x5/0x10
+[   44.072406]  [<ffffffff816dbb6c>] ? move_addr_to_kernel+0x2c/0x50
+[   44.072410]  [<ffffffff816db423>] ___sys_sendmsg+0x3c3/0x3d0
+[   44.072415]  [<ffffffff811301ba>] ? handle_mm_fault+0xa9a/0xc60
+[   44.072420]  [<ffffffff811362d6>] ? mmap_region+0x166/0x5a0
+[   44.072424]  [<ffffffff817da84c>] ? __do_page_fault+0x1dc/0x510
+[   44.072428]  [<ffffffff812b8b2c>] ? apparmor_capable+0x1c/0x60
+[   44.072435]  [<ffffffff817d6e9a>] ? _raw_spin_unlock_bh+0x1a/0x20
+[   44.072439]  [<ffffffff816dfc86>] ? release_sock+0x106/0x150
+[   44.072443]  [<ffffffff816dc212>] __sys_sendmsg+0x42/0x80
+[   44.072446]  [<ffffffff816dc262>] SyS_sendmsg+0x12/0x20
+[   44.072450]  [<ffffffff817df616>] system_call_fastpath+0x1a/0x1f
+[   44.072453] Code: 41 5d 41 5e 5d c3 66 0f 1f 44 00 00 f0 ff 43 4c eb 
+e1 66 2e 0f 1f 84 00 00 00 00 00 0f 1f 44 00 00 55 89 f2 48 89 e5 53 48 
+89 fb <0f> b6 b7 19 01 00 00 48 8b 7f 30 e8 f1 fe ff ff 48 89 c7 48 c7
+[   44.072963] RIP  [<ffffffff8171db1f>] 
+netlink_getsockbyportid+0xf/0x70
+[   44.073253]  RSP <ffff8807d4c37a90>
+[   44.073524] CR2: 0000000000000119
+[   44.074757] ---[ end trace f3a9846ab3cb7550 ]---
+
+Please let me know if more information required.
+Thanks!
