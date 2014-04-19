@@ -1,84 +1,52 @@
-From: David Heidelberger <david.heidelberger@ixit.cz>
-Subject: Re: [PATCH [iputils] 4/5] fix handling of CFLAGS
-Date: Sat, 19 Apr 2014 20:55:17 +0200
-Message-ID: <0e78909d2b809896ca107d86593ed353@ixit.cz>
-References: <1397918597-8680-1-git-send-email-vapier@gentoo.org>
- <1397918597-8680-4-git-send-email-vapier@gentoo.org>
+From: =?UTF-8?B?T3J0d2luIEdsw7xjaw==?= <odi@odi.ch>
+Subject: Re: 3.14 regression: huge latency in read/select on tun
+Date: Sat, 19 Apr 2014 22:13:51 +0200
+Message-ID: <5352D8FF.6070305@odi.ch>
+References: <533C381E.9090103@odi.ch>	 <1396456973.3989.41.camel@edumazet-glaptop2.roam.corp.google.com>	 <533D133A.3090008@odi.ch>	 <1396531176.12330.6.camel@edumazet-glaptop2.roam.corp.google.com> <1396533026.12330.9.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
-To: Mike Frysinger <vapier@gentoo.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	gerben@daybyday.nl, Vlad Yasevich <vyasevic@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94-84-246-161.wendulka.net ([84.246.161.94]:33073 "EHLO ixit.cz"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1161043AbaDSSDX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Apr 2014 14:03:23 -0400
-In-Reply-To: <1397918597-8680-4-git-send-email-vapier@gentoo.org>
+Received: from fep32.mx.upcmail.net ([62.179.121.50]:63804 "EHLO
+	fep32.mx.upcmail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751191AbaDSUN5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Apr 2014 16:13:57 -0400
+In-Reply-To: <1396533026.12330.9.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey Mike,
+On 03.04.2014 15:50, Eric Dumazet wrote:
+> On Thu, 2014-04-03 at 06:19 -0700, Eric Dumazet wrote:
+> 
+>> It seems TSO support is broken.
 
-I'd like to set CC if is unset, check this patch, if it look sane for 
-you :)
-https://github.com/iputils/iputils/commit/77ab88974eb4424620e4caa1dcd4bebe020a3b4e
+I finally found time to bisect this:
 
-David
+53d6471cef17262d3ad1c7ce8982a234244f68ec is the first bad commit
+commit 53d6471cef17262d3ad1c7ce8982a234244f68ec
+Author: Vlad Yasevich <vyasevic@redhat.com>
+Date:   Thu Mar 27 17:26:18 2014 -0400
 
-Dne 2014-04-19 16:43, Mike Frysinger napsal:
-> This defaults CFLAGS to -O3 without clobbering settings people have set
-> up in the environment already.
-> 
-> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
-> ---
->  Makefile | 13 +++++--------
->  1 file changed, 5 insertions(+), 8 deletions(-)
-> 
-> diff --git a/Makefile b/Makefile
-> index 2c49940..ecabac3 100644
-> --- a/Makefile
-> +++ b/Makefile
-> @@ -2,8 +2,6 @@
->  # Configuration
->  #
-> 
-> -# CC
-> -CC=gcc
->  # Path to parent kernel include files directory
->  LIBC_INCLUDE=/usr/include
->  # Libraries
-> @@ -48,11 +46,10 @@ ENABLE_RDISC_SERVER=no
-> 
->  # -------------------------------------
->  # What a pity, all new gccs are buggy and -Werror does not work. Sigh.
-> -# CCOPT=-fno-strict-aliasing -Wstrict-prototypes -Wall -Werror -g
-> -CCOPT=-fno-strict-aliasing -Wstrict-prototypes -Wall -g
-> -CCOPTOPT=-O3
-> -GLIBCFIX=-D_GNU_SOURCE
-> -DEFINES=
-> +# CFLAGS+=-fno-strict-aliasing -Wstrict-prototypes -Wall -Werror -g
-> +CFLAGS?=-O3 -g
-> +CFLAGS+=-fno-strict-aliasing -Wstrict-prototypes -Wall
-> +CPPFLAGS+=-D_GNU_SOURCE
->  LDLIB=
-> 
->  FUNC_LIB = $(if $(filter static,$(1)),$(LDFLAG_STATIC) $(2)
-> $(LDFLAG_DYNAMIC),$(2))
-> @@ -113,7 +110,6 @@ IPV4_TARGETS=tracepath ping clockdiff rdisc arping
-> tftpd rarpd
->  IPV6_TARGETS=tracepath6 traceroute6 ping6
->  TARGETS=$(IPV4_TARGETS) $(IPV6_TARGETS)
-> 
-> -CFLAGS=$(CCOPTOPT) $(CCOPT) $(GLIBCFIX) $(DEFINES)
->  LDLIBS=$(LDLIB) $(ADDLIB)
-> 
->  UNAME_N:=$(shell uname -n)
-> @@ -132,6 +128,7 @@ all: $(TARGETS)
->  	$(COMPILE.c) $< $(DEF_$(patsubst %.o,%,$@)) -S -o $@
->  %.o: %.c
->  	$(COMPILE.c) $< $(DEF_$(patsubst %.o,%,$@)) -o $@
-> +LINK.o += $(CFLAGS)
->  $(TARGETS): %: %.o
->  	$(LINK.o) $^ $(LIB_$@) $(LDLIBS) -o $@
+    net: Account for all vlan headers in skb_mac_gso_segment
+
+    skb_network_protocol() already accounts for multiple vlan
+    headers that may be present in the skb.  However, skb_mac_gso_segment()
+    doesn't know anything about it and assumes that skb->mac_len
+    is set correctly to skip all mac headers.  That may not
+    always be the case.  If we are simply forwarding the packet (via
+    bridge or macvtap), all vlan headers may not be accounted for.
+
+    A simple solution is to allow skb_network_protocol to return
+    the vlan depth it has calculated.  This way skb_mac_gso_segment
+    will correctly skip all mac headers.
+
+    Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+:040000 040000 6066ee76dd70dde2f4675155579e550d29ba0216
+2196ebff4f9a8b909617dd57beeaa76cbafc8525 M      include
+:040000 040000 20fdfb5efc1ada562b7899d0d58998914b1c2ff1
+c398988f31e1b1b6ee56cb20b1a7becbdf782a17 M      net
