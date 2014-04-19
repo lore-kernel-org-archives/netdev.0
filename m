@@ -1,79 +1,272 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] smc91x: fix compile error when SMC_DEBUG >= 2
-Date: Fri, 18 Apr 2014 21:06:53 -0700
-Message-ID: <1397880413.3106.2.camel@joe-AO725>
-References: <1397879250-32041-1-git-send-email-zlim.lnx@gmail.com>
+From: Amos Kong <akong@redhat.com>
+Subject: RFC: sharing config interrupt between virtio devices for saving MSI
+Date: Sat, 19 Apr 2014 12:08:15 +0800
+Message-ID: <20140419040815.GB4681@amosk.info>
+References: <20140330111427.GD24476@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nicolas Pitre <nico@fluxnic.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Zi Shen Lim <zlim.lnx@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1397879250-32041-1-git-send-email-zlim.lnx@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="v9Ux+11Zm5mwPlX6"
+Cc: netdev@vger.kernel.org
+To: "MichaelS.Tsirkin" <mst@redhat.com>,
+	virtualization@lists.linux-foundation.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20140330111427.GD24476@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-04-18 at 20:47 -0700, Zi Shen Lim wrote:
-> When SMC_DEBUG >=3D 2, we hit the following compilation error:
->=20
-> drivers/net/ethernet/smsc/smc91x.c:85:0:
-> drivers/net/ethernet/smsc/smc91x.c: In function =E2=80=98smc_findirq=E2=
-=80=99:
-> drivers/net/ethernet/smsc/smc91x.c:1784:9: error: =E2=80=98dev=E2=80=99=
- undeclared (first use in this function)
->   DBG(2, dev, "%s: %s\n", CARDNAME, __func__);
->          ^
-> Fix it by passing in the appropriate netdev pointer.
 
-Perhaps verifying the format and args in all cases
-would help avoid more of these in the future.
----
- drivers/net/ethernet/smsc/smc91x.c | 25 +++++++++++++++----------
- 1 file changed, 15 insertions(+), 10 deletions(-)
+--v9Ux+11Zm5mwPlX6
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/=
-smsc/smc91x.c
-index d1b4dca..a8302f5 100644
---- a/drivers/net/ethernet/smsc/smc91x.c
-+++ b/drivers/net/ethernet/smsc/smc91x.c
-@@ -148,16 +148,19 @@ MODULE_ALIAS("platform:smc91x");
- #define MII_DELAY		1
-=20
- #if SMC_DEBUG > 0
--#define DBG(n, dev, args...)				\
--	do {						\
--		if (SMC_DEBUG >=3D (n))			\
--			netdev_dbg(dev, args);		\
--	} while (0)
+
+Hi all,
+
+I'm working on this item in Upstream Networking todolist:
+
+| - Sharing config interrupts
+|    Support more devices by sharing a single msi vector
+|    between multiple virtio devices.
+|    (Applies to virtio-blk too).
+
+I have this solution here, and only have draft patches of Solution
+1 & 2, let's discuss if solution 3 is feasible.
+
+* We should not introduce perf regression in this change
+* little effect is acceptable because we are _sharing_ interrupt
+
+Solution 1:
+==========
+share one LSI interrupt for configuration change of all virtio devices.
+Draft patch: share_lsi_for_all_config.patch
+
+Solution 2:
+==========
+share one MSI interrupt for configuration change of all virtio devices.
+Draft patch: share_msix_for_all_config.patch
+
+Solution 3:
+==========
+dynamic adjust interrupt policy when device is added or removed
+Current:
+-------
+- try to allocate a MSI to device's config
+- try to allocate a MSI for each vq
+- share one MSI for all vqs of one device
+- share one LSI for config & vqs of one device
+
+additional dynamic policies:
+---------------------------
+- if there is no enough MSI, adjust interrupt allocation for returning
+  some MSI
+   - try to find a device that allocated one MSI for each vq, change
+     it to share one MSI for saving the MSI
+   - try to share one MSI for config of all virtio_pci devices
+   - try to share one LSI for config of all devices
+
+- if device is removed, try to re-allocate freed MSI to existed
+  devices, if they aren't in best status (one MSI for config, one
+  MSI for each vq)
+   - if config of all devices is sharing one LSI, try to upgrade it to MSI
+   - if config of all devices is sharing one MSI, try to allocate one
+     MSI for configuration change of each device
+   - try to find a device that is sharing one MSI for all vqs, try to
+     allocate one MSI for each vq
+
+
+
+BTW, I saw we still notify all vqs even VIRTIO_PCI_ISR_CONFIG bit of
+isr is set, is it necessary?
+
+diff --git a/drivers/virtio/virtio_pci.c b/drivers/virtio/virtio_pci.c
+index 101db3f..176aabc 100644
+--- a/drivers/virtio/virtio_pci.c
++++ b/drivers/virtio/virtio_pci.c
+@@ -259,9 +259,9 @@ static irqreturn_t vp_interrupt(int irq, void
+*opaque)
+ 
+        /* Configuration change?  Tell driver if it wants to know. */
+        if (isr & VIRTIO_PCI_ISR_CONFIG)
+-               vp_config_changed(irq, opaque);
 -
--#define PRINTK(dev, args...)   netdev_info(dev, args)
-+#define DBG(n, dev, fmt, ...)					\
-+do {								\
-+	if (SMC_DEBUG >=3D (n))					\
-+		netdev_dbg(dev, fmt, ##__VA_ARGS__);		\
-+} while (0)
-+#define PRINTK(dev, fmt, ...)   netdev_info(dev, fmt, ##__VA_ARGS__)
- #else
--#define DBG(n, dev, args...)   do { } while (0)
--#define PRINTK(dev, args...)   netdev_dbg(dev, args)
-+#define DBG(n, dev, fmt, ...)					\
-+do {								\
-+	if (0)					\
-+		netdev_dbg(dev, fmt, ##__VA_ARGS__);		\
-+} while (0)
-+#define PRINTK(dev, fmt, ...)   netdev_dbg(dev, fmt, ##__VA_ARGS__)
- #endif
-=20
- #if SMC_DEBUG > 3
-@@ -191,7 +194,9 @@ static void PRINT_PKT(u_char *buf, int length)
- 	pr_cont("\n");
+-       return vp_vring_interrupt(irq, opaque);
++               return vp_config_changed(irq, opaque);
++       else
++               return vp_vring_interrupt(irq, opaque);
  }
- #else
--#define PRINT_PKT(x...)  do { } while (0)
-+static inline void PRINT_PKT(u_char *buf, int length)
-+{
-+}
- #endif
-=20
-=20
+ 
+ static void vp_free_vectors(struct virtio_device *vdev)
+
+-- 
+			Amos.
+
+--v9Ux+11Zm5mwPlX6
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="share_lsi_for_all_config.patch"
+
+diff --git a/drivers/virtio/virtio_pci.c b/drivers/virtio/virtio_pci.c
+index 101db3f..5ba348d 100644
+--- a/drivers/virtio/virtio_pci.c
++++ b/drivers/virtio/virtio_pci.c
+@@ -302,6 +302,8 @@ static void vp_free_vectors(struct virtio_device *vdev)
+ 	vp_dev->msix_affinity_masks = NULL;
+ }
+ 
++//static msix_entry *config_msix_entry;
++static char config_msix_name[100];
+ static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
+ 				   bool per_vq_vectors)
+ {
+@@ -341,14 +343,13 @@ static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
+ 
+ 	/* Set the vector used for configuration */
+ 	v = vp_dev->msix_used_vectors;
+-	snprintf(vp_dev->msix_names[v], sizeof *vp_dev->msix_names,
++	snprintf(config_msix_name, sizeof *vp_dev->msix_names,
+ 		 "%s-config", name);
+-	err = request_irq(vp_dev->msix_entries[v].vector,
+-			  vp_config_changed, 0, vp_dev->msix_names[v],
+-			  vp_dev);
++	err = request_irq(vp_dev->pci_dev->irq, vp_config_changed, IRQF_SHARED, config_msix_name, vp_dev);
+ 	if (err)
+ 		goto error;
+-	++vp_dev->msix_used_vectors;
++
++        //++vp_dev->msix_used_vectors;
+ 
+ 	iowrite16(v, vp_dev->ioaddr + VIRTIO_MSI_CONFIG_VECTOR);
+ 	/* Verify we had enough resources to assign the vector */
+@@ -380,7 +381,7 @@ static int vp_request_intx(struct virtio_device *vdev)
+ {
+ 	int err;
+ 	struct virtio_pci_device *vp_dev = to_vp_device(vdev);
+-
++	printk(KERN_INFO "share irq: %d\n", vp_dev->pci_dev->irq);
+ 	err = request_irq(vp_dev->pci_dev->irq, vp_interrupt,
+ 			  IRQF_SHARED, dev_name(&vdev->dev), vp_dev);
+ 	if (!err)
+@@ -536,13 +537,13 @@ static int vp_try_to_find_vqs(struct virtio_device *vdev, unsigned nvqs,
+ 	} else {
+ 		if (per_vq_vectors) {
+ 			/* Best option: one for change interrupt, one per vq. */
+-			nvectors = 1;
++			nvectors = 0;
+ 			for (i = 0; i < nvqs; ++i)
+ 				if (callbacks[i])
+ 					++nvectors;
+ 		} else {
+ 			/* Second best: one for change, shared for all vqs. */
+-			nvectors = 2;
++			nvectors = 1;
+ 		}
+ 
+ 		err = vp_request_msix_vectors(vdev, nvectors, per_vq_vectors);
+
+--v9Ux+11Zm5mwPlX6
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="share_msix_for_all_config.path"
+
+diff --git a/drivers/virtio/virtio_pci.c b/drivers/virtio/virtio_pci.c
+index 101db3f..5ae1844 100644
+--- a/drivers/virtio/virtio_pci.c
++++ b/drivers/virtio/virtio_pci.c
+@@ -62,6 +62,8 @@ struct virtio_pci_device
+ 
+ 	/* Whether we have vector per vq */
+ 	bool per_vq_vectors;
++
++	char config_msix_name[256];
+ };
+ 
+ /* Constants for MSI-X */
+@@ -302,6 +304,8 @@ static void vp_free_vectors(struct virtio_device *vdev)
+ 	vp_dev->msix_affinity_masks = NULL;
+ }
+ 
++static struct msix_entry *config_msix_entry;
++static char *config_msix_name;
+ static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
+ 				   bool per_vq_vectors)
+ {
+@@ -309,9 +313,14 @@ static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
+ 	const char *name = dev_name(&vp_dev->vdev.dev);
+ 	unsigned i, v;
+ 	int err = -ENOMEM;
++        int has_config_msix = 1;
+ 
+-	vp_dev->msix_vectors = nvectors;
++        if (!config_msix_entry) {
++		has_config_msix = 0;
++		nvectors += 1;
++        }
+ 
++	vp_dev->msix_vectors = nvectors;
+ 	vp_dev->msix_entries = kmalloc(nvectors * sizeof *vp_dev->msix_entries,
+ 				       GFP_KERNEL);
+ 	if (!vp_dev->msix_entries)
+@@ -341,14 +350,24 @@ static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
+ 
+ 	/* Set the vector used for configuration */
+ 	v = vp_dev->msix_used_vectors;
+-	snprintf(vp_dev->msix_names[v], sizeof *vp_dev->msix_names,
++
++        if (has_config_msix == 0) {
++		config_msix_entry = &vp_dev->msix_entries[v];
++		config_msix_name = vp_dev->msix_names[v];
++        } else {
++		config_msix_name = vp_dev->config_msix_name;
++	}
++
++	snprintf(vp_dev->config_msix_name, sizeof *vp_dev->msix_names,
+ 		 "%s-config", name);
+-	err = request_irq(vp_dev->msix_entries[v].vector,
+-			  vp_config_changed, 0, vp_dev->msix_names[v],
+-			  vp_dev);
++	err = request_irq(config_msix_entry->vector,
++                          vp_config_changed, IRQF_SHARED,
++                          vp_dev->config_msix_name, vp_dev);
+ 	if (err)
+ 		goto error;
+-	++vp_dev->msix_used_vectors;
++
++        if (has_config_msix == 0)
++             ++vp_dev->msix_used_vectors;
+ 
+ 	iowrite16(v, vp_dev->ioaddr + VIRTIO_MSI_CONFIG_VECTOR);
+ 	/* Verify we had enough resources to assign the vector */
+@@ -536,13 +555,13 @@ static int vp_try_to_find_vqs(struct virtio_device *vdev, unsigned nvqs,
+ 	} else {
+ 		if (per_vq_vectors) {
+ 			/* Best option: one for change interrupt, one per vq. */
+-			nvectors = 1;
++			nvectors = 0;
+ 			for (i = 0; i < nvqs; ++i)
+ 				if (callbacks[i])
+ 					++nvectors;
+ 		} else {
+ 			/* Second best: one for change, shared for all vqs. */
+-			nvectors = 2;
++			nvectors = 1;
+ 		}
+ 
+ 		err = vp_request_msix_vectors(vdev, nvectors, per_vq_vectors);
+
+--v9Ux+11Zm5mwPlX6
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Virtualization mailing list
+Virtualization@lists.linux-foundation.org
+https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+--v9Ux+11Zm5mwPlX6--
