@@ -1,65 +1,102 @@
-From: Prabhakar Lad <prabhakar.csengg@gmail.com>
-Subject: Re: [PATCH v2 0/4] introduce devm_mdiobus_alloc/free and clean up
- davinci mdio
-Date: Sat, 19 Apr 2014 18:02:21 +0530
-Message-ID: <CA+V-a8t+U5cqbB5Cm0JZV-=yy6OeemCRrLGUd8-ET+7E4hYmRw@mail.gmail.com>
-References: <1397841897-9170-1-git-send-email-grygorii.strashko@ti.com>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: in kernel 2.6.x, tun/tap nic supports vlan packets
+Date: Sat, 19 Apr 2014 21:43:16 +0800
+Message-ID: <53527D74.4070909@gmail.com>
+References: <534F4C1E.1000006@gmail.com> <20140417050228.GC8243@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Randy Dunlap <rdunlap@infradead.org>,
-	Jonathan Cameron <jic23@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Santosh Shilimkar <santosh.shilimkar@ti.com>,
-	Sekhar Nori <nsekhar@ti.com>, LDOC <linux-doc@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	dlos <davinci-linux-open-source@linux.davincidsp.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1397841897-9170-1-git-send-email-grygorii.strashko@ti.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	joe@perches.com, julia.lawall@lip6.fr, dingtianhong@huawei.com,
+	linux-kernel@vger.kernel.org, jasowang@redhat.com, mst@redhat.com,
+	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
+	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
+	"Tao, Yue" <Yue.Tao@windriver.com>
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f45.google.com ([209.85.192.45]:63920 "EHLO
+	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751332AbaDSNnR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Apr 2014 09:43:17 -0400
+In-Reply-To: <20140417050228.GC8243@1wt.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Grygorii,
-
-Thanks for the patches!
-
-
-On Fri, Apr 18, 2014 at 10:54 PM, Grygorii Strashko
-<grygorii.strashko@ti.com> wrote:
-> Introduce a resource managed devm_mdiobus_alloc()/devm_mdiobus_free()
-> to automatically clean up MDIO bus alocations made by MDIO drivers,
-> thus leading to simplified MDIO drivers code.
+On 04/17/2014 01:02 PM, Willy Tarreau wrote:
+> Hi Zhu,
 >
-> Clean up Davinci MDIO driver and use new devm API.
+> On Thu, Apr 17, 2014 at 11:35:58AM +0800, zhuyj wrote:
+>> Hi, all
+>>
+>> In kernel 2.6.x, linux depends on nic vlan hardware acceleration to
+>> insert/extract
+>> vlan tag. In this scene, in kernel 2.6.x
+>>
+>>                   _____        ________
+>>      A           |     | B    |        | C
+>>   vlan packets-->| tap |----->|vlan nic|--->
+>>                  |_____|      |________|
+>>
+>> We hope vlan packets pass through tap and vlan nic from A to c.
+>> But in kernel 2.6.x, linux kernel can not extract vlan tag. It depends
+>> on nic vlan hardware acceleration. It is well known that tap nic has no
+>> vlan acceleration. So in the above scene, vlan packets can not be handled by
+>> tap nic. These vlan packets will be discarded in B. They can not arrive
+>> at C.
+> It's not clear to me what you want to achieve. Are you trying to create
+> vlan interfaces on top of a tap interface ? Eg: tap1.12, tap1.23 etc ?
 >
-> Changes in v2:
-> - minor comments taken into account
-> - additional patches added for cleaning up Davinci MDIO driver
+>> In kernel 3.x, linux can handle vlan packets. It does not depend on nic vlan
+>> hardware acceleration. So the above scene can work well in kernel 3.x.
+>>
+>> To resolve the above in kernel 2.6.x, we simulated vlan hardware
+>> acceleration in
+>> tun/tap driver. Then followed the logic of commit commit 4fba4ca4
+>> [vlan: Centralize handling of hardware acceleration] to modify the vlan
+>> packets
+>> process in kernel 2.6.x. In the end, the above scene can work well in
+>> patched
+>> kernel 2.6.x.
+>>
+>> Please comment on it. Any reply is appreciated.
+>>
+>> Hi, Willy
+>>
+>> These 2 patches are for linux2.6.x. These can work well here. Please
+>> help to merge
+>> linux 2.6.32.x. Thanks a lot.
+> Well, 2.6.32.x is in deep freeze mode and it receives only critical fixes
+> once in a while. While I can appreciate that the patch above might solve
+> the issue you're facing, I'm wondering if there are not any acceptable
+> workarounds for such a deep freeze kernel. You patch is not huge, but it
+> definitely affects a working driver, and I wouldn't like risking to break
+> the tap driver for other users, and I reall don't have the skills to audit
+> it completely to ensure this is not the case. And if it breaks, I'll have
+> to revert it or seek for some help on netdev.
 >
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
+> So I'd say that I'd rather not merge it unless I get an Acked-by from some
+> netdev people who are willing to help in case of any future regression,
+> which is unlikely but still possible.
 >
-> Grygorii Strashko (4):
->   mdio_bus: implement devm_mdiobus_alloc/devm_mdiobus_free
->   net: davinci_mdio: use devm_* api
->   net: davinci_mdio: drop pinctrl_pm_select_default_state from probe
->   net: davinci_mdio: simplify IO memory mapping
->
-Tested on DA850EVM.
+> Just out of curiosity, what is the motivation for ongoing development on
+> top of 2.6.32 ? Are there any important deployments that cannot upgrade
+> for any specific reason ? I'm asking because most 2.6.32.x kernels that
+> are stuffed into embedded boxes very likely come with their own number
+> of in-house patches to add whatever feature is needed in such contexts,
+> so I'm wondering why having this patch in mainline would help in your
+> situation compared to having it into your own patch set only.
+Hi, Willy
 
-Acked-and-tested-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+I want to submit these 2 patches to this long-term kernel. I have 2 
+purposes:
 
-Regards,
---Prabhakar Lad
+1. I want to share these 2 patches with the ones who need this kind of 
+feature. Maybe these 2 patches can help them.
+2. When many people make use of these 2 patches, we will find some 
+defects. Then we fix them and make this kind of feature better.
 
->  Documentation/driver-model/devres.txt  |    4 ++
->  drivers/net/ethernet/ti/davinci_mdio.c |   48 ++++------------------
->  drivers/net/phy/mdio_bus.c             |   68 ++++++++++++++++++++++++++++++++
->  include/linux/phy.h                    |    2 +
->  4 files changed, 82 insertions(+), 40 deletions(-)
+Zhu Yanjun
+> Thanks,
+> Willy
 >
-> --
-> 1.7.9.5
 >
