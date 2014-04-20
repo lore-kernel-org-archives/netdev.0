@@ -1,140 +1,68 @@
-From: Zi Shen Lim <zlim.lnx@gmail.com>
-Subject: Re: [PATCH] smc91x: fix compile error when SMC_DEBUG >= 2
-Date: Sat, 19 Apr 2014 18:24:19 -0700
-Message-ID: <20140420012419.GA12770@gup76>
-References: <1397879250-32041-1-git-send-email-zlim.lnx@gmail.com>
- <1397880413.3106.2.camel@joe-AO725>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: Re: [PATCH [iputils] 4/5] fix handling of CFLAGS
+Date: Sat, 19 Apr 2014 23:01:55 -0400
+Message-ID: <10018089.GvaJH1c73e@vapier>
+References: <1397918597-8680-1-git-send-email-vapier@gentoo.org> <1397918597-8680-4-git-send-email-vapier@gentoo.org> <0e78909d2b809896ca107d86593ed353@ixit.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nicolas Pitre <nico@fluxnic.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Description: Re: [PATCH] smc91x: fix compile error when SMC_DEBUG >= 2
-Content-Disposition: inline
-In-Reply-To: <1397880413.3106.2.camel@joe-AO725>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; boundary="nextPart8403675.xTtYoaEIg9"; micalg="pgp-sha1"; protocol="application/pgp-signature"
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
+To: David Heidelberger <david.heidelberger@ixit.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.gentoo.org ([140.211.166.183]:51627 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755193AbaDTDBu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Apr 2014 23:01:50 -0400
+In-Reply-To: <0e78909d2b809896ca107d86593ed353@ixit.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Joe,
 
-On Fri, Apr 18, 2014 at 09:06:53PM -0700, Joe Perches wrote:
-> On Fri, 2014-04-18 at 20:47 -0700, Zi Shen Lim wrote:
-> > When SMC_DEBUG >=3D 2, we hit the following compilation error:
-> >=20
-> > drivers/net/ethernet/smsc/smc91x.c:85:0:
-> > drivers/net/ethernet/smsc/smc91x.c: In function =E2=80=98smc_findir=
-q=E2=80=99:
-> > drivers/net/ethernet/smsc/smc91x.c:1784:9: error: =E2=80=98dev=E2=80=
-=99 undeclared (first use in this function)
-> >   DBG(2, dev, "%s: %s\n", CARDNAME, __func__);
-> >          ^
-> > Fix it by passing in the appropriate netdev pointer.
->=20
-> Perhaps verifying the format and args in all cases
-> would help avoid more of these in the future.
+--nextPart8403675.xTtYoaEIg9
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
 
-Sounds good. I can add it as the second patch in the series.
+On Sat 19 Apr 2014 20:55:17 David Heidelberger wrote:
+> I'd like to set CC if is unset, check this patch, if it look sane for=
 
-> ---
->  drivers/net/ethernet/smsc/smc91x.c | 25 +++++++++++++++----------
->  1 file changed, 15 insertions(+), 10 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/etherne=
-t/smsc/smc91x.c
-> index d1b4dca..a8302f5 100644
-> --- a/drivers/net/ethernet/smsc/smc91x.c
-> +++ b/drivers/net/ethernet/smsc/smc91x.c
-> @@ -148,16 +148,19 @@ MODULE_ALIAS("platform:smc91x");
->  #define MII_DELAY		1
-> =20
->  #if SMC_DEBUG > 0
-> -#define DBG(n, dev, args...)				\
-> -	do {						\
-> -		if (SMC_DEBUG >=3D (n))			\
-> -			netdev_dbg(dev, args);		\
-> -	} while (0)
-> -
-> -#define PRINTK(dev, args...)   netdev_info(dev, args)
-> +#define DBG(n, dev, fmt, ...)				\
-> +do {								\
-> +	if (SMC_DEBUG >=3D (n))					\
-> +		netdev_dbg(dev, fmt, ##__VA_ARGS__);		\
-> +} while (0)
-> +#define PRINTK(dev, fmt, ...)   netdev_info(dev, fmt, ##__VA_ARGS__)
->  #else
-> -#define DBG(n, dev, args...)   do { } while (0)
-> -#define PRINTK(dev, args...)   netdev_dbg(dev, args)
-> +#define DBG(n, dev, fmt, ...)				\
-> +do {								\
-> +	if (0)					\
-> +		netdev_dbg(dev, fmt, ##__VA_ARGS__);		\
-> +} while (0)
-> +#define PRINTK(dev, fmt, ...)   netdev_dbg(dev, fmt, ##__VA_ARGS__)
->  #endif
-> =20
->  #if SMC_DEBUG > 3
-> @@ -191,7 +194,9 @@ static void PRINT_PKT(u_char *buf, int length)
->  	pr_cont("\n");
->  }
->  #else
-> -#define PRINT_PKT(x...)  do { } while (0)
-> +static inline void PRINT_PKT(u_char *buf, int length)
-> +{
-> +}
->  #endif
-> =20
+> you :)
+> https://github.com/iputils/iputils/commit/77ab88974eb4424620e4caa1dcd=
+4bebe02
+> 0a3b4e
 
-How about the following?
-Ok to add your Signed-off-by as well?
+unfortunately that won't do anything.  make provides a default CC so th=
+at code=20
+will effectively never get used.
 
-Thanks.
+you could just delete the line.  realistically, the default (cc) is goi=
+ng to=20
+be gcc on any system where this code is built.
 
----
- drivers/net/ethernet/smsc/smc91x.c | 23 ++++++++++++-----------
- 1 file changed, 12 insertions(+), 11 deletions(-)
+alternatively, you can use the pattern:
+ifeq ($(origin CC),default)
+CC =3D gcc
+endif
+=2Dmike
+--nextPart8403675.xTtYoaEIg9
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
 
-diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/=
-smsc/smc91x.c
-index d1b4dca..796355a 100644
---- a/drivers/net/ethernet/smsc/smc91x.c
-+++ b/drivers/net/ethernet/smsc/smc91x.c
-@@ -147,18 +147,19 @@ MODULE_ALIAS("platform:smc91x");
-  */
- #define MII_DELAY		1
-=20
--#if SMC_DEBUG > 0
--#define DBG(n, dev, args...)				\
--	do {						\
--		if (SMC_DEBUG >=3D (n))			\
--			netdev_dbg(dev, args);		\
-+#define DBG(n, dev, fmt, ...)					\
-+	do {							\
-+		if (SMC_DEBUG >=3D (n))				\
-+			netdev_dbg(dev, fmt, ##__VA_ARGS__);	\
- 	} while (0)
-=20
--#define PRINTK(dev, args...)   netdev_info(dev, args)
--#else
--#define DBG(n, dev, args...)   do { } while (0)
--#define PRINTK(dev, args...)   netdev_dbg(dev, args)
--#endif
-+#define PRINTK(dev, fmt, ...)					\
-+	do {							\
-+		if (SMC_DEBUG > 0)				\
-+			netdev_info(dev, fmt, ##__VA_ARGS__);	\
-+		else						\
-+			netdev_dbg(dev, fmt, ##__VA_ARGS__);	\
-+	} while (0)
-=20
- #if SMC_DEBUG > 3
- static void PRINT_PKT(u_char *buf, int length)
-@@ -191,7 +192,7 @@ static void PRINT_PKT(u_char *buf, int length)
- 	pr_cont("\n");
- }
- #else
--#define PRINT_PKT(x...)  do { } while (0)
-+static inline void PRINT_PKT(u_char *buf, int length) { }
- #endif
-=20
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAABAgAGBQJTUzijAAoJEEFjO5/oN/WBzF0P/i9mCopIlNUNaFtSxbhVqyag
+JcDQjDFORjihJ4d2VOA12Vh3d2zu13cUfpkRzK7yQ/vvE1IAIxC8KYgHU9THSfcV
+STo3+ix9wCwYol7di2klE/8U3fAlRMb0PF2+HOs2ditHa6Iu6wLu+LsxIOJ4mT6Q
+Y3i129VzyBbbpeEDSWwMKcfHNgSyUq4qFks4eXoBmG4tUyFKllgpdz8FTmW0EOO0
+9bVHyUQCy0HhFX5fxqUSWkWkbxMBc37BQVsg1z2o6+1jaN8bvE4jU8sRkqjCL0EE
+NZyrnKn8Ip+K1xROMsUa0f2LGP0FJnZJdN3VJPkPkFLe1W84Qbb+FXmlOhpz4wcP
+4UIqohTz4El28SMuNhVx0BQLCVzp/u4U5y/PdOcaTZ0ZtsdSMdYpiHBZeFRcEu9t
+1FQPdv/ks5Gh2FTAbtpu9A4hnux3+/zvg80KO0ZsvsDg6Pi4tTG0tFV6AVaLVgaZ
+QuUC3lBXOFtjthKiseY+cV7xasb0ETzmUXOEvrefPi4Rbm09pPwP+pHgze6BLD2l
+m0ZoGnQvMVP+vuLESnghRj7It1DtLOyzEkSo9yO4HQf56bg22Vc4W+siPrtXMeSh
+S9ROYS8DLnJfLDE6jsbt9NWF2l+JB4KRfAEG6YGEmSL0l0v8hDmklEOUfMz2dFKz
+htJHd0hupdaYbT6+pY9k
+=EOKY
+-----END PGP SIGNATURE-----
+
+--nextPart8403675.xTtYoaEIg9--
