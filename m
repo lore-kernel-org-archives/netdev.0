@@ -1,26 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] tcp: Add a TCP_FASTOPEN socket option to get a max
- backlog on its listner
-Date: Sun, 20 Apr 2014 18:19:23 -0400 (EDT)
-Message-ID: <20140420.181923.621422833689356210.davem@davemloft.net>
-References: <87a9bljl7m.fsf@gmail.com>
+Subject: Re: [PATCH 1/2] net: Add __dev_forward_skb
+Date: Sun, 20 Apr 2014 18:19:56 -0400 (EDT)
+Message-ID: <20140420.181956.26393022875302868.davem@davemloft.net>
+References: <20140407075347.GA26461@gondor.apana.org.au>
+	<20140417054502.GA23959@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, ncardwell@google.com,
-	netdev@vger.kernel.org, ycheng@google.com, edumazet@google.com
-To: nakayamakenjiro@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87a9bljl7m.fsf@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53937 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751120AbaDTWT6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2014 18:19:58 -0400
+In-Reply-To: <20140417054502.GA23959@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kenjiro Nakayama <nakayamakenjiro@gmail.com>
-Date: Thu, 17 Apr 2014 01:25:01 +0900
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 17 Apr 2014 13:45:03 +0800
 
-> This patch adds a TCP_FASTOPEN socket option to get a max backlog on its
-> listener to getsockopt().
+> This patch adds the helper __dev_forward_skb which is identical to
+> dev_forward_skb except that it doesn't actually inject the skb into
+> the stack.  This is useful where we wish to have finer control over
+> how the packet is injected, e.g., via netif_rx_ni or netif_receive_skb.
 > 
-> Signed-off-by: Kenjiro Nakayama <nakayamakenjiro@gmail.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
 Applied.
