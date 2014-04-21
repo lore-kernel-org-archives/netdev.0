@@ -1,28 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: make tcp_cwnd_application_limited() static
-Date: Sun, 20 Apr 2014 18:21:12 -0400 (EDT)
-Message-ID: <20140420.182112.946068977361189315.davem@davemloft.net>
-References: <e41998355cfed2a278072df2c113b6f89a81dfd0.1397795231.git.wpan@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: wpan@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53962 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751259AbaDTWVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2014 18:21:14 -0400
-In-Reply-To: <e41998355cfed2a278072df2c113b6f89a81dfd0.1397795231.git.wpan@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL nf-next] IPVS Updates for v3.16
+Date: Mon, 21 Apr 2014 09:16:46 +0900
+Message-ID: <1398039407-12060-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Weiping Pan <wpan@redhat.com>
-Date: Fri, 18 Apr 2014 12:27:46 +0800
 
-> Make tcp_cwnd_application_limited() static and move it from tcp_input.c to
-> tcp_output.c
-> 
-> Signed-off-by: Weiping Pan <wpan@redhat.com>
+Hi Pablo,
 
-Applied.
+please consider the following updates for IPVS for v3.16.
+
+It consists of a format string fix from Masanari Iida.
+
+
+The following changes since commit 6125c94e6972fca79214809a43eb60e27feff3ee:
+
+  netfilter: nft_ct: split nft_ct_init() into two functions for get/set (2014-03-30 13:31:44 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs-for-v3.16
+
+for you to fetch changes up to 9c55bfa9373b4b44c32f0e844923a0e6c607056d:
+
+  netfilter: Fix format string mismatch in ip_vs_proto_name() (2014-04-03 10:35:35 +0900)
+
+----------------------------------------------------------------
+IPVS Updates for v3.16
+
+* Format string fix from  Masanari Iida
+
+----------------------------------------------------------------
+Masanari Iida (1):
+      netfilter: Fix format string mismatch in ip_vs_proto_name()
+
+ net/netfilter/ipvs/ip_vs_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
