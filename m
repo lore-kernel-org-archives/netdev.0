@@ -1,55 +1,71 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/4] net: ethoc: remove ethoc_config
-Date: Mon, 21 Apr 2014 09:09:19 -0700
-Message-ID: <1398096563-8786-2-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 4/4] stmmac: remove stmmac_config
+Date: Mon, 21 Apr 2014 09:09:22 -0700
+Message-ID: <1398096563-8786-5-git-send-email-f.fainelli@gmail.com>
 References: <1398096563-8786-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, bh74.an@samsung.com, ks.giri@samsung.com,
 	siva.kallam@samsung.com, peppe.cavallaro@st.com,
 	jcmvbkbc@gmail.com, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f182.google.com ([209.85.216.182]:52868 "EHLO
-	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751985AbaDUQJg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 12:09:36 -0400
-Received: by mail-qc0-f182.google.com with SMTP id e16so4208687qcx.27
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 09:09:36 -0700 (PDT)
+Received: from mail-qg0-f47.google.com ([209.85.192.47]:51595 "EHLO
+	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752490AbaDUQJn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 12:09:43 -0400
+Received: by mail-qg0-f47.google.com with SMTP id e89so402412qgf.20
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 09:09:43 -0700 (PDT)
 In-Reply-To: <1398096563-8786-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ethoc_config() returns -ENOSYS and does not implement anything useful,
-let's remove it such that net/core/dev_ioctl.c::dev_ifsioc can return
-something meaningful like -EOPNOTSUPP.
+stmmac_config() denies changing the base address and interrupt
+parameters, and ignores any other settings from the ifmap parameters,
+thus making stmmac_config() useless, remove it.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/ethoc.c | 6 ------
- 1 file changed, 6 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 22 ----------------------
+ 1 file changed, 22 deletions(-)
 
-diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
-index 8b70ca7e342b..f3658bdb64cc 100644
---- a/drivers/net/ethernet/ethoc.c
-+++ b/drivers/net/ethernet/ethoc.c
-@@ -769,11 +769,6 @@ static int ethoc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 	return phy_mii_ioctl(phy, ifr, cmd);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index d940034acdd4..93cf4f63f426 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2214,27 +2214,6 @@ static void stmmac_tx_timeout(struct net_device *dev)
+ 	stmmac_tx_err(priv);
  }
  
--static int ethoc_config(struct net_device *dev, struct ifmap *map)
+-/* Configuration changes (passed on by ifconfig) */
+-static int stmmac_config(struct net_device *dev, struct ifmap *map)
 -{
--	return -ENOSYS;
+-	if (dev->flags & IFF_UP)	/* can't act on a running interface */
+-		return -EBUSY;
+-
+-	/* Don't allow changing the I/O address */
+-	if (map->base_addr != dev->base_addr) {
+-		pr_warn("%s: can't change I/O address\n", dev->name);
+-		return -EOPNOTSUPP;
+-	}
+-
+-	/* Don't allow changing the IRQ */
+-	if (map->irq != dev->irq) {
+-		pr_warn("%s: not change IRQ number %d\n", dev->name, dev->irq);
+-		return -EOPNOTSUPP;
+-	}
+-
+-	return 0;
 -}
 -
- static void ethoc_do_set_mac_address(struct net_device *dev)
- {
- 	struct ethoc *priv = netdev_priv(dev);
-@@ -995,7 +990,6 @@ static const struct net_device_ops ethoc_netdev_ops = {
- 	.ndo_open = ethoc_open,
- 	.ndo_stop = ethoc_stop,
- 	.ndo_do_ioctl = ethoc_ioctl,
--	.ndo_set_config = ethoc_config,
- 	.ndo_set_mac_address = ethoc_set_mac_address,
- 	.ndo_set_rx_mode = ethoc_set_multicast_list,
- 	.ndo_change_mtu = ethoc_change_mtu,
+ /**
+  *  stmmac_set_rx_mode - entry point for multicast addressing
+  *  @dev : pointer to the device structure
+@@ -2600,7 +2579,6 @@ static const struct net_device_ops stmmac_netdev_ops = {
+ 	.ndo_set_rx_mode = stmmac_set_rx_mode,
+ 	.ndo_tx_timeout = stmmac_tx_timeout,
+ 	.ndo_do_ioctl = stmmac_ioctl,
+-	.ndo_set_config = stmmac_config,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller = stmmac_poll_controller,
+ #endif
 -- 
 1.9.1
