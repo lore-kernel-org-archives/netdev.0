@@ -1,73 +1,111 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: ethtool 3.14 released
-Date: Mon, 21 Apr 2014 23:37:24 +0100
-Message-ID: <1398119844.3624.159.camel@deadeye.wl.decadent.org.uk>
+Subject: [PATCH ethtool] Fix ETHTOOL_ENABLE_PRETTY_DUMP conditions
+Date: Mon, 21 Apr 2014 23:40:52 +0100
+Message-ID: <1398120052.3624.162.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-A6BoUzlEstzwl+jDFRFt"
+	protocol="application/pgp-signature"; boundary="=-SnkzZhCAEn3HbRofdyzS"
+Cc: Florian Fainelli <f.fainelli@gmail.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51341 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51349 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754027AbaDUWhe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 18:37:34 -0400
-Received: from deadeye.wl.decadent.org.uk ([192.168.4.249])
-	by shadbolt.decadent.org.uk with esmtps (TLS1.2:RSA_AES_128_CBC_SHA1:128)
-	(Exim 4.80)
-	(envelope-from <ben@decadent.org.uk>)
-	id 1WcMqC-0007Zy-Uw
-	for netdev@vger.kernel.org; Mon, 21 Apr 2014 23:37:33 +0100
-Received: from ben by deadeye.wl.decadent.org.uk with local (Exim 4.82)
-	(envelope-from <ben@decadent.org.uk>)
-	id 1WcMq9-0000JD-2N
-	for netdev@vger.kernel.org; Mon, 21 Apr 2014 23:37:29 +0100
+	by vger.kernel.org with ESMTP id S1754599AbaDUWk5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 18:40:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-A6BoUzlEstzwl+jDFRFt
+--=-SnkzZhCAEn3HbRofdyzS
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-ethtool version 3.14 has been released.
+The C macro ETHTOOL_ENABLE_PRETTY_DUMP was not being defined by default.
+Rearrange the autoconf mess to fix this.
 
-Home page: https://www.kernel.org/pub/software/network/ethtool/
-Download link:
-https://www.kernel.org/pub/software/network/ethtool/ethtool-3.14.tar.xz
+The macro name was also misspelt in one condition.
 
-Release notes:
-
-	* Fix: Report Backplane as supported port (no option)
-	* Feature: Allow building a smaller executable without pretty-
-	  printing of register/EEPROM dumps (./configure --disable-pretty-dump)
-	* Fix: Typo in channel parameter format in an error message (-L option)
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+I applied this before the 3.14 release I just made.  autotools continues
+to surprise me, never pleasantly.
 
 Ben.
+
+ configure.ac | 15 ++++++++-------
+ ethtool.c    |  2 +-
+ 2 files changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/configure.ac b/configure.ac
+index c08938b..ab0b01b 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -32,13 +32,14 @@ AC_CHECK_FUNCS(socket strtol)
+=20
+ dnl Check for options
+ AC_ARG_ENABLE(pretty-dump,
+-	       [  --enable-pretty-dump	  enable registers, EEPROM and SFP pretty =
+dumps (enabled by default)],
+-	       [if test x$enableval !=3D xno; then
+-			AC_DEFINE(ETHTOOL_ENABLE_PRETTY_DUMP, 1,
+-			[Define this to enable register, EEPROM and SFP pretty dumps.]) enable_=
+prettydump=3Dyes
+-		fi],
+-	       enable_prettydump=3Dyes)
+-AM_CONDITIONAL([ETHTOOL_ENABLE_PRETTY_DUMP], [test x$enable_prettydump =3D=
+ xyes])
++	      [  --enable-pretty-dump	  enable registers, EEPROM and SFP pretty d=
+umps (enabled by default)],
++	      ,
++	      enable_pretty_dump=3Dyes)
++if test x$enable_pretty_dump =3D xyes; then
++    AC_DEFINE(ETHTOOL_ENABLE_PRETTY_DUMP, 1,
++	      [Define this to enable register, EEPROM and SFP pretty dumps.])
++fi
++AM_CONDITIONAL([ETHTOOL_ENABLE_PRETTY_DUMP], [test x$enable_pretty_dump =
+=3D xyes])
+=20
+ AC_CONFIG_FILES([Makefile ethtool.spec ethtool.8])
+ AC_OUTPUT
+diff --git a/ethtool.c b/ethtool.c
+index 091a6b9..8e968a8 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -979,7 +979,7 @@ static int dump_eeprom(int geeprom_dump_raw, struct eth=
+tool_drvinfo *info,
+ 		fwrite(ee->data, 1, ee->len, stdout);
+ 		return 0;
+ 	}
+-#ifdef ETHTOOL_ENABL_PRETTY_DUMP
++#ifdef ETHTOOL_ENABLE_PRETTY_DUMP
+ 	if (!strncmp("natsemi", info->driver, ETHTOOL_BUSINFO_LEN)) {
+ 		return natsemi_dump_eeprom(info, ee);
+ 	} else if (!strncmp("tg3", info->driver, ETHTOOL_BUSINFO_LEN)) {
 
 --=20
 Ben Hutchings
 Knowledge is power.  France is bacon.
 
---=-A6BoUzlEstzwl+jDFRFt
+--=-SnkzZhCAEn3HbRofdyzS
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUAU1WdpOe/yOyVhhEJAQrS5Q//TqLEGdKD1R9CGyyezt1NSvzTguE/6QU9
-boNmfzv+04K0qWiVwqgdpsX3hFo3utuoqNBqGI4/24d16kiLToGPsc6JE508lg2j
-ulhs6kjXVSbq/6bCXWH+Fffb4zM4QTQsbQ0lnLEVivgTyMRXV5YC06Hf1gPY88YQ
-tJrUzH4R0lmDalvMPxC4eYAkBe4ZnsQK/ic0NL8FaT0sBPKwnZsYqrQV/exOQydr
-ZlSK46HG1/ci6ybWUVKpWoXEyHvlKWvrwWXA8ynJubeXsUw/Ao93rru2vXtbER4a
-HAYwgpeT5BOGCg/+OlaS0hYp7MavE7l1uk7oAj3ngyYmC+UtGfEfnBaLr8LUkbqf
-kUSBrIGNU9p69M8+sec8o5FUBDeRxBoT2ZSBFcBmT7UuC2FHa66bgS5c0Dpfjew+
-kflrXAGuKDkiC97SiRLeKkcVkP46KSVIb867Zbd7LjPxoa6k4xBWwChmOGypeh2c
-/uMP4XvdZopdsg4zqlIr8YlPNXXfZ9fGzR9eWXWwLbZRtI2ggALT3MmQoNpUu6Yd
-QGecoeSP4G6M46QPZy6wKjbq0BGgLPaNuk+4Ma9uIIhco1Jit9GeJzS2J5JpgAor
-sJpaBFWA9EauFRe2QRgHCsIQqTf8YX2K80jQyQ+/PzFp7AsX+xhyU9RH8lR42IzL
-3TPdckWw4EA=
-=nQ8l
+iQIVAwUAU1WedOe/yOyVhhEJAQozbw/+NlpTt/T6Q6GzVmubbT8gX82E6FsUKDe9
+goMyhqC+sxEpCozV7oO9mETKLs2DiIGjNRVRVqwyNK6003cwEvwRYWCUCwtvi90f
+htbnxh9NLFa3zOMwdW9kaxflXO9EgkoInxcJxOlRN5MrJviQovYT/euwTbXRdmX2
+674ZZbsoDcGAtm8giSTP/Ek+VPNAbIBAiC8UuDLy1c8VzXkne7RuWhyULqN6Wq04
+V8/KjqwtRc1viGt6zJ6lO29CCpB2XH3mPb1AjYia01QJ9SUdk3UCOOpHiwVtje5u
+z3hrjeTfr92gA+QYcoXXV9bYacpitP4Qb0bcqeaWV1L6lkeh+Slr9qSsxb3/uGjX
+kMzK9cwwnS+DwZJek58zDSEbDm7j5AAppSccSj/P2jq4gTmBUHG21rCrqj74IF8u
+4KYMOMXuRJ9Eo//WK0dZPdLTgG7bF0CrfYe6izRIGXqemteufIVpPbwmLvzmADs1
+w2W2Zp7cgtk8G7ePaMMiaHIKkE67TToA/ZRDy4/Xc3+AuGMUoZkZN58FuMF0lbZI
+eaZcGxT4KhHFMe2rg2bSIZ2zz0AkqWWAZzvasdEetSMzBQE0UeztYZ5bcm88gcVK
+IX3KJyztD4w0MlBB4TbU7QKJaWodi/zRGEvfHDCG1m4Gma3ntvHQe4/HL5MdKIRr
+CfqqDzYqMeU=
+=lnm4
 -----END PGP SIGNATURE-----
 
---=-A6BoUzlEstzwl+jDFRFt--
+--=-SnkzZhCAEn3HbRofdyzS--
