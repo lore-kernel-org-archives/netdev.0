@@ -1,53 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/4] net: bcmgenet: add support for ethtool
- tx-frames
-Date: Mon, 21 Apr 2014 15:17:20 -0400 (EDT)
-Message-ID: <20140421.151720.1704047020816170974.davem@davemloft.net>
-References: <1398095124-5411-1-git-send-email-f.fainelli@gmail.com>
-	<1398095124-5411-3-git-send-email-f.fainelli@gmail.com>
+From: Tom Gundersen <teg@jklm.no>
+Subject: [BUG?] bridge_id not getting set for bridges created with
+Date: Mon, 21 Apr 2014 21:33:13 +0200
+Message-ID: <CAG-2HqVnWXu2dW=Su6DDxDzgg3cLSvTMu5Sf=Eq+YUv4P1d4NQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "C. R. Oldham" <cr@saltstack.com>
+To: netdev <netdev@vger.kernel.org>, bridge@lists.linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32966 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751102AbaDUTRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 15:17:22 -0400
-In-Reply-To: <1398095124-5411-3-git-send-email-f.fainelli@gmail.com>
+Received: from mail-yk0-f178.google.com ([209.85.160.178]:57237 "EHLO
+	mail-yk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750891AbaDUTiq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 15:38:46 -0400
+Received: by mail-yk0-f178.google.com with SMTP id 79so3741676ykr.37
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 12:38:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Mon, 21 Apr 2014 08:45:22 -0700
+Hi,
 
-> Configuring the ethtool tx-frames property, which translates into N
-> packets before a TX interrupt is the simplest configuration scheme
-> because it requires no locking neither at the softare nor hardware
-> level, and is completely indepedent from the link speed. Since ethtool
-> does not allow per-tx queue coalescing parameters, we apply the same
-> setting to any transmit queue.
-> 
-> We can no longer enable the BDONE/PDONE interrupts as those would fire
-> for each packet/buffer received, which would defeat the MBDONE interrupt
-> purpose. The MBDONE interrupt is guaranteed to correspond to a
-> PDONE/BDONE interrupt when the threshold is set to 1.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+If IFLA_ADDRESS is set when creating a bridge over netlink, e.g.
 
-Does the MBDONE scheme have a timeout?
+# ip link add test-bridge address b6:83:a2:b3:2f:0e type bride
 
-For example if you ask for a MBDONE setting where N=4, if only 2 packets
-arrive will you get an interrupt or will it wait for 2 more to arrive
-no matter what?
+the bridge id is not set:
 
-If a timeout doesn't exist, you cannot use this.
+# brctl show
+bridge name    bridge id        STP enabled    interfaces
+bridge1        8000.000000000000    no
 
-I'm very pessimistic because I see no inspection of the timeout
-parameter passed into the ethtool commands.  And in fact if the
-timeout does exist, and is fixed, you should error on non-zero
-values specified in the timeout field(s).
 
-So no matter what the situation is wrt. timeouts, this series needs
-either change or be completely tossed.
+It looks like this is caused by br_stp_set_bridge_id never beeing
+called. There appear to be many ways to solve this, but not sure what
+is the preferred route...
+
+Cheers,
+
+Tom
