@@ -1,43 +1,40 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] rtlwifi: rtl8188ee: initialize packet_beacon
-Date: Mon, 21 Apr 2014 17:38:44 +0100
-Message-ID: <1398098324-5193-1-git-send-email-colin.king@canonical.com>
-Cc: linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net 0/7][pull request] Intel Wired LAN Driver Updates
+Date: Mon, 21 Apr 2014 12:58:58 -0400 (EDT)
+Message-ID: <20140421.125858.1669714683420708606.davem@davemloft.net>
+References: <1397872767-4001-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60269 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751238AbaDUQ7E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 12:59:04 -0400
+In-Reply-To: <1397872767-4001-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 18 Apr 2014 18:59:20 -0700
 
-static code analysis from cppcheck reports:
+> This series contains updates to e1000e, igb, ixgbe and i40e.
+> 
+> Most notably are Jakub's patches to clean up the Rx time stamping
+> code for ixgbe and the fix up of debug messages with proper termination.
+> 
+> Jesse's i40e patch fixes an issue reported by Eric Dumazet that the
+> i40e driver was allowing the hardware to replicate the PSH flag on
+> all segments of a TSO operation.  With this fix, we are now configuring
+> the CWR bit to only be set in the first packet of a TSO and we
+> enable TSO_ECN in order to advertise to the stack that we do the right
+> thing on the wire.
+> 
+> The following are changes since commit b14878ccb7fac0242db82720b784ab62c467c0dc:
+>   net: sctp: cache auth_enable per endpoint
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
 
-[drivers/net/wireless/rtlwifi/rtl8188ee/trx.c:322]:
-  (error) Uninitialized variable: packet_beacon
-
-packet_beacon is not initialized and hence packet_beacon
-contains garbage from the stack, so set it to false.
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/wireless/rtlwifi/rtl8188ee/trx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/trx.c b/drivers/net/wireless/rtlwifi/rtl8188ee/trx.c
-index 06ef47c..5b4c225 100644
---- a/drivers/net/wireless/rtlwifi/rtl8188ee/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8188ee/trx.c
-@@ -293,7 +293,7 @@ static void _rtl88ee_translate_rx_signal_stuff(struct ieee80211_hw *hw,
- 	u8 *psaddr;
- 	__le16 fc;
- 	u16 type, ufc;
--	bool match_bssid, packet_toself, packet_beacon, addr;
-+	bool match_bssid, packet_toself, packet_beacon = false, addr;
- 
- 	tmp_buf = skb->data + pstatus->rx_drvinfo_size + pstatus->rx_bufshift;
- 
--- 
-1.9.1
+Pulled, thanks Jeff.
