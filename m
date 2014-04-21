@@ -1,101 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Performance problem with bond interface
-Date: Mon, 21 Apr 2014 08:47:18 -0700
-Message-ID: <1398095238.19600.36.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5e9e32bb-b60e-44d1-82be-28c4d6ec82d5@default>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing cgroup path
+Date: Mon, 21 Apr 2014 08:47:51 -0700
+Message-ID: <CALCETrW5RvbW-Hz_Y7oULP6sEfdhGBh51+mTj4RwobHV-ji+Kg@mail.gmail.com>
+References: <CALCETrXj6kD3E+vsaWmkrSbaQYTu=c-Hsw640jh4O+FbojYk2g@mail.gmail.com>
+ <20140417171256.GB25334@redhat.com> <CALCETrVq4HRpfWOAbZAQbyjuraQd=OxnW=WjSoe5JgBzRStiKg@mail.gmail.com>
+ <1397756025.2628.64.camel@willson.li.ssimo.org> <CALCETrVBJFgKwRKBE2jAG6kiGgkJ+MyQiw2nyz5yj0h68kCk9A@mail.gmail.com>
+ <1397759013.2628.86.camel@willson.li.ssimo.org> <20140417185023.GA32527@redhat.com>
+ <1397761817.2628.113.camel@willson.li.ssimo.org> <20140417191646.GA2461@redhat.com>
+ <CALCETrW3F1+3qF3thrAmuoWVbRveBJ2=owpigh4mv6iAafoQCw@mail.gmail.com> <20140421150307.GA4367@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org,
-	Rama Nichanamatlu <rama.nichanamatlu@oracle.com>,
-	Sergey Linetskiy <sergey.linetskiy@oracle.com>,
-	Vadim Makhervaks <vadim.makhervaks@oracle.com>,
-	Guangyu Sun <guangyu.sun@oracle.com>
-To: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: Simo Sorce <ssorce@redhat.com>, Daniel J Walsh <dwalsh@redhat.com>,
+	David Miller <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	lpoetter@redhat.com, cgroups@vger.kernel.org, kay@redhat.com,
+	Network Development <netdev@vger.kernel.org>
+To: Vivek Goyal <vgoyal@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5e9e32bb-b60e-44d1-82be-28c4d6ec82d5@default>
+In-Reply-To: <20140421150307.GA4367@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-04-21 at 07:23 -0700, Venkat Venkatsubra wrote:
-> We see a performance problem when the slaves of the bond=20
-> don't support checksum offload features. What we see is
-> tcp_sendmsg's skb_add_data_nocache ending up not using the
-> csum_and_copy_from_user which would have computed the
-> checksum while copying from user buffer to kernel buffer.
-> Instead it computes later in dev_hard_start_xmit when it
-> figures out the slave doesn't support checksum offload and
-> ends up expensive .=20
->=20
-> The bonding interface's "features" has  NETIF_F_HW_CSUM=20
-> (or NETIF_F_NO_CSUM in 2.6.39) set which makes the=20
-> stack think checksum need not be computed in software.
-> /*
-> * Check whether we can use HW checksum.
-> */
-> if (sk->sk_route_caps & NETIF_F_ALL_CSUM)
->      skb->ip_summed =3D CHECKSUM_PARTIAL;
->=20
-> But later in dev_hard_start_xmit it finds out the slave does not
-> support checksumming and decides to compute in software.
->=20
-> /* If packet is not checksummed and device does not
-> * support checksumming for this protocol, complete
-> * checksumming here.
-> */
-> if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
->          skb_set_transport_header(skb,
->               skb_checksum_start_offset(skb));
->         if (!(features & NETIF_F_ALL_CSUM) &&
->              skb_checksum_help(skb))
->                goto out_kfree_skb;
-> }
->=20
-> We see this problem after this commit:
-> commit 1742f183fc218798dab6fcf0ded25b6608fc0a48
-> Author: Micha=C3=85<82> Miros=C3=85<82>aw <mirq-linux@rere.qmqm.pl>
-> Date:   Fri Apr 22 06:31:16 2011 +0000
->=20
->     net: fix netdev_increment_features()
->=20
->     Simplify and fix netdev_increment_features() to conform to what i=
-s
->     stated in netdevice.h comments about NETIF_F_ONE_FOR_ALL.
->     Include FCoE segmentation and VLAN-challedged flags in computatio=
-n.
->=20
->     Signed-off-by: Micha=C3=85<82> Miros=C3=85<82>aw <mirq-linux@rere=
-=2Eqmqm.pl>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->=20
-> Prior to that the below code in netdev_increment_features was helping=
- in
-> turning off NETIF_F_NO_CSUM on bond when the slaves don't support it:=
-=20
-> /* If device needs checksumming, downgrade to it. */
-> if (all & NETIF_F_NO_CSUM && !(one & NETIF_F_NO_CSUM))
->         all ^=3D NETIF_F_NO_CSUM | (one & NETIF_F_ALL_CSUM);
->=20
-> The slaves are Mellanox IB adapters. This is on x86_64 platform.
->=20
-> Please let us know if you need any additional information.
+On Mon, Apr 21, 2014 at 8:03 AM, Vivek Goyal <vgoyal@redhat.com> wrote:
+> So what happened to logger use case where logger accepts stream
+> connections and logs the cgroup of client too.
+>
+> W.r.t systemd, looks like journald is accepting connections at
+> /run/systemd/journal/stdout. (stdout_stream_new() and
+> server_open_stdout_socket()).
 
-Please CC patch author (I did), instead of sending this to hundred of
-people (linux-kernel ??? netdev is more appropriate...)
+See stdout_stream_line.  As far as I can tell, journald already
+implements this in mostly sensible manner, with no help from the
+kernel required.
 
-Do these NIC really not support TX checksum ?
+On my system, journalctl -f -o verbose says:
 
-You did not provide kernel version you use.
+Mon 2014-04-21 08:34:52.732065 PDT
+[s=4970edca25b4456d80b00e6e4cefd94b;i=2010;b=2d2454632c0f4f998a8d0158156ab743;m=66f5d274a;t=4f78f3d9a11a1;x=9902671f5a7e7bcc]
+    _UID=0
+    _BOOT_ID=2d2454632c0f4f998a8d0158156ab743
+[...]
+    _GID=500
+    _AUDIT_SESSION=1
+    _AUDIT_LOGINUID=500
+    _SYSTEMD_CGROUP=/user.slice/user-500.slice/session-1.scope
+    _SYSTEMD_SESSION=1
+    _SYSTEMD_OWNER_UID=500
+    _SYSTEMD_UNIT=session-1.scope
+    _SYSTEMD_SLICE=user-500.slice
+    SYSLOG_IDENTIFIER=sudo
+    _COMM=sudo
+    _EXE=/usr/bin/sudo
+    _SELINUX_CONTEXT=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
+    MESSAGE=luto : TTY=pts/1 ; PWD=/home/luto/apps/systemd ; USER=root
+; COMMAND=/usr/bin/journalctl -f -a
+    _PID=32393
+    _CMDLINE=sudo journalctl -f -a
+    _SOURCE_REALTIME_TIMESTAMP=1398094492732065
 
-Please also provide : (using a recent ethtool to get extended offload
-info)
+Unfortunately, the code in journald seems to be rather buggy and
+prefers the unit that it derives from the (racy!) cg_path_get_unit
+hack over the unit that is *already knows* (search the journald
+sources for STDOUT_STREAM_UNIT_ID), but the right fix is the FIX THE
+FSCKING JOURNALD BUG, not to change the kernel.
 
-ethtool -k bond0 # or the bonding device name
+To summarize from my reading of how this crap words:
 
-ethtool -k eth1  # or the slave name
+When a unit is created, systemd opens a stream socket pointing at
+/run/systemd/journal/stdout.  It tells journald the unit, along with
+lots of other useful information.  journald records this association
+between the socket and the unit.  Systemd could tell journald the
+cgroup here, too, if it wanted it.
 
-ethtool -i eth1
+Systemd then starts the unit, passing it the socket as stdout, if
+configured to do so.
 
-Thanks !
+That unit logs something.  Journald then uses the crappy, racy ucred
+mechanism to resolve the cgroup, login id, unit, etc.
+
+Your proposals are to either (a) replace that with an almost-as-buggy
+SO_PASSCGROUP option or to add SO_PEERCGROUP.  The latter would allow
+journald to figure out the cgroup that opened the socket.  The problem
+here is two-fold.  One: systemd already knows the cgroup it intends to
+use, and it can tell journald without kernel help.  Two: Systemd seems
+to open the stdout socket right before setting the cgroup, so the
+kernel's idea of what cgroup opened the socket is crap.
+
+The solution to all of this seems straightforward: fix journald to use
+the information it already has, trusted, without races, from systemd.
+
+--Andy
