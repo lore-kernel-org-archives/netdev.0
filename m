@@ -1,81 +1,218 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] ethtool: fix a typo in displaying channel parameters
-Date: Mon, 21 Apr 2014 22:36:07 +0100
-Message-ID: <1398116167.3624.157.camel@deadeye.wl.decadent.org.uk>
-References: <1397785199-1470-1-git-send-email-akong@redhat.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v2] filter: added BPF random opcode
+Date: Mon, 21 Apr 2014 14:46:27 -0700
+Message-ID: <CAMEtUuw=trzxSC9Dc+UAEU5HyHk1Ym3cW7L+7tmvOe2hzHmXMw@mail.gmail.com>
+References: <1397585816-1267-1-git-send-email-chema@google.com>
+	<1398097284-20528-1-git-send-email-chema@google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-0JFz7sygfQ9jqjFWDPtK"
-Cc: netdev@vger.kernel.org, bwh@kernel.org
-To: Amos Kong <akong@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Chema Gonzalez <chema@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51233 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754493AbaDUVgN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 17:36:13 -0400
-In-Reply-To: <1397785199-1470-1-git-send-email-akong@redhat.com>
+Received: from mail-we0-f180.google.com ([74.125.82.180]:46462 "EHLO
+	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754027AbaDUVq3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 17:46:29 -0400
+Received: by mail-we0-f180.google.com with SMTP id k48so1074137wev.11
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 14:46:27 -0700 (PDT)
+In-Reply-To: <1398097284-20528-1-git-send-email-chema@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-0JFz7sygfQ9jqjFWDPtK
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, 2014-04-18 at 09:39 +0800, Amos Kong wrote:
->  # ethtool -L eth0 combined 1
->  combined unmodified, ignoring
->  no channel parameters changed, aborting
->  current values: tx 0 rx 0 other 0combined 1
->                                 ^^^^
->=20
-> Signed-off-by: Amos Kong <akong@redhat.com>
+On Mon, Apr 21, 2014 at 9:21 AM, Chema Gonzalez <chema@google.com> wrote:
+> Added a new ancillary load (bpf call in eBPF parlance) that produces
+> a 32-bit random number. We are implementing it as an ancillary load
+> (instead of an ISA opcode) because (a) it is simpler, (b) allows easy
+> JITing, and (c) seems more in line with generic ISAs that do not have
+> "get a random number" as a instruction, but as an OS call.
+>
+> The main use for this ancillary load is to perform random packet sampling.
+>
+> Signed-off-by: Chema Gonzalez <chema@google.com>
 > ---
->  ethtool.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/ethtool.c b/ethtool.c
-> index acb4397..4c75653 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -1764,7 +1764,7 @@ static int do_schannels(struct cmd_context *ctx)
->  	if (!changed) {
->  		fprintf(stderr, "no channel parameters changed, aborting\n");
->  		fprintf(stderr, "current values: tx %u rx %u other %u"
-> -			"combined %u\n", echannels.rx_count,
-> +			" combined %u\n", echannels.rx_count,
->  			echannels.tx_count, echannels.other_count,
->  			echannels.combined_count);
->  		return 1;
+>  Documentation/networking/filter.txt | 13 +++++++++++++
+>  include/linux/filter.h              |  1 +
+>  include/uapi/linux/filter.h         |  3 ++-
+>  net/core/filter.c                   | 12 ++++++++++++
+>  tools/net/bpf_exp.l                 |  1 +
+>  tools/net/bpf_exp.y                 | 11 ++++++++++-
+>  6 files changed, 39 insertions(+), 2 deletions(-)
+>
+> diff --git a/Documentation/networking/filter.txt b/Documentation/networking/filter.txt
+> index 81f940f..82e1cb0 100644
+> --- a/Documentation/networking/filter.txt
+> +++ b/Documentation/networking/filter.txt
+> @@ -281,6 +281,7 @@ Possible BPF extensions are shown in the following table:
+>    cpu                                   raw_smp_processor_id()
+>    vlan_tci                              vlan_tx_tag_get(skb)
+>    vlan_pr                               vlan_tx_tag_present(skb)
+> +  rand                                  prandom_u32()
+>
+>  These extensions can also be prefixed with '#'.
+>  Examples for low-level BPF:
+> @@ -308,6 +309,18 @@ Examples for low-level BPF:
+>    ret #-1
+>    drop: ret #0
+>
+> +** icmp random packet sampling, 1 in 4
+> +  ldh [12]
+> +  jne #0x800, drop
+> +  ldb [23]
+> +  jneq #1, drop
+> +  # get a random uint32 number
+> +  ld rand
+> +  mod #4
+> +  jneq #1, drop
 
-Applied, thanks.
+as I was saying in the other thread, would be nice to see more
+realistic example, since "icmp 1 in 4" can be done in user space...
+What is the real problem being solved?
+I suspect for true packet sampling you'd need to have the knowledge
+of packet rate, potentially computing time delta within filter with
+another extension?
+The patch itself looks good to me.
 
-Ben.
-
---=20
-Ben Hutchings
-Knowledge is power.  France is bacon.
-
---=-0JFz7sygfQ9jqjFWDPtK
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAU1WPR+e/yOyVhhEJAQpVExAAxNCmPl2hMg81KxkNLIZp6CEbEZZldHEg
-Jkho3CvlVMVHK1WDuByZo0E44ATnlxxLwtmzRTLkxt6XbmewwolTszwZ8QQBK7S0
-pYEO8ZVq1mNInFaEDhRLhyLjXyh89m6plRynvC/aadmc0EIcFO7GyW2cPehbY1Yg
-wLPw5ee6yy3bmEv886GwcLj/BSad5cFb+DBAB0IVnHQUS5QrCH24ok3Kmbblpy8K
-WLTINPAyc3Qy7j6dFq6/hJ8bGJbm7Jo17xCGkUqbuOFfRD2JJ2MuAhQXk+wlTmws
-jR1/xGns1+g1/DSe0Lx1MFLawxf+V6rO/ALK9zW0DKtqgw42lOuwhIoSa+m8oqhm
-PFPPjKjeftukCsmwcJqGP/aoTP1/FPrA4073SXOiWWSnnDybKBK3/ghIi+sIsb+V
-MHZ6CmYIM6oqzdxDeKHrxciqvSbFuswfoJEtxLD1F7QaevdMiVrW7vd8rh27C+0u
-jR1GMIfN9vxwWR72Mmq97vzCZIr3P9PAsdCfBmkhMGG/qLSyegmD/KzyNcKnTpx/
-wTz5OGwEFWAP0rb8n3G0Vovelb1JVe3qz6oIOXOT/BxD7WhOgzvFH1F+xb4GbKW4
-4NlRdeszoe2L2VW3yuq+mlcMadj6MYQOwszrJ6eEfHW/CUPzGitO8RQR5xmgSZhd
-/QvJHjyel2Q=
-=l/5i
------END PGP SIGNATURE-----
-
---=-0JFz7sygfQ9jqjFWDPtK--
+> +  ret #-1
+> +  drop: ret #0
+> +
+>  ** SECCOMP filter example:
+>
+>    ld [4]                  /* offsetof(struct seccomp_data, arch) */
+> diff --git a/include/linux/filter.h b/include/linux/filter.h
+> index 024fd03..759abf7 100644
+> --- a/include/linux/filter.h
+> +++ b/include/linux/filter.h
+> @@ -223,6 +223,7 @@ enum {
+>         BPF_S_ANC_VLAN_TAG,
+>         BPF_S_ANC_VLAN_TAG_PRESENT,
+>         BPF_S_ANC_PAY_OFFSET,
+> +       BPF_S_ANC_RANDOM,
+>  };
+>
+>  #endif /* __LINUX_FILTER_H__ */
+> diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
+> index 8eb9cca..253b4d4 100644
+> --- a/include/uapi/linux/filter.h
+> +++ b/include/uapi/linux/filter.h
+> @@ -130,7 +130,8 @@ struct sock_fprog { /* Required for SO_ATTACH_FILTER. */
+>  #define SKF_AD_VLAN_TAG        44
+>  #define SKF_AD_VLAN_TAG_PRESENT 48
+>  #define SKF_AD_PAY_OFFSET      52
+> -#define SKF_AD_MAX     56
+> +#define SKF_AD_RANDOM  56
+> +#define SKF_AD_MAX     60
+>  #define SKF_NET_OFF   (-0x100000)
+>  #define SKF_LL_OFF    (-0x200000)
+>
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index cd58614..78a636e 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -643,6 +643,12 @@ static u64 __get_raw_cpu_id(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
+>         return raw_smp_processor_id();
+>  }
+>
+> +/* note that this only generates 32-bit random numbers */
+> +static u64 __get_random_u32(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
+> +{
+> +       return (u64)prandom_u32();
+> +}
+> +
+>  /* Register mappings for user programs. */
+>  #define A_REG          0
+>  #define X_REG          7
+> @@ -779,6 +785,7 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
+>         case SKF_AD_OFF + SKF_AD_NLATTR:
+>         case SKF_AD_OFF + SKF_AD_NLATTR_NEST:
+>         case SKF_AD_OFF + SKF_AD_CPU:
+> +       case SKF_AD_OFF + SKF_AD_RANDOM:
+>                 /* arg1 = ctx */
+>                 insn->code = BPF_ALU64 | BPF_MOV | BPF_X;
+>                 insn->a_reg = ARG1_REG;
+> @@ -812,6 +819,9 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
+>                 case SKF_AD_OFF + SKF_AD_CPU:
+>                         insn->imm = __get_raw_cpu_id - __bpf_call_base;
+>                         break;
+> +               case SKF_AD_OFF + SKF_AD_RANDOM:
+> +                       insn->imm = __get_random_u32 - __bpf_call_base;
+> +                       break;
+>                 }
+>                 break;
+>
+> @@ -1362,6 +1372,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+>                         ANCILLARY(VLAN_TAG);
+>                         ANCILLARY(VLAN_TAG_PRESENT);
+>                         ANCILLARY(PAY_OFFSET);
+> +                       ANCILLARY(RANDOM);
+>                         }
+>
+>                         /* ancillary operation unknown or unsupported */
+> @@ -1746,6 +1757,7 @@ void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to)
+>                 [BPF_S_ANC_VLAN_TAG]    = BPF_LD|BPF_B|BPF_ABS,
+>                 [BPF_S_ANC_VLAN_TAG_PRESENT] = BPF_LD|BPF_B|BPF_ABS,
+>                 [BPF_S_ANC_PAY_OFFSET]  = BPF_LD|BPF_B|BPF_ABS,
+> +               [BPF_S_ANC_RANDOM]      = BPF_LD|BPF_B|BPF_ABS,
+>                 [BPF_S_LD_W_LEN]        = BPF_LD|BPF_W|BPF_LEN,
+>                 [BPF_S_LD_W_IND]        = BPF_LD|BPF_W|BPF_IND,
+>                 [BPF_S_LD_H_IND]        = BPF_LD|BPF_H|BPF_IND,
+> diff --git a/tools/net/bpf_exp.l b/tools/net/bpf_exp.l
+> index bf7be77..833a966 100644
+> --- a/tools/net/bpf_exp.l
+> +++ b/tools/net/bpf_exp.l
+> @@ -92,6 +92,7 @@ extern void yyerror(const char *str);
+>  "#"?("cpu")    { return K_CPU; }
+>  "#"?("vlan_tci") { return K_VLANT; }
+>  "#"?("vlan_pr")        { return K_VLANP; }
+> +"#"?("rand")   { return K_RAND; }
+>
+>  ":"            { return ':'; }
+>  ","            { return ','; }
+> diff --git a/tools/net/bpf_exp.y b/tools/net/bpf_exp.y
+> index d15efc9..e6306c5 100644
+> --- a/tools/net/bpf_exp.y
+> +++ b/tools/net/bpf_exp.y
+> @@ -56,7 +56,7 @@ static void bpf_set_jmp_label(char *label, enum jmp_type type);
+>  %token OP_LDXI
+>
+>  %token K_PKT_LEN K_PROTO K_TYPE K_NLATTR K_NLATTR_NEST K_MARK K_QUEUE K_HATYPE
+> -%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF
+> +%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF K_RAND
+>
+>  %token ':' ',' '[' ']' '(' ')' 'x' 'a' '+' 'M' '*' '&' '#' '%'
+>
+> @@ -164,6 +164,9 @@ ldb
+>         | OP_LDB K_POFF {
+>                 bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+>                                    SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
+> +       | OP_LDB K_RAND {
+> +               bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+> +                                  SKF_AD_OFF + SKF_AD_RANDOM); }
+>         ;
+>
+>  ldh
+> @@ -212,6 +215,9 @@ ldh
+>         | OP_LDH K_POFF {
+>                 bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+>                                    SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
+> +       | OP_LDH K_RAND {
+> +               bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+> +                                  SKF_AD_OFF + SKF_AD_RANDOM); }
+>         ;
+>
+>  ldi
+> @@ -265,6 +271,9 @@ ld
+>         | OP_LD K_POFF {
+>                 bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+>                                    SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
+> +       | OP_LD K_RAND {
+> +               bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+> +                                  SKF_AD_OFF + SKF_AD_RANDOM); }
+>         | OP_LD 'M' '[' number ']' {
+>                 bpf_set_curr_instr(BPF_LD | BPF_MEM, 0, 0, $4); }
+>         | OP_LD '[' 'x' '+' number ']' {
+> --
+> 1.9.1.423.g4596e3a
+>
