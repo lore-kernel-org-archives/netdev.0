@@ -1,76 +1,107 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: How to set the filtering rules for drop the packets
-Date: Mon, 21 Apr 2014 12:49:04 +0100
-Message-ID: <1398080944.3624.99.camel@deadeye.wl.decadent.org.uk>
-References: <35e52a86.138f1.14583b52f31.Coremail.mstian88@163.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/1] net: Add rtnl_lock for netif_device_attach/detach
+Date: Mon, 21 Apr 2014 15:54:42 +0400
+Message-ID: <53550702.80807@cogentembedded.com>
+References: <1397632082-18453-1-git-send-email-zhen-hual@hp.com> <5351767E.6000404@cogentembedded.com> <5354BAEE.9000005@hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-BNfHk/lnK6+ezcd7xH1v"
-Cc: bwh@kernel.org, netdev@vger.kernel.org
-To: mstian88 <mstian88@163.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	stephen hemminger <stephen@networkplumber.org>,
+	Jerry Chu <hkchu@google.com>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Li, ZhenHua" <zhen-hual@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:49970 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750906AbaDULtO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 07:49:14 -0400
-In-Reply-To: <35e52a86.138f1.14583b52f31.Coremail.mstian88@163.com>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:37467 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750908AbaDULyp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 07:54:45 -0400
+Received: by mail-la0-f50.google.com with SMTP id pv20so3059739lab.23
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 04:54:44 -0700 (PDT)
+In-Reply-To: <5354BAEE.9000005@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello.
 
---=-BNfHk/lnK6+ezcd7xH1v
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+On 21-04-2014 10:30, Li, ZhenHua wrote:
 
-On Mon, 2014-04-21 at 17:54 +0800, mstian88 wrote:
-> Dear Ben Hutchings.
->=20
->=20
-> I want to discard the packets (srcport=3D=3D80  or dstport=3D=3D80),  how=
- can
-> i do?
->
-> eg.
-> I set the rule for discard the packets that src port is 80:
-> ethtool -U eth0 flow-type tcp4 src-port 80 action -1    Success
->=20
->=20
-> then set the rule for discard the packets that dst port is 80:
-> ethtool -U eth0 flow-type tcp4 dst-port 80 action -1    Failed
-> the error info is :
-> rmgr: Cannot insert RX class rule: Invalid argument
+> The comment is trying to explain why add a lock here.
 
-The sets of fields you can filter by vary greatly between different
-drivers and network controllers.  It looks like the driver for eth0 just
-doesn't support filtering by dst-port only.
+    I can read, thanks. :-)
+    I was wondering about the kernel-doc comment style you've used; AFAIK, 
+it's only good for documenting functions and data structures. The normal 
+multi-line comment style in the networking code is this:
 
-Ben.
+/* bla
+  * bla
+  */
 
+>>> From: "Li, Zhen-Hua" <zhen-hual@hp.com>
 
---=20
-Ben Hutchings
-Knowledge is power.  France is bacon.
+>>> As netif_running is called in netif_device_attach/detach. There should be
+>>> rtnl_lock/unlock called, to avoid dev stat change during netif_device_attach
+>>> and detach being called.
+>>> I checked NIC some drivers,  some of them have netif_device_attach/detach
+>>> called between rtnl_lock/unlock, while some drivers do not.
 
---=-BNfHk/lnK6+ezcd7xH1v
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+>>> This patch is tring to find a generic way to fix this for all NIC drivers.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+>>> Signed-off-by: Li, Zhen-Hua <zhen-hual@hp.com>
+>>> ---
+>>>   net/core/dev.c |   18 ++++++++++++++++++
+>>>   1 file changed, 18 insertions(+)
 
-iQIVAwUAU1UFsOe/yOyVhhEJAQqLEQ//dPhuyxeFxbYDcE8U+qHkYb5Nx5r8br7L
-k3rWeZtL6ckll+HynO9lLU34Gh0rm0noxEANNL7HT15DABeOFEwgLVtMDfHvpr2f
-FWxBwmTMZd74Z/Su764aM+q4woiQRQtESEzdVfZRd/lrvQiNy0z3kift0yCYDj4T
-qlxLPPhjro5MPA0G2O3SAsIh6WTOirnZI2GUNKbIQCsGtl0uGsbDiEUrkLcFBb9M
-Jimmu0vobGtilR+gyg+ZmFkFu0NtkhewLtnLepZF93ehA33DxgZKrc0fZkjxmMnd
-ExG3tP/vyOOmyaj8eecB0zPcu/lM4SJB8/3nxG692m3/4ZWRlr1zItsd63aacLYe
-wblwqgwhCquXCDblMutVwW8zq55ExftvapphyENkwBfy7wCSjggHAz2sIKHPFis0
-9CVJy7iGilPK86J1UjgV1H9cGmKiU99MrYrbFENEaQ7u3M/UFxtY7kJsmy4R42oU
-aroM2dD42BF6zFQlwiy7AKaZd2IQklGVBGzTl+FlbJDu50S+L45/aHWaLYbXaJQ2
-QpRjBO1GYkr5MOvONOZeyK3SzDRo0FHcfmQB054E9yMz2yGmvZBtbuDJizBCSN9G
-biLUcqE+DJmySS6bsRrHyyCB6oHrMzWRuWOSuk8svRFsEhN5fXtZ2ZSycH3ECWSK
-3swpqE2XIaY=
-=EioH
------END PGP SIGNATURE-----
+>>> diff --git a/net/core/dev.c b/net/core/dev.c
+>>> index 5b3042e..795bbc5 100644
+>>> --- a/net/core/dev.c
+>>> +++ b/net/core/dev.c
+>>> @@ -2190,10 +2190,19 @@ EXPORT_SYMBOL(__dev_kfree_skb_any);
+>>>    */
+>>>   void netif_device_detach(struct net_device *dev)
+>>>   {
+>>> +    /**
 
---=-BNfHk/lnK6+ezcd7xH1v--
+>>   Hm, why kernel-doc style comment here?
+
+>>> +     * As netif_running is called , rtnl_lock and unlock are needed to
+
+    Space before comma not needed.
+
+>>> +     * avoid __LINK_STATE_START bit changes during this function call.
+>>> +     */
+>>> +    int need_unlock;
+>>> +
+>>> +    need_unlock = rtnl_trylock();
+>>>       if (test_and_clear_bit(__LINK_STATE_PRESENT, &dev->state) &&
+>>>           netif_running(dev)) {
+>>>           netif_tx_stop_all_queues(dev);
+>>>       }
+>>> +    if (need_unlock)
+>>> +        rtnl_unlock();
+>>>   }
+>>>   EXPORT_SYMBOL(netif_device_detach);
+>>>
+>>> @@ -2205,11 +2214,20 @@ EXPORT_SYMBOL(netif_device_detach);
+>>>    */
+>>>   void netif_device_attach(struct net_device *dev)
+>>>   {
+>>> +    /**
+
+>>   ... and here?
+
+>>> +     * As netif_running is called , rtnl_lock and unlock are needed to
+
+    Space before comma not needed.
+
+>>> +     * avoid __LINK_STATE_START bit changes during this function call.
+>>> +     */
+
+WBR, Sergei
