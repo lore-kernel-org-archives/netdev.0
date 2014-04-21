@@ -1,56 +1,49 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH net-next] ipconfig: make two variables static
-Date: Mon, 21 Apr 2014 19:55:43 +0800
-Message-ID: <1398081344-32079-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
+From: Oleksandr Natalenko <oleksandr@natalenko.name>
+Subject: alx: Wrong MAC address for AR8161
+Date: Mon, 21 Apr 2014 14:47:41 +0300
+Message-ID: <1625626.OzlbaoGxG0@spock>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Chris Snook <chris.snook@gmail.com>, netdev@vger.kernel.org
+To: Jay Cliburn <jcliburn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:42715 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751836AbaDULzr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 07:55:47 -0400
-Received: by mail-pd0-f176.google.com with SMTP id r10so3613814pdi.35
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 04:55:46 -0700 (PDT)
-Received: from localhost ([1.202.252.122])
-        by mx.google.com with ESMTPSA id tf10sm77620476pbc.70.2014.04.21.04.55.44
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Mon, 21 Apr 2014 04:55:46 -0700 (PDT)
+Received: from natalenko.name ([78.47.77.148]:45515 "EHLO natalenko.name"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751285AbaDUL47 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Apr 2014 07:56:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
+Hello.
 
-make two variables static to kill the warning:
- warning: symbol 'ic_addrservaddr' was not declared. Should it be static?
- warning: symbol 'ic_dev_xid' was not declared. Should it be static?
+I've got the following ethernet card in my laptop:
 
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/ipv4/ipconfig.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+===
+02:00.0 Ethernet controller: Qualcomm Atheros AR8161 Gigabit Ethernet (rev 10)
+===
 
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index b3e86ea..2d599fa 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -136,14 +136,15 @@ __be32 ic_myaddr = NONE;		/* My IP address */
- static __be32 ic_netmask = NONE;	/* Netmask for local subnet */
- __be32 ic_gateway = NONE;	/* Gateway IP address */
- 
--__be32 ic_addrservaddr = NONE;	/* IP Address of the IP addresses'server */
--
-+/* IP Address of the IP addresses'server */
-+static __be32 ic_addrservaddr = NONE;
-+
- __be32 ic_servaddr = NONE;	/* Boot server IP address */
- 
- __be32 root_server_addr = NONE;	/* Address of NFS server */
- u8 root_server_path[256] = { 0, };	/* Path to mount as root */
- 
--__be32 ic_dev_xid;		/* Device under configuration */
-+static __be32 ic_dev_xid;		/* Device under configuration */
- 
- /* vendor class identifier */
- static char vendor_class_identifier[253] __initdata;
+And it gets wrong MAC address with mainlined alx driver:
+
+===
+8: enp2s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP 
+group default qlen 1000
+    link/ether 00:13:74:00:00:00 brd ff:ff:ff:ff:ff:ff
+===
+
+Before alx got merged into upstream I used out-of-tree alx driver from here 
+[1], and the MAC address was 84:8f:69:d3:a6:09.
+
+Setting MAC address manually to 84:8f:69:d3:a6:09 via ip link set works OK, 
+but when I rmmod and then modprobe alx module, I get 00:13:74:00:00:00 again.
+
+Kernels 3.13/3.14 are affected.
+
+What could be wrong and how could it be fixed? Any additional info needed?
+
+[1] http://www.linuxfoundation.org/collaborate/workgroups/networking/alx
+
 -- 
-1.7.10.4
+Oleksandr post-factum Natalenko, MSc
+pf-kernel community
+https://natalenko.name/
