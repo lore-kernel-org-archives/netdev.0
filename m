@@ -1,49 +1,49 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH][net-next] tcp: remove the duplicate prefixes in the logging message
-Date: Mon, 21 Apr 2014 21:17:57 +0800
-Message-ID: <1398086277-27943-1-git-send-email-roy.qing.li@gmail.com>
-Cc: joe@perches.com
-To: netdev@vger.kernel.org
+From: lucien xin <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] ipv4: add a sock pointer to ip_queue_xmit() and friends
+Date: Mon, 21 Apr 2014 21:20:44 +0800
+Message-ID: <CADvbK_dbA_2XPcYNDgEmBQTGZ9MK683cnbaC0w8Yz3WYaTwibQ@mail.gmail.com>
+References: <1397502396.4222.45.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140414.152225.1983723140136958968.davem@davemloft.net>
+	<1397510604.4222.63.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140414.185152.204599887297456936.davem@davemloft.net>
+	<1397520840.4222.65.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAHz2CGW_Eh5P_Z4=a-tfnp-S_62bZRXk2pLxes7ufEdfr0hwAQ@mail.gmail.com>
+	<1397572392.4222.93.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Zhan Jianyu <nasa4836@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	James Chapman <jchapman@katalix.com>,
+	network dev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:50080 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752063AbaDUNSB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 09:18:01 -0400
-Received: by mail-pb0-f47.google.com with SMTP id up15so3694994pbc.6
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 06:18:01 -0700 (PDT)
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:57868 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751734AbaDUNUq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 09:20:46 -0400
+Received: by mail-wi0-f176.google.com with SMTP id r20so1795118wiv.3
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 06:20:44 -0700 (PDT)
+In-Reply-To: <1397572392.4222.93.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
+On Tue, Apr 15, 2014 at 10:33 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Reported-by: Zhan Jianyu <nasa4836@gmail.com>
+> Tested-by: Zhan Jianyu <nasa4836@gmail.com>
+> Reported-by: lucien xin <lucien.xin@gmail.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: James Chapman <jchapman@katalix.com>
+> Fixes: 31c70d5956fc ("l2tp: keep original skb ownership")
+> Fixes: 8f646c922d55 ("vxlan: keep original skb ownership")
+> ---
+>
+> David, you asked me to take care of both problems, I now realize the two
+> patches are not in the same linux version, so it might be needed to
+> split in two separate patches to ease backport.
+>
+> Lucien, can you test this patch solves the problem you reported ?
+>
 
-The current message is:
-	TCP: TCP: Possible SYN flooding on port 80. Sending cookies. ...
+sorry for late,  I have tested vxlan dhclient with the patch, no WARN().
 
-The cause is that pr_info will implicitly print the pr_fmt string, which is standard
-prefix, and explicitly print the "proto" which is "TCP:" too
-
-it is unsuitable to not print proto, since proto maybe TCPv6, so use printk directly.
-
-Cc: Joe Perches <joe@perches.com>
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/ipv4/tcp_ipv4.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 6379894..370fa46 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -892,8 +892,8 @@ bool tcp_syn_flood_action(struct sock *sk,
- 	lopt = inet_csk(sk)->icsk_accept_queue.listen_opt;
- 	if (!lopt->synflood_warned && sysctl_tcp_syncookies != 2) {
- 		lopt->synflood_warned = 1;
--		pr_info("%s: Possible SYN flooding on port %d. %s.  Check SNMP counters.\n",
--			proto, ntohs(tcp_hdr(skb)->dest), msg);
-+		printk(KERN_INFO "%s: Possible SYN flooding on port %d. %s. Check SNMP counters.\n"
-+		       proto, ntohs(tcp_hdr(skb)->dest), msg);
- 	}
- 	return want_cookie;
- }
--- 
-1.7.10.4
+thanks,
