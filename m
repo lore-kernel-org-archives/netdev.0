@@ -1,45 +1,34 @@
-From: Amos Kong <akong@redhat.com>
-Subject: [PATCH] virtio_net: return error when there is no virtqueue or MQ
-	isn't support
-Date: Mon, 21 Apr 2014 23:11:01 +0800
-Message-ID: <1398093061-13444-1-git-send-email-akong@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com
-To: virtualization@lists.linux-foundation.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/4] net: bcmgenet: interrupt coalescing support
+Date: Mon, 21 Apr 2014 08:45:20 -0700
+Message-ID: <1398095124-5411-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:58388 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751028AbaDUPqH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 11:46:07 -0400
+Received: by mail-pd0-f174.google.com with SMTP id y13so3808744pdi.33
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 08:46:07 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently ethtool returns zero if there is no virtqueue or MQ isn't
-support, we should return -ENOTSUPP to notice user.
+Hi David,
 
-Signed-off-by: Amos Kong <akong@redhat.com>
----
- drivers/net/virtio_net.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+This patch series adds RX and TX interrupt coalescing support to the BCMGENET
+driver. Thanks!
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 8a852b5..eaf8266 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1053,7 +1053,7 @@ static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
- 	struct net_device *dev = vi->dev;
- 
- 	if (!vi->has_cvq || !virtio_has_feature(vi->vdev, VIRTIO_NET_F_MQ))
--		return 0;
-+		return -ENOTSUPP;
- 
- 	s.virtqueue_pairs = queue_pairs;
- 	sg_init_one(&sg, &s, sizeof(s));
+Florian Fainelli (4):
+  net: bcmgenet: prepare for MBDONE interrupts support
+  net: bcmgenet: add support for ethtool tx-frames
+  net: bcmgenet: add support for ethtool rx-frames
+  net: bcmgenet: do not set RX buffer length
+
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 98 +++++++++++++++++++++-----
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |  1 +
+ drivers/net/ethernet/broadcom/genet/bcmmii.c   |  3 +
+ 3 files changed, 85 insertions(+), 17 deletions(-)
+
 -- 
-1.9.0
+1.9.1
