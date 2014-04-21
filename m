@@ -1,125 +1,96 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: avoid retransmits of TCP packets hanging in
- host queues
-Date: Sun, 20 Apr 2014 17:58:17 -0700
-Message-ID: <1398041897.19600.26.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1397865790.19600.10.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next 02/11] tipc: adjust locking
+	policy of protecting tipc_ptr pointer of net_device
+Date: Mon, 21 Apr 2014 10:55:43 +0800
+Message-ID: <1398048952-7825-3-git-send-email-ying.xue@windriver.com>
+References: <1398048952-7825-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:54477 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751098AbaDUA6T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Apr 2014 20:58:19 -0400
-Received: by mail-pa0-f45.google.com with SMTP id kl14so3177576pab.4
-        for <netdev@vger.kernel.org>; Sun, 20 Apr 2014 17:58:18 -0700 (PDT)
-In-Reply-To: <1397865790.19600.10.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
+	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
+To: <davem@davemloft.net>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1398048952-7825-1-git-send-email-ying.xue@windriver.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Currently the 'tipc_ptr' pointer is protected by tipc_net_lock
+write lock on write side, and RCU read lock is applied to read
+side. In addition, there have two paths on write side where we
+may change variables pointed by the 'tipc_ptr' pointer: one is
+to configure bearer by tipc-config tool and another one is that
+bearer status is changed by notification events of its attached
+interface. But on the latter path, we improperly deem that
+accessing 'tipc_ptr' pointer happens on read side with
+rcu_read_lock() although some variables pointed by the 'tipc_ptr'
+pointer are changed possibly.
 
-In commit 0e280af026a5 ("tcp: introduce TCPSpuriousRtxHostQueues SNMP
-counter") we added a logic to detect when a packet was retransmitted
-while the prior clone was still in a qdisc or driver queue.
+Moreover, as now the both paths are guarded by RTNL lock, it's
+better to adjust the locking policy of 'tipc_ptr' pointer
+protection, allowing RTNL instead of tipc_net_lock write lock to
+protect it on write side, which will help us purge tipc_net_lock
+in the future.
 
-We are now confident we can do better, and catch the problem before
-we fragment a TSO packet before retransmit, or in TLP path.
-
-This patch fully exploits the logic by simply canceling the spurious
-retransmit.
-Original packet is in a queue and will eventually leave the host.
-
-This helps to avoid network collapses when some events make the RTO
-estimations very wrong, particularly when dealing with huge number of
-sockets with synchronized blast.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+Tested-by: Erik Hugne <erik.hugne@ericsson.com>
 ---
-Google-Bug-Id: 8584703
+ net/tipc/bearer.c |   11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
 
- net/ipv4/tcp_output.c |   34 ++++++++++++++++++++++++++--------
- 1 file changed, 26 insertions(+), 8 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 025e25093984..21ad5fd193c9 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -878,15 +878,8 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 	BUG_ON(!skb || !tcp_skb_pcount(skb));
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 3fef7eb..dfb4c7f 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -535,7 +535,7 @@ static int tipc_l2_rcv_msg(struct sk_buff *buf, struct net_device *dev,
+ 	}
  
- 	if (clone_it) {
--		const struct sk_buff *fclone = skb + 1;
--
- 		skb_mstamp_get(&skb->skb_mstamp);
+ 	rcu_read_lock();
+-	b_ptr = rcu_dereference(dev->tipc_ptr);
++	b_ptr = rcu_dereference_rtnl(dev->tipc_ptr);
+ 	if (likely(b_ptr)) {
+ 		if (likely(buf->pkt_type <= PACKET_BROADCAST)) {
+ 			buf->next = NULL;
+@@ -568,12 +568,9 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
+ 	if (!net_eq(dev_net(dev), &init_net))
+ 		return NOTIFY_DONE;
  
--		if (unlikely(skb->fclone == SKB_FCLONE_ORIG &&
--			     fclone->fclone == SKB_FCLONE_CLONE))
--			NET_INC_STATS(sock_net(sk),
--				      LINUX_MIB_TCPSPURIOUS_RTX_HOSTQUEUES);
+-	rcu_read_lock();
+-	b_ptr = rcu_dereference(dev->tipc_ptr);
+-	if (!b_ptr) {
+-		rcu_read_unlock();
++	b_ptr = rtnl_dereference(dev->tipc_ptr);
++	if (!b_ptr)
+ 		return NOTIFY_DONE;
+-	}
+ 
+ 	b_ptr->mtu = dev->mtu;
+ 
+@@ -595,8 +592,6 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
+ 		tipc_disable_bearer(b_ptr->name);
+ 		break;
+ 	}
+-	rcu_read_unlock();
 -
- 		if (unlikely(skb_cloned(skb)))
- 			skb = pskb_copy(skb, gfp_mask);
- 		else
-@@ -2039,6 +2032,25 @@ bool tcp_schedule_loss_probe(struct sock *sk)
- 	return true;
+ 	return NOTIFY_OK;
  }
  
-+/* Thanks to skb fast clones, we can detect if a prior transmit of
-+ * a packet is still in a qdisc or driver queue.
-+ * In this case, there is very little point doing a retransmit !
-+ * Note: This is called from BH context only.
-+ */
-+static bool skb_still_in_host_queue(const struct sock *sk,
-+				    const struct sk_buff *skb)
-+{
-+	const struct sk_buff *fclone = skb + 1;
-+
-+	if (unlikely(skb->fclone == SKB_FCLONE_ORIG &&
-+		     fclone->fclone == SKB_FCLONE_CLONE)) {
-+		NET_INC_STATS_BH(sock_net(sk),
-+				 LINUX_MIB_TCPSPURIOUS_RTX_HOSTQUEUES);
-+		return true;
-+	}
-+	return false;
-+}
-+
- /* When probe timeout (PTO) fires, send a new segment if one exists, else
-  * retransmit the last segment.
-  */
-@@ -2064,6 +2076,9 @@ void tcp_send_loss_probe(struct sock *sk)
- 	if (WARN_ON(!skb))
- 		goto rearm_timer;
- 
-+	if (skb_still_in_host_queue(sk, skb))
-+		goto rearm_timer;
-+
- 	pcount = tcp_skb_pcount(skb);
- 	if (WARN_ON(!pcount))
- 		goto rearm_timer;
-@@ -2385,6 +2400,9 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
- 	    min(sk->sk_wmem_queued + (sk->sk_wmem_queued >> 2), sk->sk_sndbuf))
- 		return -EAGAIN;
- 
-+	if (skb_still_in_host_queue(sk, skb))
-+		return -EBUSY;
-+
- 	if (before(TCP_SKB_CB(skb)->seq, tp->snd_una)) {
- 		if (before(TCP_SKB_CB(skb)->end_seq, tp->snd_una))
- 			BUG();
-@@ -2478,7 +2496,7 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
- 		 * see tcp_input.c tcp_sacktag_write_queue().
- 		 */
- 		TCP_SKB_CB(skb)->ack_seq = tp->snd_nxt;
--	} else {
-+	} else if (err != -EBUSY) {
- 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPRETRANSFAIL);
- 	}
- 	return err;
+-- 
+1.7.9.5
+
+
+------------------------------------------------------------------------------
+Start Your Social Network Today - Download eXo Platform
+Build your Enterprise Intranet with eXo Platform Software
+Java Based Open Source Intranet - Social, Extensible, Cloud Ready
+Get Started Now And Turn Your Intranet Into A Collaboration Platform
+http://p.sf.net/sfu/ExoPlatform
