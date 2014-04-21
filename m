@@ -1,204 +1,933 @@
-From: Chema Gonzalez <chema@google.com>
-Subject: [PATCH v2] filter: added BPF random opcode
-Date: Mon, 21 Apr 2014 09:21:24 -0700
-Message-ID: <1398097284-20528-1-git-send-email-chema@google.com>
-References: <1397585816-1267-1-git-send-email-chema@google.com>
-Cc: netdev@vger.kernel.org, Chema Gonzalez <chema@google.com>
-To: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f202.google.com ([209.85.223.202]:54684 "EHLO
-	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752619AbaDUQVd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 12:21:33 -0400
-Received: by mail-ie0-f202.google.com with SMTP id lx4so898504iec.1
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 09:21:33 -0700 (PDT)
-In-Reply-To: <1397585816-1267-1-git-send-email-chema@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next,
+ v4] hyperv: Add support for virtual Receive Side Scaling (vRSS)
+Date: Mon, 21 Apr 2014 10:20:28 -0700
+Message-ID: <1398100828-4027-1-git-send-email-haiyangz@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, haiyangz@microsoft.com
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-Added a new ancillary load (bpf call in eBPF parlance) that produces
-a 32-bit random number. We are implementing it as an ancillary load
-(instead of an ISA opcode) because (a) it is simpler, (b) allows easy
-JITing, and (c) seems more in line with generic ISAs that do not have
-"get a random number" as a instruction, but as an OS call.
+This feature allows multiple channels to be used by each virtual NIC.
+It is available on Hyper-V host 2012 R2.
 
-The main use for this ancillary load is to perform random packet sampling.
-
-Signed-off-by: Chema Gonzalez <chema@google.com>
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 ---
- Documentation/networking/filter.txt | 13 +++++++++++++
- include/linux/filter.h              |  1 +
- include/uapi/linux/filter.h         |  3 ++-
- net/core/filter.c                   | 12 ++++++++++++
- tools/net/bpf_exp.l                 |  1 +
- tools/net/bpf_exp.y                 | 11 ++++++++++-
- 6 files changed, 39 insertions(+), 2 deletions(-)
+ drivers/net/hyperv/hyperv_net.h   |  110 +++++++++++++++++++++-
+ drivers/net/hyperv/netvsc.c       |  136 +++++++++++++++++++++-----
+ drivers/net/hyperv/netvsc_drv.c   |  103 +++++++++++++++++++-
+ drivers/net/hyperv/rndis_filter.c |  189 ++++++++++++++++++++++++++++++++++++-
+ 4 files changed, 504 insertions(+), 34 deletions(-)
 
-diff --git a/Documentation/networking/filter.txt b/Documentation/networking/filter.txt
-index 81f940f..82e1cb0 100644
---- a/Documentation/networking/filter.txt
-+++ b/Documentation/networking/filter.txt
-@@ -281,6 +281,7 @@ Possible BPF extensions are shown in the following table:
-   cpu                                   raw_smp_processor_id()
-   vlan_tci                              vlan_tx_tag_get(skb)
-   vlan_pr                               vlan_tx_tag_present(skb)
-+  rand                                  prandom_u32()
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index d18f711d..57eb3f9 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -28,6 +28,96 @@
+ #include <linux/hyperv.h>
+ #include <linux/rndis.h>
  
- These extensions can also be prefixed with '#'.
- Examples for low-level BPF:
-@@ -308,6 +309,18 @@ Examples for low-level BPF:
-   ret #-1
-   drop: ret #0
- 
-+** icmp random packet sampling, 1 in 4
-+  ldh [12]
-+  jne #0x800, drop
-+  ldb [23]
-+  jneq #1, drop
-+  # get a random uint32 number
-+  ld rand
-+  mod #4
-+  jneq #1, drop
-+  ret #-1
-+  drop: ret #0
++/* RSS related */
++#define OID_GEN_RECEIVE_SCALE_CAPABILITIES 0x00010203  /* query only */
++#define OID_GEN_RECEIVE_SCALE_PARAMETERS 0x00010204  /* query and set */
 +
- ** SECCOMP filter example:
++#define NDIS_OBJECT_TYPE_RSS_CAPABILITIES 0x88
++#define NDIS_OBJECT_TYPE_RSS_PARAMETERS 0x89
++
++#define NDIS_RECEIVE_SCALE_CAPABILITIES_REVISION_2 2
++#define NDIS_RECEIVE_SCALE_PARAMETERS_REVISION_2 2
++
++struct ndis_obj_header {
++	u8 type;
++	u8 rev;
++	u16 size;
++} __packed;
++
++/* ndis_recv_scale_cap/cap_flag */
++#define NDIS_RSS_CAPS_MESSAGE_SIGNALED_INTERRUPTS 0x01000000
++#define NDIS_RSS_CAPS_CLASSIFICATION_AT_ISR       0x02000000
++#define NDIS_RSS_CAPS_CLASSIFICATION_AT_DPC       0x04000000
++#define NDIS_RSS_CAPS_USING_MSI_X                 0x08000000
++#define NDIS_RSS_CAPS_RSS_AVAILABLE_ON_PORTS      0x10000000
++#define NDIS_RSS_CAPS_SUPPORTS_MSI_X              0x20000000
++#define NDIS_RSS_CAPS_HASH_TYPE_TCP_IPV4          0x00000100
++#define NDIS_RSS_CAPS_HASH_TYPE_TCP_IPV6          0x00000200
++#define NDIS_RSS_CAPS_HASH_TYPE_TCP_IPV6_EX       0x00000400
++
++struct ndis_recv_scale_cap { /* NDIS_RECEIVE_SCALE_CAPABILITIES */
++	struct ndis_obj_header hdr;
++	u32 cap_flag;
++	u32 num_int_msg;
++	u32 num_recv_que;
++	u16 num_indirect_tabent;
++} __packed;
++
++
++/* ndis_recv_scale_param flags */
++#define NDIS_RSS_PARAM_FLAG_BASE_CPU_UNCHANGED     0x0001
++#define NDIS_RSS_PARAM_FLAG_HASH_INFO_UNCHANGED    0x0002
++#define NDIS_RSS_PARAM_FLAG_ITABLE_UNCHANGED       0x0004
++#define NDIS_RSS_PARAM_FLAG_HASH_KEY_UNCHANGED     0x0008
++#define NDIS_RSS_PARAM_FLAG_DISABLE_RSS            0x0010
++
++/* Hash info bits */
++#define NDIS_HASH_FUNC_TOEPLITZ 0x00000001
++#define NDIS_HASH_IPV4          0x00000100
++#define NDIS_HASH_TCP_IPV4      0x00000200
++#define NDIS_HASH_IPV6          0x00000400
++#define NDIS_HASH_IPV6_EX       0x00000800
++#define NDIS_HASH_TCP_IPV6      0x00001000
++#define NDIS_HASH_TCP_IPV6_EX   0x00002000
++
++#define NDIS_RSS_INDIRECTION_TABLE_MAX_SIZE_REVISION_2 (128 * 4)
++#define NDIS_RSS_HASH_SECRET_KEY_MAX_SIZE_REVISION_2   40
++
++#define ITAB_NUM 128
++#define HASH_KEYLEN NDIS_RSS_HASH_SECRET_KEY_MAX_SIZE_REVISION_2
++extern u8 netvsc_hash_key[];
++
++struct ndis_recv_scale_param { /* NDIS_RECEIVE_SCALE_PARAMETERS */
++	struct ndis_obj_header hdr;
++
++	/* Qualifies the rest of the information */
++	u16 flag;
++
++	/* The base CPU number to do receive processing. not used */
++	u16 base_cpu_number;
++
++	/* This describes the hash function and type being enabled */
++	u32 hashinfo;
++
++	/* The size of indirection table array */
++	u16 indirect_tabsize;
++
++	/* The offset of the indirection table from the beginning of this
++	 * structure
++	 */
++	u32 indirect_taboffset;
++
++	/* The size of the hash secret key */
++	u16 hashkey_size;
++
++	/* The offset of the secret key from the beginning of this structure */
++	u32 kashkey_offset;
++
++	u32 processor_masks_offset;
++	u32 num_processor_masks;
++	u32 processor_masks_entry_size;
++};
++
+ /* Fwd declaration */
+ struct hv_netvsc_packet;
+ struct ndis_tcp_ip_checksum_info;
+@@ -39,6 +129,8 @@ struct xferpage_packet {
  
-   ld [4]                  /* offsetof(struct seccomp_data, arch) */
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 024fd03..759abf7 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -223,6 +223,7 @@ enum {
- 	BPF_S_ANC_VLAN_TAG,
- 	BPF_S_ANC_VLAN_TAG_PRESENT,
- 	BPF_S_ANC_PAY_OFFSET,
-+	BPF_S_ANC_RANDOM,
+ 	/* # of netvsc packets this xfer packet contains */
+ 	u32 count;
++
++	struct vmbus_channel *channel;
  };
  
- #endif /* __LINUX_FILTER_H__ */
-diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
-index 8eb9cca..253b4d4 100644
---- a/include/uapi/linux/filter.h
-+++ b/include/uapi/linux/filter.h
-@@ -130,7 +130,8 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
- #define SKF_AD_VLAN_TAG	44
- #define SKF_AD_VLAN_TAG_PRESENT 48
- #define SKF_AD_PAY_OFFSET	52
--#define SKF_AD_MAX	56
-+#define SKF_AD_RANDOM	56
-+#define SKF_AD_MAX	60
- #define SKF_NET_OFF   (-0x100000)
- #define SKF_LL_OFF    (-0x200000)
+ /*
+@@ -54,6 +146,9 @@ struct hv_netvsc_packet {
+ 	bool is_data_pkt;
+ 	u16 vlan_tci;
  
-diff --git a/net/core/filter.c b/net/core/filter.c
-index cd58614..78a636e 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -643,6 +643,12 @@ static u64 __get_raw_cpu_id(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
- 	return raw_smp_processor_id();
++	u16 q_idx;
++	struct vmbus_channel *channel;
++
+ 	/*
+ 	 * Valid only for receives when we break a xfer page packet
+ 	 * into multiple netvsc packets
+@@ -120,6 +215,7 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
+ int netvsc_recv_callback(struct hv_device *device_obj,
+ 			struct hv_netvsc_packet *packet,
+ 			struct ndis_tcp_ip_checksum_info *csum_info);
++void netvsc_channel_cb(void *context);
+ int rndis_filter_open(struct hv_device *dev);
+ int rndis_filter_close(struct hv_device *dev);
+ int rndis_filter_device_add(struct hv_device *dev,
+@@ -522,6 +618,8 @@ struct nvsp_message {
+ 
+ #define NETVSC_PACKET_SIZE                      2048
+ 
++#define VRSS_SEND_TAB_SIZE 16
++
+ /* Per netvsc channel-specific */
+ struct netvsc_device {
+ 	struct hv_device *dev;
+@@ -555,10 +653,20 @@ struct netvsc_device {
+ 
+ 	struct net_device *ndev;
+ 
++	struct vmbus_channel *chn_table[NR_CPUS];
++	u32 send_table[VRSS_SEND_TAB_SIZE];
++	u32 num_chn;
++	atomic_t queue_sends[NR_CPUS];
++
+ 	/* Holds rndis device info */
+ 	void *extension;
+-	/* The recive buffer for this device */
++
++	int ring_size;
++
++	/* The primary channel callback buffer */
+ 	unsigned char cb_buffer[NETVSC_PACKET_SIZE];
++	/* The sub channel callback buffer */
++	unsigned char *sub_cb_buf;
+ };
+ 
+ /* NdisInitialize message */
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index f7629ec..e7e77f1 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -422,6 +422,9 @@ int netvsc_device_remove(struct hv_device *device)
+ 		kfree(netvsc_packet);
+ 	}
+ 
++	if (net_device->sub_cb_buf)
++		vfree(net_device->sub_cb_buf);
++
+ 	kfree(net_device);
+ 	return 0;
+ }
+@@ -461,7 +464,9 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
+ 	    (nvsp_packet->hdr.msg_type ==
+ 	     NVSP_MSG1_TYPE_SEND_RECV_BUF_COMPLETE) ||
+ 	    (nvsp_packet->hdr.msg_type ==
+-	     NVSP_MSG1_TYPE_SEND_SEND_BUF_COMPLETE)) {
++	     NVSP_MSG1_TYPE_SEND_SEND_BUF_COMPLETE) ||
++	    (nvsp_packet->hdr.msg_type ==
++	     NVSP_MSG5_TYPE_SUBCHANNEL)) {
+ 		/* Copy the response back */
+ 		memcpy(&net_device->channel_init_pkt, nvsp_packet,
+ 		       sizeof(struct nvsp_message));
+@@ -469,28 +474,37 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
+ 	} else if (nvsp_packet->hdr.msg_type ==
+ 		   NVSP_MSG1_TYPE_SEND_RNDIS_PKT_COMPLETE) {
+ 		int num_outstanding_sends;
++		u16 q_idx = 0;
++		struct vmbus_channel *channel = device->channel;
++		int queue_sends;
+ 
+ 		/* Get the send context */
+ 		nvsc_packet = (struct hv_netvsc_packet *)(unsigned long)
+ 			packet->trans_id;
+ 
+ 		/* Notify the layer above us */
+-		if (nvsc_packet)
++		if (nvsc_packet) {
++			q_idx = nvsc_packet->q_idx;
++			channel = nvsc_packet->channel;
+ 			nvsc_packet->completion.send.send_completion(
+ 				nvsc_packet->completion.send.
+ 				send_completion_ctx);
++		}
+ 
+ 		num_outstanding_sends =
+ 			atomic_dec_return(&net_device->num_outstanding_sends);
++		queue_sends = atomic_dec_return(&net_device->
++						queue_sends[q_idx]);
+ 
+ 		if (net_device->destroy && num_outstanding_sends == 0)
+ 			wake_up(&net_device->wait_drain);
+ 
+-		if (netif_queue_stopped(ndev) && !net_device->start_remove &&
+-			(hv_ringbuf_avail_percent(&device->channel->outbound)
+-			> RING_AVAIL_PERCENT_HIWATER ||
+-			num_outstanding_sends < 1))
+-				netif_wake_queue(ndev);
++		if (netif_tx_queue_stopped(netdev_get_tx_queue(ndev, q_idx)) &&
++		    !net_device->start_remove &&
++		    (hv_ringbuf_avail_percent(&channel->outbound) >
++		     RING_AVAIL_PERCENT_HIWATER || queue_sends < 1))
++				netif_tx_wake_queue(netdev_get_tx_queue(
++						    ndev, q_idx));
+ 	} else {
+ 		netdev_err(ndev, "Unknown send completion packet type- "
+ 			   "%d received!!\n", nvsp_packet->hdr.msg_type);
+@@ -505,6 +519,7 @@ int netvsc_send(struct hv_device *device,
+ 	int ret = 0;
+ 	struct nvsp_message sendMessage;
+ 	struct net_device *ndev;
++	struct vmbus_channel *out_channel = NULL;
+ 	u64 req_id;
+ 
+ 	net_device = get_outbound_net_device(device);
+@@ -531,15 +546,20 @@ int netvsc_send(struct hv_device *device,
+ 	else
+ 		req_id = 0;
+ 
++	out_channel = net_device->chn_table[packet->q_idx];
++	if (out_channel == NULL)
++		out_channel = device->channel;
++	packet->channel = out_channel;
++
+ 	if (packet->page_buf_cnt) {
+-		ret = vmbus_sendpacket_pagebuffer(device->channel,
++		ret = vmbus_sendpacket_pagebuffer(out_channel,
+ 						  packet->page_buf,
+ 						  packet->page_buf_cnt,
+ 						  &sendMessage,
+ 						  sizeof(struct nvsp_message),
+ 						  req_id);
+ 	} else {
+-		ret = vmbus_sendpacket(device->channel, &sendMessage,
++		ret = vmbus_sendpacket(out_channel, &sendMessage,
+ 				sizeof(struct nvsp_message),
+ 				req_id,
+ 				VM_PKT_DATA_INBAND,
+@@ -548,17 +568,24 @@ int netvsc_send(struct hv_device *device,
+ 
+ 	if (ret == 0) {
+ 		atomic_inc(&net_device->num_outstanding_sends);
+-		if (hv_ringbuf_avail_percent(&device->channel->outbound) <
++		atomic_inc(&net_device->queue_sends[packet->q_idx]);
++
++		if (hv_ringbuf_avail_percent(&out_channel->outbound) <
+ 			RING_AVAIL_PERCENT_LOWATER) {
+-			netif_stop_queue(ndev);
++			netif_tx_stop_queue(netdev_get_tx_queue(
++					    ndev, packet->q_idx));
++
+ 			if (atomic_read(&net_device->
+-				num_outstanding_sends) < 1)
+-				netif_wake_queue(ndev);
++				queue_sends[packet->q_idx]) < 1)
++				netif_tx_wake_queue(netdev_get_tx_queue(
++						    ndev, packet->q_idx));
+ 		}
+ 	} else if (ret == -EAGAIN) {
+-		netif_stop_queue(ndev);
+-		if (atomic_read(&net_device->num_outstanding_sends) < 1) {
+-			netif_wake_queue(ndev);
++		netif_tx_stop_queue(netdev_get_tx_queue(
++				    ndev, packet->q_idx));
++		if (atomic_read(&net_device->queue_sends[packet->q_idx]) < 1) {
++			netif_tx_wake_queue(netdev_get_tx_queue(
++					    ndev, packet->q_idx));
+ 			ret = -ENOSPC;
+ 		}
+ 	} else {
+@@ -570,6 +597,7 @@ int netvsc_send(struct hv_device *device,
  }
  
-+/* note that this only generates 32-bit random numbers */
-+static u64 __get_random_u32(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
+ static void netvsc_send_recv_completion(struct hv_device *device,
++					struct vmbus_channel *channel,
+ 					struct netvsc_device *net_device,
+ 					u64 transaction_id, u32 status)
+ {
+@@ -587,7 +615,7 @@ static void netvsc_send_recv_completion(struct hv_device *device,
+ 
+ retry_send_cmplt:
+ 	/* Send the completion */
+-	ret = vmbus_sendpacket(device->channel, &recvcompMessage,
++	ret = vmbus_sendpacket(channel, &recvcompMessage,
+ 			       sizeof(struct nvsp_message), transaction_id,
+ 			       VM_PKT_COMP, 0);
+ 	if (ret == 0) {
+@@ -618,6 +646,7 @@ static void netvsc_receive_completion(void *context)
+ {
+ 	struct hv_netvsc_packet *packet = context;
+ 	struct hv_device *device = packet->device;
++	struct vmbus_channel *channel;
+ 	struct netvsc_device *net_device;
+ 	u64 transaction_id = 0;
+ 	bool fsend_receive_comp = false;
+@@ -649,6 +678,7 @@ static void netvsc_receive_completion(void *context)
+ 	 */
+ 	if (packet->xfer_page_pkt->count == 0) {
+ 		fsend_receive_comp = true;
++		channel = packet->xfer_page_pkt->channel;
+ 		transaction_id = packet->completion.recv.recv_completion_tid;
+ 		status = packet->xfer_page_pkt->status;
+ 		list_add_tail(&packet->xfer_page_pkt->list_ent,
+@@ -662,12 +692,13 @@ static void netvsc_receive_completion(void *context)
+ 
+ 	/* Send a receive completion for the xfer page packet */
+ 	if (fsend_receive_comp)
+-		netvsc_send_recv_completion(device, net_device, transaction_id,
+-					status);
++		netvsc_send_recv_completion(device, channel, net_device,
++					    transaction_id, status);
+ 
+ }
+ 
+ static void netvsc_receive(struct netvsc_device *net_device,
++			struct vmbus_channel *channel,
+ 			struct hv_device *device,
+ 			struct vmpacket_descriptor *packet)
+ {
+@@ -748,7 +779,7 @@ static void netvsc_receive(struct netvsc_device *net_device,
+ 		spin_unlock_irqrestore(&net_device->recv_pkt_list_lock,
+ 				       flags);
+ 
+-		netvsc_send_recv_completion(device, net_device,
++		netvsc_send_recv_completion(device, channel, net_device,
+ 					    vmxferpage_packet->d.trans_id,
+ 					    NVSP_STAT_FAIL);
+ 
+@@ -759,6 +790,7 @@ static void netvsc_receive(struct netvsc_device *net_device,
+ 	xferpage_packet = (struct xferpage_packet *)listHead.next;
+ 	list_del(&xferpage_packet->list_ent);
+ 	xferpage_packet->status = NVSP_STAT_SUCCESS;
++	xferpage_packet->channel = channel;
+ 
+ 	/* This is how much we can satisfy */
+ 	xferpage_packet->count = count - 1;
+@@ -800,10 +832,45 @@ static void netvsc_receive(struct netvsc_device *net_device,
+ 
+ }
+ 
+-static void netvsc_channel_cb(void *context)
++
++static void netvsc_send_table(struct hv_device *hdev,
++			      struct vmpacket_descriptor *vmpkt)
 +{
-+	return (u64)prandom_u32();
++	struct netvsc_device *nvscdev;
++	struct net_device *ndev;
++	struct nvsp_message *nvmsg;
++	int i;
++	u32 count, *tab;
++
++	nvscdev = get_outbound_net_device(hdev);
++	if (!nvscdev)
++		return;
++	ndev = nvscdev->ndev;
++
++	nvmsg = (struct nvsp_message *)((unsigned long)vmpkt +
++					(vmpkt->offset8 << 3));
++
++	if (nvmsg->hdr.msg_type != NVSP_MSG5_TYPE_SEND_INDIRECTION_TABLE)
++		return;
++
++	count = nvmsg->msg.v5_msg.send_table.count;
++	if (count != VRSS_SEND_TAB_SIZE) {
++		netdev_err(ndev, "Received wrong send-table size:%u\n", count);
++		return;
++	}
++
++	tab = (u32 *)((unsigned long)&nvmsg->msg.v5_msg.send_table +
++		      nvmsg->msg.v5_msg.send_table.offset);
++
++	for (i = 0; i < count; i++)
++		nvscdev->send_table[i] = tab[i];
 +}
 +
- /* Register mappings for user programs. */
- #define A_REG		0
- #define X_REG		7
-@@ -779,6 +785,7 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
- 	case SKF_AD_OFF + SKF_AD_NLATTR:
- 	case SKF_AD_OFF + SKF_AD_NLATTR_NEST:
- 	case SKF_AD_OFF + SKF_AD_CPU:
-+	case SKF_AD_OFF + SKF_AD_RANDOM:
- 		/* arg1 = ctx */
- 		insn->code = BPF_ALU64 | BPF_MOV | BPF_X;
- 		insn->a_reg = ARG1_REG;
-@@ -812,6 +819,9 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
- 		case SKF_AD_OFF + SKF_AD_CPU:
- 			insn->imm = __get_raw_cpu_id - __bpf_call_base;
- 			break;
-+		case SKF_AD_OFF + SKF_AD_RANDOM:
-+			insn->imm = __get_random_u32 - __bpf_call_base;
-+			break;
- 		}
- 		break;
++void netvsc_channel_cb(void *context)
+ {
+ 	int ret;
+-	struct hv_device *device = context;
++	struct vmbus_channel *channel = (struct vmbus_channel *)context;
++	struct hv_device *device;
+ 	struct netvsc_device *net_device;
+ 	u32 bytes_recvd;
+ 	u64 request_id;
+@@ -812,14 +879,19 @@ static void netvsc_channel_cb(void *context)
+ 	int bufferlen = NETVSC_PACKET_SIZE;
+ 	struct net_device *ndev;
  
-@@ -1362,6 +1372,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
- 			ANCILLARY(VLAN_TAG);
- 			ANCILLARY(VLAN_TAG_PRESENT);
- 			ANCILLARY(PAY_OFFSET);
-+			ANCILLARY(RANDOM);
- 			}
++	if (channel->primary_channel != NULL)
++		device = channel->primary_channel->device_obj;
++	else
++		device = channel->device_obj;
++
+ 	net_device = get_inbound_net_device(device);
+ 	if (!net_device)
+ 		return;
+ 	ndev = net_device->ndev;
+-	buffer = net_device->cb_buffer;
++	buffer = get_per_channel_state(channel);
  
- 			/* ancillary operation unknown or unsupported */
-@@ -1746,6 +1757,7 @@ void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to)
- 		[BPF_S_ANC_VLAN_TAG]	= BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_ANC_VLAN_TAG_PRESENT] = BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_ANC_PAY_OFFSET]	= BPF_LD|BPF_B|BPF_ABS,
-+		[BPF_S_ANC_RANDOM]	= BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_LD_W_LEN]	= BPF_LD|BPF_W|BPF_LEN,
- 		[BPF_S_LD_W_IND]	= BPF_LD|BPF_W|BPF_IND,
- 		[BPF_S_LD_H_IND]	= BPF_LD|BPF_H|BPF_IND,
-diff --git a/tools/net/bpf_exp.l b/tools/net/bpf_exp.l
-index bf7be77..833a966 100644
---- a/tools/net/bpf_exp.l
-+++ b/tools/net/bpf_exp.l
-@@ -92,6 +92,7 @@ extern void yyerror(const char *str);
- "#"?("cpu")	{ return K_CPU; }
- "#"?("vlan_tci") { return K_VLANT; }
- "#"?("vlan_pr")	{ return K_VLANP; }
-+"#"?("rand")	{ return K_RAND; }
+ 	do {
+-		ret = vmbus_recvpacket_raw(device->channel, buffer, bufferlen,
++		ret = vmbus_recvpacket_raw(channel, buffer, bufferlen,
+ 					   &bytes_recvd, &request_id);
+ 		if (ret == 0) {
+ 			if (bytes_recvd > 0) {
+@@ -831,8 +903,12 @@ static void netvsc_channel_cb(void *context)
+ 					break;
  
- ":"		{ return ':'; }
- ","		{ return ','; }
-diff --git a/tools/net/bpf_exp.y b/tools/net/bpf_exp.y
-index d15efc9..e6306c5 100644
---- a/tools/net/bpf_exp.y
-+++ b/tools/net/bpf_exp.y
-@@ -56,7 +56,7 @@ static void bpf_set_jmp_label(char *label, enum jmp_type type);
- %token OP_LDXI
+ 				case VM_PKT_DATA_USING_XFER_PAGES:
+-					netvsc_receive(net_device,
+-							device, desc);
++					netvsc_receive(net_device, channel,
++						       device, desc);
++					break;
++
++				case VM_PKT_DATA_INBAND:
++					netvsc_send_table(device, desc);
+ 					break;
  
- %token K_PKT_LEN K_PROTO K_TYPE K_NLATTR K_NLATTR_NEST K_MARK K_QUEUE K_HATYPE
--%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF
-+%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF K_RAND
+ 				default:
+@@ -893,6 +969,8 @@ int netvsc_device_add(struct hv_device *device, void *additional_info)
+ 		goto cleanup;
+ 	}
  
- %token ':' ',' '[' ']' '(' ')' 'x' 'a' '+' 'M' '*' '&' '#' '%'
++	net_device->ring_size = ring_size;
++
+ 	/*
+ 	 * Coming into this function, struct net_device * is
+ 	 * registered as the driver private data.
+@@ -917,10 +995,12 @@ int netvsc_device_add(struct hv_device *device, void *additional_info)
+ 	}
+ 	init_completion(&net_device->channel_init_wait);
  
-@@ -164,6 +164,9 @@ ldb
- 	| OP_LDB K_POFF {
- 		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
- 				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
-+	| OP_LDB K_RAND {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_RANDOM); }
- 	;
++	set_per_channel_state(device->channel, net_device->cb_buffer);
++
+ 	/* Open the channel */
+ 	ret = vmbus_open(device->channel, ring_size * PAGE_SIZE,
+ 			 ring_size * PAGE_SIZE, NULL, 0,
+-			 netvsc_channel_cb, device);
++			 netvsc_channel_cb, device->channel);
  
- ldh
-@@ -212,6 +215,9 @@ ldh
- 	| OP_LDH K_POFF {
- 		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
- 				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
-+	| OP_LDH K_RAND {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_RANDOM); }
- 	;
+ 	if (ret != 0) {
+ 		netdev_err(ndev, "unable to open channel: %d\n", ret);
+@@ -930,6 +1010,8 @@ int netvsc_device_add(struct hv_device *device, void *additional_info)
+ 	/* Channel is opened */
+ 	pr_info("hv_netvsc channel opened successfully\n");
  
- ldi
-@@ -265,6 +271,9 @@ ld
- 	| OP_LD K_POFF {
- 		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
- 				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
-+	| OP_LD K_RAND {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_RANDOM); }
- 	| OP_LD 'M' '[' number ']' {
- 		bpf_set_curr_instr(BPF_LD | BPF_MEM, 0, 0, $4); }
- 	| OP_LD '[' 'x' '+' number ']' {
++	net_device->chn_table[0] = device->channel;
++
+ 	/* Connect with the NetVsp */
+ 	ret = netvsc_connect_vsp(device);
+ 	if (ret != 0) {
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 31e55fb..093cf3f 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -101,7 +101,7 @@ static int netvsc_open(struct net_device *net)
+ 		return ret;
+ 	}
+ 
+-	netif_start_queue(net);
++	netif_tx_start_all_queues(net);
+ 
+ 	nvdev = hv_get_drvdata(device_obj);
+ 	rdev = nvdev->extension;
+@@ -149,6 +149,88 @@ static void *init_ppi_data(struct rndis_message *msg, u32 ppi_size,
+ 	return ppi;
+ }
+ 
++union sub_key {
++	u64 k;
++	struct {
++		u8 pad[3];
++		u8 kb;
++		u32 ka;
++	};
++};
++
++/* Toeplitz hash function
++ * data: network byte order
++ * return: host byte order
++ */
++static u32 comp_hash(u8 *key, int klen, u8 *data, int dlen)
++{
++	union sub_key subk;
++	int k_next = 4;
++	u8 dt;
++	int i, j;
++	u32 ret = 0;
++
++	subk.k = 0;
++	subk.ka = ntohl(*(u32 *)key);
++
++	for (i = 0; i < dlen; i++) {
++		subk.kb = key[k_next];
++		k_next = (k_next + 1) % klen;
++		dt = data[i];
++		for (j = 0; j < 8; j++) {
++			if (dt & 0x80)
++				ret ^= subk.ka;
++			dt <<= 1;
++			subk.k <<= 1;
++		}
++	}
++
++	return ret;
++}
++
++static bool netvsc_set_hash(u32 *hash, struct sk_buff *skb)
++{
++	struct iphdr *iphdr;
++	int data_len;
++	bool ret = false;
++
++	if (eth_hdr(skb)->h_proto != htons(ETH_P_IP))
++		return false;
++
++	iphdr = ip_hdr(skb);
++
++	if (iphdr->version == 4) {
++		if (iphdr->protocol == IPPROTO_TCP)
++			data_len = 12;
++		else
++			data_len = 8;
++		*hash = comp_hash(netvsc_hash_key, HASH_KEYLEN,
++				  (u8 *)&iphdr->saddr, data_len);
++		ret = true;
++	}
++
++	return ret;
++}
++
++static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
++			void *accel_priv, select_queue_fallback_t fallback)
++{
++	struct net_device_context *net_device_ctx = netdev_priv(ndev);
++	struct hv_device *hdev =  net_device_ctx->device_ctx;
++	struct netvsc_device *nvsc_dev = hv_get_drvdata(hdev);
++	u32 hash;
++	u16 q_idx = 0;
++
++	if (nvsc_dev == NULL || ndev->real_num_tx_queues <= 1)
++		return 0;
++
++	if (netvsc_set_hash(&hash, skb))
++		q_idx = nvsc_dev->send_table[hash % VRSS_SEND_TAB_SIZE] %
++			ndev->real_num_tx_queues;
++
++	return q_idx;
++}
++
+ static void netvsc_xmit_completion(void *context)
+ {
+ 	struct hv_netvsc_packet *packet = (struct hv_netvsc_packet *)context;
+@@ -333,6 +415,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 
+ 	packet->vlan_tci = skb->vlan_tci;
+ 
++	packet->q_idx = skb_get_queue_mapping(skb);
++
+ 	packet->is_data_pkt = true;
+ 	packet->total_data_buflen = skb->len;
+ 
+@@ -554,6 +638,10 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+ 				       packet->vlan_tci);
+ 
++	skb_record_rx_queue(skb, packet->xfer_page_pkt->channel->
++			    offermsg.offer.sub_channel_index %
++			    net->real_num_rx_queues);
++
+ 	net->stats.rx_packets++;
+ 	net->stats.rx_bytes += packet->total_data_buflen;
+ 
+@@ -602,7 +690,7 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 	hv_set_drvdata(hdev, ndev);
+ 	device_info.ring_size = ring_size;
+ 	rndis_filter_device_add(hdev, &device_info);
+-	netif_wake_queue(ndev);
++	netif_tx_wake_all_queues(ndev);
+ 
+ 	return 0;
+ }
+@@ -648,6 +736,7 @@ static const struct net_device_ops device_ops = {
+ 	.ndo_change_mtu =		netvsc_change_mtu,
+ 	.ndo_validate_addr =		eth_validate_addr,
+ 	.ndo_set_mac_address =		netvsc_set_mac_addr,
++	.ndo_select_queue =		netvsc_select_queue,
+ };
+ 
+ /*
+@@ -694,9 +783,11 @@ static int netvsc_probe(struct hv_device *dev,
+ 	struct net_device *net = NULL;
+ 	struct net_device_context *net_device_ctx;
+ 	struct netvsc_device_info device_info;
++	struct netvsc_device *nvdev;
+ 	int ret;
+ 
+-	net = alloc_etherdev(sizeof(struct net_device_context));
++	net = alloc_etherdev_mq(sizeof(struct net_device_context),
++				num_online_cpus());
+ 	if (!net)
+ 		return -ENOMEM;
+ 
+@@ -729,6 +820,12 @@ static int netvsc_probe(struct hv_device *dev,
+ 	}
+ 	memcpy(net->dev_addr, device_info.mac_adr, ETH_ALEN);
+ 
++	nvdev = hv_get_drvdata(dev);
++	netif_set_real_num_tx_queues(net, nvdev->num_chn);
++	netif_set_real_num_rx_queues(net, nvdev->num_chn);
++	dev_info(&dev->device, "real num tx,rx queues:%u, %u\n",
++		 net->real_num_tx_queues, net->real_num_rx_queues);
++
+ 	ret = register_netdev(net);
+ 	if (ret != 0) {
+ 		pr_err("Unable to register netdev.\n");
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 143a98c..d92cfbe 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -31,7 +31,7 @@
+ #include "hyperv_net.h"
+ 
+ 
+-#define RNDIS_EXT_LEN 100
++#define RNDIS_EXT_LEN PAGE_SIZE
+ struct rndis_request {
+ 	struct list_head list_ent;
+ 	struct completion  wait_event;
+@@ -94,6 +94,8 @@ static struct rndis_request *get_rndis_request(struct rndis_device *dev,
+ 	rndis_msg->ndis_msg_type = msg_type;
+ 	rndis_msg->msg_len = msg_len;
+ 
++	request->pkt.q_idx = 0;
++
+ 	/*
+ 	 * Set the request id. This field is always after the rndis header for
+ 	 * request/response packet types so we just used the SetRequest as a
+@@ -509,6 +511,19 @@ static int rndis_filter_query_device(struct rndis_device *dev, u32 oid,
+ 	query->info_buflen = 0;
+ 	query->dev_vc_handle = 0;
+ 
++	if (oid == OID_GEN_RECEIVE_SCALE_CAPABILITIES) {
++		struct ndis_recv_scale_cap *cap;
++
++		request->request_msg.msg_len +=
++			sizeof(struct ndis_recv_scale_cap);
++		query->info_buflen = sizeof(struct ndis_recv_scale_cap);
++		cap = (struct ndis_recv_scale_cap *)((unsigned long)query +
++						     query->info_buf_offset);
++		cap->hdr.type = NDIS_OBJECT_TYPE_RSS_CAPABILITIES;
++		cap->hdr.rev = NDIS_RECEIVE_SCALE_CAPABILITIES_REVISION_2;
++		cap->hdr.size = sizeof(struct ndis_recv_scale_cap);
++	}
++
+ 	ret = rndis_filter_send_request(dev, request);
+ 	if (ret != 0)
+ 		goto cleanup;
+@@ -695,6 +710,89 @@ cleanup:
+ 	return ret;
+ }
+ 
++u8 netvsc_hash_key[HASH_KEYLEN] = {
++	0x6d, 0x5a, 0x56, 0xda, 0x25, 0x5b, 0x0e, 0xc2,
++	0x41, 0x67, 0x25, 0x3d, 0x43, 0xa3, 0x8f, 0xb0,
++	0xd0, 0xca, 0x2b, 0xcb, 0xae, 0x7b, 0x30, 0xb4,
++	0x77, 0xcb, 0x2d, 0xa3, 0x80, 0x30, 0xf2, 0x0c,
++	0x6a, 0x42, 0xb7, 0x3b, 0xbe, 0xac, 0x01, 0xfa
++};
++
++int rndis_filter_set_rss_param(struct rndis_device *rdev, int num_queue)
++{
++	struct net_device *ndev = rdev->net_dev->ndev;
++	struct rndis_request *request;
++	struct rndis_set_request *set;
++	struct rndis_set_complete *set_complete;
++	u32 extlen = sizeof(struct ndis_recv_scale_param) +
++		     4*ITAB_NUM + HASH_KEYLEN;
++	struct ndis_recv_scale_param *rssp;
++	u32 *itab;
++	u8 *keyp;
++	int i, t, ret;
++
++	request = get_rndis_request(
++			rdev, RNDIS_MSG_SET,
++			RNDIS_MESSAGE_SIZE(struct rndis_set_request) + extlen);
++	if (!request)
++		return -ENOMEM;
++
++	set = &request->request_msg.msg.set_req;
++	set->oid = OID_GEN_RECEIVE_SCALE_PARAMETERS;
++	set->info_buflen = extlen;
++	set->info_buf_offset = sizeof(struct rndis_set_request);
++	set->dev_vc_handle = 0;
++
++	rssp = (struct ndis_recv_scale_param *)(set + 1);
++	rssp->hdr.type = NDIS_OBJECT_TYPE_RSS_PARAMETERS;
++	rssp->hdr.rev = NDIS_RECEIVE_SCALE_PARAMETERS_REVISION_2;
++	rssp->hdr.size = sizeof(struct ndis_recv_scale_param);
++	rssp->flag = 0;
++	rssp->hashinfo = NDIS_HASH_FUNC_TOEPLITZ | NDIS_HASH_IPV4 |
++			 NDIS_HASH_TCP_IPV4;
++	rssp->indirect_tabsize = 4*ITAB_NUM;
++	rssp->indirect_taboffset = sizeof(struct ndis_recv_scale_param);
++	rssp->hashkey_size = HASH_KEYLEN;
++	rssp->kashkey_offset = rssp->indirect_taboffset +
++			       rssp->indirect_tabsize;
++
++	/* Set indirection table entries */
++	itab = (u32 *)(rssp + 1);
++	for (i = 0; i < ITAB_NUM; i++)
++		itab[i] = i % num_queue;
++
++	/* Set hask key values */
++	keyp = (u8 *)((unsigned long)rssp + rssp->kashkey_offset);
++	for (i = 0; i < HASH_KEYLEN; i++)
++		keyp[i] = netvsc_hash_key[i];
++
++
++	ret = rndis_filter_send_request(rdev, request);
++	if (ret != 0)
++		goto cleanup;
++
++	t = wait_for_completion_timeout(&request->wait_event, 5*HZ);
++	if (t == 0) {
++		netdev_err(ndev, "timeout before we got a set response...\n");
++		/* can't put_rndis_request, since we may still receive a
++		 * send-completion.
++		 */
++		return -ETIMEDOUT;
++	} else {
++		set_complete = &request->response_msg.msg.set_complete;
++		if (set_complete->status != RNDIS_STATUS_SUCCESS) {
++			netdev_err(ndev, "Fail to set RSS parameters:0x%x\n",
++				   set_complete->status);
++			ret = -EINVAL;
++		}
++	}
++
++cleanup:
++	put_rndis_request(rdev, request);
++	return ret;
++}
++
++
+ static int rndis_filter_query_device_link_status(struct rndis_device *dev)
+ {
+ 	u32 size = sizeof(u32);
+@@ -886,6 +984,28 @@ static int rndis_filter_close_device(struct rndis_device *dev)
+ 	return ret;
+ }
+ 
++static void netvsc_sc_open(struct vmbus_channel *new_sc)
++{
++	struct netvsc_device *nvscdev;
++	u16 chn_index = new_sc->offermsg.offer.sub_channel_index;
++	int ret;
++
++	nvscdev = hv_get_drvdata(new_sc->primary_channel->device_obj);
++
++	if (chn_index >= nvscdev->num_chn)
++		return;
++
++	set_per_channel_state(new_sc, nvscdev->sub_cb_buf + (chn_index - 1) *
++			      NETVSC_PACKET_SIZE);
++
++	ret = vmbus_open(new_sc, nvscdev->ring_size * PAGE_SIZE,
++			 nvscdev->ring_size * PAGE_SIZE, NULL, 0,
++			 netvsc_channel_cb, new_sc);
++
++	if (ret == 0)
++		nvscdev->chn_table[chn_index] = new_sc;
++}
++
+ int rndis_filter_device_add(struct hv_device *dev,
+ 				  void *additional_info)
+ {
+@@ -894,6 +1014,10 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	struct rndis_device *rndis_device;
+ 	struct netvsc_device_info *device_info = additional_info;
+ 	struct ndis_offload_params offloads;
++	struct nvsp_message *init_packet;
++	int t;
++	struct ndis_recv_scale_cap rsscap;
++	u32 rsscap_size = sizeof(struct ndis_recv_scale_cap);
+ 
+ 	rndis_device = get_rndis_device();
+ 	if (!rndis_device)
+@@ -913,6 +1037,7 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 
+ 	/* Initialize the rndis device */
+ 	net_device = hv_get_drvdata(dev);
++	net_device->num_chn = 1;
+ 
+ 	net_device->extension = rndis_device;
+ 	rndis_device->net_dev = net_device;
+@@ -952,7 +1077,6 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	if (ret)
+ 		goto err_dev_remv;
+ 
+-
+ 	rndis_filter_query_device_link_status(rndis_device);
+ 
+ 	device_info->link_state = rndis_device->link_state;
+@@ -961,7 +1085,66 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 		 rndis_device->hw_mac_adr,
+ 		 device_info->link_state ? "down" : "up");
+ 
+-	return ret;
++	if (net_device->nvsp_version < NVSP_PROTOCOL_VERSION_5)
++		return 0;
++
++	/* vRSS setup */
++	memset(&rsscap, 0, rsscap_size);
++	ret = rndis_filter_query_device(rndis_device,
++					OID_GEN_RECEIVE_SCALE_CAPABILITIES,
++					&rsscap, &rsscap_size);
++	if (ret || rsscap.num_recv_que < 2)
++		goto out;
++
++	net_device->num_chn = (num_online_cpus() < rsscap.num_recv_que) ?
++			       num_online_cpus() : rsscap.num_recv_que;
++	if (net_device->num_chn == 1)
++		goto out;
++
++	net_device->sub_cb_buf = vzalloc((net_device->num_chn - 1) *
++					 NETVSC_PACKET_SIZE);
++	if (!net_device->sub_cb_buf) {
++		net_device->num_chn = 1;
++		dev_info(&dev->device, "No memory for subchannels.\n");
++		goto out;
++	}
++
++	vmbus_set_sc_create_callback(dev->channel, netvsc_sc_open);
++
++	init_packet = &net_device->channel_init_pkt;
++	memset(init_packet, 0, sizeof(struct nvsp_message));
++	init_packet->hdr.msg_type = NVSP_MSG5_TYPE_SUBCHANNEL;
++	init_packet->msg.v5_msg.subchn_req.op = NVSP_SUBCHANNEL_ALLOCATE;
++	init_packet->msg.v5_msg.subchn_req.num_subchannels =
++						net_device->num_chn - 1;
++	ret = vmbus_sendpacket(dev->channel, init_packet,
++			       sizeof(struct nvsp_message),
++			       (unsigned long)init_packet,
++			       VM_PKT_DATA_INBAND,
++			       VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
++	if (ret)
++		goto out;
++	t = wait_for_completion_timeout(&net_device->channel_init_wait, 5*HZ);
++	if (t == 0) {
++		ret = -ETIMEDOUT;
++		goto out;
++	}
++	if (init_packet->msg.v5_msg.subchn_comp.status !=
++	    NVSP_STAT_SUCCESS) {
++		ret = -ENODEV;
++		goto out;
++	}
++	net_device->num_chn = 1 +
++		init_packet->msg.v5_msg.subchn_comp.num_subchannels;
++
++	vmbus_are_subchannels_present(dev->channel);
++
++	ret = rndis_filter_set_rss_param(rndis_device, net_device->num_chn);
++
++out:
++	if (ret)
++		net_device->num_chn = 1;
++	return 0; /* return 0 because primary channel can be used alone */
+ 
+ err_dev_remv:
+ 	rndis_filter_device_remove(dev);
 -- 
-1.9.1.423.g4596e3a
+1.7.4.1
