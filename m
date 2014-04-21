@@ -1,56 +1,69 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next,1/2] hyperv: Remove recv_pkt_list and lock
-Date: Mon, 21 Apr 2014 21:00:52 +0000
-Message-ID: <2deafebb39844bc49b22695ae2c9df86@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <1398108376-4857-1-git-send-email-haiyangz@microsoft.com>
- <20140421.145711.1903592201158395025.davem@davemloft.net>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH ethtool 2/2] Use htobe64, htobe16 from libc instead of
+ local byteswap code
+Date: Mon, 21 Apr 2014 22:18:48 +0100
+Message-ID: <1398115128.3624.142.camel@deadeye.wl.decadent.org.uk>
+References: <1396494376-6521-1-git-send-email-crrodriguez@opensuse.org>
+	 <1396494376-6521-2-git-send-email-crrodriguez@opensuse.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"driverdev-devel@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140421.145711.1903592201158395025.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-qVAMrlqG+l13g4NwDai+"
+Cc: netdev@vger.kernel.org
+To: Cristian =?ISO-8859-1?Q?Rodr=EDguez?= <crrodriguez@opensuse.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51183 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752896AbaDUVS7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 17:18:59 -0400
+In-Reply-To: <1396494376-6521-2-git-send-email-crrodriguez@opensuse.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+--=-qVAMrlqG+l13g4NwDai+
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Monday, April 21, 2014 2:57 PM
-> To: Haiyang Zhang
-> Cc: netdev@vger.kernel.org; KY Srinivasan; olaf@aepfle.de;
-> jasowang@redhat.com; linux-kernel@vger.kernel.org; driverdev-
-> devel@linuxdriverproject.org
-> Subject: Re: [PATCH net-next,1/2] hyperv: Remove recv_pkt_list and lock
-> 
-> From: Haiyang Zhang <haiyangz@microsoft.com>
-> Date: Mon, 21 Apr 2014 12:26:15 -0700
-> 
-> > @@ -401,8 +401,6 @@ static void rndis_filter_receive_data(struct
-> rndis_device *dev,
-> >  	pkt->total_data_buflen = rndis_pkt->data_len;
-> >  	pkt->data = (void *)((unsigned long)pkt->data + data_offset);
-> >
-> > -	pkt->is_data_pkt = true;
-> > -
-> >  	vlan = rndis_get_ppi(rndis_pkt, IEEE_8021Q_INFO);
-> >  	if (vlan) {
-> >  		pkt->vlan_tci = VLAN_TAG_PRESENT | vlan->vlanid |
-> 
-> This part of your change is not explained at all in your commit message.
-> 
-> Please resubmit this series with this hunk properly described and accounted for.
+On Thu, 2014-04-03 at 00:06 -0300, Cristian Rodr=C3=ADguez wrote:
+> They are implemented in <endian.h> which is already included
+> in internal.h, no need to reinvent them with different names.
+>=20
+> Signed-off-by: Cristian Rodr=C3=ADguez <crrodriguez@opensuse.org>
+[...]
 
-I have updated the description and re-send them.
+According to the manual page, "These functions were added to glibc in
+version 2.9."
 
-Thanks,
-- Haiyang
+Which is quite old now, but newer than several supported distributions
+(e.g. RHEL 5).  So we would need an autoconf test and fallback
+definition, at which point there doesn't seem to be any benefit.
+
+Ben.
+
+--=20
+Ben Hutchings
+Knowledge is power.  France is bacon.
+
+--=-qVAMrlqG+l13g4NwDai+
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAU1WLOOe/yOyVhhEJAQpaow//TF0yzlnoB3d+KiYt21TVkSjmGRN7p8zn
+igIbZr7+djipxwyQV124E7as72cvyDCPNrQ8LoC96NjPJKjL4QwpVh2TQe4A5YUl
+VpCBorzNPJqcEKTEV43PzL3I7hQtaEZe05q9nN2aH2Ql0v9fwo6ZiJR/2i6iQL/x
+CLjZa3bHbxLyslbj0n/7UiIiFn2kYdhrqJkSsJ/tEKgWrZR92EDcJza4lTsAZPza
+a3+psTZT+Aty0SpNFuUI2h1LCD2qVJYoa0aK5pFpHMzxNyBbpwdXFXE4bwznwCbD
+Z7T/oLAhlown9D9iExRhM1NR6koQqPf7MqNjJv5hkC7SCuLT54Rq1zmke/kZ9Oc3
+JTyGC0ISZ3YKi9hsqGXZjDRlEh69q4mGC60CqGApJGIbC2t77B7YsBnjEf59JYkm
+ELa4twc/qMMHhGg1nQB49TWBYDWEWDXTojTgonyi/BQNw2YoUchzIzM+mK0UftC/
+oKiKmevYSTW9aVV2eKh3uCco0JHTtO2DJjQSfze160dAUrJmA38xilLTF0NRLCg6
+iT1wX712MTgOUG+dB2eyOMgoGbotOzM7EuTpKiZp1PXbsn8i4f3sTZuPFt+Pg8FE
+SYfnO2rlVbF/QXr2ubXsHTaOvK9TiFAT4LirsQMW89ctL1vpAnXfjQzkCiEEW/Ip
+9glNiyFFIyI=
+=N2Dv
+-----END PGP SIGNATURE-----
+
+--=-qVAMrlqG+l13g4NwDai+--
