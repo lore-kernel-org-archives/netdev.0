@@ -1,39 +1,63 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] MAINTAINERS: SXGBE authors update
-Date: Mon, 21 Apr 2014 09:12:08 -0700
-Message-ID: <1398096728-8897-1-git-send-email-f.fainelli@gmail.com>
-Cc: bh74.an@samsung.com, ks.giri@samsung.com, davem@davemloft.net,
-	Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 2/4] net: cpmac: remove cpmac_config
+Date: Mon, 21 Apr 2014 09:09:20 -0700
+Message-ID: <1398096563-8786-3-git-send-email-f.fainelli@gmail.com>
+References: <1398096563-8786-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, bh74.an@samsung.com, ks.giri@samsung.com,
+	siva.kallam@samsung.com, peppe.cavallaro@st.com,
+	jcmvbkbc@gmail.com, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:39357 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751238AbaDUQM3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 12:12:29 -0400
-Received: by mail-pd0-f175.google.com with SMTP id x10so3819740pdj.34
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 09:12:29 -0700 (PDT)
+Received: from mail-qc0-f175.google.com ([209.85.216.175]:47971 "EHLO
+	mail-qc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751562AbaDUQPr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 12:15:47 -0400
+Received: by mail-qc0-f175.google.com with SMTP id e16so4174803qcx.20
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 09:15:47 -0700 (PDT)
+In-Reply-To: <1398096563-8786-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mail address for Siva Reddy Kallam is bouncing, remove the email
-address from the MAINTAINERS entry for Samsung's SXGBE driver.
+cpmac_config() refuses changing the base address parameter, and ignores
+all other parameters, which means that it is pretty useless as it is, so
+let's remove it.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- MAINTAINERS | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/ethernet/ti/cpmac.c | 14 --------------
+ 1 file changed, 14 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index e67ea2442041..1241a73cc230 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -7674,7 +7674,6 @@ F:	drivers/clk/samsung/
- SAMSUNG SXGBE DRIVERS
- M:	Byungho An <bh74.an@samsung.com>
- M:	Girish K S <ks.giri@samsung.com>
--M:	Siva Reddy Kallam <siva.kallam@samsung.com>
- M:	Vipul Pandya <vipul.pandya@samsung.com>
- S:	Supported
- L:	netdev@vger.kernel.org
+diff --git a/drivers/net/ethernet/ti/cpmac.c b/drivers/net/ethernet/ti/cpmac.c
+index 73f74f369437..7399a52f7c26 100644
+--- a/drivers/net/ethernet/ti/cpmac.c
++++ b/drivers/net/ethernet/ti/cpmac.c
+@@ -313,19 +313,6 @@ static int mii_irqs[PHY_MAX_ADDR] = { PHY_POLL, };
+ 
+ static struct mii_bus *cpmac_mii;
+ 
+-static int cpmac_config(struct net_device *dev, struct ifmap *map)
+-{
+-	if (dev->flags & IFF_UP)
+-		return -EBUSY;
+-
+-	/* Don't allow changing the I/O address */
+-	if (map->base_addr != dev->base_addr)
+-		return -EOPNOTSUPP;
+-
+-	/* ignore other fields */
+-	return 0;
+-}
+-
+ static void cpmac_set_multicast_list(struct net_device *dev)
+ {
+ 	struct netdev_hw_addr *ha;
+@@ -1100,7 +1087,6 @@ static const struct net_device_ops cpmac_netdev_ops = {
+ 	.ndo_tx_timeout		= cpmac_tx_timeout,
+ 	.ndo_set_rx_mode	= cpmac_set_multicast_list,
+ 	.ndo_do_ioctl		= cpmac_ioctl,
+-	.ndo_set_config		= cpmac_config,
+ 	.ndo_change_mtu		= eth_change_mtu,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_mac_address	= eth_mac_addr,
 -- 
 1.9.1
