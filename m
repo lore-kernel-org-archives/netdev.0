@@ -1,9 +1,7 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 04/11] tipc: convert bearer_list
-	to RCU list
-Date: Mon, 21 Apr 2014 10:55:45 +0800
-Message-ID: <1398048952-7825-5-git-send-email-ying.xue@windriver.com>
-References: <1398048952-7825-1-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 00/11] purge tipc_net_lock
+Date: Mon, 21 Apr 2014 10:55:41 +0800
+Message-ID: <1398048952-7825-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,7 +9,6 @@ Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
 	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
 To: <davem@davemloft.net>
 Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1398048952-7825-1-git-send-email-ying.xue@windriver.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
@@ -22,171 +19,70 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Convert bearer_list to RCU list. It's protected by RTNL lock on
-update side, and RCU read lock is applied to read side.
+Now tipc routing hierarchy comprises the structures 'node', 'link'and
+'bearer'. The whole hierarchy is protected by a big read/write lock,
+tipc_net_lock, to ensure that nothing is added or removed while code
+is accessing any of these structures. Obviously the locking policy
+makes node, link and bearer components closely bound together so that
+their relationship becomes unnecessarily complex. In the worst case,
+such locking policy not only has a negative influence on performance,
+but also it's prone to lead to deadlock occasionally.
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-Tested-by: Erik Hugne <erik.hugne@ericsson.com>
----
- net/tipc/bcast.c  |    9 ++++++---
- net/tipc/bearer.c |   18 +++++++++---------
- net/tipc/bearer.h |    4 +++-
- 3 files changed, 18 insertions(+), 13 deletions(-)
+In order o decouple the complex relationship between bearer and node
+as well as link, the locking policy is adjusted as follows:
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 95ab5ef..223a199 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -659,6 +659,7 @@ void tipc_bcbearer_sort(void)
- {
- 	struct tipc_bcbearer_pair *bp_temp = bcbearer->bpairs_temp;
- 	struct tipc_bcbearer_pair *bp_curr;
-+	struct tipc_bearer *b;
- 	int b_index;
- 	int pri;
- 
-@@ -667,8 +668,9 @@ void tipc_bcbearer_sort(void)
- 	/* Group bearers by priority (can assume max of two per priority) */
- 	memset(bp_temp, 0, sizeof(bcbearer->bpairs_temp));
- 
-+	rcu_read_lock();
- 	for (b_index = 0; b_index < MAX_BEARERS; b_index++) {
--		struct tipc_bearer *b = bearer_list[b_index];
-+		b = rcu_dereference_rtnl(bearer_list[b_index]);
- 		if (!b || !b->nodes.count)
- 			continue;
- 
-@@ -677,6 +679,7 @@ void tipc_bcbearer_sort(void)
- 		else
- 			bp_temp[b->priority].secondary = b;
- 	}
-+	rcu_read_unlock();
- 
- 	/* Create array of bearer pairs for broadcasting */
- 	bp_curr = bcbearer->bpairs;
-@@ -784,7 +787,7 @@ void tipc_bclink_init(void)
- 	bcl->max_pkt = MAX_PKT_DEFAULT_MCAST;
- 	tipc_link_set_queue_limits(bcl, BCLINK_WIN_DEFAULT);
- 	bcl->b_ptr = &bcbearer->bearer;
--	bearer_list[BCBEARER] = &bcbearer->bearer;
-+	rcu_assign_pointer(bearer_list[MAX_BEARERS], &bcbearer->bearer);
- 	bcl->state = WORKING_WORKING;
- 	strlcpy(bcl->name, tipc_bclink_name, TIPC_MAX_LINK_NAME);
- }
-@@ -795,7 +798,7 @@ void tipc_bclink_stop(void)
- 	tipc_link_purge_queues(bcl);
- 	spin_unlock_bh(&bc_lock);
- 
--	bearer_list[BCBEARER] = NULL;
-+	RCU_INIT_POINTER(bearer_list[BCBEARER], NULL);
- 	memset(bclink, 0, sizeof(*bclink));
- 	memset(bcbearer, 0, sizeof(*bcbearer));
- }
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index dfb4c7f..65b1763 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -49,7 +49,7 @@ static struct tipc_media * const media_info_array[] = {
- 	NULL
- };
- 
--struct tipc_bearer *bearer_list[MAX_BEARERS + 1];
-+struct tipc_bearer __rcu *bearer_list[MAX_BEARERS + 1];
- 
- static void bearer_disable(struct tipc_bearer *b_ptr, bool shutting_down);
- 
-@@ -178,7 +178,7 @@ struct tipc_bearer *tipc_bearer_find(const char *name)
- 	u32 i;
- 
- 	for (i = 0; i < MAX_BEARERS; i++) {
--		b_ptr = bearer_list[i];
-+		b_ptr = rtnl_dereference(bearer_list[i]);
- 		if (b_ptr && (!strcmp(b_ptr->name, name)))
- 			return b_ptr;
- 	}
-@@ -201,7 +201,7 @@ struct sk_buff *tipc_bearer_get_names(void)
- 	read_lock_bh(&tipc_net_lock);
- 	for (i = 0; media_info_array[i] != NULL; i++) {
- 		for (j = 0; j < MAX_BEARERS; j++) {
--			b = bearer_list[j];
-+			b = rtnl_dereference(bearer_list[j]);
- 			if (!b)
- 				continue;
- 			if (b->media == media_info_array[i]) {
-@@ -287,7 +287,7 @@ restart:
- 	bearer_id = MAX_BEARERS;
- 	with_this_prio = 1;
- 	for (i = MAX_BEARERS; i-- != 0; ) {
--		b_ptr = bearer_list[i];
-+		b_ptr = rtnl_dereference(bearer_list[i]);
- 		if (!b_ptr) {
- 			bearer_id = i;
- 			continue;
-@@ -344,7 +344,7 @@ restart:
- 		goto exit;
- 	}
- 
--	bearer_list[bearer_id] = b_ptr;
-+	rcu_assign_pointer(bearer_list[bearer_id], b_ptr);
- 
- 	pr_info("Enabled bearer <%s>, discovery domain %s, priority %u\n",
- 		name,
-@@ -385,12 +385,12 @@ static void bearer_disable(struct tipc_bearer *b_ptr, bool shutting_down)
- 		tipc_disc_delete(b_ptr->link_req);
- 
- 	for (i = 0; i < MAX_BEARERS; i++) {
--		if (b_ptr == bearer_list[i]) {
--			bearer_list[i] = NULL;
-+		if (b_ptr == rtnl_dereference(bearer_list[i])) {
-+			RCU_INIT_POINTER(bearer_list[i], NULL);
- 			break;
- 		}
- 	}
--	kfree(b_ptr);
-+	kfree_rcu(b_ptr, rcu);
- }
- 
- int tipc_disable_bearer(const char *name)
-@@ -628,7 +628,7 @@ void tipc_bearer_stop(void)
- 	u32 i;
- 
- 	for (i = 0; i < MAX_BEARERS; i++) {
--		b_ptr = bearer_list[i];
-+		b_ptr = rtnl_dereference(bearer_list[i]);
- 		if (b_ptr) {
- 			bearer_disable(b_ptr, true);
- 			bearer_list[i] = NULL;
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index ba48145..b67b7ea 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -113,6 +113,7 @@ struct tipc_media {
-  * @name: bearer name (format = media:interface)
-  * @media: ptr to media structure associated with bearer
-  * @bcast_addr: media address used in broadcasting
-+ * @rcu: rcu struct for tipc_bearer
-  * @priority: default link priority for bearer
-  * @window: default window size for bearer
-  * @tolerance: default link tolerance for bearer
-@@ -133,6 +134,7 @@ struct tipc_bearer {
- 	char name[TIPC_MAX_BEARER_NAME];
- 	struct tipc_media *media;
- 	struct tipc_media_addr bcast_addr;
-+	struct rcu_head rcu;
- 	u32 priority;
- 	u32 window;
- 	u32 tolerance;
-@@ -150,7 +152,7 @@ struct tipc_bearer_names {
- 
- struct tipc_link;
- 
--extern struct tipc_bearer *bearer_list[];
-+extern struct tipc_bearer __rcu *bearer_list[];
- 
- /*
-  * TIPC routines available to supported media types
+- Bearer level
+  RTNL lock is used on update side, and RCU is used on read side.
+  Meanwhile, all bearer instances including broadcast bearer are
+  saved into bearer_list array.
+
+- Node and link level
+  All node instances are saved into two tipc_node_list and node_htable
+  lists. The two lists are protected by node_list_lock on write side,
+  and they are guarded with RCU lock on read side. All members in node
+  structure including link instances are protected by node spin lock.
+
+- The relationship between bearer and node
+  When link accesses bearer, it first needs to find the bearer with
+  its bearer identity from the bearer_list array. When bearer accesses
+  node, it can iterate the node_htable hash list with the node address
+  to find the corresponding node.
+
+In the new locking policy, every component has its private locking
+solution and the relationship between bearer and node is very simple,
+that is, they can find each other with node address or bearer identity
+from node_htable hash list or bearer_list array.
+
+Ying Xue (11):
+  tipc: replace config_mutex lock with RTNL lock
+  tipc: adjust locking policy of protecting tipc_ptr pointer of
+    net_device
+  tipc: use RTNL lock to protect tipc_net_stop routine
+  tipc: convert bearer_list to RCU list
+  tipc: decouple the relationship between bearer and link
+  tipc: use RCU to protect media_ptr pointer
+  tipc: purge tipc_net_lock lock
+  tipc: make media_ptr pointed netdevice valid
+  tipc: use bearer_disable to disable bearer in tipc_l2_device_event
+  tipc: use bc_lock to protect node map in bearer structure
+  tipc: fix race in disc create/delete
+
+ net/tipc/bcast.c      |   37 +++++++++-------
+ net/tipc/bcast.h      |    5 +--
+ net/tipc/bearer.c     |  117 ++++++++++++++++++++++++++-----------------------
+ net/tipc/bearer.h     |   12 ++---
+ net/tipc/config.c     |    6 +--
+ net/tipc/core.h       |    2 +-
+ net/tipc/discover.c   |   70 ++++++++++++++++++-----------
+ net/tipc/discover.h   |    1 +
+ net/tipc/link.c       |   89 +++++++++++++++++--------------------
+ net/tipc/link.h       |    6 ++-
+ net/tipc/name_distr.c |    2 -
+ net/tipc/net.c        |   61 +++++++++++---------------
+ net/tipc/net.h        |    2 -
+ net/tipc/node.c       |   10 ++---
+ 14 files changed, 215 insertions(+), 205 deletions(-)
+
 -- 
 1.7.9.5
 
