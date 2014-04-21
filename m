@@ -1,8 +1,8 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 03/11] tipc: use RTNL lock to
-	protect tipc_net_stop routine
-Date: Mon, 21 Apr 2014 10:55:44 +0800
-Message-ID: <1398048952-7825-4-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 06/11] tipc: use RCU to protect
+	media_ptr pointer
+Date: Mon, 21 Apr 2014 10:55:47 +0800
+Message-ID: <1398048952-7825-7-git-send-email-ying.xue@windriver.com>
 References: <1398048952-7825-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,36 +22,73 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-As the tipc network initialization(ie, tipc_net_start routine) is
-under RTNL protection, its corresponding deinitialization part(ie,
-tipc_net_stop routine) should be protected by RTNL too.
+Now the media_ptr pointer is protected with tipc_net_lock write lock
+on write side; tipc_net_lock read lock is used to read side. As the
+part of effort of eliminating tipc_net_lock, we decide to adjust the
+locking policy of media_ptr pointer protection: on write side, RTNL
+lock is use while on read side RCU read lock is applied.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Tested-by: Erik Hugne <erik.hugne@ericsson.com>
 ---
- net/tipc/net.c |    2 ++
- 1 file changed, 2 insertions(+)
+ net/tipc/bearer.c |   13 ++++++++++---
+ net/tipc/bearer.h |    2 +-
+ 2 files changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/net/tipc/net.c b/net/tipc/net.c
-index 4c564eb..24d2d21 100644
---- a/net/tipc/net.c
-+++ b/net/tipc/net.c
-@@ -195,11 +195,13 @@ void tipc_net_stop(void)
- 		return;
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index e0625e9..c24a351 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -458,7 +458,7 @@ int tipc_enable_l2_media(struct tipc_bearer *b)
+ 		return -ENODEV;
  
- 	tipc_nametbl_withdraw(TIPC_CFG_SRV, tipc_own_addr, 0, tipc_own_addr);
-+	rtnl_lock();
- 	write_lock_bh(&tipc_net_lock);
- 	tipc_bearer_stop();
- 	tipc_bclink_stop();
- 	tipc_node_stop();
- 	write_unlock_bh(&tipc_net_lock);
-+	rtnl_unlock();
- 
- 	pr_info("Left network mode\n");
+ 	/* Associate TIPC bearer with Ethernet bearer */
+-	b->media_ptr = dev;
++	rcu_assign_pointer(b->media_ptr, dev);
+ 	memset(b->bcast_addr.value, 0, sizeof(b->bcast_addr.value));
+ 	memcpy(b->bcast_addr.value, dev->broadcast, b->media->hwaddr_len);
+ 	b->bcast_addr.media_id = b->media->type_id;
+@@ -477,7 +477,10 @@ int tipc_enable_l2_media(struct tipc_bearer *b)
+  */
+ void tipc_disable_l2_media(struct tipc_bearer *b)
+ {
+-	struct net_device *dev = (struct net_device *)b->media_ptr;
++	struct net_device *dev;
++
++	dev = (struct net_device *)rtnl_dereference(b->media_ptr);
++	RCU_INIT_POINTER(b->media_ptr, NULL);
+ 	RCU_INIT_POINTER(dev->tipc_ptr, NULL);
+ 	dev_put(dev);
  }
+@@ -492,8 +495,12 @@ int tipc_l2_send_msg(struct sk_buff *buf, struct tipc_bearer *b,
+ 		     struct tipc_media_addr *dest)
+ {
+ 	struct sk_buff *clone;
++	struct net_device *dev;
+ 	int delta;
+-	struct net_device *dev = (struct net_device *)b->media_ptr;
++
++	dev = (struct net_device *)rcu_dereference_rtnl(b->media_ptr);
++	if (!dev)
++		return 0;
+ 
+ 	clone = skb_clone(buf, GFP_ATOMIC);
+ 	if (!clone)
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index 2fa86bd..a983b30 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -128,7 +128,7 @@ struct tipc_media {
+  * care of initializing all other fields.
+  */
+ struct tipc_bearer {
+-	void *media_ptr;			/* initalized by media */
++	void __rcu *media_ptr;			/* initalized by media */
+ 	u32 mtu;				/* initalized by media */
+ 	struct tipc_media_addr addr;		/* initalized by media */
+ 	char name[TIPC_MAX_BEARER_NAME];
 -- 
 1.7.9.5
 
