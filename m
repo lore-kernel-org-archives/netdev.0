@@ -1,99 +1,76 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH] vlan: unnecessary to check if vlan_pcpu_stats is NULL
-Date: Mon, 21 Apr 2014 19:49:08 +0800
-Message-ID: <1398080948-31851-1-git-send-email-roy.qing.li@gmail.com>
-Cc: edumazet@google.com
-To: netdev@vger.kernel.org
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: How to set the filtering rules for drop the packets
+Date: Mon, 21 Apr 2014 12:49:04 +0100
+Message-ID: <1398080944.3624.99.camel@deadeye.wl.decadent.org.uk>
+References: <35e52a86.138f1.14583b52f31.Coremail.mstian88@163.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-BNfHk/lnK6+ezcd7xH1v"
+Cc: bwh@kernel.org, netdev@vger.kernel.org
+To: mstian88 <mstian88@163.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:63960 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750906AbaDULtM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 07:49:12 -0400
-Received: by mail-pd0-f173.google.com with SMTP id z10so3604527pdj.18
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 04:49:11 -0700 (PDT)
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:49970 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750906AbaDULtO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 07:49:14 -0400
+In-Reply-To: <35e52a86.138f1.14583b52f31.Coremail.mstian88@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
 
-if allocating memory for vlan_pcpu_stats failed, the device can not be operated
+--=-BNfHk/lnK6+ezcd7xH1v
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>
----
- net/8021q/vlan_dev.c |   58 ++++++++++++++++++++++++--------------------------
- 1 file changed, 28 insertions(+), 30 deletions(-)
+On Mon, 2014-04-21 at 17:54 +0800, mstian88 wrote:
+> Dear Ben Hutchings.
+>=20
+>=20
+> I want to discard the packets (srcport=3D=3D80  or dstport=3D=3D80),  how=
+ can
+> i do?
+>
+> eg.
+> I set the rule for discard the packets that src port is 80:
+> ethtool -U eth0 flow-type tcp4 src-port 80 action -1    Success
+>=20
+>=20
+> then set the rule for discard the packets that dst port is 80:
+> ethtool -U eth0 flow-type tcp4 dst-port 80 action -1    Failed
+> the error info is :
+> rmgr: Cannot insert RX class rule: Invalid argument
 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 6f142f0..0cc60ad 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -670,38 +670,36 @@ static void vlan_ethtool_get_drvinfo(struct net_device *dev,
- 
- static struct rtnl_link_stats64 *vlan_dev_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
- {
-+	struct vlan_pcpu_stats *p;
-+	u32 rx_errors = 0, tx_dropped = 0;
-+	int i;
- 
--	if (vlan_dev_priv(dev)->vlan_pcpu_stats) {
--		struct vlan_pcpu_stats *p;
--		u32 rx_errors = 0, tx_dropped = 0;
--		int i;
--
--		for_each_possible_cpu(i) {
--			u64 rxpackets, rxbytes, rxmulticast, txpackets, txbytes;
--			unsigned int start;
--
--			p = per_cpu_ptr(vlan_dev_priv(dev)->vlan_pcpu_stats, i);
--			do {
--				start = u64_stats_fetch_begin_irq(&p->syncp);
--				rxpackets	= p->rx_packets;
--				rxbytes		= p->rx_bytes;
--				rxmulticast	= p->rx_multicast;
--				txpackets	= p->tx_packets;
--				txbytes		= p->tx_bytes;
--			} while (u64_stats_fetch_retry_irq(&p->syncp, start));
--
--			stats->rx_packets	+= rxpackets;
--			stats->rx_bytes		+= rxbytes;
--			stats->multicast	+= rxmulticast;
--			stats->tx_packets	+= txpackets;
--			stats->tx_bytes		+= txbytes;
--			/* rx_errors & tx_dropped are u32 */
--			rx_errors	+= p->rx_errors;
--			tx_dropped	+= p->tx_dropped;
--		}
--		stats->rx_errors  = rx_errors;
--		stats->tx_dropped = tx_dropped;
-+	for_each_possible_cpu(i) {
-+		u64 rxpackets, rxbytes, rxmulticast, txpackets, txbytes;
-+		unsigned int start;
-+
-+		p = per_cpu_ptr(vlan_dev_priv(dev)->vlan_pcpu_stats, i);
-+		do {
-+			start = u64_stats_fetch_begin_irq(&p->syncp);
-+			rxpackets	= p->rx_packets;
-+			rxbytes		= p->rx_bytes;
-+			rxmulticast	= p->rx_multicast;
-+			txpackets	= p->tx_packets;
-+			txbytes		= p->tx_bytes;
-+		} while (u64_stats_fetch_retry_irq(&p->syncp, start));
-+
-+		stats->rx_packets	+= rxpackets;
-+		stats->rx_bytes		+= rxbytes;
-+		stats->multicast	+= rxmulticast;
-+		stats->tx_packets	+= txpackets;
-+		stats->tx_bytes		+= txbytes;
-+		/* rx_errors & tx_dropped are u32 */
-+		rx_errors	+= p->rx_errors;
-+		tx_dropped	+= p->tx_dropped;
- 	}
-+	stats->rx_errors  = rx_errors;
-+	stats->tx_dropped = tx_dropped;
-+
- 	return stats;
- }
- 
--- 
-1.7.10.4
+The sets of fields you can filter by vary greatly between different
+drivers and network controllers.  It looks like the driver for eth0 just
+doesn't support filtering by dst-port only.
+
+Ben.
+
+
+--=20
+Ben Hutchings
+Knowledge is power.  France is bacon.
+
+--=-BNfHk/lnK6+ezcd7xH1v
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAU1UFsOe/yOyVhhEJAQqLEQ//dPhuyxeFxbYDcE8U+qHkYb5Nx5r8br7L
+k3rWeZtL6ckll+HynO9lLU34Gh0rm0noxEANNL7HT15DABeOFEwgLVtMDfHvpr2f
+FWxBwmTMZd74Z/Su764aM+q4woiQRQtESEzdVfZRd/lrvQiNy0z3kift0yCYDj4T
+qlxLPPhjro5MPA0G2O3SAsIh6WTOirnZI2GUNKbIQCsGtl0uGsbDiEUrkLcFBb9M
+Jimmu0vobGtilR+gyg+ZmFkFu0NtkhewLtnLepZF93ehA33DxgZKrc0fZkjxmMnd
+ExG3tP/vyOOmyaj8eecB0zPcu/lM4SJB8/3nxG692m3/4ZWRlr1zItsd63aacLYe
+wblwqgwhCquXCDblMutVwW8zq55ExftvapphyENkwBfy7wCSjggHAz2sIKHPFis0
+9CVJy7iGilPK86J1UjgV1H9cGmKiU99MrYrbFENEaQ7u3M/UFxtY7kJsmy4R42oU
+aroM2dD42BF6zFQlwiy7AKaZd2IQklGVBGzTl+FlbJDu50S+L45/aHWaLYbXaJQ2
+QpRjBO1GYkr5MOvONOZeyK3SzDRo0FHcfmQB054E9yMz2yGmvZBtbuDJizBCSN9G
+biLUcqE+DJmySS6bsRrHyyCB6oHrMzWRuWOSuk8svRFsEhN5fXtZ2ZSycH3ECWSK
+3swpqE2XIaY=
+=EioH
+-----END PGP SIGNATURE-----
+
+--=-BNfHk/lnK6+ezcd7xH1v--
