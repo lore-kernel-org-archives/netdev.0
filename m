@@ -1,94 +1,73 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v2] filter: added BPF random opcode
-Date: Mon, 21 Apr 2014 15:20:18 -0700
-Message-ID: <CAMEtUuzBuK+82EvvSZmBTJtTJcTr0-r-AMOUNnYqF7aoQgtLdA@mail.gmail.com>
-References: <1397585816-1267-1-git-send-email-chema@google.com>
-	<1398097284-20528-1-git-send-email-chema@google.com>
-	<CAMEtUuw=trzxSC9Dc+UAEU5HyHk1Ym3cW7L+7tmvOe2hzHmXMw@mail.gmail.com>
-	<CA+ZOOTNnfUkqLT9wrmoHtP+-a5+7UzLvO0qeNjtknZX1K9kn3g@mail.gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: ethtool 3.14 released
+Date: Mon, 21 Apr 2014 23:37:24 +0100
+Message-ID: <1398119844.3624.159.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Chema Gonzalez <chema@google.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-A6BoUzlEstzwl+jDFRFt"
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:45611 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754560AbaDUWUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 18:20:19 -0400
-Received: by mail-wg0-f48.google.com with SMTP id l18so3192824wgh.7
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 15:20:19 -0700 (PDT)
-In-Reply-To: <CA+ZOOTNnfUkqLT9wrmoHtP+-a5+7UzLvO0qeNjtknZX1K9kn3g@mail.gmail.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51341 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754027AbaDUWhe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 18:37:34 -0400
+Received: from deadeye.wl.decadent.org.uk ([192.168.4.249])
+	by shadbolt.decadent.org.uk with esmtps (TLS1.2:RSA_AES_128_CBC_SHA1:128)
+	(Exim 4.80)
+	(envelope-from <ben@decadent.org.uk>)
+	id 1WcMqC-0007Zy-Uw
+	for netdev@vger.kernel.org; Mon, 21 Apr 2014 23:37:33 +0100
+Received: from ben by deadeye.wl.decadent.org.uk with local (Exim 4.82)
+	(envelope-from <ben@decadent.org.uk>)
+	id 1WcMq9-0000JD-2N
+	for netdev@vger.kernel.org; Mon, 21 Apr 2014 23:37:29 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 21, 2014 at 2:54 PM, Chema Gonzalez <chema@google.com> wrote:
-> On Mon, Apr 21, 2014 at 2:46 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
->> as I was saying in the other thread, would be nice to see more
->> realistic example, since "icmp 1 in 4" can be done in user space...
->> What is the real problem being solved?
->> I suspect for true packet sampling you'd need to have the knowledge
->> of packet rate, potentially computing time delta within filter with
->> another extension?
->> The patch itself looks good to me.
-> Random sampling. There's a huge performance penalty if you do this in
-> user-space. You don't want to send all the packets to user-space to
-> just get (e.g.) 1 in 1000 and discard all the others.
 
-Of course.
-Just 1 out of 4 example you gave wasn't very real.
+--=-A6BoUzlEstzwl+jDFRFt
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> From http://www.icir.org/vern/papers/secondary-path-raid06.pdf:
+ethtool version 3.14 has been released.
 
-Nice. Now I see where it's going :)
-The article helps a lot.
+Home page: https://www.kernel.org/pub/software/network/ethtool/
+Download link:
+https://www.kernel.org/pub/software/network/ethtool/ethtool-3.14.tar.xz
 
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+Release notes:
 
-btw it's funny how different people think of similar things.
-It seems to complete what you wanted in the article you'd need
-table access from the filter.
-Did you have a chance to look at my bpf table proposal?
-It seems it will fit perfectly to your use case as well.
+	* Fix: Report Backplane as supported port (no option)
+	* Feature: Allow building a smaller executable without pretty-
+	  printing of register/EEPROM dumps (./configure --disable-pretty-dump)
+	* Fix: Typo in channel parameter format in an error message (-L option)
 
-Here is the copy paste from the other thread:
------
-Similar basic interface I'm proposing to use for bpf tables.
-Probably makes sense to drop 'bpf' prefix, since they're just
-hash tables. Little to do with bpf.
-Have a netlink API from user into kernel:
-- create hash table (num_of_entries, key_size, value_size, id)
-- dump table via netlink
-- add/remove key/value pair
-Some kernel module may use it to transfer the data between
-kernel and userspace.
-This can be a generic kernel/user data sharing facility.
+Ben.
 
-Also let bpf programs do 'table_lookup/update', so that
-filters can store interesting data.
---------
-I've posted early bpf_table patches back in September...
-Now in process of redoing them with cleaner interface.
+--=20
+Ben Hutchings
+Knowledge is power.  France is bacon.
 
-Thanks
+--=-A6BoUzlEstzwl+jDFRFt
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-> When dealing with large volumes of network traffic, we can often
-> derive significant
-> benefit while minimizing the processing cost by employing sampling.
-> Generally, this
-> is done on either a per-packet or per-connection basis. BPF does not
-> provide access
-> to pseudo-random numbers, so applications have had to rely on proxies
-> for random-
-> ness in terms of network header fields with some semblance of entropy
-> across packets
-> (checksum and IP fragment identifier fields) or connections (ephemeral
-> ports). These
-> sometimes provide acceptable approximations to random sampling, but
-> can also suffer
-> from significant irregularities due to lack of entropy or aliasing;
-> see [11] for an analysis.
->
-> -Chema
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAU1WdpOe/yOyVhhEJAQrS5Q//TqLEGdKD1R9CGyyezt1NSvzTguE/6QU9
+boNmfzv+04K0qWiVwqgdpsX3hFo3utuoqNBqGI4/24d16kiLToGPsc6JE508lg2j
+ulhs6kjXVSbq/6bCXWH+Fffb4zM4QTQsbQ0lnLEVivgTyMRXV5YC06Hf1gPY88YQ
+tJrUzH4R0lmDalvMPxC4eYAkBe4ZnsQK/ic0NL8FaT0sBPKwnZsYqrQV/exOQydr
+ZlSK46HG1/ci6ybWUVKpWoXEyHvlKWvrwWXA8ynJubeXsUw/Ao93rru2vXtbER4a
+HAYwgpeT5BOGCg/+OlaS0hYp7MavE7l1uk7oAj3ngyYmC+UtGfEfnBaLr8LUkbqf
+kUSBrIGNU9p69M8+sec8o5FUBDeRxBoT2ZSBFcBmT7UuC2FHa66bgS5c0Dpfjew+
+kflrXAGuKDkiC97SiRLeKkcVkP46KSVIb867Zbd7LjPxoa6k4xBWwChmOGypeh2c
+/uMP4XvdZopdsg4zqlIr8YlPNXXfZ9fGzR9eWXWwLbZRtI2ggALT3MmQoNpUu6Yd
+QGecoeSP4G6M46QPZy6wKjbq0BGgLPaNuk+4Ma9uIIhco1Jit9GeJzS2J5JpgAor
+sJpaBFWA9EauFRe2QRgHCsIQqTf8YX2K80jQyQ+/PzFp7AsX+xhyU9RH8lR42IzL
+3TPdckWw4EA=
+=nQ8l
+-----END PGP SIGNATURE-----
+
+--=-A6BoUzlEstzwl+jDFRFt--
