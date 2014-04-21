@@ -1,37 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net 0/7][pull request] Intel Wired LAN Driver Updates
-Date: Mon, 21 Apr 2014 13:24:44 -0700
-Message-ID: <1398111884.29946.0.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1397872767-4001-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20140421.125858.1669714683420708606.davem@davemloft.net>
-	 <CAJZOPZLpgT41yfjUDD_8qoOCLWsEAT-XfywaKh_KTTFOMqEdRA@mail.gmail.com>
+From: Tom Gundersen <teg@jklm.no>
+Subject: Re: [BUG?] bridge_id not getting set for bridges created with
+Date: Mon, 21 Apr 2014 22:56:15 +0200
+Message-ID: <CAG-2HqU2f+4i3ttLSeitwr15=cVyin9VT+UrQvKC9pMV04fW7Q@mail.gmail.com>
+References: <CAG-2HqVnWXu2dW=Su6DDxDzgg3cLSvTMu5Sf=Eq+YUv4P1d4NQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "C. R. Oldham" <cr@saltstack.com>
+To: netdev <netdev@vger.kernel.org>,
+	bridge <bridge@lists.linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:62372 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750891AbaDUUYq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 16:24:46 -0400
-Received: by mail-pd0-f175.google.com with SMTP id x10so4026075pdj.20
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 13:24:46 -0700 (PDT)
-In-Reply-To: <CAJZOPZLpgT41yfjUDD_8qoOCLWsEAT-XfywaKh_KTTFOMqEdRA@mail.gmail.com>
+Received: from mail-yh0-f42.google.com ([209.85.213.42]:35400 "EHLO
+	mail-yh0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754532AbaDUU4g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 16:56:36 -0400
+Received: by mail-yh0-f42.google.com with SMTP id v1so2184347yhn.29
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 13:56:36 -0700 (PDT)
+In-Reply-To: <CAG-2HqVnWXu2dW=Su6DDxDzgg3cLSvTMu5Sf=Eq+YUv4P1d4NQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-04-21 at 23:15 +0300, Or Gerlitz wrote:
-> > From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > Date: Fri, 18 Apr 2014 18:59:20 -0700
-> >> Jesse's i40e patch fixes an issue reported by Eric Dumazet that the
-> >> i40e driver was allowing the hardware to replicate the PSH flag on
-> >> all segments of a TSO operation.  With this fix, we are now configuring
-> >> the CWR bit to only be set in the first packet of a TSO and we
-> >> enable TSO_ECN in order to advertise to the stack that we do the right
-> >> thing on the wire.
-> 
-> Hi Jeff, was this report sent over netdev? pointer will be great
+On Mon, Apr 21, 2014 at 9:33 PM, Tom Gundersen <teg@jklm.no> wrote:
+> Hi,
+>
+> If IFLA_ADDRESS is set when creating a bridge over netlink, e.g.
+>
+> # ip link add test-bridge address b6:83:a2:b3:2f:0e type bride
+>
+> the bridge id is not set:
+>
+> # brctl show
+> bridge name    bridge id        STP enabled    interfaces
+> bridge1        8000.000000000000    no
 
-Nope, this was a private communication I had with Jesse.
+My example was incomplete. To see the bug one should of course first
+add an interface to the bridge:
+
+# brctl addif bridge1 eth0
+
+
+and observe that the bridge id remains unset:
+
+# brctl show
+bridge name    bridge id        STP enabled    interfaces
+bridge1        8000.000000000000    no            eth0
+
+
+
+If bridge1 had been created without specifying the mac address the
+result is as expected:
+
+# brctl show
+bridge name    bridge id        STP enabled    interfaces
+bridge1        8000.28d244547cdb    no            eth0
+
+Cheers,
+
+Tom
