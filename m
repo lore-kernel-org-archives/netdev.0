@@ -1,113 +1,398 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH 0/3] net: mvneta: fix usage as a module, and support
- QSGMII properly
-Date: Mon, 21 Apr 2014 20:28:40 +0200
-Message-ID: <20140421202840.789d0e24@skate>
-References: <1397569821-5530-1-git-send-email-thomas.petazzoni@free-electrons.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next,1/2] hyperv: Remove recv_pkt_list and lock
+Date: Mon, 21 Apr 2014 12:26:15 -0700
+Message-ID: <1398108376-4857-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
-	George Joseph <george.joseph@fairview5.com>,
-	Tawfik Bayouk <tawfik@marvell.com>, netdev@vger.kernel.org,
-	Alexander Reuter <Alexander.Reuter@gmx.net>, arno@natisbad.org,
-	Willy Tarreau <w@1wt.eu>, Nadav Haklai <nadavh@marvell.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Dmitri Epshtein <dima@marvell.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Jason Cooper <jason@lakedaemon.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:43588 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753655AbaDUS2s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 14:28:48 -0400
-In-Reply-To: <1397569821-5530-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, haiyangz@microsoft.com
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-Jason,
+Removed recv_pkt_list and lock, and updated related code, so that
+the locking overhead is reduced especially when multiple channels
+are in use.
 
-Would it be possible to get PATCH 3/3 merged into 3.15-rc in the not
-too distant future? David Miller has already sent PATCH 1/3 and PATCH
-2/3, and they are part of the just released -rc2. However, the Device
-Tree fix for Armada XP GP QSGMII usage is missing.
+The recv_pkt_list isn't actually necessary because the packets are
+processed sequentially in each channel. It has been replaced by a
+local variable, and the related lock for this list is also removed.
 
-Thanks!
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   |   33 -------
+ drivers/net/hyperv/netvsc.c       |  174 +++----------------------------------
+ drivers/net/hyperv/netvsc_drv.c   |    2 +-
+ drivers/net/hyperv/rndis_filter.c |    2 -
+ 4 files changed, 13 insertions(+), 198 deletions(-)
 
-Thomas
-
-On Tue, 15 Apr 2014 15:50:18 +0200, Thomas Petazzoni wrote:
-> Hello,
-> 
-> This set of patches is a new attempt at fixing the operation of the
-> mvneta driver when built as a module. For the record, the previous
-> attempt, merged in commit e3a8786c10e75903f1269474e21fe8cb49c3a670
-> ('net: mvneta: fix usage as a module on RGMII configurations') caused
-> problems for all RGMII configurations.
-> 
-> In fact, it turned out that the MAC to PHY connection on the Armada XP
-> GP, which was described as using RGMII-ID according to its Device
-> Tree, is in fact a QSGMII connection. And the RGMII and QSGMII
-> configurations have to be handled in a different way in the driver,
-> because the SERDES configuration is different in those two cases.
-> 
-> So, this patch series fixes that by:
-> 
->  * Adding minimal handling of a "qsgmii" connection type in the PHY
->    layer. Mainly to make sure that a "qsgmii" phy-mode in the Device
->    Tree is recognized, and handed over to the driver as
->    PHY_INTERFACE_QSGMII.
-> 
->  * Changing the mvneta driver to properly configure the RGMIIEn and
->    PCSEn bits in the GMAC_CTRL_2 register, and configure the SERDES
->    register, in the three possible cases: RGMII, SGMII and QSGMII.
-> 
->  * Updating the Device Tree of the Armada XP GP board to reflect the
->    fact that it uses a QSGMII MAC/PHY connection.
-> 
-> PATCH 1 and 2 would be merged by David Miller, through the net tree,
-> while PATCH 3 would be merged by the mach-mvebu maintainers, through
-> their tree and arm-soc.
-> 
-> This set of patches has been tested on:
-> 
->  * Armada XP GP (four QSGMII interfaces)
->  * Armada XP DB (two RGMII interfaces and two SGMII interfaces)
->  * Armada 370 Mirabox (two RGMII interfaces)
-> 
-> I've tested both the driver built-in, and compiled as a module.
-> 
-> Since the last attempt at fixing this was quite a fiasco, I'd like
-> this new attempt to be tested more widely before being applied. I'll
-> try to do some testing on other Armada boards I have, but independent
-> testing from other persons would also be appreciated.
-> 
-> Note that these patches apply after reverting the previous attempt,
-> obviously.
-> 
-> Thanks,
-> 
-> Thomas
-> 
-> Thomas Petazzoni (3):
->   net: phy: add minimal support for QSGMII PHY
->   net: mvneta: properly configure the MAC <-> PHY connection in all
->     situations
->   ARM: mvebu: use qsgmii phy-mode for Armada XP GP interfaces
-> 
->  Documentation/devicetree/bindings/net/ethernet.txt |  2 +-
->  arch/arm/boot/dts/armada-xp-gp.dts                 |  8 +--
->  drivers/net/ethernet/marvell/mvneta.c              | 73 ++++++++++------------
->  include/linux/phy.h                                |  3 +
->  4 files changed, 42 insertions(+), 44 deletions(-)
-> 
-
-
-
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 57eb3f9..a1af0f7 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -119,27 +119,14 @@ struct ndis_recv_scale_param { /* NDIS_RECEIVE_SCALE_PARAMETERS */
+ };
+ 
+ /* Fwd declaration */
+-struct hv_netvsc_packet;
+ struct ndis_tcp_ip_checksum_info;
+ 
+-/* Represent the xfer page packet which contains 1 or more netvsc packet */
+-struct xferpage_packet {
+-	struct list_head list_ent;
+-	u32 status;
+-
+-	/* # of netvsc packets this xfer packet contains */
+-	u32 count;
+-
+-	struct vmbus_channel *channel;
+-};
+-
+ /*
+  * Represent netvsc packet which contains 1 RNDIS and 1 ethernet frame
+  * within the RNDIS
+  */
+ struct hv_netvsc_packet {
+ 	/* Bookkeeping stuff */
+-	struct list_head list_ent;
+ 	u32 status;
+ 
+ 	struct hv_device *device;
+@@ -149,19 +136,8 @@ struct hv_netvsc_packet {
+ 	u16 q_idx;
+ 	struct vmbus_channel *channel;
+ 
+-	/*
+-	 * Valid only for receives when we break a xfer page packet
+-	 * into multiple netvsc packets
+-	 */
+-	struct xferpage_packet *xfer_page_pkt;
+-
+ 	union {
+ 		struct {
+-			u64 recv_completion_tid;
+-			void *recv_completion_ctx;
+-			void (*recv_completion)(void *context);
+-		} recv;
+-		struct {
+ 			u64 send_completion_tid;
+ 			void *send_completion_ctx;
+ 			void (*send_completion)(void *context);
+@@ -613,9 +589,6 @@ struct nvsp_message {
+ 
+ #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
+ 
+-/* Preallocated receive packets */
+-#define NETVSC_RECEIVE_PACKETLIST_COUNT		256
+-
+ #define NETVSC_PACKET_SIZE                      2048
+ 
+ #define VRSS_SEND_TAB_SIZE 16
+@@ -630,12 +603,6 @@ struct netvsc_device {
+ 	wait_queue_head_t wait_drain;
+ 	bool start_remove;
+ 	bool destroy;
+-	/*
+-	 * List of free preallocated hv_netvsc_packet to represent receive
+-	 * packet
+-	 */
+-	struct list_head recv_pkt_list;
+-	spinlock_t recv_pkt_list_lock;
+ 
+ 	/* Receive buffer allocated by us but manages by NetVSP */
+ 	void *recv_buf;
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index e7e77f1..b103347 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -387,7 +387,6 @@ static void netvsc_disconnect_vsp(struct netvsc_device *net_device)
+ int netvsc_device_remove(struct hv_device *device)
+ {
+ 	struct netvsc_device *net_device;
+-	struct hv_netvsc_packet *netvsc_packet, *pos;
+ 	unsigned long flags;
+ 
+ 	net_device = hv_get_drvdata(device);
+@@ -416,12 +415,6 @@ int netvsc_device_remove(struct hv_device *device)
+ 	vmbus_close(device->channel);
+ 
+ 	/* Release all resources */
+-	list_for_each_entry_safe(netvsc_packet, pos,
+-				 &net_device->recv_pkt_list, list_ent) {
+-		list_del(&netvsc_packet->list_ent);
+-		kfree(netvsc_packet);
+-	}
+-
+ 	if (net_device->sub_cb_buf)
+ 		vfree(net_device->sub_cb_buf);
+ 
+@@ -641,62 +634,6 @@ retry_send_cmplt:
+ 	}
+ }
+ 
+-/* Send a receive completion packet to RNDIS device (ie NetVsp) */
+-static void netvsc_receive_completion(void *context)
+-{
+-	struct hv_netvsc_packet *packet = context;
+-	struct hv_device *device = packet->device;
+-	struct vmbus_channel *channel;
+-	struct netvsc_device *net_device;
+-	u64 transaction_id = 0;
+-	bool fsend_receive_comp = false;
+-	unsigned long flags;
+-	struct net_device *ndev;
+-	u32 status = NVSP_STAT_NONE;
+-
+-	/*
+-	 * Even though it seems logical to do a GetOutboundNetDevice() here to
+-	 * send out receive completion, we are using GetInboundNetDevice()
+-	 * since we may have disable outbound traffic already.
+-	 */
+-	net_device = get_inbound_net_device(device);
+-	if (!net_device)
+-		return;
+-	ndev = net_device->ndev;
+-
+-	/* Overloading use of the lock. */
+-	spin_lock_irqsave(&net_device->recv_pkt_list_lock, flags);
+-
+-	if (packet->status != NVSP_STAT_SUCCESS)
+-		packet->xfer_page_pkt->status = NVSP_STAT_FAIL;
+-
+-	packet->xfer_page_pkt->count--;
+-
+-	/*
+-	 * Last one in the line that represent 1 xfer page packet.
+-	 * Return the xfer page packet itself to the freelist
+-	 */
+-	if (packet->xfer_page_pkt->count == 0) {
+-		fsend_receive_comp = true;
+-		channel = packet->xfer_page_pkt->channel;
+-		transaction_id = packet->completion.recv.recv_completion_tid;
+-		status = packet->xfer_page_pkt->status;
+-		list_add_tail(&packet->xfer_page_pkt->list_ent,
+-			      &net_device->recv_pkt_list);
+-
+-	}
+-
+-	/* Put the packet back */
+-	list_add_tail(&packet->list_ent, &net_device->recv_pkt_list);
+-	spin_unlock_irqrestore(&net_device->recv_pkt_list_lock, flags);
+-
+-	/* Send a receive completion for the xfer page packet */
+-	if (fsend_receive_comp)
+-		netvsc_send_recv_completion(device, channel, net_device,
+-					    transaction_id, status);
+-
+-}
+-
+ static void netvsc_receive(struct netvsc_device *net_device,
+ 			struct vmbus_channel *channel,
+ 			struct hv_device *device,
+@@ -704,16 +641,13 @@ static void netvsc_receive(struct netvsc_device *net_device,
+ {
+ 	struct vmtransfer_page_packet_header *vmxferpage_packet;
+ 	struct nvsp_message *nvsp_packet;
+-	struct hv_netvsc_packet *netvsc_packet = NULL;
+-	/* struct netvsc_driver *netvscDriver; */
+-	struct xferpage_packet *xferpage_packet = NULL;
++	struct hv_netvsc_packet nv_pkt;
++	struct hv_netvsc_packet *netvsc_packet = &nv_pkt;
++	u32 status = NVSP_STAT_SUCCESS;
+ 	int i;
+ 	int count = 0;
+-	unsigned long flags;
+ 	struct net_device *ndev;
+ 
+-	LIST_HEAD(listHead);
+-
+ 	ndev = net_device->ndev;
+ 
+ 	/*
+@@ -746,78 +680,14 @@ static void netvsc_receive(struct netvsc_device *net_device,
+ 		return;
+ 	}
+ 
+-	/*
+-	 * Grab free packets (range count + 1) to represent this xfer
+-	 * page packet. +1 to represent the xfer page packet itself.
+-	 * We grab it here so that we know exactly how many we can
+-	 * fulfil
+-	 */
+-	spin_lock_irqsave(&net_device->recv_pkt_list_lock, flags);
+-	while (!list_empty(&net_device->recv_pkt_list)) {
+-		list_move_tail(net_device->recv_pkt_list.next, &listHead);
+-		if (++count == vmxferpage_packet->range_cnt + 1)
+-			break;
+-	}
+-	spin_unlock_irqrestore(&net_device->recv_pkt_list_lock, flags);
+-
+-	/*
+-	 * We need at least 2 netvsc pkts (1 to represent the xfer
+-	 * page and at least 1 for the range) i.e. we can handled
+-	 * some of the xfer page packet ranges...
+-	 */
+-	if (count < 2) {
+-		netdev_err(ndev, "Got only %d netvsc pkt...needed "
+-			"%d pkts. Dropping this xfer page packet completely!\n",
+-			count, vmxferpage_packet->range_cnt + 1);
+-
+-		/* Return it to the freelist */
+-		spin_lock_irqsave(&net_device->recv_pkt_list_lock, flags);
+-		for (i = count; i != 0; i--) {
+-			list_move_tail(listHead.next,
+-				       &net_device->recv_pkt_list);
+-		}
+-		spin_unlock_irqrestore(&net_device->recv_pkt_list_lock,
+-				       flags);
+-
+-		netvsc_send_recv_completion(device, channel, net_device,
+-					    vmxferpage_packet->d.trans_id,
+-					    NVSP_STAT_FAIL);
+-
+-		return;
+-	}
+-
+-	/* Remove the 1st packet to represent the xfer page packet itself */
+-	xferpage_packet = (struct xferpage_packet *)listHead.next;
+-	list_del(&xferpage_packet->list_ent);
+-	xferpage_packet->status = NVSP_STAT_SUCCESS;
+-	xferpage_packet->channel = channel;
+-
+-	/* This is how much we can satisfy */
+-	xferpage_packet->count = count - 1;
+-
+-	if (xferpage_packet->count != vmxferpage_packet->range_cnt) {
+-		netdev_err(ndev, "Needed %d netvsc pkts to satisfy "
+-			"this xfer page...got %d\n",
+-			vmxferpage_packet->range_cnt, xferpage_packet->count);
+-	}
++	count = vmxferpage_packet->range_cnt;
++	netvsc_packet->device = device;
++	netvsc_packet->channel = channel;
+ 
+ 	/* Each range represents 1 RNDIS pkt that contains 1 ethernet frame */
+-	for (i = 0; i < (count - 1); i++) {
+-		netvsc_packet = (struct hv_netvsc_packet *)listHead.next;
+-		list_del(&netvsc_packet->list_ent);
+-
++	for (i = 0; i < count; i++) {
+ 		/* Initialize the netvsc packet */
+ 		netvsc_packet->status = NVSP_STAT_SUCCESS;
+-		netvsc_packet->xfer_page_pkt = xferpage_packet;
+-		netvsc_packet->completion.recv.recv_completion =
+-					netvsc_receive_completion;
+-		netvsc_packet->completion.recv.recv_completion_ctx =
+-					netvsc_packet;
+-		netvsc_packet->device = device;
+-		/* Save this so that we can send it back */
+-		netvsc_packet->completion.recv.recv_completion_tid =
+-					vmxferpage_packet->d.trans_id;
+-
+ 		netvsc_packet->data = (void *)((unsigned long)net_device->
+ 			recv_buf + vmxferpage_packet->ranges[i].byte_offset);
+ 		netvsc_packet->total_data_buflen =
+@@ -826,10 +696,12 @@ static void netvsc_receive(struct netvsc_device *net_device,
+ 		/* Pass it to the upper layer */
+ 		rndis_filter_receive(device, netvsc_packet);
+ 
+-		netvsc_receive_completion(netvsc_packet->
+-				completion.recv.recv_completion_ctx);
++		if (netvsc_packet->status != NVSP_STAT_SUCCESS)
++			status = NVSP_STAT_FAIL;
+ 	}
+ 
++	netvsc_send_recv_completion(device, channel, net_device,
++				    vmxferpage_packet->d.trans_id, status);
+ }
+ 
+ 
+@@ -956,11 +828,9 @@ void netvsc_channel_cb(void *context)
+ int netvsc_device_add(struct hv_device *device, void *additional_info)
+ {
+ 	int ret = 0;
+-	int i;
+ 	int ring_size =
+ 	((struct netvsc_device_info *)additional_info)->ring_size;
+ 	struct netvsc_device *net_device;
+-	struct hv_netvsc_packet *packet, *pos;
+ 	struct net_device *ndev;
+ 
+ 	net_device = alloc_net_device(device);
+@@ -981,18 +851,6 @@ int netvsc_device_add(struct hv_device *device, void *additional_info)
+ 	ndev = net_device->ndev;
+ 
+ 	/* Initialize the NetVSC channel extension */
+-	spin_lock_init(&net_device->recv_pkt_list_lock);
+-
+-	INIT_LIST_HEAD(&net_device->recv_pkt_list);
+-
+-	for (i = 0; i < NETVSC_RECEIVE_PACKETLIST_COUNT; i++) {
+-		packet = kzalloc(sizeof(struct hv_netvsc_packet), GFP_KERNEL);
+-		if (!packet)
+-			break;
+-
+-		list_add_tail(&packet->list_ent,
+-			      &net_device->recv_pkt_list);
+-	}
+ 	init_completion(&net_device->channel_init_wait);
+ 
+ 	set_per_channel_state(device->channel, net_device->cb_buffer);
+@@ -1028,16 +886,8 @@ close:
+ 
+ cleanup:
+ 
+-	if (net_device) {
+-		list_for_each_entry_safe(packet, pos,
+-					 &net_device->recv_pkt_list,
+-					 list_ent) {
+-			list_del(&packet->list_ent);
+-			kfree(packet);
+-		}
+-
++	if (net_device)
+ 		kfree(net_device);
+-	}
+ 
+ 	return ret;
+ }
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 093cf3f..8f6d53a 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -638,7 +638,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+ 				       packet->vlan_tci);
+ 
+-	skb_record_rx_queue(skb, packet->xfer_page_pkt->channel->
++	skb_record_rx_queue(skb, packet->channel->
+ 			    offermsg.offer.sub_channel_index %
+ 			    net->real_num_rx_queues);
+ 
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index d92cfbe..48f5a0f 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -401,8 +401,6 @@ static void rndis_filter_receive_data(struct rndis_device *dev,
+ 	pkt->total_data_buflen = rndis_pkt->data_len;
+ 	pkt->data = (void *)((unsigned long)pkt->data + data_offset);
+ 
+-	pkt->is_data_pkt = true;
+-
+ 	vlan = rndis_get_ppi(rndis_pkt, IEEE_8021Q_INFO);
+ 	if (vlan) {
+ 		pkt->vlan_tci = VLAN_TAG_PRESENT | vlan->vlanid |
 -- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+1.7.4.1
