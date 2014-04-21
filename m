@@ -1,74 +1,89 @@
-From: Stratos Karafotis <stratosk@semaphore.gr>
-Subject: [PATCH v4 7/8] irda: sh_sir: Use cpufreq_for_each_valid_entry macro
- for iteration
-Date: Tue, 22 Apr 2014 02:02:22 +0300
-Message-ID: <5355A37E.30804@semaphore.gr>
-References: <534DB22D.3040607@semaphore.gr>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH ethtool] Fix ETHTOOL_ENABLE_PRETTY_DUMP conditions
+Date: Mon, 21 Apr 2014 16:01:37 -0700
+Message-ID: <CAGVrzcZRitaPCT0nQ3svRtD-iy98MQqkwTTmuBbhCVk_0oFUNQ@mail.gmail.com>
+References: <1398120052.3624.162.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Viresh Kumar <viresh.kumar@linaro.org>,
-	"linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>
-To: Samuel Ortiz <samuel@sortiz.org>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <534DB22D.3040607@semaphore.gr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f180.google.com ([209.85.216.180]:40333 "EHLO
+	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754743AbaDUXCS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 19:02:18 -0400
+Received: by mail-qc0-f180.google.com with SMTP id w7so4730887qcr.11
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 16:02:17 -0700 (PDT)
+In-Reply-To: <1398120052.3624.162.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The cpufreq core supports the cpufreq_for_each_valid_entry macro
-helper for iteration over the cpufreq_frequency_table, so use it.
+2014-04-21 15:40 GMT-07:00 Ben Hutchings <ben@decadent.org.uk>:
+> The C macro ETHTOOL_ENABLE_PRETTY_DUMP was not being defined by default.
+> Rearrange the autoconf mess to fix this.
+>
+> The macro name was also misspelt in one condition.
 
-It should have no functional changes.
+Thanks for fixing this, I was planning on re-submitting the patch to
+address your comments some day...
 
-Signed-off-by: Stratos Karafotis <stratosk@semaphore.gr>
----
+>
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> ---
+> I applied this before the 3.14 release I just made.  autotools continues
+> to surprise me, never pleasantly.
+>
+> Ben.
+>
+>  configure.ac | 15 ++++++++-------
+>  ethtool.c    |  2 +-
+>  2 files changed, 9 insertions(+), 8 deletions(-)
+>
+> diff --git a/configure.ac b/configure.ac
+> index c08938b..ab0b01b 100644
+> --- a/configure.ac
+> +++ b/configure.ac
+> @@ -32,13 +32,14 @@ AC_CHECK_FUNCS(socket strtol)
+>
+>  dnl Check for options
+>  AC_ARG_ENABLE(pretty-dump,
+> -              [  --enable-pretty-dump    enable registers, EEPROM and SFP pretty dumps (enabled by default)],
+> -              [if test x$enableval != xno; then
+> -                       AC_DEFINE(ETHTOOL_ENABLE_PRETTY_DUMP, 1,
+> -                       [Define this to enable register, EEPROM and SFP pretty dumps.]) enable_prettydump=yes
+> -               fi],
+> -              enable_prettydump=yes)
+> -AM_CONDITIONAL([ETHTOOL_ENABLE_PRETTY_DUMP], [test x$enable_prettydump = xyes])
+> +             [  --enable-pretty-dump     enable registers, EEPROM and SFP pretty dumps (enabled by default)],
+> +             ,
+> +             enable_pretty_dump=yes)
+> +if test x$enable_pretty_dump = xyes; then
+> +    AC_DEFINE(ETHTOOL_ENABLE_PRETTY_DUMP, 1,
+> +             [Define this to enable register, EEPROM and SFP pretty dumps.])
+> +fi
+> +AM_CONDITIONAL([ETHTOOL_ENABLE_PRETTY_DUMP], [test x$enable_pretty_dump = xyes])
+>
+>  AC_CONFIG_FILES([Makefile ethtool.spec ethtool.8])
+>  AC_OUTPUT
+> diff --git a/ethtool.c b/ethtool.c
+> index 091a6b9..8e968a8 100644
+> --- a/ethtool.c
+> +++ b/ethtool.c
+> @@ -979,7 +979,7 @@ static int dump_eeprom(int geeprom_dump_raw, struct ethtool_drvinfo *info,
+>                 fwrite(ee->data, 1, ee->len, stdout);
+>                 return 0;
+>         }
+> -#ifdef ETHTOOL_ENABL_PRETTY_DUMP
+> +#ifdef ETHTOOL_ENABLE_PRETTY_DUMP
+>         if (!strncmp("natsemi", info->driver, ETHTOOL_BUSINFO_LEN)) {
+>                 return natsemi_dump_eeprom(info, ee);
+>         } else if (!strncmp("tg3", info->driver, ETHTOOL_BUSINFO_LEN)) {
+>
+> --
+> Ben Hutchings
+> Knowledge is power.  France is bacon.
 
-Please note that I was no able to compile test this patch due to 
-lack of cross compiler.
 
- drivers/net/irda/sh_sir.c | 14 +++++---------
- 1 file changed, 5 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/irda/sh_sir.c b/drivers/net/irda/sh_sir.c
-index cadf52e..e3fe9a2 100644
---- a/drivers/net/irda/sh_sir.c
-+++ b/drivers/net/irda/sh_sir.c
-@@ -217,21 +217,17 @@ crc_init_out:
- static u32 sh_sir_find_sclk(struct clk *irda_clk)
- {
- 	struct cpufreq_frequency_table *freq_table = irda_clk->freq_table;
-+	struct cpufreq_frequency_table *pos;
- 	struct clk *pclk = clk_get(NULL, "peripheral_clk");
- 	u32 limit, min = 0xffffffff, tmp;
--	int i, index = 0;
-+	int index = 0;
- 
- 	limit = clk_get_rate(pclk);
- 	clk_put(pclk);
- 
- 	/* IrDA can not set over peripheral_clk */
--	for (i = 0;
--	     freq_table[i].frequency != CPUFREQ_TABLE_END;
--	     i++) {
--		u32 freq = freq_table[i].frequency;
--
--		if (freq == CPUFREQ_ENTRY_INVALID)
--			continue;
-+	cpufreq_for_each_valid_entry(pos, freq_table) {
-+		u32 freq = pos->frequency;
- 
- 		/* IrDA should not over peripheral_clk */
- 		if (freq > limit)
-@@ -240,7 +236,7 @@ static u32 sh_sir_find_sclk(struct clk *irda_clk)
- 		tmp = freq % SCLK_BASE;
- 		if (tmp < min) {
- 			min = tmp;
--			index = i;
-+			index = pos - freq_table;
- 		}
- 	}
- 
 -- 
-1.9.0
+Florian
