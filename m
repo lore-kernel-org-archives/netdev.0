@@ -1,7 +1,9 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 00/11] purge tipc_net_lock
-Date: Mon, 21 Apr 2014 10:55:41 +0800
-Message-ID: <1398048952-7825-1-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 01/11] tipc: replace config_mutex
+	lock with RTNL lock
+Date: Mon, 21 Apr 2014 10:55:42 +0800
+Message-ID: <1398048952-7825-2-git-send-email-ying.xue@windriver.com>
+References: <1398048952-7825-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -9,6 +11,7 @@ Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
 	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
 To: <davem@davemloft.net>
 Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1398048952-7825-1-git-send-email-ying.xue@windriver.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
@@ -19,70 +22,68 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Now tipc routing hierarchy comprises the structures 'node', 'link'and
-'bearer'. The whole hierarchy is protected by a big read/write lock,
-tipc_net_lock, to ensure that nothing is added or removed while code
-is accessing any of these structures. Obviously the locking policy
-makes node, link and bearer components closely bound together so that
-their relationship becomes unnecessarily complex. In the worst case,
-such locking policy not only has a negative influence on performance,
-but also it's prone to lead to deadlock occasionally.
+There have two paths where we can configure or change bearer status:
+one is that bearer is configured from user space with tipc-config
+tool; another one is that bearer is changed by notification events
+from its attached interface. On the first path, one dedicated
+config_mutex lock is guarded; on the latter path, RTNL lock has been
+placed to serialize the process of dealing with interface events.
+So, if RTNL lock is also used to protect the first path, this will
+not only extremely help us simplify current locking policy, but also
+config_mutex lock can be deleted as well.
 
-In order o decouple the complex relationship between bearer and node
-as well as link, the locking policy is adjusted as follows:
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+Tested-by: Erik Hugne <erik.hugne@ericsson.com>
+---
+ net/tipc/config.c |    6 ++----
+ net/tipc/core.h   |    2 +-
+ 2 files changed, 3 insertions(+), 5 deletions(-)
 
-- Bearer level
-  RTNL lock is used on update side, and RCU is used on read side.
-  Meanwhile, all bearer instances including broadcast bearer are
-  saved into bearer_list array.
-
-- Node and link level
-  All node instances are saved into two tipc_node_list and node_htable
-  lists. The two lists are protected by node_list_lock on write side,
-  and they are guarded with RCU lock on read side. All members in node
-  structure including link instances are protected by node spin lock.
-
-- The relationship between bearer and node
-  When link accesses bearer, it first needs to find the bearer with
-  its bearer identity from the bearer_list array. When bearer accesses
-  node, it can iterate the node_htable hash list with the node address
-  to find the corresponding node.
-
-In the new locking policy, every component has its private locking
-solution and the relationship between bearer and node is very simple,
-that is, they can find each other with node address or bearer identity
-from node_htable hash list or bearer_list array.
-
-Ying Xue (11):
-  tipc: replace config_mutex lock with RTNL lock
-  tipc: adjust locking policy of protecting tipc_ptr pointer of
-    net_device
-  tipc: use RTNL lock to protect tipc_net_stop routine
-  tipc: convert bearer_list to RCU list
-  tipc: decouple the relationship between bearer and link
-  tipc: use RCU to protect media_ptr pointer
-  tipc: purge tipc_net_lock lock
-  tipc: make media_ptr pointed netdevice valid
-  tipc: use bearer_disable to disable bearer in tipc_l2_device_event
-  tipc: use bc_lock to protect node map in bearer structure
-  tipc: fix race in disc create/delete
-
- net/tipc/bcast.c      |   37 +++++++++-------
- net/tipc/bcast.h      |    5 +--
- net/tipc/bearer.c     |  117 ++++++++++++++++++++++++++-----------------------
- net/tipc/bearer.h     |   12 ++---
- net/tipc/config.c     |    6 +--
- net/tipc/core.h       |    2 +-
- net/tipc/discover.c   |   70 ++++++++++++++++++-----------
- net/tipc/discover.h   |    1 +
- net/tipc/link.c       |   89 +++++++++++++++++--------------------
- net/tipc/link.h       |    6 ++-
- net/tipc/name_distr.c |    2 -
- net/tipc/net.c        |   61 +++++++++++---------------
- net/tipc/net.h        |    2 -
- net/tipc/node.c       |   10 ++---
- 14 files changed, 215 insertions(+), 205 deletions(-)
-
+diff --git a/net/tipc/config.c b/net/tipc/config.c
+index 4b981c0..251f5a2 100644
+--- a/net/tipc/config.c
++++ b/net/tipc/config.c
+@@ -42,8 +42,6 @@
+ 
+ #define REPLY_TRUNCATED "<truncated>\n"
+ 
+-static DEFINE_MUTEX(config_mutex);
+-
+ static const void *req_tlv_area;	/* request message TLV area */
+ static int req_tlv_space;		/* request message TLV area size */
+ static int rep_headroom;		/* reply message headroom to use */
+@@ -223,7 +221,7 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
+ {
+ 	struct sk_buff *rep_tlv_buf;
+ 
+-	mutex_lock(&config_mutex);
++	rtnl_lock();
+ 
+ 	/* Save request and reply details in a well-known location */
+ 	req_tlv_area = request_area;
+@@ -337,6 +335,6 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
+ 
+ 	/* Return reply buffer */
+ exit:
+-	mutex_unlock(&config_mutex);
++	rtnl_unlock();
+ 	return rep_tlv_buf;
+ }
+diff --git a/net/tipc/core.h b/net/tipc/core.h
+index 8985bbc..36cbf15 100644
+--- a/net/tipc/core.h
++++ b/net/tipc/core.h
+@@ -56,7 +56,7 @@
+ #include <linux/list.h>
+ #include <linux/slab.h>
+ #include <linux/vmalloc.h>
+-
++#include <linux/rtnetlink.h>
+ 
+ #define TIPC_MOD_VER "2.0.0"
+ 
 -- 
 1.7.9.5
 
