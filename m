@@ -1,49 +1,49 @@
-From: Oleksandr Natalenko <oleksandr@natalenko.name>
-Subject: alx: Wrong MAC address for AR8161
-Date: Mon, 21 Apr 2014 14:47:41 +0300
-Message-ID: <1625626.OzlbaoGxG0@spock>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Chris Snook <chris.snook@gmail.com>, netdev@vger.kernel.org
-To: Jay Cliburn <jcliburn@gmail.com>
+From: roy.qing.li@gmail.com
+Subject: [PATCH][net-next] tcp: remove the duplicate prefixes in the logging message
+Date: Mon, 21 Apr 2014 21:17:57 +0800
+Message-ID: <1398086277-27943-1-git-send-email-roy.qing.li@gmail.com>
+Cc: joe@perches.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from natalenko.name ([78.47.77.148]:45515 "EHLO natalenko.name"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751285AbaDUL47 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Apr 2014 07:56:59 -0400
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:50080 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752063AbaDUNSB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 09:18:01 -0400
+Received: by mail-pb0-f47.google.com with SMTP id up15so3694994pbc.6
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 06:18:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Li RongQing <roy.qing.li@gmail.com>
 
-I've got the following ethernet card in my laptop:
+The current message is:
+	TCP: TCP: Possible SYN flooding on port 80. Sending cookies. ...
 
-===
-02:00.0 Ethernet controller: Qualcomm Atheros AR8161 Gigabit Ethernet (rev 10)
-===
+The cause is that pr_info will implicitly print the pr_fmt string, which is standard
+prefix, and explicitly print the "proto" which is "TCP:" too
 
-And it gets wrong MAC address with mainlined alx driver:
+it is unsuitable to not print proto, since proto maybe TCPv6, so use printk directly.
 
-===
-8: enp2s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP 
-group default qlen 1000
-    link/ether 00:13:74:00:00:00 brd ff:ff:ff:ff:ff:ff
-===
+Cc: Joe Perches <joe@perches.com>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/ipv4/tcp_ipv4.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Before alx got merged into upstream I used out-of-tree alx driver from here 
-[1], and the MAC address was 84:8f:69:d3:a6:09.
-
-Setting MAC address manually to 84:8f:69:d3:a6:09 via ip link set works OK, 
-but when I rmmod and then modprobe alx module, I get 00:13:74:00:00:00 again.
-
-Kernels 3.13/3.14 are affected.
-
-What could be wrong and how could it be fixed? Any additional info needed?
-
-[1] http://www.linuxfoundation.org/collaborate/workgroups/networking/alx
-
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 6379894..370fa46 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -892,8 +892,8 @@ bool tcp_syn_flood_action(struct sock *sk,
+ 	lopt = inet_csk(sk)->icsk_accept_queue.listen_opt;
+ 	if (!lopt->synflood_warned && sysctl_tcp_syncookies != 2) {
+ 		lopt->synflood_warned = 1;
+-		pr_info("%s: Possible SYN flooding on port %d. %s.  Check SNMP counters.\n",
+-			proto, ntohs(tcp_hdr(skb)->dest), msg);
++		printk(KERN_INFO "%s: Possible SYN flooding on port %d. %s. Check SNMP counters.\n"
++		       proto, ntohs(tcp_hdr(skb)->dest), msg);
+ 	}
+ 	return want_cookie;
+ }
 -- 
-Oleksandr post-factum Natalenko, MSc
-pf-kernel community
-https://natalenko.name/
+1.7.10.4
