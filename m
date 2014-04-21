@@ -1,55 +1,113 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/4] net: systemport: add Broadcom SYSTEMPORT
- Ethernet MAC driver
-Date: Mon, 21 Apr 2014 14:26:25 -0400 (EDT)
-Message-ID: <20140421.142625.1276208551531381086.davem@davemloft.net>
-References: <1398101494-27959-2-git-send-email-f.fainelli@gmail.com>
-	<20140421.134644.1829764866020217667.davem@davemloft.net>
-	<CAGVrzcbCLHCgFZGTTtCUaDHLcWh5RvwCj0VyUDK6=8hbPrV2Vg@mail.gmail.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH 0/3] net: mvneta: fix usage as a module, and support
+ QSGMII properly
+Date: Mon, 21 Apr 2014 20:28:40 +0200
+Message-ID: <20140421202840.789d0e24@skate>
+References: <1397569821-5530-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
+	George Joseph <george.joseph@fairview5.com>,
+	Tawfik Bayouk <tawfik@marvell.com>, netdev@vger.kernel.org,
+	Alexander Reuter <Alexander.Reuter@gmx.net>, arno@natisbad.org,
+	Willy Tarreau <w@1wt.eu>, Nadav Haklai <nadavh@marvell.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Dmitri Epshtein <dima@marvell.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Jason Cooper <jason@lakedaemon.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60876 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754245AbaDUS0a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 14:26:30 -0400
-In-Reply-To: <CAGVrzcbCLHCgFZGTTtCUaDHLcWh5RvwCj0VyUDK6=8hbPrV2Vg@mail.gmail.com>
+Received: from top.free-electrons.com ([176.31.233.9]:43588 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753655AbaDUS2s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 14:28:48 -0400
+In-Reply-To: <1397569821-5530-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Mon, 21 Apr 2014 10:51:05 -0700
+Jason,
 
-> 2014-04-21 10:46 GMT-07:00 David Miller <davem@davemloft.net>:
->> From: Florian Fainelli <f.fainelli@gmail.com>
->> Date: Mon, 21 Apr 2014 10:31:31 -0700
->>
->>> +#ifdef CONFIG_PHYS_ADDR_T_64BIT
->>> +     __raw_writel(upper_32_bits(addr) & DESC_ADDR_HI_MASK,
->>> +                             d + DESC_ADDR_HI_STATUS_LEN);
->>> +#endif
->>
->> When a function call spans multiple lines, the arguments on the second
->> and subsequent lines need to start exactly at the first column after
->> the openning parenthesis.
->>
->> Please audit and fix this in your entire submission.
->>
->>> +static int bcm_sysport_set_settings(struct net_device *dev,
->>> +                                 struct ethtool_cmd *cmd)
->>
->> Likewise for functions declarations and definitions.
->>
->> Also, no NAPI support?  The locking and SKB freeing looks quite baroque
->> as a consequence of this.
+Would it be possible to get PATCH 3/3 merged into 3.15-rc in the not
+too distant future? David Miller has already sent PATCH 1/3 and PATCH
+2/3, and they are part of the just released -rc2. However, the Device
+Tree fix for Armada XP GP QSGMII usage is missing.
+
+Thanks!
+
+Thomas
+
+On Tue, 15 Apr 2014 15:50:18 +0200, Thomas Petazzoni wrote:
+> Hello,
 > 
-> There is NAPI support for the RX path, transmitted SKBs are freed when
-> the buffer done interrupt fires, I can certainly rework that if you
-> feel like it would be better to get per tx-queue NAPI contexts
-> instead.
+> This set of patches is a new attempt at fixing the operation of the
+> mvneta driver when built as a module. For the record, the previous
+> attempt, merged in commit e3a8786c10e75903f1269474e21fe8cb49c3a670
+> ('net: mvneta: fix usage as a module on RGMII configurations') caused
+> problems for all RGMII configurations.
+> 
+> In fact, it turned out that the MAC to PHY connection on the Armada XP
+> GP, which was described as using RGMII-ID according to its Device
+> Tree, is in fact a QSGMII connection. And the RGMII and QSGMII
+> configurations have to be handled in a different way in the driver,
+> because the SERDES configuration is different in those two cases.
+> 
+> So, this patch series fixes that by:
+> 
+>  * Adding minimal handling of a "qsgmii" connection type in the PHY
+>    layer. Mainly to make sure that a "qsgmii" phy-mode in the Device
+>    Tree is recognized, and handed over to the driver as
+>    PHY_INTERFACE_QSGMII.
+> 
+>  * Changing the mvneta driver to properly configure the RGMIIEn and
+>    PCSEn bits in the GMAC_CTRL_2 register, and configure the SERDES
+>    register, in the three possible cases: RGMII, SGMII and QSGMII.
+> 
+>  * Updating the Device Tree of the Armada XP GP board to reflect the
+>    fact that it uses a QSGMII MAC/PHY connection.
+> 
+> PATCH 1 and 2 would be merged by David Miller, through the net tree,
+> while PATCH 3 would be merged by the mach-mvebu maintainers, through
+> their tree and arm-soc.
+> 
+> This set of patches has been tested on:
+> 
+>  * Armada XP GP (four QSGMII interfaces)
+>  * Armada XP DB (two RGMII interfaces and two SGMII interfaces)
+>  * Armada 370 Mirabox (two RGMII interfaces)
+> 
+> I've tested both the driver built-in, and compiled as a module.
+> 
+> Since the last attempt at fixing this was quite a fiasco, I'd like
+> this new attempt to be tested more widely before being applied. I'll
+> try to do some testing on other Armada boards I have, but independent
+> testing from other persons would also be appreciated.
+> 
+> Note that these patches apply after reverting the previous attempt,
+> obviously.
+> 
+> Thanks,
+> 
+> Thomas
+> 
+> Thomas Petazzoni (3):
+>   net: phy: add minimal support for QSGMII PHY
+>   net: mvneta: properly configure the MAC <-> PHY connection in all
+>     situations
+>   ARM: mvebu: use qsgmii phy-mode for Armada XP GP interfaces
+> 
+>  Documentation/devicetree/bindings/net/ethernet.txt |  2 +-
+>  arch/arm/boot/dts/armada-xp-gp.dts                 |  8 +--
+>  drivers/net/ethernet/marvell/mvneta.c              | 73 ++++++++++------------
+>  include/linux/phy.h                                |  3 +
+>  4 files changed, 42 insertions(+), 44 deletions(-)
+> 
 
-The less you do dev_kfree_skb_any() the less context switches you make
-in and out of the softirq dispatch.
+
+
+-- 
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
