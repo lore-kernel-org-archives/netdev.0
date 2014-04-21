@@ -1,23 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: just FYI patchwork is down...
-Date: Mon, 21 Apr 2014 16:07:40 -0400 (EDT)
-Message-ID: <20140421.160740.1369885317291271643.davem@davemloft.net>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [net 0/7][pull request] Intel Wired LAN Driver Updates
+Date: Mon, 21 Apr 2014 23:15:16 +0300
+Message-ID: <CAJZOPZLpgT41yfjUDD_8qoOCLWsEAT-XfywaKh_KTTFOMqEdRA@mail.gmail.com>
+References: <1397872767-4001-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20140421.125858.1669714683420708606.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33328 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752607AbaDUUHl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 16:07:41 -0400
-Received: from localhost (unknown [75.103.36.255])
-	(Authenticated sender: davem-davemloft)
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 2BE5F581BE8
-	for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 13:07:41 -0700 (PDT)
+Received: from mail-qc0-f182.google.com ([209.85.216.182]:50138 "EHLO
+	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752607AbaDUUPR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 16:15:17 -0400
+Received: by mail-qc0-f182.google.com with SMTP id e16so4404090qcx.41
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 13:15:17 -0700 (PDT)
+In-Reply-To: <20140421.125858.1669714683420708606.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Fri, 18 Apr 2014 18:59:20 -0700
+>> Jesse's i40e patch fixes an issue reported by Eric Dumazet that the
+>> i40e driver was allowing the hardware to replicate the PSH flag on
+>> all segments of a TSO operation.  With this fix, we are now configuring
+>> the CWR bit to only be set in the first packet of a TSO and we
+>> enable TSO_ECN in order to advertise to the stack that we do the right
+>> thing on the wire.
 
-I'm processing my queue a little bit more slowly while ozlabs patchwork is
-down for maintainence, just FYI...
+Hi Jeff, was this report sent over netdev? pointer will be great
+
+Or.
