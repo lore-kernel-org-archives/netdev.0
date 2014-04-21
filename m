@@ -1,92 +1,51 @@
-From: "Li, ZhenHua" <zhen-hual@hp.com>
-Subject: Re: [PATCH 1/1] net: Add rtnl_lock for netif_device_attach/detach
-Date: Mon, 21 Apr 2014 14:30:06 +0800
-Message-ID: <5354BAEE.9000005@hp.com>
-References: <1397632082-18453-1-git-send-email-zhen-hual@hp.com> <5351767E.6000404@cogentembedded.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH] virtio_net: zero is an invald queue_pairs number
+Date: Mon, 21 Apr 2014 14:32:52 +0800
+Message-ID: <5354BB94.4030908@redhat.com>
+References: <1397799941-11371-1-git-send-email-akong@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	stephen hemminger <stephen@networkplumber.org>,
-	Jerry Chu <hkchu@google.com>,
-	Sathya Perla <sathya.perla@emulex.com>,
-	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
-	Ajit Khaparde <ajit.khaparde@emulex.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5351767E.6000404@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, mst@redhat.com
+To: Amos Kong <akong@redhat.com>, virtualization@lists.linux-foundation.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1397799941-11371-1-git-send-email-akong@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-The comment is trying to explain why add a lock here.
+On 04/18/2014 01:45 PM, Amos Kong wrote:
+> Execute "ethtool -L eth0 combined 0" in guest, if multiqueue
+> is enabled, virtnet_send_command() will return -EINVAL error,
+> there is a validation in QEMU.
+>
+> But if multiqueue is disabled, virtnet_set_queues() will just
+> return zero (success). We should return error for this situation.
+>
+> Signed-off-by: Amos Kong <akong@redhat.com>
+> ---
+>  drivers/net/virtio_net.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 7b68746..8a852b5 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1285,7 +1285,7 @@ static int virtnet_set_channels(struct net_device *dev,
+>  	if (channels->rx_count || channels->tx_count || channels->other_count)
+>  		return -EINVAL;
+>  
+> -	if (queue_pairs > vi->max_queue_pairs)
+> +	if (queue_pairs > vi->max_queue_pairs || queue_pairs == 0)
+>  		return -EINVAL;
+>  
+>  	get_online_cpus();
 
-On 04/19/2014 03:01 AM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 04/16/2014 11:08 AM, Li, Zhen-Hua wrote:
->
->> From: "Li, Zhen-Hua" <zhen-hual@hp.com>
->
->> As netif_running is called in netif_device_attach/detach. There 
->> should be
->> rtnl_lock/unlock called, to avoid dev stat change during 
->> netif_device_attach
->> and detach being called.
->> I checked NIC some drivers,  some of them have 
->> netif_device_attach/detach
->> called between rtnl_lock/unlock, while some drivers do not.
->
->> This patch is tring to find a generic way to fix this for all NIC 
->> drivers.
->
->> Signed-off-by: Li, Zhen-Hua <zhen-hual@hp.com>
->> ---
->>   net/core/dev.c |   18 ++++++++++++++++++
->>   1 file changed, 18 insertions(+)
->
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 5b3042e..795bbc5 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -2190,10 +2190,19 @@ EXPORT_SYMBOL(__dev_kfree_skb_any);
->>    */
->>   void netif_device_detach(struct net_device *dev)
->>   {
->> +    /**
->
->   Hm, why kernel-doc style comment here?
->
->> +     * As netif_running is called , rtnl_lock and unlock are needed to
->> +     * avoid __LINK_STATE_START bit changes during this function call.
->> +     */
->> +    int need_unlock;
->> +
->> +    need_unlock = rtnl_trylock();
->>       if (test_and_clear_bit(__LINK_STATE_PRESENT, &dev->state) &&
->>           netif_running(dev)) {
->>           netif_tx_stop_all_queues(dev);
->>       }
->> +    if (need_unlock)
->> +        rtnl_unlock();
->>   }
->>   EXPORT_SYMBOL(netif_device_detach);
->>
->> @@ -2205,11 +2214,20 @@ EXPORT_SYMBOL(netif_device_detach);
->>    */
->>   void netif_device_attach(struct net_device *dev)
->>   {
->> +    /**
->
->   ... and here?
->
->> +     * As netif_running is called , rtnl_lock and unlock are needed to
->> +     * avoid __LINK_STATE_START bit changes during this function call.
->> +     */
->
-> WBR, Sergei
->
+Acked-by:  Jason Wang <jasowang@redhat.com>
