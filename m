@@ -1,59 +1,44 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH] virtio_net: zero is an invald queue_pairs number
-Date: Mon, 21 Apr 2014 14:45:25 +0800
-Message-ID: <5354BE85.5030604@redhat.com>
-References: <1397799941-11371-1-git-send-email-akong@redhat.com>
-	<5354BB94.4030908@redhat.com>
+From: =?UTF-8?B?T3J0d2luIEdsw7xjaw==?= <odi@odi.ch>
+Subject: Re: 3.14 regression: huge latency in read/select on tun
+Date: Mon, 21 Apr 2014 10:40:55 +0200
+Message-ID: <5354D997.70604@odi.ch>
+References: <533C381E.9090103@odi.ch>		 <1396456973.3989.41.camel@edumazet-glaptop2.roam.corp.google.com>		 <533D133A.3090008@odi.ch>		 <1396531176.12330.6.camel@edumazet-glaptop2.roam.corp.google.com>	 <1396533026.12330.9.camel@edumazet-glaptop2.roam.corp.google.com>	 <5352D8FF.6070305@odi.ch> <1398011495.19600.22.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com
-To: Amos Kong <akong@redhat.com>, virtualization@lists.linux-foundation.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <5354BB94.4030908@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	gerben@daybyday.nl, Vlad Yasevich <vyasevic@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fep17.mx.upcmail.net ([62.179.121.37]:36986 "EHLO
+	fep17.mx.upcmail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750824AbaDUIlD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 04:41:03 -0400
+In-Reply-To: <1398011495.19600.22.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/21/2014 02:32 PM, Jason Wang wrote:
-> On 04/18/2014 01:45 PM, Amos Kong wrote:
->> Execute "ethtool -L eth0 combined 0" in guest, if multiqueue
->> is enabled, virtnet_send_command() will return -EINVAL error,
->> there is a validation in QEMU.
->>
->> But if multiqueue is disabled, virtnet_set_queues() will just
->> return zero (success). We should return error for this situation.
->>
->> Signed-off-by: Amos Kong <akong@redhat.com>
->> ---
->>  drivers/net/virtio_net.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->> index 7b68746..8a852b5 100644
->> --- a/drivers/net/virtio_net.c
->> +++ b/drivers/net/virtio_net.c
->> @@ -1285,7 +1285,7 @@ static int virtnet_set_channels(struct net_device *dev,
->>  	if (channels->rx_count || channels->tx_count || channels->other_count)
->>  		return -EINVAL;
->>  
->> -	if (queue_pairs > vi->max_queue_pairs)
->> +	if (queue_pairs > vi->max_queue_pairs || queue_pairs == 0)
->>  		return -EINVAL;
->>  
->>  	get_online_cpus();
-> Acked-by:  Jason Wang <jasowang@redhat.com>
 
-Looking at virtnet_set_queues(), it will return success even if no cvq
-and no mq support. This is wrong. We need return error in this case.
-We'd better fix it and check the its return value in virtnet_restore().
 
-With this fix, there's no need for us to check queue_pairs against zero
-like what this patch does.
+On 20.04.2014 18:31, Eric Dumazet wrote:> On Sat, 2014-04-19 at 22:13
++0200, Ortwin Gl=C3=BCck wrote:
+>> On 03.04.2014 15:50, Eric Dumazet wrote:
+>>
+>> I finally found time to bisect this:
+>>
+>> commit 53d6471cef17262d3ad1c7ce8982a234244f68ec
+>> Author: Vlad Yasevich <vyasevic@redhat.com>
+>> Date:   Thu Mar 27 17:26:18 2014 -0400
+>>
+>>     net: Account for all vlan headers in skb_mac_gso_segment
+>
+> Hmm.. probably already solved by commit
+> 1e785f48d29a09b6cf96db7b49b6320dada332e1
+> ("net: Start with correct mac_len in skb_network_protocol")
+
+Indeed that fixes it. I have cherry picked that onto 3.14 and it works.
+That means 1e785f48 should be applied to stable 3.13.y and 3.14.y too.
+
+Thanks,
+
+Ortwin
