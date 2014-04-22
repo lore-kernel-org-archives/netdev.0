@@ -1,87 +1,51 @@
-From: zhangfei <zhangfei.gao@linaro.org>
-Subject: Re: [PATCH v8 2/3] net: hisilicon: new hip04 MDIO driver
-Date: Tue, 22 Apr 2014 22:58:32 +0800
-Message-ID: <53568398.2030800@linaro.org>
-References: <1397869980-21187-1-git-send-email-zhangfei.gao@linaro.org> <10652983.rXrAGMo8Yn@wuerfel> <535679A6.4020103@linaro.org> <201404221630.07865.arnd@arndb.de>
+From: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 2/7] gpiolib: Support purely name based
+ gpiod lookup in device trees
+Date: Tue, 22 Apr 2014 17:00:17 +0200
+Message-ID: <CACRpkdZ+3dnhoj1TS4KSVUP8iFHsjjwop-FG2Nf07YtH6aSO_Q@mail.gmail.com>
+References: <1397544101-18135-1-git-send-email-wens@csie.org>
+	<1397544101-18135-3-git-send-email-wens@csie.org>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Russell King <linux@arm.linux.org.uk>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>, xuwei5@hisilicon.com,
-	David Laight <David.Laight@aculab.com>,
-	David Miller <davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:38678 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751421AbaDVO6l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 10:58:41 -0400
-Received: by mail-pa0-f41.google.com with SMTP id fa1so5032830pad.14
-        for <netdev@vger.kernel.org>; Tue, 22 Apr 2014 07:58:40 -0700 (PDT)
-In-Reply-To: <201404221630.07865.arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Mika Westerberg <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
+	"linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+To: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Return-path: <linux-sunxi+bncBDE6RCFOWIARBAUI3KNAKGQEGMFLYYQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <1397544101-18135-3-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
+On Tue, Apr 15, 2014 at 8:41 AM, Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org> wrote:
 
-
-On 04/22/2014 10:30 PM, Arnd Bergmann wrote:
-> On Tuesday 22 April 2014, zhangfei wrote:
->> On 04/22/2014 04:22 PM, Arnd Bergmann wrote:
->>
->>>> It's private register of the phy marvell 88e1512.
->>>> To make it clearer using define instead.
->>>> #define MII_MARVELL_PHY_PAGE    22
->>>>
->>>> The registers has been grouped into several pages, access register need
->>>> choose which page first.
->>>
->>> You shouldn't touch the PHY private registers in the main driver though,
->>> this should be purely handled by drivers/net/phy/marvell.c.
->>>
->>> I don't see support for 88e1512 there, only 88e1510 and lots of older
->>> ones, but I assume it isn't hard to add.
->>>
->>
->> 88e1512 driver is already supported, same as 88e1510.
->> #define MARVELL_PHY_ID_MASK             0xfffffff0
->> So it should support 88e151x.
->>
->> Reset is required here for get_phy_id, otherwise only 0 can be get.
->> phy_device_create will not be called, and can not match any driver.
->>
->> However in the experiment, it is found BMCR_RESET is not required in fact.
->> Only hip04_mdio_write(bus, i, MII_MARVELL_PHY_PAGE, 0) has to be set.
->> 88e151x registers are divided into pages.
->> Generic MII registers is in page 0, including MII_PHYSID1 and MII_PHYSID2.
->> Unfortunately the default page is not 0, so get_phy_id will fail.
->>
->> So bus->reset still required to set the page to 0, prepared for get_phy_id.
+> This patch enables gpio-names based gpiod lookup in device tree usage,
+> which ignores the index passed to gpiod_get_index. If this fails, fall
+> back to the original function-index ("con_id"-gpios) based lookup scheme,
+> for backward compatibility and any drivers needing more than one GPIO
+> for any function.
 >
-> But it means that the hip04_mdio driver potentially won't work if connected
-> to something other than a Marvell PHY.
->
-> I noticed that the marvell_of_reg_init() does this at init time:
->
-> saved_page = phy_read(phydev, MII_MARVELL_PHY_PAGE);
-> ... /* perform init */
-> if (page_changed)
-> 	phy_write(phydev, MII_MARVELL_PHY_PAGE, saved_page);
->
-> Is this a bug? Maybe it should always set page 0 when leaving
-> this function.
->
-It is correct behavior return to the original page.
+> Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
 
-First get_phy_id, then match driver according to the id, then operation 
-in the specific driver have the chance to run, including 
-marvell_of_reg_init etc.
+This looks a bit scary and I cannot claim to realize the entire semantic
+effect of this patch, but if it's the way to go then OK.
+Acked-by: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 
-Just unlucky the default value of PHY_PAGE after power on is not 0.
+Shall I just apply this to the GPIO tree or are you carrying it along with
+the other stuff?
 
-Thanks
+Yours,
+Linus Walleij
