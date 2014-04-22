@@ -1,37 +1,152 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] ipv6: support IFA_F_MANAGETEMPADDR for address
- deletion too
-Date: Tue, 22 Apr 2014 08:00:44 +0200
-Message-ID: <20140422060044.GA2863@minipsycho.orion>
-References: <53542020.8070904@web.de>
+From: zhangfei <zhangfei.gao@linaro.org>
+Subject: Re: [PATCH v8 2/3] net: hisilicon: new hip04 MDIO driver
+Date: Tue, 22 Apr 2014 14:03:40 +0800
+Message-ID: <5356063C.6070100@linaro.org>
+References: <1397869980-21187-1-git-send-email-zhangfei.gao@linaro.org> <1397869980-21187-3-git-send-email-zhangfei.gao@linaro.org> <53555C28.4050303@cogentembedded.com> <CAGVrzcb8Ykxi72x3iBStjTL+OO1BhDc_yZnnPq8ZHra+mtrBEA@mail.gmail.com> <535561BE.9070303@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Heiner Kallweit <heiner.kallweit@web.de>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Russell King <linux@arm.linux.org.uk>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Mark Rutland <mark.rutland@arm.com>,
+	David Laight <David.Laight@aculab.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, xuwei5@hisilicon.com,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f47.google.com ([74.125.83.47]:59899 "EHLO
-	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751376AbaDVGAr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 02:00:47 -0400
-Received: by mail-ee0-f47.google.com with SMTP id b15so4107361eek.6
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 23:00:46 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <53542020.8070904@web.de>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:55822 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752002AbaDVGD5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 02:03:57 -0400
+Received: by mail-pb0-f44.google.com with SMTP id rp16so4573396pbb.3
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 23:03:52 -0700 (PDT)
+In-Reply-To: <535561BE.9070303@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, Apr 20, 2014 at 09:29:36PM CEST, heiner.kallweit@web.de wrote:
->Userspace applications can use IFA_F_MANAGETEMPADDR with RTM_NEWADDR
->already to indicate that the kernel should take care of temporary
->address management.
->
->This patch adds related functionality to RTM_DELADDR. By setting
->IFA_F_MANAGETEMPADDR a userspace application can indicate that the kernel
->should delete all related temporary addresses as well.
->
->A corresponding patch for the "ip addr del" command has been applied to
->iproute2 already.
->
->Signed-off-by: Heiner Kallweit <heiner.kallweit@web.de>
 
-Reviewed-by: Jiri Pirko <jiri@resnulli.us>
+
+On 04/22/2014 02:21 AM, Sergei Shtylyov wrote:
+> On 04/21/2014 10:03 PM, Florian Fainelli wrote:
+>
+>>>> Hisilicon hip04 platform mdio driver
+>>>> Reuse Marvell phy drivers/net/phy/marvell.c
+>
+>>>> Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
+>>> [...]
+>
+>>>> diff --git a/drivers/net/ethernet/hisilicon/hip04_mdio.c
+>>>> b/drivers/net/ethernet/hisilicon/hip04_mdio.c
+>>>> new file mode 100644
+>>>> index 0000000..19826a3
+>>>> --- /dev/null
+>>>> +++ b/drivers/net/ethernet/hisilicon/hip04_mdio.c
+>>>> @@ -0,0 +1,185 @@
+>
+> [...]
+>
+>>>> +static int hip04_mdio_reset(struct mii_bus *bus)
+>>>> +{
+>>>> +       int temp, err, i;
+>>>> +
+>>>> +       for (i = 0; i < PHY_MAX_ADDR; i++) {
+>>>> +               hip04_mdio_write(bus, i, 22, 0);
+>
+>>>     Why? What kind of a register this is? <uapi/linux/mii.h> tells me
+>>> it's
+>>> MII_SREVISION...
+>
+>> I think this rather means clause 22 as opposed to clause 45.
+>
+>     No, the corresponding hip04_mdio_write()'s parameter is a register
+> #, so this is a write of 0 to register #22. A comment certainly wouldn't
+> hurt here...
+
+It's private register of the phy marvell 88e1512.
+To make it clearer using define instead.
+#define MII_MARVELL_PHY_PAGE    22
+
+The registers has been grouped into several pages, access register need 
+choose which page first.
+>
+>>>> +               temp = hip04_mdio_read(bus, i, MII_BMCR);
+>
+>>>     You're not checking for error...
+>
+>>>> +               temp |= BMCR_RESET;
+>>>> +               err = hip04_mdio_write(bus, i, MII_BMCR, temp);
+>
+>>>     Hmm, why you're open coding BMCR reset? There's phy_init_hw()
+>>> doing this
+>>> correctly...
+>
+>> Except that this runs way before we have created the PHY driver, so we
+>> can't use that function just yet.
+>
+>     Ah, you're right.
+>
+>> I already asked about this, and he
+>> explained that this was because the PHY devices he uses are not
+>> responding correcty to MII_PHYSID1/2 reads.
+>
+>     So, this manual reset loop helps with reading the ID registers? A
+> comment wouldn't hurt either...
+Yes, it required for get_phy_id, will add comments.
+
+>
+>>>> +               if (err < 0)
+>>>> +                       return err;
+>
+>     I'm not at all sure we want to leave the reset loop on a first write
+> error.
+Yes, continue can be used instead.
+
+>
+>>>> +       }
+>>>> +
+>>>> +       mdelay(500);
+>
+>     I'm not sure this is enough, given that in phy_init_hw() we poll for
+> 600 ms + 1 ms.
+Though not find clear delay time required from the phy spec, the 
+experiment shows OK.
+Also here can not verify the BMCR_RESET bit, 0xffff will returned if the 
+phy is not exists.
+>
+>>>> +       return 0;
+>>>> +}
+>>>> +
+>>>> +static int hip04_mdio_probe(struct platform_device *pdev)
+>>>> +{
+>>>> +       struct resource *r;
+>>>> +       struct mii_bus *bus;
+>>>> +       struct hip04_mdio_priv *priv;
+>>>> +       int ret;
+>>>> +
+>>>> +       bus = mdiobus_alloc_size(sizeof(struct hip04_mdio_priv));
+>>>> +       if (!bus) {
+>>>> +               dev_err(&pdev->dev, "Cannot allocate MDIO bus\n");
+>>>> +               return -ENOMEM;
+>>>> +       }
+>>>> +
+>>>> +       bus->name = "hip04_mdio_bus";
+>>>> +       bus->read = hip04_mdio_read;
+>>>> +       bus->write = hip04_mdio_write;
+>>>> +       bus->reset = hip04_mdio_reset;
+>
+>>>     Ah... However I don't think it a good implementation of that bus
+>>> method...
+>
+>     I assumed this method exists to do a hardware reset of the whole
+> bus, not to do a loop of soft-resetting all PHYs...
+>
+
+It is required for each phy, if no such reset, the specific phy can NOT be
+detected and get_phy_id returns 0.
+
+Thanks
