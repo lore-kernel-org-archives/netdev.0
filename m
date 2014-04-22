@@ -1,39 +1,61 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH 0/2] net: Implement SO_PEERCGROUP and SO_PASSCGROUP socket options
-Date: Tue, 22 Apr 2014 13:08:59 -0700
-Message-ID: <CALCETrWHA5ZmzOHnz9LO+7v4byc8QiynGyjE_ju5sjokNqrjZA@mail.gmail.com>
-References: <1397596546-10153-1-git-send-email-vgoyal@redhat.com> <20140422.160558.627080587952506099.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/6] netlink: have netlink per-protocol bind function
+ return an error code.
+Date: Tue, 22 Apr 2014 16:19:04 -0400 (EDT)
+Message-ID: <20140422.161904.1187535812839850973.davem@davemloft.net>
+References: <20140324183406.GE28666@madcap2.tricolour.ca>
+	<cover.1397831970.git.rgb@redhat.com>
+	<c9a8a0879bc9f375bb3484f8e86189a8af5aa142.1397831970.git.rgb@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vivek Goyal <vgoyal@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	cgroups@vger.kernel.org,
-	Network Development <netdev@vger.kernel.org>,
-	Tejun Heo <tj@kernel.org>, Simo Sorce <ssorce@redhat.com>,
-	lpoetter@redhat.com, kay@redhat.com,
-	Daniel Walsh <dwalsh@redhat.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-audit@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, selinux@tycho.nsa.gov,
+	linux-security-module@vger.kernel.org, eparis@redhat.com,
+	netfilter-devel@vger.kernel.org, hadi@mojatatu.com,
+	sgrubb@redhat.com
+To: rgb@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140422.160558.627080587952506099.davem@davemloft.net>
+In-Reply-To: <c9a8a0879bc9f375bb3484f8e86189a8af5aa142.1397831970.git.rgb@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 22, 2014 at 1:05 PM, David Miller <davem@davemloft.net> wrote:
-> From: Vivek Goyal <vgoyal@redhat.com>
-> Date: Tue, 15 Apr 2014 17:15:44 -0400
->
->> This is another version of patchset to add support passing cgroup
->> information of client over unix socket API.
->
-> I'm marking this patch series as "changes requested" in patchwork
-> because if we still end up adding this feature SO_PASSCGROUP needs to
-> be changed to behave like SO_PASSCRED.
->
-> Specifically, like SO_PASSCRED, it should pass the "real" cgroup, ie.
-> the cgroup at socket open() time.
->
+From: Richard Guy Briggs <rgb@redhat.com>
+Date: Fri, 18 Apr 2014 13:34:06 -0400
 
-I suspect that making this change will render it useless,
-unfortunately.  I really want to understand the use case.
+> @@ -1449,6 +1453,26 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+>  	if (!nladdr->nl_groups && (nlk->groups == NULL || !(u32)nlk->groups[0]))
+>  		return 0;
+>  
+> +	if (nlk->netlink_bind && nladdr->nl_groups) {
+> +		int i;
+> +
+> +		for (i = 0; i < nlk->ngroups; i++) {
+> +			int undo;
+> +
+> +			if (!test_bit(i, (long unsigned int *)&nladdr->nl_groups))
+> +				continue;
+> +			err = nlk->netlink_bind(i);
+> +			if (!err)
+> +				continue;
+> +			if (!nlk->portid)
+> +				netlink_remove(sk);
+> +			for (undo = 0; undo < i; undo++)
+> +				if (nlk->netlink_unbind)
+> +					nlk->netlink_unbind(undo);
+> +			return err;
+> +		}
+> +	}
+> +
 
---Andy
+It took me a while to figure out why you need to do the netlink_remove() in
+the error path.
+
+I think it's really asking for trouble to allow the socket to have temporary
+visibility if we end up signalling an error.
+
+It seems safest if we only do the autobind/insert once we are absolutely
+certain that the bind() will fully succeed.  This means that you have to
+do this bind validation loop before autobind/insert.
+
+Please make this change and resubmit this series, thanks.
