@@ -1,47 +1,94 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] netclassid_cgroup: explicitly init the early_init field
-Date: Tue, 22 Apr 2014 07:02:36 -0400
-Message-ID: <20140422110236.GC17116@hmsreliant.think-freely.org>
-References: <1398144676-9739-1-git-send-email-nasa4836@gmail.com>
+From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Subject: RE: [PATCH v7 1/2] can: xilinx CAN controller support
+Date: Tue, 22 Apr 2014 11:08:02 +0000
+Message-ID: <9f70ceca-c6fd-4d57-a54a-8cbf9d888137@CH1EHSMHS016.ehs.local>
+References: <3e750ec3-9d47-4b4e-8173-56698ab19786@CH1EHSMHS029.ehs.local>
+ <53562E7D.7090509@pengutronix.de>
+ <957b07ca-f74c-47fb-963a-084710d48c5a@AM1EHSMHS014.ehs.local>
+ <535643D9.3070601@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, lizefan@huawei.com, tj@kernel.org,
-	aris@redhat.com, dborkman@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jianyu Zhan <nasa4836@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1398144676-9739-1-git-send-email-nasa4836@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Michal Simek <michals@xilinx.com>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"wg@grandegger.com" <wg@grandegger.com>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ch1ehsobe006.messaging.microsoft.com ([216.32.181.186]:54992
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755663AbaDVLII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 07:08:08 -0400
+In-Reply-To: <535643D9.3070601@pengutronix.de>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 22, 2014 at 01:31:16PM +0800, Jianyu Zhan wrote:
-> For a cgroup subsystem who should init early, then it should carefully
-> take care of the implementation of css_alloc, because it will be called
-> before mm_init() setup the world.
-> 
-> Luckily we don't, and we better explicitly assign the early_init field
-> to 0, for document reason.
-> 
-> Signed-off-by: Jianyu Zhan <nasa4836@gmail.com>
-> ---
->  net/core/netclassid_cgroup.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/net/core/netclassid_cgroup.c b/net/core/netclassid_cgroup.c
-> index 22931e1..1b07dca 100644
-> --- a/net/core/netclassid_cgroup.c
-> +++ b/net/core/netclassid_cgroup.c
-> @@ -108,4 +108,5 @@ struct cgroup_subsys net_cls_cgrp_subsys = {
->  	.css_free		= cgrp_css_free,
->  	.attach			= cgrp_attach,
->  	.base_cftypes		= ss_files,
-> +	.early_init		= 0,
->  };
-> -- 
-> 2.0.0-rc0
-> 
-> 
-Agreed, this doesn't make sense, early_init is default assigned to zero.  What
-problem are you trying to solve?
-Neil
+SGkgTWFyYywNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNYXJjIEts
+ZWluZS1CdWRkZSBbbWFpbHRvOm1rbEBwZW5ndXRyb25peC5kZV0NCj4gU2VudDogVHVlc2RheSwg
+QXByaWwgMjIsIDIwMTQgMzo1NyBQTQ0KPiBUbzogQXBwYW5hIER1cmdhIEtlZGFyZXN3YXJhIFJh
+bzsgd2dAZ3JhbmRlZ2dlci5jb207IE1pY2hhbCBTaW1lazsNCj4gZ3JhbnQubGlrZWx5QGxpbmFy
+by5vcmc7IHJvYmgrZHRAa2VybmVsLm9yZw0KPiBDYzogbGludXgtY2FuQHZnZXIua2VybmVsLm9y
+ZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgtYXJtLQ0KPiBrZXJuZWxAbGlzdHMuaW5m
+cmFkZWFkLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsNCj4gZGV2aWNldHJlZUB2
+Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSCB2NyAxLzJdIGNhbjogeGlsaW54
+IENBTiBjb250cm9sbGVyIHN1cHBvcnQNCj4NCj4gT24gMDQvMjIvMjAxNCAxMjowNiBQTSwgQXBw
+YW5hIER1cmdhIEtlZGFyZXN3YXJhIFJhbyB3cm90ZToNCj4NCj4gPj4gTWVhbndoaWxlIFRob21h
+cyBHbGVpeG5lciBwdXQgc29tZSBlZmZvcnQgaW50byB0aGUgY19jYW4gZHJpdmVyIGFuZA0KPiA+
+PiBmb3VuZCBzb21lIHByb2JsZW1zIGluIG1vc3Qgb2YgdGhlIGNhbiBkcml2ZXIuIFNlZSBjb21t
+ZW50cyBpbmxpbmUuDQo+ID4+DQo+ID4gT2sgd2lsbCBsb29rIGludG8gdGhhdCBwYXRjaGVzDQo+
+DQo+IEkndmUgY29tbWVudGVkIHRoZSByZWxldmFudCBwYXJ0cyBvZiB5b3VyIHBhdGNoLiBBbHRo
+b3VnaCBtb3JlDQo+IGJhY2tncm91bmQgaW5mb3JtYXRpb24gY2FuIGJlIGZvdW5kIGluIHRoZSBj
+X2NhbiBwYXRjaGVzLg0KPg0KT2sNCg0KPiA+Pj4gKy8qKg0KPiA+Pj4gKyAqIHhjYW5fdHhfaW50
+ZXJydXB0IC0gVHggRG9uZSBJc3INCj4gPj4+ICsgKiBAbmRldjogIG5ldF9kZXZpY2UgcG9pbnRl
+cg0KPiA+Pj4gKyAqIEBpc3I6ICAgSW50ZXJydXB0IHN0YXR1cyByZWdpc3RlciB2YWx1ZQ0KPiA+
+Pj4gKyAqLw0KPiA+Pj4gK3N0YXRpYyB2b2lkIHhjYW5fdHhfaW50ZXJydXB0KHN0cnVjdCBuZXRf
+ZGV2aWNlICpuZGV2LCB1MzIgaXNyKSB7DQo+ID4+PiArICAgc3RydWN0IHhjYW5fcHJpdiAqcHJp
+diA9IG5ldGRldl9wcml2KG5kZXYpOw0KPiA+Pj4gKyAgIHN0cnVjdCBuZXRfZGV2aWNlX3N0YXRz
+ICpzdGF0cyA9ICZuZGV2LT5zdGF0czsNCj4gPj4+ICsNCj4gPj4+ICsgICB3aGlsZSAocHJpdi0+
+dHhfaGVhZCAtIHByaXYtPnR4X3RhaWwgPiAwKSB7DQo+ID4+PiArICAgICAgICAgICBwcml2LT53
+cml0ZV9yZWcocHJpdiwgWENBTl9JQ1JfT0ZGU0VULA0KPiA+PiBYQ0FOX0lYUl9UWE9LX01BU0sp
+Ow0KPiA+Pj4gKyAgICAgICAgICAgaWYgKCEoaXNyICYgWENBTl9JWFJfVFhPS19NQVNLKSkNCj4g
+Pj4+ICsgICAgICAgICAgICAgICAgICAgYnJlYWs7DQo+ID4+DQo+ID4+IFRoaXMgbG9va3MgYnJv
+a2VuLiBJIGFzc3VtZSB5b3UgaGF2ZSB0byBpc3N1ZSB0aGUNCj4gWENBTl9JWFJfVFhPS19NQVNL
+LQ0KPiA+PiB3cml0ZSBvbmNlIHBlciB0eC1jb21wbGV0ZWQgQ0FOIGZyYW1lLiBJZiB5b3UgZW50
+ZXIgdGhpcyBsb29wIHlvdQ0KPiA+PiB3cml0ZSBvbmNlLCB0aGVuIGlzciBpcyByZWFkLCB0aGVu
+IHlvdSB3cml0ZSBhZ2FpbiBhbmQgbWF5IGV4aXQgdGhpcw0KPiA+PiBsb29wIGlmIFhDQU5fSVhS
+X1RYT0tfTUFTSyBpcyBub3Qgc2V0IGFueW1vcmUuDQo+DQo+IExldCdzIGFzc3VtZSB5b3UgaGF2
+ZSBwdXQgMyBDQU4gZnJhbWVzIGludG8gdGhlIFRYLXF1ZXVlIGFuZCB3ZSdyZSBpbnRvDQo+IHR4
+LWNvbXBsZXRlIGludGVycnVwdCBmb3IgdGhlIGZpcnN0IGZyYW1lIGFuZCB0aGUgb3RoZXIgMiBh
+cmUgc3RpbGwgbm90DQo+IGNvbXBsZXRlZC4NCj4NCj4gVGhpcyBtZWFucyB0aGUgd2hpbGUoKSBs
+b29wIGlzIG5vdCB0ZXJtaW5hdGVkIGJ5IChwcml2LT50eF9oZWFkIC0NCj4gcHJpdi0+dHhfdGFp
+bCA+IDApLCBhcyBpdCBjYW4gbG9vcCAzIHRpbWVzLg0KPg0KPiBXaGF0IGhhcHBlbnMgaXM6DQo+
+DQo+IC0gcHJpdi0+d3JpdGVfcmVnKHByaXYsIFhDQU5fSUNSX09GRlNFVCwgWENBTl9JWFJfVFhP
+S19NQVNLKTsNCj4gLSBpZiAoIShpc3IgJiBYQ0FOX0lYUl9UWE9LX01BU0spKSAtPiBubyBicmVh
+aw0KPiAtIGNhbl9nZXRfZWNob19za2IoKQ0KPiAtIC4uLg0KPiAtIGlzciA9IHByaXYtPnJlYWRf
+cmVnKHByaXYsIFhDQU5fSVNSX09GRlNFVCk7DQo+IC0gbG9vcCAtPg0KPiAtIHByaXYtPndyaXRl
+X3JlZyhwcml2LCBYQ0FOX0lDUl9PRkZTRVQsIFhDQU5fSVhSX1RYT0tfTUFTSyk7DQo+IC0gaWYg
+KCEoaXNyICYgWENBTl9JWFJfVFhPS19NQVNLKSkgLT4gYnJlYWsNCj4NCj4gU28geW91IGhhdmUg
+Mnggd3JpdGVfcmVnKHByaXYsIFhDQU5fSUNSX09GRlNFVCwgWENBTl9JWFJfVFhPS19NQVNLKSwN
+Cj4gYnV0IG9ubHkgYSBzaW5nbGUgVFggY29tcGxldGVkIENBTiBmcmFtZS4NCj4NCg0KT2sgbm93
+IGdvdCBpdCA6KS4gVGhhbmtzIGZvciB0aGUgZXhwbGFuYXRpb24uDQpXaWxsIG1vZGlmeSB0aGUg
+bG9vcCBsb2dpYyBsaWtlIGJlbG93Lg0KDQp3aGlsZSAocHJpdi0+dHhfaGVhZCAtIHByaXYtPnR4
+X3RhaWwgPiAwKSB7DQogICAgICAgICAgICAgICAgIGlmICgoaXNyICYgWENBTl9JWFJfVFhPS19N
+QVNLKSkgew0KICAgICAgICAgICAgICAgIHByaXYtPndyaXRlX3JlZyhwcml2LCBYQ0FOX0lDUl9P
+RkZTRVQsIFhDQU5fSVhSX1RYT0tfTUFTSyk7DQogICAgICAgICAgICAgICAgICAgICAgICBjYW5f
+Z2V0X2VjaG9fc2tiKG5kZXYsIHByaXYtPnR4X3RhaWwgJQ0KICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgcHJpdi0+dHhfbWF4KTsNCiAgICAgICAgICAgICAg
+ICAgICAgICAgIHByaXYtPnR4X3RhaWwrKzsNCiAgICAgICAgICAgICAgICAgICAgICAgIHN0YXRz
+LT50eF9wYWNrZXRzKys7DQogICAgICAgICAgICAgICAgfSBlbHNlIHsNCiAgICAgICAgICAgICAg
+ICBicmVhazsNCiAgICAgICAgfQ0KICAgICAgICAgICAgICAgIGlzciA9IHByaXYtPnJlYWRfcmVn
+KHByaXYsIFhDQU5fSVNSX09GRlNFVCk7DQogIH0NCkFyZSB5b3Ugb2sgd2l0aCB0aGlzPw0KDQpS
+ZWdhcmRzLA0KS2VkYXIuDQoNCg0KDQpUaGlzIGVtYWlsIGFuZCBhbnkgYXR0YWNobWVudHMgYXJl
+IGludGVuZGVkIGZvciB0aGUgc29sZSB1c2Ugb2YgdGhlIG5hbWVkIHJlY2lwaWVudChzKSBhbmQg
+Y29udGFpbihzKSBjb25maWRlbnRpYWwgaW5mb3JtYXRpb24gdGhhdCBtYXkgYmUgcHJvcHJpZXRh
+cnksIHByaXZpbGVnZWQgb3IgY29weXJpZ2h0ZWQgdW5kZXIgYXBwbGljYWJsZSBsYXcuIElmIHlv
+dSBhcmUgbm90IHRoZSBpbnRlbmRlZCByZWNpcGllbnQsIGRvIG5vdCByZWFkLCBjb3B5LCBvciBm
+b3J3YXJkIHRoaXMgZW1haWwgbWVzc2FnZSBvciBhbnkgYXR0YWNobWVudHMuIERlbGV0ZSB0aGlz
+IGVtYWlsIG1lc3NhZ2UgYW5kIGFueSBhdHRhY2htZW50cyBpbW1lZGlhdGVseS4NCg0KCgo=
