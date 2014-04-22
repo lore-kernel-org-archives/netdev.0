@@ -1,39 +1,36 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2 2/3] net: ipv6: Use ip6_datagram_send_common
- in L2TP IPv6.
-Date: Tue, 22 Apr 2014 07:23:42 -0700
-Message-ID: <1398176622.29946.46.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1398154415-24486-1-git-send-email-lorenzo@google.com>
-	 <1398159499-32413-1-git-send-email-lorenzo@google.com>
-	 <1398159499-32413-2-git-send-email-lorenzo@google.com>
+Subject: Re: [patch net-next] vlan: Don't allow vlan devices to change
+ network namespaces.
+Date: Tue, 22 Apr 2014 07:26:59 -0700
+Message-ID: <1398176819.29946.49.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1398170586-6668-1-git-send-email-chenweilong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	hannes@stressinduktion.org, davem@davemloft.net
-To: Lorenzo Colitti <lorenzo@google.com>
+Cc: kaber@trash.net, davem@davemloft.net, netdev@vger.kernel.org
+To: Chen Weilong <chenweilong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:60298 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751243AbaDVOXs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 10:23:48 -0400
-Received: by mail-pa0-f44.google.com with SMTP id bj1so5015409pad.31
-        for <netdev@vger.kernel.org>; Tue, 22 Apr 2014 07:23:47 -0700 (PDT)
-In-Reply-To: <1398159499-32413-2-git-send-email-lorenzo@google.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:32916 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756160AbaDVO1B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 10:27:01 -0400
+Received: by mail-pa0-f49.google.com with SMTP id lj1so5005419pab.36
+        for <netdev@vger.kernel.org>; Tue, 22 Apr 2014 07:27:00 -0700 (PDT)
+In-Reply-To: <1398170586-6668-1-git-send-email-chenweilong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-04-22 at 18:38 +0900, Lorenzo Colitti wrote:
-> This code was also virtually identical with the UDP and raw
-> socket sendmsg code.
+On Tue, 2014-04-22 at 20:43 +0800, Chen Weilong wrote:
+> From: Weilong Chen <chenweilong@huawei.com>
 > 
-> Tested: compiles with CONFIG_IPV6=Y and CONFIG_L2TP_IP=Y.
+> Like bonding, vlan as netdevice doesn't cross netns boundaries.
 > 
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
-> ---
->  net/l2tp/l2tp_ip6.c | 114 +++++-----------------------------------------------
->  1 file changed, 9 insertions(+), 105 deletions(-)
+> Vlan port and vlan itself live in same netns.
 
-Please try CONFIG_IPV6=m and/or CONFIG_L2TP_IP=m then ;)
+Please explain why you believe it should be like that.
 
-You forgot to EXPORT_SYMBOL(ip6_datagram_send_common)
+bonding and vlan have quite different purpose, so your changelog is
+quite obscure.
+
+We had a discussion like this one with macvlan, and prior patch was
+rejected.
