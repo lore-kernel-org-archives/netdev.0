@@ -1,43 +1,37 @@
-From: Jianyu Zhan <nasa4836@gmail.com>
-Subject: [PATCH] netprio_cgroup: explicitly init the early_init field
-Date: Tue, 22 Apr 2014 13:32:02 +0800
-Message-ID: <1398144722-9864-1-git-send-email-nasa4836@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net, lizefan@huawei.com, tj@kernel.org,
-	nhorman@tuxdriver.com, daniel.wagner@bmw-carit.de,
-	nasa4836@gmail.com, gaofeng@cn.fujitsu.com,
-	stephen@networkplumber.org, jiri@resnulli.us
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] ipv6: support IFA_F_MANAGETEMPADDR for address
+ deletion too
+Date: Tue, 22 Apr 2014 08:00:44 +0200
+Message-ID: <20140422060044.GA2863@minipsycho.orion>
+References: <53542020.8070904@web.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Heiner Kallweit <heiner.kallweit@web.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:49958 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751986AbaDVFcQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 01:32:16 -0400
+Received: from mail-ee0-f47.google.com ([74.125.83.47]:59899 "EHLO
+	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751376AbaDVGAr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 02:00:47 -0400
+Received: by mail-ee0-f47.google.com with SMTP id b15so4107361eek.6
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 23:00:46 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <53542020.8070904@web.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For a cgroup subsystem who should init early, then it should carefully
-take care of the implementation of css_alloc, because it will be called
-before mm_init() setup the world.
+Sun, Apr 20, 2014 at 09:29:36PM CEST, heiner.kallweit@web.de wrote:
+>Userspace applications can use IFA_F_MANAGETEMPADDR with RTM_NEWADDR
+>already to indicate that the kernel should take care of temporary
+>address management.
+>
+>This patch adds related functionality to RTM_DELADDR. By setting
+>IFA_F_MANAGETEMPADDR a userspace application can indicate that the kernel
+>should delete all related temporary addresses as well.
+>
+>A corresponding patch for the "ip addr del" command has been applied to
+>iproute2 already.
+>
+>Signed-off-by: Heiner Kallweit <heiner.kallweit@web.de>
 
-Luckily we don't, and we better explicitly assign the early_init field
-to 0, for document reason.
-
-Signed-off-by: Jianyu Zhan <nasa4836@gmail.com>
----
- net/core/netprio_cgroup.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index 13ddd68..fc21035 100644
---- a/net/core/netprio_cgroup.c
-+++ b/net/core/netprio_cgroup.c
-@@ -250,6 +250,7 @@ struct cgroup_subsys net_prio_cgrp_subsys = {
- 	.css_free	= cgrp_css_free,
- 	.attach		= net_prio_attach,
- 	.base_cftypes	= ss_files,
-+	.early_init	= 0,
- };
- 
- static int netprio_device_event(struct notifier_block *unused,
--- 
-2.0.0-rc0
+Reviewed-by: Jiri Pirko <jiri@resnulli.us>
