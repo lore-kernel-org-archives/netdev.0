@@ -1,44 +1,40 @@
-From: mstian88 <mstian88@163.com>
-Subject: Re:Re: How to set the filtering rules for drop the packets
-Date: Tue, 22 Apr 2014 12:56:58 +0800 (CST)
-Message-ID: <6a2bd57e.18e1d.14587cb4cea.Coremail.mstian88@163.com>
-References: <35e52a86.138f1.14583b52f31.Coremail.mstian88@163.com>
- <1398080944.3624.99.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: bwh@kernel.org, netdev@vger.kernel.org
-To: "Ben Hutchings" <ben@decadent.org.uk>
+From: Jianyu Zhan <nasa4836@gmail.com>
+Subject: [PATCH] netclassid_cgroup: explicitly init the early_init field
+Date: Tue, 22 Apr 2014 13:31:16 +0800
+Message-ID: <1398144676-9739-1-git-send-email-nasa4836@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, lizefan@huawei.com, tj@kernel.org,
+	nhorman@tuxdriver.com, aris@redhat.com, dborkman@redhat.com,
+	nasa4836@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m13-25.163.com ([220.181.13.25]:35989 "EHLO m13-25.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751921AbaDVFMg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Apr 2014 01:12:36 -0400
-In-Reply-To: <1398080944.3624.99.camel@deadeye.wl.decadent.org.uk>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:37512 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751285AbaDVFbb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 01:31:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dGhhbmtzIGZvciB5b3VyIHJlcGx5ICwgCgogbXkgTklDIGlzIGludGVsIFg1NDAtVDEsIHdoZW4g
-aSBzZXQgZHN0LXBvcnQgZmlsdGVyIGZpcnN0ICxzdWNlZXNzLCBidXQgdGhlbiBzZXQgc3JjLXBv
-cnQgZmlsdGVyIGZhaWxlZOOAggoKVGhhdCBpcyB0byBzYXkgdGhlIGZpbHRlciBydWxlIHNyYy1w
-b3J0IGFuZCBkaXMtcG9ydCBjYW4ndCBzZXQgdG9nZXRoZXLjgIIKClRoZXJlIGFyZSBhbnkgb3Ro
-ZXIgd2F5cyB0byBmaWx0ZXIgdGhlIHBhY2tldHMgdGhhdCBzcmNwb3J0IGlzIDgwIG9yIGRzdHBv
-cnQgaXMgODA/CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAK
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBt
-b25uZXkKQXQgMjAxNC0wNC0yMSAxOTo0OTowNCwiQmVuIEh1dGNoaW5ncyIgPGJlbkBkZWNhZGVu
-dC5vcmcudWs+IHdyb3RlOgo+T24gTW9uLCAyMDE0LTA0LTIxIGF0IDE3OjU0ICswODAwLCBtc3Rp
-YW44OCB3cm90ZToNCj4+IERlYXIgQmVuIEh1dGNoaW5ncy4NCj4+IA0KPj4gDQo+PiBJIHdhbnQg
-dG8gZGlzY2FyZCB0aGUgcGFja2V0cyAoc3JjcG9ydD09ODAgIG9yIGRzdHBvcnQ9PTgwKSwgIGhv
-dyBjYW4NCj4+IGkgZG8/DQo+Pg0KPj4gZWcuDQo+PiBJIHNldCB0aGUgcnVsZSBmb3IgZGlzY2Fy
-ZCB0aGUgcGFja2V0cyB0aGF0IHNyYyBwb3J0IGlzIDgwOg0KPj4gZXRodG9vbCAtVSBldGgwIGZs
-b3ctdHlwZSB0Y3A0IHNyYy1wb3J0IDgwIGFjdGlvbiAtMSAgICBTdWNjZXNzDQo+PiANCj4+IA0K
-Pj4gdGhlbiBzZXQgdGhlIHJ1bGUgZm9yIGRpc2NhcmQgdGhlIHBhY2tldHMgdGhhdCBkc3QgcG9y
-dCBpcyA4MDoNCj4+IGV0aHRvb2wgLVUgZXRoMCBmbG93LXR5cGUgdGNwNCBkc3QtcG9ydCA4MCBh
-Y3Rpb24gLTEgICAgRmFpbGVkDQo+PiB0aGUgZXJyb3IgaW5mbyBpcyA6DQo+PiBybWdyOiBDYW5u
-b3QgaW5zZXJ0IFJYIGNsYXNzIHJ1bGU6IEludmFsaWQgYXJndW1lbnQNCj4NCj5UaGUgc2V0cyBv
-ZiBmaWVsZHMgeW91IGNhbiBmaWx0ZXIgYnkgdmFyeSBncmVhdGx5IGJldHdlZW4gZGlmZmVyZW50
-DQo+ZHJpdmVycyBhbmQgbmV0d29yayBjb250cm9sbGVycy4gIEl0IGxvb2tzIGxpa2UgdGhlIGRy
-aXZlciBmb3IgZXRoMCBqdXN0DQo+ZG9lc24ndCBzdXBwb3J0IGZpbHRlcmluZyBieSBkc3QtcG9y
-dCBvbmx5Lg0KPg0KPkJlbi4NCj4NCj4NCj4tLSANCj5CZW4gSHV0Y2hpbmdzDQo+S25vd2xlZGdl
-IGlzIHBvd2VyLiAgRnJhbmNlIGlzIGJhY29uLg0K
+For a cgroup subsystem who should init early, then it should carefully
+take care of the implementation of css_alloc, because it will be called
+before mm_init() setup the world.
+
+Luckily we don't, and we better explicitly assign the early_init field
+to 0, for document reason.
+
+Signed-off-by: Jianyu Zhan <nasa4836@gmail.com>
+---
+ net/core/netclassid_cgroup.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/core/netclassid_cgroup.c b/net/core/netclassid_cgroup.c
+index 22931e1..1b07dca 100644
+--- a/net/core/netclassid_cgroup.c
++++ b/net/core/netclassid_cgroup.c
+@@ -108,4 +108,5 @@ struct cgroup_subsys net_cls_cgrp_subsys = {
+ 	.css_free		= cgrp_css_free,
+ 	.attach			= cgrp_attach,
+ 	.base_cftypes		= ss_files,
++	.early_init		= 0,
+ };
+-- 
+2.0.0-rc0
