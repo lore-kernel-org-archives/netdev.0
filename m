@@ -1,187 +1,101 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH net-next v3 3/3] net: ipv6: Use ip6_datagram_send_common in ping.
-Date: Wed, 23 Apr 2014 00:14:16 +0900
-Message-ID: <1398179656-9313-3-git-send-email-lorenzo@google.com>
-References: <1398154415-24486-1-git-send-email-lorenzo@google.com>
- <1398179656-9313-1-git-send-email-lorenzo@google.com>
-Cc: yoshfuji@linux-ipv6.org, hannes@stressinduktion.org,
-	davem@davemloft.net, eric.dumazet@gmail.com,
-	Lorenzo Colitti <lorenzo@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:33700 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932963AbaDVPOr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 11:14:47 -0400
-Received: by mail-pd0-f169.google.com with SMTP id fp1so5015995pdb.0
-        for <netdev@vger.kernel.org>; Tue, 22 Apr 2014 08:14:46 -0700 (PDT)
-In-Reply-To: <1398179656-9313-1-git-send-email-lorenzo@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH 2/7] gpiolib: Support purely name based
+ gpiod lookup in device trees
+Date: Tue, 22 Apr 2014 17:18:40 +0200
+Message-ID: <20140422151840.GH24905@lukather>
+References: <1397544101-18135-1-git-send-email-wens@csie.org>
+ <1397544101-18135-3-git-send-email-wens@csie.org>
+ <CACRpkdZ+3dnhoj1TS4KSVUP8iFHsjjwop-FG2Nf07YtH6aSO_Q@mail.gmail.com>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="7J16OGEJ/mt06A90"
+Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Heikki Krogerus <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Mika Westerberg <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
+	"linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+To: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <linux-sunxi+bncBD2ZNBF5VYJRBLMR3KNAKGQEJIHPWGY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CACRpkdZ+3dnhoj1TS4KSVUP8iFHsjjwop-FG2Nf07YtH6aSO_Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-This replaces the ad-hoc code used by ping6_sendmsg with the
-implementation now used by UDP, raw and L2TP sockets. This also
-adds the ability to set options via ancillary data, proper
-flowlabel validation, etc. etc.
 
-Tested: Black-box tested using user-mode Linux.
+--7J16OGEJ/mt06A90
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-- IPv6 pings using both connect()/send() and sendto() still work.
-- Fragmented IPv6 pings still work.
-- Specifying a flowlabel still works.
-- Attempting to send a flowlabel that is not first set via
-  IPV6_FLOWLABEL_MGR now correctly returns EINVAL.
+Hi Linus,
 
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
----
- net/ipv6/ping.c | 95 +++++++++++++++++++--------------------------------------
- 1 file changed, 31 insertions(+), 64 deletions(-)
+On Tue, Apr 22, 2014 at 05:00:17PM +0200, Linus Walleij wrote:
+> On Tue, Apr 15, 2014 at 8:41 AM, Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org> wrote:
+>=20
+> > This patch enables gpio-names based gpiod lookup in device tree usage,
+> > which ignores the index passed to gpiod_get_index. If this fails, fall
+> > back to the original function-index ("con_id"-gpios) based lookup schem=
+e,
+> > for backward compatibility and any drivers needing more than one GPIO
+> > for any function.
+> >
+> > Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+>=20
+> This looks a bit scary and I cannot claim to realize the entire semantic
+> effect of this patch, but if it's the way to go then OK.
+> Acked-by: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+>=20
+> Shall I just apply this to the GPIO tree or are you carrying it along with
+> the other stuff?
 
-diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
-index bda7429..96730c6 100644
---- a/net/ipv6/ping.c
-+++ b/net/ipv6/ping.c
-@@ -81,16 +81,17 @@ static int dummy_ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
- int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		    size_t len)
- {
-+	DECLARE_SOCKADDR(struct sockaddr_in6 *, sin6, msg->msg_name);
- 	struct inet_sock *inet = inet_sk(sk);
--	struct ipv6_pinfo *np = inet6_sk(sk);
-+	struct ipv6_txoptions *opt, opt_space;
- 	struct icmp6hdr user_icmph;
--	int addr_type;
-+	int addr_len = msg->msg_namelen;
- 	struct in6_addr *daddr;
--	int iif = 0;
- 	struct flowi6 fl6;
- 	int err;
--	int hlimit;
--	struct dst_entry *dst;
-+	int hlimit, tclass, dontfrag;
-+	int connected;
-+	struct dst_entry *dst = NULL;
- 	struct rt6_info *rt;
- 	struct pingfakehdr pfh;
- 
-@@ -101,63 +102,38 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	if (err)
- 		return err;
- 
--	if (msg->msg_name) {
--		DECLARE_SOCKADDR(struct sockaddr_in6 *, u, msg->msg_name);
--		if (msg->msg_namelen < sizeof(struct sockaddr_in6) ||
--		    u->sin6_family != AF_INET6) {
-+	if (sin6) {
-+		if (addr_len < sizeof(struct sockaddr_in6))
- 			return -EINVAL;
--		}
--		if (sk->sk_bound_dev_if &&
--		    sk->sk_bound_dev_if != u->sin6_scope_id) {
--			return -EINVAL;
--		}
--		daddr = &(u->sin6_addr);
--		iif = u->sin6_scope_id;
-+
-+		if (sin6->sin6_family != AF_INET6)
-+			return -EAFNOSUPPORT;
-+
-+		daddr = &sin6->sin6_addr;
- 	} else {
--		if (sk->sk_state != TCP_ESTABLISHED)
--			return -EDESTADDRREQ;
- 		daddr = &sk->sk_v6_daddr;
- 	}
- 
--	if (!iif)
--		iif = sk->sk_bound_dev_if;
--
--	addr_type = ipv6_addr_type(daddr);
--	if (__ipv6_addr_needs_scope_id(addr_type) && !iif)
--		return -EINVAL;
--	if (addr_type & IPV6_ADDR_MAPPED)
-+	if (ipv6_addr_v4mapped(daddr))
- 		return -EINVAL;
- 
--	/* TODO: use ip6_datagram_send_ctl to get options from cmsg */
--
- 	memset(&fl6, 0, sizeof(fl6));
--
- 	fl6.flowi6_proto = IPPROTO_ICMPV6;
--	fl6.saddr = np->saddr;
--	fl6.daddr = *daddr;
--	fl6.flowi6_mark = sk->sk_mark;
- 	fl6.fl6_icmp_type = user_icmph.icmp6_type;
- 	fl6.fl6_icmp_code = user_icmph.icmp6_code;
--	security_sk_classify_flow(sk, flowi6_to_flowi(&fl6));
- 
--	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
--		fl6.flowi6_oif = np->mcast_oif;
--	else if (!fl6.flowi6_oif)
--		fl6.flowi6_oif = np->ucast_oif;
--
--	dst = ip6_sk_dst_lookup_flow(sk, &fl6,  daddr);
--	if (IS_ERR(dst))
--		return PTR_ERR(dst);
--	rt = (struct rt6_info *) dst;
--
--	np = inet6_sk(sk);
--	if (!np)
--		return -EBADF;
-+	err = ip6_datagram_send_common(sk, msg, sin6, addr_len, &fl6, &dst,
-+				       &opt, &opt_space, &hlimit, &tclass,
-+				       &dontfrag, &connected);
-+	if (err)
-+		goto out;
- 
--	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
--		fl6.flowi6_oif = np->mcast_oif;
--	else if (!fl6.flowi6_oif)
--		fl6.flowi6_oif = np->ucast_oif;
-+	/* TODO: Move this check into ip6_datagram_sendmsg. */
-+	if (__ipv6_addr_needs_scope_id(__ipv6_addr_type(daddr)) &&
-+	    !fl6.flowi6_oif) {
-+		err = -EINVAL;
-+		goto out;
-+	}
- 
- 	pfh.icmph.type = user_icmph.icmp6_type;
- 	pfh.icmph.code = user_icmph.icmp6_code;
-@@ -168,18 +144,10 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	pfh.wcheck = 0;
- 	pfh.family = AF_INET6;
- 
--	if (ipv6_addr_is_multicast(&fl6.daddr))
--		hlimit = np->mcast_hops;
--	else
--		hlimit = np->hop_limit;
--	if (hlimit < 0)
--		hlimit = ip6_dst_hoplimit(dst);
--
-+	rt = (struct rt6_info *) dst;
- 	lock_sock(sk);
--	err = ip6_append_data(sk, ping_getfrag, &pfh, len,
--			      0, hlimit,
--			      np->tclass, NULL, &fl6, rt,
--			      MSG_DONTWAIT, np->dontfrag);
-+	err = ip6_append_data(sk, ping_getfrag, &pfh, len, 0, hlimit, tclass,
-+			      opt, &fl6, rt, msg->msg_flags, dontfrag);
- 
- 	if (err) {
- 		ICMP6_INC_STATS(sock_net(sk), rt->rt6i_idev,
-@@ -192,10 +160,9 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	}
- 	release_sock(sk);
- 
--	if (err)
--		return err;
--
--	return len;
-+out:
-+	dst_release(dst);
-+	return err ? err : len;
- }
- 
- #ifdef CONFIG_PROC_FS
--- 
-1.9.1.423.g4596e3a
+This patch has a dependency on the first patch of this serie, since it
+uses a binding that was documented there.
+
+Maybe you'll want to wait for the ACK from the DT maintainers to merge
+this one.
+
+Maxime
+
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
+
+--7J16OGEJ/mt06A90
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+
+iQIcBAEBAgAGBQJTVohQAAoJEBx+YmzsjxAghikP/3+d7x/cOh/rUcDI1bOWK4Fx
+0XjUbtBEF2sOa19nAZHtEd+fRUa+KbhmTAUZ0OaEHsPpi6Xr/lfOTifV4yEZFSDm
+Nz1PkCgNYjxm/NG2d8Q4qj46pZW6O0Qz4JjN+MvgAV0QZmEzfHS9ChQ+tytumouo
+KwD+aQkmIb0BnT+76WJ53fDGgKK7Q7OfwNSf6gdhM3+1x8uRfIebW86W+rEW8CQZ
+8+R/Pa5cHmJPn0gZ+Gy/zvbANgRx8/egGRc0WyVGHn9Pj4oeksxs0KccosR8njwm
+/Hsqvo055C4rWxvpDexOWMEnPNi6kC30OU1RoOS1dacitiiABNV28AMqJDpwBxbd
+/irRyFIuCu59Y2k837qusFhat5YvV0sDONnTq3R0FxFAM8x7gXjUiA89n3clvcE2
+kcwCnePsAhkEAgXbcgDJw0x3WsuNc/2zTSedIMSttC6glOZds/t/sHlqMCixNrIs
+sCYDbnRyzz+JK5N+BdBjLjheJj/HswrcSU5pIxTQyYwYxzEs+Iv/KPmTnYiHHFYx
+mQffbuRiz9ar6TnkeA7WqHN/rQCuxMxbGDJlL+l+Xt2aB07ErIdnshuvIMmS7r/K
+eu+Hd1EuOSTuKBmOTGHJplpSRoUnPPDyy1VjP6HgCmoXAwElWyDQmLh+2g+guCLr
+4blTWUNXARWmv6zkR4si
+=qTY8
+-----END PGP SIGNATURE-----
+
+--7J16OGEJ/mt06A90--
