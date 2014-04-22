@@ -1,63 +1,76 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 1/2] gre: add x-netns support
-Date: Tue, 22 Apr 2014 10:15:23 +0200
-Message-ID: <1398154524-5928-2-git-send-email-nicolas.dichtel@6wind.com>
-References: <1398154524-5928-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, ebiederm@xmission.com, mzero@google.com,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:50000 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754468AbaDVIPo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 04:15:44 -0400
-In-Reply-To: <1398154524-5928-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH v8 2/3] net: hisilicon: new hip04 MDIO driver
+Date: Tue, 22 Apr 2014 10:22:04 +0200
+Message-ID: <10652983.rXrAGMo8Yn@wuerfel>
+References: <1397869980-21187-1-git-send-email-zhangfei.gao@linaro.org> <535561BE.9070303@cogentembedded.com> <5356063C.6070100@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: zhangfei <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org,
+	David Laight <David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5356063C.6070100-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch allows to switch the netns when packet is encapsulated or
-decapsulated. In other word, the encapsulated packet is received in a netns,
-where the lookup is done to find the tunnel. Once the tunnel is found, the
-packet is decapsulated and injecting into the corresponding interface which
-stands to another netns.
+On Tuesday 22 April 2014 14:03:40 zhangfei wrote:
+> On 04/22/2014 02:21 AM, Sergei Shtylyov wrote:
+> > On 04/21/2014 10:03 PM, Florian Fainelli wrote:
+> >
+> >>>> Hisilicon hip04 platform mdio driver
+> >>>> Reuse Marvell phy drivers/net/phy/marvell.c
+> >
+> >>>> Signed-off-by: Zhangfei Gao <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> >>> [...]
+> >
+> >>>> diff --git a/drivers/net/ethernet/hisilicon/hip04_mdio.c
+> >>>> b/drivers/net/ethernet/hisilicon/hip04_mdio.c
+> >>>> new file mode 100644
+> >>>> index 0000000..19826a3
+> >>>> --- /dev/null
+> >>>> +++ b/drivers/net/ethernet/hisilicon/hip04_mdio.c
+> >>>> @@ -0,0 +1,185 @@
+> >>>> +static int hip04_mdio_reset(struct mii_bus *bus)
+> >>>> +{
+> >>>> +       int temp, err, i;
+> >>>> +
+> >>>> +       for (i = 0; i < PHY_MAX_ADDR; i++) {
+> >>>> +               hip04_mdio_write(bus, i, 22, 0);
+> >
+> >>>     Why? What kind of a register this is? <uapi/linux/mii.h> tells me
+> >>> it's
+> >>> MII_SREVISION...
+> >
+> >> I think this rather means clause 22 as opposed to clause 45.
+> >
+> >     No, the corresponding hip04_mdio_write()'s parameter is a register
+> > #, so this is a write of 0 to register #22. A comment certainly wouldn't
+> > hurt here...
+> 
+> It's private register of the phy marvell 88e1512.
+> To make it clearer using define instead.
+> #define MII_MARVELL_PHY_PAGE    22
+> 
+> The registers has been grouped into several pages, access register need 
+> choose which page first.
 
-When one of the two netns is removed, the tunnel is destroyed.
+You shouldn't touch the PHY private registers in the main driver though,
+this should be purely handled by drivers/net/phy/marvell.c.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv4/ip_gre.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+I don't see support for 88e1512 there, only 88e1510 and lots of older
+ones, but I assume it isn't hard to add.
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 94213c891565..c5a557a06a31 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -410,7 +410,7 @@ static int ipgre_open(struct net_device *dev)
- 		struct flowi4 fl4;
- 		struct rtable *rt;
- 
--		rt = ip_route_output_gre(dev_net(dev), &fl4,
-+		rt = ip_route_output_gre(t->net, &fl4,
- 					 t->parms.iph.daddr,
- 					 t->parms.iph.saddr,
- 					 t->parms.o_key,
-@@ -434,7 +434,7 @@ static int ipgre_close(struct net_device *dev)
- 
- 	if (ipv4_is_multicast(t->parms.iph.daddr) && t->mlink) {
- 		struct in_device *in_dev;
--		in_dev = inetdev_by_index(dev_net(dev), t->mlink);
-+		in_dev = inetdev_by_index(t->net, t->mlink);
- 		if (in_dev)
- 			ip_mc_dec_group(in_dev, t->parms.iph.daddr);
- 	}
-@@ -478,7 +478,7 @@ static void __gre_tunnel_init(struct net_device *dev)
- 	dev->needed_headroom	= LL_MAX_HEADER + sizeof(struct iphdr) + 4;
- 	dev->mtu		= ETH_DATA_LEN - sizeof(struct iphdr) - 4;
- 
--	dev->features		|= NETIF_F_NETNS_LOCAL | GRE_FEATURES;
-+	dev->features		|= GRE_FEATURES;
- 	dev->hw_features	|= GRE_FEATURES;
- 
- 	if (!(tunnel->parms.o_flags & TUNNEL_SEQ)) {
--- 
-1.9.0
+	Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
